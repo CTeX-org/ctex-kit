@@ -1,0 +1,1897 @@
+% \iffalse
+%<*internal>
+\iffalse
+%</internal>
+%<*readme>
+
+xeCJK is a package written for XeLaTeX which allows users to typeset
+CJK scripts easily.
+
+
+ - different default fonts for CJK and other characters;
+ - spaces automatically ignored between CJK characters;
+ - special effects on full-width CJK punctuation; and
+ - automatic adjustment of the space between CJK and other characters.
+
+%</readme>
+%<*internal>
+\fi
+%</internal>
+%
+%<*internal>
+\begingroup
+%</internal>
+%<*batchfile>
+\input docstrip.tex
+\keepsilent
+\preamble
+
+ Version 2.2.9 (20-Sept-2008)
+
+ Copyright (C) Wenchang Sun <sunwch@hotmail.com>
+
+ This file may be distributed and/or modified under the
+ conditions of the LaTeX Project Public License, either version 1.3
+ of this license or (at your option) any later version.
+ The latest version of this license is in
+   http://www.latex-project.org/lppl.txt
+ and version 1.3 or later is part of all distributions of LaTeX
+ version 2005/12/01 or later.
+
+\endpreamble
+\askforoverwritefalse
+\generate{\file{xeCJK.sty}{\from{xeCJK.dtx}{xeCJK}}}
+\generate{\file{ctex4xetex.cfg}{\from{xeCJK.dtx}{ctex4xetex}}}
+\generate{\file{xecjksetpunct-main.tex}{\from{xeCJK.dtx}{xecjksetpunct-main}}}
+\generate{\file{xecjksetpunct-macros.tex}{\from{xeCJK.dtx}{xecjksetpunct-macros}}}
+\generate{\file{example-ctex.tex}{\from{xeCJK.dtx}{example-ctex}}}
+\generate{\file{example-CJKfntef.tex}{\from{xeCJK.dtx}{example-CJKfntef}}}
+%</batchfile>
+%<batchfile>\endbatchfile
+%<*internal>
+\generate{\file{xeCJK.ins}{\from{xeCJK.dtx}{batchfile}}}
+\nopreamble\nopostamble
+\generate{\file{README.txt}{\from{\jobname.dtx}{readme}}}
+\endgroup
+%</internal>
+%
+%<*driver>
+\documentclass[12pt]{ltxdoc}
+\usepackage{xcolor}
+\usepackage[bookmarks=true,bookmarksopen=true,dvipdfm,pdfstartview=FitH]{hyperref}
+\usepackage[BoldFont,SlantFont,CJKnumber,CJKtextspaces]{xeCJK}
+\textheight 210mm
+\textwidth 150mm
+\oddsidemargin 0pt
+\evensidemargin 0pt
+\defaultfontfeatures{Mapping=tex-text}
+\ifcsname CJKmainfont\endcsname
+\else
+  \def\CJKmainfont{Bitstream CyberCJK}
+\fi
+\setCJKmainfont{\CJKmainfont}% 设置缺省中文字体
+\setCJKmonofont[Scale=1.1]{\CJKmainfont}% 设置 中文字体
+\setCJKfamilyfont{song}{\CJKmainfont}% 设置 中文字体
+\def\xeCJK{{\textcolor{blue}{\texttt{xeCJK}}}}
+% macros
+{\catcode`\|=0 \catcode`\\=12
+ |gdef|bslash{\}}
+
+\newcommand{\defmacro}[1]{%                   % Define a macro.
+ \textcolor{macrocolor}{\string#1}\index{\string\verb+\string#1+}%
+}
+
+\newcommand{\usemacro}[1]{%                   % Define a macro.
+  \textcolor{macrocolor}{\string#1}%
+  #1\index{\string\verb+\string#1+}%
+}
+
+\definecolor{parametercolor}{rgb}{1,0,1}
+\definecolor{optioncolor}{rgb}{0,0,1}
+\definecolor{macrocolor}{rgb}{0,0,0.63}
+
+\newcommand{\usepmacro}[3][]{%
+  \edef\tempa{#1}%
+  \textcolor{macrocolor}{\string#2}%
+  \string{\textcolor{parametercolor}{#3}\string}%
+  \ifx\tempa\@empty\else (#1)\fi%
+  #2{#3}\index{\string\verb+\string#2+}%
+}
+
+\newenvironment{decl}[1][]%
+    {\par\small\addvspace{4.5ex plus 1ex}%
+     \vskip -\parskip
+     \ifx\relax#1\relax
+        \def\@decl@date{}%
+     \else
+        \def\@decl@date{\NEWfeature{#1}}%
+     \fi
+     \noindent\hspace{-\leftmargini}%
+     \begin{tabular}{|l|}\hline\ignorespaces}%
+    {\\\hline\end{tabular}\nobreak\@decl@date\par\nobreak
+     \vspace{2.3ex}\vskip -\parskip}
+
+\renewcommand{\arg}[1]{{\tt\string{}\m{#1}{\tt\string}}}
+\newcommand{\m}[1]{\mbox{\color{parametercolor}$\langle$\it #1\/$\rangle$}}
+
+\EnableCrossrefs
+\CodelineIndex
+\RecordChanges
+\begin{document}
+\ifxetex
+  \DocInput{xeCJK.dtx}
+  \makeatletter
+  \c@IndexColumns = 2
+  \PrintIndex
+\else
+  \makeatletter
+  \@latex@error{Use XeLaTeX to compile this file.}
+\fi
+\end{document}
+%</driver>
+%
+%<*xeCJK>
+\def\fileversion{2.2.9}
+\def\filedate{2008/09/20}
+\ProvidesPackage{xeCJK}[\filedate\space\fileversion]
+%</xeCJK>
+%<*ctex4xetex>
+\def\fileversion{2.2.9}
+\def\filedate{2008/09/20}
+\ProvidesFile{ctex4xetex}[\filedate\space\fileversion]
+%</ctex4xetex>
+%
+% \fi
+%
+% \makeatletter                         ^^A% To document @-cmds
+% \errorcontextlines=999                ^^A% Show up all my mistakes
+%
+% \GetFileInfo{xeCJK.sty}
+%
+% \title{\hypertarget{Chinese}{xeCJK 宏包}
+%    \hbox to 0pt{\hskip 40mm\hyperlink{English}{\normalsize\texttt{English Version}}}}
+% \author{孙文昌}
+% \date{\the\year 年 \the\month 月\the\day 日}
+% \maketitle
+%
+% \newpage
+%
+% \section{简介}
+% \parindent 2em
+% \parskip 5pt
+%
+% \xeCJK\  是一个 XeLaTeX 宏包，用于排版 CJK 文字，包括字体选择、标点控制等。主要特点：
+% \begin{enumerate}
+% \item 分别设置CJK和英文字体；
+% \item 自动忽略CJK文字间的空格而保留其它空格，允许在非标点汉字和英文字母 (a-z, A-Z) 间断行；
+% \item  提供多种标点处理方式： 全角式、半角式、开明式、行末半角式；
+% \item 自动调整中英文间空白。
+% \end{enumerate}
+%
+% \long\def\sometextsa{\xeCJK\ 是在CCT和CJK包基础上发展起来的，
+% 支持多种标点格式。例如，“标点挤压”。\xeCJK\ 是在CCT和CJK包基础上
+% 发展起来的，支持多种标点格式。例如，“标点挤压”。}
+%
+%
+%  \usepmacro[全角式]{\punctstyle}{quanjiao}
+%
+%   \sometextsa
+%
+%  \usepmacro[半角式]{\punctstyle}{banjiao}
+%
+%   \sometextsa
+%
+%
+%  \usepmacro[开明式]{\punctstyle}{kaiming}
+%
+%   \sometextsa
+%
+%  \usepmacro[行末半角式]{\punctstyle}{hangmobanjiao}
+%
+%   \sometextsa
+%
+% {\usepmacro[plain]{\punctstyle}{plain}
+%  \sometextsa}
+%
+% \punctstyle{kaiming}
+%
+% \section{使用方法}
+%
+% \xeCJK\  使用了 XeTeX 的一些最新特性， 需要 XeTeX 0.997 [2008/03/07] 以后的版本。
+%
+%
+%
+% \begin{decl}
+%    \defmacro{\usepackage}[\textcolor{optioncolor}{Options}]
+%       \{\textcolor{parametercolor}{xeCJK}\}
+% \end{decl}
+%
+% \begin{tabular}{ll}
+%    Options & \\
+%    BoldFont:&     启用CJK\textbf{粗体字}\\
+%    SlantFont:&    启用CJK\textit{斜体字}\\
+%    CJKnumber: &   调用CJKnumb宏包\\
+%    CJKtextspaces:& 在中英文转换时根据需要插入空格\\
+%    CJKmathspaces:   & 在中文和行内数学表达式之间根据需要插入空格\\
+%    CJKnormalspaces: & 忽略中文之间的空格但保留其它空格\\
+%    CJKnospaces: & 忽略中文后面的空格。
+% \end{tabular}
+%
+%
+% \begin{decl}
+%      \defmacro{\setCJKmainfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
+%                               {<font features>}]\arg{font name}
+% \end{decl}
+%  分别设置缺省CJK字体、CJK sffamily、CJK ttfamily 和某个 CJKfamily 所对应中文字体，
+% 其中最后两个参数的意义请参考 \verb+\fontspec.+
+%
+% 如果在定义CJK字体时 指定了\texttt{ItalicFont=\{...\}},
+%      则宏包的\texttt{SlantFont}选项对该字体不起作用。
+% 类似地，可以指定\texttt{BoldFont=\{font name\}}以抑制
+% \texttt{BoldFont}选项。
+%
+%
+%
+%
+%
+% 与 CJK 包类似， 使用命令 \defmacro{\CJKfamily}\arg{family name} 改变当前中文字体。
+%
+%
+% \subsection*{例子}
+%
+% 以下命令设置缺省英文字体为 TeX Gyre Termes, 缺省中文字体为 Bitstream CyberCJK (宋体)，
+% 最后一个命令设置 CJKfamily “song” 为 “AR PL SungtiL GB”
+% ({\CJKfamily{song}文鼎 PL简报宋})。
+% \begin{verbatim}
+%     \setmainfont{TeX Gyre Termes}
+%     \setCJKmainfont{Bitstream CyberCJK}
+%     \setCJKfamilyfont{song}{AR PL SungtiL GB}
+% \end{verbatim}
+%
+% \noindent
+% 下表中， 左边为输入， 右边为排版效果：
+%
+% \begin{tabular}{ll}
+% \verb+这是缺省字体 abCD+ &这是缺省字体 abCD\\
+% \verb+\bfseries 这是缺省字体 abCD+ &{\bfseries 这是缺省字体 abCD}\\
+% \verb+\itshape 这是缺省字体 abCD+ &{\itshape 这是缺省字体 abCD}\\
+% \verb+\bfseries\itshape 这是缺省字体 abCD+ &\bfseries\itshape 这是缺省字体 abCD\\
+% \\
+% \verb+\CJKfamily{song}这是宋体+ &{\CJKfamily{song}这是宋体}\\
+% \end{tabular}
+%
+%
+%
+%
+%
+% \section{高级设置}
+%
+% \begin{decl}
+%  \defmacro{\punctstyle}\arg{punct style}
+% \end{decl}
+%
+% 设置标点格式，有效值分别为
+%
+% \begin{tabular}{ll}
+%   punct style & \\
+%   \textcolor{parametercolor}{banjiao}      & 半角式 \\
+%   \textcolor{parametercolor}{quanjiao}     & 全角式\\
+%   \textcolor{parametercolor}{kaiming}      & 开明式\\
+%   \textcolor{parametercolor}{hangmobanjiao}& 行末半角式\\
+%   \textcolor{parametercolor}{CCT}          & CCT格式\\
+%   \textcolor{parametercolor}{plain}        & 原样（不调整标点间距）
+% \end{tabular}
+%
+%
+% 注意：为了得到最好的排版效果，需要制作字体相关的文件 xeCJKpunct.spa。请参考
+% source /xelatex /xecjk /setpunct /README。
+%
+%
+% \begin{decl}
+% \defmacro{\xeCJKallowbreakbetweenpuncts} \\
+% \defmacro{\xeCJKnobreakbetweenpuncts}
+% \end{decl}
+%
+% 缺省状态下，\xeCJK\ 禁止在相邻的标点间换行。 使用
+%
+% \defmacro{\xeCJKallowbreakbetweenpuncts}\newline
+% 改变这一设置。
+%
+% \begin{decl}
+% \defmacro{\xeCJKsetslantfactor}\arg{slant factor}\\
+% \defmacro{\xeCJKsetemboldenfactor}\arg{embolden factor}
+% \end{decl}
+% 分别设置斜体和粗体的倾斜和粗细程度。
+% 其中 slant factor 的范围为 -0.999 $\sim$ 0.999. 缺省设置为
+%
+% \begin{verbatim}
+%   \xeCJKsetslantfactor{0.17}
+%   \xeCJKsetemboldenfactor{4}
+% \end{verbatim}
+%
+% 注意，这两个宏命令仅对随后定义的 CJK 字体有效。
+%
+%
+%
+% \begin{decl}
+% \defmacro{\CJKnormalspaces}\\
+% \defmacro{\CJKtextspaces}\\
+% \defmacro{\CJKmathspaces}\\
+% \defmacro{\CJKnormalmathspaces}\\
+% \defmacro{\CJKnospaces}
+% \end{decl}
+%
+%
+% \defmacro{\CJKnormalspaces}(缺省值): 仅忽略CJK
+% 文字之间的空白，但保留中文与英文之间的空白。
+%
+%
+% \defmacro{\CJKtextspaces}: 忽略CJK文字之间的空白，
+% 并且自动在中文与英文之间转换时插入空白。
+%
+% \defmacro{\CJKnormalmathspaces}(缺省值)/\defmacro{\CJKmathspaces}:
+%  设置是否在中文与行内数学表达式之间根据需要插入空格。缺省是不做调整。
+%
+% \defmacro{\CJKnospaces}: 忽略中文后面的空白符并且执行\defmacro{\CJKnormalmathspaces}。
+%
+%
+% 可以在调用宏包时指定 \textcolor{optioncolor}{\ttfamily CJKtextspaces}
+%  选项以自动自动在中英文转换时插入空白。
+%
+% 试比较：
+%
+% \begin{verbatim}
+%    这是 English 中文 \textit{Chinese}
+%   {\bfseries 中文} \LaTeX\
+%   间隔 {\itshape Italic} 字体\par
+%   这是English中文\textit
+%   {Chinese}{\bfseries 中文}\LaTeX\
+%   间隔{\itshape Italic}字体
+% \end{verbatim}
+%
+% \noindent
+% 使用 \usemacro{\CJKnormalspaces} 排版的效果：
+%
+%    这是 English 中文 \textit{Chinese}
+%   {\bfseries 中文} \LaTeX\
+%   间隔 {\itshape Italic} 字体\par
+%   这是English中文\textit
+%   {Chinese}{\bfseries 中文}\LaTeX\
+%   间隔{\itshape Italic}字体
+%
+% \noindent
+% 使用 \usemacro{\CJKtextspaces} 排版的效果：
+%
+%    这是 English 中文 \textit{Chinese}
+%   {\bfseries 中文} \LaTeX\
+%   间隔 {\itshape Italic} 字体\par
+%   这是English中文\textit
+%   {Chinese}{\bfseries 中文}\LaTeX\
+%   间隔{\itshape Italic}字体
+%
+% 说明： 有些情况下不能自动调整间距， 例如\mbox{boxes}。
+% 此时，需要手动调整，如盒子 \mbox{boxes}.
+%
+%
+%
+%
+% \CJKtextspaces
+%
+% \begin{decl}
+% \defmacro{\xeCJKsetcharclass}\arg{first}\arg{last}\arg{class}
+% \end{decl}
+%
+%
+% 缺省状态下，\xeCJK\  把 0x3000 --- 0xFFFF 之间的字符看成 CJK 文字，即 CJK
+% 相关的字体设置（仅）对
+% 在此范围内的字符有效。
+% 可以使用上述宏命令
+% 改变字符类别。
+% 例如，以下命令设置 0x0080 --- 0x2FFF 之间的字符为非 CJK 文字，而 0x20000
+%  --- 0x30000 之间的为 CJK 文字：
+% \begin{verbatim}
+%   \xeCJKsetcharclass{"80}{"2FFF}{0}
+%   \xeCJKsetcharclass{"20000}{"30000}{1}
+% \end{verbatim}
+% 注意：最后一个参数只能为 0 或 1。不要轻易改变字符类别。
+%
+%
+% \begin{decl}
+% \defmacro{\xeCJKcaption}[\textcolor{optioncolor}{<encoding>}]\arg{caption}
+% \end{decl}
+%
+% 与 \verb+\CJKcaption+ 类似，可选参数用以选择编码， 缺省为 UTF-8。
+%
+% \begin{decl}
+% \defmacro{\xeCJKsetkern}\arg{标点1}\arg{标点2}\arg{kern}
+% \end{decl}
+%
+% 如果对缺省配置不满意，可以使用此命令设置两个标点之间的距离。例如，
+%
+%  \verb+\xeCJKsetkern{：}{“}{0.3em}+
+%
+%
+%
+% \section{兼容性}
+%
+% \subsection{CJKfntef}
+% 可以在 \xeCJK\  包之后调入 CJKfntef 宏包， 以实现对汉字加点、下划线等。
+%
+% \subsection{CJKnumber}
+%
+% \verb+\CJKnumber{12345}+:  \CJKnumber{12345}
+%
+% \subsection{CTEX 宏包}
+% 使用 ctex 宏包如 ctexart, ctexbook, ctexreport 时， 需要
+% 在 \verb+\documentclass+ 之前加上一行
+%
+% \verb+    \input{ctex4xetex.cfg}+
+%
+% 具体例子见 example-ctex.tex
+%
+% \subsection{CJK}
+% 为了与 CJKnumb, CJKulem 和 CJKfntef 包兼容，\xeCJK\  重新定义了 CJK 包的部分宏命令，如
+% \verb+\CJKfamily+, \verb+\CJKsymbol+, \verb+\CJKpunctsymbol+ 等。
+%
+% 需要指出，\xeCJK\  包不需要 CJK 包的支持，并且 \xeCJK\  包自动禁止载入 CJK 包。
+%
+%
+% \title{ \hypertarget{English}{The xeCJK Package}
+%   \hbox to 0pt{\hskip 40mm\hyperlink{Chinese}{\normalsize 中文版}} }
+% \author{Wenchang Sun}
+% \date{\today}
+% \maketitle
+%
+% \newpage
+%
+% \section{Main features}
+% The package \xeCJK\ allows XeLaTeX users to typeset CJK scripts easily.
+%
+%
+% \begin{enumerate}
+% \item different default fonts for CJK and other characters;
+% \item spaces automatically ignored between CJK characters;
+% \item special effects on full-width CJK punctuation; and
+% \item automatic adjustment of the space between CJK and other characters.
+% \end{enumerate}
+%
+% \section{Usage}
+%
+% To use \xeCJK, one need some version of XeTeX after [2008/03/07].
+%
+% \begin{decl}
+%    \defmacro{usepackage}[\textcolor{optioncolor}{Options}]
+%       \{\textcolor{parametercolor}{xeCJK}\}
+% \end{decl}
+%
+% \def\arraystretch{1.5}
+% \begin{tabular}{lp{90mm}}
+%    Options & \\
+%    BoldFont:  &  Create "synthetic bold" fonts for CJK characters.
+%                   Will be overridden by specifying {BoldFont}
+%                   in the definition of a CJK family.
+% \\
+%   SlantFont: &    Create slanted fonts for CJK characters.
+%                   Will be overridden by specifying {ItalicFont}
+%                   in the definition of a CJK family.
+% \\
+%  CJKnumber:  & Load the CJKnumb package.
+% \\
+%  CJKtextspaces:& Add spaces between CJK and other characters if there is not any.
+% \\
+%  CJKmathspaces:& Add spaces between CJK and in-line maths if there is not any.
+% \\
+% CJKnormalspaces: &Ignore only spaces between CJK characters while leave spaces
+%                   between CJK and other characters as they are.
+% \\
+% CJKnospaces: &   Ignore all spaces  after CJK characters.
+% \end{tabular}
+%
+%
+%
+% \begin{decl}
+%      \defmacro{setCJKmainfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
+%                               {<font features>}]\arg{font name}
+% \end{decl}
+%
+% The first three macros are analogs of
+%
+% \defmacro{setmainfont}, \defmacro{setsansfont}, and \defmacro{setmonofont},
+%
+% \noindent respectively.
+% The only difference is that they effect only CJK characters.
+%
+% The last macro sets a font for a CJK family which will be  called by
+%
+%   \defmacro{CJKfamily}\arg{family name}.
+%
+% With these macros, one can set different default fonts for CJK and other characters,
+% respectively.
+%
+% For a full description on the parameters \textcolor{optioncolor}{<font features>}
+%  and \arg{font name},
+% we refer to the package \verb+fontspec+.
+%
+%
+%
+% \section{Advanced settings}
+%
+%
+%
+% \begin{decl}
+%  \defmacro{punctstyle}\arg{punct style}
+% \end{decl}
+%
+% Set the CJK punctuation style.  \xeCJK\ predefines several styles for typesetting full-width punctuation.
+%
+%
+% \begin{tabular}{lp{60mm}}
+% style& \\
+% \textcolor{parametercolor}{quanjiao} or \textcolor{parametercolor}{fullwidth}& typeset all punctuation in full-width,
+%             for two adjoint punctuation, the first is typeset
+%             in half-width.
+% \\
+% \textcolor{parametercolor}{banjiao} or \textcolor{parametercolor}{halfwidth}& typeset all punctuation in half-width.
+% \\
+% \textcolor{parametercolor}{kaiming} or \textcolor{parametercolor}{mixedwidth}& typeset all punctuation in half-width except
+%             the period, question, and exclamation marks.\\
+%  \textcolor{parametercolor}{hangmobanjiao} or \textcolor{parametercolor}{marginkerning} &  typeset punctuation at the end of lines in half-width.
+% \end{tabular}
+%
+%
+%
+% To get the best  performance on the typeset of full-width punctuation,
+%  one need to build
+% font specific file xeCJKpunct.spa. We provide some scripts to do this.
+% See source/xelatex/xecjk/setpunct/README for details.
+%
+%
+% \begin{decl}
+% \defmacro{xeCJKallowbreakbetweenpuncts} \\
+% \defmacro{xeCJKnobreakbetweenpuncts}
+% \end{decl}
+%
+% By default, \xeCJK\ prohibits line breaks between punctuation. Use
+%
+% \defmacro{xeCJKallowbreakbetweenpuncts}\newline
+% to make it breakable.
+%
+%
+% \begin{decl}
+% \defmacro{xeCJKsetslantfactor}\arg{slant factor}\\
+% \defmacro{xeCJKsetemboldenfactor}\arg{embolden factor}
+% \end{decl}
+% Set slant and embolden factors, respectively. The default settings are
+% \begin{verbatim}
+%   \xeCJKsetslantfactor{0.17}
+%   \xeCJKsetemboldenfactor{4}
+% \end{verbatim}
+%
+% Note that both macros effect only CJK families defined after them.
+%
+%
+%
+%
+% \begin{decl}
+% \defmacro{CJKnormalspaces}\\
+% \defmacro{CJKaddspaces}\\
+% \defmacro{CJKnospaces}
+% \end{decl}
+%
+%
+%
+%
+% By default, \xeCJK\ leaves spaces between CJK and other characters
+% as they are while it ignores spaces between CJK characters.
+% One can use \defmacro{CJKaddspaces} to add a space between CJK and
+%  other characters if a blank space is not present.
+% And use \defmacro{CJKnormalspaces} to change to the default.
+%
+% An example for \verb+\CJKaddspaces+
+%
+% \CJKaddspaces
+% The input
+% \begin{verbatim}
+%  这是 English 中文  \textit{Chinese} {\bfseries 中文} \LaTeX\  间隔 {\itshape Italic} 字体\par
+%  这是English中文\textit{Chinese}{\bfseries 中文}\LaTeX\
+%  间隔{\itshape Italic}字体\par
+% \end{verbatim}
+%
+% The output
+%
+% {
+% \color{blue}
+%  这是 English 中文  \textit{Chinese} {\bfseries 中文} \LaTeX\
+%  间隔 {\itshape Italic} 字体\par
+%  这是English中文\textit{Chinese}{\bfseries 中文}\LaTeX\
+%  间隔{\itshape Italic}字体\par
+% }
+%
+% \section{Compatibility}
+%
+% \subsection{CJKfntef}
+%
+% Load \verb+CJKfntef+ after \verb+xeCJK+ to get various effects on CJK characters.
+%
+% \subsection{CJKnumber}
+%
+% To use the package \verb+CJKnumb+, one can specify the option [CJKnumber] while loading \xeCJK.
+%
+%
+% \subsection{CJK}
+% To be compatible with some CJK-related packages \texttt{CJKnumb},
+% \texttt{CJKfntef} and \texttt{CJKulem}, \xeCJK\ re-defines some macros in the package \texttt{CJK}
+% and it is not compatible with the later.
+% In fact, \xeCJK\ prevents automatically from loading \texttt{CJK} after \xeCJK.
+% \StopEventually{}
+%
+% \clearpage
+% \part{xeCJK.sty}
+% \section{xeCJK.sty 源文件}
+%
+% \iffalse
+%<*xeCJK>
+% \fi
+% \fontsize{10pt}{10pt}\selectfont
+% \xeCJK\ 只能在XeLaTeX中使用
+%    \begin{macrocode}
+\RequirePackage{ifxetex}
+\RequireXeTeX
+%    \end{macrocode}
+% 当使用ctex宏包时，需要把缺省输入编码改为UTF-8。此外， 禁止在\xeCJK\ 之后调入CJK包。
+%    \begin{macrocode}
+\ifcsname ver@CJK.sty\endcsname
+  \XeTeXdefaultencoding "UTF-8"
+  \XeTeXinputencoding "UTF-8"
+\else
+  \expandafter\def\csname ver@CJK.sty\endcsname{2020/01/01}
+\fi
+\RequirePackage{fontspec}
+
+\newif\ifxeCJK@SlantFont@
+\xeCJK@SlantFont@false
+
+\newif\ifxeCJK@BoldFont@
+\xeCJK@BoldFont@false
+
+\newif\ifxeCJK@num
+\xeCJK@numfalse
+
+\newif\ifxeCJK@addspaces
+\xeCJK@addspacesfalse
+
+\newif\ifxeCJK@nospaces
+\xeCJK@nospacesfalse
+
+\newif\ifxeCJK@mathspaces
+\xeCJK@mathspacesfalse
+
+\DeclareOption{boldfont}{\xeCJK@BoldFont@true}
+\DeclareOption{BoldFont}{\ExecuteOptions{boldfont}}
+\DeclareOption{slantfont}{\xeCJK@SlantFont@true}
+\DeclareOption{SlantFont}{\ExecuteOptions{slantfont}}
+\DeclareOption{CJKnumber}{\xeCJK@numtrue}
+\DeclareOption{CJKtextspaces}{\xeCJK@addspacestrue}
+\DeclareOption{CJKaddspaces}{\ExecuteOptions{CJKtextspaces}}
+\DeclareOption{CJKmathspaces}{\xeCJK@mathspacestrue}
+\DeclareOption{CJKnormalspaces}{\xeCJK@addspacesfalse}
+\DeclareOption{CJKnospaces}{\xeCJK@nospacestrue}
+
+\ProcessOptions\relax
+%    \end{macrocode}
+% 抑制换行符产生的空格
+%    \begin{macrocode}
+\endlinechar \m@ne
+%    \end{macrocode}
+% 设置CJK字符类。
+%    \begin{macrocode}
+\XeTeXinterchartokenstate=1\relax
+
+\def\xeCJKsetcharclass#1#2#3{
+  \@tempcnta=#1
+  \loop
+    \XeTeXcharclass \@tempcnta #3\relax
+    \advance\@tempcnta 1\relax
+    \ifnum\the\@tempcnta<#2 \repeat}
+\xeCJKsetcharclass{"3000}{"FFFF}{1}
+
+\def\xeCJK@prePunct#1#2{\xeCJK@setPunct{2}{#1}{#2}}
+\def\xeCJK@postPunct#1#2{\xeCJK@setPunct{3}{#1}{#2}}
+
+\def\xeCJK@setPunct#1#2#3{
+  \def\xeCJK@class{#1}
+  \@tempcnta "#2\relax
+  \multiply\@tempcnta 256\relax
+  \xeCJK@setPunct@#3,,}
+
+\def\xeCJK@setPunct@#1,{
+  \edef\xeCJK@temp{#1}%
+  \ifx\xeCJK@temp\@empty
+  \else
+     \@tempcntb "#1\relax
+     \advance\@tempcntb\@tempcnta\relax
+     \XeTeXcharclass \@tempcntb=\xeCJK@class\relax
+     \def\xeCJK@temp{\xeCJK@setPunct@}
+  \fi
+  \xeCJK@temp}
+
+\xeCJK@prePunct{20}{18,1C}
+\xeCJK@postPunct{20}{19,1D,14,26}
+\xeCJK@postPunct{25}{00}
+\xeCJK@prePunct{30}{08,0A,0C,0E,10,12,14,16,18,1A,1D,1F,36}
+
+\xeCJK@postPunct{30}{01,02,05,06,09,0B,0D,0F,11,15,17,19,1B,1E,
+                     41,43,45,47,49,63,83,85,87,8E,
+                     9B,9C,9D,9E,A1,A3,A5,A7,A9,C3,E3,E5,E7,EE,F5,F6,FB,FC,FD,FE}
+\xeCJK@prePunct {FE}{59,5B,5D,5F,60,69,6B}
+\xeCJK@postPunct{FE}{50,51,52,54,55,56,57,5A,5C,5E,6A}
+\xeCJK@prePunct {FF}{03,04,08,20,3B,5B,E0,E1,E5,E6}
+\xeCJK@postPunct{FF}{01,05,09,0C,0E,1A,1B,1F,3D,5D,
+                     61,63,64,65,67,68,69,6A,6B,6C,6D,6E,6F,70,9E,9F}
+
+\xeCJK@setPunct{4}{0}{28,2D,5B,60,7B}
+\xeCJK@setPunct{5}{0}{21,22,25,27,29,2C,2E,3A,3B,3F,5D,7D}
+
+\XeTeXinterchartoks 0 255 {\xeCJK@@cclv}
+\XeTeXinterchartoks 0   1 {\xeCJK@@i\xeCJK@char}
+\XeTeXinterchartoks 4   1 {\xeCJK@char}
+\XeTeXinterchartoks 5   1 {\xeCJK@v@i\xeCJK@char}
+\XeTeXinterchartoks 255 1 {\xeCJK@cclv@i\xeCJK@char}
+
+\XeTeXinterchartoks 0   2 {\xeCJK@prepunctchar}
+\XeTeXinterchartoks 4   2 {\xeCJK@prepunctchar}
+\XeTeXinterchartoks 5   2 {\xeCJK@prepunctchar}
+\XeTeXinterchartoks 255 2 {\xeCJK@prepunctchar}
+
+\XeTeXinterchartoks 0   3 {\xeCJK@postpunctchar}
+\XeTeXinterchartoks 4   3 {\xeCJK@postpunctchar}
+\XeTeXinterchartoks 5   3 {\xeCJK@postpunctchar}
+\XeTeXinterchartoks 255 3 {\xeCJK@postpunctchar}
+
+\XeTeXinterchartoks 255 0 {\xeCJK@cclv@}
+\XeTeXinterchartoks 255 4 {\xeCJK@cclv@iv}
+
+\def\CJKglue{\hskip \z@ \@plus .08\baselineskip}
+\def\CJK@nobreakglue{\nobreak\CJKglue\nobreak}
+
+\edef\xeCJK@CJKkern{\kern -1sp\kern 1sp}
+\edef\xeCJK@prepunctkern{\kern -2sp\kern 2sp}
+\edef\xeCJK@postpunctkern{\kern -3sp\kern 3sp}
+\edef\xeCJK@zerokern{\kern -4sp\kern 4sp}
+
+\newif\if@xeCJK@inmath
+\@xeCJK@inmathfalse
+
+\newif\if@xeCJK
+%    \end{macrocode}
+% \section{调整中英文间隔}
+% \verb+\CJKtextspaces+ 和 \verb+\CJKnormalspaces+ 公用宏命令
+%    \begin{macrocode}
+\def\xeCJK@ignorespaces{
+  \futurelet\xeCJK@nexttoken\xeCJK@checknext}
+
+\def\xeCJK@checknext{
+  \ifx\xeCJK@nexttoken\@sptoken
+    \expandafter\xeCJK@@checknext
+  \fi}
+
+{
+  \def\:{\xeCJK@@checknext}
+  \global\expandafter\def\: {\futurelet\@let@token\xeCJK@@@checknext}
+}
+
+\def\CJK@stop{\CJK@stop}
+
+\def\xeCJK@@@checknext{
+  \expandafter\futurelet
+    \expandafter\xeCJK@tempb
+      \expandafter\xeCJK@gobble\meaning\@let@token\CJK@stop
+  \if t\xeCJK@tempb
+  \else
+    \let\xeCJK@nexttoken\relax
+    \CJKecglue
+  \fi}
+
+\long\def\xeCJK@gobble#1\CJK@stop{}
+%    \end{macrocode}
+% \subsection{CJKmathspaces}
+% 在中文和行内数学之间留出空格。
+%    \begin{macrocode}
+\let\xeCJK@mathshift=$\relax
+\catcode`\$=13
+
+\def${
+  \ifx\protect \@typeset@protect
+    \expandafter\xeCJK@math
+  \else
+    \xeCJK@mathshift
+  \fi}
+
+\def\xeCJK@math{
+  \futurelet\xeCJK@temp\xeCJK@@math}
+
+\def\xeCJK@@math{
+  \ifx\xeCJK@temp$
+    \def\xeCJK@tempb{\xeCJK@@@dmath}
+  \else
+    \def\xeCJK@tempb{\xeCJK@@@math}
+  \fi
+  \xeCJK@tempb}
+
+\def\xeCJK@@@dmath#1{\xeCJK@mathshift\xeCJK@mathshift}
+
+\def\xeCJK@@@math{
+  \if@xeCJK@inmath
+    \def\xeCJK@tempb{
+      \xeCJK@mathshift
+      \@xeCJK@inmathfalse
+      \futurelet\xeCJK@temp\xeCJK@aftermath}
+  \else
+    \def\xeCJK@tempb{
+      \@xeCJK@inmathtrue
+      \xeCJK@cclv@
+      \xeCJK@mathshift}
+  \fi
+  \xeCJK@tempb}
+
+\def\xeCJK@aftermath{
+  \ifx\xeCJK@temp\@sptoken
+  \else
+    \xeCJK@zerokern
+  \fi}
+
+\def\CJKmathspaces{
+  \catcode`\$=13
+  \ifcsname pdfstringdefPreHook\endcsname
+    \g@addto@macro\pdfstringdefPreHook{
+      \let$\xeCJK@mathshift}
+  \fi}
+\def\CJKnormalmathspaces{\catcode`\$=3}
+
+\catcode`\$=3
+%    \end{macrocode}
+% \subsection{CJKtextspaces}
+% 在中英文转换时插入空格。
+%    \begin{macrocode}
+\def\CJKtextspaces{
+  \def\xeCJK@@cclv{{\xeCJK@zerokern}}
+
+  \def\CJKecglue{ }
+  \let\xeCJK@@i\CJKecglue
+  \let\xeCJK@v@i\CJKecglue
+
+  \def\xeCJK@cclv@{
+    \ifnum\lastkern=1\relax
+      \CJKecglue
+    \fi}
+  \let\xeCJK@cclv@iv\xeCJK@cclv@
+
+  \def\xeCJK@cclv@i{{
+    \ifcase\lastkern
+      \hskip 0pt
+    \or %1
+      \CJKglue
+    \or %2
+      \xeCJK@ULspecials
+    \or %3
+      \xeCJK@ULspecials
+    \or %4
+      \CJKecglue
+    \fi}}}
+\let\CJKaddspaces\CJKtextspaces
+
+%    \end{macrocode}
+% \subsection{CJKnormalspaces}
+%   保留中英文之间的空格但不增加额外的空格
+%    \begin{macrocode}
+\def\CJKnormalspaces{
+  \let\xeCJK@@cclv\relax
+  \let\xeCJK@@i\relax
+  \let\xeCJK@v@i\relax
+  \def\CJKecglue{ }
+
+  \def\xeCJK@cclv@{
+    \ifodd\lastkern
+      \xeCJK@@glue
+    \fi}
+  \let\xeCJK@cclv@iv\xeCJK@cclv@
+
+  \def\xeCJK@cclv@i{{
+    \ifcase\lastkern
+      \hskip 0pt
+    \or %1
+      \CJKglue
+    \or %2
+      \xeCJK@ULspecials
+    \or %3
+      \xeCJK@ULspecials
+    \fi}}
+
+  \def\xeCJK@@glue{
+    \ifx\xeCJK@nexttoken\@sptoken
+      { }
+    \fi
+    \let\xeCJK@nexttoken\relax}}
+%    \end{macrocode}
+% \subsection{CJKnospaces}
+%  删除中文后面的空格。
+%    \begin{macrocode}
+\def\CJKnospaces{
+  \CJKnormalmathspaces
+  \let\xeCJK@@cclv\relax
+  \let\xeCJK@@i\relax
+  \let\xeCJK@v@i\relax
+  \let\xeCJK@cclv@\relax
+  \def\xeCJK@cclv@i{{%   We need extra braces for CJKulem/CJKfntef.sty to work.
+    \ifcase\lastkern
+      \hskip 0pt
+    \or %  1
+      \CJKglue
+    \or %  2
+      \xeCJK@ULspecials
+    \or %  3
+      \xeCJK@ULspecials
+    \fi}}
+  \let\xeCJK@cclv@iv\relax
+  \let\xeCJK@ignorespaces\ignorespaces}
+%    \end{macrocode}
+% \subsection{初始化}
+%    \begin{macrocode}
+\def\xeCJK@setspacemode{
+  \ifxeCJK@mathspaces
+    \CJKmathspaces
+  \else
+    \CJKnormalmathspaces
+  \fi
+  \ifxeCJK@nospaces
+    \CJKnospaces
+  \else
+    \ifxeCJK@addspaces
+      \CJKtextspaces
+    \else
+      \CJKnormalspaces
+    \fi
+  \fi}
+\CJKnormalspaces
+\AtBeginDocument{
+  \xeCJK@setspacemode
+  \ifcsname UL@hook\endcsname
+    \addto@hook\UL@hook{
+       \let\xeCJK@unskip\xeCJK@UL@unskip
+       \let\xeCJK@ULspecials\xeCJK@UL@punctgroup}
+  \fi}
+%    \end{macrocode}
+%
+% \section{字符输出命令}
+% 普通字符
+%    \begin{macrocode}
+\DeclareRobustCommand{\xeCJK@char}[1]{
+  {\XeTeXinterchartokenstate=0
+   \CJKsymbol{#1}
+   \xeCJK@CJKkern}
+   \xeCJK@ignorespaces}
+%    \end{macrocode}
+%
+% 左标点如‘“「『〔（［｛〈《〖【
+%    \begin{macrocode}
+\DeclareRobustCommand{\xeCJK@prepunctchar}[1]{
+ {\xeCJK@punctrule{#1}{l}
+  \@xeCJKfalse
+  \ifnum\lastkern>1\relax
+    \ifnum\lastkern<4\relax
+      \unkern
+      \unkern
+      \ifnum\xeCJK@punctstyle>0\relax
+        \@xeCJKtrue
+      \fi
+    \fi
+  \fi
+  \if@xeCJK
+    \xeCJK@unskip
+    \xeCJK@setkern{\@xeCJK@lastpunct}{#1}
+    \kern \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @kern\@xeCJK@lastpunct#1\endcsname
+    \xeCJKpunctnobreak
+  \else
+    \xeCJK@ULspecials
+    \hskip \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @lglue@#1\endcsname
+      plus 0.1em minus 0.1 em
+  \fi
+
+  \global\edef\@xeCJK@lastpunct{#1}
+  \vrule width \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname
+    @lrule@#1\endcsname depth \z@ height \z@
+
+  \XeTeXinterchartokenstate=0
+  \CJKpunctsymbol{#1}
+
+  \nobreak
+  \gdef\xeCJK@lastcharclass{2}
+  \xeCJK@prepunctkern}
+  \ignorespaces}
+%    \end{macrocode}
+%
+% 右标点如 ─—…、。，．：；！？％〕）］｝〉》〗】’”」』
+%    \begin{macrocode}
+\DeclareRobustCommand{\xeCJK@postpunctchar}[1]{
+ {\xeCJK@punctrule{#1}{r}
+  \@xeCJKfalse
+  \ifnum\lastkern>1\relax
+    \ifnum\lastkern<4\relax
+      \unkern
+      \unkern
+      \@xeCJKtrue
+    \fi
+  \fi
+  \if@xeCJK
+    \xeCJK@unskip
+    \xeCJK@setkern{\@xeCJK@lastpunct}{#1}
+    \kern \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname
+      @kern\@xeCJK@lastpunct#1\endcsname
+    \nobreak
+  \else
+    \xeCJK@ULspecials
+    \ifcsname xeCJK@specialpunct#1\endcsname
+      \CJKglue  % breakable
+    \else
+      \nobreak
+    \fi
+  \fi
+  \global\edef\@xeCJK@lastpunct{#1}
+
+  \XeTeXinterchartokenstate=0
+  \CJKpunctsymbol{#1}
+
+  \vrule width \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname
+    @rrule@#1\endcsname depth \z@ height \z@
+
+  \hskip \csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @rglue@#1\endcsname
+    plus 0.1em minus 0.1 em
+
+  \gdef\xeCJK@lastcharclass{3}
+  \xeCJK@postpunctkern}
+  \xeCJK@ignorespaces}
+
+\let\xeCJK@unskip\unskip
+\def\xeCJK@UL@unskip{
+  \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @rglue@\@xeCJK@lastpunct\endcsname
+    \hskip -\csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname
+      @rglue@\@xeCJK@lastpunct\endcsname\relax
+  \fi}
+%    \end{macrocode}
+%
+% 缺省状态下，不允许在相邻标点中间换行。
+%    \begin{macrocode}
+\def\xeCJKallowbreakbetweenpuncts{
+  \def\xeCJKpunctnobreak{
+    \ifnum\xeCJK@lastcharclass=3
+      \hskip 0pt
+    \fi}}
+
+\def\xeCJKnobreakbetweenpuncts{
+  \let\xeCJKpunctnobreak\nobreak}
+\xeCJKnobreakbetweenpuncts
+%    \end{macrocode}
+% \section{标点挤压规则}
+%    \begin{macrocode}
+\newcount\xeCJK@cnta
+\newcount\xeCJK@cntb
+\newcount\xeCJK@cntc
+\newcount\xeCJK@cntd
+\newcount\xeCJK@cnte
+\newif\ifxeCJK@dokerning
+\def\xeCJK@punctrule#1#2{
+  \ifcsname xeCJK@bbox\xeCJK@family/\f@series/\f@shape\endcsname
+    \global\edef\xeCJK@bboxname{
+      \csname xeCJK@bbox\xeCJK@family/\f@series/\f@shape\endcsname}
+  \else
+    \xeCJK@getbboxname
+    \ifcsname xeCJK@\xeCJK@bboxname @spaces\endcsname
+    \else
+       \gdef\xeCJK@bboxname{def}
+    \fi
+    \PackageInfo{xeCJK}{Loading punct spaces for '\xeCJK@bboxname'}
+    \expandafter\expandafter\expandafter\xeCJK@setpunctspaces\csname xeCJK@\xeCJK@bboxname @spaces\endcsname
+    \global\expandafter\edef\csname
+      xeCJK@bbox\xeCJK@family/\f@series/\f@shape\endcsname{\xeCJK@bboxname}
+  \fi
+%    \end{macrocode}
+%
+% 如果 punctstyle$=$plain， 或者标点符号的两侧空白大小没有定义时，不作特殊处理
+%
+%    \begin{macrocode}
+  \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @#2rule@#1\endcsname
+  \else
+    \xeCJK@dokerningtrue
+    \ifnum\xeCJK@punctstyle=\xeCJK@ps@plain\relax
+      \xeCJK@dokerningfalse
+    \else
+      \ifcsname xeCJK@specialpunct#1\endcsname
+        \xeCJK@dokerningfalse
+      \else
+        \ifcsname xeCJK@\xeCJK@bboxname @#2space@#1\endcsname
+        \else
+          \typeout{.....xeCJK@\xeCJK@bboxname @#2space@.......false................}
+          \xeCJK@dokerningfalse
+        \fi
+      \fi
+    \fi
+    \ifxeCJK@dokerning
+      \xeCJK@cnta=\csname xeCJK@\xeCJK@bboxname @#2space@#1\endcsname\relax
+      \xeCJK@cntc=\xeCJK@cnta
+      \ifcase\xeCJK@punctstyle
+          % hangmobanjiao
+      \or % quanjiao
+      \or % banjiao
+        \advance\xeCJK@cntc -5\relax
+      \or % kaiming
+        \ifcsname xeCJK@kaiming#1\endcsname
+        \else
+          \advance\xeCJK@cntc -5\relax
+        \fi
+      \or %CCT
+        \advance\xeCJK@cntc -2\relax
+      \fi
+      \xeCJK@cntd=\xeCJK@cntc
+      \ifnum\xeCJK@cntc<0\relax
+        \xeCJK@cntc=0\relax
+      \fi
+    \else
+      \xeCJK@cnta=0\relax
+      \xeCJK@cntc=0\relax
+      \xeCJK@cntd=0\relax
+    \fi
+    \global\expandafter\edef\csname
+      xeCJK\xeCJK@punctstyle\xeCJK@bboxname @#2rule@#1\endcsname{
+        -0.\the\xeCJK@cnta em}
+    \global\expandafter\edef\csname
+      xeCJK\xeCJK@punctstyle\xeCJK@bboxname @#2glue@#1\endcsname{
+        0.\the\xeCJK@cntc em}
+    \global\expandafter\edef\csname
+      xeCJK\xeCJK@punctstyle\xeCJK@bboxname @#2oglue@#1\endcsname{
+        \the\xeCJK@cntd}
+  \fi}
+
+\def\xeCJK@getbboxname{
+  {\csname xeCJK@font@\xeCJK@family\endcsname
+   \get@external@font
+   \global\let\xeCJK@tempx\external@font}
+   \expandafter\xeCJK@@getbboxname\xeCJK@tempx\relax
+   \global\expandafter\edef\csname
+     xeCJK@bbox\xeCJK@family/\f@series/\f@shape\endcsname{\xeCJK@bboxname}}
+
+\def\xeCJK@@getbboxname"#1/#2"#3\relax{
+  \edef\xeCJK@temp{\zap@space #1 \@empty}
+  \edef\xeCJK@temp{\lowercase{\gdef\noexpand\xeCJK@bboxname{\xeCJK@temp}}}
+  \xeCJK@temp}
+
+\expandafter\def\csname xeCJK@kaiming。\endcsname{}
+\expandafter\def\csname xeCJK@kaiming？\endcsname{}
+\expandafter\def\csname xeCJK@kaiming！\endcsname{}
+\expandafter\def\csname xeCJK@specialpunct—\endcsname{}% U+2014
+\expandafter\def\csname xeCJK@specialpunct─\endcsname{}% U+2500
+\expandafter\def\csname xeCJK@specialpunct…\endcsname{}
+\def\xeCJK@setkern#1#2{
+  \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @kern#1#2\endcsname
+  \else
+    \xeCJK@cnta=0\relax
+    \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @roglue@#1\endcsname
+      \advance\xeCJK@cnta\csname
+        xeCJK\xeCJK@punctstyle\xeCJK@bboxname @roglue@#1\endcsname
+    \fi
+    \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @loglue@#2\endcsname
+      \advance\xeCJK@cnta\csname xeCJK\xeCJK@punctstyle\xeCJK@bboxname
+        @loglue@#2\endcsname
+    \fi
+    \relax
+    \ifcase\xeCJK@punctstyle
+        % hangmobanjiao
+    \or % quanjiao
+      \advance\xeCJK@cnta -5\relax
+    \or % banjiao
+    \or % kaiming
+      \ifcsname xeCJK@kaiming#1\endcsname
+        \ifcsname xeCJK\xeCJK@punctstyle\xeCJK@bboxname @roglue@#2\endcsname
+          \advance\xeCJK@cnta -5\relax
+        \fi
+      \fi
+    \fi
+    \ifnum\xeCJK@cnta<0\relax
+      \xeCJK@cnta=0\relax
+    \fi
+    \global\expandafter\edef\csname
+      xeCJK\xeCJK@punctstyle\xeCJK@bboxname @kern#1#2\endcsname{
+        0.\the\xeCJK@cnta em}
+  \fi}
+
+%    \end{macrocode}
+%  用户命令：设置两个标点之间的间距
+%    \begin{macrocode}
+\def\xeCJKsetkern#1#2#3{
+  \xeCJK@getbboxname
+  \global\expandafter\edef\csname
+      xeCJK\xeCJK@punctstyle\xeCJK@bboxname @kern#1#2\endcsname{#3}}
+
+\def\punctstyle#1{
+  \ifcsname xeCJK@ps@#1\endcsname
+    \edef\xeCJK@punctstyle{\csname xeCJK@ps@#1\endcsname}
+    \ifnum\xeCJK@punctstyle=\xeCJK@ps@plain\relax
+      \xeCJKallowbreakbetweenpuncts
+    \fi
+  \else
+    \typeout{Warning: Punctstyle #1\space is not defined.}
+  \fi}
+
+\def\xeCJK@ps@hangmobanjiao{0}
+\def\xeCJK@ps@marginkerning{0}
+\def\xeCJK@ps@quanjiao{1}
+\def\xeCJK@ps@fullwidth{1}
+\def\xeCJK@ps@banjiao{2}
+\def\xeCJK@ps@halfwidth{2}
+\def\xeCJK@ps@kaiming{3}
+\def\xeCJK@ps@mixedwidth{3}
+\def\xeCJK@ps@CCT{4}
+\def\xeCJK@ps@plain{5}
+\punctstyle{quanjiao}
+
+\let\@afterindentfalse\relax
+
+\def\xeCJKplainchr{\punctstyle{plain}}
+
+\def\xeCJK@setpunctspaces#1,#2,#3,{
+  \edef\xeCJK@tempa{#1}
+  \ifx\xeCJK@tempa\@empty
+  \else
+    \def\xeCJK@tempa{\xeCJK@setpunctspaces}
+    \ifcsname xeCJK@specialpunct#1\endcsname
+      \ifx#1…
+      \else
+        \xeCJK@cnta=#2\relax
+        \advance\xeCJK@cnta #3\relax
+        \advance\xeCJK@cnta 2\relax
+        \ifnum\xeCJK@cnta>9
+          \edef\xeCJK@temp{-0.\the\xeCJK@cnta em}
+        \else
+          \ifnum\xeCJK@cnta>1
+            \edef\xeCJK@temp{-0.0\the\xeCJK@cnta em}
+          \else
+            \edef\xeCJK@temp{-0.01 em}
+          \fi
+        \fi
+        \xeCJK@cnta=0
+        \loop
+          \global\expandafter\edef\csname xeCJK\the\xeCJK@cnta\xeCJK@bboxname
+            @kern#1#1\endcsname{\xeCJK@temp}
+          \advance \xeCJK@cnta 1\relax
+        \ifnum\xeCJK@cnta<6\repeat
+      \fi
+    \fi
+    \xeCJK@setspace{#2}
+    \global\expandafter\edef\csname xeCJK@\xeCJK@bboxname @lspace@#1\endcsname{\the\xeCJK@cnta}
+    \xeCJK@setspace{#3}
+    \global\expandafter\edef\csname xeCJK@\xeCJK@bboxname @rspace@#1\endcsname{\the\xeCJK@cnta}
+  \fi
+  \xeCJK@tempa}
+
+\def\xeCJK@setspace#1{
+  \xeCJK@cnta=#1\relax
+  \advance\xeCJK@cnta -\xeCJK@sidespace\relax
+  \divide\xeCJK@cnta 10\relax
+  \ifnum\xeCJK@cnta<0\relax
+    \xeCJK@cnta=0\relax
+  \fi}
+\def\xeCJK@sidespace{10}
+
+\def\xeCJK@def@spaces{‘,67,12,“,46,12,「,61,13,『,60,13,〔,64,15,（,56,14,［,54,13,｛,52,17,
+  〈,63,10,《,53,8,〖,46,10,【,48,13,─,0,0,—,0,0,…,9,9,、,10,63,。,13,63,，,11,71,
+  ．,13,72,：,12,71,；,12,72,！,23,61,？,13,51,％,14,12,〕,15,65,）,14,55,］,13,54,｝,18,51,
+  〉,10,65,》,9,52,〗,10,47,】,13,49,’,13,67,”,13,47,」,13,61,』,13,60,,,,}
+
+\InputIfFileExists{xeCJKpunct.spa}{}{}
+
+%    \end{macrocode}
+% \section{字体设置}
+%    \begin{macrocode}
+\def\CJKsymbol#1{{\xeCJK@setfont #1}}
+\def\CJKpunctsymbol#1{{\xeCJK@setfont #1}}
+\def\xeCJK@setfont{
+  \ifcsname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+    \csname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+  \else
+    \csname xeCJK@font@\xeCJK@family\endcsname
+    \get@external@font
+    \expandafter\global\expandafter\font
+     \csname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname=\external@font
+  \fi}
+
+\def\setCJKmainfont{
+  \xeCJK@newfontfamily{xeCJK@font@}}
+
+\let\setCJKromanfont\setCJKmainfont
+
+\def\setCJKsansfont{
+  \xeCJK@newfontfamily{xeCJK@font@sans}}
+
+\def\setCJKmonofont{
+  \xeCJK@newfontfamily{xeCJK@font@mono}}
+
+\def\setCJKfamilyfont#1{
+  \xeCJK@newfontfamily{xeCJK@font@#1}}
+
+%
+% Redefine \sffamily and \ttfamily to set CJKfamily
+\DeclareRobustCommand\sffamily
+        {\not@math@alphabet\sffamily\mathsf
+         \fontfamily\sfdefault\CJKfamily{sans}\selectfont}
+
+\DeclareRobustCommand\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\CJKfamily{mono}\selectfont}
+
+% \xeCJK@newfontfamily is similar to \newfontfamily
+%   but introduce fake slant/bold fonts for CJK characters.
+\newcommand*\xeCJK@newfontfamily[1]{
+  \@ifnextchar[
+    {\xeCJK@newfontfamily@{#1}}
+    {\xeCJK@newfontfamily@{#1}[]}}
+
+\def\xeCJK@newfontfamily@#1[#2]#3{
+  %
+  % Get user defined options
+  \def\xeCJK@temp{#2}
+  \expandafter
+    \xeCJK@getBoldFont\xeCJK@temp BoldFont={}{}\relax
+  \expandafter
+    \xeCJK@getBoldItalicFont\xeCJK@temp BoldItalicFont={}{}\relax
+  \expandafter
+    \xeCJK@getItalicFont\xeCJK@temp ItalicFont={}{}\relax
+
+  \expandafter
+    \xeCJK@getBoldItalicFeatures\xeCJK@temp BoldItalicFeatures={}{}\relax
+  \expandafter
+    \xeCJK@getBoldFeatures\xeCJK@temp BoldFeatures={}{}\relax
+  \expandafter
+    \xeCJK@getItalicFeatures\xeCJK@temp ItalicFeatures={}{}\relax
+
+  \expandafter
+    \xeCJK@getRawFeature\xeCJK@BoldFeatures RawFeature={}{}\relax
+  \edef\xeCJK@Bold@RawFeature{\xeCJK@tempRawFeature}
+
+  \expandafter
+    \xeCJK@getRawFeature\xeCJK@BoldItalicFeatures RawFeature={}{}\relax
+  \edef\xeCJK@BoldItalic@RawFeature{\xeCJK@tempRawFeature}
+
+  \expandafter
+    \xeCJK@getRawFeature\xeCJK@ItalicFeatures RawFeature={}{}\relax
+  \edef\xeCJK@Italic@RawFeature{\xeCJK@tempRawFeature}
+
+  \edef\xeCJK@Features{}
+
+  \ifxeCJK@BoldFont@
+    \ifx\xeCJK@BoldFont\@empty
+
+      \ifx\xeCJK@Bold@RawFeature\@empty
+        \def\xeCJK@Bold@RawFeature{
+          embolden=\xeCJK@emboldenfactor}
+      \else
+        \edef\xeCJK@Bold@RawFeature{
+          embolden=\xeCJK@emboldenfactor,
+                   \xeCJK@Bold@RawFeature}
+      \fi
+
+      \ifx\xeCJK@BoldFeatures\@empty
+        \edef\xeCJK@Features{
+          BoldFeatures={
+            RawFeature={\xeCJK@Bold@RawFeature}}}
+      \else
+        \edef\xeCJK@Features{
+          BoldFeatures={
+            \xeCJK@BoldFeatures,
+            RawFeature={\xeCJK@Bold@RawFeature}}}
+      \fi
+
+      \ifx\xeCJK@BoldItalic@RawFeature\@empty
+        \def\xeCJK@BoldItalic@RawFeature{
+          embolden=\xeCJK@emboldenfactor}
+      \else
+        \edef\xeCJK@BoldItalic@RawFeature{
+          embolden=\xeCJK@emboldenfactor,
+                   \xeCJK@BoldItalic@RawFeature}
+      \fi
+    \fi
+  \fi
+
+  \ifxeCJK@SlantFont@
+    \ifx\xeCJK@ItalicFont\@empty
+
+      \ifx\xeCJK@Italic@RawFeature\@empty
+        \edef\xeCJK@Italic@RawFeature{
+          slant=\xeCJK@slantfactor}
+      \else
+        \edef\xeCJK@Italic@RawFeature{
+          slant=\xeCJK@slantfactor,
+                \xeCJK@Italic@RawFeature}
+      \fi
+
+      \ifx\xeCJK@ItalicFeatures\@empty
+        \edef\xeCJK@ItalicFeatures{
+          RawFeature={\xeCJK@Italic@RawFeature}}
+      \else
+        \edef\xeCJK@ItalicFeatures{
+          \xeCJK@ItalicFeatures,
+          RawFeature={\xeCJK@Italic@RawFeature}}
+      \fi
+
+      \ifx\xeCJK@BoldItalic@RawFeature\@empty
+        \edef\xeCJK@BoldItalic@RawFeature{
+          slant=\xeCJK@slantfactor}
+      \else
+        \edef\xeCJK@BoldItalic@RawFeature{
+          slant=\xeCJK@slantfactor,
+                \xeCJK@BoldItalic@RawFeature}
+      \fi
+
+      \ifx\xeCJK@BoldItalicFeatures\@empty
+        \edef\xeCJK@BoldItalicFeatures{
+          RawFeature={\xeCJK@BoldItalic@RawFeature}}
+      \else
+        \edef\xeCJK@BoldItalicFeatures{
+          \xeCJK@BoldItalicFeatures,
+          RawFeature={\xeCJK@BoldItalic@RawFeature}}
+      \fi
+
+      \ifx\xeCJK@Features\@empty
+        \edef\xeCJK@Features{
+          ItalicFeatures={\xeCJK@ItalicFeatures},
+          BoldItalicFeatures={\xeCJK@BoldItalicFeatures}}
+      \else
+        \edef\xeCJK@Features{
+          \xeCJK@Features,
+          ItalicFeatures={\xeCJK@ItalicFeatures},
+          BoldItalicFeatures={\xeCJK@BoldItalicFeatures}}
+      \fi
+    \fi
+  \fi
+
+  \edef\xeCJK@temp{#2}
+  \ifx\xeCJK@temp\@empty
+  \else
+    \edef\xeCJK@temp{,#2}
+  \fi
+
+  \ifx\xeCJK@Features\@empty
+  \else
+    \edef\xeCJK@Features{,\xeCJK@Features}
+  \fi
+
+  \edef\xeCJK@Features{
+    [BoldFont={#3},
+     ItalicFont={#3},
+     BoldItalicFont={#3}%  The first three parameters can be overridden by
+                        %  user defined parameters in #2
+     \xeCJK@temp\xeCJK@Features]}
+
+  \expandafter
+    \newfontfamily@i\csname #1\expandafter\endcsname
+       \xeCJK@Features
+       {#3}}
+
+\def\xeCJK@setmacro@getkey#1{
+  \expandafter\def\csname xeCJK@get#1\endcsname ##1#1=##2##3\relax{
+    \expandafter\edef\csname xeCJK@#1\endcsname{##2}
+  \edef\xeCJK@temp{##1##3}}}
+
+\xeCJK@setmacro@getkey{BoldFont}
+\xeCJK@setmacro@getkey{ItalicFont}
+\xeCJK@setmacro@getkey{BoldItalicFont}
+\xeCJK@setmacro@getkey{ItalicFeatures}
+\xeCJK@setmacro@getkey{BoldFeatures}
+\xeCJK@setmacro@getkey{BoldItalicFeatures}
+
+\def\xeCJK@getRawFeature#1RawFeature=#2#3\relax{
+  \edef\xeCJK@tempRawFeature{#2}}
+
+\define@key[zf]{preparse}{ItalicFeatures}{
+  \edef\zf@it@feat{,#1}
+  \edef\zf@family@long{\zf@family@long itfeat:#1}}
+
+% redefine \CJKfamily.
+
+\def\xeCJK@font@{}
+
+\DeclareRobustCommand\CJKfamily[1]{
+  \ifcsname xeCJK@font@#1\endcsname
+    \def\xeCJK@family{#1}
+  \else
+    \ifcsname xeCJK@#1@warned\endcsname
+    \else
+      \PackageWarning{xeCJK}{
+        Unknown CJK family `#1' is ignored.^^J
+        Use \string\setCJKfamilyfont \space to define a CJK family.}
+      \expandafter\gdef\csname xeCJK@#1@warned\endcsname{}
+    \fi
+  \fi}
+\CJKfamily{}
+
+\def\xeCJKsetslantfactor#1{\edef\xeCJK@slantfactor{#1}}
+\def\xeCJKsetemboldenfactor#1{\edef\xeCJK@emboldenfactor{#1}}
+
+\xeCJKsetslantfactor{0.17}
+\xeCJKsetemboldenfactor{4}
+%    \end{macrocode}
+% \section{使用CJKfntef和CJKnumb宏包}
+%    \begin{macrocode}
+%
+\@ifundefined{UL@hskip}{\let\UL@hskip\relax}{}
+
+\let\xeCJK@ULspecials\relax
+
+\def\xeCJK@UL@punctgroup{
+  \ifx\hskip\UL@hskip
+    \egroup
+    \UL@stop
+    \UL@start
+    \bgroup
+  \fi}
+
+
+\ifxeCJK@num
+  \edef\CJK@UnicodeEnc{UTF8}
+  \def\CJKaddEncHook#1#2{\expandafter\def\csname xeCJK@enc@#1\endcsname{#2}}
+  \def\Unicode#1#2{\@tempcnta #1\relax
+    \multiply\@tempcnta 256\relax
+    \advance\@tempcnta #2\relax
+    \char\@tempcnta}
+  \RequirePackage{CJKnumb}
+  \csname xeCJK@enc@UTF8\endcsname
+  \def\CJK@tenthousand{万}
+\fi
+%    \end{macrocode}
+%  可以使用CJK包中的cpx或cp文件。
+%    \begin{macrocode}
+
+\def\CJK@ifundefined#1{
+  \ifx #1\@undefined
+    \expandafter\@firstoftwo
+  \else
+    \expandafter\@secondoftwo
+  \fi
+}
+
+\newcommand{\xeCJKcaption}[2][]{
+  \edef\xeCJK@temp{#1}
+  \ifx\xeCJK@temp\@empty
+  \else
+    \XeTeXdefaultencoding "#1"
+  \fi
+  \makeatletter
+  \input{#2.cpx}
+  \makeatother
+  \XeTeXdefaultencoding "UTF-8"}
+%    \end{macrocode}
+% 不再使用的旧版本命令
+%    \begin{macrocode}
+
+\def\CJKlanguage#1{}
+\endlinechar `\^^M
+\catcode "FEFF=9\relax
+%    \end{macrocode}
+%
+%
+%
+% \iffalse
+%</xeCJK>
+
+
+%<*ctex4xetex>
+% \fi
+%
+% \clearpage
+% \part{ctex4xetex.cfg}
+%
+%    \begin{macrocode}
+\edef\xeCJKcatcodeat{\the\catcode`\@}% save catcode of @
+\catcode`\@=11\relax
+%    \end{macrocode}
+% 阻止调入CJK和CJKpunct宏包
+%    \begin{macrocode}
+\expandafter\gdef\csname ver@CJK.sty\endcsname{2020/01/01}
+\expandafter\gdef\csname ver@CJKpunct.sty\endcsname{2020/01/01}
+
+\let\CJK@read@cfg\relax
+\let\CJK@makeActive\relax
+\let\CJK@makeInactive\relax
+
+\edef\CJK@UnicodeEnc{UTF8}
+\def\CJKaddEncHook#1#2{\expandafter\def\csname xeCJK@enc@#1\endcsname{#2}}
+\def\Unicode#1#2{\@tempcnta #1\relax
+    \multiply\@tempcnta 256\relax
+    \advance\@tempcnta #2\relax
+    \char\@tempcnta}
+
+\RequirePackage{CJKnumb}
+\csname xeCJK@enc@UTF8\endcsname
+
+\catcode`\@=\xeCJKcatcodeat
+
+\let\CJKglue\relax
+\let\CJKtilde\relax
+
+\newenvironment{CJK}[3][]{\CJKfamily{rm}}{}
+\newenvironment{CJK*}[3][]{\CJKfamily{rm}}{}
+%    \end{macrocode}
+% 为ctex包设置inputencoding. xeCJK 将改回UTF-8格式.
+%
+%    \begin{macrocode}
+\XeTeXdefaultencoding "GBK"
+%    \end{macrocode}
+%
+% \iffalse
+%</ctex4xetex>
+%<*xecjksetpunct-main>
+% \fi
+% \newpage
+% \part{xecjksetpunct-main.tex}
+%    \begin{macrocode}
+ % Linux
+ %
+ %\def\ghostscript{gs -dBATCH  -dEPSCrop -dNOPAUSE \space
+ %   -sDEVICE=bbox rubisha.pdf 2>rubishb.tex}
+ %
+ % windows
+\def\ghostscript{"gswin32c.exe  -dBATCH  -dEPSCrop -dNOPAUSE \space
+    -sDEVICE=bbox rubisha.pdf 2>rubishb.tex"}
+
+\def\xeCJKsetfonts{
+  \def\puncts{‘“「『〔（［｛〈《〖【─—…、。，．：；！？％〕）］｝〉》〗】’”」』}
+  \xeCJKsetfont{"Bitstream CyberCJK"}
+  \xeCJKsetfont["文鼎ＰＬ简报宋"]{"AR PL SungtiL GB"}
+}
+\input {xecjksetpunct-macros.tex}
+%    \end{macrocode}
+%
+% \iffalse
+%</xecjksetpunct-main>
+%<*xecjksetpunct-macros>
+% \fi
+% \newpage
+% \part{xecjksetpunct-macros.tex}
+%    \begin{macrocode}
+\documentclass{article}
+\begin{document}
+\makeatletter
+\pagestyle{empty}
+\newcount\cnta
+\newcount\cntb
+\newcount\cntc
+
+\def\xeCJK@gobble@a[]{}
+
+
+\def\get@punctchar#1{
+  \expandafter\def\csname xeCJK@punctchar@\the\cnta\endcsname{#1}
+  \advance\cnta 1\relax
+  \@ifnextchar[{\xeCJK@gobble@a}{\get@punctchar}
+}
+
+\def\getpunctchar{
+  \cnta=0
+  \get@punctchar}
+
+\bgroup
+\catcode`\%=11
+\catcode`\{=11
+\catcode`\}=11
+\catcode`\(=1
+\catcode`\)=2
+\catcode`\#=11
+\gdef\sharp(#)
+\global\def\percent(%)
+\global\def\lbrace({)
+\global\def\rbrace(})
+\egroup
+
+\newwrite\fdrubisha
+\newwrite\fdcfg
+\newread\fdin
+
+\def\makefile@rubisha{
+\immediate\openout\fdrubisha=rubisha.tex\relax
+\immediate\write\fdrubisha{\string\documentclass{article}}
+\immediate\write\fdrubisha{\string\textwidth 150mm      }
+\immediate\write\fdrubisha{\string\textheight 210mm     }
+\immediate\write\fdrubisha{\string\begin{document}       }
+\immediate\write\fdrubisha{\string\XeTeXuseglyphmetrics=0}
+\immediate\write\fdrubisha{\string\makeatletter          }
+\immediate\write\fdrubisha{\string\pagestyle{empty}      }
+\immediate\write\fdrubisha{\string\def\string\punctlist\sharp1\lbrace
+      \sharp1\string\rule{0.5pt}{40pt}\string\newpage}
+\immediate\write\fdrubisha{\string\rule{0.5pt}{20pt}\sharp1\string\newpage}
+\immediate\write\fdrubisha{\string\@ifnextchar[{\string\xeCJK@gobble@a}{\string\punctlist}\rbrace}
+\immediate\write\fdrubisha{}
+\immediate\write\fdrubisha{\string\def\string\xeCJK@gobble@a[]{}                       }
+\immediate\write\fdrubisha{}
+\immediate\write\fdrubisha{\string\font\string\1=\ttfontname\space at 100 pt}
+\immediate\write\fdrubisha{\string\1}
+\immediate\write\fdrubisha{\string\punctlist\space\puncts []}
+\immediate\write\fdrubisha{\string\end{document}}
+\immediate\closeout\fdrubisha\relax}
+
+
+
+\newcommand{\xeCJKsetfont}[2][]{
+  \expandafter\getpunctchar\puncts[]
+  \edef\ttfontname{#2}
+  \edef\ttfontnamea{#1}
+  \makefile@rubisha
+  \immediate\write18{xelatex rubisha}
+  \immediate\write18{\ghostscript}
+  \epstobbox
+  }
+
+\catcode`\%=11\relax
+
+\def\getfontname"#1"#2{
+  \edef\temp{\zap@space #1 \@empty}
+  \edef\temp{\lowercase{\def\noexpand#2{\temp}}}
+  \temp}
+
+\def\epstobbox{
+  \expandafter\getfontname\ttfontname{\@ttfontname}
+  \ifx\ttfontnamea\@empty
+  \else
+    \expandafter\getfontname\ttfontnamea{\@ttfontnamea}
+  \fi
+
+  \cntb=0
+  \def\xeCJKspaces{}
+  \immediate\openin\fdin=rubishb.tex\relax
+  \ifeof\fdin
+    \@latex@error{setpunct: file rubishb.tex not found}{}\relax
+  \fi
+  \loop
+    \edef\xeCJKspaces{\xeCJKspaces\csname xeCJK@punctchar@\the\cntb\endcsname,}
+    \getxyspace
+    \edef\xeCJKspaces{\xeCJKspaces\temp@xspace,}
+    \getxyspace
+    \edef\xeCJKspaces{\xeCJKspaces\temp@xspace,}
+    \advance\cntb 1
+  \ifnum\cntb<36\repeat
+  \immediate\closein\fdin
+  \immediate\write\fdcfg{\string\expandafter\string\def\string\csname\space
+    xeCJK@\@ttfontname @spaces\string\endcsname{\xeCJKspaces,,,}\string\relax}
+  \ifx\ttfontnamea\@empty
+  \else
+    \immediate\write\fdcfg{\string\expandafter\string\let\string\csname\space
+      xeCJK@\@ttfontnamea @spaces\string\expandafter\string\endcsname
+      \string\csname\space xeCJK@\@ttfontname @spaces\string\endcsname}
+  \fi}
+
+\def\getxyspace{
+  \read\fdin to\tempa
+  \edef\:{\tempa}
+  \expandafter\getleftupdimen\: {} %%BoundingBox: 1 1 0 0 \relax
+  \ifnum\temp@xwidth<0\relax
+    \read\fdin to\tempa
+    \edef\:{\tempa}
+    \expandafter\getleftupdimen\: {} %%BoundingBox: 1 1 0 0 \relax
+  \fi
+  \ifnum\temp@xwidth<1
+    \@latex@error{error in setting punct bbox \tempa}{}\relax
+  \fi
+  \cnta=-\temp@xwidth\relax
+  \advance\cnta 100\relax
+  \ifnum\cnta<0
+    \cnta=0\relax
+  \fi
+  \edef\temp@xspace{\the\cnta}}
+
+\long\def\getleftupdimen#1%%BoundingBox: #2 #3 #4 #5 {
+  \cnta=#4\relax
+  \advance\cnta -#2\relax
+  \edef\temp@xwidth{\the\cnta}
+  \gobblerest}
+
+\long\def\gobblerest#1\relax{}
+
+\immediate\openout\fdcfg=xeCJKpunct.spa\relax
+\immediate\write\fdcfg{% -*- coding: utf-8 -*-}
+
+\xeCJKsetfonts
+
+\immediate\write\fdcfg{\string\endinput}
+\immediate\closeout\fdcfg
+\end{document}
+%    \end{macrocode}
+%
+% \iffalse
+%</xecjksetpunct-macros>
+%<*example-ctex>
+% \fi
+% \clearpage
+% \part{example-ctex.tex}
+%
+%    \begin{macrocode}
+\input{ctex4xetex.cfg}
+\documentclass[oneside]{ctexbook}
+\usepackage[boldfont,slantfont,CJKnumber]{xeCJK}
+\setCJKmainfont{Bitstream CyberCJK}
+\textwidth 150mm
+\oddsidemargin 0pt
+\begin{document}
+\parindent 2em
+\chapter{CTEX}
+这是例子。
+\CJKnumber{12345}
+\end{document}
+
+%    \end{macrocode}
+% \iffalse
+%</example-ctex>
+%<*example-CJKfntef>
+% \fi
+%
+% \clearpage
+% \part{example-CJKfntef.tex}
+%    \begin{macrocode}
+
+\documentclass[11pt]{article}
+\textheight 220mm
+\textwidth 150mm
+\oddsidemargin 0pt
+\evensidemargin 0pt
+\usepackage[slantfont,boldfont]{xeCJK}
+\usepackage{xcolor}
+\usepackage{CJKfntef}
+
+\begin{document}
+\setCJKmainfont{Bitstream CyberCJK}% 设置缺省中文字体
+\setCJKmonofont{Bitstream CyberCJK}% 设置缺省中文字体
+
+\baselineskip 16pt
+\parindent 2em
+
+ \section{举例}
+\begin{verbatim}
+标点。
+\end{verbatim}
+
+\CJKtextspaces\CJKmathspaces
+
+汉字Chinese数学$x=y$空格
+
+汉字 Chinese 数学 $x=y$ 空格
+
+\CJKunderline{汉字Chinese数学$x=y$加下划线，可以\CJKunderdot{同时加点}。}
+
+\CJKunderline{汉字 Chinese 数学 $x=y$ 加下划线，可以\CJKunderdot{同时加点}。}
+
+\CJKunderline*{汉字加下划线，可以\CJKunderdot{同时加点}。}
+
+
+\CJKunderdot{汉字加点，可以\CJKunderline{同时加下划线}。}
+
+
+\end{document}
+%    \end{macrocode}
+% \iffalse
+%</example-CJKfntef>
+% \fi
+%
+% \Finale
+%
+% \typeout{*************************************************************}
+% \typeout{*}
+% \typeout{* To finish the installation you have to move the following}
+% \typeout{* files into a directory searched by XeTeX:}
+% \typeout{*}
+% \typeout{* \space\space\space xeCJK.sty, \space\space ctex4xetex.cfg}
+% \typeout{*}
+% \typeout{*************************************************************}
+% \Finale
+\endinput
