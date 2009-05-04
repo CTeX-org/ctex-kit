@@ -1,0 +1,125 @@
+\documentclass{article}
+\usepackage{CJK}
+\begin{document}
+\begin{CJK*}{GBK}{song}
+
+
+\makeatletter
+\pagestyle{empty}
+
+\def\puncts{¡®¡°¡¸¡º¡²£¨£Û£û¡´¡¶¡¼¡¾¡ª¡­¡¢¡££¬£®£º£»£¡£¿£¥¡³£©£Ý£ý¡µ¡·¡½¡¿¡¯¡±¡¹¡»}
+
+\bgroup
+\catcode`\%=11
+\catcode`\{=11
+\catcode`\}=11
+\catcode`\(=1
+\catcode`\)=2
+\catcode`\#=11
+\gdef\sharp(#)
+\global\def\percent(%)
+\global\def\lbrace({)
+\global\def\rbrace(})
+\egroup
+
+\newwrite\fdrubisha
+\newwrite\fdspa
+\newread\fdin
+
+\def\makefile@rubisha{
+\immediate\openout\fdrubisha=rubisha.tex\relax
+\immediate\write\fdrubisha{\string\documentclass{article}}
+\immediate\write\fdrubisha{\string\usepackage{CJK}       }
+\immediate\write\fdrubisha{\string\textwidth 200pt      }
+\immediate\write\fdrubisha{\string\textheight 200pt     }
+\immediate\write\fdrubisha{\string\begin{document}       }
+\immediate\write\fdrubisha{\string\begin{CJK*}{GBK}{song}}
+\immediate\write\fdrubisha{\string\makeatletter          }
+\immediate\write\fdrubisha{\string\pagestyle{empty}      }
+\immediate\write\fdrubisha{\string\def\string\punctlist\sharp1\sharp2\lbrace
+      \sharp1\sharp2\string\rule{0.5pt}{40pt}\string\newpage}
+\immediate\write\fdrubisha{\string\rule{0.5pt}{20pt}\sharp1\sharp2\string\newpage}
+\immediate\write\fdrubisha{\string\@ifnextchar[{\string\xeCJK@gobble@a}{\string\punctlist}\rbrace}
+\immediate\write\fdrubisha{}
+\immediate\write\fdrubisha{\string\def\string\xeCJK@gobble@a[]{}                       }
+\immediate\write\fdrubisha{}
+\immediate\write\fdrubisha{\string\CJKfamily{\CJKpunct@family}}
+\immediate\write\fdrubisha{\string\fontsize{100pt}{120pt}\string\selectfont}
+{
+\let\protect\@unexpandable@protect
+\immediate\write\fdrubisha{\string\punctlist\space\puncts []}
+}
+\immediate\write\fdrubisha{\string\newpage               }
+\immediate\write\fdrubisha{\string\end{CJK*}             }
+\immediate\write\fdrubisha{\string\end{document}}
+\immediate\closeout\fdrubisha\relax}
+
+
+
+\newcount\cnta
+\newcount\cntb
+
+\newcommand{\CJKpunctsetfamily}[1]{
+  \edef\CJKpunct@family{#1}
+  \makefile@rubisha
+  \immediate\write18{pdflatex rubisha}
+  \immediate\write18{\ghostscript}
+  \epstobbox
+  }
+
+\catcode`\%=11\relax
+
+\def\epstobbox{
+  \cntb=0
+  \def\CJKpunctspaces{}
+  \immediate\openin\fdin=rubishb.tex\relax
+  \ifeof\fdin
+    \@latex@error{setpunct: file rubishb.tex not found}{}\relax
+  \fi
+  \loop
+    \getxyspace
+    \edef\CJKpunctspaces{\CJKpunctspaces\temp@xspace,}
+    \getxyspace
+    \edef\CJKpunctspaces{\CJKpunctspaces\temp@xspace,}
+    \advance\cntb 1
+  \ifnum\cntb<35\repeat
+  \immediate\closein\fdin
+  \immediate\write\fdspa{\string\def\string\CJKpunct@\CJKpunct@family
+    @spaces{\CJKpunctspaces,,}\string\relax}}
+
+\def\getxyspace{
+  \read\fdin to\tempa
+  \edef\:{\tempa}
+  \expandafter\getleftupdimen\: {} %%BoundingBox: 1 1 0 0 \relax
+  \ifnum\temp@xwidth<0\relax
+    \read\fdin to\tempa
+    \edef\:{\tempa}
+    \expandafter\getleftupdimen\: {} %%BoundingBox: 1 1 0 0 \relax
+  \fi
+  \ifnum\temp@xwidth<1
+    \@latex@error{error in setting punct bbox \tempa}{}\relax
+  \fi
+  \cnta=-\temp@xwidth\relax
+  \advance\cnta 100\relax
+  \edef\temp@xspace{\the\cnta}}
+
+\long\def\getleftupdimen#1%%BoundingBox: #2 #3 #4 #5 {
+  \cnta=#4\relax
+  \advance\cnta -#2\relax
+  \edef\temp@xwidth{\the\cnta}
+  \cnta=#5\relax
+  \advance\cnta -#3\relax
+  \edef\temp@yheight{\the\cnta}
+  \gobblerest}
+
+\long\def\gobblerest#1\relax{}
+
+\immediate\openout\fdspa=CJKpunct.spa\relax
+
+\setpunctfamilies
+
+\immediate\closeout\fdspa
+\end{CJK*}
+\end{document}
+
+
