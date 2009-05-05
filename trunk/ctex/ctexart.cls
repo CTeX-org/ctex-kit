@@ -229,7 +229,5 @@
   \fi}
 }
 
-\renewcommand*\refname{\CTEX@bibname}
-
 \endinput
 
