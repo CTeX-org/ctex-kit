@@ -261,7 +261,5 @@
   \fi}
 }
 
-\renewcommand*\bibname{\CTEX@bibname}
-
 \endinput
 
