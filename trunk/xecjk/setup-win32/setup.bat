@@ -39,23 +39,27 @@ echo *
 echo *
 echo *
 echo *     This will install the xeCJK package to "%localtexmf%"
-echo *  
+echo *
 echo *     texversion=%texversion%
 echo *
 echo *
 echo *
-echo *   
+echo *
 echo ***************************************************************
 echo on
 pause
 if not exist "%localtexmf%\source" md "%localtexmf%\source"
 if not exist "%localtexmf%\tex" md "%localtexmf%\tex"
+if not exist "%localtexmf%\tex\xelatex" md "%localtexmf%\tex\xelatex"
+if not exist "%localtexmf%\tex\xelatex\xecjk" md "%localtexmf%\tex\xelatex\xecjk"
 if not exist "%localtexmf%\doc" md "%localtexmf%\doc"
 
 xcopy   ..\source\*.* "%localtexmf%\source" /s /y
-xcopy   ..\tex\*.* "%localtexmf%\tex" /s /y
+copy    ..\tex\xelatex\xecjk\xeCJK.sty "%localtexmf%\tex\xelatex\xecjk\xeCJK.sty"   /y
+copy    ..\tex\xelatex\xecjk\ctex4xetex.cfg "%localtexmf%\tex\xelatex\xecjk\ctex4xetex.cfg"   /y
+if not exist "%localtexmf%\tex\xelatex\xecjk\xeCJKpunct.spa" copy ..\tex\xelatex\xecjk\xeCJKpunct.spa "%localtexmf%\tex\xelatex\xecjk\xeCJKpunct.spa"
 xcopy   ..\doc\*.* "%localtexmf%\doc" /s /y
-%texhashcmd% 
+%texhashcmd%
 goto end
 
 
@@ -74,7 +78,7 @@ echo *
 echo *      %texmfhomename%="%tempa%"
 echo *
 echo *
-echo *   
+echo *
 echo *
 echo ***************************************************************
 
