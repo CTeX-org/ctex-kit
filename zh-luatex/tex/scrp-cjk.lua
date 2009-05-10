@@ -32,6 +32,7 @@ local fontdata       = fonts.ids
 -- the intercharacter spacing interferes with this; the solution is to patch the
 -- nodelist but better is to use veryraggedleft
 
+local inter_char_space          = 0
 local inter_char_stretch        = 0
 local inter_char_half_shrink    = 0
 local inter_char_hangul_penalty = 0
@@ -40,6 +41,7 @@ local function set_parameters(font,data)
     -- beware: parameters can be nil in e.g. punk variants
     local parameters = fontdata[font].parameters
     local quad = (parameters and parameters.quad or parameters[6]) or 0
+    inter_char_space	      = -data.inter_char_space_factor * quad
     inter_char_half_shrink    = data.inter_char_half_shrink_factor * quad
     inter_char_stretch        = data.inter_char_stretch_factor * quad
     inter_char_hangul_penalty = data.inter_char_hangul_penalty
@@ -180,7 +182,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = korean_break,
         other            = korean_break,
     },
@@ -192,7 +194,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = korean_break,
         other            = korean_break,
     },
@@ -204,7 +206,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = korean_break,
         other            = korean_break,
     },
@@ -216,21 +218,21 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = stretch_break,
         other            = stretch_break,
     },
     start = {
-    --  jamo_initial     = nil,
-    --  korean           = nil,
-    --  chinese          = nil,
-    --  half_width_open  = nil,
-    --  half_width_close = nil,
-    --  full_width_open  = nil,
-    --  full_width_close = nil,
-    --  hyphen           = nil,
-    --  non_starter      = nil,
-    --  other            = nil,
+        jamo_initial     = nil,
+        korean           = nil,
+        chinese          = nil,
+        half_width_open  = nil,
+        half_width_close = nil,
+        full_width_open  = nil,
+        full_width_close = nil,
+        hyphen           = nil,
+        non_starter      = nil,
+        other            = nil,
     },
     other = {
         jamo_initial     = stretch_break,
@@ -240,7 +242,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = stretch_break,
         other            = stretch_break,
     },
@@ -252,7 +254,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak,
         full_width_open  = stretch_break,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak,
         other            = nobreak,
     },
@@ -373,17 +375,42 @@ scripts.install {
 }
 
 -- hanzi (chinese)
+local function plain_glue(head,current)
+   --insert_node_before(head,current,make_penalty_node(10000))
+   insert_node_before(head,current,
+		      make_glue_node(inter_char_space,
+				     inter_char_stretch,
+				     inter_char_half_shrink))
+end
+
+local function high_glue(head,current)
+   insert_node_before(head,current,make_penalty_node(10000))
+   insert_node_before(head,current,
+		      make_glue_node(2*inter_char_space,
+				     inter_char_stretch,
+				     inter_char_half_shrink))
+end
+
+local function high_high_glue(head,current)
+   insert_node_before(head,current,make_penalty_node(10000))
+   insert_node_before(head,current,
+		      make_glue_node(3*inter_char_space,
+				     inter_char_stretch,
+				     inter_char_half_shrink))
+end
 
 local injectors = { -- [previous] [current]
     jamo_final = {
         jamo_initial     = korean_break,
         korean           = korean_break,
         chinese          = stretch_break,
-        half_width_open  = nobreak_stretch_break_autoshrink,
+        -- half_width_open  = nobreak_stretch_break_autoshrink,
+        half_width_open  = plain_glue,
         half_width_close = nobreak_stretch,
-        full_width_open  = nobreak_stretch_break_shrink,
+        -- full_width_open  = nobreak_stretch_break_shrink,
+        full_width_open  = plain_glue,
         full_width_close = nobreak_stretch,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak_stretch,
         other            = stretch_break,
     },
@@ -395,7 +422,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak_stretch,
         full_width_open  = nobreak_stretch_break_shrink,
         full_width_close = nobreak_stretch,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak_stretch,
         other            = stretch_break,
     },
@@ -419,21 +446,21 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak_stretch,
         full_width_open  = nobreak_stretch_break_shrink,
         full_width_close = nobreak_stretch,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak_stretch,
         other            = stretch_break,
     },
     start = {
-    --  jamo_initial     = nil,
-    --  korean           = nil,
-    --  chinese          = nil,
+        jamo_initial     = nil,
+        korean           = nil,
+        chinese          = nil,
         half_width_open  = nobreak_autoshrink,
         half_width_close = nil,
         full_width_open  = nobreak_shrink,
         full_width_close = nobreak,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak,
-    --  other            = nil,
+        other            = nil,
     },
     other = {
         jamo_initial     = stretch_break,
@@ -443,7 +470,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak_stretch,
         full_width_open  = nobreak_stretch_break_shrink,
         full_width_close = nobreak_stretch,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak_stretch,
         other            = stretch_break,
     },
@@ -455,7 +482,7 @@ local injectors = { -- [previous] [current]
         half_width_close = nobreak_stretch,
         full_width_open  = nobreak_stretch_break_shrink,
         full_width_close = nobreak_stretch,
-    --  hyphen           = nil,
+        hyphen           = nil,
         non_starter      = nobreak_stretch,
         other            = stretch_break,
     },
@@ -486,11 +513,16 @@ local injectors = { -- [previous] [current]
     full_width_close = {
         jami_initial     = nobreak_shrink_break_stretch,
         korean           = nobreak_shrink_break_stretch,
-        chinese          = nobreak_shrink_break_stretch,
-        half_width_open  = nobreak_shrink_break_stretch_nobreak_autoshrink,
-        half_width_close = nobreak_shrink_nobreak_stretch,
-        full_width_open  = nobreak_shrink_break_stretch_nobreak_shrink,
-        full_width_close = nobreak_shrink_nobreak_stretch,
+        -- chinese          = nobreak_shrink_break_stretch,
+        chinese          = plain_glue,
+        -- half_width_open  = nobreak_shrink_break_stretch_nobreak_autoshrink,
+        half_width_open  = high_high_glue,
+        -- half_width_close = nobreak_shrink_nobreak_stretch,
+        half_width_close = high_glue,
+        -- full_width_open  = nobreak_shrink_break_stretch_nobreak_shrink,
+        full_width_open  = high_glue,
+        -- full_width_close = nobreak_shrink_nobreak_stretch,
+        full_width_close = high_glue,
         hyphen           = nobreak_shrink_break_stretch,
         non_starter      = nobreak_shrink_break_stretch,
         other            = nobreak_shrink_break_stretch,
@@ -498,11 +530,14 @@ local injectors = { -- [previous] [current]
     half_width_close = {
         jami_initial     = nobreak_shrink_break_stretch,
         korean           = nobreak_autoshrink_break_stretch,
-        chinese          = nobreak_autoshrink_break_stretch,
-        half_width_open  = nobreak_autoshrink_break_stretch_nobreak_autoshrink,
+        chinese          = plain_glue,
+        -- chinese          = nobreak_autoshrink_break_stretch,
+        -- half_width_open  = nobreak_autoshrink_break_stretch_nobreak_autoshrink,
+        half_width_open  = plain_glue,
         half_width_close = nobreak_autoshrink_nobreak_stretch,
         full_width_open  = nobreak_autoshrink_break_stretch_nobreak_shrink,
-        full_width_close = nobreak_autoshrink_nobreak_stretch,
+        -- full_width_close = nobreak_autoshrink_nobreak_stretch,
+        full_width_close = high_glue,
         hyphen           = nobreak_autoshrink_break_stretch,
         non_starter      = nobreak_autoshrink_break_stretch,
         other            = nobreak_autoshrink_break_stretch,
@@ -510,8 +545,11 @@ local injectors = { -- [previous] [current]
 }
 
 local dataset = {
-    inter_char_stretch_factor     = 0.50, -- of quad
-    inter_char_half_shrink_factor = 0.50, -- of quad
+    -- inter_char_stretch_factor     = 0.50, -- of quad
+    -- inter_char_half_shrink_factor = 0.50, -- of quad
+    inter_char_space_factor	  = 0.25,
+    inter_char_stretch_factor     = 0.25, -- of quad
+    inter_char_half_shrink_factor = 0.25, -- of quad
     inter_char_hangul_penalty     =   50,
 }
 
