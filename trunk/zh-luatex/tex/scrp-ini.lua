@@ -41,9 +41,9 @@ if not next(scripts.hash) then
     local hash = {
         --
         -- half width opening parenthesis
-        [0x0028] = "half_width_open",
-        [0x005B] = "half_width_open",
-        [0x007B] = "half_width_open",
+        -- [0x0028] = "half_width_open",
+        -- [0x005B] = "half_width_open",
+        -- [0x007B] = "half_width_open",
         [0x2018] = "half_width_open", -- ‘
         [0x201C] = "half_width_open", -- “
         --
@@ -65,9 +65,9 @@ if not next(scripts.hash) then
         [0xFF62] = "full_width_open", --     left corner bracket
         --
         -- half width closing parenthesis
-        [0x0029] = "half_width_close",
-        [0x005D] = "half_width_close",
-        [0x007D] = "half_width_close",
+        -- [0x0029] = "half_width_close",
+        -- [0x005D] = "half_width_close",
+        -- [0x007D] = "half_width_close",
         [0x2019] = "half_width_close", -- ’   right quote, right
         [0x201D] = "half_width_close", -- ”   right double quote
         --
