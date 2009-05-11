@@ -1,0 +1,150 @@
+%	myclass.sty	coded by YIN Dian
+%	Implement easy inter-class token definition with inheritance
+%	Hist:	070807	First usable version coded. \newclass, \{set,get,prepend,append}interclasstoks
+%			The tricky part is prepending stuffs to a token register, see TeX by Topics.
+%		070808	Added \setclassnum and \registerXeTeXclasstoks
+%		070809	Removed unnecessary \global's.
+%               070810  Only register non-empty tokens.
+%		071019	Added \getclassnum
+%		071210	Changed \@foreach to \@for.
+\catcode`\@=11
+\ifx\@myclass@defined\@undefined
+\def\@myclass@defined{\relax}
+\input usefulmacros.sty
+\catcode`\@=11
+\def\@class@list{}
+\def\newclass{\@ifnextchar[{\@newclass@param}{\@newclass}}
+\def\@newclass@param[#1]#2{%
+  \if!#1!
+    \errmessage{Base class name shouldn't be empty.}%
+  \fi
+  \if!#2!
+    \errmessage{Class name shouldn't be empty.}%
+  \fi
+  \@ifundefined{@@classname@#1}{%
+    \errmessage{Base class not defined yet.}%
+  }{}%
+  \@ifundefined{@@classname@#2}{% if
+    \@namedef{@@classname@#2}{\relax}%
+    \@namedef{@@baseclass@#2}{#1}%
+    \@for\@@class:=\@class@list\do{% for
+      \if!\@@class!
+      \else
+        \@newinterclasstoks{#2}{\@@class}%
+        \@newinterclasstoks{\@@class}{#2}%
+        %\setinterclasstoks{#2}{\@@class}{\getinterclasstoks{#1}{\@@class}}% 
+        %\setinterclasstoks{\@@class}{#2}{\getinterclasstoks{\@@class}{#1}}% 
+        \copyinterclasstoks{#2}{\@@class}{#1}{\@@class}% 
+        \copyinterclasstoks{\@@class}{#2}{\@@class}{#1}% 
+      \fi
+    }% end for
+    \@newinterclasstoks{#2}{#2}%
+    \edef\@class@list{\@class@list,#2}%
+  }{% else
+    \errmessage{Class already defined.}%
+  }% end if
+}
+\def\@newclass#1{%
+  \if!#1!
+    \errmessage{Class name shouldn't be empty.}%
+  \fi
+  \@ifundefined{@@classname@#1}{% if
+    \@namedef{@@classname@#1}{\relax}%
+    \@for\@@class:=\@class@list\do{% for
+      \if!\@@class!
+      \else
+        \@newinterclasstoks{#1}{\@@class}%
+        \@newinterclasstoks{\@@class}{#1}%
+      \fi
+    }% end for
+    \@newinterclasstoks{#1}{#1}%
+    \edef\@class@list{\@class@list,#1}%
+  }{% else
+    \errmessage{Class already defined.}%
+  }% end if
+}
+\def\getbaseclass#1#2{%
+  \@ifundefined{@@baseclass@#1}{\def#2{}}{\edef#2{\csname @@baseclass@#1\endcsname}}%
+}
+\def\@newinterclasstoks#1#2{%
+  \expandafter\newtoks\csname @@interclasstoks@#1@#2\endcsname
+  \csname @@interclasstoks@#1@#2\endcsname={}%\meaning #1, \meaning #2}%
+  %%\expandafter\gdef\csname @@interclasstoks@#1@#2\endcsname{}%
+}
+\def\setinterclasstoks#1#2#3{%
+  \csname @@interclasstoks@#1@#2\endcsname={#3}%
+  %%\expandafter\edef\csname @@interclasstoks@#1@#2\endcsname{#3}%
+}
+\def\getinterclasstoks#1#2{%
+  \expandafter\the\csname @@interclasstoks@#1@#2\endcsname
+  %%\csname @@interclasstoks@#1@#2\endcsname
+}
+\def\copyinterclasstoks#1#2#3#4{% (#1, #2) <- (#3, #4)
+  \expandafter\csname @@interclasstoks@#1@#2\endcsname\expandafter{\expandafter\the\csname @@interclasstoks@#3@#4\endcsname}%
+}
+\def\prependinterclasstoks#1#2#3{%
+  \toks0={#3}%
+  \edef\@@prepend@act{\csname @@interclasstoks@#1@#2\endcsname={\the\toks0
+    \expandafter\the\csname @@interclasstoks@#1@#2\endcsname}}%
+  \@@prepend@act
+  %%\expandafter\edef\csname @@interclasstoks@#1@#2\endcsname{#3\csname @@interclasstoks@#1@#2\endcsname}%
+}
+\def\appendinterclasstoks#1#2#3{%
+  \expandafter\csname @@interclasstoks@#1@#2\endcsname\expandafter{\the\csname @@interclasstoks@#1@#2\endcsname #3}%
+  %%\global\expandafter\edef\csname @@interclasstoks@#1@#2\endcsname{\csname @@interclasstoks@#1@#2\endcsname #3}%
+}
+\def\showallinterclasstoks{%
+  \par
+  \begingroup
+  \@for\class:=\@class@list\do{%
+     \if!\class!
+     \else
+       \@for\anotherclass:=\@class@list\do{%
+         \if!\anotherclass!
+         \else
+           [\class, \anotherclass]: %\csname @@interclasstoks@\class @\anotherclass\endcsname
+           \expandafter\the\csname @@interclasstoks@\class @\anotherclass\endcsname
+           \hfil\break
+         \fi
+       }%
+     \fi
+  }%
+  \endgroup
+}
+\newlinechar`\^^J
+\def\setclassnum#1#2{%
+  \expandafter\chardef\csname @@classnum@#1\endcsname=#2\relax
+}
+\def\getclassnum#1{%
+  \csname @@classnum@#1\endcsname
+}
+\def\mydbgmessag@#1{}
+\def\registerXeTeXclasstoks{%
+  \@for\class:=\@class@list\do{%
+    \@ifundefined{@@classnum@\class}{}{%
+      \@for\anotherclass:=\@class@list\do{%
+        \@ifundefined{@@classnum@\anotherclass}{}{%
+          \edef\@@temp@macro{\the\csname @@interclasstoks@\class @\anotherclass\endcsname}%
+          \ifx\@@temp@macro\empty
+          \else
+            \edef\@@temp@macro{\@@temp@macro}%
+            \ifx\@@temp@macro\empty
+            \else
+              \edef\@@register@act{\noexpand\XeTeXinterchartoks\csname @@classnum@\class\endcsname
+                \csname @@classnum@\anotherclass\endcsname\noexpand{\expandafter\the\csname
+                @@interclasstoks@\class @\anotherclass\endcsname\noexpand}}%
+              \@@register@act
+              \edef\@@register@act{\noexpand\mydbgmessag@\noexpand{Registered (\expandafter\number
+                \csname @@classnum@\class\endcsname, \expandafter\number
+                \csname @@classnum@\anotherclass\endcsname)\noexpand}}%
+              \@@register@act
+              \mydbgmessag@{Registered (\class, \anotherclass) token: \expandafter\the\csname
+                @@interclasstoks@\class @\anotherclass\endcsname ^^J}%
+            \fi
+          \fi
+        }%
+      }%
+    }%
+  }%
+}
+\fi

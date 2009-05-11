@@ -1,0 +1,143 @@
+%	zhfont.sty	coded by YIN Dian
+%	Simplify setting various font effects
+%	Hist:	071204	First coded.
+%		071210	Improved. Added \newfontfamilywithslant and
+%			\newfontfamilywithslantandbold to simplify setting.
+%		071211	Added fake bold support.
+%		071231	Added underdot support.
+%		080102	Minor changes on underdot. Don's use \scantokens.
+%			Fixed bug of \zhfont in ulem. Added font family
+%			selection and fake bold support in active hanzi.
+\NeedsTeXFormat{LaTeX2e}[1996/12/01]
+\def\filedate{2008/01/02}
+\ProvidesPackage{zhfont}[\filedate]
+\RequirePackage{zhspacing}
+\RequirePackage{zhulem}
+\newif\ifzhfont@fakebold
+\zhfont@fakeboldfalse
+\DeclareOption{fakebold}{\zhfont@fakeboldtrue}
+\ProcessOptions\relax
+
+\def\zhs@tmpmacro{}
+\def\zhs@curr@fam{-1}
+
+\zhnfsssavefont
+\g@addto@macro\zhs@savefont{%
+  \long\edef\zhs@tmpmacro{\f@family}%
+  \def\zhs@curr@fam{0}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+  \edef\zhs@tmpmacro{\f@family}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+}
+\ifzhfont@fakebold
+\def\zhfont@bx{bx}
+\g@addto@macro\zhs@savefont{%
+  \ifx\f@series\zhfont@bx
+    \special{pdf: literal direct q 0.3 w 2 Tr}%
+  \fi
+}
+\g@addto@macro\zhs@restorefont{%
+  \ifx\f@series\zhfont@bx
+    \special{pdf: literal direct 0 Tr}%
+  \fi
+}
+\fi
+
+\def\newfontfamilywithslant#1#2{%
+  \newfontfamily#1[ItalicFont=#2,ItalicFeatures={RawFeature={slant=0.17}},BoldItalicFont=#2,BoldItalicFeatures={RawFeature={slant=0.17}}]{#2}%
+}
+\def\newfontfamilywithslantandbold#1#2#3{%
+  \newfontfamily#1[BoldFont=#3,ItalicFont=#2,ItalicFeatures={RawFeature={slant=0.17}},BoldItalicFont=#3,BoldItalicFeatures={RawFeature={slant=0.17}}]{#2}%
+}
+
+%\newfontfamily\zhrmfont[BoldFont=SimHei,ItalicFont=SimSun,ItalicFeatures={RawFeature={slant=0.17}},BoldItalicFont=SimHei,BoldItalicFeatures={RawFeature={slant=0.17}}]{SimSun}
+%\newfontfamily\zhsffont[ItalicFont=SimHei,ItalicFeatures={RawFeature={slant=0.17}}]{SimHei}
+%\newfontfamily\zhttfont[BoldFont=KaiTi_GB2312,ItalicFont=FangSong_GB2312,ItalicFeatures={RawFeature={slant=0.17}},BoldItalicFont=KaiTi_GB2312,BoldItalicFeatures={RawFeature={slant=0.17}}]{FangSong_GB2312}
+\ifzhfont@fakebold
+\newfontfamilywithslant\zhrmfont{SimSun}
+\newfontfamilywithslant\zhsffont{SimHei}
+\newfontfamilywithslant\zhttfont{FangSong_GB2312}
+\else
+\newfontfamilywithslantandbold\zhrmfont{SimSun}{SimHei}
+\newfontfamilywithslant\zhsffont{SimHei}
+\newfontfamilywithslantandbold\zhttfont{FangSong_GB2312}{KaiTi_GB2312}
+\fi
+\def\zhfont{\ifcase\zhs@curr@fam\zhrmfont\or\zhsffont\or\zhttfont\else\zhrmfont\fi}
+
+\def\setzhmainfont{\newfontfamily\zhrmfont}
+\def\setzhsansfont{\newfontfamily\zhsffont}
+\def\setzhmonofont{\newfontfamily\zhttfont}
+
+\enableactivehanzi
+\def\zhhanzihook#1{%
+  % select family
+  \long\edef\zhs@tmpmacro{\f@family}%
+  \def\zhs@curr@fam{0}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+  \edef\zhs@tmpmacro{\f@family}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+  \ifzhfont@fakebold\ifx\f@series\zhfont@bx
+    \special{pdf: literal direct q 0.3 w 2 Tr}%
+  \fi\fi
+  {\XeTeXinterchartokenstate=0\zhs@font #1}%
+  \ifzhfont@fakebold\ifx\f@series\zhfont@bx
+    \special{pdf: literal direct 0 Tr}%
+  \fi\fi
+}
+
+\def\underdot@dot{\XeTeXinterchartokenstate=0\zhpunctfont \vbox to 0.5em{\vss\hbox{·}\vss}}
+%\def\underdot@dot{\vbox to 0.5em{\vss\hbox{\bf .}\vss}}
+\newskip\underdot@skip
+\underdot@skip=2.5pt
+\def\underdot{%
+  \begingroup
+  \makehanziglobalactive
+  \def\zhhanzihook##1{%
+    \setbox0=\hbox{\underdot@dot}%
+    \leavevmode\vtop{\baselineskip=\underdot@skip\lineskiplimit=-\maxdimen
+    \advance\baselineskip\ht0
+    % select family
+    \long\edef\zhs@tmpmacro{\f@family}%
+    \def\zhs@curr@fam{0}%
+    \ifx\zhs@tmpmacro\sfdefault
+      \def\zhs@curr@fam{1}%
+    \else\ifx\zhs@tmpmacro\ttdefault
+      \def\zhs@curr@fam{2}%
+    \fi\fi
+    \edef\zhs@tmpmacro{\f@family}%
+    \ifx\zhs@tmpmacro\sfdefault
+      \def\zhs@curr@fam{1}%
+    \else\ifx\zhs@tmpmacro\ttdefault
+      \def\zhs@curr@fam{2}%
+    \fi\fi
+    \ialign{####\cr\XeTeXinterchartokenstate=0\zhs@font 
+    \ifzhfont@fakebold\ifx\f@series\zhfont@bx
+    \special{pdf: literal direct q 0.3 w 2 Tr}##1%
+    \special{pdf: literal direct 0 Tr}\else ##1\fi\else ##1\fi
+    \cr\hidewidth\box0\hidewidth\cr}}%
+  }%
+  \underd@t
+}
+\def\underd@t#1{%
+  #1%
+  \makehanzigloballetter
+  \endgroup
+}
+
+\endinput
