@@ -6,9 +6,12 @@
    document class]
 
 \def\CTEX@classtoload{report}
+
 \input{ctex-common.opt}
 \input{ctex-caption.opt}
 \input{ctex-class.opt}
+
+\input{ctex-loadclass.def}
 
 \input{ctex-common.def}
 \input{ctex-caption.def}
