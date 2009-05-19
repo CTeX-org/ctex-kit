@@ -5,14 +5,14 @@
   [2009/05/05 v0.9 ctexart
    document class]
 
-\input{ctex-common.opt}
-
 \def\CTEX@classtoload{article}
+\input{ctex-common.opt}
+\input{ctex-caption.opt}
 \input{ctex-class.opt}
 
 \input{ctex-common.def}
-\input{ctex-class.def}
 \input{ctex-caption.def}
+\input{ctex-class.def}
 \input{ctex-article.def}
 
 \endinput
