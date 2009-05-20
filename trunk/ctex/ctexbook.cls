@@ -3,7 +3,6 @@
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexbook}
   [2009/05/20 v0.91 ctexbook
-  [2009/05/20 v0.91 ctexbook
    document class]
 
 \def\CTEX@classtoload{book}
