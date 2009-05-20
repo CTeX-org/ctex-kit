@@ -1,4 +1,4 @@
-% $Id$
+% ctexrep.cls
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexrep}
