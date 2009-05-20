@@ -10,10 +10,10 @@ def update_version(file, date, version):
 
     for line in f:
         if update_next:
+            update_next = False
             m = line_re.match(line)
             if m:
                 line = "%s[%s %s %s\n" % (m.group(1), date, version, m.group(4))
-                lines += line
 
         elif "ProvidesPackage" in line or "ProvidesClass" in line or "ProvidesFile" in line:
             update_next = True
@@ -26,8 +26,8 @@ def update_version(file, date, version):
     f.close()
 
 if len(sys.argv) != 3:
-    print "%s <date> <version>"
-    print "like: %s 2009/05/20 v0.91"
+    print("%s <date> <version>")
+    print("like: %s 2009/05/20 v0.91")
     sys.exit(1)
 
 file_list = [ "../ctex.sty", "../ctexcap.sty", "../ctexart.cls", "../ctexbook.cls", "../ctexrep.cls" ]
