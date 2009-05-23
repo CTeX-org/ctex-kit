@@ -7,9 +7,9 @@
 
 \def\CTEX@classtoload{book}
 
-\input{ctex-common.opt}
-\input{ctex-caption.opt}
-\input{ctex-class.opt}
+\input{ctex-common-opts.def}
+\input{ctex-caption-opts.def}
+\input{ctex-class-opts.def}
 
 \input{ctex-loadclass.def}
 
