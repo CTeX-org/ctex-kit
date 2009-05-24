@@ -1,0 +1,268 @@
+%%% Asymptote style file for LaTeX
+%%% Contributed by Tom Prince 14 May 2003
+%%% Modified by John Bowman
+%%% Adapted from comment.sty (Under GPL v2)
+
+% again modified by milksea
+
+\ProvidesPackage{asymptote}[2009/05/12 v1.06 Asymptote style file for LaTeX, modified by milksea]
+\RequirePackage{keyval}
+\RequirePackage{ifthen}
+\RequirePackage{ifpdf}
+\RequirePackage{ifxetex}
+\newif\ifASYinline
+\DeclareOption{inline}{\ASYinlinetrue}
+\ProcessOptions*
+
+% Work around jobname bug in MiKTeX 2.5 and 2.6:
+% Turn stars in file names (resulting from spaces, etc.) into minus signs
+\def\fixstar#1*#2\relax{\def\argtwo{#2}\ifx\argtwo\empty\gdef\Jobname{#1}\else
+\fixstar#1-#2\relax\fi}
+\expandafter\fixstar\jobname*\relax
+
+\RequirePackage{color,graphicx}
+
+\def\makeinnocent#1{\catcode`#1=12 }
+\def\csarg#1#2{\expandafter#1\csname#2\endcsname}
+\newwrite\AsyStream
+\newread\AsyTestStream
+\newread\AsyTestTeXStream
+\def\AsyFile{\jobname.asy}
+
+\openin\AsyTestStream=\jobname_.pre
+\ifeof\AsyTestStream
+\else
+\input \jobname_.pre
+\fi
+\closein\AsyTestStream%
+
+\immediate\openout\AsyStream=\AsyFile
+\immediate\write\AsyStream{if(!settings.multipleView)}%
+\immediate\write\AsyStream{  settings.batchView=false;}%
+
+\newif\ifASYattach
+\newif\ifASYtex
+
+\newif\ifASYPDF
+\ifpdf
+  \ASYPDFtrue
+  \immediate\write\AsyStream{settings.tex="pdflatex";}%
+\fi
+\ifxetex
+  \ASYPDFtrue
+  \immediate\write\AsyStream{settings.tex="xelatex";}%
+\fi
+
+\ifASYinline
+\immediate\write\AsyStream{settings.inlinetex=true;}%
+\immediate\write\AsyStream{deletepreamble();}%
+\fi
+
+\newbox\ASYbox
+\newcounter{asy}
+
+\def\ProcessAsymptote#1% start it all off
+{\begingroup
+  \def\CurrentAsymptote{#1}%
+  \let\do\makeinnocent \dospecials 
+  \makeinnocent\^^L% and whatever other special cases
+  \endlinechar`\^^M \catcode`\^^M=12 \xAsymptote}
+{\catcode`\^^M=12 \endlinechar=-1 %
+  \gdef\xAsymptote{%
+    \expandafter\ProcessAsymptoteLine}
+  \gdef\ProcessAsymptoteLine#1^^M{\def\test{#1}
+    \csarg\ifx{End\CurrentAsymptote Test}\test
+    \edef\next{\noexpand\EndOfAsymptote{\CurrentAsymptote}}%
+    \else \ThisAsymptote{#1}\let\next\ProcessAsymptoteLine
+    \fi \next}
+}
+
+\def\ASYstringmeaning#1{\expandafter\ASYgobblearrow\meaning#1}
+\def\ASYstringcsnoescape#1{\expandafter\ASYgobbleescape\string#1}
+{\escapechar-1
+  \expandafter\expandafter\expandafter\gdef
+  \expandafter\expandafter\expandafter\ASYgobblearrow
+  \expandafter\string\csname macro:->\endcsname{}
+}
+\def\ASYgobbleescape#1{\ifnum`\\=`#1 \else #1\fi}
+
+\def\WriteAsyLine#1{\def\ASYtmp{#1}%
+  \immediate\write\AsyStream{\ASYstringmeaning\ASYtmp}}
+
+\def\gedefappend#1#2{%
+  \toks@ = \expandafter{#1}%
+  \global\edef#1{\the\toks@ #2}%
+}%
+\def\globalASYdefs{}
+\def\WriteGlobalAsyLine#1{\def\ASYtmp{#1^^J}%
+\gedefappend\globalASYdefs{\ASYstringmeaning\ASYtmp}}
+
+\def\EndOfAsymptote#1{\endgroup\end{#1}%
+    \csname After#1Asymptote\endcsname}
+\def\AsymptoteEndDef#1{{\escapechar=-1\relax
+    \csarg\xdef{End#1Test}{\string\\end\string\{#1\string\}}%
+  }}
+
+\def\AfterasyAsymptote{%
+  \ifx\ASYwidth\empty
+    \ifx\ASYheight\empty
+    \else
+      \immediate\write\AsyStream{size(0,\ASYheight);}%
+    \fi
+  \else
+    \ifx\ASYheight\empty
+      \immediate\write\AsyStream{size(\ASYwidth,0);}%
+    \else
+      \immediate\write\AsyStream{size(\ASYwidth,\ASYheight);}%
+    \fi
+  \fi
+  \ASYtexfalse
+  \ifASYattach
+    \def\ASYdefaultviewportwidth{0}
+  \else
+    \def\ASYdefaultviewportwidth{\the\linewidth}
+    \ifASYinline
+      \ASYtextrue
+    \fi
+  \fi
+  \ifx\ASYviewportwidth\empty
+    \ifx\ASYviewportheight\empty
+    \else
+      \immediate\write\AsyStream{viewportsize=(0,\ASYviewportheight);}%
+    \fi
+  \else
+    \ifx\ASYviewportheight\empty
+      \immediate\write\AsyStream{viewportsize=(\ASYviewportwidth,0);}%
+    \else
+      \immediate\write%
+        \AsyStream{viewportsize=(\ASYviewportwidth,\ASYviewportheight);}%
+    \fi
+  \fi
+  \gdef\ASYwidth{}
+  \gdef\ASYheight{}
+  \gdef\ASYviewportwidth{\ASYdefaultviewportwidth}
+  \gdef\ASYviewportheight{}
+  \immediate\write\AsyStream{\@charrb);}%
+  \immediate\write\AsyStream{// End of Asymptote Figure \the\c@asy}%
+  \ifASYtex
+    \openin\AsyTestStream=\Jobname-\the\c@asy_.tex
+  \else
+    \ifASYPDF
+      \openin\AsyTestStream=\Jobname-\the\c@asy.pdf
+    \else
+      \openin\AsyTestStream=\Jobname-\the\c@asy.eps
+    \fi
+  \fi
+  \ifeof\AsyTestStream
+    \ifASYtex
+      \PackageWarning{asymptote}{file \Jobname-\the\c@asy_.tex does not exist}%
+    \else
+      \openin\AsyTestTeXStream=\Jobname-\the\c@asy_.tex
+      \ifeof\AsyTestTeXStream
+        \ifASYPDF
+        \PackageWarning{asymptote}{file \Jobname-\the\c@asy.pdf does not exist}%
+        \else
+        \PackageWarning{asymptote}{file \Jobname-\the\c@asy.eps does not exist}%
+        \fi
+      \else
+        \catcode`:=12
+        \input \Jobname-\the\c@asy_.tex%
+      \fi
+      \closein\AsyTestTeXStream%
+    \fi
+    \closein\AsyTestStream%
+  \else
+    \closein\AsyTestStream%
+    \ifASYtex
+      \catcode`:=12
+      \input \Jobname-\the\c@asy_.tex%
+    \else
+      \ifASYattach
+        \ifASYPDF
+          \openin\AsyTestStream=\Jobname-\the\c@asy-0.pdf
+        \fi
+        \ifeof\AsyTestStream
+          \setbox\ASYbox=\hbox{\includegraphics{\Jobname-\the\c@asy}}%
+        \else
+          \setbox\ASYbox=\hbox{\includegraphics{\Jobname-\the\c@asy-0}}%
+        \fi
+        \textattachfile{\Jobname-\the\c@asy.pdf}{\phantom{\copy\ASYbox}}%
+        \vskip-\ht\ASYbox%
+        \indent%
+        \box\ASYbox%
+        \closein\AsyTestStream%
+      \else
+        \includegraphics{\Jobname-\the\c@asy}%
+      \fi
+    \fi
+  \fi
+  \global\ASYattachfalse
+  \relax%
+  \endgroup}
+\gdef\ASYwidth{}%
+\define@key{ASYkeys}{width}{%
+  \gdef\ASYwidth{#1}%
+}
+\gdef\ASYheight{}%
+\define@key{ASYkeys}{height}{%
+  \gdef\ASYheight{#1}%
+}
+\gdef\ASYviewportwidth{\ASYdefaultviewportwidth}%
+\define@key{ASYkeys}{viewportwidth}{%
+  \gdef\ASYviewportwidth{#1}%
+}
+\gdef\ASYviewportheight{}%
+\define@key{ASYkeys}{viewportheight}{%
+  \gdef\ASYviewportheight{#1}%
+}
+\define@key{ASYkeys}{attach}[true]{%
+  \ifthenelse{\equal{#1}{true}}{\global\ASYattachtrue}{\global\ASYattachfalse}%
+}
+\newcommand\asy[1][]{%
+  \begingroup
+  \let\par\empty
+  \stepcounter{asy}%
+  \setkeys{ASYkeys}{#1}%
+   \immediate\write\AsyStream{}%
+   \immediate\write\AsyStream{// Beginning of Asymptote Figure \the\c@asy}%
+   \immediate\write\AsyStream{eval(quote\@charlb}%
+   \immediate\write\AsyStream{defaultfilename='\Jobname-\the\c@asy';}%
+   \immediate\write\AsyStream{if(settings.render < 0) settings.render=4;}%
+   \ifASYattach
+     \immediate\write\AsyStream{settings.inlineimage=false;}%
+     \immediate\write\AsyStream{settings.embed=false;}%
+     \immediate\write\AsyStream{settings.outformat='pdf';}%
+     \immediate\write\AsyStream{settings.toolbar=true;}%
+   \else
+     \immediate\write\AsyStream{settings.inlineimage=true;}%
+     \immediate\write\AsyStream{settings.embed=true;}%
+     \immediate\write\AsyStream{settings.outformat='';}%
+     \immediate\write\AsyStream{settings.toolbar=false;}%
+   \fi
+  \immediate\write\AsyStream{\globalASYdefs}%
+  \let\ThisAsymptote\WriteAsyLine%
+  \ProcessAsymptote{asy}%
+}
+\AsymptoteEndDef{asy}
+\def\asydef{%
+  \let\ThisAsymptote\WriteGlobalAsyLine%
+  \ProcessAsymptote{asydef}}
+\AsymptoteEndDef{asydef}
+\def\AfterasydefAsymptote{}
+
+\AtEndDocument{\immediate\closeout\AsyStream}
+
+\newcommand{\ASYanimategraphics}[5][]{%
+\openin\AsyTestStream=_#3.pdf
+\ifeof\AsyTestStream%
+\else%
+\animategraphics[{#1}]{#2}{_#3}{#4}{#5}%
+\fi%
+}
+
+\def\Asymptote{{\tt Asymptote}}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "shared"
+%%% End: 
