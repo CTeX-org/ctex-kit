@@ -4,7 +4,6 @@ makeindex -o ctex-faq.ind ctex-faq.idx
 latex ctex-faq.tex
 makeindex -o ctex-faq.ind ctex-faq.idx
 latex ctex-faq.tex
-gbk2uni ctex-faq.dvi
 latex ctex-faq.tex
 dvipdfmx ctex-faq.dvi
 del *.aux
