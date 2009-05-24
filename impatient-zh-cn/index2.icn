@@ -1,0 +1,239 @@
+# This Icon program is the second pass of the indexing process for TeX for the
+# Impatient.  It must be preceded by index1 and by a sort of the intermediate
+# file.
+
+# This program was written by Paul Abrahams and is public domain.
+
+record topic_entry(term, type, groupchar, pages, level)
+record pgrec(number, flags)
+record term_list_record(term_list, start)
+procedure main(a)
+	local gen, pages, term, topic
+	local groupchar
+
+	write(&errout, "Second indexing pass has started.")
+
+# Each pass through this loop produces the entry for a single topic
+# or subtopic, including both the text of the topic and its pages.
+
+	every topic := get_topic_info() do {
+
+# If we're starting a new group (initial character), produce the macro
+# for it.
+		if topic.level = 1 then { # only primary topics affect the group
+			if not(\groupchar == topic.groupchar) then
+				write("\\indexgroup ", groupchar := topic.groupchar)
+			}
+		else
+			topic.type := "N" # subtopics are always printed normally
+
+# Write the index term
+		writes("\\indexentry {", topic.level - 1, "}{",
+			edit_term(topic.term), "}{", topic.type, "}{")
+
+# Write the list of pages
+		write(edit_pages(topic.pages, topic.term), "}")
+		}
+end
+
+procedure get_topic_info()
+	local page, type, full_term, flags # info in an index item
+	local term      # the index term to be printed (part of full_term)
+	local item_text # holds an input item to be parsed
+	local topic     # the topic we're now working on
+	local term_list_info # returned term_list_record from get_term_list
+	local term_list # list of index terms extracted from the input item
+	local first		 # position of first thing in term_list to print
+	local t			 # loop variable
+	local term1		 # first term in full_term, usually the only one
+
+	term_list := []
+
+# At the start of each pass through this loop, `topic' contains the text of
+# the index topic most recently seen together with the pages seen so far for
+# that index topic.
+
+	every !&input ? (tab(find("@@@")\1), move(3), item_text := tab(0)) do {
+
+# Dissect the original index item, discarding the key
+
+		item_text ? (full_term := tab(find("::")), move(2),
+		 type := tab(find("::")), move(2),
+		 page := tab(many('-0123456789*')), flags := tab(0))
+# a page of * indicates a see-also
+
+		term_list_info := get_term_list(full_term, term_list)
+		term_list := term_list_info.term_list
+		if type == (\topic).type then # no change of type
+			first := term_list_info.start
+		else
+			first := 1 # change of type, so all terms are different
+		term1 := term_list[\first]
+
+# If we've finished the current topic, produce it and start the next one
+		
+		if \first then {
+			suspend \topic
+			topic := topic_entry(term1, type, find_groupchar(term1), [], first)
+			every t := !term_list[first + 1:0] do {
+				suspend topic
+				topic.term := t; topic.type := "N"; topic.level +:= 1
+			}	}
+		put(topic.pages,
+			if page == "*" then
+				flags # flags here is the see-also
+			else
+				pgrec(page, cset(flags)))
+		}
+	suspend topic
+	fail
+end
+
+procedure edit_term(term)
+# This procedure edits `term' into a proper argument for \indexterm
+
+	if term == " " then
+		term := "\\visiblespace"
+	else if *term = 1 then
+		term := "\\char `\\" || term
+	else if match("^^", term) then
+		term := "\\twocarets " || term[3:0]
+	else if term == "$$" then
+		term := "\\$\\$"
+# $$ is the only other 2-character sequence that has to be protected.
+	return term
+end	
+
+procedure edit_pages(l, term)
+# edit_pages removes duplicate pages from the page list, produces the
+# macro call for a principal entry, and coalesces page ranges.
+# It also converts negative numbers to roman numerals.
+# Each element of l is a pgrec, except that the last (and possibly only)
+# element may be a see-also string starting with *.
+# The result is a list of strings
+	local pg, n, m, pf, see_also, pagelist
+	local l1, k
+
+# If the last element of l is a string, remove it and set it aside.
+# It's a see-also.
+	if type(l[-1]) == "string" then
+		{see_also := l[-1]; l := l[1:-1]}
+
+
+# First pass through the page list, coalescing duplicates and combining
+# their flags.
+
+	l1 := []
+	while *l > 0 do {
+		pg := pop(l); n := pg.number; pf := pg.flags
+
+# Loop over pages 2..k within a group
+
+		while n = l[1].number do
+			pf ++:= pop(l).flags
+
+		if *(pf ** 'BE') = 2 then # delete B and E if they both occur
+			pf --:= 'BE'
+		put(l1, pgrec(n, pf))
+		}
+
+# Now l1 has no duplicates and no trivial page ranges.  Replace each
+# page range by a single entry, inverting the order for negative page
+# numbers since those indicate roman numerals.
+# When we're done, l1 has a list of strings rather than a list of pgrecs.
+
+	l := l1; l1 := []
+	while *l > 0 do {
+		pg := pop(l); n := pg.number; pf := pg.flags
+		if *(pf ** 'E') > 0 then {
+			every write(errfiles(), "Unmatched end of page range, page ",
+			 integer(n), ", index term `", term, "'!")
+			pf --:= 'E'
+			}
+		if *(pf ** 'B') > 0 then { # beginning a page range
+			every k := 1 to *l do {
+				pf ++:= l[k].flags
+				if *(pf ** 'E') > 0 then break
+				}
+			if *(pf ** 'E') = 0 then {
+				every write(errfiles(), "Unmatched beginning of page range, page ",
+				 integer(n), ", index term `", term, "'!")
+				pf := pg.flags
+				}
+			else {
+				m := l[k].number
+				if m < 0 then { # roman numerals
+					m := "\\r" || -m
+					n := "\\r" || -n
+					}
+				n := string(n || "--" || m)
+				l := l[k+ 1:0]
+			}	}
+		else if n < 0 then
+			n := "\\r" || -n
+		if *(pf ** 'P') > 0 then
+			n := "\\pp{" || n || "}"
+		put(l1, n)
+		}
+
+# Now l1 is a list of page numbers and page ranges.
+# If it's empty and we have a see-also, make it a \see and return it.
+
+	if *l1 = 0 then
+		return "\\see{" || \see_also || "}" | ""
+
+# Turn l1 into a string and insert the comma commands \ic and \c
+# \ic goes at the beginning, \c between the remaining elements.
+
+	pagelist := "\\ic " || pop(l1) | ""
+	every pagelist ||:= "\\c " || !l1
+
+# Now attach the see-also to pagelist if we had one and return the result
+
+	return pagelist || ("\\seealso{" || \see_also || "}" | "")
+end
+
+procedure find_groupchar(t)
+# This procedure finds the character that heads the group containing
+# the index term `t'.  We want all special characters in a single group
+# and all digits in a single group.
+# A term that begins with `\<c' or `\c' or `.c' is grouped as `c'.
+	local c
+	static printable, specials
+	initial {
+		printable := &ascii[33:-1]
+		specials := string(printable -- (&ucase ++ &lcase ++ &digits))
+		}
+
+	return map(
+			if t ? (tab(many('\\.<')), c := move(1)) then c
+			else if any(specials, t[1]) then "+"
+			else if any(&digits, t[1]) then "0"
+			else t[1] | "",
+		&lcase, &ucase)
+end
+
+procedure get_term_list(ft, tl)
+# `ft' is the full term just read in, `tl' is the current term list
+# return a record containing all the terms and the position of the first
+# one that's different from the previous full term
+	local tl1, pos, pos1, first, k
+	
+	tl1 := []
+	pos := 1
+	every pos1 := (find("//", ft) | 0) do
+		{put(tl1, ft[pos:pos1]); pos := pos1 + 2}
+
+	first := &null	
+	every k := 1 to *tl1 do
+		if not(tl1[k] == tl[k]) then
+			{first := k; break}
+	return term_list_record(tl1, first)
+end	
+
+procedure errfiles()
+	static errf
+	initial
+		errf := open("index.err", "w")
+	suspend &errout | errf
+end

@@ -1,0 +1,4056 @@
+%% @texfile{
+%%   author = "Karl Berry, Steven Smith, Oleg Katsitadze, and others",
+%%   version = "3.2",
+%%   date = "Mon Nov 26 01:34:44 EET 2007",
+%%   filename = "eplain.tex",
+%%   email = "bug-eplain@tug.org",
+%%   checksum = "4056   8707 129859",
+%%   codetable = "ASCII",
+%%   supported = "yes",
+%%   docstring = "This file defines macros that extend and expand on
+%%                plain TeX. eplain.tex is xeplain.tex and the other
+%%                source files with comments stripped; see the original
+%%                files for author credits, etc.  And please base diffs
+%%                or other contributions on xeplain.tex, not the
+%%                stripped-down eplain.tex.",
+%% }
+\ifx\eplain\undefined
+  \let\next\relax
+\else
+  \expandafter\let\expandafter\next\csname endinput\endcsname
+\fi
+\next
+\begingroup
+  \expandafter\let\expandafter\x\csname ver@ifpdf.sty\endcsname
+  \ifcase 0%
+    \ifx\x\relax % plain
+    \else
+      \ifx\x\empty % LaTeX
+      \else
+        1%
+      \fi
+    \fi
+  \else
+    \expandafter\ifx\csname PackageInfo\endcsname\relax
+      \def\x#1#2{%
+        \immediate\write-1{Package #1 Info: #2.}%
+      }%
+    \else
+      \def\x#1#2{\PackageInfo{#1}{#2, stopped}}%
+    \fi
+    \x{ifpdf}{The package is already loaded}%
+    \endgroup
+  \fi
+\endgroup
+\begingroup
+  \expandafter\ifx\csname ProvidesPackage\endcsname\relax
+  \def\x#1#2#3[#4]{\endgroup
+    \xdef#1{#4}%
+  }%
+  \else
+    \def\x#1#2[#3]{\endgroup
+      #2[#3]%
+      \ifx#1\relax
+        \xdef#1{#3}%
+      \fi
+    }%
+  \fi
+\expandafter\x\csname ver@ifpdf.sty\endcsname
+\ProvidesPackage{ifpdf}%
+  [2005/07/22 v1.3 %
+   Providing \expandafter\string\csname ifpdf\endcsname\space (HO)]
+\begingroup
+  \expandafter\ifx\csname ifpdf\endcsname\relax
+  \else
+    \edef\i/{\expandafter\string\csname ifpdf\endcsname}%
+    \expandafter\ifx\csname PackageError\endcsname\relax
+      \def\x#1#2{%
+        \edef\z{#2}%
+        \expandafter\errhelp\expandafter{\z}%
+        \errmessage{Package ifpdf Error: #1}%
+      }%
+      \def\y{^^J}%
+      \newlinechar=10
+    \else
+      \def\x#1#2{%
+        \PackageError{ifpdf}{#1}{#2}%
+      }%
+      \def\y{\MessageBreak}%
+    \fi
+    \x{Name clash, \i/ is already defined}{%
+      Incompatible versions of \i/ can cause problems,\y
+      therefore package loading is aborted.%
+    }%
+    \endgroup
+  \fi
+\endgroup
+\newif\ifpdf
+\ifx\pdfoutput\undefined
+\else
+  \ifx\pdfoutput\relax
+  \else
+    \ifnum\pdfoutput<1 %
+    \else
+      \pdftrue
+    \fi
+  \fi
+\fi
+\begingroup
+  \expandafter\ifx\csname PackageInfo\endcsname\relax
+    \def\x#1#2{%
+    }%
+  \else
+    \let\x\PackageInfo
+    \expandafter\let\csname on@line\endcsname\empty
+  \fi
+  \x{ifpdf}{pdfTeX in pdf mode \ifpdf\else not \fi detected}%
+\endgroup
+\def\makeactive#1{\catcode`#1 = \active \ignorespaces}%
+\chardef\letter = 11
+\chardef\other = 12
+\def\makeatletter{%
+  \edef\resetatcatcode{\catcode`\noexpand\@\the\catcode`\@\relax}%
+  \catcode`\@11\relax
+}%
+\def\makeatother{%
+  \edef\resetatcatcode{\catcode`\noexpand\@\the\catcode`\@\relax}%
+  \catcode`\@12\relax
+}%
+\edef\leftdisplays{\the\catcode`@}%
+\catcode`@ = \letter
+\let\@eplainoldatcode = \leftdisplays
+\toksdef\toks@ii = 2
+\def\uncatcodespecials{%
+   \def\do##1{\catcode`##1 = \other}%
+   \dospecials
+}%
+{%
+   \makeactive\^^M %
+   \long\gdef\letreturn#1{\let^^M = #1}%
+}%
+\let\@eattoken = \relax  % Define this, so \eattoken can be used in \edef.
+\def\eattoken{\let\@eattoken = }%
+\def\gobble#1{}%
+\def\gobbletwo#1#2{}%
+\def\gobblethree#1#2#3{}%
+\def\identity#1{#1}%
+\def\@emptymarkA{\@emptymarkB} 
+\def\ifempty#1{\@@ifempty #1\@emptymarkA\@emptymarkB}%
+\def\@@ifempty#1#2\@emptymarkB{\ifx #1\@emptymarkA}%
+\def\@gobbleminus#1{\ifx-#1\else#1\fi}%
+\def\ifinteger#1{\ifcat_\ifnum9<1\@gobbleminus#1 _\else A\fi}%
+\def\isinteger{TT\fi\ifinteger}%
+\def\@gobblemeaning#1:->{}%
+\def\sanitize{\expandafter\@gobblemeaning\meaning}%
+\def\ifundefined#1{\expandafter\ifx\csname#1\endcsname\relax}%
+\def\csn#1{\csname#1\endcsname}%
+\def\ece#1#2{\expandafter#1\csname#2\endcsname}%
+\def\expandonce{\expandafter\noexpand}%
+\let\@plainwlog = \wlog
+\let\wlog = \gobble
+\newlinechar = `^^J
+\def\gloggingall{\begingroup \globaldefs = 1 \loggingall \endgroup}%
+\def\loggingall{\tracingcommands\tw@\tracingstats\tw@
+   \tracingpages\@ne\tracingoutput\@ne\tracinglostchars\@ne
+   \tracingmacros\tw@\tracingparagraphs\@ne\tracingrestores\@ne
+   \showboxbreadth\maxdimen\showboxdepth\maxdimen
+}%
+\def\tracingboxes{\showboxbreadth = \maxdimen \showboxdepth = \maxdimen}%
+\def\gtracingoff{\begingroup \globaldefs = 1 \tracingoff \endgroup}%
+\def\tracingoff{\tracingonline\z@\tracingcommands\z@\tracingstats\z@
+  \tracingpages\z@\tracingoutput\z@\tracinglostchars\z@
+  \tracingmacros\z@\tracingparagraphs\z@\tracingrestores\z@
+  \showboxbreadth5 \showboxdepth3
+}%
+\begingroup
+  \catcode`\{ = 12 \catcode`\} = 12
+  \catcode`\[ = 1 \catcode`\] = 2
+  \gdef\lbracechar[{]%
+  \gdef\rbracechar[}]%
+  \catcode`\% = \other
+  \gdef\percentchar[%]\endgroup
+\def\vpenalty{\ifhmode\par\fi \penalty}%
+\def\hpenalty{\ifvmode\leavevmode\fi \penalty}%
+\def\iterate{%
+  \let\loop@next\relax
+  \body
+  \let\loop@next\iterate
+  \fi
+  \loop@next
+}%
+\def\edefappend#1#2{%
+  \toks@ = \expandafter{#1}%
+  \edef#1{\the\toks@ #2}%
+}%
+\def\allowhyphens{\nobreak\hskip\z@skip}%
+\long\def\hookprepend{\@hookassign{\the\toks@ii \the\toks@}}%
+\long\def\hookappend{\@hookassign{\the\toks@ \the\toks@ii}}%
+\let\hookaction = \hookappend % either one should be ok
+\long\def\@hookassign#1#2#3{%
+  \expandafter\ifx\csname @#2hook\endcsname \relax
+    \toks@ = {}%
+  \else
+    \expandafter\let\expandafter\temp \csname @#2hook\endcsname
+    \toks@ = \expandafter{\temp}%
+  \fi
+  \toks2 = {#3}% Don't expand the argument all the way.
+  \ece\edef{@#2hook}{#1}%
+}%
+\long\def\hookactiononce#1#2{%
+  \edefappend#2{\global\let\noexpand#2\relax}
+  \hookaction{#1}#2%
+}%
+\def\hookrun#1{%
+  \expandafter\ifx\csname @#1hook\endcsname \relax \else
+    \def\temp{\csname @#1hook\endcsname}%
+    \expandafter\temp
+  \fi
+}%
+\def\setproperty#1#2#3{\ece\edef{#1@p#2}{#3}}%
+\def\setpropertyglobal#1#2#3{\ece\xdef{#1@p#2}{#3}}%
+\def\getproperty#1#2{%
+  \expandafter\ifx\csname#1@p#2\endcsname\relax
+  \else \csname#1@p#2\endcsname
+  \fi
+}%
+\ifx\@undefinedmessage\@undefined
+  \def\@undefinedmessage
+    {No .aux file; I won't warn you about undefined labels.}%
+\fi
+%% @texfile{
+%%   author = "Karl Berry and Oren Patashnik",
+%%   version = "0.99k-09sep07",
+%%   date = "19 August 2005",
+%%   filename = "btxmac.tex",
+%%   address = "tex-eplain@tug.org",
+%%   checksum = "842    4571   33524",
+%%   codetable = "ISO/ASCII",
+%%   supported = "yes",
+%%   docstring = "Defines macros that make BibTeX work with plain TeX",
+%% }
+\edef\cite{\the\catcode`@}%
+\catcode`@ = 11
+\let\@oldatcatcode = \cite
+\chardef\@letter = 11
+\chardef\@other = 12
+\def\@innerdef#1#2{\edef#1{\expandafter\noexpand\csname #2\endcsname}}%
+\@innerdef\@innernewcount{newcount}%
+\@innerdef\@innernewdimen{newdimen}%
+\@innerdef\@innernewif{newif}%
+\@innerdef\@innernewwrite{newwrite}%
+\def\@gobble#1{}%
+\ifx\inputlineno\@undefined
+   \let\@linenumber = \empty % Pre-3.0.
+\else
+   \def\@linenumber{\the\inputlineno:\space}%
+\fi
+\def\@futurenonspacelet#1{\def\cs{#1}%
+   \afterassignment\@stepone\let\@nexttoken=
+}%
+\begingroup % The grouping here avoids stepping on an outside use of `\\'.
+\def\\{\global\let\@stoken= }%
+\\ % now \@stoken is a space token (\\ is a control symbol, so that
+\endgroup
+\def\@stepone{\expandafter\futurelet\cs\@steptwo}%
+\def\@steptwo{\expandafter\ifx\cs\@stoken\let\@@next=\@stepthree
+   \else\let\@@next=\@nexttoken\fi \@@next}%
+\def\@stepthree{\afterassignment\@stepone\let\@@next= }%
+\def\@getoptionalarg#1{%
+   \let\@optionaltemp = #1%
+   \let\@optionalnext = \relax
+   \@futurenonspacelet\@optionalnext\@bracketcheck
+}%
+\def\@bracketcheck{%
+   \ifx [\@optionalnext
+      \expandafter\@@getoptionalarg
+   \else
+      \let\@optionalarg = \empty
+      \expandafter\@optionaltemp
+   \fi
+}%
+\def\@@getoptionalarg[#1]{%
+   \def\@optionalarg{#1}%
+   \@optionaltemp
+}%
+\def\@nnil{\@nil}%
+\def\@fornoop#1\@@#2#3{}%
+\def\@for#1:=#2\do#3{%
+   \edef\@fortmp{#2}%
+   \ifx\@fortmp\empty \else
+      \expandafter\@forloop#2,\@nil,\@nil\@@#1{#3}%
+   \fi
+}%
+\def\@forloop#1,#2,#3\@@#4#5{\def#4{#1}\ifx #4\@nnil \else
+       #5\def#4{#2}\ifx #4\@nnil \else#5\@iforloop #3\@@#4{#5}\fi\fi
+}%
+\def\@iforloop#1,#2\@@#3#4{\def#3{#1}\ifx #3\@nnil
+       \let\@nextwhile=\@fornoop \else
+      #4\relax\let\@nextwhile=\@iforloop\fi\@nextwhile#2\@@#3{#4}%
+}%
+\@innernewif\if@fileexists
+\def\@testfileexistence{\@getoptionalarg\@finishtestfileexistence}%
+\def\@finishtestfileexistence#1{%
+   \begingroup
+      \def\extension{#1}%
+      \immediate\openin0 =
+         \ifx\@optionalarg\empty\jobname\else\@optionalarg\fi
+         \ifx\extension\empty \else .#1\fi
+         \space
+      \ifeof 0
+         \global\@fileexistsfalse
+      \else
+         \global\@fileexiststrue
+      \fi
+      \immediate\closein0
+   \endgroup
+}%
+\toks0 = {%
+\def\bibliographystyle#1{%
+   \@readauxfile
+   \@writeaux{\string\bibstyle{#1}}%
+}%
+\let\bibstyle = \@gobble
+\let\bblfilebasename = \jobname
+\def\bibliography#1{%
+   \@readauxfile
+   \@writeaux{\string\bibdata{#1}}%
+   \@testfileexistence[\bblfilebasename]{bbl}%
+   \if@fileexists
+      \nobreak
+      \@readbblfile
+   \fi
+}%
+\let\bibdata = \@gobble
+\def\nocite#1{%
+   \@readauxfile
+   \@writeaux{\string\citation{#1}}%
+}%
+\@innernewif\if@notfirstcitation
+\def\cite{\@getoptionalarg\@cite}%
+\def\@cite#1{%
+   \let\@citenotetext = \@optionalarg
+   \printcitestart
+   \nocite{#1}%
+   \@notfirstcitationfalse
+   \@for \@citation :=#1\do
+   {%
+      \expandafter\@onecitation\@citation\@@
+   }%
+   \ifx\empty\@citenotetext\else
+      \printcitenote{\@citenotetext}%
+   \fi
+   \printcitefinish
+}%
+\def\@onecitation#1\@@{%
+   \if@notfirstcitation
+      \printbetweencitations
+   \fi
+   \expandafter \ifx \csname\@citelabel{#1}\endcsname \relax
+      \if@citewarning
+         \message{\@linenumber Undefined citation `#1'.}%
+      \fi
+      \expandafter\gdef\csname\@citelabel{#1}\endcsname{%
+         {\tt
+            \escapechar = -1
+            \nobreak\hskip0pt
+            \expandafter\string\csname#1\endcsname
+            \nobreak\hskip0pt
+         }%
+      }%
+   \fi
+   \printcitepreitem{#1}%
+   \csname\@citelabel{#1}\endcsname
+   \printcitepostitem
+   \@notfirstcitationtrue
+}%
+\def\@citelabel#1{b@#1}%
+\def\@citedef#1#2{{\expandafter\gdef\csname\@citelabel{#1}\endcsname{#2}}}%
+\def\@readbblfile{%
+   \ifx\@itemnum\@undefined
+      \@innernewcount\@itemnum
+   \fi
+   \begingroup
+      \ifx\begin\@undefined
+         \def\begin##1##2{%
+            \setbox0 = \hbox{\biblabelcontents{##2}}%
+            \biblabelwidth = \wd0
+         }%
+         \let\end = \@gobble % The arg is `thebibliography' again.
+      \fi
+      \@itemnum = 0
+      \def\bibitem{\@getoptionalarg\@bibitem}%
+      \def\@bibitem{%
+         \ifx\@optionalarg\empty
+            \expandafter\@numberedbibitem
+         \else
+            \expandafter\@alphabibitem
+         \fi
+      }%
+      \def\@alphabibitem##1{%
+         \expandafter \xdef\csname\@citelabel{##1}\endcsname {\@optionalarg}%
+         \ifx\biblabelprecontents\@undefined
+            \let\biblabelprecontents = \relax
+         \fi
+         \ifx\biblabelpostcontents\@undefined
+            \let\biblabelpostcontents = \hss
+         \fi
+         \@finishbibitem{##1}%
+      }%
+      \def\@numberedbibitem##1{%
+         \advance\@itemnum by 1
+         \expandafter \xdef\csname\@citelabel{##1}\endcsname{\number\@itemnum}%
+         \ifx\biblabelprecontents\@undefined
+            \let\biblabelprecontents = \hss
+         \fi
+         \ifx\biblabelpostcontents\@undefined
+            \let\biblabelpostcontents = \relax
+         \fi
+         \@finishbibitem{##1}%
+      }%
+      \def\@finishbibitem##1{%
+         \bblitemhook{##1}%
+         \biblabelprint{\csname\@citelabel{##1}\endcsname}%
+         \@writeaux{\string\@citedef{##1}{\csname\@citelabel{##1}\endcsname}}%
+         \ignorespaces
+      }%
+      \ifx\undefined\em \let\em=\bblem \fi
+      \ifx\undefined\emph \let\emph=\bblemph \fi
+      \ifx\undefined\mbox \let\mbox=\bblmbox \fi
+      \ifx\undefined\newblock \let\newblock=\bblnewblock \fi
+      \ifx\undefined\sc \let\sc=\bblsc \fi
+      \ifx\undefined\textbf \let\textbf=\bbltextbf \fi
+      \frenchspacing
+      \clubpenalty = 4000 \widowpenalty = 4000
+      \tolerance = 10000 \hfuzz = .5pt
+      \everypar = {\hangindent = \biblabelwidth
+                      \advance\hangindent by \biblabelextraspace}%
+      \bblrm
+      \parskip = 1.5ex plus .5ex minus .5ex
+      \biblabelextraspace = .5em
+      \bblhook
+      \input \bblfilebasename.bbl
+   \endgroup
+}%
+\@innernewdimen\biblabelwidth
+\@innernewdimen\biblabelextraspace
+\def\biblabelprint#1{%
+   \noindent
+   \hbox to \biblabelwidth{%
+      \biblabelprecontents
+      \biblabelcontents{#1}%
+      \biblabelpostcontents
+   }%
+   \kern\biblabelextraspace
+}%
+\def\biblabelcontents#1{{\bblrm [#1]}}%
+\def\bblrm{\rm}%
+\def\bblem{\it}%
+\def\bblemph#1{{\bblem #1\/}}
+\def\textbf#1{{\bf #1}}
+\def\bblmbox{\leavevmode\hbox}
+\def\bblsc{\ifx\@scfont\@undefined
+              \font\@scfont = cmcsc10
+           \fi
+           \@scfont
+}%
+\def\bblnewblock{\hskip .11em plus .33em minus .07em }%
+\let\bblhook = \empty
+\let\bblitemhook = \@gobble
+\def\printcitestart{[}%         left bracket
+\def\printcitefinish{]}%        right bracket
+\def\printbetweencitations{, }% comma, space
+\let\printcitepreitem\@gobble % takes label
+\let\printcitepostitem\empty
+\def\printcitenote#1{, #1}%     comma, space, note (if it exists)
+\let\citation = \@gobble
+\@innernewcount\@numparams
+\ifx\newcommand\undefined
+\def\newcommand#1{%
+   \def\@commandname{#1}%
+   \@getoptionalarg\@continuenewcommand
+}%
+\fi
+\ifx\renewcommand\undefined
+\let\renewcommand = \newcommand
+\fi
+\ifx\providecommand\undefined
+\def\providecommand#1{%
+   \def\@commandname{#1}%
+   \expandafter\ifx\@commandname \@undefined
+     \let\cs=\@continuenewcommand  % undefined, so we'll define it
+   \else
+     \let\cs=\@gobble              % already defined, so ignore it
+   \fi
+   \@getoptionalarg\cs
+}%
+\fi
+\def\@continuenewcommand{%
+   \@numparams = \ifx\@optionalarg\empty 0\else\@optionalarg \fi \relax
+   \@newcommand
+}%
+\def\@newcommand#1{%
+   \def\@startdef{\expandafter\edef\@commandname}%
+   \ifnum\@numparams=0
+      \let\@paramdef = \empty
+   \else
+      \ifnum\@numparams>9
+         \errmessage{\the\@numparams\space is too many parameters}%
+      \else
+         \ifnum\@numparams<0
+            \errmessage{\the\@numparams\space is too few parameters}%
+         \else
+            \edef\@paramdef{%
+               \ifcase\@numparams
+                  \empty  No arguments.
+               \or ####1%
+               \or ####1####2%
+               \or ####1####2####3%
+               \or ####1####2####3####4%
+               \or ####1####2####3####4####5%
+               \or ####1####2####3####4####5####6%
+               \or ####1####2####3####4####5####6####7%
+               \or ####1####2####3####4####5####6####7####8%
+               \or ####1####2####3####4####5####6####7####8####9%
+               \fi
+            }%
+         \fi
+      \fi
+   \fi
+   \expandafter\@startdef\@paramdef{#1}%
+}%
+}%
+\ifx\nobibtex\@undefined \the\toks0 \fi
+\def\@readauxfile{%
+   \if@auxfiledone \else % remember: \@auxfiledonetrue if \noauxfile is defined
+      \global\@auxfiledonetrue
+      \@testfileexistence{aux}%
+      \if@fileexists
+         \begingroup
+            \endlinechar = -1
+            \catcode`@ = 11
+            \input \jobname.aux
+         \endgroup
+      \else
+         \message{\@undefinedmessage}%
+         \global\@citewarningfalse
+      \fi
+      \immediate\openout\@auxfile = \jobname.aux
+   \fi
+}%
+\newif\if@auxfiledone
+\ifx\noauxfile\@undefined \else \@auxfiledonetrue\fi
+\@innernewwrite\@auxfile
+\def\@writeaux#1{\ifx\noauxfile\@undefined \write\@auxfile{#1}\fi}%
+\ifx\@undefinedmessage\@undefined
+   \def\@undefinedmessage{No .aux file; I won't give you warnings about
+                          undefined citations.}%
+\fi
+\@innernewif\if@citewarning
+\ifx\noauxfile\@undefined \@citewarningtrue\fi
+\catcode`@ = \@oldatcatcode
+\let\auxfile = \@auxfile
+\let\for = \@for
+\let\futurenonspacelet = \@futurenonspacelet
+\def\iffileexists{\if@fileexists}%
+\let\innerdef = \@innerdef
+\let\innernewcount = \@innernewcount
+\let\innernewdimen = \@innernewdimen
+\let\innernewif = \@innernewif
+\let\innernewwrite = \@innernewwrite
+\let\linenumber = \@linenumber
+\let\readauxfile = \@readauxfile
+\let\spacesub = \@spacesub
+\let\testfileexistence = \@testfileexistence
+\let\writeaux = \@writeaux
+\def\innerinnerdef#1{\expandafter\innerdef\csname inner#1\endcsname{#1}}%
+\innerinnerdef{newbox}%
+\innerinnerdef{newfam}%
+\innerinnerdef{newhelp}%
+\innerinnerdef{newinsert}%
+\innerinnerdef{newlanguage}%
+\innerinnerdef{newmuskip}%
+\innerinnerdef{newread}%
+\innerinnerdef{newskip}%
+\innerinnerdef{newtoks}%
+\def\immediatewriteaux#1{%
+  \ifx\noauxfile\@undefined
+    \immediate\write\@auxfile{#1}%
+  \fi
+}%
+\def\bblitemhook#1{\gdef\@hlbblitemlabel{#1}}%
+\def\biblabelprint#1{%
+   \noindent
+   \hbox to \biblabelwidth{%
+      \hldest@impl{bib}{\@hlbblitemlabel}%
+      \biblabelprecontents
+      \biblabelcontents{#1}%
+      \biblabelpostcontents
+   }%
+   \kern\biblabelextraspace
+}%
+\def\eplainprintcitepreitem#1{\hlstart@impl{cite}{#1}}%
+\def\eplainprintcitepostitem{\hlend@impl{cite}}%
+\def\printcitepreitem#1{%
+  \testfileexistence[\bblfilebasename]{bbl}%
+  \iffileexists
+    \global\let\printcitepreitem\eplainprintcitepreitem
+    \global\let\printcitepostitem\eplainprintcitepostitem
+  \else
+    \global\let\printcitepreitem\gobble
+    \global\let\printcitepostitem\relax
+  \fi
+  \printcitepreitem{#1}%
+}%
+\def\@Nnil{\@Nil}%
+\def\@Fornoop#1\@@#2#3{}%
+\def\For#1:=#2\do#3{%
+   \edef\@Fortmp{#2}%
+   \ifx\@Fortmp\empty \else
+      \expandafter\@Forloop#2,\@Nil,\@Nil\@@#1{#3}%
+   \fi
+}%
+\def\@Forloop#1,#2,#3\@@#4#5{\@Fordef#1\@@#4\ifx #4\@Nnil \else
+       #5\@Fordef#2\@@#4\ifx #4\@Nnil \else#5\@iForloop #3\@@#4{#5}\fi\fi
+}%
+\def\@iForloop#1,#2\@@#3#4{\@Fordef#1\@@#3\ifx #3\@Nnil
+       \let\@Nextwhile=\@Fornoop \else
+      #4\relax\let\@Nextwhile=\@iForloop\fi\@Nextwhile#2\@@#3{#4}%
+}%
+\def\@Forspc{ }%
+\def\@Fordef{\futurelet\@Fortmp\@@Fordef}% Peep at the next token.
+\def\@@Fordef{%
+  \expandafter\ifx\@Forspc\@Fortmp % Next token is a space.
+    \expandafter\@Fortrim
+  \else
+    \expandafter\@@@Fordef
+  \fi
+}%
+\expandafter\def\expandafter\@Fortrim\@Forspc#1\@@{\@Fordef#1\@@}%
+\def\@@@Fordef#1\@@#2{\def#2{#1}}%
+\def\tmpfileextension{.tmp}%
+\let\tmpfilebasename = \jobname
+\ifx\eTeXversion\undefined
+  \innernewwrite\eplain@tmpfile
+  \def\scantokens#1{%
+    \toks@={#1}%
+    \immediate\openout\eplain@tmpfile=\tmpfilebasename\tmpfileextension
+    \immediate\write\eplain@tmpfile{\the\toks@}%
+    \immediate\closeout\eplain@tmpfile
+    \input \tmpfilebasename\tmpfileextension\relax
+  }%
+\fi
+\begingroup
+   \makeactive\^^M \makeactive\ % No spaces or ^^M's from here on.
+\gdef\obeywhitespace{%
+\makeactive\^^M\def^^M{\par\futurelet\next\@finishobeyedreturn}%
+\makeactive\ \let =\ %
+\aftergroup\@removebox%
+\futurelet\next\@finishobeywhitespace%
+}%
+\gdef\@finishobeywhitespace{{%
+\ifx\next %
+\aftergroup\@obeywhitespaceloop%
+\else\ifx\next^^M%
+\aftergroup\gobble%
+\fi\fi}}%
+\gdef\@finishobeyedreturn{%
+\ifx\next^^M\vskip\blanklineskipamount\fi%
+\indent%
+}%
+\endgroup
+\def\@obeywhitespaceloop#1{\futurelet\next\@finishobeywhitespace}%
+\def\@removebox{%
+  \ifhmode
+    \setbox0 = \lastbox
+    \ifdim\wd0=\parindent
+      \setbox2 = \hbox{\unhcopy0}% Preserve \box0 so we can put it back.
+      \ifdim\wd2=0pt
+        \ignorespaces
+      \else
+        \box0 % Put it back: it wasn't empty.
+      \fi
+    \else
+       \box0 % Put it back: it wasn't the right width.
+    \fi
+  \fi
+}%
+\newskip\blanklineskipamount
+\blanklineskipamount = 0pt
+\def\frac#1/#2{\leavevmode
+   \kern.1em \raise .5ex \hbox{\the\scriptfont0 #1}%
+   \kern-.1em $/$%
+   \kern-.15em \lower .25ex \hbox{\the\scriptfont0 #2}%
+}%
+\newdimen\hruledefaultheight  \hruledefaultheight = 0.4pt
+\newdimen\hruledefaultdepth   \hruledefaultdepth = 0.0pt
+\newdimen\vruledefaultwidth   \vruledefaultwidth = 0.4pt
+\def\ehrule{\hrule height\hruledefaultheight depth\hruledefaultdepth}%
+\def\evrule{\vrule width\vruledefaultwidth}%
+%%% ====================================================================
+%%%  @TeX-style-file{
+%%%     author          = "Nelson H. F. Beebe",
+%%%     version         = "1.10",
+%%%     date            = "02 March 1998",
+%%%     time            = "08:36:13 MST",
+%%%     filename        = "texnames.sty",
+%%%     address         = "Center for Scientific Computing
+%%%                        Department of Mathematics
+%%%                        South Physics Building
+%%%                        University of Utah
+%%%                        Salt Lake City, UT 84112
+%%%                        USA
+%%%                        Tel: (801) 581-5254
+%%%                        FAX: (801) 581-4148",
+%%%     checksum        = "27723 296 1385 12423",
+%%%     email           = "beebe@magna.math.utah.edu (Internet)",
+%%%     codetable       = "ISO/ASCII",
+%%%     keywords        = "TeX names",
+%%%     supported       = "yes",
+%%%     docstring       = "This style file for AmSTeX, LaTeX, and TeX
+%%%                        defines macros for the names of TeX
+%%%                        and METAFONT programs, in several
+%%%                        letter-case variants:
+%%%
+%%%                        \AMSTEX, \AMSTeX, \AmSTeX
+%%%                        \BIBTEX, \BIBTeX, \BibTeX
+%%%                        \LAMSTeX, \LAmSTeX
+%%%                        \LaTeX, \LATEX
+%%%                        \METAFONT, \MF
+%%%                        \SLITEX, \SLITeX, \SLiTeX, \SliTeX
+%%%
+%%%                        It will NOT redefine any macro that
+%%%                        already exists, so it can be included
+%%%                        harmlessly after other style files.
+%%%
+%%%                        In AmSTeX or Plain TeX, just do
+%%%
+%%%                        \input texnames.sty
+%%%
+%%%                        In LaTeX, do
+%%%
+%%%                        \documentstyle[...,texnames]{...}
+%%%
+%%%                        This file grew out of original work by
+%%%
+%%%                        Richard Furuta
+%%%                        Department of Computer Science
+%%%                        University of Maryland
+%%%                        College Park, MD  20742
+%%%
+%%%                        furuta@mimsy.umd.edu
+%%%                        seismo!umcp-cs!furuta
+%%%
+%%%                        22 October 1986, first release (1.00)
+%%%
+%%%                        1 April 1987 (1.01): Modified by William
+%%%                        LeFebvre, Rice University to include
+%%%                        definitions for BibTeX and SLiTeX, as they
+%%%                        appear in the LaTeX Local User's Guide
+%%%                        template (the file latex/local.tex in
+%%%                        standard distributions)
+%%%
+%%%                        26 October 1991 (1.02): Modified by
+%%%                        Nelson H. F. Beebe <beebe@math.utah.edu> to
+%%%                        add several new macro names, and adapt for
+%%%                        use with Plain TeX and AmSTeX.
+%%%
+%%%                        26 October 1991 (1.03): Add \LaTeX and
+%%%                        \LATEX
+%%%
+%%%                        25 November 1991 (1.04): Add \LamSTeX
+%%%                        and \LAMSTeX
+%%%
+%%%                        27 January 1991 (1.05 and 1.06): Add slanted
+%%%                        font support for \MF.  Make several comment
+%%%                        changes.  Add a couple of missing % at end
+%%%                        of line, and replace blank lines by empty
+%%%                        comments.
+%%%
+%%%                        30 December 1992 (1.07): Use \TeX in
+%%%                        definitions of \BibTeX and \LaTeX.  Remove
+%%%                        occurrences of \rm.  Change \sc to use
+%%%                        \scriptfont instead of hardwiring cmcsc10.
+%%%                        Use \cal for \LAMSTeX.
+%%%
+%%% 			   1 March 1993 (1.08): Consolidate \ifx's onto
+%%% 			   single lines for brevity.  Add
+%%% 			   \spacefactor1000 to definitions for \TeX and \MF.
+%%%
+%%%                        16 March 1993 (1.09): Add \AmS, \AMS, \AmSLaTeX,
+%%%                        and \AMSLaTeX.
+%%%
+%%%                        02 March 1998 (1.10): Add \LaTeXe.
+%%%
+%%%                        The checksum field above contains a CRC-16
+%%%                        checksum as the first value, followed by the
+%%%                        equivalent of the standard UNIX wc (word
+%%%                        count) utility output of lines, words, and
+%%%                        characters.  This is produced by Robert
+%%%                        Solovay's checksum utility.",
+%%%
+%%%  }
+%%% ====================================================================
+\ifx\sc\undefined
+    \def\sc{%
+      \expandafter\ifx\the\scriptfont\fam\nullfont
+        \font\temp = cmr7 \temp
+      \else
+        \the\scriptfont\fam
+      \fi
+      \def\uppercasesc{\char\uccode`}%
+    }%
+\fi
+\ifx\uppercasesc\undefined
+  \let\uppercasesc = \relax
+\fi
+\def\TeX{T\kern-.1667em\lower.5ex\hbox{E}\kern-.125emX\spacefactor1000 }%
+\ifx\AmS\undefined
+    \def\AmS{{\the\textfont2 A}\kern-.1667em\lower.5ex\hbox
+        {\the\textfont2 M}\kern-.125em{\the\textfont2 S}}
+\fi
+\ifx\AMS\undefined \let\AMS=\AmS \fi
+\ifx\AmSLaTeX\undefined
+    \def\AmSLaTeX{\AmS-\LaTeX}
+\fi
+\ifx\AMSLaTeX\undefined \let\AMSLaTeX=\AmSLaTeX \fi
+\ifx\AmSTeX\undefined
+    \def\AmSTeX{$\cal A$\kern-.1667em\lower.5ex\hbox{$\cal M$}%
+            \kern-.125em$\cal S$-\TeX}%
+\fi
+\ifx\AMSTEX\undefined \let\AMSTEX=\AmSTeX \fi
+\ifx\AMSTeX\undefined \let\AMSTeX=\AmSTeX \fi
+\ifx\BibTeX\undefined
+    \def\BibTeX{B{\sc \uppercasesc i\kern-.025em \uppercasesc b}\kern-.08em
+                \TeX}%
+\fi
+\ifx\BIBTeX\undefined \let\BIBTeX=\BibTeX \fi
+\ifx\BIBTEX\undefined \let\BIBTEX=\BibTeX \fi
+\ifx\LAMSTeX\undefined
+    \def\LAMSTeX{L\raise.42ex\hbox{\kern-.3em\the\scriptfont2 A}%
+                 \kern-.2em\lower.376ex\hbox{\the\textfont2 M}%
+                 \kern-.125em {\the\textfont2 S}-\TeX}%
+\fi
+\ifx\LamSTeX\undefined \let\LamSTeX=\LAMSTeX \fi
+\ifx\LAmSTeX\undefined \let\LAmSTeX=\LAMSTeX \fi
+\ifx\LaTeX\undefined
+    \def\LaTeX{L\kern-.36em\raise.3ex\hbox{\sc \uppercasesc a}\kern-.15em\TeX}%
+\fi
+\ifx\LATEX\undefined \let\LATEX=\LaTeX \fi
+\ifx\LaTeXe\undefined
+    \def\LaTeXe{\LaTeX{}\kern.05em2$_{\textstyle\varepsilon}$}
+\fi
+\ifx\MF\undefined
+    \ifx\manfnt\undefined
+            \font\manfnt=logo10
+    \fi
+    \ifx\manfntsl\undefined
+            \font\manfntsl=logosl10
+    \fi
+    \def\MF{{\ifdim\fontdimen1\font>0pt \let\manfnt = \manfntsl \fi
+      {\manfnt META}\-{\manfnt FONT}}\spacefactor1000 }%
+\fi
+\ifx\METAFONT\undefined \let\METAFONT=\MF \fi
+\ifx\SLITEX\undefined
+    \def\SLITEX{S\kern-.065em L\kern-.18em\raise.32ex\hbox{i}\kern-.03em\TeX}%
+\fi
+\ifx\SLiTeX\undefined \let\SLiTeX=\SLITEX \fi
+\ifx\SliTeX\undefined \let\SliTeX=\SLITEX \fi
+\ifx\SLITeX\undefined \let\SLITeX=\SLITEX \fi
+%%%  @texfile{
+%%%     author          = "Philip Taylor",
+%%%     version         = "3.04",
+%%%     date            = "25 July 1992",
+%%%     time            = "17:07 EDT",
+%%%     filename        = "path.sty",
+%%%     address         = "The Computer Centre
+%%%                        RHBNC, University of London
+%%%                        Egham Hill
+%%%                        Egham, Surrey TW20 0EX, ENGLAND",
+%%%     telephone       = "Tel:   +44 784 443172",
+%%%     FAX             = "Fax:   +44 784 434348",
+%%%     checksum        = "41143 321 1758 13526",
+%%%     email           = "P.Taylor@Vax.Rhbnc.Ac.Uk (Internet)",
+%%%     codetable       = "ISO/ASCII",
+%%%     keywords        = "file name, filename, path name, pathname,
+%%%                        discretionary, discretionaries",
+%%%     supported       = "yes",
+%%%     docstring       = {Computer filenames, host names, and e-mail
+%%%                        addresses tend to be long strings that
+%%%                        cause line breaking problems for TeX.
+%%%                        Sometimes rather long strings are
+%%%                        encountered; here are two examples:
+%%%
+%%% Friesland%rz.informatik.uni-hamburg.dbp.de%germany.csnet@relay.cs.net
+%%%
+%%%                        mighty-mouse-gw.scrc.symbolics.com
+%%%
+%%%                        This file defines a macro, \path|...|,
+%%%                        similar to LaTeX's \verb|...| macro, that
+%%%                        sets the text in the typewriter font,
+%%%                        allowing hyphen-less line breaks at
+%%%                        punctuation characters.
+%%%
+%%%                        The default set of punctuation characters is
+%%%                        defined as
+%%%
+%%%                        \discretionaries |~!@$%^&*()_+`-=#{"}[]:;'<>,.?\/|
+%%%
+%%%                        However, you can change it as needed, for example:
+%%%
+%%%                        \discretionaries +@%!.+
+%%%
+%%%                        would assign to it the set @ % ! . which
+%%%                        commonly occur in electronic mail addresses.
+%%%
+%%%                        The delimiter characters surrounding the
+%%%                        arguments to \discretionaries and \path
+%%%                        will normally be a punctuation character not
+%%%                        found in the argument, and not otherwise
+%%%                        significant to TeX.  In particular, backslash
+%%%                        cannot be used as a delimiter.  In the rare
+%%%                        event that this is required, set
+%%%
+%%%                        \specialpathdelimiterstrue
+%%%
+%%%                        This practice is not recommended, because TeX
+%%%                        then runs about four times slower while it is
+%%%                        typesetting \path\...\ requests.
+%%%                        \specialpathdelimitersfalse is the normal
+%%%                        setting.
+%%%
+%%%                        This file may be used in Plain TeX or AmSTeX by
+%%%
+%%%                        \input path.sty
+%%%
+%%%                        and in LaTeX by
+%%%
+%%%                        \documentstyle[...,path,...]{...}
+%%%
+%%%                        The checksum field above contains a CRC-16
+%%%                        checksum as the first value, followed by the
+%%%                        equivalent of the standard UNIX wc (word
+%%%                        count) utility output of lines, words, and
+%%%                        characters.  This is produced by Robert
+%%%                        Solovay's checksum utility.}
+%%%  }
+\edef\path{\the\catcode`@}%
+\catcode`@ = 11
+\let\@oldatcatcode = \path
+\newcount \c@tcode
+\newcount \c@unter
+\newif \ifspecialpathdelimiters
+\begingroup
+\catcode `\ = 10
+\gdef \passivesp@ce { }%
+\catcode `\ = 13\relax%
+\gdef\activesp@ce{ }%
+\endgroup
+\def \discretionaries % <delim> <chars> <delim>
+    {\begingroup
+        \c@tcodes = 13
+        \discr@tionaries
+    }%
+\def \discr@tionaries #1% <delim>
+    {\def \discr@ti@naries ##1#1% <chars> <delim>
+         {\endgroup
+          \def \discr@ti@n@ries ####1% <char> or <delim>
+              {\if   \noexpand ####1\noexpand #1%
+                     \let \n@xt = \relax
+               \else
+                     \catcode `####1 = 13
+                     \def ####1{\discretionary
+                                  {\char `####1}{}{\char `####1}}%
+                     \let \n@xt = \discr@ti@n@ries
+               \fi
+               \n@xt
+              }%
+          \def \discr@ti@n@ri@s {\discr@ti@n@ries ##1#1}%
+         }%
+     \discr@ti@naries
+    }%
+\let\pathafterhook = \relax
+\def \path
+    {\ifspecialpathdelimiters
+        \begingroup
+        \c@tcodes = 12
+        \def \endp@th {\endgroup \endgroup \pathafterhook}%
+     \else
+        \def \endp@th {\endgroup \pathafterhook}%
+     \fi
+     \p@th
+    }%
+\def \p@th #1% <delim>
+    {\begingroup
+        \tt
+        \c@tcode = \catcode `#1
+        \discr@ti@n@ri@s
+        \catcode `\ = \active
+        \expandafter \edef \activesp@ce {\passivesp@ce \hbox {}}%
+        \catcode `#1 = \c@tcode
+        \def \p@@th ##1#1% <chars> <delim>
+            {\leavevmode \hbox {}##1%
+             \endp@th
+            }%
+     \p@@th
+    }%
+\def \c@tcodes {\afterassignment \c@tc@des \c@tcode}%
+\def \c@tc@des
+    {\c@unter = 0
+     \loop
+            \ifnum \catcode \c@unter = \c@tcode
+            \else
+                \catcode \c@unter = \c@tcode
+            \fi
+     \ifnum \c@unter < 255
+            \advance \c@unter by 1
+     \repeat
+     \catcode `\ = 10
+    }%
+\catcode `\@ = \@oldatcatcode
+\discretionaries |~!@$%^&*()_+`-=#{}[]:";'<>,.?\/|%
+\def\blackbox{\vrule height .8ex width .6ex depth -.2ex \relax}% square bullet
+\def\makeblankbox#1#2{%
+  \ifvoid0
+    \errhelp = \@makeblankboxhelp
+    \errmessage{Box 0 is void}%
+  \fi
+  \hbox{\lower\dp0
+    \vbox{\hidehrule{#1}{#2}%
+      \kern -#1% overlap rules
+      \hbox to \wd0{\hidevrule{#1}{#2}%
+        \raise\ht0\vbox to #1{}% vrule height
+        \lower\dp0\vtop to #1{}% vrule depth
+        \hfil\hidevrule{#2}{#1}%
+      }%
+      \kern-#1\hidehrule{#2}{#1}%
+    }%
+  }%
+}%
+\newhelp\@makeblankboxhelp{Assigning to the dimensions of a void^^J%
+  box has no effect.  Do `\string\setbox0=\string\null' before you^^J%
+  define its dimensions.}%
+\def\hidehrule#1#2{\kern-#1\hrule height#1 depth#2 \kern-#2}%
+\def\hidevrule#1#2{%
+  \kern-#1%
+  \dimen@=#1\advance\dimen@ by #2%
+  \vrule width\dimen@
+  \kern-#2%
+}%
+\newdimen\boxitspace \boxitspace = 3pt
+\long\def\boxit#1{%
+  \vbox{%
+    \ehrule
+    \hbox{%
+      \evrule
+      \kern\boxitspace
+      \vbox{\kern\boxitspace \parindent = 0pt #1\kern\boxitspace}%
+      \kern\boxitspace
+      \evrule
+    }%
+    \ehrule
+  }%
+}%
+\def\numbername#1{\ifcase#1%
+   zero%
+   \or one%
+   \or two%
+   \or three%
+   \or four%
+   \or five%
+   \or six%
+   \or seven%
+   \or eight%
+   \or nine%
+   \or ten%
+   \or #1%
+   \fi
+}%
+\let\@plainnewif = \newif
+\let\@plainnewdimen = \newdimen
+\let\newif = \innernewif
+\let\newdimen = \innernewdimen
+\edef\@eplainoldandcode{\the\catcode`& }%
+\catcode`& = 11
+\toks0 = {%
+\edef\thinlines{\the\catcode`@ }%
+\catcode`@ = 11
+\let\@oldatcatcode = \thinlines
+\def\smash@@{\relax % \relax, in case this comes first in \halign
+  \ifmmode\def\next{\mathpalette\mathsm@sh}\else\let\next\makesm@sh
+  \fi\next}
+\def\makesm@sh#1{\setbox\z@\hbox{#1}\finsm@sh}
+\def\mathsm@sh#1#2{\setbox\z@\hbox{$\m@th#1{#2}$}\finsm@sh}
+\def\finsm@sh{\ht\z@\z@ \dp\z@\z@ \box\z@}
+\edef\@oldandcatcode{\the\catcode`& }%
+\catcode`& = 11
+\def\&whilenoop#1{}%
+\def\&whiledim#1\do #2{\ifdim #1\relax#2\&iwhiledim{#1\relax#2}\fi}%
+\def\&iwhiledim#1{\ifdim #1\let\&nextwhile=\&iwhiledim 
+        \else\let\&nextwhile=\&whilenoop\fi\&nextwhile{#1}}%
+\newif\if&negarg
+\newdimen\&wholewidth
+\newdimen\&halfwidth
+\font\tenln=line10
+\def\thinlines{\let\&linefnt\tenln \let\&circlefnt\tencirc
+  \&wholewidth\fontdimen8\tenln \&halfwidth .5\&wholewidth}%
+\def\thicklines{\let\&linefnt\tenlnw \let\&circlefnt\tencircw
+  \&wholewidth\fontdimen8\tenlnw \&halfwidth .5\&wholewidth}%
+\def\drawline(#1,#2)#3{\&xarg #1\relax \&yarg #2\relax \&linelen=#3\relax
+  \ifnum\&xarg =0 \&vline \else \ifnum\&yarg =0 \&hline \else \&sline\fi\fi}%
+\def\&sline{\leavevmode
+  \ifnum\&xarg< 0 \&negargtrue \&xarg -\&xarg \&yyarg -\&yarg
+  \else \&negargfalse \&yyarg \&yarg \fi
+  \ifnum \&yyarg >0 \&tempcnta\&yyarg \else \&tempcnta -\&yyarg \fi
+  \ifnum\&tempcnta>6 \&badlinearg \&yyarg0 \fi
+  \ifnum\&xarg>6 \&badlinearg \&xarg1 \fi
+  \setbox\&linechar\hbox{\&linefnt\&getlinechar(\&xarg,\&yyarg)}%
+  \ifnum \&yyarg >0 \let\&upordown\raise \&clnht\z@
+  \else\let\&upordown\lower \&clnht \ht\&linechar\fi
+  \&clnwd=\wd\&linechar
+  \&whiledim \&clnwd <\&linelen \do {%
+    \&upordown\&clnht\copy\&linechar
+    \advance\&clnht \ht\&linechar
+    \advance\&clnwd \wd\&linechar
+  }%
+  \advance\&clnht -\ht\&linechar
+  \advance\&clnwd -\wd\&linechar
+  \&tempdima\&linelen\advance\&tempdima -\&clnwd
+  \&tempdimb\&tempdima\advance\&tempdimb -\wd\&linechar
+  \hskip\&tempdimb \multiply\&tempdima \@m
+  \&tempcnta \&tempdima \&tempdima \wd\&linechar \divide\&tempcnta \&tempdima
+  \&tempdima \ht\&linechar \multiply\&tempdima \&tempcnta
+  \divide\&tempdima \@m
+  \advance\&clnht \&tempdima
+  \ifdim \&linelen <\wd\&linechar \hskip \wd\&linechar
+  \else\&upordown\&clnht\copy\&linechar\fi}%
+\def\&hline{\vrule height \&halfwidth depth \&halfwidth width \&linelen}%
+\def\&getlinechar(#1,#2){\&tempcnta#1\relax\multiply\&tempcnta 8
+  \advance\&tempcnta -9 \ifnum #2>0 \advance\&tempcnta #2\relax\else
+  \advance\&tempcnta -#2\relax\advance\&tempcnta 64 \fi
+  \char\&tempcnta}%
+\def\drawvector(#1,#2)#3{\&xarg #1\relax \&yarg #2\relax
+  \&tempcnta \ifnum\&xarg<0 -\&xarg\else\&xarg\fi
+  \ifnum\&tempcnta<5\relax \&linelen=#3\relax
+    \ifnum\&xarg =0 \&vvector \else \ifnum\&yarg =0 \&hvector
+    \else \&svector\fi\fi\else\&badlinearg\fi}%
+\def\&hvector{\ifnum\&xarg<0 \rlap{\&linefnt\&getlarrow(1,0)}\fi \&hline
+  \ifnum\&xarg>0 \llap{\&linefnt\&getrarrow(1,0)}\fi}%
+\def\&vvector{\ifnum \&yarg <0 \&downvector \else \&upvector \fi}%
+\def\&svector{\&sline
+  \&tempcnta\&yarg \ifnum\&tempcnta <0 \&tempcnta=-\&tempcnta\fi
+  \ifnum\&tempcnta <5 
+    \if&negarg\ifnum\&yarg>0                   % 3d quadrant; dp > 0
+      \llap{\lower\ht\&linechar\hbox to\&linelen{\&linefnt
+        \&getlarrow(\&xarg,\&yyarg)\hss}}\else % 4th quadrant; ht > 0
+      \llap{\hbox to\&linelen{\&linefnt\&getlarrow(\&xarg,\&yyarg)\hss}}\fi
+    \else\ifnum\&yarg>0                        % 1st quadrant; ht > 0
+      \&tempdima\&linelen \multiply\&tempdima\&yarg
+      \divide\&tempdima\&xarg \advance\&tempdima-\ht\&linechar
+      \raise\&tempdima\llap{\&linefnt\&getrarrow(\&xarg,\&yyarg)}\else
+      \&tempdima\&linelen \multiply\&tempdima-\&yarg % 2d quadrant; dp > 0
+      \divide\&tempdima\&xarg
+      \lower\&tempdima\llap{\&linefnt\&getrarrow(\&xarg,\&yyarg)}\fi\fi
+  \else\&badlinearg\fi}%
+\def\&getlarrow(#1,#2){\ifnum #2 =\z@ \&tempcnta='33\else
+\&tempcnta=#1\relax\multiply\&tempcnta \sixt@@n \advance\&tempcnta
+-9 \&tempcntb=#2\relax\multiply\&tempcntb \tw@
+\ifnum \&tempcntb >0 \advance\&tempcnta \&tempcntb\relax
+\else\advance\&tempcnta -\&tempcntb\advance\&tempcnta 64
+\fi\fi\char\&tempcnta}%
+\def\&getrarrow(#1,#2){\&tempcntb=#2\relax
+\ifnum\&tempcntb < 0 \&tempcntb=-\&tempcntb\relax\fi
+\ifcase \&tempcntb\relax \&tempcnta='55 \or 
+\ifnum #1<3 \&tempcnta=#1\relax\multiply\&tempcnta
+24 \advance\&tempcnta -6 \else \ifnum #1=3 \&tempcnta=49
+\else\&tempcnta=58 \fi\fi\or 
+\ifnum #1<3 \&tempcnta=#1\relax\multiply\&tempcnta
+24 \advance\&tempcnta -3 \else \&tempcnta=51\fi\or 
+\&tempcnta=#1\relax\multiply\&tempcnta
+\sixt@@n \advance\&tempcnta -\tw@ \else
+\&tempcnta=#1\relax\multiply\&tempcnta
+\sixt@@n \advance\&tempcnta 7 \fi\ifnum #2<0 \advance\&tempcnta 64 \fi
+\char\&tempcnta}%
+\def\&vline{\ifnum \&yarg <0 \&downline \else \&upline\fi}%
+\def\&upline{\hbox to \z@{\hskip -\&halfwidth \vrule width \&wholewidth
+   height \&linelen depth \z@\hss}}%
+\def\&downline{\hbox to \z@{\hskip -\&halfwidth \vrule width \&wholewidth
+   height \z@ depth \&linelen \hss}}%
+\def\&upvector{\&upline\setbox\&tempboxa\hbox{\&linefnt\char'66}\raise 
+     \&linelen \hbox to\z@{\lower \ht\&tempboxa\box\&tempboxa\hss}}%
+\def\&downvector{\&downline\lower \&linelen
+      \hbox to \z@{\&linefnt\char'77\hss}}%
+\def\&badlinearg{\errmessage{Bad \string\arrow\space argument.}}%
+\thinlines
+\countdef\&xarg     0
+\countdef\&yarg     2
+\countdef\&yyarg    4
+\countdef\&tempcnta 6
+\countdef\&tempcntb 8
+\dimendef\&linelen  0
+\dimendef\&clnwd    2
+\dimendef\&clnht    4
+\dimendef\&tempdima 6
+\dimendef\&tempdimb 8
+\chardef\@arrbox    0
+\chardef\&linechar  2
+\chardef\&tempboxa  2           % \&linechar and \&tempboxa don't interfere.
+\let\lft^%
+\let\rt_% distinguish between \rt and \lft
+\newif\if@pslope % test for positive slope
+\def\@findslope(#1,#2){\ifnum#1>0
+  \ifnum#2>0 \@pslopetrue \else\@pslopefalse\fi \else
+  \ifnum#2>0 \@pslopefalse \else\@pslopetrue\fi\fi}%
+\def\generalsmap(#1,#2){\getm@rphposn(#1,#2)\plnmorph\futurelet\next\addm@rph}%
+\def\sline(#1,#2){\setbox\@arrbox=\hbox{\drawline(#1,#2){\sarrowlength}}%
+  \@findslope(#1,#2)\d@@blearrfalse\generalsmap(#1,#2)}%
+\def\arrow(#1,#2){\setbox\@arrbox=\hbox{\drawvector(#1,#2){\sarrowlength}}%
+  \@findslope(#1,#2)\d@@blearrfalse\generalsmap(#1,#2)}%
+\newif\ifd@@blearr
+\def\bisline(#1,#2){\@findslope(#1,#2)%
+  \if@pslope \let\@upordown\raise \else \let\@upordown\lower\fi
+  \getch@nnel(#1,#2)\setbox\@arrbox=\hbox{\@upordown\@vchannel
+    \rlap{\drawline(#1,#2){\sarrowlength}}%
+      \hskip\@hchannel\hbox{\drawline(#1,#2){\sarrowlength}}}%
+  \d@@blearrtrue\generalsmap(#1,#2)}%
+\def\biarrow(#1,#2){\@findslope(#1,#2)%
+  \if@pslope \let\@upordown\raise \else \let\@upordown\lower\fi
+  \getch@nnel(#1,#2)\setbox\@arrbox=\hbox{\@upordown\@vchannel
+    \rlap{\drawvector(#1,#2){\sarrowlength}}%
+      \hskip\@hchannel\hbox{\drawvector(#1,#2){\sarrowlength}}}%
+  \d@@blearrtrue\generalsmap(#1,#2)}%
+\def\adjarrow(#1,#2){\@findslope(#1,#2)%
+  \if@pslope \let\@upordown\raise \else \let\@upordown\lower\fi
+  \getch@nnel(#1,#2)\setbox\@arrbox=\hbox{\@upordown\@vchannel
+    \rlap{\drawvector(#1,#2){\sarrowlength}}%
+      \hskip\@hchannel\hbox{\drawvector(-#1,-#2){\sarrowlength}}}%
+  \d@@blearrtrue\generalsmap(#1,#2)}%
+\newif\ifrtm@rph
+\def\@shiftmorph#1{\hbox{\setbox0=\hbox{$\scriptstyle#1$}%
+  \setbox1=\hbox{\hskip\@hm@rphshift\raise\@vm@rphshift\copy0}%
+  \wd1=\wd0 \ht1=\ht0 \dp1=\dp0 \box1}}%
+\def\@hm@rphshift{\ifrtm@rph
+  \ifdim\hmorphposnrt=\z@\hmorphposn\else\hmorphposnrt\fi \else
+  \ifdim\hmorphposnlft=\z@\hmorphposn\else\hmorphposnlft\fi \fi}%
+\def\@vm@rphshift{\ifrtm@rph
+  \ifdim\vmorphposnrt=\z@\vmorphposn\else\vmorphposnrt\fi \else
+  \ifdim\vmorphposnlft=\z@\vmorphposn\else\vmorphposnlft\fi \fi}%
+\def\addm@rph{\ifx\next\lft\let\temp=\lftmorph\else
+  \ifx\next\rt\let\temp=\rtmorph\else\let\temp\relax\fi\fi \temp}%
+\def\plnmorph{\dimen1\wd\@arrbox \ifdim\dimen1<\z@ \dimen1-\dimen1\fi
+  \vcenter{\box\@arrbox}}%
+\def\lftmorph\lft#1{\rtm@rphfalse \setbox0=\@shiftmorph{#1}%
+  \if@pslope \let\@upordown\raise \else \let\@upordown\lower\fi
+  \llap{\@upordown\@vmorphdflt\hbox to\dimen1{\hss % \dimen1=\wd\@arrbox
+    \llap{\box0}\hss}\hskip\@hmorphdflt}\futurelet\next\addm@rph}%
+\def\rtmorph\rt#1{\rtm@rphtrue \setbox0=\@shiftmorph{#1}%
+  \if@pslope \let\@upordown\lower \else \let\@upordown\raise\fi
+  \llap{\@upordown\@vmorphdflt\hbox to\dimen1{\hss
+    \rlap{\box0}\hss}\hskip-\@hmorphdflt}\futurelet\next\addm@rph}%
+\def\getm@rphposn(#1,#2){\ifd@@blearr \dimen@\morphdist \advance\dimen@ by
+  .5\channelwidth \@getshift(#1,#2){\@hmorphdflt}{\@vmorphdflt}{\dimen@}\else
+  \@getshift(#1,#2){\@hmorphdflt}{\@vmorphdflt}{\morphdist}\fi}%
+\def\getch@nnel(#1,#2){\ifdim\hchannel=\z@ \ifdim\vchannel=\z@
+    \@getshift(#1,#2){\@hchannel}{\@vchannel}{\channelwidth}%
+    \else \@hchannel\hchannel \@vchannel\vchannel \fi
+  \else \@hchannel\hchannel \@vchannel\vchannel \fi}%
+\def\@getshift(#1,#2)#3#4#5{\dimen@ #5\relax
+  \&xarg #1\relax \&yarg #2\relax
+  \ifnum\&xarg<0 \&xarg -\&xarg \fi
+  \ifnum\&yarg<0 \&yarg -\&yarg \fi
+  \ifnum\&xarg<\&yarg \&negargtrue \&yyarg\&xarg \&xarg\&yarg \&yarg\&yyarg\fi
+  \ifcase\&xarg \or  % There is no case 0
+    \ifcase\&yarg    % case 1
+      \dimen@i \z@ \dimen@ii \dimen@ \or % case (1,0)
+      \dimen@i .7071\dimen@ \dimen@ii .7071\dimen@ \fi \or
+    \ifcase\&yarg    % case 2
+      \or % case 0,2 wrong
+      \dimen@i .4472\dimen@ \dimen@ii .8944\dimen@ \fi \or
+    \ifcase\&yarg    % case 3
+      \or % case 0,3 wrong
+      \dimen@i .3162\dimen@ \dimen@ii .9486\dimen@ \or
+      \dimen@i .5547\dimen@ \dimen@ii .8321\dimen@ \fi \or
+    \ifcase\&yarg    % case 4
+      \or % case 0,2,4 wrong
+      \dimen@i .2425\dimen@ \dimen@ii .9701\dimen@ \or\or
+      \dimen@i .6\dimen@ \dimen@ii .8\dimen@ \fi \or
+    \ifcase\&yarg    % case 5
+      \or % case 0,5 wrong
+      \dimen@i .1961\dimen@ \dimen@ii .9801\dimen@ \or
+      \dimen@i .3714\dimen@ \dimen@ii .9284\dimen@ \or
+      \dimen@i .5144\dimen@ \dimen@ii .8575\dimen@ \or
+      \dimen@i .6247\dimen@ \dimen@ii .7801\dimen@ \fi \or
+    \ifcase\&yarg    % case 6
+      \or % case 0,2,3,4,6 wrong
+      \dimen@i .1645\dimen@ \dimen@ii .9864\dimen@ \or\or\or\or
+      \dimen@i .6402\dimen@ \dimen@ii .7682\dimen@ \fi \fi
+  \if&negarg \&tempdima\dimen@i \dimen@i\dimen@ii \dimen@ii\&tempdima\fi
+  #3\dimen@i\relax #4\dimen@ii\relax }%
+\catcode`\&=4  % Back to alignment tab
+}%
+\catcode`& = 4
+\toks2 = {%
+\catcode`\&=4  % Back to alignment tab
+\def\generalhmap{\futurelet\next\@generalhmap}%
+\def\@generalhmap{\ifx\next^ \let\temp\generalhm@rph\else
+  \ifx\next_ \let\temp\generalhm@rph\else \let\temp\m@kehmap\fi\fi \temp}%
+\def\generalhm@rph#1#2{\ifx#1^
+    \toks@=\expandafter{\the\toks@#1{\rtm@rphtrue\@shiftmorph{#2}}}\else
+    \toks@=\expandafter{\the\toks@#1{\rtm@rphfalse\@shiftmorph{#2}}}\fi
+  \generalhmap}%
+\def\m@kehmap{\mathrel{\smash@@{\the\toks@}}}%
+\def\mapright{\toks@={\mathop{\vcenter{\smash@@{\drawrightarrow}}}\limits}%
+  \generalhmap}%
+\def\mapleft{\toks@={\mathop{\vcenter{\smash@@{\drawleftarrow}}}\limits}%
+  \generalhmap}%
+\def\bimapright{\toks@={\mathop{\vcenter{\smash@@{\drawbirightarrow}}}\limits}%
+  \generalhmap}%
+\def\bimapleft{\toks@={\mathop{\vcenter{\smash@@{\drawbileftarrow}}}\limits}%
+  \generalhmap}%
+\def\adjmapright{\toks@={\mathop{\vcenter{\smash@@{\drawadjrightarrow}}}\limits}%
+  \generalhmap}%
+\def\adjmapleft{\toks@={\mathop{\vcenter{\smash@@{\drawadjleftarrow}}}\limits}%
+  \generalhmap}%
+\def\hline{\toks@={\mathop{\vcenter{\smash@@{\drawhline}}}\limits}%
+  \generalhmap}%
+\def\bihline{\toks@={\mathop{\vcenter{\smash@@{\drawbihline}}}\limits}%
+  \generalhmap}%
+\def\drawrightarrow{\hbox{\drawvector(1,0){\harrowlength}}}%
+\def\drawleftarrow{\hbox{\drawvector(-1,0){\harrowlength}}}%
+\def\drawbirightarrow{\hbox{\raise.5\channelwidth
+  \hbox{\drawvector(1,0){\harrowlength}}\lower.5\channelwidth
+  \llap{\drawvector(1,0){\harrowlength}}}}%
+\def\drawbileftarrow{\hbox{\raise.5\channelwidth
+  \hbox{\drawvector(-1,0){\harrowlength}}\lower.5\channelwidth
+  \llap{\drawvector(-1,0){\harrowlength}}}}%
+\def\drawadjrightarrow{\hbox{\raise.5\channelwidth
+  \hbox{\drawvector(-1,0){\harrowlength}}\lower.5\channelwidth
+  \llap{\drawvector(1,0){\harrowlength}}}}%
+\def\drawadjleftarrow{\hbox{\raise.5\channelwidth
+  \hbox{\drawvector(1,0){\harrowlength}}\lower.5\channelwidth
+  \llap{\drawvector(-1,0){\harrowlength}}}}%
+\def\drawhline{\hbox{\drawline(1,0){\harrowlength}}}%
+\def\drawbihline{\hbox{\raise.5\channelwidth
+  \hbox{\drawline(1,0){\harrowlength}}\lower.5\channelwidth
+  \llap{\drawline(1,0){\harrowlength}}}}%
+\def\generalvmap{\futurelet\next\@generalvmap}%
+\def\@generalvmap{\ifx\next\lft \let\temp\generalvm@rph\else
+  \ifx\next\rt \let\temp\generalvm@rph\else \let\temp\m@kevmap\fi\fi \temp}%
+\toksdef\toks@@=1
+\def\generalvm@rph#1#2{\ifx#1\rt % append
+    \toks@=\expandafter{\the\toks@
+      \rlap{$\vcenter{\rtm@rphtrue\@shiftmorph{#2}}$}}\else % prepend
+    \toks@@={\llap{$\vcenter{\rtm@rphfalse\@shiftmorph{#2}}$}}%
+    \toks@=\expandafter\expandafter\expandafter{\expandafter\the\expandafter
+      \toks@@ \the\toks@}\fi \generalvmap}%
+\def\m@kevmap{\the\toks@}%
+\def\mapdown{\toks@={\vcenter{\drawdownarrow}}\generalvmap}%
+\def\mapup{\toks@={\vcenter{\drawuparrow}}\generalvmap}%
+\def\bimapdown{\toks@={\vcenter{\drawbidownarrow}}\generalvmap}%
+\def\bimapup{\toks@={\vcenter{\drawbiuparrow}}\generalvmap}%
+\def\adjmapdown{\toks@={\vcenter{\drawadjdownarrow}}\generalvmap}%
+\def\adjmapup{\toks@={\vcenter{\drawadjuparrow}}\generalvmap}%
+\def\vline{\toks@={\vcenter{\drawvline}}\generalvmap}%
+\def\bivline{\toks@={\vcenter{\drawbivline}}\generalvmap}%
+\def\drawdownarrow{\hbox to5pt{\hss\drawvector(0,-1){\varrowlength}\hss}}%
+\def\drawuparrow{\hbox to5pt{\hss\drawvector(0,1){\varrowlength}\hss}}%
+\def\drawbidownarrow{\hbox to5pt{\hss\hbox{\drawvector(0,-1){\varrowlength}}%
+  \hskip\channelwidth\hbox{\drawvector(0,-1){\varrowlength}}\hss}}%
+\def\drawbiuparrow{\hbox to5pt{\hss\hbox{\drawvector(0,1){\varrowlength}}%
+  \hskip\channelwidth\hbox{\drawvector(0,1){\varrowlength}}\hss}}%
+\def\drawadjdownarrow{\hbox to5pt{\hss\hbox{\drawvector(0,-1){\varrowlength}}%
+  \hskip\channelwidth\lower\varrowlength
+  \hbox{\drawvector(0,1){\varrowlength}}\hss}}%
+\def\drawadjuparrow{\hbox to5pt{\hss\hbox{\drawvector(0,1){\varrowlength}}%
+  \hskip\channelwidth\raise\varrowlength
+  \hbox{\drawvector(0,-1){\varrowlength}}\hss}}%
+\def\drawvline{\hbox to5pt{\hss\drawline(0,1){\varrowlength}\hss}}%
+\def\drawbivline{\hbox to5pt{\hss\hbox{\drawline(0,1){\varrowlength}}%
+  \hskip\channelwidth\hbox{\drawline(0,1){\varrowlength}}\hss}}%
+\def\commdiag#1{\null\,
+  \vcenter{\commdiagbaselines
+  \m@th\ialign{\hfil$##$\hfil&&\hfil$\mkern4mu ##$\hfil\crcr
+      \mathstrut\crcr\noalign{\kern-\baselineskip}
+      #1\crcr\mathstrut\crcr\noalign{\kern-\baselineskip}}}\,}%
+\def\commdiagbaselines{\baselineskip15pt \lineskip3pt \lineskiplimit3pt }%
+\def\gridcommdiag#1{\null\,
+  \vcenter{\offinterlineskip
+  \m@th\ialign{&\vbox to\vgrid{\vss
+    \hbox to\hgrid{\hss\smash@@{$##$}\hss}}\crcr
+      \mathstrut\crcr\noalign{\kern-\vgrid}
+      #1\crcr\mathstrut\crcr\noalign{\kern-.5\vgrid}}}\,}%
+\newdimen\harrowlength \harrowlength=60pt
+\newdimen\varrowlength \varrowlength=.618\harrowlength
+\newdimen\sarrowlength \sarrowlength=\harrowlength
+\newdimen\hmorphposn \hmorphposn=\z@
+\newdimen\vmorphposn \vmorphposn=\z@
+\newdimen\morphdist  \morphdist=4pt
+\dimendef\@hmorphdflt 0       % These two dimensions are
+\dimendef\@vmorphdflt 2       % defined by \getm@rphposn
+\newdimen\hmorphposnrt  \hmorphposnrt=\z@
+\newdimen\hmorphposnlft \hmorphposnlft=\z@
+\newdimen\vmorphposnrt  \vmorphposnrt=\z@
+\newdimen\vmorphposnlft \vmorphposnlft=\z@
+\let\hmorphposnup=\hmorphposnrt
+\let\hmorphposndn=\hmorphposnlft
+\let\vmorphposnup=\vmorphposnrt
+\let\vmorphposndn=\vmorphposnlft
+\newdimen\hgrid \hgrid=15pt
+\newdimen\vgrid \vgrid=15pt
+\newdimen\hchannel  \hchannel=0pt
+\newdimen\vchannel  \vchannel=0pt
+\newdimen\channelwidth \channelwidth=3pt
+\dimendef\@hchannel 0         % Defined via the
+\dimendef\@vchannel 2         % macro \getch@nnel
+\catcode`& = \@oldandcatcode
+\catcode`@ = \@oldatcatcode
+}%
+\let\newif = \@plainnewif
+\let\newdimen = \@plainnewdimen
+\ifx\noarrow\@undefined \the\toks0 \the\toks2 \fi
+\catcode`& = \@eplainoldandcode
+\def\environment#1{%
+   \ifx\@groupname\@undefined\else
+      \errhelp = \@unnamedendgrouphelp
+      \errmessage{`\@groupname' was not closed by \string\endenvironment}%
+   \fi
+   \edef\@groupname{#1}%
+   \begingroup
+      \let\@groupname = \@undefined
+}%
+\def\endenvironment#1{%
+   \endgroup
+   \edef\@thearg{#1}%
+   \ifx\@groupname\@thearg
+   \else
+      \ifx\@groupname\@undefined
+         \errhelp = \@isolatedendenvironmenthelp
+         \errmessage{Isolated \string\endenvironment\space for `#1'}%
+      \else
+         \errhelp = \@mismatchedenvironmenthelp
+         \errmessage{Environment `#1' ended, but `\@groupname' started}%
+         \endgroup % Probably a typo in the names.
+      \fi
+   \fi
+   \let\@groupname = \@undefined
+}%
+\newhelp\@unnamedendgrouphelp{Most likely, you just forgot an^^J%
+   \string\endenvironment.  Maybe you should try inserting another^^J%
+   \string\endgroup to recover.}%
+\newhelp\@isolatedendenvironmenthelp{You ended an environment X, but^^J%
+   no \string\environment{X} to start it is anywhere in sight.^^J%
+   You might also be at an \string\endenvironment\space that would match^^J%
+   a \string\begingroup, i.e., you forgot an \string\endgroup.}%
+\newhelp\@mismatchedenvironmenthelp{You started an environment named X, but^^J%
+   you ended one named Y.  Maybe you made a typo in one^^J%
+   or the other of the names?}%
+\newif\ifenvironment
+\def\checkenv{\ifenvironment \errhelp = \@interwovenenvhelp
+   \errmessage{Interwoven environments}%
+   \egroup \fi
+}%
+\newhelp\@interwovenenvhelp{Perhaps you forgot to end the previous^^J%
+   environment? I'm finishing off the current group,^^J%
+   hoping that will fix it.}%
+\newtoks\previouseverydisplay
+\let\@leftleftfill\relax % as it was
+\newdimen\leftdisplayindent \leftdisplayindent=\parindent
+\newif\if@leftdisplays
+\def\leftdisplays{%
+  \if@leftdisplays\else
+    \previouseverydisplay = \everydisplay
+    \everydisplay = {\the\previouseverydisplay \leftdisplaysetup}%
+    \let\@save@maybedisableeqno = \@maybedisableeqno
+    \let\@saveeqno = \eqno
+    \let\@saveleqno = \leqno
+    \let\@saveeqalignno = \eqalignno
+    \let\@saveleqalignno = \leqalignno
+    \let\@maybedisableeqno = \relax
+    \def\eqno{\hfill\textstyle\enspace}%
+    \def\leqno{%
+      \hfill
+      \hbox to0pt\bgroup
+        \kern-\displaywidth
+        \kern-\leftdisplayindent    % I'll use just \leftdisplayindent
+        $\aftergroup\@leftleqnoend  % inserted after ending $
+    }%
+    \@redefinealignmentdisplays
+    \@leftdisplaystrue
+  \fi
+}%
+\newbox\@lignbox
+\newdimen\disprevdepth
+\def\centereddisplays{%
+  \if@leftdisplays
+    \everydisplay = \previouseverydisplay
+    \let\@maybedisableeqno = \@save@maybedisableeqno
+    \let\eqno = \@saveeqno
+    \let\leqno = \@saveleqno
+    \let\eqalignno = \@saveeqalignno
+    \let\leqalignno = \@saveleqalignno
+    \@leftdisplaysfalse
+  \fi
+}%
+\def\leftdisplaysetup{%
+   \dimen@ = \leftdisplayindent
+   \advance\dimen@ by \leftskip
+   \advance\displayindent by \dimen@
+   \advance\displaywidth by -\dimen@
+   \halign\bgroup##\cr \noalign\bgroup
+      \disprevdepth = \prevdepth
+      \setbox\z@ = \hbox to\displaywidth\bgroup
+      $\displaystyle
+      \aftergroup\@lefteqend % inserted after ending $
+}
+\def\@lefteqend{% gets inserted between the ending $$
+   \hfil\egroup% end box 0
+   \@putdisplay}
+\def\@leftleqnoend{\hss \egroup $}% end the \hbox to 0pt for \leqno, restore $
+\def\@putdisplay{%
+   \ifvoid\@lignbox %  Ordinary display; use it.
+     \moveright\displayindent\box\z@ 
+   \else % alignment display; unwrap alignment
+     \prevdepth = \dp\@lignbox % affects the skip *below*
+     \unvbox\@lignbox
+   \fi
+   \egroup\egroup % end \noalign, end outer \halign
+   $% restore first $ of trailing $$
+}
+\def\@redefinealignmentdisplays{%
+  \def\displaylines##1{
+    \global\setbox\@lignbox\vbox{%
+      \prevdepth = \disprevdepth
+      \displ@y
+      \tabskip\displayindent
+      \halign{\hbox to\displaywidth
+        {$\@lign\displaystyle####\hfil$\hfil}\crcr
+              ##1\crcr}}}%
+  \def\eqalignno##1{%
+    \def\eqno{&}%
+    \global\setbox\@lignbox\vbox{%
+      \prevdepth = \disprevdepth
+      \displ@y
+      \advance\displaywidth by \displayindent
+      \tabskip\displayindent
+      \halign to\displaywidth{%
+         \hfil $\@lign\displaystyle{####}$\@leftleftfill\tabskip\z@skip
+        &$\@lign\displaystyle{{}####}$\hfil\tabskip\centering
+        &\llap{$\@lign####$}\tabskip\z@skip\crcr
+        ##1\crcr}}}%
+  \def\leqalignno##1{%
+    \def\eqno{&}%
+    \global\setbox\@lignbox\vbox{%
+      \prevdepth = \disprevdepth
+      \displ@y
+      \advance\displaywidth by \displayindent
+      \tabskip\displayindent
+      \halign to\displaywidth{%
+         \hfil $\@lign\displaystyle{####}$\@leftleftfill\tabskip\z@skip
+        &$\@lign\displaystyle{{}####}$\hfil\tabskip\centering
+        &\kern-\displaywidth 
+         \rlap{\kern\displayindent \kern-\leftdisplayindent$\@lign####$}%
+         \tabskip\displaywidth\crcr
+        ##1\crcr}}}%
+}%
+\let\@primitivenoalign = \noalign
+\newtoks\@everynoalign
+\def\@lefteqalignonoalign#1{%
+  \@primitivenoalign{%
+    \advance\leftskip by -\parindent
+    \advance\leftskip by -\leftdisplayindent
+    \parskip = 0pt
+    \parindent = 0pt
+    \the\@everynoalign
+    #1%
+  }%
+}%
+\def\monthname{%
+   \ifcase\month
+      \or Jan\or Feb\or Mar\or Apr\or May\or Jun%
+      \or Jul\or Aug\or Sep\or Oct\or Nov\or Dec%
+   \fi
+}%
+\def\fullmonthname{%
+   \ifcase\month
+      \or January\or February\or March\or April\or May\or June%
+      \or July\or August\or September\or October\or November\or December%
+   \fi
+}%
+\def\timestring{\begingroup
+   \count0 = \time
+   \divide\count0 by 60
+   \count2 = \count0   % The hour, from zero to 23.
+   \count4 = \time
+   \multiply\count0 by 60
+   \advance\count4 by -\count0   % The minute, from zero to 59.
+   \ifnum\count4<10
+      \toks1 = {0}%
+   \else
+      \toks1 = {}%
+   \fi
+   \ifnum\count2<12
+      \toks0 = {a.m.}%
+   \else
+      \toks0 = {p.m.}%
+      \advance\count2 by -12
+   \fi
+   \ifnum\count2=0
+      \count2 = 12
+   \fi
+   \number\count2:\the\toks1 \number\count4 \thinspace \the\toks0
+\endgroup}%
+\def\timestamp{\number\day\space\monthname\space\number\year\quad\timestring}%
+\def\today{\the\day\ \fullmonthname\ \the\year}%
+\newskip\abovelistskipamount      \abovelistskipamount = .5\baselineskip
+  \newcount\abovelistpenalty      \abovelistpenalty    = 10000
+  \def\abovelistskip{\vpenalty\abovelistpenalty \vskip\abovelistskipamount}%
+\newskip\interitemskipamount      \interitemskipamount = 0pt
+  \newcount\belowlistpenalty      \belowlistpenalty    = -50
+  \def\belowlistskip{\vpenalty\belowlistpenalty \vskip\belowlistskipamount}%
+\newskip\belowlistskipamount      \belowlistskipamount = .5\baselineskip
+  \newcount\interitempenalty      \interitempenalty    = 0
+  \def\interitemskip{\vpenalty\interitempenalty \vskip\interitemskipamount}%
+\newdimen\listleftindent    \listleftindent = 0pt
+\newdimen\listrightindent   \listrightindent = 0pt        
+\let\listmarkerspace = \enspace
+\newtoks\everylist
+\def\listcompact{\interitemskipamount = 0pt \relax}%
+\newdimen\@listindent
+\def\beginlist{%
+  \abovelistskip
+  \@listindent = \parindent
+  \advance\@listindent by \listleftindent
+  \advance\leftskip by \@listindent
+  \advance\rightskip by \listrightindent
+  \itemnumber = 1
+  \the\everylist
+}%
+\def\li{\@getoptionalarg\@finli}%
+\def\@finli{%
+  \let\@lioptarg\@optionalarg
+  \ifx\@lioptarg\empty \else
+    \begingroup
+      \@@hldestoff
+      \expandafter\writeitemxref\expandafter{\@lioptarg}%
+    \endgroup
+  \fi
+  \ifnum\itemnumber=1 \else \interitemskip \fi
+  \begingroup
+    \ifx\@lioptarg\empty \else
+      \toks@ = \expandafter{\@lioptarg}%
+      \let\li@nohldest@marker\marker
+      \edef\marker{\noexpand\hldest@impl{li}{\the\toks@}\noexpand\li@nohldest@marker}%
+    \fi
+    \printitem
+  \endgroup
+  \advance\itemnumber by 1
+  \advance\itemletter by 1
+  \advance\itemromannumeral by 1
+  \ignorespaces
+}%
+\def\writeitemxref#1{\definexref{#1}\marker{item}}%
+\def\printitem{%
+  \par
+  \nobreak
+  \vskip-\parskip
+  \noindent
+  \printmarker\marker
+}%
+\def\printmarker#1{\llap{\marker \enspace}}%
+\def\endlist{\belowlistskip}%
+\newcount\numberedlistdepth
+\newcount\itemnumber
+\newcount\itemletter
+\newcount\itemromannumeral
+\def\numberedmarker{%
+  \ifcase\numberedlistdepth
+      (impossible)%
+  \or \printitemnumber
+  \or \printitemletter
+  \or \printitemromannumeral
+  \else *%
+  \fi
+}%
+\def\printitemnumber{\number\itemnumber}%
+\def\printitemletter{\char\the\itemletter}%
+\def\printitemromannumeral{\romannumeral\itemromannumeral}%
+\def\numberedprintmarker#1{\llap{#1) \listmarkerspace}}%
+\def\numberedlist{\environment{@numbered-list}%
+  \advance\numberedlistdepth by 1
+  \itemletter = `a
+  \itemromannumeral = 1
+  \beginlist
+  \let\marker = \numberedmarker
+  \let\printmarker = \numberedprintmarker
+}%
+\def\endnumberedlist{%
+  \par
+  \endenvironment{@numbered-list}%
+  \endlist
+}%
+\let\orderedlist = \numberedlist
+\let\endorderedlist = \endnumberedlist
+\newcount\unorderedlistdepth
+\def\unorderedmarker{%
+  \ifcase\unorderedlistdepth
+      (impossible)%
+  \or \blackbox
+  \or ---%
+  \else *%
+  \fi
+}%
+\def\unorderedprintmarker#1{\llap{#1\listmarkerspace}}%
+\def\unorderedlist{\environment{@unordered-list}%
+  \advance\unorderedlistdepth by 1
+  \beginlist
+  \let\marker = \unorderedmarker
+  \let\printmarker = \unorderedprintmarker
+}%
+\def\endunorderedlist{%
+  \par
+  \endenvironment{@unordered-list}%
+  \endlist
+}%
+\def\listing#1{%
+   \par \begingroup
+   \@setuplisting
+   \setuplistinghook
+   \input #1
+   \endgroup
+}%
+\let\setuplistinghook = \relax
+\def\linenumberedlisting{%
+  \ifx\lineno\undefined \innernewcount\lineno \fi
+  \lineno = 0
+  \everypar = {\advance\lineno by 1 \printlistinglineno}%
+}%
+\def\printlistinglineno{\llap{[\the\lineno]\quad}}%
+\def\nolastlinelisting{\aftergroup\@removeboxes}%
+\def\@removeboxes{%
+  \setbox0 = \lastbox
+  \ifvoid0
+    \ignorespaces % Ignore spaces after the \obeywhitespace's group.
+  \else
+    \expandafter\@removeboxes
+  \fi
+}%
+{%
+  \makeactive\^^L
+  \let^^L = \relax
+  \gdef\@setuplisting{%
+     \uncatcodespecials
+     \obeywhitespace
+     \makeactive\`
+     \makeactive\^^I
+     \makeactive\^^L
+     \def^^L{\vfill\break}%
+     \parskip = 0pt
+     \listingfont
+  }%
+}%
+\def\listingfont{\tt}%
+{%
+   \makeactive\`
+   \gdef`{\relax\lq}% Defeat ligatures.
+}%
+{%
+   \makeactive\^^I
+   \gdef^^I{\hskip8\fontdimen2\font \relax}%
+}%
+\def\verbatimescapechar#1{%
+  \gdef\@makeverbatimescapechar{%
+    \@makeverbatimdoubleescape #1%
+    \catcode`#1 = 0
+  }%
+}%
+\def\@makeverbatimdoubleescape#1{%
+  \catcode`#1 = \other
+  \begingroup
+    \lccode`\* = `#1%
+    \lowercase{\endgroup \ece\def*{*}}%
+}%
+\verbatimescapechar\|  % initially escapechar is |
+\def\verbatim{\begingroup
+  \uncatcodespecials
+  \makeactive\` % make space character a single space, not stretchable
+  \@makeverbatimescapechar
+  \tt\obeywhitespace}
+\let\endverbatim = \endgroup
+\def\definecontentsfile#1{%
+  \ece\innernewwrite{#1file}%
+  \ece\innernewif{if@#1fileopened}%
+  \ece\let{#1filebasename} = \jobname
+  \ece\def{open#1file}{\opencontentsfile{#1}}%
+  \ece\def{write#1entry}{\writecontentsentry{#1}}%
+  \ece\def{writenumbered#1entry}{\writenumberedcontentsentry{#1}}%
+  \ece\def{writenumbered#1line}{\writenumberedcontentsline{#1}}%
+  \ece\innernewif{ifrewrite#1file} \csname rewrite#1filetrue\endcsname
+  \ece\def{read#1file}{\readcontentsfile{#1}}%
+}%
+\definecontentsfile{toc}%
+\def\opencontentsfile#1{%
+  \csname if@#1fileopened\endcsname \else
+     \ece{\immediate\openout}{#1file} = \csname #1filebasename\endcsname.#1
+     \ece\global{@#1fileopenedtrue}%
+  \fi
+}%
+\def\writecontentsentry#1#2#3{\writenumberedcontentsentry{#1}{#2}{#3}{}}%
+\def\writenumberedcontentsentry#1#2#3#4{%
+  \csname ifrewrite#1file\endcsname
+    \writenumberedcontents@cmdname{#1}{#2}%
+    \def\temp{#3}% the text
+    \toks2 = \expandafter{#4}%
+    \edef\cs{\the\toks2}%
+    \edef\@wr{%
+      \write\csname #1file\endcsname{%
+        \the\toks0 % the \toc...entry control sequence
+        {\sanitize\temp}% the text
+        \ifx\empty\cs\else {\sanitize\cs}\fi % a secondary number, or nothing
+        {\noexpand\folio}% the page number
+      }%
+    }%
+    \@wr
+  \fi
+  \ignorespaces
+}%
+\def\writenumberedcontentsline#1#2#3#4{%
+  \csname ifrewrite#1file\endcsname
+    \writenumberedcontents@cmdname{#1}{#2}%
+    \def\temp{#4}% the text
+    \toks2 = \expandafter{#3}%
+    \edef\cs{\the\toks2}%
+    \edef\@wr{%
+      \write\csname #1file\endcsname{%
+        \the\toks0 % the \toc...entry control sequence
+        \ifx\empty\cs\else {\sanitize\cs}\fi % a secondary number, or nothing
+        {\sanitize\temp}% the text
+        {\noexpand\folio}% the page number
+      }%
+    }%
+    \@wr
+  \fi
+  \ignorespaces
+}%
+\def\writenumberedcontents@cmdname#1#2{%
+  \csname open#1file\endcsname
+  \edef\temp{#2}% Expand PART fully and see if this produced an integer.
+  \expandafter\if\expandafter\isinteger\expandafter{\temp}%
+    \toks0 = {\expandafter\noexpand \csname #1entry\endcsname}%
+    \edef\temp{\the\toks0{\temp}}%
+    \toks0 = \expandafter{\temp}%
+  \else
+    \toks0 = {\expandafter\noexpand \csname #1#2entry\endcsname}%
+  \fi
+}%
+\def\readcontentsfile#1{%
+   \edef\temp{%
+     \noexpand\testfileexistence[\csname #1filebasename\endcsname]{#1}%
+   }\temp
+   \if@fileexists
+      \input \csname #1filebasename\endcsname.#1\relax
+   \fi
+}%
+\def\tocchapterentry#1#2{\line{\bf #1 \dotfill\ #2}}%
+\def\tocsectionentry#1#2{\line{\quad\sl #1 \dotfill\ \rm #2}}%
+\def\tocsubsectionentry#1#2{\line{\qquad\rm #1 \dotfill\ #2}}%
+\def\tocentry#1#2#3{\line{\rm\hskip#1em #2 \dotfill\ #3}}%
+\let\ifxrefwarning = \iftrue
+\def\xrefwarningtrue{\@citewarningtrue \let\ifxrefwarning = \iftrue}%
+\def\xrefwarningfalse{\@citewarningfalse \let\ifxrefwarning = \iffalse}%
+\begingroup
+  \catcode`\_ = 8
+  \gdef\xrlabel#1{#1_x}%
+\endgroup
+\def\xrdef#1{%
+  \begingroup
+    \hldest@impl{xrdef}{#1}%
+    \begingroup
+      \@@hldestoff
+      \definexref{#1}{\noexpand\folio}{page}%
+    \endgroup
+  \endgroup
+  \ignorespaces
+}%
+\def\definexref#1#2#3{%
+  \hldest@impl{definexref}{#1}%
+  \edef\temp{#1}%
+  \readauxfile
+  \edef\@wr{\noexpand\writeaux{\string\@definelabel{\temp}{#2}{#3}}}%
+  \@wr
+  \ignorespaces
+}%
+\def\@definelabel#1{% #2 and #3 will be read later.
+  \begingroup % Will be ended in \@definelabel@nocheck.
+    \expandafter\ifx\csname\xrlabel{#1}\endcsname \relax
+      \expandafter\@definelabel@nocheck
+    \else
+      \expandafter\@definelabel@warn
+    \fi
+    {#1}%
+}%
+\def\@definelabel@nocheck#1#2#3{%
+    \expandafter\gdef\csname\xrlabel{#1}\endcsname{#2}%
+    \setpropertyglobal{\xrlabel{#1}}{class}{#3}%
+  \endgroup % From \@definelabel.
+}%
+\def\@definelabel@warn#1#2#3{%
+  \message{^^J\linenumber Label `#1' multiply defined,
+           value `#2' of class `#3' overwriting value
+           `\csname\xrlabel{#1}\endcsname' of class
+           `\getproperty{\xrlabel{#1}}{class}'.}%
+  \@definelabel@nocheck{#1}{#2}{#3}%
+}%
+\def\reftie{\penalty\@M \ }% Do not rely on `~' being defined as a tie.
+\let\refspace\ 
+\def\xrefn{\@getoptionalarg\@finxrefn}%
+\def\@finxrefn#1{%
+  \hlstart@impl{ref}{#1}%
+  \ifx\@optionalarg\empty \else
+    \let\@xrefnoptarg\@optionalarg
+    \readauxfile
+    {\@@hloff\@xrefnoptarg}\reftie
+  \fi
+  \plain@xrefn{#1}%
+  \hlend@impl{ref}%
+}%
+\def\plain@xrefn#1{%
+  \readauxfile
+  \expandafter \ifx\csname\xrlabel{#1}\endcsname\relax
+    \if@citewarning
+       \message{\linenumber Undefined label `#1'.}%
+    \fi
+    \expandafter\def\csname\xrlabel{#1}\endcsname{%
+      `{\tt
+        \escapechar = -1
+        \expandafter\string\csname#1\endcsname
+      }'%
+    }%
+  \fi
+  \csname\xrlabel{#1}\endcsname % Always produce something.
+}%
+\let\refn = \xrefn
+\def\xrefpageword{p.\thinspace}%
+\def\xref{\@getoptionalarg\@finxref}%
+\def\@finxref#1{%
+  \hlstart@impl{xref}{#1}%
+  \ifx\@optionalarg\empty \else
+    {\@@hloff\@optionalarg}\refspace
+  \fi
+  \xrefpageword\plain@xrefn{#1}%
+  \hlend@impl{xref}%
+}%
+\def\@maybewarnref{%
+  \ifundefined{amsppt.sty}%
+  \else
+    \message{Warning: amsppt.sty and Eplain both define \string\ref. See
+             the Eplain manual.}%
+    \let\amsref = \ref
+  \fi
+  \let\ref = \eplainref
+  \ref
+}
+\let\ref = \@maybewarnref
+\def\eplainref{\@getoptionalarg\@fineplainref}%
+\def\@fineplainref{\@generalref{1}{}}%
+\def\refs{\let\@optionalarg\empty \@generalref{0}s}%
+\def\@generalref#1#2#3{%
+  \let\@generalrefoptarg\@optionalarg
+  \readauxfile
+  \ifcase#1 \else \hlstart@impl{ref}{#3}\fi
+  \edef\@generalref@class{\getproperty{\xrlabel{#3}}{class}}%
+  \expandafter\ifx\csname \@generalref@class word\endcsname\relax
+    \ifx\@generalrefoptarg\empty \else {\@@hloff\@generalrefoptarg\reftie}\fi
+  \else
+    \begingroup
+      \@@hloff
+      \ifx\@generalrefoptarg\empty \else \@generalrefoptarg \refspace \fi
+      \csname \@generalref@class word\endcsname
+      #2\reftie
+    \endgroup
+  \fi
+  \ifcase#1 \hlstart@impl{ref}{#3}\fi
+  \plain@xrefn{#3}%
+  \hlend@impl{ref}%
+}%
+\newcount\eqnumber
+\newcount\subeqnumber
+\def\eqdefn{\@getoptionalarg\@fineqdefn}%
+\def\@fineqdefn#1{%
+  \ifx\@optionalarg\empty
+    \global\advance\eqnumber by 1
+    \def\temp{\eqconstruct{\number\eqnumber}}%
+  \else
+    \def\temp{\@optionalarg}% 
+  \fi
+  \global\subeqnumber = 0
+  \gdef\@currenteqlabel{#1}%
+  \toks0 = \expandafter{\@currenteqlabel}%
+  \begingroup
+    \def\eqrefn{\noexpand\plain@xrefn}%
+    \def\xrefn{\noexpand\plain@xrefn}%
+    \edef\temp{\noexpand\@eqdefn{\the\toks0}{\temp}}%
+    \temp
+  \endgroup
+}%
+\def\eqsubdefn#1{%
+  \global\advance\subeqnumber by 1
+  \toks0 = {#1}%
+  \toks2 = \expandafter{\@currenteqlabel}%
+  \begingroup
+    \def\eqrefn{\noexpand\plain@xrefn}%
+    \def\xrefn{\noexpand\plain@xrefn}%
+    \def\eqsubreftext{\noexpand\eqsubreftext}%
+    \edef\temp{%
+      \noexpand\@eqdefn
+        {\the\toks0}%
+        {\eqsubreftext{\eqrefn{\the\toks2}}{\the\subeqnumber}}%
+    }%
+    \temp           
+  \endgroup
+}%
+\newcount\phantomeqnumber
+\def\phantomeqlabel{PHEQ\the\phantomeqnumber}%
+\def\@eqdefn#1#2{%
+  \ifempty{#1}%
+    \global\advance\phantomeqnumber by 1
+    \edef\hl@eqlabel{\phantomeqlabel}%
+    \readauxfile
+  \else
+    \def\hl@eqlabel{#1}%
+    {\@@hldestoff \definexref{#1}{#2}{eq}}%
+  \fi
+  \hldest@impl{eq}{\hl@eqlabel}%
+  \begingroup % \@definelabel@nocheck will end this group.
+    \@definelabel@nocheck{#1}{#2}{eq}%
+}%
+\def\eqdef{\@getoptionalarg\@fineqdef}%
+\def\@fineqdef{%
+  \toks0 = \expandafter{\@optionalarg}%
+  \edef\temp{\noexpand\@eqdef{\noexpand\eqdefn[\the\toks0]}}%
+  \temp
+}%
+\def\eqsubdef{\@eqdef\eqsubdefn}%
+\def\@eqdef#1#2{%
+  \@maybedisableeqno
+  \eqno #1{#2}% Define the label and hyperlink destination.
+        \let\@optionalarg\empty % \@fineqref will examine \@optionalarg.
+        {\@@hloff\@fineqref{#2}}% Print the text without a hyperlink.
+  \@mayberestoreeqno
+  \ignorespaces
+}%
+\let\@mayberestoreeqno = \relax
+\def\@maybedisableeqno{%
+  \ifinner
+    \global\let\eqno = \relax
+    \global\let\@mayberestoreeqno = \@restoreeqno
+  \fi
+}%
+\let\@primitiveeqno = \eqno
+\def\@restoreeqno{%
+  \global\let\eqno = \@primitiveeqno
+  \global\let\@mayberestoreeqno = \empty
+}%
+\def\eqrefn{\@getoptionalarg\@fineqrefn}%
+\def\@fineqrefn#1{%
+  \eqref@start{#1}%
+  \plain@xrefn{#1}%
+  \hlend@impl{eq}%
+}%
+\def\eqref{\@getoptionalarg\@fineqref}%
+\def\@fineqref#1{%
+  \eqref@start{#1}%
+  \eqprint{\plain@xrefn{#1}}%
+  \hlend@impl{eq}%
+}%
+\def\eqref@start#1{%
+  \let\@eqrefoptarg\@optionalarg
+  \ifempty{#1}%
+    \hlstart@impl{eq}{\phantomeqlabel}%
+  \else
+    \hlstart@impl{eq}{#1}%
+  \fi
+  \ifx\@eqrefoptarg\empty \else
+    {\@@hloff\@eqrefoptarg\reftie}%
+  \fi
+}%
+\let\eqconstruct = \identity
+\def\eqprint#1{(#1)}%
+\def\eqsubreftext#1#2{#1.#2}%
+\let\extraidxcmdsuffixes = \empty
+\outer\def\defineindex#1{%
+  \def\@idxprefix{#1}%
+  \expandafter\innernewif\csname if\@idxprefix dx\endcsname
+  \csname \@idxprefix dxtrue\endcsname
+  \for\@idxcmd:=,marked,submarked,name%
+                \extraidxcmdsuffixes\do
+  {%
+    \@defineindexcmd\@idxcmd
+  }%
+  \ece\innernewwrite{@#1indexfile}%
+  \ece\innernewif{if@#1indexfileopened}%
+}%
+\newif\ifsilentindexentry
+\def\@defineindexcmd#1{%
+  \@defineoneindexcmd{s}{#1}\silentindexentrytrue
+  \@defineoneindexcmd{}{#1}\silentindexentryfalse
+}%
+\def\@defineoneindexcmd#1#2#3{%
+  \toks@ = {#3}%
+  \edef\temp{%
+    \def
+      \expandonce\csname#1\@idxprefix dx#2\endcsname % e.g., \idx or \sidxname.
+      {\def\noexpand\@idxprefix{\@idxprefix}% define \@idxprefix
+       \expandonce\csname @@#1idx#2\endcsname
+      }%
+    \def
+      \expandonce\csname @@#1idx#2\endcsname{% e.g., \@@idx
+        \the\toks@
+        \noexpand\@idxgetrange\expandonce\csname @#1idx#2\endcsname
+      }%
+  }%
+  \temp
+}%
+\let\indexfilebasename = \jobname
+\def\@idxwrite#1#2{%
+  \csname if\@idxprefix dx\endcsname
+    \@openidxfile
+    \def\temp{#1}%
+    \edef\@wr{%
+      \expandafter\write\csname @\@idxprefix indexfile\endcsname{%
+        \string\indexentry
+        {\sanitize\temp}%
+        {\noexpand#2}%
+      }%
+    }%
+    \@wr
+  \else
+    \write-1{}%
+  \fi
+  \ifindexproofing \insert\@indexproof{\indexproofterm{#1}}\ifhmode\allowhyphens\fi\fi
+  \hookrun{afterindexterm}%
+  \ifsilentindexentry \expandafter\ignorespaces\fi
+}%
+\def\@openidxfile{%
+  \csname if@\@idxprefix indexfileopened\endcsname \else
+    \expandafter\immediate\openout\csname @\@idxprefix indexfile\endcsname =
+      \indexfilebasename.\@idxprefix dx
+    \expandafter\global\csname @\@idxprefix indexfileopenedtrue\endcsname
+  \fi
+}%
+\newif\ifindexproofing
+\newinsert\@indexproof
+\dimen\@indexproof = \maxdimen                  % No limit on number of terms.
+\count\@indexproof = 0  \skip\@indexproof = 0pt % They take up no space.
+\font\indexprooffont = cmtt8
+\def\indexproofterm#1{\hbox{\strut \indexprooffont #1}}%
+\let\@plainmakeheadline = \makeheadline
+\def\makeheadline{%
+  \expandafter\ifx\csname\idxpageanchor{\folio}\endcsname\relax \else
+    {\@@hldeston \hldest@impl{idx}{\hlidxpagelabel{\folio}}}%
+  \fi
+  \indexproofunbox
+  \@plainmakeheadline
+}%
+\def\indexsetmargins{%
+  \ifx\undefined\outsidemargin
+    \dimen@ = 1truein
+    \advance\dimen@ by \hoffset
+    \edef\outsidemargin{\the\dimen@}%
+    \let\insidemargin = \outsidemargin
+  \fi
+}%
+\def\indexproofunbox{%
+  \ifvoid\@indexproof\else
+    \indexsetmargins
+    \rlap{%
+      \kern\hsize
+      \ifodd\pageno \kern\outsidemargin \else \kern\insidemargin \fi
+      \vbox to 0pt{\unvbox\@indexproof\vss}%
+    }\nointerlineskip
+  \fi
+}%
+\def\idxrangebeginword{begin}%
+\def\idxbeginrangemark{(}% the corresponding magic char to go in the idx file
+\def\idxrangeendword{end}%
+\def\idxendrangemark{)}%
+\def\idxseecmdword{see}%
+\def\idxseealsocmdword{seealso}%
+\newif\if@idxsee
+\newif\if@hlidxencap
+\let\@idxseenterm = \relax
+\def\idxpagemarkupcmdword{pagemarkup}%
+\let\@idxpagemarkup = \relax
+\def\@idxgetrange#1{%
+  \let\@idxrangestr = \empty
+  \let\@afteridxgetrange = #1%
+  \begingroup
+    \catcode\idxargopen=1
+    \@getoptionalarg\@finidxgetopt
+}%
+\def\@finidxgetopt{%
+    \global\let\@idxgetrange@arg\@optionalarg
+  \endgroup
+  \@hlidxencaptrue
+  \for\@idxarg:=\@idxgetrange@arg\do{%
+    \expandafter\@idxcheckpagemarkup\@idxarg=,%
+    \ifx\@idxarg\idxrangebeginword
+      \def\@idxrangestr{\idxencapoperator\idxbeginrangemark}%
+    \else
+      \ifx\@idxarg\idxrangeendword
+        \def\@idxrangestr{\idxencapoperator\idxendrangemark}%
+        \@hlidxencapfalse
+      \else
+        \ifx\@idxarg\idxseecmdword
+          \def\@idxpagemarkup{indexsee}%
+          \@idxseetrue
+          \@hlidxencapfalse
+        \else
+          \ifx\@idxarg\idxseealsocmdword
+            \def\@idxpagemarkup{indexseealso}%
+            \@idxseetrue
+            \@hlidxencapfalse
+          \else
+             \ifx\@idxpagemarkup\relax
+               \errmessage{Unrecognized index option `\@idxarg'}%
+             \fi
+          \fi
+        \fi
+      \fi
+    \fi
+  }%
+  \ifnum\hldest@place@idx < 0 \else
+    \if@hlidxencap
+      \ifx\@idxpagemarkup\relax
+        \let\@idxpagemarkup\empty
+      \fi
+      \ifcase\hldest@place@idx \relax
+        \edef\@idxpagemarkup{hlidxpage{\@idxpagemarkup}}%
+        \definepageanchor{\noexpand\folio}%
+      \else
+        \global\advance\hlidxlabelnumber by 1
+        \edef\@idxpagemarkup{hlidx{\hlidxlabel}{\@idxpagemarkup}}%
+        \hldest@impl{idx}{\hlidxlabel}%
+      \fi
+    \fi
+  \fi
+  \@afteridxgetrange
+}%
+\def\@idxcheckpagemarkup#1=#2,{%
+  \def\temp{#1}%
+  \ifx\temp\idxpagemarkupcmdword
+    \if ,#2, % If #2 is empty, complain.
+      \errmessage{Missing markup command to `pagemarkup'}%
+    \else
+      \def\temp##1={##1}%
+      \edef\@idxpagemarkup{\temp\string#2}%
+    \fi
+  \fi
+}%
+\def\hldest@place@idx{-1}%
+\begingroup
+  \catcode`\_ = 8
+  \gdef\idxpageanchor#1{#1_p}%
+\endgroup
+\def\definepageanchor#1{%
+  \readauxfile
+  \edef\@wr{\noexpand\writeaux{\string\@definepageanchor{#1}}}%
+  \@wr
+  \ignorespaces
+}%
+\def\@definepageanchor#1{%
+  \expandafter\gdef\csname\idxpageanchor{#1}\endcsname{}%
+}%
+\newcount\hlidxlabelnumber
+\def\hlidxlabel{IDX\the\hlidxlabelnumber}%
+\def\hlidxpagelabel#1{IDXPG#1}%
+\def\hlidx#1#2#3{%
+  \ifempty{#2}%
+    \let\@idxpageencap\relax
+  \else
+    \expandafter\let\expandafter\@idxpageencap\csname #2\endcsname
+  \fi
+  \hlstart@impl{idx}{#1}%
+  \@idxpageencap{#3}%
+  \hlend@impl{idx}%
+}%
+\def\hlidxpage#1#2{%
+  \@hlidxgetpages{#2}%
+  \ifempty{#1}%
+    \let\@idxpageencap\relax
+  \else
+    \expandafter\let\expandafter\@idxpageencap\csname #1\endcsname
+  \fi
+  \hlstart@impl{idx}{\hlidxpagelabel{\@idxpageiref}}%
+  \expandafter\@idxpageencap\expandafter{\@idxpagei}%
+  \hlend@impl{idx}%
+  \ifx\@idxpageii\empty \else
+    \@idxpagesep
+    \hlstart@impl{idx}{\hlidxpagelabel{\@idxpageiiref}}%
+    \expandafter\@idxpageencap\expandafter{\@idxpageii}%
+    \hlend@impl{idx}%
+  \fi
+}%
+\def\@hlidxgetpages#1{%
+  \idxparselist{#1}%
+  \ifx\idxpagei\empty
+    \idxparserange{#1}%
+    \ifx\idxpagei\empty
+      \def\@idxpageiref{#1}% Label for \hlstart.
+    \else
+      \let\@idxpageiref\idxpagei % Label for \hlstart.
+    \fi
+    \def\@idxpagei{#1}%
+    \let\@idxpageii\empty
+  \else
+    \let\@idxpagei\idxpagei
+    \let\@idxpageii\idxpageii
+    \let\@idxpageiref\idxpagei % Label for \hlstart.
+    \let\@idxpageiiref\idxpageii % Label for \hlstart.
+    \let\@idxpagesep\idxpagelistdelimiter
+  \fi
+}%
+\def\setidxpagelistdelimiter#1{%
+  \gdef\idxpagelistdelimiter{#1}%
+  \gdef\@removepagelistdelimiter##1#1{##1}%
+  \gdef\@idxparselist##1#1##2\@@{%
+    \ifempty{##2}%
+      \let\idxpagei\empty
+    \else
+      \def\idxpagei{##1}%
+      \edef\idxpageii{\@removepagelistdelimiter##2}%
+    \fi
+  }%
+  \gdef\idxparselist##1{\@idxparselist##1#1\@@}%
+}%
+\def\setidxpagerangedelimiter#1{%
+  \gdef\idxpagerangedelimiter{#1}%
+  \gdef\@removepagerangedelimiter##1#1{##1}%
+  \gdef\@idxparserange##1#1##2\@@{%
+    \ifempty{##2}%
+      \let\idxpagei\empty
+    \else
+      \def\idxpagei{##1}%
+      \edef\idxpageii{\@removepagerangedelimiter##2}%
+    \fi
+  }%
+  \gdef\idxparserange##1{\@idxparserange##1#1\@@}%
+}%
+\setidxpagelistdelimiter{, }%
+\setidxpagerangedelimiter{--}%
+\def\idxsubentryseparator{!}%
+\def\idxencapoperator{|}%
+\def\idxmaxpagenum{99999}%
+\newtoks\@idxmaintoks
+\newtoks\@idxsubtoks
+\def\@idxtokscollect{%
+  \edef\temp{\the\@idxsubtoks}%
+  \edef\@indexentry{%
+    \the\@idxmaintoks
+    \ifx\temp\empty\else \idxsubentryseparator\the\@idxsubtoks \fi
+    \@idxrangestr
+  }%
+  \if@idxsee
+    \@idxseefalse % Reset so the next term won't be a `see'.
+    \edef\temp{\noexpand\idx@getverbatimarg
+      {\noexpand\@finidxtokscollect{\idxmaxpagenum}}}%
+  \else
+    \def\temp{\@finfinidxtokscollect\folio}%
+  \fi
+  \temp
+}%
+\def\@finidxtokscollect#1#2{%
+  \def\@idxseenterm{#2}%
+  \@finfinidxtokscollect{#1}%
+}%
+\def\@finfinidxtokscollect#1{%
+  \ifx\@idxpagemarkup\relax \else
+    \toks@ = \expandafter{\@indexentry}%
+    \edef\@indexentry{%
+      \the\toks@
+      \ifx\@idxrangestr\empty \idxencapoperator \fi
+      \@idxpagemarkup
+    }%
+    \let\@idxpagemarkup = \relax
+  \fi
+  \ifx\@idxseenterm\relax \else
+    \toks@ = \expandafter{\@indexentry}%
+    \edef\@indexentry{\the\toks@{\sanitize\@idxseenterm}}%
+    \let\@idxseenterm = \relax
+  \fi
+  \expandafter\@idxwrite\expandafter{\@indexentry}{#1}%
+}%
+\def\@idxcollect#1#2{%
+  \@idxmaintoks = {#1}%
+  \@idxsubtoks = {#2}%
+  \@idxtokscollect
+}%
+\def\idxargopen{`\{}%
+\def\idxargclose{`\}}%
+\def\idx@getverbatimarg#1{%
+  \def\idx@getverbatimarg@cmd{#1}% Save the command, allowing it to be
+  \begingroup
+    \uncatcodespecials
+    \catcode\idxargopen=1
+    \catcode\idxargclose=2
+    \catcode`\ =10   % Swallow multiple consequent spaces.
+    \catcode`\^^I=10 % Just in case, to avoid dependence on
+    \catcode`\^^M=5  % current meanings of tabs and newlines.
+    \idx@fingetverbatimarg
+}%
+\def\idx@fingetverbatimarg#1{\endgroup\idx@getverbatimarg@cmd{#1}}%
+\def\idx@getverboptarg#1{%
+  \def\idx@optionaltemp{#1}% Save the command, allowing it to be more
+  \let\idx@optionalnext = \relax
+  \begingroup
+    \if@idxsee \catcode\idxargopen=1 \fi
+    \@futurenonspacelet\idx@optionalnext\idx@bracketcheck
+}%
+\def\idx@bracketcheck{%
+  \ifx [\idx@optionalnext
+    \endgroup % Cancel \catcode\idxargopen=1.
+    \expandafter\idx@finbracketcheck
+  \else
+    \endgroup % Cancel \catcode\idxargopen=1.
+    \let\@optionalarg = \empty
+    \expandafter\idx@optionaltemp
+  \fi
+}%
+\def\idx@finbracketcheck{%
+  \begingroup
+    \uncatcodespecials
+    \catcode`\ =10   % Swallow multiple consequent spaces.
+    \catcode`\^^I=10 % Just in case, to avoid dependence on
+    \catcode`\^^M=5  % current meanings of tabs and newlines.
+    \idx@@getoptionalarg
+}%
+\def\idx@@getoptionalarg[#1]{%
+  \endgroup
+  \def\@optionalarg{#1}%
+  \idx@optionaltemp
+}%
+{\catcode`\&=0
+\gdef\idx@scanterm#1{\scantokens{#1&endinput}}%
+}%
+\def\@idx{\idx@getverbatimarg\@finidx}%
+\def\@finidx#1{%
+  \idx@scanterm{#1}% Produce TERM as output.
+  \@idxcollect{#1}{}%
+}%
+\def\@sidx{\idx@getverbatimarg\@finsidx}%
+\def\@finsidx#1{\@idxmaintoks = {#1}\idx@getverboptarg\@finfinsidx}%
+\def\@finfinsidx{%
+  \@idxsubtoks = \expandafter{\@optionalarg}%
+  \@idxtokscollect
+}%
+\def\idxsortkeysep{@}% This `@' is catcode 11, but it doesn't matter.
+\def\@idxconstructmarked#1#2#3{%
+  \toks@ = {#2}% The control sequence.
+  \toks2 = {#3}% The term.
+  \edef\temp{\the\toks2 \idxsortkeysep \the\toks@{\the\toks2}}%
+  #1 = \expandafter{\temp}%
+}%
+\def\@idxmarked#1{\idx@getverbatimarg{\@finidxmarked{#1}}}%
+\def\@finidxmarked#1#2{%
+  \idx@scanterm{#1{#2}}% Produce \CS{TERM} as output.
+  \@idxconstructmarked\@idxmaintoks{#1}{#2}%
+  \@idxsubtoks = {}%
+  \@idxtokscollect
+}%
+\def\@sidxmarked#1{\idx@getverbatimarg{\@finsidxmarked{#1}}}%
+\def\@finsidxmarked#1#2{%
+  \@idxconstructmarked\toks@{#1}{#2}%
+  \edef\temp{{\the\toks@}}%
+  \expandafter\@finsidx\temp
+}%
+\def\@idxsubmarked{%
+  \let\sidxsubmarked@print\idxsubmarked@print
+  \idx@getverbatimarg\@finsidxsubmarked
+}%
+\def\idxsubmarked@print{\expandafter\idx@scanterm\expandafter}%
+\def\@sidxsubmarked{%
+  \let\sidxsubmarked@print\gobble
+  \idx@getverbatimarg\@finsidxsubmarked
+}%
+\def\@finsidxsubmarked#1{\@idxmaintoks = {#1}\@@finsidxsubmarked}% Reads TERM.
+\def\@@finsidxsubmarked#1{\idx@getverbatimarg{\@@@finsidxsubmarked{#1}}}% Reads \CS.
+\def\@@@finsidxsubmarked#1#2{% Reads {\CS}{SUBTERM}.
+  \sidxsubmarked@print % Prints for \@idxsubmarked, gobbles for \@sidxsubmarked.
+    {\the\@idxmaintoks\space #1{#2}}% Maybe produce `TERM \CS{SUBTERM}' as output.
+  \@idxconstructmarked\@idxsubtoks{#1}{#2}%
+  \@idxtokscollect
+}%
+\def\idxnameseparator{, }% as in `Tachikawa, Elizabeth'
+\def\@idxcollectname#1#2{%
+  \def\temp{#1}%
+  \ifx\temp\empty
+    \toks@ = {}%
+  \else
+    \toks@ = {\idxnameseparator #1}%
+  \fi
+  \toks2 = {#2}%
+  \edef\temp{\the\toks2 \the\toks@}%
+}%
+\def\@idxname{\idx@getverbatimarg\@finidxname}%
+\def\@finidxname#1{\idx@getverbatimarg{\@finfinidxname{#1}}}%
+\def\@finfinidxname#1#2{%
+  \idx@scanterm{#1 #2}% Separate the names by a space in the output.
+  \@idxcollectname{#1}{#2}%
+  \expandafter\@idxcollect\expandafter{\temp}{}%
+}%
+\def\@sidxname{\idx@getverbatimarg\@finsidxname}%
+\def\@finsidxname#1{\idx@getverbatimarg{\@finfinsidxname{#1}}}%
+\def\@finfinsidxname#1#2{%
+  \@idxcollectname{#1}{#2}%
+  \expandafter\@finsidx\expandafter{\temp}%
+}%
+\let\indexfonts = \relax
+\def\readindexfile#1{%
+  \edef\@idxprefix{#1}%
+  \testfileexistence[\indexfilebasename]{\@idxprefix nd}%
+  \iffileexists \begingroup
+    \ifx\begin\undefined
+      \def\begin##1{\@beginindex}%
+      \let\end = \@gobble
+    \fi
+    \input \indexfilebasename.\@idxprefix nd
+    \singlecolumn
+  \endgroup
+  \else
+    \message{No index file \indexfilebasename.\@idxprefix nd.}%
+  \fi
+}%
+\def\@beginindex{%
+  \let\item = \@indexitem
+  \let\subitem = \@indexsubitem
+  \let\subsubitem = \@indexsubsubitem
+  \indexfonts
+  \doublecolumns
+  \parindent = 0pt
+  \hookrun{beginindex}%
+}%
+\let\indexspace = \bigbreak
+\let\afterindexterm = \quad
+\newskip\aboveindexitemskipamount  \aboveindexitemskipamount = 0pt plus2pt
+\def\aboveindexitemskip{\vskip\aboveindexitemskipamount}%
+\def\@indexitem{\begingroup
+  \@indexitemsetup
+  \leftskip = 0pt
+  \aboveindexitemskip
+  \penalty-100 % Encourage page breaks before items.
+  \def\par{\endgraf\endgroup\nobreak}%
+}%
+\def\@indexsubitem{%
+  \@indexitemsetup
+  \leftskip = 1em
+}%
+\def\@indexsubsubitem{%
+  \@indexitemsetup
+  \leftskip = 2em
+}%
+\def\@indexitemsetup{%
+  \par
+  \hangindent = 1em
+  \raggedright
+  \hyphenpenalty = 10000
+  \hookrun{indexitem}%
+}%
+\def\seevariant{\it}%
+\def\indexseeword{see}%
+\def\indexsee{\idx@getverbatimarg\@finindexsee}%
+\def\@finindexsee#1#2{{\seevariant \indexseeword\/ }\idx@scanterm{#1}}%
+\def\indexseealsowords{see also}%
+\def\indexseealso{\idx@getverbatimarg\@finindexseealso}%
+\def\@finindexseealso#1#2{{\seevariant \indexseealsowords\/ }\idx@scanterm{#1}}%
+\defineindex{i}%
+\begingroup
+  \catcode `\^^M = \active %
+  \gdef\flushleft{%
+    \def\@endjustifycmd{\@endflushleft}%
+    \def\@eoljustifyaction{\null\hfil\break}%
+    \let\@firstlinejustifyaction = \relax
+    \@startjustify %
+  }%
+  \gdef\flushright{%
+    \def\@endjustifycmd{\@endflushright}%
+    \def\@eoljustifyaction{\break\null\hfil}%
+    \def\@firstlinejustifyaction{\hfil\null}%
+    \@startjustify %
+  }%
+  \gdef\center{%
+    \def\@endjustifycmd{\@endcenter}%
+    \def\@eoljustifyaction{\hfil\break\null\hfil}%
+    \def\@firstlinejustifyaction{\hfil\null}%
+    \@startjustify %
+  }%
+  \gdef\@startjustify{%
+    \parskip = 0pt
+    \catcode`\^^M = \active %
+    \def^^M{\futurelet\next\@finjustifyreturn}%
+    \def\@eateol##1^^M{%
+      \def\temp{##1}%
+      \@firstlinejustifyaction %
+      \ifx\temp\empty\else \temp^^M\fi %
+    }%
+    \expandafter\aftergroup\@endjustifycmd %
+    \checkenv \environmenttrue %
+    \par\noindent %
+    \@eateol %
+  }%
+  \gdef\@finjustifyreturn{%
+    \@eoljustifyaction %
+    \ifx\next^^M%
+      \def\par{\endgraf\vskip\blanklineskipamount \global\let\par = \endgraf}%
+      \@endjustifycmd %
+      \noindent %
+      \@firstlinejustifyaction %
+    \fi %
+  }%
+\endgroup
+\def\@endflushleft{\unpenalty{\parfillskip = 0pt plus1fil\par}\ignorespaces}%
+\def\@endflushright{% Remove the \hfil\null\break we just put on.
+   \unskip \setbox0=\lastbox \unpenalty
+   {\parfillskip = 0pt \par}\ignorespaces
+}%
+\def\@endcenter{% Remove the \hfil\null\break we just put on.
+   \unskip \setbox0=\lastbox \unpenalty
+   {\parfillskip = 0pt plus1fil \par}\ignorespaces
+}%
+\newcount\abovecolumnspenalty   \abovecolumnspenalty = 10000
+\newcount\@linestogo         % Lines remaining to process.
+\newcount\@linestogoincolumn % Lines remaining in column.
+\newcount\@columndepth       % Number of lines in a column.
+\newdimen\@columnwidth       % Width of each column.
+\newtoks\crtok  \crtok = {\cr}%
+\newcount\currentcolumn
+\def\makecolumns#1/#2: {\par \begingroup
+   \@columndepth = #1
+   \advance\@columndepth by -1
+   \divide \@columndepth by #2
+   \advance\@columndepth by 1
+   \@linestogoincolumn = \@columndepth
+   \@linestogo = #1
+   \currentcolumn = 1
+   \def\@endcolumnactions{%
+      \ifnum \@linestogo<2 
+         \the\crtok \egroup \endgroup \par % End \valign and \makecolumns.
+      \else
+         \global\advance\@linestogo by -1
+         \ifnum\@linestogoincolumn<2
+            \global\advance\currentcolumn by 1
+            \global\@linestogoincolumn = \@columndepth
+            \the\crtok
+         \else
+            &\global\advance\@linestogoincolumn by -1
+         \fi
+      \fi
+   }%
+   \makeactive\^^M
+   \letreturn \@endcolumnactions
+   \@columnwidth = \hsize
+     \advance\@columnwidth by -\parindent
+     \divide\@columnwidth by #2
+   \penalty\abovecolumnspenalty
+   \noindent % It's not a paragraph (usually).
+   \valign\bgroup
+     &\hbox to \@columnwidth{\strut \hsize = \@columnwidth ##\hfil}\cr
+}%
+\newcount\footnotenumber
+\newcount\hlfootlabelnumber
+\newdimen\footnotemarkseparation \footnotemarkseparation = .5em
+\newskip\interfootnoteskip \interfootnoteskip = 0pt
+\newtoks\everyfootnote
+\newdimen\footnoterulewidth \footnoterulewidth = 2in
+\newdimen\footnoteruleheight \footnoteruleheight = 0.4pt
+\newdimen\belowfootnoterulespace \belowfootnoterulespace = 2.6pt
+\let\@plainfootnote = \footnote
+\let\@plainvfootnote = \vfootnote
+\def\hlfootlabel{FOOT\the\hlfootlabelnumber}%
+\def\hlfootbacklabel{FOOTB\the\hlfootlabelnumber}%
+\def\@eplainfootnote#1{\let\@sf\empty % parameter #2 (the text) is read later
+  \ifhmode\edef\@sf{\spacefactor\the\spacefactor}\/\fi
+  \global\advance\hlfootlabelnumber by 1
+  \hlstart@impl{foot}{\hlfootlabel}%
+  \hldest@impl{footback}{\hlfootbacklabel}%
+  #1%
+  \hlend@impl{foot}%
+  \@sf\vfootnote{#1}%
+}%
+\let\footnote\@eplainfootnote
+\def\vfootnote#1{\insert\footins\bgroup
+  \interlinepenalty\interfootnotelinepenalty
+  \splittopskip\ht\strutbox % top baseline for broken footnotes
+  \advance\splittopskip by \interfootnoteskip
+  \splitmaxdepth\dp\strutbox
+  \floatingpenalty\@MM
+  \leftskip\z@skip \rightskip\z@skip \spaceskip\z@skip \xspaceskip\z@skip
+  \everypar = {}%
+  \parskip = 0pt % because of the vskip
+  \ifnum\@numcolumns > 1 \hsize = \@normalhsize \fi
+  \the\everyfootnote
+  \vskip\interfootnoteskip
+  \indent\llap{%
+    \hlstart@impl{footback}{\hlfootbacklabel}%
+    \hldest@impl{foot}{\hlfootlabel}%
+    #1%
+    \hlend@impl{footback}%
+    \kern\footnotemarkseparation
+  }%
+  \footstrut\futurelet\next\fo@t
+}%
+\def\footnoterule{\dimen@ = \footnoteruleheight
+  \advance\dimen@ by \belowfootnoterulespace
+  \kern-\dimen@
+  \hrule width\footnoterulewidth height\footnoteruleheight depth0pt
+  \kern\belowfootnoterulespace
+  \vskip-\interfootnoteskip
+}%
+\def\numberedfootnote{%
+  \global\advance\footnotenumber by 1
+  \@eplainfootnote{$^{\number\footnotenumber}$}%
+}%
+\newdimen\paperheight 
+\ifnum\mag=1000
+  \paperheight = 11in % No magnification (yet).
+\else
+  \paperheight = 11truein % We already have a magnification. 
+\fi
+\def\topmargin{\afterassignment\@finishtopmargin \dimen@}%
+\def\@finishtopmargin{%
+  \dimen2 = \voffset		% Remember the old \voffset.
+  \voffset = \dimen@ \advance\voffset by -1truein
+  \advance\dimen2 by -\voffset	% Compute the change in \voffset.
+  \advance\vsize by \dimen2	% Change type area accordingly.
+}%
+\def\advancetopmargin{%
+  \dimen@ = 0pt \afterassignment\@finishadvancetopmargin \advance\dimen@
+}%
+\def\@finishadvancetopmargin{%
+  \advance\voffset by \dimen@
+  \advance\vsize by -\dimen@
+}%
+\def\bottommargin{\afterassignment\@finishbottommargin \dimen@}%
+\def\@finishbottommargin{%
+  \@computebottommargin		% Result in \dimen2.
+  \advance\dimen2 by -\dimen@	% Compute the change in the bottom margin.
+  \advance\vsize by \dimen2	% Change the type area.
+}%
+\def\advancebottommargin{%
+  \dimen@ = 0pt \afterassignment\@finishadvancebottommargin \advance\dimen@
+}%
+\def\@finishadvancebottommargin{%
+  \advance\vsize by -\dimen@
+}%
+\def\@computebottommargin{%
+  \dimen2 = \paperheight	% The total paper size.
+  \advance\dimen2 by -\vsize	% Less the text size.
+  \advance\dimen2 by -\voffset	% Less the offset at the top.
+  \advance\dimen2 by -1truein	% Less the default offset.
+}%
+\newdimen\paperwidth
+\ifnum\mag=1000
+  \paperwidth = 8.5in % No magnification (yet).
+\else
+  \paperwidth = 8.5truein % We already have a magnification. 
+\fi
+\def\leftmargin{\afterassignment\@finishleftmargin \dimen@}%
+\def\@finishleftmargin{%
+  \dimen2 = \hoffset		% Remember the old \hoffset.
+  \hoffset = \dimen@ \advance\hoffset by -1truein
+  \advance\dimen2 by -\hoffset	% Compute the change in \hoffset.
+  \advance\hsize by \dimen2	% Change type area accordingly.
+}%
+\def\advanceleftmargin{%
+  \dimen@ = 0pt \afterassignment\@finishadvanceleftmargin \advance\dimen@
+}%
+\def\@finishadvanceleftmargin{%
+  \advance\hoffset by \dimen@
+  \advance\hsize by -\dimen@
+}%
+\def\rightmargin{\afterassignment\@finishrightmargin \dimen@}%
+\def\@finishrightmargin{%
+  \@computerightmargin		% Result in \dimen2.
+  \advance\dimen2 by -\dimen@	% Compute the change in the right margin.
+  \advance\hsize by \dimen2	% Change the type area.
+}%
+\def\advancerightmargin{%
+  \dimen@ = 0pt \afterassignment\@finishadvancerightmargin \advance\dimen@
+}%
+\def\@finishadvancerightmargin{%
+  \advance\hsize by -\dimen@
+}%
+\def\@computerightmargin{%
+  \dimen2 = \paperwidth		% The total paper size.
+  \advance\dimen2 by -\hsize	% Less the text size.
+  \advance\dimen2 by -\hoffset	% Less the offset at the left.
+  \advance\dimen2 by -1truein	% Less the default offset.
+}%
+\let\@plainm@g = \m@g
+\def\m@g{\@plainm@g \paperwidth = 8.5 true in \paperheight = 11 true in}%
+\newskip\abovecolumnskip \abovecolumnskip = \bigskipamount
+\newskip\belowcolumnskip \belowcolumnskip = \bigskipamount
+\newdimen\gutter \gutter = 2pc
+\newbox\@partialpage
+\newdimen\@normalhsize
+\newdimen\@normalvsize  % The original (before multi-columns) \vsize.
+\newtoks\previousoutput
+\def\quadcolumns{\@columns4}%
+\def\triplecolumns{\@columns3}%
+\def\doublecolumns{\@columns2}%
+\def\begincolumns#1{\ifcase#1\relax \or \singlecolumn \or \@columns2 \or
+                            \@columns3 \or \@columns4 \else \relax \fi}%
+\def\endcolumns{\singlecolumn}%
+\let\@ndcolumns = \relax
+\chardef\@numcolumns = 1
+\mathchardef\@ejectpartialpenalty = 10141
+\chardef\@col@minlines = 3
+\chardef\@col@extralines = 3
+\newdimen\@col@extraheight
+\def\@columns#1{%
+  \@ndcolumns
+  \global\let\@ndcolumns = \@endcolumns
+  \global\chardef\@numcolumns = #1
+  \global\previousoutput = \expandafter{\the\output}%
+  \global\output = {%
+    \ifnum\outputpenalty = -\@ejectpartialpenalty
+      \dimen@ = \vsize
+      \advance\dimen@ by \@col@minlines\baselineskip
+      \global\setbox\@partialpage =
+        \vbox  \ifdim \pagetotal > \vsize  to \dimen@  \fi  {%
+	  \unvbox255 \unskip
+	}%
+    \else
+      \the\previousoutput
+    \fi
+  }%
+  \vskip \abovecolumnskip
+  \vskip \@col@minlines\baselineskip
+  \penalty -\@ejectpartialpenalty
+  \global\output = {\@columnoutput}%
+  \global\@normalhsize = \hsize
+  \global\@normalvsize = \vsize
+  \count@ = \@numcolumns
+  \advance\count@ by -1
+  \global\advance\hsize by -\count@\gutter
+  \global\divide\hsize by \@numcolumns
+  \advance\vsize by -\ht\@partialpage
+  \advance\vsize by -\ht\footins
+  \ifvoid\footins\else \advance\vsize by -\skip\footins \fi
+  \multiply\count\footins by \@numcolumns
+  \advance\vsize by -\ht\topins
+  \ifvoid\topins\else \advance\vsize by -\skip\topins \fi
+  \multiply\count\topins by \@numcolumns
+  \global\vsize = \@numcolumns\vsize
+  \@col@extraheight=\@col@extralines\baselineskip
+  \multiply\@col@extraheight by \@numcolumns
+  \global\advance\vsize by \@col@extraheight
+}%
+\def\gutterbox{\vbox to \dimen0{\vfil\hbox{\hfil}\vfil}}%
+\def\@columnsplit{%
+  \splittopskip = \topskip
+  \splitmaxdepth = \baselineskip
+  \begingroup
+    \vbadness = 10000
+    \global\setbox1 = \vsplit255 to \dimen@  \global\wd1 = \hsize
+    \global\setbox3 = \vsplit255 to \dimen@  \global\wd3 = \hsize
+    \ifnum\@numcolumns > 2
+      \global\setbox5 = \vsplit255 to \dimen@ \global\wd5 = \hsize
+    \fi
+    \ifnum\@numcolumns > 3
+      \global\setbox7 = \vsplit255 to \dimen@ \global\wd7 = \hsize
+    \fi
+  \endgroup
+  \setbox0 = \box255
+  \global\setbox255 = \vbox{%
+    \unvbox\@partialpage
+    \ifcase\@numcolumns \relax\or\relax
+      \or \hbox to \@normalhsize{\box1\hfil\gutterbox\hfil\box3}%
+      \or \hbox to \@normalhsize{\box1\hfil\gutterbox\hfil\box3%
+                                      \hfil\gutterbox\hfil\box5}%
+      \or \hbox to \@normalhsize{\box1\hfil\gutterbox\hfil\box3%
+                                      \hfil\gutterbox\hfil\box5%
+                                      \hfil\gutterbox\hfil\box7}%
+    \fi
+  }%
+  \setbox\@partialpage = \box0
+}%
+\def\@columnoutput{%
+  \dimen@ = \ht255
+    \advance\dimen@ by -\@col@extraheight
+    \divide\dimen@ by \@numcolumns
+  \@columnsplit
+  \@recoverclubpenalty 
+  \hsize = \@normalhsize % Local to \output's group.
+  \vsize = \@normalvsize
+  \the\previousoutput
+  \unvbox\@partialpage
+  \penalty\outputpenalty
+  \global\vsize = \@numcolumns\@normalvsize
+  \global\advance\vsize by \@col@extraheight
+}%
+\def\singlecolumn{%
+  \@ndcolumns
+  \chardef\@numcolumns = 1
+  \vskip\belowcolumnskip
+  \nointerlineskip
+}%
+\newbox\@singlecolumnbox 
+\newdimen\column@pagegoal
+\newdimen\column@vsize
+\def\@endcolumns{%
+  \global\let\@ndcolumns = \relax
+  \par % Shouldn't start in horizontal mode.
+  \column@pagegoal = \pagegoal
+  \advance\column@pagegoal by-\@col@extraheight
+  \ifdim \pagetotal > \column@pagegoal
+    \column@vsize = \column@pagegoal
+  \else
+    \column@vsize = \pagetotal
+  \fi
+  \global\output = {\global\setbox1 = \box255}%
+  \pagegoal = \pagetotal
+  \break                     % Exercise the page builder, i.e., \output.
+  \setbox2 = \box1           % Save material in box2 in case of overflow.
+  \global\output = \expandafter{\the\previousoutput}%
+  \setbox\@singlecolumnbox = \box\@partialpage
+  \@balancecolumns
+}%
+\def\@balancecolumns{%
+  \global\setbox255 = \copy2  % Retrieve what the fake \output set.
+  \dimen@ = \column@vsize
+    \divide\dimen@ by \@numcolumns
+  \@columnsplit
+  \ifvoid\@partialpage
+    \global\vsize = \@normalvsize
+    \global\hsize = \@normalhsize
+    \dump@balanced@columns
+    \let\next\relax
+  \else
+    \advance \column@vsize by \@numcolumns pt
+    \test@spill@columns
+    \ifspill@columns
+      \begingroup
+        \vsize = \@normalvsize
+        \hsize = \@normalhsize
+        \dump@balanced@columns
+        \break
+        \@recoverclubpenalty
+      \endgroup
+      \unvbox\@partialpage
+      \let\next\@endcolumns
+    \else
+      \setbox0=\box\@partialpage % Merely to void \@partialpage.
+      \let\next\@balancecolumns
+    \fi
+  \fi
+  \next
+}%
+\def\dump@balanced@columns{%
+  \ifvoid\topins\else\topinsert\unvbox\topins\endinsert\fi
+  \unvbox\@singlecolumnbox
+  \nointerlineskip
+  \box255
+}%
+\newif\ifspill@columns
+\def\test@spill@columns{%
+  \spill@columnsfalse
+  \ifdim \column@vsize > \column@pagegoal
+    \ifvoid\footins
+      \ifvoid\topins
+        \spill@columnstrue
+      \fi
+    \fi
+  \fi
+}%
+\def\@saveclubpenalty{% save the current value of \clubpenalty
+  \edef\@recoverclubpenalty{%
+     \global\clubpenalty=\the\clubpenalty\relax%
+     \global\let\noexpand\@recoverclubpenalty\relax
+  }% the \noexpand handles infinite self-reference
+}%
+\let\@recoverclubpenalty\relax
+\newdimen\temp@dimen
+\def\columnfill{%
+  \par
+  \dimen@=\pagetotal   % The height of the text set so far. 
+  \temp@dimen = \vsize % = \@numcolumns * columnheight
+  \divide\temp@dimen by \@numcolumns % find out column height
+  \loop
+    \ifdim \dimen@ > \temp@dimen
+      \advance \dimen@ by -\temp@dimen
+      \advance \dimen@ by \topskip % fudge factor
+  \repeat
+  \advance \temp@dimen by -\dimen@
+  \advance \temp@dimen by -\prevdepth
+  \@saveclubpenalty 
+  \clubpenalty=10000\relax
+  \hrule height\temp@dimen width0pt depth0pt\relax
+  \nointerlineskip
+  \par
+  \nointerlineskip
+  \penalty0\vfil % To allow a page break here.
+  \relax
+}%
+\def\@hldest{%
+  \def\hl@prefix{hldest}%
+  \let\after@hl@getparam\hldest@aftergetparam
+  \begingroup
+    \hl@getparam
+}%
+\def\hldest@aftergetparam{%
+  \ifvmode
+    \hldest@driver
+  \else
+    \allowhyphens
+    \smash{\ifx\hldest@opt@raise\empty \else \raise\hldest@opt@raise\fi
+             \hbox{\hldest@driver}}%
+    \allowhyphens
+  \fi
+  \endgroup
+}%
+\def\@hlstart{%
+  \leavevmode
+  \def\hl@prefix{hl}%
+  \let\after@hl@getparam\hlstart@aftergetparam
+  \begingroup
+    \hl@getparam
+}%
+\def\hlstart@aftergetparam{%
+  \ifx\color\undefined \else
+    \ifx\hl@opt@color\empty \else
+      \ifx\hl@opt@colormodel\empty
+        \edef\temp{\noexpand\color{\hl@opt@color}}%
+      \else
+        \edef\temp{\noexpand\color[\hl@opt@colormodel]{\hl@opt@color}}%
+      \fi
+      \temp
+    \fi
+  \fi
+  \hl@driver
+}%
+\def\hl@getparam#1#2{% We'll read #3 (LABEL) later.
+  \edef\@hltype{#1}%
+  \ifx\@hltype\empty
+    \expandafter\let\expandafter\@hltype
+      \csname \hl@prefix @type\endcsname
+  \fi
+  \expandafter\ifx\csname \hl@prefix @typeh@\@hltype\endcsname \relax
+    \errmessage{Invalid hyperlink type `\@hltype'}%
+  \fi
+  \For\hl@arg:=#2\do{%
+    \ifx\hl@arg\empty \else
+      \expandafter\hl@set@opt\hl@arg=,%
+    \fi
+  }%
+  \bgroup
+    \uncatcodespecials
+    \catcode`\{=1 \catcode`\}=2
+    \@hl@getparam
+}%
+\def\@hl@getparam#1{%
+  \egroup
+  \edef\@hllabel{#1}%
+  \after@hl@getparam
+  \ignorespaces
+}%
+\def\hl@set@opt#1=#2,{%
+  \expandafter\ifx\csname \hl@prefix @opt@#1\endcsname \relax
+    \errmessage{Invalid hyperlink option `#1'}%
+  \fi
+  \if ,#2, % if #2 is empty, complain.
+    \errmessage{Missing value for option `#1'}%
+  \else
+    \def\temp##1={##1}%
+    \expandafter\edef\csname \hl@prefix @opt@#1\endcsname{\temp#2}%
+  \fi
+}%
+\def\hldest@impl#1{%
+  \expandafter\ifcase\csname hldest@on@#1\endcsname
+    \relax\expandafter\gobble
+  \else
+    \toks@=\expandafter{\csname hldest@type@#1\endcsname}%
+    \toks@ii=\expandafter{\csname hldest@opts@#1\endcsname}%
+    \edef\temp{\noexpand\hldest{\the\toks@}{\the\toks@ii}}%
+    \expandafter\temp
+  \fi
+}%
+\def\hlstart@impl#1{%
+  \expandafter\ifcase\csname hl@on@#1\endcsname
+    \leavevmode\expandafter\gobble
+  \else
+    \toks@=\expandafter{\csname hl@type@#1\endcsname}%
+    \toks@ii=\expandafter{\csname hl@opts@#1\endcsname}%
+    \edef\temp{\noexpand\hlstart{\the\toks@}{\the\toks@ii}}%
+    \expandafter\temp
+  \fi
+}%
+\def\hlend@impl#1{%
+  \expandafter\ifcase\csname hl@on@#1\endcsname
+  \else
+    \hlend
+  \fi
+}%
+\def\hl@asterisk@word{*}%
+\def\hl@opts@word{opts}%
+\newif\if@params@override
+\def\hldest@groups{definexref,xrdef,li,eq,bib,foot,footback,idx}%
+\def\hl@groups{ref,xref,eq,cite,foot,footback,idx,url,hrefint,hrefext}%
+\def\hldesttype{%
+  \def\hl@prefix{hldest}%
+  \def\hl@param{type}%
+  \let\hl@all@groups\hldest@groups
+  \futurelet\hl@excl\hl@param@read@excl
+}%
+\def\hldestopts{%
+  \def\hl@prefix{hldest}%
+  \def\hl@param{opts}%
+  \let\hl@all@groups\hldest@groups
+  \futurelet\hl@excl\hl@param@read@excl
+}%
+\def\hltype{%
+  \def\hl@prefix{hl}%
+  \def\hl@param{type}%
+  \let\hl@all@groups\hl@groups
+  \futurelet\hl@excl\hl@param@read@excl
+}%
+\def\hlopts{%
+  \def\hl@prefix{hl}%
+  \def\hl@param{opts}%
+  \let\hl@all@groups\hl@groups
+  \futurelet\hl@excl\hl@param@read@excl
+}%
+\def\hl@param@read@excl{%
+  \ifx!\hl@excl
+    \let\next\hl@param@read@opt@arg
+    \@params@overridetrue
+  \else
+    \def\next{\hl@param@read@opt@arg{!}}%
+    \@params@overridefalse
+  \fi
+  \next
+}%
+\def\hl@param@read@opt@arg#1{% #1 is the `!', ignore it.
+  \@getoptionalarg\hl@setparam
+}%
+\def\@hl@setparam#1{%
+  \ifx\@optionalarg\empty
+    \hl@setparam@default{#1}% Set default.
+  \else
+    \let\hl@do@all@groups\gobble
+    \For\hl@group:=\@optionalarg\do{%
+      \ifx\hl@group\hl@asterisk@word
+        \def\hl@do@all@groups{\let\@optionalarg\hl@all@groups \hl@setparam}%
+      \else
+        \hl@setparam@group{#1}%
+      \fi
+    }%
+    \hl@do@all@groups{#1}%
+  \fi
+}%
+\def\hl@setparam@group#1{%
+  \ifx\hl@group\empty
+    \hl@setparam@default{#1}%
+  \else
+    \expandafter\ifx\csname\hl@prefix @\hl@param @\hl@group\endcsname\relax
+      \errmessage{Hyperlink group `\hl@prefix:\hl@param:\hl@group' is not defined}%
+    \fi
+    \ifx\hl@param\hl@opts@word
+      \if@params@override
+        \expandafter\let\csname\hl@prefix @\hl@param @\hl@group\endcsname\empty
+      \fi
+      \hl@update@opts@with@list{#1}% #1 will be used in the \for
+    \else
+      \ece\def{\hl@prefix @\hl@param @\hl@group}{#1}%
+    \fi
+  \fi
+}%
+\def\hl@setparam@default#1{%
+  \ifx\hl@param\hl@opts@word
+    \For\hl@opt:=#1\do{%
+      \ifx\hl@opt\empty \else
+        \expandafter\hl@set@opt\hl@opt=,%
+      \fi
+    }%
+  \else
+    \expandafter\ifx\csname\hl@prefix @\hl@param\endcsname\relax
+      \message{Default hyperlink parameter `\hl@prefix:\hl@param' is not defined}%
+    \fi
+    \ece\def{\hl@prefix @\hl@param}{#1}%
+  \fi
+}%
+\def\hl@update@opts@with@list#1{%
+  \global\expandafter\let\expandafter\hl@update@new@list
+    \csname \hl@prefix @opts@\hl@group\endcsname
+  \begingroup
+    \For\hl@opt:=#1\do{%
+      \hl@update@opts@with@opt
+    }%
+  \endgroup
+  \ece\let{\hl@prefix @opts@\hl@group}\hl@update@new@list
+}%
+\def\hl@update@opts@with@opt{%
+  \global\let\hl@update@old@list\hl@update@new@list
+  \global\let\hl@update@new@list\empty
+  \global\let\hl@update@new@opt\hl@opt
+  \expandafter\hl@parse@opt@key\hl@opt=,%
+  \let\hl@update@new@key\hl@update@key
+  \global\let\hl@update@comma\empty
+  \begingroup
+    \for\hl@opt:=\hl@update@old@list\do{%
+      \ifx\hl@opt\empty \else % Skip empty `options'.
+        \expandafter\hl@parse@opt@key\hl@opt=,%
+        \toks@=\expandafter{\hl@update@new@list}%
+        \ifx\hl@update@key\hl@update@new@key
+          \ifx\hl@update@new@opt\empty \else % Skip multiple options.
+            \toks@ii=\expandafter{\hl@update@new@opt}%
+            \xdef\hl@update@new@list{\the\toks@\hl@update@comma\the\toks@ii}%
+            \global\let\hl@update@new@opt\empty
+            \global\def\hl@update@comma{,}%
+          \fi
+        \else
+          \toks@ii=\expandafter{\hl@opt}%
+          \xdef\hl@update@new@list{\the\toks@\hl@update@comma\the\toks@ii}%
+          \global\def\hl@update@comma{,}%
+        \fi
+      \fi
+    }%
+  \endgroup
+  \ifx\hl@update@new@opt\empty \else
+    \toks@=\expandafter{\hl@update@new@list}%
+    \toks@ii=\expandafter{\hl@update@new@opt}%
+    \xdef\hl@update@new@list{\the\toks@\hl@update@comma\the\toks@ii}%
+  \fi
+}%
+\def\hl@parse@opt@key#1=#2,{\def\hl@update@key{#1}}%
+\def\hldest@opt@raise{\normalbaselineskip}%
+\def\hl@opt@colormodel{cmyk}%
+\def\hl@opt@color{0.28,1,1,0.35}%
+\def\hldest@on@definexref{0}%
+\def\hldest@on@xrdef{0}%
+\def\hldest@on@li{0}%
+\def\hldest@on@eq{0}% \eqdef and friends
+\def\hldest@on@bib{0}% \biblabelprint (BibTeX)
+\def\hldest@on@foot{0}% \footnote / \numberedfootnote
+\def\hldest@on@footback{0}% back-ref for \footnote / \numberedfootnote
+\def\hldest@on@idx{0}% both `page' dests and `exact' dests
+\let\hldest@type@definexref\empty
+\let\hldest@type@xrdef\empty
+\let\hldest@type@li\empty
+\let\hldest@type@eq\empty % \eqdef and friends
+\let\hldest@type@bib\empty % \biblabelprint (BibTeX)
+\let\hldest@type@foot\empty % \footnote / \numberedfootnote
+\let\hldest@type@footback\empty % back-ref for \footnote / \numberedfootnote
+\let\hldest@type@idx\empty % both `page' dests and `exact' dests
+\let\hldest@opts@definexref\empty
+\let\hldest@opts@xrdef\empty
+\let\hldest@opts@li\empty
+\def\hldest@opts@eq{raise=1.7\normalbaselineskip}% \eqdef and friends
+\let\hldest@opts@bib\empty % \biblabelprint (BibTeX)
+\let\hldest@opts@foot\empty % \footnote / \numberedfootnote
+\let\hldest@opts@footback\empty % back-ref for \footnote / \numberedfootnote
+\let\hldest@opts@idx\empty % both `page' dests and `exact' dests
+\def\hl@on@ref{0}% \refn and \xrefn, \ref, \refs
+\def\hl@on@xref{0}%
+\def\hl@on@eq{0}% \eqref and \eqrefn
+\def\hl@on@cite{0}% \cite (BibTeX)
+\def\hl@on@foot{0}% \footnote / \numberedfootnote
+\def\hl@on@footback{0}% back-reference for \footnote / \numberedfootnote
+\def\hl@on@idx{0}%
+\def\hl@on@url{0}% \url from url.sty
+\def\hl@on@hrefint{0}% \href with internal #labels
+\def\hl@on@hrefext{0}% \href with external labels (URLs)
+\let\hl@type@ref\empty % \refn and \xrefn, \ref, \refs
+\let\hl@type@xref\empty
+\let\hl@type@eq\empty % \eqref and \eqrefn
+\let\hl@type@cite\empty % \cite (BibTeX)
+\let\hl@type@foot\empty % \footnote / \numberedfootnote
+\let\hl@type@footback\empty % back-reference for \footnote / \numberedfootnote
+\let\hl@type@idx\empty
+\let\hl@type@url\empty % \url from url.sty (this will be set to `url' by
+\let\hl@type@hrefint\empty % \href with internal #labels
+\let\hl@type@hrefext\empty % \href with external labels (URLs) (this
+\let\hl@opts@ref\empty % \refn and \xrefn, \ref, \refs
+\let\hl@opts@xref\empty
+\let\hl@opts@eq\empty % \eqref and \eqrefn
+\let\hl@opts@cite\empty % \cite (BibTeX)
+\let\hl@opts@foot\empty % \footnote / \numberedfootnote
+\let\hl@opts@footback\empty % back-reference for \footnote / \numberedfootnote
+\let\hl@opts@idx\empty
+\let\hl@opts@url\empty % \url from url.sty
+\let\hl@opts@hrefint\empty % \href with internal #labels
+\let\hl@opts@hrefext\empty % \href with external labels (URLs)
+\def\@hlon{\@hlonoff@value@stub{hl}\@@hlon1 }%
+\def\@hloff{\@hlonoff@value@stub{hl}\@@hloff0 }%
+\def\@hldeston{\@hlonoff@value@stub{hldest}\@@hldeston1 }%
+\def\@hldestoff{\@hlonoff@value@stub{hldest}\@@hldestoff0 }%
+\def\@hlonoff@value@stub#1#2#3{%
+  \def\hl@prefix{#1}%
+  \let\hl@on@empty#2%
+  \def\hl@value{#3}%
+  \expandafter\let\expandafter\hl@all@groups
+    \csname \hl@prefix @groups\endcsname
+  \@getoptionalarg\@finhlswitch
+}%
+\def\@finhlswitch{%
+  \ifx\@optionalarg\empty
+    \hl@on@empty
+  \fi
+  \let\hl@do@all@groups\relax
+  \For\hl@group:=\@optionalarg\do{%
+    \ifx\hl@group\hl@asterisk@word
+      \let\@optionalarg\hl@all@groups
+      \let\hl@do@all@groups\@finhlswitch
+    \else
+      \ifx\hl@group\empty
+        \hl@on@empty
+      \else
+        \expandafter\ifx\csname\hl@prefix @on@\hl@group\endcsname \relax
+          \errmessage{Hyperlink group `\hl@prefix:on:\hl@group'
+                      is not defined}%
+        \fi
+        \ece\edef{\hl@prefix @on@\hl@group}{\hl@value}%
+      \fi
+    \fi
+  }%
+  \hl@do@all@groups
+}%
+\def\@@hlon{%
+  \let\hlstart\@hlstart
+  \let\hlend\@hlend
+}%
+\def\@@hloff{%
+  \def\hlstart##1##2##3{\leavevmode\ignorespaces}%
+  \let\hlend\relax
+}%
+\def\@@hldeston{%
+  \let\hldest\@hldest
+}%
+\def\@@hldestoff{%
+  \def\hldest##1##2##3{\ignorespaces}%
+}%
+\def\hl@idxexact@word{idxexact}%
+\def\hl@idxpage@word{idxpage}%
+\def\hl@idxnone@word{idxnone}%
+\def\hl@raw@word{raw}%
+\def\enablehyperlinks{\@getoptionalarg\@finenablehyperlinks}%
+\def\@finenablehyperlinks{%
+  \let\hl@selecteddriver\empty
+  \def\hldest@place@idx{0}%
+  \for\hl@arg:=\@optionalarg\do{%
+    \ifx\hl@arg\hl@idxexact@word
+      \def\hldest@place@idx{1}%
+    \else
+      \ifx\hl@arg\hl@idxnone@word
+        \def\hldest@place@idx{-1}%
+      \else
+        \ifx\hl@arg\hl@idxpage@word
+          \def\hldest@place@idx{0}%
+        \else
+          \let\hl@selecteddriver\hl@arg
+        \fi
+      \fi
+    \fi
+  }%
+  \ifx\hl@selecteddriver\empty
+    \ifpdf
+      \def\hl@selecteddriver{pdftex}%
+      \message{^^JEplain: using `pdftex' hyperlink driver.}%
+    \else
+      \def\hl@selecteddriver{hypertex}%
+      \message{^^JEplain: using `hypertex' hyperlink driver.}%
+    \fi
+  \else
+    \expandafter\ifx\csname hldriver@\hl@selecteddriver\endcsname \relax
+      \errmessage{No hyperlink driver `\hl@selecteddriver' available}%
+    \fi
+  \fi
+  \let\hl@setparam\@hl@setparam
+  \csname hldriver@\hl@selecteddriver\endcsname
+  \def\@finenablehyperlinks{\errmessage{Hyperlink driver `\hl@selecteddriver'
+                                        already selected}}%
+  \let\hldriver@nolinks\undefined
+  \let\hldriver@hypertex\undefined
+  \let\hldriver@pdftex \undefined
+  \let\hldriver@dvipdfm\undefined
+  \let\hloff\@hloff
+  \let\hlon\@hlon
+  \let\hldestoff\@hldestoff
+  \let\hldeston\@hldeston
+  \hlon[*,]\hloff[foot,footback]%
+  \hldeston[*,]\hldestoff[foot,footback]%
+}%
+\def\hldriver@nolinks{%
+  \def\@hldest##1##2##3{%
+    \edef\temp{\write-1{hldest: ##3}}%
+    \ifvmode
+      \temp
+    \else
+      \allowhyphens
+      \expandafter\smash\expandafter{\temp}%
+      \allowhyphens
+    \fi
+    \ignorespaces
+  }%
+  \def\@hlstart##1##2##3{%
+    \leavevmode
+    \begingroup % Start the color group.
+    \edef\temp{\write-1{hlstart: ##3}}%
+    \temp
+    \ignorespaces
+  }%
+  \def\@hlend{%
+    \edef\temp{\write-1{hlend}}%
+    \temp
+    \endgroup % End the color group from \@hlstart.
+  }%
+  \let\hl@setparam\gobble
+}%
+{\catcode`\#=\other
+\gdef\hlhash{#}}%
+\def\hldriver@hypertex{%
+  \def\hldest@type{xyz}%
+  \let\hldest@opt@cmd \empty
+  \def\hldest@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hldest@opt@cmd \endcsname
+    \else
+      \special{html:<a name="\@hllabel">}\special{html:</a>}%
+    \fi
+  }%
+  \let\hldest@typeh@raw \empty
+  \let\hldest@typeh@xyz \empty
+  \def\hl@type{name}%
+  \ifx\hl@type@url\empty
+    \def\hl@type@url{url}%
+  \fi
+  \ifx\hl@type@hrefext\empty
+    \def\hl@type@hrefext{url}%
+  \fi
+  \let\hl@opt@cmd  \empty
+  \let\hl@opt@ext  \empty
+  \let\hl@opt@file \empty
+  \def\hl@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hl@opt@cmd \endcsname
+    \else
+      \def\hlstart@preamble{html:<a href="}%
+      \csname hl@typeh@\@hltype\endcsname
+    \fi
+  }%
+  \let\hl@typeh@raw \empty
+  \def\hl@typeh@name{\special{\hlstart@preamble \hlhash\@hllabel">}}%
+  \def\hl@typeh@filename{%
+    \special{%
+      \hlstart@preamble
+        file:\hl@opt@file\hl@opt@ext
+        \ifempty\@hllabel \else \hlhash\@hllabel\fi
+      ">%
+    }%
+  }%
+  \def\hl@typeh@url{%
+    \special{%
+      \hlstart@preamble
+        \@hllabel
+      ">%
+    }%
+  }%
+  \def\@hlend{\special{html:</a>}\endgroup}% End the group from \@hlstart.
+}%
+\def\hldriver@pdftex{%
+\ifpdf % PDF output is enabled.
+  \def\hldest@type{xyz}%
+  \let\hldest@opt@width  \empty
+  \let\hldest@opt@height \empty
+  \let\hldest@opt@depth  \empty
+  \let\hldest@opt@zoom   \empty
+  \let\hldest@opt@cmd    \empty
+  \def\hldest@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hldest@opt@cmd \endcsname
+    \else
+      \pdfdest name{\@hllabel}\@hltype
+        \csname hldest@typeh@\@hltype\endcsname
+    \fi
+  }%
+  \let\hldest@typeh@raw   \empty
+  \let\hldest@typeh@fit   \empty
+  \let\hldest@typeh@fith  \empty
+  \let\hldest@typeh@fitv  \empty
+  \let\hldest@typeh@fitb  \empty
+  \let\hldest@typeh@fitbh \empty
+  \let\hldest@typeh@fitbv \empty
+  \def\hldest@typeh@fitr{%
+    \ifx\hldest@opt@width  \empty \else width  \hldest@opt@width  \fi
+    \ifx\hldest@opt@height \empty \else height \hldest@opt@height \fi
+    \ifx\hldest@opt@depth  \empty \else depth  \hldest@opt@depth  \fi
+  }%
+  \def\hldest@typeh@xyz{%
+    \ifx\hldest@opt@zoom\empty \else zoom \hldest@opt@zoom \fi
+  }%
+  \def\hl@type{name}%
+  \ifx\hl@type@url\empty
+    \def\hl@type@url{url}%
+  \fi
+  \ifx\hl@type@hrefext\empty
+    \def\hl@type@hrefext{url}%
+  \fi
+  \let\hl@opt@width   \empty
+  \let\hl@opt@height  \empty
+  \let\hl@opt@depth   \empty
+  \def\hl@opt@bstyle  {S}%
+  \def\hl@opt@bwidth  {1}%
+  \let\hl@opt@bcolor  \empty
+  \let\hl@opt@hlight  \empty
+  \let\hl@opt@bdash   \empty
+  \let\hl@opt@pagefit \empty
+  \let\hl@opt@cmd     \empty
+  \let\hl@opt@file    \empty
+  \let\hl@opt@newwin  \empty
+  \def\hl@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hl@opt@cmd \endcsname
+    \else
+      \let\hl@BSspec\relax % construct
+      \ifx\hl@opt@bstyle \empty
+        \ifx\hl@opt@bwidth \empty
+          \ifx\hl@opt@bdash \empty
+            \let\hl@BSspec\empty % don't construct
+          \fi
+        \fi
+      \fi
+      \def\hlstart@preamble{%
+        \pdfstartlink
+          \ifx\hl@opt@width  \empty \else width  \hl@opt@width  \fi
+          \ifx\hl@opt@height \empty \else height \hl@opt@height \fi
+          \ifx\hl@opt@depth  \empty \else depth  \hl@opt@depth \fi
+          attr{%
+            \ifx\hl@opt@bcolor\empty\else /C[\hl@opt@bcolor]\fi
+            \ifx\hl@opt@hlight\empty\else /H/\hl@opt@hlight\fi
+            \ifx\hl@BSspec\relax
+              /BS<<%
+                /Type/Border%
+                \ifx\hl@opt@bstyle\empty\else /S/\hl@opt@bstyle\fi
+                \ifx\hl@opt@bwidth\empty\else /W \hl@opt@bwidth\fi
+                \ifx\hl@opt@bdash\empty \else /D[\hl@opt@bdash]\fi
+              >>%
+            \fi
+          }%
+      }%
+      \csname hl@typeh@\@hltype\endcsname
+    \fi
+  }%
+  \let\hl@typeh@raw\empty
+  \def\hl@typeh@name{\hlstart@preamble goto name{\@hllabel}}%
+  \def\hl@typeh@num{\hlstart@preamble  goto num \@hllabel}%
+  \def\hl@typeh@page{%
+    \count@=\@hllabel
+    \advance\count@ by-1
+    \hlstart@preamble
+    user{%
+      /Subtype/Link%
+      /Dest%
+        [\the\count@
+          \ifx\hl@opt@pagefit\empty/Fit\else\hl@opt@pagefit\fi]%
+    }%
+  }%
+  \def\hl@typeh@filename{\hl@file{(\@hllabel)}}%
+  \def\hl@typeh@filepage{%
+    \count@=\@hllabel
+    \advance\count@ by-1
+    \hl@file{%
+      [\the\count@ \ifx\hl@opt@pagefit\empty/Fit\else\hl@opt@pagefit\fi]%
+    }%
+  }%
+  \def\hl@file##1{%
+    \hlstart@preamble
+    user{%
+      /Subtype/Link%
+      /A<<%
+        /Type/Action%
+        /S/GoToR%
+        /D##1%
+        /F(\hl@opt@file)%
+        \ifx\hl@opt@newwin\empty \else
+          /NewWindow \ifcase\hl@opt@newwin false\else true\fi
+        \fi
+      >>%
+    }%
+  }%
+  \def\hl@typeh@url{%
+    \hlstart@preamble
+    user{%
+      /Subtype/Link%
+      /A<<%
+        /Type/Action%
+        /S/URI%
+        /URI(\@hllabel)%
+      >>%
+    }%
+  }%
+  \def\@hlend{\pdfendlink\endgroup}% End the group from the \@hlstart.
+\else % PDF output is not enabled.
+  \message{Eplain warning: `pdftex' hyperlink driver: PDF output is^^J
+           \space not enabled, falling back on `nolinks' driver.}%
+  \hldriver@nolinks
+\fi
+}%
+\def\hldriver@dvipdfm{%
+  \def\hldest@type{xyz}%
+  \let\hldest@opt@left   \empty
+  \let\hldest@opt@top    \empty
+  \let\hldest@opt@right  \empty
+  \let\hldest@opt@bottom \empty
+  \let\hldest@opt@zoom   \empty
+  \let\hldest@opt@cmd    \empty
+  \def\hldest@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hldest@opt@cmd \endcsname
+    \else
+      \def\hldest@preamble{%
+        pdf: dest (\@hllabel) [@thispage
+      }%
+      \csname hldest@typeh@\@hltype\endcsname
+    \fi
+  }%
+  \let\hldest@typeh@raw\empty
+  \def\hldest@typeh@fit{%
+    \special{\hldest@preamble /Fit]}%
+  }%
+  \def\hldest@typeh@fith{%
+    \special{\hldest@preamble /FitH
+      \ifx\hldest@opt@top\empty @ypos \else \hldest@opt@top \fi]}%
+  }%
+  \def\hldest@typeh@fitv{%
+    \special{\hldest@preamble /FitV
+      \ifx\hldest@opt@left\empty @xpos \else \hldest@opt@left \fi]}%
+  }%
+  \def\hldest@typeh@fitb{%
+    \special{\hldest@preamble /FitB]}%
+  }%
+  \def\hldest@typeh@fitbh{%
+    \special{\hldest@preamble /FitBH
+      \ifx\hldest@opt@top\empty @ypos \else \hldest@opt@top \fi]}%
+  }%
+  \def\hldest@typeh@fitbv{%
+    \special{\hldest@preamble /FitBV
+      \ifx\hldest@opt@left\empty @xpos \else \hldest@opt@left \fi]}%
+  }%
+  \def\hldest@typeh@fitr{%
+    \special{\hldest@preamble /FitR
+      \ifx\hldest@opt@left\empty @xpos\else\hldest@opt@left\fi\space
+      \ifx\hldest@opt@bottom\empty @ypos\else\hldest@opt@bottom\fi\space
+      \ifx\hldest@opt@right\empty @xpos\else\hldest@opt@right\fi\space
+      \ifx\hldest@opt@top\empty @ypos\else\hldest@opt@top \fi]}%
+  }%
+  \def\hldest@typeh@xyz{%
+    \begingroup
+      \ifx\hldest@opt@zoom\empty
+        \count1=\z@ \count2=\z@
+      \else
+        \count2=\hldest@opt@zoom
+        \count1=\count2 \divide\count1 by 1000
+        \count3=\count1 \multiply\count3 by 1000
+        \advance\count2 by -\count3
+      \fi
+      \special{\hldest@preamble /XYZ
+        \ifx\hldest@opt@left\empty @xpos\else\hldest@opt@left\fi\space
+        \ifx\hldest@opt@top\empty @ypos\else\hldest@opt@top\fi\space
+        \the\count1.\the\count2]}%
+    \endgroup
+  }%
+  \def\hl@type{name}%
+  \ifx\hl@type@url\empty
+    \def\hl@type@url{url}%
+  \fi
+  \ifx\hl@type@hrefext\empty
+    \def\hl@type@hrefext{url}%
+  \fi
+  \def\hl@opt@bstyle  {S}%
+  \def\hl@opt@bwidth  {1}%
+  \let\hl@opt@bcolor  \empty
+  \let\hl@opt@hlight  \empty
+  \let\hl@opt@bdash   \empty
+  \let\hl@opt@pagefit \empty
+  \let\hl@opt@cmd     \empty
+  \let\hl@opt@file    \empty
+  \let\hl@opt@newwin  \empty
+  \def\hl@driver{%
+    \ifx\@hltype\hl@raw@word
+      \csname \hl@opt@cmd \endcsname
+    \else
+      \let\hl@BSspec\relax % construct
+      \ifx\hl@opt@bstyle \empty
+        \ifx\hl@opt@bwidth \empty
+          \ifx\hl@opt@bdash \empty
+            \let\hl@BSspec\empty % don't construct
+          \fi
+        \fi
+      \fi
+      \def\hlstart@preamble{%
+        pdf: beginann
+          <<%
+            /Type/Annot%
+            /Subtype/Link%
+            \ifx\hl@opt@bcolor\empty\else /C[\hl@opt@bcolor]\fi
+            \ifx\hl@opt@hlight\empty\else /H/\hl@opt@hlight\fi
+            \ifx\hl@BSspec\relax
+              /BS<<%
+                /Type/Border%
+                \ifx\hl@opt@bstyle\empty\else /S/\hl@opt@bstyle\fi
+                \ifx\hl@opt@bwidth\empty\else /W \hl@opt@bwidth\fi
+                \ifx\hl@opt@bdash\empty \else /D[\hl@opt@bdash]\fi
+              >>%
+            \fi
+      }%
+      \csname hl@typeh@\@hltype\endcsname
+    \fi
+  }%
+  \let\hl@typeh@raw\empty
+  \def\hl@typeh@name{\special{\hlstart@preamble /Dest(\@hllabel)>>}}%
+  \def\hl@typeh@page{%
+    \count@=\@hllabel
+    \advance\count@ by-1
+    \special{%
+      \hlstart@preamble
+      /Dest[\the\count@
+            \ifx\hl@opt@pagefit\empty/Fit\else\hl@opt@pagefit\fi]%
+     >>%
+    }%
+  }%
+  \def\hl@typeh@filename{\hl@file{(\@hllabel)}}%
+  \def\hl@typeh@filepage{%
+    \count@=\@hllabel
+    \advance\count@ by-1
+    \hl@file{%
+      [\the\count@ \ifx\hl@opt@pagefit\empty/Fit\else\hl@opt@pagefit\fi]%
+    }%
+  }%
+  \def\hl@file##1{%
+    \special{%
+      \hlstart@preamble
+      /A<<%
+        /Type/Action%
+        /S/GoToR%
+        /D##1%
+        /F(\hl@opt@file)%
+        \ifx\hl@opt@newwin\empty \else
+          /NewWindow \ifcase\hl@opt@newwin false\else true\fi
+        \fi
+      >>%
+     >>%
+    }%
+  }%
+  \def\hl@typeh@url{%
+    \special{%
+      \hlstart@preamble
+      /A<<%
+        /Type/Action%
+        /S/URI%
+        /URI(\@hllabel)%
+      >>%
+     >>%
+    }%
+  }%
+  \def\@hlend{\special{pdf: endann}\endgroup}% End the group from \@hlstart.
+}%
+\def\href{%
+  \bgroup
+    \uncatcodespecials
+    \catcode`\{=1 \catcode`\}=2
+    \@href
+}%
+\def\@href#1{% We'll read #2 (TEXT) later.
+  \egroup
+  \edef\@hreftmp{\ifempty{#1}{}\fi}% Parameter stuffing for \@@href.
+  \expandafter\@@href\@hreftmp#1\@@
+}%
+\def\href@end@int{\hlend@impl{hrefint}}%
+\def\href@end@ext{\hlend@impl{hrefext}}%
+\def\@@href#1#2\@@{%
+  \def\@hreftmp{#1}%
+  \ifx\@hreftmp\hlhash
+    \let\href@end\href@end@int
+    \hlstart@impl{hrefint}{#2}%
+  \else
+    \let\href@end\href@end@ext
+    \hlstart@impl{hrefext}{#1#2}%
+  \fi
+  \@@@href
+}%
+\def\@@@href{%
+  \futurelet\@hreftmp\href@
+}%
+\def\href@{%
+  \ifcat\bgroup\noexpand\@hreftmp
+    \let\@hreftmp\href@@
+  \else
+    \let\@hreftmp\href@@@
+  \fi
+  \@hreftmp
+}%
+\def\href@@{\bgroup\aftergroup\href@end \let\@hreftmp}%
+\def\href@@@#1{#1\href@end}%
+\def\hldeston{\errmessage{Please enable hyperlinks with
+  \string\enablehyperlinks\space before using hyperlink commands
+  (consider selecting the `nolinks' driver to ignore all hyperlink
+  commands in your document)}}%
+\let\hldestoff\hldeston \let\hlon\hldeston \let\hloff\hldeston
+\let\hlstart\hldeston \let\hlend\hldeston \let\hldest\hldeston
+\let\hl@setparam\hldeston
+\@hloff[*]\@hldestoff[*]%
+\newif\ifusepkg@miniltx@loaded
+\newcount\usepkg@recursion@level
+\def\usepkg@rcrs{\the\usepkg@recursion@level}%
+\let\usepkg@at@begin@document\empty
+\let\usepkg@at@end@of@package\empty
+\def\usepkg@word@autopict{autopict}%
+\def\usepkg@word@psfrag{psfrag}%
+\long\def\beginpackages#1\endpackages{%
+  \let\usepackage\real@usepackage
+  \let\eplaininput=\input
+  #1%
+  \usepkg@at@begin@document
+  \global\let\usepkg@at@begin@document\empty
+  \global\let\usepackage\fake@usepackage
+  \let\packageinput=\input
+  \let\input=\eplaininput
+}%
+\def\fake@usepackage{\errmessage{You should not use \string\usepackage\space outside of^^J
+  \@spaces\string\beginpackages...\string\endpackages\space environment}%
+}%
+\def\eplain@RequirePackage{%
+  \global\ece\let{usepkg@save@pkg\usepkg@rcrs}\usepkg@pkg
+  \global\ece\let{usepkg@save@options\usepkg@rcrs}\usepkg@options
+  \global\ece\let{usepkg@save@date\usepkg@rcrs}\usepkg@date
+  \global\ece\let{usepkg@at@end@of@package\usepkg@rcrs}\usepkg@at@end@of@package
+  \global\advance\usepkg@recursion@level by\@ne
+  \real@usepackage
+}%
+\let\usepackage\fake@usepackage
+\def\real@usepackage{\@getoptionalarg\@finusepackage}%
+\def\@finusepackage#1{%
+  \let\usepkg@options\@optionalarg
+  \ifempty{#1}%
+    \errmessage{No packages specified}%
+  \fi
+  \ifusepkg@miniltx@loaded \else
+    \testfileexistence[miniltx]{tex}%
+    \if@fileexists
+      \input miniltx.tex
+      \global\usepkg@miniltx@loadedtrue
+      \global\let\RequirePackage\eplain@RequirePackage
+      \global\let\DeclareOption\eplain@DeclareOption
+      \global\let\PassOptionsToPackage\eplain@PassOptionsToPackage
+      \global\let\ExecuteOptions\eplain@ExecuteOptions
+      \global\let\ProcessOptions\eplain@ProcessOptions
+      \global\let\AtBeginDocument\eplain@AtBeginDocument
+      \global\let\AtEndOfPackage\eplain@AtEndOfPackage
+      \global\let\ProvidesFile\eplain@ProvidesFile
+      \global\let\ProvidesPackage\eplain@ProvidesPackage
+    \else
+      \errmessage{miniltx.tex not found, cannot load LaTeX packages}%
+    \fi
+  \fi
+  \@ifnextchar[%]
+    {\@finfinusepackage{#1}}%
+    {\@finfinusepackage{#1}[]}%
+}%
+\def\@finfinusepackage#1[#2]{%
+  \edef\usepkg@date{#2}%
+  \let\usepkg@load@list\empty
+  \for\usepkg@pkg:=#1\do{%
+    \toks@=\expandafter{\usepkg@load@list}%
+    \edef\usepkg@load@list{%
+      \the\toks@
+      \noexpand\usepkg@load@pkg{\usepkg@pkg}%
+    }%
+  }%
+  \usepkg@load@list
+  \ifnum\usepkg@recursion@level>0
+    \global\advance\usepkg@recursion@level by\m@ne
+    \expandafter\let\expandafter\usepkg@pkg\csname usepkg@save@pkg\usepkg@rcrs\endcsname
+    \expandafter\let\expandafter\usepkg@options\csname usepkg@save@options\usepkg@rcrs\endcsname
+    \expandafter\let\expandafter\usepkg@date\csname usepkg@save@date\usepkg@rcrs\endcsname
+    \expandafter\let\expandafter\usepkg@at@end@of@package\csname usepkg@at@end@of@package\usepkg@rcrs\endcsname
+    \global\ece\let{usepkg@save@pkg\usepkg@rcrs}\undefined
+    \global\ece\let{usepkg@save@options\usepkg@rcrs}\undefined
+    \global\ece\let{usepkg@save@date\usepkg@rcrs}\undefined
+    \global\ece\let{usepkg@at@end@of@package\usepkg@rcrs}\undefined
+  \fi
+}%
+\def\usepkg@load@pkg#1{%
+  \def\usepkg@pkg{#1}%
+  \ifx\usepkg@pkg\usepkg@word@autopict
+    \testfileexistence[picture]{tex}%
+    \if@fileexists \else
+      \errmessage{Loader `picture.tex' for package `\usepkg@pkg' not found}%
+    \fi
+  \else
+    \ifx\usepkg@pkg\usepkg@word@psfrag
+      \testfileexistence[psfrag]{tex}%
+      \if@fileexists \else
+        \errmessage{Loader `psfrag.tex' for package `\usepkg@pkg' not found}%
+      \fi
+    \fi
+  \fi
+  \ifundefined{ver@\usepkg@pkg.sty}%
+    \expandafter\@finusepkg@load@pkg
+  \else
+    \message{^^J\linenumber Eplain: package `\usepkg@pkg' already
+             loaded, skipping reloading}%
+  \fi
+}%
+\def\@finusepkg@load@pkg{%
+  \testfileexistence[\usepkg@pkg]{sty}%
+  \if@fileexists \else
+    \errmessage{Package `\usepkg@pkg' not found}%
+  \fi
+  \expandafter\let\expandafter\temp\csname usepkg@options@\usepkg@pkg\endcsname
+  \ifx\temp\relax
+    \let\temp\empty
+  \fi
+  \ifx\temp\empty
+    \let\temp\usepkg@options
+  \else
+    \ifx\usepkg@options\empty \else
+      \edef\temp{\temp,\usepkg@options}%
+    \fi
+  \fi
+  \global\ece\let{usepkg@options@\usepkg@pkg}\temp
+  \let\usepackage\eplain@RequirePackage
+  \global\let\usepkg@at@end@of@package\empty
+  \ifx\usepkg@pkg\usepkg@word@autopict
+    \input picture.tex
+  \else
+    \ifx\usepkg@pkg\usepkg@word@psfrag
+      \input \usepkg@pkg.tex
+    \else
+      \input \usepkg@pkg.sty
+    \fi
+  \fi
+  \usepkg@at@end@of@package
+  \global\let\usepkg@at@end@of@package\empty
+  \let\usepackage\real@usepackage
+  \global\ece\let{usepkg@options@\usepkg@pkg}\undefined
+  \def\Url@HyperHook##1{\hlstart@impl{url}{\Url@String}##1\hlend@impl{url}}%
+}%
+\def\eplain@DeclareOption#1#2{%
+  \toks@{#2}%
+  \expandafter\xdef\csname usepkg@option@\usepkg@pkg @#1\endcsname{\the\toks@}%
+}%
+\def\eplain@PassOptionsToPackage#1#2{%
+  \ifempty{#1}\else
+    \for\usepkg@temp:=#2\do{%
+      \expandafter\let\expandafter\temp\csname usepkg@options@\usepkg@temp\endcsname
+      \ifx\temp\relax
+        \let\temp\empty
+      \fi
+      \ifx\temp\empty
+        \edef\temp{#1}%
+      \else
+        \edef\temp{\temp,#1}%
+      \fi
+      \global\ece\let{usepkg@options@\usepkg@temp}\temp
+    }%
+  \fi
+}%
+\def\usepkg@exec@options#1{%
+  \for\CurrentOption:=#1\do{%
+    \expandafter\let\expandafter\usepkg@temp
+      \csname usepkg@option@\usepkg@pkg @\CurrentOption\endcsname
+    \ifx\usepkg@temp\relax
+      \expandafter\let\expandafter\temp\csname usepkg@option@\usepkg@pkg @*\endcsname
+      \ifx\temp\relax
+        \errmessage{Unknown option `\CurrentOption' to package `\usepkg@pkg'}%
+      \else
+        \temp
+      \fi
+    \else
+      \usepkg@temp
+    \fi
+  }%
+}%
+\let\eplain@ExecuteOptions\usepkg@exec@options
+\def\eplain@ProcessOptions{%
+  \expandafter\usepkg@exec@options\csname usepkg@options@\usepkg@pkg\endcsname
+}%
+\def\usepkg@accumulate@cmds#1#2{%
+  \toks@=\expandafter{#1}%
+  \toks@ii={#2}%
+  \xdef#1{\the\toks@\the\toks@ii}%
+}%
+\def\eplain@AtBeginDocument{\usepkg@accumulate@cmds\usepkg@at@begin@document}%
+\def\eplain@AtEndOfPackage{\usepkg@accumulate@cmds\usepkg@at@end@of@package}%
+\def\eplain@ProvidesPackage#1{%
+  \@ifnextchar[%]
+    {\eplain@pr@videpackage{#1.sty}}{\eplain@pr@videpackage#1[]}%
+}%
+\def\eplain@pr@videpackage#1[#2]{%
+  \wlog{#1: #2}%
+  \expandafter\xdef\csname ver@#1\endcsname{#2}%
+  \@ifl@t@r{#2}\usepkg@date{}%
+    {\message{Warning: you have requested package `\usepkg@pkg', version \usepkg@date,^^J
+       \@spaces but only version `\csname ver@#1\endcsname' is available.}}%
+}%
+\def\eplain@ProvidesFile#1{%
+  \@ifnextchar[%]
+    {\eplain@pr@videfile{#1}}{\eplain@pr@videfile#1[]}%
+}%
+\def\eplain@pr@videfile#1[#2]{%
+  \wlog{#1: #2}%
+  \expandafter\xdef\csname ver@#1\endcsname{#2}%
+}%
+\def\@ifl@ter#1#2{%
+  \expandafter\@ifl@t@r
+    \csname ver@#2.#1\endcsname
+}%
+\def\@ifl@t@r#1#2{%
+  \ifnum\expandafter\@parse@version#1//00\@nil<%
+        \expandafter\@parse@version#2//00\@nil
+    \expandafter\@secondoftwo
+  \else
+    \expandafter\@firstoftwo
+  \fi
+}%
+\def\@parse@version#1/#2/#3#4#5\@nil{#1#2#3#4 }%
+\let\ttfamily\tt
+\def\strip@prefix#1>{}%
+\def\@ifpackageloaded#1{%
+  \expandafter\ifx\csname ver@#1.sty\endcsname\relax
+    \expandafter\@secondoftwo
+  \else
+    \expandafter\@firstoftwo
+  \fi
+}%
+\long\def\g@addto@macro#1#2{%
+  \begingroup
+    \toks@\expandafter{#1#2}%
+    \xdef#1{\the\toks@}%
+  \endgroup
+}%
+\def\PackageWarning#1#2{%
+  \begingroup
+    \newlinechar=10 %
+    \def\MessageBreak{%
+      ^^J(#1)\@spaces\@spaces\@spaces\@spaces
+    }%
+    \immediate\write16{^^JPackage #1 Warning: #2\on@line.^^J}%
+  \endgroup
+}%
+\def\PackageWarningNoLine#1#2{%
+  \PackageWarning{#1}{#2\@gobble}%
+}%
+\def\on@line{ on input line \the\inputlineno}%
+\def\@spaces{\space\space\space\space}%
+\def\@inmatherr#1{%
+   \relax
+   \ifmmode
+     \errmessage{The command is invalid in math mode}%
+   \fi
+}%
+\let\protected@edef\edef
+\let\wlog = \@plainwlog
+\catcode`@ = \@eplainoldatcode
+\def\fmtname{eplain}%
+\def\eplain{t}%
+{\edef\plainversion{\fmtversion}%
+ \xdef\fmtversion{3.2: 26 November 2007 (and plain \plainversion)}%
+}%

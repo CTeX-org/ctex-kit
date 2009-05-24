@@ -1,0 +1,90 @@
+# This Icon program carries out the first phase of preparing the index for
+# TeX for the Impatient.  The input is the .idx file produced by TeX using
+# our macros.  The output should be piped through a sort and then to the
+# index2 program.
+#
+# This program was written by Paul Abrahams and is public domain.
+#
+# An index entry has the form:
+#   term::type::page suffix
+# where `term' is the index term, `type' is T, N, or C,
+# `page' is either a folio number or *s, where s is a see-string,
+# and `suffix' is either empty or P, E, B, PE, or PB.
+# P indicates a principal entry, B and E begin and end a page range.
+
+
+global printable, specials
+record index_item(term, type, pages)
+record pgrec(number, pflag)
+
+procedure main(a)
+	local idx, fn, entry
+	fn := a[1]
+	printable := &ascii[33:-1]
+	specials := string(printable -- (&ucase ++ &lcase ++ &digits))
+	every entry := !&input do
+		write(key(entry), "@@@", entry)
+	write(&errout, "First indexing pass is complete.")
+	return
+end
+
+procedure key(entry)
+	local symb, symb1, type, page
+	static collate, hi, sortsequence
+	initial {
+		collate := specials || &ucase || &digits
+		sortsequence := printable -- &lcase
+		hi := repl(char(128), 26)
+		}
+	entry ? (symb := tab(find("::")), move(2), type := move(1),
+		move(2), page := tab(many('-0123456789*')))
+	symb := remove_leading_specials(symb)
+	symb1 := map(symb, &lcase, &ucase)
+	return map(map_term(symb1, type), collate, sortsequence) ||
+		map(symb, &ucase, hi) || char(1) || page_key(page)
+end
+	
+procedure remove_leading_specials(s)
+# remove leading period, backslash, or less-than
+	local a, b, c, k
+	static kills
+	initial {kills := '\\.<'}
+
+# a one-character special is left unchanged
+	c := s[1:upto("//", s) | 0]
+	if *c = 1 & any(kills, c) then
+		return s
+
+	k := 1
+	while s ? (a := tab(k), b:= tab(upto(kills)), 
+		tab(many(kills)), c := tab(0)) do
+		{s := a || b || c; k +:= *b}
+	return s
+end
+
+procedure map_term(t, c)
+# t is an index term, c is "N", "T", or "C"
+# Encode NTC as char(1), char(2), char(3)
+# Replace each // by the NTC code, then follow t by the NTC code and 1
+	local code
+
+	code := char(find(c, "NTC") | 4)
+	while t[find("//", t)+:2] := code
+	return t || code || char(1)
+end 
+
+procedure page_key(p)
+# convert p, which may be negative, to a character string key
+# Negative numbers must sort with the smallest closest to 0.
+# A see-string always starts with *; we replace the * with ~
+# so that see references always come last.  (They are usually unique.)
+	if p == "*" then
+		return "~"
+	p := integer(p)
+	return (
+		if p < 0 then
+			"-" || right(-p, 4, "0")
+		else
+			right(p, 5, 0)
+		)
+end
