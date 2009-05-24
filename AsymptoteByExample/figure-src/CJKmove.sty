@@ -1,0 +1,120 @@
+%# -*- coding:GBK -*-
+% CJKmove.sty
+%
+% 移动 CJK 字符，但使用固定位置和大小（1em）的 bounding box
+% 可用于中文直行排版时字符偏移的校正
+% 此宏包对 CJK 和 xeCJK 包均有效
+%
+% 作者：milksea
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{CJKmove}[2008/08/10 ver 0.1]
+
+% frame 选项：给每个 CJK 字符加线框，帮助查看字符 bounding box 位置
+\newif\if@CJK@framed
+\@CJK@framedfalse
+\DeclareOption{frame}{\@CJK@framedtrue}
+\DeclareOption{noframe}{\@CJK@framedfalse}
+\DeclareOption*{%
+  \PackageWarning{CJKmove}{Unknown option ‘\CurrentOption’}%
+}
+\ProcessOptions
+
+\ifx\XeTeXinputencoding\undefined
+  \RequirePackage{CJK}
+\else
+  \RequirePackage{xeCJK}
+\fi
+
+% \CJK@symbol：保存原来的定义
+\let\CJK@symbol\CJKsymbol
+
+% 移动的 CJK 字符
+\def\CJK@moved@symbol#1{%
+  \leavevmode
+  \vbox to 1em{%
+    \vss
+    \hbox to 1em{%
+      \raise\CJK@movey em\hbox{\kern\CJK@movex em\CJK@symbol{#1}}\hss
+    }%
+  }%
+}
+
+% 加框的 CJK 字符
+\def\CJK@framed@symbol#1{%
+  \bgroup
+    \fboxsep=0pt
+    \fbox{\CJK@symbol{#1}}%
+  \egroup
+}
+
+% 加框又移动的 CJK 字符
+\def\CJK@moveframed@symbol#1{%
+  \bgroup
+    \fboxsep=0pt
+    \fbox{\CJK@moved@symbol{#1}}%
+  \egroup
+}
+
+% 根据加框与否的选项重定义 CJK 字符
+\if@CJK@framed
+  \def\CJKmove{\let\CJKsymbol\CJK@moveframed@symbol}
+  \def\CJKnomove{\let\CJKsymbol\CJK@framed@symbol}
+\else
+  \def\CJKmove{\let\CJKsymbol\CJK@moved@symbol}
+  \def\CJKnomove{\let\CJKsymbol\CJK@symbol}
+\fi
+
+% 标点与字符定义相同
+\def\CJKpunctsymbol{\expandafter\CJKsymbol}
+
+% 设定水平向右和竖直身上的移动距离，参数为纯数字，单位 em
+\def\setCJKmove#1#2{
+  \def\CJK@movex{#1}%
+  \def\CJK@movey{#2}%
+}
+% 默认移动距离：SimSun 的 vertical 模式适用
+\def\resetCJKmove{%
+  \def\CJK@movex{0}%
+  \def\CJK@movey{0.4}%
+}
+
+% 初始化
+\resetCJKmove
+\CJKnomove
+
+\endinput
+
+
+宏包选项：
+
+  frame       给所有 CJK 字符加框
+
+  noframe     不加框
+
+
+用法：
+
+  \CJKmove                      进入 CJK 字符移动模式
+
+  \CJKnomove                    进入 CJK 字符不移动模式
+
+  \setCJKmove <数字x> <数字y>   设置右移 x em，上移 y em
+
+  \resetCJKmove                 重设移动距离，默认为上移 0.4em 适于 SimSun
+
+
+注意事项：
+
+  不同的字体可能需要设置不同的移动距离
+
+
+BUG：
+
+  bounding box 似乎定的还是不准
+
+
+TODO：
+
+  支持不等宽的、可规定深度和可平移的 bounding box
+
