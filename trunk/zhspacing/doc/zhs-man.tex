@@ -1,0 +1,514 @@
+% Hist:	070824	First document out. All but Implementation written.
+%		In the evening fixed some typos.
+\documentclass[12pt]{ltxdoc}
+%\usepackage[margin=1.5in]{geometry}
+\usepackage{fontspec}
+\defaultfontfeatures{Mapping=tex-text}
+\usepackage[no-sscript]{xltxtra}
+\usepackage{zhspacing}
+\usepackage[fakebold]{zhfont}
+\usepackage[noactive]{zhmath}
+\usepackage[dvipdfmx]{hyperref}
+\newfontfamily\zhcjkextafont{Sun-ExtA}
+\newfontfamily\zhcjkextbfont{Sun-ExtB}
+\zhspacing
+\usepackage{fancyvrb}
+\DefineVerbatimEnvironment{verbatim}{Verbatim}{baselinestretch=0.9}%,fontsize=\footnotesize}
+\usepackage{pst-all}
+\setlength\parskip{0.5em plus 0.5em minus 0.5em}
+\newcommand\q[1]{``\hbox spread -0.2em{#1}''}
+\newcommand\name[1]{\hbox{#1}}
+\newcommand\fntname[1]{\texttt{#1}}
+\newcommand\NFSS{\textsf{NFSS}}
+\newcommand\mymacro[1]{\ifvmode\noindent\else\setbox0=\lastbox\fi\llap{$\bullet$}\cmd#1\\\indent}
+\makeatletter
+\@addtoreset{section}{part}
+\makeatother
+\begin{document}
+\title{Typesetting Chinese in \XeTeX: |zhspacing| user's
+manual\footnote{Revision: \zhspacingrevision.}}
+\author{\textsc{Yin} Dian\footnote{Lab.\ of Network Comm. System \&
+Control, Univ.\ of Sci.\ \& Tech.\ of China.}}
+\date{2007.12.11.}
+\maketitle
+\tableofcontents
+\newpage
+
+\part{zhspacing.sty}
+\section{Introduction}
+\XeTeX\ is a new \TeX\ engine by Jonathan Kew and SIL International, which combines
+\eTeX\ with pervasive Unicode support and advanced font support\footnote{Words
+copied from the ConTeXt Wiki.}. Using \XeTeX, it is possible to typeset scripts
+of any languages whose glyphs are contained in the font in use, without the
+help of any extra packages, such as |CJK|\footnote{|CJK| is a LaTeX 2e macro
+package which enables the use of CJK scripts (Chinese/Japanese/Korean) in
+various encodings, written by Werner Lemberg.}.
+
+However, \XeTeX\ itself does not solve all the problems. Some details in
+Chinese typesetting have not been dealt with by \XeTeX, such as the automatic
+font switch between Chinese and Western characters, the skip adjustment of
+fullwidth punctuations, the automatic skip insertion between Chinese and
+Western characters or math formulas, etc.
+
+To meet the need of easy and high quality typesetting of Chinese documents
+using \XeTeX, the package |zhspacing| is coded, utilizing the new primitive of
+\cs{XeTeXinterchartoks} provided in \XeTeX\ version 0.997.
+
+\section{Getting Started}
+|zhspacing| can be used in both plain \XeTeX\ or \XeLaTeX. The usage is quite
+straightforward. For instance, in plain \XeTeX, 
+{\emptyskipscheme
+\begin{verbatim}
+	\input zhspacing.sty
+	\zhspacing
+	这是中文测 试。中文和English的混排。中
+	文和$E=mc^2$的混排。
+	\bye
+\end{verbatim}
+}
+And in \XeLaTeX,
+{\emptyskipscheme
+\begin{verbatim}
+	\documentclass{article}
+	\usepackage{zhspacing}
+	\zhspacing
+	\begin{document}
+	这是中文测 试。中文和English的混排。中
+	文和$E=mc^2$的混排。
+	\end{document}
+\end{verbatim}
+}
+Both of the examples above produce the same result as follows,
+\begin{center}
+这是中文测 试。中文和English的混排。中
+文和$E=mc^2$的混排。
+\end{center}
+
+As you can see, spaces after Chinese characters are always ignored. Moreover, a
+noticable skip is inserted between Chinese characters and English characters as
+well as math formulas. In fact, all of the following inputs can produce mixed
+langauge output with skip automatically inserted between Chinese and English
+characters,
+\begin{center}
+\emptyskipscheme |中Eng文|,\quad |中 Eng文|,\quad |中Eng 文|\quad and\quad |中 Eng 文|. 
+\end{center}
+And their corresponding output is,
+\begin{center}
+中Eng文,\quad 中 Eng文,\quad 中Eng 文\quad and\quad 中 Eng 文. 
+\end{center}
+
+Look close and you'll find, that the first and second input generates exactly
+the same output, and so does the third and fourth. However, the skip between
+|Eng| and |文| in the last two cases is wider than the skip between |中| and
+|Eng|. That is because the space is produced by the space token after the
+letter |g|, not the skip automatically inserted by |zhspacing|'s skip
+mechanism.
+
+The space ignoring and skip auto-inserting ability of |zhspacing| can make
+writing documents much comfortable. You don't need to worry about the manual
+insertion of skips such as adding the annoying |~| in |CJK|.
+
+Now come to the topic of punctuation skip adjustment. Proper Chinese
+typesetting requires consecutive fullwidth punctuations be compressed, and a
+linebreak before or after a fullwidth punctuation will cut off the blank spaces
+of this punctuation, making it align to the margin. |zhspacing| does have
+solved these problems, as well as proper prohibitions(禁则). Here's an example.
+\begin{center}
+\begin{minipage}{21em}
+他强调，“三个代表”重要思想是在新的历史条件下运用马克思主义的立场、观点和方法的
+典范，是我们学习马克思主义的立场、观点和方法最现实、最生动的教材。“三个代表”
+重要思想是与时俱进的理论。
+\end{minipage}
+\end{center}
+
+\section{Advanced Usage}
+\subsection{Fonts}
+|zhspacing| uses an extensible way of selecting fonts. The rules can be
+summarized as follows,
+\begin{itemize}
+	\item Western characters, i.e.\ those that are not CJKV ideographies nor
+		CJKV punctuations, use the same font as default.
+	\item Chinese characters use seperate fonts. Font changes in the
+		document does not affect the font used to display Chinese,
+		unless you are using \NFSS\ and change the font series or shape.
+	\item On displaying basic Chinese ideographies, execute the command
+		\cs{zhfont}.
+	\item On displaying Chinese punctuations, execute the command
+		\cs{zhpunctfont}.
+	\item On displaying CJK Ext-A characters, execute the command
+		\cs{zhcjkextafont}.
+	\item On displaying CJK Ext-B characters, execute the command
+		\cs{zhcjkextbfont}.
+	\item When switching from non-Chinese characters to Chinese characters,
+		execute \cs{zhs@savefont}. When switching back, execute
+		\cs{zhs@restorefont}.
+\end{itemize}
+
+When importing |zhspacing| from plain \XeTeX, the default definitions of the
+above commands are,
+\begin{verbatim}
+	\font\zhfont="SimSun" at 10pt
+	\font\zhpunctfont="SimSun" at 10pt
+	\def\zhcjkextafont{\message{CJK Ext-A}}
+	\def\zhcjkextbfont{\message{CJK Ext-B}}
+	\let\zhs@savefont=\begingroup
+	\let\zhs@restorefont=\endgroup
+\end{verbatim}
+
+When imported from \XeLaTeX, the defaults are,
+\begin{verbatim}
+	\newfontfamily\zhfont[BoldFont=SimHei]{SimSun}
+	\newfontfamily\zhpunctfont{SimSun}
+	\def\zhcjkextafont{\message{CJK Ext-A}}
+	\def\zhcjkextbfont{\message{CJK Ext-B}}
+	\def\zhs@savefont{\zhs@savef@nt{old}}
+	\def\zhs@restorefont{\zhs@restoref@nt{old}}
+\end{verbatim}
+Here \cs{zhs@savef@nt} and \cs{zhs@restoref@nt} are internal macros to save and
+restore the \NFSS\ info of the current font to specified places.
+
+CJK Ext-A/B fonts have not been defined by default in consideration that not
+every user has installed the particular fonts. I recommend to use
+\fntname{Sun-ExtA} and \fntname{Sun-ExtB} as the corresponding fonts. You can
+define the ext-font macros manually in a similar way to the definition of
+\cs{zhfont}.
+
+An example of mixed typesetting of various classes of characters is as follows,
+cited from \emph{The Tale of Kiều}\footnote{《金云翘传》，or \emph{Truyện Kiều},
+a Vietnamese \emph{lục bát} poem written in \emph{chữ Nôm}. \emph{Chữ Nôm} is
+a system of ideographies created by the Vietnamese laboring people, most of
+which are encoded in CJK Ext-A\hskip -0.2em/B area, or not even included in
+Unicode.}.
+\begin{center}
+\parbox{21em}{
+\fontspec{Times New Roman}
+𤾓𢆥𥪝𡎝𠊛些
+Trăm năm, trong cõi người ta,
+𡨸才𡨸命𡑛罗恄𠑬
+Chữ tài, chữ mệnh, khéo là ghét nhau.
+𣦆戈𠬠局𣷭橷
+Trải qua một cuộc bể dâu,
+仍條𥉩𧡊𦓡𤴬疸𢚸
+Những điều trông thấy mà đau đớn lòng.
+\footnotemark
+}
+\end{center}
+\footnotetext{Some of the ideographies are replaced by similar characters due
+to the limitation of character set. A picture of the original manuscript can be found at
+\href{http://bbs.gophor.cn/cjkv/attachment/14_2_b44e05d28a68271.jpg}{\emph{this
+link}}.}% or Fig.~\ref{fig:kieu}.}
+\subsection{More on Fonts}
+Sometimes it may be desirable to use different Chinese fonts for different
+\NFSS\ font families in \LaTeX. This can be done by changing the definition of
+\cs{zhs@savefont} and \cs{zhfont}, without modifying the |zhspacing| source. 
+
+Here is the way to do it.\footnote{See zhfont.sty later for convenient ways.}
+\begin{verbatim}
+\makeatletter
+\g@addto@macro\zhs@savefont{%
+  \long\edef\zhs@tmpmacro{\f@family}%
+  \def\zhs@curr@fam{0}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+  \edef\zhs@tmpmacro{\f@family}%
+  \ifx\zhs@tmpmacro\sfdefault
+    \def\zhs@curr@fam{1}%
+  \else\ifx\zhs@tmpmacro\ttdefault
+    \def\zhs@curr@fam{2}%
+  \fi\fi
+}
+\newfontfamily\zhrmfont[BoldFont=SimHei,
+  ItalicFont=KaiTi_GB2312]{SimSun}
+\newfontfamily\zhsffont{SimHei}
+\newfontfamily\zhttfont[BoldFont=SimHei]{KaiTi_GB2312}
+\def\zhfont{\ifcase\zhs@curr@fam\zhrmfont\or\zhsffont
+  \or\zhttfont\else\zhrmfont\fi}
+\end{verbatim}
+\subsection{Skips}
+The skip mechanism in |zhspacing| is also flexible. |zhspacing| utilizes the
+following skip commands. Note that they are defined as macros instead of skip
+register values, in order that the skip varies according to font size changes.
+\begin{description}
+	\item[\mdseries\cs{skipzh}]
+		Skip between adjacent Chinese characters.
+	\item[\mdseries\cs{skipenzh}]
+		Skip between a Chinese character and a Western character or a
+		math formula.
+	\item[\mdseries\cs{skipzhopen}]
+		Skip before fullwidth opening punctuations, such as \q{“},
+		\q{（}, \q{《}, etc.
+	\item[\mdseries\cs{skipzhinteropen}]
+		Skip before a fullwidth opening punctuation when preceded by
+		another fullwidth punctuation.
+	\item[\mdseries\cs{skipzhlinestartopen}]
+		Skip before a fullwidth opening punctuation when it occurs at
+		the start of a line.
+	\item[\mdseries\cs{skipzhclose}]
+		Skip after fullwidth closing punctuations, such as \q{”},
+		\q{）}, \q{》}, etc.
+	\item[\mdseries\cs{skipzhinterclose}]
+		Skip after a fullwidth closing punctuation when followed by
+		another fullwidth punctuation.
+	\item[\mdseries\cs{skipzhlineendclose}]
+		Skip after a fullwidth closing punctuation when it occurs at
+		the end of a line.
+	\item[\mdseries\cs{skipzhfullstop}]
+		Skip after fullwidth fullstop punctuations, such as \q{；},
+		\q{．}, \q{。}, etc.
+	\item[\mdseries\cs{skipzhinterfullstop}]
+		Skip after a fullwidth fullstop punctuation when followed by
+		another fullwidth punctuation.
+	\item[\mdseries\cs{skipzhlineendfullstop}]
+		Skip after a fullwidth fullstop punctuation when it occurs at
+		the end of a line.
+	\item[\mdseries\cs{skipzhhalfstop}]
+		Skip after fullwidth halfstop punctuations, such as \q{、},
+		\q{，}, \q{：}, etc.
+	\item[\mdseries\cs{skipzhinterhalfstop}]
+		Skip after a fullwidth halfstop punctuation when followed by
+		another fullwidth punctuation.
+	\item[\mdseries\cs{skipzhlineendhalfstop}]
+		Skip after a fullwidth halfstop punctuation when it occurs at
+		the end of a line.
+	\item[\mdseries\cs{skipnegzhlinestartopen}]
+		Negative skip to \cs{skipzhlinestartopen}.
+	\item[\mdseries\cs{skipnegzhlineendclose}]
+		Negative skip to \cs{skipzhlineendclose}.
+	\item[\mdseries\cs{skipnegzhlineendfullstop}]
+		Negative skip to \cs{skipzhlineendfullstop}.
+	\item[\mdseries\cs{skipnegzhlineendhalfstop}]
+		Negative skip to \cs{skipzhlineendhalfstop}.
+\end{description}
+
+All of the skip commands above are defined in the pattern \\
+\vadjust{}\hfil |\def\skipxxx{\hskip xxxxx}|.
+
+|zhspacing| comes with three pre-defined skip schemes, namely
+\cs{simsunskipscheme}, \cs{emptyskipscheme} and \cs{haltskipscheme}. The 
+first scheme should be suitable for font \fntname{SimSun} and other popular
+Chinese fonts used in China, which does not support OpenType features of
+|halt|, and needs negative spaces be inserted before opening punctuations and
+after closing or judou punctuations. The second scheme simply addes zero
+length. And the last one should be fit for OpenType Chinese fonts supporting
+|halt| feature such as Adobe Song Std, where positive spaces should be inserted
+before or after certain punctuations. You can define your own skip schemes for
+customization, of course.
+\subsection{Vertical Chinese}
+Vertical Chinese can be achieved by adding raw feature |vertical| to the
+specified font. An example could be, \hfil
+\setbox0=\hbox to 0pt{\vbox{\noindent
+\newfontfamily\zhfont[RawFeature={vertical:},BoldFont=SimHei]{SimSun}
+\newfontfamily\zhpunctfont[RawFeature={vertical:+vert:+vhal}]{[AdobeSongStd-Light.otf]}
+\haltskipscheme
+\rotatebox{-90}{\fbox{\raise 0.8em\hbox{我是中国人，我爱自己的祖国。}}}
+}\hss}
+\dp0=0pt \raise 0.8em\box0
+
+\begin{verbatim}
+  \documentclass[12pt]{article}
+  \usepackage[dvipdfm]{graphicx}
+  \usepackage{zhspacing}
+  \zhspacing
+  \begin{document}
+  \newfontfamily\zhfont[RawFeature={vertical:}]{SimSun}
+  \newfontfamily\zhpunctfont[RawFeature={vertical:
+              +vert:+vhal}]{[AdobeSongStd-Light.otf]}
+  \haltskipscheme
+  \rotatebox{-90}{我是中国人，我爱自己的祖国。}
+  \end{document}
+\end{verbatim}
+
+Note that in this example, in order to have proper vertical punctuations, we
+set \cs{zhpunctfont} to use the Adobe one supporting |vert| feature, and change
+the skip scheme to \cs{haltskipscheme} to match the |vhal| feature specified.
+
+However, there exists some bug in typesetting vertical Chinese containing
+punctuations using some fonts such as \fntname{KaiTi\_GB2312} etc. I've told
+this bug to \name{jjgod} in May, but it seems that he hasn't solved the problem
+yet.  Moreover, the baseline of vertical Chinese is not correct, so mixed
+typesetting of Chinese and English in vertical mode generates ugly results, and
+thus should be avoided. 
+\subsection{Compatibility}
+Theoretically, |zhspacing| should be compatible with all macro packages, except
+those who change the definition of \cs{hskip} and \cs{penalty}, in which case
+special treatment should be applied. I haven't found any conflict when using
+common packages such as |hyperref| and |fancyhdr|. However, |ulem| redefineds
+\cs{hskip} and \cs{penalty}, and causes unexpected output\footnote{I was using
+\cs{begingroup} and \cs{endgroup} as the font saving/restoring commands.
+However, I found |ulem| redefines \cs{hskip} and \cs{penalty} to end the
+current hbox group and start a new hbox, and thus group mismatch occurs. So I
+changed the font saving/restoring commands when used in \LaTeX, using \NFSS\ info
+instead of groups. But in the new hbox group, no Chinese font is applied by
+default so the Chinese characters disappears. Therefore I changed the
+definitions of |ulem|'s new \cs{hskip} and \cs{penalty} in |zhulem|, and advice
+users to use this modified one.}. Use |zhulem| provided along with
+|zhspacing| instead.
+
+\subsection{Working with the \texttt{ctex} package}
+The |ctex| package, made by \href{http://www.ctex.org}{|ctex.org|}, is a widely
+used Chinese document framework which hides the underlying Chinese processing
+details to the user, which enables portability between different Chinese
+processing packages or systems, such as |CCT| and |CJK|. \name{Jjgod} has made
+a \XeTeX\ port of the |ctex| package, named |cxetex|, which can be found at
+\url{http://www.newsmth.net/att.php?s.460.257121.452.bz2}.
+
+To use |zhspacing| in |cxetex|, a slight modification of the file |ctexcjk.clo|
+should be made. Change the corresponding lines to the followes (\% means the
+original lines).
+\begin{verbatim}
+%\XeTeXlinebreaklocale "zh"
+%\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+%\setmainfont[BoldFont={cwTeXHeiBold},
+%             ItalicFont={cwTeXKaiItalic},
+%             Mapping=tex-text]{cwTeXMing}
+%\setsansfont[BoldFont={cwTeXHeiBold},Mapping=tex-text]{cwTeXYen}
+%\setmonofont{cwTeXFangSongTT}
+\usepackage{zhspacing}
+\newfontfamily\zhfont[BoldFont=SimHei]{SimSun}
+\newfontfamily\zhcjkextafont{Sun-ExtA}
+\newfontfamily\zhcjkextbfont{Sun-ExtB}
+\zhspacing
+\end{verbatim}
+
+You can surely change these lines to your own taste.
+
+\section{Getting \texttt{zhspacing}}
+|zhspacing| is hosted on an open-source project at googlecode. The project
+homepage is \url{http://code.google.com/p/zhspacing/}. You can get the lastest
+source from the download page or via SVN.
+
+\goodbreak
+\part{zhfont.sty}
+\section{Introduction}
+To simplify the complex font setting to use \NFSS\ in \LaTeX, the package
+|zhfont| is coded. It also adds simple interface to define fonts with fake
+slant, and also supports fake bold.
+\section{Package Options}
+|zhfont| currently has only one option --- |fakebold|. This option sets
+Chinese show fake boldface when the current series is bold.
+\section{Provided Macros}
+\mymacro\zhrmfont
+\mymacro\zhsffont
+\mymacro\zhttfont
+The font commands to be executed according to the current font family.
+You can redefine them to customize your fonts.
+
+\mymacro\setzhmainfont
+\mymacro\setzhsansfont
+\mymacro\setzhmonofont
+Simply macro to set \cs{zh\{rm/sf/tt\}font} using \cs{newfontfamily}.
+
+\mymacro\newfontfamilywithslant
+Create a font family with fake slant. Take one argument as the font name. 
+
+Example: |\newfontfamilywithslant\zhrmfont{SimSun}|
+
+\mymacro\newfontfamilywithslantandbold
+Create a font family with fake slant, and specify another font for its
+boldface. Take two arguments as the font name and bold font name. 
+
+Example:\\\quad |\newfontfamilywithslantandbold\zhrmfont{SimSun}{SimHei}|
+\section{Examples}
+The following example is generated with |zhfont| loaded with option
+|fakebold|.
+
+{\emptyskipscheme
+\begin{verbatim}
+\newfontfamilywithslant\zhrmfont{SimSun}
+中文\textbf{测试}。\textit{中文\textbf{测试}。}
+\newfontfamilywithslant\zhrmfont{FangSong_GB2312}
+中文\textbf{测试}。\textit{中文\textbf{测试}。}
+\end{verbatim}
+}
+\nobreak
+{
+\newfontfamilywithslant\zhrmfont{SimSun}
+中文\textbf{测试}。\textit{中文\textbf{测试}。}
+\newfontfamilywithslant\zhrmfont{FangSong_GB2312}
+中文\textbf{测试}。\textit{中文\textbf{测试}。}
+}
+\goodbreak
+
+\part{zhmath.sty}
+\section{Introduction}
+|zhmath| is a generic package which allows the Chinese characters to be
+displayed in math formulas. It also allows changing the math font for alphas
+and numbers.
+
+|zhmath| only sets the basic Chinese characters to be displayable, not CJK
+Ext-A/B ones, as they are seldom used and discouraged in math. You can use
+\cs{hbox} to let |zhspacing| display them, however.
+\section{Package Options}
+In \LaTeX, |zhmath| has two options --- |active| and |noactive|. They set the
+method to implement Chinese character displaying in math. The default is
+|noactive|.
+
+When |active| is set, the Chinese characters in math formulas are set to
+active, which, when executed, display the corresponding characters in
+\cs{zhmathfont}. This behavior is much like that of the package |mathcjk|. The
+font size in different styles are also set in \cs{mathcjksizea}/|b|/|c|/|d|.
+
+When |noactive| is set, the mathcodes of Chinese characters are set to use a
+special math font family to display them. This way is more native than to use
+active characters.
+
+Both |active| and |noactive| have disadvantages. In |active| mode the Chinese
+math font sizes are determined by \cs{mathcjksizea}/|b|/|c|/|d|, so they are
+somewhat independent with the main text size, which means their size cannot
+change when the main font size changes, which gives ugly results. However, in
+|noactive| mode, although Chinese math font size varies with the main font
+size, Chinese inside \cs{mathrm} etc cannot be displayed, because the math
+font family are set to \cs{mathrm}'s. So choose the option to your own need.
+
+In plain \TeX\ no package options are available.
+\section{Provided Macros}
+\mymacro\setzhmathfont
+Set the math font used to display Chinese. Take one argument as the font
+command. Preamble only.
+
+\mymacro\zhmathfont
+The font command which determines the math font for Chinese. However, if you
+use |noactive| option in \LaTeX, or you're in plain \TeX, they are not
+executed when Chinese in math occur, but when \cs{setzhmathfont} is invoked.
+So you should always call |\setzhmathfont\zhmathfont| after the change.
+
+\mymacro\usecustommathfonts
+Enable the use of custom math fonts for alphas and numbers. The default is
+Times New Roman.
+
+\mymacro\setalphanummathfonts
+Set the math font used to display alphas and numbers. Preamble only. Take one
+argument as the font family in \LaTeX, and two argument as the font command
+for alphas and numbers accordingly in plain \TeX.
+
+\mymacro\zhmathalphanumfont
+The font command which determines the math font for alphas and numbers in
+\LaTeX. Should always call |\setalphanummathfonts\zhmathalphanumfont| after
+it changes.
+
+\mymacro\zhmathletterfont
+\mymacro\zhmathnumberfont
+The font command which determines the math font for alphas and numbers in plain
+\TeX. After their change \cs{setalphanummathfonts} with corresponding
+arguments should be called.
+\section{Examples}
+{\emptyskipscheme
+\begin{verbatim}
+{
+$中文 in math 测_试$
+\usecustommathfonts
+\Large $能量E = mc^2$, $s_总 = {1 \over 2} at^2$
+}
+\end{verbatim}
+}
+\nobreak
+{
+$中文 in math 测_试$
+\usecustommathfonts
+\Large $能量E = mc^2$, $s_总 = {1 \over 2} at^2$
+}
+\goodbreak
+\end{document}
