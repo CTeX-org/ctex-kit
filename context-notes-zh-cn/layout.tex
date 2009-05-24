@@ -1,0 +1,224 @@
+\startcomponent layout
+\product ctxnotes
+
+\chapter{版面设计}
+
+其实我不懂排版，我只是希望这份文档的版面看上去不那么丑陋，所以我经常留意有关排版的知识，并乐于使用 \CONTEXT\ 来实践。我将这个实践的过程整理出来，就是本章所记述的内容，并且每当我修改本文档的版面风格时，这一章的内容也会适应性的变动。可以将本章看作是这份笔记版面设计的说明书。
+
+\section{页面与纸张}
+
+页面尺寸就是文档的版面尺寸，而纸张尺寸是指文档印刷用纸的规格，它们的取值一般是相同的；只有在要求每张印刷用纸上实现多页排版时，二者的取值才不一样。这份笔记的屏幕阅读文档页面与纸张尺寸设定如下：
+
+\startniceTEX
+\definepapersize[SCREEN][width=24cm,height=18cm]
+\setuppapersize[SCREEN][SCREEN]
+\stopniceTEX
+
+\noindent 其意是指页面与纸张的尺寸的宽高分别为 24cm 与 18cm，这是考虑到显示屏幕尺寸的宽高比一般为 4:3，这样可以充分利用屏幕区域，并且翻页方便。
+
+页面与纸张的规格可以采用 \CONTEXT\ 已经预定义好的国际标准规格，如 A0～A10、B0～B5 等；也可以采用自定义尺寸：
+
+\startniceTEX
+\definepapersize[I18][width=18.5cm,height=23cm]
+\setuppapersize[I18][I18]
+\stopniceTEX
+
+\noindent 这里定义的 I18 规格的页面与纸张尺寸，是近年来计算机技术书籍排版常用的纸张规格。
+
+\section{版面布局}
+
+\CONTEXT\ 将版面划分为 25 个区域，具体的区域划分在 {\it\CONTEXT, an excursion}\cite[ms-cb-en]文档的第 32 章 {\it Page Layout} 中可以看到，也可以在 \CONTEXT\ Wiki 的 {\it Layout} 页面看到\footnote{http://wiki.contextgarden.net/Layout}。
+
+我为这份文档所规划的版面布局如下：
+
+\startmode[print]
+\startniceTEX
+\setuplayout
+    [leftmargin=2cm,
+     rightmargin=3cm,
+     width=fit,
+     height=fit,
+     topspace=1cm,
+     header=1.5cm,
+     footer=1.5cm]
+\stopniceTEX
+\stopmode
+
+\startmode[screen]
+\startniceTEX
+\setuplayout
+    [width=fit,
+     height=middle,
+     leftmargin=3cm,
+     rightmargin=3cm,
+     backspace=4cm,
+     topspace=.5cm,
+     headerdistance=.4cm,
+     footerdistance=.4cm,
+     header=1cm,
+     footer=1cm]
+\stopniceTEX
+\stopmode
+
+\noindent 下一页的插图显示了这些参数的布局效果，这里交代一下，那幅插图是利用了 Patrick 写的一个模块 (Module)\footnote{\type{http://modules.contextgarden.net/t-layout}}绘制的。
+
+\type{\setuplayout} 命令所具有的参数，在数量上堪称是 \ConTeXt\ 命令之最，如果我没有数错，应该是 44 个，常用的参数也就是下一页插图中所示的那些了。通过这些参数，\ConTeXt\ 可实现各种复杂的版面布局。
+
+说点闲话。如果我没记错的话，MS Word 用来设置版面布局的参数不超过 10 个。在 \LATEX\ 中，需要借助一些宏包才可以比较方便地实现版面布局控制。复杂与统一，也许这是 \CONTEXT\ 的一个很重要的特征，复杂是追求功能强大的必然结果，而统一可以让用户只需一份官方提供的技术手册就可以毫无争议地使用这些功能。
+
+注意，将 \type{\setuplayout} 的 \type{width} 与 \type{height} 参数设为 \type{fit} 或 \type{middle} 都可以让 \CONTEXT\ 自动为我们确定它们的值。\type{fit} 参数的确定是根据周边邻域参数计算出来的，而 \type{middle} 不是很关心周边参数，它只需要将 \type{width} 或 \type{height} 所确定的尺度相对于同一维向的页面尺度是居中的。
+
+\type{location} 这个参数让我费解了许久，历经多次尝试，总算知道一点所以然。当我们将版面尺寸与纸张尺寸设为相同时，\type{location} 这个参数无论如何设定都是看不到效果的。当纸张尺寸大于版面尺寸时，\type{location} 的值可以表示版面在纸张的位置，譬如 left、right、middle、singlesided 以及 doublesided。
+
+\page
+%\ShowLayout[digit=1,showmore=0]
+\page
+
+\section[HFer]{页眉、页脚}
+
+对于这份文档的页眉，我将奇数页的页眉设为当前章标题（左）+ 页码（右）；偶数页的页眉设为当前节标题（左）+ 页码（右）：
+
+\startniceTEX
+\def\CurrentChapter{%
+        第 \headnumber[chapter]\ 章%
+        \hbox to wem{}%
+        \getmarking[chapter]%
+}
+
+\def\CurrentSection{%
+        \headnumber[section]%
+        \hbox to 2em{}%
+        \getmarking[section]%
+}
+
+ \setupheadertexts
+        [\CurrentChapter][pagenumber]
+        [pagenumber][\CurrentSection]
+\stopniceTEX
+
+\tex{setupheadertexts} 命令的参数设置的有些古怪，按手册上讲的，前两个参数分别用于设置奇数页的页眉左侧与右侧内容，后两个参数则用于设置偶数页的页眉左侧与右侧内容，但是在上述的页眉设置语句中，我只有将偶数页的页眉内容的左右位置掉换过来才可以得到这份文档的页眉结构。我并不知道为什么要这样设置，只是多次尝试才知道只有如此才能实现我的要求。
+
+由于设置在页眉中显示页码，所以应当引去 \CONTEXT\ 自动为页面添加的页码，顺便把页码的字号也设置一下：
+
+\startniceTEX
+\setuppagenumbering
+        [style=\tfx,location=]
+\stopniceTEX
+
+我感觉 \CONTEXT\ 是有点另类，居然让 \tex{setuppagenumbering} 来设置双面打印文档模式。如果，我想将本文档的页眉结构变成：奇数页的页眉设为当前章标题（左）+ 页码（右）；偶数页的页眉设为当前节标题（右）+ 页码（左），只需在 \tex{setuppagenumbering} 命令中设定 \type{alternative} 参数即可：
+
+\startniceTEX
+\setuppagenumbering
+        [alternative=doublesided,style=\tfx,location=]
+\stopniceTEX
+
+\noindent 感觉有点莫名其妙，也许因为我还未发现正确的页眉设置方法的缘故。
+
+页脚的设定方法与页眉类似，我在页脚的左侧设置了显示这份文档的名称，在其右侧显示可以跳往目录页的链接：
+
+\startniceTEX
+\startmode[screen]
+\setupfootertexts
+        [{\ConTeXt\ MkIV 学习笔记}][{\goto{回目录}[content]}]
+        [{\goto{回目录}[content]}][{\ConTeXt\ MkIV 学习笔记}]
+\stopmode
+\stopniceTEX
+
+\noindent 用到了 \CONTEXT\ 的 mode 环境，这就像 C 语言中的编译宏。只有在 \CONTEXT\ 编译命令中设定对应的 mode 值，对应 mode 环境中的语句才是有效的。要让 screen mode 环境生效，可：
+
+\starttyping
+$ context --mode=screen ctxnotes
+\stoptyping
+
+\noindent \CONTEXT\ 的 mode 环境非常有用，许多 \CONTEXT\ 官方制作的文档都是利用 mode 环境同时产生屏幕阅读版本与打印版本。将来，我打算将这一环境用于制作演示文档与讲稿。
+
+在页脚右侧显示的“回目录”的链接需要设置目录代码的支持，因为这需要利用 \ConTeXt\ 的引用机制：
+
+\startniceTEX
+% 我的目录页
+\title[content]{目录}
+\placecontent
+\stopniceTEX
+
+\noindent 有关文档目录设置的细节，准备单独开一个章节来记述。
+
+\section{封面设计}
+
+\CONTEXT\ 没有像 \LATEX\ 那样提供了专用于封面制作的命令，只是提供了一个 \type{standardmakeup} 环境，该环境的作用就是建立一个不增加页码计数的页面，使得用户可以在其中排版封面、扉页之类的页面。这份文档的封面的具体设计如下：
+
+\startniceTEX
+\startstandardmakeup
+    \startcolor[mydarkred]
+    \switchtobodyfont[14pt]
+    \hfil\bfd\ConTeXt 学习笔记\hfil
+    \blank[1.5cm]
+    \hfil\bfc Using MkIV\hfil
+    \blank[12cm]
+
+    \startalignment[flushright]
+        \ssa
+        \bTABLE
+            \setupTABLE[r][each][frame=off]
+            \bTR \bTD Athor: Li Yanrui\eTD \eTR
+            \bTR \bTD Email: lyanry@gmail.com\eTD \eTR
+            \bTR \bTD \date \eTD \eTR
+        \eTABLE
+    \stopalignment
+    \stopcolor
+\stopstandardmakeup
+\stopniceTEX
+
+请宽恕我在上述语句中很可耻地使用了 1.5cm、12cm 这样确定的长度。因为我还不怎么会驾驭 \CONTEXT，还无法灵活地实现可根据版面的变化自适应调整的封面设计。
+
+要设计一个美观的封面真得很难，而且这也不是我所擅长的。现在，拥有这样一个简单的封面，我已经心满意足。也许等我以后渐渐熟悉 \METAFUN\ 之时，会让它再美观一些。
+
+\section{标题样式}
+
+惯见的文档章、节标题一般都是采用黑体，字号通常也比正文字号大一些，另外标题前后也留出了一些垂直间距。这些设置无非是为了告诉读者，它们是标题，而不是正文。这份文档的标题样式设置如下：
+
+\startniceTEX
+\setupheads[indentnext=yes]
+\setuphead
+        [chapter]
+        [style=\bfc,header=empty,footer=empty]
+\setuphead
+        [section]
+        [style=\bfa]
+\setuphead
+        [title]
+        [style=\bfb,header=empty,foote=empty]
+\setuphead
+        [subsubject]
+        [style=\bf]
+\stopniceTEX
+
+\noindent\tex{setupheads} 命令可以设置所有类型的章节标题默认状态。在设置章标题时，由于其所在页面通常不需要页眉与页脚，所以 \type{header} 与 \type{footer} 都应设为 \type{empty}。
+
+现在使用 MkIV 排版中文，要想实现章节的编号格式为“第 x 章”、“第 x 节”，或者实现图、表标题格式为“图 x”、“表 x”，可能需要自己来做一些有些 dirty 工作。\ConTeXt\ 提供了 \tex{setuplabeltext} 命令，可用于设置表格、图、章节、附录的编号格式。譬如，要设置中文的章节编号：
+
+\startniceTEX
+\setuplabeltext [en] [chapter={第\;,\;章}]
+\setuplabeltext [en] [section={第\;,\;节}]
+\stopniceTEX
+
+\noindent 遗憾的是，我不知道怎样将编号中的数字也使用中文来表示，这在 MkII 中是可以的。
+
+\section{段落与行}
+
+中文排版，段落间距通常等于行间距，因为中文段落是通过首行缩进来标示的，下面代码可将段落文本首行缩进 2 个汉字距离：
+
+\startniceTEX
+\setupindenting[always,2em,first]
+\stopniceTEX
+
+\ConTeXt\ 默认是将段间距设置为 0，这碰巧符合中文的排版规范。如果有设定段间距的需求，就查一下 \tex{setupwhitespace} 命令的用法。
+
+对文档正文而言，行间距的设置对于排版的美观性是至关重要的：行间距过小则阅读困难；行间距过大又显得版面稀疏，浪费纸张。\ConTeXt\ 默认的文本行间距的值对于中文排版而言过小，可通过 \tex{setupinterlinespace} 命令结合自己的审美嗜好对行间距进行调整。我是这样设置行间距的：
+
+\startniceTEX
+\setupinterlinespace[big]
+\stopniceTEX
+
+\noindent 除了 \type{big} 参数之外，\tex{setupinterlinesapce} 命令还可以接受 \type{small}、\type{medium} 参数，但我以为只有 \type{big} 适合作为中文文本行距。值得注意的是，\type{small}、\type{medium} 和 \type{big} 并不表示真正的行间距尺寸，它们分别表示的正文字体尺寸的 1.0、1.25 和 1.5 倍。这份笔记所使用的正文字体是 11pt，那么行间距就是 16.5pt。
+
+\stopcomponent
