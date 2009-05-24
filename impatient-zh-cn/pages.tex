@@ -999,95 +999,168 @@ command and of how insertions interact with page breaking.
 
 
 %==========================================================================
-\section{Modifying the output routine}
+%\section{Modifying the output routine}
+\section{修改输出例行程序}
 
-\bix^^{output routine}
+%\bix^^{output routine}
+%\begindesc
+%\cts output {\param{token list}}
+%\explain
+%This parameter contains the current \minref{output routine}, i.e., 
+%the token list that \TeX\ expands when it finds a page break.
+%\TeX\ puts the page into ^|\box255|, so |\output| is responsible
+%for doing something with |\box255|---either shipping it out or
+%putting it somewhere else.
+%The output routine is also responsible for attaching things such as
+%headers and footers.
+%\enddesc
+
+\bix^^{输出例行程序}
 \begindesc
 \cts output {\param{token list}}
 \explain
-This parameter contains the current \minref{output routine}, i.e., 
-the token list that \TeX\ expands when it finds a page break.
-\TeX\ puts the page into ^|\box255|, so |\output| is responsible
-for doing something with |\box255|---either shipping it out or
-putting it somewhere else.
-The output routine is also responsible for attaching things such as
-headers and footers.
+这个变量包含了当前的 \minref{输出例行程序}，也就是 \TeX\ 当发现一个断页点的时候会展开的一个符号列表。
+\TeX\ 把当前页面放入 ^|\box255|，所以 |\output| 负责对 |\box255| 进行处理——不管是把它输出到 dvi 还是把它放到别的什么地方去。
+输出例行程序也负责把天头或者地脚附加到页面上。
 \enddesc
+
+%\begindesc
+%\cts plainoutput {}
+%\explain
+%This command invokes \plainTeX's output routine.
+%^^{output routine//default in \plainTeX}
+%\PlainTeX\ defines ^|\output| as
+%a token list containing the single token |\plainoutput|.
+%\enddesc
 
 \begindesc
 \cts plainoutput {}
 \explain
-This command invokes \plainTeX's output routine.
-^^{output routine//default in \plainTeX}
-\PlainTeX\ defines ^|\output| as
-a token list containing the single token |\plainoutput|.
+这个命令调用 \plainTeX\ 的输出例行程序。
+^^{\plainTeX 的默认输出例行程序}
+\PlainTeX\ 把 ^|\output| 定义为一个仅仅包含 |\plainoutput| 的符号列表。
 \enddesc
+
+
+%\begindesc
+%\cts shipout {\<box>}
+%\explain
+%This command instructs \TeX\ to send \<box> to the \dvifile.
+%^^{\dvifile//receives boxes from \b\tt\\shipout\e}
+%\TeX\ expands any |\write| command in \<box> as part of |\shipout|.
+%^^|\write//expanded during {\tt\\shipout}|
+%The principal use of |\shipout| is in the output routine, but you can
+%use it anywhere.
+%\enddesc
 
 \begindesc
 \cts shipout {\<box>}
 \explain
-This command instructs \TeX\ to send \<box> to the \dvifile.
-^^{\dvifile//receives boxes from \b\tt\\shipout\e}
-\TeX\ expands any |\write| command in \<box> as part of |\shipout|.
-^^|\write//expanded during {\tt\\shipout}|
-The principal use of |\shipout| is in the output routine, but you can
-use it anywhere.
+这个命令让 \TeX\ 把 \<box> 输出到 \dvifile.
+^^{\dvifile//接收 \b\tt\\shipout\e 的盒子}
+\TeX\ 在 |\shipout| 时，把 \<box> 中的任何 |\write| 命令进行展开。
+^^|\write// 在 {\tt\\shipout} 时进行展开|
+|\shipout| 的主要用途是在输出例行程序中，不过你可以在任何其他地方使用这个命令。
 \enddesc
+
+
+%\begindesc
+%\cts deadcycles {\param{number}}
+%\explain
+%This parameter contains the number of times that \TeX\ has initiated
+%the \minref{output routine} since the last time it did a
+%^^|\shipout| |\ship!-out|.\footnote{
+%More precisely, \TeX\ sets |\dead!-cyles| to $0$ whenever it executes
+%|\ship!-out|
+%and increments it by $1$ whenever it executes |\output|.}
+%If |\deadcycles| gets too big, you've probably gotten
+%\TeX\ into a loop, e.g., one where the page builder is trying the same page
+%break over and over again.
+%\enddesc
 
 \begindesc
 \cts deadcycles {\param{number}}
 \explain
-This parameter contains the number of times that \TeX\ has initiated
-the \minref{output routine} since the last time it did a
-^^|\shipout| |\ship!-out|.\footnote{
-More precisely, \TeX\ sets |\dead!-cyles| to $0$ whenever it executes
-|\ship!-out|
-and increments it by $1$ whenever it executes |\output|.}
-If |\deadcycles| gets too big, you've probably gotten
-\TeX\ into a loop, e.g., one where the page builder is trying the same page
-break over and over again.
+这个变量包含这 \TeX\ 在上次 ^^|\shipout| |\ship!-out| 后已经初始化的 \minref{输出例行程序} 的个数。
+\footnote{更加准确地说， \TeX\ 在执行 |\ship!-out| 的时候，把 |\dead!-cycles| 归 $0$，然后每次执行 |\output| 的时候把它增加 $1$。}
+如果 |\deadcycles| 变得太大，那你很有可能把 \TeX\ 弄死循环了，也就是说，循环往复地对同一个页面进行分页操作。
 \enddesc
+
+
+%\begindesc
+%\cts maxdeadcycles {\param{number}}
+%\explain
+%If the value of |\deadcycles| exceeds the value of |\maxdeadcycles|,
+%\TeX\ assumes that the output routine has gotten into a loop.
+%\TeX\ then complains and runs its own simple output routine,
+%equivalent to |\shipout!allowbreak\box255|, 
+%that is likely to break the loop.
+%\PlainTeX\ sets |\maxdeadcycles| \hbox{to $25$}.
+%\enddesc
 
 \begindesc
 \cts maxdeadcycles {\param{number}}
 \explain
-If the value of |\deadcycles| exceeds the value of |\maxdeadcycles|,
-\TeX\ assumes that the output routine has gotten into a loop.
-\TeX\ then complains and runs its own simple output routine,
-equivalent to |\shipout!allowbreak\box255|, 
-that is likely to break the loop.
-\PlainTeX\ sets |\maxdeadcycles| \hbox{to $25$}.
+如果 |\deadcycles| 超过了 |\maxdeadcycles|，那 \TeX\ 就会假定输出例行程序被用户死循环了，
+\TeX\ 这个时候就会报错，并且执行它自己默认的简单输出例行程序，也就是 |\shipout!allowbreak\box255|，
+以期望从循环中跳出。\PlainTeX\ 把 |\maxdeadcycles| 设置为 \hbox{$25$}。
 \enddesc
+
+%\begindesc
+%\cts outputpenalty {\param{number}}
+%\explain
+%\TeX\ sets this parameter when it breaks a page.  If the breakpoint was at a
+%\minref{penalty} item, \TeX\ removes the penalty item and
+%sets |\outputpenalty| to the penalty value at
+%the breakpoint; otherwise it sets |\outputpenalty| \hbox{to $0$}.
+%
+%Suppose that you are undoing a page break
+%in order to break the page at a different place than the one that \TeX\
+%has just chosen.  In order to reconstruct the page, you need to recreate
+%the penalty at \TeX's chosen breakpoint.
+%You can accomplish this with the command
+%|\penalty!allowbreak\outputpenalty|.
+%\enddesc
 
 \begindesc
 \cts outputpenalty {\param{number}}
 \explain
-\TeX\ sets this parameter when it breaks a page.  If the breakpoint was at a
-\minref{penalty} item, \TeX\ removes the penalty item and
-sets |\outputpenalty| to the penalty value at
-the breakpoint; otherwise it sets |\outputpenalty| \hbox{to $0$}.
+\TeX\ 在断页的时候设置这个参数。
+如果断点是在一个 \minref{惩罚} 的项目上，\TeX\ 就会移除这个惩罚，
+然后把 |\outputpenalty| 设置成断点处的值， 否则 |\outputpenalty| 就被设成 \hbox{$0$}。
 
-Suppose that you are undoing a page break
-in order to break the page at a different place than the one that \TeX\
-has just chosen.  In order to reconstruct the page, you need to recreate
-the penalty at \TeX's chosen breakpoint.
-You can accomplish this with the command
-|\penalty!allowbreak\outputpenalty|.
+如果你希望在 \TeX\ 选择的断点之外的的其他地方断页，而不在该断点处断页，
+那么在重构这个页面时，你就需要在 \TeX\ 选择的断点处重新设置这个惩罚。
+你可以通过 |\penalty!allowbreak\outputpenalty| 来达到这个目的。
 \enddesc
+
+
+%\begindesc
+%\cts holdinginserts {\param{number}}
+%\explain
+%If this parameter is greater than $0$ when \TeX\ 
+%is processing a page break, \TeX\ will refrain from processing insertions.
+%Setting this parameter to $1$
+%can be useful when you're writing an output routine
+%that needs to reprocess the contents of the page, e.g.,
+%an output routine that uses a value of |\vsize| (\xref \vsize) different from
+%the one used by the page builder.
+%
+%\eix^^{output routine}
+%\enddesc
 
 \begindesc
 \cts holdinginserts {\param{number}}
 \explain
-If this parameter is greater than $0$ when \TeX\ 
-is processing a page break, \TeX\ will refrain from processing insertions.
-Setting this parameter to $1$
-can be useful when you're writing an output routine
-that needs to reprocess the contents of the page, e.g.,
-an output routine that uses a value of |\vsize| (\xref \vsize) different from
-the one used by the page builder.
 
-\eix^^{output routine}
+当 \TeX\ 在处理一个断页时，这个参数如果大于 $0$， 那么 \TeX\ 就会阻止处理插入。
+当你写一个输出例行程序的时候，如果你希望重新处理该页的内容，
+（例如输出例行程序本身用的 |\vsize| (\xref \vsize) 和断页程序用的并非相同值），
+那么把这个参数设为 $1$ 就会很有用。
+
+\eix^^{输出例行程序}
 \enddesc
+
 
 %==========================================================================
 %\section {Splitting vertical lists}
@@ -1096,12 +1169,6 @@ the one used by the page builder.
 %\begindesc
 %\cts vsplit {\<number> {\bt to} \<dimen>}
 %\explain
-
-\begindesc
-\cts vsplit {\<number> {\bt to} \<dimen>}
-\explain
-
-
 %This command causes \TeX\ to split the \minref{box} numbered
 %\<number>, which we'll call $B_2$, into two parts.
 %It uses the same algorithm that it would use if $B_2$ was a page
@@ -1117,6 +1184,9 @@ the one used by the page builder.
 %If the division point is at the end of $B_2$,
 %$B_2$ will be empty after the |\vsplit|.
 
+\begindesc
+\cts vsplit {\<number> {\bt to} \<dimen>}
+\explain
 这个命令使得 \TeX\ 把寄存器中编号为 \<number> 的\minref{盒子} $B_2$ 切割成两个部分。
 如果 $B_2$ 是一个页面，那这个命令会使用相同的算法来把这个页面分为两部分；
 这种情况下，分割处就是断页的地方。
