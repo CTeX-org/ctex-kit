@@ -1,0 +1,156 @@
+%	zhmath.sty	coded by YIN Dian
+%	Use basic CJK characters in math environment.
+%	Hist:	071202	First coded.
+%		071204	Set \XeTeXinterchartokenstate=0 to avoid a XeTeX bug.
+%			Added \ProvidesPackage.
+%		071210	Added another method to set Chinese math fonts in
+%			LaTeX, via option noactive. Improved format detection.
+%			Added ability to set alpha and number fonts.
+%		071211	Put \setalphanummathfonts in preamble so that
+%			\usecustommathfonts can be used in document in LaTeX.
+%			Changed \hbox to \mbox. Changed default option to
+%			noactive.
+%		071215	Removed \XeTeXinterchartokenstate=0, as the XeTeX bug
+%			is fixed by JK. Changed \mathcjksizec/d to fit the 
+%			main text size.
+%		071229	Added \XeTeXinterchartokenstate=0 again, because not 
+%			everyone has the latest version of XeTeX. Added custom
+%			and nocustom options.
+\catcode`\@=11
+\ifx\zhmath@defined\@undefined
+\def\zhmath@defined{\relax}
+\def\filedate{2007/12/29}
+\ifx\zhspacingrevision\@undefined
+\input zhspacing.sty
+\fi
+
+\def\zhmath@setXeTeXmathcodefam#1#2#3{%
+  % set #1..#2's math family to #3
+  \count@=#1%
+  \loop
+    \XeTeXmathcode\count@=7 #3 \count@
+    \unless\ifnum\count@>#2%
+      \advance\count@ by 1
+  \repeat
+}
+
+\def\zhmath@setactivemathchar#1#2#3#4#5#6{%
+  % set #1..#2 to active math chars, executing \mathchoice #3 #4 #5 #6.
+  \count@=#1%
+  \loop
+    \mathcode\count@="8000
+    {\catcode\count@=\active\lccode`\~=\count@
+      \lowercase{\xdef~{{\mathchoice{\noexpand#3{\number\count@}}%
+      {\noexpand#4{\number\count@}}{\noexpand#5{\number\count@}}
+      {\noexpand#6{\number\count@}}}}}%
+    }%
+    \unless\ifnum\count@>#2%
+      \advance\count@ by 1
+  \repeat
+}
+\newif\ifzhmath@active
+\newif\ifzhmath@custom
+
+\ifLaTeX@e   % in LaTeX, similar to mathcjk
+
+\ProvidesPackage{zhmath}[\filedate]
+\DeclareOption{active}{\zhmath@activetrue}
+\DeclareOption{noactive}{\zhmath@activefalse}
+\DeclareOption{custom}{\zhmath@customtrue}
+\DeclareOption{nocustom}{\zhmath@customfalse}
+\zhmath@activefalse
+\zhmath@customtrue
+\ProcessOptions\relax
+
+\def\mathcjksizea{}
+\def\mathcjksizeb{}
+\def\mathcjksizec{\dimen@=\dimexpr\f@size pt*6/10\relax\fontsize{\dimen@}{\dimen@}}
+\def\mathcjksized{\dimen@=\dimexpr\f@size pt*5/10\relax\fontsize{\dimen@}{\dimen@}}
+
+\@ifundefined{zhmathfont}{\newfontfamily\zhmathfont{SimSun}}{}
+
+\ifzhmath@active
+  \def\zhmath@zhfont@disp#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksizea\char#1\relax}}}
+  \def\zhmath@zhfont@text#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksizeb\char#1\relax}}}
+  \def\zhmath@zhfont@scrp#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksizec\char#1\relax}}}
+  \def\zhmath@zhfont@subs#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksized\char#1\relax}}}
+  
+  \zhmath@setactivemathchar{"2E80}{"9FFF}{\zhmath@zhfont@disp}%
+    {\zhmath@zhfont@text}{\zhmath@zhfont@scrp}{\zhmath@zhfont@subs}
+
+  \def\setzhmathfont#1{\let\zhmathfont=#1}
+\else
+  \def\setzhmathfont#1{%
+    \let\zhmathfont=#1%
+    \begingroup
+    \normalfont
+    \zhmathfont
+    \xdef\zhmath@fenc{\f@encoding}%
+    \xdef\zhmath@ffam{\f@family}%
+    \endgroup
+    \DeclareSymbolFont{hanzi}{\zhmath@fenc}{\zhmath@ffam}{m}{n}%
+  }
+  \setzhmathfont\zhmathfont
+  \zhmath@setXeTeXmathcodefam{"2E80}{"9FFF}{\symhanzi}
+\fi
+
+\ifzhmath@custom
+\def\setalphanummathfonts#1{%
+  \let\zhmathalphanumfont=#1%
+  \begingroup
+  \normalfont
+  \zhmathalphanumfont
+  \xdef\zhmath@@fenc{\f@encoding}%
+  \xdef\zhmath@@ffam{\f@family}%
+  \endgroup
+  \DeclareSymbolFont{@letter}{\zhmath@@fenc}{\zhmath@@ffam}{m}{it}%
+  \DeclareSymbolFont{@number}{\zhmath@@fenc}{\zhmath@@ffam}{m}{n}%
+  \SetSymbolFont{@letter}{bold}{\zhmath@@fenc}{\zhmath@@ffam}{bx}{it}%
+  \SetSymbolFont{@number}{bold}{\zhmath@@fenc}{\zhmath@@ffam}{bx}{n}%
+}
+\@ifundefined{zhmathalphanumfont}{\newfontfamily\zhmathalphanumfont{Times New Roman}}{}
+\setalphanummathfonts\zhmathalphanumfont
+\def\usecustommathfonts{%
+  \zhmath@setXeTeXmathcodefam{`\0}{`\9}{\sym@number}
+  \zhmath@setXeTeXmathcodefam{`\a}{`\z}{\sym@letter}
+  \zhmath@setXeTeXmathcodefam{`\A}{`\Z}{\sym@letter}
+}
+\fi
+
+\else 	%in plain TeX
+
+\@ifundefined{zhmathfont}{\font\zhmathfont="SimSun" at 10pt}{}
+\newfam\zhmath@fam
+\newfam\zhmath@letterfam
+\newfam\zhmath@numberfam
+
+\def\@setzhmathfonts#1#2{%
+  \edef\zhmath@font{\fontname#1 }%
+  \font\zhmath@tenfont=\zhmath@font at 10pt
+  \font\zhmath@sevenfont=\zhmath@font at 7pt
+  \font\zhmath@fivefont=\zhmath@font at 5pt\relax
+  \textfont#2=\zhmath@tenfont
+  \scriptfont#2=\zhmath@sevenfont
+  \scriptscriptfont#2=\zhmath@fivefont
+}
+\def\setzhmathfont#1{\@setzhmathfonts{#1}\zhmath@fam}
+\setzhmathfont\zhmathfont
+
+\def\setalphanummathfonts#1#2{% #1: alpha, #2, num
+  \@setzhmathfonts{#1}\zhmath@letterfam
+  \@setzhmathfonts{#2}\zhmath@numberfam
+}
+
+\zhmath@setXeTeXmathcodefam{"2E80}{"9FFF}{\zhmath@fam}
+
+\def\usecustommathfonts{%
+  \@ifundefined{zhmathletterfont}{\font\zhmathletterfont="Times New Roman/I" at 10pt}{}
+  \@ifundefined{zhmathnumberfont}{\font\zhmathnumberfont="Times New Roman" at 10pt}{}
+  \setalphanummathfonts\zhmathletterfont\zhmathnumberfont
+  \zhmath@setXeTeXmathcodefam{`\0}{`\9}{\zhmath@numberfam}
+  \zhmath@setXeTeXmathcodefam{`\a}{`\z}{\zhmath@letterfam}
+  \zhmath@setXeTeXmathcodefam{`\A}{`\Z}{\zhmath@letterfam}
+}
+
+\fi % end if LaTeX
+\fi
