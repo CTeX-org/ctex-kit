@@ -11,11 +11,19 @@
 \input{ctex-caption-opts.def}
 \input{ctex-class-opts.def}
 
+\InputIfFileExists{ctexopts.cfg}{}{}
+
 \input{ctex-loadclass.def}
 
 \input{ctex-common.def}
 \input{ctex-caption.def}
 \input{ctex-class.def}
 \input{ctex-book.def}
+
+% ctex.cfg should be loaded very last
+\AtEndOfPackage{%
+  \makeatletter
+  \InputIfFileExists{ctex.cfg}{}{}
+  \makeatother}
 
 \endinput
