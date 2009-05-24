@@ -1,0 +1,322 @@
+\chapter{杂项}
+
+\section{超链接}
+\label{sec:hyperlink}
+
+\verb|hyperref|~宏包\citep{Rahtz_2006}提供了一些超链接功能。它给文档内部的交叉引用和参考文献自动加上了超链接，还提供了几个命令。
+
+\verb|\hyperref|~命令对已经定义的label进行简单包装，加上文字描述。
+
+\begin{code}
+\usepackage{hyperref}
+...
+\label{sec:hyperlink}
+...
+例如\ref{sec:hyperlink}是编号形式的链接，而\hyperref[sec:hyperlink]{这个链接}是文字形式的链接，都指向本节开始。
+\end{code}
+
+\begin{out}
+例如\ref{sec:hyperlink}是编号形式的超链接，而\hyperref[sec:hyperlink]{这个链接}则是文字形式，都指向本节开始。
+\end{out}
+
+\verb|\url|~和~\verb|\href|~命令可以用来定义外部链接，后者有文字描述。
+
+\begin{code}
+\url{http://www.dralpha.com/}
+\href{http://www.dralpha.com/}{包老师的主页}
+\end{code}
+
+\begin{out}
+\url{http://www.dralpha.com/}
+
+\href{http://www.dralpha.com/}{包老师的主页}
+\end{out}
+
+%hyperref选项
+
+\section{长文档}
+当文档很长时，我们可以把它分为多个文件，然后在主控文档的正文中引用它们。注意~\verb|\include|~命令会新起一页，如果不想要新页可以改用~\verb|\input|~命令。
+\begin{code}
+%master.tex
+\begin{document}
+\include{chapter1.tex}
+\include{chapter2.tex}
+...
+\end{document}
+\end{code}
+
+当文档很长时，编译一遍也会很花时间，我们可以用~\verb|syntonly|~宏包。这样编译时就只检查语法，而不生成结果文件。
+\begin{code}
+\usepackage{syntonly}
+...
+\syntaxonly
+\end{code}
+
+\section{参考文献}
+在文档中，我们经常要引用参考文献（bibliography）。\LaTeX~提供的~\verb|thebibliography|~环境和~\verb|\bibtem|~命令可以用来定义参考文献条目及其列表显示格式，\verb|cite|~命令用来在正文中引用参考文献条目。这种方法把内容和格式混在一起，用户需要为每个条目设置格式，很繁琐且易出错。
+
+\subsection{BibTeX}
+1985年，~Oren Patashnik\footnote{Wiki~上说他是~Knuth~的学生，我发现他不在~Knuth~的博士生列表上，而在姚期智的博士生列表上，也许他是~Knuth~的硕士生。}和~Lamport~开发了~\BibTeX\citep{Patashnik_1988}，其详细使用方法请参阅~Nicolas Markey~的《Tame the BeaST: The B to X of BibTeX》\citep{Markey_2005}
+
+\BibTeX~把参考文献的数据放在一个~\verb|.bib|~文件中，显示格式放在~\verb|.bst|~文件中。普通用户一般不需要改动~\verb|.bst|，只须维护~\verb|.bib|~数据库。
+
+一个~\verb|.bib|~文件可以包含多个参考文献条目（entry），每个条目有类型、关键字，以及题目、作者、年份等字段。常用条目类型有~article、~book、conference、manual、misc、techreport~等。每种类型都有一些自己的规定字段和可选字段，字段之间用逗号分开。数据库中每个条目的关键字要保持唯一，因为引用时要用到它们。
+
+下例显示了一个条目，它的类型是~\verb|manual|，关键字是~\verb|Markey_2005|。~\verb|.bib|~文件可以用普通文本编辑器来编辑，也可以用专门的文献管理软件来提高效率。包老师推荐~\href{http://jabref.sourceforge.net/}{JabRef}。
+
+\begin{code}
+@MANUAL{Markey_2005,
+  title = {Tame the BeaST: The B to X of BibTeX},
+  author = {Nicolas Markey},
+  year = {2005},
+  url = {http://www.ctan.org/tex-archive/info/bibtex/
+    tamethebeast/}
+}
+\end{code}
+
+有了数据库，我们可以象下面这样引用一个条目。
+\begin{demo}
+请参阅\cite{Markey_2005}。
+\end{demo}
+
+前文中我们提到含有交叉引用的文档需要编译两遍。含有参考文献的文档更麻烦，它需要依次执行~\verb|latex、bibtex、latex、latex|~等四次编译操作。
+
+\begin{enumerate}
+    \item 第一遍~\verb|latex|~只把条目的关键字写到中间文件~\verb|.aux|~中去。
+    \item \verb|bibtex|~根据\verb|.aux、.bib、.bst|~生成一个~\verb|.bbl|~文件，即参考文献列表。它的内容就是~\verb|thebibliography|~环境和一些~\verb|\bibtem|~命令。
+    \item 第二遍~\verb|latex|~把交叉引用写到~\verb|.aux|~中去。
+    \item 第三遍~\verb|latex|~则在正文中正确地显示引用。
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+    \node[box] (tex) {.tex};
+    \node[box, right=4 of tex] (aux) {.aux};
+    \node[box, right=6 of aux] (bbl) {.bbl};
+    \node[box, above=1.5 of aux] (bib) {.bib};
+    \node[box, below=1.5 of aux] (bst) {.bst};
+    \path (tex) edge [arrow] node[auto] {latex} (aux)
+        (aux) edge [arrow] node[auto] {bibtex} (bbl)
+        (bib.east) edge [rloop] (bst);
+\end{tikzpicture}
+\caption{\BibTeX~的编译}
+\label{fig:bibtex}
+\end{figure}
+
+注意在长文档中使用参考文献时，应该用~\verb|latex|~编译主控文档，而用~\verb|bibtex|~编译子文档。
+
+\begin{code}
+latex master(.tex)
+bibtex chapter1(.tex)
+latex master(.tex)
+latex master(.tex)
+\end{code}
+
+\subsection{natbib}
+参考文献的引用通常有两种样式：作者-年份和数字。\LaTeX~本身只支持数字样式，而~\verb|natbib|~宏包\citep{Daly_2007}则同时支持这两种样式。
+
+使用~\verb|natbib|~宏包时，我们首先要引用宏包；其次设置文献列表样式和引用样式，每种列表样式都有自己的缺省引用样式，所以后者可选；然后指定参考文献数据库。
+\begin{code}
+\usepackage{natbib}
+...
+\begin{document}
+\bibliographystyle{plainnat}
+\setcitestyle{square,aysep={},yysep={;}}
+\bibliography{mybib.bib}
+...
+\end{document}
+\end{code}
+
+\verb|natbib|~提供了三种列表样式：plainnat、abbrvnat、unsrtnat。前两种都是作者-年份样式，文献列表按作者-年份排序，后者会使用一些缩写（比如作者的~first name）；unsrtnat~是数字样式，文献列表按引用顺序排序。
+
+\verb|\setcitestyle|~命令可以用来改变引用样式的设置，其选项见~\Fref{tab:citestyle}。
+
+\begin{table}[htbp]
+\caption{参考文献引用样式选项}
+\label{tab:citestyle}
+\centering
+\begin{tabular}{ll}
+    \toprule
+    引用模式            & authoryear、numbers、super \\
+    括号                & round、square、open={char},close={char} \\
+    引用条目分隔符      & 分号、逗号、citesep={char} \\
+    作者年份分隔符      & aysep={char} \\
+    共同作者年份分隔符  & yysep={char} \\
+    注解分隔符          & notesep={text} \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+注意在长文档中，每个含参考文献的子文档都需要分别设置列表样式，并指定数据库。
+
+\verb|natbib|~提供了多种引用命令，其中最基本的是~\verb|\citet|~和~\verb|\citep|~，它们在不同引用模式下效果不同。一般不推荐使用~\LaTeX~本身提供的~\verb|\cite|，因为它在作者-年份模式下和~\verb|\citet|~一样，在数字模式下和~\verb|\citep|~一样。
+
+作者-年份模式下引用命令的效果如下。
+\setcitestyle{authoryear}
+\begin{demo}
+参阅\cite{Daly_2007}\\
+参阅\citet{Daly_2007}\\
+参阅\citep{Daly_2007}
+\end{demo}
+
+数字模式下引用命令的效果如下。
+\setcitestyle{numbers}
+\begin{demo}
+参阅\cite{Daly_2007}\\
+参阅\citet{Daly_2007}\\
+参阅\citep{Daly_2007}
+\end{demo}
+
+上标模式下引用命令的效果如下。
+\setcitestyle{super}
+\begin{demo}
+参阅\cite{Daly_2007}\\
+参阅\citet{Daly_2007}\\
+参阅\citep{Daly_2007}
+\end{demo}
+
+另外还有一些引用命令，如~\verb|\citetext、\citenum、\citeauthor|、~\verb|\citeyear|~等，此处不赘述。
+
+\section{索引}
+\verb|makeidx|~宏包提供了索引功能。应用它时，我们首先需要在文档序言部分引用宏包，并使用~\verb|makeindex|~命令；其次在正文中需要索引的地方定义索引，注意索引关键字在全文中须保持唯一；最后在合适的地方（一般是文档末尾）打印索引。
+
+\begin{code}
+\usepackage{makeidx}
+\makeindex
+...
+\begin{document}
+\index{索引关键字}
+...
+\printindex
+\end{document}
+\end{code}
+
+当编译含索引的文档时，用户需要执行~\verb|latex、makeindex、latex|~等三次编译操作。
+
+\begin{enumerate}
+    \item 第一遍~\verb|latex|~把索引条目写到一个~\verb|.idx|~文件中去。
+    \item \verb|makeindex|~把~\verb|.idx|~排序后写到一个~\verb|.ind|~文件中去。
+    \item 第二遍~\verb|latex|~在~\verb|\printindex|~命令的地方引用~\verb|.ind|~的内容，生成正确的DVI。
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+    \node[box] (tex) {.tex};
+    \node[box, right=4 of tex] (idx) {.idx};
+    \node[box, right=7 of idx] (ind) {.ind};
+    \node[box, right=6 of ind] (dvi) {.dvi};
+    \node[box, above=1.5 of ind] (tex1) {.tex};
+    \node[right=1 of ind] (point) {};
+    \path (tex) edge [arrow] node[auto] {latex} (idx)
+        (idx) edge [arrow] node[auto] {makeindex} (ind)
+        (ind) edge [arrow] node[auto] {latex} (dvi)
+        (tex1.east) edge [rloop] (point);
+\end{tikzpicture}
+\caption{索引的编译}
+\label{fig:makeidx}
+\end{figure}
+
+\section{页面布局}
+在~\LaTeX~中用户可以通过~\verb|\pagestyle|~和~\verb|\pagenumbering|~命令来设置页眉（header）、页脚（footer）的样式和内容。页面样式有以下四种。
+
+\begin{table}[htbp]
+\caption{\LaTeX~页面样式}
+\centering
+\begin{tabular}{ll}
+    \toprule
+    \texttt{empty} & 页眉、页脚空白 \\
+    \texttt{plain} & 页眉空白，页脚含居中页码 \\
+    \texttt{headings} & 页脚空白，页眉含章节名和页码 \\
+    \texttt{myheadings} & 页脚空白，页眉含页码和用户自定义信息 \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+\verb|fancyhdr|\citep{Oostrum_2004}宏包提供了更灵活的控制。我们可以用以下代码定制页眉、页脚的内容，以及页眉下方、页脚上方的横线。
+
+\begin{code}
+\usepackage{fancyhdr}
+...
+\pagestyle{fancy} %fancyhdr宏包新增的页面风格
+\lhead{左擎苍}
+\chead{三个代表}
+\rhead{右牵黄}
+\lfoot{左青龙}
+\cfoot{八荣八耻}
+\rfoot{右白虎}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\end{code}
+
+\ \\
+\begin{tikzpicture}
+\draw (0,0) rectangle (36,10);
+\node at(2,9) {左擎苍};
+\node at(18,9) {三个代表};
+\node at(34,9) {右牵黄};
+\draw (.5,8)--(35.5,8);
+\node at(18,5) {和谐社会};
+\draw (.5,2)--(35.5,2);
+\node at(2,1) {左青龙};
+\node at(18,1) {八荣八耻};
+\node at(34,1) {右白虎};
+\end{tikzpicture}
+
+用户可以在页眉、页脚中使用一些~\LaTeX~变量，比如分别代表页码和章节编号的~\verb|\thepage、\thechapter、\thesection|；代表章节起始单词（Chapter、Section等）的~\verb|\chaptername、\sectionname|~等。
+
+这些变量组合起来可以构成复合标记~\verb|\leftmark|~和~\verb|\rightmark|~。当文档奇偶页面布局不同时，我们可以使用以下方法为奇偶页分别设置页眉、页脚。\verb|fancyhdr|~宏包会自动把每章起始页的样式设为~\verb|plain|，若想去掉页脚中间的页码，可以重定义~\verb|plain|~样式。
+
+\begin{code}
+\pagestyle{fancy}
+\fancyhf{}                  %清空页眉页脚
+\fancyhead[LE,RO]{\thepage} %偶数页左，奇数页右
+\fancyhead[RE]{\leftmark}   %偶数页右
+\fancyhead[LO]{\rightmark}  %奇数页左
+\fancypagestyle{plain}{     %重定义plain页面样式
+    \fancyhf{}
+    \renewcommand{\headrulewidth}{0pt}
+}
+\end{code}
+
+\ \\
+\begin{tikzpicture}
+\draw (0,0) rectangle (36,10);
+\node at(2.5,9) {3.2 节名};
+\node at(35,9) {17};
+\draw (.5,8)--(35.5,8);
+\node at(18,5) {奇数页};
+\end{tikzpicture}
+
+\ \\
+\begin{tikzpicture}
+\draw (0,0) rectangle (36,10);
+\node at(1,9) {18};
+\node at(32,9) {Chapter 3 章名};
+\draw (.5,8)--(35.5,8);
+\node at(18,5) {偶数页};
+\end{tikzpicture}
+
+Lamport当初设计~\LaTeX~时把页面布局变量的定义方式搞得比较晦涩，用户在重定义~\verb|\leftmark|~和~\verb|\rightmark|~时，不能直接用~\verb|\renewcommand|~的方法，而要用另外两个命令。
+
+\begin{code}
+\markboth{main-mark}{sub-mark}
+\markright{sub-mark}
+\end{code}
+
+\verb|\leftmark|~即~main-mark，是一种高层次标记，在~article~文档类中它包含~section~的信息，在~report~和~book~则包含~chapter~的信息；\verb|rightmark|~则是一种低层次标记，在~article~中包含~subsection~信息，在~report~和~book~中包含~section~信息。
+
+比如在~\verb|book|~文档类中，章节标记是通过下面的方法定义的，其中的~\verb|#1|~指的是章节的名字。
+
+\begin{code}
+\renewcommand\chaptermark[1]{\markboth{\chaptername \thechapter. 
+    #1}{}}
+\renewcommand\sectionmark[1]{\markright{\thesection. #1}}
+\end{code}
+
+%\section{演示文档}
+
+\bibliographystyle{unsrtnat}
+\bibliography{reading}
+\newpage
