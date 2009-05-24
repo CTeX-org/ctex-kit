@@ -1,0 +1,463 @@
+\startcomponent metafun
+\product ctxnotes
+
+\chapter{我是这样学习 MetaFun 的}
+
+其实，我本来是想尽快制作一份有关 \CONTEXT\ 演示文档的学习笔记，尝试了几次之后，都铩羽而归。我渐渐意识到如果不了解 \METAFUN，那么使用 \CONTEXT\ 是很痛苦的，就像拿到了一座金山却无处消费它一般。我开始认真学习 \METAFUN，并且也很后悔当初没有学习 \METAPOST，而在 PGF/TikZ 上却曾经浪费了很多时间。
+
+\section{从画一个矩形开始}
+
+在这份这份文档的封面上，画有许多形态各异的矩形，它们不是我画的，而是我从一份 \CONTEXT\ 演示文档模板中扣出来的一段代码。我从现在开始逐步研究它们是如何绘制出来的。
+
+先进行一个矩形区域的填充：
+
+\startniceTEX[numbering=line]
+\setupcolors[state=start]
+\setupcolor[hex]
+\definecolor[BackgroundColor][h=cccccc]
+
+\starttext
+\startuseMPgraphic{box}
+offset := uniformdeviate 10pt;
+width  := 2*offset + 30pt + uniformdeviate 30pt;
+height := 2*offset + 20pt + uniformdeviate 10pt;
+x1 := offset ; y1 := offset; x2 := width-offset; y2 := height-offset;
+fill z1--(x2,y1)--z2--(x1,y2)--cycle 
+    withcolor \MPcolor{BackgroundColor};
+\stopuseMPgraphic
+
+\useMPgraphic{box}
+\stoptext
+\stopniceTEX
+
+\definecolor[BackgroundColor][h=cccccc]
+\startuseMPgraphic{box}
+offset := uniformdeviate 10pt;
+
+width  := 2*offset + 30pt + uniformdeviate 30pt;
+height := 2*offset + 20pt + uniformdeviate 10pt;
+x1 := offset ; y1 := offset; 
+x2 := width-offset; y2 := height-offset;
+
+fill z1--(x2,y1)--z2--(x1,y2)--cycle 
+    withcolor \MPcolor{BackgroundColor};
+\stopuseMPgraphic
+
+这个小例子可在页面中绘制一个灰色的矩形填充域\;\useMPgraphic{box}\;\;。实际上，单单要完成这个例子所实现的目标，没必要去定义那么多的变量，这里之所以如此，不妨认为我想借此来熟悉一下 \METAPOST\ 的变量赋值与运算语法。
+
+代码第 1-3 行的大意是启用颜色环境，并将颜色描述格式设为 16 进制码形式，最后使用灰色定义了一种名曰 BackgroundColor 的颜色；在 \METAFUN\ 中，我们可以使用 \tex{MPcolor} 命令将 \CONTEXT\ 中定义的颜色转换为 \METAFUN\ 所使用的颜色值，详见代码第 12 行。这多少可以体现出 \METAFUN\ 的一些特点，它实现了 \CONTEXT\ 与 \METAPOST\  的沟通。
+
+代码第 7 行演示了 uniformdeviate 命令的用法，它的作用就是从 \type{[0pt - 10pt]} 这个尺寸区间中随机取一个尺寸。
+
+代码第 11-12 行演示了如何填充一条路径，比较值得注意的是路径构成中的 \type{z1} 与 \type{z2} 的含意，这似乎是 \METAPOST\ 约定的，它们分别表示 \type{(x1,y1)} 与 \type{(x2,y2)}，但愿我没有理解错。
+
+代码第 6-13 行构造了一幅 \METAFUN\ 图形，第 15 行代码将该图形插入至文档中。这就是 \METAFUN\ 图形嵌入于 \CONTEXT\ 的一般方式。另外，也可以像插入普通图片那样：
+
+\startniceTEX
+\placefigure
+  [here,force][fig:box]
+  {嵌入 \METAFUN\ 图形}{\useMPgraphic{box}}
+\stopniceTEX
+
+\placefigure
+  [here,force][fig:box]
+  {嵌入 \METAFUN\ 图形}{\useMPgraphic{box}}
+
+下面为这个矩形填充域绘制边框。如果只是绘制一个矩形框，这比较简单，以下示例便可以：
+
+\startniceTEX
+\setupcolors[state=start]
+\setupcolor[hex]
+\definecolor[BackgroundColor][h=cccccc]
+\definecolor[OrnamentColor][h=99ccff]
+
+\starttext
+\startuseMPgraphic{box-ornament}
+offset := uniformdeviate 10pt;
+width  := 2*offset + 30pt + uniformdeviate 30pt;
+height := 2*offset + 20pt + uniformdeviate 10pt;
+x1 := offset ; y1 := offset; x2 := width-offset; y2 := height-offset;
+fill z1--(x2,y1)--z2--(x1,y2)--cycle 
+    withcolor \MPcolor{BackgroundColor};
+draw z1--(x2,y1)--z2--(x1,y2)--cycle
+    withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\useMPgraphic{box-ornament}
+\stoptext
+\stopniceTEX
+
+\definecolor[BackgroundColor][h=cccccc]
+\definecolor[OrnamentColor][h=99ccff]
+\startuseMPgraphic{box-ornament}
+offset := uniformdeviate 10pt;
+width  := 2*offset + 30pt + uniformdeviate 30pt;
+height := 2*offset + 20pt + uniformdeviate 10pt;
+x1 := offset ; y1 := offset; x2 := width-offset; y2 := height-offset;
+fill z1--(x2,y1)--z2--(x1,y2)--cycle 
+    withcolor \MPcolor{BackgroundColor};
+draw z1--(x2,y1)--z2--(x1,y2)--cycle
+    withpen pencircle scaled 2pt withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\noindent 得到\;\useMPgraphic{box-ornament}\;,但是它无法实现本文档封面页上的那些小矩形框的效果，它们是无法采用一条路径来实现，而是要四个边框逐个的画：
+
+\startniceTEX[numbering=line]
+... ...
+def delta = ((uniformdeviate .5offset) + .25offset) enddef;
+drawoptions(withpen pencircle scaled 2pt 
+    withcolor \MPcolor{OrnamentColor});
+draw (x1-delta,y1)--(x2+delta,y1);
+draw (x2,y1-delta)--(x2,y2+delta);
+draw (x2+delta,y2)--(x1-delta,y2);
+draw (x1,y2+delta)--(x1,y1-delta);
+
+drawoptions();
+setbounds currentpicture to unitsquare xyscaled (width,height);
+\stopniceTEX
+
+\startuseMPgraphic{box-random-ornament}
+offset := uniformdeviate 10pt;
+def delta = ((uniformdeviate offset) + .25offset) enddef;
+width  := 2*offset + 30pt + uniformdeviate 30pt;
+height := 2*offset + 20pt + uniformdeviate 10pt;
+x1 := offset ; y1 := offset; x2 := width-offset; y2 := height-offset;
+fill z1--(x2,y1)--z2--(x1,y2)--cycle 
+    withcolor \MPcolor{BackgroundColor};
+drawoptions(withpen pencircle scaled 2pt 
+    withcolor \MPcolor{OrnamentColor});
+draw (x1-delta,y1)--(x2+delta,y1);
+draw (x2,y1-delta)--(x2,y2+delta);
+draw (x2+delta,y2)--(x1-delta,y2);
+draw (x1,y2+delta)--(x1,y1-delta);
+
+drawoptions();
+setbounds currentpicture to unitsquare xyscaled (width,height);
+\stopuseMPgraphic
+
+\noindent 这样才可以得到那种类似于手绘矩形框的效果\;\useMPgraphic{box-random-ornament}\;\;。注意，第 2 行代码所定义的 \type{delta} 似乎是一个变量，实际它是一个宏，一个不带任何参数的宏。宏可以避免许多重复的输入，并且使得代码更为易读；\type{drawoptions} 也具有类似作用。在上述代码片段中，宏还起到了让 \type{delta} 返回的尺寸大小居于随机变化的效果，因为宏在被 \METAPOST\ 处理时要被其定义替换，因为 \type{delta} 定义中的 \type{uniformdeviate} 运算符就被反复调用，生成不同的随机数。\type{setbounds} 语句用于设置图形的边界，这样可以保证将所绘制的图形完全地显示出来（其实我觉得这有点多余）。
+
+下面，来看一下带参数的宏该如何写。带参数的宏，可将它理解为可重复调用的函数。对于前面的示例，可以将这一系列的绘制过程定义为下面的宏：
+
+\startniceTEX
+def random_box (expr width, height, offset, linewidth ) =
+    def delta = ((uniformdeviate .5offset) + .25offset) enddef;
+
+    x1 := offset; y1 := offset; x2 := width-offset; y2 := height-offset;
+
+    drawoptions(withcolor transparent(1,.8,\MPcolor{BackgroundColor}));
+    fill z1--(x2,y1)--z2--(x1,y2)--cycle;
+
+    drawoptions(withpen pencircle scaled linewidth 
+        withcolor \MPcolor{OrnamentColor});
+    draw (x1-delta,y1)--(x2+delta,y1);
+    draw (x2,y1-delta)--(x2,y2+delta);
+    draw (x2+delta,y2)--(x1-delta,y2);
+    draw (x1,y2+delta)--(x1,y1-delta);
+
+    drawoptions();
+    setbounds currentpicture to unitsquare xyscaled (width,height);
+enddef;
+\stopniceTEX
+
+\type{random_box} 宏是可以接受传入参数的。\METAPOST\ 宏所支持的参数类型有：
+\type{expr}、\type{text} 与 \type{suffix}。\type{expr} 参数类型的用法正如上例 \type{random_box} 宏定义所示，它表示宏的使用者可以向其传入表达式的值。至于 \type{text} 与 \type{suffix} 参数类型，由于现在尚未用到它们，所以我可以暂时不理睬它们的功用。
+
+下面演示如何使用上述定义的 \type{random_box} 宏：
+
+\startniceTEX
+offset := uniformdeviate 10pt ;
+width  := 2*offset + 40pt + uniformdeviate 30pt ;
+height := 2*offset + 30pt + uniformdeviate 10pt ;
+
+random_box (width,height,offset,1pt);
+\stopniceTEX
+
+\section[ordinary-repeat]{平凡的重复}
+
+一个士兵会踢正步，实在太平凡了；一群士兵会踢同样节奏的正步，就开始不平凡起来了。平凡的重复，往往是不平凡的。现在，我们开始重复上一节所绘制的那个 Box。先来看下面这个可编译的示例：
+
+\startniceTEX[numbering=line]
+\startuseMPgraphic{random-box}
+def random_box (expr width, height, offset, linewidth ) =
+    def delta = ((uniformdeviate .5offset) + .25offset) enddef;
+
+    x1 := offset; y1 := offset; x2 := width-offset; y2 := height-offset;
+
+    drawoptions(withcolor \MPcolor{BackgroundColor});
+    fill z1--(x2,y1)--z2--(x1,y2)--cycle;
+
+    drawoptions(withpen pencircle scaled linewidth 
+        withcolor \MPcolor{OrnamentColor});
+    draw (x1-delta,y1)--(x2+delta,y1);
+    draw (x2,y1-delta)--(x2,y2+delta);
+    draw (x2+delta,y2)--(x1-delta,y2);
+    draw (x1,y2+delta)--(x1,y1-delta);
+
+    drawoptions();
+    setbounds currentpicture to unitsquare xyscaled (width,height);
+enddef;
+
+for i=1 upto 400 :
+    offset := uniformdeviate 4pt ;
+    width  := 2*offset + 10pt + uniformdeviate 10pt ;
+    height := 2*offset + 5pt + uniformdeviate 4pt ;
+
+    addto currentpicture also
+        image(random_box (width,height,offset,1pt)) shifted
+            (uniformdeviate 8cm, uniformdeviate 6cm) ;
+endfor ;
+\stopuseMPgraphic
+\stopniceTEX
+
+\startuseMPgraphic{random-box}
+def random_box (expr width, height, offset, linewidth ) =
+    def delta = ((uniformdeviate .5offset) + .25offset) enddef;
+
+    x1 := offset; y1 := offset; x2 := width-offset; y2 := height-offset;
+
+    drawoptions(withcolor \MPcolor{BackgroundColor});
+    fill z1--(x2,y1)--z2--(x1,y2)--cycle;
+
+    drawoptions(withpen pencircle scaled linewidth 
+        withcolor \MPcolor{OrnamentColor});
+    draw (x1-delta,y1)--(x2+delta,y1);
+    draw (x2,y1-delta)--(x2,y2+delta);
+    draw (x2+delta,y2)--(x1-delta,y2);
+    draw (x1,y2+delta)--(x1,y1-delta);
+
+    drawoptions();
+    setbounds currentpicture to unitsquare xyscaled (width,height);
+enddef;
+
+for i=1 upto 400 :
+    offset := uniformdeviate 4pt ;
+    width  := 2*offset + 10pt + uniformdeviate 10pt ;
+    height := 2*offset + 5pt + uniformdeviate 4pt ;
+
+    addto currentpicture also
+        image(random_box (width,height,offset,1pt)) shifted
+            (uniformdeviate 8cm, uniformdeviate 6cm) ;
+endfor ;
+\stopuseMPgraphic
+
+\noindent 我得到如下图所示的图形：
+
+\placefigure
+  [here,force][fig:random-box]
+  {平凡的重复}{\useMPgraphic{random-box}}
+
+第 26-28 行是解决 \type{random_box} 重复绘制的核心代码。\type{addto ... also} 是 \METAPOST\ 内部定义的宏，它可以将一幅图形 (picture) 添加到另一幅图形中。图形是 \METAPOST\ 中的一个数据结构，它可以存储多条已被绘制的路径，并且图形与图形之间是可以包容的。\type{image} 也是 \METAPOST\ 内部定义的宏，它可以将某一被绘制的路径转变为图形。至于 \type{shifted}，顾名思义，它是用来进行几何平移变换的，而且变换的位置是随机坐标来确定的。
+
+\section{Overlay 与背景}
+
+Overlay 这是 \CONTEXT\ 的一个术语，它的名字取的不是很正确，其本意是“覆盖，覆盖图”，但是在 \CONTEXT\ 中，它通常是位于文本之下的图形，或者说它是被文本覆盖。不过，overlay 可以分为许多个层次，因此这个术语的名字取得也不是完全不正确。
+
+很多时候，我都是将 overlay 作为一个背景层来对待的，下面的这个例子便可以说明这个问题：
+
+\startniceTEX[numbering=line]
+\setupcolors[state=start]
+
+\starttext
+\defineoverlay[tea][{\darkgreen\ss\bfc 绿茶}]
+\framed[background=tea, align=middle]{今\\天\\出\\售}
+\stoptext
+\stopniceTEX
+
+\defineoverlay[tea][{\darkgreen\ss\bfd 绿\;茶}]
+
+\noindent 这个例子可以将“绿茶”作为“今天出售”的背景：\framed[background=tea, align=middle]{今\\天\\出\\售}\;\;。
+
+\tex{defineoverlay} 的命令使用起来很简单，第一个参数是 overlay 名，第二个参数是 overlay 的内容，通常是一组排版或绘图命令的集合，推荐使用 \type{{}} 将其括起来。
+
+在上述示例中，已经演示了使用文本作为 overlay 内容，下面来看一下使用图片的例子：
+
+\startniceTEX
+\defineoverlay[cow][{\externalfigure[cow]%
+    [width=\overlaywidth,height=\overlayheight]}]
+\framed[width=3cm,height=2cm,background=cow,align=right]
+       {\vfill\color[darkred]{这是一头奶牛}}
+\stopniceTEX
+
+\defineoverlay[cow][{\externalfigure[cow][width=\overlaywidth,height=\overlayheight]}]
+
+\noindent 于是我们便拥有了一头漂亮的奶牛 \framed[width=3cm,height=2cm,background=cow,align=right]{\vfill\color[darkred]{这是一头奶牛}} 。
+
+上述以图片作为 overlay 的代码没必要多费口舌，多看几遍，动手尝试一下便可以明了。值得注意的倒是 \tex{framed} 命令的 \type{align} 参数，它的取值有些另类，明明是左对齐，但是它的值却是 right；如果你想让文本右对齐，就不得不将其设为 left。这实际上是 Hans 犯得一个错误，因为他当年在写 \CONTEXT\ 时，满脑子是 ragged left（左边不齐） 与 ragged right（右边不齐）。这样的错误一旦犯下了，便不好再改，主要是因为无法兼容过去的文档，后来 Hans 又加入了 flushleft 与 flushright 参数值，这是与我们普遍的习惯是相符的。
+
+我们还可以将 \METAFUN\ 绘制的图形作为 overlay，这也是本章一个非常重要的内容，它是 \METAFUN\ 与 \CONTEXT\ 集成的基础，来看这个示例：
+
+\startniceTEX
+\startuseMPgraphic{demo circle}
+  path p ;
+  p := fullcircle xscaled \overlaywidth yscaled \overlayheight ;
+  fill p withcolor \MPcolor{BackgroundColor};
+  draw p withpen pencircle scaled 2pt withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\defineoverlay[demo circle][\useMPgraphic{demo circle}]
+\framed[background=demo circle,frame=off]{被椭圆包围的文本}
+\stopniceTEX
+
+\startuseMPgraphic{demo circle}
+  path p ;
+  p := fullcircle xscaled \overlaywidth yscaled \overlayheight ;
+  fill p withcolor \MPcolor{BackgroundColor};
+  draw p withpen pencircle scaled 2pt withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+\defineoverlay[demo circle][\useMPgraphic{demo circle}]
+
+\noindent 我们可以得到 \framed[background=demo circle,frame=off,height=22pt]{被椭圆包围的文本}\;。
+
+由上例可见，我们发现 \METAFUN\ 可以将 \CONTEXT\ 中的一些尺寸，比如 \tex{overlaywidth} 与 \tex{overlayheight} 等参数传入 \METAFUN\ 环境中。在本章开始的时候，还用过一个 \tex{MPcolor} 宏，可以将 \CONTEXT\ 的颜色定义转换为 \METAPOST\ 的颜色定义。我们还可以通过使用 \tex{the} 作为前缀，实现在 \METAFUN\ 环境中访问诸如 \tex{textwidth}、\tex{textheight}、\tex{topspace} 等尺寸参数。
+
+前面说过，overlay 是可以叠加的，下面再来用一个例子演示一下：
+
+\startniceTEX
+\startuseMPgraphic{demo ellipse}
+  path p ;
+  p := fullcircle xscaled (.95*\overlaywidth) yscaled (.95*\overlayheight);
+  fill p withcolor \MPcolor{BackgroundColor};
+  draw p withpen pencircle scaled 2pt withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\startuseMPgraphic{demo square}
+  path p ;
+  p := fullsquare xscaled \overlaywidth yscaled \overlayheight;
+  fill p withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\defineoverlay[demo ellipse][\useMPgraphic{demo ellipse}]
+\defineoverlay[demo square][\useMPgraphic{demo square}]
+
+\framed[background={demo square,demo ellipse},frame=off]{被矩形与椭圆包围的文本}
+\stopniceTEX
+
+\startuseMPgraphic{demo ellipse}
+  path p ;
+  p := fullcircle xscaled \overlaywidth yscaled \overlayheight;
+  fill p withcolor \MPcolor{BackgroundColor};
+  draw p withpen pencircle scaled 2pt withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\startuseMPgraphic{demo square}
+  path p ;
+  p := fullsquare xyscaled (1.1*\overlaywidth,1.1*\overlayheight);
+  fill p withcolor \MPcolor{OrnamentColor};
+\stopuseMPgraphic
+
+\defineoverlay[demo ellipse][\useMPgraphic{demo ellipse}]
+\defineoverlay[demo square][\useMPgraphic{demo square}]
+
+\noindent 我们可以得到\quad\framed[background={demo square,demo ellipse},frame=off,height=22pt]{被矩形与椭圆包围的文本} 。这其实没什么技巧，只需多定义几个 overlay，然后将它们作为 \tex{framed} 的 \type{background} 的参数列表并按照先后的显示次序排列即可。
+
+本节所举的例子，只是使用 \tex{framed} 命令来演示。事实上，\CONTEXT\ 有许多命令都支持 overlay，只要它具备 \type{background} 参数。
+
+\section{代码的分离}
+
+有时候，会希望能够在多个 \METAFUN\ 图形环境中引用同样的一段代码，在我不知道存在 \type{MPinclusions} 环境时，我写过下面这般风格的代码：
+
+\startniceTEX
+\startuseMPgraphic{TitlePage}
+def random_box (expr width, height, offset, linewidth ) =
+    ... ... ...
+enddef
+
+for i=1 upto 400 :
+    ... ... ...
+    addto currentpicture also
+        image(random_hash_frame(width,height,offset,1pt)) shifted
+            (uniformdeviate OverlayWidth, uniformdeviate OverlayHeight) ;
+endfor ;
+\stopuseMPgraphic
+
+\startuseMPgraphic{PageNumberBox}
+def random_box (expr width, height, offset, linewidth ) =
+    ... ... ...
+enddef
+
+offset := uniformdeviate 10pt ;
+random_box (\overlaywidth, \overlayheight, offset, 1pt);
+\stopuseMPgraphic
+\stopniceTEX
+
+\noindent 虽然这样的代码可以用，但是它很脏。比如，如果我想修改 \type{random_box} 宏的定义，就意味着这两个图形环境中的 \type{random_box} 都要修改。当我我在 \METAFUN\ 手册中发现了 \type{MPinclusions} 这个环境时，立刻就将上述的代码格式修改为：
+
+\startniceTEX
+
+\startMPinclusions
+def random_box (expr width, height, offset, linewidth ) =
+    ... ... ...
+enddef
+\stopMPinclusions
+
+\startuseMPgraphic{TitlePage}
+for i=1 upto 400 :
+    ... ... ...
+    addto currentpicture also
+        image(random_hash_frame(width,height,offset,1pt)) shifted
+            (uniformdeviate OverlayWidth, uniformdeviate OverlayHeight) ;
+endfor ;
+\stopuseMPgraphic
+
+\startuseMPgraphic{PageNumberBox}
+offset := uniformdeviate 10pt ;
+random_box (\overlaywidth, \overlayheight, offset, 1pt);
+\stopuseMPgraphic
+\stopniceTEX
+
+\noindent 可以看出，\type{MPinclusions} 环境的作用就是用于存放各 \METAFUN\ 图形的公共代码，类似于 C 程序的 .h 文件。
+
+我们还可以在 \METAFUN\ 图形环境中使用 \tex{includeMPgraphic} 来引用其它的 \METAFUN\ 图形：
+
+\startniceTEX
+\setupcolors[state=start]
+
+\starttext
+\startuseMPgraphic{test}
+    fill fullsquare rotated 45 scaled 4cm withcolor \MPcolor{yellow} ;
+\stopuseMPgraphic
+
+\startuseMPgraphic{demo}
+    \includeMPgraphic{test}
+    fill fullsquare scaled 2cm withcolor \MPcolor{red} ;
+\stopuseMPgraphic
+
+\useMPgraphic{demo}
+\stoptext
+\stopniceTEX
+
+\section{还有一些图形环境}
+
+除了 \type{useMPgraphic} 环境之外，还有 \type{uniqueMPgraphic}、\type{MPpage} 图形环境，当然还有其它类型的，只是我目前认为掌握这三种，基本上够用了。
+
+\type{uniqueMPgrahpic} 环境与 \type{useMPgraphic} 环境的区别是：前者只生成一份图形，可供多次使用；后者是在每一次使用时，都要生成图形。如果是要实现随机图形效果，也就是说多次使用同一份绘图代码生成的图形却不相同，这就只好使用 \type{useMPgraphic} 环境，这个问题在 \in[ordinary-repeat] 节中有所体现。
+
+\type{MPpage} 环境可专门用于生成单独的矢量图形，试验一下这个例子便可体验其用处：
+
+\startniceTEX
+\setupcolors[state=start]
+\setupMPpage
+  [offset=1pt,
+   background=color,
+   backgroundcolor=gray]
+
+\startuseMPgraphic{test}
+  fill fullsquare rotated 45 scaled 4cm withcolor \MPcolor{yellow} ;
+\stopuseMPgraphic
+
+\starttext
+\startMPpage
+    \includeMPgraphic{test}
+    fill fullsquare scaled 2.5cm withcolor \MPcolor{red} ;
+\stopMPpage
+\stoptext
+\stopniceTEX
+
+\section{后记}
+
+这篇文章的内容，支离破碎。这是自然的。因为 \METAFUN\ 所涵括的内容远非我这一篇小文所能覆盖得了的。我以为 \METAFUN\ 手册最好是能通读一遍，不过我现在做不到，只好用什么，看什么。在这用与看的过程中，我想尽量地建立系统的认识。这是一个长期的过程。我唯一能做的就是尽量寻找可以使用 \METAFUN\ 的机会。
+
+我觉得使用 \CONTEXT\ 排版文档，如果能够充分结合 \METAFUN\ 图形环境来设计文档版面的外观，这是非常具有挑战性的。个人的审美观以及绘制图形的能力决定了文档样式能否体现出个性。
+
+\stopcomponent

@@ -1,0 +1,234 @@
+\startcomponent fonts
+\environment doc-env
+\product ctxnotes
+
+\chapter{在字体中挣扎}
+
+当我刚开始学用 \LATEX\ 时，就患上了字体恐惧症。如果只是写英文文档，那么对于初学者而言实在是太简单了，基本上不需要怎么关心字体的问题；但是对于中文或者其它非西语文字而言，\TEX\ 的易用性依然很弱，以至于用户不得不去弄清楚诸多有关字体方面的知识及其配置方法。我很憎恶这些东西，但是也没有办法，排版本来就不是一件易事，只好秉承“为之，则难者易易也”的精神去摸索一下。我开始阅读 \CONTEXT\ Fonts 文档\mycite{fonts}，这一章内容就是我的阅读笔记。
+
+\section{字体、别名与特征}
+
+为字体文件取个别名，这是 \CONTEXT\ 字体机制推荐的做法。比如，我们可以将 AdobeSongStd-Light.otf 字体取名为 Song：
+
+\startniceTEX
+\definefontsynonym
+  [Song][AdobeSongStd-Light][features=zh]
+\stopniceTEX
+
+\noindent \type{features=zh} 参数是用来告诉 \CONTEXT\ MkIV 应当采用中文 (zh) 方式来处理这款字体。\type{features} 的值并非 \CONTEXT\ 提供的标准值，而是要用户自己定义：
+
+\startniceTEX
+\definefontfeature
+  [zh][mode=node,script=hang,lang=zhs]
+\stopniceTEX
+
+\noindent \type{zh} 这个 font feature 名字可根据自己的嗜好来定；至于第二组参数，对于简体中文用户，通常这样设置就可以。
+
+\tex{definefontfeature} 与 \tex{definefontsynonym} 命令的用法在与本文档一同发布的 zhfonts.tex 文件中均有体现，可参照理解。
+
+这里需要注意一下字体别名定义中的字体名称。上面的示例中，我直接使用 \type{AdobeSongStd-Light} 告诉 MkIV：我使用的是 AdobeSongStd-Light.otf 字体。实际上，这样的效率会有点低。因为 MkIV 有两种搜索字体的方式，第一种是根据字体开发商给出的字体名 (name)，第二种是字体的文件名 (file)。字体名可以使用 \type{fc-list} 命令来查，譬如查询搜索 AdobeSongStd-Light.otf 的字体名：
+
+\starttyping
+> fc-list | grep Song
+Adobe 宋体 Std L,Adobe Song Std,Adobe 宋体 Std,
+Adobe Song Std L:style=L,Regular
+\stoptyping
+
+\noindent 我们可以得到许多字体名，推荐从中选择一个纯英文的供给 MkIV，譬如：
+
+\startniceTEX
+\definefontsynonym
+  [Song][name:Adobe Song Std][features=zh]
+\stopniceTEX
+
+如果想使用字体文件名，可以为其冠以 \type{file} 前缀：
+
+\startniceTEX
+\definefontsynonym
+  [Song][file:AdobeSongStd-Light][features=zh]
+\stopniceTEX
+
+在本节最初的那个例子中，既没有 \type{name} 前缀，也没有 \type{file} 前缀，那么 MkIV 就只好先尝试字体名；如果找不到字体，再去尝试字体文件名。
+
+我觉得使用字体名比较正规一些，因为字体的文件名很容易被改掉；字体名是由开发商设定的，一般用户不会想到去修改它，因此使用它可以提高文档的可移植性。
+
+\CONTEXT\ 预定义了一些标准的字体别名，我们常用的是\crlf\type{[Serif|Sans|Mono][Bold|Italic|BoldItalic]}，它们在 zhfonts.tex 中均出现了。
+
+还值得注意的一个问题就是：我们可以定义字体别名的别名。
+
+\section{简单的字体定义}
+
+使用 \tex{definefont} 命令可以实现最快捷、最容易理解的字体定义与使用。比如我想定义 Adobe 宋体并使用它：
+
+\startniceTEX
+\definefont
+  [Song]
+  [{name:Adobe Song Std*zh} at 14pt]
+
+\starttext
+\Song 我使用的是 Adobe 宋体
+\stoptext
+\stopniceTEX
+
+或许上面这个例子看起来有点古怪，我将字体定义的部分改写一下，或许就会清楚一些：
+
+\startniceTEX
+\definefontsynonym
+  [SongTi][name:Adobe Song Std][features=zh]
+
+\definefont
+  [Song][SongTi at 14pt]
+\stopniceTEX
+
+如果在定义字体时，不去硬性地设定字体尺寸，那么 \CONTEXT\ 可以根据具体的排版环境自动为字体设定合适的尺寸。
+
+\section{Typescript 与 typeface}
+
+说实在的，typescript 的中文意思我真的说不出来，词典上可以查到的解释是“用打字机打的文件”。我在中文里也实在找不出简洁、准确的翻译，所以还是直称 typescript 为好。
+
+简单来说，typescript 是 \CONTEXT\ 的最上层的字体配置文件。目前，MkIV 没有提供面向中文用户的 typescript 文件，这就需要我们自行去实现，因此掌握 typescript 文件的写法非常重要。
+
+在只针对 MkIV 的 typescript 配置与使用中，常用命令如下：
+
+\startitemize
+\item typescript 环境
+\item \tex{definefontsynonym}
+\item \tex{definetypeface}
+\item \tex{usetypescriptfile}
+\item \tex{usetypescript}
+\stopitemize
+
+\noindent 下面我将结合 zhfonts.tex 中的部分内容来理解这些命令的用法。
+
+在 zhfonts.tex 文件中可以看到，typescript 文件内容是被 typescript 环境分为多个小节的，每个小节实现了一组字体的配置：
+
+\startniceTEX
+\definefontfeature
+  [zh][mode=node,script=hang,lang=zhs]
+
+\starttypescript[serif] [zhfont]
+  ... ...
+\stoptypescript
+
+\starttypescript[sans][zhfont]
+  ... ...
+\stoptypescript
+
+\starttypscript[mono][zhfont]
+  ... ...
+\stoptypescript
+
+\starttypescript[myfont]
+  ... ...
+\stoptypescript
+\stopniceTEX
+
+上述代码，我设置了三种字样 (typeface)：衬线 (serif)、非衬线 (sans) 与等宽 (mono)。最后的那个 typescript 环境是打算用来定义字样集合的。有关这里的字样的概念，可参考黄老师的《\LATEX\ 学习笔记》\mycite{lnotes}的第 8 章来理解，同时你也可以从中额外获得一些 \TEX\ 字体的常识。
+
+我们是在 typescript 环境中定义具体的字体，比如下面定义衬线字样的一组字体：
+
+\startniceTEX
+\starttypescript [serif] [zhfont]
+  \definefontsynonym 
+    [Serif][name:Adobe Song Std][features=zh]
+  \definefontsynonym 
+    [SerifBold][name:Adobe Heiti Std][features=zh]
+  \definefontsynonym
+    [SerifItalic][name:Adobe Kaiti Std][features=zh]
+  \definefontsynonym 
+    [SerifBoldItalic][name:Adobe Heiti Std][features=zh]
+\stoptypescript
+\stopniceTEX
+
+\noindent 因为已经知道了 \tex{definefontsynonym} 命令的作用，因此上述字体的定义看起来就非常简单了，就是用我们所指定的一组字体去替换 \ConTeXt\ 标准字体别名默认所使用的字体而已。我们可以按照这样的方式完成非衬线与等宽字样的字体定义，不再赘述。
+
+下面来看一下字样的定义：
+
+\startniceTEX
+\starttypescript[myfont]
+  \definetypeface[myfont][rm][serif][zhfont]
+  \definetypeface[myfont][ss][sans][zhfont]
+  \definetypeface[myfont][tt][mono][zhfont]
+\stoptypescript
+\stopniceTEX
+
+\noindent \tex{definetypeface} 命令的第三个参数与第四个参数是与前面的 typescript 环境参数对应一致的，比如：
+
+\startniceTEX
+\definetypeface
+  [adobe][rm][serif][zhfont]
+\stopniceTEX
+\noindent 对应：
+\startniceTEX
+\starttypescript[serif][zhfont]
+  ... ... ...
+\stoptypescript
+\stopniceTEX
+\noindent 其中含义就是将 adobe 字样集合的衬线 (rm) 字样设为该 typescript 文件中具有 \type{[serif][zhfont]} 参数的 typescript 环境所定义的字体集；也就是说，\CONTEXT\ 可以根据 \tex{definetypeface} 的第三、四个参数来匹配对应的 typescript 环境。不知我有没有说明白。总之，在此要认真体会一下 typescript 环境参数的作用，姑且可以将其当作是对应 typescript 环境唯一的标识符号。至于 \tex{definetypeface} 前两个参数，其实也是作为一个标识符来用的，这在使用 typescript 文件时就可以看到。
+
+将上述的知识汇在一起，就可以写出类似 zhfonts.tex 这样的 typescript 文件，若将其投入到 \TEX\ 目录树中，就可以在排版时使用它了，譬如：
+
+\startniceTEX
+\usetypescriptfile[zhfonts]
+\usetypescript[myfont]
+\setupbodyfont[adobe,rm,11pt]
+\stopniceTEX
+
+\noindent 首先 \tex{usetypescriptfile} 命令驱使 \CONTEXT\ 在 \TEX\ 目录树中找到 zhfonts.tex 这个 typescript 文件；然后 \tex{usetypescript} 命令可以在 zhfonts.tex 文件中匹配含有一个参数为 myfont 的 typescript 环境，并读取该环境所定义的字样信息；最后使用 \tex{setupbodyfont} 命令将 typescript 文件中所定义的某种字样其定位文档的默认字体集，\tex{definetypeface} 命令的前两个参数的用途再次便得以体现出来。
+
+\section{混合字体}
+
+从概念上讲，混合字体就是将两种或更多的字体的不同编码部分合成到一起，形成一种新的字体。比如，中文字体往往也会包含了英文部分，偏偏这部分字体设计的又太差。所以，目前对于中文用户而言，混合字体机制实在是重之又重，因为我们可以利用这套机制来实现将一部分好看的英文字体注入到中文字体中，以此来实现美观的中英文混合文本排版。
+
+下面展示一个小例子，用以说明如何使用 MkIV 的混合字体机制：
+
+\startniceTEX
+\definefontfeature
+  [zh][mode=node,script=hang,lang=zhs]
+\definefontsynonym
+  [zhserif][name:Adobe Song Std][features=zh]
+\definefontfallback
+  [serifwhatever][lmroman10-regular][0x0000-0x0400][force=yes]
+\definefontsynonym 
+  [ZhSerif][zhserif][fallbacks=serifwhatever]
+\definefont[FbSong][ZhSerif at 12pt]
+\definefont[Song][{name:Adobe Song Std} at 12pt][features=zh]
+
+\starttext
+\FbSong
+中英文混合：To do or not to do, this is the question!
+
+\Song
+中英文混合：To do or not to do, this is the question!
+\stoptext
+\stopniceTEX
+
+字体切换命令 \tex{ZhSerif} 使用的是混合字体，是 Adobe 宋体的 \type{0x0000-0x0400} 区域中掺入了 lmroman10 字体的对应区域；而 \tex{Song} 命令使用的则是纯的 Adobe 宋体。上面的例子也许看不出来混合字体的优势所在，这主要是因为 Adobe 宋体中的英文部分设计的还算不错。如果将 Adobe 宋体换成 SimSun，对比效果会更明显一些。
+
+我们可以将这种混合字体机制与 MkIV 的 typescript 机制相结合，在不同风格的中文字体中掺入类似风格的英文字符，这样中英文混合排版的问题就能够得到较好的解决。至于如何在 typescript 文件中设置整套的混合字体，请参考一下 zhfonts.tex 吧。
+
+\section{字体装载加速}
+
+Wang Yue 在 \CONTEXT\ 邮件列表中询问是否可以加快 MkIV 的字体装载速度，Hans 给出了一个小魔法，我的理解就是在 typescript 文件中添加
+
+\startniceTEX
+\let\synchronizetext\relax
+\stopniceTEX
+
+\noindent 或者
+
+\startniceTEX
+\synchronizemathfontsfalse
+\stopniceTEX
+
+\noindent 其中内在机理，我不清楚，似乎是一个内存换时间的一个解决方案。Hans 也承认 MkIV 的运行效率还需要继续改进。
+
+\section{数学字体}
+
+To do or not to do, this is a question.
+
+\section{还有一些细节问题}
+
+有一些问题，我不知道如何来解决。比如在中文排版环境中如何设置英文字体的 micro-typography 特征。
+
+\stopcomponent
