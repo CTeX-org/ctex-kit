@@ -1,0 +1,2720 @@
+% This is part of the book TeX for the Impatient.
+% Copyright (C) 2003 Paul W. Abrahams, Kathryn A. Hargreaves, Karl Berry.
+% See file fdl.tex for copying conditions.
+
+\input macros
+\chapter {一般操作命令}
+
+\chapterdef{general}
+
+這章介紹 \TeX\ 的^{編程功能}和不適合放入前幾章的所有內容.
+在 \headcit{命令描述}{cmddesc} 一節中, 給出了這章的慣例.
+
+\begindescriptions
+
+%==========================================================================
+\section {命名及修改字體}
+
+\begindesc
+\bix^^{fonts//naming and modifying}
+\cts font {}
+\aux\cts font {\<control sequence> = \<fontname>}
+\aux\cts font {\<control sequence> = \<fontname> {\bt scaled} \<number>}
+\aux\cts font {\<control sequence> = \<fontname> {\bt at} \<dimen>}
+\explain
+單獨使用時, |\font| 控製序列指代當前的字體.
+|\font| 在這個時候並不是一個真正的命令, 
+它僅僅作為其它命令的一個參數.
+
+其它的三個 |\font| 形式, 字體名 \<font\-name> 
+用來指代定義一個字體所需要的一系列文件. 
+在這些形式下, |\font| 是命令.
+每種形式都有兩個效果:
+{\tighten
+\olist
+\li 它定義了一個名為 \<control sequence> 的控製序列,
+用來選擇名為 \<font\-name> 的字體, 而且該字體可能被縮放 (見後).
+\li 它使 \TeX\ 載入 \<font\-name> 的^{字體信息文件} (^{\tfmfile}).
+\endolist
+}% end tighten
+
+\noindent
+字體的名字往往表示它的設計大小, 
+比如 |cmr10| 表示設計大寫為 $10$ 點的計算機現代字體.
+字體的設計大小保存在字體信息文件中.
+
+如果用戶既沒有指定 |scaled| \<number> 也沒有指定 |at| \<dimen>,
+那麼這個字體載入時, 使用設計大小---設計大小的含意是, 
+字體在這個大小時, 表示最佳.
+否則將會載入一個縮放版的字體:
+\ulist
+\li 如果指定了 |scaled| \<number>, 則字體將被放大 $\hbox{\<number>}/1000$ 倍. 
+\li 如果指定了 |at| \<dimen>, 則字體通過縮放大 $\hbox{\<dimen>}/ds$ 倍, 
+變為 \<dimen> 大小, 
+其中,  $ds$  是 \<fontname> 的設計大小.
+\<dimen>  和 $ds$ 的單位往往使用點.
+\endulist
+\noindent
+放大率可以小於 $1$, 這樣做就會使字體縮小尺寸.
+
+你往往需要為載入的字體的每一個使用的放大率提供一個字體輪廓文件 (\xref{shape}).
+當然, 一些^{設備驅動}可以使用打印機內置的字體.
+^^{resident fonts}這些字體不需要字體輪廓文件.
+
+更多信息請參見 \conceptcit{font} 和 \conceptcit{magnification}.
+
+\example
+\font\tentt = cmtt10
+\font\bigttfont = cmtt10 scaled \magstep2
+\font\eleventtfont = cmtt10 at 11pt
+First we use {\tentt regular CM typewriter}.
+Then we use {\eleventtfont eleven-point CM typewriter}.
+Finally we use {\bigttfont big CM typewriter}.
+|
+\produces
+\font\regttfont = cmtt10
+\font\bigttfont = cmtt10 scaled \magstep 2
+\font\eleventtfont = cmtt10 at 11pt
+First we use {\regttfont regular CM typewriter}.
+Then we use {\eleventtfont eleven-point CM typewriter}.
+Finally we use {\bigttfont big CM typewriter}.
+\endexample
+\enddesc
+
+\begindesc
+\cts fontdimen {\<number> \<font>\param{dimen}}
+\explain
+^^{fonts//parameters of}
+這些參項可以用來定義控製序列 \<font> (注意, \<font> 和 \<font\-name> 不同, \<font-name> 是用來表示字體文件的文件名的) 所定義的各種尺寸大小.
+這些參項的值, 都在 \<font> 所使用的字體信息文件中定義了, 但是你可以在執行 \TeX\ 時得到或改變這些值.
+這些參項的數值及其意義為:
+\display{\halign{\hfil#\hfil\quad&#\hfil\cr
+\it 數值&\it 義意\cr
+\noalign{\vskip 1\jot}%
+1&字體每點的傾斜程度\cr
+2&詞間距\cr
+3&詞間伸長長度\cr
+4&詞間收縮長度\cr
+5&x 字符的高度(|1ex| 的長度)\cr
+6&m 字符的寬度 (|1em| 的長度)\cr
+7&額外空白長度\cr}}
+\noindent
+\TeX\ 需要使用字體每點的傾斜程度來計算重音符號的位置.
+使用詞間距來控製單詞間的距離 (見 |\spaceskip|, \xref\spaceskip).
+使用額外空白長度來控製句號以後所留的空白 (見 |\spaceskip|, \xref\spaceskip).
+在 \knuth{433~頁} 中列出了 \plainTeX\ 中字體所使用的這些參項的數值.
+數學符號有另外 $15$ 個參項, 不過我們在此不展開討論.
+
+
+注意:
+這些參項被設定後, 在當前組結束時, 並\emph{不}返回初始值.
+如果你只是希望在局部的文本中改變這些值, 
+你需要將它的原值保存, 以便稍後恢復.
+\example
+Here's a line printed normally.\par
+\fontdimen2\font = 3\fontdimen2\font
+% Triple the interword spacing.
+\noindent Here's a really spaced-out line.
+|
+\produces
+Here's a line printed normally.\par
+\dimen0 = \fontdimen2\font % to undo global assignment
+\fontdimen2\font = 3\fontdimen2\font
+% triple the interword spacing
+\noindent Here's a really spaced-out line.
+\fontdimen2\font = \dimen0
+\endexample
+\enddesc
+
+\begindesc
+\cts magnification {{\bt =} \<number>}
+\cts mag {\param{number}}
+\explain
+\margin{合並了 {\tt\\mag} 和 {\tt\\magnification}.}
+使用 |\magnification| 可以定義``^{縮放倍率}'' $f$,
+縮放倍率決定了你的文檔的\minref{放大}率 \seeconcept{放大率}.
+|\magni!-fication|必需在文檔的第一頁被編譯出前定義.
+
+這個命令把 $f$ 定義成 \<number> 的同時, 
+也會定義把 |\hsize| 定義為 |6.5true in|, 把 |\vsize| 義為 |8.9true in|, 
+^^|\hsize//set by {\tt\\magnification}|
+^^|\vsize//set by {\tt\\magnification}|
+即 $8 \frac1/2$ 英尺乘 $11$ 英尺的頁大小. 
+縮放倍率 $f$ 值必需間於 $0$ 到 $32768$ 之間.
+該文檔的 \minref{放大}率 為 $f/1000$.
+一個為 $1000$ 的縮放倍率為單位放大率, 也就是說, 
+這個設置不會使你的文檔的尺寸發生任何變化.
+習慣上使用 $1.2$ 的次冪值來定義縮放倍率,
+因為很多的字體就是基於這種倍率的.
+你可以用 ^|\magstep| 和 ^|\magstephalf| 命令來更方便地定義這種倍率.
+
+
+|\magnification| 不是一個參項, 你不能使用它來得到縮放率.
+如果你使用類似 |\dimen0 = \mag!-nifi!-cation| 之類的語句, 
+\TeX\ 會因此報錯.
+
+而 |\mag| 參項則含有縮放倍率.
+改變 |\mag| 的值可以對頁面的尺寸重新縮放,
+當然這一般不是你所想要的.
+因此, 一般情況下, 最好是使用 |\magnification| 而不是 |\mag| 來改變頁面的放大率.
+
+\example
+\magnification = \magstep2 
+% 把字體放大 1.44 倍 (=1.2x1.2)
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts magstep {\<number>}
+\explain
+這個命令可以展開成為\minref{放大}率,
+這個放大率的數為可以把你文檔中所有 (除了給定真值尺寸的) 東西的放大 $1.2^r$ 倍.
+其中 $r$ 是 \<number> 的值.
+\<number> 必需在 $0$ 到 $5$ 之間.
+\example
+\magnification = \magstep1 % 放大 1.2 倍.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts magstephalf {}
+\explain
+這個命令可以展開成為\minref{放大}率,
+這個放大率的數為可以把你文檔中所有 (除了給定真值尺寸的) 東西的放大 $\sqrt{1.2}$ 倍.
+也就是 $1$ 和 $1.2$ 的等比中項.
+\example
+\magnification = \magstephalf
+|
+\endexample
+\eix^^{fonts//naming and modifying}
+\enddesc
+
+%==========================================================================
+\section {把信息轉為標記}
+
+\subsection {數值}
+
+\begindesc
+\xrdef{convert}
+\bix^^{numbers//converting to characters}
+%
+\cts number {\<number>}
+\explain
+這個命令可以把一個\minref{數}表示成字符\minref{標記}序列.
+這裡的數可以是一個確定的整數, 或是一個 \<number> 參項, 
+也可以是一個 \<number> 寄存器.
+\example
+\number 24 \quad \count13 = -10000 \number\count13
+|
+\produces
+\number 24 \quad \count13 = -10000 \number\count13
+\endexample
+\enddesc
+
+\begindesc
+^^{Roman numerals}
+\easy\cts romannumeral {\<number>}
+\explain
+這個命令可以把一個\minref{數}表示成羅馬字符\minref{標記}序列.
+這裡的數可以是一個確定的整數, 或是一個 \<number> 參項, 
+也可以是一個 \<number> 寄存器.
+如果這個數是負的, 則 |\romannumeral| 不產生任何標記.
+\example
+\romannumeral 24 \quad (\romannumeral -16)\quad
+\count13 = 6000 \romannumeral\count13
+|
+\produces
+\romannumeral 24 \quad (\romannumeral -16)\quad
+\count13 = 6000 \romannumeral\count13
+\endexample
+
+\eix^^{numbers//converting to characters}
+\enddesc
+
+%==========================================================================
+\subsection {環境信息}
+
+\begindesc
+^^{time of day}
+\cts time {\param{number}}
+\explain
+\TeX\ 把這個參項設置為從當日午夜到現在所經過的分鐘數.
+比如在中午, |\time| 就是 $720$.
+這個命令和下面的三個命令使用的是你計算機中所記錄的時間.
+\TeX\ 只在開始運行的時候向系統獲取一次時間, 
+所以如果你不改變這個值的話, 
+先前運行的 |\time| 和最後運行的 |\time| 的值是完全相同的.
+\enddesc
+
+\bix^^{date}
+\begindesc
+\cts day {\param{number}}
+\explain
+\TeX\ 把這個參項設置為今天的日期數.
+這是一個介於 $1$ 和 $31$ 之間的數.
+|\day| 只在程序開始運行的時候被設定 (見上面 |\time| 的說明).
+\enddesc
+
+\begindesc
+\cts month {\param{number}}
+\explain
+\TeX\ 把這個參項設置為當前的月份.
+這是一個介於 $1$ 和 $12$ 之間的數.
+|\time| 只在程序開始運行的時候被設定 (見上面 |\time| 的說明).
+\enddesc
+
+\begindesc
+\cts year {\param{number}}
+\explain
+\TeX\ 把這個參項設置為當前的 ({\sc 公元}) 年份.
+這是一個類似 $1991$ 之類的數.
+|\year| 只在程序開始運行的時候被設定 (見上面 |\time| 的說明).
+
+\eix^^{date}
+\enddesc
+
+\begindesc
+^^{version number}
+\cts fmtname {}
+\cts fmtversion {}
+\explain
+這個命令會產生當前使用的 \TeX\ 格式 (比如 \minref{\plainTeX} 或 ^{\LaTeX}) 的名字和版本號.
+\example
+本書使用 \fmtname\ 格式,
+版本~\fmtversion.
+|
+\produces
+本書使用 \fmtname\ 格式,
+版本~\fmtversion.
+\endexample
+\enddesc
+
+\begindesc
+\cts jobname {}
+\explain
+這個命令產生調用 \TeX\ 的文件的文件本名.
+比如你的輸入文件為 |hatter.tex|, |\jobname| 會被展開成 |hatter|. 
+|\jobname| 在你生成文檔的輔助文件時會很管用.
+^^{auxiliary files}
+\example
+\newwrite\indexfile  \openout\indexfile = \jobname.idx
+% 打開 `hatter.tex' 的索引文件 `hatter.idx'.
+|
+\endexample\enddesc
+
+%==========================================================================
+\subsection {變量的值}
+
+\begindesc
+\cts meaning {\<token>}
+\explain
+^^{tokens//showing the meaning of}
+這個命令會產生 \<token> 的定義.
+它對於診斷輸出很有用.
+你可以用類似的方法使用 ^|the| 命令 (\xref\the) 來得到 \minref{寄存器}和其它 \TeX\ 中的東西的值信息.
+\example
+[{\tt \meaning\eject}] [\meaning\tenrm] [\meaning Y]
+|
+\produces
+[{\tt \meaning\eject}] [\meaning\entenrm] [\meaning Y]
+\endexample\enddesc
+
+\begindesc
+\cts string {\<control sequence>}
+\explain
+^^{control sequences//converting to strings}
+這個命令會把 \<control sequence> 表示成其名字的字符串,
+包括 \minref{轉義符}.
+轉義符會被表示成當前 ^|\escapechar| 的值.
+^^{escape character//represented by \b\tt\\escapechar\e}
+\TeX\ 把在此中的所有字符的類碼設為 $12$ (其它).
+
+你可以使用 ^|\csname| 命令執行這個命令的反操作 (\xref\csname).
+它會把一個字符串轉為一個控製序列.
+\example
+控製序列 {\tt \string\bigbreak}
+|
+\produces
+控製序列 {\tt \string\bigbreak}
+\endexample\enddesc
+
+\begindesc
+\cts escapechar {\param{number}}
+\explain
+這個參項在把一個控製序列名轉化為一系列字符標記時, 指定 \TeX\ 用來表示\minref{轉義符}的字符的 \ascii\ 碼\minrefs{ascii}.
+^^{escape character//represented by \b\tt\\escapechar\e}
+這個轉化發生在你使用 |\string|命令時或者 \TeX\ 在產生診斷信息時.
+轉義符的默認值是 $92$, 即 ^{右斜杠} 的 \ascii\ 碼.
+如果 |\escapechar| 不在 $0$--$255$ 之間, \TeX\ 則在轉換時不包括轉義符.
+\example
+\escapechar = `!!
+控製序列 {\tt \string\bigbreak}
+|
+\produces
+\escapechar = `!
+控製序列 {\tt \string\bigbreak}
+\endexample
+\enddesc
+
+\begindesc
+\cts fontname {\<font>}
+\explain
+^^{fonts//names of}
+這個命令產生 \<font> 的字體文件名.
+該字體名就是定義 \<font> 時所的 \<font\-name>.
+\example
+\font\myfive=cmr5 [\fontname\myfive]
+|
+\produces
+\font\myfive=cmr5 [\fontname\myfive]
+\endexample
+\enddesc
+
+
+%==========================================================================
+\section {組}
+
+\begindesc
+\bix^^{groups}
+%
+\cts begingroup {}
+\cts endgroup {}
+\explain
+這兩個命令開始或結束一個\minref{組}.
+|\begingroup| 不會和右括孤匹配, |\endgroup| 也不會和左括孤匹配.
+
+
+\TeX\ 把 |\begingroup| 和 |\endgroup| 當作和其它的\minref{控製序列}一樣對待.
+尤其體現在, 你可以定義一個包括 |\begingroup| 但不包括 |\endgroup| 的宏, 
+或者與之相反.
+^^{macros//using \b\tt\\begingroup\e\ and \b\tt\\endgroup\e\ in}
+這個技巧往往在你定義一對宏時會非常有用, 一個用來開始一個環境, 
+另一個用來結束這個環境.
+但是你不可以使用 |\begingroup| 和 |\endgroup| 
+來替換除了用來括起一個組以外功能的括孤.
+\example
+\def\a{一 \begingroup \it 二 }
+\def\enda{\endgroup 四}
+\a 三 \enda
+|
+\produces
+\def\a{一 \begingroup \it 二 }
+\def\enda{\endgroup 四}
+\a 三 \enda
+\endexample
+\enddesc
+
+\begindesc
+\makecolumns 4/2:
+\easy%
+\ctsact { \xrdef{@lbrace}
+\cts bgroup {}
+\ctsact } \xrdef{@rbrace}
+\cts egroup {}
+\explain
+左括孤和右括孤命令的作用是用來開始或結束一個\minref{組}.
+|\bgroup| 和 |\egroup| \minref{控製序列}和 `|{|' and `|}|' 
+除了 \TeX\ 在掃描輸入時會把 |\bgroup| 和 |\egroup| 
+像其它\minref{控製序列}一樣對待以外, 都是等價的. 
+
+當你定義一個成對的宏時, |\bgroup| 和 |\egroup| 會非常有用.
+成對的宏可以由一個宏開始一個由括孤分割的結構 (不一定是一個組), 
+並由另一個宏結束該組.
+^^{macros//using \b\tt\\bgroup\e\ and \b\tt\\egroup\e\ in}
+你不能使用常規的括孤來定義這樣的宏, 否則你的宏定義會包含沒有匹配的括孤,
+而這樣的定義是不被 \TeX\ 所接受的.
+一般情況下你需要在你沒有辦法使用括孤時使用這些命令.
+
+\example
+一個組的 {\it 邊界\/} 可由括孤定義.
+|
+\produces
+一個組的 {\it 邊界\/} 可由括孤定義.
+\nextexample
+\def\a{一 \vbox\bgroup}
+% 在這裡你不能使用一個 { 來代替 \bgroup,
+% 否則 TeX 不會識別這個宏
+\def\enda#1{{#1\egroup} 二}
+% 這有點技巧性, 因為 \egroup 事實上和左括孤匹配,
+% 而它右邊的右邊的括孤和 \bgroup 匹配.
+% 不過這個歪門邪道行得通!!
+\a \enda{\hrule width 1in}
+|
+\produces
+\def\a{一 \vbox\bgroup}
+% 在這裡你不能使用一個 { 來代替 \bgroup,
+% 否則 TeX 不會識別這個宏
+\def\enda#1{{#1\egroup} 二}
+% 這有點技巧性, 因為 \egroup 事實上和左括孤匹配,
+% 而它右邊的右邊的括孤和 \bgroup 匹配.
+% 不過這花招能用!!
+\a \enda{\hrule width 1in}
+\endexample
+\enddesc
+
+\begindesc
+\cts global {}
+\explain
+這個命令使它隨後的定義或\minref{賦值}成為\minref{全局}性的 
+\seeconcept{global}, 而不是僅局限在所處的\minref{組}之中生效.
+你可以把 |\global| 放在
+包括宏定義和\minref{寄存器}賦值在內的任意的定義或\minref{賦值}前,
+\example
+{\global\let\la = \leftarrow}
+$a \la b$
+|
+\produces
+% for safety's sake we fake this one!
+\let\la = \leftarrow
+$a \la b$
+\endexample
+\enddesc
+
+\begindesc
+\cts globaldefs {\param{number}}
+\explain
+這個參項控製 \TeX\ 是否把定義和其它的賦值作為\minref{全局}的:
+\ulist
+\li 如 |\globaldefs| 是 (默認值) 零,
+當且僅當一個定義是由直接或者間接的 |\global| 命令指定的.
+(^|\gdef| 和 ^|\xdef| 命令 (\xref\gdef) 間接地在定義前面加了 |\global| 命令).
+\li 如果 |\globaldefs| 大於零, 所有的定義和賦值都會間接地在前面加上 ^|global|. 
+\li 如果 |\globaldefs| 小於零, 所有的 ^|\global| 都被忽略.
+\endulist
+\enddesc
+
+\begindesc
+\margin{改變了 {\tt\\aftergroup} 和 {\tt\\afterassignment} 順序.}
+\cts aftergroup {\<token>}
+\explain
+當 \TeX\ 在讀取輸入時遇到了這個命令, 它就把 \<token> 保存下來.
+並在在當前\minref{組}後插入展開後的 \<token>.
+如果一個組有好幾個 |\aftergroup|, 則每個標記\emph{全}都會依次插入這個組的最後.
+
+下面的例子向你展示了如何用 |\aftergroup| 來延迟處理一個在\minref{條件測試}中產生的標記.
+\example
+\def\neg{負} \def\pos{正}
+% 因為一個 \aftergroup 只能作用到一個標記上, 
+% 而不是到一系列的標記上, 甚至不能是一個用括號定界的文本,
+% 所以下面的代碼是必需的.
+\def\arith#1{是否 $#1>0$? \begingroup
+   \ifnum #1>-1 是\aftergroup\pos
+   \else 否\aftergroup\neg\fi
+   , 它是\endgroup. }
+\arith 2
+\arith {-1}
+|
+\produces
+\def\neg{負} \def\pos{正}
+% 因為一個 \aftergroup 只能作用到一個標記上, 
+% 而不是到一系列的標記上, 甚至不能是一個用括號定界的文本,
+% 所以下面的代碼是必需的.
+\def\arith#1{是否 $#1>0$? \begingroup
+   \ifnum #1>-1 是\aftergroup\pos
+   \else 否\aftergroup\neg\fi
+   , 它是\endgroup. }
+\arith 2
+\arith {-1}
+\endexample
+\eix^^{groups}
+\enddesc
+
+\begindesc
+\cts afterassignment {\<token>}
+\explain
+當 \TeX\ 遇到這個命令, 它會把 \<token> 保存在一個特殊的地方.
+當它接下來執行一個賦值時, 它會把展關後的 \<token> 放到其後.
+如果你調用了幾次 |\afterassignment|, 那僅有最後一次是生效的.
+|\afterassignment| 命令的一個用處是可以寫定義形式的\minref{宏}命令, 
+例子如下.
+
+精確的 |\afterassignment| 行為定義請參見 \knuth{page~279}.
+\example
+\def\setme{\afterassignment\setmeA\count255}
+\def\setmeA{$\number\count255\advance\count255 by 10
+   +10=\number\count255$}
+算術式: \setme = 27
+% 在展開 \setme 以後, TeX 把 \count255 
+% 設為 27, 然後調用 \setmeA. 
+|
+\produces
+\def\setme{\afterassignment\setmeA\count255}
+\def\setmeA{$\number\count255\advance\count255 by 10
+   +10=\number\count255$}
+算術式: \setme = 27
+% 在展開 \setme 以後, TeX 把 \count255 
+% 設為 27, 然後調用 \setmeA. 
+\endexample
+\enddesc
+
+
+%==========================================================================
+\section {宏}
+
+%==========================================================================
+\subsection {定義宏}
+
+\begindesc
+\bix^^{macros}
+\bix^^{macros//defining}
+\xrdef{mac1}% begin the section on macros
+%
+\cts def {\<control sequence> \<parameter text> \rqbraces{\<replacement text>}}
+\explain
+這個命定根據 \<parameter text> 和 \<replacement text> 把 \<control sequence> 定義為一個\minref{宏}.
+請參閱  \xrefpg{macro} 獲取關於如何定義宏的完整信息.
+\example
+\def\add#1+#2=?{#1+#2&=
+   \count255=#1 \advance\count255 by #2 \number\count255\cr}
+$$\eqalign{
+   \add 27+9=?
+   \add -5+-8=?}$$
+|
+\dproduces
+\def\add#1+#2=?{#1+#2&=
+   \count255=#1 \advance\count255 by #2 \number\count255\cr}
+$$\eqalign{
+   \add 27+9=?
+   \add -5+-8=?}$$
+\endexample
+\enddesc
+
+\begindesc
+\cts edef {\<control sequence> \<parameter text> \rqbraces{\<replacement text>}}
+\explain
+這個命令和 |\def| 一樣可以定義宏.
+唯一的區別在於, \TeX\ 會把 |\edef| 的 \<replacement text> 立即展開 (但是不會執行它).
+因此, 任何在 \<replacement text> 中的內容會被展開, 但那些產生盒子或粘連的排列或命令依然保持原來的樣子.
+比如 \TeX\ 在處理這個定義時, 在由 |\edef| 的定義中的 \<replacement text> 中的 |\hbox| 命令依然會保持命令竹的格式, 而不會變成一個盒子.
+一般情況下, 並不能明顯看出什麼會被展開, 什麼不會, 但你可以在 \knuth{頁~212-215} 找到一張可被展開的控製序列列表.
+
+你可以使用 |\no!-expand| 命令 (\xref\noexpand) 來阻止一個控製序列的展開.
+^^|\noexpand|
+你可以使用 ^|\expandafter| (\xref\expandafter) 命令來延迟一個控製序列的展開.
+
+
+|\write|, |\message|, |\errmessage|, |\wlog| 和 |\csname| 命令會把它們的標記使用和 |\edef| 替換文本相同的法則進行展開.
+
+^^|\write//expanded by {\tt\\edef} rules|
+^^|\message//expanded by {\tt\\edef} rules|
+^^|\errmessage//expanded by {\tt\\edef} rules|
+^^|\wlog//expanded by {\tt\\edef} rules|
+^^|\csname//expanded by {\tt\\edef} rules|
+\example
+\def\aa{xy} \count255 = 1
+\edef\bb{w\ifnum \count255 > 0\aa\fi z}
+% 和 \def\bb{wxyz} 等價
+\def\aa{} \count255 = 0 % 不影響 \bb 
+\bb
+|
+\produces
+\def\aa{xy} \count255 = 1
+\edef\bb{w\ifnum \count255 > 0\aa\fi z}
+% 和 \def\bb{wxyz} 等價
+\def\aa{} \count255 = 0 % 不影響 \bb
+\bb
+\endexample
+\enddesc
+
+\begindesc
+\cts gdef {\<control sequence> \<parameter text> \rqbraces{\<replacement text>}}
+\explain
+這個命令等價於 |\global\def|.
+\enddesc
+
+\begindesc
+\cts xdef {\<control sequence> \<parameter text> \rqbraces{\<replacement text>}}
+\explain
+這個命令等價於 |\global\edef|.
+\enddesc
+
+\begindesc
+\cts long {}
+\explain
+這個命令加在\minref{宏}定義前面. 
+它告訴 \TeX\ 該宏的參數可以包括 |\par| 標記 (\xref{\@par}), 
+該標記一般表示一個段的結束.
+^^|\par//in macro arguments|
+如果 \TeX\ 嘗試把一個沒有 |\long| 的宏定義展開, 
+而該宏的任意一部分的參數包括了一個 |\par| 標記,
+\TeX\ 就會報錯錯這是一個失控的參數.
+這個行為的目的, 是為了確保宏參數的完整結束.
+而 |\long| 就給你提供了一個回避這個行為的方法.
+\example
+\long\def\aa#1{\par\hrule\smallskip#1\par\smallskip\hrule}
+\aa{這是第一行.\par
+這是第二行.}
+% 沒有 \long, TeX 會報錯
+|
+\produces
+\medskip
+\long\def\aa#1{\par\hrule\smallskip#1\par\smallskip\hrule}
+\aa{這是第一行.\par
+這是第二行.}
+% 沒有 \long, TeX 會報錯
+\endexample
+\enddesc
+
+\begindesc
+\cts outer {}
+\explain
+\null ^^{outer}
+這個命令加前\minref{宏}定義前.
+它告訴 \TeX\ 這個宏是一個外部的 (\xref{outer}) 宏, 
+所以不能在某些情況中使用.
+如果這個宏出現在那些被禁止的情下, \TeX\ 會報錯.
+
+\example
+\outer\def\chapterhead#1{%
+   \eject\topglue 2in \centerline{\bf #1}\bigskip}
+% 在一個被禁止的情況下使用 \chapterhead 
+% 會出現錯誤信息.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts chardef {\<control sequence>=\<charcode>}
+\explain
+^^{characters//defined by \b\tt\\chardef\e}
+上面的命令把 \<charcode> 定義為 \<control sequence>.
+雖然 |\chardef| 常在定義字符時用到, 
+你也可以使用它來給 $0$--$255$ 之間的任何一個數定義一個名字, 
+即使你沒用以字符碼的形式使用該數.
+\example
+\chardef\percent = `\% 21\percent, {\it 19\percent}
+% 排印出正體和意大利體的百分號
+|
+\produces
+\chardef\percent = `\%
+21\percent, {\it 19\percent}
+% 排印出正體和意大利體的百分號
+\endexample
+\enddesc
+
+\begindesc
+^^{math characters}
+^^{mathcodes}
+\cts mathchardef {\<control sequence>=\<mathcode>}
+\explain
+這個命令把 \<control sequence> 定義為一個給定\minref{數學字符碼}的數學字符.
+這個控製序列僅在數學模式下有效
+\example
+\mathchardef\alphachar = "010B % 類似 plain TeX 的定義
+$\alphachar$
+|
+\produces
+\mathchardef\alphachar = "010B % 類似 plain TeX 的定義
+$\alphachar$
+\endexample
+\eix^^{macros//defining}
+\enddesc
+
+%==========================================================================
+\subsection {其它定義方法}
+
+\begindesc
+\cts let {\<control sequence> = \<token>}
+\explain
+^^{control sequences//defining with \b\tt\\let\e}
+\minrefs{token}
+這個命令會使得 \<control sequence> 去獲取當前 \<token> 的含義.
+即使你對 \<token> 重新定義,  \<control sequence> 的含義仍然不變.
+雖然 \<token> 一般情況下都是一個控製序列,
+它其實也可以是一個\minref{字符}標記.
+\enddesc
+
+\begindesc
+\cts futurelet {\<control sequence> \<token$_1$> \<token$_2$>}
+\explain
+這個命令告訴 \TeX\ 把 \<token$_2$> 的設為 \<control sequence> 的定義
+(可以由 |\let| 完成), 
+然後按正常的方式來處理 \<token$_1$> 和 \<token$_2$>.
+在宏定義的最後 |\futurelet| 很有用, 因為它可以給你提供一個
+在 \TeX\ 處理未處理的標記前, 查看它後面的標記的方法.
+\example
+\def\predict#1{\toks0={#1}\futurelet\next\printer}
+% \next 會獲取 \predict 後的標點符號.
+\def\printer#1{一個 \punc\ 放在 \the\toks0 前. }
+\def\punc{%
+   \ifx\next;分號\else
+      \ifx\next,逗號\else
+         ``\next''\fi\fi}
+\predict{三月}; \predict{四月}, \predict{七月}/
+|
+\produces
+\def\predict#1{\toks0={#1}\futurelet\next\printer}
+% \next 會獲取 \predict 後的標點符號.
+\def\printer#1{一個 \punc\ 放在 \the\toks0 前. }
+\def\punc{%
+   \ifx\next;分號\else
+      \ifx\next,逗號\else
+         ``\next''\fi\fi
+   }
+\predict{三月}; \predict{四月}, \predict{七月}/
+\endexample
+\enddesc
+
+\begindesc
+\cts csname {\<token list> {\bt \\endcsname}}
+\xrdef{\endcsname}
+\explain
+這個命令可以由 \<token list> 產生一個控製序列.
+它提供了一種把標記合並成控製序列的方式,
+包括一些你一般情況下不能直接寫的形式.
+|\csname| 命令會把它們的標記使用和 |\edef| 替換文本相同的法則進行展開 (\xref\edef).
+如果最後的展開會產生不是字符的東西, \TeX\ 會報錯.
+|\csname| 把一系列的標記轉為一個控製序列; 
+你可以用 ^|\string| \ctsref\string 的方法做相反的事情.
+\example
+\def\capTe{Te}
+本書關於 \csname\capTe X\endcsname.
+|
+\produces
+\def\capTe{Te}
+本書關於 \csname\capTe X\endcsname.
+\endexample
+\enddesc
+
+%==========================================================================
+\subsection {控製展開}
+
+\begindesc
+\bix^^{macros//controlling expansion of}
+\cts expandafter {\<token$_1$> \<token$_2$>}
+\explain
+這個命令會讓 \TeX\ 在展開一層 \<token$_2$> 後把 \<token$_1$> 根據\minref{宏}展開法則進行展開.
+有時你想展開 \<token$_2$>, 
+而它前面有類似 `|{|' 或 ^|\string| 的東西阻止它的展開,
+^^|{//with {\tt\\expandafter}|
+這時這個命令會非常有用.
+\example
+\def\aa{xyz}
+\tt % Use this font so `\' prints that way.
+[\string\aa]  [\expandafter\string\aa]
+[\expandafter\string\csname TeX\endcsname]
+|
+\produces
+\def\aa{xyz}
+\tt
+[\string\aa]  [\expandafter\string\aa]
+[\expandafter\string\csname TeX\endcsname]
+\endexample
+\enddesc
+
+\begindesc
+\cts noexpand {\<token>}
+\explain
+這個命令讓 \TeX\ 跳過一個可以展開的標記 \<token> 的展開.
+如果 \<token> 不能被展開, 比如它是一個字符, 
+\TeX\ 則不會理會 |\noexpand|, 而把 \<token> 按一般的方法處理.
+\example
+\def\bunny{免子}
+\edef\magic{把 \noexpand\bunny\ 從帽子中取出!! }
+% 如果沒有 \noexpand, \bunny 會永遠替換為 `免子'
+\let\oldbunny=\bunny \def\bunny{免} \magic
+\let\bunny=\oldbunny \magic
+|
+\produces
+\def\bunny{免子}
+\edef\magic{把 \noexpand\bunny\ 從帽子中取出!! }
+% 如果沒有 \noexpand, \bunny 會永遠替換為 `免子'
+\let\oldbunny=\bunny \def\bunny{免} \magic
+\let\bunny=\oldbunny \magic
+\endexample
+\enddesc
+
+\begindesc
+\cts the {\<token>}
+\explain
+這個命令一般會把 \<token> 展開, 表示成一個\minref{字符}串.
+其中 \<token>  可以是以下的任何形式:
+
+\ulist\compact
+\li \TeX\ \minref{參數}, 比如, |\parindent| 或者 |\deadcycles|
+^^{parameters//using \b\tt\\the\e\ with}
+\li \minref{寄存器}, 比如, |\count0|
+^^{registers//with \b\tt\\the\e}
+\margin{去除了特殊寄存器的那項}
+\li 輸入字符的字符碼, 比如, |\catcode`(|
+\li 字符參數, 比如, |\fontdimen3\sevenbf|
+\li 字體的 ^|\hyphenchar| 或 ^|\skewchar|, 比如, |\skewchar\teni|
+\li ^|\lastpenalty|, ^|\lastskip|, 或者 ^|\lastkern| 
+(當前的水平\minrefs{水平列表}或\minref{垂直列表}的最後一項的數值).
+\li ^|\chardef| 或 ^|\mathchardef| 定義的控製序列 
+\endulist
+
+\noindent
+此外, |\the| 可以在下面兩種情況下, 展開成非字符標記:
+\ulist\compact
+\li |\the| \<font>, 會展開成當前定義的控製序列, 
+這個控製序列和控製序列 \<font> 所選擇的字體相同.
+\li |\the| \<token variable>, 會復製變量的值, 並且對復本進行展開,
+比如 |\the\everypar|
+\endulist
+
+請參閱 \knuth{頁~214--215} 來獲取 |\the| 在各種情況下行為的更詳細描述.
+\example
+目前頁面的竪直長度為 \the\vsize.
+`(' 字符的類碼是 \the\catcode `(.
+|
+\produces
+目前頁面的竪直長度為 \the\vsize.
+`(' 字符的類碼是 \the\catcode `(.
+\endexample
+\enddesc
+
+{\tighten
+\see \headcit{把信息改為標記}{convert},
+|\showthe| (\xref\showthe).
+\par}
+
+\eix^^{macros//controlling expansion of}
+
+%==========================================================================
+\subsection {Conditional tests}
+
+\begindesc
+\xrdef{conds}
+\bix^^{conditional tests}
+%
+\ctspecial if {\<token$_1$> \<token$_2$>}\ctsxrdef{@if}
+\explain
+{\emergencystretch=1em
+This command tests if \<token$_1$> and \<token$_2$>
+have the same \minref{character} code, independent of their
+\minref{category code}s.
+Before performing the test, \TeX\ expands tokens following the |\if|
+until it obtains two tokens that can't be expanded further.  
+These two tokens become \<token$_1$> and \<token$_2$>.
+The expansion
+includes replacing  a control sequence |\let| equal to a character token
+by that character token.
+A \minref{control sequence} that can't be further expanded is
+considered to have character code $256$.\par}
+\example
+\def\first{abc}
+\if\first true\else false\fi;
+% ``c'' is left over from the expansion of \first.
+% It lands in the unexecuted ``true'' part.
+\if a\first\ true\else false\fi;
+% Here ``bc'' is left over from the expansion of \first
+\if \hbox\relax true\else false\fi
+% Unexpandable control sequences test equal with ``if''
+|
+\produces
+\def\first{abc}
+\if\first true\else false\fi;
+% ``c'' is left over from the expansion of \first.
+% It lands in the unexecuted ``true'' part.
+\if a\first\ true\else false\fi;
+% Here ``bc'' is left over from the expansion of \first
+\if \hbox\relax true\else false\fi
+% Unexpandable control sequences test equal with ``if''
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifcat {\<token$_1$> \<token$_2$>}\ctsxrdef{@ifcat}
+\explain
+^^{category codes//testing}
+This command tests if \<token$_1$> and \<token$_2$>
+have the same \minref{category code}.
+Before performing the test, \TeX\ expands tokens following the |\ifcat|
+until it obtains two tokens that can't be expanded further.
+These two tokens become \<token$_1$> and \<token$_2$>.
+The expansion
+includes replacing  a control sequence |\let| equal to a character token
+by that character token.
+A \minref{control sequence} that can't be further expanded is
+considered to have category code $16$.
+\example
+\ifcat axtrue\else false\fi;
+\ifcat ]}true\else false\fi;
+\ifcat \hbox\day true\else false\fi;
+\def\first{12345}
+\ifcat (\first true\else false\fi
+% ``2345'' lands in the true branch of the test 
+|
+\produces
+\ifcat axtrue\else false\fi;
+\ifcat ]}true\else false\fi;
+\ifcat \hbox\day true\else false\fi;
+\def\first{12345}
+\ifcat (\first true\else false\fi
+% ``2345'' lands in the true branch of the test 
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifx {\<token$_1$> \<token$_2$>}\ctsxrdef{@ifx}
+\explain
+This command tests if \<token$_1$> and \<token$_2$> agree.
+Unlike |\if| and |\ifcat|, |\ifx| does \emph{not} expand the tokens
+following |\ifx|, so \<token$_1$> and \<token$_2$> are the two
+tokens immediately after |\ifx|.
+There are three cases:
+\olist
+\li If one token is a \minref{macro} and the other one isn't,
+the tokens don't agree.
+\li If neither token is a macro, the tokens agree if:
+\olist
+\li both tokens are characters (or control sequences denoting characters) and
+their \minref{character} codes and \minref{category code}s agree, or
+\li both tokens refer to the same \TeX\ command,
+font, etc.
+\endolist
+\li If both tokens are macros, the tokens agree if:
+\olist\compact
+\li their ``first level'' expansions, i.e.,
+their replacement texts, are identical, and
+\li they have the same status with respect to ^|\long| (\xref\long)
+and ^|\outer| (\xref\outer).
+\endolist
+Note in particular that \emph{any two undefined control
+sequences agree}.
+\endolist
+\noindent
+This test is generally more useful than |\if|.
+\example
+\ifx\alice\rabbit true\else false\fi;
+% true since neither \rabbit nor \alice is defined
+\def\a{a}%
+\ifx a\a true\else false\fi;
+% false since one token is a macro and the other isn't
+\def\first{\a}\def\second{\aa}\def\aa{a}%
+\ifx \first\second true\else false\fi;
+% false since top level expansions aren't the same
+\def\third#1:{(#1)}\def\fourth#1?{(#1)}%
+\ifx\third\fourth true\else false\fi
+% false since parameter texts differ
+|
+\produces
+\ifx\alice\rabbit true\else false\fi;
+% true since neither \rabbit nor \alice is defined
+\def\a{a}%
+\ifx a\a true\else false\fi;
+% false since one token is a macro and the other isn't
+\def\first{\a}\def\second{\aa}\def\aa{a}%
+\ifx \first\second true\else false\fi;
+% false since top level expansions aren't the same
+\def\third#1:{(#1)}\def\fourth#1?{(#1)}%
+\ifx\third\fourth true\else false\fi
+% false since parameter texts differ
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifnum {\<number$_1$> \<relation> \<number$_2$>}\ctsxrdef{@ifnum}
+\explain
+^^{numbers//comparing}
+This command tests if \<number$_1$> and \<number$_2$>
+satisfy \<relation>, which must be either `|<|', `|=|', or `|>|'.
+The numbers can be constants such as |127|, count registers such as
+|\pageno| or |\count22|, or numerical parameters such as |\hbadness|.
+Before performing the test, \TeX\ expands tokens following the |\ifnum|
+until it obtains a sequence of tokens having
+the form \<number$_1$> \<relation> \<number$_2$>, followed by a token
+that can't be part of \<number$_2$>.
+\example
+\count255 = 19 \ifnum \count255 > 12 true\else false\fi
+|
+\produces
+\count255 = 19 \ifnum \count255 > 12 true\else false\fi
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifodd {\<number>}\ctsxrdef{@ifodd}
+\explain
+^^{numbers//testing for odd/even}
+This command tests if \<number> is odd.
+Before performing the test, \TeX\ expands tokens following the |\ifodd|
+until it obtains a sequence of tokens having the form \<number>,
+followed by a token that can't be part of \<number>.
+\example
+\count255 = 19
+\ifodd 5 true\else false\fi
+|
+\produces
+\ifodd 5 true\else false\fi
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifdim {\<dimen$_1$> \<relation> \<dimen$_2$>}\ctsxrdef{@ifdim}
+\explain
+^^{dimensions//comparing}
+This command tests if \<dimen$_1$> and \<dimen$_2$>
+satisfy \<relation>, which must be either `|<|', `|=|', or `|>|'.
+The dimensions can be constants such as |1in|, dimension registers
+such as |\dimen6|, or dimension parameters such as |\parindent|.
+Before performing the test, \TeX\ expands tokens following the |\ifdim|
+until it obtains a sequence of tokens having
+the form \<dimen$_1$> \<relation> \<dimen$_2$>, followed by a token
+that can't be part of \<dimen$_2$>.
+
+\example
+\dimen0 = 1000pt \ifdim \dimen0 > 3in true\else false\fi
+|
+\produces
+\dimen0 = 1000pt \ifdim \dimen0 > 3in true\else false\fi
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifhmode {}\ctsxrdef{@ifhmode}
+\ctspecial ifvmode {}\ctsxrdef{@ifvmode}
+\ctspecial ifmmode {}\ctsxrdef{@ifmmode}
+\ctspecial ifinner {}\ctsxrdef{@ifinner}
+\explain
+^^{horizontal mode//testing for}
+^^{vertical mode//testing for}
+^^{math mode//testing for}
+^^{internal mode//testing for}
+These commands test what \minref{mode} \TeX\ is in:
+\ulist
+\li |\ifhmode| is true if \TeX\ is in ordinary or restricted horizontal mode.
+\li |\ifvmode| is true if \TeX\ is in ordinary or internal vertical mode.
+\li |\ifmmode| is true if \TeX\ is in text math or display math mode.
+\li |\ifinner| is true if \TeX\ is in an ``internal'' mode:
+restricted horizontal, internal vertical, or text math.
+\endulist
+\example
+\def\modes{{\bf
+   \ifhmode
+      \ifinner IH\else H\fi
+   \else\ifvmode
+      \ifinner \hbox{IV}\else \hbox{V}\fi
+   \else\ifmmode \hbox{M}\else
+      error\fi\fi\fi}}
+Formula $\modes$; then \modes, 
+   \hbox{next \modes\ and \vbox{\modes}}.
+\par\modes
+|
+\produces
+\def\modes{{\bf
+   \ifhmode
+      \ifinner IH\else H\fi
+   \else\ifvmode
+      \ifinner \hbox{IV}\fi
+   \else\ifmmode \hbox{M}\else
+      error\fi\fi\fi}}
+Formula $\modes$; then \modes, 
+   \hbox{next \modes\ and \vbox{\modes}}.
+\par\noindent{\bf V} % sorry folks, we have to fake this one
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifhbox {\<register>}\ctsxrdef{@ifhbox}
+\ctspecial ifvbox {\<register>}\ctsxrdef{@ifvbox}
+\ctspecial ifvoid {\<register>}\ctsxrdef{@ifvoid}
+\explain
+^^{hboxes//testing for}
+^^{vboxes//testing for}
+^^{boxes//testing if void}
+These commands test the contents of
+the box register numbered \<reg\-ister>.
+Let \<register> be $n$.  Then:
+\ulist
+\li |\ifhbox| is true if |\box|$\,n$ is an \minref{hbox}.
+\li |\ifvbox| is true if |\box|$\,n$ is an \minref{vbox}.
+\li |\ifvoid| is true if |\box|$\,n$ is void, i.e, doesn't have
+a box in it.
+\endulist
+\example
+\setbox0 = \vbox{} % empty but not void
+\setbox1 = \hbox{a}
+\setbox2 = \box1 % makes box1 void
+\ifvbox0 true\else false\fi;
+\ifhbox2 true\else false\fi;
+\ifvoid1 true\else false\fi
+|
+\produces
+\setbox0 = \vbox{}
+\setbox1 = \hbox{a}
+\setbox2 = \box1 % empties box1
+\ifvbox0 true\else false\fi;
+\ifhbox2 true\else false\fi;
+\ifvoid1 true\else false\fi
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial ifeof {\<number>}\ctsxrdef{@ifeof}
+\explain
+^^{end of file, testing for}
+\minrefs{file}
+This command tests an input stream for end of file.
+It is true if input stream \<number> has not been opened,
+or has been opened and the associated file has been entirely read in
+(or doesn't exist).
+\enddesc
+
+\begindesc
+\ctspecial ifcase
+{\<number>\<case$_0$ text> {\bt \\or }\<case$_1$ text> {\bt \\or}
+   $\ldots$ {\bt \\or} \<case$_n$ text>\hfil\break
+\hglue 3pc{\bt \\else} \<otherwise text> {\bt \\fi}}
+\ctsxrdef{@ifcase}
+\ctsxrdef{@or}
+\explain
+^^{case testing}
+This command introduces a test with numbered multiple cases.
+If \<num\-ber> has the value $k$, \TeX\ will expand \<case$_k$ text> if
+it exists, and \<other\-wise text> if it doesn't.  You can omit the |\else|---%
+in this case, \TeX\ won't expand anything if none of the cases are satisfied.
+\example
+\def\whichday#1{\ifcase #1<day 0>\or Sunday\or Monday%
+   \or Tuesday\or Wednesday\or Thursday\or Friday%
+   \or Saturday\else Nonday\fi
+   \ is day \##1. }
+\whichday2 \whichday3 \whichday9
+|
+\produces
+\def\whichday#1{\ifcase #1<day 0>\or Sunday\or Monday%
+   \or Tuesday\or Wednesday\or Thursday\or Friday%
+   \or Saturday\else Nonday\fi
+   \ is day \##1. }
+\whichday2 \whichday3 \whichday9
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial iftrue {}\ctsxrdef{@iftrue}
+\ctspecial iffalse {}\ctsxrdef{@iffalse}
+\explain
+These commands are equivalent to tests that are always true or always
+false.  The main use of these commands is in defining macros that keep
+track of the result of a test.
+\example
+\def\isbigger{\let\bigger=\iftrue}
+\def\isnotbigger{\let\bigger=\iffalse}
+% These \let's MUST be buried in macros!!  If they aren't,
+% TeX erroneously tries to match them with \fi.
+\def\test#1#2{\ifnum #1>#2 \isbigger\else\isnotbigger\fi}
+\test{3}{6}
+\bigger$3>6$\else$3\le6$\fi
+|
+\produces
+\def\isbigger{\let\bigger=\iftrue}
+\def\isnotbigger{\let\bigger=\iffalse}
+% These \let's MUST be buried in macros!
+% If they aren't, TeX erroneously tries to match them with \fi
+\def\test#1#2{\ifnum #1>#2 \isbigger\else\isnotbigger\fi}
+\test{3}{6}
+\bigger$3>6$\else$3\le6$\fi
+\endexample
+\enddesc
+
+\begindesc
+\ctspecial else {} \ctsxrdef{@else}
+\explain
+This command introduces the ``false'' alternative of a conditional test.
+\enddesc
+
+\begindesc
+\ctspecial fi {} \ctsxrdef{@fi}
+\explain
+This command ends the text of a conditional test.
+\enddesc
+
+\begindesc
+\ctspecial newif {{\bt \\if}\<test name>}\ctsxrdef{@newif}
+\explain
+This command names a trio of control sequences with names |\alpha!-true|,
+|\alphafalse|,
+and |\ifalpha|, where |alpha| is \<test name>.
+You can use them to define your own tests by
+creating a logical variable that records
+true\slash false information:
+\ulist\compact
+\li |\alphatrue| sets the  logical variable |alpha| true.
+\li |\alphafalse| sets the logical variable |alpha| false
+\li |\ifalpha| is a conditional test that is true if the logical
+variable |alpha| is true and false otherwise.
+\endulist
+The logical variable |alpha| doesn't really exist, but \TeX\ behaves as
+though it did.  After |\newif\ifalpha|, the logical variable is initially
+false.
+
+|\newif| is an outer command, so you can't use it inside a macro
+definition.
+\example
+\newif\iflong  \longtrue
+\iflong Rabbits have long ears.
+\else Rabbits don't have long ears.\fi
+|
+\produces
+\newif\iflong
+\longtrue
+\iflong Rabbits have long ears.\else Rabbits don't have long ears.\fi
+\endexample
+\eix^^{conditional tests}
+\enddesc
+
+
+%==========================================================================
+\subsection {Repeated actions}
+
+{\def\test{{\bt \\if}$\Omega$}%
+\begindesc
+\bix^^{repeated actions}
+\bix^^{loops}
+\cts loop {$\alpha$ {\test} $\beta$ {\bt \\repeat}}
+\ctspecial repeat {}\ctsxrdef{@repeat}
+\explain
+These commands provide a looping construct for \TeX.
+Here $\alpha$ and $\beta$ are arbitrary sequences of commands
+and \test\ is any of the conditional tests described in
+\headcit{Conditional tests}{conds}.
+The |\repeat| replaces the |\fi| corresponding to the test,
+so you must not write an explicit |\fi| to terminate the test.
+Nor, unfortunately, can you associate an |\else| with the test.
+If you want to use the test in the opposite sense, you need to
+rearrange the test or
+define an auxiliary test with |\newif| (see above) and use that
+test in the sense you want (see the second example below).
+
+\TeX\ expands |\loop| as follows:
+\olist
+\li $\alpha$ is expanded.
+\li {\test} is performed.  If the result is false, the loop is terminated.
+\li $\beta$ is expanded.
+\li The cycle is repeated.
+\endolist
+\example
+\count255 = 6
+\loop
+   \number\count255\ 
+   \ifnum\count255 > 0
+      \advance\count255 by -1
+\repeat
+|
+\produces
+\count255 = 6
+\loop
+   \number\count255\ 
+   \ifnum\count255 > 0
+      \advance\count255 by -1
+\repeat
+\nextexample
+\newif\ifnotdone % \newif uses \count255 in its definition
+\count255=6
+\loop
+   \number\count255\ 
+   \ifnum\count255 < 1 \notdonefalse\else\notdonetrue\fi
+   \ifnotdone
+      \advance\count255 by -1
+\repeat
+|
+\produces
+\newif\ifnotdone
+\count255=6
+\loop
+   \number\count255\ 
+   \ifnum\count255 < 1 \notdonefalse\else\notdonetrue\fi
+   \ifnotdone
+      \advance\count255 by -1
+\repeat
+%
+\eix^^{repeated actions}
+\eix^^{loops}
+%
+\endexample
+\enddesc
+} % end scope of definition of \test
+
+%==========================================================================
+\subsection {Doing nothing}
+
+\begindesc
+\cts relax {}
+\explain
+This command tells \TeX\ to do nothing.  It's useful in a context where
+you need to provide a command but there's nothing that you want \TeX\ to do.
+\example
+\def\medspace{\hskip 12pt\relax}
+% The \relax guards against the possibility that
+% The next tokens are `plus' or `minus'.
+|
+
+\endexample
+\enddesc
+
+\begindesc
+\cts empty {}
+\explain
+This command expands to no tokens at all.
+It differs from |\relax| in that it disappears after macro expansion.
+%
+\xrdef{mac2}% end the section on macros
+\eix^^{macros}
+\enddesc
+
+%==========================================================================
+\section {Registers}
+
+%==========================================================================
+\subsection {Using registers}
+
+\begindesc
+\bix^^{registers}
+\makecolumns 11/2:
+\cts count {\<register> {\bt =} \<number>}
+\cts dimen {\<register> {\bt =} \<dimen>}
+\cts skip {\<register> {\bt =} \<glue>}
+\cts muskip {\<register> {\bt =} \<muglue>}
+\cts toks {\<register> {\bt =} \<token variable>}
+\aux\cts toks {\<register> {\bt =} \rqbraces{\<token list>}}
+\aux\cts count {\<register>}
+\aux\cts dimen {\<register>}
+\aux\cts skip {\<register>}
+\aux\cts muskip {\<register>}
+\aux\cts toks {\<register>}
+\explain
+^^{assignments//of registers}
+The first six commands listed here assign something to a register.
+The |=|'s in the assignments are optional.
+The remaining five control sequences are not true commands
+because they can only appear as part of an argument.
+They yield the contents of the specified register.
+Although you can't use these control sequences by themselves as commands
+in text,  you can use ^|\the| to convert them to text so that
+you can typeset their values.
+
+You can name and reserve registers
+with the ^|\newcount| command and its relatives
+(\xref{\@newcount}).
+Using these commands is a safe way to obtain registers that 
+are known not to have any conflicting usage.
+
+^^{count registers}
+A |\count| register contains an integer, which can be either positive or
+negative.
+Integers can be as large as you're ever likely to need them to be.\footnote
+{Here's the only exercise in this book: find out what's the largest
+integer that \TeX\ will accept.}
+\TeX\ uses count registers $0$--$9$ to keep track of the
+page number (see \knuth{page~119}).
+|\count255| is the only count register available for use
+without a reservation.
+\example
+\count255 = 17 \number\count255
+|
+\produces
+\count255 = 17 \number\count255
+\endexample
+
+\medskip\noindent
+^^{dimension registers}
+A |\dimen| register contains a dimension.
+Registers |\dimen0| through |\dimen9| and |\dimen255| are available
+for scratch use.
+
+\example
+\dimen0 = 2.5in
+\hbox to \dimen0{$\Leftarrow$\hfil$\Rightarrow$}
+|
+\produces
+\dimen0 = 2.5in
+\hbox to \dimen0{$\Leftarrow$\hfil$\Rightarrow$}
+\doruler{\8\8\8}3{in}
+\endexample
+
+\medskip\noindent
+^^{skip registers}
+A |\skip| register contains the dimensions of glue.
+Unlike a |\dimen| register, it
+records an amount of shrink and stretch as well as a natural size.
+Registers |\skip0| through |\skip9| and |\skip255| are available
+for use without a reservation.
+
+\example
+\skip2 = 2in
+$\Rightarrow$\hskip \skip2 $\Leftarrow$
+|
+\produces
+\skip2 = 2in
+$\Rightarrow$\hskip \skip2 $\Leftarrow$\par
+\noindent\hphantom{$\Rightarrow$}\ruler{\8\8}2{in}
+\endexample
+
+\medskip\noindent
+^^{muskip registers}
+A |\muskip| register is like a |\skip| register,
+but the glue in it is always measured in ^|mu|
+\seeconcept{mathematical unit}.
+The size of a |mu| depends on the current font.
+For example, it's usually a little
+smaller in a subscript than in ordinary text.
+Registers |\muskip0| through |\muskip9| and |\muskip255| are available
+for use without a reservation.
+
+\example
+\muskip0 = 24mu % An em and a half, no stretch or shrink.
+$\mathop{a \mskip\muskip0 b}\limits^{a \mskip\muskip0 b}$
+% Note the difference in spacing.
+|
+\produces
+\muskip0 = 24mu % an em and a half
+$\mathop{a \mskip\muskip0 b}\limits^{a \mskip\muskip0 b}$
+% Note the difference in spacing
+\endexample
+
+\medskip\noindent
+^^{token registers}
+You can assign either a token variable
+(a register or a parameter) or a token list
+to a |\toks| register.
+When you assign a token list to a token register,
+the tokens in the token list are \emph{not} expanded.
+
+Once the tokens in a token list have been inserted into text
+using ^|\the|, they are
+expanded just like tokens that were read in directly.
+They have the category codes that they received when \TeX\ first
+saw them in the~\hbox{input}.
+
+\example
+\toks0 = {the \oystereaters\ were at the seashore}
+% This assignment doesn't expand \oystereaters.
+\def\oystereaters{Walrus and Carpenter}
+\toks1 = \toks0
+% the same tokens are now in \toks0 and \toks1
+Alice inquired as to whether \the\toks1.
+|
+\produces
+\toks0 = {the \oystereaters\ were at the seashore}
+% This assignment doesn't expand \oystereaters
+\def\oystereaters{Walrus and Carpenter}
+\toks1 = \toks0
+% the same tokens are now in \toks0 and \toks1
+Alice inquired as to whether \the\toks1.
+\endexample
+\enddesc
+
+\begindesc
+\cts maxdimen {}
+\explain
+^^{dimensions//maximum}
+This control sequence yields a \<dimen> that is the
+largest dimension acceptable to \TeX\ (nearly 18 feet).
+It is not a true command because it can only appear as part of an argument
+to another command.
+\example
+\maxdepth = \maxdimen % Remove restrictions on \maxdepth.
+|
+\endexample
+\enddesc
+
+\see |\advance| (\xref\advance), |\multiply|,
+|\divide| (\xref\divide), |\set!-box|, |\box| (\xref\box).
+
+%==========================================================================
+\subsection {Naming and reserving registers, etc.}
+
+\begindesc
+\bix^^{registers//reserving}
+\makecolumns 11/2:
+\ctspecial newcount \ctsxrdef{@newcount}
+\ctspecial newdimen \ctsxrdef{@newdimen}
+\ctspecial newskip \ctsxrdef{@newskip}
+\ctspecial newmuskip \ctsxrdef{@newmuskip}
+\ctspecial newtoks \ctsxrdef{@newtoks}
+\ctspecial newbox \ctsxrdef{@newbox}
+\ctspecial newread \ctsxrdef{@newread}
+\ctspecial newwrite \ctsxrdef{@newwrite}
+\ctspecial newfam \ctsxrdef{@newfam}
+\ctspecial newinsert \ctsxrdef{@newinsert}
+\ctspecial newlanguage \ctsxrdef{@newlanguage}
+\explain
+These commands
+reserve and name an entity of the indicated type:
+\ulist
+{\tolerance = 5000
+\fontdimen3\the\font = 2\fontdimen3\the\font % allow spaces to stretch more
+\li |\new!-count|, |\newdimen|, |\newskip|, |\new!-mu!-skip|, |\new!-toks|,
+and |\new!-box| each reserve a \minref{register} of the indicated type.
+}
+^^{count registers//reserved by \b\tt\\newcount\e}
+^^{dimension registers//reserved by \b\tt\\newdimen\e}
+^^{skip registers//reserved by \b\tt\\newskip\e}
+^^{muskip registers//reserved by \b\tt\\newmuskip\e}
+^^{token registers//reserved by \b\tt\\newtoks\e}
+^^{box registers//reserved by \b\tt\\newbox\e}
+\li |\newread| and |\newwrite| reserve an input stream and
+an output stream \minrefs{input stream}\minrefs{output stream}
+respectively.
+^^{input streams//reserved by \b\tt\\newread\e}
+^^{output streams//reserved by \b\tt\\newwrite\e}
+\li |\newfam| reserves a \minref{family} of math fonts.
+^^{family//reserved by \b\tt\\newfam\e}
+\li |\newinsert| reserves an insertion type.
+(Reserving an insertion type involves reserving several different registers.)
+^^{insertions//numbers reserved by \b\tt\\newinsert\e}
+\li |\newlanguage| reserves a set of hyphenation patterns.
+\endulist
+You should use these commands whenever you need one of these entities,
+other than in a very local region,
+in order to avoid numbering conflicts.
+
+There's an important difference among these commands:
+\ulist
+\li The control sequences defined by
+|\newcount|, |\newdimen|, |\newskip|, |\newmuskip|, and |\newtoks|
+each designate an entity of the appropriate type.
+For instance, after the command:
+\csdisplay
+\newdimen\listdimen
+|
+the control sequence |\listdimen| can be used as a dimension.
+\li The control sequences defined by
+|\newbox|, |\newread|, |\newwrite|, |\newfam|, |\newinsert|,
+and |\newlanguage|  each
+evaluate to the \emph{number} of an entity of the appropriate type.
+For instance, after the command:
+\csdisplay
+\newbox\figbox
+|
+the control sequence |\figbox| must be used in conjunction with
+a |\box|-like command, e.g.:
+\csdisplay
+\setbox\figbox = \vbox{!dots}
+|
+\endulist
+\enddesc
+
+\begindesc
+\cts countdef {\<control sequence> {\bt =} \<register>}
+\cts dimendef {\<control sequence> {\bt =} \<register>}
+\cts skipdef {\<control sequence> {\bt =} \<register>}
+\cts muskipdef {\<control sequence> {\bt =} \<register>}
+\cts toksdef {\<control sequence> {\bt =} \<register>}
+\explain
+These commands define \<control sequence> to refer to the
+\minref{register} of the indicated category whose number is \<register>.
+Normally you should use the commands in the previous group
+(|\newcount|, etc.) in preference to these commands in order to avoid
+numbering conflicts.  The commands in the previous group are
+defined in terms of the commands \hbox{in this group}.
+\example
+\countdef\hatters = 19 % \hatters now refers to \count19
+\toksdef\hares = 200 % \hares now refers to \toks200
+|
+\endexample
+\enddesc
+
+\see |\newif| (\xref{\@newif}), |\newhelp| (\xref{\@newhelp}).
+\eix^^{registers//reserving}
+
+%==========================================================================
+\subsection {Doing arithmetic in registers}
+
+\begindesc
+\bix^^{arithmetic}
+\bix^^{registers//arithmetic in}
+%
+\cts advance {\<count register> {\bt by} \<number>}
+\aux\cts advance {\<dimen register> {\bt by} \<dimen>}
+\aux\cts advance {\<skip register> {\bt by} \<glue>}
+\aux\cts advance {\<muskip register> {\bt by} \<muglue>}
+\explain
+This command adds a compatible quantity to a register.  For \<glue>
+or \<muglue> all three components (natural value, stretch, and shrink)
+\minrefs{glue} are added.
+Any of the quantities can be negative.  For purposes of these calculations
+(and other assignments as well), \<glue> can be converted to a
+\<dimen> by dropping the stretch and shrink, and a \<dimen> can be converted
+to a \<number> by taking its value in scaled points 
+\seeconcept{dimension}.
+You can omit the word |by| in these commands---\TeX\ will understand them
+anyway.
+\example
+\count0 = 18 \advance\count0 by -1 \number\count0\par
+\skip0 = .5in \advance\skip0 by 0in plus 1in % add stretch
+\hbox to 2in{a\hskip\skip0 b}
+|
+\produces
+\count0 = 18 \advance\count0 by -1 \number\count0\par
+\skip0 = .5in \advance\skip0 by 0in plus 1in % add stretch
+\hbox to 2in{a\hskip\skip0 b}
+\doruler{\8\8}2{in}
+\endexample
+\enddesc
+
+\begindesc
+\cts multiply {\<register> {\bt by} \<number>}
+\cts divide {\<register> {\bt by} \<number>}
+\explain
+These commands multiply and divide the value in \<register>
+by \<number> (which can be negative).
+The register can be a ^|\count|, ^|\dimen|, ^|\skip|, or ^|\muskip|
+register.
+For a ^|\skip| or ^|\muskip| register (\xref\skip),
+all three components of the \minref{glue} in the register are modified.
+You can omit the word |by| in these commands---\TeX\ will understand them
+anyway.
+
+You can also obtain a multiple of a \<dimen> by preceding it by a \<number>
+\minrefs{number}
+or decimal constant, e.g.,
+|-2.5\dimen2|.
+You can also use this notation for \<glue>, but watch out---the result
+is a \<dimen>, not \<glue>.
+Thus |2\baselineskip| yields a \<dimen> that is twice the natural size
+of |\baselineskip|, with no stretch or shrink.
+\example
+\count0 = 9\multiply \count0 by 8 \number\count0 ;
+\divide \count0 by 12 \number\count0 \par
+\skip0 = 20pt plus 2pt minus 3pt \multiply \skip0 by 3
+Multiplied value of skip0 is \the\skip0.\par
+\dimen0 = .5in \multiply\dimen0 by 6
+\hbox to \dimen0{a\hfil b}
+|
+\produces
+\count0 = 9\multiply \count0 by 8 \number\count0 ;
+\divide \count0 by 12 \number\count0 \par
+\skip0 = 20pt plus 2pt minus 3pt \multiply \skip0 by 3
+Multiplied value of skip0 is \the\skip0.\par
+\dimen0 = .5in \multiply\dimen0 by 6
+\hbox to \dimen0{a\hfil b}
+\doruler{\8\8\8}3{in}
+\endexample
+
+\eix^^{arithmetic}
+\eix^^{registers//arithmetic in}
+\eix^^{registers}
+\enddesc
+
+%==========================================================================
+\section {Ending the job}
+
+\begindesc
+^^{ending the job}
+\easy\ctspecial bye \ctsxrdef{@bye}
+\explain
+This command tells \TeX\ to fill out and produce the last page, print
+any held-over \minref{insertion}s, and end the job.
+It is the usual way to end your input file.
+\enddesc
+
+\begindesc
+\cts end {}
+\explain
+This command tells \TeX\ to produce the last page and end the job.
+It does not fill out the page, however, 
+so it's usually better to use |\bye| rather than |\end|.
+\enddesc
+
+%==========================================================================
+\section {Input and output}
+
+%==========================================================================
+\subsection {Operations on input files}
+
+\begindesc
+\bix^^{files}
+\bix^^{input files}
+\easy\cts input {\<filename>}
+\explain
+\minrefs{file}\minrefs{file name}
+This command tells \TeX\ to read its input from file \<filename>.
+When that file is exhausted, \TeX\ returns to reading from its previous
+input source.  You can nest input files to any level you like
+(within reason).
+
+When you're typesetting a large document, it's usually a good idea to
+structure your main file as a sequence of |\input| commands that refer
+to the subsidiary parts of the document.  That way you can process the
+individual parts easily as you're working on drafts.  It's also a good
+practice to put all of your \minref{macro} definitions into a separate file and
+summon that file with an |\input| command as the first action in your
+main file.
+
+\TeX\ uses different rules for scanning file names than it does for scanning
+\minref{token}s in general (see \xref{file name}).
+If your implementation expects file names to have extensions (usually
+indicated by a preceding dot), then \TeX\ provides a default extension
+of |.tex|.
+\example
+\input macros.tex
+\input chap1 % equivalent to chap1.tex
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts endinput {}
+\explain
+This command tells \TeX\ to stop reading input from the current file when it
+next reaches the end of a line.
+\enddesc
+
+\begindesc
+\cts inputlineno {}
+\explain
+This command yields a number (not a string) giving the line number of the
+current line, defined to be the number that would appear in an error message
+if an error occurred at this point.
+\enddesc
+
+\begindesc
+\cts openin {\<number> {\bt =} \<filename>}
+\explain
+This command tells \TeX\ to open the file named \<filename>
+and make it available for reading  via the input stream
+designated by \<number>.
+^^{input streams//opening}
+\<number> must be between $0$ and $15$.
+Once you've opened a file and connected it to an input stream,
+you can read from the file using the |\read| command
+with the input stream's number.  
+
+You can associate more than one input stream with the same
+file.  You can then read from several different positions within
+the file, one for each input stream.
+
+You should allocate stream numbers for |\openin| using
+|\new!-read| (\xref{\@newread}).
+\example
+\newread\auxfile  \openin\auxfile = addenda.aux
+% \auxfile now denotes the number of this opening
+% of addenda.aux.
+|
+\endexample
+\enddesc
+
+\begindesc\secondprinting{\vglue-.5\baselineskip\vskip0pt}
+\cts closein {\<number>}
+\explain
+This command tells \TeX\ to close the \minref{input stream} numbered
+\<number>, i.e.,
+end the association between the input stream and its file.
+The input stream with this number then becomes available for use with a
+different file.
+You should close an input stream once you're finished using its file.
+\example
+\closein\auxfile
+|
+\endexample
+\enddesc
+
+\begindesc\secondprinting{\vglue-.5\baselineskip\vskip0pt}
+\cts read {\<number> {\bt to} \<control sequence>}
+\explain
+^^{input streams//reading with \b\tt\\read\e}
+^^{reading a file}
+This command tells \TeX\ to read a line from the file
+associated with the \minref{input stream}
+designated by \<number> and assign the tokens on that line to
+\<control sequence>.  The \minref{control sequence} then becomes a 
+parameterless \minref{macro}.  No macro expansion takes place
+during the reading operation.  If the line contains any unmatched
+left braces, \TeX\ will read additional lines until the braces are
+all matched.  If \TeX\ reaches the end of the file without matching all the
+braces, it will complain.
+
+If \<number> is greater than $15$ or hasn't been associated with a file
+using ^|\openin|, \TeX\ prompts you with `\<control sequence> |=|'
+on your terminal and waits for you to type a line of input.
+It then assigns the input line to \<control sequence>.
+If \<number> is less than zero, it reads a line of input from your
+terminal but omits the prompt.
+\example
+\read\auxfile to \holder
+% Expanding \holder will produce the line just read.
+|
+\endexample
+\eix^^{input files}
+\enddesc
+
+\secondprinting{\vfill\eject}
+
+
+%==========================================================================
+\subsection {Operations on output files}
+
+\bix^^{output files}
+\begindesc
+\cts openout {\<number> {\bt =} \<filename>}
+\explain
+^^{output streams//opening}
+This command tells \TeX\ to open the file named \<filename>
+and make it available for writing  via the \minref{output stream}
+designated by \<number>.
+\<number> must be between $0$ and $15$.
+Once you've opened a file and connected it to an output stream,
+you can write to the file using the |\write| command
+with the output stream's number.  
+
+An |\openout| generates a whatsit that becomes part of a box.
+The |\openout| does not take effect until \TeX\ ships out that box
+to the \dvifile,
+unless you've preceded the |\openout| with ^|\immediate|.
+
+\TeX\ won't complain if you associate more than one output stream with the
+same file, but you'll get garbage in the file if you try it!
+
+You should allocate stream numbers for |\openout| using
+|\newwrite| (\xref{\@newwrite}).
+\example
+\newwrite\auxfile  \openout\auxfile = addenda.aux
+% \auxfile now denotes the number of this opening
+% of addenda.aux.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts closeout {\<number>}
+\explain
+^^{output streams//closing}
+This command tells \TeX\ to close the \minref{output stream} numbered
+\<number>. i.e.,
+end the association between the output stream and its file.
+The output stream with this number then becomes available for use with a
+different file.
+You should close an output stream once you're finished using its file.
+
+A |\closeout| generates a whatsit that becomes part of a box.
+The |\closeout| does not take effect until \TeX\ ships out that box
+to the \dvifile,
+unless you've preceded the |\closeout| with ^|\immediate|.
+\example
+\closeout\auxfile
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts write {\<number> \rqbraces{\<token list>}}
+\explain
+^^{output streams//writing}
+^^{writing a file}
+This command tells \TeX\ to write \<token list> to the file
+associated with the \minref{output stream}
+designated by \<number>.
+It generates a whatsit that becomes part of a box.
+The actual writing does not take place until \TeX\ ships out that box
+to the \dvifile,
+unless you've preceded the |\write| with ^|\immediate|.
+
+For a |\write| that is not immediate, \TeX\ does not expand macros in
+\<token list> until the token list is actually written to the file.
+The macro expansions follow the same rules as |\edef| (\xref\edef).
+In particular, any control sequence that is not 
+the name of a macro is written as
+^|\escapechar| followed by the control sequence name
+and a space.  Any `|#|' tokens
+in \<token list> are doubled, i.e., written as `|##|'.
+
+If \<number> is not in the range from $0$ to $15$, \TeX\ writes
+\<token list> to the log file.
+^^{log file//written by \b\tt\\write\e}
+If \<number> is greater than $15$ or isn't associated with an output
+stream, \TeX\ also writes \<token list> to the terminal.
+\example
+\def\aa{a a}
+\write\auxfile{\hbox{$x#y$} \aa}
+% Writes the string `\hbox {$x##y$} a a' to \auxfile.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts immediate {}
+\explain
+This command should precede an |\openout|, |\closeout|, or |\write|.
+^^|\write//with {\tt\\immediate}|
+^^|\openout//with {\tt\\immediate}|
+^^|\closeout//with {\tt\\immediate}|
+It tells \TeX\ to perform the specified file operation without delay.
+\example
+\immediate\write 16{I'm stuck!!}
+% has the same effect as \message
+|
+\endexample\enddesc
+
+\begindesc
+\cts special {\rqbraces{\<token list>}}
+\explain
+This command tells \TeX\ to 
+write \<token list> directly to the \dvifile\ when it next
+ships out a page.
+A typical use of |\special| would be to tell the device driver to incorporate
+the contents of a named graphics file into the output page.
+^^{device drivers//instructions from \b\tt\\special\e}
+The |\special| command produces a whatsit that associates
+\<token list> with a particular position on the page, namely,
+the position that a zero-size box would have had if such a box
+had appeared instead of the |\special| command.
+Any use you might make of |\special| depends strictly on
+the ^{device drivers} that you have available.
+\example
+\special{graphic expic} 
+% Display the graphics file `expic' here.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts newlinechar {\param{number}}
+\explain
+This parameter contains a character that indicates a new line on
+output.  When \TeX\ encounters this character
+while reading the argument of
+a |\write|, |\message|, or
+|\errmessage| command, it starts a new line.
+If |\newlinechar| is not in the range $0$--$255$,
+there is no character that indicates
+a new line on output.
+\PlainTeX\ sets |\newlinechar| to $-1$.
+\example
+\newlinechar = `\^^J
+\message{This message appears^^Jon two lines.}
+|
+\logproduces
+This message appears
+on two lines.
+|
+\endexample
+\enddesc
+
+\see |\newread|, |\newwrite| (\xref{\@newwrite}).
+\eix^^{files}
+\eix^^{output files}
+
+%==========================================================================
+\subsection {Interpreting input characters}
+
+\begindesc
+\cts catcode {\<charcode> \tblentry{number}}
+\explain
+^^{category codes//in \b\tt\\catcode\e\ table}
+This table entry contains the \minref{category code} of the character
+whose \ascii\ code is \<charcode>.
+The category codes are listed on \xrefpg{catcodes}.
+By changing the category code of a character you can get \TeX\ to treat
+that character differently.
+\example
+\catcode `\[ = 1 \catcode `\] = 2
+% Make [ and ] act like left and right braces.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts active {}
+\explain
+This command contains the
+category code for an active character, namely, the number $13$.
+\example
+\catcode `\@ = \active % Make @ an active character.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts mathcode {\<charcode> \tblentry{number}}
+\explain
+This table entry contains the \minref{mathcode} of the character
+whose \ascii\ code is \<charcode> \seeconcept{mathcode}.
+The mathcode specifies that character's interpretation in math mode.
+\example
+\mathcode\> = "313E % as in plain TeX
+% The > character has class 3 (relation), family 1 (math 
+% italic), and character code "3E
+|
+\endexample
+\enddesc
+
+\begindesc
+\margin{{\tt\\delcode} was explained in two places.  This explanation
+combines them.  (The other place was in the math section.)}
+\cts delcode {\<charcode>\tblentry{number}}
+\explain
+^^{delimiter codes}
+This table entry specifies the \minref{delimiter} code for the input character
+whose \ascii\ code is \<charcode>.
+The delimiter code tells \TeX\ how to find the best output character to use
+for typesetting the indicated input character as a delimiter.
+
+\<number> is normally written in hexadecimal notation.
+Suppose that \<number> is the hexadecimal number $s_1s_2s_3\,
+l_1l_2l_3$.  Then when the character is used as a delimiter,
+\TeX\ takes the character to have small variant
+$s_1s_2s_3$ and large variant $l_1l_2l_3$.  Here $s_1s_2s_3$ indicates
+the math character found in position $s_2s_3$ of family $s_1$, and
+similarly for $l_1l_2l_3$.  This is the same convention as the one
+used for ^|\mathcode| (\xref \mathcode),
+except that |\mathcode| also specifies a class.
+\example
+\delcode `( = "028300  % As in plain TeX.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts endlinechar {\param{number}}
+\explain
+This parameter
+contains the character code for the  character that
+\TeX\ appends to the end of each input line.
+^^{input lines}
+A value not in the range $0$--$255$
+indicates that no character should be appended.
+\PlainTeX\ leaves |\end!-line!-char| at
+|`\^^M| (the {\ascii} code for \asciichar{return}).
+\enddesc
+
+\begindesc
+\cts ignorespaces {}
+\explain
+This command tells \TeX\ to read and expand tokens until it finds one that
+is not a space \minref{token}, ignoring any space tokens
+that it finds on the way.
+|\ignorespaces| is often useful at the end of a \minref{macro} as a way
+of making the macro insensitive to any spaces or ends of line
+that might follow calls on it.
+(An empty line after |\ignorespaces| still produces a |\par| token,
+however.)
+\example
+\def\aa#1{yes #1\ignorespaces}
+\aa{may}
+be
+|
+\produces
+\def\aa#1{yes #1\ignorespaces}
+\aa{may}
+be
+\endexample
+\enddesc
+
+%==========================================================================
+\section {Controlling interaction with \TeX}
+
+\begindesc
+\bix^^{controlling \TeX}
+\bix^^{running \TeX}
+\cts errorstopmode {}
+\explain
+This command tells \TeX\
+to stop for interaction whenever it finds an error.
+This is the normal mode of operation.
+\enddesc
+
+\begindesc
+\cts scrollmode {}
+\explain
+This command tells \TeX\
+not to stop for most errors,
+but to continue displaying the error messages on your terminal.
+Typing `|S|' or `|s|' in response to an error message puts you
+into scroll mode.
+\enddesc
+
+\begindesc
+\cts nonstopmode {}
+\explain
+This command tells \TeX\
+not to stop for errors, even those pertaining to files that
+it can't find, but to continue displaying the error messages on your terminal.
+Typing `|R|' or `|r|' in response to an error message puts you
+into nonstop mode.
+\enddesc
+
+\begindesc
+\cts batchmode {}
+\explain
+This command tells \TeX\
+not to stop for errors and to suppress all further output to your terminal.
+Typing `|Q|' or `|q|' in response to an error message puts you
+into batch mode.
+\enddesc
+
+\begindesc
+\cts pausing {\param{number}}
+\explain
+If this parameter is greater than zero, \TeX\ will pause
+at each line of input to give you an opportunity to 
+replace it with a different line.  If you type in a replacement,
+\TeX\ will use that line instead of the original one; if you respond
+with \asciichar{return}, \TeX\ will use the original line.
+
+Setting |\pausing| to $1$ can be useful as a way of patching a document as 
+\TeX\ is processing it.  For example,
+you can use this facility to insert ^|\show| commands (see below).
+\eix^^{running \TeX}
+\eix^^{controlling \TeX}
+\enddesc
+
+%==========================================================================
+\section {Diagnostic aids}
+
+\subsection{Displaying internal data}
+
+\begindesc
+\bix^^{tracing}
+\bix^^{debugging}
+\bix^^{diagnostic aids}
+\cts show {\<token>}
+\cts showthe {\<argument>}
+\cts showbox {\<number>}
+\cts showlists {}
+\explain
+These commands record information in the log of your \TeX\ run:
+\ulist
+\li |\show| records the meaning of \<token>.\minrefs{token}
+^^{tokens//displayed by \b\tt\\show\e}
+\li |\showthe| records 
+ whatever tokens would be produced by 
+|\the| \<arg\-u\-ment> (see \xref \the).
+\li |\showbox| records the contents of the \minref{box} 
+\minref{register} numbered \<num\-ber>.
+The number of
+leading dots in the log indicates the number of
+levels of nesting of inner boxes.
+\li |\showlists| records
+the contents of each list that \TeX\ is currently constructing.
+(These lists are nested one within another.)
+See \knuth{pages~88--89} for further information about interpreting
+the output of |\showlists|.
+\endulist
+For |\show| and |\showthe|, \TeX\ also displays the information at your
+^{terminal}.
+For |\showbox| and |\showlists|, \TeX\ displays the information at your
+terminal only
+if ^|\tracingonline| (\xref \tracingonline) is greater than zero;
+if ^|\tracingonline| is zero or less (the default case),
+the information is not displayed.
+
+Whenever \TeX\ encounters a |\show|-type command it
+stops for interaction.  The request for interaction does \emph{not}
+indicate an error, but it does give you an opportunity to ask \TeX\ to
+show you something else.  If you don't want to see anything else, just
+press \asciichar{return}.
+
+You can control the amount of output produced by |\showbox| by setting
+|\show!-box!-breadth| and |\show!-box!-depth| (\xref\showboxbreadth).
+^^|\showboxbreadth| ^^|\showboxdepth|
+These parameters respectively have default values of $5$ 
+and $3$, which is why
+just five items appear for each box described
+in the log output below.  (The `|..etc.|' indicates additional items
+within the boxes that aren't displayed.)
+\example
+\show a
+\show \hbox
+\show \medskip
+\show &
+|
+\logproduces
+> the letter a.
+> \hbox=\hbox.
+> \medskip=macro:
+->\vskip \medskipamount .
+> alignment tab character &.
+|
+\nextexample
+\showthe\medskipamount
+\toks27={\hbox{Joe's\quad\ Diner}}
+\showthe\toks27
+|
+\logproduces
+> 6.0pt plus 2.0pt minus 2.0pt.
+> \hbox {Joe's\quad \ Diner}.
+|
+\nextexample
+\setbox 3=\vbox{\hbox{A red dog.}\hrule A black cat.}
+\showbox 3
+|
+\logproduces
+> \box3=
+\vbox(16.23332+0.0)x53.05565
+.\hbox(6.94444+1.94444)x46.41675
+..\tenrm A
+..\glue 3.33333 plus 1.66498 minus 1.11221
+..\tenrm r
+..\tenrm e
+..\tenrm d
+..etc.
+.\rule(0.4+0.0)x*
+.\hbox(6.94444+0.0)x53.05565
+..\tenrm A
+..\glue 3.33333 plus 1.66498 minus 1.11221
+..\tenrm b
+..\tenrm l
+..\tenrm a
+..etc.
+|
+\endexample
+\vfil\eject
+\example
+\vbox{A \hbox
+   {formula 
+       $x \over y\showlists$}}
+|
+\logproduces
+### math mode entered at line 3
+\mathord
+.\fam1 y
+this will be denominator of:
+\fraction, thickness = default
+\\mathord
+\.\fam1 x
+### restricted horizontal mode entered at line 2
+\tenrm f
+\tenrm o
+\tenrm r
+\tenrm m
+\kern-0.27779
+\tenrm u
+\tenrm l
+\tenrm a
+\glue 3.33333 plus 1.66666 minus 1.11111
+spacefactor 1000
+### horizontal mode entered at line 1
+\hbox(0.0+0.0)x20.0
+\tenrm A
+\glue 3.33333 plus 1.66498 minus 1.11221
+spacefactor 999
+### internal vertical mode entered at line 1
+prevdepth ignored
+### vertical mode entered at line 0
+prevdepth ignored
+|
+\endexample
+\enddesc
+
+\see |\showboxbreadth|, |\showboxdepth| \ctsref\showboxbreadth.
+
+\subsection{Specifying what is traced}
+
+\begindesc
+\cts tracingonline {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will display the results of tracing 
+(including ^|\showbox| and ^|\showlists|)
+at your terminal in addition to recording them in the log file.
+\enddesc
+
+\begindesc
+\cts tracingcommands {\param{number}}
+\explain
+If this parameter is $1$ or greater,
+\TeX\ will record in the log file most commands that it executes.
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+Typesetting the first character of a word counts as a command,
+but (for the purposes of the trace only) 
+the actions of typesetting the subsequent characters
+and any punctuation following them
+do not count as commands.
+If |\tracingcommands| is $2$ or greater,
+\TeX\ will also record commands that are expanded
+rather than executed, e.g., conditional tests and their outcomes.
+\example
+\tracingcommands = 1 If $x+y>0$ we quit.\par
+On the other hand, \tracingcommands = 0
+|
+\logproduces
+{vertical mode: the letter I}
+{horizontal mode: the letter I}
+{blank space  }
+{math shift character $}
+{math mode: the letter x}
+{the character +}
+{the letter y}
+{the character >}
+{the character 0}
+{math shift character $}
+{horizontal mode: blank space  }
+{the letter w}
+{blank space  }
+{the letter q}
+{blank space  }
+{\par}
+{vertical mode: the letter O}
+{horizontal mode: the letter O}
+{blank space  }
+{the letter t}
+{blank space  }
+{the letter o}
+{blank space  }
+{the letter h}
+{blank space  }
+{\tracingcommands}
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts tracinglostchars {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will record an indication in the log file of each time
+that it drops an output character because that character does not exist
+in the current font.
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+\PlainTeX\ defaults it to $1$ (unlike the others).
+\example
+\tracinglostchars = 1
+A {\nullfont few} characters.
+|
+\logproduces
+Missing character: There is no f in font nullfont!!
+Missing character: There is no e in font nullfont!!
+Missing character: There is no w in font nullfont!!
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts tracingmacros {\param{number}}
+\explain
+If this parameter is $1$ or greater,
+\TeX\ will record in the log file the expansion and arguments
+of every macro that it executes.
+^^{macros//tracing}
+If |\tracingmacros| is $2$ or greater,
+\TeX\ will record, in addition,
+every expansion of a \minref{token} list such as
+|\output| or |\everycr|.
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+\example
+\def\a{first \b, then \c}
+\def\b{b} \def\c{c}
+\tracingmacros = 2
+Call \a once.
+|
+\logproduces
+\a ->first \b , then \c 
+
+\b ->b
+
+\c ->c
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts tracingoutput {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will record in the log file the contents of every box that
+it sends to the \dvifile.
+^^{\dvifile//boxes recorded in log file}
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+The number of leading dots in each line of the trace output indicates
+the nesting level of the box at that line.
+You can control the amount of tracing by setting
+^|\showboxbreadth| and ^|\showboxdepth| (\xref\showboxbreadth).
+
+Setting |\tracingoutput| to $1$ can be particularly helpful when you're trying
+to determine why you've gotten ^{extra space} on a page.
+
+\example
+% This is the entire file.
+\tracingoutput = 1 \nopagenumbers
+One-line page. \bye
+|
+\logproduces
+Completed box being shipped out [1]
+\vbox(667.20255+0.0)x469.75499
+.\vbox(0.0+0.0)x469.75499, glue set 13.99998fil
+..\glue -22.5
+..\hbox(8.5+0.0)x469.75499, glue set 469.75499fil
+...\vbox(8.5+0.0)x0.0
+...\glue 0.0 plus 1.0fil
+..\glue 0.0 plus 1.0fil minus 1.0fil
+.\vbox(643.20255+0.0)x469.75499, glue set 631.2581fill
+..\glue(\topskip) 3.05556
+..\hbox(6.94444+1.94444)x469.75499, glue set 386.9771fil
+...\hbox(0.0+0.0)x20.0
+...\tenrm O
+...\tenrm n
+...\tenrm e
+...\tenrm -
+...etc.
+..\glue 0.0 plus 1.0fil
+..\glue 0.0 plus 1.0fill
+.\glue(\baselineskip) 24.0
+.\hbox(0.0+0.0)x469.75499, glue set 469.75499fil
+..\glue 0.0 plus 1.0fil
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts tracingpages {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will record in the log file its calculations of the cost of
+various page breaks that it tries.
+^^{page breaks//tracing}
+If |\tracing!-online| ^^|\tracingonline|
+is greater than zero, this information will also appear
+at your terminal.
+\TeX\ produces a line of this output
+whenever it first places a box or \minref{insertion}
+on the current page list, and also whenever it processes a potential
+break point for the page.
+Examining this output can be helpful when you're trying to determine
+the cause of a bad page break.
+See \knuth{pages~112--114} for an illustration and explanation of
+this output.
+
+Some production forms of \TeX\ ignore the value of |\tracingpages|
+so that they can run faster.
+If you need to use this parameter, be sure to use a form that
+responds to it.
+\enddesc
+
+\begindesc
+\cts tracingparagraphs {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will record in the log file its calculations of the cost of
+various line breaks that it tries.
+^^{line breaking//tracing}
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+\TeX\  produces this output when it reaches the end of each paragraph.
+See \knuth{pages~98--99} for an illustration and explanation of
+this output.
+
+Some production forms of \TeX\ ignore the value of |\tracing!-para!-graphs|
+so that they can run faster.
+If you need to use this parameter, be sure to use a form that
+responds to it.
+\enddesc
+
+\begindesc
+\cts tracingrestores {\param{number}}
+\explain
+If this parameter is greater than zero,
+\TeX\ will record in the log file
+the values that it restores when it encounters the end of a \minref{group}.
+If ^|\tracingonline| is greater than zero, this information will also appear
+at your terminal.
+
+Some production forms of \TeX\ ignore the value of |\tracing!-restores|
+so that they can run faster.
+If you need to use this parameter, be sure to use a form that
+responds to it.
+\enddesc
+
+\begindesc
+\cts tracingstats {\param{number}}
+\explain
+If this parameter is $1$ or greater, \TeX\ will
+include a report on the resources that it used to run your job
+(see \knuth{page~300} for a list and explanation of these resources).
+Moreover, if |\tracingstats| is $2$ or greater,
+\TeX\ will report on its memory usage whenever it does a
+^|\shipout| (\xref \shipout) for a page.
+The report appears at the end of the log file. 
+^^{log file//tracing statistics in}
+If ^|\tracingonline| is greater than zero, the information will also appear
+at your terminal.
+If you're having trouble with \TeX\ exceeding one of its
+capacities, the information provided by |\tracingstats| may help you
+pinpoint the cause of the difficulty.
+
+Some production forms of \TeX\ ignore the value of |\tracingstats|
+so that they can run faster.
+If you need to use this parameter, be sure to use a form that
+responds to it.
+
+The following example shows a sample of
+the tracing output you'd get on one implementation
+of \TeX.  It may be different on other implementations.
+{\codefuzz = 1in
+\example
+\tracingstats=1
+|
+\logproduces
+Here is how much of TeX's memory you used:
+ 4 strings out of 5540
+ 60 string characters out of 72328
+ 5956 words of memory out of 262141
+ 921 multiletter control sequences out of 9500
+ 14794 words of font info for 50 fonts, out of 72000 for 255
+ 14 hyphenation exceptions out of 607
+ 7i,4n,1p,68b,22s stack positions out of 300i,40n,60p,3000b,4000s
+|
+\endexample
+}% end scope of codefuzz
+\enddesc
+
+\begindesc
+\cts tracingall {}
+\explain
+This command tells \TeX\ to
+turn on every available form of tracing.
+It also sets ^|\tracingonline| to $1$ so that the trace output will appear
+at your terminal.
+\enddesc
+
+\begindesc
+\cts showboxbreadth {\param{number}}
+\explain
+This parameter specifies the maximum number of list items
+that \TeX\ displays for one level of one box when it is producing
+the output for ^|\showbox| or ^|\tracingoutput|.
+\PlainTeX\ sets |\showboxbreadth| to $5$.
+\enddesc
+
+\begindesc
+\cts showboxdepth {\param{number}}
+\explain
+This parameter specifies the
+level of the deepest list that \TeX\ displays when
+it is producing the output for ^|\showbox| or ^|\showlists|.
+\PlainTeX\ sets |\showboxdepth| is $3$.
+\eix^^{tracing}
+\eix^^{debugging}
+\eix^^{diagnostic aids}
+\enddesc
+
+%==========================================================================
+\subsection {Sending messages}
+
+\begindesc
+\bix^^{messages, sending}
+\bix^^{error messages}
+\cts message {\rqbraces{\<token list>}}
+\cts errmessage {\rqbraces{\<token list>}}
+\explain
+These commands display the message given by \<token list> on your
+terminal and also enter it into the log.  Any \minref{macro}s in the
+message are expanded, but no commands are executed.  This is the same rule
+that \TeX\ uses for |\edef| (\xref \edef).
+
+For |\errmessage|, \TeX\ pauses 
+in the same way that it does for one of its own error messages
+and displays the |\errhelp| tokens if you ask for help.
+
+You can generate multiline messages by using the ^|\newlinechar|
+character (\xref \newlinechar).
+\example
+\message{Starting a new section.}
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts wlog {\rqbraces{\<token list>}}
+\explain
+This command writes \<token list> on the log file.
+^^{log file//written by \b\tt\\wlog\e}
+\minrefs{log file}
+\TeX\ expands \<token list> according to the same rules that it uses
+for |\edef| (\xref\edef).
+\example
+\wlog{Take two aspirins and call me in the morning.}
+|
+\logproduces
+Take two aspirins and call me in the morning.
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts errhelp {\param{token list}}
+\explain
+This parameter contains the token list that \TeX\ displays
+when you ask for help in response to an |\errmessage| command.
+We recommend that when
+you're generating an error message with |\errmessage|, you
+set |\errhelp| to a string that describes the nature of the
+error and use |\newhelp| to produce that string.
+You can use the ^|\newlinechar| character to produce multiline messages.
+\enddesc
+
+\begindesc
+\ctspecial newhelp \ctsxrdef{@newhelp} {\<control sequence>
+   \rqbraces{\<help text>}}
+\explain
+This command assigns the ^{help message} given by \<help text> to 
+\<control sequence>.  It provides an efficient way of defining
+the ^{help text} that further explains an error message.
+Before issuing the error message with the |\errmessage| command,
+you should assign \<control sequence> to ^|\errhelp|.  The help text
+will then appear if the user types `|H|' 
+or `|h|' in response to the error message.
+\example
+\newhelp\pain{Your input includes a token that I find^^J
+   to be offensive. Don't bother me again with this^^J
+   document until you've removed it.}
+\errhelp = \pain \newlinechar = `\^^J
+% ^^J will start a new line
+\errmessage{I do not appreciate receiving this token}
+|
+\logproduces
+!! I do not appreciate receiving this token.
+l.8 ...t appreciate receiving this token.}
+                                          
+? H
+\Your input includes a token that I find
+ to be offensive. Don't bother me again with this
+ document until you've removed it. 
+|
+\endexample
+\enddesc
+
+\begindesc
+\cts errorcontextlines {\param{number}}
+\explain
+This parameter determines the number of pairs of context lines,
+not counting the top and bottom pairs, that \TeX\ prints when it
+encounters an error.  By setting it to $0$ you can get rid of long
+error messages.  
+You can still force out the full context by typing something like:
+\csdisplay
+I\errorcontextlines=100\oops
+|
+in response to an error,
+since the undefined control sequence |\oops| will cause another error.
+\PlainTeX\ sets |\error!-context!-lines| to $5$.
+\enddesc
+
+\see |\write| (\xref \write), |\escapechar| (\xref \escapechar).
+\eix^^{messages, sending}
+\eix^^{error messages}
+
+%==========================================================================
+\section {初始化 \TeX}
+
+\begindesc
+\cts dump {}
+\explain
+這個命令不能使用在組中, 它可以把 \TeX\ 記錄的內容導出成一個^{格式文件}
+(\xref{format file}).
+如果使用的是^|virtex| (這是一種 \TeX\ 形式\footnote{譯者注, |virtex| 和 |initex| 在現代的 \TeX\ 系統中不再被使用. 在遠古時代, 人們必需使用 |initex| 命令來導出格式文件, 用 |virtex| 命令載入格式文件, 而 |tex| 程序不能導出或載入格式文件. 而在現代的發行版中, |tex| 命令可以處理這一切}, 
+你可以使用很快的速度載入這個格式文件, 
+載入後的 \TeX\ 狀態和你當初導出格式文件時的狀態並無二致.
+|\dump| 命令會同時結束本次運行.
+由於 |\dump| 只能在 ^|initex| 中運行, 
+而不是生產版本的 \TeX, 所以它僅僅在你安裝 \TeX\ 時會用到.
+\enddesc
+
+\begindesc
+\cts everyjob {\param{token list}}
+\explain
+This parameter contains a \minref{token} list that \TeX\ expands at the
+start of every job.  Because an assignment to |\everyjob| cannot affect
+the current run (by the time you've done the assignment it's already too
+late), it is only useful to people who are preparing format files.
+\enddesc
+
+
+\enddescriptions \endchapter \byebye
