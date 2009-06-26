@@ -2,7 +2,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexart}
-  [2009/05/20 v0.91 ctexart
+  [2009/06/26 v0.92 ctexart
    document class]
 
 \def\CTEX@classtoload{article}
