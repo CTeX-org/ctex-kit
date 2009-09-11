@@ -2,12 +2,12 @@
 
 makefile-help:
 	@echo Usage:
-	@echo '  make [TOOLCHAINS=xelatx,pdflatex,dvipdfmx] [SYNCTEX=0] doc-without-suffix...'
+	@echo '  make [TOOLCHAINS=xelatx,pdflatex,dvipdfmx,dvips] [SYNCTEX=0] doc-without-suffix...'
 	@echo
 	@echo xelatex is the default toolchain.
 
 
-AVAILABLE_TOOLCHAINS := xelatex pdflatex dvipdfmx
+AVAILABLE_TOOLCHAINS := xelatex pdflatex dvipdfmx dvips
 SYNCTEX := 1
 
 define xelatex
@@ -27,6 +27,14 @@ define dvipdfmx
 	latex -jobname=$$(basename $$@) -synctex=$(SYNCTEX) $$<
 	latex -jobname=$$(basename $$@) -synctex=$(SYNCTEX) $$<
 	dvipdfmx $$(@:.pdf=.dvi)
+endef
+
+define dvips
+%$1.pdf : %.tex
+	latex -jobname=$$(basename $$@) -synctex=$(SYNCTEX) $$<
+	latex -jobname=$$(basename $$@) -synctex=$(SYNCTEX) $$<
+	dvips $$(@:.pdf=.dvi)
+	ps2pdf $$(@:.pdf=.ps)
 endef
 
 
@@ -57,8 +65,8 @@ endif
 endif
 
 clean:
-	rm -f *.log *.aux *.toc *.out *.dvi *.xdv
+	rm -f *.log *.aux *.toc *.out *.dvi *.xdv *.synctex.gz
 
 distclean: clean
-	rm -f *.pdf
+	rm -f *.pdf *.ps
 
