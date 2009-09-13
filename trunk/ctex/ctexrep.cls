@@ -2,7 +2,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexrep}
-  [2009/07/10 v0.93 ctexrep
+  [2009/09/13 v0.94 ctexrep
    document class]
 
 \def\CTEX@classtoload{report}

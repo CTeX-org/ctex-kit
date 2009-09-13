@@ -26,8 +26,8 @@ def update_version(file, date, version):
     f.close()
 
 if len(sys.argv) != 3:
-    print(sys.argv[0], "<date> <version>")
-    print("like:", sys.argv[0], "2009/05/20 v0.91")
+    print("%s %s" % (sys.argv[0], "<date> <version>"))
+    print("like: %s %s" % (sys.argv[0], "2009/05/20 v0.91"))
     sys.exit(1)
 
 file_list = [ "../ctex.sty", "../ctexcap.sty", "../ctexart.cls", "../ctexbook.cls", "../ctexrep.cls",
