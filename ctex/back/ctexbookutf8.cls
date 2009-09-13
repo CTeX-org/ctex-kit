@@ -2,7 +2,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexbookutf8}
-  [2009/07/10 v0.93 ctexbookutf8
+  [2009/09/13 v0.94 ctexbookutf8
    document class]
 
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{ctexbook}}
