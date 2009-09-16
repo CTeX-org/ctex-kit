@@ -1,3 +1,8 @@
+update:
+2009-09-16  ConTeXt Minimals 升级到最新版本
+            t-simplefonts 升级到最新版本 1612d942f218, 2009-09-15
+            test.tex 里字体属性按照新的 t-simplefonts 要求加上 font 后缀。
+============================
 from http://bitbucket.org/wolfs/simplefonts/ at rev e93f68af160e
 
 
