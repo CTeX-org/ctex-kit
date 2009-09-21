@@ -1,0 +1,267 @@
+% $Id: gbk2uni.tex,v 1.2 2004/11/26 11:41:33 zlb Exp $
+\documentclass{article}
+%\documentclass[CJK]{cctbook}
+
+\usepackage{indentfirst}
+%-------------------
+%\usepackage{ifpdf}
+\newif\ifpdf \pdftrue
+\ifx\pdfoutput\undefined \pdffalse \fi
+\ifx\pdfoutput\relax \pdffalse \fi
+%-------------------
+\usepackage{CJK,CJKnumb}
+\usepackage{color}
+
+\usepackage[left=2.5cm,right=2.5cm,top=3cm,bottom=3cm]{geometry}
+
+\ifpdf
+\usepackage[unicode,colorlinks,bookmarksnumbered=true,bookmarksopen=true,urlcolor=red,CJKbookmarks=true]{hyperref}
+\else
+\usepackage[dvipdfm,unicode,colorlinks,bookmarksnumbered=true,bookmarksopen=true,urlcolor=red,CJKbookmarks=true]{hyperref}
+%\AtBeginDvi{\special{pdf:tounicode GBK-EUC-UCS2}}
+\fi
+\usepackage{hypbmsec}
+
+\begin{document}
+
+\begin{CJK}{GBK}{song}
+
+\makeatletter
+\renewcommand\thesection{\S\@arabic\c@section}
+\makeatother
+
+\newlength \CJKtwospaces
+\renewcommand\CJKindent{%
+\settowidth\CJKtwospaces{\CJKchar{"0A1}{"0A1}\CJKchar{"0A1}{"0A1}}%
+\parindent\CJKtwospaces}
+\CJKindent
+
+\title{使用\textsf{gbk2uni}为pdf书签增加GBK汉字支持%
+\thanks{该文档使用\texttt{ctex -pdflatex test}编译。%
+使用\texttt{ctex -no-cctspace -pdflatex test}编译将压缩英文和中文之间的空格。}}
+\author{\CJKfamily{kai}李树钧(Shujun Li)\\%
+\href{mailto:hooklee@hooklee.com}{hooklee@hooklee.com}}
+\date{Version: 0.22 build in 26 March 2003}
+
+\maketitle
+
+\renewcommand\abstractname{\CJKfamily{hei}摘要\CJKfamily{song}}
+\begin{abstract}
+\noindent\texttt{cxterm}编写（经张林波教授修改）的\textsf{gbk2uni}工具用于%
+为\textsf{hyperref}增加GBK中文支持，%
+但是原来的\textsf{gbk2uni}不支持\textsf{hyperref}的\textsf{unicode}模式，%
+而且对非\textsf{unicode}模式的支持也存在缺陷，%
+故本人对\textsf{gbk2uni}做了改进，加入如下功能：
+\begin{itemize}
+\item
+自动探测\textsf{unicode}模式，并同时支持这两种模式的out文件转换；%
+\item 支持unicode特殊字符和GBK字符的同时显示；%
+\item
+支持\textsf{CJK}宏包提供的\verb|\CJKchar{"0xx}{"0xx}|命令，并修补了\textsf{pdf(la)tex}对该命令的自动过滤；%
+\item 改进了对\textsf{cctconv}处理后的tex文档的支持。%
+\item 增强了对.out文件中的``^^xx^^yy"形式的字符解析。%
+\end{itemize}
+本文是改进版本的\textsf{gbk2uni}工具的一个简要说明和演示。%
+关于该工具的更多实现细节，请参考随\textsf{CCT}新版一起发布的源代码\texttt{gbk2uni.c}。%
+访问\href{http://www.ctex.org}{CTeX}或\href{http://www.chinatex.org}{ChinaTeX}获取\textsf{gbk2uni}的最新信息。
+\end{abstract}
+
+\section{\textsf{gbk2uni}的使用方法}
+
+\textsf{gbk2uni}是一个命令行程序，用于将.out文件中的GBK汉字和特殊符号转换为正确的unicode编码，%
+以得到pdf文件中正确的GBK中文书签。该工具随张林波老师的\textsf{CCT}一同发布，部分功能需要\textsf{cctconv}工具配合，%
+但是可以该工具可以脱离\textsf{CCT}环境与\textsf{CJK}中文宏包一起使用。%
+该工具的使用方法可以在命令行敲入\texttt{gbk2uni}得到：%
+\color{blue}
+\begin{verbatim}
+Usage : gbk2uni [options] filename[.out] [options] Options:
+        -u(-l)   lock .out file to avoid overwritten in the next (pdf)latex run
+                 (.out file will be unlocked if no '-u' and '-l' options)
+        -unlock  unlock .out file without parsing .out file
+        -s       run gbk2uni silently (but errors remain)
+        -cjk     parse \CJKchar{"0xx}{"0xx} command (default)
+        -nocjk   disable parsing \CJKchar{"0xx}{"0xx} command
+        -npe     disable display of all parsing errors
+\end{verbatim}
+\color{black}
+
+用张林波教授随\textsf{CCT}提供的\textsf{ctex}编译时，执行流程很简单：\texttt{ctex
+-dvipdfmx foo}或者\texttt{ctex -pdflatex
+foo}。如果运行一次得不到正确的书签，请再运行一次\texttt{pdflatex
+foo}或者\texttt{ctex -pdflatex foo}。%
+由于\textsf{dvipdfmx}对\textsf{hyperref}宏包的\textsf{bookmarksopen=true}似乎不支持，%
+推荐使用后一种方法得到pdf文件，除非您想在得到的pdf文件中支持GBK中文搜索和拷贝功能。
+
+当然，您也可以直接使用\textsf{latex/pdflatex}编译得到pdf文件。用\textsf{latex}编译时，执行流程如下：
+\begin{center}\verb|latex foo => gbk2uni foo => latex foo => dvipdfmx foo|\end{center}
+为得到书签，您需要为\textsf{hyperref}宏包声明\textsf{dvipdfm}任选项。%
+用\textsf{pdflatex}编译时，执行流程如下：
+\begin{center}\verb|pdflatex foo => gbk2uni foo => pdflatex foo|\end{center}
+为得到书签，您需要为\textsf{hyperref}宏包声明\textsf{pdftex}任选项。
+
+\section{\textsf{gbk2uni}的部分演示}
+
+\subsection{在pdf书签中同时使用unicode特殊符号与GBK汉字}
+
+本节演示在pdf书签中同时使用unicode特殊符号与GBK汉字。%
+一般来说，大部分unicode特殊符号均可和GBK汉字一起显示在书签中，%
+但是发现部分unicode特殊字符与GBK汉字似有冲突，%
+当out文件中的内容完全正确时，GBK汉字和某些特殊字符不能一同显示，%
+不能显示的字符（或汉字）在pdf书签中一律显示为``."，下面三个小节我们来演示一下这种问题。%
+目前尚不知道如何解决这个问题，或许这是\textsf{acobat}对unicode书签支持上的一个bug。
+
+%如果要在非unicode模式下编译，请去掉\textalpha和\textbeta的定义（这两个命令在非unicode下无定义）
+\subsubsection([\textalpha\textbeta]\{原始社会\}{(来去)}){[$\alpha,\beta$]\{原始社会\}(来去)}
+
+[$\alpha,\beta$]\{原始社会\}(来去)
+
+\subsubsection([\'\textalpha\textbeta]\{原始社会\}{(来去)}){[$\acute{\alpha},\beta$]\{原始社会\}(来去)}
+
+[$\acute{\alpha},\beta$]\{原始社会\}(来去)
+
+\subsubsection([\'\textalpha\textbeta]\{Society\}{(Come\&Go)}){[$\acute{\alpha},\beta$]\{Society\}(Come\&Go)}
+
+[$\acute{\alpha},\beta$]\{Society\}(Come\&Go)
+
+\subsubsection(\{原始社会\}[\textalpha\textbeta]{(来去)}){\{原始社会\}[$\alpha,\beta$](来去)}
+
+\{原始社会\}[$\alpha,\beta$](来去)
+
+\subsubsection(\{原始社会\}[\'\textalpha\textbeta]{(来去)}){\{原始社会\}[$\acute{\alpha},\beta$](来去)}
+
+\{原始社会\}[$\acute{\alpha},\beta$](来去)
+
+\subsubsection(\{Society\}[\'\textalpha\textbeta]{(Come\&Go)}){\{Society\}[$\acute{\alpha},\beta$](Come\&Go)}
+
+\{Society\}[$\acute{\alpha},\beta$](Come\&Go)
+
+\subsubsection(\{原始社会\}{(来去)}[\textalpha\textbeta]){\{原始社会\}(来去)[$\alpha,\beta$]}
+
+\{原始社会\}(来去)[$\alpha,\beta$]
+
+\subsubsection(\{原始社会\}{(来去)}[\'\textalpha\textbeta]){\{原始社会\}(来去)[$\acute{\alpha},\beta$]}
+
+\{原始社会\}(来去)[$\acute{\alpha},\beta$]
+
+\subsubsection(\{Society\}{(Come\&Go)}[\'\textalpha\textbeta]){\{Society\}(Come\&Go)[$\acute{\alpha},\beta$]}
+
+\{Society\}(Come\&Go)[$\acute{\alpha},\beta$]
+
+\subsection{使用\textbackslash{}CJKchar命令}%\verb|\CJKchar{"0xx}{"0xx}|
+
+本节演示\textsf{gbk2uni}对\verb|\CJKchar{"0xx}{"0xx}|命令的支持。%
+出于技术上的考虑，\textsf{gbk2uni}要求\verb|\CJKchar|命令的两个参数必须以三位十六进制数的形式给出。
+
+\subsubsection{\CJKchar{"081}{"040}}
+
+\verb|\CJKchar{"081}{"040}|: \CJKchar{"081}{"040}
+
+\subsection(低位字节为\TeX\ 特殊字符\{\}\textasciicircum\textbackslash\_\textasciitilde\ 和0x80的GBK汉字的问题)%
+{低位字节为\TeX\
+特殊字符``\texttt{\{\}\textbackslash\textasciicircum\_\~}"
+和\texttt{0x80}的GBK汉字的问题}
+
+当GBK汉字的低位字节为\TeX\ 特殊字符``\texttt{\{\}\textbackslash\textasciicircum\_\~}"时，直接编译tex文档会出现错误，%
+当GBK汉字的低位字节为\texttt{0x80}且\textsf{hyperref}使用了\textsf{unicode}任选项，%
+\textsf{pdf(la)tex}会出错。
+为解决上述问题，请使用随\textsf{CCT}发布的\textsf{cctconv}解决此问题，%
+\textsf{cctconv}将这样的汉字转换为\textsf{CJK}代码\verb|^^7f|的形式以克服这个问题，%
+对这样的文档，您需要按照如下流程进行编译。%
+\begin{center}\verb|cctconv foo foo2 => pdflatex foo2 => gbk2uni foo2|
+\verb|=> pdflatex foo2 => rename foo2.pdf foo.pdf|\end{center}
+为了避免手工运行的麻烦，我们强烈推荐您使用张林波老师随\textsf{CCT}提供的集成编译外壳程序\textsf{ctex}，%
+使用它我们只需运行一次或两次\texttt{ctex [-no-cctspace] -pdflatex
+foo}即可得到最终结果。
+
+本节和下面的小节演示\textsf{cctconv}与\textsf{gbk2uni}协作生成低位字节为\TeX\
+特殊字符的GBK中文书签。
+
+\subsection{亐亖亗亙亜亝亞亣亪亯亰亱亴亷亸}
+
+\textcolor{red}{亐(\texttt{0x8180})}亖亗亙亜亝亞亣亪亯亰亱亴亷亸
+
+\subsection{皜皝皞皟皠皡皢皣皥皦皧皨皩皪皫皬}
+
+\textcolor{red}{皜(\texttt{0xB080})}皝皞皟皠皡皢皣皥皦皧皨皩皪皫皬
+
+\subsubsection{丳丵丷丼乀乁乂乄乆乊乑乕乗乚乛乢}
+
+丳丵丷丼乀乁乂乄乆乊乑乕\textcolor{red}{乗乚}乛\textcolor{red}{乢}
+
+\subsubsection{乸乹乺乻乼乽乿亀亁亂亃亄亅亇亊}
+
+乸乹乺乻乼乽乿亀亁亂亃\textcolor{red}{亄亅}亇\textcolor{red}{亊}
+
+\subsubsection{坧坬坮坰坱坲坴坵坸坹坺垀坽坾坿}
+
+坧坬坮坰坱坲坴坵坸坹坺\textcolor{red}{垀坽}坾\textcolor{red}{坿}
+
+\subsubsection{癙癚癛癝癟癠癡癢癤癥癦癧癨癩癪癬}
+
+癙癚癛癝癟癠癡癢癤癥癦癧\textcolor{red}{癨癩}癪\textcolor{red}{癬}
+
+\subsubsection{皃皅皉皊皌皍皏皐皒皔皕皗皘皚皛薄}
+
+皃皅皉皊皌皍皏皐皒皔皕皗\textcolor{red}{皘皚}皛\textcolor{red}{薄}
+
+\subsection{更多的GBK汉字测试}
+
+本节直到本文的最后演示更多GBK汉字，以考察\textsf{gbk2uni}的稳定性。
+
+\subsubsection{丂汉丄丅丆字丏丒丗丟丠両丣並丩丮丯丱}
+
+丂汉丄丅丆字丏丒丗丟丠両丣並丩丮丯丱
+
+\subsubsection{乣乤乥乧乨乪乫乬乭乮乯乲乴乵乶乷}
+
+乣乤乥乧乨乪乫乬乭乮乯乲乴乵乶乷
+
+\subsubsection{亹亼亽亾仈仌仏仐仒仚仛仜仠仢仦仧}
+
+亹亼亽亾仈仌仏仐仒仚仛仜仠仢仦仧
+
+\subsubsection{仩仭仮仯仱仴仸仹仺仼仾伀伂伃伄伅}
+
+仩仭仮仯仱仴仸仹仺仼仾伀伂伃伄伅
+
+\subsubsection{伆伇伈伋伌伒伓伔伕伖伜伝伡伣伨伩}
+
+伆伇伈伋伌伒伓伔伕伖伜伝伡伣伨伩
+
+\subsubsection{伬伭伮伱伳伵伷伹伻伾伿佀佁佂佄佅}
+
+伬伭伮伱伳伵伷伹伻伾伿佀佁佂佄佅
+
+\subsubsection{佇佈佉佊佋佌佒佔佖佡佢佦佨佪佫佭}
+
+佇佈佉佊佋佌佒佔佖佡佢佦佨佪佫佭
+
+\subsubsection{佮佱佲併佷佸佹佺佽侀侁侂侅來侇侊}
+
+佮佱佲併佷佸佹佺佽侀侁侂侅來侇侊
+
+\subsubsection{侌侎侐侒侓侕侖侘侙侚侜侞侟価侢}
+
+侌侎侐侒侓侕侖侘侙侚侜侞侟価侢
+
+\subsubsection{癅癆癇癈癉癊癋癎癏癐癑癒癓癕癗癘}
+
+癅癆癇癈癉癊癋癎癏癐癑癒癓癕癗癘
+
+\subsubsection{癭癮癰癱癲癳癴癵癶癷癹発發癿皀皁}
+
+癭癮癰癱癲癳癴癵癶癷癹発發癿皀皁
+
+\subsubsection{皭皯皰皳皵皶皷皸皹皺皻皼皽皾盀盁}
+
+皭皯皰皳皵皶皷皸皹皺皻皼皽皾盀盁
+
+\subsubsection{盃啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘}
+
+盃啊阿埃挨哎唉哀皑癌蔼矮艾碍爱隘
+
+\clearpage
+\end{CJK}
+
+\end{document}
+
