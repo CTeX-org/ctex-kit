@@ -142,11 +142,13 @@ function generate_tfm (cjkname)
 	write_tfm(path, familyname, "UGBK")
 	write_tfm(path, familyname .. "sl", "UGBK", 0.167)
 	familyname = "uni" .. string.lower(cjkname)
+        if (cjkname == "") then familyname = "cyberb" end
 	path = settings.tfmdir .. "\\" .. familyname
 	write_tfm(path, familyname, "UNICODE")
 	write_tfm(path, familyname .. "sl", "UNICODE", 0.167)
 end
 
+generate_tfm("")
 generate_tfm("song")
 generate_tfm("fs")
 generate_tfm("hei")
