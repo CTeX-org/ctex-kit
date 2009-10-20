@@ -26,7 +26,7 @@ CJK scripts easily.
 \keepsilent
 \preamble
 
- Version 2.3.8 (12-Sept-2009)
+ Version 2.3.10 (30-Sept-2009)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -129,8 +129,8 @@ CJK scripts easily.
 %</driver>
 %
 %<*xeCJK>
-\def\fileversion{2.3.8}
-\def\filedate{2009/09/12}
+\def\fileversion{2.3.10}
+\def\filedate{2009/09/30}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion]
 %</xeCJK>
 %
@@ -373,7 +373,17 @@ CJK scripts easily.
 %
 %  \verb+\xeCJKsetkern{：}{“}{0.3em}+
 %
+% \begin{decl}
+% \defmacro{\normalspacedchars}\arg{char list}
+% \end{decl}
+%    在<char list>中出现的字符两端不自动添加空格.
 %
+%
+% \begin{decl}
+% \defmacro{\makexeCJKactive}\\
+% \defmacro{\makexeCJKinactive}
+% \end{decl}
+%    打开/关闭对中文的特殊处理.
 %
 % \section{兼容性}
 %
@@ -581,7 +591,13 @@ CJK scripts easily.
 %    \end{macrocode}
 % 设置CJK字符类。
 %    \begin{macrocode}
-\XeTeXinterchartokenstate=1\relax
+\def\makexeCJKactive{
+  \XeTeXinterchartokenstate=1\relax}
+
+\def\makexeCJKinactive{
+  \XeTeXinterchartokenstate=0\relax}
+
+\makexeCJKactive
 
 \def\xeCJKsetcharclass#1#2#3{
   \@tempcnta=#1
@@ -631,6 +647,20 @@ CJK scripts easily.
 
 \xeCJKsetcharclass{"2000}{"FFFF}{1}
 
+\def\CJK@stop{\CJK@stop}
+
+\def\normalspacedchars#1{
+  \xeCJK@setnormalspacedchar#1\CJK@stop}
+
+\def\xeCJK@setnormalspacedchar#1{
+  \ifx#1\CJK@stop
+  \else
+    \XeTeXcharclass`#1=6
+    \expandafter\xeCJK@setnormalspacedchar
+  \fi}
+
+\normalspacedchars{/}
+
 %    \end{macrocode}
 %
 % \section{字符输出规则}
@@ -678,6 +708,18 @@ CJK scripts easily.
 \XeTeXinterchartoks 255 2{\xeCJK@cclv@ii}
 \XeTeXinterchartoks 255 3{\xeCJK@cclv@iii}
 \XeTeXinterchartoks 255 4{\xeCJK@cclv@iv}
+
+\XeTeXinterchartoks 1 6{\xeCJK@i@vi}
+\XeTeXinterchartoks 6 1{\xeCJK@vi@i}
+
+\def\xeCJK@vi@i{
+  \bgroup
+  \xeCJK@emptyCJKtoks
+  \xeCJK@setfont
+  \CJKsymbol}
+
+\def\xeCJK@i@vi{
+  \egroup}
 
 \def\xeCJK@i@i{
   \CJKglue
@@ -927,8 +969,6 @@ CJK scripts easily.
   \global\expandafter\def\: {\futurelet\@let@token\xeCJK@@@checknext}
 }
 
-\def\CJK@stop{\CJK@stop}
-
 \def\xeCJK@@@checknext{
   \ifx $\@let@token
     \@sptoken%\CJKecglue
@@ -958,7 +998,7 @@ CJK scripts easily.
   \futurelet\@let@token\xeCJK@@checksingle}
 
 \def\xeCJK@@checksingle{
-  \ifcat 。\@let@token
+  \ifcat 。\noexpand\@let@token
     \expandafter\xeCJK@@@checksingle
   \else
     \expandafter\xeCJK@setcurrentchar@i
@@ -1710,14 +1750,14 @@ xeCJK  改进了中英文间距的处理, 并且还可以避免单个汉字独�
 
 \CJKunderwave{波浪线}
 
-\CJKunderanyline{0.5em}{\sixly \kern-.021em\char58 \kern-.021em}{自定义下划线}
+\ifcsname CJKunderanyline\endcsname
+  \CJKunderanyline{0.5em}{\sixly \kern-.021em\char58 \kern-.021em}{自定义下划线}
+  
+  \CJKunderanyline{0.2em}{\kern-.03em\vtop{\kern.2ex\hrule width.2em\kern 0.11em
+  \hrule height .1em}\kern-.03em}{自定义下划线}
 
-
-\CJKunderanyline{0.2em}{\kern-.03em\vtop{\kern.2ex\hrule width.2em\kern 0.11em
- \hrule height .1em}\kern-.03em}{自定义下划线}
-
-\CJKunderanysymbol{0.2em}{$\cdot$}{汉字加点}
-
+  \CJKunderanysymbol{0.2em}{$\cdot$}{汉字加点}
+\fi
 \end{document}
 %    \end{macrocode}
 % \iffalse
