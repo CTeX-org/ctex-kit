@@ -22,6 +22,7 @@ def update_version(file, date, version):
 
     f.close()
     f = open(file, "w")
+    os.linesep = "\n"
     f.write(lines)
     f.close()
 
