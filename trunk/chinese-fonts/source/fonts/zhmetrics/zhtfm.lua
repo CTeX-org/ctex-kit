@@ -6,11 +6,20 @@
 --    http://www.latex-project.org/lppl.txt
 --  and version 1.3 or later is part of all distributions of LaTeX
 --  version 2005/12/01 or later.
+--
+--  use tfm font alias mechanism to reduce the number of tfm files;
+--  now only one tfm file is needed for a type of Chinese font;
+--  modified by <zwhuang@gmail.com>
+--  2009-11-15 [15:29]
+--  all zh fonts use normal matrics, no slant tfm file is needed;
+--  only zhmetrics.tfm is needed now;
+--  modified by <zwhuang@gmail.com>
+--  2009-11-16 [11:07]
 
 
 -- global settings
 settings = {
-	tfmdir = [[fonts\tfm\chinese]],
+	tfmdir = [[fonts\tfm\zhmetrics]],
 	use_slant = false,
 }
 
@@ -79,7 +88,7 @@ pl_template = {
     )
 ]],
 	header = [[
-(FAMILY $familyname$sid)
+(FAMILY $familyname)
 (CODINGSCHEME CJK-$encoding)
 (DESIGNSIZE R 10.0)
 (CHECKSUM O 0)
@@ -113,19 +122,16 @@ function write_tfm (path, familyname, encoding, slant)
 		settings.slant = 0.0
 	end
 	if settings.encoding == "UGBK" then
-		settings.max_sid = 94
-		settings.format = "%02d"
+		print("Setting encoding to UGBK")
 	elseif settings.encoding == "UNICODE" then
-		settings.max_sid = 255
-		settings.format = "%02x"
+		print("Setting encoding to UNICODE")
 	else
 		print("Error: Unknown encoding!")
 		exit(1)
 	end
 	mkdir(path)
-	for sid = 0, settings.max_sid do
-		settings.sid = string.format(settings.format, sid)
-		settings.filename = path .. "\\" .. string.lower(expand("$familyname$sid"))
+
+		settings.filename = path .. "\\" .. string.lower(expand("$familyname"))
 		local s = string.gsub(pl_template.header, "%$(%w+)", settings) .. pl_template.charset
 		local f = io.open("$filename.pl", "w")
 		print(settings.filename)
@@ -133,25 +139,32 @@ function write_tfm (path, familyname, encoding, slant)
 		f:close()
 		exec([[pltotf "]] .. "$filename.pl" .. [[" "]] .. "$filename.tfm" .. [["]])
 		os.remove(expand_path("$filename.pl"))
-	end
 end
 
 function generate_tfm (cjkname)
 	local familyname = "gbk" .. string.lower(cjkname)
-	local path = settings.tfmdir .. "\\" .. familyname
+	local path = settings.tfmdir
 	write_tfm(path, familyname, "UGBK")
 	write_tfm(path, familyname .. "sl", "UGBK", 0.167)
 	familyname = "uni" .. string.lower(cjkname)
         if (cjkname == "") then familyname = "cyberb" end
-	path = settings.tfmdir .. "\\" .. familyname
+	path = settings.tfmdir
 	write_tfm(path, familyname, "UNICODE")
 	write_tfm(path, familyname .. "sl", "UNICODE", 0.167)
 end
 
-generate_tfm("")
-generate_tfm("song")
-generate_tfm("fs")
-generate_tfm("hei")
-generate_tfm("kai")
-generate_tfm("li")
-generate_tfm("you")
+function generate_zhmetricstfm ()
+	local path = settings.tfmdir
+	write_tfm(path, "zhmetrics", "UNICODE")
+end
+
+-- only zhmetrics.tfm is needed now;
+generate_zhmetricstfm()
+
+--generate_tfm("")
+--generate_tfm("song")
+--generate_tfm("fs")
+--generate_tfm("hei")
+--generate_tfm("kai")
+--generate_tfm("li")
+--generate_tfm("you")
