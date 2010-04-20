@@ -1,3 +1,4 @@
+
 xeCJK is a package written for XeLaTeX which allows users to typeset
 CJK scripts easily.
 
@@ -14,3 +15,4 @@ may observe
     http://code.google.com/p/ctex-kit/updates/list
 
 - Sun Wenchang <sunwch@hotmail.com>
+
