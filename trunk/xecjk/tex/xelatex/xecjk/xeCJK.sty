@@ -6,7 +6,7 @@
 %%
 %% xeCJK.dtx  (with options: `xeCJK')
 %% 
-%%  Version 2.3.12 (22-April-2010)
+%%  Version 2.3.13 (24-May-2010)
 %% 
 %%  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 %% 
@@ -18,10 +18,9 @@
 %%  and version 1.3 or later is part of all distributions of LaTeX
 %%  version 2005/12/01 or later.
 %% 
-\def\fileversion{2.3.12}
-\def\filedate{2010/04/22}
-\ProvidesPackage{xeCJK}[\filedate\space\fileversion\space
-                        package for typesetting CJK scripts with XeLaTeX]
+\def\fileversion{2.3.13}
+\def\filedate{2010/05/24}
+\ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 \RequirePackage{ifxetex}
 \RequireXeTeX
 \expandafter\def\csname ver@CJK.sty\endcsname{2020/01/01}
@@ -38,11 +37,15 @@
 \newif\ifxeCJK@checksingle
 \xeCJK@checksinglefalse
 
+\newif\ifxeCJK@indentfirst
+\xeCJK@indentfirsttrue
+
 \DeclareOption{boldfont}{\xeCJK@BoldFont@true}
 \DeclareOption{BoldFont}{\ExecuteOptions{boldfont}}
 \DeclareOption{slantfont}{\xeCJK@SlantFont@true}
 \DeclareOption{SlantFont}{\ExecuteOptions{slantfont}}
 \DeclareOption{CJKnumber}{\xeCJK@numtrue}
+\DeclareOption{normalindentfirst}{\xeCJK@indentfirstfalse}
 \DeclareOption{CJKnormalspaces}{}
 \DeclareOption{CJKaddspaces}{}
 \DeclareOption{CJKtextspaces}{}
@@ -55,6 +58,10 @@
 
 \RequirePackage{fontspec}
 \relax
+
+\ifxeCJK@indentfirst
+  \let\@afterindentfalse\relax
+\fi
 \endlinechar \m@ne
 \def\makexeCJKactive{
   \XeTeXinterchartokenstate=1\relax}
@@ -464,6 +471,8 @@
 \def\xeCJK@@@checksingle#1{
   \def\xeCJK@setcurrentchar@ii{
     \xeCJK@setcurrentchar@i #1}
+  \def\xeCJK@setcurrentchar@ii@s{
+    \xeCJK@setcurrentchar@i #1 }
   \def\xeCJK@setcurrentnobreakchar@ii{
     \xeCJK@setcurrentnobreakchar@i #1}
   \futurelet\@let@token\xeCJK@@@@checksingle}
@@ -477,7 +486,7 @@
 
 \let\xeCJK@par\par
 \def\xeCJK@checkpar{
-  \@ifnextchar\xeCJK@par{\xeCJK@setcurrentnobreakchar@ii}{\xeCJK@setcurrentchar@ii}}
+  \@ifnextchar\xeCJK@par{\xeCJK@setcurrentnobreakchar@ii}{\xeCJK@setcurrentchar@ii@s}}
 
 \def\xeCJKsetecglue#1{
     \def\CJK@ecglue{#1}
@@ -492,6 +501,12 @@
 \def\xeCJKnobreakbetweenpuncts{
   \let\xeCJKpunctnobreak\nobreak}
 \xeCJKnobreakbetweenpuncts
+
+\let\xeCJK@itcorr\/
+\def\/{
+  \unkern\unkern
+  \xeCJK@itcorr}
+\let\@@italiccorr=\/
 
 \newcount\xeCJK@cnta
 \newcount\xeCJK@cntb
@@ -783,17 +798,24 @@
     {\xeCJK@newfontfamily@{#1}}
     {\xeCJK@newfontfamily@{#1}[]}}
 
+\def\xeCJK@setmacro@define@key#1{
+  \define@key[xeCJK]{preparse}{#1}{
+    \expandafter\xdef\csname xeCJK@#1\endcsname{##1}}}
+
+\xeCJK@setmacro@define@key{ItalicFont}
+\xeCJK@setmacro@define@key{BoldFont}
+\xeCJK@setmacro@define@key{BoldItalicFont}
+
 \def\xeCJK@newfontfamily@#1[#2]#3{
   %
   % Get user defined options
-  \def\xeCJK@temp{#2,}
-  \expandafter
-    \xeCJK@getBoldFont\xeCJK@temp BoldFont={},{}\relax
-  \expandafter
-    \xeCJK@getBoldItalicFont\xeCJK@temp BoldItalicFont={},{}\relax
-  \expandafter
-    \xeCJK@getItalicFont\xeCJK@temp ItalicFont={},{}\relax
 
+  \let\xeCJK@BoldFont\@empty
+  \let\xeCJK@ItalicFont\@empty
+  \let\xeCJK@BoldItalicFont\@empty
+  \bgroup
+    \setkeys*[xeCJK]{preparse}{#2}
+  \egroup
   \edef\xeCJK@Features{}
 
   \ifxeCJK@BoldFont@
@@ -842,15 +864,6 @@
       {\noexpand\fontfamily{\zf@family}\noexpand\selectfont}}
   \@tempa
   \expandafter\edef\csname xeCJK@nsff#1\endcsname{\zf@family}}
-
-\def\xeCJK@setmacro@getkey#1{
-  \expandafter\def\csname xeCJK@get#1\endcsname ##1#1=##2,##3\relax{
-    \expandafter\edef\csname xeCJK@#1\endcsname{##2}
-  \edef\xeCJK@temp{##1##3}}}
-
-\xeCJK@setmacro@getkey{BoldFont}
-\xeCJK@setmacro@getkey{ItalicFont}
-\xeCJK@setmacro@getkey{BoldItalicFont}
 
 \define@key[zf]{preparse}{ItalicFeatures}{
   \edef\zf@it@feat{,#1}
