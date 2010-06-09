@@ -18,10 +18,10 @@ $(BUILD_DIR)/CJKpunct.zip: CJKpunct/README
 	cp CJKpunct/tex/latex/CJK/CJKpunct/* $(CJKPUNCT_DIR)
 	cd $(BUILD_DIR) && zip $(ZIPFLAGS) CJKpunct.zip CJKpunct
 
-$(BUILD_DIR)/xecjk.zip: xecjk/README
+$(BUILD_DIR)/xecjk.zip: xecjk/README.txt
 	rm -rf $(XECJK_DIR)
 	mkdir -p $(XECJK_DIR)
-	cp xecjk/README $(XECJK_DIR)
+	cp xecjk/README.txt $(XECJK_DIR)
 	cp -r xecjk/doc/xelatex/xecjk/* $(XECJK_DIR)
 	cp xecjk/source/xelatex/xecjk/*.dtx $(XECJK_DIR)
 	cp xecjk/tex/xelatex/xecjk/xeCJK.sty $(XECJK_DIR)
