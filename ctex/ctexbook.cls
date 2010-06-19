@@ -2,7 +2,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexbook}
-  [2010/01/22 v0.97 ctexbook
+  [2010/06/19 v0.98 ctexbook
    document class]
 
 \def\CTEX@classtoload{book}
