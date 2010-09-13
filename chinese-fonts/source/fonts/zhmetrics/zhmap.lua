@@ -126,9 +126,9 @@ function generate_map (cjknamelist)
         end
     end
     texfontsmap = texfontsmap .. map_list(familynamelist, "UNICODE")
-    -- alias simsun.ttf and simsun.ttc mutually;
-    texfontsmap = texfontsmap .. "simsun.ttf simsun.ttc\n"
-    texfontsmap = texfontsmap .. "simsun.ttc simsun.ttf\n"
+    -- alias SIMSUN.TTF and SIMSUN.TTC mutually;
+    texfontsmap = texfontsmap .. "SIMSUN.TTF SUNSUN.TTC\n"
+    texfontsmap = texfontsmap .. "SIMSUN.TTC SUNSUN.TTF\n"
     -- generate tfm font alias map file `texfonts.map';
     mkdir(path)
     local filename = path .. "\\" .. "texfonts.map"
