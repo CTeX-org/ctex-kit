@@ -6,7 +6,7 @@
 %%
 %% xeCJK.dtx  (with options: `xeCJK')
 %% 
-%%  Version 2.3.18a (01-May-2011)
+%%  Version 2.3.19 (01-May-2011)
 %% 
 %%  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 %% 
@@ -18,7 +18,7 @@
 %%  and version 1.3 or later is part of all distributions of LaTeX
 %%  version 2005/12/01 or later.
 %% 
-\def\fileversion{2.3.18a}
+\def\fileversion{2.3.19}
 \def\filedate{2011/05/01}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 \RequirePackage{ifxetex}
@@ -28,6 +28,8 @@
 \newif\ifxeCJK@SlantFont@
 
 \newif\ifxeCJK@BoldFont@
+
+\newif\ifxeCJK@fallback@
 
 \newif\ifxeCJK@num
 
@@ -40,6 +42,7 @@
 \DeclareOption{BoldFont}{\ExecuteOptions{boldfont}}
 \DeclareOption{slantfont}{\xeCJK@SlantFont@true}
 \DeclareOption{SlantFont}{\ExecuteOptions{slantfont}}
+\DeclareOption{fallback}{\xeCJK@fallback@true}
 \DeclareOption{CJKnumber}{\xeCJK@numtrue}
 \DeclareOption{normalindentfirst}{\xeCJK@indentfirstfalse}
 \DeclareOption{CJKchecksingle}{\AtEndOfPackage{\let\xeCJK@i@i\xeCJK@checksingle}}
@@ -765,6 +768,26 @@
 \def\CJKsymbol#1{#1}
 \def\CJKpunctsymbol#1{#1}
 
+\def\xeCJK@fallback@testsymbol#1{
+  \iffontchar\font`#1
+    #1
+  \else
+    {\csname xeCJK@fallback@\xeCJK@family\endcsname #1}
+  \fi}
+\newcommand\xeCJKenablefallback{\let\xeCJK@fallback@CJKsymbol\CJKsymbol
+  \def\CJKsymbol##1{\xeCJK@fallback@CJKsymbol{\xeCJK@fallback@testsymbol{##1}}}}
+\newcommand\xeCJKdisablefallback{\let\CJKsymbol\xeCJK@fallback@CJKsymbol}
+\ifxeCJK@fallback@
+  \xeCJKenablefallback
+\fi
+\newcommand\setCJKfallbackfamilyfont[1]{
+  \@ifnextchar[
+    {\xeCJK@setfallbackfamilyfont{#1}}
+    {\xeCJK@setfallbackfamilyfont{#1}[]}}
+\def\xeCJK@setfallbackfamilyfont#1[#2]#3{
+  \expandafter\newfontfamily\csname xeCJK@fallback@#1\endcsname[#2]{#3}
+}
+
 \DeclareRobustCommand{\xeCJK@ULprepunctchar}[1]{
  {\XeTeXinterchartokenstate=0
   \CJKpunctsymbol{#1}
@@ -791,8 +814,11 @@
 \AtBeginDocument{
   \ifcsname UL@hook\endcsname
     \addto@hook\UL@hook{
-      \def\CJKsymbol#1{{\xeCJK@setfont #1}\kern -1sp\kern 1sp\xeCJK@ignorespaces}
-      \def\CJKpunctsymbol#1{{\xeCJK@setfont #1}}
+      \let\xeCJK@UL@CJKsymbol\CJKsymbol
+      \let\xeCJK@UL@CJKpunctsymbol\CJKpunctsymbol
+      \def\CJKsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKsymbol{#1}}
+        \kern -1sp\kern 1sp\xeCJK@ignorespaces}
+      \def\CJKpunctsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKpunctsymbol{#1}}}
       \xeCJK@ULroutines}
   \fi
   \ifcsname ver@CJKfntef.sty\endcsname

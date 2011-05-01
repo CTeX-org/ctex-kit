@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 2.3.18a (01-May-2011)
+ Version 2.3.19 (01-May-2011)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -54,6 +54,7 @@ may observe
 \generate{\file{example-addspaces.tex}{\from{xeCJK.dtx}{example-addspaces}}}
 \generate{\file{example-CJKchecksingle.tex}{\from{xeCJK.dtx}{example-CJKchecksingle}}}
 \generate{\file{example-CJKfntef.tex}{\from{xeCJK.dtx}{example-CJKfntef}}}
+\generate{\file{example-fallback.tex}{\from{xeCJK.dtx}{example-fallback}}}
 %</batchfile>
 %<batchfile>\endbatchfile
 %<*internal>
@@ -139,7 +140,7 @@ may observe
 %</driver>
 %
 %<*xeCJK>
-\def\fileversion{2.3.18a}
+\def\fileversion{2.3.19}
 \def\filedate{2011/05/01}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 %</xeCJK>
@@ -213,9 +214,10 @@ may observe
 % \end{decl}
 %
 % \begin{tabular}{ll}
-%    Options & \\
+%    宏包选项 & \\
 %    BoldFont:&     启用CJK\textbf{粗体字}\\
 %    SlantFont:&    启用 \textsl{斜体字slshape}\\
+%    fallback: &    启用备用字体功能 \\
 %    CJKnumber: &   调用CJKnumb宏包\\
 %    CJKchecksingle: &避免单个汉字单独占一行。
 % \end{tabular}
@@ -226,9 +228,12 @@ may observe
 %      \defmacro{\setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
-%                               {<font features>}]\arg{font name}
+%                               {<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKfallbackfamilyfont} \arg{family name}
+%        [\textcolor{optioncolor}{<font features>}]\arg{font name}
 % \end{decl}
-%  分别设置缺省CJK字体, CJK sffamily, CJK ttfamily 和某个 CJKfamily 所对应中文字体，
+% 分别设置缺省CJK字体, CJK sffamily, CJK ttfamily, 某个 CJKfamily 所对应中文字
+% 体，以及某个 CJKfamily 所对应的备用字体（通常用于生僻字）。
 % 其中最后两个参数的意义请参考 \verb+\fontspec.+
 %
 % 定义CJK字体时指定的\texttt{ItalicFont=\{...\}}比宏包的
@@ -351,7 +356,11 @@ may observe
 %\end{enumerate}
 %
 %
-%
+% \begin{decl}
+% \defmacro{\xeCJKenablefallback}\\
+% \defmacro{\xeCJKdisablefallback}
+% \end{decl}
+% 打开或关闭备用字体功能。
 %
 %
 % \begin{decl}
@@ -468,20 +477,23 @@ may observe
 %      \defmacro{\setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
-%                               {<font features>}]\arg{font name}
+%                               {<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKfallbackfamilyfont} \arg{family name}
+%        [\textcolor{optioncolor}{<font features>}]\arg{font name}
 % \end{decl}
 %
 % The first three macros are analogs of
-%
+% \begin{quote}
 % \defmacro{\setmainfont}, \defmacro{\setsansfont}, and \defmacro{\setmonofont},
-%
-% \noindent respectively.
+% \end{quote}
+% respectively.
 % The only difference is that they effect only CJK characters.
 %
-% The last macro sets a font for a CJK family which will be  called by
-%
+% The last two macros set the primary font and fallback font for a CJK family
+% which will be called by
+% \begin{quote}
 %   \defmacro{\CJKfamily}\arg{family name}.
-%
+% \end{quote}
 % With these macros, one can set different default fonts for CJK and other characters,
 % respectively.
 %
@@ -543,7 +555,11 @@ may observe
 % Note that both macros effect only CJK families defined after them.
 %
 %
-%
+% \begin{decl}
+% \defmacro{\xeCJKenablefallback}\\
+% \defmacro{\xeCJKdisablefallback}
+% \end{decl}
+% Enable or disable fallback fonts for CJK families.
 %
 %
 % \section{Compatibility}
@@ -576,6 +592,8 @@ may observe
 
 \newif\ifxeCJK@BoldFont@
 
+\newif\ifxeCJK@fallback@
+
 \newif\ifxeCJK@num
 
 \newif\ifxeCJK@checksingle
@@ -587,6 +605,7 @@ may observe
 \DeclareOption{BoldFont}{\ExecuteOptions{boldfont}}
 \DeclareOption{slantfont}{\xeCJK@SlantFont@true}
 \DeclareOption{SlantFont}{\ExecuteOptions{slantfont}}
+\DeclareOption{fallback}{\xeCJK@fallback@true}
 \DeclareOption{CJKnumber}{\xeCJK@numtrue}
 \DeclareOption{normalindentfirst}{\xeCJK@indentfirstfalse}
 \DeclareOption{CJKchecksingle}{\AtEndOfPackage{\let\xeCJK@i@i\xeCJK@checksingle}}
@@ -1456,6 +1475,37 @@ may observe
 \def\CJKsymbol#1{#1}
 \def\CJKpunctsymbol#1{#1}
 
+%    \end{macrocode}
+% 设置备用字体，如果主字体没有相应的符号，将尝试使用备用字体显示。
+%    \begin{macrocode}
+\def\xeCJK@fallback@testsymbol#1{
+  \iffontchar\font`#1
+    #1
+  \else
+    {\csname xeCJK@fallback@\xeCJK@family\endcsname #1}
+  \fi}
+%    \end{macrocode}
+% |\xeCJKenablefallback| 命令打开备用字体功能，|\xeCJKdisablefallback| 命令关
+% 闭备用字体功能。此功能默认关闭。
+%    \begin{macrocode}
+\newcommand\xeCJKenablefallback{\let\xeCJK@fallback@CJKsymbol\CJKsymbol
+  \def\CJKsymbol##1{\xeCJK@fallback@CJKsymbol{\xeCJK@fallback@testsymbol{##1}}}}
+\newcommand\xeCJKdisablefallback{\let\CJKsymbol\xeCJK@fallback@CJKsymbol}
+\ifxeCJK@fallback@
+  \xeCJKenablefallback
+\fi
+%    \end{macrocode}
+% |\setCJKfallbackfamilyfont| 为 CJK 字体族设置备用字体。
+%    \begin{macrocode}
+\newcommand\setCJKfallbackfamilyfont[1]{
+  \@ifnextchar[
+    {\xeCJK@setfallbackfamilyfont{#1}}
+    {\xeCJK@setfallbackfamilyfont{#1}[]}}
+\def\xeCJK@setfallbackfamilyfont#1[#2]#3{
+  \expandafter\newfontfamily\csname xeCJK@fallback@#1\endcsname[#2]{#3}
+}
+
+
 \DeclareRobustCommand{\xeCJK@ULprepunctchar}[1]{
  {\XeTeXinterchartokenstate=0
   \CJKpunctsymbol{#1}
@@ -1482,8 +1532,11 @@ may observe
 \AtBeginDocument{
   \ifcsname UL@hook\endcsname
     \addto@hook\UL@hook{
-      \def\CJKsymbol#1{{\xeCJK@setfont #1}\kern -1sp\kern 1sp\xeCJK@ignorespaces}
-      \def\CJKpunctsymbol#1{{\xeCJK@setfont #1}}
+      \let\xeCJK@UL@CJKsymbol\CJKsymbol
+      \let\xeCJK@UL@CJKpunctsymbol\CJKpunctsymbol
+      \def\CJKsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKsymbol{#1}}
+        \kern -1sp\kern 1sp\xeCJK@ignorespaces}
+      \def\CJKpunctsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKpunctsymbol{#1}}}
       \xeCJK@ULroutines}
   \fi
   \ifcsname ver@CJKfntef.sty\endcsname
@@ -1837,8 +1890,42 @@ xeCJK  改进了中英文间距的处理, 并且还可以避免单个汉字独�
 %    \end{macrocode}
 % \iffalse
 %</example-CJKfntef>
+%<*example-fallback>
 % \fi
-%
+% \part{example-fallback.tex}
+% \setCJKfallbackfamilyfont{rm}{SimSun-ExtB}
+% \xeCJKenablefallback
+%    \begin{macrocode}
+\documentclass{article}
+\usepackage[fallback]{xeCJK}
+\usepackage{CJKfntef}
+\setCJKmainfont{SimSun}
+\setCJKfallbackfamilyfont{rm}{SimSun-ExtB}
+\begin{document}
+
+漢字源𣴑考
+
+\CJKunderwave{漢字源𣴑考}
+
+\begin{table}[ht]
+\caption{生僻字测试}
+\centering
+\begin{tabular}{|cc|cc|cc|cc|}
+𠀀 & 20000 & 𠀁 & 20001 & 𠀂 & 20002 & 𠀃 & 20003 \\
+𠀄 & 20004 & 𠀅 & 20005 & 𠀆 & 20006 & 𠀇 & 20007 \\
+𠀈 & 20008 & 𠀉 & 20009 & 𠀊 & 2000A & 𠀋 & 2000B \\
+𠀌 & 2000C & 𠀍 & 2000D & 𠀎 & 2000E & 𠀏 & 2000F \\
+𠀐 & 20010 & 𠀑 & 20011 & 𠀒 & 20012 & 𠀓 & 20013 \\
+𠀔 & 20014 & 𠀕 & 20015 & 𠀖 & 20016 & 𠀗 & 20017 \\
+𠀘 & 20018 & 𠀙 & 20019 & 𠀚 & 2001A & 𠀛 & 2001B \\
+𠀜 & 2001C & 𠀝 & 2001D & 𠀞 & 2001E & 𠀟 & 2001F \\
+\end{tabular}
+\end{table}
+\end{document}
+%    \end{macrocode}
+% \iffalse
+%</example-fallback>
+% \fi
 % \Finale
 %
 % \typeout{*************************************************************}
