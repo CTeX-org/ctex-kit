@@ -1,0 +1,60 @@
+#summary 有关类 Unix 系统下 ctex 宏包的字体问题
+#labels Phase-Design,Phase-Deploy,ctex
+
+= ctex 宏包为什么没有为类 Unix 系统设置字体选项？ =
+
+ctex 宏包在使用 XeTeX 为引擎编译时，提供了 `winfonts`, `adobefonts`, `nofonts` 等不同
+
+来自 Linux 社区的用户曾多次在不同场合要求为其系统增加免费中文字体的配置选项，如 issue 41, issue 54 都曾要求增加 `unixfonts` 选项，并给出代码。不过，这样的建议未予采纳，原因如下：
+
+ * 类 Unix 平台是一个宽泛的平台，没有统一的中文字体预装方案。
+
+   除 Mac 系统相对统一，类 Unix 平台的用户主要来自各个 Linux 发行版。尽管开源社区主要的免费字体来源单一：文鼎公司捐助的报宋、楷体，文泉驿项目的黑体，以及类似 `Cyberbit.ttf` 这样的字体；但是，各个发行版/桌面预装的中文字体版本及字体名则极不统一，难以用一个字体选项表示。
+
+  仅以文鼎的宋体（或明体）为例，就有 `AR PL SungtiL GB`, `AR PL New Sung`, `AR PL ShanHeiSun Uni`, `AR PLBaosong2GBK Light`, `AR PL UMing CN`, `AR PLMingU20 Light` 等许多变体。在不同的 Linux 发行版中其配置确有不同，因而配置文件难以统一。
+
+ * XeTeX 没有字体检测机制，在配置文件中写入系统中不存在的字体会产生编译错误。
+
+
+不过，尽管存在兼容性问题，但多出若干选项通常也是无害的。如果 Linux 社区在统计现有的多种发行版后，能给出相对一致的预装字体的一个交集，那么也可以据此增加选项。
+
+
+= 为什么 `winfonts` 选项在 Linux 下面编译错误？ =
+
+XeTeX 引擎下，`winfonts` 选项是面向 Windows 用户设计的字体选项。其中经常被类 Uniux 平台用户误认为有错误的是楷体和仿宋体的设置：
+{{{
+\setCJKfamilyfont{zhkai}{[simkai.ttf]}
+\setCJKfamilyfont{zhfs}{[simfang.ttf]}
+}}}
+这段代码其实并没有问题。这里没有使用 fontconfig 库读取的字体族名，而是使用方括号外的字体文件名设置字体，这是符合 XeTeX 的字体语法的；对较新版本 fontspec 宏包，方括号可以省略，但旧版本仍需要保留。
+
+采用字体*文件名*的原因是，在 Windows XP 及之前的 Windows 版本中，楷体和仿宋体为 GB_2312 字符集，其字体名分别是 `KaiTi_GB2312` 与 `FangSong_GB2312`；而在 Windows Vista 及之后的 Windows 版本中，楷体和仿宋体则改为强制标准 GB18030 字符集，其字体名分别是 `KaiTi` 与 `FangSong`。这两种版本的字体名称不同，为保证不同版本 Windows 用户的兼容性，只能采用字体文件名的方式。
+
+这一设置在部分类 Unix 平台下编译会产生找不到字体的错误，即使用户已经在其类 Unix 系统中安装了来自 Windows 的字体。其原因是：Windows 不区分文件名的大小写，而其他系统一般是大小写敏感的。在不同 Windows 版本中字体文件名的大小写也各有不同，同时 ctex 宏包的字体文件名大小写也几经修改，难以统一。统一文件名大小写后即可正常编译。
+
+= 解决方案 =
+
+== 使用 `nofonts` 选项设置字体 ==
+
+示例：
+{{{
+\documentclass[UTF8,nofonts]{ctexart}
+\setCJKmainfont[ItalicFont={AR PL KaitiM GB}]{AR PL SungtiL GB}% 文鼎宋体和楷书
+\setCJKsansfont{WenQuanYi Zen Hei}% 文泉驿的黑体
+
+\begin{document}
+文章内容
+\end{document}
+}}}
+如果设置的字体较多，为方便使用可以把相关代码作为单独的 `.sty` 文件保存。
+
+== 使用来自 Windows 系统的字体，同时统一字体文件名大小写 ==
+
+ * 在类 Unix 系统中安装从 Windows 系统中复制来的字体时，请注意将所有字体都设置为相同的大小写，这里建议为小写。
+ * 在 ctex 宏包的 `ctex-xecjk-winfonts.def` 文件中，确保楷体与仿宋体的大小写与系统安装的相同，也可以根据具体版本改为字体族名。这将影响 XeLaTeX 编译 ctex 宏包的效果。
+ * 在 TeX Live 的 `texmf-dist/tex/generic/zhmetrics/` 目录下的 `zhwinfonts.tex` 文件中，确保各个中文字体的大小写与系统一致。这将影响
+ * （可选）在 TeX Live 的 `texmf-dist/source/fonts/zhmetrics/` 目录下的 `ttfonts.map` 文件中，确保各个中文字体的大小写与系统一致，然后用它代替或合并于原有生效的 `ttfonts.map`。这将影响 ttf2pk、dvi2png 等程序的效果。
+
+== 使用 `ctex` 宏包的配置文件设置默认行为 ==
+
+[CTeXPackage] 页面介绍了 `ctex` 宏包的两个配置文件，可以使用 `ctexopts.cfg` 修改宏包的默认字体选项为 `nofonts`，然后使用 `ctex.cfg` 探测宏包选项，在默认选项时引入自定义的字体设置。
