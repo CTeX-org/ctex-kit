@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 2.4.2 (12-June-2011)
+ Version 2.4.3 (24-July-2011)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -140,8 +140,8 @@ may observe
 %</driver>
 %
 %<*xeCJK>
-\def\fileversion{2.4.2}
-\def\filedate{2011/06/12}
+\def\fileversion{2.4.3}
+\def\filedate{2011/07/24}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 %</xeCJK>
 %
@@ -1610,14 +1610,42 @@ may observe
       \XeTeXinterchartokenstate=0}
   \fi}
 
+%    \end{macrocode}
+% |\xeCJK@setfont| 实际切换中文字体。它使用名为
+% |xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size| 的宏来缓存特定 NFSS 坐标
+% 中文字体的原始 |\font| 命令格式，以加快编译速度。在第一次使用这一 NFSS 坐标
+% 时，会调用名为 |xeCJK@font@\xeCJK@family| 的宏（它将展开为 |\fontspec|），
+% 利用 |fontspec| 宏包选择中文字体，并缓存原始字体形式。
+%    \begin{macrocode}
 \def\xeCJK@setfont{
-  \ifcsname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
-    \csname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+  \ifcsname xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+%    \end{macrocode}
+% 使用已缓存的字体。
+%    \begin{macrocode}
+    \csname xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
   \else
+%    \end{macrocode}
+% 预存需要的 NFSS 坐标到 |\xeCJK@currentcoor|，以免在缺字体时被替换字体改变。
+%    \begin{macrocode}
+    \edef\xeCJK@currentcoor{xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size}
+%    \end{macrocode}
+% 切换未缓存的字体。
+%    \begin{macrocode}
     \csname xeCJK@font@\xeCJK@family\endcsname
-    \get@external@font
+%    \end{macrocode}
+% |\get@external@font| 可能会产生奇怪的副作用\footnote{参见 ctex-kit 项目
+% \href{http://code.google.com/p/ctex-kit/issues/detail?id=57}{issue 57}。}。
+% 这里使用分组令其局部化，仅保留对 |\external@font| 的赋值。
+%    \begin{macrocode}
+    \begingroup
+      \get@external@font
+      \edef\xeCJK@temp{\def\noexpand\external@font{\external@font}}
+    \expandafter\endgroup\xeCJK@temp
+%    \end{macrocode}
+% 缓存字体。
+%    \begin{macrocode}
     \expandafter\global\expandafter\font
-     \csname\xeCJK@family/\f@series/\f@shape/\f@size\endcsname=\external@font
+      \csname\xeCJK@currentcoor\endcsname=\external@font
   \fi}
 
 \def\CJKrmdefault{rm}
