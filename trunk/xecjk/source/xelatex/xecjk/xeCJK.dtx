@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 2.4.3 (24-July-2011)
+ Version 2.4.4 (17-Sep-2011)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -79,7 +79,7 @@ may observe
   \def\CJKmainfont{AR PLBaosong2GBK Light}
 \fi
 \setCJKmainfont{\CJKmainfont}% 设置缺省中文字体
-\setCJKmonofont[Scale=1.1]{\CJKmainfont}% 设置 中文字体
+\setCJKmonofont*{\CJKmainfont}% 设置 中文字体
 \setCJKfamilyfont{song}{\CJKmainfont}% 设置 中文字体
 \def\xeCJK{{\textcolor{blue}{\texttt{xeCJK}}}}
 % macros
@@ -140,8 +140,8 @@ may observe
 %</driver>
 %
 %<*xeCJK>
-\def\fileversion{2.4.3}
-\def\filedate{2011/07/24}
+\def\fileversion{2.4.4}
+\def\filedate{2011/09/17}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 %</xeCJK>
 %
@@ -229,6 +229,8 @@ may observe
 %      \defmacro{\setCJKmainfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKmonofont*} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKmonofont+} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
 %                               {<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfallbackfamilyfont} \arg{family name}
@@ -252,7 +254,13 @@ may observe
 % \renewcommand\CJKfamilydefault{\CJKsfdefault}
 % \end{verbatim}
 %
+% \defmacro{\setCJKmonofont} 命令后面可以加上星号 |*| 或加号 |+|，分别表示使用
+% 放缩的方式或改变间距的方式，让 CJK 字符的宽度等于西文字体中两个空格的宽度。
+% 这有利于等宽字体的代码对齐等情形。
 %
+% \defmacro{\setCJKmonoscale} 和 \defmacro{\setCJKmonoexspace} 命令分别计算并设置
+% 当前字号下西文等宽字体与 CJK 字体的放缩比例和字距，以符合上面加 |*| 与加 |+| 号
+% 命令的意义。在字号改变时，应该使用两个命令之一；但注意两个命令不能同时使用。
 %
 % 与 CJK 包类似， 使用命令 \defmacro{\CJKfamily}\arg{family name} 改变当前中文字体。
 %
@@ -262,9 +270,9 @@ may observe
 % 以下命令设置缺省英文字体为 TeX Gyre Termes, 缺省中文字体为 AR PLBaosong2GBK Light (文鼎ＰＬ报宋二\kern 0sp GBK)，
 % 最后一个命令设置 CJKfamily “song”。
 % \begin{verbatim}
-%     \setmainfont{TeX Gyre Termes}
-%     \setCJKmainfont{AR PLBaosong2GBK Light}
-%     \setCJKfamilyfont{song}{AR PLBaosong2GBK Light}
+% \setmainfont{TeX Gyre Termes}
+% \setCJKmainfont{AR PLBaosong2GBK Light}
+% \setCJKfamilyfont{song}{AR PLBaosong2GBK Light}
 % \end{verbatim}
 %
 % \noindent
@@ -496,6 +504,8 @@ may observe
 %      \defmacro{\setCJKmainfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKsansfont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKmonofont} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKmonofont*} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
+%      \defmacro{\setCJKmonofont+} [\textcolor{optioncolor}{<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfamilyfont} \arg{family name}[\textcolor{optioncolor}
 %                               {<font features>}]\arg{font name}\\
 %      \defmacro{\setCJKfallbackfamilyfont} \arg{family name}
@@ -529,6 +539,14 @@ may observe
 % \begin{verbatim}
 % \renewcommand\CJKfamilydefault{\CJKsfdefault}
 % \end{verbatim}
+%
+% \defmacro{\setCJKmonofont} can be appended with a |*| or |+| symbol. They make sure
+% that the width of a CJK glyph equals to 2 space for monospace fonts, by scaling and
+% spacing, respectively.
+%
+% \defmacro{\setCJKmonoscale} and \defmacro{\setCJKmonoexspace} reset the scale and extra
+% space introduced by |\setCJKmainfont*| and |\setCJKmonofont+|, respectively. They are
+% useful when changing the font size.
 %
 % \section{Advanced settings}
 %
@@ -608,7 +626,7 @@ may observe
 %
 % \clearpage
 % \part{xeCJK.sty}
-% \section{宏包选项}
+% \section{宏包选项与内部工具}
 %
 % \iffalse
 %<*xeCJK>
@@ -666,8 +684,9 @@ may observe
 \DeclareOption*{\PassOptionsToPackage{\CurrentOption}{fontspec}}
 \ProcessOptions\relax
 
+\RequirePackage{xkeyval}
+\RequirePackage{expl3}
 \RequirePackage{fontspec}
-\relax
 
 \ifxeCJK@indentfirst
   \let\@afterindentfalse\relax
@@ -678,6 +697,14 @@ may observe
 \endlinechar \m@ne
 %    \end{macrocode}
 %
+% 给已有宏内容前后附加补丁
+%    \begin{macrocode}
+\def\xeCJK@patch#1#2#3{
+  \edef#1{
+    \unexpanded{#2}
+    \unexpanded\expandafter{#1}
+    \unexpanded{#3}}}
+%    \end{macrocode}
 % \section{字符类别设定}
 % \label{sec:charclass}
 % \xeCJK{} 功能开关
@@ -765,68 +792,68 @@ may observe
 % \item[] 以下 |"2E80|--|"4DBF| 连续
 % \item CJK Radicals Supplement
 %    \begin{macrocode}
-\xeCJKsetcharclass{"2E80}{"2EFF}{1} 
+\xeCJKsetcharclass{"2E80}{"2EFF}{1}
 %    \end{macrocode}
 % \item Kangxi Radicals
 %    \begin{macrocode}
-\xeCJKsetcharclass{"2F00}{"2FDF}{1} 
+\xeCJKsetcharclass{"2F00}{"2FDF}{1}
 %    \end{macrocode}
 % \item Ideographic Description Characters
 %    \begin{macrocode}
-\xeCJKsetcharclass{"2FF0}{"2FFF}{1} 
+\xeCJKsetcharclass{"2FF0}{"2FFF}{1}
 %    \end{macrocode}
 % \item CJK Symbolsand Punctuation
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3000}{"303F}{1} 
+\xeCJKsetcharclass{"3000}{"303F}{1}
 %    \end{macrocode}
 % \item Hiragana
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3040}{"309F}{1} 
+\xeCJKsetcharclass{"3040}{"309F}{1}
 %    \end{macrocode}
 % \item Katakana
 %    \begin{macrocode}
-\xeCJKsetcharclass{"30A0}{"30FF}{1} 
+\xeCJKsetcharclass{"30A0}{"30FF}{1}
 %    \end{macrocode}
 % \item Bopomofo
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3100}{"312F}{1} 
+\xeCJKsetcharclass{"3100}{"312F}{1}
 %    \end{macrocode}
 % \item Hangul Compatibility Jamo
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3130}{"318F}{1} 
+\xeCJKsetcharclass{"3130}{"318F}{1}
 %    \end{macrocode}
 % \item Kanbun
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3190}{"319F}{1} 
+\xeCJKsetcharclass{"3190}{"319F}{1}
 %    \end{macrocode}
 % \item Bopomofo Extended
 %    \begin{macrocode}
-\xeCJKsetcharclass{"31A0}{"31BF}{1} 
+\xeCJKsetcharclass{"31A0}{"31BF}{1}
 %    \end{macrocode}
 % \item CJK Strokes
 %    \begin{macrocode}
-\xeCJKsetcharclass{"31C0}{"31EF}{1} 
+\xeCJKsetcharclass{"31C0}{"31EF}{1}
 %    \end{macrocode}
 % \item Katakana Phonetic Extensions
 %    \begin{macrocode}
-\xeCJKsetcharclass{"31F0}{"31FF}{1} 
+\xeCJKsetcharclass{"31F0}{"31FF}{1}
 %    \end{macrocode}
 % \item Enclosed CJK Letters and Months
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3200}{"32FF}{1} 
+\xeCJKsetcharclass{"3200}{"32FF}{1}
 %    \end{macrocode}
 % \item CJK Compatibility
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3300}{"33FF}{1} 
+\xeCJKsetcharclass{"3300}{"33FF}{1}
 %    \end{macrocode}
 % \item CJKUnified Ideographs Extension A
 %    \begin{macrocode}
-\xeCJKsetcharclass{"3400}{"4DBF}{1} 
+\xeCJKsetcharclass{"3400}{"4DBF}{1}
 %    \end{macrocode}
 % \item[] 以下块不连续
 % \item CJK Unified Ideographs
 %    \begin{macrocode}
-\xeCJKsetcharclass{"4E00}{"9FFF}{1} 
+\xeCJKsetcharclass{"4E00}{"9FFF}{1}
 %    \end{macrocode}
 % \item Yi
 %    \begin{macrocode}
@@ -834,23 +861,23 @@ may observe
 %    \end{macrocode}
 % \item Hangul Syllables
 %    \begin{macrocode}
-\xeCJKsetcharclass{"AC00}{"D7AF}{1} 
+\xeCJKsetcharclass{"AC00}{"D7AF}{1}
 %    \end{macrocode}
 % \item CJK Compatibility Ideographs
 %    \begin{macrocode}
-\xeCJKsetcharclass{"F900}{"FAFF}{1} 
+\xeCJKsetcharclass{"F900}{"FAFF}{1}
 %    \end{macrocode}
 % \item CJK Compatibility Forms
 %    \begin{macrocode}
-\xeCJKsetcharclass{"FE30}{"FE4F}{1} 
+\xeCJKsetcharclass{"FE30}{"FE4F}{1}
 %    \end{macrocode}
 % \item Halfwidth and Fullwidth Forms
 %    \begin{macrocode}
-\xeCJKsetcharclass{"FF00}{"FFEF}{1} 
+\xeCJKsetcharclass{"FF00}{"FFEF}{1}
 %    \end{macrocode}
 % \item CJK Unified Ideographs Extension B
 %    \begin{macrocode}
-\xeCJKsetcharclass{"20000}{"2A6DF}{1} 
+\xeCJKsetcharclass{"20000}{"2A6DF}{1}
 %    \end{macrocode}
 % \item CJK Unified Ideographs Extension C
 %    \begin{macrocode}
@@ -862,7 +889,7 @@ may observe
 %    \end{macrocode}
 % \item CJK Compatibility Ideographs Supplement
 %    \begin{macrocode}
-\xeCJKsetcharclass{"2F800}{"2FA1F}{1} 
+\xeCJKsetcharclass{"2F800}{"2FA1F}{1}
 %    \end{macrocode}
 % \end{itemize}
 %    \begin{macrocode}
@@ -882,18 +909,20 @@ may observe
 \normalspacedchars{/}
 
 %    \end{macrocode}
-% 处理宽度有分歧的两个标点：省略号和间隔号。保证其命令形式输出的是西文字体。
+%
+% 单独处理宽度有分歧的两个标点：省略号和间隔号。保证其命令形式输出的是西文字体。
+% 并对间隔号（U+00B7）为一些编码的符号宏包做特殊处理：
 %    \begin{macrocode}
 \AtBeginDocument{%
-  \let\xeCJK@save@textellipsis\textellipsis
-  \def\textellipsis{\begingroup\makexeCJKinactive
-    \xeCJK@save@textellipsis\endgroup}
-  \let\xeCJK@save@textperiodcentered\textperiodcentered
-  \def\textperiodcentered{\begingroup\makexeCJKinactive
-    \xeCJK@save@textperiodcentered\endgroup}
-  \let\xeCJK@save@textcentereddot\textcentereddot
-  \def\textcentereddot{\begingroup\makexeCJKinactive
-    \xeCJK@save@textcentereddot\endgroup}
+  \xeCJK@patch\textellipsis       {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\textperiodcentered {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\textcentereddot    {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\tipaencoding      {\makexeCJKinactive}{} % tipa package in T3 encoding
+  \let\xeCJK@save@r\r
+  \def\r#1{{\makexeCJKinactive\xeCJK@save@r{#1}}} % \r{u} in T1 encoding
+  \@ifpackageloaded{pifont}{ % pifont package in U encoding
+    \renewcommand\Pifont[1]{\fontfamily{#1}\fontencoding{U}%
+      \fontseries{m}\fontshape{n}\selectfont\makexeCJKinactive}}{}
 }
 %    \end{macrocode}
 %
@@ -1659,14 +1688,15 @@ may observe
   \xeCJK@newfontfamily{\CJKsfdefault}}
 
 \providecommand\CJKttdefault{tt}
-\def\setCJKmonofont{
-  \xeCJK@newfontfamily{\CJKttdefault}}
+%    \end{macrocode}
+% |\setCJKmonofont| 在后面单独定义。
+%    \begin{macrocode}
 
 \def\setCJKfamilyfont#1{
   \xeCJK@newfontfamily{#1}}
 %    \end{macrocode}
-% Redefine \string\normalfont, \string\rmfamily, \string\sffamily
-% and \string\ttfamily\ to set CJKfamily
+% 重定义 |\normalfont|, |\rmfamily|, |\sffamily|，添加 CJK 字体族的设置。
+% |\ttfamily| 可能需要单独调整宽度，将在后面定义。
 %    \begin{macrocode}
 \def\CJKfamilydefault{\CJKrmdefault}
 \DeclareRobustCommand\normalfont
@@ -1686,9 +1716,6 @@ may observe
         {\not@math@alphabet\sffamily\mathsf
          \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
 
-\DeclareRobustCommand\ttfamily
-        {\not@math@alphabet\ttfamily\mathtt
-         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
 %    \end{macrocode}
 % \string\xeCJK@newfontfamily is similar to \string\newfontfamily
 %   but introduce fake slant/bold fonts for CJK characters.
@@ -1810,6 +1837,82 @@ may observe
 
 \xeCJKsetslantfactor{0.17}
 \xeCJKsetemboldenfactor{4}
+%    \end{macrocode}
+% \section{处理等宽字体和抄录环境}
+%    \begin{macrocode}
+\ExplSyntaxOn
+
+\fp_new:N \g_xecjk_monoscale_fp
+\fp_gset_eq:NN \g_xecjk_monoscale_fp \c_one_fp
+
+\dim_new:N \g_xecjk_exspace_dim
+\dim_gset_eq:NN \g_xecjk_exspace_dim \c_zero_dim
+
+\cs_new:Nn \xecjk_setmonoscale:
+{
+  \dim_gset_eq:NN \g_xecjk_exspace_dim \c_zero_dim
+  \group_begin:
+    \fontfamily\ttdefault\selectfont
+    \fp_gset_from_dim:Nn \g_xecjk_monoscale_fp {\c_two\fontdimen\c_two\font}
+    \fp_gdiv:Nn \g_xecjk_monoscale_fp {\f@size}
+  \group_end:
+}
+
+\newcommand*\setCJKmonoscale{
+  \xecjk_setmonoscale:
+  \addCJKfontfeatures{Scale=\fp_use:N\g_xecjk_monoscale_fp}
+}
+
+\DeclareRobustCommand\setCJKmonoscalefont[2][]{
+  \xecjk_setmonoscale:
+  \xeCJK@newfontfamily{\CJKttdefault}[#1,Scale=\fp_use:N \g_xecjk_monoscale_fp]{#2}}
+
+\cs_new:Nn \xecjk_set_monoexspace:
+{
+  \fp_gset_eq:NN \g_xecjk_monoscale_fp \c_one_fp
+  \group_begin:
+    \fontfamily\ttdefault\selectfont
+    \dim_gset:Nn \g_xecjk_exspace_dim {\c_two\fontdimen\c_two\font - \f@size\p@}
+  \group_end:
+}
+
+\newcommand*\setCJKmonoexspace{
+  \xecjk_set_monoexspace:
+  \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
+  \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}
+}
+
+
+\DeclareRobustCommand\setCJKmonoexspacefont[2][]{
+  \setCJKmonoexspace
+  \xeCJK@newfontfamily{\CJKttdefault}[#1]{#2}}
+
+\def\xeCJK@ifplus#1{\@ifnextchar +{\@firstoftwo{#1}}}
+
+\DeclareRobustCommand\setCJKmonofont{\@ifstar
+  {\setCJKmonoscalefont}
+  {\xeCJK@ifplus
+    {\setCJKmonoexspacefont}
+    {\xeCJK@newfontfamily{\CJKttdefault}}}}
+
+\DeclareRobustCommand\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont
+         \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
+         \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
+
+%    \end{macrocode}
+% 修补 \verbatim@font
+%    \begin{macrocode}
+\AtBeginDocument{
+  \tl_put_right:Nn \verbatim@font {
+    \punctstyle{plain}
+    \CJKsetecglue{\skip_horizontal:N \g_xecjk_exspace_dim}
+    \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
+}
+
+\ExplSyntaxOff
+
 %    \end{macrocode}
 % \section{使用CJKnumb宏包}
 %    \begin{macrocode}
@@ -1971,14 +2074,15 @@ xeCJK  改进了中英文间距的处理, 并且还可以避免单个汉字独�
 
 \begin{document}
 \setCJKmainfont{AR PLBaosong2GBK Light}% 设置缺省中文字体
-\setCJKmonofont{AR PLBaosong2GBK Light}% 设置缺省中文字体
+\setCJKmonofont*{AR PLBaosong2GBK Light}% 设置等宽中文字体，令其与英文对齐
 
 \baselineskip 16pt
 \parindent 2em
 
- \section{举例}
+\section{举例}
 \begin{verbatim}
-标点。
+抄录环境中，标点不会被“压缩”。
+Alignment with English characters.
 \end{verbatim}
 
 \CJKunderline{汉字}\CJKunderline{加下划线加下划线加下划线加下划线

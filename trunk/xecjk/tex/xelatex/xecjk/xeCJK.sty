@@ -6,7 +6,7 @@
 %%
 %% xeCJK.dtx  (with options: `xeCJK')
 %% 
-%%  Version 2.4.3 (24-July-2011)
+%%  Version 2.4.4 (17-Sep-2011)
 %% 
 %%  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 %% 
@@ -18,8 +18,8 @@
 %%  and version 1.3 or later is part of all distributions of LaTeX
 %%  version 2005/12/01 or later.
 %% 
-\def\fileversion{2.4.3}
-\def\filedate{2011/07/24}
+\def\fileversion{2.4.4}
+\def\filedate{2011/09/17}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 \RequirePackage{ifxetex}
 \RequireXeTeX
@@ -68,13 +68,19 @@
 \DeclareOption*{\PassOptionsToPackage{\CurrentOption}{fontspec}}
 \ProcessOptions\relax
 
+\RequirePackage{xkeyval}
+\RequirePackage{expl3}
 \RequirePackage{fontspec}
-\relax
 
 \ifxeCJK@indentfirst
   \let\@afterindentfalse\relax
 \fi
 \endlinechar \m@ne
+\def\xeCJK@patch#1#2#3{
+  \edef#1{
+    \unexpanded{#2}
+    \unexpanded\expandafter{#1}
+    \unexpanded{#3}}}
 \def\makexeCJKactive{
   \XeTeXinterchartokenstate=1\relax}
 
@@ -171,15 +177,15 @@
 \normalspacedchars{/}
 
 \AtBeginDocument{%
-  \let\xeCJK@save@textellipsis\textellipsis
-  \def\textellipsis{\begingroup\makexeCJKinactive
-    \xeCJK@save@textellipsis\endgroup}
-  \let\xeCJK@save@textperiodcentered\textperiodcentered
-  \def\textperiodcentered{\begingroup\makexeCJKinactive
-    \xeCJK@save@textperiodcentered\endgroup}
-  \let\xeCJK@save@textcentereddot\textcentereddot
-  \def\textcentereddot{\begingroup\makexeCJKinactive
-    \xeCJK@save@textcentereddot\endgroup}
+  \xeCJK@patch\textellipsis       {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\textperiodcentered {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\textcentereddot    {\begingroup\makexeCJKinactive}{\endgroup}
+  \xeCJK@patch\tipaencoding      {\makexeCJKinactive}{} % tipa package in T3 encoding
+  \let\xeCJK@save@r\r
+  \def\r#1{{\makexeCJKinactive\xeCJK@save@r{#1}}} % \r{u} in T1 encoding
+  \@ifpackageloaded{pifont}{ % pifont package in U encoding
+    \renewcommand\Pifont[1]{\fontfamily{#1}\fontencoding{U}%
+      \fontseries{m}\fontshape{n}\selectfont\makexeCJKinactive}}{}
 }
 \XeTeXinterchartoks 1 0{\egroup\CJKecglue}
 \XeTeXinterchartoks 1 1{\xeCJK@i@i}
@@ -868,8 +874,6 @@
   \xeCJK@newfontfamily{\CJKsfdefault}}
 
 \providecommand\CJKttdefault{tt}
-\def\setCJKmonofont{
-  \xeCJK@newfontfamily{\CJKttdefault}}
 
 \def\setCJKfamilyfont#1{
   \xeCJK@newfontfamily{#1}}
@@ -891,9 +895,6 @@
         {\not@math@alphabet\sffamily\mathsf
          \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
 
-\DeclareRobustCommand\ttfamily
-        {\not@math@alphabet\ttfamily\mathtt
-         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
 \newcommand*\xeCJK@newfontfamily[1]{
   \@ifnextchar[
     {\xeCJK@newfontfamily@{#1}}
@@ -1007,6 +1008,75 @@
 
 \xeCJKsetslantfactor{0.17}
 \xeCJKsetemboldenfactor{4}
+\ExplSyntaxOn
+
+\fp_new:N \g_xecjk_monoscale_fp
+\fp_gset_eq:NN \g_xecjk_monoscale_fp \c_one_fp
+
+\dim_new:N \g_xecjk_exspace_dim
+\dim_gset_eq:NN \g_xecjk_exspace_dim \c_zero_dim
+
+\cs_new:Nn \xecjk_setmonoscale:
+{
+  \dim_gset_eq:NN \g_xecjk_exspace_dim \c_zero_dim
+  \group_begin:
+    \fontfamily\ttdefault\selectfont
+    \fp_gset_from_dim:Nn \g_xecjk_monoscale_fp {\c_two\fontdimen\c_two\font}
+    \fp_gdiv:Nn \g_xecjk_monoscale_fp {\f@size}
+  \group_end:
+}
+
+\newcommand*\setCJKmonoscale{
+  \xecjk_setmonoscale:
+  \addCJKfontfeatures{Scale=\fp_use:N\g_xecjk_monoscale_fp}
+}
+
+\DeclareRobustCommand\setCJKmonoscalefont[2][]{
+  \xecjk_setmonoscale:
+  \xeCJK@newfontfamily{\CJKttdefault}[#1,Scale=\fp_use:N \g_xecjk_monoscale_fp]{#2}}
+
+\cs_new:Nn \xecjk_set_monoexspace:
+{
+  \fp_gset_eq:NN \g_xecjk_monoscale_fp \c_one_fp
+  \group_begin:
+    \fontfamily\ttdefault\selectfont
+    \dim_gset:Nn \g_xecjk_exspace_dim {\c_two\fontdimen\c_two\font - \f@size\p@}
+  \group_end:
+}
+
+\newcommand*\setCJKmonoexspace{
+  \xecjk_set_monoexspace:
+  \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
+  \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}
+}
+
+\DeclareRobustCommand\setCJKmonoexspacefont[2][]{
+  \setCJKmonoexspace
+  \xeCJK@newfontfamily{\CJKttdefault}[#1]{#2}}
+
+\def\xeCJK@ifplus#1{\@ifnextchar +{\@firstoftwo{#1}}}
+
+\DeclareRobustCommand\setCJKmonofont{\@ifstar
+  {\setCJKmonoscalefont}
+  {\xeCJK@ifplus
+    {\setCJKmonoexspacefont}
+    {\xeCJK@newfontfamily{\CJKttdefault}}}}
+
+\DeclareRobustCommand\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont
+         \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
+         \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
+
+\AtBeginDocument{
+  \tl_put_right:Nn \verbatim@font {
+    \punctstyle{plain}
+    \CJKsetecglue{\skip_horizontal:N \g_xecjk_exspace_dim}
+    \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
+}
+
+\ExplSyntaxOff
+
 
 \ifxeCJK@num
   \edef\CJK@UnicodeEnc{UTF8}
