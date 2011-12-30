@@ -20,7 +20,7 @@ mkdir texmf\tex\latex\ctex\fd
 for %%i in (..\fd\c19gbsn.fd ..\fd\c19gbsn.fdx ..\fd\c19gkai.fd ..\fd\c19gkai.fdx ..\fd\c19rm.fd ..\fd\c19sf.fd ..\fd\c19tt.fd ..\fd\c70rm.fd ..\fd\c70sf.fd ..\fd\c70tt.fd) do copy "%%i" texmf\tex\latex\ctex\fd
 
 mkdir texmf\tex\latex\ctex\fontset
-for %%i in (..\fontset\ctex-cjk-adobefonts.def ..\fontset\ctex-cjk-winfonts.def ..\fontset\ctex-xecjk-adobefonts.def ..\fontset\ctex-xecjk-winfonts.def) do copy "%%i" texmf\tex\latex\ctex\fontset
+for %%i in (..\fontset\ctex-cjk-adobefonts.def ..\fontset\ctex-cjk-winfonts.def ..\fontset\ctex-xecjk-adobefonts.def ..\fontset\ctex-xecjk-winfonts.def ..\fontset\ctex-xecjk-macfonts.def) do copy "%%i" texmf\tex\latex\ctex\fontset
 
 mkdir texmf\tex\latex\ctex\opt
 for %%i in (..\opt\ctex-caption-opts.def ..\opt\ctex-class-opts.def ..\opt\ctex-common-opts.def) do copy "%%i" texmf\tex\latex\ctex\opt
