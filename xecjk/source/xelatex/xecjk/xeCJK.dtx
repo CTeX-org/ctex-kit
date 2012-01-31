@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 2.4.4 (17-Sep-2011)
+ Version 2.4.5 (31-Jan-2012)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -140,8 +140,8 @@ may observe
 %</driver>
 %
 %<*xeCJK>
-\def\fileversion{2.4.4}
-\def\filedate{2011/09/17}
+\def\fileversion{2.4.5}
+\def\filedate{2012/01/31}
 \ProvidesPackage{xeCJK}[\filedate\space\fileversion\space package for typesetting CJK scripts with XeLaTeX]
 %</xeCJK>
 %
@@ -257,6 +257,10 @@ may observe
 % \defmacro{\setCJKmonofont} 命令后面可以加上星号 |*| 或加号 |+|，分别表示使用
 % 放缩的方式或改变间距的方式，让 CJK 字符的宽度等于西文字体中两个空格的宽度。
 % 这有利于等宽字体的代码对齐等情形。
+%
+% \defmacro{\CJKfixedspacing} 命令设置固定字距和不压缩标点格式，符合上面加 |+|
+% 命令的意义。\defmacro{\CJKflexiblespacing} 命令恢复可伸缩的字距和标点压缩。
+% 抄录（|verbatim|）环境将自动使用 |\CJKfixedspacing| 的效果。
 %
 % \defmacro{\setCJKmonoscale} 和 \defmacro{\setCJKmonoexspace} 命令分别计算并设置
 % 当前字号下西文等宽字体与 CJK 字体的放缩比例和字距，以符合上面加 |*| 与加 |+| 号
@@ -543,6 +547,11 @@ may observe
 % \defmacro{\setCJKmonofont} can be appended with a |*| or |+| symbol. They make sure
 % that the width of a CJK glyph equals to 2 space for monospace fonts, by scaling and
 % spacing, respectively.
+%
+% \defmacro{\CJKfixedspacing} sets fixed CJK character spacing and |plain|
+% punctuation style. \defmacro{\CJKflexiblespacing} restores flexible CJK
+% character spacing and old punctuation style. |verbatim| environemnts sets
+% |\CJKfixedspacing| automatically.
 %
 % \defmacro{\setCJKmonoscale} and \defmacro{\setCJKmonoexspace} reset the scale and extra
 % space introduced by |\setCJKmainfont*| and |\setCJKmonofont+|, respectively. They are
@@ -1700,8 +1709,8 @@ may observe
 \def\setCJKfamilyfont#1{
   \xeCJK@newfontfamily{#1}}
 %    \end{macrocode}
-% 重定义 |\normalfont|, |\rmfamily|, |\sffamily|，添加 CJK 字体族的设置。
-% |\ttfamily| 可能需要单独调整宽度，将在后面定义。
+% 重定义 |\normalfont|, |\rmfamily|, |\sffamily|, |\ttfamily|，添加 CJK 字体族
+% 的设置。
 %    \begin{macrocode}
 \def\CJKfamilydefault{\CJKrmdefault}
 \DeclareRobustCommand\normalfont
@@ -1720,6 +1729,10 @@ may observe
 \DeclareRobustCommand\sffamily
         {\not@math@alphabet\sffamily\mathsf
          \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
+
+\DeclareRobustCommand\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
 
 %    \end{macrocode}
 % \string\xeCJK@newfontfamily is similar to \string\newfontfamily
@@ -1883,13 +1896,45 @@ may observe
 
 \newcommand*\setCJKmonoexspace{
   \xecjk_set_monoexspace:
-  \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
-  \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}
 }
 
+\cs_new:Nn \xecjk_fixed_ecglue:
+{
+  \skip_horizontal:N .5\g_xecjk_exspace_dim
+}
+
+\cs_new:Nn \xecjk_fixed_cjkglue:
+{
+  \skip_horizontal:N \g_xecjk_exspace_dim
+}
+
+\tl_set_eq:NN \l_xecjk_flexible_punctstyle_tl \xeCJK@punctstyle
+\cs_set_eq:NN \xecjk_flexible_ecglue: \CJKecglue
+\cs_set_eq:NN \xecjk_flexible_cjkglue: \CJKglue
+
+\newcommand*\CJKfixedspacing{
+  \unless\ifnum \xeCJK@punctstyle = \xeCJK@ps@plain
+    \tl_set_eq:NN \l_xecjk_flexible_punctstyle_tl \xeCJK@punctstyle
+	\punctstyle{plain}
+  \fi
+  \unless\ifx \CJKecglue \xecjk_fixed_ecglue:
+    \cs_set_eq:NN \xecjk_flexible_ecglue: \CJKecglue
+    \let \CJKecglue \xecjk_fixed_ecglue:
+  \fi
+  \unless\ifx \CJKglue \xecjk_fixed_cjkglue:
+    \cs_set_eq:NN \xecjk_flexible_cjkglue: \CJKglue
+    \let \CJKglue \xecjk_fixed_cjkglue:
+  \fi
+}
+
+\newcommand*\CJKflexiblespacing{
+  \let \xeCJK@punctstyle \l_xecjk_flexible_punctstyle_tl
+  \let \CJKecglue \xecjk_flexible_ecglue:
+  \let \cjkglue \xecjk_flexible_cjkglue:
+}
 
 \DeclareRobustCommand\setCJKmonoexspacefont[2][]{
-  \setCJKmonoexspace
+  \xecjk_set_monoexspace:
   \xeCJK@newfontfamily{\CJKttdefault}[#1]{#2}}
 
 \def\xeCJK@ifplus#1{\@ifnextchar +{\@firstoftwo{#1}}}
@@ -1900,20 +1945,13 @@ may observe
     {\setCJKmonoexspacefont}
     {\xeCJK@newfontfamily{\CJKttdefault}}}}
 
-\DeclareRobustCommand\ttfamily
-        {\not@math@alphabet\ttfamily\mathtt
-         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont
-         \CJKsetecglue{\skip_horizontal:N .5\g_xecjk_exspace_dim}
-         \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
-
 %    \end{macrocode}
 % 修补 \verbatim@font
 %    \begin{macrocode}
 \AtBeginDocument{
   \tl_put_right:Nn \verbatim@font {
-    \punctstyle{plain}
-    \CJKsetecglue{\skip_horizontal:N \g_xecjk_exspace_dim}
-    \def\CJKglue{\skip_horizontal:N \g_xecjk_exspace_dim}}
+    \CJKfixedspacing
+  }
 }
 
 \ExplSyntaxOff
