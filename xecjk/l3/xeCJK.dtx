@@ -36,9 +36,12 @@ may observe
 \keepsilent
 \preamble
 
- Version 2.4.5 (31-Jan-2012)
+ Version 3.0.0 (08-Apr-2012)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
+
+ Modified by Leo Liu <leoliu.pku@gmail.com>
+         and Qing Lee  <sobenlee@gmail.com>
 
  This file may be distributed and/or modified under the
  conditions of the LaTeX Project Public License, either version 1.3
@@ -130,13 +133,15 @@ may observe
 %
 %    \begin{macrocode}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {xeCJK} {2012/04/05} {2.5.0}
+\ProvidesExplPackage {xeCJK} {2012/04/08} {3.0.0}
   {package for typesetting CJK scripts with XeLaTeX}
 %    \end{macrocode}
 %
-% \begin{macro}{\xeCJK_error:n,\xeCJK_warning:nx,\xeCJK_info:nx,\xeCJK_info:nxx}
+% \begin{macro}
+%  {\xeCJK_error:n,\xeCJK_error:nx,\xeCJK_warning:nx,\xeCJK_info:nx,\xeCJK_info:nxx}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_error:n    { \msg_error:nn    { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_error:nx   { \msg_error:nnx   { xeCJK } }
 \cs_new_nopar:Npn \xeCJK_warning:nx { \msg_warning:nnx { xeCJK } }
 \cs_new_nopar:Npn \xeCJK_info:nx    { \msg_info:nnx    { xeCJK } }
 \cs_new_nopar:Npn \xeCJK_info:nxx   { \msg_info:nnxx   { xeCJK } }
@@ -149,7 +154,7 @@ may observe
   {
     The~xeCJK~package~requires~XeTeX~to~function.\\\\
     You~must~change~your~typesetting~engine~to~"xelatex" \\
-    instead~of~plain~"latex"~or~"pdflatex".
+    instead~of~plain~"latex"~or~"pdflatex"~or~"lualatex".
   }
 \xetex_if_engine:F { \msg_critical:nn { xeCJK } { Require-XeTeX } }
 %    \end{macrocode}
@@ -158,7 +163,7 @@ may observe
 %    \begin{macrocode}
 \msg_new:nnn { xeCJK } { XeTeX-too-old }
   {
-    \token_to_str:N \XeTeXglyphbounds\c_space_tl not~defined.\\\\
+    \token_to_str:N \XeTeXglyphbounds\c_space_tl is~not~defined.\\\\
     You~have~to~update~XeTeX~to~the~version~0.9995.0~or~later.
   }
 \cs_if_free:NT \XeTeXglyphbounds
@@ -238,14 +243,23 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\g_xeCJK_base_class_clist, \g_xeCJK_CJK_class_clist}
+% \begin{macro}
+%  {\g_xeCJK_base_class_clist,\g_xeCJK_CJK_class_clist,\g_xeCJK_CJK_class_prop}
 %    \begin{macrocode}
 \clist_set:Nn \g_xeCJK_base_class_clist
   {
     Default, CJK, FullLeft, FullRight, Boundary,
     HalfLeft, HalfRight, NormalSpace
   }
-\clist_set:Nn \g_xeCJK_CJK_class_clist { CJK, FullLeft, FullRight }
+\clist_new:N \g_xeCJK_CJK_class_clist
+\prop_new:N \g_xeCJK_CJK_class_prop
+\cs_new_nopar:Nn \xeCJK_save_CJK_class:n
+  {
+    \clist_gput_right:Nx \g_xeCJK_CJK_class_clist {#1}
+    \prop_gput:Nvx \g_xeCJK_CJK_class_prop { xeCJK_#1_class } { #1 }
+  }
+\cs_generate_variant:Nn \prop_gput:Nnn { Nvx }
+\clist_map_inline:nn { CJK, FullLeft, FullRight } { \xeCJK_save_CJK_class:n {#1} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -263,8 +277,7 @@ may observe
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKDeclareCharClass { > { \TrimSpaces } m m }
   {
-    \clist_set:Nx \l_tmpa_clist {#2}
-    \clist_map_inline:Nn \l_tmpa_clist
+    \exp_args:Nx \clist_map_inline:nn {#2}
       { \xeCJK_setcharclass_aux:nn {##1} { \xeCJK_class_num:n {#1} } }
   }
 \NewDocumentCommand \xeCJK_setcharclass_aux:nn
@@ -280,11 +293,21 @@ may observe
 \NewDocumentCommand \xeCJKsetcharclass { m m m }
   {
     \int_set:Nn \l_tmpa_int {#1}
-    \IfNoValueTF {#2}
-      { \int_set:Nn \l_tmpb_int \l_tmpa_int }
-      { \int_set:Nn \l_tmpb_int {#2} }
+    \int_set:Nn \l_tmpb_int { \IfNoValueTF {#2} {#1} {#2} }
     \int_set:Nn \l_tmpc_int {#3}
+    \prop_if_in:NVTF \g_xeCJK_CJK_class_prop \l_tmpc_int
+      {
+        \bool_if:nTF
+          {
+            \int_compare_p:nNn \l_tmpc_int = { \xeCJK_class_num:n { FullLeft  } } ||
+            \int_compare_p:nNn \l_tmpc_int = { \xeCJK_class_num:n { FullRight } }
+          }
+          { \cs_set_eq:NN \xeCJK_set_catcode:n \char_set_catcode_other:n }
+          { \cs_set_eq:NN \xeCJK_set_catcode:n \char_set_catcode_letter:n }
+      }
+      { \cs_set_eq:NN \xeCJK_set_catcode:n \use_none:n }
     \loop
+      \xeCJK_set_catcode:n \l_tmpa_int
       \XeTeXcharclass \l_tmpa_int = \l_tmpc_int
       \if_int_compare:w \l_tmpa_int < \l_tmpb_int
         \int_incr:N \l_tmpa_int
@@ -403,7 +426,7 @@ may observe
 %    \end{macrocode}
 % \item Yijing Hexagrams Symbols （易经六十四卦符号）
 %    \begin{macrocode}
-    "4DC0 -> "4DFF,
+    "4DC0 -> "4DFF ,
 %    \end{macrocode}
 % \item CJK Unified Ideographs （中日韩统一表意文字）
 %    \begin{macrocode}
@@ -884,10 +907,7 @@ may observe
 % \begin{macro}{CJKecglue}
 % CJK 与西文和数学行内数学公式之间自动添加的空白。
 %    \begin{macrocode}
-\keys_define:nn { xeCJK / options }
-  {
-    CJKecglue .tl_set_x:N = \CJKecglue,
-  }
+\keys_define:nn { xeCJK / options } { CJKecglue .tl_set_x:N = \CJKecglue }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -970,8 +990,8 @@ may observe
 %
 % \begin{macro}{\xeCJK_UL_subclass_patch_tl,\g_xeCJK_CJK_subclass_clist}
 %    \begin{macrocode}
-\tl_clear_new:N \xeCJK_UL_subclass_patch_tl
-\clist_clear_new:N \g_xeCJK_CJK_subclass_clist
+\tl_new:N \xeCJK_UL_subclass_patch_tl
+\clist_new:N \g_xeCJK_CJK_subclass_clist
 %    \end{macrocode}
 % \end{macro}
 %
@@ -998,11 +1018,39 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJKCancelSubCJKBlock}
-% 取消对 CJK 子区的声明。
+% \begin{macro}{\xeCJKCancelSubCJKBlock,\xeCJKRestoreSubCJKBlock}
+% 取消和恢复对 CJK 子区的声明。
 %    \begin{macrocode}
+\bool_new:N \l_xeCJK_sub_restore_bool
 \NewDocumentCommand \xeCJKCancelSubCJKBlock { m }
-  { \xeCJKCancelSubCharClass { CJK } {#1} }
+  {
+    \bool_set_false:N \l_xeCJK_sub_restore_bool
+    \xeCJK_sub_restore_or_cancel:n {#1}
+  }
+\NewDocumentCommand \xeCJKRestoreSubCJKBlock { m }
+  {
+    \bool_set_true:N \l_xeCJK_sub_restore_bool
+    \xeCJK_sub_restore_or_cancel:n {#1}
+  }
+\cs_new_nopar:Nn \xeCJK_sub_restore_or_cancel:n
+  {
+    \exp_args:Nx \clist_map_inline:nn {#1}
+      {
+        \cs_if_free:cTF { xeCJK_ CJK/##1 _class }
+          { \xeCJK_error:nx { SubBlock-undefined } {##1} }
+          {
+            \xeCJKDeclareCharClass
+              { CJK \bool_if:NT \l_xeCJK_sub_restore_bool { /##1 } }
+              { \clist_use:c { g_xeCJK_CJK/##1_range_clist } }
+          }
+      }
+  }
+\msg_new:nnn { xeCJK } { SubBlock-undefined }
+  {
+    The~CJK~sub~block~'#1'~is~undefined.\\\\
+    Try~to~use~\token_to_str:N \xeCJKDeclareSubCJKBlock \c_space_tl
+    to~declare~it.
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1011,51 +1059,68 @@ may observe
 \NewDocumentCommand \xeCJKDeclareSubCharClass
   { > { \TrimSpaces } m > { \TrimSpaces } m m }
   {
-    \tl_set:Nx \l_tmpa_tl { #1/#2 }
-    \cs_if_free:cTF { xeCJK_\l_tmpa_tl _class }
+    \cs_if_free:cTF { xeCJK_ #1/#2 _class }
       {
-        \xeCJK_new_class:n { \l_tmpa_tl }
-        \clist_gset:cx { g_xeCJK_\l_tmpa_tl _range_clist } {#3}
+        \xeCJK_new_class:n { #1/#2 }
+        \clist_gset:cx { g_xeCJK_ #1/#2 _range_clist } {#3}
+        \xeCJK_set_sub_class_toks:nn {#1} {#2}
+        \xeCJK_new_sub_key:n {#2}
+        \xeCJK_UL_subclass_patch:nn {#1} {#2}
       }
-      { \clist_gput_right:cx { g_xeCJK_\l_tmpa_tl _range_clist } {#3} }
-    \xeCJKDeclareCharClass { \l_tmpa_tl } {#3}
+      { \clist_gput_right:cx { g_xeCJK_ #1/#2 _range_clist } {#3} }
+    \xeCJKDeclareCharClass { #1/#2 } {#3}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\xeCJK_set_sub_class_toks:nn}
+%    \begin{macrocode}
+\cs_new_nopar:Nn \xeCJK_set_sub_class_toks:nn
+  {
     \clist_map_inline:Nn \g_xeCJK_base_class_clist
       {
-        \xeCJK_copy_inter_class_toks:nnnn { \l_tmpa_tl } {##1} {#1}  {##1}
-        \xeCJK_copy_inter_class_toks:nnnn {##1} { \l_tmpa_tl } {##1} {#1}
+        \xeCJK_copy_inter_class_toks:nnnn { #1/#2 } {##1} {#1}  {##1}
+        \xeCJK_copy_inter_class_toks:nnnn {##1} { #1/#2 } {##1} {#1}
         \str_if_eq:xxTF {##1} { CJK }
           {
-            \xeCJK_pre_inter_class_toks:nnn {##1} { \l_tmpa_tl }
+            \xeCJK_pre_inter_class_toks:nnn {##1} { #1/#2 }
               { \xeCJK_switch_font:nn {#1} {#2} }
           }
           {
-            \xeCJK_pre_inter_class_toks:nnn {##1} { \l_tmpa_tl }
+            \xeCJK_pre_inter_class_toks:nnn {##1} { #1/#2 }
               { \xeCJK_erase_CJKsymbol: }
-            \xeCJK_app_inter_class_toks:nnn {##1} { \l_tmpa_tl }
+            \xeCJK_app_inter_class_toks:nnn {##1} { #1/#2 }
               { \xeCJK_switch_font:nn {#1} {#2} \xeCJK_restore_CJKsymbol: }
           }
-    }
-    \xeCJK_copy_inter_class_toks:nnnn { \l_tmpa_tl } { \l_tmpa_tl } {#1} {#1}
+      }
+    \xeCJK_copy_inter_class_toks:nnnn { #1/#2 } { #1/#2 } {#1} {#1}
     \clist_if_empty:NF \g_xeCJK_CJK_subclass_clist
       {
         \clist_map_inline:Nn \g_xeCJK_CJK_subclass_clist
           {
-            \xeCJK_copy_inter_class_toks:nnnn { \l_tmpa_tl } { #1/##1 } {#1} {#1}
-            \xeCJK_copy_inter_class_toks:nnnn { #1/##1 } { \l_tmpa_tl } {#1} {#1}
-            \xeCJK_pre_inter_class_toks:nnn { \l_tmpa_tl } { #1/##1 }
+            \xeCJK_copy_inter_class_toks:nnnn { #1/#2  } { #1/##1 } {#1} {#1}
+            \xeCJK_copy_inter_class_toks:nnnn { #1/##1 } { #1/#2  } {#1} {#1}
+            \xeCJK_pre_inter_class_toks:nnn { #1/#2 } { #1/##1 }
               { \xeCJK_switch_font:nn {#2} {##1} }
-            \xeCJK_pre_inter_class_toks:nnn { #1/##1 } { \l_tmpa_tl }
+            \xeCJK_pre_inter_class_toks:nnn { #1/##1 } { #1/#2 }
               { \xeCJK_switch_font:nn {##1} {#2} }
           }
       }
     \clist_gput_right:Nn \g_xeCJK_CJK_subclass_clist {#2}
-    \exp_args:NNx \clist_gput_right:Nn \g_xeCJK_CJK_class_clist \l_tmpa_tl
+    \xeCJK_save_CJK_class:n { #1/#2 }
     \clist_map_inline:nn { CJK, FullLeft, FullRight }
       {
-        \xeCJK_pre_inter_class_toks:nnn { \l_tmpa_tl } {##1}
+        \xeCJK_pre_inter_class_toks:nnn { #1/#2 } {##1}
           { \xeCJK_switch_font:nn {#2} {#1} }
       }
-    \xeCJK_new_sub_key:n {#2}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\xeCJK_UL_subclass_patch:nn}
+%    \begin{macrocode}
+\cs_new_nopar:Nn \xeCJK_UL_subclass_patch:nn
+  {
     \tl_put_right:Nn \xeCJK_UL_subclass_patch_tl
       {
         \clist_map_inline:nn { Default, HalfLeft, HalfRight }
@@ -1076,26 +1141,13 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJKCancelSubCharClass}
-%    \begin{macrocode}
-\NewDocumentCommand \xeCJKCancelSubCharClass
-  { > { \TrimSpaces } m > { \TrimSpaces } m }
-  {
-    \exp_args:Nx \clist_map_inline:nn {#2}
-      {
-        \xeCJKDeclareCharClass {#1} { \clist_use:c { g_xeCJK_#1/##1_range_clist } }
-        \clist_gclear:c { g_xeCJK_#1/##1_range_clist }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
 % \subsection{标点处理}
 %
 % \begin{macro}{\g_xeCJK_punctstyle_clist}
 % 标点处理方式。
 %    \begin{macrocode}
-\clist_set:Nx \g_xeCJK_punctstyle_clist
+\clist_new:N \g_xeCJK_punctstyle_clist
+\clist_set:Nn \g_xeCJK_punctstyle_clist
   { CCT , halfwidth , fullwidth , marginkerning , mixedwidth , plain }
 \clist_map_inline:Nn \g_xeCJK_punctstyle_clist
   { \tl_const:cn { c_xeCJK_ps_#1_tl } {#1} }
@@ -1128,8 +1180,7 @@ may observe
       { \tl_put_right:Nx \l_xeCJK_mixedwidth_punct_tl {#1} },
     KaiMingPunct- .code:n =
       {
-        \tl_set:Nx \l_tmpa_tl {#1}
-        \tl_map_inline:Nn \l_tmpa_tl
+        \exp_args:Nx \tl_map_inline:nn {#1}
           { \tl_remove_all:Nn \l_xeCJK_mixedwidth_punct_tl {##1} }
       },
     SpecialPunct  .tl_set_x:N = \l_xeCJK_special_punct_tl ,
@@ -1137,8 +1188,7 @@ may observe
       { \tl_put_right:Nx \l_xeCJK_special_punct_tl {#1} },
     SpecialPunct- .code:n =
       {
-        \tl_set:Nx \l_tmpa_tl {#1}
-        \tl_map_inline:Nn \l_tmpa_tl
+        \exp_args:Nx \tl_map_inline:nn {#1}
           { \tl_remove_all:Nn \l_xeCJK_special_punct_tl {##1} }
       },
     PunctStyle .choice_code:n =
@@ -1158,7 +1208,7 @@ may observe
 \msg_new:nnn { xeCJK } { PunctStyle-undefined }
   {
     Punctstyle~"#1"~is~not~available. \\\\
-    You~just~can~use~one~of\\\\
+    You~can~only~use~one~of\\\\
     "\g_xeCJK_punctstyle_clist".\\
   }
 %    \end{macrocode}
@@ -1348,14 +1398,14 @@ may observe
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_get_punct_dimen:n
   {
-    \xeCJK_get_glyph_bounds:nn { left } {#1}
-    \tl_gset:cV { \l_xeCJK_current_punct_tl/space/l/#1 } \l_xeCJK_glyph_bounds_dim
-    \dim_set_eq:NN \l_tmpa_dim \l_xeCJK_glyph_bounds_dim
-    \xeCJK_get_glyph_bounds:nn { right } {#1}
-    \tl_gset:cV { \l_xeCJK_current_punct_tl/space/r/#1 } \l_xeCJK_glyph_bounds_dim
-    \dim_add:Nn \l_tmpa_dim \l_xeCJK_glyph_bounds_dim
+    \xeCJK_get_glyph_bounds:nnN { left } {#1} \l_tmpa_dim
+    \tl_gset:cV { \l_xeCJK_current_punct_tl/space/l/#1 } \l_tmpa_dim
+    \dim_set_eq:NN \l_tmpb_dim \l_tmpa_dim
+    \xeCJK_get_glyph_bounds:nnN { right } {#1} \l_tmpa_dim
+    \tl_gset:cV { \l_xeCJK_current_punct_tl/space/r/#1 } \l_tmpa_dim
+    \dim_add:Nn \l_tmpb_dim \l_tmpa_dim
     \tl_gset:cx { \l_xeCJK_current_punct_tl/dimen/#1 }
-      { \dim_eval:n { 1 em - \l_tmpa_dim } }
+      { \dim_eval:n { 1 em - \l_tmpb_dim } }
     \xeCJK_punct_if_special:nT {#1}
       {
         \str_if_eq:xxF {#1} { … }
@@ -1365,7 +1415,7 @@ may observe
                 \str_if_eq:xxF \c_xeCJK_ps_plain_tl {##1}
                   {
                     \tl_gset:cx { \l_xeCJK_current_coor_tl/##1/kern/#1-#1 }
-                      { - \dim_use:N \l_tmpa_dim }
+                      { - \dim_use:N \l_tmpb_dim }
                   }
               }
           }
@@ -1374,22 +1424,22 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJK_get_glyph_bounds:nn}
+% \begin{macro}{\xeCJK_get_glyph_bounds:nnN}
 % 用 |\XeTeXglyphbounds| 计算标点的上下左右空白。
 %    \begin{macrocode}
-\dim_zero_new:N \l_xeCJK_glyph_bounds_dim
-\cs_new_nopar:Nn \xeCJK_get_glyph_bounds:nn
+\cs_new_nopar:Nn \xeCJK_get_glyph_bounds:nnN
   {
-    \prg_case_str:xxn {#1}
+    \dim_set:Nn #3
       {
-        { left   } { \int_set:Nn \l_tmpa_int \c_one   }
-        { top    } { \int_set:Nn \l_tmpa_int \c_two   }
-        { right  } { \int_set:Nn \l_tmpa_int \c_three }
-        { bottom } { \int_set:Nn \l_tmpa_int \c_four  }
+        \XeTeXglyphbounds
+          \prg_case_str:xxn {#1}
+            {
+                { left   } { \c_one   }     { top    } { \c_two  }
+                { right  } { \c_three }     { bottom } { \c_four }
+            }
+            { \c_three }
+          \int_eval:n { \XeTeXcharglyph `#2 }
       }
-      { \prg_do_nothing: }
-    \dim_set:Nn \l_xeCJK_glyph_bounds_dim
-      { \XeTeXglyphbounds \l_tmpa_int \int_eval:n { \XeTeXcharglyph `#2 } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1398,7 +1448,7 @@ may observe
 % 手动设置相邻标点的距离，仅在当前字体状态下有效。
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKsetkern  { m m m }
-  { \tl_gset:cx { \l_xeCJK_current_punct_tl/kern/#1-#2 } {#3} }
+  { \tl_gset:cx { \l_xeCJK_current_punct_tl/kern/#1-#2 } { \dim_eval:n {#3} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2033,8 +2083,7 @@ may observe
 % \begin{macro}{\l_xeCJK_current_coor_tl,\xeCJK_select_font:,\xeCJK_switch_font:nn}
 % 缓存当前字体的原始格式，以加速编译。
 %    \begin{macrocode}
-\tl_set:Nn \l_xeCJK_current_coor_tl
-  { \l_xeCJK_family_tl/\f@series/\f@shape/\f@size }
+\tl_set:Nn \l_xeCJK_current_coor_tl { \l_xeCJK_family_tl/\f@series/\f@shape/\f@size }
 \cs_new_nopar:Nn \xeCJK_select_font:
   {
     \cs_if_exist_use:cF { \l_xeCJK_current_coor_tl }
@@ -2054,8 +2103,7 @@ may observe
             \prop_gput:Nxx \g_xeCJK_family_font_prop \l_xeCJK_family_tl
               { \tex_fontname:D \tex_font:D }
           }
-        \exp_after:wN \cs_gset_eq:cN
-        \exp_after:wN \l_xeCJK_coor_tl \font@name
+        \exp_last_unbraced:NNo \cs_gset_eq:cN \l_xeCJK_coor_tl \font@name
       }
   }
 \cs_new_nopar:Nn \xeCJK_switch_font:nn
@@ -2110,8 +2158,8 @@ may observe
 \msg_new:nnn { xeCJK } { CJKfamily-Unknown }
   {
     Unknown~CJK~family~'#1'~is~ignored.\\\\
-    Try~to~use~\token_to_str:N \setCJKfamilyfont\c_space_tl to~
-    define~a~new~CJK~family.
+    Try~to~use~\token_to_str:N \setCJKfamilyfont{#1}[...]{...}\c_space_tl
+    to~define~it.
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2152,7 +2200,7 @@ may observe
 % \begin{macro}{\defaultCJKfontfeatures, \addCJKfontfeatures}
 % 分别用于设置 CJK 字体的默认属性和增加当前 CJK 字体的属性。
 %    \begin{macrocode}
-\clist_clear_new:N \g_xeCJK_default_features_clist
+\clist_new:N \g_xeCJK_default_features_clist
 \NewDocumentCommand \defaultCJKfontfeatures { m }
   { \clist_gset:Nn \g_xeCJK_default_features_clist {#1} }
 \NewDocumentCommand \addCJKfontfeatures { m }
@@ -2240,7 +2288,7 @@ may observe
 %    \begin{macrocode}
 \fp_new:N \g_xeCJK_monoscale_fp
 \fp_gset_eq:NN \g_xeCJK_monoscale_fp \c_one_fp
-\dim_gzero_new:N \g_xeCJK_exspace_dim
+\dim_new:N \g_xeCJK_exspace_dim
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2351,7 +2399,8 @@ may observe
   {
     \IfBooleanTF {#1}
       { \setCJKmonoscalefont [#3] {#4} }
-      { \IfBooleanTF {#2}
+      {
+        \IfBooleanTF {#2}
           { \setCJKmonoexspacefont [#3] {#4} }
           { \xeCJK_set_family:nnn \CJKttdefault {#3} {#4} }
       }
@@ -2462,17 +2511,21 @@ may observe
 % \begin{macro}{\DeclareKaiMingPunct, \DeclareSpecialPunct}
 %     \begin{macrocode}
 \NewDocumentCommand \DeclareKaiMingPunct { t+ t- m }
-  { \IfBooleanTF {#1}
+  {
+    \IfBooleanTF {#1}
       { \keys_set:nn { xeCJK / options } { KaiMingPunct+ = {#3} } }
-      { \IfBooleanTF {#2}
+      {
+        \IfBooleanTF {#2}
           { \keys_set:nn { xeCJK / options } { KaiMingPunct- = {#3} } }
           { \keys_set:nn { xeCJK / options } { KaiMingPunct  = {#3} } }
       }
   }
 \NewDocumentCommand \DeclareSpecialPunct { t+ t- m }
-  { \IfBooleanTF {#1}
+  {
+    \IfBooleanTF {#1}
       { \keys_set:nn { xeCJK / options } { SpecialPunct+ = {#3} } }
-      { \IfBooleanTF {#2}
+      {
+        \IfBooleanTF {#2}
           { \keys_set:nn { xeCJK / options } { SpecialPunct- = {#3} } }
           { \keys_set:nn { xeCJK / options } { SpecialPunct  = {#3} } }
       }
@@ -2487,6 +2540,8 @@ may observe
   { \keys_set:nn { xeCJK / options } { EmboldenFactor = {#1} } }
 \NewDocumentCommand \xeCJKsetSlantFactor { m }
   { \keys_set:nn { xeCJK / options } { SlantFactor = {#1} } }
+\cs_new_eq:NN \xeCJKsetslantfactor    \xeCJKsetEmboldenFactor
+\cs_new_eq:NN \xeCJKsetemboldenfactor \xeCJKsetSlantFactor
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2662,8 +2717,7 @@ may observe
 \documentclass{article}
 \usepackage[AutoFakeBold,AutoFakeSlant]{xeCJK}
 \setCJKmainfont[BoldFont=simhei.ttf, ItalicFont=simkai.ttf]{simsun.ttc}
-\setCJKsansfont[
-  AutoFakeBold=false, AutoFakeSlant=false,
+\setCJKsansfont[AutoFakeSlant=false,
   BoldFont=simhei.ttf, ItalicFont=simkai.ttf]{simsun.ttc}
 \setCJKmonofont[ItalicFont=simkai.ttf]{simsun.ttc}
 \begin{document}
@@ -2725,7 +2779,7 @@ may observe
 \usepackage[FallBack]{xeCJK}
 \usepackage{CJKfntef}
 \usepackage{array}
-\setCJKmainfont{KaiTi_GB2312}
+\setCJKmainfont[AutoFakeBold,AutoFakeSlant]{KaiTi_GB2312}
 \setCJKfallbackfamilyfont{\CJKrmdefault}[BoldFont=SimHei]
   { [SlantedFont=FangSong]{SimSun} ,
     [BoldFont=*]          {SimSun-ExtB} }
@@ -2740,7 +2794,7 @@ may observe
 \begin{table}[ht]
 \caption{生僻字测试}
 \medskip\centering
-\begin{tabular}{*4{|c>{\ttfamily}l}|}
+\begin{tabular}{*4{|c>{\ttfamily U+}l}|}
 㐀 & 3400  & 㐁 & 3401  & 㐂 & 3402  & 㐃 & 3403  \\
 㐄 & 3404  & 㐅 & 3405  & 㐆 & 3406  & 㐇 & 3407  \\
 㐈 & 3408  & 㐉 & 3409  & 㐊 & 340A  & 㐋 & 340B  \\
@@ -2775,6 +2829,7 @@ may observe
 % \begin{macrocode}
 \documentclass{article}
 \usepackage{xeCJK}
+\usepackage{CJKfntef}
 \usepackage{array}
 \xeCJKDeclareSubCJKBlock{Ext-A} { "3400 -> "4DBF }
 \xeCJKDeclareSubCJKBlock{Ext-B} { "20000 -> "2A6DF }
@@ -2788,7 +2843,7 @@ may observe
 \long\def\showtext{%
 “中国是$x^2+y^2=z^2$位于亚洲东部的一个ABC地理区域范围，最早是指炎黄子孙在中原建立的国度，至现代国际体系成形后才开始作为国家的通称。作为其根基的中华文明是世界上古老的文明之一，对周边国家和民族的文化产生深远影响，形成了东亚／汉字文化圈。
 
-「日本」と$x^2+y^2=z^2$いABCう国号の表記は、太陽崇拝と相俟った自国中心的発想に基づくもの、また日本列島が中国大陸から見て東の果て、つまり「日の本（ひのもと）」に位置することに由来して\addCJKfontfeatures{Kana=meiryob.ttc}いるのではないかとされる。憲法の表題に「日本国憲法」や「大日本帝国憲法」と示されているが、国号を「日本国」ないしは「日本」と直接かつ明確に規定した法令は存在しない。他に法律などで正式な国名を規定していない国としてはスペインなどが挙げられる。
+「日本」\CJKunderwave{と$x^2+y^2=z^2$いABCう国号の表記は、太陽崇拝と相俟った自国中心的発想に基づくもの、また日本列島が中国大陸から見て東の果て、つまり「日の本（ひのもと）」に位}置することに由来して\addCJKfontfeatures{Kana=meiryob.ttc}いるのではないかとされる。憲法の表題に「日本国憲法」や「大日本帝国憲法」と示されているが、国号を「日本国」ないしは「日本」と直接かつ明確に規定した法令は存在しない。他に法律などで正式な国名を規定していない国としてはスペインなどが挙げられる。
 
 \CJKspace
 대한$x^2+y^2=z^2$민국은 동아시아의 한반ABC도 남반부에 자리한 공화국이다. 한일 병합 조약을 통하여 대한제국을 병합했던 일본 제국이 태평양 전쟁에서 연합국에게 패배하고, 이후 주요 연합국 중 하나인 미국이 한반도의 북위 38도 이남을 점령하면서 실시한 군정이 통치권을 이양하여, 1948년 8월 15일에 성립되었다.}
@@ -2798,12 +2853,14 @@ may observe
 \xeCJKCancelSubCJKBlock{Kana,Hangul}
 {\showtext}
 
-\clearpage
+\bigskip
+\xeCJKRestoreSubCJKBlock{Hangul}
+{\showtext}
 
 \begin{table}[ht]
 \caption{生僻字测试}
 \medskip\centering
-\begin{tabular}{*4{|c>{\ttfamily}l}|}
+\begin{tabular}{*4{|c>{\ttfamily U+}l}|}
 㐀 & 3400  & 㐁 & 3401  & 㐂 & 3402  & 㐃 & 3403  \\
 㐄 & 3404  & 㐅 & 3405  & 㐆 & 3406  & 㐇 & 3407  \\
 㐈 & 3408  & 㐉 & 3409  & 㐊 & 340A  & 㐋 & 340B  \\
