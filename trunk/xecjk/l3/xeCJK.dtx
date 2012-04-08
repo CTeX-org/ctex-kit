@@ -270,6 +270,20 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[pTF]{\tl_if_blank:x}
+%     \begin{macrocode}
+\prg_set_conditional:Nnn \tl_if_blank:x { p , T , F , TF }
+  {
+    \if_int_compare:w \pdftex_strcmp:D { \c_empty_tl } {#1} = \c_zero
+      \prg_return_true:
+    \else:
+      \if_int_compare:w \pdftex_strcmp:D { \c_space_tl } {#1} = \c_zero
+        \prg_return_true: \else: \prg_return_false: \fi:
+    \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\xeCJKDeclareCharClass}
 % \begin{macro}[aux]{\xeCJK_setcharclass_aux:nn}
 % 用于设置字符所属的类别，|#1| 为类别名称，|#2| 为字符的 |Unicode|，相邻字符用
@@ -278,11 +292,13 @@ may observe
 \NewDocumentCommand \xeCJKDeclareCharClass { > { \TrimSpaces } m m }
   {
     \exp_args:Nx \clist_map_inline:nn {#2}
-      { \xeCJK_setcharclass_aux:nn {##1} { \xeCJK_class_num:n {#1} } }
+      {
+        \str_if_eq:xxF {##1} { -> }
+          { \xeCJK_setcharclass_aux:nn {##1} { \xeCJK_class_num:n {#1} } }
+      }
   }
 \NewDocumentCommand \xeCJK_setcharclass_aux:nn
-  { > { \SplitArgument { 1 } { -> } } m m }
-  { \xeCJKsetcharclass #1 {#2} }
+  { > { \SplitArgument { 1 } { -> } } m m } { \xeCJKsetcharclass #1 {#2} }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
@@ -292,8 +308,15 @@ may observe
 %     \begin{macrocode}
 \NewDocumentCommand \xeCJKsetcharclass { m m m }
   {
-    \int_set:Nn \l_tmpa_int {#1}
-    \int_set:Nn \l_tmpb_int { \IfNoValueTF {#2} {#1} {#2} }
+    \bool_if:nTF { \tl_if_blank_p:x {#1} || \tl_if_blank_p:x {#2} }
+      {
+        \int_set:Nn \l_tmpa_int { \tl_if_blank:xTF {#1} {#2} {#1} }
+        \int_set_eq:NN \l_tmpb_int \l_tmpa_int
+      }
+      {
+        \int_set:Nn \l_tmpa_int { \int_min:nn {#1} { \IfNoValueTF {#2} {#1} {#2} } }
+        \int_set:Nn \l_tmpb_int { \int_max:nn {#1} { \IfNoValueTF {#2} {#1} {#2} } }
+      }
     \int_set:Nn \l_tmpc_int {#3}
     \prop_if_in:NVTF \g_xeCJK_CJK_class_prop \l_tmpc_int
       {
@@ -1598,20 +1621,6 @@ may observe
 % \begin{macro}{\keys_set_known:nxN}
 %    \begin{macrocode}
 \cs_generate_variant:Nn \keys_set_known:nnN { nx }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF]{\tl_if_blank:x}
-%     \begin{macrocode}
-\prg_set_conditional:Nnn \tl_if_blank:x { p , T , F , TF }
-  {
-    \if_int_compare:w \pdftex_strcmp:D { \c_empty_tl } {#1} = \c_zero
-      \prg_return_true:
-    \else:
-      \if_int_compare:w \pdftex_strcmp:D { \c_space_tl } {#1} = \c_zero
-        \prg_return_true: \else: \prg_return_false: \fi:
-    \fi:
-  }
 %    \end{macrocode}
 % \end{macro}
 %
