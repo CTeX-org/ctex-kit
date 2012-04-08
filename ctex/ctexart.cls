@@ -2,22 +2,19 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexart}
-  [2012/01/07 v1.03 ctexart
+  [2012/04/09 v1.04 ctexart
    document class]
 
 \def\CTEX@classtoload{article}
 
-\input{ctex-common-opts.def}
-\input{ctex-caption-opts.def}
-\input{ctex-class-opts.def}
-
-\InputIfFileExists{ctexopts.cfg}{}{}
-
-\input{ctex-loadclass.def}
+\input{ctex-options.def}
 
 \input{ctex-common.def}
+
 \input{ctex-caption.def}
-\input{ctex-class.def}
+
+\input{ctex-fontsize.def}
+
 \input{ctex-article.def}
 
 % ctex.cfg should be loaded very last
