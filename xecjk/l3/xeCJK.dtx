@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 3.0.0 (08-Apr-2012)
+ Version 3.0.1 (11-Apr-2012)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -133,7 +133,7 @@ may observe
 %
 %    \begin{macrocode}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {xeCJK} {2012/04/08} {3.0.0}
+\ProvidesExplPackage {xeCJK} {2012/04/11} {3.0.1}
   {package for typesetting CJK scripts with XeLaTeX}
 %    \end{macrocode}
 %
@@ -651,7 +651,7 @@ may observe
 \clist_map_inline:nn { Default, HalfLeft }
   {
     \xeCJK_inter_class_toks:nnn { Boundary } {#1}
-      { \int_compare:nNnT \tex_lastkern:D = \c_one { \c_space_token } }
+      { \int_compare:nNnT \tex_lastkern:D = \c_one { \CJKecglue } }
     \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue }
   }
 %    \end{macrocode}
@@ -660,7 +660,10 @@ may observe
 \clist_map_inline:nn { Default, HalfRight }
   {
     \xeCJK_inter_class_toks:nnn {#1} { Boundary }
-      { \peek_meaning:NF \c_space_token  { { \xeCJK_zero_kern: } } }
+      {
+        \peek_meaning:NTF \c_space_token
+          { { \xeCJK_space_kern: } } { { \xeCJK_zero_kern: } }
+      }
   }
 %    \end{macrocode}
 %
@@ -670,18 +673,33 @@ may observe
 %
 % \begin{macro}{\xeCJK_Boundary_and_CJK:}
 %    \begin{macrocode}
-\int_const:Nn \c_etex_math_node \c_ten
 \cs_new_nopar:Nn \xeCJK_Boundary_and_CJK:
   {
     {
       \int_compare:nNnTF \tex_lastkern:D = \c_one
         { \CJKglue }
         {
-          \int_compare:nNnTF \tex_lastkern:D = \c_two
-            { \c_space_token }
+          \bool_if:nTF
             {
-              \int_compare:nNnT \etex_lastnodetype:D = \c_etex_math_node
-                { \CJKecglue }
+              \int_compare_p:nNn \tex_lastkern:D = \c_two ||
+              \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
+            }
+            { \CJKecglue }
+            {
+              \int_compare:nNnT \etex_lastnodetype:D = \c_eleven
+                {
+                  \skip_if_eq:nnF { \tex_lastskip:D } { \c_zero_skip }
+                    {
+                      \skip_set_eq:NN \l_tmpa_skip \tex_lastskip:D
+                      \tex_unskip:D
+                      \bool_if:nTF
+                        {
+                          \int_compare_p:nNn \tex_lastkern:D = \c_three ||
+                          \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
+                        }
+                        { \CJKecglue } { \skip_horizontal:N \l_tmpa_skip }
+                    }
+                }
             }
         }
     }
@@ -708,8 +726,7 @@ may observe
 \cs_new_nopar:Nn \xeCJK_CJK_and_CJK:n
   {
     \bool_if:NTF \l_xeCJK_checksingle_bool
-      { \xeCJK_checksingle:n {#1} }
-      { \CJKglue \CJKsymbol {#1} }
+      { \xeCJK_checksingle:n {#1} } { \CJKglue \CJKsymbol {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -922,8 +939,9 @@ may observe
 %
 % \begin{macro}{\xeCJK_CJK_kern:, \xeCJK_zero_kern:}
 %     \begin{macrocode}
-\cs_new_nopar:Nn \xeCJK_CJK_kern:  { \tex_kern:D -1 sp  \tex_kern:D 1 sp }
-\cs_new_nopar:Nn \xeCJK_zero_kern: { \tex_kern:D -2 sp  \tex_kern:D 2 sp }
+\cs_new_nopar:Nn \xeCJK_CJK_kern:   { \tex_kern:D -1 sp  \tex_kern:D 1 sp }
+\cs_new_nopar:Nn \xeCJK_zero_kern:  { \tex_kern:D -2 sp  \tex_kern:D 2 sp }
+\cs_new_nopar:Nn \xeCJK_space_kern: { \tex_kern:D -3 sp  \tex_kern:D 3 sp }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -954,13 +972,13 @@ may observe
         \bool_if:NF \l_xeCJK_space_bool
           {
             \peek_meaning_ignore_spaces:NTF $
-              { \c_space_token }
+              { \CJKecglue }
               {
                 \peek_charcode_ignore_spaces:NTF \scan_stop:
-                  { \c_space_token }
+                  { \CJKecglue }
                   {
                     \peek_catcode_ignore_spaces:NT \c_catcode_active_tl
-                      { \c_space_token }
+                      { \CJKecglue }
                   }
               }
           }
