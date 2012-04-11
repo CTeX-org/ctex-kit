@@ -256,7 +256,7 @@ may observe
 \cs_new_nopar:Nn \xeCJK_save_CJK_class:n
   {
     \clist_gput_right:Nx \g_xeCJK_CJK_class_clist {#1}
-    \prop_gput:Nvx \g_xeCJK_CJK_class_prop { xeCJK_#1_class } { #1 }
+    \prop_gput:Nvx \g_xeCJK_CJK_class_prop { xeCJK_#1_class } {#1}
   }
 \cs_generate_variant:Nn \prop_gput:Nnn { Nvx }
 \clist_map_inline:nn { CJK, FullLeft, FullRight } { \xeCJK_save_CJK_class:n {#1} }
@@ -522,8 +522,7 @@ may observe
 %    \begin{macrocode}
 \NewDocumentCommand \normalspacedchars { m }
   {
-    \tl_set:Nx \g_xeCJK_normal_space_tl {#1}
-    \tl_map_inline:Nn \g_xeCJK_normal_space_tl
+    \exp_args:Nx \tl_map_inline:nn {#1}
       { \XeTeXcharclass `##1 = \xeCJK_class_num:n { NormalSpace } }
   }
 \normalspacedchars{/}
@@ -649,11 +648,12 @@ may observe
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\clist_map_inline:nn { Default, HalfLeft }
+\clist_map_inline:nn { Default, HalfLeft, NormalSpace }
   {
     \xeCJK_inter_class_toks:nnn { Boundary } {#1}
       { \int_compare:nNnT \tex_lastkern:D = \c_one { \CJKecglue } }
-    \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue }
+    \str_if_eq:xxF {#1} { NormalSpace }
+      { \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue } }
   }
 %    \end{macrocode}
 %
@@ -753,9 +753,7 @@ may observe
 %
 %    \begin{macrocode}
 \clist_map_inline:nn { FullLeft, FullRight }
-  {
-    \xeCJK_app_inter_class_toks:nnn {#1} { Boundary } { \tex_ignorespaces:D }
-  }
+  { \xeCJK_app_inter_class_toks:nnn {#1} { Boundary } { \tex_ignorespaces:D } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -975,19 +973,12 @@ may observe
           {
             \peek_meaning_ignore_spaces:NTF $ { \CJKecglue }
               {
-                \bool_if:nTF
+                \bool_if:nT
                   {
                     \token_if_eq_charcode_p:NN \l_peek_token \scan_stop: ||
                     \token_if_eq_catcode_p:NN  \l_peek_token \c_catcode_active_tl
                   }
                   { \CJKecglue }
-                  { {
-                      \tl_map_inline:Nn \g_xeCJK_normal_space_tl
-                        {
-                          \token_if_eq_meaning:NNT ##1 \l_peek_token
-                            { \CJKecglue \tl_map_break: }
-                        }
-                  } }
               }
           }
       }
