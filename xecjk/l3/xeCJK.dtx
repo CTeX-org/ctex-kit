@@ -86,7 +86,7 @@ may observe
 \setCJKmainfont[Ext-B]{SimSun-ExtB}
 \setCJKmainfont[Kana,BoldFont=meiryob.ttc]{meiryo.ttc}
 \setCJKmainfont[Hangul,BoldFont=malgunbd.ttf]{malgun.ttf}
-\def\MacroFont{\small\normalfont\ttfamily}
+\def\MacroFont{\small\normalfont\ttfamily\punctstyle{plain}}
 \parindent=2em
 \AtBeginDocument{\DeleteShortVerb{\"}\MakeShortVerb{\|}}
 \makeatletter
@@ -522,7 +522,7 @@ may observe
 %    \begin{macrocode}
 \NewDocumentCommand \normalspacedchars { m }
   {
-    \exp_args:Nx \tl_map_inline:nn {#1}
+    \tl_map_inline:nn {#1}
       { \XeTeXcharclass `##1 = \xeCJK_class_num:n { NormalSpace } }
   }
 \normalspacedchars{/}
@@ -628,7 +628,7 @@ may observe
       {
         \xeCJK_inter_class_toks:nnn {#1} {##1}
           {
-            \bgroup
+            \c_group_begin_token
             \xeCJK_select_font:
             \xeCJK_clear_inter_class_toks:nn {#1} {##1}
             \xeCJK_clear_CJK_toks:
@@ -636,10 +636,8 @@ may observe
       }
     \xeCJK_app_inter_class_toks:nnn {#1} { CJK } { \CJKsymbol }
     \clist_map_inline:nn { FullLeft, FullRight }
-      {
-        \xeCJK_app_inter_class_toks:nnc {#1} {##1} { xeCJK_CJK_and_##1:n }
-      }
-    \xeCJK_inter_class_toks:nnn { CJK } {#1} { \egroup }
+      { \xeCJK_app_inter_class_toks:nnc {#1} {##1} { xeCJK_CJK_and_##1:n } }
+    \xeCJK_inter_class_toks:nnn { CJK } {#1} { \c_group_end_token }
   }
 %    \end{macrocode}
 %
@@ -682,7 +680,7 @@ may observe
         {
           \bool_if:nTF
             {
-              \int_compare_p:nNn \tex_lastkern:D = \c_two ||
+              \int_compare_p:nNn \tex_lastkern:D = \c_two      ||
               \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
             }
             { \CJKecglue }
@@ -696,8 +694,9 @@ may observe
                       \tex_unskip:D
                       \bool_if:nTF
                         {
-                          \int_compare_p:nNn \tex_lastkern:D = \c_three ||
-                          \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
+                          \int_compare_p:nNn \tex_lastkern:D = \c_three    ||
+                          \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
+                          \int_compare_p:nNn \tex_lastkern:D = \c_two
                         }
                         { \CJKecglue } { \skip_horizontal:N \l_tmpa_skip }
                     }
@@ -705,7 +704,7 @@ may observe
             }
         }
     }
-    \bgroup
+    \c_group_begin_token
     \xeCJK_clear_CJK_toks:
     \xeCJK_select_font:
     \CJKsymbol
@@ -716,7 +715,7 @@ may observe
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { CJK } { Boundary }
   {
-    \egroup
+    \c_group_end_token
     { \xeCJK_CJK_kern: }
     \xeCJK_ignorespaces:
   }
@@ -745,9 +744,9 @@ may observe
 %    \begin{macrocode}
 \clist_map_inline:nn { Default, HalfLeft, HalfRight, Boundary }
   {
-    \xeCJK_inter_class_toks:nnn { FullLeft } {#1} { \nobreak \egroup }
+    \xeCJK_inter_class_toks:nnn { FullLeft } {#1} { \nobreak \c_group_end_token }
     \xeCJK_inter_class_toks:nnn { FullRight } {#1}
-      { \xeCJK_after_FullRight: \egroup }
+      { \xeCJK_after_FullRight: \c_group_end_token }
   }
 %    \end{macrocode}
 %
@@ -761,12 +760,12 @@ may observe
   {
     \xeCJK_inter_class_toks:nnn { NormalSpace } {#1}
       {
-        \bgroup
+        \c_group_begin_token
         \xeCJK_clear_CJK_toks:
         \xeCJK_select_font:
         \CJKsymbol
       }
-    \xeCJK_inter_class_toks:nnn {#1} { NormalSpace } { \egroup }
+    \xeCJK_inter_class_toks:nnn {#1} { NormalSpace } { \c_group_end_token }
   }
 %    \end{macrocode}
 %
@@ -775,7 +774,7 @@ may observe
   {
     \xeCJK_inter_class_toks:nnn { Boundary } {#1}
       {
-        \bgroup
+        \c_group_begin_token
         \xeCJK_clear_CJK_toks:
         \xeCJK_select_font:
         \use:c { xeCJK_CJK_and_#1:n }
@@ -799,7 +798,7 @@ may observe
 % |#1| 为根据所选的标点处理方式在标点符号左/右增加的空白。
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_punct_skip:n
-  { \skip_horizontal:n { #1 \@plus 0.1 em \@minus 0.1 em } }
+  { \skip_horizontal:n { #1 \@plus .1 em \@minus .1 em } }
 \cs_generate_variant:Nn \xeCJK_punct_skip:n { c }
 %    \end{macrocode}
 % \end{macro}
@@ -873,7 +872,7 @@ may observe
   {
     \nobreak
     \xeCJK_get_punct_bounds:nn { l } {#1}
-    \xeCJK_get_kern:nn { \l_xeCJK_lastpunct_tl } {#1}
+    \xeCJK_get_kern:nn \l_xeCJK_lastpunct_tl {#1}
     \xeCJK_punct_kern:c
       { \l_xeCJK_current_punct_tl/kern/\l_xeCJK_lastpunct_tl-#1 }
     \xeCJK_before_FullLeft:n {#1}
@@ -887,7 +886,7 @@ may observe
   {
     \nobreak
     \xeCJK_get_punct_bounds:nn { r } {#1}
-    \xeCJK_get_kern:nn { \l_xeCJK_lastpunct_tl } {#1}
+    \xeCJK_get_kern:nn \l_xeCJK_lastpunct_tl {#1}
     \xeCJK_punct_kern:c
       { \l_xeCJK_current_punct_tl/kern/\l_xeCJK_lastpunct_tl-#1 }
     \nobreak
@@ -904,7 +903,7 @@ may observe
     \xeCJK_punct_rule:c
       { \l_xeCJK_current_punct_tl/rule/r/\l_xeCJK_lastpunct_tl }
     \xeCJK_get_punct_bounds:nn { l } {#1}
-    \xeCJK_get_kern:nn { \l_xeCJK_lastpunct_tl } {#1}
+    \xeCJK_get_kern:nn \l_xeCJK_lastpunct_tl {#1}
     \xeCJK_punct_kern:c
       { \l_xeCJK_current_punct_tl/kern/\l_xeCJK_lastpunct_tl-#1 }
     \xeCJK_punct_nobreak:
@@ -920,7 +919,7 @@ may observe
     \xeCJK_punct_rule:c
       { \l_xeCJK_current_punct_tl/rule/r/\l_xeCJK_lastpunct_tl }
     \xeCJK_get_punct_bounds:nn { r } {#1}
-    \xeCJK_get_kern:nn { \l_xeCJK_lastpunct_tl } {#1}
+    \xeCJK_get_kern:nn \l_xeCJK_lastpunct_tl {#1}
     \xeCJK_punct_kern:c
       { \l_xeCJK_current_punct_tl/kern/\l_xeCJK_lastpunct_tl-#1 }
     \nobreak
@@ -937,7 +936,7 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJK_CJK_kern:, \xeCJK_zero_kern:}
+% \begin{macro}{\xeCJK_CJK_kern:, \xeCJK_zero_kern:, \xeCJK_space_kern:}
 %     \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_CJK_kern:   { \tex_kern:D -1 sp  \tex_kern:D 1 sp }
 \cs_new_nopar:Nn \xeCJK_zero_kern:  { \tex_kern:D -2 sp  \tex_kern:D 2 sp }
@@ -971,18 +970,19 @@ may observe
       {
         \bool_if:NF \l_xeCJK_space_bool
           {
-            \peek_meaning_ignore_spaces:NTF $ { \CJKecglue }
+            \peek_catcode_ignore_spaces:NTF \c_math_toggle_token
+              { \CJKecglue }
               {
                 \bool_if:nT
                   {
-                    \token_if_eq_charcode_p:NN \l_peek_token \scan_stop: ||
-                    \token_if_eq_catcode_p:NN  \l_peek_token \c_catcode_active_tl
+                    \token_if_cs_p:N \l_peek_token &&
+                    ! ( \token_if_eq_meaning_p:NN \l_peek_token \tex_par:D )
                   }
                   { \CJKecglue }
               }
           }
       }
-      { \peek_meaning:NT $ { \CJKecglue } }
+      { \peek_catcode:NT \c_math_toggle_token \CJKecglue }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -993,7 +993,7 @@ may observe
 \keys_define:nn { xeCJK / options }
   {
     CJKchecksingle .bool_set:N = \l_xeCJK_checksingle_bool,
-    CJKchecksingle .default:n  = { true },
+    CJKchecksingle  .default:n = { true },
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2145,9 +2145,7 @@ may observe
             \xeCJK_family_if_exist:nF \l_xeCJK_family_tl
               {
                 \xeCJK_family_if_exist:nTF { \CJKfamilydefault/#2 }
-                  {
-                    \xeCJK_copy_family:xx \l_xeCJK_family_tl { \CJKfamilydefault/#2 }
-                  }
+                  { \xeCJK_copy_family:xx \l_xeCJK_family_tl { \CJKfamilydefault/#2 } }
                   { \xeCJK_copy_family:xx \l_xeCJK_family_tl \l_tmpa_tl }
               }
           }
@@ -2378,7 +2376,7 @@ may observe
 %
 % \begin{macro}{\CJKfixedspacing}
 %     \begin{macrocode}
-\NewDocumentCommand \CJKfixedspacing { m }
+\NewDocumentCommand \CJKfixedspacing { }
   {
     \tl_if_eq:NNF \l_xeCJK_punctstyle_tl \c_xeCJK_ps_plain_tl
       {
@@ -2644,6 +2642,22 @@ may observe
 \tl_set:cn { ver@CJK.sty } { 2020/01/01 }
 %    \end{macrocode}
 %
+% \begin{macro}{\xeCJKcaption}
+% 可以使用 \pkg{CJK} 宏包中的 |.cpx| 文件。
+%    \begin{macrocode}
+\cs_if_free:NT \CJK@ifundefined
+  { \cs_set_eq:NN \CJK@ifundefined \cs_if_free:NTF }
+\NewDocumentCommand \xeCJKcaption { o m }
+  {
+    \IfValueT {#1} { \XeTeXdefaultencoding "#1" }
+    \char_set_catcode_letter:N \@
+    \file_input:n { #2.cpx }
+    \char_set_catcode_other:N \@
+    \XeTeXdefaultencoding "UTF-8"
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[aux]
 %   {\xeCJK_ULprepunctchar:n, \xeCJK_ULpostpunctchar:n, \xeCJK_ULroutines:}
 %    \begin{macrocode}
@@ -2706,26 +2720,10 @@ may observe
       { \tex_char:D \int_eval:n { #1 * \c_two_hundred_fifty_six + #2 } }
     \RequirePackage { CJKnumb }
     \use:c { xeCJK_enc_\CJK@UnicodeEnc }
-    \tl_set:Nn \CJK@tenthousand { 万 }
+    \tl_set:Nn \CJK@tenthousand    { 万 }
     \tl_set:Nn \CJK@hundredmillion { 亿 }
   }
 %    \end{macrocode}
-%
-% \begin{macro}{\xeCJKcaption}
-% 可以使用 \pkg{CJK} 宏包中的 |.cpx| 文件。
-%    \begin{macrocode}
-\cs_if_free:NT \CJK@ifundefined
-  { \cs_set_eq:NN \CJK@ifundefined \cs_if_free:NTF }
-\NewDocumentCommand \xeCJKcaption { o m }
-  {
-    \IfValueT {#1} { \XeTeXdefaultencoding "#1" }
-    \char_set_catcode_letter:N \@
-    \file_input:n { #2.cpx }
-    \char_set_catcode_other:N \@
-    \XeTeXdefaultencoding "UTF-8"
-  }
-%    \end{macrocode}
-% \end{macro}
 %
 %    \begin{macrocode}
 %</package>
