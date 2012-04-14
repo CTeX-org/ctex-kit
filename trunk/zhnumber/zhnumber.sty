@@ -1,0 +1,229 @@
+%%
+%% Copyright (C) 2012 by Qing Lee <sobenlee@gmail.com>
+%% --------------------------------------------------------------------------
+%% This work may be distributed and/or modified under the
+%% conditions of the LaTeX Project Public License, either version 1.3
+%% of this license or (at your option) any later version.
+%% The latest version of this license is in
+%%   http://www.latex-project.org/lppl.txt
+%% and version 1.3 or later is part of all distributions of LaTeX
+%% version 2005/12/01 or later.
+%%
+%% This work has the LPPL maintenance status `maintained'.
+%%
+%% The Current Maintainer of this work is Qing Lee.
+%%
+\RequirePackage{l3keys2e}
+\ProvidesExplPackage {zhnumber} {2012/04/15} {1.1}
+  {package for typesetting numbers with Chinese glyphs}
+
+\int_const:Nn \c_hundred_million { 100 000 000 }
+
+\cs_new_nopar:Nn \zhnum_units:n     { \int_mod:nn {#1} \c_ten }
+\cs_new_nopar:Nn \zhnum_tens:n      { \int_mod:nn { \int_div_truncate:nn {#1} \c_ten } \c_ten }
+\cs_new_nopar:Nn \zhnum_hundreds:n  { \int_mod:nn { \int_div_truncate:nn {#1} \c_one_hundred } \c_ten }
+\cs_new_nopar:Nn \zhnum_thousands:n { \int_div_truncate:nn {#1} \c_one_thousand }
+
+\cs_new_nopar:Nn \zhnum_process_number:nn
+  {
+    \int_compare:nNnTF { \zhnum_thousands:n {#2} } = \c_zero
+      {
+        \int_compare:nNnT {#1} = \c_zero
+          { \zhnum_digit_map:n \c_zero }
+      }
+      {
+        \zhnum_digit_map:n { \zhnum_thousands:n {#2} }
+        \zhnum_digit_map:n \c_one_thousand
+      }
+    \int_compare:nNnTF { \zhnum_hundreds:n {#2} } = \c_zero
+      {
+        \bool_if:nT
+          {
+            \int_compare_p:nNn { \zhnum_thousands:n {#2} }         > \c_zero &&
+            \int_compare_p:nNn { \int_mod:nn {#2} \c_one_hundred } > \c_zero
+          }
+          { \zhnum_digit_map:n \c_zero }
+      }
+      {
+        \zhnum_digit_map:n { \zhnum_hundreds:n {#2} }
+        \zhnum_digit_map:n \c_one_hundred
+      }
+    \int_compare:nNnTF { \zhnum_tens:n {#2} } = \c_zero
+      {
+        \bool_if:nT
+          {
+            \int_compare_p:nNn { \zhnum_hundreds:n {#2} } > \c_zero &&
+            \int_compare_p:nNn { \zhnum_units:n    {#2} } > \c_zero
+          }
+          { \zhnum_digit_map:n \c_zero }
+      }
+      {
+        \bool_if:nF
+          {
+            \int_compare_p:nNn { \zhnum_tens:n {#2} }     = \c_one  &&
+            \int_compare_p:nNn { \zhnum_hundreds:n {#2} } = \c_zero &&
+            ! ( \int_compare_p:nNn {#1} = \c_zero )
+          }
+          { \zhnum_digit_map:n { \zhnum_tens:n {#2} } }
+        \zhnum_digit_map:n \c_ten
+      }
+    \int_compare:nNnF { \zhnum_units:n {#2} } = \c_zero
+      { \zhnum_digit_map:n { \zhnum_units:n {#2} } }
+  }
+
+\cs_new_nopar:Nn \zhnum_number:n
+  {
+    \int_compare:nNnTF {#1} < \c_hundred_million
+      {
+        \int_compare:nNnTF {#1} < \c_ten_thousand
+          { \zhnum_process_number:nn \c_one {#1} }
+          {
+            \zhnum_process_number:nn \c_one { \int_div_truncate:nn {#1} \c_ten_thousand }
+            \zhnum_digit_map:n \c_ten_thousand
+            \int_compare:nNnF { \int_mod:nn {#1} \c_ten_thousand } = \c_zero
+              { \zhnum_process_number:nn \c_zero { \int_mod:nn {#1} \c_ten_thousand } }
+          }
+      }
+      {
+        \zhnum_process_number:nn \c_one { \int_div_truncate:nn {#1} \c_hundred_million }
+        \zhnum_digit_map:n \c_hundred_million
+        \int_compare:nNnF { \int_mod:nn {#1} \c_hundred_million } = \c_zero
+          {
+            \int_compare:nNnTF { \int_mod:nn {#1} \c_hundred_million } < \c_ten_thousand
+              {
+                \int_compare:nNnF { \int_mod:nn {#1} \c_hundred_million } < \c_one_thousand
+                  { \zhnum_digit_map:n \c_zero }
+              }
+              {
+                \zhnum_process_number:nn \c_zero
+                  { \int_mod:nn { \int_div_truncate:nn {#1} \c_ten_thousand } \c_ten_thousand }
+                \zhnum_digit_map:n \c_ten_thousand
+              }
+            \int_compare:nNnF { \int_mod:nn {#1} \c_ten_thousand } = \c_zero
+              { \zhnum_process_number:nn \c_zero { \int_mod:nn {#1} \c_ten_thousand } }
+          }
+      }
+  }
+
+\cs_new_nopar:Npn \zhnumber #1
+  {
+    \int_compare:nNnT { \zhnum_trim_comma:n {#1} } < \c_zero
+      { \zhnum_digit_map:n \c_minus_one }
+    \zhnum_number:n { \int_abs:n { \zhnum_trim_comma:n {#1} } }
+  }
+
+\cs_new_nopar:Nn \zhnum_trim_comma_aux:N
+  { \str_if_eq:xxF {#1} { , } {#1} }
+
+\cs_new_nopar:Nn \zhnum_trim_comma:n
+  { \exp_args:Nf \tl_map_function:nN {#1} \zhnum_trim_comma_aux:N }
+
+\cs_new_nopar:Npn \zhdigits #1
+  {
+    \int_compare:nNnTF { \zhnum_trim_comma:n {#1} } < \c_zero
+      {
+        \zhnum_digit_map:n \c_minus_one
+        \zhnum_digits:n { \int_get_digits:n { \zhnum_trim_comma:n {#1} } }
+      }
+      { \zhnum_digits:n {#1} }
+  }
+
+\cs_new_nopar:Nn \zhnum_digits:n
+  { \exp_args:Nf \tl_map_function:nN {#1} \zhnum_digits_aux:N }
+
+\cs_new_nopar:Nn \zhnum_digits_aux:N
+  { \str_if_eq:xxF {#1} { , } { \zhnum_digit_map:n #1 } }
+
+\cs_new_nopar:Npn \zhnum #1
+  {
+    \token_if_int_register:cTF { c@#1 }
+      { \exp_args:Nv \zhnumber { c@#1 } }
+      { \@nocounterr {#1} }
+  }
+
+\cs_generate_variant:Nn \token_if_int_register:NTF { c }
+
+\cs_new_nopar:Nn \zhnum_digit_map:n
+  {
+    \prg_case_int:nnn {#1}
+      {
+        { \c_minus_one       }  { \c_zhnum_minus_tl          }
+        { \c_zero            }  { \c_zhnum_zero_tl           }
+        { \c_one             }  { \c_zhnum_one_tl            }
+        { \c_two             }  { \c_zhnum_two_tl            }
+        { \c_three           }  { \c_zhnum_three_tl          }
+        { \c_four            }  { \c_zhnum_four_tl           }
+        { \c_five            }  { \c_zhnum_five_tl           }
+        { \c_six             }  { \c_zhnum_six_tl            }
+        { \c_seven           }  { \c_zhnum_seven_tl          }
+        { \c_eight           }  { \c_zhnum_eight_tl          }
+        { \c_nine            }  { \c_zhnum_nine_tl           }
+        { \c_ten             }  { \c_zhnum_ten_tl            }
+        { \c_one_hundred     }  { \c_zhnum_hundred_tl        }
+        { \c_one_thousand    }  { \c_zhnum_thousand_tl       }
+        { \c_ten_thousand    }  { \c_zhnum_tenthousand_tl    }
+        { \c_hundred_million }  { \c_zhnum_hundredmillion_tl }
+      }
+      { \prg_do_nothing: }
+  }
+
+
+\keys_define:nn { zhnum / options }
+  {
+    -  .tl_set:N = \c_zhnum_minus_tl ,
+    0  .tl_set:N = \c_zhnum_zero_tl  ,
+    1  .tl_set:N = \c_zhnum_one_tl   ,
+    2  .tl_set:N = \c_zhnum_two_tl   ,
+    3  .tl_set:N = \c_zhnum_three_tl ,
+    4  .tl_set:N = \c_zhnum_four_tl  ,
+    5  .tl_set:N = \c_zhnum_five_tl  ,
+    6  .tl_set:N = \c_zhnum_six_tl   ,
+    7  .tl_set:N = \c_zhnum_seven_tl ,
+    8  .tl_set:N = \c_zhnum_eight_tl ,
+    9  .tl_set:N = \c_zhnum_nine_tl  ,
+    10 .tl_set:N = \c_zhnum_ten_tl   ,
+  }
+
+\cs_new:Nn \zhnum_load_cfg:
+  {
+    \file_input:n
+      { zhnum - \bool_if:NTF \g_zhnum_gbk_bool { gbk } { utf8 } .cfg }
+  }
+
+\keys_define:nn { zhnum / options }
+  {
+    encoding .choice: ,
+    encoding / UTF8     .code:n = { \bool_gset_false:N \g_zhnum_gbk_bool \zhnum_load_cfg: } ,
+    encoding / GBK      .code:n = { \bool_gset_true:N  \g_zhnum_gbk_bool \zhnum_load_cfg: } ,
+    encoding         .default:n = { GBK } ,
+    style .multichoice: ,
+    style / Normal      .code:n = { \bool_set_true:N  \l_zhnum_normal_bool } ,
+    style / Financial   .code:n = { \bool_set_false:N \l_zhnum_normal_bool } ,
+    style / Simplified  .code:n = { \bool_set_true:N  \l_zhnum_simp_bool } ,
+    style / Traditional .code:n = { \bool_set_false:N \l_zhnum_simp_bool } ,
+    style            .default:n = { Normal , Simplified } ,
+    null            .bool_set:N = \l_zhnum_null_bool ,
+    null             .default:n = { true } ,
+    reset               .code:n = \zhnum_load_cfg:
+  }
+
+\NewDocumentCommand \zhnumsetup { m }
+  {
+    \keys_set:nn { zhnum / options } {#1}
+    \tex_ignorespaces:D
+  }
+
+\cs_generate_variant:Nn \keys_set:nn { nx }
+
+\keys_set:nx { zhnum / options }
+  {
+    encoding = { \xetex_if_engine:TF { UTF8 } { GBK } } ,
+    style , null = false ,
+  }
+
+\ExplSyntaxOn
+
+\ProcessKeysOptions { zhnum / options }
+
+\endinput
+%%
