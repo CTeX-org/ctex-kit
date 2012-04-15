@@ -115,57 +115,73 @@
     \zhnum_number:n { \int_abs:n { \zhnum_trim_comma:n {#1} } }
   }
 
-\cs_new_nopar:Nn \zhnum_trim_comma_aux:N
-  { \str_if_eq:xxF {#1} { , } {#1} }
+\DeclareExpandableDocumentCommand \zhdigits { s m }
+  { \zhnum_digits:nn { \IfBooleanTF #1 \c_zhnum_null_int \c_zero } {#2} }
+
+\cs_new_nopar:Npn \zhnum_digits:nn #1#2
+  {
+    \int_compare:nNnT { \zhnum_trim_comma:n {#2} } < \c_zero
+      { \zhnum_digit_map:n \c_minus_one }
+    \int_compare:nNnTF {#1} = \c_zhnum_null_int
+      { \exp_args:Nf \tl_map_function:nN {#2} \zhnum_digits_null_aux:N }
+      { \exp_args:Nf \tl_map_function:nN {#2} \zhnum_digits_zero_aux:N }
+  }
+
+\cs_new_nopar:Nn \zhnum_digits_null_aux:N { \zhnum_digits_aux:nn \c_zhnum_null_int {#1} }
+\cs_new_nopar:Nn \zhnum_digits_zero_aux:N { \zhnum_digits_aux:nn \c_zero {#1} }
+
+\cs_new_nopar:Nn \zhnum_digits_aux:nn
+  {
+    \bool_if:nF { \str_if_eq_p:xx {#2} {-} || \str_if_eq_p:xx {#2} {,} }
+      {
+        \zhnum_digit_map:n
+          {
+            \bool_if:nTF
+              {
+                \int_compare_p:nNn {#2} = \c_zero           &&
+                \int_compare_p:nNn {#1} = \c_zhnum_null_int
+              }
+              { \c_zhnum_null_int } {#2}
+          }
+      }
+  }
 
 \cs_new_nopar:Nn \zhnum_trim_comma:n
   { \exp_args:Nf \tl_map_function:nN {#1} \zhnum_trim_comma_aux:N }
 
-\cs_new_nopar:Npn \zhdigits #1
-  {
-    \int_compare:nNnTF { \zhnum_trim_comma:n {#1} } < \c_zero
-      {
-        \zhnum_digit_map:n \c_minus_one
-        \zhnum_digits:n { \int_get_digits:n { \zhnum_trim_comma:n {#1} } }
-      }
-      { \zhnum_digits:n {#1} }
-  }
-
-\cs_new_nopar:Nn \zhnum_digits:n
-  { \exp_args:Nf \tl_map_function:nN {#1} \zhnum_digits_aux:N }
-
-\cs_new_nopar:Nn \zhnum_digits_aux:N
-  { \str_if_eq:xxF {#1} { , } { \zhnum_digit_map:n #1 } }
+\cs_new_nopar:Nn \zhnum_trim_comma_aux:N
+  { \str_if_eq:xxF {#1} {,} {#1} }
 
 \cs_new_nopar:Npn \zhnum #1
   {
-    \token_if_int_register:cTF { c@#1 }
+    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
       { \exp_args:Nv \zhnumber { c@#1 } }
       { \@nocounterr {#1} }
   }
 
-\cs_generate_variant:Nn \token_if_int_register:NTF { c }
+\int_const:Nn \c_zhnum_null_int { -10 }
 
 \cs_new_nopar:Nn \zhnum_digit_map:n
   {
     \prg_case_int:nnn {#1}
       {
-        { \c_minus_one       }  { \c_zhnum_minus_tl          }
-        { \c_zero            }  { \c_zhnum_zero_tl           }
-        { \c_one             }  { \c_zhnum_one_tl            }
-        { \c_two             }  { \c_zhnum_two_tl            }
-        { \c_three           }  { \c_zhnum_three_tl          }
-        { \c_four            }  { \c_zhnum_four_tl           }
-        { \c_five            }  { \c_zhnum_five_tl           }
-        { \c_six             }  { \c_zhnum_six_tl            }
-        { \c_seven           }  { \c_zhnum_seven_tl          }
-        { \c_eight           }  { \c_zhnum_eight_tl          }
-        { \c_nine            }  { \c_zhnum_nine_tl           }
-        { \c_ten             }  { \c_zhnum_ten_tl            }
-        { \c_one_hundred     }  { \c_zhnum_hundred_tl        }
-        { \c_one_thousand    }  { \c_zhnum_thousand_tl       }
-        { \c_ten_thousand    }  { \c_zhnum_tenthousand_tl    }
-        { \c_hundred_million }  { \c_zhnum_hundredmillion_tl }
+        { \c_minus_one       } { \c_zhnum_minus_tl          }
+        { \c_zero            } { \c_zhnum_zero_tl           }
+        { \c_one             } { \c_zhnum_one_tl            }
+        { \c_two             } { \c_zhnum_two_tl            }
+        { \c_three           } { \c_zhnum_three_tl          }
+        { \c_four            } { \c_zhnum_four_tl           }
+        { \c_five            } { \c_zhnum_five_tl           }
+        { \c_six             } { \c_zhnum_six_tl            }
+        { \c_seven           } { \c_zhnum_seven_tl          }
+        { \c_eight           } { \c_zhnum_eight_tl          }
+        { \c_nine            } { \c_zhnum_nine_tl           }
+        { \c_ten             } { \c_zhnum_ten_tl            }
+        { \c_one_hundred     } { \c_zhnum_hundred_tl        }
+        { \c_one_thousand    } { \c_zhnum_thousand_tl       }
+        { \c_ten_thousand    } { \c_zhnum_tenthousand_tl    }
+        { \c_hundred_million } { \c_zhnum_hundredmillion_tl }
+        { \c_zhnum_null_int  } { \c_zhnum_null_tl           }
       }
       { \prg_do_nothing: }
   }
