@@ -7,9 +7,6 @@
 
 % Load some extra packages
 
-\IfFileExists{expl3.sty}{%
-  \RequirePackage{expl3}}{}
-
 \RequirePackage{ifpdf}
 \RequirePackage{ifxetex}
 
@@ -19,6 +16,8 @@
 \else
   \let\CTEX@strcmp\pdfstrcmp
 \fi
+
+\RequirePackage[encoding=\CTEX@encoding]{zhnumber}
 
 \ifCTEX@indent
   \RequirePackage{indentfirst}
@@ -69,7 +68,7 @@
   \makeatletter
   \ifCTEX@encoding{GBK}
     {\input{ctex-gbk.def}}
-    {\input{ctex-utf8.def}}%
+    {\input{ctex-utf8.def}}
   \makeatother}
 
 \newcommand*\CTEXindent{\CTEXsetfont\parindent2\ccwd}
@@ -82,203 +81,33 @@
 
 % About numbers
 
-\newif\ifCTEX@zero@
-\newif\ifCTEX@previous@
-\newif\ifCTEX@null@
-\newcount\CTEX@q
-\newcount\CTEX@r
-\def\CTEX@appendstring#1#2{%
-  \expandafter\def\expandafter#1\expandafter{#1#2}}
-\def\CTEX@appendnumber#1#2{%
-  \ifcase #2\relax
-    \ifCTEX@null@
-      \CTEX@appendstring{#1}{\CTEX@null}%
-    \else
-      \CTEX@appendstring{#1}{\CTEX@zero}%
-    \fi
-  \or \CTEX@appendstring{#1}{\CTEX@one}%
-  \or \CTEX@appendstring{#1}{\CTEX@two}%
-  \or \CTEX@appendstring{#1}{\CTEX@three}%
-  \or \CTEX@appendstring{#1}{\CTEX@four}%
-  \or \CTEX@appendstring{#1}{\CTEX@five}%
-  \or \CTEX@appendstring{#1}{\CTEX@six}%
-  \or \CTEX@appendstring{#1}{\CTEX@seven}%
-  \or \CTEX@appendstring{#1}{\CTEX@eight}%
-  \or \CTEX@appendstring{#1}{\CTEX@nine}%
-  \fi}
-\def\CTEX@splitnumber#1{%
-  \CTEX@q #1\relax
-  \CTEX@r #1\relax
-  \divide\CTEX@q \@M
-  \begingroup
-    \multiply\CTEX@q \@M
-    \advance\CTEX@r -\CTEX@q
-    \ifnum\CTEX@r = \z@
-      \xdef\CTEX@low{}%
-    \else
-      \xdef\CTEX@low{\number\CTEX@r}%
-    \fi
-  \endgroup
-  \ifnum\CTEX@q > \z@
-    \CTEX@r \CTEX@q
-    \divide\CTEX@q \@M
-    \begingroup
-      \multiply\CTEX@q \@M
-      \advance\CTEX@r -\CTEX@q
-      \ifnum\CTEX@r = \z@
-        \xdef\CTEX@high{}%
-      \else
-        \xdef\CTEX@high{\number\CTEX@r}%
-      \fi
-    \endgroup
-    \ifnum\CTEX@q > \z@
-      \xdef\CTEX@yi{\number\CTEX@q}%
-    \else
-      \xdef\CTEX@yi{}%
-    \fi
-  \else
-    \xdef\CTEX@high{}%
-    \xdef\CTEX@yi{}%
-  \fi
-}
-\def\CTEX@processnumber#1#2{%
-  \CTEX@zero@false
-  \CTEX@q #2\relax
-  \CTEX@r #2\relax
-  \divide\CTEX@q \@m
-  \ifnum\CTEX@q = \z@
-    \ifCTEX@previous@
-      \CTEX@zero@true
-    \fi
-  \else
-    \ifCTEX@zero@
-      \CTEX@appendstring{#1}{\CTEX@zero}%
-    \fi
-    \CTEX@appendnumber{#1}{\CTEX@q}%
-    \CTEX@appendstring{#1}{\CTEX@thousand}%
-    \CTEX@previous@true
-    \CTEX@zero@false
-  \fi
-  \multiply\CTEX@q \@m
-  \advance\CTEX@r -\CTEX@q
-  \CTEX@q \CTEX@r
-  \divide\CTEX@q 100\relax
-  \ifnum\CTEX@q = \z@
-    \ifCTEX@previous@
-      \CTEX@zero@true
-    \fi
-  \else
-    \ifCTEX@zero@
-      \CTEX@appendstring{#1}{\CTEX@zero}%
-    \fi
-    \CTEX@appendnumber{#1}{\CTEX@q}%
-    \CTEX@appendstring{#1}{\CTEX@hundred}%
-    \CTEX@previous@true
-    \CTEX@zero@false
-  \fi
-  \multiply\CTEX@q 100
-  \advance\CTEX@r -\CTEX@q
-  \CTEX@q \CTEX@r
-  \divide \CTEX@q 10\relax
-  \ifnum\CTEX@q = \z@
-    \ifCTEX@previous@
-      \CTEX@zero@true
-    \fi
-  \else
-    \ifCTEX@zero@
-      \CTEX@appendstring{#1}{\CTEX@zero}%
-    \fi
-    \ifnum\CTEX@q = \@ne
-      \ifCTEX@previous@
-        \CTEX@appendstring{#1}{\CTEX@one}%
-      \fi
-    \else
-      \CTEX@appendnumber{#1}{\CTEX@q}%
-    \fi
-    \CTEX@appendstring{#1}{\CTEX@ten}%
-    \CTEX@previous@true
-    \CTEX@zero@false
-  \fi
-  \multiply\CTEX@q 10
-  \advance\CTEX@r -\CTEX@q
-  \unless\ifnum\CTEX@r = \z@
-    \ifCTEX@zero@
-      \CTEX@appendstring{#1}{\CTEX@zero}%
-    \fi
-    \CTEX@appendnumber{#1}{\CTEX@r}%
-    \CTEX@previous@true
-  \fi}
-\DeclareRobustCommand\CTEXnumber[2]{%
-  \def#1{}%
-  \CTEX@null@false
-  \CTEX@q #2\relax
-  \ifnum\CTEX@q < \z@
-    \multiply\CTEX@q \m@ne
-    \CTEX@appendstring{#1}{\CTEX@minus}%
-  \fi
-  \CTEX@previous@false
-  \CTEX@zero@false
-  \ifnum\CTEX@q = \z@
-    \CTEX@appendstring{#1}{\CTEX@zero}%
-  \else
-    \CTEX@splitnumber{\CTEX@q}%
-    \unless\ifx\CTEX@yi \@empty
-      \CTEX@processnumber{#1}{\CTEX@yi}%
-      \CTEX@appendstring{#1}{\CTEX@hundredmillion}%
-    \fi
-    \unless\ifx\CTEX@high \@empty
-      \CTEX@processnumber{#1}{\CTEX@high}%
-      \CTEX@appendstring{#1}{\CTEX@tenthousand}%
-    \fi
-    \unless\ifx\CTEX@low \@empty
-      \unless\ifx\CTEX@yi \@empty
-        \ifx\CTEX@high \@empty
-          \CTEX@appendstring{#1}{\CTEX@zero}% this catches 100002345
-        \fi
-      \fi
-      \CTEX@processnumber{#1}{\CTEX@low}%
-    \fi
-  \fi}
-\def\CTEX@getdigit#1#2\@nil{%
-  \edef\CTEX@tempa{#1}%
-  \edef\CTEX@tempb{#2}}
-\DeclareRobustCommand\CTEXdigits[2]{%
-  \def#1{}%
-  \CTEX@null@true
-  \edef\CTEX@tempa{}%
-  \edef\CTEX@tempb{#2}%
-  \unless\ifx\CTEX@tempb \@empty
-    \loop
-      \expandafter\CTEX@getdigit\CTEX@tempb\@nil
-      \CTEX@appendnumber{#1}{\CTEX@tempa}%
-      \unless\ifx\CTEX@tempb \@empty
-    \repeat
-  \fi}
-\DeclareRobustCommand\CTEXcounter[1]{%
-  \ifcsundef{c@#1}{}{%
-    \CTEXnumber{\reserved@a}{\@arabic\csname c@#1\endcsname}%
-    \csedef{cc@#1}{\expandonce\reserved@a}}}
-\AtBeginDocument{%
-  \makeatletter%
-  \ifundef\CTEX@save@setcounter{%
-    \let\CTEX@save@setcounter\setcounter%
-    \def\setcounter#1#2{%
-        \CTEX@save@setcounter{#1}{#2}%
-        \CTEXcounter{#1}}}{}%
-  \ifundef\CTEX@save@addtocounter{%
-    \let\CTEX@save@addtocounter\addtocounter%
-    \def\addtocounter#1#2{%
-        \CTEX@save@addtocounter{#1}{#2}%
-        \CTEXcounter{#1}}}{}%
-  \ifundef\CTEX@save@stepcounter{%
-    \let\CTEX@save@stepcounter\stepcounter%
-    \def\stepcounter#1{%
-        \CTEX@save@stepcounter{#1}%
-        \CTEXcounter{#1}}}{}%
-  \makeatother}
-\def\chinese#1{%
-  \ifcsundef{cc@#1}{\CTEX@null}{\csuse{cc@#1}}}
-\def\Chinese#1{\CTEXcounter{#1}\chinese{#1}}
+\zhnumsetup{% Is it necessary?
+   -    = \CTEX@minus ,
+   -0   = \CTEX@null  ,
+   0    = \CTEX@zero  ,
+   1    = \CTEX@one   ,
+   2    = \CTEX@two   ,
+   3    = \CTEX@three ,
+   4    = \CTEX@four  ,
+   5    = \CTEX@five  ,
+   6    = \CTEX@six   ,
+   7    = \CTEX@seven ,
+   8    = \CTEX@eight ,
+   9    = \CTEX@nine  ,
+   10   = \CTEX@ten   ,
+   10e2 = \CTEX@hundred ,
+   10e3 = \CTEX@thousand ,
+   10e4 = \CTEX@tenthousand ,
+   10e8 = \CTEX@hundredmillion }
+
+\DeclareRobustCommand*\CTEXnumber[2]{\edef#1{\noexpand\zhnumber{#2}}}
+\DeclareRobustCommand*\CTEXdigits[2]{\edef#1{\noexpand\zhdigits{#2}}}
+
+\let\ctexnumber\zhnumber
+\let\ctexdigits\zhdigits
+\let\chinese\zhnum
+\let\Chinese\chinese
+\let\CTEXcounter\@gobble
 
 % About caption
 
@@ -294,6 +123,12 @@
 % `today' definitions
 
 \let\CTEX@todayold\today
+\def\CTEX@todaysmall{%
+  ~\the\year~\CTEX@year~\the\month~\CTEX@month~\the\day~\CTEX@day}
+\def\CTEX@todaybig{%
+  \ctexdigits{\the\year}\CTEX@year
+  \ctexnumber{\the\month}\CTEX@month
+  \ctexnumber{\the\day}\CTEX@day}
 \ifCTEX@cap
   \renewcommand*\today{\CTEX@todaysmall}
 \fi
