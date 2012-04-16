@@ -9,9 +9,8 @@
 %% and version 1.3 or later is part of all distributions of LaTeX
 %% version 2005/12/01 or later.
 %%
-%% This work has the LPPL maintenance status `maintained'.
+%% This work has the LPPL maintenance status `author-maintained'.
 %%
-%% The Current Maintainer of this work is Qing Lee.
 %%
 \RequirePackage{l3keys2e}
 \ProvidesExplPackage {zhnumber} {2012/04/15} {1.1}
@@ -45,8 +44,16 @@
           { \zhnum_digit_map:n \c_zero }
       }
       {
-        \zhnum_digit_map:n { \zhnum_hundreds:n {#2} }
-        \zhnum_digit_map:n \c_one_hundred
+        \bool_if:nTF
+          {
+            \l_zhnum_ancient_bool                                  &&
+            \int_compare_p:nNn { \zhnum_hundreds:n {#2} } = \c_two
+          }
+          { \zhnum_digit_map:n { \zhnum_hundreds:n {#2} * \c_one_hundred } }
+          {
+            \zhnum_digit_map:n { \zhnum_hundreds:n {#2} }
+            \zhnum_digit_map:n \c_one_hundred
+          }
       }
     \int_compare:nNnTF { \zhnum_tens:n {#2} } = \c_zero
       {
@@ -64,7 +71,20 @@
             \int_compare_p:nNn {#2} < \c_one_hundred           &&
             ! ( \int_compare_p:nNn {#1} = \c_zero )
           }
-          { \zhnum_digit_map:n { \zhnum_tens:n {#2} } }
+          {
+            \bool_if:nTF
+              {
+                \l_zhnum_ancient_bool                                     &&
+                ( \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_two   ||
+                  \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_three ||
+                  \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_four )
+              }
+              {
+                \zhnum_digit_map:n { \zhnum_tens:n {#2} * \c_ten }
+                \use_none:nn
+              }
+              { \zhnum_digit_map:n { \zhnum_tens:n {#2} } }
+          }
         \zhnum_digit_map:n \c_ten
       }
     \int_compare:nNnF { \zhnum_units:n {#2} } = \c_zero
@@ -179,30 +199,37 @@
         { \c_ten_thousand    } { \c_zhnum_tenthousand_tl    }
         { \c_hundred_million } { \c_zhnum_hundredmillion_tl }
         { \c_zhnum_null_int  } { \c_zhnum_null_tl           }
+        { 20                 } { \c_zhnum_twenty_tl         }
+        { 30                 } { \c_zhnum_thirty_tl         }
+        { 40                 } { \c_zhnum_forty_tl          }
+        { 200                } { \c_zhnum_two_hundred_tl    }
       }
       { \prg_do_nothing: }
   }
 
-
 \keys_define:nn { zhnum / options }
   {
-    -    .tl_set:N = \c_zhnum_minus_tl          ,
-    -0   .tl_set:N = \c_zhnum_null_tl           ,
-    0    .tl_set:N = \c_zhnum_zero_tl           ,
-    1    .tl_set:N = \c_zhnum_one_tl            ,
-    2    .tl_set:N = \c_zhnum_two_tl            ,
-    3    .tl_set:N = \c_zhnum_three_tl          ,
-    4    .tl_set:N = \c_zhnum_four_tl           ,
-    5    .tl_set:N = \c_zhnum_five_tl           ,
-    6    .tl_set:N = \c_zhnum_six_tl            ,
-    7    .tl_set:N = \c_zhnum_seven_tl          ,
-    8    .tl_set:N = \c_zhnum_eight_tl          ,
-    9    .tl_set:N = \c_zhnum_nine_tl           ,
-    10   .tl_set:N = \c_zhnum_ten_tl            ,
-    10e2 .tl_set:N = \c_zhnum_hundred_tl        ,
-    10e3 .tl_set:N = \c_zhnum_thousand_tl       ,
-    10e4 .tl_set:N = \c_zhnum_tenthousand_tl    ,
-    10e8 .tl_set:N = \c_zhnum_hundredmillion_tl ,
+    -   .tl_set:N = \c_zhnum_minus_tl          ,
+    -0  .tl_set:N = \c_zhnum_null_tl           ,
+    0   .tl_set:N = \c_zhnum_zero_tl           ,
+    1   .tl_set:N = \c_zhnum_one_tl            ,
+    2   .tl_set:N = \c_zhnum_two_tl            ,
+    3   .tl_set:N = \c_zhnum_three_tl          ,
+    4   .tl_set:N = \c_zhnum_four_tl           ,
+    5   .tl_set:N = \c_zhnum_five_tl           ,
+    6   .tl_set:N = \c_zhnum_six_tl            ,
+    7   .tl_set:N = \c_zhnum_seven_tl          ,
+    8   .tl_set:N = \c_zhnum_eight_tl          ,
+    9   .tl_set:N = \c_zhnum_nine_tl           ,
+    10  .tl_set:N = \c_zhnum_ten_tl            ,
+    20  .tl_set:N = \c_zhnum_twenty_tl         ,
+    30  .tl_set:N = \c_zhnum_thirty_tl         ,
+    40  .tl_set:N = \c_zhnum_forty_tl          ,
+    200 .tl_set:N = \c_zhnum_two_hundred_tl    ,
+    E2  .tl_set:N = \c_zhnum_hundred_tl        ,
+    E3  .tl_set:N = \c_zhnum_thousand_tl       ,
+    E4  .tl_set:N = \c_zhnum_tenthousand_tl    ,
+    E8  .tl_set:N = \c_zhnum_hundredmillion_tl ,
   }
 
 \cs_new:Nn \zhnum_load_cfg:
@@ -218,8 +245,21 @@
     encoding / GBK      .code:n = { \bool_gset_true:N  \g_zhnum_gbk_bool \zhnum_load_cfg: } ,
     encoding         .default:n = { GBK } ,
     style .multichoice: ,
-    style / Normal      .code:n = { \bool_set_true:N  \l_zhnum_normal_bool } ,
-    style / Financial   .code:n = { \bool_set_false:N \l_zhnum_normal_bool } ,
+    style / Normal      .code:n =
+      {
+        \bool_set_false:N \l_zhnum_ancient_bool
+        \bool_set_true:N  \l_zhnum_normal_bool
+      } ,
+    style / Financial   .code:n =
+      {
+        \bool_set_false:N \l_zhnum_ancient_bool
+        \bool_set_false:N \l_zhnum_normal_bool
+      } ,
+    style / Ancient     .code:n =
+      {
+        \bool_set_true:N \l_zhnum_ancient_bool
+        \bool_set_true:N \l_zhnum_normal_bool
+      } ,
     style / Simplified  .code:n = { \bool_set_true:N  \l_zhnum_simp_bool } ,
     style / Traditional .code:n = { \bool_set_false:N \l_zhnum_simp_bool } ,
     style            .default:n = { Normal , Simplified } ,
