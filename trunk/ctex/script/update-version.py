@@ -31,9 +31,9 @@ if len(sys.argv) != 3:
     print("like: %s %s" % (sys.argv[0], "2009/05/20 v0.91"))
     sys.exit(1)
 
-file_list = [ "../ctex.sty", "../ctexcap.sty", "../ctexart.cls", "../ctexbook.cls", "../ctexrep.cls",
-    "../back/ctexutf8.sty", "../back/ctexcaputf8.sty", "../back/ctexartutf8.cls",
-    "../back/ctexbookutf8.cls", "../back/ctexreputf8.cls",]
+file_list = [ "../ctex.sty", "../ctexart.cls", "../ctexbook.cls", "../ctexrep.cls",
+	"../back/ctexcap.sty", "../back/ctexutf8.sty", "../back/ctexcaputf8.sty",
+	"../back/ctexartutf8.cls", "../back/ctexbookutf8.cls", "../back/ctexreputf8.cls",]
 
 for file in file_list:
     update_version(file, sys.argv[1], sys.argv[2])
