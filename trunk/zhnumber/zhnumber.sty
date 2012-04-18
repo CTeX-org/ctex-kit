@@ -13,7 +13,7 @@
 %%
 %%
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {zhnumber} {2012/04/15} {1.1}
+\ProvidesExplPackage {zhnumber} {2012/04/18} {1.2}
   {package for typesetting numbers with Chinese glyphs}
 
 \int_const:Nn \c_hundred_million { 100 000 000 }
@@ -96,7 +96,11 @@
     \int_compare:nNnTF {#1} < \c_hundred_million
       {
         \int_compare:nNnTF {#1} < \c_ten_thousand
-          { \zhnum_process_number:nn \c_one {#1} }
+          {
+            \int_compare:nNnTF {#1} = \c_zero
+              { \zhnum_digit_map:n \c_zero }
+              { \zhnum_process_number:nn \c_one {#1} }
+          }
           {
             \zhnum_process_number:nn \c_one { \int_div_truncate:nn {#1} \c_ten_thousand }
             \zhnum_digit_map:n \c_ten_thousand
@@ -125,23 +129,70 @@
       }
   }
 
-\cs_new_nopar:Npn \zhnumber #1
+\cs_new_nopar:Nn \zhnum_integer:n
   {
-    \int_compare:nNnT { \zhnum_trim_comma:n {#1} } < \c_zero
+    \int_compare:nNnT { \zhnum_erase_comma:f {#1} } < \c_zero
       { \zhnum_digit_map:n \c_minus_one }
-    \zhnum_number:n { \int_abs:n { \zhnum_trim_comma:n {#1} } }
+    \zhnum_number:n { \int_abs:n { \zhnum_erase_comma:f {#1} } }
   }
 
-\DeclareExpandableDocumentCommand \zhdigits { s m }
-  { \zhnum_digits:nn { \IfBooleanTF #1 \c_zero \c_zhnum_null_int } {#2} }
-
-\cs_new_nopar:Npn \zhnum_digits:nn #1#2
+\cs_new_nopar:Npn \zhnum #1
   {
-    \int_compare:nNnT { \zhnum_trim_comma:n {#2} } < \c_zero
-      { \zhnum_digit_map:n \c_minus_one }
-    \int_compare:nNnTF {#1} = \c_zhnum_null_int
-      { \exp_args:Nf \tl_map_function:nN {#2} \zhnum_digits_null_aux:N }
-      { \exp_args:Nf \tl_map_function:nN {#2} \zhnum_digits_zero_aux:N }
+    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
+      { \exp_args:Nv \zhnum_integer:n { c@#1 } }
+      { \@nocounterr {#1} }
+  }
+
+\cs_new_nopar:Npn \zhnumber #1 { \zhnum_number:w #1 . \q_nil . \q_stop }
+
+\cs_new_nopar:Npn \zhnum_number:w #1.#2.#3 \q_stop
+  {
+    \quark_if_nil:nTF {#2}
+      { \zhnum_integer_or_fraction:w #1 / \q_nil / \q_stop }
+      { \zhnum_decimal:nn {#1} {#2} }
+  }
+
+\cs_new_nopar:Npn \zhnum_integer_or_fraction:w #1/#2/#3 \q_stop
+  {
+    \quark_if_nil:nTF {#2}
+      { \zhnum_integer:n {#1} }
+      { \zhnum_fraction:w #2 \q_mark #1 ; \q_nil ; \q_stop }
+  }
+
+\cs_new_nopar:Npn \zhnum_fraction:w #1 \q_mark #2;#3;#4 \q_stop
+  {
+    \quark_if_nil:nTF {#3}
+      {
+        \zhnum_blank_to_zero:f {#1} \c_zhnum_over_tl
+        \zhnum_blank_to_zero:f {#2}
+      }
+      {
+        \tl_if_blank:fF {#2} { \zhnumber {#2} \c_zhnum_and_tl }
+        \zhnum_blank_to_zero:f {#1} \c_zhnum_over_tl
+        \zhnum_blank_to_zero:f {#3}
+      }
+  }
+
+\cs_new_nopar:Nn \zhnum_decimal:nn
+  {
+    \zhnum_blank_to_zero:f {#1} \c_zhnum_dot_tl
+    \tl_if_blank:fTF {#2} { \zhnum_digit_map:n \c_zero } { \zhdigits * {#2} }
+  }
+
+\cs_new_nopar:Nn \zhnum_blank_to_zero:n
+  { \tl_if_blank:nTF {#1} { \zhnum_digit_map:n \c_zero } { \zhnumber {#1} } }
+
+\cs_generate_variant:Nn \zhnum_blank_to_zero:n { f }
+\cs_generate_variant:Nn \tl_reverse:n          { f }
+\cs_generate_variant:Nn \tl_if_blank:nTF       { f }
+\cs_generate_variant:Nn \tl_if_blank:nF        { f }
+\cs_generate_variant:Nn \tl_map_function:nN    { f }
+
+\DeclareExpandableDocumentCommand \zhdigits { s m }
+  {
+    \IfBooleanTF #1
+      { \tl_map_function:fN {#2} \zhnum_digits_zero_aux:N }
+      { \tl_map_function:fN {#2} \zhnum_digits_null_aux:N }
   }
 
 \cs_new_nopar:Nn \zhnum_digits_null_aux:N { \zhnum_digits_aux:nn \c_zhnum_null_int {#1} }
@@ -149,32 +200,33 @@
 
 \cs_new_nopar:Nn \zhnum_digits_aux:nn
   {
-    \bool_if:nF { \str_if_eq_p:xx {#2} {-} || \str_if_eq_p:xx {#2} {,} }
+    \str_if_eq:xxF {#2} ,
       {
-        \zhnum_digit_map:n
+        \str_if_eq:xxTF {#2} . \c_zhnum_dot_tl
           {
-            \bool_if:nTF
+            \zhnum_digit_map:n
               {
-                \int_compare_p:nNn {#2} = \c_zero           &&
-                \int_compare_p:nNn {#1} = \c_zhnum_null_int
+                \str_if_eq:xxTF {#2} - \c_minus_one
+                  {
+                    \bool_if:nTF
+                      {
+                        \int_compare_p:nNn {#2} = \c_zero           &&
+                        \int_compare_p:nNn {#1} = \c_zhnum_null_int
+                      }
+                      { \c_zhnum_null_int } {#2}
+                  }
               }
-              { \c_zhnum_null_int } {#2}
           }
       }
   }
 
-\cs_new_nopar:Nn \zhnum_trim_comma:n
-  { \exp_args:Nf \tl_map_function:nN {#1} \zhnum_trim_comma_aux:N }
+\cs_new_nopar:Nn \zhnum_erase_comma:n
+  { \tl_map_function:nN {#1} \zhnum_erase_comma_aux:N }
 
-\cs_new_nopar:Nn \zhnum_trim_comma_aux:N
-  { \str_if_eq:xxF {#1} {,} {#1} }
+\cs_new_nopar:Nn \zhnum_erase_comma_aux:N
+  { \str_if_eq:xxF {#1} , {#1} }
 
-\cs_new_nopar:Npn \zhnum #1
-  {
-    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
-      { \exp_args:Nv \zhnumber { c@#1 } }
-      { \@nocounterr {#1} }
-  }
+\cs_generate_variant:Nn \zhnum_erase_comma:n { f }
 
 \int_const:Nn \c_zhnum_null_int { -10 }
 
@@ -264,8 +316,10 @@
     style / Traditional .code:n = { \bool_set_false:N \l_zhnum_simp_bool } ,
     style            .default:n = { Normal , Simplified } ,
     null            .bool_set:N = \l_zhnum_null_bool ,
-    null             .default:n = { true } ,
-    reset               .code:n = \zhnum_load_cfg:
+    reset               .code:n = \zhnum_load_cfg: ,
+    dot               .tl_set:N = \c_zhnum_dot_tl  ,
+    and               .tl_set:N = \c_zhnum_and_tl  ,
+    over              .tl_set:N = \c_zhnum_over_tl ,
   }
 
 \NewDocumentCommand \zhnumsetup { m }
