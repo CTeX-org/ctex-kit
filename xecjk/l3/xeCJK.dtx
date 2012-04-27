@@ -36,7 +36,7 @@ may observe
 \keepsilent
 \preamble
 
- Version 3.0.1 (11-Apr-2012)
+ Version 3.0.2 (27-Apr-2012)
 
  Copyright (C) Wenchang Sun <sunwch@hotmail.com>
 
@@ -52,6 +52,8 @@ may observe
  version 2005/12/01 or later.
 
 \endpreamble
+\postamble
+\endpostamble
 \askforoverwritefalse
 \generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
 \generate{\file{example-autofake.tex}{\from{\jobname.dtx}{ex-autofake}}}
@@ -133,7 +135,7 @@ may observe
 %
 %    \begin{macrocode}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {xeCJK} {2012/04/11} {3.0.1}
+\ProvidesExplPackage {xeCJK} {2012/04/27} {3.0.2}
   {package for typesetting CJK scripts with XeLaTeX}
 %    \end{macrocode}
 %
@@ -319,18 +321,11 @@ may observe
       }
     \int_set:Nn \l_tmpc_int {#3}
     \prop_if_in:NVTF \g_xeCJK_CJK_class_prop \l_tmpc_int
-      {
-        \bool_if:nTF
-          {
-            \int_compare_p:nNn \l_tmpc_int = { \xeCJK_class_num:n { FullLeft  } } ||
-            \int_compare_p:nNn \l_tmpc_int = { \xeCJK_class_num:n { FullRight } }
-          }
-          { \cs_set_eq:NN \xeCJK_set_catcode:n \char_set_catcode_other:n }
-          { \cs_set_eq:NN \xeCJK_set_catcode:n \char_set_catcode_letter:n }
-      }
-      { \cs_set_eq:NN \xeCJK_set_catcode:n \use_none:n }
+      { \cs_set_eq:NN \xeCJK_set_catcode:n \char_set_catcode_other:n }
+      { \cs_set_eq:NN \xeCJK_set_catcode:n \use_none:nnnnnnnn }
     \loop
       \xeCJK_set_catcode:n \l_tmpa_int
+      \XeTeXmathcode  \l_tmpa_int = \c_seven \use:c { sym \c_xeCJK_math_tl } \l_tmpa_int
       \XeTeXcharclass \l_tmpa_int = \l_tmpc_int
       \if_int_compare:w \l_tmpa_int < \l_tmpb_int
         \int_incr:N \l_tmpa_int
@@ -338,6 +333,12 @@ may observe
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% 数学公式内的 CJK 字体。
+% \begin{macrocode}
+\tl_const:Nn \c_xeCJK_math_tl { CJKmath }
+\DeclareSymbolFont \c_xeCJK_math_tl \f@encoding \f@family \seriesdefault \shapedefault
+%    \end{macrocode}
 %
 % \begin{macro}{\xeCJKResetPunctClass}
 % 用于重置标点符号所属的字符类。
@@ -685,10 +686,15 @@ may observe
             }
             { \CJKecglue }
             {
-              \int_compare:nNnT \etex_lastnodetype:D = \c_eleven
+              \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
                 {
-                  \settowidth \l_tmpa_dim \c_space_token
-                  \dim_compare:nNnT \l_tmpa_dim = \tex_lastskip:D
+                  \settowidth \l_tmpa_dim \CJKecglue
+                  \bool_if:nT
+                    {
+                      \int_compare_p:nNn \tex_lastskip:D =
+                        { \tex_fontdimen:D \c_two \tex_font:D }        ||
+                      \int_compare_p:nNn \tex_lastskip:D = \l_tmpa_dim
+                    }
                     {
                       \skip_set_eq:NN \l_tmpa_skip \tex_lastskip:D
                       \tex_unskip:D
@@ -696,13 +702,24 @@ may observe
                         {
                           \int_compare_p:nNn \tex_lastkern:D = \c_three    ||
                           \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
-                          \int_compare_p:nNn \tex_lastkern:D = \c_two
+                          \int_compare_p:nNn \tex_lastkern:D = \c_two      ||
+                          \g_xeCJK_itcorr_bool
                         }
-                        { \CJKecglue } { \skip_horizontal:N \l_tmpa_skip }
+                        { \CJKecglue }
+                        {
+                          \bool_if:nT
+                            {
+                              ! ( \int_compare_p:nNn \tex_lastkern:D = \c_one ) ||
+                              \l_xeCJK_space_bool
+                            }
+                            { \skip_horizontal:N \l_tmpa_skip }
+                        }
                     }
                 }
+                { \bool_if:NT \g_xeCJK_itcorr_bool \CJKecglue }
             }
         }
+      \bool_gset_false:N \g_xeCJK_itcorr_bool
     }
     \c_group_begin_token
     \xeCJK_clear_CJK_toks:
@@ -843,11 +860,10 @@ may observe
 %
 % \begin{macro}{\xeCJK_CJK_and_FullLeft:n}
 %    \begin{macrocode}
-\int_const:Nn \c_etex_hlist_node \c_one
 \cs_new_nopar:Nn \xeCJK_CJK_and_FullLeft:n
   {
     \xeCJK_get_punct_bounds:nn { l } {#1}
-    \int_compare:nNnF \etex_lastnodetype:D = \c_etex_hlist_node
+    \int_compare:nNnF \etex_lastnodetype:D = \c_one
       { \xeCJK_punct_skip:c { \l_xeCJK_current_punct_tl/glue/l/#1 } }
     \xeCJK_before_FullLeft:n {#1}
   }
@@ -929,14 +945,8 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\CJKglue}
-%     \begin{macrocode}
-\cs_new_nopar:Npn \CJKglue
-  { \skip_horizontal:n { \c_zero_skip \@plus .08\baselineskip } }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}{\xeCJK_CJK_kern:, \xeCJK_zero_kern:, \xeCJK_space_kern:}
+% 用于判断插入的各种 |kern|。
 %     \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_CJK_kern:   { \tex_kern:D -1 sp  \tex_kern:D 1 sp }
 \cs_new_nopar:Nn \xeCJK_zero_kern:  { \tex_kern:D -2 sp  \tex_kern:D 2 sp }
@@ -944,10 +954,17 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{CJKglue}
+% CJK 文字之间插入的 |glue|。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options } { CJKglue .tl_set:N = \CJKglue }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{CJKecglue}
 % CJK 与西文和数学行内数学公式之间自动添加的空白。
 %    \begin{macrocode}
-\keys_define:nn { xeCJK / options } { CJKecglue .tl_set_x:N = \CJKecglue }
+\keys_define:nn { xeCJK / options } { CJKecglue .tl_set:N = \CJKecglue }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1012,15 +1029,17 @@ may observe
   }
 \cs_new_nopar:Nn \xeCJK_checksingle_aux:n
   {
-    \tl_set:Nn \l_xeCJK_current_char_tl { \CJKglue \l_xeCJK_last_char_tl #1 }
-    \tl_set:Nn \l_xeCJK_current_nobreak_char_tl { \l_xeCJK_last_char_tl #1 }
     \peek_meaning:NTF \c_space_token
       {
         \peek_meaning_ignore_spaces:NTF \tex_par:D
-          { \l_xeCJK_current_nobreak_char_tl }
-          { \l_xeCJK_current_char_tl \c_space_token }
+          { \l_xeCJK_last_char_tl \nobreak #1 }
+          { \CJKglue \l_xeCJK_last_char_tl #1 \c_space_token }
       }
-      { \l_xeCJK_current_char_tl }
+      {
+        \token_if_eq_meaning:NNTF \l_peek_token \tex_par:D
+          { \l_xeCJK_last_char_tl \nobreak #1 }
+          { \CJKglue \l_xeCJK_last_char_tl #1 }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1055,6 +1074,7 @@ may observe
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKDeclareSubCJKBlock { m m }
   { \xeCJKDeclareSubCharClass { CJK } {#1} {#2} }
+\@onlypreamble \xeCJKDeclareSubCJKBlock
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1110,6 +1130,7 @@ may observe
       { \clist_gput_right:cx { g_xeCJK_ #1/#2 _range_clist } {#3} }
     \xeCJKDeclareCharClass { #1/#2 } {#3}
   }
+\@onlypreamble \xeCJKDeclareSubCharClass
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1540,7 +1561,7 @@ may observe
   {
     \group_begin:
     \tl_set:Nx \l_xeCJK_family_fb_tl {#1}
-    \prop_get:NVNF \g_xeCJK_family_name_prop \l_xeCJK_family_fb_tl \l_xeCJK_fontname_tl
+    \prop_get:NVNF \g_xeCJK_family_prop \l_xeCJK_family_fb_tl \l_xeCJK_fontname_tl
       { \tl_clear:N \l_xeCJK_fontname_tl }
     \exp_args:Nx \clist_map_inline:nn {#3}
       {
@@ -1576,7 +1597,7 @@ may observe
 \msg_new:nnn { xeCJK } { fallback }
   {
     CJKfamily~'\l_xeCJK_family_tl'~
-    ( \prop_get:NV \g_xeCJK_family_name_prop \l_xeCJK_family_tl )~
+    ( \prop_get:NV \g_xeCJK_family_prop \l_xeCJK_family_tl )~
     does~not~contain~glyph~#1~(U+\int_to_hexadecimal:n {`#1}).\\
     Now~switch~to~the~fallback~font.\\
   }
@@ -1660,7 +1681,7 @@ may observe
               {
                 \bool_set_false:c { l_xeCJK_copy_#1_bool }
                 \bool_set_false:c { l_xeCJK_add_#1_bool }
-                \tl_put_right:Nx \l_xeCJK_familyname_tl { /#1 }
+                \tl_put_right:Nx \l_xeCJK_family_name_tl { /#1 }
               }
               {
                 \clist_put_right:Nx \l_xeCJK_sub_key_clist {#1}
@@ -1802,8 +1823,8 @@ may observe
     \prop_clear:N \l_xeCJK_add_font_prop
     \prop_map_inline:Nn \g_xeCJK_features_id_prop
       {
-        \tl_clear:c     { l_xeCJK_fontname_##1_tl    }
-        \clist_clear:c  { l_xeCJK_fontfeat_##1_clist }
+        \tl_clear:c    { l_xeCJK_fontname_##1_tl    }
+        \clist_clear:c { l_xeCJK_fontfeat_##1_clist }
       }
     \clist_clear:N \l_xeCJK_pass_features_clist
     \clist_clear:N \l_xeCJK_sub_key_clist
@@ -1827,16 +1848,26 @@ may observe
   {
     \group_begin:
     \xeCJK_set_init:
-    \tl_set:Nx \l_xeCJK_familyname_tl {#1}
+    \tl_set:Nx \l_xeCJK_family_name_tl {#1}
     \clist_set:Nx \l_xeCJK_fontoptions_clist {#2}
     \tl_set:Nx \l_xeCJK_fontname_tl {#3}
     \keys_set_known:nxN { xeCJK / features }
       { \g_xeCJK_default_features_clist, #2 } \l_xeCJK_pass_features_clist
     \xeCJK_parse_features:
     \xeCJK_pass_features:
-    \cs_gset_protected_nopar:cpx { xeCJK/family/\l_xeCJK_familyname_tl }
+    \cs_gset_protected_nopar:cpx { xeCJK/family/\l_xeCJK_family_name_tl }
       {
-        \exp_not:N \fontspec [ \l_xeCJK_pass_features_clist ] { \l_xeCJK_fontname_tl }
+        \exp_not:N \fontspec_select:nn
+          { \l_xeCJK_pass_features_clist } { \l_xeCJK_fontname_tl }
+        \prop_gput:NnV \exp_not:N \g_xeCJK_family_name_prop
+          { \l_xeCJK_family_name_tl } \exp_not:N \l_fontspec_family_tl
+        \cs_gset_protected_nopar:cpx { xeCJK/family/\l_xeCJK_family_name_tl }
+        \exp_not:n
+          { {
+            \exp_not:N \fontencoding { \g_fontspec_encoding_tl }
+            \exp_not:N \fontfamily   { \l_fontspec_family_tl }
+            \exp_not:N \selectfont
+          } }
       }
     \xeCJK_save_family_info:
     \xeCJK_add_sub_block:
@@ -1859,15 +1890,17 @@ may observe
     \prop_put_if_new:Nxx \l_xeCJK_add_font_prop
       { \xeCJK_map_features_id:n {#1} Font } {#2}
   }
-\cs_generate_variant:Nn \xeCJK_add_font:nn { nx, nc, nV, nv }
+\cs_generate_variant:Nn \xeCJK_add_font:nn        { nx, nc, nV, nv }
 \cs_generate_variant:Nn \xeCJK_add_font_if_new:nn { nx, nc, nV, nv }
 %    \end{macrocode}
 % \end{macro}
 %
 %    \begin{macrocode}
-\cs_generate_variant:Nn \prop_get:Nn { NV }
-\cs_generate_variant:Nn \prop_put:Nnn  { Nxx }
-\cs_generate_variant:Nn \prop_gput:Nnn { Nxx }
+\cs_generate_variant:Nn \prop_put:Nnn        { Nxx }
+\cs_generate_variant:Nn \prop_get:Nn         { NV  }
+\cs_generate_variant:Nn \prop_get:NnNF       { Nx  }
+\cs_generate_variant:Nn \prop_get:NnNTF      { Nx  }
+\cs_generate_variant:Nn \prop_if_in:NnF      { Nx  }
 \cs_generate_variant:Nn \prop_put_if_new:Nnn { Nxx }
 %    \end{macrocode}
 %
@@ -2009,13 +2042,11 @@ may observe
 % \end{macro}
 %
 % \begin{macro}
-%  {\g_xeCJK_family_prop,\g_xeCJK_family_options_prop,
-%   \g_xeCJK_family_name_prop,\g_xeCJK_family_font_prop}
+%  {\g_xeCJK_family_prop,\g_xeCJK_family_name_prop,\g_xeCJK_family_options_prop}
 %    \begin{macrocode}
 \prop_new:N \g_xeCJK_family_prop
-\prop_new:N \g_xeCJK_family_options_prop
 \prop_new:N \g_xeCJK_family_name_prop
-\prop_new:N \g_xeCJK_family_font_prop
+\prop_new:N \g_xeCJK_family_options_prop
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2029,29 +2060,10 @@ may observe
         \clist_remove_all:Nn \l_xeCJK_fontoptions_clist {##1}
         \clist_remove_all:Nn \l_xeCJK_fontoptions_clist { ##1 = }
       }
-    \int_zero:N \l_tmpa_int
-    \tl_set:Nx \l_tmpa_tl
-      { \l_xeCJK_fontname_tl <=> \int_use:N \g_xeCJK_fontspec_int }
-    \tl_remove_all:Nn \l_tmpa_tl { ~ }
-    \tl_set:Nx \l_tmpb_tl { " \l_xeCJK_fontname_tl " }
-    \tl_map_inline:nn
-      {
-        \g_xeCJK_family_prop      \g_xeCJK_family_options_prop
-        \g_xeCJK_family_name_prop \g_xeCJK_family_font_prop
-      }
-      {
-        \tl_set:Nx \l_tmpc_tl
-          {
-            \tl_item:nn
-              {
-                \l_tmpa_tl           \l_xeCJK_fontoptions_clist
-                \l_xeCJK_fontname_tl \l_tmpb_tl
-              }
-              \l_tmpa_int
-          }
-        \int_incr:N \l_tmpa_int
-        \prop_gput:Nxx ##1 \l_xeCJK_familyname_tl \l_tmpc_tl
-      }
+    \prop_gput:NVV \g_xeCJK_family_prop
+                   \l_xeCJK_family_name_tl \l_xeCJK_fontname_tl
+    \prop_gput:NVV \g_xeCJK_family_options_prop
+                   \l_xeCJK_family_name_tl \l_xeCJK_fontoptions_clist
     \group_end:
   }
 %    \end{macrocode}
@@ -2064,10 +2076,10 @@ may observe
     \clist_remove_duplicates:N \l_xeCJK_sub_key_clist
     \clist_map_inline:Nn \l_xeCJK_sub_key_clist
       {
-        \tl_set:Nx \l_tmpa_tl { \l_xeCJK_familyname_tl/##1 }
+        \tl_set:Nx \l_tmpa_tl { \l_xeCJK_family_name_tl/##1 }
         \bool_if:cT { l_xeCJK_copy_##1_bool }
           {
-            \xeCJK_copy_family:xx \l_tmpa_tl \l_xeCJK_familyname_tl
+            \xeCJK_copy_family:xx \l_tmpa_tl \l_xeCJK_family_name_tl
             \prop_get:NoNT \g_xeCJK_family_options_prop \l_tmpa_tl \l_tmpa_clist
               {
                 \clist_remove_all:Nn \l_tmpa_clist { ##1 = * }
@@ -2089,14 +2101,10 @@ may observe
 \cs_new_nopar:Nn \xeCJK_copy_family:nn
   {
     \group_begin:
+    \CJKfamily { #2 }
     \tl_map_inline:nn
-      {
-        \g_xeCJK_family_prop      \g_xeCJK_family_options_prop
-        \g_xeCJK_family_name_prop \g_xeCJK_family_font_prop
-      }
-      {
-        \prop_get:NnNT ##1 {#2} \l_tmpa_tl { \prop_gput:NnV ##1 {#1} \l_tmpa_tl }
-      }
+      { \g_xeCJK_family_prop \g_xeCJK_family_options_prop \g_xeCJK_family_name_prop }
+      { \prop_get:NnNT ##1 {#2} \l_tmpa_tl { \prop_gput:NnV ##1 {#1} \l_tmpa_tl } }
     \cs_gset_eq:cc { xeCJK/family/#1 } { xeCJK/family/#2 }
     \group_end:
   }
@@ -2115,21 +2123,9 @@ may observe
     \cs_if_exist_use:cF { \l_xeCJK_current_coor_tl }
       {
         \tl_set:Nx \l_xeCJK_coor_tl \l_xeCJK_current_coor_tl
-        \cs_if_exist_use:cF { xeCJK/family/\l_xeCJK_family_tl/NFSS }
-          {
-            \cs_if_exist_use:cF { xeCJK/family/\l_xeCJK_family_tl }
-              { \cs_if_exist_use:c { xeCJK/family/\CJKfamilydefault } }
-            \cs_gset_protected_nopar:cpx { xeCJK/family/\l_xeCJK_family_tl/NFSS }
-              {
-                \exp_not:N \fontencoding { \f@encoding }
-                \exp_not:N \fontfamily   { \f@family }
-                \exp_not:N \selectfont
-              }
-            \prop_gput:Nxx \g_xeCJK_family_prop \l_xeCJK_family_tl \f@family
-            \prop_gput:Nxx \g_xeCJK_family_font_prop \l_xeCJK_family_tl
-              { \tex_fontname:D \tex_font:D }
-          }
-        \exp_last_unbraced:NNo \cs_gset_eq:cN \l_xeCJK_coor_tl \font@name
+        \cs_if_exist_use:cF { xeCJK/family/\l_xeCJK_family_tl }
+          { \cs_if_exist_use:c { xeCJK/family/\CJKfamilydefault } }
+        \exp_last_unbraced:NNV \cs_gset_eq:cN \l_xeCJK_coor_tl \font@name
       }
   }
 \cs_new_nopar:Nn \xeCJK_switch_font:nn
@@ -2150,6 +2146,7 @@ may observe
               }
           }
       }
+    \CJKfamily \l_xeCJK_family_tl
     \xeCJK_select_font:
   }
 \msg_new:nnn { xeCJK } { CJK-block } { Switch~from~block~'#1'~to~'#2'. }
@@ -2166,11 +2163,14 @@ may observe
 % \begin{macro}{\CJKfamily}
 % 用于切换 CJK 字体族。
 %     \begin{macrocode}
-\tl_new:N \l_xeCJK_family_tl
 \NewDocumentCommand \CJKfamily { m }
   {
     \xeCJK_family_if_exist:nTF {#1}
-      { \tl_set:Nx \l_xeCJK_family_tl {#1} }
+      {
+        \prop_if_in:NxF \g_xeCJK_family_name_prop {#1}
+          { \use:c { xeCJK/family/#1 } }
+        \tl_set:Nx \l_xeCJK_family_tl {#1}
+      }
       {
         \cs_if_free:cT { xeCJK_warned_aux_#1 }
           {
@@ -2196,11 +2196,11 @@ may observe
 \NewDocumentCommand \newCJKfontfamily { o m O{} m }
   {
     \IfNoValueTF {#1}
-      { \tl_set:Nx \l_xeCJK_familyname_tl { \cs_to_str:N #2 } }
-      { \tl_set:Nx \l_xeCJK_familyname_tl {#1} }
-    \xeCJK_set_family:nnn \l_xeCJK_familyname_tl {#3} {#4}
+      { \tl_set:Nx \l_xeCJK_family_name_tl { \cs_to_str:N #2 } }
+      { \tl_set:Nx \l_xeCJK_family_name_tl {#1} }
+    \xeCJK_set_family:nnn \l_xeCJK_family_name_tl {#3} {#4}
     \cs_new_protected_nopar:Npx #2
-      { \exp_not:N \CJKfamily { \l_xeCJK_familyname_tl } }
+      { \exp_not:N \CJKfamily { \l_xeCJK_family_name_tl } }
   }
 \int_new:N   \g_xeCJK_fontspec_int
 \int_gdecr:N \g_xeCJK_fontspec_int
@@ -2215,7 +2215,7 @@ may observe
         \xeCJK_set_family:nnn \g_xeCJK_family_spec_tl {#1} {#2}
         \tl_gset:cx \l_xeCJK_CJKfontspec_id_tl \g_xeCJK_family_spec_tl
       }
-    \exp_args:Nc \CJKfamily { \l_xeCJK_CJKfontspec_id_tl }
+    \exp_args:Nv \CJKfamily \l_xeCJK_CJKfontspec_id_tl
     \tex_ignorespaces:D
   }
 %    \end{macrocode}
@@ -2227,23 +2227,25 @@ may observe
 \clist_new:N \g_xeCJK_default_features_clist
 \NewDocumentCommand \defaultCJKfontfeatures { m }
   { \clist_gset:Nn \g_xeCJK_default_features_clist {#1} }
+\@onlypreamble \defaultCJKfontfeatures
 \NewDocumentCommand \addCJKfontfeatures { m }
   {
     \cs_if_free:NF \l_xeCJK_family_tl
       {
         \group_begin:
         \clist_set:Nx \l_tmpa_clist {#1}
-        \prop_get:NVN \g_xeCJK_family_name_prop \l_xeCJK_family_tl \l_tmpa_tl
+        \prop_get:NVN \g_xeCJK_family_prop \l_xeCJK_family_tl \l_tmpa_tl
         \clist_map_inline:Nn \g_xeCJK_CJK_subclass_clist
           {
             \clist_if_in:NnT \l_tmpa_clist {##1}
               {
                 \clist_remove_all:Nn \l_tmpa_clist {##1}
-                \prop_get:NoNF \g_xeCJK_family_name_prop
+                \prop_get:NoNF \g_xeCJK_family_prop
                   { \l_xeCJK_family_tl/##1 } \l_tmpb_tl
                   {
-                    \prop_get:NoNF \g_xeCJK_family_name_prop { \CJKfamilydefault/##1 }
-                      \l_tmpb_tl { \tl_set:Nx \l_tmpb_tl \l_tmpa_tl }
+                    \prop_get:NoNF \g_xeCJK_family_prop
+                      { \CJKfamilydefault/##1 } \l_tmpb_tl
+                      { \tl_set:Nx \l_tmpb_tl \l_tmpa_tl }
                   }
                 \clist_set:Nx \l_tmpa_clist
                   { ##1 = { [ \l_tmpa_clist ] { \l_tmpb_tl } } }
@@ -2275,11 +2277,11 @@ may observe
 %    \begin{macrocode}
 \cs_if_free:NT \CJKrmdefault { \tl_set:Nn \CJKrmdefault { rm } }
 \NewDocumentCommand \setCJKmainfont { O{} m }
-  { \xeCJK_set_family:nnn \CJKrmdefault {#1} {#2} \normalfont }
+  { \xeCJK_set_family:nnn \CJKrmdefault {#1} {#2} }
 \cs_new_eq:NN \setCJKromanfont \setCJKmainfont
 \cs_if_free:NT \CJKsfdefault { \tl_set:Nn \CJKsfdefault { sf } }
 \NewDocumentCommand \setCJKsansfont { O{} m }
-  { \xeCJK_set_family:nnn \CJKsfdefault {#1} {#2} \normalfont }
+  { \xeCJK_set_family:nnn \CJKsfdefault {#1} {#2} }
 \cs_if_free:NT \CJKttdefault { \tl_set:Nn \CJKttdefault { tt } }
 %    \end{macrocode}
 % \end{macro}
@@ -2288,8 +2290,6 @@ may observe
 % CJK 默认字体族，作用于 |\normalfont|。
 %    \begin{macrocode}
 \cs_if_free:NT \CJKfamilydefault { \tl_set:Nn \CJKfamilydefault { \CJKrmdefault } }
-\AtBeginDocument { \CJKfamily \CJKfamilydefault }
-\tl_new:c { xeCJK/family/\CJKfamilydefault }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2304,6 +2304,50 @@ may observe
     \etex_protected:D \tl_put_right:Nn \ttfamily   { \CJKfamily \CJKttdefault }
     \cs_set_eq:NN \reset@font \normalfont
   }
+%    \end{macrocode}
+%
+% \begin{macro}{\setCJKmathfont}
+% 设置 CJK 数学字体。
+%    \begin{macrocode}
+\NewDocumentCommand \setCJKmathfont { O{} m }
+  { \xeCJK_set_family:nnn \c_xeCJK_math_tl {#1} {#2} }
+%    \end{macrocode}
+%
+% 当没有设置 CJK 数学字体时，使用 |\CJKfamilydefault| 作为数学字体。
+%    \begin{macrocode}
+\tl_put_left:Nn \document
+  {
+    \CJKfamily \c_xeCJK_math_tl
+    \tl_clear:N \l_xeCJK_math_family_tl
+    \prop_get:NxNF \g_xeCJK_family_name_prop
+      \c_xeCJK_math_tl \l_xeCJK_math_family_tl
+      {
+        \normalfont
+        \prop_get:NxNF \g_xeCJK_family_name_prop
+          \CJKfamilydefault \l_xeCJK_math_family_tl \prg_do_nothing:
+      }
+    \tl_if_empty:NF \l_xeCJK_math_family_tl
+      {
+        \DeclareSymbolFont { CJKmath }       \g_fontspec_encoding_tl
+          \l_xeCJK_math_family_tl \seriesdefault \shapedefault
+        \SetSymbolFont  { CJKmath } { bold } \g_fontspec_encoding_tl
+          \l_xeCJK_math_family_tl \bfdefault \shapedefault
+      }
+    \group_end:
+    \tl_set:Nx \l_xeCJK_family_tl \CJKfamilydefault
+    \normalfont
+    \group_begin:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% 为了保证 CJK 数学字体的正确设置，应在导言区内设置 CJK 字体。
+%    \begin{macrocode}
+\@onlypreamble \setCJKmainfont
+\@onlypreamble \setCJKmathfont
+\@onlypreamble \setCJKsansfont
+\@onlypreamble \setCJKmonofont
+\@onlypreamble \setCJKromanfont
 %    \end{macrocode}
 %
 % \subsection{处理等宽字体和抄录环境}
@@ -2366,11 +2410,14 @@ may observe
 %  { \xeCJK_fixed_ecglue:, \xeCJK_fixed_cjkglue:, \xeCJK_flexible_ecglue:,
 %    \xeCJK_flexible_ecglue:, \xeCJK_flexible_cjkglue: }
 %    \begin{macrocode}
-\cs_new_nopar:Nn \xeCJK_fixed_ecglue:  { \skip_horizontal:N .5\g_xeCJK_exspace_dim }
+\cs_new_nopar:Nn \xeCJK_fixed_ecglue:  { \skip_horizontal:n { .5\g_xeCJK_exspace_dim } }
 \cs_new_nopar:Nn \xeCJK_fixed_cjkglue: { \skip_horizontal:N \g_xeCJK_exspace_dim }
-\tl_set_eq:NN \l_xeCJK_flexible_punctstyle_tl \l_xeCJK_punctstyle_tl
-\cs_new_eq:NN \xeCJK_flexible_ecglue:  \CJKecglue
-\cs_new_eq:NN \xeCJK_flexible_cjkglue: \CJKglue
+\AtEndOfPackage
+  {
+    \tl_set_eq:NN \l_xeCJK_flexible_punctstyle_tl \l_xeCJK_punctstyle_tl
+    \cs_new_eq:NN \xeCJK_flexible_ecglue:  \CJKecglue
+    \cs_new_eq:NN \xeCJK_flexible_cjkglue: \CJKglue
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2428,7 +2475,6 @@ may observe
           { \setCJKmonoexspacefont [#3] {#4} }
           { \xeCJK_set_family:nnn \CJKttdefault {#3} {#4} }
       }
-    \normalfont
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2475,6 +2521,7 @@ may observe
   {
     xeCJKactive = true , CJKallowbreakbetweenpuncts = false ,
     indentfirst = true , CJKspace = false , CJKecglue = { \c_space_token } ,
+    CJKglue = { \skip_horizontal:n { \c_zero_skip \@plus .08\baselineskip } },
     CJKchecksingle = false , CJKnumber = false , PunctStyle = quanjiao ,
     EmboldenFactor = 4 , SlantFactor = .167 ,
     KaiMingPunct = { ． 。？ ！ } , SpecialPunct = { — … ─ } ,
@@ -2592,11 +2639,15 @@ may observe
 % 修复倾斜校正。
 %    \begin{macrocode}
 \cs_new_eq:NN \xeCJK_itcorr_aux \/
-\cs_set_nopar:Npn \/
+\bool_new:N \g_xeCJK_itcorr_bool
+\cs_set_protected_nopar:Npn \/
   {
     \scan_stop:
     \int_compare:nNnT \tex_lastkern:D = \c_two
-      { \tex_unkern:D \tex_unkern:D }
+      {
+        \tex_unkern:D \tex_unkern:D
+        \bool_gset_true:N \g_xeCJK_itcorr_bool
+      }
     \xeCJK_itcorr_aux
   }
 \cs_set_eq:NN \@@italiccorr \/
@@ -2639,7 +2690,7 @@ may observe
 %
 % 禁止在 \pkg{xeCJK} 宏包后再载入 \pkg{CJK} 宏包。
 %    \begin{macrocode}
-\tl_set:cn { ver@CJK.sty } { 2020/01/01 }
+\tl_set:cn { ver@CJK.sty } { 2050/01/01 }
 %    \end{macrocode}
 %
 % \begin{macro}{\xeCJKcaption}
@@ -2728,7 +2779,7 @@ may observe
 %    \begin{macrocode}
 %</package>
 %    \end{macrocode}
-%%
+%
 % \section{例子}
 %
 % \subsection{\pkg{example-autofake.tex}}
@@ -2911,4 +2962,5 @@ may observe
 %    \end{macrocode}
 %
 % \end{implementation}
-%
+% \Finale
+\endinput
