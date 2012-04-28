@@ -295,7 +295,7 @@ may observe
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKDeclareCharClass { > { \TrimSpaces } m m }
   {
-    \exp_args:Nx \clist_map_inline:nn {#2}
+    \clist_map_inline:xn {#2}
       {
         \str_if_eq:xxF {##1} { -> }
           { \xeCJK_setcharclass_aux:nn {##1} { \xeCJK_class_num:n {#1} } }
@@ -303,6 +303,7 @@ may observe
   }
 \NewDocumentCommand \xeCJK_setcharclass_aux:nn
   { > { \SplitArgument { 1 } { -> } } m m } { \xeCJKsetcharclass #1 {#2} }
+\cs_generate_variant:Nn \clist_map_inline:nn { x }
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
@@ -1043,34 +1044,90 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJK_checksingle:n}
-% \begin{macro}[aux]{\xeCJK_checksingle_aux:n}
+% \begin{macro}{\xeCJK_checksingle:n,\xeCJK_checksingle:nn}
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_checksingle:n
   {
     \peek_catcode:NTF \c_catcode_other_token
-      {
-        \tl_set:Nn \l_xeCJK_last_char_tl { \CJKsymbol {#1} }
-        \xeCJK_checksingle_aux:n
-      }
+      { \xeCJK_checksingle:nn { \CJKsymbol {#1} } }
       { \xeCJK_checksingle_save_CJK_and_CJK:n {#1} }
   }
-\cs_new_nopar:Nn \xeCJK_checksingle_aux:n
+\cs_new_nopar:Nn \xeCJK_checksingle:nn
   {
     \peek_meaning:NTF \c_space_token
       {
         \peek_meaning_ignore_spaces:NTF \tex_par:D
-          { \l_xeCJK_last_char_tl \nobreak #1 }
-          { \CJKglue \l_xeCJK_last_char_tl #1 \c_space_token }
+          { #1 \nobreak #2 }
+          {
+            \token_if_eq_meaning:NNTF \l_peek_token \[ % \]
+              { #1 \nobreak #2 }
+              { \xeCJK_checksingle_env:nnn {#1} {#2} \c_space_token }
+          }
       }
       {
-        \token_if_eq_meaning:NNTF \l_peek_token \tex_par:D
-          { \l_xeCJK_last_char_tl \nobreak #1 }
-          { \CJKglue \l_xeCJK_last_char_tl #1 }
+        \bool_if:nTF
+          {
+            \token_if_eq_meaning_p:NN \l_peek_token \tex_par:D ||
+            \token_if_eq_meaning_p:NN \l_peek_token \[ % \]
+          }
+          { #1 \nobreak #2 } { \xeCJK_checksingle_env:nnn {#1} {#2} { } }
       }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{macro}{\xeCJK_checksingle_env:nnn,\xeCJK_checksingle_env:nnnNn}
+%    \begin{macrocode}
+\cs_new_nopar:Nn \xeCJK_checksingle_env:nnn
+  {
+    \peek_catcode_remove:NTF \c_math_toggle_token
+      {
+        \peek_catcode:NTF \c_math_toggle_token
+          { #1 \nobreak #2 } { \CJKglue #1#2#3 }
+        \c_math_toggle_token
+      }
+      {
+        \peek_meaning_remove:NTF \begin
+          { \xeCJK_checksingle_env:nnnNn {#1} {#2} {#3} \begin }
+          {
+            \peek_meaning_remove:NTF \end
+              { \xeCJK_checksingle_env:nnnNn {#1} {#2} {#3} \end }
+              { \CJKglue #1#2#3 }
+          }
+      }
+  }
+\cs_new_nopar:Nn \xeCJK_checksingle_env:nnnNn
+  {
+    \clist_if_in:NnTF \g_xeCJK_inline_env_clist {#5}
+      { \CJKglue #1#2#3 } { #1 \nobreak #2 }
+    #4 {#5}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\g_xeCJK_inline_env_clist}
+%    \begin{macrocode}
+\clist_new:N \g_xeCJK_inline_env_clist
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{InlineEnv,InlineEnv+,InlineEnv-}
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    InlineEnv .clist_gset:N = \g_xeCJK_inline_env_clist ,
+    InlineEnv+      .code:n =
+      {
+        \clist_gput_right:Nx \g_xeCJK_inline_env_clist {#1}
+        \clist_gremove_duplicates:N \g_xeCJK_inline_env_clist
+      },
+    InlineEnv-      .code:n =
+      {
+        \clist_map_inline:xn {#1}
+          { \clist_gremove_all:Nn \g_xeCJK_inline_env_clist {##1} }
+      },
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsection{增加 CJK 子分区}
@@ -1122,7 +1179,7 @@ may observe
   }
 \cs_new_nopar:Nn \xeCJK_sub_restore_or_cancel:n
   {
-    \exp_args:Nx \clist_map_inline:nn {#1}
+    \clist_map_inline:xn {#1}
       {
         \cs_if_free:cTF { xeCJK_ CJK/##1 _class }
           { \xeCJK_error:nx { SubBlock-undefined } {##1} }
@@ -1599,7 +1656,7 @@ may observe
     \tl_set:Nx \l_xeCJK_family_fb_tl {#1}
     \prop_get:NVNF \g_xeCJK_family_prop \l_xeCJK_family_fb_tl \l_xeCJK_fontname_tl
       { \tl_clear:N \l_xeCJK_fontname_tl }
-    \exp_args:Nx \clist_map_inline:nn {#3}
+    \clist_map_inline:xn {#3}
       {
         \tl_put_right:Nn \l_xeCJK_family_fb_tl { /FallBack }
         \xeCJK_get_sub_features:nn \l_xeCJK_family_fb_tl {##1}
