@@ -21,7 +21,9 @@ may observe
 
     http://code.google.com/p/ctex-kit/updates/list
 
-- Sun Wenchang <sunwch@hotmail.com>
+- Sun Wenchang   <sunwch@hotmail.com>
+- Leo Liu      <leoliu.pku@gmail.com>
+- Qing Lee       <sobenlee@gmail.com>
 
 %</readme>
 %<*internal>
@@ -113,7 +115,7 @@ may observe
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
-% \author{孙文昌}
+% \author{孙文昌 \and 刘海洋 \and 李清}
 % \date{\filedate\qquad\fileversion}
 % \maketitle
 %
@@ -327,6 +329,14 @@ may observe
 %   设置居中显示的标点，例如间隔号“\textbf{·}”。对于在 CJK 文字之间的居中标点，
 %   \pkg{xeCJK} 会根据不同的标点处理格式，调整居中标点与前后文字之间的空白，保证
 %   其确实居中。对于行末出现的居中标点，允许在其后面断行，但禁止在它前面断行。
+% \end{function}
+%
+% \begin{function}[EXP]{MiddlePunctWidth}
+%   \begin{syntax}
+%     MiddlePunctWidth = \Arg{dimen}
+%   \end{syntax}
+%   缺省状态下，\pkg{xeCJK} 会根据所选择的标点处理格式自动计算居中标点所占的宽度，
+%   如果对缺省设置不满意，可以通过这一选项来改变它。
 % \end{function}
 %
 % \begin{function}{AllowBreakBetweenPuncts}
@@ -576,7 +586,7 @@ may observe
 %   |\xeCJKDeclareSubCJKBlock| 应该在声明所有的 CJK 字体族之前使用。如果有某个 CJK 字
 %   体族没有设置 \meta{block} 选项，将使用 |\CJKfamilydefault| 的 \meta{block} 选项
 %   作为该 CJK 字体族的 \meta{block} 选项。如果希望在使用某 CJK 字体族时，不在 CJK 主
-%   分区与 \meta{block} 之间切换字体，可以使用 |block=*| 选项。
+%   分区与 \meta{block} 之间切换字体，可以使用 \meta{block}|=*| 选项。
 % \end{function}
 %
 % \begin{function}{\xeCJKCancelSubCJKBlock}
@@ -1974,7 +1984,8 @@ may observe
 % \end{macro}
 %
 % \begin{macro}
-%    {PunctStyle, AllowBreakBetweenPuncts, KaiMingPunct, LongPunct, MiddlePunct}
+%    {PunctStyle, AllowBreakBetweenPuncts, KaiMingPunct,
+%     LongPunct, MiddlePunct,MiddlePunctWidth}
 % 相关选项声明。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
@@ -1993,7 +2004,6 @@ may observe
     MiddlePunct   .code:n = { \xeCJK_set_special_punct:nn { middle } {#1} },
     MiddlePunct-  .code:n = { \xeCJK_sub_special_punct:nn { middle } {#1} },
     MiddlePunctWidth .tl_gset:N = \g_xeCJK_middle_ps_wd_dim_tl ,
-    MiddlePunctWidth .value_required: ,
     PunctStyle .choice_code:n =
       {
         \tl_set:Nx \l_xeCJK_punctstyle_tl { \l_keys_choice_tl }
@@ -2990,6 +3000,7 @@ may observe
           { \exp_last_unbraced:NNV \cs_gset_eq:cN \l_xeCJK_current_coor_tl \font@name }
       }
   }
+\cs_new_eq:NN \xeCJK@setfont \xeCJK_select_font:
 \cs_new_nopar:Nn \xeCJK_switch_font:nn
   {
     \str_if_eq:xxF {#1} {#2}
@@ -3046,8 +3057,15 @@ may observe
 \xeCJK_msg_new:nn { CJKfamily-Unknown }
   {
     Unknown~CJK~family~'#1'~is~ignored.\\\\
-    Try~to~use~\token_to_str:N \setCJKfamilyfont{#1}[...]{...}\c_space_tl
-    to~define~it.
+    Try~to~use~
+    \prg_case_str:xxn {#1}
+      {
+        \CJKrmdefault { \token_to_str:N \setCJKmainfont }
+        \CJKsfdefault { \token_to_str:N \setCJKsansfont }
+        \CJKttdefault { \token_to_str:N \setCJKmonofont }
+      }
+      { \token_to_str:N \setCJKfamilyfont {#1} }
+    [...]{...}~to~define~it.
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3161,7 +3179,7 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% 补丁 |\normalfont|、|\rmfamily|，|\sffamily| 和 |\ttfamily|，使其同时对
+% 补丁 |\normalfont|，|\rmfamily|，|\sffamily| 和 |\ttfamily|，使其同时对
 % CJK 字体族有效。
 % \begin{macrocode}
 \AtEndOfPackage
@@ -3772,7 +3790,6 @@ may observe
 % \begin{macrocode}
 \documentclass{article}
 \usepackage{xeCJK}
-\usepackage{CJKfntef}
 \usepackage{array}
 \xeCJKDeclareSubCJKBlock{Ext-A} { "3400 -> "4DBF }
 \xeCJKDeclareSubCJKBlock{Ext-B} { "20000 -> "2A6DF }
@@ -3784,21 +3801,24 @@ may observe
 \parindent=2em
 \begin{document}
 \long\def\showtext{%
-“中国是$x^2+y^2=z^2$位于亚洲东部的一个ABC地理区域范围，最早是指炎黄子孙在中原建立的国度，至现代国际体系成形后才开始作为国家的通称。作为其根基的中华文明是世界上古老的文明之一，对周边国家和民族的文化产生深远影响，形成了东亚／汉字文化圈。
+中日韩越统一表意文字（英语：CJKV Unified Ideographs），旧称中日韩统一表意文字（英语：CJK Unified Ideographs），也称统一汉字（英语：Unihan），目的是要把分别来自中文、日文、韩文、越文、壮文中，对于相同起源、本义相同、形状一样或稍异的表意文字（主要为汉字，但也有仿汉字如：方块壮字、日文汉字（かんじ / kanji）、韩文汉字（한자 / hanja）、越南的喃字（Chữ Nôm）与越文汉字（Chữ Nho，在越南也称作儒字），应赋予其在ISO 10646及统一码标准中有相同编码。此计划原本只包含中文、日文及韩文中所使用的汉字，是以旧称中日韩统一表意文字（CJK）。后来，此计划加入了越文的喃字，所以合称中日韩越统一表意文字（CJKV）。
 
-「日本」\CJKunderwave{と$x^2+y^2=z^2$いABCう国号の表記は、太陽崇拝と相俟った自国中心的発想に基づくもの、また日本列島が中国大陸から見て東の果て、つまり「日の本（ひのもと）」に位}置することに由来して\addCJKfontfeatures{Kana=meiryob.ttc}いるのではないかとされる。憲法の表題に「日本国憲法」や「大日本帝国憲法」と示されているが、国号を「日本国」ないしは「日本」と直接かつ明確に規定した法令は存在しない。他に法律などで正式な国名を規定していない国としてはスペインなどが挙げられる。
+CJK統合漢字（シージェーケーとうごうかんじ、CJK Unified Ideographs）は、ISO/IEC 10646 (Universal Multiple-Octet Coded Character Set, 略称 UCS) および Unicodeにて採用されている符号化用漢字集合およびその符号表である。CJK統合漢字の名称は、中国語(Chinese)、日本語(Japanese)、韓国語(Korean)で使われている漢字をひとまとめにしたことからきている。CJK統合漢字の初版である Unified Repertoire and Ordering (URO) 第二版は1992年に制定されたが、1994年にベトナムで使われていた漢字も含めることにしたため、CJKVと呼ばれる事もある。CJKVは、中国語・日本語・韓国語・ベトナム語 (英語: Chinese-Japanese-Korean-Vietnamese) の略。特に、その4言語で共通して使われる、または使われていた文字体系である漢字（チュノムを含む）のこと。ソフトウェアの国際化、中でも文字コードに関する分野で用いられる。
 
 \CJKspace
-대한$x^2+y^2=z^2$민국은 동아시아의 한반ABC도 남반부에 자리한 공화국이다. 한일 병합 조약을 통하여 대한제국을 병합했던 일본 제국이 태평양 전쟁에서 연합국에게 패배하고, 이후 주요 연합국 중 하나인 미국이 한반도의 북위 38도 이남을 점령하면서 실시한 군정이 통치권을 이양하여, 1948년 8월 15일에 성립되었다.}
-{\showtext}
+한중일월 통합 한자(또는 한중일 통합 한자)는 유니코드에 담겨 있는 한자들의 집합으로, 한국, 중국, 일본에서 쓰이는 한자를 묶은 것이기 때문에 머리 글자를 따서 한중일(CJK) 통합 한자라고 불렀는데, 최근에는 베트남에서 쓰이는 한자도 추가되었기에 한중일월(CJKV) 통합 한자로 부르게 되었다.
+
+처음에 유니코드에는 65,536($=2^{16}$)자만 들어갈 수 있었기 때문에, 가장 많은 문자가 배당되는 한자를 위해서 한국, 중국, 일본에서 사용하는 한자 중에 모양이 유사하며 그 뜻이 같은 글자를 같은 코드로 통합했다. 따라서 문자 코드만으로 그 한자가 사용되는 언어를 알아 낼 수 없는데, 다만 중국의 간체자나 번체자, 일본의 구자체나 신자체 등 분명하게 모양이 다른 글자는 별도의 부호를 할당하고 있다. 이런 문자 할당 정책에 반발하여 TRON과 같은 인코딩이 만들어지기도 했으나, 실제로 통합된 한자의 차이가 별로 크지 않기 때문에 문제가 되지 않는다는 의견도 있다.
+\CJKnospace}
+\showtext
 
 \bigskip
 \xeCJKCancelSubCJKBlock{Kana,Hangul}
-{\showtext}
+\showtext
 
 \bigskip
 \xeCJKRestoreSubCJKBlock{Hangul}
-{\showtext}
+\showtext
 
 \begin{table}[ht]
 \caption{生僻字测试}
