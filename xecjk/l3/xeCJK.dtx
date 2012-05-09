@@ -83,6 +83,7 @@ may observe
 \hypersetup{pdfstartview=FitH}
 \usepackage{xeCJK}
 \usepackage{metalogo}
+\linespread{1.1}
 \setlist{nosep}
 \setmainfont[Ligatures=TeX]{TeX Gyre Pagella}
 \setmonofont{Inconsolata}
@@ -110,6 +111,7 @@ may observe
 \let\defaultvar\textbf
 \def\argbrace#1{\char`\{#1\char`\}}
 \@addtoreset{CodelineNo}{section}
+\def\tokslink#1{\hyperlink{#1}{\ding{51}}}
 \makeatother
 \begin{document}
   \DocInput{\jobname.dtx}
@@ -153,11 +155,6 @@ may observe
 % 宏包选项，你可以在调用宏包的时候直接设置这些选项，也可以在调用宏包之后使用 |\xeCJKsetup| 来
 % 设置这些选项。
 %
-% 有些选项或命令后面带有 \hypertarget{expstar}{\hyperlink{expstar}{$\star$}} 号，这表示这
-% 个选项或命令只能在导言区中使用，而 \hypertarget{rexpstar}{\hyperlink{rexpstar}{\ding{73}}}
-% 号则表示这个选项或命令只能在导言区使用，并且只影响随后定义的 CJK 字体。其余不带特殊标记的
-% 选项或命令，如果没有特别说明，可以在导言区或正文中使用。
-%
 % \begin{function}{\xeCJKsetup}
 %   \begin{syntax}
 %     \cs{xeCJKsetup} \argbrace{\meta{key1}=\meta{var1}, \meta{key2}=\meta{var2}, ...}
@@ -174,6 +171,11 @@ may observe
 %     \xeCJKsetup{PunctStyle=kaiming}
 %   \end{verbatim}
 % \end{function}
+%
+% 有些选项或命令后面带有 \hypertarget{expstar}{\hyperlink{expstar}{$\star$}} 号，这表示这
+% 个选项或命令只能在导言区中使用，而 \hypertarget{rexpstar}{\hyperlink{rexpstar}{\ding{73}}}
+% 号则表示这个选项或命令只能在导言区使用，并且只影响随后定义的 CJK 字体。其余不带特殊标记的
+% 选项或命令，如果没有特别说明，可以在导言区或正文中使用。
 %
 % \subsection{宏包选项}\label{sec:xeCJK-opt}
 %
@@ -230,7 +232,7 @@ may observe
 %
 % \begin{function}{CJKecglue}
 %   \begin{syntax}
-%     CJKecglue = \argbrace{\ }
+%     CJKecglue = \Arg{glue}
 %   \end{syntax}
 %   设置 CJK 文字与西文、CJK 文字与行内数学公式之间的间距，默认值是一个空格。使用这个
 %   选项设置的 |glue| 最好也要用一定的弹性。请注意，这里设置的 |glue| 只影响
@@ -582,7 +584,9 @@ may observe
 %   \begin{verbatim}
 %     { `中 -> `文 , "3400 -> "4DBF , "5000 -> "7000 , `汉 , `字 , "3500 }
 %   \end{verbatim}
-%   的形式。使用
+%   的形式。需要注意的是，这里设置的 \meta{block range} 除非确实需要（例如某些特殊字体使用
+%   了 |Unicode| 中的私人使用区的情况），否则不要超出源代码中预设的
+%   \hyperlink{CJKcharclass}{CJK 文字范围}。使用
 %   \begin{verbatim}
 %     \xeCJKDeclareSubCJKBlock{SPUA}{ "E400 -> "E4DA , "E500 -> "E5E8 , "E600 -> "E6CE }
 %     \xeCJKDeclareSubCJKBlock{Ext-B}{ "20000 -> "2A6DF }
@@ -669,7 +673,16 @@ may observe
 %   \end{verbatim}
 % \end{function}
 %
-% \section{兼容性}
+% \section{已知问题和兼容性}
+%
+% 新版本的 \pkg{xeCJK} 完全使用 \LaTeX3 的语法来编写，受限于目前 |expl3| 宏包的相关
+% 工具的实现方式，在 CJK 文字后面使用 |\outer| 宏时会出现类似
+% \begin{verbatim}
+%   ! Forbidden control sequence found while scanning use of \token_if_eq_meaning:NNTF
+% \end{verbatim}
+% 的错误，在 |\outer| 宏前面加上 |\relax| 可以暂时避免这个错误。目前已知的有 \pkg{cprotect}
+% 宏包提供的 |\cprotect|，这时你也可以暂时用 |\icprotect| 代替 |\cprotect|。
+% \footnote{\url{http://code.google.com/p/ctex-kit/issues/detail?id=87}}
 %
 % 为了与 \pkg{CJKnumb} 和 \pkg{CJKulem} 宏包兼容，\pkg{xeCJK} 使用并重新定义了
 % \pkg{CJK} 宏包的部分宏命令，如 |\CJKfamily|、|\CJKsymbol| 和 |\CJKpunctsymbol| 等。
@@ -679,8 +692,10 @@ may observe
 % 可以在 \pkg{xeCJK} 之后载入 \pkg{CJKfntef} 宏包，以实现汉字加点等。
 %
 % \pkg{xeCJK} 依赖 \XeTeX 的 |\XeTeXinterchartoks| 机制，与使用相同机制的宏包（例如
-% \pkg{polyglossia}）会存在大小不一的冲突。
+% \pkg{polyglossia}）会存在大小不一的冲突。\pkg{xeCJK} 虽然为此作了一些处理，但与它们
+% 共同使用时应该小心。
 %
+% \clearpage
 %
 %\end{documentation}
 %
@@ -846,7 +861,7 @@ may observe
 % \begin{macro}[internal]{\xeCJK_class_num:n}
 % |#1| 为字符类别名称，用于取得字符类别对应的编号。
 %    \begin{macrocode}
-\cs_new_nopar:Nn \xeCJK_class_num:n { \use:c { xeCJK_#1_class } }
+\cs_new_nopar:Nn \xeCJK_class_num:n { \tl_use:c { xeCJK_#1_class } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1169,9 +1184,7 @@ may observe
 % 取出相邻类别之间的内容。
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_get_inter_class_toks:nn
-  {
-    \tex_the:D \XeTeXinterchartoks \xeCJK_class_num:n {#1} \xeCJK_class_num:n {#2}
-  }
+  { \tex_the:D \XeTeXinterchartoks \xeCJK_class_num:n {#1} \xeCJK_class_num:n {#2} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1202,6 +1215,82 @@ may observe
 %
 % \subsection{字符输出规则}
 %
+% \hspace*{-.8\marginparwidth}
+% \begin{tabular}{l*8c}
+% \toprule
+%   & |Default| & |CJK| & |FullLeft| & |FullRight| & |HalfLeft|
+%   & |HalfRight| & |NormalSpace| & |Boundary| \\ \midrule
+% |Default|
+%   &
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   &
+%   &
+%   &
+%   & \tokslink{def-bound}\\
+% |CJK|
+%   & \tokslink{def-cjk}
+%   & \tokslink{cjk-cjk}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{cjk-bound}\\
+% |FullLeft|
+%   & \tokslink{def-cjk}
+%   & \tokslink{fl-fr-bound-cjk}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{fl-fr-bound-cjk}\\
+% |FullRight|
+%   & \tokslink{def-cjk}
+%   & \tokslink{fl-fr-bound-cjk}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{cjk-fl-fr}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{fl-fr-bound-cjk}\\
+% |HalfLeft|
+%   &
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk} \\
+% |HalfRight|
+%   &
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   &
+%   &
+%   &
+%   & \tokslink{def-bound} \\
+% |NormalSpace|
+%   &
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   & \tokslink{def-cjk}
+%   &
+%   &
+%   &
+%   & \tokslink{def-bound}\\
+% |Boundary|
+%   & \tokslink{bound-def}
+%   & \tokslink{bound-cjk}
+%   & \tokslink{fl-fr-bound-cjk}
+%   & \tokslink{fl-fr-bound-cjk}
+%   & \tokslink{bound-def}
+%   &
+%   & \tokslink{bound-def}\\
+% \bottomrule
+% \end{tabular}
+%
+% \hypertarget{def-cjk}{}
 %    \begin{macrocode}
 \clist_map_inline:nn { Default, HalfLeft, HalfRight, NormalSpace }
   {
@@ -1214,21 +1303,15 @@ may observe
             \xeCJK_clear_inter_class_toks:nn {#1} {##1}
             \xeCJK_clear_CJK_toks:
           }
+        \xeCJK_inter_class_toks:nnn {##1} {#1} { \c_group_end_token }
       }
     \xeCJK_app_inter_class_toks:nnn {#1} { CJK } { \CJKsymbol }
     \clist_map_inline:nn { FullLeft, FullRight }
       { \xeCJK_app_inter_class_toks:nnc {#1} {##1} { xeCJK_CJK_and_##1:N } }
-    \xeCJK_inter_class_toks:nnn { CJK } {#1} { \c_group_end_token }
-    \xeCJK_inter_class_toks:nnn { FullLeft } {#1} { \nobreak \c_group_end_token }
-    \xeCJK_inter_class_toks:nnn { FullRight } {#1}
-      { \xeCJK_after_FullRight: \c_group_end_token }
   }
 %    \end{macrocode}
 %
-%    \begin{macrocode}
-\xeCJK_pre_inter_class_toks:nnn { Default } { CJK } { \CJKecglue }
-%    \end{macrocode}
-%
+% \hypertarget{bound-def}{}
 %    \begin{macrocode}
 \clist_map_inline:nn { Default, HalfLeft, NormalSpace }
   {
@@ -1242,6 +1325,7 @@ may observe
   }
 %    \end{macrocode}
 %
+% \hypertarget{def-bound}{}
 %    \begin{macrocode}
 \clist_map_inline:nn { Default, HalfRight, NormalSpace }
   {
@@ -1250,9 +1334,12 @@ may observe
         \peek_catcode:NTF \c_space_token
           { { \xeCJK_default_space_kern: } } { { \xeCJK_default_kern: } }
       }
+    \str_if_eq:xxF {#1} { NormalSpace }
+      { \xeCJK_pre_inter_class_toks:nnn {#1} { CJK } { \CJKecglue } }
   }
 %    \end{macrocode}
 %
+% \hypertarget{bound-cjk}{}
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { Boundary } { CJK } { \xeCJK_Boundary_and_CJK: }
 %    \end{macrocode}
@@ -1319,6 +1406,7 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
+% \hypertarget{cjk-bound}{}
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { CJK } { Boundary }
   {
@@ -1326,6 +1414,10 @@ may observe
     { \xeCJK_CJK_kern: }
     \xeCJK_ignorespaces:
   }
+%    \end{macrocode}
+%
+% \hypertarget{cjk-cjk}{}
+%    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { CJK } { CJK } { \xeCJK_CJK_and_CJK:N }
 %    \end{macrocode}
 %
@@ -1335,6 +1427,7 @@ may observe
 %    \end{macrocode}
 % \end{macro}
 %
+% \hypertarget{fl-fr-bound-cjk}{}
 %    \begin{macrocode}
 \clist_map_inline:nn { FullLeft, FullRight }
   {
@@ -1346,16 +1439,28 @@ may observe
         \use:c { xeCJK_CJK_and_#1:N }
       }
     \xeCJK_inter_class_toks:nnn {#1} { CJK } { \CJKsymbol }
-    \xeCJK_inter_class_toks:nnn {#1} { Boundary }
-      { \c_group_end_token \tex_ignorespaces:D }
-    \clist_map_inline:nn { CJK, Boundary }
+    \xeCJK_inter_class_toks:nnn {#1} { Boundary } { \c_group_end_token \tex_ignorespaces:D }
+  }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\clist_map_inline:Nn \g_xeCJK_base_class_clist
+  {
+    \bool_if:nF
+      { \str_if_eq_p:xx {#1} { FullLeft } || \str_if_eq_p:xx {#1} { FullRight } }
       {
-        \exp_args:Nnnx \xeCJK_pre_inter_class_toks:nnn {#1} {##1}
-          {
-            \str_if_eq:xxTF {#1} { FullLeft }
-              { \exp_not:N \nobreak } { \exp_not:N \xeCJK_after_FullRight: }
-          }
+        \xeCJK_pre_inter_class_toks:nnn { FullLeft }  {#1} { \nobreak }
+        \xeCJK_pre_inter_class_toks:nnn { FullRight } {#1} { \xeCJK_after_FullRight: }
       }
+  }
+%    \end{macrocode}
+%
+% \hypertarget{cjk-fl-fr}{}
+%    \begin{macrocode}
+\clist_map_inline:nn { CJK, FullLeft, FullRight }
+  {
+    \clist_map_inline:nn { FullLeft, FullRight }
+      { \xeCJK_inter_class_toks:nnc {#1} {##1} { xeCJK_#1_and_##1:N } }
   }
 %    \end{macrocode}
 %
@@ -1422,14 +1527,6 @@ may observe
   }
 %    \end{macrocode}
 % \end{macro}
-%
-%    \begin{macrocode}
-\clist_map_inline:nn { CJK, FullLeft, FullRight }
-  {
-    \clist_map_inline:nn { FullLeft, FullRight }
-      { \xeCJK_inter_class_toks:nnc {#1} {##1} { xeCJK_#1_and_##1:N } }
-  }
-%    \end{macrocode}
 %
 % \begin{macro}[internal]{\xeCJK_CJK_and_FullLeft:N}
 %    \begin{macrocode}
@@ -3065,7 +3162,7 @@ may observe
     \cs_if_free:cTF { xeCJK/family/#1 } \prg_return_false:
       {
         \prop_if_in:NxF
-          \g_xeCJK_family_name_prop {#1} { \use:c { xeCJK/family/#1 } }
+          \g_xeCJK_family_name_prop {#1} { \tl_use:c { xeCJK/family/#1 } }
         \prg_return_true:
       }
   }
@@ -3435,7 +3532,7 @@ may observe
   {
     CJKnumber     .bool_set:N = \g_xeCJK_number_bool ,
     indentfirst   .bool_set:N = \g_xeCJK_indent_bool ,
-    normalindentfirst .meta:n = { indentfirst = true } ,
+    normalindentfirst .meta:n = { indentfirst = false } ,
     quiet .code:n =
       {
         \msg_redirect_module:nnn { xeCJK } { warning } { info }
