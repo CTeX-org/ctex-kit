@@ -20,7 +20,7 @@ LaTeX Project Public License (LPPL), either version 1.3c of this license or
 and version 1.3 or later is part of all distributions of LaTeX version
 2005/12/01 or later.
 
-This work has the LPPL maintenance status 'author-maintained'.
+This work has the LPPL maintenance status 'maintained'.
 
 This work consists of the following files:
    README.txt (this file),
@@ -57,7 +57,7 @@ If you are interested in the process of development you may observe
     http://code.google.com/p/ctex-kit/
 
 
-2012/05/07
+2012/05/18
 Qing Lee
 %</readme>
 %<*internal>
@@ -82,7 +82,7 @@ Qing Lee
   and version 1.3 or later is part of all distributions of LaTeX
   version 2005/12/01 or later.
 
-  This work has the LPPL maintenance status `author-maintained'.
+  This work has the LPPL maintenance status `maintained'.
 
 \endpreamble
 \postamble
@@ -148,6 +148,8 @@ Qing Lee
 %
 % \pkg{zhnumber} 支持 |GBK| 编码和 |UTF8| 编码，依赖 \pkg{xparse} 和 \pkg{l3keys2e} 宏包。
 %
+% 目前 |\zhnumber| 能正确处理的最大整数是 $10^{48}-1$，|\zhditits| 不受这个大小的限制。
+%
 % \section{使用方法}
 %
 % \begin{function}{encoding}
@@ -155,8 +157,9 @@ Qing Lee
 %     encoding = \meta{GBK\orvar{}UTF8}
 %   \end{syntax}
 %   指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 |\zhnumsetup| 在导言区内设定。
-%   对于 \XeLaTeX 和 \LuaLaTeX ，不用指定编码，宏包将自动使用 |UTF8| 编码；只有 \LaTeX
-%   和 pdf\LaTeX 需要指定编码，此时如果没有指定，默认将使用 |GBK|。
+%   对于 \XeLaTeX 和 \LuaLaTeX ，不用指定编码，宏包将自动使用 |UTF8| 编码。只有 \LaTeX
+%   和 pdf\LaTeX 需要指定编码，如果没有指定，默认将使用 |GBK|，并且此时 \pkg{zhnumber}
+%   宏包应该在 \pkg{CJK} 或 \pkg{CJKutf8} 宏包之后载入。
 % \end{function}
 %
 % \begin{function}{\zhnumber}
@@ -257,11 +260,7 @@ Qing Lee
 %   用于恢复 \pkg{zhnumber} 对阿拉伯数字的初始化映射。
 % \end{function}
 %
-% \section{已知问题}
-%
-% 目前 |\zhnumber| 能处理的最大整数是 $2^{31}-1=2\,147\,483\,647$，|\zhditits| 不受
-% 这个大小的限制。如果去掉可以展开的限制，|\zhnumber| 也可以突破这个最大整数的限制，如何
-% 在可以展开的条件下，突破这个最大整数的限制有待于解决。
+% \clearpage
 %
 % \end{documentation}
 %
@@ -277,171 +276,9 @@ Qing Lee
 %    \begin{macrocode}
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {zhnumber} {2012/05/07} {1.2a}
+\ProvidesExplPackage {zhnumber} {2012/05/18} {1.3}
   {package for typesetting numbers with Chinese glyphs}
 %    \end{macrocode}
-%
-% \begin{macro}[internal]{\c_hundred_million}
-%    \begin{macrocode}
-\int_const:Nn \c_hundred_million { 100 000 000 }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]
-% {\zhnum_units:n,\zhnum_tens:n,\zhnum_hundreds:n,\zhnum_thousands:n}
-% 分别用于截取一个四位数的个、十、百、千位。
-%    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_units:n
-  { \int_mod:nn {#1} \c_ten }
-\cs_new_nopar:Nn \zhnum_tens:n
-  { \int_mod:nn { \int_div_truncate:nn {#1} \c_ten } \c_ten }
-\cs_new_nopar:Nn \zhnum_hundreds:n
-  { \int_mod:nn { \int_div_truncate:nn {#1} \c_one_hundred } \c_ten }
-\cs_new_nopar:Nn \zhnum_thousands:n
-  { \int_div_truncate:nn {#1} \c_one_thousand }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\zhnum_number:n}
-% 将输入的整数由低位到高位，以四位为一段进行处理。
-%    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_number:n
-  {
-    \int_compare:nNnTF {#1} < \c_hundred_million
-      {
-        \int_compare:nNnTF {#1} < \c_ten_thousand
-          {
-            \int_compare:nNnTF {#1} = \c_zero
-              { \zhnum_digit_map:n \c_zero }
-              { \zhnum_process_number:nn \c_one {#1} }
-          }
-          {
-            \zhnum_process_number:nn \c_one { \int_div_truncate:nn {#1} \c_ten_thousand }
-            \zhnum_digit_map:n \c_ten_thousand
-            \int_compare:nNnF { \int_mod:nn {#1} \c_ten_thousand } = \c_zero
-              { \zhnum_process_number:nn \c_zero { \int_mod:nn {#1} \c_ten_thousand } }
-          }
-      }
-      {
-        \zhnum_process_number:nn \c_one { \int_div_truncate:nn {#1} \c_hundred_million }
-        \zhnum_digit_map:n \c_hundred_million
-        \int_compare:nNnF { \int_mod:nn {#1} \c_hundred_million } = \c_zero
-          {
-            \int_compare:nNnTF { \int_mod:nn {#1} \c_hundred_million } < \c_ten_thousand
-              {
-                \int_compare:nNnF { \int_mod:nn {#1} \c_hundred_million } < \c_one_thousand
-                  { \zhnum_digit_map:n \c_zero }
-              }
-              {
-                \zhnum_process_number:nn \c_zero
-                  { \int_mod:nn { \int_div_truncate:nn {#1} \c_ten_thousand } \c_ten_thousand }
-                \zhnum_digit_map:n \c_ten_thousand
-              }
-            \int_compare:nNnF { \int_mod:nn {#1} \c_ten_thousand } = \c_zero
-              { \zhnum_process_number:nn \c_zero { \int_mod:nn {#1} \c_ten_thousand } }
-          }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\zhnum_process_number:nn}
-% 对四位数字按情况进行处理。
-%    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_process_number:nn
-  {
-    \int_compare:nNnTF { \zhnum_thousands:n {#2} } = \c_zero
-      {
-        \int_compare:nNnT {#1} = \c_zero
-          { \zhnum_digit_map:n \c_zero }
-      }
-      {
-        \zhnum_digit_map:n { \zhnum_thousands:n {#2} }
-        \zhnum_digit_map:n \c_one_thousand
-      }
-    \int_compare:nNnTF { \zhnum_hundreds:n {#2} } = \c_zero
-      {
-        \bool_if:nT
-          {
-            \int_compare_p:nNn { \zhnum_thousands:n {#2} }         > \c_zero &&
-            \int_compare_p:nNn { \int_mod:nn {#2} \c_one_hundred } > \c_zero
-          }
-          { \zhnum_digit_map:n \c_zero }
-      }
-      {
-        \bool_if:nTF
-          {
-            \l_zhnum_ancient_bool                                  &&
-            \int_compare_p:nNn { \zhnum_hundreds:n {#2} } = \c_two
-          }
-          { \zhnum_digit_map:n { \zhnum_hundreds:n {#2} * \c_one_hundred } }
-          {
-            \zhnum_digit_map:n { \zhnum_hundreds:n {#2} }
-            \zhnum_digit_map:n \c_one_hundred
-          }
-      }
-    \int_compare:nNnTF { \zhnum_tens:n {#2} } = \c_zero
-      {
-        \bool_if:nT
-          {
-            \int_compare_p:nNn { \zhnum_hundreds:n {#2} } > \c_zero &&
-            \int_compare_p:nNn { \zhnum_units:n    {#2} } > \c_zero
-          }
-          { \zhnum_digit_map:n \c_zero }
-      }
-      {
-        \bool_if:nF
-          {
-            \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_one &&
-            \int_compare_p:nNn {#2} < \c_one_hundred           &&
-            ! ( \int_compare_p:nNn {#1} = \c_zero )
-          }
-          {
-            \bool_if:nTF
-              {
-                \l_zhnum_ancient_bool                                     &&
-                ( \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_two   ||
-                  \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_three ||
-                  \int_compare_p:nNn { \zhnum_tens:n {#2} } = \c_four )
-              }
-              {
-                \zhnum_digit_map:n { \zhnum_tens:n {#2} * \c_ten }
-                \use_none:nn
-              }
-              { \zhnum_digit_map:n { \zhnum_tens:n {#2} } }
-          }
-        \zhnum_digit_map:n \c_ten
-      }
-    \int_compare:nNnF { \zhnum_units:n {#2} } = \c_zero
-      { \zhnum_digit_map:n { \zhnum_units:n {#2} } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\zhnum_integer:n}
-% 对负数进行预处理。
-%    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_integer:n
-  {
-    \int_compare:nNnT { \zhnum_erase_comma:f {#1} } < \c_zero
-      { \zhnum_digit_map:n \c_minus_one }
-    \zhnum_number:n { \int_abs:n { \zhnum_erase_comma:f {#1} } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\zhnum}
-% 用于将 \LaTeX 计数器按中文格式输出。
-%    \begin{macrocode}
-\cs_new_nopar:Npn \zhnum #1
-  {
-    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
-      { \exp_args:Nv \zhnum_integer:n { c@#1 } }
-      { \@nocounterr {#1} }
-  }
-%    \end{macrocode}
-% \end{macro}
-
 %
 % \begin{macro}{\zhnumber}
 % 用于将输入的数字按照中文格式输出。
@@ -468,7 +305,7 @@ Qing Lee
 \cs_new_nopar:Npn \zhnum_integer_or_fraction:w #1/#2/#3 \q_stop
   {
     \quark_if_nil:nTF {#2}
-      { \zhnum_integer:n {#1} }
+      { \zhnum_integer:f {#1} }
       { \zhnum_fraction:w #2 \q_mark #1 ; \q_nil ; \q_stop }
   }
 %    \end{macrocode}
@@ -490,6 +327,7 @@ Qing Lee
         \zhnum_blank_to_zero:f {#3}
       }
   }
+\cs_generate_variant:Nn \tl_if_blank:nF { f }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -501,6 +339,7 @@ Qing Lee
     \zhnum_blank_to_zero:f {#1} \c_zhnum_dot_tl
     \tl_if_blank:fTF {#2} { \zhnum_digit_map:n \c_zero } { \zhdigits * {#2} }
   }
+\cs_generate_variant:Nn \tl_if_blank:nTF { f }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -509,16 +348,227 @@ Qing Lee
 %    \begin{macrocode}
 \cs_new_nopar:Nn \zhnum_blank_to_zero:n
   { \tl_if_blank:nTF {#1} { \zhnum_digit_map:n \c_zero } { \zhnumber {#1} } }
+\cs_generate_variant:Nn \zhnum_blank_to_zero:n { f }
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\zhnum}
+% 用于将 \LaTeX 计数器按中文格式输出。
 %    \begin{macrocode}
-\cs_generate_variant:Nn \zhnum_blank_to_zero:n { f }
-\cs_generate_variant:Nn \tl_reverse:n          { f }
-\cs_generate_variant:Nn \tl_if_blank:nTF       { f }
-\cs_generate_variant:Nn \tl_if_blank:nF        { f }
-\cs_generate_variant:Nn \tl_map_function:nN    { f }
+\cs_new_nopar:Npn \zhnum #1
+  {
+    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
+      { \zhnum_integer:v { c@#1 } }
+      { \@nocounterr {#1} }
+  }
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_integer:n}
+% 对整数的处理。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_integer:n
+  { \zhnum_integer_aux:f { \zhnum_erase_separator:n {#1} } }
+\cs_new_nopar:Nn \zhnum_integer_aux:n
+  {
+    \int_compare:nNnT { \int_get_sign:n {#1} \c_one } < \c_zero
+      { \zhnum_digit_map:n \c_minus_one }
+    \zhnum_parse_number:f { \zhnum_trim_zeros:f { \int_get_digits:n {#1} } }
+  }
+\cs_generate_variant:Nn \zhnum_integer:n { f , v }
+\cs_generate_variant:Nn \zhnum_integer_aux:n { f }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_erase_separator:n,\zhnum_trim_zeros:n}
+% 去掉分隔符和多余的 $0$。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_erase_separator:n
+  { \cs_to_str:c { \tl_map_function:nN {#1} \zhnum_erase_separator_aux:N } }
+\cs_new_nopar:Nn \zhnum_erase_separator_aux:N
+  { \str_if_eq:xxF {#1} \c_zhnum_separator_tl {#1} }
+\cs_new_nopar:Nn \zhnum_trim_zeros:n
+  {
+    \tl_if_empty:nTF {#1} \c_zero
+      {
+        \int_compare:nNnTF { \tl_head:n {#1} } = \c_zero
+          { \zhnum_trim_zeros:o { \use_none:n #1 } } {#1}
+      }
+  }
+\cs_generate_variant:Nn \zhnum_trim_zeros:n { f , o }
+\cs_generate_variant:Nn \cs_to_str:N        { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\zhnum_parse_number:n,\zhnum_parse_number:nn,\zhnum_parse_number:nnn}
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_parse_number:n
+  { \zhnum_parse_number:nf {#1} { \tl_length:n {#1} } }
+\cs_new_nopar:Nn \zhnum_parse_number:nn
+  {
+    \int_compare:nNnTF {#2} < \c_five
+      {
+        \int_compare:nNnTF {#1} = \c_zero
+          { \zhnum_digit_map:n \c_zero }
+          { \zhnum_process_number:NNn \c_true_bool \c_true_bool {#1} }
+      }
+      {
+        \int_compare:nNnTF { \int_mod:nn {#2} \c_four } = \c_zero
+          {
+            \zhnum_split_number:nNNnfn {#1} \c_true_bool \c_true_bool { \c_zero }
+              { \int_div_truncate:nn { #2 - \c_one } \c_four }
+              { \c_zero }
+          }
+          {
+            \zhnum_parse_number:nnf {#1} {#2}
+              {
+                \use:c
+                  {
+                    zhnum_use_
+                    \int_to_roman:n { \int_mod:nn {#2} \c_four }
+                    _delimit_by_q_stop:w
+                  }
+                #1 \q_stop
+              }
+          }
+      }
+  }
+\cs_new_nopar:Nn \zhnum_parse_number:nnn
+  {
+    \zhnum_process_number:NNn \c_true_bool \c_true_bool {#3}
+    \zhnum_scale_map:n { \int_div_truncate:nn { #2 - \c_one } \c_four }
+    \int_compare:nNnTF { \int_mod:nn {#3} \c_ten } = \c_zero
+      { \zhnum_split_number:nNNffn {#1} \c_false_bool \c_true_bool }
+      { \zhnum_split_number:nNNffn {#1} \c_true_bool \c_false_bool }
+    { \int_mod:nn {#2} \c_four }
+    { \int_eval:n { \int_div_truncate:nn { #2 - \c_one } \c_four - \c_one } }
+    { \c_zero }
+  }
+\cs_generate_variant:Nn \zhnum_parse_number:n   {   f }
+\cs_generate_variant:Nn \zhnum_parse_number:nn  {  nf }
+\cs_generate_variant:Nn \zhnum_parse_number:nnn { nnf }
+\cs_new_nopar:Npn \zhnum_use_i_delimit_by_q_stop:w   #1#2     \q_stop {#1}
+\cs_new_nopar:Npn \zhnum_use_ii_delimit_by_q_stop:w  #1#2#3   \q_stop {#1#2}
+\cs_new_nopar:Npn \zhnum_use_iii_delimit_by_q_stop:w #1#2#3#4 \q_stop {#1#2#3}
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_split_number:nNNnnn}
+% 将输入的整数由低位到高位，以四位为一段进行处理。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_split_number:nNNnnn
+  {
+    \exp_args:Nf \zhnum_split_number_aux:nnnnnnn
+      { \zhnum_number_item:nn {#1} { \c_one + #4 + #6 * \c_four } }
+      {#1} {#2} {#3} {#4} {#5} {#6}
+  }
+\cs_new_nopar:Nn \zhnum_split_number_aux:nnnnnnn
+  {
+    \int_compare:nNnTF {#1} = \c_zero { \use_i_ii:nnn }
+      {
+        \bool_if:NF #3 { \zhnum_digit_map:n \c_zero }
+        \zhnum_process_number:NNn {#3} {#4} {#1}
+        \zhnum_scale_map:n { #6 - #7 }
+        \int_compare:nNnTF { \int_mod:nn {#1} \c_ten } = \c_zero
+          { \use_i_ii:nnn } { \zhnum_use_i_iii:nnn }
+      }
+    { \int_compare:nNnF { #6 - #7 } = \c_zero }
+    { {
+        \zhnum_split_number:nNNnnf
+          {#2} \c_false_bool \c_true_bool {#5} {#6} { \int_eval:n { #7 + \c_one } }
+    } }
+    { {
+        \zhnum_split_number:nNNnnf
+          {#2} \c_true_bool \c_false_bool {#5} {#6} { \int_eval:n { #7 + \c_one } }
+    } }
+  }
+\cs_new_nopar:Nn \zhnum_use_i_iii:nnn {#1#3}
+\cs_generate_variant:Nn \zhnum_split_number:nNNnnn { nNNnf , nNNff , nNNnnf }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_number_item:nn,\zhnum_number_item_aux:nN}
+% 截取整数的其中四位数。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_number_item:nn
+  {
+    \zhnum_number_item_aux:nN {#2} #1
+    \q_recursion_tail
+    \prg_break_point:n { }
+  }
+\cs_new_nopar:Nn \zhnum_number_item_aux:nN
+  {
+    \quark_if_recursion_tail_break:n {#2}
+    \int_compare:nNnTF {#1} = \c_one
+      { \zhnum_recursion_break:NNNNw #2 }
+      { \zhnum_number_item_aux:nN { #1 - \c_one } }
+  }
+\cs_new_nopar:Npn \zhnum_recursion_break:NNNNw #1#2#3#4#5 \prg_break_point:n #6 {#1#2#3#4}
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_process_number:NNn,\zhnum_process_number:NNNNNN}
+% 对四位数字按情况进行处理。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_process_number:NNn
+  {
+    \zhnum_process_number:ffffNN
+      { \int_mod:nn {#3} \c_ten }
+      { \int_mod:nn { \int_div_truncate:nn {#3} \c_ten } \c_ten }
+      { \int_mod:nn { \int_div_truncate:nn {#3} \c_one_hundred } \c_ten }
+      { \int_div_truncate:nn {#3} \c_one_thousand }
+      {#1} {#2}
+  }
+\cs_new_nopar:Nn \zhnum_process_number:NNNNNN
+  {
+    \int_compare:nNnTF {#4} = \c_zero
+      { \bool_if:NF #6 { \zhnum_digit_map:n \c_zero } }
+      {
+        \zhnum_digit_map:n {#4}
+        \zhnum_digit_map:n \c_one_thousand
+      }
+    \int_compare:nNnTF {#3} = \c_zero
+      { \int_compare:nNnT { #4 * (#2#1) } > \c_zero { \zhnum_digit_map:n \c_zero } }
+      {
+        \bool_if:nTF
+          { \l_zhnum_ancient_bool && \int_compare_p:nNn {#3} = \c_two }
+          { \zhnum_digit_map:n { #3 * \c_one_hundred } }
+          {
+            \zhnum_digit_map:n {#3}
+            \zhnum_digit_map:n \c_one_hundred
+          }
+      }
+    \int_compare:nNnTF {#2} = \c_zero
+      { \int_compare:nNnT { #3 * #1 } > \c_zero { \zhnum_digit_map:n \c_zero } }
+      {
+        \bool_if:nF
+          {
+            \int_compare_p:nNn {#2}   = \c_one  &&
+            \int_compare_p:nNn {#4#3} = \c_zero && #6 && #5
+          }
+          {
+            \bool_if:nTF
+              {
+                \l_zhnum_ancient_bool                   &&
+                ( \int_compare_p:nNn {#2} = \c_two   ||
+                  \int_compare_p:nNn {#2} = \c_three ||
+                  \int_compare_p:nNn {#2} = \c_four )
+              }
+              {
+                \zhnum_digit_map:n { #2 * \c_ten }
+                \use_none:nn
+              }
+              { \zhnum_digit_map:n {#2} }
+          }
+        \zhnum_digit_map:n \c_ten
+      }
+    \int_compare:nNnF {#1} = \c_zero { \zhnum_digit_map:n {#1} }
+  }
+\cs_generate_variant:Nn \zhnum_process_number:NNn    { NNf  }
+\cs_generate_variant:Nn \zhnum_process_number:NNNNNN { ffff }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{\zhdigits}
 % 将输入的数字输出为中文数字串输出。
@@ -529,6 +579,7 @@ Qing Lee
       { \tl_map_function:fN {#2} \zhnum_digits_zero_aux:N }
       { \tl_map_function:fN {#2} \zhnum_digits_null_aux:N }
   }
+\cs_generate_variant:Nn \tl_map_function:nN { f }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -540,7 +591,7 @@ Qing Lee
 \cs_new_nopar:Nn \zhnum_digits_zero_aux:N { \zhnum_digits_aux:nn \c_zero {#1} }
 \cs_new_nopar:Nn \zhnum_digits_aux:nn
   {
-    \str_if_eq:xxF {#2} ,
+    \str_if_eq:xxF {#2} \c_zhnum_separator_tl
       {
         \str_if_eq:xxTF {#2} . \c_zhnum_dot_tl
           {
@@ -562,17 +613,6 @@ Qing Lee
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_erase_comma:n,\zhnum_erase_comma_aux:N}
-% 去除输入数字中的空格和逗号。
-%    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_erase_comma:n
-  { \tl_map_function:nN {#1} \zhnum_erase_comma_aux:N }
-\cs_new_nopar:Nn \zhnum_erase_comma_aux:N
-  { \str_if_eq:xxF {#1} , {#1} }
-\cs_generate_variant:Nn \zhnum_erase_comma:n { f }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[internal]{\c_zhnum_null_int}
 % 设置“〇”对应的阿拉伯数字。
 %    \begin{macrocode}
@@ -587,30 +627,55 @@ Qing Lee
   {
     \prg_case_int:nnn {#1}
       {
-        { \c_minus_one       } { \c_zhnum_minus_tl          }
-        { \c_zero            } { \c_zhnum_zero_tl           }
-        { \c_one             } { \c_zhnum_one_tl            }
-        { \c_two             } { \c_zhnum_two_tl            }
-        { \c_three           } { \c_zhnum_three_tl          }
-        { \c_four            } { \c_zhnum_four_tl           }
-        { \c_five            } { \c_zhnum_five_tl           }
-        { \c_six             } { \c_zhnum_six_tl            }
-        { \c_seven           } { \c_zhnum_seven_tl          }
-        { \c_eight           } { \c_zhnum_eight_tl          }
-        { \c_nine            } { \c_zhnum_nine_tl           }
-        { \c_ten             } { \c_zhnum_ten_tl            }
-        { \c_one_hundred     } { \c_zhnum_hundred_tl        }
-        { \c_one_thousand    } { \c_zhnum_thousand_tl       }
-        { \c_ten_thousand    } { \c_zhnum_tenthousand_tl    }
-        { \c_hundred_million } { \c_zhnum_hundredmillion_tl }
-        { \c_zhnum_null_int  } { \c_zhnum_null_tl           }
-        { 20                 } { \c_zhnum_twenty_tl         }
-        { 30                 } { \c_zhnum_thirty_tl         }
-        { 40                 } { \c_zhnum_forty_tl          }
-        { 200                } { \c_zhnum_two_hundred_tl    }
+        { \c_minus_one      } { \c_zhnum_minus_tl       }
+        { \c_zero           } { \c_zhnum_zero_tl        }
+        { \c_one            } { \c_zhnum_one_tl         }
+        { \c_two            } { \c_zhnum_two_tl         }
+        { \c_three          } { \c_zhnum_three_tl       }
+        { \c_four           } { \c_zhnum_four_tl        }
+        { \c_five           } { \c_zhnum_five_tl        }
+        { \c_six            } { \c_zhnum_six_tl         }
+        { \c_seven          } { \c_zhnum_seven_tl       }
+        { \c_eight          } { \c_zhnum_eight_tl       }
+        { \c_nine           } { \c_zhnum_nine_tl        }
+        { \c_ten            } { \c_zhnum_ten_tl         }
+        { \c_one_hundred    } { \c_zhnum_hundred_tl     }
+        { \c_one_thousand   } { \c_zhnum_thousand_tl    }
+        { \c_zhnum_null_int } { \c_zhnum_null_tl        }
+        { 20                } { \c_zhnum_twenty_tl      }
+        { 30                } { \c_zhnum_thirty_tl      }
+        { 40                } { \c_zhnum_forty_tl       }
+        { 200               } { \c_zhnum_two_hundred_tl }
       }
       { \prg_do_nothing: }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_scale_map:n}
+% 大数系统的映射。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_scale_map:n
+  {
+    \prg_case_int:nnn {#1}
+      {
+        { \c_zero   } { \c_zhnum_scale_zero_tl   }
+        { \c_one    } { \c_zhnum_scale_one_tl    }
+        { \c_two    } { \c_zhnum_scale_two_tl    }
+        { \c_three  } { \c_zhnum_scale_three_tl  }
+        { \c_four   } { \c_zhnum_scale_four_tl   }
+        { \c_five   } { \c_zhnum_scale_five_tl   }
+        { \c_six    } { \c_zhnum_scale_six_tl    }
+        { \c_seven  } { \c_zhnum_scale_seven_tl  }
+        { \c_eight  } { \c_zhnum_scale_eight_tl  }
+        { \c_nine   } { \c_zhnum_scale_nine_tl   }
+        { \c_ten    } { \c_zhnum_scale_ten_tl    }
+        { \c_eleven } { \c_zhnum_scale_eleven_tl }
+      }
+      { \zhnum_scale_map_hook:n {#1} }
+  }
+\cs_new_nopar:Nn \zhnum_scale_map_hook:n
+  { \zhnum_scale_map:n { \int_mod:nn {#1} \c_eleven } }
 %    \end{macrocode}
 % \end{macro}
 
@@ -618,27 +683,36 @@ Qing Lee
 %    \begin{macrocode}
 \keys_define:nn { zhnum / options }
   {
-    -   .tl_set:N = \c_zhnum_minus_tl          ,
-    -0  .tl_set:N = \c_zhnum_null_tl           ,
-    0   .tl_set:N = \c_zhnum_zero_tl           ,
-    1   .tl_set:N = \c_zhnum_one_tl            ,
-    2   .tl_set:N = \c_zhnum_two_tl            ,
-    3   .tl_set:N = \c_zhnum_three_tl          ,
-    4   .tl_set:N = \c_zhnum_four_tl           ,
-    5   .tl_set:N = \c_zhnum_five_tl           ,
-    6   .tl_set:N = \c_zhnum_six_tl            ,
-    7   .tl_set:N = \c_zhnum_seven_tl          ,
-    8   .tl_set:N = \c_zhnum_eight_tl          ,
-    9   .tl_set:N = \c_zhnum_nine_tl           ,
-    10  .tl_set:N = \c_zhnum_ten_tl            ,
-    20  .tl_set:N = \c_zhnum_twenty_tl         ,
-    30  .tl_set:N = \c_zhnum_thirty_tl         ,
-    40  .tl_set:N = \c_zhnum_forty_tl          ,
-    200 .tl_set:N = \c_zhnum_two_hundred_tl    ,
-    E2  .tl_set:N = \c_zhnum_hundred_tl        ,
-    E3  .tl_set:N = \c_zhnum_thousand_tl       ,
-    E4  .tl_set:N = \c_zhnum_tenthousand_tl    ,
-    E8  .tl_set:N = \c_zhnum_hundredmillion_tl ,
+    -   .tl_set:N = \c_zhnum_minus_tl        ,
+    -0  .tl_set:N = \c_zhnum_null_tl         ,
+    0   .tl_set:N = \c_zhnum_zero_tl         ,
+    1   .tl_set:N = \c_zhnum_one_tl          ,
+    2   .tl_set:N = \c_zhnum_two_tl          ,
+    3   .tl_set:N = \c_zhnum_three_tl        ,
+    4   .tl_set:N = \c_zhnum_four_tl         ,
+    5   .tl_set:N = \c_zhnum_five_tl         ,
+    6   .tl_set:N = \c_zhnum_six_tl          ,
+    7   .tl_set:N = \c_zhnum_seven_tl        ,
+    8   .tl_set:N = \c_zhnum_eight_tl        ,
+    9   .tl_set:N = \c_zhnum_nine_tl         ,
+    10  .tl_set:N = \c_zhnum_ten_tl          ,
+    20  .tl_set:N = \c_zhnum_twenty_tl       ,
+    30  .tl_set:N = \c_zhnum_thirty_tl       ,
+    40  .tl_set:N = \c_zhnum_forty_tl        ,
+    200 .tl_set:N = \c_zhnum_two_hundred_tl  ,
+    E2  .tl_set:N = \c_zhnum_hundred_tl      ,
+    E3  .tl_set:N = \c_zhnum_thousand_tl     ,
+    E4  .tl_set:N = \c_zhnum_scale_one_tl    ,
+    E8  .tl_set:N = \c_zhnum_scale_two_tl    ,
+    E12 .tl_set:N = \c_zhnum_scale_three_tl  ,
+    E16 .tl_set:N = \c_zhnum_scale_four_tl   ,
+    E20 .tl_set:N = \c_zhnum_scale_five_tl   ,
+    E24 .tl_set:N = \c_zhnum_scale_six_tl    ,
+    E28 .tl_set:N = \c_zhnum_scale_seven_tl  ,
+    E32 .tl_set:N = \c_zhnum_scale_eight_tl  ,
+    E36 .tl_set:N = \c_zhnum_scale_nine_tl   ,
+    E40 .tl_set:N = \c_zhnum_scale_ten_tl    ,
+    E44 .tl_set:N = \c_zhnum_scale_eleven_tl ,
   }
 %    \end{macrocode}
 %
@@ -647,8 +721,15 @@ Qing Lee
 %    \begin{macrocode}
 \cs_new:Nn \zhnum_load_cfg:
   {
-    \file_input:n
-      { zhnum - \bool_if:NTF \g_zhnum_gbk_bool { gbk } { utf8 } .cfg }
+    \cs_if_exist:NT \CJK@makeActive
+      {
+        \int_compare:nNnTF { \char_value_catcode:n {"080} } = \active
+          { \bool_set_false:N \l_zhnum_set_CJK_active_bool }
+          { \bool_set_true:N \l_zhnum_set_CJK_active_bool \CJK@makeActive }
+      }
+    \file_input:n { zhnum - \bool_if:NTF \g_zhnum_gbk_bool { gbk } { utf8 } .cfg }
+    \bool_if:nT { \cs_if_exist_p:N \CJK@makeInactive && \l_zhnum_set_CJK_active_bool }
+      { \CJK@makeInactive }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -686,6 +767,7 @@ Qing Lee
     dot               .tl_set:N = \c_zhnum_dot_tl  ,
     and               .tl_set:N = \c_zhnum_and_tl  ,
     over              .tl_set:N = \c_zhnum_over_tl ,
+    separator         .tl_set:N = \c_zhnum_separator_tl ,
   }
 %    \end{macrocode}
 % \end{macro}
@@ -703,17 +785,16 @@ Qing Lee
 %
 % 初始化设置和执行宏包选项。
 %    \begin{macrocode}
-\keys_set:nn { zhnum / options } { style , null = false }
+\keys_set:nn { zhnum / options } { style , null = false , separator = {,} }
 \ProcessKeysOptions { zhnum / options }
 %    \end{macrocode}
 %
 % 如果没有选定编码，则根据引擎自动设置编码。
 %    \begin{macrocode}
 \ExplSyntaxOn
-\cs_generate_variant:Nn \keys_set:nn { nx }
 \bool_if_exist:NF \g_zhnum_gbk_bool
   {
-    \keys_set:nx { zhnum / options }
+    \exp_args:Nnx \keys_set:nn { zhnum / options }
       {
         encoding =
           {

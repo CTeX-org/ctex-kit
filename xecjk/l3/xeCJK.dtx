@@ -258,7 +258,7 @@ may observe
 %
 % \begin{function}{InlineEnv,InlineEnv+,InlineEnv-}
 %   \begin{syntax}
-%     CheckSingle = \argbrace{env1, env2, env3, ...}
+%     InlineEnv = \argbrace{env1, env2, env3, ...}
 %   \end{syntax}
 %   在使用 |CheckSingle| 选项的时候，\pkg{xeCJK} 会将 CJK 文字后接着的 \LaTeX 环境的
 %   开始 |\begin{...}| 和结束 |\end{...}| 视为断行的地方，如果有某些特殊
@@ -719,13 +719,14 @@ may observe
 %  {\xeCJK_msg_new:nn ,\xeCJK_error:n,\xeCJK_error:nx,
 %  \xeCJK_warning:nx,\xeCJK_info:nx,\xeCJK_info:nxx}
 %    \begin{macrocode}
-\cs_new_nopar:Npn \xeCJK_msg_new:nn { \msg_new:nnn     { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_error:n    { \msg_error:nn    { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_error:nx   { \msg_error:nnx   { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_warning:n  { \msg_warning:nn  { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_warning:nx { \msg_warning:nnx { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_info:nx    { \msg_info:nnx    { xeCJK } }
-\cs_new_nopar:Npn \xeCJK_info:nxx   { \msg_info:nnxx   { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_msg_new:nn  { \msg_new:nnn      { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_error:n     { \msg_error:nn     { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_error:nx    { \msg_error:nnx    { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_warning:n   { \msg_warning:nn   { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_warning:nx  { \msg_warning:nnx  { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_warning:nxx { \msg_warning:nnxx { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_info:nx     { \msg_info:nnx     { xeCJK } }
+\cs_new_nopar:Npn \xeCJK_info:nxx    { \msg_info:nnxx    { xeCJK } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -818,7 +819,7 @@ may observe
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xeCJK_new_class:n
   {
-    \exp_after:wN \newXeTeXintercharclass \cs:w xeCJK_#1_class\cs_end:
+    \exp_args:Nc \newXeTeXintercharclass { xeCJK_#1_class }
     \clist_gclear_new:c { g_xeCJK_#1_range_clist }
     \seq_gput_right:Nv \g_xeCJK_class_seq { xeCJK_#1_class }
   }
@@ -1369,8 +1370,7 @@ may observe
                 {
                   \l_xeCJK_xecglue_bool &&
                   \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-                  ( \int_compare_p:nNn
-                      \tex_lastskip:D = { \tex_fontdimen:D \c_two \tex_font:D } ||
+                  ( \skip_if_eq_p:nn \tex_lastskip:D \l_xeCJK_space_glue_tl ||
                     \int_compare_p:nNn \tex_lastskip:D = \l_xeCJK_ecglue_dim )
                 }
                 {
@@ -1402,6 +1402,12 @@ may observe
     \xeCJK_clear_CJK_toks:
     \xeCJK_select_font:
     \CJKsymbol
+  }
+\tl_set:Nn \l_xeCJK_space_glue_tl
+  {
+    \tex_fontdimen:D \c_two \tex_font:D
+    \@plus  \tex_fontdimen:D \c_three \tex_font:D
+    \@minus \tex_fontdimen:D \c_four  \tex_font:D
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2218,8 +2224,7 @@ may observe
                   { \l_xeCJK_punct_coor_tl/bound/\str_if_eq:xxTF {#1} lrl/#2 }
                 \dim_set:Nn \l_tmpc_dim
                   {
-                    \tl_if_exist:cTF { g_xeCJK_punct_width/#2 }
-                      { \tl_use:c { g_xeCJK_punct_width/#2 } }
+                    \cs_if_exist_use:cF { g_xeCJK_punct_width/#2 }
                       {
                         \tl_if_blank:xTF \g_xeCJK_punct_width_tl
                           { \c_zero_dim }
@@ -2707,7 +2712,7 @@ may observe
   {
     \exp_args:No \tl_if_head_group:nT #1
       {
-        \exp_after:wN \tl_set:Nn \exp_after:wN #1 #1
+        \exp_last_unbraced:NNo \tl_set:Nn #1 #1
         \xeCJK_gobble_brace:N #1
       }
   }
@@ -2829,7 +2834,8 @@ may observe
     \tl_set:Nx \l_xeCJK_family_tl {#1}
     \clist_set:Nx \l_xeCJK_fontoptions_clist {#2}
     \tl_set:Nx \l_xeCJK_fontname_tl {#3}
-    \prop_gdel:NV \g_xeCJK_family_name_prop \l_xeCJK_family_tl
+    \prop_gpop:NVNT \g_xeCJK_family_name_prop \l_xeCJK_family_tl \l_tmpa_tl
+      { \xeCJK_warning:nxx { CJKfamily-redef } \l_xeCJK_family_tl \l_tmpa_tl }
     \keys_set_known:nxN { xeCJK / features }
       { \g_xeCJK_default_features_clist, #2 } \l_xeCJK_pass_features_clist
     \xeCJK_parse_features:
@@ -2853,6 +2859,7 @@ may observe
     \group_end:
   }
 \cs_generate_variant:Nn \xeCJK_set_family:nnn { ncc }
+\xeCJK_msg_new:nn { CJKfamily-redef } { Redefining~CJKfamily~`#1'~(#2). }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2874,6 +2881,7 @@ may observe
 % \end{macro}
 %
 %    \begin{macrocode}
+\cs_generate_variant:Nn \prop_gpop:NnNT      { NV  }
 \cs_generate_variant:Nn \prop_put:Nnn        { Nxx }
 \cs_generate_variant:Nn \prop_get:Nn         { NV  }
 \cs_generate_variant:Nn \prop_get:NnNF       { Nx  }
@@ -3163,7 +3171,7 @@ may observe
     \cs_if_free:cTF { xeCJK/family/#1 } \prg_return_false:
       {
         \prop_if_in:NxF
-          \g_xeCJK_family_name_prop {#1} { \tl_use:c { xeCJK/family/#1 } }
+          \g_xeCJK_family_name_prop {#1} { \use:c { xeCJK/family/#1 } }
         \prg_return_true:
       }
   }
