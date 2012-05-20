@@ -68,9 +68,11 @@ may observe
 \endpostamble
 \askforoverwritefalse
 \generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
-\generate{\file{example-autofake.tex}{\from{\jobname.dtx}{ex-autofake}}}
-\generate{\file{example-fallback.tex}{\from{\jobname.dtx}{ex-fallback}}}
-\generate{\file{example-subCJKblock.tex}{\from{\jobname.dtx}{ex-block}}}
+\generate{\file{\jobname-example-autofake.tex}{\from{\jobname.dtx}{ex-autofake}}}
+\generate{\file{\jobname-example-fallback.tex}{\from{\jobname.dtx}{ex-fallback}}}
+\generate{\file{\jobname-example-subCJKblock.tex}{\from{\jobname.dtx}{ex-block}}}
+\generate{\file{\jobname-example-CJKecglue.tex}{\from{\jobname.dtx}{ex-ecglue}}}
+\generate{\file{\jobname-example-checksingle.tex}{\from{\jobname.dtx}{ex-single}}}
 %</batchfile>
 %<batchfile>\endbatchfile
 %<*internal>
@@ -106,6 +108,7 @@ may observe
 \def\MacroFont{\small\normalfont\ttfamily\punctstyle{plain}}
 \parindent=2em
 \AtBeginDocument{\DeleteShortVerb{\"}\MakeShortVerb{\|}}
+\def\contentsname{目录}
 \def\email#1{\href{mailto:#1}{\path{#1}}}
 \addtolength{\voffset}{-5\baselineskip}
 \addtolength\textheight{8\baselineskip}
@@ -155,7 +158,7 @@ may observe
 % 宏包来调用系统字体。个别兼容性功能需要 \pkg{CJK} 宏包的支持。
 %
 % \pkg{xeCJK} 的原始作者是孙文昌，2009 年 5 月起宏包被收入
-% \texttt{ctex-kit}\footnote{\url{http://code.google.com/p/ctex-kit/}}项目进行
+% \texttt{ctex-kit}\footnote{\url{http://code.google.com/p/ctex-kit/}} 项目进行
 % 维护，目前主要维护者是刘海洋\footnote{\email{leoliu.pku@gmail.com}} 和
 % 李清\footnote{\email{sobenlee@gmail.com}}。
 %
@@ -1432,8 +1435,25 @@ may observe
   {
     \xeCJK_inter_class_toks:nnn { Boundary } {#1}
       {
-        \int_compare:nNnTF \tex_lastkern:D = \c_one { \CJKecglue }
-          { \int_compare:nNnT \tex_lastkern:D = \c_two \xeCJK_space_or_xecglue: }
+        \bool_if:nTF
+          {
+            \l_xeCJK_xecglue_bool &&
+            \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
+            \skip_if_eq_p:nn \tex_lastskip:D \l_xeCJK_space_glue_tl
+          }
+          {
+            \tex_unskip:D
+            \bool_if:nTF
+              {
+                \int_compare_p:nNn \tex_lastkern:D = \c_one ||
+                \int_compare_p:nNn \tex_lastkern:D = \c_two
+              }
+              { \CJKecglue } { \c_space_token }
+          }
+          {
+            \int_compare:nNnTF \tex_lastkern:D = \c_one { \CJKecglue }
+              { \int_compare:nNnT \tex_lastkern:D = \c_two \xeCJK_space_or_xecglue: }
+          }
       }
     \str_if_eq:xxF {#1} { NormalSpace }
       { \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue } }
@@ -2044,12 +2064,12 @@ may observe
 % 判断是否是 |\outer| 宏，输入的是控制序列的名字。
 %    \begin{macrocode}
 \group_begin:
-\tl_map_inline:nn { O U Z E R M A Y R } { \char_set_catcode_other:N #1 }
 \char_set_lccode:nn { `\; } { `\: }
 \char_set_lccode:nn { `\Z } { `\t }
 \char_set_lccode:nn { `\Y } { `\c }
 \char_set_lccode:nn { `\T } { `\T }
 \char_set_lccode:nn { `\F } { `\F }
+\tl_map_function:nN { O U Z E R M A Y R ; } \char_set_catcode_other:N
 \tl_to_lowercase:n
   {
     \group_end:
@@ -4029,7 +4049,7 @@ may observe
 %
 % \section{例子}
 %
-% \subsection{\pkg{example-autofake.tex}}
+% \subsection{\pkg{xeCJK-example-autofake.tex}}
 %
 %    \begin{macrocode}
 %<*ex-autofake>
@@ -4090,7 +4110,7 @@ may observe
 %</ex-autofake>
 %    \end{macrocode}
 %
-% \subsection{\pkg{example-fallback.tex}}
+% \subsection{\pkg{xeCJK-example-fallback.tex}}
 %
 %    \begin{macrocode}
 %<*ex-fallback>
@@ -4142,7 +4162,7 @@ may observe
 %</ex-fallback>
 %    \end{macrocode}
 %
-% \subsection{\pkg{example-subCJKblock.tex}}
+% \subsection{\pkg{xeCJK-example-subCJKblock.tex}}
 %
 %    \begin{macrocode}
 %<*ex-block>
@@ -4208,6 +4228,74 @@ CJK統合漢字（シージェーケーとうごうかんじ、CJK Unified Ideog
 %
 %    \begin{macrocode}
 %</ex-block>
+%    \end{macrocode}
+%
+% \CJKfixedspacing
+%
+% \subsection{\pkg{xeCJK-example-CJKecglue.tex}}
+%
+%    \begin{macrocode}
+%<*ex-ecglue>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\documentclass{minimal}
+\usepackage{xeCJK}
+\setCJKmainfont[BoldFont=SimHei]{SimSun}
+\long\def\showtext{%
+ 这是 English 中文 {\itshape Chinese} 中文    \TeX\
+  间隔 \textit{Italic} 中文\textbf{字体} a 数学 $b$ 数学 $c$ $d$\par
+ 这是English中文{\itshape Chinese}中文\TeX\
+ 间隔\textit{Italic}中文\textbf{字体}a数学$b$数学$c$ $d$\par
+This is an example. 这是一个例子}
+\begin{document}
+\showtext
+
+\hrulefill\bigskip
+
+\xeCJKsetup{xCJKecglue=\quad}
+\showtext
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</ex-ecglue>
+%    \end{macrocode}
+%
+% \subsection{\pkg{xeCJK-example-checksingle.tex}}
+%
+%    \begin{macrocode}
+%<*ex-single>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\documentclass{minimal}
+\usepackage{xeCJK}
+\setCJKmainfont{SimSun}
+\catcode`\。=\active
+\def。{．}
+\def\foo{一}
+\long\def\showtext{一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十。
+$$x^2+y^2$$
+一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十\foo
+\begin{equation}
+x^2+y^2
+\end{equation}
+一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十。}
+\begin{document}
+\hsize=30em
+\parindent=0pt
+\showtext
+
+\hrulefill\bigskip
+
+\xeCJKsetup{CheckSingle}
+\showtext
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</ex-single>
 %    \end{macrocode}
 %
 % \end{implementation}
