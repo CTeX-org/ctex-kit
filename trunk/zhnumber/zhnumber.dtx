@@ -1,4 +1,5 @@
 % \iffalse meta-comment
+% !TEX program  = XeLaTeX
 %<*internal>
 \iffalse
 %</internal>
@@ -19,7 +20,16 @@ LaTeX Project Public License (LPPL), either version 1.3c of this license or
 and version 1.3 or later is part of all distributions of LaTeX version
 2005/12/01 or later.
 
-This work has the LPPL maintenance status 'maintained'.
+This work has the LPPL maintenance status "maintained".
+The Current Maintainer of this work is Qing Lee.
+
+This work consists of the file  zhnumber.dtx,
+          and the derived files zhnumber.pdf,
+                                zhnumber.sty,
+                                zhnumber-utf8.cfg,
+                                zhnumber-gbk.cfg,
+                                zhnumber.ins and
+                                README.txt (this file).
 
 Basic Usage
 -----------
@@ -48,14 +58,14 @@ If you are interested in the process of development you may observe
 %</readme>
 %<*internal>
 \fi
-%</internal>
-%
-%<*internal>
-\begingroup
+\ifnum\strcmp{\fmtname}{plain}=0 \else
+  \expandafter\begingroup
+\fi
 %</internal>
 %<*batchfile>
 \input docstrip.tex
 \keepsilent
+\askforoverwritefalse
 \preamble
 
    Copyright (C) 2012 by Qing Lee <sobenlee@gmail.com>
@@ -77,24 +87,23 @@ If you are interested in the process of development you may observe
    This package consists of the file  zhnumber.dtx,
                 and the derived files zhnumber.pdf,
                                       zhnumber.sty,
-                                      zhnum-utf8.cfg,
-                                      zhnum-gbk.cfg,
+                                      zhnumber-utf8.cfg,
+                                      zhnumber-gbk.cfg,
                                       zhnumber.ins and
                                       README.txt.
 \endpostamble
-\askforoverwritefalse
 \ifnum\shellescape=1 \else
   \errmessage{
     Shell escape is disabled. Please use ^^J^^J
     xe(la)tex -shell-escape \jobname.ins(dtx)^^J}
-  \expandafter\endinput
+  \expandafter\endbatchfile
 \fi
 \usedir{tex/latex/zhnumber}
 \generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
 \usedir{tex/latex/zhnumber/config}
 \generate{
-  \file{\jobname-utf8.cfg}{\from{\jobname.dtx}{config,utf8}}
-  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config,gbk}}}
+  \file{\jobname-utf8.cfg}{\from{\jobname.dtx}{config-utf8}}
+  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config-gbk}}}
 \immediate\write18{iconv -f utf-8 -t gbk \jobname-gbk.cfg > \jobname-gbk.temp}
 \immediate\write18{mv -f \jobname-gbk.temp \jobname-gbk.cfg}
 %</batchfile>
@@ -102,28 +111,46 @@ If you are interested in the process of development you may observe
 %<*internal>
 \usedir{source/latex/zhnumber}
 \generate{\file{\jobname.ins}{\from{\jobname.dtx}{batchfile}}}
-\nopreamble
+\nopreamble\nopostamble
 \usedir{doc/latex/zhnumber}
 \generate{\file{README.txt}{\from{\jobname.dtx}{readme}}}
-\ifnum\strcmp{\fmtname}{plain}=0 \aftergroup\bye\fi
-\endgroup
+\ifnum\strcmp{\fmtname}{plain}=0
+  \expandafter\endbatchfile
+\else
+  \expandafter\endgroup
+\fi
 %</internal>
 %
+%<*driver|package>
+\NeedsTeXFormat{LaTeX2e}
 %<driver>\ProvidesFile{zhnumber.dtx}
-%<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
+\RequirePackage{expl3}
+%</driver|package>
+%<config-gbk|config-utf8>\ExplSyntaxOff
+%<package>\ProvidesExplPackage {zhnumber}
+%<config-gbk>\ProvidesExplFile {zhnumber-gbk.cfg}
+%<config-utf8>\ProvidesExplFile {zhnumber-utf8.cfg}
+%<package|config-gbk|config-utf8>  {2012/05/21} {1.4}
+%<package>  {package for typesetting numbers with Chinese glyphs}
+%<config-gbk>  {Chinese numerals with GBK encoding}
+%<config-utf8>  {Chinese numerals with UTF8 encoding}
 %
 %<*driver>
 \documentclass{l3doc}
-\usepackage[UTF8,winfonts]{ctex}
+\usepackage{xeCJK}
 \usepackage{zhnumber}
 \usepackage{fvrb-ex}
 \usepackage{metalogo}
+\hypersetup{pdfstartview=FitH}
 \setlist{nosep}
 \linespread{1.1}
 \addtolength{\voffset}{-5\baselineskip}
 \addtolength\textheight{8\baselineskip}
 \setmainfont{TeX Gyre Pagella}
 \setmonofont{Inconsolata}
+\setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
+\setCJKmonofont{Adobe Kaiti Std}
+\xeCJKsetup{PunctStyle=kaiming}
 \def\MacroFont{\small\normalfont\ttfamily}
 \makeatletter
 \let\orig@meta\meta
@@ -136,7 +163,6 @@ If you are interested in the process of development you may observe
 \def\argbrace#1{\char`\{#1\char`\}}
 \@addtoreset{CodelineNo}{section}
 \makeatother
-\zhnumsetup{reset}
 \begin{document}
   \DocInput{\jobname.dtx}
 \end{document}
@@ -154,10 +180,11 @@ If you are interested in the process of development you may observe
 %
 % \section{简介}
 % \pkg{zhnumber} 宏包用于将阿拉伯数字按照中文格式输出。相比于 \pkg{CJKnumb}，它提供
-% 的三个格式转换命令 |\zhnumber|、|\zhdigits| 和 |\zhnum| 都是可以适当展开的，可以
+% 的三个格式转换命令 |\zhnumber|，|\zhdigits| 和 |\zhnum| 都是可以适当展开的，可以
 % 正常使用于 |PDF| 书签和交叉引用。
 %
-% \pkg{zhnumber} 支持 |GBK| 编码和 |UTF8| 编码，依赖 \pkg{xparse} 和 \pkg{l3keys2e} 宏包。
+% \pkg{zhnumber} 支持 |GBK| 和 |UTF8| 编码，依赖 \LaTeX~3 项目的 \pkg{expl3}，
+% \pkg{xparse} 和 \pkg{l3keys2e} 宏包。
 %
 % 目前 |\zhnumber| 能正确处理的最大整数是 $10^{48}-1$，|\zhditits| 不受这个大小的限制。
 %
@@ -167,7 +194,7 @@ If you are interested in the process of development you may observe
 %   \begin{syntax}
 %     encoding = \meta{GBK\orvar{}UTF8}
 %   \end{syntax}
-%   指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 |\zhnumsetup| 在导言区内设定。
+%   用于指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 |\zhnumsetup| 在导言区内设定。
 %   对于 \XeLaTeX 和 \LuaLaTeX ，不用指定编码，宏包将自动使用 |UTF8| 编码。只有 \LaTeX
 %   和 pdf\LaTeX 需要指定编码，如果没有指定，默认将使用 |GBK|，并且此时 \pkg{zhnumber}
 %   宏包应该在 \pkg{CJK} 或 \pkg{CJKutf8} 宏包之后载入。
@@ -175,7 +202,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{function}{\zhnumber}
 %   \begin{syntax}
-%     \cs{zhnumber} \Arg{number}
+%     \cs{zhnumber} \marg{number}
 %   \end{syntax}
 %   以中文格式输出数字。这里的数字可以是整数、小数和分数。例如\\[1ex]
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
@@ -194,7 +221,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{function}{\zhdigits}
 %   \begin{syntax}
-%     \cs{zhdigits} \Arg{number}
+%     \cs{zhdigits} \marg{number}
 %   \end{syntax}
 %   将阿拉伯数字转换为中文数字串。缺省状态下，|\zhdigits| 将 0 映射为〇，如果需要
 %   将其映射为零，可以使用 |\zhdigits*|。例如\\[1ex]
@@ -206,7 +233,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{function}{\zhnum}
 %   \begin{syntax}
-%     \cs{zhnum} \Arg{counter}
+%     \cs{zhnum} \marg{counter}
 %   \end{syntax}
 %   与 |\roman| 等类似，用于将 \LaTeX 计数器的值转换为中文数字。例如\\[1ex]
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
@@ -254,10 +281,11 @@ If you are interested in the process of development you may observe
 %
 % \pkg{zhnumber} 提供下列选项来控制阿拉伯数字的中文映射。
 % \begin{verbatim}[frame=single]
-%   - -0 0 1 2 3 4 5 6 7 8 9 10 20 30 40 200 E2 E3 E4 E8 dot and over
+%   - -0 0 1 2 3 4 5 6 7 8 9 10 20 30 40 200 dot and parts
+%   E2 E3 E4 E8 E12 E16 E20 E24 E28 E32 E36 E40 E44
 % \end{verbatim}
-% 其中 |-| 设置负，|-0| 设置〇，|E2|、|E3|、|E4| 和 |E8| 分别设置百、千、万和亿，|dot|
-% 设置小数的点，|and| 和 |over| 分别设置分数的“又”和“分之”。例如
+% 其中 |-| 设置负，|-0| 设置〇，|dot| 设置小数的点，|and| 和 |parts| 分别设置分数
+% 的“又”和“分之”，而 |E|$n$ 设置 $10^n$。例如
 % \begin{verbatim}[frame=single]
 %   \zhnumsetup{2={两}}
 % \end{verbatim}
@@ -268,10 +296,20 @@ If you are interested in the process of development you may observe
 %   \begin{syntax}
 %     reset
 %   \end{syntax}
-%   用于恢复 \pkg{zhnumber} 对阿拉伯数字的初始化映射。
+%   用于恢复 \pkg{zhnumber} 对阿拉伯数字的初始化映射。\pkg{zhnumber} 的中文数字初始化
+%   设置见源代码（第 \ref{sec:zhnum-map} 节）。
 % \end{function}
 %
-% \clearpage
+% \begin{function}{\zhnumber,\zhdigits,\zhnum}
+%   \begin{syntax}
+%     \cs{zhnumber} \oarg{options} \marg{number}
+%     \cs{zhdigits} \oarg{options} \marg{number}
+%     \cs{zhnum} \oarg{options} \marg{counter}
+%   \end{syntax}
+%   如果只改变当前数字的中文输出格式，可以使用带选项的格式转换命令，其中 \meta{options}
+%   与 |\zhnumsetup| 的参数相同，如上所介绍。这些带了选项的命令是不可展开的，在某些场合使
+%   用时要小心。
+% \end{function}
 %
 % \end{documentation}
 %
@@ -285,16 +323,38 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+\msg_new:nnn { zhnumber } { l3-too-old }
+  {
+    Support~package~'expl3'~too~old. \\\\
+    Please~update~an~up~to~date~version~of~the~bundles\\\\
+    'l3kernel'~and~'l3packages'\\\\
+    using~your~TeX~package~manager~or~from~CTAN.
+  }
+\@ifpackagelater { expl3 } { 2012/02/19 } { }
+  { \msg_error:nn  { zhnumber }  { l3-too-old } }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage {zhnumber} {2012/05/18} {1.3}
-  {package for typesetting numbers with Chinese glyphs}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhnumber}
 % 用于将输入的数字按照中文格式输出。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \zhnumber #1 { \zhnum_number:w #1 . \q_nil . \q_stop }
+\DeclareExpandableDocumentCommand \zhnumber { o m }
+  { \zhnum_number_aux:nNn {#1} \zhnum_number:n {#2} }
+\cs_new_nopar:Nn \zhnum_number:n { \zhnum_number:w #1 . \q_nil . \q_stop }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_number_aux:nNn}
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_number_aux:nNn
+  {
+    \IfNoValueTF {#1} { #2 {#3} }
+      { \group_begin: \zhnumsetup {#1} #2 {#3} \group_end: }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -366,7 +426,9 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\zhnum}
 % 用于将 \LaTeX 计数器按中文格式输出。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \zhnum #1
+\DeclareExpandableDocumentCommand \zhnum { o m }
+  { \zhnum_number_aux:nNn {#1} \zhnum_counter:n {#2} }
+\cs_new_nopar:Nn \zhnum_counter:n
   {
     \exp_args:Nc \token_if_int_register:NTF { c@#1 }
       { \zhnum_integer:v { c@#1 } }
@@ -513,8 +575,9 @@ If you are interested in the process of development you may observe
     \quark_if_recursion_tail_break:n {#2}
     \int_compare:nNnTF {#1} = \c_one
       { \zhnum_recursion_break:NNNNw #2 }
-      { \zhnum_number_item_aux:nN { #1 - \c_one } }
+      { \zhnum_number_item_aux:fN { \int_eval:n { #1 - \c_one } } }
   }
+\cs_generate_variant:Nn \zhnum_number_item_aux:nN { f }
 \cs_new_nopar:Npn \zhnum_recursion_break:NNNNw #1#2#3#4#5 \prg_break_point:n #6 {#1#2#3#4}
 %    \end{macrocode}
 % \end{macro}
@@ -535,20 +598,14 @@ If you are interested in the process of development you may observe
   {
     \int_compare:nNnTF {#4} = \c_zero
       { \bool_if:NF #6 { \zhnum_digit_map:n \c_zero } }
-      {
-        \zhnum_digit_map:n {#4}
-        \zhnum_digit_map:n \c_one_thousand
-      }
+      { \zhnum_digit_map:n {#4} \zhnum_digit_map:n \c_one_thousand }
     \int_compare:nNnTF {#3} = \c_zero
       { \int_compare:nNnT { #4 * (#2#1) } > \c_zero { \zhnum_digit_map:n \c_zero } }
       {
         \bool_if:nTF
           { \l_zhnum_ancient_bool && \int_compare_p:nNn {#3} = \c_two }
           { \zhnum_digit_map:n { #3 * \c_one_hundred } }
-          {
-            \zhnum_digit_map:n {#3}
-            \zhnum_digit_map:n \c_one_hundred
-          }
+          { \zhnum_digit_map:n {#3} \zhnum_digit_map:n \c_one_hundred }
       }
     \int_compare:nNnTF {#2} = \c_zero
       { \int_compare:nNnT { #3 * #1 } > \c_zero { \zhnum_digit_map:n \c_zero } }
@@ -584,11 +641,16 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\zhdigits}
 % 将输入的数字输出为中文数字串输出。
 %    \begin{macrocode}
-\DeclareExpandableDocumentCommand \zhdigits { s m }
+\DeclareExpandableDocumentCommand \zhdigits { s o m }
   {
-    \IfBooleanTF #1
-      { \tl_map_function:fN {#2} \zhnum_digits_zero_aux:N }
-      { \tl_map_function:fN {#2} \zhnum_digits_null_aux:N }
+    \IfBooleanTF {#1}
+      { \zhnum_digits_aux:nnN {#2} {#3} \zhnum_digits_zero_aux:N }
+      { \zhnum_digits_aux:nnN {#2} {#3} \zhnum_digits_null_aux:N }
+  }
+\cs_new_nopar:Nn \zhnum_digits_aux:nnN
+  {
+    \IfNoValueTF {#1} { \tl_map_function:fN {#2} #3 }
+      { \group_begin: \zhnumsetup {#1} \tl_map_function:fN {#2} #3 \group_end: }
   }
 \cs_generate_variant:Nn \tl_map_function:nN { f }
 %    \end{macrocode}
@@ -777,7 +839,7 @@ If you are interested in the process of development you may observe
     reset               .code:n = \zhnum_load_cfg: ,
     dot               .tl_set:N = \c_zhnum_dot_tl  ,
     and               .tl_set:N = \c_zhnum_and_tl  ,
-    over              .tl_set:N = \c_zhnum_over_tl ,
+    parts             .tl_set:N = \c_zhnum_over_tl ,
     separator         .tl_set:N = \c_zhnum_separator_tl ,
   }
 %    \end{macrocode}
@@ -821,37 +883,11 @@ If you are interested in the process of development you may observe
 %</package>
 %    \end{macrocode}
 %
-% \subsection{中文数字映射文件}
+% \section{中文数字设置}
+% \label{sec:zhnum-map}
 %
 %    \begin{macrocode}
-%<*config>
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\ExplSyntaxOff
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%<*gbk>
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\ProvidesExplFile {zhnumber-gbk.cfg} {2012/05/18} {1.3}
-  {Chinese numerals with GBK encoding}
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</gbk>
-%<*utf8>
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\ProvidesExplFile {zhnumber-utf8.cfg} {2012/05/18} {1.3}
-  {Chinese numerals with UTF8 encoding}
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</utf8>
+%<*config-gbk|config-utf8>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -896,7 +932,7 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</config>
+%</config-gbk|config-utf8>
 %    \end{macrocode}
 %
 % \end{implementation}
