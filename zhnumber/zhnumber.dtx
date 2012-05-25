@@ -28,8 +28,9 @@ This work consists of the file  zhnumber.dtx,
                                 zhnumber.sty,
                                 zhnumber-utf8.cfg,
                                 zhnumber-gbk.cfg,
+                                zhnumber-big5.cfg,
                                 zhnumber.ins and
-                                README.txt (this file).
+                                README (this file).
 
 Basic Usage
 -----------
@@ -110,8 +111,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
                                       zhnumber.sty,
                                       zhnumber-utf8.cfg,
                                       zhnumber-gbk.cfg,
+                                      zhnumber-big5.cfg,
                                       zhnumber.ins and
-                                      README.txt.
+                                      README.
 \endpostamble
 \ifnum\shellescape=1 \else
   \errmessage{
@@ -123,9 +125,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
 \usedir{tex/latex/zhnumber/config}
 \generate{
-  \file{\jobname-utf8.cfg}{\from{\jobname.dtx}{config-utf8}}
-  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config-gbk}}}
+  \file{\jobname-utf8.cfg}{\from{\jobname.dtx}{config,utf8}}
+  \file{\jobname-big5.cfg}{\from{\jobname.dtx}{config,big5}}
+  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config,gbk}}}
+\immediate\write18{iconv -f utf-8 -t big-5 \jobname-big5.cfg > \jobname-big5.temp}
 \immediate\write18{iconv -f utf-8 -t gbk \jobname-gbk.cfg > \jobname-gbk.temp}
+\immediate\write18{mv -f \jobname-big5.temp \jobname-big5.cfg}
 \immediate\write18{mv -f \jobname-gbk.temp \jobname-gbk.cfg}
 %</batchfile>
 %<batchfile>\endbatchfile
@@ -144,20 +149,28 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 %<*driver|package>
 \NeedsTeXFormat{LaTeX2e}
-%<driver>\ProvidesFile{zhnumber.dtx}
+%<*driver>
+\ProvidesFile{zhnumber.dtx}
+%</driver>
 \RequirePackage{expl3}
 %</driver|package>
-%<config-gbk|config-utf8>\ExplSyntaxOff
-%<package>\ProvidesExplPackage {zhnumber}
-%<config-gbk>\ProvidesExplFile {zhnumber-gbk.cfg}
-%<config-utf8>\ProvidesExplFile {zhnumber-utf8.cfg}
-%<package|config-gbk|config-utf8>  {2012/05/21} {1.4}
-%<package>  {package for typesetting numbers with Chinese glyphs}
-%<config-gbk>  {Chinese numerals with GBK encoding}
-%<config-utf8>  {Chinese numerals with UTF8 encoding}
+%<package|config>\GetIdInfo$Id$
+%<package>          {package for typesetting numbers with Chinese glyphs}
+%<config&utf8>          {Chinese numerals with UTF8 encoding}
+%<config&big5>          {Chinese numerals with Big5 encoding}
+%<config&gbk>          {Chinese numerals with Big5 encoding}
+%<package>\ProvidesExplPackage{\ExplFileName}{\ExplFileDate}{1.5}{\ExplFileDescription}
+%<config>\ProvidesExplFile
+%<config&utf8>  {\ExplFileName-utf8.cfg}
+%<config&big5>  {\ExplFileName-big5.cfg}
+%<config&gbk>  {\ExplFileName-gbk.cfg}
+%<config>  {\ExplFileDate} {1.5} {\ExplFileDescription}
 %
 %<*driver>
+\RequirePackage{filehook}
+\AtEndOfPackageFile{hypdoc}{\let\SaveHDtheCodelineNo\theCodelineNo}
 \documentclass{l3doc}
+\usepackage{amsmath}
 \usepackage{xeCJK}
 \usepackage{zhnumber}
 \usepackage{fvrb-ex}
@@ -169,6 +182,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \addtolength\textheight{8\baselineskip}
 \setmainfont{TeX Gyre Pagella}
 \setmonofont{Inconsolata}
+\xeCJKDeclareCharClass{CJK}{ "25CB }
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKsetup{PunctStyle=kaiming}
@@ -183,7 +197,23 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \let\defaultvar\textbf
 \def\argbrace#1{\char`\{#1\char`\}}
 \@addtoreset{CodelineNo}{section}
+\ExplSyntaxOn
+\let\SaveLDtheCodelineNo\theCodelineNo
+\tl_replace_once:Nnn \SaveHDtheCodelineNo
+ { \HDorg@theCodelineNo } { \SaveLDtheCodelineNo }
+\let \theCodelineNo \SaveHDtheCodelineNo
+\pretocmd { \doc_print_macroname:n } { \HD@target } { }{ }
+\pretocmd { \doc_special_main_index:n } { \HD@target } { } { }
+\patchcmd { \doc_special_main_index:n }
+  { hdpgindex{\thepage} } { hdclindex{\the\c@HD@hypercount} } { } { }
+\ExplSyntaxOff
 \makeatother
+\def\indexname{代码索引}
+\IndexPrologue{%
+  \section*{\indexname}
+  \markboth{\indexname}{\indexname}
+  斜体的数字表示对应项说明所在的页码，下划线的数字表示定义所在的代码行号，而直立体的
+  数字表示对应项使用时所在的行号。}
 \begin{document}
   \DocInput{\jobname.dtx}
 \end{document}
@@ -204,16 +234,14 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % 的三个格式转换命令 |\zhnumber|，|\zhdigits| 和 |\zhnum| 都是可以适当展开的，可以
 % 正常使用于 |PDF| 书签和交叉引用。
 %
-% \pkg{zhnumber} 支持 |GBK| 和 |UTF8| 编码，依赖 \LaTeX~3 项目的 \pkg{expl3}，
+% \pkg{zhnumber} 支持 |GBK|，|Big5| 和 |UTF8| 编码，依赖 \LaTeX~3 项目的 \pkg{expl3}，
 % \pkg{xparse} 和 \pkg{l3keys2e} 宏包。
-%
-% 目前 |\zhnumber| 能正确处理的最大整数是 $10^{48}-1$，|\zhditits| 不受这个大小的限制。
 %
 % \section{使用方法}
 %
-% \begin{function}{encoding}
+% \begin{function}[updated=2012-5-25]{encoding}
 %   \begin{syntax}
-%     encoding = \meta{GBK\orvar{}UTF8}
+%     encoding = \meta{GBK\orvar{}Big5\orvar{}UTF8}
 %   \end{syntax}
 %   用于指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 |\zhnumsetup| 在导言区内设定。
 %   对于 \XeLaTeX 和 \LuaLaTeX ，不用指定编码，宏包将自动使用 |UTF8| 编码。只有 \LaTeX
@@ -262,6 +290,62 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \end{SideBySideExample}
 % \end{function}
 %
+% \begin{function}[added=2012-5-25]{\zhweekday}
+%   \begin{syntax}
+%     \cs{zhweekday} \Arg{yyyy/mm/dd}
+%   \end{syntax}
+%   输出日期当天的星期。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhweekday{2012/5/20}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2012-5-25]{\zhdate}
+%   \begin{syntax}
+%     \cs{zhdate}  \Arg{yyyy/mm/dd}
+%     \cs{zhdate*} \Arg{yyyy/mm/dd}
+%   \end{syntax}
+%   以中文格式输出日期，其中带 |*| 的命令还输出星期。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhdate{2012/5/21}\\
+%     \zhdate*{2012/5/21}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2012-5-25]{\zhtoday}
+%   与 |\today| 类似，以中文输出当天的日期。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhtoday
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2012-5-25]{\zhtime}
+%   \begin{syntax}
+%     \cs{zhtime} \Arg{hh:mm}
+%   \end{syntax}
+%   以中文格式输出时间。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhtime{23:56}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2012-5-25]{\zhcurrtime}
+%   输出当前的时间。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhcurrtime
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2012-5-25]{\zhnumExtendScaleMap}
+%   \begin{syntax}
+%     \cs{zhnumExtendScaleMap} \oarg{character} \argbrace{\meta{character 1}, \meta{character 2}, ..., \meta{character n}}
+%   \end{syntax}
+%   缺省状态下 |\zhnumber| 能正确中文格式化的最大整数是 $10^{48}-1$，|\zhditits| 不受
+%   这个大小的限制。可以通过 |\zhnumExtendScaleMap| 来扩展 |\zhnumber|。
+%   \meta{character} $i$ 设置 $10^{4(i+11)}$。若给出可选项 \meta{character}，则当
+%   数字大于 $10^{4(n+12)}-1$ 时，统一用 \meta{character} 设置输出数字的进位。
+% \end{function}
+%
 % \begin{function}{\zhnumsetup}
 %   \begin{syntax}
 %     \cs{zhnumsetup} \argbrace{\meta{key1}=\meta{var1}, \meta{key2}=\meta{var2}, ...}
@@ -269,14 +353,26 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   用于在导言区或文档中，设置中文数字的输出格式。目前可以设置的 \meta{key} 如下介绍。
 % \end{function}
 %
-% \begin{function}{style}
+% \begin{function}[added=2012-5-25]{time}
+%   \begin{syntax}
+%     time =  \argbrace{\meta{Arabic}\orvar\meta{Chinese}}
+%   \end{syntax}
+%   设置日期和时间的数字格式，\meta{Arabic} 为阿拉伯数字，而 \meta{Chinese} 为中文数字。
+%   默认使用阿拉伯数字。例如\\[1ex]
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhnumsetup{time=Chinese}
+%     \zhtoday\zhcurrtime
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[updated=2012-5-25]{style}
 %   \begin{syntax}
 %     style = \argbrace{\meta{Simplified}\orvar\meta{Traditional}\orvar\meta{Normal}\orvar\meta{Financial}\orvar\meta{Ancient}}
 %   \end{syntax}
 %   意义分别为
 %   \begin{itemize}[font=\ttfamily,labelsep=1em]
-%     \item[Simplified]  以简体中文输出数字；
-%     \item[Traditional] 以繁体中文输出数字；
+%     \item[Simplified]  以简体中文输出数字（对 |Big5| 编码无效）；
+%     \item[Traditional] 以繁体中文输出数字（对 |Big5| 编码无效）；
 %     \item[Normal] 以小写形式输出中文数字；
 %     \item[Financial]  以大写形式输出中文数字；
 %     \item[Ancient] 以廿输出 20，以卅输出 30，以卌输出 40，以皕输出 200。
@@ -295,25 +391,27 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %     null = \meta{\TFF}
 %   \end{syntax}
 %   缺省状态下，除了 |\zhdigits| 外，其它的格式转换命令，将 0 映射成零，如果需要将 0 映射
-%   成〇，可以使用这个选项。
+%   成〇，可以使用这个选项。\strut
 % \end{function}
-%
-% \smallskip
 %
 % \pkg{zhnumber} 提供下列选项来控制阿拉伯数字的中文映射。
 % \begin{verbatim}[frame=single]
-%   - -0 0 1 2 3 4 5 6 7 8 9 10 20 30 40 200 dot and parts
+%   - -0 0 1 2 3 4 5 6 7 8 9 10 20 30 40 200
 %   E2 E3 E4 E8 E12 E16 E20 E24 E28 E32 E36 E40 E44
+%   F0 F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 FE2 FE3
+%   dot and parts
+%   year month day hour minute weekday mon tue wed thu fri sat sun
 % \end{verbatim}
 % 其中 |-| 设置负，|-0| 设置〇，|dot| 设置小数的点，|and| 和 |parts| 分别设置分数
-% 的“又”和“分之”，而 |E|$n$ 设置 $10^n$。例如
+% 的“又”和“分之”，|E|$n$ 设置 $10^n$，而 |F|$n$ 设置数字 $n$ 的大写。其它的选项同
+% 字面意思，不再赘述。例如
 % \begin{verbatim}[frame=single]
 %   \zhnumsetup{2={两}}
 % \end{verbatim}
-% 可以将 2 映射成两。需要说明的是，\pkg{zhnumber} 将优先使用这里的设置，所以将会影响
+% 可以将 2 映射成两。需要说明的是，\pkg{zhnumber} 将优先使用这里的设置，所以可能会影响
 % 到 |style| 选项。如果要恢复 |style| 的功能，可以使用 |reset| 选项。
 %
-% \begin{function}{reset}
+% \begin{function}[updated=2012-5-25]{reset}
 %   \begin{syntax}
 %     reset
 %   \end{syntax}
@@ -410,12 +508,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \quark_if_nil:nTF {#3}
       {
-        \zhnum_blank_to_zero:f {#1} \c_zhnum_over_tl
+        \zhnum_blank_to_zero:f {#1} \c_zhnum_parts_tl
         \zhnum_blank_to_zero:f {#2}
       }
       {
         \tl_if_blank:fF {#2} { \zhnumber {#2} \c_zhnum_and_tl }
-        \zhnum_blank_to_zero:f {#1} \c_zhnum_over_tl
+        \zhnum_blank_to_zero:f {#1} \c_zhnum_parts_tl
         \zhnum_blank_to_zero:f {#3}
       }
   }
@@ -429,7 +527,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new_nopar:Nn \zhnum_decimal:nn
   {
     \zhnum_blank_to_zero:f {#1} \c_zhnum_dot_tl
-    \tl_if_blank:fTF {#2} { \zhnum_digit_map:n \c_zero } { \zhdigits * {#2} }
+    \tl_if_blank:fTF {#2} { \c_zhnum_zero_tl } { \zhdigits * {#2} }
   }
 \cs_generate_variant:Nn \tl_if_blank:nTF { f }
 %    \end{macrocode}
@@ -458,18 +556,17 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_integer:n}
+% \begin{macro}[internal]{\zhnum_integer:n,\zhnum_integer_aux:n}
 % 对整数的处理。
 %    \begin{macrocode}
 \cs_new_nopar:Nn \zhnum_integer:n
   { \zhnum_integer_aux:f { \zhnum_erase_separator:n {#1} } }
 \cs_new_nopar:Nn \zhnum_integer_aux:n
   {
-    \int_compare:nNnT { \int_get_sign:n {#1} \c_one } < \c_zero
-      { \zhnum_digit_map:n \c_minus_one }
+    \int_compare:nNnT { \int_get_sign:n {#1} \c_one } < \c_zero { \c_zhnum_minus_tl }
     \zhnum_parse_number:f { \zhnum_trim_zeros:f { \int_get_digits:n {#1} } }
   }
-\cs_generate_variant:Nn \zhnum_integer:n { f , v }
+\cs_generate_variant:Nn \zhnum_integer:n { f , v , V }
 \cs_generate_variant:Nn \zhnum_integer_aux:n { f }
 %    \end{macrocode}
 % \end{macro}
@@ -479,8 +576,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Nn \zhnum_erase_separator:n
   { \cs_to_str:c { \tl_map_function:nN {#1} \zhnum_erase_separator_aux:N } }
-\cs_new_nopar:Nn \zhnum_erase_separator_aux:N
-  { \str_if_eq:xxF {#1} \c_zhnum_separator_tl {#1} }
+\cs_new_nopar:Nn \zhnum_erase_separator_aux:N { \zhnum_if_number:NT {#1} {#1} }
 \cs_new_nopar:Nn \zhnum_trim_zeros:n
   {
     \tl_if_empty:nTF {#1} \c_zero
@@ -488,6 +584,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \int_compare:nNnTF { \tl_head:n {#1} } = \c_zero
           { \zhnum_trim_zeros:o { \use_none:n #1 } } {#1}
       }
+  }
+\prg_new_conditional:Nnn \zhnum_if_number:N { p , T , F , TF }
+  {
+    \if_int_compare:w \c_one < 1 #1 \exp_stop_f:
+      \prg_return_true: \else: \prg_return_false: \fi:
   }
 \cs_generate_variant:Nn \zhnum_trim_zeros:n { f , o }
 \cs_generate_variant:Nn \cs_to_str:N        { c }
@@ -504,14 +605,14 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \int_compare:nNnTF {#2} < \c_five
       {
         \int_compare:nNnTF {#1} = \c_zero
-          { \zhnum_digit_map:n \c_zero }
+          { \c_zhnum_zero_tl }
           { \zhnum_process_number:NNn \c_true_bool \c_true_bool {#1} }
       }
       {
         \int_compare:nNnTF { \int_mod:nn {#2} \c_four } = \c_zero
           {
             \zhnum_split_number:nNNnfn {#1} \c_true_bool \c_true_bool { \c_zero }
-              { \int_div_truncate:nn { #2 - \c_one } \c_four }
+              { \int_eval:n { (#2) / \c_four - \c_one } }
               { \c_zero }
           }
           {
@@ -531,12 +632,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new_nopar:Nn \zhnum_parse_number:nnn
   {
     \zhnum_process_number:NNn \c_true_bool \c_true_bool {#3}
-    \zhnum_scale_map:n { \int_div_truncate:nn { #2 - \c_one } \c_four }
+    \zhnum_scale_map:n { \int_div_truncate:nn {#2} \c_four }
     \int_compare:nNnTF { \int_mod:nn {#3} \c_ten } = \c_zero
       { \zhnum_split_number:nNNffn {#1} \c_false_bool \c_true_bool }
       { \zhnum_split_number:nNNffn {#1} \c_true_bool \c_false_bool }
     { \int_mod:nn {#2} \c_four }
-    { \int_eval:n { \int_div_truncate:nn { #2 - \c_one } \c_four - \c_one } }
+    { \int_eval:n { \int_div_truncate:nn {#2} \c_four - \c_one } }
     { \c_zero }
   }
 \cs_generate_variant:Nn \zhnum_parse_number:n   {   f }
@@ -561,13 +662,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \int_compare:nNnTF {#1} = \c_zero { \use_i_ii:nnn }
       {
-        \bool_if:NF #3 { \zhnum_digit_map:n \c_zero }
+        \bool_if:NF #3 { \c_zhnum_zero_tl }
         \zhnum_process_number:NNn {#3} {#4} {#1}
         \zhnum_scale_map:n { #6 - #7 }
         \int_compare:nNnTF { \int_mod:nn {#1} \c_ten } = \c_zero
           { \use_i_ii:nnn } { \zhnum_use_i_iii:nnn }
       }
-    { \int_compare:nNnF { #6 - #7 } = \c_zero }
+    { \int_compare:nNnF {#6} = {#7} }
     { {
         \zhnum_split_number:nNNnnf
           {#2} \c_false_bool \c_true_bool {#5} {#6} { \int_eval:n { #7 + \c_one } }
@@ -618,18 +719,18 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new_nopar:Nn \zhnum_process_number:NNNNNN
   {
     \int_compare:nNnTF {#4} = \c_zero
-      { \bool_if:NF #6 { \zhnum_digit_map:n \c_zero } }
-      { \zhnum_digit_map:n {#4} \zhnum_digit_map:n \c_one_thousand }
+      { \bool_if:NF #6 { \c_zhnum_zero_tl } }
+      { \zhnum_digit_map:n {#4} \c_zhnum_thousand_tl }
     \int_compare:nNnTF {#3} = \c_zero
-      { \int_compare:nNnT { #4 * (#2#1) } > \c_zero { \zhnum_digit_map:n \c_zero } }
+      { \int_compare:nNnT { #4 * (#2#1) } > \c_zero { \c_zhnum_zero_tl } }
       {
         \bool_if:nTF
           { \l_zhnum_ancient_bool && \int_compare_p:nNn {#3} = \c_two }
-          { \zhnum_digit_map:n { #3 * \c_one_hundred } }
-          { \zhnum_digit_map:n {#3} \zhnum_digit_map:n \c_one_hundred }
+          { \zhnum_digit_map:n { #3 00 } }
+          { \zhnum_digit_map:n {#3} \c_zhnum_hundred_tl }
       }
     \int_compare:nNnTF {#2} = \c_zero
-      { \int_compare:nNnT { #3 * #1 } > \c_zero { \zhnum_digit_map:n \c_zero } }
+      { \int_compare:nNnT { #3 * #1 } > \c_zero { \c_zhnum_zero_tl } }
       {
         \bool_if:nF
           {
@@ -644,13 +745,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
                   \int_compare_p:nNn {#2} = \c_three ||
                   \int_compare_p:nNn {#2} = \c_four )
               }
-              {
-                \zhnum_digit_map:n { #2 * \c_ten }
-                \use_none:nn
-              }
+              { \zhnum_digit_map:n { #2 0 } \use_none:n }
               { \zhnum_digit_map:n {#2} }
           }
-        \zhnum_digit_map:n \c_ten
+        \c_zhnum_ten_tl
       }
     \int_compare:nNnF {#1} = \c_zero { \zhnum_digit_map:n {#1} }
   }
@@ -673,33 +771,30 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \IfNoValueTF {#1} { \tl_map_function:fN {#2} #3 }
       { \group_begin: \zhnumsetup {#1} \tl_map_function:fN {#2} #3 \group_end: }
   }
-\cs_generate_variant:Nn \tl_map_function:nN { f }
+\cs_new_nopar:Nn \zhnum_digits_null:n { \tl_map_function:fN {#1} \zhnum_digits_null_aux:N }
+\cs_generate_variant:Nn \zhnum_digits_null:n { V }
+\cs_generate_variant:Nn \tl_map_function:nN  { f }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]
-% {\zhnum_digits_null_aux:N,\zhnum_digits_zero_aux:N,\zhnum_digits_aux:nn}
+% {\zhnum_digits_null_aux:N,\zhnum_digits_zero_aux:N,\zhnum_digits_aux:NN}
 % 将输入的数字输出为中文数字串输出。
 %    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_digits_null_aux:N { \zhnum_digits_aux:nn \c_zhnum_null_int {#1} }
-\cs_new_nopar:Nn \zhnum_digits_zero_aux:N { \zhnum_digits_aux:nn \c_zero {#1} }
-\cs_new_nopar:Nn \zhnum_digits_aux:nn
+\cs_new_nopar:Nn \zhnum_digits_null_aux:N { \zhnum_digits_aux:NN \c_true_bool  #1 }
+\cs_new_nopar:Nn \zhnum_digits_zero_aux:N { \zhnum_digits_aux:NN \c_false_bool #1 }
+\cs_new_nopar:Nn \zhnum_digits_aux:NN
   {
-    \str_if_eq:xxF {#2} \c_zhnum_separator_tl
+    \str_if_eq:xxTF {#2} . \c_zhnum_dot_tl
       {
-        \str_if_eq:xxTF {#2} . \c_zhnum_dot_tl
+        \str_if_eq:xxTF {#2} -
+          { \c_zhnum_minus_tl }
           {
-            \zhnum_digit_map:n
+            \zhnum_if_number:NT {#2}
               {
-                \str_if_eq:xxTF {#2} - \c_minus_one
-                  {
-                    \bool_if:nTF
-                      {
-                        \int_compare_p:nNn {#2} = \c_zero           &&
-                        \int_compare_p:nNn {#1} = \c_zhnum_null_int
-                      }
-                      { \c_zhnum_null_int } {#2}
-                  }
+                \bool_if:nTF { \int_compare_p:nNn {#2} = \c_zero }
+                  { \bool_if:NTF #1 \c_zhnum_null_tl \c_zhnum_zero_tl }
+                  { \zhnum_digit_map:n {#2} }
               }
           }
       }
@@ -707,10 +802,169 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\c_zhnum_null_int}
-% 设置“〇”对应的阿拉伯数字。
+% \begin{macro}{\zhdate}
+% 输出中文日期。
 %    \begin{macrocode}
-\int_const:Nn \c_zhnum_null_int { -10 }
+\DeclareExpandableDocumentCommand \zhdate { s m }
+  {
+    \zhnum_date:w #2 \q_stop
+    \IfBooleanT {#1} { \zhweekday {#2} }
+  }
+\cs_new_nopar:Npn \zhnum_date:w #1/#2/#3 \q_stop
+  {
+    \zhnum_check_time:Nn \zhnum_digits_null:n {#1} \c_zhnum_year_tl
+    \zhnum_check_time:Nn \zhnum_integer:f {#2} \c_zhnum_month_tl
+    \zhnum_check_time:Nn \zhnum_integer:f {#3} \c_zhnum_day_tl
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhtoday}
+% 输出当天日期。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \zhtoday
+  {
+    \zhnum_check_time:Nn \zhnum_digits_null:V \tex_year:D \c_zhnum_year_tl
+    \zhnum_check_time:Nn \zhnum_integer:V \tex_month:D \c_zhnum_month_tl
+    \zhnum_check_time:Nn \zhnum_integer:V \tex_day:D   \c_zhnum_day_tl
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_check_time:Nn}
+% 判断是用中文数字还是用阿拉伯数组。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_check_time:Nn
+  { \bool_if:NTF \l_zhnum_time_bool {#1} { \int_eval:n } {#2} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhweekday}
+% 输出星期
+%    \begin{macrocode}
+\cs_new_nopar:Npn \zhweekday #1 { \zhnum_week_day:w #1 \q_stop }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_Zeller:nnn,\zhnum_Zeller_aux:Nnnn,\zhnum_two_digits:n}
+% 用 Zeller 公式\footnote{\url{http://en.wikipedia.org/wiki/Zeller's_congruence}}
+% 计算星期几。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_Zeller:nnn
+  {
+    \int_compare:nNnTF
+      { #1 \zhnum_two_digits:n {#2} \zhnum_two_digits:n {#3} } > { 1582 10 04 }
+      { \zhnum_Zeller_aux:Nnnn \zhnum_Zeller_Gregorian:nnn }
+      { \zhnum_Zeller_aux:Nnnn \zhnum_Zeller_Julian:nnn }
+    {#1} {#2} {#3}
+  }
+\cs_new_nopar:Nn \zhnum_Zeller_aux:Nnnn
+  {
+    \int_compare:nNnTF {#3} < \c_three
+      { #1 { #2 - \c_one } { #3 + \c_twelve } {#4} }
+      { #1 {#2} {#3} {#4} }
+  }
+\cs_new_nopar:Nn \zhnum_two_digits:n
+  {
+    \int_compare:nNnT {#1} < \c_ten { 0 }
+    \int_eval:n {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_Zeller_Gregorian:nnn}
+% 格里历（\zhdate{1582/10/15}及以后）的计算公式
+% \[
+%   h = \biggl(q + \biggl\lfloor\frac{26(m+1)}{10}\biggr\rfloor + Y +
+%   \biggl\lfloor\frac Y4\biggr\rfloor + 6\biggl\lfloor\frac Y{100}\biggr\rfloor
+%   + \biggl\lfloor\frac Y{400}\biggr\rfloor\biggr) \pmod 7
+% \]
+% 其中 $Y$ 为年，$m$ 为月，$q$ 为日；若 $m=1,2$，则令 $m\mathbin{{+}{=}}12$，同时 $Y\mathop{--}{}$。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_Zeller_Gregorian:nnn
+  {
+    \int_mod:nn
+      {
+          \int_eval:n {#3}
+        + \int_div_truncate:nn { 26 * ( \int_eval:n {#2} + \c_one ) } \c_ten
+        + \int_eval:n {#1}
+        + \int_div_truncate:nn {#1} \c_four
+        + \c_six * \int_div_truncate:nn {#1} \c_one_hundred
+        + \int_div_truncate:nn {#1} { 400 }
+      }
+      { \c_seven }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_Zeller_Julian:nnn}
+% 儒略历（\zhdate{1582/10/04}及以前）的计算公式
+% \[
+%   h = \biggl(q + \biggl\lfloor\frac{26(m+1)}{10}\biggr\rfloor + Y +
+%   \biggl\lfloor\frac Y4\biggr\rfloor + 5\biggr) \pmod 7
+% \]
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_Zeller_Julian:nnn
+  {
+    \int_mod:nn
+      {
+          \int_eval:n {#3}
+        + \int_div_truncate:nn { 26 * ( \int_eval:n {#2} + \c_one ) } \c_ten
+        + \int_eval:n {#1}
+        + \int_div_truncate:nn {#1} \c_four
+        + \c_five
+      }
+      { \c_seven }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_week_day:w}
+% 用 Zeller 公式计算的结果 $h$ 与实际星期的映射。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \zhnum_week_day:w #1/#2/#3 \q_stop
+  {
+    \if_case:w \int_eval:w \zhnum_Zeller:nnn {#1} {#2} {#3} \int_eval_end:
+           \c_zhnum_sat_tl
+      \or: \c_zhnum_sun_tl
+      \or: \c_zhnum_mon_tl
+      \or: \c_zhnum_tue_tl
+      \or: \c_zhnum_wed_tl
+      \or: \c_zhnum_thu_tl
+      \or: \c_zhnum_fri_tl
+    \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhtime}
+% 输出时间。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \zhtime #1 { \zhnum_time:w #1 \q_stop }
+\group_begin:
+\char_set_lccode:nn { `\; } { `\: }
+\tl_to_lowercase:n
+  {
+    \group_end:
+    \cs_new_nopar:Npn \zhnum_time:w #1 ; #2 \q_stop
+      {
+        \zhnum_check_time:Nn \zhnum_integer:f {#1} \c_zhnum_hour_tl
+        \zhnum_check_time:Nn \zhnum_integer:f {#2} \c_zhnum_minute_tl
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhcurrtime}
+% 输出当前时间。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \zhcurrtime
+  {
+    \zhnum_check_time:Nn \zhnum_integer:f
+      { \int_div_truncate:nn \tex_time:D { 60 } } \c_zhnum_hour_tl
+    \zhnum_check_time:Nn \zhnum_integer:f
+      { \int_mod:nn \tex_time:D { 60 } } \c_zhnum_minute_tl
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -718,58 +972,71 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % 阿拉伯数字与中文数字的映射。
 %    \begin{macrocode}
 \cs_new_nopar:Nn \zhnum_digit_map:n
-  {
-    \prg_case_int:nnn {#1}
-      {
-        { \c_minus_one      } { \c_zhnum_minus_tl       }
-        { \c_zero           } { \c_zhnum_zero_tl        }
-        { \c_one            } { \c_zhnum_one_tl         }
-        { \c_two            } { \c_zhnum_two_tl         }
-        { \c_three          } { \c_zhnum_three_tl       }
-        { \c_four           } { \c_zhnum_four_tl        }
-        { \c_five           } { \c_zhnum_five_tl        }
-        { \c_six            } { \c_zhnum_six_tl         }
-        { \c_seven          } { \c_zhnum_seven_tl       }
-        { \c_eight          } { \c_zhnum_eight_tl       }
-        { \c_nine           } { \c_zhnum_nine_tl        }
-        { \c_ten            } { \c_zhnum_ten_tl         }
-        { \c_one_hundred    } { \c_zhnum_hundred_tl     }
-        { \c_one_thousand   } { \c_zhnum_thousand_tl    }
-        { \c_zhnum_null_int } { \c_zhnum_null_tl        }
-        { 20                } { \c_zhnum_twenty_tl      }
-        { 30                } { \c_zhnum_thirty_tl      }
-        { 40                } { \c_zhnum_forty_tl       }
-        { 200               } { \c_zhnum_two_hundred_tl }
-      }
-      { \prg_do_nothing: }
-  }
+  { \tl_use:c { c_zhnum_ \zhnum_int_to_word:n {#1} _tl } }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_scale_map:n}
+% \begin{macro}[internal]{\zhnum_scale_map:n,\zhnum_scale_map_loop:n}
 % 大数系统的映射。
 %    \begin{macrocode}
 \cs_new_nopar:Nn \zhnum_scale_map:n
   {
-    \prg_case_int:nnn {#1}
-      {
-        { \c_zero   } { \c_zhnum_scale_zero_tl   }
-        { \c_one    } { \c_zhnum_scale_one_tl    }
-        { \c_two    } { \c_zhnum_scale_two_tl    }
-        { \c_three  } { \c_zhnum_scale_three_tl  }
-        { \c_four   } { \c_zhnum_scale_four_tl   }
-        { \c_five   } { \c_zhnum_scale_five_tl   }
-        { \c_six    } { \c_zhnum_scale_six_tl    }
-        { \c_seven  } { \c_zhnum_scale_seven_tl  }
-        { \c_eight  } { \c_zhnum_scale_eight_tl  }
-        { \c_nine   } { \c_zhnum_scale_nine_tl   }
-        { \c_ten    } { \c_zhnum_scale_ten_tl    }
-        { \c_eleven } { \c_zhnum_scale_eleven_tl }
-      }
+    \cs_if_exist_use:cF { c_zhnum_scale_ \zhnum_int_to_word:n {#1} _tl }
       { \zhnum_scale_map_hook:n {#1} }
   }
-\cs_new_nopar:Nn \zhnum_scale_map_hook:n
-  { \zhnum_scale_map:n { \int_mod:nn {#1} \c_eleven } }
+\cs_new_nopar:Nn \zhnum_scale_map_loop:n
+  { \zhnum_scale_map:n { \int_mod:nn {#1} \g_zhnum_scale_int } }
+\int_new:N \g_zhnum_scale_int
+\int_set_eq:NN \g_zhnum_scale_int \c_eleven
+\cs_new_eq:NN \zhnum_scale_map_hook:n \zhnum_scale_map_loop:n
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhnumExtendScaleMap}
+%    \begin{macrocode}
+\NewDocumentCommand \zhnumExtendScaleMap { > { \TrimSpaces } o m }
+  {
+   \int_zero:N \l_tmpa_int
+    \clist_map_inline:nn {#2}
+      {
+        \int_incr:N \l_tmpa_int
+        \tl_set:Nx \l_tmpa_tl
+          { c_zhnum_scale_ \zhnum_int_to_word:n {  \l_tmpa_int + \c_eleven } _tl }
+        \tl_if_exist:cF \l_tmpa_tl { \int_incr:N \g_zhnum_scale_int }
+        \tl_set:cn { \l_tmpa_tl } {##1}
+      }
+    \IfValueT {#1} { \cs_set:Nn \zhnum_scale_map_hook:n {#1} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_int_to_word:n}
+% 将整数转换成英文单词。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_int_to_word:n
+  {
+    \if_case:w \int_eval:w #1 \int_eval_end:
+           zero
+      \or: one
+      \or: two
+      \or: three
+      \or: four
+      \or: five
+      \or: six
+      \or: seven
+      \or: eight
+      \or: nine
+      \or: ten
+      \or: eleven
+    \else:
+      \prg_case_int:nnn {#1}
+        {
+          { 20 } { twenty }  { 30  } { thirty }
+          { 40 } { forty }   { 200 } { two_hundred }
+        }
+        { \int_to_roman:n {#1} }
+    \fi:
+  }
 %    \end{macrocode}
 % \end{macro}
 
@@ -777,43 +1044,118 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \keys_define:nn { zhnum / options }
   {
-    -   .tl_set:N = \c_zhnum_minus_tl        ,
-    -0  .tl_set:N = \c_zhnum_null_tl         ,
-    0   .tl_set:N = \c_zhnum_zero_tl         ,
-    1   .tl_set:N = \c_zhnum_one_tl          ,
-    2   .tl_set:N = \c_zhnum_two_tl          ,
-    3   .tl_set:N = \c_zhnum_three_tl        ,
-    4   .tl_set:N = \c_zhnum_four_tl         ,
-    5   .tl_set:N = \c_zhnum_five_tl         ,
-    6   .tl_set:N = \c_zhnum_six_tl          ,
-    7   .tl_set:N = \c_zhnum_seven_tl        ,
-    8   .tl_set:N = \c_zhnum_eight_tl        ,
-    9   .tl_set:N = \c_zhnum_nine_tl         ,
-    10  .tl_set:N = \c_zhnum_ten_tl          ,
-    20  .tl_set:N = \c_zhnum_twenty_tl       ,
-    30  .tl_set:N = \c_zhnum_thirty_tl       ,
-    40  .tl_set:N = \c_zhnum_forty_tl        ,
-    200 .tl_set:N = \c_zhnum_two_hundred_tl  ,
-    E2  .tl_set:N = \c_zhnum_hundred_tl      ,
-    E3  .tl_set:N = \c_zhnum_thousand_tl     ,
-    E4  .tl_set:N = \c_zhnum_scale_one_tl    ,
-    E8  .tl_set:N = \c_zhnum_scale_two_tl    ,
-    E12 .tl_set:N = \c_zhnum_scale_three_tl  ,
-    E16 .tl_set:N = \c_zhnum_scale_four_tl   ,
-    E20 .tl_set:N = \c_zhnum_scale_five_tl   ,
-    E24 .tl_set:N = \c_zhnum_scale_six_tl    ,
-    E28 .tl_set:N = \c_zhnum_scale_seven_tl  ,
-    E32 .tl_set:N = \c_zhnum_scale_eight_tl  ,
-    E36 .tl_set:N = \c_zhnum_scale_nine_tl   ,
-    E40 .tl_set:N = \c_zhnum_scale_ten_tl    ,
-    E44 .tl_set:N = \c_zhnum_scale_eleven_tl ,
+    -   .tl_set:N = \l_zhnum_minus_tl        ,
+    -0  .tl_set:N = \l_zhnum_null_tl         ,
+    E2  .tl_set:N = \l_zhnum_hundred_tl      ,
+    E3  .tl_set:N = \l_zhnum_thousand_tl     ,
+    FE2 .tl_set:N = \l_zhnum_financial_hundred_tl ,
+    FE3 .tl_set:N = \l_zhnum_financial_thousand_tl ,
+  }
+\clist_map_inline:nn
+  { 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 20 , 30 , 40 , 200 }
+  {
+    \keys_define:nn { zhnum / options }
+      { #1 .tl_set:c = { l_zhnum_ \zhnum_int_to_word:n {#1} _tl } }
+    \int_compare:nNnF {#1} > \c_ten
+      {
+        \keys_define:nn { zhnum / options }
+          { F#1 .tl_set:c = { l_zhnum_financial_ \zhnum_int_to_word:n {#1} _tl } }
+      }
+  }
+\clist_map_inline:nn
+  { 4 , 8 , 12 , 16 , 20 , 24 , 28 , 32 , 36 , 40 , 44 }
+  {
+    \keys_define:nn { zhnum / options }
+      { E#1 .tl_set:c = { l_zhnum_scale_ \zhnum_int_to_word:n { #1 / 4 } _tl } }
+  }
+\clist_map_inline:nn
+  {
+    dot , and , parts , year , month , day , weekday , hour , minute
+    mon , tue , wed , thu , fri , sat , sun
+  }
+  { \keys_define:nn { zhnum / options } { #1 .tl_set:c = { l_zhnum_ #1 _tl } } }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]
+% {\zhnum_parse_config:,\zhnum_check_simp:nn,\zhnum_check_financial:nn,
+%  \zhnum_set_zero:,\zhnum_set_week_day:}
+% 将配置文件中的中文数字保存起来。
+%    \begin{macrocode}
+\cs_new_nopar:Nn \zhnum_parse_config:
+  {
+    \prop_map_function:NN \g_zhnum_cfg_map_prop \zhnum_check_simp:nn
+    \prop_map_function:NN \g_zhnum_cfg_map_prop \zhnum_check_financial:nn
+    \zhnum_set_zero:
+    \zhnum_set_week_day:
+  }
+\cs_new_nopar:Nn \zhnum_check_simp:nn
+  {
+    \zhnum_check_simp_aux:nn {#1} {#2}
+    \prop_get:NnNT \g_zhnum_cfg_map_finan_prop {#1} \l_tmpa_tl
+      { \exp_args:NnV \zhnum_check_simp_aux:nn { financial_ #1 } \l_tmpa_tl }
+  }
+\cs_new_nopar:Nn \zhnum_check_simp_aux:nn
+  {
+    \prop_get:NnNTF \g_zhnum_cfg_map_var_prop { #1 _trad } \l_tmpa_tl
+      {
+        \prop_get:NnNTF \g_zhnum_cfg_map_var_prop { #1 _simp } \l_tmpb_tl
+          {
+            \tl_set:cx { l_zhnum_ #1 _tl }
+              {
+                \exp_not:n { \bool_if:NTF \l_zhnum_simp_bool }
+                  { \exp_not:V \l_tmpb_tl } { \exp_not:V \l_tmpa_tl }
+              }
+          }
+          {
+            \tl_set:cx { l_zhnum_ #1 _tl }
+              {
+                \exp_not:n { \bool_if:NTF \l_zhnum_simp_bool }
+                  { \exp_not:n {#2} } { \exp_not:V \l_tmpa_tl }
+              }
+          }
+      }
+      { \tl_set:cn { l_zhnum_ #1 _tl } {#2} }
+  }
+\cs_new_nopar:Nn \zhnum_check_financial:nn
+  {
+    \prop_get:NnNTF \g_zhnum_cfg_map_finan_prop {#1} \l_tmpa_tl
+      {
+        \tl_set:cx { c_zhnum_ #1 _tl }
+          {
+            \exp_not:n { \bool_if:NTF \l_zhnum_normal_bool }
+              { \exp_not:c { l_zhnum_ #1 _tl } }
+              { \exp_not:c { l_zhnum_financial_ #1 _tl } }
+          }
+      }
+      { \tl_set:cx { c_zhnum_ #1 _tl } { \exp_not:c { l_zhnum_ #1 _tl } } }
+  }
+\cs_new_nopar:Nn \zhnum_set_zero:
+  {
+    \tl_set:Nx \l_zhnum_zero_tl
+      {
+        \exp_not:n { \bool_if:nTF \l_zhnum_null_bool }
+          { \exp_not:V \l_zhnum_null_tl } { \exp_not:V \l_zhnum_zero_tl }
+      }
+  }
+\cs_new_nopar:Nn \zhnum_set_week_day:
+  {
+    \tl_set:Nx \l_zhnum_mon_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_one_tl   }
+    \tl_set:Nx \l_zhnum_tue_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_two_tl   }
+    \tl_set:Nx \l_zhnum_wed_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_three_tl }
+    \tl_set:Nx \l_zhnum_thu_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_four_tl  }
+    \tl_set:Nx \l_zhnum_fri_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_five_tl  }
+    \tl_set:Nx \l_zhnum_sat_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_six_tl   }
+    \tl_set:Nx \l_zhnum_sun_tl { \exp_not:N \c_zhnum_weekday_tl \exp_not:V \l_zhnum_day_tl   }
+    \clist_map_inline:nn { mon , tue , wed , thu , fri , sat , sun }
+      { \tl_set:cx { c_zhnum_ ##1 _tl } { \exp_not:c { l_zhnum_ ##1 _tl } } }
   }
 %    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[internal]{\zhnum_load_cfg:}
 % 根据选定编码载入配置文件。
 %    \begin{macrocode}
-\cs_new:Nn \zhnum_load_cfg:
+\cs_new:Nn \zhnum_load_cfg:n
   {
     \cs_if_exist:NT \CJK@makeActive
       {
@@ -821,10 +1163,44 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           { \bool_set_false:N \l_zhnum_set_CJK_active_bool }
           { \bool_set_true:N \l_zhnum_set_CJK_active_bool \CJK@makeActive }
       }
-    \file_input:n { zhnumber - \bool_if:NTF \g_zhnum_gbk_bool { gbk } { utf8 } .cfg }
+    \prop_clear:N \g_zhnum_cfg_map_prop
+    \prop_clear:N \g_zhnum_cfg_map_var_prop
+    \prop_clear:N \g_zhnum_cfg_map_finan_prop
+    \file_input:n { zhnumber - #1 .cfg }
+    \zhnum_parse_config:
     \bool_if:nT { \cs_if_exist_p:N \CJK@makeInactive && \l_zhnum_set_CJK_active_bool }
       { \CJK@makeInactive }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\zhnum_set_digits_map:nn,\zhnum_set_digits_map:nnn,
+%  \zhnum_set_financial_map:nn,\zhnum_set_financial_map:nnn}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Nn \zhnum_set_digits_map:nn
+  { \prop_put:Nnn \g_zhnum_cfg_map_prop {#1} {#2} }
+\cs_new_protected_nopar:Nn \zhnum_set_digits_map:nnn
+  {
+    \prop_put_if_new:Nnn \g_zhnum_cfg_map_prop {#1} {#3}
+    \prop_put:Nnn \g_zhnum_cfg_map_var_prop {#1_#2} {#3}
+  }
+\cs_new_protected_nopar:Nn \zhnum_set_financial_map:nn
+  { \prop_put:Nnn \g_zhnum_cfg_map_finan_prop {#1} {#2} }
+\cs_new_protected_nopar:Nn \zhnum_set_financial_map:nnn
+  {
+    \prop_put_if_new:Nnn \g_zhnum_cfg_map_finan_prop {#1} {#3}
+    \prop_put:Nnn \g_zhnum_cfg_map_var_prop { financial_#1_#2 } {#3}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\g_zhnum_cfg_map_prop,\g_zhnum_cfg_map_var_prop,\g_zhnum_cfg_map_finan_prop}
+%    \begin{macrocode}
+\prop_new:N \g_zhnum_cfg_map_prop
+\prop_new:N \g_zhnum_cfg_map_var_prop
+\prop_new:N \g_zhnum_cfg_map_finan_prop
 %    \end{macrocode}
 % \end{macro}
 %
@@ -833,35 +1209,47 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \keys_define:nn { zhnum / options }
   {
-    encoding .choice: ,
-    encoding / UTF8     .code:n = { \bool_gset_false:N \g_zhnum_gbk_bool \zhnum_load_cfg: } ,
-    encoding / GBK      .code:n = { \bool_gset_true:N  \g_zhnum_gbk_bool \zhnum_load_cfg: } ,
-    encoding         .default:n = { GBK } ,
+    encoding      .choice_code:n =
+      {
+        \tl_gset:Nx \c_zhnum_encoding_tl
+          { \exp_args:NV \tl_expandable_lowercase:n \l_keys_choice_tl }
+        \zhnum_load_cfg:n { \c_zhnum_encoding_tl }
+      } ,
+    encoding .generate_choices:n = { UTF8 , GBK , Big5 } ,
+    encoding          .default:n = { GBK } ,
+    encoding / Bg5       .meta:n = { encoding = Big5 } ,
+    encoding / unknown   .code:n =
+      { \msg_error:nnx { zhnumber } { encoding-invalid } { \l_keys_value_tl } } ,
     style .multichoice: ,
-    style / Normal      .code:n =
+    style / Normal       .code:n =
       {
         \bool_set_false:N \l_zhnum_ancient_bool
         \bool_set_true:N  \l_zhnum_normal_bool
       } ,
-    style / Financial   .code:n =
+    style / Financial    .code:n =
       {
         \bool_set_false:N \l_zhnum_ancient_bool
         \bool_set_false:N \l_zhnum_normal_bool
       } ,
-    style / Ancient     .code:n =
+    style / Ancient      .code:n =
       {
         \bool_set_true:N \l_zhnum_ancient_bool
         \bool_set_true:N \l_zhnum_normal_bool
       } ,
-    style / Simplified  .code:n = { \bool_set_true:N  \l_zhnum_simp_bool } ,
-    style / Traditional .code:n = { \bool_set_false:N \l_zhnum_simp_bool } ,
-    style            .default:n = { Normal , Simplified } ,
-    null            .bool_set:N = \l_zhnum_null_bool ,
-    reset               .code:n = \zhnum_load_cfg: ,
-    dot               .tl_set:N = \c_zhnum_dot_tl  ,
-    and               .tl_set:N = \c_zhnum_and_tl  ,
-    parts             .tl_set:N = \c_zhnum_over_tl ,
-    separator         .tl_set:N = \c_zhnum_separator_tl ,
+    style / Simplified   .code:n = { \bool_set_true:N  \l_zhnum_simp_bool } ,
+    style / Traditional  .code:n = { \bool_set_false:N \l_zhnum_simp_bool } ,
+    style             .default:n = { Normal , Simplified } ,
+    null             .bool_set:N = \l_zhnum_null_bool ,
+    time .choice: ,
+    time / Chinese       .code:n = { \bool_set_true:N \l_zhnum_time_bool } ,
+    time / Arabic        .code:n = { \bool_set_false:N  \l_zhnum_time_bool } ,
+    time              .default:n = { Arabic } ,
+    reset                .code:n = { \zhnum_load_cfg:n { \c_zhnum_encoding_tl } } ,
+  }
+\msg_new:nnn { zhnumber } { encoding-invalid }
+  {
+    The~encoding~'#1'~is~invalid,~please~check~it~over.\\\\
+    Available~encoding~are~'UTF8',~'GBK'~and~'Big5'.\\
   }
 %    \end{macrocode}
 % \end{macro}
@@ -879,14 +1267,14 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % 初始化设置和执行宏包选项。
 %    \begin{macrocode}
-\keys_set:nn { zhnum / options } { style , null = false , separator = {,} }
+\keys_set:nn { zhnum / options } { style , time }
 \ProcessKeysOptions { zhnum / options }
 %    \end{macrocode}
 %
 % 如果没有选定编码，则根据引擎自动设置编码。
 %    \begin{macrocode}
 \ExplSyntaxOn
-\bool_if_exist:NF \g_zhnum_gbk_bool
+\tl_if_exist:NF \c_zhnum_encoding_tl
   {
     \exp_args:Nnx \keys_set:nn { zhnum / options }
       {
@@ -904,48 +1292,124 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</package>
 %    \end{macrocode}
 %
-% \section{中文数字设置}
+% \section{中文数字配置文件}
 % \label{sec:zhnum-map}
 %
 %    \begin{macrocode}
-%<*config-gbk|config-utf8>
+%<*config>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\tl_set:Nn \c_zhnum_minus_tl    { \bool_if:NTF \l_zhnum_simp_bool { 负 } { 負 } }
-\tl_set:Nn \c_zhnum_zero_tl     { \bool_if:nTF \l_zhnum_null_bool \c_zhnum_null_tl { 零 } }
-\tl_set:Nn \c_zhnum_null_tl     { \bool_if:NTF \l_zhnum_normal_bool { 〇 } { 零 } }
-\tl_set:Nn \c_zhnum_one_tl      { \bool_if:NTF \l_zhnum_normal_bool { 一 } { 壹 } }
-\tl_set:Nn \c_zhnum_two_tl      { \bool_if:NTF \l_zhnum_normal_bool { 二 } { \bool_if:NTF \l_zhnum_simp_bool { 贰 } { 貳 } } }
-\tl_set:Nn \c_zhnum_three_tl    { \bool_if:NTF \l_zhnum_normal_bool { 三 } { \bool_if:NTF \l_zhnum_simp_bool { 叁 } { 叄 } } }
-\tl_set:Nn \c_zhnum_four_tl     { \bool_if:NTF \l_zhnum_normal_bool { 四 } { 肆 } }
-\tl_set:Nn \c_zhnum_five_tl     { \bool_if:NTF \l_zhnum_normal_bool { 五 } { 伍 } }
-\tl_set:Nn \c_zhnum_six_tl      { \bool_if:NTF \l_zhnum_normal_bool { 六 } { \bool_if:NTF \l_zhnum_simp_bool { 陆 } { 陸 } } }
-\tl_set:Nn \c_zhnum_seven_tl    { \bool_if:NTF \l_zhnum_normal_bool { 七 } { 柒 } }
-\tl_set:Nn \c_zhnum_eight_tl    { \bool_if:NTF \l_zhnum_normal_bool { 八 } { 捌 } }
-\tl_set:Nn \c_zhnum_nine_tl     { \bool_if:NTF \l_zhnum_normal_bool { 九 } { 玖 } }
-\tl_set:Nn \c_zhnum_ten_tl      { \bool_if:NTF \l_zhnum_normal_bool { 十 } { 拾 } }
-\tl_set:Nn \c_zhnum_hundred_tl  { \bool_if:NTF \l_zhnum_normal_bool { 百 } { 佰 } }
-\tl_set:Nn \c_zhnum_thousand_tl { \bool_if:NTF \l_zhnum_normal_bool { 千 } { 仟 } }
-\tl_set:Nn \c_zhnum_twenty_tl      { 廿 }
-\tl_set:Nn \c_zhnum_thirty_tl      { 卅 }
-\tl_set:Nn \c_zhnum_forty_tl       { 卌 }
-\tl_set:Nn \c_zhnum_two_hundred_tl { 皕 }
-\tl_set:Nn \c_zhnum_dot_tl { \bool_if:NTF \l_zhnum_simp_bool { 点 } { 點 } }
-\tl_set:Nn \c_zhnum_and_tl  { 又 }
-\tl_set:Nn \c_zhnum_over_tl { 分之 }
-\tl_set:Nn \c_zhnum_scale_zero_tl   { }
-\tl_set:Nn \c_zhnum_scale_one_tl    { \bool_if:NTF \l_zhnum_simp_bool { 万 } { 萬 } }
-\tl_set:Nn \c_zhnum_scale_two_tl    { \bool_if:NTF \l_zhnum_simp_bool { 亿 } { 億 } }
-\tl_set:Nn \c_zhnum_scale_three_tl  { 兆 }
-\tl_set:Nn \c_zhnum_scale_four_tl   { 京 }
-\tl_set:Nn \c_zhnum_scale_five_tl   { 垓 }
-\tl_set:Nn \c_zhnum_scale_six_tl    { 秭 }
-\tl_set:Nn \c_zhnum_scale_seven_tl  { 穰 }
-\tl_set:Nn \c_zhnum_scale_eight_tl  { \bool_if:NTF \l_zhnum_simp_bool { 沟 } { 溝 } }
-\tl_set:Nn \c_zhnum_scale_nine_tl   { \bool_if:NTF \l_zhnum_simp_bool { 涧 } { 澗 } }
-\tl_set:Nn \c_zhnum_scale_ten_tl    { 正 }
-\tl_set:Nn \c_zhnum_scale_eleven_tl { \bool_if:NTF \l_zhnum_simp_bool { 载 } { 載 } }
+%<*!big5>
+\zhnum_set_digits_map:nnn { minus } { simp }  { 负 }
+\zhnum_set_digits_map:nnn { minus } { trad }  { 負 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { minus }       { 負 }
+%</big5>
+\zhnum_set_digits_map:nn { zero }        { 零 }
+%<*!big5>
+\zhnum_set_digits_map:nn { null }        { 〇 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { null }        { ○ }
+%</big5>
+\zhnum_set_digits_map:nn { one }         { 一 }
+\zhnum_set_digits_map:nn { two }         { 二 }
+\zhnum_set_digits_map:nn { three }       { 三 }
+\zhnum_set_digits_map:nn { four }        { 四 }
+\zhnum_set_digits_map:nn { five }        { 五 }
+\zhnum_set_digits_map:nn { six }         { 六 }
+\zhnum_set_digits_map:nn { seven }       { 七 }
+\zhnum_set_digits_map:nn { eight }       { 八 }
+\zhnum_set_digits_map:nn { nine }        { 九 }
+\zhnum_set_digits_map:nn { ten }         { 十 }
+\zhnum_set_digits_map:nn { hundred }     { 百 }
+\zhnum_set_digits_map:nn { thousand }    { 千 }
+\zhnum_set_digits_map:nn { twenty }      { 廿 }
+\zhnum_set_digits_map:nn { thirty }      { 卅 }
+\zhnum_set_digits_map:nn { forty }       { 卌 }
+\zhnum_set_digits_map:nn { two_hundred } { 皕 }
+%<*!big5>
+\zhnum_set_digits_map:nnn { dot } { simp } { 点 }
+\zhnum_set_digits_map:nnn { dot } { trad } { 點 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { dot }   { 點 }
+%</big5>
+\zhnum_set_digits_map:nn { and }   { 又 }
+\zhnum_set_digits_map:nn { parts } { 分之 }
+\zhnum_set_digits_map:nn { scale_zero }   { }
+%<*!big5>
+\zhnum_set_digits_map:nnn { scale_one } { simp } { 万 }
+\zhnum_set_digits_map:nnn { scale_one } { trad } { 萬 }
+\zhnum_set_digits_map:nnn { scale_two } { simp } { 亿 }
+\zhnum_set_digits_map:nnn { scale_two } { trad } { 億 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { scale_one }    { 萬 }
+\zhnum_set_digits_map:nn { scale_two }    { 億 }
+%</big5>
+\zhnum_set_digits_map:nn { scale_three }  { 兆 }
+\zhnum_set_digits_map:nn { scale_four }   { 京 }
+\zhnum_set_digits_map:nn { scale_five }   { 垓 }
+\zhnum_set_digits_map:nn { scale_six }    { 秭 }
+\zhnum_set_digits_map:nn { scale_seven }  { 穰 }
+%<*!big5>
+\zhnum_set_digits_map:nnn { scale_eight } { simp }  { 沟 }
+\zhnum_set_digits_map:nnn { scale_eight } { trad }  { 溝 }
+\zhnum_set_digits_map:nnn { scale_nine  } { simp }  { 涧 }
+\zhnum_set_digits_map:nnn { scale_nine  } { trad }  { 澗 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { scale_eight }  { 澗 }
+%</big5>
+\zhnum_set_digits_map:nn { scale_ten }    { 正 }
+%<*!big5>
+\zhnum_set_digits_map:nnn { scale_eleven } { simp } { 载 }
+\zhnum_set_digits_map:nnn { scale_eleven } { trad } { 載 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { scale_eleven } { 載 }
+%</big5>
+\zhnum_set_digits_map:nn { year }    { 年 }
+\zhnum_set_digits_map:nn { month }   { 月 }
+\zhnum_set_digits_map:nn { day }     { 日 }
+%<*!big5>
+\zhnum_set_digits_map:nnn { hour } { simp } { 时 }
+\zhnum_set_digits_map:nnn { hour } { trad } { 時 }
+%</!big5>
+%<*big5>
+\zhnum_set_digits_map:nn { hour }    { 時 }
+%</big5>
+\zhnum_set_digits_map:nn { minute }  { 分 }
+\zhnum_set_digits_map:nn { weekday } { 星期 }
+\zhnum_set_financial_map:nn { null }     { 零 }
+\zhnum_set_financial_map:nn { zero }     { 零 }
+\zhnum_set_financial_map:nn { one }      { 壹 }
+\zhnum_set_financial_map:nn { two }      { 貳 }
+%<*!big5>
+\zhnum_set_financial_map:nnn { three } { simp } { 叁 }
+\zhnum_set_financial_map:nnn { three } { trad } { 叄 }
+%</!big5>
+%<*big5>
+\zhnum_set_financial_map:nn { three }    { 參 }
+%</big5>
+\zhnum_set_financial_map:nn { four }     { 肆 }
+\zhnum_set_financial_map:nn { five }     { 伍 }
+%<*!big5>
+\zhnum_set_financial_map:nnn { six }   { simp } { 陆 }
+\zhnum_set_financial_map:nnn { six }   { trad } { 陸 }
+%</!big5>
+%<*big5>
+\zhnum_set_financial_map:nn { six }      { 陸 }
+%</big5>
+\zhnum_set_financial_map:nn { seven }    { 柒 }
+\zhnum_set_financial_map:nn { eight }    { 捌 }
+\zhnum_set_financial_map:nn { nine }     { 玖 }
+\zhnum_set_financial_map:nn { ten }      { 拾 }
+\zhnum_set_financial_map:nn { hundred }  { 佰 }
+\zhnum_set_financial_map:nn { thousand } { 仟 }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -953,11 +1417,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</config-gbk|config-utf8>
+%</config>
 %    \end{macrocode}
 %
 % \end{implementation}
 %
+% \PrintIndex
 % \Finale
 %
 \endinput
