@@ -215,7 +215,7 @@
 
 :zip 
 
-  if not defined ZIPFLAG set ZIPFLAG=-r -q -X -ll
+  if not defined ZIPFLAG set ZIPFLAG=-r -q -X
 
   if defined ZIPEXE (
     goto :EOF
