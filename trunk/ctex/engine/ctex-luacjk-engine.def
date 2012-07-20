@@ -41,8 +41,12 @@
 \tl_set:Nn \kanjifamilydefault { \ctex_CJKfamily_map:f \CJKfamilydefault }
 \tl_set:Nn \kanjiencodingdefault { CJKEU2 }
 
-\cs_generate_internal_variant:n { fffff }
-\cs_generate_internal_variant:n { ffff }
+\clist_map_inline:nn { fffff , ffff }
+  {
+    \cs_if_exist_use:NF \cs_generate_internal_variant:n
+      { \__cs_generate_internal_variant:n }
+    {#1}
+  }
 
 \DeclareKanjiEncodingDefaults { } { }
 \DeclareYokoKanjiEncoding \kanjiencodingdefault { } { }
@@ -150,19 +154,20 @@
       {
         \cs_if_exist_use:cF { CJKfamily/#1 }
           {
-            \cs_if_free:cT { ctex_warned_aux_#1 }
+            \seq_if_in:NxF \g_ctex_unknown_family_seq {#1}
               {
+                \seq_gput_right:Nx \g_ctex_unknown_family_seq {#1}
                 \msg_warning:nnx { ctex } { CJKfamily-Unknown } {#1}
-                \tl_new:c { ctex_warned_aux_#1 }
               }
             \use_none:nnnnnnn
           }
       }
     \tl_set:Nx \l_CJK_family_tl {#1}
-    \exp_args:Nc \kanjifamily { CJKfamily/\l_CJK_family_tl }
+    \exp_args:Nv \kanjifamily { CJKfamily/\l_CJK_family_tl }
     \selectfont
   }
 
+\seq_new:N \g_ctex_unknown_family_seq
 \cs_generate_variant:Nn \prop_if_in:NnF  { Nx }
 
 \msg_new:nnn { ctex } { CJKfamily-Unknown }
@@ -213,7 +218,7 @@
       { \fontspec_warning:n { addfontfeatures-ignored } }
       {
         \exp_args:Nxx \ctex_fontspec_select:nn
-          { \clist_use:c { zf@family@options\k@family } , #1 }
+          { \tl_use:c { zf@family@options\k@family } , #1 }
           { \tl_use:c { zf@family@fontname\k@family } }
         \kanjifamily \l_fontspec_family_tl \selectfont
       }
