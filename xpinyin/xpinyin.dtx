@@ -138,7 +138,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKsetup{PunctStyle=kaiming}
-\newfontfamily\PinYinFont{FreeSans}
+\newfontfamily\PinYinFont{TeX Gyre Adventor}
 \xpinyinsetup{font=\PinYinFont,multiple=\color{red}}
 \def\MacroFont{\small\normalfont\ttfamily}
 \makeatletter
@@ -186,7 +186,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \pkg{xpinyin} 不会自动载入 \pkg{CJKutf8} 或 \pkg{xeCJK} 宏包，应该在它之前或之后
 % 自行载入。
 %
-% 需要注意的是，\pkg{xinyin} 缺省将拼音的字体设置为与文档的主字体（\cs{normalfont}）相同，
+% 需要注意的是，\pkg{xpinyin} 缺省将拼音的字体设置为与文档的主字体（\cs{normalfont}）相同，
 % 所以为了保证声调字母的正确输出，应该选用合适的西文主字体。也可以通过将在下一节介绍的
 % \meta{font} 选项来单独设置拼音的字体。
 %
@@ -219,12 +219,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \end{CJK}
 %   \end{document}
 % \end{verbatim}
-% \leavevmode\hrule height \dp\strutbox width 0pt \relax
+% \hrule height \dp\strutbox width 0pt \relax
 % \end{minipage}
 %
 % 运行上述示例要求系统安装了设置的字体，源文件用 |UTF-8| 编码保存，使用相应的编译方式。
 %
-% \pkg{xinyin} 可以与 \pkg{ctex} 宏包或文档类^^A
+% \pkg{xpinyin} 可以与 \pkg{ctex} 宏包或文档类^^A
 % \footnote{\url{http://mirrors.ctan.org/language/chinese/ctex/}} 共同使用，使用
 % 方式与上面类似。
 %
@@ -360,7 +360,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \fi
 %
 %    \begin{macrocode}
-\ProvidesExplPackage{\ExplFileName}{\ExplFileDate}{1.0}{\ExplFileDescription}
+\ProvidesExplPackage{\ExplFileName}{\ExplFileDate}{1.1}{\ExplFileDescription}
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -378,6 +378,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \RequirePackage{l3keys2e}
 %    \end{macrocode}
 %
+% \begin{macro}[internal,var]{\l_xpinyin_tmpa_box,\l_xpinyin_tmpb_box}
+%    \begin{macrocode}
+\box_new:N \l_xpinyin_tmpa_box
+\box_new:N \l_xpinyin_tmpb_box
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\xpinyin_make_box:nn}
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xpinyin_make_box:nn
@@ -391,9 +398,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \hbox_overlap_left:n
       {
-        \hbox_set:Nn \l_tmpa_box
+        \hbox_set:Nn \l_xpinyin_tmpa_box
           { \xpinyin_CJKsymbol_hook: \xpinyin_save_CJKsymbol:n {#1} }
-        \hbox_set:Nn \l_tmpb_box
+        \hbox_set:Nn \l_xpinyin_tmpb_box
           {
             \color_group_begin: \color_ensure_current:
             \xpinyin_select_font:
@@ -405,22 +412,22 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
             \color_group_end:
           }
         \dim_compare:nNnT
-          { \box_wd:N \l_tmpb_box } > { \box_wd:N \l_tmpa_box + \l_xpinyin_CJKglue_dim }
+          { \box_wd:N \l_xpinyin_tmpb_box } >
+          { \box_wd:N \l_xpinyin_tmpa_box + \l_xpinyin_CJKglue_dim }
           {
-            \box_resize:Nff \l_tmpb_box
-              { \dim_eval:n { \box_wd:N \l_tmpa_box + \l_xpinyin_CJKglue_dim } }
-              { \dim_eval:n { \box_ht:N \l_tmpb_box + \box_dp:N \l_tmpb_box } }
+            \box_resize:Nnn \l_xpinyin_tmpb_box
+              { \dim_eval:n { \box_wd:N \l_xpinyin_tmpa_box + \l_xpinyin_CJKglue_dim } }
+              { \dim_eval:n { \box_ht:N \l_xpinyin_tmpb_box + \box_dp:N \l_xpinyin_tmpb_box } }
           }
         \box_move_up:nn { \l_xpinyin_vsep_tl }
           {
-            \hbox_to_wd:nn { \box_wd:N \l_tmpa_box }
-              { \tex_hss:D  \box_use_clear:N \l_tmpb_box \tex_hss:D }
+            \hbox_to_wd:nn { \box_wd:N \l_xpinyin_tmpa_box }
+              { \tex_hss:D  \box_use_clear:N \l_xpinyin_tmpb_box \tex_hss:D }
           }
       }
     { \xpinyin_CJK_node: }
     \xpinyin_CJK_ignorespaces:
   }
-\cs_generate_variant:Nn \box_resize:Nnn { Nff }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -533,7 +540,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \int_compare:nNnT { \XeTeXfonttype \tex_font:D } > \c_zero
           {
             \exp_last_unbraced:NNV
-            \cs_gset_eq:cN \l_xpinyin_current_coor_tl \font@name
+            \cs_gset_eq:cN \l_xpinyin_current_coor_tl \tex_font:D
           }
       }
   }
@@ -585,6 +592,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \cs_new_eq:NN \xpinyin_replace_CJKsymbol:     \xpinyin_replace_CJKsymbol_aux:
     \cs_new_eq:NN \xpinyin_CJK_node:              \xeCJK_CJK_kern:
     \cs_new_eq:NN \xpinyin_CJK_ignorespaces:      \xeCJK_ignorespaces:
+    \cs_if_exist:NF \xpinyin_CJK_node:
+      { \cs_new_nopar:Npn \xpinyin_CJK_node: { \xeCJK_make_node:n { CJK } } }
     \tl_gset:Nn \l_xpinyin_coor_tl
       { (\cs_meaning:N \l_xpinyin_font_tl)/\l_xeCJK_font_coor_tl/\l_xpinyin_ratio_tl }
     \cs_new_nopar:Nn \xpinyin_CJKsymbol_hook: { \makexeCJKinactive \xeCJK_select_font: }
@@ -687,12 +696,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \xpinyin_xpinyin_init:
     \bool_set_true:N \l_xpinyin_first_bool
-    \xpinyin_xpinyin_aux:N #1 \q_recursion_tail
-    \prg_break_point:n
-      {
-        \bool_if:NTF \l_xpinyin_first_bool {#1}
-          { \tl_if_empty:NF \l_tmpc_tl { \l_xpinyin_pysep_tl \l_tmpc_tl } }
-      }
+    \tl_set:Nn \l_xpinyin_save_tl {#1}
+    \xpinyin_xpinyin_aux:N #1 \q_recursion_tail \q_recursion_stop
   }
 %    \end{macrocode}
 % \end{macro}
@@ -701,7 +706,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xpinyin_xpinyin_aux:N
   {
-    \quark_if_recursion_tail_break:N #1
+    \quark_if_recursion_tail_stop_do:Nn #1
+      {
+        \bool_if:NTF \l_xpinyin_first_bool { \l_xpinyin_save_tl }
+          { \tl_if_empty:NF \l_tmpc_tl { \l_xpinyin_pysep_tl \l_tmpc_tl } }
+      }
     \xpinyin_if_number:NTF {#1}
       {
         \bool_if:NTF \l_xpinyin_first_bool
@@ -746,7 +755,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \bool_if:nTF
           { \str_if_eq_p:Vn \l_tmpc_tl { l } || \str_if_eq_p:Vn \l_tmpc_tl { n } }
-          { \exp_not:n { ü } } { u }
+          { \exp_not:n { ü} } { u }
       }
       { \exp_not:n {#1} }
   }
@@ -796,14 +805,14 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Nn \xpinyin_num_to_tone:Nn
   {
-    \if_case:w \int_eval:w #2 - \c_one \int_eval_end:
+    \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
       \= {#1}  \or: \'{#1}  \or: \v {#1}  \or: \` {#1}  \else: #1 \fi:
   }
 \tl_map_inline:nn { a o e u }
   { \cs_new_eq:cN { xpinyin_num_to_tone_ #1 :Nn } \xpinyin_num_to_tone:Nn }
 \cs_new_nopar:Nn \xpinyin_num_to_tone_i:Nn
   {
-    \if_case:w \int_eval:w #2 - \c_one \int_eval_end:
+    \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
       ī  \or: í  \or: ǐ  \or: ì \else: i \fi:
   }
 \cs_new_nopar:Nn \xpinyin_num_to_tone_v:Nn
@@ -811,7 +820,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \bool_if:nTF
       { \str_if_eq_p:Vn \l_tmpa_tl { l } || \str_if_eq_p:Vn \l_tmpa_tl { n } }
       {
-        \if_case:w \int_eval:w #2 - \c_one \int_eval_end:
+        \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
           ǖ  \or: ǘ  \or: ǚ  \or: ǜ \else: ü \fi:
       }
       { \xpinyin_num_to_tone:Nn u {#2} }
