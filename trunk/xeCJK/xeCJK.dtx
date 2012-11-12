@@ -145,7 +145,7 @@ $URL$
 %</driver>
 %<package>\ProvidesExplPackage
 %<package>  {\ExplFileName}
-  {\ExplFileDate}{3.0.10}{\ExplFileDescription}
+  {\ExplFileDate}{3.1.0}{\ExplFileDescription}
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -161,7 +161,10 @@ $URL$
 \normalem
 \fvset{formatcom=\CJKfixedspacing}
 \linespread{1.1}
-\setlist{nosep}
+\setlist{noitemsep,topsep=1ex}
+\newlist{optiondesc}{description}{3}
+\setlist[optiondesc]{font=\mdseries\ttfamily,align=right,labelsep=.5em,leftmargin=4.5em}
+\def\PSKeyVal#1#2{\item[#1]\makebox[4em][l]{\meta{#2}}\ignorespaces}
 \setmainfont[Ligatures=TeX]{TeX Gyre Pagella}
 \setmonofont{Inconsolata}
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
@@ -223,7 +226,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3298}
+% \CheckSum{3362}
 % \DoNotIndex{\T,\F,\C,\J,\K,\O,\U,\Z,\E,\R,\M,\A,\Y,\R,\;,\t,\c,\:,\\,\@}
 % \GetFileInfo{\jobname.dtx}
 %
@@ -239,7 +242,7 @@ $URL$
 % \section{简介}
 %
 % \pkg{xeCJK} 是一个 \XeLaTeX 宏包，用于排版中日韩（CJK）文字。主要功能：
-% \begin{enumerate}[labelindent=\parindent,leftmargin=*,topsep=1ex]
+% \begin{enumerate}[labelindent=\parindent,leftmargin=*]
 % \item 分别设置 CJK 和英文字体；
 % \item 自动忽略 CJK 文字间的空格而保留其它空格，允许在非标点汉字和英文
 % 字母 (a--z, A--Z) 间断行；
@@ -446,17 +449,19 @@ $URL$
 %
 % \begin{function}{PunctStyle}
 %   \begin{syntax}
-%     PunctStyle = \marg{\defaultvar{quanjiao}\orvar{}banjiao\orvar{}kaiming\orvar{}hangmobanjiao\orvar{}CCT\orvar{}plain}
+%     PunctStyle = \marg{\defaultvar{quanjiao}\orvar{}banjiao\orvar{}kaiming\orvar{}hangmobanjiao\orvar{}CCT\orvar{}plain\orvar{}...}
 %   \end{syntax}
-%   设置标点处理格式，有效值分别为
-%   \begin{itemize}[font=\ttfamily,labelsep=1em,topsep=1ex]
+%   设置标点处理格式。\pkg{xeCJK} 中预先定义好的格式为
+%   \begin{description}[font=\mdseries\ttfamily,align=right,labelsep=1em,labelindent=2em,leftmargin=*]
 %     \item[quanjiao] 全角式：所有标点占一个汉字宽度，相邻两个标点占 1.5 汉字宽度；
 %     \item[banjiao]  半角式：所有标点占半个汉字宽度；
 %     \item[kaiming]  开明式：句末点号用全角，其他半角；
 %     \item[hangmobanjiao] 行末半角式：所有标点占一个汉字宽度，行首行末对齐；
 %     \item[CCT]   CCT 格式；
 %     \item[plain] 原样（不调整标点间距）。
-%   \end{itemize}
+%   \end{description}
+%   可以使用 \ref{subsec:punctstyle} 中介绍的 \cs{xeCJKDeclarePunctStyle} 定义新的标点
+%   格式。
 % \end{function}
 %
 % \begin{function}[EXP]{KaiMingPunct,KaiMingPunct+,KaiMingPunct-}
@@ -486,13 +491,13 @@ $URL$
 %
 % \begin{function}[EXP]{PunctWidth}
 %   \begin{syntax}
-%     PunctWidth = \Arg{dimen}
+%     PunctWidth = \Arg{length}
 %   \end{syntax}
 %   缺省状态下，\pkg{xeCJK} 会根据所选择的标点处理格式自动计算标点所占的宽度，如果对缺
 %   省设置不满意，可以通过这一选项来改变它。为了使得标点所占的宽度能够适应字体大小的变化，
 %   这里设置的 |dimen| 的单位最好用 |em| 等相对距离单位，而不建议使用诸如 |pt| 之类的
-%   绝对距离单位。这里的设置对除了 |plain| 以外的所有标点处理格式都有效。同时，这里的
-%   设置对所有的 CJK 标点都生效，如果只要设置部分标点，请使用 \ref{subsec:punct} 节的
+%   绝对距离单位。这里的设置可用于除了 |plain| 以外的所有标点处理格式。同时，这里的
+%   设置对所有的 CJK 标点都生效，如果只要设置部分标点，请使用 \ref{subsec:punct}~节的
 %   \cs{xeCJKsetwidth}。
 % \end{function}
 %
@@ -888,32 +893,185 @@ $URL$
 %   在 \meta{char list} 中出现的字符两端不自动添加空格，默认设置是 |/|。
 % \end{function}
 %
-% \subsection{设置标点宽度和间距}
+% \subsection{标点符号的处理}
+%
+% \pkg{xeCJK} 对标点符号的输出宽度的调整是通过调整其左边或右边的空白宽度来实现的。
+% 按照目前的处理方式，对于位于左边的标点符号（如左引号），\pkg{xeCJK} 只能调整它
+% 左边的空白；对于位于右边的标点符号（如右引号），\pkg{xeCJK} 只能调整它右边的空
+% 白；对于居中的标点符号，则调整其左右空白，以保证其居中。
+%
+% \subsubsection{设置特定标点符号的宽度和间距}
 % \label{subsec:punct}
 %
-% 这里的设置对除了 |plain| 以外的所有标点处理格式都有效。
+% 这里的设置可用于除 |plain| 以外的所有标点处理格式。
 %
 % \begin{function}[EXP]{\xeCJKsetwidth}
 %   \begin{syntax}
-%     \cs{xeCJKsetwidth} \Arg{标点列表} \Arg{dimen}
+%     \cs{xeCJKsetwidth} \Arg{标点列表} \Arg{length}
 %   \end{syntax}
 %   \meta{标点列表}可以是单个标点，也可以是多个标点。例如，
 %   \begin{verbatim}
 %     \xeCJKsetwidth{。？}{0.7em}
 %   \end{verbatim}
-%   将设置句号和问号所占的宽度为 |0.7em|。
+%   将设置句号和问号所占的宽度为 |0.7 em|。
 % \end{function}
 %
 % \begin{function}[EXP]{\xeCJKsetkern}
 %   \begin{syntax}
-%     \cs{xeCJKsetkern} \Arg{标点1} \Arg{标点2} \Arg{dimen}
+%     \cs{xeCJKsetkern} \Arg{前标点} \Arg{后标点} \Arg{length}
 %   \end{syntax}
-%   \pkg{xeCJK} 会根据选定的标点处理格式自动调整相邻两个 |CJK| 标点的距离。如果对缺省
-%   配置不满意，可以使用此命令设置两个标点之间的距离。例如，
+%   \pkg{xeCJK} 会根据选定的标点处理格式自动调整相邻的前后两个 |CJK| 标点符号的
+%   空白宽度。如果需要对个别情况进行特殊调整，可以使用这个命令。例如，
 %   \begin{verbatim}
 %     \xeCJKsetkern{：}{“}{0.3em}
 %   \end{verbatim}
+%   将设置冒号与左双引号之间的空白宽度为 |0.3 em|。
 % \end{function}
+%
+% \subsubsection{定义标点符号处理格式}
+% \label{subsec:punctstyle}
+%
+% \begin{function}[EXP]{\xeCJKDeclarePunctStyle}
+%   \begin{syntax}
+%     \cs{xeCJKDeclarePunctStyle} \Arg{style} \Arg{options}
+%   \end{syntax}
+%   定义新的标点符号处理格式，已经存在的同名格式将被覆盖。可以设置的选项将在下面介绍。
+% \end{function}
+%
+% \begin{function}[EXP]{\xeCJKEditPunctStyle}
+%   \begin{syntax}
+%     \cs{xeCJKEditPunctStyle} \Arg{style} \Arg{options}
+%   \end{syntax}
+%   修改已有的标点符号处理格式。\strut
+% \end{function}
+%
+% 下面是可以设置的标点符号格式选项。其中左边一栏是选项名称，中间是选项的输入值类
+% 型，右边则是相关说明。某些选项之间是互斥的，具有优先级关系。要使下一级的选项有
+% 效，则需要先禁用上一级的设置：对于 \meta{boolean} 类型的选项，将其设置为 |false|，
+% 而对于 \meta{length} 类型的选项，将其设置为 \cs{maxdimen}。
+%
+% \begin{optiondesc}
+%   \PSKeyVal{enabled-global-setting}{boolean}
+%     是否使用 \cs{xeCJKsetup} 的 |PunctWidth| 选项和 \cs{xeCJKsetwidth}、
+%     \cs{xeCJKsetkern} 的设置。默认值是 |true|。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{fixed-punct-width}{length}
+%     设置单个标点符号的宽度。默认值是 |1 em|，即标点符号的实际宽度。
+%   \PSKeyVal{mixed-punct-width}{length}
+%     设置句末标点符号的宽度。其中句末标点符号通过 \cs{xeCJKsetup} 的 |KaiMingPunct|
+%     来设置。默认值是与 |fixed-punct-width| 选项的值相同。
+%   \PSKeyVal{middle-punct-width}{length}
+%     设置居中标点符号的宽度。其中句末标点符号通过 \cs{xeCJKsetup} 的 |MiddlePunct|
+%     来设置。默认值是与 |fixed-punct-width| 选项的值相同。
+% \end{optiondesc}
+%
+% 以上三个选项设置的是标点的固定宽度，\pkg{xeCJK} 会根据设定的选项计算标点符号左/右
+% 的空白宽度。下面的选项设置的是标点符号左/右的空白宽度或比例，因此不同标点符号的宽
+% 度可能会不同。为了使下面的选项生效，需要先禁用上面的相应选项。优先级自上而下。
+%
+% \begin{optiondesc}
+%   \PSKeyVal{margin-width}{length}
+%     设置标点的左/右空白宽度。默认值是 \cs{maxdimen}。
+%   \PSKeyVal{margin-ratio}{real}
+%     设置标点的左/右空白宽度与字体中该标点的相应实际边界宽度的比例。默认值是 |1.0|。
+%   \PSKeyVal{margin-mixed-width}{length}
+%     设置句末标点的左/右空白宽度。默认值是与 |margin-width| 的值相同。
+%   \PSKeyVal{margin-mixed-ratio}{real}
+%     设置句末标点的左/右空白宽度的比例。默认值是与 |margin-ratio| 的值相同。
+%   \PSKeyVal{margin-middle-width}{length}
+%     设置居中标点的两边空白宽度。默认值是与 |margin-width| 的值相同。
+%   \PSKeyVal{margin-middle-ratio}{real}
+%     设置居中标点的两边空白宽度之和与两边实际两边边界宽度之和的比例。
+%     默认值是与 |margin-ratio| 的值相同。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{add-min-bound-to-margin}{boolean}
+%     是否在以上计算结果的基础上再加上标点的左右实际边界宽度中的最小值。这个选项
+%     对居中的标点无效。默认值是 |false|。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{optimize-margin}{boolean}
+%     使用以上设置空白宽度或比例的选项时，最终输出的标点符号左/右的空白宽度可能大
+%     于原来的实际边界宽度。若此时本选项被设置为 |true|，则使用原来的实际边界宽度。
+%     而使用 |fixed-punct-width| 选项计算得出的左/右宽度可能小于该标点的另一侧宽
+%     度，若此时本选项被启用，则使用该标点的另一侧宽度。默认值为 |false|。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{margin-minimum}{length}
+%     指定标点符号左/右的最小空白宽度。当经过以上选项设置的空白宽度小于这个选项的值
+%     时，则使用这个选项的值。默认值是 |0 pt|。
+% \end{optiondesc}
+%
+% 下面的选项处理的是前后相邻的两个标点符号之间的空白宽度。这些选项是互斥的，优先级
+% 自上而下。
+%
+% \begin{optiondesc}
+%   \PSKeyVal{enabled-kerning}{boolean}
+%     是否调整前后相邻的两个标点之间的空白宽度。如果设置为 |false|，则每个标点都按
+%     原来的输出宽度输出。默认值是 |true|。
+%   \PSKeyVal{min-bound-to-kerning}{boolean}
+%     是否使用当前字体中前面标点实际左右边界的最小值与后面标点实际左右边界的最小值
+%     中的最大值作为两个标点之间的空白宽度。默认值是 |false|。
+%   \PSKeyVal{kerning-total-width}{length}
+%     设置两个标点的总共宽度。此时 \pkg{xeCJK} 会自动计算两个标点之间的空白宽度。
+%     默认值是 |1.5 em|。
+%   \PSKeyVal{same-align-margin}{length}
+%     当前后两个标点位于同侧时，它们之间的空白宽度。默认值是 \cs{maxdimen}。
+%   \PSKeyVal{different-align-margin}{length}
+%     当前后两个标点位于异侧时，它们之间的空白宽度。默认值是 \cs{maxdimen}。
+%   \PSKeyVal{kerning-margin-width}{length}
+%     设置前后两个标点之间的空白宽度。默认值是 \cs{maxdimen}。
+%   \PSKeyVal{kerning-margin-ratio}{real}
+%     设置前后两个标点之间的空白宽度与实际输出空白的比例。默认值是 |1.0|。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{optimize-kerning}{boolean}
+%     使用以上选项计算出两个标点之间的空白宽度可能小于通过 |min-bound-to-kerning|
+%     选项得出的结果。当出现这一情况时，若此选项被设置为 |true|，则使用该选项的空
+%     白宽度。默认值为 |false|。
+% \end{optiondesc}
+%
+% \begin{optiondesc}
+%   \PSKeyVal{kerning-margin-minimum}{length}
+%     指定两个标点之间的最小空白宽度。当经过以上选项设置的空白宽度小于这个选项的值
+%     时，则使用这个选项的值。默认值是 |0 pt|。
+% \end{optiondesc}
+%
+% 事实上，\pkg{xeCJK} 的默认设置就相当于中文全角（|quanjiao|）格式。可以使用上面
+% 说明的选项定义新的标点处理格式。例如，使用
+% \begin{verbatim}
+% \xeCJKDeclarePunctStyle { mine }
+%   {
+%     fixed-punct-width       = \maxdimen ,
+%     margin-width            = 0 pt ,
+%     margin-mixed-width      = \maxdimen ,
+%     margin-mixed-ratio      = 0.5 ,
+%     margin-middle-width     = \maxdimen ,
+%     margin-middle-ratio     = 0.5 ,
+%     add-min-bound-to-margin = true ,
+%     kerning-total-width     = \maxdimen ,
+%     min-bound-to-kerning    = true ,
+%     kerning-margin-minimum  = 0.1 em
+%   }
+% \end{verbatim}
+% 就定义了一个名为 |mine| 的标点处理格式。可以在通过
+% \begin{verbatim}
+% \xeCJKsetup{PunctStyle=mine}
+% \end{verbatim}
+% 在文档中使用这个格式。它的意义是：使用标点符号的实际左右边界中的最小值作为其左/右
+% 空白的宽度，对于句末标点和居中标点，再加上实际边界空白的一半；使用相邻两个标点的
+% 实际边界中的较小值作为它们之间的空白宽度，并且最小的空白宽度是 |0.1 em|。
+% 再例如，使用
+% \begin{verbatim}
+% \xeCJKEditPunctStyle { hangmobanjiao } { enabled-global-setting = false }
+% \end{verbatim}
+% 将使得 \cs{xeCJKsetkern} 等的设置对 |hangmobanjiao| 这一格式无效。
 %
 % \section{已知问题和兼容性}
 %
@@ -1005,6 +1163,7 @@ $URL$
 \int_new:N \l_@@_tmpb_int
 \int_new:N \l_@@_tmpc_int
 \box_new:N \l_@@_tmp_box
+\dim_new:N \l_@@_tmp_dim
 \skip_new:N \g_@@_tmp_skip
 \prop_new:N \l_@@_tmp_prop
 \clist_new:N \l_@@_tmpa_clist
@@ -1088,7 +1247,7 @@ $URL$
       { \@@_info:nxx { patch-cmd } { \token_to_str:N #1 } { succeeded } }
       { \@@_warning:nxx { patch-cmd } { \token_to_str:N #1 } { failed } }
   }
-\@@_msg_new:nn { patch-cmd } { Patching~'#1'~#2! \\ }
+\@@_msg_new:nn { patch-cmd } { Patching~'#1'~#2! }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1353,7 +1512,7 @@ $URL$
 \clist_const:Nn \c_@@_CJK_chars_clist
   {
 %    \end{macrocode}
-% \begin{itemize}[leftmargin=0pt]
+% \begin{itemize}[nosep,leftmargin=0pt]
 % \item Hangul Jamo （谚文字母）
 %    \begin{macrocode}
      "1100 -> "11FF ,
@@ -1972,7 +2131,7 @@ $URL$
       { \xeCJK_class_group_end: \tex_ignorespaces:D }
   }
 \xeCJK_inter_class_toks:nnn { FullLeft }  { CJK } { \CJKsymbol }
-\xeCJK_inter_class_toks:nnn { FullRight } { CJK } { \xeCJK_CJK_and_CJK:N }
+\xeCJK_inter_class_toks:nnn { FullRight } { CJK } { \CJKglue \CJKsymbol }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -2032,16 +2191,24 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal,var]{\g_@@_last_punct_tl}
+% 用于记录当前的标点符号。
+%    \begin{macrocode}
+\tl_new:N \g_@@_last_punct_tl
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\xeCJK_after_FullLeft:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_after_FullLeft:
   {
     \xeCJK_no_break:
-    \xeCJK_get_punct_bounds:nV \c_@@_left_tl \l_@@_last_punct_tl
-    \@@_punct_if_middle:VT \l_@@_last_punct_tl
+    \@@_punct_if_middle:NT \g_@@_last_punct_tl
       {
-        \@@_punct_rule:NN \c_@@_right_tl \l_@@_last_punct_tl
-        \@@_punct_glue:NN \c_@@_left_tl  \l_@@_last_punct_tl
+        \xeCJK_get_punct_bounds:NN \c_@@_left_tl \g_@@_last_punct_tl
+        \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
+        \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \xeCJK_no_break:
       }
   }
 %    \end{macrocode}
@@ -2051,9 +2218,9 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_after_FullRight:
   {
-    \xeCJK_get_punct_bounds:nV \c_@@_right_tl \l_@@_last_punct_tl
-    \@@_punct_rule:NN \c_@@_right_tl \l_@@_last_punct_tl
-    \@@_punct_glue:NN \c_@@_right_tl \l_@@_last_punct_tl
+    \xeCJK_get_punct_bounds:NN \c_@@_right_tl \g_@@_last_punct_tl
+    \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+    \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2062,10 +2229,10 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_CJK_and_FullLeft:N #1
   {
-    \xeCJK_get_punct_bounds:nN \c_@@_left_tl {#1}
+    \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
     \int_compare:nNnF \etex_lastnodetype:D = \c_one
       { \CJKglue \@@_punct_glue:NN \c_@@_left_tl {#1} }
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \@@_punct_rule:NN \c_@@_left_tl {#1}
     \CJKpunctsymbol {#1}
   }
@@ -2076,18 +2243,18 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_CJK_and_FullRight:N #1
   {
-    \xeCJK_get_punct_bounds:nN \c_@@_right_tl {#1}
+    \xeCJK_get_punct_bounds:NN \c_@@_right_tl {#1}
     \@@_punct_if_long:NTF {#1}
       { \CJKglue }
       {
         \xeCJK_no_break:
         \@@_punct_if_middle:NT {#1}
           {
-            \@@_punct_rule:NN \c_@@_left_tl {#1}
             \@@_punct_glue:NN \c_@@_right_tl {#1}
+            \@@_punct_rule:NN \c_@@_left_tl  {#1}
           }
       }
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \CJKpunctsymbol {#1}
   }
 %    \end{macrocode}
@@ -2098,10 +2265,10 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_FullLeft_and_FullLeft:N #1
   {
     \xeCJK_no_break:
-    \xeCJK_get_punct_bounds:nN \c_@@_left_tl {#1}
-    \xeCJK_calc_kerning_margin:VN \l_@@_last_punct_tl {#1}
-    \@@_punct_kern:NN \l_@@_last_punct_tl {#1}
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
+    \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
+    \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl {#1}
+    \@@_punct_kern:NN \g_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \CJKpunctsymbol {#1}
   }
 %    \end{macrocode}
@@ -2112,10 +2279,10 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_FullLeft_and_FullRight:N #1
   {
     \xeCJK_no_break:
-    \xeCJK_get_punct_bounds:nN \c_@@_right_tl {#1}
-    \xeCJK_calc_kerning_margin:VN \l_@@_last_punct_tl {#1}
-    \@@_punct_kern:NN \l_@@_last_punct_tl {#1}
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
+    \xeCJK_get_punct_bounds:NN \c_@@_right_tl {#1}
+    \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl {#1}
+    \@@_punct_kern:NN \g_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \xeCJK_no_break:
     \CJKpunctsymbol {#1}
   }
@@ -2126,11 +2293,11 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_FullRight_and_FullLeft:N #1
   {
-    \xeCJK_get_punct_bounds:nN \c_@@_left_tl {#1}
-    \xeCJK_calc_kerning_margin:VN \l_@@_last_punct_tl {#1}
-    \@@_punct_kern:NN \l_@@_last_punct_tl {#1}
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
-    \@@_punct_nobreak:
+    \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
+    \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl {#1}
+    \@@_punct_kern:NN \g_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
+    \@@_punct_no_break:
     \CJKpunctsymbol {#1}
   }
 %    \end{macrocode}
@@ -2140,10 +2307,10 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_FullRight_and_FullRight:N #1
   {
-    \xeCJK_get_punct_bounds:nN \c_@@_right_tl {#1}
-    \xeCJK_calc_kerning_margin:VN \l_@@_last_punct_tl {#1}
-    \@@_punct_kern:NN \l_@@_last_punct_tl {#1}
-    \tl_gset:Nx \l_@@_last_punct_tl {#1}
+    \xeCJK_get_punct_bounds:NN \c_@@_right_tl {#1}
+    \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl {#1}
+    \@@_punct_kern:NN \g_@@_last_punct_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \xeCJK_no_break:
     \CJKpunctsymbol {#1}
   }
@@ -2449,12 +2616,12 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_erase_CJKsymbol:
   {
-    \cs_gset_eq:NN \@@_block_CJKsymbol:n \CJKsymbol
+    \cs_gset_eq:NN \@@_block_CJKsymbol:N \CJKsymbol
     \xeCJK_cs_gclear:N \CJKsymbol
   }
 \cs_new_protected_nopar:Npn \@@_restore_CJKsymbol:N
   {
-    \cs_gset_eq:NN \CJKsymbol \@@_block_CJKsymbol:n
+    \cs_gset_eq:NN \CJKsymbol \@@_block_CJKsymbol:N
     \CJKsymbol
   }
 %    \end{macrocode}
@@ -2659,9 +2826,9 @@ $URL$
 % \begin{macro}[internal]{\xeCJKallowbreakbetweenpuncts, \xeCJKnobreakbetweenpuncts}
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKallowbreakbetweenpuncts { }
-  { \cs_set_eq:NN \@@_punct_nobreak: \@@_zero_glue: }
+  { \cs_set_eq:NN \@@_punct_no_break: \@@_zero_glue: }
 \NewDocumentCommand \xeCJKnobreakbetweenpuncts { }
-  { \cs_set_eq:NN \@@_punct_nobreak: \xeCJK_no_break: }
+  { \cs_set_eq:NN \@@_punct_no_break: \xeCJK_no_break: }
 \cs_new_protected_nopar:Npn \@@_zero_glue: { \skip_horizontal:N \c_zero_skip }
 %    \end{macrocode}
 % \end{macro}
@@ -2670,31 +2837,40 @@ $URL$
 % {\g_@@_special_punct_clist,\@@_set_special_punct:nn,
 %  \@@_add_special_punct:nn, \@@_sub_special_punct:nn}
 %    \begin{macrocode}
-\clist_set:Nn \g_@@_special_punct_clist { mixed_width , long , middle }
+\clist_new:N \g_@@_special_punct_clist
+\clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , middle }
+\cs_new_nopar:Npn \@@_special_punct_seq:n #1 { g_@@_special_punct_#1_seq }
+\cs_new_nopar:Npn \@@_special_punct_tl:nN #1#2 { g_@@_special_punct_#1_#2_tl }
 \clist_map_inline:Nn \g_@@_special_punct_clist
-  {
-    \tl_new:c   { l_@@_#1_punct_tl   }
-    \prop_new:c { l_@@_#1_punct_prop }
-  }
+  { \seq_new:c { \@@_special_punct_seq:n {#1} } }
 \cs_new_protected_nopar:Npn \@@_set_special_punct:nn #1#2
   {
-    \tl_set:cx { l_@@_#1_punct_tl } {#2}
-    \prop_clear:c { l_@@_#1_punct_prop }
-    \tl_map_inline:cn { l_@@_#1_punct_tl }
-      { \prop_put:cnn  { l_@@_#1_punct_prop } {##1} { } }
+    \seq_map_inline:cn { \@@_special_punct_seq:n {#1} }
+      { \cs_undefine:c { \@@_special_punct_tl:nN {#1} {##1} } }
+    \seq_gclear:c { \@@_special_punct_seq:n {#1} }
+    \tl_map_inline:xn {#2}
+      {
+        \tl_new:c { \@@_special_punct_tl:nN {#1} {##1} }
+        \seq_gput_right:cn { \@@_special_punct_seq:n {#1} } {##1}
+      }
   }
 \cs_new_protected_nopar:Npn \@@_add_special_punct:nn #1#2
   {
-    \tl_put_right:cx { l_@@_#1_punct_tl } {#2}
-    \tl_map_inline:cn { l_@@_#1_punct_tl }
-      { \prop_put:cnn  { l_@@_#1_punct_prop } {##1} { } }
+    \tl_map_inline:xn {#2}
+      {
+        \seq_if_in:cnF { \@@_special_punct_seq:n {#1} } {##1}
+          {
+            \tl_new:c { \@@_special_punct_tl:nN {#1} {##1} }
+            \seq_gput_right:cn { \@@_special_punct_seq:n {#1} } {##1}
+          }
+      }
   }
 \cs_new_protected_nopar:Npn \@@_sub_special_punct:nn #1#2
   {
     \tl_map_inline:xn {#2}
       {
-        \tl_remove_all:cn { l_@@_#1_punct_tl } {##1}
-        \prop_remove:cn { l_@@_#1_punct_prop } {##1}
+        \cs_undefine:c { \@@_special_punct_tl:nN {#1} {##1} }
+        \seq_gremove_all:cn { \@@_special_punct_seq:n {#1} } {##1}
       }
   }
 %    \end{macrocode}
@@ -2714,11 +2890,10 @@ $URL$
   {
     \prg_new_conditional:cpnn { @@_punct_if_#1:N } ##1 { p , T , F , TF }
       {
-        \prop_if_in:cnTF { l_@@_#1_punct_prop } {##1}
-          { \prg_return_true: } { \prg_return_false: }
+        \if_cs_exist:w \@@_special_punct_tl:nN {#1} {##1} \cs_end:
+          \prg_return_true: \else: \prg_return_false: \fi:
       }
   }
-\cs_generate_variant:Nn \@@_punct_if_middle:NT { V }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2755,56 +2930,60 @@ $URL$
 %    \begin{macrocode}
 \DeclareTemplateInterface { xeCJK / punctuation } { basic } { 3 }
   {
-    enabled-global-setting : boolean = true ,
-    fixed-punct-width      : length  = 1 em ,
-    mixed-punct-width      : length  = \KeyValue { fixed-punct-width } ,
-    middle-punct-width     : length  = \KeyValue { fixed-punct-width } ,
-    margin-width           : length  = \c_max_dim ,
-    margin-ratio           : real    = \c_one_fp ,
-    margin-mixed-width     : length  = \KeyValue { margin-width } ,
-    margin-mixed-ratio     : real    = \KeyValue { margin-ratio } ,
-    margin-middle-width    : length  = \KeyValue { margin-width } ,
-    margin-middle-ratio    : real    = \KeyValue { margin-ratio } ,
-    margin-minimum         : length  = \c_zero_dim ,
-    optimize-margin        : boolean = true ,
-    enabled-kerning        : boolean = true ,
-    kerning-total-width    : length  = 1.5 em ,
-    min-bound-to-kerning   : boolean = false ,
-    same-align-margin      : length  = \c_max_dim ,
-    different-align-margin : length  = \c_max_dim ,
-    kerning-margin-width   : length  = \c_max_dim ,
-    kerning-margin-ratio   : real    = \c_one_fp ,
-    kerning-margin-minimum : length  = \c_zero_dim
+    enabled-global-setting  : boolean = true ,
+    fixed-punct-width       : length  = 1 em ,
+    mixed-punct-width       : length  = \KeyValue { fixed-punct-width } ,
+    middle-punct-width      : length  = \KeyValue { fixed-punct-width } ,
+    margin-width            : length  = \c_max_dim ,
+    margin-ratio            : real    = \c_one_fp ,
+    margin-mixed-width      : length  = \KeyValue { margin-width } ,
+    margin-mixed-ratio      : real    = \KeyValue { margin-ratio } ,
+    margin-middle-width     : length  = \KeyValue { margin-width } ,
+    margin-middle-ratio     : real    = \KeyValue { margin-ratio } ,
+    add-min-bound-to-margin : boolean = false ,
+    optimize-margin         : boolean = false ,
+    margin-minimum          : length  = \c_zero_dim ,
+    enabled-kerning         : boolean = true ,
+    min-bound-to-kerning    : boolean = false ,
+    kerning-total-width     : length  = 1.5 em ,
+    optimize-kerning        : boolean = false ,
+    same-align-margin       : length  = \c_max_dim ,
+    different-align-margin  : length  = \c_max_dim ,
+    kerning-margin-width    : length  = \c_max_dim ,
+    kerning-margin-ratio    : real    = \c_one_fp ,
+    kerning-margin-minimum  : length  = \c_zero_dim
   }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
 \DeclareTemplateCode { xeCJK / punctuation } { basic } { 3 }
   {
-    enabled-global-setting = \l_@@_enabled_global_setting_bool ,
-    fixed-punct-width      = \l_@@_fixed_punct_width_dim ,
-    mixed-punct-width      = \l_@@_mixed_punct_width_dim ,
-    middle-punct-width     = \l_@@_middle_punct_width_dim ,
-    margin-width           = \l_@@_margin_width_dim ,
-    margin-ratio           = \l_@@_margin_ratio_fp ,
-    margin-mixed-width     = \l_@@_margin_mixed_width_dim ,
-    margin-mixed-ratio     = \l_@@_margin_mixed_ratio_fp ,
-    margin-middle-width    = \l_@@_margin_middle_width_dim ,
-    margin-middle-ratio    = \l_@@_margin_middle_ratio_fp ,
-    margin-minimum         = \l_@@_margin_minimum_dim ,
-    optimize-margin        = \l_@@_optimize_margin_bool ,
-    enabled-kerning        = \l_@@_enabled_kerning_bool ,
-    kerning-total-width    = \l_@@_kerning_total_width_dim ,
-    min-bound-to-kerning   = \l_@@_min_bound_to_kerning_bool ,
-    same-align-margin      = \l_@@_same_align_margin_dim ,
-    different-align-margin = \l_@@_different_align_margin_dim ,
-    kerning-margin-width   = \l_@@_kerning_margin_width_dim ,
-    kerning-margin-ratio   = \l_@@_kerning_margin_ratio_fp ,
-    kerning-margin-minimum = \l_@@_kerning_margin_minimum_dim
+    enabled-global-setting  = \l_@@_enabled_global_setting_bool ,
+    fixed-punct-width       = \l_@@_fixed_punct_width_dim ,
+    mixed-punct-width       = \l_@@_mixed_punct_width_dim ,
+    middle-punct-width      = \l_@@_middle_punct_width_dim ,
+    margin-width            = \l_@@_margin_width_dim ,
+    margin-ratio            = \l_@@_margin_ratio_fp ,
+    margin-mixed-width      = \l_@@_margin_mixed_width_dim ,
+    margin-mixed-ratio      = \l_@@_margin_mixed_ratio_fp ,
+    margin-middle-width     = \l_@@_margin_middle_width_dim ,
+    margin-middle-ratio     = \l_@@_margin_middle_ratio_fp ,
+    add-min-bound-to-margin = \l_@@_add_min_bound_to_margin_bool ,
+    optimize-margin         = \l_@@_optimize_margin_bool ,
+    margin-minimum          = \l_@@_margin_minimum_dim ,
+    enabled-kerning         = \l_@@_enabled_kerning_bool ,
+    min-bound-to-kerning    = \l_@@_min_bound_to_kerning_bool ,
+    kerning-total-width     = \l_@@_kerning_total_width_dim ,
+    optimize-kerning        = \l_@@_optimize_kerning_bool ,
+    same-align-margin       = \l_@@_same_align_margin_dim ,
+    different-align-margin  = \l_@@_different_align_margin_dim ,
+    kerning-margin-width    = \l_@@_kerning_margin_width_dim ,
+    kerning-margin-ratio    = \l_@@_kerning_margin_ratio_fp ,
+    kerning-margin-minimum  = \l_@@_kerning_margin_minimum_dim
   }
   {
     \AssignTemplateKeys
-    \xeCJK_if_blank_x:nTF {#3}
+    \tl_if_blank:nTF {#3}
       { \xeCJK_punct_margin_process:nN {#1} {#2} }
       { \xeCJK_punct_kerning_process:NN {#2} {#3} }
   }
@@ -2820,7 +2999,7 @@ $URL$
         \@@_use_punct_dim:nnn { bound }
           { \xeCJK_reverse:nnn {#1} \c_@@_left_tl \c_@@_right_tl } {#2}
       }
-    \dim_set:Nn \l_tmpa_dim
+    \dim_set:Nn \l_@@_tmp_dim
       {
         \bool_if:NTF \l_@@_enabled_global_setting_bool
           {
@@ -2848,13 +3027,22 @@ $URL$
         \dim_max:nn
           { \l_@@_margin_minimum_dim }
           {
-            \dim_compare:nNnTF \l_tmpa_dim < \c_max_dim
+            \dim_compare:nNnTF \l_@@_tmp_dim < \c_max_dim
               {
                 \@@_punct_if_middle:NTF {#2}
-                  { ( \l_tmpa_dim - ( \@@_use_punct_dim:nn { dimen } {#2} ) ) / \c_two }
                   {
-                    \l_tmpa_dim - ( \l_@@_tmpb_tl )
-                    - ( \@@_use_punct_dim:nn { dimen } {#2} )
+                    (
+                      \l_@@_tmp_dim - ( \@@_use_punct_dim:nn { dimen } {#2} )
+                    ) / \c_two
+                  }
+                  {
+                    \bool_if:NTF \l_@@_optimize_margin_bool
+                      { \dim_max:nn { \dim_min:nn \l_@@_tmpa_tl \l_@@_tmpb_tl } }
+                      { \use:n }
+                      {
+                        \l_@@_tmp_dim - ( \l_@@_tmpb_tl )
+                        - ( \@@_use_punct_dim:nn { dimen } {#2} )
+                      }
                   }
               }
               {
@@ -2882,7 +3070,10 @@ $URL$
                           }
                       }
                       { \etex_dimexpr:D \l_@@_tmpa_tl \scan_stop: }
-                      { + \dim_min:nn { \l_@@_tmpa_tl } { \l_@@_tmpb_tl } }
+                      {
+                        \bool_if:NT \l_@@_add_min_bound_to_margin_bool
+                          { + \dim_min:nn \l_@@_tmpa_tl \l_@@_tmpb_tl }
+                      }
                       {
                         \etex_dimexpr:D
                           ( \l_@@_tmpa_tl + \l_@@_tmpb_tl ) / \c_two
@@ -2904,70 +3095,83 @@ $URL$
       {
         \dim_eval:n
           {
-            \bool_if:NTF \l_@@_enabled_kerning_bool
+            \bool_if:nTF
               {
-                \bool_if:nTF
-                  {
-                    \l_@@_enabled_global_setting_bool &&
-                    \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
-                  }
-                  { \tl_use:c { g_@@_punct/kern/#1/#2/tl } }
-                  { \@@_punct_calc_kerning:NN {#1} {#2} }
-                - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
-                - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
+                \l_@@_enabled_global_setting_bool &&
+                \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
               }
-              { \c_zero_dim }
+              { \tl_use:c { g_@@_punct/kern/#1/#2/tl } }
+              {
+                \bool_if:NTF \l_@@_enabled_kerning_bool
+                  { \@@_calc_kerning_margin:NN {#1} {#2} }
+                  { \@@_original_kerning_margin:NN {#1} {#2} }
+              }
+            - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
+            - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
           }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_punct_calc_kerning:NN}
+% \begin{macro}[internal]{\@@_original_kerning_margin:NN}
+% 相邻两个标点符号之间的本来空白宽度。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \@@_punct_calc_kerning:NN #1#2
+\cs_new_nopar:Npn \@@_original_kerning_margin:NN #1#2
+  {
+    \dim_eval:n
+      {
+        \@@_use_punct_dim:nnn
+          { \@@_punct_if_right:NTF {#1} { glue } { bound } }
+          { \c_@@_right_tl } {#1} +
+        \@@_use_punct_dim:nnn
+          { \@@_punct_if_right:NTF {#2} { bound } { glue } }
+          { \c_@@_left_tl  } {#2}
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_calc_kerning_margin:NN}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_calc_kerning_margin:NN #1#2
   {
     \dim_max:nn
       { \l_@@_kerning_margin_minimum_dim }
       {
-        \dim_compare:nNnTF \l_@@_kerning_total_width_dim < \c_max_dim
-          { \xeCJK_calc_kerning_margin:nNN \l_@@_kerning_total_width_dim {#1} {#2} }
+        \bool_if:NTF \l_@@_min_bound_to_kerning_bool
+          { \@@_punct_min_bound:NN  {#1} {#2} }
           {
-            \bool_if:NTF \l_@@_min_bound_to_kerning_bool
+            \bool_if:NTF \l_@@_optimize_kerning_bool
+              { \dim_max:nn { \@@_punct_min_bound:NN  {#1} {#2} } }
+              { \use:n }
               {
-                \dim_max:nn
+                \dim_compare:nNnTF \l_@@_kerning_total_width_dim < \c_max_dim
                   {
-                    \dim_min:nn
-                      { \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#1} }
-                      { \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} }
+                    \@@_calc_kerning_margin:nNN
+                      \l_@@_kerning_total_width_dim {#1} {#2}
                   }
                   {
-                    \dim_min:nn
-                      { \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} }
-                      { \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#2} }
-                  }
-              }
-              {
-                \xeCJK_if_same_class:NNTF {#1} {#2}
-                  {
-                    \dim_compare:nNnTF \l_@@_same_align_margin_dim < \c_max_dim
-                      { \l_@@_same_align_margin_dim \use_none:n }
-                      { \use:n }
-                  }
-                  {
-                    \dim_compare:nNnTF \l_@@_different_align_margin_dim < \c_max_dim
-                      { \l_@@_different_align_margin_dim \use_none:n }
-                      { \use:n }
-                  }
-                  {
-                    \dim_compare:nNnTF \l_@@_kerning_margin_width_dim < \c_max_dim
-                      { \l_@@_kerning_margin_width_dim }
+                    \xeCJK_if_same_class:NNTF {#1} {#2}
                       {
-                        \fp_use:N \l_@@_kerning_margin_ratio_fp
-                        \etex_dimexpr:D
-                          \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} +
-                          \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2}
-                        \scan_stop:
+                        \dim_compare:nNnTF \l_@@_same_align_margin_dim < \c_max_dim
+                          { \l_@@_same_align_margin_dim \use_none:n }
+                          { \use:n }
+                      }
+                      {
+                        \dim_compare:nNnTF \l_@@_different_align_margin_dim < \c_max_dim
+                          { \l_@@_different_align_margin_dim \use_none:n }
+                          { \use:n }
+                      }
+                      {
+                        \dim_compare:nNnTF \l_@@_kerning_margin_width_dim < \c_max_dim
+                          { \l_@@_kerning_margin_width_dim }
+                          {
+                            \fp_use:N \l_@@_kerning_margin_ratio_fp
+                            \etex_dimexpr:D
+                              \@@_original_kerning_margin:NN {#1} {#2}
+                            \scan_stop:
+                          }
                       }
                   }
               }
@@ -2977,22 +3181,68 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_calc_kerning_margin:nNN}
+% \begin{macro}[internal]{\@@_punct_min_bound:NN}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_punct_min_bound:NN #1#2
+  {
+    \dim_max:nn
+      {
+        \dim_min:nn
+          { \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#1} }
+          { \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} }
+      }
+      {
+        \dim_min:nn
+          { \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} }
+          { \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#2} }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_calc_kerning_margin:nNN}
 % |#2| 和 |#3| 为相邻的两个标点，|#1| 为要确定的相邻两个标点总共占的宽度。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \xeCJK_calc_kerning_margin:nNN #1#2#3
+\cs_new_nopar:Npn \@@_calc_kerning_margin:nNN #1#2#3
   {
     \dim_eval:n
       {
         (#1)
         - ( \@@_use_punct_dim:nnn
               { \@@_punct_if_right:NTF {#2} { bound } { glue } }
-              \c_@@_left_tl {#2} )
+              { \c_@@_left_tl } {#2} )
         - ( \@@_use_punct_dim:nnn
               { \@@_punct_if_right:NTF {#3} { glue } { bound } }
-              \c_@@_right_tl {#3} )
+              { \c_@@_right_tl } {#3} )
         - ( \@@_use_punct_dim:nn { dimen } {#2} )
         - ( \@@_use_punct_dim:nn { dimen } {#3} )
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_get_punct_bounds:NN}
+% |#1| 为 \cs{c_@@_left_tl} 或 \cs{c_@@_right_tl}，|#2| 为标点符号。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:NN #1#2
+  {
+    \tl_if_exist:cF { \@@_punct_dim_csname:nnn { glue } {#1} {#2} }
+      {
+        \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
+          {
+            \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { 0 pt }
+            \@@_gset_punct_dim:nnnx { bound } \c_@@_left_tl  {#2} { 0 pt }
+            \@@_gset_punct_dim:nnnx { bound } \c_@@_right_tl {#2} { 0 pt }
+          }
+          {
+            { \xeCJK_select_font: \xeCJK_calc_punct_dimen:f {#2} }
+            \@@_punct_if_long:NTF {#2}
+              { \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { 0 pt } }
+              {
+                \exp_args:NnV \UseInstance { xeCJK / punctuation }
+                  \l_xeCJK_punct_style_tl {#1} {#2} { }
+              }
+          }
       }
   }
 %    \end{macrocode}
@@ -3005,29 +3255,34 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_calc_punct_dimen:N #1
   {
     \@@_gset_punct_dim:nnnx { bound } \c_@@_left_tl {#1}
-      { \xeCJK_glyph_bounds:NN \c_one   {#1} }
+      { \xeCJK_glyph_bounds:NN \c_one {#1} }
     \@@_gset_punct_dim:nnnx { bound } \c_@@_right_tl {#1}
       { \xeCJK_glyph_bounds:NN \c_three {#1} }
-    \dim_set:Nn \l_tmpa_dim
+    \dim_set:Nn \l_@@_tmp_dim
       {
         ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#1} ) +
         ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
       }
     \@@_gset_punct_dim:nnx { dimen } {#1}
-      { \dim_eval:n { ( \etex_fontcharwd:D \tex_font:D `#1 ) - \l_tmpa_dim } }
-    \bool_if:nT
-      {
-        \@@_punct_if_long_p:N {#1} &&
-        ! ( \str_if_eq_p:nn {#1} { ^^^^2025 } || \str_if_eq_p:nn {#1} { ^^^^2026 } )
-      }
+      { \dim_eval:n { ( \etex_fontcharwd:D \tex_font:D `#1 ) - \l_@@_tmp_dim } }
+    \@@_punct_if_long:NT {#1}
       {
         \seq_map_inline:Nn \g_@@_punct_style_seq
           {
             \@@_gset_punct_dim:nnnnx {##1} { kern } {#1} {#1}
-              { - \dim_use:N \l_tmpa_dim }
+              {
+                \bool_if:nTF
+                  {
+                    \str_if_eq_p:nn {#1} { ^^^^2025 } ||
+                    \str_if_eq_p:nn {#1} { ^^^^2026 }
+                  }
+                  { 0 pt }
+                  { - \dim_use:N \l_@@_tmp_dim }
+              }
           }
       }
   }
+\cs_generate_variant:Nn \xeCJK_calc_punct_dimen:N { f }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3039,40 +3294,10 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_get_punct_bounds:nN,\xeCJK_get_punct_bounds:nV}
-% |#1| 为 \cs{c_@@_left_tl} 或 \cs{c_@@_right_tl}，|#2| 为标点符号。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:nN #1#2
-  {
-    \tl_if_exist:cF { \@@_punct_dim_csname:nnn { glue } {#1} {#2} }
-      {
-        \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
-          {
-            \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { 0 pt }
-            \@@_gset_punct_dim:nnnx { bound } \c_@@_left_tl  {#2} { 0 pt }
-            \@@_gset_punct_dim:nnnx { bound } \c_@@_right_tl {#2} { 0 pt }
-          }
-          {
-            \tl_if_exist:cF { \@@_punct_dim_csname:nnn { bound } {#1} {#2} }
-              { { \xeCJK_select_font: \xeCJK_calc_punct_dimen:N {#2} } }
-            \@@_punct_if_long:NTF {#2}
-              { \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { 0 pt } }
-              {
-                \exp_args:NnV \UseInstance { xeCJK / punctuation }
-                  \l_xeCJK_punct_style_tl {#1} {#2} { }
-              }
-          }
-      }
-  }
-\cs_generate_variant:Nn \xeCJK_get_punct_bounds:nN { nV }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]
-%   {\xeCJK_calc_kerning_margin:NN,\xeCJK_calc_kerning_margin:VN}
+% \begin{macro}[internal]{\xeCJK_get_punct_kerning:NN}
 % 标点挤压。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_calc_kerning_margin:NN #1#2
+\cs_new_protected_nopar:Npn \xeCJK_get_punct_kerning:NN #1#2
   {
     \tl_if_exist:cF { \@@_punct_dim_csname:nnn { kern } {#1} {#2} }
       {
@@ -3084,7 +3309,7 @@ $URL$
           }
       }
   }
-\cs_generate_variant:Nn \xeCJK_calc_kerning_margin:NN { V }
+\cs_generate_variant:Nn \xeCJK_get_punct_kerning:NN { o }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3102,29 +3327,51 @@ $URL$
       { \tl_set_eq:NN \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl } ,
     PunctStyle / unknown       .code:n =
       {
-        \exp_args:NnV \IfInstanceExistTF { xeCJK / punctuation } \l_keys_value_tl
-          { \tl_set_eq:NN \l_xeCJK_punct_style_tl \l_keys_value_tl }
-          { \@@_error:nx { PunctStyle-undefined } { \l_keys_value_tl } }
+        \IfInstanceExistTF { xeCJK / punctuation } { \l_keys_value_tl }
+          { \tl_set:Nx \l_xeCJK_punct_style_tl { \l_keys_value_tl } }
+          { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
       }
   }
 \tl_const:Nn \c_@@_punct_style_plain_tl { plain }
-\@@_msg_new:nn { PunctStyle-undefined }
+\@@_msg_new:nn { punct-style-unknown }
   {
-    Punctstyle~"#1"~is~not~available. \\\\
-    You~can~only~use~one~of\\\\
+    Punctuation~style~"#1"~is~unknown. \\\\
+    The~available~styles~are~listed~as~follow.\\\\
     "plain,~\seq_use:Nnnn \g_@@_punct_style_seq { ~and~ } { ,~ } { ,~and~ }".\\
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\xeCJKDeclarePunctStyle}
+% 定义新的标点处理风格，已经存在的同名风格将被覆盖。
 %    \begin{macrocode}
-\NewDocumentCommand \xeCJKDeclarePunctStyle { m m }
+\NewDocumentCommand \xeCJKDeclarePunctStyle { > { \TrimSpaces } m m }
   {
+    \IfInstanceExistTF { xeCJK / punctuation } {#1}
+      { \@@_warning:nx { punct-style-already-defined } {#1} }
+      { \seq_gput_right:Nn \g_@@_punct_style_seq {#1} }
     \DeclareInstance { xeCJK / punctuation } {#1} { basic } {#2}
-    \seq_gput_right:Nn \g_@@_punct_style_seq {#1}
   }
 \seq_new:N \g_@@_punct_style_seq
+\@@_msg_new:nn { punct-style-already-defined }
+  {
+    Punctuation~style~"#1"~is~already~defined!. \\\\
+    The~existing~style~of~"#1"~will~be~overwritten.\\
+  }
+\@onlypreamble \xeCJKDeclarePunctStyle
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\xeCJKEditPunctStyle}
+% 对已有的标点处理风格进行修改。
+%    \begin{macrocode}
+\NewDocumentCommand \xeCJKEditPunctStyle { > { \TrimSpaces } m m }
+  {
+    \IfInstanceExistTF { xeCJK / punctuation } {#1}
+      { \EditInstance { xeCJK / punctuation } {#1} { basic } {#2} }
+      { \@@_error:nx { punct-style-unknown } {#1} }
+  }
+\@onlypreamble \xeCJKEditPunctStyle
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3134,40 +3381,38 @@ $URL$
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+\xeCJKDeclarePunctStyle { hangmobanjiao } { enabled-kerning = false }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \xeCJKDeclarePunctStyle { banjiao }
   {
-    fixed-punct-width      = 0.5 em ,
-    kerning-total-width    = 1 em ,
-    kerning-margin-minimum = 0.1 em
+    fixed-punct-width   = 0.5 em ,
+    optimize-margin     = true ,
+    kerning-total-width = 1 em ,
+    optimize-kerning    = true
   }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
 \xeCJKDeclarePunctStyle { kaiming }
   {
-    fixed-punct-width      = \c_max_dim ,
-    margin-width           = \c_zero_dim ,
-    margin-mixed-width     = \c_max_dim ,
-    margin-mixed-ratio     = 0.5 ,
-    margin-middle-width    = \c_max_dim ,
-    margin-middle-ratio    = 0.5 ,
-    kerning-total-width    = \c_max_dim ,
-    min-bound-to-kerning   = true ,
-    kerning-margin-minimum = 0.1 em
+    fixed-punct-width   = 0.5 em ,
+    mixed-punct-width   = 0.8 em ,
+    optimize-margin     = true ,
+    kerning-total-width = 1 em ,
+    optimize-kerning    = true
   }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
 \xeCJKDeclarePunctStyle { CCT }
   {
-    fixed-punct-width      = 0.75 em ,
-    kerning-total-width    = 1.25 em ,
-    kerning-margin-minimum = 0.1 em
+    fixed-punct-width   = 0.7 em ,
+    optimize-margin     = true ,
+    kerning-total-width = 1.2 em ,
+    optimize-kerning    = true
   }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\xeCJKDeclarePunctStyle { hangmobanjiao } { enabled-kerning = false }
 %    \end{macrocode}
 %
 % \subsection{后备字体}
@@ -3522,6 +3767,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_remove_duplicate_keys:N #1
   {
+    \prop_clear:N \l_@@_tmp_prop
     \keyval_parse:NNV \@@_prop_put_aux:n \@@_prop_put_aux:nn #1
     \clist_clear:N #1
     \prop_map_inline:Nn \l_@@_tmp_prop
@@ -4340,7 +4586,15 @@ $URL$
 %
 % \subsection{\pkg{xeCJK} 初始化设置}
 %
+% \begin{macro}[internal]{\CJKsymbol, \CJKpunctsymbol}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \CJKsymbol      #1 {#1}
+\cs_new_nopar:Npn \CJKpunctsymbol #1 {#1}
+%    \end{macrocode}
+% \end{macro}
+%
 % \pkg{xeCJK} 宏包的初始化设置。
+%
 %    \begin{macrocode}
 \keys_set:nn { xeCJK / options }
   {
@@ -4372,13 +4626,6 @@ $URL$
 % \begin{macro}[internal,var]{\c_@@_encoding_tl}
 %    \begin{macrocode}
 \tl_const:Nx \c_@@_encoding_tl { \g_fontspec_encoding_tl }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\CJKsymbol, \CJKpunctsymbol}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \CJKsymbol      #1 {#1}
-\cs_new_nopar:Npn \CJKpunctsymbol #1 {#1}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4677,7 +4924,7 @@ $URL$
     \cs_set_protected_nopar:Npn \Unicode #1#2
       { \tex_char:D \int_eval:n { (#1) * \c_two_hundred_fifty_six + (#2) } ~ }
     \RequirePackage { CJKnumb }
-    \use:c { @@_enc_ \CJK@UnicodeEnc _hook: }
+    \cs_if_exist_use:c { @@_enc_ \CJK@UnicodeEnc _hook: }
     \tl_set:Nn \CJK@tenthousand    { \Unicode { 78 } { 7 } }
     \tl_set:Nn \CJK@hundredmillion { \Unicode { 78 } { 191 } }
   }
