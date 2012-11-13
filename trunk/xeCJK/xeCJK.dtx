@@ -226,7 +226,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3362}
+% \CheckSum{3400}
 % \DoNotIndex{\T,\F,\C,\J,\K,\O,\U,\Z,\E,\R,\M,\A,\Y,\R,\;,\t,\c,\:,\\,\@}
 % \GetFileInfo{\jobname.dtx}
 %
@@ -251,7 +251,7 @@ $URL$
 % \end{enumerate}
 %
 % \pkg{xeCJK} 使用了 \XeTeX 的一些最新特性，需要 \XeTeX{} |0.9995.0 [2009/06/29]| 以
-% 后的版本。\pkg{xeCJK} 依赖 \LaTeX~3 项目的宏包套件 \package{l3kernel} 和
+% 后的版本。\pkg{xeCJK} 依赖 \hologo{LaTeX3} 项目的宏包套件 \package{l3kernel} 和
 % \package{l3packages}。\pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字
 % 体。将在 \ref{subsec:opts}~节介绍的功能选项 |CJKnumber| 需要 \package{CJK} 宏包套
 % 件中的 \pkg{CJKnumb} 的支持。此外还需要 \package{xpatch} 和 \package{etoolbox} 宏包。
@@ -1233,8 +1233,9 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_cs_add:Nnn}
-% 给已有宏内容前后附加补丁。
+% \begin{macro}[internal]{\xeCJK_cs_add:Nnn,\xeCJK_cs_patch:Nnn}
+% 在已有宏内容打补丁：在其前后附加内容或者替换掉它的某些内容，只替换掉第一次匹配
+% 的内容。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_cs_add:Nnn #1#2#3
   {
@@ -1244,6 +1245,12 @@ $URL$
         \tl_if_empty:nTF {#2} { \xapptocmd {#1} {#3} }
           { \xpretocmd {#1} {#2} { \xapptocmd {#1} {#3} } { \use_ii:nn } }
       }
+      { \@@_info:nxx { patch-cmd } { \token_to_str:N #1 } { succeeded } }
+      { \@@_warning:nxx { patch-cmd } { \token_to_str:N #1 } { failed } }
+  }
+\cs_new_protected:Npn \xeCJK_cs_patch:Nnn #1#2#3
+  {
+    \xpatchcmd {#1} {#2} {#3}
       { \@@_info:nxx { patch-cmd } { \token_to_str:N #1 } { succeeded } }
       { \@@_warning:nxx { patch-cmd } { \token_to_str:N #1 } { failed } }
   }
@@ -2024,9 +2031,13 @@ $URL$
   {
     \xeCJK_inter_class_toks:nnn {#1} { Boundary }
       {
-        \peek_catcode:NTF \c_space_token
-          { { \xeCJK_make_node:n { default-space } } }
-          { { \xeCJK_make_node:n { default } } }
+        \peek_meaning_remove:NTF \/
+          { \/ { \xeCJK_make_node:n { default } } }
+          {
+            \token_if_space:NTF \l_peek_token
+              { { \xeCJK_make_node:n { default-space } } }
+              { { \xeCJK_make_node:n { default } } }
+          }
       }
     \str_if_eq:nnF {#1} { NormalSpace }
       { \xeCJK_pre_inter_class_toks:nnn {#1} { CJK } { \CJKecglue } }
@@ -2176,7 +2187,6 @@ $URL$
     \skip_horizontal:n
       {
         \@@_use_punct_dim:nnn { glue } {#1} {#2}
-        plus  \dim_eval:n { ( \@@_use_punct_dim:nnn { glue } {#1} {#2} ) / \c_four }
         minus \dim_eval:n { ( \@@_use_punct_dim:nnn { glue } {#1} {#2} ) / \c_two }
       }
   }
@@ -4700,44 +4710,81 @@ $URL$
 \cs_set_eq:NN \reset@font \normalfont
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{\@@_fix_itcorr:}
-% 修复倾斜校正。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_fix_itcorr:
-  {
-    \scan_stop:
-    \xeCJK_if_last_node:nTF { default }
-      {
-        \tex_unkern:D \tex_unkern:D
-        \xeCJK_original_itcorr:
-        { \xeCJK_make_node:n { default-itcorr } }
-      }
-      { \xeCJK_original_itcorr: }
-  }
-\cs_new_eq:NN \xeCJK_original_itcorr: \/
-\cs_set_protected_nopar:Npn \/
-  {
-    \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
-      { \@@_fix_itcorr: } { \xeCJK_original_itcorr: }
-  }
-%    \end{macrocode}
-%
 % \newbox\xeCJKtmpbox
 % \setbox\xeCJKtmpbox\vbox\bgroup
 %    \begin{macrocode}
 %<@@=>
 %    \end{macrocode}\egroup
-% \vspace{-2\MacrocodeTopsep}
 %
+% \begin{macro}[internal]{\xeCJK@fix@penalty}
+% \changes{v3.1.0}{2012/11/13}{采用通过不修改原语 \cs{/}（\cs{@@italiccorr}） 的
+%   方式对修复倾斜校正。}
+% 对 \hologo{LaTeX2e} 内核中的 \cs{fix@penalty} 被用于诸如 \cs{textit} 之类的文档
+% 字体转换命令的定义之中。这里对它进行补丁的目的是使修复其中的倾斜校正，并使得这些
+% 文档命令与紧随其后的汉字之间可以正确的插入 \cs{CJKecglue} 或者忽略其中的空格。
+% 例如 \verb*|这是 \emph{强调} 文本|，第二个空格可以被忽略掉。如果使用 |xCJKecglue|
+% 选项，第一个空格也可以被省略。事实上，在 \cs{sw@slant} 的定义中，\cs{@@italiccorr}
+% 前面的 \cs{lastskip} 和 \cs{lastpenalty} 有四种情况，这里只对它们都为零的情况进行
+% 处理。
 %    \begin{macrocode}
-\cs_set_eq:NN \@@italiccorr \/
+\cs_new_eq:NN \xeCJK@fix@penalty \fix@penalty
+\xeCJK_cs_patch:Nnn \xeCJK@fix@penalty \@@italiccorr \xeCJK@patch@italiccorr
+\xeCJK_cs_patch:Nnn \sw@slant \fix@penalty \xeCJK@fix@penalty
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK@patch@italiccorr}
+% 修复倾斜校正，并处理汉字后面的空格。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK@patch@italiccorr
+  {
+    \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
+      {
+        \xeCJK_if_last_node:nTF { default }
+          {
+            \tex_unkern:D \tex_unkern:D \@@italiccorr
+            { \xeCJK_make_node:n { default-itcorr } }
+          }
+          {
+            \xeCJK_if_last_node:nTF { CJK }
+              {
+                \tex_unkern:D \tex_unkern:D \@@italiccorr
+                { \xeCJK_make_node:n { CJK } } \use:n
+              }
+              {
+                \xeCJK_if_last_node:nTF { CJK-space }
+                  {
+                    \tex_unkern:D \tex_unkern:D \@@italiccorr
+                    { \xeCJK_make_node:n { CJK-space } } \use:n
+                  }
+                  { \@@italiccorr \use_none:n }
+              }
+%    \end{macrocode}
+% \cs{xeCJK_ignore_spaces:w} 里面用到 |peek| 函数来判断后面是不是空白，而此时它
+% 后面还有 $4$ 个 \cs{fi} 或者 |\else...\fi| 没有被展开，将影响 |peek| 函数的
+% 判断。因此我们需要用 $2^4-1=15$ 个 \cs{exp_after:wN} 来展开它们。
+% 显然，这里用 \cs{exp_last_unbraced:Nf} 会比较方便，但是它会吃掉
+% \verb*|\textit{...} | 等后面原来存在的空格作为完全展开的结束。要正确使用它还
+% 需要另外的处理（使用 \cs{exp_stop_f:}）。
+%    \begin{macrocode}
+              {
+                              \exp_after:wN \exp_after:wN \exp_after:wN
+                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+                \xeCJK_ignore_spaces:w
+              }
+          }
+      }
+      { \@@italiccorr }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \setbox\xeCJKtmpbox\vbox\bgroup
 %    \begin{macrocode}
 %<@@=xeCJK>
 %    \end{macrocode}\egroup
-% \end{macro}
 %
 % \begin{macro}[internal]{\@@_set_others_toks:n,\c_@@_Others_class_int}
 % 简单处理与同样使用 \cs{XeTeXinterchartoks} 机制的宏包的兼容问题。
