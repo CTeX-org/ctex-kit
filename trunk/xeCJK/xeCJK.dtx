@@ -160,7 +160,7 @@ $URL$
 %
 %<*driver>
 \expandafter\let\csname ver@thumbpdf.sty\endcsname\empty
-\documentclass[numbered,full]{l3doc}
+\documentclass[numbered,a4paper,full]{l3doc}
 \hypersetup{pdfstartview=FitH}
 \usepackage{xeCJK}
 \usepackage{CJKfntef}
@@ -188,6 +188,7 @@ $URL$
 \def\XeTeX{\hologo{XeTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
 \def\LaTeX{\hologo{LaTeX}}
+\def\LaTeXe{\hologo{LaTeX2e}}
 \parindent=2em
 \AtBeginDocument{\DeleteShortVerb{\"}\MakeShortVerb{\|}}
 \def\contentsname{目录}
@@ -207,8 +208,14 @@ $URL$
       { \pkg {#1} }
   }
 \ExplSyntaxOff
-\geometry{includemp,hmargin={0cm,15mm},vmargin=15mm,footskip=7mm}
+\geometry{includemp,hmargin={0mm,15mm},vmargin=15mm,footskip=7mm}
 \makeatletter
+\appto\GlossaryParms{%
+  \def\@idxitem{\par\hangindent 2em}%
+  \def\subitem{\@idxitem\hspace*{1em}}%
+  \def\subsubitem{\@idxitem\hspace*{2em}}}
+\patchcmd\changes@{\space}{\lbrack}{}{}
+\patchcmd\@wrglossary{hdpindex}{hdclindex{\the\c@HD@hypercount}}{}{}
 \let\orig@meta\meta
 \def\meta#1{%
   \orig@meta{\mbox{\normalfont\itshape\xeCJKsetup{PunctStyle=plain,CJKecglue}#1}}}
@@ -225,24 +232,22 @@ $URL$
 \def\glossaryname{版本历史}
 \GlossaryPrologue{%
   \addtocounter{secnumdepth}{-10}%
-  \section{\glossaryname}%
-  \markboth{\glossaryname}{\glossaryname}}
+  \section{\glossaryname}}
 \IndexPrologue{%
   \section{\indexname}%
-  \markboth{\indexname}{\indexname}%
   斜体的数字表示对应项说明所在的页码，下划线的数字表示定义所在的代码行号，而直立体的
   数字表示对应项使用时所在的行号。}
 \begin{document}
   \DocInput{\jobname.dtx}
   \clearpage
-  \newgeometry{margin=20mm,footskip=10mm}
+  \newgeometry{margin=15mm,footskip=7mm}
   \PrintChanges
   \PrintIndex
 \end{document}
 %</driver>
 % \fi
 %
-% \CheckSum{2958}
+% \CheckSum{2981}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 %
 % \GetFileInfo{\jobname.dtx}
@@ -1316,6 +1321,32 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK_font_gset_to_current:c}
+% |#1| 是控制序列的名字，令它等于当前字体命令。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_font_gset_to_current:c #1
+  {
+    \exp_after:wN \cs_gset_eq:NN
+    \cs:w #1 \exp_after:wN \cs_end: \tex_the:D \tex_font:D
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal,pTF]{\xeCJK_glyph_if_exist:N}
+% \changes{v3.1.0}{2012/11/19}{改进 \pkg{fontspec} 宏包中定义的
+% \cs{font_glyph_if_exist:NnTF}。}
+% 判断当前字体中是否含有字符 |#1|。\pkg{fontspec} 中的类似函数在判断为真的时候，
+% 会留有一个 \cs{scan_stop:}，造成不必要的边界，同时也不完全可展。因此，我们重新
+% 定义它。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \xeCJK_glyph_if_exist:N #1 { p , T , F , TF }
+  {
+    \etex_iffontchar:D \tex_font:D `#1 \exp_stop_f:
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal,var]{\c_xeCJK_space_skip_tl}
 % \changes{v3.1.0}{2012/11/18}{字间空格考虑 \cs{spaceskip} 不为零的情况。}
 % 当前字体状态下，一个字间空格产生的 |glue| 的长度，包括伸展和收缩部分。
@@ -2109,6 +2140,94 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[pTF,internal]{\xeCJK_if_last_node:n}
+%    \begin{macrocode}
+ \prg_new_conditional:Npnn \xeCJK_if_last_node:n #1 { p , T , F , TF }
+  {
+    \if_dim:w \use:c { c_@@_#1_node_dim } = \tex_lastkern:D
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.1.0}{2012/11/14}{删除多余的 \texttt{default-itcorr} 结点。}
+%
+% \begin{macro}[internal]{\xeCJK_def_node:nn,\xeCJK_make_node:n}
+% 用于判断插入的各种 |kern|。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_def_node:nn #1#2
+  {
+    \dim_if_exist:cTF { c_@@_#1_node_dim }
+      { \dim_gset:cn } { \dim_const:cn }
+      { c_@@_#1_node_dim } {#2}
+  }
+\cs_new_protected_nopar:Npn \xeCJK_make_node:n #1
+  {
+    \tex_kern:D - \use:c { c_@@_#1_node_dim }
+    \tex_kern:D   \use:c { c_@@_#1_node_dim }
+  }
+\xeCJK_def_node:nn { CJK }           { 11 sp }
+\xeCJK_def_node:nn { CJK-space }     { 12 sp }
+\xeCJK_def_node:nn { default }       { 13 sp }
+\xeCJK_def_node:nn { default-space } { 14 sp }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{CJKglue}
+% CJK 文字之间插入的 |glue|。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  { CJKglue .code:n = { \cs_set_protected:Npn \CJKglue {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{CJKecglue,xCJKecglue}
+% CJK 与西文和数学行内数学公式之间自动添加的空白。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    CJKecglue            .code:n =
+      {
+        \cs_set_protected:Npn \CJKecglue {#1}
+        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
+      } ,
+    xCJKecglue .choice: ,
+    xCJKecglue / true    .code:n =
+      {
+        \bool_set_true:N  \l_@@_xecglue_bool
+        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
+      } ,
+    xCJKecglue / false   .code:n =
+      {
+        \bool_set_false:N \l_@@_xecglue_bool
+        \cs_set_eq:NN \@@_space_or_xecglue: \c_space_token
+      } ,
+    xCJKecglue / unknown .code:n =
+      {
+        \bool_set_true:N  \l_@@_xecglue_bool
+        \cs_set_protected:Npn \CJKecglue {#1}
+        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
+        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
+      } ,
+    xCJKecglue        .default:n = { true }
+  }
+\skip_new:N \l_@@_ecglue_skip
+\bool_new:N \l_@@_xecglue_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{CJKspace}
+% 是否保留 CJK 文字间的空白，默认不保留。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    CJKspace .bool_set:N = \l_@@_reserve_space_bool ,
+    space        .meta:n = { CJKspace = true  } ,
+    nospace      .meta:n = { CJKspace = false }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \hypertarget{cjk-bound}{}
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { CJK } { Boundary }
@@ -2118,6 +2237,36 @@ $URL$
     \xeCJK_ignore_spaces:w
   }
 %    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_ignore_spaces:w}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_ignore_spaces:w
+  {
+    \peek_catcode:NTF \c_space_token
+      {
+        \xeCJK_if_last_node:nT { CJK }
+          { \tex_unkern:D \tex_unkern:D { \xeCJK_make_node:n { CJK-space } } }
+        \peek_catcode_ignore_spaces:NTF \c_math_toggle_token
+          { \@@_space_or_xecglue: }
+          {
+            \bool_if:nT
+              {
+                \token_if_macro_p:N \l_peek_token ||
+                ( \l_@@_reserve_space_bool &&
+                  \token_if_other_p:N \l_peek_token )
+              }
+              { \@@_space_or_xecglue: }
+          }
+      }
+      {
+        \token_if_math_toggle:NTF \l_peek_token
+          { \CJKecglue }
+          { \cs_if_exist:NF \l_peek_token \exp_not:N }
+      }
+  }
+\cs_new_eq:NN \xeCJK_ignorespaces: \xeCJK_ignore_spaces:w
+%    \end{macrocode}
+% \end{macro}
 %
 % \hypertarget{cjk-cjk}{}
 %    \begin{macrocode}
@@ -2331,124 +2480,6 @@ $URL$
     \xeCJK_no_break:
     \CJKpunctsymbol {#1}
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,internal]{\xeCJK_if_last_node:n}
-%    \begin{macrocode}
- \prg_new_conditional:Npnn \xeCJK_if_last_node:n #1 { p , T , F , TF }
-  {
-    \if_dim:w \use:c { c_@@_#1_node_dim } = \tex_lastkern:D
-      \prg_return_true: \else: \prg_return_false: \fi:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \changes{v3.1.0}{2012/11/14}{删除多余的 \texttt{default-itcorr} 结点。}
-%
-% \begin{macro}[internal]{\xeCJK_def_node:nn,\xeCJK_make_node:n}
-% 用于判断插入的各种 |kern|。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_def_node:nn #1#2
-  {
-    \dim_if_exist:cTF { c_@@_#1_node_dim }
-      { \dim_gset:cn } { \dim_const:cn }
-      { c_@@_#1_node_dim } {#2}
-  }
-\cs_new_protected_nopar:Npn \xeCJK_make_node:n #1
-  {
-    \tex_kern:D - \use:c { c_@@_#1_node_dim }
-    \tex_kern:D   \use:c { c_@@_#1_node_dim }
-  }
-\xeCJK_def_node:nn { CJK }           { 11 sp }
-\xeCJK_def_node:nn { CJK-space }     { 12 sp }
-\xeCJK_def_node:nn { default }       { 13 sp }
-\xeCJK_def_node:nn { default-space } { 14 sp }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{CJKglue}
-% CJK 文字之间插入的 |glue|。
-%    \begin{macrocode}
-\keys_define:nn { xeCJK / options }
-  { CJKglue .code:n = { \cs_set_protected:Npn \CJKglue {#1} } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{CJKecglue,xCJKecglue}
-% CJK 与西文和数学行内数学公式之间自动添加的空白。
-%    \begin{macrocode}
-\keys_define:nn { xeCJK / options }
-  {
-    CJKecglue            .code:n =
-      {
-        \cs_set_protected:Npn \CJKecglue {#1}
-        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
-      } ,
-    xCJKecglue .choice: ,
-    xCJKecglue / true    .code:n =
-      {
-        \bool_set_true:N  \l_@@_xecglue_bool
-        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
-      } ,
-    xCJKecglue / false   .code:n =
-      {
-        \bool_set_false:N \l_@@_xecglue_bool
-        \cs_set_eq:NN \@@_space_or_xecglue: \c_space_token
-      } ,
-    xCJKecglue / unknown .code:n =
-      {
-        \bool_set_true:N  \l_@@_xecglue_bool
-        \cs_set_protected:Npn \CJKecglue {#1}
-        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
-        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
-      } ,
-    xCJKecglue        .default:n = { true }
-  }
-\skip_new:N \l_@@_ecglue_skip
-\bool_new:N \l_@@_xecglue_bool
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{CJKspace}
-% 是否保留 CJK 文字间的空白，默认不保留。
-%    \begin{macrocode}
-\keys_define:nn { xeCJK / options }
-  {
-    CJKspace .bool_set:N = \l_@@_reserve_space_bool ,
-    space        .meta:n = { CJKspace = true  } ,
-    nospace      .meta:n = { CJKspace = false }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_ignore_spaces:w}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_ignore_spaces:w
-  {
-    \peek_catcode:NTF \c_space_token
-      {
-        \xeCJK_if_last_node:nT { CJK }
-          { \tex_unkern:D \tex_unkern:D { \xeCJK_make_node:n { CJK-space } } }
-        \peek_catcode_ignore_spaces:NTF \c_math_toggle_token
-          { \@@_space_or_xecglue: }
-          {
-            \bool_if:nT
-              {
-                \token_if_macro_p:N \l_peek_token ||
-                ( \l_@@_reserve_space_bool &&
-                  \token_if_other_p:N \l_peek_token )
-              }
-              { \@@_space_or_xecglue: }
-          }
-      }
-      {
-        \token_if_math_toggle:NTF \l_peek_token
-          { \CJKecglue }
-          { \cs_if_exist:NF \l_peek_token \exp_not:N }
-      }
-  }
-\cs_new_eq:NN \xeCJK_ignorespaces: \xeCJK_ignore_spaces:w
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2773,8 +2804,8 @@ $URL$
     LongPunct     .code:n = { \@@_set_special_punct:nn { long } {#1} } ,
     LongPunct+    .code:n = { \@@_add_special_punct:nn { long } {#1} } ,
     LongPunct-    .code:n = { \@@_sub_special_punct:nn { long } {#1} } ,
-    MiddlePunct+  .code:n = { \@@_add_special_punct:nn { middle } {#1} } ,
     MiddlePunct   .code:n = { \@@_set_special_punct:nn { middle } {#1} } ,
+    MiddlePunct+  .code:n = { \@@_add_special_punct:nn { middle } {#1} } ,
     MiddlePunct-  .code:n = { \@@_sub_special_punct:nn { middle } {#1} } ,
     PunctWidth .tl_gset:N = \g_@@_punct_width_tl
   }
@@ -2861,11 +2892,11 @@ $URL$
 % 一些用于记录的辅助函数。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_punct_dim_csname:nn #1#2
-  { g__\l_xeCJK_font_coor_tl/\l_xeCJK_punct_style_tl/#1/#2/tl }
+  { g__\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/#2/tl }
 \cs_new_nopar:Npn \@@_punct_dim_csname:nnn
   { \@@_punct_dim_csname:nnnn { \l_xeCJK_punct_style_tl } }
 \cs_new_nopar:Npn \@@_punct_dim_csname:nnnn #1#2#3#4
-  { g__\l_xeCJK_font_coor_tl/#1/#2/#3/#4/tl }
+  { g__\l_xeCJK_current_font_tl/#1/#2/#3/#4/tl }
 \cs_new_nopar:Npn \@@_use_punct_dim:nn #1#2
   { \tl_use:c { \@@_punct_dim_csname:nn {#1} {#2} } }
 \cs_new_nopar:Npn \@@_use_punct_dim:nnn #1#2#3
@@ -3245,7 +3276,7 @@ $URL$
             \@@_punct_if_long:NTF {#2}
               { \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { \c_zero_dim } }
               {
-                \exp_args:Nno \UseInstance { xeCJK / punctuation }
+                \UseInstance { xeCJK / punctuation }
                   { \l_xeCJK_punct_style_tl } {#1} {#2} { }
               }
           }
@@ -3312,7 +3343,7 @@ $URL$
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
           { \@@_gset_punct_dim:nnnx { kern } {#1} {#2} { \c_zero_dim } }
           {
-            \exp_args:Nno \UseInstance { xeCJK / punctuation }
+            \UseInstance { xeCJK / punctuation }
               { \l_xeCJK_punct_style_tl } { } {#1} {#2}
           }
       }
@@ -3468,19 +3499,30 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_fallback_test_glyph:N #1
   {
-    \font_glyph_if_exist:NnTF \tex_font:D {`#1}
+    \xeCJK_glyph_if_exist:NTF {#1}
       { \@@_fallback_save_CJKsymbol:N {#1} }
+      { { \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack } } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_fallback_loop:Nn}
+% \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
+% 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
+% 结束循环。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_fallback_loop:Nn #1#2
+  {
+    \xeCJK_family_if_exist:xTF {#2}
       {
-        \xeCJK_family_if_exist:xTF { \l_xeCJK_family_tl/FallBack }
-          { {
-              \tl_put_right:Nn \l_xeCJK_family_tl { /FallBack }
-              \xeCJK_select_font:
-              \xeCJK_fallback_test_glyph:N {#1}
-          } }
-          {
-            \@@_warning:nx { fallback } {#1}
-            \@@_fallback_save_CJKsymbol:N {#1}
-          }
+        \xeCJK_select_font:x {#2}
+        \xeCJK_glyph_if_exist:NTF {#1}
+          { \@@_fallback_save_CJKsymbol:N {#1} }
+          { \xeCJK_fallback_loop:Nn {#1} { #2/FallBack } }
+      }
+      {
+        \@@_warning:nx { fallback } {#1}
+        \@@_fallback_save_CJKsymbol:N {#1}
       }
   }
 \@@_msg_new:nn { fallback }
@@ -3497,9 +3539,9 @@ $URL$
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKfallbackfamilyfont { m O{} m }
   {
-    \clist_set:Nx \l_@@_tempa_clist {#3}
-    \int_compare:nNnTF { \clist_count:N \l_@@_tempa_clist } > \c_one
-      { \xeCJK_set_family_fallback:xxN {#1} {#2} \l_@@_tempa_clist }
+    \clist_set:Nx \l_@@_tmpa_clist {#3}
+    \int_compare:nNnTF { \clist_count:N \l_@@_tmpa_clist } > \c_one
+      { \xeCJK_set_family_fallback:xxN {#1} {#2} \l_@@_tmpa_clist }
       { \xeCJK_set_family:xxx { #1/FallBack } {#2} {#3} }
   }
 %    \end{macrocode}
@@ -3785,8 +3827,6 @@ $URL$
         \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
-        \prop_gput:NnV \exp_not:N \g_@@_family_name_prop
-          { \exp_not:V \l_@@_family_name_tl } \exp_not:N \l_@@_fontspec_family_tl
         \@@_gset_family_nfss_cs:xx {#1} { \exp_not:N \l_@@_fontspec_family_tl }
         \group_end:
       }
@@ -3800,7 +3840,8 @@ $URL$
   {
     \prop_get:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmpa_tl
       {
-        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmpa_tl { }
+        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmpa_tl
+          { \cs_undefine:c { \@@_family_nfss_csname:n {#1} } }
         \@@_warning:nxx { CJKfamily-redef } {#1} { \l_@@_tmpa_tl }
       }
   }
@@ -4019,16 +4060,13 @@ $URL$
       }
     \cs_gset_protected_nopar:cpx { \@@_family_csname:n { \l_@@_sub_family_tl } }
       {
-        \xeCJK_family_if_exist:xT { \exp_not:V \l_@@_family_name_tl }
+        \xeCJK_family_if_exist:xT { \l_@@_family_name_tl }
           {
             \prop_get:NnNT \exp_not:N \g_@@_family_name_prop
-              { \exp_not:V \l_@@_family_name_tl } \exp_not:N \l_@@_tmpa_tl
+              { \l_@@_family_name_tl } \exp_not:N \l_@@_tmpa_tl
               {
-                \prop_gput:NnV \exp_not:N \g_@@_family_name_prop
-                  { \l_@@_sub_family_tl } \exp_not:N \l_@@_tmpa_tl
                 \@@_gset_family_nfss_cs:xx
-                  { \l_@@_sub_family_tl }
-                  { \exp_not:N \l_@@_tmpa_tl }
+                  { \l_@@_sub_family_tl } { \exp_not:N \l_@@_tmpa_tl }
               }
           }
       }
@@ -4063,18 +4101,28 @@ $URL$
 %
 % \subsection{字体切换}
 %
-% \begin{macro}[internal]{\l_xeCJK_font_coor_tl,\xeCJK_select_font:}
+% \begin{macro}[internal]{\l_xeCJK_current_font_tl,\xeCJK_select_font:,\xeCJK_select_font:x}
 % 缓存当前字体的原始格式，以加速编译。
 %    \begin{macrocode}
-\tl_new:N \l_xeCJK_font_coor_tl
-\tl_set:Nn \l_xeCJK_font_coor_tl { xeCJK/\l_xeCJK_family_tl/\f@series/\f@shape/\f@size }
+\tl_new:N \l_xeCJK_current_font_tl
+\tl_set:Nn \l_xeCJK_current_font_tl { \@@_font_csname:n { \l_xeCJK_family_tl } }
+\cs_new_nopar:Npn \@@_font_csname:n #1 { xeCJK/#1/\f@series/\f@shape/\f@size }
 \cs_new_protected_nopar:Npn \xeCJK_select_font:
   {
-    \cs_if_exist_use:cF { \l_xeCJK_font_coor_tl }
+    \cs_if_exist_use:cF { \l_xeCJK_current_font_tl }
       {
-        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_font_coor_tl }
-        \cs_if_exist_use:cT { \@@_family_nfss_csname:n { \l_xeCJK_family_tl } }
-          { \exp_last_unbraced:NNV \cs_gset_eq:cN \l_@@_current_coor_tl \tex_font:D }
+        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_current_font_tl }
+        \@@_family_use:x { \l_xeCJK_family_tl }
+        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
+      }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_select_font:x #1
+  {
+    \cs_if_exist_use:cF { \@@_font_csname:n {#1} }
+      {
+        \tl_set:Nx \l_@@_current_coor_tl { \@@_font_csname:n {#1} }
+        \@@_family_use:x {#1}
+        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
       }
   }
 \cs_new_eq:NN \xeCJK@setfont \xeCJK_select_font:
@@ -4106,22 +4154,20 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_block_select_font:n #1
   {
-    \cs_if_exist_use:cF { \l_xeCJK_font_coor_tl/block/#1 }
+    \cs_if_exist_use:cF { \@@_font_csname:n { \l_xeCJK_family_tl/#1 } }
       {
-        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_font_coor_tl/block/#1 }
-        \cs_if_exist_use:cF { \@@_family_nfss_csname:n { \l_xeCJK_family_tl/#1 } }
+        \tl_set:Nx \l_@@_current_coor_tl
+          { \@@_font_csname:n { \l_xeCJK_family_tl/#1 } }
+        \xeCJK_family_if_exist:xF { \l_xeCJK_family_tl/#1 }
           {
-            \xeCJK_family_if_exist:xF { \l_xeCJK_family_tl/#1 }
+            \@@_copy_family:xx { \l_xeCJK_family_tl/#1 }
               {
-                \@@_copy_family:xx { \l_xeCJK_family_tl/#1 }
-                  {
-                    \cs_if_exist:cTF { \@@_family_csname:n { \CJKfamilydefault/#1 } }
-                      { \CJKfamilydefault/#1 } { \l_xeCJK_family_tl }
-                  }
+                \cs_if_exist:cTF { \@@_family_csname:n { \CJKfamilydefault/#1 } }
+                  { \CJKfamilydefault/#1 } { \l_xeCJK_family_tl }
               }
-            \@@_family_use:x { \l_xeCJK_family_tl/#1 }
           }
-        \exp_last_unbraced:NNV \cs_gset_eq:cN \l_@@_current_coor_tl \tex_font:D
+        \@@_family_use:x { \l_xeCJK_family_tl/#1 }
+        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
       }
   }
 %    \end{macrocode}
@@ -4136,6 +4182,7 @@ $URL$
 \cs_new_nopar:Npn \@@_family_use:x #1 { \use:c { \@@_family_nfss_csname:n {#1} } }
 \cs_new_protected_nopar:Npn \@@_gset_family_nfss_cs:xx #1#2
   {
+    \prop_gput:Nxx \g_@@_family_name_prop {#1} {#2}
     \cs_gset_protected_nopar:cpx { \@@_family_nfss_csname:n {#1} }
       {
         \exp_not:N \fontencoding { \c_@@_encoding_tl }
@@ -4143,6 +4190,7 @@ $URL$
         \exp_not:N \selectfont
       }
   }
+\cs_generate_variant:Nn \prop_gput:Nnn { Nxx }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4244,6 +4292,27 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\setCJKmainfont,\setCJKsansfont,\setCJKmonofont}
+% 设置文档的 CJK 普通字体、无衬线和等宽字体。
+%    \begin{macrocode}
+\NewDocumentCommand \setCJKmainfont { O{} m }
+  { \xeCJK_set_family:xxx { \CJKrmdefault } {#1} {#2} }
+\cs_new_eq:NN \setCJKromanfont \setCJKmainfont
+\NewDocumentCommand \setCJKsansfont { O{} m }
+  { \xeCJK_set_family:xxx { \CJKsfdefault } {#1} {#2} }
+\NewDocumentCommand \setCJKmonofont { O{} m }
+  { \xeCJK_set_family:xxx { \CJKttdefault } {#1} {#2} }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\@onlypreamble \setCJKmainfont
+\@onlypreamble \setCJKmathfont
+\@onlypreamble \setCJKsansfont
+\@onlypreamble \setCJKmonofont
+\@onlypreamble \setCJKromanfont
+%    \end{macrocode}
+%
 % \begin{macro}{\setCJKfamilyfont, \newCJKfontfamily, \CJKfontspec}
 % 分别用于预声明 CJK 字体和随机调用 CJK 字体。
 %    \begin{macrocode}
@@ -4264,7 +4333,6 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_fontspec:nn}
-% 分别用于预声明 CJK 字体和随机调用 CJK 字体。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_fontspec:nn #1#2
   {
@@ -4349,62 +4417,47 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\setCJKmainfont,\setCJKsansfont,\setCJKmonofont}
-% 设置文档的 CJK 普通字体、无衬线和等宽字体。
+% 在导言区结束的时候，若没有声明 CJK 字体，则给出一个警告。并在此时设置数学字体。
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKmainfont { O{} m }
-  { \xeCJK_set_family:xxx { \CJKrmdefault } {#1} {#2} }
-\cs_new_eq:NN \setCJKromanfont \setCJKmainfont
-\NewDocumentCommand \setCJKsansfont { O{} m }
-  { \xeCJK_set_family:xxx { \CJKsfdefault } {#1} {#2} }
-\NewDocumentCommand \setCJKmonofont { O{} m }
-  { \xeCJK_set_family:xxx { \CJKttdefault } {#1} {#2} }
+\@@_at_end_preamble:n
+  {
+    \prop_if_empty:NTF \g_@@_family_font_name_prop
+      { \@@_warning:n { no-CJKfamily } }
+      {
+        \CJKfamily { \CJKfamilydefault }
+        \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
+      }
+  }
+\@@_msg_new:nn { no-CJKfamily }
+  {
+    It~seems~that~you~have~not~declare~a~CJKfamily.\\
+    If~you~want~to~use~xeCJK~in~the~right~way,~you~should~use\\\\
+    \token_to_str:N \xeCJKmainfont[...]{...}\\\\
+    in~the~preamble~to~declare~the~main~CJKfamily.\\
+  }
 %    \end{macrocode}
-% \end{macro}
 %
-% 为了保证 CJK 数学字体的正确设置，应在导言区内设置 CJK 字体。
-%    \begin{macrocode}
-\@onlypreamble \setCJKmainfont
-\@onlypreamble \setCJKmathfont
-\@onlypreamble \setCJKsansfont
-\@onlypreamble \setCJKmonofont
-\@onlypreamble \setCJKromanfont
-%    \end{macrocode}
 %
 % \subsection{数学字体设置}
+%
+% \begin{macro}{CJKmath}
+% 是否启用 CJK 数学字体的宏包选项。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options } { CJKmath .bool_gset:N = \g_@@_math_bool }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{\setCJKmathfont}
 % 设置 CJK 数学字体。
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKmathfont { O{} m }
   { \xeCJK_set_family:xxx { \c_@@_math_tl } {#1} {#2} }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{CJKmath}
-% 数学公式内的 CJK 字体。
-%    \begin{macrocode}
 \tl_const:Nn \c_@@_math_tl { CJKmath }
-\keys_define:nn { xeCJK / options } { CJKmath .bool_gset:N = \g_@@_math_bool }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_gset_mathcode:nn}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:nn #1#2
-  {
-    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
-    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
-      {
-        \tex_global:D \XeTeXmathcode
-          \l_@@_tmpa_int = \c_seven \c_xeCJK_math_fam_int \l_@@_tmpa_int
-        \int_incr:N \l_@@_tmpa_int
-      }
-  }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_set_mathfont:}
+% 当没有设置 CJK 数学字体时，使用 \cs{CJKfamilydefault} 作为数学字体。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
   {
@@ -4428,31 +4481,28 @@ $URL$
         \clist_concat:NNN
           \l_@@_tmpa_clist \l_@@_tmpa_clist \c_@@_FullRight_chars_clist
         \clist_map_inline:Nn \l_@@_tmpa_clist
-          { \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nn {##1} }
+          {
+            \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn {##1}
+              { \c_seven } { \c_xeCJK_math_fam_int }
+          }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% 当没有设置 CJK 数学字体时，使用 \cs{CJKfamilydefault} 作为数学字体。
+% \begin{macro}[internal]{\xeCJK_gset_mathcode:nnnn}
 %    \begin{macrocode}
-\@@_at_end_preamble:n
+\cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:nnnn #1#2#3#4
   {
-    \prop_if_empty:NTF \g_@@_family_font_name_prop
-      { \@@_warning:n { no-CJKfamily } }
+    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
+    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
       {
-        \CJKfamily { \CJKfamilydefault }
-        \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
+        \tex_global:D \XeTeXmathcode \l_@@_tmpa_int = #3 ~ #4 \l_@@_tmpa_int
+        \int_incr:N \l_@@_tmpa_int
       }
   }
-\@@_msg_new:nn { no-CJKfamily }
-  {
-    It~seems~that~you~have~not~declare~a~CJKfamily.\\
-    If~you~want~to~use~xeCJK~in~the~right~way,~you~should~use\\\\
-    \token_to_str:N \xeCJKmainfont[...]{...}\\\\
-    in~the~preamble~to~declare~the~main~CJKfamily.\\
-  }
 %    \end{macrocode}
+% \end{macro}
 %
 %
 % \subsection{抄录环境中的间距调整}
@@ -4504,7 +4554,10 @@ $URL$
 %
 % \begin{macro}[internal]{\@@_set_verb_exspace:}
 % 在抄录环境中，CJK 文字之间的间距为当前西文字体两个空格的宽度与当前字体大小之差，
-% 而与西文和空格的间距为 CJK 文字之间的间距的一半。
+% 而与西文和空格的间距为 CJK 文字之间的间距的一半。这里的问题是，
+% \cs{g_@@_verb_exspace_skip} 有可能为负么？现在的处理是保证它非负。如果真的出现
+% 负间距的情况，也可以像下面对后备可视空格符号一样，在 \cs{xeCJK_select_font:} 里
+% 对 CJK 文字的字体大小做调整，并让间距为零。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_verb_exspace:
   {
@@ -4553,25 +4606,24 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_set_visible_space_font:
   {
     \tl_set:Nx \l_@@_current_coor_tl { xeCJK/space/\curr@fontshape/\f@size }
-    \dim_set:Nn \l_tmpa_dim { \tex_fontdimen:D \c_two \tex_font:D }
+    \dim_set:Nn \l_@@_tmp_dim { \tex_fontdimen:D \c_two \tex_font:D }
     \fontencoding { \g_fontspec_encoding_tl }
     \fontfamily { lmtt }
     \selectfont
-    \dim_compare:nNnF \l_tmpa_dim = { \tex_fontdimen:D \c_two \tex_font:D }
+    \dim_compare:nNnF \l_@@_tmp_dim = { \tex_fontdimen:D \c_two \tex_font:D }
       {
         \fontsize
           {
-            \fp_eval:n
+            \dim_eval:n
               {
-                \dim_ratio:nn
-                  { \l_tmpa_dim } { \tex_fontdimen:D \c_two \tex_font:D }
-                * \f@size
+                \f@size pt * \dim_ratio:nn
+                  { \l_@@_tmp_dim } { \tex_fontdimen:D \c_two \tex_font:D }
               }
           }
-          { \c_zero_skip }
+          { \f@baselineskip }
         \selectfont
       }
-    \exp_last_unbraced:NNV \cs_gset_eq:cN \l_@@_current_coor_tl \tex_font:D
+    \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4749,8 +4801,8 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK@fix@penalty}
 % \changes{v3.1.0}{2012/11/13}{采用通过不修改原语 \cs{/} 的方式对修复倾斜校正。}
-% 对 \hologo{LaTeX2e} 内核中的 \cs{fix@penalty} 被用于诸如 \cs{textit} 之类的文档
-% 字体转换命令的定义之中。这里对它进行补丁的目的是使修复其中的倾斜校正，并使得这些
+% 对 \LaTeXe 内核中的 \cs{fix@penalty} 被用于诸如 \cs{textit} 之类的文档
+% 字体转换命令的定义之中。这里对它进行补丁的目的是修复其中的倾斜校正，并使得这些
 % 文档命令与紧随其后的汉字之间可以正确的插入 \cs{CJKecglue} 或者忽略其中的空格。
 % 例如 \verb*|这是 \emph{强调} 文本|，第二个空格可以被忽略掉。如果使用 |xCJKecglue|
 % 选项，第一个空格也可以被省略。事实上，在 \cs{sw@slant} 的定义中，\cs{@@italiccorr}
@@ -4790,7 +4842,7 @@ $URL$
                   { \@@italiccorr \use_none:n }
               }
 %    \end{macrocode}
-% \cs{xeCJK_ignore_spaces:w} 里面用到 |peek| 函数来判断后面是不是空白，而此时它
+% \cs{xeCJK_ignore_spaces:w} 里面用到 |peek| 函数来判断后面是不是空格，而此时它
 % 后面还有 $4$ 个 \cs{fi} 或者 |\else...\fi| 没有被展开，将影响 |peek| 函数的
 % 判断。因此我们需要用 $2^4-1=15$ 个 \cs{exp_after:wN} 来展开它们。
 % 显然，这里用 \cs{exp_last_unbraced:Nf} 会比较方便，但是它会吃掉
@@ -4941,14 +4993,15 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_hook_for_ulem:}
 % \changes{v3.1.0}{2012/11/16}{简化对 \pkg{ulem} 宏包的兼容补丁。}
 % 对 \pkg{ulem} 宏包打补丁，以支持 \pkg{CJKfntef} 宏包。目前的问题是，在下划线状态
-% 下，不能在左标点前面断行，并且相邻两个标点之间的空白不能压缩。
+% 下，相邻两个标点之间的空白不能压缩。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_hook_for_ulem:
   {
     \bool_if:NF \l_@@_ulem_hook_used_bool
       {
-        \xeCJK_cs_clear:N \@@_CJK_FullLeft_glue:
         \bool_set_true:N \l_@@_ulem_hook_used_bool
+        \xeCJK_cs_clear:N \@@_CJK_FullLeft_glue:
+        \cs_set_protected_nopar:Npn \@@_FullLeft_ulem_hook: { { \CJKglue } }
         \xeCJK_swap_cs:NN \CJKsymbol \@@_ulem_CJKsymbol:N
         \xeCJK_swap_cs:NN \CJKpunctsymbol \@@_ulem_CJKpunctsymbol:N
       }
@@ -4956,13 +5009,21 @@ $URL$
 \bool_new:N \l_@@_ulem_hook_used_bool
 \@@_after_preamble:n
   {
-    \cs_if_exist:NT \UL@hook { \addto@hook \UL@hook { \xeCJK_hook_for_ulem: } }
-    \cs_if_exist:NT \XeTeX@CJKfntef@hook
+    \xeCJK_if_package_loaded:nT { ulem }
       {
-        \xeCJK_cs_clear:N \CJKf@global
-        \AtBeginEnvironment { CJKfilltwosides } { \cs_set_eq:NN \CJKglue \tex_hfil:D }
-        \cs_set_protected_nopar:Npn \XeTeX@CJKfntef@hook
-          { \xeCJK_select_font: \makexeCJKinactive }
+        \xeCJK_cs_gclear:N \@@_FullLeft_ulem_hook:
+        \xeCJK_pre_inter_class_toks:nnn { Boundary } { FullLeft }
+          { \@@_FullLeft_ulem_hook: }
+        \cs_if_exist:NTF \XeTeX@CJKfntef@hook
+          {
+            \xeCJK_cs_gclear:N \CJKf@global
+            \AtBeginEnvironment
+              { CJKfilltwosides } { \cs_set_eq:NN \CJKglue \tex_hfil:D }
+            \cs_set_protected_nopar:Npn \XeTeX@CJKfntef@hook
+              { \xeCJK_select_font: \makexeCJKinactive }
+          }
+          { \RequirePackage { CJKulem } }
+        \addto@hook \UL@hook { \xeCJK_hook_for_ulem: }
       }
   }
 %    \end{macrocode}
@@ -4977,7 +5038,7 @@ $URL$
     { \xeCJK_make_node:n { CJK } } \xeCJK_ignore_spaces:w
   }
 \cs_new_protected_nopar:Npn \@@_ulem_CJKpunctsymbol:N #1
-  { { \@@_ulem_CJKpunctsymbol:N {#1} } }
+  { { \@@_ulem_CJKpunctsymbol:N {#1} } \tex_ignorespaces:D }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4987,10 +5048,10 @@ $URL$
 \bool_if:NT \g_@@_number_bool
   {
     \tl_set:Nn \CJK@UnicodeEnc { UTF8 }
-    \cs_set_protected_nopar:Npn \CJKaddEncHook #1#2
-      { \cs_set_nopar:cpn { @@_enc_#1_hook: } {#2} }
+    \cs_set_protected:Npn \CJKaddEncHook #1#2
+      { \cs_set:cpn { @@_enc_#1_hook: } {#2} }
     \cs_set_protected_nopar:Npn \Unicode #1#2
-      { \tex_char:D \int_eval:n { (#1) * \c_two_hundred_fifty_six + (#2) } ~ }
+      { \tex_char:D \etex_numexpr:D (#1) * \c_two_hundred_fifty_six + (#2) \scan_stop: }
     \RequirePackage { CJKnumb }
     \cs_if_exist_use:c { @@_enc_ \CJK@UnicodeEnc _hook: }
     \tl_set:Nn \CJK@tenthousand    { \Unicode { 78 } { 7 } }
@@ -5359,9 +5420,9 @@ x^2+y^2
   { "1100 -> "11FF, "3130 -> "318F, "A960 -> "A97F, "AC00 -> "D7AF }
 \setCJKmainfont{Adobe Song Std}
 \setCJKmainfont[Hangul]{Adobe Myungjo Std}
-%\setmonofont{Inconsolata}
-%\setmonofont{Source Code Pro}
-%\setCJKmonofont{Adobe Kaiti Std}
+%%\setmonofont{Inconsolata}
+%%\setmonofont{Source Code Pro}
+%%\setCJKmonofont{Adobe Kaiti Std}
 \setmonofont{TeX Gyre Cursor}
 \setCJKmonofont{Adobe Fangsong Std}
 \begin{document}
