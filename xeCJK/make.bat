@@ -29,8 +29,8 @@
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip
-  set CTANFILES=dtx pdf
-  set TDSFILES=%CTANFILES% ins tex sty
+  set CTANFILES=ins dtx pdf
+  set TDSFILES=%CTANFILES% ins tex sty cfg
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
