@@ -22,6 +22,7 @@ This package consists of the file  xeCJK.dtx
                                    xeCJK.sty,
                                    xeCJK.cfg,
                                    xeCJK.ins,
+                                   xeCJKfntef.sty,
                                    xeCJK-example-autofake.tex,
                                    xeCJK-example-fallback.tex,
                                    xeCJK-example-subCJKblock.tex,
@@ -112,6 +113,7 @@ $URL$
                                       xeCJK.sty,
                                       xeCJK.cfg,
                                       xeCJK.ins,
+                                      xeCJKfntef.sty,
                                       xeCJK-example-autofake.tex,
                                       xeCJK-example-fallback.tex,
                                       xeCJK-example-subCJKblock.tex,
@@ -127,7 +129,9 @@ $URL$
 \declarepostamble\emptypostamble
 \endpostamble
 \usedir{tex/xelatex/xecjk}
-\generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
+\generate{
+  \file{\jobname.sty}{\from{\jobname.dtx}{package}}
+  \file{xeCJKfntef.sty}{\from{\jobname.dtx}{fntef}}}
 \usedir{tex/xelatex/xecjk/config}
 \generate{
   \usepreamble\emptypreamble
@@ -156,41 +160,42 @@ $URL$
 \xeCJKMaybeStopHere
 %</internal>
 %
-%<*driver|package|config>
-\NeedsTeXFormat{LaTeX2e}
+%<*driver|package|config|fntef>
 %<*!config>
+\NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
 %</!config>
 \GetIdInfo$Id$
-%<*!config>
+%<*!config&!fntef>
   {Typesetting CJK scripts with XeLaTeX}
-%</!config>
+%</!config&!fntef>
 %<config>  {Configuration file for xeCJK package}
-%<*!package>
+%<fntef>  {xeCJK patch file for ulem/CJKfntef}
+%<*!package&!fntef>
 \ProvidesExplFile
-%</!package>
+%</!package&!fntef>
 %<*driver>
   {\ExplFileName.\ExplFileExtension}
 %</driver>
 %<config>  {\ExplFileName.cfg}
-%<package>\ProvidesExplPackage
+%<package|fntef>\ProvidesExplPackage
 %<package>  {\ExplFileName}
+%<fntef>  {xeCJKfntef}
   {\ExplFileDate}{3.1.0}{\ExplFileDescription}
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
 %</driver>
-%</driver|package|config>
+%</driver|package|config|fntef>
 %
 %<*driver>
 \expandafter\let\csname ver@thumbpdf.sty\endcsname\empty
 \documentclass[numbered,a4paper,full]{l3doc}
 \hypersetup{pdfstartview=FitH}
 \usepackage{xeCJK}
-\usepackage{CJKfntef}
+\usepackage{xeCJKfntef}
 \usepackage{geometry}
 \usepackage[toc]{multitoc}
-\normalem
 \fvset{formatcom=\xeCJKVerbAddon}
 \linespread{1.1}
 \setlist{noitemsep,topsep=1ex}
@@ -270,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3035}
+% \CheckSum{3327}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 %
 % \GetFileInfo{\jobname.dtx}
@@ -1240,7 +1245,6 @@ $URL$
 \int_new:N \l_@@_tmpc_int
 \box_new:N \l_@@_tmp_box
 \dim_new:N \l_@@_tmp_dim
-\skip_new:N \g_@@_tmp_skip
 \prop_new:N \l_@@_tmp_prop
 \clist_new:N \l_@@_tmpa_clist
 \clist_new:N \l_@@_tmpb_clist
@@ -1407,9 +1411,8 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_glue_to_skip:nN #1#2
   {
-    \hbox_set:Nn \l_@@_tmp_box
-      { #1 \skip_gset_eq:NN \g_@@_tmp_skip \tex_lastskip:D }
-    \skip_set_eq:NN #2 \g_@@_tmp_skip
+    \hbox_set:Nn \l_@@_tmp_box { #1 \scan_stop: \exp_after:wN } \exp_after:wN
+    \skip_set:Nn \exp_after:wN #2 \exp_after:wN { \skip_use:N \tex_lastskip:D }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1508,6 +1511,9 @@ $URL$
 \int_const:Nn \c_@@_FullLeft_class_int  { \c_two   }
 \int_const:Nn \c_@@_FullRight_class_int { \c_three }
 \int_const:Nn \c_@@_Boundary_class_int  { \c_two_hundred_fifty_five }
+\seq_new:N \g_@@_total_class_seq
+\seq_gset_split:Nnn \g_@@_total_class_seq { , }
+  { Default , CJK , FullLeft , FullRight , Boundary }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1517,6 +1523,7 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_new_class:n #1
   {
     \exp_args:Nc \newXeTeXintercharclass { c_@@_#1_class_int }
+    \seq_gput_right:Nn \g_@@_total_class_seq {#1}
     \clist_gclear_new:c { g_@@_#1_range_clist }
     \seq_gput_right:Nv \g_@@_class_seq { c_@@_#1_class_int }
   }
@@ -1887,7 +1894,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_inter_class_toks:nnn #1#2#3
   { \XeTeXinterchartoks \xeCJK_class_num:n {#1} ~ \xeCJK_class_num:n {#2} = {#3} }
-\cs_generate_variant:Nn \xeCJK_inter_class_toks:nnn { nnc , nnx }
+\cs_generate_variant:Nn \xeCJK_inter_class_toks:nnn { nnc , nnv , nnx }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2066,7 +2073,7 @@ $URL$
       }
     \xeCJK_app_inter_class_toks:nnn {#1} { CJK } { \CJKsymbol }
     \clist_map_inline:nn { FullLeft , FullRight }
-      { \xeCJK_app_inter_class_toks:nnc {#1} {##1} { xeCJK_CJK_and_##1:N } }
+      { \xeCJK_app_inter_class_toks:nnc {#1} {##1} { xeCJK_Default_and_##1:N } }
   }
 %    \end{macrocode}
 %
@@ -2123,7 +2130,7 @@ $URL$
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
   {
-    { \xeCJK_check_for_glue: }
+    \xeCJK_check_for_glue:
     \xeCJK_class_group_begin:
     \xeCJK_clear_Boundary_and_CJK_toks:
     \xeCJK_select_font:
@@ -2214,7 +2221,14 @@ $URL$
 % CJK 文字之间插入的 |glue|。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
-  { CJKglue .code:n = { \cs_set_protected:Npn \CJKglue {#1} } }
+  {
+    CJKglue .code:n =
+      {
+        \cs_set_protected_nopar:Npn \CJKglue {#1}
+        \xeCJK_glue_to_skip:nN {#1} \l_@@_ccglue_skip
+      }
+  }
+\skip_new:N \l_@@_ccglue_skip
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2225,8 +2239,8 @@ $URL$
   {
     CJKecglue            .code:n =
       {
-        \cs_set_protected:Npn \CJKecglue {#1}
-        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
+        \cs_set_protected_nopar:Npn \CJKecglue {#1}
+        \xeCJK_glue_to_skip:nN {#1} \l_@@_ecglue_skip
       } ,
     xCJKecglue .choice: ,
     xCJKecglue / true    .code:n =
@@ -2242,8 +2256,8 @@ $URL$
     xCJKecglue / unknown .code:n =
       {
         \bool_set_true:N  \l_@@_xecglue_bool
-        \cs_set_protected:Npn \CJKecglue {#1}
-        \xeCJK_glue_to_skip:nN \CJKecglue \l_@@_ecglue_skip
+        \cs_set_protected_nopar:Npn \CJKecglue {#1}
+        \xeCJK_glue_to_skip:nN {#1} \l_@@_ecglue_skip
         \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
       } ,
     xCJKecglue        .default:n = { true }
@@ -2301,7 +2315,6 @@ $URL$
           { \cs_if_exist:NF \l_peek_token \exp_not:N }
       }
   }
-\cs_new_eq:NN \xeCJK_ignorespaces: \xeCJK_ignore_spaces:w
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2320,19 +2333,39 @@ $URL$
 %    \begin{macrocode}
 \clist_map_inline:nn { FullLeft , FullRight }
   {
-    \xeCJK_inter_class_toks:nnn { Boundary } {#1}
+    \xeCJK_inter_class_toks:nnx { Boundary } {#1}
       {
         \xeCJK_class_group_begin:
         \xeCJK_clear_Boundary_and_CJK_toks:
-        \xeCJK_select_font:
-        \use:c { xeCJK_CJK_and_#1:N }
+        \exp_not:N \xeCJK_select_font:
+        \exp_not:c { xeCJK_Boundary_and_#1:N }
       }
   }
 \xeCJK_inter_class_toks:nnn { FullLeft } { Boundary }
   { \xeCJK_class_group_end: \tex_ignorespaces:D }
 \xeCJK_inter_class_toks:nnn { FullRight } { Boundary }
-  { \xeCJK_class_group_end: \CJKglue \tex_ignorespaces:D }
+  { \xeCJK_class_group_end: \xeCJK_FullRight_ignore_spaces:w }
 %    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_FullRight_ignore_spaces:w}
+% \changes{v3.1.1}{2012/12/02}{处理全角右标点后接脚注编号的断行问题。}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_FullRight_ignore_spaces:w
+  {
+    \peek_meaning_ignore_spaces:NTF \footnote
+      { \@@_FullRight_no_break_glue: }
+      {
+        \token_if_eq_meaning:NNT \l_peek_token \footnotemark
+          { \@@_FullRight_no_break_glue: }
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_FullRight_no_break_glue:
+  {
+    \exp_args:NNNo \tex_unskip:D \xeCJK_no_break:
+    \skip_horizontal:n { \skip_use:N \tex_lastskip:D }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \hypertarget{fl-fr-others}{}
 %    \begin{macrocode}
@@ -2427,13 +2460,26 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK_Default_and_FullLeft:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_Default_and_FullLeft:N #1
+  {
+    \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
+    \@@_punct_glue:NN \c_@@_left_tl {#1}
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
+    \@@_punct_rule:NN \c_@@_left_tl {#1}
+    \CJKpunctsymbol {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\xeCJK_CJK_and_FullLeft:N}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_CJK_and_FullLeft:N #1
   {
+    \@@_CJK_FullLeft_glue:
     \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
-    \int_compare:nNnF \etex_lastnodetype:D = \c_one
-      { \@@_CJK_FullLeft_glue: \@@_punct_glue:NN \c_@@_left_tl {#1} }
+    \@@_punct_glue:NN \c_@@_left_tl {#1}
     \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \@@_punct_rule:NN \c_@@_left_tl {#1}
     \CJKpunctsymbol {#1}
@@ -2442,13 +2488,29 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_CJK_and_FullRight:N}
+% \begin{macro}[internal]{\xeCJK_Boundary_and_FullLeft:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_Boundary_and_FullLeft:N #1
+  {
+    \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
+    \int_compare:nNnF \etex_lastnodetype:D = \c_one
+      { \@@_punct_glue:NN \c_@@_left_tl {#1} }
+    \tl_gset:Nx \g_@@_last_punct_tl {#1}
+    \@@_punct_rule:NN \c_@@_left_tl {#1}
+    \CJKpunctsymbol {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\xeCJK_CJK_and_FullRight:N,\xeCJK_Default_and_FullRight:N,
+%  \xeCJK_Boundary_and_FullRight:N}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_CJK_and_FullRight:N #1
   {
     \xeCJK_get_punct_bounds:NN \c_@@_right_tl {#1}
     \@@_punct_if_long:NTF {#1}
-      { \CJKglue }
+      { \@@_long_punct_glue: }
       {
         \xeCJK_no_break:
         \@@_punct_if_middle:NT {#1}
@@ -2460,6 +2522,9 @@ $URL$
     \tl_gset:Nx \g_@@_last_punct_tl {#1}
     \CJKpunctsymbol {#1}
   }
+\cs_new_protected_nopar:Npn \@@_long_punct_glue: { \CJKglue }
+\cs_new_eq:NN \xeCJK_Default_and_FullRight:N  \xeCJK_CJK_and_FullRight:N
+\cs_new_eq:NN \xeCJK_Boundary_and_FullRight:N \xeCJK_CJK_and_FullRight:N
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3554,6 +3619,7 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_fallback_loop:Nn}
 % \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
+% \changes{v3.1.1}{2012/12/02}{修正备用字体的不正确警告。}
 % 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
 % 结束循环。
 %    \begin{macrocode}
@@ -3567,7 +3633,8 @@ $URL$
           { \xeCJK_fallback_loop:Nn {#1} { #2/FallBack } }
       }
       {
-        \@@_warning:nxx { fallback } {#1} {#2}
+        \xeCJK_family_if_exist:xT { \l_xeCJK_family_tl/FallBack }
+          { \@@_warning:nxx { fallback } {#1} {#2} }
         \@@_fallback_save_CJKsymbol:N {#1}
       }
   }
@@ -3577,6 +3644,7 @@ $URL$
     ( \prop_get:No \g_@@_family_font_name_prop {#2} )~
     does~not~contain~glyph~'#1'~(U+\int_to_hexadecimal:n {`#1}).\\
   }
+\bool_new:N \l_@@_fallback_first_bool
 \cs_generate_variant:Nn \prop_get:Nn { No }
 %    \end{macrocode}
 % \end{macro}
@@ -4046,7 +4114,7 @@ $URL$
           }
       }
     \prop_map_inline:Nn \l_@@_add_font_prop
-      { \clist_put_right:Nn \l_@@_fontspec_options_clist { ##1 = { ##2 } } }
+      { \clist_put_right:Nn \l_@@_fontspec_options_clist { ##1 = {##2} } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4179,7 +4247,7 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_switch_font:nn}
-% \changes{v3.1.0}{2012/11/18}{改进 \cs{@@_switch_font:nn} 的定义。}
+% \changes{v3.1.0}{2012/11/18}{改进定义，加快切换速度。}
 % 两个 CJK 分区之间的字体切换。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_switch_font:nn #1#2
@@ -5082,6 +5150,7 @@ $URL$
 % \pkg{CJKnumb} 和 \pkg{CJKfntef} 宏包可以使用。
 %    \begin{macrocode}
 \tl_set:cn { ver@CJK.sty } { 9999/99/99 }
+\tl_set_eq:cc { ver@CJKulem.sty }  { ver@CJK.sty }
 \tl_set_eq:cc { ver@CJKpunct.sty } { ver@CJK.sty }
 %    \end{macrocode}
 %
@@ -5104,57 +5173,27 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_hook_for_ulem:}
-% \changes{v3.1.0}{2012/11/16}{简化对 \pkg{ulem} 宏包的兼容补丁。}
-% 对 \pkg{ulem} 宏包打补丁，以支持 \pkg{CJKfntef} 宏包。目前的问题是，在下划线状态
-% 下，相邻两个标点之间的空白不能压缩。
+% 由于 \pkg{xeCJK} 禁止 \pkg{CJKulem} 的载入，因此当使用 \pkg{ctex} 宏包的 |fntef|
+% 选项时，就会出现 \cs{normalem} 没有定义的问题。此时改用 \pkg{xeCJKfntef} 以便
+% 载入 \pkg{ulem}。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_hook_for_ulem:
+\token_if_eq_meaning:NNTF \ifCTEX@fntef \tex_iftrue:D
+  { \RequirePackage { xeCJKfntef } }
   {
-    \bool_if:NF \l_@@_ulem_hook_used_bool
+    \@@_at_end_preamble:n
       {
-        \bool_set_true:N \l_@@_ulem_hook_used_bool
-        \xeCJK_cs_clear:N \@@_CJK_FullLeft_glue:
-        \cs_set_protected_nopar:Npn \@@_FullLeft_ulem_hook: { { \CJKglue } }
-        \xeCJK_swap_cs:NN \CJKsymbol \@@_ulem_CJKsymbol:N
-        \xeCJK_swap_cs:NN \CJKpunctsymbol \@@_ulem_CJKpunctsymbol:N
-      }
-  }
-\bool_new:N \l_@@_ulem_hook_used_bool
-\@@_after_preamble:n
-  {
-    \xeCJK_if_package_loaded:nT { ulem }
-      {
-        \xeCJK_cs_gclear:N \@@_FullLeft_ulem_hook:
-        \xeCJK_pre_inter_class_toks:nnn { Boundary } { FullLeft }
-          { \@@_FullLeft_ulem_hook: }
-        \cs_if_exist:NTF \XeTeX@CJKfntef@hook
+        \xeCJK_if_package_loaded:nF { xeCJKfntef }
           {
-            \xeCJK_cs_gclear:N \CJKf@global
-            \AtBeginEnvironment
-              { CJKfilltwosides } { \cs_set_eq:NN \CJKglue \tex_hfil:D }
-            \cs_set_protected_nopar:Npn \XeTeX@CJKfntef@hook
-              { \xeCJK_select_font: \makexeCJKinactive }
+            \xeCJK_if_package_loaded:nTF { CJKfntef }
+              { \RequirePackage { xeCJKfntef } }
+              {
+                \xeCJK_if_package_loaded:nT { ulem }
+                  { \RequirePackage { xeCJKfntef } }
+              }
           }
-          { \RequirePackage { CJKulem } }
-        \addto@hook \UL@hook { \xeCJK_hook_for_ulem: }
       }
   }
 %    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_ulem_CJKsymbol:N,\@@_ulem_CJKpunctsymbol:N}
-% 这两个宏定义里面的分组记号都是必须的，否则会出现分组不匹配的情况。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_ulem_CJKsymbol:N #1
-  {
-    { \@@_ulem_CJKsymbol:N {#1} }
-    { \xeCJK_make_node:n { CJK } } \xeCJK_ignore_spaces:w
-  }
-\cs_new_protected_nopar:Npn \@@_ulem_CJKpunctsymbol:N #1
-  { { \@@_ulem_CJKpunctsymbol:N {#1} } \tex_ignorespaces:D }
-%    \end{macrocode}
-% \end{macro}
 %
 % 为使用 \pkg{CJKnumb} 宏包而作一些处理。另外 \pkg{CJKnumb} 使用的是传统汉字“萬”
 % 和“億”，我们在这里把它们修正为简体字。
@@ -5185,6 +5224,304 @@ $URL$
 %
 %    \begin{macrocode}
 %</package>
+%    \end{macrocode}
+%
+% \subsection{\pkg{xeCJKfntef}}
+%
+% \changes{v3.1.1}{2012/12/02}{增加小宏包 \pkg{xeCJKfntef}，用于处理下划线的问题。}
+%
+%    \begin{macrocode}
+%<*fntef>
+%    \end{macrocode}
+%
+% \pkg{xeCJKfntef} 不需要 \pkg{CJKulem} 宏包的支持，因此当使用 \pkg{CJKfntef} 时，%
+% 需要另行载入 \pkg{ulem}。目前在下划线状态下，全角标点符号不能与行首或行末对齐。
+% \cs{CJKunderdot} 和 \cs{CJKunderline} 等嵌套使用时，下划线不能跳过标点。
+% 另外，使用下划线时，CJK 字符之间尽量不要有空格。
+%    \begin{macrocode}
+\PassOptionsToPackage { normalem } { ulem }
+\DeclareOption* { \PassOptionsToPackage { \CurrentOption } { ulem } }
+\ProcessOptions \scan_stop:
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\@ifpackageloaded { xeCJK }
+  { }
+  { \RequirePackage { xeCJK } }
+\RequirePackage { ulem }
+\RequirePackage { CJKfntef }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\xeCJK_cs_gclear:N \CJKf@global
+\AtBeginEnvironment { CJKfilltwosides } { \cs_set_eq:NN \CJKglue \tex_hfil:D }
+\addto@hook \UL@hook { \xeCJK_hook_for_ulem: }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_hook_for_ulem:}
+% \changes{v3.1.0}{2012/11/16}{简化对 \pkg{ulem} 宏包的兼容补丁。}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_hook_for_ulem:
+  {
+    \bool_if:NF \l_@@_ulem_hook_used_bool
+      {
+        \bool_set_true:N \l_@@_ulem_hook_used_bool
+        \bool_if:NTF \l_@@_ulem_skip_punct_bool
+          { \@@_ulem_set_skip_punct_toks: }
+          { \@@_ulem_set_toks: }
+        \addto@hook \tex_everyhbox:D
+          {
+            \bool_if:NT \g_@@_under_dot_bool
+              { \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N }
+          }
+        \cs_set_eq:NN \@@_CJK_FullLeft_glue: \CJKglue
+        \xeCJK_swap_cs:NN \@@_long_punct_glue: \@@_ulem_long_punct_glue:
+        \xeCJK_glue_to_skip:nN { \CJKglue }   \l_@@_ccglue_skip
+        \xeCJK_glue_to_skip:nN { \CJKecglue } \l_@@_ecglue_skip
+        \cs_set_eq:NN \CJKglue   \xeCJK_ulem_CJKglue:
+        \cs_set_eq:NN \CJKecglue \xeCJK_ulem_CJKecglue:
+        \cs_set_eq:NN \xeCJK_class_group_begin: \xeCJK_ulem_class_group_begin:
+        \cs_set_eq:NN \xeCJK_class_group_end:   \xeCJK_ulem_class_group_end:
+      }
+  }
+\bool_new:N \l_@@_ulem_hook_used_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_long_punct_glue:}
+% 目的是可以在长标点符号之前断行。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_long_punct_glue:
+  {
+    \bool_if:NTF \g_@@_ulem_long_punct_bool
+      { \bool_gset_false:N \g_@@_ulem_long_punct_bool }
+      {
+        \bool_gset_true:N \g_@@_ulem_long_punct_bool
+        \@@_ulem_long_punct_glue:
+      }
+  }
+\bool_new:N \g_@@_ulem_long_punct_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \setbox\xeCJKtmpbox\vbox\bgroup
+%    \begin{macrocode}
+%<@@=>
+%    \end{macrocode}\egroup
+%
+% \begin{macro}[internal]{\CJK@UL,\CJK@@UL}
+% 修改 \pkg{CJKfntef} 中的 \cs{CJK@UL} 和 \cs{CJK@@UL} 以适应下面的修改。
+%    \begin{macrocode}
+\cs_set_eq:NN \CJK@UL \CJK@@UL
+\xeCJK_cs_patch:Nnn \CJK@UL { \ULon }
+  { \bool_set_true:N \l__xeCJK_ulem_skip_punct_bool \ULon }
+\xeCJK_cs_patch:Nnn \CJK@@UL { \ULon }
+  { \bool_set_false:N \l__xeCJK_ulem_skip_punct_bool \ULon }
+\bool_new:N \l__xeCJK_ulem_skip_punct_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \setbox\xeCJKtmpbox\vbox\bgroup
+%    \begin{macrocode}
+%<@@=xeCJK>
+%    \end{macrocode}\egroup
+%
+% \begin{macro}[internal]{\@@_ulem_set_skip_punct_toks:}
+% 这里的设置是为了在下划线状态下，下划线可以自动跳过全角标点符号。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_set_skip_punct_toks:
+  {
+    \cs_set_eq:NN \xeCJK@UL@leadtype \UL@leadtype
+    \seq_map_inline:Nn \g_@@_total_class_seq
+      {
+        \tl_gset:cx
+          { g_@@_Boundary_and_##1_tl }
+          { \xeCJK_get_inter_class_toks:nn { Boundary } {##1} }
+        \bool_if:nF
+          {
+            \str_if_eq_p:nn {##1} { FullLeft } ||
+            \str_if_eq_p:nn {##1} { FullRight }
+          }
+          {
+            \xeCJK_pre_inter_class_toks:nnn {##1} { FullLeft }
+              {
+                \UL@stop
+                \xeCJK_ulem_hskip:n { \c_zero_dim plus 0.08 \tex_baselineskip:D }
+                \xeCJK_cs_clear:N \UL@leadtype
+                \UL@start
+              }
+            \xeCJK_pre_inter_class_toks:nnn {##1} { FullRight }
+              { \UL@stop \xeCJK_cs_clear:N \UL@leadtype \UL@start }
+            \xeCJK_pre_inter_class_toks:nnn { FullLeft } {##1}
+              { \UL@stop \cs_set_eq:NN \UL@leadtype \xeCJK@UL@leadtype \UL@start }
+            \xeCJK_pre_inter_class_toks:nnn { FullRight } {##1}
+              { \UL@stop \cs_set_eq:NN \UL@leadtype \xeCJK@UL@leadtype \UL@start }
+          }
+      }
+    \xeCJK_inter_class_toks:nnn { FullRight } { Boundary }
+      {
+        \xeCJK_after_FullRight:
+        \xeCJK_class_group_end:
+        \UL@stop \cs_set_eq:NN \UL@leadtype \xeCJK@UL@leadtype \UL@start
+        \tex_ignorespaces:D
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_set_toks:}
+% 这里的设置是为了在下划线状态下，全角左标点之前可以断行。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_set_toks:
+  {
+    \seq_map_inline:Nn \g_@@_total_class_seq
+      {
+        \tl_gset:cx
+          { g_@@_Boundary_and_##1_tl }
+          { \xeCJK_get_inter_class_toks:nn { Boundary } {##1} }
+        \bool_if:nF
+          {
+            \str_if_eq_p:nn {##1} { FullLeft } ||
+            \str_if_eq_p:nn {##1} { FullRight }
+          }
+          {
+            \xeCJK_pre_inter_class_toks:nnn {##1} { FullLeft }
+              {
+                \UL@stop
+                \xeCJK_ulem_hskip:n { \c_zero_dim plus 0.08 \tex_baselineskip:D }
+                \UL@start
+              }
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\xeCJK_ulem_CJKglue:,\xeCJK_ulem_CJKecglue:,\xeCJK_ulem_hskip:n}
+% 在下划线状态下的分别代替 \cs{CJKglue} 等，用于汉字之间的断行。它们的主要作用就是
+% 用 \cs{UL@stop} 结束当前的 \cs{hbox}，并输出这个盒子，然后在盒子外面输出 |glue|，
+% 由此产生断点，最后又利用 \cs{UL@start} 开始保存 \cs{hbox}，以备下一次输出。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_ulem_CJKglue:
+  {
+    \token_if_eq_meaning:NNTF \  \LA@space
+      { \skip_horizontal:N \l_@@_ccglue_skip }
+      { \UL@stop \xeCJK_ulem_hskip:n { \l_@@_ccglue_skip } \UL@start }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_ulem_CJKecglue:
+  {
+    \token_if_eq_meaning:NNTF \  \LA@space
+      { \skip_horizontal:N \l_@@_ecglue_skip }
+      { \UL@stop \xeCJK_ulem_hskip:n { \l_@@_ecglue_skip } \UL@start }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_ulem_hskip:n #1
+  {
+    \int_compare:nNnTF \tex_lastkern:D = \c_three
+      { \skip_horizontal:n {#1} }
+      { \skip_set:Nn \UL@skip {#1} \UL@leaders }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\xeCJK_ulem_class_group_begin:,\xeCJK_ulem_class_group_end:}
+% 下划线状态下的分组情况比较复杂，因此原来的分组改用手工备份和还原的方式。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_ulem_class_group_begin:
+  { \tl_gset:Nx \g_@@_nfss_coordinates_tl { \curr@fontshape/\f@size } }
+\tl_new:N \g_@@_nfss_coordinates_tl
+\cs_new_protected_nopar:Npn \xeCJK_ulem_class_group_end:
+  {
+    \xeCJK_restore_Boundary_and_CJK_toks:
+    \exp_after:wN \split@name \g_@@_nfss_coordinates_tl \@nil
+    \use:c { \g_@@_nfss_coordinates_tl }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_restore_Boundary_and_CJK_toks:}
+% 用于恢复边界与各个 |CJK| 字符类之间的内容。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_restore_Boundary_and_CJK_toks:
+  { \seq_map_function:NN \g_@@_CJK_class_seq \@@_restore_Boundary_and_CJK_toks:n }
+\cs_new_protected_nopar:Npn \@@_restore_Boundary_and_CJK_toks:n #1
+  { \xeCJK_inter_class_toks:nnv { Boundary } {#1} { g_@@_Boundary_and_#1_tl } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderdot}
+% 使用 \pkg{xeCJK} 时，\pkg{CJKfntef} 中的 \cs{CJKunderdot} 和 \cs{CJKunderanysymbol}
+% 在汉字之间不能断行。因此需要我们在这里修改它们。
+%    \begin{macrocode}
+\RenewDocumentCommand \CJKunderdot { m }
+  {
+    \CJK@preUnderdot
+    \@@_make_under_symbol:n { \CJK@underdotSkip }
+    \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
+    \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
+    \bool_gset_true:N \g_@@_under_dot_bool
+    #1
+    \cs_set_eq:NN \CJKsymbol \@@_save_under_dot_CJKsymbol:N
+    \bool_gset_false:N \g_@@_under_dot_bool
+    \CJK@postUnderdot
+    \tex_ignorespaces:D
+  }
+\bool_new:N \g_@@_under_dot_bool
+\box_new:N \g_@@_under_symbol_box
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderanysymbol}
+%    \begin{macrocode}
+\RenewDocumentCommand \CJKunderanysymbol { m m m }
+  {
+    \group_begin:
+    \hbox_set:Nn \CJK@underdotBox {#2}
+    \@@_make_under_symbol:n {#1}
+    \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
+    \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
+    #3
+    \group_end:
+    \tex_ignorespaces:D
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_make_under_symbol:n}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_make_under_symbol:n #1
+  {
+    \hbox_set:Nn \l_@@_tmp_box
+      { \xeCJK_select_font: \makexeCJKinactive \CJKsymbol { ^^^^53e3 } }
+    \vbox_gset_to_ht:Nnn \g_@@_under_symbol_box \c_zero_dim
+      {
+        \skip_vertical:n {#1}
+        \hbox_to_zero:n
+          {
+            \tex_kern:D - \box_wd:N \l_@@_tmp_box
+            \tex_hss:D \box_use:N \CJK@underdotBox \tex_hss:D
+          }
+        \tex_vss:D
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_under_CJKsymbol:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_under_CJKsymbol:N #1
+  {
+    \@@_save_under_dot_CJKsymbol:N {#1}
+    \hbox_overlap_left:n { \box_use:N \g_@@_under_symbol_box }
+    { \xeCJK_make_node:n { CJK } }
+    \xeCJK_ignore_spaces:w
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</fntef>
 %    \end{macrocode}
 %
 % \subsection{\pkg{xeCJK.cfg}}
@@ -5469,22 +5806,47 @@ x^2+y^2
 \documentclass{article}
 \usepackage{xeCJK}
 \usepackage{xcolor}
+\usepackage[normalem]{ulem}
 \usepackage{CJKfntef}
 \setCJKmainfont{SimSun}
 
+\def\showtext{%
+  庄子曰：“吾生也有涯，而知也无涯。以有涯随无涯，殆已！已而为知者，殆而已矣！%
+  为善无近名，为恶无近刑，缘督以为经，可以保身，可以全生，可以养亲，可以尽年。”}
+\newcommand\CJKfntef[1]{%
+  \csname#1\endcsname{\showtext}\par
+  \csname#1\endcsname*{\showtext}\par
+  \CJKunderdot{\showtext\csname#1\endcsname{\showtext}}\par
+  \CJKunderdot{\showtext\csname#1\endcsname*{\showtext}}\par
+  \csname#1\endcsname{\showtext\CJKunderdot{\showtext}}\par
+  \csname#1\endcsname*{\showtext\CJKunderdot{\showtext}}\par\bigskip}
+
 \begin{document}
 
-\CJKunderline{汉字}\CJKunderline{加下划线加下划线加下划线加下划线
-加下划线加下划线加下划线加下划线加下划线加下划线加下划线}
-
-\CJKunderwave{波浪线}
-
+\CJKunderline{汉 字}\CJKunderline{加下划线}
+\varCJKunderline{汉字}\varCJKunderline{加下划线}
 \CJKunderanyline{0.5em}{\sixly \kern-.021em\char58 \kern-.021em}{自定义下划线}
-
 \CJKunderanyline{0.2em}{\kern-.03em\vtop{\kern.2ex\hrule width.2em\kern 0.11em
   \hrule height 0.1em}\kern-.03em}{自定义下划线}
 
-\CJKunderanysymbol{0.5em}{$\cdot$}{汉字加点}
+\CJKunderanyline{0.5em}{-}{\showtext}
+
+\CJKunderanysymbol{0.2em}{-}{\showtext}
+
+\CJKunderdot{\showtext}
+
+\begin{CJKfilltwosides}{40mm}
+两端分散对齐\\
+分散对齐\\
+\CJKunderdot{汉字可加点}\\
+\CJKunderline{汉字可加下划线}
+\end{CJKfilltwosides}
+
+\CJKfntef{CJKunderline}
+\CJKfntef{CJKunderwave}
+\CJKfntef{CJKunderdblline}
+\CJKfntef{CJKsout}
+\CJKfntef{CJKxout}
 
 \end{document}
 %    \end{macrocode}
