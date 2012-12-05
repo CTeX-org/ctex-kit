@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3399}
+% \CheckSum{3466}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 %
 % \GetFileInfo{\jobname.dtx}
@@ -1502,6 +1502,62 @@ $URL$
 \cs_new_protected:Npn \@@_int_until_do:wn \use_none:n #1
   { #1 \exp_after:wN \@@_int_until_do:wn \fi: \use_none:n {#1} }
 %    \end{macrocode}
+%
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_peek_catcode_ignore_spaces:NTF}
+% \changes{v3.1.1}{2012/12/04}{新增有省略空格标识的 \texttt{peek} 函数。}
+% 我们在里面设置了一个变量 \cs{l_@@_peek_ignore_spaces_bool} 用于标识后面的空格
+% 是否被省略掉了。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_peek_catcode_ignore_spaces:NTF #1#2#3
+  {
+    \cs_set_eq:NN \l__peek_search_token #1 \scan_stop:
+    \tl_set:Nn \@@_peek_catcode_true:w  { \group_align_safe_end: #2 }
+    \tl_set:Nn \@@_peek_catcode_false:w { \group_align_safe_end: #3 }
+    \bool_set_false:N \l_@@_peek_ignore_spaces_bool
+    \group_align_safe_begin:
+    \@@_peek_catcode_ignore_spaces:w
+  }
+\cs_new_protected_nopar:Npn \@@_peek_catcode_ignore_spaces:w
+  { \peek_after:Nw \@@_peek_catcode_ignore_spaces_execute_branches:w }
+\cs_new_protected:Npn \@@_peek_catcode_ignore_spaces_execute_branches:w
+  {
+    \if_catcode:w \exp_not:N \l_peek_token \c_space_token
+      \bool_set_true:N \l_@@_peek_ignore_spaces_bool
+      \exp_last_unbraced:Nf \@@_peek_catcode_ignore_spaces:w
+    \else:
+      \if_catcode:w \exp_not:N \l_peek_token \exp_not:N \l__peek_search_token
+        \exp_after:wN \exp_after:wN \exp_after:wN \@@_peek_catcode_true:w
+      \else:
+        \exp_after:wN \exp_after:wN \exp_after:wN \@@_peek_catcode_false:w
+      \fi:
+    \fi:
+  }
+\bool_new:N \l_@@_peek_ignore_spaces_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_peek_after_ignore_spaces:nw}
+% 与 \cs{@ifnextchar} 和 \cs{futurenonspacelet} 类似，会省略掉后面的空格。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_peek_after_ignore_spaces:nw #1
+  {
+    \tl_set:Nn \@@_peek_execute_branches:w { \group_align_safe_end: #1 }
+    \group_align_safe_begin:
+    \@@_peek_ignore_spaces:w
+  }
+\cs_new_protected_nopar:Npn \@@_peek_ignore_spaces:w
+  { \peek_after:Nw \@@_peek_ignore_spaces_execute_branches:w }
+\cs_new_protected:Npn \@@_peek_ignore_spaces_execute_branches:w
+  {
+    \if_catcode:w \exp_not:N \l_peek_token \c_space_token
+      \exp_last_unbraced:Nf \@@_peek_after_ignore_spaces:w
+    \else:
+      \exp_after:wN \@@_peek_execute_branches:w
+    \fi:
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \subsection{功能开关}
@@ -2337,13 +2393,16 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_ignore_spaces:w
   {
-    \peek_catcode:NTF \c_space_token
+    \xeCJK_peek_catcode_ignore_spaces:NTF \c_math_toggle_token
       {
-        \xeCJK_if_last_node:nT { CJK }
-          { \tex_unkern:D \tex_unkern:D { \xeCJK_make_node:n { CJK-space } } }
-        \peek_catcode_ignore_spaces:NTF \c_math_toggle_token
-          { \@@_space_or_xecglue: }
+        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+          { \@@_space_or_xecglue: } { \CJKecglue }
+      }
+      {
+        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           {
+            \tex_unkern:D \tex_unkern:D
+            { \xeCJK_make_node:n { CJK-space } }
             \bool_if:nT
               {
                 \token_if_macro_p:N \l_peek_token ||
@@ -2352,10 +2411,6 @@ $URL$
               }
               { \@@_space_or_xecglue: }
           }
-      }
-      {
-        \token_if_math_toggle:NTF \l_peek_token
-          { \CJKecglue }
           { \cs_if_exist:NF \l_peek_token \exp_not:N }
       }
   }
@@ -2676,10 +2731,7 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_check_FullRight_symbol:Nw}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_FullRight_symbol:Nw #1
-  {
-    \peek_catcode_ignore_spaces:NF \c_space_token
-      { \@@_save_FullRight_symbol:N {#1} }
-  }
+  { \xeCJK_peek_after_ignore_spaces:nw { \@@_save_FullRight_symbol:N {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2798,54 +2850,63 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_check_single:NNw}
+% \changes{v3.1.1}{2012/12/04}{改进定义，减少使用 \texttt{peek} 函数的次数。}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:NNw #1#2
   {
-    \peek_catcode:NTF \c_catcode_other_token
-      { \@@_check_single_save:N {#1} #2 }
+    \xeCJK_peek_catcode_ignore_spaces:NTF \c_catcode_other_token
       {
-        \bool_if:nTF
-          {
-            \token_if_space_p:N       \l_peek_token ||
-            \token_if_math_toggle_p:N \l_peek_token ||
-            \token_if_cs_p:N          \l_peek_token
-          }
-          {
-            \bool_if:nTF { \token_if_space_p:N \l_peek_token }
-              {
-                \peek_catcode_ignore_spaces:NTF \c_catcode_other_token
-                  { \@@_check_single_save:N {#1} #2 ~ }
-                  {
-                    \bool_if:nTF
-                      {
-                        \token_if_math_toggle_p:N \l_peek_token ||
-                        \token_if_cs_p:N          \l_peek_token
-                      }
-                      { \xeCJK_check_single:NNNw {#1} {#2} { ~ } }
-                      { \@@_check_single_save:N {#1} #2 ~ }
-                  }
-              }
-              { \xeCJK_check_single:NNNw {#1} {#2} { } }
-          }
+        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+          { \@@_check_single_save:N {#1} #2 ~ }
           { \@@_check_single_save:N {#1} #2 }
+      }
+      {
+        \token_if_math_toggle:NTF \l_peek_token
+          {
+            \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+              { \xeCJK_check_single_math:NNnNw {#1} {#2} { ~ } }
+              { \xeCJK_check_single_math:NNnNw {#1} {#2} { } }
+          }
+          {
+            \token_if_cs:NTF \l_peek_token
+              {
+                \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+                  { \xeCJK_check_single_cs:NNn {#1} {#2} { ~ } }
+                  { \xeCJK_check_single_cs:NNn {#1} {#2} { } }
+              }
+              {
+                \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+                  { \@@_check_single_save:N {#1} #2 ~ }
+                  { \@@_check_single_save:N {#1} #2 }
+              }
+          }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_check_single:NNNw}
-% \changes{v3.1.1}{2012/12/04}{改进定义，减少使用 \texttt{peek} 函数的次数。}
+% \begin{macro}[internal]{\xeCJK_check_single_math:NNnNw}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_check_single:NNNw #1#2#3
+\cs_new_protected_nopar:Npn \xeCJK_check_single_math:NNnNw #1#2#3#4
   {
-    \token_if_math_toggle:NTF \l_peek_token
-      { \xeCJK_check_single_math:nnNw }
+    \peek_catcode:NTF \c_math_toggle_token
       {
-        \tl_case:Non \l_peek_token
-          { \l_@@_check_single_cs_case_tl }
-          { \use_iii:nnn }
-          { \xeCJK_check_single_env:nnNn }
+        \xeCJK_no_break: \@@_check_single_save:N {#1}
+        \xeCJK_no_break: #2 #4
       }
+      { \@@_check_single_save:N {#1} #2#3#4 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_check_single_cs:NNn}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_check_single_cs:NNn #1#2#3
+  {
+    \tl_case:Non \l_peek_token
+      { \l_@@_check_single_cs_case_tl }
+      { \use_iii:nnn }
+      { \xeCJK_check_single_env:nnNn }
       {
         \xeCJK_no_break: \@@_check_single_save:N {#1}
         \xeCJK_no_break: #2
@@ -2853,13 +2914,6 @@ $URL$
       { \@@_check_single_save:N {#1} #2#3 }
   }
 \tl_new:N \l_@@_check_single_cs_case_tl
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_check_single_math:nnNw}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_check_single_math:nnNw #1#2#3
-  { \peek_catcode:NTF \c_math_toggle_token { #1 #3 } { #2 #3 } }
 %    \end{macrocode}
 % \end{macro}
 %
