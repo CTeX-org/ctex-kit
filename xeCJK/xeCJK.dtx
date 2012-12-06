@@ -183,6 +183,8 @@ $URL$
 %<fntef>  {xeCJKfntef}
   {\ExplFileDate}{3.1.0}{\ExplFileDescription}
 %<*driver>
+\def\xeCJKversion{3.1.0}
+\let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
 %</driver>
@@ -275,14 +277,13 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3466}
+% \CheckSum{3529}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 %
-% \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
 % \author{\href{http://www.ctex.org}{ctex.org}}
-% \date{\filedate\qquad\fileversion\thanks{\ctexkitrev{\xeCJKrevnum}.}}
+% \date{\xeCJKdate\qquad\xeCJKversion\thanks{\ctexkitrev{\xeCJKrevnum}.}}
 % \maketitle
 %
 % \tableofcontents
@@ -465,7 +466,7 @@ $URL$
 %   入的 CJK 文字与西文之间的空格。
 % \end{function}
 %
-% \begin{function}[updated=2012-12-04]{CheckSingle}
+% \begin{function}[updated=2012-12-06]{CheckSingle}
 %   \begin{syntax}
 %     CheckSingle = \meta{\TFF}
 %   \end{syntax}
@@ -473,6 +474,14 @@ $URL$
 %   段末的最后一个字是 CJK 文字或者标点符号，并且倒数第二和第三个字都是文字才能
 %   正确处理处理孤字的问题。如果这倒数三个字有作为控制序列的参数的情况，那么一般
 %   来说也不能正确处理。
+% \end{function}
+%
+% \begin{function}[added=2012-12-06]{PlainEquation}
+%   \begin{syntax}
+%     PlainEquation = \meta{\TFF}
+%   \end{syntax}
+%   如果使用了 |$$...$$| 的形式来输入行间数学公式，就需要启用本选项，以便
+%   |CheckSingle| 选项能够正确识别。推荐使用 |\[...\]| 的形式来输入行间数学公式。
 % \end{function}
 %
 % \begin{function}[added=2012-12-04]{NewLineCS,NewLineCS+,NewLineCS-}
@@ -491,9 +500,9 @@ $URL$
 %   以上是 \pkg{xeCJK} 的初始设置。
 % \end{function}
 %
-% \begin{function}{InlineEnv,InlineEnv+,InlineEnv-}
+% \begin{function}[updated=2012-12-06]{InlineEnv,InlineEnv+,InlineEnv-}
 %   \begin{syntax}
-%     InlineEnv = \argbrace{env1, env2, env3, ...}
+%     InlineEnv = \{\meta{env_1}, \meta{env_2}, \meta{env_3}, ...\}
 %   \end{syntax}
 %   在使用 |CheckSingle| 选项的时候，\pkg{xeCJK} 会将 CJK 文字后接着的 \LaTeX 环境的
 %   开始 |\begin{...}| 和结束 |\end{...}| 视为断行的地方，如果有某些特殊
@@ -1471,10 +1480,10 @@ $URL$
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \xeCJK_if_blank_x:n #1 { p , T , F , TF }
   {
-    \if_int_compare:w \pdftex_strcmp:D { \c_empty_tl } {#1} = \c_zero
+    \if_case:w \pdftex_strcmp:D { } {#1} \exp_stop_f:
       \prg_return_true:
     \else:
-      \if_int_compare:w \pdftex_strcmp:D { \c_space_tl } {#1} = \c_zero
+      \if_case:w \pdftex_strcmp:D { ~ } {#1} \exp_stop_f:
         \prg_return_true: \else: \prg_return_false: \fi:
     \fi:
   }
@@ -1487,8 +1496,7 @@ $URL$
 \prg_new_conditional:Npnn \xeCJK_if_package_loaded:n #1 { p , T , F , TF }
   {
     \tl_if_exist:cTF { ver@ #1 . \c_@@_package_ext_tl }
-      { \prg_return_true: }
-      { \prg_return_false: }
+      { \prg_return_true: } { \prg_return_false: }
   }
 \tl_const:Nx \c_@@_package_ext_tl { \@pkgextension }
 %    \end{macrocode}
@@ -1517,20 +1525,23 @@ $URL$
     \tl_set:Nn \@@_peek_catcode_false:w { \group_align_safe_end: #3 }
     \bool_set_false:N \l_@@_peek_ignore_spaces_bool
     \group_align_safe_begin:
-    \@@_peek_catcode_ignore_spaces:w
+    \peek_after:Nw \@@_peek_catcode_ignore_spaces_branches:w
   }
-\cs_new_protected_nopar:Npn \@@_peek_catcode_ignore_spaces:w
-  { \peek_after:Nw \@@_peek_catcode_ignore_spaces_execute_branches:w }
-\cs_new_protected:Npn \@@_peek_catcode_ignore_spaces_execute_branches:w
+\cs_new_protected_nopar:Npn \@@_peek_catcode_ignore_spaces_branches:w
   {
-    \if_catcode:w \exp_not:N \l_peek_token \c_space_token
+    \if_meaning:w \l_peek_token \c_space_token
       \bool_set_true:N \l_@@_peek_ignore_spaces_bool
-      \exp_last_unbraced:Nf \@@_peek_catcode_ignore_spaces:w
+      \exp_after:wN \peek_after:Nw
+      \exp_after:wN \@@_peek_catcode_ignore_spaces_branches:w
+      \tex_romannumeral:D 0
     \else:
-      \if_catcode:w \exp_not:N \l_peek_token \exp_not:N \l__peek_search_token
-        \exp_after:wN \exp_after:wN \exp_after:wN \@@_peek_catcode_true:w
+      \if_catcode:w
+        \exp_not:N \l_peek_token \exp_not:N \l__peek_search_token
+        \exp_after:wN \exp_after:wN
+        \exp_after:wN \@@_peek_catcode_true:w
       \else:
-        \exp_after:wN \exp_after:wN \exp_after:wN \@@_peek_catcode_false:w
+        \exp_after:wN \exp_after:wN
+        \exp_after:wN \@@_peek_catcode_false:w
       \fi:
     \fi:
   }
@@ -1543,20 +1554,26 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_peek_after_ignore_spaces:nw #1
   {
-    \tl_set:Nn \@@_peek_execute_branches:w { \group_align_safe_end: #1 }
+    \tl_set:Nn \@@_peek_after_do:w { \group_align_safe_end: #1 }
     \group_align_safe_begin:
-    \@@_peek_ignore_spaces:w
+    \peek_after:Nw \@@_peek_ignore_spaces_branches:w
   }
-\cs_new_protected_nopar:Npn \@@_peek_ignore_spaces:w
-  { \peek_after:Nw \@@_peek_ignore_spaces_execute_branches:w }
-\cs_new_protected:Npn \@@_peek_ignore_spaces_execute_branches:w
+\cs_new_protected_nopar:Npn \@@_peek_ignore_spaces_branches:w
   {
-    \if_catcode:w \exp_not:N \l_peek_token \c_space_token
-      \exp_last_unbraced:Nf \@@_peek_after_ignore_spaces:w
+    \if_meaning:w \l_peek_token \c_space_token
+      \exp_after:wN \peek_after:Nw
+      \exp_after:wN \@@_peek_ignore_spaces_branches:w
+      \tex_romannumeral:D 0
     \else:
-      \exp_after:wN \@@_peek_execute_branches:w
+      \exp_after:wN \@@_peek_after_do:w
     \fi:
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_class_csname:n}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_class_csname:n #1 { c_@@_#1_class_int }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1611,28 +1628,46 @@ $URL$
 % \begin{macro}[internal,var]{Default,CJK,FullLeft,FullRight,Boundary}
 % 这五类是 \XeTeX\ 预定义的类别。
 %    \begin{macrocode}
-\int_const:Nn \c_@@_Default_class_int   { \c_zero  }
-\int_const:Nn \c_@@_CJK_class_int       { \c_one   }
-\int_const:Nn \c_@@_FullLeft_class_int  { \c_two   }
-\int_const:Nn \c_@@_FullRight_class_int { \c_three }
-\int_const:Nn \c_@@_Boundary_class_int  { \c_two_hundred_fifty_five }
-\seq_new:N \g_@@_total_class_seq
-\seq_gset_split:Nnn \g_@@_total_class_seq { , }
-  { Default , CJK , FullLeft , FullRight , Boundary }
+\int_const:cn { \@@_class_csname:n { Default }   } { \c_zero  }
+\int_const:cn { \@@_class_csname:n { CJK }       } { \c_one   }
+\int_const:cn { \@@_class_csname:n { FullLeft }  } { \c_two   }
+\int_const:cn { \@@_class_csname:n { FullRight } } { \c_three }
+\int_const:cn { \@@_class_csname:n { Boundary }  } { \c_two_hundred_fifty_five }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_new_class:n,\g_@@_class_seq}
-% 新建一个字符类别。
+% \begin{macro}[internal,var]{\g_@@_total_class_seq}
+% 用于记录在 \pkg{xeCJK} 使用的字符类名称。
+%    \begin{macrocode}
+\seq_new:N \g_@@_total_class_seq
+\seq_gset_from_clist:Nn \g_@@_total_class_seq
+  { Default , CJK , FullLeft , FullRight , Boundary }
+\seq_map_inline:Nn \g_@@_total_class_seq
+  { \clist_new:c { g_@@_#1_range_clist } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_new_class:n,\g_@@_new_class_seq}
+% 新建一个字符类别。\cs{g_@@_class_seq} 用于记录字符类别的编号。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_new_class:n #1
   {
-    \exp_args:Nc \newXeTeXintercharclass { c_@@_#1_class_int }
-    \seq_gput_right:Nn \g_@@_total_class_seq {#1}
-    \clist_gclear_new:c { g_@@_#1_range_clist }
-    \seq_gput_right:Nv \g_@@_class_seq { c_@@_#1_class_int }
+    \int_if_exist:cTF { \@@_class_csname:n {#1} }
+      { \@@_error:nx { class-already-defined } {#1} }
+      {
+        \exp_args:Nc \newXeTeXintercharclass { \@@_class_csname:n {#1} }
+        \clist_new:c { g_@@_#1_range_clist }
+        \seq_gput_right:Nn \g_@@_total_class_seq {#1}
+        \seq_gput_right:Nv \g_@@_new_class_seq { \@@_class_csname:n {#1} }
+      }
   }
-\seq_new:N \g_@@_class_seq
+\seq_new:N \g_@@_new_class_seq
+\@@_msg_new:nn { class-already-defined }
+  {
+    XeTeX~character~class~`#1'~has~been~already~defined.\\\\
+    Please~take~another~name. \\
+  }
+\cs_new_eq:cN { \@@_class_csname:n { Others } } \l_@@_tmpa_int
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1648,7 +1683,7 @@ $URL$
 % \begin{macro}[var,internal]
 %  {\c_@@_HalfLeft_chars_clist,\c_@@_HalfRight_chars_clist,\c_@@_NormalSpace_chars_clist,
 %   \c_@@_FullLeft_chars_clist,\c_@@_FullRight_chars_clist,\c_@@_CJK_chars_clist}
-% \hypertarget{CJKcharclass}{\pkg{xeCJK} 设置的各个字符类的默认范围。}
+% \hypertarget{CJKcharclass}{\pkg{xeCJK} 设置的基本字符类的默认范围。}
 %    \begin{macrocode}
 \clist_const:Nn \c_@@_HalfLeft_chars_clist
   { "28 , "2D , "5B , "60 , "7B }
@@ -1816,19 +1851,13 @@ $URL$
 %  {\g_@@_base_class_seq,\g_@@_CJK_class_seq,\g_@@_CJK_class_prop}
 %    \begin{macrocode}
 \seq_new:N \g_@@_base_class_seq
-\seq_gset_split:Nnn \g_@@_base_class_seq { , }
-  {
-    Default , CJK , FullLeft , FullRight , Boundary ,
-    HalfLeft , HalfRight , NormalSpace
-  }
-\seq_map_inline:Nn \g_@@_base_class_seq
-  { \clist_gclear_new:c { g_@@_#1_range_clist } }
+\seq_gset_eq:NN \g_@@_base_class_seq \g_@@_total_class_seq
 \seq_new:N \g_@@_CJK_class_seq
 \prop_new:N \g_@@_CJK_class_prop
 \cs_new_protected_nopar:Npn \@@_save_CJK_class:n #1
   {
     \seq_gput_right:Nn \g_@@_CJK_class_seq {#1}
-    \prop_gput:Nvn \g_@@_CJK_class_prop { c_@@_#1_class_int } {#1}
+    \prop_gput:Nvn \g_@@_CJK_class_prop { \@@_class_csname:n {#1} } {#1}
   }
 \cs_generate_variant:Nn \prop_gput:Nnn { Nvn }
 \clist_map_function:nN { CJK , FullLeft , FullRight } \@@_save_CJK_class:n
@@ -1838,7 +1867,8 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_class_num:n}
 % |#1| 为字符类别名称，用于取得字符类别对应的编号。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \xeCJK_class_num:n #1 { \use:c { c_@@_#1_class_int } }
+\cs_new_nopar:Npn \xeCJK_class_num:n #1
+  { \use:c { \@@_class_csname:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1896,19 +1926,40 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_set_char_class:nnn}
-% |#1| 和 |#2| 为字符类别起止的 |Unicode|，|#3| 为类别名称对应编号。
+% \begin{macro}[internal]{\@@_set_char_class_catcode:nnn}
+% 设置字符类别的同时，设置所有 |CJK| 字符的 \cs{catcode} 为 |12|。\XeTeX 的配置文件
+% \file{unicode-letters.tex} 将所有 |CJK| 表意文字的 \cs{catcode} 设置为 |11|。我们
+% 在作出改变的目的是方便 |CheckSingle| 的判断。事实上，|CheckSingle| 的判断也可以不
+% 依赖 \cs{catcode}，而改为判断 \cs{XeTeXcharclass}。但是判读一个隐性记号
+% （\cs{l_peek_token}）的 \cs{XeTeXcharclass} 比直接判断它的 \cs{catcode} 要低效得多。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_set_char_class:nnn #1#2#3
+\cs_new_protected_nopar:Npn \@@_set_char_class_catcode:nnn #1#2#3
   {
     \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
     \int_set:Nn \l_@@_tmpc_int {#3}
-    \prop_get:NVNTF \g_@@_CJK_class_prop \l_@@_tmpc_int \l_@@_tmpa_tl
+    \int_compare:nNnTF
+      { \use:c { \@@_class_csname:n { CJK } } } = \l_@@_tmpc_int
       { \cs_set_eq:NN \@@_set_char_catcode:n \char_set_catcode_other:n }
       { \cs_set_eq:NN \@@_set_char_catcode:n \use_none:n }
     \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
       {
         \@@_set_char_catcode:n { \l_@@_tmpa_int }
+        \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
+        \int_incr:N \l_@@_tmpa_int
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_set_char_class:nnn}
+% 只设置字符类别，而不改变 \cs{catcode}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_set_char_class:nnn #1#2#3
+  {
+    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpc_int {#3}
+    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
+      {
         \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
         \int_incr:N \l_@@_tmpa_int
       }
@@ -1933,6 +1984,17 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK_set_char_class:nnn}
+% \changes{v3.1.1}{2012/12/05}{在文档中设置字符类别时不重复设置 \cs{catcode}。}
+% |#1| 和 |#2| 为字符类别起止的 |Unicode|，|#3| 为类别名称对应编号。在宏包内部使用
+% 时，设置 |CJK| 字符的 \cs{catcode}，而在文档中使用时不设置。
+%    \begin{macrocode}
+\cs_new_eq:NN \xeCJK_set_char_class:nnn \@@_set_char_class_catcode:nnn
+\AtEndOfPackage
+  { \cs_set_eq:NN \xeCJK_set_char_class:nnn \@@_set_char_class:nnn }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\@@_set_char_class_eq:nn}
 % 将字符类 |#2| 中的字符全部设置成字符类 |#1|。只使用于 |#2| 的字符类范围为离散的
 % 逗号列表的情况。
@@ -1951,10 +2013,9 @@ $URL$
 %    \begin{macrocode}
 \NewDocumentCommand \normalspacedchars { m }
   {
-    \tl_map_inline:xn {#1}
+    \tl_map_inline:nn {#1}
       { \XeTeXcharclass `##1 = \xeCJK_class_num:n { NormalSpace } }
   }
-\cs_generate_variant:Nn \tl_map_inline:nn { x }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2851,6 +2912,8 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_check_single:NNw}
 % \changes{v3.1.1}{2012/12/04}{改进定义，减少使用 \texttt{peek} 函数的次数。}
+% 使用 \cs{group_align_safe_begin:} 和 \cs{group_align_safe_end:} 是为了防止在表格
+% 里面报错。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:NNw #1#2
   {
@@ -2861,18 +2924,25 @@ $URL$
           { \@@_check_single_save:N {#1} #2 }
       }
       {
-        \token_if_math_toggle:NTF \l_peek_token
+        \group_align_safe_begin:
+        \token_if_cs:NTF \l_peek_token
           {
+            \group_align_safe_end:
             \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-              { \xeCJK_check_single_math:NNnNw {#1} {#2} { ~ } }
-              { \xeCJK_check_single_math:NNnNw {#1} {#2} { } }
+              { \xeCJK_check_single_cs:NNn {#1} {#2} { ~ } }
+              { \xeCJK_check_single_cs:NNn {#1} {#2} { } }
           }
           {
-            \token_if_cs:NTF \l_peek_token
+            \group_align_safe_end:
+            \bool_if:nTF
+              {
+                \l_@@_plain_equation_bool &&
+                \token_if_math_toggle_p:N \l_peek_token
+              }
               {
                 \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-                  { \xeCJK_check_single_cs:NNn {#1} {#2} { ~ } }
-                  { \xeCJK_check_single_cs:NNn {#1} {#2} { } }
+                  { \xeCJK_check_single_equation:NNnNw {#1} {#2} { ~ } }
+                  { \xeCJK_check_single_equation:NNnNw {#1} {#2} { } }
               }
               {
                 \bool_if:NTF \l_@@_peek_ignore_spaces_bool
@@ -2885,9 +2955,9 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_check_single_math:NNnNw}
+% \begin{macro}[internal]{\xeCJK_check_single_equation:NNnNw}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_check_single_math:NNnNw #1#2#3#4
+\cs_new_protected_nopar:Npn \xeCJK_check_single_equation:NNnNw #1#2#3#4
   {
     \peek_catcode:NTF \c_math_toggle_token
       {
@@ -2921,9 +2991,13 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_env:nnNn #1#2#3#4
   {
-    \clist_if_in:NnTF \g_@@_inline_env_clist {#4} {#2} {#1}
+    \str_case_x:non {#4}
+      { \l_@@_inline_env_case_tl }
+      { \use_i:nn }
+      {#1} {#2}
     \scan_stop: #3 {#4}
   }
+\cs_generate_variant:Nn \str_case_x:nnn { no }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2952,22 +3026,53 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}{InlineEnv}
+% \changes{v3.1.1}{2012/12/05}{改变行内环境的设置方式，从而使用 \cs{str_case_x:nnn}
+% 代替原来的 \cs{clist_if_in:NnTF} 来判断是否是行内环境。}
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
   {
-    InlineEnv .clist_gset:N = \g_@@_inline_env_clist ,
+    InlineEnv  .code:n =
+      {
+        \seq_set_from_clist:Nn \l_@@_inline_env_seq {#1}
+        \@@_update_inline_env_case_tl:
+      } ,
     InlineEnv+      .code:n =
       {
-        \clist_gput_right:Nx \g_@@_inline_env_clist {#1}
-        \clist_gremove_duplicates:N \g_@@_inline_env_clist
+        \clist_map_inline:nn {#1}
+          {
+            \seq_if_in:NnF \l_@@_inline_env_seq {##1}
+              { \seq_put_right:Nn \l_@@_inline_env_seq {##1} }
+          }
+        \@@_update_inline_env_case_tl:
       } ,
     InlineEnv-      .code:n =
       {
-        \clist_map_inline:xn {#1}
-          { \clist_gremove_all:Nn \g_@@_inline_env_clist {##1} }
+        \clist_map_inline:nn {#1}
+          { \seq_remove_all:Nn \l_@@_inline_env_seq {##1} }
+        \@@_update_inline_env_case_tl:
       }
   }
-\cs_generate_variant:Nn \clist_map_inline:nn { x }
+\seq_new:N \l_@@_inline_env_seq
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_update_inline_env_case_tl:}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_update_inline_env_case_tl:
+  {
+    \tl_clear:N \l_@@_inline_env_case_tl
+    \seq_map_inline:Nn \l_@@_inline_env_seq
+      { \tl_put_right:Nn \l_@@_inline_env_case_tl { {##1} { \use_ii:nn } } }
+  }
+\tl_new:N \l_@@_inline_env_case_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{PlainEquation}
+% \changes{v3.1.1}{2012/12/06}{增加 \texttt{PlainEquation} 选项。}
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  { PlainEquation .bool_set:N = \l_@@_plain_equation_bool }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3023,7 +3128,7 @@ $URL$
   {
     \clist_map_inline:nn {#1}
       {
-        \int_if_exist:cTF { c_@@_ CJK/##1 _class_int }
+        \int_if_exist:cTF { \@@_class_csname:n { CJK/##1 } }
           {
             \xeCJK_declare_char_class:nx
               { CJK \bool_if:NF \l_@@_sub_cancel_bool { /##1 } }
@@ -3046,7 +3151,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_declare_sub_char_class:nnn #1#2#3
   {
-    \int_if_exist:cF { c_@@_ #1/#2 _class_int }
+    \int_if_exist:cF { \@@_class_csname:n { #1/#2 } }
       {
         \xeCJK_new_class:n { #1/#2 }
         \@@_set_sub_class_toks:nn {#1} {#2}
@@ -3121,6 +3226,7 @@ $URL$
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKsetwidth { m m }
   { \tl_map_inline:xn {#1} { \tl_gset:cn { g_@@_punct_width/##1/tl } {#2} } }
+\cs_generate_variant:Nn \tl_map_inline:nn { x }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5010,7 +5116,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{quiet,silent}
+% \begin{macro}[internal]{quiet,silent}
 % 将调用 \pkg{xeCJK} 时使用的未知的选项传递给 \pkg{fontspec} 宏包。
 % 对 \pkg{fontspec} 的 |quiet| 和 |silent| 选项进行修改，使其适用于 \pkg{xeCJK}。
 %    \begin{macrocode}
@@ -5063,6 +5169,7 @@ $URL$
     CJKecglue       = { ~ } ,
     xCJKecglue      = false ,
     CheckSingle     = false ,
+    PlainEquation   = false ,
     CheckFullRight  = false ,
     CJKspace        = false ,
     CJKmath         = false ,
@@ -5292,24 +5399,24 @@ $URL$
 %<@@=xeCJK>
 %    \end{macrocode}\egroup
 %
-% \begin{macro}[internal]{\@@_set_others_toks:n,\c_@@_Others_class_int}
+% \begin{macro}[internal]{\@@_set_others_toks:n}
 % 简单处理与同样使用 \cs{XeTeXinterchartoks} 机制的宏包的兼容问题。
 %     \begin{macrocode}
 \@@_after_end_preamble:n
   {
     \int_compare:nNnF
-      { \c_three + ( \seq_count:N \g_@@_class_seq ) } = \xe@alloc@intercharclass
+      { \c_three + \seq_count:N \g_@@_new_class_seq } = \xe@alloc@intercharclass
       {
         \int_step_inline:nnnn \c_four \c_one \xe@alloc@intercharclass
           {
-            \seq_if_in:NnF \g_@@_class_seq {#1}
+            \seq_if_in:NnF \g_@@_new_class_seq {#1}
               { \@@_set_others_toks:n {#1} }
           }
       }
   }
 \cs_new_protected_nopar:Npn \@@_set_others_toks:n #1
   {
-    \int_set:Nn \c_@@_Others_class_int {#1}
+    \int_set:cn { \@@_class_csname:n { Others } } {#1}
     \seq_map_inline:Nn \g_@@_CJK_class_seq
       {
         \xeCJK_copy_inter_class_toks:nnnn {##1} { Others } {##1} { NormalSpace }
@@ -5332,7 +5439,6 @@ $URL$
           }
       }
   }
-\cs_new_eq:NN \c_@@_Others_class_int \l_@@_tmpa_int
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6023,6 +6129,8 @@ This is an example. 这是一个例子}
 \def。{．}
 \def\foo{一}
 \long\def\showtext{一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十。
+\[x^2+y^2\]
+一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十\foo
 $$x^2+y^2$$
 一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十\foo
 \begin{equation}
@@ -6037,6 +6145,11 @@ x^2+y^2
 \hrulefill\bigskip
 
 \xeCJKsetup{CheckSingle}
+\showtext
+
+\hrulefill\bigskip
+
+\xeCJKsetup{PlainEquation}
 \showtext
 \end{document}
 %    \end{macrocode}
