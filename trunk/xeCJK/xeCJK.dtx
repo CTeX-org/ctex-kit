@@ -57,8 +57,7 @@ The package requires LaTeX3 support as provided in the l3kernel and
 l3packages bundles and the fontspec package. All of these are available
 on CTAN as ready-to-install zip files. Suitable versions are available
 in the latest version of MiKTeX and TeX Live (updating the relevant
-packages online may be necessary). Both of xpatch and etoolbox packages
-are required. They are also available on CTAN.
+packages online may be necessary).
 
 To compile the documentation without error, you will need some specific
 CJK scripts fonts (TrueType or OpenType).
@@ -253,7 +252,7 @@ $URL$
 \def\TF{true\orvar{}false}
 \def\TTF{\defaultvar{true}\orvar{}false}
 \def\TFF{true\orvar\defaultvar{false}}
-\def\orvar{\char`\|}
+\chardef\orvar`\|
 \let\defaultvar\textbf
 \def\argbrace#1{\{#1\}}
 \@addtoreset{CodelineNo}{section}
@@ -277,8 +276,9 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3529}
+% \CheckSum{3553}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
+% \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -307,7 +307,6 @@ $URL$
 % \package{l3packages}。\pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字
 % 体。将在 \ref{subsec:opts}~节介绍的功能选项 |CJKnumber| 需要 \package{CJK} 宏包套
 % 件中的 \pkg{CJKnumb} 的支持；|indentfirst| 选项需要 \package{indentfirst} 宏包。
-% 此外还需要 \package{xpatch} 和 \package{etoolbox} 宏包。
 % \pkg{xeCJK} 会自动根据需要载入这些宏包。
 %
 % \pkg{xeCJK} 的原始作者是孙文昌，2009 年 5 月起宏包被收入 \ctexkit\ 项目进行
@@ -746,12 +745,12 @@ $URL$
 %
 % \begin{function}{\CJKfamilydefault}
 %   保存 \cs{normalfont} 所使用的 CJK 字体族，默认值是 \cs{CJKrmdefault}。类似西文字
-%   体的 \cs{familydefault}。可以通过更改它来改变文档的默认 CJK 字体族。例如，使用
+%   体的 \cs{familydefault}。\pkg{xeCJK} 会在导言区结束的时候根据西文字体的情况自动
+%   更新 \cs{CJKfamilydefault}。例如，在导言区里使用
 %   \begin{verbatim}
 %     \renewcommand\familydefault{\sfdefault}
-%     \renewcommand\CJKfamilydefault{\CJKsfdefault}
 %   \end{verbatim}
-%   可以将全文的 CJK 和西文默认字体改为无衬线字体族。
+%   就可以将全文的 CJK 和西文默认字体都改为无衬线字体族。
 % \end{function}
 %
 % \begin{function}[EXP]{\setCJKmathfont}
@@ -1288,7 +1287,6 @@ $URL$
 %
 %    \begin{macrocode}
 \RequirePackage { xparse , l3keys2e }
-\RequirePackage { xpatch }
 %    \end{macrocode}
 %
 % \subsection{内部工具}
@@ -1330,6 +1328,18 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[pTF,internal]{\xeCJK_if_package_loaded:n}
+% 判断宏包是否被引入，可用于文档正文中。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \xeCJK_if_package_loaded:n #1 { p , T , F , TF }
+  {
+    \tl_if_exist:cTF { ver@ #1 . \c_@@_package_ext_tl }
+      { \prg_return_true: } { \prg_return_false: }
+  }
+\tl_const:Nx \c_@@_package_ext_tl { \@pkgextension }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]
 %  {\@@_at_end_preamble:n,\@@_after_preamble:n,\@@_after_end_preamble:n}
 %  在 \cs{document} 前后加上各种钩子。
@@ -1343,9 +1353,25 @@ $URL$
   { \tl_gput_right:Nn \g_@@_after_preamble_hook_tl {#1} }
 \cs_new_protected:Npn \@@_after_end_preamble:n #1
   { \tl_gput_right:Nn \g_@@_after_end_preamble_hook_tl {#1} }
-\AtEndPreamble { \g_@@_at_end_preamble_hook_tl }
-\AfterPreamble { \g_@@_after_preamble_hook_tl }
-\AfterEndPreamble { \g_@@_after_end_preamble_hook_tl }
+\xeCJK_if_package_loaded:nTF { etoolbox }
+  {
+    \AtEndPreamble { \g_@@_at_end_preamble_hook_tl }
+    \AfterPreamble { \g_@@_after_preamble_hook_tl }
+    \AfterEndPreamble { \g_@@_after_end_preamble_hook_tl }
+  }
+  {
+    \AtBeginDocument { \g_@@_after_preamble_hook_tl }
+    \cs_new_protected_nopar:Npn \@@_document_left_hook:
+      { \group_end: \g_@@_at_end_preamble_hook_tl \group_begin: }
+    \cs_new_protected_nopar:Npn \@@_document_right_hook:
+      { \scan_stop: \g_@@_after_end_preamble_hook_tl \tex_ignorespaces:D }
+    \cs_gset_nopar:Npx \document
+      {
+        \@@_document_left_hook:
+        \exp_not:o { \document }
+        \@@_document_right_hook:
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1371,31 +1397,6 @@ $URL$
       { \@@_tl_remove_outer_braces:w #1 \q_stop }
       { \tl_trim_spaces:n {#1} }
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_cs_add:Nnn,\xeCJK_cs_patch:Nnn}
-% 在已有宏内容打补丁：在其前后附加内容或者替换掉它的某些内容，只替换掉第一次匹配
-% 的内容。
-%    \begin{macrocode}
-\cs_new_protected:Npn \xeCJK_cs_add:Nnn #1#2#3
-  {
-    \tl_if_empty:nTF {#3}
-      { \tl_if_empty:nTF {#2} { \use_ii:nn } { \xpretocmd {#1} {#2} } }
-      {
-        \tl_if_empty:nTF {#2} { \xapptocmd {#1} {#3} }
-          { \xpretocmd {#1} {#2} { \xapptocmd {#1} {#3} } { \use_ii:nn } }
-      }
-      { \@@_info:nxx { patch-cmd } { \token_to_str:N #1 } { succeeded } }
-      { \@@_warning:nxx { patch-cmd } { \token_to_str:N #1 } { failed } }
-  }
-\cs_new_protected:Npn \xeCJK_cs_patch:Nnn #1#2#3
-  {
-    \xpatchcmd {#1} {#2} {#3}
-      { \@@_info:nxx { patch-cmd } { \token_to_str:N #1 } { succeeded } }
-      { \@@_warning:nxx { patch-cmd } { \token_to_str:N #1 } { failed } }
-  }
-\@@_msg_new:nn { patch-cmd } { Patching~'#1'~#2! }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1490,18 +1491,6 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[pTF,internal]{\xeCJK_if_package_loaded:n}
-% 判断宏包是否被引入，可用于文档正文中。
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \xeCJK_if_package_loaded:n #1 { p , T , F , TF }
-  {
-    \tl_if_exist:cTF { ver@ #1 . \c_@@_package_ext_tl }
-      { \prg_return_true: } { \prg_return_false: }
-  }
-\tl_const:Nx \c_@@_package_ext_tl { \@pkgextension }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[internal]{\xeCJK_int_until_do:nn,\@@_int_until_do:wn}
 % 由于定义较为简单，可以比 \cs{int_until_do:nNnn} 稍微快一点点。
 %    \begin{macrocode}
@@ -1571,12 +1560,6 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_class_csname:n}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_class_csname:n #1 { c_@@_#1_class_int }
-%    \end{macrocode}
-% \end{macro}
-%
 % \subsection{功能开关}
 %
 % \begin{macro}{xeCJKactive}
@@ -1606,10 +1589,66 @@ $URL$
 %
 % \subsection{字符类别设定}\label{sec:xeCJK-class-set}
 %
+% \begin{macro}[internal,var]{\g_@@_class_seq,\g_@@_new_class_seq}
+% 分别用于记录在 \pkg{xeCJK} 中使用的字符类别名称和新建的字符类别的编号。
+%    \begin{macrocode}
+\seq_new:N \g_@@_class_seq
+\seq_new:N \g_@@_new_class_seq
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_new_class:n}
+% 新建一个字符类别。|#1| 是自定义名称。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_new_class:n #1
+  {
+    \int_if_exist:cTF { \@@_class_csname:n {#1} }
+      { \@@_error:nx { class-already-defined } {#1} }
+      {
+        \exp_args:Nc \newXeTeXintercharclass { \@@_class_csname:n {#1} }
+        \clist_new:c { g_@@_#1_range_clist }
+        \seq_gput_right:Nn \g_@@_class_seq {#1}
+        \seq_gput_right:Nv \g_@@_new_class_seq { \@@_class_csname:n {#1} }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_save_class:nn}
+% \changes{v3.1.1}{2012/12/06}
+% {使用 \cs{xeCJK_save_class:nn} 保存 \XeTeX 预定义的字符类别。}
+% 保存 \XeTeX 预定义的字符类别。|#1| 是自定义名称，|#2| 是编号。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_save_class:nn #1#2
+  {
+    \int_if_exist:cTF { \@@_class_csname:n {#1} }
+      { \@@_error:nx { class-already-defined } {#1} }
+      {
+        \int_const:cn { \@@_class_csname:n {#1} } {#2}
+        \clist_new:c { g_@@_#1_range_clist }
+        \seq_gput_right:Nn \g_@@_class_seq {#1}
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_class_csname:n}
+% 字符类名称对应的控制序列名字。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_class_csname:n #1 { c_@@_#1_class_int }
+\cs_new_eq:cN { \@@_class_csname:n { Others } } \l_@@_tmpa_int
+\@@_msg_new:nn { class-already-defined }
+  {
+    XeTeX~character~class~`#1'~has~been~already~defined.\\\\
+    Please~take~another~name. \\
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \pkg{xeCJK} 需要以下字符类别用于字符输出。其中 |Default|、|CJK|、|FullLeft|、
 % |FullRight|、|Boundary| 为 \XeTeX\ 中预定义的类别，\pkg{xeCJK} 新增加了\
 % |HalfLeft|、|HalfRight|、|NormalSpace|。
-% \begin{center}\punctstyle{plain}
+% \begin{center}\xeCJKsetup{PunctStyle=plain}
 % \begin{tabular}{cll}
 % \toprule
 %   类别        & 说明               & 例子 \\ \midrule
@@ -1625,53 +1664,18 @@ $URL$
 % \end{tabular}
 % \end{center}
 %
-% \begin{macro}[internal,var]{Default,CJK,FullLeft,FullRight,Boundary}
+% \begin{macro}[internal]{Default,CJK,FullLeft,FullRight,Boundary}
 % 这五类是 \XeTeX\ 预定义的类别。
 %    \begin{macrocode}
-\int_const:cn { \@@_class_csname:n { Default }   } { \c_zero  }
-\int_const:cn { \@@_class_csname:n { CJK }       } { \c_one   }
-\int_const:cn { \@@_class_csname:n { FullLeft }  } { \c_two   }
-\int_const:cn { \@@_class_csname:n { FullRight } } { \c_three }
-\int_const:cn { \@@_class_csname:n { Boundary }  } { \c_two_hundred_fifty_five }
+\xeCJK_save_class:nn { Default }   { \c_zero  }
+\xeCJK_save_class:nn { CJK }       { \c_one   }
+\xeCJK_save_class:nn { FullLeft }  { \c_two   }
+\xeCJK_save_class:nn { FullRight } { \c_three }
+\xeCJK_save_class:nn { Boundary }  { \c_two_hundred_fifty_five }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal,var]{\g_@@_total_class_seq}
-% 用于记录在 \pkg{xeCJK} 使用的字符类名称。
-%    \begin{macrocode}
-\seq_new:N \g_@@_total_class_seq
-\seq_gset_from_clist:Nn \g_@@_total_class_seq
-  { Default , CJK , FullLeft , FullRight , Boundary }
-\seq_map_inline:Nn \g_@@_total_class_seq
-  { \clist_new:c { g_@@_#1_range_clist } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_new_class:n,\g_@@_new_class_seq}
-% 新建一个字符类别。\cs{g_@@_class_seq} 用于记录字符类别的编号。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_new_class:n #1
-  {
-    \int_if_exist:cTF { \@@_class_csname:n {#1} }
-      { \@@_error:nx { class-already-defined } {#1} }
-      {
-        \exp_args:Nc \newXeTeXintercharclass { \@@_class_csname:n {#1} }
-        \clist_new:c { g_@@_#1_range_clist }
-        \seq_gput_right:Nn \g_@@_total_class_seq {#1}
-        \seq_gput_right:Nv \g_@@_new_class_seq { \@@_class_csname:n {#1} }
-      }
-  }
-\seq_new:N \g_@@_new_class_seq
-\@@_msg_new:nn { class-already-defined }
-  {
-    XeTeX~character~class~`#1'~has~been~already~defined.\\\\
-    Please~take~another~name. \\
-  }
-\cs_new_eq:cN { \@@_class_csname:n { Others } } \l_@@_tmpa_int
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal,var]{HalfLeft,HalfRight,NormalSpace}
+% \begin{macro}[internal]{HalfLeft,HalfRight,NormalSpace}
 % 新增西文半角左/右标点和前后原始间距的符号类。
 %    \begin{macrocode}
 \xeCJK_new_class:n { HalfLeft }
@@ -1851,7 +1855,7 @@ $URL$
 %  {\g_@@_base_class_seq,\g_@@_CJK_class_seq,\g_@@_CJK_class_prop}
 %    \begin{macrocode}
 \seq_new:N \g_@@_base_class_seq
-\seq_gset_eq:NN \g_@@_base_class_seq \g_@@_total_class_seq
+\seq_gset_eq:NN \g_@@_base_class_seq \g_@@_class_seq
 \seq_new:N \g_@@_CJK_class_seq
 \prop_new:N \g_@@_CJK_class_prop
 \cs_new_protected_nopar:Npn \@@_save_CJK_class:n #1
@@ -1996,13 +2000,14 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_set_char_class_eq:nn}
-% 将字符类 |#2| 中的字符全部设置成字符类 |#1|。只使用于 |#2| 的字符类范围为离散的
+% \changes{v3.1.1}{2012/12/06}{交换参数的顺序。}
+% 将字符类 |#1| 中的字符全部设置成字符类 |#2|。只适用于 |#1| 的字符类范围为离散的
 % 逗号列表的情况。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_char_class_eq:nn #1#2
   {
-    \int_set:Nn \l_@@_tmpa_int { \xeCJK_class_num:n {#1} }
-    \clist_map_inline:cn { c_@@_#2_chars_clist }
+    \int_set:Nn \l_@@_tmpa_int { \xeCJK_class_num:n {#2} }
+    \clist_map_inline:cn { c_@@_#1_chars_clist }
       { \XeTeXcharclass ##1 = \l_@@_tmpa_int }
   }
 %    \end{macrocode}
@@ -4184,7 +4189,6 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_family_initial:
   {
-    \@@_gobble_CJKfamily:
     \int_gincr:N \g_@@_family_int
     \prop_clear:N \l_@@_add_font_prop
     \prop_map_inline:Nn \g_@@_features_id_prop
@@ -4264,7 +4268,8 @@ $URL$
     \cs_gset_protected_nopar:cpx { \@@_family_csname:n {#1} }
       {
         \group_begin:
-        \@@_gobble_CJKfamily:
+        \cs_set_eq:NN
+        \exp_not:n { \@@_update_family:n \use_none:n }
         \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
@@ -4627,8 +4632,8 @@ $URL$
     \prop_gput:Nxx \g_@@_family_name_prop {#1} {#2}
     \cs_gset_protected_nopar:cpx { \@@_family_nfss_csname:n {#1} }
       {
-        \exp_not:N \fontencoding { \c_@@_encoding_tl }
-        \exp_not:N \fontfamily {#2}
+        \tl_set:Nx \exp_not:N \f@encoding { \c_@@_encoding_tl }
+        \tl_set:Nx \exp_not:N \f@family {#2}
         \exp_not:N \selectfont
       }
   }
@@ -4861,13 +4866,24 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% 在导言区结束的时候，若没有声明 CJK 字体，则给出一个警告。并在此时设置数学字体。
+% 在导言区结束的时候，若没有声明 CJK 字体，则给出一个警告。并在此时根据西文字体的
+% 情况更新 \cs{CJKfamilydefault} 和设置数学字体。
 %    \begin{macrocode}
 \@@_at_end_preamble:n
   {
     \prop_if_empty:NTF \g_@@_family_font_name_prop
       { \@@_warning:n { no-CJKfamily } }
       {
+        \tl_gset:Nx \CJKfamilydefault
+          {
+            \str_case_x:nnn { \familydefault }
+              {
+                { \rmdefault } { \CJKrmdefault }
+                { \sfdefault } { \CJKsfdefault }
+                { \ttdefault } { \CJKttdefault }
+              }
+              { \CJKfamilydefault }
+          }
         \CJKfamily { \CJKfamilydefault }
         \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
       }
@@ -4880,7 +4896,6 @@ $URL$
     in~the~preamble~to~declare~the~main~CJKfamily.\\
   }
 %    \end{macrocode}
-%
 %
 % \subsection{数学字体设置}
 %
@@ -4968,16 +4983,16 @@ $URL$
         \bool_if:NF \l_@@_verb_addon_bool
           {
             \bool_set_true:N \l_@@_verb_addon_bool
-            \@@_set_char_class_eq:nn { CJK } { FullLeft }
-            \@@_set_char_class_eq:nn { CJK } { FullRight }
-            \@@_set_char_class_eq:nn { Default } { HalfLeft }
-            \@@_set_char_class_eq:nn { Default } { HalfRight }
-            \@@_set_char_class_eq:nn { Default } { NormalSpace }
+            \@@_set_char_class_eq:nn { FullLeft }    { CJK }
+            \@@_set_char_class_eq:nn { FullRight }   { CJK }
+            \@@_set_char_class_eq:nn { HalfLeft }    { Default }
+            \@@_set_char_class_eq:nn { HalfRight }   { Default }
+            \@@_set_char_class_eq:nn { NormalSpace } { Default }
             \xeCJKsetup { xCJKecglue = false }
             \cs_set_protected_nopar:Npn \CJKglue
               { \skip_horizontal:N \g_@@_verb_exspace_skip }
             \cs_set_protected_nopar:Npn \CJKecglue
-              { \skip_horizontal:N 0.5 \g_@@_verb_exspace_skip }
+              { \skip_horizontal:n { 0.5 \g_@@_verb_exspace_skip } }
             \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
             \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
             \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
@@ -4992,8 +5007,7 @@ $URL$
 % 总是在 \LaTeX 的抄录环境（包括 \cs{verb}）里使用 \cs{xeCJKVerbAddon}，以保证代码
 % 的对齐。
 %    \begin{macrocode}
-\@@_after_preamble:n
-  { \xeCJK_cs_add:Nnn \verbatim@font { } { \xeCJKVerbAddon } }
+\@@_after_preamble:n { \tl_put_right:Nn \verbatim@font { \xeCJKVerbAddon } }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\@@_set_verb_exspace:}
@@ -5005,20 +5019,17 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_verb_exspace:
   {
-    \tl_if_exist:cTF { xeCJK/verb/\curr@fontshape/\f@size }
+    \tl_if_exist:cF { xeCJK/verb/\curr@fontshape/\f@size }
       {
-        \skip_gset:Nn \g_@@_verb_exspace_skip
-          { \tl_use:c { xeCJK/verb/\curr@fontshape/\f@size } }
-      }
-      {
-        \skip_gset:Nn \g_@@_verb_exspace_skip
+        \tl_gset:cn { xeCJK/verb/\curr@fontshape/\f@size }
           {
             \dim_max:nn
               { \c_zero_dim }
               { \c_two \tex_fontdimen:D \c_two \tex_font:D - \f@size pt }
           }
-        \tl_gset:cV { xeCJK/verb/\curr@fontshape/\f@size } \g_@@_verb_exspace_skip
       }
+    \skip_gset:Nn \g_@@_verb_exspace_skip
+      { \use:c { xeCJK/verb/\curr@fontshape/\f@size } }
   }
 \skip_new:N \g_@@_verb_exspace_skip
 %    \end{macrocode}
@@ -5041,7 +5052,7 @@ $URL$
   } }
 \AtEndOfPackage
   {
-    \xeCJK_cs_add:Nnn \fontspec_visible_space: { \scan_stop: } { }
+    \tl_put_left:Nn \fontspec_visible_space: { \scan_stop: }
     \cs_gset_eq:NN \fontspec_visible_space_fallback: \xeCJK_visible_space_fallback:
   }
 %    \end{macrocode}
@@ -5054,24 +5065,28 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_set_visible_space_font:
   {
     \tl_set:Nx \l_@@_current_coor_tl { xeCJK/space/\curr@fontshape/\f@size }
-    \dim_set:Nn \l_@@_tmp_dim { \tex_fontdimen:D \c_two \tex_font:D }
-    \fontencoding { \g_fontspec_encoding_tl }
-    \fontfamily { lmtt }
+    \exp_after:wN \@@_set_visible_space_size:n
+    \exp_after:wN { \dim_use:N \tex_fontdimen:D \c_two \tex_font:D }
+    \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
+  }
+\cs_new_protected_nopar:Npn \@@_set_visible_space_size:n #1
+  {
+    \tl_set:Nx \f@encoding { \g_fontspec_encoding_tl }
+    \tl_set:Nx \f@family { lmtt }
     \selectfont
-    \dim_compare:nNnF \l_@@_tmp_dim = { \tex_fontdimen:D \c_two \tex_font:D }
+    \dim_compare:nNnF {#1} = { \tex_fontdimen:D \c_two \tex_font:D }
       {
         \fontsize
           {
             \dim_eval:n
               {
-                \f@size pt * \dim_ratio:nn
-                  { \l_@@_tmp_dim } { \tex_fontdimen:D \c_two \tex_font:D }
+                \f@size pt *
+                \dim_ratio:nn {#1} { \tex_fontdimen:D \c_two \tex_font:D }
               }
           }
           { \f@baselineskip }
         \selectfont
       }
-    \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5307,22 +5322,28 @@ $URL$
 %
 % \subsection{兼容性修补}
 %
-% 补丁 \cs{normalfont}，\cs{rmfamily}，\cs{sffamily} 和 \cs{ttfamily}，使其同时对
-% CJK 字体族有效。
-% \begin{macrocode}
-\xeCJK_cs_add:Nnn \rmfamily { \CJKfamily { \CJKrmdefault } } { }
-\xeCJK_cs_add:Nnn \sffamily { \CJKfamily { \CJKsfdefault } } { }
-\xeCJK_cs_add:Nnn \ttfamily { \CJKfamily { \CJKttdefault } } { }
-\xeCJK_cs_add:Nnn \normalfont { \CJKfamily { \CJKfamilydefault } } { }
-\cs_set_eq:NN \reset@font \normalfont
-%    \end{macrocode}
-%
-% 因为我们在上面把 \cs{CJKfamily} 加在了 \cs{rmfamily} 里面，而 \pkg{fontspec} 在
-% 调用字体时，某些选项要使用它。为减少影响，下面使 \cs{CJKfamily} 在通过
-% \pkg{fontspec} 来实际调用字体时无效。
+% \begin{macro}[internal]{\fontfamily}
+% \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
+% 修改 \cs{fontfamily}，使主要 |CJK| 字体族能随西文主要字体更新。
 %    \begin{macrocode}
-\xeCJK_cs_add:Nnn \fontspec_init: { \@@_gobble_CJKfamily: } { }
+\RenewDocumentCommand \fontfamily { m }
+  {
+    \tl_set:Nx \f@family {#1}
+    \@@_update_family:n
+      {
+        \str_case_x:nnn {#1}
+          {
+            { \rmdefault }     { \CJKfamily { \CJKrmdefault } }
+            { \sfdefault }     { \CJKfamily { \CJKsfdefault } }
+            { \ttdefault }     { \CJKfamily { \CJKttdefault } }
+            { \familydefault } { \CJKfamily { \CJKfamilydefault } }
+          }
+          { }
+      }
+  }
+\cs_new_eq:NN \@@_update_family:n \use:n
 %    \end{macrocode}
+% \end{macro}
 %
 % \newbox\xeCJKtmpbox
 % \setbox\xeCJKtmpbox\vbox\bgroup
@@ -5341,8 +5362,8 @@ $URL$
 % 处理。
 %    \begin{macrocode}
 \cs_new_eq:NN \xeCJK@fix@penalty \fix@penalty
-\xeCJK_cs_patch:Nnn \xeCJK@fix@penalty \@@italiccorr \xeCJK@patch@italiccorr
-\xeCJK_cs_patch:Nnn \sw@slant \fix@penalty \xeCJK@fix@penalty
+\tl_replace_once:Nnn \xeCJK@fix@penalty \@@italiccorr \xeCJK@patch@italiccorr
+\tl_replace_once:Nnn \sw@slant \fix@penalty \xeCJK@fix@penalty
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5444,7 +5465,7 @@ $URL$
 %
 % 单独处理宽度有分歧的几个标点：包括省略号、破折号、间隔号、引号等中西文混用的
 % 符号， 保证其命令形式输出的是西文字体。并对一些编码的符号宏包做特殊处理。
-% \begin{macrocode}
+%    \begin{macrocode}
 \@@_after_preamble:n
   {
     \tl_map_inline:nn
@@ -5452,18 +5473,16 @@ $URL$
         \textellipsis  \textemdash     \textperiodcentered \textcentereddot
         \textquoteleft \textquoteright \textquotedblleft   \textquotedblright
       }
-      {
-        \xeCJK_cs_add:Nnn #1
-          { \@@_group_begin: \makexeCJKinactive } { \@@_group_end: }
-      }
-    \xeCJK_cs_add:Nnn \tipaencoding { \makexeCJKinactive } { }
+      { \cs_gset_nopar:Npx #1 { { \makexeCJKinactive \exp_not:o {#1} } } }
+    \tl_put_left:Nn \tipaencoding { \makexeCJKinactive }
     \cs_new_eq:NN \@@_aux_r:n \r
     \cs_set_nopar:Npn \r #1 { { \makexeCJKinactive \@@_aux_r:n {#1} } }
     \xeCJK_if_package_loaded:nT { pifont }
-      { \xeCJK_cs_add:Nnn \Pifont { \makexeCJKinactive } { } }
+      {
+        \RenewDocumentCommand \Pifont { m }
+          { \makexeCJKinactive \usefont { U } {#1} { m } { n } }
+      }
   }
-\cs_new_eq:NN \@@_group_begin: \group_begin:
-\cs_new_eq:NN \@@_group_end: \group_end:
 %    \end{macrocode}
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
@@ -5476,8 +5495,6 @@ $URL$
           {
             \@@_gobble_CJKfamily:
             \xeCJK_cs_clear:N \makexeCJKinactive
-            \xeCJK_cs_clear:N \@@_group_begin:
-            \xeCJK_cs_clear:N \@@_group_end:
           }
       }
   }
@@ -5601,8 +5618,6 @@ $URL$
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\xeCJK_cs_gclear:N \CJKf@global
-\AtBeginEnvironment { CJKfilltwosides } { \cs_set_eq:NN \CJKglue \tex_hfil:D }
 \addto@hook \UL@hook { \xeCJK_hook_for_ulem: }
 %    \end{macrocode}
 %
@@ -5661,9 +5676,9 @@ $URL$
 % 修改 \pkg{CJKfntef} 中的 \cs{CJK@UL} 和 \cs{CJK@@UL} 以适应下面的修改。
 %    \begin{macrocode}
 \cs_set_eq:NN \CJK@UL \CJK@@UL
-\xeCJK_cs_patch:Nnn \CJK@UL { \ULon }
+\tl_replace_once:Nnn \CJK@UL { \ULon }
   { \bool_set_true:N \l__xeCJK_ulem_skip_punct_bool \ULon }
-\xeCJK_cs_patch:Nnn \CJK@@UL { \ULon }
+\tl_replace_once:Nnn \CJK@@UL { \ULon }
   { \bool_set_false:N \l__xeCJK_ulem_skip_punct_bool \ULon }
 \bool_new:N \l__xeCJK_ulem_skip_punct_bool
 %    \end{macrocode}
@@ -5680,7 +5695,7 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_ulem_set_skip_punct_toks:
   {
     \cs_set_eq:NN \xeCJK@UL@leadtype \UL@leadtype
-    \seq_map_inline:Nn \g_@@_total_class_seq
+    \seq_map_inline:Nn \g_@@_class_seq
       {
         \bool_if:nF
           {
@@ -5727,7 +5742,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_ulem_set_toks:
   {
-    \seq_map_inline:Nn \g_@@_total_class_seq
+    \seq_map_inline:Nn \g_@@_class_seq
       {
         \bool_if:nF
           {
@@ -5871,6 +5886,41 @@ $URL$
     \hbox_overlap_left:n { \box_use:N \g_@@_under_symbol_box }
     { \xeCJK_make_node:n { CJK } }
     \xeCJK_ignore_spaces:w
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{CJKfilltwosides}
+% 修改 |CJKfilltwosides| 环境，使其不必重定义 \cs{CJKsymbol}。
+%    \begin{macrocode}
+\RenewDocumentEnvironment { CJKfilltwosides } { m }
+  {
+    \dim_set:Nn \l_@@_fill_width_dim {#1}
+    \cs_set_eq:NN \CJKglue \tex_hfil:D
+    \cs_set_eq:NN \\ \@@_fill_newline:
+    \mode_if_vertical:T { \tex_indent:D }
+    \tex_vbox:D \c_group_begin_token
+    \tex_hbox:D to \l_@@_fill_width_dim \c_group_begin_token
+    \tex_ignorespaces:D
+  }
+  {
+    \tex_unskip:D
+    \c_group_end_token
+    \c_group_end_token
+  }
+\dim_new:N \l_@@_fill_width_dim
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_fill_newline:}
+% |CJKfilltwosides| 环境里的断行命令 |\\|。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_fill_newline:
+  {
+    \tex_unskip:D
+    \c_group_end_token
+    \tex_hbox:D to \l_@@_fill_width_dim \c_group_begin_token
+    \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
