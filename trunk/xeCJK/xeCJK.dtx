@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3605}
+% \CheckSum{3618}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -5019,6 +5019,7 @@ $URL$
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\@@_set_verb_exspace:}
+% \changes{v3.1.1}{2012/12/08}{调整间距的计算方法。}
 % 在抄录环境中，CJK 文字之间的间距为当前西文字体两个空格的宽度与当前字体大小之差，
 % 而与西文和空格的间距为 CJK 文字之间的间距的一半。这里的问题是，
 % \cs{g_@@_verb_exspace_skip} 有可能为负么？现在的处理是保证它非负。如果真的出现
@@ -5027,17 +5028,26 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_verb_exspace:
   {
-    \tl_if_exist:cF { xeCJK/verb/\curr@fontshape/\f@size }
+    \tl_if_exist:cF { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
       {
-        \tl_gset:cn { xeCJK/verb/\curr@fontshape/\f@size }
+        \group_begin:
+        \xeCJK_select_font:
+        \use:x
           {
-            \dim_max:nn
-              { \c_zero_dim }
-              { \c_two \tex_fontdimen:D \c_two \tex_font:D - \f@size pt }
+            \group_end:
+            \tl_gset:cx
+            \exp_not:n { { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
+              {
+                \exp_not:N \dim_max:nn { \c_zero_dim }
+                  {
+                    \c_two \tex_fontdimen:D \c_two \tex_font:D -
+                    \dim_use:N \etex_fontcharwd:D \tex_font:D "4E00
+                  }
+              }
           }
       }
     \skip_gset:Nn \g_@@_verb_exspace_skip
-      { \use:c { xeCJK/verb/\curr@fontshape/\f@size } }
+      { \use:c { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
   }
 \skip_new:N \g_@@_verb_exspace_skip
 %    \end{macrocode}
@@ -5370,15 +5380,15 @@ $URL$
 % 处理。
 %    \begin{macrocode}
 \cs_new_eq:NN \xeCJK@fix@penalty \fix@penalty
-\tl_replace_once:Nnn \xeCJK@fix@penalty \@@italiccorr \xeCJK@patch@italiccorr
-\tl_replace_once:Nnn \sw@slant \fix@penalty \xeCJK@fix@penalty
+\tl_replace_once:Nnn \xeCJK@fix@penalty { \@@italiccorr } { \xeCJK@italiccorr }
+\tl_replace_once:Nnn \sw@slant          { \fix@penalty }  { \xeCJK@fix@penalty }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK@patch@italiccorr}
+% \begin{macro}[internal]{\xeCJK@italiccorr}
 % 修复倾斜校正，并处理汉字后面的空格。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK@patch@italiccorr
+\cs_new_protected_nopar:Npn \xeCJK@italiccorr
   {
     \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
       {
@@ -5940,8 +5950,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_make_under_symbol:n #1
   {
-    \hbox_set:Nn \l_@@_tmp_box
-      { \xeCJK_select_font: \makexeCJKinactive \CJKsymbol { ^^^^53e3 } }
+    \hbox_set:Nn \l_@@_tmp_box { ^^^^4e00 }
     \vbox_gset_to_ht:Nnn \g_@@_under_symbol_box \c_zero_dim
       {
         \skip_vertical:n {#1}
