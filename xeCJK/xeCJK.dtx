@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3612}
+% \CheckSum{3605}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -3181,9 +3181,17 @@ $URL$
               { \@@_switch_font:nn {#1} {#2} }
           }
           {
-            \xeCJK_replace_inter_class_toks:nnnn {##1} { #1/#2 }
-              { \CJKsymbol }
-              { \@@_switch_font:nn {#1} {#2} \CJKsymbol }
+            \str_if_eq:nnTF {##1} { FullRight }
+              {
+                \xeCJK_replace_inter_class_toks:nnnn {##1} { #1/#2 }
+                  { \xeCJK_CJK_and_CJK:N }
+                  { \@@_switch_font:nn {#1} {#2} \xeCJK_CJK_and_CJK:N }
+              }
+              {
+                \xeCJK_replace_inter_class_toks:nnnn {##1} { #1/#2 }
+                  { \CJKsymbol }
+                  { \@@_switch_font:nn {#1} {#2} \CJKsymbol }
+              }
           }
       }
     \xeCJK_copy_inter_class_toks:nnnn { #1/#2 } { #1/#2 } {#1} {#1}
@@ -5639,11 +5647,6 @@ $URL$
         \cs_set_eq:NN \xeCJK_after_FullLeft: \@@_ulem_after_FullLeft:
         \cs_set_protected_nopar:Npn \xeCJK_after_FullRight:
           { \@@_ulem_after_FullRight:n { } }
-        \addto@hook \tex_everyhbox:D
-          {
-            \bool_if:NT \g_@@_under_dot_bool
-              { \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N }
-          }
         \xeCJK_glue_to_skip:nN
           {
             \cs_set_eq:NN \  \tex_space:D
@@ -5902,18 +5905,17 @@ $URL$
 %    \begin{macrocode}
 \RenewDocumentCommand \CJKunderdot { m }
   {
+    \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@stop }
     \CJK@preUnderdot
     \@@_make_under_symbol:n { \CJK@underdotSkip }
     \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
     \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \bool_gset_true:N \g_@@_under_dot_bool
+    \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@start }
     #1
     \cs_set_eq:NN \CJKsymbol \@@_save_under_dot_CJKsymbol:N
-    \bool_gset_false:N \g_@@_under_dot_bool
     \CJK@postUnderdot
     \tex_ignorespaces:D
   }
-\bool_new:N \g_@@_under_dot_bool
 \box_new:N \g_@@_under_symbol_box
 %    \end{macrocode}
 % \end{macro}
