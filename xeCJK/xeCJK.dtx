@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3701}
+% \CheckSum{3736}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1559,6 +1559,30 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK_token_value_class:N}
+% 用于取得记号 |#1| 所在的 \XeTeX 字符类。|#1| 应为 \cs{catcode} 为 |11| 或 |12|
+% 的显性或隐性记号。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \xeCJK_token_value_class:N #1
+  { \XeTeXcharclass \xeCJK_token_value_charcode:N #1 }
+\cs_new_nopar:Npn \xeCJK_token_value_charcode:N #1
+  { \exp_after:wN \@@_token_value_charcode:w \token_to_meaning:N #1 \q_stop }
+\cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3 \q_stop { `#3 }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[pTF,internal]{\xeCJK_if_same_class:NN}
+% 判断两个字符是否同属于一个字符类。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \xeCJK_if_same_class:NN #1#2 { p , T , F , TF }
+  {
+    \if_int_compare:w
+      \xeCJK_token_value_class:N #1 = \xeCJK_token_value_class:N #2 \exp_stop_f:
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsection{功能开关}
 %
 % \begin{macro}{xeCJKactive}
@@ -1865,7 +1889,10 @@ $URL$
   {
     \seq_gput_right:Nn \g_@@_CJK_class_seq {#1}
     \prop_gput:Nvn \g_@@_CJK_class_prop { \@@_class_csname:n {#1} } {#1}
+    \tl_gput_right:Nx \g_@@_check_single_CJK_case_tl
+      { { \exp_not:c { \@@_class_csname:n {#1} } } { \exp_not:N \use_ii:nn } }
   }
+\tl_new:N \g_@@_check_single_CJK_case_tl
 \cs_generate_variant:Nn \prop_gput:Nnn { Nvn }
 \clist_map_function:nN { CJK , FullLeft , FullRight } \@@_save_CJK_class:n
 %    \end{macrocode}
@@ -1874,27 +1901,7 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_class_num:n}
 % |#1| 为字符类别名称，用于取得字符类别对应的编号。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \xeCJK_class_num:n #1
-  { \use:c { \@@_class_csname:n {#1} } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\xeCJK_value_class:n}
-% |#1| 为字符的 |Unicode|，用于取得该字符所在的字符类。
-%    \begin{macrocode}
-\cs_new_nopar:Npn \xeCJK_value_class:n #1
-  { \XeTeXcharclass \etex_numexpr:D #1 \scan_stop: }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,internal]{\xeCJK_if_same_class:NN}
-% 判断两个字符是否同属于一个字符类。
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \xeCJK_if_same_class:NN #1#2 { p , T , F , TF }
-  {
-    \if_int_compare:w \xeCJK_value_class:n {`#1} = \xeCJK_value_class:n {`#2}
-      \prg_return_true: \else: \prg_return_false: \fi:
-  }
+\cs_new_nopar:Npn \xeCJK_class_num:n #1 { \use:c { \@@_class_csname:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2973,7 +2980,7 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_check_single:Nw #1
   {
     \peek_catcode:NTF \c_catcode_other_token
-      { \xeCJK_check_single:NNw {#1} }
+      { \xeCJK_check_single:NNw #1 }
       {
         \bool_if:nTF
           {
@@ -2981,8 +2988,8 @@ $URL$
             \exp_args:No \tl_if_single_token_p:n \l_peek_token            &&
             \exp_after:wN \token_if_other_p:N \l_peek_token
           }
-          { \xeCJK_check_single:NNw {#1} }
-          { \@@_check_single_save:N {#1} }
+          { \exp_after:wN \xeCJK_check_single:NNw \exp_after:wN #1 }
+          { \@@_check_single_save:N #1 }
       }
   }
 %    \end{macrocode}
@@ -2998,8 +3005,8 @@ $URL$
     \xeCJK_peek_catcode_ignore_spaces:NTF \c_catcode_other_token
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-          { \@@_check_single_save:N {#1} #2 ~ }
-          { \@@_check_single_save:N {#1} #2 }
+          { \@@_check_single_space:NN #1#2 }
+          { \@@_check_single_save:N #1 #2 }
       }
       {
         \group_align_safe_begin:
@@ -3007,8 +3014,8 @@ $URL$
           {
             \group_align_safe_end:
             \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-              { \xeCJK_check_single_cs:NNn {#1} {#2} { ~ } }
-              { \xeCJK_check_single_cs:NNn {#1} {#2} { } }
+              { \xeCJK_check_single_cs:NNn #1#2 { ~ } }
+              { \xeCJK_check_single_cs:NNn #1#2 { } }
           }
           {
             \group_align_safe_end:
@@ -3019,17 +3026,39 @@ $URL$
               }
               {
                 \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-                  { \xeCJK_check_single_equation:NNnNw {#1} {#2} { ~ } }
-                  { \xeCJK_check_single_equation:NNnNw {#1} {#2} { } }
+                  { \xeCJK_check_single_equation:NNnNw #1 #2 { ~ } }
+                  { \xeCJK_check_single_equation:NNnNw #1 #2 { } }
               }
               {
                 \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-                  { \@@_check_single_save:N {#1} #2 ~ }
-                  { \@@_check_single_save:N {#1} #2 }
+                  { \@@_check_single_save:N #1 #2 ~ }
+                  { \@@_check_single_save:N #1 #2 }
               }
           }
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_check_single_space:NN}
+% \changes{v3.1.1}{2012/12/13}
+% {\texttt{CheckSingle} 支持段末“汉字$+$汉字$+$空格$+$汉字/标点”的形式。}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_check_single_space:NN #1#2
+  {
+    \int_case:non { \xeCJK_token_value_class:N #2 }
+      { \g_@@_check_single_CJK_case_tl }
+      { \use_i:nn }
+      { \@@_check_single_save:N #1 #2 ~ }
+      {
+        \int_case:non { \xeCJK_token_value_class:N \l_peek_token }
+          { \g_@@_check_single_CJK_case_tl }
+          { \use_i:nn }
+          { \@@_check_single_save:N #1 #2 ~ }
+          { \@@_check_single_save:N #1 #2 }
+      }
+  }
+\cs_generate_variant:Nn \int_case:nnn { no }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3039,10 +3068,10 @@ $URL$
   {
     \peek_catcode:NTF \c_math_toggle_token
       {
-        \xeCJK_no_break: \@@_check_single_save:N {#1}
+        \xeCJK_no_break: \@@_check_single_save:N #1
         \xeCJK_no_break: #2 #4
       }
-      { \@@_check_single_save:N {#1} #2#3#4 }
+      { \@@_check_single_save:N #1 #2#3#4 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3056,10 +3085,10 @@ $URL$
       { \use_iii:nnn }
       { \xeCJK_check_single_env:nnNn }
       {
-        \xeCJK_no_break: \@@_check_single_save:N {#1}
+        \xeCJK_no_break: \@@_check_single_save:N #1
         \xeCJK_no_break: #2
       }
-      { \@@_check_single_save:N {#1} #2#3 }
+      { \@@_check_single_save:N #1 #2#3 }
   }
 \tl_new:N \l_@@_check_single_cs_case_tl
 %    \end{macrocode}
@@ -3398,13 +3427,13 @@ $URL$
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \@@_punct_if_right:N #1 { p , T , F , TF }
   {
-    \if_int_compare:w \xeCJK_value_class:n {`#1} = \xeCJK_class_num:n { FullRight }
+    \if_int_compare:w \xeCJK_token_value_class:N #1 = \xeCJK_class_num:n { FullRight }
       \prg_return_true: \else: \prg_return_false: \fi:
   }
-\cs_generate_variant:Nn \prg_new_conditional:Npnn { c }
 \clist_map_inline:Nn \g_@@_special_punct_clist
   {
-    \prg_new_conditional:cpnn { @@_punct_if_#1:N } ##1 { p , T , F , TF }
+    \exp_args:Nc
+    \prg_new_conditional:Npnn { @@_punct_if_#1:N } ##1 { p , T , F , TF }
       {
         \if_cs_exist:w \@@_special_punct_tl:nN {#1} {##1} \cs_end:
           \prg_return_true: \else: \prg_return_false: \fi:
@@ -3857,7 +3886,10 @@ $URL$
 % 用 \cs{XeTeXglyphbounds} 取得标点符号的上下左右空白。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_glyph_bounds:NN #1#2
-  { \dim_use:N \XeTeXglyphbounds #1 ~ \XeTeXcharglyph `#2 \exp_stop_f: }
+  {
+    \dim_use:N \XeTeXglyphbounds #1 ~
+    \XeTeXcharglyph \xeCJK_token_value_charcode:N #2 \exp_stop_f:
+  }
 %    \end{macrocode}
 % \end{macro}
 %
