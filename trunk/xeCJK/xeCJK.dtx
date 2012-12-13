@@ -180,9 +180,9 @@ $URL$
 %<package|fntef>\ProvidesExplPackage
 %<package>  {\ExplFileName}
 %<fntef>  {xeCJKfntef}
-  {\ExplFileDate}{3.1.0}{\ExplFileDescription}
+  {\ExplFileDate}{3.1.1}{\ExplFileDescription}
 %<*driver>
-\def\xeCJKversion{3.1.0}
+\def\xeCJKversion{3.1.1}
 \let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3736}
+% \CheckSum{3762}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1229,6 +1229,13 @@ $URL$
 % \pkg{xeCJK} 依赖 \XeTeX 的 \cs{XeTeXinterchartoks} 机制，与使用相同机制的宏包（例如
 % \pkg{polyglossia}）可能会存在大小不一的冲突。\pkg{xeCJK} 虽然为此作了一些处理，但与
 % 它们共同使用时应该小心。
+%
+% 基于历史原因，\pkg{xltxtra} 宏包引入的 \pkg{realscripts} 定义了 \cs{dim_max:nn}
+% 和 \cs{dim_min:nn} 这两个已经在当前版本的 \pkg{expl3} 中定义了的函数。
+% \pkg{realscripts} 中的定义并不好，并且了覆盖 \pkg{expl3} 中的定义，因此破坏了
+% \pkg{xeCJK} 中的相关计算。\pkg{xltxtra} 并没有什么实际功能，完全可以不使用它。
+% 如果原来通过 \pkg{xltxtra} 得到 \XeLaTeX 这个 Logo，现在可以改用更完善的 \pkg{hologo}。
+% 如果坚持使用它，请把它放在 \pkg{xeCJK} 之后载入。
 %
 %\end{documentation}
 %
@@ -3858,7 +3865,7 @@ $URL$
         ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
       }
     \@@_gset_punct_dim:nnx { width } {#1}
-      { \dim_use:N \etex_fontcharwd:D \tex_font:D `#1 }
+      { \dim_use:N \etex_fontcharwd:D \tex_font:D \xeCJK_token_value_charcode:N #1 }
     \@@_gset_punct_dim:nnx { dimen } {#1}
       { \dim_eval:n { \@@_use_punct_dim:nn { width } {#1} - \l_@@_tmp_dim } }
     \@@_punct_if_long:NT {#1}
@@ -5437,6 +5444,37 @@ $URL$
 % \end{macro}
 %
 % \subsection{兼容性修补}
+%
+% \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
+%    \begin{macrocode}
+\@@_msg_new:nn { conflict-package }
+  {
+    The~`#1'~package~is~in~conflict~with~xeCJK. \\
+    Please~do~not~use~it~or~load~it~after~xeCJK.
+  }
+\xeCJK_if_package_loaded:nTF { realscripts }
+  {
+    \@ifpackagelater { realscripts } { 2010/10/10 } { }
+      { \@@_error:nx { conflict-package } { xltxtra } }
+  }
+  {
+    \cs_new_eq:NN \@@_dim_max:nn \dim_max:nn
+    \cs_new_eq:NN \@@_dim_min:nn \dim_min:nn
+    \@@_at_end_preamble:n
+      {
+        \xeCJK_if_package_loaded:nT { realscripts }
+          {
+            \@ifpackagelater { realscripts } { 2010/10/10 } { }
+              {
+                \cs_gset_eq:NN \dim_max:nn \@@_dim_max:nn
+                \cs_gset_eq:NN \dim_min:nn \@@_dim_min:nn
+              }
+          }
+        \cs_undefine:N \@@_dim_max:nn
+        \cs_undefine:N \@@_dim_min:nn
+      }
+  }
+%    \end{macrocode}
 %
 % \begin{macro}[internal]{\fontfamily}
 % \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
