@@ -11,7 +11,7 @@ mkdir texmf\tex\latex\ctex\cfg
 for %%i in (..\cfg\ctex.cfg ..\cfg\ctexcap-gbk.cfg ..\cfg\ctexcap-utf8.cfg ..\cfg\ctexcap.cfg ..\cfg\ctexopts.cfg.template) do copy "%%i" texmf\tex\latex\ctex\cfg
 
 mkdir texmf\tex\latex\ctex\def
-for %%i in (..\def\ctex-article.def ..\def\ctex-book.def ..\def\ctex-caption.def ..\def\ctex-common.def ..\def\ctex-fontsize.def ..\def\ctex-gbk.def ..\def\ctex-report.def ..\def\ctex-utf8.def) do copy "%%i" texmf\tex\latex\ctex\def
+for %%i in (..\def\ctex-article.def ..\def\ctex-book.def ..\def\ctex-caption.def ..\def\ctex-common.def ..\def\ctex-fontsize.def ..\def\ctex-report.def ..\def\ctex-options.def) do copy "%%i" texmf\tex\latex\ctex\def
 
 mkdir texmf\tex\latex\ctex\engine
 for %%i in (..\engine\ctex-cct-engine.def ..\engine\ctex-cjk-common.def ..\engine\ctex-cjk-engine.def ..\engine\ctex-xecjk-engine.def ..\engine\ctex-luacjk-engine.def ..\engine\jfm-banjiao.lua ..\engine\jfm-CCT.lua ..\engine\jfm-kaiming.lua ..\engine\jfm-plain.lua ..\engine\jfm-quanjiao.lua) do copy "%%i" texmf\tex\latex\ctex\engine
@@ -21,10 +21,6 @@ for %%i in (..\fd\c19gbsn.fd ..\fd\c19gbsn.fdx ..\fd\c19gkai.fd ..\fd\c19gkai.fd
 
 mkdir texmf\tex\latex\ctex\fontset
 for %%i in (..\fontset\ctex-fontset-adobe.def ..\fontset\ctex-fontset-mac.def ..\fontset\ctex-fontset-windows.def) do copy "%%i" texmf\tex\latex\ctex\fontset
-
-mkdir texmf\tex\latex\ctex\opt
-for %%i in (..\opt\ctex-options.def) do copy "%%i" texmf\tex\latex\ctex\opt
-
 
 mkdir texmf\doc\latex\ctex
 for %%i in (..\doc\ctex.pdf ..\doc\ctex.tex ..\README) do copy "%%i" texmf\doc\latex\ctex
