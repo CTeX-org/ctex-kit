@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3801}
+% \CheckSum{3796}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1578,6 +1578,20 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[pTF]{\xeCJK_if_CJK_class:N}
+% 判断字符 |#1| 是否为 CJK 字符类，包括文字和标点符号。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \xeCJK_if_CJK_class:N #1 { p , T , F , TF }
+  {
+    \if_cs_exist:w \@@_CJK_class_tl:n { \xeCJK_token_value_class:N #1 } \cs_end:
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+\cs_new_nopar:Npn \@@_CJK_class_tl:n #1
+  { c_@@_CJK_class_ \int_eval:n {#1} _tl }
+\cs_generate_variant:Nn \@@_CJK_class_tl:n { c }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[pTF,internal]{\xeCJK_if_same_class:NN}
 % 判断两个字符是否同属于一个字符类。
 %    \begin{macrocode}
@@ -1882,8 +1896,7 @@ $URL$
 % \subsection{字符类别处理}
 %
 % \begin{macro}[internal,var]
-%  {\g_@@_base_class_seq,\g_@@_non_CJK_class_seq,
-%   \g_@@_CJK_class_seq,\g_@@_CJK_class_prop}
+%  {\g_@@_base_class_seq,\g_@@_non_CJK_class_seq,\g_@@_CJK_class_seq}
 %    \begin{macrocode}
 \seq_new:N \g_@@_base_class_seq
 \seq_gset_eq:NN \g_@@_base_class_seq \g_@@_class_seq
@@ -1891,16 +1904,11 @@ $URL$
 \seq_gset_from_clist:Nn \g_@@_non_CJK_class_seq
   { Default , HalfLeft , HalfRight , NormalSpace , Boundary }
 \seq_new:N \g_@@_CJK_class_seq
-\prop_new:N \g_@@_CJK_class_prop
 \cs_new_protected_nopar:Npn \@@_save_CJK_class:n #1
   {
     \seq_gput_right:Nn \g_@@_CJK_class_seq {#1}
-    \prop_gput:Nvn \g_@@_CJK_class_prop { \@@_class_csname:n {#1} } {#1}
-    \tl_gput_right:Nx \g_@@_check_single_CJK_case_tl
-      { { \exp_not:c { \@@_class_csname:n {#1} } } { \exp_not:N \use_ii:nn } }
+    \tl_const:cn { \@@_CJK_class_tl:c { \@@_class_csname:n {#1} } } {#1}
   }
-\tl_new:N \g_@@_check_single_CJK_case_tl
-\cs_generate_variant:Nn \prop_gput:Nnn { Nvn }
 \clist_map_function:nN { CJK , FullLeft , FullRight } \@@_save_CJK_class:n
 %    \end{macrocode}
 % \end{macro}
@@ -3050,22 +3058,19 @@ $URL$
 % \begin{macro}[internal]{\@@_check_single_space:NN}
 % \changes{v3.1.1}{2012/12/13}
 % {\texttt{CheckSingle} 支持段末“汉字$+$汉字$+$空格$+$汉字/标点”的形式。}
+% \changes{v3.1.2}{2012/12/27}
+% {使用 \cs{xeCJK_if_CJK_class:NTF} 来代替 \cs{int_case:nnn} 判断是否是 CJK 字符类。}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_check_single_space:NN #1#2
   {
-    \int_case:non { \xeCJK_token_value_class:N #2 }
-      { \g_@@_check_single_CJK_case_tl }
-      { \use_i:nn }
-      { \@@_check_single_save:N #1 #2 ~ }
+    \xeCJK_if_CJK_class:NTF #2
       {
-        \int_case:non { \xeCJK_token_value_class:N \l_peek_token }
-          { \g_@@_check_single_CJK_case_tl }
-          { \use_i:nn }
-          { \@@_check_single_save:N #1 #2 ~ }
+        \xeCJK_if_CJK_class:NTF \l_peek_token
           { \@@_check_single_save:N #1 #2 }
+          { \@@_check_single_save:N #1 #2 ~ }
       }
+      { \@@_check_single_save:N #1 #2 ~ }
   }
-\cs_generate_variant:Nn \int_case:nnn { no }
 %    \end{macrocode}
 % \end{macro}
 %
