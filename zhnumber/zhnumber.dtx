@@ -67,8 +67,7 @@ unzip this in your local texmf directory and run texhash to update the
 database of file locations. If you want to unpack the dtx yourself, please
 ensure that the "iconv" program is installed and working properly, then
 running "xetex -shell-escape zhnumber.dtx" will extract the package whereas
-"xelatex -shell-escape zhnumber.dtx" will extract it and also typeset the
-documentation.
+"xelatex zhnumber.dtx" will typeset the documentation.
 
 The package requires LaTeX3 support as provided in the l3kernel and l3packages
 bundles. Both of these are available on CTAN as ready-to-install zip files.
@@ -80,11 +79,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</readme>
 %<*internal>
 \fi
-\ifnum\strcmp{\fmtname}{plain}=0 \else
-  \expandafter\begingroup
-\fi
+\begingroup
+  \edef\tempa{\fmtname}
+  \edef\tempb{plain}
+\expandafter\endgroup
+\ifx\tempa\tempb
+\csname fi\endcsname
 %</internal>
-%<*batchfile>
+%<*install>
+
 \input docstrip.tex
 \keepsilent
 \askforoverwritefalse
@@ -115,35 +118,36 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
                                       zhnumber.ins and
                                       README.
 \endpostamble
+
 \ifnum\shellescape=1 \else
   \errmessage{
     Shell escape is disabled. Please use ^^J^^J
-    xe(la)tex -shell-escape \jobname.ins(dtx)^^J}
+    xetex -shell-escape \jobname.ins(dtx)^^J}
   \expandafter\endbatchfile
 \fi
-\usedir{tex/latex/zhnumber}
-\generate{\file{\jobname.sty}{\from{\jobname.dtx}{package}}}
-\usedir{tex/latex/zhnumber/config}
+
 \generate{
+  \usedir{source/latex/zhnumber}
+  \file{\jobname.ins}{\from{\jobname.dtx}{install}}
+  \usedir{tex/latex/zhnumber}
+  \file{\jobname.sty}{\from{\jobname.dtx}{package}}
+  \usedir{tex/latex/zhnumber/config}
   \file{\jobname-utf8.cfg}{\from{\jobname.dtx}{config,utf8}}
   \file{\jobname-big5.cfg}{\from{\jobname.dtx}{config,big5}}
-  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config,gbk}}}
+  \file{\jobname-gbk.cfg}{\from{\jobname.dtx}{config,gbk}}
+  \nopreamble\nopostamble
+  \usedir{doc/latex/zhnumber}
+  \file{README.txt}{\from{\jobname.dtx}{readme}}
+}
+
 \immediate\write18{iconv -f utf-8 -t big-5 \jobname-big5.cfg > \jobname-big5.temp}
 \immediate\write18{iconv -f utf-8 -t gbk \jobname-gbk.cfg > \jobname-gbk.temp}
 \immediate\write18{mv -f \jobname-big5.temp \jobname-big5.cfg}
 \immediate\write18{mv -f \jobname-gbk.temp \jobname-gbk.cfg}
-%</batchfile>
-%<batchfile>\endbatchfile
+
+\endbatchfile
+%</install>
 %<*internal>
-\usedir{source/latex/zhnumber}
-\generate{\file{\jobname.ins}{\from{\jobname.dtx}{batchfile}}}
-\nopreamble\nopostamble
-\usedir{doc/latex/zhnumber}
-\generate{\file{README.txt}{\from{\jobname.dtx}{readme}}}
-\ifnum\strcmp{\fmtname}{plain}=0
-  \expandafter\endbatchfile
-\else
-  \expandafter\endgroup
 \fi
 %</internal>
 %
