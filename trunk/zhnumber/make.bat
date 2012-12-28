@@ -8,9 +8,10 @@
   echo  make clean        - delete all generated files
   echo  make ctan         - create an archive ready for CTAN
   echo  make doc          - typesets documentation
-  echo  make localinstall - extract packages
+  echo  make localinstall - install files in $TEXMFLOCAL
   echo  make tds          - create a TDS-ready archive
   echo  make unpack       - extract packages
+  echo  make checksum     - Correction of "\CheckSum{...}" entry in .dtx
 
   goto :EOF
 
@@ -29,8 +30,8 @@
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip
-  set CTANFILES=dtx pdf
-  set TDSFILES=%CTANFILES% ins cfg sty
+  set CTANFILES=ins dtx pdf
+  set TDSFILES=%CTANFILES% cfg sty
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -47,6 +48,7 @@
   if /i "%1" == "localinstall"  goto :localinstall
   if /i "%1" == "tds"          goto :tds
   if /i "%1" == "unpack"       goto :unpack
+  if /i "%1" == "checksum"     goto :checksum
 
   goto :help
 
@@ -96,25 +98,27 @@
 
 :doc 
 
-  if not [%SOURCE%] == [%UNPACK%] call :unpack
+  call :unpack
+  
+  call :checksum
 
   echo Typesetting %SOURCE%
 
-  %DTXTEX% %DTXTEXFLAG% -interaction=nonstopmode -no-pdf %SOURCE% > nul
+  %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
   if ERRORLEVEL 1 (
     echo ! Compilation failed
+    goto :end
   ) else (
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
-    %DTXTEX% %DTXTEXFLAG% -interaction=nonstopmode -no-pdf %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=nonstopmode %SOURCE% > nul 
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 
+	goto :clean-aux
   )
-
-  goto :clean-aux
 
 :file2tdsdir
 
@@ -213,9 +217,49 @@
 
   goto :end
 
+:checksum
+
+  call :perl
+
+  if [%PERLEXE%] == [""] goto :end
+  
+  %PERLEXE% adjust_checksum.pl %SOURCE%
+
+  goto :end
+ 
+:perl
+
+  if defined PERLEXE (
+    goto :EOF
+  ) else (
+    set PERLEXE =""
+  )
+  
+  for %%I in (perl.exe) do (
+    if exist %%I (
+	  set PERLEXE="%~dp0%%I"
+	) else (
+	  set PERLEXE="%%~$PATH:I"
+	)
+  )
+  
+  if not [%PERLEXE%] == [""] goto :EOF
+  
+  for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
+
+  if exist "%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe" (
+	set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
+	goto :EOF
+  )
+
+  echo.
+  echo This procedure requires a perl program,
+  echo but one could not be found.
+  echo.
+
 :zip 
 
-  if not defined ZIPFLAG set ZIPFLAG=-r -q -X
+  if not defined ZIPFLAG set ZIPFLAG=-r -q -X -ll
 
   if defined ZIPEXE (
     goto :EOF
@@ -231,18 +275,22 @@
 	)
   )
 
-  if [%ZIPEXE%] == [""] (
-    echo.
-    echo This procedure requires a zip program,
-    echo but one could not be found.
-    echo.
-  )
+  if not [%ZIPEXE%] == [""] goto :EOF
+  
+  echo.
+  echo This procedure requires a zip program,
+  echo but one could not be found.
+  echo.
 
-  goto :EOF
+  exit /b 1
 
 :iconv
 
-  if defined ICONVEXE set ICONVEXE=""
+  if defined ICONVEXE (
+    goto :EOF
+  ) else (
+    set ICONVEXE=""
+  )
   
   for %%I in (iconv.exe) do (
     if exist %%I (
@@ -252,16 +300,17 @@
 	)
   )
   
-  if [%ICONVEXE%] == [""] (
-    echo.
-    echo This procedure requires a iconv program,
-    echo but one could not be found.
-    echo.
-  )
+  if not [%ICONVEXE%] == [""] goto :EOF
   
-  goto :EOF
+  echo.
+  echo This procedure requires a iconv program,
+  echo but one could not be found.
+  echo.
+  
+  exit /b 1
 
 :end
 
   shift
   if not "%1" == "" goto :main
+ 
