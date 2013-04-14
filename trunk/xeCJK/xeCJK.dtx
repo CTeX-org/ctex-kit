@@ -272,7 +272,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{3869}
+% \CheckSum{3893}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -619,6 +619,16 @@ $URL$
 %   设置不能在全角右标点后断行的控制序列。以上是 \pkg{xeCJK} 的默认设置。如果这些
 %   控制序列在文档中只出现少量几次，也可以不必使用 |CheckFullRight| 选项，而是手工
 %   在这些控制序列前面加上 \ref{subsec:others}~节介绍的 \cs{xeCJKnobreak}。
+% \end{function}
+%
+% \begin{function}[added=2013-04-15]{Verb}
+%   \begin{syntax}
+%     Verb = \meta{\TF\orvar\defaultvar{env}}
+%   \end{syntax}
+%   是否调整中文在标准 \LaTeX 抄录环境下的间距以保持代码的对齐。其中 \texttt{env}
+%   选项只在 \texttt{verbatim} 环境里调整间距，而不调整 \cs{verb} 里的中文间距。
+%   这个选项对使用到 \cs{verbatim@font} 命令的情形均有效，更一般的情况可以使用
+%   \ref{subsec:others}~节介绍的 \cs{xeCJKVerbAddon}。
 % \end{function}
 %
 % \subsection{字体设置与选择}
@@ -1178,13 +1188,12 @@ $URL$
 %     \cs{xeCJKVerbAddon}
 %   \end{syntax}
 %   调整文字间距以便于让 CJK 字符占的宽度等于西文等宽字体中两个空格的宽度。这有利于
-%   等宽字体的代码对齐等情形。抄录 |(verbatim)| 环境将自动使用 \cs{xeCJKVerbAddon}
-%   的效果。需要注意的是，\cs{xeCJKVerbAddon} 对 \pkg{xeCJK} 的内部进行了比较大的
-%   修改，使用它之后，关于标点符号的禁则将会丢失。所以不能单独使用，应该放在分组里
-%   限制其作用域，否则是无效的。当然它可以和其它关于代码抄录的宏包配合使用。例如，
-%   可以使用于 \package{fancyvrb} 宏包的 |formatcom| 选项。此时设置的西文字体应该
-%   确实是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则需要在其后面
-%   使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。
+%   等宽字体的代码对齐等情形。需要注意的是，\cs{xeCJKVerbAddon} 对 \pkg{xeCJK} 的内
+%   部进行了比较大的修改，使用它之后，关于标点符号的禁则将会丢失。所以不能单独使用，^^A
+%   应该放在分组里限制其作用域，否则是无效的。当然它可以和其它关于代码抄录的宏包配
+%   合使用。例如，可以使用于 \package{fancyvrb} 宏包的 |formatcom| 选项。此时设置的
+%   西文字体应该确实是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则
+%   需要在其后面使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。
 % \end{function}
 %
 % \begin{function}[added=2012-12-03]{\xeCJKnobreak}
@@ -5157,6 +5166,45 @@ $URL$
 %
 % \changes{v3.1.0}{2012/11/19}{放弃使用放缩字体大小的方式，而只采用调整间距的方式
 % 与西文等宽字体对齐。并且只适用于与抄录环境下。}
+% \changes{v3.1.3}{2013/04/15}{增加 \texttt{Verb} 选项。}
+%
+% \begin{macro}{Verb}
+% 如果设置为 \texttt{env}，则只在 \LaTeX 的抄录环境里使用 \cs{xeCJKVerbAddon}，^^A
+% 而不包括 \cs{verb}。对当前使用环境的判断基于在标准 \LaTeX 的 \cs{verb} 定义里
+% 使用 \cs{bgrop} 和 \cs{egrop} 来分组。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    Verb .choice: ,
+    Verb / true  .code:n =
+      {
+        \bool_set_true:N \l_@@_verb_use_bool
+        \int_set_eq:NN \l_@@_verb_level_int \c_zero
+      } ,
+    Verb / false .code:n = { \bool_set_false:N \l_@@_verb_use_bool } ,
+    Verb / env   .code:n =
+      {
+        \bool_set_true:N \l_@@_verb_use_bool
+        \int_set_eq:NN \l_@@_verb_level_int \c_one
+      } ,
+    Verb      .default:n = { true }
+  }
+\bool_new:N \l_@@_verb_use_bool
+\int_new:N \l_@@_verb_level_int
+\@@_after_preamble:n
+  {
+    \tl_put_right:Nn \verbatim@font
+      {
+        \bool_if:nT
+          {
+            \l_@@_verb_use_bool &&
+            \int_compare_p:nNn \etex_currentgrouptype:D > \l_@@_verb_level_int
+          }
+          { \@@_verb_addon: }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{\xeCJKVerbAddon}
 % \changes{v3.1.0}{2012/11/19}{新增 \cs{xeCJKVerbAddon} 用于抄录环境中的间距调整。}
@@ -5167,37 +5215,33 @@ $URL$
 \NewDocumentCommand \xeCJKVerbAddon { }
   {
     \int_compare:nNnF \etex_currentgrouplevel:D = \c_zero
+      { \@@_verb_addon: }
+  }
+\cs_new_protected_nopar:Npn \@@_verb_addon:
+  {
+    \@@_set_verb_exspace:
+    \bool_if:NF \l@@_verb_addon_bool
       {
-        \@@_set_verb_exspace:
-        \bool_if:NF \l_@@_verb_addon_bool
-          {
-            \bool_set_true:N \l_@@_verb_addon_bool
-            \@@_set_char_class_eq:nn { FullLeft }    { CJK }
-            \@@_set_char_class_eq:nn { FullRight }   { CJK }
-            \@@_set_char_class_eq:nn { HalfLeft }    { Default }
-            \@@_set_char_class_eq:nn { HalfRight }   { Default }
-            \@@_set_char_class_eq:nn { NormalSpace } { Default }
-            \xeCJKsetup { xCJKecglue = false }
-            \cs_set_protected_nopar:Npn \CJKglue
-              { \skip_horizontal:N \g_@@_verb_exspace_skip }
-            \cs_set_protected_nopar:Npn \CJKecglue
-              { \skip_horizontal:n { 0.5 \g_@@_verb_exspace_skip } }
-            \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
-            \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
-            \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
-          }
+        \bool_set_true:N \l@@_verb_addon_bool
+        \@@_set_char_class_eq:nn { FullLeft }    { CJK }
+        \@@_set_char_class_eq:nn { FullRight }   { CJK }
+        \@@_set_char_class_eq:nn { HalfLeft }    { Default }
+        \@@_set_char_class_eq:nn { HalfRight }   { Default }
+        \@@_set_char_class_eq:nn { NormalSpace } { Default }
+        \xeCJKsetup { xCJKecglue = false }
+        \cs_set_protected_nopar:Npn \CJKglue
+          { \skip_horizontal:N \g@@_verb_exspace_skip }
+        \cs_set_protected_nopar:Npn \CJKecglue
+          { \skip_horizontal:n { 0.5 \g@@_verb_exspace_skip } }
+        \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
+        \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
+        \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
       }
   }
 \bool_new:N \l_@@_verb_addon_bool
 \cs_new_eq:NN \CJKfixedspacing \xeCJKVerbAddon
 %    \end{macrocode}
 % \end{macro}
-%
-% 总是在 \LaTeX 的抄录环境（包括 \cs{verb}）里使用 \cs{xeCJKVerbAddon}，以保证代码
-% 的对齐。
-%    \begin{macrocode}
-\@@_after_preamble:n { \tl_put_right:Nn \verbatim@font { \xeCJKVerbAddon } }
-%    \end{macrocode}
 %
 % \begin{macro}[internal]{\@@_set_verb_exspace:}
 % \changes{v3.1.1}{2012/12/08}{调整间距的计算方法。}
@@ -5391,6 +5435,7 @@ $URL$
     xeCJKactive     = true  ,
     LocalConfig     = true  ,
     indentfirst     = true  ,
+    Verb            = env   ,
     EmboldenFactor  = 4     ,
     SlantFactor     = 0.167 ,
     PunctStyle      = quanjiao ,
