@@ -146,6 +146,7 @@ $URL$
   \file{\jobname-example-CJKfntef.tex}{\from{\jobname.dtx}{ex-fntef}}
   \file{\jobname-example-punctstyle.tex}{\from{\jobname.dtx}{ex-punctstyle}}
   \file{\jobname-example-verbatim.tex}{\from{\jobname.dtx}{ex-verb}}
+  \file{\jobname-example-IVS.tex}{\from{\jobname.dtx}{ex-IVS}}
   \nopreamble\nopostamble
   \usedir{doc/xelatex/xecjk}
   \file{README.txt}{\from{\jobname.dtx}{readme}}
@@ -1462,7 +1463,7 @@ $URL$
 %    \begin{macrocode}
 \tl_const:Nn \c_xeCJK_space_skip_tl
   {
-    \int_compare:nNnTF \l_@@_spacefactor_int = \c_one_thousand
+    \int_compare:nNnTF \g_@@_spacefactor_int = \c_one_thousand
       {
         \skip_if_eq:nnTF \tex_spaceskip:D \c_zero_skip
           {
@@ -1475,7 +1476,7 @@ $URL$
       {
         \skip_if_eq:nnTF \tex_spaceskip:D \c_zero_skip
           {
-            \int_compare:nNnTF \l_@@_spacefactor_int < { 2000 }
+            \int_compare:nNnTF \g_@@_spacefactor_int < { 2000 }
               { \_@@_space_skip_scale:nnn { \tex_fontdimen:D \c_two \tex_font:D } }
               {
                 \skip_if_eq:nnTF \tex_xspaceskip:D \c_zero_skip
@@ -1492,7 +1493,7 @@ $URL$
               { \tex_fontdimen:D \c_four  \tex_font:D }
           }
           {
-            \int_compare:nNnTF \l_@@_spacefactor_int < { 2000 }
+            \int_compare:nNnTF \g_@@_spacefactor_int < { 2000 }
               { \_@@_space_skip_scale:nnn { \tex_spaceskip:D } }
               {
                 \skip_if_eq:nnTF \tex_xspaceskip:D \c_zero_skip
@@ -1510,13 +1511,13 @@ $URL$
 \cs_new_nopar:Npn \_@@_space_skip_scale:nnn #1#2#3
   {
     \dim_eval:n {#1}
-    plus \fp_eval:n { \l_@@_spacefactor_int / 1000 } #2
+    plus \fp_eval:n { \g_@@_spacefactor_int / 1000 } #2
     minus
       \int_div_truncate:nn
-        { 1000 * \tex_number:D #3 } { \l_@@_spacefactor_int } sp
+        { 1000 * \tex_number:D #3 } { \g_@@_spacefactor_int } sp
   }
-\int_new:N \l_@@_spacefactor_int
-\int_set_eq:NN \l_@@_spacefactor_int \c_one_thousand
+\int_new:N \g_@@_spacefactor_int
+\int_gset_eq:NN \g_@@_spacefactor_int \c_one_thousand
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1627,9 +1628,10 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_token_value_charcode:N}
 % \changes{v3.1.2}{2013/01/08}{考虑 \texttt{charcode} 大于等于 \texttt{0x10000} 的情况。}
 % 当记号 |#1| 的 \texttt{charcode} 大于等于 \texttt{0x10000} 时，\XeTeX\
-% \texttt{0.9999} 版以前的 \cs{meaning} 的返回结果比较特殊\footnote{参见
+% \texttt{0.9999.0} 版以前的 \cs{meaning} 的返回结果比较特殊\footnote{参见
 % \url{http://tug.org/pipermail/xetex/2013-January/023967.html} 和
-% \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。
+% \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。同时使用较新版本中
+% 提供的原语设置 \texttt{mathcode}。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_token_value_charcode:N #1
   { \exp_after:wN \@@_token_value_charcode:w \token_to_meaning:N #1 \q_stop }
@@ -1647,7 +1649,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[pTF]{\xeCJK_if_CJK_class:N}
+% \begin{macro}[pTF,internal]{\xeCJK_if_CJK_class:N}
 % 判断字符 |#1| 是否为 CJK 字符类，包括文字和标点符号。
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \xeCJK_if_CJK_class:N #1 { p , T , F , TF }
@@ -1795,7 +1797,7 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{HalfLeft,HalfRight,NormalSpace,IVS}
-% 新增西文半角左/右标点和前后原始间距的符号类。
+% 新增西文半角左/右标点、前后原始间距的符号和异体字选择符类。
 %    \begin{macrocode}
 \xeCJK_new_class:n { HalfLeft }
 \xeCJK_new_class:n { HalfRight }
@@ -2438,7 +2440,7 @@ $URL$
   {
     \xeCJK_inter_class_toks:nnn {#1} { Boundary }
       {
-        \int_gset_eq:NN \l__xeCJK_spacefactor_int \tex_spacefactor:D
+        \int_gset_eq:NN \g_@@_spacefactor_int \tex_spacefactor:D
         \peek_meaning_remove:NTF \tex_italiccorrection:D
           { \tex_italiccorrection:D { \xeCJK_make_node:n { default } } }
           {
@@ -3325,7 +3327,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_update_inline_env_case_tl:}
+% \begin{macro}[internal]{\@@_update_inline_env_case_tl:}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_update_inline_env_case_tl:
   {
@@ -5932,7 +5934,10 @@ $URL$
         \textellipsis  \textemdash     \textperiodcentered \textcentereddot
         \textquoteleft \textquoteright \textquotedblleft   \textquotedblright
       }
-      { \cs_gset_nopar:Npx #1 { \@@_group_begin: \makexeCJKinactive \exp_not:o {#1} \@@_group_end: } }
+      {
+        \cs_gset_nopar:Npx #1
+          { \@@_group_begin: \makexeCJKinactive \exp_not:o {#1} \@@_group_end: }
+      }
     \tl_put_left:Nn \tipaencoding { \makexeCJKinactive }
     \cs_new_eq:NN \@@_aux_r:n \r
     \cs_set_nopar:Npn \r #1 { { \makexeCJKinactive \@@_aux_r:n {#1} } }
@@ -7024,6 +7029,36 @@ lang_set = {
 %
 %    \begin{macrocode}
 %</ex-verb>
+%    \end{macrocode}
+%
+% \subsection{\pkg{xeCJK-example-IVS.tex}}
+%
+%    \begin{macrocode}
+%<*ex-IVS>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{hologo}
+
+\setCJKmainfont{HanaMinA} %% http://fonts.jp/hanazono/
+
+\begin{document}
+
+\hologo{XeTeX} でIVSを使うテスト。
+
+消󠄀化󠄀器󠄂 / 消󠄁火器󠄃 / 消󠄂化󠄁器󠄄
+
+消󠄃火器󠄅 / 消化󠄂器󠄆 / 消火器󠄇
+
+消化󠄃器󠄈 / 消火器󠄉 / 辻󠄂辻󠄃辻󠄄辻󠄅　
+
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</ex-IVS>
 %    \end{macrocode}
 %
 % \fi
