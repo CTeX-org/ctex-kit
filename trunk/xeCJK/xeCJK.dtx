@@ -178,9 +178,9 @@ $URL$
 %<package|fntef>\ProvidesExplPackage
 %<package>  {\ExplFileName}
 %<fntef>  {xeCJKfntef}
-  {\ExplFileDate}{3.2.0}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.1}{\ExplFileDescription}
 %<*driver>
-\def\xeCJKversion{3.2.0}
+\def\xeCJKversion{3.2.1}
 \let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -273,7 +273,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4017}
+% \CheckSum{4034}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -622,12 +622,14 @@ $URL$
 %   在这些控制序列前面加上 \ref{subsec:others}~节介绍的 \cs{xeCJKnobreak}。
 % \end{function}
 %
-% \begin{function}[added=2013-04-15]{Verb}
+% \begin{function}[updated=2013-05-29]{Verb}
 %   \begin{syntax}
-%     Verb = \meta{\TF\orvar\defaultvar{env}}
+%     Verb = \meta{\TF\orvar\defaultvar{env}\orvar{}env+}
 %   \end{syntax}
-%   是否调整中文在标准 \LaTeX 抄录环境下的间距以保持代码的对齐。其中 \texttt{env}
-%   选项只在 \texttt{verbatim} 环境里调整间距，而不调整 \cs{verb} 里的中文间距。
+%   \texttt{true} 表示在 \cs{verb} 命令或 \texttt{verbatim} 环境里不自动调整中英文
+%   之间的间距。\texttt{env} 选项在 \texttt{verbatim} 环境里自动计算中西文间距和中文
+%   之间的间距，以便于保持代码的对齐；\texttt{env} 选项不调整 \cs{verb} 里的间距，^^A
+%   \texttt{env+} 选项还将正文里设置的间距应用到 \cs{verb} 里。^^A
 %   这个选项对使用到 \cs{verbatim@font} 命令的情形均有效，更一般的情况可以使用
 %   \ref{subsec:others}~节介绍的 \cs{xeCJKVerbAddon}。
 % \end{function}
@@ -2792,8 +2794,10 @@ $URL$
         \xeCJK_class_group_end: \xeCJK_no_break:
         \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
       }
-      { \xeCJK_class_group_end: \xeCJK_no_break: \skip_horizontal:N \c_zero_skip }
+      { \xeCJK_class_group_end: \xeCJK_no_break: \@@_zero_glue: }
   }
+\cs_new_protected_nopar:Npn \@@_zero_glue:
+  { \skip_horizontal:N \c_zero_skip }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2872,7 +2876,7 @@ $URL$
   {
     \int_case:nnn { \etex_lastnodetype:D }
       {
-        { \c_one       } { \skip_horizontal:N \c_zero_skip }
+        { \c_one       } { \@@_zero_glue: }
         { \c_minus_one } { }
         { \c_eleven    } { }
         { \c_thirteen  } { }
@@ -2941,7 +2945,7 @@ $URL$
       {
         \@@_punct_if_middle:NTF {#1}
           { \xeCJK_no_break: \@@_punct_glue:NN \c_@@_right_tl {#1} }
-          { \xeCJK_no_break: \skip_horizontal:N \c_zero_skip }
+          { \xeCJK_no_break: \@@_zero_glue: }
       }
   }
 \cs_new_eq:NN \@@_Default_and_FullRight_glue:N \@@_CJK_and_FullRight_glue:N
@@ -5309,42 +5313,47 @@ $URL$
 % \changes{v3.1.0}{2012/11/19}{放弃使用放缩字体大小的方式，而只采用调整间距的方式
 % 与西文等宽字体对齐。并且只适用于与抄录环境下。}
 % \changes{v3.2.0}{2013/04/15}{增加 \texttt{Verb} 选项。}
+% \changes{v3.2.1}{2013/05/29}{调整 \texttt{Verb} 选项：在命令 \cs{verb} 里使用时，
+% 不破坏标点禁则，增加值 \texttt{env+}。}
 %
 % \begin{macro}{Verb}
 % 如果设置为 \texttt{env}，则只在 \LaTeX 的抄录环境里使用 \cs{xeCJKVerbAddon}，^^A
-% 而不包括 \cs{verb}。对当前使用环境的判断基于在标准 \LaTeX 的 \cs{verb} 定义里
-% 使用 \cs{bgrop} 和 \cs{egrop} 来分组。
+% 而不包括 \cs{verb}。对当前使用环境的判断基于在标准 \LaTeX 的坏境定义里使用
+% \cs{begingroup} 和 \cs{endgroup} 来分组。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
   {
     Verb .choice: ,
-    Verb / true  .code:n =
-      {
-        \bool_set_true:N \l_@@_verb_use_bool
-        \int_set_eq:NN \l_@@_verb_level_int \c_zero
-      } ,
-    Verb / false .code:n = { \bool_set_false:N \l_@@_verb_use_bool } ,
-    Verb / env   .code:n =
-      {
-        \bool_set_true:N \l_@@_verb_use_bool
-        \int_set_eq:NN \l_@@_verb_level_int \c_one
-      } ,
-    Verb      .default:n = { true }
+    Verb / true  .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_zero } ,
+    Verb / env   .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_one } ,
+    Verb / env+  .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_two } ,
+    Verb / false .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_three }
   }
-\bool_new:N \l_@@_verb_use_bool
-\int_new:N \l_@@_verb_level_int
+\int_new:N \l_@@_verb_case_int
 \@@_after_preamble:n
   {
     \tl_put_right:Nn \verbatim@font
       {
-        \bool_if:nTF
-          {
-            \l_@@_verb_use_bool &&
-            \int_compare_p:nNn \etex_currentgrouptype:D > \l_@@_verb_level_int
-          }
-          { \@@_set_verb_exspace: }
-          { \skip_zero:N \g_@@_verb_exspace_skip }
-        \@@_verb_addon:
+        \if_case:w \l_@@_verb_case_int
+          \cs_set_eq:NN \CJKglue   \@@_zero_glue:
+          \cs_set_eq:NN \CJKecglue \@@_zero_glue:
+        \or:
+          \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
+            {
+              \@@_set_verb_exspace:
+              \@@_verb_addon:
+            }
+            {
+              \cs_set_eq:NN \CJKglue   \@@_zero_glue:
+              \cs_set_eq:NN \CJKecglue \@@_zero_glue:
+            }
+        \or:
+          \int_compare:nNnT \etex_currentgrouptype:D = \c_fourteen
+            {
+              \@@_set_verb_exspace:
+              \@@_verb_addon:
+            }
+        \fi:
       }
   }
 %    \end{macrocode}
@@ -5366,9 +5375,9 @@ $URL$
   }
 \cs_new_protected_nopar:Npn \@@_verb_addon:
   {
-    \bool_if:NF \l@@_verb_addon_bool
+    \bool_if:NF \l_@@_verb_addon_bool
       {
-        \bool_set_true:N \l@@_verb_addon_bool
+        \bool_set_true:N \l_@@_verb_addon_bool
         \@@_set_char_class_eq:nn { FullLeft }    { CJK }
         \@@_set_char_class_eq:nn { FullRight }   { CJK }
         \@@_set_char_class_eq:nn { HalfLeft }    { Default }
@@ -5376,9 +5385,9 @@ $URL$
         \@@_set_char_class_eq:nn { NormalSpace } { Default }
         \xeCJKsetup { xCJKecglue = false }
         \cs_set_protected_nopar:Npn \CJKglue
-          { \skip_horizontal:N \g@@_verb_exspace_skip }
+          { \skip_horizontal:N \g_@@_verb_exspace_skip }
         \cs_set_protected_nopar:Npn \CJKecglue
-          { \skip_horizontal:n { 0.5 \g@@_verb_exspace_skip } }
+          { \skip_horizontal:n { 0.5 \g_@@_verb_exspace_skip } }
         \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
         \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
         \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
