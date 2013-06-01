@@ -275,7 +275,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4034}
+% \CheckSum{4063}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -5763,6 +5763,39 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK@text@composite}
+% % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
+% 这里修改的目的是让 |\'{\^e}| 等直接展开成在 \pkg{xunicode} 中由下面定义的
+% |\char"1EBF\relax|，也就是让这些定义生效：
+% \begin{verbatim}
+%   \DeclareUTFcomposite[\UTFencname]{x1EBF}{\'}{\^e}
+% \end{verbatim}
+% 按照 \pkg{source2e} 中 \cs{@text@composite} 的定义，目前 \pkg{xunicode} 对这种三个
+% 记号组合的定义不会起作用。|\'{\^e}| 将会被展开成 |\char"00EA\relax\char"0301\relax|
+% 这种组合字符。由于中间的 \cs{relax} 会造成状态转移，按照 \pkg{xeCJK} 的机制，就会
+% 插入 \texttt{kern}，最终破坏了 \XeTeX 将两个字符正确的组合起来。除此之外，还可以
+% 将 \pkg{xunicode} 中所有 \cs{char} 数字后面的 \cs{relax} 全部改成普通空格，这样就
+% 不会留下多余的 \cs{relax}。但是，如果在 \pkg{xeCJK} 中修改的话，还要 \cs{ReloadXunicode}
+% 才会起作用。需要注意的是，如果原来字体中缺少 \'{\^e} 这个字符，但是有 \^e 这个
+% 字符的话，|\'{\^e}| 会输出为 \^e，现在则是留下一个空白。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \xeCJK@text@composite #1#2#3 \@text@composite
+  {
+    \str_if_eq:nnTF {#3} { \@empty }
+      { \orig@text@composite #1#2#3 \@text@composite }
+      { \@@_text_composite:Nnw #1#2#3 }
+  }
+\cs_new_nopar:Npn \@@_text_composite:Nnw #1#2 \@empty
+  {
+    \tl_if_empty:nTF {#2}
+      { \orig@text@composite #1 \@empty \@text@composite }
+      { \cs_if_exist_use:cF { \token_to_str:N #1 - \token_to_str:N #2 } }
+  }
+\cs_new_eq:NN \orig@text@composite \@text@composite
+\cs_set_eq:NN \@text@composite \xeCJK@text@composite
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
 %    \begin{macrocode}
 \@@_msg_new:nn { conflict-package }
@@ -5952,7 +5985,9 @@ $URL$
 % \end{macro}
 %
 % 单独处理宽度有分歧的几个标点：包括省略号、破折号、间隔号、引号等中西文混用的
-% 符号， 保证其命令形式输出的是西文字体。并对一些编码的符号宏包做特殊处理。
+% 符号， 保证其命令形式输出的是西文字体。并对一些编码的符号宏包做特殊处理。在
+% 使用 \texttt{T1} 编码的时候，|\r{u}| 的实际定义是 |\char183| 与常被用作中文
+% 间隔号的 \texttt{U+00B7} 冲突。
 %    \begin{macrocode}
 \@@_after_preamble:n
   {
@@ -5967,7 +6002,16 @@ $URL$
       }
     \tl_put_left:Nn \tipaencoding { \makexeCJKinactive }
     \cs_new_eq:NN \@@_aux_r:n \r
-    \cs_set_nopar:Npn \r #1 { { \makexeCJKinactive \@@_aux_r:n {#1} } }
+    \cs_set_nopar:Npn \r #1
+      {
+        \bool_if:nTF
+          {
+            \str_if_eq_x_p:nn { \f@encoding } { T1 } &&
+            \str_if_eq_x_p:nn {#1} { u }
+          }
+          { { \makexeCJKinactive \@@_aux_r:n {#1} } }
+          { \@@_aux_r:n {#1} }
+      }
     \xeCJK_if_package_loaded:nT { pifont }
       {
         \RenewDocumentCommand \Pifont { m }
