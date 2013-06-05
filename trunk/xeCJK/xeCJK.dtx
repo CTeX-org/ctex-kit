@@ -6134,9 +6134,12 @@ $URL$
 % 由于 \pkg{xeCJK} 禁止 \pkg{CJKulem} 的载入，因此当使用 \pkg{ctex} 宏包的 |fntef|
 % 选项时，就会出现 \cs{normalem} 没有定义的问题。此时改用 \pkg{xeCJKfntef} 以便
 % 载入 \pkg{ulem}。
+%
+% 判断过于繁琐，应该在 \pkg{ctex} 包中妥善处理。这段代码应在 \pkg{ctex} 包发布
+% 新版本后删去。
 %    \begin{macrocode}
 \cs_if_eq:NNTF \ifCTEX@fntef \tex_iftrue:D
-  { \RequirePackage { xeCJKfntef } }
+  { \AtEndOfPackage { \RequirePackage { xeCJKfntef } } }
   {
     \@@_at_end_preamble:n
       {
@@ -6153,19 +6156,12 @@ $URL$
   }
 %    \end{macrocode}
 %
-% 自动载入 \pkg{xeCJK-listings}。
+% 导言区末尾检测到 \pkg{listings} 时，自动载入 \pkg{xeCJK-listings}。
 %    \begin{macrocode}
-\xeCJK_if_package_loaded:nF { xeCJK-listings }
+\@@_at_end_preamble:n
   {
-    \xeCJK_if_package_loaded:nTF { listings }
+    \xeCJK_if_package_loaded:nT { listings }
       { \RequirePackage { xeCJK-listings } }
-      {
-        \@@_at_end_preamble:n
-          {
-            \xeCJK_if_package_loaded:nT { listings }
-              { \RequirePackage { xeCJK-listings } }
-          }
-      }
   }
 %    \end{macrocode}
 %
@@ -7424,9 +7420,13 @@ lang_set = {
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\documentclass{ctexart}
+\documentclass{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{listings,xcolor}
+
+\usepackage{xeCJK}
+\setCJKmainfont{HanaMinA}
+\setCJKmonofont{SimSun}
 \xeCJKDeclareSubCJKBlock{Kana}  { "3040 -> "309F, "30A0 -> "30FF, "31F0 -> "31FF }
 \setCJKmonofont[Kana]{Meiryo}
 \setmonofont{Latin Modern Mono Light}
@@ -7437,14 +7437,32 @@ lang_set = {
   basicstyle=\linespread{1}\small\ttfamily\xeCJKVerbAddon,columns=fixed,
   numbers=left,numberstyle=\tiny\color{gray},
   commentstyle=\color{green!50!black},keywordstyle=\color{blue}\bfseries,
-  escapebegin=\xeCJKOffVerbAddon\normalfont,stringstyle=\color{brown}}
+  identifierstyle=\color{violet},stringstyle=\color{brown},
+  escapebegin=\xeCJKOffVerbAddon\normalfont}
 \lstnewenvironment{cppcode}[1][]
   {\lstset{language=C++,#1}}
   {}
 
 \begin{document}
 
-\section{注意：这只是一个测试test}
+\section{\lstinline{\\lstinline} 测试}
+
+\lstinline|abc汉字abc|
+
+\lstinline|甲*乙|
+
+\section{\lstinline{lstlisting} 环境测试}
+
+\begin{lstlisting}[basicstyle=\rmfamily]
+纯文字text测试
+    纯文字text测试
+文字+文字
+文字（符号）文字
+辻󠄂辻󠄃辻󠄄辻󠄅
+かがか゚
+\end{lstlisting}
+
+\section{自定义环境测试}
 
 \begin{cppcode}[escapechar=`,morekeywords=返回]
 #define 返回 return
@@ -7462,7 +7480,7 @@ int main()
 }
 \end{cppcode}
 
-\lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{\jobname.tex}
+\section{\lstinline|\\lstinputlisting| 测试}
 
 \lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{xeCJK-listings.sty}
 
