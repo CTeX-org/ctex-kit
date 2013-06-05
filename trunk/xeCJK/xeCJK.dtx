@@ -278,12 +278,13 @@ $URL$
   \DocInput{\jobname.dtx}
   \newgeometry{margin=15mm,footskip=7mm}
   \PrintChanges
+  \clearpage
   \PrintIndex
 \end{document}
 %</driver>
 % \fi
 %
-% \CheckSum{4183}
+% \CheckSum{4294}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1196,9 +1197,10 @@ $URL$
 % \subsection{其它}
 % \label{subsec:others}
 %
-% \begin{function}[added=2012-11-19]{\xeCJKVerbAddon}
+% \begin{function}[updated=2013-06-04]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
 %   \begin{syntax}
 %     \cs{xeCJKVerbAddon}
+%     \cs{xeCJKOffVerbAddon}
 %   \end{syntax}
 %   调整文字间距以便于让 CJK 字符占的宽度等于西文等宽字体中两个空格的宽度。这有利于
 %   等宽字体的代码对齐等情形。需要注意的是，\cs{xeCJKVerbAddon} 对 \pkg{xeCJK} 的内
@@ -1206,7 +1208,8 @@ $URL$
 %   应该放在分组里限制其作用域，否则是无效的。当然它可以和其它关于代码抄录的宏包配
 %   合使用。例如，可以使用于 \package{fancyvrb} 宏包的 |formatcom| 选项。此时设置的
 %   西文字体应该确实是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则
-%   需要在其后面使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。
+%   需要在其后面使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。\cs{xeCJKOffVerbAddon}
+%   用于在使用 \cs{xeCJKVerbAddon} 的环境中局部取消它的作用。
 % \end{function}
 %
 % \begin{function}[added=2012-12-03]{\xeCJKnobreak}
@@ -1227,6 +1230,10 @@ $URL$
 % \CJKunderdot{汉字加点}和可断行的下划线等。它是 \pkg{CJKfntef} 宏包在 \XeLaTeX
 % 下的替换版本，基本用法完全一致，在 \pkg{CJKfntef} 的源文件\ \file{CJKfntef.sty}
 % 的注解部分里有说明。}
+%
+% \pkg{xeCJK} 进行了一些处理，使得在使用 \XeTeX 时 \package{listings} 宏包可以
+% 支持 Unicode，因此在 \texttt{listings} 定义的代码环境中可以直接使用中文，不再
+% 需要通过 \texttt{escapechar}。
 %
 % 新版本（\texttt{3.x}）的 \pkg{xeCJK} 完全使用 \hologo{LaTeX3} 的语法来编写。
 % \hologo{LaTeX3} 放弃了 \cs{outer} 宏的概念，因此相关工具在
@@ -5369,8 +5376,11 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJKVerbAddon}
+% \begin{macro}{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
 % \changes{v3.1.0}{2012/11/19}{新增 \cs{xeCJKVerbAddon} 用于抄录环境中的间距调整。}
+% \changes{v3.2.3}{2013/06/04}
+% {新增 \cs{xeCJKOffVerbAddon} 用于局部取消 \cs{xeCJKOffVerbAddon} 的影响；并解决
+% 跨页使用时影响到页眉页脚的问题。}
 % \cs{xeCJKVerbAddon} 进行了比较大的调整，应该只在分组环境里使用。为了方便调整间距
 % 以利于对齐，这里只把字符分成了两类，并且在 CJK 类与边界（空格）之间也插入
 % \cs{CJKecglue}。当然，这样做之后，关于标点符号的禁则就没有了。
@@ -5383,6 +5393,7 @@ $URL$
         \@@_verb_addon:
       }
   }
+\NewDocumentCommand \xeCJKOffVerbAddon { } { }
 \cs_new_protected_nopar:Npn \@@_verb_addon:
   {
     \bool_if:NF \l_@@_verb_addon_bool
@@ -5393,6 +5404,36 @@ $URL$
         \@@_set_char_class_eq:nn { HalfLeft }    { Default }
         \@@_set_char_class_eq:nn { HalfRight }   { Default }
         \@@_set_char_class_eq:nn { NormalSpace } { Default }
+        \cs_set_eq:NN \@@_verb_CJKglue:   \CJKglue
+        \cs_set_eq:NN \@@_verb_CJKecglue: \CJKecglue
+        \cs_set_eq:NN \@@_verb_check_for_glue: \xeCJK_check_for_glue:
+        \cs_set_eq:NN \@@_verb_ignore_spaces:w \xeCJK_ignore_spaces:w
+        \cs_set_protected_nopar:Npx \xeCJKOffVerbAddon
+          {
+            \@@_reset_char_class:n { FullLeft }
+            \@@_reset_char_class:n { FullRight }
+            \@@_reset_char_class:n { HalfLeft }
+            \@@_reset_char_class:n { HalfLeft }
+            \@@_reset_char_class:n { NormalSpace }
+            \skip_set:Nn \tex_rightskip:D { \skip_use:N \tex_rightskip:D }
+            \exp_not:c
+              { bool_set_ \bool_if:NTF \l_@@_xecglue_bool  { true } { false } :N }
+              \l_@@_xecglue_bool
+            \exp_not:n
+              {
+                \cs_set_eq:NN \CJKglue   \@@_verb_CJKglue:
+                \cs_set_eq:NN \CJKecglue \@@_verb_CJKecglue:
+                \cs_set_eq:NN \xeCJK_check_for_glue: \@@_verb_check_for_glue:
+                \cs_set_eq:NN \xeCJK_ignore_spaces:w \@@_verb_ignore_spaces:w
+              }
+          }
+        \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
+          {
+            \exp_after:wN \exp_after:wN
+            \exp_after:wN \xeCJKOffVerbAddon
+            \exp_after:wN \use:n
+            \tex_the:D \tex_output:D
+          }
         \xeCJKsetup { xCJKecglue = false }
         \cs_set_protected_nopar:Npn \CJKglue
           { \skip_horizontal:N \g_@@_verb_exspace_skip }
@@ -5402,6 +5443,12 @@ $URL$
         \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
         \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
       }
+  }
+\cs_new_protected_nopar:Npn \@@_reset_char_class:n #1
+  {
+    \int_set:Nn \l_@@_tmpa_int { \xeCJK_class_num:n {#1} }
+    \clist_map_inline:cn { c_@@_#1_chars_clist }
+      { \XeTeXcharclass ##1 = \l_@@_tmpa_int }
   }
 \bool_new:N \l_@@_verb_addon_bool
 \cs_new_eq:NN \CJKfixedspacing \xeCJKVerbAddon
@@ -6479,12 +6526,14 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_ulem_FullLeft_and_CJK:}
+% \changes{v3.2.3}{2013/06/04}
+% {修正全角左标点后下划线与 \cs{CJKunderdot} 连用时结果不正常的问题。}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_ulem_FullLeft_and_CJK:
   {
     \xeCJK_if_ulem_patch:TF
       {
-        \@@_ulem_FullLeft_and_Default:
+        \xeCJK_FullLeft_and_Default:
         \@@_ulem_class_group_begin:
       }
       { \@@_ulem_FullLeft_and_CJK: }
@@ -6572,10 +6621,12 @@ $URL$
     \@@_make_under_symbol:n { \CJK@underdotSkip }
     \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
     \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
+    \@@_restore_output_CJKsymbol:
     \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@start }
     #1
     \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@stop }
     \cs_set_eq:NN \CJKsymbol \@@_save_under_dot_CJKsymbol:N
+    \tex_output:D \exp_after:wN { \l_@@_underdot_output_tl }
     \CJK@postUnderdot
     \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@start }
     \tex_ignorespaces:D
@@ -6593,10 +6644,31 @@ $URL$
     \@@_make_under_symbol:n {#1}
     \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
     \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
+    \@@_restore_output_CJKsymbol:
     #3
     \group_end:
     \tex_ignorespaces:D
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_restore_output_CJKsymbol:}
+% \changes{v3.2.3}{2013/06/04}{解决 \cs{CJKunderdot} 跨页使用时影响到页眉页脚的问题。}
+% \cs{CJKunderdot} 中对 \cs{CJKsymbol} 的修改会影响到页眉和页脚，需要小心处理。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_restore_output_CJKsymbol:
+  {
+    \tl_set:Nx \l_@@_underdot_output_tl
+      { \exp_after:wN \exp_not:n \tex_the:D \tex_output:D }
+    \tex_output:D \exp_after:wN
+      {
+        \exp_after:wN \cs_set_eq:NN
+        \exp_after:wN \CJKsymbol
+        \exp_after:wN \__xeCJK_save_under_dot_CJKsymbol:N
+        \l_@@_underdot_output_tl
+      }
+  }
+\tl_new:N \l_@@_underdot_output_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6692,19 +6764,44 @@ $URL$
 %
 %    \begin{macrocode}
 \lst@AddToHook { Init } { \@@_listings_initial_hook: }
+\lst@AddToHook { SelectCharTable } { \@@_listings_toks_hook: }
 \lst@AddToHook { OutputBox } { \l_@@_restore_listings_toks_tl }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\@@_listings_initial_hook:}
+% \changes{v3.2.3}{2013/06/04}
+% {解决 \texttt{listings} 坏境中代码行号输出不正确的问题，并解决在其中跨页时对页眉
+%  和页脚的影响。}
+% 为使代码行号结果正确，需要在 \cs{lst@numberstyle} 中恢复 \cs{XeTeXinterchartoks}。
+% 在 \texttt{listings} 环境中换页时，对 \cs{XeTeXinterchartoks} 的修改会影响到
+% 页眉和页脚，需要在 \cs{output} 中恢复成正常定义。这里使用 \cs{use:n} 是为了在
+% \cs{tex_output:D} 中不增加额外的分组。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_initial_hook:
+  {
+    \tl_put_left:Nn \lst@numberstyle { \l_@@_restore_listings_toks_tl }
+    \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
+      {
+        \exp_after:wN \exp_after:wN
+        \exp_after:wN \l_@@_restore_listings_toks_tl
+        \exp_after:wN \use:n
+        \tex_the:D \tex_output:D
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_listings_toks_hook:}
 % 采用不同的 \cs{XeTeXinterchartoks} 处理方式，输入的时候是将汉字加入到 \pkg{listings}
 % 的输出队列，实际输出的时候是普通文字。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_listings_initial_hook:
+\cs_new_protected_nopar:Npn \@@_listings_toks_hook:
   {
     \tl_set:Nx \l_@@_restore_listings_toks_tl
       {
         \@@_backup_inter_class_toks:nn { Boundary } { Default }
         \@@_backup_inter_class_toks:nn { Boundary } { CJK }
+        \@@_backup_inter_class_toks:nn { Boundary } { IVS }
         \@@_backup_inter_class_toks:nn { Boundary } { FullLeft }
         \@@_backup_inter_class_toks:nn { Boundary } { FullRight }
       }
@@ -6713,20 +6810,23 @@ $URL$
         \tl_put_right:Nx \l_@@_restore_listings_toks_tl
           { \@@_backup_inter_class_toks:nn { Boundary } { CJK/##1 } }
       }
-    \tl_put_left:Nn \lst@escapebegin { \l_@@_restore_listings_toks_tl }
-    \xeCJK_inter_class_toks:nnn { Boundary } { Default } { \lst@AppendLetter }
+    \xeCJK_inter_class_toks:nnn { Boundary } { Default }
+      { \@@_listings_process_Default:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
-      { \@@_listings_appad_letter:N }
+      { \@@_listings_process_letter:N }
+    \xeCJK_inter_class_toks:nnn { Boundary } { IVS }
+      { \@@_listings_process_letter:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
-      { \@@_listings_appad_other:N }
+      { \@@_listings_process_other:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullRight }
-      { \@@_listings_appad_other:N }
+      { \@@_listings_process_other:N }
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \xeCJK_inter_class_toks:nnn { Boundary } { CJK/##1 }
-          { \@@_listings_appad_letter:N }
+          { \@@_listings_process_letter:N }
       }
   }
+\tl_new:N \l_@@_restore_listings_toks_tl
 \cs_new_nopar:Npn \@@_backup_inter_class_toks:nn #1#2
   {
     \xeCJK_inter_class_toks:nnn {#1} {#2}
@@ -6735,13 +6835,27 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_appad_letter:N,\@@_listings_appad_other:N}
+% \begin{macro}[internal]{\@@_listings_process_Default:N}
+% \changes{v3.2.3}{2013/06/04}{在 \texttt{listings} 坏境中对 \cs{charcode} 大于
+% $255$ 的非 CJK 类字符根据其 \cs{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
+% 对于 \cs{charcode} 大于 $255$ 的 Default 类字符，根据 \cs{catcode} 进行处理。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_process_Default:N #1
+  {
+    \token_if_letter:NTF #1
+      { \lst@ProcessLetter #1 }
+      { \lst@ProcessOther  #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_listings_process_letter:N,\@@_listings_process_other:N}
 % 在 \texttt{listings} 环境中，将汉字按照 \texttt{letter} 识别，而将标点符号
 % 按照 \texttt{other} 识别。并区分汉字和西文字母，这样就受到 \pkg{listings} 输出
 % 机制的影响，不能自动在汉字和西文之间插入间距，为了使 \cs{xeCJKVerbAddon} 起作用，
 % 需要手工加入 \cs{CJKecglue}。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_listings_appad_letter:N
+\cs_new_protected_nopar:Npn \@@_listings_process_letter:N
   {
     \lst@whitespacefalse
     \bool_if:NF \l_@@_listings_letter_bool
@@ -6758,7 +6872,7 @@ $URL$
     \int_incr:N \lst@length
     \lst@Append
   }
-\cs_new_protected_nopar:Npn \@@_listings_appad_other:N #1
+\cs_new_protected_nopar:Npn \@@_listings_process_other:N
   {
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
@@ -6768,9 +6882,8 @@ $URL$
         \lst@letterfalse
       }
       { \lst@ifletter \lst@Output \lst@letterfalse \fi: }
-    \tl_set:Nx \lst@lastother { \tl_to_str:n {#1} }
     \int_incr:N \lst@length
-    \lst@Append #1
+    \tex_futurelet:D \lst@lastother \lst@Append
   }
 \bool_new:N \l_@@_listings_letter_bool
 \cs_set_protected_nopar:Npn \lst@AppendLetter
@@ -7089,8 +7202,7 @@ x^2+y^2
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\documentclass{article}
-\usepackage{xeCJK}
+\documentclass{ctexart}
 \usepackage{xcolor}
 \usepackage{xeCJKfntef}
 \xeCJKDeclareSubCJKBlock{test}{ `殆 , `已 }
@@ -7108,6 +7220,8 @@ x^2+y^2
   \csname#1\endcsname*{\showtext\CJKunderdot{\showtext}}\par\bigskip}
 
 \begin{document}
+
+\section{\textsf{xeCJKfntef} 的简单测试文件}
 
 \CJKunderline{汉 字}\CJKunderline{加下划线}
 \varCJKunderline{汉字}\varCJKunderline{加下划线}
@@ -7310,31 +7424,34 @@ lang_set = {
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\documentclass{article}
-\usepackage{xeCJK}
+\documentclass{ctexart}
+\usepackage[margin=1in]{geometry}
 \usepackage{listings,xcolor}
 \xeCJKDeclareSubCJKBlock{Kana}  { "3040 -> "309F, "30A0 -> "30FF, "31F0 -> "31FF }
-\setCJKmainfont{SimSun}
-\setCJKmonofont[AutoFakeBold]{KaiTi}
 \setCJKmonofont[Kana]{Meiryo}
 \setmonofont{Latin Modern Mono Light}
 
+\xeCJKsetup{PunctStyle=banjiao}
+
+\lstset{%
+  basicstyle=\linespread{1}\small\ttfamily\xeCJKVerbAddon,columns=fixed,
+  numbers=left,numberstyle=\tiny\color{gray},
+  commentstyle=\color{green!50!black},keywordstyle=\color{blue}\bfseries,
+  escapebegin=\xeCJKOffVerbAddon\normalfont,stringstyle=\color{brown}}
 \lstnewenvironment{cppcode}[1][]
-  {\lstset{
-     language=C++,basicstyle=\ttfamily\xeCJKVerbAddon,columns=fixed,
-     commentstyle=\color{green!50!black},keywordstyle=\color{blue}\bfseries,
-     stringstyle=\color{brown},#1}
-  }
+  {\lstset{language=C++,#1}}
   {}
 
 \begin{document}
+
+\section{注意：这只是一个测试test}
 
 \begin{cppcode}[escapechar=`,morekeywords=返回]
 #define 返回 return
 #include <iostream>
 /*
  * 块注释
- * `\normalfont 逃逸字符$f(x)$`
+ * `逃逸字符，测试$f(x)$`
  */
 int main()
 {
@@ -7344,6 +7461,10 @@ int main()
     返回 0;
 }
 \end{cppcode}
+
+\lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{\jobname.tex}
+
+\lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{xeCJK-listings.sty}
 
 \end{document}
 %    \end{macrocode}
