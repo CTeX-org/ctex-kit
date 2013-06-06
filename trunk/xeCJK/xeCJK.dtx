@@ -188,9 +188,9 @@ $URL$
 %<package>  {\ExplFileName}
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
-  {\ExplFileDate}{3.2.2}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.3}{\ExplFileDescription}
 %<*driver>
-\def\xeCJKversion{3.2.2}
+\def\xeCJKversion{3.2.3}
 \let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -284,7 +284,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4360}
+% \CheckSum{4381}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1233,7 +1233,11 @@ $URL$
 %
 % \pkg{xeCJK} 进行了一些处理，使得在使用 \XeTeX 时 \package{listings} 宏包可以
 % 支持 Unicode，因此在 \texttt{listings} 定义的代码环境中可以直接使用中文，不再
-% 需要通过 \texttt{escapechar}。
+% 需要通过 \texttt{escapechar}。需要注意的是，由于 \pkg{xeCJK} 的修改，当
+% \cs{lstinline} 用在其它宏的参数中时，\cs{lstinline} 参数中出现的某些 \TeX
+% 特殊字符（|\|、|{| 和 |}|）不再需要加上 |\| 转义，原来转义用的 |\| 将会被
+% 直接输出，参数中的注释符号 |%| 还必须使用 |\| 转义，多个连续空格只能输出
+% 为一个。
 %
 % 新版本（\texttt{3.x}）的 \pkg{xeCJK} 完全使用 \hologo{LaTeX3} 的语法来编写。
 % \hologo{LaTeX3} 放弃了 \cs{outer} 宏的概念，因此相关工具在
@@ -6742,6 +6746,7 @@ $URL$
 % \subsection{\pkg{xeCJK-listings}}
 %
 % \changes{v3.2.2}{2012/06/04}{增加小宏包 \pkg{xeCJK-listings}，用于支持 \pkg{listings} 宏包。}
+% \changes{v3.2.3}{2012/06/06}{完善对 \pkg{listings} 宏包的支持。}
 %
 % 仿照 \package{luatexja} 宏包中 \pkg{lltjp-listings} 的处理，支持 \package{listings} 宏包。
 %
@@ -6964,24 +6969,41 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_if_active_loop:TFnN}
+% \begin{macro}[internal]{\@@_listings_peek_active:TF}
 % \cs{lstinline} 通过判断参数中第一个字符是否是 \texttt{active} 类来区分
 % 它是否被用在其它宏的参数之中。如果这第一个字符不在 \pkg{listings} 预定义的
-% 符号表中，判断就会出问题。我们在这里通过一个循环跳过这些字符。
+% 符号表中，判断就会出问题。我们在这里通过一个循环跳过这些字符。使用
+% \cs{peek_catcode:NTF} 函数是为了保留参数中第一个出现的空格。
 %    \begin{macrocode}
+\cs_set_protected_nopar:Npn \@@_listings_peek_active:TF #1#2
+  {
+    \peek_catcode:NTF \c_space_token
+      {#2}
+      { \@@_listings_if_active_loop:TFnN {#1} {#2} { } }
+  }
+\cs_set_eq:NN \lst@IfNextCharActive \@@_listings_peek_active:TF
 \cs_new_protected_nopar:Npn \@@_listings_if_active_loop:TFnN #1#2#3#4
   {
-    \int_compare:nNnTF { `#4 } > { \lst@ifec 255 \else: 127 \fi: }
-      { \@@_listings_if_active_loop:TFnN {#1} {#2} {#3#4} }
-      { \token_if_active:NTF #4 { #1#3#4 } { #2#3#4 } }
+    \token_if_active:NTF #4
+      { #1#3#4 }
+      {
+        \token_if_cs:NTF #4
+          { #2#3#4 }
+          {
+            \int_compare:nNnTF { `#4 } > { \lst@ifec 255 \else: 127 \fi: }
+              { \@@_listings_if_active_loop:TFnN {#1} {#2} {#3#4} }
+              { #2#3#4 }
+          }
+      }
   }
-\cs_set_protected_nopar:Npn \lst@IfNextCharActive #1#2#3
-  { \@@_listings_if_active_loop:TFnN {#1} {#2} { } #3 }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_inside_convert:nw}
-% 使用 \cs{tl_set_rescan:Nnn} 来转换 \cs{lstinline} 的参数的 \cs{catcode}。
+% \begin{macro}[internal]{\@@_listings_inside_convert:nw,\@@_listings_inline_group:w}
+% 使用 \cs{tl_set_rescan:Nnn} 来转换 \cs{lstinline} 的参数的 \cs{catcode}。这样
+% 做之后当 \cs{lstinline} 用在其它宏的参数中时，\cs{lstinline} 参数中的某些特殊
+% 字符不再需要加上 |\| 转义。目前存在的问题是参数中的注释符号 |%| 还必须使用
+% |\| 转义，多个连续空格只能输出一个。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_listings_inside_convert:nw #1 ~ \@empty
   {
@@ -6989,6 +7011,17 @@ $URL$
     \tl_put_right:NV \lst@arg \l_@@_tmpa_tl
   }
 \cs_set_eq:NN \lst@InsideConvert@ \@@_listings_inside_convert:nw
+\cs_new_protected_nopar:Npn \@@_listings_inline_group:w
+  {
+    \exp_after:wN \@@_listings_inline_group:n
+    \exp_after:wN { \if_false: } \fi:
+  }
+\cs_set_eq:NN \lst@InlineGJ \@@_listings_inline_group:w
+\cs_new_protected:Npn \@@_listings_inline_group:n #1
+  {
+    \tl_set_rescan:Nnn \lst@arg { } {#1}
+    \lst@InlineGJEnd
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7529,7 +7562,7 @@ lang_set = {
 
 \begin{document}
 
-\section{\lstinline{\\lstinline} 测试}
+\section{\lstinline{\lstinline} 测试}
 
 \section{\lstinline|甲*乙| 测试}
 
@@ -7580,7 +7613,7 @@ int main()
 }
 \end{cppcode}
 
-\section{\lstinline|\\lstinputlisting| 测试}
+\section{\lstinline|\lstinputlisting| 测试}
 
 \lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{xeCJK-listings.sty}
 
