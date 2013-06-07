@@ -35,6 +35,8 @@
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
+  set MAPDIR=map
+  set MAPTDSDIR=fonts\misc\xetex\fontmapping\%PKGDIR%
 
   cd /d "%~dp0"
 
@@ -83,7 +85,8 @@
     xcopy /q /y %%I.txt "%CTANDIR%\" > nul
     ren "%CTANDIR%\%%I.txt" %%I
   )
-
+  
+  xcopy /q /y /s /i %MAPDIR% %CTANDIR%\%MAPDIR% > nul
   xcopy /q /y %PKGDIR%.tds.zip "%CTANROOT%\" > nul
 
   pushd "%CTANROOT%"
@@ -146,6 +149,7 @@
     echo ! Install failed
   ) else (
 	for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
+	xcopy /q /y /s /i %MAPDIR% "%TEXMFLOCAL%\%MAPTDSDIR%" > nul
   )
 
   goto :end
@@ -183,6 +187,8 @@
     xcopy /q /y %%I.txt "%TDSROOT%\doc\%FORMAT%\%PKGDIR%\" > nul
     ren "%TDSROOT%\doc\%FORMAT%\%PKGDIR%\%%I.txt" %%I
   )
+
+  xcopy /q /y /s /i %MAPDIR% %TDSROOT%\%MAPTDSDIR% > nul
 
   pushd "%TDSROOT%"
   %ZIPEXE% %ZIPFLAG% %PKGDIR%.tds.zip .
