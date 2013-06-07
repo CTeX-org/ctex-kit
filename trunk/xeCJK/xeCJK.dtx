@@ -284,7 +284,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4381}
+% \CheckSum{4400}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 %
@@ -1233,11 +1233,7 @@ $URL$
 %
 % \pkg{xeCJK} 进行了一些处理，使得在使用 \XeTeX 时 \package{listings} 宏包可以
 % 支持 Unicode，因此在 \texttt{listings} 定义的代码环境中可以直接使用中文，不再
-% 需要通过 \texttt{escapechar}。需要注意的是，由于 \pkg{xeCJK} 的修改，当
-% \cs{lstinline} 用在其它宏的参数中时，\cs{lstinline} 参数中出现的某些 \TeX
-% 特殊字符（|\|、|{| 和 |}|）不再需要加上 |\| 转义，原来转义用的 |\| 将会被
-% 直接输出，参数中的注释符号 |%| 还必须使用 |\| 转义，多个连续空格只能输出
-% 为一个。
+% 需要通过 \texttt{escapechar}。
 %
 % 新版本（\texttt{3.x}）的 \pkg{xeCJK} 完全使用 \hologo{LaTeX3} 的语法来编写。
 % \hologo{LaTeX3} 放弃了 \cs{outer} 宏的概念，因此相关工具在
@@ -7000,14 +6996,15 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_listings_inside_convert:nw,\@@_listings_inline_group:w}
-% 使用 \cs{tl_set_rescan:Nnn} 来转换 \cs{lstinline} 的参数的 \cs{catcode}。这样
-% 做之后当 \cs{lstinline} 用在其它宏的参数中时，\cs{lstinline} 参数中的某些特殊
-% 字符不再需要加上 |\| 转义。目前存在的问题是参数中的注释符号 |%| 还必须使用
-% |\| 转义，多个连续空格只能输出一个。
+% 当 \cs{lstinline} 被使用在参数中时，\pkg{listings} 会使用一个循环逐个将
+% \cs{lstinline} 参数中的字符设置为活动字符。我们可以通过 \cs{tl_set_rescan:Nnn}
+% 来完成这里的 \cs{catcode} 转换，避免将 \cs{charcode} 超过 $255$ 的字符都设置为
+% 活动字符。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_listings_inside_convert:nw #1 ~ \@empty
   {
     \tl_set_rescan:Nnn \l_@@_tmpa_tl { } {#1}
+    \@@_set_listings_escape:
     \tl_put_right:NV \lst@arg \l_@@_tmpa_tl
   }
 \cs_set_eq:NN \lst@InsideConvert@ \@@_listings_inside_convert:nw
@@ -7020,7 +7017,26 @@ $URL$
 \cs_new_protected:Npn \@@_listings_inline_group:n #1
   {
     \tl_set_rescan:Nnn \lst@arg { } {#1}
+    \@@_set_listings_escape:
     \lst@InlineGJEnd
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_set_listings_escape:}
+% 由于我们在上面的修改，需要保留 |\| 用于转义 \cs{lstinline} 参数中的某些 \TeX
+% 特殊字符，与原来宏包一致。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_active:N \/
+\char_set_lccode:nn { `\/ } { `\\ }
+\tl_to_lowercase:n
+  {
+    \group_end:
+    \cs_new_protected:Npn \@@_set_listings_escape:
+      { \xeCJK_swap_cs:NN / \@@_listings_escape:N }
+    \cs_new_protected:Npn \@@_listings_escape:N #1
+      { \cs_if_eq:NNTF / #1 { \@@_listings_escape:N } {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7562,7 +7578,7 @@ lang_set = {
 
 \begin{document}
 
-\section{\lstinline{\lstinline} 测试}
+\section{\lstinline{\\lstinline} 测试}
 
 \section{\lstinline|甲*乙| 测试}
 
@@ -7613,7 +7629,7 @@ int main()
 }
 \end{cppcode}
 
-\section{\lstinline|\lstinputlisting| 测试}
+\section{\lstinline|\\lstinputlisting| 测试}
 
 \lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{xeCJK-listings.sty}
 
