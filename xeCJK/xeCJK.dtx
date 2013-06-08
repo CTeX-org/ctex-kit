@@ -284,7 +284,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4400}
+% \CheckSum{4389}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1237,6 +1237,10 @@ $URL$
 %
 % \section{已知问题和兼容性}
 %
+% \XeTeX 在配置文件 \file{unicode-letters.tex} 中将所有 CJK 表意文字的 \cs{catcode}
+% 设置为 $11$。因此汉字可以直接用作控制序列的名字，但是当汉字出现在控制序列后面的
+% 时候，要用空格分隔开，否则就会出现“\texttt{! Undefined control sequence.}”的错误。
+%
 % \pkg{xeCJK} 使用并重新定义了 \pkg{CJK} 宏包的部分宏命令，如 \cs{CJKfamily}、
 % \cs{CJKsymbol} 和 \cs{CJKglue} 等。需要指出，\pkg{xeCJK} 不需要 \pkg{CJK}
 % 的支持，并且 \pkg{xeCJK} 自动禁止在它之后载入 \pkg{CJK} 宏包。
@@ -2091,53 +2095,12 @@ $URL$
               { \xeCJK_class_num:n {#1} }
           }
       }
-    \@@_set_char_class:nnn { "3099 } { "309A } { \xeCJK_class_num:n { IVS } }
+    \xeCJK_set_char_class:nnn { "3099 } { "309A } { \xeCJK_class_num:n { IVS } }
   }
 \NewDocumentCommand \@@_set_char_class_aux:Nnw
   { m > { \SplitArgument { 1 } { -> } } m } { #1 #2 }
 \cs_generate_variant:Nn \clist_gconcat:NNN { cc }
 \cs_generate_variant:Nn \xeCJK_declare_char_class:nn { nx , nV }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_set_char_class_catcode:nnn}
-% 设置字符类别的同时，设置所有 |CJK| 字符的 \cs{catcode} 为 |12|。\XeTeX 的配置文件
-% \file{unicode-letters.tex} 将所有 |CJK| 表意文字的 \cs{catcode} 设置为 |11|。我们
-% 在作出改变的目的是方便 |CheckSingle| 的判断。事实上，|CheckSingle| 的判断也可以不
-% 依赖 \cs{catcode}，而改为判断 \cs{XeTeXcharclass}。但是判读一个隐性记号
-% （\cs{l_peek_token}）的 \cs{XeTeXcharclass} 比直接判断它的 \cs{catcode} 要低效得多。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_set_char_class_catcode:nnn #1#2#3
-  {
-    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpc_int {#3}
-    \int_compare:nNnTF
-      { \use:c { \@@_class_csname:n { CJK } } } = \l_@@_tmpc_int
-      { \cs_set_eq:NN \@@_set_char_catcode:n \char_set_catcode_other:n }
-      { \cs_set_eq:NN \@@_set_char_catcode:n \use_none:n }
-    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
-      {
-        \@@_set_char_catcode:n { \l_@@_tmpa_int }
-        \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
-        \int_incr:N \l_@@_tmpa_int
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_set_char_class:nnn}
-% 只设置字符类别，而不改变 \cs{catcode}。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_set_char_class:nnn #1#2#3
-  {
-    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpc_int {#3}
-    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
-      {
-        \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
-        \int_incr:N \l_@@_tmpa_int
-      }
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2158,14 +2121,22 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.3}{2013/06/08}{不再改变 CJK 字符类的 \cs{catcode}。}
+%
 % \begin{macro}[internal]{\xeCJK_set_char_class:nnn}
 % \changes{v3.1.1}{2012/12/05}{在文档中设置字符类别时不重复设置 \cs{catcode}。}
-% |#1| 和 |#2| 为字符类别起止的 |Unicode|，|#3| 为类别名称对应编号。在宏包内部使用
-% 时，设置 |CJK| 字符的 \cs{catcode}，而在文档中使用时不设置。
+% 设置字符类别，|#1| 和 |#2| 为字符类别起止的 |Unicode|，|#3| 为类别名称对应编号。
 %    \begin{macrocode}
-\cs_new_eq:NN \xeCJK_set_char_class:nnn \@@_set_char_class_catcode:nnn
-\AtEndOfPackage
-  { \cs_set_eq:NN \xeCJK_set_char_class:nnn \@@_set_char_class:nnn }
+\cs_new_protected_nopar:Npn \xeCJK_set_char_class:nnn #1#2#3
+  {
+    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
+    \int_set:Nn \l_@@_tmpc_int {#3}
+    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
+      {
+        \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
+        \int_incr:N \l_@@_tmpa_int
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3117,7 +3088,7 @@ $URL$
         #1+ .code:n =
           {
             \tl_map_inline:nn {##1}
-              { \seq_if_in:NnF #2 {####1} { \seq_put_right:Nn #3 {####1} } }
+              { \seq_if_in:NnF #3 {####1} { \seq_put_right:Nn #3 {####1} } }
             \@@_update_cs_case_tl:NNnn #2#3 {#4} {#5}
           } ,
         #1- .code:n =
@@ -3199,17 +3170,22 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:Nw #1
   {
-    \peek_catcode:NTF \c_catcode_other_token
+    \peek_catcode:NTF \c_catcode_letter_token
       { \xeCJK_check_single:NNw #1 }
       {
-        \bool_if:nTF
+        \token_if_other:NTF \l_peek_token
+          { \xeCJK_check_single:NNw #1 }
           {
-            \xeCJK_if_blank_x_p:n { \token_get_arg_spec:N \l_peek_token } &&
-            \exp_args:No \tl_if_single_token_p:n \l_peek_token            &&
-            \exp_after:wN \token_if_other_p:N \l_peek_token
+            \bool_if:nTF
+              {
+                \xeCJK_if_blank_x_p:n { \token_get_arg_spec:N \l_peek_token } &&
+                \exp_args:No \tl_if_single_token_p:n \l_peek_token            &&
+                ( \exp_after:wN \token_if_other_p:N  \l_peek_token ||
+                  \exp_after:wN \token_if_letter_p:N \l_peek_token )
+              }
+              { \exp_after:wN \xeCJK_check_single:NNw \exp_after:wN #1 }
+              { \@@_check_single_save:N #1 }
           }
-          { \exp_after:wN \xeCJK_check_single:NNw \exp_after:wN #1 }
-          { \@@_check_single_save:N #1 }
       }
   }
 %    \end{macrocode}
@@ -3222,7 +3198,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:NNw #1#2
   {
-    \xeCJK_peek_catcode_ignore_spaces:NTF \c_catcode_other_token
+    \xeCJK_peek_catcode_ignore_spaces:NTF \c_catcode_letter_token
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           { \@@_check_single_space:NN #1#2 }
@@ -3230,29 +3206,38 @@ $URL$
       }
       {
         \group_align_safe_begin:
-        \token_if_cs:NTF \l_peek_token
+        \token_if_other:NTF \l_peek_token
           {
             \group_align_safe_end:
             \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-              { \xeCJK_check_single_cs:NNn #1#2 { ~ } }
-              { \xeCJK_check_single_cs:NNn #1#2 { } }
+              { \@@_check_single_space:NN #1#2 }
+              { \@@_check_single_save:N #1 #2 }
           }
           {
-            \group_align_safe_end:
-            \bool_if:nTF
+            \token_if_cs:NTF \l_peek_token
               {
-                \l_@@_plain_equation_bool &&
-                \token_if_math_toggle_p:N \l_peek_token
+                \group_align_safe_end:
+                \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+                  { \xeCJK_check_single_cs:NNn #1#2 { ~ } }
+                  { \xeCJK_check_single_cs:NNn #1#2 { } }
               }
               {
-                \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-                  { \xeCJK_check_single_equation:NNnNw #1 #2 { ~ } }
-                  { \xeCJK_check_single_equation:NNnNw #1 #2 { } }
-              }
-              {
-                \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-                  { \@@_check_single_save:N #1 #2 ~ }
-                  { \@@_check_single_save:N #1 #2 }
+                \group_align_safe_end:
+                \bool_if:nTF
+                  {
+                    \l_@@_plain_equation_bool &&
+                    \token_if_math_toggle_p:N \l_peek_token
+                  }
+                  {
+                    \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+                      { \xeCJK_check_single_equation:NNnNw #1 #2 { ~ } }
+                      { \xeCJK_check_single_equation:NNnNw #1 #2 { } }
+                  }
+                  {
+                    \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+                      { \@@_check_single_save:N #1 #2 ~ }
+                      { \@@_check_single_save:N #1 #2 }
+                  }
               }
           }
       }
@@ -6832,17 +6817,17 @@ $URL$
     \xeCJK_inter_class_toks:nnn { Boundary } { Default }
       { \@@_listings_process_Default:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
-      { \@@_listings_process_letter:N }
+      { \@@_listings_process_CJK:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { IVS }
       { \@@_listings_process_IVS:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
-      { \@@_listings_process_other:N }
+      { \@@_listings_process_CJK:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullRight }
-      { \@@_listings_process_other:N }
+      { \@@_listings_process_CJK:N }
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \xeCJK_inter_class_toks:nnn { Boundary } { CJK/##1 }
-          { \@@_listings_process_letter:N }
+          { \@@_listings_process_CJK:N }
       }
   }
 \tl_new:N \l_@@_restore_listings_toks_tl
@@ -6854,10 +6839,10 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_Default:N}
-% \changes{v3.2.3}{2013/06/04}{在 \texttt{listings} 坏境中对 \cs{charcode} 大于
-% $255$ 的非 CJK 类字符根据其 \cs{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
-% 对于 \cs{charcode} 大于 $255$ 的 Default 类字符，根据 \cs{catcode} 进行处理。
+% \begin{macro}[internal]{\@@_listings_process_Default:N,\@@_listings_process_CJK:N}
+% \changes{v3.2.3}{2013/06/08}{在 \texttt{listings} 坏境中对 \cs{charcode} 大于
+% $255$ 的字符根据其 \cs{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
+% 对于 \cs{charcode} 大于 $255$ 的字符，根据 \cs{catcode} 进行处理。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_Default:N #1
   {
@@ -6865,14 +6850,31 @@ $URL$
       { \lst@ProcessLetter #1 }
       { \lst@ProcessOther  #1 }
   }
+\cs_new_protected_nopar:Npn \@@_listings_process_CJK:N #1
+  {
+    \token_if_letter:NTF #1
+      { \@@_listings_process_letter:N #1 }
+      { \@@_listings_process_other:N  #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_listings_append:nN}
+% 普通 CJK 字符的宽度为一般基本宽度的两倍，IVS 类不增加宽度。这里有一个问题，
+% 对 CJK 字符类中的一些半角字符（例如半角日文假名）没有区分开。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_append:nN #1#2
+  {
+    \int_add:Nn \lst@length {#1}
+    \lst@token \exp_after:wN { \tex_the:D \lst@token #2 }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_listings_process_letter:N,\@@_listings_process_other:N}
-% 在 \texttt{listings} 环境中，将汉字按照 \texttt{letter} 识别，而将标点符号
-% 按照 \texttt{other} 识别。并区分汉字和西文字母，这样就受到 \pkg{listings} 输出
-% 机制的影响，不能自动在汉字和西文之间插入间距，为了使 \cs{xeCJKVerbAddon} 起作用，
-% 需要手工加入 \cs{CJKecglue}。
+% 在 \texttt{letter} 类中区分汉字和西文字母。这样就受到 \pkg{listings} 输出机制的
+% 影响，不能自动在汉字和西文之间插入间距，为了使 \cs{xeCJKVerbAddon} 起作用，需要
+% 手工加入 \cs{CJKecglue}。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_letter:N
   {
@@ -6889,10 +6891,9 @@ $URL$
         \bool_if:NT \l_@@_verb_addon_bool { \CJKecglue }
         \bool_set_true:N \l_@@_listings_letter_bool
       }
-    \int_incr:N \lst@length
-    \lst@Append
+    \@@_listings_append:nN { \c_two }
   }
-\cs_new_protected_nopar:Npn \@@_listings_process_other:N
+\cs_new_protected_nopar:Npn \@@_listings_process_other:N #1
   {
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
@@ -6902,8 +6903,8 @@ $URL$
         \lst@letterfalse
       }
       { \lst@ifletter \lst@Output \lst@letterfalse \fi: }
-    \int_incr:N \lst@length
-    \tex_futurelet:D \lst@lastother \lst@Append
+    \cs_set_eq:NN \lst@lastother #1
+    \@@_listings_append:nN { \c_two } #1
   }
 \bool_new:N \l_@@_listings_letter_bool
 \cs_set_protected_nopar:Npn \lst@AppendLetter
@@ -6933,7 +6934,7 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_listings_process_IVS:N}
-% \texttt{IVS} 类不用增加 \cs{lst@length}
+% \texttt{IVS} 类作为 \texttt{letter} 处理，不用增加 \cs{lst@length}。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_IVS:N
   {
@@ -6952,10 +6953,9 @@ $URL$
       }
     \lst@ifflexible
     \else:
-     \bool_gset_true:N \g_@@_listings_IVS_bool
+      \bool_gset_true:N \g_@@_listings_IVS_bool
     \fi:
-    \int_decr:N \lst@length
-    \lst@Append
+    \@@_listings_append:nN { \c_zero }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7646,7 +7646,7 @@ int main()
 
 \section{\lstinline|\\lstinputlisting| 测试}
 
-\lstinputlisting[language={[AlLaTeX]TeX},alsoletter={_:}]{xeCJK-listings.sty}
+\lstinputlisting[language={[AlLaTeX]TeX}]{\jobname}
 
 \end{document}
 %    \end{macrocode}
