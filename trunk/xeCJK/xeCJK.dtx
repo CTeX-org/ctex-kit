@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4413}
+% \CheckSum{4409}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1247,7 +1247,9 @@ $URL$
 %   合使用。例如，可以使用于 \package{fancyvrb} 宏包的 |formatcom| 选项。此时设置的
 %   西文字体应该确实是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则
 %   需要在其后面使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。\cs{xeCJKOffVerbAddon}
-%   用于在使用 \cs{xeCJKVerbAddon} 的环境中局部取消它的作用。
+%   用于在使用 \cs{xeCJKVerbAddon} 的环境中局部取消它的作用。由于 \package{listings}
+%   宏包有自己的代码对齐机制，所以 \cs{xeCJKVerbAddon} 在由 \pkg{listings} 定义的
+%   代码环境中无效。
 % \end{function}
 %
 % \begin{function}[added=2012-12-03]{\xeCJKnobreak}
@@ -5490,20 +5492,14 @@ $URL$
           \cs_set_eq:NN \CJKecglue \@@_zero_glue:
         \or:
           \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
-            {
-              \@@_set_verb_exspace:
-              \@@_verb_addon:
-            }
+            { \xeCJKVerbAddon }
             {
               \cs_set_eq:NN \CJKglue   \@@_zero_glue:
               \cs_set_eq:NN \CJKecglue \@@_zero_glue:
             }
         \or:
           \int_compare:nNnT \etex_currentgrouptype:D = \c_fourteen
-            {
-              \@@_set_verb_exspace:
-              \@@_verb_addon:
-            }
+            { \xeCJKVerbAddon }
         \fi:
       }
   }
@@ -5523,10 +5519,14 @@ $URL$
   {
     \int_compare:nNnF \etex_currentgrouplevel:D = \c_zero
       {
-        \@@_set_verb_exspace:
-        \@@_verb_addon:
+        \bool_if:NF \l_@@_listings_env_bool
+          {
+            \@@_set_verb_exspace:
+            \@@_verb_addon:
+          }
       }
   }
+\bool_new:N \l_@@_listings_env_bool
 \NewDocumentCommand \xeCJKOffVerbAddon { } { }
 \cs_new_protected_nopar:Npn \@@_verb_addon:
   {
@@ -6901,6 +6901,7 @@ $URL$
     \l_@@_restore_listings_toks_tl
     \@@_listings_output_IVS:
   }
+\lst@AddToHook { PreSet } { \bool_set_true:N \l_@@_listings_env_bool }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\@@_listings_initial_hook:}
@@ -7005,9 +7006,7 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_listings_process_letter:N,\@@_listings_process_other:N}
-% 在 \texttt{letter} 类中区分汉字和西文字母。这样就受到 \pkg{listings} 输出机制的
-% 影响，不能自动在汉字和西文之间插入间距，为了使 \cs{xeCJKVerbAddon} 起作用，需要
-% 手工加入 \cs{CJKecglue}。
+% 在 \texttt{letter} 类中区分汉字和西文字母。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_letter:N
   {
@@ -7021,7 +7020,6 @@ $URL$
           \lst@OutputOther
           \lst@lettertrue
         \fi:
-        \bool_if:NT \l_@@_verb_addon_bool { \CJKecglue }
         \bool_set_true:N \l_@@_listings_letter_bool
       }
     \@@_listings_append:nN { \c_two }
@@ -7045,7 +7043,6 @@ $URL$
     \bool_if:NTF \l_@@_listings_letter_bool
       {
         \lst@Output
-        \bool_if:NT \l_@@_verb_addon_bool { \CJKecglue }
         \bool_set_false:N \l_@@_listings_letter_bool
         \lst@lettertrue
       }
@@ -7081,7 +7078,6 @@ $URL$
           \lst@OutputOther
           \lst@lettertrue
         \fi:
-        \bool_if:NT \l_@@_verb_addon_bool { \CJKecglue }
         \bool_set_true:N \l_@@_listings_letter_bool
       }
     \lst@ifflexible
@@ -7712,14 +7708,12 @@ lang_set = {
 \setCJKmonofont[Kana]{Meiryo}
 \setmonofont{Latin Modern Mono Light}
 
-\xeCJKsetup{PunctStyle=banjiao}
-
 \lstset{%
-  basicstyle=\linespread{1}\small\ttfamily\xeCJKVerbAddon,columns=fixed,
+  basicstyle=\small\ttfamily,
   numbers=left,numberstyle=\tiny\color{gray},
   commentstyle=\color{green!50!black},keywordstyle=\color{blue}\bfseries,
   identifierstyle=\color{violet},stringstyle=\color{brown},
-  escapebegin=\xeCJKOffVerbAddon\normalfont}
+  escapebegin=\normalfont}
 \lstnewenvironment{cppcode}[1][]
   {\lstset{language=C++,#1}}
   {}
