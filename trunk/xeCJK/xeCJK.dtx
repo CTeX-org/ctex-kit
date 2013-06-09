@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4409}
+% \CheckSum{4394}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -6917,6 +6917,7 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_listings_initial_hook:
   {
     \tex_noindent:D
+    \bool_gset_false:N \g_@@_listings_IVS_bool
     \tl_put_left:Nn \lst@numberstyle { \l_@@_restore_listings_toks_tl }
     \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
       {
@@ -6951,17 +6952,17 @@ $URL$
     \xeCJK_inter_class_toks:nnn { Boundary } { Default }
       { \@@_listings_process_Default:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
-      { \@@_listings_process_CJK:N }
+      { \@@_listings_process_CJK:nN { \c_two } }
     \xeCJK_inter_class_toks:nnn { Boundary } { IVS }
-      { \@@_listings_process_IVS:N }
+      { \@@_listings_process_IVS:nN { \c_zero } }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
-      { \@@_listings_process_CJK:N }
+      { \@@_listings_process_CJK:nN { \c_two } }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullRight }
-      { \@@_listings_process_CJK:N }
+      { \@@_listings_process_CJK:nN { \c_two } }
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \xeCJK_inter_class_toks:nnn { Boundary } { CJK/##1 }
-          { \@@_listings_process_CJK:N }
+          { \@@_listings_process_CJK:nN { \c_two } }
       }
   }
 \tl_new:N \l_@@_restore_listings_toks_tl
@@ -6973,7 +6974,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_Default:N,\@@_listings_process_CJK:N}
+% \begin{macro}[internal]{\@@_listings_process_Default:N,\@@_listings_process_CJK:nN}
 % \changes{v3.2.3}{2013/06/08}{在 \texttt{listings} 坏境中对 \cs{charcode} 大于
 % $255$ 的字符根据其 \cs{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
 % 对于 \cs{charcode} 大于 $255$ 的字符，根据 \cs{catcode} 进行处理。
@@ -6984,31 +6985,32 @@ $URL$
       { \lst@ProcessLetter #1 }
       { \lst@ProcessOther  #1 }
   }
-\cs_new_protected_nopar:Npn \@@_listings_process_CJK:N #1
+\cs_new_protected_nopar:Npn \@@_listings_process_CJK:nN #1#2
   {
-    \token_if_letter:NTF #1
-      { \@@_listings_process_letter:N #1 }
-      { \@@_listings_process_other:N  #1 }
+    \token_if_letter:NTF #2
+      { \@@_listings_process_letter:nN {#1} #2 }
+      { \@@_listings_process_other:nN  {#1} #2 }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_listings_append:nN}
 % 普通 CJK 字符的宽度为一般基本宽度的两倍，IVS 类不增加宽度。这里有一个问题，
-% 对 CJK 字符类中的一些半角字符（例如半角日文假名）没有区分开。
+% 对 CJK 字符类中的一些半角字符（例如半角日文假名）没有区分开。\pkg{listings} 通过
+% 重定义 \cs{lst@Append} 将代码写入外部文件，因此需要保留。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_append:nN #1#2
   {
-    \int_add:Nn \lst@length {#1}
-    \lst@token \exp_after:wN { \tex_the:D \lst@token #2 }
+    \int_add:Nn \lst@length { #1 - \c_one }
+    \lst@Append #2
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_letter:N,\@@_listings_process_other:N}
+% \begin{macro}[internal]{\@@_listings_process_letter:nN,\@@_listings_process_other:nN}
 % 在 \texttt{letter} 类中区分汉字和西文字母。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_listings_process_letter:N
+\cs_new_protected_nopar:Npn \@@_listings_process_letter:nN
   {
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
@@ -7022,9 +7024,9 @@ $URL$
         \fi:
         \bool_set_true:N \l_@@_listings_letter_bool
       }
-    \@@_listings_append:nN { \c_two }
+    \@@_listings_append:nN
   }
-\cs_new_protected_nopar:Npn \@@_listings_process_other:N #1
+\cs_new_protected_nopar:Npn \@@_listings_process_other:nN #1#2
   {
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
@@ -7034,8 +7036,8 @@ $URL$
         \lst@letterfalse
       }
       { \lst@ifletter \lst@Output \lst@letterfalse \fi: }
-    \cs_set_eq:NN \lst@lastother #1
-    \@@_listings_append:nN { \c_two } #1
+    \cs_set_eq:NN \lst@lastother #2
+    \@@_listings_append:nN {#1} #2
   }
 \bool_new:N \l_@@_listings_letter_bool
 \cs_set_protected_nopar:Npn \lst@AppendLetter
@@ -7046,7 +7048,7 @@ $URL$
         \bool_set_false:N \l_@@_listings_letter_bool
         \lst@lettertrue
       }
-      { \lst@ifletter \else: \lst@OutputOther \lst@lettertrue \fi: }
+      { \reverse_if:N \lst@ifletter \lst@OutputOther \lst@lettertrue \fi: }
     \lst@Append
   }
 \cs_set_protected_nopar:Npn \lst@AppendOther
@@ -7063,28 +7065,15 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_IVS:N}
+% \begin{macro}[internal]{\@@_listings_process_IVS:nN}
 % \texttt{IVS} 类作为 \texttt{letter} 处理，不用增加 \cs{lst@length}。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_listings_process_IVS:N
+\cs_new_protected_nopar:Npn \@@_listings_process_IVS:nN
   {
-    \lst@whitespacefalse
-    \bool_if:NTF \l_@@_listings_letter_bool
-      { \lst@lettertrue }
-      {
-        \lst@ifletter
-          \lst@Output
-        \else:
-          \lst@OutputOther
-          \lst@lettertrue
-        \fi:
-        \bool_set_true:N \l_@@_listings_letter_bool
-      }
-    \lst@ifflexible
-    \else:
+    \reverse_if:N \lst@ifflexible
       \bool_gset_true:N \g_@@_listings_IVS_bool
     \fi:
-    \@@_listings_append:nN { \c_zero }
+    \@@_listings_process_letter:nN
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7095,8 +7084,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_output_IVS:
   {
-    \lst@ifflexible
-    \else:
+    \reverse_if:N \lst@ifflexible
       \bool_if:NT \g_@@_listings_IVS_bool
         {
           \bool_gset_false:N \g_@@_listings_IVS_bool
@@ -7109,33 +7097,26 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_peek_active:TF}
+% \begin{macro}[internal]{\@@_listings_peek_active_loop:TF}
 % \cs{lstinline} 通过判断参数中第一个字符是否是 \texttt{active} 类来区分
 % 它是否被用在其它宏的参数之中。如果这第一个字符不在 \pkg{listings} 预定义的
-% 符号表中，判断就会出问题。我们在这里通过一个循环跳过这些字符。使用
-% \cs{peek_catcode:NTF} 函数是为了保留参数中第一个出现的空格。
+% 符号表中，判断就会出问题。我们在这里通过一个循环跳过这些字符。
 %    \begin{macrocode}
-\cs_set_protected_nopar:Npn \@@_listings_peek_active:TF #1#2
+\cs_new_protected:Npn \@@_listings_peek_active_loop:TF #1#2#3
   {
-    \peek_catcode:NTF \c_space_token
-      {#2}
-      { \@@_listings_if_active_loop:TFnN {#1} {#2} { } }
-  }
-\cs_set_eq:NN \lst@IfNextCharActive \@@_listings_peek_active:TF
-\cs_new_protected_nopar:Npn \@@_listings_if_active_loop:TFnN #1#2#3#4
-  {
-    \token_if_active:NTF #4
-      { #1#3#4 }
+    \token_if_active:NTF #3
+      { #1#3 }
       {
-        \token_if_cs:NTF #4
-          { #2#3#4 }
+        \token_if_cs:NTF #3
+          { #2#3 }
           {
-            \int_compare:nNnTF { `#4 } > { \lst@ifec 255 \else: 127 \fi: }
-              { \@@_listings_if_active_loop:TFnN {#1} {#2} {#3#4} }
-              { #2#3#4 }
+            \int_compare:nNnTF { `#3 } > { \lst@ifec 255 \else: 127 \fi: }
+              { \@@_listings_peek_active_loop:TF { #1#3 } { #2#3 } }
+              { #2#3 }
           }
       }
   }
+\cs_set_eq:NN \lst@IfNextCharActive \@@_listings_peek_active_loop:TF
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7700,6 +7681,7 @@ lang_set = {
 \documentclass{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{listings,xcolor}
+\usepackage{showexpl}
 
 \usepackage{xeCJK}
 \setCJKmainfont{HanaMinA}
@@ -7755,6 +7737,7 @@ text,纯文字测试
 
 \section{自定义环境测试}
 
+\begin{LTXexample}[pos=t,varwidth,numbersep=5pt,columns=fixed]
 \begin{cppcode}[escapechar=`,morekeywords=返回]
 #define 返回 return
 #include <iostream>
@@ -7770,6 +7753,7 @@ int main()
     返回 0;
 }
 \end{cppcode}
+\end{LTXexample}
 
 \section{\lstinline|\\lstinputlisting| 测试}
 
