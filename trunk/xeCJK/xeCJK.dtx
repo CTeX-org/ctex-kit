@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4394}
+% \CheckSum{4400}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -3413,13 +3413,29 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.3}{2013/06/11}
+% {解决 \texttt{CheckSingle} 选项与 \pkg{tablists} 宏包的冲突。}
+%
 % \begin{macro}[internal]{\xeCJK_check_single_cs:NNn}
+% 在使用 \texttt{CheckSingle} 选项时，在 \package{tablists} 宏包定义的
+% \env{tabenum} 环境中会出现下面的错误：
+% \begin{verbatim}
+%   ! Forbidden control sequence found while scanning use of \use_ii:nn.
+%   <inserted text>
+%                   \par
+%    l.10 \item
+% \end{verbatim}
+% 原因在于 \env{tabenum} 实际上是一个 \TeX 对齐环境（\cs{halign}），\cs{par} 在
+% 其中被重定义为 \cs{cr}。而在下面 \cs{tl_case:Nnn} 的分支里有对 \cs{par} 的
+% \cs{ifx} 判断。解决办法是将判断用 \cs{group_align_safe_begin:} 和
+% \cs{group_align_safe_end:} 包起来。或者改用原语 \cs{tex_par:D} 作为判断条件。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_cs:NNn #1#2#3
   {
+    \group_align_safe_begin:
     \tl_case:Non \l_peek_token
       { \l_@@_check_single_cs_case_tl }
-      { \use_iii:nnn }
+      { \group_align_safe_end: \use_iii:nnn }
       { \xeCJK_check_single_env:nnNn }
       {
         \xeCJK_no_break: \@@_check_single_save:N #1
@@ -3435,9 +3451,10 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_env:nnNn #1#2#3#4
   {
+    \group_align_safe_begin:
     \str_case_x:non {#4}
       { \l_@@_inline_env_case_tl }
-      { \use_i:nn }
+      { \group_align_safe_end: \use_i:nn }
       {#1} {#2}
     \scan_stop: #3 {#4}
   }
@@ -3450,7 +3467,8 @@ $URL$
 % \begin{macro}{NewLineCS}
 %    \begin{macrocode}
 \xeCJK_cs_case_keys_define:nNNnn { NewLineCS }
-  \l_@@_new_line_cs_case_tl \l_@@_new_line_cs_seq { \use_ii:nnn }
+  \l_@@_new_line_cs_case_tl \l_@@_new_line_cs_seq
+  { \group_align_safe_end: \use_ii:nnn }
   {
     \tl_concat:NNN \l_@@_check_single_cs_case_tl
       \l_@@_new_line_cs_case_tl \l_@@_env_cs_case_tl
@@ -3461,7 +3479,8 @@ $URL$
 % \begin{macro}{EnvCS}
 %    \begin{macrocode}
 \xeCJK_cs_case_keys_define:nNNnn { EnvCS }
-  \l_@@_env_cs_case_tl \l_@@_env_cs_seq { \use:n }
+  \l_@@_env_cs_case_tl \l_@@_env_cs_seq
+  { \group_align_safe_end: \use:n }
   {
     \tl_concat:NNN \l_@@_check_single_cs_case_tl
       \l_@@_new_line_cs_case_tl \l_@@_env_cs_case_tl
