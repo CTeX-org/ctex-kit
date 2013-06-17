@@ -41,7 +41,7 @@ my $copyright   = "Copyright (c) 2002, 2006-2011 by $author.";
 #   2011/04/15 v1.5: Email address updated.
 #
 
-my $prg_latex = 'xelatex -no-pdf';
+my $prg_latex = "xelatex -no-pdf";
 
 my $tempdir = "tmp_\L$program\E_$$";
 
@@ -82,7 +82,12 @@ $tempdtxfile =~ s/.*\///;
 my $latexfile = $tempdtxfile;
 $tempdtxfile = $tempdir . "/" . $tempdtxfile;
 
-system("copy /y $dtxfile $tempdir > nul");
+sub win32 {
+  return ($^O =~ /^MSWin/i) ? 1 : 0;
+}
+
+&win32 ? system("copy /y $dtxfile $tempdir > nul") :
+         system("cp $dtxfile $tempdtxfile");
 -f $tempdtxfile or die "$Error Cannot copy dtx file!\n";
 
 ### create l3doc.cfg
@@ -110,6 +115,8 @@ print OUT <<'__END__LTXDOC_CFG__';
   \pretolerance10000 %
   \tolerance10000 %
   \DisableDocumentation
+  \usepackage{syntonly}%
+  \AtBeginDocument{\syntaxonly\XeTeXinterchartokenstate=\z@}%
 }
 \endinput
 __END__LTXDOC_CFG__
@@ -117,9 +124,8 @@ close(OUT);
 
 ### run latex
 print "*** Running XeLaTeX ...\n";
-my $argcode = "\\AtBeginDocument{\\usepackage{syntonly}\\syntaxonly\\XeTeXinterchartokenstate=0 }"
-        . "\\input{$latexfile}";
-system("cd $tempdir & $prg_latex --interaction=batchmode $argcode > nul");
+my $nulldev = &win32 ? "nul" : "/dev/null";
+system("($prg_latex -interaction=batchmode -output-directory=$tempdir $tempdtxfile > $nulldev)");
 
 my $logfile = $tempdtxfile;
 $logfile =~ s/\.[^\.]+$//;
