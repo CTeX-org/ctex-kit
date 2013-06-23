@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4400}
+% \CheckSum{4445}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -2564,32 +2564,38 @@ $URL$
 %    \begin{macrocode}
 \clist_map_inline:nn { Default , HalfLeft , NormalSpace }
   {
-    \xeCJK_inter_class_toks:nnn { Boundary } {#1}
-      {
-        \bool_if:nTF
-          {
-            \l_@@_xecglue_bool &&
-            \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-            \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
-          }
-          {
-            \tex_unskip:D
-            \bool_if:nTF
-              {
-                \xeCJK_if_last_node_p:n { CJK }       ||
-                \xeCJK_if_last_node_p:n { CJK-space }
-              }
-              { \CJKecglue } { ~ }
-          }
-          {
-            \xeCJK_if_last_node:nTF { CJK } { \CJKecglue }
-              { \xeCJK_if_last_node:nT { CJK-space } { \@@_space_or_xecglue: } }
-          }
-      }
+    \xeCJK_inter_class_toks:nnn { Boundary } {#1} { \xeCJK_Boundary_and_Default: }
     \str_if_eq:nnF {#1} { NormalSpace }
       { \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue } }
   }
 %    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_Boundary_and_Default:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_Boundary_and_Default:
+  {
+    \bool_if:nTF
+      {
+        \l_@@_xecglue_bool &&
+        \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
+        \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
+      }
+      {
+        \tex_unskip:D
+        \bool_if:nTF
+          {
+            \xeCJK_if_last_node_p:n { CJK }       ||
+            \xeCJK_if_last_node_p:n { CJK-space }
+          }
+          { \CJKecglue } { ~ }
+      }
+      {
+        \xeCJK_if_last_node:nTF { CJK } { \CJKecglue }
+          { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_space_or_xecglue: } }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \hypertarget{def-bound}{}
 %    \begin{macrocode}
@@ -2732,19 +2738,19 @@ $URL$
     xCJKecglue / true    .code:n =
       {
         \bool_set_true:N  \l_@@_xecglue_bool
-        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
+        \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
       } ,
     xCJKecglue / false   .code:n =
       {
         \bool_set_false:N \l_@@_xecglue_bool
-        \cs_set_eq:NN \@@_space_or_xecglue: \c_space_tl
+        \cs_set_eq:NN \xeCJK_space_or_xecglue: \c_space_tl
       } ,
     xCJKecglue / unknown .code:n =
       {
         \bool_set_true:N  \l_@@_xecglue_bool
         \cs_set_protected_nopar:Npn \CJKecglue {#1}
         \xeCJK_glue_to_skip:nN {#1} \l_@@_ecglue_skip
-        \cs_set_eq:NN \@@_space_or_xecglue: \CJKecglue
+        \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
       } ,
     xCJKecglue        .default:n = { true }
   }
@@ -2782,7 +2788,7 @@ $URL$
     \xeCJK_peek_catcode_ignore_spaces:NTF \c_math_toggle_token
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-          { \@@_space_or_xecglue: } { \CJKecglue }
+          { \xeCJK_space_or_xecglue: } { \CJKecglue }
       }
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
@@ -2793,13 +2799,15 @@ $URL$
               {
                 \token_if_macro_p:N \l_peek_token ||
                 ( \l_@@_reserve_space_bool &&
-                  \token_if_other_p:N \l_peek_token )
+                  \token_if_letter_p:N \l_peek_token )
               }
-              { \@@_space_or_xecglue: }
+              { \xeCJK_space_or_xecglue: }
           }
-          { \cs_if_exist:NF \l_peek_token \exp_not:N }
+          { \@@_CJK_and_Boundary_aux: }
       }
   }
+\cs_new_protected_nopar:Npn \@@_CJK_and_Boundary_aux:
+  { \cs_if_exist:NF \l_peek_token \exp_not:N }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6352,6 +6360,7 @@ $URL$
 % \subsection{\pkg{xeCJKfntef}}
 %
 % \changes{v3.1.1}{2012/12/08}{增加小宏包 \pkg{xeCJKfntef}，用于处理下划线的问题。}
+% \changes{v3.2.4}{2013/06/23}{修正 \pkg{xeCJKfntef} 与 \pkg{natbib} 等的冲突。}
 %
 %    \begin{macrocode}
 %<*fntef>
@@ -6384,7 +6393,7 @@ $URL$
     \bool_if:NF \l_@@_ulem_hook_used_bool
       {
         \bool_set_true:N \l_@@_ulem_hook_used_bool
-        \xeCJKsetup { CheckFullRight = false }
+        \xeCJKsetup { CheckFullRight = false , xCJKecglue = false }
         \bool_if:NTF \l_@@_ulem_skip_punct_bool
           { \cs_set_eq:NN \@@_ulem_leader_type: \UL@leadtype }
           {
@@ -6465,11 +6474,14 @@ $URL$
     \xeCJK_swap_cs:NN
       \@@_Boundary_and_FullLeft_glue:N \@@_ulem_Boundary_and_FullLeft_glue:N
     \xeCJK_swap_cs:NN \@@_punct_hskip:n             \@@_ulem_punct_hskip:n
+    \xeCJK_swap_cs:NN \@@_CJK_and_Boundary_aux:     \@@_ulem_CJK_and_Boundary_aux:
     \xeCJK_swap_cs:NN \xeCJK_FullLeft_and_Default:  \@@_ulem_FullLeft_and_Default:
     \xeCJK_swap_cs:NN \xeCJK_FullLeft_and_CJK:      \@@_ulem_FullLeft_and_CJK:
     \xeCJK_swap_cs:NN \xeCJK_FullRight_and_Default: \@@_ulem_FullRight_and_Default:
     \xeCJK_swap_cs:NN \xeCJK_FullRight_and_CJK:     \@@_ulem_FullRight_and_CJK:
     \xeCJK_swap_cs:NN \xeCJK_CJK_and_CJK:N          \@@_ulem_CJK_and_CJK:N
+    \xeCJK_swap_cs:NN \xeCJK_Boundary_and_Default:  \@@_ulem_Boundary_and_Default:
+    \xeCJK_swap_cs:NN \xeCJK@fix@penalty            \@@_ulem_fix_penalty:
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
@@ -6505,6 +6517,46 @@ $URL$
     \else:
       \exp_after:wN \use_i:nn
     \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_Boundary_and_Default:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_Boundary_and_Default:
+  {
+    \xeCJK_if_ulem_patch:TF
+      {
+        \xeCJK_if_last_node:nTF { CJK }
+          { \skip_horizontal:N \l__xeCJK_ecglue_skip }
+          { \xeCJK_if_last_node:nT { CJK-space } { ~ } }
+      }
+      { \@@_ulem_Boundary_and_Default: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_CJK_and_Boundary_aux:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_CJK_and_Boundary_aux:
+  {
+    \xeCJK_if_ulem_patch:TF
+      {
+        \UL@stop \__xeCJK_ulem_hskip:n { \c_zero_skip } \UL@start
+        { \xeCJK_make_node:n { CJK } }
+      }
+      { \@@_ulem_CJK_and_Boundary_aux: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_fix_penalty:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_fix_penalty:
+  {
+    \xeCJK_if_ulem_patch:TF
+      { \fix@penalty }
+      { \@@_ulem_fix_penalty: }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6765,7 +6817,8 @@ $URL$
 %    \begin{macrocode}
 \RenewDocumentCommand \CJKunderdot { m }
   {
-    \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@stop }
+    \bool_if:NT \l_@@_ulem_hook_used_bool
+      { \UL@stop \@@_ulem_restore_CJK_and_Boundary: }
     \CJK@preUnderdot
     \@@_make_under_symbol:n { \CJK@underdotSkip }
     \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
@@ -6777,10 +6830,20 @@ $URL$
     \cs_set_eq:NN \CJKsymbol \@@_save_under_dot_CJKsymbol:N
     \tex_output:D \exp_after:wN { \l_@@_underdot_output_tl }
     \CJK@postUnderdot
-    \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@start }
+    \bool_if:NT \l_@@_ulem_hook_used_bool
+      { \@@_ulem_restore_CJK_and_Boundary: \UL@start }
     \tex_ignorespaces:D
   }
 \box_new:N \g_@@_under_symbol_box
+\cs_new_protected_nopar:Npn \@@_ulem_restore_CJK_and_Boundary:
+  {
+    \xeCJK_if_ulem_patch:TF
+      {
+        \xeCJK_swap_cs:NN
+          \@@_CJK_and_Boundary_aux: \@@_ulem_CJK_and_Boundary_aux:
+      }
+      { }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
