@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4445}
+% \CheckSum{4460}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -337,9 +337,8 @@ $URL$
 % \pkg{xeCJK} 使用了 \XeTeX 的一些最新特性，需要 \XeTeX{} |0.9995.0 [2009/06/29]| 以
 % 后的版本。\pkg{xeCJK} 依赖 \hologo{LaTeX3} 项目的宏包套件 \package{l3kernel} 和
 % \package{l3packages}。\pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字
-% 体。将在 \ref{subsec:opts}~节介绍的功能选项 |CJKnumber| 需要 \package{CJK} 宏包套
-% 件中的 \pkg{CJKnumb} 的支持；|indentfirst| 选项需要 \package{indentfirst} 宏包。
-% \pkg{xeCJK} 会自动根据需要载入这些宏包。
+% 体。将在 \ref{subsec:opts}~节介绍的功能选项 |indentfirst| 选项需要
+% \package{indentfirst} 宏包的支持。\pkg{xeCJK} 会自动根据需要载入这些宏包。
 %
 % \pkg{xeCJK} 的原始作者是孙文昌，2009 年 5 月起宏包被收入 \ctexkit\ 项目进行
 % 维护，目前主要维护者是刘海洋\footnote{\email{leoliu.pku@gmail.com}} 和
@@ -427,14 +426,6 @@ $URL$
 %   最后还需要在命令行下执行 |mktexlsr|，刷新文件名数据库以便 \TeX 系统能够找到它。
 % \end{function}
 %
-% \begin{function}[EXP]{CJKnumber}
-%   \begin{syntax}
-%     CJKnumber = \meta{\TFF}
-%   \end{syntax}
-%   为了与 \pkg{CJKnumb} 宏包兼容，\pkg{xeCJK} 作了一些特别处理。因此，如果需要使用
-%   到 \pkg{CJKnumb}，请通过这个选项调用它。
-% \end{function}
-%
 % \begin{function}[EXP,updated=2012-11-22]{indentfirst}
 %   \begin{syntax}
 %     indentfirst = \meta{\TTF}
@@ -442,8 +433,8 @@ $URL$
 %   是否使用 \pkg{indentfirst} 宏包，使得跟在章节标题后面的第一段首行也缩进。\bigskip
 % \end{function}
 %
-% 请注意，\pkg{xeCJK} 宏包中只有上述 |LocalConfig|、|CJKnumber| 和 |indentfirst|
-% 这三个选项需要在调用 \pkg{xeCJK} 时设置，而不能通过 \cs{xeCJKsetup} 来设置。
+% 请注意，\pkg{xeCJK} 宏包中只有上述 |LocalConfig|、和 |indentfirst| 这两个选项需要
+% 在调用 \pkg{xeCJK} 时设置，而不能通过 \cs{xeCJKsetup} 来设置。
 %
 % \begin{function}{xeCJKactive}
 %   \begin{syntax}
@@ -1269,6 +1260,7 @@ $URL$
 % \pkg{xeCJK} 使用并重新定义了 \pkg{CJK} 宏包的部分宏命令，如 \cs{CJKfamily}、
 % \cs{CJKsymbol} 和 \cs{CJKglue} 等。需要指出，\pkg{xeCJK} 不需要 \pkg{CJK}
 % 的支持，并且 \pkg{xeCJK} 自动禁止在它之后载入 \pkg{CJK} 宏包。
+% 可以在 \pkg{xeCJK} 之\emph{后}载入 \pkg{CJKnumb} 宏包，实现数字的中文化。
 %
 % \CJKunderline{\pkg{xeCJK} 包含有一个子宏包 \pkg{xeCJKfntef}，可以用它来实现%
 % \CJKunderdot{汉字加点}和可断行的下划线等。它是 \pkg{CJKfntef} 宏包在 \XeLaTeX
@@ -1333,6 +1325,32 @@ $URL$
     Loading~xeCJK~will~abort!
   }
 \xetex_if_engine:F { \msg_critical:nn { xeCJK } { Require-XeTeX } }
+%    \end{macrocode}
+%
+% 下面这些 \pkg{CJK} 系列宏包不应该被使用。
+%    \begin{macrocode}
+\msg_new:nnn { xeCJK } { incompatible-package }
+  {
+    The~`#1'~package~and~xeCJK~are~incompatible.\\\\
+    Please ~ \str_if_eq:nnTF {#1} { CJKnumb }
+      { load~it~after~xeCJK. } { do~not~use~it. }
+  }
+\clist_map_inline:nn { CJKnumb , CJKulem , CJKvert , CJKpunct , CJKutf8 , CJK }
+  {
+    \@ifpackageloaded {#1}
+      { \msg_error:nnn { xeCJK } { incompatible-package } {#1} }
+      { }
+  }
+%    \end{macrocode}
+%
+% 禁止在 \pkg{xeCJK} 宏包后再载入 \pkg{CJK} 宏包，并使得
+% \pkg{CJKnumb} 和 \pkg{CJKfntef} 宏包可以使用。
+%    \begin{macrocode}
+\tl_gset:cn { ver@CJK.sty } { 9999/99/99 }
+\tl_gset_eq:cc { ver@CJKutf8.sty }  { ver@CJK.sty }
+\tl_gset_eq:cc { ver@CJKvert.sty }  { ver@CJK.sty }
+\tl_gset_eq:cc { ver@CJKulem.sty }  { ver@CJK.sty }
+\tl_gset_eq:cc { ver@CJKpunct.sty } { ver@CJK.sty }
 %    \end{macrocode}
 %
 % 应该使用较新版本的 \pkg{expl3} 宏包。
@@ -5735,8 +5753,8 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{CJKnumber,indentfirst}
-% 是否启用 \pkg{CJKnumb} 宏包和首行是否缩进。
+% \begin{macro}{indentfirst}
+% 首行是否缩进。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
   {
@@ -6265,14 +6283,6 @@ $URL$
   }
 %    \end{macrocode}
 %
-% 禁止在 \pkg{xeCJK} 宏包后再载入 \pkg{CJK} 宏包，并使得
-% \pkg{CJKnumb} 和 \pkg{CJKfntef} 宏包可以使用。
-%    \begin{macrocode}
-\tl_set:cn { ver@CJK.sty } { 9999/99/99 }
-\tl_set_eq:cc { ver@CJKulem.sty }  { ver@CJK.sty }
-\tl_set_eq:cc { ver@CJKpunct.sty } { ver@CJK.sty }
-%    \end{macrocode}
-%
 % \begin{macro}[internal]{\xeCJKcaption}
 % 可以使用 \pkg{CJK} 宏包中的 |.cpx| 文件。
 %    \begin{macrocode}
@@ -6326,22 +6336,40 @@ $URL$
   }
 %    \end{macrocode}
 %
+% \changes{v3.2.4}{2013/06/25}{不再使用 \texttt{CJKnumber} 选项，可以在
+% \pkg{xeCJK} 之后直接使用 \pkg{CJKnumb} 宏包得到中文数字。}
+%
+% \begin{macro}[internal]{\CJKaddEncHook}
 % 为使用 \pkg{CJKnumb} 宏包而作一些处理。另外 \pkg{CJKnumb} 使用的是传统汉字“萬”
 % 和“億”，我们在这里把它们修正为简体字。
 %    \begin{macrocode}
-\bool_if:NT \g_@@_number_bool
+\cs_new_protected:Npn \CJKaddEncHook #1#2
   {
-    \tl_set:Nn \CJK@UnicodeEnc { UTF8 }
-    \cs_set_protected:Npn \CJKaddEncHook #1#2
-      { \cs_set:cpn { @@_enc_#1_hook: } {#2} }
-    \cs_set_protected_nopar:Npn \Unicode #1#2
-      { \tex_char:D \etex_numexpr:D (#1) * \c_two_hundred_fifty_six + (#2) \scan_stop: }
-    \RequirePackage { CJKnumb }
-    \cs_if_exist_use:c { @@_enc_ \CJK@UnicodeEnc _hook: }
-    \tl_set:Nn \CJK@tenthousand    { \Unicode { 78 } { 7 } }
-    \tl_set:Nn \CJK@hundredmillion { \Unicode { 78 } { 191 } }
+    \str_if_eq:nnT {#1} { \CJK@UnicodeEnc }
+      {
+        \group_begin:
+        \cs_set_nopar:Npn \Unicode ##1##2
+          { (##1) * \c_two_hundred_fifty_six + (##2) }
+        \cs_set_eq:NN \def \xeCJK_char_from_charcode:Nn
+        #2
+        \group_end:
+        \tl_gset:Nn \CJK@tenthousand    { ^^^^4e07 }
+        \tl_gset:Nn \CJK@hundredmillion { ^^^^4ebf }
+      }
   }
+\cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
+  {
+    \group_begin:
+    \char_set_lccode:nn { "4E00 } {#2}
+    \tl_to_lowercase:n
+      {
+        \group_end:
+        \tl_const:Nn #1 { ^^^^4e00 }
+      }
+  }
+\bool_if:NT \g_@@_number_bool { \RequirePackage { CJKnumb } }
 %    \end{macrocode}
+% \end{macro}
 %
 % 最后引入本地配置文件。
 %    \begin{macrocode}
