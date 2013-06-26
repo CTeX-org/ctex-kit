@@ -6406,6 +6406,7 @@ $URL$
 \RequirePackage { xeCJK }
 \RequirePackage { ulem }
 \RequirePackage { CJKfntef }
+\RequirePackage { environ }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -6943,38 +6944,42 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{CJKfilltwosides}
-% 修改 |CJKfilltwosides| 环境，使其不必重定义 \cs{CJKsymbol}。
-%    \begin{macrocode}
-\RenewDocumentEnvironment { CJKfilltwosides } { m }
-  {
-    \dim_set:Nn \l_@@_fill_width_dim {#1}
-    \cs_set_eq:NN \CJKglue \tex_hfil:D
-    \cs_set_eq:NN \\ \@@_fill_newline:
-    \mode_if_vertical:T { \tex_indent:D }
-    \tex_vbox:D \c_group_begin_token
-    \tex_hbox:D to \l_@@_fill_width_dim \c_group_begin_token
-    \tex_ignorespaces:D
-  }
-  {
-    \tex_unskip:D
-    \c_group_end_token
-    \c_group_end_token
-  }
-\dim_new:N \l_@@_fill_width_dim
-%    \end{macrocode}
-% \end{macro}
 %
-% \begin{macro}[internal]{\@@_fill_newline:}
-% |CJKfilltwosides| 环境里的断行命令 |\\|。
+% \begin{macro}[internal]{CJKfilltwosides}
+% \changes{v3.2.4}{2012/06/26}{改用 \LaTeX 表格（\texttt{tabular}）来实现。}
+% 使用 \LaTeX 表格（\texttt{tabular}）来定义 |CJKfilltwosides| 环境。
+% 参数 |#1| 表示环境的垂直对齐位置；参数 |#2| 表示环境的宽度，如果不大于零或者
+% 不大于环境最长文本行的宽度，则取环境的自然宽度。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_fill_newline:
+\cs_undefine:N \CJKfilltwosides
+\cs_undefine:N \endCJKfilltwosides
+\NewEnviron { CJKfilltwosides } [ 2 ] [ c ]
   {
-    \tex_unskip:D
-    \c_group_end_token
-    \tex_hbox:D to \l_@@_fill_width_dim \c_group_begin_token
-    \tex_ignorespaces:D
+    \cs_set_eq:NN \CJKglue \tex_hfill:D
+    \tl_set:Nn \arraystretch { 1 }
+    \dim_compare:nNnTF {#2} > \c_zero_dim
+      {
+        \hbox_set:Nn \l_@@_tmp_box
+          {
+            \tabular [#1] { @ { } c @ { } }
+              \BODY
+            \endtabular
+          }
+        \dim_compare:nNnTF {#2} > { \box_wd:N \l_@@_tmp_box }
+          {
+            \tabular [#1] { @ { } p { \dim_eval:n {#2} } @ { } }
+              \BODY
+            \endtabular
+          }
+          { \hbox_unpack:N \l_@@_tmp_box }
+      }
+      {
+        \tabular [#1] { @ { } c @ { } }
+          \BODY
+        \endtabular
+      }
   }
+  [ \ignorespacesafterend ]
 %    \end{macrocode}
 % \end{macro}
 %
