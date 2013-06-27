@@ -2608,7 +2608,12 @@ $URL$
           { \CJKecglue } { ~ }
       }
       {
-        \xeCJK_if_last_node:nTF { CJK } { \CJKecglue }
+        \bool_if:nTF
+          {
+            \xeCJK_if_last_node_p:n { CJK }         ||
+            \xeCJK_if_last_node_p:n { CJK-nobreak }
+          }
+          { \CJKecglue }
           { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_space_or_xecglue: } }
       }
   }
@@ -2655,37 +2660,41 @@ $URL$
       { \xeCJK_if_last_node_p:n { CJK } || \xeCJK_if_last_node_p:n { CJK-space } }
       { \CJKglue }
       {
-        \bool_if:nTF
+        \xeCJK_if_last_node:nTF { CJK-nobreak }
+          { \xeCJK_no_break: \CJKglue }
           {
-            \xeCJK_if_last_node_p:n { default }              ||
-            \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
-          }
-          { \CJKecglue }
-          {
-            \bool_if:nT
+            \bool_if:nTF
               {
-                \l_@@_xecglue_bool &&
-                \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-                ( \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl ||
-                  \skip_if_eq_p:nn \tex_lastskip:D \l_@@_ecglue_skip )
+                \xeCJK_if_last_node_p:n { default }              ||
+                \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
               }
+              { \CJKecglue }
               {
-                \tex_unskip:D
-                \bool_if:nTF
+                \bool_if:nT
                   {
-                    \xeCJK_if_last_node_p:n { default-space }        ||
-                    \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
-                    \xeCJK_if_last_node_p:n { default }
+                    \l_@@_xecglue_bool &&
+                    \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
+                    ( \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl ||
+                      \skip_if_eq_p:nn \tex_lastskip:D \l_@@_ecglue_skip )
                   }
-                  { \CJKecglue }
                   {
+                    \tex_unskip:D
                     \bool_if:nTF
                       {
-                        \xeCJK_if_last_node_p:n { CJK }       ||
-                        \xeCJK_if_last_node_p:n { CJK-space }
+                        \xeCJK_if_last_node_p:n { default-space }        ||
+                        \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
+                        \xeCJK_if_last_node_p:n { default }
                       }
-                      { \bool_if:NTF \l_@@_reserve_space_bool { ~ } { \CJKglue } }
-                      { ~ }
+                      { \CJKecglue }
+                      {
+                        \bool_if:nTF
+                          {
+                            \xeCJK_if_last_node_p:n { CJK }       ||
+                            \xeCJK_if_last_node_p:n { CJK-space }
+                          }
+                          { \bool_if:NTF \l_@@_reserve_space_bool { ~ } { \CJKglue } }
+                          { ~ }
+                      }
                   }
               }
           }
@@ -2724,6 +2733,7 @@ $URL$
 \xeCJK_def_node:nn { CJK-space }     { 12 sp }
 \xeCJK_def_node:nn { default }       { 13 sp }
 \xeCJK_def_node:nn { default-space } { 14 sp }
+\xeCJK_def_node:nn { CJK-nobreak }   { 15 sp }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3432,7 +3442,7 @@ $URL$
     \peek_catcode:NTF \c_math_toggle_token
       {
         \xeCJK_no_break: \@@_check_single_save:N #1
-        \xeCJK_no_break: #2 #4
+        \xeCJK_make_node:n { CJK-nobreak } #2 #4
       }
       { \@@_check_single_save:N #1 #2#3#4 }
   }
@@ -3441,6 +3451,8 @@ $URL$
 %
 % \changes{v3.2.3}{2013/06/11}
 % {解决 \texttt{CheckSingle} 选项与 \pkg{tablists} 宏包的冲突。}
+% \changes{v3.2.4}{2013/06/26}
+% {解决使用 \texttt{CheckSingle} 时，某些 \cs{CJKglue} 不能被正确加入的问题。}
 %
 % \begin{macro}[internal]{\xeCJK_check_single_cs:NNn}
 % 在使用 \texttt{CheckSingle} 选项时，在 \package{tablists} 宏包定义的
@@ -3465,7 +3477,7 @@ $URL$
       { \xeCJK_check_single_env:nnNn }
       {
         \xeCJK_no_break: \@@_check_single_save:N #1
-        \xeCJK_no_break: #2
+        \xeCJK_make_node:n { CJK-nobreak } #2
       }
       { \@@_check_single_save:N #1 #2#3 }
   }
@@ -6557,7 +6569,7 @@ $URL$
     \xeCJK_if_ulem_patch:TF
       {
         \xeCJK_if_last_node:nTF { CJK }
-          { \skip_horizontal:N \l__xeCJK_ecglue_skip }
+          { \skip_horizontal:N \l_@@_ecglue_skip }
           { \xeCJK_if_last_node:nT { CJK-space } { ~ } }
       }
       { \@@_ulem_Boundary_and_Default: }
@@ -6571,7 +6583,7 @@ $URL$
   {
     \xeCJK_if_ulem_patch:TF
       {
-        \UL@stop \__xeCJK_ulem_hskip:n { \c_zero_skip } \UL@start
+        \UL@stop \@@_ulem_hskip:n { \c_zero_skip } \UL@start
         { \xeCJK_make_node:n { CJK } }
       }
       { \@@_ulem_CJK_and_Boundary_aux: }
@@ -6905,7 +6917,7 @@ $URL$
       {
         \exp_after:wN \cs_set_eq:NN
         \exp_after:wN \CJKsymbol
-        \exp_after:wN \__xeCJK_save_under_dot_CJKsymbol:N
+        \exp_after:wN \@@_save_under_dot_CJKsymbol:N
         \l_@@_underdot_output_tl
       }
   }
