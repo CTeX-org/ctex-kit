@@ -307,7 +307,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4467}
+% \CheckSum{4478}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -6946,17 +6946,26 @@ $URL$
 %
 %
 % \begin{macro}[internal]{CJKfilltwosides}
-% \changes{v3.2.4}{2012/06/26}{改用 \LaTeX 表格（\texttt{tabular}）来实现。}
-% 使用 \LaTeX 表格（\texttt{tabular}）来定义 |CJKfilltwosides| 环境。
-% 参数 |#1| 表示环境的垂直对齐位置；参数 |#2| 表示环境的宽度，如果不大于零或者
-% 不大于环境最长文本行的宽度，则取环境的自然宽度。
+% \changes{v3.2.4}{2012/06/26}{改用 \texttt{minipage} 和 \LaTeX 表格（\texttt{tabular}）来实现。}
+% 使用 \texttt{minipage} 和 \LaTeX 表格（\texttt{tabular}）来定义 |CJKfilltwosides| 环境。
+% 可选参数 |#1| 表示环境的垂直对齐位置，默认居中；参数 |#2| 表示环境的宽度。
+% 带星号的环境，如果 |#2| 不大于零或者不大于环境最长文本行的宽度，则取环境的自然宽度。
 %    \begin{macrocode}
-\cs_undefine:N \CJKfilltwosides
-\cs_undefine:N \endCJKfilltwosides
-\NewEnviron { CJKfilltwosides } [ 2 ] [ c ]
+\RenewDocumentEnvironment { CJKfilltwosides } { O { c } m }
+  {
+    \use:x { \exp_not:N \minipage [#1] { \dim_eval:n {#2} } }
+    \cs_set_eq:NN \CJKglue \tex_hfill:D
+  }
+  {
+    \endminipage
+    \ignorespacesafterend
+  }
+\NewEnviron { CJKfilltwosides* } [ 2 ] [ c ]
   {
     \cs_set_eq:NN \CJKglue \tex_hfill:D
     \tl_set:Nn \arraystretch { 1 }
+    \token_if_dim_register:NT \extrarowheight
+      { \dim_set_eq:NN \extrarowheight \c_zero_dim }
     \dim_compare:nNnTF {#2} > \c_zero_dim
       {
         \hbox_set:Nn \l_@@_tmp_box
@@ -7607,11 +7616,13 @@ x^2+y^2
 \CJKunderanyline{0.2em}{\kern-.03em\vtop{\kern.2ex\hrule width.2em\kern 0.11em
   \hrule height 0.1em}\kern-.03em}{自定义下划线}
 
-\CJKunderanyline{0.5em}{-}{\showtext}
+\indent\CJKunderanyline{0.5em}{-}{\showtext}
 
 \CJKunderanysymbol{0.2em}{-}{\showtext}
 
 \CJKunderdot{\showtext}
+
+\hrule depth \dp\strutbox width 0 pt \relax
 
 \begin{CJKfilltwosides}{40mm}
 两端分散对齐\\
@@ -7619,6 +7630,8 @@ x^2+y^2
 \CJKunderdot{汉字可加点}\\
 \CJKunderline{汉字可加下划线}
 \end{CJKfilltwosides}
+
+\hrule depth \dp\strutbox width 0 pt \relax
 
 \CJKfntef{CJKunderline}
 \CJKfntef{CJKunderwave}
