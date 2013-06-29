@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4552}
+% \CheckSum{4593}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -767,15 +767,20 @@ $URL$
 %   \end{verbatim}
 % \end{function}
 %
-% \begin{function}{\addCJKfontfeatures}
+% \begin{function}[updated=2013-06-30]{\addCJKfontfeatures}
 %   \begin{syntax}
-%     \cs{addCJKfontfeatures} \Arg{font features}
+%     \cs{addCJKfontfeatures}   \Arg{font features}
+%     \cs{addCJKfontfeatures} * \Arg{font features}
+%     \cs{addCJKfontfeatures}   \oarg{block_1, block_2, ...} \Arg{font features}
+%     \cs{addCJKfontfeatures} * \oarg{block_1, block_2, ...} \Arg{font features}
 %   \end{syntax}
-%   临时增加当前使用的 CJK 字体的选项。例如，使用
+%   临时增加当前使用的 CJK 字体的选项。第一条命令，仅对当前 CJK 主分区字体有效；
+%   第二条对主分区和其它分区的字体都有效；第三条仅对可选参数中指定的分区有效；
+%   第四条对主分区和可选参数中指定的分区有效。例如，使用
 %   \begin{verbatim}
 %     \addCJKfontfeatures{Scale=1.1}
 %   \end{verbatim}
-%   可以将文档中当前使用的 CJK 字体放大为 |1.1|。
+%   可以将文档中当前使用的 CJK 主分区字体放大为 |1.1|。
 % \end{function}
 %
 % \begin{function}{\CJKrmdefault}
@@ -5306,56 +5311,85 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_fontspec:nn #1#2
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \tl_to_str:n { CJKfontspec/#1/#2/id } }
-    \tl_if_exist:cF { \l_@@_tmpa_tl }
+    \prop_get:NnNF \g_@@_fontspec_prop
+      { CJKfontspec/#1/#2/id } \l_xeCJK_family_tl
       {
-        \tl_set:Nx \l_@@_tmpb_tl
+        \tl_set:Nx \l_@@_tmpa_tl
           { CJKfontspec ( \int_eval:n { \g_@@_family_int + \c_one } ) }
-        \tl_gset_eq:cN { \l_@@_tmpa_tl } \l_@@_tmpb_tl
-        \xeCJK_set_family:Vnn \l_@@_tmpb_tl {#1} {#2}
+        \prop_gput:NnV \g_@@_fontspec_prop
+          { CJKfontspec/#1/#2/id } \l_@@_tmpa_tl
+        \use:x
+          {
+            \xeCJK_set_family:nnn { \l_@@_tmpa_tl } \exp_not:n { {#1} {#2} }
+            \CJKfamily { \l_@@_tmpa_tl }
+          }
       }
-    \exp_args:Nc \CJKfamily { \l_@@_tmpa_tl }
   }
 \cs_generate_variant:Nn \xeCJK_fontspec:nn { VV , xx }
+\prop_new:N \g_@@_fontspec_prop
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\defaultCJKfontfeatures, \addCJKfontfeatures}
+% \changes{v3.2.4}{2013/06/30}{可以单独增加当前各个分区字体的属性。}
 % 分别用于设置 CJK 字体的默认属性和增加当前 CJK 字体的属性。
 %    \begin{macrocode}
 \clist_new:N \g_@@_default_features_clist
 \NewDocumentCommand \defaultCJKfontfeatures { m }
   { \clist_gset:Nn \g_@@_default_features_clist {#1} }
 \@onlypreamble \defaultCJKfontfeatures
-\NewDocumentCommand \addCJKfontfeatures { m }
+\NewDocumentCommand \addCJKfontfeatures { s O { } m }
   {
-    \xeCJK_add_font_features:x {#1}
+    \xeCJK_add_font_features:Nxx #1 {#2} {#3}
     \tex_ignorespaces:D
   }
 \cs_new_eq:NN \addCJKfontfeature \addCJKfontfeatures
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_add_font_features:n}
+% \begin{macro}[internal]{\xeCJK_add_font_features:Nnn}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_add_font_features:n #1
+\cs_new_protected_nopar:Npn \xeCJK_add_font_features:Nnn #1#2#3
   {
-    \prop_get:NVNTF \g_@@_family_font_name_prop \l_xeCJK_family_tl \l_@@_tmpa_tl
+    \prop_get:NVNTF \g_@@_family_font_name_prop
+      \l_xeCJK_family_tl \l_@@_font_name_tl
       {
-        \clist_set:Nn \l_@@_tmpa_clist {#1}
-        \seq_map_function:NN
-          \g_@@_CJK_sub_class_seq \@@_parse_sub_class_features:n
-        \prop_get:NVNT \g_@@_family_font_options_prop
-          \l_xeCJK_family_tl \l_@@_tmpb_clist
+        \clist_set:Nn \l_@@_font_features_clist {#3}
+        \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
+          { \clist_remove_all:Nn \l_@@_font_features_clist {##1} }
+        \clist_clear:N \l_@@_tmpa_clist
+        \clist_clear:N \l_@@_block_features_clist
+        \clist_map_inline:nn {#2}
           {
-            \clist_concat:NNN
-              \l_@@_tmpa_clist \l_@@_tmpb_clist \l_@@_tmpa_clist
+            \seq_if_in:NnTF \g_@@_CJK_sub_class_seq {##1}
+              {
+                \clist_put_right:Nn \l_@@_tmpa_clist {##1}
+                \@@_add_sub_class_features:n {##1}
+              }
+              { \@@_warning:nx { SubBlock-undefined } {##1} }
           }
-        \xeCJK_fontspec:VV \l_@@_tmpa_clist \l_@@_tmpa_tl
+        \bool_if:nT { #1 && \clist_if_empty_p:N \l_@@_tmpa_clist }
+          {
+            \seq_map_function:NN
+              \g_@@_CJK_sub_class_seq \@@_add_sub_class_features:n
+          }
+        \prop_get:NVNT \g_@@_family_font_options_prop
+          \l_xeCJK_family_tl \l_@@_font_options_clist
+          {
+            \bool_if:nT
+              { \clist_if_empty_p:N \l_@@_tmpa_clist || #1 }
+              {
+                \clist_concat:NNN \l_@@_font_options_clist
+                  \l_@@_font_options_clist \l_@@_font_features_clist
+              }
+            \clist_concat:NNN \l_@@_font_options_clist
+              \l_@@_font_options_clist \l_@@_block_features_clist
+          }
+        \xeCJK_fontspec:VV \l_@@_font_options_clist \l_@@_font_name_tl
       }
       { \@@_warning:n { addCJKfontfeature-ignored } }
   }
-\cs_generate_variant:Nn \xeCJK_add_font_features:n { x }
+\cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nxx }
 \@@_msg_new:nn { addCJKfontfeature-ignored }
   {
     \token_to_str:N \addCJKfontfeature (s)~ignored.\\\\
@@ -5364,26 +5398,43 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_parse_sub_class_features:n}
+% \begin{macro}[internal]{\@@_add_sub_class_features:n}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_parse_sub_class_features:n #1
+\cs_new_protected_nopar:Npn \@@_add_sub_class_features:n #1
   {
-    \clist_if_in:NnT \l_@@_tmpa_clist {#1}
+    \prop_get:NoNTF \g_@@_family_font_name_prop
+      { \l_xeCJK_family_tl/#1 } \l_@@_sub_font_name_tl
       {
-        \clist_remove_all:Nn \l_@@_tmpa_clist {#1}
-        \prop_get:NoNF \g_@@_family_font_name_prop
-          { \l_xeCJK_family_tl/#1 } \l_@@_tmpb_tl
+        \prop_get:NoN \g_@@_family_font_options_prop
+          { \l_xeCJK_family_tl/#1 } \l_@@_sub_font_options_clist
+      }
+      {
+        \prop_get:NxNTF \g_@@_family_font_name_prop
+          { \CJKfamilydefault/#1 } \l_@@_sub_font_name_tl
           {
-            \prop_get:NxNF \g_@@_family_font_name_prop
-              { \CJKfamilydefault/#1 } \l_@@_tmpb_tl
-              { \tl_set_eq:NN \l_@@_tmpb_tl \l_@@_tmpa_tl }
+            \prop_get:NxN \g_@@_family_font_options_prop
+              { \CJKfamilydefault/#1 } \l_@@_sub_font_options_clist
           }
-        \clist_set:Nx \l_@@_tmpa_clist
-          { #1 = { [ \exp_not:V \l_@@_tmpa_clist ] { \exp_not:V \l_@@_tmpb_tl } } }
-        \clist_map_break:
+          {
+            \prop_get:NVN \g_@@_family_font_options_prop
+              \l_xeCJK_family_tl \l_@@_sub_font_options_clist
+            \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_font_name_tl
+          }
+      }
+    \clist_concat:NNN \l_@@_sub_font_options_clist
+      \l_@@_sub_font_options_clist \l_@@_font_features_clist
+    \clist_put_right:Nx \l_@@_block_features_clist
+      {
+        #1 =
+          {
+            [ \exp_not:V \l_@@_sub_font_options_clist ]
+            { \exp_not:V \l_@@_sub_font_name_tl }
+          }
       }
   }
-\cs_generate_variant:Nn \prop_get:NnNF { Nx }
+\cs_generate_variant:Nn \prop_get:NnN   { Nx }
+\cs_generate_variant:Nn \prop_get:NnNTF { Nx }
+\clist_new:N \l_@@_block_features_clist
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5684,7 +5735,7 @@ $URL$
       { \c_two \tex_fontdimen:D \c_two \tex_font:D - #1 }
     \dim_compare:nNnTF \g_@@_verb_exspace_skip < \c_zero_dim
       {
-        \skip_gset_eq:NN \g_@@_verb_exspace_skip \c_zero_skip
+        \skip_gzero:N \g_@@_verb_exspace_skip
         \use:x
           {
             \@@_set_verb_scale:nn
@@ -5709,7 +5760,8 @@ $URL$
     \@@_warning:nxx { scale-factor }
       { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 2 ) } }
       { \fp_eval:n { round + ( #2 / #1 , 2 ) } }
-    \xeCJK_add_font_features:x { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
+    \xeCJK_add_font_features:Nxx
+      \c_true_bool { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
     \prop_gput:NVV
       \g_@@_scale_family_prop \l_@@_current_coor_tl \l_xeCJK_family_tl
   }
