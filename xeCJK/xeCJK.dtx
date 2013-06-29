@@ -188,9 +188,9 @@ $URL$
 %<package>  {\ExplFileName}
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
-  {\ExplFileDate}{3.2.3}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.4}{\ExplFileDescription}
 %<*driver>
-\def\xeCJKversion{3.2.3}
+\def\xeCJKversion{3.2.4}
 \let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -198,7 +198,7 @@ $URL$
 %</driver|package|config|fntef|listings>
 %
 %<*driver>
-\expandafter\let\csname ver@thumbpdf.sty\endcsname\empty
+\expandafter\let\csname ver@thumbpdf.sty\endcsname\fmtversion
 \documentclass[numbered,a4paper,full]{l3doc}
 \hypersetup{pdfstartview=FitH}
 \usepackage{xeCJK}
@@ -212,7 +212,6 @@ $URL$
 \setlist[optiondesc]{font=\mdseries\ttfamily,align=right,labelsep=.5em,leftmargin=4.5em}
 \def\PSKeyVal#1#2{\item[#1]\makebox[4em][l]{\meta{#2}}\ignorespaces}
 \setmainfont[Ligatures=TeX]{TeX Gyre Pagella}
-\setmonofont{Inconsolata}
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKDeclareSubCJKBlock{HKMD}  { "FF65 }
@@ -252,7 +251,7 @@ $URL$
     \CJKfontspec{Microsoft~YaHei}
     \int_gzero:N \g_tmpa_int
     \int_set:Nn \l_tmpa_int { \clist_count:c { c__xeCJK_#2_chars_clist } }
-    \mbox{}\hfill
+    \noindent\hfill
     \begin{tabular}{|*{#1}{>{\footnotesize\ttfamily U+}c|c|}}
       \clist_map_inline:cn { c__xeCJK_#2_chars_clist }
         {
@@ -279,12 +278,12 @@ $URL$
 \patchcmd\@wrglossary{hdpindex}{hdclindex{\the\c@HD@hypercount}}{}{}
 \let\orig@meta\meta
 \def\meta#1{%
-  \orig@meta{\mbox{\normalfont\itshape\xeCJKsetup{PunctStyle=plain,CJKecglue}#1}}}
+  \orig@meta{\mbox{\itshape\xeCJKsetup{PunctStyle=plain,CJKecglue}#1}}}
 \def\TF{true\orvar{}false}
 \def\TTF{\defaultvar{true}\orvar{}false}
 \def\TFF{true\orvar\defaultvar{false}}
-\chardef\orvar`\|
-\let\defaultvar\textbf
+\def\orvar{\textup{\textbar}}
+\def\defaultvar#1{\textbf{\textup{#1}}}
 \@addtoreset{CodelineNo}{section}
 \def\tokslink#1{\hyperlink{#1}{\ding{51}}}
 \makeatother
@@ -307,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4478}
+% \CheckSum{4552}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -487,7 +486,7 @@ $URL$
 %   入的 CJK 文字与西文之间的空格。
 % \end{function}
 %
-% \begin{function}[updated=2012-12-06]{CheckSingle}
+% \begin{function}[updated=2013-06-26]{CheckSingle}
 %   \begin{syntax}
 %     CheckSingle = \meta{\TFF}
 %   \end{syntax}
@@ -1226,7 +1225,7 @@ $URL$
 % \subsection{其它}
 % \label{subsec:others}
 %
-% \begin{function}[updated=2013-06-04]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
+% \begin{function}[updated=2013-06-29]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
 %   \begin{syntax}
 %     \cs{xeCJKVerbAddon}
 %     \cs{xeCJKOffVerbAddon}
@@ -1716,7 +1715,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_token_value_charcode:N #1
   { \exp_after:wN \@@_token_value_charcode:w \token_to_meaning:N #1 \q_stop }
-\str_if_eq_x:nnTF { \token_to_str:N \Umathcode } { \token_to_meaning:N \Umathcode }
+\fp_compare:nNnTF { \int_use:N \xetex_XeTeXversion:D \XeTeXrevision } > { 0.9998 }
   {
     \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3 \q_stop
       { `#3 }
@@ -5070,6 +5069,7 @@ $URL$
         \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
       }
   }
+\tl_new:N \l_@@_current_coor_tl
 \cs_new_eq:NN \xeCJK@setfont \xeCJK_select_font:
 %    \end{macrocode}
 % \end{macro}
@@ -5648,36 +5648,82 @@ $URL$
 %
 % \begin{macro}[internal]{\@@_set_verb_exspace:}
 % \changes{v3.1.1}{2012/12/08}{调整间距的计算方法。}
+% \changes{v3.2.4}{2013/06/29}{当计算得出的间距为负时，缩小 CJK 字体。}
 % 在抄录环境中，CJK 文字之间的间距为当前西文字体两个空格的宽度与当前字体大小之差，
-% 而与西文和空格的间距为 CJK 文字之间的间距的一半。这里的问题是，
-% \cs{g_@@_verb_exspace_skip} 有可能为负么？现在的处理是保证它非负。如果真的出现
-% 负间距的情况，也可以像下面对后备可视空格符号一样，在 \cs{xeCJK_select_font:} 里
-% 对 CJK 文字的字体大小做调整，并让间距为零。
+% 而与西文和空格的间距为 CJK 文字之间的间距的一半。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_verb_exspace:
   {
-    \tl_if_exist:cF { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
+    \tl_if_exist:cTF { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
       {
-        \group_begin:
-        \xeCJK_select_font:
-        \use:x
+        \skip_gset:Nn \g_@@_verb_exspace_skip
+          { \use:c { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
+      }
+      {
+        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_family_tl/\f@family }
+        \prop_get:NVNTF
+          \g_@@_scale_family_prop \l_@@_current_coor_tl \l_xeCJK_family_tl
+          { \skip_gset_eq:NN \g_@@_verb_exspace_skip \c_zero_skip }
           {
-            \group_end:
-            \tl_gset:cx
-            \exp_not:n { { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
-              {
-                \exp_not:N \dim_max:nn { \c_zero_dim }
-                  {
-                    \c_two \tex_fontdimen:D \c_two \tex_font:D -
-                    \dim_use:N \etex_fontcharwd:D \tex_font:D "4E00
-                  }
-              }
+            \group_begin: \xeCJK_select_font: \exp_after:wN \group_end:
+            \exp_after:wN \@@_set_verb_exspace:n
+            \exp_after:wN { \dim_use:N \etex_fontcharwd:D \tex_font:D "4E00 }
           }
       }
-    \skip_gset:Nn \g_@@_verb_exspace_skip
-      { \use:c { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
   }
 \skip_new:N \g_@@_verb_exspace_skip
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_set_verb_exspace:n}
+% 当两个西文空格的宽度小于一个 CJK 文字的宽度时，对目前使用的 CJK 字体进行适当缩小。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_set_verb_exspace:n #1
+  {
+    \skip_gset:Nn \g_@@_verb_exspace_skip
+      { \c_two \tex_fontdimen:D \c_two \tex_font:D - #1 }
+    \dim_compare:nNnTF \g_@@_verb_exspace_skip < \c_zero_dim
+      {
+        \skip_gset_eq:NN \g_@@_verb_exspace_skip \c_zero_skip
+        \use:x
+          {
+            \@@_set_verb_scale:nn
+              { \dim_to_fp:n { \c_two \tex_fontdimen:D \c_two \tex_font:D } }
+              { \dim_to_fp:n {#1} }
+          }
+      }
+      {
+        \tl_const:cx { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
+          { \skip_use:N \g_@@_verb_exspace_skip }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_set_verb_scale:nn}
+% 缩小 CJK 字体，并保存相关信息。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_set_verb_scale:nn #1#2
+  {
+    \fp_set:Nn \l_@@_scale_factor_fp { #1 / #2 }
+    \@@_warning:nxx { scale-factor }
+      { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 2 ) } }
+      { \fp_eval:n { round + ( #2 / #1 , 2 ) } }
+    \xeCJK_add_font_features:x { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
+    \prop_gput:NVV
+      \g_@@_scale_family_prop \l_@@_current_coor_tl \l_xeCJK_family_tl
+  }
+\@@_msg_new:nn { scale-factor }
+  {
+    `\token_to_str:N \xeCJKVerbAddon'~may~not~work~properly.\\\\
+    You~may~set~`Scale=#1'~to~CJKfamily~
+    `\@@_msg_family_map:n { \l_xeCJK_family_tl }',\\
+    or~set~`Scale=#2'~to~family~
+    `\str_if_eq_x:nnTF \f@family \ttdefault
+      { \token_to_str:N \ttdefault } { \f@family }'.
+  }
+\fp_new:N \l_@@_scale_factor_fp
+\prop_new:N \g_@@_scale_family_prop
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7298,16 +7344,20 @@ $URL$
 % 特殊字符，与原来宏包一致。
 %    \begin{macrocode}
 \group_begin:
-\char_set_catcode_active:N \/
-\char_set_lccode:nn { `\/ } { `\\ }
-\tl_to_lowercase:n
+\cs_set:Npn \@@_tmp:w #1
   {
     \group_end:
     \cs_new_protected:Npn \@@_set_listings_escape:
-      { \xeCJK_swap_cs:NN / \@@_listings_escape:N }
-    \cs_new_protected:Npn \@@_listings_escape:N #1
-      { \cs_if_eq:NNTF / #1 { \@@_listings_escape:N } {#1} }
+      { \xeCJK_swap_cs:NN #1 \@@_listings_escape:N }
+    \cs_new_protected:Npn \@@_listings_escape:N ##1
+      { \cs_if_eq:NNTF #1 ##1 { \@@_listings_escape:N } {##1} }
   }
+\use:n
+  {
+    \char_set_catcode_active:N \\
+    \@@_tmp:w
+  }
+  { \ }
 %    \end{macrocode}
 % \end{macro}
 %
