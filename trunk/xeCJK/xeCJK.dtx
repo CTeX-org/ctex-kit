@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4610}
+% \CheckSum{4611}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1710,24 +1710,33 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_token_value_charcode:N}
-% \changes{v3.1.2}{2013/01/08}{考虑 \texttt{charcode} 大于等于 \texttt{0x10000} 的情况。}
+% \changes{v3.2.4}{2013/06/30}{考虑 \texttt{charcode} 超出 BMP 的情况。}
 % 当记号 |#1| 的 \texttt{charcode} 大于等于 \texttt{0x10000} 时，\XeTeX\
 % \texttt{0.9999.0} 版以前的 \cs{meaning} 的返回结果比较特殊\footnote{参见
 % \url{http://tug.org/pipermail/xetex/2013-January/023967.html} 和
 % \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。同时使用较新版本中
-% 提供的原语设置 \texttt{mathcode}。
+% 提供的原语设置 \texttt{mathcode}。目前，\texttt{0.9999.0} 版以后的 \XeTeX 的
+% \cs{meaning} 对于超出 BMP 的字符，会返回两个字符，分别对应于其 UTF-16 编码的
+% 首尾代理。\footnote{参见 \url{http://tug.org/pipermail/xetex/2013-June/024543.html}。}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_token_value_charcode:N #1
   { \exp_after:wN \@@_token_value_charcode:w \token_to_meaning:N #1 \q_stop }
 \fp_compare:nNnTF { \int_use:N \xetex_XeTeXversion:D \XeTeXrevision } > { 0.9998 }
   {
-    \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3 \q_stop
-      { `#3 }
+    \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3#4 \q_stop
+      {
+        \int_eval:n
+          {
+            \tl_if_empty:nTF {#4}
+              { `#3 }
+              { ( `#3 - "D800 ) * "400 + ( `#4 - "DC00 ) + "10000 }
+          }
+      }
     \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
   }
   {
     \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3#4 \q_stop
-      { \tl_if_empty:nTF {#4} { `#3 } { "20000 } }
+      { \int_eval:n { \tl_if_empty:nTF {#4} { `#3 } { "20000 } } }
     \cs_new_eq:NN \xeCJK_xetex_mathcode:w \XeTeXmathcode
   }
 %    \end{macrocode}
@@ -4494,7 +4503,6 @@ $URL$
     ( \prop_get:Nn \g_@@_family_font_name_prop {#1} )~
     does~not~contain~glyph~`#2'~(U+#3).\\
   }
-\bool_new:N \l_@@_fallback_first_bool
 %    \end{macrocode}
 % \end{macro}
 %
