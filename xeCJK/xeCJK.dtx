@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4593}
+% \CheckSum{4592}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1395,9 +1395,7 @@ $URL$
 \box_new:N \l_@@_tmp_box
 \dim_new:N \l_@@_tmp_dim
 \skip_new:N \l_@@_tmp_skip
-\prop_new:N \l_@@_tmp_prop
-\clist_new:N \l_@@_tmpa_clist
-\clist_new:N \l_@@_tmpb_clist
+\clist_new:N \l_@@_tmp_clist
 %    \end{macrocode}
 %
 % \begin{macro}[internal]
@@ -2241,10 +2239,10 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_declare_char_class:nn #1#2
   {
-    \clist_set:Nn \l_@@_tmpa_clist {#2}
+    \clist_set:Nn \l_@@_tmp_clist {#2}
     \clist_gconcat:ccN
-      { g_@@_#1_range_clist } { g_@@_#1_range_clist } \l_@@_tmpa_clist
-    \clist_map_inline:Nn \l_@@_tmpa_clist
+      { g_@@_#1_range_clist } { g_@@_#1_range_clist } \l_@@_tmp_clist
+    \clist_map_inline:Nn \l_@@_tmp_clist
       {
         \str_if_eq:nnF {##1} { -> }
           {
@@ -4446,7 +4444,11 @@ $URL$
   {
     \xeCJK_glyph_if_exist:NTF {#1}
       { \@@_fallback_save_CJKsymbol:N {#1} }
-      { { \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack } } }
+      {
+        \xeCJK_class_group_begin:
+        \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack }
+        \xeCJK_class_group_end:
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4468,15 +4470,21 @@ $URL$
       }
       {
         \xeCJK_family_if_exist:xT { \l_xeCJK_family_tl/FallBack }
-          { \@@_warning:nxx { fallback } {#1} {#2} }
+          {
+            \use:x
+              {
+                \msg_warning:nnnnn { xeCJK } { fallback } {#2} {#1}
+                  { \int_to_hexadecimal:n { `#1 } }
+              }
+          }
         \@@_fallback_save_CJKsymbol:N {#1}
       }
   }
 \@@_msg_new:nn { fallback }
   {
-    CJKfamily~`#2'~
-    ( \prop_get:No \g_@@_family_font_name_prop {#2} )~
-    does~not~contain~glyph~`#1'~(U+\int_to_hexadecimal:n {`#1}).\\
+    CJKfamily~`#1'~
+    ( \prop_get:Nn \g_@@_family_font_name_prop {#1} )~
+    does~not~contain~glyph~`#2'~(U+#3).\\
   }
 \bool_new:N \l_@@_fallback_first_bool
 \cs_generate_variant:Nn \prop_get:Nn { No }
@@ -4487,11 +4495,12 @@ $URL$
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKfallbackfamilyfont { m O{} m }
   {
-    \clist_set:Nx \l_@@_tmpa_clist {#3}
-    \int_compare:nNnTF { \clist_count:N \l_@@_tmpa_clist } > \c_one
-      { \xeCJK_set_family_fallback:xxN {#1} {#2} \l_@@_tmpa_clist }
+    \clist_set:Nx \l_@@_fallback_clist {#3}
+    \int_compare:nNnTF { \clist_count:N \l_@@_fallback_clist } > \c_one
+      { \xeCJK_set_family_fallback:xxN {#1} {#2} \l_@@_fallback_clist }
       { \xeCJK_set_family:xxx { #1/FallBack } {#2} {#3} }
   }
+\clist_new:N \l_@@_fallback_clist
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4725,11 +4734,11 @@ $URL$
     \tl_set:Nn \l_@@_family_name_tl {#1}
     \clist_set:Nn \l_@@_font_options_clist {#2}
     \tl_set:Nn \l_@@_font_name_tl {#3}
-    \clist_concat:NNN \l_@@_font_features_clist
+    \clist_concat:NNN \l_@@_font_options_clist
       \g_@@_default_features_clist \l_@@_font_options_clist
-    \@@_remove_duplicate_keys:N \l_@@_font_features_clist
+    \@@_remove_duplicate_keys:N \l_@@_font_options_clist
     \keys_set_known:nVN { xeCJK / features }
-      \l_@@_font_features_clist \l_@@_fontspec_options_clist
+      \l_@@_font_options_clist \l_@@_fontspec_options_clist
     \@@_parse_features:
     \@@_pass_features:
     \@@_check_family:V \l_@@_family_name_tl
@@ -4746,21 +4755,22 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_remove_duplicate_keys:N #1
   {
-    \prop_clear:N \l_@@_tmp_prop
+    \prop_clear:N \l_@@_font_options_prop
     \keyval_parse:NNV \@@_prop_put_aux:n \@@_prop_put_aux:nn #1
     \clist_clear:N #1
-    \prop_map_inline:Nn \l_@@_tmp_prop
+    \prop_map_inline:Nn \l_@@_font_options_prop
       {
         \tl_if_blank:nTF {##2}
           { \clist_put_right:Nn #1 {##1} }
           { \clist_put_right:Nn #1 { ##1 = {##2} } }
       }
   }
+\prop_new:N \l_@@_font_options_prop
 \cs_generate_variant:Nn \keyval_parse:NNn { NNV }
 \cs_new_protected_nopar:Npn \@@_prop_put_aux:n #1
-  { \prop_put:Nnn \l_@@_tmp_prop {#1} { } }
+  { \prop_put:Nnn \l_@@_font_options_prop {#1} { } }
 \cs_new_protected_nopar:Npn \@@_prop_put_aux:nn #1#2
-  { \prop_put:Nnn \l_@@_tmp_prop {#1} {#2} }
+  { \prop_put:Nnn \l_@@_font_options_prop {#1} {#2} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4983,7 +4993,8 @@ $URL$
     \seq_map_inline:Nn \l_@@_sub_key_seq
       {
         \tl_set:Nx \l_@@_sub_family_tl { \l_@@_family_name_tl/##1 }
-        \bool_if:cT { l_@@_copy_##1_bool } { \@@_copy_sub_family:n {##1} }
+        \bool_if:cT { l_@@_copy_##1_bool }
+          { \@@_copy_sub_family:n {##1} }
         \bool_if:cT { l_@@_add_##1_bool }
           {
             \xeCJK_set_family:Vvv \l_@@_sub_family_tl
@@ -4995,27 +5006,28 @@ $URL$
   {
     \@@_check_family:V \l_@@_sub_family_tl
     \prop_get:NVNT \g_@@_family_font_name_prop
-      \l_@@_family_name_tl \l_@@_tmpa_tl
+      \l_@@_family_name_tl \l_@@_sub_font_name_tl
       {
         \prop_gput:NVV \g_@@_family_font_name_prop
-          \l_@@_sub_family_tl \l_@@_tmpa_tl
+          \l_@@_sub_family_tl \l_@@_sub_font_name_tl
       }
     \prop_get:NVNT \g_@@_family_font_options_prop
-      \l_@@_family_name_tl \l_@@_tmpa_clist
+      \l_@@_family_name_tl \l_@@_sub_font_options_clist
       {
-        \clist_remove_all:Nn \l_@@_tmpa_clist { #1 = * }
+        \clist_remove_all:Nn \l_@@_sub_font_options_clist { #1 = * }
         \prop_gput:NVV \g_@@_family_font_options_prop
-          \l_@@_sub_family_tl \l_@@_tmpa_clist
+          \l_@@_sub_family_tl \l_@@_sub_font_options_clist
       }
     \cs_gset_protected_nopar:cpx { \@@_family_csname:n { \l_@@_sub_family_tl } }
       {
         \xeCJK_family_if_exist:xT { \l_@@_family_name_tl }
           {
             \prop_get:NnNT \exp_not:N \g_@@_family_name_prop
-              { \l_@@_family_name_tl } \exp_not:N \l_@@_tmpa_tl
+              { \l_@@_family_name_tl } \exp_not:N \l_@@_fontspec_family_tl
               {
                 \@@_gset_family_nfss_cs:xx
-                  { \l_@@_sub_family_tl } { \exp_not:N \l_@@_tmpa_tl }
+                  { \l_@@_sub_family_tl }
+                  { \exp_not:N \l_@@_fontspec_family_tl }
               }
           }
       }
@@ -5354,21 +5366,21 @@ $URL$
     \prop_get:NVNTF \g_@@_family_font_name_prop
       \l_xeCJK_family_tl \l_@@_font_name_tl
       {
-        \clist_set:Nn \l_@@_font_features_clist {#3}
+        \clist_set:Nn \l_@@_add_font_features_clist {#3}
         \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
-          { \clist_remove_all:Nn \l_@@_font_features_clist {##1} }
-        \clist_clear:N \l_@@_tmpa_clist
-        \clist_clear:N \l_@@_block_features_clist
+          { \clist_remove_all:Nn \l_@@_add_font_features_clist {##1} }
+        \seq_clear:N \l_@@_sub_key_seq
+        \clist_clear:N \l_@@_add_block_features_clist
         \clist_map_inline:nn {#2}
           {
             \seq_if_in:NnTF \g_@@_CJK_sub_class_seq {##1}
               {
-                \clist_put_right:Nn \l_@@_tmpa_clist {##1}
+                \seq_put_right:Nn \l_@@_sub_key_seq {##1}
                 \@@_add_sub_class_features:n {##1}
               }
               { \@@_warning:nx { SubBlock-undefined } {##1} }
           }
-        \bool_if:nT { #1 && \clist_if_empty_p:N \l_@@_tmpa_clist }
+        \bool_if:nT { #1 && \seq_if_empty_p:N \l_@@_sub_key_seq }
           {
             \seq_map_function:NN
               \g_@@_CJK_sub_class_seq \@@_add_sub_class_features:n
@@ -5377,18 +5389,20 @@ $URL$
           \l_xeCJK_family_tl \l_@@_font_options_clist
           {
             \bool_if:nT
-              { \clist_if_empty_p:N \l_@@_tmpa_clist || #1 }
+              { \seq_if_empty_p:N \l_@@_sub_key_seq || #1 }
               {
                 \clist_concat:NNN \l_@@_font_options_clist
-                  \l_@@_font_options_clist \l_@@_font_features_clist
+                  \l_@@_font_options_clist \l_@@_add_font_features_clist
               }
             \clist_concat:NNN \l_@@_font_options_clist
-              \l_@@_font_options_clist \l_@@_block_features_clist
+              \l_@@_font_options_clist \l_@@_add_block_features_clist
           }
         \xeCJK_fontspec:VV \l_@@_font_options_clist \l_@@_font_name_tl
       }
       { \@@_warning:n { addCJKfontfeature-ignored } }
   }
+\clist_new:N \l_@@_add_font_features_clist
+\clist_new:N \l_@@_add_block_features_clist
 \cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nxx }
 \@@_msg_new:nn { addCJKfontfeature-ignored }
   {
@@ -5422,8 +5436,8 @@ $URL$
           }
       }
     \clist_concat:NNN \l_@@_sub_font_options_clist
-      \l_@@_sub_font_options_clist \l_@@_font_features_clist
-    \clist_put_right:Nx \l_@@_block_features_clist
+      \l_@@_sub_font_options_clist \l_@@_add_font_features_clist
+    \clist_put_right:Nx \l_@@_add_block_features_clist
       {
         #1 =
           {
@@ -5434,7 +5448,6 @@ $URL$
   }
 \cs_generate_variant:Nn \prop_get:NnN   { Nx }
 \cs_generate_variant:Nn \prop_get:NnNTF { Nx }
-\clist_new:N \l_@@_block_features_clist
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5540,10 +5553,10 @@ $URL$
           \c_@@_encoding_tl \c_@@_math_family_tl \bfdefault \shapedefault
         \int_const:Nn \c_xeCJK_math_fam_int { \use:c { sym \c_@@_math_tl } }
         \clist_concat:NNN
-          \l_@@_tmpa_clist \c_@@_CJK_chars_clist \c_@@_FullLeft_chars_clist
+          \l_@@_tmp_clist \c_@@_CJK_chars_clist \c_@@_FullLeft_chars_clist
         \clist_concat:NNN
-          \l_@@_tmpa_clist \l_@@_tmpa_clist \c_@@_FullRight_chars_clist
-        \clist_map_inline:Nn \l_@@_tmpa_clist
+          \l_@@_tmp_clist \l_@@_tmp_clist \c_@@_FullRight_chars_clist
+        \clist_map_inline:Nn \l_@@_tmp_clist
           {
             \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn {##1}
               { \c_seven } { \c_xeCJK_math_fam_int }
@@ -5712,9 +5725,9 @@ $URL$
       }
       {
         \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_family_tl/\f@family }
-        \prop_get:NVNTF
-          \g_@@_scale_family_prop \l_@@_current_coor_tl \l_xeCJK_family_tl
-          { \skip_gset_eq:NN \g_@@_verb_exspace_skip \c_zero_skip }
+        \prop_get:NVNTF \g_@@_scale_family_prop
+          \l_@@_current_coor_tl \l_xeCJK_family_tl
+          { \skip_gzero:N \g_@@_verb_exspace_skip }
           {
             \group_begin: \xeCJK_select_font: \exp_after:wN \group_end:
             \exp_after:wN \@@_set_verb_exspace:n
@@ -5760,10 +5773,10 @@ $URL$
     \@@_warning:nxx { scale-factor }
       { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 2 ) } }
       { \fp_eval:n { round + ( #2 / #1 , 2 ) } }
-    \xeCJK_add_font_features:Nxx
-      \c_true_bool { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
-    \prop_gput:NVV
-      \g_@@_scale_family_prop \l_@@_current_coor_tl \l_xeCJK_family_tl
+    \xeCJK_add_font_features:Nxx \c_true_bool
+      { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
+    \prop_gput:NVV \g_@@_scale_family_prop
+      \l_@@_current_coor_tl \l_xeCJK_family_tl
   }
 \@@_msg_new:nn { scale-factor }
   {
