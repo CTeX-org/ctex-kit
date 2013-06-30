@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4603}
+% \CheckSum{4610}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -848,7 +848,7 @@ $URL$
 %   \end{verbatim}
 % \end{function}
 %
-% \begin{function}[EXP]{\setCJKfallbackfamilyfont}
+% \begin{function}[EXP,updated=2013-06-30]{\setCJKfallbackfamilyfont}
 %   \begin{syntax}
 %     \cs{setCJKfallbackfamilyfont} \Arg{family} \oarg{common font features}
 %        \  \{
@@ -865,7 +865,8 @@ $URL$
 %         [AutoFakeBold]   {SimSun-ExtB} }
 %   \end{verbatim}
 %   之后，就设置了 |SimSun| 是 |KaiTi_GB2312| 的备用字体，而 |SimSun-ExtB| 是
-%   |SimSun| 的备用字体。
+%   |SimSun| 的备用字体。若当前字体族缺字，并没有备用字体，则尝试使用
+%   \cs{CJKfamilydefault} 的备用字体。
 % \end{function}
 %
 % \subsubsection{\XeTeX 的字体名查找}
@@ -4456,9 +4457,10 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_fallback_loop:Nn}
 % \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
-% \changes{v3.2.4}{2013/06/30}{修正备用字体的不正确警告。}
+% \changes{v3.2.4}{2013/06/30}
+% {使 \cs{CJKfamilydefault} 的 \texttt{FallBack} 设置全局可用。}
 % 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
-% 结束循环。
+% 结束循环。当前字体族没有备用字体时，使用 \cs{CJKfamilydefault} 的设置。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_fallback_loop:Nn #1#2
   {
@@ -4471,12 +4473,19 @@ $URL$
           { \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl/FallBack } }
       }
       {
-        \use:x
+        \str_if_eq_x:nnTF { \CJKfamilydefault } { \l_xeCJK_family_tl }
           {
-            \msg_warning:nnnnn { xeCJK } { missing-glyph }
-              { \l_@@_fallback_family_tl } {#1} { \int_to_hexadecimal:n { `#1 } }
+            \use:x
+              {
+                \msg_warning:nnnnn { xeCJK } { missing-glyph }
+                  { \l_@@_fallback_family_tl } {#1} { \int_to_hexadecimal:n { `#1 } }
+              }
+            \@@_fallback_save_CJKsymbol:N {#1}
           }
-        \@@_fallback_save_CJKsymbol:N {#1}
+          {
+            \tl_set:Nx \l_xeCJK_family_tl { \CJKfamilydefault }
+            \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl }
+          }
       }
   }
 \@@_msg_new:nn { missing-glyph }
@@ -4486,33 +4495,26 @@ $URL$
     does~not~contain~glyph~`#2'~(U+#3).\\
   }
 \bool_new:N \l_@@_fallback_first_bool
-\cs_generate_variant:Nn \prop_get:Nn { No }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\setCJKfallbackfamilyfont}
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKfallbackfamilyfont { m O{} m }
-  {
-    \clist_set:Nx \l_@@_fallback_clist {#3}
-    \int_compare:nNnTF { \clist_count:N \l_@@_fallback_clist } > \c_one
-      { \xeCJK_set_family_fallback:xxN {#1} {#2} \l_@@_fallback_clist }
-      { \xeCJK_set_family:xxx { #1/FallBack } {#2} {#3} }
-  }
-\clist_new:N \l_@@_fallback_clist
+  { \xeCJK_set_family_fallback:xxx {#1} {#2} {#3} }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_set_family_fallback:nnN}
+% \begin{macro}[internal]{\xeCJK_set_family_fallback:nnn}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_set_family_fallback:nnN #1#2#3
+\cs_new_protected_nopar:Npn \xeCJK_set_family_fallback:nnn #1#2#3
   {
     \group_begin:
     \tl_set:Nn \l_@@_fallback_family_tl {#1}
     \prop_get:NVNF \g_@@_family_font_name_prop
       \l_@@_fallback_family_tl \l_@@_font_name_tl
       { \tl_clear:N \l_@@_font_name_tl }
-    \clist_map_inline:Nn #3
+    \clist_map_inline:nn {#3}
       {
         \tl_put_right:Nn \l_@@_fallback_family_tl { /FallBack }
         \@@_get_sub_features:Vn \l_@@_fallback_family_tl {##1}
@@ -4524,7 +4526,7 @@ $URL$
       }
     \group_end:
   }
-\cs_generate_variant:Nn \xeCJK_set_family_fallback:nnN { xx }
+\cs_generate_variant:Nn \xeCJK_set_family_fallback:nnn { xxx }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4759,17 +4761,21 @@ $URL$
     \clist_clear:N #1
     \prop_map_inline:Nn \l_@@_font_options_prop
       {
-        \tl_if_blank:nTF {##2}
-          { \clist_put_right:Nn #1 {##1} }
-          { \clist_put_right:Nn #1 { ##1 = {##2} } }
+        \tl_set:Nx \l_@@_tmpa_tl { \tl_item:nn {##2} { \c_two } }
+        \tl_if_blank:VTF \l_@@_tmpa_tl
+          { \clist_put_right:Nx #1 { \tl_item:nn {##2} { \c_one } } }
+          {
+            \clist_put_right:Nx #1
+              { \tl_item:nn {##2} { \c_one } = { \exp_not:V \l_@@_tmpa_tl } }
+          }
       }
   }
 \prop_new:N \l_@@_font_options_prop
 \cs_generate_variant:Nn \keyval_parse:NNn { NNV }
 \cs_new_protected_nopar:Npn \@@_prop_put_aux:n #1
-  { \prop_put:Nnn \l_@@_font_options_prop {#1} { } }
+  { \prop_put:Nnn \l_@@_font_options_prop {#1} { {#1} {  } } }
 \cs_new_protected_nopar:Npn \@@_prop_put_aux:nn #1#2
-  { \prop_put:Nnn \l_@@_font_options_prop {#1} {#2} }
+  { \prop_put:Nnn \l_@@_font_options_prop {#1} { {#1} {#2} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4974,7 +4980,7 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_save_family_info:
   {
     \group_begin:
-    \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
+    \seq_map_inline:Nn \g_@@_sub_key_seq
       { \clist_remove_all:Nn \l_@@_font_options_clist {##1} }
     \prop_gput:NVV \g_@@_family_font_name_prop
       \l_@@_family_name_tl \l_@@_font_name_tl
@@ -5366,13 +5372,13 @@ $URL$
       \l_xeCJK_family_tl \l_@@_font_name_tl
       {
         \clist_set:Nn \l_@@_add_font_features_clist {#3}
-        \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
+        \seq_map_inline:Nn \g_@@_sub_key_seq
           { \clist_remove_all:Nn \l_@@_add_font_features_clist {##1} }
         \seq_clear:N \l_@@_sub_key_seq
         \clist_clear:N \l_@@_add_block_features_clist
         \clist_map_inline:nn {#2}
           {
-            \seq_if_in:NnTF \g_@@_CJK_sub_class_seq {##1}
+            \seq_if_in:NnTF \g_@@_sub_key_seq {##1}
               {
                 \seq_put_right:Nn \l_@@_sub_key_seq {##1}
                 \@@_add_sub_class_features:n {##1}
@@ -5382,7 +5388,7 @@ $URL$
         \bool_if:nT { #1 && \seq_if_empty_p:N \l_@@_sub_key_seq }
           {
             \seq_map_function:NN
-              \g_@@_CJK_sub_class_seq \@@_add_sub_class_features:n
+              \g_@@_sub_key_seq \@@_add_sub_class_features:n
           }
         \prop_get:NVNT \g_@@_family_font_options_prop
           \l_xeCJK_family_tl \l_@@_font_options_clist
