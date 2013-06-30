@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4592}
+% \CheckSum{4603}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -4446,7 +4446,8 @@ $URL$
       { \@@_fallback_save_CJKsymbol:N {#1} }
       {
         \xeCJK_class_group_begin:
-        \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack }
+        \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
+        \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl/FallBack }
         \xeCJK_class_group_end:
       }
   }
@@ -4455,7 +4456,7 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_fallback_loop:Nn}
 % \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
-% \changes{v3.1.1}{2012/12/02}{修正备用字体的不正确警告。}
+% \changes{v3.2.4}{2013/06/30}{修正备用字体的不正确警告。}
 % 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
 % 结束循环。
 %    \begin{macrocode}
@@ -4464,25 +4465,23 @@ $URL$
     \xeCJK_family_if_exist:xTF {#2}
       {
         \xeCJK_select_font:x {#2}
+        \tl_set:Nx \l_@@_fallback_family_tl {#2}
         \xeCJK_glyph_if_exist:NTF {#1}
           { \@@_fallback_save_CJKsymbol:N {#1} }
-          { \xeCJK_fallback_loop:Nn {#1} { #2/FallBack } }
+          { \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl/FallBack } }
       }
       {
-        \xeCJK_family_if_exist:xT { \l_xeCJK_family_tl/FallBack }
+        \use:x
           {
-            \use:x
-              {
-                \msg_warning:nnnnn { xeCJK } { fallback } {#2} {#1}
-                  { \int_to_hexadecimal:n { `#1 } }
-              }
+            \msg_warning:nnnnn { xeCJK } { missing-glyph }
+              { \l_@@_fallback_family_tl } {#1} { \int_to_hexadecimal:n { `#1 } }
           }
         \@@_fallback_save_CJKsymbol:N {#1}
       }
   }
-\@@_msg_new:nn { fallback }
+\@@_msg_new:nn { missing-glyph }
   {
-    CJKfamily~`#1'~
+    CJKfamily~`\@@_msg_family_map:n {#1}'~
     ( \prop_get:Nn \g_@@_family_font_name_prop {#1} )~
     does~not~contain~glyph~`#2'~(U+#3).\\
   }
