@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4611}
+% \CheckSum{4618}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1388,13 +1388,11 @@ $URL$
 %
 % 分配临时变量。
 %    \begin{macrocode}
-\tl_new:N \l_@@_tmpa_tl
-\tl_new:N \l_@@_tmpb_tl
-\int_new:N \l_@@_tmpa_int
-\int_new:N \l_@@_tmpb_int
-\int_new:N \l_@@_tmpc_int
+\tl_new:N \l_@@_tmp_tl
+\int_new:N \l_@@_tmp_int
 \box_new:N \l_@@_tmp_box
 \dim_new:N \l_@@_tmp_dim
+\bool_new:N \l_@@_tmp_bool
 \skip_new:N \l_@@_tmp_skip
 \clist_new:N \l_@@_tmp_clist
 %    \end{macrocode}
@@ -1638,6 +1636,8 @@ $URL$
   { \@@_int_until_do:wn \use_none:n { \reverse_if:N \if_int_compare:w #1#2 } }
 \cs_new_protected:Npn \@@_int_until_do:wn \use_none:n #1
   { #1 \exp_after:wN \@@_int_until_do:wn \fi: \use_none:n {#1} }
+\int_new:N \l_@@_begin_int
+\int_new:N \l_@@_end_int
 %    \end{macrocode}
 %
 % \end{macro}
@@ -1844,7 +1844,7 @@ $URL$
 % 字符类名称对应的控制序列名字。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_class_csname:n #1 { c_@@_#1_class_int }
-\cs_new_eq:cN { \@@_class_csname:n { Others } } \l_@@_tmpa_int
+\cs_new_eq:cN { \@@_class_csname:n { Others } } \l_@@_tmp_int
 \@@_msg_new:nn { class-already-defined }
   {
     XeTeX~character~class~`#1'~has~been~already~defined.\\\\
@@ -2294,12 +2294,12 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_char_class:nnn #1#2#3
   {
-    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
-    \int_set:Nn \l_@@_tmpc_int {#3}
-    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
+    \@@_check_num_range:nnNN {#1} {#2} \l_@@_begin_int \l_@@_end_int
+    \int_set:Nn \l_@@_tmp_int {#3}
+    \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
       {
-        \XeTeXcharclass \l_@@_tmpa_int = \l_@@_tmpc_int
-        \int_incr:N \l_@@_tmpa_int
+        \XeTeXcharclass \l_@@_begin_int = \l_@@_tmp_int
+        \int_incr:N \l_@@_begin_int
       }
   }
 %    \end{macrocode}
@@ -2312,9 +2312,9 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_char_class_eq:nn #1#2
   {
-    \int_set:Nn \l_@@_tmpa_int { \xeCJK_class_num:n {#2} }
+    \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#2} }
     \clist_map_inline:cn { c_@@_#1_chars_clist }
-      { \XeTeXcharclass ##1 = \l_@@_tmpa_int }
+      { \XeTeXcharclass ##1 = \l_@@_tmp_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2416,9 +2416,9 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_copy_inter_class_toks:nnnn #1#2#3#4
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \xeCJK_get_inter_class_toks:nn {#3} {#4} }
-    \tl_if_empty:NF \l_@@_tmpa_tl
-      { \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmpa_tl } }
+    \tl_set:Nx \l_@@_tmp_tl { \xeCJK_get_inter_class_toks:nn {#3} {#4} }
+    \tl_if_empty:NF \l_@@_tmp_tl
+      { \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmp_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2428,11 +2428,11 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_replace_inter_class_toks:nnnn #1#2#3#4
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
-    \tl_if_empty:NF \l_@@_tmpa_tl
+    \tl_set:Nx \l_@@_tmp_tl { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
+    \tl_if_empty:NF \l_@@_tmp_tl
       {
-        \tl_replace_all:Nnn \l_@@_tmpa_tl {#3} {#4}
-        \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmpa_tl }
+        \tl_replace_all:Nnn \l_@@_tmp_tl {#3} {#4}
+        \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmp_tl }
       }
   }
 %    \end{macrocode}
@@ -3304,20 +3304,19 @@ $URL$
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKnobreak { }
   {
-    \int_zero:N \l_@@_tmpa_int
+    \bool_set_true:N \l_@@_tmp_bool
     \int_while_do:nNnn \etex_lastnodetype:D = \c_eleven
       {
-        \int_if_even:nTF \l_@@_tmpa_int
+        \bool_if:NTF \l_@@_tmp_bool
           {
-            \int_incr:N \l_@@_tmpa_int
+            \bool_set_false:N \l_@@_tmp_bool
             \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
           }
           { \skip_add:Nn \l_@@_tmp_skip \tex_lastskip:D }
         \tex_unskip:D
       }
     \xeCJK_no_break:
-    \int_if_even:nF \l_@@_tmpa_int
-      { \skip_horizontal:N \l_@@_tmp_skip }
+    \bool_if:NF \l_@@_tmp_bool { \skip_horizontal:N \l_@@_tmp_skip }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3958,8 +3957,8 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_punct_margin_process:NN #1#2
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \@@_use_punct_dim:nnn { bound } {#1} {#2} }
-    \tl_set:Nx \l_@@_tmpb_tl
+    \dim_set:Nn \l_@@_bound_dim { \@@_use_punct_dim:nnn { bound } {#1} {#2} }
+    \dim_set:Nn \l_@@_reverse_bound_dim
       {
         \@@_use_punct_dim:nnn { bound }
           { \xeCJK_reverse:nnn {#1} \c_@@_left_tl \c_@@_right_tl } {#2}
@@ -4002,17 +4001,20 @@ $URL$
                   }
                   {
                     \bool_if:NTF \l_@@_optimize_margin_bool
-                      { \dim_max:nn { \dim_min:nn \l_@@_tmpa_tl \l_@@_tmpb_tl } }
+                      {
+                        \dim_max:nn
+                          { \dim_min:nn \l_@@_bound_dim \l_@@_reverse_bound_dim }
+                      }
                       { \use:n }
                       {
-                        \l_@@_tmp_dim - ( \l_@@_tmpb_tl )
+                        \l_@@_tmp_dim - \l_@@_reverse_bound_dim
                         - ( \@@_use_punct_dim:nn { dimen } {#2} )
                       }
                   }
               }
               {
                 \bool_if:NTF \l_@@_optimize_margin_bool
-                  { \dim_min:nn { \l_@@_tmpa_tl } }
+                  { \dim_min:nn { \l_@@_bound_dim } }
                   { \use:n }
                   {
                     \@@_punct_if_middle:NTF {#2}
@@ -4022,7 +4024,7 @@ $URL$
                           {
                             \fp_use:N \l_@@_middle_margin_ratio_fp
                             \etex_dimexpr:D
-                              ( \l_@@_tmpa_tl + \l_@@_tmpb_tl ) / \c_two
+                              ( \l_@@_bound_dim + \l_@@_reverse_bound_dim ) / \c_two
                             \scan_stop:
                           }
                       }
@@ -4036,6 +4038,8 @@ $URL$
           }
       }
   }
+\dim_new:N \l_@@_bound_dim
+\dim_new:N \l_@@_reverse_bound_dim
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4065,10 +4069,10 @@ $URL$
       { \use:c { l_@@_#1_margin_width_dim } }
       {
         \fp_use:c { l_@@_#1_margin_ratio_fp }
-        \etex_dimexpr:D \l_@@_tmpa_tl \scan_stop:
+        \etex_dimexpr:D \l_@@_bound_dim \scan_stop:
       }
     \bool_if:NT \l_@@_add_min_bound_to_margin_bool
-      { + \dim_min:nn \l_@@_tmpa_tl \l_@@_tmpb_tl }
+      { + \dim_min:nn \l_@@_bound_dim \l_@@_reverse_bound_dim }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4620,18 +4624,18 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_get_sub_features:nn #1#2
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \xeCJK_tl_remove_outer_braces:n {#2} }
+    \tl_set:Nx \l_@@_tmp_tl { \xeCJK_tl_remove_outer_braces:n {#2} }
     \clist_clear:N \l_@@_sub_font_options_clist
-    \tl_if_head_eq_meaning:VNTF \l_@@_tmpa_tl [ % ]
+    \tl_if_head_eq_meaning:VNTF \l_@@_tmp_tl [ % ]
       {
-        \exp_after:wN \@@_get_sub_features:wn \l_@@_tmpa_tl \c_empty_tl
+        \exp_after:wN \@@_get_sub_features:wn \l_@@_tmp_tl \c_empty_tl
         \tl_if_blank:VT \l_@@_sub_font_name_tl
           {
-            \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmpa_tl
+            \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl
             \clist_clear:N \l_@@_sub_font_options_clist
           }
       }
-      { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmpa_tl }
+      { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl }
     \tl_if_blank:VTF \l_@@_sub_font_name_tl
       { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_font_name_tl }
       { \tl_replace_all:NnV \l_@@_sub_font_name_tl { * } \l_@@_font_name_tl }
@@ -4769,12 +4773,12 @@ $URL$
     \clist_clear:N #1
     \prop_map_inline:Nn \l_@@_font_options_prop
       {
-        \tl_set:Nx \l_@@_tmpa_tl { \tl_item:nn {##2} { \c_two } }
-        \tl_if_blank:VTF \l_@@_tmpa_tl
+        \tl_set:Nx \l_@@_tmp_tl { \tl_item:nn {##2} { \c_two } }
+        \tl_if_blank:VTF \l_@@_tmp_tl
           { \clist_put_right:Nx #1 { \tl_item:nn {##2} { \c_one } } }
           {
             \clist_put_right:Nx #1
-              { \tl_item:nn {##2} { \c_one } = { \exp_not:V \l_@@_tmpa_tl } }
+              { \tl_item:nn {##2} { \c_one } = { \exp_not:V \l_@@_tmp_tl } }
           }
       }
   }
@@ -4809,11 +4813,11 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_check_family:n #1
   {
-    \prop_get:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmpa_tl
+    \prop_get:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
       {
-        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmpa_tl
+        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmp_tl
           { \cs_undefine:c { \@@_family_nfss_csname:n {#1} } }
-        \@@_warning:nxx { CJKfamily-redef } {#1} { \l_@@_tmpa_tl }
+        \@@_warning:nxx { CJKfamily-redef } {#1} { \l_@@_tmp_tl }
       }
   }
 \cs_generate_variant:Nn \@@_check_family:n { V }
@@ -5061,8 +5065,8 @@ $URL$
             \g_@@_family_font_options_prop
           }
           {
-            \prop_get:NnNT ##1 {#2} \l_@@_tmpa_tl
-              { \prop_gput:NnV ##1 {#1} \l_@@_tmpa_tl }
+            \prop_get:NnNT ##1 {#2} \l_@@_tmp_tl
+              { \prop_gput:NnV ##1 {#1} \l_@@_tmp_tl }
           }
         \cs_gset_eq:cc
           { \@@_family_nfss_csname:n {#1} }
@@ -5320,9 +5324,9 @@ $URL$
   { \xeCJK_set_family:xxx {#1} {#2} {#3} }
 \NewDocumentCommand \newCJKfontfamily { o m O{} m }
   {
-    \tl_set:Nx \l_@@_tmpa_tl { \IfNoValueTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected_nopar:Npx #2 { \CJKfamily { \l_@@_tmpa_tl } }
-    \xeCJK_set_family:xxx { \l_@@_tmpa_tl } {#3} {#4}
+    \tl_set:Nx \l_@@_tmp_tl { \IfNoValueTF {#1} { \cs_to_str:N #2 } {#1} }
+    \cs_new_protected_nopar:Npx #2 { \CJKfamily { \l_@@_tmp_tl } }
+    \xeCJK_set_family:xxx { \l_@@_tmp_tl } {#3} {#4}
   }
 \NewDocumentCommand \CJKfontspec { O{} m }
   {
@@ -5339,14 +5343,14 @@ $URL$
     \prop_get:NnNF \g_@@_fontspec_prop
       { CJKfontspec/#1/#2/id } \l_xeCJK_family_tl
       {
-        \tl_set:Nx \l_@@_tmpa_tl
+        \tl_set:Nx \l_@@_tmp_tl
           { CJKfontspec ( \int_eval:n { \g_@@_family_int + \c_one } ) }
         \prop_gput:NnV \g_@@_fontspec_prop
-          { CJKfontspec/#1/#2/id } \l_@@_tmpa_tl
+          { CJKfontspec/#1/#2/id } \l_@@_tmp_tl
         \use:x
           {
-            \xeCJK_set_family:nnn { \l_@@_tmpa_tl } \exp_not:n { {#1} {#2} }
-            \CJKfamily { \l_@@_tmpa_tl }
+            \xeCJK_set_family:nnn { \l_@@_tmp_tl } \exp_not:n { {#1} {#2} }
+            \CJKfamily { \l_@@_tmp_tl }
           }
       }
   }
@@ -5494,7 +5498,7 @@ $URL$
       {
         \xeCJK_family_if_exist:xF { \CJKfamilydefault }
           {
-            \tl_set_eq:NN \l_@@_tmpa_tl \CJKfamilydefault
+            \tl_set_eq:NN \l_@@_tmp_tl \CJKfamilydefault
             \str_if_eq_x:nnTF { \CJKfamilydefault } { \CJKrmdefault }
               { \use:n }
               {
@@ -5506,7 +5510,7 @@ $URL$
                   { \prop_map_break:n { \tl_gset:Nn \CJKfamilydefault {#1} } }
               }
             \@@_warning:nxx { CJKfamilydefault-undefined }
-              { \l_@@_tmpa_tl } { \CJKfamilydefault }
+              { \l_@@_tmp_tl } { \CJKfamilydefault }
           }
         \CJKfamily { \CJKfamilydefault }
         \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
@@ -5551,24 +5555,24 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
   {
     \xeCJK_family_if_exist:xTF { \c_@@_math_tl }
-      { \tl_set:Nx \l_@@_tmpa_tl { \c_@@_math_tl } }
+      { \tl_set:Nx \l_@@_tmp_tl { \c_@@_math_tl } }
       {
         \xeCJK_family_if_exist:xTF { \CJKfamilydefault }
-          { \tl_set:Nx \l_@@_tmpa_tl { \CJKfamilydefault } }
+          { \tl_set:Nx \l_@@_tmp_tl { \CJKfamilydefault } }
           { \use_none:nnnnn }
       }
-    \prop_get:NVNT \g_@@_family_name_prop \l_@@_tmpa_tl \l_@@_tmpb_tl
+    \prop_get:NVNT \g_@@_family_name_prop \l_@@_tmp_tl \l_@@_tmp_tl
       {
-        \tl_const:Nx \c_@@_math_family_tl { \l_@@_tmpb_tl }
+        \tl_const:Nx \c_@@_math_family_tl { \l_@@_tmp_tl }
         \DeclareSymbolFont \c_@@_math_tl
           \c_@@_encoding_tl \c_@@_math_family_tl \mddefault \shapedefault
         \SetSymbolFont \c_@@_math_tl { bold }
           \c_@@_encoding_tl \c_@@_math_family_tl \bfdefault \shapedefault
         \int_const:Nn \c_xeCJK_math_fam_int { \use:c { sym \c_@@_math_tl } }
-        \clist_concat:NNN
-          \l_@@_tmp_clist \c_@@_CJK_chars_clist \c_@@_FullLeft_chars_clist
-        \clist_concat:NNN
-          \l_@@_tmp_clist \l_@@_tmp_clist \c_@@_FullRight_chars_clist
+        \clist_concat:NNN \l_@@_tmp_clist
+          \c_@@_CJK_chars_clist \c_@@_FullLeft_chars_clist
+        \clist_concat:NNN \l_@@_tmp_clist
+          \l_@@_tmp_clist \c_@@_FullRight_chars_clist
         \clist_map_inline:Nn \l_@@_tmp_clist
           {
             \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn {##1}
@@ -5583,12 +5587,12 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:nnnn #1#2#3#4
   {
-    \@@_check_num_range:nnNN {#1} {#2} \l_@@_tmpa_int \l_@@_tmpb_int
-    \xeCJK_int_until_do:nn { \l_@@_tmpa_int > \l_@@_tmpb_int }
+    \@@_check_num_range:nnNN {#1} {#2} \l_@@_begin_int \l_@@_end_int
+    \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
       {
         \tex_global:D \xeCJK_xetex_mathcode:w
-          \l_@@_tmpa_int = #3 ~ #4 \l_@@_tmpa_int
-        \int_incr:N \l_@@_tmpa_int
+          \l_@@_begin_int = #3 ~ #4 \l_@@_begin_int
+        \int_incr:N \l_@@_begin_int
       }
   }
 %    \end{macrocode}
@@ -5714,9 +5718,9 @@ $URL$
   }
 \cs_new_protected_nopar:Npn \@@_reset_char_class:n #1
   {
-    \int_set:Nn \l_@@_tmpa_int { \xeCJK_class_num:n {#1} }
+    \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#1} }
     \clist_map_inline:cn { c_@@_#1_chars_clist }
-      { \XeTeXcharclass ##1 = \l_@@_tmpa_int }
+      { \XeTeXcharclass ##1 = \l_@@_tmp_int }
   }
 \bool_new:N \l_@@_verb_addon_bool
 \cs_new_eq:NN \CJKfixedspacing \xeCJKVerbAddon
@@ -7158,6 +7162,7 @@ $URL$
 \lst@AddToHook { SelectCharTable } { \@@_listings_toks_hook: }
 \lst@AddToHook { OutputBox }
   {
+    \tl_set_eq:NN \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
     \l_@@_restore_listings_toks_tl
     \@@_listings_output_IVS:
   }
@@ -7397,9 +7402,9 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_listings_inside_convert:nw #1 ~ \@empty
   {
-    \tl_set_rescan:Nnn \l_@@_tmpa_tl { } {#1}
+    \tl_set_rescan:Nnn \l_@@_tmp_tl { } {#1}
     \@@_set_listings_escape:
-    \tl_put_right:NV \lst@arg \l_@@_tmpa_tl
+    \tl_put_right:NV \lst@arg \l_@@_tmp_tl
   }
 \cs_set_eq:NN \lst@InsideConvert@ \@@_listings_inside_convert:nw
 \cs_new_protected_nopar:Npn \@@_listings_inline_group:w
