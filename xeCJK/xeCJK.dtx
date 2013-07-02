@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4650}
+% \CheckSum{4653}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1477,17 +1477,21 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]
-%   {\xeCJK_tl_remove_outer_braces:N,\xeCJK_tl_remove_outer_braces:n}
+% {\xeCJK_tl_remove_outer_braces:N,\xeCJK_tl_remove_outer_braces:n}
+% \changes{v3.2.4}{2013/07/02}{去掉外层分组括号时，移除空格，避免死循环。}
 % 去掉 |#1| 外层的分组括号。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_tl_remove_outer_braces:N #1
   { \tl_set:Nx #1 { \exp_args:NV \xeCJK_tl_remove_outer_braces:n #1 } }
 \cs_new:Npn \xeCJK_tl_remove_outer_braces:n #1
-  { \@@_tl_remove_outer_braces:w #1 \q_stop }
+  {
+    \exp_last_unbraced:Nf
+    \@@_tl_remove_outer_braces:w { \tl_trim_spaces:n {#1} } \q_stop
+  }
 \cs_new:Npn \@@_tl_remove_outer_braces:w #1 \q_stop
   {
-    \bool_if:nTF { \tl_if_single_p:n {#1} && \tl_if_head_is_group_p:n {#1} }
-      { \@@_tl_remove_outer_braces:w #1 \q_stop }
+    \bool_if:nTF { \tl_if_single_p:n {#1} && ! ( \tl_if_head_is_N_type_p:n {#1} ) } 
+      { \xeCJK_tl_remove_outer_braces:n {#1} }
       { \tl_trim_spaces:n {#1} }
   }
 %    \end{macrocode}
@@ -4642,7 +4646,7 @@ $URL$
       { \tl_clear:N \l_@@_sub_font_name_tl }
       { \tl_set:Nn \l_@@_sub_font_name_tl {#2} }
     \use_none_delimit_by_q_stop:w
-  }
+      }
 \tl_new:N \l_@@_sub_family_name_tl
 \tl_new:N \l_@@_sub_font_name_tl
 \clist_new:N \l_@@_sub_font_options_clist
@@ -4810,6 +4814,7 @@ $URL$
         \group_end:
       }
   }
+\tl_new:N \l_@@_fontspec_family_tl
 %    \end{macrocode}
 % \end{macro}
 %
