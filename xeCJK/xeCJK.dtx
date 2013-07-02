@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4653}
+% \CheckSum{4649}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1486,11 +1486,11 @@ $URL$
 \cs_new:Npn \xeCJK_tl_remove_outer_braces:n #1
   {
     \exp_last_unbraced:Nf
-    \@@_tl_remove_outer_braces:w { \tl_trim_spaces:n {#1} } \q_stop
+    \@@_tl_remove_outer_braces:w { \tl_trim_spaces:n {#1} } \s__stop
   }
-\cs_new:Npn \@@_tl_remove_outer_braces:w #1 \q_stop
+\cs_new:Npn \@@_tl_remove_outer_braces:w #1 \s__stop
   {
-    \bool_if:nTF { \tl_if_single_p:n {#1} && ! ( \tl_if_head_is_N_type_p:n {#1} ) } 
+    \bool_if:nTF { \tl_if_single_p:n {#1} && ! ( \tl_if_head_is_N_type_p:n {#1} ) }
       { \xeCJK_tl_remove_outer_braces:n {#1} }
       { \tl_trim_spaces:n {#1} }
   }
@@ -4614,23 +4614,17 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.4}{2013/07/02}{改进获取分区字体属性的办法。}
+%
 % \begin{macro}[internal]{\@@_get_sub_features:nn,\@@_get_sub_features:w}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_get_sub_features:nn #1#2
   {
     \tl_set:Nx \l_@@_tmp_tl { \xeCJK_tl_remove_outer_braces:n {#2} }
     \clist_clear:N \l_@@_sub_font_options_clist
-    \tl_if_head_eq_meaning:VNTF \l_@@_tmp_tl [ % ]
-      {
-        \exp_after:wN \@@_get_sub_features:w \l_@@_tmp_tl \q_no_value \q_stop
-        \tl_if_blank:VT \l_@@_sub_font_name_tl
-          {
-            \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl
-            \clist_clear:N \l_@@_sub_font_options_clist
-          }
-      }
-      { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl }
-    \tl_if_blank:VTF \l_@@_sub_font_name_tl
+    \exp_after:wN \@@_get_sub_features:w \l_@@_tmp_tl
+      \q_mark [ \q_nil ] \q_mark \q_stop
+    \tl_if_empty:NTF \l_@@_sub_font_name_tl
       { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_font_name_tl }
       { \tl_replace_all:NnV \l_@@_sub_font_name_tl { * } \l_@@_font_name_tl }
     \prop_put:Nnx \l_@@_sub_key_prop {#1}
@@ -4639,19 +4633,22 @@ $URL$
         { \exp_not:V \l_@@_sub_font_name_tl }
       }
   }
-\cs_new_protected_nopar:Npn \@@_get_sub_features:w [#1] #2
+\cs_new_protected_nopar:Npn \@@_get_sub_features:w #1 [#2] #3 \q_mark #4 \q_stop
   {
-    \clist_set:Nn \l_@@_sub_font_options_clist {#1}
-    \quark_if_no_value:nTF {#2}
-      { \tl_clear:N \l_@@_sub_font_name_tl }
-      { \tl_set:Nn \l_@@_sub_font_name_tl {#2} }
-    \use_none_delimit_by_q_stop:w
+    \quark_if_nil:nTF {#2}
+      { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl }
+      {
+        \tl_set:Nx \l_@@_sub_font_name_tl
+          { \xeCJK_tl_remove_outer_braces:n {#3} }
+        \tl_if_empty:NTF \l_@@_sub_font_name_tl
+          { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl }
+          { \clist_set:Nn \l_@@_sub_font_options_clist {#2} }
       }
+  }
 \tl_new:N \l_@@_sub_family_name_tl
 \tl_new:N \l_@@_sub_font_name_tl
 \clist_new:N \l_@@_sub_font_options_clist
 \cs_generate_variant:Nn \@@_get_sub_features:nn { V }
-\cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 \cs_generate_variant:Nn \tl_replace_all:Nnn { NnV }
 %    \end{macrocode}
 % \end{macro}
