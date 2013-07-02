@@ -306,10 +306,11 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4618}
+% \CheckSum{4650}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
+% \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 %
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3855,21 +3856,19 @@ $URL$
 % 一些用于记录的辅助函数。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_punct_dim_csname:nn #1#2
-  { g__\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/#2/tl }
+  { c__\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/#2/tl }
 \cs_new_nopar:Npn \@@_punct_dim_csname:nnn
   { \@@_punct_dim_csname:nnnn { \l_xeCJK_punct_style_tl } }
 \cs_new_nopar:Npn \@@_punct_dim_csname:nnnn #1#2#3#4
-  { g__\l_xeCJK_current_font_tl/#1/#2/#3/#4/tl }
+  { c__\l_xeCJK_current_font_tl/#1/#2/#3/#4/tl }
 \cs_new_nopar:Npn \@@_use_punct_dim:nn #1#2
   { \tl_use:c { \@@_punct_dim_csname:nn {#1} {#2} } }
 \cs_new_nopar:Npn \@@_use_punct_dim:nnn #1#2#3
   { \tl_use:c { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } }
 \cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnx #1#2#3
-  { \tl_gset:cx { \@@_punct_dim_csname:nn {#1} {#2} } {#3} }
+  { \tl_const:cx { \@@_punct_dim_csname:nn {#1} {#2} } {#3} }
 \cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnnx #1#2#3#4
-  { \tl_gset:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } {#4} }
-\cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnnnx #1#2#3#4#5
-  { \tl_gset:cx { \@@_punct_dim_csname:nnnn {#1} {#2} {#3} {#4} } {#5} }
+  { \tl_const:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } {#4} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4274,18 +4273,15 @@ $URL$
       { \dim_eval:n { \@@_use_punct_dim:nn { width } {#1} - \l_@@_tmp_dim } }
     \@@_punct_if_long:NT {#1}
       {
-        \seq_map_inline:Nn \g_@@_punct_style_seq
+        \@@_gset_punct_dim:nnnx { kern } {#1} {#1}
           {
-            \@@_gset_punct_dim:nnnnx {##1} { kern } {#1} {#1}
+            \bool_if:nTF
               {
-                \bool_if:nTF
-                  {
-                    \str_if_eq_p:nn {#1} { ^^^^2025 } ||
-                    \str_if_eq_p:nn {#1} { ^^^^2026 }
-                  }
-                  { \c_zero_dim }
-                  { - \dim_use:N \l_@@_tmp_dim }
+                \str_if_eq_p:nn {#1} { ^^^^2025 } ||
+                \str_if_eq_p:nn {#1} { ^^^^2026 }
               }
+              { \c_zero_dim }
+              { - \dim_use:N \l_@@_tmp_dim }
           }
       }
   }
@@ -4342,6 +4338,7 @@ $URL$
           { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
       }
   }
+\tl_new:N \l_xeCJK_punct_style_tl
 \tl_const:Nn \c_@@_punct_style_plain_tl { plain }
 \@@_msg_new:nn { punct-style-unknown }
   {
@@ -4513,7 +4510,7 @@ $URL$
 %
 % \begin{macro}{\setCJKfallbackfamilyfont}
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKfallbackfamilyfont { m O{} m }
+\NewDocumentCommand \setCJKfallbackfamilyfont { m O { } m }
   { \xeCJK_set_family_fallback:xxx {#1} {#2} {#3} }
 %    \end{macrocode}
 % \end{macro}
@@ -4531,11 +4528,9 @@ $URL$
       {
         \tl_put_right:Nn \l_@@_fallback_family_tl { /FallBack }
         \@@_get_sub_features:Vn \l_@@_fallback_family_tl {##1}
-        \clist_put_left:cn
-          { l_@@_ \l_@@_fallback_family_tl _font_options_clist } {#2}
-        \xeCJK_set_family:Vvv \l_@@_fallback_family_tl
-          { l_@@_ \l_@@_fallback_family_tl _font_options_clist }
-          { l_@@_ \l_@@_fallback_family_tl _font_name_tl }
+        \clist_put_left:Nn \l_@@_sub_font_options_clist {#2}
+        \xeCJK_set_family:VVV \l_@@_fallback_family_tl
+          \l_@@_sub_font_options_clist \l_@@_sub_font_name_tl
       }
     \group_end:
   }
@@ -4584,6 +4579,8 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.4}{2013/07/02}{内部调整分区字体的设置方法。}
+%
 % \begin{macro}[internal]{\xeCJK_new_sub_key:n,\g_@@_sub_key_seq}
 % 用于定义 CJK 子区字体和备用字体的选项。
 %    \begin{macrocode}
@@ -4597,22 +4594,14 @@ $URL$
           {
             \tl_if_blank:nTF {##1}
               {
-                \bool_set_false:c { l_@@_copy_#1_bool }
-                \bool_set_false:c { l_@@_add_#1_bool }
+                \prop_clear:N \l_@@_sub_key_prop
                 \tl_put_right:Nn \l_@@_family_name_tl { /#1 }
+                \clist_remove_all:Nn \l_@@_font_options_clist {#1}
               }
               {
-                \seq_put_right:Nn \l_@@_sub_key_seq {#1}
                 \str_if_eq:nnTF {##1} { * }
-                  {
-                    \bool_set_true:c  { l_@@_copy_#1_bool }
-                    \bool_set_false:c { l_@@_add_#1_bool }
-                  }
-                  {
-                    \bool_set_false:c { l_@@_copy_#1_bool }
-                    \bool_set_true:c  { l_@@_add_#1_bool }
-                    \@@_get_sub_features:nn {#1} {##1}
-                  }
+                  { \prop_put:Nnn \l_@@_sub_key_prop {#1} { \q_no_value } }
+                  { \@@_get_sub_features:nn {#1} {##1} }
               }
           } ,
         #1 .default:n = { }
@@ -4621,7 +4610,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_get_sub_features:nn,\@@_get_sub_features:wn}
+% \begin{macro}[internal]{\@@_get_sub_features:nn,\@@_get_sub_features:w}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_get_sub_features:nn #1#2
   {
@@ -4629,7 +4618,7 @@ $URL$
     \clist_clear:N \l_@@_sub_font_options_clist
     \tl_if_head_eq_meaning:VNTF \l_@@_tmp_tl [ % ]
       {
-        \exp_after:wN \@@_get_sub_features:wn \l_@@_tmp_tl \c_empty_tl
+        \exp_after:wN \@@_get_sub_features:w \l_@@_tmp_tl \q_no_value \q_stop
         \tl_if_blank:VT \l_@@_sub_font_name_tl
           {
             \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_tmp_tl
@@ -4640,16 +4629,23 @@ $URL$
     \tl_if_blank:VTF \l_@@_sub_font_name_tl
       { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_font_name_tl }
       { \tl_replace_all:NnV \l_@@_sub_font_name_tl { * } \l_@@_font_name_tl }
-    \clist_set_eq:cN { l_@@_#1_font_options_clist } \l_@@_sub_font_options_clist
-    \tl_set_eq:cN { l_@@_#1_font_name_tl } \l_@@_sub_font_name_tl
+    \prop_put:Nnx \l_@@_sub_key_prop {#1}
+      {
+        { \exp_not:V \l_@@_sub_font_options_clist }
+        { \exp_not:V \l_@@_sub_font_name_tl }
+      }
   }
-\cs_new_protected_nopar:Npn \@@_get_sub_features:wn [#1] #2
+\cs_new_protected_nopar:Npn \@@_get_sub_features:w [#1] #2
   {
     \clist_set:Nn \l_@@_sub_font_options_clist {#1}
-    \str_if_eq:nnTF {#2} { \c_empty_tl }
-      { \tl_set_eq:NN \l_@@_sub_font_name_tl \c_empty_tl }
+    \quark_if_no_value:nTF {#2}
+      { \tl_clear:N \l_@@_sub_font_name_tl }
       { \tl_set:Nn \l_@@_sub_font_name_tl {#2} }
+    \use_none_delimit_by_q_stop:w
   }
+\tl_new:N \l_@@_sub_family_name_tl
+\tl_new:N \l_@@_sub_font_name_tl
+\clist_new:N \l_@@_sub_font_options_clist
 \cs_generate_variant:Nn \@@_get_sub_features:nn { V }
 \cs_generate_variant:Nn \tl_if_head_eq_meaning:nNTF { V }
 \cs_generate_variant:Nn \tl_replace_all:Nnn { NnV }
@@ -4717,24 +4713,26 @@ $URL$
   {
     \int_gincr:N \g_@@_family_int
     \prop_clear:N \l_@@_add_font_prop
+    \prop_clear:N \l_@@_sub_key_prop
     \prop_map_inline:Nn \g_@@_features_id_prop
       {
         \tl_clear:c { l_@@_font_name_##1_tl }
         \clist_clear:c { l_@@_font_feat_##1_clist }
       }
     \clist_clear:N \l_@@_fontspec_options_clist
-    \seq_clear:N \l_@@_sub_key_seq
-    \seq_map_inline:Nn \g_@@_sub_key_seq
-      {
-        \bool_set_false:c { l_@@_copy_##1_bool }
-        \bool_set_false:c { l_@@_add_##1_bool  }
-      }
     \bool_set_eq:NN \l_@@_auto_fake_bold_bool   \g_@@_auto_fake_bold_bool
     \bool_set_eq:NN \l_@@_auto_fake_slant_bool  \g_@@_auto_fake_slant_bool
     \fp_set_eq:NN \l_@@_embolden_factor_fp \g_@@_embolden_factor_fp
     \fp_set_eq:NN \l_@@_slant_factor_fp    \g_@@_slant_factor_fp
   }
 \int_new:N \g_@@_family_int
+\prop_new:N \l_@@_add_font_prop
+\prop_new:N \l_@@_sub_key_prop
+\clist_new:N \l_@@_fontspec_options_clist
+\bool_new:N \l_@@_auto_fake_bold_bool
+\bool_new:N \l_@@_auto_fake_slant_bool
+\fp_new:N \l_@@_embolden_factor_fp
+\fp_new:N \l_@@_slant_factor_fp
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4761,7 +4759,12 @@ $URL$
     \@@_set_sub_block_family:
     \group_end:
   }
-\cs_generate_variant:Nn \xeCJK_set_family:nnn { Vnn , xxx , Vvv }
+\tl_new:N \l_@@_family_name_tl
+\tl_new:N \l_@@_font_name_tl
+\clist_new:N \l_@@_font_options_clist
+\cs_generate_variant:Nn \xeCJK_set_family:nnn { Vnn , VVV , Voo }
+\cs_new_protected_nopar:Npn \xeCJK_set_family:xxx #1#2#3
+  { \use:x { \xeCJK_set_family:nnn {#1} {#2} {#3} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4774,12 +4777,12 @@ $URL$
     \clist_clear:N #1
     \prop_map_inline:Nn \l_@@_font_options_prop
       {
-        \tl_set:Nx \l_@@_tmp_tl { \tl_item:nn {##2} { \c_two } }
+        \tl_set:No \l_@@_tmp_tl { \use_ii:nn ##2 }
         \tl_if_blank:VTF \l_@@_tmp_tl
-          { \clist_put_right:Nx #1 { \tl_item:nn {##2} { \c_one } } }
+          { \clist_put_right:No #1 { \use_i:nn ##2 } }
           {
             \clist_put_right:Nx #1
-              { \tl_item:nn {##2} { \c_one } = { \exp_not:V \l_@@_tmp_tl } }
+              { \exp_not:o { \use_i:nn ##2 } = { \exp_not:V \l_@@_tmp_tl } }
           }
       }
   }
@@ -4993,8 +4996,6 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_save_family_info:
   {
     \group_begin:
-    \seq_map_inline:Nn \g_@@_sub_key_seq
-      { \clist_remove_all:Nn \l_@@_font_options_clist {##1} }
     \prop_gput:NVV \g_@@_family_font_name_prop
       \l_@@_family_name_tl \l_@@_font_name_tl
     \prop_gput:NVV \g_@@_family_font_options_prop
@@ -5008,35 +5009,35 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_sub_block_family:
   {
-    \seq_map_inline:Nn \l_@@_sub_key_seq
+    \prop_map_inline:Nn \l_@@_sub_key_prop
       {
-        \tl_set:Nx \l_@@_sub_family_tl { \l_@@_family_name_tl/##1 }
-        \bool_if:cT { l_@@_copy_##1_bool }
+        \tl_set:Nx \l_@@_sub_family_name_tl { \l_@@_family_name_tl/##1 }
+        \quark_if_no_value:nTF {##2}
           { \@@_copy_sub_family:n {##1} }
-        \bool_if:cT { l_@@_add_##1_bool }
           {
-            \xeCJK_set_family:Vvv \l_@@_sub_family_tl
-              { l_@@_##1_font_options_clist } { l_@@_##1_font_name_tl }
+            \xeCJK_set_family:Voo \l_@@_sub_family_name_tl
+              { \use_i:nn ##2 } { \use_ii:nn ##2 }
           }
       }
   }
 \cs_new_protected_nopar:Npn \@@_copy_sub_family:n #1
   {
-    \@@_check_family:V \l_@@_sub_family_tl
+    \@@_check_family:V \l_@@_sub_family_name_tl
     \prop_get:NVNT \g_@@_family_font_name_prop
       \l_@@_family_name_tl \l_@@_sub_font_name_tl
       {
         \prop_gput:NVV \g_@@_family_font_name_prop
-          \l_@@_sub_family_tl \l_@@_sub_font_name_tl
+          \l_@@_sub_family_name_tl \l_@@_sub_font_name_tl
       }
     \prop_get:NVNT \g_@@_family_font_options_prop
       \l_@@_family_name_tl \l_@@_sub_font_options_clist
       {
         \clist_remove_all:Nn \l_@@_sub_font_options_clist { #1 = * }
         \prop_gput:NVV \g_@@_family_font_options_prop
-          \l_@@_sub_family_tl \l_@@_sub_font_options_clist
+          \l_@@_sub_family_name_tl \l_@@_sub_font_options_clist
       }
-    \cs_gset_protected_nopar:cpx { \@@_family_csname:n { \l_@@_sub_family_tl } }
+    \cs_gset_protected_nopar:cpx
+      { \@@_family_csname:n { \l_@@_sub_family_name_tl } }
       {
         \xeCJK_family_if_exist:xT { \l_@@_family_name_tl }
           {
@@ -5044,7 +5045,7 @@ $URL$
               { \l_@@_family_name_tl } \exp_not:N \l_@@_fontspec_family_tl
               {
                 \@@_gset_family_nfss_cs:xx
-                  { \l_@@_sub_family_tl }
+                  { \l_@@_sub_family_name_tl }
                   { \exp_not:N \l_@@_fontspec_family_tl }
               }
           }
@@ -5211,6 +5212,15 @@ $URL$
       }
     \tex_ignorespaces:D
   }
+\cs_new_protected_nopar:Npn \xeCJK_switch_family:n #1
+  {
+    \xeCJK_family_if_exist:xTF {#1}
+      {
+        \tl_set:Nx \l_xeCJK_family_tl {#1}
+        \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl
+      }
+      { \@@_family_unknown_warning:x {#1} }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5291,18 +5301,18 @@ $URL$
 % 设置文档的 CJK 普通字体、无衬线和等宽字体。
 % \changes{v3.2.0}{2013/04/14}{定义中加入 \cs{normalfont}。}
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKmainfont { O{} m }
+\NewDocumentCommand \setCJKmainfont { O { } m }
   {
     \xeCJK_set_family:xxx { \CJKrmdefault } {#1} {#2}
     \normalfont
   }
 \cs_new_eq:NN \setCJKromanfont \setCJKmainfont
-\NewDocumentCommand \setCJKsansfont { O{} m }
+\NewDocumentCommand \setCJKsansfont { O { } m }
   {
     \xeCJK_set_family:xxx { \CJKsfdefault } {#1} {#2}
     \normalfont
   }
-\NewDocumentCommand \setCJKmonofont { O{} m }
+\NewDocumentCommand \setCJKmonofont { O { } m }
   {
     \xeCJK_set_family:xxx { \CJKttdefault } {#1} {#2}
     \normalfont
@@ -5321,17 +5331,17 @@ $URL$
 % \begin{macro}{\setCJKfamilyfont, \newCJKfontfamily, \CJKfontspec}
 % 分别用于预声明 CJK 字体和随机调用 CJK 字体。
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKfamilyfont { m O{} m }
+\NewDocumentCommand \setCJKfamilyfont { m O { } m }
   { \xeCJK_set_family:xxx {#1} {#2} {#3} }
-\NewDocumentCommand \newCJKfontfamily { o m O{} m }
+\NewDocumentCommand \newCJKfontfamily { o m O { } m }
   {
     \tl_set:Nx \l_@@_tmp_tl { \IfNoValueTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected_nopar:Npx #2 { \CJKfamily { \l_@@_tmp_tl } }
+    \cs_new_protected_nopar:Npx #2 { \xeCJK_switch_family:n { \l_@@_tmp_tl } }
     \xeCJK_set_family:xxx { \l_@@_tmp_tl } {#3} {#4}
   }
-\NewDocumentCommand \CJKfontspec { O{} m }
+\NewDocumentCommand \CJKfontspec { O { } m }
   {
-    \xeCJK_fontspec:xx {#1} {#2}
+    \use:x { \xeCJK_fontspec:nn {#1} {#2} }
     \tex_ignorespaces:D
   }
 %    \end{macrocode}
@@ -5341,21 +5351,23 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_fontspec:nn #1#2
   {
-    \prop_get:NnNF \g_@@_fontspec_prop
+    \prop_get:NnNTF \g_@@_fontspec_prop
       { CJKfontspec/#1/#2/id } \l_xeCJK_family_tl
+      { \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl }
       {
-        \tl_set:Nx \l_@@_tmp_tl
+        \@@_fontspec:xnn
           { CJKfontspec ( \int_eval:n { \g_@@_family_int + \c_one } ) }
-        \prop_gput:NnV \g_@@_fontspec_prop
-          { CJKfontspec/#1/#2/id } \l_@@_tmp_tl
-        \use:x
-          {
-            \xeCJK_set_family:nnn { \l_@@_tmp_tl } \exp_not:n { {#1} {#2} }
-            \CJKfamily { \l_@@_tmp_tl }
-          }
+          {#1} {#2}
       }
   }
-\cs_generate_variant:Nn \xeCJK_fontspec:nn { VV , xx }
+\cs_new_protected_nopar:Npn \@@_fontspec:nnn #1#2#3
+  {
+    \prop_gput:Nnn \g_@@_fontspec_prop { CJKfontspec/#2/#3/id } {#1}
+    \xeCJK_set_family:nnn {#1} {#2} {#3}
+    \xeCJK_switch_family:n {#1}
+  }
+\cs_generate_variant:Nn \xeCJK_fontspec:nn { VV }
+\cs_generate_variant:Nn \@@_fontspec:nnn { x }
 \prop_new:N \g_@@_fontspec_prop
 %    \end{macrocode}
 % \end{macro}
@@ -5508,12 +5520,15 @@ $URL$
               }
               {
                 \prop_map_inline:Nn \g_@@_family_font_name_prop
-                  { \prop_map_break:n { \tl_gset:Nn \CJKfamilydefault {#1} } }
+                  {
+                    \prop_map_break:n
+                      { \tl_gset_rescan:Nnn \CJKfamilydefault { } {#1} }
+                  }
               }
             \@@_warning:nxx { CJKfamilydefault-undefined }
               { \l_@@_tmp_tl } { \CJKfamilydefault }
           }
-        \CJKfamily { \CJKfamilydefault }
+        \xeCJK_switch_family:n { \CJKfamilydefault }
         \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
       }
   }
@@ -5544,7 +5559,7 @@ $URL$
 % \begin{macro}{\setCJKmathfont}
 % 设置 CJK 数学字体。
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKmathfont { O{} m }
+\NewDocumentCommand \setCJKmathfont { O { } m }
   { \xeCJK_set_family:xxx { \c_@@_math_tl } {#1} {#2} }
 \tl_const:Nn \c_@@_math_tl { CJKmath }
 %    \end{macrocode}
@@ -5746,7 +5761,10 @@ $URL$
         \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_family_tl/\curr@fontshape }
         \prop_get:NVNTF \g_@@_scale_family_prop
           \l_@@_current_coor_tl \l_xeCJK_family_tl
-          { \skip_zero:N \l_@@_verb_exspace_skip }
+          {
+            \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl
+            \skip_zero:N \l_@@_verb_exspace_skip
+          }
           {
             \group_begin: \xeCJK_select_font: \exp_after:wN \group_end:
             \exp_after:wN \@@_set_verb_exspace:n
@@ -6223,10 +6241,10 @@ $URL$
       {
         \str_case:nnn {#1}
           {
-            { \rmdefault }     { \CJKfamily { \CJKrmdefault } }
-            { \sfdefault }     { \CJKfamily { \CJKsfdefault } }
-            { \ttdefault }     { \CJKfamily { \CJKttdefault } }
-            { \familydefault } { \CJKfamily { \CJKfamilydefault } }
+            { \rmdefault }     { \xeCJK_switch_family:n { \CJKrmdefault } }
+            { \sfdefault }     { \xeCJK_switch_family:n { \CJKsfdefault } }
+            { \ttdefault }     { \xeCJK_switch_family:n { \CJKttdefault } }
+            { \familydefault } { \xeCJK_switch_family:n { \CJKfamilydefault } }
           }
           { }
       }
