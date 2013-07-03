@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4671}
+% \CheckSum{4679}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -2623,7 +2623,7 @@ $URL$
             \xeCJK_if_last_node_p:n { CJK }       ||
             \xeCJK_if_last_node_p:n { CJK-space }
           }
-          { \CJKecglue } { ~ }
+          { \xeCJK_remove_node: \CJKecglue } { ~ }
       }
       {
         \bool_if:nTF
@@ -2631,8 +2631,11 @@ $URL$
             \xeCJK_if_last_node_p:n { CJK }         ||
             \xeCJK_if_last_node_p:n { CJK-nobreak }
           }
-          { \CJKecglue }
-          { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_space_or_xecglue: } }
+          { \xeCJK_remove_node: \CJKecglue }
+          {
+            \xeCJK_if_last_node:nT { CJK-space }
+              { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
+          }
       }
   }
 %    \end{macrocode}
@@ -2676,17 +2679,17 @@ $URL$
   {
     \bool_if:nTF
       { \xeCJK_if_last_node_p:n { CJK } || \xeCJK_if_last_node_p:n { CJK-space } }
-      { \CJKglue }
+      { \xeCJK_remove_node: \CJKglue }
       {
         \xeCJK_if_last_node:nTF { CJK-nobreak }
-          { \xeCJK_no_break: \CJKglue }
+          { \xeCJK_remove_node: \xeCJK_no_break: \CJKglue }
           {
             \bool_if:nTF
               {
                 \xeCJK_if_last_node_p:n { default }              ||
                 \int_compare_p:nNn \etex_lastnodetype:D = \c_ten
               }
-              { \CJKecglue }
+              { \xeCJK_remove_node: \CJKecglue }
               {
                 \bool_if:nT
                   {
@@ -2703,14 +2706,18 @@ $URL$
                         \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
                         \xeCJK_if_last_node_p:n { default }
                       }
-                      { \CJKecglue }
+                      { \xeCJK_remove_node: \CJKecglue }
                       {
                         \bool_if:nTF
                           {
                             \xeCJK_if_last_node_p:n { CJK }       ||
                             \xeCJK_if_last_node_p:n { CJK-space }
                           }
-                          { \bool_if:NTF \l_@@_reserve_space_bool { ~ } { \CJKglue } }
+                          {
+                            \xeCJK_remove_node:
+                            \bool_if:NTF \l_@@_reserve_space_bool
+                              { ~ } { \CJKglue }
+                          }
                           { ~ }
                       }
                   }
@@ -2732,6 +2739,7 @@ $URL$
 % \end{macro}
 %
 % \changes{v3.1.0}{2012/11/14}{删除多余的 \texttt{default-itcorr} 结点。}
+% \changes{v3.2.4}{2013/07/03}{尽量移除用作判断标志的 \cs{kern}。}
 %
 % \begin{macro}[internal]{\xeCJK_def_node:nn,\xeCJK_make_node:n}
 % 用于判断插入的各种 |kern|。
@@ -2747,6 +2755,8 @@ $URL$
     \tex_kern:D - \use:c { c_@@_#1_node_dim }
     \tex_kern:D   \use:c { c_@@_#1_node_dim }
   }
+\cs_new_protected_nopar:Npn \xeCJK_remove_node:
+  { \tex_unkern:D \tex_unkern:D }
 \xeCJK_def_node:nn { CJK }           { 11 sp }
 \xeCJK_def_node:nn { CJK-space }     { 12 sp }
 \xeCJK_def_node:nn { default }       { 13 sp }
@@ -2839,7 +2849,7 @@ $URL$
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           {
-            \tex_unkern:D \tex_unkern:D
+            \xeCJK_remove_node:
             { \xeCJK_make_node:n { CJK-space } }
             \bool_if:nT
               {
@@ -3072,7 +3082,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/03}{细化边界与全角左标点之间是否压缩空白的判断。}
 % \cs{etex_lastnodetype:D} 为 $1$ 表示 hlist node，在这里用来判断是否位于段首。基于
 % 正常情况下，\TeX 会在段落开头插入宽度为 \cs{parindent} 的水平盒子用于缩进。
-% $-1$ 表示 empty list，常出现在垂直盒子的起始位置，在段落前使用 \cs{noindent} 就
+% $-1$ 表示 empty list，常出现在盒子的起始位置，在段落前使用 \cs{noindent} 就
 % 是这种情况。$11$ 表示 glue node，这里判断的目的是当全角左标点出现在 \LaTeX 表格
 % 的非 \texttt{p} 列行首时，能够对齐到单元格的边界。判断基于标准 \LaTeX 表格的
 % 列格式（\cs{@tabclassz}）定义中，在 \texttt{l} 列和 \texttt{r} 列前为了防止
@@ -3171,9 +3181,9 @@ $URL$
     \@@_punct_if_long:NTF {#1}
       { \CJKglue }
       {
-        \@@_punct_if_middle:NTF {#1}
-          { \xeCJK_no_break: \@@_punct_glue:NN \c_@@_right_tl {#1} }
-          { \xeCJK_no_break: \@@_zero_glue: }
+        \xeCJK_no_break:
+        \@@_punct_if_middle:NT {#1}
+          {  \@@_punct_glue:NN \c_@@_right_tl {#1} }
       }
   }
 \cs_new_eq:NN \@@_Default_and_FullRight_glue:N \@@_CJK_and_FullRight_glue:N
@@ -6321,19 +6331,19 @@ $URL$
       {
         \xeCJK_if_last_node:nTF { default }
           {
-            \tex_unkern:D \tex_unkern:D \@@italiccorr
+            \xeCJK_remove_node: \@@italiccorr
             { \xeCJK_make_node:n { default } }
           }
           {
             \xeCJK_if_last_node:nTF { CJK }
               {
-                \tex_unkern:D \tex_unkern:D \@@italiccorr
+                \xeCJK_remove_node: \@@italiccorr
                 { \xeCJK_make_node:n { CJK } } \use:n
               }
               {
                 \xeCJK_if_last_node:nTF { CJK-space }
                   {
-                    \tex_unkern:D \tex_unkern:D \@@italiccorr
+                    \xeCJK_remove_node: \@@italiccorr
                     { \xeCJK_make_node:n { CJK-space } } \use:n
                   }
                   { \@@italiccorr \use_none:n }
@@ -6754,8 +6764,8 @@ $URL$
     \xeCJK_if_ulem_patch:TF
       {
         \xeCJK_if_last_node:nTF { CJK }
-          { \skip_horizontal:N \l_@@_ecglue_skip }
-          { \xeCJK_if_last_node:nT { CJK-space } { ~ } }
+          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_remove_node: \c_space_tl } }
       }
       { \@@_ulem_Boundary_and_Default: }
   }
@@ -6899,12 +6909,9 @@ $URL$
         \@@_punct_if_long:NTF {#1}
           { \@@_ulem_ccglue: }
           {
-            \@@_punct_if_middle:NT {#1}
-              {
-                \xeCJK_no_break:
-                \@@_punct_glue:NN \c_@@_right_tl {#1}
-              }
             \xeCJK_no_break:
+            \@@_punct_if_middle:NT {#1}
+              { \@@_punct_glue:NN \c_@@_right_tl {#1} }
           }
         \UL@start
       }
