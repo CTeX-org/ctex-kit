@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4649}
+% \CheckSum{4665}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -3051,8 +3051,6 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_Boundary_and_FullLeft:N}
-% \changes{v3.2.0}{2013/05/22}{当全角左标点前面是 \texttt{hlist}、\texttt{none}、
-% \texttt{glue} 和 \texttt{penalty} 等节点时，压缩其左空白。}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_Boundary_and_FullLeft:N #1
   {
@@ -3065,15 +3063,50 @@ $URL$
     \@@_punct_rule:NN \c_@@_left_tl {#1}
     \CJKpunctsymbol {#1}
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_Boundary_and_FullLeft_glue:N}
+% \changes{v3.2.0}{2013/05/22}{当全角左标点前面是 \texttt{hlist}、\texttt{none}、
+% \texttt{glue} 和 \texttt{penalty} 等节点时，压缩其左空白。}
+% \changes{v3.2.4}{2013/07/03}{细化边界与全角左标点之间是否压缩空白的判断。}
+% \cs{etex_lastnodetype:D} 为 $1$ 表示 hlist node，在这里用来判断是否位于段首。基于
+% 正常情况下，\TeX 会在段落开头插入宽度为 \cs{parindent} 的水平盒子用于缩进。
+% $-1$ 表示 empty list，常出现在垂直盒子的起始位置，在段落前使用 \cs{noindent} 就
+% 是这种情况。$11$ 表示 glue node，这里判断的目的是当全角左标点出现在 \LaTeX 表格
+% 的非 \texttt{p} 列行首时，能够对齐到单元格的边界。判断基于标准 \LaTeX 表格的
+% 列格式（\cs{@tabclassz}）定义中，在 \texttt{l} 列和 \texttt{r} 列前为了防止
+% \cs{tabcolsep} 被无意 \cs{unskip} 掉，都加了 |\hskip1sp|，而 \texttt{c} 列前
+% 则有 \cs{hfil}。$13$ 表示 penalty node，这里判断的目的是全角左标点出现在 \LaTeX
+% 列表环境的 \cs{item} 后面时，能对齐到边界。判断基于 \cs{item} 的内部定义
+% \cs{@item} 对 \cs{everypar} 进行了修改，在这里起到影响作用的是
+% |\box\@labels \penalty\z@|。以上判断都比较粗略，暂时也没有想起更好的办法。
+%    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
     \int_case:nnn { \etex_lastnodetype:D }
       {
-        { \c_one       } { \@@_zero_glue: }
-        { \c_minus_one } { }
-        { \c_eleven    } { }
-        { \c_thirteen  } { }
+        { \c_one       } { \@@_zero_glue: \use_none:n }
+        { \c_minus_one } { \use_none:n }
+        { \c_eleven    }
+        {
+          \bool_if:nF
+            {
+              ! ( \skip_if_finite_p:n { \tex_lastskip:D } ) ||
+              \skip_if_eq_p:nn { \tex_lastskip:D } { 1 sp }
+            }
+        }
+        { \c_thirteen  }
+        {
+          \int_compare:nNnTF \tex_lastpenalty:D = \c_zero
+            {
+              \tex_unpenalty:D
+              \int_compare:nNnF \etex_lastnodetype:D = \c_one
+            }
+            { \use:n }
+        }
       }
+      { \use:n }
       { \@@_punct_glue:NN \c_@@_left_tl {#1} }
   }
 %    \end{macrocode}
@@ -5435,7 +5468,7 @@ $URL$
   }
 \clist_new:N \l_@@_add_font_features_clist
 \clist_new:N \l_@@_add_block_features_clist
-\cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nxx }
+\cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nxx , Nnx }
 \@@_msg_new:nn { addCJKfontfeature-ignored }
   {
     \token_to_str:N \addCJKfontfeature (s)~ignored.\\\\
@@ -5812,7 +5845,7 @@ $URL$
     \@@_warning:nxx { scale-factor }
       { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 2 ) } }
       { \fp_eval:n { round + ( #2 / #1 , 2 ) } }
-    \xeCJK_add_font_features:Nxx \c_true_bool
+    \xeCJK_add_font_features:Nnx \c_true_bool
       { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
     \prop_gput:NVV \g_@@_scale_family_prop
       \l_@@_current_coor_tl \l_xeCJK_family_tl
