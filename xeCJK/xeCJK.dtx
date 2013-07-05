@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4679}
+% \CheckSum{4779}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -7255,6 +7255,9 @@ $URL$
         \exp_after:wN \use:n
         \tex_the:D \tex_output:D
       }
+    \lst@ifbreaklines
+      \cs_set_eq:NN \@@_listings_CJK_toks: \@@_listings_breaklines_toks:
+    \fi:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7280,10 +7283,26 @@ $URL$
       }
     \xeCJK_inter_class_toks:nnn { Boundary } { Default }
       { \@@_listings_process_Default:N }
-    \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
-      { \@@_listings_process_CJK:nN { \c_two } }
     \xeCJK_inter_class_toks:nnn { Boundary } { IVS }
       { \@@_listings_process_IVS:nN { \c_zero } }
+    \@@_listings_CJK_toks_hook:
+  }
+\tl_new:N \l_@@_restore_listings_toks_tl
+\cs_new_nopar:Npn \@@_backup_inter_class_toks:nn #1#2
+  {
+    \xeCJK_inter_class_toks:nnn {#1} {#2}
+      { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_listings_CJK_toks_hook:,\@@_listings_breaklines_toks:}
+% 根据 \texttt{breaklines} 选项的使用与否，选择不同的处理方式。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_CJK_toks_hook:
+  {
+    \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
+      { \@@_listings_process_CJK:nN { \c_two } }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
       { \@@_listings_process_CJK:nN { \c_two } }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullRight }
@@ -7294,11 +7313,19 @@ $URL$
           { \@@_listings_process_CJK:nN { \c_two } }
       }
   }
-\tl_new:N \l_@@_restore_listings_toks_tl
-\cs_new_nopar:Npn \@@_backup_inter_class_toks:nn #1#2
+\cs_new_protected_nopar:Npn \@@_listings_breaklines_toks:
   {
-    \xeCJK_inter_class_toks:nnn {#1} {#2}
-      { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
+    \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
+      { \@@_listings_process_breaklines_CJK:nN { \c_two } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
+      { \@@_listings_process_FullLeft:nN { \c_two } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { FullRight }
+      { \@@_listings_process_FullRight:nN { \c_two } }
+    \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
+      {
+        \xeCJK_inter_class_toks:nnn { Boundary } { CJK/##1 }
+          { \@@_listings_process_breaklines_CJK:nN { \c_two } }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7336,24 +7363,16 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.2.4}{2012/06/26}{使 \pkg{listings} 的 \texttt{breaklines} 选项对 CJK 字符类可用。}
-%
 % \begin{macro}[internal]{\@@_listings_process_letter:nN,\@@_listings_process_other:nN}
-% 在 \texttt{letter} 类中区分汉字和西文字母。当使用 \texttt{breaklines} 选项时，
-% 立即输出之前的单个文字或者标点符号，以便于断行。
+% 在 \texttt{letter} 类中区分汉字和西文字母。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_letter:nN
   {
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
-      { \lst@ifbreaklines \lst@Output \fi: \lst@lettertrue }
+      { \lst@lettertrue }
       {
-        \lst@ifletter
-          \lst@Output
-        \else:
-          \lst@OutputOther
-          \lst@lettertrue
-        \fi:
+        \lst@ifletter \lst@Output \else: \lst@OutputOther \lst@lettertrue \fi:
         \bool_set_true:N \l_@@_listings_letter_bool
       }
     \@@_listings_append:nN
@@ -7363,41 +7382,108 @@ $URL$
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
       {
-        \lst@Output
+        \lst@Output \lst@letterfalse
         \bool_set_false:N \l_@@_listings_letter_bool
-        \lst@letterfalse
       }
-      {
-        \lst@ifletter
-          \lst@Output \lst@letterfalse
-        \else:
-          \lst@ifbreaklines \lst@Output \fi:
-        \fi:
-      }
+      { \lst@ifletter \lst@Output \lst@letterfalse \fi: }
     \cs_set_eq:NN \lst@lastother #2
     \@@_listings_append:nN {#1} #2
   }
-\bool_new:N \l_@@_listings_letter_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2.4}{2012/07/05}
+% {使 \pkg{listings} 的 \texttt{breaklines} 选项对 CJK 字符类可用，并保持标点符号的禁则。}
+%
+% \begin{macro}[internal]
+% {\@@_listings_process_breaklines_CJK:nN,
+%  \@@_listings_process_FullLeft:nN,
+%  \@@_listings_process_FullRight:nN}
+% 当使用 \texttt{breaklines} 选项时，立即输出之前的单个文字，以便于断行。并将标点
+% 与它前/后的 CJK 文字放在同一个盒子中，以保持禁则。但是不能区分 letter 和 other。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_process_breaklines_CJK:nN
+  {
+    \lst@whitespacefalse
+    \bool_if:NTF \l_@@_listings_letter_bool
+      {
+        \int_compare:nNnF \l_@@_listings_flag_int = \c_two { \lst@Output }
+        \lst@lettertrue
+      }
+      {
+        \lst@ifletter \lst@Output \else: \lst@OutputOther \lst@lettertrue \fi:
+        \bool_set_true:N \l_@@_listings_letter_bool
+      }
+    \int_set_eq:NN \l_@@_listings_flag_int \c_one
+    \@@_listings_append:nN
+  }
+\cs_new_protected_nopar:Npn \@@_listings_process_FullLeft:nN #1#2
+  {
+    \lst@whitespacefalse
+    \bool_if:NTF \l_@@_listings_letter_bool
+      {
+        \bool_if:nF
+          {
+            \int_compare_p:nNn \l_@@_listings_flag_int = \c_two ||
+            ( \int_compare_p:nNn \l_@@_listings_flag_int = \c_three &&
+              \cs_if_eq_p:NN \@@_punct_break: \xeCJK_no_break: )
+          }
+          { \lst@Output }
+        \lst@lettertrue
+      }
+      {
+        \lst@ifletter \lst@Output \else: \lst@OutputOther \lst@lettertrue \fi:
+        \bool_set_true:N \l_@@_listings_letter_bool
+      }
+    \int_set_eq:NN \l_@@_listings_flag_int \c_two
+    \@@_listings_append:nN {#1} #2
+  }
+\cs_new_protected_nopar:Npn \@@_listings_process_FullRight:nN #1#2
+  {
+    \lst@whitespacefalse
+    \bool_if:NTF \l_@@_listings_letter_bool
+      {
+        \bool_if:nT
+          {
+            \int_compare_p:nNn \l_@@_listings_flag_int < \c_two &&
+            \@@_punct_if_long_p:N #2
+          }
+          { \lst@Output }
+        \lst@lettertrue
+      }
+      {
+        \lst@ifletter \lst@Output \else: \lst@OutputOther \lst@lettertrue \fi:
+        \bool_set_true:N \l_@@_listings_letter_bool
+      }
+    \int_set_eq:NN \l_@@_listings_flag_int \c_three
+    \@@_listings_append:nN {#1} #2
+  }
+\int_new:N \l_@@_listings_flag_int
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\lst@AppendLetter,\lst@AppendOther}
+%    \begin{macrocode}
 \cs_set_protected_nopar:Npn \lst@AppendLetter
   {
     \bool_if:NTF \l_@@_listings_letter_bool
       {
-        \lst@Output
+        \lst@Output \lst@lettertrue
         \bool_set_false:N \l_@@_listings_letter_bool
-        \lst@lettertrue
       }
       { \reverse_if:N \lst@ifletter \lst@OutputOther \lst@lettertrue \fi: }
+    \lst@ifbreaklines \int_zero:N \l_@@_listings_flag_int \fi:
     \lst@Append
   }
 \cs_set_protected_nopar:Npn \lst@AppendOther
   {
     \bool_if:NTF \l_@@_listings_letter_bool
       {
-        \lst@Output
+        \lst@Output \lst@letterfalse
         \bool_set_false:N \l_@@_listings_letter_bool
-        \lst@letterfalse
       }
       { \lst@ifletter \lst@Output \lst@letterfalse \fi: }
+    \lst@ifbreaklines \int_zero:N \l_@@_listings_flag_int \fi:
     \tex_futurelet:D \lst@lastother \lst@Append
   }
 %    \end{macrocode}
