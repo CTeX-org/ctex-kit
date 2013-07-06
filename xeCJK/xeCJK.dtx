@@ -306,7 +306,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4779}
+% \CheckSum{4796}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -3225,10 +3225,39 @@ $URL$
   {
     \xeCJK_get_punct_bounds:NN \c_@@_left_tl {#1}
     \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl {#1}
-    \@@_punct_kern:NN \g_@@_last_punct_tl {#1}
+    \xeCJK_punct_kern:NN \g_@@_last_punct_tl {#1}
     \tl_gset:Nx \g_@@_last_punct_tl {#1}
-    \@@_punct_break:
     \CJKpunctsymbol {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_punct_nobreak_kern:NN}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_punct_nobreak_kern:NN #1#2
+  {
+    \@@_punct_kern:NN #1#2
+    \xeCJK_no_break:
+  }
+\cs_new_eq:NN \xeCJK_punct_kern:NN \@@_punct_nobreak_kern:NN
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2.4}{2013/07/06}
+% {使用 \texttt{AllowBreakBetweenPuncts} 时，相应标点符号仍能与边界对齐。}
+%
+% \begin{macro}[internal]{\@@_punct_breakable_kern:NN}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_punct_breakable_kern:NN #1#2
+  {
+    \@@_punct_rule:NN \c_@@_right_tl #1
+    \@@_punct_hskip:n
+      {
+        \@@_use_punct_dim:nnn { kern } {#1} {#2} +
+        \@@_use_punct_dim:nnn { bound } { \c_@@_right_tl } {#1} +
+        \@@_use_punct_dim:nnn { bound } { \c_@@_left_tl }  {#2}
+      }
+    \@@_punct_rule:NN \c_@@_left_tl #2
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3816,9 +3845,15 @@ $URL$
   {
     AllowBreakBetweenPuncts .choice: ,
     AllowBreakBetweenPuncts / true  .code:n =
-      { \cs_set_eq:NN \@@_punct_break: \xeCJK_allow_break: } ,
+      {
+        \bool_set_true:N \l_@@_punct_breakable_bool
+        \cs_set_eq:NN \xeCJK_punct_kern:NN \@@_punct_breakable_kern:NN
+      } ,
     AllowBreakBetweenPuncts / false .code:n =
-      { \cs_set_eq:NN \@@_punct_break: \xeCJK_no_break: } ,
+      {
+        \bool_set_false:N \l_@@_punct_breakable_bool
+        \cs_set_eq:NN \xeCJK_punct_kern:NN \@@_punct_nobreak_kern:NN
+      } ,
     AllowBreakBetweenPuncts      .default:n = { true } ,
     KaiMingPunct  .code:n = { \@@_set_special_punct:nn { mixed_width } {#1} } ,
     KaiMingPunct+ .code:n = { \@@_add_special_punct:nn { mixed_width } {#1} } ,
@@ -3831,12 +3866,11 @@ $URL$
     MiddlePunct-  .code:n = { \@@_sub_special_punct:nn { middle } {#1} } ,
     PunctWidth .tl_gset:N = \g_@@_punct_width_tl
   }
+\bool_new:N \l_@@_punct_breakable_bool
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]
-% {\g_@@_special_punct_clist,\@@_set_special_punct:nn,
-%  \@@_add_special_punct:nn, \@@_sub_special_punct:nn}
+% 相关选项定义的辅助函数。
 %    \begin{macrocode}
 \clist_new:N \g_@@_special_punct_clist
 \clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , middle }
@@ -3875,11 +3909,8 @@ $URL$
       }
   }
 %    \end{macrocode}
-% \end{macro}
 %
-% \begin{macro}[pTF,internal]
-% {\@@_punct_if_right:N,\@@_punct_if_long:N,
-%  \@@_punct_if_middle:N,\@@_punct_if_mixed_width:N}
+% 判断一个标点符号是否为全角右标点和长标点符号。
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \@@_punct_if_right:N #1 { p , T , F , TF }
   {
@@ -3896,12 +3927,7 @@ $URL$
       }
   }
 %    \end{macrocode}
-% \end{macro}
 %
-% \begin{macro}[internal]
-%  {\@@_punct_dim_csname:nn,\@@_punct_dim_csname:nnn,\@@_punct_dim_csname:nnnn,
-%   \@@_use_punct_dim:nnn,\@@_use_punct_dim:nn,
-%   \@@_gset_punct_dim:nnx,\@@_gset_punct_dim:nnnx,\@@_gset_punct_dim:nnnnx}
 % 一些用于记录的辅助函数。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_punct_dim_csname:nn #1#2
@@ -3919,7 +3945,6 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnnx #1#2#3#4
   { \tl_const:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } {#4} }
 %    \end{macrocode}
-% \end{macro}
 %
 % \changes{v3.1.0}{2012/11/14}{使用 \pkg{xtemplate} 宏包的机制来组织标点符号的处理。}
 %
@@ -6699,25 +6724,22 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_ulem_initial:
   {
-    \xeCJK_swap_cs:NN
-      \@@_Default_and_FullLeft_glue:N  \@@_ulem_Default_and_FullLeft_glue:N
-    \xeCJK_swap_cs:NN
-      \@@_Default_and_FullRight_glue:N \@@_ulem_Default_and_FullRight_glue:N
-    \xeCJK_swap_cs:NN
-      \@@_CJK_and_FullLeft_glue:N      \@@_ulem_CJK_and_FullLeft_glue:N
-    \xeCJK_swap_cs:NN
-      \@@_CJK_and_FullRight_glue:N     \@@_ulem_CJK_and_FullRight_glue:N
-    \xeCJK_swap_cs:NN
-      \@@_Boundary_and_FullLeft_glue:N \@@_ulem_Boundary_and_FullLeft_glue:N
-    \xeCJK_swap_cs:NN \@@_punct_hskip:n             \@@_ulem_punct_hskip:n
-    \xeCJK_swap_cs:NN \@@_CJK_and_Boundary_aux:     \@@_ulem_CJK_and_Boundary_aux:
-    \xeCJK_swap_cs:NN \xeCJK_FullLeft_and_Default:  \@@_ulem_FullLeft_and_Default:
-    \xeCJK_swap_cs:NN \xeCJK_FullLeft_and_CJK:      \@@_ulem_FullLeft_and_CJK:
-    \xeCJK_swap_cs:NN \xeCJK_FullRight_and_Default: \@@_ulem_FullRight_and_Default:
-    \xeCJK_swap_cs:NN \xeCJK_FullRight_and_CJK:     \@@_ulem_FullRight_and_CJK:
-    \xeCJK_swap_cs:NN \xeCJK_CJK_and_CJK:N          \@@_ulem_CJK_and_CJK:N
-    \xeCJK_swap_cs:NN \xeCJK_Boundary_and_Default:  \@@_ulem_Boundary_and_Default:
-    \xeCJK_swap_cs:NN \xeCJK@fix@penalty            \@@_ulem_fix_penalty:
+    \@@_ulem_swap_cs:NN
+    \xeCJK_FullLeft_and_Default:  \@@_ulem_FullLeft_and_Default:
+    \xeCJK_FullLeft_and_CJK:      \@@_ulem_FullLeft_and_CJK:
+    \xeCJK_FullRight_and_Default: \@@_ulem_FullRight_and_Default:
+    \xeCJK_FullRight_and_CJK:     \@@_ulem_FullRight_and_CJK:
+    \xeCJK_CJK_and_CJK:N          \@@_ulem_CJK_and_CJK:N
+    \xeCJK_Boundary_and_Default:  \@@_ulem_Boundary_and_Default:
+    \xeCJK@fix@penalty            \@@_ulem_fix_penalty:
+    \@@_punct_hskip:n                \@@_ulem_punct_hskip:n
+    \@@_CJK_and_Boundary_aux:        \@@_ulem_CJK_and_Boundary_aux:
+    \@@_Default_and_FullLeft_glue:N  \@@_ulem_Default_and_FullLeft_glue:N
+    \@@_Default_and_FullRight_glue:N \@@_ulem_Default_and_FullRight_glue:N
+    \@@_CJK_and_FullLeft_glue:N      \@@_ulem_CJK_and_FullLeft_glue:N
+    \@@_CJK_and_FullRight_glue:N     \@@_ulem_CJK_and_FullRight_glue:N
+    \@@_Boundary_and_FullLeft_glue:N \@@_ulem_Boundary_and_FullLeft_glue:N
+    \q_recursion_tail \q_nil \q_recursion_stop
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
@@ -6735,6 +6757,12 @@ $URL$
               }
           }
       }
+  }
+\cs_new_protected_nopar:Npn \@@_ulem_swap_cs:NN #1#2
+  {
+    \quark_if_recursion_tail_stop:N #1
+    \xeCJK_swap_cs:NN #1#2
+    \@@_ulem_swap_cs:NN
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7426,7 +7454,7 @@ $URL$
           {
             \int_compare_p:nNn \l_@@_listings_flag_int = \c_two ||
             ( \int_compare_p:nNn \l_@@_listings_flag_int = \c_three &&
-              \cs_if_eq_p:NN \@@_punct_break: \xeCJK_no_break: )
+              ! \l_@@_punct_breakable_bool )
           }
           { \lst@Output }
         \lst@lettertrue
