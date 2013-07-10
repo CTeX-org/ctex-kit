@@ -305,7 +305,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4803}
+% \CheckSum{4848}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1323,30 +1323,41 @@ $URL$
 \xetex_if_engine:F { \msg_critical:nn { xeCJK } { Require-XeTeX } }
 %    \end{macrocode}
 %
+% \begin{macro}[pTF,internal]{\xeCJK_if_package_loaded:n}
+% 判断宏包是否被引入，可用于文档正文中。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \xeCJK_if_package_loaded:n #1 { p , T , F , TF }
+  {
+    \tl_if_exist:cTF { ver@ #1 . \c_@@_package_ext_tl }
+      { \prg_return_true: } { \prg_return_false: }
+  }
+\tl_const:Nx \c_@@_package_ext_tl { \@pkgextension }
+%    \end{macrocode}
+% \end{macro}
+%
 % 下面这些 \pkg{CJK} 系列宏包不应该被使用。
 %    \begin{macrocode}
 \msg_new:nnn { xeCJK } { incompatible-package }
   {
     The~`#1'~package~and~xeCJK~are~incompatible.\\\\
-    Please ~ \str_if_eq:nnTF {#1} { CJKnumb }
-      { load~it~after~xeCJK. } { do~not~use~it. }
+    Please~do~not~use~it.
   }
-\clist_map_inline:nn { CJKnumb , CJKulem , CJKvert , CJKpunct , CJKutf8 , CJK }
+\msg_new:nnn { xeCJK } { after-package }
   {
-    \@ifpackageloaded {#1}
-      { \msg_error:nnn { xeCJK } { incompatible-package } {#1} }
-      { }
+    The~`#1'~package~and~xeCJK~are~incompatible.\\\\
+    Please~load~it~after~xeCJK.
   }
-%    \end{macrocode}
-%
-% 禁止在 \pkg{xeCJK} 宏包后再载入 \pkg{CJK} 宏包，并使得
-% \pkg{CJKnumb} 和 \pkg{CJKfntef} 宏包可以使用。
-%    \begin{macrocode}
-\tl_gset:cn { ver@CJK.sty } { 9999/99/99 }
-\tl_gset_eq:cc { ver@CJKutf8.sty }  { ver@CJK.sty }
-\tl_gset_eq:cc { ver@CJKvert.sty }  { ver@CJK.sty }
-\tl_gset_eq:cc { ver@CJKulem.sty }  { ver@CJK.sty }
-\tl_gset_eq:cc { ver@CJKpunct.sty } { ver@CJK.sty }
+\clist_map_inline:nn { CJKfntef , CJKnumb }
+  {
+    \xeCJK_if_package_loaded:nT {#1}
+      { \msg_error:nnn { xeCJK } { after-package } {#1} }
+  }
+\clist_map_inline:nn { CJKulem , CJKvert , CJKpunct , CJKutf8 , CJK }
+  {
+    \xeCJK_if_package_loaded:nTF {#1}
+      { \msg_error:nnn { xeCJK } { incompatible-package } {#1} }
+      { \tl_const:cn { ver@ #1 . \c_@@_package_ext_tl } { 9999/99/99 } }
+  }
 %    \end{macrocode}
 %
 % 应该使用较新版本的 \pkg{expl3} 宏包。
@@ -1407,18 +1418,6 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_allow_break: { \tex_penalty:D \c_zero }
 \cs_new_protected_nopar:Npn \xeCJK_no_break: { \tex_penalty:D \c_ten_thousand }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,internal]{\xeCJK_if_package_loaded:n}
-% 判断宏包是否被引入，可用于文档正文中。
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \xeCJK_if_package_loaded:n #1 { p , T , F , TF }
-  {
-    \tl_if_exist:cTF { ver@ #1 . \c_@@_package_ext_tl }
-      { \prg_return_true: } { \prg_return_false: }
-  }
-\tl_const:Nx \c_@@_package_ext_tl { \@pkgextension }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2522,7 +2521,7 @@ $URL$
 %   &
 %   &
 %   &
-%   & \tokslink{def-bound}
+%   & \tokslink{ns-bound}
 %   & \tokslink{def-IVS}\\
 % |Boundary|
 %   & \tokslink{bound-def}
@@ -2531,7 +2530,7 @@ $URL$
 %   & \tokslink{bound-fl-fr}
 %   & \tokslink{bound-def}
 %   &
-%   & \tokslink{bound-def}
+%   & \tokslink{bound-ns}
 %   &
 %   & \tokslink{def-IVS}\\
 % |IVS|
@@ -2551,7 +2550,7 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_class_group_begin:,\xeCJK_class_group_end:}
 %    \begin{macrocode}
 \cs_new_eq:NN \xeCJK_class_group_begin: \c_group_begin_token
-\cs_new_eq:NN \xeCJK_class_group_end: \c_group_end_token
+\cs_new_eq:NN \xeCJK_class_group_end:   \c_group_end_token
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2591,11 +2590,10 @@ $URL$
 %
 % \hypertarget{bound-def}{}
 %    \begin{macrocode}
-\clist_map_inline:nn { Default , HalfLeft , NormalSpace }
+\clist_map_inline:nn { Default , HalfLeft }
   {
     \xeCJK_inter_class_toks:nnn { Boundary } {#1} { \xeCJK_Boundary_and_Default: }
-    \str_if_eq:nnF {#1} { NormalSpace }
-      { \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue } }
+    \xeCJK_app_inter_class_toks:nnn { CJK } {#1} { \CJKecglue }
   }
 %    \end{macrocode}
 %
@@ -2636,7 +2634,7 @@ $URL$
 %
 % \hypertarget{def-bound}{}
 %    \begin{macrocode}
-\clist_map_inline:nn { Default , HalfRight , NormalSpace }
+\clist_map_inline:nn { Default , HalfRight }
   {
     \xeCJK_inter_class_toks:nnn {#1} { Boundary }
       {
@@ -2649,8 +2647,58 @@ $URL$
               { { \xeCJK_make_node:n { default } } }
           }
       }
-    \str_if_eq:nnF {#1} { NormalSpace }
-      { \xeCJK_pre_inter_class_toks:nnn {#1} { CJK } { \CJKecglue } }
+    \xeCJK_pre_inter_class_toks:nnn {#1} { CJK } { \CJKecglue }
+  }
+%    \end{macrocode}
+%
+% \changes{v3.2.5}{2013/07/10}
+% {修正 \texttt{CJK} 和 \texttt{NormalSpace} 字符类之间因为边界造成的间距不正确的问题。}
+%
+% \hypertarget{bound-ns}{}
+%    \begin{macrocode}
+\xeCJK_inter_class_toks:nnn { Boundary } { NormalSpace }
+  { \xeCJK_Boundary_and_NormalSp: }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_Boundary_and_NormalSp:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_Boundary_and_NormalSp:
+  {
+    \bool_if:nTF
+      {
+        \l_@@_xecglue_bool &&
+        \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
+        \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
+      }
+      {
+        \tex_unskip:D
+        \bool_if:nTF
+          {
+            \xeCJK_if_last_node_p:n { CJK }       ||
+            \xeCJK_if_last_node_p:n { CJK-space }
+          }
+          { \xeCJK_remove_node: \CJKecglue } { ~ }
+      }
+      {
+        \xeCJK_if_last_node:nT { CJK-space }
+          { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \hypertarget{ns-bound}{}
+%    \begin{macrocode}
+\xeCJK_inter_class_toks:nnn { NormalSpace } { Boundary }
+  {
+    \int_gset_eq:NN \g_@@_spacefactor_int \tex_spacefactor:D
+    \peek_meaning_remove:NTF \tex_italiccorrection:D
+      { \tex_italiccorrection:D { \xeCJK_make_node:n { normalspace } } }
+      {
+        \token_if_space:NTF \l_peek_token
+          { { \xeCJK_make_node:n { default-space } } }
+          { { \xeCJK_make_node:n { normalspace } } }
+      }
   }
 %    \end{macrocode}
 %
@@ -2755,6 +2803,7 @@ $URL$
 \xeCJK_def_node:nn { default }       { 13 sp }
 \xeCJK_def_node:nn { default-space } { 14 sp }
 \xeCJK_def_node:nn { CJK-nobreak }   { 15 sp }
+\xeCJK_def_node:nn { normalspace }   { 16 sp }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6724,6 +6773,7 @@ $URL$
     \xeCJK_FullRight_and_CJK:     \@@_ulem_FullRight_and_CJK:
     \xeCJK_CJK_and_CJK:N          \@@_ulem_CJK_and_CJK:N
     \xeCJK_Boundary_and_Default:  \@@_ulem_Boundary_and_Default:
+    \xeCJK_Boundary_and_NormalSp: \@@_ulem_Boundary_and_NormalSp:
     \xeCJK@fix@penalty            \@@_ulem_fix_penalty:
     \@@_punct_hskip:n                \@@_ulem_punct_hskip:n
     \@@_CJK_and_Boundary_aux:        \@@_ulem_CJK_and_Boundary_aux:
@@ -6789,6 +6839,18 @@ $URL$
           { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_remove_node: \c_space_tl } }
       }
       { \@@_ulem_Boundary_and_Default: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%
+% \begin{macro}[internal]{\@@_ulem_Boundary_and_NormalSp:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_Boundary_and_NormalSp:
+  {
+    \xeCJK_if_ulem_patch:TF
+      { \xeCJK_if_last_node:nT { CJK-space } { \xeCJK_remove_node: \c_space_tl } }
+      { \@@_ulem_Boundary_and_NormalSp: }
   }
 %    \end{macrocode}
 % \end{macro}
