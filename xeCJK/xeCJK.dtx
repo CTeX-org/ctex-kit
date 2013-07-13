@@ -305,7 +305,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4891}
+% \CheckSum{4899}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -1229,11 +1229,12 @@ $URL$
 %   调整文字间距以便于让 CJK 字符占的宽度等于西文等宽字体中两个空格的宽度。如果这两
 %   个空格的宽度小于当前 CJK 正常文字的宽度，将对 CJK 字体进行适当地缩小。这有利于
 %   等宽字体的代码对齐等情形。需要注意的是，\cs{xeCJKVerbAddon} 对 \pkg{xeCJK} 的内
-%   部进行了比较大的修改，使用它之后，关于标点符号的禁则将会丢失。所以不能单独使用，^^A
-%   应该放在分组里限制其作用域，否则是无效的。当然它可以和其它关于代码抄录的宏包配
-%   合使用。例如，可以使用于 \package{fancyvrb} 宏包的 |formatcom| 选项。此时设置的
-%   西文字体应该确实是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则
-%   需要在其后面使用 \cs{xeCJKVerbAddon}，重新计算间距的宽度。\cs{xeCJKOffVerbAddon}
+%   部进行了比较大的修改，使用它之后，将禁止在 CJK 字符类之间自动换行，这与西文在
+%   抄录环境中的情况是一致的。所以不应该单独使用，应该放在分组里限制其作用域，否则
+%   是无效的。当然它可以和其它关于代码抄录的宏包配合使用。例如，可以使用于
+%   \package{fancyvrb} 宏包的 \texttt{formatcom} 选项。此时设置的西文字体应该确实
+%   是等宽的以保证对齐。若西文等宽字体发生变动（包括字体大小），则需要在其后面使用
+%   \cs{xeCJKVerbAddon}，重新计算间距的宽度。\cs{xeCJKOffVerbAddon}
 %   用于在使用 \cs{xeCJKVerbAddon} 的环境中局部取消它的作用。由于 \package{listings}
 %   宏包有自己的代码对齐机制，所以 \cs{xeCJKVerbAddon} 在由 \pkg{listings} 定义的
 %   代码环境中无效。
@@ -5804,11 +5805,12 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
+% \begin{macro}{\xeCJKOffVerbAddon,\xeCJKVerbAddon}
 % \changes{v3.1.0}{2012/11/19}{新增 \cs{xeCJKVerbAddon} 用于抄录环境中的间距调整。}
 % \changes{v3.2.3}{2013/06/04}
 % {新增 \cs{xeCJKOffVerbAddon} 用于局部取消 \cs{xeCJKOffVerbAddon} 的影响；并解决
 % 跨页使用时影响到页眉页脚的问题。}
+% \changes{v3.2.5}{2013/07/13}{禁止自动换行，与西文一致。}
 % \cs{xeCJKVerbAddon} 进行了比较大的调整，应该只在分组环境里使用。为了方便调整间距
 % 以利于对齐，这里只把字符分成了两类，并且在 CJK 类与边界（空格）之间也插入
 % \cs{CJKecglue}。当然，这样做之后，关于标点符号的禁则就没有了。
@@ -5847,7 +5849,6 @@ $URL$
             \@@_reset_char_class:n { HalfLeft }
             \@@_reset_char_class:n { HalfLeft }
             \@@_reset_char_class:n { NormalSpace }
-            \skip_set:Nn \tex_rightskip:D { \skip_use:N \tex_rightskip:D }
             \exp_not:c
               { bool_set_ \bool_if:NTF \l_@@_xecglue_bool  { true } { false } :N }
               \l_@@_xecglue_bool
@@ -5867,15 +5868,23 @@ $URL$
             \tex_the:D \tex_output:D
           }
         \xeCJKsetup { xCJKecglue = false }
-        \cs_set_protected_nopar:Npn \CJKglue
-          { \skip_horizontal:N \l_@@_verb_exspace_skip }
-        \cs_set_protected_nopar:Npn \CJKecglue
-          { \skip_horizontal:n { 0.5 \l_@@_verb_exspace_skip } }
-        \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
-        \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
-        \skip_set:Nn \tex_rightskip:D { \c_zero_dim plus 1 fil }
       }
+    \skip_if_eq:nnTF { \l_@@_verb_exspace_skip } { \c_zero_skip }
+      {
+        \xeCJK_cs_clear:N \CJKglue
+        \xeCJK_cs_clear:N \CJKecglue
+      }
+      {
+        \cs_set_eq:NN \CJKglue   \@@_verb_ccglue:
+        \cs_set_eq:NN \CJKecglue \@@_verb_ecglue:
+      }
+    \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
+    \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
   }
+\cs_new_protected_nopar:Npn \@@_verb_ccglue:
+  { \xeCJK_no_break: \skip_horizontal:N \l_@@_verb_exspace_skip }
+\cs_new_protected_nopar:Npn \@@_verb_ecglue:
+  { \xeCJK_no_break: \skip_horizontal:n { 0.5 \l_@@_verb_exspace_skip } }
 \cs_new_protected_nopar:Npn \@@_reset_char_class:n #1
   {
     \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#1} }
@@ -5951,8 +5960,8 @@ $URL$
   {
     \fp_set:Nn \l_@@_scale_factor_fp { #1 / #2 }
     \@@_warning:nxx { scale-factor }
-      { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 2 ) } }
-      { \fp_eval:n { round + ( #2 / #1 , 2 ) } }
+      { \fp_eval:n { round - ( \l_@@_scale_factor_fp , 4 ) } }
+      { \fp_eval:n { round + ( #2 / #1 , 4 ) } }
     \xeCJK_add_font_features:Nnx \c_true_bool
       { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
     \prop_gput:NVV \g_@@_scale_family_prop
