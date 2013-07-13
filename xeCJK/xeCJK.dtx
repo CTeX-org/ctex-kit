@@ -305,7 +305,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4848}
+% \CheckSum{4880}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -3122,6 +3122,8 @@ $URL$
 % \changes{v3.2.0}{2013/05/22}{当全角左标点前面是 \texttt{hlist}、\texttt{none}、
 % \texttt{glue} 和 \texttt{penalty} 等节点时，压缩其左空白。}
 % \changes{v3.2.4}{2013/07/03}{细化边界与全角左标点之间是否压缩空白的判断。}
+% \changes{v3.2.5}{2013/07/13}{细化全角左标点是否位于段首的判断。}
+% \changes{v3.2.5}{2013/07/13}{增加对 \pkg{enumitem} 宏包修改的 \cs{item} 的判断。}
 % \cs{etex_lastnodetype:D} 为 $1$ 表示 hlist node，在这里用来判断是否位于段首。基于
 % 正常情况下，\TeX 会在段落开头插入宽度为 \cs{parindent} 的水平盒子用于缩进。
 % $-1$ 表示 empty list，常出现在盒子的起始位置，在段落前使用 \cs{noindent} 就
@@ -3132,13 +3134,25 @@ $URL$
 % 则有 \cs{hfil}。$13$ 表示 penalty node，这里判断的目的是全角左标点出现在 \LaTeX
 % 列表环境的 \cs{item} 后面时，能对齐到边界。判断基于 \cs{item} 的内部定义
 % \cs{@item} 对 \cs{everypar} 进行了修改，在这里起到影响作用的是
-% |\box\@labels \penalty\z@|。以上判断都比较粗略，暂时也没有想起更好的办法。
+% |\box\@labels \penalty\z@|。\package{enumitem} 宏包修改了 \env{description}
+% 环境中使用的 \cs{item}（\cs{enit@postlabel@i}），在这里起到影响作用的是
+% |\penalty\z@ \hskip\labelsep|。以上判断都比较粗略，暂时也没有想起更好的办法。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
     \int_case:nnn { \etex_lastnodetype:D }
       {
-        { \c_one       } { \@@_zero_glue: \use_none:n }
+        { \c_one       }
+        {
+          \box_set_to_last:N \l_@@_tmp_box
+          \bool_if:nTF
+            {
+              \int_compare_p:nNn \etex_lastnodetype:D = \c_minus_one &&
+              \dim_compare_p:nNn { \box_wd:N \l_@@_tmp_box } = \tex_parindent:D
+            }
+            { \box_use_clear:N \l_@@_tmp_box \use_none:n }
+            { \box_use_clear:N \l_@@_tmp_box \use:n }
+        }
         { \c_minus_one } { \use_none:n }
         { \c_eleven    }
         {
@@ -3146,6 +3160,20 @@ $URL$
             {
               ! ( \skip_if_finite_p:n { \tex_lastskip:D } ) ||
               \skip_if_eq_p:nn { \tex_lastskip:D } { 1 sp }
+            }
+            {
+              \skip_if_eq:nnTF { \tex_lastskip:D } { \labelsep }
+                {
+                  \tex_unskip:D
+                  \bool_if:nTF
+                    {
+                      \int_compare_p:nNn \etex_lastnodetype:D = \c_thirteen &&
+                      \int_compare_p:nNn \tex_lastpenalty:D = \c_zero
+                    }
+                    { \skip_horizontal:n { \labelsep } \use_none:n }
+                    { \skip_horizontal:n { \labelsep } \use:n }
+                }
+                { \use:n }
             }
         }
         { \c_thirteen  }
