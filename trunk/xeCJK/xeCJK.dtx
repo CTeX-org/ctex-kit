@@ -305,7 +305,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4881}
+% \CheckSum{4891}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -5972,26 +5972,46 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\xeCJK_visible_space:}
+% \changes{v3.2.5}{2013/07/13}{可视空格考虑传统 \TeX 字体的情况。}
+% 如果文档不使用 \texttt{EU1} 作为默认字体编码，那么默认的打字机字体族很可能是
+% 传统的 \TeX 字体，这时可视空格按照 \texttt{OT1} 编码传统一般就是字体中的 |\char32|。
+% 这里加入 \cs{scan_stop:} 的目的是强制发生状态转移。这样当空格出现在 CJK 文字
+% 后面时，使字体回到西文，保证在当前西文字体而不是在 CJK 字体中检查有没有 |U+2423|。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_visible_space:
+  {
+    \scan_stop:
+    \xeCJK_glyph_if_exist:NTF { ^^^^2423 }
+      { ^^^^2423 }
+      {
+        \int_compare:nNnTF { \XeTeXfonttype \tex_font:D } = \c_zero
+          {
+            \str_if_eq_x:nnTF { \f@family } { \ttdefault }
+              { \c_catcode_other_space_tl }
+              { \textvisiblespace }
+          }
+          { \xeCJK_visible_space_fallback: }
+      }
+  }
+\AtEndOfPackage
+  { \cs_gset_eq:NN \fontspec_visible_space: \xeCJK_visible_space: }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\xeCJK_visible_space_fallback:}
-% \changes{v3.1.0}{2012/11/19}{调整 \pkg{fontspec} 的后备可视空格符号，以便于使用
-% 时对齐。}
+% \changes{v3.1.0}{2012/11/19}
+% {调整 \pkg{fontspec} 的后备可视空格符号，以便于使用时对齐。}
 % \pkg{fontspec} 使用 |lmtt| 字体中的可视空格符号（|U+2423|）作为当前字体中相应符号
 % 的后备。但是 |lmtt| 的字体大小未必与当前字体匹配。因此，我们在这里做一些调整，以
-% 保证使用后备可视空格符号时，也能保证对齐。这里加入 \cs{scan_stop:} 的目的是强制
-% 发生状态转移。这样当空格出现在 CJK 文字后面时，使字体回到西文，以便让
-% \pkg{fontspec} 在当前西文字体而不是在 CJK 字体中检查有没有 |U+2423|。
+% 保证使用后备可视空格符号时，也能保证对齐。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_visible_space_fallback:
   { {
       \cs_if_exist_use:cF { xeCJK/space/\curr@fontshape/\f@size }
         { \xeCJK_set_visible_space_font: }
-      \textvisiblespace
+      ^^^^2423
   } }
-\AtEndOfPackage
-  {
-    \tl_put_left:Nn \fontspec_visible_space: { \scan_stop: }
-    \cs_gset_eq:NN \fontspec_visible_space_fallback: \xeCJK_visible_space_fallback:
-  }
 %    \end{macrocode}
 % \end{macro}
 %
