@@ -305,7 +305,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{4899}
+% \CheckSum{4912}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
@@ -417,7 +417,7 @@ $URL$
 %   设置为 |false| 则不载入配置文件。可以把将要在下文介绍到的对 \pkg{xeCJK} 的一些
 %   设置（例如设置常用 CJK 字体、修改字符范围和定义新的标点输出格式等）保存到文件
 %   \texttt{xeCJK-\meta{name}.cfg}。然后把这个文件放在本地的 |TDS| 目录下的适当
-%   位置。使用 \TeX Live 的用户，可以新建下列目录，然后再把
+%   位置。使用 \TeX~Live 的用户，可以新建下列目录，然后再把
 %   \texttt{xeCJK-\meta{name}.cfg} 放在里面：
 %   \begin{verbatim}
 %     texlive/texmf-local/tex/xelatex/xecjk
@@ -1401,17 +1401,17 @@ $URL$
 %    \end{macrocode}
 %
 % \begin{macro}[internal]
-%  {\@@_msg_new:nn ,\@@_error:n,\@@_error:nx,\@@_warning:nx,\@@_info:nx,\@@_info:nxx}
+%  {\@@_msg_new:nn ,\@@_error:n,\@@_error:nx,\@@_warning:nx,\@@_info:nxx}
 % 各种信息函数的缩略形式。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_msg_new:nn  { \msg_new:nnn      { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_error:n     { \msg_error:nn     { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_error:nx    { \msg_error:nnx    { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_warning:n   { \msg_warning:nn   { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_warning:nx  { \msg_warning:nnx  { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_warning:nxx { \msg_warning:nnxx { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_info:nx     { \msg_info:nnx     { xeCJK } }
-\cs_new_protected_nopar:Npn \@@_info:nxx    { \msg_info:nnxx    { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_msg_new:nn   { \msg_new:nnn       { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_error:n      { \msg_error:nn      { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_error:nx     { \msg_error:nnx     { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_warning:n    { \msg_warning:nn    { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_warning:nx   { \msg_warning:nnx   { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_warning:nxx  { \msg_warning:nnxx  { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_warning:nxxx { \msg_warning:nnxxx { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_info:nxx     { \msg_info:nnxx     { xeCJK } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3872,16 +3872,25 @@ $URL$
 % \cs{XeTeXglyphbouds} 可以得到一个字符的左右边距，用于标点压缩。如果它不可用，则
 % 在文档中只能使用 |plain| 这一标点格式原样输出标点。
 %    \begin{macrocode}
-\@@_msg_new:nn { XeTeX-too-old }
-  {
-    \token_to_str:N \XeTeXglyphbounds \ is~not~defined.\\
-    CJK~punctuation~kerning~will~not~be~available.\\\\
-    You~have~to~update~XeTeX~to~the~version~0.9995.0~or~later.
-  }
 \cs_if_exist:NF \XeTeXglyphbounds
   {
+    \@@_msg_new:nn { XeTeX-too-old }
+      {
+        \token_to_str:N \XeTeXglyphbounds \ is~not~defined.\\
+        CJK~punctuation~kerning~will~not~be~available.\\\\
+        You~have~to~update~XeTeX~to~the~version~0.9995.0~or~later.
+      }
     \@@_error:n { XeTeX-too-old }
-    \@@_after_end_preamble:n { \xeCJKsetup { PunctStyle = plain } }
+    \AtEndOfPackage
+      {
+        \keys_define:nn { xeCJK / options }
+          {
+            PunctStyle / unknown .code:n =
+              { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
+          }
+        \seq_gclear:N \g_@@_punct_style_seq
+        \xeCJKsetup { PunctStyle = plain }
+      }
   }
 %    \end{macrocode}
 %
@@ -4012,10 +4021,10 @@ $URL$
   { \tl_use:c { \@@_punct_dim_csname:nn {#1} {#2} } }
 \cs_new_nopar:Npn \@@_use_punct_dim:nnn #1#2#3
   { \tl_use:c { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } }
-\cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnx #1#2#3
-  { \tl_const:cx { \@@_punct_dim_csname:nn {#1} {#2} } {#3} }
-\cs_new_protected_nopar:Npn \@@_gset_punct_dim:nnnx #1#2#3#4
-  { \tl_const:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } {#4} }
+\cs_new_protected_nopar:Npn \@@_save_punct_dim:nnn #1#2#3
+  { \tl_const:cx { \@@_punct_dim_csname:nn {#1} {#2} } { \dim_eval:n {#3} } }
+\cs_new_protected_nopar:Npn \@@_save_punct_dim:nnnn #1#2#3#4
+  { \tl_const:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } { \dim_eval:n {#4} } }
 %    \end{macrocode}
 %
 % \changes{v3.1.0}{2012/11/14}{使用 \pkg{xtemplate} 宏包的机制来组织标点符号的处理。}
@@ -4132,7 +4141,7 @@ $URL$
               }
           }
       }
-    \@@_gset_punct_dim:nnnx { glue } {#1} {#2}
+    \@@_save_punct_dim:nnnn { glue } {#1} {#2}
       {
         \dim_max:nn
           { \l_@@_margin_minimum_dim }
@@ -4227,24 +4236,21 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_punct_kerning_process:NN #1#2
   {
-    \@@_gset_punct_dim:nnnx { kern } {#1} {#2}
+    \@@_save_punct_dim:nnnn { kern } {#1} {#2}
       {
-        \dim_eval:n
+        \bool_if:nTF
           {
-            \bool_if:nTF
-              {
-                \l_@@_enabled_global_setting_bool &&
-                \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
-              }
-              { \tl_use:c { g_@@_punct/kern/#1/#2/tl } }
-              {
-                \bool_if:NTF \l_@@_enabled_kerning_bool
-                  { \@@_calc_kerning_margin:NN {#1} {#2} }
-                  { \@@_original_kerning_margin:NN {#1} {#2} }
-              }
-            - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
-            - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
+            \l_@@_enabled_global_setting_bool &&
+            \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
           }
+          { \tl_use:c { g_@@_punct/kern/#1/#2/tl } }
+          {
+            \bool_if:NTF \l_@@_enabled_kerning_bool
+              { \@@_calc_kerning_margin:NN {#1} {#2} }
+              { \@@_original_kerning_margin:NN {#1} {#2} }
+          }
+          - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
+          - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
       }
   }
 %    \end{macrocode}
@@ -4380,14 +4386,14 @@ $URL$
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
           {
-            \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { \c_zero_dim }
-            \@@_gset_punct_dim:nnnx { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
-            \@@_gset_punct_dim:nnnx { bound } \c_@@_right_tl {#2} { \c_zero_dim }
+            \@@_save_punct_dim:nnnn { glue } {#1} {#2} { \c_zero_dim }
+            \@@_save_punct_dim:nnnn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
+            \@@_save_punct_dim:nnnn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
           }
           {
             { \xeCJK_select_font: \xeCJK_calc_punct_dimen:f {#2} }
             \@@_punct_if_long:NTF {#2}
-              { \@@_gset_punct_dim:nnnx { glue } {#1} {#2} { \c_zero_dim } }
+              { \@@_save_punct_dim:nnnn { glue } {#1} {#2} { \c_zero_dim } }
               {
                 \UseInstance { xeCJK / punctuation }
                   { \l_xeCJK_punct_style_tl } {#1} {#2} { }
@@ -4404,22 +4410,22 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_calc_punct_dimen:N #1
   {
-    \@@_gset_punct_dim:nnnx { bound } \c_@@_left_tl {#1}
+    \@@_save_punct_dim:nnnn { bound } \c_@@_left_tl {#1}
       { \xeCJK_glyph_bounds:NN \c_one {#1} }
-    \@@_gset_punct_dim:nnnx { bound } \c_@@_right_tl {#1}
+    \@@_save_punct_dim:nnnn { bound } \c_@@_right_tl {#1}
       { \xeCJK_glyph_bounds:NN \c_three {#1} }
     \dim_set:Nn \l_@@_tmp_dim
       {
         ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#1} ) +
         ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
       }
-    \@@_gset_punct_dim:nnx { width } {#1}
-      { \dim_use:N \etex_fontcharwd:D \tex_font:D \xeCJK_token_value_charcode:N #1 }
-    \@@_gset_punct_dim:nnx { dimen } {#1}
-      { \dim_eval:n { \@@_use_punct_dim:nn { width } {#1} - \l_@@_tmp_dim } }
+    \@@_save_punct_dim:nnn { width } {#1}
+      { \etex_fontcharwd:D \tex_font:D \xeCJK_token_value_charcode:N #1 }
+    \@@_save_punct_dim:nnn { dimen } {#1}
+      { \@@_use_punct_dim:nn { width } {#1} - \l_@@_tmp_dim }
     \@@_punct_if_long:NT {#1}
       {
-        \@@_gset_punct_dim:nnnx { kern } {#1} {#1}
+        \@@_save_punct_dim:nnnn { kern } {#1} {#1}
           {
             \bool_if:nTF
               {
@@ -4427,7 +4433,7 @@ $URL$
                 \str_if_eq_p:nn {#1} { ^^^^2026 }
               }
               { \c_zero_dim }
-              { - \dim_use:N \l_@@_tmp_dim }
+              { - \l_@@_tmp_dim }
           }
       }
   }
@@ -4454,7 +4460,7 @@ $URL$
     \tl_if_exist:cF { \@@_punct_dim_csname:nnn { kern } {#1} {#2} }
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
-          { \@@_gset_punct_dim:nnnx { kern } {#1} {#2} { \c_zero_dim } }
+          { \@@_save_punct_dim:nnnn { kern } {#1} {#2} { \c_zero_dim } }
           {
             \UseInstance { xeCJK / punctuation }
               { \l_xeCJK_punct_style_tl } { } {#1} {#2}
@@ -4502,8 +4508,8 @@ $URL$
   {
     \IfInstanceExistTF { xeCJK / punctuation } {#1}
       { \@@_warning:nx { punct-style-already-defined } {#1} }
-      { \seq_gput_right:Nn \g_@@_punct_style_seq {#1} }
-    \DeclareInstance { xeCJK / punctuation } {#1} { basic } {#2}
+      { \seq_gput_right:Nx \g_@@_punct_style_seq {#1} }
+    \exp_args:Nnx \DeclareInstance { xeCJK / punctuation } {#1} { basic } {#2}
   }
 \seq_new:N \g_@@_punct_style_seq
 \@@_msg_new:nn { punct-style-already-defined }
@@ -4521,7 +4527,7 @@ $URL$
 \NewDocumentCommand \xeCJKEditPunctStyle { > { \TrimSpaces } m m }
   {
     \IfInstanceExistTF { xeCJK / punctuation } {#1}
-      { \EditInstance { xeCJK / punctuation } {#1} {#2} }
+      { \exp_args:Nnx \EditInstance { xeCJK / punctuation } {#1} {#2} }
       { \@@_error:nx { punct-style-unknown } {#1} }
   }
 \@onlypreamble \xeCJKEditPunctStyle
@@ -4632,11 +4638,9 @@ $URL$
       {
         \str_if_eq_x:nnTF { \CJKfamilydefault } { \l_xeCJK_family_tl }
           {
-            \use:x
-              {
-                \msg_warning:nnnnn { xeCJK } { missing-glyph }
-                  { \l_@@_fallback_family_tl } {#1} { \int_to_hexadecimal:n { `#1 } }
-              }
+            \@@_warning:nxxx { missing-glyph }
+              { \l_@@_fallback_family_tl } {#1}
+              { \int_to_hexadecimal:n { `#1 } }
             \@@_fallback_save_CJKsymbol:N {#1}
           }
           {
@@ -6331,6 +6335,7 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK@text@composite}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
+% \changes{v3.2.5}{2013/07/15}{改进混合重音是否存在的判断。}
 % 这里修改的目的是让 |\'{\^e}| 等直接展开成在 \pkg{xunicode} 中由下面定义的
 % |\char"1EBF\relax|，也就是让这些定义生效：
 % \begin{verbatim}
@@ -6345,6 +6350,9 @@ $URL$
 % 得到实际字符，而不需要通过 \cs{char}。但是，如果在 \pkg{xeCJK} 中修改的话，还要
 % \cs{ReloadXunicode} 才会起作用。需要注意的是，如果原来字体中缺少 \'{\^e} 这个字符，
 % 但是有 \^e 这个字符的话，|\'{\^e}| 会输出为 \^e，现在则是留下一个空白。
+% 不直接使用 \cs{tl_to_str:n} 的原因是，它会使得控制文字后面多一个空格。
+% 例如 |\'{\u a}| 被记号化为 \verb*|\\EU1\'-\u a|，而 \pkg{xunicode} 定义的是
+% |\\EU1\'-\ua|。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK@text@composite #1#2#3 \@text@composite
   {
@@ -6356,8 +6364,12 @@ $URL$
   {
     \tl_if_empty:nTF {#2}
       { \orig@text@composite #1 \@empty \@text@composite }
-      { \cs_if_exist_use:cF { \token_to_str:N #1 - \token_to_str:N #2 } }
+      { \cs_if_exist_use:cF { \token_to_str:N #1 - \@@_tl_to_str:n {#2} } }
   }
+\cs_new:Npn \@@_tl_to_str:n #1
+  { \tl_map_function:nN {#1} \@@_tl_to_str_aux:n }
+\cs_new:Npn \@@_tl_to_str_aux:n #1
+  { \tl_if_single_token:nTF {#1} { \token_to_str:N #1 } { \tl_to_str:n {#1} } }
 \cs_new_eq:NN \orig@text@composite \@text@composite
 \cs_set_eq:NN \@text@composite \xeCJK@text@composite
 %    \end{macrocode}
