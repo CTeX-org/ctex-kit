@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5145}
+% \CheckSum{5181}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -2581,8 +2581,13 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_class_group_begin:,\xeCJK_class_group_end:}
 %    \begin{macrocode}
-\cs_new_eq:NN \xeCJK_class_group_begin: \c_group_begin_token
-\cs_new_eq:NN \xeCJK_class_group_end:   \c_group_end_token
+\cs_new_protected_nopar:Npn \xeCJK_class_group_begin:
+  {
+    \c_group_begin_token
+    \bool_set_true:N \l_@@_CJK_group_bool
+  }
+\bool_new:N \l_@@_CJK_group_bool
+\cs_new_eq:NN \xeCJK_class_group_end: \c_group_end_token
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6025,7 +6030,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_visible_space:
   {
-    \scan_stop:
+    \bool_if:NT \l_@@_CJK_group_bool { \scan_stop: }
     \xeCJK_glyph_if_exist:NTF { ^^^^2423 }
       { ^^^^2423 }
       {
@@ -6345,6 +6350,11 @@ $URL$
 \RenewDocumentCommand \nobreakspace { } { \leavevmode \nobreak \ }
 %    \end{macrocode}
 % \end{macro}
+%
+% 当符号命令紧跟在 CJK 字符类后面时，强制发生状态转移，使字体回到西文状态。
+%    \begin{macrocode}
+\AtBeginUTFCommand { \bool_if:NT \l_@@_CJK_group_bool { \scan_stop: } }
+%    \end{macrocode}
 %
 % \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
 % 比较老版本的 \pkg{realscripts} 定义了 \cs{dim_max:nn} 和 \cs{dim_min:nn}，这与
@@ -7922,11 +7932,11 @@ $URL$
   {
     \@@_provide_text_command_default:N #1
     \group_begin:
-    \char_set_lccode:nn { `A } { \@@_check_slot:n {#3} }
+    \char_set_lccode:nn { `0 } { \@@_check_slot:n {#3} }
     \tl_to_lowercase:n
       {
         \group_end:
-        \@@_declare_character:NNn A
+        \@@_declare_character:NNn 0
       }
       #1 {#2}
   }
@@ -7959,8 +7969,10 @@ $URL$
   { \DeclareTextCommand #2 {#3} { \@@_text_character:NN {#1} {#2} } }
 \cs_new_protected:Npn \@@_text_character:NN #1#2
   {
+    \tl_use:N \l_@@_begin_hook_tl
     \@@_glyph_if_exist:nTF { `#1 }
       {#1} { \cs_if_exist_use:cF { ? \token_to_str:N #2 } {#1} }
+    \tl_use:N \l_@@_end_hook_tl
   }
 \cs_generate_variant:Nn \@@_declare_character:Nnn { c }
 %    \end{macrocode}
@@ -8074,6 +8086,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_text_composite:nNNNn #1#2#3#4#5
   {
+    \tl_use:N \l_@@_begin_hook_tl
     \cs_if_exist:cTF { #1 - \tl_to_str:n {#5} }
       {
         \@@_glyph_if_exist:nTF { \use:c { #1 - \tl_to_str:n {#5} } }
@@ -8081,6 +8094,7 @@ $URL$
           { \@@_add_accent:nNNN {#5} #2#3#4 }
       }
       { \@@_add_accent:nNNN {#5} #2#3#4 }
+    \tl_use:N \l_@@_end_hook_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8114,6 +8128,26 @@ $URL$
           }
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\AtBeginUTFCommand,\AtEndUTFCommand}
+% 在符号命令前后使用的钩子。
+%    \begin{macrocode}
+\NewDocumentCommand \AtBeginUTFCommand { s +m }
+  {
+    \IfBooleanTF {#1}
+      { \tl_set:Nn \l_@@_begin_hook_tl {#2} }
+      { \tl_put_right:Nn \l_@@_begin_hook_tl {#2} }
+  }
+\NewDocumentCommand \AtEndUTFCommand { s +m }
+  {
+    \IfBooleanTF {#1}
+      { \tl_set:Nn \l_@@_end_hook_tl {#2} }
+      { \tl_put_right:Nn \l_@@_end_hook_tl {#2} }
+  }
+\tl_new:N \l_@@_begin_hook_tl
+\tl_new:N \l_@@_end_hook_tl
 %    \end{macrocode}
 % \end{macro}
 %
