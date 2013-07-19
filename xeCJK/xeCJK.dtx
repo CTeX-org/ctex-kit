@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5181}
+% \CheckSum{5183}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -5351,7 +5351,7 @@ $URL$
     \prop_gput:Nxx \g_@@_family_name_prop {#1} {#2}
     \cs_gset_protected_nopar:cpx { \@@_family_nfss_csname:n {#1} }
       {
-        \tl_set:Nx \exp_not:N \f@encoding { \c_@@_encoding_tl }
+        \exp_not:N \fontencoding { \c_@@_encoding_tl }
         \tl_set:Nx \exp_not:N \f@family {#2}
         \exp_not:N \selectfont
       }
@@ -6077,7 +6077,7 @@ $URL$
   }
 \cs_new_protected_nopar:Npn \@@_set_visible_space_size:n #1
   {
-    \tl_set:Nx \f@encoding { \g_fontspec_encoding_tl }
+    \fontencoding { \g_fontspec_encoding_tl }
     \tl_set:Nx \f@family { lmtt }
     \selectfont
     \dim_compare:nNnF {#1} = { \tex_fontdimen:D \c_two \tex_font:D }
@@ -7936,9 +7936,9 @@ $URL$
     \tl_to_lowercase:n
       {
         \group_end:
-        \@@_declare_character:NNn 0
+        \@@_declare_character:NNxn 0
       }
-      #1 {#2}
+      #1 { \token_to_str:N #1 } {#2}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7947,6 +7947,17 @@ $URL$
 % 如果控制序列 |#1| 已经存在，但不是符号命令，\pkg{xunicode} 会将它定义为
 % \cs{UTFencname} 编码下的符号命令。但是编码被转换之后，再使用这些控制序列，
 % \pkg{NFSS} 就会报错。为此需要给出这些符号命令的默认定义，与原来的意义相同。
+% 这些命令包括
+% \begin{verbatim}
+%   \nobreakspace   macro:->\protect \nobreakspace
+%   \copyright      macro:->\protect \copyright
+%   \AA             macro:->\r A
+%   \aa             macro:->\r a
+%   \textrhookopeno \long macro:->\textrethookbelow {\textopeno }
+%   \hbar           macro:->{\mathchar '26\mkern -9muh}
+%   \textaolig      macro:->{a\kern -.25em o}
+% \end{verbatim}
+% 影响比较大的是 \cs{nobreakspace}、\cs{copyright} 和 \cs{hbar}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_provide_text_command_default:N #1
   {
@@ -7960,21 +7971,21 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_declare_character:NNn}
-% 使用编码 |#3| 下的符号命令 |#2| 的时候先判断它对应的实际字符 |#1| 在当前字体中
+% \begin{macro}[internal]{\@@_declare_character:NNnn}
+% 使用编码 |#4| 下的符号命令 |#2| 的时候先判断它对应的实际字符 |#1| 在当前字体中
 % 是否存在。如果不存在则转换到 \cs{DeclareTextSymbolDefault} 中设置的编码或者使用
 % \cs{Declare\-Text\-Command\-Default} 中设置的命令。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_declare_character:NNn #1#2#3
-  { \DeclareTextCommand #2 {#3} { \@@_text_character:NN {#1} {#2} } }
-\cs_new_protected:Npn \@@_text_character:NN #1#2
+\cs_new_protected:Npn \@@_declare_character:NNnn #1#2#3#4
+  { \DeclareTextCommand #2 {#4} { \@@_text_character:nN {#3} {#1} } }
+\cs_new_protected:Npn \@@_text_character:nN #1#2
   {
     \tl_use:N \l_@@_begin_hook_tl
-    \@@_glyph_if_exist:nTF { `#1 }
-      {#1} { \cs_if_exist_use:cF { ? \token_to_str:N #2 } {#1} }
+    \@@_glyph_if_exist:nTF { `#2 }
+      {#2} { \cs_if_exist_use:cF { ? #1 } {#2} }
     \tl_use:N \l_@@_end_hook_tl
   }
-\cs_generate_variant:Nn \@@_declare_character:Nnn { c }
+\cs_generate_variant:Nn \@@_declare_character:NNnn { NNx }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8067,51 +8078,56 @@ $URL$
     \tl_to_lowercase:n
       {
         \group_end:
-        \@@_declare_accent:NNNxn 3 4
+        \@@_declare_accent:NNNxxn 3 4
       }
-      #1 { \token_to_str:c {#2} \token_to_str:N #1 } {#2}
+      #1 { \token_to_str:c {#2} } { \token_to_str:N #1 } {#2}
   }
-\cs_new_protected:Npn \@@_declare_accent:NNNnn #1#2#3#4#5
+\cs_new_protected:Npn \@@_declare_accent:NNNnnn #1#2#3#4#5#6
   {
-    \DeclareTextCommand #3 {#5}
-      { \@@_text_composite:nNNNn {#4} {#3} {#1} {#2} }
+    \DeclareTextCommand #3 {#6}
+      { \@@_text_composite:nnNNn {#4} {#5} {#1} {#2} }
   }
-\cs_generate_variant:Nn \@@_declare_accent:NNNnn { NNNx }
+\cs_generate_variant:Nn \@@_declare_accent:NNNnnn { NNNxx }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_text_composite:nNNNn}
+% \begin{macro}[internal]{\@@_text_composite:nnNNn}
 % 若重音命令 |#2| 与它的参数 |#5| 的复合已经由 \cs{DeclareUTFcomposite} 设置，
 % 并且在当前字体中存在该字符，则直接使用。否则使用组合命令。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_text_composite:nNNNn #1#2#3#4#5
+\cs_new_protected:Npn \@@_text_composite:nnNNn #1#2#3#4#5
   {
     \tl_use:N \l_@@_begin_hook_tl
-    \cs_if_exist:cTF { #1 - \tl_to_str:n {#5} }
+    \cs_if_exist:cTF { #1#2 - \tl_to_str:n {#5} }
       {
-        \@@_glyph_if_exist:nTF { \use:c { #1 - \tl_to_str:n {#5} } }
-          { \use:c { #1 - \tl_to_str:n {#5} } }
-          { \@@_add_accent:nNNN {#5} #2#3#4 }
+        \token_if_chardef:cTF { #1#2 - \tl_to_str:n {#5} }
+          {
+            \@@_glyph_if_exist:nTF { \use:c { #1#2 - \tl_to_str:n {#5} } }
+              { \use:c { #1#2 - \tl_to_str:n {#5} } }
+              { \@@_add_accent:nnNN {#5} {#2} #3#4 }
+          }
+          { \use:c { #1#2 - \tl_to_str:n {#5} } }
       }
-      { \@@_add_accent:nNNN {#5} #2#3#4 }
+      { \@@_add_accent:nnNN {#5} {#2} #3#4 }
     \tl_use:N \l_@@_end_hook_tl
   }
+\cs_generate_variant:Nn \token_if_chardef:NTF { c }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_add_accent:nNNN}
+% \begin{macro}[internal]{\@@_add_accent:nnNN}
 % 若组合重音符号的 |#3| 和基本重音符号 |#4| 在当前字体中都不存在，则转换到
 % \cs{Declare\-Text\-Accent\-Default} 设置的编码或者使用
 % \cs{DeclareTextCommandDefault} 中设置的命令。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_add_accent:nNNN #1#2#3#4
+\cs_new_protected:Npn \@@_add_accent:nnNN #1#2#3#4
   {
     \tl_if_blank:nTF {#1}
       {
         \@@_glyph_if_exist:nTF { `#4 }
           {#4}
           {
-            \cs_if_exist_use:cTF { ? \token_to_str:N #2 }
+            \cs_if_exist_use:cTF { ? #2 }
               { { } } {#4}
           }
       }
@@ -8122,7 +8138,7 @@ $URL$
             \@@_glyph_if_exist:nTF { `#4 }
               { \add@accent { `#4 } {#1} }
               {
-                \cs_if_exist_use:cTF { ? \token_to_str:N #2 }
+                \cs_if_exist_use:cTF { ? #2 }
                   { {#1} } {#1}
               }
           }
