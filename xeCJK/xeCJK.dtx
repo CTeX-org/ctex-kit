@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5183}
+% \CheckSum{5216}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -6340,6 +6340,68 @@ $URL$
 %
 % \subsection{兼容性修补}
 %
+% \begin{macro}[internal]{\(}
+% \changes{v3.2.5}{2013/07/25}
+% {解决汉字后紧跟 \cs{(}\texttt{...}\cs{)} 形式的行内数学公式时，不能加入间距的问题。}
+% \cs{(} 的在 \LaTeXe 中的定义是
+% \begin{verbatim}
+%   \def\({\relax\ifmmode\@badmath\else$\fi}
+% \end{verbatim}
+% 这个定义最开始的 \cs{relax} 是为了防止 \cs{(} 出现在表格单元格的开始位置时，模式
+% 判断不正确（因为 \TeX 会先看单元格中第一个不可展的非空格记号是否是 \cs{omit} 或 \cs{noalign}）。^^A
+% 但是它会造成一个边界，使 \pkg{xeCJK} 不能看到 \cs{relax} 后面出现的 |$|，从而不能
+% 加入间距\footnote{\url{http://tex.stackexchange.com/q/124773}}。使用 \hologo{eTeX}
+% 的 \cs{protected} 来定义它，可以不需要 \cs{relax}，或者将 \cs{relax} 改成
+% \cs{scan_align_safe_stop:}，都可以避免这些情况。同时 \pkg{fixltx2e}中还使用了
+% |\MakeRobust\(|，我们需要小心处理。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_math_robust:N #1
+  { \exp_args:NNc \@@_math_robust:NN #1 { \cs_to_str:N #1 ~ } }
+\cs_new_protected_nopar:Npn \@@_math_robust:NN #1#2
+  {
+    \bool_if:nT
+      {
+        \str_if_eq_x_p:nn
+          { \token_get_replacement_spec:N #1 }
+          { \exp_not:n { \x@protect #1 \protect #2 } } &&
+        \exp_args:Nf \tl_if_empty_p:n { \token_get_arg_spec:N #2 }  &&
+        \exp_args:No \tl_if_head_eq_meaning_p:nN {#2} \scan_stop:
+      }
+      { \cs_gset_protected_nopar:Npx #1 { \scan_align_safe_stop: \tl_tail:N #2 } }
+  }
+\@@_math_robust:N \(
+\@@_math_robust:N \)
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\[}
+% \changes{v3.2.5}{2013/07/25}{解决 \pkg{fixltx2e} 和 \pkg{amsthm} 的冲突。}
+% 当 \pkg{amsmath} 没有在 \pkg{amsthm} 之前被调用时，\pkg{amsthm} 会展开 \cs{[}，
+% 并用 |$| 作为参数定界记号，相关代码为
+% \begin{verbatim}
+%   \def\@tempa#1$#2#3\@nil{%
+%     \def\[{#1$#2\def\@currenvir{displaymath}#3}%
+%   }%
+%   \expandafter\@tempa\[\@nil
+% \end{verbatim}
+% 而 \pkg{fixltx2e} 中使用了 |\MakeRobust\[|，使得将 \cs{[} 展开一次的内容中并
+% 不直接含有 |$|，从而造成了 \texttt{Runaway argument?} 的错误。可以在 \pkg{amsthm}
+% 之前引入 \pkg{amsmath}，避免出现这个错误。我们下面用 \hologo{eTeX} 的 \cs{protected}
+% 来定义它。当然，如果之后只使用 \pkg{amsthm}，那么 \cs{[} 会被修改，将不再是^^A
+% “健壮”的了。这也是上面 \cs{@@_math_robust:NN} 中还使用 \cs{scan_align_safe_stop:} 的原因。
+%    \begin{macrocode}
+\bool_if:nF
+  {
+    \xeCJK_if_package_loaded_p:n { amsmath } ||
+    \xeCJK_if_package_loaded_p:n { amsthm }
+  }
+  {
+    \@@_math_robust:N \[
+    \@@_math_robust:N \]
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\nobreakspace}
 % \changes{v3.1.2}{2013/01/01}
 % {修正非 \cs{UTFencname} 编码下面 \pkg{xunicode} 重定义的 \cs{nobreakspace} 会失效的问题。}
@@ -8118,7 +8180,11 @@ $URL$
 % \begin{macro}[internal]{\@@_add_accent:nnNN}
 % 若组合重音符号的 |#3| 和基本重音符号 |#4| 在当前字体中都不存在，则转换到
 % \cs{Declare\-Text\-Accent\-Default} 设置的编码或者使用
-% \cs{DeclareTextCommandDefault} 中设置的命令。
+% \cs{DeclareTextCommandDefault} 中设置的命令。\texttt{0.9999} 版以前的 \XeTeX
+% 需要设置 \cs{XeTeXinputnormalization} 为 $1$，才能使用字体中由基础字符和组合符号
+% 对应的实际字符；而 \texttt{0.9999} 版以后的 \XeTeX 默认就启用这个功能，^^A
+% \cs{XeTeXinputnormalization} 似乎是无效的，怀疑是使用 HarfBuzz 库替代 ICU 进行
+% 字体排版的缘故\footnote{\url{http://tug.org/pipermail/xetex/2013-July/024579.html}}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_add_accent:nnNN #1#2#3#4
   {
@@ -8128,7 +8194,7 @@ $URL$
           {#4}
           {
             \cs_if_exist_use:cTF { ? #2 }
-              { { } } {#4}
+              { {#1} } {#4}
           }
       }
       {
