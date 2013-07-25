@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5216}
+% \CheckSum{5213}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -5808,39 +5808,41 @@ $URL$
 % 不破坏标点禁则，增加值 \texttt{env+}。}
 %
 % \begin{macro}{Verb}
+% \changes{v3.2.5}{2013/07/25}{微调定义。}
 % 如果设置为 \texttt{env}，则只在 \LaTeX 的抄录环境里使用 \cs{xeCJKVerbAddon}，^^A
 % 而不包括 \cs{verb}。对当前使用环境的判断基于在标准 \LaTeX 的坏境定义里使用
 % \cs{begingroup} 和 \cs{endgroup} 来分组。
 %    \begin{macrocode}
+\int_new:N \l_@@_verb_case_int
 \keys_define:nn { xeCJK / options }
   {
-    Verb .choice: ,
-    Verb / true  .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_zero } ,
-    Verb / env   .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_one } ,
-    Verb / env+  .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_two } ,
-    Verb / false .code:n = { \int_set_eq:NN \l_@@_verb_case_int \c_three } ,
-    Verb      .default:n = { env }
+    Verb .choices:nn =
+      { true , env , env+ , false }
+      { \int_set_eq:NN \l_@@_verb_case_int \l_keys_choice_int } ,
+    Verb  .default:n = { env }
   }
-\int_new:N \l_@@_verb_case_int
-\@@_after_preamble:n
+\cs_new_protected_nopar:Npn \@@_verb_font_hook:
   {
-    \tl_put_right:Nn \verbatim@font
-      {
-        \if_case:w \l_@@_verb_case_int
+    \if_case:w \l_@@_verb_case_int
+    \or:
+      \cs_set_eq:NN \CJKglue   \@@_zero_glue:
+      \cs_set_eq:NN \CJKecglue \@@_zero_glue:
+    \or:
+      \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
+        { \xeCJKVerbAddon }
+        {
           \cs_set_eq:NN \CJKglue   \@@_zero_glue:
           \cs_set_eq:NN \CJKecglue \@@_zero_glue:
-        \or:
-          \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
-            { \xeCJKVerbAddon }
-            {
-              \cs_set_eq:NN \CJKglue   \@@_zero_glue:
-              \cs_set_eq:NN \CJKecglue \@@_zero_glue:
-            }
-        \or:
-          \int_compare:nNnT \etex_currentgrouptype:D = \c_fourteen
-            { \xeCJKVerbAddon }
-        \fi:
-      }
+        }
+    \or:
+      \int_compare:nNnT \etex_currentgrouptype:D = \c_fourteen
+        { \xeCJKVerbAddon }
+    \fi:
+  }
+\@@_after_preamble:n
+  {
+    \cs_set_protected_nopar:Npx \verbatim@font
+      { \exp_not:o { \verbatim@font } \@@_verb_font_hook: }
   }
 %    \end{macrocode}
 % \end{macro}
