@@ -335,12 +335,13 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5213}
+% \CheckSum{5217}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
 % \changes{v3.2.3}{2013/06/07}{提供四个 TECkit 映射文件用于句号转换和简繁互换。}
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
+% \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1402,7 +1403,7 @@ $URL$
     using~your~TeX~package~manager~or~from~CTAN.\\
     \str_if_eq:nnT {#1} { expl3 } { Loading~xeCJK~will~abort! }
   }
-\@ifpackagelater { expl3 } { 2012/11/10 } { }
+\@ifpackagelater { expl3 } { 2013/07/20 } { }
   { \msg_critical:nnn { xeCJK } { l3-too-old } { expl3 } }
 %    \end{macrocode}
 %
@@ -3177,7 +3178,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
-    \int_case:nnn { \etex_lastnodetype:D }
+    \int_case:nnTF { \etex_lastnodetype:D }
       {
         { \c_one       }
         {
@@ -3226,7 +3227,7 @@ $URL$
             { \use:n }
         }
       }
-      { \use:n }
+      { { \@@_punct_glue:NN \c_@@_left_tl {#1} } }
       { \@@_punct_glue:NN \c_@@_left_tl {#1} }
   }
 %    \end{macrocode}
@@ -3428,11 +3429,15 @@ $URL$
   {
     \xeCJK_get_punct_bounds:NN \c_@@_right_tl \g_@@_last_punct_tl
     \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
-    \tl_case:Non \l_peek_token { \l_@@_no_break_cs_case_tl } {  }
+    \group_align_safe_begin:
+    \tl_case:NoTF \l_peek_token
+      { \l_@@_no_break_cs_case_tl }
+      { \group_align_safe_end: \xeCJK_no_break: }
+      { \group_align_safe_end: }
     \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
     \xeCJK_class_group_end:
   }
-\cs_generate_variant:Nn \tl_case:Nnn { No }
+\cs_generate_variant:Nn \tl_case:NnTF { No }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3482,7 +3487,7 @@ $URL$
 % 设置不能在全角右标点之后断行的控制序列。
 %    \begin{macrocode}
 \xeCJK_cs_case_keys_define:nNNnn { NoBreakCS }
-  \l_@@_no_break_cs_case_tl \l_@@_no_break_cs_seq { \xeCJK_no_break: } { }
+  \l_@@_no_break_cs_case_tl \l_@@_no_break_cs_seq { } { }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3663,14 +3668,14 @@ $URL$
 %    l.10 \item
 % \end{verbatim}
 % 原因在于 \env{tabenum} 实际上是一个 \TeX 对齐环境（\cs{halign}），\cs{par} 在
-% 其中被重定义为 \cs{cr}。而在下面 \cs{tl_case:Nnn} 的分支里有对 \cs{par} 的
+% 其中被重定义为 \cs{cr}。而在下面 \cs{tl_case:NnF} 的分支里有对 \cs{par} 的
 % \cs{ifx} 判断。解决办法是将判断用 \cs{group_align_safe_begin:} 和
 % \cs{group_align_safe_end:} 包起来。或者改用原语 \cs{tex_par:D} 作为判断条件。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_cs:NNn #1#2#3
   {
     \group_align_safe_begin:
-    \tl_case:Non \l_peek_token
+    \tl_case:NoF \l_peek_token
       { \l_@@_check_single_cs_case_tl }
       { \group_align_safe_end: \use_iii:nnn }
       { \xeCJK_check_single_env:nnNn }
@@ -3681,6 +3686,7 @@ $URL$
       { \@@_check_single_save:N #1 #2#3 }
   }
 \tl_new:N \l_@@_check_single_cs_case_tl
+\cs_generate_variant:Nn \tl_case:NnF { No }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3689,13 +3695,13 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_check_single_env:nnNn #1#2#3#4
   {
     \group_align_safe_begin:
-    \str_case_x:non {#4}
+    \str_case_x:noTF {#4}
       { \l_@@_inline_env_case_tl }
-      { \group_align_safe_end: \use_i:nn }
-      {#1} {#2}
+      { \group_align_safe_end: #2 }
+      { \group_align_safe_end: #1 }
     \scan_stop: #3 {#4}
   }
-\cs_generate_variant:Nn \str_case_x:nnn { no }
+\cs_generate_variant:Nn \str_case_x:nnTF { no }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3762,7 +3768,7 @@ $URL$
   {
     \tl_clear:N \l_@@_inline_env_case_tl
     \seq_map_inline:Nn \l_@@_inline_env_seq
-      { \tl_put_right:Nn \l_@@_inline_env_case_tl { {##1} { \use_ii:nn } } }
+      { \tl_put_right:Nn \l_@@_inline_env_case_tl { {##1} { } } }
   }
 \tl_new:N \l_@@_inline_env_case_tl
 %    \end{macrocode}
@@ -4985,7 +4991,7 @@ $URL$
     \cs_gset_protected_nopar:cpx { \@@_family_csname:n {#1} }
       {
         \group_begin:
-        \exp_not:n { \cs_set_eq:NN \@@_update_family:n \use_none:n }
+        \exp_not:n { \cs_set_eq:NN \@@_update_family:n \use_none:nn }
         \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
@@ -6468,19 +6474,15 @@ $URL$
 \RenewDocumentCommand \fontfamily { m }
   {
     \tl_set:Nx \f@family {#1}
-    \@@_update_family:n
+    \@@_update_family:nn {#1}
       {
-        \str_case:nnn {#1}
-          {
-            { \rmdefault }     { \xeCJK_switch_family:n { \CJKrmdefault } }
-            { \sfdefault }     { \xeCJK_switch_family:n { \CJKsfdefault } }
-            { \ttdefault }     { \xeCJK_switch_family:n { \CJKttdefault } }
-            { \familydefault } { \xeCJK_switch_family:n { \CJKfamilydefault } }
-          }
-          { }
+        { \rmdefault }     { \xeCJK_switch_family:n { \CJKrmdefault } }
+        { \sfdefault }     { \xeCJK_switch_family:n { \CJKsfdefault } }
+        { \ttdefault }     { \xeCJK_switch_family:n { \CJKttdefault } }
+        { \familydefault } { \xeCJK_switch_family:n { \CJKfamilydefault } }
       }
   }
-\cs_new_eq:NN \@@_update_family:n \use:n
+\cs_new_eq:NN \@@_update_family:nn \str_case:nn
 %    \end{macrocode}
 % \end{macro}
 %
