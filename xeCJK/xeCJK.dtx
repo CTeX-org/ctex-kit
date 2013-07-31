@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5126}
+% \CheckSum{5122}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -4847,17 +4847,13 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\c_@@_font_shape_prop,\l_@@_font_shape_prop}
+% \begin{macro}[internal]{BoldFont,ItalicFont}
 % 调用字体的属性声明，同 \pkg{fontspec} 宏包。
 %    \begin{macrocode}
-\prop_new:N \c_@@_font_shape_prop
-\prop_new:N \l_@@_font_shape_prop
-\clist_map_inline:nn
-  { BoldFont , ItalicFont , BoldItalicFont , SlantedFont , BoldSlantedFont }
+\keys_define:nn { xeCJK / features }
   {
-    \prop_gput:Nnn \c_@@_font_shape_prop {#1} { }
-    \keys_define:nn { xeCJK / features }
-      { #1 .code:n = { \prop_put:Nnn \l_@@_font_shape_prop {#1} {##1} } }
+    BoldFont   .tl_set:N = \l_@@_font_name_bf_tl ,
+    ItalicFont .tl_set:N = \l_@@_font_name_it_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4907,8 +4903,9 @@ $URL$
   {
     \int_gincr:N \g_@@_family_int
     \prop_clear:N \l_@@_sub_key_prop
+    \tl_clear:N \l_@@_font_name_bf_tl
+    \tl_clear:N \l_@@_font_name_it_tl
     \clist_clear:N \l_@@_fontspec_options_clist
-    \prop_set_eq:NN \l_@@_font_shape_prop \c_@@_font_shape_prop
     \bool_set_eq:NN \l_@@_auto_fake_bold_bool   \g_@@_auto_fake_bold_bool
     \bool_set_eq:NN \l_@@_auto_fake_slant_bool  \g_@@_auto_fake_slant_bool
     \fp_set_eq:NN \l_@@_embolden_factor_fp \g_@@_embolden_factor_fp
@@ -5022,32 +5019,29 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_parse_font_shape:
   {
-    \prop_map_inline:Nn \l_@@_font_shape_prop
+    \tl_if_blank:VTF \l_@@_font_name_bf_tl
       {
-        \tl_if_blank:nTF {##2}
-          { \cs_if_exist_use:c { @@_set_fake_##1: } }
-          { \clist_put_right:Nn \l_@@_fontspec_options_clist { ##1 = {##2} } }
+        \bool_if:NT \l_@@_auto_fake_bold_bool
+          {
+            \clist_put_right:Nx \l_@@_fontspec_options_clist
+              { AutoFakeBold = { \fp_use:N \l_@@_embolden_factor_fp } }
+          }
       }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_set_fake_BoldFont:,\@@_set_fake_ItalicFont:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_set_fake_BoldFont:
-  {
-    \bool_if:NT \l_@@_auto_fake_bold_bool
       {
         \clist_put_right:Nx \l_@@_fontspec_options_clist
-          { AutoFakeBold = { \fp_use:N \l_@@_embolden_factor_fp } }
+          { BoldFont = { \exp_not:V \l_@@_font_name_bf_tl } }
       }
-  }
-\cs_new_protected_nopar:Npn \@@_set_fake_ItalicFont:
-  {
-    \bool_if:NT \l_@@_auto_fake_slant_bool
+    \tl_if_blank:VTF \l_@@_font_name_it_tl
+      {
+        \bool_if:NT \l_@@_auto_fake_slant_bool
+          {
+            \clist_put_right:Nx \l_@@_fontspec_options_clist
+              { AutoFakeSlant = { \fp_use:N \l_@@_slant_factor_fp } }
+          }
+      }
       {
         \clist_put_right:Nx \l_@@_fontspec_options_clist
-          { AutoFakeSlant = { \fp_use:N \l_@@_slant_factor_fp } }
+          { ItalicFont = { \exp_not:V \l_@@_font_name_it_tl } }
       }
   }
 %    \end{macrocode}
