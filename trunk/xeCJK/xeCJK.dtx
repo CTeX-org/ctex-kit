@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5217}
+% \CheckSum{5126}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -4847,34 +4847,34 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]
-%   {\g_@@_features_id_prop, BoldFont, ItalicFont, BoldItalicFont,
-%    SlantedFont, BoldSlantedFont,BoldFeatures, ItalicFeatures,
-%    BoldItalicFeatures, SlantedFeatures, BoldSlantedFeatures}
+% \begin{macro}[internal]{\c_@@_font_shape_prop,\l_@@_font_shape_prop}
 % 调用字体的属性声明，同 \pkg{fontspec} 宏包。
 %    \begin{macrocode}
-\prop_new:N \g_@@_features_id_prop
-\prop_put:Nnn \g_@@_features_id_prop { bf   } { Bold        }
-\prop_put:Nnn \g_@@_features_id_prop { it   } { Italic      }
-\prop_put:Nnn \g_@@_features_id_prop { bfit } { BoldItalic  }
-\prop_put:Nnn \g_@@_features_id_prop { sl   } { Slanted     }
-\prop_put:Nnn \g_@@_features_id_prop { bfsl } { BoldSlanted }
-\prop_map_inline:Nn \g_@@_features_id_prop
+\prop_new:N \c_@@_font_shape_prop
+\prop_new:N \l_@@_font_shape_prop
+\clist_map_inline:nn
+  { BoldFont , ItalicFont , BoldItalicFont , SlantedFont , BoldSlantedFont }
   {
+    \prop_gput:Nnn \c_@@_font_shape_prop {#1} { }
     \keys_define:nn { xeCJK / features }
-      {
-        #2Font        .tl_set:c = { l_@@_font_name_#1_tl } ,
-        #2Features .clist_set:c = { l_@@_font_feat_#1_clist }
-      }
+      { #1 .code:n = { \prop_put:Nnn \l_@@_font_shape_prop {#1} {##1} } }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \changes{v3.2.6}{2013/07/31}{\texttt{AutoFakeBold} 和 \texttt{AutoFakeSlant}
+% 选项直接使用 \pkg{fontspec} 的设置，修正不能调用相应实际字体的问题。}
 %
 % \begin{macro}[internal]{AutoFakeBold, AutoFakeSlant}
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / features }
   {
     AutoFakeBold  .choice: ,
+    AutoFakeBold / true    .code:n =
+      {
+        \bool_set_true:N \l_@@_auto_fake_bold_bool
+        \fp_set_eq:NN \l_@@_embolden_factor_fp \g_@@_embolden_factor_fp
+      } ,
     AutoFakeBold / false   .code:n =
       { \bool_set_false:N \l_@@_auto_fake_bold_bool } ,
     AutoFakeBold / unknown .code:n =
@@ -4882,8 +4882,13 @@ $URL$
         \bool_set_true:N \l_@@_auto_fake_bold_bool
         \fp_set:Nn \l_@@_embolden_factor_fp { \l_keys_value_tl }
       } ,
-    AutoFakeBold .default:n  = { \g_@@_embolden_factor_fp } ,
+    AutoFakeBold .default:n  = { true } ,
     AutoFakeSlant  .choice: ,
+    AutoFakeSlant / true    .code:n =
+      {
+        \bool_set_true:N \l_@@_auto_fake_slant_bool
+        \fp_set_eq:NN \l_@@_slant_factor_fp \g_@@_slant_factor_fp
+      } ,
     AutoFakeSlant / false   .code:n =
       { \bool_set_false:N \l_@@_auto_fake_slant_bool } ,
     AutoFakeSlant / unknown .code:n =
@@ -4891,7 +4896,7 @@ $URL$
         \bool_set_true:N \l_@@_auto_fake_slant_bool
         \fp_set:Nn \l_@@_slant_factor_fp { \l_keys_value_tl }
       } ,
-    AutoFakeSlant .default:n  = { \g_@@_slant_factor_fp }
+    AutoFakeSlant .default:n  = { true }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4901,21 +4906,15 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_set_family_initial:
   {
     \int_gincr:N \g_@@_family_int
-    \prop_clear:N \l_@@_add_font_prop
     \prop_clear:N \l_@@_sub_key_prop
-    \prop_map_inline:Nn \g_@@_features_id_prop
-      {
-        \tl_clear:c { l_@@_font_name_##1_tl }
-        \clist_clear:c { l_@@_font_feat_##1_clist }
-      }
     \clist_clear:N \l_@@_fontspec_options_clist
+    \prop_set_eq:NN \l_@@_font_shape_prop \c_@@_font_shape_prop
     \bool_set_eq:NN \l_@@_auto_fake_bold_bool   \g_@@_auto_fake_bold_bool
     \bool_set_eq:NN \l_@@_auto_fake_slant_bool  \g_@@_auto_fake_slant_bool
     \fp_set_eq:NN \l_@@_embolden_factor_fp \g_@@_embolden_factor_fp
     \fp_set_eq:NN \l_@@_slant_factor_fp    \g_@@_slant_factor_fp
   }
 \int_new:N \g_@@_family_int
-\prop_new:N \l_@@_add_font_prop
 \prop_new:N \l_@@_sub_key_prop
 \clist_new:N \l_@@_fontspec_options_clist
 \bool_new:N \l_@@_auto_fake_bold_bool
@@ -4940,8 +4939,7 @@ $URL$
     \@@_remove_duplicate_keys:N \l_@@_font_options_clist
     \keys_set_known:nVN { xeCJK / features }
       \l_@@_font_options_clist \l_@@_fontspec_options_clist
-    \@@_parse_features:
-    \@@_pass_features:
+    \@@_parse_font_shape:
     \@@_check_family:V \l_@@_family_name_tl
     \@@_gset_family_cs:x { \l_@@_family_name_tl }
     \@@_save_family_info:
@@ -5007,7 +5005,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_check_family:n #1
   {
-    \prop_get:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
+    \prop_gpop:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
       {
         \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmp_tl
           { \cs_undefine:c { \@@_family_nfss_csname:n {#1} } }
@@ -5020,154 +5018,37 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_add_font:nn,\@@_add_font_if_new:nn}
+% \begin{macro}[internal]{\@@_parse_font_shape:}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_add_font:nn #1#2
-  { \prop_put:Nnn \l_@@_add_font_prop { #1 Font } {#2} }
-\cs_new_protected_nopar:Npn \@@_add_font_if_new:nn #1#2
-  { \prop_put_if_new:Nnn \l_@@_add_font_prop { #1 Font } {#2} }
-\cs_generate_variant:Nn \@@_add_font:nn        { nx , nV , nv }
-\cs_generate_variant:Nn \@@_add_font_if_new:nn { nx , nV , nv }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_add_fake_bold:n,\@@_add_fake_slant:n}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_add_fake_bold:n #1
+\cs_new_protected_nopar:Npn \@@_parse_font_shape:
   {
-    \clist_put_left:cx { l_@@_font_feat_#1_clist }
-      { FakeBold = { \fp_use:N \l_@@_embolden_factor_fp } }
-  }
-\cs_new_protected_nopar:Npn \@@_add_fake_slant:n #1
-  {
-    \clist_put_left:cx { l_@@_font_feat_#1_clist }
-      { FakeSlant = { \fp_use:N \l_@@_slant_factor_fp } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_parse_features:,\@@_parse_features:nn}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_parse_features:
-  { \prop_map_function:NN \g_@@_features_id_prop \@@_parse_features:nn }
-\cs_new_protected_nopar:Npn \@@_parse_features:nn #1#2
-  {
-    \@@_if_font_select:nTF {#1}
+    \prop_map_inline:Nn \l_@@_font_shape_prop
       {
-        \@@_add_font:nv {#2} { l_@@_font_name_#1_tl }
-        \@@_if_it_or_sl:nTF {#1}
-          {
-            \@@_if_font_select:nF { bf #1 }
-              { \@@_add_font_if_new:nv {#2} { l_@@_font_name_#1_tl }  }
-          }
-          {
-            \str_if_eq:nnT {#1} { bf }
-              {
-                \@@_if_font_select:nF { bfit }
-                  { \@@_add_font:nV { BoldItalic } \l_@@_font_name_bf_tl }
-                \@@_if_font_select:nF { bfsl }
-                  { \@@_add_font:nV { BoldSlanted } \l_@@_font_name_bf_tl }
-              }
-          }
-      }
-      { \@@_set_fake_font:nn {#1} {#2} }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,internal]{\@@_if_font_select:n,\@@_if_it_or_sl:n}
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \@@_if_font_select:n #1 { p , T , F , TF }
-  {
-    \tl_if_blank:vTF { l_@@_font_name_#1_tl }
-      { \prg_return_false: } { \prg_return_true: }
-  }
-\prg_new_conditional:Npnn \@@_if_it_or_sl:n #1 { p , T , F , TF }
-  {
-    \if_predicate:w
-      \bool_if_p:n { \str_if_eq_p:nn { it } {#1} || \str_if_eq_p:nn { sl } {#1} }
-      \prg_return_true: \else: \prg_return_false: \fi:
-  }
-\cs_generate_variant:Nn \tl_if_blank:nTF { v }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_set_fake_font:nn}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_set_fake_font:nn #1#2
-  {
-    \str_if_eq:nnTF {#1} { bf }
-      { \bool_if:NT \l_@@_auto_fake_bold_bool { \@@_add_fake_bold:n {#1} } }
-      {
-        \bool_if:NTF \l_@@_auto_fake_slant_bool
-          {
-            \bool_if:nT
-              {    \@@_if_it_or_sl_p:n {#1}
-                || ( \str_if_eq_p:nn {#1} { bfit }
-                     && ! ( \@@_if_font_select_p:n { it } ) )
-                || ( \str_if_eq_p:nn {#1} { bfsl }
-                     && ! ( \@@_if_font_select_p:n { sl } ) )
-              }
-              { \@@_add_fake_slant:n {#1} }
-          }
-          { \@@_if_it_or_sl:nT {#1} { \@@_map_it_sl:nn {#1} {#2} } }
-        \bool_if:nT
-          {      \l_@@_auto_fake_bold_bool
-            && ! ( \@@_if_it_or_sl_p:n {#1} )
-            && ! ( \@@_if_font_select_p:n { bf } )
-          }
-          { \@@_add_fake_bold:n {#1} }
-      }
-    \@@_add_font_if_new:nn {#2} { * }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_map_it_sl:n}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_map_it_sl:nn #1#2
-  {
-    \@@_if_map_font_select:nT {#1}
-      {
-        \@@_add_font:nx {#2} { \@@_get_map_font:n {#1} }
-        \@@_if_font_select:nF { bf #1 }
-          { \@@_add_font_if_new:nx { Bold #2 } { \@@_get_map_font:n {#1} } }
+        \tl_if_blank:nTF {##2}
+          { \cs_if_exist_use:c { @@_set_fake_##1: } }
+          { \clist_put_right:Nn \l_@@_fontspec_options_clist { ##1 = {##2} } }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_get_map_font:n}
+% \begin{macro}[internal]{\@@_set_fake_BoldFont:,\@@_set_fake_ItalicFont:}
 %    \begin{macrocode}
-\cs_new_nopar:Npn \@@_get_map_font:n #1
-  { \exp_not:v { l_@@_font_name_ \xeCJK_reverse:nnn {#1} { it } { sl } _tl } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,internal]{\@@_if_map_font_select:n}
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \@@_if_map_font_select:n #1 { p , T , F , TF }
+\cs_new_protected_nopar:Npn \@@_set_fake_BoldFont:
   {
-    \xeCJK_if_blank_x:nTF { \@@_get_map_font:n {#1} }
-      { \prg_return_false: } { \prg_return_true: }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_pass_features:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_pass_features:
-  {
-    \prop_map_inline:Nn \g_@@_features_id_prop
+    \bool_if:NT \l_@@_auto_fake_bold_bool
       {
-        \clist_if_empty:cF { l_@@_font_feat_##1_clist }
-          {
-            \clist_put_right:Nx \l_@@_fontspec_options_clist
-              { ##2Features = { \exp_not:v { l_@@_font_feat_##1_clist } } }
-          }
+        \clist_put_right:Nx \l_@@_fontspec_options_clist
+          { AutoFakeBold = { \fp_use:N \l_@@_embolden_factor_fp } }
       }
-    \prop_map_inline:Nn \l_@@_add_font_prop
-      { \clist_put_right:Nn \l_@@_fontspec_options_clist { ##1 = {##2} } }
+  }
+\cs_new_protected_nopar:Npn \@@_set_fake_ItalicFont:
+  {
+    \bool_if:NT \l_@@_auto_fake_slant_bool
+      {
+        \clist_put_right:Nx \l_@@_fontspec_options_clist
+          { AutoFakeSlant = { \fp_use:N \l_@@_slant_factor_fp } }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6224,7 +6105,7 @@ $URL$
 % 执行宏包选项，并载入 \pkg{fontspec} 宏包和 \pkg{xunicode-addon}。
 %    \begin{macrocode}
 \ProcessKeysOptions { xeCJK / options }
-\RequirePackage { fontspec } [ 2011/09/13 ]
+\RequirePackage { fontspec } [ 2012/05/01 ]
 \RequirePackage { xunicode-addon }
 %    \end{macrocode}
 %
@@ -8279,9 +8160,9 @@ $URL$
 %    \begin{macrocode}
 \documentclass{article}
 \usepackage[AutoFakeBold,AutoFakeSlant]{xeCJK}
-\setCJKmainfont[BoldFont=simhei.ttf, ItalicFont=simkai.ttf]{simsun.ttc}
+\setCJKmainfont[BoldFont=simhei.ttf, SlantedFont=simkai.ttf]{simsun.ttc}
 \setCJKsansfont[AutoFakeSlant=false,
-  BoldFont=simhei.ttf, ItalicFont=simkai.ttf]{simsun.ttc}
+  BoldFont=simhei.ttf, SlantedFont=simkai.ttf]{simsun.ttc}
 \setCJKmonofont[ItalicFont=simkai.ttf]{simsun.ttc}
 \begin{document}
 \centering
