@@ -14,7 +14,7 @@ for %%i in (..\engine\ctex-cct-engine.def ..\engine\ctex-cjk-common.def ..\engin
 
 for %%i in (..\fd\c19gbsn.fd ..\fd\c19gbsn.fdx ..\fd\c19gkai.fd ..\fd\c19gkai.fdx ..\fd\c19rm.fd ..\fd\c19sf.fd ..\fd\c19tt.fd ..\fd\c70rm.fd ..\fd\c70sf.fd ..\fd\c70tt.fd) do copy "%%i" flat
 
-for %%i in (..\fontset\ctex-fontset-adobe.def ..\fontset\ctex-fontset-mac.def ..\fontset\ctex-fontset-windows.def) do copy "%%i" flat
+for %%i in (..\fontset\ctex-fontset-adobe.def ..\fontset\ctex-fontset-mac.def ..\fontset\ctex-fontset-windows.def ..\fontset\ctex-fontset-fandol.def) do copy "%%i" flat
 
 for %%i in (..\doc\ctex.pdf ..\doc\ctex.tex ..\README) do copy "%%i" flat
 
