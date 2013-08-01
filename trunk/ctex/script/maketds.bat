@@ -14,7 +14,7 @@ mkdir texmf\tex\latex\ctex\def
 for %%i in (..\def\ctex-article.def ..\def\ctex-book.def ..\def\ctex-caption.def ..\def\ctex-common.def ..\def\ctex-fontsize.def ..\def\ctex-report.def ..\def\ctex-options.def) do copy "%%i" texmf\tex\latex\ctex\def
 
 mkdir texmf\tex\latex\ctex\engine
-for %%i in (..\engine\ctex-cct-engine.def ..\engine\ctex-cjk-common.def ..\engine\ctex-cjk-engine.def ..\engine\ctex-xecjk-engine.def ..\engine\ctex-luacjk-engine.def ..\engine\jfm-banjiao.lua ..\engine\jfm-CCT.lua ..\engine\jfm-kaiming.lua ..\engine\jfm-plain.lua ..\engine\jfm-quanjiao.lua) do copy "%%i" texmf\tex\latex\ctex\engine
+for %%i in (..\engine\ctex-cct-engine.def ..\engine\ctex-cjk-common.def ..\engine\ctex-cjk-engine.def ..\engine\ctex-xecjk-engine.def ..\engine\ctex-luacjk-engine.def) do copy "%%i" texmf\tex\latex\ctex\engine
 
 mkdir texmf\tex\latex\ctex\fd
 for %%i in (..\fd\c19gbsn.fd ..\fd\c19gbsn.fdx ..\fd\c19gkai.fd ..\fd\c19gkai.fdx ..\fd\c19rm.fd ..\fd\c19sf.fd ..\fd\c19tt.fd ..\fd\c70rm.fd ..\fd\c70sf.fd ..\fd\c70tt.fd) do copy "%%i" texmf\tex\latex\ctex\fd
