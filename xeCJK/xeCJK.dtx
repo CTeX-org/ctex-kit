@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5135}
+% \CheckSum{5140}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -3553,8 +3553,8 @@ $URL$
           {
             \bool_if:nTF
               {
-                \xeCJK_if_blank_x_p:n { \token_get_arg_spec:N \l_peek_token } &&
-                \exp_args:No \tl_if_single_token_p:n \l_peek_token            &&
+                \tl_if_empty_p:f { \token_get_arg_spec:N \l_peek_token } &&
+                \exp_args:No \tl_if_single_token_p:n \l_peek_token       &&
                 ( \exp_after:wN \token_if_other_p:N  \l_peek_token ||
                   \exp_after:wN \token_if_letter_p:N \l_peek_token )
               }
@@ -3563,6 +3563,7 @@ $URL$
           }
       }
   }
+\cs_generate_variant:Nn \tl_if_empty_p:n { f }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6264,15 +6265,20 @@ $URL$
 % |\MakeRobust\(|，我们需要小心处理。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_math_robust:N #1
-  { \exp_args:NNc \@@_math_robust:NN #1 { \cs_to_str:N #1 ~ } }
+  { \exp_args:NNc \@@_math_robust_aux:NN #1 { \cs_to_str:N #1 ~ } }
+\cs_new_protected_nopar:Npn \@@_math_robust_aux:NN #1#2
+  {
+    \str_if_eq_x:nnTF
+      { \token_get_replacement_spec:N #1 }
+      { \tl_to_str:n { \x@protect #1 \protect #2 } }
+      { \@@_math_robust:NN #1#2 }
+      { \@@_math_robust:NN #1#1 }
+  }
 \cs_new_protected_nopar:Npn \@@_math_robust:NN #1#2
   {
     \bool_if:nT
       {
-        \str_if_eq_x_p:nn
-          { \token_get_replacement_spec:N #1 }
-          { \exp_not:n { \x@protect #1 \protect #2 } } &&
-        \exp_args:Nf \tl_if_empty_p:n { \token_get_arg_spec:N #2 }  &&
+        \tl_if_empty_p:f { \token_get_arg_spec:N #2 } &&
         \exp_args:No \tl_if_head_eq_meaning_p:nN {#2} \scan_stop:
       }
       { \cs_gset_protected_nopar:Npx #1 { \scan_align_safe_stop: \tl_tail:N #2 } }
