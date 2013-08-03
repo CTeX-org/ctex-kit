@@ -209,9 +209,9 @@ $URL$
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.2.5}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.6}{\ExplFileDescription}
 %<*driver>
-\def\xeCJKversion{3.2.5}
+\def\xeCJKversion{3.2.6}
 \let\xeCJKdate\ExplFileDate
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5140}
+% \CheckSum{5142}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -6227,7 +6227,7 @@ $URL$
 %
 % \subsection{兼容性修补}
 %
-% \begin{macro}[internal]{\fontspec_setup_maths:}
+% \begin{macro}[internal]{\fontspec_setup_maths:,\mathrm}
 % \changes{v3.2.6}{2013/08/02}{为 \cs{mathrm} 减少一个可能的数学字体族。}
 % 如果没有设置 \cs{setboldmathrm}，即 \cs{g_fontspec_bfmathrm_tl} 为空，那么
 % \cs{mathrm} 的字体实际与 \texttt{operators} 字体族完全一致。这时候应该通过
@@ -6252,25 +6252,32 @@ $URL$
 % \begin{macro}[internal]{\(}
 % \changes{v3.2.5}{2013/07/25}
 % {解决汉字后紧跟 \cs{(}\texttt{...}\cs{)} 形式的行内数学公式时，不能加入间距的问题。}
+% \begin{macro}[internal]{\),\@@_math_robust:N}
+% \changes{v3.2.6}{2013/08/03}{考虑 \pkg{ulem} 对 \cs{MakeRobust} 的不当定义。}
 % \cs{(} 的在 \LaTeXe 中的定义是
 % \begin{verbatim}
 %   \def\({\relax\ifmmode\@badmath\else$\fi}
 % \end{verbatim}
 % 这个定义最开始的 \cs{relax} 是为了防止 \cs{(} 出现在表格单元格的开始位置时，模式
-% 判断不正确（因为 \TeX 会先看单元格中第一个不可展的非空格记号是否是 \cs{omit} 或 \cs{noalign}）。^^A
-% 但是它会造成一个边界，使 \pkg{xeCJK} 不能看到 \cs{relax} 后面出现的 |$|，从而不能
-% 加入间距\footnote{\url{http://tex.stackexchange.com/q/124773}}。使用 \hologo{eTeX}
-% 的 \cs{protected} 来定义它，可以不需要 \cs{relax}，或者将 \cs{relax} 改成
-% \cs{scan_align_safe_stop:}，都可以避免这些情况。同时 \pkg{fixltx2e}中还使用了
-% |\MakeRobust\(|，我们需要小心处理。
+% 判断不正确（因为 \TeX 会先看单元格中第一个不可展的非空格记号是否是 \cs{omit} 或
+% \cs{noalign}）。但是它会造成一个边界，使 \pkg{xeCJK} 不能看到 \cs{relax} 后面出现的
+% |$|，从而不能加入间距\footnote{\url{http://tex.stackexchange.com/q/124773}}。使用
+% \hologo{eTeX} 的 \cs{protected} 来定义它，可以不需要 \cs{relax}，或者将 \cs{relax}
+% 改成 \cs{scan_align_safe_stop:}，都可以避免这些情况。同时 \pkg{fixltx2e} 中还使用了
+% |\MakeRobust\(|，我们需要小心处理。另外 \pkg{ulem} 也定义了一个 \cs{MakeRobust}，
+% 如果它被放在 \pkg{fixltx2e} 之前载入，那么 \pkg{fixltx2e} 的定义就会失效（因为
+% \pkg{fixltx2e} 使用 \cs{providecommand*} 来定义 \cs{MakeRobust}）。但是 \pkg{ulem}
+% 的定义并不完全正确，没有考虑 \TeX 不会略去控制符号后面的空格的情况。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_math_robust:N #1
   { \exp_args:NNc \@@_math_robust_aux:NN #1 { \cs_to_str:N #1 ~ } }
 \cs_new_protected_nopar:Npn \@@_math_robust_aux:NN #1#2
   {
-    \str_if_eq_x:nnTF
-      { \token_get_replacement_spec:N #1 }
-      { \tl_to_str:n { \x@protect #1 \protect #2 } }
+    \str_case_x:nnTF { \token_get_replacement_spec:N #1 }
+      {
+        { \tl_to_str:n { \x@protect #1 \protect #2 } } { }
+        { \tl_to_str:n { \protect #2 } } { }
+      }
       { \@@_math_robust:NN #1#2 }
       { \@@_math_robust:NN #1#1 }
   }
@@ -6287,9 +6294,11 @@ $URL$
 \@@_math_robust:N \)
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
 % \begin{macro}[internal]{\[}
 % \changes{v3.2.5}{2013/07/25}{解决 \pkg{fixltx2e} 和 \pkg{amsthm} 的冲突。}
+% \begin{macro}[internal]{\]}
 % 当 \pkg{amsmath} 没有在 \pkg{amsthm} 之前被调用时，\pkg{amsthm} 会展开 \cs{[}，
 % 并用 |$| 作为参数定界记号，相关代码为
 % \begin{verbatim}
@@ -6314,6 +6323,7 @@ $URL$
     \@@_math_robust:N \]
   }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[internal]{\nobreakspace}
