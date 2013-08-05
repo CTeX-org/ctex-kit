@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5142}
+% \CheckSum{5179}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -2909,13 +2909,54 @@ $URL$
 %
 % \hypertarget{cjk-bound}{}
 %    \begin{macrocode}
-\xeCJK_inter_class_toks:nnn { CJK } { Boundary }
+\xeCJK_inter_class_toks:nnn { CJK } { Boundary } { \xeCJK_CJK_and_Boundary:w }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\xeCJK_CJK_and_Boundary:w}
+% \changes{v3.2.6}{2013/08/05}{更好的处理边界是 \cs{relax} 的情况。}
+% 当边界是 \cs{relax} 的时候，它可能是由 |\csname ...\endcsname| 的形式产生的，
+% 这样就可能出现问题\footnote{参见 \url{http://bbs.ctex.org/forum.php?mod=viewthread&tid=71563}。}。
+% 原来是都在未定义控制序列前都加上 \cs{exp_not:N}，现在是采用分组结束后手工恢复的方式。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_CJK_and_Boundary:w
   {
-    \xeCJK_class_group_end:
-    { \xeCJK_make_node:n { CJK } }
-    \xeCJK_ignore_spaces:w
+    \xeCJK_peek_catcode_ignore_spaces:NTF \c_math_toggle_token
+      {
+        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+          { \xeCJK_class_group_end: \xeCJK_space_or_xecglue: }
+          { \xeCJK_class_group_end: \CJKecglue }
+      }
+      {
+        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+          {
+            \bool_if:nTF
+              {
+                \token_if_macro_p:N \l_peek_token ||
+                ( \l_@@_reserve_space_bool && \token_if_letter_p:N \l_peek_token )
+              }
+              {
+                \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK-space } }
+                \xeCJK_space_or_xecglue:
+              }
+              { \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK-space } } }
+          }
+          {
+            \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
+              { \@@_CJK_and_Boundary_relax:N }
+              { \@@_CJK_and_Boundary_aux: }
+          }
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_CJK_and_Boundary_aux:
+  { \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK } } }
+\cs_new_protected:Npn \@@_CJK_and_Boundary_relax:N #1
+  {
+    \@@_CJK_and_Boundary_aux:
+    \token_if_eq_meaning:NNTF #1 \scan_stop:
+      {#1} { \cs_set_eq:NN #1 \scan_stop: #1 }
   }
 %    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_ignore_spaces:w}
 %    \begin{macrocode}
@@ -2927,23 +2968,19 @@ $URL$
           { \xeCJK_space_or_xecglue: } { \CJKecglue }
       }
       {
-        \bool_if:NTF \l_@@_peek_ignore_spaces_bool
+        \bool_if:NT \l_@@_peek_ignore_spaces_bool
           {
-            \xeCJK_remove_node:
-            { \xeCJK_make_node:n { CJK-space } }
+            \xeCJK_if_last_node:nT { CJK }
+              { \xeCJK_remove_node: { \xeCJK_make_node:n { CJK-space } } }
             \bool_if:nT
               {
                 \token_if_macro_p:N \l_peek_token ||
-                ( \l_@@_reserve_space_bool &&
-                  \token_if_letter_p:N \l_peek_token )
+                ( \l_@@_reserve_space_bool && \token_if_letter_p:N \l_peek_token )
               }
               { \xeCJK_space_or_xecglue: }
           }
-          { \@@_CJK_and_Boundary_aux: }
       }
   }
-\cs_new_protected_nopar:Npn \@@_CJK_and_Boundary_aux:
-  { \cs_if_exist:NF \l_peek_token \exp_not:N }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3548,9 +3585,11 @@ $URL$
     \peek_catcode:NTF \c_catcode_letter_token
       { \xeCJK_check_single:NNw #1 }
       {
+        \group_align_safe_begin:
         \token_if_other:NTF \l_peek_token
-          { \xeCJK_check_single:NNw #1 }
+          { \group_align_safe_end: \xeCJK_check_single:NNw #1 }
           {
+            \group_align_safe_end:
             \bool_if:nTF
               {
                 \str_if_eq_x_p:nn { \token_get_arg_spec:N \l_peek_token } { } &&
@@ -3699,7 +3738,7 @@ $URL$
       { \l_@@_inline_env_case_tl }
       { \group_align_safe_end: #2 }
       { \group_align_safe_end: #1 }
-    \scan_stop: #3 {#4}
+    #3 {#4}
   }
 \cs_generate_variant:Nn \str_case_x:nnTF { no }
 %    \end{macrocode}
@@ -5767,7 +5806,7 @@ $URL$
         \cs_set_eq:NN \@@_verb_CJKglue:   \CJKglue
         \cs_set_eq:NN \@@_verb_CJKecglue: \CJKecglue
         \cs_set_eq:NN \@@_verb_check_for_glue: \xeCJK_check_for_glue:
-        \cs_set_eq:NN \@@_verb_ignore_spaces:w \xeCJK_ignore_spaces:w
+        \cs_set_eq:NN \@@_verb_boundary:w \xeCJK_CJK_and_Boundary:w
         \cs_set_protected_nopar:Npx \xeCJKOffVerbAddon
           {
             \@@_reset_char_class:n { FullLeft }
@@ -5783,7 +5822,7 @@ $URL$
                 \cs_set_eq:NN \CJKglue   \@@_verb_CJKglue:
                 \cs_set_eq:NN \CJKecglue \@@_verb_CJKecglue:
                 \cs_set_eq:NN \xeCJK_check_for_glue: \@@_verb_check_for_glue:
-                \cs_set_eq:NN \xeCJK_ignore_spaces:w \@@_verb_ignore_spaces:w
+                \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_boundary:w
               }
           }
         \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
@@ -5805,8 +5844,10 @@ $URL$
         \cs_set_eq:NN \CJKecglue \@@_verb_ecglue:
       }
     \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
-    \cs_set_eq:NN \xeCJK_ignore_spaces:w \CJKecglue
+    \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_CJK_and_Boundary:w
   }
+\cs_new_protected_nopar:Npn \@@_verb_CJK_and_Boundary:w
+  { \xeCJK_class_group_end: \CJKecglue }
 \cs_new_protected_nopar:Npn \@@_verb_ccglue:
   { \xeCJK_no_break: \skip_horizontal:N \l_@@_verb_exspace_skip }
 \cs_new_protected_nopar:Npn \@@_verb_ecglue:
@@ -6895,6 +6936,7 @@ $URL$
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \xeCJK_class_group_end:
         \UL@stop \@@_ulem_hskip:n { \c_zero_skip } \UL@start
         { \xeCJK_make_node:n { CJK } }
       }
