@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5179}
+% \CheckSum{5192}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -1437,6 +1437,7 @@ $URL$
 % 各种信息函数的缩略形式。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_msg_new:nn   { \msg_new:nnn       { xeCJK } }
+\cs_new_protected_nopar:Npn \@@_msg_new:nnn  { \msg_new:nnnn      { xeCJK } }
 \cs_new_protected_nopar:Npn \@@_error:n      { \msg_error:nn      { xeCJK } }
 \cs_new_protected_nopar:Npn \@@_error:nx     { \msg_error:nnx     { xeCJK } }
 \cs_new_protected_nopar:Npn \@@_warning:n    { \msg_warning:nn    { xeCJK } }
@@ -6313,25 +6314,37 @@ $URL$
   { \exp_args:NNc \@@_math_robust_aux:NN #1 { \cs_to_str:N #1 ~ } }
 \cs_new_protected_nopar:Npn \@@_math_robust_aux:NN #1#2
   {
-    \str_case_x:nnTF { \token_get_replacement_spec:N #1 }
+    \exp_args:Nx \str_case:nnTF { \token_get_replacement_spec:N #1 }
       {
-        { \tl_to_str:n { \x@protect #1 \protect #2 } } { }
-        { \tl_to_str:n { \protect #2 } } { }
+        { \x@protect #1 \protect #2 } { }
+        { \protect #2 } { }
       }
       { \@@_math_robust:NN #1#2 }
       { \@@_math_robust:NN #1#1 }
   }
 \cs_new_protected_nopar:Npn \@@_math_robust:NN #1#2
   {
-    \bool_if:nT
+    \bool_if:nTF
       {
         \str_if_eq_x_p:nn { \token_get_arg_spec:N #2 } { } &&
         \exp_args:No \tl_if_head_eq_meaning_p:nN {#2} \scan_stop:
       }
       { \cs_gset_protected_nopar:Npx #1 { \scan_align_safe_stop: \tl_tail:N #2 } }
+      {
+        \@@_warning:nxx { robust-failure }
+          { \token_to_str:N #1 } { \token_to_meaning:N #2 }
+      }
+  }
+\@@_msg_new:nnn { robust-failure }
+  { xeCJK~can~not~make~`#1'~robust. }
+  {
+    The~current~meaning~of~`#1'~is:\\
+    \iow_indent:n {#2}
   }
 \@@_math_robust:N \(
 \@@_math_robust:N \)
+\@@_math_robust:N \math
+\@@_math_robust:N \endmath
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
