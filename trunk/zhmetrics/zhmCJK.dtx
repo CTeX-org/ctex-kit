@@ -154,7 +154,7 @@ If you are interested in the process of development you may observe
 %<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
 %<package>\ProvidesPackage{zhmCJK}
 %<*package>
-    [2012/02/06 v0.8 setup CJK fonts dynamically]
+    [2013/08/09 v0.9 setup CJK fonts dynamically]
 %</package>
 %
 %<*driver>
@@ -185,8 +185,38 @@ If you are interested in the process of development you may observe
   \markboth{代码索引}{代码索引}
   斜体的数字表示对应项说明所在的页码。下划线的数字表示定义所在的代码行号；而直
   立体的数字表示对应项使用时所在的行号。}
+\def\option{\begingroup
+   \catcode`\\12
+   \MakePrivateLetters \option@}
+\let\endoption\endtrivlist
+\long\def\option@#1{\endgroup \topsep\MacroTopsep \trivlist
+  \edef\saved@macroname{\string#1}%
+  \def\makelabel##1{\llap{##1}}%
+  \if@inlabel
+    \let\@tempa\@empty \count@\macro@cnt
+    \loop \ifnum\count@>\z@
+      \edef\@tempa{\@tempa\hbox{\strut}}\advance\count@\m@ne \repeat
+    \edef\makelabel##1{\llap{\vtop to\baselineskip
+                               {\@tempa\hbox{##1}\vss}}}%
+    \advance \macro@cnt \@ne
+  \else  \macro@cnt\@ne  \fi
+  \edef\@tempa{\noexpand\item[%
+     \noexpand\PrintEnvName
+     {\string#1}]}%
+  \@tempa
+  \global\advance\c@CodelineNo\@ne
+      \SpecialMainOptionIndex{#1}\nobreak
+  \global\advance\c@CodelineNo\m@ne
+  \ignorespaces}
+\def\SpecialMainOptionIndex#1{\@bsphack
+  \special@index{%
+    #1\actualchar
+    {\string\ttfamily\space#1}
+    (option)%
+    \encapchar main}%
+  \@esphack}
 \makeatother
-\newcommand\eTeX{$\varepsilon$-\TeX}
+\providecommand\eTeX{$\varepsilon$-\TeX}
 \newcommand\pkg[1]{\textsf{#1}}
 \newcommand{\enquote}[1]{``#1''}
 \AtBeginDocument{
@@ -201,7 +231,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{487}
+% \CheckSum{581}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -241,7 +271,8 @@ If you are interested in the process of development you may observe
 %   \@namedef, \author, \bfseries, \date, \documentclass, \maketitle, \textbf,
 %   \textit, \textsf, \texttt, \title, \usepackage, \@font@warning, \dimexpr,
 %   \strip@pt, \textsl, \@ifnextchar, \eTeXversion, \luatexversion,
-%   \XeTeXrevision, \meaning, \string, \tempa, \tempb}
+%   \XeTeXrevision, \meaning, \string, \tempa, \tempb, \hbox, \hss, \unexpanded,
+%   \symbol, \newif}
 %
 % \GetFileInfo{zhmCJK.dtx}
 % \title{\pkg{zhmCJK} 宏包}
@@ -288,13 +319,16 @@ If you are interested in the process of development you may observe
 % 选项 & 默认值 & 功能 \\
 % \hline
 % "encoding="\meta{编码} & "UTF8" & 设置 CJK 输入的编码，如 \texttt{GBK},
-%   \texttt{Bg5} 等，参看 \cite{Lemberg2008}。 \\
+%   \texttt{Bg5} 等，参见 \cite{Lemberg2008}。 \\
 % "pdffakebold="\meta{\texttt{true}$|$\texttt{false}} & "true" & 设置伪粗体类型
 %   为 PDF 原语生成；若设置为 "false" 则沿用旧的 \pkg{CJK} 伪粗体机制 \\
 % "AutoFakeBold="\meta{数字} & 0.4 & 全局设置自动伪粗体的粗细，单位为 bp；若设
 %   置为 0 则禁用自动伪粗体。如果参数省略，取值为 0.4。 \\
 % "AutoFakeSlant="\meta{数字} & 0 & 全局设置自动伪斜体的倾斜度；若设置为 0 则禁
 % 用自动伪斜体。如果参数省略，取值为 0.167。 \\
+% "cmap="\meta{CMap 值} & "unicode" & 设置字体文件使用的 CMap 映射，对多数 CJK
+% 字体可以使用默认值 "unicode"，相当于使用基于 UCS2 的字体编码；部分字体需要设置
+% 为 "UniGB-UTF16-H" 等映射。 \\
 % \hline
 % \end{tabular}
 % \caption{\pkg{zhmCJK} 宏包选项}
@@ -316,7 +350,8 @@ If you are interested in the process of development you may observe
 % 字体选项与宏包选项基本对应，可用的字体选项有："BoldFont", "ItalicFont",
 % "BoldItalicFont", "SlantedFont", "BoldSlantedFont"，分别用来设置不同字型的变
 % 体；"AutoFakeBold"，设置单个字体族的伪粗体；"AutoFakeSlant"，设置单个字体族
-% 的伪斜体；"encoding"，设置单个字体使用的输入编码。
+% 的伪斜体；"encoding"，设置单个字体使用的输入编码；"cmap"，设置单个字体使用的
+% CMap 映射。
 %
 % \DescribeMacro{\setCJKromanfont}
 % 是 "\setCJKmainfont" 的别名。
@@ -328,6 +363,16 @@ If you are interested in the process of development you may observe
 % 将使用文件名为 "simsun.ttc" 的字体（中易宋体）作为正文罗马族字体，同时其粗体
 % 形式设置为 "simhei.ttf"（中易黑体），其斜体形式设置为 "simkai.ttf"（中易
 % 楷体）。
+%
+% 又如，使用
+% \begin{Verbatim}
+% \setCJKmainfont
+%   [cmap=UniGB-UTF16-H,
+%    BoldFont=FandolSong-Bold.otf,
+%    ItalicFont=FandolKai-Regular.otf]
+%   {FandolSong-Regular.otf}
+% \end{Verbatim}
+% 可以设置 Fandol 字体作为正文字体。
 %
 % \begin{quote}
 % \DescribeMacro{\setCJKsansfont}
@@ -603,20 +648,19 @@ If you are interested in the process of development you may observe
 % 首先进行编译引擎测试。
 %
 % \begin{macro}{\ifzhm@primitive}
-% 测试是否为原始控制序列，用于判断编译引擎。代码参考 \pkg{ifetex} 宏包。注意在
-% 使用时总要补全 "\else\endgroup" 部分。
+% 测试是否为原始控制序列，用于判断编译引擎。代码参考 \pkg{ifetex} 宏包，有改动。
 %    \begin{macrocode}
 \def\ifzhm@primitive#1{\begingroup
   \edef\tempa{\meaning#1}%
   \edef\tempb{\string#1}%
-  \ifx\tempa\tempb
-  \endgroup}
+  \expandafter\endgroup
+    \ifx\tempa\tempb}
 %    \end{macrocode}
 % \end{macro}
 %
 % 需要 \eTeX{} 支持。对非 \eTeX{} 引擎报错并退出宏包。
 %    \begin{macrocode}
-\ifzhm@primitive\eTeXversion\else\endgroup
+\ifzhm@primitive\eTeXversion\else
   \PackageError{zhmCJK}%
     {You are not running an eTeX-compatible engine.
      zhmCJK needs an eTeX-compatible TeX engine}%
@@ -635,7 +679,7 @@ If you are interested in the process of development you may observe
      the file. zhmCJK do not support LuaTeX engine.}%
     {Use pdflatex or latex+dvipdfmx to compile the file.}
   \expandafter\endinput
-\else\endgroup\fi
+\fi
 %    \end{macrocode}
 % 
 % 不支持 XeTeX。当发现使用 XeTeX 时报错，并载入 \pkg{xeCJK} 宏包再退出。
@@ -647,7 +691,7 @@ If you are interested in the process of development you may observe
     {You can use xeCJK instead.}
   \RequirePackage{xeCJK}
   \expandafter\endinput
-\else\endgroup\fi
+\fi
 %    \end{macrocode}
 %
 % 载入工具宏包。
@@ -659,32 +703,50 @@ If you are interested in the process of development you may observe
   prefix=zhm@}
 %    \end{macrocode}
 %
+% \changes{v0.9}{2013/08/08}{增加宏包 \texttt{cmap} 选项选择 DVIPDFMx 的 CMap 映射。}
+% \begin{option}{cmap}
+% 定义使用的 DVIPDFMx 字体映射所使用的 CMap 映射，默认是 "unicode"，即使用 UCS2
+% 编码的字体映射。多数 CJK 字体可以使用默认值，但少量需要单独设置才能使 DVIPDFMx
+% 工作正常。
+%    \begin{macrocode}
+\DeclareStringOption[unicode]{cmap}
+%    \end{macrocode}
+% \end{option}
+%
 % \changes{v0.8}{2012/02/06}{增加宏包 \texttt{encoding} 选项选择默认编码。}
+% \begin{option}{encoding}
 % 定义编码选项。初始化为 "UTF8"，使用时不能省略参数。
 %    \begin{macrocode}
 \DeclareStringOption[UTF8]{encoding}
 %    \end{macrocode}
+% \end{option}
 %
 % \changes{v0.3}{2012/02/02}{增加宏包 \texttt{pdffakebold} 选项}
-% "pdffakebold" 选项选择是否使用 PDF 原语生成伪粗体。默认是 "true"，如果选
-% "false" 则改用原来 \pkg{CJK} 宏包平移输出的伪粗体机制。
+% \begin{option}{pdffakebold}
+% 选择是否使用 PDF 原语生成伪粗体。默认是 "true"，如果选 "false" 则改用原来
+% \pkg{CJK} 宏包平移输出的伪粗体机制。
 %    \begin{macrocode}
 \DeclareBoolOption[true]{pdffakebold}
 %    \end{macrocode}
+% \end{option}
 %
 % \changes{v0.4}{2012/02/04}{增加宏包 \texttt{AutoFakeBold} 选项}
-% "AutoFakeBold" 选项使用 PDF 原语对 "b" 和 "bx" 系列生成伪粗体，并设置伪粗体描
-% 边线宽。初始化为 0.4 (bp)，无参数缺省值为 0.4。
+% \begin{option}{AutoFakeBold}
+% 使用 PDF 原语对 "b" 和 "bx" 系列生成伪粗体，并设置伪粗体描边线宽。初始化为
+% 0.4 (bp)，无参数缺省值为 0.4。
 %    \begin{macrocode}
 \DeclareStringOption[0.4]{AutoFakeBold}[0.4]
 %    \end{macrocode}
+% \end{option}
 %
 % \changes{v0.6}{2012/02/05}{增加宏包 \texttt{AutoFakeSlant} 选项}
-% "AutoFakeSlant" 使用 PDF 原语对 "sl" 形状生成伪斜体，并设置伪斜体倾斜度。初始
-% 化为 0（禁用），没有参数时缺省值为 0.167。
+% \begin{option}{AutoFakeSlant}
+% 使用 PDF 原语对 "sl" 形状生成伪斜体，并设置伪斜体倾斜度。初始化为 0（禁用），
+% 没有参数时缺省值为 0.167。
 %    \begin{macrocode}
 \DeclareStringOption[0]{AutoFakeSlant}[0.167]
 %    \end{macrocode}
+% \end{option}
 %
 % 执行选项。
 %    \begin{macrocode}
@@ -789,11 +851,16 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
+%
 % 在导言区和正文中分别开启 \pkg{CJK} 的功能。
 %    \begin{macrocode}
 \AtEndOfPackage{\CJK@makeActive}
-\AtBeginDocument{\begin{CJK*}{\zhm@encoding}{\CJKfamilydefault}}
-\AtEndDocument{\clearpage\end{CJK*}}
+\edef\document{%
+  \unexpanded\expandafter{\document}%
+  \unexpanded{\begin{CJK*}{\zhm@encoding}{\CJKfamilydefault}}}
+\edef\enddocument{%
+  \unexpanded{\clearpage\end{CJK*}}%
+  \unexpanded\expandafter{\enddocument}}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@fontnum}
@@ -828,42 +895,24 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% \pkg{CJK} 原始的伪粗体。
-% \begin{macro}{\zhm@old@CJKbold}
-%    \begin{macrocode}
-\let\zhm@old@CJKbold\CJKbold
-%    \end{macrocode}
-% \end{macro}
-% \begin{macro}{\zhm@old@CJKnormal}
-%    \begin{macrocode}
-\let\zhm@old@CJKnormal\CJKnormal
-%    \end{macrocode}
-% \end{macro}
 %
 % 使用 PDF 原语生成伪粗体，参考 \cite[\S~4.3.3, \S~5.2.5]{adobe2001}。这里伪粗
 % 体是通过将字体轮廓用 "AutoFakeBold" 参数指定的宽度进行描边得到的。
 % \changes{v0.3}{2012/02/02}{使用 PDF 原语生成伪粗体}
-% \begin{macro}{\zhm@pdf@CJKbold}
+% \begin{macro}{\zhm@pdf@beginbold}
 %    \begin{macrocode}
-\def\zhm@pdf@CJKbold{%
-  \zhm@pdfliteraldirect{2 Tr \@nameuse{zhm@\CJK@family @embolden} w}%
-  \aftergroup\zhm@pdf@CJKnormal}
+\def\zhm@pdf@beginbold{%
+  \zhm@pdfliteraldirect{2 Tr \@nameuse{zhm@\CJK@family @embolden} w}}
 %    \end{macrocode}
 % \end{macro}
-% \begin{macro}{\zhm@pdf@CJKnormal}
+% \begin{macro}{\zhm@pdf@endbold}
 %    \begin{macrocode}
-\def\zhm@pdf@CJKnormal{\zhm@pdfliteraldirect{0 Tr}}
+\def\zhm@pdf@endbold{\zhm@pdfliteraldirect{0 Tr}}
 %    \end{macrocode}
 % \end{macro}
 %
-% 根据选项选择伪粗体类型。
-%    \begin{macrocode}
-\ifzhm@pdffakebold
-  \let\CJKbold\zhm@pdf@CJKbold
-  \let\CJKnormal\zhm@pdf@CJKnormal
-\fi
-%    \end{macrocode}
-% 当选项 "AutoFakeBold=0" 时，禁用伪粗体。
+% \begin{macro}{\ifzhm@fakebold}
+% 判断当前字体是否使用伪粗体。当选项 "AutoFakeBold=0" 时，禁用伪粗体。
 %    \begin{macrocode}
 \def\zhm@zero{0}
 \def\ifzhm@fakebold{\expandafter\unless\expandafter\ifx
@@ -871,6 +920,7 @@ If you are interested in the process of development you may observe
   \zhm@zero}
 \def\zhm@fakeboldfalse{\@namedef{zhm@\zhm@fam @embolden}{0}}
 %    \end{macrocode}
+% \end{macro}
 %
 %
 % 使用 PDF 原语生成伪斜体，参考 \cite[\S~4.3.3]{adobe2001}。这里伪斜体是通过局
@@ -886,21 +936,82 @@ If you are interested in the process of development you may observe
 %   &= \begin{pmatrix} x + \mathit{slant}\cdot y \\ y \end{pmatrix}
 % \end{align*}
 %
-% \begin{macro}{\zhm@pdf@CJKslant}
+% \begin{macro}{\zhm@pdf@beginslant}
 %    \begin{macrocode}
-\def\zhm@pdf@CJKslant{%
-  \zhm@pdfliteral{1 0 \@nameuse{zhm@\CJK@family @slant} 1 0 0 cm}%
-  \aftergroup\zhm@pdf@CJKunslant}
+\def\zhm@pdf@beginslant{%
+  \zhm@pdfliteral{1 0 \@nameuse{zhm@\CJK@family @slant} 1 0 0 cm}}
 %    \end{macrocode}
 % \end{macro}
-% \begin{macro}{\zhm@pdf@CJKunslant}
+% \begin{macro}{\zhm@pdf@endslant}
 %    \begin{macrocode}
-\def\zhm@pdf@CJKunslant{%
+\def\zhm@pdf@endslant{%
   \zhm@pdfliteral{1 0 \@nameuse{zhm@\CJK@family @negslant} 1 0 0 cm}}
 %    \end{macrocode}
 % \end{macro}
 %
-% 当选项 "AutoFakeSlant=0" 时，禁用伪斜体。
+% \begin{macro}{\ifzhm@CJK@bold@}
+% "\ifzhm@CJK@bold@" 对应于 \pkg{CJK} 中的 "\ifCJK@bold@"，由 "\CJKbold" 和
+% "\CJKnormal" 控制，用于判断当前是否为伪粗体状态。
+%    \begin{macrocode}
+\newif\ifzhm@CJK@bold@
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\ifzhm@CJK@slant@}
+% 类似 "\ifzhm@CJK@bold@"，由 "\CJKslant" 和 "\CJKnormal" 控制，用于判断当前是
+% 否为伪斜体状态。
+%    \begin{macrocode}
+\newif\ifzhm@CJK@slant@
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CJKbold}
+% 设置伪粗体（不斜）。根据 "pdffakebold" 选项选择伪粗体类型。
+%    \begin{macrocode}
+\ifzhm@pdffakebold
+  \def\CJKbold{\zhm@CJK@bold@true\zhm@CJK@slant@false}
+\else
+  \def\CJKbold{\CJK@bold@true\zhm@CJK@slant@false}
+\fi
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CJKslant}
+% 设置伪斜体（不加粗）。
+%    \begin{macrocode}
+\ifzhm@pdffakebold
+  \def\CJKslant{\zhm@CJK@bold@false\zhm@CJK@slant@true}
+\else
+  \def\CJKnormal{\CJK@bold@false\zhm@CJK@slant@false}
+\fi
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CJKboldslant}
+% 设置伪粗体加伪斜体。
+%    \begin{macrocode}
+\ifzhm@pdffakebold
+  \def\CJKboldslant{\zhm@CJK@bold@true\zhm@CJK@slant@true}
+\else
+  \def\CJKnormal{\CJK@bold@false\zhm@CJK@slant@false}
+\fi
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CJKnormal}
+% 恢复无伪粗、伪斜体的状态。
+%    \begin{macrocode}
+\ifzhm@pdffakebold
+  \def\CJKnormal{\zhm@CJK@bold@false\zhm@CJK@slant@false}
+\else
+  \def\CJKnormal{\CJK@bold@false\zhm@CJK@slant@false}
+\fi
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\ifzhm@fakeslant}
+% 判断 "\zhm@fam" 确定的字体是否使用伪斜体。当选项 "AutoFakeSlant=0" 时，禁用伪
+% 斜体。
 %    \begin{macrocode}
 \def\ifzhm@fakeslant{\expandafter\unless\expandafter\ifx
   \csname zhm@\zhm@fam @slant\endcsname
@@ -909,6 +1020,30 @@ If you are interested in the process of development you may observe
   \@namedef{zhm@\zhm@fam @slant}{0}%
   \@namedef{zhm@\zhm@fam @negslant}{0}}
 %    \end{macrocode}
+% \end{macro}
+%
+%
+% \changes{v0.9}{2013/08/08}{重新实现伪粗体、伪斜体功能，使之可以正常处理断行、
+% 标点压缩等问题。}
+% \begin{macro}{\CJKsymbol}
+% 重定义 "\CJKsymbol"，增加 PDF 的伪粗体、伪斜体功能。
+%
+% 注意原来的 "\CJKsymbol" 在 \pkg{CJK} 包中由 "\DeclareRobustCommand" 定义，因此
+% 这里只重定义 "CJKsymbol" 后加空格的宏，修改其有效部分。这一定义不受
+% \pkg{CJKpunct} 等宏包对 "\CJKsymbol" 附加重定义的影响。
+%    \begin{macrocode}
+\@namedef{CJKsymbol }#1{%
+  \ifzhm@CJK@slant@ \zhm@pdf@beginslant \fi
+  \ifzhm@CJK@bold@  \zhm@pdf@beginbold  \fi
+  \symbol{#1}%
+  \ifCJK@bold@
+    \hbox to \CJKboldshift{\hss\symbol{#1}}%
+    \hbox to \CJKboldshift{\hss\symbol{#1}}%
+  \fi
+  \ifzhm@CJK@bold@  \zhm@pdf@endbold  \fi
+  \ifzhm@CJK@slant@ \zhm@pdf@endslant \fi}
+%    \end{macrocode}
+% \end{macro}
 %
 %
 % \begin{macro}{\zhm@DeclareFontShape}
@@ -920,9 +1055,12 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% 类似 "CJKb"，定义 "CJKsl" 尺寸函数，用于伪斜体字形声明。
+% \changes{v0.9}{2013/08/08}{支持伪粗斜体。}
+% 类似 "CJKb"，定义 "CJKsl" 和 "CJKbsl" 尺寸函数，用于伪斜体、伪粗斜体的字形声
+% 明。
 %    \begin{macrocode}
 \DeclareSizeFunction{CJKsl}{\CJK@empty\@font@warning}
+\DeclareSizeFunction{CJKbsl}{\CJK@empty\@font@warning}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@mapline}
@@ -934,7 +1072,7 @@ If you are interested in the process of development you may observe
     \pdfmapline{=zhm#1@\zhm@sfd @ <#2}}
 \else
   \def\zhm@mapline#1#2{%
-    \special{pdf:mapline zhm#1@\zhm@sfd @ unicode #2}}
+    \special{pdf:mapline zhm#1@\zhm@sfd @ \zhm@cmap\space #2}}
 \fi
 %    \end{macrocode}
 % \end{macro}
@@ -971,6 +1109,12 @@ If you are interested in the process of development you may observe
   \edef\zhm@tfm{zhm\@nameuse{zhm@#1@fontnum}}}
 %    \end{macrocode}
 % \end{macro}
+%
+% \changes{v0.9}{2013/08/08}{设置字体 \texttt{cmap} 选项。}
+%    \begin{macrocode}
+\define@key{zhm}{cmap}{%
+  \edef\zhm@cmap{#1}}
+%    \end{macrocode}
 %
 % \changes{v0.8}{2012/02/06}{设置字体 \texttt{encoding} 选项。}
 %    \begin{macrocode}
@@ -1010,8 +1154,10 @@ If you are interested in the process of development you may observe
 %    \begin{macrocode}
 \define@key{zhm}{BoldFont}{
   \zhm@DeclareRealFont{#1}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{n}{<-> CJK * \zhm@tfm}{}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{n}{<-> CJK * \zhm@tfm}{}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{n}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{n}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
   \zhm@fakeboldfalse}
 %    \end{macrocode}
 %
@@ -1020,7 +1166,8 @@ If you are interested in the process of development you may observe
 %    \begin{macrocode}
 \define@key{zhm}{ItalicFont}{
   \zhm@DeclareRealFont{#1}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{it}{<-> CJK * \zhm@tfm}{}}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{it}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}}
 %    \end{macrocode}
 %
 % \changes{v0.4}{2012/02/04}{设置字体 \texttt{BoldItalicFont} 选项。}
@@ -1028,9 +1175,10 @@ If you are interested in the process of development you may observe
 %    \begin{macrocode}
 \define@key{zhm}{BoldItalicFont}{
   \zhm@DeclareRealFont{#1}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{it}{<-> CJK * \zhm@tfm}{}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{it}%
-    {<-> CJK * \zhm@tfm}{}}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{it}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{it}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}}
 %    \end{macrocode}
 %
 % \changes{v0.4}{2012/02/04}{设置字体 \texttt{SlantedFont} 选项。}
@@ -1038,7 +1186,8 @@ If you are interested in the process of development you may observe
 %    \begin{macrocode}
 \define@key{zhm}{SlantedFont}{
   \zhm@DeclareRealFont{#1}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{sl}{<-> CJK * \zhm@tfm}{}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{sl}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
   \zhm@fakeslantfalse}
 %    \end{macrocode}
 %
@@ -1047,9 +1196,10 @@ If you are interested in the process of development you may observe
 %    \begin{macrocode}
 \define@key{zhm}{BoldSlantedFont}{
   \zhm@DeclareRealFont{#1}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{sl}{<-> CJK * \zhm@tfm}{}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{sl}%
-    {<-> CJK * \zhm@tfm}{}}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{sl}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{sl}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@newfontfamily}
@@ -1070,24 +1220,25 @@ If you are interested in the process of development you may observe
   \edef\zhm@fam{#1}
   \expandafter\xdef\csname zhm@#1@font\endcsname{#3}
 %    \end{macrocode}
-% 检查并定义实际字体。
-%    \begin{macrocode}
-  \zhm@DeclareRealFont{#3}
-%    \end{macrocode}
-% 定义 CJK 字体族和标准字形。模拟 ".fd" 文件的定义 \cite{Lemberg2008fonts}。
-%    \begin{macrocode}
-  \DeclareFontFamily{\zhm@nfssenc}{\zhm@fam}{\hyphenchar\font\m@ne}
-  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{n}{<-> CJK * \zhm@tfm}{}
-%    \end{macrocode}
 % 使全局的 "AutoFakeBold" 和 "AutoFakeSlant" 生效。
 %    \begin{macrocode}
   \setkeys{zhm}{%
     AutoFakeBold=\zhm@AutoFakeBold,
     AutoFakeSlant=\zhm@AutoFakeSlant}
 %    \end{macrocode}
-% 按选项定义其他字形。
+% 定义 CJK 字体族。
+%    \begin{macrocode}
+  \DeclareFontFamily{\zhm@nfssenc}{\zhm@fam}{\hyphenchar\font\m@ne}
+%    \end{macrocode}
+% 执行选项，定义编码、CMap 和其他字形等。
 %    \begin{macrocode}
   \setkeys{zhm}{#2}
+%    \end{macrocode}
+% 检查并定义实际字体，定义标准字形。模拟 ".fd" 文件的定义 \cite{Lemberg2008fonts}。
+%    \begin{macrocode}
+  \zhm@DeclareRealFont{#3}
+  \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{n}{<-> CJK * \zhm@tfm}%
+    {\CJKnormal}
 %    \end{macrocode}
 % 按需要，定义伪粗体、伪斜体字形。
 %    \begin{macrocode}
@@ -1101,8 +1252,15 @@ If you are interested in the process of development you may observe
   \ifzhm@fakeslant
     \zhm@DeclareRealFont{#3}
     \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{m}{sl}%
-      {<-> CJKsl * \zhm@tfm}{\zhm@pdf@CJKslant}
+      {<-> CJKsl * \zhm@tfm}{\CJKslant}
   \fi
+  \expandafter\ifzhm@fakeslant\ifzhm@fakebold
+      \zhm@DeclareRealFont{#3}
+      \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{bx}{sl}%
+        {<-> CJKbsl * \zhm@tfm}{\CJKboldslant}
+      \zhm@DeclareFontShape{\zhm@nfssenc}{\zhm@fam}{b}{sl}%
+        {<-> CJKbsl * \zhm@tfm}{\CJKboldslant}
+  \fi\fi
   \endgroup}
 %    \end{macrocode}
 % \end{macro}
@@ -1218,7 +1376,7 @@ If you are interested in the process of development you may observe
 % 这里字体脚本的实现参考了 \pkg{zhmetrics} 项目中吴凌云\footnote{中科院应用数
 % 学研究所副研究员。\nolinkurl{wulingyun@gmail.com}}、
 % zwhuang\footnote{\nolinkurl{zwhuang@gmail.com}} 编写的 "zhtfm.lua" 脚本。其
-% 中 TFM 生成原理参看 \cite{Wang2009}。
+% 中 TFM 生成原理参见 \cite{Wang2009}。
 %
 % \VerbatimInput[gobble=0,numbers=left,fontsize=\small]{zhmCJK.lua}
 % \changes{v0.7}{2012/02/06}{生成 TFM 时加入版权说明。}
