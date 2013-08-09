@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5192}
+% \CheckSum{5201}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -6290,11 +6290,11 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\(}
+% \begin{macro}[internal]{\(,\),\math,\endmath,\ensuremath,\@@_math_robust:N}
 % \changes{v3.2.5}{2013/07/25}
 % {解决汉字后紧跟 \cs{(}\texttt{...}\cs{)} 形式的行内数学公式时，不能加入间距的问题。}
-% \begin{macro}[internal]{\),\@@_math_robust:N}
 % \changes{v3.2.6}{2013/08/03}{考虑 \pkg{ulem} 对 \cs{MakeRobust} 的不当定义。}
+% \changes{v3.2.6}{2013/08/03}{考虑 \cs{math} 和 \cs{ensuremath}。}
 % \cs{(} 的在 \LaTeXe 中的定义是
 % \begin{verbatim}
 %   \def\({\relax\ifmmode\@badmath\else$\fi}
@@ -6324,12 +6324,25 @@ $URL$
   }
 \cs_new_protected_nopar:Npn \@@_math_robust:NN #1#2
   {
-    \bool_if:nTF
+    \str_if_eq_x:nnTF { \token_get_arg_spec:N #2 } { }
       {
-        \str_if_eq_x_p:nn { \token_get_arg_spec:N #2 } { } &&
-        \exp_args:No \tl_if_head_eq_meaning_p:nN {#2} \scan_stop:
+        \exp_args:No \tl_if_head_eq_meaning:nNTF {#2} \scan_stop:
+          {
+            \cs_gset_protected_nopar:Npx #1
+              { \scan_align_safe_stop: \tl_tail:N #2 }
+          }
+          {
+            \cs_if_eq:NNTF #1 \ensuremath
+              {
+                \cs_gset_protected_nopar:Npx #1
+                  { \scan_align_safe_stop: \exp_not:o {#2} }
+              }
+              {
+                \@@_warning:nxx { robust-failure }
+                  { \token_to_str:N #1 } { \token_to_meaning:N #2 }
+              }
+          }
       }
-      { \cs_gset_protected_nopar:Npx #1 { \scan_align_safe_stop: \tl_tail:N #2 } }
       {
         \@@_warning:nxx { robust-failure }
           { \token_to_str:N #1 } { \token_to_meaning:N #2 }
@@ -6345,13 +6358,12 @@ $URL$
 \@@_math_robust:N \)
 \@@_math_robust:N \math
 \@@_math_robust:N \endmath
+\@@_math_robust:N \ensuremath
 %    \end{macrocode}
 % \end{macro}
-% \end{macro}
 %
-% \begin{macro}[internal]{\[}
+% \begin{macro}[internal]{\[,\]}
 % \changes{v3.2.5}{2013/07/25}{解决 \pkg{fixltx2e} 和 \pkg{amsthm} 的冲突。}
-% \begin{macro}[internal]{\]}
 % 当 \pkg{amsmath} 没有在 \pkg{amsthm} 之前被调用时，\pkg{amsthm} 会展开 \cs{[}，
 % 并用 |$| 作为参数定界记号，相关代码为
 % \begin{verbatim}
@@ -6376,7 +6388,6 @@ $URL$
     \@@_math_robust:N \]
   }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[internal]{\nobreakspace}
