@@ -188,7 +188,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{732}
+% \CheckSum{771}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -403,44 +403,112 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \RequirePackage{l3keys2e}
 %    \end{macrocode}
 %
+% \begin{macro}[internal]{\c_@@_tone_prop}
 %    \begin{macrocode}
-\bool_new:N \g_@@_GBK_bool
+\prop_new:N \c_@@_tone_prop
+\clist_map_inline:nn
+  {
+    { ā }{ \= a } , { á }{ \' a } , { ǎ }{ \v a } , { à }{ \` a } ,
+    { ō }{ \= o } , { ó }{ \' o } , { ǒ }{ \v o } , { ò }{ \` o } ,
+    { ē }{ \= e } , { é }{ \' e } , { ě }{ \v e } , { è }{ \` e } ,
+    { ī }{ \=\i } , { í }{ \'\i } , { ǐ }{ \v\i } , { ì }{ \`\i } ,
+    { ū }{ \= u } , { ú }{ \' u } , { ǔ }{ \v u } , { ù }{ \` u } ,
+    { ü }{ \" u } ,
+    { ǖ }{ \= { \" u } } , { ǘ }{ \' { \" u } } ,
+    { ǚ }{ \v { \" u } } , { ǜ }{ \` { \" u } }
+  }
+  { \prop_gput:Nnn \c_@@_tone_prop #1 }
+%    \end{macrocode}
+% \end{macro}
+%
+%
+% \begin{macro}[internal]{\@@_UTF_char:nn}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_UTF_char:nn #1#2
+  {
+    \cs_if_exist:cF { u8:#1 }
+      { \cs_new_protected_nopar:cpn { u8:#1 } {#2} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%
+% \begin{macro}[internal]{\@@_GBK_char:nn}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_GBK_char:nn #1#2
+  {
+    \@@_UTF_char:nn {#1} {#2}
+    \exp_args:Nx \@@_GBK_char_aux:nn { \tl_head:n {#1} } {#1}
+  }
+\cs_new_protected_nopar:Npn \@@_GBK_char_aux:nn #1#2
+  { \exp_args:Nf \@@_GBK_char_aux:nnn { \int_eval:n { `#1 } } {#1} {#2} }
+\cs_new_protected_nopar:Npn \@@_GBK_char_aux:nnn #1#2#3
+  {
+    \cs_if_exist:cF { @@_UTF_ #1 :w }
+      {
+        \int_case:nn { \tl_count:n {#3} }
+          {
+            { \c_two   }
+            {
+              \cs_new_protected_nopar:cpn { @@_UTF_ #1 :w } ##1
+                { \use:c { u8: \tl_to_str:n { #2 ##1 } } }
+            }
+            { \c_three }
+            {
+              \cs_new_protected_nopar:cpn { @@_UTF_ #1 :w } ##1##2
+                { \use:c { u8: \tl_to_str:n { #2 ##1##2 } } }
+            }
+            { \c_four  }
+            {
+              \cs_new_protected_nopar:cpn { @@_UTF_ #1 :w } ##1##2##3
+                { \use:c { u8: \tl_to_str:n { #2 ##1##2##3 } } }
+            }
+          }
+        \exp_args:Nc \@@_save_UTF_cs:Nn { @@_UTF_ #1 :w } {#1}
+        \tl_gput_right:Nx \c_@@_reset_UTF_catcode_tl
+          { \char_set_catcode:nn {#1} { \char_value_catcode:n {#1} } }
+        \char_set_catcode_active:n {#1}
+      }
+  }
+\tl_new:N \c_@@_reset_UTF_catcode_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_save_UTF_cs:n}
+%    \begin{macrocode}
 \group_begin:
 \char_set_catcode_active:n { \c_zero }
-\cs_new_protected_nopar:Npn \@@_save_UTF_cs:
-  {
-    \group_begin:
-    \int_step_inline:nnnn { "C2 } { \c_one } { "F3 }
-      {
-        \char_set_lccode:nn { \c_zero } {##1}
-        \tl_to_lowercase:n { \@@_save_UTF_cs:Nn ^^00 } {##1}
-      }
-    \group_end:
-  }
-\group_end:
 \cs_new_protected_nopar:Npn \@@_save_UTF_cs:Nn #1#2
   {
-    \cs_new_eq:cN { @@_UTF_ #2 :w } #1
-    \tl_gput_right:Nn \c_@@_reset_UTF_cs_tl
-      { \cs_set_eq:Nc #1 { @@_UTF_ #2 :w } }
+    \group_begin:
+    \char_set_lccode:nn { \c_zero } {#2}
+    \tl_to_lowercase:n
+      {
+        \group_end:
+        \tl_gput_right:Nn \c_@@_reset_UTF_cs_tl { \cs_set_eq:NN ^^00 #1 }
+      }
   }
+\group_end:
 \tl_new:N \c_@@_reset_UTF_cs_tl
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\bool_new:N \g_@@_GBK_bool
 \@ifpackageloaded { xeCJK }
   { \AtEndOfPackage { \@@_adjust_xeCJK_hook: } }
   {
     \@ifpackageloaded { CJKutf8 }
-      { \AtEndOfPackage { \@@_adjust_CJK_hook: } }
+      {
+        \prop_map_function:NN \c_@@_tone_prop \@@_UTF_char:nn
+        \AtEndOfPackage { \@@_adjust_CJK_hook: }
+      }
       {
         \@ifpackageloaded { CJK }
           {
-            \RequirePackage { inputenc }
-            \inputencoding { utf8 }
-            \@@_save_UTF_cs:
+            \prop_map_function:NN \c_@@_tone_prop \@@_GBK_char:nn
             \AtEndOfPackage
-              {
-                \inputencoding { ascii }
-                \@@_adjust_CJK_hook:
-              }
+              { \@@_adjust_CJK_hook: \c_@@_reset_UTF_catcode_tl }
             \bool_gset_true:N \g_@@_GBK_bool
           }
           {
@@ -451,6 +519,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
               }
               {
                 \RequirePackage { CJKutf8 }
+                \prop_map_function:NN \c_@@_tone_prop \@@_UTF_char:nn
                 \AtEndOfPackage { \@@_adjust_CJK_hook: }
               }
           }
@@ -719,7 +788,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
               } { }
           }
       }
-    \prop_map_function:NN \g_@@_tone_prop \DeclareUnicodeCharacter
   }
 %    \end{macrocode}
 % \end{macro}
@@ -765,6 +833,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \l_@@_font_tl
     \l_@@_format_tl
     \selectfont
+    \c_@@_reset_UTF_cs_tl
     \@@_pinyin:n {#2}
     \group_end:
   }
@@ -904,23 +973,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       }
       { \@@_num_to_tone:Nn u {#2} }
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\g_@@_tone_prop}
-%    \begin{macrocode}
-\prop_new:N \g_@@_tone_prop
-\clist_map_inline:nn
-  {
-    {0101}{\=a} ,     {00E1}{\'a} ,     {01CE}{\v{a}} ,   {00E0}{\`a} ,
-    {014D}{\=o} ,     {00F3}{\'o} ,     {01D2}{\v{o}} ,   {00F2}{\`o} ,
-    {0113}{\=e} ,     {00E9}{\'e} ,     {011B}{\v{e}} ,   {00E8}{\`e} ,
-    {012B}{\={\i}} ,  {00ED}{\'{\i}} ,  {01D0}{\v{\i}} ,  {00EC}{\`{\i}} ,
-    {016B}{\=u} ,     {00FA}{\'u} ,     {01D4}{\v{u}} ,   {00F9}{\`u} ,
-    {00FC}{\"u} ,
-    {01D6}{\={\"u}} , {01D8}{\'{\"u}} , {01DA}{\v{\"u}} , {01DC}{\`{\"u}}
-  }
-  { \prop_gput:Nnn \g_@@_tone_prop #1 }
 %    \end{macrocode}
 % \end{macro}
 %
