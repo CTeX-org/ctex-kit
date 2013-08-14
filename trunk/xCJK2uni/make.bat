@@ -145,6 +145,9 @@
 :localinstall
 
   if not exist %PACKAGE%.pdf call :doc
+
+  call :makedef
+
   echo.
   echo Installing %PACKAGE%
 
@@ -259,8 +262,8 @@
   for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
 
   if exist "%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe" (
-	set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
-	goto :EOF
+    set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
+    goto :EOF
   )
 
   echo.
