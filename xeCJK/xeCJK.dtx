@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5239}
+% \CheckSum{5262}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -7969,7 +7969,7 @@ $URL$
   {
     \@@_if_csname:nTF {#3}
       { \@@_declare_character:Nnn #3 }
-      { \exp_args:Nc \@@_declare_character:Nnn { \tl_to_str:n {#3} } }
+      { \@@_declare_character:cnn { \tl_to_str:n {#3} } }
       {#1} {#2}
   }
 %    \end{macrocode}
@@ -7991,6 +7991,7 @@ $URL$
       }
       #1 { \token_to_str:N #1 } {#2}
   }
+\cs_generate_variant:Nn \@@_declare_character:Nnn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8061,7 +8062,7 @@ $URL$
   {
     \@@_if_csname:nTF {#3}
       { \@@_declare_composite:Nnnn #3 }
-      { \exp_args:Nc \@@_declare_composite:Nnnn { \tl_to_str:n {#3} } }
+      { \@@_declare_composite:cnnn { \tl_to_str:n {#3} } }
       {#1} {#4} {#2}
   }
 %    \end{macrocode}
@@ -8073,7 +8074,6 @@ $URL$
 %   \DeclareUTFcomposite[\UTFencname]{x02E8\char"02E5}{\tonebar}{25}
 %   \DeclareUTFcomposite[\UTFencname]{x02E5\char"02E8}{\tonebar}{52}
 % \end{verbatim}
-% 但是这个定义原本就是无效的，|\tonebar{25}| 和 |\tonebar{2}| 的定义一样。
 % 对复合符号命令的定义用的是 \cs{chardef}，这有利于下面字符是否存在的判断。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_declare_composite:Nnnn #1#2#3#4
@@ -8087,6 +8087,44 @@ $URL$
 \cs_new_protected:Npn \@@_chardef:Nn #1#2
   { \tex_chardef:D #1 = \etex_numexpr:D #2 \scan_stop: }
 \cs_generate_variant:Nn \@@_chardef:Nn { c }
+\cs_generate_variant:Nn \@@_declare_composite:Nnnn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\tonebar}
+% 使得 |\tonebar{25}| 和 |\tonebar{52}| 生效。
+%    \begin{macrocode}
+\AtEndOfPackage
+  {
+    \DeclareUTFCompositeCommand \tonebar { 25 } { \tonebar { 2 } \tonebar { 5 } }
+    \DeclareUTFCompositeCommand \tonebar { 52 } { \tonebar { 5 } \tonebar { 2 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\DeclareUTFCompositeCommand}
+% 设置编码 |#1| 下的符号命令 |#2| 与它的参数 |#3| 的复合对应结果是 |#4|。不能直接用
+% \cs{Declare\-Text\-Composite\-Command} 来定义，它与我们的机制冲突。
+%    \begin{macrocode}
+\NewDocumentCommand \DeclareUTFCompositeCommand { O { \UTFencname } m m m }
+  {
+    \@@_if_csname:nTF {#2}
+      { \@@_declare_composite_command:Nnnn #2 }
+      { \@@_declare_composite_command:cnnn { \tl_to_str:n {#2} } }
+      {#1} {#3} {#4}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_declare_composite_command:Nnnn}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_declare_composite_command:Nnnn #1#2#3#4
+  {
+    \cs_set_protected:cpn
+      { \token_to_str:c {#2} \token_to_str:N #1 - \tl_to_str:n {#3} }
+      {#4}
+  }
+\cs_generate_variant:Nn \@@_declare_composite_command:Nnnn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8098,7 +8136,7 @@ $URL$
   {
     \@@_if_csname:nTF {#2}
       { \@@_declare_accent:Nnnn #2 }
-      { \exp_args:Nc \@@_declare_accent:Nnnn { \tl_to_str:n {#2} } }
+      { \@@_declare_accent:cnnn { \tl_to_str:n {#2} } }
       {#1} {#3} {#4}
   }
 %    \end{macrocode}
@@ -8112,7 +8150,7 @@ $URL$
   {
     \@@_if_csname:nTF {#2}
       { \@@_declare_accent:Nnnn #2 }
-      { \exp_args:Nc \@@_declare_accent:Nnnn { \tl_to_str:n {#2} } }
+      { \@@_declare_accent:cnnn { \tl_to_str:n {#2} } }
       {#1} {#4} {#3}
   }
 %    \end{macrocode}
@@ -8138,6 +8176,7 @@ $URL$
     \DeclareTextCommand #3 {#6}
       { \@@_text_composite:nnNNn {#4} {#5} {#1} {#2} }
   }
+\cs_generate_variant:Nn \@@_declare_accent:Nnnn { c }
 \cs_generate_variant:Nn \@@_declare_accent:NNNnnn { NNNxx }
 %    \end{macrocode}
 % \end{macro}
@@ -8151,18 +8190,22 @@ $URL$
     \@@_begin_hook:nn {#2} {#5}
     \cs_if_exist:cTF { #1#2 - \tl_to_str:n {#5} }
       {
-        \token_if_chardef:cTF { #1#2 - \tl_to_str:n {#5} }
-          {
-            \@@_glyph_if_exist:nTF { \use:c { #1#2 - \tl_to_str:n {#5} } }
-              { \use:c { #1#2 - \tl_to_str:n {#5} } }
-              { \@@_add_accent:nnNN {#5} {#2} #3#4 }
-          }
-          { \use:c { #1#2 - \tl_to_str:n {#5} } }
+        \@@_text_composite_aux:cnNNn
+          { #1#2 - \tl_to_str:n {#5} } {#2} {#3} {#4} {#5}
       }
-      { \@@_add_accent:nnNN {#5} {#2} #3#4 }
+      { \@@_add_accent:nnNN {#5} {#2} {#3} {#4} }
     \@@_end_hook:nn {#2} {#5}
   }
-\cs_generate_variant:Nn \token_if_chardef:NTF { c }
+\cs_new_protected:Npn \@@_text_composite_aux:NnNNn #1#2#3#4#5
+  {
+    \token_if_chardef:NTF #1
+      {
+        \@@_glyph_if_exist:nTF {#1}
+          {#1} { \@@_add_accent:nnNN {#5} {#2} {#3} {#4} }
+      }
+      {#1}
+  }
+\cs_generate_variant:Nn \@@_text_composite_aux:NnNNn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8236,7 +8279,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_set_cmd_hook:nnn #1#2#3
   {
-    \cs_set:cpn
+    \cs_set_protected:cpn
       {
         \tl_if_single:nTF {#2}
           { \use:c { @@_#1_csname:n } { \token_to_str:N #2 } }
@@ -8246,8 +8289,8 @@ $URL$
   }
 \cs_new:Npn \@@_set_cmd_hook_aux:Nnwn #1#2 \q_stop #3
   { \use:c { @@_#3_csname:n } { \token_to_str:N #1 - \tl_to_str:n {#2} } }
-\cs_new_nopar:Npn \@@_begin_csname:n #1  { @@_begin_#1_hook:n }
-\cs_new_nopar:Npn \@@_end_csname:n #1    { @@_end_#1_hook:n }
+\cs_new_nopar:Npn \@@_begin_csname:n #1 { @@_begin_#1_hook:n }
+\cs_new_nopar:Npn \@@_end_csname:n #1   { @@_end_#1_hook:n }
 %    \end{macrocode}
 % \end{macro}
 %
