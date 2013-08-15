@@ -335,7 +335,7 @@ $URL$
 %</driver>
 % \fi
 %
-% \CheckSum{5201}
+% \CheckSum{5239}
 % \changes{v3.1.0}{2012/11/13}{放弃对 \cs{outer} 宏的特殊处理。}
 % \changes{v3.1.1}{2012/12/07}{不再依赖 \pkg{xpatch} 宏包。}
 % \changes{v3.2.2}{2013/06/01}{修正某些重音不能正确显示的问题。}
@@ -6592,22 +6592,26 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\textellipsis}
 % 单独处理宽度有分歧的几个标点：包括省略号、破折号、间隔号、引号等中西文混用的
-% 符号， 保证其命令形式输出的是西文字体。并对一些编码的符号宏包做特殊处理。在
-% 使用 \texttt{T1} 编码的时候，|\r{u}| 的实际定义是 |\char183| 与常被用作中文
-% 间隔号的 \texttt{U+00B7} 冲突。
+% 符号， 保证其命令形式输出的是西文字体。
+%    \begin{macrocode}
+\tl_map_inline:nn
+  {
+    \textellipsis  \textemdash     \textperiodcentered \textcentereddot
+    \textquoteleft \textquoteright \textquotedblleft   \textquotedblright
+  }
+  {
+    \AtBeginUTFCommand [#1] { \@@_group_begin: \makexeCJKinactive }
+    \AtEndUTFCommand   [#1] { \@@_group_end: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% 常被用作中文间隔号的 \texttt{U+00B7} 与 T1 等旧字体编码下定义的符号命令冲突。
 %    \begin{macrocode}
 \@@_after_preamble:n
   {
-    \tl_map_inline:nn
-      {
-        \textellipsis  \textemdash     \textperiodcentered \textcentereddot
-        \textquoteleft \textquoteright \textquotedblleft   \textquotedblright
-      }
-      {
-        \cs_gset_nopar:Npx #1
-          { \@@_group_begin: \makexeCJKinactive \exp_not:o {#1} \@@_group_end: }
-      }
     \tl_put_left:Nn \tipaencoding { \makexeCJKinactive }
     \cs_new_eq:NN \@@_aux_r:n \r
     \cs_set_nopar:Npn \r #1
@@ -8027,10 +8031,10 @@ $URL$
   { \DeclareTextCommand #2 {#4} { \@@_text_character:nN {#3} {#1} } }
 \cs_new_protected:Npn \@@_text_character:nN #1#2
   {
-    \tl_use:N \l_@@_begin_hook_tl
+    \@@_begin_hook:nn {#1} {#2}
     \@@_glyph_if_exist:nTF { `#2 }
       {#2} { \cs_if_exist_use:cF { ? #1 } {#2} }
-    \tl_use:N \l_@@_end_hook_tl
+    \@@_end_hook:nn {#1} {#2}
   }
 \cs_generate_variant:Nn \@@_declare_character:NNnn { NNx }
 %    \end{macrocode}
@@ -8144,7 +8148,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_text_composite:nnNNn #1#2#3#4#5
   {
-    \tl_use:N \l_@@_begin_hook_tl
+    \@@_begin_hook:nn {#2} {#5}
     \cs_if_exist:cTF { #1#2 - \tl_to_str:n {#5} }
       {
         \token_if_chardef:cTF { #1#2 - \tl_to_str:n {#5} }
@@ -8156,7 +8160,7 @@ $URL$
           { \use:c { #1#2 - \tl_to_str:n {#5} } }
       }
       { \@@_add_accent:nnNN {#5} {#2} #3#4 }
-    \tl_use:N \l_@@_end_hook_tl
+    \@@_end_hook:nn {#2} {#5}
   }
 \cs_generate_variant:Nn \token_if_chardef:NTF { c }
 %    \end{macrocode}
@@ -8199,22 +8203,70 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\AtBeginUTFCommand,\AtEndUTFCommand}
-% 在符号命令前后使用的钩子。
+% 设置在符号命令前后使用的钩子，可选参数用于指定单个符号命名。可以用 |#1|
+% 引用带参数的组合符号命令的参数或者符号命令对应的符号。
+% \changes{v3.2.6}{2013/08/15}{可以指定特定符号命令使用的钩子。}
 %    \begin{macrocode}
-\NewDocumentCommand \AtBeginUTFCommand { s +m }
+\NewDocumentCommand \AtBeginUTFCommand { s O { } +m }
   {
-    \IfBooleanTF {#1}
-      { \tl_set:Nn \l_@@_begin_hook_tl {#2} }
-      { \tl_put_right:Nn \l_@@_begin_hook_tl {#2} }
+    \tl_if_blank:nTF {#2}
+      {
+        \IfBooleanTF {#1}
+          { \tl_set:Nn \l_@@_begin_hook_tl {#3} }
+          { \tl_put_right:Nn \l_@@_begin_hook_tl {#3} }
+      }
+      { \@@_set_cmd_hook:nnn { begin } {#2} {#3} }
   }
-\NewDocumentCommand \AtEndUTFCommand { s +m }
+\NewDocumentCommand \AtEndUTFCommand { s O { } +m }
   {
-    \IfBooleanTF {#1}
-      { \tl_set:Nn \l_@@_end_hook_tl {#2} }
-      { \tl_put_right:Nn \l_@@_end_hook_tl {#2} }
+    \tl_if_blank:nTF {#2}
+      {
+        \IfBooleanTF {#1}
+          { \tl_set:Nn \l_@@_end_hook_tl {#3} }
+          { \tl_put_right:Nn \l_@@_end_hook_tl {#3} }
+      }
+      { \@@_set_cmd_hook:nnn { end } {#2} {#3} }
   }
 \tl_new:N \l_@@_begin_hook_tl
 \tl_new:N \l_@@_end_hook_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_set_cmd_hook:nnn}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_set_cmd_hook:nnn #1#2#3
+  {
+    \cs_set:cpn
+      {
+        \tl_if_single:nTF {#2}
+          { \use:c { @@_#1_csname:n } { \token_to_str:N #2 } }
+          { \@@_set_cmd_hook_aux:Nnwn #2 \q_stop {#1} }
+      } ##1
+      {#3}
+  }
+\cs_new:Npn \@@_set_cmd_hook_aux:Nnwn #1#2 \q_stop #3
+  { \use:c { @@_#3_csname:n } { \token_to_str:N #1 - \tl_to_str:n {#2} } }
+\cs_new_nopar:Npn \@@_begin_csname:n #1  { @@_begin_#1_hook:n }
+\cs_new_nopar:Npn \@@_end_csname:n #1    { @@_end_#1_hook:n }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_begin_hook:nn,\@@_end_hook:nn}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_begin_hook:nn #1#2
+  {
+    \tl_use:N \l_@@_begin_hook_tl
+    \cs_if_exist_use:cF { \@@_begin_csname:n { #1 - \tl_to_str:n {#2} } }
+      { \cs_if_exist_use:cF { \@@_begin_csname:n {#1} } { \use_none:n } }
+      {#2}
+  }
+\cs_new_protected:Npn \@@_end_hook:nn #1#2
+  {
+    \cs_if_exist_use:cF { \@@_end_csname:n { #1 - \tl_to_str:n {#2} } }
+      { \cs_if_exist_use:cF { \@@_end_csname:n {#1} } { \use_none:n } }
+      {#2}
+    \tl_use:N \l_@@_end_hook_tl
+  }
 %    \end{macrocode}
 % \end{macro}
 %
