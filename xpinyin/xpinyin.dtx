@@ -8,7 +8,7 @@ Introduction
 ------------
 xpinyin is a LaTeX package written to simplify the input of Hanyu Pinyin.
 The package provides macros to automatically add pinyin to Chinese characters.
-It can only be used in conjunction with xeCJK or CJKutf8 package.
+It can only be used in conjunction with xeCJK or CJK/CJKutf8 package.
 
 Given that the implementation of pinyin package of CJK bundle is not very
 well, it seems that xpinyin is a good replacement of it.
@@ -29,7 +29,6 @@ The Current Maintainer of this work is Qing Lee.
 
 This package consists of the file  xpinyin.dtx,
                                    xpinyin-map.cfg,
-                                   xpinyin-UGBK.cfg,
              and the derived files xpinyin.sty,
                                    xpinyin.pdf,
                                    xpinyin.ins and
@@ -95,7 +94,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 
    This package consists of the file  xpinyin.dtx,
                                       xpinyin-map.cfg,
-                                      xpinyin-UGBK.cfg,
                 and the derived files xpinyin.sty,
                                       xpinyin.pdf,
                                       xpinyin.ins and
@@ -108,7 +106,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   \usedir{tex/latex/xpinyin}
   \file{\jobname.sty}{\from{\jobname.dtx}{package}}
   \nopreamble\nopostamble
-  \usedir{doc/latex/zhnumber}
+  \usedir{doc/latex/xpinyin}
   \file{README.txt}{\from{\jobname.dtx}{readme}}
 }
 
@@ -188,7 +186,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{733}
+% \CheckSum{622}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -212,7 +210,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \pkg{CJKutf8}。
 %
 % \pkg{xpinyin} 还依赖 \package{l3kernel} 和 \package{l3packages}，使用 (pdf)\LaTeX
-% 下的 \texttt{GBK} 编码时，还将依赖 \package[l3experimental]{l3tl-build}。
+% 下的 \texttt{GBK} 编码时，还将依赖 \package{xCJK2uni}。
 %
 % 需要注意的是，\pkg{xpinyin} 缺省将拼音的字体设置为与文档的主字体（\cs{normalfont}）相同，
 % 所以为了保证声调字母的正确输出，应该选用合适的西文主字体。也可以通过将在下一节介绍的
@@ -504,9 +502,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \@ifpackageloaded { CJK }
           {
+            \RequirePackage { xCJK2uni }
             \prop_map_function:NN \c_@@_tone_prop \@@_GBK_char:nn
             \AtEndOfPackage
-              { \@@_adjust_CJK_hook: \c_@@_reset_UTF_catcode_tl }
+              {
+                \tl_put_right:Nn \l_@@_pinyin_box_hook_tl
+                  { \c_@@_reset_UTF_cs_tl }
+                \@@_adjust_CJK_hook:
+                \tl_use:N \c_@@_reset_UTF_catcode_tl
+              }
             \bool_gset_true:N \g_@@_GBK_bool
           }
           {
@@ -721,7 +725,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}[internal]{\@@_UTF_to_unicode:n,\@@_UTFchar_to_unicode:n}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_UTF_to_unicode:n #1
-  { \int_to_hexadecimal:n { \int_from_hexadecimal:V \CJK@plane * "100 + #1 } }
+  {
+    \int_to_hexadecimal:n
+      { \exp_args:No \int_from_hexadecimal: { \CJK@plane } * "100 + #1 }
+  }
 \cs_new_nopar:Npn \@@_UTFchar_to_unicode:n #1
   { \int_to_hexadecimal:n { \@@_UTF_viii_to_unicode:NNNw #1 \q_stop } }
 \cs_new_nopar:Npn \@@_UTF_viii_to_unicode:NNNw #1#2#3#4 \q_stop
@@ -730,7 +737,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       { ( `#1 - "E0 ) * "1000 + ( `#2 - "80 ) * "40 + ( `#3 - "80 ) }
       { ( `#1 - "F0 ) * "4000 + ( `#2 - "80 ) * "1000 + ( `#3 - "80 ) * "40 + ( `#4 - "80 ) }
   }
-\cs_generate_variant:Nn \int_from_hexadecimal:n { V }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_GBK_to_unicode:n,\@@_GBKchar_to_unicode:n}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_GBK_to_unicode:n #1
+  { \CJKtu_sfd_map:nn { \CJK@plane } {#1} }
+\cs_new_nopar:Npn \@@_GBKchar_to_unicode:n #1
+  { \CJKchartouni {#1} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1027,123 +1042,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \ProcessKeysOptions { xpinyin }
 %    \end{macrocode}
-%
-%    \begin{macrocode}
-\bool_if:NF \g_@@_GBK_bool { \tex_endinput:D }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\tl_put_right:Nn \l_@@_pinyin_box_hook_tl { \c_@@_reset_UTF_cs_tl }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\@@_save_sfd_line:w}
-%    \begin{macrocode}
-\msg_new:nnn { xpinyin } { file-not-found }
-  { File~`#1'~not~found.~xpinyin~will~not~work! }
-\ior_new:N \g_@@_GBK_sfd_ior
-\ior_open:NnTF \g_@@_GBK_sfd_ior { xpinyin-UGBK.cfg }
-  { \RequirePackage { l3tl-build } }
-  { \msg_critical:nnn { xpinyin } { file-not-found } { xpinyin-UGBK.cfg } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_save_sfd_line:w}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_save_sfd_line:w
-  #1 0x#2 0x#3 0x#4 0x#5 0x#6 0x#7 0x#8 0x#9 \q_stop
-  {
-    \tl_if_empty:nTF {#1}
-      {
-        \__tl_build_one:n
-          { \or: #2 \or: #3 \or: #4 \or: #5 \or: #6 \or: #7 \or: #8 \or: #9 }
-      }
-      {
-        \__tl_build_one:n
-          {
-            \fi: \or: \if_case:w \etex_numexpr:D ##2 \scan_stop:
-            #2 \or: #3 \or: #4 \or: #5 \or: #6 \or: #7 \or: #8 \or: #9
-          }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\c_@@_GBK_sfd_tl,\@@_GBK_sfd_map:nn}
-%    \begin{macrocode}
-\tl_new:N \c_@@_GBK_sfd_tl
-\__tl_gbuild:Nw \c_@@_GBK_sfd_tl
-\__tl_build_one:n { \if_case:w \etex_numexpr:D #1 \scan_stop: \if_true: }
-\ior_map_inline:Nn \g_@@_GBK_sfd_ior
-  { \@@_save_sfd_line:w #1 \q_stop }
-\__tl_build_one:n { \fi: \fi: }
-\__tl_build_end:
-\ior_close:N \g_@@_GBK_sfd_ior
-\use:x
-  {
-    \cs_new_nopar:Npn \exp_not:N \@@_GBK_sfd_map:nn ##1##2
-      { \exp_not:o { \c_@@_GBK_sfd_tl } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_GBK_to_unicode:n,\@@_GBKchar_to_unicode:n}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_GBK_to_unicode:n #1
-  { \@@_GBK_sfd_map:nn { \CJK@plane } {#1} }
-\cs_new_nopar:Npn \@@_GBKchar_to_unicode:n #1
-  {
-    \int_compare:nNnTF { \tl_count:n {#1} } = \c_two
-      { \@@_GBK_byte:NN #1 }
-      { \@@_encoding_error: }
-  }
-\cs_new_nopar:Npn \@@_GBK_byte:NN #1#2
-  {
-    \int_compare:nTF { \c_@@_GBK_i_min_int <= `#1 <= \c_@@_GBK_i_max_int }
-      {
-        \int_compare:nNnTF { `#2 } = \c_@@_GBK_ii_gap_int
-          { \@@_encoding_error: }
-          {
-            \int_compare:nTF
-              { \c_@@_GBK_ii_min_int <= `#2 <= \c_@@_GBK_ii_max_int }
-              { \@@_GBK_map:nn { `#1 } { `#2 } }
-              { \@@_encoding_error: }
-          }
-      }
-      { \@@_encoding_error: }
-  }
-\cs_new_nopar:Npn \@@_encoding_error:
-  { \__msg_expandable_error:n { Wrong~encoding~scheme. } }
-\int_const:Nn \c_@@_GBK_i_min_int  { "81 }
-\int_const:Nn \c_@@_GBK_i_max_int  { "FE }
-\int_const:Nn \c_@@_GBK_ii_min_int { "40 }
-\int_const:Nn \c_@@_GBK_ii_gap_int { "7F }
-\int_const:Nn \c_@@_GBK_ii_max_int { "FE }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_GBK_map:nn}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_GBK_map:nn #1#2
-  {
-    \exp_args:Nf \@@_GBK_map:n
-      {
-        \int_eval:n
-          {
-              ( #1 - \c_@@_GBK_i_min_int )
-            * ( \c_@@_GBK_ii_max_int - \c_@@_GBK_ii_min_int )
-            + (#2) - \c_@@_GBK_ii_min_int
-            \int_compare:nNnF {#2} < \c_@@_GBK_ii_gap_int { - \c_one }
-          }
-      }
-  }
-\cs_new_nopar:Npn \@@_GBK_map:n #1
-  {
-    \@@_GBK_sfd_map:nn
-      { \int_div_truncate:nn {#1} { \c_two_hundred_fifty_six } + \c_one }
-      { \int_mod:nn {#1} { \c_two_hundred_fifty_six } }
-  }
-%    \end{macrocode}
-% \end{macro}
 %
 %    \begin{macrocode}
 %</package>
