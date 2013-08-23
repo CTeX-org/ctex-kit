@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5398}
+% \CheckSum{5419}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3453,20 +3453,19 @@ $URL$
 %
 % \changes{v3.2.4}{2013/07/06}
 % {使用 \texttt{AllowBreakBetweenPuncts} 时，相应标点符号仍能与边界对齐。}
+% \changes{v3.2.7}{2013/08/23}
+% {处理 \texttt{AllowBreakBetweenPuncts} 与 \pkg{xeCJKfntef} 的兼容问题。}
 %
 % \begin{macro}[internal]{\@@_punct_breakable_kern:NN}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_punct_breakable_kern:NN #1#2
   {
-    \@@_punct_bound_rule:NN \c_@@_right_tl #1
-    \@@_punct_hskip:n
-      {
-        \@@_use_punct_dim:nnn { kern } {#1} {#2} +
-        \@@_use_punct_dim:nnn { bound } { \c_@@_right_tl } {#1} +
-        \@@_use_punct_dim:nnn { bound } { \c_@@_left_tl }  {#2}
-      }
-    \@@_punct_bound_rule:NN \c_@@_left_tl #2
+    \@@_punct_rule:NN \c_@@_right_tl #1
+    \@@_punct_breakable_kern:n
+      { \@@_use_punct_dim:nnn { break_kern } {#1} {#2} }
+    \@@_punct_rule:NN \c_@@_left_tl #2
   }
+\cs_new_eq:NN \@@_punct_breakable_kern:n \skip_horizontal:n
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4319,7 +4318,10 @@ $URL$
     \tl_if_exist:cF { \@@_punct_dim_csname:nnn { kern } {#1} {#2} }
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
-          { \@@_save_punct_dim:nnnn { kern } {#1} {#2} { \c_zero_dim } }
+          {
+            \@@_save_punct_dim:nnnn { kern } {#1} {#2} { \c_zero_dim }
+            \@@_save_punct_dim:nnnn { break_kern } {#1} {#2} { \c_zero_dim }
+          }
           {
             \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
             \xeCJK_punct_kerning_process:NN {#1} {#2}
@@ -4534,7 +4536,7 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_punct_kerning_process:NN #1#2
   {
-    \@@_save_punct_dim:nnnn { kern } {#1} {#2}
+    \dim_set:Nn \l_@@_tmp_dim
       {
         \bool_if:nTF
           {
@@ -4547,8 +4549,24 @@ $URL$
               { \@@_calc_kerning_margin:NN {#1} {#2} }
               { \@@_original_kerning_margin:NN {#1} {#2} }
           }
-          - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
-          - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
+      }
+    \@@_save_punct_dim:nnnn { kern } {#1} {#2}
+      {
+        \l_@@_tmp_dim
+        - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
+        - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
+      }
+    \@@_punct_if_right:NF {#2}
+      {
+        \@@_punct_if_right:NT {#1}
+          {
+            \@@_save_punct_dim:nnnn { break_kern } {#1} {#2}
+              {
+                \l_@@_tmp_dim
+                - ( \@@_use_punct_dim:nnn { offset } \c_@@_right_tl {#1} )
+                - ( \@@_use_punct_dim:nnn { offset } \c_@@_left_tl  {#2} )
+              }
+          }
       }
   }
 %    \end{macrocode}
@@ -7047,6 +7065,7 @@ $URL$
     \xeCJK@fix@penalty            \@@_ulem_fix_penalty:
     \@@_punct_kern:n                 \@@_ulem_punct_kern:n
     \@@_punct_hskip:n                \@@_ulem_punct_hskip:n
+    \@@_punct_breakable_kern:n       \@@_ulem_punct_breakable_kern:n
     \@@_CJK_and_Boundary_aux:        \@@_ulem_CJK_and_Boundary_aux:
     \@@_Default_and_FullLeft_glue:N  \@@_ulem_Default_and_FullLeft_glue:N
     \@@_Default_and_FullRight_glue:N \@@_ulem_Default_and_FullRight_glue:N
@@ -7229,7 +7248,6 @@ $URL$
         \int_compare:nNnTF \etex_lastnodetype:D = \c_one
           { \@@_zero_glue: }
           { \@@_punct_glue:NN \c_@@_left_tl {#1} }
-        \@@_punct_offset:NN \c_@@_left_tl {#1}
         \UL@start
       }
       { \@@_ulem_Boundary_and_FullLeft_glue:N #1 }
@@ -7396,6 +7414,21 @@ $URL$
     \xeCJK_if_ulem_patch:TF
       { \@@_ulem_hskip:n }
       { \@@_ulem_punct_kern:n }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_ulem_punct_breakable_kern:n}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_ulem_punct_breakable_kern:n #1
+  {
+    \xeCJK_if_ulem_patch:TF
+      {
+        \xeCJK_class_group_end:
+        \UL@stop \@@_ulem_hskip:n {#1} \UL@start
+        \@@_ulem_class_group_begin:
+      }
+      { \@@_ulem_punct_breakable_kern:n {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8866,6 +8899,7 @@ x^2+y^2
 \usepackage{xeCJK}
 \usepackage{xeCJKfntef}
 \setCJKmainfont{SimSun}
+\xeCJKsetup{AllowBreakBetweenPuncts}
 \xeCJKDeclarePunctStyle { mine }
   {
     fixed-punct-ratio       = 0 ,
