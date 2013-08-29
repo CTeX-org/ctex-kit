@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5410}
+% \CheckSum{5424}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2349,9 +2349,12 @@ $URL$
 % \changes{v3.2.7}{2013/08/29}{修正 \file{unicode-letters.tex} 中谚文符号
 % \cs{catcode} 不准的问题。}
 %    \begin{macrocode}
-\int_step_inline:nnnn { "AC00 } { 1 } { "D7A3 }
+\int_set:Nn \l_@@_begin_int { "AC00 }
+\int_set:Nn \l_@@_end_int   { "D7A3 }
+\xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
   {
-    \char_set_catcode_letter:n {#1}
+    \char_set_catcode_letter:n { \l_@@_begin_int }
+    \int_incr:N \l_@@_begin_int
   }
 %    \end{macrocode}
 %
@@ -3677,6 +3680,7 @@ $URL$
 %
 % \begin{macro}[internal]{\xeCJK_check_single:NNw}
 % \changes{v3.1.1}{2012/12/04}{改进定义，减少使用 \texttt{peek} 函数的次数。}
+% \changes{v3.2.7}{2013/08/30}{与 \cs{CJKspace} 兼容。}
 % 使用 \cs{group_align_safe_begin:} 和 \cs{group_align_safe_end:} 是为了防止在表格
 % 里面报错。
 %    \begin{macrocode}
@@ -3685,7 +3689,11 @@ $URL$
     \xeCJK_peek_catcode_ignore_spaces:NTF \c_catcode_letter_token
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-          { \@@_check_single_space:NN #1#2 }
+          {
+            \bool_if:NTF \l_@@_reserve_space_bool
+              { \@@_check_single_save:N #1 #2 ~ }
+              { \@@_check_single_space:NN #1#2 }
+          }
           { \@@_check_single_save:N #1 #2 }
       }
       {
