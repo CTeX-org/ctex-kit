@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5444}
+% \CheckSum{5440}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -365,8 +365,9 @@ $URL$
 % \end{enumerate}
 %
 % \pkg{xeCJK} 使用了 \XeTeX 的一些最新特性，需要 \XeTeX{} |0.9995.0 [2009/06/29]| 以
-% 后的版本。\pkg{xeCJK} 依赖 \hologo{LaTeX3} 项目的宏包套件 \package{l3kernel} 和
-% \package{l3packages}。\pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字
+% 后的版本。\pkg{xeCJK} 依赖 \package{everypage} 和 \hologo{LaTeX3} 项目的宏包套件
+% \package{l3kernel} 和 \package{l3packages} 。
+% \pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字
 % 体。将在 \ref{subsec:opts}~节介绍的功能选项 |indentfirst| 选项需要
 % \package{indentfirst} 宏包的支持。\pkg{xeCJK} 会自动根据需要载入这些宏包。
 %
@@ -1308,6 +1309,16 @@ $URL$
 %   前面介绍的 |CheckFullRight| 选项，则不需要再用此命令。
 % \end{function}
 %
+% \begin{function}[added=2013-11-09]{\xeCJKShipoutHook}
+%   \pkg{xeCJK} 在正文中的一些特殊设置（汉字下加点、在 \env{verbatim} 或
+%   \env{lstlisting} 环境中分页）可能会影响到 \TeX 的输出例行程序（output routine）
+%   中的内容（比如页眉和页脚）。\cs{xeCJKShipoutHook} 用于恢复正文中的普通设置。
+%   \pkg{xeCJK} 已经处理了页眉和页脚的情况，其它的就需要根据情况自行调用。
+%   比如若使用 \pkg{eso-pic} 或者 \pkg{atbegshi} 实现文字水印，并且正文中使用了
+%   以上所列的特殊形式，就需要在命令 \cs{AtBeginShipout} 的参数的最前面使用
+%   \cs{xeCJKShipoutHook}。
+% \end{function}
+%
 % \section{已知问题和兼容性}
 %
 % \XeTeX 在配置文件 \file{unicode-letters.tex} 中将所有 CJK 表意文字的 \cs{catcode}
@@ -1447,6 +1458,10 @@ $URL$
 \RequirePackage { xparse , l3keys2e }
 %    \end{macrocode}
 %
+%    \begin{macrocode}
+\RequirePackage { everypage }
+%    \end{macrocode}
+%
 % \subsection{内部工具}
 %
 % 分配临时变量。
@@ -1515,6 +1530,22 @@ $URL$
         \@@_document_right_hook:
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2.7}{2013/11/09}{使用 \pkg{everypage} 往 \cs{shipout} 盒子里加钩子。}
+%
+% \begin{macro}{\xeCJKShipoutHook}
+% 在 \cs{shipout} 盒子里加钩子，可以影响到页眉页脚。\cs{AtBeginDvi} 将参数保存在
+% 盒子中，而 \pkg{atbegshi} 的 \cs{AtBeginShipout} 在 \cs{shipout} 盒子构建好之后
+% 才起作用，所以它们都影响不到页眉页脚。
+%    \begin{macrocode}
+\AddEverypageHook { \xeCJKShipoutHook }
+\NewDocumentCommand \xeCJKShipoutHook { }
+  { \tl_use:N \l_@@_shipout_hook_tl }
+\cs_new_protected:Npn \@@_add_to_shipout:n #1
+  { \tl_put_right:Nn \l_@@_shipout_hook_tl {#1} }
+\tl_new:N \l_@@_shipout_hook_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6022,13 +6053,7 @@ $URL$
                 \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_boundary:w
               }
           }
-        \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
-          {
-            \exp_after:wN \exp_after:wN
-            \exp_after:wN \xeCJKOffVerbAddon
-            \exp_after:wN \use:n
-            \tex_the:D \tex_output:D
-          }
+        \@@_add_to_shipout:n { \xeCJKOffVerbAddon }
         \xeCJKsetup { xCJKecglue = false }
       }
     \skip_if_eq:nnTF { \l_@@_verb_exspace_skip } { \c_zero_skip }
@@ -7492,14 +7517,14 @@ $URL$
       { \UL@stop \@@_ulem_restore_CJK_and_Boundary: }
     \CJK@preUnderdot
     \@@_make_under_symbol:n { \CJK@underdotSkip }
-    \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
+    \cs_gset_eq:NN \@@_save_under_CJKsymbol:N \CJKsymbol
     \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \@@_restore_output_CJKsymbol:
+    \@@_restore_shipout_CJKsymbol:
     \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@start }
     #1
     \bool_if:NT \l_@@_ulem_hook_used_bool { \UL@stop }
-    \cs_set_eq:NN \CJKsymbol \@@_save_under_dot_CJKsymbol:N
-    \tex_output:D \exp_after:wN { \l_@@_underdot_output_tl }
+    \cs_set_eq:NN \CJKsymbol \@@_save_under_CJKsymbol:N
+    \tl_clear:N \l_@@_fntef_shipout_tl
     \CJK@postUnderdot
     \bool_if:NT \l_@@_ulem_hook_used_bool
       { \@@_ulem_restore_CJK_and_Boundary: \UL@start }
@@ -7525,9 +7550,10 @@ $URL$
     \group_begin:
     \hbox_set:Nn \CJK@underdotBox {#2}
     \@@_make_under_symbol:n {#1}
-    \cs_gset_eq:NN \@@_save_under_dot_CJKsymbol:N \CJKsymbol
+    \cs_set_eq:NN \@@_save_under_CJKsymbol:N \CJKsymbol
     \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \@@_restore_output_CJKsymbol:
+    \@@_restore_shipout_CJKsymbol:
+    \tl_clear:N \l_@@_underdot_shipout_tl
     #3
     \group_end:
     \tex_ignorespaces:D
@@ -7535,23 +7561,26 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_restore_output_CJKsymbol:}
+% \begin{macro}[internal]{\@@_restore_shipout_CJKsymbol:}
 % \changes{v3.2.3}{2013/06/04}{解决 \cs{CJKunderdot} 跨页使用时影响到页眉页脚的问题。}
 % \cs{CJKunderdot} 中对 \cs{CJKsymbol} 的修改会影响到页眉和页脚，需要小心处理。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_restore_output_CJKsymbol:
+\cs_new_protected:Npn \@@_restore_shipout_CJKsymbol:
   {
-    \tl_set:Nx \l_@@_underdot_output_tl
-      { \exp_after:wN \exp_not:n \tex_the:D \tex_output:D }
-    \tex_output:D \exp_after:wN
+    \tl_set:Nn \l_@@_fntef_shipout_tl
       {
-        \exp_after:wN \cs_set_eq:NN
-        \exp_after:wN \CJKsymbol
-        \exp_after:wN \@@_save_under_dot_CJKsymbol:N
-        \l_@@_underdot_output_tl
+        \l_@@_underdot_shipout_tl
+        \cs_set_eq:NN \CJKsymbol \@@_save_under_CJKsymbol:N
       }
   }
-\tl_new:N \l_@@_underdot_output_tl
+\tl_new:N \l_@@_fntef_shipout_tl
+\tl_new:N \l_@@_underdot_shipout_tl
+\tl_set:Nn \l_@@_underdot_shipout_tl
+  {
+    \cs_set_eq:NN \CJKf@global \scan_stop:
+    \int_zero:N \CJK@nest \CJK@postUnderdot
+  }
+\@@_add_to_shipout:n { \l_@@_fntef_shipout_tl }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7565,7 +7594,7 @@ $URL$
         \skip_vertical:n {#1}
         \hbox_to_zero:n
           {
-            \tex_kern:D - \box_wd:N \l_@@_tmp_box
+            \tex_kern:D \box_wd:N \l_@@_tmp_box
             \tex_hss:D \box_use:N \CJK@underdotBox \tex_hss:D
           }
         \tex_vss:D
@@ -7578,10 +7607,8 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_under_CJKsymbol:N #1
   {
-    \@@_save_under_dot_CJKsymbol:N {#1}
-    \hbox_overlap_left:n { \box_use:N \g_@@_under_symbol_box }
-    { \xeCJK_make_node:n { CJK } }
-    \xeCJK_ignore_spaces:w
+    \hbox_overlap_right:n { \box_use:N \g_@@_under_symbol_box }
+    \xeCJK_no_break: \@@_save_under_CJKsymbol:N {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7677,22 +7704,15 @@ $URL$
 %  和页脚的影响。}
 % 为使代码行号结果正确，需要在 \cs{lst@numberstyle} 中恢复 \cs{XeTeXinterchartoks}。
 % 在 \texttt{listings} 环境中换页时，对 \cs{XeTeXinterchartoks} 的修改会影响到
-% 页眉和页脚，需要在 \cs{output} 中恢复成正常定义。这里使用 \cs{use:n} 是为了在
-% \cs{tex_output:D} 中不增加额外的分组。加入 \cs{tex_noindent:D} 是为了防止汉字
-% 出现在首行的时候可能会产生额外空行。
+% 页眉和页脚，需要在 \cs{shipout} 盒子中恢复成正常定义。加入 \cs{tex_noindent:D}
+% 是为了防止汉字出现在首行的时候可能会产生额外空行。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_initial_hook:
   {
     \tex_noindent:D
     \bool_gset_false:N \g_@@_listings_IVS_bool
     \tl_put_left:Nn \lst@numberstyle { \l_@@_restore_listings_toks_tl }
-    \tex_output:D \exp_after:wN \exp_after:wN \exp_after:wN
-      {
-        \exp_after:wN \exp_after:wN
-        \exp_after:wN \l_@@_restore_listings_toks_tl
-        \exp_after:wN \use:n
-        \tex_the:D \tex_output:D
-      }
+    \@@_add_to_shipout:n { \l_@@_restore_listings_toks_tl }
     \lst@ifbreaklines
       \cs_set_eq:NN \@@_listings_CJK_toks: \@@_listings_breaklines_toks:
     \fi:
@@ -8878,7 +8898,7 @@ x^2+y^2
 
 \begin{document}
 
-\section{\textsf{xeCJKfntef} 的简单测试文件}
+\section{\textsf{xeCJKfntef} 的\CJKunderdot{简单测试文件}}
 
 \CJKunderline{汉 字}\CJKunderline{加下划线}
 \varCJKunderline{汉字}\varCJKunderline{加下划线}
