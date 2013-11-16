@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5510}
+% \CheckSum{5579}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1287,7 +1287,7 @@ $URL$
 % \subsection{其它}
 % \label{subsec:others}
 %
-% \begin{function}[updated=2013-06-29]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
+% \begin{function}[updated=2013-11-16]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
 %   调整文字间距以便于让 CJK 字符占的宽度等于西文等宽字体中两个空格的宽度。如果这两
 %   个空格的宽度小于当前 CJK 正常文字的宽度，将对 CJK 字体进行适当地缩小。这有利于
 %   等宽字体的代码对齐等情形。需要注意的是，\cs{xeCJKVerbAddon} 对 \pkg{xeCJK} 的内
@@ -5987,7 +5987,7 @@ $URL$
 \keys_define:nn { xeCJK / options }
   {
     Verb .choices:nn =
-      { true , env , env+ , false }
+      { true , env+ , env , false }
       { \int_set_eq:NN \l_@@_verb_case_int \l_keys_choice_int } ,
     Verb  .default:n = { env }
   }
@@ -5999,11 +5999,11 @@ $URL$
     \or:
       \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
         { \xeCJKVerbAddon }
-        { \@@_nobreak_skip_zero: }
+        { \@@_nobreak_skip: }
     \or:
       \int_compare:nNnTF \etex_currentgrouptype:D = \c_fourteen
         { \xeCJKVerbAddon }
-        { \@@_nobreak_skip: }
+        { \@@_nobreak_skip_zero: }
     \fi:
   }
 \@@_after_preamble:n
@@ -6019,13 +6019,24 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_nobreak_skip_zero:
   {
+    \@@_reset_shipout_skip:
+    \cs_set_eq:NN \@@_shipout_check_for_glue: \xeCJK_check_for_glue:
+    \cs_set_eq:NN \@@_shipout_boundary:w \xeCJK_CJK_and_Boundary:w
+    \tl_put_right:Nn \l_@@_reset_shipout_skip_hook_tl
+      {
+        \cs_set_eq:NN \xeCJK_check_for_glue: \@@_shipout_check_for_glue:
+        \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_shipout_boundary:w
+      }
     \xeCJK_cs_clear:N \CJKglue
     \xeCJK_cs_clear:N \CJKecglue
+    \xeCJK_cs_clear:N \xeCJK_check_for_glue:
+    \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \xeCJK_class_group_end:
     \cs_set_eq:NN \@@_punct_hskip:n \@@_nobreak_hskip:n
     \cs_set_eq:NN \@@_punct_breakable_kern:n \@@_nobreak_hskip:n
   }
 \cs_new_protected_nopar:Npn \@@_nobreak_skip:
   {
+    \@@_reset_shipout_skip:
     \xeCJK_glue_to_skip:nN { \CJKglue } \l_@@_ccglue_skip
     \skip_if_eq:nnTF { \l_@@_ccglue_skip } { \c_zero_skip }
       { \xeCJK_cs_clear:N \CJKglue }
@@ -6046,15 +6057,48 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\@@_reset_shipout_skip:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_reset_shipout_skip:
+  {
+    \cs_set_eq:NN \@@_shipout_CJKglue:   \CJKglue
+    \cs_set_eq:NN \@@_shipout_CJKecglue: \CJKecglue
+    \cs_set_eq:NN \@@_shipout_punct_hskip:n \@@_punct_hskip:n
+    \cs_set_eq:NN
+      \@@_shipout_punct_breakable_kern:n \@@_punct_breakable_kern:n
+    \cs_set_protected_nopar:Npx \xeCJKOffVerbAddon
+      {
+        \exp_not:c
+          { bool_set_ \bool_if:NTF \l_@@_xecglue_bool  { true } { false } :N }
+          \l_@@_xecglue_bool
+        \exp_not:n
+          {
+            \cs_set_eq:NN \CJKglue \@@_shipout_CJKglue:
+            \cs_set_eq:NN \CJKecglue \@@_shipout_CJKecglue:
+            \cs_set_eq:NN \@@_punct_hskip:n \@@_shipout_punct_hskip:n
+            \cs_set_eq:NN
+              \@@_punct_breakable_kern:n \@@_shipout_punct_breakable_kern:n
+            \l_@@_reset_shipout_skip_hook_tl
+          }
+      }
+    \@@_add_to_shipout:n { \xeCJKOffVerbAddon }
+    \xeCJKsetup { xCJKecglue = false }
+  }
+\tl_new:N \l_@@_reset_shipout_skip_hook_tl
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\xeCJKOffVerbAddon,\xeCJKVerbAddon}
 % \changes{v3.1.0}{2012/11/19}{新增 \cs{xeCJKVerbAddon} 用于抄录环境中的间距调整。}
 % \changes{v3.2.3}{2013/06/04}
 % {新增 \cs{xeCJKOffVerbAddon} 用于局部取消 \cs{xeCJKOffVerbAddon} 的影响；并解决
 % 跨页使用时影响到页眉页脚的问题。}
 % \changes{v3.2.5}{2013/07/13}{禁止自动换行，与西文一致。}
+% \changes{v3.2.8}{2013/11/16}{增加是否是等宽字体的判断。}
 % \cs{xeCJKVerbAddon} 进行了比较大的调整，应该只在分组环境里使用。为了方便调整间距
 % 以利于对齐，这里只把字符分成了两类，并且在 CJK 类与边界（空格）之间也插入
-% \cs{CJKecglue}。当然，这样做之后，关于标点符号的禁则就没有了。
+% \cs{CJKecglue}。以字母“M”的宽度是否等于 \cs{fontdimen2} 来判断当前字体是否是
+% 等宽字体。如果不是等宽字体，则设置间距为零或正文间距。
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKVerbAddon { }
   {
@@ -6062,11 +6106,22 @@ $URL$
       {
         \bool_if:NF \l_@@_listings_env_bool
           {
-            \@@_set_verb_exspace:
-            \@@_verb_addon:
+            \dim_compare:nNnTF
+              { \tex_fontdimen:D \c_two \tex_font:D } =
+              { \etex_fontcharwd:D \tex_font:D \c_@@_mono_letter_int }
+              {
+                \@@_set_verb_exspace:
+                \@@_verb_addon:
+              }
+              {
+                \int_if_odd:nTF { \l_@@_verb_case_int }
+                  { \@@_nobreak_skip_zero: }
+                  { \@@_nobreak_skip: }
+              }
           }
       }
   }
+\int_const:Nn \c_@@_mono_letter_int { 77 }
 \bool_new:N \l_@@_listings_env_bool
 \NewDocumentCommand \xeCJKOffVerbAddon { } { }
 \cs_new_protected_nopar:Npn \@@_verb_addon:
@@ -6079,10 +6134,10 @@ $URL$
         \@@_set_char_class_eq:nn { HalfLeft }    { Default }
         \@@_set_char_class_eq:nn { HalfRight }   { Default }
         \@@_set_char_class_eq:nn { NormalSpace } { Default }
-        \cs_set_eq:NN \@@_verb_CJKglue:   \CJKglue
-        \cs_set_eq:NN \@@_verb_CJKecglue: \CJKecglue
-        \cs_set_eq:NN \@@_verb_check_for_glue: \xeCJK_check_for_glue:
-        \cs_set_eq:NN \@@_verb_boundary:w \xeCJK_CJK_and_Boundary:w
+        \cs_set_eq:NN \@@_shipout_CJKglue:   \CJKglue
+        \cs_set_eq:NN \@@_shipout_CJKecglue: \CJKecglue
+        \cs_set_eq:NN \@@_shipout_check_for_glue: \xeCJK_check_for_glue:
+        \cs_set_eq:NN \@@_shipout_boundary:w \xeCJK_CJK_and_Boundary:w
         \cs_set_protected_nopar:Npx \xeCJKOffVerbAddon
           {
             \@@_reset_char_class:n { FullLeft }
@@ -6095,10 +6150,10 @@ $URL$
               \l_@@_xecglue_bool
             \exp_not:n
               {
-                \cs_set_eq:NN \CJKglue   \@@_verb_CJKglue:
-                \cs_set_eq:NN \CJKecglue \@@_verb_CJKecglue:
-                \cs_set_eq:NN \xeCJK_check_for_glue: \@@_verb_check_for_glue:
-                \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_boundary:w
+                \cs_set_eq:NN \CJKglue   \@@_shipout_CJKglue:
+                \cs_set_eq:NN \CJKecglue \@@_shipout_CJKecglue:
+                \cs_set_eq:NN \xeCJK_check_for_glue: \@@_shipout_check_for_glue:
+                \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_shipout_boundary:w
               }
           }
         \@@_add_to_shipout:n { \xeCJKOffVerbAddon }
@@ -6110,18 +6165,16 @@ $URL$
         \xeCJK_cs_clear:N \CJKecglue
       }
       {
-        \cs_set_eq:NN \CJKglue   \@@_verb_ccglue:
-        \cs_set_eq:NN \CJKecglue \@@_verb_ecglue:
+        \skip_set_eq:NN \l_@@_ccglue_skip \l_@@_verb_exspace_skip
+        \skip_set:Nn \l_@@_ecglue_skip { .5 \l_@@_verb_exspace_skip }
+        \cs_set_eq:NN \CJKglue   \@@_nobreak_ccglue:
+        \cs_set_eq:NN \CJKecglue \@@_nobreak_ecglue:
       }
     \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
     \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_CJK_and_Boundary:w
   }
 \cs_new_protected_nopar:Npn \@@_verb_CJK_and_Boundary:w
   { \xeCJK_class_group_end: \CJKecglue }
-\cs_new_protected_nopar:Npn \@@_verb_ccglue:
-  { \xeCJK_no_break: \skip_horizontal:N \l_@@_verb_exspace_skip }
-\cs_new_protected_nopar:Npn \@@_verb_ecglue:
-  { \xeCJK_no_break: \skip_horizontal:n { 0.5 \l_@@_verb_exspace_skip } }
 \cs_new_protected_nopar:Npn \@@_reset_char_class:n #1
   {
     \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#1} }
