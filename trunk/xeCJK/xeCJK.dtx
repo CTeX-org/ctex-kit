@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5655}
+% \CheckSum{5664}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8261,7 +8261,7 @@ $URL$
             \tl_set:Nx \UTFencname {##1}
             \clist_gput_right:Nx \g_@@_encname_clist {##1}
             \file_input:n { xunicode.sty }
-            \@@_declare_math_symbols:
+            \@@_declare_math_symbols:n { \UTFencname }
           }
           { \msg_error:nnn { xunicode-addon } { encoding-unknown } {##1} }
       }
@@ -8270,7 +8270,7 @@ $URL$
   }
 \clist_new:N \l_@@_encname_clist
 \msg_new:nnnn { xunicode-addon } { encoding-unknown }
-  {Encoding~scheme~"#1"~unknown.}
+  { Encoding~scheme~"#1"~unknown. }
   {
     You~may~use \\\\
     \token_to_str:N \usepackage [ #1 , \encodingdefault ] {fontenc} \\\\
@@ -8281,16 +8281,19 @@ $URL$
 %
 % \begin{macro}[internal]{\@@_declare_math_symbols:}
 % 几个特殊的数学符号对应的 Unicode 符号定义以 \cs{text} 打头的命令。
+% 并将 \cs{texthbar} 对应的代码点由 \pkg{xunicode} 的
+% U+210F (PLANCK CONSTANT OVER TWO PI) 改为
+% U+0127 (LATIN SMALL LETTER H WITH STROKE)。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_declare_math_symbols:
+\cs_new_protected_nopar:Npn \@@_declare_math_symbols:n #1
   {
-    \@@_declare_character:Nnn \texthbar   { \UTFencname } { x210F }
-    \@@_declare_character:Nnn \textFinv   { \UTFencname } { x2132 }
-    \@@_declare_character:Nnn \textaleph  { \UTFencname } { x2135 }
-    \@@_declare_character:Nnn \textbeth   { \UTFencname } { x2136 }
-    \@@_declare_character:Nnn \textgimel  { \UTFencname } { x2137 }
-    \@@_declare_character:Nnn \textdaleth { \UTFencname } { x2138 }
-    \@@_declare_character:Nnn \textGame   { \UTFencname } { x2141 }
+    \@@_declare_character:Nnn \texthbar   {#1} { x0127 }
+    \@@_declare_character:Nnn \textFinv   {#1} { x2132 }
+    \@@_declare_character:Nnn \textaleph  {#1} { x2135 }
+    \@@_declare_character:Nnn \textbeth   {#1} { x2136 }
+    \@@_declare_character:Nnn \textgimel  {#1} { x2137 }
+    \@@_declare_character:Nnn \textdaleth {#1} { x2138 }
+    \@@_declare_character:Nnn \textGame   {#1} { x2141 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8298,37 +8301,50 @@ $URL$
 % \begin{macro}[internal]{\DeclareUTFmathsymbols}
 % \changes{v3.2.8}{2013/12/04}{修正 \cs{UseMathAsText} 的功能，恢复 \cs{hbar}
 % 和增加以 \texttt{text} 打头的文本符号命令。}
+% 将文本符号定义为 \cs{protected} 宏后，为了与 \pkg{hyperref} 的书签功能兼容
+% 需要作一点额外处理。
 %    \begin{macrocode}
 \RenewDocumentCommand \DeclareUTFmathsymbols { m }
   {
-    \bool_if:NF \l_@@_math_as_UTF_text_bool
+    \bool_if:NT \l_@@_math_as_UTF_text_bool
       {
-        \ifmath@s@text@
-          \seq_map_inline:Nn \l_@@_math_as_UTF_text_seq
-            { \@@_declare_math_as_UTF_text:n {##1} }
-        \fi:
-        \bool_set_true:N \l_@@_math_as_UTF_text_bool
+        \seq_map_inline:Nn \l_@@_math_as_UTF_text_seq
+          { \@@_declare_math_as_UTF_text:n {##1} }
+        \bool_set_false:N \l_@@_math_as_UTF_text_bool
       }
-  }
-\bool_new:N \l_@@_math_as_UTF_text_bool
-\cs_new_protected_nopar:Npn \@@_declare_math_as_UTF_text:n #1
-  {
-    \cs_if_exist:cTF {#1}
-      {
-        \cs_set_eq:cc { keepmathUTF #1 } {#1}
-        \cs_set_nopar:cpx {#1}
-          {
-            \scan_align_safe_stop:
-            \exp_not:N \mode_if_math:TF
-              { \exp_not:c { keepmathUTF #1 } }
-              { \exp_not:c { text #1 } }
-          }
-      }
-      { \cs_new_nopar:cpx {#1} { \exp_not:c { text #1 } } }
   }
 \seq_new:N \l_@@_math_as_UTF_text_seq
 \seq_set_from_clist:Nn \l_@@_math_as_UTF_text_seq
   { hbar , Finv , aleph , beth , gimel , daleth , Game }
+\bool_new:N \l_@@_math_as_UTF_text_bool
+\RenewDocumentCommand \UseMathAsText { }
+  {
+    \math@s@text@true
+    \bool_set_true:N \l_@@_math_as_UTF_text_bool
+  }
+\@onlypreamble \UseMathAsText
+\cs_new_protected_nopar:Npn \@@_declare_math_as_UTF_text:n #1
+  {
+    \cs_if_exist:cTF {#1}
+      {
+        \cs_new_eq:cc { keepmathUTF #1 } {#1}
+        \cs_gset_protected_nopar:cpx {#1}
+          {
+            \exp_not:N \mode_if_math:TF
+              { \exp_not:c { keepmathUTF #1 } }
+              { \exp_not:c { text #1 } }
+          }
+        \tl_put_right:Nx \l_@@_hyperref_hook_tl
+          { \cs_set_eq:NN \exp_not:c {#1} \exp_not:c { text #1 } }
+      }
+      { \cs_new_nopar:cpx {#1} { \exp_not:c { text #1 } } }
+  }
+\tl_new:N \l_@@_hyperref_hook_tl
+\AtBeginDocument
+  {
+    \cs_if_free:NF \pdfstringdefDisableCommands
+      { \pdfstringdefDisableCommands { \l_@@_hyperref_hook_tl } }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8395,7 +8411,7 @@ $URL$
 %    \begin{macrocode}
 \RenewDocumentCommand \DeclareUTFcharacter { O { \UTFencname } m m }
   {
-    \tl_if_eq:nnTF {#3} { \hbar }
+    \str_if_eq:nnTF {#3} { \hbar }
       { \@@_restore_hbar: }
       {
         \@@_if_csname:nTF {#3}
@@ -8417,8 +8433,8 @@ $URL$
   }
 \cs_new_protected_nopar:Npn \@@_restore_hbar:N #1
   {
-    \cs_set_eq:NN \hbar #1
-    \cs_set_eq:NN #1 \tex_undefined:D
+    \cs_gset_eq:NN \hbar #1
+    \cs_undefine:N #1
   }
 \cs_generate_variant:Nn \@@_restore_hbar:N { c }
 %    \end{macrocode}
