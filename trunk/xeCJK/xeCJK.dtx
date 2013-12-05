@@ -209,7 +209,7 @@ $URL$
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.2.7}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.8}{\ExplFileDescription}
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
 \ExplSyntaxOff
@@ -340,7 +340,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{5664}
+% \CheckSum{5934}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8261,6 +8261,7 @@ $URL$
             \tl_set:Nx \UTFencname {##1}
             \clist_gput_right:Nx \g_@@_encname_clist {##1}
             \file_input:n { xunicode.sty }
+            \@@_declare_textcircled:n { \UTFencname }
             \@@_declare_math_symbols:n { \UTFencname }
           }
           { \msg_error:nnn { xunicode-addon } { encoding-unknown } {##1} }
@@ -8281,13 +8282,9 @@ $URL$
 %
 % \begin{macro}[internal]{\@@_declare_math_symbols:}
 % 几个特殊的数学符号对应的 Unicode 符号定义以 \cs{text} 打头的命令。
-% 并将 \cs{texthbar} 对应的代码点由 \pkg{xunicode} 的
-% U+210F (PLANCK CONSTANT OVER TWO PI) 改为
-% U+0127 (LATIN SMALL LETTER H WITH STROKE)。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_declare_math_symbols:n #1
   {
-    \@@_declare_character:Nnn \texthbar   {#1} { x0127 }
     \@@_declare_character:Nnn \textFinv   {#1} { x2132 }
     \@@_declare_character:Nnn \textaleph  {#1} { x2135 }
     \@@_declare_character:Nnn \textbeth   {#1} { x2136 }
@@ -8595,7 +8592,7 @@ $URL$
 %
 % \begin{macro}[internal]{\DeclareEncodedCompositeCharacter}
 % |#1| 是编码，|#2| 是重音命令，|#3| 是组合重音符号的 Unicode，|#4| 是基本重音符号
-% 的 Unicode。当 |#2| 的参数为空时，输出 |#4|，否则是 |#2| 与 |#3| 的组合。
+% 的 Unicode。当 |#2| 的参数为空时，输出 |#4|，否则是 |#2| 的参数与 |#3| 的组合。
 %    \begin{macrocode}
 \RenewDocumentCommand \DeclareEncodedCompositeCharacter { m m m m }
   {
@@ -8609,7 +8606,7 @@ $URL$
 %
 % \begin{macro}[internal]{\DeclareEncodedCompositeAccents}
 % |#1| 是编码，|#2| 是重音命令，|#3| 和 |#4| 都是组合重音的 Unicode。当 |#2| 的
-% 参数为空时，输出 |#3|，否则是 |#2| 与 |#4| 的组合。
+% 参数为空时，输出 |#3|，否则是 |#2| 的参数与 |#4| 的组合。
 %    \begin{macrocode}
 \RenewDocumentCommand \DeclareEncodedCompositeAccents { m m m m }
   {
@@ -8689,24 +8686,66 @@ $URL$
       {
         \@@_glyph_if_exist:nTF { `#4 }
           {#4}
-          {
-            \cs_if_exist_use:cTF { ? #2 }
-              { {#1} } {#4}
-          }
+          { \cs_if_exist_use:cTF { ? #2 } { {#1} } {#4} }
       }
       {
-        \@@_glyph_if_exist:nTF { `#3 }
-          { #1#3 }
+        \bool_if:NTF \l_@@_add_circle_bool
           {
+            \bool_set_false:N \l_@@_add_circle_bool
             \@@_glyph_if_exist:nTF { `#4 }
-              { \add@accent { `#4 } {#1} }
+              { \@@_add_circle:nn {#4} {#1} }
+          }
+          {
+            \@@_glyph_if_exist:nTF { `#3 }
+              { #1#3 }
               {
-                \cs_if_exist_use:cTF { ? #2 }
-                  { {#1} } {#1}
+                \@@_glyph_if_exist:nTF { `#4 }
+                  { \add@accent { `#4 } {#1} }
               }
           }
+          { \cs_if_exist_use:cTF { ? #2 } { {#1} } {#1} }
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_add_circle:nn}
+% 对圆圈中的数字或者字母适当缩小，以适合圆圈的大小。只有字体中存在
+% \texttt{U+25EF} 时，才使用这里的设置，否则还还是 \LaTeX\ 中的设置。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_add_circle:nn #1#2
+  {
+    \hcoffin_set:Nn \l_@@_circle_coffin {#1}
+    \hcoffin_set:Nn \l_@@_tmp_coffin {#2}
+    \dim_set:Nn \l_@@_circle_width_dim
+      { \fp_use:N \l_@@_circle_ratio_fp \coffin_wd:N \l_@@_circle_coffin }
+    \coffin_resize:Nnn \l_@@_tmp_coffin
+      { \l_@@_circle_width_dim }
+      {
+        ( \coffin_ht:N \l_@@_tmp_coffin + \coffin_dp:N \l_@@_tmp_coffin )
+        * \tex_number:D \l_@@_circle_width_dim
+        / \tex_number:D \coffin_wd:N \l_@@_tmp_coffin
+      }
+    \coffin_attach:NnnNnnnn
+      \l_@@_circle_coffin { hc } { vc }
+      \l_@@_tmp_coffin    { hc } { vc }
+      { \c_zero_dim } { \c_zero_dim }
+    \coffin_typeset:Nnnnn \l_@@_circle_coffin
+      { H } { l } { \c_zero_dim } { \c_zero_dim }
+  }
+\dim_new:N \l_@@_circle_width_dim
+\coffin_new:N \l_@@_tmp_coffin
+\coffin_new:N \l_@@_circle_coffin
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\settextcircledratio}
+% 设置圆圈中文字的宽度与圆圈宽度的比例，预设为 \texttt{0.7}。
+%    \begin{macrocode}
+\NewDocumentCommand \settextcircledratio { m }
+  { \fp_set:Nn \l_@@_circle_ratio_fp {#1} }
+\fp_new:N \l_@@_circle_ratio_fp
+\settextcircledratio { 0.7 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8774,6 +8813,125 @@ $URL$
       { \cs_if_exist_use:cF { \@@_end_csname:n {#1} } { \use_none:n } }
       {#2}
     \tl_use:N \l_@@_end_hook_tl
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2.8}{2013/12/05}{启用 \pkg{xunicode} 中的带圈数字和字母设置。}
+%
+% \begin{macro}[internal]{\@@_declare_textcircled:n}
+% 启用 \pkg{xunicode} 中的带圈数字和字母设置。
+%    \begin{macrocode}
+\AtBeginUTFCommand [ \textcircled ]
+  { \bool_set_true:N  \l_@@_add_circle_bool }
+\bool_new:N \l_@@_add_circle_bool
+\cs_new_protected_nopar:Npn \@@_declare_textcircled:n #1
+  {
+    \@@_declare_character:Nnn \textbigcircle {#1} { x25EF }
+    \@@_declare_accent:Nnnn \textcircled {#1} { 20DD } { 25EF }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  0 } { x24EA }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  1 } { x2460 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  2 } { x2461 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  3 } { x2462 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  4 } { x2463 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  5 } { x2464 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  6 } { x2465 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  7 } { x2466 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  8 } { x2467 }
+    \@@_declare_composite:Nnnn \textcircled {#1} {  9 } { x2468 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 10 } { x2469 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 11 } { x246A }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 12 } { x246B }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 13 } { x246C }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 14 } { x246D }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 15 } { x246E }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 16 } { x246F }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 17 } { x2470 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 18 } { x2471 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 19 } { x2472 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 20 } { x2473 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 21 } { x3251 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 22 } { x3252 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 23 } { x3253 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 24 } { x3254 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 25 } { x3255 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 26 } { x3256 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 27 } { x3257 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 28 } { x3258 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 29 } { x3259 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 30 } { x325A }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 31 } { x325B }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 32 } { x325C }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 33 } { x325D }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 34 } { x325E }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 35 } { x325F }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 36 } { x32B1 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 37 } { x32B2 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 38 } { x32B3 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 39 } { x32B4 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 40 } { x32B5 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 41 } { x32B6 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 42 } { x32B7 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 43 } { x32B8 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 44 } { x32B9 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 45 } { x32BA }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 46 } { x32BB }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 47 } { x32BC }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 48 } { x32BD }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 49 } { x32BE }
+    \@@_declare_composite:Nnnn \textcircled {#1} { 50 } { x32BF }
+    \@@_declare_composite:Nnnn \textcircled {#1} { A } { x24B6 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { B } { x24B7 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { C } { x24B8 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { D } { x24B9 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { E } { x24BA }
+    \@@_declare_composite:Nnnn \textcircled {#1} { F } { x24BB }
+    \@@_declare_composite:Nnnn \textcircled {#1} { G } { x24BC }
+    \@@_declare_composite:Nnnn \textcircled {#1} { H } { x24BD }
+    \@@_declare_composite:Nnnn \textcircled {#1} { I } { x24BE }
+    \@@_declare_composite:Nnnn \textcircled {#1} { J } { x24BF }
+    \@@_declare_composite:Nnnn \textcircled {#1} { K } { x24C0 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { L } { x24C1 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { M } { x24C2 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { N } { x24C3 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { O } { x24C4 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { P } { x24C5 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { Q } { x24C6 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { R } { x24C7 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { S } { x24C8 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { T } { x24C9 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { U } { x24CA }
+    \@@_declare_composite:Nnnn \textcircled {#1} { V } { x24CB }
+    \@@_declare_composite:Nnnn \textcircled {#1} { W } { x24CC }
+    \@@_declare_composite:Nnnn \textcircled {#1} { X } { x24CD }
+    \@@_declare_composite:Nnnn \textcircled {#1} { Y } { x24CE }
+    \@@_declare_composite:Nnnn \textcircled {#1} { Z } { x24CF }
+    \@@_declare_composite:Nnnn \textcircled {#1} { a } { x24D0 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { b } { x24D1 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { c } { x24D2 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { d } { x24D3 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { e } { x24D4 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { f } { x24D5 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { g } { x24D6 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { h } { x24D7 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { i } { x24D8 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { j } { x24D9 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { k } { x24DA }
+    \@@_declare_composite:Nnnn \textcircled {#1} { l } { x24DB }
+    \@@_declare_composite:Nnnn \textcircled {#1} { m } { x24DC }
+    \@@_declare_composite:Nnnn \textcircled {#1} { n } { x24DD }
+    \@@_declare_composite:Nnnn \textcircled {#1} { o } { x24DE }
+    \@@_declare_composite:Nnnn \textcircled {#1} { p } { x24DF }
+    \@@_declare_composite:Nnnn \textcircled {#1} { q } { x24E0 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { r } { x24E1 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { s } { x24E2 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { t } { x24E3 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { u } { x24E4 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { v } { x24E5 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { w } { x24E6 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { x } { x24E7 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { y } { x24E8 }
+    \@@_declare_composite:Nnnn \textcircled {#1} { z } { x24E9 }
   }
 %    \end{macrocode}
 % \end{macro}
