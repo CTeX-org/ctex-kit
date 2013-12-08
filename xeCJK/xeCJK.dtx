@@ -40,6 +40,10 @@ This package consists of the file  xeCJK.dtx,
                                    xeCJK-example-verbatim.tex,
                                    xeCJK-example-IVS.tex,
                                    xeCJK-example-listings.tex,
+                                   xunicode-symbols.tex,
+                                   xunicode-commands.tex,
+                                   xunicode-combine-marks.tex,
+                                   xunicode-symbols.pdf,
                                    full-stop.tec,
                                    fullwidth-stop.tec,
                                    han-simp.tec,
@@ -142,6 +146,10 @@ $URL$
                                       xeCJK-example-verbatim.tex,
                                       xeCJK-example-IVS.tex,
                                       xeCJK-example-listings.tex,
+                                      xunicode-symbols.tex,
+                                      xunicode-commands.tex,
+                                      xunicode-combine-marks.tex,
+                                      xunicode-symbols.pdf,
                                       full-stop.tec,
                                       fullwidth-stop.tec,
                                       han-simp.tec,
@@ -177,6 +185,7 @@ $URL$
   \file{\jobname-example-verbatim.tex}{\from{\jobname.dtx}{ex-verb}}
   \file{\jobname-example-IVS.tex}{\from{\jobname.dtx}{ex-IVS}}
   \file{\jobname-example-listings.tex}{\from{\jobname.dtx}{ex-listings}}
+  \file{xunicode-symbols.tex}{\from{\jobname.dtx}{xunicode-symbols}}
   \nopreamble\nopostamble
   \usedir{doc/xelatex/xecjk}
   \file{README.txt}{\from{\jobname.dtx}{readme}}
@@ -8174,6 +8183,8 @@ $URL$
 %
 % \changes{v3.2.5}{2013/07/18}
 % {增加小宏包 \pkg{xunicode-addon}，为 \pkg{xunicode} 提供判断字符是否存在的功能。}
+% \changes{v3.2.9}{2013/12/08}
+% {文档部分增加 \pkg{xunicode} 定义的符号表。}
 %
 %    \begin{macrocode}
 %<*xunicode>
@@ -10355,7 +10366,7 @@ $URL$
 %</config>
 %    \end{macrocode}
 %
-% \iffalse
+% \begin{comment}
 %
 % \makeatletter
 % \let\special@index\@gobble
@@ -10958,7 +10969,198 @@ int main()
 %</ex-listings>
 %    \end{macrocode}
 %
-% \fi
+% \subsection{\pkg{xunicode-symbols.tex}}
+%
+%    \begin{macrocode}
+%<*xunicode-symbols>
+%    \end{macrocode}
+%
+% \setbox\xeCJKtmpbox\vbox\bgroup\gobblelineno
+%    \begin{macrocode}
+%<@@=xunsym>
+%    \end{macrocode}\egroup
+%
+%    \begin{macrocode}
+\documentclass{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xunicode-addon}
+\usepackage{l3str}
+\usepackage{longtable,tabu,booktabs}
+\usepackage{zref-base}
+
+\setmainfont{FreeSerif}
+\newfontfamily\falllbackfont{Segoe UI Symbol}
+
+\makeatletter
+\ExplSyntaxOn
+\cs_new_protected_nopar:Npx \@@_restore_catcode:
+  { \char_set_catcode:nn { \c_zero } { \char_value_catcode:n { \c_zero } } }
+\file_if_exist:nTF { xunicode-commands.tex }
+  { \char_set_catcode_comment:n { \c_zero } }
+  { \char_set_catcode_ignore:n { \c_zero } }
+^^@ \tl_new:N \l_@@_command_tl
+^^@ \int_new:N \l_@@_command_int
+^^@ \iow_new:N \g_@@_command_iow
+^^@ \iow_new:N \g_@@_combine_mark_iow
+^^@ \ior_new:N \g_@@_unicode_ior
+^^@ \prop_new:N \l_@@_command_prop
+^^@ \prop_new:N \l_@@_combine_mark_prop
+^^@ \prop_new:N \l_@@_combine_marks_prop
+^^@ \cs_new_protected_nopar:Npn \SaveUTFCommands
+^^@   {
+^^@     \group_begin:
+^^@     \@@_restore_catcode:
+^^@     \cs_set_eq:NN \DeclareTextAccent \use_none:nnn
+^^@     \cs_set_eq:NN \DeclareUTFComposite \use_none:n
+^^@     \cs_set_eq:NN \DeclareUTFEncodedAccent \use_none:nnn
+^^@     \cs_set_eq:NN \DeclareUTFCommand \use_none:nn
+^^@     \cs_set_eq:NN \DeclareUTFCompositeCommand \use_none:nnn
+^^@     \cs_set_eq:NN \DeclareUTFSymbol \@@_save_UTF_command:Nn
+^^@     \cs_set_eq:NN \DeclareUTFCompositeSymbol \@@_save_UTF_command:Nnn
+^^@     \cs_set_eq:NN \DeclareEncodedCompositeCharacter \@@_save_combine_mark:nnnn
+^^@     \cs_set_eq:NN \DeclareEncodedCompositeAccents \@@_save_combine_marks:nnnn
+^^@     \DeclareDocumentCommand \DeclareUTFcharacter { O { \UTFencname } m m }
+^^@       { \@@_save_UTF_command:NNn \l_@@_command_prop {##3} {##2} }
+^^@     \DeclareDocumentCommand \DeclareUTFcomposite { O { \UTFencname } m m m }
+^^@       { \@@_save_UTF_command:NNnn \l_@@_command_prop {##3} {##4} {##2} }
+^^@     \ReloadXunicode { \UTFencname }
+^^@     \ior_open:NnTF \g_@@_unicode_ior { UnicodeData.txt }
+^^@       {
+^^@         \iow_open:Nn \g_@@_command_iow { xunicode-commands.tex }
+^^@         \iow_open:Nn \g_@@_combine_mark_iow { xunicode-combine-marks.tex }
+^^@         \ior_map_inline:Nn \g_@@_unicode_ior { \@@_make_table:w ##1 \q_stop }
+^^@         \@@_write_combine_marks:
+^^@         \ior_close:N \g_@@_unicode_ior
+^^@         \iow_close:N \g_@@_command_iow
+^^@         \iow_close:N \g_@@_combine_mark_iow
+^^@         \group_end:
+^^@       }
+^^@       {
+^^@         \group_end:
+^^@         \msg_fatal:nn { @@ } { UnicodeData }
+^^@       }
+^^@   }
+^^@ \msg_new:nnn { @@ } { UnicodeData }
+^^@   { File~`UnicodeData.txt`~not~found. }
+^^@ \cs_new_protected:Npn \@@_save_UTF_command:Nn
+^^@   { \@@_save_UTF_command:NNn \l_@@_command_prop }
+^^@ \cs_new_protected:Npn \@@_save_UTF_command:Nnn
+^^@   { \@@_save_UTF_command:NNnn \l_@@_command_prop }
+^^@ \cs_new_protected:Npn \@@_save_UTF_command:NNn #1#2#3
+^^@   { \@@_save_UTF_text_command:Nxx #1 { \use_none:n #3 } { \token_to_str:N #2 } }
+^^@ \cs_new_protected:Npn \@@_save_UTF_command:NNnn #1#2#3#4
+^^@   {
+^^@     \@@_save_UTF_text_command:Nxx #1 { \use_none:n #4 }
+^^@       {
+^^@         \token_to_str:N #2 \c_left_brace_str
+^^@         \tl_if_single:nTF {#3} { \token_to_str:N #3 } { \tl_to_str:n {#3} }
+^^@         \c_right_brace_str
+^^@       }
+^^@   }
+^^@ \cs_new_protected:Npn \@@_save_combine_mark:nnnn #1#2#3#4
+^^@   { \@@_save_UTF_text_command:Nxx \l_@@_combine_mark_prop {#3} { \token_to_str:N #2 } }
+^^@ \cs_new_protected:Npn \@@_save_combine_marks:nnnn #1#2#3#4
+^^@   { \@@_save_UTF_text_command:Nxx \l_@@_combine_marks_prop { { "#4 } { "#3 } } { \token_to_str:N #2 } }
+^^@ \cs_new_protected:Npn \@@_save_UTF_text_command:Nxx #1#2#3
+^^@   { \use:x { \@@_save_UTF_text_command:Nnn \exp_not:N #1 {#2} {#3} } }
+^^@ \cs_new_protected:Npn \@@_save_UTF_text_command:Nnn #1#2#3
+^^@   {
+^^@     \prop_get:NnNTF #1 {#2} \l_@@_command_tl
+^^@       { \prop_put:Nno #1 {#2} { \l_@@_command_tl , #3 } }
+^^@       { \prop_put:Nnn #1 {#2} {#3} }
+^^@   }
+^^@ \cs_new_protected:Npn \@@_make_table:w #1 ; #2 ; #3 \q_stop
+^^@   {
+^^@     \prop_get:NnNT \l_@@_command_prop {#1} \l_@@_command_tl
+^^@       {
+^^@         \iow_now:Nx \g_@@_command_iow
+^^@           { \token_to_str:N \UnicodeTextSymbol { "#1 } { \l_@@_command_tl } {#2} }
+^^@       }
+^^@     \prop_get:NnNT \l_@@_combine_mark_prop {#1} \l_@@_command_tl
+^^@       {
+^^@         \iow_now:Nx \g_@@_combine_mark_iow
+^^@           { \token_to_str:N \UnicodeCombineMark { "#1 } { \l_@@_command_tl } {#2} }
+^^@       }
+^^@   }
+^^@ \cs_new_protected:Npn \@@_write_combine_marks:
+^^@   {
+^^@     \prop_map_inline:Nn \l_@@_combine_marks_prop
+^^@       {
+^^@         \iow_now:Nx \g_@@_combine_mark_iow
+^^@           { \token_to_str:N \UnicodeCombineMarks ##1 {##2} }
+^^@       }
+^^@   }
+^^@ \ExplSyntaxOff
+^^@ \SaveUTFCommands
+^^@ \ExplSyntaxOn
+\@@_restore_catcode:
+\int_new:N \g_@@_symbol_int
+\int_new:N \g_@@_table_int
+\DeclareDocumentCommand \UnicodeTextSymbol { m v m }
+  {
+    \int_gincr:N \g_@@_symbol_int
+    \use_none:n #1 &
+    \scan_align_safe_stop:
+    \reverse_if:N \etex_iffontchar:D \tex_font:D #1 \exp_stop_f: \falllbackfont \fi:
+    \tex_char:D #1 \exp_stop_f: &
+    \tl_set:Nn \l_tmpa_clist {#2}
+    \clist_use:Nnnn \l_tmpa_clist
+      { \par } { \par } { \par }
+    \strut
+    & #3 \\
+  }
+\cs_set_eq:NN \UnicodeCombineMark \UnicodeTextSymbol
+\DeclareDocumentCommand \UnicodeCombineMarks { m m v }
+  {
+    \int_gincr:N \g_@@_symbol_int
+    \use_none:n #1 ~ \use_none:n #2 &
+    \tex_char:D #1 \exp_stop_f: \tex_char:D #2 \exp_stop_f: &
+    \tl_set:Nn \l_tmpa_clist {#3}
+    \clist_use:Nnnn \l_tmpa_clist
+      { \par } { \par } { \par }
+    \strut \\
+  }
+\DeclareDocumentCommand \UTFTABLE { m m }
+  {
+    \int_gincr:N \g_@@_table_int
+    \exp_args:Nx \@@_make_table:nnn { UTFTABLE - \int_use:N \g_@@_table_int } {#1} {#2}
+  }
+\cs_new_protected_nopar:Npn \@@_make_table:nnn #1#2#3
+  {
+    \section{#2~(\zref@extractdefault{#1}{default}{0})}
+    \zref@refused{#1}
+    \noindent
+    \begin{longtabu} to \linewidth {>{\ttfamily\footnotesize}rc>{\ttfamily\footnotesize}X>{\tiny}X}
+      \toprule\rowfont{\normalfont\normalsize}
+      \multicolumn1c{USV} & Symbol & Macro(s) & Description \\
+      \midrule \endhead
+      \bottomrule \endfoot
+      \int_gzero:N \g_@@_symbol_int
+      \input{#3}
+    \end{longtabu}
+    \group_begin:
+      \zref@setcurrent{default}{\int_use:N\g_@@_symbol_int}
+      \zref@wrapper@immediate{\zref@labelbyprops{#1}{default}}
+    \group_end:
+  }
+\cs_generate_variant:Nn \@@_make_table:nnn { x }
+\ExplSyntaxOff
+
+\begin{document}
+
+\UTFTABLE{Symbols}{xunicode-commands.tex}
+
+\UTFTABLE{Combining Marks}{xunicode-combine-marks.tex}
+
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</xunicode-symbols>
+%    \end{macrocode}
+%
+% \end{comment}
 %
 % \end{implementation}
 %
