@@ -27,11 +27,13 @@
   set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
+  set SPDOC=xunicode-symbols
+  set SPDOCFLAG=
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
-  set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip
+  set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip def
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% tex sty cfg
+  set TDSFILES=%CTANFILES% tex sty cfg def
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -118,15 +120,52 @@
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 
-	goto :clean-aux
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul
+    goto :clean-aux
   )
+
+:spdoc
+  
+  if not exist UnicodeData.txt (
+    if defined UNDATAPATH (
+      copy "%UNDATAPATH%\UnicodeData.txt" > nul
+    ) else (
+      call :download
+    )
+  )
+
+  if ERRORLEVEL 1 (
+    echo ! Download UnicodeData.txt failed
+    goto :end
+  ) else (
+    echo Typesetting %SPDOC%
+    %DTXTEX% %SPDOCFLAG% -interaction=batchmode -no-pdf %SPDOC% > nul
+    if ERRORLEVEL 1 (
+      echo ! Compile %SPDOC% failed
+      goto :end
+    ) else (
+      %DTXTEX% %SPDOCFLAG% -interaction=batchmode %SPDOC% > nul
+      goto :clean-aux
+    )
+  )
+
+:download
+
+  call :wget
+
+  if [%WGETEXE%] == [""] goto :end
+
+  echo Downloading UnicodeData.txt ...
+  %WGETEXE% http://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt
+  
+  goto :EOF
 
 :file2tdsdir
 
   set TDSDIR=
 
   if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%\config
+  if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".dtx" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
@@ -139,6 +178,7 @@
 :localinstall
 
   if not exist %PACKAGE%.pdf call :doc
+  if not exist %SPDOC%.pdf call :spdoc
   echo.
   echo Installing %PACKAGE%
 
@@ -148,8 +188,8 @@
   if [%TEXMFLOCAL%] == [] (
     echo ! Install failed
   ) else (
-	for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
-	xcopy /q /y /s /i %MAPDIR% "%TEXMFLOCAL%\%MAPTDSDIR%" > nul
+    for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
+    xcopy /q /y /s /i %MAPDIR% "%TEXMFLOCAL%\%MAPTDSDIR%" > nul
   )
 
   goto :end
@@ -172,6 +212,9 @@
   if errorlevel 1 goto :EOF
 
   call :doc
+  if errorlevel 1 goto :EOF
+
+  call :spdoc
   if errorlevel 1 goto :EOF
 
   echo.
@@ -242,10 +285,10 @@
   
   for %%I in (perl.exe) do (
     if exist %%I (
-	  set PERLEXE="%~dp0%%I"
-	) else (
-	  set PERLEXE="%%~$PATH:I"
-	)
+      set PERLEXE="%~dp0%%I"
+    ) else (
+      set PERLEXE="%%~$PATH:I"
+    )
   )
   
   if not [%PERLEXE%] == [""] goto :EOF
@@ -253,14 +296,48 @@
   for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
 
   if exist "%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe" (
-	set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
-	goto :EOF
+    set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
+    goto :EOF
   )
 
   echo.
   echo This procedure requires a perl program,
   echo but one could not be found.
   echo.
+  
+  goto :EOF
+ 
+:wget
+
+  if defined WGETEXE (
+    goto :EOF
+  ) else (
+    set WGETEXE =""
+  )
+  
+  for %%I in (wget.exe) do (
+    if exist %%I (
+      set WGETEXE="%~dp0%%I"
+    ) else (
+      set WGETEXE="%%~$PATH:I"
+    )
+  )
+  
+  if not [%WGETEXE%] == [""] goto :EOF
+  
+  for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
+
+  if exist "%TEXMFROOT%\tlpkg\installer\wget\wget.exe" (
+    set WGETEXE="%TEXMFROOT%\tlpkg\installer\wget\wget.exe"
+    goto :EOF
+  )
+
+  echo.
+  echo This procedure requires a wget program,
+  echo but one could not be found.
+  echo.
+
+  goto :EOF
 
 :zip 
 
@@ -274,10 +351,10 @@
   
   for %%I in (zip.exe) do (
     if exist %%I (
-	  set ZIPEXE="%~dp0%%I"
-	) else (
-	  set ZIPEXE="%%~$PATH:I"
-	)
+      set ZIPEXE="%~dp0%%I"
+    ) else (
+      set ZIPEXE="%%~$PATH:I"
+    )
   )
 
   if not [%ZIPEXE%] == [""] goto :EOF
@@ -287,7 +364,7 @@
   echo but one could not be found.
   echo.
 
-  exit /b 1
+  goto :EOF
 
 :end
 
