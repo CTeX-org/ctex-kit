@@ -355,7 +355,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{8766}
+% \CheckSum{8827}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6957,6 +6957,7 @@ $URL$
   {
     \textellipsis  \textemdash     \textperiodcentered \textcentereddot
     \textquoteleft \textquoteright \textquotedblleft   \textquotedblright
+    \textcdot      \textgrq        \textgrqq
   }
   {
     \AtBeginUTFCommand [#1] { \@@_group_begin: \makexeCJKinactive }
@@ -6965,22 +6966,99 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\l_@@_patch_Bxii_tl,\@@_patch_Bxii:n}
+% \changes{v3.2.9}{2013/12/08}
+% {完整处理 \file{encguide.pdf} 的编码符号表中，与旧编码的 \texttt{U+00B7} 冲突。}
 % 常被用作中文间隔号的 \texttt{U+00B7} 与 T1 等旧字体编码下定义的符号命令冲突。
+% 在 \file{encguide.pdf} 的编码符号表中，如下定义有冲突。
+% \begin{verbatim}
+%   \DeclareTextComposite{\r}{T1}{u}{183}
+%   \DeclareTextSymbol{\cyrchvcrs}{T2A}{183}
+%   \DeclareTextSymbol{\cyrchldsc}{T2B}{183}
+%   \DeclareTextSymbol{\cyrabhha}{T2C}{183}
+%   \DeclareTextSymbol\textvibyy{T3}{183}
+%   \DeclareTextComposite{\B}{T4}{t}{183}
+%   \DeclareTextComposite{\`}{T5}{\ecircumflex}{183}
+%   \DeclareTextDoubleComposite{\`}{T5}{\^}{e}{183}
+%   \DeclareTextSymbol{\textperiodcentered}{TS1}{183}
+%   \DeclareTextSymbol{\cyrchldsc}{X2}{183}
+%   \DeclareTextSymbol{\textperiodcentered}{LY1}{183}
+% \end{verbatim}
+% LGR 编码的符号表有 \texttt{183} 号字符，但在 \file{lgrenc.def} 中未找到相应的
+% 符号命令，它的输入方式为 |>`w| 或者 |\accpsilivaria{w}|。前者比较特殊，如果
+% 与 \pkg{xeCJK} 一起使用，\XeTeX\ 会出现如下错误。
+% \begin{verbatim}
+%   ! Cannot use \XeTeXglyphbounds with grmn1000; not a native platform font.
+%   \xeCJK_glyph_bounds:NN ...use:N \XeTeXglyphbounds
+%                                                     #1 \XeTeXcharglyph \xeCJK_...
+% \end{verbatim}
+% 这个不好处理，只修改后者。
 %    \begin{macrocode}
-\@@_after_preamble:n
+\@@_after_end_preamble:n { \l_@@_patch_Bxii_tl }
+\tl_new:N \l_@@_patch_Bxii_tl
+\cs_new_protected_nopar:Npn \@@_patch_Bxii:nN #1#2
   {
-    \tl_put_left:Nn \tipaencoding { \makexeCJKinactive }
-    \cs_new_eq:NN \@@_aux_r:n \r
-    \cs_set_nopar:Npn \r #1
+    \tl_put_right:Nx \l_@@_patch_Bxii_tl
+      { \@@_patch_Bxii:n { #1 \token_to_str:N #2 } }
+  }
+\group_begin:
+\cs_set:Npn \@@_tmp:w #1
+  {
+    \group_end:
+    \cs_new_protected_nopar:Npn \@@_patch_Bxii:nNN ##1##2##3
       {
-        \bool_if:nTF
+        \tl_put_right:Nx \l_@@_patch_Bxii_tl
           {
-            \str_if_eq_x_p:nn { \f@encoding } { T1 } &&
-            \str_if_eq_x_p:nn {#1} { u }
+            \@@_patch_Bxii:Nnn
+              #1 { ##1 \token_to_str:N ##2 } { \token_to_str:N ##3 }
           }
-          { { \makexeCJKinactive \@@_aux_r:n {#1} } }
-          { \@@_aux_r:n {#1} }
       }
+  }
+\use:n
+  {
+    \char_set_catcode_other:N \\
+    \@@_tmp:w
+  }
+  { \ }
+\cs_new_protected_nopar:Npn \@@_patch_Bxii:n #1
+  { \cs_if_free:cF {#1} { \cs_gset_eq:cN {#1} \@@_Default_Bxii: } }
+\cs_new_protected_nopar:Npn \@@_patch_Bxii:Nnn #1#2#3
+  { \cs_if_free:cF {#2} { \cs_gset_eq:cN { #1#2 - #3 } \@@_Default_Bxii: } }
+\group_begin:
+\char_set_catcode_other:n { 183 }
+\cs_new_protected_nopar:Npn \@@_Default_Bxii:
+  {
+    \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
+      { \@@_group_begin: \makexeCJKinactive ^^b7 \@@_group_end: }
+      { ^^b7 }
+  }
+\group_end:
+\clist_map_inline:nn
+  {
+    { T3  } \textvibyy ,
+    { T2A } \cyrchvcrs ,
+    { T2B } \cyrchldsc ,
+    { T2C } \cyrabhha ,
+    { X2  } \cyrchldsc ,
+    { TS1 } \textperiodcentered ,
+    { LY1 } \textperiodcentered
+  }
+  { \@@_patch_Bxii:nN #1 }
+\clist_map_inline:nn
+  {
+    { T1  } \r u ,
+    { T4  } \B t ,
+    { T5  } \` \ecircumflex ,
+    { LGR } \accpsilivaria w
+  }
+  { \@@_patch_Bxii:nNN #1 }
+\tl_put_right:Nx \l_@@_patch_Bxii_tl
+  {
+    \@@_patch_Bxii:n
+      { \token_to_str:N \T 5 \token_to_str:N \` - \token_to_str:N \^ - e }
+  }
+\@@_after_end_preamble:n
+  {
     \xeCJK_if_package_loaded:nT { pifont }
       {
         \RenewDocumentCommand \Pifont { m }
@@ -6988,6 +7066,7 @@ $URL$
       }
   }
 %    \end{macrocode}
+% \end{macro}
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
 %    \begin{macrocode}
