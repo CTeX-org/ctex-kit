@@ -125,7 +125,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
 %<package>\ProvidesExplPackage{\ExplFileName}
-  {\ExplFileDate}{1.6}{\ExplFileDescription}
+  {\ExplFileDate}{1.7}{\ExplFileDescription}
 %<*driver>
 \ExplSyntaxOff
 %</driver>
@@ -186,7 +186,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{623}
+% \CheckSum{672}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -371,6 +371,19 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \begin{verbatim}[frame=single,gobble=5]
 %     \xpinyinsetup{multiple={\color{red}}}
 %   \end{verbatim}
+% \end{function}
+%
+% \begin{function}[added=2014/01/12]{footnote}
+%   \begin{syntax}
+%     footnote = \meta{\TFF}
+%   \end{syntax}
+%   是否对拼音环境中的脚注（\cs{footnote}）汉字加上拼音。缺省值为 \texttt{false}。
+%   更一般的情况，请使用 \cs{disablepinyin}。
+% \end{function}
+%
+% \begin{function}[added=2014/01/12]{\disablepinyin,\enablepinyin}
+%   \cs{disablepinyin} 用于在拼音环境（\env{pinyinscope}）中临时取消对汉字的注音，而
+%   \cs{enablepinyin} 用于其后的恢复。
 % \end{function}
 %
 % \end{documentation}
@@ -606,8 +619,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \keys_set:nn { xpinyin } {#1}
     \tl_if_empty:NF \l_@@_hsep_tl
       { \cs_set_nopar:Npn \CJKglue { \skip_horizontal:n { \l_@@_hsep_tl } } }
-    \settowidth \l_@@_CJKglue_dim { \CJKglue }
-    \@@_replace_CJKsymbol:
+    \enablepinyin
   }
   { }
 %    \end{macrocode}
@@ -623,8 +635,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \keys_set:nn { xpinyin } {#2}
         \tl_if_empty:NF \l_@@_hsep_tl
           { \cs_set_nopar:Npn \CJKglue { \skip_horizontal:n { \l_@@_hsep_tl } } }
-        \settowidth \l_@@_CJKglue_dim { \CJKglue }
-        \@@_replace_CJKsymbol:
+        \enablepinyin
         #3
         \group_end:
       }
@@ -635,6 +646,45 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \leavevmode
         \@@_single_aux:nn {#3}
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\enablepinyin}
+%    \begin{macrocode}
+\NewDocumentCommand \enablepinyin { }
+  {
+    \settowidth \l_@@_CJKglue_dim { \CJKglue }
+    \@@_replace_CJKsymbol:
+    \@@_restore_footnote:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\disablepinyin}
+%    \begin{macrocode}
+\NewDocumentCommand \disablepinyin { }
+  { \@@_restore_CJKsymbol: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_restore_footnote:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_restore_footnote:
+  {
+    \bool_if:NF \l_@@_footnote_tl
+      { \tl_put_left:Nn \@parboxrestore { \l_@@_restore_footnote_tl } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\l_@@_restore_footnote_tl}
+%    \begin{macrocode}
+\tl_new:N \l_@@_restore_footnote_tl
+\tl_set:Nn \l_@@_restore_footnote_tl
+  {
+    \int_compare:nNnT \etex_currentgrouptype:D = \c_eleven
+      { \disablepinyin }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -677,6 +727,16 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKsymbol
         \cs_set_eq:NN \CJKsymbol \@@_CJKsymbol:n
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_restore_CJKsymbol_aux:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_restore_CJKsymbol_aux:
+  {
+    \cs_if_eq:NNT \CJKsymbol \@@_CJKsymbol:n
+      { \cs_set_eq:NN \CJKsymbol \@@_save_CJKsymbol:n }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -760,6 +820,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \cs_new_eq:NN \@@_select_font:       \@@_select_font_xetex:
     \cs_new_eq:NN \@@_to_unicode:n       \@@_to_unicode_xetex:n
     \cs_new_eq:NN \@@_char_to_unicode:n  \@@_to_unicode:n
+    \cs_new_eq:NN \@@_restore_CJKsymbol: \@@_restore_CJKsymbol_aux:
     \cs_new_eq:NN \@@_replace_CJKsymbol: \@@_replace_CJKsymbol_aux:
     \cs_new_eq:NN \@@_replace_CJKsymbol_single:n
                   \@@_replace_CJKsymbol_single_aux:n
@@ -794,6 +855,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       { \@@_adjust_CJKpunct_hook: }
       {
         \cs_new_eq:NN \@@_single_hook:n \@@_single_hook_aux:n
+        \cs_new_eq:NN \@@_restore_CJKsymbol: \@@_restore_CJKsymbol_aux:
         \cs_new_eq:NN \@@_replace_CJKsymbol: \@@_replace_CJKsymbol_aux:
         \cs_new_eq:NN \@@_replace_CJKsymbol_single:n
                       \@@_replace_CJKsymbol_single_aux:n
@@ -802,6 +864,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
             \@ifpackageloaded { CJKpunct }
               {
                 \cs_undefine:N \@@_single_hook:n
+                \cs_undefine:N \@@_restore_CJKsymbol:
                 \cs_undefine:N \@@_replace_CJKsymbol:
                 \cs_undefine:N \@@_replace_CJKsymbol_single:n
                 \@@_adjust_CJKpunct_hook:
@@ -816,6 +879,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_adjust_CJKpunct_hook:
   {
+    \cs_new_protected_nopar:Npn \@@_restore_CJKsymbol:
+      {
+        \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
+          { \@@_restore_CJKsymbol_aux: }
+          {
+            \cs_if_eq:NNT \CJKosymbol \@@_CJKsymbol:n
+              { \cs_set_eq:NN \CJKosymbol \@@_save_CJKsymbol:n }
+          }
+      }
     \cs_new_protected_nopar:Npn \@@_replace_CJKsymbol:
       {
         \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
@@ -834,7 +906,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           { \@@_replace_CJKsymbol_single_aux:n {##1} }
           {
             \cs_set_protected_nopar:Npn \CJKosymbol ####1
-              { \@@_single_CJKsymbol:nn {####1} {##1} }
+              { \@@_single_CJKsymbol:nn { ####1 } { ##1 } }
           }
       }
     \cs_new_protected_nopar:Npn \@@_single_hook:n
@@ -1008,8 +1080,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}{ratio,vsep,hsep,pysep,font,format,multiple}
 %    \begin{macrocode}
 \clist_map_inline:nn
-  { ratio , vsep , hsep , pysep , font , format , multiple }
+  { ratio , vsep , hsep , pysep , font , format , multiple , footnote }
   { \keys_define:nn { xpinyin } { #1 .tl_set:c = { l_@@_ #1 _tl } } }
+\keys_define:nn { xpinyin }
+  { footnote .bool_set:N = \l_@@_footnote_tl }
 \keys_set:nn { xpinyin }
   {
     ratio   = .4 ,
