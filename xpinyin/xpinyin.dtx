@@ -186,7 +186,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{687}
+% \CheckSum{670}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -617,8 +617,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \NewDocumentEnvironment { pinyinscope } { O { } }
   {
     \keys_set:nn { xpinyin } {#1}
-    \tl_if_empty:NF \l_@@_hsep_tl
-      { \cs_set_nopar:Npn \CJKglue { \skip_horizontal:n { \l_@@_hsep_tl } } }
     \enablepinyin
   }
   { }
@@ -633,8 +631,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \group_begin:
         \keys_set:nn { xpinyin } {#2}
-        \tl_if_empty:NF \l_@@_hsep_tl
-          { \cs_set_nopar:Npn \CJKglue { \skip_horizontal:n { \l_@@_hsep_tl } } }
         \enablepinyin
         #3
         \group_end:
@@ -642,7 +638,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \group_begin:
         \keys_set:nn { xpinyin } {#2}
-        \settowidth \l_@@_CJKglue_dim { \CJKglue }
+        \bool_if:NF \l_@@_enable_bool
+          { \settowidth \l_@@_CJKglue_dim { \CJKglue } }
         \leavevmode
         \@@_single_aux:nn {#3}
       }
@@ -650,13 +647,35 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\l_@@_enable_bool}
+%    \begin{macrocode}
+\bool_new:N \l_@@_enable_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_CJKglue:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_CJKglue:
+  { \skip_horizontal:n { \l_@@_hsep_tl } }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\enablepinyin}
 %    \begin{macrocode}
 \NewDocumentCommand \enablepinyin { }
   {
-    \settowidth \l_@@_CJKglue_dim { \CJKglue }
-    \@@_replace_CJKsymbol:
-    \@@_restore_footnote:
+    \bool_if:NF \l_@@_enable_bool
+      {
+        \tl_if_empty:NF \l_@@_hsep_tl
+          {
+            \cs_set_eq:NN \@@_save_CJKglue: \CJKglue
+            \cs_set_eq:NN \CJKglue \@@_CJKglue:
+          }
+        \settowidth \l_@@_CJKglue_dim { \CJKglue }
+        \@@_replace_CJKsymbol:
+        \@@_restore_footnote:
+        \bool_set_true:N \l_@@_enable_bool
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -664,7 +683,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}{\disablepinyin}
 %    \begin{macrocode}
 \NewDocumentCommand \disablepinyin { }
-  { \@@_restore_CJKsymbol: }
+  {
+    \bool_if:NT \l_@@_enable_bool
+      {
+        \cs_if_eq:NNT \CJKglue \@@_CJKglue:
+          { \cs_set_eq:NN \CJKglue \@@_save_CJKglue: }
+        \@@_restore_CJKsymbol:
+        \bool_set_false:N \l_@@_enable_bool
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -672,7 +699,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_restore_footnote:
   {
-    \bool_if:NF \l_@@_footnote_tl
+    \bool_if:NF \l_@@_footnote_bool
       { \tl_put_left:Nn \@parboxrestore { \l_@@_restore_footnote_tl } }
   }
 %    \end{macrocode}
@@ -699,13 +726,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_single_aux:nn #1#2
   {
-    \@@_single_hook:n { \@@_replace_CJKsymbol: }
     \@@_replace_CJKsymbol_single:n {#2}
     #1
     \group_end:
   }
 \cs_new_protected_nopar:Npn \@@_replace_CJKsymbol_single_aux:n #1
   {
+    \bool_if:NF \l_@@_enable_bool { \@@_replace_CJKsymbol: }
     \cs_set_protected_nopar:Npn \CJKsymbol ##1
       { \@@_single_CJKsymbol:nn {##1} {#1} }
   }
@@ -722,11 +749,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_replace_CJKsymbol_aux:
   {
-    \cs_if_eq:NNF \CJKsymbol \@@_CJKsymbol:n
-      {
-        \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKsymbol
-        \cs_set_eq:NN \CJKsymbol \@@_CJKsymbol:n
-      }
+    \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKsymbol
+    \cs_set_eq:NN \CJKsymbol \@@_CJKsymbol:n
   }
 %    \end{macrocode}
 % \end{macro}
@@ -734,17 +758,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}[internal]{\@@_restore_CJKsymbol_aux:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_restore_CJKsymbol_aux:
-  {
-    \cs_if_eq:NNT \CJKsymbol \@@_CJKsymbol:n
-      { \cs_set_eq:NN \CJKsymbol \@@_save_CJKsymbol:n }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_single_hook_aux:n}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_single_hook_aux:n
-  { \cs_if_eq:NNF \CJKsymbol \@@_CJKsymbol:n }
+  { \cs_set_eq:NN \CJKsymbol \@@_save_CJKsymbol:n }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -846,8 +860,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \cs_if_exist_use:NF \xeCJK_select_font:
           { \exp_not:N \xeCJK@setfont }
       }
-    \cs_new_protected_nopar:Npn \@@_single_hook:n
-      { \cs_if_eq:NNF \CJKsymbol \@@_CJKsymbol:n }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -871,7 +883,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \@ifpackageloaded { CJKpunct }
       { \@@_adjust_CJKpunct_hook: }
       {
-        \cs_new_eq:NN \@@_single_hook:n \@@_single_hook_aux:n
         \cs_new_eq:NN \@@_restore_CJKsymbol: \@@_restore_CJKsymbol_aux:
         \cs_new_eq:NN \@@_replace_CJKsymbol: \@@_replace_CJKsymbol_aux:
         \cs_new_eq:NN \@@_replace_CJKsymbol_single:n
@@ -880,7 +891,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           {
             \@ifpackageloaded { CJKpunct }
               {
-                \cs_undefine:N \@@_single_hook:n
                 \cs_undefine:N \@@_restore_CJKsymbol:
                 \cs_undefine:N \@@_replace_CJKsymbol:
                 \cs_undefine:N \@@_replace_CJKsymbol_single:n
@@ -900,37 +910,25 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
           { \@@_restore_CJKsymbol_aux: }
-          {
-            \cs_if_eq:NNT \CJKosymbol \@@_CJKsymbol:n
-              { \cs_set_eq:NN \CJKosymbol \@@_save_CJKsymbol:n }
-          }
+          { \cs_set_eq:NN \CJKosymbol \@@_save_CJKsymbol:n }
       }
     \cs_new_protected_nopar:Npn \@@_replace_CJKsymbol:
       {
         \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
           { \@@_replace_CJKsymbol_aux: }
           {
-            \cs_if_eq:NNF \CJKosymbol \@@_CJKsymbol:n
-              {
-                \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKosymbol
-                \cs_set_eq:NN \CJKosymbol \@@_CJKsymbol:n
-              }
+            \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKosymbol
+            \cs_set_eq:NN \CJKosymbol \@@_CJKsymbol:n
           }
       }
     \cs_new_protected_nopar:Npn \@@_replace_CJKsymbol_single:n ##1
       {
         \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
-          { \@@_replace_CJKsymbol_single_aux:n {##1} }
+          { \@@_replace_CJKsymbol_single_aux:n { ##1 } }
           {
             \cs_set_protected_nopar:Npn \CJKosymbol ####1
               { \@@_single_CJKsymbol:nn { ####1 } { ##1 } }
           }
-      }
-    \cs_new_protected_nopar:Npn \@@_single_hook:n
-      {
-        \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
-          { \@@_single_hook_aux:n }
-          { \cs_if_eq:NNF \CJKosymbol \@@_CJKsymbol:n }
       }
   }
 %    \end{macrocode}
@@ -943,7 +941,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \group_begin:
     \keys_set:nn { xpinyin } {#1}
     \l_@@_font_tl
-    \l_@@_format_tl
+    \l_@@_format_tl { }
     \selectfont
     \c_@@_reset_UTF_cs_tl
     \@@_pinyin:n {#2}
@@ -1100,7 +1098,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   { ratio , vsep , hsep , pysep , font , format , multiple , footnote }
   { \keys_define:nn { xpinyin } { #1 .tl_set:c = { l_@@_ #1 _tl } } }
 \keys_define:nn { xpinyin }
-  { footnote .bool_set:N = \l_@@_footnote_tl }
+  { footnote .bool_set:N = \l_@@_footnote_bool }
 \keys_set:nn { xpinyin }
   {
     ratio   = .4 ,
