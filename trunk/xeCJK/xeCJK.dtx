@@ -355,7 +355,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{8910}
+% \CheckSum{8927}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8749,6 +8749,14 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\DeclareUTFDoubleEncodedSymbol}
+% \changes{v3.2.10}{2014/02/21}{改进 \cs{sliding} 等的定义方式。}
+%    \begin{macrocode}
+\NewDocumentCommand \DeclareUTFDoubleEncodedSymbol { m O { \UTFencname } m m }
+  { \@@_declare_encoded:NNnnn \@@_combine_double_symbol:nnNNn #1 {#2} {#3} {#4} }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\@@_declare_composite:Nnn}
 % 通过 \texttt{lowercase} 技巧，直接由重音符号的 Unicode 得到实际字符。
 %    \begin{macrocode}
@@ -8904,7 +8912,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_combine_circle:nnNNn,\@@_add_circle:nnNN,\@@_add_circle:Nn}
+% \begin{macro}[internal]{\@@_combine_circle:nnNNn,\@@_add_circle:nnNN,\@@_add_circle:nN}
 % 对圆圈中的数字或者字母适当缩小，以适合圆圈的大小。只有字体中存在
 % \texttt{U+25EF} 时，才使用这里的设置，否则还还是 \LaTeX\ 中的设置。
 %    \begin{macrocode}
@@ -8920,14 +8928,14 @@ $URL$
       }
       {
         \@@_glyph_if_exist:nTF { `#4 }
-          { \@@_add_circle:Nn #4 {#1} }
+          { \@@_add_circle:nN {#1} #4 }
           { \cs_if_exist_use:cTF { ? #2 } { {#1} } {#1} }
       }
   }
-\cs_new_protected:Npn \@@_add_circle:Nn #1#2
+\cs_new_protected:Npn \@@_add_circle:nN #1#2
   {
-    \hcoffin_set:Nn \l_@@_circle_coffin {#1}
-    \hcoffin_set:Nn \l_@@_tmp_coffin {#2}
+    \hcoffin_set:Nn \l_@@_tmp_coffin {#1}
+    \hcoffin_set:Nn \l_@@_circle_coffin {#2}
     \dim_set:Nn \l_@@_circle_width_dim
       { \fp_use:N \l_@@_circle_ratio_fp \coffin_wd:N \l_@@_circle_coffin }
     \coffin_resize:Nnn \l_@@_tmp_coffin
@@ -8960,7 +8968,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_combine_double_accent:nnNNn,\@@_add_double_accent:nnNN}
+% \begin{macro}[internal]{\@@_combine_double_accent:nnNNn}
 % 使 \cs{t} 等组合重音符号放在参数的第一个字母的右边。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_combine_double_accent:nnNNn
@@ -8975,7 +8983,7 @@ $URL$
       }
       {
         \@@_glyph_if_exist:nTF { `#3 }
-          { \@@_add_double_accent:nN {#1} #3 }
+          { \@@_add_double_symbol:nN {#1} #3 }
           {
             \@@_glyph_if_exist:nTF { `#4 }
               { \add@accent { `#4 } {#1} }
@@ -8983,17 +8991,46 @@ $URL$
           }
       }
   }
-\cs_new_protected:Npn \@@_add_double_accent:nN #1#2
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_combine_double_symbol:nnNNn}
+% 使 \cs{sliding} 等组合重音符号放在参数的第一个字母的右边。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_combine_double_symbol:nnNNn
+  { \@@_text_combine:NnnNNn \@@_add_double_symbol:nnNN }
+\cs_new_protected:Npn \@@_add_double_symbol:nnNN #1#2#3#4
+  {
+    \tl_if_blank:nTF {#1}
+      {
+        \@@_glyph_if_exist:nTF { `#4 }
+          {#4}
+          { \cs_if_exist_use:cTF { ? #2 } { {#1} } {#4} }
+      }
+      {
+        \@@_glyph_if_exist:nTF { `#3 }
+          { \@@_add_double_symbol:nN {#1} #3 }
+          { \cs_if_exist_use:cTF { ? #2 } { {#1} } { #1#3 } }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_add_double_symbol:nN}
+% 如果参数的第一个记号是字母类、其它符号类或者由 \cs{chardef} 定义，则将组合符号
+% 放在它的右边，否则不作处理。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_add_double_symbol:nN #1#2
   {
     \tl_if_head_is_N_type:nTF {#1}
       {
         \exp_after:wN \exp_after:wN \exp_after:wN
-        \@@_add_double_accent_aux:NnN \exp_after:wN \exp_after:wN
+        \@@_add_double_symbol_aux:NnN \exp_after:wN \exp_after:wN
           \tl_head:w #1 \q_stop \exp_after:wN { \use_none:n #1 } #2
       }
       { #1#2 }
   }
-\cs_new_protected:Npn \@@_add_double_accent_aux:NnN #1#2#3
+\cs_new_protected:Npn \@@_add_double_symbol_aux:NnN #1#2#3
   {
     \bool_if:nTF
       {
@@ -9075,7 +9112,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\DeclareUTFTIPACommand,\checkfortipa}
+% \begin{macro}[internal]{\DeclareUTFTIPACommand}
 % \changes{v3.2.10}{2014/02/20}{检查 \cs{t} 和 \cs{sliding} 的参数是否以 \cs{textipa} 开头。}
 %    \begin{macrocode}
 \NewDocumentCommand \DeclareUTFTIPACommand { O { \UTFencname } m }
@@ -9159,15 +9196,15 @@ $URL$
 \DeclareUTFEncodedAccent\textrightarrowhead{"0350}{"02C3}
 \DeclareUTFEncodedAccent\textlefthalfring{"0351}{"02D3}
 \DeclareUTFEncodedAccent\textrighthalfring{"0357}{"02D2}
-\DeclareUTFDoubleEncodedAccent\textdoublebrevebelow{"035C}{"035C}
+\DeclareUTFDoubleEncodedSymbol\textdoublebrevebelow{"035C}{"035C}
 \DeclareUTFDoubleEncodedAccent\textdoublebreve{"035D}{"035D}
 \DeclareUTFDoubleEncodedAccent\textdoublemacron{"035E}{"035E}
-\DeclareUTFDoubleEncodedAccent\textdoublemacronbelow{"035F}{"035F}
+\DeclareUTFDoubleEncodedSymbol\textdoublemacronbelow{"035F}{"035F}
 \DeclareUTFDoubleEncodedAccent\textdoubletilde{"0360}{"0360}
 \DeclareUTFDoubleEncodedAccent\t{"0361}{"0361}
 \DeclareUTFDoubleEncodedAccent\capitaltie{"0361}{"0361}
 \DeclareUTFDoubleEncodedAccent\texttoptiebar{"0361}{"0361}
-\DeclareUTFDoubleEncodedAccent\sliding{"0362}{"0362}
+\DeclareUTFDoubleEncodedSymbol\sliding{"0362}{"0362}
 \DeclareUTFTIPACommand\t
 \DeclareUTFTIPACommand\capitaltie
 \DeclareUTFTIPACommand\texttoptiebar
@@ -11184,6 +11221,7 @@ int main()
 ^^@     \cs_set_eq:NN \DeclareUTFComposite \use_none:n
 ^^@     \cs_set_eq:NN \DeclareUTFEncodedAccent \use_none:nnn
 ^^@     \cs_set_eq:NN \DeclareUTFDoubleEncodedAccent \use_none:nnn
+^^@     \cs_set_eq:NN \DeclareUTFDoubleEncodedSymbol \use_none:nnn
 ^^@     \cs_set_eq:NN \DeclareUTFCommand \use_none:nn
 ^^@     \cs_set_eq:NN \DeclareUTFTIPACommand \use_none:n
 ^^@     \cs_set_eq:NN \DeclareUTFCompositeCommand \use_none:nnn
@@ -11276,8 +11314,7 @@ int main()
     \reverse_if:N \etex_iffontchar:D \tex_font:D #1 \exp_stop_f: \falllbackfont \fi:
     \tex_char:D #1 \exp_stop_f: &
     \tl_set:Nn \l_tmpa_clist {#2}
-    \clist_use:Nnnn \l_tmpa_clist
-      { \par } { \par } { \par }
+    \clist_use:Nn \l_tmpa_clist { \par }
     \strut
     & #3 \\
   }
@@ -11288,8 +11325,7 @@ int main()
     \use_none:n #1 ~ \use_none:n #2 &
     \tex_char:D #1 \exp_stop_f: \tex_char:D #2 \exp_stop_f: &
     \tl_set:Nn \l_tmpa_clist {#3}
-    \clist_use:Nnnn \l_tmpa_clist
-      { \par } { \par } { \par }
+    \clist_use:Nn \l_tmpa_clist { \par }
     \strut \\
   }
 \DeclareDocumentCommand \UTFTABLE { m m }
