@@ -355,7 +355,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9006}
+% \CheckSum{9023}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -713,6 +713,14 @@ $URL$
 %   这个选项对使用到 \cs{verbatim@font} 命令的情形均有效，更一般的情况可以使用
 %   \ref{subsec:others}~节介绍的 \cs{xeCJKVerbAddon}。\texttt{false} 表示不作任何
 %   处理。以上选项的值除 \texttt{false} 外，都禁止在汉字之间和汉字与西文之间自动换行。
+% \end{function}
+%
+% \begin{function}[rEXP,added=2014-03-01]{LoadFandol}
+%   \begin{syntax}
+%     LoadFandol = \meta{\TTF}
+%   \end{syntax}
+%   当没有在导言区设置 CJK 字体时，是否使用 Fandol 字体。如果启用这个选项，需要
+%   安装 \package{Fandol} 字体系列。
 % \end{function}
 %
 % \subsection{字体设置与选择}
@@ -5844,6 +5852,21 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{LoadFandol}
+% \changes{v3.2.10}{2014/03/01}{当没有设置字体时，使用 Fandol 字体系列。}
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  { LoadFandol .bool_gset:N = \g_@@_fandol_bool }
+\cs_new_protected_nopar:Npn \@@_load_fandol:
+  {
+    \setCJKmainfont
+      [ BoldFont = FandolSong-Bold , ItalicFont = FandolKai ] { FandolSong-Regular }
+    \setCJKsansfont [ BoldFont = FandolHei-Bold ] { FandolHei-Regular }
+    \setCJKmonofont { FandolFang }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v3.1.2}{2013/01/01}{修正重定义 \cs{CJKfamilydefault} 无效的问题，恢复容错能力。}
 %
 % 在导言区结束的时候，若没有声明 CJK 字体，则给出一个警告。如果 \cs{CJKfamilydefault}
@@ -5870,7 +5893,19 @@ $URL$
       }
     \cs_undefine:N \@@_family_default_wrap:n
     \prop_if_empty:NTF \g_@@_family_font_name_prop
-      { \@@_warning:nx { no-CJKfamily } { \CJKfamilydefault } }
+      {
+        \bool_if:NTF \g_@@_fandol_bool
+          {
+            \@@_warning:n { fandol }
+            \@@_load_fandol:
+            \use:n
+          }
+          {
+            \@@_warning:nx { no-CJKfamily } { \CJKfamilydefault }
+            \use_none:n
+          }
+      }
+      { \use:n }
       {
         \xeCJK_family_if_exist:xF { \CJKfamilydefault }
           {
@@ -5907,6 +5942,11 @@ $URL$
     Undefined~CJK~default~family~`\@@_msg_family_map:n {#1}'~
     has~been~replaced~by~`\@@_msg_family_map:n {#2}'.\\\\
     Try~to~use~`\@@_msg_def_family_map:n {#1}'~to~define~it.
+  }
+\@@_msg_new:nn { fandol }
+  {
+    Fandol~is~being~set~as~the~default~font~for~CJK~text.\\
+    Please~make~sure~it~has~been~properly~installed.
   }
 %    \end{macrocode}
 %
@@ -6465,6 +6505,7 @@ $URL$
     xeCJKactive     = true  ,
     LocalConfig     = true  ,
     indentfirst     = true  ,
+    LoadFandol      = true  ,
     Verb            = env   ,
     EmboldenFactor  = 4     ,
     SlantFactor     = 0.167 ,
