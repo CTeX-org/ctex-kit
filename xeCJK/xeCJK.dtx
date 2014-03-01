@@ -223,7 +223,7 @@ $URL$
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.2.9}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.10}{\ExplFileDescription}
 %<xunextra>\ExplSyntaxOff
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
@@ -355,7 +355,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{8988}
+% \CheckSum{9006}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -7155,19 +7155,23 @@ $URL$
 % \begin{macro}[internal]{\CJKaddEncHook}
 % 为使用 \pkg{CJKnumb} 宏包而作一些处理。另外 \pkg{CJKnumb} 使用的是传统汉字“萬”
 % 和“億”，我们在这里把它们修正为简体字。
+% \changes{v3.2.10}{2014/03/01}{使用 \pkg{CJKnumb} 时，让 \cs{Unicode} 有定义。}
 %    \begin{macrocode}
 \cs_new_protected:Npn \CJKaddEncHook #1#2
   {
     \str_if_eq:nnT {#1} { \CJK@UnicodeEnc }
       {
         \group_begin:
-        \cs_set_nopar:Npn \Unicode ##1##2
-          { (##1) * \c_two_hundred_fifty_six + (##2) }
-        \cs_set_eq:NN \def \xeCJK_char_from_charcode:Nn
-        #2
+          \cs_set_eq:NN \Unicode \@@_calc_unicode:nn
+          \cs_set_eq:NN \def \xeCJK_char_from_charcode:Nn
+          #2
         \group_end:
         \tl_gset:Nn \CJK@tenthousand    { ^^^^4e07 }
         \tl_gset:Nn \CJK@hundredmillion { ^^^^4ebf }
+        \tl_if_exist:NF \CJK@UnicodeEnc
+          { \tl_const:Nn \CJK@UnicodeEnc { UTF8 } }
+        \cs_if_exist:NF \Unicode
+          { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
       }
   }
 \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
@@ -7180,6 +7184,10 @@ $URL$
         \tl_const:Nn #1 { ^^^^4e00 }
       }
   }
+\cs_new_nopar:Npn \@@_calc_unicode:nn #1#2
+  { (#1) * \c_two_hundred_fifty_six + (#2) }
+\cs_new_protected_nopar:Npn \xeCJK_unicode_char:nn #1#2
+  { \tex_char:D \etex_numexpr:D \@@_calc_unicode:nn {#1} {#2} \scan_stop: }
 \bool_if:NT \g_@@_number_bool { \RequirePackage { CJKnumb } }
 %    \end{macrocode}
 % \end{macro}
