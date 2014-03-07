@@ -18,26 +18,26 @@
 :init
 
   setlocal
-  set PACKAGE=zhnumber
+  set PACKAGE=ctex
   set PKGDIR=%PACKAGE%
   set FORMAT=latex
   set DTXTEX=xelatex
-  set DTXTEXFLAG=-shell-escape
+  set DTXTEXFLAG=
   set INSTEX=xetex
-  set INSTEXFLAG=-shell-escape
+  set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
+  set ICONVFILE=ctexcap-gbk.cfg
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
-  set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip
+  set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% cfg sty
+  set TDSFILES=%CTANFILES% sty cls def cfg fd
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
 
   cd /d "%~dp0"
-  call :iconv
 
 :main
 
@@ -117,18 +117,21 @@
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
     %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 
-	goto :clean-aux
+    goto :clean-aux
   )
 
 :file2tdsdir
 
   set TDSDIR=
 
-  if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%\config
+  if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".fd"  set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".dtx" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".cls" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".tex" set TDSDIR=doc\%FORMAT%\%PKGDIR%\example  
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
 
@@ -146,7 +149,7 @@
   if [%TEXMFLOCAL%] == [] (
     echo ! Install failed
   ) else (
-	for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
+    for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
   )
 
   goto :end
@@ -214,6 +217,11 @@
   for %%I in (%UNPACK%) do (
     %INSTEX% %INSTEXFLAG% %%I > nul
   )
+  
+  call :iconv
+  
+  %ICONVEXE% -f UTF-8 -t GBK %ICONVFILE% > CTEXTEMP
+  move /y CTEXTEMP %ICONVFILE% > nul
 
   goto :end
 
@@ -237,10 +245,10 @@
   
   for %%I in (perl.exe) do (
     if exist %%I (
-	  set PERLEXE="%~dp0%%I"
-	) else (
-	  set PERLEXE="%%~$PATH:I"
-	)
+      set PERLEXE="%~dp0%%I"
+    ) else (
+      set PERLEXE="%%~$PATH:I"
+    )
   )
   
   if not [%PERLEXE%] == [""] goto :EOF
@@ -248,8 +256,8 @@
   for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
 
   if exist "%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe" (
-	set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
-	goto :EOF
+    set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
+    goto :EOF
   )
 
   echo.
@@ -269,10 +277,10 @@
   
   for %%I in (zip.exe) do (
     if exist %%I (
-	  set ZIPEXE="%~dp0%%I"
-	) else (
-	  set ZIPEXE="%%~$PATH:I"
-	)
+      set ZIPEXE="%~dp0%%I"
+    ) else (
+      set ZIPEXE="%%~$PATH:I"
+    )
   )
 
   if not [%ZIPEXE%] == [""] goto :EOF
@@ -294,10 +302,10 @@
   
   for %%I in (iconv.exe) do (
     if exist %%I (
-	  set ICONVEXE="%~dp0%%I"
-	) else (
-	  set ICONVEXE="%%~$PATH:I"
-	)
+      set ICONVEXE="%~dp0%%I"
+    ) else (
+      set ICONVEXE="%%~$PATH:I"
+    )
   )
   
   if not [%ICONVEXE%] == [""] goto :EOF
