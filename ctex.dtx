@@ -379,7 +379,7 @@ This package consists of the file  ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/06}{应用 \hologo{LaTeX3} 重新整理代码。}
 %
 %
-% \CheckSum{2047}
+% \CheckSum{2082}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -445,7 +445,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\PassOptionsToPackage { heading = true } { ctex }
+\PassOptionsToPackage { heading = true } { ctexcap }
 \RequirePackageWithOptions { ctex }
 %    \end{macrocode}
 %
@@ -576,7 +576,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %   \begin{macrocode}
     indent .bool_set:N = \l_@@_indent_bool ,
     indent  .initial:n = { true } ,
-    noindent   .meta:n = { space = false } ,
+    noindent   .meta:n = { indent = false } ,
     noindent   .value_forbidden: ,
 %<ctexsize>  }
 %<*!ctexsize>
@@ -674,34 +674,34 @@ This package consists of the file  ctex.dtx, and the derived files
     fancyhdr .bool_set:N = \l_@@_fancyhdr_bool ,
     hyperref .bool_set:N = \l_@@_hyperref_bool
   }
+%</!ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{10pt,11pt,12pt}
 %    \begin{macrocode}
-%<*class>
+%<*class|ctexsize>
 \clist_map_inline:nn { 10pt , 11pt , 12pt }
   {
     \keys_define:nn { ctex }
       {
+%<*ctexsize>
+        #1 .code:n =
+          { \int_set_eq:NN \l_@@_font_size_int \c_minus_one } ,
+%</ctexsize>
+%<*class>
         #1 .code:n =
           {
             \int_set_eq:NN \l_@@_font_size_int \c_minus_one
-%<article>            \PassOptionsToPackage { #1 } { article }
-%<book>            \PassOptionsToPackage { #1 } { book }
-%<report>            \PassOptionsToPackage { #1 } { report }
+%<article>            \PassOptionsToPackage {#1} { article }
+%<book>            \PassOptionsToPackage {#1} { book }
+%<report>            \PassOptionsToPackage {#1} { report }
           } ,
+%</class>
         #1 .value_forbidden:
       }
   }
-\keys_define:nn { ctex }
-  {
-    unknown .code:n =
-%<article>      { \PassOptionsToClass { \l_keys_key_tl } { article } }
-%<book>      { \PassOptionsToClass { \l_keys_key_tl } { book } }
-%<report>      { \PassOptionsToClass { \l_keys_key_tl } { report } }
-  }
-%</class>
+%</class|ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -718,6 +718,10 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+%<article>\PassOptionsToClass  { \@unusedoptionlist } { article }
+%<book>\PassOptionsToClass  { \@unusedoptionlist } { book }
+%<report>\PassOptionsToClass  { \@unusedoptionlist } { report }
+\tl_clear:N \@unusedoptionlist
 \if_case:w \l_@@_font_size_int
 %<article>  \PassOptionsToClass { 10pt } { article }
 %<book>  \PassOptionsToClass { 10pt } { book }
@@ -737,6 +741,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %</class>
+%<*!ctexsize>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -746,6 +751,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \tl_set_eq:Nc \l_@@_tmp_tl { ver@ \@currname . \@currext }
+%</!ctexsize>
 %<*class>
 \cs_new_eq:cN { ver@ctex.     \@pkgextension } \l_@@_tmp_tl
 \cs_new_eq:cN { ver@ctexcap.  \@pkgextension } \l_@@_tmp_tl
@@ -762,7 +768,6 @@ This package consists of the file  ctex.dtx, and the derived files
   { \msg_error:nn { ctex } { ctexsize-loaded } }
   { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \l_@@_tmp_tl }
 %</style>
-%</!ctexsize>
 %    \end{macrocode}
 %
 % \subsection{中文字号}
@@ -1055,7 +1060,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 % \subsection{引擎支持}
 %
-% \begin{macro}[internal]{\hyperref}
+% \begin{macro}[internal]{\hypersetup}
 %    \begin{macrocode}
 \bool_if:NT \l_@@_hyperref_bool
   {
@@ -1073,33 +1078,14 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \begin{macrocode}
 \pdftex_if_engine:TF
   {
-    \cs_if_exist_use:NF \hypersetup { \use_none:n }
-      { driverfallback = dvipdfmx }
-    \bool_if:NTF \l_@@_zhmCJK_bool
-      { \RequirePackage [ encoding = \l_@@_encoding_tl ] { zhmCJK } }
-      { \ctex_file_input:n { ctex-engine-pdftex.def } }
-    \cs_set_eq:NN \CJK@input \ctex_CJK_input:n
-    \cs_if_free:NF \hypersetup
-      {
-        \hypersetup { driverfallback = dvipdfmx }
-        \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-          {
-            \ctex_if_pdfmode:TF
-              { \RequirePackage { xCJK2uni } }
-              {
-                \hypersetup { CJKbookmarks = true }
-                \AtBeginDvi { \special { pdf:tounicode~GBK-EUC-UCS2 } }
-              }
-          }
-          { \hypersetup { unicode } }
-      }
+    \tl_set:Nx \l_@@_encoding_tl { \l_@@_encoding_tl }
+    \ctex_file_input:n { ctex-engine-pdftex.def }
   }
   {
     \tl_set:Nn \l_@@_encoding_tl { UTF8 }
     \xetex_if_engine:TF
       { \ctex_file_input:n { ctex-engine-xetex.def } }
       { \ctex_file_input:n { ctex-engine-luatex.def } }
-    \cs_if_exist_use:NF \hypersetup { \use_none:n } { unicode }
   }
 %    \end{macrocode}
 %
@@ -1111,6 +1097,16 @@ This package consists of the file  ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex-engine-pdftex.def}}
 %
 %    \begin{macrocode}
+\bool_if:NT \l_@@_zhmCJK_bool
+  {
+    \RequirePackage [ encoding = \l_@@_encoding_tl ] { zhmCJK }
+    \group_begin:
+      \cs_set:Npn \@@_tmp:w #1 \prg_do_nothing: { }
+    \exp_after:wN \group_end: \@@_tmp:w
+  }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
   { \RequirePackage { CJK } }
   { \RequirePackage { CJKutf8 } }
@@ -1119,13 +1115,6 @@ This package consists of the file  ctex.dtx, and the derived files
 \int_compare:nNnT \l_@@_space_int = \c_two
   { \RequirePackage { CJKspace } }
 %    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_update_ziju:N}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
-  { \cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N #1 } }
-%    \end{macrocode}
-% \end{macro}
 %
 % \begin{macro}[internal]{\ctex_load_zhmap:n}
 %    \begin{macrocode}
@@ -1182,6 +1171,18 @@ This package consists of the file  ctex.dtx, and the derived files
 \tl_if_exist:NF \CJKttdefault
   { \tl_const:Nn \CJKttdefault { gbsn } }
 %    \end{macrocode}
+%
+%    \begin{macrocode}
+\prg_do_nothing:
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\CJK@input,\ctex_update_ziju:N}
+%    \begin{macrocode}
+\cs_set_eq:NN \CJK@input \ctex_CJK_input:n
+\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
+  { \cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N #1 } }
+%    \end{macrocode}
+% \end{macro}
 %
 %    \begin{macrocode}
 \AtEndOfPackage { \CJK@makeActive }
@@ -1391,19 +1392,49 @@ This package consists of the file  ctex.dtx, and the derived files
   { \defaultCJKfontfeatures { JFM = mono } }
 %    \end{macrocode}
 %
-% \subsubsection{修改标准字体命令}
-%
-%    \begin{macrocode}
-\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { } { }
-\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { } { }
-\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { } { }
-\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
-  { cs_set_eq:NN \reset@font \normalfont } { }
-%    \end{macrocode}
-%
 %    \begin{macrocode}
 %</luatex>
 %<*pdftex|xetex|luatex>
+%    \end{macrocode}
+%
+% \subsubsection{修改标准字体命令}
+%
+%    \begin{macrocode}
+%<*pdftex|luatex>
+\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N \rmfamily } }
+\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N \sffamily } }
+\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N \ttfamily } }
+\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+  { \cs_set_eq:NN \reset@font \normalfont }
+  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N \normalfont } }
+%</pdftex|luatex>
+%    \end{macrocode}
+%
+% \subsubsection{\pkg{hyperref} 的支持选项}
+%
+%    \begin{macrocode}
+%<*pdftex>
+\cs_if_free:NF \hypersetup
+  {
+    \hypersetup { driverfallback = dvipdfmx }
+    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+      {
+        \ctex_if_pdfmode:TF
+          { \RequirePackage { xCJK2uni } }
+          {
+            \hypersetup { CJKbookmarks = true }
+            \AtBeginDvi { \special { pdf:tounicode~GBK-EUC-UCS2 } }
+          }
+      }
+      { \hypersetup { unicode } }
+  }
+%</pdftex>
+%<*xetex|luatex>
+\cs_if_exist_use:NT \hypersetup { { unicode } }
+%</xetex|luatex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -1459,7 +1490,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \begin{macrocode}
 \str_if_eq:onF { \l_@@_fontset_tl } { none }
   {
-    \file_if_exist:nTF {}
+    \file_if_exist:nTF { ctex-fontset- \l_@@_fontset_tl .def }
       { \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def } }
       { \msg_error:nnx { ctex } { fontset-undef } { \l_@@_fontset_tl } }
   }
@@ -1615,7 +1646,7 @@ This package consists of the file  ctex.dtx, and the derived files
     \cs_new_nopar:cpx { CTEX@post#1 }
       { \clist_item:Nn \l_@@_name_clist { \c_two } }
     \cs_new_eq:cN { CTEX@the#1 } \l_@@_number_tl
-    \seq_map_inline:Nn \l_@@_heading_keys_seq
+    \seq_map_inline:Nn \c_@@_heading_keys_seq
       { \cs_new_eq:cc { CTEX@#1@##1 } { l_@@_##1_tl } }
     \cs_new_nopar:cpx { CTEXthe#1 }
       {
@@ -1652,19 +1683,31 @@ This package consists of the file  ctex.dtx, and the derived files
     \tl_set:cx { CTEX@post#1 }
       { \clist_item:Nn \l_@@_name_clist { \c_two } }
     \tl_set_eq:cN { CTEX@the#1 } \l_@@_number_tl
-    \seq_map_inline:Nn \l_@@_heading_keys_seq
+    \seq_map_inline:Nn \c_@@_heading_keys_seq
       { \tl_set_eq:cc { CTEX@#1@##1 } { l_@@_##1_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}[internal]{\l_@@_heading_keys_seq}
+% \begin{variable}[internal]{\c_@@_heading_keys_seq}
 %    \begin{macrocode}
-\seq_new:N \l_@@_heading_keys_seq
-\seq_set_from_clist:Nn \l_@@_heading_keys_seq
+\seq_new:N \c_@@_heading_keys_seq
+\seq_gset_from_clist:Nn \c_@@_heading_keys_seq
   {
     format , nameformat , numberformat , aftername ,
     titleformat , beforeskip , afterskip , indent
+  }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}[internal]{\c_@@_headings_seq}
+%    \begin{macrocode}
+\seq_new:N \c_@@_headings_seq
+\seq_gset_from_clist:Nn \c_@@_headings_seq
+  {
+%<article>    part , section , subsection , subsubsection ,
+%<book|report>    part , chapter , section , subsection , subsubsection ,
+    paragraph , subparagraph
   }
 %    \end{macrocode}
 % \end{variable}
@@ -1805,21 +1848,16 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \begin{macrocode}
 \keys_define:nn { ctex / appendix }
   {
-    name   .tl_set:N = \CTEX@appendixname ,
-    name  .initial:o = { \appendixname \space } ,
-    number .tl_set:N = \CTEX@appendixnumber ,
+    name    .tl_set:N = \CTEX@appendixname ,
+    name   .initial:o = { \appendixname \space } ,
+    number  .tl_set:N = \CTEX@appendixnumber ,
 %<article>    number .initial:n = { \@Alph \c@section }
 %<book|report>    number .initial:n = { \@Alph\c@chapter }
   }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\clist_map_inline:nn
-  {
-%<article>    part , section , subsection , subsubsection ,
-%<book|report>    part , chapter , section , subsection , subsubsection ,
-    paragraph , subparagraph
-  }
+\seq_map_inline:Nn \c_@@_headings_seq
   { \UseInstance { ctex / heading } {#1} {#1} }
 \cs_gset_eq:NN \ctex_assign_keys:n \ctex_assign_keys_document:n
 %    \end{macrocode}
@@ -2185,16 +2223,19 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 % \begin{macro}[internal]{\ps@fancy}
 %    \begin{macrocode}
-\ctex_patch_cmd:Nnn \ps@fancy
-  { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
-\ctex_patch_cmd:Nnn \ps@fancy
-  { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
+\cs_if_free:NF \ps@fancy
+  {
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
 %<*book|report>
-\ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
-%<book>  { \if@mainmatter \CTEXthesection \quad \fi }
-%<report>  { \CTEXthesection \quad }
+    \ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
+%<book>      { \if@mainmatter \CTEXthesection \quad \fi }
+%<report>      { \CTEXthesection \quad }
 %</book|report>
-\ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection }
+    \ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2232,7 +2273,7 @@ This package consists of the file  ctex.dtx, and the derived files
         titleformat = \Large\bfseries
 %</article>
 %<*book|report>
-        titleformat = \huge \bfseries ,
+        titleformat = \huge \bfseries
 %</book|report>
       ] { part }
 %<*book|report>
@@ -2256,7 +2297,7 @@ This package consists of the file  ctex.dtx, and the derived files
 %<*style>
 %    \end{macrocode}
 %
-% \subsection{\pkg{ctex.sty} 的 \texttt{heading} 选项}
+% \subsubsection{\pkg{ctex.sty} 的 \texttt{heading} 选项}
 %
 %    \begin{macrocode}
 \msg_new:nnn { warning } { not-standard-class }
@@ -2318,7 +2359,8 @@ This package consists of the file  ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\IfInstanceExistTF { ctex / heading } { part }
+\cs_if_exist_use:NF \IfInstanceExistTF { \tex_endinput:D }
+  { ctex / heading } { part }
   { \CTEXsetup [ name = { 第 , 部分 } ] { part } }
   { \tex_endinput:D }
 %    \end{macrocode}
@@ -2364,8 +2406,8 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 % \begin{macro}[internal]{\@makecaption}
 %    \begin{macrocode}
-\ctex_patch_cmd:Nnn \@makecaption { #1: ~ #2 } { #1 \CTEX@caption@delimiter #2 }
-\ctex_patch_cmd:Nnn \@makecaption { #1: ~ #2 } { #1 \CTEX@caption@delimiter #2 }
+\ctex_patch_cmd:Nnn \@makecaption { #1:~#2 } { #1 \CTEX@caption@delimiter #2 }
+\ctex_patch_cmd:Nnn \@makecaption { #1:~#2 } { #1 \CTEX@caption@delimiter #2 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2702,6 +2744,7 @@ This package consists of the file  ctex.dtx, and the derived files
     \setCJKfamilyfont { zhhei }  [ BoldFont = FandolHei-Bold ]  { FandolHei }
     \setCJKfamilyfont { zhfs }  { FandolFang }
     \setCJKfamilyfont { zhkai } { FandolKai }
+    \use:n
   }
 %    \end{macrocode}
 %
