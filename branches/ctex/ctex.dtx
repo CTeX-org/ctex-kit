@@ -324,6 +324,7 @@ This package consists of the file  ctex.dtx, and the derived files
 \setmonofont[SlantedFont=CMU Typewriter Text Oblique]{CMU Typewriter Text}
 \xeCJKsetup{PunctStyle=kaiming}
 \linespread{1.2}
+\AtBeginDocument{\MakeShortVerb\|}
 \preto\MacroFont{\linespread{1}}
 \preto\AltMacroFont{\linespread{1}}
 \def\Module#1{\mbox{\normalfont\sffamily$\langle$#1$\rangle$}}
@@ -379,7 +380,7 @@ This package consists of the file  ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/06}{应用 \hologo{LaTeX3} 重新整理代码。}
 %
 %
-% \CheckSum{2125}
+% \CheckSum{2157}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -464,9 +465,10 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 % \subsection{内部函数与变量}
 %
-% \begin{variable}[internal]{\l_@@_tmp_tl}
+% \begin{variable}[internal]{\l_@@_tmp_tl,\g_@@_tmp_bool}
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
+\bool_new:N \g_@@_tmp_bool
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2822,6 +2824,56 @@ This package consists of the file  ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %</mac>
+%<*class|style>
+%    \end{macrocode}
+%
+% \subsection{其它兼容性修改}
+%
+% \begin{macro}[internal]{\end}
+% \changes{v2.0}{2014/03/09}
+% {解决 \pkg{etoolbox} 与 \pkg{breqn} 关于 \cs{end} 的冲突。}
+% \pkg{breqn} 宏包对 \cs{end} 作了如下处理，然而这个处理并不保险。
+% \begin{verbatim}
+%   \def\@tempa#1\endcsname#2\@nil{\def\latex@end##1{#2}}
+%   \expandafter\@tempa\end{#1}\@nil
+%   \def\end#1{\csname end#1\endcsname \latex@end{#1}}%
+% \end{verbatim}
+% \pkg{etoolbox} 在 \cs{end} 定义中的 \cs{csname} 前加入
+% 钩子 |\csuse{@end@#1@hook}|。如果 \pkg{etoolbox} 先于 \pkg{breqn} 被载入（这
+% 在使用 \cls{ctexart} 等文档类时几乎是必然的），|\csuse{@end@#1@hook}| 将会被
+% 忽略，即 \cs{AtEndEnvironment} 失效。如果交换两个宏包的载入顺序，则
+% \pkg{etoolbox} 会给出警告：\cs{AfterEndEnvironment} 失效，我们不打算处理这种
+% 情况。我们通过一个特殊的环境来完成检查。
+%    \begin{macrocode}
+\newenvironment { @@_test_env }
+  { \bool_gset_false:N \g_@@_tmp_bool } { }
+\AtEndEnvironment { @@_test_env }
+  { \bool_gset_true:N \g_@@_tmp_bool }
+\group_begin:
+\char_set_catcode_other:N \#
+\cs_new_protected_nopar:Npn \ctex_fix_end_env_hook:
+  {
+    \begin { @@_test_env } \end { @@_test_env }
+    \bool_if:NF \g_@@_tmp_bool
+      {
+        \xpatchcmd \end { \csname end#1 \endcsname }
+          {
+            \csuse { @end@#1@hook }
+            \csname end#1 \endcsname
+          } { }
+          {
+            \xpretocmd \end { \csuse { @end@#1@hook } }
+              { } { \ctex_patch_failure:N \end }
+          }
+      }
+  }
+\group_end:
+\AtBeginDocument { \ctex_fix_end_env_hook: }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</class|style>
 %    \end{macrocode}
 %
 % \end{implementation}
