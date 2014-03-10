@@ -32,7 +32,7 @@
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty cls def cfg fd
+  set TDSFILES=%CTANFILES% sty cls def cfg fd fdx
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -104,7 +104,7 @@
 
   echo Typesetting %SOURCE%
 
-  %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+  %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2> nul
   if ERRORLEVEL 1 (
     echo ! Compilation failed
     goto :end
@@ -112,11 +112,11 @@
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2> nul
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2> nul
     goto :clean-aux
   )
 
@@ -124,17 +124,40 @@
 
   set TDSDIR=
 
-  if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".fd"  set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%\config
+  if /i "%~x1" == ".cls" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".fd"  set TDSDIR=tex\%FORMAT%\%PKGDIR%\fd
+  if /i "%~x1" == ".fdx" set TDSDIR=tex\%FORMAT%\%PKGDIR%\fd
+  if /i "%~x1" == ".def" call :def2tdsdir %1
   if /i "%~x1" == ".dtx" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".cls" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".tex" set TDSDIR=doc\%FORMAT%\%PKGDIR%\example  
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
 
+  goto :EOF
+ 
+:def2tdsdir
+
+  set TDSDIR=tex\%FORMAT%\%PKGDIR%
+
+  for %%I in (%1) do (
+    for /f "tokens=2 delims=-" %%J in ("%%I") do (
+      if /i "%%J" == "engine" (
+        xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\engine\" > nul
+      ) else (
+        if /i "%%J" == "fontset" (
+          xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\fontset\" > nul
+        ) else (
+          xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%" > nul
+        )
+      )
+    )
+  )
+
+  set TDSDIR=""
+  
   goto :EOF
 
 :localinstall
@@ -159,7 +182,7 @@
   call :file2tdsdir %1
 
   if defined TDSDIR (
-    xcopy /q /y %1 "%TEXMFLOCAL%\%TDSDIR%\" > nul
+    if not [%TDSDIR%] == [""] xcopy /q /y %1 "%TEXMFLOCAL%\%TDSDIR%\" > nul
   ) else (
     echo Unknown file type "%~x1"
   )
@@ -202,7 +225,7 @@
   call :file2tdsdir %1
 
   if defined TDSDIR (
-    xcopy /q /y %1 "%TDSROOT%\%TDSDIR%\" > nul
+    if not [%TDSDIR%] == [""] xcopy /q /y %1 "%TDSROOT%\%TDSDIR%\" > nul
   ) else (
     echo Unknown file type "%~x1"
   )
