@@ -32,7 +32,7 @@
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty cls def cfg fd fdx
+  set TDSFILES=%CTANFILES% sty cls def cfg fd
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
