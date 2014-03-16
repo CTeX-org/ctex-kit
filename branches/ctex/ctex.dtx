@@ -393,9 +393,10 @@ This package consists of the file ctex.dtx, and the derived files
 % \fi
 %
 % \changes{v2.0}{2014/03/06}{应用 \hologo{LaTeX3} 重新整理代码。}
+% \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{2157}
+% \CheckSum{2187}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1186,7 +1187,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 首先检查选项，决定是否载入 \pkg{zhmCJK} 宏包。
 %    \begin{macrocode}
 \if_bool:N \l_@@_zhmCJK_bool
-  \PassOptionsToPackage{ encoding = \l_@@_encoding_tl }{ zhmCJK }
+  \PassOptionsToPackage { encoding = \l_@@_encoding_tl } { zhmCJK }
   \RequirePackage { zhmCJK }
 %    \end{macrocode}
 % 不载入 \pkg{zhmCJK} 宏包时直接调用 \pkg{CJK} 及相关宏包。
@@ -1252,6 +1253,21 @@ This package consists of the file ctex.dtx, and the derived files
   \tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
   \tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
   \tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
+  \xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+    { \ctex_patch_failure:N \rmfamily }
+  \xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+    { \ctex_patch_failure:N \sffamily }
+  \xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+    { \ctex_patch_failure:N \ttfamily }
+  \xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+    { \cs_set_eq:NN \reset@font \normalfont }
+    { \ctex_patch_failure:N \normalfont }
+%    \end{macrocode}
+%
+% \cs{CJK@makeActive} 应该先于 \file{ctexcap-gbk.cfg} 等文件的载入，将汉字的
+% 首字节设置为活动字符。使用 \pkg{zhmCJK} 时，此功能已经被启用。
+%    \begin{macrocode}
+  \CJK@makeActive
 %    \end{macrocode}
 %
 % \pkg{zhmCJK} 判断结束。
@@ -1290,12 +1306,6 @@ This package consists of the file ctex.dtx, and the derived files
   { \cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N #1 } }
 %    \end{macrocode}
 % \end{macro}
-%
-% \cs{CJK@makeActive} 应该先于 \file{ctexcap-gbk.cfg} 等文件的载入，将汉字的
-% 首字节设置为活动字符。
-%    \begin{macrocode}
-\CJK@makeActive
-%    \end{macrocode}
 %
 %    \begin{macrocode}
 %</pdftex>
@@ -1340,6 +1350,15 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_if_exist:NF \CJKfamilydefault
   { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
 \tl_set:Nn \kanjifamilydefault { \CJKfamilydefault }
+\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+  { \ctex_patch_failure:N \rmfamily }
+\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+  { \ctex_patch_failure:N \sffamily }
+\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+  { \ctex_patch_failure:N \ttfamily }
+\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+  { \cs_set_eq:NN \reset@font \normalfont }
+  { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -1400,9 +1419,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \RenewDocumentCommand \kanjifamily { m }
   {
-    \tl_set:Nx \k@family {#1}
-    \prop_get:NVNF \g_@@_ltj_family_name_prop
-      \k@family \k@family { }
+    \tl_set:Nx \l_@@_tmp_tl {#1}
+    \prop_get:NVNF \g_@@_ltj_family_name_prop \l_@@_tmp_tl \k@family
+      { \tl_set_eq:NN \k@family \l_@@_tmp_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1508,22 +1527,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %</luatex>
 %<*pdftex|xetex|luatex>
-%    \end{macrocode}
-%
-% \subsubsection{修改标准字体命令}
-%
-%    \begin{macrocode}
-%<*pdftex|luatex>
-\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
-  { \ctex_patch_failure:N \rmfamily }
-\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
-  { \ctex_patch_failure:N \sffamily }
-\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
-  { \ctex_patch_failure:N \ttfamily }
-\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
-  { \cs_set_eq:NN \reset@font \normalfont }
-  { \ctex_patch_failure:N \normalfont }
-%</pdftex|luatex>
 %    \end{macrocode}
 %
 % \subsubsection{\pkg{hyperref} 的支持选项}
