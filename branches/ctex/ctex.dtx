@@ -328,7 +328,12 @@ This package consists of the file ctex.dtx, and the derived files
 \AtBeginDocument{\MakeShortVerb\|}
 \AtBeginEnvironment{macrocode}{\linespread{1}\selectfont}
 \AtBeginEnvironment{macrocode*}{\linespread{1}\selectfont}
-\def\Module#1{\mbox{\normalfont\sffamily$\langle$#1$\rangle$}}
+\AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
+\AtEndUTFCommand[\textlangle]{\endgroup}
+\AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
+\AtEndUTFCommand[\textrangle]{\endgroup}
+\def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
+\csdef{meta }#1{\mbox{\texttt{\textlangle}\textit{#1}\texttt{\textrangle}}}
 \def\XeTeX{\hologo{XeTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
 \def\LuaLaTeX{\hologo{LuaLaTeX}}
@@ -343,6 +348,8 @@ This package consists of the file ctex.dtx, and the derived files
   \def\@idxitem{\par\hangindent 2em }%
   \def\subitem{\@idxitem\hspace*{1em}}%
   \def\subsubitem{\@idxitem\hspace*{2em}}}
+\patchcmd\l@section{2.5em}{1.5em}{}{}
+\patchcmd\l@subsection{2.5em}{1.5em}{}{}
 \patchcmd\changes@{\space}{\lbrack}{}{}
 \patchcmd\@wrglossary{hdpindex}{hdclindex{\the\c@HD@hypercount}}{}{}
 \makeatother
@@ -388,7 +395,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/06}{应用 \hologo{LaTeX3} 重新整理代码。}
 %
 %
-% \CheckSum{2161}
+% \CheckSum{2157}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -414,7 +421,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \maketitle
 %
 % \begin{abstract}
-% \parindent=2\ccwd
+% \parindent=2\ccwd ^^A l3doc.cls 设置列表环境中 \listparindent=\z@
 % \pkg{ctex} 宏包是面向中文排版的通用 \LaTeX{} 排版框架，为中文 \LaTeX{} 文档
 % 提供了汉字输出支持、标点压缩、字体字号命令、标题文字汉化、中文版式调整、数字
 % 日期转换等支持功能，可适应论文、报告、书籍、幻灯片等不同类型的中文文档。
@@ -423,10 +430,10 @@ This package consists of the file ctex.dtx, and the derived files
 % 主要功能由宏包 \pkg{ctex} 或中文文档类 \pkg{ctexart}、\pkg{ctexrep}、
 % \pkg{ctexbook} 实现。
 % \end{abstract}
-% 
+%
 % \tableofcontents
 % \clearpage
-% 
+%
 % \begin{documentation}
 %
 % \section{简明教程}
@@ -604,7 +611,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{c5size,cs4size}
-% \begin{macrocode}
+%    \begin{macrocode}
     c5size  .code:n = { \int_zero:N \l_@@_font_size_int } ,
     cs4size .code:n = { \int_set_eq:NN \l_@@_font_size_int \c_one } ,
     c5size  .value_forbidden: ,
@@ -614,17 +621,16 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{autoindent}
 % 自动调整段落的首行缩进功能。
-%   \begin{macrocode}
-    autoindent .bool_set:N = \l_@@_autoindent_bool,
-    autoindent .initial:n = { true },
-%   \end{macrocode}
+%    \begin{macrocode}
+    autoindent .bool_set:N = \l_@@_autoindent_bool ,
+    autoindent  .initial:n = { true } ,
+%    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{indent}
 % 仅为兼容性保留，不建议使用。
-%   \begin{macrocode}
+%    \begin{macrocode}
     indent .bool_set:N = \l_@@_indent_bool ,
-    indent  .initial:n = { false } ,
     noindent   .meta:n = { indent = false } ,
     noindent   .value_forbidden: ,
 %<ctexsize>  }
@@ -1255,8 +1261,9 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}[internal]{\ctex_CJK_input:n,\CJK@input}
 % \pkg{breqn} 包可能会在正文中将 |^| 的 \cs{catcode} 改为 $12$ 或 $13$，这将
-% 破坏 \pkg{CJK} 对汉字的首字节的定义（\cs{CJK@loadBinding}）。因此需要确保
-% 载入 \file{.bdg} 文件时，|^| 的 \cs{catcode} 为 $7$。
+% 破坏 \pkg{CJK} 对汉字的首字节的定义（\cs{CJK@loadBinding} 和
+% \cs{CJK@loadEncoding}）。因此需要确保载入 \file{.enc} 和 \file{.bdg} 文件时，
+% |^| 的 \cs{catcode} 为 $7$。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_CJK_input:n #1
   {
