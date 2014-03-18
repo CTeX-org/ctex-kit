@@ -330,8 +330,8 @@ This package consists of the file ctex.dtx, and the derived files
 \xeCJKsetup{PunctStyle=kaiming}
 \linespread{1.2}
 \AtBeginDocument{\MakeShortVerb\|}
+\BeforeBeginEnvironment{macrocode}{\par} % 1.2 倍行距
 \AtBeginEnvironment{macrocode}{\linespread{1}\selectfont}
-\AtBeginEnvironment{macrocode*}{\linespread{1}\selectfont}
 \AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
 \AtEndUTFCommand[\textlangle]{\endgroup}
 \AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
@@ -400,7 +400,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{2182}
+% \CheckSum{2179}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1797,12 +1797,7 @@ This package consists of the file ctex.dtx, and the derived files
       {
         #1                 .meta:nn = { ctex / #1 } { ####1 } ,
         #1 / name           .code:n =
-          {
-            \tl_set:Nx \exp_not:c { CTEX@pre#1 }
-              { \exp_not:N \clist_item:nn { ####1 } { \c_one } }
-            \tl_set:Nx \exp_not:c { CTEX@post#1 }
-              { \exp_not:N \clist_item:nn { ####1 } { \c_two } }
-          } ,
+          { \ctex_assign_heading_name:nn {#1} { ####1 } } ,
         #1 / number       .tl_set:N = \exp_not:c { CTEX@the#1 } ,
         #1 / format       .tl_set:N = \exp_not:c { CTEX@#1@format } ,
         #1 / nameformat   .tl_set:N = \exp_not:c { CTEX@#1@nameformat } ,
@@ -1829,6 +1824,26 @@ This package consists of the file ctex.dtx, and the derived files
         #1 / afterskip   .value_required: ,
         #1 / indent      .value_required:
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_assign_heading_name:nn,\ctex_assign_heading_name:nnn}
+% \texttt{name} 的值是一个至多两个元素的逗号分隔列表。由于 \hologo{LaTeX3} 的
+% \texttt{clist} 总是会自动忽略空元素，所以设置 |name={,章}| 后，第一个元素将会
+% 是“章”，必须用空的分组保护空元素：|name={{},章}|，这在使用中有些许不便。我们
+% 可以改用 \texttt{seq} 或者手写函数解析参数来加以改进。为实现的简单起见，这里用
+% 了 \pkg{xparse} 的 \cs{SplitArgument}，它带有参数的长度检查。
+%    \begin{macrocode}
+\NewDocumentCommand \ctex_assign_heading_name:nn
+  { m  > { \SplitArgument { 1 } { , } } +m }
+  { \ctex_assign_heading_name:nnn {#1} #2 }
+\cs_new_protected:Npn \ctex_assign_heading_name:nnn #1#2#3
+  {
+    \tl_set:cn { CTEX@pre#1 } {#2}
+    \IfNoValueTF {#3}
+      { \tl_clear:c { CTEX@post#1 } }
+      { \tl_set:cn { CTEX@post#1 } {#3} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1977,7 +1992,7 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 %
-% \subsubsection{标准标题命令修改}
+% \subsubsection{标准标题命令的修改}
 %
 % \paragraph{part 的标题}
 %
@@ -2242,11 +2257,7 @@ This package consists of the file ctex.dtx, and the derived files
   { appendix .meta:nn = { ctex / appendix } {#1} }
 \keys_define:nn { ctex / appendix }
   {
-    name      .code:n =
-      {
-        \tl_set:Nx \CTEX@preappendix  { \clist_item:nn {#1} { \c_one } }
-        \tl_set:Nx \CTEX@postappendix { \clist_item:nn {#1} { \c_two } }
-      } ,
+    name      .code:n = { \ctex_assign_heading_name:nn { appendix } {#1} } ,
     name   .initial:n = { \appendixname \space } ,
     number  .tl_set:N = \CTEX@appendixnumber ,
 %<article>    number .initial:n = { \@Alph \c@section }
