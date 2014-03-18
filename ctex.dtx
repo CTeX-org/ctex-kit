@@ -318,7 +318,7 @@ This package consists of the file ctex.dtx, and the derived files
 \usepackage{geometry}
 \geometry{includemp,hmargin={0mm,15mm},vmargin=15mm,footskip=7mm}
 \hypersetup{pdfstartview=FitH}
-\setcounter{StandardModuleDepth}{1}
+\setcounter{secnumdepth}{4}
 \DeclareUrlCommand\email{\def\UrlLeft##1\UrlRight{\href{mailto:##1}{##1}}}
 \setmainfont{TeX Gyre Pagella}
 \setsansfont{CMU Sans Serif}
@@ -396,7 +396,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{2195}
+% \CheckSum{2182}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -520,9 +520,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \RequirePackage { xparse , l3keys2e }
 %<*!ctexsize>
-\RequirePackage { xpatch , ifpdf }
-%<class>\RequirePackage { xtemplate }
-\RequirePackage { fix-cm }
+\RequirePackage { xpatch , ifpdf , fix-cm }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
@@ -607,7 +605,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{宏包选项}
 %
 %   \begin{macrocode}
-\keys_define:nn { ctex }
+\keys_define:nn { ctex / option }
   {
 %    \end{macrocode}
 %
@@ -739,7 +737,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \clist_map_inline:nn { 10pt , 11pt , 12pt }
   {
-    \keys_define:nn { ctex }
+    \keys_define:nn { ctex / option }
       {
         #1 .code:n =
 %<*!class>
@@ -764,7 +762,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\ProcessKeysOptions { ctex }
+\ProcessKeysOptions { ctex / option }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -1658,7 +1656,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}{today}
 %    \begin{macrocode}
 \cs_set_eq:NN \CTEX@todayold \today
-\keys_define:nn { ctex / option }
+\keys_define:nn { ctex }
   {
     today .choice: ,
     today / old     .code:n =
@@ -1680,14 +1678,14 @@ This package consists of the file ctex.dtx, and the derived files
   { Today~format~`#1'~is~undefined. }
   { Available~today~formats~are~`old',~`small',~and~`big'. }
 \bool_if:NT \l_@@_caption_bool
-  { \keys_set:nn { ctex / option } { today = small } }
+  { \keys_set:nn { ctex } { today = small } }
 %    \end{macrocode}
 % \end{macro}
 %
 % \subsection{其它中文标题定义}
 %
 %    \begin{macrocode}
-\keys_define:nn { ctex / option }
+\keys_define:nn { ctex }
   {
     contentsname   .tl_set:N = \contentsname ,
     listfigurename .tl_set:N = \listfigurename ,
@@ -1710,24 +1708,17 @@ This package consists of the file ctex.dtx, and the derived files
     The~key~`bibname'~will~set~`\token_to_str:N \ctexbibname'~to~the~given~value.
   }
 \tl_if_exist:NTF \bibname
-  { \keys_define:nn { ctex / option } { bibname .tl_set:N = \bibname } }
+  { \keys_define:nn { ctex } { bibname .tl_set:N = \bibname } }
   {
     \tl_if_exist:NTF \refname
-      { \keys_define:nn { ctex / option } { bibname .tl_set:N = \refname } }
+      { \keys_define:nn { ctex } { bibname .tl_set:N = \refname } }
       {
         \msg_warning:nn { ctex } { ctexbibname }
-        \keys_define:nn { ctex / option } { bibname .tl_set:N = \ctexbibname }
+        \keys_define:nn { ctex } { bibname .tl_set:N = \ctexbibname }
       }
   }
 %</style>
 %    \end{macrocode}
-%
-% \begin{macro}{\CTEXoptions}
-%    \begin{macrocode}
-\NewDocumentCommand \CTEXoptions { +o }
-  { \IfNoValueF {#1} { \keys_set:nn { ctex / option } {#1} } }
-%    \end{macrocode}
-% \end{macro}
 %
 %    \begin{macrocode}
 %</class|style>
@@ -1736,74 +1727,33 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{中文化的标题结构}
 %
-% \subsubsection{定义章节标题基本格式模板}
+% \subsubsection{定义标题格式选项}
 %
+% \begin{variable}[internal]{\c_@@_headings_seq}
 %    \begin{macrocode}
-%<heading>\RequirePackage { xtemplate }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\DeclareObjectType { ctex / heading } { \c_one }
-\DeclareTemplateInterface { ctex / heading } { basic } { \c_one }
+\seq_new:N \c_@@_headings_seq
+\seq_gset_from_clist:Nn \c_@@_headings_seq
   {
-    name          : commalist = { } ,
-    number        : tokenlist = { } ,
-    format        : tokenlist = { } ,
-    format+       : code ,
-    nameformat    : tokenlist = { } ,
-    nameformat+   : code ,
-    numberformat  : tokenlist = { } ,
-    numberformat+ : code ,
-    aftername     : tokenlist = { } ,
-    aftername+    : code ,
-    titleformat   : tokenlist = { } ,
-    titleformat+  : code ,
-    beforeskip    : tokenlist = \c_zero_skip ,
-    afterskip     : tokenlist = \c_zero_skip ,
-    indent        : tokenlist = \c_zero_dim
-  }
-\DeclareTemplateCode { ctex / heading } { basic } { \c_one }
-  {
-    name          = \l_@@_name_clist ,
-    number        = \l_@@_number_tl ,
-    format        = \l_@@_format_tl ,
-    format+       = \tl_put_right:Nn \l_@@_format_tl {#1} ,
-    nameformat    = \l_@@_nameformat_tl ,
-    nameformat+   = \tl_put_right:Nn \l_@@_nameformat_tl {#1} ,
-    numberformat  = \l_@@_numberformat_tl ,
-    numberformat+ = \tl_put_right:Nn \l_@@_numberformat_tl {#1} ,
-    aftername     = \l_@@_aftername_tl ,
-    aftername+    = \tl_put_right:Nn \l_@@_aftername_tl {#1} ,
-    titleformat   = \l_@@_titleformat_tl ,
-    titleformat+  = \tl_put_right:Nn \l_@@_titleformat_tl {#1} ,
-    beforeskip    = \l_@@_beforeskip_tl ,
-    afterskip     = \l_@@_afterskip_tl ,
-    indent        = \l_@@_indent_tl
-  }
-  {
-    \AssignTemplateKeys
-    \ctex_assign_keys:n {#1}
+%<article>    part , section , subsection , subsubsection ,
+%<book|report>    part , chapter , section , subsection , subsubsection ,
+    paragraph , subparagraph
   }
 %    \end{macrocode}
+% \end{variable}
 %
-% \begin{macro}[internal]{\ctex_assign_keys:n,\ctex_assign_keys_initial:n}
+% \begin{macro}[internal]{\@@_initial_heading:n}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_assign_keys_initial:n #1
+\cs_new_protected_nopar:Npn \@@_initial_heading:n #1
   {
-    \cs_new_nopar:cpx { CTEX@pre#1 }
-      { \clist_item:Nn \l_@@_name_clist { \c_one } }
-    \cs_new_nopar:cpx { CTEX@post#1 }
-      { \clist_item:Nn \l_@@_name_clist { \c_two } }
-    \cs_new_eq:cN { CTEX@the#1 } \l_@@_number_tl
-    \seq_map_inline:Nn \c_@@_heading_keys_seq
-      { \cs_new_eq:cc { CTEX@#1@##1 } { l_@@_##1_tl } }
-    \cs_new_nopar:cpx { CTEXthe#1 }
+    \tl_new:c { CTEX@pre#1 }
+    \tl_new:c { CTEX@post#1 }
+    \tl_const:cx { CTEXthe#1 }
       {
         \exp_not:c { CTEX@pre#1 }
         \exp_not:c { CTEX@the#1 }
         \exp_not:c { CTEX@post#1 }
       }
-    \cs_new_nopar:cpx { CTEX@#1name }
+    \tl_const:cx { CTEX@#1name }
       {
         \exp_not:c { CTEX@#1@nameformat }
         \exp_not:c { CTEX@pre#1 }
@@ -1819,50 +1769,66 @@ This package consists of the file ctex.dtx, and the derived files
         \exp_not:c { CTEX@#1@aftername }
       }
   }
-\cs_new_eq:NN \ctex_assign_keys:n \ctex_assign_keys_initial:n
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_assign_keys_document:n}
+% \begin{macro}[internal]{\@@_def_heading_keys:n}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_assign_keys_document:n #1
+\cs_new_protected_nopar:Npn \@@_def_heading_keys:n #1
   {
-    \tl_set:cx { CTEX@pre#1 }
-      { \clist_item:Nn \l_@@_name_clist { \c_one } }
-    \tl_set:cx { CTEX@post#1 }
-      { \clist_item:Nn \l_@@_name_clist { \c_two } }
-    \tl_set_eq:cN { CTEX@the#1 } \l_@@_number_tl
-    \seq_map_inline:Nn \c_@@_heading_keys_seq
-      { \tl_set_eq:cc { CTEX@#1@##1 } { l_@@_##1_tl } }
+    \clist_put_right:Nx \l_tmpa_clist
+      {
+        #1                 .meta:nn = { ctex / #1 } { ####1 } ,
+        #1 / name           .code:n =
+          {
+            \tl_set:Nx \exp_not:c { CTEX@pre#1 }
+              { \exp_not:N \clist_item:nn { ####1 } { \c_one } }
+            \tl_set:Nx \exp_not:c { CTEX@post#1 }
+              { \exp_not:N \clist_item:nn { ####1 } { \c_two } }
+          } ,
+        #1 / number       .tl_set:N = \exp_not:c { CTEX@the#1 } ,
+        #1 / format       .tl_set:N = \exp_not:c { CTEX@#1@format } ,
+        #1 / nameformat   .tl_set:N = \exp_not:c { CTEX@#1@nameformat } ,
+        #1 / numberformat .tl_set:N = \exp_not:c { CTEX@#1@numberformat } ,
+        #1 / aftername    .tl_set:N = \exp_not:c { CTEX@#1@aftername } ,
+        #1 / titleformat  .tl_set:N = \exp_not:c { CTEX@#1@titleformat } ,
+        #1 / beforeskip   .tl_set:N = \exp_not:c { CTEX@#1@beforeskip } ,
+        #1 / afterskip    .tl_set:N = \exp_not:c { CTEX@#1@afterskip} ,
+        #1 / indent       .tl_set:N = \exp_not:c { CTEX@#1@indent } ,
+        #1 / format+        .code:n =
+          { \tl_put_right:Nn \exp_not:c { CTEX@#1@format } { ####1 } } ,
+        #1 / nameformat+    .code:n =
+          { \tl_put_right:Nn \exp_not:c { CTEX@#1@nameformat } { ####1 } } ,
+        #1 / numberformat+  .code:n =
+          { \tl_put_right:Nn \exp_not:c { CTEX@#1@numberformat } { ####1 } } ,
+        #1 / aftername+     .code:n =
+          { \tl_put_right:Nn \exp_not:c { CTEX@#1@aftername } { ####1 } } ,
+        #1 / titleformat+   .code:n =
+          { \tl_put_right:Nn \exp_not:c { CTEX@#1@titleformat } { ####1 } } ,
+        #1 / beforeskip  .initial:n = \c_zero_skip ,
+        #1 / afterskip   .initial:n = \c_zero_skip ,
+        #1 / indent      .initial:n = \c_zero_dim ,
+        #1 / beforeskip  .value_required: ,
+        #1 / afterskip   .value_required: ,
+        #1 / indent      .value_required:
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}[internal]{\c_@@_heading_keys_seq}
 %    \begin{macrocode}
-\seq_new:N \c_@@_heading_keys_seq
-\seq_gset_from_clist:Nn \c_@@_heading_keys_seq
+\clist_clear:N \l_tmpa_clist
+\seq_map_inline:Nn \c_@@_headings_seq
   {
-    format , nameformat , numberformat , aftername ,
-    titleformat , beforeskip , afterskip , indent
+    \@@_initial_heading:n {#1}
+    \@@_def_heading_keys:n {#1}
   }
+\use:x { \keys_define:nn { ctex } { \exp_not:o { \l_tmpa_clist } } }
+\clist_clear:N \l_tmpa_clist
 %    \end{macrocode}
-% \end{variable}
-%
-% \begin{variable}[internal]{\c_@@_headings_seq}
-%    \begin{macrocode}
-\seq_new:N \c_@@_headings_seq
-\seq_gset_from_clist:Nn \c_@@_headings_seq
-  {
-%<article>    part , section , subsection , subsubsection ,
-%<book|report>    part , chapter , section , subsection , subsubsection ,
-    paragraph , subparagraph
-  }
-%    \end{macrocode}
-% \end{variable}
 %
 %    \begin{macrocode}
-\DeclareInstance { ctex / heading } { part } { basic }
+\keys_set:nn { ctex / part }
   {
     name        = \partname \space ,
     number      = \thepart ,
@@ -1885,7 +1851,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*book|report>
-\DeclareInstance { ctex / heading } { chapter } { basic }
+\keys_set:nn { ctex / chapter }
   {
     name        = \chaptername \space ,
     number      = \thechapter ,
@@ -1900,7 +1866,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\DeclareInstance { ctex / heading } { section } { basic }
+\keys_set:nn { ctex / section }
   {
     number      = \thesection ,
     format      = \Large \bfseries ,
@@ -1911,7 +1877,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\DeclareInstance { ctex / heading } { subsection } { basic }
+\keys_set:nn { ctex / subsection }
   {
     number      = \thesubsection ,
     format      = \large \bfseries ,
@@ -1922,7 +1888,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\DeclareInstance { ctex / heading } { subsubsection } { basic }
+\keys_set:nn { ctex / subsubsection }
   {
     number      = \thesubsubsection ,
     format      = \normalsize \bfseries ,
@@ -1935,7 +1901,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \use:x
   {
-    \DeclareInstance { ctex / heading } { paragraph } { basic }
+    \keys_set:nn { ctex / paragraph }
       {
         \exp_not:n
           {
@@ -1965,7 +1931,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \use:x
   {
-    \DeclareInstance { ctex / heading } { subparagraph } { basic }
+    \keys_set:nn { ctex / subparagraph }
       {
         \exp_not:n
           {
@@ -1994,42 +1960,9 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 %
-%    \begin{macrocode}
-\keys_define:nn { ctex / appendix }
-  {
-    name    .tl_set:N = \CTEX@appendixname ,
-    name   .initial:n = { \appendixname \space } ,
-    number  .tl_set:N = \CTEX@appendixnumber ,
-%<article>    number .initial:n = { \@Alph \c@section }
-%<book|report>    number .initial:n = { \@Alph \c@chapter }
-  }
-%    \end{macrocode}
+% \subsubsection{标准标题命令修改}
 %
-%    \begin{macrocode}
-\seq_map_inline:Nn \c_@@_headings_seq
-  { \UseInstance { ctex / heading } {#1} {#1} }
-\cs_gset_eq:NN \ctex_assign_keys:n \ctex_assign_keys_document:n
-%    \end{macrocode}
-%
-% \begin{macro}{\CTEXsetup}
-%    \begin{macrocode}
-\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
-  {
-    \IfInstanceExistTF { ctex / heading } {#2}
-      {
-        \IfNoValueF {#1} { \EditInstance { ctex / heading } {#2} {#1} }
-        \UseInstance { ctex / heading } {#2} {#2}
-      }
-      {
-        \str_if_eq_x:nnTF {#2} { appendix }
-          { \IfNoValueF {#1} { \keys_set:nn { ctex / appendix } {#1} } }
-          { \msg_error:nnx { ctex } { heading-miss } {#2} }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \subsubsection{part 的标题}
+% \paragraph{part 的标题}
 %
 %    \begin{macrocode}
 %<@@=>
@@ -2125,7 +2058,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{chapter 的标题}
+% \paragraph{chapter 的标题}
 %
 %    \begin{macrocode}
 %<*book|report>
@@ -2202,7 +2135,7 @@ This package consists of the file ctex.dtx, and the derived files
 %</book|report>
 %    \end{macrocode}
 %
-% \subsubsection{section 类的标题}
+% \paragraph{section 类的标题}
 %
 % \begin{macro}[internal]{\@seccntformat}
 %    \begin{macrocode}
@@ -2279,10 +2212,30 @@ This package consists of the file ctex.dtx, and the derived files
           { \exp_not:N \normalfont \exp_not:c { CTEX@#1@format } }
       }
   }
+\int_zero:N \l_tmpa_int
 %    \end{macrocode}
 %
 %
-% \subsubsection{附录标题}
+% \paragraph{附录标题}
+%
+%    \begin{macrocode}
+\tl_new:N \CTEX@preappendix
+\tl_new:N \CTEX@postappendix
+\keys_define:nn { ctex }
+  { appendix .meta:nn = { ctex / appendix } {#1} }
+\keys_define:nn { ctex / appendix }
+  {
+    name      .code:n =
+      {
+        \tl_set:Nx \CTEX@preappendix  { \clist_item:nn {#1} { \c_one } }
+        \tl_set:Nx \CTEX@postappendix { \clist_item:nn {#1} { \c_two } }
+      } ,
+    name   .initial:n = { \appendixname \space } ,
+    number  .tl_set:N = \CTEX@appendixnumber ,
+%<article>    number .initial:n = { \@Alph \c@section }
+%<book|report>    number .initial:n = { \@Alph \c@chapter }
+  }
+%    \end{macrocode}
 %
 % \begin{macro}[internal]{\appendix}
 %    \begin{macrocode}
@@ -2291,14 +2244,14 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \CTEX@save@appendix
 %<*article>
-    \gdef \CTEX@presection { \CTEX@appendixname }
+    \gdef \CTEX@presection { \CTEX@preappendix }
     \gdef \CTEX@thesection { \CTEX@appendixnumber }
-    \gdef \CTEX@postsection { }
+    \gdef \CTEX@postsection { \CTEX@postappendix }
 %</article>
 %<*book|report>
-    \gdef \CTEX@prechapter { \CTEX@appendixname }
+    \gdef \CTEX@prechapter { \CTEX@preappendix }
     \gdef \CTEX@thechapter { \CTEX@appendixnumber }
-    \gdef \CTEX@postchapter { }
+    \gdef \CTEX@postchapter { \CTEX@postappendix }
 %</book|report>
   }
 %    \end{macrocode}
@@ -2348,14 +2301,14 @@ This package consists of the file ctex.dtx, and the derived files
 \ctex_patch_cmd:Nnn \ps@headings { \thesection } { \CTEXthesection }
 \if@twoside
   \ctex_patch_cmd:Nnn \ps@headings { \thesubsection } { \CTEXthesubsection }
-\fi
+\fi:
 %</article>
 %<*book|report>
 \ctex_patch_cmd:Nnn \ps@headings
   { \@chapapp\ \thechapter.~\ } { \CTEXthechapter \quad }
 \if@twoside
   \ctex_patch_cmd:Nnn \ps@headings { \thesection.~\ } { \CTEXthesection \quad }
-\fi
+\fi:
 %</book|report>
 %    \end{macrocode}
 % \end{macro}
@@ -2366,23 +2319,22 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}[internal]{\ps@fancy}
 %    \begin{macrocode}
-\cs_if_free:NF \ps@fancy
-  {
-    \ctex_patch_cmd:Nnn \ps@fancy
-      { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
-    \ctex_patch_cmd:Nnn \ps@fancy
-      { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
+\if_cs_exist:N \ps@fancy
+  \ctex_patch_cmd:Nnn \ps@fancy
+    { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
+  \ctex_patch_cmd:Nnn \ps@fancy
+    { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
 %<*book|report>
-    \ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
-%<book>      { \if@mainmatter \CTEXthesection \quad \fi }
-%<report>      { \CTEXthesection \quad }
+  \ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
+%<book>    { \if@mainmatter \CTEXthesection \quad \fi }
+%<report>    { \CTEXthesection \quad }
 %</book|report>
-    \ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection }
-  }
+  \ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection }
+\fi:
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsubsection{标签引用的中文化}
+% \subsubsection{标签引用数字的汉化}
 %
 % \begin{macro}[internal]{\refstepcounter}
 %    \begin{macrocode}
@@ -2405,34 +2357,35 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{修改默认标题格式}
 %
 %    \begin{macrocode}
-\bool_if:NT \l_@@_caption_bool
-  {
-    \CTEXsetup
-      [
-        number      = \chinese { part } ,
+\if_bool:N \l_@@_caption_bool
+  \keys_set:nn { ctex / part }
+    {
+      number      = \chinese { part } ,
 %<*article>
-        format      = \centering ,
-        aftername   = \quad ,
-        titleformat = \Large\bfseries
+      format      = \centering ,
+      aftername   = \quad ,
+      titleformat = \Large\bfseries
 %</article>
 %<*book|report>
-        titleformat = \huge \bfseries
+      titleformat = \huge \bfseries
 %</book|report>
-      ] { part }
+    }
 %<*book|report>
-    \CTEXsetup
-      [
-        number      = \chinese { chapter } ,
-        format      = \centering ,
-        aftername   = \quad ,
-        titleformat = \huge \bfseries
-      ] { chapter }
+  \keys_set:nn { ctex / chapter }
+    {
+      number      = \chinese { chapter } ,
+      format      = \centering ,
+      aftername   = \quad ,
+      titleformat = \huge \bfseries
+    }
 %</book|report>
-    \CTEXsetup [ format = \Large \bfseries \centering ] { section }
-    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-      { \ctex_file_input:n { ctexcap-gbk.cfg } }
-      { \ctex_file_input:n { ctexcap-utf8.cfg } }
-  }
+  \keys_set:nn  { ctex / section }
+    { format = \Large \bfseries \centering }
+%<article>  \keys_set:nn { ctex / appendix } { name = { } }
+  \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+    { \ctex_file_input:n { ctexcap-gbk.cfg } }
+    { \ctex_file_input:n { ctexcap-utf8.cfg } }
+\fi:
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -2486,8 +2439,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{标题配置文件}
 %
 %    \begin{macrocode}
-\CTEXoptions
-  [
+\keys_set:nn { ctex }
+  {
     contentsname   = 目录 ,
     listfigurename = 插图 ,
     listtablename  = 表格 ,
@@ -2497,20 +2450,16 @@ This package consists of the file ctex.dtx, and the derived files
     indexname      = 索引 ,
     bibname        = 参考文献 ,
     appendixname   = 附录
-  ]
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\cs_if_exist_use:NF \IfInstanceExistTF { \tex_endinput:D }
-  { ctex / heading } { part }
-  { \CTEXsetup [ name = { 第 , 部分 } ] { part } }
-  { \tex_endinput:D }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\IfInstanceExistTF { ctex / heading } { chapter }
-  { \CTEXsetup [ name = { 第 , 章 } ] { chapter } }
-  { \CTEXsetup [ name = { } ] { appendix } }
+\keys_if_exist:nnT { ctex / part } { name }
+  {
+    \keys_set:nn { ctex / part } { name = { 第 , 部分 } }
+    \keys_if_exist:nnT { ctex / chapter } { name }
+      { \keys_set:nn { ctex / chapter } { name = { 第 , 章 } } }
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -2520,13 +2469,38 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{其它功能}
 %
+% \subsubsection{用户设置接口}
+%
+% \changes{v2.0}{2014/03/18}{新增统一设置接口 \cs{ctexset}。}
+%
+% \begin{macro}{\ctexset}
+%    \begin{macrocode}
+\NewDocumentCommand \ctexset { +m }
+  { \keys_set:nn { ctex } {#1} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEXsetup}
+%    \begin{macrocode}
+\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
+  { \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEXoptions}
+%    \begin{macrocode}
+\NewDocumentCommand \CTEXoptions { +o }
+  { \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{图表标题的分隔符}
 %
 % \begin{macro}[internal]{captiondelimiter}
 %    \begin{macrocode}
-\keys_define:nn { ctex / option }
+\keys_define:nn { ctex }
   {
-    captiondelimiter .tl_set:N  = \CTEX@caption@delimiter ,
+    captiondelimiter  .tl_set:N = \CTEX@caption@delimiter ,
     captiondelimiter .initial:x = { \tl_to_str:n { : } ~ }
   }
 %    \end{macrocode}
@@ -2617,7 +2591,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*ctexopts>
 %%
-%% \keys_set:nn { ctex } { fontset = windows }
+%% \keys_set:nn { ctex / option } { fontset = windows }
 %</ctexopts>
 %    \end{macrocode}
 %
