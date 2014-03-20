@@ -32,7 +32,7 @@
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty cls def cfg fd
+  set TDSFILES=%CTANFILES% sty cls def cfg fd tex
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -133,7 +133,7 @@
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".tex" set TDSDIR=doc\%FORMAT%\%PKGDIR%\example  
+  if /i "%~x1" == ".tex" set TDSDIR=tex\generic\%PKGDIR%
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
 
   goto :EOF
