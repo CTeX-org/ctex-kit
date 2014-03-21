@@ -109,11 +109,11 @@
     echo ! Compilation failed
     goto :end
   ) else (
-    if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
+    if exist %PACKAGE%.glo ( zhmakeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
     %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2> nul
-    if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
+    if exist %PACKAGE%.glo ( zhmakeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
     %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2> nul
