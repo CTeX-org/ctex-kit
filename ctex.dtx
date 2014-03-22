@@ -6,7 +6,7 @@
 % $URL$
 %
 % Copyright (C) 2003--2014
-% CTEX.ORG and any individual authors listed in the documentation.
+% CTEX.ORG and any individual authors listed elsewhere in this file.
 % --------------------------------------------------------------------------
 %
 % This work may be distributed and/or modified under the
@@ -111,7 +111,7 @@ This package consists of the file ctex.dtx, and the derived files
 \preamble
 
     Copyright (C) 2003-2014
-    CTEX.ORG and any individual authors listed elsewhere in this file.
+    CTEX.ORG and any individual authors listed in the documentation.
 --------------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -418,7 +418,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{2423}
+% \CheckSum{2460}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -827,13 +827,13 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*class>
-%    \end{macrocode}
-%
-%    \begin{macrocode}
 %<article>\PassOptionsToClass  { \@unusedoptionlist } { article }
 %<book>\PassOptionsToClass  { \@unusedoptionlist } { book }
 %<report>\PassOptionsToClass  { \@unusedoptionlist } { report }
 \tl_clear:N \@unusedoptionlist
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \if_case:w \l_@@_font_size_int
 %<article>  \PassOptionsToClass { 10pt } { article }
 %<book>  \PassOptionsToClass { 10pt } { book }
@@ -849,21 +849,12 @@ This package consists of the file ctex.dtx, and the derived files
 %<article>\LoadClass { article }
 %<book>\LoadClass { book }
 %<report>\LoadClass { report }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
 %</class>
-%<*!ctexsize>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\bool_if:NT \l_@@_fancyhdr_bool
-  { \RequirePackage { fancyhdr } }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
+%<*class|style>
 \tl_set_eq:Nc \l_@@_tmp_tl { ver@ \@currname . \@currext }
-%</!ctexsize>
 %<*class>
 \cs_new_eq:cN { ver@ctex.     \@pkgextension } \l_@@_tmp_tl
 \cs_new_eq:cN { ver@ctexcap.  \@pkgextension } \l_@@_tmp_tl
@@ -880,6 +871,523 @@ This package consists of the file ctex.dtx, and the derived files
   { \msg_error:nn { ctex } { ctexsize-loaded } }
   { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \l_@@_tmp_tl }
 %</style>
+%</class|style>
+%    \end{macrocode}
+%
+% \subsection{用户设置接口}
+%
+% \changes{v2.0}{2014/03/18}{新增统一设置接口 \cs{ctexset}。}
+%
+% \begin{macro}{\ctexset}
+%    \begin{macrocode}
+\NewDocumentCommand \ctexset { +m }
+  { \keys_set:nn { ctex } {#1} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEXsetup}
+%    \begin{macrocode}
+%<*class|style>
+\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
+  { \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEXoptions}
+%    \begin{macrocode}
+\NewDocumentCommand \CTEXoptions { +o }
+  { \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} } }
+%</class|style>
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</class|style|ctexsize>
+%<*class|style>
+%    \end{macrocode}
+%
+% \subsection{引擎支持}
+%
+% \begin{macro}[internal]{\hypersetup}
+%    \begin{macrocode}
+\bool_if:NT \l_@@_hyperref_bool
+  {
+    \cs_if_exist:NF \hypersetup
+      {
+        \cs_new_protected:Npn \hypersetup #1
+          { \PassOptionsToPackage {#1} { hyperref } }
+      }
+    \hypersetup { colorlinks = true }
+    \AtEndPreamble { \RequirePackage { hyperref } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\pdftex_if_engine:TF
+  {
+    \tl_set:Nx \l_@@_encoding_tl { \l_@@_encoding_tl }
+    \ctex_file_input:n { ctex-engine-pdftex.def }
+  }
+  {
+    \tl_set:Nn \l_@@_encoding_tl { UTF8 }
+    \xetex_if_engine:TF
+      { \ctex_file_input:n { ctex-engine-xetex.def } }
+      { \ctex_file_input:n { ctex-engine-luatex.def } }
+  }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</class|style>
+%<*pdftex>
+%    \end{macrocode}
+%
+% \subsubsection{\pkg{ctex-engine-pdftex.def}}
+%
+% 首先检查选项，决定是否载入 \pkg{zhmCJK} 宏包。
+%    \begin{macrocode}
+\if_bool:N \l_@@_zhmCJK_bool
+  \PassOptionsToPackage { encoding = \l_@@_encoding_tl } { zhmCJK }
+  \RequirePackage { zhmCJK }
+%    \end{macrocode}
+% 不载入 \pkg{zhmCJK} 宏包时直接调用 \pkg{CJK} 及相关宏包。
+%    \begin{macrocode}
+\else:
+  \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+    { \RequirePackage { CJK } }
+    { \RequirePackage { CJKutf8 } }
+  \bool_if:NT \l_@@_punct_bool
+    { \RequirePackage { CJKpunct } }
+  \int_compare:nNnT \l_@@_space_int = \c_two
+    { \RequirePackage { CJKspace } }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_load_zhmap:n}
+%    \begin{macrocode}
+  \cs_new_protected_nopar:Npn \ctex_load_zhmap:n #1
+    {
+      \tl_set:Nn \CJKrmdefault { rm }
+      \tl_set:Nn \CJKsfdefault { sf }
+      \tl_set:Nn \CJKttdefault { tt }
+      \AtBeginDvi { \ctex_file_input:n {#1} }
+      \AtBeginDocument
+        { \cs_if_exist_use:NT \AtBeginShipoutFirst { { \file_input:n {#1} } } }
+    }
+  \@onlypreamble \ctex_load_zhmap:n
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+  \group_begin:
+  \int_compare:nNnTF \l_@@_space_int > \c_one
+    {
+      \tl_set:Nn \l_@@_tmp_tl { CJK* }
+      \tl_set:Nn \CJKtilde { \CJKtilde }
+    }
+    {
+      \tl_set:Nn \l_@@_tmp_tl { CJK }
+      \tl_clear:N \CJKtilde
+    }
+  \use:x
+    {
+      \group_end:
+      \AtEndPreamble
+        {
+          \AfterEndPreamble
+            {
+              \exp_not:N \begin { \l_@@_tmp_tl }
+                { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
+              \exp_not:o { \CJKtilde }
+            }
+        }
+      \AtEndEnvironment { document }
+        { \exp_not:N \clearpage \exp_not:N \end { \l_@@_tmp_tl } }
+    }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+  \tl_if_exist:NF \CJKfamilydefault
+    { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
+  \tl_if_exist:NF \CJKrmdefault { \tl_new:N \CJKrmdefault }
+  \tl_if_exist:NF \CJKsfdefault { \tl_new:N \CJKsfdefault }
+  \tl_if_exist:NF \CJKttdefault { \tl_new:N \CJKttdefault }
+  \xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+    { \ctex_patch_failure:N \rmfamily }
+  \xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+    { \ctex_patch_failure:N \sffamily }
+  \xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+    { \ctex_patch_failure:N \ttfamily }
+  \xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+    { \cs_set_eq:NN \reset@font \normalfont }
+    { \ctex_patch_failure:N \normalfont }
+%    \end{macrocode}
+%
+% \cs{CJK@makeActive} 应该先于 \file{ctexcap-gbk.cfg} 等文件的载入，将汉字的
+% 首字节设置为活动字符。使用 \pkg{zhmCJK} 时，此功能已经被启用。
+%    \begin{macrocode}
+  \CJK@makeActive
+%    \end{macrocode}
+%
+% \pkg{zhmCJK} 判断结束。
+%    \begin{macrocode}
+\fi:
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_CJK_input:n,\CJK@input}
+% \pkg{breqn} 包可能会在正文中将 |^| 的 \cs{catcode} 改为 $12$ 或 $13$，这将
+% 破坏 \pkg{CJK} 对汉字的首字节的定义（\cs{CJK@loadBinding} 和
+% \cs{CJK@loadEncoding}）。因此需要确保载入 \file{.enc} 和 \file{.bdg} 文件时，
+% |^| 的 \cs{catcode} 为 $7$。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_CJK_input:n #1
+  {
+    \use:x
+      {
+        \char_set_catcode_other:n            { 60 } % <
+        \char_set_catcode_letter:n           { 64 } % @
+        \char_set_catcode_math_superscript:n { 94 } % ^
+        \int_set_eq:NN \tex_endlinechar:D \c_minus_one
+        \file_input:n {#1}
+        \int_set:Nn \tex_endlinechar:D { \int_use:N \tex_endlinechar:D }
+        \char_set_catcode:nn { 60 } { \char_value_catcode:n { 60 } }
+        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
+        \char_set_catcode:nn { 94 } { \char_value_catcode:n { 94 } }
+      }
+  }
+\cs_set_eq:NN \CJK@input \ctex_CJK_input:n
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_ziju:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
+  { \cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N #1 } }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</pdftex>
+%<*xetex>
+%    \end{macrocode}
+%
+% \subsubsection{\pkg{ctex-engine-xetex.def}}
+%
+%    \begin{macrocode}
+\RequirePackage [ indentfirst = false ] { xeCJK }
+\defaultfontfeatures { Ligatures = TeX }
+\xeCJKsetup { AutoFakeBold = true }
+\int_compare:nNnF \l_@@_space_int > \c_one
+  { \xeCJKsetup { CJKspace = true } }
+\bool_if:NF \l_@@_punct_bool
+  { \xeCJKsetup { PunctStyle = plain } }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_update_ziju:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
+  { \xeCJKsetup { CJKglue = { \skip_horizontal:N #1 } } }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</xetex>
+%<*luatex>
+%    \end{macrocode}
+%
+% \subsubsection{\pkg{ctex-engine-luatex.def}}
+%
+% \changes{v2.0}{2014/03/08}{通过 \pkg{luatexja} 宏包支持 \LuaLaTeX。}
+%
+%    \begin{macrocode}
+\RequirePackage { luatexja-fontspec } [ 2013/05/14 ]
+\tl_gset_eq:cN { ver@CJK.sty } \fmtversion
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
+\tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
+\tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
+\tl_if_exist:NF \CJKfamilydefault
+  { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
+\tl_set:Nn \kanjifamilydefault { \CJKfamilydefault }
+\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+  { \ctex_patch_failure:N \rmfamily }
+\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+  { \ctex_patch_failure:N \sffamily }
+\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+  { \ctex_patch_failure:N \ttfamily }
+\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+  { \cs_set_eq:NN \reset@font \normalfont }
+  { \ctex_patch_failure:N \normalfont }
+%    \end{macrocode}
+%
+% 没有设置任何字体时，将使用这里的设置。
+%    \begin{macrocode}
+\DeclareKanjiFamily { \kanjiencodingdefault } { \kanjifamilydefault } { }
+\DeclareFontShape
+  { \kanjiencodingdefault } { \kanjifamilydefault }
+  { \mddefault } { \kanjishapedefault }
+  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=quanjiao } { }
+\DeclareFontShape
+  { \kanjiencodingdefault } { \kanjifamilydefault }
+  { \bfdefault } { \kanjishapedefault }
+  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=quanjiao } { }
+\DeclareSymbolFont { mincho }
+  { \kanjiencodingdefault } { \kanjifamilydefault }
+  { \mddefault } { \kanjishapedefault }
+\SetSymbolFont { mincho } { bold }
+  { \kanjiencodingdefault } { \kanjifamilydefault }
+  { \bfdefault } { \kanjishapedefault }
+%    \end{macrocode}
+%
+% 设置简体中文字体为默认的替换字体。
+%    \begin{macrocode}
+\use:x
+  {
+    \exp_not:N \DeclareErrorKanjiFont { \kanjiencodingdefault }
+      { \kanjifamilydefault } { \mddefault } { \kanjishapedefault } { \f@size }
+    \exp_not:N \DeclareKanjiSubstitution { \kanjiencodingdefault }
+      { \kanjifamilydefault } { \mddefault } { \kanjishapedefault }
+  }
+%    \end{macrocode}
+%
+% 文档开始时，更新数学字体。
+%    \begin{macrocode}
+\AtBeginDocument
+  {
+    \prop_get:NxNT \g_@@_ltj_family_name_prop
+      { \CJKfamilydefault } \l_@@_tmp_tl
+      {
+        \tl_const:Nx \c_@@_ltj_math_family_tl { \l_@@_tmp_tl }
+        \DeclareSymbolFont { mincho }
+          { \kanjiencodingdefault } { \c_@@_ltj_math_family_tl }
+          { \mddefault } { \kanjishapedefault }
+        \cs_if_free:cF
+          {
+            \kanjiencodingdefault/\c_@@_ltj_math_family_tl/
+            \bfdefault/\kanjishapedefault
+          }
+          {
+            \SetSymbolFont { mincho } { bold }
+              { \kanjiencodingdefault } { \c_@@_ltj_math_family_tl }
+              { \bfdefault } { \kanjishapedefault }
+          }
+      }
+  }
+\cs_generate_variant:Nn \prop_get:NnNT { Nx }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_family:nnn}
+% 将自定义的字体族名与 \pkg{fontspec} 实际设置的名字对应起来。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_ltj_set_family:nnn #1#2#3
+  {
+    \ltj_fontspec_select:nn {#2} {#3}
+    \prop_gput:NnV \g_@@_ltj_family_name_prop {#1} \l_fontspec_family_tl
+  }
+\prop_new:N \g_@@_ltj_family_name_prop
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\kanjifamily}
+% 修改是为了 \cs{kanjifamily} 也可用于自定义的族名。
+%    \begin{macrocode}
+\RenewDocumentCommand \kanjifamily { m }
+  {
+    \tl_set:Nx \l_@@_tmp_tl {#1}
+    \prop_get:NVNF \g_@@_ltj_family_name_prop \l_@@_tmp_tl \k@family
+      { \tl_set_eq:NN \k@family \l_@@_tmp_tl }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKfamily}
+% 切换字体。
+%    \begin{macrocode}
+\NewDocumentCommand \CJKfamily { m }
+  { \ctex_ltj_switch_family:x {#1} }
+\cs_new_protected_nopar:Npn \ctex_ltj_switch_family:n #1
+  {
+    \prop_get:NnNTF \g_@@_ltj_family_name_prop {#1} \k@family
+      { \selectfont \tex_ignorespaces:D }
+      {
+        \prop_if_empty:NF \g_@@_ltj_family_name_prop
+          {
+            \seq_if_in:NnF \g_@@_ltj_unknown_family_seq {#1}
+              {
+                \seq_gput_right:Nn \g_@@_ltj_unknown_family_seq {#1}
+                \msg_warning:nnn { ctex } { CJKfamily-Unknown } {#1}
+              }
+          }
+      }
+  }
+\cs_generate_variant:Nn \ctex_ltj_switch_family:n { x }
+\seq_new:N \g_@@_ltj_unknown_family_seq
+\msg_new:nnn { ctex } { CJKfamily-Unknown }
+  {
+    Unknown~CJK~family~`#1'~is~ignored.\\
+    Try~to~use~\token_to_str:N \setCJKfamilyfont{#1}[...]{...}\
+    to~define~it.
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\cs_new_eq:NN \CJKfontspec            \jfontspec
+\cs_new_eq:NN \newCJKfontface         \newjfontface
+\cs_new_eq:NN \newCJKfontfamily       \newjfontfamily
+\cs_new_eq:NN \addCJKfontfeatures     \addjfontfeatures
+\cs_new_eq:NN \defaultCJKfontfeatures \defaultjfontfeatures
+%    \end{macrocode}
+%
+% \begin{macro}[internal]
+% {\setCJKfamilyfont,\setCJKmainfont,\setCJKsansfont,\setCJKmonofont}
+%    \begin{macrocode}
+\NewDocumentCommand \setCJKfamilyfont { m O { } m }
+  { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
+\NewDocumentCommand \setCJKmainfont { O { } m }
+  {
+    \use:x { \ctex_ltj_set_family:nnn { \CJKrmdefault } {#1} {#2} }
+    \normalfont
+  }
+\cs_new_eq:NN \setCJKromanfont \setCJKmainfont
+\NewDocumentCommand \setCJKsansfont { O { } m }
+  {
+    \use:x { \ctex_ltj_set_family:nnn { \CJKsfdefault } {#1} {#2} }
+    \normalfont
+  }
+\NewDocumentCommand \setCJKmonofont { O { } m }
+  {
+    \use:x { \ctex_ltj_set_family:nnn { \CJKttdefault } {#1} {#2} }
+    \normalfont
+  }
+\@onlypreamble \setCJKmainfont
+\@onlypreamble \setCJKsansfont
+\@onlypreamble \setCJKmonofont
+\@onlypreamble \setCJKromanfont
+\@onlypreamble \defaultCJKfontfeatures
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKglue,\CJKspace,\CJKnospace}
+%    \begin{macrocode}
+\NewDocumentCommand \CJKglue { }
+  { \skip_horizontal:n { \ltjgetparameter { kanjiskip } } }
+\NewDocumentCommand \CJKspace { }
+  { \ltjsetparameter { autospacing = false } }
+\NewDocumentCommand \CJKnospace { }
+  { \ltjsetparameter { autospacing = true } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_ziju:N}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
+  { \ltjsetparameter { kanjiskip = #1 } }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\int_compare:nNnTF \l_@@_space_int > \c_one
+  { \ltjsetparameter { autospacing = true } }
+  { \ltjsetparameter { autospacing = false } }
+\bool_if:NTF \l_@@_punct_bool
+  { \defaultCJKfontfeatures { JFM = quanjiao } }
+  { \defaultCJKfontfeatures { JFM = mono } }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\ltjsetparameter { kanjiskip = 0pt plus .08 \baselineskip }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</luatex>
+%<*pdftex|xetex|luatex>
+%    \end{macrocode}
+%
+% \subsubsection{\pkg{hyperref} 的支持选项}
+%
+%    \begin{macrocode}
+%<*pdftex>
+\cs_if_free:NF \hypersetup
+  {
+    \hypersetup { driverfallback = dvipdfmx }
+    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+      {
+        \ctex_if_pdfmode:TF
+          { \RequirePackage { xCJK2uni } }
+          {
+            \hypersetup { CJKbookmarks = true }
+            \AtBeginDvi { \special { pdf:tounicode~GBK-EUC-UCS2 } }
+          }
+      }
+      { \hypersetup { unicode } }
+  }
+%</pdftex>
+%<*xetex|luatex>
+\cs_if_exist_use:NT \hypersetup { { unicode } }
+%</xetex|luatex>
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_update_ccwd:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ccwd:
+  {
+%<*pdftex|xetex>
+    \group_begin:
+      \hbox_set:Nn \l_tmpa_box { \CJKglue }
+    \exp_after:wN \group_end: \exp_after:wN
+    \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
+      { \dim_use:N \box_wd:N \l_tmpa_box + \f@size pt }
+%</pdftex|xetex>
+%<*luatex>
+    \skip_set:Nn \ccwd
+      { \ltjgetparameter { kanjiskip } + \f@size pt }
+%</luatex>
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%<*luatex>
+\msg_new:nnn { ctex } { fntef-not-available }
+  { Option~`fntef'~is~not~available~in~LuaLaTeX. }
+%</luatex>
+\bool_if:NT \l_@@_fntef_bool
+  {
+%<pdftex>    \RequirePackage { CJKfntef } \normalem
+%<xetex>    \RequirePackage { xeCJKfntef }
+%<luatex>    \msg_warning:nn { ctex } { fntef-not-available }
+    \clist_map_inline:nn
+      { underdot , underline , underdblline , underwave , sout , xout }
+%<*pdftex|xetex>
+      { \cs_new_protected_nopar:cpx { CTEX#1 } { \exp_not:c { CJK#1 } } }
+    \cs_new_protected_nopar:Npn { \CTEXfilltwosides } { \CJKfilltwosides }
+    \cs_new_protected_nopar:Npn { \endCTEXfilltwosides } { \endCJKfilltwosides }
+    \clist_map_inline:nn
+      {
+        underdotbasesep ,   underdotsep ,     underlinebasesep ,
+        underlinesep ,      underdbllinesep , underdbllinebasesep ,
+        underwavebasesep ,  underwavesep ,    southeight ,
+        underdotcolor ,     underwavecolor ,  underlinecolor ,
+        underdbllinecolor , soutcolor ,       xoutcolor
+      }
+      {
+        \cs_new_eq:cc { CTEX#1 } { CJK#1 }
+        \cs_set_nopar:cpx { CJK#1 } { \exp_not:c { CTEX#1 } }
+      }
+%</pdftex|xetex>
+%<*luatex>
+      { \cs_new_eq:cN { CTEX#1 } \use:n }
+    \cs_new_eq:NN \CTEXfilltwosides \use_none:n
+    \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
+%</luatex>
+  }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</pdftex|xetex|luatex>
+%<*class|style|ctexsize>
 %    \end{macrocode}
 %
 % \subsection{中文字号}
@@ -1099,11 +1607,12 @@ This package consists of the file ctex.dtx, and the derived files
   { \ctex_declare_math_sizes:nnnn #1 }
 %    \end{macrocode}
 %
-% \subsubsection{\cs{ccwd} 的更新}
-%
 % \subsubsection{行距与缩进}
 %
 % \begin{macro}[internal]{\set@fontsize}
+% \pkg{luatexja} 也修改了此函数，因此这里的重定义要放在它后面。另外 \pkg{luatexja}
+% 也修改了 \cs{selectfont}，若与 \pkg{everysel} 宏包共同使用，则 \pkg{luatexja} 的
+% 修改将无效，将不能切换 CJK 字体。
 %    \begin{macrocode}
 \cs_new_eq:NN \CTEX@save@set@fontsize \set@fontsize
 \cs_gset_protected_nopar:Npn \set@fontsize #1#2#3
@@ -1114,28 +1623,48 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\CTEXsetfont}
+% \begin{macro}[internal]{\CTEXsetfont,\ccwd}
+% 在字号变化时更新 \cs{ccwd} 和 \cs{parindent}。
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXsetfont { }
   {
-    \dim_set:Nn \ccwd { \f@size pt }
-    \group_begin:
-    \cs_if_exist:NTF \CJKglue
-      {
-        \hbox_set:Nn \l_tmpa_box { \CJKglue }
-        \dim_set:Nn \ccwd { \box_wd:N \l_tmpa_box }
-      }
-      {
-        \skip_set:Nn \ccwd
-          {
-            \cs_if_exist_use:NTF \ltjgetparameter
-              { { kanjiskip } } { \c_zero_skip }
-          }
-      }
-    \exp_after:wN \group_end: \exp_after:wN
-    \dim_add:Nn \exp_after:wN \ccwd \exp_after:wN { \dim_use:N \ccwd }
+    \ctex_update_ccwd:
     \ctex_update_parindent:
   }
+\dim_new:N \ccwd
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_ccwd:}
+% \pkg{ctexsize} 单独使用时，分情况定义。
+%    \begin{macrocode}
+%<*ctexsize>
+\cs_if_exist:NTF \CJKglue
+  {
+    \cs_new_protected_nopar:Npn \ctex_update_ccwd:
+      {
+        \group_begin:
+          \hbox_set:Nn \l_tmpa_box { \CJKglue }
+        \exp_after:wN \group_end: \exp_after:wN
+        \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
+          { \dim_use:N \box_wd:N \l_tmpa_box + \f@size pt }
+      }
+  }
+  {
+    \cs_if_exist:NTF \ltjgetparameter
+      {
+        \cs_new_protected_nopar:Npn \ctex_update_ccwd:
+          {
+            \skip_set:Nn \ccwd
+              { \ltjgetparameter { kanjiskip } + \f@size pt }
+          }
+      }
+      {
+        \cs_new_protected_nopar:Npn \ctex_update_ccwd:
+          { \dim_set:Nn \ccwd { \f@size pt } }
+      }
+  }
+%</ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1153,25 +1682,21 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\ccwd}
+% 行距为 $1.2\times 1.3=2.56$ 倍字体大小。
 %    \begin{macrocode}
-\dim_new:N \ccwd
+\linespread { 1.3 }
 %    \end{macrocode}
-% \end{macro}
 %
+% 激活默认字体大小，更新 \cs{parindent}。
 %    \begin{macrocode}
-\AtEndOfPackage
-  {
-    \linespread { 1.3 }
-    \normalsize
-  }
+\normalsize
 %    \end{macrocode}
 %
 % \begin{macro}{\CTEXindent,\CTEXnoindent}
 % 过时命令。
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXindent { }
-  { \CTEXsetfont \dim_set:Nn \parindent { 2 \ccwd } }
+  { \ctex_update_ccwd: \dim_set:Nn \parindent { 2 \ccwd } }
 \NewDocumentCommand \CTEXnoindent { }
   { \dim_zero:N \parindent }
 %    \end{macrocode}
@@ -1179,19 +1704,43 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \bool_if:NT \l_@@_indent_bool
-  {
-    \RequirePackage { indentfirst }
-    \AtEndOfPackage { \CTEXindent }
-    \AtBeginDocument { \CTEXindent }
-  }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</class|style|ctexsize>
-%<*class|style>
+  { \RequirePackage { indentfirst } }
 %    \end{macrocode}
 %
 % \subsubsection{字距}
+%
+%    \begin{macrocode}
+%<*ctexsize>
+\msg_new:nnn { ctex } { ziju-unavailable }
+  { Command~`\token_to_str:N \ziju'~is~unavailable. }
+\cs_if_exist:NTF \xeCJKsetup
+  {
+    \cs_new_protected_nopar:Npx \ctex_update_ziju:N #1
+      { \xeCJKsetup { CJKglue = { \skip_horizontal:N #1 } } }
+  }
+  {
+    \cs_if_exist:NTF \CJKglue
+      {
+        \cs_new_protected_nopar:Npx \ctex_update_ziju:N #1
+          {
+            \cs_set_protected_nopar:Npn \exp_not:N \CJKglue
+              { \skip_horizontal:N #1 }
+          }
+      }
+      {
+        \cs_if_exist:NTF \ltjsetparameter
+          {
+            \cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
+              { \ltjsetparameter { kanjiskip = #1 } }
+          }
+          {
+            \msg_warning:nn { ctex } { ziju-unavailable }
+            \tex_endinput;D
+          }
+      }
+  }
+%</ctexsize>
+%    \end{macrocode}
 %
 % \begin{macro}{\ziju}
 %    \begin{macrocode}
@@ -1207,499 +1756,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \subsection{引擎支持}
-%
-% \begin{macro}[internal]{\hypersetup}
 %    \begin{macrocode}
-\bool_if:NT \l_@@_hyperref_bool
-  {
-    \cs_if_exist:NF \hypersetup
-      {
-        \cs_new_protected:Npn \hypersetup #1
-          { \PassOptionsToPackage {#1} { hyperref } }
-      }
-    \hypersetup { colorlinks = true }
-    \AtEndPreamble { \RequirePackage { hyperref } }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-\pdftex_if_engine:TF
-  {
-    \tl_set:Nx \l_@@_encoding_tl { \l_@@_encoding_tl }
-    \ctex_file_input:n { ctex-engine-pdftex.def }
-  }
-  {
-    \tl_set:Nn \l_@@_encoding_tl { UTF8 }
-    \xetex_if_engine:TF
-      { \ctex_file_input:n { ctex-engine-xetex.def } }
-      { \ctex_file_input:n { ctex-engine-luatex.def } }
-  }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</class|style>
-%<*pdftex>
-%    \end{macrocode}
-%
-% \subsubsection{\pkg{ctex-engine-pdftex.def}}
-%
-% 首先检查选项，决定是否载入 \pkg{zhmCJK} 宏包。
-%    \begin{macrocode}
-\if_bool:N \l_@@_zhmCJK_bool
-  \PassOptionsToPackage { encoding = \l_@@_encoding_tl } { zhmCJK }
-  \RequirePackage { zhmCJK }
-%    \end{macrocode}
-% 不载入 \pkg{zhmCJK} 宏包时直接调用 \pkg{CJK} 及相关宏包。
-%    \begin{macrocode}
-\else:
-  \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-    { \RequirePackage { CJK } }
-    { \RequirePackage { CJKutf8 } }
-  \bool_if:NT \l_@@_punct_bool
-    { \RequirePackage { CJKpunct } }
-  \int_compare:nNnT \l_@@_space_int = \c_two
-    { \RequirePackage { CJKspace } }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_load_zhmap:n}
-%    \begin{macrocode}
-  \cs_new_protected_nopar:Npn \ctex_load_zhmap:n #1
-    {
-      \tl_set:Nn \CJKrmdefault { rm }
-      \tl_set:Nn \CJKsfdefault { sf }
-      \tl_set:Nn \CJKttdefault { tt }
-      \AtBeginDvi { \ctex_file_input:n {#1} }
-      \AtBeginDocument
-        { \cs_if_exist_use:NT \AtBeginShipoutFirst { { \file_input:n {#1} } } }
-    }
-  \@onlypreamble \ctex_load_zhmap:n
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-  \group_begin:
-  \int_compare:nNnTF \l_@@_space_int > \c_one
-    {
-      \tl_set:Nn \l_@@_tmp_tl { CJK* }
-      \tl_set:Nn \CJKtilde { \CJKtilde }
-    }
-    {
-      \tl_set:Nn \l_@@_tmp_tl { CJK }
-      \tl_clear:N \CJKtilde
-    }
-  \use:x
-    {
-      \group_end:
-      \AtEndPreamble
-        {
-          \AfterEndPreamble
-            {
-              \exp_not:N \begin { \l_@@_tmp_tl }
-                { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
-              \exp_not:o { \CJKtilde }
-            }
-        }
-      \AtEndEnvironment { document }
-        { \exp_not:N \clearpage \exp_not:N \end { \l_@@_tmp_tl } }
-    }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-  \tl_if_exist:NF \CJKfamilydefault
-    { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
-  \tl_if_exist:NF \CJKrmdefault { \tl_new:N \CJKrmdefault }
-  \tl_if_exist:NF \CJKsfdefault { \tl_new:N \CJKsfdefault }
-  \tl_if_exist:NF \CJKttdefault { \tl_new:N \CJKttdefault }
-  \xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
-    { \ctex_patch_failure:N \rmfamily }
-  \xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
-    { \ctex_patch_failure:N \sffamily }
-  \xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
-    { \ctex_patch_failure:N \ttfamily }
-  \xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
-    { \cs_set_eq:NN \reset@font \normalfont }
-    { \ctex_patch_failure:N \normalfont }
-%    \end{macrocode}
-%
-% \cs{CJK@makeActive} 应该先于 \file{ctexcap-gbk.cfg} 等文件的载入，将汉字的
-% 首字节设置为活动字符。使用 \pkg{zhmCJK} 时，此功能已经被启用。
-%    \begin{macrocode}
-  \CJK@makeActive
-%    \end{macrocode}
-%
-% \pkg{zhmCJK} 判断结束。
-%    \begin{macrocode}
-\fi:
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_CJK_input:n,\CJK@input}
-% \pkg{breqn} 包可能会在正文中将 |^| 的 \cs{catcode} 改为 $12$ 或 $13$，这将
-% 破坏 \pkg{CJK} 对汉字的首字节的定义（\cs{CJK@loadBinding} 和
-% \cs{CJK@loadEncoding}）。因此需要确保载入 \file{.enc} 和 \file{.bdg} 文件时，
-% |^| 的 \cs{catcode} 为 $7$。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_CJK_input:n #1
-  {
-    \use:x
-      {
-        \char_set_catcode_other:n            { 60 } % <
-        \char_set_catcode_letter:n           { 64 } % @
-        \char_set_catcode_math_superscript:n { 94 } % ^
-        \int_set_eq:NN \tex_endlinechar:D \c_minus_one
-        \file_input:n {#1}
-        \int_set:Nn \tex_endlinechar:D { \int_use:N \tex_endlinechar:D }
-        \char_set_catcode:nn { 60 } { \char_value_catcode:n { 60 } }
-        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
-        \char_set_catcode:nn { 94 } { \char_value_catcode:n { 94 } }
-      }
-  }
-\cs_set_eq:NN \CJK@input \ctex_CJK_input:n
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_update_ziju:N}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
-  { \cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N #1 } }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-%</pdftex>
-%<*xetex>
-%    \end{macrocode}
-%
-% \subsubsection{\pkg{ctex-engine-xetex.def}}
-%
-%    \begin{macrocode}
-\RequirePackage [ indentfirst = false ] { xeCJK }
-\defaultfontfeatures { Ligatures = TeX }
-\xeCJKsetup { AutoFakeBold = true }
-\int_compare:nNnF \l_@@_space_int > \c_one
-  { \xeCJKsetup { CJKspace = true } }
-\bool_if:NF \l_@@_punct_bool
-  { \xeCJKsetup { PunctStyle = plain } }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_update_ziju:N}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
-  { \xeCJKsetup { CJKglue = { \skip_horizontal:N #1 } } }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-%</xetex>
-%<*luatex>
-%    \end{macrocode}
-%
-% \subsubsection{\pkg{ctex-engine-luatex.def}}
-%
-% \changes{v2.0}{2014/03/08}{通过 \pkg{luatexja} 宏包支持 \LuaLaTeX。}
-%
-%    \begin{macrocode}
-\RequirePackage { luatexja-fontspec } [ 2013/05/14 ]
-\tl_gset_eq:cN { ver@CJK.sty } \fmtversion
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
-\tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
-\tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
-\tl_if_exist:NF \CJKfamilydefault
-  { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
-\tl_set:Nn \kanjifamilydefault { \CJKfamilydefault }
-\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
-  { \ctex_patch_failure:N \rmfamily }
-\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
-  { \ctex_patch_failure:N \sffamily }
-\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
-  { \ctex_patch_failure:N \ttfamily }
-\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
-  { \cs_set_eq:NN \reset@font \normalfont }
-  { \ctex_patch_failure:N \normalfont }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\DeclareKanjiFamily { \kanjiencodingdefault } { \kanjifamilydefault } { }
-\DeclareFontShape
-  { \kanjiencodingdefault } { \kanjifamilydefault }
-  { \mddefault } { \kanjishapedefault }
-  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=quanjiao } { }
-\DeclareFontShape
-  { \kanjiencodingdefault } { \kanjifamilydefault }
-  { \bfdefault } { \kanjishapedefault }
-  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=quanjiao } { }
-\DeclareSymbolFont { mincho }
-  { \kanjiencodingdefault } { \kanjifamilydefault }
-  { \mddefault } { \kanjishapedefault }
-\SetSymbolFont { mincho } { bold }
-  { \kanjiencodingdefault } { \kanjifamilydefault }
-  { \bfdefault } { \kanjishapedefault }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\AtBeginDocument
-  {
-    \prop_get:NxNT \g_@@_ltj_family_name_prop
-      { \CJKfamilydefault } \l_@@_tmp_tl
-      {
-        \tl_const:Nx \c_@@_ltj_math_family_tl { \l_@@_tmp_tl }
-        \DeclareSymbolFont { mincho }
-          { \kanjiencodingdefault } { \c_@@_ltj_math_family_tl }
-          { \mddefault } { \kanjishapedefault }
-        \cs_if_free:cF
-          {
-            \kanjiencodingdefault/\c_@@_ltj_math_family_tl/
-            \bfdefault/\kanjishapedefault
-          }
-          {
-            \SetSymbolFont { mincho } { bold }
-              { \kanjiencodingdefault } { \c_@@_ltj_math_family_tl }
-              { \bfdefault } { \kanjishapedefault }
-          }
-      }
-  }
-\cs_generate_variant:Nn \prop_get:NnNT { Nx }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_ltj_set_family:nnn}
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_ltj_set_family:nnn #1#2#3
-  {
-    \ltj_fontspec_select:nn {#2} {#3}
-    \prop_gput:NnV \g_@@_ltj_family_name_prop {#1} \l_fontspec_family_tl
-  }
-\prop_new:N \g_@@_ltj_family_name_prop
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\kanjifamily}
-%    \begin{macrocode}
-\RenewDocumentCommand \kanjifamily { m }
-  {
-    \tl_set:Nx \l_@@_tmp_tl {#1}
-    \prop_get:NVNF \g_@@_ltj_family_name_prop \l_@@_tmp_tl \k@family
-      { \tl_set_eq:NN \k@family \l_@@_tmp_tl }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\CJKfamily}
-%    \begin{macrocode}
-\NewDocumentCommand \CJKfamily { m }
-  { \ctex_ltj_switch_family:x {#1} }
-\cs_new_protected_nopar:Npn \ctex_ltj_switch_family:n #1
-  {
-    \prop_get:NnNTF \g_@@_ltj_family_name_prop {#1} \k@family
-      { \selectfont \tex_ignorespaces:D }
-      {
-        \prop_if_empty:NF \g_@@_ltj_family_name_prop
-          {
-            \seq_if_in:NnF \g_@@_ltj_unknown_family_seq {#1}
-              {
-                \seq_gput_right:Nn \g_@@_ltj_unknown_family_seq {#1}
-                \msg_warning:nnn { ctex } { CJKfamily-Unknown } {#1}
-              }
-          }
-      }
-  }
-\cs_generate_variant:Nn \ctex_ltj_switch_family:n { x }
-\seq_new:N \g_@@_ltj_unknown_family_seq
-\msg_new:nnn { ctex } { CJKfamily-Unknown }
-  {
-    Unknown~CJK~family~`#1'~is~ignored.\\
-    Try~to~use~\token_to_str:N \setCJKfamilyfont{#1}[...]{...}\
-    to~define~it.
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-\cs_new_eq:NN \CJKfontspec            \jfontspec
-\cs_new_eq:NN \newCJKfontface         \newjfontface
-\cs_new_eq:NN \newCJKfontfamily       \newjfontfamily
-\cs_new_eq:NN \addCJKfontfeatures     \addjfontfeatures
-\cs_new_eq:NN \defaultCJKfontfeatures \defaultjfontfeatures
-%    \end{macrocode}
-%
-% \begin{macro}[internal]
-% {\setCJKfamilyfont,\setCJKmainfont,\setCJKsansfont,\setCJKmonofont}
-%    \begin{macrocode}
-\NewDocumentCommand \setCJKfamilyfont { m O { } m }
-  { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
-\NewDocumentCommand \setCJKmainfont { O { } m }
-  {
-    \use:x { \ctex_ltj_set_family:nnn { \CJKrmdefault } {#1} {#2} }
-    \normalfont
-  }
-\cs_new_eq:NN \setCJKromanfont \setCJKmainfont
-\NewDocumentCommand \setCJKsansfont { O { } m }
-  {
-    \use:x { \ctex_ltj_set_family:nnn { \CJKsfdefault } {#1} {#2} }
-    \normalfont
-  }
-\NewDocumentCommand \setCJKmonofont { O { } m }
-  {
-    \use:x { \ctex_ltj_set_family:nnn { \CJKttdefault } {#1} {#2} }
-    \normalfont
-  }
-\@onlypreamble \setCJKmainfont
-\@onlypreamble \setCJKsansfont
-\@onlypreamble \setCJKmonofont
-\@onlypreamble \setCJKromanfont
-\@onlypreamble \defaultCJKfontfeatures
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\CJKglue,\CJKspace,\CJKnospace}
-%    \begin{macrocode}
-\NewDocumentCommand \CJKglue { }
-  { \skip_horizontal:n { \ltjgetparameter { kanjiskip } } }
-\NewDocumentCommand \CJKspace { }
-  { \ltjsetparameter { autospacing = false } }
-\NewDocumentCommand \CJKnospace { }
-  { \ltjsetparameter { autospacing = true } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_update_ziju:N}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ziju:N #1
-  { \ltjsetparameter { kanjiskip = #1 } }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-\int_compare:nNnTF \l_@@_space_int > \c_one
-  { \ltjsetparameter { autospacing = true } }
-  { \ltjsetparameter { autospacing = false } }
-\bool_if:NTF \l_@@_punct_bool
-  { \defaultCJKfontfeatures { JFM = quanjiao } }
-  { \defaultCJKfontfeatures { JFM = mono } }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\ltjsetparameter { kanjiskip = 0pt plus .08 \baselineskip }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</luatex>
-%<*pdftex|xetex|luatex>
-%    \end{macrocode}
-%
-% \subsubsection{\pkg{hyperref} 的支持选项}
-%
-%    \begin{macrocode}
-%<*pdftex>
-\cs_if_free:NF \hypersetup
-  {
-    \hypersetup { driverfallback = dvipdfmx }
-    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-      {
-        \ctex_if_pdfmode:TF
-          { \RequirePackage { xCJK2uni } }
-          {
-            \hypersetup { CJKbookmarks = true }
-            \AtBeginDvi { \special { pdf:tounicode~GBK-EUC-UCS2 } }
-          }
-      }
-      { \hypersetup { unicode } }
-  }
-%</pdftex>
-%<*xetex|luatex>
-\cs_if_exist_use:NT \hypersetup { { unicode } }
-%</xetex|luatex>
-%    \end{macrocode}
-%
-% \begin{macro}{\CTEXsetfont}
-%    \begin{macrocode}
-\RenewDocumentCommand \CTEXsetfont { }
-  {
-%<*pdftex|xetex>
-    \group_begin:
-      \hbox_set:Nn \l_tmpa_box { \CJKglue }
-    \exp_after:wN \group_end: \exp_after:wN
-    \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-      { \dim_use:N \box_wd:N \l_tmpa_box + \f@size pt }
-%</pdftex|xetex>
-%<*luatex>
-    \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } }
-    \dim_add:Nn \ccwd { \f@size pt }
-%</luatex>
-    \ctex_update_parindent:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-%<*luatex>
-\msg_new:nnn { ctex } { fntef-not-available }
-  { Option~`fntef'~is~not~available~in~LuaLaTeX. }
-%</luatex>
-\bool_if:NT \l_@@_fntef_bool
-  {
-%<pdftex>    \RequirePackage { CJKfntef } \normalem
-%<xetex>    \RequirePackage { xeCJKfntef }
-%<luatex>    \msg_warning:nn { ctex } { fntef-not-available }
-    \clist_map_inline:nn
-      { underdot , underline , underdblline , underwave , sout , xout }
-%<*pdftex|xetex>
-      { \cs_new_protected_nopar:cpx { CTEX#1 } { \exp_not:c { CJK#1 } } }
-    \cs_new_protected_nopar:Npn { \CTEXfilltwosides } { \CJKfilltwosides }
-    \cs_new_protected_nopar:Npn { \endCTEXfilltwosides } { \endCJKfilltwosides }
-    \clist_map_inline:nn
-      {
-        underdotbasesep ,   underdotsep ,     underlinebasesep ,
-        underlinesep ,      underdbllinesep , underdbllinebasesep ,
-        underwavebasesep ,  underwavesep ,    southeight ,
-        underdotcolor ,     underwavecolor ,  underlinecolor ,
-        underdbllinecolor , soutcolor ,       xoutcolor
-      }
-      {
-        \cs_new_eq:cc { CTEX#1 } { CJK#1 }
-        \cs_set_nopar:cpx { CJK#1 } { \exp_not:c { CTEX#1 } }
-      }
-%</pdftex|xetex>
-%<*luatex>
-      { \cs_new_eq:cN { CTEX#1 } \use:n }
-    \cs_new_eq:NN \CTEXfilltwosides \use_none:n
-    \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
-%</luatex>
-  }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</pdftex|xetex|luatex>
+%</class|style|ctexsize>
 %<*class|style>
-%    \end{macrocode}
-%
-% \subsubsection{载入中文字体}
-%
-%    \begin{macrocode}
-\msg_new:nnnn { ctex } { fontset-undef }
-  { CJK~fontset~`#1'~is~undefined. }
-  { You~may~use~`fandol'~instead~of~it. }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_fontset_error:n}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_fontset_error:n #1
-  { \msg_critical:nnn { ctex } { fontset-unavailable } {#1} }
-\msg_new:nnn { ctex } { fontset-unavailable }
-  { CJK~fontset~`#1'~is~unavailable~in~current~mode. }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-\str_if_eq:onF { \l_@@_fontset_tl } { none }
-  {
-    \file_if_exist:nTF { ctex-fontset- \l_@@_fontset_tl .def }
-      { \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def } }
-      { \msg_error:nnx { ctex } { fontset-undef } { \l_@@_fontset_tl } }
-  }
 %    \end{macrocode}
 %
 % \subsection{中文数字与日期}
@@ -2444,6 +2503,11 @@ This package consists of the file ctex.dtx, and the derived files
 \pagestyle { headings }
 %    \end{macrocode}
 %
+%    \begin{macrocode}
+\bool_if:NT \l_@@_fancyhdr_bool
+  { \RequirePackage { fancyhdr } }
+%    \end{macrocode}
+%
 % \begin{macro}[internal]{\ps@fancy}
 %    \begin{macrocode}
 \if_cs_exist:N \ps@fancy
@@ -2596,31 +2660,6 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{其它功能}
 %
-% \subsubsection{用户设置接口}
-%
-% \changes{v2.0}{2014/03/18}{新增统一设置接口 \cs{ctexset}。}
-%
-% \begin{macro}{\ctexset}
-%    \begin{macrocode}
-\NewDocumentCommand \ctexset { +m }
-  { \keys_set:nn { ctex } {#1} }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\CTEXsetup}
-%    \begin{macrocode}
-\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
-  { \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\CTEXoptions}
-%    \begin{macrocode}
-\NewDocumentCommand \CTEXoptions { +o }
-  { \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} } }
-%    \end{macrocode}
-% \end{macro}
-%
 % \subsubsection{图表标题的分隔符}
 %
 % \begin{macro}[internal]{captiondelimiter}
@@ -2694,6 +2733,32 @@ This package consists of the file ctex.dtx, and the derived files
 \AtBeginDocument { \ctex_fix_end_env_hook: }
 %    \end{macrocode}
 % \end{macro}
+%
+% \subsection{载入中文字体}
+%
+%    \begin{macrocode}
+\msg_new:nnnn { ctex } { fontset-undef }
+  { CJK~fontset~`#1'~is~undefined. }
+  { You~may~use~`fandol'~instead~of~it. }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_fontset_error:n}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_fontset_error:n #1
+  { \msg_critical:nnn { ctex } { fontset-unavailable } {#1} }
+\msg_new:nnn { ctex } { fontset-unavailable }
+  { CJK~fontset~`#1'~is~unavailable~in~current~mode. }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\str_if_eq:onF { \l_@@_fontset_tl } { none }
+  {
+    \file_if_exist:nTF { ctex-fontset- \l_@@_fontset_tl .def }
+      { \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def } }
+      { \msg_error:nnx { ctex } { fontset-undef } { \l_@@_fontset_tl } }
+  }
+%    \end{macrocode}
 %
 % \subsection{宏包配置文件}
 %
@@ -3063,14 +3128,16 @@ This package consists of the file ctex.dtx, and the derived files
       [ BoldFont = FZXiaoBiaoSong-B05 , ItalicFont = FZKai-Z03 ] { FZShuSong-Z01 }
 %    \end{macrocode}
 %
-% 在 WPS For Linux 附带的 5.00 版“方正细黑一\_GBK”的字体名称是 |FZXiHeiI-Z08|，
-% 但我在网上发现不少文档和资料都是 \verb*|FZXiHei I-Z08|，在官方资料《2013 方正字
-% 库字体样张》中对应的英文名字是 \verb*|FZXiHei I|。可以用 Postscript 名字
-% |FZXH1K--GBK1-0| 来统一，但在我这里（WPS 中的字体）测试时发现，\XeTeX{} 找字体
-% 时会出现明显的延迟。而用字体文件名 |FZXH1K.TTF| 又可能会出现大小写问题，遂采用
-% 汉字名称。
+% 在 WPS For Linux 附带的 5.00 版和家庭版 5.20 版的“方正细黑一\_GBK”的字体名称
+% 是 |FZXiHeiI-Z08|。但在网上发现不少文档和资料都是 \verb*|FZXiHei I-Z08|，而在
+% 官方资料《2013 方正字库字体样张》中对应的英文名字是 \verb*|FZXiHei I|。可以用
+% Postscript 名字 |FZXH1K--GBK1-0| 来统一。经测试时发现（WPS 中的字体），\XeTeX{}
+% 找该字体时会出现明显的延迟，而用字体文件名 |FZXH1K.TTF| 又可能会出现大小写问题，
+% 遂采用汉字名称。由于 \pkg{luaotfload} 不支持汉字名称，故使用 Postscript 名字，
+% 速度不受影响。
 %    \begin{macrocode}
-    \setCJKsansfont [ BoldFont = FZHei-B01 ] { 方正细黑一_GBK }
+    \setCJKsansfont [ BoldFont = FZHei-B01 ]
+      { \xetex_if_engine:TF { 方正细黑一_GBK } { FZXH1K--GBK1-0 } }
     \setCJKmonofont { FZFangSong-Z02 }
     \setCJKfamilyfont { zhsong } [ BoldFont = FZXiaoBiaoSong-B05 ] { FZShuSong-Z01 }
     \setCJKfamilyfont { zhhei }  { FZHei-B01 }
