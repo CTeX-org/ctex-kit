@@ -359,8 +359,7 @@ This package consists of the file ctex.dtx, and the derived files
 \setmainfont{TeX Gyre Pagella}
 \setsansfont{CMU Sans Serif}
 \setmonofont[
-  Mapping=,
-  WordSpace={1,0,0},HyphenChar=None, %% 固定空格宽度，禁止 - 后折行
+  Mapping=,WordSpace={1,0,0}, %% 固定空格宽度
   SlantedFont=CMU Typewriter Text Oblique]{CMU Typewriter Text}
 \xeCJKsetup{PunctStyle=kaiming}
 \linespread{1.2}
@@ -370,9 +369,9 @@ This package consists of the file ctex.dtx, and the derived files
 \AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
 \AtEndUTFCommand[\textrangle]{\endgroup}
 \preto\MacroFont{\linespread{1}}
-\appto\MacroFont{\xeCJKVerbAddon}
+\appto\MacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
 \preto\AltMacroFont{\linespread{1}}
-\appto\AltMacroFont{\xeCJKVerbAddon}
+\appto\AltMacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
 \def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
 \csdef{meta }#1{\mbox{\texttt{\textlangle}\textit{#1}\texttt{\textrangle}}}
 \def\XeTeX{\hologo{XeTeX}}
@@ -419,7 +418,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{2947}
+% \CheckSum{2962}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -692,6 +691,7 @@ This package consists of the file ctex.dtx, and the derived files
     nofonts     .meta:n = { fontset = none } ,
     adobefonts  .meta:n = { fontset = adobe } ,
     winfonts    .meta:n = { fontset = windows } ,
+    fontset     .value_required: ,
     nofonts     .value_forbidden: ,
     winfonts    .value_forbidden: ,
     adobefonts  .value_forbidden: ,
@@ -3063,22 +3063,68 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{标签引用数字的汉化}
 %
 % \begin{macro}[internal]{\refstepcounter}
+% 对标题进行引用时，设置标签为通过 \texttt{number} 选项设置的形式。
 %    \begin{macrocode}
-\cs_new_eq:NN \CTEX@save@refstepcounter \refstepcounter
-\RenewDocumentCommand \refstepcounter { m }
+\cs_new_protected_nopar:Npn \CTEX@setcurrentlabel@n #1
   {
-    \CTEX@save@refstepcounter {#1}
     \protected@edef \@currentlabel
       {
-        \csname p@#1 \expandafter \endcsname
-        \csname
-          \ifcsname CTEX@the#1 \endcsname CTEX@the#1
-          \else the#1 \fi
-        \endcsname
+        \cs_if_exist:cTF { CTEX@the#1 }
+          { \exp_args:cc { p@#1 } { CTEX@the#1 } }
+          { \exp_not:o { \@currentlabel } }
       }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{macro}[internal]{\ctex_varioref_hook:}
+% 关于标签引用的宏包可能会修改 \cs{refstepcounter}。其中 \pkg{cleveref} 和
+% \pkg{hyperref} 宏包都会保存之前的定义，并且它们都要求尽可能晚的被载入，所以
+% 对我们上述的修改影响不大。需要注意的是 \pkg{varioref} 宏包，如果它在
+% \pkg{ctex} 之后被载入，我们之前的修改将会被覆盖。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_varioref_hook:
+  {
+    \seq_map_inline:Nn \c_@@_headings_seq
+      { \ctex_fix_varioref_label:n { ##1 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_fix_varioref_label:n}
+% \pkg{varioref} 宏包的 \cs{labelformat} 实际上是定义一个以 |\the<#1>| 为参数的宏
+% |\p@<#1>|。\LaTeX{} 在定义计数器 |<#1>| 时，都会将 |\p@<#1>| 初始化为 \cs{@empty}。
+% 如果这个宏非空，说明用户自定义了标签格式，我们就不再修改。这里不能使用
+% \cs{exp_args:Nnc}，因为 \texttt{c} 这种展开格式不会将参数放在花括号内。而
+% \cs{labelformat} 的定义是
+% \begin{verbatim}
+%   \def\labelformat#1{\expandafter\def\csname p@#1\endcsname##1}
+% \end{verbatim}
+% 它的第二个参数必须放在花括号内，否则将会被作为宏的定界符号。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_fix_varioref_label:n #1
+  {
+    \tl_if_empty:cT { p@#1 }
+      { \exp_args:Nno \labelformat {#1} { \cs:w CTEX@the#1 \cs_end: } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% 如果 \pkg{varioref} 已经被载入，则使用它来设置。
+%    \begin{macrocode}
+\@ifpackageloaded { varioref }
+  { \ctex_varioref_hook: }
+  {
+    \cs_new_eq:NN \CTEX@save@refstepcounter \refstepcounter
+    \RenewDocumentCommand \refstepcounter { m }
+      {
+        \CTEX@save@refstepcounter {#1}
+        \CTEX@setcurrentlabel@n {#1}
+      }
+    \AtBeginDocument
+      { \@ifpackageloaded { varioref } { \ctex_varioref_hook: } { } }
+  }
+%    \end{macrocode}
 %
 % \subsubsection{修改默认标题格式}
 %
