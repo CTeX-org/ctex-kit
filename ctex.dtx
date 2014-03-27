@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3106}
+% \CheckSum{3127}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1911,7 +1911,7 @@ This package consists of the file ctex.dtx, and the derived files
       \hbox_set:Nn \l_tmpa_box { \CJKglue }
     \exp_after:wN \group_end: \exp_after:wN
     \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-      { \dim_use:N \box_wd:N \l_tmpa_box + 1 em }
+      { \dim_use:N \box_wd:N \l_tmpa_box + \f@size \p@ }
   }
 %</pdftex|xetex>
 %<*luatex>
@@ -2216,12 +2216,12 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{linestretch}
 % 若行宽不是汉字宽度的整数倍，自然要求伸展它们之间的差。这里设置的是在此基础上的
-% 额外伸展量，初始化为 \texttt{1 em}。若设置为 \cs{maxdimen}，则禁用此功能。
+% 额外伸展量，初始化为 |\f@size\p@|。若设置为 \cs{maxdimen}，则禁用此功能。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
     linestretch  .tl_set:N = \l_@@_line_stretch_tl ,
-    linestretch .initial:n = { 1 em }
+    linestretch .initial:n = { \f@size \p@ }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2231,25 +2231,28 @@ This package consists of the file ctex.dtx, and the derived files
 % 均匀地填充到汉字之间。\hologo{eTeX} 的除法是四舍五入，而我们这里应该用截断。由于
 % 没有可展性的要求，直接用原语 \cs{tex_divide:D} 要比 \cs{int_div_truncate:nn}
 % 快一些。下面的算法还兼顾到了 \cs{linewidth} 不为汉字字宽的整数倍的情况。
-% 需要注意的是，这里假定汉字的宽度是 \texttt{1 em}，这应该对大多数汉字字体都成立，
+% 需要注意的是，这里假定汉字的宽度是 |\f@size\p@|，这应该对大多数汉字字体都成立，
 % 但不适用于诸如“方正兰亭黑长”之类的特殊字体。\cs{ccwd} 的情况类似。
+% 用 |\f@size\p@| 作为汉字的宽度，而不采用 \texttt{1 em}，因为这时的 \texttt{1 em}
+% 实际上来自西文字体的信息，未必等于汉字的宽度，这似乎在传统的 \file{.tfm} 字体上
+% 表现较更明显。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_stretch:
   {
+    \dim_set:Nn \ccwd { \f@size \p@ }
     \dim_set:Nn \l_@@_tmp_dim { \l_@@_line_stretch_tl }
     \dim_compare:nNnTF \l_@@_tmp_dim = \c_max_dim
       { \ctex_update_ccwd: }
       {
         \int_set:Nn \l_@@_tmp_int
-          { \etex_dimexpr:D \linewidth - 1 em - \l_@@_tmp_dim \scan_stop: }
-        \tex_divide:D \l_@@_tmp_int \etex_dimexpr:D 1 em \scan_stop:
+          { \etex_dimexpr:D \linewidth - \ccwd - \l_@@_tmp_dim \scan_stop: }
+        \tex_divide:D \l_@@_tmp_int \ccwd
         \skip_set:Nn \l_@@_ccglue_skip
           {
             \c_zero_dim plus \dim_eval:n
-              { ( \linewidth - 1 em - \l_@@_tmp_int em ) / \l_@@_tmp_int }
+              { ( \linewidth - \ccwd - \l_@@_tmp_int \ccwd ) / \l_@@_tmp_int }
           }
         \ctex_update_ccglue:
-        \dim_set:Nn \ccwd { 1 em }
       }
   }
 \skip_new:N \l_@@_ccglue_skip
@@ -2268,7 +2271,7 @@ This package consists of the file ctex.dtx, and the derived files
           \hbox_set:Nn \l_tmpa_box { \CJKglue }
         \exp_after:wN \group_end: \exp_after:wN
         \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-          { \dim_use:N \box_wd:N \l_tmpa_box + 1 em }
+          { \dim_use:N \box_wd:N \l_tmpa_box + \f@size \p@ }
       }
   }
   {
@@ -2279,7 +2282,7 @@ This package consists of the file ctex.dtx, and the derived files
       }
       {
         \cs_new_protected_nopar:Npn \ctex_update_ccwd:
-          { \dim_set:Nn \ccwd { 1 em } }
+          { \dim_set:Nn \ccwd { \f@size \p@ } }
       }
   }
 %</ctexsize>
@@ -2361,7 +2364,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{\ziju}
-% 若参数为 $0$，则恢复正常间距。使用 \cs{selectfont} 是为了保证 \texttt{em} 值的正确。
+% 若参数为 $0$，则恢复正常间距。使用 \cs{selectfont} 是为了保证字体大小值的正确。
 %    \begin{macrocode}
 \NewDocumentCommand \ziju { m }
   { \exp_args:Nx \ctex_ziju:n {#1} \tex_ignorespaces:D }
@@ -2380,8 +2383,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_ziju:
   {
-    \dim_set:Nn \l_@@_ziju_dim { \l_@@_ziju_tl em }
-    \dim_set:Nn \ccwd { 1 em + \l_@@_ziju_dim }
+    \dim_set:Nn \ccwd { \f@size \p@ }
+    \dim_set:Nn \l_@@_ziju_dim { \l_@@_ziju_tl \ccwd }
+    \dim_add:Nn \ccwd { \l_@@_ziju_dim }
     \dim_compare:nNnTF \ccwd > \c_zero_dim
 %    \end{macrocode}
 % 伸展量保证行内的剩余空白能够被均匀地填充到汉字之间，收缩的最大限度是让当前行
@@ -2389,13 +2393,14 @@ This package consists of the file ctex.dtx, and the derived files
 % 汉字（不包括字间距）。如果放不下就伸展，否则收缩。
 %    \begin{macrocode}
       {
-        \int_set:Nn \l_@@_tmp_int { \etex_dimexpr:D \linewidth - 1 em \scan_stop: }
+        \dim_set:Nn \l_@@_tmp_dim { \linewidth - \f@size \p@ }
+        \int_set:Nn \l_@@_tmp_int { \l_@@_tmp_dim }
         \tex_divide:D \l_@@_tmp_int \ccwd
-        \dim_set:Nn \l_@@_tmp_dim { \linewidth - 1 em - \l_@@_tmp_int \ccwd }
+        \dim_sub:Nn \l_@@_tmp_dim { \l_@@_tmp_int \ccwd }
         \skip_set:Nn \l_@@_ccglue_skip
           {
             \l_@@_ziju_dim
-            \dim_compare:nNnTF \l_@@_tmp_dim < { 1 em }
+            \dim_compare:nNnTF \l_@@_tmp_dim < { \f@size \p@ }
               { plus \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int } }
               {
                 minus \dim_eval:n
