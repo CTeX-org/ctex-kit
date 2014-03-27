@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3017}
+% \CheckSum{3111}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -561,11 +561,14 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{内部函数与变量}
 %
-% \begin{variable}[internal]{\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int}
+% \begin{variable}[internal]
+% {\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int,\l_@@_tmp_dim,\l_@@_tmp_fp}
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
 \bool_new:N \g_@@_tmp_bool
 \int_new:N \l_@@_tmp_int
+\dim_new:N \l_@@_tmp_dim
+\fp_new:N \l_@@_tmp_fp
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1909,7 +1912,7 @@ This package consists of the file ctex.dtx, and the derived files
       \hbox_set:Nn \l_tmpa_box { \CJKglue }
     \exp_after:wN \group_end: \exp_after:wN
     \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-      { \dim_use:N \box_wd:N \l_tmpa_box + \f@size pt }
+      { \dim_use:N \box_wd:N \l_tmpa_box + 1 em }
   }
 %</pdftex|xetex>
 %<*luatex>
@@ -2179,21 +2182,42 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{行距与缩进}
 %
 % \begin{macro}[internal]{\CTEXsetfont,\ccwd}
-% 在字号变化时更新 \cs{ccwd} 和 \cs{parindent}。
+% 在字号变化时更新 \cs{ccwd} 和 \cs{parindent}。字距为零则恢复正常设置。
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXsetfont { }
   {
-    \ctex_update_stretch:
-    \ctex_update_ccwd:
-    \ctex_update_parindent:
+    \tl_if_eq:NNTF \l_@@_ziju_tl \c_@@_zero_tl
+      {
+        \ctex_update_stretch:
+        \ctex_update_parindent:
+      }
+      { \ctex_update_ziju: }
   }
-\ctex_add_to_selectfont:n { \CTEXsetfont }
 \dim_new:N \ccwd
+\tl_const:Nx \c_@@_zero_tl { \fp_use:N \c_zero_fp }
+\tl_new:N \l_@@_ziju_tl
+\tl_set_eq:NN \l_@@_ziju_tl \c_@@_zero_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_size:}
+% 在 \cs{selectfont} 中，若 \cs{size@update} 为 \cs{relax}，说明字体大小没有变化，
+% 我们也就不用更新相关参数。在导言区内，\cs{ctex_update_size:} 位于 \cs{selectfont}
+% 的最后面，这时 \cs{size@update} 总是 \cs{relax}，所以判断不适用。而在正文中，
+% \pkg{everysel} 的定义起作用，它的钩子位于 \cs{size@update} 之前，判断才有意义。
+%    \begin{macrocode}
+\cs_new_eq:NN \ctex_update_size: \CTEXsetfont
+\ctex_add_to_selectfont:n { \ctex_update_size: }
+\cs_new_protected_nopar:Npn \ctex_update_size_document:
+  { \cs_if_free:NF \size@update { \CTEXsetfont } }
+\AtBeginDocument
+  { \cs_set_eq:NN \ctex_update_size: \ctex_update_size_document: }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{linestretch}
-% 设置一行总的伸展量，初始化为 \texttt{1 em}。
+% 若行宽不是汉字宽度的整数倍，自然要求伸展它们之间的差。这里设置的是在此基础上的
+% 额外伸展量，初始化为 \texttt{1 em}。若设置为 \cs{maxdimen}，则禁用此功能。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
@@ -2213,19 +2237,21 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_stretch:
   {
-    \int_set:Nn \l_@@_tmp_int
-      { \etex_dimexpr:D \linewidth - ( \l_@@_line_stretch_tl ) \scan_stop: }
-    \tex_divide:D \l_@@_tmp_int \etex_dimexpr:D 1 em \scan_stop:
-    \skip_set:Nn \l_@@_ccglue_skip
+    \dim_set:Nn \l_@@_tmp_dim { \l_@@_line_stretch_tl }
+    \dim_compare:nNnTF \l_@@_tmp_dim = \c_max_dim
+      { \ctex_update_ccwd: }
       {
-        \c_zero_dim plus
-        \dim_eval:n
+        \int_set:Nn \l_@@_tmp_int
+          { \etex_dimexpr:D \linewidth - 1 em - \l_@@_tmp_dim \scan_stop: }
+        \tex_divide:D \l_@@_tmp_int \etex_dimexpr:D 1 em \scan_stop:
+        \skip_set:Nn \l_@@_ccglue_skip
           {
-            ( \linewidth - \l_@@_tmp_int em ) /
-            ( \l_@@_tmp_int - \c_one )
+            \c_zero_dim plus \dim_eval:n
+              { ( \linewidth - 1 em - \l_@@_tmp_int em ) / \l_@@_tmp_int }
           }
+        \ctex_update_ccglue:
+        \dim_set:Nn \ccwd { 1 em }
       }
-    \ctex_update_ccglue:
   }
 \skip_new:N \l_@@_ccglue_skip
 %    \end{macrocode}
@@ -2243,7 +2269,7 @@ This package consists of the file ctex.dtx, and the derived files
           \hbox_set:Nn \l_tmpa_box { \CJKglue }
         \exp_after:wN \group_end: \exp_after:wN
         \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-          { \dim_use:N \box_wd:N \l_tmpa_box + \f@size pt }
+          { \dim_use:N \box_wd:N \l_tmpa_box + 1 em }
       }
   }
   {
@@ -2254,7 +2280,7 @@ This package consists of the file ctex.dtx, and the derived files
       }
       {
         \cs_new_protected_nopar:Npn \ctex_update_ccwd:
-          { \dim_set:Nn \ccwd { \f@size pt } }
+          { \dim_set:Nn \ccwd { 1 em } }
       }
   }
 %</ctexsize>
@@ -2327,6 +2353,7 @@ This package consists of the file ctex.dtx, and the derived files
           {
             \msg_warning:nn { ctex } { ziju-unavailable }
             \cs_set_eq:NN \ctex_update_stretch: \prg_do_nothing:
+            \cs_set_eq:NN \ctex_update_ziju: \prg_do_nothing:
             \tex_endinput:D
           }
       }
@@ -2335,15 +2362,68 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{\ziju}
+% 保证参数非负。若参数为 $0$，则恢复正常间距。
 %    \begin{macrocode}
 \NewDocumentCommand \ziju { m }
+  { \exp_args:Nx \ctex_ziju:n {#1} \tex_ignorespaces:D }
+\cs_new_protected_nopar:Npn \ctex_ziju:n #1
   {
-    \skip_set:Nn \l_@@_ccglue_skip
-      { #1 \etex_dimexpr:D \f@size pt \scan_stop: \@plus .08 \baselineskip }
-    \dim_set:Nn \ccwd { \f@size pt + \l_@@_ccglue_skip }
-    \ctex_update_parindent:
-    \ctex_update_ccglue:
+    \fp_set:Nn \l_@@_tmp_fp {#1}
+    \fp_compare:nNnTF { \l_@@_tmp_fp } < \c_zero_fp
+      { \msg_new:nnx { ctex } { ziju-negative } { \fp_use:N \l_@@_tmp_fp } }
+      {
+        \tl_set:Nx \l_@@_ziju_tl { \fp_use:N \l_@@_tmp_fp }
+        \CTEXsetfont
+      }
   }
+\msg_new:nnn { ctex } { ziju-negative }
+  { `#1'~is~an~invalid~argument.~A~non-negative~number~is~required. }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_ziju:}
+% 更新字距。首先假定汉字的宽度为正常宽度加上字距，看一行上能正常放下多少个汉字。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ziju:
+  {
+    \dim_set:Nn \l_@@_ziju_dim { \l_@@_ziju_tl em }
+    \dim_set:Nn \ccwd { 1 em + \l_@@_ziju_dim }
+    \int_set:Nn \l_@@_tmp_int { \etex_dimexpr:D \linewidth - 1 em \scan_stop: }
+    \tex_divide:D \l_@@_tmp_int \etex_dimexpr:D \ccwd \scan_stop:
+%    \end{macrocode}
+% 伸展量保证行内的剩余空白能够被均匀地填充到汉字之间，收缩的最大限度是让当前行
+% 还能够再挤下一个汉字并且不会出现负间距。这里分两种情况：行内是否还放得下一个
+% 汉字（不包括字间距）。如果放不下就伸展，否则收缩。
+%    \begin{macrocode}
+    \dim_set:Nn \l_@@_tmp_dim { \linewidth - 1 em - \ccwd * \l_@@_tmp_int }
+    \skip_set:Nn \l_@@_ccglue_skip
+      {
+        \l_@@_ziju_dim
+        \dim_compare:nNnTF \l_@@_tmp_dim < { 1 em }
+          { plus \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int } }
+          {
+            minus \dim_eval:n
+              { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
+          }
+      }
+    \ctex_update_ccglue:
+%    \end{macrocode}
+% 字距设置得比较大时，为了尽量保证段首缩进能够与下一行对齐，需要相应地加上或者
+% 减去伸缩值。是否从 \cs{ccwd} 中增减比较好？
+%    \begin{macrocode}
+    \bool_if:NT \l_@@_autoindent_bool
+      {
+        \dim_compare:nNnF \parindent = \c_zero_dim
+          {
+            \dim_set:Nn \parindent
+              {
+                ( \ccwd + \etex_gluestretch:D \l_@@_ccglue_skip
+                        - \etex_glueshrink:D  \l_@@_ccglue_skip ) * \c_two
+              }
+          }
+      }
+  }
+\dim_new:N \l_@@_ziju_dim
 %    \end{macrocode}
 % \end{macro}
 %
