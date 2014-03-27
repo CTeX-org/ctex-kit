@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3111}
+% \CheckSum{3106}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -562,13 +562,12 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{内部函数与变量}
 %
 % \begin{variable}[internal]
-% {\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int,\l_@@_tmp_dim,\l_@@_tmp_fp}
+% {\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int,\l_@@_tmp_dim}
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
 \bool_new:N \g_@@_tmp_bool
 \int_new:N \l_@@_tmp_int
 \dim_new:N \l_@@_tmp_dim
-\fp_new:N \l_@@_tmp_fp
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2362,50 +2361,49 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{\ziju}
-% 保证参数非负。若参数为 $0$，则恢复正常间距。
+% 若参数为 $0$，则恢复正常间距。使用 \cs{selectfont} 是为了保证 \texttt{em} 值的正确。
 %    \begin{macrocode}
 \NewDocumentCommand \ziju { m }
   { \exp_args:Nx \ctex_ziju:n {#1} \tex_ignorespaces:D }
 \cs_new_protected_nopar:Npn \ctex_ziju:n #1
   {
-    \fp_set:Nn \l_@@_tmp_fp {#1}
-    \fp_compare:nNnTF { \l_@@_tmp_fp } < \c_zero_fp
-      { \msg_error:nnx { ctex } { ziju-negative } { \fp_use:N \l_@@_tmp_fp } }
-      {
-        \tl_set:Nx \l_@@_ziju_tl { \fp_use:N \l_@@_tmp_fp }
-        \CTEXsetfont
-      }
+    \tl_set:Nx \l_@@_ziju_tl { \fp_eval:n {#1} }
+    \cs_if_free:NTF \size@update
+      { \CTEXsetfont } { \selectfont }
   }
-\msg_new:nnn { ctex } { ziju-negative }
-  { `#1'~is~an~invalid~argument.~A~non-negative~number~is~required. }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\ctex_update_ziju:}
-% 更新字距。首先假定汉字的宽度为正常宽度加上字距，看一行上能正常放下多少个汉字。
+% 更新字距。若字距不大于 $-1$，即 \cs{ccwd} 为非正值，则不计算伸缩值。
+% 否则，首先假定汉字的宽度为正常宽度加上字距，看一行上能正常放下多少个汉字。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_ziju:
   {
     \dim_set:Nn \l_@@_ziju_dim { \l_@@_ziju_tl em }
     \dim_set:Nn \ccwd { 1 em + \l_@@_ziju_dim }
-    \int_set:Nn \l_@@_tmp_int { \etex_dimexpr:D \linewidth - 1 em \scan_stop: }
-    \tex_divide:D \l_@@_tmp_int \etex_dimexpr:D \ccwd \scan_stop:
+    \dim_compare:nNnTF \ccwd > \c_zero_dim
 %    \end{macrocode}
 % 伸展量保证行内的剩余空白能够被均匀地填充到汉字之间，收缩的最大限度是让当前行
 % 还能够再挤下一个汉字并且不会出现负间距。这里分两种情况：行内是否还放得下一个
 % 汉字（不包括字间距）。如果放不下就伸展，否则收缩。
 %    \begin{macrocode}
-    \dim_set:Nn \l_@@_tmp_dim { \linewidth - 1 em - \ccwd * \l_@@_tmp_int }
-    \skip_set:Nn \l_@@_ccglue_skip
       {
-        \l_@@_ziju_dim
-        \dim_compare:nNnTF \l_@@_tmp_dim < { 1 em }
-          { plus \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int } }
+        \int_set:Nn \l_@@_tmp_int { \etex_dimexpr:D \linewidth - 1 em \scan_stop: }
+        \tex_divide:D \l_@@_tmp_int \ccwd
+        \dim_set:Nn \l_@@_tmp_dim { \linewidth - 1 em - \l_@@_tmp_int \ccwd }
+        \skip_set:Nn \l_@@_ccglue_skip
           {
-            minus \dim_eval:n
-              { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
+            \l_@@_ziju_dim
+            \dim_compare:nNnTF \l_@@_tmp_dim < { 1 em }
+              { plus \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int } }
+              {
+                minus \dim_eval:n
+                  { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
+              }
           }
       }
+      { \skip_set:Nn \l_@@_ccglue_skip { \l_@@_ziju_dim } }
     \ctex_update_ccglue:
 %    \end{macrocode}
 % 字距设置得比较大时，为了尽量保证段首缩进能够与下一行对齐，需要相应地加上或者
