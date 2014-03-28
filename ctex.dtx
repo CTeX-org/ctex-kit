@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3127}
+% \CheckSum{3122}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2389,42 +2389,39 @@ This package consists of the file ctex.dtx, and the derived files
     \dim_compare:nNnTF \ccwd > \c_zero_dim
 %    \end{macrocode}
 % 伸展量保证行内的剩余空白能够被均匀地填充到汉字之间，收缩的最大限度是让当前行
-% 还能够再挤下一个汉字并且不会出现负间距。这里分两种情况：行内是否还放得下一个
-% 汉字（不包括字间距）。如果放不下就伸展，否则收缩。
+% 还能够再挤下一个汉字并且不会出现负间距。由 \TeX{} 决定伸展还是收缩。
 %    \begin{macrocode}
       {
         \dim_set:Nn \l_@@_tmp_dim { \linewidth - \f@size \p@ }
         \int_set:Nn \l_@@_tmp_int { \l_@@_tmp_dim }
         \tex_divide:D \l_@@_tmp_int \ccwd
         \dim_sub:Nn \l_@@_tmp_dim { \l_@@_tmp_int \ccwd }
+%    \end{macrocode}
+% 由于 \cs{parindent} 是一个固定值，并不参与伸缩，容易导致第一行出现坏盒子。
+% 我们在这里将字数减去 $2$，以此放大伸缩值。
+%    \begin{macrocode}
+        \dim_compare:nNnF \parindent = \c_zero_dim
+          {
+            \int_compare:nNnF \l_@@_tmp_int < \c_two
+              { \int_sub:Nn \l_@@_tmp_int { \c_two } }
+          }
         \skip_set:Nn \l_@@_ccglue_skip
           {
             \l_@@_ziju_dim
-            \dim_compare:nNnTF \l_@@_tmp_dim < { \f@size \p@ }
-              { plus \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int } }
-              {
-                minus \dim_eval:n
-                  { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
-              }
+            plus  \dim_eval:n { \l_@@_tmp_dim / ( \l_@@_tmp_int ) }
+            minus \dim_min:nn { \dim_abs:n { \l_@@_ziju_dim } }
+              { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
           }
       }
       { \skip_set:Nn \l_@@_ccglue_skip { \l_@@_ziju_dim } }
     \ctex_update_ccglue:
 %    \end{macrocode}
-% 字距设置得比较大时，为了尽量保证段首缩进能够与下一行对齐，需要相应地加上或者
-% 减去伸缩值。是否从 \cs{ccwd} 中增减比较好？
+% 字距设置得比较大时，为了尽量保证段首缩进能够与下一行对齐，应该需要相应地加上
+% 或者减去伸缩值。但是这里并不清楚 \TeX{} 是伸展还是收缩，之前以“当前行是否还
+% 放得下一个汉字”为标准加上或减去伸缩值的做法也未必与实际结果一致，所以只好还
+% 是设置为 |2\ccwd|。
 %    \begin{macrocode}
-    \bool_if:NT \l_@@_autoindent_bool
-      {
-        \dim_compare:nNnF \parindent = \c_zero_dim
-          {
-            \dim_set:Nn \parindent
-              {
-                ( \ccwd + \etex_gluestretch:D \l_@@_ccglue_skip
-                        - \etex_glueshrink:D  \l_@@_ccglue_skip ) * \c_two
-              }
-          }
-      }
+    \ctex_update_parindent:
   }
 \dim_new:N \l_@@_ziju_dim
 %    \end{macrocode}
