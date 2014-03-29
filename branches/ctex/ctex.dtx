@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3009}
+% \CheckSum{3051}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1147,15 +1147,80 @@ This package consists of the file ctex.dtx, and the derived files
 }
 %    \end{macrocode}
 %
-% \paragraph{字体切换方式}
+%    \begin{macrocode}
+\ExplSyntaxOn
+%    \end{macrocode}
+%
+% \paragraph{\pkg{luatexja} 的补丁}
 %
 %    \begin{macrocode}
 %<@@=ctex_ltj>
 %    \end{macrocode}
 %
+% 在 \LaTeX{} 下，\pkg{luatexja} 对 \pkg{fontspec}、\pkg{xunicode}、\pkg{unicode-math}
+% 和 \pkg{listings} 打了补丁。其中前三个是把 \cs{char} 换成 \cs{ltjalchar}，确保
+% 字符是 ALchar 类。我们这里用 \pkg{xunicode-addon} 来处理 \pkg{xunicode}。
 %    \begin{macrocode}
-\ExplSyntaxOn
+\RequirePackage { xunicode-addon }
+\AtBeginUTFCommand
+  {
+    \group_begin:
+    \lua_now_x:n { tex.globaldefs = 0 }
+    \ltj@allalchar
+  }
+\AtEndUTFCommand { \group_end: }
 %    \end{macrocode}
+% 对 \pkg{fontspec} 沿用 \pkg{luatexja} 的补丁。
+%    \begin{macrocode}
+\RequirePackage { lltjp-fontspec }
+%    \end{macrocode}
+% \pkg{lltjp-unicode-math} 让数学符号命令成为普通的文字宏。为了避免它被展开，应该
+% 用 \cs{protected} 来定义。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_um_char:Nw #1 = "#2 \q_nil
+  {
+    \group_begin:
+      \char_set_lccode:nn { `\! } { "#2 }
+      \tl_to_lowercase:n
+        {
+          \group_end:
+          \cs_gset_protected_nopar:Npn #1
+            {
+              \mode_if_math:TF { ! }
+                { {
+                    \lua_now_x:n { tex.globaldefs = 0 }
+                    \ltj@allalchar !
+                } }
+            }
+        }
+    \ltjsetmathletter{ "#2 }
+  }
+\AfterPreamble
+  {
+    \cs_if_free:NF \um_cs_set_eq_active_char:Nw
+      { \cs_set_eq:NN \um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
+  }
+%    \end{macrocode}
+% 对 \pkg{listings} 的补丁是让代码环境支持 JAchar 类。\pkg{luatexja} 的补丁会将
+% 代码目录标题改为日文，我们不需要。
+%    \begin{macrocode}
+\AfterPreamble
+  {
+    \@ifpackageloaded { listings }
+      {
+        \use:x
+          {
+            \exp_not:N \RequirePackage { lltjp-listings }
+            \tl_set:Nn \exp_not:N \lstlistingname
+              { \exp_not:o { \lstlistingname } }
+            \tl_set:Nn \exp_not:N \lstlistlistingname
+              { \exp_not:o { \lstlistlistingname } }
+          }
+      }
+  }
+%    \end{macrocode}
+%
+% \paragraph{字体切换方式}
 %
 % \begin{macro}[internal]{\ctex_ltj_select_font:,\CJK@family}
 % \cs{CJK@family} 保存的是当前 CJK 实际的字体族名，如果为空表示没有设置过字体。
