@@ -223,7 +223,7 @@ $URL$
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.2.10}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.11}{\ExplFileDescription}
 %<xunextra>\ExplSyntaxOff
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
@@ -348,7 +348,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9007}
+% \CheckSum{9005}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -4954,7 +4954,7 @@ $URL$
       {
         \xeCJK_class_group_begin:
         \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
-        \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl/FallBack }
+        \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack }
         \xeCJK_class_group_end:
       }
   }
@@ -4972,23 +4972,24 @@ $URL$
   {
     \xeCJK_family_if_exist:xTF {#2}
       {
-        \xeCJK_select_font:x {#2}
-        \tl_set:Nx \l_@@_fallback_family_tl {#2}
+        \tl_set:Nx \l_xeCJK_family_tl {#2}
+        \tl_set_eq:NN \CJK@family \l_@@_fontspec_family_tl
+        \xeCJK_select_font:
         \xeCJK_glyph_if_exist:NTF {#1}
           { \@@_fallback_save_CJKsymbol:N {#1} }
-          { \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl/FallBack } }
+          { \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack } }
       }
       {
-        \str_if_eq_x:nnTF { \CJKfamilydefault } { \l_xeCJK_family_tl }
+        \str_if_eq_x:nnTF { \CJKfamilydefault } { \l_@@_fallback_family_tl }
           {
             \@@_warning:nxxx { missing-glyph }
-              { \l_@@_fallback_family_tl } {#1}
+              { \l_xeCJK_family_tl } {#1}
               { \int_to_hexadecimal:n { `#1 } }
             \@@_fallback_save_CJKsymbol:N {#1}
           }
           {
-            \tl_set:Nx \l_xeCJK_family_tl { \CJKfamilydefault }
-            \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl }
+            \tl_set:Nx \l_@@_fallback_family_tl { \CJKfamilydefault }
+            \xeCJK_fallback_loop:Nn {#1} { \l_@@_fallback_family_tl }
           }
       }
   }
@@ -5291,8 +5292,11 @@ $URL$
         \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
-        \@@_gset_family_nfss_cs:xx {#1} { \exp_not:N \l_@@_fontspec_family_tl }
-        \group_end:
+        \@@_gset_family_nfss_cs:xx
+          {#1} { \exp_not:N \l_@@_fontspec_family_tl }
+        \exp_not:N \exp_args:NNNo \group_end:
+        \tl_set:Nn \exp_not:N \l_@@_fontspec_family_tl
+          { \exp_not:N \l_@@_fontspec_family_tl }
       }
   }
 \tl_new:N \l_@@_fontspec_family_tl
@@ -5306,7 +5310,10 @@ $URL$
     \prop_gpop:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
       {
         \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmp_tl
-          { \cs_undefine:c { \@@_family_nfss_csname:n {#1} } }
+          {
+            \cs_undefine:c { \@@_family_csname:n {#1} }
+            \cs_undefine:c { \@@_family_nfss_csname:n {#1} }
+          }
         \@@_warning:nxx { CJKfamily-redef } {#1} { \l_@@_tmp_tl }
       }
   }
@@ -5405,13 +5412,9 @@ $URL$
       {
         \xeCJK_family_if_exist:xT { \l_@@_family_name_tl }
           {
-            \prop_get:NnNT \exp_not:N \g_@@_family_name_prop
-              { \l_@@_family_name_tl } \exp_not:N \l_@@_fontspec_family_tl
-              {
-                \@@_gset_family_nfss_cs:xx
-                  { \l_@@_sub_family_name_tl }
-                  { \exp_not:N \l_@@_fontspec_family_tl }
-              }
+            \@@_gset_family_nfss_cs:xx
+              { \l_@@_sub_family_name_tl }
+              { \exp_not:N \l_@@_fontspec_family_tl }
           }
       }
   }
@@ -5422,11 +5425,12 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_copy_family:nn #1#2
   {
-    \xeCJK_family_if_exist:xT {#2}
+    \xeCJK_family_if_exist:nT {#2}
       {
+        \prop_gput:NnV \g_@@_family_name_prop
+          {#1} \l_@@_fontspec_family_tl
         \tl_map_inline:nn
           {
-            \g_@@_family_name_prop
             \g_@@_family_font_name_prop
             \g_@@_family_font_options_prop
           }
@@ -5445,28 +5449,18 @@ $URL$
 %
 % \subsection{字体切换}
 %
-% \begin{macro}[internal]{\l_xeCJK_current_font_tl,\xeCJK_select_font:,\xeCJK_select_font:x}
+% \begin{macro}[internal]{\l_xeCJK_current_font_tl,\xeCJK_select_font:}
 % 缓存当前字体的原始格式，以加速编译。
 %    \begin{macrocode}
 \tl_new:N \l_xeCJK_current_font_tl
-\tl_set:Nn \l_xeCJK_current_font_tl { \@@_font_csname:n { \l_xeCJK_family_tl } }
+\tl_set:Nn \l_xeCJK_current_font_tl { \@@_font_csname:n { \CJK@family } }
 \cs_new_nopar:Npn \@@_font_csname:n #1 { xeCJK/#1/\f@series/\f@shape/\f@size }
 \cs_new_protected_nopar:Npn \xeCJK_select_font:
   {
-    \cs_if_exist_use:cF { \l_xeCJK_current_font_tl }
+    \exp_args:Nc \cs_if_exist_use:NF { \l_xeCJK_current_font_tl }
       {
-        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_current_font_tl }
         \@@_family_use:x { \l_xeCJK_family_tl }
-        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
-      }
-  }
-\cs_new_protected_nopar:Npn \xeCJK_select_font:x #1
-  {
-    \cs_if_exist_use:cF { \@@_font_csname:n {#1} }
-      {
-        \tl_set:Nx \l_@@_current_coor_tl { \@@_font_csname:n {#1} }
-        \@@_family_use:x {#1}
-        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
+        \xeCJK_font_gset_to_current:c { \l_xeCJK_current_font_tl }
       }
   }
 \tl_new:N \l_@@_current_coor_tl
@@ -5499,10 +5493,8 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_block_select_font:n #1
   {
-    \cs_if_exist_use:cF { \@@_font_csname:n { \l_xeCJK_family_tl/#1 } }
+    \exp_args:Nc \cs_if_exist_use:NF { \@@_font_csname:n { \CJK@family/#1 } }
       {
-        \tl_set:Nx \l_@@_current_coor_tl
-          { \@@_font_csname:n { \l_xeCJK_family_tl/#1 } }
         \xeCJK_family_if_exist:xF { \l_xeCJK_family_tl/#1 }
           {
             \@@_copy_family:xx { \l_xeCJK_family_tl/#1 }
@@ -5513,7 +5505,8 @@ $URL$
               }
           }
         \@@_family_use:x { \l_xeCJK_family_tl/#1 }
-        \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
+        \xeCJK_font_gset_to_current:c
+          { \@@_font_csname:n { \CJK@family/#1 } }
       }
   }
 %    \end{macrocode}
@@ -5540,15 +5533,20 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[TF,internal]{\xeCJK_family_if_exist:x}
+% \begin{macro}[TF,internal]{\xeCJK_family_if_exist:n}
 %    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \xeCJK_family_if_exist:x #1 { T , F , TF }
+\prg_new_protected_conditional:Npnn \xeCJK_family_if_exist:n #1 { T , F , TF }
   {
-    \cs_if_exist:cTF { \@@_family_nfss_csname:n {#1} }
-      { \use_i:nn }
-      { \cs_if_exist_use:cTF { \@@_family_csname:n {#1} } }
-      { \prg_return_true: } { \prg_return_false: }
+    \prop_get:NnNTF \g_@@_family_name_prop {#1} \l_@@_fontspec_family_tl
+      { \prg_return_true: }
+      {
+        \exp_args:Nc \cs_if_exist_use:NTF { \@@_family_csname:n {#1} }
+          { \prg_return_true: } { \prg_return_false: }
+      }
   }
+\cs_generate_variant:Nn \xeCJK_family_if_exist:nT  { x }
+\cs_generate_variant:Nn \xeCJK_family_if_exist:nF  { x }
+\cs_generate_variant:Nn \xeCJK_family_if_exist:nTF { x }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5568,7 +5566,7 @@ $URL$
             \xeCJK_family_if_exist:xTF {#3}
               {
                 \tl_set:Nx \l_xeCJK_family_tl {#3}
-                \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl
+                \tl_set_eq:NN \CJK@family \l_@@_fontspec_family_tl
                 \IfBooleanT {#1} { \@@_family_use:x {#3} }
               }
               { \@@_family_unknown_warning:x {#3} }
@@ -5581,18 +5579,26 @@ $URL$
     \xeCJK_family_if_exist:xTF {#1}
       {
         \tl_set:Nx \l_xeCJK_family_tl {#1}
-        \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl
+        \tl_set_eq:NN \CJK@family \l_@@_fontspec_family_tl
       }
       { \@@_family_unknown_warning:x {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[var,internal]{\l_xeCJK_family_tl}
+% \begin{macro}[var,internal]{\l_xeCJK_family_tl,\CJK@family}
 % 用于保存文档当前正在使用的 CJK 字体族。
 % \changes{v3.2.0}{2013/04/14}{不将其初始化为 \cs{CJKfamilydefault}。}
 %    \begin{macrocode}
 \tl_new:N \l_xeCJK_family_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[var,internal]{\CJK@family}
+% 用于保存实际的字体族名称。
+% \changes{v3.2.11}{2014/03/29}{引入 \cs{CJK@family} 保存实际的字体族名。}
+%    \begin{macrocode}
+\tl_new:N \CJK@family
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5717,7 +5723,7 @@ $URL$
   {
     \prop_get:NnNTF \g_@@_fontspec_prop
       { CJKfontspec/#1/#2/id } \l_xeCJK_family_tl
-      { \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl }
+      { \xeCJK_switch_family:n { \l_xeCJK_family_tl } }
       {
         \@@_fontspec:xnn
           { CJKfontspec ( \int_eval:n { \g_@@_family_int + \c_one } ) }
@@ -5968,16 +5974,14 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
   {
-    \xeCJK_family_if_exist:xTF { \c_@@_math_tl }
-      { \tl_set:Nx \l_@@_tmp_tl { \c_@@_math_tl } }
+    \xeCJK_family_if_exist:xF { \c_@@_math_tl }
+      { \use:n }
       {
-        \xeCJK_family_if_exist:xTF { \CJKfamilydefault }
-          { \tl_set:Nx \l_@@_tmp_tl { \CJKfamilydefault } }
-          { \use_none:nnnnn }
+        \xeCJK_family_if_exist:xF { \CJKfamilydefault }
+          { \use:n } { \use_none:n }
       }
-    \prop_get:NVNT \g_@@_family_name_prop \l_@@_tmp_tl \l_@@_tmp_tl
       {
-        \tl_const:Nx \c_@@_math_family_tl { \l_@@_tmp_tl }
+        \tl_const:Nx \c_@@_math_family_tl { \l_@@_fontspec_family_tl }
         \DeclareSymbolFont { \c_@@_math_tl } { \c_@@_encoding_tl }
           { \c_@@_math_family_tl } { \mddefault } { \shapedefault }
         \cs_if_free:cF
@@ -6244,17 +6248,17 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_set_verb_exspace:
   {
-    \tl_if_exist:cTF { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
+    \tl_if_exist:cTF { xeCJK/verb/\CJK@family/\curr@fontshape/\f@size }
       {
         \skip_set:Nn \l_@@_verb_exspace_skip
-          { \use:c { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size } }
+          { \use:c { xeCJK/verb/\CJK@family/\curr@fontshape/\f@size } }
       }
       {
-        \tl_set:Nx \l_@@_current_coor_tl { \l_xeCJK_family_tl/\curr@fontshape }
+        \tl_set:Nx \l_@@_current_coor_tl { \CJK@family/\curr@fontshape }
         \prop_get:NVNTF \g_@@_scale_family_prop
           \l_@@_current_coor_tl \l_xeCJK_family_tl
           {
-            \tl_set_eq:NN \xeCJK@family \l_xeCJK_family_tl
+            \xeCJK_switch_family:n { \l_xeCJK_family_tl }
             \skip_zero:N \l_@@_verb_exspace_skip
           }
           {
@@ -6286,7 +6290,7 @@ $URL$
           }
       }
       {
-        \tl_const:cx { xeCJK/verb/\l_xeCJK_family_tl/\curr@fontshape/\f@size }
+        \tl_const:cx { xeCJK/verb/\CJK@family/\curr@fontshape/\f@size }
           { \skip_use:N \l_@@_verb_exspace_skip }
       }
   }
@@ -7166,6 +7170,17 @@ $URL$
   {
     \xeCJK_if_package_loaded:nT { listings }
       { \RequirePackage { xeCJK-listings } }
+  }
+%    \end{macrocode}
+%
+% 由于 \pkg{xeCJK} 假装 \pkg{CJK} 已经被引入了，导致 \pkg{everysel} 判断错误，
+% 从而给出 \cs{selectfont} 已经被修改的警告，并加入不必要的内容。需要在它判断
+% 之前取消定义。
+%    \begin{macrocode}
+\@@_at_end_preamble:n
+  {
+    \xeCJK_if_package_loaded:nT { everysel }
+      { \cs_undefine:c { ver@CJK . \c_@@_package_ext_tl } }
   }
 %    \end{macrocode}
 %
