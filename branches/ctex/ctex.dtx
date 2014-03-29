@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3111}
+% \CheckSum{3015}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -562,12 +562,13 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{内部函数与变量}
 %
 % \begin{variable}[internal]
-% {\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int,\l_@@_tmp_dim}
+% {\l_@@_tmp_tl,\g_@@_tmp_bool,\l_@@_tmp_int,\l_@@_tmp_dim,\l_@@_tmp_box}
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
 \bool_new:N \g_@@_tmp_bool
 \int_new:N \l_@@_tmp_int
 \dim_new:N \l_@@_tmp_dim
+\box_new:N \l_@@_tmp_box
 %    \end{macrocode}
 % \end{variable}
 %
@@ -618,35 +619,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
-% \cs{EverySelectfont} 直到文档开始时才有效。为了 \cs{ccwd} 和 \pkg{luatexja} 的
-% 字体设置在导言区也可用，我们还需要在这里手工修改 \cs{selectfont}。\pkg{everysel}
-% 宏包会用 \cs{CheckCommand} 来检查 \cs{selectfont} 是否为标准定义。我们修改了
-% \cs{selectfont}，所以会给出一个警告。为了消除这个警告，在它检查之前，还原本来
-% 定义。
-%    \begin{macrocode}
-\EverySelectfont { \CTEX@selectfont@hook }
-\cs_new_protected:Npn \ctex_add_to_selectfont:n #1
-  {
-    \cs_set_protected_nopar:Npx \CTEX@selectfont@hook
-      { \exp_not:o { \CTEX@selectfont@hook #1 } }
-  }
-\cs_new_eq:NN \CTEX@selectfont@hook \prg_do_nothing:
-\cs_new_eq:Nc \@@_save_selectfont: { selectfont ~ }
-\use:n
-  {
-    \ExplSyntaxOff
-    \xpretocmd \selectfont { \CTEX@selectfont@hook }
-      {
-        \tl_put_left:Nn \@EverySelectfont@Init
-          { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
-      }
-      { \ctex_patch_failure:N \selectfont }
-  }
-\ExplSyntaxOn
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{variable}[internal]{\l_@@_encoding_tl}
 %    \begin{macrocode}
 \tl_new:N \l_@@_encoding_tl
@@ -683,6 +655,8 @@ This package consists of the file ctex.dtx, and the derived files
     cs4size .code:n = { \int_set_eq:NN \l_@@_font_size_int \c_one } ,
     c5size  .value_forbidden: ,
     cs4size .value_forbidden: ,
+%<ctexsize>  }
+%<*!ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -702,8 +676,6 @@ This package consists of the file ctex.dtx, and the derived files
     indent .bool_set:N = \l_@@_indent_bool ,
     noindent   .meta:n = { indent = false } ,
     noindent   .value_forbidden: ,
-%<ctexsize>  }
-%<*!ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -842,6 +814,11 @@ This package consists of the file ctex.dtx, and the derived files
 \ProcessKeysOptions { ctex / option }
 %    \end{macrocode}
 %
+%    \begin{macrocode}
+%</class|style|ctexsize>
+%<*class|style>
+%    \end{macrocode}
+%
 % \begin{macro}{autoindent}
 % |autoindent| 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
 %    \begin{macrocode}
@@ -888,7 +865,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%<*class|style>
 \tl_set_eq:Nc \l_@@_tmp_tl { ver@ \@currname . \@currext }
 %<*class>
 \cs_new_eq:cN { ver@ctex.     \@pkgextension } \l_@@_tmp_tl
@@ -906,7 +882,6 @@ This package consists of the file ctex.dtx, and the derived files
   { \msg_error:nn { ctex } { ctexsize-loaded } }
   { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \l_@@_tmp_tl }
 %</style>
-%</class|style>
 %    \end{macrocode}
 %
 % \subsection{用户设置接口}
@@ -922,7 +897,6 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{\CTEXsetup}
 %    \begin{macrocode}
-%<*class|style>
 \NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
   { \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} } }
 %    \end{macrocode}
@@ -932,14 +906,8 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXoptions { +o }
   { \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} } }
-%</class|style>
 %    \end{macrocode}
 % \end{macro}
-%
-%    \begin{macrocode}
-%</class|style|ctexsize>
-%<*class|style>
-%    \end{macrocode}
 %
 % \subsection{引擎支持}
 %
@@ -1093,25 +1061,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_update_ccglue:}
-%    \begin{macrocode}
-\cs_new_eq:NN \ctex_update_ccglue: \prg_do_nothing:
-\cs_set_protected_nopar:Npn \CJKglue { \skip_horizontal:N \l_@@_ccglue_skip }
-%    \end{macrocode}
-% \end{macro}
-%
-% \pkg{CJK} 宏包也修改了 \cs{selectfont}，会覆盖我们之前的修改，在这里把它补上。
-%    \begin{macrocode}
-\cs_set_eq:Nc \@@_save_selectfont: { selectfont ~ }
-\use:n
-  {
-    \ExplSyntaxOff
-    \xapptocmd \selectfont { \CTEX@selectfont@hook } { }
-      { \ctex_patch_failure:N \selectfont }
-  }
-\ExplSyntaxOn
-%    \end{macrocode}
-%
 %    \begin{macrocode}
 %</pdftex>
 %<*xetex>
@@ -1128,13 +1077,6 @@ This package consists of the file ctex.dtx, and the derived files
 \bool_if:NF \l_@@_punct_bool
   { \xeCJKsetup { PunctStyle = plain } }
 %    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_update_ccglue:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ccglue:
-  { \xeCJKsetup { CJKglue = { \skip_horizontal:N \l_@@_ccglue_skip } } }
-%    \end{macrocode}
-% \end{macro}
 %
 %    \begin{macrocode}
 %</xetex>
@@ -1227,7 +1169,6 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_new:N \l_@@_current_font_tl
 \tl_set:Nn \l_@@_current_font_tl
   { \CJK@encoding / \CJK@family / \f@series / \f@shape / \f@size }
-\ctex_add_to_selectfont:n { \ctex_ltj_select_font: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1251,7 +1192,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}[internal]{\ctex_ltj_pickup_font:}
-% 替换 \cs{pickup@font} 内部调用的 \cs{extract@font} 和 \cs{do@subst@correction}。
+% 替换 \cs{define@newfont} 内部调用的 \cs{extract@font} 和 \cs{do@subst@correction}。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_pickup_font:
   {
@@ -1286,44 +1227,19 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \get@external@font
     \exp_after:wN \globaljfont \font@name \external@font \scan_stop:
-  }
 %    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_ltj_font_adjustment:}
-% 分别是 \cs{DeclareFontFamily} 和 \cs{DeclareFontShape} 的最后一个参数的内容，
-% 一般留空或者是对字体参数的一些设置。
+% 这里 \cs{font@name} 不会直接改变当前字体，而 \cs{DeclareFontFamily} 和
+% \cs{DeclareFontShape} 的最后一个参数通常要使用 \cs{font} 来引用当前字体。
+% 为此，我们在分组内启用之前定义的字体，以便能得到正确的 \cs{font}。对字体参数的
+% 赋值总是全局的，不会受到分组的影响。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_ltj_font_adjustment:
-  {
     \font@name
+    \lua_now_x:n { font.current(tex.attribute['ltj@curjfnt']) }
     \use:c { \f@encoding + \f@family }
     \use:c { \curr@fontshape }
   }
 %    \end{macrocode}
 % \end{macro}
-%
-%     \begin{macrocode}
-%<@@=>
-%    \end{macrocode}
-%
-% 使用 \cs{globaljfont} 定义 \cs{CS} 之后，\cs{CS} 不是通常意义上的字体命令，
-% 运行它不会直接改变当前字体。这里把 \cs{ctex_ltj_font_adjustment:} 放在
-% |\ltj@@jfont| 前面，是为了能得到正确的 \cs{font}。
-%    \begin{macrocode}
-\cs_if_free:NF \ltj@@jfont
-  {
-    \cs_set_protected_nopar:Npx \ltj@@jfont
-      {
-        \ctex_ltj_font_adjustment:
-        \exp_not:o { \ltj@@jfont }
-      }
-  }
-%    \end{macrocode}
-%
-%     \begin{macrocode}
-%<@@=ctex_ltj>
-%    \end{macrocode}
 %
 % \begin{macro}[internal]{\ctex_ltj_subst_font:}
 % \cs{do@subst@correction} 在设置通过 \texttt{sub} 或者 \texttt{ssub} 函数定义的
@@ -1432,16 +1348,9 @@ This package consists of the file ctex.dtx, and the derived files
 \SetSymbolFont { \c_@@_math_tl } { bold }
   { \CJK@encoding } { song } { \bfdefault } { \updefault }
 \int_const:Nn \c_@@_math_fam_int { \use:c { sym \c_@@_math_tl } }
-%    \end{macrocode}
-% \end{macro}
-%
-% Attribute 寄存器 \cs{ltj@curjfnt} 的初始值是 $-1$，必须把它设置为一个有效的
-% \texttt{font.id}，否则编译时会直接退出。
-%    \begin{macrocode}
-\tl_set:Nn \CJK@family { song } \selectfont
-\tl_clear:N \CJK@family
 \jfam \c_@@_math_fam_int
 %    \end{macrocode}
+% \end{macro}
 %
 % \paragraph{字体族的定义与使用}
 %
@@ -1857,13 +1766,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_update_ccglue:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ccglue:
-  { \ltjsetparameter { kanjiskip = \l_@@_ccglue_skip } }
-%    \end{macrocode}
-% \end{macro}
-%
 %    \begin{macrocode}
 \int_compare:nNnTF \l_@@_space_int > \c_one
   { \ltjsetparameter { autospacing = true } }
@@ -1902,23 +1804,7 @@ This package consists of the file ctex.dtx, and the derived files
 %</xetex|luatex>
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{\ctex_update_ccwd:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_update_ccwd:
-%<*pdftex|xetex>
-  {
-    \group_begin:
-      \hbox_set:Nn \l_tmpa_box { \CJKglue }
-    \exp_after:wN \group_end: \exp_after:wN
-    \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-      { \dim_use:N \box_wd:N \l_tmpa_box + \f@size \p@ }
-  }
-%</pdftex|xetex>
-%<*luatex>
-  { \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } + \zw } }
-%</luatex>
-%    \end{macrocode}
-% \end{macro}
+% \subsubsection{\texttt{fntef} 选项}
 %
 %    \begin{macrocode}
 %<*luatex>
@@ -1954,6 +1840,92 @@ This package consists of the file ctex.dtx, and the derived files
   \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
 %</luatex>
 \fi:
+%    \end{macrocode}
+%
+% \subsubsection{\cs{ccwd} 的更新}
+%
+% \begin{macro}[internal]{\ctex_update_ccwd:,\ccwd}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ccwd:
+%<*pdftex|xetex>
+  {
+    \hbox_set:Nn \l_@@_tmp_box { \CJKglue }
+    \dim_set:Nn \ccwd { \box_wd:N \l_@@_tmp_box + \f@size \p@ }
+  }
+%</pdftex|xetex>
+%<*luatex>
+  { \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } + \zw } }
+%</luatex>
+\dim_new:N \ccwd
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_ccglue:}
+% 更新字间距。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_ccglue:
+%<*pdftex>
+  {
+    \cs_set_protected_nopar:Npn \CJKglue
+      { \skip_horizontal:N \l_@@_ccglue_skip }
+  }
+%</pdftex>
+%<*xetex>
+  { \xeCJKsetup { CJKglue = { \skip_horizontal:N \l_@@_ccglue_skip } } }
+%</xetex>
+%<*luatex>
+  { \ltjsetparameter { kanjiskip = \l_@@_ccglue_skip } }
+%</luatex>
+\skip_new:N \l_@@_ccglue_skip
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
+% \cs{EverySelectfont} 直到文档开始时才有效。为了 \cs{ccwd} 和 \pkg{luatexja} 的
+% 字体设置在导言区也可用，我们还需要在这里手工修改 \cs{selectfont}。\pkg{everysel}
+% 宏包会用 \cs{CheckCommand} 来检查 \cs{selectfont} 是否为标准定义。我们修改了
+% \cs{selectfont}，所以会给出一个警告。为了消除这个警告，在它检查之前，还原本来
+% 定义。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_add_to_selectfont:n #1
+  {
+    \cs_set_protected_nopar:Npx \CTEX@selectfont@hook
+      { \exp_not:o { \CTEX@selectfont@hook #1 } }
+  }
+\cs_new_eq:NN \CTEX@selectfont@hook \prg_do_nothing:
+\cs_new_eq:Nc \@@_save_selectfont: { selectfont ~ }
+\use:n
+  {
+    \ExplSyntaxOff
+    \xpretocmd \selectfont { \CTEX@selectfont@hook }
+      {
+        \tl_put_left:Nn \@EverySelectfont@Init
+          { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
+      }
+      { \ctex_patch_failure:N \selectfont }
+  }
+\ExplSyntaxOn
+%    \end{macrocode}
+% \end{macro}
+%
+% \cs{CJK@plane} 有定义，说明处于 \pkg{CJK} 宏包的 \cs{CJKsymbol} 之内，不必使用钩子。
+%    \begin{macrocode}
+%<*pdftex>
+\EverySelectfont { \cs_if_exist:NF \CJK@plane { \CTEX@selectfont@hook } }
+%</pdftex>
+%<*xetex|luatex>
+\EverySelectfont { \CTEX@selectfont@hook }
+%</xetex|luatex>
+%    \end{macrocode}
+%
+% Attribute 寄存器 \cs{ltj@curjfnt} 的初始值是 $-1$，必须把它设置为一个有效的
+% \texttt{font.id}，否则编译时会直接退出。
+%    \begin{macrocode}
+%<*luatex>
+\ctex_add_to_selectfont:n { \ctex_ltj_select_font: }
+\tl_set:Nn \CJK@family { song } \selectfont
+\tl_clear:N \CJK@family
+%</luatex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -2178,9 +2150,18 @@ This package consists of the file ctex.dtx, and the derived files
   { \ctex_declare_math_sizes:nnnn #1 }
 %    \end{macrocode}
 %
-% \subsubsection{行距与缩进}
+%    \begin{macrocode}
+%<ctexsize>\normalsize
+%    \end{macrocode}
 %
-% \begin{macro}[internal]{\CTEXsetfont,\ccwd}
+%    \begin{macrocode}
+%</class|style|ctexsize>
+%<*class|style>
+%    \end{macrocode}
+%
+% \subsubsection{字距与缩进}
+%
+% \begin{macro}[internal]{\CTEXsetfont}
 % 在字号变化时更新 \cs{ccwd} 和 \cs{parindent}。字距为零则恢复正常设置。
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXsetfont { }
@@ -2192,7 +2173,6 @@ This package consists of the file ctex.dtx, and the derived files
       }
       { \ctex_update_ziju: }
   }
-\dim_new:N \ccwd
 \tl_const:Nx \c_@@_zero_tl { \fp_use:N \c_zero_fp }
 \tl_new:N \l_@@_ziju_tl
 \tl_set_eq:NN \l_@@_ziju_tl \c_@@_zero_tl
@@ -2234,11 +2214,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_stretch:
   {
-    \dim_set:Nn \ccwd { \f@size \p@ }
     \dim_set:Nn \l_@@_tmp_dim { \l_@@_line_stretch_tl }
     \dim_compare:nNnTF \l_@@_tmp_dim = \c_max_dim
       { \ctex_update_ccwd: }
       {
+        \dim_set:Nn \ccwd { \f@size \p@ }
         \int_set:Nn \l_@@_tmp_int
           { \etex_dimexpr:D \linewidth - \ccwd - \l_@@_tmp_dim \scan_stop: }
         \tex_divide:D \l_@@_tmp_int \ccwd
@@ -2250,37 +2230,6 @@ This package consists of the file ctex.dtx, and the derived files
         \ctex_update_ccglue:
       }
   }
-\skip_new:N \l_@@_ccglue_skip
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_update_ccwd:}
-% \pkg{ctexsize} 单独使用时，分情况定义。
-%    \begin{macrocode}
-%<*ctexsize>
-\cs_if_exist:NTF \CJKglue
-  {
-    \cs_new_protected_nopar:Npn \ctex_update_ccwd:
-      {
-        \group_begin:
-          \hbox_set:Nn \l_tmpa_box { \CJKglue }
-        \exp_after:wN \group_end: \exp_after:wN
-        \dim_set:Nn \exp_after:wN \ccwd \exp_after:wN
-          { \dim_use:N \box_wd:N \l_tmpa_box + \f@size \p@ }
-      }
-  }
-  {
-    \cs_if_exist:NTF \ltjgetparameter
-      {
-        \cs_new_protected_nopar:Npn \ctex_update_ccwd:
-          { \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } + \zw } }
-      }
-      {
-        \cs_new_protected_nopar:Npn \ctex_update_ccwd:
-          { \dim_set:Nn \ccwd { \f@size \p@ } }
-      }
-  }
-%</ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2297,66 +2246,6 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 % \end{macro}
-%
-% 行距为 $1.2\times 1.3=2.56$ 倍字体大小。
-%    \begin{macrocode}
-\linespread { 1.3 }
-%    \end{macrocode}
-%
-% 激活默认字体大小，更新 \cs{parindent}。
-%    \begin{macrocode}
-\normalsize
-%    \end{macrocode}
-%
-% \begin{macro}{\CTEXindent,\CTEXnoindent}
-% 过时命令。
-%    \begin{macrocode}
-\NewDocumentCommand \CTEXindent { }
-  { \ctex_update_ccwd: \dim_set:Nn \parindent { 2 \ccwd } }
-\NewDocumentCommand \CTEXnoindent { }
-  { \dim_zero:N \parindent }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-\bool_if:NT \l_@@_indent_bool
-  { \RequirePackage { indentfirst } }
-%    \end{macrocode}
-%
-% \subsubsection{字距}
-%
-%    \begin{macrocode}
-%<*ctexsize>
-\msg_new:nnn { ctex } { ziju-unavailable }
-  { Command~`\token_to_str:N \ziju'~is~unavailable. }
-\cs_if_exist:NTF \xeCJKsetup
-  {
-    \cs_new_protected_nopar:Npn \ctex_update_ccglue:
-      { \xeCJKsetup { CJKglue = { \skip_horizontal:N \l_@@_ccglue_skip } } }
-  }
-  {
-    \cs_if_exist:NTF \CJKglue
-      {
-        \cs_new_eq:NN \ctex_update_ccglue: \prg_do_nothing:
-        \cs_set_protected_nopar:Npn \CJKglue
-          { \skip_horizontal:N \l_@@_ccglue_skip }
-      }
-      {
-        \cs_if_exist:NTF \ltjsetparameter
-          {
-            \cs_new_protected_nopar:Npn \ctex_update_ccglue:
-              { \ltjsetparameter { kanjiskip = \l_@@_ccglue_skip } }
-          }
-          {
-            \msg_warning:nn { ctex } { ziju-unavailable }
-            \cs_set_eq:NN \ctex_update_stretch: \prg_do_nothing:
-            \cs_set_eq:NN \ctex_update_ziju: \prg_do_nothing:
-            \tex_endinput:D
-          }
-      }
-  }
-%</ctexsize>
-%    \end{macrocode}
 %
 % \begin{macro}{\ziju}
 % 若参数为 $0$，则恢复正常间距。使用 \cs{selectfont} 是为了保证字体大小值的正确。
@@ -2422,9 +2311,29 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% 行距为 $1.2\times 1.3=2.56$ 倍字体大小。
 %    \begin{macrocode}
-%</class|style|ctexsize>
-%<*class|style>
+\linespread { 1.3 }
+%    \end{macrocode}
+%
+% 激活默认字体大小，更新 \cs{parindent} 和 \cs{CJKglue}。
+%    \begin{macrocode}
+\normalsize
+%    \end{macrocode}
+%
+% \begin{macro}{\CTEXindent,\CTEXnoindent}
+% 过时命令。
+%    \begin{macrocode}
+\NewDocumentCommand \CTEXindent { }
+  { \ctex_update_ccwd: \dim_set:Nn \parindent { 2 \ccwd } }
+\NewDocumentCommand \CTEXnoindent { }
+  { \dim_zero:N \parindent }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\bool_if:NT \l_@@_indent_bool
+  { \RequirePackage { indentfirst } }
 %    \end{macrocode}
 %
 % \subsection{中文数字与日期}
@@ -3114,13 +3023,11 @@ This package consists of the file ctex.dtx, and the derived files
 %   \begin{macrocode}
 \cs_new_protected:Npn \CTEX@toc@width@n #1
   {
-    \group_begin:
-      \hbox_set:Nn \l_tmpa_box {#1}
-    \exp_after:wN \group_end: \exp_after:wN
-    \dim_set:Nn \exp_after:wN \@tempdima \exp_after:wN
+    \hbox_set:Nn \l_@@_tmp_box {#1}
+    \dim_set:Nn \@tempdima
       {
-        \exp_after:wN \dim_max:nn \exp_after:wN
-          { \dim_use:N \box_wd:N \l_tmpa_box + .5em } { \@tempdima }
+        \dim_max:nn { \@tempdima }
+          { \box_wd:N \l_@@_tmp_box + \f@size \p@ / \c_two }
       }
   }
 \group_begin:
