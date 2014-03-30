@@ -368,7 +368,7 @@ This package consists of the file ctex.dtx, and the derived files
 \AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
 \AtEndUTFCommand[\textrangle]{\endgroup}
 \fvset{
-  fontsize=\small,baselinestretch=1,
+  fontsize=\small,baselinestretch=1,numbersep=5pt,
   listparameters=\setlength\topsep{\MacrocodeTopsep}}
 \preto\MacroFont{\linespread{1}}
 \appto\MacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3055}
+% \CheckSum{3127}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -540,23 +540,24 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<@@=ctex>
-%<*ctexcap>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+%<*ctexcap>
 \PassOptionsToPackage { heading = true } { ctexcap }
 \RequirePackageWithOptions { ctex }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
 %</ctexcap>
-%<*class|style|ctexsize>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+%<*class|style|ctexsize>
 \RequirePackage { xparse , l3keys2e }
-%<*!ctexsize>
-\RequirePackage { xpatch , ifpdf , fix-cm , everysel }
+%</class|style|ctexsize>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%<*class|style>
+\RequirePackage { etoolbox , ifpdf , fix-cm , everysel }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
@@ -573,6 +574,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{variable}
 %
 % \begin{macro}[internal,pTF]{\ctex_if_pdfmode:}
+% \cs{ifpdf} 的简单 wrapper。
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \ctex_if_pdfmode: { p , T , F , TF }
   { \ifpdf \prg_return_true: \else: \prg_return_false: \fi: }
@@ -580,6 +582,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}[internal]{\ctex_file_input:n}
+% 使用 \cs{@pushfilename} 和 \cs{@popfilename} 是为了让文件可以不受当前
+% \hologo{LaTeX3} 语法环境的影响。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_file_input:n #1
   { \@pushfilename \file_input:n {#1} \@popfilename }
@@ -587,7 +591,95 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\ctex_parse_name:NN}
+% 用 \cs{DeclareRobustCommand} 定义的宏或者由 \cs{newcommand} 或 \cs{newrobustcmd}
+% 定义的带一个可选参数的宏第一次展开的结果都不是其实际定义，实际定义被保存在另外的
+% 宏中。由这些命令定义的宏的第一次展开结果可以有下面的形式（细节可查阅 \pkg{xpatch}
+% 的文档）：
+% \begin{verbatim}[numbers=left,gobble=4]
+%   \protect␣\xaa␣␣
+%   \protect␣\xab␣␣
+%   \@protected@testopt␣\xac␣\\xac␣{}
+%   \@testopt␣\\xad␣{}
+%   \x@protect␣\1\protect␣\1␣␣
+%   \x@protect␣\2\protect␣\2␣␣
+%   \@protected@testopt␣\3\\3␣{}
+%   \@testopt␣\\4␣{}
+% \end{verbatim}
+% \pkg{etoolbox} 的 \cs{patchcmd} 的主要原理是先对宏的 \cs{meaning} 作字符串
+% 替换，然后再用 \cs{scantokens} 来重建它。我们希望对宏的实际定义打补丁，为此需要
+% 先得到对应的名字。\pkg{xpatch} 宏包就是为此而诞生的。我们不想依赖它，主要是因为
+% 它与同作者的 \pkg{regexpatch} 宏包共用了主要函数的名字，将导致用户不能使用
+% \pkg{regexpatch}。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_parse_name:NN #1#2
+  { \ctex_parse_name:NNx #1#2 { \cs_to_str:N #2 } }
+\group_begin:
+\char_set_lccode:nn { `\< } { `\{ }
+\char_set_lccode:nn { `\/ } { `\\ }
+\char_set_lccode:nn { `\A } { `\t }
+\tl_map_function:nN { \A \E \S \O \P } \char_set_catcode_other:N
+\tl_to_lowercase:n
+  {
+    \group_end:
+    \cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
+      {
+        \bool_if:nTF { \cs_if_exist_p:c { #3 ~ } || \cs_if_exist_p:c { /#3 } }
+          {
+            \use:x
+              {
+                \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
+                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 } {#3}
+              } #1
+          }
+          { #1#2 }
+      }
+    \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
+      {
+        \exp_args:Nc #6
+          {
+            \str_case:nnTF {#1}
+              {
+                { \protect #3 } { }
+                { \x@protect #2 \protect #3 } { }
+              }
+              {
+                \str_if_eq_x:nnTF { \exp_not:n { /@protected@ #3 /#3 } }
+                  {
+                    \exp_last_unbraced:Nf \@@_parse_name:w
+                    \token_get_replacement_spec:N #3 AESAOPA ~ < \q_stop
+                  }
+                  { /#5 ~ } { #5 ~ }
+              }
+              {
+                \str_case:onTF { \@@_parse_name:w #1 AESAOPA ~ < \q_stop }
+                  {
+                    { /@protected@ #2 #4 } { }
+                    { /@ #4 } { }
+                  }
+                  { /#5 } {#5}
+              }
+          }
+      }
+    \cs_new:Npn \@@_parse_name:w #1 AESAOPA ~ #2 < #3 \q_stop { #1#2 }
+  }
+\cs_generate_variant:Nn \ctex_parse_name:NNn { NNx }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}[internal]{\ctexpatchcmd,\ctexpretocmd,\ctexapptocmd,\ctexshowcmd}
+% 在补丁和显示命令前先解析实际名字。
+%    \begin{macrocode}
+\NewDocumentCommand \ctexpatchcmd { } { \ctex_parse_name:NN \patchcmd }
+\NewDocumentCommand \ctexpretocmd { } { \ctex_parse_name:NN \pretocmd }
+\NewDocumentCommand \ctexapptocmd { } { \ctex_parse_name:NN \apptocmd }
+\NewDocumentCommand \ctexshowcmd  { } { \ctex_parse_name:NN \show }
+%    \end{macrocode}
+% \end{variable}
+%
 % \begin{macro}[internal]{\ctex_patch_cmd:Nnn}
+% 参数记号 |#| 作为宏的参数被读入时，总是会双写，会影响随后的字符串替换。需要先
+% 将它转换为普通符号。并且在补丁的时候关闭 \hologo{LaTeX3} 语法。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_patch_cmd:Nnn
   {
@@ -600,7 +692,7 @@ This package consists of the file ctex.dtx, and the derived files
     \group_end:
     \group_begin:
     \ExplSyntaxOff
-    \xpatchcmd #1 {#2} {#3}
+    \ctexpatchcmd #1 {#2} {#3}
       {
         \cs_gset_eq:NN \@@_tmp:w #1
         \group_end:
@@ -620,6 +712,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{variable}[internal]{\l_@@_encoding_tl}
+% (pdf)\LaTeX{} 初始化编码为 GBK，其它则是 UTF8。
 %    \begin{macrocode}
 \tl_new:N \l_@@_encoding_tl
 \tl_set:Nx \l_@@_encoding_tl
@@ -632,9 +725,13 @@ This package consists of the file ctex.dtx, and the derived files
 \int_new:N \l_@@_space_int
 \int_new:N \l_@@_section_depth_int
 \int_set_eq:NN \l_@@_section_depth_int \c_two
-%</!ctexsize>
 %    \end{macrocode}
 % \end{variable}
+%
+%    \begin{macrocode}
+%</class|style>
+%<*class|style|ctexsize>
+%    \end{macrocode}
 %
 % \begin{variable}[internal]{\l_@@_font_size_int}
 %    \begin{macrocode}
@@ -656,9 +753,13 @@ This package consists of the file ctex.dtx, and the derived files
     c5size  .value_forbidden: ,
     cs4size .value_forbidden: ,
 %<ctexsize>  }
-%<*!ctexsize>
 %    \end{macrocode}
 % \end{macro}
+%
+%    \begin{macrocode}
+%</class|style|ctexsize>
+%<*class|style>
+%    \end{macrocode}
 %
 % \changes{v2.0}{2014/03/13}{新增 \texttt{autoindent} 选项。}
 %
@@ -778,9 +879,13 @@ This package consists of the file ctex.dtx, and the derived files
     fancyhdr .bool_set:N = \l_@@_fancyhdr_bool ,
     hyperref .bool_set:N = \l_@@_hyperref_bool
   }
-%</!ctexsize>
 %    \end{macrocode}
 % \end{macro}
+%
+%    \begin{macrocode}
+%</class|style>
+%<*class|style|ctexsize>
+%    \end{macrocode}
 %
 % \begin{macro}{10pt,11pt,12pt}
 %    \begin{macrocode}
@@ -1014,13 +1119,13 @@ This package consists of the file ctex.dtx, and the derived files
   \tl_if_exist:NF \CJKrmdefault { \tl_new:N \CJKrmdefault }
   \tl_if_exist:NF \CJKsfdefault { \tl_new:N \CJKsfdefault }
   \tl_if_exist:NF \CJKttdefault { \tl_new:N \CJKttdefault }
-  \xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+  \ctexpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
     { \ctex_patch_failure:N \rmfamily }
-  \xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+  \ctexpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
     { \ctex_patch_failure:N \sffamily }
-  \xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+  \ctexpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
     { \ctex_patch_failure:N \ttfamily }
-  \xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+  \ctexpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
     { \cs_set_eq:NN \reset@font \normalfont }
     { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
@@ -1718,13 +1823,13 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
 \tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
 \tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
-\xpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+\ctexpretocmd \rmfamily { \CJKfamily { \CJKrmdefault } } { }
   { \ctex_patch_failure:N \rmfamily }
-\xpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
+\ctexpretocmd \sffamily { \CJKfamily { \CJKsfdefault } } { }
   { \ctex_patch_failure:N \sffamily }
-\xpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
+\ctexpretocmd \ttfamily { \CJKfamily { \CJKttdefault } } { }
   { \ctex_patch_failure:N \ttfamily }
-\xpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
+\ctexpretocmd \normalfont { \CJKfamily { \CJKfamilydefault } }
   { \cs_set_eq:NN \reset@font \normalfont }
   { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
@@ -1963,7 +2068,7 @@ This package consists of the file ctex.dtx, and the derived files
 \use:n
   {
     \ExplSyntaxOff
-    \xpretocmd \selectfont { \CTEX@selectfont@hook }
+    \ctexpretocmd \selectfont { \CTEX@selectfont@hook }
       {
         \tl_put_left:Nn \@EverySelectfont@Init
           { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
@@ -3074,14 +3179,14 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \group_end:
     \ExplSyntaxOff
-    \xpretocmd \numberline { \CTEX@toc@width@n {#1} } { }
+    \ctexpretocmd \numberline { \CTEX@toc@width@n {#1} } { }
       { \ctex_patch_failure:N \numberline }
     \ExplSyntaxOn
     \AtBeginDocument
       {
         \@ifpackageloaded { tocloft }
           {
-            \xpretocmd \numberline { \CTEX@toc@width@n {#1} } { }
+            \ctexpretocmd \numberline { \CTEX@toc@width@n {#1} } { }
               { \ctex_patch_failure:N \numberline }
           } { }
       }
@@ -3380,13 +3485,13 @@ This package consists of the file ctex.dtx, and the derived files
     \begin { @@_test_env } \end { @@_test_env }
     \bool_if:NF \g_@@_tmp_bool
       {
-        \xpatchcmd \end { \csname end#1 \endcsname }
+        \ctexpatchcmd \end { \csname end#1 \endcsname }
           {
             \csuse { @end@#1@hook }
             \csname end#1 \endcsname
           } { }
           {
-            \xpretocmd \end { \csuse { @end@#1@hook } }
+            \ctexpretocmd \end { \csuse { @end@#1@hook } }
               { } { \ctex_patch_failure:N \end }
           }
       }
