@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3123}
+% \CheckSum{3125}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -597,20 +597,20 @@ This package consists of the file ctex.dtx, and the derived files
 % 宏中。由这些命令定义的宏的第一次展开结果可以有下面的形式（细节可查阅 \pkg{xpatch}
 % 的文档）：
 % \begin{verbatim}[numbers=left,gobble=4]
-%   \protect␣\xaa␣␣
-%   \protect␣\xab␣␣
-%   \@protected@testopt␣\xac␣\\xac␣{}
-%   \@testopt␣\\xad␣{}
-%   \x@protect␣\1\protect␣\1␣␣
-%   \x@protect␣\2\protect␣\2␣␣
-%   \@protected@testopt␣\3\\3␣{}
-%   \@testopt␣\\4␣{}
+%   \protect␣\xaa␣␣                    % \DeclareRobustCommand\xaa[1]{...}
+%   \protect␣\xab␣␣                    % \DeclareRobustCommand\xab[1][]{...}
+%   \@protected@testopt␣\xac␣\\xac␣{}  % \newcommand\xac[1][]{...}
+%   \@testopt␣\\xad␣{}                 % \newrobustcmd\xad[1][]{...}
+%   \x@protect␣\1\protect␣\1␣␣         % \DeclareRobustCommand\1[1]{...}
+%   \x@protect␣\2\protect␣\2␣␣         % \DeclareRobustCommand\2[1][]{...}
+%   \@protected@testopt␣\3\\3␣{}       % \newcommand\3[1][]{...}
+%   \@testopt␣\\4␣{}                   % \newrobustcmd\4[1][]{...}
 % \end{verbatim}
 % \pkg{etoolbox} 的 \cs{patchcmd} 的主要原理是先对宏的 \cs{meaning} 作字符串
 % 替换，然后再用 \cs{scantokens} 来重建它。我们希望对宏的实际定义打补丁，为此需要
-% 先得到对应的名字。\pkg{xpatch} 宏包就是为此而诞生的。我们不想依赖它，主要是因为
-% 它与同作者的 \pkg{regexpatch} 宏包共用了主要函数的名字，将导致用户不能使用
-% \pkg{regexpatch}。
+% 先得到对应的名字。\pkg{letltxmacro}、\pkg{show2e} 和 \pkg{xpatch} 宏包中都有
+% 类似的工作。我们不想依赖 \pkg{xpatch}，主要是因为它与同作者的 \pkg{regexpatch}
+% 宏包共用了主要函数的名字，从而将导致用户不能使用 \pkg{regexpatch}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_parse_name:NN #1#2
   { \ctex_parse_name:NNx #1#2 { \cs_to_str:N #2 } }
@@ -720,11 +720,19 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}[internal]{\l_@@_space_int,\l_@@_section_depth_int}
+% \begin{variable}[internal]{\g_@@_space_flag}
+% |1| 表示保留汉字之间空格的标志，大于 |1| 则不保留。\pdfTeX{} 下，|2| 还将引入
+% \pkg{CJKspace} 宏包。
 %    \begin{macrocode}
-\int_new:N \l_@@_space_int
-\int_new:N \l_@@_section_depth_int
-\int_set_eq:NN \l_@@_section_depth_int \c_two
+\cs_new_eq:NN \g_@@_space_flag \c_three
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{variable}[internal]{\g_@@_section_depth_flag}
+% 若大于 |3|，则 \cs{paragraph} 和 \cs{subparagraph} 标题单独占一行；若为 |3|，则
+% \cs{paragraph} 单独占一行。
+%    \begin{macrocode}
+\cs_new_eq:NN \g_@@_section_depth_flag \c_two
 %    \end{macrocode}
 % \end{variable}
 %
@@ -733,9 +741,10 @@ This package consists of the file ctex.dtx, and the derived files
 %<*class|style|ctexsize>
 %    \end{macrocode}
 %
-% \begin{variable}[internal]{\l_@@_font_size_int}
+% \begin{variable}[internal]{\g_@@_font_size_flag}
+% |0| 表示修改默认字体大小为五号，|1| 为小四号，其它值则不作修改。
 %    \begin{macrocode}
-\int_new:N \l_@@_font_size_int
+\cs_new_eq:NN \g_@@_font_size_flag \c_zero
 %    \end{macrocode}
 % \end{variable}
 %
@@ -748,8 +757,8 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{c5size,cs4size}
 %    \begin{macrocode}
-    c5size  .code:n = { \int_zero:N \l_@@_font_size_int } ,
-    cs4size .code:n = { \int_set_eq:NN \l_@@_font_size_int \c_one } ,
+    c5size  .code:n = { \cs_gset_eq:NN \g_@@_font_size_flag \c_zero } ,
+    cs4size .code:n = { \cs_gset_eq:NN \g_@@_font_size_flag \c_one } ,
     c5size  .value_forbidden: ,
     cs4size .value_forbidden: ,
 %<ctexsize>  }
@@ -835,9 +844,8 @@ This package consists of the file ctex.dtx, and the derived files
 %   \begin{macrocode}
     space .choices:nn =
       { true , auto , false }
-      { \int_set_eq:NN \l_@@_space_int \l_keys_choice_int } ,
+      { \tex_global:D \tex_chardef:D \g_@@_space_flag \l_keys_choice_int } ,
     space  .default:n = { true } ,
-    space  .initial:n = { false } ,
     nospace   .meta:n = { space = false } ,
     nospace   .value_forbidden: ,
 %    \end{macrocode}
@@ -865,9 +873,9 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}{sub3section,sub4section}
 % \begin{macrocode}
     sub3section .code:n =
-      { \int_set_eq:NN \l_@@_section_depth_int \c_three } ,
+      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_three } ,
     sub4section .code:n =
-      { \int_set_eq:NN \l_@@_section_depth_int \c_four } ,
+      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_four } ,
     sub3section .value_forbidden: ,
     sub4section .value_forbidden: ,
 %    \end{macrocode}
@@ -888,6 +896,8 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{10pt,11pt,12pt}
+% 使 \pkg{ctex} 和 \pkg{ctexsize} 可以接受文档类的全局选项，不修改默认字体大小。
+% 在文档类下还将参数传给标准文档类。
 %    \begin{macrocode}
 \clist_map_inline:nn { 10pt , 11pt , 12pt }
   {
@@ -895,11 +905,11 @@ This package consists of the file ctex.dtx, and the derived files
       {
         #1 .code:n =
 %<*!class>
-          { \int_set_eq:NN \l_@@_font_size_int \c_minus_one } ,
+          { \cs_gset_eq:NN \g_@@_font_size_flag \c_minus_one } ,
 %</!class>
 %<*class>
           {
-            \int_set_eq:NN \l_@@_font_size_int \c_minus_one
+            \cs_gset_eq:NN \g_@@_font_size_flag \c_minus_one
 %<article>            \PassOptionsToPackage {#1} { article }
 %<book>            \PassOptionsToPackage {#1} { book }
 %<report>            \PassOptionsToPackage {#1} { report }
@@ -950,8 +960,9 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_clear:N \@unusedoptionlist
 %    \end{macrocode}
 %
+% 五号字使用标准文档类的 |10pt| 字体大小设置，小四号字则使用 |12pt|。
 %    \begin{macrocode}
-\if_case:w \l_@@_font_size_int
+\if_case:w \g_@@_font_size_flag
 %<article>  \PassOptionsToClass { 10pt } { article }
 %<book>  \PassOptionsToClass { 10pt } { book }
 %<report>  \PassOptionsToClass { 10pt } { report }
@@ -1066,7 +1077,7 @@ This package consists of the file ctex.dtx, and the derived files
     { \RequirePackage { CJKutf8 } }
   \bool_if:NT \l_@@_punct_bool
     { \RequirePackage { CJKpunct } }
-  \int_compare:nNnT \l_@@_space_int = \c_two
+  \int_compare:nNnT \g_@@_space_flag = \c_two
     { \RequirePackage { CJKspace } }
 %    \end{macrocode}
 %
@@ -1087,7 +1098,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
   \group_begin:
-  \int_compare:nNnTF \l_@@_space_int > \c_one
+  \int_compare:nNnTF \g_@@_space_flag > \c_one
     {
       \tl_set:Nn \l_@@_tmp_tl { CJK* }
       \tl_set:Nn \CJKtilde { \CJKtilde }
@@ -1177,7 +1188,7 @@ This package consists of the file ctex.dtx, and the derived files
 \RequirePackage [ indentfirst = false ] { xeCJK }
 \defaultfontfeatures { Ligatures = TeX }
 \xeCJKsetup { AutoFakeBold = true }
-\int_compare:nNnF \l_@@_space_int > \c_one
+\int_compare:nNnF \g_@@_space_flag > \c_one
   { \xeCJKsetup { CJKspace = true } }
 \bool_if:NF \l_@@_punct_bool
   { \xeCJKsetup { PunctStyle = plain } }
@@ -1940,7 +1951,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-\int_compare:nNnTF \l_@@_space_int > \c_one
+\int_compare:nNnTF \g_@@_space_flag > \c_one
   { \ltjsetparameter { autospacing = true } }
   { \ltjsetparameter { autospacing = false } }
 \bool_if:NTF \l_@@_punct_bool
@@ -2194,7 +2205,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-\if_case:w \l_@@_font_size_int
+\if_case:w \g_@@_font_size_flag
   \ctex_set_font_size:Nnn \normalsize { 5 }
     {
       \abovedisplayskip 10\p@ \@plus2\p@ \@minus5\p@
@@ -2819,7 +2830,7 @@ This package consists of the file ctex.dtx, and the derived files
         aftername   = \quad ,
         beforeskip  = 3.25ex \@plus 1ex \@minus .2ex ,
       }
-    \int_compare:nNnTF \l_@@_section_depth_int > \c_two
+    \int_compare:nNnTF \g_@@_section_depth_flag > \c_two
       { afterskip   = 1ex  \exp_not:N \@plus .2ex }
       { afterskip   = -1em }
   }
@@ -2835,10 +2846,10 @@ This package consists of the file ctex.dtx, and the derived files
         aftername   = \quad ,
         beforeskip  = 3.25ex \@plus 1ex \@minus .2ex ,
       }
-    \int_compare:nNnTF \l_@@_section_depth_int > \c_three
+    \int_compare:nNnTF \g_@@_section_depth_flag > \c_three
       { afterskip   = 1ex \exp_not:N \@plus .2ex , }
       { afterskip   = -1em , }
-    \int_compare:nNnF \l_@@_section_depth_int > \c_two
+    \int_compare:nNnF \g_@@_section_depth_flag > \c_two
       { indent      = \exp_not:N \parindent }
   }
 %    \end{macrocode}
