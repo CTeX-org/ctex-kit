@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3125}
+% \CheckSum{3154}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1174,6 +1174,35 @@ This package consists of the file ctex.dtx, and the derived files
       }
   }
 \cs_set_eq:NN \CJK@input \ctex_CJK_input:n
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_plane_to_utfxvibe:Nn,\CJK@surr}
+% \changes{v2.0}{2014/04/08}{解决与 \cs{nouppercase} 的冲突。}
+% \pkg{fancyhdr} 宏包的 \cs{nouppercase} 会将 \cs{uppercase} 定义为 \cs{relax}，而
+% \cs{CJK@surr} 需要用它将 \cs{CJK@plane} 转化成大写字母，这就造成了冲突^^A
+% \footnote{\url{https://code.google.com/p/ctex-kit/issues/detail?id=147}}。
+% 我们在这里给出 \cs{CJK@surr} 的一个不依赖 \cs{uppercase} 的实现。
+%    \begin{macrocode}
+\if_cs_exist:N \CJK@surr
+  \cs_new_protected_nopar:Npn \ctex_plane_to_utfxvibe:Nn #1#2
+    {
+      \int_set:Nn \l_@@_tmp_int { \int_from_hexadecimal:n {#2} }
+      \int_compare:nNnTF \l_@@_tmp_int < \c_two_hundred_fifty_six
+        { \tl_gset:Nx #1 { \int_to_hexadecimal:n { \l_@@_tmp_int } } }
+        {
+          \int_sub:Nn \l_@@_tmp_int { \c_two_hundred_fifty_six }
+          \tl_gset:Nx #1
+            {
+              \int_to_hexadecimal:n
+                { \int_div_truncate:nn { \l_@@_tmp_int } { \c_four } + "D800 }
+              \int_to_hexadecimal:n
+                { \int_mod:nn { \l_@@_tmp_int } { \c_four } + "DC }
+            }
+        }
+    }
+  \cs_set_eq:NN \CJK@surr \ctex_plane_to_utfxvibe:Nn
+\fi:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2821,7 +2850,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\exp_args:Nnx \keys_set:nx { ctex / paragraph }
+\exp_args:Nnx \keys_set:nn { ctex / paragraph }
   {
     \exp_not:n
       {
@@ -2837,7 +2866,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\exp_args:Nnx \keys_set:nx { ctex / subparagraph }
+\exp_args:Nnx \keys_set:nn { ctex / subparagraph }
   {
     \exp_not:n
       {
