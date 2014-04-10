@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3157}
+% \CheckSum{3192}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1680,7 +1680,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal,pTF]{\ctex_ltj_family_if_exist:n}
+% \begin{macro}[internal,TF]{\ctex_ltj_family_if_exist:n}
 % 判断 CJK 字体族 |#1| 是否存在，若存在则把实际族名保存到 |#2| 中。
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \ctex_ltj_family_if_exist:xN #1#2 { T , F , TF }
@@ -2091,6 +2091,24 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal,pTF]{\ctex_if_ccglue_touched:}
+% 检查用户是否修改过汉字间距。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \ctex_if_ccglue_touched: { TF }
+  {
+%<*pdftex|xetex>
+    \if_meaning:w \CJKglue \@@_ccglue:
+%</pdftex|xetex>
+%<*luatex>
+    \if_case:w \pdftex_strcmp:D { \skip_use:N \l_@@_ccglue_skip }
+                                { \ltjgetparameter { kanjiskip } } \exp_stop_f:
+%</luatex>
+    \prg_return_true: \else: \prg_return_false: \fi:
+  }
+%<pdftex|xetex>\AtEndOfPackage { \cs_new_eq:NN \@@_ccglue: \CJKglue }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
 % \cs{EverySelectfont} 直到文档开始时才有效。为了 \cs{ccwd} 和 \pkg{luatexja} 的
 % 字体设置在导言区也可用，我们还需要在这里手工修改 \cs{selectfont}。\pkg{everysel}
@@ -2421,13 +2439,26 @@ This package consists of the file ctex.dtx, and the derived files
 % 但不适用于诸如“方正兰亭黑长”之类的特殊字体。\cs{ccwd} 的情况类似。
 % 用 |\f@size\p@| 作为汉字的宽度，而不采用 \texttt{1 em}，因为这时的 \texttt{1 em}
 % 实际上来自西文字体的信息，未必等于汉字的宽度，这似乎在传统的 \file{.tfm} 字体上
-% 表现较更明显。
+% 表现较更明显。若用户禁用 \texttt{linestretch} 并且修改过 \cs{CJKglue}，则只更新
+% \cs{ccwd}，否则设置伸展量为 $0.08$ 倍 \cs{baselineskip}。注意 \pkg{everysel} 的
+% 钩子位于 \cs{size@update} 之前，\cs{baselineskip} 还未更新，不能直接使用它。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_stretch:
   {
     \dim_set:Nn \l_@@_tmp_dim { \l_@@_line_stretch_tl }
     \dim_compare:nNnTF \l_@@_tmp_dim = \c_max_dim
-      { \ctex_update_ccwd: }
+      {
+        \ctex_if_ccglue_touched:TF
+          { \ctex_update_ccwd: }
+          {
+            \dim_set:Nn \ccwd { \f@size \p@ }
+            \dim_set:Nn \l_@@_tmp_dim
+              { \baselinestretch \etex_glueexpr:D \f@baselineskip \scan_stop: }
+            \skip_set:Nn \l_@@_ccglue_skip
+              { \c_zero_dim plus .08 \l_@@_tmp_dim }
+            \ctex_update_ccglue:
+          }
+      }
       {
         \dim_set:Nn \ccwd { \f@size \p@ }
         \int_set:Nn \l_@@_tmp_int
@@ -3266,16 +3297,18 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}[internal]{\ps@fancy}
 %    \begin{macrocode}
 \if_cs_exist:N \ps@fancy
+%<*article>
   \ctex_patch_cmd:Nnn \ps@fancy
     { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
   \ctex_patch_cmd:Nnn \ps@fancy
     { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
+%</article>
 %<*book|report>
   \ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
 %<book>    { \if@mainmatter \CTEXthechapter \quad \fi }
 %<report>    { \CTEXthechapter \quad }
-%</book|report>
   \ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection \quad }
+%</book|report>
 \fi:
 %    \end{macrocode}
 % \end{macro}
