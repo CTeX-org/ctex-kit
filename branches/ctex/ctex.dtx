@@ -345,7 +345,7 @@ This package consists of the file ctex.dtx, and the derived files
 \let\ctexrevnum\ExplFileVersion
 \expandafter\let\csname ver@thumbpdf.sty\endcsname\fmtversion
 \documentclass[a4paper,full,numbered]{l3doc}
-\usepackage[UTF8]{ctex}
+\usepackage[UTF8,punct=kaiming]{ctex}
 \ctexset{
   abstractname=简介,
 }
@@ -361,7 +361,6 @@ This package consists of the file ctex.dtx, and the derived files
 \setmonofont[
   Mapping=,WordSpace={1,0,0}, %% 固定空格宽度
   SlantedFont=* Oblique]{CMU Typewriter Text Light}
-\xeCJKsetup{PunctStyle=kaiming}
 \linespread{1.2}
 \AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
 \AtEndUTFCommand[\textlangle]{\endgroup}
@@ -420,7 +419,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3208}
+% \CheckSum{3217}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -831,11 +830,15 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.0}{2014/04/11}{\texttt{punct} 选项可以设置标点格式。}
+%
 % \begin{macro}{punct}
+% 设置标点符号输出格式。
 %   \begin{macrocode}
-    punct .bool_set:N = \l_@@_punct_bool ,
-    punct  .initial:n = { true } ,
-    nopunct   .meta:n = { punct = false } ,
+    punct   .tl_set:N = \l_@@_punct_tl ,
+    punct  .default:n = { quanjiao } ,
+    punct  .initial:n = { quanjiao } ,
+    nopunct   .meta:n = { punct = plain } ,
     nopunct   .value_forbidden: ,
 %    \end{macrocode}
 % \end{macro}
@@ -1075,8 +1078,7 @@ This package consists of the file ctex.dtx, and the derived files
   \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
     { \RequirePackage { CJK } }
     { \RequirePackage { CJKutf8 } }
-  \bool_if:NT \l_@@_punct_bool
-    { \RequirePackage { CJKpunct } }
+  \RequirePackage { CJKpunct }
   \int_compare:nNnT \g_@@_space_flag = \c_two
     { \RequirePackage { CJKspace } }
 %    \end{macrocode}
@@ -1206,6 +1208,12 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \pkg{CJKpunct} 宏包会在 \cs{AtBeginDocument} 的里设置标点格式为 \texttt{quanjiao}。
+%     \begin{macrocode}
+\str_if_eq_x:nnF { \l_@@_punct_tl } { quanjiao }
+  { \AtBeginDocument { \punctstyle { \l_@@_punct_tl } } }
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 %</pdftex>
 %<*xetex>
@@ -1216,11 +1224,13 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \RequirePackage [ indentfirst = false ] { xeCJK }
 \defaultfontfeatures { Ligatures = TeX }
-\xeCJKsetup { AutoFakeBold = true }
-\int_compare:nNnF \g_@@_space_flag > \c_one
-  { \xeCJKsetup { CJKspace = true } }
-\bool_if:NF \l_@@_punct_bool
-  { \xeCJKsetup { PunctStyle = plain } }
+\exp_args:Nx \xeCJKsetup
+  {
+    AutoFakeBold = true ,
+    PunctStyle   = \l_@@_punct_tl ,
+    \int_compare:nNnF \g_@@_space_flag > \c_one
+      { CJKspace = true }
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -1538,11 +1548,23 @@ This package consists of the file ctex.dtx, and the derived files
 \ExplSyntaxOn
 %    \end{macrocode}
 %
+% \begin{macro}[internal]{\g_@@_jfm_tl}
+% \pkg{luatexja} 中与标点格式 \texttt{plain} 对应的 jfm 是 \texttt{mono}。
+%    \begin{macrocode}
+\tl_new:N \g_@@_jfm_tl
+\tl_gset:Nx  \g_@@_jfm_tl
+  {
+    \str_if_eq_x:nnTF { \l__ctex_punct_tl } { plain }
+      { mono } { \l__ctex_punct_tl }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\CJK@encoding,\@@_change_encoding:}
 % 在 \LaTeX 下，\pkg{luatexja} 依赖字体编码来实现特殊设置。例如上述的
 % |\ltj@@IsFontJapanese| 就是通过判断编码来实现的，它在设置数学字体时会用到。所以
 % 不应该与西文共用 \texttt{EU2}。定义字体族 song 为 \cs{CJK@encoding} 的默认替换
-% 字体。
+% 字体。下划线 |_| 不在 \cs{nfss@catcodes} 里，可以放心使用。
 %    \begin{macrocode}
 \tl_const:Nn \CJK@encoding { LTJY3 }
 \DeclareFontEncoding { \CJK@encoding } { } { }
@@ -1552,9 +1574,9 @@ This package consists of the file ctex.dtx, and the derived files
   { \tl_set_eq:NN \g_fontspec_encoding_tl \CJK@encoding }
 \DeclareFontFamily { \CJK@encoding } { song } { }
 \DeclareFontShape { \CJK@encoding } { song } { \mddefault } { \updefault }
-  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=quanjiao } { }
+  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=\g_@@_jfm_tl } { }
 \DeclareFontShape { \CJK@encoding } { song } { \bfdefault } { \updefault }
-  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=quanjiao } { }
+  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=\g_@@_jfm_tl } { }
 \tl_const:Nn \c_@@_math_tl { CJKmath }
 \DeclareSymbolFont { \c_@@_math_tl }
   { \CJK@encoding } { song } { \mddefault } { \updefault }
@@ -1599,6 +1621,7 @@ This package consists of the file ctex.dtx, and the derived files
       {#1} { \l_@@_font_options_clist }
     \clist_concat:NNN \l_@@_font_options_clist
       \g_@@_default_features_clist \l_@@_font_options_clist
+    \clist_put_left:Nx \l_@@_font_options_clist { JFM = \g_@@_jfm_tl }
     \@@_gset_family_cs:nn {#1} {#3}
   }
 \cs_new_protected:Npn \ctex_ltj_set_family:xxx #1#2#3
@@ -2007,9 +2030,6 @@ This package consists of the file ctex.dtx, and the derived files
 \int_compare:nNnTF \g_@@_space_flag > \c_one
   { \ltjsetparameter { autospacing = true } }
   { \ltjsetparameter { autospacing = false } }
-\bool_if:NTF \l_@@_punct_bool
-  { \defaultCJKfontfeatures { JFM = quanjiao } }
-  { \defaultCJKfontfeatures { JFM = mono } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
