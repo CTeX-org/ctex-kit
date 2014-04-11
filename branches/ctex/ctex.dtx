@@ -420,7 +420,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3192}
+% \CheckSum{3208}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1966,6 +1966,30 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \paragraph{其它设置}
 %
+% \begin{macro}[internal]{\ctex_ltj_update_xkanjiskip:,\l_@@_xkanjiskip_skip}
+% \cs{ltjsetparameter} 对 \texttt{xkanjiskip} 是即时赋值。\cs{zw} 与字体相关，因此
+% 需要每次 \cs{selectfont} 的时候更新一次 \texttt{xkanjiskip}。如果用户设置过
+% \texttt{xkanjiskip}，就不更新。注意，同 \TeX{} 的 \cs{baselineskip} 一样，如果在
+% 一个段落内多次设置了 \texttt{kanjiskip} 或 \texttt{xkanjiskip}，最后的设置会影响
+% 全段。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_update_xkanjiskip:
+  {
+    \skip_if_eq:nnT
+      { \ltjgetparameter { xkanjiskip } } { \l_@@_xkanjiskip_skip }
+      {
+        \skip_set:Nn \l_@@_xkanjiskip_skip { .25 \zw plus 1pt minus 1pt }
+        \ltjsetparameter { xkanjiskip = \l_@@_xkanjiskip_skip }
+      }
+  }
+%    \end{macrocode}
+% 注意，此时还没有实际设置字体，所以 \cs{zw} 是 \texttt{0pt}。
+%    \begin{macrocode}
+\skip_new:N \l_@@_xkanjiskip_skip
+\skip_set:Nn \l_@@_xkanjiskip_skip { .25 \zw plus 1pt minus 1pt }
+%    \end{macrocode}
+% \end{macro}
+%
 %    \begin{macrocode}
 %<@@=ctex>
 %    \end{macrocode}
@@ -2157,7 +2181,11 @@ This package consists of the file ctex.dtx, and the derived files
 % \texttt{font.id}，否则编译时会直接退出。
 %    \begin{macrocode}
 %<*luatex>
-\ctex_add_to_selectfont:n { \ctex_ltj_select_font: }
+\ctex_add_to_selectfont:n
+  {
+    \ctex_ltj_select_font:
+    \ctex_ltj_update_xkanjiskip:
+  }
 \tl_set:Nn \CJK@family { song } \selectfont
 \tl_clear:N \CJK@family
 %</luatex>
