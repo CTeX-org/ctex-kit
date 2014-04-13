@@ -369,6 +369,11 @@ This package consists of the file ctex.dtx, and the derived files
 \fvset{
   fontsize=\small,baselinestretch=1,numbersep=5pt,
   listparameters=\setlength\topsep{\MacrocodeTopsep}}
+\AtBeginEnvironment{function}{\medskipamount\bigskipamount}
+\AtEndEnvironment{function}
+  {\par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
+\AfterEndEnvironment{function}{\ctexfixprevdepth}
+\AtBeginEnvironment{syntax}{\linespread{1}}
 \preto\MacroFont{\linespread{1}}
 \appto\MacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
 \preto\AltMacroFont{\linespread{1}}
@@ -419,7 +424,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3217}
+% \CheckSum{3455}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -471,6 +476,45 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{宏包选项}
 %
 % \subsection{中文字体}
+%
+% \subsubsection{\LuaLaTeX{} 下替代字体的设置}
+%
+% \begin{function}{AlternateFont}
+%   \begin{syntax}
+%     \cs{setCJKfamilyfont} \Arg{family}
+%     \  [
+%     \    AlternateFont =
+%     \      \{
+%     \        \Arg{character range_1} \oarg{alternate font features_1} \Arg{alternate font name_1} \textbar\textbar
+%     \        \Arg{character range_2} \oarg{alternate font features_2} \Arg{alternate font name_2} \textbar\textbar
+%     \        ......
+%     \      \} ,
+%     \    \meta{base font features}
+%     \  ] \Arg{base font name}
+%   \end{syntax}
+%   在设置字体族 \meta{family} 的时候，同时设置该字体族在字符范围
+%   \meta{character range_n} 内，对应字形的替代字体。
+% \end{function}
+%
+% \begin{function}{CharRange}
+%   \begin{syntax}
+%     \cs{setCJKfamilyfont} \Arg{family}
+%     \  [
+%     \    CharRange = \Arg{character range} ,
+%     \    \meta{alternate font features}
+%     \  ] \Arg{alternate font name}
+%   \end{syntax}
+%   只设置字体族 \meta{family} 在字符范围 \meta{character range} 内，对应字形的
+%   替代字体。
+% \end{function}
+%
+% 一个 \cs{setCJKfamilyfont} 里只能使用一次 \texttt{CharRange} 或者
+% \texttt{AlternateFont}，但可以将它们分开重叠使用。例如下面的方式是有效的。
+% \begin{verbatim}
+%   \setCJKmainfont[AlternateFont={...}{...}, ...]{...}
+%   \setCJKmainfont[CharRange={"4E00->"67FF,-2}, ...]{...}
+%   \setCJKmainfont[CharRange={"6800->"9FFF}, ...]{...}
+% \end{verbatim}
 %
 % \subsection{字号与间距}
 %
@@ -1404,13 +1448,27 @@ This package consists of the file ctex.dtx, and the derived files
     \group_begin:
       \tl_set_eq:NN \f@encoding \CJK@encoding
       \tl_set_eq:NN \f@family \CJK@family
-      \cs_gset_eq:NN \@@_save_fontname:w \font@name
-      \cs_gset_nopar:Npx \font@name { \use:c { \curr@fontshape / \f@size } }
+      \@@_push_fontname:n { \use:c { \curr@fontshape / \f@size } }
       \ctex_ltj_pickup_font:
     \group_end:
     \font@name
-    \cs_gset_eq:NN \font@name \@@_save_fontname:w
+    \@@_pop_fontname:
+%    \end{macrocode}
+% 当字形未定义的时候，\textsf{NFSS} 就会启动替换机制（\cs{wrong@fontshape}）。
+% 第一次启动后，\cs{l_@@_current_font_tl} 还是没有定义。为此，我们再次选择字体，
+% 确保它有定义和指向正确的 \texttt{font.id}。这对 \texttt{AlternateFont} 的设置
+% 特别重要。
+%    \begin{macrocode}
+    \cs_if_exist:cF { \l_@@_current_font_tl }
+      { \@@_select_font_aux: }
   }
+\cs_new_protected_nopar:Npn \@@_push_fontname:n #1
+  {
+    \cs_gset_eq:NN \@@_save_fontname:w \font@name
+    \cs_gset_nopar:Npx \font@name {#1}
+  }
+\cs_new_protected_nopar:Npn \@@_pop_fontname:
+  { \cs_gset_eq:NN \font@name \@@_save_fontname:w }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1419,11 +1477,14 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_pickup_font:
   {
-    \group_begin:
-      \cs_set_eq:NN \extract@font \ctex_ltj_extract_font:
-      \cs_set_eq:NN \do@subst@correction \ctex_ltj_subst_font:
-      \define@newfont
-    \group_end:
+    \exp_after:wN \cs_if_exist:NF \font@name
+      {
+        \group_begin:
+          \cs_set_eq:NN \extract@font \ctex_ltj_extract_font:
+          \cs_set_eq:NN \do@subst@correction \ctex_ltj_subst_font:
+          \define@newfont
+        \group_end:
+      }
   }
 \cs_new_eq:NN \pickup@jfont \ctex_ltj_pickup_font:
 %    \end{macrocode}
@@ -1449,6 +1510,11 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected_nopar:Npn \ctex_ltj_extract_font:
   {
     \get@external@font
+    \ctex_ltj_if_alternate_shape_exist:nT { \curr@fontshape }
+      {
+        \tl_set:Nx \external@font
+          { \exp_after:wN \@@_patch_external_font:w \external@font }
+      }
     \exp_after:wN \globaljfont \font@name \external@font \scan_stop:
 %    \end{macrocode}
 % 这里 \cs{font@name} 不会直接改变当前字体，而 \cs{DeclareFontFamily} 和
@@ -1483,26 +1549,116 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_subst_font:
   {
-    \group_begin:
-    \tl_set_eq:NN \CJK@family \f@family
-    \cs_if_exist:cF { \l_@@_current_font_tl  }
+    \ctex_ltj_if_alternate_shape_exist:nF { \curr@fontshape }
       {
-        \cs_gset_protected_nopar:Npx \subst@correction
-          { \cs_new_eq:NN \exp_not:c { \l_@@_current_font_tl } \font@name }
-        \group_insert_after:N \group_insert_after:N
-        \group_insert_after:N \subst@correction
+        \group_begin:
+        \tl_set_eq:NN \CJK@family \f@family
+        \cs_if_exist:cF { \l_@@_current_font_tl  }
+          {
+            \cs_gset_protected_nopar:Npx \subst@correction
+              {
+                \cs_new_eq:NN
+                  \exp_not:c { \l_@@_current_font_tl }
+                  \font@name
+              }
+            \group_insert_after:N \group_insert_after:N
+            \group_insert_after:N \subst@correction
+          }
+        \group_end:
       }
-    \group_end:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal,TF]{\ctex_ltj_if_alternate_shape_exist:n}
+% 即 \cs{luatexja} 中的 |\ltj@@does@alt@set|，判断是否存在替代字体。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \ctex_ltj_if_alternate_shape_exist:n #1 { T , F , TF }
+  {
+    \lua_now_x:n { luatexja.jfont.does_alt_set ('\luatexluaescapestring {#1}') }
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_patch_external_font:w}
+% 若对字体的定义完全相同，则它们有相同的 \texttt{font.id}。因此如果字形是由
+% \textsf{NFSS} 的替换机制定义的，它们就有相同的 \texttt{font.id}。
+% \texttt{print_aftl_address} 函数的定义是
+% \begin{verbatim}
+%   function print_aftl_address()
+%     tex.sprint(cat_lp, ';ltjaltfont' .. tostring(aftl_base):sub(8))
+%   end
+% \end{verbatim}
+% 主要目的是，如果当前字形有替代字体，则往字形的定义中加入一些标志，确保
+% \texttt{font.id} 唯一。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_patch_external_font:w #1 ~ at
+  { #1 \lua_now_x:n { luatexja.jfont.print_aftl_address() } ~ at }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_select_alternate_font:}
+% 在 \cs{selectfont} 中更新替代字体。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_select_alternate_font:
+  {
+    \ctex_ltj_if_alternate_shape_exist:nT { \l_@@_current_shape_tl }
+      {
+        \lua_now_x:n
+          {
+            luatexja.jfont.output_alt_font_cmd
+              ('\luatexluaescapestring { \l_@@_current_shape_tl }')
+          }
+        \lua_now_x:n { luatexja.jfont.pickup_alt_font_a ('\f@size') }
+      }
+  }
+\tl_new:N \l_@@_current_shape_tl
+\tl_set:Nn \l_@@_current_shape_tl
+  { \CJK@encoding / \CJK@family / \f@series / \f@shape }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ltj@pickup@altfont@aux}
+% 被用在函数 |output_alt_font_cmd| 中，作用是定义替代字体。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ltj@pickup@altfont@aux #1
+  {
+    \cs_if_exist:cF { #1/\f@size }
+      {
+        \group_begin:
+          \use:x { \exp_not:N \split@name #1 / \f@size } \@nil
+          \@@_push_fontname:n { \use:c { \curr@fontshape / \f@size } }
+          \ctex_ltj_pickup_font:
+        \group_end:
+        \@@_pop_fontname:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%<@@=>
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ltj@pickup@altfont@copy}
+% 被用在函数 |pickup_alt_font_a| 中。|\ltj@@getjfontnumber| 的作用是将字体命令
+% |#1| 对应的 \texttt{font.id} 保存到 |\ltj@tempcntc| 中。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ltj@pickup@altfont@copy #1#2
+  {
+    \ltj@@getjfontnumber #1
+    \lua_now_x:n
+      {
+        luatexja.jfont.pickup_alt_font_b
+          ( \the\ltj@tempcntc, '\luatexluaescapestring {#2}' )
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 %    \begin{macrocode}
 \ExplSyntaxOff
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%<@@=>
 %    \end{macrocode}
 %
 % 以下内容抄录自 \file{lltjfont.sty}，目的是让汉字可以在数学环境中直接使用。
@@ -1541,6 +1697,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+\let\@@italiccorr=\/
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 %<@@=ctex_ltj>
 %    \end{macrocode}
 %
@@ -1549,7 +1709,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\g_@@_jfm_tl}
-% \pkg{luatexja} 中与标点格式 \texttt{plain} 对应的 jfm 是 \texttt{mono}。
+% \pkg{luatexja} 中与标点格式 \texttt{plain} 对应的 \texttt{JFM} 是 \texttt{mono}。
 %    \begin{macrocode}
 \tl_new:N \g_@@_jfm_tl
 \tl_gset:Nx  \g_@@_jfm_tl
@@ -1614,20 +1774,29 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected:Npn \ctex_ltj_set_family:nnn #1#2#3
   {
     \int_gincr:N \g_@@_family_int
-    \@@_check_family:n {#1}
-    \clist_set:Nn \l_@@_font_options_clist {#2}
-    \prop_gput:Nnn \g_@@_family_font_name_prop {#1} {#3}
-    \prop_gput:Nno \g_@@_family_font_options_prop
-      {#1} { \l_@@_font_options_clist }
-    \clist_concat:NNN \l_@@_font_options_clist
-      \g_@@_default_features_clist \l_@@_font_options_clist
-    \clist_put_left:Nx \l_@@_font_options_clist { JFM = \g_@@_jfm_tl }
-    \@@_gset_family_cs:nn {#1} {#3}
+    \clist_clear:N \l_@@_char_range_clist
+    \seq_clear:N \l_@@_alternate_seq
+    \keys_set_known:nnN { ctex_ltj / fontspec } {#2} \l_@@_tmp_tl
+    \clist_set:No \l_@@_font_options_clist { \l_@@_tmp_tl }
+    \ctex_ltj_set_alternate_family:nnF {#1} {#3}
+      {
+        \@@_check_family:n {#1}
+        \prop_gput:Nnn \g_@@_family_font_name_prop {#1} {#3}
+        \prop_gput:Nno \g_@@_family_font_options_prop
+          {#1} { \l_@@_font_options_clist }
+        \@@_use_global_options:N \l_@@_font_options_clist
+        \@@_gset_family_cs:nn {#1} {#3}
+      }
   }
 \cs_new_protected:Npn \ctex_ltj_set_family:xxx #1#2#3
   { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
 \int_new:N \g_@@_family_int
 \clist_new:N \l_@@_font_options_clist
+\cs_new_protected_nopar:Npn \@@_use_global_options:N #1
+  {
+    \clist_concat:NNN #1 \g_@@_default_features_clist #1
+    \clist_put_left:Nx #1 { JFM = \g_@@_jfm_tl }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1649,7 +1818,10 @@ This package consists of the file ctex.dtx, and the derived files
     \prop_gpop:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
       {
         \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmp_tl
-          { \cs_undefine:c { \@@_family_csname:n {#1} } }
+          {
+            \cs_undefine:c { \@@_family_csname:n {#1} }
+            \cs_undefine:c { \@@_alternate_cs:n {#1} }
+          }
         \msg_warning:nnxx { ctex } { redefine-family } {#1} { \l_@@_tmp_tl }
       }
   }
@@ -1677,10 +1849,14 @@ This package consists of the file ctex.dtx, and the derived files
         \tl_gset_eq:NN \exp_not:N \g_@@_fontspec_family_tl
           \exp_not:N \g_@@_fontspec_family_tl
         \group_end:
+        \@@_set_alternate_family:n {#1}
       }
   }
 \tl_new:N \g_@@_fontspec_family_tl
 \cs_new_nopar:Npn \@@_family_csname:n #1 { ctex_ltj/family/#1 }
+\cs_new_protected_nopar:Npn \@@_set_alternate_family:n #1
+  { \cs_if_exist_use:c { \@@_alternate_cs:n {#1} } }
+\cs_new:Npn \@@_alternate_cs:n #1 { ctex_ltj/lternate_family/#1 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1987,6 +2163,205 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \paragraph{替代字体的设置}
+%
+% \begin{macro}{AlternateFont,CharRange}
+% 设置替代字体的选项。
+%    \begin{macrocode}
+\keys_define:nn { ctex_ltj / fontspec }
+  {
+    AlternateFont  .code:n = \ctex_ltj_set_alternate_seq:n {#1} ,
+    AlternateFont  .value_required: ,
+    CharRange .clist_set:N = \l_@@_char_range_clist ,
+    CharRange .value_required:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_seq:n}
+% 我们使用 \verb=||= 作为替代字体序列的分隔标志。它可能被设置为活动字符，为此
+% 需要先“消毒”，同时过滤掉空元素。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_active:N \/
+\char_set_lccode:nn { `\/ } { `\| }
+\tl_to_lowercase:n
+  {
+    \group_end:
+    \cs_new_protected:Npn \ctex_ltj_set_alternate_seq:n #1
+      {
+        \tl_set:Nn \l_@@_tmp_tl {#1}
+        \tl_replace_all:Nnn \l_@@_tmp_tl { // } { || }
+        \seq_set_split:NnV \l_@@_alternate_seq { || } \l_@@_tmp_tl
+        \seq_set_filter:NNn \l_@@_alternate_seq \l_@@_alternate_seq
+          { ! \tl_if_blank_p:n { ##1 } }
+      }
+  }
+\seq_new:N \l_@@_alternate_seq
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_family:nnF}
+% 如果在字体的选项中设置了 \texttt{CharRange}，则只设置替代字体。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_family:nnF #1#2#3
+  {
+    \clist_if_empty:NTF \l_@@_char_range_clist
+      {
+        \seq_if_empty:NF \l_@@_alternate_seq
+          { \ctex_ltj_save_alternate_seq:c { \@@_alternate_cs:n {#1} } }
+        #3
+      }
+      { \ctex_ltj_set_alternate_family:nn {#1} {#2} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+% {\ctex_ltj_save_alternate_seq:N,\ctex_ltj_save_alternate_seq:Nnwn}
+% 保存由 \texttt{AlternateFont} 设置的替代字体序列。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_save_alternate_seq:N #1
+  {
+    \seq_map_inline:Nn \l_@@_alternate_seq
+      { \ctex_ltj_save_alternate_seq:Nnwn #1 ##1 }
+  }
+\cs_generate_variant:Nn \ctex_ltj_save_alternate_seq:N { c }
+\NewDocumentCommand \ctex_ltj_save_alternate_seq:Nnwn { m m +O{ } m }
+  {
+    \clist_set:Nn \l_@@_char_range_clist {#2}
+    \clist_set:Nn \l_@@_alternate_options_clist {#3}
+    \@@_use_global_options:N \l_@@_alternate_options_clist
+    \ctex_ltj_save_alternate_family:Noon #1
+      { \l_@@_char_range_clist }
+      { \l_@@_alternate_options_clist } {#4}
+  }
+\clist_new:N \l_@@_alternate_options_clist
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_family:nn}
+% 设置选项 \texttt{CharRange} 范围内的替代字体。如果已经定义了主字体，我们也马上
+% 定义替代字体，否则只保存起来备用。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_family:nn #1#2
+  {
+    \@@_use_global_options:N \l_@@_font_options_clist
+    \ctex_ltj_set_alternate_family:coonn
+      { \@@_alternate_cs:n {#1} }
+      { \l_@@_char_range_clist }
+      { \l_@@_font_options_clist } {#2} {#1}
+  }
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_family:Nnnnn #1#2#3#4#5
+  {
+    \prop_get:NnNT \g_@@_family_name_prop {#5} \l_@@_base_family_tl
+      { \ctex_ltj_set_alternate_family:nnn {#2} {#3} {#4} }
+    \ctex_ltj_save_alternate_family:Nnnn #1 {#2} {#3} {#4}
+  }
+\cs_generate_variant:Nn \ctex_ltj_set_alternate_family:Nnnnn { coo }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_save_alternate_family:Nnnn}
+% 保存替代字体序列的定义，以备定义主字体时使用。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_save_alternate_family:Nnnn #1#2#3#4
+  {
+    \cs_if_exist:NF #1 { \cs_new_eq:NN #1 \@@_save_alternate_init: }
+    \cs_gset_protected_nopar:Npx #1
+      { \exp_not:o { #1 \ctex_ltj_set_alternate_family:nnn {#2} {#3} {#4} } }
+  }
+\cs_new_protected_nopar:Npn \@@_save_alternate_init:
+  { \tl_set_eq:NN \l_@@_base_family_tl \g_@@_fontspec_family_tl }
+\cs_generate_variant:Nn \ctex_ltj_save_alternate_family:Nnnn { Noo }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_family:nnn}
+% 实际定义替代字体族。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_family:nnn #1#2#3
+  {
+    \group_begin:
+    \@@_change_encoding:
+    \cs_set_eq:NN \CJKfamily \use_none:n
+    \tl_set:Nn \l_@@_char_range_clist {#1}
+    \ctex_ltj_swap_cs:NN
+      \fontspec_declare_shape:nnn \ctex_ltj_declare_alternate_shape:nnn
+    \fontspec_set_family:Nnn \l_@@_alternate_family_tl {#2} {#3}
+    \group_end:
+  }
+\tl_new:N \l_@@_alternate_family_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_declare_alternate_shape:nnn}
+% 在定义替代字体的字形时，通过字符范围与主字体的对应字形关联起来。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_ltj_declare_alternate_shape:nnn #1#2#3
+  {
+    \ctex_ltj_declare_alternate_shape:nnn {#1} {#2} {#3}
+    \ctex_ltj_set_alternate_shape:Nnnnnnn \l_@@_char_range_clist
+      { \l_@@_base_family_tl } {#1} {#2}
+      { \l_fontspec_family_tl } {#1} {#2}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_shape:Nnnnnnn}
+% 与 \pkg{luatexja} 的 \cs{DeclareAlternateKanjiFont} 的功能类似，区别是固定编码
+% 为 \cs{CJK@encoding}。这个设置总是全局的。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_shape:Nnnnnnn #1#2#3#4#5#6#7
+  {
+    \clist_map_inline:Nn #1
+      { \ctex_ltj_set_alternate_shape:nnn { #2/#3/#4 } { #5/#6/#7 } { ##1 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_shape:nnn}
+% 我们使用 \texttt{->} 而不是像 \pkg{luatexja} 一样使用 \texttt{-} 作为区间的
+% 分隔符。\pkg{luatexja} 支持使用负数来引用由 \texttt{JFM} 设置的字符类。如果
+% 使用 \texttt{-} 作为分隔符，那么负数单独使用时，就需要把它放在两层花括号之内
+% （例如 |{{-1}}|），或者使用类似 |{-1}-{-1}| 的形式才不会解释错误。
+%    \begin{macrocode}
+\NewDocumentCommand \ctex_ltj_set_alternate_shape:nnn
+  { m m > { \SplitArgument { \c_one } { -> } } m }
+  { \ctex_ltj_set_alternate_shape:nnnn {#1} {#2} #3 }
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_shape:nnnn #1#2#3#4
+  {
+    \lua_now_x:n
+      {
+        luatexja.jfont.set_alt_font_latex
+          (
+            \IfNoValueTF {#4}
+              { \int_eval:n {#3} , \int_eval:n {#3} , }
+              {
+                \int_eval:n { \tl_if_blank:nTF {#3} { "80 } {#3} } ,
+                \int_eval:n { \tl_if_blank:nTF {#4} { "10FFFF } {#4} } ,
+              }
+            '\luatexluaescapestring { \CJK@encoding/#2 }' ,
+            '\luatexluaescapestring { \CJK@encoding/#1 }'
+          )
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_swap_cs:NN}
+% 交换两个控制序列的意义。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_ltj_swap_cs:NN #1#2
+  {
+    \cs_set_eq:NN \@@_tmp:w #1
+    \cs_set_eq:NN #1 #2
+    \cs_set_eq:NN #2 \@@_tmp:w
+    \cs_undefine:N \@@_tmp:w
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \paragraph{其它设置}
 %
 % \begin{macro}[internal]{\ctex_ltj_update_xkanjiskip:,\l_@@_xkanjiskip_skip}
@@ -2204,6 +2579,7 @@ This package consists of the file ctex.dtx, and the derived files
 \ctex_add_to_selectfont:n
   {
     \ctex_ltj_select_font:
+    \ctex_ltj_select_alternate_font:
     \ctex_ltj_update_xkanjiskip:
   }
 \tl_set:Nn \CJK@family { song } \selectfont
