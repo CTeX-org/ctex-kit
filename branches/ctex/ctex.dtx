@@ -424,7 +424,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3455}
+% \CheckSum{3461}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1751,15 +1751,9 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % 这是 \pkg{luatexja-fontspec} 中新增的一些字体选项。
 %     \begin{macrocode}
-\keys_define:nn { fontspec }
-  {
-    CID     .meta:n = { RawFeature = {    cid = #1 } } ,
-    JFM     .meta:n = { RawFeature = {    jfm = #1 } } ,
-    JFM-var .meta:n = { RawFeature = { jfmvar = #1 } } ,
-    CID     .value_required: ,
-    JFM     .value_required: ,
-    JFM-var .value_required:
-  }
+\newfontfeature { CID }     {    cid = #1 }
+\newfontfeature { JFM }     {    jfm = #1 }
+\newfontfeature { JFM-var } { jfmvar = #1 }
 \keys_define:nn { fontspec-preparse-external }
   {
     NoEmbed .code:n =
@@ -2285,13 +2279,29 @@ This package consists of the file ctex.dtx, and the derived files
     \group_begin:
     \@@_change_encoding:
     \cs_set_eq:NN \CJKfamily \use_none:n
-    \tl_set:Nn \l_@@_char_range_clist {#1}
     \ctex_ltj_swap_cs:NN
       \fontspec_declare_shape:nnn \ctex_ltj_declare_alternate_shape:nnn
-    \fontspec_set_family:Nnn \l_@@_alternate_family_tl {#2} {#3}
+    \fontspec_set_family:Nnn \l_@@_alternate_family_tl
+      { LTJCharRange = {#1} , #2 } {#3}
     \group_end:
   }
 \tl_new:N \l_@@_alternate_family_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{LTJCharRange}
+% 用于更新 \pkg{fontspec} 的 \texttt{fontid}，确保基本族和区间不同时总是定义新字体。
+%    \begin{macrocode}
+\keys_define:nn { fontspec }
+  {
+    LTJCharRange .code:n =
+      {
+        \tl_set:Nn \l_@@_char_range_clist {#1}
+        \exp_args:Nx \fontspec_update_fontid:n
+          { +ltjcharrange | \l_@@_base_family_tl | #1 | }
+      } ,
+    LTJCharRange .value_required:
+  }
 %    \end{macrocode}
 % \end{macro}
 %
