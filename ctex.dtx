@@ -424,7 +424,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3557}
+% \CheckSum{3643}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -528,16 +528,32 @@ This package consists of the file ctex.dtx, and the derived files
 %     \      \}
 %     \  \}
 %   \end{syntax}
-%   预先声明字符范围。声明字符范围 \meta{name} 之后，它的名字 \meta{name} 可以用在
-%   \meta{AlternateFont} 和 \meta{CharRange} 选项的 \meta{character range} 之中，
-%   表示对应的字符范围。在声明字符范围 \meta{name} 的同时，还为 \cs{setCJKmainfont}
-%   的字体设置命令定义了选项 \meta{name}，用于设置对应字符的替代字体。
-%   \begin{flushleft}\linespread{1}\small\ttfamily
-%     \meta{name} = \oarg{alternate font features} \Arg{alternate font name}
-%   \end{flushleft}
-%   \meta{name} 选项可以与 \meta{AlternateFont} 共同使用，但不能与 \meta{CharRange}
-%   一起使用。如果没有给 \meta{name} 设置值，则等价于设置 |CharRange=|\meta{name}，
-%   即只设置 \meta{name} 对应的字符范围的替代字体。
+%   预先声明字符范围。声明字符范围 \meta{name} 之后，它的名字 \meta{name} 可以
+%   用在 \texttt{AlternateFont} 和 \texttt{CharRange} 选项的 \meta{character range}
+%   之中，表示对应的字符范围。
+% \end{function}
+%
+% 在声明字符范围 \meta{name} 的同时，还为 \cs{setCJKmainfont} 等字体设置命令定义
+% 了选项 \meta{name}，用于设置对应字符的替代字体：
+% \begin{quote}\linespread{1}\small\ttfamily
+%   \meta{name} = \oarg{alternate font features} \Arg{alternate font name}
+% \end{quote}
+% \meta{name} 选项可以与 \texttt{AlternateFont} 共同使用，但不能与 \texttt{CharRange}
+% 一起使用。如果没有给 \meta{name} 设置值，则等价于设置 \texttt{CharRange=\meta{name}}，
+% 即只设置 \meta{name} 对应的字符范围的替代字体。
+%
+% \begin{function}{clearalternatefont,resetalternatefont}
+%   \begin{syntax}
+%     \cs{ctexset}
+%     \  \{
+%     \    clearalternatefont = \Arg{family_1, family_2, ...} ,
+%     \    resetalternatefont = \Arg{family_1, family_2, ...} ,
+%     \    clearalternatefont ,
+%     \    resetalternatefont
+%     \  \}
+%   \end{syntax}
+%   清除与重置 CJK 字体族 \meta{family} 的替换字体设置。如果没有给定值，则作用于
+%   当前 CJK 字体族。清除与重置操作总是全局的。
 % \end{function}
 %
 % \subsection{字号与间距}
@@ -1794,6 +1810,7 @@ This package consists of the file ctex.dtx, and the derived files
     \int_gincr:N \g_@@_family_int
     \clist_clear:N \l_@@_char_range_clist
     \seq_clear:N \l_@@_alternate_seq
+    \tl_set:Nn \l_@@_base_CJKfamily_tl {#1}
     \keys_set_known:nnN { ctex_ltj / fontspec } {#2} \l_@@_tmp_tl
     \clist_set:No \l_@@_font_options_clist { \l_@@_tmp_tl }
     \ctex_ltj_set_alternate_family:nnF {#1} {#3}
@@ -1808,6 +1825,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected:Npn \ctex_ltj_set_family:xxx #1#2#3
   { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
 \int_new:N \g_@@_family_int
+\tl_new:N \l_@@_base_CJKfamily_tl
 \clist_new:N \l_@@_font_options_clist
 \cs_new_protected_nopar:Npn \@@_use_global_options:N #1
   {
@@ -1838,6 +1856,9 @@ This package consists of the file ctex.dtx, and the derived files
           {
             \cs_undefine:c { \@@_family_csname:n {#1} }
             \cs_undefine:c { \@@_alternate_cs:n {#1} }
+            \cs_undefine:c { \@@_alternate_cs:n { lua/#1 } }
+            \cs_undefine:c { \@@_alternate_cs:n { shape/#1 } }
+            \prop_gremove:Nn \g_@@_reset_alternate_prop {#1}
           }
         \msg_warning:nnxx { ctex } { redefine-family } {#1} { \l_@@_tmp_tl }
       }
@@ -1869,11 +1890,17 @@ This package consists of the file ctex.dtx, and the derived files
         \@@_set_alternate_family:n {#1}
       }
   }
+\tl_new:N \l_@@_base_family_tl
 \tl_new:N \g_@@_fontspec_family_tl
 \cs_new_nopar:Npn \@@_family_csname:n #1 { ctex_ltj/family/#1 }
 \cs_new_protected_nopar:Npn \@@_set_alternate_family:n #1
-  { \cs_if_exist_use:c { \@@_alternate_cs:n {#1} } }
-\cs_new:Npn \@@_alternate_cs:n #1 { ctex_ltj/lternate_family/#1 }
+  {
+    \tl_set:Nn \l_@@_base_CJKfamily_tl {#1}
+    \tl_set_eq:NN \l_@@_base_family_tl \g_@@_fontspec_family_tl
+    \cs_if_exist_use:c { \@@_alternate_cs:n { lua/#1 } }
+    \cs_if_exist_use:c { \@@_alternate_cs:n {#1} }
+  }
+\cs_new:Npn \@@_alternate_cs:n #1 { ctex_ltj/alternate_family/#1 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1976,6 +2003,16 @@ This package consists of the file ctex.dtx, and the derived files
   { \use:x { \ctex_ltj_fontspec:nn {#1} {#2} } }
 \cs_new_protected_nopar:Npn \@@_fontspec:nnn #1#2#3
   {
+    \bool_if:NT \l_@@_add_alternate_bool
+      {
+        \cs_gset_eq:cc
+          { \@@_alternate_cs:n { lua / #1 } }
+          { \@@_alternate_cs:n { lua / \l_ctex_ltj_family_tl } }
+        \cs_gset_eq:cc
+           { \@@_alternate_cs:n { shape / #1 } }
+           { \@@_alternate_cs:n { shape / \l_ctex_ltj_family_tl } }
+        \bool_set_false:N \l_@@_add_alternate_bool
+      }
     \prop_gput:Nnn \g_@@_fontspec_prop { CJKfontspec/#2/#3/id } {#1}
     \ctex_ltj_set_family:nnn {#1} {#2} {#3}
     \ctex_ltj_switch_family:n {#1}
@@ -1998,12 +2035,14 @@ This package consists of the file ctex.dtx, and the derived files
         \prop_get:NnN \g_@@_family_font_options_prop
           {#1} \l_@@_font_options_clist
         \clist_put_right:Nn \l_@@_font_options_clist {#2}
+        \bool_set_true:N \l_@@_add_alternate_bool
         \ctex_ltj_fontspec:xx
           { \exp_not:o { \l_@@_font_options_clist } }
           { \exp_not:o { \l_@@_tmp_tl } }
       }
       { \msg_warning:nn { ctex } { addCJKfontfeature-ignored } }
   }
+\bool_new:N \l_@@_add_alternate_bool
 \cs_generate_variant:Nn \ctex_ltj_add_font_features:n  { x }
 \cs_generate_variant:Nn \ctex_ltj_add_font_features:nn { x }
 \msg_new:nnn { ctex } { addCJKfontfeature-ignored }
@@ -2291,13 +2330,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_save_alternate_family:Nnnn #1#2#3#4
   {
-    \cs_if_exist:NF #1 { \cs_new_eq:NN #1 \@@_save_alternate_init: }
+    \cs_if_exist:NF #1 { \cs_set_eq:NN #1 \prg_do_nothing: }
     \cs_gset_protected_nopar:Npx #1
       { \exp_not:o { #1 \ctex_ltj_set_alternate_family:nnn {#2} {#3} {#4} } }
   }
-\cs_new_protected_nopar:Npn \@@_save_alternate_init:
-  { \tl_set_eq:NN \l_@@_base_family_tl \g_@@_fontspec_family_tl }
-\tl_new:N \l_@@_base_family_tl
 \cs_generate_variant:Nn \ctex_ltj_save_alternate_family:Nnnn { Noo }
 %    \end{macrocode}
 % \end{macro}
@@ -2317,6 +2353,19 @@ This package consists of the file ctex.dtx, and the derived files
     \group_end:
   }
 \tl_new:N \l_@@_alternate_family_tl
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_swap_cs:NN}
+% 交换两个控制序列的意义。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_ltj_swap_cs:NN #1#2
+  {
+    \cs_set_eq:NN \@@_tmp:w #1
+    \cs_set_eq:NN #1 #2
+    \cs_set_eq:NN #2 \@@_tmp:w
+    \cs_undefine:N \@@_tmp:w
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2364,6 +2413,10 @@ This package consists of the file ctex.dtx, and the derived files
           }
           { \ctex_ltj_set_alternate_shape:nnn { #2/#3/#4 } { #5/#6/#7 } { ##1 } }
       }
+    \@@_save_alternate_shape:cnn
+      { \@@_alternate_cs:n { shape / \l_@@_base_CJKfamily_tl } }
+      { luatexja.jfont.clear_alt_font_latex }
+      { '\luatexluaescapestring { \CJK@encoding/#2/#3/#4 }' }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2379,49 +2432,96 @@ This package consists of the file ctex.dtx, and the derived files
   { \ctex_ltj_set_alternate_shape:nnnn {#1} {#2} #3 }
 \cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_shape:nnnn #1#2#3#4
   {
-    \lua_now_x:n
+    \ctex_ltj_set_alternate_shape:n
       {
-        luatexja.jfont.set_alt_font_latex
-          (
-            \IfNoValueTF {#4}
-              { \int_eval:n {#3} , \int_eval:n {#3} , }
-              {
-                \int_eval:n { \tl_if_blank:nTF {#3} { "80 } {#3} } ,
-                \int_eval:n { \tl_if_blank:nTF {#4} { "10FFFF } {#4} } ,
-              }
-            '\luatexluaescapestring { \CJK@encoding/#2 }' ,
-            '\luatexluaescapestring { \CJK@encoding/#1 }'
-          )
+        \IfNoValueTF {#4}
+          { \int_eval:n {#3} , \int_eval:n {#3} , }
+          {
+            \int_eval:n { \tl_if_blank:nTF {#3} { "80 } {#3} } ,
+            \int_eval:n { \tl_if_blank:nTF {#4} { "10FFFF } {#4} } ,
+          }
+        '\luatexluaescapestring { \CJK@encoding/#2 }' ,
+        '\luatexluaescapestring { \CJK@encoding/#1 }'
       }
   }
+\cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_shape:n #1
+  {
+    \lua_now_x:n { luatexja.jfont.set_alt_font_latex ( #1 ) }
+    \@@_save_alternate_shape:cnn
+      { \@@_alternate_cs:n { lua / \l_@@_base_CJKfamily_tl } }
+      { luatexja.jfont.set_alt_font_latex } {#1}
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ltj_set_alternate_shape:nnN}
+% 若字符范围预先由 \texttt{declarecharrange} 声明，则可以直接使用。
+%    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_shape:nnN #1#2#3
   {
     \tl_map_inline:Nn #3
       {
-        \lua_now_x:n
+        \ctex_ltj_set_alternate_shape:n
           {
-            luatexja.jfont.set_alt_font_latex
-              (
-                ##1 ,
-                '\luatexluaescapestring { \CJK@encoding/#2 }' ,
-                '\luatexluaescapestring { \CJK@encoding/#1 }'
-              )
+            ##1 ,
+            '\luatexluaescapestring { \CJK@encoding/#2 }' ,
+            '\luatexluaescapestring { \CJK@encoding/#1 }'
           }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_ltj_swap_cs:NN}
-% 交换两个控制序列的意义。
+% \begin{macro}[aux]{\@@_save_alternate_shape:Nnn}
+% 将实际设置的替换字形保存起来用于清除或恢复。
+% 暂时令 \cs{l_@@_base_family_tl} 为 \cs{scan_stop:} 是让它不被展开，使得替换
+% 字体的设置可以在 \cs{addCJKfontfeature} 中直接使用。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_ltj_swap_cs:NN #1#2
+\cs_new_protected_nopar:Npn \@@_save_alternate_shape:Nnn #1#2#3
   {
-    \cs_set_eq:NN \@@_tmp:w #1
-    \cs_set_eq:NN #1 #2
-    \cs_set_eq:NN #2 \@@_tmp:w
-    \cs_undefine:N \@@_tmp:w
+    \group_begin:
+    \cs_if_exist:NF #1 { \cs_set_eq:NN #1 \prg_do_nothing: }
+    \cs_set_eq:NN \l_@@_base_family_tl \scan_stop:
+    \cs_set_eq:NN \luatexluaescapestring \scan_stop:
+    \cs_gset_protected_nopar:Npx #1
+      { \exp_not:o {#1} \exp_not:N \lua_now_x:n { #2 ( #3 ) } }
+    \group_end:
   }
+\cs_generate_variant:Nn \@@_save_alternate_shape:Nnn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{clearalternatefont,resetalternatefont}
+% 清除和重置操作总是全局的。
+%    \begin{macrocode}
+\keys_define:nn { ctex }
+  {
+    clearalternatefont    .code:n =
+      { \clist_map_function:xN {#1} \ctex_ltj_clear_alternate_font:n } ,
+    resetalternatefont    .code:n =
+      { \clist_map_function:xN {#1} \ctex_ltj_reset_alternate_font:n } ,
+    clearalternatefont .default:n = \l_ctex_ltj_family_tl ,
+    resetalternatefont .default:n = \l_ctex_ltj_family_tl
+  }
+\cs_new_protected_nopar:Npn \ctex_ltj_clear_alternate_font:n #1
+  {
+    \ctex_ltj_family_if_exist:xNTF {#1} \l_@@_base_family_tl
+      {
+        \cs_if_exist_use:cT { \@@_alternate_cs:n { shape / #1 } }
+          {
+            \prop_gput:Nno \g_@@_reset_alternate_prop
+              {#1} { \l_@@_base_family_tl }
+          }
+      }
+      { \@@_family_unknown_warning:n {#1} }
+  }
+\cs_new_protected_nopar:Npn \ctex_ltj_reset_alternate_font:n #1
+  {
+    \prop_gpop:NnNT \g_@@_reset_alternate_prop {#1} \l_@@_base_family_tl
+      { \use:c { \@@_alternate_cs:n { lua / #1 } } }
+  }
+\prop_new:N \g_@@_reset_alternate_prop
+\cs_generate_variant:Nn \clist_map_function:nN { x }
 %    \end{macrocode}
 % \end{macro}
 %
