@@ -430,7 +430,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3666}
+% \CheckSum{3700}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -891,9 +891,9 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/08}{新增 \texttt{fontset} 选项。}
 %
 % \begin{macro}{fontset}
+% 初始值为空。若用户未指定，则根据操作系统载入对应字体配置（目前仅能区分 Windows）。
 %   \begin{macrocode}
     fontset   .tl_set:N = \l_@@_fontset_tl ,
-    fontset  .initial:n = { windows } ,
     nofonts     .meta:n = { fontset = none } ,
     adobefonts  .meta:n = { fontset = adobe } ,
     winfonts    .meta:n = { fontset = windows } ,
@@ -2689,6 +2689,43 @@ This package consists of the file ctex.dtx, and the derived files
 %<*pdftex|xetex|luatex>
 %    \end{macrocode}
 %
+% \subsubsection{操作系统的判断}
+%
+% \changes{v2.0}{2014/04/16}{自动检测 Windows 系统，载入对应的字体配置。}
+%
+% \begin{macro}[internal,TF]{\ctex_if_windows:}
+% 在 \LuaTeX{} 下直接用调用 |os.type| 来判断是否是 Windows。看 \LuaTeX{} 的手册，
+% 似乎还可以调用 |os.name| 来判断是否是 Mac~OS~X。\pdfTeX{} 和 \XeTeX{} 下则根据
+% Windows 对文件名大小写不敏感来判断。这种办法可能会对 Cygwin 无效。
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \ctex_if_windows: { TF }
+  {
+%<*luatex>
+    \lua_now:n
+      {
+        if ~ os.type == 'windows' then ~
+          tex.sprint ( luatexbase.catcodetables.expl3 , '\\prg_return_true:' )
+        else ~
+          tex.sprint ( luatexbase.catcodetables.expl3 , '\\prg_return_false:' )
+        end
+      }
+%</luatex>
+%<*xetex|pdftex>
+    \file_add_path:nN { \c_@@_engine_file_tl } \l_@@_tmp_tl
+    \if_meaning:w \q_no_value \l_@@_tmp_tl
+      \prg_return_false: \else: \prg_return_true: \fi:
+%</xetex|pdftex>
+  }
+%<*xetex|pdftex>
+\tex_uppercase:D \exp_after:wN
+  {
+    \exp_after:wN \tl_const:Nn \exp_after:wN \c_@@_engine_file_tl
+    \exp_after:wN { \g_file_current_name_tl }
+  }
+%</xetex|pdftex>
+%    \end{macrocode}
+% \end{macro}
+%
 % \subsubsection{\pkg{hyperref} 的支持选项}
 %
 %    \begin{macrocode}
@@ -4353,12 +4390,22 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% 如果用户没有指定字体，则非 Windows 系统下使用 \texttt{fandol} 系列字体。
 %    \begin{macrocode}
-\str_if_eq:onF { \l_@@_fontset_tl } { none }
+\tl_if_empty:NTF \l_@@_fontset_tl
   {
-    \file_if_exist:nTF { ctex-fontset- \l_@@_fontset_tl .def }
-      { \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def } }
-      { \msg_error:nnx { ctex } { fontset-undef } { \l_@@_fontset_tl } }
+    \ctex_if_windows:TF
+      { \tl_set:Nn \l_@@_fontset_tl { windows } }
+      { \tl_set:Nn \l_@@_fontset_tl { fandol } }
+    \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def }
+  }
+  {
+    \str_if_eq:onF { \l_@@_fontset_tl } { none }
+      {
+        \file_if_exist:nTF { ctex-fontset- \l_@@_fontset_tl .def }
+          { \ctex_file_input:n { ctex-fontset- \l_@@_fontset_tl .def } }
+          { \msg_error:nnx { ctex } { fontset-undef } { \l_@@_fontset_tl } }
+      }
   }
 %    \end{macrocode}
 %
