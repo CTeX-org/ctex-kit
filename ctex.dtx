@@ -353,19 +353,26 @@ This package consists of the file ctex.dtx, and the derived files
 \usepackage[toc]{multitoc}
 \usepackage{geometry}
 \geometry{includemp,hmargin={0mm,15mm},vmargin=15mm,footskip=7mm}
-\hypersetup{pdfstartview=FitH}
+\hypersetup{pdfstartview=FitH,bookmarksdepth=subsubsection}
 \setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{2}
 \newcommand*\email{\nolinkurl}
 \setmainfont{TeX Gyre Pagella}
 \setsansfont{CMU Sans Serif}
 \setmonofont[
-  Mapping=,WordSpace={1,0,0}, %% 固定空格宽度
+  Ligatures=NoTeX,WordSpace={1,0,0}, ^^A 固定空格宽度
   SlantedFont=* Oblique]{CMU Typewriter Text Light}
 \linespread{1.2}
-\AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
-\AtEndUTFCommand[\textlangle]{\endgroup}
-\AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
-\AtEndUTFCommand[\textrangle]{\endgroup}
+\makeatletter
+\ifxetex
+  \AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
+  \AtEndUTFCommand[\textlangle]{\endgroup}
+  \AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
+  \AtEndUTFCommand[\textrangle]{\endgroup}
+  \let\ctexdocverbaddon\xeCJKVerbAddon
+\else
+  \let\ctexdocverbaddon\relax
+\fi
 \fvset{
   fontsize=\small,baselinestretch=1,numbersep=5pt,
   listparameters=\setlength\topsep{\MacrocodeTopsep}}
@@ -375,9 +382,9 @@ This package consists of the file ctex.dtx, and the derived files
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
 \AtBeginEnvironment{syntax}{\linespread{1}}
 \preto\MacroFont{\linespread{1}}
-\appto\MacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
+\appto\MacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \preto\AltMacroFont{\linespread{1}}
-\appto\AltMacroFont{\hyphenchar\font=-1 \xeCJKVerbAddon}
+\appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
 \csdef{meta }#1{\mbox{\texttt{\textlangle}\textit{#1}\texttt{\textrangle}}}
 \def\XeTeX{\hologo{XeTeX}}
@@ -389,7 +396,6 @@ This package consists of the file ctex.dtx, and the derived files
 \def\ctexkitrev#1{%
   \href{http://code.google.com/p/ctex-kit/source/detail?r=#1}{\texttt{ctex-kit} rev#1}}
 \patchcmd\theCodelineNo{\sffamily\tiny}{\normalfont\sffamily\tiny}{}{}
-\makeatletter
 \appto\GlossaryParms{%
   \def\@idxitem{\par\hangindent 2em }%
   \def\subitem{\@idxitem\hspace*{1em}}%
@@ -424,7 +430,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3643}
+% \CheckSum{3666}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -653,6 +659,7 @@ This package consists of the file ctex.dtx, and the derived files
 \int_new:N \l_@@_tmp_int
 \dim_new:N \l_@@_tmp_dim
 \box_new:N \l_@@_tmp_box
+\seq_new:N \l_@@_tmp_seq
 %    \end{macrocode}
 % \end{variable}
 %
@@ -1307,7 +1314,6 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \RequirePackage [ indentfirst = false ] { xeCJK }
-\defaultfontfeatures { Ligatures = TeX }
 \exp_args:Nx \xeCJKsetup
   {
     AutoFakeBold = true ,
@@ -2741,6 +2747,59 @@ This package consists of the file ctex.dtx, and the derived files
   \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
 %</luatex>
 \fi:
+%    \end{macrocode}
+%
+% \subsubsection{\TeX{} 连字}
+%
+%    \begin{macrocode}
+%<*xetex|luatex>
+%    \end{macrocode}
+%
+% 在 \XeLaTeX{} 和 \LuaLaTeX{} 下默认启用传统 \TeX{} 连字。
+%    \begin{macrocode}
+\defaultfontfeatures { Ligatures = TeX }
+%    \end{macrocode}
+%
+% 要在一个字体中取消 \TeX{} 连字，\XeLaTeX{} 下可以设置 \texttt{Mapping} 为空值，
+% \LuaLaTeX{} 下需要设置 \texttt{RawFeature=-tlig}。我们下面为 \pkg{fontspec} 的
+% \texttt{Ligatures} 定义一个选项 \texttt{NoTeX}，来统一它们。
+%    \begin{macrocode}
+\keys_if_exist:nnF  { fontspec } { Ligatures / NoTeX }
+  {
+    \keys_define:nn { fontspec }
+      { Ligatures / NoTeX .code:n = \ctex_remove_tex_ligatures: }
+  }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_remove_tex_ligatures:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_remove_tex_ligatures:
+  {
+%<xetex>    \fontspec_update_fontid:n { -map:tex-text }
+%<luatex>    \fontspec_update_fontid:n { -tlig-trep }
+    \tl_if_empty:NF \l_fontspec_rawfeatures_sclist
+%    \end{macrocode}
+% 如果直接设置 \texttt{mapping=}，\XeTeX{} 会警告说映射文件 \file{.tec} 找不到。
+% 因此我们在下面很小心地把 \texttt{mapping=tex-text} 删掉。
+%    \begin{macrocode}
+%<*xetex>
+      {
+        \seq_set_split:NnV \l_@@_tmp_seq { ; } \l_fontspec_rawfeatures_sclist
+        \seq_set_filter:NNn \l_@@_tmp_seq \l_@@_tmp_seq
+          { ! \str_if_eq_p:nn { mapping=tex-text } { ##1 } }
+        \tl_gset:Nx \l_fontspec_rawfeatures_sclist
+          { \seq_use:Nn \l_@@_tmp_seq { ; } }
+      }
+%</xetex>
+%<*luatex>
+      { \fontspec_update_featstr:n { -tlig; -trep } }
+%</luatex>
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</xetex|luatex>
 %    \end{macrocode}
 %
 % \subsubsection{\cs{ccwd} 的更新}
