@@ -179,6 +179,10 @@
 
 :localinstall-int
 
+  setlocal
+
+  set TDSROOT=%TEXMFLOCAL%
+
   call :file2tdsdir %1
 
   if defined TDSDIR (
@@ -186,6 +190,8 @@
   ) else (
     echo Unknown file type "%~x1"
   )
+
+  endlocal
 
   goto :EOF
 
