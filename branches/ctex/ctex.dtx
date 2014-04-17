@@ -430,7 +430,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3690}
+% \CheckSum{3703}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -891,7 +891,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/08}{新增 \texttt{fontset} 选项。}
 %
 % \begin{macro}{fontset}
-% 初始值为空。若用户未指定，则根据操作系统载入对应字体配置（目前仅能区分 Windows）。
+% 初始值为空。若用户未指定，则根据操作系统载入对应字体配置，可以区分 Windows、
+% Mac~OS~X 和其它。
 %   \begin{macrocode}
     fontset   .tl_set:N = \l_@@_fontset_tl ,
     nofonts     .meta:n = { fontset = none } ,
@@ -2691,40 +2692,66 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{操作系统的判断}
 %
-% \changes{v2.0}{2014/04/16}{自动检测 Windows 系统，载入对应的字体配置。}
+% \changes{v2.0}{2014/04/16}{自动检测操作系统，载入对应的字体配置。}
 %
 % \begin{macro}[internal]{\ctex_detected_os:}
-% 在 \LuaTeX{} 下直接用调用 |os.type| 来判断是否是 Windows。看 \LuaTeX{} 的手册，
-% 似乎还可以调用 |os.name| 来判断是否是 Mac~OS~X。\pdfTeX{} 和 \XeTeX{} 下则根据
-% Windows 对文件名大小写不敏感来判断。这种办法可能会对 Cygwin 无效。
+% 在 \LuaTeX{} 下直接用调用 |os.name| 来判断。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_detected_os:
-  {
 %<*luatex>
+  {
     \tl_set:Nx \l_@@_fontset_tl
       {
         \lua_now_x:n
           {
-            if ~ os.type == 'windows' then ~
+            if ~ os.name == 'windows' then ~
               tex.sprint ( 'windows' )
+            elseif ~ os.name == 'macosx' then ~
+              tex.sprint ( 'mac' )
             else ~
               tex.sprint ( 'fandol' )
             end
           }
       }
-%</luatex>
-%<*xetex|pdftex>
-    \file_if_exist:nTF { \c_@@_engine_file_tl }
-      { \tl_set:Nn \l_@@_fontset_tl { windows } }
-      { \tl_set:Nn \l_@@_fontset_tl { fandol } }
-%</xetex|pdftex>
   }
+%</luatex>
+%    \end{macrocode}
+% \pdfTeX{} 和 \XeTeX{} 下则依据 \file{/dev/null} 和 \file{nul:} 的存在性以及
+% 文件系统的大小写敏感性来判断。Mac~OS~X 的大小写敏感性在安装时是可选的。为了
+% 保险起见，这里的判断很繁琐，最多要进行 4 次文件操作！
+%    \begin{macrocode}
 %<*xetex|pdftex>
+  {
+    \file_if_exist:nTF { /dev/null }
+      {
+        \file_if_exist:nTF { nul: }
+          {
+            \file_if_exist:nTF { \c_@@_engine_file_tl }
+              { \ctex_if_macosx:TF { mac } { windows } }
+              { \ctex_if_macosx:TF { mac } { fandol } }
+          }
+          { \ctex_if_macosx:TF { mac } { fandol } }
+      }
+      { \tl_set:Nn \l_@@_fontset_tl { windows } }
+  }
 \tex_uppercase:D \exp_after:wN
   {
     \exp_after:wN \tl_const:Nn \exp_after:wN \c_@@_engine_file_tl
     \exp_after:wN { \g_file_current_name_tl }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_if_macosx:TF}
+% 以 \file{/private/etc/hosts} 为特征文件判断 Mac~OS~X。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_if_macosx:TF #1#2
+  {
+    \file_if_exist:nTF { \c_@@_macosx_file_tl }
+      { \tl_set:Nn \l_@@_fontset_tl {#1} }
+      { \tl_set:Nn \l_@@_fontset_tl {#2} }
+  }
+\tl_const:Nn \c_@@_macosx_file_tl { /private/etc/hosts }
 %</xetex|pdftex>
 %    \end{macrocode}
 % \end{macro}
@@ -4393,7 +4420,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% 如果用户没有指定字体，则非 Windows 系统下使用 \texttt{fandol} 系列字体。
+% 如果用户没有指定字体，则探测操作系统，载入相应的字体配置。
 %    \begin{macrocode}
 \tl_if_empty:NTF \l_@@_fontset_tl
   {
