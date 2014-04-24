@@ -432,7 +432,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3718}
+% \CheckSum{3722}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1155,9 +1155,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<*class>
           {
             \cs_gset_eq:NN \g_@@_font_size_flag \c_minus_one
-%<article>            \PassOptionsToPackage {#1} { article }
-%<book>            \PassOptionsToPackage {#1} { book }
-%<report>            \PassOptionsToPackage {#1} { report }
+%<article>            \PassOptionsToClass {#1} { article }
+%<book>            \PassOptionsToClass {#1} { book }
+%<report>            \PassOptionsToClass {#1} { report }
           } ,
 %</class>
         #1 .value_forbidden:
@@ -2908,6 +2908,11 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{\pkg{hyperref} 的支持选项}
 %
+% 处理各个引擎下的 PDF 中文书签问题。在 \pdfTeX{} 下使用 \texttt{GBK} 编码，
+% DVIPDFM\textit{x} 驱动可以直接用它的 \cs{special} 命令，其它模式用
+% \pkg{xCJK2uni} 宏包处理。使用 \texttt{UTF-8} 编码时，\pkg{CJKutf8} 已经处理了
+% 书签问题，但仍需要使用 \pkg{hyperref} 的 \texttt{unicode} 选项，目的是在书签的
+% 开头写入 BOM (|\376\377|)，提示这是 \texttt{UTF-16BE} 字节流。
 %    \begin{macrocode}
 %<*pdftex>
 \cs_if_free:NF \hypersetup
@@ -2918,11 +2923,59 @@ This package consists of the file ctex.dtx, and the derived files
         \hypersetup { CJKbookmarks = true }
         \ctex_if_pdfmode:TF
           { \RequirePackage { xCJK2uni } }
-          { \AtBeginDvi { \special { pdf:tounicode~GBK-EUC-UCS2 } } }
+          {
+            \AtEndPreamble
+              {
+                \str_if_eq:onTF { \Hy@driver } { hdvipdfm }
+                  {
+                    \AtBeginShipoutFirst
+                      { \special { pdf:tounicode~GBK-EUC-UCS2 } }
+                  }
+                  { \RequirePackage { xCJK2uni } }
+              }
+          }
       }
       { \hypersetup { unicode } }
   }
 %</pdftex>
+%    \end{macrocode}
+% 在 \XeTeX{} 下，\pkg{hyperref} 在处理带有非 ASCII 字符和 |\%| 的书签时有问题^^A
+% \footnote{\url{http://code.google.com/p/ctex-kit/issues/detail?id=40}}。
+% 事实上，\pkg{hyperref} 在驱动文件 \file{hxetex.def} 中设置了
+% \cs{Hy@unicodetrue}，从而书签总是会被 \cs{HyPsd@ConvertToUnicode} 转化成
+% \texttt{UTF-16BE} 编码的形式（抄录自 \cs{pdfstringdef}的定义）：
+% \begin{verbatim}
+%       \ifHy@unicode
+%         \HyPsd@ConvertToUnicode#1%
+%         \ifx\HyPsd@pdfencoding\HyPsd@pdfencoding@auto
+%           \ltx@IfUndefined{StringEncodingConvertTest}{%
+%           }{%
+%             \EdefUnescapeString\HyPsd@temp#1%
+%             \ifxetex
+%               \let\HyPsd@UnescapedString\HyPsd@temp
+%               \StringEncodingConvertTest\HyPsd@temp\HyPsd@temp
+%                                         {utf16be}{ascii-print}{%
+%                 \EdefEscapeString\HyPsd@temp\HyPsd@temp
+%                 \global\let#1\HyPsd@temp
+%                 \HyPsd@EscapeTeX#1%
+%                 \Hy@unicodefalse
+%               }{%
+%                \HyPsd@ToBigChars#1%
+%               }%
+% \end{verbatim}
+% 宏包选项 \texttt{unicode} 的另一个作用是设置 \cs{HyPsd@pdfencoding} 为
+% \texttt{unicode}，从而可以避免随后再将书签从 \texttt{UTF-16BE} 字节流转化回正常
+% 字符（其中使用的 \cs{HyPsd@ToBigChars} 没有考虑书签中含有 |\%| 的情况）。
+% Heiko Oberdiek 在 \file{README} 中说明了将书签转化回正常字符的意图：避免
+% XDVIPDFMX 的警告：
+% \begin{verbatim}
+%   ** WARNING ** Failed to convert input string to UTF16...
+% \end{verbatim}
+% \XeTeX{} 的维护者 Khaled Hosny 已经注意到了这个问题^^A
+% \footnote{\url{http://tug.org/pipermail/tex-live/2013-December/034613.html}}。
+% 为了与 \XeTeX 下的行为一致（使用 \cs{HyPsd@LoadUnicode} 载入 \file{puenc.def}），
+% 在 \LuaTeX{} 下也使用 \texttt{unicode} 选项。
+%    \begin{macrocode}
 %<*xetex|luatex>
 \cs_if_exist_use:NT \hypersetup { { unicode } }
 %</xetex|luatex>
