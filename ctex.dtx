@@ -438,7 +438,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3722}
+% \CheckSum{3725}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3441,6 +3441,22 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\ctex_update_em_unit:}
+% 将当前汉字的宽度保存到 \cs{ccwd} 中备用。不采用 \texttt{1 em}，因为这时的
+% \texttt{1 em} 实际上来自西文字体的信息，未必等于汉字的宽度，这似乎在传统的
+% \file{.tfm} 字体上表现更明显。在 \pdfTeX{} 和 \XeTeX{} 下，直接使用 |\f@size\p@|
+% 作为汉字的宽度，这应该对大多数汉字字体都成立，但不适用于诸如“方正兰亭黑长”之类
+% 的特殊字体。在 \XeTeX{} 可以用 \cs{fontcharwd} 来改进。而在 \pdfTeX{} 下，若使用
+% \pkg{zhmetrics} 技术，所有的汉字共享同一个 \file{.tfm}，\cs{fontcharwd} 也就没有
+% 意义。在 \LuaTeX{} 下，\pkg{luatexja} 总是按照 JFM 中的设置输出汉字的宽度，可以
+% 直接用 \cs{zw} 作为汉字宽度。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_em_unit:
+%<pdftex|xetex>  { \dim_set:Nn \ccwd { \f@size \p@ } }
+%<luatex>  { \dim_set_eq:NN \ccwd \zw }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
 % \cs{EverySelectfont} 直到文档开始时才有效。为了 \cs{ccwd} 和 \pkg{luatexja} 的
 % 字体设置在导言区也可用，我们还需要在这里手工修改 \cs{selectfont}。\pkg{everysel}
@@ -3756,13 +3772,14 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}{linestretch}
-% 若行宽不是汉字宽度的整数倍，自然要求伸展它们之间的差。这里设置的是在此基础上的
-% 额外伸展量，初始化为 |\f@size\p@|。若设置为 \cs{maxdimen}，则禁用此功能。
+% 可以在参数中使用 \cs{ccwd} 来引用当前汉字的宽度。若行宽不是汉字宽度的整数倍，自然
+% 要求伸展它们之间的差。这里设置的是在此基础上的额外伸展量。初始化为一个汉字的宽度。
+% 若设置为 \cs{maxdimen}，则禁用此功能。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
     linestretch  .tl_set:N = \l_@@_line_stretch_tl ,
-    linestretch .initial:n = { \f@size \p@ }
+    linestretch .initial:n = { \ccwd }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3772,23 +3789,19 @@ This package consists of the file ctex.dtx, and the derived files
 % 均匀地填充到汉字之间。\hologo{eTeX} 的除法是四舍五入，而我们这里应该用截断。由于
 % 没有可展性的要求，直接用原语 \cs{tex_divide:D} 要比 \cs{int_div_truncate:nn}
 % 快一些。下面的算法还兼顾到了 \cs{linewidth} 不为汉字字宽的整数倍的情况。
-% 需要注意的是，这里假定汉字的宽度是 |\f@size\p@|，这应该对大多数汉字字体都成立，
-% 但不适用于诸如“方正兰亭黑长”之类的特殊字体。\cs{ccwd} 的情况类似。
-% 用 |\f@size\p@| 作为汉字的宽度，而不采用 \texttt{1 em}，因为这时的 \texttt{1 em}
-% 实际上来自西文字体的信息，未必等于汉字的宽度，这似乎在传统的 \file{.tfm} 字体上
-% 表现较更明显。若用户禁用 \texttt{linestretch} 并且修改过 \cs{CJKglue}，则只更新
+% 若用户禁用 \texttt{linestretch} 并且修改过 \cs{CJKglue}，则只更新
 % \cs{ccwd}，否则设置伸展量为 $0.08$ 倍 \cs{baselineskip}。注意 \pkg{everysel} 的
 % 钩子位于 \cs{size@update} 之前，\cs{baselineskip} 还未更新，不能直接使用它。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_stretch:
   {
+    \ctex_update_em_unit:
     \dim_set:Nn \l_@@_tmp_dim { \l_@@_line_stretch_tl }
     \dim_compare:nNnTF \l_@@_tmp_dim = \c_max_dim
       {
         \ctex_if_ccglue_touched:TF
           { \ctex_update_ccwd: }
           {
-            \dim_set:Nn \ccwd { \f@size \p@ }
             \dim_set:Nn \l_@@_tmp_dim
               { \baselinestretch \etex_glueexpr:D \f@baselineskip \scan_stop: }
             \skip_set:Nn \l_@@_ccglue_skip
@@ -3797,15 +3810,21 @@ This package consists of the file ctex.dtx, and the derived files
           }
       }
       {
-        \dim_set:Nn \ccwd { \f@size \p@ }
         \int_set:Nn \l_@@_tmp_int
           { \etex_dimexpr:D \linewidth - \ccwd - \l_@@_tmp_dim \scan_stop: }
         \tex_divide:D \l_@@_tmp_int \ccwd
-        \skip_set:Nn \l_@@_ccglue_skip
+        \int_compare:nNnTF \l_@@_tmp_int > \c_zero
           {
-            \c_zero_dim plus \dim_eval:n
-              { ( \linewidth - \ccwd - \l_@@_tmp_int \ccwd ) / \l_@@_tmp_int }
+            \skip_set:Nn \l_@@_ccglue_skip
+              {
+                \c_zero_dim plus \dim_eval:n
+                  {
+                    ( \linewidth - \ccwd - \l_@@_tmp_int \ccwd ) /
+                    \l_@@_tmp_int
+                  }
+              }
           }
+          { \skip_zero:N \l_@@_ccglue_skip }
         \ctex_update_ccglue:
       }
   }
@@ -3846,7 +3865,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_ziju:
   {
-    \dim_set:Nn \ccwd { \f@size \p@ }
+    \ctex_update_em_unit:
     \dim_set:Nn \l_@@_ziju_dim { \l_@@_ziju_tl \ccwd }
     \dim_add:Nn \ccwd { \l_@@_ziju_dim }
     \dim_compare:nNnTF \ccwd > \c_zero_dim
@@ -3855,7 +3874,8 @@ This package consists of the file ctex.dtx, and the derived files
 % 还能够再挤下一个汉字并且不会出现负间距。由 \TeX{} 决定伸展还是收缩。
 %    \begin{macrocode}
       {
-        \dim_set:Nn \l_@@_tmp_dim { \linewidth - \f@size \p@ }
+        \dim_set:Nn \l_@@_tmp_dim
+          { \linewidth - \ccwd + \l_@@_ziju_dim }
         \int_set:Nn \l_@@_tmp_int { \l_@@_tmp_dim }
         \tex_divide:D \l_@@_tmp_int \ccwd
         \dim_sub:Nn \l_@@_tmp_dim { \l_@@_tmp_int \ccwd }
@@ -3871,7 +3891,7 @@ This package consists of the file ctex.dtx, and the derived files
         \skip_set:Nn \l_@@_ccglue_skip
           {
             \l_@@_ziju_dim
-            plus  \dim_eval:n { \l_@@_tmp_dim / ( \l_@@_tmp_int ) }
+            plus  \dim_eval:n { \l_@@_tmp_dim / \l_@@_tmp_int }
             minus \dim_min:nn { \dim_abs:n { \l_@@_ziju_dim } }
               { ( \ccwd - \l_@@_tmp_dim ) / ( \l_@@_tmp_int + \c_one ) }
           }
