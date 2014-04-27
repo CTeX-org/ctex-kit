@@ -438,7 +438,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3725}
+% \CheckSum{3737}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1320,6 +1320,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
     linespread  .fp_set:N = \l_@@_line_spread_fp ,
     linespread .initial:n = { 1.3 } ,
+    linespread .value_required: ,
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3743,10 +3744,18 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{字距与缩进}
 %
-% \begin{macro}[internal]{\CTEXsetfont}
-% 在字号变化时更新 \cs{ccwd} 和 \cs{parindent}。字距为零则恢复正常设置。
+% \begin{macro}{\CTEXsetfont}
+% 无论字体大小是否变化都更新相关信息。
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXsetfont { }
+  { \cs_if_free:NTF \size@update { \ctex_update_size: } { \selectfont } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_update_size:}
+% 在字号变化时更新 \cs{ccwd}、\cs{parindent} 和汉字间距。字距为零则恢复正常设置。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_update_size:
   {
     \tl_if_eq:NNTF \l_@@_ziju_tl \c_@@_zero_tl
       {
@@ -3759,28 +3768,32 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_new:N \l_@@_ziju_tl
 \tl_set_eq:NN \l_@@_ziju_tl \c_@@_zero_tl
 %    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_update_size:}
 % 在 \cs{selectfont} 中，若 \cs{size@update} 为 \cs{relax}，说明字体大小没有变化，
 % 我们也就不用更新相关参数。
 %    \begin{macrocode}
-\ctex_add_to_selectfont:n { \ctex_update_size: }
-\cs_new_protected_nopar:Npn \ctex_update_size:
-  { \cs_if_free:NF \size@update { \CTEXsetfont } }
+\ctex_add_to_selectfont:n
+  { \cs_if_free:NF \size@update { \ctex_update_size: } }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{linestretch}
-% 可以在参数中使用 \cs{ccwd} 来引用当前汉字的宽度。若行宽不是汉字宽度的整数倍，自然
-% 要求伸展它们之间的差。这里设置的是在此基础上的额外伸展量。初始化为一个汉字的宽度。
-% 若设置为 \cs{maxdimen}，则禁用此功能。
+% 若行宽不是汉字宽度的整数倍，自然要求伸展它们之间的差。这里设置的是在此基础上的
+% 额外伸展量。初始化为一个汉字的宽度。若设置为 \cs{maxdimen}，则禁用此功能。
+% 参数的默认单位是汉字的宽度 \cs{ccwd}。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
-    linestretch  .tl_set:N = \l_@@_line_stretch_tl ,
-    linestretch .initial:n = { \ccwd }
+    linestretch .code:n =
+      {
+        \str_if_eq_x:nnTF { \dim_to_pt:n { #1 pt } } { \dim_to_pt:n { #1 in } }
+          { \tl_set:Nn \l_@@_line_stretch_tl { #1 } }
+          { \tl_set:Nn \l_@@_line_stretch_tl { #1 \ccwd } }
+        \CTEXsetfont
+      } ,
+    linestretch .value_required:
   }
+\tl_new:N \l_@@_line_stretch_tl
+\tl_set:Nn \l_@@_line_stretch_tl { \ccwd }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3846,15 +3859,14 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}{\ziju}
-% 若参数为 $0$，则恢复正常间距。使用 \cs{selectfont} 是为了保证字体大小值的正确。
+% 若参数为 $0$，则恢复正常间距。
 %    \begin{macrocode}
 \NewDocumentCommand \ziju { m }
   { \exp_args:Nx \ctex_ziju:n {#1} \tex_ignorespaces:D }
 \cs_new_protected_nopar:Npn \ctex_ziju:n #1
   {
     \tl_set:Nx \l_@@_ziju_tl { \fp_eval:n {#1} }
-    \cs_if_free:NTF \size@update
-      { \CTEXsetfont } { \selectfont }
+    \CTEXsetfont
   }
 %    \end{macrocode}
 % \end{macro}
