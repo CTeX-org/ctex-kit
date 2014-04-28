@@ -393,6 +393,7 @@ This package consists of the file ctex.dtx, and the derived files
 \define@key{FV}{labelref}{\def\ctexexamlabelref{\label{#1}}}
 \let\ctexexamlabelref\empty
 \newcounter{ctexexam}
+\AtBeginEnvironment{function}{\par\nointerlineskip}
 \AtEndEnvironment{function}
   {\par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
@@ -455,7 +456,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3740}
+% \CheckSum{3737}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -852,22 +853,21 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{function}{space}
 %   \begin{syntax}
-%     space = \meta{\TFF\orvar{}auto}
+%     space = \meta{\TF\orvar{}\defaultvar{auto}}
 %   \end{syntax}
-%   是否使用 CJK 保留空格模式。默认是不使用，即忽略空格模式。
+%   用于控制是否忽略汉字后面的空格。
 % \end{function}
 %
 %   \begin{optdesc}
-%     \item[true] 启用保留空格模式：中文字符之间的空格会被保留，类似英文的
-%     习惯。这时用户需要自己处理空格以及换行产生的空格（在行尾加上 |%| 可以
-%     避免），否则排版结果可能不符合中文习惯。
-%     \item[false] 忽略空格模式：中文字符之间的空格会被忽略，比较符合中文习惯。
-%     \item[auto]  自动模式：只在使用 \pdfLaTeX{} 时有效。这将会调
-%     用 \pkg{CJKspace} 宏包来处理空格。
+%     \item[true] 保留汉字后面的空格，类似英文的习惯。这时用户需要自己处理由换行
+%     产生的空格（在行尾加上 |%| 可以避免），否则排版结果可能不符合中文习惯。
+%     \item[false] 总是忽略掉汉字后面的空格。只在使用 (pdf)\LaTeX{} 编译时有意义。
+%     \item[auto] 根据空格后面的情况决定是否保留：如果空格后面是汉字，则忽略该
+%     空格，否则保留。
 %   \end{optdesc}
 %
-%   \emph{使用 \LuaLaTeX{} 编译的时候，该选项无效：汉字间的空格以及汉字
-%   与西文字符之间的空格总是有效，不会被忽略。}
+%   \emph{使用 \LuaLaTeX{} 编译的时候，该选项无效：汉字间的空格以及汉字与西文字符
+%   之间的空格总是有效，不会被忽略，但可以自动忽略掉由换行产生的空格。}
 %
 % \begin{function}{linspread}
 %   \begin{syntax}
@@ -1352,14 +1352,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}[internal]{\g_@@_space_flag}
-% |1| 表示保留汉字之间空格的标志，大于 |1| 则不保留。\pdfTeX{} 下，|2| 还将引入
-% \pkg{CJKspace} 宏包。
-%    \begin{macrocode}
-\cs_new_eq:NN \g_@@_space_flag \c_three
-%    \end{macrocode}
-% \end{variable}
-%
 % \begin{variable}[internal]{\g_@@_section_depth_flag}
 % 若大于 |3|，则 \cs{paragraph} 和 \cs{subparagraph} 标题单独占一行；若为 |3|，则
 % \cs{paragraph} 单独占一行。
@@ -1393,6 +1385,12 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_eq:NN \g_@@_font_size_flag \c_zero
 %    \end{macrocode}
 % \end{variable}
+%
+% 对无效选项给出警告。
+%    \begin{macrocode}
+\msg_new:nnn { ctex } { invalid-option }
+  { Option~`#1'~is~invalid~in~current~mode. }
+%    \end{macrocode}
 %
 % \subsection{宏包选项}
 %
@@ -1515,7 +1513,10 @@ This package consists of the file ctex.dtx, and the derived files
 %   \begin{macrocode}
     space .choices:nn =
       { true , auto , false }
-      { \tex_global:D \tex_chardef:D \g_@@_space_flag \l_keys_choice_int } ,
+      {
+        \exp_args:Nx \AtEndOfPackage
+          { \keys_set:nn { ctex } { space = \l_keys_choice_tl } }
+      } ,
     space  .default:n = { true } ,
     nospace   .meta:n = { space = false } ,
     nospace   .value_forbidden: ,
@@ -1744,9 +1745,7 @@ This package consists of the file ctex.dtx, and the derived files
   \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
     { \RequirePackage { CJK } }
     { \RequirePackage { CJKutf8 } }
-  \RequirePackage { CJKpunct }
-  \int_compare:nNnT \g_@@_space_flag = \c_two
-    { \RequirePackage { CJKspace } }
+  \RequirePackage { CJKpunct , CJKspace }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\ctex_load_zhmap:n}
@@ -1764,32 +1763,28 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% 一般 \LaTeX{} 环境总是会使用一个分组环境，为了保证分组嵌套的正确和减少冲突，将
+% \env{CJK*} 环境内置入 \env{document} 环境的最里层。也许更好的方式是不使用
+% \env{CJK*} 环境，而改用它的实际内部定义 \cs{CJK@envStart}，这样也能避免可能
+% 发生的 \TeX{} 保存栈溢出。
 %    \begin{macrocode}
-  \group_begin:
-  \int_compare:nNnTF \g_@@_space_flag > \c_one
-    {
-      \tl_set:Nn \l_@@_tmp_tl { CJK* }
-      \tl_set:Nn \CJKtilde { \CJKtilde }
-    }
-    {
-      \tl_set:Nn \l_@@_tmp_tl { CJK }
-      \tl_clear:N \CJKtilde
-    }
   \use:x
     {
-      \group_end:
       \AtEndPreamble
         {
           \AfterEndPreamble
             {
-              \exp_not:N \begin { \l_@@_tmp_tl }
+              \exp_not:N \begin { CJK* }
                 { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
-              \exp_not:o { \CJKtilde }
+              \exp_not:N \CJKtilde
             }
         }
-      \AtEndEnvironment { document }
-        { \exp_not:N \clearpage \exp_not:N \end { \l_@@_tmp_tl } }
     }
+%    \end{macrocode}
+% 使用 \cs{clearpage} 的目的是强制输出页面，避免页眉页脚中的 CJK 宏在 \env{CJK*}
+% 环境结束后没有定义。
+%    \begin{macrocode}
+  \AtEndEnvironment { document } { \clearpage \end { CJK* } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -1880,6 +1875,29 @@ This package consists of the file ctex.dtx, and the derived files
   { \AtBeginDocument { \punctstyle { \l_@@_punct_tl } } }
 %    \end{macrocode}
 %
+% \begin{macro}[internal]{CJK*}
+% 去掉了 \env{CJK*} 环境的开始定义中对 \cs{CJK@ignorespaces} 的定义，以便使用
+% \pkg{CJKspace} 时，忽略空格的方式受 \texttt{space} 选项的控制。
+%    \begin{macrocode}
+\RenewDocumentEnvironment { CJK* } { O { } m m }
+  { \CJK@envStart {#1} {#2} {#3} }
+  { \CJK@envEnd }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJK@ignorespaces,\ctex_auto_ignorespaces:}
+% 默认忽略汉字之间的空格。并关闭名字空间，保存 |\CJK@@ignorespaces| 的定义，方便使用。
+%    \begin{macrocode}
+%<@@=>
+\cs_set_eq:NN \CJK@ignorespaces \CJK@@ignorespaces
+\cs_new_eq:NN \ctex_auto_ignorespaces: \CJK@@ignorespaces
+%    \end{macrocode}
+% 恢复名字空间，要把它放在一个 \env{macrocode} 环境中，\cls{l3doc} 才能正确工作。
+%    \begin{macrocode}
+%<@@=ctex>
+%    \end{macrocode}
+% \end{macro}
+%
 %    \begin{macrocode}
 %</pdftex>
 %<*xetex>
@@ -1892,14 +1910,7 @@ This package consists of the file ctex.dtx, and the derived files
 \exp_args:Nx \xeCJKsetup
   {
     AutoFakeBold = true ,
-    PunctStyle   = \l_@@_punct_tl ,
-%    \end{macrocode}
-% \pkg{xeCJK} 保留了旧选项 \texttt{space}，为避免与 \CTeX{} 的全局选项混淆，
-% 这里总是需要重新设置 \texttt{CJKspace}。
-%    \begin{macrocode}
-    \int_compare:nNnTF \g_@@_space_flag > \c_one
-      { CJKspace = false }
-      { CJKspace = true }
+    PunctStyle   = \l_@@_punct_tl
   }
 %    \end{macrocode}
 %
@@ -3568,6 +3579,8 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \subsubsection{其它}
+%
 % \begin{macro}[internal]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
 % \cs{EverySelectfont} 直到文档开始时才有效。为了 \cs{ccwd} 和 \pkg{luatexja} 的
 % 字体设置在导言区也可用，我们还需要在这里手工修改 \cs{selectfont}。\pkg{everysel}
@@ -3620,6 +3633,32 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_clear:N \CJK@family
 %</luatex>
 %    \end{macrocode}
+%
+% \begin{macro}{space}
+% 在正文中设置忽略空格方式。
+%    \begin{macrocode}
+\keys_define:nn { ctex }
+  {
+%<*pdftex|xetex>
+    space .choice: ,
+    space .default:n = { true } ,
+    space / true  .code:n =
+%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \prg_do_nothing: } ,
+%<xetex>      { \xeCJKsetup { CJKspace = true } } ,
+    space / auto  .code:n =
+%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \ctex_auto_ignorespaces: } ,
+%<xetex>      { \xeCJKsetup { CJKspace = false } } ,
+    space / false .code:n =
+%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \tex_ignorespaces:D }
+%<xetex>      { \xeCJKsetup { CJKspace = false } }
+%</pdftex|xetex>
+%<*luatex>
+    space .code:n =
+      { \msg_warning:nnx { ctex } { invalid-option } { \l_keys_key_tl } }
+%</luatex>
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 %    \begin{macrocode}
 %</pdftex|xetex|luatex>
@@ -5101,7 +5140,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected_nopar:Npn \ctex_fontset_error:n #1
   { \msg_critical:nnn { ctex } { fontset-unavailable } {#1} }
 \msg_new:nnn { ctex } { fontset-unavailable }
-  { CJK~fontset~`#1'~is~unavailable~in~current~mode. }
+  { CTeX~fontset~`#1'~is~unavailable~in~current~mode. }
 %    \end{macrocode}
 % \end{macro}
 %
