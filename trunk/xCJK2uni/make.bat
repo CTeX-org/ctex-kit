@@ -27,6 +27,7 @@
   set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
+  set MAKETEX=lualatex
   set DEFMAKE=%PACKAGE%-make.ltx
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
@@ -112,18 +113,18 @@
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2>&1
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2>&1
     goto :clean-aux
   )
 
-: makedef
+:makedef
 
-    echo    Making /ToUnicode map files
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %DEFMAKE% > nul 
+    echo   Making /ToUnicode map files
+    %MAKETEX% -shell-escape -interaction=batchmode %DEFMAKE% > nul 
     goto :clean-aux
 
 :file2tdsdir
