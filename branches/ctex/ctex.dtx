@@ -348,12 +348,14 @@ This package consists of the file ctex.dtx, and the derived files
 \usepackage[UTF8, punct = kaiming, heading,
   linespread = 1.2, sub3section]{ctex}
 \ctexset{
-  abstractname=简介,
+  abstractname = 简介,
+  indexname    = 代码索引,
 }
 \appto\abstract{\parindent=2\ccwd} ^^A l3doc.cls 设置列表环境中 \listparindent=\z@
 \usepackage[toc]{multitoc}
 \usepackage{geometry}
 \usepackage{tabularx}
+\usepackage{unicode-math}
 \geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
 \hypersetup{pdfstartview=FitH,bookmarksdepth=subsubsection}
 \setcounter{secnumdepth}{4}
@@ -365,12 +367,39 @@ This package consists of the file ctex.dtx, and the derived files
   Ligatures=NoTeX,WordSpace={1,0,0}, ^^A 固定空格宽度
   UprightFont=* Light, BoldFont=* Bold,
   SlantedFont=* Light Oblique]{CMU Typewriter Text}
+\setmathfont{texgyrepagella-math.otf}
+\usepackage{caption}
+\captionsetup{strut=off}
 \makeatletter
+%% <--- http://tex.stackexchange.com/a/40896
+\patchcmd{\@addtocurcol}%
+    {\vskip \intextsep}%
+    {\edef\save@first@penalty{\the\lastpenalty}\unpenalty
+     \ifnum \lastpenalty = \@M  % hopefully the OR penalty
+        \unpenalty
+     \else
+        \penalty \save@first@penalty \relax % put it back
+     \fi
+      \ifnum\outputpenalty <-\@Mii
+                         \addvspace\intextsep
+                         \vskip\parskip
+      \else
+                         \addvspace\intextsep
+      \fi}%
+    {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+\patchcmd{\@addtocurcol}%
+    {\vskip\intextsep \ifnum\outputpenalty <-\@Mii \vskip -\parskip\fi}%
+    {\ifnum\outputpenalty <-\@Mii
+       \aftergroup\vskip\aftergroup\intextsep
+       \aftergroup\nointerlineskip
+     \else
+       \vskip\intextsep
+     \fi}%
+    {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+\patchcmd{\@getpen}{\@M}{\@Mi}
+  {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+%% --->
 \ifxetex
-  \AtBeginUTFCommand[\textlangle]{\begingroup\makexeCJKinactive}
-  \AtEndUTFCommand[\textlangle]{\endgroup}
-  \AtBeginUTFCommand[\textrangle]{\begingroup\makexeCJKinactive}
-  \AtEndUTFCommand[\textrangle]{\endgroup}
   \let\ctexdocverbaddon\xeCJKVerbAddon
 \else
   \let\ctexdocverbaddon\relax
@@ -443,7 +472,6 @@ This package consists of the file ctex.dtx, and the derived files
 \EnableCrossrefs
 \CodelineIndex
 \RecordChanges
-\def\indexname{代码索引}
 \def\glossaryname{版本历史}
 \GlossaryPrologue{\section*{\glossaryname}}
 \IndexPrologue{%
@@ -466,7 +494,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3775}
+% \CheckSum{3787}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -588,7 +616,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \centering
 % \begin{tabular}{ccc}
 %   \toprule
-%   (pdf)\LaTeX & \XeTeX & \LuaLaTeX \\
+%   (pdf)\LaTeX & \XeLaTeX & \LuaLaTeX \\
 %   \midrule
 %   \pkg{CJK} & \pkg{xeCJK} & \pkg{luatexja} \\
 %   \bottomrule
@@ -626,7 +654,6 @@ This package consists of the file ctex.dtx, and the derived files
 %     \item \pkg{fontspec} 宏包，它还依赖
 %     \begin{itemize}
 %       \item \pkg{euenc} 宏包。
-%       \item \pkg{fixltx2e} 宏包，属于 \pkg{tools} 集合。
 %       \item \pkg{xunicode} 宏包，它还依赖 \pkg{tipa} 宏包。
 %     \end{itemize}
 %     \item \pkg{everypage} 宏包。
@@ -1216,6 +1243,21 @@ This package consists of the file ctex.dtx, and the derived files
 %</class|style|ctexsize>
 %    \end{macrocode}
 %
+% 检查 \pkg{l3keys2e} 的版本。
+%    \begin{macrocode}
+%<*class>
+\msg_new:nnnn { ctex } { l3-too-old }
+  { Support~package~`#1'~too~old. }
+  {
+    Please~update~an~up~to~date~version~of~the~bundles\\\\
+    `l3kernel'~and~`l3packages'\\\\
+    using~your~TeX~package~manager~or~from~CTAN.
+  }
+\@ifpackagelater { l3keys2e } { 2014/05/05 } { }
+  { \msg_error:nnn { ctex } { l3-too-old } { l3keys2e } }
+%</class>
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 %<*class|style>
 \RequirePackage { etoolbox , ifpdf , fix-cm , everysel }
@@ -1281,13 +1323,14 @@ This package consists of the file ctex.dtx, and the derived files
 \char_set_lccode:nn { `\/ } { `\\ }
 \char_set_lccode:nn { `\A } { `\t }
 \tl_map_function:nN { \A \E \S \O \P } \char_set_catcode_other:N
-\tl_to_lowercase:n
+\tex_lowercase:D
   {
     \group_end:
     \cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
       {
         \bool_if:nTF { \cs_if_exist_p:c { #3 ~ } || \cs_if_exist_p:c { /#3 } }
           {
+            \group_begin:
             \use:x
               {
                 \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
@@ -1298,6 +1341,7 @@ This package consists of the file ctex.dtx, and the derived files
       }
     \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
       {
+        \group_end:
         \exp_args:Nc #6
           {
             \str_case:nnTF {#1}
@@ -1411,6 +1455,15 @@ This package consists of the file ctex.dtx, and the derived files
 %<style>\cs_new_protected_nopar:Npn \ctex_at_end:n { \AtEndOfPackage }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}[internal]{\g_@@_std_options_clist}
+% 保存传递给标准文档类的选项。
+%    \begin{macrocode}
+%<*class>
+\clist_new:N \g_@@_std_options_clist
+%</class>
+%    \end{macrocode}
+% \end{variable}
 %
 %    \begin{macrocode}
 %</class|style>
@@ -1620,9 +1673,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<*class>
           {
             \cs_gset_eq:NN \g_@@_font_size_flag \c_minus_one
-%<article>            \PassOptionsToClass {#1} { article }
-%<book>            \PassOptionsToClass {#1} { book }
-%<report>            \PassOptionsToClass {#1} { report }
+            \clist_gput_right:Nn \g_@@_std_options_clist {#1}
           } ,
 %</class>
         #1 .value_forbidden:
@@ -1630,6 +1681,17 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% 将未知选项传给标准文档类。
+%    \begin{macrocode}
+%<*class>
+\keys_define:nn { ctex / option }
+  {
+    unknown .code:n =
+      { \clist_gput_right:No \g_@@_std_options_clist { \CurrentOption } }
+  }
+%</class>
+%    \end{macrocode}
 %
 %    \begin{macrocode}
 %<!ctexsize>\ctex_file_input:n { ctexopts.cfg }
@@ -1644,49 +1706,30 @@ This package consists of the file ctex.dtx, and the derived files
 %<*class|style>
 %    \end{macrocode}
 %
-% \begin{macro}{autoindent}
-% |autoindent| 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
-%    \begin{macrocode}
-\keys_define:nn { ctex }
-  {
-    autoindent .choice: ,
-    autoindent .default:n = { true } ,
-    autoindent / true  .code:n =
-      {
-        \bool_set_true:N \l_@@_autoindent_bool
-        \ctex_update_parindent:
-      } ,
-    autoindent / false .code:n =
-      { \bool_set_false:N \l_@@_autoindent_bool }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-%<*class>
-%<article>\PassOptionsToClass  { \@unusedoptionlist } { article }
-%<book>\PassOptionsToClass  { \@unusedoptionlist } { book }
-%<report>\PassOptionsToClass  { \@unusedoptionlist } { report }
-\tl_clear:N \@unusedoptionlist
-%    \end{macrocode}
-%
 % 五号字使用标准文档类的 |10pt| 字体大小设置，小四号字则使用 |12pt|。
 %    \begin{macrocode}
+%<*class>
 \if_case:w \g_@@_font_size_flag
-%<article>  \PassOptionsToClass { 10pt } { article }
-%<book>  \PassOptionsToClass { 10pt } { book }
-%<report>  \PassOptionsToClass { 10pt } { report }
+  \clist_gput_right:Nn \g_@@_std_options_clist { 10pt }
 \or:
-%<article>  \PassOptionsToClass { 12pt } { article }
-%<book>  \PassOptionsToClass { 12pt } { book }
-%<report>  \PassOptionsToClass { 12pt } { report }
+  \clist_gput_right:Nn \g_@@_std_options_clist { 12pt }
 \fi:
 %    \end{macrocode}
 %
+% 使用 \cs{PassOptionsToClass} 是为了预防可能存在的选项冲突。
 %    \begin{macrocode}
-%<article>\LoadClass { article }
-%<book>\LoadClass { book }
-%<report>\LoadClass { report }
+%<*article>
+\PassOptionsToClass { \g_@@_std_options_clist } { article }
+\LoadClass { article }
+%</article>
+%<*book>
+\PassOptionsToClass { \g_@@_std_options_clist } { book }
+\LoadClass { book }
+%</book>
+%<*report>
+\PassOptionsToClass { \g_@@_std_options_clist } { report }
+\LoadClass { report }
+%</report>
 %</class>
 %    \end{macrocode}
 %
@@ -1721,15 +1764,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\CTEXsetup}
+% \begin{macro}{\CTEXsetup,\CTEXoptions}
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
   { \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\CTEXoptions}
-%    \begin{macrocode}
 \NewDocumentCommand \CTEXoptions { +o }
   { \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} } }
 %    \end{macrocode}
@@ -2056,7 +2094,7 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \group_begin:
       \char_set_lccode:nn { \c_zero } {#2}
-      \tl_to_lowercase:n
+      \tex_lowercase:D
         {
           \group_end:
           \cs_gset_protected_nopar:Npn #1
@@ -2875,7 +2913,7 @@ This package consists of the file ctex.dtx, and the derived files
 \group_begin:
 \char_set_catcode_active:N \/
 \char_set_lccode:nn { `\/ } { `\| }
-\tl_to_lowercase:n
+\tex_lowercase:D
   {
     \group_end:
     \cs_new_protected:Npn \ctex_ltj_set_alternate_seq:n #1
@@ -3930,6 +3968,24 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{字距与缩进}
 %
+% \begin{macro}{autoindent}
+% |autoindent| 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
+%    \begin{macrocode}
+\keys_define:nn { ctex }
+  {
+    autoindent .choice: ,
+    autoindent .default:n = { true } ,
+    autoindent / true  .code:n =
+      {
+        \bool_set_true:N \l_@@_autoindent_bool
+        \ctex_update_parindent:
+      } ,
+    autoindent / false .code:n =
+      { \bool_set_false:N \l_@@_autoindent_bool }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\CTEXsetfont}
 % 无论字体大小是否变化都更新相关信息。
 %    \begin{macrocode}
@@ -4125,9 +4181,8 @@ This package consists of the file ctex.dtx, and the derived files
 % 文档类对 \cs{footnotesep} 的设置是，字体大小为 \cs{footnotesize} 时 \cs{strutbox}
 % 的高度（默认值是 |.7\baselineskip|）。我们沿用这个设置方法，只需要更新具体的大小。
 %    \begin{macrocode}
-\group_begin: \footnotesize \exp_after:wN \group_end:
-\exp_after:wN \dim_set:Nn \exp_after:wN \footnotesep \exp_after:wN
-  { \dim_use:N \box_ht:N \strutbox }
+\group_begin: \footnotesize \exp_args:NNNo \group_end:
+\dim_set:Nn \footnotesep { \dim_use:N \box_ht:N \strutbox }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -4149,7 +4204,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{中文数字与日期}
 %
 %    \begin{macrocode}
-\RequirePackage [ encoding = \l_@@_encoding_tl ] { zhnumber }
+\PassOptionsToPackage { encoding = \l_@@_encoding_tl } { zhnumber }
+\RequirePackage { zhnumber }
 %    \end{macrocode}
 %
 % \begin{macro}{\chinese}
