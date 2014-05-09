@@ -116,11 +116,11 @@
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2>&1
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
     if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2>&1
     goto :clean-aux
   )
 
@@ -139,12 +139,12 @@
     goto :end
   ) else (
     echo Typesetting %SPDOC%
-    %DTXTEX% %SPDOCFLAG% -interaction=batchmode -no-pdf %SPDOC% > nul
+    %DTXTEX% %SPDOCFLAG% -interaction=batchmode -no-pdf %SPDOC% > nul 2>&1
     if ERRORLEVEL 1 (
       echo ! Compile %SPDOC% failed
       goto :end
     ) else (
-      %DTXTEX% %SPDOCFLAG% -interaction=batchmode %SPDOC% > nul
+      %DTXTEX% %SPDOCFLAG% -interaction=batchmode %SPDOC% > nul 2>&1
       goto :clean-aux
     )
   )
