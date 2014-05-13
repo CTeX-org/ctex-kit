@@ -351,7 +351,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9005}
+% \CheckSum{9020}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -670,6 +670,14 @@ $URL$
 %   \end{syntax}
 %   缺省状态下，\pkg{xeCJK} 禁止在相邻 CJK 右标点和 CJK 左标点之间换行，可以使用
 %   这一选项改变这一设置。
+% \end{function}
+%
+% \begin{function}[added=2014-05-13]{RubberPunctSkip}
+%   \begin{syntax}
+%     RubberPunctSkip = \meta{\TTF}
+%   \end{syntax}
+%   缺省状态下，标点符号前/后的间距有一定的弹性。让本选项设置为 \texttt{false}
+%   可以禁用这一特性，从而使得前/后的间距为固定值。
 % \end{function}
 %
 % \begin{function}[added=2012-12-02]{CheckFullRight}
@@ -3198,15 +3206,17 @@ $URL$
 % 根据所选的标点处理方式在标点符号左/右增加的空白。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_punct_glue:NN #1#2
-  {
-    \@@_punct_hskip:n
-      {
-        \@@_use_punct_dim:nnn { glue } {#1} {#2}
-        plus  \@@_use_punct_dim:nnn { plus } {#1} {#2}
-        minus \@@_use_punct_dim:nnn { minus } {#1} {#2}
-      }
-  }
+  { \@@_punct_hskip:n { \@@_punct_skip:nn {#1} {#2} } }
 \cs_new_eq:NN \@@_punct_hskip:n \skip_horizontal:n
+\cs_new_protected_nopar:Npn \@@_punct_rigid_skip:nn #1#2
+  { \@@_use_punct_dim:nnn { glue } {#1} {#2} }
+\cs_new_protected_nopar:Npn \@@_punct_rubber_skip:nn #1#2
+  {
+    \@@_use_punct_dim:nnn { glue } {#1} {#2}
+      plus  \@@_use_punct_dim:nnn { plus } {#1} {#2}
+      minus \@@_use_punct_dim:nnn { minus } {#1} {#2}
+  }
+\cs_new_eq:NN \@@_punct_skip:nn \@@_punct_rubber_skip:nn
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4163,9 +4173,11 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.12}{2014/05/12}{新增 \texttt{RubberPunctSkip} 选项。}
+%
 % \begin{macro}
 %  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,
-%   MiddlePunct,PunctWidth,PunctBoundWidth}
+%   MiddlePunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
@@ -4194,7 +4206,13 @@ $URL$
     PunctWidth      .tl_gset:N = \g_@@_punct_width_tl ,
     PunctBoundWidth .tl_gset:N = \g_@@_punct_bound_width_tl ,
     PunctWidth      .value_required: ,
-    PunctBoundWidth .value_required:
+    PunctBoundWidth .value_required: ,
+    RubberPunctSkip .choice: ,
+    RubberPunctSkip      .default:n = { true } ,
+    RubberPunctSkip / true  .code:n =
+      { \cs_set_eq:NN \@@_punct_skip:nn \@@_punct_rubber_skip:nn } ,
+    RubberPunctSkip / false .code:n =
+      { \cs_set_eq:NN \@@_punct_skip:nn \@@_punct_rigid_skip:nn }
   }
 \bool_new:N \l_@@_punct_breakable_bool
 %    \end{macrocode}
@@ -6518,6 +6536,7 @@ $URL$
     xeCJKactive     = true  ,
     LocalConfig     = true  ,
     LoadFandol      = true  ,
+    RubberPunctSkip = true  ,
     Verb            = env   ,
     EmboldenFactor  = 4     ,
     SlantFactor     = 0.167 ,
