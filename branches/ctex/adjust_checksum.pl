@@ -173,6 +173,7 @@ if ($changed) {
   my $fixed = 0;
   open(IN, $tempdtxfile) or die "$Error Cannot open '$tempdtxfile'!\n";
   open(OUT, ">$dtxfile") or die "$Error Cannot write '$dtxfile'!\n";
+  binmode(OUT);
   while (<IN>) {
     if (s/\\CheckSum\{\d+\}/\\CheckSum{$new}/) {
       $fixed++;
