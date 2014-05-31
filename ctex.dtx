@@ -494,7 +494,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3792}
+% \CheckSum{3810}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -606,7 +606,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{ctexexam}
 %   \documentclass[UTF8]{ctexart}
 %   \begin{document}
-%   中文文档类测试，保存为 UTF-8 编码，使用 LaTeX{} 或 pdfLaTeX 编译。
+%   中文文档类测试，保存为 UTF-8 编码，使用 LaTeX 或 pdfLaTeX 编译。
 %   \end{document}
 % \end{ctexexam}
 %
@@ -673,13 +673,12 @@ This package consists of the file ctex.dtx, and the derived files
 %   和 \pkg{l3packages} 集合，并依赖
 %   \begin{itemize}
 %     \item \pkg{etex} 宏包。
-%     \item \pkg{ifpdf} 宏包，属于 \pkg{oberdiek} 集合。
-%     \item \pkg{graphics} 宏包，属于 \pkg{graphics} 集合。
 %   \end{itemize}
+%   \item \pkg{ifpdf} 宏包，属于 \pkg{oberdiek} 集合。
 %   \item \pkg{etoolbox} 宏包。
 %   \item \pkg{everysel} 宏包，属于 \pkg{ms} 集合。
 %   \item \pkg{zhnumber} 宏包。
-%   \item \pkg{CJK} 集合，它还依赖 \pkg{ulem} 宏包。
+%   \item \pkg{CJK} 集合，它的下划线功能依赖 \pkg{ulem} 宏包。
 %   \item \pkg{CJKpunct} 宏包。
 %   \item \pkg{zhmetrics} 宏包。
 %   \item \pkg{zhmCJK} 宏包。
@@ -1455,6 +1454,26 @@ This package consists of the file ctex.dtx, and the derived files
   {
     Patching~command~`#1'~failed.\\
     ctex~may~not~work~as~expected.
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_default_pt:n}
+% 最新版本的 \pkg{expl3} 已经不允许 \cs{dim_to_pt:n} 的参数带额外的单位。然而我们
+% 需要这个特性实现可展的 \cs{@defaultunits}。
+%    \begin{macrocode}
+\cs_new:Npn \ctex_default_pt:n #1
+  {
+    \exp_after:wN \@@_default_pt:w
+      \dim_use:N \etex_dimexpr:D #1 pt \scan_stop: \q_stop
+  }
+\group_begin:
+  \char_set_catcode_other:N \P
+  \char_set_catcode_other:N \T
+\tex_lowercase:D
+  {
+    \group_end:
+    \cs_new:Npn \@@_default_pt:w #1 PT #2 \q_stop { #1 PT }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3973,7 +3992,7 @@ This package consists of the file ctex.dtx, and the derived files
       {
         \prop_get:NnNTF \c_@@_font_size_prop {##1} \l_@@_tmp_tl
           { \tl_put_right:Nx #1 { { \tl_head:N \l_@@_tmp_tl } } }
-          { \tl_put_right:Nx #1 { { \dim_to_pt:n { ##1 pt } } } }
+          { \tl_put_right:Nx #1 { { \dim_to_pt:n { ##1 } } } }
       }
   }
 %    \end{macrocode}
@@ -4072,8 +4091,9 @@ This package consists of the file ctex.dtx, and the derived files
   {
     linestretch .code:n =
       {
-        \str_if_eq_x:nnTF { \dim_to_pt:n { #1 pt } } { \dim_to_pt:n { #1 in } }
-          { \tl_set:Nn \l_@@_line_stretch_tl { #1 } }
+        \dim_compare:nNnTF
+          { \ctex_default_pt:n {#1} } = { \ctex_default_pt:n { #1 in } }
+          { \tl_set:Nn \l_@@_line_stretch_tl {#1} }
           { \tl_set:Nn \l_@@_line_stretch_tl { #1 \ccwd } }
         \CTEXsetfont
       } ,
