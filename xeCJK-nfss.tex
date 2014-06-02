@@ -1,0 +1,149 @@
+\input miniltx
+\ProvidesPackage{xeCJK-nfss}
+  [2012/01/31 v2.4.5 package for typesetting CJK scripts with XeTeX]
+
+\endlinechar \m@ne
+
+\let\CJKfont\relax
+\def\CJKfontname{\xeCJK@family/\f@series/\f@shape/\f@size}
+
+\DeclareRobustCommand*\CJKfamily[1]{
+  \ifcsname xeCJK@family@#1\endcsname
+    \edef\xeCJK@family{#1}
+  \else
+    \unless\ifcsname xeCJK@#1@warned\endcsname
+      \PackageWarning{xeCJK}{
+        Unknown CJK family `#1' is ignored.^^J
+        Use \string\setCJKfamilyfont \space to define a CJK family.}
+      \expandafter\gdef\csname xeCJK@#1@warned\endcsname{}
+    \fi
+  \fi}
+\def\CJKrmdefault{rm}
+\def\CJKsfdefault{sf}
+\def\CJKttdefault{tt}
+\def\CJKfamilydefault{\CJKrmdefault}
+\@namedef{xeCJK@family@\CJKfamilydefault}{}
+\def\xeCJK@fallback@testsymbol#1{
+  \ifcsname xeCJK@family@\xeCJK@family @FallBack\endcsname
+    \iffontchar\font`#1\relax
+      #1
+    \else
+      {\CJKfamily{\xeCJK@family @FallBack}\xeCJK@setfont
+       \xeCJK@fallback@testsymbol{#1}}
+    \fi
+  \else
+    #1
+  \fi}
+\def\xeCJKenablefallback{\let\xeCJK@fallback@CJKsymbol\CJKsymbol
+  \def\CJKsymbol##1{\xeCJK@fallback@CJKsymbol{\xeCJK@fallback@testsymbol{##1}}}}
+\def\xeCJKdisablefallback{
+  \ifcsname xeCJK@fallback@CJKsymbol\endcsname
+    \let\CJKsymbol\xeCJK@fallback@CJKsymbol
+  \fi}
+\ifxeCJK@fallback@
+  \xeCJKenablefallback
+\fi
+\def\xeCJKsetslantfactor#1{\edef\xeCJK@slantfactor{#1}}
+\def\xeCJKsetemboldenfactor#1{\edef\xeCJK@emboldenfactor{#1}}
+\xeCJKsetslantfactor{0.167}
+\xeCJKsetemboldenfactor{4}
+\def\setCJKmainfont{\xeCJK@newfontfamily{\CJKrmdefault}}
+\let\setCJKromanfont\setCJKmainfont
+\def\setCJKsansfont{\xeCJK@newfontfamily{\CJKsfdefault}}
+\DeclareRobustCommand*\normalfont
+        {\CJKfamily{\CJKfamilydefault}
+         \usefont\encodingdefault
+                 \familydefault
+                 \seriesdefault
+                 \shapedefault
+         \relax}
+\let\reset@font\normalfont
+\DeclareRobustCommand*\rmfamily
+        {\not@math@alphabet\rmfamily\mathrm
+         \fontfamily\rmdefault\CJKfamily{\CJKrmdefault}\selectfont}
+\DeclareRobustCommand*\sffamily
+        {\not@math@alphabet\sffamily\mathsf
+         \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
+\DeclareRobustCommand*\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
+\def\xeCJK@setfont{
+  \ifcsname xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+    \csname xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size\endcsname
+  \else
+    \edef\xeCJK@currentcoor{xeCJK@\xeCJK@family/\f@series/\f@shape/\f@size}
+    \ifcsname xeCJK@family@\xeCJK@family/NFSS\endcsname
+      \csname xeCJK@family@\xeCJK@family/NFSS\endcsname
+    \else
+      \csname xeCJK@family@\xeCJK@family\endcsname
+      \expandafter\xdef\csname xeCJK@family@\xeCJK@family/NFSS\endcsname{
+        \noexpand\fontencoding{\f@encoding}\noexpand\fontfamily{\f@family}
+        \noexpand\selectfont}
+    \fi
+    \global\expandafter\let\csname\xeCJK@currentcoor\expandafter\endcsname\font@name
+  \fi}
+\long\def\loop#1\repeat{
+  \def\iterate{#1\relax\expandafter\iterate\fi}
+  \iterate\let\iterate\relax}
+\ifxeCJK@num
+  \edef\CJK@UnicodeEnc{UTF8}
+  \def\CJKaddEncHook#1#2{\@namedef{xeCJK@enc@#1}{#2}}
+  \def\Unicode#1#2{\@tempcnta #1\relax
+    \multiply\@tempcnta 256\relax
+    \advance\@tempcnta #2\relax
+    \char\@tempcnta}
+  \RequirePackage{CJKnumb}
+  \endlinechar\m@ne
+  \@nameuse{xeCJK@enc@UTF8}
+  \def\CJK@tenthousand{万}
+  \def\CJK@hundredmillion{亿}
+\fi
+\ifxeCJK@fntef
+  \csname newif\expandafter\endcsname\csname if@ignore\endcsname
+  \RequirePackage{CJKfntef}
+  \endlinechar\m@ne
+  \DeclareRobustCommand*{\xeCJK@ULprepunctchar}[1]{
+    {\XeTeXinterchartokenstate=0
+    \CJKpunctsymbol{#1}
+    \nobreak}
+    \ignorespaces}
+  \DeclareRobustCommand*{\xeCJK@ULpostpunctchar}[1]{
+    {\XeTeXinterchartokenstate=0
+    \CJKpunctsymbol{#1}}
+    \xeCJK@ignorespaces}
+  \def\xeCJK@ULroutines{
+    \XeTeXinterchartoks 0   1 {\CJKecglue\CJKsymbol}
+    \XeTeXinterchartoks 4   1 {\CJKsymbol}
+    \XeTeXinterchartoks 5   1 {\CJKecglue\CJKsymbol}
+    \XeTeXinterchartoks 255 1 {\xeCJK@cclv@i}
+    \XeTeXinterchartoks 0   2 {\xeCJK@ULprepunctchar}
+    \XeTeXinterchartoks 4   2 {\xeCJK@ULprepunctchar}
+    \XeTeXinterchartoks 5   2 {\xeCJK@ULprepunctchar}
+    \XeTeXinterchartoks 255 2 {\xeCJK@ULprepunctchar}
+    \XeTeXinterchartoks 0   3 {\xeCJK@ULpostpunctchar}
+    \XeTeXinterchartoks 4   3 {\xeCJK@ULpostpunctchar}
+    \XeTeXinterchartoks 5   3 {\xeCJK@ULpostpunctchar}
+    \XeTeXinterchartoks 255 3 {\xeCJK@ULpostpunctchar}}
+  \addto@hook\UL@hook{
+    \let\xeCJK@UL@CJKsymbol\CJKsymbol
+    \let\xeCJK@UL@CJKpunctsymbol\CJKpunctsymbol
+    \def\CJKsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKsymbol{#1}}
+      \kern -1sp\kern 1sp\xeCJK@ignorespaces}
+      \def\CJKpunctsymbol#1{{\xeCJK@setfont \xeCJK@UL@CJKpunctsymbol{#1}}}
+    \xeCJK@ULroutines}
+\fi
+\def\CJK@ifundefined#1{
+  \ifdefined#1
+    \expandafter\@secondoftwo
+  \else
+    \expandafter\@firstoftwo
+  \fi}
+\newcommand{\xeCJKcaption}[2][]{
+  \xeCJK@StrIfBlankTF{#1}{}{\XeTeXdefaultencoding "#1"}
+  \makeatletter
+  \input{#2.cpx}
+  \makeatother
+  \XeTeXdefaultencoding "UTF-8"}
+
+\endlinechar `\^^M
+\endinput
