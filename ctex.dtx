@@ -494,7 +494,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3810}
+% \CheckSum{3814}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2697,7 +2697,7 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \cs_new_nopar:Npn \@@_msg_def_family_map:n #1
   {
-    \str_case_x:nnn {#1}
+    \str_case_x:nnF {#1}
       {
         \CJKrmdefault { \token_to_str:N \setCJKmainfont }
         \CJKsfdefault { \token_to_str:N \setCJKsansfont }
@@ -2708,7 +2708,7 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \cs_new_nopar:Npn \@@_msg_family_map:n #1
   {
-    \str_case_x:nnn {#1}
+    \str_case_x:nnF {#1}
       {
         \CJKrmdefault { \token_to_str:N \CJKrmdefault }
         \CJKsfdefault { \token_to_str:N \CJKsfdefault }
@@ -2848,6 +2848,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
+\tl_if_exist:NF \CJKfamilydefault
+  { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
 \tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
 \tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
 \tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
@@ -2862,38 +2864,11 @@ This package consists of the file ctex.dtx, and the derived files
   { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{\ctex_ltj_update_default_family:}
-% 根据西文字体的情况更新 CJK 的默认字体族。
+% \begin{macro}[internal]{\ctex_ltj_ensure_default_family:}
+% 在导言区结束确认 \cs{CJKfamilydefault} 确实存在。
 %     \begin{macrocode}
-\tl_new:N \l_@@_family_default_init_tl
-\cs_new_eq:NN \@@_family_default_wrap:n \use:n
-\tl_set:Nx \l_@@_family_default_init_tl
+\cs_new_protected_nopar:Npn \ctex_ltj_ensure_default_family:
   {
-    \exp_not:N \@@_family_default_wrap:n
-      {
-        \tl_if_exist:NTF \CJKfamilydefault
-          { \exp_not:o { \CJKfamilydefault } }
-          { \exp_not:N \CJKrmdefault }
-      }
-  }
-\tl_gset_eq:NN \CJKfamilydefault \l_@@_family_default_init_tl
-\cs_new_protected_nopar:Npn \ctex_ltj_update_default_family:
-  {
-    \tl_if_eq:NNT \CJKfamilydefault \l_@@_family_default_init_tl
-      {
-        \cs_set_eq:NN \@@_family_default_wrap:n \exp_not:n
-        \tl_gset:Nx \CJKfamilydefault
-          {
-            \str_case_x:nnn { \familydefault }
-              {
-                { \rmdefault } { \exp_not:N \CJKrmdefault }
-                { \sfdefault } { \exp_not:N \CJKsfdefault }
-                { \ttdefault } { \exp_not:N \CJKttdefault }
-              }
-              { \CJKfamilydefault }
-          }
-        \cs_undefine:N \@@_family_default_wrap:n
-      }
     \prop_if_empty:NF \g_@@_family_font_name_prop
       {
         \ctex_ltj_family_if_exist:xNF { \CJKfamilydefault } \l_@@_tmpa_tl
@@ -2917,7 +2892,6 @@ This package consists of the file ctex.dtx, and the derived files
         \ctex_ltj_update_mathfont:
       }
   }
-\AtBeginDocument { \ctex_ltj_update_default_family: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3400,6 +3374,58 @@ This package consists of the file ctex.dtx, and the derived files
 %</luatex>
 %<*pdftex|xetex|luatex>
 %    \end{macrocode}
+%
+% \subsubsection{调整 \cs{CJKfamilydefault}}
+%
+% \begin{macro}[internal]{\ctex_update_default_family:}
+% 在导言区结束，如果 \cs{CJKfamilydefault} 没有被更改，则在此时根据西文字体的情况
+% 更新 \cs{CJKfamilydefault}。\pkg{xeCJK} 已经有这个功能，不需要再调整。
+%    \begin{macrocode}
+%<*pdftex|luatex>
+\cs_new_protected_nopar:Npn \ctex_update_default_family:
+  {
+    \tl_if_eq:NNT \CJKfamilydefault \l_@@_family_default_init_tl
+      {
+        \group_begin:
+          \cs_set_eq:NN \@@_family_default_wrap:n \exp_not:n
+          \tl_gset:Nx \CJKfamilydefault
+            {
+              \str_case:onF { \familydefault }
+                {
+                  { \rmdefault } { \exp_not:N \CJKrmdefault }
+                  { \sfdefault } { \exp_not:N \CJKsfdefault }
+                  { \ttdefault } { \exp_not:N \CJKttdefault }
+                }
+                { \CJKfamilydefault }
+            }
+        \group_end:
+      }
+%    \end{macrocode}
+% 使用 \LuaLaTeX{} 时，自动调整得到的 \cs{CJKfamilydefault} 可能没有定义，需要确认
+% 它的存在性。使用 \pkg{CJK} 宏包时，\texttt{C19rm} 等总是有定义的，不需要确认。
+%    \begin{macrocode}
+%<*luatex>
+    \ctex_ltj_ensure_default_family:
+%</luatex>
+  }
+\AtEndPreamble { \ctex_update_default_family: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\l_@@_family_default_init_tl}
+% 往 \cs{CJKfamilydefault} 中加入标志，用于判断它是否被更改。
+%    \begin{macrocode}
+\tl_new:N \l_@@_family_default_init_tl
+\cs_new_eq:NN \@@_family_default_wrap:n \use:n
+\tl_set:Nx \l_@@_family_default_init_tl
+  {
+    \exp_not:N \@@_family_default_wrap:n
+      { \exp_not:o { \CJKfamilydefault } }
+  }
+\tl_gset_eq:NN \CJKfamilydefault \l_@@_family_default_init_tl
+%</pdftex|luatex>
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsubsection{操作系统的判断}
 %
