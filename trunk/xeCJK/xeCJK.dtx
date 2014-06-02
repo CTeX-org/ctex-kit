@@ -5670,18 +5670,18 @@ $URL$
   }
 \cs_new_nopar:Npn \@@_msg_def_family_map:n #1
   {
-    \str_case_x:nnn {#1}
+    \str_case_x:nnF {#1}
       {
         \CJKrmdefault { \token_to_str:N \setCJKmainfont }
         \CJKsfdefault { \token_to_str:N \setCJKsansfont }
         \CJKttdefault { \token_to_str:N \setCJKmonofont }
       }
-      { \token_to_str:N \setCJKfamilyfont {#1} }
-    [...]{...}
+      { \token_to_str:N \setCJKfamilyfont \{ #1 \} }
+    [...]\{...\}
   }
 \cs_new_nopar:Npn \@@_msg_family_map:n #1
   {
-    \str_case_x:nnn {#1}
+    \str_case_x:nnF {#1}
       {
         \CJKrmdefault { \token_to_str:N \CJKrmdefault }
         \CJKsfdefault { \token_to_str:N \CJKsfdefault }
@@ -5892,6 +5892,7 @@ $URL$
 % \end{macro}
 %
 % \changes{v3.1.2}{2013/01/01}{修正重定义 \cs{CJKfamilydefault} 无效的问题，恢复容错能力。}
+% \changes{v3.2.13}{2014/06/02}{自动调整 \cs{CJKfamilydefault} 时，只将 \cs{familydefault} 展开一次。}
 %
 % 在导言区结束的时候，若没有声明 CJK 字体，则给出一个警告。如果 \cs{CJKfamilydefault}
 % 没有被更改，则在此时根据西文字体的情况更新 \cs{CJKfamilydefault}。
@@ -5901,12 +5902,13 @@ $URL$
 %    \begin{macrocode}
 \@@_at_end_preamble:n
   {
-    \cs_set_eq:NN \@@_family_default_wrap:n \exp_not:n
     \tl_if_eq:NNT \CJKfamilydefault \l_@@_family_default_init_tl
       {
+        \group_begin:
+        \cs_set_eq:NN \@@_family_default_wrap:n \exp_not:n
         \tl_gset:Nx \CJKfamilydefault
           {
-            \str_case_x:nnn { \familydefault }
+            \str_case:onF { \familydefault }
               {
                 { \rmdefault } { \exp_not:N \CJKrmdefault }
                 { \sfdefault } { \exp_not:N \CJKsfdefault }
@@ -5914,8 +5916,8 @@ $URL$
               }
               { \CJKfamilydefault }
           }
+        \group_end:
       }
-    \cs_undefine:N \@@_family_default_wrap:n
     \prop_if_empty:NTF \g_@@_family_font_name_prop
       {
         \bool_if:NTF \g_@@_fandol_bool
