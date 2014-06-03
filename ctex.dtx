@@ -494,7 +494,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3813}
+% \CheckSum{3917}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1894,7 +1894,7 @@ This package consists of the file ctex.dtx, and the derived files
       \tl_set:Nn \CJKrmdefault { rm }
       \tl_set:Nn \CJKsfdefault { sf }
       \tl_set:Nn \CJKttdefault { tt }
-      \AtBeginDvi { \ctex_file_input:n {#1} }
+      \AtBeginDvi { \file_input:n {#1} }
       \AtBeginDocument
         { \cs_if_exist_use:NT \AtBeginShipoutFirst { { \file_input:n {#1} } } }
     }
@@ -5915,24 +5915,69 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{\pkg{zhmetrics} 的字体映射}
 %
-% 为了让这些文件通用于 \hologo{plainTeX} 和 \hologo{ConTeXt}，故不用
-% \cs{ProvidesFile}。
+% 确认 \cs{catcode}，没有重复载入检查。
 %    \begin{macrocode}
-%<windows>%% Windows Chinese font map loader for pdfTeX and DVIPDFMx
-%<adobe>%% Adobe Chinese font map loader for DVIPDFMx only
-%<fandol>%% Fandol Chinese font map loader for DVIPDFMx only
-%<founder>%% Founder Chinese font map loader for pdfTeX and DVIPDFMx
-%<ubuntu>%% Ubuntu Chinese font map loader for pdfTeX and DVIPDFMx
-%%
-\input ifpdf.sty
-
-\ifpdf
+\begingroup\catcode61\catcode48\catcode32=10\catcode37=14\relax%
+  \catcode 35=6 % #
+  \catcode123=1 % {
+  \catcode125=2 % }
+  \toks0{\endlinechar=\the\endlinechar\relax}%
+  \toks2{\endlinechar=13 }%
+  \def\x#1 #2 {%
+    \toks0\expandafter{\the\toks0 \catcode#1=\the\catcode#1\relax}%
+    \toks2\expandafter{\the\toks2 \catcode#1=#2 }}%
+  \x  13  5 % carriage return
+  \x  32 10 % space
+  \x  35  6 % #
+  \x  37 14 % %
+  \x  40 12 % (
+  \x  41 12 % )
+  \x  45 12 % -
+  \x  46 12 % .
+  \x  47 12 % /
+  \x  58 12 % :
+  \x  60 12 % <
+  \x  61 12 % =
+  \x  64 11 % @
+  \x  91 12 % [
+  \x  93 12 % ]
+  \x 123  1 % {
+  \x 125  2 % }
+  \edef\x#1{\endgroup%
+    \edef\noexpand#1{%
+      \the\toks0 %
+      \let\noexpand\noexpand\noexpand#1%
+          \noexpand\noexpand\noexpand\undefined%
+      \noexpand\noexpand\noexpand\endinput}%
+    \the\toks2}%
+\expandafter\x\csname ctex@zhmap@endinput\endcsname
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\input ifpdf.sty\relax
+%    \end{macrocode}
+%
+% 提供非 \LaTeX{} 格式下的 \cs{ProvidesFile}。
+%    \begin{macrocode}
+\begingroup
+\expandafter\ifx\csname ProvidesFile\endcsname\relax
+  \long\def\x#1\ProvidesFile#2[#3]{%
+    #1%
+    \immediate\write-1{File: #2 #3}%
+    \expandafter\xdef\csname ver@#2\endcsname{#3}}
+  \expandafter\x%
+\fi
+\endgroup
 %    \end{macrocode}
 %
 % \paragraph{\pkg{zhwinfonts.tex}}
 %
 %    \begin{macrocode}
 %<*windows>
+\ProvidesFile{zhwinfonts.tex}%
+  [2014/06/03 v2.0 Windows font map loader for pdfTeX and DVIPDFMx (CTEX)]
+
+\ifpdf
   \pdfmapline{=gbk@UGBK@     <simsun.ttc}
   \pdfmapline{=gbksong@UGBK@ <simsun.ttc}
   \pdfmapline{=gbkkai@UGBK@  <simkai.ttf}
@@ -6001,6 +6046,10 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*adobe>
+\ProvidesFile{zhadobefonts.tex}%
+  [2014/06/23 v2.0 Adobe font map loader for DVIPDFMx (CTEX)]
+
+\ifpdf
 %% pdfTeX does not support OTF fonts
 
 \else
@@ -6033,6 +6082,10 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*fandol>
+\ProvidesFile{zhfandolfonts.tex}%
+  [2014/06/23 v2.0 Fandol font map loader for DVIPDFMx (CTEX)]
+
+\ifpdf
 %% pdfTeX does not support OTF fonts
 
 \else
@@ -6065,6 +6118,10 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*founder>
+\ProvidesFile{zhfounderfonts.tex}%
+  [2014/06/23 v2.0 Founder font map loader for pdfTeX and DVIPDFMx (CTEX)]
+
+\ifpdf
   \pdfmapline{=gbk@UGBK@     <FZSSK.TTF}
   \pdfmapline{=gbksong@UGBK@ <FZSSK.TTF}
   \pdfmapline{=gbkkai@UGBK@  <FZKTK.TTF}
@@ -6133,6 +6190,10 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*ubuntu>
+\ProvidesFile{zhubuntufonts.tex}%
+  [2014/06/23 v2.0 Ubuntu font map loader for pdfTeX and DVIPDFMx (CTEX)]
+
+\ifpdf
   \pdfmapline{=gbk@UGBK@     <uming.ttc}
   \pdfmapline{=gbksong@UGBK@ <uming.ttc}
   \pdfmapline{=gbkkai@UGBK@  <ukai.ttc}
@@ -6191,6 +6252,8 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \fi
+
+\ctex@zhmap@endinput
 %</zhmap>
 %    \end{macrocode}
 %
