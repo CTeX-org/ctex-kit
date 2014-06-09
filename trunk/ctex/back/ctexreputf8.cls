@@ -2,7 +2,7 @@
 
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{ctexreputf8}
-  [2012/04/16 v1.10  ctexreputf8
+  [2014/06/09 v1.11  ctexreputf8
    document class]
 
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{ctexrep}}
