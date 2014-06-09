@@ -364,7 +364,6 @@ This package consists of the file ctex.dtx, and the derived files
 \setmainfont{TeX Gyre Pagella}
 \setsansfont{CMU Sans Serif}
 \setmonofont[
-  Ligatures=NoTeX,WordSpace={1,0,0}, ^^A 固定空格宽度
   UprightFont=* Light, BoldFont=* Bold,
   SlantedFont=* Light Oblique]{CMU Typewriter Text}
 \setmathfont{texgyrepagella-math.otf}
@@ -494,7 +493,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3955}
+% \CheckSum{3936}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1318,6 +1317,16 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{variable}
 %
+% 对旧版本的宏包给出错误信息。
+%    \begin{macrocode}
+\msg_new:nnnn { ctex } { package-too-old }
+  { Support~package~`#1'~too~old. }
+  {
+    Please~update~an~up~to~date~version~of~the~package~`#1'\\
+    using~your~TeX~package~manager~or~from~CTAN.
+  }
+%    \end{macrocode}
+%
 % \begin{macro}[internal,pTF]{\ctex_if_pdfmode:}
 % \cs{ifpdf} 的简单 wrapper。
 %    \begin{macrocode}
@@ -2006,7 +2015,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \pkg{CJKpunct} 宏包会在 \cs{AtBeginDocument} 的里设置标点格式为 \opt{quanjiao}。
-%     \begin{macrocode}
+%    \begin{macrocode}
 \str_if_eq_x:nnF { \l_@@_punct_tl } { quanjiao }
   { \AtBeginDocument { \punctstyle { \l_@@_punct_tl } } }
 %    \end{macrocode}
@@ -2050,6 +2059,14 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 %
+% 最新版本的 \pkg{fontspec} 默认对 \tn{rmfamily} 和 \tn{sffamily} 设置
+% |Ligatures=TeX|，对 \tn{ttfamily} 设置 |WordSpace={1,0,0}| 和
+% |PunctuationSpace=WordSpace|。
+%    \begin{macrocode}
+\@ifpackagelater { fontspec } { 2014/05/25 } { }
+  { \msg_error:nnn { ctex } { package-too-old } { fontspec } }
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 %</xetex>
 %<*luatex>
@@ -2075,6 +2092,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \RequirePackage { luatexja } [ 2013/05/14 ]
 \RequirePackage { fontspec }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\@ifpackagelater { fontspec } { 2014/05/25 } { }
+  { \msg_error:nnn { ctex } { package-too-old } { fontspec } }
 %    \end{macrocode}
 %
 % \paragraph{\pkg{luatexja} 的默认设置}
@@ -2523,16 +2545,20 @@ This package consists of the file ctex.dtx, and the derived files
 % \paragraph{字体族的定义与使用}
 %
 % 这是 \pkg{luatexja-fontspec} 中新增的一些字体选项。
-%     \begin{macrocode}
+%    \begin{macrocode}
 \newfontfeature { CID }     {    cid = #1 }
 \newfontfeature { JFM }     {    jfm = #1 }
 \newfontfeature { JFM-var } { jfmvar = #1 }
+%    \end{macrocode}
+%
+% 在新版本的 \pkg{fontspec} 中，\cs{__fontspec_namewrap:n} 变成了私有函数。
+%    \begin{macrocode}
 \keys_define:nn { fontspec-preparse-external }
   {
     NoEmbed .code:n =
-      { \cs_set_eq:NN \fontspec_namewrap:n \@@_noembed_wrap:n }
+      { \cs_set_eq:NN \__fontspec_namewrap:n \@@_noembed_wrap:n }
   }
-\cs_new_nopar:Npn \@@_noembed_wrap:n #1 { psft: #1 }
+\cs_new:Npn \@@_noembed_wrap:n #1 { psft: #1 }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\ctex_ltj_set_family:nnn}
@@ -2866,7 +2892,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}[internal]{\ctex_ltj_ensure_default_family:}
 % 在导言区结束确认 \cs{CJKfamilydefault} 确实存在。
-%     \begin{macrocode}
+%    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_ensure_default_family:
   {
     \prop_if_empty:NF \g_@@_family_font_name_prop
@@ -3054,7 +3080,7 @@ This package consists of the file ctex.dtx, and the derived files
     \@@_change_encoding:
     \cs_set_eq:NN \CJKfamily \use_none:n
     \ctex_ltj_swap_cs:NN
-      \fontspec_declare_shape:nnn \ctex_ltj_declare_alternate_shape:nnn
+      \DeclareFontShape@ \ctex_ltj_declare_alternate_shape:nnnnnn
     \fontspec_set_family:Nnn \l_@@_alternate_family_tl
       { LTJCharRange = {#1} , #2 } {#3}
     \group_end:
@@ -3077,30 +3103,27 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}[internal]{LTJCharRange}
-% 用于更新 \pkg{fontspec} 的 \texttt{fontid}，确保基本族和区间不同时总是定义新字体。
+% 用于在内部设置字符区间，并确保 \pkg{fontspec} 在基本族和区间不同时总是定义新字体。
 %    \begin{macrocode}
 \keys_define:nn { fontspec }
   {
-    LTJCharRange .code:n =
-      {
-        \tl_set:Nn \l_@@_char_range_clist {#1}
-        \exp_args:Nx \fontspec_update_fontid:n
-          { +ltjcharrange | \l_@@_base_family_tl | #1 | }
-      } ,
+    LTJCharRange .tl_set:N = \l_@@_char_range_clist ,
     LTJCharRange .value_required:
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\ctex_ltj_declare_alternate_shape:nnn}
+% \begin{macro}[internal]{\ctex_ltj_declare_alternate_shape:nnnnnn}
 % 在定义替代字体的字形时，通过字符范围与主字体的对应字形关联起来。
+% \tn{DeclareFontShape@} 一个有六个参数，我们只需要使用它的第三个参数 \meta{series}
+% 和第四个参数 \meta{shape}。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_ltj_declare_alternate_shape:nnn #1#2#3
+\cs_new_protected:Npn \ctex_ltj_declare_alternate_shape:nnnnnn #1#2#3#4#5#6
   {
-    \ctex_ltj_declare_alternate_shape:nnn {#1} {#2} {#3}
+    \ctex_ltj_declare_alternate_shape:nnnnnn {#1} {#2} {#3} {#4} {#5} {#6}
     \ctex_ltj_set_alternate_shape:Nnnnnnn \l_@@_char_range_clist
-      { \l_@@_base_family_tl } {#1} {#2}
-      { \l_fontspec_family_tl } {#1} {#2}
+      { \l_@@_base_family_tl } {#3} {#4}
+      { \l_fontspec_family_tl } {#3} {#4}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3608,59 +3631,6 @@ This package consists of the file ctex.dtx, and the derived files
   \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
 %</luatex>
 \fi:
-%    \end{macrocode}
-%
-% \subsubsection{\TeX{} 连字}
-%
-%    \begin{macrocode}
-%<*xetex|luatex>
-%    \end{macrocode}
-%
-% 在 \XeLaTeX{} 和 \LuaLaTeX{} 下默认启用传统 \TeX{} 连字。
-%    \begin{macrocode}
-\defaultfontfeatures { Ligatures = TeX }
-%    \end{macrocode}
-%
-% 要在一个字体中取消 \TeX{} 连字，\XeLaTeX{} 下可以设置 \opt{Mapping} 为空值，
-% \LuaLaTeX{} 下需要设置 \opt{RawFeature=-tlig}。我们下面为 \pkg{fontspec} 的
-% \opt{Ligatures} 定义一个选项 \opt{NoTeX}，来统一它们。
-%    \begin{macrocode}
-\keys_if_exist:nnF  { fontspec } { Ligatures / NoTeX }
-  {
-    \keys_define:nn { fontspec }
-      { Ligatures / NoTeX .code:n = \ctex_remove_tex_ligatures: }
-  }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_remove_tex_ligatures:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_remove_tex_ligatures:
-  {
-%<xetex>    \fontspec_update_fontid:n { -map:tex-text }
-%<luatex>    \fontspec_update_fontid:n { -tlig-trep }
-    \tl_if_empty:NF \l_fontspec_rawfeatures_sclist
-%    \end{macrocode}
-% 如果直接设置 \opt{mapping=}，\XeTeX{} 会警告说映射文件 \file{.tec} 找不到。
-% 因此我们在下面很小心地把 \opt{mapping=tex-text} 删掉。
-%    \begin{macrocode}
-%<*xetex>
-      {
-        \seq_set_split:NnV \l_@@_tmp_seq { ; } \l_fontspec_rawfeatures_sclist
-        \seq_set_filter:NNn \l_@@_tmp_seq \l_@@_tmp_seq
-          { ! \str_if_eq_p:nn { mapping=tex-text } { ##1 } }
-        \tl_gset:Nx \l_fontspec_rawfeatures_sclist
-          { \seq_use:Nn \l_@@_tmp_seq { ; } }
-      }
-%</xetex>
-%<*luatex>
-      { \fontspec_update_featstr:n { -tlig; -trep } }
-%</luatex>
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-%    \begin{macrocode}
-%</xetex|luatex>
 %    \end{macrocode}
 %
 % \subsubsection{\cs{ccwd} 的更新}
