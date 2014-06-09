@@ -493,7 +493,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{3936}
+% \CheckSum{3949}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3005,7 +3005,7 @@ This package consists of the file ctex.dtx, and the derived files
       {
         \@@_check_family:n {#1}
         \seq_if_empty:NF \l_@@_alternate_seq
-          { \ctex_ltj_save_alternate_seq:c { \@@_alternate_cs:n {#1} } }
+          { \ctex_ltj_save_alternate_seq:cn { \@@_alternate_cs:n {#1} } {#2} }
         #3
       }
       { \ctex_ltj_set_alternate_family:nn {#1} {#2} }
@@ -3014,23 +3014,34 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}[internal]
-% {\ctex_ltj_save_alternate_seq:N,\ctex_ltj_save_alternate_seq:Nnwn}
+% {\ctex_ltj_save_alternate_seq:Nn,\ctex_ltj_save_alternate_seq:Nnnwn}
 % 保存由 \opt{AlternateFont} 设置的替代字体序列。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_ltj_save_alternate_seq:N #1
+\cs_new_protected_nopar:Npn \ctex_ltj_save_alternate_seq:Nn #1#2
   {
     \seq_map_inline:Nn \l_@@_alternate_seq
-      { \ctex_ltj_save_alternate_seq:Nnwn #1 ##1 }
+      { \ctex_ltj_save_alternate_seq:Nnnwnw #1 {#2} ##1 { } \q_stop }
   }
-\cs_generate_variant:Nn \ctex_ltj_save_alternate_seq:N { c }
-\NewDocumentCommand \ctex_ltj_save_alternate_seq:Nnwn { m m +O{ } m }
+\cs_generate_variant:Nn \ctex_ltj_save_alternate_seq:Nn { c }
+\NewDocumentCommand \ctex_ltj_save_alternate_seq:Nnnwnw
+  { m m m +O{ } m u{ \q_stop } }
   {
-    \clist_set:Nn \l_@@_char_range_clist {#2}
-    \clist_set:Nn \l_@@_alternate_options_clist {#3}
+    \clist_set:Nn \l_@@_char_range_clist {#3}
+    \clist_set:Nn \l_@@_alternate_options_clist {#4}
     \@@_use_global_options:N \l_@@_alternate_options_clist
-    \ctex_ltj_save_alternate_family:Noon #1
-      { \l_@@_char_range_clist }
-      { \l_@@_alternate_options_clist } {#4}
+    \tl_if_blank:nTF {#5}
+      { \tl_set:Nn \l_@@_tmp_tl {#2} }
+      {
+        \tl_set:Nn \l_@@_tmp_tl {#5}
+        \tl_replace_all:Nnn \l_@@_tmp_tl { * } {#2}
+      }
+    \use:x
+      {
+        \ctex_ltj_save_alternate_family:Nnnn \exp_not:N #1
+          { \exp_not:o { \l_@@_char_range_clist } }
+          { \exp_not:o { \l_@@_alternate_options_clist } }
+          { \exp_not:o { \l_@@_tmp_tl } }
+      }
   }
 \clist_new:N \l_@@_alternate_options_clist
 %    \end{macrocode}
@@ -3067,7 +3078,6 @@ This package consists of the file ctex.dtx, and the derived files
     \cs_gset_protected_nopar:Npx #1
       { \exp_not:o { #1 \ctex_ltj_set_alternate_family:nnn {#2} {#3} {#4} } }
   }
-\cs_generate_variant:Nn \ctex_ltj_save_alternate_family:Nnnn { Noo }
 %    \end{macrocode}
 % \end{macro}
 %
