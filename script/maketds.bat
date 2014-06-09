@@ -1,5 +1,7 @@
 if exist texmf rmdir /s/q .\texmf
-if exist ctex-tds.zip del ctex-tds.zip
+if exist ctex rmdir /s/q .\ctex
+if exist ctex.tds.zip del ctex.tds.zip
+if exist ctex.zip del ctex.zip
 
 mkdir texmf\tex\latex\ctex
 for %%i in (..\ctex.sty ..\ctexart.cls ..\ctexbook.cls ..\ctexcap.sty ..\ctexrep.cls) do copy "%%i" texmf\tex\latex\ctex
@@ -32,4 +34,13 @@ for %%i in (..\doc\ctex.pdf ..\doc\ctex.tex ..\README) do copy "%%i" texmf\doc\l
 mkdir texmf\doc\latex\ctex\test
 for %%i in (..\test\test-cjk.tex ..\test\test-cjkutf8.tex ..\test\test-xetex.tex ..\test\test-xetexgbk.tex) do copy "%%i" texmf\doc\latex\ctex\test
 
-zip -r ctex-tds.zip texmf\*
+pushd texmf
+zip -r -ll ctex.tds.zip .
+popd
+
+mkdir ctex
+move texmf\ctex.tds.zip
+xcopy /s texmf\doc\latex\ctex ctex
+xcopy /s texmf\tex\latex\ctex ctex
+
+zip -r -ll ctex.zip ctex ctex.tds.zip
