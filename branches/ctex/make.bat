@@ -32,7 +32,7 @@
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty cls def cfg fd tex
+  set TDSFILES=%CTANFILES% sty cls def cfg fd tex spa
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -135,6 +135,7 @@
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".tex" set TDSDIR=tex\generic\%PKGDIR%
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".spa" set TDSDIR=source\%FORMAT%\%PKGDIR%
 
   goto :EOF
  
@@ -143,11 +144,11 @@
   set TDSDIR=tex\%FORMAT%\%PKGDIR%
 
   for %%I in (%1) do (
-    for /f "tokens=2 delims=-" %%J in ("%%I") do (
-      if /i "%%J" == "engine" (
+    for /f "tokens=1,2 delims=-" %%J in ("%%I") do (
+      if /i "%%K" == "engine" (
         xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\engine\" > nul
       ) else (
-        if /i "%%J" == "fontset" (
+        if /i "%%K" == "fontset" (
           xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\fontset\" > nul
         ) else (
           xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%" > nul
