@@ -562,7 +562,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4141}
+% \CheckSum{4156}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2716,7 +2716,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_ltj_set_family:nnn #1#2#3
   {
-    \int_gincr:N \g_@@_family_int
+    \group_begin:
     \clist_clear:N \l_@@_char_range_clist
     \seq_clear:N \l_@@_alternate_seq
     \tl_set:Nn \l_@@_base_CJKfamily_tl {#1}
@@ -2727,13 +2727,14 @@ This package consists of the file ctex.dtx, and the derived files
         \prop_gput:Nnn \g_@@_family_font_name_prop {#1} {#3}
         \prop_gput:Nno \g_@@_family_font_options_prop
           {#1} { \l_@@_font_options_clist }
+        \@@_update_family_uid:N \l_@@_font_options_clist
         \@@_use_global_options:N \l_@@_font_options_clist
         \@@_gset_family_cs:nn {#1} {#3}
       }
+    \group_end:
   }
 \cs_new_protected:Npn \ctex_ltj_set_family:xxx #1#2#3
   { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
-\int_new:N \g_@@_family_int
 \tl_new:N \l_@@_base_CJKfamily_tl
 \clist_new:N \l_@@_font_options_clist
 \cs_new_protected_nopar:Npn \@@_use_global_options:N #1
@@ -2755,16 +2756,17 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{variable}
 %
 % \begin{macro}[internal]{\@@_check_family:n}
-% 删除重复的定义。
+% 删除重复的定义，清除替代字体的先前设置。
 %   \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_check_family:n #1
   {
     \prop_gpop:NnNT \g_@@_family_font_name_prop {#1} \l_@@_tmp_tl
       {
-        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_tmp_tl
+        \cs_undefine:c { \@@_family_csname:n {#1} }
+        \cs_undefine:c { \@@_alternate_cs:n {#1} }
+        \prop_gpop:NnNT \g_@@_family_name_prop {#1} \l_@@_base_family_tl
           {
-            \cs_undefine:c { \@@_family_csname:n {#1} }
-            \cs_undefine:c { \@@_alternate_cs:n {#1} }
+            \use:c { \@@_alternate_cs:n { clear / #1 } }
             \cs_undefine:c { \@@_alternate_cs:n { clear / #1 } }
             \cs_undefine:c { \@@_alternate_cs:n { reset / #1 } }
             \prop_gremove:Nn \g_@@_reset_alternate_prop {#1}
@@ -2795,8 +2797,8 @@ This package consists of the file ctex.dtx, and the derived files
           { \exp_not:N \g_@@_fontspec_family_tl }
         \tl_gset_eq:NN \exp_not:N \g_@@_fontspec_family_tl
           \exp_not:N \g_@@_fontspec_family_tl
-        \group_end:
         \@@_set_alternate_family:n {#1}
+        \group_end:
       }
   }
 \tl_new:N \l_@@_base_family_tl
@@ -2903,8 +2905,9 @@ This package consists of the file ctex.dtx, and the derived files
       { CJKfontspec/#1/#2/id } \l_ctex_ltj_family_tl
       { \ctex_ltj_switch_family:x { \l_ctex_ltj_family_tl } }
       {
+        \int_gincr:N \g_@@_family_int
         \@@_fontspec:xnn
-          { CJKfontspec ( \int_eval:n { \g_@@_family_int + \c_one } ) }
+          { CJKfontspec ( \int_use:N \g_@@_family_int ) }
           {#1} {#2}
       }
   }
@@ -3203,6 +3206,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_ltj_set_alternate_family:nn #1#2
   {
+    \@@_update_family_uid:N \l_@@_font_options_clist
     \@@_use_global_options:N \l_@@_font_options_clist
     \ctex_ltj_set_alternate_family:coonn
       { \@@_alternate_cs:n {#1} }
@@ -3241,8 +3245,8 @@ This package consists of the file ctex.dtx, and the derived files
     \cs_set_eq:NN \CJKfamily \use_none:n
     \ctex_ltj_swap_cs:NN
       \DeclareFontShape@ \ctex_ltj_declare_alternate_shape:nnnnnn
-    \fontspec_set_family:Nnn \l_@@_alternate_family_tl
-      { LTJCharRange = {#1} , #2 } {#3}
+    \tl_set:Nn \l_@@_char_range_clist {#1}
+    \fontspec_set_family:Nnn \l_@@_alternate_family_tl {#2} {#3}
     \group_end:
   }
 \tl_new:N \l_@@_alternate_family_tl
@@ -3262,14 +3266,18 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{LTJCharRange}
-% 用于在内部设置字符区间，并确保 \pkg{fontspec} 在基本族和区间不同时总是定义新字体。
+% \begin{macro}[internal]{LTJFONTUID,\@@_update_family_uid:N}
+% \pkg{fontspec} 在一个字体族的选项和字体名称相同的时候，就不定义新字体。为了
+% 避免混淆替代字体的设置，我们新定义一个虚拟的选项 \opt{LTJFONTUID}，确保
+% \pkg{fontspec} 对 CJK 字体族总是定义新字体。
 %    \begin{macrocode}
-\keys_define:nn { fontspec }
+\keys_define:nn { fontspec } { LTJFONTUID .code:n = }
+\cs_new_protected_nopar:Npn \@@_update_family_uid:N #1
   {
-    LTJCharRange .tl_set:N = \l_@@_char_range_clist ,
-    LTJCharRange .value_required:
+    \int_gincr:N \g_@@_family_int
+    \clist_put_right:Nx #1 { LTJFONTUID = \int_use:N \g_@@_family_int }
   }
+\int_new:N \g_@@_family_int
 %    \end{macrocode}
 % \end{macro}
 %
