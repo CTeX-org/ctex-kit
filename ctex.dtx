@@ -562,7 +562,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4174}
+% \CheckSum{4167}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1991,27 +1991,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% 一般 \LaTeX{} 环境总是会使用一个分组环境，为了保证分组嵌套的正确和减少冲突，将
-% \env{CJK*} 环境内置入 \env{document} 环境的最里层。也许更好的方式是不使用
-% \env{CJK*} 环境，而改用它的实际内部定义 \cs{CJK@envStart}，这样也能避免可能
-% 发生的 \TeX{} 保存栈溢出。
-%    \begin{macrocode}
-  \exp_args:Nx \AtBeginDocument
-    {
-      \AfterEndPreamble
-        {
-          \exp_not:N \begin { CJK* }
-            { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
-          \exp_not:N \CJKtilde
-        }
-    }
-%    \end{macrocode}
-% 使用 \cs{clearpage} 的目的是强制输出页面，避免页眉页脚中的 CJK 宏在 \env{CJK*}
-% 环境结束后没有定义。
-%    \begin{macrocode}
-  \AtEndEnvironment { document } { \clearpage \end { CJK* } }
-%    \end{macrocode}
-%
 %    \begin{macrocode}
   \tl_if_exist:NF \CJKfamilydefault
     { \tl_const:Nn \CJKfamilydefault { \CJKrmdefault } }
@@ -2100,15 +2079,41 @@ This package consists of the file ctex.dtx, and the derived files
   { \AtBeginDocument { \punctstyle { \l_@@_punct_tl } } }
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{CJK*}
-% 去掉了 \env{CJK*} 环境的开始定义中对 \cs{CJK@ignorespaces} 的定义，以便使用
-% \pkg{CJKspace} 时，忽略空格的方式受 \opt{space} 选项的控制。
+% \tn{CJK@envStart} 的定义是
+% \begin{verbatim}
+%   \def\CJK@envStart#1#2#3{
+%     \CJK@upperReset
+%     \ifCJK@lowercase@
+%       \CJK@lowerReset
+%     \fi%
+%     \CJK@makeActive%
+%     \CJK@global\let\CJK@selectFamily \CJK@selFam
+%     \CJK@global\let\CJK@selectEnc \CJK@selEnc%
+%     \def\CJK@@@enc{#2}
+%     \ifx\CJK@@@enc \@empty
+%       \PackageInfo{CJK}{
+%         no encoding parameter given,\MessageBreak
+%         waiting for \protect\CJKenc\space commands}
+%     \else
+%       \CJKenc{#2}
+%     \fi
+%     \CJKfontenc{#2}{#1}
+%     \CJKfamily{#3}
+%     \def\CJK@series{\f@series}
+%     \def\CJK@shape{\f@shape}%
+%     \csname CJKhook\endcsname}
+% \end{verbatim}
+% \tn{CJK@upperReset} 可能会有一定风险，因此我们直到导言区末尾才使用
+% \tn{CJK@envStart}。这样可以避免将 \env{CJK} 环境内置入 \env{document} 环境的
+% 最里层，最后也就不需要 \tn{clearpage}。
 %    \begin{macrocode}
-\RenewDocumentEnvironment { CJK* } { O { } m m }
-  { \CJK@envStart {#1} {#2} {#3} }
-  { \CJK@envEnd }
+\exp_args:Nx \AtEndPreamble
+  {
+    \exp_not:N \CJK@envStart
+      { } { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
+    \exp_not:N \CJKtilde
+  }
 %    \end{macrocode}
-% \end{macro}
 %
 % \begin{macro}[internal]{\CJK@ignorespaces,\ctex_auto_ignorespaces:}
 % 默认忽略汉字之间的空格。并关闭名字空间，保存 |\CJK@@ignorespaces| 的定义，方便使用。
