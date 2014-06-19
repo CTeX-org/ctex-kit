@@ -207,7 +207,7 @@ and some specific Chinese Simplified fonts.
 %</driver>
 % \fi
 %
-% \CheckSum{655}
+% \CheckSum{678}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xCJK2uni} 宏包}
@@ -523,22 +523,26 @@ and some specific Chinese Simplified fonts.
 % \end{macro}
 %
 %    \begin{macrocode}
-\cs_if_exist_use:NTF \hypersetup { { unicode } }
-  { \PassOptionsToPackage { unicode } { hyperref } }
-\AtBeginDocument
-  {
-    \@ifpackageloaded { CJKutf8 }
-      { \msg_warning:nn { xCJK2uni } { UTF-8-encoding } }
-      {
-        \cs_if_free:NF \pdfstringdefDisableCommands
-          {
-            \hypersetup { CJKbookmarks = false }
-            \pdfstringdefDisableCommands { \CJKtu_bookmarks_hook: }
-          }
-      }
-  }
+\cs_if_exist_use:NTF \hypersetup { { unicode , CJKbookmarks = false } }
+  { \PassOptionsToPackage { unicode , CJKbookmarks = false } { hyperref } }
 \msg_new:nnn { xCJK2uni } { UTF-8-encoding }
   { It~is~not~necessary~to~load~xCJK2uni~in~UTF-8~encoding. }
+\tl_if_exist:NF \pdfstringdefPreHook { \tl_new:N \pdfstringdefPreHook }
+\@ifpackageloaded { CJKutf8 }
+  { \msg_warning:nn { xCJK2uni } { UTF-8-encoding } }
+  {
+    \cs_new_eq:NN \CJKtu@bookmarks@hook \CJKtu_bookmarks_hook:
+    \tl_gput_right:Nn \pdfstringdefPreHook { \CJKtu@bookmarks@hook }
+    \AtBeginDocument
+      {
+        \@ifpackageloaded { CJKutf8 }
+          {
+            \cs_gset_eq:NN \CJKtu@bookmarks@hook \scan_stop:
+            \msg_warning:nn { xCJK2uni } { UTF-8-encoding }
+          }
+          { \cs_if_exist_use:NT \hypersetup { { CJKbookmarks = false } } }
+      }
+  }
 %    \end{macrocode}
 %
 % \begin{macro}{\useCJKencmap,\CJKchartouni,\CJKsfdtouni}
@@ -549,8 +553,23 @@ and some specific Chinese Simplified fonts.
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\@@_initial:N}
 %    \begin{macrocode}
-\useCJKencmap { GBK }
+\cs_new_protected_nopar:Npn \@@_initial:N #1
+  {
+    \tl_if_exist:NTF #1
+      {
+        \prop_get:NxNTF \c_@@_sfd_prop {#1} \l_@@_sfd_tl
+          { \@@_enc_map:nn {#1} { \l_@@_sfd_tl } }
+          { \@@_use_enc_map:n { GBK } }
+      }
+      { \@@_use_enc_map:n { GBK } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\exp_args:Nc \@@_initial:N { CJK @ @ @ enc }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
