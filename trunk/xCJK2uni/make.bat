@@ -23,17 +23,15 @@
   set FORMAT=latex
   set DTXTEX=xelatex
   set DTXTEXFLAG=
-  set INSTEX=xetex
+  set INSTEX=luatex
   set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
-  set MAKETEX=lualatex
-  set DEFMAKE=%PACKAGE%-make.ltx
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
-  set CLEAN=bib bst cfg cls eps gz ins pdf sty tex ltx txt tds.zip def cmap
+  set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip def cmap
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty ltx def cmap
+  set TDSFILES=%CTANFILES% sty tex def cmap
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -111,21 +109,15 @@
     goto :end
   ) else (
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
-    if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
+    if exist %PACKAGE%.idx ( makeindex -q -s gind.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
     %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2>&1
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
-    if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
+    if exist %PACKAGE%.idx ( makeindex -q -s gind.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
     %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2>&1
     goto :clean-aux
   )
-
-:makedef
-
-    echo   Making /ToUnicode map files
-    %MAKETEX% -shell-escape -interaction=batchmode %DEFMAKE% > nul 
-    goto :clean-aux
 
 :file2tdsdir
 
@@ -136,10 +128,9 @@
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".ltx" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".tex" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".cmap" set TDSDIR=tex\%FORMAT%\%PKGDIR%\cmap
-  if /i "%~x1" == ".tex" set TDSDIR=doc\%FORMAT%\%PKGDIR%\example  
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
 
   goto :EOF
@@ -147,8 +138,6 @@
 :localinstall
 
   if not exist %PACKAGE%.pdf call :doc
-
-  call :makedef
 
   echo.
   echo Installing %PACKAGE%
@@ -182,9 +171,6 @@
   if errorlevel 1 goto :EOF
 
   call :doc
-  if errorlevel 1 goto :EOF
-  
-  call :makedef
   if errorlevel 1 goto :EOF
 
   echo.
