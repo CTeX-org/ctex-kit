@@ -240,15 +240,20 @@ $URL$
 \usepackage{geometry}
 \usepackage[toc]{multitoc}
 \usepackage{indentfirst}
+\usepackage{unicode-math}
 \fvset{formatcom=\xeCJKVerbAddon}
 \linespread{1.1}
 \setlist{noitemsep,topsep=1ex}
 \newlist{optiondesc}{description}{3}
 \setlist[optiondesc]{font=\mdseries\ttfamily,align=right,labelsep=.5em,leftmargin=4.5em}
 \def\PSKeyVal#1#2{\item[#1]\makebox[4em][l]{\meta{#2}}\ignorespaces}
-\setmainfont[Ligatures=TeX]{TeX Gyre Pagella}
-\setmonofont{CMU Typewriter Text}
+\setmainfont{TeX Gyre Pagella}
+\setsansfont{CMU Sans Serif}
+\setmonofont[
+  UprightFont=* Light, BoldFont=* Bold,
+  SlantedFont=* Light Oblique]{CMU Typewriter Text}
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
+\setmathfont{texgyrepagella-math.otf}
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKDeclareSubCJKBlock{HKMD}  { "FF65 }
 \xeCJKDeclareSubCJKBlock{Ext-B} { "20000 -> "2A6DF }
@@ -274,6 +279,7 @@ $URL$
   \begingroup\edef\x{\endgroup\lowercase{%
     \noexpand\href{http://www.ctan.org/pkg/\IfNoValueTF{#1}{#2}{#1}}}}%
     \x{\pkg{#2}}}
+\makeatletter
 \ExplSyntaxOn
 \NewDocumentCommand \PrintPunctList { O{7} m m }
   {
@@ -303,9 +309,59 @@ $URL$
     \endgroup
     \par
   }
+\cs_set_protected_nopar:Npn \__codedoc_special_main_index:n #1
+  {
+    \tl_if_empty:NTF \l__codedoc_function_name_prefix_tl
+      { \SpecialOptionIndex }
+      { \SpecialUsageIndex }
+    {#1}
+  }
+\cs_new_eq:NN \@@_special_main_index:n \SpecialMainIndex
+\group_begin:
+  \char_set_lccode:nn { `\/ } { `\\ }
+  \char_set_lccode:nn { `\L } { `\L }
+  \char_set_lccode:nn { `\T } { `\T }
+  \char_set_lccode:nn { `\X } { `\X }
+\tex_lowercase:D
+  {
+    \group_end:
+    \DeclareDocumentCommand \SpecialMainIndex { m }
+      {
+        \tl_if_head_eq_meaning:nNTF {#1} /
+          { \@@_special_main_index:n }
+          { \@@_special_main_option_index:n }
+        {#1}
+      }
+    \cs_new_protected:Npn \@@_special_main_option_index:n #1
+      {
+        \@bsphack
+        \group_begin:
+          \special@index
+            {
+              #1 \actualchar { /ttfamily ~ #1 } ~ (option)
+              \encapchar main
+            }
+          \special@index
+            {
+              options: \levelchar #1 \actualchar { /ttfamily ~ #1 }
+              \encapchar main
+            }
+        \group_end:
+        \@esphack
+      }
+    \DeclareDocumentCommand \tn { m }
+      {
+        { \ttfamily /#1 }
+        \SortIndex
+          { TeX~and~LaTeX2e~commands }
+          {
+            /TeX{} ~ and ~ /LaTeXe{} ~ commands: \levelchar
+              #1 \actualchar { /ttfamily /bslash ~ #1 }
+          }
+      }
+  }
 \ExplSyntaxOff
 \geometry{includemp,hmargin={0mm,15mm},vmargin=15mm,footskip=7mm}
-\makeatletter
 \preto\IndexParms{\linespread{1}}
 \appto\GlossaryParms{%
   \def\@idxitem{\par\hangindent 2em}%
@@ -351,7 +407,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9020}
+% \CheckSum{9027}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -5997,6 +6053,7 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_set_mathfont:}
 % \changes{v3.2.6}{2013/08/01}{设置粗体时先检查对应字体是否存在。}
 % \changes{v3.2.7}{2013/11/09}{将 CJK 字符的数学归类由 $7$ 改为 $0$，解决汉字路径的问题。}
+% \changes{v3.2.13}{2014/06/20}{修复参数类型错误。}
 % 当没有设置 CJK 数学字体时，使用 \cs{CJKfamilydefault} 作为数学字体。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
@@ -6708,7 +6765,11 @@ $URL$
         \exp_not:o
           {
             \fontspec_setup_maths:
-            \tl_if_empty:NT \g_fontspec_bfmathrm_tl
+            \bool_if:nT
+              {
+                \tl_if_empty_p:N \g__fontspec_bfmathrm_tl ||
+                \tl_if_empty_p:N \g_fontspec_bfmathrm_tl
+              }
               { \DeclareSymbolFontAlphabet \mathrm { operators } }
           }
       }
