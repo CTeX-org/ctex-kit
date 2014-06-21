@@ -11,7 +11,8 @@
   echo  make localinstall - install files in $TEXMFLOCAL
   echo  make tds          - create a TDS-ready archive
   echo  make unpack       - extract packages
-  echo  make checksum     - Correction of "\CheckSum{...}" entry in .dtx
+  echo  make checksum     - correction of "\CheckSum{...}" entry in .dtx
+  echo  make database     - update pinyin database
 
   goto :EOF
 
@@ -29,12 +30,13 @@
   set UNPACK=%SOURCE%
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
-  set CLEAN=bib bst cls eps gz ins pdf sty tex txt tds.zip
-  set CTANFILES=ins dtx pdf cfg
-  set TDSFILES=%CTANFILES% sty
+  set CLEAN=bib bst cls eps gz ins pdf sty txt tds.zip lua def
+  set CTANFILES=ins dtx pdf tex
+  set TDSFILES=%CTANFILES% sty def
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
+  set DBSCRIPT=xpinyin.lua
 
   cd /d "%~dp0"
 
@@ -48,6 +50,7 @@
   if /i "%1" == "tds"          goto :tds
   if /i "%1" == "unpack"       goto :unpack
   if /i "%1" == "checksum"     goto :checksum
+  if /i "%1" == "database"     goto :database
 
   goto :help
 
@@ -75,7 +78,7 @@
 
   for %%I in (%SOURCE%) do (
     xcopy /q /y %%I "%CTANDIR%\" > nul
-  )  
+  )
   for %%I in (%CTANFILES%) do (
     xcopy /q /y *.%%I "%CTANDIR%\" > nul
   )
@@ -95,40 +98,40 @@
 
   goto :end
 
-:doc 
+:doc
 
   call :unpack
-  
+
   call :checksum
 
   echo Typesetting %SOURCE%
 
-  %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+  %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2>&1
   if ERRORLEVEL 1 (
     echo ! Compilation failed
     goto :end
   ) else (
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
-    if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
+    if exist %PACKAGE%.idx ( makeindex -q -s gind.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting for index generation
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode -no-pdf %SOURCE% > nul 2>&1
     if exist %PACKAGE%.glo ( makeindex -q -s gglo.ist -o %PACKAGE%.gls %PACKAGE%.glo > nul )
-    if exist %PACKAGE%.idx ( makeindex -q -s l3doc.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
+    if exist %PACKAGE%.idx ( makeindex -q -s gind.ist -o %PACKAGE%.ind %PACKAGE%.idx > nul )
     echo   Re-typesetting to resolve cross-references
-    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 
-	goto :clean-aux
+    %DTXTEX% %DTXTEXFLAG% -interaction=batchmode %SOURCE% > nul 2>&1
+    goto :clean-aux
   )
 
 :file2tdsdir
 
   set TDSDIR=
 
-  if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%\config
   if /i "%~x1" == ".dtx" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".tex" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".tex" set TDSDIR=doc\%FORMAT%\%PKGDIR%\example  
+  if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".txt" set TDSDIR=doc\%FORMAT%\%PKGDIR%
 
   goto :EOF
@@ -145,7 +148,7 @@
   if [%TEXMFLOCAL%] == [] (
     echo ! Install failed
   ) else (
-	for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
+    for %%I in (%TDSFILES%) do ( call :localinstall-int *.%%I )
   )
 
   goto :end
@@ -216,16 +219,42 @@
 
   goto :end
 
+:database
+
+  call :unpack
+
+  call :download
+  
+  echo Updating database
+
+  texlua %DBSCRIPT%
+  
+  goto :end
+
+:download
+
+  call :wget
+  
+  echo.
+  echo Downloading Unihan.zip ...
+  %WGETEXE% -O Unihan.zip http://www.unicode.org/Public/UNIDATA/Unihan.zip
+
+  call :unzip
+  
+  %UNZIPEXE% %UNZIPFLAG% Unihan.zip Unihan_Readings.txt
+
+  goto :EOF
+
 :checksum
 
   call :perl
 
   if [%PERLEXE%] == [""] goto :end
-  
+
   %PERLEXE% adjust_checksum.pl %SOURCE%
 
   goto :end
- 
+
 :perl
 
   if defined PERLEXE (
@@ -233,30 +262,62 @@
   ) else (
     set PERLEXE =""
   )
-  
+
   for %%I in (perl.exe) do (
     if exist %%I (
-	  set PERLEXE="%~dp0%%I"
-	) else (
-	  set PERLEXE="%%~$PATH:I"
-	)
+      set PERLEXE="%~dp0%%I"
+    ) else (
+      set PERLEXE="%%~$PATH:I"
+    )
   )
-  
+
   if not [%PERLEXE%] == [""] goto :EOF
-  
+
   for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
 
   if exist "%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe" (
-	set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
-	goto :EOF
+    set PERLEXE="%TEXMFROOT%\tlpkg\tlperl\bin\perl.exe"
+    goto :EOF
   )
 
   echo.
   echo This procedure requires a perl program,
   echo but one could not be found.
   echo.
+ 
+:wget
 
-:zip 
+  if defined WGETEXE (
+    goto :EOF
+  ) else (
+    set WGETEXE =""
+  )
+  
+  for %%I in (wget.exe) do (
+    if exist %%I (
+      set WGETEXE="%~dp0%%I"
+    ) else (
+      set WGETEXE="%%~$PATH:I"
+    )
+  )
+  
+  if not [%WGETEXE%] == [""] goto :EOF
+  
+  for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
+
+  if exist "%TEXMFROOT%\tlpkg\installer\wget\wget.exe" (
+    set WGETEXE="%TEXMFROOT%\tlpkg\installer\wget\wget.exe"
+    goto :EOF
+  )
+
+  echo.
+  echo This procedure requires a wget program,
+  echo but one could not be found.
+  echo.
+
+  exit /b 1
+
+:zip
 
   if not defined ZIPFLAG set ZIPFLAG=-r -q -X -ll
 
@@ -265,17 +326,44 @@
   ) else (
     set ZIPEXE =""
   )
-  
+
   for %%I in (zip.exe) do (
     if exist %%I (
-	  set ZIPEXE="%~dp0%%I"
-	) else (
-	  set ZIPEXE="%%~$PATH:I"
-	)
+      set ZIPEXE="%~dp0%%I"
+    ) else (
+      set ZIPEXE="%%~$PATH:I"
+    )
   )
 
   if not [%ZIPEXE%] == [""] goto :EOF
-  
+
+  echo.
+  echo This procedure requires a zip program,
+  echo but one could not be found.
+  echo.
+
+  exit /b 1
+
+:unzip
+
+  if not defined UNZIPFLAG set UNZIPFLAG=-oqj
+
+  if defined UNZIPEXE (
+    goto :EOF
+  ) else (
+    set UNZIPEXE =""
+  )
+
+  for %%I in (unzip.exe) do (
+    if exist %%I (
+      set UNZIPEXE="%~dp0%%I"
+    ) else (
+      set UNZIPEXE="%%~$PATH:I"
+    )
+  )
+
+  if not [%UNZIPEXE%] == [""] goto :EOF
+
   echo.
   echo This procedure requires a zip program,
   echo but one could not be found.
