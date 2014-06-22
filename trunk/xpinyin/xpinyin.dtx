@@ -1239,10 +1239,38 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 xpinyin       = xpinyin or {}
 local xpinyin = xpinyin
+%    \end{macrocode}
+%
+% 计算时区\footnote{\url{http://lua-users.org/wiki/TimeZone}}。
+%    \begin{macrocode}
+-- Compute the difference in seconds between local time and UTC.
+local function get_timezone()
+  local now = os.time()
+  return os.difftime(now, os.time(os.date("!*t", now)))
+end
+-- Return a timezone string in ISO 8601:2000 standard form (+hhmm or -hhmm)
+local function get_tzoffset(timezone)
+  local h, m = math.modf(timezone / 3600)
+  return string.format("%+.4d", 100 * h + 60 * m)
+end
+local tzoffset = get_tzoffset(get_timezone())
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 xpinyin = {
   svnid    = "$Id$",
   uchar    = unicode.utf8.char,
   readings = {},
+  fixreadings = {
+%    \end{macrocode}
+% 为汉字“〇”增加拼音。
+%    \begin{macrocode}
+    {"U+3007", "Mandarin", "líng"},
+%    \end{macrocode}
+% 修改汉字“女”的错误拼音。
+%    \begin{macrocode}
+    {"U+5973", "HanyuPinlu", "nǚ(1129) rǔ(37)"}
+  },
   database = {
     file    = "Unihan_Readings.txt",
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
@@ -1264,7 +1292,8 @@ xpinyin = {
     %%    $version
     %%
     %%  by "]] .. arg[-1] .. " " ..arg[0] .. [[" on ]]
-               .. os.date("%Y-%m-%d %X GMT+8.") .. "\n%%", "[ ]+(%%%%)", "%1")
+               .. os.date("%Y-%m-%d %X ") .. tzoffset
+               .. "\n%%", "[ ]+(%%%%)", "%1")
 }
 %    \end{macrocode}
 %
@@ -1298,23 +1327,21 @@ function xpinyin.maketable (txt)
     end
   end
   f:close()
+  if xpinyin.fixreadings then
+    for _, vt in pairs(xpinyin.fixreadings) do
+      xpinyin.insert(tonumber(vt[1]:sub(3), 16), vt[2], vt[3])
+    end
+  end
 end
 %    \end{macrocode}
 %
-% 往表中加入项目。
+% 往拼音表中加入项目。
 %    \begin{macrocode}
 function xpinyin.insert (index, prop, value)
   if not xpinyin.readings[index] then
     xpinyin.readings[index] = {}
   end
   xpinyin.readings[index][prop] = value
-end
-%    \end{macrocode}
-%
-% 修改拼音表中错误的项目。
-%    \begin{macrocode}
-function xpinyin.fixtable (index, prop, value)
-  xpinyin.insert(tonumber(index:sub(3), 16), prop, value)
 end
 %    \end{macrocode}
 %
@@ -1378,11 +1405,11 @@ end
 %    \begin{macrocode}
 function xpinyin.multiple (pyt)
   if pyt.XHC1983 then
-    local s = pyt.XHC1983:explode(" ")
+    local s = pyt.XHC1983:explode()
     if s[2] then
       local t = {}
       for i, v in ipairs(s) do
-        table.insert(t, v:explode(":")[2])
+        t[#t + 1] = v:explode(":")[2]
       end
       return table.concat(t, ","), "XHC1983"
     else
@@ -1390,16 +1417,13 @@ function xpinyin.multiple (pyt)
     end
   elseif pyt.HanyuPinyin then
     if pyt.HanyuPinyin:find("%D,") then
-      local s = {}
-      for _, v in ipairs(pyt.HanyuPinyin:explode(" ")) do
+      local t = {}
+      for _, v in ipairs(pyt.HanyuPinyin:explode()) do
         for _, py in ipairs(v:explode(":")[2]:explode(",")) do
-          s[py] = py
+          t[#t + 1] = py
         end
       end
-      local t = {}
-      for _, py in pairs(s) do
-        t[#t + 1] = py
-      end
+      t = xpinyin.remove_duplicate (t)
       if #t > 1 then
         return table.concat(t, ","), "HanyuPinyin"
       else
@@ -1414,18 +1438,23 @@ function xpinyin.multiple (pyt)
 end
 %    \end{macrocode}
 %
+% 删除掉索引表中的重复元素。
+%    \begin{macrocode}
+function xpinyin.remove_duplicate (t)
+  local ht = {}
+  local nt = {}
+  for i, v in ipairs(t) do
+    if not ht[v] then
+      nt[#nt + 1] = v
+      ht[v] = true
+    end
+  end
+  return nt
+end
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 xpinyin.maketable(xpinyin.database.file)
-%    \end{macrocode}
-%
-% 为汉字“〇”增加拼音。
-%    \begin{macrocode}
-xpinyin.fixtable("U+3007", "Mandarin", "líng")
-%    \end{macrocode}
-%
-% 修改汉字“女”的错误拼音。
-%    \begin{macrocode}
-xpinyin.fixtable("U+5973", "HanyuPinlu", "nǚ(1129) rǔ(37)")
 %    \end{macrocode}
 %
 %    \begin{macrocode}
