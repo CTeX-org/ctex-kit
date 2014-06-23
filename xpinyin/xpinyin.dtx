@@ -131,9 +131,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \usepostamble\emptypostamble
     \file{xpinyin-database.def}
       {
-        \from{\jobname.dtx}{database}
-        \from{xpinyin-customary}{}
-        \from{xpinyin-multiple}{}
+        \from{\jobname.dtx}          {database}
+        \from{xpinyin-customary.tex} {}
+        \from{xpinyin-multiple.tex}  {}
       }
     \nopreamble\nopostamble
     \usedir{doc/latex/xpinyin}
@@ -160,7 +160,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ExplSyntaxOff
 %</driver>
 %</driver|package>
-%<database>\ProvidesFile{xpinyin-database.def}[2014/06/21 v1.9 xpinyin database]
+%<database>\ProvidesFile{xpinyin-database.def}%
+%<database>  [2014/06/21 v1.9 xpinyin database]
 %
 %<*driver>
 \documentclass[full,a4paper]{l3doc}
@@ -271,7 +272,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{681}
+% \CheckSum{684}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -507,9 +508,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     { ā }{ \= a } , { á }{ \' a } , { ǎ }{ \v a } , { à }{ \` a } ,
     { ō }{ \= o } , { ó }{ \' o } , { ǒ }{ \v o } , { ò }{ \` o } ,
     { ē }{ \= e } , { é }{ \' e } , { ě }{ \v e } , { è }{ \` e } ,
-    { ī }{ \=\i } , { í }{ \'\i } , { ǐ }{ \v\i } , { ì }{ \`\i } ,
     { ū }{ \= u } , { ú }{ \' u } , { ǔ }{ \v u } , { ù }{ \` u } ,
     { ḿ }{ \' m } , { ń }{ \' n } , { ň }{ \v n } , { ǹ }{ \` n } ,
+    { ī }{ \= { \i } } , { í }{ \' { \i } } ,
+    { ǐ }{ \v { \i } } , { ì }{ \` { \i } } ,
     { ü }{ \" u } ,
     { ǖ }{ \= { \" u } } , { ǘ }{ \' { \" u } } ,
     { ǚ }{ \v { \" u } } , { ǜ }{ \` { \" u } }
@@ -524,7 +526,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new_protected_nopar:Npn \@@_UTF_char:nn #1#2
   {
     \cs_if_exist:cF { u8:#1 }
-      { \cs_new_protected_nopar:cpn { u8:#1 } {#2} }
+      { \tl_const:cn { u8:#1 } {#2} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -571,15 +573,15 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}[internal]{\@@_save_UTF_cs:Nn}
 %    \begin{macrocode}
 \group_begin:
-\char_set_catcode_active:n { \c_zero }
+\char_set_catcode_active:n { 126 }
 \cs_new_protected_nopar:Npn \@@_save_UTF_cs:Nn #1#2
   {
     \group_begin:
-    \char_set_lccode:nn { \c_zero } {#2}
-    \tl_to_lowercase:n
+    \char_set_lccode:nn { 126 } {#2}
+    \tex_lowercase:D
       {
         \group_end:
-        \tl_gput_right:Nn \c_@@_reset_UTF_cs_tl { \cs_set_eq:NN ^^00 #1 }
+        \tl_gput_right:Nn \c_@@_reset_UTF_cs_tl { \cs_set_eq:NN ~ #1 }
       }
   }
 \group_end:
@@ -1011,6 +1013,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
           { \@@_replace_CJKsymbol_single_aux:n { ##1 } }
           {
+            \bool_if:NF \l_@@_enable_bool
+              { \cs_set_eq:NN \@@_save_CJKsymbol:n \CJKosymbol }
             \cs_set_protected_nopar:Npn \CJKosymbol ####1
               { \@@_single_CJKsymbol:nn { ####1 } { ##1 } }
           }
@@ -1177,10 +1181,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{ratio,vsep,hsep,pysep,font,format,multiple}
+% \begin{macro}{ratio,vsep,hsep,pysep,font,format,multiple,footnote}
 %    \begin{macrocode}
 \clist_map_inline:nn
-  { ratio , vsep , hsep , pysep , font , format , multiple , footnote }
+  { ratio , vsep , hsep , pysep , font , format , multiple }
   { \keys_define:nn { xpinyin } { #1 .tl_set:c = { l_@@_ #1 _tl } } }
 \keys_define:nn { xpinyin }
   { footnote .bool_set:N = \l_@@_footnote_bool }
@@ -1237,30 +1241,33 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-xpinyin       = xpinyin or {}
+xpinyin       = xpinyin or { }
 local xpinyin = xpinyin
 %    \end{macrocode}
 %
 % 计算时区\footnote{\url{http://lua-users.org/wiki/TimeZone}}。
 %    \begin{macrocode}
--- Compute the difference in seconds between local time and UTC.
-local function get_timezone()
-  local now = os.time()
-  return os.difftime(now, os.time(os.date("!*t", now)))
+xpinyin.tzoffset = "+0000"
+do
+  -- Compute the difference in seconds between local time and UTC.
+  local function get_timezone()
+    local now = os.time()
+    return os.difftime(now, os.time(os.date("!*t", now)))
+  end
+  -- Return a timezone string in ISO 8601:2000 standard form (+hhmm or -hhmm)
+  local function get_tzoffset(timezone)
+    local h, m = math.modf(timezone / 3600)
+    return string.format("%+.4d", 100 * h + 60 * m)
+  end
+  xpinyin.tzoffset = get_tzoffset(get_timezone())
 end
--- Return a timezone string in ISO 8601:2000 standard form (+hhmm or -hhmm)
-local function get_tzoffset(timezone)
-  local h, m = math.modf(timezone / 3600)
-  return string.format("%+.4d", 100 * h + 60 * m)
-end
-local tzoffset = get_tzoffset(get_timezone())
 %    \end{macrocode}
 %
 %    \begin{macrocode}
 xpinyin = {
   svnid    = "$Id$",
   uchar    = unicode.utf8.char,
-  readings = {},
+  readings = { },
   fixreadings = {
 %    \end{macrocode}
 % 为汉字“〇”增加拼音。
@@ -1291,14 +1298,11 @@ xpinyin = {
     %%    $date
     %%    $version
     %%
-    %%  by "]] .. arg[-1] .. " " ..arg[0] .. [[" on ]]
-               .. os.date("%Y-%m-%d %X ") .. tzoffset
+    %%  by "]] .. arg[-1] .. " " .. arg[0] .. [[" on ]]
+               .. os.date("%Y-%m-%d %X ") .. xpinyin.tzoffset
                .. "\n%%", "[ ]+(%%%%)", "%1")
 }
 %    \end{macrocode}
-%
-% \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \cs{MetaPrefix}，因此我们在上面在
-% 行首加了空格，现在我们把它去掉。
 %
 % 将 \file{Unihan_Readings.txt}^^A
 % \footnote{\url{http://http://www.unicode.org/reports/tr38/}。} 保存到一张表里面。
@@ -1306,30 +1310,25 @@ xpinyin = {
 function xpinyin.maketable (txt)
   local f = assert(io.open(txt, "r"))
   for line in f:lines() do
-    if line then
-      local s = line:explode("\t")
-      if s then
-        if #s == 3 then
-          local index = tonumber(s[1]:sub(3), 16)
-          local prop = s[2]:sub(2)
-          if prop == "Mandarin" or
-             prop == "HanyuPinyin" or
-             prop == "XHC1983" or
-             prop == "HanyuPinlu" then
-            xpinyin.insert(index, prop, s[3])
-          end
-        elseif line:find("Date") then
-          xpinyin.database.date = line:match("([^#%s]+.*)")
-        elseif line:find("Unicode version:") then
-          xpinyin.database.version = line:match("([^#%s]+.*)")
-        end
+    local s = line:explode("\t")
+    if #s == 3 then
+      local prop = s[2]:sub(2)
+      if prop == "Mandarin" or
+         prop == "HanyuPinyin" or
+         prop == "XHC1983" or
+         prop == "HanyuPinlu" then
+        xpinyin.insert(tonumber(s[1]:sub(3), 16), prop, s[3])
       end
+    elseif line:find("Date") then
+      xpinyin.database.date = line:match("([^#%s]+.*)")
+    elseif line:find("Unicode version:") then
+      xpinyin.database.version = line:match("([^#%s]+.*)")
     end
   end
   f:close()
   if xpinyin.fixreadings then
-    for _, vt in pairs(xpinyin.fixreadings) do
-      xpinyin.insert(tonumber(vt[1]:sub(3), 16), vt[2], vt[3])
+    for _, s in pairs(xpinyin.fixreadings) do
+      xpinyin.insert(tonumber(s[1]:sub(3), 16), s[2], s[3])
     end
   end
 end
@@ -1339,7 +1338,7 @@ end
 %    \begin{macrocode}
 function xpinyin.insert (index, prop, value)
   if not xpinyin.readings[index] then
-    xpinyin.readings[index] = {}
+    xpinyin.readings[index] = { }
   end
   xpinyin.readings[index][prop] = value
 end
@@ -1358,7 +1357,7 @@ function xpinyin.output (cpyfile, mpyfile)
     local code_point = string.format("%X", index)
     local char = xpinyin.uchar(index)
     cf:write("\\XPYU{", char, "}{" ,code_point, "}{", pinyin, "}\n")
-    local pinyin = xpinyin.multiple(pyt)
+    pinyin = xpinyin.multiple(pyt)
     if pinyin then
       mf:write("\\XPYUM{", char, "}{" ,code_point, "}{", pinyin, "}\n")
     end
@@ -1372,7 +1371,7 @@ end
 % \href{http://www.lua.org/pil/19.3.html}{\textit{Programming in Lua}}。
 %    \begin{macrocode}
 function xpinyin.pairsByKeys (t, f)
-  local a = {}
+  local a = { }
   for n in pairs(t) do a[#a + 1] = n end
   table.sort(a, f)
   local i = 0 -- iterator variable
@@ -1395,8 +1394,6 @@ function xpinyin.grep (pyt)
     return pyt.XHC1983:match( "[^:]+:(%S+)"), "XHC1983"
   elseif pyt.HanyuPinyin then
     return pyt.HanyuPinyin:match("[^:]+:([^,%s]+)"), "HanyuPinyin"
-  else
-    return nil
   end
 end
 %    \end{macrocode}
@@ -1407,42 +1404,35 @@ function xpinyin.multiple (pyt)
   if pyt.XHC1983 then
     local s = pyt.XHC1983:explode()
     if s[2] then
-      local t = {}
+      local t = { }
       for i, v in ipairs(s) do
         t[#t + 1] = v:explode(":")[2]
       end
-      return table.concat(t, ","), "XHC1983"
-    else
-      return nil
+      return xpinyin.unique(t), "XHC1983"
     end
-  elseif pyt.HanyuPinyin then
-    if pyt.HanyuPinyin:find("%D,") then
-      local t = {}
-      for _, v in ipairs(pyt.HanyuPinyin:explode()) do
-        for _, py in ipairs(v:explode(":")[2]:explode(",")) do
-          t[#t + 1] = py
-        end
+  elseif pyt.HanyuPinyin and pyt.HanyuPinyin:find("%D,") then
+    local t = { }
+    for _, v in ipairs(pyt.HanyuPinyin:explode()) do
+      for _, py in ipairs(v:explode(":")[2]:explode(",")) do
+        t[#t + 1] = py
       end
-      t = xpinyin.remove_duplicate (t)
-      if #t > 1 then
-        return table.concat(t, ","), "HanyuPinyin"
-      else
-        return nil
-      end
-    else
-      return nil
     end
-  else
-    return nil
+    return xpinyin.unique(t), "HanyuPinyin"
   end
 end
 %    \end{macrocode}
 %
-% 删除掉索引表中的重复元素。
+% 删除掉数组中的重复元素。
 %    \begin{macrocode}
+function xpinyin.unique (t)
+  local rt = xpinyin.remove_duplicate(t)
+  if #rt > 1 then
+    return table.concat(rt, ",")
+  end
+end
 function xpinyin.remove_duplicate (t)
-  local ht = {}
-  local nt = {}
+  local ht = { }
+  local nt = { }
   for i, v in ipairs(t) do
     if not ht[v] then
       nt[#nt + 1] = v
