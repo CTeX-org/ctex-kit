@@ -131,9 +131,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \usepostamble\emptypostamble
     \file{xpinyin-database.def}
       {
-        \from{\jobname.dtx}          {database}
-        \from{xpinyin-customary.tex} {}
-        \from{xpinyin-multiple.tex}  {}
+        \from{\jobname.dtx} {database}
+        \from{xpinyin.db}   {}
       }
     \nopreamble\nopostamble
     \usedir{doc/latex/xpinyin}
@@ -1281,10 +1280,9 @@ xpinyin = {
   database = {
     file    = "Unihan_Readings.txt",
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
-    version = "Unicode version: 7.0.0"
+    version = "Unicode version: 7.0.0",
+    dbfile  = "xpinyin.db"
   },
-  cpyfile  = "xpinyin-customary.tex",
-  mpyfile  = "xpinyin-multiple.tex",
 %    \end{macrocode}
 % \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \cs{MetaPrefix}，因此我们在行首加了
 % 空格，需要把它去掉。
@@ -1308,27 +1306,28 @@ xpinyin = {
 % \footnote{\url{http://http://www.unicode.org/reports/tr38/}。} 保存到一张表里面。
 %    \begin{macrocode}
 function xpinyin.maketable (txt)
-  local f = assert(io.open(txt, "r"))
+  local f = assert(io.open(txt or xpinyin.database.file, "r"))
+  local s, prop
   for line in f:lines() do
-    local s = line:explode("\t")
+    s = line:explode("\t")
     if #s == 3 then
-      local prop = s[2]:sub(2)
+      prop = s[2]:sub(2)
       if prop == "Mandarin" or
          prop == "HanyuPinyin" or
          prop == "XHC1983" or
          prop == "HanyuPinlu" then
-        xpinyin.insert(tonumber(s[1]:sub(3), 16), prop, s[3])
+        xpinyin.insert(s[1], prop, s[3])
       end
     elseif line:find("Date") then
-      xpinyin.database.date = line:match("([^#%s]+.*)")
+      xpinyin.database.date = line:match("^[#%s]*(.*)")
     elseif line:find("Unicode version:") then
-      xpinyin.database.version = line:match("([^#%s]+.*)")
+      xpinyin.database.version = line:match("^[#%s]*(.*)")
     end
   end
   f:close()
   if xpinyin.fixreadings then
     for _, s in pairs(xpinyin.fixreadings) do
-      xpinyin.insert(tonumber(s[1]:sub(3), 16), s[2], s[3])
+      xpinyin.insert(s[1], s[2], s[3])
     end
   end
 end
@@ -1336,7 +1335,8 @@ end
 %
 % 往拼音表中加入项目。
 %    \begin{macrocode}
-function xpinyin.insert (index, prop, value)
+function xpinyin.insert (unicode, prop, value)
+  local index = tonumber(unicode:sub(3), 16)
   if not xpinyin.readings[index] then
     xpinyin.readings[index] = { }
   end
@@ -1346,24 +1346,24 @@ end
 %
 % 输出需要的格式文件。
 %    \begin{macrocode}
-function xpinyin.output (cpyfile, mpyfile)
-  local cf = assert(io.open(cpyfile, "w"))
-  local mf = assert(io.open(mpyfile, "w"))
+function xpinyin.output (db)
+  local f = assert(io.open(db or xpinyin.database.dbfile, "w"))
   local preamble = xpinyin.preamble:gsub("%$(%w+)", xpinyin.database)
-  cf:write(preamble, "\n")
-  mf:write(preamble, "\n")
+  f:write(preamble, "\n")
+  local pinyin, code_point, char
+  local mt = { }
   for index, pyt in xpinyin.pairsByKeys(xpinyin.readings) do
-    local pinyin = assert(xpinyin.grep(pyt))
-    local code_point = string.format("%X", index)
-    local char = xpinyin.uchar(index)
-    cf:write("\\XPYU{", char, "}{" ,code_point, "}{", pinyin, "}\n")
+    pinyin = assert(xpinyin.grep(pyt))
+    code_point = string.format("%X", index)
+    char = xpinyin.uchar(index)
+    f:write("\\XPYU{", char, "}{", code_point, "}{", pinyin, "}\n")
     pinyin = xpinyin.multiple(pyt)
     if pinyin then
-      mf:write("\\XPYUM{", char, "}{" ,code_point, "}{", pinyin, "}\n")
+      mt[#mt + 1] = "\\XPYUM{" .. char .. "}{" .. code_point .. "}{" .. pinyin .."}"
     end
   end
-  cf:close()
-  mf:close()
+  f:write(table.concat(mt, "\n"), "\n")
+  f:close()
 end
 %    \end{macrocode}
 %
@@ -1391,9 +1391,9 @@ function xpinyin.grep (pyt)
   elseif pyt.Mandarin then
     return pyt.Mandarin:match("%S+"), "Mandarin"
   elseif pyt.XHC1983 then
-    return pyt.XHC1983:match( "[^:]+:(%S+)"), "XHC1983"
+    return pyt.XHC1983:match(":(%S+)"), "XHC1983"
   elseif pyt.HanyuPinyin then
-    return pyt.HanyuPinyin:match("[^:]+:([^,%s]+)"), "HanyuPinyin"
+    return pyt.HanyuPinyin:match(":([^,%s]+)"), "HanyuPinyin"
   end
 end
 %    \end{macrocode}
@@ -1444,11 +1444,11 @@ end
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-xpinyin.maketable(xpinyin.database.file)
+xpinyin.maketable()
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-xpinyin.output(xpinyin.cpyfile, xpinyin.mpyfile)
+xpinyin.output()
 %    \end{macrocode}
 %
 %    \begin{macrocode}
