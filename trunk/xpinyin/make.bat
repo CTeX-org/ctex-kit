@@ -30,8 +30,8 @@
   set UNPACK=%SOURCE%
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
-  set CLEAN=bib bst cls eps gz ins pdf sty txt tds.zip lua def
-  set CTANFILES=ins dtx pdf tex
+  set CLEAN=bib bst cls eps gz ins pdf sty txt tds.zip lua def tex
+  set CTANFILES=ins dtx pdf db
   set TDSFILES=%CTANFILES% sty def
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
@@ -128,7 +128,7 @@
 
   if /i "%~x1" == ".dtx" set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".ins" set TDSDIR=source\%FORMAT%\%PKGDIR%
-  if /i "%~x1" == ".tex" set TDSDIR=source\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".db"  set TDSDIR=source\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".pdf" set TDSDIR=doc\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".sty" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".def" set TDSDIR=tex\%FORMAT%\%PKGDIR%
