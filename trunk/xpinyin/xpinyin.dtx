@@ -160,7 +160,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 %</driver|package>
 %<database>\ProvidesFile{xpinyin-database.def}%
-%<database>  [2014/06/21 v1.9 xpinyin database]
+%<database>  [2014/06/24 v1.9 xpinyin database]
 %
 %<*driver>
 \documentclass[full,a4paper]{l3doc}
@@ -271,7 +271,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{684}
+% \CheckSum{692}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -635,12 +635,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_make_box:nn}
+% \begin{macro}[internal]{\@@_width:Nn}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_make_box:nn #1#2
+\cs_new_protected:Npn \@@_width:Nn #1#2
   {
-    \@@_make_pinyin_box:xnn { \@@_to_unicode:n {#1} } {#1} {#2}
-    \@@_save_CJKsymbol:n {#1}
+    \hbox_set:Nn \l_@@_tmpa_box {#2}
+    #1 = \box_wd:N \l_@@_tmpa_box
   }
 %    \end{macrocode}
 % \end{macro}
@@ -656,8 +656,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           { \@@_CJKsymbol_hook: \@@_save_CJKsymbol:n {#2} }
         \hbox_set:Nn \l_@@_tmpb_box
           {
-            \l_@@_pinyin_box_hook_tl
             \color_group_begin: \color_ensure_current:
+            \l_@@_pinyin_box_hook_tl
             \@@_select_font:
             \clist_if_exist:cTF { c_@@_multiple_ #1 _clist }
               { \l_@@_multiple_tl \l_@@_format_tl }
@@ -681,6 +681,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       }
   }
 \tl_new:N \l_@@_pinyin_box_hook_tl
+\pdftex_if_engine:T
+  {
+    \tl_put_right:Nn \l_@@_pinyin_box_hook_tl
+      { \cs_set_eq:NN \CJK@plane \tex_undefined:D }
+  }
 \cs_generate_variant:Nn \@@_make_pinyin_box:nnn { x }
 %    \end{macrocode}
 % \end{macro}
@@ -725,7 +730,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \group_begin:
         \keys_set:nn { xpinyin } {#2}
         \bool_if:NF \l_@@_enable_bool
-          { \settowidth \l_@@_CJKglue_dim { \CJKglue } }
+          { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
         \leavevmode
         \@@_single_aux:nn {#3}
       }
@@ -757,7 +762,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
             \cs_set_eq:NN \@@_save_CJKglue: \CJKglue
             \cs_set_eq:NN \CJKglue \@@_CJKglue:
           }
-        \settowidth \l_@@_CJKglue_dim { \CJKglue }
+        \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue }
         \@@_replace_CJKsymbol:
         \@@_restore_footnote:
         \bool_set_true:N \l_@@_enable_bool
@@ -824,7 +829,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   }
 \cs_new_protected_nopar:Npn \@@_single_CJKsymbol:nn #1#2
   {
-    \@@_make_pinyin_box:nnn
+    \@@_make_pinyin_box:xnn
       { \@@_to_unicode:n {#1} } {#1} { \@@_pinyin:n {#2} }
     \@@_save_CJKsymbol:n {#1}
   }
@@ -873,6 +878,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \fontsize
       { \l_@@_ratio_tl \etex_dimexpr:D \f@size pt \scan_stop: }
       { \f@baselineskip }
+    \normalfont
     \l_@@_font_tl
     \selectfont
   }
