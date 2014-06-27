@@ -562,7 +562,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4167}
+% \CheckSum{4176}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3583,6 +3583,32 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% 在抄录环境中禁用 \opt{autospacing} 和 \opt{autoxspacing}。然而，\pkg{luatexja}
+% 还是会使 JAchar 自动折行。没有看到有简单的禁用折行的办法，可能需要设置所有的
+% JAchar 的 \opt{prebreakpenalty} 或 \opt{postbreakpenalty} 为 \texttt{10000}：
+% \begin{verbatim}
+%   \directlua
+%     {
+%       luatexja.isglobal = tex.globaldefs > 0 and "global" or ""
+%       for i = 0x80, 0x10FFFF do
+%         if luatexja.charrange.jcr_table_main[i] > 0 and
+%            luatexja.charrange.jcr_table_main[i] < 218 and
+%            luatexja.charrange.is_japanese_char_curlist(i) then
+%           luatexja.stack.set_stack_table(luatexja.stack_table_index.PRE + i, 10000)
+%         end
+%       end
+%     }
+% \end{verbatim}
+%    \begin{macrocode}
+\AtBeginDocument
+  {
+    \ctex_appto_cmd:NnTF \verbatim@font { \CTEX@verbatim@font@hook }
+      { } { \ctex_patch_failure:N \verbatim@font }
+  }
+\cs_new_protected_nopar:Npn \CTEX@verbatim@font@hook
+  { \ltjsetparameter { autospacing = false , autoxspacing = false } }
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 %<@@=ctex>
 %    \end{macrocode}
@@ -3771,7 +3797,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \opt{unicode}，可以避免随后再将书签从 \texttt{UTF-16BE} 字节流转化回正常
 % 字符（其中使用的 \cs{HyPsd@ToBigChars} 没有考虑书签中含有 |\%| 的情况）。
 % Heiko Oberdiek 在 \file{README} 中说明了将书签转化回正常字符的意图：避免
-% XDVIPDFMX 的警告：
+% XDVIPDFMX 的警告^^A
+% \footnote{\url{http://project.ktug.org/dvipdfmx/mailman/dvipdfmx/2009-December/000153.html}}：
 % \begin{verbatim}
 %   ** WARNING ** Failed to convert input string to UTF16...
 % \end{verbatim}
@@ -5963,7 +5990,8 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{\pkg{ctex-fontset-mac.def}}
 %
-% OS X Mavericks (10.9) 预装的主要简体中文字体如下：
+% OS X Mavericks (10.9) 预装的主要简体中文字体如下^^A
+% \footnote{\url{http://support.apple.com/kb/HT5944}}：
 % \begin{verbatim}
 %   /Library/Fonts/Baoli.ttc: 报隶-简,Baoli SC:style=Regular
 %   /Library/Fonts/Hannotate.ttc: 手札体-简,Hannotate SC:style=Bold
