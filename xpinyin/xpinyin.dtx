@@ -51,7 +51,7 @@ The package is supplied in dtx format and as a pre-extracted zip file,
 xpinyin.tds.zip. The later is most convenient for most users: simply
 unzip this in your local texmf directory and run texhash to update the
 database of file locations. If you want to unpack the dtx yourself,
-running "xetex xpinyin.dtx" will extract the package whereas
+running "luatex xpinyin.dtx" will extract the package whereas
 "xelatex xpinyin.dtx" will typeset the documentation.
 
 The package requires LaTeX3 support as provided in the l3kernel and l3packages
@@ -70,6 +70,21 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \csname fi\endcsname
 %</internal>
 %<*install>
+
+\input ifluatex.sty %
+
+\expandafter\let\expandafter\FI\csname fi\endcsname
+\csname ifluatex\expandafter\endcsname\csname else\endcsname
+  \begingroup
+  \newlinechar=10 %
+  \errmessage{^^J
+    ********************************************^^J
+    * LuaTeX is required to unpack this package.^^J
+    ********************************************^^J
+  }
+  \endgroup
+  \expandafter\end
+\FI
 
 \input l3docstrip.tex
 \keepsilent
@@ -118,6 +133,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \file{xpinyin.lua} {\from{\jobname.dtx}{lua}}
   }
 
+\directlua{dofile("xpinyin.lua")}
+
 \let\MetaPrefix\DoubleperCent
 
 \generate
@@ -152,13 +169,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
 %<package>\ProvidesExplPackage{\ExplFileName}
-  {\ExplFileDate}{1.9}{\ExplFileDescription}
+  {\ExplFileDate}{1.9a}{\ExplFileDescription}
 %<*driver>
 \ExplSyntaxOff
 %</driver>
 %</driver|package>
 %<database>\ProvidesFile{xpinyin-database.def}%
-%<database>  [2014/06/24 v1.9 xpinyin database]
+%<database>  [2014/06/24 v1.9a xpinyin database]
 %
 %<*driver>
 \documentclass[full,a4paper]{l3doc}
@@ -269,7 +286,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{692}
+% \CheckSum{694}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -1282,6 +1299,7 @@ xpinyin = {
     {"U+5973", "HanyuPinlu", "nǚ(1129) rǔ(37)"}
   },
   database = {
+    source  = "http://www.unicode.org/Public/UNIDATA/Unihan.zip",
     file    = "Unihan_Readings.txt",
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
     version = "Unicode version: 7.0.0",
@@ -1300,7 +1318,7 @@ xpinyin = {
     %%    $date
     %%    $version
     %%
-    %%  by "]] .. arg[-1] .. " " .. arg[0] .. [[" on ]]
+    %%  by texlua xpinyin.lua on ]]
                .. os.date("%Y-%m-%d %X ") .. xpinyin.tzoffset
                .. "\n%%", "[ ]+(%%%%)", "%1")
 }
@@ -1310,7 +1328,18 @@ xpinyin = {
 % \footnote{\url{http://http://www.unicode.org/reports/tr38/}。} 保存到一张表里面。
 %    \begin{macrocode}
 function xpinyin.maketable (txt)
-  local f = assert(io.open(txt or xpinyin.database.file, "r"))
+  local f = io.open(txt or xpinyin.database.file, "r")
+  if not f then
+    local source = xpinyin.database.source
+    local zfilename = source:match("[^/]+$")
+    local zfile = zip.open(zfilename)
+    if not zfile then
+      xpinyin.download(source, zfilename)
+      zfile = assert(zip.open(zfilename))
+    end
+    f = assert(zfile:open(xpinyin.database.file))
+    zfile:close()
+  end
   local s, prop
   for line in f:lines() do
     s = line:explode("\t")
@@ -1334,6 +1363,17 @@ function xpinyin.maketable (txt)
       xpinyin.insert(s[1], s[2], s[3])
     end
   end
+end
+%    \end{macrocode}
+%
+% 下载 \file{Unihan.zip}。
+%    \begin{macrocode}
+function xpinyin.download (source, zip)
+  print("\nRetrieving Unihan Database from\n", source)
+  local unihan_data = assert(socket.http.request(source), "download failed")
+  local f = assert(io.open(zip, "wb"), "Unihan file (" .. zip .. ") not writable")
+  f:write(unihan_data)
+  f:close()
 end
 %    \end{macrocode}
 %
