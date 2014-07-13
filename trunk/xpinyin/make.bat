@@ -12,7 +12,6 @@
   echo  make tds          - create a TDS-ready archive
   echo  make unpack       - extract packages
   echo  make checksum     - correction of "\CheckSum{...}" entry in .dtx
-  echo  make database     - update pinyin database
 
   goto :EOF
 
@@ -24,7 +23,7 @@
   set FORMAT=latex
   set DTXTEX=xelatex
   set DTXTEXFLAG=
-  set INSTEX=xetex
+  set INSTEX=luatex
   set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
@@ -50,7 +49,6 @@
   if /i "%1" == "tds"          goto :tds
   if /i "%1" == "unpack"       goto :unpack
   if /i "%1" == "checksum"     goto :checksum
-  if /i "%1" == "database"     goto :database
 
   goto :help
 
@@ -219,32 +217,6 @@
 
   goto :end
 
-:database
-
-  call :unpack
-
-  call :download
-  
-  echo Updating database
-
-  texlua %DBSCRIPT%
-  
-  goto :end
-
-:download
-
-  call :wget
-  
-  echo.
-  echo Downloading Unihan.zip ...
-  %WGETEXE% -O Unihan.zip http://www.unicode.org/Public/UNIDATA/Unihan.zip
-
-  call :unzip
-  
-  %UNZIPEXE% %UNZIPFLAG% Unihan.zip Unihan_Readings.txt
-
-  goto :EOF
-
 :checksum
 
   call :perl
@@ -284,38 +256,6 @@
   echo This procedure requires a perl program,
   echo but one could not be found.
   echo.
- 
-:wget
-
-  if defined WGETEXE (
-    goto :EOF
-  ) else (
-    set WGETEXE =""
-  )
-  
-  for %%I in (wget.exe) do (
-    if exist %%I (
-      set WGETEXE="%~dp0%%I"
-    ) else (
-      set WGETEXE="%%~$PATH:I"
-    )
-  )
-  
-  if not [%WGETEXE%] == [""] goto :EOF
-  
-  for /f "delims=" %%I in ('kpsewhich --var-value=TEXMFROOT') do @set TEXMFROOT=%%I
-
-  if exist "%TEXMFROOT%\tlpkg\installer\wget\wget.exe" (
-    set WGETEXE="%TEXMFROOT%\tlpkg\installer\wget\wget.exe"
-    goto :EOF
-  )
-
-  echo.
-  echo This procedure requires a wget program,
-  echo but one could not be found.
-  echo.
-
-  exit /b 1
 
 :zip
 
@@ -336,33 +276,6 @@
   )
 
   if not [%ZIPEXE%] == [""] goto :EOF
-
-  echo.
-  echo This procedure requires a zip program,
-  echo but one could not be found.
-  echo.
-
-  exit /b 1
-
-:unzip
-
-  if not defined UNZIPFLAG set UNZIPFLAG=-oqj
-
-  if defined UNZIPEXE (
-    goto :EOF
-  ) else (
-    set UNZIPEXE =""
-  )
-
-  for %%I in (unzip.exe) do (
-    if exist %%I (
-      set UNZIPEXE="%~dp0%%I"
-    ) else (
-      set UNZIPEXE="%%~$PATH:I"
-    )
-  )
-
-  if not [%UNZIPEXE%] == [""] goto :EOF
 
   echo.
   echo This procedure requires a zip program,
