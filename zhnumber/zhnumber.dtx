@@ -88,7 +88,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</internal>
 %<*install>
 
-\input docstrip.tex
+\input l3docstrip.tex
 \keepsilent
 \askforoverwritefalse
 \preamble
@@ -184,15 +184,16 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \setlist{nosep}
 \linespread{1.1}
 \setmainfont{TeX Gyre Pagella}
-\setmonofont{Inconsolata}
+\setsansfont{CMU Sans Serif}
+\setmonofont[
+  UprightFont=* Light, BoldFont=* Bold,
+  SlantedFont=* Light Oblique]{CMU Typewriter Text}
 \xeCJKDeclareCharClass{CJK}{ "25CB }
 \setCJKmainfont[BoldFont=Adobe Heiti Std,ItalicFont=Adobe Kaiti Std]{Adobe Song Std}
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKsetup{PunctStyle=kaiming}
 \def\MacroFont{\small\normalfont\ttfamily}
 \makeatletter
-\let\orig@meta\meta
-\def\meta#1{\orig@meta{\normalfont\itshape#1}}
 \def\TF{true\orvar{}false}
 \def\TTF{\defaultvar{true}\orvar{}false}
 \def\TFF{true\orvar\defaultvar{false}}
@@ -215,7 +216,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{844}
+% \CheckSum{897}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -439,6 +440,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+%<@@=zhnum>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \msg_new:nnn { zhnumber } { l3-too-old }
   {
     Support~package~'expl3'~too~old. \\\\
@@ -544,48 +549,97 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \DeclareExpandableDocumentCommand \zhnum { o m }
   { \zhnum_number_aux:nNn {#1} \zhnum_counter:n {#2} }
-\cs_new_nopar:Nn \zhnum_counter:n
+\cs_new_nopar:Npn \zhnum_counter:n #1
+  { \exp_args:Nc \zhnum_counter:Nn  { c@#1 } {#1} }
+\cs_new_nopar:Npn \zhnum_counter:Nn #1#2
   {
-    \exp_args:Nc \token_if_int_register:NTF { c@#1 }
-      { \zhnum_integer:v { c@#1 } }
-      { \@nocounterr {#1} }
+    \token_if_int_register:NTF #1
+      {
+        \int_compare:nNnTF {#1} > \c_zero
+          { \zhnum_parse_number:o { \int_use:N #1 } }
+          {
+            \int_compare:nNnTF {#1} < \c_zero
+              {
+                \c_zhnum_minus_tl
+                \zhnum_parse_number:o { \int_eval:n { - #1 } }
+              }
+              { \c_zhnum_zero_tl }
+          }
+      }
+      { \__msg_expandable_error:n { '#1' is not a LaTeX counter. } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\zhnum_integer:n}
-% 对整数的处理。
+% 对整数的处理。这个函数抄录自 \pkg{l3bigint} 的 \cs{__bingint_read_do:nn}。它可以
+% 正确取得符号，去掉多余的零，还可以循环展开数字。但它在遇到非数字的时候就停止了
+% 循环，我们可能需要非数字（例如逗号）来作为分隔符号。因此对它略作修改，跳过非数字。
 %    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_integer:n
+\cs_new:Npn \zhnum_integer:n #1
   {
-    \int_compare:nNnT { \__int_get_sign:n {#1} \c_one } < \c_zero { \c_zhnum_minus_tl }
-    \zhnum_parse_number:f { \zhnum_trim_zeros:f { \zhnum_erase_separator:n {#1} } }
+    \exp_after:wN \@@_read_integer:ww
+    \tex_number:D
+      \exp_after:wN \@@_read_sign_loop:N
+      \tex_romannumeral:D -`0 \use:n
+      #1 \s__stop ;
+  }
+\cs_new:Npn \@@_read_sign_loop:N #1
+  {
+    \if:w + \if:w - \exp_not:N #1 + \fi: \exp_not:N #1
+      \exp_after:wN \@@_read_sign_loop:N
+      \tex_romannumeral:D -`0 \exp_after:wN \use:n
+    \else:
+        1 \exp_after:wN ;
+      \tex_romannumeral:D -`0
+        \exp_after:wN \@@_read_zeros_loop:N
+        \exp_after:wN #1
+    \fi:
+  }
+\cs_new:Npn \@@_read_zeros_loop:N #1
+  {
+    \if:w 0 \exp_not:N #1
+      \exp_after:wN \@@_read_zeros_loop:N
+      \tex_romannumeral:D -`0 \exp_after:wN \use:n
+    \else:
+      \exp_after:wN \@@_read_abs_loop:N
+      \exp_after:wN #1
+    \fi:
+  }
+\cs_new:Npn \@@_read_abs_loop:N #1
+  {
+    \if_int_compare:w \c_nine < 1 \exp_not:N #1 \exp_stop_f:
+      \exp_after:wN #1 \tex_romannumeral:D -`0
+        \exp_after:wN \@@_read_abs_loop:N
+        \tex_romannumeral:D -`0 \exp_after:wN \use:n
+    \else:
+      \str_if_eq:nnTF {#1} { \s__stop }
+        { \exp_after:wN \exp_stop_f: }
+        { \exp_after:wN \@@_read_abs_loop:N }
+    \fi:
+  }
+\cs_new:Npn \@@_read_integer:ww #1 ; #2 ;
+  {
+    \tl_if_empty:nTF {#2}
+      { \c_zhnum_zero_tl }
+      {
+        \int_compare:nNnF {#1} = \c_one
+          { \c_zhnum_minus_tl }
+        \zhnum_parse_number:n {#2}
+      }
   }
 \cs_generate_variant:Nn \zhnum_integer:n { f , v , V }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_erase_separator:n,\zhnum_trim_zeros:n}
-% 去掉分隔符和多余的 $0$。
+% \begin{macro}[internal]{\zhnum_if_number:N}
+% 判断参数是否是一个数字。
 %    \begin{macrocode}
-\cs_new_nopar:Nn \zhnum_erase_separator:n
-  { \cs_to_str:c { \tl_map_function:nN {#1} \zhnum_erase_separator_aux:N } }
-\cs_new_nopar:Nn \zhnum_erase_separator_aux:N { \zhnum_if_number:NT {#1} {#1} }
-\cs_new_nopar:Nn \zhnum_trim_zeros:n
-  {
-    \tl_if_empty:nTF {#1} \c_zero
-      {
-        \int_compare:nNnTF { \tl_head:n {#1} } = \c_zero
-          { \zhnum_trim_zeros:o { \use_none:n #1 } } {#1}
-      }
-  }
 \prg_new_conditional:Nnn \zhnum_if_number:N { p , T , F , TF }
   {
     \if_int_compare:w \c_one < 1 #1 \exp_stop_f:
       \prg_return_true: \else: \prg_return_false: \fi:
   }
-\cs_generate_variant:Nn \zhnum_trim_zeros:n { f , o }
-\cs_generate_variant:Nn \cs_to_str:N        { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -612,7 +666,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           { \c_zero }
       }
   }
-\cs_generate_variant:Nn \zhnum_parse_number:n   {   f }
+\cs_generate_variant:Nn \zhnum_parse_number:n   { o , f }
 \cs_generate_variant:Nn \zhnum_parse_number:nnn { nff }
 %    \end{macrocode}
 % \end{macro}
