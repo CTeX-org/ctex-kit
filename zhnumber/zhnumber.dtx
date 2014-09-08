@@ -255,7 +255,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1057}
+% \CheckSum{1036}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -654,17 +654,17 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \end{macro}
 %
 % \begin{macro}[internal]{\zhnum_integer:n}
-% 对整数的处理。这个函数抄录自 \pkg{l3bigint} 的 \cs{__bingint_read_do:nn}。它可以
+% 对整数的处理。这个函数基本抄录自 \pkg{l3bigint} 的 \cs{__bingint_read_do:nn}。它可以
 % 正确取得符号，去掉多余的零，还可以循环展开数字。但它在遇到非数字的时候就停止了
 % 循环，我们可能需要非数字（例如逗号）来作为分隔符号。因此对它略作修改，跳过非数字。
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_integer:n #1
   {
-    \exp_after:wN \@@_read_integer:ww
+    \exp_after:wN \@@_read_integer:www
     \tex_number:D
       \exp_after:wN \@@_read_sign_loop:N
       \tex_romannumeral:D -`0 \use:n
-      #1 \s__stop ;
+      #1 \s__stop \q_stop \@@_result:nn { \c_zero } { } ;
   }
 \cs_new:Npn \@@_read_sign_loop:N #1
   {
@@ -684,44 +684,83 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       \exp_after:wN \@@_read_zeros_loop:N
       \tex_romannumeral:D -`0 \exp_after:wN \use:n
     \else:
-      \exp_after:wN \@@_read_abs_loop:N
+      \exp_after:wN \@@_read_abs_loop:Nw
       \exp_after:wN #1
     \fi:
   }
-\cs_new:Npn \@@_read_abs_loop:N #1
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_read_abs_loop:Nw}
+% 当数字很大时，\pkg{l3bigint} 的实现会造成 \TeX{} 内存溢出：
+% \begin{verbatim}
+%   ! TeX capacity exceeded, sorry [expansion depth=10000].
+% \end{verbatim}
+% 我们在这里参考 \cs{__tl_act:NNNnn} 的实现对它进行了改进。
+%    \begin{macrocode}
+\cs_new:Npn \@@_read_abs_loop:Nw #1#2 \q_stop
   {
-    \if_int_compare:w \c_nine < 1 \exp_not:N #1 \exp_stop_f:
-      \exp_after:wN #1
-      \tex_romannumeral:D -`0
-        \exp_after:wN \@@_read_abs_loop:N
-        \tex_romannumeral:D -`0 \exp_after:wN \use:n
-    \else:
-      \str_if_eq:nnTF {#1} { \s__stop }
-        { \exp_after:wN \exp_stop_f: }
-        {
-          \exp_after:wN \@@_read_abs_loop:N
-          \tex_romannumeral:D -`0 \exp_after:wN \use:n
-        }
-    \fi:
+    \zhnum_if_digit:NTF #1
+      {
+        \@@_output:nnwnn { + \c_one } #1
+          \exp_after:wN \@@_read_abs_loop:Nw
+          \tex_romannumeral:D -`0 \use:n #2 \q_stop
+      }
+      {
+        \str_if_eq:nnTF {#1} { \s__stop }
+          { \@@_loop_end:wnn }
+          {
+            \exp_after:wN \@@_read_abs_loop:Nw
+            \tex_romannumeral:D -`0 \use:n #2 \q_stop
+          }
+      }
   }
-\cs_new:Npn \@@_read_integer:ww #1 ; #2 ;
+\cs_new:Npn \@@_output:nnwnn #1#2#3 \@@_result:nn #4#5
+  { #3 \@@_result:nn { #4#1 } { #5#2 } }
+\cs_new:Npn \@@_loop_end:wnn #1 \@@_result:nn #2#3
+  { \int_eval:n {#2} ; #3 }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_read_integer:www}
+% |#1| 符号，|#3| 是绝对值，|#2| 是绝对值的长度。
+%    \begin{macrocode}
+\cs_new:Npn \@@_read_integer:www #1 ; #2 ; #3 ;
   {
-    \tl_if_empty:nTF {#2}
+    \int_compare:nNnTF {#2} = \c_zero
       { \c_@@_zero_tl }
       {
         \int_compare:nNnF {#1} = \c_one
           { \c_@@_minus_tl }
-        \zhnum_parse_number:n {#2}
+        \zhnum_parse_number:nn {#2} {#3}
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_parse_number:n}
+% \begin{macro}[internal]{\zhnum_if_digit:NTF}
+% 判断 |#1| 是否为数字位。
+%    \begin{macrocode}
+\cs_new:Npn \zhnum_if_digit:NTF #1
+  {
+    \if_int_compare:w \c_nine < 1 \exp_not:N #1 \exp_stop_f:
+      \exp_after:wN \use_i:nn
+    \else:
+      \exp_after:wN \use_ii:nn
+    \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]
+%   {
+%     \zhnum_parse_number:n,
+%     \zhnum_parse_number:nn
+%   }
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhnum_parse_number:n #1
-  { \exp_args:Nf \@@_parse_number:nn { \tl_count:n {#1} } {#1} }
-\cs_new_nopar:Npn \@@_parse_number:nn #1#2
+  { \exp_args:Nf \zhnum_parse_number:nn { \tl_count:n {#1} } {#1} }
+\cs_new_nopar:Npn \zhnum_parse_number:nn #1#2
   { \exp_args:Nf \@@_parse_number:nnn { \int_mod:nn {#1} \c_four } {#1} {#2} }
 \cs_new_nopar:Npn \@@_parse_number:nnn #1#2#3
   {
@@ -772,7 +811,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \bool_if:NF #3 { \c_@@_zero_tl }
         \zhnum_process_number:NNn #3#4 {#1}
-        \zhnum_scale_map:n { #5 - #6 }
+        \exp_args:Nf \zhnum_scale_map:n { \int_eval:n { #5 - #6 } }
         \int_compare:nNnTF { \int_mod:nn {#1} \c_ten } = \c_zero
           { \@@_split_number_aux:NNfnnn \c_false_bool \c_true_bool }
           { \@@_split_number_aux:NNfnnn \c_true_bool \c_false_bool }
@@ -891,11 +930,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_digits:Nn #1#2
   {
-    \exp_after:wN \@@_read_digits:Nww \exp_after:wN #1
+    \exp_after:wN \@@_read_digits:w
     \tex_number:D
       \exp_after:wN \@@_read_sign_loop:NN \exp_after:wN #1
       \tex_romannumeral:D -`0 \use:n
-      #2 \s__stop ;
+      #2 \s__stop
   }
 \cs_new:Npn \@@_read_sign_loop:NN #1#2
   {
@@ -904,7 +943,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       \tex_romannumeral:D -`0 \exp_after:wN \use:n
     \else:
       1 \exp_after:wN ;
-      \tex_romannumeral:D -`0
         \exp_after:wN \@@_read_digits_loop:NN
         \exp_after:wN #1
         \exp_after:wN #2
@@ -912,52 +950,45 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   }
 \cs_new:Npn \@@_read_digits_loop:NN #1#2
   {
-    \if_int_compare:w \c_nine < 1 \exp_not:N #2 \exp_stop_f:
-      \exp_after:wN \@@_output_digits:NN \exp_after:wN #1 \exp_after:wN #2
-      \tex_romannumeral:D -`0
-        \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
-        \tex_romannumeral:D -`0 \exp_after:wN \use:n
-    \else:
-      \str_case:nnF {#2}
-        {
-          { \s__stop }
-            { \exp_after:wN \exp_stop_f: }
-          { . }
-            {
-              \exp_after:wN \exp_stop_f: \exp_after:wN \c_@@_dot_tl
-              \tex_romannumeral:D -`0
-                \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
-                \tex_romannumeral:D -`0 \exp_after:wN \use:n
-            }
-        }
-        {
-          \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
-          \tex_romannumeral:D -`0 \exp_after:wN \use:n
-        }
-    \fi:
-  }
-\cs_new:Npn \@@_read_digits:Nww #1 #2 ; #3 ;
-  {
-    \tl_if_empty:nTF {#3}
-      { \IfBooleanTF #1 { \c_@@_zero_tl } { \c_@@_null_tl } }
+    \zhnum_if_digit:NTF #2
       {
-        \int_compare:nNnF {#2} = \c_one
-          { \c_@@_minus_tl }
-        #3
+        \@@_output_digits:NN #1#2
+        \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
+        \tex_romannumeral:D -`0 \use:n
       }
+      {
+        \str_case:nnF {#2}
+          {
+            { \s__stop } { }
+            { . }
+              {
+                \c_@@_dot_tl
+                \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
+                \tex_romannumeral:D -`0 \use:n
+              }
+          }
+          {
+            \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
+            \tex_romannumeral:D -`0 \use:n
+          }
+      }
+  }
+\cs_new:Npn \@@_read_digits:w #1 ;
+  {
+    \int_compare:nNnF {#1} = \c_one
+      { \c_@@_minus_tl }
   }
 \cs_new:Npn \@@_output_digits:NN #1#2
   {
-    \exp_after:wN \exp_stop_f:
-      \cs:w
-        c_@@_
-          \if_int_compare:w #2 = \c_zero
-            \IfBooleanTF #1 { zero } { null }
-          \else:
-            \zhnum_int_to_word:n {#2}
-          \fi:
-        _tl
-      \cs_end:
+    \cs:w
+      c_@@_
+        \if_int_compare:w #2 = \c_zero
+          \IfBooleanTF #1 { zero } { null }
+        \else:
+          #2
+        \fi:
+      _tl
+    \cs_end:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -985,7 +1016,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhtoday
   {
-    \zhnum_check_time:Nn \zhnum_digits_null:n \tex_year:D \c_@@_year_tl
+    \zhnum_check_time:Nn \zhnum_digits_null:V \tex_year:D \c_@@_year_tl
     \zhnum_check_time:Nn \zhnum_int:n \tex_month:D \c_@@_month_tl
     \zhnum_check_time:Nn \zhnum_int:n \tex_day:D   \c_@@_day_tl
   }
@@ -1135,7 +1166,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % 阿拉伯数字与中文数字的映射。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhnum_digit_map:n #1
-  { \tl_use:c { c_@@_ \zhnum_int_to_word:n {#1} _tl } }
+  { \use:c { c_@@_ #1 _tl } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1144,7 +1175,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhnum_scale_map:n #1
   {
-    \cs_if_exist_use:cF { c_@@_scale_ \zhnum_int_to_word:n {#1} _tl }
+    \cs_if_exist_use:cF { c_@@_s #1 _tl }
       { \zhnum_scale_map_hook:n {#1} }
   }
 \cs_new_nopar:Npn \zhnum_scale_map_loop:n #1
@@ -1164,43 +1195,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \int_incr:N \l_tmpa_int
         \tl_set:Nx \l_tmpa_tl
-          { c_@@_scale_ \zhnum_int_to_word:n { \l_tmpa_int + \c_eleven } _tl }
+          { c_@@_s \int_eval:n { \l_tmpa_int + \c_eleven } _tl }
         \tl_if_exist:cF { \l_tmpa_tl }
           { \int_incr:N \g_@@_scale_int }
         \tl_set:cn { \l_tmpa_tl } {##1}
       }
     \IfNoValueF {#1}
       { \cs_set:Npn \zhnum_scale_map_hook:n ##1 {#1} }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\zhnum_int_to_word:n}
-% 将整数转换成英文单词。
-%    \begin{macrocode}
-\cs_new_nopar:Npn \zhnum_int_to_word:n #1
-  {
-    \if_case:w \etex_numexpr:D #1 \scan_stop:
-           zero
-      \or: one
-      \or: two
-      \or: three
-      \or: four
-      \or: five
-      \or: six
-      \or: seven
-      \or: eight
-      \or: nine
-      \or: ten
-      \or: eleven
-    \else:
-      \int_case:nnn {#1}
-        {
-          { 20 } { twenty }  { 30  } { thirty }
-          { 40 } { forty }   { 200 } { two_hundred }
-        }
-        { \int_to_roman:n {#1} }
-    \fi:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1220,18 +1221,18 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   { 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 20 , 30 , 40 , 200 }
   {
     \keys_define:nn { zhnum / options }
-      { #1 .tl_set:c = { l_@@_ \zhnum_int_to_word:n {#1} _tl } }
+      { #1 .tl_set:c = { l_@@_ #1 _tl } }
     \int_compare:nNnF {#1} > \c_ten
       {
         \keys_define:nn { zhnum / options }
-          { F#1 .tl_set:c = { l_@@_financial_ \zhnum_int_to_word:n {#1} _tl } }
+          { F#1 .tl_set:c = { l_@@_financial_ #1 _tl } }
       }
   }
 \clist_map_inline:nn
   { 4 , 8 , 12 , 16 , 20 , 24 , 28 , 32 , 36 , 40 , 44 }
   {
     \keys_define:nn { zhnum / options }
-      { E#1 .tl_set:c = { l_@@_scale_ \zhnum_int_to_word:n { #1 / 4 } _tl } }
+      { E#1 .tl_set:c = { l_@@_ s \int_eval:n { #1 / 4 } _tl } }
   }
 \clist_map_inline:nn
   {
@@ -1323,7 +1324,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \prop_get:NnNTF \l_@@_cfg_map_finan_prop {#1} \l_tmpa_tl
       {
-        \zhnum_assgin_const_tl:nn { c_@@_ #1 _tl }
+        \zhnum_assgin_const_tl:cx { c_@@_ #1 _tl }
           {
             \exp_not:n { \bool_if:NTF \l_@@_normal_bool }
               { \exp_not:c { l_@@_ #1 _tl } }
@@ -1331,47 +1332,61 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           }
       }
       {
-        \zhnum_assgin_const_tl:nn
+        \zhnum_assgin_const_tl:cx
           { c_@@_ #1 _tl } { \exp_not:c { l_@@_ #1 _tl } }
       }
   }
 \cs_new_protected_nopar:Npn \zhnum_set_zero:
   {
-    \tl_set:Nx \l_@@_zero_tl
+    \tl_set:cx { l_@@_0_tl }
       {
         \exp_not:n { \bool_if:nTF \l_@@_null_bool }
-          { \exp_not:o \l_@@_null_tl } { \exp_not:o \l_@@_zero_tl }
+          { \exp_not:o \l_@@_null_tl } { \exp_not:v { l_@@_0_tl } }
       }
   }
 \cs_new_protected_nopar:Npn \zhnum_set_week_day:
   {
     \tl_set:Nx \l_@@_mon_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_one_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_1_tl } }
     \tl_set:Nx \l_@@_tue_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_two_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_2_tl } }
     \tl_set:Nx \l_@@_wed_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_three_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_3_tl } }
     \tl_set:Nx \l_@@_thu_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_four_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_4_tl } }
     \tl_set:Nx \l_@@_fri_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_five_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_5_tl } }
     \tl_set:Nx \l_@@_sat_tl
-      { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_six_tl }
+      { \exp_not:N \c_@@_weekday_tl \exp_not:v { l_@@_6_tl } }
     \tl_set:Nx \l_@@_sun_tl
       { \exp_not:N \c_@@_weekday_tl \exp_not:o \l_@@_day_tl }
     \bool_if:NF \l_@@_reset_bool
       {
         \clist_map_inline:nn { mon , tue , wed , thu , fri , sat , sun }
           {
-            \zhnum_assgin_const_tl:nn
+            \zhnum_assgin_const_tl:cx
               { c_@@_ ##1 _tl } { \exp_not:c { l_@@_ ##1 _tl } }
           }
         \bool_set_true:N \l_@@_reset_bool
       }
   }
-\cs_new_eq:NN \zhnum_assgin_const_tl:nn \tl_const:cx
+\cs_new_eq:NN \zhnum_assgin_const_tl:cx \tl_const:cx
 \AtEndOfPackage
-  { \cs_set_eq:NN \zhnum_assgin_const_tl:nn \tl_set:cx }
+  { \cs_set_eq:NN \zhnum_assgin_const_tl:cx \tl_set:cx }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_set_alias:}
+% 一些易于使用的别名。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \zhnum_set_alias:
+  {
+    \tl_const:Nx \c_@@_zero_tl     { \exp_not:c { c_@@_ 0 _tl } }
+    \tl_const:Nx \c_@@_ten_tl      { \exp_not:c { c_@@_ 10 _tl } }
+    \tl_const:Nx \c_@@_hundred_tl  { \exp_not:c { c_@@_ 100 _tl } }
+    \tl_const:Nx \c_@@_thousand_tl { \exp_not:c { c_@@_ 1000 _tl } }
+  }
+\AtEndOfPackage { \zhnum_set_alias: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1533,9 +1548,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \tl_new:N \l_@@_encoding_tl
 \msg_new:nnnn { zhnumber } { encoding-invalid }
   { The~encoding~`#1'~is~invalid. }
-  {
-    Available~encoding~are~`UTF8',~`GBK'~and~`Big5'.
-  }
+  { Available~encoding~are~`UTF8',~`GBK'~and~`Big5'. }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1579,35 +1592,35 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 %    \begin{macrocode}
 %<*!big5>
-\zhnum_set_digits_map:nnn { minus } { simp }  { 负 }
-\zhnum_set_digits_map:nnn { minus } { trad }  { 負 }
+\zhnum_set_digits_map:nnn { minus } { simp } { 负 }
+\zhnum_set_digits_map:nnn { minus } { trad } { 負 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { minus }       { 負 }
+\zhnum_set_digits_map:nn { minus } { 負 }
 %</big5>
-\zhnum_set_digits_map:nn { zero }        { 零 }
+\zhnum_set_digits_map:nn { 0 }     { 零 }
 %<*!big5>
-\zhnum_set_digits_map:nn { null }        { 〇 }
+\zhnum_set_digits_map:nn { null }  { 〇 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { null }        { ○ }
+\zhnum_set_digits_map:nn { null }  { ○ }
 %</big5>
-\zhnum_set_digits_map:nn { one }         { 一 }
-\zhnum_set_digits_map:nn { two }         { 二 }
-\zhnum_set_digits_map:nn { three }       { 三 }
-\zhnum_set_digits_map:nn { four }        { 四 }
-\zhnum_set_digits_map:nn { five }        { 五 }
-\zhnum_set_digits_map:nn { six }         { 六 }
-\zhnum_set_digits_map:nn { seven }       { 七 }
-\zhnum_set_digits_map:nn { eight }       { 八 }
-\zhnum_set_digits_map:nn { nine }        { 九 }
-\zhnum_set_digits_map:nn { ten }         { 十 }
-\zhnum_set_digits_map:nn { hundred }     { 百 }
-\zhnum_set_digits_map:nn { thousand }    { 千 }
-\zhnum_set_digits_map:nn { twenty }      { 廿 }
-\zhnum_set_digits_map:nn { thirty }      { 卅 }
-\zhnum_set_digits_map:nn { forty }       { 卌 }
-\zhnum_set_digits_map:nn { two_hundred } { 皕 }
+\zhnum_set_digits_map:nn { 1 }     { 一 }
+\zhnum_set_digits_map:nn { 2 }     { 二 }
+\zhnum_set_digits_map:nn { 3 }     { 三 }
+\zhnum_set_digits_map:nn { 4 }     { 四 }
+\zhnum_set_digits_map:nn { 5 }     { 五 }
+\zhnum_set_digits_map:nn { 6 }     { 六 }
+\zhnum_set_digits_map:nn { 7 }     { 七 }
+\zhnum_set_digits_map:nn { 8 }     { 八 }
+\zhnum_set_digits_map:nn { 9 }     { 九 }
+\zhnum_set_digits_map:nn { 10 }    { 十 }
+\zhnum_set_digits_map:nn { 100 }   { 百 }
+\zhnum_set_digits_map:nn { 1000 }  { 千 }
+\zhnum_set_digits_map:nn { 20 }    { 廿 }
+\zhnum_set_digits_map:nn { 30 }    { 卅 }
+\zhnum_set_digits_map:nn { 40 }    { 卌 }
+\zhnum_set_digits_map:nn { 200 }   { 皕 }
 %<*!big5>
 \zhnum_set_digits_map:nnn { dot } { simp } { 点 }
 \zhnum_set_digits_map:nnn { dot } { trad } { 點 }
@@ -1617,77 +1630,78 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</big5>
 \zhnum_set_digits_map:nn { and }   { 又 }
 \zhnum_set_digits_map:nn { parts } { 分之 }
-\zhnum_set_digits_map:nn { scale_zero }   { }
+\zhnum_set_digits_map:nn { s0 }    { }
 %<*!big5>
-\zhnum_set_digits_map:nnn { scale_one } { simp } { 万 }
-\zhnum_set_digits_map:nnn { scale_one } { trad } { 萬 }
-\zhnum_set_digits_map:nnn { scale_two } { simp } { 亿 }
-\zhnum_set_digits_map:nnn { scale_two } { trad } { 億 }
+\zhnum_set_digits_map:nnn { s1 }    { simp } { 万 }
+\zhnum_set_digits_map:nnn { s1 }    { trad } { 萬 }
+\zhnum_set_digits_map:nnn { s2 }    { simp } { 亿 }
+\zhnum_set_digits_map:nnn { s2 }    { trad } { 億 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { scale_one }    { 萬 }
-\zhnum_set_digits_map:nn { scale_two }    { 億 }
+\zhnum_set_digits_map:nn { s1 }    { 萬 }
+\zhnum_set_digits_map:nn { s2 }    { 億 }
 %</big5>
-\zhnum_set_digits_map:nn { scale_three }  { 兆 }
-\zhnum_set_digits_map:nn { scale_four }   { 京 }
-\zhnum_set_digits_map:nn { scale_five }   { 垓 }
-\zhnum_set_digits_map:nn { scale_six }    { 秭 }
-\zhnum_set_digits_map:nn { scale_seven }  { 穰 }
+\zhnum_set_digits_map:nn { s3 }    { 兆 }
+\zhnum_set_digits_map:nn { s4 }    { 京 }
+\zhnum_set_digits_map:nn { s5 }    { 垓 }
+\zhnum_set_digits_map:nn { s6 }    { 秭 }
+\zhnum_set_digits_map:nn { s7 }    { 穰 }
 %<*!big5>
-\zhnum_set_digits_map:nnn { scale_eight } { simp }  { 沟 }
-\zhnum_set_digits_map:nnn { scale_eight } { trad }  { 溝 }
-\zhnum_set_digits_map:nnn { scale_nine  } { simp }  { 涧 }
-\zhnum_set_digits_map:nnn { scale_nine  } { trad }  { 澗 }
+\zhnum_set_digits_map:nnn { s8 }    { simp } { 沟 }
+\zhnum_set_digits_map:nnn { s8 }    { trad } { 溝 }
+\zhnum_set_digits_map:nnn { s9 }    { simp } { 涧 }
+\zhnum_set_digits_map:nnn { s9 }    { trad } { 澗 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { scale_eight }  { 澗 }
+\zhnum_set_digits_map:nn { s8 }    { 溝 }
+\zhnum_set_digits_map:nn { s9 }    { 澗 }
 %</big5>
-\zhnum_set_digits_map:nn { scale_ten }    { 正 }
+\zhnum_set_digits_map:nn { s10 }   { 正 }
 %<*!big5>
-\zhnum_set_digits_map:nnn { scale_eleven } { simp } { 载 }
-\zhnum_set_digits_map:nnn { scale_eleven } { trad } { 載 }
+\zhnum_set_digits_map:nnn { s11 }   { simp } { 载 }
+\zhnum_set_digits_map:nnn { s11 }   { trad } { 載 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { scale_eleven } { 載 }
+\zhnum_set_digits_map:nn { s11 }   { 載 }
 %</big5>
-\zhnum_set_digits_map:nn { year }    { 年 }
-\zhnum_set_digits_map:nn { month }   { 月 }
-\zhnum_set_digits_map:nn { day }     { 日 }
+\zhnum_set_digits_map:nn { year }  { 年 }
+\zhnum_set_digits_map:nn { month } { 月 }
+\zhnum_set_digits_map:nn { day }   { 日 }
 %<*!big5>
-\zhnum_set_digits_map:nnn { hour } { simp } { 时 }
-\zhnum_set_digits_map:nnn { hour } { trad } { 時 }
+\zhnum_set_digits_map:nnn { hour }  { simp } { 时 }
+\zhnum_set_digits_map:nnn { hour }  { trad } { 時 }
 %</!big5>
 %<*big5>
-\zhnum_set_digits_map:nn { hour }    { 時 }
+\zhnum_set_digits_map:nn { hour }  { 時 }
 %</big5>
 \zhnum_set_digits_map:nn { minute }  { 分 }
 \zhnum_set_digits_map:nn { weekday } { 星期 }
-\zhnum_set_financial_map:nn { null }     { 零 }
-\zhnum_set_financial_map:nn { zero }     { 零 }
-\zhnum_set_financial_map:nn { one }      { 壹 }
-\zhnum_set_financial_map:nn { two }      { 貳 }
+\zhnum_set_financial_map:nn { null } { 零 }
+\zhnum_set_financial_map:nn { 0 }    { 零 }
+\zhnum_set_financial_map:nn { 1 }    { 壹 }
+\zhnum_set_financial_map:nn { 2 }    { 貳 }
 %<*!big5>
-\zhnum_set_financial_map:nnn { three } { simp } { 叁 }
-\zhnum_set_financial_map:nnn { three } { trad } { 叄 }
+\zhnum_set_financial_map:nnn { 3 }  { simp } { 叁 }
+\zhnum_set_financial_map:nnn { 3 }  { trad } { 叄 }
 %</!big5>
 %<*big5>
-\zhnum_set_financial_map:nn { three }    { 參 }
+\zhnum_set_financial_map:nn { 3 }    { 參 }
 %</big5>
-\zhnum_set_financial_map:nn { four }     { 肆 }
-\zhnum_set_financial_map:nn { five }     { 伍 }
+\zhnum_set_financial_map:nn { 4 }    { 肆 }
+\zhnum_set_financial_map:nn { 5 }    { 伍 }
 %<*!big5>
-\zhnum_set_financial_map:nnn { six }   { simp } { 陆 }
-\zhnum_set_financial_map:nnn { six }   { trad } { 陸 }
+\zhnum_set_financial_map:nnn { 6 }  { simp } { 陆 }
+\zhnum_set_financial_map:nnn { 6 }  { trad } { 陸 }
 %</!big5>
 %<*big5>
-\zhnum_set_financial_map:nn { six }      { 陸 }
+\zhnum_set_financial_map:nn { 6 }    { 陸 }
 %</big5>
-\zhnum_set_financial_map:nn { seven }    { 柒 }
-\zhnum_set_financial_map:nn { eight }    { 捌 }
-\zhnum_set_financial_map:nn { nine }     { 玖 }
-\zhnum_set_financial_map:nn { ten }      { 拾 }
-\zhnum_set_financial_map:nn { hundred }  { 佰 }
-\zhnum_set_financial_map:nn { thousand } { 仟 }
+\zhnum_set_financial_map:nn { 7 }    { 柒 }
+\zhnum_set_financial_map:nn { 8 }    { 捌 }
+\zhnum_set_financial_map:nn { 9 }    { 玖 }
+\zhnum_set_financial_map:nn { 10 }   { 拾 }
+\zhnum_set_financial_map:nn { 100 }  { 佰 }
+\zhnum_set_financial_map:nn { 1000 } { 仟 }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
