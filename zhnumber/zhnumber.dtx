@@ -201,7 +201,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   \href{http://code.google.com/p/ctex-kit/source/detail?r=#1}{\texttt{ctex-kit} rev#1}}
 \makeatletter
 \def\LaTeX{\hologo{LaTeX}}
-\def\pdfTeX{\hologo{pdfTeX}}
+\def\upTeX{up\!\hologo{TeX}}
+\def\upLaTeX{up\!\hologo{LaTeX}}
 \def\pdfLaTeX{\hologo{pdfLaTeX}}
 \def\LuaLaTeX{\hologo{LuaLaTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
@@ -218,11 +219,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ExplSyntaxOn
 \cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
   {
-    \HD@target
     \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
     \str_if_eq:onTF { \@currenvir } { macrocode }
       { \codeline@wrindex }
-      { \index }
+      {
+        \HD@target
+        \index
+      }
       {
         \tl_if_empty:nF { #3 #4 }
           { #3 \actualchar #4 \levelchar }
@@ -252,7 +255,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1043}
+% \CheckSum{1057}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -276,10 +279,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \begin{syntax}
 %     encoding = \meta{GBK\orvar{}Big5\orvar{}UTF8}
 %   \end{syntax}
-%   用于指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 \tn{zhnumsetup} 在导言区内设定。
-%   对于 \XeLaTeX 和 \LuaLaTeX，不用指定编码，宏包将自动使用 |UTF8| 编码。只有 \LaTeX
-%   和 pdf\LaTeX 需要指定编码，如果没有指定，默认将使用 |GBK|，并且此时 \pkg{zhnumber}
-%   宏包应该在 \pkg{CJK} 或 \pkg{CJKutf8} 宏包之后载入。
+%   用于指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 \tn{zhnumsetup}
+%   在导言区内设定。对于 \upLaTeX、\XeLaTeX{} 和 \LuaLaTeX，不用指定编码，宏包将
+%   自动使用 |UTF8| 编码。只有 \LaTeX{} 和 \pdfLaTeX{} 需要指定编码，如果没有指定，
+%   默认将使用 |GBK|。
 % \end{function}
 %
 % \begin{function}{\zhnumber}
@@ -1383,7 +1386,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \file_if_exist_input:nTF { zhnumber - #1 .cfg }
           {
             \bool_set_false:N \l_@@_reset_bool
-            \zhnum_set_byte_range:n {#1}
             \tl_set:Nx \l_@@_last_encoding_tl {#1}
             \prop_clear:N \l_@@_cfg_map_prop
             \prop_clear:N \l_@@_cfg_map_var_prop
@@ -1409,8 +1411,31 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal,pTF]{\zhnum_if_unicode_engine:}
+% 使用 \upTeX{} 的时候，也不必将汉字的首字符设置为活动字符。判断 |^^^^0021| 是否为
+% 单个记号的办法对 \upTeX{} 不适用。因此，参考 \pkg{ifuptex} 宏包，通过 \tn{kchar}
+% 是否为 primitive 来判断。
+%    \begin{macrocode}
+\pdftex_if_engine:TF
+  {
+    \str_if_eq_x:nnTF
+      { \token_to_str:N \kchar }
+      { \token_to_meaning:N \kchar }
+  }
+  { \use_i:nn }
+  {
+    \cs_new_eq:NN \zhnum_if_unicode_engine_p: \c_true_bool
+    \cs_new_eq:NN \zhnum_if_unicode_engine:TF \use_i:nn
+  }
+  {
+    \cs_new_eq:NN \zhnum_if_unicode_engine_p: \c_false_bool
+    \cs_new_eq:NN \zhnum_if_unicode_engine:TF \use_ii:nn
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\zhnum_set_catcode:}
-% 设置与恢复配置文件前后的 catcode。\pdfTeX{} 需要将汉字的首字节设置为活动字符。
+% 设置与恢复配置文件前后的 catcode。\pdfLaTeX{} 需要将汉字的首字节设置为活动字符。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \zhnum_set_catcode:
   {
@@ -1424,10 +1449,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   }
 \cs_new_protected_nopar:Npn \zhnum_reset_catcode:
   { \ExplSyntaxOff \zhnum_reset_active: }
-\if_predicate:w \pdftex_if_engine_p:
-  \cs_new_protected_nopar:Npn \zhnum_set_byte_range:n #1
+\if_predicate:w \zhnum_if_unicode_engine_p:
+  \cs_new_protected_nopar:Npn \zhnum_set_active:
     {
-      \str_case_x:nnTF {#1}
+      \tl_clear:N \l_@@_reset_catcode_tl
+      \str_case_x:nnTF { \l_@@_last_encoding_tl }
         {
           { gbk }  { \int_set:Nn \l_@@_byte_min_int { "81 } }
           { big5 } { \int_set:Nn \l_@@_byte_min_int { "A1 } }
@@ -1437,12 +1463,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
           \int_set:Nn \l_@@_byte_min_int { "E0 }
           \int_set:Nn \l_@@_byte_max_int { "EF }
         }
-    }
-  \int_new:N \l_@@_byte_min_int
-  \int_new:N \l_@@_byte_max_int
-  \cs_new_protected_nopar:Npn \zhnum_set_active:
-    {
-      \tl_clear:N \l_@@_reset_catcode_tl
       \int_step_function:nnnN
         { \l_@@_byte_min_int } { \c_one }
         { \l_@@_byte_max_int } \@@_set_active:n
@@ -1458,9 +1478,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     }
   \cs_new_protected_nopar:Npn \zhnum_reset_active:
     { \tl_use:N \l_@@_reset_catcode_tl }
+  \int_new:N \l_@@_byte_min_int
+  \int_new:N \l_@@_byte_max_int
   \tl_new:N \l_@@_reset_catcode_tl
 \else:
-  \cs_new_eq:NN \zhnum_set_byte_range:n \use_none:n
   \cs_new_eq:NN \zhnum_set_active:   \prg_do_nothing:
   \cs_new_eq:NN \zhnum_reset_active: \prg_do_nothing:
 \fi:
@@ -1539,9 +1560,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \tl_if_empty:NT \l_@@_encoding_tl
   {
-    \pdftex_if_engine:TF
-      { \keys_set:nn { zhnum / options } { encoding = GBK } }
+    \zhnum_if_unicode_engine:TF
       { \keys_set:nn { zhnum / options } { encoding = UTF8 } }
+      { \keys_set:nn { zhnum / options } { encoding = GBK } }
   }
 %    \end{macrocode}
 %
