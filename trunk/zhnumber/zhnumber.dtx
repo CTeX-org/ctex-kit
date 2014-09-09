@@ -255,7 +255,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1081}
+% \CheckSum{1071}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -675,7 +675,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \tex_number:D
       \exp_after:wN \@@_read_sign_loop:N
       \tex_romannumeral:D -`0 \use:n
-      #1 \s__stop \q_stop \@@_result:nn { \c_zero } { } ;
+      #1 \exp_stop_f: \q_recursion_tail \q_recursion_stop
+         \@@_result:nn { \c_zero } { } ;
   }
 \cs_new:Npn \@@_read_sign_loop:N #1
   {
@@ -709,22 +710,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \end{verbatim}
 % 我们在这里参考 \cs{__tl_act:NNNnn} 的实现对它进行了改进。
 %    \begin{macrocode}
-\cs_new:Npn \@@_read_abs_loop:Nw #1#2 \q_stop
+\cs_new:Npn \@@_read_abs_loop:Nw #1#2 \q_recursion_stop
   {
     \zhnum_if_digit:NTF #1
-      {
-        \@@_output:nnwnn { + \c_one } #1
-          \exp_after:wN \@@_read_abs_loop:Nw
-          \tex_romannumeral:D -`0 \use:n #2 \q_stop
-      }
-      {
-        \str_if_eq:nnTF {#1} { \s__stop }
-          { \@@_loop_end:wnn }
-          {
-            \exp_after:wN \@@_read_abs_loop:Nw
-            \tex_romannumeral:D -`0 \use:n #2 \q_stop
-          }
-      }
+      { \@@_output:nnwnn { + \c_one } #1 }
+      { \quark_if_recursion_tail_stop_do:Nn #1 { \@@_loop_end:wnn } }
+    \exp_after:wN \@@_read_abs_loop:Nw
+      \tex_romannumeral:D -`0 \use:n #2 \q_recursion_stop
   }
 \cs_new:Npn \@@_output:nnwnn #1#2#3 \@@_result:nn #4#5
   { #3 \@@_result:nn { #4#1 } { #5#2 } }
@@ -945,7 +937,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \tex_number:D
       \exp_after:wN \@@_read_sign_loop:NN \exp_after:wN #1
       \tex_romannumeral:D -`0 \use:n
-      #2 \s__stop
+      #2 \exp_stop_f: \q_recursion_tail \q_recursion_stop
   }
 \cs_new:Npn \@@_read_sign_loop:NN #1#2
   {
@@ -962,27 +954,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new:Npn \@@_read_digits_loop:NN #1#2
   {
     \zhnum_if_digit:NTF #2
+      { \@@_output_digits:NN #1#2 }
       {
-        \@@_output_digits:NN #1#2
-        \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
+        \quark_if_recursion_tail_stop:N #2
+        \if:w .\exp_not:N #2 \exp_after:wN \c_@@_dot_tl \fi:
+      }
+    \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
         \tex_romannumeral:D -`0 \use:n
-      }
-      {
-        \str_case:nnF {#2}
-          {
-            { \s__stop } { }
-            { . }
-              {
-                \c_@@_dot_tl
-                \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
-                \tex_romannumeral:D -`0 \use:n
-              }
-          }
-          {
-            \exp_after:wN \@@_read_digits_loop:NN \exp_after:wN #1
-            \tex_romannumeral:D -`0 \use:n
-          }
-      }
   }
 \cs_new:Npn \@@_read_digits:w #1 ;
   {
