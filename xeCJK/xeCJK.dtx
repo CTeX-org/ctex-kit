@@ -396,7 +396,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9369}
+% \CheckSum{9498}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -7353,13 +7353,12 @@ $URL$
 % \changes{v3.2.4}{2013/06/23}{修正 \pkg{xeCJKfntef} 与 \pkg{natbib} 等的冲突。}
 % \changes{v3.2.14}{2014/10/31}{完善 \tn{varCJKunderline} 的实现。}
 % \changes{v3.2.14}{2014/10/31}{解决下划线前后没有 \tn{CJKglue} 或 \tn{CJKecglue} 的问题。}
+% \changes{v3.2.14}{2014/11/03}{\pkg{xeCJKfntef} 不再依赖 \pkg{CJKfntef}。}
 %
 %    \begin{macrocode}
 %<*fntef>
 %    \end{macrocode}
 %
-% \pkg{xeCJKfntef} 不需要 \pkg{CJKulem} 宏包的支持，因此当使用 \pkg{CJKfntef} 时，%
-% 需要另行载入 \pkg{ulem}。
 %    \begin{macrocode}
 \PassOptionsToPackage { normalem } { ulem }
 \DeclareOption* { \PassOptionsToPackage { \CurrentOption } { ulem } }
@@ -7369,8 +7368,13 @@ $URL$
 %    \begin{macrocode}
 \RequirePackage { xeCJK }
 \RequirePackage { ulem }
-\RequirePackage { CJKfntef }
 \RequirePackage { environ }
+%    \end{macrocode}
+%
+% 虽然我们不再依赖 \pkg{CJKfntef}，但基于历史原因，我们仍然载入它。
+%    \begin{macrocode}
+\file_if_exist:nT { CJKfntef.sty }
+  { \RequirePackage { CJKfntef } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -7427,49 +7431,6 @@ $URL$
   }
 \skip_new:N \l_@@_space_skip
 \bool_new:N \l_@@_ulem_hook_used_bool
-%    \end{macrocode}
-% \end{macro}
-%
-% \setbox\xeCJKtmpbox\vbox\bgroup\gobblelineno
-%    \begin{macrocode}
-%<@@=>
-%    \end{macrocode}\egroup
-%
-% \begin{macro}[internal]{\CJK@UL,\CJK@@UL}
-% 修改 \pkg{CJKfntef} 中的 \tn{CJK@UL} 和 \tn{CJK@@UL} 以适应下面的修改。
-%    \begin{macrocode}
-\cs_set_eq:NN \CJK@UL \CJK@@UL
-\tl_replace_once:Nnn \CJK@UL { \ULon }
-  { \xeCJKfntefon }
-\tl_replace_once:Nnn \CJK@@UL { \ULon }
-  { \xeCJKfntefon * }
-%    \end{macrocode}
-% \end{macro}
-%
-% \setbox\xeCJKtmpbox\vbox\bgroup\gobblelineno
-%    \begin{macrocode}
-%<@@=xeCJK>
-%    \end{macrocode}\egroup
-%
-% \begin{macro}[internal]{\xeCJKfntefon}
-% 扩展 \tn{ULon} 的参数，带 |*| 表示不跳过标点符号，带 |-| 表示两端减小一定距离。
-%    \begin{macrocode}
-\NewDocumentCommand \xeCJKfntefon
-  { > { \ReverseBoolean } s t-  > { \ReverseBoolean } s }
-  {
-    \bool_set:Nn \l_@@_ulem_skip_punct_bool { #1 && #3 }
-    \bool_set_eq:NN \l_@@_ulem_var_bool #2
-    \ULon
-  }
-\bool_new:N \l_@@_ulem_var_bool
-\bool_new:N \l_@@_ulem_skip_punct_bool
-\cs_new_eq:NN \xeCJK_ulem_on:n \UL@on
-\cs_set_protected:Npn \UL@on #1
-  { \xeCJK_ulem_on:n { \xeCJK_ulem_left: #1 \xeCJK_ulem_right: } }
-\RenewDocumentCommand \varCJKunderline { }
-  { \CJKunderline - }
-\RenewDocumentCommand \CJKunderanyline { m m }
-  { \CJK@underanyline {#1} {#2} - }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8101,62 +8062,348 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\CJKunderdot}
-% 使用 \pkg{xeCJK} 时，\pkg{CJKfntef} 中的 \tn{CJKunderdot} 和 \tn{CJKunderanysymbol}
-% 在汉字之间不能断行。因此需要我们在这里修改它们。
+% \begin{macro}[internal]{\xeCJKfntefon}
+% 扩展 \tn{ULon} 的参数，带 |*| 表示不跳过标点符号，带 |-| 表示两端减小一定距离。
 %    \begin{macrocode}
-\RenewDocumentCommand \CJKunderdot { m }
+\NewDocumentCommand \xeCJKfntefon
+  { > { \ReverseBoolean } s t-  > { \ReverseBoolean } s }
   {
-    \bool_if:NT \l_@@_ulem_hook_used_bool
-      { \xeCJK_ulem_right: \UL@stop }
-    \CJK@preUnderdot
-    \@@_make_under_symbol:n { \CJK@underdotSkip }
-    \cs_gset_eq:NN \@@_save_under_CJKsymbol:N \CJKsymbol
-    \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \@@_restore_shipout_CJKsymbol:
-    \bool_if:NT \l_@@_ulem_hook_used_bool
-      { \UL@start \xeCJK_ulem_right_node: }
-    #1
-    \bool_if:NT \l_@@_ulem_hook_used_bool
-      { \xeCJK_ulem_right: \UL@stop }
-    \cs_set_eq:NN \CJKsymbol \@@_save_under_CJKsymbol:N
-    \tl_clear:N \l_@@_fntef_shipout_tl
-    \CJK@postUnderdot
-    \bool_if:NT \l_@@_ulem_hook_used_bool
-      { \UL@start \xeCJK_ulem_right_node: }
-    \tex_ignorespaces:D
+    \bool_set:Nn \l_@@_ulem_skip_punct_bool { #1 && #3 }
+    \bool_set_eq:NN \l_@@_ulem_var_bool #2
+    \ULon
   }
-\box_new:N \g_@@_under_symbol_box
-\RenewDocumentCommand \CJKunderanysymbol { m m m }
+\bool_new:N \l_@@_ulem_var_bool
+\bool_new:N \l_@@_ulem_skip_punct_bool
+\cs_new_eq:NN \xeCJK_ulem_on:n \UL@on
+\cs_set_protected:Npn \UL@on #1
+  { \xeCJK_ulem_on:n { \xeCJK_ulem_left: #1 \xeCJK_ulem_right: } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderline, \varCJKunderline}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKunderline { }
   {
-    \group_begin:
-    \hbox_set:Nn \CJK@underdotBox {#2}
-    \@@_make_under_symbol:n {#1}
-    \cs_set_eq:NN \@@_save_under_CJKsymbol:N \CJKsymbol
-    \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \@@_restore_shipout_CJKsymbol:
-    \tl_clear:N \l_@@_underdot_shipout_tl
-    #3
-    \group_end:
+    \c_group_begin_token
+      \xeCJK_fntef_initial:nnn
+        { \CJKunderlinebasesep }
+        { \CJKunderlinesep }
+        {
+          \CJKunderlinecolor
+          \tex_vrule:D height \ULthickness width .2em
+        }
+      \xeCJKfntefon
+  }
+\DeclareDocumentCommand \varCJKunderline { }
+  { \CJKunderline - }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderwave}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKunderwave { }
+  {
+    \c_group_begin_token
+      \xeCJK_fntef_initial:nnn
+        { \CJKunderwavebasesep }
+        { \CJKunderwavesep }
+        {
+          \CJKunderwavecolor
+          \tl_use:N \l_@@_under_wave_tl
+        }
+      \xeCJKfntefon
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderdblline}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKunderdblline { }
+  {
+    \c_group_begin_token
+      \xeCJK_fntef_initial:nnn
+        { \CJKunderdbllinebasesep }
+        { \CJKunderdbllinesep }
+        {
+          \CJKunderdbllinecolor
+          \vbox_top:n
+            {
+              \tex_hrule:D height \ULthickness width .2em
+              \tex_kern:D 1.1 pt
+              \tex_hrule:D
+            }
+        }
+      \xeCJKfntefon
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKsout}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKsout { }
+  {
+    \c_group_begin_token
+      \xeCJK_fntef_initial:n
+        {
+          \CJKsoutcolor
+          \tex_vrule:D height \ULthickness width .2em
+        }
+      \markoverwith
+        {
+          \box_move_up:nn
+            { \CJKsoutheight - \box_ht:N \l_@@_fntef_box / 2 }
+            { \box_use_clear:N \l_@@_fntef_box }
+        }
+      \xeCJKfntefon
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKxout}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKxout { }
+  {
+    \c_group_begin_token
+      \xeCJK_fntef_initial:n
+        {
+          \CJKxoutcolor
+          \tex_kern:D -.1 em $/$
+          \tex_kern:D -.1 em
+        }
+      \markoverwith
+        {
+          \box_move_up:nn
+            { \box_dp:N \l_@@_fntef_box / 2 }
+            { \box_use_clear:N \l_@@_fntef_box }
+        }
+      \xeCJKfntefon
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKunderanyline}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKunderanyline { m m }
+  {
+    \c_group_begin_token
+      \xeCJK_fntef_initial:n {#2}
+      \markoverwith
+        { \box_move_down:nn {#1} { \box_use_clear:N \l_@@_fntef_box } }
+      \xeCJKfntefon
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_fntef_initial:n}
+% 不支持下划线的嵌套使用。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_fntef_initial:n #1
+  {
+    \xeCJK_leave_vmode:
+    \bool_if:NTF \l_@@_nest_bool
+      { \@@_error:n { nesting-error } }
+      {
+        \bool_set_true:N \l_@@_nest_bool
+        \@@_restore_shipout_fntef:
+      }
+    \xeCJK_fntef_sbox:n {#1}
+  }
+\cs_new_protected:Npn \xeCJK_fntef_initial:nnn #1#2#3
+  {
+    \xeCJK_fntef_initial:n {#3}
+    \bool_if:NF \l_@@_fntef_bool
+      {
+        \bool_set_true:N \l_@@_fntef_bool
+        \dim_set:Nn \l_@@_fntef_dim {#1}
+      }
+    \markoverwith
+      {
+        \box_move_down:nn
+          { \l_@@_fntef_dim + \box_ht:N \l_@@_fntef_box }
+          { \box_use_clear:N \l_@@_fntef_box }
+      }
+    \dim_set:Nn \l_@@_fntef_dim { #2 + \box_dp:N \ULC@box }
+  }
+\box_new:N \l_@@_fntef_box
+\dim_new:N \l_@@_fntef_dim
+\bool_new:N \l_@@_nest_bool
+\bool_new:N \l_@@_fntef_bool
+\@@_msg_new:nn { nesting-error }
+  { Nesting~is~not~supported. }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_fntef_sbox:n}
+% 与 \cs{hcoffin_set:Nn} 和 \LaTeXe{} 的 \tn{sbox} 功能类似，确保颜色的正确。
+% 虽然 \texttt{coffin} 可以更方便的操作盒子，但速度要慢一点。并且，我们的需求
+% 也比较简单，就不用它了。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_fntef_sbox:n #1
+  {
+    \hbox_set:Nn \l_@@_fntef_box
+      {
+        \color_group_begin:
+          \color_ensure_current:
+          #1
+        \color_group_end:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_leave_vmode:}
+% 功能与 \tn{leavevmode} 类似，但不会影响 \tn{everypar}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_leave_vmode:
+  {
+    \if_mode_vertical:
+      \exp_after:wN \tex_indent:D
+    \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    underdotbasesep     .tl_set:N = \CJKunderdotbasesep ,
+    underdotsep         .tl_set:N = \CJKunderdotsep ,
+    underlinebasesep    .tl_set:N = \CJKunderlinebasesep ,
+    underlinesep        .tl_set:N = \CJKunderlinesep ,
+    underdbllinebasesep .tl_set:N = \CJKunderdbllinebasesep ,
+    underdbllinesep     .tl_set:N = \CJKunderdbllinesep ,
+    underwavebasesep    .tl_set:N = \CJKunderwavebasesep ,
+    underwavesep        .tl_set:N = \CJKunderwavesep ,
+    southeight          .tl_set:N = \CJKsoutheight ,
+    underdotcolor       .tl_set:N = \CJKunderdotcolor ,
+    underlinecolor      .tl_set:N = \CJKunderlinecolor ,
+    underdbllinecolor   .tl_set:N = \CJKunderdbllinecolor ,
+    underwavecolor      .tl_set:N = \CJKunderwavecolor ,
+    soutcolor           .tl_set:N = \CJKsoutcolor ,
+    xoutcolor           .tl_set:N = \CJKxoutcolor ,
+    underwave           .tl_set:N = \l_@@_under_wave_tl
+  }
+\keys_set:nn { xeCJK / options }
+  {
+    underdotbasesep     = 0.20 em ,
+    underdotsep         = 0.04 em ,
+    underlinebasesep    = 0.20 em ,
+    underlinesep        = 0.07 em ,
+    underdbllinebasesep = 0.20 em ,
+    underdbllinesep     = 0.17 em ,
+    underwavebasesep    = 0.20 em ,
+    underwavesep        = 0.00 em ,
+    southeight          = 0.35 em ,
+    underwave           = \sixly \tex_char:D 58 \exp_stop_f:
+  }
+\cs_if_free:NF \color
+  {
+    \keys_set:nn { xeCJK / options }
+      {
+        underdotcolor     = \color { red } ,
+        underlinecolor    = \color { blue } ,
+        underdbllinecolor = \color { blue } ,
+        underwavecolor    = \color { blue } ,
+        soutcolor         = \color { red } ,
+        xoutcolor         = \color { blue }
+      }
+  }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\CJKunderanysymbol}
+%    \begin{macrocode}
+\DeclareDocumentCommand \CJKunderanysymbol
+  { m O { \c_zero_dim } m O { \c_max_dim } m }
+  {
+    \xeCJK_under_symbol:nnnnn {#1} {#2} {#3} {#4} {#5}
     \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\CJKunderanysymbol}
+% \begin{macro}[internal]{\CJKunderdot}
+% \tn{CJKunderdot} 是 \tn{CJKunderanysymbol} 的特殊情况。\pkg{CJKfntef} 原来使用
+% 的是数学符号 \tn{cdot}，这里改成更合适的 |.|。
 %    \begin{macrocode}
-\RenewDocumentCommand \CJKunderanysymbol { m m m }
+\DeclareDocumentCommand \CJKunderdot { m }
   {
-    \group_begin:
-    \hbox_set:Nn \CJK@underdotBox {#2}
-    \@@_make_under_symbol:n {#1}
-    \cs_set_eq:NN \@@_save_under_CJKsymbol:N \CJKsymbol
-    \cs_set_eq:NN \CJKsymbol \@@_under_CJKsymbol:N
-    \@@_restore_shipout_CJKsymbol:
-    \tl_clear:N \l_@@_underdot_shipout_tl
-    #3
-    \group_end:
+    \xeCJK_under_symbol:nnnnn
+      { \CJKunderdotbasesep }
+      { \CJKunderdotsep }
+      { \normalfont \CJKunderdotcolor . }
+      { \c_max_dim }
+      {#1}
     \tex_ignorespaces:D
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_under_symbol:nnnnn}
+% 当处在下划线中时，我们先断开下划线，在分组外设置下划符号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_under_symbol:nnnnn
+  {
+    \xeCJK_if_ulem_patch:TF
+      { \@@_under_symbol_auxi:nnnnn }
+      { \@@_under_symbol_auxii:nnnnn }
+  }
+\cs_new_protected:Npn \@@_under_symbol_auxi:nnnnn #1#2#3#4#5
+  {
+    \xeCJK_ulem_right: \UL@stop
+    \group_begin:
+      \xeCJK_under_symbol_initial:nnnn {#1} {#2} {#3} {#4}
+      \UL@start \xeCJK_ulem_right_node:
+        #5
+      \xeCJK_ulem_right: \UL@stop
+    \group_end:
+    \UL@start \xeCJK_ulem_right_node:
+  }
+\cs_new_protected:Npn \@@_under_symbol_auxii:nnnnn #1#2#3#4#5
+  {
+    \xeCJK_leave_vmode:
+    \group_begin:
+      \xeCJK_under_symbol_initial:nnnn {#1} {#2} {#3} {#4}
+      #5
+    \group_end:
+  }
+\cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnn #1#2#3#4
+  {
+    \xeCJK_fntef_sbox:n {#3}
+    \bool_if:NTF \l_@@_fntef_bool
+      { \xeCJK_make_under_symbol:nn { \l_@@_fntef_dim } }
+      {
+        \bool_set_true:N \l_@@_fntef_bool
+        \xeCJK_make_under_symbol:nn {#1}
+      }
+      {#4}
+    \dim_set:Nn \l_@@_fntef_dim
+      { #2 + \box_dp:N \l_@@_under_symbol_box }
+    \xeCJK_swap_cs:NN \CJKsymbol \@@_under_CJKsymbol:N
+    \@@_restore_shipout_CJKsymbol:
+  }
+\box_new:N \l_@@_under_symbol_box
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_make_under_symbol:n}
+% 我们量取“一”的宽度作为汉字的宽度。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_make_under_symbol:nn #1#2
+  {
+    \hbox_set:Nn \l_@@_under_symbol_box
+      {
+        \box_move_down:nn { #1 + \box_ht:N \l_@@_fntef_box }
+          {
+            \hbox_to_zero:n
+              {
+                \xeCJK_select_font:
+                \tex_kern:D \etex_fontcharwd:D \tex_font:D "4E00 \exp_stop_f:
+                \tex_hss:D \box_use:N \l_@@_fntef_box \tex_hss:D
+              }
+          }
+      }
+    \dim_compare:nNnF {#2} = \c_max_dim
+      { \box_set_dp:Nn \l_@@_under_symbol_box {#2} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8167,42 +8414,22 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_restore_shipout_CJKsymbol:
   {
-    \tl_set:Nn \l_@@_fntef_shipout_tl
+    \tl_put_right:Nn \l_@@_fntef_shipout_tl
+      { \xeCJK_swap_cs:NN \CJKsymbol \@@_under_CJKsymbol:N }
+    \@@_restore_shipout_fntef:
+    \xeCJK_cs_clear:N \@@_restore_shipout_CJKsymbol:
+  }
+\cs_new_protected:Npn \@@_restore_shipout_fntef:
+  {
+    \tl_put_right:Nn \l_@@_fntef_shipout_tl
       {
-        \l_@@_underdot_shipout_tl
-        \cs_set_eq:NN \CJKsymbol \@@_save_under_CJKsymbol:N
+        \bool_set_false:N \l_@@_fntef_bool
+        \dim_zero:N \l_@@_fntef_dim
       }
+    \xeCJK_cs_clear:N \@@_restore_shipout_fntef:
   }
 \tl_new:N \l_@@_fntef_shipout_tl
-\tl_new:N \l_@@_underdot_shipout_tl
-\tl_set:Nn \l_@@_underdot_shipout_tl
-  {
-    \cs_set_eq:NN \CJKf@global \scan_stop:
-    \int_zero:N \CJK@nest \CJK@postUnderdot
-  }
 \xeCJK_add_to_shipout:n { \l_@@_fntef_shipout_tl }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\@@_make_under_symbol:n}
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_make_under_symbol:n #1
-  {
-    \group_begin:
-      \xeCJK_if_ulem_patch:TF { \UL@hrest } { }
-      \hbox_set:Nn \l_@@_tmp_box { ^^^^4e00 }
-      \vbox_gset_to_ht:Nnn \g_@@_under_symbol_box \c_zero_dim
-        {
-          \skip_vertical:n {#1}
-          \hbox_to_zero:n
-            {
-              \tex_kern:D \box_wd:N \l_@@_tmp_box
-              \tex_hss:D \box_use:N \CJK@underdotBox \tex_hss:D
-            }
-          \tex_vss:D
-        }
-    \group_end:
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8210,8 +8437,8 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_under_CJKsymbol:N #1
   {
-    \hbox_overlap_right:n { \box_use:N \g_@@_under_symbol_box }
-    \xeCJK_no_break: \@@_save_under_CJKsymbol:N {#1}
+    \box_use:N \l_@@_under_symbol_box
+    \xeCJK_no_break: \@@_under_CJKsymbol:N {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8223,7 +8450,7 @@ $URL$
 % 可选参数 |#1| 表示环境的垂直对齐位置，默认居中；参数 |#2| 表示环境的宽度。
 % 带星号的环境，如果 |#2| 不大于零或者不大于环境最长文本行的宽度，则取环境的自然宽度。
 %    \begin{macrocode}
-\RenewDocumentEnvironment { CJKfilltwosides } { O { c } m }
+\DeclareDocumentEnvironment { CJKfilltwosides } { O { c } m }
   {
     \use:x { \exp_not:N \minipage [#1] { \dim_eval:n {#2} } }
     \cs_set_eq:NN \CJKglue \tex_hfill:D
@@ -11299,7 +11526,7 @@ x^2+y^2
 \CJKunderanyline{0.2em}{\kern-.03em\vtop{\kern.2ex\hrule width.2em\kern 0.11em
   \hrule height 0.1em}\kern-.03em}{自定义下划线}
 
-\indent\CJKunderanyline{0.5em}{-}{\showtext}
+\CJKunderanyline{0.5em}{-}{\showtext}
 
 \CJKunderanysymbol{0.2em}{-}{\showtext}
 
@@ -11325,7 +11552,7 @@ x^2+y^2
 \def\Book{\CJKunderwave-}
 \def\Noun{\CJKunderline-}
 
-如上所述，\Book{中國文學史}原是\Noun{復旦大學出版社}出版的，\Book{中國文學史新著}則由\Noun{上海文藝出版社}出版。現承\Noun{復旦大學出版社}\Noun{賀聖遂}先生的盛情和\Noun{上海文藝出版總社}\Noun{楊益萍}、\Noun{何承偉}先生以及有關負責人\Noun{陳鳴華}先生的高誼，此書增訂本改由兩社聯合出版。\Noun{賀聖遂}先生並與\Noun{杜榮根}副社長、\Noun{韓結根}編審共同擔任此書的責任編輯。對上述諸位先生謹在這悝表示衷心的感謝。對\Book{中國文學史新著}原版的責任編輯\Noun{戴俊}先生（現為\Noun{上海三聯書店}副總經理）也在此一併致謝。
+如上所述，\Book{中國文學史}原是\Noun{復旦大學出版社}出版的，\Book{中國文學史新著}則由\Noun{上海文藝出版社}出版。現承\Noun{復旦大學出版社}\Noun{賀聖遂}先生的盛情和\Noun{上海文藝出版總社}\Noun{楊益萍}、\Noun{何承偉}先生以及有關負責人\Noun{陳鳴華}先生的高誼，此書增訂本改由兩社聯合出版。\Noun{賀聖遂}先生並與\Noun{杜榮根}副社長、\Noun{韓結根}編審共同擔任此書的責任編輯。對上述諸位先生謹在這裡表示衷心的感謝。對\Book{中國文學史新著}原版的責任編輯\Noun{戴俊}先生（現為\Noun{上海三聯書店}副總經理）也在此一併致謝。
 
 \Noun{與文學史的}\Noun{應有任務}\Noun{對文學發展過程}\Noun{的內在聯繫的描述}\Noun{還有很大的距離}\Noun{至於距離的所在}\Noun{本書原已有說明}\Book{此不贅述}\Book{為了對學術負責}\Book{我們決定重寫一部並迅即出版}
 
