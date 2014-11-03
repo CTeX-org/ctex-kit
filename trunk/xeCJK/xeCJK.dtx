@@ -396,7 +396,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9498}
+% \CheckSum{9503}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -7591,7 +7591,6 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_ulem_right_skip:}
-% \begin{macro}[aux]{\@@_ulem_right_skip_glue:, \@@_ulem_right_skip_box:}
 % 在下划线完全画好之后，我们检测最后的情况。用 \tn{unskip} 去掉最后一个下划线，再
 % 重新画一个减少 \tn{CJKulinerightskip} 的。
 %    \begin{macrocode}
@@ -7600,16 +7599,12 @@ $URL$
   {
     \int_case:nn { \etex_lastnodetype:D }
       {
-        { \c_one }    { \@@_ulem_right_skip_box: }
-        { \c_eleven } { \@@_ulem_right_skip_glue: }
-        { \c_thirteen }
-          {
-            \exp_after:wN \@@_ulem_right_skip_penalty:n
-            \exp_after:wN { \int_use:N \tex_lastpenalty:D }
-          }
+        { \c_one }      { \@@_ulem_right_skip_hbox: }
+        { \c_eleven }   { \@@_ulem_right_skip_glue: }
+        { \c_thirteen } { \@@_ulem_right_skip_penalty: }
       }
   }
-\cs_new_protected_nopar:Npn \@@_ulem_right_skip_box:
+\cs_new_protected_nopar:Npn \@@_ulem_right_skip_hbox:
   {
     \box_set_to_last:N \l_@@_tmp_box
     \dim_set:Nn \l_@@_tmp_dim { - \box_wd:N \l_@@_tmp_box }
@@ -7631,15 +7626,15 @@ $URL$
         \UL@leadtype \skip_horizontal:N \l_@@_tmp_skip
       }
   }
-\cs_new_protected_nopar:Npn \@@_ulem_right_skip_penalty:n #1
+\cs_new_protected_nopar:Npn \@@_ulem_right_skip_penalty:
   {
+    \int_set_eq:NN \l_@@_tmp_int \tex_lastpenalty:D
     \tex_unpenalty:D
     \int_compare:nNnT \etex_lastnodetype:D = \c_one
-      { \@@_ulem_right_skip_box: }
-    \tex_penalty:D #1 \exp_stop_f:
+      { \@@_ulem_right_skip_hbox: }
+    \tex_penalty:D \l_@@_tmp_int
   }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_ulem_skip_punct_begin:,\@@_ulem_skip_punct_end:}
@@ -8143,12 +8138,11 @@ $URL$
 \DeclareDocumentCommand \CJKsout { }
   {
     \c_group_begin_token
-      \xeCJK_fntef_initial:n
+      \xeCJK_fntef_initial:nn
         {
           \CJKsoutcolor
           \tex_vrule:D height \ULthickness width .2em
         }
-      \markoverwith
         {
           \box_move_up:nn
             { \CJKsoutheight - \box_ht:N \l_@@_fntef_box / 2 }
@@ -8164,13 +8158,12 @@ $URL$
 \DeclareDocumentCommand \CJKxout { }
   {
     \c_group_begin_token
-      \xeCJK_fntef_initial:n
+      \xeCJK_fntef_initial:nn
         {
           \CJKxoutcolor
           \tex_kern:D -.1 em $/$
           \tex_kern:D -.1 em
         }
-      \markoverwith
         {
           \box_move_up:nn
             { \box_dp:N \l_@@_fntef_box / 2 }
@@ -8186,18 +8179,22 @@ $URL$
 \DeclareDocumentCommand \CJKunderanyline { m m }
   {
     \c_group_begin_token
-      \xeCJK_fntef_initial:n {#2}
-      \markoverwith
-        { \box_move_down:nn {#1} { \box_use_clear:N \l_@@_fntef_box } }
+      \xeCJK_fntef_initial:nn
+        {#2}
+        {
+          \box_move_down:nn
+            {#1}
+            { \box_use_clear:N \l_@@_fntef_box }
+        }
       \xeCJKfntefon
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_fntef_initial:n}
-% 不支持下划线的嵌套使用。
+% 不支持下划线的嵌套使用。下划线嵌套使用时，里层的下划线会被放在盒子里，不能折行。
 %    \begin{macrocode}
-\cs_new_protected:Npn \xeCJK_fntef_initial:n #1
+\cs_new_protected_nopar:Npn \xeCJK_fntef_initial:n
   {
     \xeCJK_leave_vmode:
     \bool_if:NTF \l_@@_nest_bool
@@ -8206,7 +8203,14 @@ $URL$
         \bool_set_true:N \l_@@_nest_bool
         \@@_restore_shipout_fntef:
       }
-    \xeCJK_fntef_sbox:n {#1}
+    \xeCJK_fntef_sbox:n
+  }
+\cs_new_protected:Npn \xeCJK_fntef_initial:nn #1
+  {
+    \xeCJK_fntef_initial:n {#1}
+    \bool_if:NF \l_@@_fntef_bool
+      { \dim_zero:N \l_@@_fntef_dim }
+    \markoverwith
   }
 \cs_new_protected:Npn \xeCJK_fntef_initial:nnn #1#2#3
   {
@@ -8225,11 +8229,20 @@ $URL$
     \dim_set:Nn \l_@@_fntef_dim { #2 + \box_dp:N \ULC@box }
   }
 \box_new:N \l_@@_fntef_box
-\dim_new:N \l_@@_fntef_dim
 \bool_new:N \l_@@_nest_bool
 \bool_new:N \l_@@_fntef_bool
 \@@_msg_new:nn { nesting-error }
   { Nesting~is~not~supported. }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[var,internal]{\l_@@_fntef_dim}
+% 记录下划线或者下划符号的深度，以便它们嵌套使用时能自动调整好距离。
+% \tn{ULdepth} 被 \pkg{ulem} 初始化为 \tn{maxdimen}。下划线嵌套时，\pkg{ulem}
+% 要使用它作计算，可能会溢出。为简便起见，\cs{l_@@_fntef_dim} 与 \tn{ULdepth}
+% 共用一个寄存器。
+%    \begin{macrocode}
+\cs_new_eq:NN \l_@@_fntef_dim \ULdepth
 %    \end{macrocode}
 % \end{macro}
 %
