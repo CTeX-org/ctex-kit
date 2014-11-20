@@ -223,7 +223,7 @@ $URL$
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.2.15}{\ExplFileDescription}
+  {\ExplFileDate}{3.2.16}{\ExplFileDescription}
 %<xunextra>\ExplSyntaxOff
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
@@ -397,7 +397,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9648}
+% \CheckSum{9679}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -7005,6 +7005,41 @@ $URL$
 % \end{macro}
 %
 % \subsection{兼容性修补}
+%
+% \begin{macro}[internal]{\hbar}
+% \changes{v3.2.16}{2014/11/20}{修复 \tn{hbar}。}
+% \pkg{fontspec} 会设置 operators 数学字体族（|\fam0|）为 \texttt{EU1} 编码的
+% \tn{rmdefault} 字体。这导致 \LaTeXe{} 定义的 \tn{hbar} 只显示为 $h$。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_fix_hbar:
+  {
+    \cs_if_free:NF \symlegacymaths
+      {
+        \group_begin:
+          \cs_set_nopar:Npn \@@_tmp:w
+            { { \mathchar '26 \mkern -9mu h } }
+        \exp_after:wN \group_end:
+        \if_meaning:w \@@_tmp:w \hbar
+          \cs_set_protected_nopar:Npx \hbar
+            { {
+              \mathchar
+                \int_eval:n { \symlegacymaths * \c_two_hundred_fifty_six + '26 } ~
+              \mkern -9mu h
+            } }
+        \fi:
+      }
+  }
+\cs_if_exist:NTF \fontspec_maybe_setup_maths:
+  {
+    \cs_gset_protected_nopar:Npx \fontspec_maybe_setup_maths:
+      {
+        \exp_not:o { \fontspec_maybe_setup_maths: }
+        \xeCJK_fix_hbar:
+      }
+  }
+  { \AtBeginDocument { \xeCJK_fix_hbar: } }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[internal]{\@@_update_url_font:,\Url@MathSetup}
 % \changes{v3.2.7}{2013/11/09}{使通过 \tn{UrlFont} 等命令设置的 CJK 字体生效。}
