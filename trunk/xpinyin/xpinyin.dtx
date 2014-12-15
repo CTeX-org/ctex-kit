@@ -169,7 +169,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
 %<package>\ProvidesExplPackage{\ExplFileName}
-  {\ExplFileDate}{1.9a}{\ExplFileDescription}
+  {\ExplFileDate}{1.9b}{\ExplFileDescription}
 %<*driver>
 \ExplSyntaxOff
 %</driver>
@@ -208,69 +208,59 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       {
         \exp_not:N \href
           { http \token_to_str:N : //www.ctan.org/pkg/ \IfNoValueTF {#1} {#2} {#1} }
-      } { \pkg{#2} }
+      } { \pkg {#2} }
   }
-\cs_set_protected_nopar:Npn \__codedoc_special_main_index:n #1
+\cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
   {
-    \tl_if_empty:NTF \l__codedoc_function_name_prefix_tl
-      { \SpecialOptionIndex }
-      { \SpecialUsageIndex }
-    {#1}
+    \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
+    \str_if_eq:onTF { \@currenvir } { macrocode }
+      { \codeline@wrindex }
+      {
+        \HD@target
+        \index
+      }
+      {
+        \tl_if_empty:nF { #3 #4 }
+          { #3 \actualchar #4 \levelchar }
+        #1
+        \actualchar
+        {
+          \token_to_str:N \verbatim@font \c_space_tl
+          \l__codedoc_index_escaped_macro_tl
+        }
+        \encapchar
+        hdclindex{\the\c@HD@hypercount}{#5}
+      }
   }
-\cs_new_eq:NN \@@_special_main_index:n \SpecialMainIndex
-\group_begin:
-  \char_set_lccode:nn { `\/ } { `\\ }
-  \char_set_lccode:nn { `\L } { `\L }
-  \char_set_lccode:nn { `\T } { `\T }
-  \char_set_lccode:nn { `\X } { `\X }
-\tex_lowercase:D
+\DeclareDocumentCommand \cs { O{} m }
+  { \__codedoc_cmd_aux:no {#1} { \c__codedoc_backslash_tl #2 } }
+\DeclareDocumentCommand \tn { O{} m }
   {
-    \group_end:
-    \DeclareDocumentCommand \SpecialMainIndex { m }
-      {
-        \tl_if_head_eq_meaning:nNTF {#1} /
-          { \@@_special_main_index:n }
-          { \@@_special_main_option_index:n }
-        {#1}
-      }
-    \cs_new_protected:Npn \@@_special_main_option_index:n #1
-      {
-        \@bsphack
-        \group_begin:
-          \special@index
-            {
-              #1 \actualchar { /ttfamily ~ #1 } ~ (option)
-              \encapchar main
-            }
-          \special@index
-            {
-              options: \levelchar #1 \actualchar { /ttfamily ~ #1 }
-              \encapchar main
-            }
-        \group_end:
-        \@esphack
-      }
-    \DeclareDocumentCommand \tn { m }
-      {
-        { \ttfamily /#1 }
-        \SortIndex
-          { TeX~and~LaTeX2e~commands }
-          {
-            /TeX{} ~ and ~ /LaTeXe{} ~ commands: \levelchar
-              #1 \actualchar { /ttfamily /bslash ~ #1 }
-          }
-      }
+    \__codedoc_cmd_aux:no
+      { index = TeX , replace = false , #1 }
+      { \c__codedoc_backslash_tl #2 }
   }
+\DeclareDocumentCommand \meta { +m }
+  { \__codedoc_meta_aux:n {#1} }
+\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
+  { \tl_to_str:n {#2} }
+\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
+\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
 \ExplSyntaxOff
+\pdfstringdefDisableCommands{%
+  \let\cs\bookmarkcstn
+  \let\tn\bookmarkcstn
+  \let\meta\bookmarkmeta
+  \let\path\@firstofone
+  \let\pkg\@firstofone}
 \def\LaTeX{\hologo{LaTeX}}
 \def\pdfLaTeX{\hologo{pdfLaTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
-\def\TF{true\orvar{}false}
-\def\TTF{\defaultvar{true}\orvar{}false}
-\def\TFF{true\orvar\defaultvar{false}}
-\def\orvar{\textup{\textbar}}
-\def\defaultvar#1{\textbf{\textup{#1}}}
-\def\argbrace#1{\{#1\}}
+\def\TF{true\orval{}false}
+\def\TTF{\defaultval{true}\orval{}false}
+\def\TFF{true\orval\defaultval{false}}
+\def\orval{\textup{\textbar}}
+\def\defaultval#1{\textbf{\textup{#1}}}
 \makeatother
 \def\indexname{代码索引}
 \IndexPrologue{%
@@ -286,7 +276,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{694}
+% \CheckSum{705}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -312,7 +302,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \pkg{xpinyin} 还依赖 \package{l3kernel} 和 \package{l3packages}，使用 (pdf)\LaTeX
 % 下的 \texttt{GBK} 编码时，还将依赖 \package{xCJK2uni}。
 %
-% 需要注意的是，\pkg{xpinyin} 缺省将拼音的字体设置为与文档的主字体（\cs{normalfont}）相同，
+% 需要注意的是，\pkg{xpinyin} 缺省将拼音的字体设置为与文档的主字体（\tn{normalfont}）相同，
 % 所以为了保证声调字母的正确输出，应该选用合适的西文主字体。也可以通过将在下一节介绍的
 % \meta{font} 选项来单独设置拼音的字体。
 %
@@ -356,9 +346,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{pinyinscope}
 %   \begin{syntax}
-%     \cs{begin}\argbrace{pinyinscope}\oarg{options}
+%     \tn{begin}\{pinyinscope\}\oarg{options}
 %     .....
-%     \cs{end}\argbrace{pinyinscope}
+%     \tn{end}\{pinyinscope\}
 %   \end{syntax}
 %   为 \env{pinyinscope} 环境中的汉字自动注音。例如
 %   \begin{Example}[frame=single,numbers=left,gobble=5]
@@ -373,12 +363,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{\xpinyin}
 %   \begin{syntax}
-%     \cs{xpinyin} \oarg{options} \Arg{单个汉字} \Arg{拼音}
-%     \cs{xpinyin*} \oarg{options} \Arg{文字}
+%     \tn{xpinyin} \oarg{options} \Arg{单个汉字} \Arg{拼音}
+%     \tn{xpinyin*} \oarg{options} \Arg{文字}
 %   \end{syntax}
-%   对于多音字，可以使用 \cs{xpinyin} 为其设置拼音；而 \cs{xpinyin*} 相当于
-%   \env{pinyinscope} 环境的命令形式。\cs{xpinyin} 可以在 \env{pinyinscope} 环境和
-%   \cs{xpinyin*} 中使用。例如，
+%   对于多音字，可以使用 \tn{xpinyin} 为其设置拼音；而 \tn{xpinyin*} 相当于
+%   \env{pinyinscope} 环境的命令形式。\tn{xpinyin} 可以在 \env{pinyinscope} 环境和
+%   \tn{xpinyin*} 中使用。例如，
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.5\linewidth,gobble=5]
 %     \xpinyin{长}{chang2}\\
 %     \xpinyin*{甄士隐梦幻识通灵}\\
@@ -388,7 +378,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{\pinyin}
 %   \begin{syntax}
-%     \cs{pinyin} \oarg{options} \Arg{拼音}
+%     \tn{pinyin} \oarg{options} \Arg{拼音}
 %   \end{syntax}
 %   用于输出拼音，为了输入的方便 \texttt{\"u} 可以用 |v| 代替。例如，
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.5\linewidth,gobble=5]
@@ -399,41 +389,41 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{\setpinyin}
 %   \begin{syntax}
-%     \cs{setpinyin} \Arg{汉字} \Arg{拼音}
+%     \tn{setpinyin} \Arg{汉字} \Arg{拼音}
 %   \end{syntax}
 %   \pkg{xpinyin} 宏包的拼音数据（\file{xpinyin-database.def}）来源于 \texttt{Unicode 7.0.0}
 %   的 \texttt{Unihan} 数据库\footnotemark 中的 \file{Unihan_Readings.txt} 文件。对于多
-%   音字，一般来说这个文件选用的是常用读音。可以使用 \cs{setpinyin} 来设置多音字的首选读音。
+%   音字，一般来说这个文件选用的是常用读音。可以使用 \tn{setpinyin} 来设置多音字的首选读音。
 % \end{function}
 %
 % \footnotetext{\url{http://www.unicode.org/Public/UNIDATA/Unihan.zip}}
 %
 % \begin{function}{\xpinyinsetup}
 %   \begin{syntax}
-%     \cs{xpinyinsetup} \argbrace{\meta{key_1}=\meta{var_1}, \meta{key_2}=\meta{var_2}, ...}
+%     \tn{xpinyinsetup} \{ \meta{key_1}=\meta{val_1}, \meta{key_2}=\meta{val_2}, ... \}
 %   \end{syntax}
 %   用于在导言区或文档中，设置拼音的格式。目前可以设置的 \meta{key} 如下介绍。
 % \end{function}
 %
 % \begin{function}{ratio}
 %   \begin{syntax}
-%     ratio = \marg{number}
+%     ratio = \Arg{number}
 %   \end{syntax}
 %   设置拼音字体大小与当前正文字体大小的比例，缺省值是 |0.4|。
 % \end{function}
 %
 % \begin{function}{vsep}
 %   \begin{syntax}
-%     vsep = \marg{dimen}
+%     vsep = \Arg{dimen}
 %   \end{syntax}
 %   设置拼音的基线与汉字基线的间距，缺省值是 |1 em|。
 % \end{function}
 %
 % \begin{function}{hsep}
 %   \begin{syntax}
-%     hsep = \marg{skip}
+%     hsep = \Arg{skip}
 %   \end{syntax}
-%   设置注音汉字之间的间距，缺省值与 \cs{CJKglue} 的值相同。为了断行时行末的对齐，设置
+%   设置注音汉字之间的间距，缺省值与 \tn{CJKglue} 的值相同。为了断行时行末的对齐，设置
 %   的 \meta{skip} 最后有一定的弹性。例如
 %   \begin{Example}[frame=single,numbers=left,gobble=5]
 %     \xpinyin*[ratio={.7},hsep={.5em plus .1em},vsep={1.1em}]{贾雨村风尘怀闺秀}
@@ -442,29 +432,29 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{pysep}
 %   \begin{syntax}
-%     pysep = \marg{glue}
+%     pysep = \Arg{glue}
 %   \end{syntax}
-%   设置 \cs{pinyin} 输出的相邻两个汉语拼音的空白，缺省值是一个空格。
+%   设置 \tn{pinyin} 输出的相邻两个汉语拼音的空白，缺省值是一个空格。
 % \end{function}
 %
 % \begin{function}{font}
 %   \begin{syntax}
-%     font = \marg{font}
+%     font = \Arg{font}
 %   \end{syntax}
-%   设置拼音的字体，缺省值是 \cs{normalfont}，即以正文西文字体相同。为了保证拼音能正确
+%   设置拼音的字体，缺省值是 \tn{normalfont}，即以正文西文字体相同。为了保证拼音能正确
 %   输出，最好选用收字量较大的西文字体。
 % \end{function}
 %
 % \begin{function}{format}
 %   \begin{syntax}
-%     format = \marg{format}
+%     format = \Arg{format}
 %   \end{syntax}
 %   设置拼音的其它格式，例如颜色等，缺省值为空。
 % \end{function}
 %
 % \begin{function}{multiple}
 %   \begin{syntax}
-%     multiple = \marg{format}
+%     multiple = \Arg{format}
 %   \end{syntax}
 %   设置多音字拼音的其它格式，缺省值为空。可以通过这个选项来提醒校正多音字的拼音。例如
 %   本文档设置多音字拼音的颜色是红色（需要载入 \pkg{color} 宏包）：
@@ -477,13 +467,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \begin{syntax}
 %     footnote = \meta{\TFF}
 %   \end{syntax}
-%   是否对拼音环境中的脚注（\cs{footnote}）汉字加上拼音。缺省值为 \texttt{false}。
-%   更一般的情况，请使用 \cs{disablepinyin}。
+%   是否对拼音环境中的脚注（\tn{footnote}）汉字加上拼音。缺省值为 \texttt{false}。
+%   更一般的情况，请使用 \tn{disablepinyin}。
 % \end{function}
 %
 % \begin{function}[added=2014/01/12]{\disablepinyin,\enablepinyin}
-%   \cs{disablepinyin} 用于在拼音环境（\env{pinyinscope}）中临时取消对汉字的注音，而
-%   \cs{enablepinyin} 用于其后的恢复。
+%   \tn{disablepinyin} 用于在拼音环境（\env{pinyinscope}）中临时取消对汉字的注音，而
+%   \tn{enablepinyin} 用于其后的恢复。
 % \end{function}
 %
 % \end{documentation}
@@ -510,25 +500,32 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\RequirePackage{xparse}
-\RequirePackage{l3keys2e}
+\RequirePackage { xparse }
+\RequirePackage { l3keys2e }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\c_@@_tone_prop}
+% 重音标记 |\`|、|\'| 和 |\=| 在 \env{tabbing} 环境中被移作他用，为避免错误，
+% 我们使用内部命令 \tn{@tabacckludge} 或 \tn{a} 来定义。
 %    \begin{macrocode}
 \prop_new:N \c_@@_tone_prop
 \clist_map_inline:nn
   {
-    { ā }{ \= a } , { á }{ \' a } , { ǎ }{ \v a } , { à }{ \` a } ,
-    { ō }{ \= o } , { ó }{ \' o } , { ǒ }{ \v o } , { ò }{ \` o } ,
-    { ē }{ \= e } , { é }{ \' e } , { ě }{ \v e } , { è }{ \` e } ,
-    { ū }{ \= u } , { ú }{ \' u } , { ǔ }{ \v u } , { ù }{ \` u } ,
-    { ḿ }{ \' m } , { ń }{ \' n } , { ň }{ \v n } , { ǹ }{ \` n } ,
-    { ī }{ \= { \i } } , { í }{ \' { \i } } ,
-    { ǐ }{ \v { \i } } , { ì }{ \` { \i } } ,
+    { ā }{ \@tabacckludge= a } ,         { á }{ \@tabacckludge' a } ,
+    { ǎ }{ \v a } ,                      { à }{ \@tabacckludge` a } ,
+    { ō }{ \@tabacckludge= o } ,         { ó }{ \@tabacckludge' o } ,
+    { ǒ }{ \v o } ,                      { ò }{ \@tabacckludge` o } ,
+    { ē }{ \@tabacckludge= e } ,         { é }{ \@tabacckludge' e } ,
+    { ě }{ \v e } ,                      { è }{ \@tabacckludge` e } ,
+    { ū }{ \@tabacckludge= u } ,         { ú }{ \@tabacckludge' u } ,
+    { ǔ }{ \v u } ,                      { ù }{ \@tabacckludge` u } ,
+    { ḿ }{ \@tabacckludge' m } ,         { ń }{ \@tabacckludge' n } ,
+    { ň }{ \v n } ,                      { ǹ }{ \@tabacckludge` n } ,
+    { ī }{ \@tabacckludge= { \i } } ,    { í }{ \@tabacckludge' { \i } } ,
+    { ǐ }{ \v { \i } } ,                 { ì }{ \@tabacckludge` { \i } } ,
     { ü }{ \" u } ,
-    { ǖ }{ \= { \" u } } , { ǘ }{ \' { \" u } } ,
-    { ǚ }{ \v { \" u } } , { ǜ }{ \` { \" u } }
+    { ǖ }{ \@tabacckludge= { \" u } } ,  { ǘ }{ \@tabacckludge' { \" u } } ,
+    { ǚ }{ \v { \" u } } ,               { ǜ }{ \@tabacckludge` { \" u } }
   }
   { \prop_gput:Nnn \c_@@_tone_prop #1 }
 %    \end{macrocode}
@@ -660,6 +657,21 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\@@_leave_vmode:}
+%    \begin{macrocode}
+\cs_if_exist:NTF \quitvmode
+  { \cs_new_eq:NN \@@_quit_vmode: \quitvmode }
+  {
+    \cs_new_protected_nopar:Npn \@@_quit_vmode:
+      {
+        \if_mode_vertical:
+          \exp_after:wN \tex_indent:D
+        \fi:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\@@_make_pinyin_box:nnn}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_make_pinyin_box:nnn #1#2#3
@@ -746,7 +758,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \keys_set:nn { xpinyin } {#2}
         \bool_if:NF \l_@@_enable_bool
           { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
-        \leavevmode
+        \@@_quit_vmode:
         \@@_single_aux:nn {#3}
       }
   }
@@ -985,7 +997,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \cs_new_eq:NN \@@_char_to_unicode:n \@@_UTFchar_to_unicode:n
       }
     \cs_new_eq:NN \@@_select_font:    \@@_select_font_aux:
-    \cs_new_eq:NN \@@_leavevmode:     \leavevmode
+    \cs_new_eq:NN \@@_leavevmode:     \@@_quit_vmode:
     \cs_new_eq:NN \@@_CJKsymbol_hook: \prg_do_nothing:
     \@ifpackageloaded { CJKpunct }
       { \@@_adjust_CJKpunct_hook: }
@@ -1306,7 +1318,7 @@ xpinyin = {
     dbfile  = "xpinyin.db"
   },
 %    \end{macrocode}
-% \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \cs{MetaPrefix}，因此我们在行首加了
+% \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \tn{MetaPrefix}，因此我们在行首加了
 % 空格，需要把它去掉。
 %    \begin{macrocode}
   preamble = string.gsub([[
