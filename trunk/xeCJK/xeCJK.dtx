@@ -346,12 +346,18 @@ $URL$
   { \tl_to_str:n {#2} }
 \cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
 \cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
+\AtBeginEnvironment { syntax }
+  {
+    \char_set_active_eq:NN \| \orbar
+    \char_set_active_eq:NN \( \defaultvalaux
+  }
 \ExplSyntaxOff
 \pdfstringdefDisableCommands{%
   \let\cs\bookmarkcstn
   \let\tn\bookmarkcstn
   \let\meta\bookmarkmeta}
 \geometry{includemp,hmargin={0mm,15mm},vmargin=15mm,footskip=7mm}
+\appto\meta@font@select{\xeCJKsetup{PunctStyle=plain,CJKecglue}}
 \preto\IndexParms{\linespread{1}}
 \appto\GlossaryParms{%
   \def\@idxitem{\par\hangindent 2em}%
@@ -359,14 +365,12 @@ $URL$
   \def\subsubitem{\@idxitem\hspace*{2em}}}
 \patchcmd\changes@{\space}{\lbrack}{}{}
 \patchcmd\@wrglossary{hdpindex}{hdclindex{\the\c@HD@hypercount}}{}{}
-\let\orig@meta\meta
-\def\meta#1{%
-  \orig@meta{\mbox{\itshape\xeCJKsetup{PunctStyle=plain,CJKecglue}#1}}}
-\def\TF{true\orvar{}false}
-\def\TTF{\defaultvar{true}\orvar{}false}
-\def\TFF{true\orvar\defaultvar{false}}
-\def\orvar{\textup{\textbar}}
-\def\defaultvar#1{\textbf{\textup{#1}}}
+\def\orbar{\textup{\textbar}}
+\def\defaultval#1{\textbf{\textup{#1}}}
+\def\defaultvalaux#1){\defaultval{#1}}
+\def\TF{true\orbar false}
+\def\TTF{\defaultval{true}\orbar false}
+\def\TFF{true\orbar\defaultval{false}}
 \@addtoreset{CodelineNo}{section}
 \def\gobblelineno{%
   \addtocounter{CodelineNo}{\m@ne}\let\theCodelineNo\relax}
@@ -397,7 +401,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9679}
+% \CheckSum{9714}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -422,7 +426,7 @@ $URL$
 % \end{enumerate}
 %
 % \pkg{xeCJK} 使用了 \XeTeX 的一些最新特性，需要 \XeTeX{} |0.9995.0 [2009/06/29]| 以
-% 后的版本。\pkg{xeCJK} 依赖 \package{everypage} 和 \hologo{LaTeX3} 项目的宏包套件
+% 后的版本。\pkg{xeCJK} 依赖 \hologo{LaTeX3} 项目的宏包套件
 % \package{l3kernel} 和 \package{l3packages} 。
 % \pkg{xeCJK} 还需要通过 \package{fontspec} 宏包来调用系统字体。
 % \pkg{xeCJK} 会自动根据需要载入这些宏包。
@@ -475,7 +479,7 @@ $URL$
 %
 % \begin{function}{\xeCJKsetup}
 %   \begin{syntax}
-%     \tn{xeCJKsetup} \{\meta{key_1}=\meta{var_1}, \meta{key_2}=\meta{var_2}, ...\}
+%     \tn{xeCJKsetup} \{\meta{key_1}=\meta{val_1}, \meta{key_2}=\meta{val_2}, ...\}
 %   \end{syntax}
 %   其中 \meta{key_1}, \meta{key_2} 是设置选项，而 \meta{val_1}, \meta{val_2} 则是对应选项的
 %   设置内容。多个选项可以在一个语句中完成设置。例如
@@ -498,7 +502,7 @@ $URL$
 %
 % \begin{function}[EXP,added=2012-11-22]{LocalConfig}
 %   \begin{syntax}
-%     LocalConfig = \marg{\TTF\orvar{}name}
+%     LocalConfig = \Arg{\TTF|name}
 %   \end{syntax}
 %   是否使用本地配置文件 \texttt{xeCJK-\meta{name}.cfg}。\meta{name} 可以是不包含
 %   空格的任意使文件名合法的字符串。如果设置为 |true|，则使用的是 \texttt{xeCJK.cfg}；
@@ -561,7 +565,7 @@ $URL$
 %
 % \begin{function}{xCJKecglue}
 %   \begin{syntax}
-%     xCJKecglue = \marg{\TFF\orvar{}glue}
+%     xCJKecglue = \Arg{\TFF|glue}
 %   \end{syntax}
 %   缺省状态下，\pkg{xeCJK} 不对源文件中直接输入的 CJK 文字与西文之间的空格进行调整，如
 %   果需要调整，请使用这个选项。如果使用这个选项，将使用 |CJKecglue| 替换源文件中直接输
@@ -588,7 +592,7 @@ $URL$
 %
 % \begin{function}[added=2012-12-04]{NewLineCS,NewLineCS+,NewLineCS-}
 %   \begin{syntax}
-%     NewLineCS = \{ \tn{par} |\[| \}
+%     NewLineCS = \{ \tn{par} \tn{[} \}
 %   \end{syntax}
 %   设置造成断行的控制序列，以便 |CheckSingle| 选项能够正确识别。
 %   以上是 \pkg{xeCJK} 的初始设置。
@@ -621,7 +625,7 @@ $URL$
 %
 % \begin{function}[rEXP]{AutoFakeBold}
 %   \begin{syntax}
-%     AutoFakeBold = \marg{\TFF\orvar{}数字}
+%     AutoFakeBold = \Arg{\TFF|数字}
 %   \end{syntax}
 %   全局设定当没有声明对应的粗体时，是否使用\textbf{\CJKfontspec[AutoFakeBold]{Adobe Song Std}伪粗体}；
 %   当输入的是数字时，将使用伪粗体，并将使用输入的数字作为伪粗体的默认粗细程度。
@@ -629,7 +633,7 @@ $URL$
 %
 % \begin{function}[rEXP]{AutoFakeSlant}
 %   \begin{syntax}
-%     AutoFakeSlant = \marg{\TFF\orvar{}数字}
+%     AutoFakeSlant = \Arg{\TFF|数字}
 %   \end{syntax}
 %   全局设定当没有声明对应的斜体时，是否使用\textit{\CJKfontspec[AutoFakeSlant]{Adobe Song Std}伪斜体}；
 %   当输入的是数字时，将使用伪斜体，并将使用输入的数字作为伪斜体的默认倾斜程度。
@@ -637,21 +641,21 @@ $URL$
 %
 % \begin{function}[rEXP]{EmboldenFactor}
 %   \begin{syntax}
-%     EmboldenFactor = \marg{数字\orvar\defaultvar{4}}
+%     EmboldenFactor = \Arg{数字|(4)}
 %   \end{syntax}
 %   设置伪粗体的默认粗细程度。
 % \end{function}
 %
 % \begin{function}[rEXP]{SlantFactor}
 %   \begin{syntax}
-%     SlantFactor = \marg{数字\orvar\defaultvar{0.167}}
+%     SlantFactor = \Arg{数字|(0.167)}
 %   \end{syntax}
 %   设置伪斜体的粗细程度，范围是 $-0.999 \sim 0.999$。
 % \end{function}
 %
 % \begin{function}[updated=2012-11-10]{PunctStyle}
 %   \begin{syntax}
-%     PunctStyle = \marg{\defaultvar{quanjiao}\orvar{}banjiao\orvar{}kaiming\orvar{}hangmobanjiao\orvar{}CCT\orvar{}plain\orvar{}...}
+%     PunctStyle = \Arg{(quanjiao)|banjiao|kaiming|hangmobanjiao|CCT|plain|...}
 %   \end{syntax}
 %   设置标点处理格式。\pkg{xeCJK} 中预先定义好的格式为
 %   \begin{description}[font=\mdseries\ttfamily,align=right,labelsep=1em,labelindent=2em,leftmargin=*]
@@ -668,7 +672,7 @@ $URL$
 %
 % \begin{function}[EXP]{KaiMingPunct,KaiMingPunct+,KaiMingPunct-}
 %   \begin{syntax}
-%     KaiMingPunct = \marg{\defaultvar{ ． 。？ ！}}
+%     KaiMingPunct = \Arg{( ． 。？ ！)}
 %   \end{syntax}
 %   设置开明（|kaiming|）标点处理格式时的句末点号，|KaiMingPunct| 后带的 |+| 与 |-|
 %   分别表示从已有的开明句末点号中增加或减少标点。
@@ -676,7 +680,7 @@ $URL$
 %
 % \begin{function}[EXP]{LongPunct,LongPunct+,LongPunct-}
 %   \begin{syntax}
-%     LongPunct = \marg{\defaultvar{ — ― ─ ‥ … }}
+%     LongPunct = \Arg{( — ― ─ ‥ … )}
 %   \end{syntax}
 %   设置长标点，例如破折号“——”与省略号“……”，允许在长标点前后
 %   断行，但是禁止在它们之间断行。
@@ -684,7 +688,7 @@ $URL$
 %
 % \begin{function}[EXP]{MiddlePunct,MiddlePunct+,MiddlePunct-}
 %   \begin{syntax}
-%     MiddlePunct = \marg{\defaultvar{ — ― ─ · · ･ }}
+%     MiddlePunct = \Arg{( — ― ─ · · ･ )}
 %   \end{syntax}
 %   设置居中显示的标点，例如间隔号“\textbf{·}”。对于在 CJK 文字之间的居中标点，
 %   \pkg{xeCJK} 会根据不同的标点处理格式，调整居中标点与前后文字之间的空白，保证
@@ -746,7 +750,7 @@ $URL$
 %
 % \begin{function}[updated=2013-11-16]{Verb}
 %   \begin{syntax}
-%     Verb = \meta{\TF\orvar\defaultvar{env}\orvar{}env+}
+%     Verb = \meta{\TF|(env)|env+}
 %   \end{syntax}
 %   \texttt{true} 表示在 \tn{verb} 命令或 \texttt{verbatim} 环境里不自动调整中英文
 %   之间的间距。\texttt{env} 选项在 \texttt{verbatim} 环境里自动计算中西文间距和中文
@@ -782,15 +786,15 @@ $URL$
 %
 % \begin{function}{AutoFakeBold,AutoFakeSlant}
 %   \begin{syntax}
-%     AutoFakeBold  = \marg{\TF\orvar{}数字}
-%     AutoFakeSlant = \marg{\TF\orvar{}数字}
+%     AutoFakeBold  = \Arg{\TF|数字}
+%     AutoFakeSlant = \Arg{\TF|数字}
 %   \end{syntax}
 %   局部设置当前字体族的伪粗和伪斜属性。如果没有在局部给出这些选项，将使用全局设定。
 % \end{function}
 %
 % \begin{function}[added=2013-06-07]{Mapping}
 %   \begin{syntax}
-%     Mapping = \marg{fullwidth-stop\orvar{}full-stop\orvar{}han-trad\orvar{}han-simp\orvar{}...}
+%     Mapping = \Arg{fullwidth-stop|full-stop|han-trad|han-simp|...}
 %   \end{syntax}
 %   \pkg{xeCJK} 提供了以上四个 \href{http://scripts.sil.org/teckit}{TECKit} 映射
 %   文件，可以在设置字体的时候通过 \texttt{Mapping} 选项来使用它们。其中
@@ -826,8 +830,8 @@ $URL$
 % \begin{function}[updated=2012-10-27]{\CJKfamily}
 %   \begin{syntax}
 %     \tn{CJKfamily}  \Arg{family}
-%     \tn{CJKfamily}|+| \Arg{family}
-%     \tn{CJKfamily}|-| \Arg{family}
+%     \tn{CJKfamily} + \Arg{family}
+%     \tn{CJKfamily} - \Arg{family}
 %   \end{syntax}
 %   用于在文档中切换 |CJK| 字体族，\meta{family} 必须预先声明。\tn{CJKfamily} 仅对
 %   CJK 字符类有效，\tn{CJKfamily}|+| 对所有字符类均有效，\tn{CJKfamily}|-| 对非 CJK 字
@@ -1059,7 +1063,7 @@ $URL$
 % \begin{function}[EXP]{\xeCJKDeclareSubCJKBlock}
 %   \begin{syntax}
 %     \tn{xeCJKDeclareSubCJKBlock}  \Arg{block} \Arg{block range}
-%     \tn{xeCJKDeclareSubCJKBlock}|*| \Arg{block} \Arg{block range}
+%     \tn{xeCJKDeclareSubCJKBlock} * \Arg{block} \Arg{block range}
 %   \end{syntax}
 %   其中 \meta{block range} 是逗号列表，可以是 CJK 字符的 |Unicode| 范围，也可以是单个字符
 %   的 |Unicode|。例如\strut
@@ -1103,7 +1107,7 @@ $URL$
 % \begin{function}{\xeCJKRestoreSubCJKBlock}
 %   \begin{syntax}
 %     \tn{xeCJKRestoreSubCJKBlock}  \Arg{block_1, block_2, ...}
-%     \tn{xeCJKRestoreSubCJKBlock}|*| \Arg{block_1, block_2, ...}
+%     \tn{xeCJKRestoreSubCJKBlock} * \Arg{block_1, block_2, ...}
 %   \end{syntax}
 %   在文档中恢复对 |CJK| 分区的声明。带星号的命令还重置标点符号所属的字符类。
 % \end{function}
@@ -1113,7 +1117,7 @@ $URL$
 % \begin{function}[EXP]{\xeCJKDeclareCharClass}
 %   \begin{syntax}
 %     \tn{xeCJKDeclareCharClass}  \Arg{class} \Arg{class range}
-%     \tn{xeCJKDeclareCharClass}|*| \Arg{class} \Arg{class range}
+%     \tn{xeCJKDeclareCharClass} * \Arg{class} \Arg{class range}
 %   \end{syntax}
 %   \meta{class range} 的格式和 \ref{subsec:block} 节的 \meta{block range} 相同。
 %   \meta{class} 的有效值见源代码（第 \ref{sec:xeCJK-class-set} 节）。\pkg{xeCJK} 已
@@ -1153,7 +1157,7 @@ $URL$
 % \begin{function}[EXP,updated=2013-08-22]{\xeCJKsetwidth}
 %   \begin{syntax}
 %     \tn{xeCJKsetwidth}  \Arg{标点列表} \Arg{length}
-%     \tn{xeCJKsetwidth}|*| \Arg{标点列表} \Arg{length}
+%     \tn{xeCJKsetwidth} * \Arg{标点列表} \Arg{length}
 %   \end{syntax}
 %   \meta{标点列表}可以是单个标点，也可以是多个标点。例如，
 %   \begin{verbatim}
@@ -1545,7 +1549,7 @@ $URL$
 % \begin{function}[updated=2014-11-04]{CJKfilltwosides}
 %   \begin{syntax}
 %     \tn{begin}\{CJKfilltwosides\} \oarg{位置} \Arg{宽度}
-%       文本内容|\\|
+%       文本内容\verb=\\=
 %       文本内容
 %     \tn{end}\{CJKfilltwosides\}
 %   \end{syntax}
@@ -1741,10 +1745,6 @@ $URL$
 \RequirePackage { xparse , l3keys2e }
 %    \end{macrocode}
 %
-%    \begin{macrocode}
-\RequirePackage { everypage }
-%    \end{macrocode}
-%
 % \subsection{内部工具}
 %
 % 分配临时变量。
@@ -1817,13 +1817,24 @@ $URL$
 % \end{macro}
 %
 % \changes{v3.2.7}{2013/11/09}{使用 \pkg{everypage} 往 \tn{shipout} 盒子里加钩子。}
+% \changes{v3.2.16}{2014/12/16}{不再依赖 \pkg{everypage} 宏包。}
 %
 % \begin{macro}{\xeCJKShipoutHook}
 % 在 \tn{shipout} 盒子里加钩子，可以影响到页眉页脚。\tn{AtBeginDvi} 将参数保存在
 % 盒子中，而 \pkg{atbegshi} 的 \tn{AtBeginShipout} 在 \tn{shipout} 盒子构建好之后
-% 才起作用，所以它们都影响不到页眉页脚。
+% 才起作用，所以它们都影响不到页眉页脚。我们通过往 \tn{@begindvi} 里加入钩子来完成。
+% 注意，第一次使用 \tn{@begindvi} 之后，它会将自身定义为 \tn{@empty}。
 %    \begin{macrocode}
-\AddEverypageHook { \xeCJKShipoutHook }
+\@@_after_preamble:n
+  { \tl_put_right:Nn \@begindvi { \xeCJK@first@begindvi } }
+\cs_new_protected_nopar:Npn \xeCJK@first@begindvi
+  {
+    \xeCJKShipoutHook
+    \cs_if_exist:NTF \@begindvi
+      { \tl_gput_right:Nn }
+      { \tl_const:Nn }
+    \@begindvi { \xeCJKShipoutHook }
+  }
 \NewDocumentCommand \xeCJKShipoutHook { }
   {
     \bool_if:NF \l_@@_shipout_hook_bool
@@ -1839,8 +1850,8 @@ $URL$
 % \changes{v3.2.11}{2014/03/14}{不再使用内部名字。}
 % 往 \tn{shipout} 盒子中加入钩子。
 %    \begin{macrocode}
-\cs_new_protected:Npn \xeCJK_add_to_shipout:n #1
-  { \tl_put_right:Nn \l_@@_shipout_hook_tl {#1} }
+\cs_new_protected:Npn \xeCJK_add_to_shipout:n
+  { \tl_put_right:Nn \l_@@_shipout_hook_tl }
 \tl_new:N \l_@@_shipout_hook_tl
 \bool_new:N \l_@@_shipout_hook_bool
 %    \end{macrocode}
@@ -2990,6 +3001,7 @@ $URL$
   {
     \c_group_begin_token
     \bool_set_true:N \l_@@_CJK_group_bool
+    \int_gset_eq:NN \g_@@_spacefactor_int \c_one_thousand
   }
 \bool_new:N \l_@@_CJK_group_bool
 \cs_new_eq:NN \xeCJK_class_group_end: \c_group_end_token
@@ -3058,10 +3070,11 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_Boundary_and_Default:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_Boundary_and_Default:
+  { \xeCJK_check_for_ecglue: }
+\cs_new_protected_nopar:Npn \@@_check_for_xecglue:
   {
     \bool_if:nTF
       {
-        \l_@@_xecglue_bool &&
         \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
         \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
       }
@@ -3075,19 +3088,22 @@ $URL$
           { \xeCJK_remove_node: \CJKecglue }
           { \xeCJK_space_glue: }
       }
+      { \@@_check_for_ecglue: }
+  }
+\cs_new_protected_nopar:Npn \@@_check_for_ecglue:
+  {
+    \bool_if:nTF
       {
-        \bool_if:nTF
-          {
-            \xeCJK_if_last_node_p:n { CJK }         ||
-            \xeCJK_if_last_node_p:n { CJK-nobreak }
-          }
-          { \xeCJK_remove_node: \CJKecglue }
-          {
-            \xeCJK_if_last_node:nT { CJK-space }
-              { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
-          }
+        \xeCJK_if_last_node_p:n { CJK }         ||
+        \xeCJK_if_last_node_p:n { CJK-nobreak }
+      }
+      { \xeCJK_remove_node: \CJKecglue }
+      {
+        \xeCJK_if_last_node:nT { CJK-space }
+          { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
       }
   }
+\cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3125,10 +3141,11 @@ $URL$
 % \begin{macro}[internal]{\xeCJK_Boundary_and_NormalSp:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_Boundary_and_NormalSp:
+  { \xeCJK_check_for_ecglue_normalsp: }
+\cs_new_protected_nopar:Npn \@@_check_for_xecglue_normalsp:
   {
     \bool_if:nTF
       {
-        \l_@@_xecglue_bool &&
         \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
         \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
       }
@@ -3142,11 +3159,14 @@ $URL$
           { \xeCJK_remove_node: \CJKecglue }
           { \xeCJK_space_glue: }
       }
-      {
-        \xeCJK_if_last_node:nT { CJK-space }
-          { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
-      }
+      { \@@_check_for_ecglue_normalsp: }
   }
+\cs_new_protected_nopar:Npn \@@_check_for_ecglue_normalsp:
+  {
+    \xeCJK_if_last_node:nT { CJK-space }
+      { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
+  }
+\cs_new_eq:NN \xeCJK_check_for_ecglue_normalsp: \@@_check_for_ecglue_normalsp:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3301,6 +3321,8 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2.16}{2014/12/16}{整理 \texttt{xCJKecglue} 的部分代码。}
+%
 % \begin{macro}{CJKecglue,xCJKecglue}
 % CJK 与西文和数学行内数学公式之间自动添加的空白。
 %    \begin{macrocode}
@@ -3317,12 +3339,20 @@ $URL$
         \bool_set_true:N  \l_@@_xecglue_bool
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
         \cs_set_eq:NN \xeCJK_check_for_xglue: \@@_check_for_xglue:
+        \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_xecglue:
+        \cs_set_eq:NN
+          \xeCJK_check_for_ecglue_normalsp:
+          \@@_check_for_xecglue_normalsp:
       } ,
     xCJKecglue / false   .code:n =
       {
         \bool_set_false:N \l_@@_xecglue_bool
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \xeCJK_space_glue:
         \xeCJK_cs_clear:N \xeCJK_check_for_xglue:
+        \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
+        \cs_set_eq:NN
+          \xeCJK_check_for_ecglue_normalsp:
+          \@@_check_for_ecglue_normalsp:
       } ,
     xCJKecglue / unknown .code:n =
       {
@@ -4461,7 +4491,7 @@ $URL$
               { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
           }
         \seq_gclear:N \g_@@_punct_style_seq
-        \xeCJKsetup { PunctStyle = plain }
+        \keys_set:nn { xeCJK / options } { PunctStyle = plain }
       }
   }
 %    \end{macrocode}
@@ -6478,8 +6508,8 @@ $URL$
     \tl_set:Nx \l_@@_off_verb_addon_tl
       {
         \bool_if:NTF \l_@@_xecglue_bool
-          { \xeCJKsetup { xCJKecglue = true } }
-          { \xeCJKsetup { xCJKecglue = false } }
+          { \keys_set:nn { xeCJK / options } { xCJKecglue = true } }
+          { \keys_set:nn { xeCJK / options } { xCJKecglue = false } }
         \exp_not:n
           {
             \cs_set_eq:NN \CJKglue \@@_shipout_CJKglue:
@@ -6491,7 +6521,7 @@ $URL$
           }
       }
     \xeCJK_add_to_shipout:n { \l_@@_off_verb_addon_tl }
-    \xeCJKsetup { xCJKecglue = false }
+    \keys_set:nn { xeCJK / options } { xCJKecglue = false }
   }
 \tl_new:N \l_@@_reset_shipout_skip_hook_tl
 %    \end{macrocode}
@@ -6556,9 +6586,9 @@ $URL$
             \@@_reset_char_class:n { HalfLeft }
             \@@_reset_char_class:n { HalfLeft }
             \@@_reset_char_class:n { NormalSpace }
-            \exp_not:c
-              { bool_set_ \bool_if:NTF \l_@@_xecglue_bool  { true } { false } :N }
-              \l_@@_xecglue_bool
+            \bool_if:NTF \l_@@_xecglue_bool
+              { \keys_set:nn { xeCJK / options } { xCJKecglue = true } }
+              { \keys_set:nn { xeCJK / options } { xCJKecglue = false } }
             \exp_not:n
               {
                 \cs_set_eq:NN \CJKglue   \@@_shipout_CJKglue:
@@ -6568,7 +6598,7 @@ $URL$
               }
           }
         \xeCJK_add_to_shipout:n { \xeCJKOffVerbAddon }
-        \xeCJKsetup { xCJKecglue = false }
+        \keys_set:nn { xeCJK / options } { xCJKecglue = false }
       }
     \skip_if_eq:nnTF { \l_@@_verb_exspace_skip } { \c_zero_skip }
       {
@@ -7723,7 +7753,8 @@ $URL$
           { \@@_ulem_glue:n \l_@@_ecglue_skip }
         \cs_set_protected_nopar:Npn \xeCJK_space_glue:
           { \@@_ulem_glue:n \l_@@_space_skip }
-        \xeCJKsetup { CheckFullRight = false , xCJKecglue = false }
+        \keys_set:nn { xeCJK / options }
+          { CheckFullRight = false , xCJKecglue = false }
         \xeCJK_ulem_detect_node:
       }
   }
@@ -7950,7 +7981,7 @@ $URL$
   {
     \tl_if_empty:NF \UL@start
       {
-        \xeCJK_zero_vrule:
+        \box_use:N \c_@@_null_box
         \xeCJK_no_break:
         \xeCJK_ulem_hskip:n { \box_wd:N \UL@box }
         \box_use:N \c_@@_null_box
@@ -7958,13 +7989,6 @@ $URL$
   }
 \box_new:N \c_@@_null_box
 \hbox_gset:Nn \c_@@_null_box { }
-\cs_new_protected_nopar:Npn \xeCJK_zero_vrule:
-  {
-    \tex_vrule:D
-      width \c_zero_dim
-      depth \c_zero_dim
-      height \c_zero_dim \scan_stop:
-  }
 %    \end{macrocode}
 % \end{macro}
 %
