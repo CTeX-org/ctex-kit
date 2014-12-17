@@ -450,65 +450,53 @@ This package consists of the file ctex.dtx, and the derived files
 \preto\AltMacroFont{\linespread{1}}
 \appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
-\csdef{meta }#1{\mbox{\texttt{\textlangle}\textit{#1}\texttt{\textrangle}}}
 \ExplSyntaxOn
-\cs_set_protected_nopar:Npn \__codedoc_special_main_index:n #1
+\cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
   {
-    \tl_if_empty:NTF \l__codedoc_function_name_prefix_tl
-      { \SpecialOptionIndex }
-      { \SpecialUsageIndex }
-    {#1}
-  }
-\cs_new_eq:NN \@@_special_main_index:n \SpecialMainIndex
-\group_begin:
-  \char_set_lccode:nn { `\/ } { `\\ }
-  \char_set_lccode:nn { `\L } { `\L }
-  \char_set_lccode:nn { `\T } { `\T }
-  \char_set_lccode:nn { `\X } { `\X }
-\tex_lowercase:D
-  {
-    \group_end:
-    \DeclareDocumentCommand \SpecialMainIndex { m }
+    \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
+    \str_if_eq:onTF { \@currenvir } { macrocode }
+      { \codeline@wrindex }
       {
-        \tl_if_head_eq_meaning:nNTF {#1} /
-          { \@@_special_main_index:n }
-          { \@@_special_main_option_index:n }
-        {#1}
+        \HD@target
+        \index
       }
-    \cs_new_protected:Npn \@@_special_main_option_index:n #1
       {
-        \@bsphack
-        \group_begin:
-          \special@index
-            {
-              #1 \actualchar { /ttfamily ~ #1 } ~ (option)
-              \encapchar main
-            }
-          \special@index
-            {
-              options: \levelchar #1 \actualchar { /ttfamily ~ #1 }
-              \encapchar main
-            }
-        \group_end:
-        \@esphack
-      }
-    \DeclareDocumentCommand \tn { m }
-      {
-        { \ttfamily /#1 }
-        \SortIndex
-          { TeX~and~LaTeX2e~commands }
-          {
-            /TeX{} ~ and ~ /LaTeXe{} ~ commands: \levelchar
-              #1 \actualchar { /ttfamily /bslash ~ #1 }
-          }
+        \tl_if_empty:nF { #3 #4 }
+          { #3 \actualchar #4 \levelchar }
+        #1
+        \actualchar
+        {
+          \token_to_str:N \verbatim@font \c_space_tl
+          \l__codedoc_index_escaped_macro_tl
+        }
+        \encapchar
+        hdclindex{\the\c@HD@hypercount}{#5}
       }
   }
+\DeclareDocumentCommand \cs { O{} m }
+  { \__codedoc_cmd_aux:no {#1} { \c__codedoc_backslash_tl #2 } }
+\DeclareDocumentCommand \tn { O{} m }
+  {
+    \__codedoc_cmd_aux:no
+      { index = TeX , replace = false , #1 }
+      { \c__codedoc_backslash_tl #2 }
+  }
+\DeclareDocumentCommand \meta { +m }
+  { \__codedoc_meta_aux:n {#1} }
+\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
+  { \tl_to_str:n {#2} }
+\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
+\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
 \AtBeginEnvironment { syntax }
   {
     \char_set_active_eq:NN \| \orbar
     \char_set_active_eq:NN \( \defaultvalaux
   }
 \ExplSyntaxOff
+\pdfstringdefDisableCommands{%
+  \let\cs\bookmarkcstn
+  \let\tn\bookmarkcstn
+  \let\meta\bookmarkmeta}
 \def\orbar{\textup{\textbar}}
 \def\defaultval#1{\textbf{\textup{#1}}}
 \def\defaultvalaux#1){\defaultval{#1}}
@@ -562,7 +550,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4176}
+% \CheckSum{4180}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2054,7 +2042,9 @@ This package consists of the file ctex.dtx, and the derived files
 \if_cs_exist:N \CJK@surr
   \cs_new_protected_nopar:Npn \ctex_plane_to_utfxvibe:Nn #1#2
     {
-      \int_set:Nn \l_@@_tmp_int { \int_from_hex:n {#2} }
+      \tl_set:Nx \l_@@_tmp_tl {#2}
+      \int_set:Nn \l_@@_tmp_int
+        { \exp_args:No \int_from_hex:n { \l_@@_tmp_tl } }
       \int_compare:nNnTF \l_@@_tmp_int < \c_two_hundred_fifty_six
         { \tl_gset:Nx #1 { \int_to_Hex:n { \l_@@_tmp_int } } }
         {
@@ -5365,7 +5355,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex.sty} 的 \opt{heading} 选项}
 %
 %    \begin{macrocode}
-\msg_new:nnn { warning } { not-standard-class }
+\msg_new:nnn { ctex } { not-standard-class }
   {
     None~of~the~standard~document~classes~was~loaded.\\
     ctex~may~not~work~as~expected.
