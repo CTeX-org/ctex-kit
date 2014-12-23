@@ -173,7 +173,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 %</driver|package>
 %<database>\ProvidesFile{xpinyin-database.def}%
-%<database>  [2014/06/24 v1.9a xpinyin database]
+%<database>  [2014/06/24 v1.9b xpinyin database]
 %
 %<*driver>
 \documentclass[full,a4paper]{l3doc}
@@ -274,7 +274,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{705}
+% \CheckSum{707}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -913,7 +913,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}[internal]{\@@_to_unicode_xetex:n}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_to_unicode_xetex:n #1
-  { \int_to_Hex:n { `#1 } }
+  { \int_to_arabic:n { `#1 } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -921,11 +921,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_UTF_to_unicode:n #1
   {
-    \int_to_Hex:n
+    \int_to_arabic:n
       { \exp_args:No \int_from_hex:n { \CJK@plane } * "100 + #1 }
   }
 \cs_new_nopar:Npn \@@_UTFchar_to_unicode:n #1
-  { \int_to_Hex:n { \@@_UTF_viii_to_unicode:NNNw #1 \q_stop } }
+  { \int_to_arabic:n { \@@_UTF_viii_to_unicode:NNNw #1 \q_stop } }
 \cs_new_nopar:Npn \@@_UTF_viii_to_unicode:NNNw #1#2#3#4 \q_stop
   {
     \tl_if_empty:nTF {#4}
@@ -938,9 +938,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % \begin{macro}[internal]{\@@_GBK_to_unicode:n,\@@_GBKchar_to_unicode:n}
 %    \begin{macrocode}
 \cs_new_nopar:Npn \@@_GBK_to_unicode:n #1
-  { \CJKtu_sfd_map:nn { \CJK@plane } {#1} }
+  { \int_to_arabic:n { " \CJKtu_sfd_map:nn { \CJK@plane } {#1} } }
 \cs_new_nopar:Npn \@@_GBKchar_to_unicode:n #1
-  { \CJKchartouni {#1} }
+  { \int_to_arabic:n { " \CJKchartouni {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1414,16 +1414,15 @@ function xpinyin.output (db)
   local f = assert(io.open(db or xpinyin.database.dbfile, "w"))
   local preamble = xpinyin.preamble:gsub("%$(%w+)", xpinyin.database)
   f:write(preamble, "\n")
-  local hanzi, code_point, pinyin
+  local hanzi, pinyin
   local mt = { }
   for index, pyt in xpinyin.pairsByKeys(xpinyin.readings) do
     pinyin = assert(xpinyin.grep(pyt))
-    code_point = string.format("%X", index)
     hanzi = xpinyin.uchar(index)
-    f:write("\\XPYU{", hanzi, "}{", code_point, "}{", pinyin, "}\n")
+    f:write("\\XPYU{", hanzi, "}{", index, "}{", pinyin, "}\n")
     pinyin = xpinyin.multiple(pyt)
     if pinyin then
-      mt[#mt + 1] = "\\XPYUM{" .. hanzi .. "}{" .. code_point .. "}{" .. pinyin .."}"
+      mt[#mt + 1] = "\\XPYUM{" .. hanzi .. "}{" .. index .. "}{" .. pinyin .."}"
     end
   end
   f:write(table.concat(mt, "\n"), "\n")
