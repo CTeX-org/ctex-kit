@@ -389,7 +389,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \begin{syntax}
 %     \tn{setpinyin} \Arg{汉字} \Arg{拼音}
 %   \end{syntax}
-%   \pkg{xpinyin} 宏包的拼音数据（\file{xpinyin-database.def}）来源于 \texttt{Unicode 7.0.0}
+%   \pkg{xpinyin} 宏包的拼音数据（\file{xpinyin-database.def}）来源于 \texttt{Unicode}
 %   的 \texttt{Unihan} 数据库\footnotemark 中的 \file{Unihan_Readings.txt} 文件。对于多
 %   音字，一般来说这个文件选用的是常用读音。可以使用 \tn{setpinyin} 来设置多音字的首选读音。
 % \end{function}
@@ -1297,6 +1297,7 @@ end
 xpinyin = {
   svnid    = "$Id$",
   uchar    = unicode.utf8.char,
+  ugsub    = unicode.utf8.gsub,
   readings = { },
   fixreadings = {
 %    \end{macrocode}
@@ -1314,6 +1315,15 @@ xpinyin = {
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
     version = "Unicode version: 7.0.0",
     dbfile  = "xpinyin.db"
+  },
+%    \end{macrocode}
+% \texttt{Unihan} 的 \texttt{kHanyuPinlu} 数据把韵母 |ou| 的音调都标在了 |u| 上。
+%    \begin{macrocode}
+  outones = {
+    oū = "ōu" ,
+    oú = "óu" ,
+    oǔ = "ǒu" ,
+    où = "òu"
   },
 %    \end{macrocode}
 % \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \tn{MetaPrefix}，因此我们在行首加了
@@ -1404,16 +1414,16 @@ function xpinyin.output (db)
   local f = assert(io.open(db or xpinyin.database.dbfile, "w"))
   local preamble = xpinyin.preamble:gsub("%$(%w+)", xpinyin.database)
   f:write(preamble, "\n")
-  local pinyin, code_point, char
+  local hanzi, code_point, pinyin
   local mt = { }
   for index, pyt in xpinyin.pairsByKeys(xpinyin.readings) do
     pinyin = assert(xpinyin.grep(pyt))
     code_point = string.format("%X", index)
-    char = xpinyin.uchar(index)
-    f:write("\\XPYU{", char, "}{", code_point, "}{", pinyin, "}\n")
+    hanzi = xpinyin.uchar(index)
+    f:write("\\XPYU{", hanzi, "}{", code_point, "}{", pinyin, "}\n")
     pinyin = xpinyin.multiple(pyt)
     if pinyin then
-      mt[#mt + 1] = "\\XPYUM{" .. char .. "}{" .. code_point .. "}{" .. pinyin .."}"
+      mt[#mt + 1] = "\\XPYUM{" .. hanzi .. "}{" .. code_point .. "}{" .. pinyin .."}"
     end
   end
   f:write(table.concat(mt, "\n"), "\n")
@@ -1441,7 +1451,8 @@ end
 %    \begin{macrocode}
 function xpinyin.grep (pyt)
   if pyt.HanyuPinlu then
-    return pyt.HanyuPinlu:match("[^%(]+"), "HanyuPinlu"
+    return xpinyin.ugsub(pyt.HanyuPinlu:match("[^%(]+"), "o[ūúǔù]$", xpinyin.outones),
+           "HanyuPinlu"
   elseif pyt.Mandarin then
     return pyt.Mandarin:match("%S+"), "Mandarin"
   elseif pyt.XHC1983 then
