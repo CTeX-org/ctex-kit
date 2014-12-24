@@ -167,13 +167,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
 %<package>\ProvidesExplPackage{\ExplFileName}
-  {\ExplFileDate}{2.0}{\ExplFileDescription}
+  {\ExplFileDate}{2.1}{\ExplFileDescription}
 %<*driver>
 \ExplSyntaxOff
 %</driver>
 %</driver|package>
 %<database>\ProvidesFile{xpinyin-database.def}%
-%<database>  [2014/12/23 v2.0 xpinyin database]
+%<database>  [2014/12/24 v2.1 xpinyin database]
 %
 %<*driver>
 \documentclass[full,a4paper]{l3doc}
@@ -274,7 +274,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{707}
+% \CheckSum{710}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
@@ -1303,12 +1303,11 @@ xpinyin = {
 %    \end{macrocode}
 % 为汉字“〇”增加拼音。
 %    \begin{macrocode}
-    {"U+3007", "Mandarin", "líng"},
-%    \end{macrocode}
-% 修改汉字“女”的错误拼音。
-%    \begin{macrocode}
-    {"U+5973", "HanyuPinlu", "nǚ(1129) rǔ(37)"}
+    {"U+3007", "Mandarin", "líng"}
   },
+%    \end{macrocode}
+%
+%    \begin{macrocode}
   database = {
     source  = "http://www.unicode.org/Public/UNIDATA/Unihan.zip",
     file    = "Unihan_Readings.txt",
@@ -1316,16 +1315,6 @@ xpinyin = {
     version = "Unicode version: 7.0.0",
     dbfile  = "xpinyin.db"
   },
-%    \end{macrocode}
-% \texttt{Unihan} 的 \texttt{kHanyuPinlu} 数据把韵母 |ou| 的音调都标在了 |u| 上。
-%    \begin{macrocode}
-  outones = {
-    oū = "ōu" ,
-    oú = "óu" ,
-    oǔ = "ǒu" ,
-    où = "òu"
-  },
-%    \end{macrocode}
 % \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \tn{MetaPrefix}，因此我们在行首加了
 % 空格，需要把它去掉。
 %    \begin{macrocode}
@@ -1400,7 +1389,7 @@ end
 % 往拼音表中加入项目。
 %    \begin{macrocode}
 function xpinyin.insert (unicode, prop, value)
-  local index = tonumber(unicode:sub(3), 16)
+  local index = tonumber(unicode:match("%x+$"), 16)
   if not xpinyin.readings[index] then
     xpinyin.readings[index] = { }
   end
@@ -1445,14 +1434,11 @@ function xpinyin.pairsByKeys (t, f)
 end
 %    \end{macrocode}
 %
-% 按照 \texttt{HanyuPinlu}、\texttt{Mandarin}、\texttt{XHC1983}、\texttt{HanyuPinyin}
-% 的顺序选择最常用的拼音。
+% 按照 \texttt{Mandarin}、\texttt{XHC1983}、\texttt{HanyuPinyin}
+% 的顺序选择最常用的拼音。\texttt{HanyuPinlu} 的质量较差，不采用。
 %    \begin{macrocode}
 function xpinyin.grep (pyt)
-  if pyt.HanyuPinlu then
-    return xpinyin.ugsub(pyt.HanyuPinlu:match("[^%(]+"), "o[ūúǔù]$", xpinyin.outones),
-           "HanyuPinlu"
-  elseif pyt.Mandarin then
+  if pyt.Mandarin then
     return pyt.Mandarin:match("%S+"), "Mandarin"
   elseif pyt.XHC1983 then
     return pyt.XHC1983:match(":(%S+)"), "XHC1983"
