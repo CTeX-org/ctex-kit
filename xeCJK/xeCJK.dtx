@@ -403,7 +403,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9718}
+% \CheckSum{9737}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9060,7 +9060,10 @@ $URL$
     \lst@ifbreaklines
       \cs_set_eq:NN \@@_listings_CJK_toks_hook: \@@_listings_breaklines_toks:
     \fi:
+    \int_set:Nn \l_@@_listings_max_char_int
+      { \lst@ifec 255 \else: 127 \fi: }
   }
+\int_new:N \l_@@_listings_max_char_int
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9070,32 +9073,41 @@ $URL$
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_toks_hook:
   {
-    \tl_set:Nx \l_@@_restore_listings_toks_tl
+    \tl_clear:N \l_@@_restore_listings_toks_tl
+    \seq_map_inline:Nn \g_@@_class_seq
+      { \@@_backup_inter_class_toks:n { ##1 } }
+    \seq_map_inline:Nn \g_@@_non_CJK_class_seq
       {
-        \@@_backup_inter_class_toks:nn { Boundary } { Default }
-        \@@_backup_inter_class_toks:nn { Boundary } { CJK }
-        \@@_backup_inter_class_toks:nn { Boundary } { CM }
-        \@@_backup_inter_class_toks:nn { Boundary } { HangulJamo }
-        \@@_backup_inter_class_toks:nn { Boundary } { FullLeft }
-        \@@_backup_inter_class_toks:nn { Boundary } { FullRight }
+        \str_if_eq:nnF { ##1 } { Boundary }
+          {
+            \xeCJK_inter_class_toks:nnn { Boundary } { ##1 }
+              { \@@_listings_process_Default:nN { ##1 } }
+          }
       }
-    \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
-      {
-        \tl_put_right:Nx \l_@@_restore_listings_toks_tl
-          { \@@_backup_inter_class_toks:nn { Boundary } { CJK/##1 } }
-      }
-    \xeCJK_inter_class_toks:nnn { Boundary } { Default }
-      { \@@_listings_process_Default:N }
     \xeCJK_inter_class_toks:nnn { Boundary } { CM }
       { \@@_listings_process_CM:nN { \c_zero } }
     \@@_listings_CJK_toks_hook:
   }
-\tl_new:N \l_@@_restore_listings_toks_tl
-\cs_new_nopar:Npn \@@_backup_inter_class_toks:nn #1#2
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_backup_inter_class_toks:n}
+% 注意，给 \tn{XeTeXinterchartoks} 赋空值，会导致 \XeTeX 崩溃！
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_backup_inter_class_toks:n #1
   {
-    \xeCJK_inter_class_toks:nnn {#1} {#2}
-      { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
+    \tl_set:Nx \l_@@_tmp_tl
+      { \xeCJK_get_inter_class_toks:nn { Boundary } {#1} }
+    \tl_if_empty:NF \l_@@_tmp_tl
+      {
+        \tl_put_right:Nx \l_@@_restore_listings_toks_tl
+          {
+            \xeCJK_inter_class_toks:nnn { Boundary } {#1}
+              { \exp_not:o { \l_@@_tmp_tl } }
+          }
+      }
   }
+\tl_new:N \l_@@_restore_listings_toks_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9137,17 +9149,42 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_Default:N,\@@_listings_process_CJK:nN}
+% \begin{macro}[internal]{\@@_listings_process_Default:N}
 % \changes{v3.2.3}{2013/06/08}{在 \texttt{listings} 坏境中对 \tn{charcode} 大于
 % $255$ 的字符根据其 \tn{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
+% \changes{v3.3.1}{2015/01/27}{对 \pkg{listings} 的字符扩展不影响到其符号表中的
+% 七位或八位字符。}
 % 对于 \tn{charcode} 大于 $255$ 的字符，根据 \tn{catcode} 进行处理。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_listings_process_Default:N #1
+\cs_new_protected_nopar:Npn \@@_listings_process_Default:nN #1#2
   {
-    \token_if_letter:NTF #1
-      { \lst@ProcessLetter #1 }
-      { \lst@ProcessOther  #1 }
+    \int_compare:nNnTF
+      { \xeCJK_token_value_charcode:N #2 } > \l_@@_listings_max_char_int
+      {
+        \token_if_letter:NTF #2
+          { \lst@ProcessLetter #2 }
+          { \lst@ProcessOther  #2 }
+      }
+      { \@@_listings_output_Default:nN {#1} #2 }
   }
+%    \end{macrocode}
+% 输出时，要注意把对应的 \tn{XeTeXinterchartoks} 清空掉，否则会造成死循环。
+% \cs{scan_stop:} 是造边界，输出 \cs{group_end:}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_listings_output_Default:nN #1#2
+  {
+    \group_begin:
+      \xeCJK_clear_inter_class_toks:nn { Boundary } {#1}
+      \xeCJK_inter_class_toks:nnn {#1} { Boundary } { \group_end: }
+      #2
+      \scan_stop:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@@_listings_process_CJK:nN}
+% 对 CJK 字符类的处理。
+%    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_listings_process_CJK:nN #1#2
   {
     \token_if_letter:NTF #2
@@ -9341,7 +9378,7 @@ $URL$
         \token_if_cs:NTF #3
           { #2#3 }
           {
-            \int_compare:nNnTF { `#3 } > { \lst@ifec 255 \else: 127 \fi: }
+            \int_compare:nNnTF { `#3 } > { \l_@@_listings_max_char_int }
               { \@@_listings_peek_active_loop:TF { #1#3 } { #2#3 } }
               { #2#3 }
           }
