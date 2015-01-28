@@ -403,7 +403,7 @@ $URL$
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9737}
+% \CheckSum{9745}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2859,7 +2859,17 @@ $URL$
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_clear_inter_class_toks:nn}
-% 清除相邻类别之间的内容。
+% 清除相邻类别之间的内容。注意，直接赋空值可能会导致 \XeTeX 崩溃。例如
+% \begin{verbatim}
+%   \XeTeXinterchartokenstate = 1
+%   \XeTeXcharclass`A=10
+%   \XeTeXinterchartoks 10 10 = {xx}
+%   \begingroup
+%     \XeTeXinterchartoks 10 10 = {} AA
+%   \endgroup
+%   \bye
+% \end{verbatim}
+% 如果把上述例子中的分组 \tn{begingroup} 和 \tn{endgroup} 去掉，则结果正常，甚为怪异。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_clear_inter_class_toks:nn #1#2
   { \xeCJK_inter_class_toks:nnn {#1} {#2} { \prg_do_nothing: } }
@@ -2896,8 +2906,13 @@ $URL$
 \cs_new_protected_nopar:Npn \xeCJK_copy_inter_class_toks:nnnn #1#2#3#4
   {
     \tl_set:Nx \l_@@_tmp_tl { \xeCJK_get_inter_class_toks:nn {#3} {#4} }
-    \tl_if_empty:NF \l_@@_tmp_tl
-      { \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmp_tl } }
+    \tl_if_empty:NTF \l_@@_tmp_tl
+      {
+        \tl_set:Nx \l_@@_tmp_tl { \xeCJK_get_inter_class_toks:nn {#1} {#2} }
+        \tl_if_empty:NF \l_@@_tmp_tl
+          { \xeCJK_clear_inter_class_toks:nn {#1} {#2} }
+      }
+      { \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:o \l_@@_tmp_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2911,7 +2926,7 @@ $URL$
     \tl_if_empty:NF \l_@@_tmp_tl
       {
         \tl_replace_all:Nnn \l_@@_tmp_tl {#3} {#4}
-        \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:V \l_@@_tmp_tl }
+        \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:o \l_@@_tmp_tl }
       }
   }
 %    \end{macrocode}
@@ -9074,8 +9089,8 @@ $URL$
 \cs_new_protected_nopar:Npn \@@_listings_toks_hook:
   {
     \tl_clear:N \l_@@_restore_listings_toks_tl
-    \seq_map_inline:Nn \g_@@_class_seq
-      { \@@_backup_inter_class_toks:n { ##1 } }
+    \seq_map_function:NN
+      \g_@@_class_seq \@@_backup_inter_class_toks:n
     \seq_map_inline:Nn \g_@@_non_CJK_class_seq
       {
         \str_if_eq:nnF { ##1 } { Boundary }
@@ -9098,12 +9113,13 @@ $URL$
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \xeCJK_get_inter_class_toks:nn { Boundary } {#1} }
-    \tl_if_empty:NF \l_@@_tmp_tl
+    \tl_put_right:Nx \l_@@_restore_listings_toks_tl
       {
-        \tl_put_right:Nx \l_@@_restore_listings_toks_tl
+        \xeCJK_inter_class_toks:nnn { Boundary } {#1}
           {
-            \xeCJK_inter_class_toks:nnn { Boundary } {#1}
-              { \exp_not:o { \l_@@_tmp_tl } }
+            \tl_if_empty:NTF \l_@@_tmp_tl
+              { \exp_not:N \prg_do_nothing: }
+              { \exp_not:o \l_@@_tmp_tl }
           }
       }
   }
@@ -9149,7 +9165,7 @@ $URL$
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_process_Default:N}
+% \begin{macro}[internal]{\@@_listings_process_Default:nN}
 % \changes{v3.2.3}{2013/06/08}{在 \texttt{listings} 坏境中对 \tn{charcode} 大于
 % $255$ 的字符根据其 \tn{catcode} 区分 \texttt{letter} 和 \texttt{other}。}
 % \changes{v3.3.1}{2015/01/27}{对 \pkg{listings} 的字符扩展不影响到其符号表中的
