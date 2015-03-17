@@ -242,6 +242,12 @@
 :unpack
 
   echo.
+  echo Extract version
+  git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx > ctexver.tex
+  echo.>> ctexver.tex
+  git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx >> ctexver.tex
+
+  echo.
   echo Unpacking files
 
   for %%I in (%UNPACK%) do (
