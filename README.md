@@ -1,7 +1,7 @@
-CTeXKit
-=======
+CTeX-kit
+========
 
-CTeXKit is a collection of TeX/LaTeX/ConTeXt macro packages, related scripts,
+CTeX-kit is a collection of TeX/LaTeX/ConTeXt macro packages, related scripts,
 and resource files made specifically for Chinese TeX users, especially
 Mandrarin users.
 
@@ -15,10 +15,8 @@ It is maintained by [CTeX][ctex] community.
 Current Upstream Versions
 -------------------------
 
-* xeCJK: 2.3.10, from [CTeX forum][xecjk]
-* CJKpunct: 4.8.2 & 4.8.1-2, from [cjkpunct]
-* zhmCJK: 0.8, from [Leo Liu's trunk, r26][zhmcjk]
+* CJKpunct: 4.8.2, from [cjkpunct]
+* zhmCJK: 0.9a, from [leo-liu/tex-pkg][zhmcjk]
 
-[xecjk]: http://bbs.ctex.org/viewthread.php?tid=40232
 [cjkpunct]: http://bbs.ctex.org/viewthread.php?tid=49516&page=1&fromuid=56635#pid344946
-[zhmcjk]: https://code.google.com/p/leoliu-tex-pkg/source/browse/trunk/zhmCJK?r=26
+[zhmcjk]: https://github.com/leo-liu/tex-pkg/commit/589985d67fab11f3d1cb249a070deba6863a5077

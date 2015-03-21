@@ -1,6 +1,6 @@
 % \iffalse meta-comment
 %
-% Copyright (C) 2012--2013 by Leo Liu <leoliu.pku@gmail.com>
+% Copyright (C) 2012--2014 by Leo Liu <leoliu.pku@gmail.com>
 % ---------------------------------------------------------------------------
 % This work may be distributed and/or modified under the
 % conditions of the LaTeX Project Public License, either version 1.3
@@ -154,7 +154,7 @@ If you are interested in the process of development you may observe
 %<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
 %<package>\ProvidesPackage{zhmCJK}
 %<*package>
-    [2013/08/10 v0.9 setup CJK fonts dynamically]
+    [2014/06/20 v0.9a setup CJK fonts dynamically]
 %</package>
 %
 %<*driver>
@@ -231,7 +231,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{639}
+% \CheckSum{873}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -719,6 +719,7 @@ If you are interested in the process of development you may observe
 % \changes{v0.9}{2013/08/10}{增加宏包 \texttt{embed} 选项，允许 DVIPDFMx 驱动
 % 不嵌入字体。}
 % \begin{option}{embed}
+% 控制字体是否嵌入。只对 DVIPDFMx 有效。
 %    \begin{macrocode}
 \DeclareBoolOption[true]{embed}
 \AddToKeyvalOption*{embed}{%
@@ -868,16 +869,15 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
-%
-% 在导言区和正文中分别开启 \pkg{CJK} 的功能。
+% \changes{v0.9a}{2014/06/20}{使用 \texttt{CJK*} 的环境头代替完整 \texttt{CJK*}
+% 环境，可以减少一个全局分组。（由李清建议）}
+% 在导言区和正文中分别开启 \pkg{CJK} 的功能。这里使用 "\CJK*" 代替原来的 "CJK"
+% 环境，可以避免在 "document" 环境内引入一层分组，同时全局使用也不需要在全文最
+% 后使用 "\end{CJK}"，最后也不需要 "\clearpage"。
 %    \begin{macrocode}
 \AtEndOfPackage{\CJK@makeActive}
-\edef\document{%
-  \unexpanded\expandafter{\document}%
-  \unexpanded{\begin{CJK*}{\zhm@encoding}{\CJKfamilydefault}}}
-\edef\enddocument{%
-  \unexpanded{\clearpage\end{CJK*}}%
-  \unexpanded\expandafter{\enddocument}}
+\AtBeginDocument{%
+  \@nameuse{CJK*}{\zhm@encoding}{\CJKfamilydefault}}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@fontnum}
@@ -1095,6 +1095,8 @@ If you are interested in the process of development you may observe
 % \end{macro}
 %
 % \begin{macro}{\zhm@setfontmap}
+% \begin{macro}{\zhm@maplines}
+% \changes{v0.9a}{2014/06/20}{保存重复的字体映射。（李清）}
 % 设置字体映射，两个参数是字体编号和字体文件名。字体映射需要在输出例程初始处设
 % 置。同时将映射行完全展开后保存起来备用。
 %    \begin{macrocode}
@@ -1104,6 +1106,7 @@ If you are interested in the process of development you may observe
     \unexpanded\expandafter{\zhm@maplines}%
     \zhm@mapline{#1}{#2}}}
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % 如果载入了 \pkg{atbegshi} 宏包，则还要处理修改了的输出例程。这会影响
@@ -1415,6 +1418,116 @@ If you are interested in the process of development you may observe
 \DeclareRobustCommand\ttfamily
         {\not@math@alphabet\ttfamily\mathtt
          \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
+%    \end{macrocode}
+%
+% \begin{macro}{\zhm@setup@pinyin@UTF8}
+% \changes{v???}{2014/06/20}{处理 UTF-8 编码下的拼音符号输入。}
+% 下面简单处理 UTF-8 编码下的汉语拼音符号，让下列拼音符号
+% \begin{quote}
+%   \ttfamily
+%   āáǎà ōóǒò ēéěè ê īíǐì ūúǔù ǖǘǚǜü ńňǹ \\
+%   ĀÁǍÀ ŌÓǑÒ ĒÉĚÈ Ê ŃŇǸ
+% \end{quote}
+% 可以直接输入，不受 \pkg{CJK} 包影响。
+%    \begin{macrocode}
+\@namedef{zhm@setup@pinyin@UTF8}{%
+  \@namedef{u8:\detokenize{ā}}{\={a}}%
+  \@namedef{u8:\detokenize{á}}{\'{a}}%
+  \@namedef{u8:\detokenize{ǎ}}{\v{a}}%
+  \@namedef{u8:\detokenize{à}}{\`{a}}%
+  \@namedef{u8:\detokenize{ō}}{\={o}}%
+  \@namedef{u8:\detokenize{ó}}{\'{o}}%
+  \@namedef{u8:\detokenize{ǒ}}{\v{o}}%
+  \@namedef{u8:\detokenize{ò}}{\`{o}}%
+  \@namedef{u8:\detokenize{ē}}{\={e}}%
+  \@namedef{u8:\detokenize{é}}{\'{e}}%
+  \@namedef{u8:\detokenize{ě}}{\v{e}}%
+  \@namedef{u8:\detokenize{è}}{\`{e}}%
+  \@namedef{u8:\detokenize{ê}}{\^{e}}%
+  \@namedef{u8:\detokenize{ī}}{\={\i}}%
+  \@namedef{u8:\detokenize{í}}{\'{\i}}%
+  \@namedef{u8:\detokenize{ǐ}}{\v{\i}}%
+  \@namedef{u8:\detokenize{ì}}{\`{\i}}%
+  \@namedef{u8:\detokenize{ū}}{\={u}}%
+  \@namedef{u8:\detokenize{ú}}{\'{u}}%
+  \@namedef{u8:\detokenize{ǔ}}{\v{u}}%
+  \@namedef{u8:\detokenize{ù}}{\`{u}}%
+  \@namedef{u8:\detokenize{ǖ}}{\={\"{u}}}%
+  \@namedef{u8:\detokenize{ǘ}}{\'{\"{u}}}%
+  \@namedef{u8:\detokenize{ǚ}}{\v{\"{u}}}%
+  \@namedef{u8:\detokenize{ǜ}}{\`{\"{u}}}%
+  \@namedef{u8:\detokenize{ü}}{\"{u}}%
+  \@namedef{u8:\detokenize{ń}}{\'{n}}%
+  \@namedef{u8:\detokenize{ň}}{\v{n}}%
+  \@namedef{u8:\detokenize{ǹ}}{\`{n}}%
+  \@namedef{u8:\detokenize{Ā}}{\={A}}%
+  \@namedef{u8:\detokenize{Á}}{\'{A}}%
+  \@namedef{u8:\detokenize{Ǎ}}{\v{A}}%
+  \@namedef{u8:\detokenize{À}}{\`{A}}%
+  \@namedef{u8:\detokenize{Ō}}{\={O}}%
+  \@namedef{u8:\detokenize{Ó}}{\'{O}}%
+  \@namedef{u8:\detokenize{Ǒ}}{\v{O}}%
+  \@namedef{u8:\detokenize{Ò}}{\`{O}}%
+  \@namedef{u8:\detokenize{Ē}}{\={E}}%
+  \@namedef{u8:\detokenize{É}}{\'{E}}%
+  \@namedef{u8:\detokenize{Ě}}{\v{E}}%
+  \@namedef{u8:\detokenize{È}}{\`{E}}%
+  \@namedef{u8:\detokenize{Ê}}{\^{E}}%
+  \@namedef{u8:\detokenize{Ń}}{\'{N}}%
+  \@namedef{u8:\detokenize{Ň}}{\v{N}}%
+  \@namedef{u8:\detokenize{Ǹ}}{\`{N}}%
+%    \end{macrocode}
+% 修正 \pkg{CJKutf8} 的一个 bug。截至 2012/05/07 v4.8.3 此问题还存在，如果后续
+% 版本修正此错误则删去这里的补丁。
+%    \begin{macrocode}
+  \def\CJK@XX##1##2{%
+    \ifx ##2\protect
+      \expandafter\CJK@XXp\expandafter##1%
+    \else
+      \expandafter\ifx\csname u8:\string ##1\string ##2\endcsname \relax
+        \csname CJK@\number `##1\endcsname{`##2}\expandafter\CJK@ignorespaces
+      \else
+        \csname u8:\string ##1\string ##2\endcsname
+      \fi
+    \fi}%
+  \def\CJK@XXp##1##2{%
+    \expandafter\ifx\csname u8:\string ##1\string ##2\endcsname \relax
+      \csname CJK@\number `##1\endcsname{`##2}\expandafter\CJK@ignorespaces
+    \else
+      \csname u8:\string ##1\string ##2\endcsname
+    \fi}%
+  \def\CJK@XXX##1##2##3{%
+    \ifx ##2\protect
+      \expandafter\CJK@XXXp\expandafter##1##3%
+    \else
+      \expandafter\ifx\csname u8:\string ##1\string ##2\string ##3\endcsname \relax
+        \csname CJK@\number `##1\endcsname{`##2}{`##3}\expandafter\CJK@ignorespaces
+      \else
+        \csname u8:\string ##1\string ##2\string ##3\endcsname
+      \fi
+    \fi}%
+  \def\CJK@XXXp##1##2##3##4{%
+    \expandafter\ifx\csname u8:\string ##1\string ##2\string ##4\endcsname \relax
+      \csname CJK@\number `##1\endcsname{`##2}{`##4}\expandafter\CJK@ignorespaces
+    \else
+      \csname u8:\string ##1\string ##2\string ##4\endcsname
+    \fi}%
+}
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhm@setup@pinyin}
+% 调用具体编码下的拼音设置。目前只有 UTF-8 编码有合理的设置，其他编码较难实
+% 现。
+%    \begin{macrocode}
+\def\zhm@setup@pinyin{%
+  \@nameuse{zhm@setup@pinyin@\zhm@encoding}}
+\zhm@setup@pinyin
+%    \end{macrocode}
+% \end{macro}
+%
+%
+%    \begin{macrocode}
 %</package>
 %    \end{macrocode}
 %
