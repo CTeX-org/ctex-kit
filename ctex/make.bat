@@ -29,7 +29,7 @@
   set UNPACK=%SOURCE%
   set ICONVFILE=ctexcap-gbk.cfg
   set TXT=README
-  set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
+  set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv ver
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
   set TDSFILES=%CTANFILES% sty cls def cfg fd tex spa
@@ -60,6 +60,8 @@
   for %%I in (%CLEAN%) do (
     if exist *.%%I del /q *.%%I
   )
+
+  if exist *~ del /q *~
 
 :clean-aux
 
@@ -243,9 +245,9 @@
 
   echo.
   echo Extract version
-  git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx > ctexver.tex
-  echo.>> ctexver.tex
-  git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx >> ctexver.tex
+  git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx > ctex.ver
+  echo.>> ctex.ver
+  git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo$Id: ctex.dtx %%h %%ai %%an <%%ae> $}" ctex.dtx >> ctex.ver
 
   echo.
   echo Unpacking files
