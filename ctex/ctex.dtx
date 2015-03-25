@@ -593,7 +593,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4232}
+% \CheckSum{4244}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1114,6 +1114,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{function}
 %
 % \subsubsection{宏包兼容选项}
+% \label{subsubs:options-pkg}
 %
 % \begin{function}{fancyhdr}
 %   \begin{syntax}
@@ -1128,7 +1129,8 @@ This package consists of the file ctex.dtx, and the derived files
 %   \begin{syntax}
 %     fntef = <\TFF>
 %   \end{syntax}
-%   启用该选项将自动调用 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 宏包。
+%   启用该选项将自动调用 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 宏包，同时禁止相关
+%   宏包对 \cs{emph} 的影响，禁用彩色设置。
 % \end{function}
 %
 % \begin{function}{hyperref}
@@ -2223,6 +2225,23 @@ This package consists of the file ctex.dtx, and the derived files
 % \opt{nospace} 选项相当于 |space=false|，成为过时选项。
 % \end{function}
 %
+% \begin{function}{fntef}
+% 相比旧版本，新版本宏包选项会禁用 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 的彩色设
+% 置。（\ref{subsubs:options-pkg}~节）
+% \end{function}
+%
+% \begin{function}{\CTEXunderdot, \CTEXunderline, \CTEXunderdblline,
+%   \CTEXunderwave, \CTEXsout, \CTEXxout, \CTEXfilltwosides}
+% 在调用 \opt{fntef} 宏包选项的同时，旧版本 \CTeX{} 宏包由于需要支持 CCT 系
+% 统，会将以 |\CJK| 开头的 \cs{CJKunderline} 等宏换名为以 |\CTEX| 开头的
+% \cs{CTEXunderline} 等宏。此功能在新版本的 \CTeX{} 宏包中已失去意义。
+%
+% 此外，在 \pdfTeX{} 引擎下，用于设置格式的 \cs{CJKunderdotbasesep} 等宏也被换
+% 名为 \cs{CTEXunderdotbasesep} 等宏。
+%
+% 在新版本中，上述由 \opt{fntef} 衍生的相关宏都成为过时命令。
+% \end{function}
+%
 % \begin{function}{\CTEXindent}
 % 更新 \cs{ccwd} 宽度后设置 |\parindent=2\ccwd|。过时命令。
 % \end{function}
@@ -2615,6 +2634,9 @@ This package consists of the file ctex.dtx, and the derived files
   { Option~ `\l_keys_key_tl'~ is~ deprecated.\\ #1 }
 \msg_new:nnn { ctex } { deprecated-command }
   { Command~ #1 is~ deprecated.\\ #2 }
+\msg_new:nnn { ctex } { deprecated-environment }
+  { Environment~ `#1'~ is~ deprecated.\\ #2 }
+\cs_generate_variant:Nn \msg_warning:nnnn { nncn }
 %    \end{macrocode}
 %
 % \subsection{宏包选项}
@@ -4884,6 +4906,14 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{\opt{fntef} 选项}
 %
+% \changes{v2.0}{2015/03/25}{关闭 \opt{fntef} 选项下的彩色设置。}
+% \changes{v2.0}{2015/03/25}{\cs{CTEXunderdot}, \cs{CTEXunderline},
+% \cs{CTEXunderdblline}, \cs{CTEXunderwave}, \cs{CTEXsout}, \cs{CTEXxout} 是过
+% 时命令；\env{CTEXfilltwosides} 是过时环境。}
+%
+% 载入 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 并做适当格式设置。有关 |\CTEX| 开头
+% 的宏定义是过时命令，仅做兼容性保留。
+%
 %    \begin{macrocode}
 %<*luatex>
 \msg_new:nnn { ctex } { fntef-not-available }
@@ -4896,8 +4926,25 @@ This package consists of the file ctex.dtx, and the derived files
   \clist_map_inline:nn
     { underdot , underline , underdblline , underwave , sout , xout }
 %<*pdftex|xetex>
-    { \cs_new_protected_nopar:cpx { CTEX#1 } { \exp_not:c { CJK#1 } } }
-  \cs_new_protected_nopar:Npn { \CTEXfilltwosides } { \CJKfilltwosides }
+    { 
+%<pdftex>      \cs_set_eq:cN { CJK#1color } \c_empty_tl
+%<xetex>      \keys_set:nn { xeCJK / options } { #1 / format = { } }
+      \cs_new_protected_nopar:cpx { CTEX#1 }
+        {
+          \exp_not:n
+            {
+              \msg_warning:nncn { ctex } { deprecated-command } { CTEX#1 }
+                { You~ can~ use~ the~ command~ with~ prefix~ \CJK~ instead. }
+            }
+          \exp_not:c { CJK#1 }
+        }
+    }
+  \cs_new_protected_nopar:Npn { \CTEXfilltwosides }
+    {
+      \msg_warning:nnnn { ctex } { deprecated-environment } { CTEXfilltwosides }
+        { You~ can~ use~ `CJKfilltwosides'~ environment~ instead. }
+      \CJKfilltwosides
+    }
   \cs_new_protected_nopar:Npn { \endCTEXfilltwosides } { \endCJKfilltwosides }
 %</pdftex|xetex>
 %<*luatex>
@@ -5548,7 +5595,7 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \NewDocumentCommand \CTEXnoindent { }
   {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXindent }
+    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXnoindent }
       { \parindent is~ set~ to~ 0pt. }
     \dim_zero:N \parindent
   }
