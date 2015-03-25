@@ -30,7 +30,7 @@
   set SPDOC=xunicode-symbols
   set SPDOCFLAG=
   set TXT=README
-  set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv
+  set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv ver
   set CLEAN=bib bst cfg cls eps gz ins pdf sty tex txt tds.zip def
   set CTANFILES=ins dtx pdf
   set TDSFILES=%CTANFILES% tex sty cfg def
@@ -255,6 +255,12 @@
   goto :EOF
 
 :unpack
+
+  echo.
+  echo Extract version
+  git log -1 --pretty=format:"\def\xeCJKPutVersion{\string\GetIdInfo$Id: xeCJK.dtx %%h %%ai %%an <%%ae> $}" xeCJK.dtx > xeCJK.ver
+  echo.>> xeCJK.ver
+  git log -1 --pretty=format:"\def\xeCJKGetVersionInfo{\GetIdInfo$Id: xeCJK.dtx %%h %%ai %%an <%%ae> $}" xeCJK.dtx >> xeCJK.ver
 
   echo.
   echo Unpacking files

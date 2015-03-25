@@ -52,7 +52,7 @@ This package consists of the file  xeCJK.dtx,
 
 If you are interested in the process of development you may observe
 
-    http://code.google.com/p/ctex-kit/updates/list
+    https://github.com/CTeX-org/ctex-kit
 
     Author:
             Wenchang Sun    <sunwch@nankai.edu.cn>
@@ -90,13 +90,52 @@ CJK scripts fonts (TrueType or OpenType).
 %</internal>
 %<*install>
 
+\newread\inputcheck
+\openin\inputcheck=xeCJK.ver
+\ifeof\inputcheck
+  \def\xeCJKPutVersion{\string\GetIdInfo$Id$}
+\else
+  \input xeCJK.ver
+\fi
+\closein\inputcheck
+
 \input l3docstrip.tex
+
+\def\checkOption<#1{%
+  \ifcase
+    \ifx*#10\else \ifx/#11\else
+    \ifx+#12\else \ifx-#13\else
+    \ifx<#14\else \ifx @#15\else
+    \ifx.#16\else
+    7\fi\fi\fi\fi\fi\fi\fi\relax
+  \expandafter\starOption\or
+  \expandafter\slashOption\or
+  \expandafter\plusOption\or
+  \expandafter\minusOption\or
+  \expandafter\verbOption\or
+  \expandafter\moduleOption\or
+  \expandafter\expOption\or
+  \expandafter\doOption\fi
+  #1%
+}
+\def\expOption .#1>#2\endLine{%
+  \maybeMsg{<.#1 . >}%
+  \Evaluate{#1}%
+  \begingroup
+    \catcode`\\=0 \catcode`\{=1 \catcode`\}=2
+    \xdef\expandedLineStuff{\scantokens{#2\noexpand}}%
+  \endgroup
+  \def\do##1##2##3{%
+    \if1\Expr{##2}\StreamPut##1{\expandedLineStuff}\fi
+    }%
+  \activefiles
+}
+
 \keepsilent
 \askforoverwritefalse
+
 \preamble
 
-$Id$
-$URL$
 -----------------------------------------------------------------
    Author:
             Wenchang Sun    <sunwch@nankai.edu.cn>
@@ -202,7 +241,12 @@ $URL$
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
 %</!config&!xunextra>
-\GetIdInfo$Id$
+%<.!driver>\xeCJKPutVersion
+%<*driver>
+\InputIfFileExists{xeCJK.ver}{}{
+  \def\xeCJKGetVersionInfo{\GetIdInfo$Id$}}
+\xeCJKGetVersionInfo
+%</driver>
 %<*driver|package>
   {Typesetting CJK scripts with XeLaTeX}
 %</driver|package>
@@ -273,10 +317,9 @@ $URL$
 \AtBeginDocument{\DeleteShortVerb{\"}\MakeShortVerb{\|}}
 \def\contentsname{目录}
 \DeclareUrlCommand\email{\def\UrlLeft##1\UrlRight{\href{mailto:##1}{##1}}}
-\def\ctexkit{\href{http://code.google.com/p/ctex-kit/}{\texttt{ctex-kit}}}
+\def\ctexkit{\href{https://github.com/CTeX-org/ctex-kit/}{\texttt{ctex-kit}}}
 \def\ctexkitrev#1{%
-  \href{http://code.google.com/p/ctex-kit/source/detail?r=#1}
-       {\texttt{ctex-kit} rev#1}}
+  \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
 \DeclareDocumentCommand\package{om}{%
   \begingroup\edef\x{\endgroup\lowercase{%
     \noexpand\href{http://www.ctan.org/pkg/\IfNoValueTF{#1}{#2}{#1}}}}%
@@ -2432,7 +2475,7 @@ $URL$
 %
 % \begin{macro}[var,internal]{\c_@@_CJ_chars_clist}
 % Conditional Japanese Starter (CJ)。这类字符的禁则是可选的^^A
-% \footnote{\url{https://code.google.com/p/ctex-kit/issues/detail?id=166}}，
+% \footnote{\url{https://github.com/CTeX-org/ctex-kit/issues/165}}，
 % 为实现的简单计，我们把它们归入 CJK 类，即没有禁则。
 % \PrintPunctList{CJ}{Conditional Japanese Starter}
 %    \begin{macrocode}
