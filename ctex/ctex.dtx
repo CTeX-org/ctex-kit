@@ -593,7 +593,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4244}
+% \CheckSum{4265}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1193,7 +1193,19 @@ This package consists of the file ctex.dtx, and the derived files
 % 持宏包，它们的字体、字号和文字修饰的命令可能各不相同。为此，我们定制了一些命
 % 令，使得用户可以用统一的方式对文档中的文字格式进行控制。
 %
-% \subsubsection{中文字体命令}
+% \subsubsection{中文字库与字体命令}
+%
+% 中文字库集合除了可以在宏包选项中设定，也可以在导言区使用 \cs{ctexset} 命令设
+% 定。
+% \begin{function}{fontset}
+%   \begin{syntax}
+%     fontset = <adobe|fandol|founder|mac|ubuntu|windows|...>
+%   \end{syntax}
+% 选择中文字库，与宏包选项意义相同（\ref{subsubs:options-CJK-font}~节）。但是
+% 因为之前可能已经设置过一次中文字体，不能再使用 |none| 字库。
+% 
+% 注意 \opt{fontset} 选项只能在导言区使用，不能在正文中使用。
+% \end{function}
 %
 % \CTeX{} 宏包预定义的中文字库基本上都定义了以下四种常用的中文字体命令。
 %
@@ -1217,6 +1229,18 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{optdesc}
 %   \item[\cs{yahei}] 微软雅黑，CJK 等价命令 |\CJKfamily{zhyahei}|。
 % \end{optdesc}
+%
+% \subsubsection{中文标点}
+%
+% 除了在宏包选项中用 \opt{punct} 设置标点格式，在导言区或正文中，也可以使用
+% \cs{ctexset} 设置标点格式。
+% \begin{function}{punct}
+%   \begin{syntax}
+%     punct = <(quanjiao)|banjiao|kaiming|CCT|plain>
+%   \end{syntax}
+%   设置标点处理格式。功能与宏包选项 \opt{punct} 类似
+%   （\ref{subsubs:options-type-style}~节）。
+% \end{function}
 %
 % \subsubsection{字号与间距}
 %
@@ -2416,6 +2440,23 @@ This package consists of the file ctex.dtx, and the derived files
 \else:
   \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
 \fi:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_if_preamble:TF}
+% 测试是否在 \LaTeXe{} 的导言区。\LaTeXe{} 中的 \cs{@onlypreamble} 命令可以处
+% 理宏参数，使其在 \env{document} 环境后被重定义为 \cs{@notprerr}，而又由于
+% \cs{@onlypreamble} 本身也被这样处理过，因此可以测试 \cs{@onlypreamble} 是否
+% 与 \cs{@notprerr} 相同来确定是否在导言区。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \ctex_if_preamble: { TF }
+  {
+    \if_meaning:w \@onlypreamble \@notprerr
+      \prg_return_true:
+    \else:
+      \prg_return_false:
+    \fi:
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5114,7 +5155,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \begin{macro}{space}
-% 在正文中设置忽略空格方式。
+% 在导言区或正文中设置忽略空格方式。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
@@ -5136,6 +5177,30 @@ This package consists of the file ctex.dtx, and the derived files
       { \msg_warning:nn { ctex } { invalid-option } }
 %</luatex>
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{punct}
+% 在导言区或正文中设置标点符号输出格式。
+%    \begin{macrocode}
+%<*pdftex|xetex>
+\keys_define:nn { ctex }
+  {
+    punct .code:n =
+      {
+        \ctex_if_preamble:TF
+          {
+            \keys_set:nn { ctex / option } { punct = #1 }
+          }
+          {
+            \tl_set_eq:NN \l_@@_punct_tl { #1 }
+%<pdftex>            \punctstyle { \l_@@_punct_tl }
+%<xetex>            \xeCJKsetup { \l_@@_punct_tl }
+          }
+      } ,
+    punct .default:n = { quanjiao } ,
+  }
+%</pdftex|xetex>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6762,19 +6827,23 @@ This package consists of the file ctex.dtx, and the derived files
   {
     fontset .code:n =
       {
-        \str_if_eq_x:nnTF {#1} { none }
-          { \msg_warning:nnn { ctex } { invalid-value } {#1} }
+        \ctex_if_preamble:TF
           {
-            \str_if_eq:onTF { \g_@@_fontset_tl } { none }
+            \str_if_eq_x:nnTF {#1} { none }
+              { \msg_warning:nnn { ctex } { invalid-value } {#1} }
               {
-                \tl_gset:Nx \g_@@_fontset_tl {#1}
-                \ctex_load_fontset:
-              }
-              {
-                \msg_error:nnxx { ctex } { fontset-loaded }
-                  { \g_@@_fontset_tl } {#1}
+                \str_if_eq:onTF { \g_@@_fontset_tl } { none }
+                  {
+                    \tl_gset:Nx \g_@@_fontset_tl {#1}
+                    \ctex_load_fontset:
+                  }
+                  {
+                    \msg_error:nnxx { ctex } { fontset-loaded }
+                      { \g_@@_fontset_tl } {#1}
+                  }
               }
           }
+          { \msg_error:nn { ctex } { fontset-only-preamble } }
       }
   }
 \msg_new:nnnn { ctex } { fontset-loaded }
@@ -6783,6 +6852,10 @@ This package consists of the file ctex.dtx, and the derived files
     \str_if_eq:nnF {#1} {#2} { \\ Fontset~`#2'~will~be~ignored. }
   }
   { Only~one~fontset~can~be~loaded~in~the~preamble. }
+\msg_new:nnn { ctex } { fontset-only-preamble }
+  {
+    The~ `fontset'~ option~ can~ be~ used~ only~ in~ preamble.
+  }
 \AtBeginDocument
   {
     \keys_define:nn { ctex }
