@@ -593,7 +593,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4265}
+% \CheckSum{4271}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3215,8 +3215,11 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \pkg{CJKpunct} 宏包会在 \cs{AtBeginDocument} 的里设置标点格式为 \opt{quanjiao}。
 %    \begin{macrocode}
-\str_if_eq_x:nnF { \l_@@_punct_tl } { quanjiao }
-  { \AtBeginDocument { \punctstyle { \l_@@_punct_tl } } }
+\AtBeginDocument
+  {
+    \str_if_eq_x:nnF { \l_@@_punct_tl } { quanjiao }
+      { \punctstyle { \l_@@_punct_tl } }
+  }
 %    \end{macrocode}
 %
 % \tn{CJK@envStart} 的定义是
@@ -3805,15 +3808,18 @@ This package consists of the file ctex.dtx, and the derived files
 \ExplSyntaxOn
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{\g_@@_jfm_tl}
+% \begin{macro}[internal]{\ctex_mono_jfm:n,\l_@@_jfm_tl}
 % \pkg{luatexja} 中与标点格式 \opt{plain} 对应的 \texttt{JFM} 是 \opt{mono}。
 %    \begin{macrocode}
-\tl_new:N \g_@@_jfm_tl
-\tl_gset:Nx \g_@@_jfm_tl
+\cs_new_protected_nopar:Npn \ctex_mono_jfm:n #1
   {
-    \str_if_eq_x:nnTF { \l__ctex_punct_tl } { plain }
-      { mono } { \l__ctex_punct_tl }
+    \str_if_eq:nnTF {#1} { plain }
+      { \tl_set:Nn \l_@@_jfm_tl { mono } }
+      { \tl_set:Nn \l_@@_jfm_tl {#1} }
   }
+\tl_new:N \l_@@_jfm_tl
+\cs_generate_variant:Nn \ctex_mono_jfm:n { o }
+\ctex_mono_jfm:o { \l__ctex_punct_tl }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3831,9 +3837,9 @@ This package consists of the file ctex.dtx, and the derived files
   { \tl_set_eq:NN \g_fontspec_encoding_tl \CJK@encoding }
 \DeclareFontFamily { \CJK@encoding } { song } { }
 \DeclareFontShape { \CJK@encoding } { song } { \mddefault } { \updefault }
-  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=\g_@@_jfm_tl } { }
+  { <-> psft:SimSun:cid=Adobe-GB1-5;jfm=\l_@@_jfm_tl } { }
 \DeclareFontShape { \CJK@encoding } { song } { \bfdefault } { \updefault }
-  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=\g_@@_jfm_tl } { }
+  { <-> psft:SimHei:cid=Adobe-GB1-5;jfm=\l_@@_jfm_tl } { }
 \tl_const:Nn \c_@@_math_tl { CJKmath }
 \DeclareSymbolFont { \c_@@_math_tl }
   { \CJK@encoding } { song } { \mddefault } { \updefault }
@@ -3892,7 +3898,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected_nopar:Npn \@@_use_global_options:N #1
   {
     \clist_concat:NNN #1 \g_@@_default_features_clist #1
-    \clist_put_left:Nx #1 { JFM = \g_@@_jfm_tl }
+    \clist_put_left:Nx #1 { JFM = \l_@@_jfm_tl }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5181,26 +5187,20 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}{punct}
-% 在导言区或正文中设置标点符号输出格式。
+% 在导言区或正文中设置标点符号输出格式。\pkg{luatexja} 设置的是字体的默认 \texttt{JFM}，
+% 只会影响到之后设置的字体。
 %    \begin{macrocode}
-%<*pdftex|xetex>
 \keys_define:nn { ctex }
   {
     punct .code:n =
       {
-        \ctex_if_preamble:TF
-          {
-            \keys_set:nn { ctex / option } { punct = #1 }
-          }
-          {
-            \tl_set:Nx \l_@@_punct_tl { #1 }
-%<pdftex>            \punctstyle { \l_@@_punct_tl }
-%<xetex>            \xeCJKsetup { PunctStyle = \l_@@_punct_tl }
-          }
+        \tl_set:Nx \l_@@_punct_tl { #1 }
+%<pdftex>        \punctstyle { \l_@@_punct_tl }
+%<xetex>        \xeCJKsetup { PunctStyle = \l_@@_punct_tl }
+%<luatex>        \ctex_mono_jfm:o { \l_@@_punct_tl }
       } ,
     punct .default:n = { quanjiao } ,
   }
-%</pdftex|xetex>
 %    \end{macrocode}
 % \end{macro}
 %
