@@ -446,7 +446,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9745}
+% \CheckSum{9753}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -625,6 +625,14 @@ CJK scripts fonts (TrueType or OpenType).
 %   段末的最后一个字是 CJK 文字或者标点符号，并且倒数第二和第三个字都是文字才能
 %   正确处理处理孤字的问题。如果这倒数三个字有作为控制序列的参数的情况，那么一般
 %   来说也不能正确处理。
+% \end{function}
+%
+% \begin{function}[added=2015-04-08]{WidowPenalty}
+%   \begin{syntax}
+%     WidowPenalty = \Arg{penalty|(10000)}
+%   \end{syntax}
+%   使用 \texttt{CheckSingle} 选项后，设置段末三个汉字之间的 penalty。
+%   初始值为 $10000$，即禁止在它们之间折行。
 % \end{function}
 %
 % \begin{function}[added=2012-12-06]{PlainEquation}
@@ -3186,7 +3194,7 @@ CJK scripts fonts (TrueType or OpenType).
     \bool_if:nTF
       {
         \xeCJK_if_last_node_p:n { CJK }         ||
-        \xeCJK_if_last_node_p:n { CJK-nobreak }
+        \xeCJK_if_last_node_p:n { CJK-widow }
       }
       { \xeCJK_remove_node: \CJKecglue }
       {
@@ -3299,8 +3307,8 @@ CJK scripts fonts (TrueType or OpenType).
       { \xeCJK_if_last_node_p:n { CJK } || \xeCJK_if_last_node_p:n { CJK-space } }
       { \xeCJK_remove_node: \CJKglue }
       {
-        \xeCJK_if_last_node:nTF { CJK-nobreak }
-          { \xeCJK_remove_node: \xeCJK_no_break: \CJKglue }
+        \xeCJK_if_last_node:nTF { CJK-widow }
+          { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
           {
             \bool_if:nTF
               {
@@ -3392,7 +3400,7 @@ CJK scripts fonts (TrueType or OpenType).
 \xeCJK_declare_node:n { CJK-space }
 \xeCJK_declare_node:n { default }
 \xeCJK_declare_node:n { default-space }
-\xeCJK_declare_node:n { CJK-nobreak }
+\xeCJK_declare_node:n { CJK-widow }
 \xeCJK_declare_node:n { normalspace }
 %    \end{macrocode}
 % \end{macro}
@@ -4183,6 +4191,27 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.3.1}{2015/04/08}{新选项 \texttt{WidowPenalty}。}
+%
+% \begin{macro}{WidowPenalty}
+% 设置段末汉字的 penalty，默认值是 $10000$。
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options }
+  {
+    WidowPenalty .int_set:N = \l_@@_widow_penalty_int ,
+    WidowPenalty .default:n = { \c_ten_thousand }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_widow_penalty:}
+% 预防段末孤字而插入的 penalty，值为 \cs{l_@@_widow_penalty_int}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_widow_penalty:
+  { \tex_penalty:D \l_@@_widow_penalty_int }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\xeCJK_check_single:Nw}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:Nw #1
@@ -4294,8 +4323,8 @@ CJK scripts fonts (TrueType or OpenType).
   {
     \peek_catcode:NTF \c_math_toggle_token
       {
-        \xeCJK_no_break: \@@_check_single_save:N #1
-        \xeCJK_make_node:n { CJK-nobreak } #2 #4
+        \xeCJK_widow_penalty: \@@_check_single_save:N #1
+        \xeCJK_make_node:n { CJK-widow } #2 #4
       }
       { \@@_check_single_save:N #1 #2#3#4 }
   }
@@ -4330,8 +4359,8 @@ CJK scripts fonts (TrueType or OpenType).
       { \group_align_safe_end: \use_iii:nnn }
       { \xeCJK_check_single_env:nnNn }
       {
-        \xeCJK_no_break: \@@_check_single_save:N #1
-        \xeCJK_make_node:n { CJK-nobreak } #2#3
+        \xeCJK_widow_penalty: \@@_check_single_save:N #1
+        \xeCJK_make_node:n { CJK-widow } #2#3
       }
       { \@@_check_single_save:N #1 #2#3 }
   }
@@ -6997,6 +7026,7 @@ CJK scripts fonts (TrueType or OpenType).
     PunctStyle      = quanjiao ,
     NewLineCS       = { \par \[ } ,
     EnvCS           = { \begin \end } ,
+    WidowPenalty    = \c_ten_thousand ,
     NoBreakCS       = { \footnote \footnotemark \nobreak } ,
     KaiMingPunct    = { ^^^^3002 ^^^^ff0e ^^^^ff1f ^^^^ff01 } ,
     LongPunct       = { ^^^^2014 ^^^^2015 ^^^^2500 ^^^^2025 ^^^^2026 } ,
