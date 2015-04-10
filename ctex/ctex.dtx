@@ -612,7 +612,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4272}
+% \CheckSum{4285}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3431,15 +3431,39 @@ This package consists of the file ctex.dtx, and the derived files
 \fi:
 %    \end{macrocode}
 %
-% \begin{macro}[internal]{\CJK@ignorespaces,\ctex_auto_ignorespaces:}
-% 默认忽略汉字之间的空格。并关闭名字空间，保存 |\CJK@@ignorespaces| 的定义，方便使用。
+% \begin{macro}[internal]{\ctex_auto_ignorespaces:}
+% 关闭名字空间，保存 \tn{CJK@@ignorespaces} 的定义，方便使用。
 %    \begin{macrocode}
 %<@@=>
-\cs_set_eq:NN \CJK@ignorespaces \CJK@@ignorespaces
 \cs_new_eq:NN \ctex_auto_ignorespaces: \CJK@@ignorespaces
 %    \end{macrocode}
 %    \begin{macrocode}
 %<@@=ctex>
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_ignorespaces_case:N,\ctex_set_ignorespaces:}
+% 设置忽略空格的的方式。根据 \opt{space} 选项的值重定义 \tn{CJK@ignorespaces}，
+% 并保存起来供 \tn{CJKhook} 备用。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ignorespaces_case:N #1
+  {
+    \cs_set_protected_nopar:Npn \ctex_set_ignorespaces:
+      { \cs_set_eq:NN \CJK@ignorespaces #1 }
+    \ctex_set_ignorespaces:
+  }
+\cs_new_protected_nopar:Npn \ctex_set_ignorespaces:
+  { \cs_set_eq:NN \CJK@ignorespaces \ctex_auto_ignorespaces: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\CJKhook}
+% \env{CJK} 和 \env{CJK*} 环境都会重新定义 \tn{CJK@ignorespaces}。我们在 \pkg{CJK}
+% 宏包提供的 \tn{CJKhook} 里重新设置它，让这两个环境忽略空格的方式都受 \opt{space}
+% 选项的控制。这对 \pkg{zhmCJK} 是必要的。
+%    \begin{macrocode}
+\tl_if_exist:NF \CJKhook { \tl_new:N \CJKhook }
+\tl_put_right:Nn \CJKhook { \ctex_set_ignorespaces: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5332,21 +5356,23 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{space}
 % 在导言区或正文中设置忽略空格方式。
+% \pdfTeX{} 和 \XeTeX{} 下初始设置为 \opt{auto}，\LuaTeX{} 下是无效选项。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
 %<*pdftex|xetex>
     space .choice: ,
-    space .default:n = { true } ,
     space / true  .code:n =
-%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \prg_do_nothing: } ,
+%<pdftex>      { \ctex_ignorespaces_case:N \prg_do_nothing: } ,
 %<xetex>      { \xeCJKsetup { CJKspace = true } } ,
     space / auto  .code:n =
-%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \ctex_auto_ignorespaces: } ,
+%<pdftex>      { \ctex_ignorespaces_case:N \ctex_auto_ignorespaces: } ,
 %<xetex>      { \xeCJKsetup { CJKspace = false } } ,
     space / false .code:n =
-%<pdftex>      { \cs_set_eq:NN \CJK@ignorespaces \tex_ignorespaces:D }
-%<xetex>      { \xeCJKsetup { CJKspace = false } }
+%<pdftex>      { \ctex_ignorespaces_case:N \tex_ignorespaces:D } ,
+%<xetex>      { \xeCJKsetup { CJKspace = false } } ,
+    space .default:n = { true } ,
+    space .initial:n = { auto }
 %</pdftex|xetex>
 %<*luatex>
     space .code:n =
