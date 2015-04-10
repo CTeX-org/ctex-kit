@@ -17,19 +17,25 @@ makeindexexe = "zhmakeindex"
 if string.sub (package.config, 1, 1) == "\\" then
   os_mv = "move /y"
   os_append_newline = "echo.>>"
-  os_dollar = "$"
+  os_shellescape = function(s)
+    return s
+  end
 else
   os_mv = "mv"
   os_append_newline = "echo >>"
-  os_dollar = "\\$"
+  os_shellescape = function(s)
+    s = s:gsub([[\]], [[\\]])
+    s = s:gsub([[%$]], [[\$]])
+    return s
+  end
 end
 
 function extract_git_version()
-  os.execute([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo]] ..
-  	os_dollar .. [[Id: ctex.dtx %h %ai %an <%ae> ]] .. os_dollar .. [[}" ctex.dtx > ctex.ver]])
+  os.execute(os_shellescape([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo]] ..
+  	[[$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx > ctex.ver]]))
   os.execute(os_append_newline .. " ctex.ver")
-  os.execute([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo]]
-  	.. os_dollar .. [[Id: ctex.dtx %h %ai %an <%ae> ]] .. os_dollar .. [[}" ctex.dtx >> ctex.ver]])
+  os.execute(os_shellescape([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo]] ..
+  	[[$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx >> ctex.ver]]))
 end
 
 function clean_git_version()
