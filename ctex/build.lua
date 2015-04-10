@@ -17,15 +17,19 @@ makeindexexe = "zhmakeindex"
 if string.sub (package.config, 1, 1) == "\\" then
   os_mv = "move /y"
   os_append_newline = "echo.>>"
+  os_dollar = "$"
 else
   os_mv = "mv"
   os_append_newline = "echo >>"
+  os_dollar = "\\$"
 end
 
 function extract_git_version()
-  os.execute([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx > ctex.ver]])
+  os.execute([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo]] ..
+  	os_dollar .. [[Id: ctex.dtx %h %ai %an <%ae> ]] .. os_dollar .. [[}" ctex.dtx > ctex.ver]])
   os.execute(os_append_newline .. " ctex.ver")
-  os.execute([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx >> ctex.ver]])
+  os.execute([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo]]
+  	.. os_dollar .. [[Id: ctex.dtx %h %ai %an <%ae> ]] .. os_dollar .. [[}" ctex.dtx >> ctex.ver]])
 end
 
 function clean_git_version()
@@ -49,35 +53,43 @@ function hooked_bundleunpack()
   end
 end
 
--- 修改自 l3build.lua 2015/02/01 r5504 的 doc() 函数
+-- 修改自 l3build.lua 2015/04/02 r5564 的 doc() 函数
 -- 只修改了 makeindex 的命令为可配置的
 function mod_doc ()
   local function typeset (file)
     local name = stripext (file)
     -- A couple of short functions to deal with the repeated steps in a
     -- clear way
+    local function biber (name)
+      if fileexists (typesetdir .. "/" .. name .. ".bcf") then
+        return (run (typesetdir, "biber " .. name))
+      end
+    end
     local function makeindex (name, inext, outext, logext, style)
       if fileexists (typesetdir .. "/" .. name .. inext) then
-        run (
-          typesetdir ,
-          makeindexexe .. " -s " .. style .. " -o " .. name .. outext
-            .. " -t " .. name .. logext .. " "  .. name .. inext
-          )        
+        return (
+          run (
+            typesetdir ,
+            makeindexexe .. " -s " .. style .. " -o " .. name .. outext
+              .. " -t " .. name .. logext .. " "  .. name .. inext
+            )
+          )
       end
     end
     local function typeset (file)
-      local errorlevel =
+      return (
         os.execute (
-            os_setenv .. " TEXINPUTS=" .. typesetdir .. 
+            os_setenv .. " TEXINPUTS=" .. typesetdir ..
               os_pathsep .. localdir .. (typesetsearch and os_pathsep or "") ..
               os_concat ..
-            typesetexe .. " " .. typesetopts .. 
+            typesetexe .. " " .. typesetopts ..
               " -output-directory=" .. typesetdir ..
-              " \"" .. typesetcmds .. 
+              " \"" .. typesetcmds ..
               "\\input " .. typesetdir .. "/" .. file .. "\""
           )
-      return errorlevel
+      )
     end
+    auxclean ()
     os.remove (name .. ".pdf")
     print ("Typesetting " .. name)
     local errorlevel = typeset (file)
@@ -85,6 +97,7 @@ function mod_doc ()
       print (" ! Compilation failed")
       return (errorlevel)
     else
+      biber (name)
       makeindex (name, ".glo", ".gls", ".glg", glossarystyle)
       makeindex (name, ".idx", ".ind", ".ilg", indexstyle)
       typeset (file)
