@@ -51,6 +51,16 @@ function mv(src, dest)
   os.execute(mv .. " " .. src .. " " .. dest)
 end
 
+function copy(src, dest)
+  local copy = "cp"
+  if os_windows then
+    copy = "copy /y"
+    src = unix_to_win(src)
+    dest = unix_to_win(dest)
+  end
+  os.execute(copy .. " " .. src .. " " .. dest)
+end
+
 function hooked_bundleunpack()
   extract_git_version()
   -- Unbundle
@@ -158,12 +168,25 @@ function hooked_copytds()
   end
 end
 
+function hooked_bundlectan()
+  local err = unhooked_bundlectan()
+  if err == 0 then
+    for _,f in ipairs (readmefiles) do
+      copy(unpackdir .. "/" .. f, ctandir .. "/" .. ctanpkg .. "/" .. stripext(f))
+      copy(unpackdir .. "/" .. f, tdsdir .. "/doc/" .. tdsroot .. "/" .. bundle .. "/" .. stripext(f))
+    end
+  end
+  return err
+end
+
 function main (target, file, engine)
   unhooked_bundleunpack = bundleunpack
   bundleunpack = hooked_bundleunpack
   doc = mod_doc
   unhooked_copytds = copytds
   copytds = hooked_copytds
+  unhooked_bundlectan = bundlectan
+  bundlectan = hooked_bundlectan
   stdmain(target, file, engine)
 end
 
