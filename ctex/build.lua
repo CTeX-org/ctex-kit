@@ -2,9 +2,11 @@
 
 module = "ctex"
 
+packtdszip = true
+
 sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
-installfiles = {"*.sty", "*.cls", "*.def", "*.cfg", "*.fd", "zh*.tex"}
+installfiles = {"*.sty", "*.cls", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex"}
 stdengine = "xetex"
 unpackexe = "xetex"
 typesetexe = "xelatex"
