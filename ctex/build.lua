@@ -7,6 +7,7 @@ packtdszip = true
 sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
 installfiles = {"*.sty", "*.cls", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex"}
+cleanfiles = {"ctex.ver", "*.pdf", "*.zip", "*.log"}
 stdengine = "xetex"
 unpackexe = "xetex"
 typesetexe = "xelatex"
@@ -16,32 +17,28 @@ makeindexexe = "zhmakeindex"
 
 
 
-if string.sub (package.config, 1, 1) == "\\" then
-  os_mv = "move /y"
-  os_append_newline = "echo.>>"
-  os_shellescape = function(s)
-    return s
+function append_newline(file)
+  if os_windows then
+    os.execute("echo.>> " .. file)
+  else
+    os.execute("echo >> " .. file)
   end
-else
-  os_mv = "mv"
-  os_append_newline = "echo >>"
-  os_shellescape = function(s)
+end
+
+function shellescape(s)
+  if not os_windows then
     s = s:gsub([[\]], [[\\]])
     s = s:gsub([[%$]], [[\$]])
-    return s
   end
+  return s
 end
 
 function extract_git_version()
-  os.execute(os_shellescape([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo]] ..
+  os.execute(shellescape([[git log -1 --pretty=format:"\def\ctexPutVersion{\string\GetIdInfo]] ..
   	[[$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx > ctex.ver]]))
-  os.execute(os_append_newline .. " ctex.ver")
-  os.execute(os_shellescape([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo]] ..
+  append_newline("ctex.ver")
+  os.execute(shellescape([[git log -1 --pretty=format:"\def\ctexGetVersionInfo{\GetIdInfo]] ..
   	[[$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx >> ctex.ver]]))
-end
-
-function clean_git_version()
-  os.remove("ctex.ver")
 end
 
 function hooked_bundleunpack()
@@ -52,12 +49,14 @@ function hooked_bundleunpack()
   for _,f in ipairs(gbkfiles) do
     local f_utf = unpackdir .. "/" .. f
     local f_gbk = unpackdir .. "/" .. f .. ".gbk"
+    local mv = "mv"
     if os_windows then
       f_utf = unix_to_win(f_utf)
       f_gbk = unix_to_win(f_gbk)
+      mv = "move /y"
     end
     os.execute("iconv -f utf-8 -t gbk " .. f_utf .. " > " .. f_gbk)
-    os.execute(os_mv .. " " .. f_gbk .. " " .. f_utf)
+    os.execute(mv .. " " .. f_gbk .. " " .. f_utf)
   end
 end
 
@@ -144,8 +143,9 @@ function main (target, file, engine)
   bundleunpack = hooked_bundleunpack
   doc = mod_doc
   stdmain(target, file, engine)
-  clean_git_version()
 end
 
 kpse.set_program_name("kpsewhich")
 dofile(kpse.lookup("l3build.lua"))
+
+-- vim:sw=2:et
