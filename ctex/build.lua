@@ -13,6 +13,12 @@ typesetexe = "xelatex"
 
 gbkfiles = {"ctexcap-gbk.cfg"}
 generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
+subtexdirs = {
+    ["config"] = "*.cfg",
+    ["fd"] = "*.fd",
+    ["engine"] = "ctex-engine-*.def",
+    ["fontset"] = "ctex-fontset-*.def",
+}
 makeindexexe = "zhmakeindex"
 
 
@@ -48,17 +54,7 @@ function mv(src, dest)
     src = unix_to_win(src)
     dest = unix_to_win(dest)
   end
-  os.execute(mv .. " " .. src .. " " .. dest)
-end
-
-function copy(src, dest)
-  local copy = "cp"
-  if os_windows then
-    copy = "copy /y"
-    src = unix_to_win(src)
-    dest = unix_to_win(dest)
-  end
-  os.execute(copy .. " " .. src .. " " .. dest)
+  os.execute(mv .. " " .. src .. " " .. dest .. " > NUL")
 end
 
 function hooked_bundleunpack()
@@ -158,6 +154,7 @@ end
 
 function hooked_copytds()
   unhooked_copytds()
+  -- 移动文件到 tex/generic/<module>/ 目录
   local tds_latexdir = tdsdir .. "/tex/latex/" .. module
   local tds_genericdir = tdsdir .. "/tex/generic/" .. module
   mkdir(tds_genericdir)
@@ -166,14 +163,22 @@ function hooked_copytds()
       mv(tds_latexdir .. "/" .. f, tds_genericdir .. "/" .. f)
     end
   end
+  -- 移动文件到 tex/latex/<module>/ 下的子目录
+  for subdir,glob in pairs(subtexdirs) do
+    mkdir(tds_latexdir .. "/" .. subdir)
+    for _,f in ipairs(filelist(tds_latexdir, glob)) do
+      mv(tds_latexdir .. "/" .. f, tds_latexdir .. "/" .. subdir .. "/" .. f)
+    end
+  end
 end
 
 function hooked_bundlectan()
   local err = unhooked_bundlectan()
+  -- 复制 docstrip 生成的 README 文件
   if err == 0 then
     for _,f in ipairs (readmefiles) do
-      copy(unpackdir .. "/" .. f, ctandir .. "/" .. ctanpkg .. "/" .. stripext(f))
-      copy(unpackdir .. "/" .. f, tdsdir .. "/doc/" .. tdsroot .. "/" .. bundle .. "/" .. stripext(f))
+      cp(f, unpackdir, ctandir .. "/" .. ctanpkg .. "/" .. stripext(f))
+      cp(f, unpackdir, tdsdir .. "/doc/" .. tdsroot .. "/" .. bundle .. "/" .. stripext(f))
     end
   end
   return err
