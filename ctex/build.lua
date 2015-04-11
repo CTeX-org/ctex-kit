@@ -8,11 +8,11 @@ sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
 installfiles = {"*.sty", "*.cls", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex"}
 cleanfiles = {"ctex.ver", "*.pdf", "*.zip", "*.log"}
-stdengine = "xetex"
 unpackexe = "xetex"
 typesetexe = "xelatex"
 
 gbkfiles = {"ctexcap-gbk.cfg"}
+generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
 makeindexexe = "zhmakeindex"
 
 
@@ -41,6 +41,16 @@ function extract_git_version()
   	[[$Id: ctex.dtx %h %ai %an <%ae> $}" ctex.dtx >> ctex.ver]]))
 end
 
+function mv(src, dest)
+  local mv = "mv"
+  if os_windows then
+    mv = "move /y"
+    src = unix_to_win(src)
+    dest = unix_to_win(dest)
+  end
+  os.execute(mv .. " " .. src .. " " .. dest)
+end
+
 function hooked_bundleunpack()
   extract_git_version()
   -- Unbundle
@@ -49,14 +59,12 @@ function hooked_bundleunpack()
   for _,f in ipairs(gbkfiles) do
     local f_utf = unpackdir .. "/" .. f
     local f_gbk = unpackdir .. "/" .. f .. ".gbk"
-    local mv = "mv"
     if os_windows then
       f_utf = unix_to_win(f_utf)
       f_gbk = unix_to_win(f_gbk)
-      mv = "move /y"
     end
     os.execute("iconv -f utf-8 -t gbk " .. f_utf .. " > " .. f_gbk)
-    os.execute(mv .. " " .. f_gbk .. " " .. f_utf)
+    mv(f_gbk, f_utf)
   end
 end
 
@@ -138,10 +146,24 @@ function mod_doc ()
   return 0
 end
 
+function hooked_copytds()
+  unhooked_copytds()
+  local tds_latexdir = tdsdir .. "/tex/latex/" .. module
+  local tds_genericdir = tdsdir .. "/tex/generic/" .. module
+  mkdir(tds_genericdir)
+  for _,glob in ipairs(generic_insatllfiles) do
+    for _,f in ipairs(filelist(tds_latexdir, glob)) do
+      mv(tds_latexdir .. "/" .. f, tds_genericdir .. "/" .. f)
+    end
+  end
+end
+
 function main (target, file, engine)
   unhooked_bundleunpack = bundleunpack
   bundleunpack = hooked_bundleunpack
   doc = mod_doc
+  unhooked_copytds = copytds
+  copytds = hooked_copytds
   stdmain(target, file, engine)
 end
 
