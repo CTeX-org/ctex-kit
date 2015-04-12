@@ -21,7 +21,7 @@ subtexdirs = {
 }
 makeindexexe = "zhmakeindex"
 
-
+dtxchecksum = dofile("../tool/dtxchecksum.lua").checksum
 
 function append_newline(file)
   if os_windows then
@@ -184,65 +184,15 @@ function hooked_bundlectan()
   return err
 end
 
+-- 只对 .dtx 进行 \CheckSum 校正
 function checksum()
-  local perlexe = perlexe or findperl()
-  if not perlexe then
-    print "Cannot find perl."
-    return -1
-  end
   for _,glob in ipairs(typesetfiles) do
     for _,f in ipairs(filelist(".", glob)) do
-      local err = os.execute(perlexe .. " adjust_checksum.pl " .. f)
-      if err ~= 0 then
-        print "Some error occurred."
-        return err
+      if f:sub(-4) == ".dtx" then
+        dtxchecksum(f)
       end
     end
   end
-  return 0
-end
-
-function findperl()
-  if os_windows then
-    local perlexe
-    -- 修改自 runscript.tlu，优先使用 TLPERL
-    local texdir = kpse.var_value('SELFAUTOPARENT')
-    perlexe = texdir..'/tlpkg/tlperl/bin/perl.exe'
-    if lfs.isfile(perlexe) then
-      os.setenv('PERL5LIB', texdir..'/tlpkg/tlperl/lib')
-      PATH = PATH or os.getenv('PATH')
-      PATH = texdir..'/tlpkg/tlperl/bin;'..PATH
-      local PERLENV = 'PERL5OPT;PERLIO;PERLIO_DEBUG;PERLLIB;PERL5DB;PERL5DB_THREADED;' ..
-                      'PERL5SHELL;PERL_ALLOW_NON_IFS_LSP;PERL_DEBUG_MSTATS;' ..
-                      'PERL_DESTRUCT_LEVEL;PERL_DL_NONLAZY;PERL_ENCODING;PERL_HASH_SEED;' ..
-                      'PERL_HASH_SEED_DEBUG;PERL_ROOT;PERL_SIGNALS;PERL_UNICODE'
-      for var in string.gmatch(PERLENV, '[^;]+') do os.setenv(var, nil) end
-    else
-      perlexe = search_path('perl.exe')
-    end
-    return perlexe
-  else
-    -- 总假定系统有 perl
-    return 'perl'
-  end
-end
-
--- 来自 runscript.tlu
--- searches the PATH for a file
-function search_path(fname, PATH, PATHEXT)
-  if string.find(fname, '[/\\]') then 
-    return nil, "directory part not allowed for PATH search: "..fname 
-  end
-  PATH = PATH or os.getenv('PATH')
-  PATHEXT = PATHEXT or '\0' -- '\0' for no extension
-  for dir in string.gmatch(PATH, '[^;]+') do
-    local dirsep = (string.find(dir, '\\') and '\\' or '/')
-    for ext in string.gmatch(PATHEXT, '[^;]+') do
-      local f = dir..dirsep..fname..ext
-      if lfs.isfile(f) then return f, ext end
-    end
-  end
-  return nil, "file or program not on PATH: "..fname
 end
 
 function hooked_help()
@@ -264,8 +214,7 @@ function main (target, file, engine)
   unhooked_help = help
   help = hooked_help
   if target == "checksum" then
-    local err = checksum()
-    os.exit(err)
+    checksum()
   else
     stdmain(target, file, engine)
   end
