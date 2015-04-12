@@ -21,10 +21,10 @@
 --------------------------------------------------------------------
 --
 
-dtxchecksum        = dtxchecksum or {}
+dtxchecksum       = dtxchecksum or {}
 local dtxchecksum = dtxchecksum
 dtxchecksum.module = {
-  name = "dtxchecksum",
+  name        = "dtxchecksum",
   version     = "0",
   date        = "2015/04/12",
   description = "Correction of \\CheckSum{...} entry in dtx file",
@@ -40,11 +40,11 @@ local checksumexe = dtxchecksum.exe or "xelatex"
 local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" or "-draftmode")
 
 local ltxdocfile = dtxchecksum.cfgfile or "l3doc.cfg"
-local ltxdoccfg  = dtxchecksum.doccfg or ( checksumexe == "xelatex" and [[\AtBeginDocument{\syntaxonly\XeTeXinterchartokenstate=\z@}]]
-                                                            or "" )
+local ltxdoccfg  = dtxchecksum.doccfg or ( checksumexe == "xelatex" and [[\AtBeginDocument{\XeTeXinterchartokenstate=\z@}]]
+                                                                    or "" )
 
 local cfg = [[
-\typeout{* version for dtxchecksum}
+\typeout{* version for dtxchecksum *}
 \AtEndOfClass{%
   \DontCheckModules
   \DisableCrossrefs
@@ -88,7 +88,7 @@ else
     os.execute("cp -f " .. src .. " " .. dest)
   end
   function os_rmdir (dir)
-    os.execute("rm -rf " .. dir )
+    os.execute("rm -rf " .. dir)
   end
 end
 
@@ -101,7 +101,7 @@ local function typeset (dir, dtx)
   f:write(cfg)
   f:close()
   os_copy(dtx, dir)
-  print("*** Running " .. checksumexe .. " for \"\\CheckSum\" correction...")
+  print("*** Running " .. checksumexe .. " for checksum correction ...")
   os.execute(checksumexe .. " -interaction=batchmode -output-directory=" .. dir .. " "
                          .. checksumopt .. " " .. dir .. "/" .. dtx .. " > " .. os_null)
 end
@@ -150,6 +150,8 @@ function dtxchecksum.checksum (dtx)
   assert(found, "Checksum statement not found in log file!")
   if changed then
     fix_checksum(tempdir, dtx, old, new)
+  else
+    print("*** Checksum passed.")
   end
   os_rmdir(tempdir)
 end
