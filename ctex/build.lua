@@ -54,7 +54,7 @@ function mv(src, dest)
     src = unix_to_win(src)
     dest = unix_to_win(dest)
   end
-  os.execute(mv .. " " .. src .. " " .. dest .. " > NUL")
+  os.execute(mv .. " " .. src .. " " .. dest .. " > " .. os_null)
 end
 
 function hooked_bundleunpack()
