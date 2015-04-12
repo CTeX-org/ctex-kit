@@ -21,8 +21,8 @@
 --------------------------------------------------------------------
 --
 
-dtxchecksum       = dtxchecksum or {}
-local dtxchecksum = dtxchecksum
+dtxchecksum        = dtxchecksum or {}
+local dtxchecksum  = dtxchecksum
 dtxchecksum.module = {
   name        = "dtxchecksum",
   version     = "0",
@@ -34,7 +34,6 @@ dtxchecksum.module = {
 }
 
 local os, print, error = os, print, error
-local lfs = require("lfs")
 
 local checksumexe = dtxchecksum.exe or "xelatex"
 local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" or "-draftmode")
@@ -78,9 +77,7 @@ if os.type == "windows" then
     os.execute("copy /y " .. src .. " " .. dest .. " > " .. os_null)
   end
   function os_rmdir (dir)
-    if lfs.isdir(dir) then
-      os.execute("rmdir /s /q " .. dir)
-    end
+    os.execute("rmdir /s /q " .. dir)
   end
 else
   os_null = "/dev/null"
@@ -130,7 +127,7 @@ local function fix_checksum (dir, dtx, old, new)
   local f = assert(io.open(dir .. "/" .. dtx , "r"))
   local file = f:read("*all")
   f:close()
-  local s, fixed = file:gsub("\\CheckSum{" .. old .."}", "\\CheckSum{" .. new .. "}")
+  local s, fixed = file:gsub("\\CheckSum{" .. old .. "}", "\\CheckSum{" .. new .. "}")
   local f = assert(io.open(dtx , "w"))
   f:write(s)
   f:close()
