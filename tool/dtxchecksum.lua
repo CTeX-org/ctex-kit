@@ -98,7 +98,7 @@ local function typeset (dir, dtx)
   f:write(cfg)
   f:close()
   os_copy(dtx, dir)
-  print("*** Running " .. checksumexe .. " for checksum correction ...")
+  print("*** Running " .. checksumexe .. " for checksum generation ...")
   os.execute(checksumexe .. " -interaction=batchmode -output-directory=" .. dir .. " "
                          .. checksumopt .. " " .. dir .. "/" .. dtx .. " > " .. os_null)
 end
@@ -140,7 +140,7 @@ local function fix_checksum (dir, dtx, old, new)
 end
 
 function dtxchecksum.checksum (dtx)
-  local tempdir = assert(os.tmpdir(), "Cannot create an temporary directory!")
+  local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
   typeset(tempdir, dtx)
   local logfile = tempdir .. "/" .. stripext(dtx) .. ".log"
   local found, changed, old, new = find_checksum(logfile)
