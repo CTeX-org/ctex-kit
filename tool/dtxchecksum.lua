@@ -15,9 +15,11 @@
 --     LaTeX version 2005/12/01 or later.
 --
 --     This work has the LPPL maintenance status `maintained'.
---     This Current Maintainer of this work is Qing Lee.
+--
+--     The Current Maintainer of this work is Qing Lee.
 --
 --     This work consists of this file.
+--
 --------------------------------------------------------------------
 --
 
@@ -26,7 +28,7 @@ local dtxchecksum  = dtxchecksum
 dtxchecksum.module = {
   name        = "dtxchecksum",
   version     = "0",
-  date        = "2015/04/12",
+  date        = "2015/04/15",
   description = "Correction of \\CheckSum{...} entry in dtx file",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
@@ -127,7 +129,7 @@ local function fix_checksum (dir, dtx, old, new)
   local f = assert(io.open(dir .. "/" .. dtx , "r"))
   local file = f:read("*all")
   f:close()
-  local s, fixed = file:gsub("\\CheckSum{" .. old .. "}", "\\CheckSum{" .. new .. "}")
+  local s, fixed = file:gsub("(\\CheckSum%s*{)" .. old .. "}", "%1" .. new .. "}")
   local f = assert(io.open(dtx , "w"))
   f:write(s)
   f:close()
