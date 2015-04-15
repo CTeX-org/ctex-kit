@@ -650,7 +650,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 提供了汉字输出支持、标点压缩、字体字号命令、标题文字汉化、中文版式调整、数字
 % 日期转换等支持功能，可适应论文、报告、书籍、幻灯片等不同类型的中文文档。
 %
-% \CTeX{} 宏包支持 \LaTeX{}、\pdfLaTeX{}、\XeLaTeX{}、\LuaLaTeX{} 等多种不同
+% \CTeX{} 宏包支持 \LaTeX{}、\pdfLaTeX{}、\XeLaTeX{} 和 \LuaLaTeX{} 等多种不同
 % 的编译方式，并为它们提供了统一的界面。主要功能由宏包 \pkg{ctex} 或中文文档类
 % \cls{ctexart}、\cls{ctexrep}、\cls{ctexbook} 实现。
 % \end{abstract}
@@ -3089,19 +3089,28 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v2.0}{2015/03/22}{\opt{nocap} 是过时选项。}
-% \begin{macro}{cap}
-%    \begin{macrocode}
-    cap .bool_set:N = \l_@@_caption_bool ,
-    cap  .initial:n = { true } ,
-    nocap   .code:n =
+% \changes{v2.0}{2015/04/15}{新增 \opt{scheme}，并将 \opt{cap} 和 \opt{nocap}
+% 列为过时选项}
+% \begin{macro}{scheme}
+%   \begin{macrocode}
+    scheme .tl_set:N  = \l_@@_scheme_tl ,
+    scheme .default:n = { chinese },
+    scheme .initial:n = { chinese },
+    cap    .code:n    =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `cap=false'~ is~ set. }
-        \keys_set:nn { ctex / option } { cap = false }
-      } ,
-    nocap   .value_forbidden: ,
-%    \end{macrocode}
+          { Option~ `scheme = chinese' ~ is~ set. }
+        \keys_set:nn { ctex / option} { scheme = chinese }
+      },
+    nocap  .code:n    =
+      {
+        \msg_warning:nnn { ctex } { deprecated-option }
+          { Option~ `scheme = plain' ~ is~ set. }
+        \keys_set:nn { ctex / option} { scheme = plain }
+      },
+    cap    .value_forbidden: ,
+    nocap  .value_forbidden: ,
+%   \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{sub3section,sub4section}
@@ -5964,7 +5973,7 @@ This package consists of the file ctex.dtx, and the derived files
 \msg_new:nnnn { ctex } { today-undef }
   { Today~format~`#1'~is~undefined. }
   { Available~today~formats~are~`old',~`small',~and~`big'. }
-\bool_if:NT \l_@@_caption_bool
+\str_if_eq_x:nnT { \l_@@_scheme_tl } { chinese }
   { \keys_set:nn { ctex } { today = small } }
 %    \end{macrocode}
 % \end{macro}
@@ -6787,47 +6796,48 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % 在 \opt{cap} 选项为 |true| 时，设置中文化的标题格式。
 %    \begin{macrocode}
-\if_bool:N \l_@@_caption_bool
-  \keys_set:nn { ctex / part }
-    {
-      number      = \chinese { part } ,
+\str_if_eq_x:nnT { \l_@@_scheme_tl } { chinese }
+  {
+    \keys_set:nn { ctex / part }
+      {
+        number      = \chinese { part } ,
 %<*article>
-      format      = \centering ,
-      aftername   = \quad ,
-      titleformat = \Large\bfseries ,
-      beforeskip  = 4ex
+        format      = \centering ,
+        aftername   = \quad ,
+        titleformat = \Large\bfseries ,
+        beforeskip  = 4ex
 %</article>
 %<*book|report>
-      titleformat = \huge \bfseries
+        titleformat = \huge \bfseries
 %</book|report>
-    }
+      }
 %<*book|report>
-  \keys_set:nn { ctex / chapter }
-    {
-      number      = \chinese { chapter } ,
-      format      = \centering ,
-      aftername   = \quad ,
-      titleformat = \huge \bfseries ,
-      beforeskip  = 50\p@
-    }
+    \keys_set:nn { ctex / chapter }
+      {
+        number      = \chinese { chapter } ,
+        format      = \centering ,
+        aftername   = \quad ,
+        titleformat = \huge \bfseries ,
+        beforeskip  = 50\p@
+      }
 %</book|report>
-  \keys_set:nn { ctex / section }
-    {
-      format     = \Large \bfseries \centering ,
-      beforeskip = 3.5ex \@plus 1ex \@minus .2ex
-    }
-  \keys_set:nn { ctex / subsection }
-    { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
-  \keys_set:nn { ctex / subsubsection }
-    { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
-  \keys_set:nn { ctex / paragraph }
-    { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
-  \keys_set:nn { ctex / subparagraph }
-    { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
-  \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-    { \ctex_file_input:n { ctexcap-gbk.cfg } }
-    { \ctex_file_input:n { ctexcap-utf8.cfg } }
-\fi:
+    \keys_set:nn { ctex / section }
+      {
+        format     = \Large \bfseries \centering ,
+        beforeskip = 3.5ex \@plus 1ex \@minus .2ex
+      }
+    \keys_set:nn { ctex / subsection }
+      { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
+    \keys_set:nn { ctex / subsubsection }
+      { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
+    \keys_set:nn { ctex / paragraph }
+      { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
+    \keys_set:nn { ctex / subparagraph }
+      { beforeskip = 3.25ex \@plus 1ex \@minus .2ex }
+    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+      { \ctex_file_input:n { ctexcap-gbk.cfg } }
+      { \ctex_file_input:n { ctexcap-utf8.cfg } }
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -6864,7 +6874,7 @@ This package consists of the file ctex.dtx, and the derived files
       }
   }
   {
-    \bool_if:NT \l_@@_caption_bool
+    \str_if_eq_x:nnT { \l_@@_scheme_tl } { chinese }
       {
         \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
           { \ctex_file_input:n { ctexcap-gbk.cfg } }
