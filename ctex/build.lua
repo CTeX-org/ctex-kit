@@ -11,13 +11,14 @@ cleanfiles = {"ctex.ver", "*.pdf", "*.zip", "*.log"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 
-gbkfiles = {"ctexcap-gbk.cfg"}
+gbkfiles = {"ctex-name-gbk.cfg"}
 generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
 subtexdirs = {
     ["config"] = "*.cfg",
     ["fd"] = "*.fd",
     ["engine"] = "ctex-engine-*.def",
     ["fontset"] = "ctex-fontset-*.def",
+    ["scheme"] = "ctex-scheme-*.def",
 }
 makeindexexe = "zhmakeindex"
 

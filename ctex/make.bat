@@ -27,7 +27,7 @@
   set INSTEXFLAG=
   set SOURCE=%PACKAGE%.dtx
   set UNPACK=%SOURCE%
-  set ICONVFILE=ctexcap-gbk.cfg
+  set ICONVFILE=ctex-name-gbk.cfg
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv ver
   set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
@@ -153,7 +153,11 @@
         if /i "%%K" == "fontset" (
           xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\fontset\" > nul
         ) else (
-          xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%" > nul
+          if /i "%%K" == "scheme" (
+            xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%\scheme\" > nul
+          ) else (
+            xcopy /q /y "%%I" "%TDSROOT%\%TDSDIR%" > nul
+          )
         )
       )
     )
