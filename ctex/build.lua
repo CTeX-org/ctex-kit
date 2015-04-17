@@ -187,10 +187,13 @@ end
 
 -- 只对 .dtx 进行 \CheckSum 校正
 function checksum()
+  unpack ()
+  -- 不进行重复解包
+  unpack = function() end
   for _,glob in ipairs(typesetfiles) do
     for _,f in ipairs(filelist(".", glob)) do
       if f:sub(-4) == ".dtx" then
-        dtxchecksum(f)
+        dtxchecksum(f, localdir)
       end
     end
   end
