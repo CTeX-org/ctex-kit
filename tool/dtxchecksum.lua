@@ -36,7 +36,6 @@ dtxchecksum.module = {
 }
 
 local os, print, error = os, print, error
-local kpathsea = kpse.new("kpsewhich")
 
 local checksumexe = dtxchecksum.exe or "xelatex"
 local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" or "-draftmode")
@@ -44,6 +43,8 @@ local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" 
 local ltxdocfile = dtxchecksum.cfgfile or "l3doc.cfg"
 local ltxdoccfg  = dtxchecksum.doccfg or ( checksumexe == "xelatex" and [[\AtBeginDocument{\XeTeXinterchartokenstate=\z@}]]
                                                                     or "" )
+
+local kpathsea = kpse.new(checksumexe)
 
 local cfg = [[
 \typeout{* version for dtxchecksum *}
@@ -109,7 +110,7 @@ end
 local function find_checksum (logfile)
   print("*** Looking for checksum statement ...")
   local f = assert(io.open(logfile, "r"), "Cannot open log file " .. logfile .. "!")
-  local file = f:read("*all")
+  local file = f:read("*a")
   f:close()
   if file:find("%* Checksum passed %*") then
     return true, false
@@ -128,7 +129,7 @@ local function fix_checksum (dir, dtx, old, new)
   print("==> Checksum not passed (" .. old .. "<>" .. new .. ").")
   print("*** Fixing Checksum ...")
   local f = assert(io.open(dir .. "/" .. dtx , "r"))
-  local file = f:read("*all")
+  local file = f:read("*a")
   f:close()
   local s, fixed = file:gsub("(\\CheckSum%s*{%s*)" .. old .. "(%s*})", "%1" .. new .. "%2")
   local f = assert(io.open(dtx , "w"))
@@ -143,12 +144,12 @@ local function fix_checksum (dir, dtx, old, new)
 end
 
 function dtxchecksum.checksum (dtx, texinputs)
+  local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
   local kpse_texinputs
   if texinputs then
     kpse_texinputs = kpathsea:var_value("TEXINPUTS")
     os.setenv("TEXINPUTS", texinputs .. "//;" .. kpse_texinputs)
   end
-  local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
   typeset(tempdir, dtx)
   local logfile = tempdir .. "/" .. stripext(dtx) .. ".log"
   local found, changed, old, new = find_checksum(logfile)
