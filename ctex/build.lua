@@ -209,7 +209,7 @@ function main (target, file, engine)
   bundleunpack = hooked_bundleunpack
   doc = function()
     checksum()
-    mod_doc()
+    return mod_doc()
   end
   unhooked_copytds = copytds
   copytds = hooked_copytds
