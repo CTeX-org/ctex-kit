@@ -547,7 +547,7 @@ This package consists of the file ctex.dtx, and the derived files
 \AtEndEnvironment{function}
   {\par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
-\AtBeginEnvironment{syntax}{\linespread{1}}
+\AtBeginEnvironment{syntax}{\linespread{1}\xeCJKsetup{CJKecglue}}
 \preto\MacroFont{\linespread{1}}
 \appto\MacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \preto\AltMacroFont{\linespread{1}}
@@ -670,7 +670,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4310}
+% \CheckSum{4335}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1321,9 +1321,15 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{function}{autoindent}
 %   \begin{syntax}
-%     autoindent = <\TTF>
+%     autoindent = <\TTF|数值或者单位>
 %   \end{syntax}
 %   在字体大小发生变化时，是否自动调整段首缩进（\tn{parindent}）的大小。
+%
+%   \meta{数值或者单位} 用于设置段首缩进的长度。如果有单位，则可以在选项中直接写，
+%   此时最好是 \texttt{em} 等随字号大小而变化的相对单位；如果是数字，单位则是汉字
+%   宽度 \tn{ccwd} 的倍数。
+%
+%   |autoindent = true| 等价于设置 |autoindent = 2|。
 % \end{function}
 %
 % \subsection{宏包兼容选项}
@@ -1434,7 +1440,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{function}{autoindent}
 %   \begin{syntax}
-%     autoindent = <\TTF>
+%     autoindent = <\TTF|数值或者单位>
 %   \end{syntax}
 %   与宏包选项 \opt{autoindent} 一样，在正文中控制在字体大小发生变化时，是否自
 %   动调整段首缩进（\tn{parindent}）的大小。
@@ -1910,17 +1916,17 @@ This package consists of the file ctex.dtx, and the derived files
 %     chapter/titleformat = \chaptertitleformat
 %   }
 %   \newcommand\chaptertitleformat[1]{%% 以标题内容为参数
-%   \begin{varwidth}[t]{.7\linewidth}#1\end{varwidth}}
+%     \begin{varwidth}[t]{.7\linewidth}#1\end{varwidth}}
 %   ......
 %   \chapter{情中情因情感妹妹\\错里错以错劝哥哥}
 % \end{ctexexam}
 % 上面的代码可以做出类似这样的章标题效果：
-% \begin{center}\bfseries
+% \begin{center}\huge\bfseries
 % 第三十四回\quad
-% \begin{minipage}[t]{8\ccwd}
+% \begin{tabular}[t]{l}
 %   情中情因情感妹妹\\
 %   错里错以错劝哥哥
-% \end{minipage}
+% \end{tabular}
 % \end{center}
 %
 % \begin{table}[htbp]
@@ -2859,9 +2865,22 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[internal]{\ctex_set_default_ccwd:Nn}
+% 若参数 |#2| 带长度单位，则设置它为 |tl| 变量 |#1| 的值，否则以 \tn{ccwd} 为单位。
+%    \begin{macrocode}
+\cs_new:Npn \ctex_set_default_ccwd:Nn #1#2
+  {
+    \dim_compare:nNnTF
+      { \ctex_default_pt:n {#2} } = { \ctex_default_pt:n { #2 ~ mm } }
+      { \tl_set:Nn #1 {#2} }
+      { \tl_set:Nn #1 { #2 \ccwd } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\ctex_default_pt:n}
-% 最新版本的 \pkg{expl3} 已经不允许 \cs{dim_to_pt:n} 的参数带额外的单位。然而我们
-% 需要这个特性实现可展的 \tn{@defaultunits}。
+% 最新版本的 \pkg{expl3} 已经不允许 \cs{dim_to_decimal:n} 的参数带额外的单位。
+% 然而我们需要这个特性实现可展的 \tn{@defaultunits}。
 %    \begin{macrocode}
 \cs_new:Npn \ctex_default_pt:n #1
   {
@@ -2902,6 +2921,20 @@ This package consists of the file ctex.dtx, and the derived files
 \bool_new:N \g_@@_zhmCJK_bool
 %    \end{macrocode}
 % \end{variable}
+%
+% \begin{variable}[internal]{\l_@@_autoindent_tl}
+% 保存 \opt{autoindent} 选项的值，空值表示不自动调整首行缩进。
+%    \begin{macrocode}
+\tl_new:N \l_@@_autoindent_tl
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[internal]{\ctex_if_autoindent_touched:F}
+% 检查 \opt{autoindent} 选项是否被用户设置。
+%    \begin{macrocode}
+\cs_new_eq:NN \ctex_if_autoindent_touched:F \use:n
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[internal]{\ctex_zhmap_case:nnn}
 % 参数 |#1| 是 \pkg{zhmCJK} 的内容，|#2| 是 \pkg{zhmetrics}。
@@ -2995,8 +3028,23 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}{autoindent}
 % 自动调整段落的首行缩进功能。
 %    \begin{macrocode}
-    autoindent .bool_set:N = \l_@@_autoindent_bool ,
-    autoindent  .initial:n = { true } ,
+    autoindent .choice: ,
+    autoindent .default:n = { true } ,
+    autoindent / true    .code:n =
+      {
+        \tl_set:Nn \l_@@_autoindent_tl { 2 \ccwd }
+        \cs_set_eq:NN \ctex_if_autoindent_touched:F \use_none:n
+      } ,
+    autoindent / false   .code:n =
+      {
+        \tl_clear:N \l_@@_autoindent_tl
+        \cs_set_eq:NN \ctex_if_autoindent_touched:F \use_none:n
+      } ,
+    autoindent / unknown .code:n =
+      {
+        \ctex_set_default_ccwd:Nn \l_@@_autoindent_tl {#1}
+        \cs_set_eq:NN \ctex_if_autoindent_touched:F \use_none:n
+      } ,
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3013,7 +3061,7 @@ This package consists of the file ctex.dtx, and the derived files
             It's~ better~ to~ set~ the~ heading~ styles~ via~ beforeskip~
             options.~
           }
-        \bool_set_true:N \l_@@_indent_bool
+        \keys_set:nn { ctex / option } { autoindent = true }
       } ,
     indent .value_forbidden: ,
     noindent .code:n =
@@ -3024,7 +3072,7 @@ This package consists of the file ctex.dtx, and the derived files
             It's~ better~ to~ set~ the~ heading~ styles~ via~ beforeskip~
             options.
           }
-        \bool_set_false:N \l_@@_indent_bool
+        \keys_set:nn { ctex / option } { autoindent = false }
       } ,
     noindent .value_forbidden: ,
 %    \end{macrocode}
@@ -5758,19 +5806,24 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{字距与缩进}
 %
 % \begin{macro}{autoindent}
-% |autoindent| 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
+% \opt{autoindent} 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
 %    \begin{macrocode}
 \keys_define:nn { ctex }
   {
     autoindent .choice: ,
     autoindent .default:n = { true } ,
-    autoindent / true  .code:n =
+    autoindent / true    .code:n =
       {
-        \bool_set_true:N \l_@@_autoindent_bool
+        \tl_set:Nn \l_@@_autoindent_tl { 2 \ccwd }
         \ctex_update_parindent:
       } ,
-    autoindent / false .code:n =
-      { \bool_set_false:N \l_@@_autoindent_bool }
+    autoindent / false   .code:n =
+      { \tl_clear:N \l_@@_autoindent_tl } ,
+    autoindent / unknown .code:n =
+      {
+        \ctex_set_default_ccwd:Nn \l_@@_autoindent_tl {#1}
+        \ctex_update_parindent:
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5816,10 +5869,7 @@ This package consists of the file ctex.dtx, and the derived files
   {
     linestretch .code:n =
       {
-        \dim_compare:nNnTF
-          { \ctex_default_pt:n {#1} } = { \ctex_default_pt:n { #1 in } }
-          { \tl_set:Nn \l_@@_line_stretch_tl {#1} }
-          { \tl_set:Nn \l_@@_line_stretch_tl { #1 \ccwd } }
+        \ctex_set_default_ccwd:Nn \l_@@_line_stretch_tl {#1}
         \CTEXsetfont
       } ,
     linestretch .value_required:
@@ -5881,10 +5931,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_update_parindent:
   {
-    \bool_if:NT \l_@@_autoindent_bool
+    \tl_if_empty:NF \l_@@_autoindent_tl
       {
         \dim_compare:nNnF \parindent = \c_zero_dim
-          { \dim_set:Nn \parindent { 2 \ccwd } }
+          { \dim_set:Nn \parindent { \l_@@_autoindent_tl } }
       }
   }
 %    \end{macrocode}
@@ -7003,21 +7053,6 @@ This package consists of the file ctex.dtx, and the derived files
 %</UTF8|GBK>
 %    \end{macrocode}
 %
-% \subsection{\opt{plain} 方案的其他设置}
-%
-%    \begin{macrocode}
-%<*scheme&plain>
-%    \end{macrocode}
-%
-% 禁用自动调节缩进功能。
-%    \begin{macrocode}
-\keys_set:nn { ctex } { autoindent = false }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</scheme&plain>
-%    \end{macrocode}
-%
 % \subsection{\opt{chinese} 方案的其他设置}
 %
 %    \begin{macrocode}
@@ -7029,23 +7064,29 @@ This package consists of the file ctex.dtx, and the derived files
 %<article|book|report>\pagestyle { headings }
 %    \end{macrocode}
 %
+% 汉化标题名字。
+%    \begin{macrocode}
+\str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+  { \ctex_file_input:n { ctex-name-gbk.cfg } }
+  { \ctex_file_input:n { ctex-name-utf8.cfg } }
+%    \end{macrocode}
+%
 % 日期格式。
 %    \begin{macrocode}
 \keys_set:nn { ctex } { today = small }
 %    \end{macrocode}
 %
-% 若用户为设置宏包选项 \opt{linespread}，则设置行距初始值为 $1.3\times 1.2=2.56$
+% 若用户未设置宏包选项 \opt{linespread}，则设置行距初始值为 $1.3\times 1.2=1.56$
 % 倍字体大小。
 %    \begin{macrocode}
 \fp_compare:nNnT { \l_@@_line_spread_fp } ? { \c_zero_fp }
   { \keys_set:nn { ctex / option } { linespread = 1.3 } }
 %    \end{macrocode}
 %
-% 汉化标题名字。
+% 若用户未设置宏包选项 \opt{autoindent}，则自动调整首行缩进。
 %    \begin{macrocode}
-\str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-  { \ctex_file_input:n { ctex-name-gbk.cfg } }
-  { \ctex_file_input:n { ctex-name-utf8.cfg } }
+\ctex_if_autoindent_touched:F
+  { \keys_set:nn { ctex } { autoindent = true } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
