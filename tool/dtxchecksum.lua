@@ -28,7 +28,7 @@ local dtxchecksum  = dtxchecksum
 dtxchecksum.module = {
   name        = "dtxchecksum",
   version     = "0",
-  date        = "2015/04/15",
+  date        = "2015/04/17",
   description = "Correction of \\CheckSum{...} entry in dtx file",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
@@ -36,6 +36,7 @@ dtxchecksum.module = {
 }
 
 local os, print, error = os, print, error
+local kpathsea = kpse.new("kpsewhich")
 
 local checksumexe = dtxchecksum.exe or "xelatex"
 local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" or "-draftmode")
@@ -141,7 +142,12 @@ local function fix_checksum (dir, dtx, old, new)
   end
 end
 
-function dtxchecksum.checksum (dtx)
+function dtxchecksum.checksum (dtx, texinputs)
+  local kpse_texinputs
+  if texinputs then
+    kpse_texinputs = kpathsea:var_value("TEXINPUTS")
+    os.setenv("TEXINPUTS", texinputs .. "//;" .. kpse_texinputs)
+  end
   local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
   typeset(tempdir, dtx)
   local logfile = tempdir .. "/" .. stripext(dtx) .. ".log"
@@ -153,6 +159,9 @@ function dtxchecksum.checksum (dtx)
     print("*** Checksum passed.")
   end
   os_rmdir(tempdir)
+  if kpse_texinputs then
+    os.setenv("TEXINPUTS", kpse_texinputs)
+  end
 end
 
 return dtxchecksum
