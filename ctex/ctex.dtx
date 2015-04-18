@@ -544,8 +544,16 @@ This package consists of the file ctex.dtx, and the derived files
 \let\ctexexamlabelref\empty
 \newcounter{ctexexam}
 \BeforeBeginEnvironment{function}{\par\nointerlineskip}
-\AtEndEnvironment{function}
-  {\par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
+\AtEndEnvironment{function}{%
+  \par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}%
+  \ctexfixdescrcoffinyoffset}
+%% l3doc 会在 function 环境的 syntax 和 descr 盒子中间加上 \medskipamount 的距离。
+%% 但是若 syntax 盒子为空（未使用 syntax 环境），就会显得不好看。
+%% 此时我们通过将 \medskipamount 设置为零来修正。
+\def\ctexfixdescrcoffinyoffset{%
+  \aftergroup\aftergroup\aftergroup\ctexzeromedskipamount}
+\def\ctexzeromedskipamount{\setlength\medskipamount{\z@skip}}
+\AfterEndEnvironment{syntax}{\let\ctexfixdescrcoffinyoffset\relax}
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
 \AtBeginEnvironment{syntax}{\linespread{1}\xeCJKsetup{CJKecglue}}
 \preto\MacroFont{\linespread{1}}
@@ -891,22 +899,22 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{table}[htbp]
 % \centering
 % \caption{\CTeX{} 宏包的组成}\label{tab:ctex}
-% \begin{tabularx}{\linewidth}{l>{\ttfamily}lX}
+% \begin{tabularx}{\linewidth}{llX}
 % \toprule
-%   类别   & \textrm{文件} & 说明 \\
+%   类别   & 文件 & 说明 \\
 % \midrule
-%   文档类 & \file{ctexart.cls}   & 标准文档类 \cls{article} 的中文化版本，一般适用于
-%                            短篇幅的文章 \\
-%         & \file{ctexrep.cls}   & 标准文档类 \cls{report} 的中文化版本，一般适用于
-%                            中篇幅的报告 \\
-%         & \file{ctexbook.cls}  & 标准文档类 \cls{book} 的中文化版本，一般适用于
-%                            长篇幅的书籍 \\
+%   文档类 & \file{ctexart.cls}  & 标准文档类 \cls{article} 的中文化版本，一般适用于
+%                                  短篇幅的文章 \\
+%          & \file{ctexrep.cls}  & 标准文档类 \cls{report} 的中文化版本，一般适用于
+%                                  中篇幅的报告 \\
+%          & \file{ctexbook.cls} & 标准文档类 \cls{book} 的中文化版本，一般适用于
+%                                  长篇幅的书籍 \\
 % \midrule
-%   宏包   & \file{ctex.sty}      & 提供全部功能，但\emph{默认不开启章节标题设置功能}，
-%                            需要使用 \opt{heading} 选项来开启 \\
-%         & \file{ctexcap.sty}   & \emph{过时宏包，仅作兼容使用}，相当于开启章节标题
-%                            设置功能的 \file{ctex.sty} \\
-%         & \file{ctexsize.sty}  & 定义和调整中文字号，可在 \CTeX{} 之外单独调用 \\
+%   宏包   & \file{ctex.sty}     & 提供全部功能，但\emph{默认不开启章节标题设置功能}，
+%                                  需要使用 \opt{heading} 选项来开启 \\
+%          & \file{ctexcap.sty}  & \emph{过时宏包，仅作兼容使用}，相当于开启章节标题
+%                                  设置功能的 \file{ctex.sty} \\
+%          & \file{ctexsize.sty} & 定义和调整中文字号，可在 \CTeX{} 之外单独调用 \\
 % \bottomrule
 % \end{tabularx}
 % \end{table}
@@ -1921,7 +1929,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   \chapter{情中情因情感妹妹\\错里错以错劝哥哥}
 % \end{ctexexam}
 % 上面的代码可以做出类似这样的章标题效果：
-% \begin{center}\huge\bfseries
+% \begin{center}\Large\bfseries
 % 第三十四回\quad
 % \begin{tabular}[t]{l}
 %   情中情因情感妹妹\\
@@ -2009,6 +2017,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{function}
 %
 % \begin{table}[htbp]
+% \begin{minipage}[t]{.5\linewidth}
 % \small\centering
 % \caption{\opt{afterskip} 选项的默认设置}
 % \begin{tabular}{ll}
@@ -2028,6 +2037,27 @@ This package consists of the file ctex.dtx, and the derived files
 % \qquad(sub4section) & |1ex plus .2ex| \\
 % \bottomrule
 % \end{tabular}
+% \end{minipage}%
+% \begin{minipage}[t]{.5\linewidth}
+% \small\centering
+% \caption{\opt{indent} 选项的默认设置}
+% \begin{tabular}{ll}
+% \toprule
+% 标题名 & 默认值 \\
+% \midrule
+% part (article) & |0pt| \\
+% part & 无效 \\
+% chapter & |0pt| \\
+% section & |0pt| \\
+% subsection & |0pt| \\
+% subsubsection & |0pt| \\
+% paragraph & |0pt| \\
+% subparagraph & |\parindent| \\
+% \qquad(sub3section) & |0pt| \\
+% \qquad(sub4section) & |0pt| \\
+% \bottomrule
+% \end{tabular}
+% \end{minipage}%
 % \end{table}
 %
 % \begin{function}{part/indent, chapter/indent, section/indent,
@@ -2050,27 +2080,6 @@ This package consists of the file ctex.dtx, and the derived files
 %   \section{首行缩进的标题}
 %   \noindent 无缩进的正文。
 % \end{ctexexam}
-%
-% \begin{table}[htbp]
-% \small\centering
-% \caption{\opt{indent} 选项的默认设置}
-% \begin{tabular}{ll}
-% \toprule
-% 标题名 & 默认值 \\
-% \midrule
-% part (article) & |0pt| \\
-% part & 无效 \\
-% chapter & |0pt| \\
-% section & |0pt| \\
-% subsection & |0pt| \\
-% subsubsection & |0pt| \\
-% paragraph & |0pt| \\
-% subparagraph & |\parindent| \\
-% \qquad(sub3section) & |0pt| \\
-% \qquad(sub4section) & |0pt| \\
-% \bottomrule
-% \end{tabular}
-% \end{table}
 %
 % \begin{function}{part/pagestyle, chapter/pagestyle}
 %   \begin{syntax}
