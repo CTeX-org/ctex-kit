@@ -526,9 +526,10 @@ This package consists of the file ctex.dtx, and the derived files
 \fi
 \setlist{noitemsep,topsep=\smallskipamount}
 \newlist{optdesc}{description}{3}
+%% 设置间距为 \marginparsep，与 l3doc 一致
 \setlist[optdesc]{%
   font=\mdseries\ttfamily,align=right,
-  labelsep=\ccwd,labelindent=-\ccwd,leftmargin=*}
+  labelsep=\marginparsep,labelindent=-\marginparsep,leftmargin=*}
 \fvset{
   fontsize=\small,baselinestretch=1,numbersep=5pt,
   formatcom=\ctexdocverbaddon,
@@ -562,6 +563,18 @@ This package consists of the file ctex.dtx, and the derived files
 \appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
 \ExplSyntaxOn
+%% 用 \vtop 让函数名字和语法盒子首行对齐
+\patchcmd \__codedoc_syntax:w
+  { { minipage } { \l__codedoc_syntax_dim } }
+  { { minipage } [t] { \l__codedoc_syntax_dim } }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\cs_set_protected_nopar:Npx \__codedoc_typeset_names:
+  {
+    \exp_not:N \linespread { 1 }
+    \exp_not:o { \__codedoc_typeset_names: }
+  }
+%% 不重复使用 \HD@target，避免索引出现重复页码
 \cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
   {
     \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
@@ -603,6 +616,7 @@ This package consists of the file ctex.dtx, and the derived files
     \char_set_active_eq:NN \| \orbar
     \char_set_active_eq:NN \( \defaultvalaux
   }
+%% 不对目录中出现的 \cs 和 \tn 等编索引
 \DeclareDocumentCommand \StopSpecialIndexModule { }
   { \cs_set_eq:NN \__codedoc_special_index_module:nnnn \use_none:nnnn }
 \tl_map_inline:nn { \actualchar \encapchar \levelchar }
