@@ -702,7 +702,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4343}
+% \CheckSum{4331}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3949,7 +3949,7 @@ This package consists of the file ctex.dtx, and the derived files
     \ltjsetmathletter {#2}
   }
 \group_end:
-\AfterPreamble
+\ctex_at_end_package:nn { unicode-math }
   {
     \cs_if_free:NF \um_cs_set_eq_active_char:Nw
       { \cs_set_eq:NN \um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
@@ -3958,19 +3958,16 @@ This package consists of the file ctex.dtx, and the derived files
 % 对 \pkg{listings} 的补丁是让代码环境支持 JAchar 类。\pkg{luatexja} 的补丁会将
 % 代码目录标题改为日文，我们不需要。
 %    \begin{macrocode}
-\AfterPreamble
+\ctex_at_end_package:nn { listings }
   {
-    \@ifpackageloaded { listings }
+    \use:x
       {
-        \use:x
-          {
-            \exp_not:N \RequirePackage { lltjp-listings }
-            \tl_set:Nn \exp_not:N \lstlistingname
-              { \exp_not:o { \lstlistingname } }
-            \tl_set:Nn \exp_not:N \lstlistlistingname
-              { \exp_not:o { \lstlistlistingname } }
-          }
-      } { }
+        \exp_not:N \RequirePackage { lltjp-listings }
+        \tl_set:Nn \exp_not:N \lstlistingname
+          { \exp_not:o { \lstlistingname } }
+        \tl_set:Nn \exp_not:N \lstlistlistingname
+          { \exp_not:o { \lstlistlistingname } }
+      }
   }
 %    \end{macrocode}
 %
@@ -5368,9 +5365,9 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \hypersetup { CJKbookmarks = true }
     \ctex_if_pdfmode:TF
-      { \RequirePackage { xCJK2uni } }
+      { \ctex_at_end_package:nn { hyperref } { \RequirePackage { xCJK2uni } } }
       {
-        \AtEndPreamble
+        \ctex_at_end_package:nn { hyperref }
           {
             \str_if_eq:onTF { \Hy@driver } { hdvipdfm }
               {
@@ -6769,15 +6766,16 @@ This package consists of the file ctex.dtx, and the derived files
     \ExplSyntaxOff
     \ctex_preto_cmd:NnTF \numberline { \CTEX@toc@width@n {#1} } { }
       { \ctex_patch_failure:N \numberline }
-    \ExplSyntaxOn
-    \AtBeginDocument
+    \@ifpackageloaded { tocloft }
+      { }
       {
-        \@ifpackageloaded { tocloft }
+        \ctex_at_end_package:nn { tocloft }
           {
             \ctex_preto_cmd:NnTF \numberline { \CTEX@toc@width@n {#1} } { }
               { \ctex_patch_failure:N \numberline }
-          } { }
+          }
       }
+    \ExplSyntaxOn
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6883,8 +6881,7 @@ This package consists of the file ctex.dtx, and the derived files
         \CTEX@save@refstepcounter {#1}
         \CTEX@setcurrentlabel@n {#1}
       }
-    \AtBeginDocument
-      { \@ifpackageloaded { varioref } { \ctex_varioref_hook: } { } }
+    \ctex_at_end_package:nn { varioref } { \ctex_varioref_hook: }
   }
 %    \end{macrocode}
 %
@@ -7317,18 +7314,15 @@ This package consists of the file ctex.dtx, and the derived files
 % 在使用 \cls{ctexart} 等文档类时几乎是必然的），|\csuse{@end@#1@hook}| 将会被
 % 忽略，即 \tn{AtEndEnvironment} 失效。如果交换两个宏包的载入顺序，则
 % \pkg{etoolbox} 会给出警告：\tn{AfterEndEnvironment} 失效，我们不打算处理这种
-% 情况。我们通过一个特殊的环境来完成检查。
+% 情况。
 %    \begin{macrocode}
-\newenvironment { @@_test_env }
-  { \bool_gset_false:N \g_@@_tmp_bool } { }
-\AtEndEnvironment { @@_test_env }
-  { \bool_gset_true:N \g_@@_tmp_bool }
 \group_begin:
 \char_set_catcode_other:N \#
-\cs_new_protected_nopar:Npn \ctex_fix_end_env_hook:
+\use:n
   {
-    \begin { @@_test_env } \end { @@_test_env }
-    \bool_if:NF \g_@@_tmp_bool
+    \group_end:
+    \ExplSyntaxOff
+    \ctex_at_end_package:nn { breqn }
       {
         \ctex_patch_cmd:NnnTF \end { \csname end#1 \endcsname }
           {
@@ -7340,9 +7334,8 @@ This package consists of the file ctex.dtx, and the derived files
               { } { \ctex_patch_failure:N \end }
           }
       }
+    \ExplSyntaxOn
   }
-\group_end:
-\AtBeginDocument { \ctex_fix_end_env_hook: }
 %    \end{macrocode}
 % \end{macro}
 %
