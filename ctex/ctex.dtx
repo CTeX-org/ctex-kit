@@ -702,7 +702,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4339}
+% \CheckSum{4343}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2783,13 +2783,31 @@ This package consists of the file ctex.dtx, and the derived files
   { \ctex_package_end_hook:o { \@currname } }
 %    \end{macrocode}
 %
+% \begin{macro}[internal]{\ctex_file_wrapper:nnn}
+% 设置文件操作的 \tn{catcode} 环境，参数 |#1| 是设置，|#2| 是文件操作，|#3| 是恢复。
+% 默认关闭 \LTXIII{} 语法环境，并设置 |@| 的 \tn{catcode} 为 $11$。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_file_wrapper:nnn #1#2#3
+  {
+    \use:x
+      {
+        \bool_if:NT \l__kernel_expl_bool { \ExplSyntaxOff }
+        \char_set_catcode_letter:n { 64 }
+        #1
+        \exp_not:n {#2}
+        \bool_if:NT \l__kernel_expl_bool { \ExplSyntaxOn }
+        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
+        #3
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\ctex_file_input:n}
-% 使用 \tn{@pushfilename} 和 \tn{@popfilename} 是为了让文件可以不受当前
-% \LTXIII{} 语法环境的影响。
+% 输入文件。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_file_input:n #1
-  { \@pushfilename \file_input:n {#1} \@popfilename }
-\@onlypreamble \ctex_file_input:n
+  { \ctex_file_wrapper:nnn { } { \file_input:n {#1} } { } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2798,17 +2816,19 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_scheme_input:n #1
   {
-    \@pushfilename
-    \tl_if_exist:NTF \c_@@_class_tl
+    \ctex_file_wrapper:nnn
+      { }
       {
-        \file_if_exist_input:nF { ctex-scheme- #1 - \c_@@_class_tl .def }
+        \tl_if_exist:NTF \c_@@_class_tl
+          {
+            \file_if_exist_input:nF { ctex-scheme- #1 - \c_@@_class_tl .def }
+              { \file_input:n  { ctex-scheme- #1 .def } }
+          }
           { \file_input:n  { ctex-scheme- #1 .def } }
       }
-      { \file_input:n  { ctex-scheme- #1 .def } }
-    \@popfilename
+      { }
   }
 \cs_generate_variant:Nn \ctex_scheme_input:n { o }
-\@onlypreamble \ctex_scheme_input:n
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3545,17 +3565,17 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_CJK_input:n #1
   {
-    \use:x
+    \ctex_file_wrapper:nnn
       {
         \char_set_catcode_other:n            { 60 } % <
-        \char_set_catcode_letter:n           { 64 } % @
         \char_set_catcode_math_superscript:n { 94 } % ^
         \int_set_eq:NN \tex_endlinechar:D \c_minus_one
-        \file_input:n {#1}
-        \int_set:Nn \tex_endlinechar:D { \int_use:N \tex_endlinechar:D }
+      }
+      { \file_input:n {#1} }
+      {
         \char_set_catcode:nn { 60 } { \char_value_catcode:n { 60 } }
-        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
         \char_set_catcode:nn { 94 } { \char_value_catcode:n { 94 } }
+        \int_set:Nn \tex_endlinechar:D { \int_use:N \tex_endlinechar:D }
       }
   }
 \cs_set_eq:NN \CJK@input \ctex_CJK_input:n
