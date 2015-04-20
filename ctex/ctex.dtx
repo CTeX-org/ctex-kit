@@ -702,7 +702,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4329}
+% \CheckSum{4342}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1382,14 +1382,6 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{宏包兼容选项}
 % \label{subs:options-pkg}
-%
-% \begin{function}{fancyhdr}
-%   \begin{syntax}
-%     fancyhdr = <\TFF>
-%   \end{syntax}
-%   保持和 \pkg{fancyhdr} 宏包的兼容性。启用该选项将自动调用 \pkg{fancyhdr} 宏
-%   包。参见 \ref{subsubs:pagestyle}~节。
-% \end{function}
 %
 % \begin{function}{fntef}
 %   \begin{syntax}
@@ -2191,7 +2183,8 @@ This package consists of the file ctex.dtx, and the derived files
 % 示，只在页眉一侧显示章节编号和标题，另一侧显示页码。
 %
 % 更复杂的页面格式可以通过调用 \pkg{fancyhdr}、\pkg{titleps} 等宏包来设
-% 置。\CTeX 宏包为这些自定义页面格式的包提供了以下宏供使用：
+% 置。\CTeX 宏包同时也为这些自定义页面格式
+% 的包提供了以下宏供使用：
 % \begin{itemize}
 % \item \tn{CTEXthechapter}、\tn{CTEXthesection} 等章节编号（见
 % \ref{subsubs:secstyle} 节）。它们用来代替英文文档类中的
@@ -2230,10 +2223,8 @@ This package consists of the file ctex.dtx, and the derived files
 % 在上例中，我们设置了页眉的形式是用破折号分开的节编号与节标题，即“第 1 节
 % ——天地玄黄”、“第 2 节——宇宙洪荒”。
 %
-% 而当给 \CTeX 宏包使用了 \opt{fancyhdr} 选项时，则会自动调用 \pkg{fancyhdr}
-% 宏包，并设置其 |fancy| 页面格式使用 \tn{CTEXthechapter} 等宏显示中文章节编
-% 号。这样，我们可以更为灵活地控制页眉页脚的格式。
-%
+% \CTeX 宏包已经对 \pkg{fancyhdr} 宏包进行了补丁，载入 \pkg{fancyhdr} 后，其
+% |fancy| 页面格式将使用 \tn{CTEXthechapter} 等宏显示中文章节编号。
 %
 % 关于 \pkg{fancyhdr} 的具体用法可以参见其宏包手册。通常也只要像在标准的英文文
 % 档类中使用 \pkg{fancyhdr} 一样定义页眉页脚格式即可，并不需要额外的定义。
@@ -2538,11 +2529,19 @@ This package consists of the file ctex.dtx, and the derived files
 % \opt{nospace} 选项相当于 |space=false|，成为过时选项。
 % \end{function}
 %
+% \begin{function}{fancyhdr}
+% 新版本宏包中总是自动处理对 \pkg{fancyhdr} 宏包的兼容性，而由用户自己使用
+% \tn{usepackage} 载入 \pkg{fancyhdr} 宏包。
+%
+% \opt{fancyhdr} 选项过时，因兼容性保留，功能是载入 \pkg{fancyhdr} 宏包。
+% \end{function}
+%
 % \begin{function}{hyperref}
 % 新版本宏包中总是自动处理对 \pkg{hyperref} 宏包的兼容性，而由用户自己使用
 % \tn{usepackage} 载入 \pkg{hyperref} 宏包。
 %
-% 原 \opt{hyperref} 选项过时，因兼容性保留，功能是载入 \pkg{hyperref} 宏包。
+% \opt{hyperref} 选项过时，因兼容性保留，功能是在导言区末尾载入 \pkg{hyperref}
+% 宏包。
 % \end{function}
 %
 % \begin{function}{fntef}
@@ -2744,6 +2743,49 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{macro}[int]{\ctex_at_end_package:nn}
+% 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
+% 在宏包末尾执行语句，否则立即执行。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_at_end_package:nn #1 #2
+  {
+    \@ifpackageloaded { #1 }
+      { #2 }
+      { \ctex_add_hook:cn { g_@@_at_end_ #1 _hook_tl } { #2 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_add_hook:Nn, \ctex_add_hook:Nc}
+% 给钩子附加内容。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_add_hook:Nn #1 #2
+  {
+    \tl_if_exist:NF #1 { \tl_new:N #1 }
+    \tl_gput_right:Nn #1 { #2 }
+  }
+\cs_generate_variant:Nn \ctex_add_hook:Nn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_package_end_hook:n, \ctex_package_end_hook:o}
+% 宏包末尾钩子，只执行一次，用后清除。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_package_end_hook:n #1
+  {
+    \cs_if_exist_use:cT { g_@@_at_end_ #1 _hook_tl }
+      { \cs_undefine:c { g_@@_at_end_ #1 _hook_tl } }
+  }
+\cs_generate_variant:Nn \ctex_package_end_hook:n { o }
+%    \end{macrocode}
+% \end{macro}
+%
+% 对 \tn{@popfilename} 做补丁来实现 \cs{ctex_at_end_package:nn} 的功能。
+%    \begin{macrocode}
+\tl_put_left:Nn \@popfilename
+  { \ctex_package_end_hook:o { \@currname } }
+%    \end{macrocode}
 %
 % \begin{macro}[internal]{\ctex_file_input:n}
 % 使用 \tn{@pushfilename} 和 \tn{@popfilename} 是为了让文件可以不受当前
@@ -3276,16 +3318,22 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \changes{v2.0}{2015/04/20}{\opt{hyperref} 成为过时选项，原选项功能总是打开。}
+% \changes{v2.0}{2015/04/20}{\opt{fancyhdr} 成为过时选项，原选项功能总是打开。}
 % \begin{macro}{fntef,fancyhdr,hyperref}
 %   \begin{macrocode}
     fntef    .bool_set:N = \l_@@_fntef_bool ,
-    fancyhdr .bool_set:N = \l_@@_fancyhdr_bool ,
+    fancyhdr .code:n = 
+      {
+        \msg_warning:nnn { ctex } { deprecated-option }
+          { `fancyhdr'~ package~ is~ loaded. }
+        \RequirePackage{ fancyhdr }
+      } ,
     hyperref .code:n =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
-          { hyperref~ package~ will~ be~ loaded. }
+          { `hyperref'~ package~ will~ be~ loaded. }
         \AtEndPreamble { \RequirePackage { hyperref } }
-      },
+      } ,
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6731,27 +6779,23 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-%    \begin{macrocode}
-\bool_if:NT \l_@@_fancyhdr_bool
-  { \RequirePackage { fancyhdr } }
-%    \end{macrocode}
 %
 % \begin{macro}[internal]{\ps@fancy}
+% 这里对 \pkg{fancyhdr} 宏包打补丁。原来 \pkg{fancyhdr} 宏包中使用
+% \tn{thesection} 等宏表示页眉中的章节编号，这里改用 \pkg{ctex} 包所用的
+% \tn{CTEXthesection} 系列宏。
 %    \begin{macrocode}
-\if_cs_exist:N \ps@fancy
-%<*article>
-  \ctex_patch_cmd:Nnn \ps@fancy
-    { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
-  \ctex_patch_cmd:Nnn \ps@fancy
-    { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
-%</article>
-%<*book|report>
-  \ctex_patch_cmd:Nnn \ps@fancy { \@chapapp\ \thechapter.~\ }
-%<book>    { \if@mainmatter \CTEXthechapter \quad \fi }
-%<report>    { \CTEXthechapter \quad }
-  \ctex_patch_cmd:Nnn \ps@fancy { \thesection.~\ } { \CTEXthesection \quad }
-%</book|report>
-\fi:
+\ctex_at_end_package:nn { fancyhdr }
+  {
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \thesection \hskip 1em \relax } { \CTEXthesection \quad }
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \thesubsection \hskip 1em \relax } { \CTEXthesubsection \quad }
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \@chapapp\ \thechapter.~\ } { \CTEXthechapter \quad }
+    \ctex_patch_cmd:Nnn \ps@fancy
+      { \thesection.~\ } { \CTEXthesection \quad }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
