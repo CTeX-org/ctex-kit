@@ -702,7 +702,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4338}
+% \CheckSum{4340}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2769,7 +2769,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
 % 在宏包末尾执行语句，否则立即执行。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_at_end_package:nn #1 #2
+\cs_new_protected:Npn \ctex_at_end_package:nn #1#2
   {
     \@ifpackageloaded { #1 }
       { #2 }
@@ -2778,10 +2778,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\ctex_add_hook:Nn, \ctex_add_hook:Nc}
+% \begin{macro}[int]{\ctex_add_hook:Nn, \ctex_add_hook:cn}
 % 给钩子附加内容。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_add_hook:Nn #1 #2
+\cs_new_protected:Npn \ctex_add_hook:Nn #1#2
   {
     \tl_if_exist:NF #1 { \tl_new:N #1 }
     \tl_gput_right:Nn #1 { #2 }
@@ -3736,8 +3736,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 宏包提供的 \tn{CJKhook} 里重新设置它，让这两个环境忽略空格的方式都受 \opt{space}
 % 选项的控制。这对 \pkg{zhmCJK} 是必要的。
 %    \begin{macrocode}
-\tl_if_exist:NF \CJKhook { \tl_new:N \CJKhook }
-\tl_put_right:Nn \CJKhook { \ctex_set_ignorespaces: }
+\ctex_add_hook:Nn \CJKhook { \ctex_set_ignorespaces: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3748,11 +3747,11 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \clist_map_inline:Nn \c_@@_punct_family_clist
       {
-        \cs_if_free:cF { CJKpunct@ #1 ##1 @spaces }
+        \cs_if_free:cF { c_@@_ #1 ##1 _punct_spaces_tl }
           {
             \cs_set_eq:cc
               { CJKpunct@ ##1 @spaces }
-              { CJKpunct@ #1 ##1 @spaces }
+              { c_@@_ #1 ##1 _punct_spaces_tl }
           }
       }
   }
@@ -3810,6 +3809,15 @@ This package consists of the file ctex.dtx, and the derived files
     \CJKpunctmapfamily { C70 } {#1} { b }  { it } {#2}
     \CJKpunctmapfamily { C70 } {#1} { bx } { it } {#2}
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_punct_space:nn,\ctexspadef}
+% 定义标点的边界信息。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_punct_space:nn #1#2
+  { \tl_const:cn { c_@@_ #1 _punct_spaces_tl } {#2} }
+\cs_new_eq:NN \ctexspadef \ctex_punct_space:nn
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8470,7 +8478,7 @@ This package consists of the file ctex.dtx, and the derived files
         { \exp_args:No \@@_save_bounds:n { \int_use:N \XeTeXcharglyph ##1 } }
       \iow_now:Nx \g_@@_spa_iow
         {
-          \token_to_str:N \@namedef { CJKpunct@#1@spaces }
+          \token_to_str:N \ctexspadef {#1}
 %    \end{macrocode}
 % 最后这三个逗号对 \pkg{CJKpunct} 来说是必要的。
 %    \begin{macrocode}
