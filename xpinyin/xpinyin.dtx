@@ -84,7 +84,46 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   \csname @@end\expandafter\endcsname\expandafter\end
 \fi
 
+\newread\inputcheck
+\openin\inputcheck=xpinyin.ver
+\ifeof\inputcheck
+  \def\xpinyinPutVersion{\string\GetIdInfo$Id$}
+\else
+  \input xpinyin.ver
+\fi
+\closein\inputcheck
+
 \input l3docstrip.tex
+\def\checkOption<#1{%
+  \ifcase
+    \ifx*#10\else \ifx/#11\else
+    \ifx+#12\else \ifx-#13\else
+    \ifx<#14\else \ifx @#15\else
+    \ifx.#16\else
+    7\fi\fi\fi\fi\fi\fi\fi\relax
+  \expandafter\starOption\or
+  \expandafter\slashOption\or
+  \expandafter\plusOption\or
+  \expandafter\minusOption\or
+  \expandafter\verbOption\or
+  \expandafter\moduleOption\or
+  \expandafter\expOption\or
+  \expandafter\doOption\fi
+  #1%
+}
+\def\expOption .#1>#2\endLine{%
+  \maybeMsg{<.#1 . >}%
+  \Evaluate{#1}%
+  \begingroup
+    \catcode`\\=0 \catcode`\{=1 \catcode`\}=2
+    \xdef\expandedLineStuff{\scantokens{#2\noexpand}}%
+  \endgroup
+  \def\do##1##2##3{%
+    \if1\Expr{##2}\StreamPut##1{\expandedLineStuff}\fi
+    }%
+  \activefiles
+}
+
 \keepsilent
 \askforoverwritefalse
 
@@ -131,7 +170,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \file{xpinyin.lua} {\from{\jobname.dtx}{lua}}
   }
 
-\directlua{dofile("xpinyin.lua")}
+\directlua{ dofile(kpse.find_file('xpinyin.lua')) }
 
 \let\MetaPrefix\DoubleperCent
 
@@ -161,7 +200,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %<*driver|package>
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id$
+%<.!driver>\xpinyinPutVersion
+%<*driver>
+\InputIfFileExists{xpinyin.ver}{}{
+  \def\xpinyinGetVersionInfo{\GetIdInfo$Id$}}
+\xpinyinGetVersionInfo
+%</driver>
   {Automatically add pinyin to Chinese characters}
 %<*driver>
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
