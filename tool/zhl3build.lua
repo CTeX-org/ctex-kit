@@ -98,12 +98,20 @@ function hooked_bundleunpack()
   end
 end
 
+local doc_prehook = doc_prehook or function() end
+local doc_posthook = doc_posthook or function() end
 function hooked_doc()
   checksum()
-  return unhooked_doc()
+  doc_prehook()
+  local retval = unhooked_doc()
+  doc_posthook()
+  return retval
 end
 
+copytds_prehook = copytds_prehook or function() end
+copytds_posthook = copytds_posthook or function() end
 function hooked_copytds()
+  copytds_prehook()
   unhooked_copytds()
   -- 移动文件到 tex/generic/<module>/ 目录
   local tds_latexdir = tdsdir .. "/tex/latex/" .. module
@@ -123,6 +131,8 @@ function hooked_copytds()
       mv(tds_latexdir .. "/" .. f, tds_latexdir .. "/" .. subdir .. "/" .. f)
     end
   end
+  -- 其他钩子
+  copytds_posthook()
 end
 
 function hooked_bundlectan()
