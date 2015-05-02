@@ -91,17 +91,11 @@ function hooked_bundleunpack()
   -- UTF-8 to GBK conversion
   for _,f in ipairs(gbkfiles) do
     local f_utf = unpackdir .. "/" .. f
-    if os_windows then
-      f_utf = unix_to_win(f_utf)
-    end
     zhconv(f_utf, f_utf)
   end
   -- UTF-8 to Big5 conversion
   for _,f in ipairs(big5files) do
     local f_utf = unpackdir .. "/" .. f
-    if os_windows then
-      f_utf = unix_to_win(f_utf)
-    end
     zhconv(f_utf, f_utf, "big5")
   end
 end
