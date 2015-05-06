@@ -121,9 +121,9 @@ local function script_path ()
 end
 
 local function prepare_index (file)
-  local f = io.open(file, "r")
-  if f then return f end
   local file_path = script_path() .. file
+  local f = io.open(file_path, "r")
+  if f then return f end
   f = io.open(file_path, "wb")
   if not f then
     file_path = file
