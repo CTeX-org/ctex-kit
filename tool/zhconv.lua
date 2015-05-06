@@ -23,38 +23,37 @@
 --------------------------------------------------------------------
 --
 
-zhconv        = zhconv or {}
+zhconv        = zhconv or { }
 local zhconv  = zhconv
 zhconv.module = {
   name        = "zhconv",
   version     = "0",
-  date        = "2015/05/01",
-  description = "GB18030/Big5 encoder",
+  date        = "2015/05/06",
+  description = "GBK/GB18030/Big5 encoder",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
   license     = "LPPL v1.3c"
 }
 
 local io = require("io")
-local utf8 = require("unicode").utf8
+local utf = require("unicode").utf8
 local http_request = require("socket.http").request
 local ltn12_sink_file = require("ltn12").sink.file
 
 local math_floor = math.floor
 local string_char = string.char
 local table_unpack = table.unpack
-local utf8_byte, utf8_gsub = utf8.byte, utf8.gsub
+local debug_getinfo = debug.getinfo
+local utf8_byte, utf8_gsub = utf.byte, utf.gsub
 
 zhconv.encoder = { }
 local encoder = zhconv.encoder
-encoder.big5 = { }
-encoder.gb18030 = { }
-encoder.big5.mapping, encoder.gb18030.mapping = { }, { }
+encoder.big5, encoder.gbk, encoder.gb18030 = { }, { }, { }
+encoder.big5.mapping, encoder.gbk.mapping, encoder.gb18030.mapping = { }, { }, { }
 encoder.gb18030.ranges = { }
-encoder.gbk = encoder.gb18030
 
-local big5_mapping, gb18030_mapping = encoder.big5.mapping, encoder.gb18030.mapping
-local gb18030_ranges = encoder.gb18030.ranges
+local big5_mapping, gbk_mapping = encoder.big5.mapping, encoder.gbk.mapping
+local gb18030_mapping, gb18030_ranges = encoder.gb18030.mapping, encoder.gb18030.ranges
 
 -- Let lead be pointer / 190 + 0x81.
 -- Let trail be pointer % 190.
@@ -104,10 +103,16 @@ do
   local mt = { }
   function mt.__index (t, key)
     if type(key) == "number" then
-      for i, v in pairs(gb18030_ranges) do
-        if v[1] <= key and key < v[2] then
-          return gb18030_bytes(i + key - v[1])
+      if key < 0x10000 then
+        local bytes = gbk_mapping[key]
+        if bytes then return bytes end
+        for i, v in pairs(gb18030_ranges) do
+          if v[1] <= key and key < v[2] then
+            return gb18030_bytes(i + key - v[1])
+          end
         end
+      else
+        return gb18030_bytes(189000 + key - 0x10000)
       end
     end
   end
@@ -115,9 +120,9 @@ do
 end
 
 local function script_path ()
-  local str = debug.getinfo(2, "S").source:sub(2)
-  str = str:match("(.*[/\\])") or './'
-  return str:gsub('\\', '/')
+  local str = debug_getinfo(2, "S").source:sub(2)
+  str = str:match("(.*[/\\])") or "./"
+  return str:gsub("\\", "/")
 end
 
 local function prepare_index (file)
@@ -137,7 +142,7 @@ end
 
 local pointer, code_point
 for _, v in pairs { { "index-big5.txt", big5_mapping, big5_bytes },
-                    { "index-gb18030.txt", gb18030_mapping, gbk_bytes } } do
+                    { "index-gb18030.txt", gbk_mapping, gbk_bytes } } do
   local file, mapping, bytes = table_unpack(v)
   local f = prepare_index(file)
   for line in f:lines() do
@@ -148,6 +153,10 @@ for _, v in pairs { { "index-big5.txt", big5_mapping, big5_bytes },
   end
   f:close()
  end
+ 
+-- If the gbk flag is set and code point is U+20AC, return byte 0x80.
+gb18030_mapping[0x20AC] = gbk_mapping[0x20AC]
+gbk_mapping[0x20AC] = string_char(0x80)
  
 local f = prepare_index("index-gb18030-ranges.txt")
 local prev_pointer, prev_code_point
@@ -164,11 +173,11 @@ f:close()
 gb18030_ranges[prev_pointer] = { prev_code_point, 0x110000 }
 
 function zhconv.conv (input, output, encoding)
-  local encoding = encoding or "gb18030"
+  local encoding = encoding or "gbk"
   encoding = encoding:lower()
-  local encoder = assert(encoder[encoding], "Encoding " .. encoding .. " not available!")
-  local mapping = encoder.mapping
-  local replace_str = function (s)
+  local tab = assert(encoder[encoding], "Encoding " .. encoding .. " not available!")
+  local mapping = tab.mapping
+  local encoder = function (s)
     local code_point = utf8_byte(s)
     return code_point > 0x7F and mapping[code_point]
   end
@@ -177,7 +186,7 @@ function zhconv.conv (input, output, encoding)
   f:close()
   f = assert(io.open(output, "wb"))
   stream = stream:gsub("^\xEF\xBB\xBF", "")
-  stream = utf8_gsub(stream, "[%C%S]", replace_str)
+  stream = utf8_gsub(stream, "[%C%S]", encoder)
   f:write(stream)
   f:close()
 end
