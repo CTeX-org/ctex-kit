@@ -30,9 +30,9 @@
   set ICONVFILE=ctex-name-gbk.cfg
   set TXT=README
   set AUXFILES=aux bbl blg cmds dvi glo gls hd idx ilg ind ist log los out tmp toc xdv ver
-  set CLEAN=bib bst cfg cls def eps fd gz ins pdf sty tex txt tds.zip
+  set CLEAN=bib bst cfg clo cls def eps fd gz ins pdf sty tex txt tds.zip
   set CTANFILES=ins dtx pdf
-  set TDSFILES=%CTANFILES% sty cls def cfg fd tex spa
+  set TDSFILES=%CTANFILES% sty cls def cfg clo fd tex spa
   set CTANROOT=ctan
   set CTANDIR=%CTANROOT%\%PKGDIR%
   set TDSROOT=tds
@@ -128,6 +128,7 @@
 
   if /i "%~x1" == ".cfg" set TDSDIR=tex\%FORMAT%\%PKGDIR%\config
   if /i "%~x1" == ".cls" set TDSDIR=tex\%FORMAT%\%PKGDIR%
+  if /i "%~x1" == ".clo" set TDSDIR=tex\%FORMAT%\%PKGDIR%
   if /i "%~x1" == ".fd"  set TDSDIR=tex\%FORMAT%\%PKGDIR%\fd
   if /i "%~x1" == ".fdx" set TDSDIR=tex\%FORMAT%\%PKGDIR%\fd
   if /i "%~x1" == ".def" call :def2tdsdir %1
