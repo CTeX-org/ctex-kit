@@ -446,7 +446,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 %
-% \CheckSum{9779}
+% \CheckSum{9803}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2174,34 +2174,51 @@ CJK scripts fonts (TrueType or OpenType).
 %
 % \begin{macro}[internal]{\xeCJK_token_value_charcode:N}
 % \changes{v3.2.4}{2013/06/30}{考虑 \texttt{charcode} 超出 BMP 的情况。}
+% \changes{v3.3.1}{2015/05/08}{\texttt{0.99992} 版修复了 \tn{meaning} 的 Bug。}
 % 当记号 |#1| 的 \texttt{charcode} 大于等于 \texttt{0x10000} 时，\XeTeX\
 % \texttt{0.9999.0} 版以前的 \tn{meaning} 的返回结果比较特殊\footnote{参见
 % \url{http://tug.org/pipermail/xetex/2013-January/023967.html} 和
 % \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。同时使用较新版本中
-% 提供的原语设置 \texttt{mathcode}。目前，\texttt{0.9999.0} 版以后的 \XeTeX 的
-% \tn{meaning} 对于超出 BMP 的字符，会返回两个字符，分别对应于其 UTF-16 编码的
-% 首尾代理。\footnote{参见 \url{http://tug.org/pipermail/xetex/2013-June/024543.html}。}
+% 提供的原语设置 \texttt{mathcode}。\texttt{0.9999.0} 版以后的 \XeTeX 的 \tn{meaning}
+% 对于超出 BMP 的字符，会返回两个字符，分别对应于其 UTF-16 编码的首尾代理^^A
+% \footnote{参见 \url{http://tug.org/pipermail/xetex/2013-June/024543.html}。}。
+% 这一 Bug 在 TeX Live 2015 的 \texttt{0.99992} 版中得到修复^^A
+% \footnote{参见\url{http://tug.org/pipermail/xetex/2015-May/025941.html}}。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_token_value_charcode:N #1
-  { \exp_after:wN \@@_token_value_charcode:w \token_to_meaning:N #1 \q_stop }
-\fp_compare:nNnTF { \int_use:N \xetex_XeTeXversion:D \XeTeXrevision } > { 0.9998 }
-  {
-    \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3#4 \q_stop
-      {
-        \int_eval:n
-          {
-            \tl_if_empty:nTF {#4}
-              { `#3 }
-              { ( `#3 - "D800 ) * "400 + ( `#4 - "DC00 ) + "10000 }
-          }
-      }
-    \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
-  }
-  {
-    \cs_new_nopar:Npn \@@_token_value_charcode:w #1 ~ #2 ~ #3#4 \q_stop
-      { \int_eval:n { \tl_if_empty:nTF {#4} { `#3 } { "20000 } } }
-    \cs_new_eq:NN \xeCJK_xetex_mathcode:w \XeTeXmathcode
-  }
+  { \exp_after:wN \@@_get_charcode:w \token_to_meaning:N #1 \q_stop }
+\group_begin:
+  \cs_set:Npn \@@_tmp:w #1 ~ #2 ~ #3#4#5 \q_stop
+    {
+      \tl_if_empty:nTF { #4#5 }
+        {
+          \cs_new_nopar:Npn \@@_get_charcode:w ##1 ~ ##2 ~ ##3 \q_stop
+            { \int_eval:n { `##3 } }
+          \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
+        }
+        {
+          \tl_if_empty:nTF {#5}
+            {
+              \cs_new_nopar:Npn \@@_get_charcode:w ##1 ~ ##2 ~ ##3##4 \q_stop
+                {
+                  \int_eval:n
+                    {
+                      \tl_if_empty:nTF { ##4 }
+                        { `##3 }
+                        { ( `##3 - "D800 ) * "400 + ( `##4 - "DC00 ) + "10000 }
+                    }
+                }
+              \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
+            }
+            {
+              \cs_new_nopar:Npn \@@_get_charcode:w ##1 ~ ##2 ~ ##3##4 \q_stop
+                { \int_eval:n { \tl_if_empty:nTF { ##4 } { `##3 } { "20000 } } }
+              \cs_new_eq:NN \xeCJK_xetex_mathcode:w \XeTeXmathcode
+            }
+        }
+    }
+  \exp_after:wN \@@_tmp:w \token_to_meaning:N ^^^^^20000 { } \q_stop
+\group_end:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7744,6 +7761,7 @@ CJK scripts fonts (TrueType or OpenType).
 % 为使用 \pkg{CJKnumb} 宏包而作一些处理。另外 \pkg{CJKnumb} 使用的是传统汉字“萬”
 % 和“億”，我们在这里把它们修正为简体字。
 % \changes{v3.2.10}{2014/03/01}{使用 \pkg{CJKnumb} 时，让 \tn{Unicode} 有定义。}
+% \changes{v3.3.1}{2015/05/08}{应用 \texttt{0.99992} 版的新原语 \tn{Ucharcat}。}
 %    \begin{macrocode}
 \cs_new_protected:Npn \CJKaddEncHook #1#2
   {
@@ -7762,14 +7780,22 @@ CJK scripts fonts (TrueType or OpenType).
           { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
       }
   }
-\cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
+\str_if_eq_x:nnTF
+  { \token_to_str:N \Ucharcat } { \token_to_meaning:N \Ucharcat }
   {
-    \group_begin:
-    \char_set_lccode:nn { "4E00 } {#2}
-    \tl_to_lowercase:n
+    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
+      { \tl_const:Nx #1 { \Ucharcat \int_eval:n {#2} ~ \c_eleven } }
+  }
+  {
+    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
       {
-        \group_end:
-        \tl_const:Nn #1 { ^^^^4e00 }
+        \group_begin:
+        \char_set_lccode:nn { "4E00 } {#2}
+        \tex_lowercase:D
+          {
+            \group_end:
+            \tl_const:Nn #1 { ^^^^4e00 }
+          }
       }
   }
 \cs_new_nopar:Npn \@@_calc_unicode:nn #1#2
@@ -7779,14 +7805,13 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% 最后引入本地配置文件。使用 \tn{@pushfilename} 和 \tn{@pushfilename} 是为了使
-% 配置文件可以不受 \hologo{LaTeX3} 语法环境的影响。
+% 最后引入本地配置文件。
 %    \begin{macrocode}
 \bool_if:NT \g_@@_config_bool
   {
-    \@pushfilename
+    \ExplSyntaxOff
     \file_input:n { \g_@@_config_name_tl .cfg }
-    \@popfilename
+    \ExplSyntaxOn
   }
 %    \end{macrocode}
 %
@@ -9630,11 +9655,13 @@ CJK scripts fonts (TrueType or OpenType).
     \clist_remove_duplicates:N \l_@@_encname_clist
     \use:x
       {
-        \bool_if:NT \l__kernel_expl_bool { \ExplSyntaxOff }
+        \ExplSyntaxOff
         \char_set_catcode_letter:n { 64 }
         \@@_reload:N \exp_not:N \l_@@_encname_clist
+        \bool_if:NTF \l__kernel_expl_bool
+          { \ExplSyntaxOn }
+          { \ExplSyntaxOff }
         \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
-        \bool_if:NT \l__kernel_expl_bool { \ExplSyntaxOn }
       }
   }
 \cs_new_protected:Npn \@@_reload:N #1
@@ -9827,7 +9854,7 @@ CJK scripts fonts (TrueType or OpenType).
     \@@_provide_text_command_default:N #1
     \group_begin:
     \char_set_lccode:nn { `0 } { \@@_check_slot:n {#3} }
-    \tl_to_lowercase:n
+    \tex_lowercase:D
       {
         \group_end:
         \@@_declare_character:NNxn 0
@@ -10090,7 +10117,7 @@ CJK scripts fonts (TrueType or OpenType).
     \group_begin:
     \char_set_lccode:nn { `4 } { \@@_check_slot:n {#4} }
     \char_set_lccode:nn { `5 } { \@@_check_slot:n {#5} }
-    \tl_to_lowercase:n
+    \tex_lowercase:D
       {
         \group_end:
         \@@_declare_encoded:NNNNxx 4 5
