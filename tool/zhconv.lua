@@ -134,9 +134,12 @@ local function prepare_index (file)
     file_path = file
     f = assert(io.open(file_path, "wb"))
   end
-  http_request{
+  local status, err = http_request{
     url  = "http://www.w3.org/TR/encoding/indexes/" .. file, 
     sink = ltn12_sink_file(f) }
+  if not status then
+    error([[Download "]] .. file .. [[" failed because of ]] .. err .. ".")
+  end
   return assert(io.open(file_path, "r"))
 end
 
