@@ -12,6 +12,26 @@ It is maintained by [CTeX][ctex] community.
 
 [ctex]: http://www.ctex.org
 
+Our Packages/Collections on CTAN
+--------------------------------
+
+* [CTeX Collection][ctex-collection-ctan]: <http://www.ctan.org/pkg/ctex>
+* [xCJK2uni][xCJK2uni-ctan]: <http://www.ctan.org/pkg/xcjk2uni>
+* [xeCJK][xeCJK-ctan]: <http://www.ctan.org/pkg/xecjk>
+* [xpinyin][xpinyin-ctan]: <http://www.ctan.org/pkg/xpinyin>
+* [zhmetrics][zhmetrics-ctan]: <http://www.ctan.org/pkg/zhmetrics>
+* [zhnumber][zhnumber-ctan]: <http://www.ctan.org/pkg/zhnumber>
+* [zhspacing][zhspacing-ctan]: <http://www.ctan.org/pkg/zhspacing>
+
+[ctex-collection-ctan]: http://www.ctan.org/tex-archive/language/chinese/ctex
+[xCJK2uni-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xcjk2uni
+[xeCJK-ctan]: http://www.ctan.org/tex-archive/macros/xetex/latex/xecjk
+[xpinyin-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xpinyin
+[zhmetrics-ctan]: http://www.ctan.org/tex-archive/fonts/psfonts/zhmetrics
+[zhnumber-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/zhnumber
+[zhspacing-ctan]: http://www.ctan.org/tex-archive/macros/xetex/generic/zhspacing
+
+
 Current Upstream Versions
 -------------------------
 
