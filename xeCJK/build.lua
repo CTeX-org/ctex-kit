@@ -6,14 +6,13 @@ packtdszip = true
 
 sourcefiles = {'xeCJK.dtx'}
 unpackfiles = {'xeCJK.dtx'}
+unpacksuppfiles = {'xeCJK.ver'}
 typesetfiles = {'xeCJK.dtx', 'xunicode-symbols.tex'}
+typesetsuppfiles = {'UnicodeData.txt'}
 installfiles = {'*.sty', '*.cfg', '*.def'}
-cleanfiles = {'*.ver', '*.pdf', '*.zip', '*.log'}
 unpackexe = 'xetex'
 typesetexe = 'xelatex'
 makeindexexe = 'zhmakeindex'
-supportdir = './build/support'
-typesetsuppfiles = {'UnicodeData.txt'}
 
 subtexdirs = {
   ['config'] = '*.cfg',

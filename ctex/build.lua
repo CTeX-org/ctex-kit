@@ -6,8 +6,8 @@ packtdszip = true
 
 sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
+unpacksuppfiles = {"ctex.ver"}
 installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex"}
-cleanfiles = {"ctex.ver", "*.pdf", "*.zip", "*.log"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"

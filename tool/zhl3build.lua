@@ -16,6 +16,8 @@
 
 --]]
 
+maindir = maindir or "."
+supportdir = supportdir or maindir .. "/build/support"
 gitverfiles = gitverfiles or unpackfiles
 gbkfiles = gbkfiles or { }
 big5files = big5files or { }
@@ -63,14 +65,17 @@ function shellescape(s)
 end
 
 function extract_git_version()
+  mkdir(supportdir)
   for _,f in ipairs(gitverfiles) do
     local mainname = f:match("(.*)%.") or f
-    local vername = mainname .. '.ver'
+    local vername =  supportdir .. '/' .. mainname .. '.ver'
+    if os_windows then vername = unix_to_win(vername) end
     os.execute(shellescape([[git log -1 --pretty=format:"\def\]].. mainname .. [[PutVersion{\string\GetIdInfo]] ..
       [[$Id: ]] .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' > ' .. vername))
     append_newline(vername)
     os.execute(shellescape([[git log -1 --pretty=format:"\def\]] .. mainname .. [[GetVersionInfo{\GetIdInfo]] ..
       [[$Id: ]] .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' >> ' .. vername))
+    append_newline(vername)
   end
 end
 
@@ -116,7 +121,7 @@ function hooked_copytds()
   copytds_prehook()
   unhooked_copytds()
   -- 移动文件到 tex/generic/<module>/ 目录
-  local tds_latexdir = tdsdir .. "/tex/latex/" .. module
+  local tds_latexdir = tdsdir .. "/tex/" .. moduledir
   local tds_genericdir = tdsdir .. "/tex/generic/" .. module
   if next(generic_insatllfiles) ~= nil then
     mkdir(tds_genericdir)

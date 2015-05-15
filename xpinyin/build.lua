@@ -6,14 +6,14 @@ packtdszip = true
 
 sourcefiles = {'xpinyin.dtx'}
 unpackfiles = {'xpinyin.dtx'}
+unpacksuppfiles = {'xpinyin.ver'}
 installfiles = {'*.sty', '*.def'}
-cleanfiles = {'*.ver', '*.pdf', '*.log', 'xpinyin.db', 'xpinyin.zip'}
 unpackexe = 'luatex'
 typesetexe = 'xelatex'
 
 function copytds_posthook()
   -- ins 文件
-  cp('xpinyin.ins', unpackdir, tdsdir .. '/source/latex/xpinyin')
+  cp('xpinyin.ins', unpackdir, tdsdir .. '/source/' .. moduledir)
 end
 
 dofile('../tool/zhl3build.lua')
