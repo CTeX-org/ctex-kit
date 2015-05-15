@@ -1,0 +1,576 @@
+%%
+%% This is file `xpinyin.sty',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% xpinyin.dtx  (with options: `package')
+%% 
+%%    Copyright (C) 2012-2014 by Qing Lee <sobenlee@gmail.com>
+%% --------------------------------------------------------------------------
+%%    This work may be distributed and/or modified under the
+%%    conditions of the LaTeX Project Public License, either version 1.3
+%%    of this license or (at your option) any later version.
+%%    The latest version of this license is in
+%%      http://www.latex-project.org/lppl.txt
+%%    and version 1.3 or later is part of all distributions of LaTeX
+%%    version 2005/12/01 or later.
+%% 
+%%    This work has the LPPL maintenance status "maintained".
+%%    The Current Maintainer of this work is Qing Lee.
+%% 
+\NeedsTeXFormat{LaTeX2e}
+\RequirePackage{expl3}
+\GetIdInfo$Id$
+  {Automatically add pinyin to Chinese characters}
+\ProvidesExplPackage{\ExplFileName}
+  {\ExplFileDate}{2.1}{\ExplFileDescription}
+\msg_new:nnn  { xpinyin } { no-LuaTeX }
+  {
+    The~xpinyin~package~is~not~supported~in~LuaTeX.\\\\
+    You~must~change~your~typesetting~engine~to\\
+    "xelatex"~or~"pdflatex"~or~"latex"~instead~of~"lualatex".
+  }
+\luatex_if_engine:T { \msg_critical:nn { xpinyin } { no-LuaTeX } }
+\RequirePackage { xparse }
+\RequirePackage { l3keys2e }
+\prop_new:N \c__xpinyin_tone_prop
+\clist_map_inline:nn
+  {
+    { ā }{ \@tabacckludge= a } ,         { á }{ \@tabacckludge' a } ,
+    { ǎ }{ \v a } ,                      { à }{ \@tabacckludge` a } ,
+    { ō }{ \@tabacckludge= o } ,         { ó }{ \@tabacckludge' o } ,
+    { ǒ }{ \v o } ,                      { ò }{ \@tabacckludge` o } ,
+    { ē }{ \@tabacckludge= e } ,         { é }{ \@tabacckludge' e } ,
+    { ě }{ \v e } ,                      { è }{ \@tabacckludge` e } ,
+    { ū }{ \@tabacckludge= u } ,         { ú }{ \@tabacckludge' u } ,
+    { ǔ }{ \v u } ,                      { ù }{ \@tabacckludge` u } ,
+    { ḿ }{ \@tabacckludge' m } ,         { ń }{ \@tabacckludge' n } ,
+    { ň }{ \v n } ,                      { ǹ }{ \@tabacckludge` n } ,
+    { ī }{ \@tabacckludge= { \i } } ,    { í }{ \@tabacckludge' { \i } } ,
+    { ǐ }{ \v { \i } } ,                 { ì }{ \@tabacckludge` { \i } } ,
+    { ü }{ \" u } ,
+    { ǖ }{ \@tabacckludge= { \" u } } ,  { ǘ }{ \@tabacckludge' { \" u } } ,
+    { ǚ }{ \v { \" u } } ,               { ǜ }{ \@tabacckludge` { \" u } }
+  }
+  { \prop_gput:Nnn \c__xpinyin_tone_prop #1 }
+\cs_new_protected_nopar:Npn \__xpinyin_UTF_char:nn #1#2
+  {
+    \cs_if_exist:cF { u8:#1 }
+      { \tl_const:cn { u8:#1 } {#2} }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_GBK_char:nn #1#2
+  {
+    \__xpinyin_UTF_char:nn {#1} {#2}
+    \exp_args:Nx \__xpinyin_GBK_char_aux:nn { \tl_head:n {#1} } {#1}
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_GBK_char_aux:nn #1#2
+  { \exp_args:Nf \__xpinyin_GBK_char_aux:nnn { \int_eval:n { `#1 } } {#1} {#2} }
+\cs_new_protected_nopar:Npn \__xpinyin_GBK_char_aux:nnn #1#2#3
+  {
+    \cs_if_exist:cF { __xpinyin_UTF_ #1 :w }
+      {
+        \exp_args:Nf \__xpinyin_GBK_char_def:nnn
+          {
+            \int_case:nn { \tl_count:n {#3} }
+              {
+                { \c_two   } { ##1 }
+                { \c_three } { ##1##2 }
+                { \c_four  } { ##1##2##3 }
+              }
+          }
+          {#1} {#2}
+        \exp_args:Nc \__xpinyin_save_UTF_cs:Nn { __xpinyin_UTF_ #1 :w } {#1}
+        \tl_gput_right:Nx \c__xpinyin_reset_UTF_catcode_tl
+          { \char_set_catcode:nn {#1} { \char_value_catcode:n {#1} } }
+        \char_set_catcode_active:n {#1}
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_GBK_char_def:nnn #1#2#3
+  {
+    \cs_new_protected_nopar:cpn { __xpinyin_UTF_ #2 :w } #1
+      { \use:c { u8: \tl_to_str:n { #3#1 } } }
+  }
+\tl_new:N \c__xpinyin_reset_UTF_catcode_tl
+\group_begin:
+\char_set_catcode_active:n { 126 }
+\cs_new_protected_nopar:Npn \__xpinyin_save_UTF_cs:Nn #1#2
+  {
+    \group_begin:
+    \char_set_lccode:nn { 126 } {#2}
+    \tex_lowercase:D
+      {
+        \group_end:
+        \tl_gput_right:Nn \c__xpinyin_reset_UTF_cs_tl { \cs_set_eq:NN ~ #1 }
+      }
+  }
+\group_end:
+\tl_new:N \c__xpinyin_reset_UTF_cs_tl
+\bool_new:N \g__xpinyin_GBK_bool
+\@ifpackageloaded { xeCJK }
+  { \AtEndOfPackage { \__xpinyin_adjust_xeCJK_hook: } }
+  {
+    \@ifpackageloaded { CJKutf8 }
+      {
+        \prop_map_function:NN \c__xpinyin_tone_prop \__xpinyin_UTF_char:nn
+        \AtEndOfPackage { \__xpinyin_adjust_CJK_hook: }
+      }
+      {
+        \@ifpackageloaded { CJK }
+          {
+            \RequirePackage { xCJK2uni }
+            \prop_map_function:NN \c__xpinyin_tone_prop \__xpinyin_GBK_char:nn
+            \AtEndOfPackage
+              {
+                \tl_put_right:Nn \l__xpinyin_pinyin_box_hook_tl
+                  { \c__xpinyin_reset_UTF_cs_tl }
+                \__xpinyin_adjust_CJK_hook:
+                \tl_use:N \c__xpinyin_reset_UTF_catcode_tl
+              }
+            \bool_gset_true:N \g__xpinyin_GBK_bool
+          }
+          {
+            \xetex_if_engine:TF
+              {
+                \RequirePackage { xeCJK }
+                \AtEndOfPackage { \__xpinyin_adjust_xeCJK_hook: }
+              }
+              {
+                \RequirePackage { CJKutf8 }
+                \prop_map_function:NN \c__xpinyin_tone_prop \__xpinyin_UTF_char:nn
+                \AtEndOfPackage { \__xpinyin_adjust_CJK_hook: }
+              }
+          }
+      }
+  }
+\box_new:N \l__xpinyin_tmpa_box
+\box_new:N \l__xpinyin_tmpb_box
+\cs_new_protected:Npn \__xpinyin_width:Nn #1#2
+  {
+    \hbox_set:Nn \l__xpinyin_tmpa_box {#2}
+    #1 = \box_wd:N \l__xpinyin_tmpa_box
+  }
+\cs_if_exist:NTF \quitvmode
+  { \cs_new_eq:NN \__xpinyin_quit_vmode: \quitvmode }
+  {
+    \cs_new_protected_nopar:Npn \__xpinyin_quit_vmode:
+      {
+        \if_mode_vertical:
+          \exp_after:wN \tex_indent:D
+        \fi:
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_make_pinyin_box:nnn #1#2#3
+  {
+    \__xpinyin_leavevmode:
+    \hbox_overlap_right:n
+      {
+        \hbox_set:Nn \l__xpinyin_tmpa_box
+          { \__xpinyin_CJKsymbol_hook: \__xpinyin_save_CJKsymbol:n {#2} }
+        \hbox_set:Nn \l__xpinyin_tmpb_box
+          {
+            \color_group_begin: \color_ensure_current:
+            \l__xpinyin_pinyin_box_hook_tl
+            \__xpinyin_select_font:
+            \clist_if_exist:cTF { c__xpinyin_multiple_ #1 _clist }
+              { \l__xpinyin_multiple_tl \l__xpinyin_format_tl }
+              { \l__xpinyin_format_tl }
+            {#3}
+            \color_group_end:
+          }
+        \dim_compare:nNnT
+          { \box_wd:N \l__xpinyin_tmpb_box } >
+          { \box_wd:N \l__xpinyin_tmpa_box + \l__xpinyin_CJKglue_dim }
+          {
+            \box_resize:Nnn \l__xpinyin_tmpb_box
+              { \box_wd:N \l__xpinyin_tmpa_box + \l__xpinyin_CJKglue_dim }
+              { \box_ht:N \l__xpinyin_tmpb_box + \box_dp:N \l__xpinyin_tmpb_box }
+          }
+        \box_move_up:nn { \l__xpinyin_vsep_tl }
+          {
+            \hbox_to_wd:nn { \box_wd:N \l__xpinyin_tmpa_box }
+              { \tex_hss:D  \box_use_clear:N \l__xpinyin_tmpb_box \tex_hss:D }
+          }
+      }
+  }
+\tl_new:N \l__xpinyin_pinyin_box_hook_tl
+\pdftex_if_engine:T
+  {
+    \tl_put_right:Nn \l__xpinyin_pinyin_box_hook_tl
+      { \cs_set_eq:NN \CJK@plane \tex_undefined:D }
+  }
+\cs_generate_variant:Nn \__xpinyin_make_pinyin_box:nnn { x }
+\cs_new_protected_nopar:Npn \__xpinyin_CJKsymbol:n #1
+  { \__xpinyin_CJKsymbol:xn { \__xpinyin_to_unicode:n {#1} } {#1} }
+\cs_new_protected_nopar:Npn \__xpinyin_CJKsymbol:nn #1#2
+  {
+    \__xpinyin_make_pinyin_box:nnn {#1} {#2} { \use:c { c__xpinyin_ #1 _tl } }
+    \__xpinyin_save_CJKsymbol:n {#2}
+  }
+\cs_generate_variant:Nn \__xpinyin_CJKsymbol:nn { x }
+\NewDocumentEnvironment { pinyinscope } { O { } }
+  {
+    \keys_set:nn { xpinyin } {#1}
+    \enablepinyin
+  }
+  { }
+\NewDocumentCommand \xpinyin { s O { } m }
+  {
+    \IfBooleanTF {#1}
+      {
+        \group_begin:
+        \keys_set:nn { xpinyin } {#2}
+        \enablepinyin
+        #3
+        \group_end:
+      }
+      {
+        \group_begin:
+        \keys_set:nn { xpinyin } {#2}
+        \bool_if:NF \l__xpinyin_enable_bool
+          { \__xpinyin_width:Nn \l__xpinyin_CJKglue_dim { \CJKglue } }
+        \__xpinyin_quit_vmode:
+        \__xpinyin_single_aux:nn {#3}
+      }
+  }
+\bool_new:N \l__xpinyin_enable_bool
+\cs_new_protected_nopar:Npn \__xpinyin_CJKglue:
+  { \skip_horizontal:n { \l__xpinyin_hsep_tl } }
+\NewDocumentCommand \enablepinyin { }
+  {
+    \bool_if:NF \l__xpinyin_enable_bool
+      {
+        \tl_if_empty:NF \l__xpinyin_hsep_tl
+          {
+            \cs_set_eq:NN \__xpinyin_save_CJKglue: \CJKglue
+            \cs_set_eq:NN \CJKglue \__xpinyin_CJKglue:
+          }
+        \__xpinyin_width:Nn \l__xpinyin_CJKglue_dim { \CJKglue }
+        \__xpinyin_replace_CJKsymbol:
+        \__xpinyin_restore_footnote:
+        \bool_set_true:N \l__xpinyin_enable_bool
+      }
+  }
+\NewDocumentCommand \disablepinyin { }
+  {
+    \bool_if:NT \l__xpinyin_enable_bool
+      {
+        \cs_if_eq:NNT \CJKglue \__xpinyin_CJKglue:
+          { \cs_set_eq:NN \CJKglue \__xpinyin_save_CJKglue: }
+        \__xpinyin_restore_CJKsymbol:
+        \bool_set_false:N \l__xpinyin_enable_bool
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_restore_footnote:
+  {
+    \bool_if:NF \l__xpinyin_footnote_bool
+      { \tl_put_left:Nn \@parboxrestore { \l__xpinyin_restore_footnote_tl } }
+  }
+\tl_new:N \l__xpinyin_restore_footnote_tl
+\tl_set:Nn \l__xpinyin_restore_footnote_tl
+  {
+    \int_compare:nNnT \etex_currentgrouptype:D = \c_eleven
+      { \disablepinyin }
+  }
+\dim_new:N \l__xpinyin_CJKglue_dim
+\cs_new_protected_nopar:Npn \__xpinyin_single_aux:nn #1#2
+  {
+    \__xpinyin_replace_CJKsymbol_single:n {#2}
+    #1
+    \group_end:
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_replace_CJKsymbol_single_aux:n #1
+  {
+    \bool_if:NF \l__xpinyin_enable_bool { \__xpinyin_replace_CJKsymbol: }
+    \cs_set_protected_nopar:Npn \CJKsymbol ##1
+      { \__xpinyin_single_CJKsymbol:nn {##1} {#1} }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_single_CJKsymbol:nn #1#2
+  {
+    \__xpinyin_make_pinyin_box:xnn
+      { \__xpinyin_to_unicode:n {#1} } {#1} { \__xpinyin_pinyin:n {#2} }
+    \__xpinyin_save_CJKsymbol:n {#1}
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_replace_CJKsymbol_aux:
+  {
+    \cs_set_eq:NN \__xpinyin_save_CJKsymbol:n \CJKsymbol
+    \cs_set_eq:NN \CJKsymbol \__xpinyin_CJKsymbol:n
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_restore_CJKsymbol_aux:
+  { \cs_set_eq:NN \CJKsymbol \__xpinyin_save_CJKsymbol:n }
+\cs_new_protected_nopar:Npn \__xpinyin_select_font_xetex:
+  {
+    \cs_if_exist_use:cF { \l__xpinyin_coor_tl }
+      {
+        \tl_set:Nx \l__xpinyin_current_coor_tl { \l__xpinyin_coor_tl }
+        \__xpinyin_select_font_aux:
+        \int_compare:nNnF { \XeTeXfonttype \tex_font:D } = \c_zero
+          {
+            \exp_last_unbraced:NNV
+            \cs_gset_eq:cN \l__xpinyin_current_coor_tl \tex_font:D
+          }
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_select_font_aux:
+  {
+    \fontsize
+      { \l__xpinyin_ratio_tl \etex_dimexpr:D \f@size pt \scan_stop: }
+      { \f@baselineskip }
+    \normalfont
+    \l__xpinyin_font_tl
+    \selectfont
+  }
+\cs_new_nopar:Npn \__xpinyin_to_unicode_xetex:n #1
+  { \int_to_arabic:n { `#1 } }
+\cs_new_nopar:Npn \__xpinyin_UTF_to_unicode:n #1
+  {
+    \int_to_arabic:n
+      { \exp_args:No \int_from_hex:n { \CJK@plane } * "100 + #1 }
+  }
+\cs_new_nopar:Npn \__xpinyin_UTFchar_to_unicode:n #1
+  { \int_to_arabic:n { \__xpinyin_UTF_viii_to_unicode:NNNw #1 \q_stop } }
+\cs_new_nopar:Npn \__xpinyin_UTF_viii_to_unicode:NNNw #1#2#3#4 \q_stop
+  {
+    \tl_if_empty:nTF {#4}
+      { ( `#1 - "E0 ) * "1000 + ( `#2 - "80 ) * "40 + ( `#3 - "80 ) }
+      { ( `#1 - "F0 ) * "4000 + ( `#2 - "80 ) * "1000 + ( `#3 - "80 ) * "40 + ( `#4 - "80 ) }
+  }
+\cs_new_nopar:Npn \__xpinyin_GBK_to_unicode:n #1
+  { \int_to_arabic:n { " \CJKtu_sfd_map:nn { \CJK@plane } {#1} } }
+\cs_new_nopar:Npn \__xpinyin_GBKchar_to_unicode:n #1
+  { \int_to_arabic:n { " \CJKchartouni {#1} } }
+\cs_new_protected_nopar:Npn \__xpinyin_adjust_xeCJK_hook:
+  {
+    \cs_new_eq:NN \__xpinyin_select_font:       \__xpinyin_select_font_xetex:
+    \cs_new_eq:NN \__xpinyin_to_unicode:n       \__xpinyin_to_unicode_xetex:n
+    \cs_new_eq:NN \__xpinyin_char_to_unicode:n  \__xpinyin_to_unicode:n
+    \cs_new_eq:NN \__xpinyin_restore_CJKsymbol: \__xpinyin_restore_CJKsymbol_aux:
+    \cs_new_eq:NN \__xpinyin_replace_CJKsymbol: \__xpinyin_replace_CJKsymbol_aux:
+    \cs_new_eq:NN \__xpinyin_replace_CJKsymbol_single:n
+                  \__xpinyin_replace_CJKsymbol_single_aux:n
+    \tl_if_exist:NTF \l_xeCJK_current_font_tl
+      {
+        \tl_set:Nn \l__xpinyin_coor_tl
+          {
+            ( \tl_to_str:N \l__xpinyin_font_tl ) /
+            \l_xeCJK_current_font_tl/\l__xpinyin_ratio_tl
+          }
+      }
+      {
+        \tl_set:Nn \l__xpinyin_coor_tl
+          {
+            ( \tl_to_str:N \l__xpinyin_font_tl ) /
+            \xeCJK@family/\f@series/\f@shape/\f@size/\l__xpinyin_ratio_tl
+          }
+      }
+    \cs_new_eq:NN \__xpinyin_leavevmode: \prg_do_nothing:
+    \cs_new_protected_nopar:Npx \__xpinyin_CJKsymbol_hook:
+      {
+        \exp_not:N \makexeCJKinactive
+        \cs_if_exist_use:NF \xeCJK_select_font:
+          { \exp_not:N \xeCJK@setfont }
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_adjust_CJK_hook:
+  {
+    \bool_if:NTF \g__xpinyin_GBK_bool
+      {
+        \cs_new_eq:NN \__xpinyin_to_unicode:n      \__xpinyin_GBK_to_unicode:n
+        \cs_new_eq:NN \__xpinyin_char_to_unicode:n \__xpinyin_GBKchar_to_unicode:n
+      }
+      {
+        \cs_new_eq:NN \__xpinyin_to_unicode:n      \__xpinyin_UTF_to_unicode:n
+        \cs_new_eq:NN \__xpinyin_char_to_unicode:n \__xpinyin_UTFchar_to_unicode:n
+      }
+    \cs_new_eq:NN \__xpinyin_select_font:    \__xpinyin_select_font_aux:
+    \cs_new_eq:NN \__xpinyin_leavevmode:     \__xpinyin_quit_vmode:
+    \cs_new_eq:NN \__xpinyin_CJKsymbol_hook: \prg_do_nothing:
+    \@ifpackageloaded { CJKpunct }
+      { \__xpinyin_adjust_CJKpunct_hook: }
+      {
+        \cs_new_eq:NN \__xpinyin_restore_CJKsymbol: \__xpinyin_restore_CJKsymbol_aux:
+        \cs_new_eq:NN \__xpinyin_replace_CJKsymbol: \__xpinyin_replace_CJKsymbol_aux:
+        \cs_new_eq:NN \__xpinyin_replace_CJKsymbol_single:n
+                      \__xpinyin_replace_CJKsymbol_single_aux:n
+        \AtBeginDocument
+          {
+            \@ifpackageloaded { CJKpunct }
+              {
+                \cs_undefine:N \__xpinyin_restore_CJKsymbol:
+                \cs_undefine:N \__xpinyin_replace_CJKsymbol:
+                \cs_undefine:N \__xpinyin_replace_CJKsymbol_single:n
+                \__xpinyin_adjust_CJKpunct_hook:
+              } { }
+          }
+      }
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_adjust_CJKpunct_hook:
+  {
+    \cs_new_protected_nopar:Npn \__xpinyin_restore_CJKsymbol:
+      {
+        \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
+          { \__xpinyin_restore_CJKsymbol_aux: }
+          { \cs_set_eq:NN \CJKosymbol \__xpinyin_save_CJKsymbol:n }
+      }
+    \cs_new_protected_nopar:Npn \__xpinyin_replace_CJKsymbol:
+      {
+        \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
+          { \__xpinyin_replace_CJKsymbol_aux: }
+          {
+            \cs_set_eq:NN \__xpinyin_save_CJKsymbol:n \CJKosymbol
+            \cs_set_eq:NN \CJKosymbol \__xpinyin_CJKsymbol:n
+          }
+      }
+    \cs_new_protected_nopar:Npn \__xpinyin_replace_CJKsymbol_single:n ##1
+      {
+        \int_compare:nNnTF { \CJKpunct@punctstyle } = { \CJKpunct@ps@plain }
+          { \__xpinyin_replace_CJKsymbol_single_aux:n { ##1 } }
+          {
+            \bool_if:NF \l__xpinyin_enable_bool
+              { \cs_set_eq:NN \__xpinyin_save_CJKsymbol:n \CJKosymbol }
+            \cs_set_protected_nopar:Npn \CJKosymbol ####1
+              { \__xpinyin_single_CJKsymbol:nn { ####1 } { ##1 } }
+          }
+      }
+  }
+\NewDocumentCommand \pinyin { O { } m }
+  {
+    \group_begin:
+    \keys_set:nn { xpinyin } {#1}
+    \l__xpinyin_font_tl
+    \l__xpinyin_format_tl { }
+    \selectfont
+    \c__xpinyin_reset_UTF_cs_tl
+    \__xpinyin_pinyin:n {#2}
+    \group_end:
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_pinyin:n #1
+  {
+    \__xpinyin_pinyin_init:
+    \bool_set_true:N \l__xpinyin_first_bool
+    \tl_set:Nn \l__xpinyin_save_tl {#1}
+    \__xpinyin_pinyin_aux:n #1 \q_recursion_tail \q_recursion_stop
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_pinyin_aux:n #1
+  {
+    \quark_if_recursion_tail_stop_do:nn {#1}
+      {
+        \bool_if:NTF \l__xpinyin_first_bool { \l__xpinyin_save_tl }
+          { \tl_if_empty:NF \l__xpinyin_item_tl { \l__xpinyin_pysep_tl \l__xpinyin_item_tl } }
+      }
+    \__xpinyin_if_number:nTF {#1}
+      {
+        \bool_if:NTF \l__xpinyin_first_bool
+          { \bool_set_false:N \l__xpinyin_first_bool }
+          { \l__xpinyin_pysep_tl }
+        \l__xpinyin_pre_tl
+        \__xpinyin_tone:Vn \l__xpinyin_tone_tl {#1}
+        \l__xpinyin_post_tl
+        \__xpinyin_pinyin_init:
+      }
+      {
+        \int_compare:nNnTF
+          { 0 \cs_if_exist_use:c { c__xpinyin_ \tl_to_str:N \l__xpinyin_tone_tl _tl } } >
+          { 0 \cs_if_exist_use:c { c__xpinyin_ \tl_to_str:n {#1} _tl } }
+          { \tl_put_right:Nn \l__xpinyin_post_tl {#1} }
+          {
+            \tl_set:Nn \l__xpinyin_tone_tl {#1}
+            \tl_set_eq:NN \l__xpinyin_pre_tl \l__xpinyin_item_tl
+            \tl_clear:N \l__xpinyin_post_tl
+          }
+        \tl_put_right:Nx \l__xpinyin_item_tl { \__xpinyin_replace_v:n {#1} }
+      }
+    \__xpinyin_pinyin_aux:n
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_tone:Nn #1#2
+  { \use:c { __xpinyin_num_to_tone_ #1 :Nn } {#1} {#2} }
+\cs_generate_variant:Nn \__xpinyin_tone:Nn { V }
+\cs_new_nopar:Npn \__xpinyin_replace_v:n #1
+  {
+    \str_if_eq:nnTF {#1} { v }
+      {
+        \str_case:onTF { \l__xpinyin_item_tl }
+          { { l } { } { n } { } { L } { } { N } { } }
+          { \exp_not:n { ü } } { u }
+      }
+      { \exp_not:n {#1} }
+  }
+\cs_new_nopar:Npn \__xpinyin_pinyin_init:
+  {
+    \tl_clear:N \l__xpinyin_pre_tl   \tl_clear:N \l__xpinyin_post_tl
+    \tl_clear:N \l__xpinyin_item_tl  \tl_clear:N \l__xpinyin_tone_tl
+  }
+\prg_new_conditional:Npnn \__xpinyin_if_number:n #1 { TF }
+  {
+    \if_int_compare:w \c_one < 1 \tl_to_str:n {#1} \exp_stop_f:
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+\bool_new:N \l__xpinyin_first_bool
+\tl_const:Nn \c__xpinyin_a_tl { 3 }
+\tl_const:Nn \c__xpinyin_o_tl { 2 }
+\tl_const:Nn \c__xpinyin_e_tl { 2 }
+\tl_const:Nn \c__xpinyin_i_tl { 1 }
+\tl_const:Nn \c__xpinyin_u_tl { 1 }
+\tl_const:Nn \c__xpinyin_v_tl { 1 }
+\cs_new_protected_nopar:Npn \__xpinyin_num_to_tone:Nn #1#2
+  {
+    \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
+      \= {#1}  \or: \'{#1}  \or: \v {#1}  \or: \` {#1}  \else: #1 \fi:
+  }
+\tl_map_inline:nn { a o e u }
+  { \cs_new_eq:cN { __xpinyin_num_to_tone_ #1 :Nn } \__xpinyin_num_to_tone:Nn }
+\cs_new_nopar:Npn \__xpinyin_num_to_tone_i:Nn #1#2
+  {
+    \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
+      ī  \or: í  \or: ǐ  \or: ì \else: i \fi:
+  }
+\cs_new_protected_nopar:Npn \__xpinyin_num_to_tone_v:Nn #1#2
+  {
+    \str_case:onTF { \l__xpinyin_pre_tl }
+      { { l } { }  { n } { }  { L } { } { N } { } }
+      {
+        \if_case:w \int_eval:n { #2 - \c_one } \exp_stop_f:
+          ǖ  \or: ǘ  \or: ǚ  \or: ǜ \else: ü \fi:
+      }
+      { \__xpinyin_num_to_tone:Nn u {#2} }
+  }
+\NewDocumentCommand \xpinyinsetup { m } { \keys_set:nn { xpinyin } {#1} }
+\clist_map_inline:nn
+  { ratio , vsep , hsep , pysep , font , format , multiple }
+  { \keys_define:nn { xpinyin } { #1 .tl_set:c = { l__xpinyin_ #1 _tl } } }
+\keys_define:nn { xpinyin }
+  { footnote .bool_set:N = \l__xpinyin_footnote_bool }
+\keys_set:nn { xpinyin }
+  {
+    ratio   = .4 ,
+    vsep    = 1 em ,
+    pysep   = \c_space_tl ,
+    font    = \normalfont ,
+  }
+\cs_new_protected_nopar:Npn \xpinyin_customary:nnn #1#2#3
+  { \cs_gset_nopar:cpn { c__xpinyin_ #2 _tl } {#3} }
+\cs_new_protected_nopar:Npn \xpinyin_multiple:nnn #1#2#3
+  { \cs_gset_nopar:cpn { c__xpinyin_multiple_ #2 _clist } {#3} }
+\group_begin:
+  \cs_set_eq:NN \XPYU  \xpinyin_customary:nnn
+  \cs_set_eq:NN \XPYUM \xpinyin_multiple:nnn
+  \file_input:n { xpinyin-database.def }
+\group_end:
+\NewDocumentCommand \setpinyin { m m }
+  {
+    \tl_set:cn
+      { c__xpinyin_ \__xpinyin_char_to_unicode:n {#1} _tl }
+      { \__xpinyin_pinyin:n {#2} }
+  }
+\ProcessKeysOptions { xpinyin }
+%% 
+%%    This package consists of the file  xpinyin.dtx,
+%%                 and the derived files xpinyin.sty,
+%%                                       xpinyin.pdf,
+%%                                       xpinyin.ins,
+%%                                       xpinyin.lua,
+%%                                       xpinyin.db,
+%%                                       xpinyin-database.def and
+%%                                       README.
+%%
+%% End of file `xpinyin.sty'.
