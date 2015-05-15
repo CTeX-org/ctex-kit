@@ -42,6 +42,7 @@ function copytds_posthook()
   local mapdir = tdsdir .. '/fonts/misc/xetex/fontmapping/xeCJK'
   mkdir(mapdir)
   cp('*.map', './map', mapdir)
+  cp('*.tec', './map', mapdir)
   -- 示例
   local exampledir = tdsdir .. '/doc/latex/xeCJK/example'
   mkdir(exampledir)
