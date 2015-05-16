@@ -68,7 +68,7 @@ U+2019 <> U+300F
 
   local han_simp_preamble = [[
 ; TECkit mapping for conversion of traditional Chinese characters to simplified Chinese characters
-; Source file name: Unihan_Variants.txt
+; from the Unicode Unihan database: <http://www.unicode.org/Public/UNIDATA/Unihan.zip>
 ]] .. unihan_id .. [[
 
 LHSName "traditional"
