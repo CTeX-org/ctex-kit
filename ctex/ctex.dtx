@@ -460,7 +460,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<founder>\ProvidesExplFile{ctex-fontset-founder.def}
 %<ubuntu>  {Ubuntu fonts definition (CTEX)}
 %<ubuntu>\ProvidesExplFile{ctex-fontset-ubuntu.def}
-  {\ExplFileDate}{2.0.1}{\ExplFileDescription}
+  {\ExplFileDate}{2.0.2}{\ExplFileDescription}
 %</!(c19|c70|ctexspa)>
 %<rm&c19>\ProvidesFile{c19rm.fd}%
 %<sf&c19>\ProvidesFile{c19sf.fd}%
@@ -469,8 +469,8 @@ This package consists of the file ctex.dtx, and the derived files
 %<sf&c70>\ProvidesFile{c70sf.fd}%
 %<tt&c70>\ProvidesFile{c70tt.fd}%
 %<ctexspa>\ProvidesFile{ctexspa.def}%
-%<c19|c70>  [2015/05/15 v2.0.1 Chinese font definition (CTEX)]
-%<ctexspa>  [2015/05/15 v2.0.1 Space info for CJKpunct (CTEX)]
+%<c19|c70>  [2015/05/15 v2.0.2 Chinese font definition (CTEX)]
+%<ctexspa>  [2015/05/15 v2.0.2 Space info for CJKpunct (CTEX)]
 %</!(readme|install|zhmap|spa)>
 %<*driver>
 \ExplSyntaxOff
@@ -721,7 +721,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4371}
+% \CheckSum{4457}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1324,7 +1324,9 @@ This package consists of the file ctex.dtx, and the derived files
 %       在 \opt{heading = true} 的情况下^^A
 %       \footnote{使用 \CTeX{} 文档类，或者使用 \pkg{ctex} 宏包且开启该选项时。}^^A
 %       （\ref{subs:options-heading}~节），还会将章节标题的风格修改为
-%       中文样式（见 \ref{sec:secstyle}~节）。
+%       中文样式（见 \ref{sec:secstyle}~节）。当 \pkg{ctex} 宏包与标准文档类及其
+%       衍生文档类联用时，会载入 \pkg{indentfirst} 宏包，
+%       以实现章节标题后的段首缩进。
 %     \item[plain] 不调整默认字号和行距，不会汉化文档中的标题名字，也不会将章节标题风格
 %       修改为中文样式，同时不会 \tn{pagestyle}，并禁用 \opt{autoindent}
 %       选项。事实上，此时的 \CTeX{} 套件只提供了中文支持功能，而不对文章版式进行任何修改。
@@ -2529,7 +2531,9 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{function}
 %
 % \begin{function}{indent, noindent}
-% 使用 \opt{indent} 宏包选项会载入 \pkg{indentfirst} 宏包。过时选项。
+% \opt{indent} 什么也不做，\pkg{ctex} 宏包的相关功能在与标准文档类及其衍生
+% 文档类联用时默认打开；\CTeX{} 文档类的相关功能由章节
+% \opt{beforeskip} 选项的值来确定。过时选项。
 %
 % \opt{noindent} 什么也不做，也不会使章节首行停止缩进。需要使用 \tn{ctexset}
 % 命令设置章节的 \opt{beforeskip} 选项为正数才能完成原来 \opt{noindent} 选项的
@@ -3221,12 +3225,10 @@ This package consists of the file ctex.dtx, and the derived files
       {
         \msg_warning:nnn { ctex } { deprecated-option }
           {
-            The~ indentfirst~ package~ will~ be~ loaded~ but~ the~
-            functionality~ may~ be~ removed~ in~ later~ version.
+            The~ functionality~ has~ been~ removed.~
             It's~ better~ to~ set~ the~ heading~ styles~ via~ beforeskip~
             options.~
           }
-        \keys_set:nn { ctex / option } { autoindent = true }
       } ,
     indent .value_forbidden: ,
     noindent .code:n =
@@ -3237,7 +3239,6 @@ This package consists of the file ctex.dtx, and the derived files
             It's~ better~ to~ set~ the~ heading~ styles~ via~ beforeskip~
             options.
           }
-        \keys_set:nn { ctex / option } { autoindent = false }
       } ,
     noindent .value_forbidden: ,
 %    \end{macrocode}
@@ -6019,11 +6020,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-%    \begin{macrocode}
-\bool_if:NT \l_@@_indent_bool
-  { \RequirePackage { indentfirst } }
-%    \end{macrocode}
-%
 % \subsection{中文数字与日期}
 %
 %    \begin{macrocode}
@@ -7086,6 +7082,26 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %</scheme&chinese>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%<*scheme&(!(article|book|report))>
+%    \end{macrocode}
+%
+% \changes{v2.0.2}{2015/05/16}{修复加载 \pkg{ctex} 宏包后章节标题后第一段
+% 无段首缩进的问题}
+% 若 \pkg{ctex} 宏包与标准文档类及其衍生文档类联用，则将载入 \pkg{indentfirst} 宏包，
+% 实现章节标题后首个段落的段首缩进。
+%    \begin{macrocode}
+\clist_map_inline:nn { article , book , report }
+  {
+    \@ifclassloaded {#1}
+      { \RequirePackage{ indentfirst } } { }
+  }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</scheme&(!(article|book|report))>
 %    \end{macrocode}
 %
 % \subsection{中文字号}
