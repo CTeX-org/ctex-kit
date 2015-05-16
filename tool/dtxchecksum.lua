@@ -28,7 +28,7 @@ local dtxchecksum  = dtxchecksum
 dtxchecksum.module = {
   name        = "dtxchecksum",
   version     = "0",
-  date        = "2015/04/17",
+  date        = "2015/05/16",
   description = "Correction of \\CheckSum{...} entry in dtx file",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
@@ -110,7 +110,7 @@ end
 local function find_checksum (logfile)
   print("*** Looking for checksum statement ...")
   local f = assert(io.open(logfile, "r"), "Cannot open log file " .. logfile .. "!")
-  local file = f:read("*a")
+  local file = f:read("*all")
   f:close()
   if file:find("%* Checksum passed %*") then
     return true, false
@@ -148,7 +148,11 @@ function dtxchecksum.checksum (dtx, texinputs)
   local kpse_texinputs
   if texinputs then
     kpse_texinputs = kpathsea:var_value("TEXINPUTS")
-    os.setenv("TEXINPUTS", texinputs .. "//;" .. kpse_texinputs)
+    if kpse_texinputs then
+      os.setenv("TEXINPUTS", texinputs .. "//;" .. kpse_texinputs)
+    else
+      os.setenv("TEXINPUTS", texinputs .. "//")
+    end
   end
   typeset(tempdir, dtx)
   local logfile = tempdir .. "/" .. stripext(dtx) .. ".log"
@@ -160,7 +164,7 @@ function dtxchecksum.checksum (dtx, texinputs)
     print("*** Checksum passed.")
   end
   os_rmdir(tempdir)
-  if kpse_texinputs then
+  if texinputs then
     os.setenv("TEXINPUTS", kpse_texinputs)
   end
 end
