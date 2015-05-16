@@ -17,8 +17,8 @@
 --]]
 
 -- Version information: should be identical to that in l3build.dtx
-release_date = "2015/04/02"
-release_ver  = "5564"
+release_date = "2015/04/30"
+release_ver  = "5602"
 
 -- "module" is a deprecated function in Lua 5.2: as we want the name
 -- for other purposes, and it should eventually be 'free', simply
@@ -80,22 +80,23 @@ end
 -- File types for various operations
 -- Use Unix-style globs
 -- All of these may be set earlier, so a initialised conditionally
-auxfiles         = auxfiles         or {"*.aux", "*.toc"}
+bibfiles         = bibfiles         or {"*.bib"}
 binaryfiles      = binaryfiles      or {"*.pdf", "*.zip"}
-checkfiles       = checkfiles       or { } -- Extra files unpacked purely for tests
+bstfiles         = bstfiles         or {"*.bst"}
+checkfiles       = checkfiles       or { }
 checksuppfiles   = checksuppfiles   or { }
 cmdchkfiles      = cmdchkfiles      or { }
 demofiles        = demofiles        or { }
 cleanfiles       = cleanfiles       or {"*.log", "*.pdf", "*.zip"}
-excludefiles     = excludefiles     or {"*~"}             -- Any Emacs stuff
+excludefiles     = excludefiles     or {"*~"}
 installfiles     = installfiles     or {"*.sty"}
 makeindexfiles   = makeindexfiles   or {"*.ist"}
 readmefiles      = readmefiles      or {"README.md", "README.markdown", "README.txt"}
-sourcefiles      = sourcefiles      or {"*.dtx", "*.ins"} -- Files to copy for unpacking
+sourcefiles      = sourcefiles      or {"*.dtx", "*.ins"}
 textfiles        = textfiles        or { }
 typesetfiles     = typesetfiles     or {"*.dtx"}
 typesetsuppfiles = typesetsuppfiles or { }
-unpackfiles      = unpackfiles      or {"*.ins"}          -- Files to actually unpack
+unpackfiles      = unpackfiles      or {"*.ins"}
 unpacksuppfiles  = unpacksuppfiles  or { }
 
 -- Roots which should be unpacked to support unpacking/testing/typesetting
@@ -136,9 +137,13 @@ end
 glossarystyle = glossarystyle or "gglo.ist"
 indexstyle    = indexstyle    or "gind.ist"
 
--- Supporting binaries
-biberexe     = biberexe     or "biber"
-makeindexexe = makeindexexe or "makeindex"
+-- Supporting binaries and options
+biberexe      = biberexe      or "biber"
+biberopts     = biberopts     or ""
+bibtexexe     = bibtexexe     or "bibtex8"
+bibtexopts    = bibtexopts    or "-W"
+makeindexexe  = makeindexexe  or "makeindex"
+makeindexopts = makeindexopts or ""
 
 -- Other required settings
 checkruns   = checkruns   or 1
@@ -237,6 +242,7 @@ if string.sub (package.config, 1, 1) == "\\" then
   os_concat   = "&"
   os_diffext  = ".fc"
   os_diffexe  = "fc /n"
+  os_grepexe  = "findstr /r"
   os_null     = "nul"
   os_pathsep  = ";"
   os_setenv   = "set"
@@ -246,6 +252,7 @@ else
   os_concat   = ";"
   os_diffext  = ".diff"
   os_diffexe  = "diff -c --strip-trailing-cr"
+  os_grepexe  = "grep"
   os_null     = "/dev/null"
   os_pathsep  = ":"
   os_setenv   = "export"
@@ -288,9 +295,9 @@ function direxists (dir)
     errorlevel = os.execute ("[ -d " .. dir .. " ]")
   end
   if errorlevel ~= 0 then
-    return (false)
+    return false
   end
-  return (true)
+  return true
 end
 
 function fileexists (file)
@@ -339,6 +346,29 @@ function mkdir (dir)
   end
 end
 
+-- Find the relationship between two directories
+function relpath (target, source)
+  -- A shortcut for the case where the two are the same
+  if target == source then
+    return ""
+  end
+  local resultdir = ""
+  local trimpattern = "^[^/]*/"
+  -- Trim off identical leading directories
+  while 
+    (string.match (target, trimpattern) or "X") ==
+    (string.match (target, trimpattern) or "Y") do
+    target = string.gsub (target, trimpattern, "")
+    source = string.gsub (source, trimpattern, "")
+  end
+  -- Go up from the source 
+  for i = 0, select(2, string.gsub (target, "/", "")) do
+    resultdir = resultdir .. "../"
+  end
+  -- Return the relative part plus the unique part of the target
+  return resultdir .. target
+end
+
 -- Rename
 function ren (dir, source, dest)
   local dir = dir .. "/"
@@ -370,7 +400,7 @@ end
 -- Run a command in a given directory
 function run (dir, cmd)
   local errorlevel = os.execute ("cd " .. dir .. os_concat .. cmd)
-  return (errorlevel)
+  return errorlevel
 end
 
 -- Deal with the fact that Windows and Unix use different path separators
@@ -393,10 +423,10 @@ function allmodules (target)
       )
     errorlevel = run (i, "texlua " .. scriptname .. " " .. target)
     if errorlevel > 0 then
-      return (errorlevel)
+      return errorlevel
     end
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 -- Set up the check system files: needed for checking one or more tests and
@@ -430,7 +460,9 @@ end
 -- Copy files to the main CTAN release directory
 function copyctan ()
   -- Do all of the copying in one go
-  for _,i in ipairs ({demofiles, pdffiles, sourcefiles, textfiles, typesetlist}) do
+  for _,i in ipairs (
+      {bibfiles, demofiles, pdffiles, sourcefiles, textfiles, typesetlist}
+    ) do
     for _,j in ipairs (i) do
       cp (j, ".", ctandir .. "/" .. ctanpkg)
     end
@@ -472,8 +504,9 @@ function copytds ()
       end
     end
   end
-  install (".", "doc", {demofiles, pdffiles, textfiles, typesetlist})
+  install (".", "doc", {bibfiles, demofiles, pdffiles, textfiles, typesetlist})
   install (unpackdir, "makeindex", {makeindexfiles}, true)
+  install (unpackdir, "bibtex/bst", {bstfiles}, true)
   install (".", "source", {sourcelist})
   install (unpackdir, "tex", {installfiles})
 end
@@ -489,46 +522,26 @@ end
 -- Convert the raw log file into one for comparison/storage: keeps only
 -- the 'business' part from the tests and removes system-dependent stuff
 function formatlog (logfile, newfile)
-  local function killcheck (line, kill)
-    local killnext = false
-    local line = line
+  local function killcheck (line)
       -- Skip lines containing file dates
       if string.match (line, "[^<]%d%d%d%d/%d%d/%d%d") then
-        line = ""
+        return true
       elseif
       -- Skip \openin/\openout lines in web2c 7.x
       -- As Lua doesn't allow "(in|out)", a slightly complex approach:
       -- do a substitution to check the line is exactly what is required!
         string.match (
-            string.gsub (line, "^\\openin", "\\openout"), "^\\openout%d = "
-          )
-          then
-          line = ""
-      elseif
-        -- Various things that only LuaTeX adds to boxes:
-        -- Remove the 'no-op' versions
-        string.match (line, "^%.*\\whatsit$")                 or
-        string.match (line, "^%.*\\localinterlinepenalty=0$") or
-        string.match (line, "^%.*\\localbrokenpenalty=0$")    or
-        string.match (line, "^%.*\\localleftbox=null$")       or
-        string.match (line, "^%.*\\localrightbox=null$")      then
-        line = ""
-      -- Pick up LuaTeX's \discretionary line and remove it and the next
-      -- line
-      elseif
-        string.match (line, "%.+\\discretionary") then
-          line = ""
-          killnext = true
-      elseif kill then
-        line = ""
+            string.gsub (line, "^\\openin", "\\openout"), "^\\openout%d%d? = "
+          ) then
+        return true
       end
-    return line, killnext
+    return false
   end
     -- Substitutions to remove some non-useful changes
   local function normalize (line)
     local line = line
     -- Remove test file name from lines
-    -- This needs ato extract the base name from the log name,
+    -- This needs to extract the base name from the log name,
     -- and one to allow for the case that there might be "-" chars
     -- in the name (other cases are ignored)
     line = string.gsub (
@@ -548,67 +561,34 @@ function formatlog (logfile, newfile)
     end
     -- Zap map loading on first page output
     line = string.gsub (line, "%[1{[%w/%-]*/pdftex%.map}%]", "[1]")
-    -- XeTeX knows only the smaller set of dimension units
+    -- TeX90/XeTeX knows only the smaller set of dimension units
     line = string.gsub (
         line, "cm, mm, dd, cc, bp, or sp", "cm, mm, dd, cc, nd, nc, bp, or sp"
       )
-    -- Normalise a case where a LuaTeX bug misprints \csname\endcsname
-    -- This comes before the normalisation of the appearance of
-    -- \csname\endcsname in case we alter that!
-    line = string.gsub (line, "\\ycsnam\\rendcsnam", "\\csname\\endcsname")
     -- Normalise a case where fixing a TeX bug changes the message text
     line = string.gsub (line, "\\csname\\endcsname ", "\\csname\\endcsname")
     -- Zap "on line <num>" and replace with "on line ..."
     line = string.gsub (line, "on line %d*", "on line ...")
     -- Zap line numbers from \show, \showbox, \box_show and the like
     line = string.gsub (line, "^l%.%d+ ", "l. ...")
-    -- Remove spaces at the start of lines: deals with the fact that LuaTeX
-    -- uses a different number to the other engines
-    line = string.gsub (line, "^%s+", "")
-    -- LuaTeX can give slightly different glue setting to pdfTeX:
-    -- handle this by restricting to four decimal places
-    line = string.gsub (
-        line, "glue set (%d+.%d%d%d%d)%dfil", "glue set %1fil"
-      )
-    -- Remove 'display' at end of display math boxes: LuaTeX omits this
-    line = string.gsub (line, "(\\hbox%(.*), display$", "%1")
-    -- Remove 'normal' direction information on boxes in LuaTeX:
-    -- any bidi/vertical stuff will still show
-    line = string.gsub (line, ", direction TLT", "")
-    -- LuaTeX displays low chars differently: tidy up to ^^ notation
+    -- Tidy up to ^^ notation
     for i = 1, 31, 1 do
       line = string.gsub (line, string.char (i), "^^" .. string.char (64 + i))
     end
-    -- LuaTeX includes U+ notation in the "Missing character" message
-    line = string.gsub (
-        line,
-        "Missing character: There is no (%^%^..) %(U%+(....)%)",
-        "Missing character: There is no %1"
-      )
-    -- For normalising UTF-8 to ASCII
-    local utf8 = unicode.utf8
+    -- Remove spaces at the start of lines: deals with the fact that LuaTeX
+    -- uses a different number to the other engines
+    line = string.gsub (line, "^%s+", "")
     -- Unicode engines display chars in the upper half of the 8-bit range:
-    -- tidy up to match pdfTeX.
+    -- tidy up to match pdfTeX
+    local utf8 = unicode.utf8
     for i = 128, 255, 1 do
       line = string.gsub (line, utf8.char (i), "^^" .. string.format ("%02x", i))
     end
-    -- Minor LuaTeX difference: it does not include parentheses in one message
-    line = string.gsub (
-        line,
-        "%(If you're confused by all this, try typing `I}' now%.%)",
-        "If you're confused by all this, try typing `I}' now."
-      )
-    -- Minor LuaTeX bug: it prints an extra "'" in one message: add enough
-    -- context to hopefully hit only the bug
-    line = string.gsub (
-        line, "I''m going to assume", "I'm going to assume"
-      )
     return line
   end
   local newlog = ""
   local prestart = true
   local skipping = false
-  local killnext = false
   for line in io.lines (logfile) do
     if line == "START-TEST-LOG" then
       prestart = false
@@ -618,12 +598,90 @@ function formatlog (logfile, newfile)
       skipping = true
     elseif line == "TIMO" then
       skipping = false
-    elseif not prestart and not skipping then
+    elseif not prestart and not skipping and not killcheck (line) then
       line = normalize (line)
-      line, killnext = killcheck (line, killnext)
       if not string.match (line, "^ *$") then
         newlog = newlog .. line .. "\n"
       end
+    end
+  end
+  local newfile = io.open (newfile, "w")
+  io.output (newfile)
+  io.write (newlog)
+  io.close (newfile)
+end
+
+-- Additional normalization for LuaTeX
+function formatlualog (logfile, newfile)
+  local function normalize (line, lastline, dropping)
+    local line = line
+    -- Find discretionary lines skip: may get re-added
+    if string.match (line, "^%.+\\discretionary$") then
+      return "", line, false
+    end
+    -- Find whatsit lines skip: may get re-added
+    if string.match (line, "^%.+\\whatsit$") then
+      return "", line, false
+    end
+    -- Remove 'display' at end of display math boxes:
+    -- LuaTeX omits this as it includes direction in all cases
+    line = string.gsub (line, "(\\hbox%(.*), display$", "%1")
+    -- Remove 'normal' direction information on boxes:
+    -- any bidi/vertical stuff will still show
+    line = string.gsub (line, ", direction TLT", "")
+    -- Find glue setting and round out the last place
+    line = string.gsub (
+        line,
+        "glue set (%-? ?)%d+.%d+fil$",
+        "glue set %1" .. string.format (
+            "%.4f", string.match (line, "glue set %-? ?(%d+.%d+)fil$") or 0
+          )
+          .. "fil"
+      )
+    -- Remove U+ notation in the "Missing character" message
+    line = string.gsub (
+        line,
+        "Missing character: There is no (%^%^..) %(U%+(....)%)",
+        "Missing character: There is no %1"
+      )
+    -- Where the last line was a discretionary, looks for the
+    -- info one level in about what it represents
+    if string.match (lastline, "^%.+\\discretionary$") then
+      prefix = string.gsub (string.match (lastline, "^(%.+)"), "%.", "%%.")
+      if string.match (line, prefix .. "%.") or
+         string.match (line, prefix .. "%|") then
+        return "", lastline, true
+      else
+        if dropping then
+          -- End of a \discretionary block
+          return line, "", false
+        else
+          -- A normal (TeX90) discretionary:
+          -- add with the line break reintroduced
+          return lastline .. "\n" .. line, ""
+        end
+      end
+    end
+    -- Much the same idea when the last line was a whatsit,
+    -- but things are simpler in this case
+    if string.match (lastline, "^%.+\\whatsit$") then
+      prefix = string.gsub (string.match (lastline, "^(%.+)"), "%.", "%%.")
+      if string.match (line, prefix .. "%.") then
+        return "", lastline, true
+      else
+        -- End of a \whatsit block
+        return line, "", false
+      end
+    end
+    return line, lastline, false
+  end
+  local newlog = ""
+  local lastline = ""
+  local dropping = false
+  for line in io.lines (logfile) do
+    line, lastline, dropping = normalize (line, lastline, dropping)
+    if not string.match (line, "^ *$") then
+      newlog = newlog .. line .. "\n"
     end
   end
   local newfile = io.open (newfile, "w")
@@ -638,7 +696,7 @@ function locate (dirs, names)
     for _,j in ipairs (names) do
       local path = i .. "/" .. j
       if fileexists (path) then
-        return (path)
+        return path
       end
     end
   end
@@ -659,7 +717,7 @@ function listmodules ()
       end
     end
   end
-  return (modules)
+  return modules
 end
 
 -- Runs a single test: needs the name of the test rather than the .lvt file
@@ -688,16 +746,34 @@ function runcheck (name, engine, hide)
     if os_windows then
       tlgfile = unix_to_win (tlgfile)
     end
-    local errlevel = os.execute (
+    local errlevel
+    -- Do additional log formatting if the engine is LuaTeX, there is no
+    -- LuaTeX-specific .tlg file and the default engine is not LuaTeX
+    if i == "luatex"
+      and tlgfile ~= name ..  "." .. i .. tlgext
+      and stdengine ~= "luatex" then
+      local luatlgfile = testdir .. "/" .. name .. ".luatex" ..  tlgext
+      if os_windows then
+        luatlgfile = unix_to_win (luatlgfile)
+      end
+      formatlualog (tlgfile, luatlgfile)
+      formatlualog (newfile, newfile)
+      errlevel = os.execute (
+        os_diffexe .. " " .. luatlgfile .. " " .. newfile
+          .. " > " .. difffile
+      )      
+    else
+      errlevel = os.execute (
         os_diffexe .. " " .. tlgfile .. " " .. newfile .. " > " .. difffile
       )
+    end
     if errlevel == 0 then
       os.remove (difffile)
     else
       errorlevel = errlevel
     end
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 -- Run one of the test files: doesn't check the result so suitable for
@@ -716,9 +792,11 @@ function runtest (name, engine, hide)
   end
   local logfile = testdir .. "/" .. name .. logext
   local newfile = testdir .. "/" .. name .. "." .. engine .. logext
-  for i = 1, checkruns, 1 do
+  for i = 1, checkruns do
     run (
         testdir,
+        -- No use of localdir here as the files get copied to testdir:
+        -- avoids any paths in the logs
         os_setenv .. " TEXINPUTS=." .. (checksearch and os_pathsep or "")
           .. os_concat ..
         engine ..  format .. " " .. checkopts .. " " .. lvtfile
@@ -750,6 +828,120 @@ end
 -- Look for a test: could be in the testfiledir or the unpackdir
 function testexists (test)
   return (locate ({testfiledir, unpackdir}, {test .. lvtext}))
+end
+
+--
+-- Auxiliary functions for typesetting: need to be generally available
+--
+
+-- An auxiliary used to set up the environmental variables
+function runtool (envvar, command)
+  return (
+    run (
+      typesetdir,
+      os_setenv .. " " .. envvar .. "=." .. os_pathsep
+        .. relpath (localdir, typesetdir)
+        .. (typesetsearch and os_pathsep or "") ..
+      os_concat ..
+      command         
+    )
+  )
+end
+
+function biber (name)
+  if fileexists (typesetdir .. "/" .. name .. ".bcf") then
+    return (
+      runtool ("BIBINPUTS",  biberexe .. " " .. biberopts .. " " .. name)
+    )
+  end
+  return 0
+end
+
+function bibtex (name)
+  if fileexists (typesetdir .. "/" .. name .. ".aux") then
+    -- LaTeX always generates an .aux file, so there is a need to
+    -- look inside it for a \citation line
+    local grep
+    if os_windows then
+      grep = "\\\\"
+    else
+     grep = "\\\\\\\\"
+    end
+    if run (
+        typesetdir,
+        os_grepexe .. " \"^" .. grep .. "citation{\" " .. name .. ".aux > "
+          .. os_null
+      ) == 0 then
+      return (
+        -- Cheat slightly as we need to set two variables
+        runtool (
+          "BIBINPUTS",
+          os_setenv .. " BSTINPUTS=." .. os_pathsep
+            .. relpath (localdir, typesetdir)
+            .. (typesetsearch and os_pathsep or "") ..
+          os_concat .. 
+          bibtexexe .. " " .. bibtexopts .. " " .. name
+        )
+      )
+    end
+  end
+  return 0
+end
+
+function makeindex (name, inext, outext, logext, style)
+  if fileexists (typesetdir .. "/" .. name .. inext) then
+    return (
+      runtool (
+        "INDEXSTYLE",
+        makeindexexe .. " " .. makeindexopts .. " "
+          .. " -s " .. style .. " -o " .. name .. outext
+          .. " -t " .. name .. logext .. " "  .. name .. inext
+      )
+    )
+  end
+  return 0
+end
+
+function tex (file)
+  return (
+    runtool (
+      "TEXINPUTS",
+      typesetexe .. " " .. typesetopts .. " \"" .. typesetcmds
+        .. "\\input " .. file .. "\""
+    )
+  )
+end
+
+function typesetpdf (file)
+  local name = stripext (file)
+  print ("Typesetting " .. name)
+  local errorlevel = typeset (file)
+  if errorlevel == 0 then
+    os.remove (name .. ".pdf")
+    cp (name .. ".pdf", typesetdir, ".")
+  else
+    print (" ! Compilation failed")
+  end
+  return errorlevel
+end
+
+typeset = typeset or function (file)
+  local errorlevel = tex (file)
+  if errorlevel ~= 0 then
+    return errorlevel
+  else
+    local name = stripext (file)
+    -- Return a non-zero errorlevel if something goes wrong
+    -- without having loads of nested tests
+    return (
+      biber (name)  +
+      bibtex (name) +
+      makeindex (name, ".glo", ".gls", ".glg", glossarystyle) +
+      makeindex (name, ".idx", ".ind", ".ilg", indexstyle)    +
+      tex (file) +
+      tex (file)
+    )
+  end
 end
 
 -- Standard versions of the main targets for building modules
@@ -787,7 +979,7 @@ function check (name, engine)
   else
     errorlevel = checkall ()
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 function checkall ()
@@ -821,7 +1013,7 @@ function checkall ()
       print ("\n  All checks passed\n")
     end
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 function checklvt (name, engine)
@@ -868,12 +1060,6 @@ function clean ()
   end
 end
 
-function auxclean ()
-  for _,i in ipairs (auxfiles) do
-    rm (".", i)
-  end
-end
-
 function bundleclean ()
   allmodules ("clean")
   for _,i in ipairs (cleanfiles) do
@@ -889,17 +1075,21 @@ function cmdcheck ()
   cleandir (testdir)
   depinstall (checkdeps)
   local engine = string.gsub (stdengine, "tex$", "latex")
+  local localdir = relpath (localdir, testdir)
   print ("Checking source files")
   for _,i in ipairs (cmdchkfiles) do
     for _,j in ipairs (filelist (".", i)) do
       print ("  " .. stripext (j))
-      os.execute (
-          os_setenv .. " TEXINPUTS=." .. os_pathsep .. localdir ..
-            (checksearch and os_pathsep or "") .. os_concat ..
-          engine .. " " .. cmdchkopts .. " -output-directory=" .. testdir ..
-            " \"\\PassOptionsToClass{check}{l3doc} \\input " .. j .. "\""
-            .. " > " .. os_null
-        )
+      cp (j, ".", testdir)
+      run (
+        testdir,
+        os_setenv .. " TEXINPUTS=." .. os_pathsep .. localdir
+          .. os_pathsep ..
+        os_concat ..
+        engine .. " " .. cmdchkopts .. 
+          " \"\\PassOptionsToClass{check}{l3doc} \\input " .. j .. "\""
+          .. " > " .. os_null
+      )
       for line in io.lines (testdir .. "/" .. stripext (j) .. ".cmds") do
         if string.match (line, "^%!") then
           print ("   - " .. string.match (line, "^%! (.*)"))
@@ -956,7 +1146,7 @@ function ctan (standalone)
     print ("\n====================")
     print ("Tests failed, zip stage skipped!")
     print ("====================\n")
-    return (errorlevel)
+    return errorlevel
   end
   if errorlevel == 0 then
     for _,i in ipairs (readmefiles) do
@@ -980,7 +1170,7 @@ function ctan (standalone)
     print ("Typesetting failed, zip stage skipped!")
     print ("====================\n")
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 function bundlectan ()
@@ -1004,7 +1194,7 @@ function bundlectan ()
         end
       end
     end
-    return (includelist)
+    return includelist
   end
   unpack()
   local errorlevel = doc ()
@@ -1015,74 +1205,24 @@ function bundlectan ()
       table.insert (pdffiles, (string.gsub (i, "%.%w+$", ".pdf")))
     end
     typesetlist = excludelist (typesetfiles, {sourcefiles})
-    sourcelist = excludelist (sourcefiles, {installfiles, makeindexfiles})
+    sourcelist = excludelist (
+      sourcefiles, {bstfiles, installfiles, makeindexfiles}
+    )
     copyctan ()
     copytds ()
   end
-  return (errorlevel)
+  return errorlevel
 end
 
 -- Typeset all required documents
--- This function has several sub-parts, but as most are not needed anywhere
--- else everything is done locally within the main function
+-- Uses a set of dedicated auxiliaries that need to be available to others
 function doc ()
-  local function typeset (file)
-    local name = stripext (file)
-    -- A couple of short functions to deal with the repeated steps in a
-    -- clear way
-    local function biber (name)
-      if fileexists (typesetdir .. "/" .. name .. ".bcf") then
-        return (run (typesetdir, biberexe .. " " .. name))
-      end
-    end
-    local function makeindex (name, inext, outext, logext, style)
-      if fileexists (typesetdir .. "/" .. name .. inext) then
-        return (
-          run (
-            typesetdir ,
-            makeindexexe .." -s " .. style .. " -o " .. name .. outext
-              .. " -t " .. name .. logext .. " "  .. name .. inext
-            )
-          )
-      end
-    end
-    local function typeset (file)
-      return (
-        os.execute (
-            os_setenv .. " TEXINPUTS=" .. typesetdir ..
-              os_pathsep .. localdir .. (typesetsearch and os_pathsep or "") ..
-              os_concat ..
-            typesetexe .. " " .. typesetopts ..
-              " -output-directory=" .. typesetdir ..
-              " \"" .. typesetcmds ..
-              "\\input " .. typesetdir .. "/" .. file .. "\""
-          )
-      )
-    end
-    auxclean ()
-    os.remove (name .. ".pdf")
-    print ("Typesetting " .. name)
-    local errorlevel = typeset (file)
-    if errorlevel ~= 0 then
-      print (" ! Compilation failed")
-      return (errorlevel)
-    else
-      biber (name)
-      makeindex (name, ".glo", ".gls", ".glg", glossarystyle)
-      makeindex (name, ".idx", ".ind", ".ilg", indexstyle)
-      typeset (file)
-      typeset (file)
-      cp (name .. ".pdf", typesetdir, ".")
-    end
-    return (errorlevel)
-  end
   -- Set up
   cleandir (typesetdir)
-  for _,i in ipairs (sourcefiles) do
-    cp (i, ".", typesetdir)
-  end
-  for _,i in ipairs (typesetfiles) do
-    cp (i, ".", typesetdir)
+  for _,i in ipairs ({bibfiles, sourcefiles, typesetfiles}) do
+    for _,j in ipairs (i) do
+      cp (j, ".", typesetdir)
+    end
   end
   for _,i in ipairs (typesetsuppfiles) do
     cp (i, supportdir, typesetdir)
@@ -1092,9 +1232,9 @@ function doc ()
   -- Main loop for doc creation
   for _,i in ipairs (typesetfiles) do
     for _,j in ipairs (filelist (".", i)) do
-      local errorlevel = typeset (j)
+      local errorlevel = typesetpdf (j)
       if errorlevel ~= 0 then
-        return (errorlevel)
+        return errorlevel
       end
     end
   end
@@ -1165,17 +1305,15 @@ bundleunpack = bundleunpack or function ()
       -- on Unix the "yes" command can't be used inside os.execute (it never
       -- stops, which confuses Lua)
       os.execute (os_yes .. ">>" .. localdir .. "/yes")
-      os.execute (
-          -- Notice that os.execute is used from 'here' as this ensures that
-          -- localdir points to the correct place: running 'inside'
-          -- unpackdir would avoid the need for setting -output-directory
-          -- but at the cost of needing to correct the relative position
-          -- of localdir w.r.t. unpackdir
-          os_setenv .. " TEXINPUTS=" .. unpackdir .. os_pathsep .. localdir ..
-            (unpacksearch and os_pathsep or "") .. os_concat ..
-          unpackexe .. " " .. unpackopts .. " -output-directory=" .. unpackdir
-            .. " " .. unpackdir .. "/" .. j .. " < " .. localdir .. "/yes"
-        )
+      local localdir = relpath (localdir, unpackdir)
+      run (
+        unpackdir,
+        os_setenv .. " TEXINPUTS=." .. os_pathsep
+          .. localdir .. (unpacksearch and os_pathsep or "") ..
+        os_concat ..
+        unpackexe .. " " .. unpackopts .. " " .. j .. " < " 
+          .. localdir .. "/yes"
+      )
     end
   end
 end
