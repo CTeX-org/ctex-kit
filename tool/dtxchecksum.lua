@@ -145,13 +145,15 @@ end
 
 function dtxchecksum.checksum (dtx, texinputs)
   local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
-  local kpse_texinputs
+  local kpse_texinputs, os_texinputs
   if texinputs then
-    kpse_texinputs = kpathsea:var_value("TEXINPUTS")
-    if kpse_texinputs then
-      os.setenv("TEXINPUTS", texinputs .. "//;" .. kpse_texinputs)
+    if os.type == "windows" and os.selfdir:find("miktex") then
+      checksumopt = "-include-directory=" .. texinputs .. " " .. checksumopt
     else
-      os.setenv("TEXINPUTS", texinputs .. "//")
+      kpse_texinputs = kpathsea:var_value("TEXINPUTS")
+      os_texinputs = kpse_texinputs and texinputs .. "//;" .. kpse_texinputs
+                                     or texinputs .. "//"
+      os.setenv("TEXINPUTS", os_texinputs)
     end
   end
   typeset(tempdir, dtx)
@@ -164,7 +166,7 @@ function dtxchecksum.checksum (dtx, texinputs)
     print("*** Checksum passed.")
   end
   os_rmdir(tempdir)
-  if texinputs then
+  if os_texinputs then
     os.setenv("TEXINPUTS", kpse_texinputs)
   end
 end

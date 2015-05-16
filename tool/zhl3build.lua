@@ -24,6 +24,18 @@ big5files = big5files or { }
 generic_insatllfiles = generic_insatllfiles or { }
 subtexdirs = subtexdirs or { }
 
+localdir = localdir or maindir .. "/build/local"
+typesetopts = typesetopts or "-interaction=nonstopmode"
+unpackopts  = unpackopts  or ""
+
+-- MiKTeX 中，环境变量 TEXINPUTS 的优先级低于系统路径
+-- 但可以设置编译选项 -include-directory
+if os.type == "windows" and os.selfdir:find("miktex") then
+  miktexots = "-include-directory=" .. localdir
+  typesetopts = miktexots .. " " .. typesetopts
+  unpackopts = miktexots .. " " .. unpackopts
+end
+
 -- 返回脚本所在目录
 local function script_path()
    local str = debug.getinfo(2, "S").source:sub(2)
