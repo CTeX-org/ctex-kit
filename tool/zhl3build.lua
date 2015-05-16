@@ -36,6 +36,48 @@ if os.type == "windows" and os.selfdir:find("miktex") then
   unpackopts = miktexots .. " " .. unpackopts
 end
 
+-- 计算文件的 md5
+local md5sum = require("md5").sumhexa
+function file_md5 (file)
+  local f = io.open(file, "rb")
+  if f then
+    local data = f:read("*all")
+    f:close()
+    return data and md5sum(data)
+  end
+end
+
+-- 以 .aux, .glo, .idx 文件的 md5 来决定编译次数，默认最大为 5 次
+max_typeset_run = max_typeset_run or 5
+typeset = typeset or function (file)
+  local name = stripext(file)
+  local path_name = typesetdir .. "/" .. name
+  local aux, glo, idx = path_name .. ".aux", path_name .. ".glo", path_name .. ".idx"
+  local aux_md5, glo_md5, idx_md5, prev_aux_md5, prev_glo_md5, prev_idx_md5
+  local errorlevel
+  local cnt = 0
+  local typeset_stop = true
+  repeat
+    cnt = cnt + 1
+    errorlevel = tex(file)
+    if errorlevel ~= 0 then return errorlevel end
+    prev_aux_md5, prev_glo_md5, prev_idx_md5 = aux_md5, glo_md5, idx_md5
+    aux_md5, glo_md5, idx_md5 = file_md5(aux), file_md5(glo), file_md5(idx)
+    typeset_stop = aux_md5 == prev_aux_md5
+    if glo_md5 ~= prev_glo_md5 then
+      typeset_stop = false
+      errorlevel = makeindex(name, ".glo", ".gls", ".glg", glossarystyle)
+      if errorlevel ~= 0 then return errorlevel end
+    end
+    if idx_md5 ~= prev_idx_md5 then
+      typeset_stop = false
+      errorlevel = makeindex(name, ".idx", ".ind", ".ilg", indexstyle)
+      if errorlevel ~= 0 then return errorlevel end
+    end
+  until typeset_stop or cnt >= max_typeset_run
+  return 0
+end
+
 -- 返回脚本所在目录
 local function script_path()
    local str = debug.getinfo(2, "S").source:sub(2)
@@ -48,8 +90,8 @@ zhconv = dofile(script_path() .. "zhconv.lua").conv
 
 -- 只对 .dtx 进行 \CheckSum 校正
 function checksum()
-  unpack ()
   -- 不进行重复解包
+  if not is_unpacked then unpack() end
   unpack = function() end
   for _,glob in ipairs(typesetfiles) do
     for _,f in ipairs(filelist(".", glob)) do
@@ -115,6 +157,7 @@ function hooked_bundleunpack()
     local f_utf = unpackdir .. "/" .. f
     zhconv(f_utf, f_utf, "big5")
   end
+  is_unpacked = true
 end
 
 local doc_prehook = doc_prehook or function() end
