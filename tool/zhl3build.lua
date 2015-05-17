@@ -24,16 +24,13 @@ big5files = big5files or { }
 generic_insatllfiles = generic_insatllfiles or { }
 subtexdirs = subtexdirs or { }
 
-localdir = localdir or maindir .. "/build/local"
-typesetopts = typesetopts or "-interaction=nonstopmode"
-unpackopts  = unpackopts  or ""
-
 -- MiKTeX 中，环境变量 TEXINPUTS 的优先级低于系统路径
 -- 但可以设置编译选项 -include-directory
-if os.type == "windows" and os.selfdir:find("miktex") then
-  miktexots = "-include-directory=" .. localdir
-  typesetopts = miktexots .. " " .. typesetopts
-  unpackopts = miktexots .. " " .. unpackopts
+if os.selfdir:find([[miktex\bin$]]) then
+  function miktex_hook ()
+    typesetopts = "-include-directory=" .. relpath(localdir, typesetdir) .. " " .. typesetopts
+    unpackopts = "-include-directory=" .. relpath(localdir, unpackdir) .. " " .. unpackopts
+  end
 end
 
 -- 计算文件的 md5
@@ -216,6 +213,7 @@ function hooked_help()
 end
 
 function main (target, file, engine)
+  if miktex_hook then miktex_hook() end
   unhooked_bundleunpack = bundleunpack
   bundleunpack = hooked_bundleunpack
   unhooked_doc = doc
