@@ -724,7 +724,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 %
 %
-% \CheckSum{4369}
+% \CheckSum{4372}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -6977,6 +6977,20 @@ This package consists of the file ctex.dtx, and the derived files
 %<*style>
 %    \end{macrocode}
 %
+% \begin{variable}[internal]{\c_@@_std_class_tl}
+% 用于记录被引入的标准文档类。
+%    \begin{macrocode}
+\clist_map_inline:nn { article , book , report }
+  {
+    \@ifclassloaded {#1}
+      { \clist_map_break:n { \tl_const:Nn \c_@@_std_class_tl {#1} } }
+      { }
+  }
+%    \end{macrocode}
+% \end{variable}
+%
+% 若标准文档类被引入，则载入对应的标题定义文件。否则视 \tn{chapter} 是否有定义来
+% 引入 \cls{book} 或者 \cls{article}。
 %    \begin{macrocode}
 \msg_new:nnn { ctex } { not-standard-class }
   {
@@ -6986,12 +7000,8 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \bool_if:NTF \l_@@_heading_bool
   {
-    \clist_map_inline:nn { article , book , report }
-      {
-        \@ifclassloaded {#1}
-          { \clist_map_break:n { \tl_const:Nn \c_@@_class_tl {#1} } } { }
-      }
-    \tl_if_exist:NF \c_@@_class_tl
+    \tl_if_exist:NTF \c_@@_std_class_tl
+      { \cs_new_eq:NN \c_@@_class_tl \c_@@_std_class_tl }
       {
         \cs_if_exist:NTF \chapter
           {
@@ -7092,13 +7102,10 @@ This package consists of the file ctex.dtx, and the derived files
 % 若 \pkg{ctex} 宏包与标准文档类及其衍生文档类联用，则将载入 \pkg{indentfirst} 宏包，
 % 实现章节标题后首个段落的段首缩进。
 %    \begin{macrocode}
-%<*!(article|book|report)>
-\clist_map_inline:nn { article , book , report }
-  {
-    \@ifclassloaded {#1}
-      { \RequirePackage{ indentfirst } } { }
-  }
-%</!(article|book|report)>
+%<*generic>
+\tl_if_exist:NT \c_@@_std_class_tl
+  { \RequirePackage{ indentfirst } }
+%</generic>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
