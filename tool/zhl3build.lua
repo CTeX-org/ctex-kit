@@ -210,8 +210,9 @@ function hooked_bundlectan()
 end
 
 function hooked_help()
+  print ""
+  io.stdout:write " build checksum              - adjust checksum"
   unhooked_help()
-  print " build checksum              - adjust checksum"
 end
 
 function main (target, file, engine)
