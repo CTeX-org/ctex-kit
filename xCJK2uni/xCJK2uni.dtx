@@ -63,7 +63,7 @@ Email: sobenlee@gmail.com
 
 If you are interested in the process of development you may observe
 
-    http://code.google.com/p/ctex-kit/
+    https://github.com/CTeX-org/ctex-kit
 
 Installation
 ------------
@@ -85,15 +85,53 @@ and some specific Chinese Simplified fonts.
 %<*internal>
 \fi
 \begingroup
-  \edef\tempa{\fmtname}
-  \edef\tempb{plain}
-\expandafter\endgroup
-\ifx\tempa\tempb
+  \def\temp{LaTeX2e}
+\expandafter\endgroup\ifx\temp\fmtname\else
 \csname fi\endcsname
 %</internal>
 %<*install>
 
+\newread\inputcheck
+\openin\inputcheck=xCJK2uni.ver
+\ifeof\inputcheck
+  \expandafter\def\csname xCJK2uniPutVersion\endcsname{\string\GetIdInfo$Id$}
+\else
+  \input xCJK2uni.ver
+\fi
+\closein\inputcheck
+
 \input l3docstrip.tex
+
+\def\checkOption<#1{%
+  \ifcase
+    \ifx*#10\else \ifx/#11\else
+    \ifx+#12\else \ifx-#13\else
+    \ifx<#14\else \ifx @#15\else
+    \ifx.#16\else
+    7\fi\fi\fi\fi\fi\fi\fi\relax
+  \expandafter\starOption\or
+  \expandafter\slashOption\or
+  \expandafter\plusOption\or
+  \expandafter\minusOption\or
+  \expandafter\verbOption\or
+  \expandafter\moduleOption\or
+  \expandafter\expOption\or
+  \expandafter\doOption\fi
+  #1%
+}
+\def\expOption .#1>#2\endLine{%
+  \maybeMsg{<.#1 . >}%
+  \Evaluate{#1}%
+  \begingroup
+    \catcode`\\=0 \catcode`\{=1 \catcode`\}=2 \catcode`\ =10
+    \xdef\expandedLineStuff{\scantokens{#2\noexpand}}%
+  \endgroup
+  \def\do##1##2##3{%
+    \if1\Expr{##2}\StreamPut##1{\expandedLineStuff}\fi
+    }%
+  \activefiles
+}
+
 \keepsilent
 \askforoverwritefalse
 \preamble
@@ -198,11 +236,15 @@ and some specific Chinese Simplified fonts.
 \RequirePackage{expl3}
 %</!(make|def)>
 %<make>\input expl3-generic %
-\GetIdInfo$Id$
-  {Convert CJK character to Unicode.}
+%<.!driver>\csname xCJK2uniPutVersion\endcsname
 %<*driver>
+\InputIfFileExists{xCJK2uni.ver}{}{
+  \expandafter\def\csname xCJK2uniGetVersionInfo\endcsname{\GetIdInfo$Id$}}
+\csname xCJK2uniGetVersionInfo\endcsname
+  {xCJK2uni source file}
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
+%<!driver>  {Convert CJK character to Unicode.}
 %<package>\ProvidesExplPackage{\ExplFileName}
 %<make>\ExplSyntaxOn
 %<make>\cs_if_exist:NF \ProvidesExplFile
@@ -219,14 +261,13 @@ and some specific Chinese Simplified fonts.
 %<GBK>\ProvidesExplFile{xCJK2uni-UGBK.def}
 %<JIS>\ProvidesExplFile{xCJK2uni-UJIS.def}
 %<KS>\ProvidesExplFile{xCJK2uni-UKS.def}
-  {\ExplFileDate}{0.4}{\ExplFileDescription}
+  {\ExplFileDate}{0.5}{\ExplFileDescription}
+%</driver|package|make|def>
 %<*driver>
 \ExplSyntaxOff
-%</driver>
-%</driver|package|make|def>
-%
-%<*driver>
-\documentclass[full,a4paper]{l3doc}
+\let\ctexrevnum\ExplFileVersion
+\expandafter\let\csname ver@thumbpdf.sty\endcsname\fmtversion
+\documentclass[numbered,full,a4paper]{l3doc}
 \usepackage{xeCJK}
 \usepackage{indentfirst}
 \usepackage{geometry}
@@ -242,22 +283,75 @@ and some specific Chinese Simplified fonts.
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKsetup{PunctStyle=kaiming}
 \def\MacroFont{\linespread{1}\small\normalfont\ttfamily}
+\def\ctexkitrev#1{%
+  \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
+\makeatletter
 \ExplSyntaxOn
 \DeclareDocumentCommand \package { o m }
   {
-    \href
+    \use:x
       {
-        http://mirrors.ctan.org/help/Catalogue/entries/
-        \IfNoValueTF {#1} { \tl_expandable_lowercase:n {#2} } {#1} .html
+        \tex_lowercase:D
+          {
+            \exp_not:N \href
+              {
+                http \tl_to_str:n { : } //www.ctan.org/pkg/
+                \IfNoValueTF {#1} {#2} {#1}
+              }
+          }
       }
       { \pkg {#2} }
   }
+\cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
+  {
+    \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
+    \str_if_eq:onTF { \@currenvir } { macrocode }
+      { \codeline@wrindex }
+      {
+        \HD@target
+        \index
+      }
+      {
+        \tl_if_empty:nF { #3 #4 }
+          { #3 \actualchar #4 \levelchar }
+        #1
+        \actualchar
+        {
+          \token_to_str:N \verbatim@font \c_space_tl
+          \l__codedoc_index_escaped_macro_tl
+        }
+        \encapchar
+        hdclindex{\the\c@HD@hypercount}{#5}
+      }
+  }
+\DeclareDocumentCommand \cs { O{} m }
+  { \__codedoc_cmd_aux:no {#1} { \c__codedoc_backslash_tl #2 } }
+\DeclareDocumentCommand \tn { O{} m }
+  {
+    \__codedoc_cmd_aux:no
+      { index = TeX , replace = false , #1 }
+      { \c__codedoc_backslash_tl #2 }
+  }
+\DeclareDocumentCommand \meta { +m }
+  { \__codedoc_meta_aux:n {#1} }
+\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
+  { \tl_to_str:n {#2} }
+\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
+\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
+\AtBeginEnvironment { syntax }
+  { \char_set_active_eq:NN \| \orbar }
 \ExplSyntaxOff
+\makeatother
+\pdfstringdefDisableCommands{%
+  \let\cs\bookmarkcstn
+  \let\tn\bookmarkcstn
+  \let\meta\bookmarkmeta
+  \let\path\detokenize}
 \def\TeX{\hologo{TeX}}
 \def\LaTeX{\hologo{LaTeX}}
 \def\pdfTeX{\hologo{pdfTeX}}
 \def\pdfLaTeX{\hologo{pdfLaTeX}}
-\def\orvar{\textup{\textbar}}
+\def\orbar{\textup{\textbar}}
 \def\indexname{代码索引}
 \IndexPrologue{%
   \section*{\indexname}
@@ -277,7 +371,7 @@ and some specific Chinese Simplified fonts.
 %
 % \title{\bfseries\pkg{xCJK2uni} 宏包}
 % \author{李清\\ \path{sobenlee@gmail.com}}
-% \date{\filedate\qquad\fileversion}
+% \date{\filedate\qquad\fileversion\thanks{\ctexkitrev{\ctexrevnum}.}}
 % \maketitle
 %
 % \begin{documentation}
@@ -300,7 +394,7 @@ and some specific Chinese Simplified fonts.
 %
 % \begin{function}{\useCJKencmap}
 %   \begin{syntax}
-%     \cs{useCJKencmap} \Arg{Bg5\orvar{}Bg5+\orvar{}GB\orvar{}GBK\orvar{}JIS\orvar{}KS}
+%     \cs{useCJKencmap} \Arg{Bg5|Bg5+|GB|GBK|JIS|KS}
 %   \end{syntax}
 %   设置当前的编码环境。以上是 \pkg{xCJK2uni} 支持的文字编码，缺省使用 GBK。
 %   \pkg{xCJK2uni} 会在 \env{CJK} 环境内自动更新支持的编码。
@@ -318,7 +412,7 @@ and some specific Chinese Simplified fonts.
 %   \begin{syntax}
 %     \cs{CJKsfdtouni} \Arg{plane} \Arg{slot}
 %   \end{syntax}
-%   \meta{plane} 表示由 \texttt{.sfd} 文件定义的子字体的编号，\meta{slot} 表示在
+%   \meta{plane} 表示由 \file{.sfd} 文件定义的子字体的编号，\meta{slot} 表示在
 %   子字体中的位置，这个命令将得到该坐标位置的 Unicode。将它展开两次就可以得到结果。
 %   如果在当前编码下，该坐标位置不合法，将展开为空。
 % \end{function}
