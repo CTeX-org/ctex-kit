@@ -57,6 +57,7 @@ This package consists of the file ctex.dtx, and the derived files
     ctex.sty,
     ctexcap.sty,
     ctexsize.sty,
+    ctexheading.sty,
     ctexart.cls,
     ctexbook.cls,
     ctexrep.cls,
@@ -192,6 +193,7 @@ This package consists of the file ctex.dtx, and the derived files
                                        ctex.sty,
                                        ctexcap.sty,
                                        ctexsize.sty,
+                                       ctexheading.sty,
                                        ctexart.cls,
                                        ctexbook.cls,
                                        ctexrep.cls,
@@ -248,9 +250,10 @@ This package consists of the file ctex.dtx, and the derived files
 \generate
   {
     \usedir{tex/latex/ctex}
-    \file{ctex.sty}                        {\from{\jobname.dtx}{package,style}}
-    \file{ctexcap.sty}                     {\from{\jobname.dtx}{package,ctexcap}}
-    \file{ctexsize.sty}                    {\from{\jobname.dtx}{package,ctexsize}}
+    \file{ctex.sty}                        {\from{\jobname.dtx}{style,ctex}}
+    \file{ctexcap.sty}                     {\from{\jobname.dtx}{ctexcap}}
+    \file{ctexsize.sty}                    {\from{\jobname.dtx}{style,ctexsize}}
+    \file{ctexheading.sty}                 {\from{\jobname.dtx}{style,ctexheading}}
     \file{ctexart.cls}                     {\from{\jobname.dtx}{class,article}}
     \file{ctexbook.cls}                    {\from{\jobname.dtx}{class,book}}
     \file{ctexrep.cls}                     {\from{\jobname.dtx}{class,report}}
@@ -320,6 +323,7 @@ This package consists of the file ctex.dtx, and the derived files
 \Msg{*     ctex.sty                                              *}
 \Msg{*     ctexcap.sty                                           *}
 \Msg{*     ctexsize.sty                                          *}
+\Msg{*     ctexheading.sty                                       *}
 \Msg{*     ctexart.cls                                           *}
 \Msg{*     ctexbook.cls                                          *}
 \Msg{*     ctexrep.cls                                           *}
@@ -380,10 +384,10 @@ This package consists of the file ctex.dtx, and the derived files
 %</internal>
 %<*!(readme|install|zhmap|spa)>
 %<*!(c19|c70|ctexspa)>
-%<*driver|package|class>
+%<*driver|class|style|ctexcap>
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-%</driver|package|class>
+%</driver|class|style|ctexcap>
 %<.!(readme|install|zhmap|spa|c19|c70|ctexspa)>\ctexPutVersion
 %<*driver>
 \InputIfFileExists{ctex.ver}{}{
@@ -392,12 +396,14 @@ This package consists of the file ctex.dtx, and the derived files
   {ctex source file}
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
-%<style>  {Chinese adapter in LaTeX (CTEX)}
-%<style>\ProvidesExplPackage{\ExplFileName}
+%<ctex>  {Chinese adapter in LaTeX (CTEX)}
+%<ctex>\ProvidesExplPackage{\ExplFileName}
 %<ctexcap>  {Chinese adapter in LaTeX (CTEX)}
 %<ctexcap>\ProvidesExplPackage{ctexcap}
 %<ctexsize>  {Chinese font size definition (CTEX)}
 %<ctexsize>\ProvidesExplPackage{ctexsize}
+%<ctexheading>  {Heading style modification (CTEX)}
+%<ctexheading>\ProvidesExplPackage{ctexheading}
 %<class&article>  {Chinese adapter for class article (CTEX)}
 %<class&article>\ProvidesExplClass{ctexart}
 %<class&book>  {Chinese adapter for class book (CTEX)}
@@ -460,7 +466,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<founder>\ProvidesExplFile{ctex-fontset-founder.def}
 %<ubuntu>  {Ubuntu fonts definition (CTEX)}
 %<ubuntu>\ProvidesExplFile{ctex-fontset-ubuntu.def}
-  {\ExplFileDate}{2.0.2}{\ExplFileDescription}
+  {\ExplFileDate}{2.1}{\ExplFileDescription}
 %</!(c19|c70|ctexspa)>
 %<rm&c19>\ProvidesFile{c19rm.fd}%
 %<sf&c19>\ProvidesFile{c19sf.fd}%
@@ -469,8 +475,8 @@ This package consists of the file ctex.dtx, and the derived files
 %<sf&c70>\ProvidesFile{c70sf.fd}%
 %<tt&c70>\ProvidesFile{c70tt.fd}%
 %<ctexspa>\ProvidesFile{ctexspa.def}%
-%<c19|c70>  [2015/05/15 v2.0.2 Chinese font definition (CTEX)]
-%<ctexspa>  [2015/05/15 v2.0.2 Space info for CJKpunct (CTEX)]
+%<c19|c70>  [2015/05/15 v2.1 Chinese font definition (CTEX)]
+%<ctexspa>  [2015/05/15 v2.1 Space info for CJKpunct (CTEX)]
 %</!(readme|install|zhmap|spa)>
 %<*driver>
 \ExplSyntaxOff
@@ -491,6 +497,7 @@ This package consists of the file ctex.dtx, and the derived files
 \usepackage[toc]{multitoc}
 \usepackage{geometry}
 \usepackage{tabularx}
+\usepackage{siunitx}
 \usepackage{unicode-math}
 \geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
 \hypersetup{pdfstartview=FitH,bookmarksdepth=subsubsection}
@@ -586,6 +593,11 @@ This package consists of the file ctex.dtx, and the derived files
 \appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
 \ExplSyntaxOn
+\cs_new_nopar:Npn \zihaopt #1
+  {
+    \exp_last_unbraced:Nf \tl_head:w
+      { \prop_item:Nn \c__ctex_font_size_prop {#1} } { } \q_stop
+  }
 %% 用 \vtop 让函数名字和语法盒子首行对齐
 \patchcmd \__codedoc_syntax:w
   { { minipage } { \l__codedoc_syntax_dim } }
@@ -722,9 +734,11 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \changes{v2.0}{2014/03/06}{应用 \LTXIII{} 重新整理代码。}
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
+% \changes{v2.1}{2015/05/18}{将章节标题设置功能提取到可以独立使用的宏包
+%   \pkg{ctexheading} 中。}
 %
 %
-% \CheckSum{4372}
+% \CheckSum{4382}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -823,15 +837,15 @@ This package consists of the file ctex.dtx, and the derived files
 % 社区另有发布名为 \href{http://www.ctex.org/CTeX}{\CTeX{} 套装}
 % 的 \TeX{} 发行版，与本文档所述的 \CTeX{} 套件并非是同一事物。
 %
-% ctex 则是本套件中的 \pkg{ctex.sty} 的名字。这一完全小写的名称，在过去也被用来指代
-% 整个 \CTeX{} 套件，不过现在则特指 \pkg{ctex.sty} 这一宏包。
+% \pkg{ctex} 则是本套件中的 \pkg{ctex.sty} 的名字。这一完全小写的名称，在过去
+% 也被用来指代整个 \CTeX{} 套件，不过现在则特指 \pkg{ctex.sty} 这一宏包。
 %
 % \section{简明教程}
 %
 % \subsection{\CTeX{} 套件的组成}
 %
-% 为了适应用户不同的需求，我们将 \CTeX{} 套件的主要功能分散在三个中文文档类和三个宏包当中，
-% 具体的组成见表~\ref{tab:ctex}。
+% 为了适应用户不同的需求，我们将 \CTeX{} 套件的主要功能分散在三个中文文档类和
+% 四个宏包当中，具体的组成见表~\ref{tab:ctex}。
 %
 % \begin{table}[htbp]
 % \centering
@@ -840,19 +854,22 @@ This package consists of the file ctex.dtx, and the derived files
 % \toprule
 %   类别   & 文件 & 说明 \\
 % \midrule
-%   文档类 & \file{ctexart.cls}  & 标准文档类 \cls{article} 的中文化版本，一般适用于
+%   文档类 & \file{ctexart.cls}  & 标准文档类 \cls{article} 的汉化版本，一般适用于
 %                                  短篇幅的文章 \\
-%          & \file{ctexrep.cls}  & 标准文档类 \cls{report} 的中文化版本，一般适用于
+%          & \file{ctexrep.cls}  & 标准文档类 \cls{report} 的汉化版本，一般适用于
 %                                  中篇幅的报告 \\
-%          & \file{ctexbook.cls} & 标准文档类 \cls{book} 的中文化版本，一般适用于
+%          & \file{ctexbook.cls} & 标准文档类 \cls{book} 的汉化版本，一般适用于
 %                                  长篇幅的书籍 \\
 % \midrule
 %   宏包   & \file{ctex.sty}     & 提供全部功能，但\emph{默认不开启章节标题设置功能}，
 %                                  需要使用 \opt{heading} 选项来开启 \\
 %          & \file{ctexcap.sty}  & \emph{过时宏包，仅作兼容使用}，相当于开启章节标题
 %                                  设置功能的 \file{ctex.sty} \\
-%          & \file{ctexsize.sty} & 定义和调整中文字号，可在 \pkg{ctex} 宏包
-%                                   或 \CTeX{} 中文文档类之外单独调用 \\
+%          & \file{ctexsize.sty} & 定义和调整中文字号，在 \pkg{ctex} 宏包
+%                                  或 \CTeX{} 中文文档类之外单独调用 \\
+%          & \file{ctexheading.sty} & 提供章节标题设置功能的（见 \ref{sec:secstyle}
+%                                     节），在 \pkg{ctex} 宏包或 \CTeX{} 中文
+%                                     文档类之外单独调用 \\
 % \bottomrule
 % \end{tabularx}
 % \end{table}
@@ -927,12 +944,12 @@ This package consists of the file ctex.dtx, and the derived files
 %   \item \pkg{etoolbox} 宏包。
 %   \item \pkg{everysel} 宏包，属于 \pkg{ms} 套件。
 %   \item \pkg{zhnumber} 宏包。
-%   \item[$\Rightarrow$] 以上是各种编译方式都必需的依赖项。
+%   \item[\ding{229}] 以上是各种编译方式都必需的依赖项。
 %   \item \pkg{CJK} 套件，它的下划线功能依赖 \pkg{ulem} 宏包。
 %   \item \pkg{CJKpunct} 宏包。
 %   \item \pkg{zhmetrics} 宏包。
 %   \item \pkg{zhmCJK} 宏包。
-%   \item[$\Rightarrow$] 以上是使用 \pdfLaTeX{} 或 \LaTeX{} + \dvipdfmx{} 的编译方式所需要
+%   \item[\ding{229}] 以上是使用 \pdfLaTeX{} 或 \LaTeX{} + \dvipdfmx{} 的编译方式所需要
 %   的依赖项，其中 \pkg{zhmCJK} 是可选的。
 %   \item \pkg{xeCJK} 宏包，它还依赖
 %   \begin{itemize}
@@ -942,13 +959,13 @@ This package consists of the file ctex.dtx, and the derived files
 %       \item \pkg{xunicode} 宏包，它还依赖 \pkg{tipa} 宏包。
 %     \end{itemize}
 %   \end{itemize}
-%   \item[$\Rightarrow$] 以上是使用 \XeLaTeX{} 编译时的依赖项。
+%   \item[\ding{229}] 以上是使用 \XeLaTeX{} 编译时的依赖项。
 %   \item \pkg{LuaTeX-ja} 套件，它还依赖
 %   \begin{itemize}
 %     \item \pkg{luaotfload} 宏包，它还依赖 \pkg{luatexbase} 宏包。
 %     \item \pkg{xkeyval} 宏包。
 %   \end{itemize}
-%   \item[$\Rightarrow$] 以上是使用 \LuaLaTeX{} 编译时的依赖项。
+%   \item[\ding{229}] 以上是使用 \LuaLaTeX{} 编译时的依赖项。
 % \end{itemize}
 %
 % \CTeX{} 依赖的各个宏包和套件均已被 \TeXLive{} 和 \hologo{MiKTeX} 收录。如果
@@ -1127,7 +1144,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   命令映射到 \file{.ttf} 文件。
 %
 %   \item[false] 使用传统的 CJK 字库（Type 1）^^A
-%   \footnote{如果需要使用自定义的字体映射文件，或者希望使用 Type1 字库，请禁用本选项。}；
+%   \footnote{如果需要使用自定义的字体映射文件，或者希望使用 Type1 字库，请禁用本选项。}。
 %
 %   \item[zhmCJK] 载入 \pkg{zhmCJK} 宏包^^A
 %   \footnote{\pkg{zhmCJK} 宏包基于 \pkg{zhmetrics} 和 \pkg{CJK} 宏包，提供与
@@ -1335,8 +1352,8 @@ This package consists of the file ctex.dtx, and the derived files
 %       中文样式（见 \ref{sec:secstyle}~节）。当 \pkg{ctex} 宏包与标准文档类及其
 %       衍生文档类联用时，会载入 \pkg{indentfirst} 宏包，
 %       以实现章节标题后的段首缩进。
-%     \item[plain] 不调整默认字号和行距，不会汉化文档中的标题名字，也不会将章节标题风格
-%       修改为中文样式，同时不会 \tn{pagestyle}，并禁用 \opt{autoindent}
+%     \item[plain] 不调整默认字号和行距，不会汉化文档中的标题名字，也不会将章节
+%       标题风格修改为中文样式，同时不会调整 \tn{pagestyle}，并禁用 \opt{autoindent}
 %       选项。事实上，此时的 \CTeX{} 套件只提供了中文支持功能，而不对文章版式进行任何修改。
 %   \end{optdesc}
 %
@@ -1674,6 +1691,10 @@ This package consists of the file ctex.dtx, and the derived files
 % 节标题的格式设置功能。本节就来介绍有关章节标题的格式选项，所有选项使用
 % \tn{ctexset} 命令设置。
 %
+% 第 \ref{subs:pagestyle} 节和本节介绍的功能已经被提取到 \pkg{ctexheading}
+% 宏包之中，可以在 \pkg{ctex} 宏包和 \cls{ctexart} 等文档类之外独立使用。
+% 各选项的默认值与 \opt{scheme = plain} 时的情形相同。
+%
 % \changes{v2.0}{2015/03/21}{\tn{CTEXsetup}, \tn{CTEXoptions} 是过时命令。}
 % 章节标题的格式选项是分层设置的。顶层的选项是章节标题名称，次一级的选项是章节
 % 标题的格式。章节标题名包括 |part|, |chapter|, |section|, |subsection|,
@@ -1685,6 +1706,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % 多级选项之间用斜线分开，例如，\opt{part/name} 选项设置 \tn{part} 标题的在数
 % 字前后的名称，而 \opt{section/number} 选项设置 \tn{section} 标题的数字类型。
+% 注意斜线前后都不要有空格。
 %
 % \begin{function}{part/name, chapter/name, section/name, subsection/name,
 %   subsubsection/name, paragraph/name, subparagraph/name}
@@ -1710,8 +1732,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{name} 选项的默认设置}
 % \begin{tabular}{llll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} & 注 \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} & 注 \\
 % \midrule
 % part & |{第,部分}| & |{\partname\space}| & 原 \tn{partname} 为 Part \\
 % chapter & |{第,章}| & |{\chaptername\space}|
@@ -1753,8 +1775,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \setlength\leftskip{0pt plus 1 fil minus \marginparwidth}
 % \begin{tabular}{llll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值}
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain}
 %   & 原 |\the|\meta{标题} 等价定义 \\
 % \midrule
 % part & |\chinese{part}| & |\thepart| & |\Roman{part}| \\
@@ -1822,8 +1844,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{format} 选项的默认设置}
 % \begin{tabular}{lll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} \\
 % \midrule
 % part (article) & |\centering| & |\raggedright| \\
 % part & 同右 & |\centering| \\
@@ -1858,8 +1880,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{nameformat} 选项的默认设置}
 % \begin{tabular}{lll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} \\
 % \midrule
 % part (article) & 同右 & |\Large\bfseries| \\
 % part & 同右 & |\huge\bfseries| \\
@@ -1917,8 +1939,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{aftername} 选项的默认设置}
 % \begin{tabular}{lll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} \\
 % \midrule
 % part (article) & |\quad| & |\par\nobreak| \\
 % part & 同右 & |\par\vskip 20pt| \\
@@ -1974,8 +1996,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{titleformat} 选项的默认设置}
 % \begin{tabular}{lll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} \\
 % \midrule
 % part (article) & |\Large\bfseries| & |\huge\bfseries| \\
 % part & |\huge\bfseries| & |\Huge\bfseries| \\
@@ -2012,8 +2034,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{beforeskip} 选项的默认设置}
 % \begin{tabular}{lll}
 % \toprule
-% 标题名 & \makecell{\opt{scheme = chinese} \\ 的默认值} &
-% \makecell{\opt{scheme = plain} \\ 的默认值} \\
+% 标题名 & \opt{scheme = chinese} &
+% \opt{scheme = plain} \\
 % \midrule
 % part (article) & |4ex| & |-4ex| \\
 % part & 无效 & 无效 \\
@@ -2160,8 +2182,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \caption{\opt{appendix/name} 选项的默认设置}
 % \begin{tabular}{llllll}
 % \toprule
-% 文档类 & 影响命令 & \makecell{\opt{scheme = chinese} \\ 的默认值} & 实际定义
-%   & \makecell{\opt{scheme = plain} \\ 的默认值} & 实际定义 \\
+% 文档类 & 影响命令 & \opt{scheme = chinese} & 实际定义
+%   & \opt{scheme = plain} & 实际定义 \\
 % \midrule
 % article & \tn{section} & |{}| & & |{}| & \\
 % book, report & \tn{chapter} & |\appendixname| & |附录|
@@ -2211,31 +2233,30 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{table}[htbp]
 % \centering
-% \catcode`*\active
-% \def*{\phantom{.}}
-% \def~{\phantom{0}}
+% \def\ZH#1{\zihaopt{#1} & \zihao{#1}}
 % \tabcolsep=1em
 % \caption{中文字号}\label{tab:zihao}
-% \begin{tabular}{>{\ttfamily}ccl}
+% \begin{tabular}{>{\ttfamily}S[mode=text,detect-family,table-format=-1]
+%                             S[table-format=2.1]S[table-format=2.5]l}
 % \toprule
-% $\meta{字号}$ & 大小(bp) & 意义 \\
+% {\meta{字号}} & {大小(bp)} & {大小(pt)} & 意义 \\
 % \midrule
-% ~0   & 42*~ & \zihao{0}    初号    \\
-% -0   & 36*~ & \zihao{-0}   小初号  \\
-% ~1   & 26*~ & \zihao{1}    一号    \\
-% -1   & 24*~ & \zihao{-1}   小一号  \\
-% ~2   & 22*~ & \zihao{2}    二号    \\
-% -2   & 18*~ & \zihao{-2}   小二号  \\
-% ~3   & 16*~ & \zihao{3}    三号    \\
-% -3   & 15*~ & \zihao{-3}   小三号  \\
-% ~4   & 14*~ & \zihao{4}    四号    \\
-% -4   & 12*~ & \zihao{-4}   小四号  \\
-% ~5   & 10.5 & \zihao{5}    五号    \\
-% -5   & ~9*~ & \zihao{-5}   小五号  \\
-% ~6   & ~7.5 & \zihao{6}    六号    \\
-% -6   & ~6.5 & \zihao{-6}   小六号  \\
-% ~7   & ~5.5 & \zihao{7}    七号    \\
-% ~8   & ~5*~ & \zihao{8}    八号    \\
+%  0   & 42   & \ZH{0}    初号    \\
+% -0   & 36   & \ZH{-0}   小初号  \\
+%  1   & 26   & \ZH{1}    一号    \\
+% -1   & 24   & \ZH{-1}   小一号  \\
+%  2   & 22   & \ZH{2}    二号    \\
+% -2   & 18   & \ZH{-2}   小二号  \\
+%  3   & 16   & \ZH{3}    三号    \\
+% -3   & 15   & \ZH{-3}   小三号  \\
+%  4   & 14   & \ZH{4}    四号    \\
+% -4   & 12   & \ZH{-4}   小四号  \\
+%  5   & 10.5 & \ZH{5}    五号    \\
+% -5   &  9   & \ZH{-5}   小五号  \\
+%  6   &  7.5 & \ZH{6}    六号    \\
+% -6   &  6.5 & \ZH{-6}   小六号  \\
+%  7   &  5.5 & \ZH{7}    七号    \\
+%  8   &  5   & \ZH{8}    八号    \\
 % \bottomrule
 % \end{tabular}
 % \end{table}
@@ -2649,7 +2670,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{function}{\Chinese}
 % \begin{syntax}
-%   \tn{Chinese}\oarg{counter}
+%   \tn{Chinese}\Arg{counter}
 % \end{syntax}
 % 新版套件中 \tn{chinese} 统一了旧版本中 \tn{chinese} 和 \tn{Chinese} 的功能。因此，
 % 该命令已过时。
@@ -2718,6 +2739,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<@@=ctex>
 %    \end{macrocode}
 %
+% \pkg{ctexcap} 是默认打开 \opt{heading} 选项的 \pkg{ctex}。
 %    \begin{macrocode}
 %<*ctexcap>
 \PassOptionsToPackage { heading = true } { ctexcap }
@@ -2725,10 +2747,38 @@ This package consists of the file ctex.dtx, and the derived files
 %</ctexcap>
 %    \end{macrocode}
 %
+% 宏包载入检查。
 %    \begin{macrocode}
-%<*class|style|ctexsize>
+%<*class|ctex>
+\tl_const:Nx \c_@@_version_tl
+  { \cs_if_exist_use:cF { ver@ \@currname . \@currext } { 9999/99/99 } }
+%<*class>
+\cs_new_eq:cN { ver@ctex.        \@pkgextension } \c_@@_version_tl
+\cs_new_eq:cN { ver@ctexcap.     \@pkgextension } \c_@@_version_tl
+\cs_new_eq:cN { ver@ctexsize.    \@pkgextension } \c_@@_version_tl
+\cs_new_eq:cN { ver@ctexheading. \@pkgextension } \c_@@_version_tl
+%</class>
+%<*ctex>
+\msg_new:nnnn { ctex } { subpackage-loaded }
+  { Package~`#1'~can~not~be~loaded~with~`ctex'. }
+  {
+    `#1'~is~actually~a~part~of~`ctex'.\\
+    It~is~not~necessary~to~load~it~separately.
+  }
+\@ifpackageloaded { ctexsize }
+  { \msg_error:nnn { ctex } { subpackage-loaded } { ctexsize } }
+  { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \c_@@_version_tl }
+\@ifpackageloaded { ctexheading }
+  { \msg_error:nnn { ctex } { subpackage-loaded } { ctexheading } }
+  { \cs_new_eq:cN { ver@ctexheading. \@pkgextension } \c_@@_version_tl }
+%</ctex>
+%</class|ctex>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%<*class|style>
 \RequirePackage { xparse , l3keys2e }
-%</class|style|ctexsize>
+%</class|style>
 %    \end{macrocode}
 %
 % 检查 \pkg{expl3} 和 \pkg{l3keys2e} 的版本。
@@ -2749,8 +2799,12 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%<*class|style>
-\RequirePackage { etoolbox , ifpdf , fix-cm , everysel }
+%<*class|ctex|ctexheading>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\RequirePackage { etoolbox }
+%<!ctexheading>\RequirePackage { ifpdf , fix-cm , everysel }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
@@ -2760,55 +2814,10 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
 \int_new:N \l_@@_tmp_int
-\dim_new:N \l_@@_tmp_dim
+%<!ctexheading>\dim_new:N \l_@@_tmp_dim
 \box_new:N \l_@@_tmp_box
 %    \end{macrocode}
 % \end{variable}
-%
-% 对旧版本的宏包给出错误信息。
-%    \begin{macrocode}
-\msg_new:nnnn { ctex } { package-too-old }
-  { Support~package~`#1'~too~old. }
-  {
-    Please~update~an~up~to~date~version~of~the~package~`#1'\\
-    using~your~TeX~package~manager~or~from~CTAN.
-  }
-%    \end{macrocode}
-%
-% \begin{macro}[internal]{\ctex_lua_now_x:n}
-% 最新的 \pkg{expl3} 去掉了 \pkg{l3luatex} 模块，因而 \cs{lua_now_x:n} 不再有定义。
-%    \begin{macrocode}
-\cs_new_eq:NN \ctex_lua_now_x:n \luatex_directlua:D
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_if_pdfmode:TF}
-% \tn{ifpdf} 的简单 wrapper。
-%    \begin{macrocode}
-\ifpdf
-  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_i:nn
-\else:
-  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
-\fi:
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[internal]{\ctex_if_preamble:TF}
-% 测试是否在 \LaTeXe{} 的导言区。\LaTeXe{} 中的 \tn{@onlypreamble} 命令可以处
-% 理宏参数，使其在 \env{document} 环境后被重定义为 \tn{@notprerr}，而又由于
-% \tn{@onlypreamble} 本身也被这样处理过，因此可以测试 \tn{@onlypreamble} 是否
-% 与 \tn{@notprerr} 相同来确定是否在导言区。
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \ctex_if_preamble: { TF }
-  {
-    \if_meaning:w \@onlypreamble \@notprerr
-      \prg_return_false:
-    \else:
-      \prg_return_true:
-    \fi:
-  }
-%    \end{macrocode}
-% \end{macro}
 %
 % \begin{macro}[int]{\ctex_at_end_package:nn}
 % 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
@@ -2816,9 +2825,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_at_end_package:nn #1#2
   {
-    \@ifpackageloaded { #1 }
-      { #2 }
-      { \ctex_add_hook:cn { g_@@_at_end_ #1 _hook_tl } { #2 } }
+    \@ifpackageloaded {#1}
+      {#2}
+      { \ctex_add_hook:cn { g_@@_at_end_ #1 _hook_tl } {#2} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2829,7 +2838,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected:Npn \ctex_add_hook:Nn #1#2
   {
     \tl_if_exist:NF #1 { \tl_new:N #1 }
-    \tl_gput_right:Nn #1 { #2 }
+    \tl_gput_right:Nn #1 {#2}
   }
 \cs_generate_variant:Nn \ctex_add_hook:Nn { c }
 %    \end{macrocode}
@@ -3026,6 +3035,64 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{variable}[internal]{\g_@@_section_depth_flag}
+% 若大于 |3|，则 \tn{paragraph} 和 \tn{subparagraph} 标题单独占一行；若为 |3|，则
+% \tn{paragraph} 单独占一行。
+%    \begin{macrocode}
+\cs_new_eq:NN \g_@@_section_depth_flag \c_two
+%    \end{macrocode}
+% \end{variable}
+%
+%    \begin{macrocode}
+%</class|ctex|ctexheading>
+%<*class|ctex>
+%    \end{macrocode}
+%
+% 对旧版本的宏包给出错误信息。
+%    \begin{macrocode}
+\msg_new:nnnn { ctex } { package-too-old }
+  { Support~package~`#1'~too~old. }
+  {
+    Please~update~an~up~to~date~version~of~the~package~`#1'\\
+    using~your~TeX~package~manager~or~from~CTAN.
+  }
+%    \end{macrocode}
+%
+% \begin{macro}[internal]{\ctex_lua_now_x:n}
+% 最新的 \pkg{expl3} 去掉了 \pkg{l3luatex} 模块，因而 \cs{lua_now_x:n} 不再有定义。
+%    \begin{macrocode}
+\cs_new_eq:NN \ctex_lua_now_x:n \luatex_directlua:D
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_if_pdfmode:TF}
+% \tn{ifpdf} 的简单 wrapper。
+%    \begin{macrocode}
+\ifpdf
+  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_i:nn
+\else:
+  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
+\fi:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_if_preamble:TF}
+% 测试是否在 \LaTeXe{} 的导言区。\LaTeXe{} 中的 \tn{@onlypreamble} 命令可以处
+% 理宏参数，使其在 \env{document} 环境后被重定义为 \tn{@notprerr}，而又由于
+% \tn{@onlypreamble} 本身也被这样处理过，因此可以测试 \tn{@onlypreamble} 是否
+% 与 \tn{@notprerr} 相同来确定是否在导言区。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \ctex_if_preamble: { TF }
+  {
+    \if_meaning:w \@onlypreamble \@notprerr
+      \prg_return_false:
+    \else:
+      \prg_return_true:
+    \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[internal]{\ctex_set_default_ccwd:Nn}
 % 若参数 |#2| 带长度单位，则设置它为 |tl| 变量 |#1| 的值，否则以 \tn{ccwd} 为单位。
 %    \begin{macrocode}
@@ -3068,14 +3135,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}[internal]{\g_@@_section_depth_flag}
-% 若大于 |3|，则 \tn{paragraph} 和 \tn{subparagraph} 标题单独占一行；若为 |3|，则
-% \tn{paragraph} 单独占一行。
-%    \begin{macrocode}
-\cs_new_eq:NN \g_@@_section_depth_flag \c_two
-%    \end{macrocode}
-% \end{variable}
-%
 % \begin{variable}[internal]{\g_@@_zhmCJK_bool}
 % 是否使用 \pkg{zhmCJK} 宏包。
 %    \begin{macrocode}
@@ -3108,7 +3167,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 区分 \tn{AtEndOfClass} 和 \tn{AtEndOfPackage}，虽然它们的意思都是一样的。
 %    \begin{macrocode}
 %<class>\cs_new_protected_nopar:Npn \ctex_at_end:n { \AtEndOfClass }
-%<style>\cs_new_protected_nopar:Npn \ctex_at_end:n { \AtEndOfPackage }
+%<ctex>\cs_new_protected_nopar:Npn \ctex_at_end:n { \AtEndOfPackage }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3140,22 +3199,25 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</class|style>
-%<*class|style|ctexsize>
+%</class|ctex>
 %    \end{macrocode}
 %
 % \begin{variable}[internal]{\g_@@_font_size_flag}
 % |0| 表示修改默认字体大小为五号，|1| 为小四号，其它值则不作修改。
 %    \begin{macrocode}
+%<*class|ctex|ctexsize>
 \cs_new_eq:NN \g_@@_font_size_flag \c_minus_one
+%</class|ctex|ctexsize>
 %    \end{macrocode}
 % \end{variable}
 %
 % \subsection{宏包选项}
 %
 %   \begin{macrocode}
+%<*class|style>
 \keys_define:nn { ctex / option }
   {
+%</class|style>
 %    \end{macrocode}
 %
 % \changes{v2.0}{2015/05/06}{新增 \opt{zihao} 选项。}
@@ -3163,14 +3225,15 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{zihao}
 %    \begin{macrocode}
+%<*class|ctex|ctexsize>
     zihao .choice: ,
     zihao .default:n = { 5 } ,
     zihao /     5  .code:n = { \cs_gset_eq:NN \g_@@_font_size_flag \c_zero } ,
     zihao /    -4  .code:n = { \cs_gset_eq:NN \g_@@_font_size_flag \c_one } ,
     zihao / false  .code:n = { \cs_gset_eq:NN \g_@@_font_size_flag \c_two } ,
 %<ctexsize>  }
-%</class|style|ctexsize>
-%<*class|style>
+%</class|ctex|ctexsize>
+%<*class|ctex>
     c5size  .code:n =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
@@ -3381,13 +3444,44 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+%    \begin{macrocode}
+%</class|ctex>
+%<*class|ctex|ctexheading>
+%    \end{macrocode}
+%
+% \begin{macro}{sub3section,sub4section}
+% \begin{macrocode}
+    sub3section .code:n =
+      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_three } ,
+    sub4section .code:n =
+      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_four } ,
+    sub3section .value_forbidden: ,
+    sub4section .value_forbidden: ,
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v2.0}{2015/04/15}{新增 \opt{scheme} 选项，并将 \opt{cap} 和 \opt{nocap}
-% 列为过时选项}
+% 列为过时选项。}
 % \begin{macro}{scheme}
 %    \begin{macrocode}
     scheme .tl_set:N  = \l_@@_scheme_tl ,
-    scheme .default:n = { chinese },
-    scheme .initial:n = { chinese },
+%<*ctexheading>
+    scheme .default:n = { plain } ,
+    scheme .initial:n = { plain }
+  }
+%</ctexheading>
+%<*!ctexheading>
+    scheme .default:n = { chinese } ,
+    scheme .initial:n = { chinese } ,
+%</!ctexheading>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</class|ctex|ctexheading>
+%<*class|ctex>
+%    \end{macrocode}
+%
+% \begin{macrocode}
     cap    .code:n    =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
@@ -3402,17 +3496,6 @@ This package consists of the file ctex.dtx, and the derived files
       } ,
     cap    .value_forbidden: ,
     nocap  .value_forbidden: ,
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{sub3section,sub4section}
-% \begin{macrocode}
-    sub3section .code:n =
-      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_three } ,
-    sub4section .code:n =
-      { \cs_gset_eq:NN \g_@@_section_depth_flag \c_four } ,
-    sub3section .value_forbidden: ,
-    sub4section .value_forbidden: ,
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3443,8 +3526,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-%</class|style>
-%<*class|style|ctexsize>
+%</class|ctex>
+%<*class|ctex|ctexsize>
 %    \end{macrocode}
 %
 % \changes{v2.0}{2015/05/06}{兼容 \pkg{extsizes} 宏包、\cls{beamer}、\pkg{memoir}
@@ -3494,20 +3577,21 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<!ctexsize>\ctex_file_input:n { ctexopts.cfg }
+%</class|ctex|ctexsize>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\ProcessKeysOptions { ctex / option }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-%</class|style|ctexsize>
 %<*class|style>
+\ProcessKeysOptions { ctex / option }
+%</class|style>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%<*class>
 %    \end{macrocode}
 %
 % 五号字使用标准文档类的 |10pt| 字体大小设置，小四号字则使用 |12pt|。
 %    \begin{macrocode}
-%<*class>
 \if_case:w \g_@@_font_size_flag
   \clist_gput_right:Nn \g_@@_std_options_clist { 10pt }
 \or:
@@ -3532,27 +3616,10 @@ This package consists of the file ctex.dtx, and the derived files
 \PassOptionsToClass { \g_@@_std_options_clist } { report }
 \LoadClass { report }
 %</report>
-%</class>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\tl_set_eq:Nc \l_@@_tmp_tl { ver@ \@currname . \@currext }
-%<*class>
-\cs_new_eq:cN { ver@ctex.     \@pkgextension } \l_@@_tmp_tl
-\cs_new_eq:cN { ver@ctexcap.  \@pkgextension } \l_@@_tmp_tl
-\cs_new_eq:cN { ver@ctexsize. \@pkgextension } \l_@@_tmp_tl
 %</class>
-%<*style>
-\msg_new:nnnn { ctex } { ctexsize-loaded }
-  { Package~`ctexsize'~can~not~be~loaded~before~`ctex'. }
-  {
-    `ctexsize'~is~actually~a~part~of~`ctex'.\\
-    It~is~not~necessary~to~load~it~separately.
-  }
-\@ifpackageloaded { ctexsize }
-  { \msg_error:nn { ctex } { ctexsize-loaded } }
-  { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \l_@@_tmp_tl }
-%</style>
 %    \end{macrocode}
 %
 % \subsection{用户设置接口}
@@ -3561,8 +3628,9 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}{\ctexset}
 %    \begin{macrocode}
-\NewDocumentCommand \ctexset { +m }
-  { \keys_set:nn { ctex } {#1} }
+%<*class|ctex|ctexheading>
+\NewDocumentCommand \ctexset { } { \keys_set:nn { ctex } }
+%</class|ctex|ctexheading>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3570,6 +3638,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}{\CTEXsetup,\CTEXoptions}
 % 过时命令。
 %    \begin{macrocode}
+%<*class|ctex>
 \NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
   {
     \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXsetup }
@@ -3582,12 +3651,9 @@ This package consists of the file ctex.dtx, and the derived files
       { \ctexset~ {~ #1~ }~ is~ set. }
     \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} }
   }
+%</class|ctex>
 %    \end{macrocode}
 % \end{macro}
-%
-%    \begin{macrocode}
-%</class|style>
-%    \end{macrocode}
 %
 % \subsection{特定引擎支持与设置}
 %
@@ -5447,7 +5513,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \cs{ctex_hypersetup:n} 的效果与 \tn{PassOptionsToPackage} 一致，只传递宏包参
 % 数。如果用户不载入 \pkg{hyperref} 宏包，相关参数即被丢弃。
 %    \begin{macrocode}
-%<*class|style>
+%<*class|ctex>
 \@ifpackageloaded { hyperref }
   {
     \cs_new_protected_nopar:Npn \ctex_hypersetup:n #1
@@ -5458,7 +5524,7 @@ This package consists of the file ctex.dtx, and the derived files
       { \PassOptionsToPackage {#1} { hyperref } }
   }
 \ctex_hypersetup:n { colorlinks = true }
-%</class|style>
+%</class|ctex>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5786,7 +5852,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %</pdftex|xetex|luatex>
-%<*class|style>
+%<*class|ctex>
 %    \end{macrocode}
 %
 % \subsubsection{载入引擎定义文件}
@@ -6099,7 +6165,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%<*style>
+%<*ctex>
 \msg_new:nnn { ctex } { ctexbibname }
   {
     Neither~`\token_to_str:N \bibname'~nor~`\token_to_str:N \refname'~can~be~found.\\
@@ -6115,11 +6181,11 @@ This package consists of the file ctex.dtx, and the derived files
         \keys_define:nn { ctex } { bibname .tl_set:N = \ctexbibname }
       }
   }
-%</style>
+%</ctex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</class|style>
+%</class|ctex>
 %    \end{macrocode}
 %
 % \subsection{中文化的标题结构}
@@ -6974,7 +7040,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex.sty} 的 \opt{heading} 选项}
 %
 %    \begin{macrocode}
-%<*style>
+%<*ctex|ctexheading>
 %    \end{macrocode}
 %
 % \begin{variable}[internal]{\c_@@_std_class_tl}
@@ -6998,7 +7064,8 @@ This package consists of the file ctex.dtx, and the derived files
     Heading~`#1'~is~selected.\\
     ctex~may~not~work~as~expected.
   }
-\bool_if:NTF \l_@@_heading_bool
+%<ctex>\bool_if:NTF \l_@@_heading_bool
+%<ctexheading>\use:n
   {
     \tl_if_exist:NTF \c_@@_std_class_tl
       { \cs_new_eq:NN \c_@@_class_tl \c_@@_std_class_tl }
@@ -7014,11 +7081,11 @@ This package consists of the file ctex.dtx, and the derived files
       }
     \ctex_file_input:n { ctex- \c_@@_class_tl .def }
   }
-  { \ctex_scheme_input:o { \l_@@_scheme_tl } }
+%<ctex>  { \ctex_scheme_input:o { \l_@@_scheme_tl } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</style>
+%</ctex|ctexheading>
 %    \end{macrocode}
 %
 % \subsubsection{标题配置文件}
@@ -7098,7 +7165,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \changes{v2.0.2}{2015/05/16}{修复加载 \pkg{ctex} 宏包后章节标题后第一段
-% 无段首缩进的问题}
+% 无段首缩进的问题。}
 % 若 \pkg{ctex} 宏包与标准文档类及其衍生文档类联用，则将载入 \pkg{indentfirst} 宏包，
 % 实现章节标题后首个段落的段首缩进。
 %    \begin{macrocode}
@@ -7115,7 +7182,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsection{中文字号}
 %
 %    \begin{macrocode}
-%<*class|style|ctexsize>
+%<*class|ctex|ctexsize>
 %    \end{macrocode}
 %
 % \changes{v2.0}{2014/03/08}{将中文字号功能提取到可以独立使用的 \pkg{ctexsize}。}
@@ -7265,7 +7332,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</class|style|ctexsize>
+%</class|ctex|ctexsize>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -7354,7 +7421,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%<*class|style>
+%<*class|ctex>
 %    \end{macrocode}
 %
 % \subsection{更新行距}
@@ -7396,11 +7463,8 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \NewDocumentCommand \CTeX { }
   { \ifincsname CTeX \else: C \TeX \fi: }
-\AtBeginDocument
-  {
-    \cs_if_exist_use:NT \pdfstringdefDisableCommands
-      { { \tl_set:Nn \CTeX { CTeX } } }
-  }
+\ctex_at_end_package:nn { hyperref }
+  { \pdfstringdefDisableCommands { \tl_set:Nn \CTeX { CTeX } } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7420,7 +7484,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-%</class|style>
+%</class|ctex>
 %    \end{macrocode}
 %
 % \subsubsection{列表环境的缩进}
@@ -7437,7 +7501,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-%<*class|style>
+%<*class|ctex>
 %    \end{macrocode}
 %
 % \subsubsection{其他兼容性修改}
@@ -7581,7 +7645,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</class|style>
+%</class|ctex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -7726,7 +7790,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 旧的 Windows 字体设置使用黑体作为无衬线体，楷体和仿宋是 GB2312 编码；新的
 % Windows 字体设置使用微软雅黑作为无衬线体，楷体和仿宋是大字库。
 %    \begin{macrocode}
-%<*windowsnew,windowsold>
+%<*windowsnew|windowsold>
 \pdftex_if_engine:TF
   {
     \ctex_zhmap_case:nnn
@@ -7809,7 +7873,7 @@ This package consists of the file ctex.dtx, and the derived files
       [ BoldFont = { *~Bold } ] { Microsoft~YaHei }
 %</windowsnew>
   }
-%</windowsnew,windowsold>
+%</windowsnew|windowsold>
 %    \end{macrocode}
 %
 % \subsubsection{\pkg{ctex-fontset-adobe.def}}
