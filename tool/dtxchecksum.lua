@@ -28,7 +28,7 @@ local dtxchecksum  = dtxchecksum
 dtxchecksum.module = {
   name        = "dtxchecksum",
   version     = "0",
-  date        = "2015/05/16",
+  date        = "2015/05/18",
   description = "Correction of \\CheckSum{...} entry in dtx file",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
@@ -128,7 +128,7 @@ end
 local function fix_checksum (dir, dtx, old, new)
   print("==> Checksum not passed (" .. old .. "<>" .. new .. ").")
   print("*** Fixing Checksum ...")
-  local f = assert(io.open(dir .. "/" .. dtx , "r"))
+  local f = assert(io.open(dir .. "/" .. dtx , "rb"))
   local file = f:read("*all")
   f:close()
   local s, fixed = file:gsub("(\\CheckSum%s*{%s*)" .. old .. "(%s*})", "%1" .. new .. "%2")
@@ -147,7 +147,7 @@ function dtxchecksum.checksum (dtx, texinputs)
   local tempdir = assert(os.tmpdir(), "Cannot create the temporary directory!")
   local kpse_texinputs, os_texinputs
   if texinputs then
-    if os.type == "windows" and os.selfdir:find("miktex") then
+    if os.selfdir:find([[miktex\bin$]]) then
       checksumopt = "-include-directory=" .. texinputs .. " " .. checksumopt
     else
       kpse_texinputs = kpathsea:var_value("TEXINPUTS")
