@@ -42,13 +42,13 @@ function file_md5 (file)
   end
 end
 
--- 以 .aux, .glo, .idx 文件的 md5 来决定编译次数，默认最大为 5 次
+-- 以 .aux, .glo, .idx, .hd 文件的 md5 来决定编译次数，默认最大为 5 次
 max_typeset_run = max_typeset_run or 5
 typeset = typeset or function (file)
   local name = stripext(file)
   local path_name = typesetdir .. "/" .. name
-  local aux, glo, idx = path_name .. ".aux", path_name .. ".glo", path_name .. ".idx"
-  local aux_md5, glo_md5, idx_md5, prev_aux_md5, prev_glo_md5, prev_idx_md5
+  local aux, glo, idx, hd = path_name .. ".aux", path_name .. ".glo", path_name .. ".idx", path_name .. ".hd"
+  local aux_md5, glo_md5, idx_md5, hd_md5, prev_aux_md5, prev_glo_md5, prev_idx_md5, prev_hd_md5
   local errorlevel
   local cnt = 0
   local typeset_stop = true
@@ -56,9 +56,9 @@ typeset = typeset or function (file)
     cnt = cnt + 1
     errorlevel = tex(file)
     if errorlevel ~= 0 then return errorlevel end
-    prev_aux_md5, prev_glo_md5, prev_idx_md5 = aux_md5, glo_md5, idx_md5
-    aux_md5, glo_md5, idx_md5 = file_md5(aux), file_md5(glo), file_md5(idx)
-    typeset_stop = aux_md5 == prev_aux_md5
+    prev_aux_md5, prev_glo_md5, prev_idx_md5, prev_hd_md5 = aux_md5, glo_md5, idx_md5, hd_md5
+    aux_md5, glo_md5, idx_md5, hd_md5 = file_md5(aux), file_md5(glo), file_md5(idx), file_md5(hd)
+    typeset_stop = aux_md5 == prev_aux_md5 and hd_md5 == prev_hd_md5
     if glo_md5 ~= prev_glo_md5 then
       typeset_stop = false
       errorlevel = makeindex(name, ".glo", ".gls", ".glg", glossarystyle)
@@ -119,11 +119,13 @@ function extract_git_version()
     local mainname = f:match("(.*)%.") or f
     local vername =  supportdir .. '/' .. mainname .. '.ver'
     if os_windows then vername = unix_to_win(vername) end
-    os.execute(shellescape([[git log -1 --pretty=format:"\def\]].. mainname .. [[PutVersion{\string\GetIdInfo]] ..
-      [[$Id: ]] .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' > ' .. vername))
+    os.execute(shellescape([[git log -1 --pretty=format:"\expandafter\def\csname\detokenize{]]
+                               .. mainname .. [[PutVersion}\endcsname{\string\GetIdInfo]] .. [[$Id: ]]
+                               .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' > ' .. vername))
     append_newline(vername)
-    os.execute(shellescape([[git log -1 --pretty=format:"\def\]] .. mainname .. [[GetVersionInfo{\GetIdInfo]] ..
-      [[$Id: ]] .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' >> ' .. vername))
+    os.execute(shellescape([[git log -1 --pretty=format:"\expandafter\def\csname\detokenize{]]
+                               .. mainname .. [[GetVersionInfo}\endcsname{\GetIdInfo]] .. [[$Id: ]]
+                               .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' >> ' .. vername))
     append_newline(vername)
   end
 end
