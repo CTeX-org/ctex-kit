@@ -57,16 +57,15 @@ Email: sobenlee@gmail.com
 
 If you are interested in the process of development you may observe
 
-    http://code.google.com/p/ctex-kit/
+    https://github.com/CTeX-org/ctex-kit
 
 Installation
 ------------
 The package is supplied in dtx format and as a pre-extracted zip file,
 zhnumber.tds.zip. The later is most convenient for most users: simply
 unzip this in your local texmf directory and run texhash to update the
-database of file locations. If you want to unpack the dtx yourself, please
-ensure that the "iconv" program is installed and working properly, then
-running "xetex -shell-escape zhnumber.dtx" will extract the package whereas
+database of file locations. If you want to unpack the dtx yourself,
+running "xetex zhnumber.dtx" will extract the package whereas
 "xelatex zhnumber.dtx" will typeset the documentation.
 
 The package requires LaTeX3 support as provided in the l3kernel and l3packages
@@ -80,15 +79,53 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %<*internal>
 \fi
 \begingroup
-  \edef\tempa{\fmtname}
-  \edef\tempb{plain}
-\expandafter\endgroup
-\ifx\tempa\tempb
+  \def\temp{LaTeX2e}
+\expandafter\endgroup\ifx\temp\fmtname\else
 \csname fi\endcsname
 %</internal>
 %<*install>
 
+\newread\inputcheck
+\openin\inputcheck=zhnumber.ver
+\ifeof\inputcheck
+  \def\zhnumberPutVersion{\string\GetIdInfo$Id$}
+\else
+  \input zhnumber.ver
+\fi
+\closein\inputcheck
+
 \input l3docstrip.tex
+
+\def\checkOption<#1{%
+  \ifcase
+    \ifx*#10\else \ifx/#11\else
+    \ifx+#12\else \ifx-#13\else
+    \ifx<#14\else \ifx @#15\else
+    \ifx.#16\else
+    7\fi\fi\fi\fi\fi\fi\fi\relax
+  \expandafter\starOption\or
+  \expandafter\slashOption\or
+  \expandafter\plusOption\or
+  \expandafter\minusOption\or
+  \expandafter\verbOption\or
+  \expandafter\moduleOption\or
+  \expandafter\expOption\or
+  \expandafter\doOption\fi
+  #1%
+}
+\def\expOption .#1>#2\endLine{%
+  \maybeMsg{<.#1 . >}%
+  \Evaluate{#1}%
+  \begingroup
+    \catcode`\\=0 \catcode`\{=1 \catcode`\}=2 \catcode`\ =10
+    \xdef\expandedLineStuff{\scantokens{#2\noexpand}}%
+  \endgroup
+  \def\do##1##2##3{%
+    \if1\Expr{##2}\StreamPut##1{\expandedLineStuff}\fi
+    }%
+  \activefiles
+}
+
 \keepsilent
 \askforoverwritefalse
 \preamble
@@ -119,13 +156,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
                                       README.
 \endpostamble
 
-\ifnum\shellescape=1 \else
-  \errmessage{
-    Shell escape is disabled. Please use ^^J^^J
-    xetex -shell-escape \jobname.ins(dtx)^^J}
-  \expandafter\endbatchfile
-\fi
-
 \generate
   {
     \usedir{source/latex/zhnumber}
@@ -141,11 +171,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \file{README.txt}         {\from{\jobname.dtx}{readme}}
   }
 
-\immediate\write18{iconv -f utf-8 -t big-5 zhnumber-big5.cfg > zhnumber-big5.temp}
-\immediate\write18{iconv -f utf-8 -t gbk zhnumber-gbk.cfg > zhnumber-gbk.temp}
-\immediate\write18{mv -f zhnumber-big5.temp zhnumber-big5.cfg}
-\immediate\write18{mv -f zhnumber-gbk.temp zhnumber-gbk.cfg}
-
 \endbatchfile
 %</install>
 %<*internal>
@@ -157,8 +182,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
 %</!config>
-\GetIdInfo$Id$
+%<.!driver>\zhnumberPutVersion
 %<*driver>
+\InputIfFileExists{zhnumber.ver}{}{
+  \def\zhnumberGetVersionInfo\endcsname{\GetIdInfo$Id$}}
+\zhnumberGetVersionInfo
   {zhnumber source file}
 \ProvidesExplFile{\ExplFileName.\ExplFileExtension}
 %</driver>
@@ -200,7 +228,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \setCJKmonofont{Adobe Kaiti Std}
 \xeCJKsetup{PunctStyle=kaiming}
 \def\ctexkitrev#1{%
-  \href{http://code.google.com/p/ctex-kit/source/detail?r=#1}{\texttt{ctex-kit} rev#1}}
+  \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
 \makeatletter
 \def\LaTeX{\hologo{LaTeX}}
 \def\upTeX{up\!\hologo{TeX}}
@@ -208,12 +236,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \def\pdfLaTeX{\hologo{pdfLaTeX}}
 \def\LuaLaTeX{\hologo{LuaLaTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
-\def\TF{true\orvar{}false}
-\def\TTF{\defaultvar{true}\orvar false}
-\def\TFF{true\orvar\defaultvar{false}}
-\def\orvar{\textup{\textbar}}
-\def\defaultvar{\textbf}
-\def\argbrace#1{\{#1\}}
+\def\TF{true\orbar false}
+\def\TTF{\defaultval{true}\orbar false}
+\def\TFF{true\orbar\defaultval{false}}
+\def\defaultval#1{\textbf{\textup{#1}}}
+\def\defaultvalaux#1){\defaultval{#1}}
+\def\orbar{\textup{\textbar}}
 \preto\MacroFont{\linespread{1}}
 \appto\MacroFont{\hyphenchar\font\m@ne}
 \preto\AltMacroFont{\linespread{1}}
@@ -241,8 +269,32 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         hdclindex{\the\c@HD@hypercount}{#5}
       }
   }
+\DeclareDocumentCommand \cs { O{} m }
+  { \__codedoc_cmd_aux:no {#1} { \c__codedoc_backslash_tl #2 } }
+\DeclareDocumentCommand \tn { O{} m }
+  {
+    \__codedoc_cmd_aux:no
+      { index = TeX , replace = false , #1 }
+      { \c__codedoc_backslash_tl #2 }
+  }
+\DeclareDocumentCommand \meta { +m }
+  { \__codedoc_meta_aux:n {#1} }
+\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
+  { \tl_to_str:n {#2} }
+\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
+\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
+\AtBeginEnvironment { syntax }
+  {
+    \char_set_active_eq:NN \| \orbar
+    \char_set_active_eq:NN \( \defaultvalaux
+  }
 \ExplSyntaxOff
 \makeatother
+\pdfstringdefDisableCommands{%
+  \let\cs\bookmarkcstn
+  \let\tn\bookmarkcstn
+  \let\meta\bookmarkmeta
+  \let\path\detokenize}
 \def\indexname{代码索引}
 \IndexPrologue{%
   \section*{\indexname}
@@ -279,7 +331,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}[updated=2014-09-09]{encoding}
 %   \begin{syntax}
-%     encoding = \meta{GBK\orvar{}Big5\orvar{}UTF8}
+%     encoding = <GBK|Big5|UTF8>
 %   \end{syntax}
 %   用于指定编码的宏包选项，可以在调用宏包的时候设定，也可以用 \tn{zhnumsetup}
 %   在导言区内设定。对于 \upLaTeX、\XeLaTeX{} 和 \LuaLaTeX，不用指定编码，宏包将
@@ -377,7 +429,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}[added=2012-05-25]{\zhnumExtendScaleMap}
 %   \begin{syntax}
-%     \tn{zhnumExtendScaleMap} \oarg{character} \argbrace{\meta{character_1}, \meta{character_2}, ..., \meta{character_n}}
+%     \tn{zhnumExtendScaleMap} \oarg{character} \{<character_1>, <character_2>, ..., <character_n>\}
 %   \end{syntax}
 %   缺省状态下 \tn{zhnumber} 能正确中文格式化的最大整数是 $10^{48}-1$，\tn{zhdigits} 不受
 %   这个大小的限制。可以通过 \tn{zhnumExtendScaleMap} 来扩展 \tn{zhnumber}。
@@ -387,17 +439,18 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{\zhnumsetup}
 %   \begin{syntax}
-%     \tn{zhnumsetup} \argbrace{\meta{key_1}=\meta{val_1}, \meta{key_2}=\meta{val_2}, ...}
+%     \tn{zhnumsetup} \{<key_1>=<val_1>, <key_2>=<val_2>, ...\}
 %   \end{syntax}
 %   用于在导言区或文档中，设置中文数字的输出格式。目前可以设置的 \meta{key} 如下介绍。
+%   以\textbf{粗体}表示选项的默认值。
 % \end{function}
 %
 % \begin{function}[added=2012-05-25]{time}
 %   \begin{syntax}
-%     time =  \argbrace{\meta{Arabic}\orvar\meta{Chinese}}
+%     time = <(Arabic)|Chinese>
 %   \end{syntax}
 %   设置日期和时间的数字格式，\meta{Arabic} 为阿拉伯数字，而 \meta{Chinese} 为中文数字。
-%   默认使用阿拉伯数字。例如
+%   例如
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
 %     \zhnumsetup{time=Chinese}
 %     \zhtoday\zhcurrtime
@@ -406,11 +459,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}[updated=2012-05-25]{style}
 %   \begin{syntax}
-%     style = \argbrace{\meta{Simplified}\orvar\meta{Traditional}\orvar\meta{Normal}\orvar\meta{Financial}\orvar\meta{Ancient}}
+%     style = <(Simplified)|Traditional|(Normal)|Financial|Ancient>
 %   \end{syntax}
 %   意义分别为
 %
-%   \begin{description}[font=\mdseries\ttfamily,align=right,labelsep=1em,labelindent=-1em,leftmargin=*]
+%   \begin{description}[font=\mdseries\ttfamily\small,align=right,labelsep=1em,labelindent=-1em,leftmargin=*]
 %     \item[Simplified]  以简体中文输出数字（对 |Big5| 编码无效）；
 %     \item[Traditional] 以繁体中文输出数字（对 |Big5| 编码无效）；
 %     \item[Normal] 以小写形式输出中文数字；
@@ -429,7 +482,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{null}
 %   \begin{syntax}
-%     null = \meta{\TFF}
+%     null = <\TFF>
 %   \end{syntax}
 %   缺省状态下，除了 \tn{zhdigits} 外，其它的格式转换命令，将 0 映射成零，如果需要将 0 映射
 %   成〇，可以使用这个选项。\strut
@@ -462,7 +515,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}[added=2014-09-09]{activechar}
 %   \begin{syntax}
-%     activechar = \meta{\TTF}
+%     activechar = <\TTF>
 %   \end{syntax}
 %   在 \LaTeX{} 或者 \pdfLaTeX{} 下面输出汉字，传统的办法需要将汉字的首字节设置为
 %   活动字符，然后再通过特殊的宏技巧来实现。因此，\pkg{zhnumber} 在载入配置文件的
@@ -1398,7 +1451,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \prop_if_exist:cTF { g_@@_cfg_ \l_@@_cfg_tl _prop }
       { \tl_set_eq:NN \l_@@_last_cfg_tl \l_@@_cfg_tl }
-      { \zhnum_input_cfg:n  {#1} }
+      { \zhnum_input_cfg:n {#1} }
     \@@_update_cfg_prop:N \prop_set_eq:Nc
   }
 \cs_new_protected:Npn \zhnum_input_cfg:n #1
