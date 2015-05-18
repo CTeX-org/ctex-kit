@@ -743,7 +743,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   \pkg{ctexheading} 中。}
 %
 %
-% \CheckSum{4380}
+% \CheckSum{4442}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -952,6 +952,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   \item[\ding{229}] 以上是各种编译方式都必需的依赖项。
 %   \item \pkg{CJK} 套件，它的下划线功能依赖 \pkg{ulem} 宏包。
 %   \item \pkg{CJKpunct} 宏包。
+%   \item \pkg{xCJK2uni} 宏包。
 %   \item \pkg{zhmetrics} 宏包。
 %   \item \pkg{zhmCJK} 宏包。
 %   \item[\ding{229}] 以上是使用 \pdfLaTeX{} 或 \LaTeX{} + \dvipdfmx{} 的编译方式所需要
@@ -3660,6 +3661,81 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*pdftex>
 %    \end{macrocode}
+%
+% \changes{v2.1}{2015/05/18}{给 \pdfLaTeX{} 下的非 UTF8 编码 CJK 字体族加上 CMap。}
+%
+% \begin{macro}[internal]{\c_@@_cmap_encoding_seq}
+% 需要加上 CMap 的 CJK 字体编码。
+%    \begin{macrocode}
+\seq_new:N \c_@@_cmap_encoding_seq
+\seq_set_from_clist:Nn \c_@@_cmap_encoding_seq
+  { C19 , C10 , C00 , C09 , C40 , C60 }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_family_cmap:nn}
+% 在 \tn{DeclareFontFamily} 的 \meta{loading-settings} 中给 CJK 字体族加上 CMap。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_family_cmap:nn #1#2
+  {
+    \cs_if_free:cF { #1 + #2 }
+      {
+        \seq_if_in:NnT \c_@@_cmap_encoding_seq {#1}
+          { \tl_gput_right:cn { #1 + #2 } { \ctex_add_cmap:n {#1} } }
+      }
+  }
+\cs_generate_variant:Nn \ctex_family_cmap:nn { x }
+\cs_new_eq:NN \CTEX@Family@CMap \ctex_family_cmap:xn
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\ctex_add_cmap:n}
+% 给 |#1| 编码的 CJK 字体加上 CMap。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_add_cmap:n #1
+  {
+    \cs_if_free:NF \CJK@plane
+      { \ctex_add_cmap:cn { @@_add_cmap_ #1 \CJK@plane : } {#1} }
+  }
+\cs_new_protected_nopar:Npn \ctex_add_cmap:Nn #1#2
+  {
+    \cs_if_exist:NF #1 { \@@_save_cmap:Nn #1 {#2} }
+    #1
+  }
+\cs_generate_variant:Nn \ctex_add_cmap:Nn { c }
+\cs_new_protected_nopar:Npn \@@_save_cmap:Nn #1#2
+  {
+    \tex_lowercase:D { \tl_set:Nn \l_@@_tmp_tl { #2 \CJK@plane } }
+    \tex_immediate:D \pdfobj stream ~ file { \l_@@_tmp_tl .cmap }
+    \cs_new_protected_nopar:Npx #1
+      {
+        \exp_not:N \pdffontattr \exp_not:N \font
+          { /ToUnicode ~ \int_use:N \pdflastobj \c_space_tl 0 ~ R }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\DeclareFontFamily}
+% 只在 \pdfLaTeX{} 下加 CMap。如 \pkg{cmap} 宏包被引入，则不重复设置。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_other:N \#
+\ctex_if_pdfmode:TF
+  {
+    \group_end:
+    \ExplSyntaxOff
+    \ctex_appto_cmd:NnTF \DeclareFontFamily { \CTEX@Family@CMap {#1} {#2} }
+      {
+        \ctex_at_end_package:nn { cmap }
+          { \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn }
+      }
+      { \ctex_patch_failure:N \DeclareFontFamily }
+    \ExplSyntaxOn
+  }
+  { \group_end: }
+%    \end{macrocode}
+% \end{macro}
 %
 % 首先检查选项，决定是否载入 \pkg{zhmCJK} 宏包。
 %    \begin{macrocode}
