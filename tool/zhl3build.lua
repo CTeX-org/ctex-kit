@@ -26,11 +26,9 @@ subtexdirs = subtexdirs or { }
 
 -- MiKTeX 中，环境变量 TEXINPUTS 的优先级低于系统路径
 -- 但可以设置编译选项 -include-directory
-if os.selfdir:find([[miktex\bin$]]) then
-  function miktex_hook ()
-    typesetopts = "-include-directory=" .. relpath(localdir, typesetdir) .. " " .. typesetopts
-    unpackopts = "-include-directory=" .. relpath(localdir, unpackdir) .. " " .. unpackopts
-  end
+miktex_hook = os.selfdir:find([[miktex\bin$]]) and function ()
+  typesetopts = "-include-directory=" .. relpath(localdir, typesetdir) .. " " .. typesetopts
+  unpackopts = "-include-directory=" .. relpath(localdir, unpackdir) .. " " .. unpackopts
 end
 
 -- 计算文件的 md5
