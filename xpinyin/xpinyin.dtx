@@ -43,7 +43,7 @@ Email: sobenlee@gmail.com
 
 If you are interested in the process of development you may observe
 
-    http://code.google.com/p/ctex-kit/
+    https://github.com/CTeX-org/ctex-kit
 
 Installation
 ------------
@@ -51,7 +51,7 @@ The package is supplied in dtx format and as a pre-extracted zip file,
 xpinyin.tds.zip. The later is most convenient for most users: simply
 unzip this in your local texmf directory and run texhash to update the
 database of file locations. If you want to unpack the dtx yourself,
-running "luatex xpinyin.dtx" will extract the package whereas
+running "luatex xpinyin.ins" will extract the package whereas
 "xelatex xpinyin.dtx" will typeset the documentation.
 
 The package requires LaTeX3 support as provided in the l3kernel and l3packages
@@ -71,18 +71,18 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</internal>
 %<*install>
 
-\begingroup\expandafter\expandafter\expandafter\endgroup
-\expandafter\ifx\csname directlua\endcsname\relax
-  \begingroup
-  \newlinechar=10 %
-  \errmessage{^^J
-    ********************************************^^J
-    * LuaTeX is required to unpack this package.^^J
-    ********************************************^^J
-  }
-  \endgroup
-  \csname @@end\expandafter\endcsname\expandafter\end
-\fi
+%<install>\begingroup\expandafter\expandafter\expandafter\endgroup
+%<install>\expandafter\ifx\csname directlua\endcsname\relax
+%<install>  \begingroup
+%<install>  \newlinechar=10 %
+%<install>  \errmessage{^^J
+%<install>    ********************************************^^J
+%<install>    * LuaTeX is required to unpack this package.^^J
+%<install>    ********************************************^^J
+%<install>  }
+%<install>  \endgroup
+%<install>  \csname @@end\expandafter\endcsname\expandafter\end
+%<install>\fi
 
 \newread\inputcheck
 \openin\inputcheck=xpinyin.ver
@@ -170,9 +170,24 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \file{xpinyin.lua} {\from{\jobname.dtx}{lua}}
   }
 
-\directlua{ dofile(kpse.find_file('xpinyin.lua')) }
-
 \let\MetaPrefix\DoubleperCent
+
+%<install>\directlua
+%<install>  {
+%<install>    if not kpse.find_file("xpinyin.db") then
+%<install>      dofile(kpse.find_file("xpinyin.lua"))
+%<install>    end
+%<install>  }
+%<install>\generate
+%<install>  {
+%<install>    \usedir{tex/latex/xpinyin}
+%<install>    \usepostamble\emptypostamble
+%<install>    \file{xpinyin-database.def}
+%<install>      {
+%<install>        \from{\jobname.dtx} {database}
+%<install>        \from{xpinyin.db}   {}
+%<install>      }
+%<install>  }
 
 \generate
   {
@@ -180,12 +195,6 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     \file{xpinyin.ins} {\from{\jobname.dtx}{install}}
     \usedir{tex/latex/xpinyin}
     \file{xpinyin.sty} {\from{\jobname.dtx}{package}}
-    \usepostamble\emptypostamble
-    \file{xpinyin-database.def}
-      {
-        \from{\jobname.dtx} {database}
-        \from{xpinyin.db}   {}
-      }
     \nopreamble\nopostamble
     \usedir{doc/latex/xpinyin}
     \file{README.txt}  {\from{\jobname.dtx}{readme}}
@@ -220,7 +229,9 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %<database>  [2014/12/24 v2.1 xpinyin database]
 %
 %<*driver>
-\documentclass[full,a4paper]{l3doc}
+\let\ctexrevnum\ExplFileVersion
+\expandafter\let\csname ver@thumbpdf.sty\endcsname\fmtversion
+\documentclass[numbered,full,a4paper]{l3doc}
 \usepackage{xeCJK}
 \usepackage{indentfirst}
 \usepackage{xpinyin}
@@ -242,6 +253,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \newfontfamily\PinYinFont{TeX Gyre Adventor}
 \xpinyinsetup{font=\PinYinFont,multiple=\color{red}}
 \def\MacroFont{\linespread{1}\small\normalfont\ttfamily}
+\def\ctexkitrev#1{%
+  \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
 \makeatletter
 \ExplSyntaxOn
 \DeclareDocumentCommand \package { o m }
@@ -298,11 +311,11 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \def\LaTeX{\hologo{LaTeX}}
 \def\pdfLaTeX{\hologo{pdfLaTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
-\def\TF{true\orval{}false}
-\def\TTF{\defaultval{true}\orval{}false}
-\def\TFF{true\orval\defaultval{false}}
-\def\orval{\textup{\textbar}}
+\def\TF{true\orbar false}
+\def\TTF{\defaultval{true}\orbar false}
+\def\TFF{true\orbar\defaultval{false}}
 \def\defaultval#1{\textbf{\textup{#1}}}
+\def\orbar{\textup{\textbar}}
 \makeatother
 \def\indexname{代码索引}
 \IndexPrologue{%
@@ -323,7 +336,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \title{\bfseries\pkg{xpinyin} 宏包}
 % \author{李清\\ \path{sobenlee@gmail.com}}
-% \date{\filedate\qquad\fileversion}
+% \date{\filedate\qquad\fileversion\thanks{\ctexkitrev{\ctexrevnum}.}}
 % \maketitle
 %
 % \begin{documentation}
@@ -442,7 +455,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}{\xpinyinsetup}
 %   \begin{syntax}
-%     \tn{xpinyinsetup} \{ \meta{key_1}=\meta{val_1}, \meta{key_2}=\meta{val_2}, ... \}
+%     \tn{xpinyinsetup} \{ <key_1>=<val_1>, <key_2>=<val_2>, ... \}
 %   \end{syntax}
 %   用于在导言区或文档中，设置拼音的格式。目前可以设置的 \meta{key} 如下介绍。
 % \end{function}
@@ -507,7 +520,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \begin{function}[added=2014/01/12]{footnote}
 %   \begin{syntax}
-%     footnote = \meta{\TFF}
+%     footnote = <\TFF>
 %   \end{syntax}
 %   是否对拼音环境中的脚注（\tn{footnote}）汉字加上拼音。缺省值为 \texttt{false}。
 %   更一般的情况，请使用 \tn{disablepinyin}。
@@ -1339,7 +1352,6 @@ end
 %
 %    \begin{macrocode}
 xpinyin = {
-  svnid    = "$Id$",
   uchar    = unicode.utf8.char,
   readings = { },
   fixreadings = {
@@ -1358,23 +1370,27 @@ xpinyin = {
     version = "Unicode version: 7.0.0",
     dbfile  = "xpinyin.db"
   },
-%    \end{macrocode}
-% \pkg{DocStrip} 会将一行开头的 |%%| 替换成 \tn{MetaPrefix}，因此我们在行首加了
-% 空格，需要把它去掉。
-%    \begin{macrocode}
-  preamble = string.gsub([[
-    %%
-    %%  Do not edit this file!
-    %%  Created from Unihan database:
-    %%
-    %%    $file
-    %%    $date
-    %%    $version
-    %%
-    %%  by "texlua xpinyin.lua" on ]]
-               .. os.date("%Y-%m-%d %X ") .. xpinyin.tzoffset
-               .. "\n%%", "[ ]+(%%%%)", "%1")
+  preamble = [[
+%<<COMMENT
+%%
+%%  Do not edit this file!
+%%  Created from Unihan database:
+%%
+%%    $file
+%%    $date
+%%    $version
+%%
+%%  by "texlua xpinyin.lua" on ]]
+           .. os.date("%Y-%m-%d %X ") .. xpinyin.tzoffset
+           .. "\n%%"
+%COMMENT
 }
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+local http_request = require("socket.http").request
+local ltn12_sink_file = require("ltn12").sink.file
+local zip_open = require("zip").open
 %    \end{macrocode}
 %
 % 将 \file{Unihan_Readings.txt}^^A
@@ -1385,10 +1401,10 @@ function xpinyin.maketable (txt)
   if not f then
     local source = xpinyin.database.source
     local zfilename = source:match("[^/]+$")
-    local zfile = zip.open(zfilename)
+    local zfile = zip_open(zfilename)
     if not zfile then
       xpinyin.download(source, zfilename)
-      zfile = assert(zip.open(zfilename))
+      zfile = assert(zip_open(zfilename))
     end
     f = assert(zfile:open(xpinyin.database.file))
     zfile:close()
@@ -1423,10 +1439,12 @@ end
 %    \begin{macrocode}
 function xpinyin.download (source, zip)
   print("\nRetrieving Unihan Database from\n", source)
-  local unihan_data = assert(socket.http.request(source), "download failed")
-  local f = assert(io.open(zip, "wb"), "Unihan file (" .. zip .. ") not writable")
-  f:write(unihan_data)
-  f:close()
+  local status, err = http_request{
+    url  = source,
+    sink = ltn12_sink_file(io.open(zip, "wb")) }
+  if not status then
+    error([[Download ']] .. zip .. [[' failed because of ]] .. err .. ".")
+  end
 end
 %    \end{macrocode}
 %
