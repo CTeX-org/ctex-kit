@@ -140,8 +140,11 @@ function mv(src, dest)
   os.execute(mv .. " " .. src .. " " .. dest .. " > " .. os_null)
 end
 
+local unpack_prehook = unpack_prehook or function() end
+local unpack_posthook = unpack_posthook or function() end
 function hooked_bundleunpack()
   extract_git_version()
+  unpack_prehook()
   -- Unbundle
   unhooked_bundleunpack()
   -- UTF-8 to GBK conversion
@@ -155,6 +158,7 @@ function hooked_bundleunpack()
     zhconv(f_utf, f_utf, "big5")
   end
   is_unpacked = true
+  unpack_posthook()
 end
 
 local doc_prehook = doc_prehook or function() end
