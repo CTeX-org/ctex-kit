@@ -309,7 +309,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1177}
+% \CheckSum{1194}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -457,6 +457,17 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.4\linewidth,gobble=5]
 %     \zhganzhi{1} \zhganzhi{2} \zhganzhi{3} \\
 %     \zhganzhi{4} \zhganzhi{5} \zhganzhi{60}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[rEXP, added=2015-05-20]{\zhganzhinian}
+%   \begin{syntax}
+%     \tn{zhganzhinian} \Arg{year}
+%   \end{syntax}
+%   输出公元纪年 \meta{year} 对应的干支纪年。公元前的年份用负数表示。例如
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.4\linewidth,gobble=5]
+%     \zhganzhinian{1898}  \zhganzhinian{-246} \\
+%     \zhganzhinian{-2697} \zhganzhinian{\year}
 %   \end{SideBySideExample}
 % \end{function}
 %
@@ -1351,7 +1362,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhdizhi}
+% \begin{macro}{\zhdizhi}
 % 地支。
 %    \begin{macrocode}
 \cs_new:Npn \zhdizhi #1
@@ -1359,14 +1370,45 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhganzhi}
+% \begin{macro}{\zhganzhi}
 % 干支。
 %    \begin{macrocode}
 \cs_new:Npn \zhganzhi #1
   { \zhnum_ganzhi:fnn { \int_eval:n {#1} } { ganzhi } { 60 } }
 %    \end{macrocode}
 % \end{macro}
-
+%
+% \begin{macro}{\zhganzhinian}
+% 干支纪年。
+%    \begin{macrocode}
+\cs_new:Npn \zhganzhinian #1
+  { \zhnum_ganzhi_nian:f { \int_eval:n {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\zhnum_ganzhi_nian:n}
+% 干支纪年。公元元年是 |\zhganzhi{58}|。
+%    \begin{macrocode}
+\cs_new:Npn \zhnum_ganzhi_nian:n #1
+  {
+    \int_compare:nNnTF {#1} > \c_zero
+      { \use:c { c_@@_ganzhi_ \int_mod:nn { #1 + 57 } { 60 } _tl } }
+      {
+        \int_compare:nNnF {#1} = \c_zero
+          {
+            \use:c
+              {
+                c_@@_ganzhi_
+                  \int_eval:n { \int_mod:nn { #1 - 2 } { 60 } + 60 }
+                _tl
+              }
+          }
+      }
+  }
+\cs_generate_variant:Nn \zhnum_ganzhi_nian:n { f }
+%    \end{macrocode}
+% \end{macro}
+%
 % 根据需要设置中文阿拉伯数字。
 %    \begin{macrocode}
 \group_begin:
@@ -1389,10 +1431,10 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     {
       \tl_put_right:Nx \l_tmpa_tl
         {
-           #1  .tl_set:N = \exp_not:c { l_@@_ #1 _tl } ,
-          F#1  .tl_set:N = \exp_not:c { l_@@_financial_ #1 _tl } ,
-          T#1  .tl_set:N = \exp_not:c { l_@@_tiangan_ #1 _tl } ,
-          D#1  .tl_set:N = \exp_not:c { l_@@_dizhi_ #1 _tl } ,
+            #1 .tl_set:N = \exp_not:c { l_@@_ #1 _tl } ,
+           F#1 .tl_set:N = \exp_not:c { l_@@_financial_ #1 _tl } ,
+           T#1 .tl_set:N = \exp_not:c { l_@@_tiangan_ #1 _tl } ,
+           D#1 .tl_set:N = \exp_not:c { l_@@_dizhi_ #1 _tl } ,
           GZ#1 .tl_set:N = \exp_not:c { l_@@_ganzhi_ #1 _tl } ,
           E \int_eval:n { #1 * 4 }
                .tl_set:N = \exp_not:c { l_@@_ s#1 _tl } ,
@@ -1565,8 +1607,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 \cs_new_protected:Npn \zhnum_assgin_ganzhi:nn #1#2
   { \tl_set:cn { l_@@_ #1 _tl } {#2} }
 \cs_new:Npn \zhnum_zero_mod:nn #1#2
-  { \exp_args:Nf \@@_zero_mod:nn { \int_mod:nn {#1} {#2} } {#2} }
-\cs_new:Npn \@@_zero_mod:nn #1#2
+  { \exp_args:Nf \@@_zero_mod_aux:nn { \int_mod:nn {#1} {#2} } {#2} }
+\cs_new:Npn \@@_zero_mod_aux:nn #1#2
   { \int_compare:nNnTF {#1} = \c_zero {#2} {#1} }
 \int_step_inline:nnnn { 1 } { 1 } { 60 }
   {
@@ -1577,7 +1619,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
         \exp_not:c { l_@@_dizhi_ \zhnum_zero_mod:nn {#1} { 12 } _tl }
       }
   }
-\cs_new_eq:cc{ c_@@_ganzhi_ 0 _tl } { c_@@_ganzhi_ 60 _tl }
+\cs_new_eq:cc { c_@@_ganzhi_ 0 _tl } { c_@@_ganzhi_ 60 _tl }
 \cs_new_eq:NN \zhnum_assgin_const_tl:cx \tl_const:cx
 \AtEndOfPackage
   {
