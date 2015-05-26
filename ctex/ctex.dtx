@@ -505,7 +505,9 @@ This package consists of the file ctex.dtx, and the derived files
 \setcounter{tocdepth}{2}
 \newcommand*\email{\nolinkurl}
 \setmainfont{TeX Gyre Pagella}
-\setsansfont{CMU Sans Serif}
+\setsansfont[
+  BoldFont = * Semibold,
+  BoldItalicFont = * Semibold Italic]{Source Sans Pro}
 \setmonofont[
   UprightFont=* Light, BoldFont=* Bold,
   SlantedFont=* Light Oblique]{CMU Typewriter Text}
@@ -596,7 +598,8 @@ This package consists of the file ctex.dtx, and the derived files
 \appto\MacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \preto\AltMacroFont{\linespread{1}}
 \appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
-\def\Module#1{\mbox{\normalfont\sffamily\textlangle#1\textrangle}}
+\def\Module#1{\mbox{%
+  \color{purple}\footnotesize\normalfont\sffamily\textlangle#1\textrangle}}
 \ExplSyntaxOn
 \cs_new_nopar:Npn \zihaopt #1
   {
@@ -700,7 +703,11 @@ This package consists of the file ctex.dtx, and the derived files
 \patchcmd\l@section{2.5em}{1.5em}{}{}
 \patchcmd\l@subsection{2.5em}{1.5em}{}{}
 \patchcmd\changes@{\space}{\lbrack}{}{}
-\patchcmd\@wrglossary{hdpindex}{hdclindex{\the\c@HD@hypercount}}{}{}
+\patchcmd\@wrglossary{hdpindex}{%
+  \ifnum\c@HD@hypercount=\z@
+    hdpindex%
+  \else
+    hdclindex{\the\c@HD@hypercount}\fi}{}{}
 \newenvironment{defaultcapconfig}{%
   \MakePercentComment
   \input{ctex-name-utf8.cfg}%
@@ -743,7 +750,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   \pkg{ctexheading} 中。}
 %
 %
-% \CheckSum{4452}
+% \CheckSum{4489}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -946,7 +953,6 @@ This package consists of the file ctex.dtx, and the derived files
 %     \item \pkg{etex} 宏包。
 %   \end{itemize}
 %   \item \pkg{indentfirst} 宏包，属于 \pkg{tools} 宏集。
-%   \item \pkg{ifpdf} 宏包，属于 \pkg{oberdiek} 宏集。
 %   \item \pkg{etoolbox} 宏包。
 %   \item \pkg{everysel} 宏包，属于 \pkg{ms} 宏集。
 %   \item \pkg{zhnumber} 宏包。
@@ -2811,7 +2817,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \RequirePackage { etoolbox }
-%<!ctexheading>\RequirePackage { ifpdf , fix-cm , everysel }
+%<!ctexheading>\RequirePackage { fix-cm , everysel }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
@@ -2958,15 +2964,15 @@ This package consists of the file ctex.dtx, and the derived files
             \group_begin:
             \use:x
               {
+                \group_end:
                 \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
-                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 } {#3}
-              } #1
+                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 }
+              } {#3} #1
           }
           { #1#2 }
       }
     \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
       {
-        \group_end:
         \exp_args:Nc #6
           {
             \str_case:nnTF {#1}
@@ -3002,9 +3008,9 @@ This package consists of the file ctex.dtx, and the derived files
 % {\ctex_patch_cmd:NnnTF,\ctex_preto_cmd:NnTF,\ctex_appto_cmd:NnTF}
 % 在打补丁前先解析实际名字。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_patch_cmd:NnnTF { \ctex_parse_name:NN \patchcmd }
-\cs_new_protected:Npn \ctex_preto_cmd:NnTF  { \ctex_parse_name:NN \pretocmd }
-\cs_new_protected:Npn \ctex_appto_cmd:NnTF  { \ctex_parse_name:NN \apptocmd }
+\cs_new_protected_nopar:Npn \ctex_patch_cmd:NnnTF { \ctex_parse_name:NN \patchcmd }
+\cs_new_protected_nopar:Npn \ctex_preto_cmd:NnTF  { \ctex_parse_name:NN \pretocmd }
+\cs_new_protected_nopar:Npn \ctex_appto_cmd:NnTF  { \ctex_parse_name:NN \apptocmd }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3072,14 +3078,24 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.1}{2015/05/25}{不依赖 \pkg{ifpdf} 宏包。}
+%
 % \begin{macro}[internal]{\ctex_if_pdfmode:TF}
-% \tn{ifpdf} 的简单 wrapper。
+% \pkg{ifpdf} 宏包的简单实现。
 %    \begin{macrocode}
-\ifpdf
-  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_i:nn
-\else:
-  \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
-\fi:
+\cs_if_exist:NTF \pdftex_pdfoutput:D
+  {
+    \int_compare:nNnTF \pdftex_pdfoutput:D > \c_zero
+      {
+        \cs_new_eq:NN \ifctexpdf \tex_iftrue:D
+        \cs_new_eq:NN \ctex_if_pdfmode:TF \use_i:nn
+      }
+  }
+  { \use:n }
+  {
+    \cs_new_eq:NN \ifctexpdf \tex_iffalse:D
+    \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6386,8 +6402,23 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.0}{2014/03/21}{标题设置新增 \opt{pagestyle} 选项。}
+%
+% \begin{macro}{part/pagestyle,chapter/pagestyle}
+% 只在 \cls{ctexbook} 和 \cls{ctexrep} 下有定义。
 %    \begin{macrocode}
-\tl_clear:N \l_@@_tmp_tl
+%<*book|report>
+\tl_set:Nn \l_@@_tmp_tl
+  {
+    part    / pagestyle .tl_set:N = \CTEX@part@pagestyle ,
+    chapter / pagestyle .tl_set:N = \CTEX@chapter@pagestyle ,
+  }
+%</book|report>
+%    \end{macrocode}
+% \end{macro}
+%
+% 定义标题键值选项。
+%    \begin{macrocode}
 \seq_map_inline:Nn \c_@@_headings_seq
   {
     \@@_initial_heading:n {#1}
@@ -6396,21 +6427,6 @@ This package consists of the file ctex.dtx, and the derived files
 \use:x { \keys_define:nn { ctex } { \exp_not:o { \l_@@_tmp_tl } } }
 \tl_clear:N \l_@@_tmp_tl
 %    \end{macrocode}
-%
-% \changes{v2.0}{2014/03/21}{标题设置新增 \opt{pagestyle} 选项。}
-%
-% \begin{macro}{pagestyle}
-% 只在 \cls{ctexbook} 和 \cls{ctexrep} 下有定义。
-%    \begin{macrocode}
-%<*book|report>
-\keys_define:nn { ctex }
-  {
-    part    / pagestyle .tl_set:N = \CTEX@part@pagestyle ,
-    chapter / pagestyle .tl_set:N = \CTEX@chapter@pagestyle
-  }
-%</book|report>
-%    \end{macrocode}
-% \end{macro}
 %
 %
 % \subsubsection{标准标题命令的修改}
@@ -6731,17 +6747,19 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \paragraph{附录标题}
 %
+% \begin{macro}[internal]{appendix/name,appendix/number}
 %    \begin{macrocode}
+\keys_define:nn { ctex }
+  {
+    appendix            .meta:nn = { ctex / appendix } {#1} ,
+    appendix / name      .code:n =
+      { \ctex_assign_heading_name:nn { appendix } {#1} } ,
+    appendix / number  .tl_set:N = \CTEX@appendixnumber
+  }
 \tl_new:N \CTEX@preappendix
 \tl_new:N \CTEX@postappendix
-\keys_define:nn { ctex }
-  { appendix .meta:nn = { ctex / appendix } {#1} }
-\keys_define:nn { ctex / appendix }
-  {
-    name      .code:n = { \ctex_assign_heading_name:nn { appendix } {#1} } ,
-    number  .tl_set:N = \CTEX@appendixnumber
-  }
 %    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[internal]{\appendix}
 %    \begin{macrocode}
@@ -8372,7 +8390,14 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\input ifpdf.sty\relax
+\begingroup
+\toks0\expandafter{%
+  \expandafter\let\csname ifzhmappdf\expandafter\endcsname\csname
+    \expandafter\ifx\csname ifctexpdf\endcsname\relax
+      \expandafter\ifx\csname pdfoutput\endcsname\relax
+        iffalse\else\ifnum\pdfoutput < 1 iffalse\else iftrue\fi\fi
+    \else ifctexpdf\fi\endcsname}
+\expandafter\endgroup\the\toks0 %
 %    \end{macrocode}
 %
 % 提供非 \LaTeX{} 格式下的 \tn{ProvidesFile}。
@@ -8393,9 +8418,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*windows>
 \ProvidesFile{zhwindowsfonts.tex}%
-  [2014/06/03 v2.0 Windows font map loader for pdfTeX and DVIPDFMx (CTEX)]
+  [2015/05/25 v2.1 Windows font map loader for pdfTeX and DVIPDFMx (CTEX)]
 
-\ifpdf
+\ifzhmappdf
   \pdfmapline{=gbk@UGBK@     <simsun.ttc}
   \pdfmapline{=gbksong@UGBK@ <simsun.ttc}
   \pdfmapline{=gbkkai@UGBK@  <simkai.ttf}
@@ -8465,9 +8490,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*adobe>
 \ProvidesFile{zhadobefonts.tex}%
-  [2014/06/03 v2.0 Adobe font map loader for DVIPDFMx (CTEX)]
+  [2015/05/25 v2.1 Adobe font map loader for DVIPDFMx (CTEX)]
 
-\ifpdf
+\ifzhmappdf
 %% pdfTeX does not support OTF fonts
 
 \else
@@ -8501,9 +8526,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*fandol>
 \ProvidesFile{zhfandolfonts.tex}%
-  [2014/06/03 v2.0 Fandol font map loader for DVIPDFMx (CTEX)]
+  [2015/05/25 v2.1 Fandol font map loader for DVIPDFMx (CTEX)]
 
-\ifpdf
+\ifzhmappdf
 %% pdfTeX does not support OTF fonts
 
 \else
@@ -8537,9 +8562,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*founder>
 \ProvidesFile{zhfounderfonts.tex}%
-  [2014/06/03 v2.0 Founder font map loader for pdfTeX and DVIPDFMx (CTEX)]
+  [2015/05/25 v2.1 Founder font map loader for pdfTeX and DVIPDFMx (CTEX)]
 
-\ifpdf
+\ifzhmappdf
   \pdfmapline{=gbk@UGBK@     <FZSSK.TTF}
   \pdfmapline{=gbksong@UGBK@ <FZSSK.TTF}
   \pdfmapline{=gbkkai@UGBK@  <FZKTK.TTF}
@@ -8609,9 +8634,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 %<*ubuntu>
 \ProvidesFile{zhubuntufonts.tex}%
-  [2014/06/03 v2.0 Ubuntu font map loader for pdfTeX and DVIPDFMx (CTEX)]
+  [2015/05/25 v2.1 Ubuntu font map loader for pdfTeX and DVIPDFMx (CTEX)]
 
-\ifpdf
+\ifzhmappdf
   \pdfmapline{=gbk@UGBK@     <uming.ttc}
   \pdfmapline{=gbksong@UGBK@ <uming.ttc}
   \pdfmapline{=gbkkai@UGBK@  <ukai.ttc}
