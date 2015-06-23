@@ -58,6 +58,7 @@ This package consists of the file ctex.dtx, and the derived files
     ctexcap.sty,
     ctexsize.sty,
     ctexheading.sty,
+    ctexpatch.sty,
     ctexart.cls,
     ctexbook.cls,
     ctexrep.cls,
@@ -194,6 +195,7 @@ This package consists of the file ctex.dtx, and the derived files
                                        ctexcap.sty,
                                        ctexsize.sty,
                                        ctexheading.sty,
+                                       ctexpatch.sty,
                                        ctexart.cls,
                                        ctexbook.cls,
                                        ctexrep.cls,
@@ -254,6 +256,7 @@ This package consists of the file ctex.dtx, and the derived files
     \file{ctexcap.sty}                     {\from{\jobname.dtx}{ctexcap}}
     \file{ctexsize.sty}                    {\from{\jobname.dtx}{style,ctexsize}}
     \file{ctexheading.sty}                 {\from{\jobname.dtx}{style,ctexheading}}
+    \file{ctexpatch.sty}                   {\from{\jobname.dtx}{ctexpatch}}
     \file{ctexart.cls}                     {\from{\jobname.dtx}{class,article}}
     \file{ctexbook.cls}                    {\from{\jobname.dtx}{class,book}}
     \file{ctexrep.cls}                     {\from{\jobname.dtx}{class,report}}
@@ -324,6 +327,7 @@ This package consists of the file ctex.dtx, and the derived files
 \Msg{*     ctexcap.sty                                           *}
 \Msg{*     ctexsize.sty                                          *}
 \Msg{*     ctexheading.sty                                       *}
+\Msg{*     ctexpatch.sty                                         *}
 \Msg{*     ctexart.cls                                           *}
 \Msg{*     ctexbook.cls                                          *}
 \Msg{*     ctexrep.cls                                           *}
@@ -384,10 +388,10 @@ This package consists of the file ctex.dtx, and the derived files
 %</internal>
 %<*!(readme|install|zhmap|spa)>
 %<*!(c19|c70|ctexspa)>
-%<*driver|class|style|ctexcap>
+%<*driver|class|style|ctexcap|ctexpatch>
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-%</driver|class|style|ctexcap>
+%</driver|class|style|ctexcap|ctexpatch>
 %<.!(readme|install|zhmap|spa|c19|c70|ctexspa)>\ctexPutVersion
 %<*driver>
 \InputIfFileExists{ctex.ver}{}{
@@ -404,6 +408,8 @@ This package consists of the file ctex.dtx, and the derived files
 %<ctexsize>\ProvidesExplPackage{ctexsize}
 %<ctexheading>  {Heading style modification (CTEX)}
 %<ctexheading>\ProvidesExplPackage{ctexheading}
+%<ctexpatch>  {Patching commands (CTEX)}
+%<ctexpatch>\ProvidesExplPackage{ctexpatch}
 %<class&article>  {Chinese adapter for class article (CTEX)}
 %<class&article>\ProvidesExplClass{ctexart}
 %<class&book>  {Chinese adapter for class book (CTEX)}
@@ -466,7 +472,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<founder>\ProvidesExplFile{ctex-fontset-founder.def}
 %<ubuntu>  {Ubuntu fonts definition (CTEX)}
 %<ubuntu>\ProvidesExplFile{ctex-fontset-ubuntu.def}
-  {\ExplFileDate}{2.1.1}{\ExplFileDescription}
+  {\ExplFileDate}{2.2}{\ExplFileDescription}
 %</!(c19|c70|ctexspa)>
 %<rm&c19>\ProvidesFile{c19rm.fd}%
 %<sf&c19>\ProvidesFile{c19sf.fd}%
@@ -752,7 +758,7 @@ This package consists of the file ctex.dtx, and the derived files
 %   \pkg{ctexheading} 中。}
 %
 %
-% \CheckSum{4616}
+% \CheckSum{4760}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2934,13 +2940,13 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \RequirePackage { etoolbox }
+\RequirePackage { ctexpatch }
 %<!ctexheading>\RequirePackage { fix-cm , everysel }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
 %
-% \begin{variable}[int]
-% {\l_@@_tmp_tl,\l_@@_tmp_int,\l_@@_tmp_dim,\l_@@_tmp_box}
+% \begin{variable}[int]{\l_@@_tmp_tl,\l_@@_tmp_int,\l_@@_tmp_dim,\l_@@_tmp_box}
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
 \int_new:N \l_@@_tmp_int
@@ -3043,128 +3049,6 @@ This package consists of the file ctex.dtx, and the derived files
       { }
   }
 \cs_generate_variant:Nn \ctex_scheme_input:n { o }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_parse_name:NN}
-% 用 \tn{DeclareRobustCommand} 定义的宏或者由 \tn{newcommand} 或 \tn{newrobustcmd}
-% 定义的带一个可选参数的宏第一次展开的结果都不是其实际定义，实际定义被保存在另外的
-% 宏中。由这些命令定义的宏的第一次展开结果可以有下面的形式（细节可查阅 \pkg{xpatch}
-% 的文档）：
-% \begin{verbatim}[numbers=left,gobble=4]
-%   \protect␣\xaa␣␣                    % \DeclareRobustCommand\xaa[1]{...}
-%   \protect␣\xab␣␣                    % \DeclareRobustCommand\xab[1][]{...}
-%   \@protected@testopt␣\xac␣\\xac␣{}  % \newcommand\xac[1][]{...}
-%   \@testopt␣\\xad␣{}                 % \newrobustcmd\xad[1][]{...}
-%   \x@protect␣\1\protect␣\1␣␣         % \DeclareRobustCommand\1[1]{...}
-%   \x@protect␣\2\protect␣\2␣␣         % \DeclareRobustCommand\2[1][]{...}
-%   \@protected@testopt␣\3\\3␣{}       % \newcommand\3[1][]{...}
-%   \@testopt␣\\4␣{}                   % \newrobustcmd\4[1][]{...}
-% \end{verbatim}
-% \pkg{etoolbox} 的 \tn{patchcmd} 的主要原理是先对宏的 \tn{meaning} 作字符串
-% 替换，然后再用 \tn{scantokens} 来重建它。我们希望对宏的实际定义打补丁，为此需要
-% 先得到对应的名字。\pkg{letltxmacro}、\pkg{show2e} 和 \pkg{xpatch} 宏包中都有
-% 类似的工作。我们不想依赖 \pkg{xpatch}，主要是因为它与同作者的 \pkg{regexpatch}
-% 宏包共用了主要函数的名字，从而将导致用户不能使用 \pkg{regexpatch}。
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_parse_name:NN #1#2
-  { \ctex_parse_name:NNx #1#2 { \cs_to_str:N #2 } }
-\group_begin:
-\char_set_lccode:nn { `\< } { `\{ }
-\char_set_lccode:nn { `\/ } { `\\ }
-\char_set_lccode:nn { `\A } { `\t }
-\tl_map_function:nN { \A \E \S \O \P } \char_set_catcode_other:N
-\tex_lowercase:D
-  {
-    \group_end:
-    \cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
-      {
-        \bool_if:nTF { \cs_if_exist_p:c { #3 ~ } || \cs_if_exist_p:c { /#3 } }
-          {
-            \group_begin:
-            \use:x
-              {
-                \group_end:
-                \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
-                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 }
-              } {#3} #1
-          }
-          { #1#2 }
-      }
-    \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
-      {
-        \exp_args:Nc #6
-          {
-            \str_case:nnTF {#1}
-              {
-                { \protect #3 } { }
-                { \x@protect #2 \protect #3 } { }
-              }
-              {
-                \str_if_eq_x:nnTF { \exp_not:n { /@protected@ #3 /#3 } }
-                  {
-                    \exp_last_unbraced:Nf \@@_parse_name:w
-                    \token_get_replacement_spec:N #3 AESAOPA ~ < \q_stop
-                  }
-                  { /#5 ~ } { #5 ~ }
-              }
-              {
-                \str_case:onTF { \@@_parse_name:w #1 AESAOPA ~ < \q_stop }
-                  {
-                    { /@protected@ #2 #4 } { }
-                    { /@ #4 } { }
-                  }
-                  { /#5 } {#5}
-              }
-          }
-      }
-    \cs_new:Npn \@@_parse_name:w #1 AESAOPA ~ #2 < #3 \q_stop { #1#2 }
-  }
-\cs_generate_variant:Nn \ctex_parse_name:NNn { NNx }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]
-% {\ctex_patch_cmd:NnnTF,\ctex_preto_cmd:NnTF,\ctex_appto_cmd:NnTF}
-% 在打补丁前先解析实际名字。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_patch_cmd:NnnTF { \ctex_parse_name:NN \patchcmd }
-\cs_new_protected_nopar:Npn \ctex_preto_cmd:NnTF  { \ctex_parse_name:NN \pretocmd }
-\cs_new_protected_nopar:Npn \ctex_appto_cmd:NnTF  { \ctex_parse_name:NN \apptocmd }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_patch_cmd:Nnn}
-% 参数记号 |#| 作为宏的参数被读入时，总是会双写，会影响随后的字符串替换。需要先
-% 将它转换为普通符号。并且在补丁的时候关闭 \LTXIII{} 语法。
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_patch_cmd:Nnn
-  {
-    \group_begin:
-    \char_set_catcode_other:N \#
-    \@@_patch_cmd:Nnn
-  }
-\cs_new_protected:Npn \@@_patch_cmd:Nnn #1#2#3
-  {
-    \group_end:
-    \group_begin:
-    \ExplSyntaxOff
-    \ctex_patch_cmd:NnnTF #1 {#2} {#3}
-      {
-        \cs_gset_eq:NN \@@_tmp:w #1
-        \group_end:
-        \cs_set_eq:NN #1 \@@_tmp:w
-        \cs_undefine:N \@@_tmp:w
-      }
-      { \group_end: \ctex_patch_failure:N #1 }
-  }
-\cs_new_protected:Npn \ctex_patch_failure:N #1
-  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N #1 } }
-\msg_new:nnn { ctex } { patch-failure }
-  {
-    Patching~command~`#1'~failed.\\
-    ctex~may~not~work~as~expected.
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3868,14 +3752,13 @@ This package consists of the file ctex.dtx, and the derived files
 \ctex_if_pdfmode:TF
   {
     \group_end:
-    \ExplSyntaxOff
-    \ctex_appto_cmd:NnTF \DeclareFontFamily { \CTEX@Family@CMap {#1} {#2} }
+    \ctex_appto_cmd:NnnTF \DeclareFontFamily { \ExplSyntaxOff }
+      { \CTEX@Family@CMap {#1} {#2} }
       {
         \ctex_at_end_package:nn { cmap }
           { \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn }
       }
       { \ctex_patch_failure:N \DeclareFontFamily }
-    \ExplSyntaxOn
   }
   { \group_end: }
 %    \end{macrocode}
@@ -3918,13 +3801,20 @@ This package consists of the file ctex.dtx, and the derived files
   \tl_if_exist:NF \CJKrmdefault { \tl_new:N \CJKrmdefault }
   \tl_if_exist:NF \CJKsfdefault { \tl_new:N \CJKsfdefault }
   \tl_if_exist:NF \CJKttdefault { \tl_new:N \CJKttdefault }
-  \ctex_preto_cmd:NnTF \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+  \ctex_preto_cmd:NnnTF \rmfamily { \ExplSyntaxOff }
+    { \CJKfamily { \CJKrmdefault } }
+    { }
     { \ctex_patch_failure:N \rmfamily }
-  \ctex_preto_cmd:NnTF \sffamily { \CJKfamily { \CJKsfdefault } } { }
+  \ctex_preto_cmd:NnnTF \sffamily { \ExplSyntaxOff }
+    { \CJKfamily { \CJKsfdefault } }
+    { }
     { \ctex_patch_failure:N \sffamily }
-  \ctex_preto_cmd:NnTF \ttfamily { \CJKfamily { \CJKttdefault } } { }
+  \ctex_preto_cmd:NnnTF \ttfamily { \ExplSyntaxOff }
+    { \CJKfamily { \CJKttdefault } }
+    { }
     { \ctex_patch_failure:N \ttfamily }
-  \ctex_preto_cmd:NnTF \normalfont { \CJKfamily { \CJKfamilydefault } }
+  \ctex_preto_cmd:NnnTF \normalfont { \ExplSyntaxOff }
+    { \CJKfamily { \CJKfamilydefault } }
     { \cs_set_eq:NN \reset@font \normalfont }
     { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
@@ -5032,13 +4922,20 @@ This package consists of the file ctex.dtx, and the derived files
 \tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
 \tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
 \tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
-\ctex_preto_cmd:NnTF \rmfamily { \CJKfamily { \CJKrmdefault } } { }
+\ctex_preto_cmd:NnnTF \rmfamily { \ExplSyntaxOff }
+  { \CJKfamily { \CJKrmdefault } }
+  { }
   { \ctex_patch_failure:N \rmfamily }
-\ctex_preto_cmd:NnTF \sffamily { \CJKfamily { \CJKsfdefault } } { }
+\ctex_preto_cmd:NnnTF \sffamily { \ExplSyntaxOff }
+  { \CJKfamily { \CJKsfdefault } }
+  { }
   { \ctex_patch_failure:N \sffamily }
-\ctex_preto_cmd:NnTF \ttfamily { \CJKfamily { \CJKttdefault } } { }
+\ctex_preto_cmd:NnnTF \ttfamily { \ExplSyntaxOff }
+  { \CJKfamily { \CJKttdefault } }
+  { }
   { \ctex_patch_failure:N \ttfamily }
-\ctex_preto_cmd:NnTF \normalfont { \CJKfamily { \CJKfamilydefault } }
+\ctex_preto_cmd:NnnTF \normalfont { \ExplSyntaxOff }
+  { \CJKfamily { \CJKfamilydefault } }
   { \cs_set_eq:NN \reset@font \normalfont }
   { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
@@ -5586,8 +5483,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \AtBeginDocument
   {
-    \ctex_appto_cmd:NnTF \verbatim@font { \CTEX@verbatim@font@hook }
-      { } { \ctex_patch_failure:N \verbatim@font }
+    \ctex_appto_cmd:NnnTF \verbatim@font
+      { \char_set_catcode_letter:n { 64 } }
+      { \CTEX@verbatim@font@hook }
+      { }
+      { \ctex_patch_failure:N \verbatim@font }
   }
 \cs_new_protected_nopar:Npn \CTEX@verbatim@font@hook
   { \ltjsetparameter { autospacing = false , autoxspacing = false } }
@@ -6001,17 +5901,13 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \cs_new_eq:NN \CTEX@selectfont@hook \prg_do_nothing:
 \cs_new_eq:Nc \@@_save_selectfont: { selectfont ~ }
-\use:n
+\ctex_preto_cmd:NnnTF \selectfont { \ExplSyntaxOff }
+  { \CTEX@selectfont@hook }
   {
-    \ExplSyntaxOff
-    \ctex_preto_cmd:NnTF \selectfont { \CTEX@selectfont@hook }
-      {
-        \tl_put_left:Nn \@EverySelectfont@Init
-          { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
-      }
-      { \ctex_patch_failure:N \selectfont }
+    \tl_put_left:Nn \@EverySelectfont@Init
+      { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
   }
-\ExplSyntaxOn
+  { \ctex_patch_failure:N \selectfont }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6483,7 +6379,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.1}{2015/05/22}{\opt{format+}, \opt{nameformat+} 等带加号的选项，
 % 加号与前面的文字之间可以有可选的空格。}
 % \changes{v2.1}{2015/06/19}{新的标题格式选项 \opt{aftertitle}。}
-% \changes{v2.1.1}{2015/06/21}{新的标题格式选项 \opt{numbering}。}
+% \changes{v2.2}{2015/06/21}{新的标题格式选项 \opt{numbering}。}
 %
 % \begin{macro}[int]{\@@_def_heading_keys:n}
 %    \begin{macrocode}
@@ -7013,19 +6909,22 @@ This package consists of the file ctex.dtx, and the derived files
 \use:n
   {
     \group_end:
-    \ExplSyntaxOff
-    \ctex_preto_cmd:NnTF \numberline { \CTEX@toc@width@n {#1} } { }
+    \ctex_preto_cmd:NnnTF \numberline { \ExplSyntaxOff }
+      { \CTEX@toc@width@n {#1} }
+      { }
       { \ctex_patch_failure:N \numberline }
     \@ifpackageloaded { tocloft }
       { }
       {
         \ctex_at_end_package:nn { tocloft }
           {
-            \ctex_preto_cmd:NnTF \numberline { \CTEX@toc@width@n {#1} } { }
+            \ctex_preto_cmd:NnnTF \numberline
+              { \char_set_catcode_letter:n { 64 } }
+              { \CTEX@toc@width@n {#1} }
+              { }
               { \ctex_patch_failure:N \numberline }
           }
       }
-    \ExplSyntaxOn
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7876,20 +7775,30 @@ This package consists of the file ctex.dtx, and the derived files
 \use:n
   {
     \group_end:
-    \ExplSyntaxOff
     \ctex_at_end_package:nn { breqn }
       {
-        \ctex_patch_cmd:NnnTF \end { \csname end#1 \endcsname }
+        \ctex_patch_cmd_once:NnnnTF \end
+          {
+            \ExplSyntaxOff
+            \char_set_catcode_letter:n { 64 }
+          }
+          { \csname end#1 \endcsname }
           {
             \csuse { @end@#1@hook }
             \csname end#1 \endcsname
-          } { }
+          }
+          { }
           {
-            \ctex_preto_cmd:NnTF \end { \csuse { @end@#1@hook } }
-              { } { \ctex_patch_failure:N \end }
+            \ctex_preto_cmd:NnnTF \end
+              {
+                \ExplSyntaxOff
+                \char_set_catcode_letter:n { 64 }
+              }
+              { \csuse { @end@#1@hook } }
+              { }
+              { \ctex_patch_failure:N \end }
           }
       }
-    \ExplSyntaxOn
   }
 %    \end{macrocode}
 % \end{macro}
@@ -9081,6 +8990,341 @@ This package consists of the file ctex.dtx, and the derived files
 \primitive\end
 %</make>
 %</spa>
+%    \end{macrocode}
+%
+%
+% \subsection{\pkg{ctexpatch}}
+%
+% \changes{v2.2}{2015/06/16}{新增子宏包 \pkg{ctexpatch} 实现给宏打补丁功能。}
+%
+%    \begin{macrocode}
+%<*ctexpatch>
+%    \end{macrocode}
+%
+% \begin{macro}[int]{\ctex_patch_cmd_once:NnnnTF}
+% 只进行第一次匹配进行替换。参数 |#2| 是宏重建时的 \tn{catcode} 设置。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_patch_cmd_once:NnnnTF #1#2
+  {
+    \ctex_patch_boot:NNnnTF \@@_patch_cmd:Nnnnnw #1
+      { once } {#2} { \use_i:nn } { \use_ii:nn }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_patch_cmd_all:NnnnTF}
+% 替换所有匹配到的文本。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_patch_cmd_all:NnnnTF #1#2
+  {
+    \ctex_patch_boot:NNnnTF \@@_patch_cmd:Nnnnnw #1
+      { all } {#2} { \use_i:nn } { \use_ii:nn }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_patch_cmd:Nnn}
+% 快捷方式，在补丁的时候关闭 \LTXIII{} 语法和设置 |@| 为字母类，补丁失败时给出警告。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_patch_cmd:Nnn #1
+  {
+    \ctex_patch_boot:NNnnTF \@@_patch_cmd:Nnnnnw #1
+      { once }
+      {
+        \ExplSyntaxOff
+        \char_set_catcode_letter:n { 64 }
+      }
+      { }
+      { \ctex_patch_failure:N #1 }
+  }
+\cs_new_protected:Npn \ctex_patch_failure:N #1
+  { \msg_warning:nnx { ctex } { patch-failure } { \token_to_str:N #1 } }
+\msg_new:nnn { ctex } { patch-failure }
+  { Oops!~Command~`#1'~is~NOT~patchable.\\ }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_preto_cmd:NnnTF}
+% 在宏的原本定义前面增加钩子。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_preto_cmd:NnnTF #1#2
+  {
+    \ctex_patch_boot:NNnnTF \@@_hookto_cmd:Nnnnw #1
+      { left } {#2} { \use_i:nn } { \use_ii:nn }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_appto_cmd:NnnTF}
+% 在宏的原本定义后面追加钩子。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_appto_cmd:NnnTF #1#2
+  {
+    \ctex_patch_boot:NNnnTF \@@_hookto_cmd:Nnnnw #1
+      { right } {#2} { \use_i:nn } { \use_ii:nn }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_patch_boot:NNnnTF}
+% 参数记号 |#| 作为宏的参数被读入时，总是会双写，会影响随后的字符串替换。需要先
+% 将它转换为普通符号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_patch_boot:NNnnTF #1#2#3#4#5#6
+  {
+    \tl_set:Nn \@@_patch_true:w {#5}
+    \tl_set:Nn \@@_patch_false:w {#6}
+    \group_begin:
+      \char_set_catcode_other:n { 35 }
+      \ctex_parse_name:NN #1 #2 {#3} {#4}
+  }
+\tl_new:N \@@_patch_true:w
+\tl_new:N \@@_patch_false:w
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_parse_name:NN}
+% 用 \tn{DeclareRobustCommand} 定义的宏或者由 \tn{newcommand} 或 \tn{newrobustcmd}
+% 定义的带一个可选参数的宏第一次展开的结果都不是其实际定义，实际定义被保存在另外的
+% 宏中。由这些命令定义的宏的第一次展开结果可以有下面的形式（细节可查阅 \pkg{xpatch}
+% 的文档）：
+% \begin{verbatim}[numbers=left,gobble=4]
+%   \protect␣\xaa␣␣                    % \DeclareRobustCommand\xaa[1]{...}
+%   \protect␣\xab␣␣                    % \DeclareRobustCommand\xab[1][]{...}
+%   \@protected@testopt␣\xac␣\\xac␣{}  % \newcommand\xac[1][]{...}
+%   \@testopt␣\\xad␣{}                 % \newrobustcmd\xad[1][]{...}
+%   \x@protect␣\1\protect␣\1␣␣         % \DeclareRobustCommand\1[1]{...}
+%   \x@protect␣\2\protect␣\2␣␣         % \DeclareRobustCommand\2[1][]{...}
+%   \@protected@testopt␣\3\\3␣{}       % \newcommand\3[1][]{...}
+%   \@testopt␣\\4␣{}                   % \newrobustcmd\4[1][]{...}
+% \end{verbatim}
+% \pkg{ctexpatch} 的主要原理是先对宏的 \tn{meaning} 作字符串替换，然后再用
+% \tn{scantokens} 来重建它。我们希望对宏的实际定义打补丁，为此需要先得到
+% 对应的名字。\pkg{letltxmacro}、\pkg{show2e} 和 \pkg{xpatch} 宏包中都有
+% 类似的工作。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_parse_name:NN #1#2
+  { \ctex_parse_name:NNx #1#2 { \cs_to_str:N #2 } }
+\group_begin:
+\char_set_lccode:nn { `\< } { `\{ }
+\char_set_lccode:nn { `\/ } { `\\ }
+\char_set_lccode:nn { `\A } { `\t }
+\tl_map_function:nN { \A \E \S \O \P } \char_set_catcode_other:N
+\tex_lowercase:D
+  {
+    \group_end:
+    \cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
+      {
+        \bool_if:nTF { \cs_if_exist_p:c { #3 ~ } || \cs_if_exist_p:c { /#3 } }
+          {
+            \group_begin:
+            \use:x
+              {
+                \group_end:
+                \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
+                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 }
+              } {#3} #1
+          }
+          { #1#2 }
+      }
+    \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
+      {
+        \exp_args:Nc #6
+          {
+            \str_case:nnTF {#1}
+              {
+                { \protect #3 } { }
+                { \x@protect #2 \protect #3 } { }
+              }
+              {
+                \str_if_eq_x:nnTF { \exp_not:n { /@protected@ #3 /#3 } }
+                  {
+                    \exp_last_unbraced:Nf \@@_parse_name:w
+                    \token_get_replacement_spec:N #3 AESAOPA ~ < \q_stop
+                  }
+                  { /#5 ~ } { #5 ~ }
+              }
+              {
+                \str_case:onTF { \@@_parse_name:w #1 AESAOPA ~ < \q_stop }
+                  {
+                    { /@protected@ #2 #4 } { }
+                    { /@ #4 } { }
+                  }
+                  { /#5 } {#5}
+              }
+          }
+      }
+    \cs_new:Npn \@@_parse_name:w #1 AESAOPA ~ #2 < #3 \q_stop { #1#2 }
+  }
+\cs_generate_variant:Nn \ctex_parse_name:NNn { NNx }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}[int]{\l_@@_prefix_tl,\l_@@_parameter_tl,\l_@@_replacement_tl}
+% 分别保存宏的 \tn{meaning} 中的前缀、参数文本和替换文本。
+%    \begin{macrocode}
+\tl_new:N \l_@@_prefix_tl
+\tl_new:N \l_@@_parameter_tl
+\tl_new:N \l_@@_replacement_tl
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\ctex_get_macro_meaning:NTF}
+% \begin{macro}[aux]{\@@_get_macro_meaning:w}
+% 解构待补丁宏的 \tn{meaning}。若命令不是宏，则走向 |false| 分支。
+%    \begin{macrocode}
+\group_begin:
+  \char_set_lccode:nn { `\; } { `\: }
+  \tl_map_function:nN { \M \A \C \R \O \; } \char_set_catcode_other:N
+\tex_lowercase:D
+  {
+    \group_end:
+    \cs_new_protected:Npn \ctex_get_macro_meaning:NTF #1
+      {
+        \exp_after:wN \@@_get_macro_meaning:w
+          \token_to_meaning:N #1 \q_stop MACRO ; -> \q_no_value \q_stop
+      }
+    \cs_new_protected:Npn \@@_get_macro_meaning:w #1 MACRO ; #2 -> #3 \q_stop
+      {
+        \tl_set:Nn \l_@@_replacement_tl {#3}
+        \quark_if_no_value:NTF \l_@@_replacement_tl
+          { \use_ii:nn }
+          {
+            \tl_set:Nn \l_@@_prefix_tl {#1}
+            \tl_set:Nn \l_@@_parameter_tl {#2}
+            \use_i_delimit_by_q_stop:nw { \use_i:nn }
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_if_rescanable:NnTF}
+% 检查宏是否可以重建。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_if_rescanable:NnTF #1#2#3#4
+  {
+    \ctex_get_macro_meaning:NTF #1
+      {
+        \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#2}
+        \cs_if_eq:NNTF #1 \CTEXPATCHRESCANCMD {#3} {#4}
+      }
+      {#4}
+  }
+\cs_new_eq:NN \CTEXPATCHRESCANCMD \prg_do_nothing:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_patch_rebuild:Nn}
+% 使用 \cs{tl_rescan:nn} 来重新记号化 \tn{meaning} 字符串。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_rebuild:Nn #1#2
+  {
+    \tl_rescan:nx {#2}
+      {
+        \l_@@_prefix_tl \exp_not:N \def \exp_not:N #1 \l_@@_parameter_tl
+          { \l_@@_replacement_tl }
+      }
+  }
+\cs_generate_variant:Nn \tl_rescan:nn { nx }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_patch_cmd:Nnnnnw}
+% 对宏的替换文本进行字符串替换，然后重建。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_cmd:Nnnnnw #1#2#3#4#5
+  {
+    \group_end:
+    \ctex_if_rescanable:NnTF #1 {#3}
+      {
+        \use:x
+          {
+            \@@_patch_replace:nnnTF {#2}
+              { \tl_to_str:n {#4} }
+              { \tl_to_str:n {#5} }
+          }
+          {
+            \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
+            \cs_set_eq:NN #1 \CTEXPATCHRESCANCMD
+            \@@_patch_true:w
+          }
+          { \@@_patch_false:w }
+      }
+      { \@@_patch_false:w }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_patch_replace:nnnTF}
+% 替换前先检查原文本是否存在。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_replace:nnnTF #1#2#3#4
+  {
+    \tl_if_in:NnTF \l_@@_replacement_tl {#2}
+      { \use:c { tl_replace_ #1 :Nnn } \l_@@_replacement_tl {#2} {#3} #4 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_hookto_cmd:Nnnnw}
+% 在宏的前/后附加钩子。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_hookto_cmd:Nnnnw #1#2#3#4
+  {
+    \group_end:
+    \ctex_get_macro_meaning:NTF #1
+      {
+        \tl_if_empty:NTF \l_@@_parameter_tl
+          { \@@_hookto_cmd_parameterless:Nnnw #1 {#2} {#4} }
+          { \@@_hookto_cmd_parameter:Nnnnw #1 {#2} {#3} {#4} }
+      }
+      { \@@_patch_false:w }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_hookto_cmd_parameterless:Nnnw}
+% 如果宏没有参数，可以直接进行附加操作。注意保持宏的前缀。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_hookto_cmd_parameterless:Nnnw #1#2#3
+  {
+    \tl_if_empty:NF \l_@@_prefix_tl
+      { \tl_rescan:nx { } { \l_@@_prefix_tl } }
+    \edef #1
+      {
+        \use:c { @@_ #2 _hook_aux:nn }
+          { \exp_not:o {#1} }
+          { \exp_not:n {#3} }
+      }
+    \@@_patch_true:w
+  }
+\cs_new:Npn \@@_left_hook_aux:nn #1#2 { #2#1 }
+\cs_new_eq:NN \@@_right_hook_aux:nn \use:nn
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_hookto_cmd_parameter:Nnnnw}
+% 如果宏有参数，需要在字符串中进行附加，然后再重建。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_hookto_cmd_parameter:Nnnnw #1#2#3#4
+  {
+    \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
+    \cs_if_eq:NNTF #1 \CTEXPATCHRESCANCMD
+      {
+        \use:c { tl_put_ #2 :Nx } \l_@@_replacement_tl { \tl_to_str:n {#4} }
+        \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
+        \cs_set_eq:NN #1 \CTEXPATCHRESCANCMD
+        \@@_patch_true:w
+      }
+      { \@@_patch_false:w }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%</ctexpatch>
 %    \end{macrocode}
 %
 % \end{implementation}
