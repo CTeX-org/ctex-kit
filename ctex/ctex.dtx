@@ -756,9 +756,10 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.0}{2014/03/12}{删除 \file{c19gbsn.fd} 和 \file{c19gkai.fd}。}
 % \changes{v2.1}{2015/05/18}{将章节标题设置功能提取到可以独立使用的宏包
 %   \pkg{ctexheading} 中。}
+% \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{4760}
+% \CheckSum{4765}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -961,7 +962,6 @@ This package consists of the file ctex.dtx, and the derived files
 %     \item \pkg{etex} 宏包。
 %   \end{itemize}
 %   \item \pkg{indentfirst} 宏包，属于 \pkg{tools} 宏集。
-%   \item \pkg{etoolbox} 宏包。
 %   \item \pkg{everysel} 宏包，属于 \pkg{ms} 宏集。
 %   \item \pkg{zhnumber} 宏包。
 %   \item[\ding{229}] 以上是各种编译方式都必需的依赖项。
@@ -2939,7 +2939,6 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\RequirePackage { etoolbox }
 \RequirePackage { ctexpatch }
 %<!ctexheading>\RequirePackage { fix-cm , everysel }
 %    \end{macrocode}
@@ -2954,6 +2953,28 @@ This package consists of the file ctex.dtx, and the derived files
 \box_new:N \l_@@_tmp_box
 %    \end{macrocode}
 % \end{variable}
+%
+% \begin{macro}[int]{\ctex_at_end_preamble:n,\ctex_after_end_preamble:n}
+% 实现 \pkg{etoolbox} 宏包的 \tn{AtEndPreamble} 和 \tn{AfterEndPreamble}。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_at_end_preamble:n #1
+  { \tl_gput_right:Nn \g_@@_end_preamble_hook_tl {#1} }
+\cs_new_protected:Npn \ctex_after_end_preamble:n #1
+  { \tl_gput_right:Nn \g_@@_after_end_preamble_hook_tl {#1} }
+\cs_new_protected_nopar:Npn \CTEX@document@left@hook
+  { \group_end: \g_@@_end_preamble_hook_tl \group_begin: }
+\cs_new_protected_nopar:Npn \CTEX@document@right@hook
+  { \scan_stop: \g_@@_after_end_preamble_hook_tl \tex_ignorespaces:D }
+\cs_set_nopar:Npx \document
+  {
+    \CTEX@document@left@hook
+    \exp_not:o { \document }
+    \CTEX@document@right@hook
+  }
+\tl_new:N \g_@@_end_preamble_hook_tl
+\tl_new:N \g_@@_after_end_preamble_hook_tl
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{\ctex_at_end_package:nn}
 % 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
@@ -3104,12 +3125,12 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \begin{macro}[int]{\ctex_if_preamble:TF}
-% 测试是否在 \LaTeXe{} 的导言区。在宏包内部初始为真，在 \tn{AfterEndPreamble}
-% 钩子中再设置为假。注意，\tn{AfterEndPreamble} 在 \tn{AtBeginDocument} 之后执行，
+% 测试是否在 \LaTeXe{} 的导言区。在宏包内部初始为真，文档最开始位置再设置为假。
+% 注意，钩子 \cs{ctex_after_end_preamble:n} 在 \tn{AtBeginDocument} 之后执行，
 % 可以与 \tn{@onlypreamble} 的行为一致。
 %    \begin{macrocode}
 \cs_new_eq:NN \ctex_if_preamble:TF \use_i:nn
-\AfterEndPreamble { \cs_set_eq:NN \ctex_if_preamble:TF \use_ii:nn }
+\ctex_after_end_preamble:n { \cs_set_eq:NN \ctex_if_preamble:TF \use_ii:nn }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3546,7 +3567,7 @@ This package consists of the file ctex.dtx, and the derived files
             \cs_if_exist:NF \hypersetup
               { \cs_new_eq:NN \hypersetup \ctex_hypersetup:n }
           }
-        \AtEndPreamble { \RequirePackage { hyperref } }
+        \ctex_at_end_preamble:n { \RequirePackage { hyperref } }
       } ,
   }
 %    \end{macrocode}
@@ -3933,7 +3954,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \tn{CJK@envStart}。这样可以避免将 \env{CJK} 环境内置入 \env{document} 环境的
 % 最里层，最后也就不需要 \tn{clearpage}。\pkg{zhmCJK} 已经提供类似功能。
 %    \begin{macrocode}
-  \exp_args:Nx \AtEndPreamble
+  \exp_args:Nx \ctex_at_end_preamble:n
     {
       \exp_not:N \CJK@envStart
         { } { \l_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
@@ -5534,7 +5555,7 @@ This package consists of the file ctex.dtx, and the derived files
     \ctex_ltj_ensure_default_family:
 %</luatex>
   }
-\AtEndPreamble { \ctex_update_default_family: }
+\ctex_at_end_preamble:n { \ctex_update_default_family: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7752,56 +7773,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<*class|ctex>
 %    \end{macrocode}
 %
-% \subsubsection{其他兼容性修改}
-%
-% \begin{macro}[int]{\end}
 % \changes{v2.0}{2014/03/09}
 % {解决 \pkg{etoolbox} 与 \pkg{breqn} 关于 \tn{end} 的冲突。}
-% \pkg{breqn} 宏包对 \tn{end} 作了如下处理，然而这个处理并不保险。
-% \begin{verbatim}
-%   \def\@tempa#1\endcsname#2\@nil{\def\latex@end##1{#2}}
-%   \expandafter\@tempa\end{#1}\@nil
-%   \def\end#1{\csname end#1\endcsname \latex@end{#1}}%
-% \end{verbatim}
-% \pkg{etoolbox} 在 \tn{end} 定义中的 \tn{csname} 前加入
-% 钩子 |\csuse{@end@#1@hook}|。如果 \pkg{etoolbox} 先于 \pkg{breqn} 被载入（这
-% 在使用 \cls{ctexart} 等文档类时几乎是必然的），|\csuse{@end@#1@hook}| 将会被
-% 忽略，即 \tn{AtEndEnvironment} 失效。如果交换两个宏包的载入顺序，则
-% \pkg{etoolbox} 会给出警告：\tn{AfterEndEnvironment} 失效，我们不打算处理这种
-% 情况。
-%    \begin{macrocode}
-\group_begin:
-\char_set_catcode_other:N \#
-\use:n
-  {
-    \group_end:
-    \ctex_at_end_package:nn { breqn }
-      {
-        \ctex_patch_cmd_once:NnnnTF \end
-          {
-            \ExplSyntaxOff
-            \char_set_catcode_letter:n { 64 }
-          }
-          { \csname end#1 \endcsname }
-          {
-            \csuse { @end@#1@hook }
-            \csname end#1 \endcsname
-          }
-          { }
-          {
-            \ctex_preto_cmd:NnnTF \end
-              {
-                \ExplSyntaxOff
-                \char_set_catcode_letter:n { 64 }
-              }
-              { \csuse { @end@#1@hook } }
-              { }
-              { \ctex_patch_failure:N \end }
-          }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
+% \changes{v2.2}{2015/06/23}{删去 \pkg{etoolbox} 与 \pkg{breqn} 的兼容补丁。}
 %
 % \subsection{载入中文字体}
 %
@@ -8995,7 +8969,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsection{\pkg{ctexpatch}}
 %
-% \changes{v2.2}{2015/06/16}{新增子宏包 \pkg{ctexpatch} 实现给宏打补丁功能。}
+% \changes{v2.2}{2015/06/23}{新增子宏包 \pkg{ctexpatch} 实现给宏打补丁功能。}
 %
 %    \begin{macrocode}
 %<*ctexpatch>
