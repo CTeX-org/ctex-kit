@@ -769,7 +769,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{4859}
+% \CheckSum{4912}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2172,7 +2172,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 标题名 & 默认值 \\
 % \midrule
 % part (article) & |4ex| \\
-% part & 无效 \\
+% part & |0pt plus 1fil| \\
 % chapter & |50pt| \\
 % section & |3.5ex plus 1ex minus .2ex| \\
 % subsection & |3.25ex plus 1ex minus .2ex| \\
@@ -2211,7 +2211,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 标题名 & 默认值 \\
 % \midrule
 % part (article) & |3ex| \\
-% part & 无效 \\
+% part & |0pt plus 1fil| \\
 % chapter & |40pt| \\
 % section & |2.3ex plus .2ex| \\
 % subsection & |1.5ex plus .2ex| \\
@@ -6585,6 +6585,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<@@=>
 %    \end{macrocode}
 %
+% \changes{v2.2}{2015/06/27}{非 \cls{ctexart} 类的 \opt{part/beforeskip} 和
+%   \opt{part/afterskip} 选项有意义。}
+%
 % \begin{macro}[int]{\part}
 %    \begin{macrocode}
 %<*article>
@@ -6592,7 +6595,7 @@ This package consists of the file ctex.dtx, and the derived files
    \if@noskipsec \leavevmode \fi
    \par
 %  \addvspace{4ex}%
-   \addvspace{\CTEX@part@beforeskip}%
+   \addvspace{\glueexpr\CTEX@part@beforeskip\relax}%
    \ifodd \CTEX@part@afterindent
      \@afterindenttrue
    \else
@@ -6600,6 +6603,25 @@ This package consists of the file ctex.dtx, and the derived files
    \fi
    \secdef\@part\@spart}
 %</article>
+%<*book|report>
+\renewcommand\part{%
+  \if@openright
+    \cleardoublepage
+  \else
+    \clearpage
+  \fi
+% \thispagestyle{plain}%
+  \thispagestyle{\CTEX@part@pagestyle}%
+  \if@twocolumn
+    \onecolumn
+    \@tempswatrue
+  \else
+    \@tempswafalse
+  \fi
+% \null\vfil
+  \null\vskip \glueexpr \CTEX@part@beforeskip \relax
+  \secdef\@part\@spart}
+%</book|report>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6635,14 +6657,8 @@ This package consists of the file ctex.dtx, and the derived files
   \vskip \CTEX@part@afterskip \relax
   \@afterheading}
 %</article>
-%    \end{macrocode}
-%
-% 标准文档类是在 \tn{part} 和 \tn{chapter} 定义的最开始设置 \tn{thispagestyle}，
-% 我们这里的修改出现在它之后，可以覆盖之前的设置。
-%    \begin{macrocode}
 %<*book|report>
 \def\@part[#1]#2{%
-  \thispagestyle{\CTEX@part@pagestyle}%
   \ifnum \c@secnumdepth >-2\relax
     \ifodd \CTEX@part@numbering
       \refstepcounter{part}%
@@ -6699,11 +6715,48 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@endpart}
+%    \begin{macrocode}
+%<*book|report>
+\def\@endpart{%
+%             \vfil
+              \vskip \glueexpr \CTEX@part@afterskip \relax
+              \newpage
+              \if@twoside
+               \if@openright
+                \null
+                \thispagestyle{empty}%
+                \newpage
+               \fi
+              \fi
+              \if@tempswa
+                \twocolumn
+              \fi}
+%</book|report>
+%    \end{macrocode}
+% \end{macro}
+%
 % \paragraph{chapter 的标题}
 %
 %    \begin{macrocode}
 %<*book|report>
 %    \end{macrocode}
+%
+% \begin{macro}[int]{\chapter}
+%    \begin{macrocode}
+\renewcommand\chapter{\if@openright\cleardoublepage\else\clearpage\fi
+%                   \thispagestyle{plain}%
+                    \thispagestyle{\CTEX@chapter@pagestyle}%
+                    \global\@topnum\z@
+%                   \@afterindentfalse
+                    \ifodd \CTEX@chapter@afterindent
+                      \@afterindenttrue
+                    \else
+                      \@afterindentfalse
+                    \fi
+                    \secdef\@chapter\@schapter}
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}[int]{\@chapter}
 %    \begin{macrocode}
@@ -6742,14 +6795,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}[int]{\@makechapterhead}
 %    \begin{macrocode}
 \def\@makechapterhead#1{%
-  \thispagestyle{\CTEX@chapter@pagestyle}%
 % \vspace*{50\p@}%
   \vspace*{\CTEX@chapter@beforeskip}%
-  \ifodd \CTEX@chapter@afterindent
-    \@afterindenttrue
-  \else
-    \@afterindentfalse
-  \fi
 % {\normalfont \parindent \z@ \raggedright
   {\normalfont \parindent \CTEX@chapter@indent \relax \CTEX@chapter@format
    \ifnum \c@secnumdepth >\m@ne
@@ -6774,14 +6821,8 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{macro}[int]{\@makeschapterhead}
 %    \begin{macrocode}
 \def\@makeschapterhead#1{%
-  \thispagestyle{\CTEX@chapter@pagestyle}%
 % \vspace*{50\p@}%
   \vspace*{\CTEX@chapter@beforeskip}%
-  \ifodd \CTEX@chapter@afterindent
-    \@afterindenttrue
-  \else
-    \@afterindentfalse
-  \fi
 % {\normalfont \parindent \z@ \raggedright
   {\normalfont \parindent \CTEX@chapter@indent \relax \CTEX@chapter@format
    \interlinepenalty\@M
@@ -7224,8 +7265,8 @@ This package consists of the file ctex.dtx, and the derived files
 %</chinese>
 %<*article>
     nameformat  = \Large \bfseries ,
-    afterskip   = 3ex ,
     beforeskip  = 4ex ,
+    afterskip   = 3ex ,
 %<*plain>
     format      = \raggedright ,
     aftername   = \par \nobreak ,
@@ -7243,6 +7284,8 @@ This package consists of the file ctex.dtx, and the derived files
     format      = \centering ,
     nameformat  = \huge \bfseries ,
     aftername   = \par \vskip 20 \p@ ,
+    beforeskip  = 0pt \@plus 1fil ,
+    afterskip   = 0pt \@plus 1fil ,
     pagestyle   = plain ,
 %<*plain>
     titleformat = \Huge \bfseries
@@ -7292,8 +7335,8 @@ This package consists of the file ctex.dtx, and the derived files
     number      = \thesection ,
     aftername   = \quad ,
     aftertitle  = \@@par ,
-    afterskip   = 2.3ex \@plus .2ex ,
     beforeskip  = 3.5ex \@plus 1ex \@minus .2ex ,
+    afterskip   = 2.3ex \@plus .2ex ,
     runin       = false ,
 %<*plain>
     format      = \Large \bfseries ,
@@ -7313,8 +7356,8 @@ This package consists of the file ctex.dtx, and the derived files
     format      = \large \bfseries ,
     aftername   = \quad ,
     aftertitle  = \@@par ,
-    afterskip   = 1.5ex  \@plus .2ex ,
     beforeskip  = 3.25ex \@plus 1ex \@minus .2ex ,
+    afterskip   = 1.5ex  \@plus .2ex ,
     runin       = false ,
 %<*plain>
     afterindent = false
@@ -7332,8 +7375,8 @@ This package consists of the file ctex.dtx, and the derived files
     format      = \normalsize \bfseries ,
     aftername   = \quad ,
     aftertitle  = \@@par ,
-    afterskip   = 1.5ex \@plus .2ex ,
     beforeskip  = 3.25ex \@plus 1ex \@minus .2ex ,
+    afterskip   = 1.5ex \@plus .2ex ,
     runin       = false ,
 %<*plain>
     afterindent = false
