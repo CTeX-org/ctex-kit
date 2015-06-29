@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{4952}
+% \CheckSum{5007}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -6392,16 +6392,23 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \subsubsection{定义标题格式选项}
+
+%
+% \begin{variable}[int]{\c_@@_section_headings_seq}
+% 保存 \tn{section} 级以下标题名字。
+%    \begin{macrocode}
+\seq_new:N \c_@@_section_headings_seq
+\seq_gset_from_clist:Nn \c_@@_section_headings_seq
+  { section , subsection , subsubsection , paragraph , subparagraph }
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{variable}[int]{\c_@@_headings_seq}
 %    \begin{macrocode}
 \seq_new:N \c_@@_headings_seq
-\seq_gset_from_clist:Nn \c_@@_headings_seq
-  {
-%<article>    part , section , subsection , subsubsection ,
-%<book|report>    part , chapter , section , subsection , subsubsection ,
-    paragraph , subparagraph
-  }
+\seq_gset_eq:NN \c_@@_headings_seq \c_@@_section_headings_seq
+%<book|report>\seq_gput_left:Nn \c_@@_headings_seq { chapter }
+\seq_gput_left:Nn \c_@@_headings_seq { part }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -7008,8 +7015,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \int_zero:N \l_@@_tmp_int
-\clist_map_inline:nn
-  { section , subsection , subsubsection , paragraph , subparagraph }
+\seq_map_inline:Nn \c_@@_section_headings_seq
   {
     \int_incr:N \l_@@_tmp_int
     \cs_gset_protected_nopar:cpx  {#1}
@@ -7023,7 +7029,6 @@ This package consists of the file ctex.dtx, and the derived files
       }
   }
 %    \end{macrocode}
-%
 %
 % \paragraph{附录标题}
 %
@@ -7064,6 +7069,91 @@ This package consists of the file ctex.dtx, and the derived files
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \paragraph{兼容 \pkg{titlesec} 宏包}
+%
+% 我们修改了 \tn{@startsection} 的定义，它的第四个（\meta{beforeskip}）和
+% 第五个（\meta{afterskip}）参数的符号不再有特殊意义，改由相应的选项
+% \opt{afterindent} 和 \opt{runin} 来控制。
+%
+% 引入 \pkg{titlesec} 宏包，并且未设置它的 \opt{loadonly} 选项时，\pkg{titlesec}
+% 会展开 section 类标题获取它们的参数，进行初始设置。我们需要进行一些调整。
+%
+% \begin{macro}[int]{\ctex_titlesec_hook:}
+% \tn{titleformat} 的设置保存在名为 |\ttlf@|\meta{section} 的宏中备用，它的内容是
+% \begin{center}\small
+%   |\ttlh@|\meta{shape}\Arg{format}\Arg{label}\Arg{sep}\Arg{before}\Arg{after}
+% \end{center}
+% 我们这里的 \meta{shape} 为 |hang| 或者 |runin|。\tn{titlespacing} 的设置保存在
+% |\ttls@|\meta{section} 之中，它的内容是
+% \begin{center}\small
+%   \Arg{left}\Arg{right}\Arg{before}\Arg{after}\Arg{afterindent}
+% \end{center}
+% 其中 \meta{afterindent} 为 |1| 或 |0|，分别对应是否保留段首缩进。
+% 我们需要根据 \CTeX{} 的 \opt{runin} 和 \opt{afterindent} 选项调整
+% |\ttlh@|\meta{shape} 和 \meta{afterindent}。注意，由 \tn{ttl@extract} 得的
+% \meta{before} 和 \meta{after} 的值总是非负的，而 \CTeX{} 的 \opt{beforeskip}
+% 和 \opt{afterskip} 是可以取负值的，但我们不打算调整它们了。
+% 如果使用了 \pkg{titlesec} 的 \opt{indentafter} 等选项，也不需要调整
+% |\ttls@|\meta{section}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_titlesec_hook:
+  {
+    \clist_map_inline:nn
+      { indentafter , noindentafter , indentfirst , nonindentfirst }
+      {
+        \@ifpackagewith { titlesec } { ##1 }
+          {
+            \clist_map_break:n
+              { \cs_set_eq:NN \@@_titlesec_hook:n \@@_titlesec_format:n }
+          }
+          { }
+      }
+    \seq_map_function:NN \c_@@_section_headings_seq \@@_titlesec_hook:n
+  }
+\cs_new_protected_nopar:Npn \@@_titlesec_hook:n #1
+  {
+    \@@_titlesec_format:n {#1}
+    \exp_args:Nc \@@_titlesec_spacing:Nn { ttls@#1 } {#1}
+  }
+\cs_new_protected_nopar:Npn \@@_titlesec_format:n #1
+  {
+    \cs_if_free:cF { ttlf@#1 }
+      { \exp_args:Nc \@@_titlesec_format:Nn { ttlf@#1 } {#1} }
+  }
+\cs_new_protected_nopar:Npn \@@_titlesec_format:Nn #1#2
+  {
+    \tl_set:Nx #1
+      {
+        \bool_if:cTF { CTEX@#2@runin }
+          { \exp_not:N \ttlh@runin }
+          { \exp_not:N \ttlh@hang }
+        \tl_tail:N #1
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_titlesec_spacing:Nn #1#2
+  { \tl_set:Nx #1 { \exp_after:wN \@@_titlesec_spacing:nnnnnn #1 {#2} } }
+\cs_new:Npn \@@_titlesec_spacing:nnnnnn #1#2#3#4#5#6
+  {
+    \exp_not:n { {#1} {#2} {#3} {#4} }
+    { \bool_if:cTF { CTEX@#6@afterindent } { \@ne } { \z@ } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\@ifpackageloaded { titlesec }
+  { }
+  {
+    \ctex_at_end_package:nn { titlesec }
+      {
+        \@ifpackagewith { titlesec } { loadonly }
+          { }
+          { \ctex_titlesec_hook: }
+      }
+  }
+%    \end{macrocode}
+%
 %
 % \subsubsection{目录标签的宽度}
 %
