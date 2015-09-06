@@ -3174,13 +3174,11 @@ This package consists of the file ctex.dtx, and the derived files
     \exp_after:wN \@@_default_pt:w
       \dim_use:N \etex_dimexpr:D #1 pt \scan_stop: \q_stop
   }
-\group_begin:
-  \char_set_catcode_other:N \P
-  \char_set_catcode_other:N \T
-\tex_lowercase:D
+\use:x
   {
-    \group_end:
-    \cs_new:Npn \@@_default_pt:w #1 PT #2 \q_stop { #1 PT }
+    \cs_new:Npn \exp_not:N \@@_default_pt:w
+      ##1 \tl_to_str:n { pt } ##2 \exp_not:N \q_stop
+      { ##1 \tl_to_str:n { pt } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3772,7 +3770,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_generate_variant:Nn \ctex_add_cmap:Nn { c }
 \cs_new_protected_nopar:Npn \@@_save_cmap:Nn #1#2
   {
-    \tex_lowercase:D { \tl_set:Nx \l_@@_tmp_tl { #2 \CJK@plane } }
+    \tl_set:Nx \l_@@_tmp_tl { \str_lower_case:n {#2} \CJK@plane }
     \tex_immediate:D \pdfobj stream ~ file { \l_@@_tmp_tl .cmap }
     \cs_new_protected_nopar:Npx #1
       {
@@ -5061,25 +5059,27 @@ This package consists of the file ctex.dtx, and the derived files
 % 需要先“消毒”，同时过滤掉空元素。
 %    \begin{macrocode}
 \group_begin:
-\char_set_catcode_active:N \/
-\char_set_lccode:nn { `\/ } { `\| }
-\tex_lowercase:D
-  {
-    \group_end:
-    \cs_new_protected:Npn \ctex_ltj_set_alternate_seq:n #1
-      {
-        \clist_if_empty:NT \l_@@_char_range_clist
-          {
-            \tl_set:Nn \l_@@_tmp_tl {#1}
-            \tl_replace_all:Nnn \l_@@_tmp_tl { // } { || }
-            \seq_set_split:NnV \l_@@_tmp_seq { || } \l_@@_tmp_tl
-            \seq_set_filter:NNn \l_@@_tmp_seq \l_@@_tmp_seq
-              { ! \tl_if_blank_p:n { ##1 } }
-            \seq_concat:NNN \l_@@_alternate_seq
-              \l_@@_alternate_seq \l_@@_tmp_seq
-          }
-      }
-  }
+  \char_set_catcode_active:N \|
+  \cs_new_protected:Npx \ctex_ltj_set_alternate_seq:n #1
+    {
+      \exp_not:N \clist_if_empty:NT \exp_not:N \l_@@_char_range_clist
+        {
+          \tl_set:Nn \exp_not:N \l_@@_tmp_tl {#1}
+          \tl_replace_all:Nnn \exp_not:N \l_@@_tmp_tl
+            { \exp_not:N | \exp_not:N | }
+            { \token_to_str:N | \token_to_str:N | }
+          \seq_set_split:NnV \exp_not:N \l_@@_tmp_seq
+            { \token_to_str:N | \token_to_str:N | }
+            \exp_not:N \l_@@_tmp_tl
+          \seq_set_filter:NNn
+            \exp_not:N \l_@@_tmp_seq
+            \exp_not:N \l_@@_tmp_seq
+            { ! \exp_not:N \tl_if_blank_p:n { ##1 } }
+          \seq_concat:NNN \exp_not:N \l_@@_alternate_seq
+            \exp_not:N \l_@@_alternate_seq \exp_not:N \l_@@_tmp_seq
+        }
+    }
+\group_end:
 \seq_new:N \l_@@_tmp_seq
 \seq_new:N \l_@@_alternate_seq
 %    \end{macrocode}
@@ -9457,58 +9457,76 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_parse_name:NN #1#2
   { \ctex_parse_name:NNx #1#2 { \cs_to_str:N #2 } }
-\group_begin:
-\char_set_lccode:nn { `\< } { `\{ }
-\char_set_lccode:nn { `\/ } { `\\ }
-\char_set_lccode:nn { `\A } { `\t }
-\tl_map_function:nN { \A \E \S \O \P } \char_set_catcode_other:N
-\tex_lowercase:D
+\cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
   {
-    \group_end:
-    \cs_new_protected:Npn \ctex_parse_name:NNn #1#2#3
+    \bool_if:nTF
       {
-        \bool_if:nTF { \cs_if_exist_p:c { #3 ~ } || \cs_if_exist_p:c { /#3 } }
+        \cs_if_exist_p:c { #3 ~ } ||
+        \cs_if_exist_p:c { \c_backslash_str #3 }
+      }
+      {
+        \group_begin:
+        \use:x
           {
-            \group_begin:
-            \use:x
-              {
-                \group_end:
-                \@@_parse_name:nNNNnN { \token_get_replacement_spec:N #2 }
-                  \exp_not:N #2 \exp_not:c { #3 ~ } \exp_not:c { /#3 }
-              } {#3} #1
+            \group_end:
+            \@@_parse_name:nNNNnN
+              { \token_get_replacement_spec:N #2 }
+              \exp_not:N #2
+              \exp_not:c { #3 ~ }
+              \exp_not:c { \c_backslash_str #3 }
+              {#3}
+              \exp_not:N #1
           }
           { #1#2 }
       }
-    \cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
-      {
-        \exp_args:Nc #6
-          {
-            \str_case:nnTF {#1}
-              {
-                { \protect #3 } { }
-                { \x@protect #2 \protect #3 } { }
-              }
-              {
-                \str_if_eq_x:nnTF { \exp_not:n { /@protected@ #3 /#3 } }
-                  {
-                    \exp_last_unbraced:Nf \@@_parse_name:w
-                    \token_get_replacement_spec:N #3 AESAOPA ~ < \q_stop
-                  }
-                  { /#5 ~ } { #5 ~ }
-              }
-              {
-                \str_case:onTF { \@@_parse_name:w #1 AESAOPA ~ < \q_stop }
-                  {
-                    { /@protected@ #2 #4 } { }
-                    { /@ #4 } { }
-                  }
-                  { /#5 } {#5}
-              }
-          }
-      }
-    \cs_new:Npn \@@_parse_name:w #1 AESAOPA ~ #2 < #3 \q_stop { #1#2 }
   }
 \cs_generate_variant:Nn \ctex_parse_name:NNn { NNx }
+\cs_new_protected:Npn \@@_parse_name:nNNNnN #1#2#3#4#5#6
+  {
+    \exp_args:Nc #6
+     {
+        \str_case:nnTF {#1}
+          {
+            { \protect #3 } { }
+            { \x@protect #2 \protect #3 } { }
+          }
+          {
+            \str_if_eq_x:nnTF
+              {
+                \exp_not:n
+                  { \c_backslash_str @protected@ #3 \c_backslash_str #3 }
+              }
+              {
+                \@@_parse_name:f
+                   { \token_get_replacement_spec:N #3 }
+              }
+              { \c_backslash_str #5 ~ }
+              { #5 ~ }
+          }
+          {
+            \str_case_x:nnTF
+              { \@@_parse_name:n {#1} }
+              {
+                { \c_backslash_str @protected@ #2 #4 } { }
+                { \c_backslash_str @ #4 } { }
+              }
+              { \c_backslash_str #5 } {#5}
+          }
+       }
+  }
+\cs_new:Npx \@@_parse_name:n #1
+  {
+    \exp_not:N \@@_parse_name:w #1
+      \tl_to_str:n { testopt } ~ \c_left_brace_str \exp_not:N \q_stop
+  }
+\cs_generate_variant:Nn \@@_parse_name:n { f }
+\use:x
+  {
+    \cs_new:Npn \exp_not:N \@@_parse_name:w
+      ##1 \tl_to_str:n { testopt } ~ ##2 \c_left_brace_str ##3
+      \exp_not:N \q_stop
+  }
+  { #1#2 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9526,28 +9544,28 @@ This package consists of the file ctex.dtx, and the derived files
 % 解构待补丁宏的 \tn{meaning}。若命令不是宏，则走向 |false| 分支。
 %    \begin{macrocode}
 \group_begin:
-  \char_set_lccode:nn { `\; } { `\: }
-  \tl_map_function:nN { \M \A \C \R \O \; } \char_set_catcode_other:N
-\tex_lowercase:D
-  {
-    \group_end:
-    \cs_new_protected:Npn \ctex_get_macro_meaning:NTF #1
-      {
-        \exp_after:wN \@@_get_macro_meaning:w
-          \token_to_meaning:N #1 \q_stop MACRO ; -> \q_no_value \q_stop
-      }
-    \cs_new_protected:Npn \@@_get_macro_meaning:w #1 MACRO ; #2 -> #3 \q_stop
-      {
-        \tl_set:Nn \l_@@_replacement_tl {#3}
-        \quark_if_no_value:NTF \l_@@_replacement_tl
-          { \use_ii:nn }
-          {
-            \tl_set:Nn \l_@@_prefix_tl {#1}
-            \tl_set:Nn \l_@@_parameter_tl {#2}
-            \use_i_delimit_by_q_stop:nw { \use_i:nn }
-          }
-      }
-  }
+  \cs_set_protected:Npn \@@_tmp:w #1
+    {
+      \prg_new__protectd:conditional:Npnn
+        \ctex_get_macro_meaning:N ##1 { TF }
+        {
+          \exp_after:wN \@@_get_macro_meaning:w
+            \token_to_meaning:N ##1 \q_mark #1 -> \q_no_value \q_stop
+        }
+      \cs_new_protected:Npn \@@_get_macro_meaning:w
+        ##1 #1 ##2 -> ##3 \q_mark ##4 \q_stop
+        {
+          \quark_if_no_value:nTF {##3}
+            { \prg_return_false: }
+            {
+              \tl_set:Nn \l_@@_prefix_tl {##1}
+              \tl_set:Nn \l_@@_parameter_tl {##2}
+              \prg_return_true:
+            }
+        }
+    }
+  \exp_args:No \@@_tmp:w { \tl_to_str:n { macro: } }
+\group_end:
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
