@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{5026}
+% \CheckSum{5016}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2624,7 +2624,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \begin{ctexexam}
 %   % 略复杂的 ctex.cfg 内容示例：禁止段末孤字成行。
 %   % 在使用 XeTeX 编译时，打开 xeCJK 的 CheckSingle 选项。
-%   \xetex_if_engine:T
+%   \sys_if_engine_xetex:T
 %     {
 %       \xeCJKsetup { CheckSingle }
 %     }
@@ -3118,22 +3118,12 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \changes{v2.1}{2015/05/25}{不依赖 \pkg{ifpdf} 宏包。}
 %
-% \begin{macro}[int]{\ctex_if_pdfmode:TF}
-% \pkg{ifpdf} 宏包的简单实现。
+% \begin{macro}[int]{\ifctexpdf}
+% 在 \pkg{zhmetrics} 映射文件中使用。
 %    \begin{macrocode}
-\cs_if_exist:NTF \pdftex_pdfoutput:D
-  {
-    \int_compare:nNnTF \pdftex_pdfoutput:D > \c_zero
-      {
-        \cs_new_eq:NN \ifctexpdf \tex_iftrue:D
-        \cs_new_eq:NN \ctex_if_pdfmode:TF \use_i:nn
-      }
-  }
-  { \use:n }
-  {
-    \cs_new_eq:NN \ifctexpdf \tex_iffalse:D
-    \cs_new_eq:NN \ctex_if_pdfmode:TF \use_ii:nn
-  }
+\sys_if_output_pdf:TF
+  { \cs_new_eq:NN \ifctexpdf \if_true: }
+  { \cs_new_eq:NN \ifctexpdf \if_false: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3185,7 +3175,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \tl_new:N \l_@@_encoding_tl
 \tl_set:Nx \l_@@_encoding_tl
-  { \pdftex_if_engine:TF { GBK } { UTF8 } }
+  { \sys_if_engine_pdftex:TF { GBK } { UTF8 } }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -3786,7 +3776,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \group_begin:
 \char_set_catcode_other:N \#
-\ctex_if_pdfmode:TF
+\sys_if_output_pdf:TF
   {
     \group_end:
     \ctex_appto_cmd:NnnTF \DeclareFontFamily { \ExplSyntaxOff }
@@ -5698,7 +5688,7 @@ This package consists of the file ctex.dtx, and the derived files
 \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
   {
     \ctex_hypersetup:n { CJKbookmarks = true }
-    \ctex_if_pdfmode:TF
+    \sys_if_output_pdf:TF
       { \ctex_at_end_package:nn { hyperref } { \RequirePackage { xCJK2uni } } }
       {
         \ctex_at_end_package:nn { hyperref }
@@ -6027,18 +6017,34 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{载入引擎定义文件}
 %
-% 最后载入各个编译引擎的定义文件。
+% 最后载入各个编译引擎的定义文件。暂不支持 \pTeX{} 系引擎。
+% \upTeX（\pTeX-ng）也设置编码为 \texttt{UTF8}。
 %    \begin{macrocode}
-\pdftex_if_engine:TF
-  {
-    \tl_set:Nx \l_@@_encoding_tl { \l_@@_encoding_tl }
-    \ctex_file_input:n { ctex-engine-pdftex.def }
-  }
+\msg_new:nnnn { ctex } { engine-not-supported }
+  { Engine~`#1'~is~not~yet~supported. }
+  { You~can~switch~to~xelatex,~lualatex~or~pdflatex.}
+\sys_if_engine_xetex:TF
   {
     \tl_set:Nn \l_@@_encoding_tl { UTF8 }
-    \xetex_if_engine:TF
-      { \ctex_file_input:n { ctex-engine-xetex.def } }
-      { \ctex_file_input:n { ctex-engine-luatex.def } }
+    \ctex_file_input:n { ctex-engine-xetex.def }
+  }
+  {
+    \sys_if_engine_luatex:TF
+      {
+        \tl_set:Nn \l_@@_encoding_tl { UTF8 }
+        \ctex_file_input:n { ctex-engine-luatex.def }
+      }
+      {
+        \sys_if_engine_pdftex:TF
+          { \ctex_file_input:n { ctex-engine-pdftex.def } }
+          {
+            \tl_gset:Nn \g_@@_fontset_tl { none }
+            \sys_if_engine_uptex:T
+              { \tl_set:Nn \l_@@_encoding_tl { UTF8 } }
+            \msg_error:nnx { ctex } { engine-not-supported }
+              { \cs_if_exist_use:NF \c_sys_engine_str { unknown } }
+          }
+      }
   }
 %    \end{macrocode}
 %
@@ -8287,7 +8293,7 @@ This package consists of the file ctex.dtx, and the derived files
 % Windows 字体设置使用微软雅黑作为无衬线体，楷体和仿宋是大字库。
 %    \begin{macrocode}
 %<*windowsnew|windowsold>
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   {
     \ctex_zhmap_case:nnn
       {
@@ -8381,9 +8387,9 @@ This package consists of the file ctex.dtx, and the derived files
 % \tn{pdfmapline} 不支持 OpenType 字体，因而 \opt{adobe} 字体集在 pdf 模式下
 % 就没有定义。\opt{fandol} 的情况类似。
 %    \begin{macrocode}
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   {
-    \ctex_if_pdfmode:TF
+    \sys_if_output_pdf:TF
       { \ctex_fontset_error:n { adobe } }
       {
         \ctex_zhmap_case:nnn
@@ -8444,9 +8450,9 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex-fontset-fandol.def}}
 %
 %    \begin{macrocode}
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   {
-    \ctex_if_pdfmode:TF
+    \sys_if_output_pdf:TF
       { \ctex_fontset_error:n { fandol } }
       {
         \ctex_zhmap_case:nnn
@@ -8582,7 +8588,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \footnote{\url{http://www.newsmth.net/bbscon.php?bid=460&id=312640}}。
 % 华文细黑和华文仿宋的情况类似。
 %    \begin{macrocode}
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   { \ctex_fontset_error:n { mac } }
   {
     \setCJKmainfont [ BoldFont = STHeiti , ItalicFont = STKaiti ]  { STSong }
@@ -8603,7 +8609,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex-fontset-founder.def}}
 %
 %    \begin{macrocode}
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   {
     \ctex_zhmap_case:nnn
       {
@@ -8649,7 +8655,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 速度不受影响。
 %    \begin{macrocode}
     \setCJKsansfont [ BoldFont = FZHei-B01 ]
-      { \xetex_if_engine:TF { 方正细黑一_GBK } { FZXH1K--GBK1-0 } }
+      { \sys_if_engine_xetex:TF { 方正细黑一_GBK } { FZXH1K--GBK1-0 } }
     \setCJKmonofont { FZFangSong-Z02 }
     \setCJKfamilyfont { zhsong } [ BoldFont = FZXiaoBiaoSong-B05 ] { FZShuSong-Z01 }
     \setCJKfamilyfont { zhhei }  { FZHei-B01 }
@@ -8676,7 +8682,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 其实只有“令”和“骨”这区区两个字有新字形，其余都取旧字形^^A
 % \footnote{\url{http://www.freedesktop.org/wiki/Software/CJKUnifonts/Download/}}。
 %    \begin{macrocode}
-\pdftex_if_engine:TF
+\sys_if_engine_pdftex:TF
   {
     \ctex_zhmap_case:nnn
       {
