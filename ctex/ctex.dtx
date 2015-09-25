@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{5003}
+% \CheckSum{5006}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3003,11 +3003,14 @@ This package consists of the file ctex.dtx, and the derived files
 %</class|style>
 %    \end{macrocode}
 %
+%    \begin{macrocode}
+%<*class|ctex>
+%    \end{macrocode}
+%
 % \changes{v2.3}{2015/09/17}{与 \LaTeXiii{} 同步。}
 %
 % 检查 \pkg{expl3} 和 \pkg{l3keys2e} 的版本。
 %    \begin{macrocode}
-%<*class>
 \msg_new:nnnn { ctex } { l3-too-old }
   { Support~package~`#1'~too~old. }
   {
@@ -3017,9 +3020,29 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \@ifpackagelater { expl3 } { 2015/09/24 } { }
   { \msg_error:nnn { ctex } { l3-too-old } { expl3 } }
+%<*class>
 \@ifpackagelater { l3keys2e } { 2015/09/24 } { }
   { \msg_error:nnn { ctex } { l3-too-old } { l3keys2e } }
 %</class>
+%    \end{macrocode}
+%
+% \begin{variable}[int]{\c_@@_engine_file_str}
+% 引擎检查，暂不支持 \pTeX{} 系。
+%    \begin{macrocode}
+\msg_new:nnnn { ctex } { engine-not-supported }
+  { Engine~`#1'~is~not~yet~supported,~ctex~will~abort! }
+  { You~can~switch~to~xelatex,~lualatex~or~pdflatex.}
+\file_if_exist:nTF { ctex-engine- \c_sys_engine_str .def }
+  {
+    \str_const:Nx \c_@@_engine_file_str
+      { ctex-engine- \c_sys_engine_str .def }
+  }
+  { \msg_critical:nnx { ctex } { engine-not-supported } { \c_sys_engine_str } }
+%    \end{macrocode}
+% \end{variable}
+%
+%    \begin{macrocode}
+%</class|ctex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -4134,6 +4157,7 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 % \changes{v2.0}{2014/03/08}{通过 \pkg{LuaTeX-ja} 宏包支持 \LuaLaTeX。}
+% \changes{v2.3}{2015/09/25}{更新 \pkg{LuaTeX-ja} 支持（20150922.0）。}
 %
 % \pkg{LuaTeX-ja} 为了兼容 p\LaTeX 的使用习惯，对 \LaTeXe 的 \pkg{NFSS} 作了不少
 % 修改和扩充，这对于简体中文用户来说不是必要的。我们在这里禁用它。
@@ -4150,7 +4174,7 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 \RequirePackage { luatexja }
-\@ifpackagelater { luatexja-core } { 2015/02/22 } { }
+\@ifpackagelater { luatexja } { 2015/09/21 } { }
   { \msg_error:nnn { ctex } { package-too-old } { luatexja } }
 %    \end{macrocode}
 %
@@ -4184,7 +4208,7 @@ This package consists of the file ctex.dtx, and the derived files
   "1100-"11FF, "2F00-"2FFF, "3100-"31EF, "A000-"A4CF, "A830-"A83F,
   "AC00-"D7FF}
 \ltjdefcharrange{8}{"A7, "A8, "B0, "B1, "B4, "B6, "D7, "F7}
-\ltjsetparameter{jacharrange={-1, +2, +3, -4, -5, +6, +7, +8}}
+\ltjsetparameter{jacharrange={-1, +2, +3, -4, -5, +6, +7, -8}}
 \directlua{for x=128,255 do luatexja.math.is_math_letters[x] = true end}
 %    \end{macrocode}
 %
@@ -4257,6 +4281,13 @@ This package consists of the file ctex.dtx, and the derived files
     \cs_if_exist:NTF \um_cs_set_eq_active_char:Nw
       { \cs_set_eq:NN \um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
       { \cs_set_eq:NN \__um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
+    \@ifpackagelater { unicode-math } { 2015/06/28 }
+      {
+        \cs_set_eq:NN \use@mathgroup \ctex_ltj_use_math_group:Nn
+        \cs_set_protected_nopar:Npn \ctex_ltj_math_group_hook:
+          { \__um_switchto_literal: }
+      }
+      { }
   }
 %    \end{macrocode}
 % 对 \pkg{listings} 的补丁是让代码环境支持 JAchar 类。\pkg{LuaTeX-ja} 的补丁会将
@@ -4347,17 +4378,19 @@ This package consists of the file ctex.dtx, and the derived files
 % \pkg{LuaTeX-ja} 的 \tn{globaljfont} 在 \pkg{luatexja-core} 中定义：
 % \begin{verbatim}
 %   %%%%%%%% \jfont\CS={...:...;jfm=metric;...}, \globaljfont
-%   \protected\def\jfont{%
-%     \afterassignment\ltj@@jfont\directlua{luatexja.jfont.jfontdefX(false, 'yoko')}}
-%   \protected\def\globaljfont{%
-%     \afterassignment\ltj@@jfont\directlua{luatexja.jfont.jfontdefX(true, 'yoko')}}
+%   \protected\def\jfont#1{%
+%     \afterassignment\ltj@@jfont
+%     \directlua{luatexja.jfont.jfontdefX(false, 'yoko','\luatexluaescapestring{\noexpand#1}')}}
+%   \protected\def\globaljfont#1{%
+%     \afterassignment\ltj@@jfont
+%     \directlua{luatexja.jfont.jfontdefX(true,  'yoko','\luatexluaescapestring{\noexpand#1}')}}
 %   \def\ltj@@jfont{\directlua{luatexja.jfont.jfontdefY()}}
 % \end{verbatim}
 % \texttt{jfontdefX} 函数的作用是把 \tn{CS} 定义为其后的字体，\texttt{jfontdefY}
 % 的作用是更新 \texttt{JFM} 和记录相关字体信息。最后的工作是：
 % \begin{verbatim}
 %   tex.sprint(cat_lp, global_flag, '\\protected\\expandafter\\def\\csname ',
-%     cstemp , '\\endcsname{\\ltj@cur'..
+%     (cstemp==' ') and '\\space' or cstemp, '\\endcsname{\\ltj@cur'..
 %     (jfm_dir == 'yoko' and 'j' or 't') .. 'fnt', fn, '\\relax}')
 % \end{verbatim}
 % \tn{CS} 的作用就是把 \tn{ltj@curjfnt} 设置为刚才定义的字体的 \texttt{font.id}。
@@ -4506,62 +4539,112 @@ This package consists of the file ctex.dtx, and the derived files
     \lua_now_x:n
       {
         luatexja.jfont.pickup_alt_font_b
-          ( \the\ltj@tempcntc, '\lua_escape_x:n {#2}' )
+          ( \int_use:N \ltj@tempcntc, '\lua_escape_x:n {#2}' )
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \paragraph{数学字体族}
+%
+%    \begin{macrocode}
+%<@@=ctex_ltj>
+%    \end{macrocode}
+%
+% 以下内容来自 \file{lltjfont.sty}，目的是让汉字可以在数学环境中直接使用。
+%
+% \begin{macro}[int]{\ctex_ltj_if_jfont:nTF}
+% 参数 |#1| 是一个 \LaTeXe{} 编码名称或者字体命令。\LaTeXe{} 字体命令的一般形式是：
+% \begin{quote}\ttfamily\small
+%   \textbackslash\meta{encoding}/\meta{family}/\meta{series}/\meta{shape}
+% \end{quote}
+% 通过截取名字中的 \meta{encoding} 来判断是否是 jfont。
+% 最后会设置 \tn{ifin@} 为对应的 \tn{iftrue} 或者 \tn{iffalse}。
+%    \begin{macrocode}
+\cs_new:Npn \ctex_ltj_if_jfont:nTF #1
+  {
+    \lua_now_x:n
+      { luatexja.jfont.is_kenc( string.match('\lua_escape_x:n {#1}', '[^/]+') ) }
+    \ifin@ \exp_after:wN \use_i:nn \else: \exp_after:wN \use_ii:nn \fi:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_ltj_if_jfont_math:NTF}
+% |#1| 是一个形式为 |\M@|\meta{encoding} 的命令，它由 \tn{DeclareFontEncoding} 的
+% 第三个参数来定义。
+%    \begin{macrocode}
+\cs_new:Npn \ctex_ltj_if_jfont_math:NTF #1
+  { \exp_after:wN \@@_if_jfont_math:w \token_to_str:N #1 \q_stop }
+\group_begin:
+  \char_set_catcode_other:N M
+  \cs_new:Npn \@@_if_jfont_math:w #1 M #2#3 \q_stop
+    { \ctex_ltj_if_jfont:nTF {#3} }
+\group_end:
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+%<@@=>
+%    \end{macrocode}
+%
+% \begin{macro}[int]{\getanddefine@fonts,\ctex_ltj_get_and_define_fonts:nN}
+% 在使用的场合，\tn{escapechar} 已经被设置成 $-1$，使用 \cs{token_to_str:N} 就
+% 可以得到名字，不必使用 \cs{cs_to_str:N}。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_get_and_define_fonts:nN #1#2
+  {
+    \ctex_ltj_if_jfont:nTF { \token_to_str:N #2 }
+      { \ctex_ltj_get_and_define_fonts_ja:nN }
+      { \ctex_ltj_get_and_define_fonts_al:nN }
+      {#1} #2
+  }
+\cs_new_eq:NN \ctex_ltj_get_and_define_fonts_al:nN \getanddefine@fonts
+\cs_set_eq:NN \getanddefine@fonts \ctex_ltj_get_and_define_fonts:nN
+\cs_new_protected_nopar:Npn \ctex_ltj_get_and_define_fonts_ja:nN #1#2
+  {
+    \tl_gset:Nx \font@name { \use:c { \token_to_str:N #2 / \tf@size } }
+    \ctex_ltj_pickup_font: \tl_set_eq:NN \textfont@name \font@name
+    \tl_gset:Nx \font@name { \use:c { \token_to_str:N #2 / \sf@size } }
+    \ctex_ltj_pickup_font: \tl_set_eq:NN \scriptfont@name \font@name
+    \tl_gset:Nx \font@name { \use:c { \token_to_str:N #2 / \ssf@size } }
+    \ctex_ltj_pickup_font:
+    \tl_put_right:Nx \math@fonts
+      {
+        \ltj@setpar@global
+        \ltj@@set@stackfont #1 , \textfont@name   \c_colon_str { MJT }
+        \ltj@@set@stackfont #1 , \scriptfont@name \c_colon_str { MJS }
+        \ltj@@set@stackfont #1 , \font@name       \c_colon_str { MJSS }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 %    \begin{macrocode}
-\ExplSyntaxOff
-%    \end{macrocode}
-%
-% 以下内容抄录自 \file{lltjfont.sty}，目的是让汉字可以在数学环境中直接使用。
-%    \begin{macrocode}
-\def\ltj@@IsFontJapanese#1{%
-  \directlua{luatexja.jfont.is_kenc(string.match(
-      '\lua_escape_x:n{#1}', '[^/]+'))}}
-{\catcode`M=12%
-\gdef\ltj@@mathJapaneseFonts#1M#2#3\relax{\ltj@@IsFontJapanese{#3}}}
-\let\ltj@@al@getanddefine@fonts=\getanddefine@fonts
-\def\ltj@@ja@getanddefine@fonts#1#2{%
-  \xdef\font@name{\csname \string#2/\tf@size\endcsname}%
-  \pickup@jfont\let\textfont@name\font@name
-  \xdef\font@name{\csname \string#2/\sf@size\endcsname}%
-  \pickup@jfont\let\scriptfont@name\font@name
-  \xdef\font@name{\csname \string#2/\ssf@size\endcsname}%
-  \pickup@jfont
-  \edef\math@fonts{\math@fonts\ltj@setpar@global%
-    \ltj@@set@stackfont#1,\textfont@name:{MJT}%
-    \ltj@@set@stackfont#1,\scriptfont@name:{MJS}%
-    \ltj@@set@stackfont#1,\font@name:{MJSS}%
-  }%
-}
-\def\getanddefine@fonts#1#2{%
-  \ltj@tempcnta=#1\ltj@@IsFontJapanese{\string#2}%
-  \ifin@\let\ltj@temp=\ltj@@ja@getanddefine@fonts%
-  \else \let\ltj@temp=\ltj@@al@getanddefine@fonts\fi
-  \ltj@temp{#1}{#2}%
-}
-\def\use@mathgroup#1#2{\relax\ifmmode
-  \math@bgroup
-    \expandafter\ifx\csname M@\f@encoding\endcsname#1\else
-    #1\fi\ltj@tempcnta=#2 \expandafter\ltj@@mathJapaneseFonts\string#1\relax%
-    \ifin@\jfam#2\relax\else\mathgroup#2\relax\fi
-  \expandafter\math@egroup\fi}%
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\let\@@italiccorr=\/
-%    \end{macrocode}
-%
-%    \begin{macrocode}
 %<@@=ctex_ltj>
 %    \end{macrocode}
 %
+% \begin{macro}[int]{\use@mathgroup,\ctex_ltj_use_math_group:Nn}
+% 在使用 \pkg{unicode-math} 宏包时，\cs{ctex_ltj_math_group_hook:} 将被重定义。
 %    \begin{macrocode}
-\ExplSyntaxOn
+\cs_new_protected_nopar:Npn \ctex_ltj_use_math_group:Nn #1#2
+  {
+    \mode_if_math:T
+      {
+        \math@bgroup
+          \cs_if_eq:cNF { M@ \f@encoding } #1 {#1}
+          \ctex_ltj_math_group_hook:
+          \ctex_ltj_if_jfont_math:NTF #1
+            { \jfam } { \mathgroup } #2 \scan_stop:
+        \math@egroup
+      }
+  }
+\cs_new_eq:NN \ctex_ltj_math_group_hook: \prg_do_nothing:
+\cs_set_eq:NN \use@mathgroup \ctex_ltj_use_math_group:Nn
 %    \end{macrocode}
+% \end{macro}
+%
+% \paragraph{字体族的定义与使用}
 %
 % \begin{macro}[int]{\ctex_mono_jfm:n,\l_@@_jfm_tl}
 % \pkg{LuaTeX-ja} 中与标点格式 \opt{plain} 对应的 \texttt{JFM} 是 \opt{mono}。
@@ -4580,13 +4663,17 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}[int]{\CJK@encoding,\@@_change_encoding:}
 % 在 \LaTeX 下，\pkg{LuaTeX-ja} 依赖字体编码来实现特殊设置。例如上述的
-% \tn{ltj@@IsFontJapanese} 就是通过判断编码来实现的，它在设置数学字体时会用到。所以
+% \cs{ctex_ltj_if_jfont:nTF} 就是通过判断编码来实现的，它在设置数学字体时会用到。所以
 % 不应该与西文共用 \texttt{EU2}。定义字体族 song 为 \tn{CJK@encoding} 的默认替换
 % 字体。下划线 |_| 不在 \tn{nfss@catcodes} 里，可以放心使用。
 %    \begin{macrocode}
 \tl_const:Nn \CJK@encoding { LTJY3 }
 \DeclareFontEncoding { \CJK@encoding } { } { }
-\DeclareFontSubstitution { LTJY3 } { song } { \mddefault } { \updefault }
+\use:x
+  {
+    \exp_not:N \DeclareFontSubstitution
+      { \CJK@encoding } { song } { \mddefault } { \updefault }
+  }
 \lua_now_x:n { luatexja.jfont.add_kyenc_list('\CJK@encoding') }
 \cs_new_protected_nopar:Npn \@@_change_encoding:
   { \tl_set_eq:NN \g_fontspec_encoding_tl \CJK@encoding }
@@ -4604,8 +4691,6 @@ This package consists of the file ctex.dtx, and the derived files
 \jfam \c_@@_math_fam_int
 %    \end{macrocode}
 % \end{macro}
-%
-% \paragraph{字体族的定义与使用}
 %
 % 这是 \pkg{luatexja-fontspec} 中新增的一些字体选项。
 %    \begin{macrocode}
@@ -5522,6 +5607,17 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 %
 %    \begin{macrocode}
+%<@@=>
+%    \end{macrocode}
+%
+% \begin{macro}[int]{\@@italiccorr}
+% \LaTeX{} 的倾斜校正也要重新定义。
+%    \begin{macrocode}
+\cs_set_eq:NN \@@italiccorr \/
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
 %<@@=ctex>
 %    \end{macrocode}
 %
@@ -6009,6 +6105,13 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
+% \XeLaTeX{} 和 \LuaLaTeX{} 总是使用 \texttt{UTF8} 编码。
+%    \begin{macrocode}
+%<*xetex|luatex>
+\tl_set:Nn \l_@@_encoding_tl { UTF8 }
+%</xetex|luatex>
+%    \end{macrocode}
+%
 %    \begin{macrocode}
 %</pdftex|xetex|luatex>
 %<*class|ctex>
@@ -6016,35 +6119,9 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \subsubsection{载入引擎定义文件}
 %
-% 最后载入各个编译引擎的定义文件。暂不支持 \pTeX{} 系引擎。
-% \upTeX（\pTeX-ng）也设置编码为 \texttt{UTF8}。
+% 最后载入各个编译引擎的定义文件。
 %    \begin{macrocode}
-\msg_new:nnnn { ctex } { engine-not-supported }
-  { Engine~`#1'~is~not~yet~supported. }
-  { You~can~switch~to~xelatex,~lualatex~or~pdflatex.}
-\sys_if_engine_xetex:TF
-  {
-    \tl_set:Nn \l_@@_encoding_tl { UTF8 }
-    \ctex_file_input:n { ctex-engine-xetex.def }
-  }
-  {
-    \sys_if_engine_luatex:TF
-      {
-        \tl_set:Nn \l_@@_encoding_tl { UTF8 }
-        \ctex_file_input:n { ctex-engine-luatex.def }
-      }
-      {
-        \sys_if_engine_pdftex:TF
-          { \ctex_file_input:n { ctex-engine-pdftex.def } }
-          {
-            \tl_gset:Nn \g_@@_fontset_tl { none }
-            \sys_if_engine_uptex:T
-              { \tl_set:Nn \l_@@_encoding_tl { UTF8 } }
-            \msg_error:nnx { ctex } { engine-not-supported }
-              { \cs_if_exist_use:NF \c_sys_engine_str { unknown } }
-          }
-      }
-  }
+\ctex_file_input:n { \c_@@_engine_file_str }
 %    \end{macrocode}
 %
 % \subsection{字距与缩进}
@@ -7076,14 +7153,14 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \begin{macro}[int]{\ctex_titlesec_hook:}
 % \tn{titleformat} 的设置保存在名为 |\ttlf@|\meta{section} 的宏中备用，它的内容是
-% \begin{center}\small
+% \begin{quote}\small
 %   |\ttlh@|\meta{shape}\Arg{format}\Arg{label}\Arg{sep}\Arg{before}\Arg{after}
-% \end{center}
+% \end{quote}
 % 我们这里的 \meta{shape} 为 |hang| 或者 |runin|。\tn{titlespacing} 的设置保存在
 % |\ttls@|\meta{section} 之中，它的内容是
-% \begin{center}\small
+% \begin{quote}\small
 %   \Arg{left}\Arg{right}\Arg{before}\Arg{after}\Arg{afterindent}
-% \end{center}
+% \end{quote}
 % 其中 \meta{afterindent} 为 |1| 或 |0|，分别对应是否保留段首缩进。
 % 我们需要根据 \CTeX{} 的 \opt{runin} 和 \opt{afterindent} 选项调整
 % |\ttlh@|\meta{shape} 和 \meta{afterindent}。注意，由 \tn{ttl@extract} 得的
@@ -9355,6 +9432,10 @@ This package consists of the file ctex.dtx, and the derived files
 %
 %    \begin{macrocode}
 %<*ctexpatch>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\cs_if_exist:NF \str_new:N { \RequirePackage { l3str } }
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\ctex_patch_cmd_once:NnnnTF}
