@@ -320,12 +320,17 @@ CJK scripts fonts (TrueType or OpenType).
 \def\ctexkit{\href{https://github.com/CTeX-org/ctex-kit/}{\texttt{ctex-kit}}}
 \def\ctexkitrev#1{%
   \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
-\DeclareDocumentCommand\package{om}{%
-  \begingroup\edef\x{\endgroup\lowercase{%
-    \noexpand\href{http://www.ctan.org/pkg/\IfNoValueTF{#1}{#2}{#1}}}}%
-    \x{\pkg{#2}}}
 \makeatletter
 \ExplSyntaxOn
+\DeclareDocumentCommand \package { o m }
+  {
+    \exp_args:Nx \href
+      {
+        http \token_to_str:N : //www.ctan.org/pkg/
+        \IfNoValueTF {#1} { \str_fold_case:n {#2} } {#1}
+      }
+      { \pkg {#2} }
+  }
 \NewDocumentCommand \PrintPunctList { O{7} m m }
   {
     \par
@@ -446,8 +451,9 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.4}{2013/07/02}{遵循 \hologo{LaTeX3} 变量需要预先声明的原则。}
 % \changes{v3.2.6}{2013/07/29}{\texttt{case} 类函数的用法与 \hologo{LaTeX3} 同步。}
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
+% \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9799}
+% \CheckSum{9791}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -604,7 +610,7 @@ CJK scripts fonts (TrueType or OpenType).
 %     CJKecglue = \Arg{glue}
 %   \end{syntax}
 %   设置 CJK 文字与西文、CJK 文字与行内数学公式之间的间距，默认值是一个空格。使用这个
-%   选项设置的 |glue| 最好也要用一定的弹性。请注意，这里设置的 |glue| 只影响
+%   选项设置的 \meta{glue} 最好也要用一定的弹性。请注意，这里设置的 \meta{glue} 只影响
 %   \pkg{xeCJK} 根据需要自动添加的空白，源文件中直接输入的 CJK 文字与西文之间的空格不
 %   受影响（直接输出）。有时候 \pkg{xeCJK} 可能不能正确地调整间距，需要手动加空格。
 % \end{function}
@@ -1733,7 +1739,7 @@ CJK scripts fonts (TrueType or OpenType).
     instead~of~plain~"latex"~or~"pdflatex"~or~"lualatex".\\
     Loading~xeCJK~will~abort!
   }
-\xetex_if_engine:F { \msg_critical:nn { xeCJK } { Require-XeTeX } }
+\sys_if_engine_xetex:F { \msg_critical:nn { xeCJK } { Require-XeTeX } }
 %    \end{macrocode}
 %
 % 应该使用较新版本的 \pkg{expl3} 宏包。
@@ -1746,7 +1752,7 @@ CJK scripts fonts (TrueType or OpenType).
     using~your~TeX~package~manager~or~from~CTAN.\\
     \str_if_eq:nnT {#1} { expl3 } { Loading~xeCJK~will~abort! }
   }
-\@ifpackagelater { expl3 } { 2014/07/20 } { }
+\@ifpackagelater { expl3 } { 2015/09/24 } { }
   { \msg_critical:nnn { xeCJK } { l3-too-old } { expl3 } }
 %    \end{macrocode}
 %
@@ -1856,15 +1862,15 @@ CJK scripts fonts (TrueType or OpenType).
   }
   {
     \AtBeginDocument { \g_@@_after_preamble_hook_tl }
-    \cs_new_protected_nopar:Npn \@@_document_left_hook:
+    \cs_new_protected_nopar:Npn \xeCJK@document@left@hook
       { \group_end: \g_@@_at_end_preamble_hook_tl \group_begin: }
-    \cs_new_protected_nopar:Npn \@@_document_right_hook:
+    \cs_new_protected_nopar:Npn \xeCJK@document@right@hook
       { \scan_stop: \g_@@_after_end_preamble_hook_tl \tex_ignorespaces:D }
     \cs_gset_nopar:Npx \document
       {
-        \@@_document_left_hook:
+        \xeCJK@document@left@hook
         \exp_not:o { \document }
-        \@@_document_right_hook:
+        \xeCJK@document@right@hook
       }
   }
 %    \end{macrocode}
@@ -2169,7 +2175,7 @@ CJK scripts fonts (TrueType or OpenType).
 % 的显性或隐性记号。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_token_value_class:N #1
-  { \XeTeXcharclass \xeCJK_token_value_charcode:N #1 }
+  { \xetex_charclass:D \xeCJK_token_value_charcode:N #1 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2179,8 +2185,8 @@ CJK scripts fonts (TrueType or OpenType).
 % 当记号 |#1| 的 \texttt{charcode} 大于等于 \texttt{0x10000} 时，\XeTeX\
 % \texttt{0.9999.0} 版以前的 \tn{meaning} 的返回结果比较特殊\footnote{参见
 % \url{http://tug.org/pipermail/xetex/2013-January/023967.html} 和
-% \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。同时使用较新版本中
-% 提供的原语设置 \texttt{mathcode}。\texttt{0.9999.0} 版以后的 \XeTeX 的 \tn{meaning}
+% \url{http://tex.stackexchange.com/a/64848}。}，需要特别处理。
+% \texttt{0.9999.0} 版以后的 \XeTeX 的 \tn{meaning}
 % 对于超出 BMP 的字符，会返回两个字符，分别对应于其 UTF-16 编码的首尾代理^^A
 % \footnote{参见 \url{http://tug.org/pipermail/xetex/2013-June/024543.html}。}。
 % 这一 Bug 在 TeX Live 2015 的 \texttt{0.99992} 版中得到修复^^A
@@ -2195,7 +2201,6 @@ CJK scripts fonts (TrueType or OpenType).
         {
           \cs_new_nopar:Npn \@@_get_charcode:w ##1 ~ ##2 ~ ##3 \q_stop
             { \int_eval:n { `##3 } }
-          \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
         }
         {
           \tl_if_empty:nTF {#5}
@@ -2209,12 +2214,10 @@ CJK scripts fonts (TrueType or OpenType).
                         { ( `##3 - "D800 ) * "400 + ( `##4 - "DC00 ) + "10000 }
                     }
                 }
-              \cs_new_eq:NN \xeCJK_xetex_mathcode:w \Umathcode
             }
             {
               \cs_new_nopar:Npn \@@_get_charcode:w ##1 ~ ##2 ~ ##3##4 \q_stop
                 { \int_eval:n { \tl_if_empty:nTF { ##4 } { `##3 } { "20000 } } }
-              \cs_new_eq:NN \xeCJK_xetex_mathcode:w \XeTeXmathcode
             }
         }
     }
@@ -2266,8 +2269,8 @@ CJK scripts fonts (TrueType or OpenType).
 %
 % \begin{macro}[internal]{\makexeCJKactive, \makexeCJKinactive}
 %    \begin{macrocode}
-\NewDocumentCommand \makexeCJKactive   { } { \XeTeXinterchartokenstate = \c_one  }
-\NewDocumentCommand \makexeCJKinactive { } { \XeTeXinterchartokenstate = \c_zero }
+\NewDocumentCommand \makexeCJKactive   { } { \xetex_interchartokenstate:D = \c_one  }
+\NewDocumentCommand \makexeCJKinactive { } { \xetex_interchartokenstate:D = \c_zero }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2850,7 +2853,7 @@ CJK scripts fonts (TrueType or OpenType).
     \int_set:Nn \l_@@_tmp_int {#3}
     \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
       {
-        \XeTeXcharclass \l_@@_begin_int = \l_@@_tmp_int
+        \xetex_charclass:D \l_@@_begin_int = \l_@@_tmp_int
         \int_incr:N \l_@@_begin_int
       }
   }
@@ -2866,7 +2869,7 @@ CJK scripts fonts (TrueType or OpenType).
   {
     \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#2} }
     \clist_map_inline:cn { c_@@_#1_chars_clist }
-      { \XeTeXcharclass ##1 = \l_@@_tmp_int }
+      { \xetex_charclass:D ##1 = \l_@@_tmp_int }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2877,7 +2880,7 @@ CJK scripts fonts (TrueType or OpenType).
 \NewDocumentCommand \normalspacedchars { m }
   {
     \tl_map_inline:nn {#1}
-      { \XeTeXcharclass `##1 = \xeCJK_class_num:n { NormalSpace } }
+      { \xetex_charclass:D `##1 = \xeCJK_class_num:n { NormalSpace } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2919,7 +2922,7 @@ CJK scripts fonts (TrueType or OpenType).
 % 在相邻类别之间插入内容。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_inter_class_toks:nnn #1#2#3
-  { \XeTeXinterchartoks \xeCJK_class_num:n {#1} ~ \xeCJK_class_num:n {#2} = {#3} }
+  { \xetex_interchartoks:D \xeCJK_class_num:n {#1} ~ \xeCJK_class_num:n {#2} = {#3} }
 \cs_generate_variant:Nn \xeCJK_inter_class_toks:nnn { nnc , nnx }
 %    \end{macrocode}
 % \end{macro}
@@ -2928,7 +2931,7 @@ CJK scripts fonts (TrueType or OpenType).
 % 取出相邻类别之间的内容。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_get_inter_class_toks:nn #1#2
-  { \tex_the:D \XeTeXinterchartoks \xeCJK_class_num:n {#1} ~ \xeCJK_class_num:n {#2} }
+  { \tex_the:D \xetex_interchartoks:D \xeCJK_class_num:n {#1} ~ \xeCJK_class_num:n {#2} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4615,14 +4618,14 @@ CJK scripts fonts (TrueType or OpenType).
 %
 % \changes{v3.2.7}{2013/08/22}{实现自定义行首/尾标点符号宽度功能。}
 %
-% \tn{XeTeXglyphbouds} 可以得到一个字符的左右边距，用于标点压缩。如果它不可用，则
+% \tn{XeTeXglyphbounds} 可以得到一个字符的左右边距，用于标点压缩。如果它不可用，则
 % 在文档中只能使用 |plain| 这一标点格式原样输出标点。
 %    \begin{macrocode}
-\cs_if_exist:NF \XeTeXglyphbounds
+\cs_if_exist:NF \xetex_glyphbounds:D
   {
     \@@_msg_new:nn { XeTeX-too-old }
       {
-        \token_to_str:N \XeTeXglyphbounds \ is~not~defined.\\
+        \token_to_str:N \xetex_glyphbounds:D \ is~not~defined.\\
         CJK~punctuation~kerning~will~not~be~available.\\\\
         You~have~to~update~XeTeX~to~the~version~0.9995.0~or~later.
       }
@@ -5334,8 +5337,8 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_glyph_bounds:NN #1#2
   {
-    \dim_use:N \XeTeXglyphbounds #1 ~
-    \XeTeXcharglyph \xeCJK_token_value_charcode:N #2 \exp_stop_f:
+    \dim_use:N \xetex_glyphbounds:D #1 ~
+    \xetex_charglyph:D \xeCJK_token_value_charcode:N #2 \exp_stop_f:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6545,7 +6548,7 @@ CJK scripts fonts (TrueType or OpenType).
     \@@_check_num_range:nnNN {#1} {#2} \l_@@_begin_int \l_@@_end_int
     \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
       {
-        \tex_global:D \xeCJK_xetex_mathcode:w
+        \tex_global:D \utex_mathcode:D
           \l_@@_begin_int = #3 ~ #4 \l_@@_begin_int
         \int_incr:N \l_@@_begin_int
       }
@@ -6766,7 +6769,7 @@ CJK scripts fonts (TrueType or OpenType).
   {
     \int_set:Nn \l_@@_tmp_int { \xeCJK_class_num:n {#1} }
     \clist_map_inline:cn { c_@@_#1_chars_clist }
-      { \XeTeXcharclass ##1 = \l_@@_tmp_int }
+      { \xetex_charclass:D ##1 = \l_@@_tmp_int }
   }
 \bool_new:N \l_@@_verb_addon_bool
 \cs_new_eq:NN \CJKfixedspacing \xeCJKVerbAddon
@@ -6871,7 +6874,7 @@ CJK scripts fonts (TrueType or OpenType).
     \xeCJK_glyph_if_exist:NTF { ^^^^2423 }
       { ^^^^2423 }
       {
-        \int_compare:nNnTF { \XeTeXfonttype \tex_font:D } = \c_zero
+        \int_compare:nNnTF { \xetex_fonttype:D \tex_font:D } = \c_zero
           {
             \str_if_eq_x:nnTF { \f@family } { \ttdefault }
               { \c_catcode_other_space_tl }
@@ -7455,7 +7458,7 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK@italiccorr
   {
-    \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
+    \int_compare:nNnTF \xetex_interchartokenstate:D > \c_zero
       {
         \xeCJK_if_last_node:nTF { default }
           {
@@ -7603,9 +7606,9 @@ CJK scripts fonts (TrueType or OpenType).
 % 符号命令，它的输入方式为 |>`w| 或者 |\accpsilivaria{w}|。前者比较特殊，如果
 % 与 \pkg{xeCJK} 一起使用，\XeTeX\ 会出现如下错误。
 % \begin{verbatim}
-%   ! Cannot use \XeTeXglyphbounds with grmn1000; not a native platform font.
-%   \xeCJK_glyph_bounds:NN ...use:N \XeTeXglyphbounds
-%                                                     #1 \XeTeXcharglyph \xeCJK_...
+%   ! Cannot use \xetex_glyphbounds:D with grmn1000; not a native platform font.
+%   \xeCJK_glyph_bounds:NN ...use:N \xetex_glyphbounds:D
+%                                                     #1 \xetex_charglyph:D \xeCJK_...
 % \end{verbatim}
 % 这个不好处理，只修改后者。
 %    \begin{macrocode}
@@ -7643,7 +7646,7 @@ CJK scripts fonts (TrueType or OpenType).
 \char_set_catcode_other:n { 183 }
 \cs_new_protected_nopar:Npn \@@_Default_Bxii:
   {
-    \int_compare:nNnTF \XeTeXinterchartokenstate > \c_zero
+    \int_compare:nNnTF \xetex_interchartokenstate:D > \c_zero
       { \@@_group_begin: \makexeCJKinactive ^^b7 \@@_group_end: }
       { ^^b7 }
   }
@@ -7784,21 +7787,23 @@ CJK scripts fonts (TrueType or OpenType).
           { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
       }
   }
-\ifprimitive \Ucharcat
-  \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
-    { \tl_const:Nx #1 { \Ucharcat \int_eval:n {#2} ~ \c_eleven } }
-\else:
-  \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
-    {
-      \group_begin:
-      \char_set_lccode:nn { "4E00 } {#2}
-      \tex_lowercase:D
-        {
-          \group_end:
-          \tl_const:Nn #1 { ^^^^4e00 }
-        }
-    }
-\fi:
+\cs_if_exist:NTF \utex_charcat:D
+  {
+    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
+      { \tl_const:Nx #1 { \char_generate:nn {#2} { \c_eleven } } }
+  }
+  {
+    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
+      {
+        \group_begin:
+        \char_set_lccode:nn { "4E00 } {#2}
+        \tex_lowercase:D
+          {
+            \group_end:
+            \tl_const:Nn #1 { ^^^^4e00 }
+          }
+      }
+  }
 \cs_new_nopar:Npn \@@_calc_unicode:nn #1#2
   { (#1) * \c_two_hundred_fifty_six + (#2) }
 \cs_new_protected_nopar:Npn \xeCJK_unicode_char:nn #1#2
@@ -9598,15 +9603,19 @@ CJK scripts fonts (TrueType or OpenType).
 % 些符号命令的默认设置。
 %
 %    \begin{macrocode}
-\pdftex_if_engine:T
+\bool_if:nF
   {
-    \msg_new:nnnn { xunicode-addon } { cannot-use-pdftex }
+    \sys_if_engine_xetex_p: ||
+    \sys_if_engine_luatex_p:
+  }
+  {
+    \msg_new:nnnn { xunicode-addon } { xetex-luatex }
       { This~package~requires~either~XeTeX~or~LuaTeX~to~function.}
       {
         You~must~change~your~typesetting~engine~to,~e.g.,\\
         "xelatex"~or~"lualatex"~instead~of~plain~"latex"~or~"pdflatex".
       }
-    \msg_critical:nn { xunicode-addon } { cannot-use-pdftex }
+    \msg_critical:nn { xunicode-addon } { xetex-luatex }
   }
 \RequirePackage { xparse }
 %    \end{macrocode}
@@ -9631,12 +9640,12 @@ CJK scripts fonts (TrueType or OpenType).
   {
     \clist_get:NNF \g_@@_encname_clist \UTFencname
       {
-        \xetex_if_engine:TF
+        \sys_if_engine_xetex:TF
           { \tl_set:Nn \UTFencname { EU1 } }
           { \tl_set:Nn \UTFencname { EU2 } }
         \clist_set_eq:NN \g_@@_encname_clist \UTFencname
       }
-    \xetex_if_engine:TF
+    \sys_if_engine_xetex:TF
       { \RequirePackage { xunicode } }
       {
         \cs_set_eq:NN \@@_tmp:w \XeTeXpicfile
@@ -9690,7 +9699,7 @@ CJK scripts fonts (TrueType or OpenType).
   { Encoding~scheme~"#1"~unknown. }
   {
     You~may~use \\\\
-    \token_to_str:N \usepackage [ #1 , \encodingdefault ] {fontenc} \\\\
+    \token_to_str:N \usepackage [ #1 , \encodingdefault ] \{fontenc\} \\\\
     before~xunicode-addon~or~xunicode.
   }
 %    \end{macrocode}
@@ -12567,7 +12576,6 @@ int main()
 \usepackage[margin=2cm]{geometry}
 \usepackage{fontspec}
 \usepackage{xunicode-addon}
-\usepackage{l3str}
 \usepackage{longtable,tabu,booktabs}
 \usepackage{zref-base}
 
