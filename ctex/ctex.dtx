@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{5006}
+% \CheckSum{5014}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -9608,12 +9608,12 @@ This package consists of the file ctex.dtx, and the derived files
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}[int]{\l_@@_prefix_tl,\l_@@_parameter_tl,\l_@@_replacement_tl}
+% \begin{variable}[int]{\l_@@_prefix_str,\l_@@_parameter_str,\l_@@_replacement_str}
 % 分别保存宏的 \tn{meaning} 中的前缀、参数文本和替换文本。
 %    \begin{macrocode}
-\tl_new:N \l_@@_prefix_tl
-\tl_new:N \l_@@_parameter_tl
-\tl_new:N \l_@@_replacement_tl
+\str_new:N \l_@@_prefix_str
+\str_new:N \l_@@_parameter_str
+\str_new:N \l_@@_replacement_str
 %    \end{macrocode}
 % \end{variable}
 %
@@ -9637,8 +9637,9 @@ This package consists of the file ctex.dtx, and the derived files
           \quark_if_no_value:NTF \l_@@_replacement_tl
             { \prg_return_false: }
             {
-              \tl_set:Nn \l_@@_prefix_tl {##1}
-              \tl_set:Nn \l_@@_parameter_tl {##2}
+              \str_set:Nn \l_@@_prefix_str {##1}
+              \str_set:Nn \l_@@_parameter_str {##2}
+              \str_set:Nn \l_@@_replacement_str {##3}
               \prg_return_true:
             }
         }
@@ -9656,12 +9657,12 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \ctex_get_macro_meaning:NTF #1
       {
-        \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#2}
-        \cs_if_eq:NNTF #1 \CTEXPATCHRESCANCMD {#3} {#4}
+        \@@_patch_rebuild:Nn \@@_rebuild_cmd:w {#2}
+        \cs_if_eq:NNTF #1 \@@_rebuild_cmd:w {#3} {#4}
       }
       {#4}
   }
-\cs_new_eq:NN \CTEXPATCHRESCANCMD \prg_do_nothing:
+\cs_new_eq:NN \@@_rebuild_cmd:w \prg_do_nothing:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9670,22 +9671,25 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_rebuild:Nn #1#2
   {
-    \tl_if_empty:nTF {#2}
-      { \tl_rescan:nx {#2} }
+    \@@_patch_rescan:NNn \l_@@_prefix_tl      \l_@@_prefix_str      {#2}
+    \@@_patch_rescan:NNn \l_@@_parameter_tl   \l_@@_parameter_str   {#2}
+    \@@_patch_rescan:NNn \l_@@_replacement_tl \l_@@_replacement_str {#2}
+    \use:x
       {
-        \tl_rescan:nx
-          {
-            #2 \scan_stop:
-            \int_set_eq:NN \tex_endlinechar:D \c_minus_one
-            \int_set_eq:NN \tex_newlinechar:D \c_minus_one
-          }
-      }
-      {
-        \l_@@_prefix_tl \exp_not:N \def \exp_not:N #1 \l_@@_parameter_tl
-          { \l_@@_replacement_tl }
+        \exp_not:o { \l_@@_prefix_tl } \tex_def:D \exp_not:N #1
+          \exp_not:o { \l_@@_parameter_tl }
+            { \exp_not:o { \l_@@_replacement_tl } }
       }
   }
-\cs_generate_variant:Nn \tl_rescan:nn { nx }
+\cs_new_protected:Npn \@@_patch_rescan:NNn #1#2#3
+  {
+    \str_if_empty:NTF #2
+      { \tl_clear:N #1 }
+      { \tl_set_rescan:Nnx #1 {#3} {#2} }
+  }
+\tl_new:N \l_@@_prefix_tl
+\tl_new:N \l_@@_parameter_tl
+\tl_new:N \l_@@_replacement_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9704,8 +9708,7 @@ This package consists of the file ctex.dtx, and the derived files
               { \tl_to_str:n {#5} }
           }
           {
-            \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
-            \cs_set_eq:NN #1 \CTEXPATCHRESCANCMD
+            \@@_patch_rebuild:Nn #1 {#3}
             \@@_patch_true:w
           }
           { \@@_patch_false:w }
@@ -9720,8 +9723,8 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_replace:nnnTF #1#2#3#4
   {
-    \tl_if_in:NnTF \l_@@_replacement_tl {#2}
-      { \use:c { tl_replace_ #1 :Nnn } \l_@@_replacement_tl {#2} {#3} #4 }
+    \tl_if_in:NnTF \l_@@_replacement_str {#2}
+      { \use:c { tl_replace_ #1 :Nnn } \l_@@_replacement_str {#2} {#3} #4 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -9734,7 +9737,7 @@ This package consists of the file ctex.dtx, and the derived files
     \group_end:
     \ctex_get_macro_meaning:NTF #1
       {
-        \tl_if_empty:NTF \l_@@_parameter_tl
+        \str_if_empty:NTF \l_@@_parameter_str
           { \@@_hookto_cmd_parameterless:Nnnw #1 {#2} {#4} }
           { \@@_hookto_cmd_parameter:Nnnnw #1 {#2} {#3} {#4} }
       }
@@ -9748,9 +9751,9 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_hookto_cmd_parameterless:Nnnw #1#2#3
   {
-    \tl_if_empty:NF \l_@@_prefix_tl
-      { \tl_rescan:nx { } { \l_@@_prefix_tl } }
-    \edef #1
+    \str_if_empty:NF \l_@@_prefix_str
+      { \tl_rescan:nx { } { \l_@@_prefix_str } }
+    \tex_edef:D #1
       {
         \use:c { @@_ #2 _hook_aux:nn }
           { \exp_not:o {#1} }
@@ -9758,6 +9761,7 @@ This package consists of the file ctex.dtx, and the derived files
       }
     \@@_patch_true:w
   }
+\cs_generate_variant:Nn \tl_rescan:nn { nx }
 \cs_new:Npn \@@_left_hook_aux:nn #1#2 { #2#1 }
 \cs_new_eq:NN \@@_right_hook_aux:nn \use:nn
 %    \end{macrocode}
@@ -9768,12 +9772,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_hookto_cmd_parameter:Nnnnw #1#2#3#4
   {
-    \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
-    \cs_if_eq:NNTF #1 \CTEXPATCHRESCANCMD
+    \@@_patch_rebuild:Nn \@@_rebuild_cmd:w {#3}
+    \cs_if_eq:NNTF #1 \@@_rebuild_cmd:w
       {
-        \use:c { tl_put_ #2 :Nx } \l_@@_replacement_tl { \tl_to_str:n {#4} }
-        \@@_patch_rebuild:Nn \CTEXPATCHRESCANCMD {#3}
-        \cs_set_eq:NN #1 \CTEXPATCHRESCANCMD
+        \use:c { str_put_ #2 :Nn } \l_@@_replacement_str {#4}
+        \@@_patch_rebuild:Nn #1 {#3}
         \@@_patch_true:w
       }
       { \@@_patch_false:w }
