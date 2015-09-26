@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{5011}
+% \CheckSum{5021}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4236,6 +4236,8 @@ This package consists of the file ctex.dtx, and the derived files
 %<@@=ctex_ltj>
 %    \end{macrocode}
 %
+% \changes{v2.3}{2015/09/26}{更新 \pkg{unicode-math} 宏包补丁。}
+%
 % 在 \LaTeX{} 下，\pkg{LuaTeX-ja} 对 \pkg{fontspec}、\pkg{xunicode}、\pkg{unicode-math}
 % 和 \pkg{listings} 打了补丁。其中前三个是把 \tn{char} 换成 \tn{ltjalchar}，确保
 % 字符是 ALchar 类。我们这里用 \pkg{xunicode-addon} 来处理 \pkg{xunicode}。
@@ -4256,7 +4258,23 @@ This package consists of the file ctex.dtx, and the derived files
 % \pkg{lltjp-unicode-math} 让数学符号命令成为普通的文字宏。为了避免它被展开，应该
 % 用 \tn{protected} 来定义。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_um_char:Nw #1 = #2 \q_nil
+\cs_new_protected_nopar:Npn \@@_um_define_math_chars:
+  {
+    \group_begin:
+      \cs_set_protected:Npn \__um_sym:nnn ##1##2##3
+        {
+          \tl_if_in:nnT
+            {
+              \mathord \mathalpha \mathbin \mathrel
+              \mathpunct \mathop \mathfence
+            }
+            { ##3 }
+            { \@@_um_char:Nn ##2 { ##1 } }
+        }
+      \__um_input_math_symbol_table:
+    \group_end:
+  }
+\cs_new_protected:Npn \@@_um_char:Nn #1#2
   {
     \@@_um_char_aux:Nx #1 { \char_generate:nn {#2} { 12 } }
     \ltjsetmathletter {#2}
@@ -4278,9 +4296,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_generate_variant:Nn \@@_um_char_aux:Nn { Nx }
 \ctex_at_end_package:nn { unicode-math }
   {
-    \cs_if_exist:NTF \um_cs_set_eq_active_char:Nw
-      { \cs_set_eq:NN \um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
-      { \cs_set_eq:NN \__um_cs_set_eq_active_char:Nw \@@_um_char:Nw }
+    \cs_set_eq:NN \__um_define_math_chars: \@@_um_define_math_chars:
     \@ifpackagelater { unicode-math } { 2015/06/28 }
       {
         \cs_set_eq:NN \use@mathgroup \ctex_ltj_use_math_group:Nn
