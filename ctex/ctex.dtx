@@ -772,7 +772,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.2}{2015/06/24}{不再依赖 \pkg{etoolbox} 宏包。}
 %
 %
-% \CheckSum{5014}
+% \CheckSum{5062}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -7249,6 +7249,75 @@ This package consists of the file ctex.dtx, and the derived files
       }
   }
 %    \end{macrocode}
+%
+% \paragraph{兼容 \pkg{titleps} 宏包}
+%
+% \changes{v2.3}{2015/12/25}{兼容 \pkg{titleps} 宏包。}
+%
+% 按照 \pkg{titleps} 宏包的实现机制，|\CTEXtheXXX| 等宏直到页眉排版时才会被展开，
+% 这可能会造成问题\footnote{\url{https://github.com/CTeX-org/ctex-kit/issues/217}}。
+%
+% \begin{macro}[int]{\ctex_titleps_hook:}
+% 我们修改 \pkg{titleps} 包的内部命令 \tn{ttl@settopmark} 和 \tn{ttl@setsubmark}，
+% 将 |\CTEXtheXXX| 等加入更新队列中。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_other:N \#
+\cs_new_protected_nopar:Npn \ctex_titleps_hook:
+  {
+    \ctex_patch_cmd:Nnn \ttl@settopmark
+      { \protect \@namedef { the#1 } { \@nameuse { the#1 } } }
+      {
+        \protect \@namedef { the#1 } { \@nameuse { the#1 } }
+        \CTEX@titlepslabel@set {#1}
+      }
+    \ctex_patch_cmd:Nnn \ttl@setsubmark
+      { \protect \@namedef { the#1 } { } }
+      {
+        \protect \@namedef { the#1 } { }
+        \CTEX@titlepslabel@clear {#1}
+      }
+    \ctex_patch_cmd:Nnn \ttl@setsubmark
+      { \protect \@namedef { the#2 } { \@nameuse { the#2 } } }
+      {
+        \protect \@namedef { the#2 } { \@nameuse { the#2 } }
+        \CTEX@titlepslabel@set {#2}
+      }
+  }
+\group_end:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\CTEX@titlepslabel@set,\CTEX@titlepslabel@clear}
+% 这两个函数要在随后被 \tn{xdef} 展开来获得 |\CTEXtheXXX| 的内容，不应该用
+% \tn{protected} 来定义。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \CTEX@titlepslabel@set #1
+  {
+    \cs_if_free:cF { CTEXthe#1 }
+      { \protect \@namedef { CTEXthe#1 } { \@nameuse { CTEXthe#1 } } }
+  }
+\cs_new_nopar:Npn \CTEX@titlepslabel@clear #1
+  {
+    \cs_if_free:cF { CTEXthe#1 }
+      { \protect \@namedef { CTEXthe#1 } { } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \pkg{titleps} 宏包的功能可以由 \pkg{titlesec} 的选项 \opt{pagestyles} 引入。
+%    \begin{macrocode}
+\ctex_at_end_package:nn { titlesec }
+  { \cs_if_free:NF \ttl@settopmark { \ctex_titleps_hook: } }
+\ctex_at_end_package:nn { titleps } { \ctex_titleps_hook: }
+%    \end{macrocode}
+%
+% 除此之外，也可以使用 \pkg{titleps} 提供的命令 \tn{newtitlemark} 来完成：
+% \begin{verbatim}
+%   \newtitlemark { \CTEXthechapter }
+%   \newtitlemark { \CTEXthesection }
+% \end{verbatim}
+% 但 \tn{newtitlemark} 不包含章节间的层次信息，功能上不及修改内部命令完整。
 %
 %
 % \subsubsection{目录标签的宽度}
