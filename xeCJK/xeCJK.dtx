@@ -453,7 +453,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9795}
+% \CheckSum{9809}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2364,14 +2364,25 @@ CJK scripts fonts (TrueType or OpenType).
 % \end{tabular}
 % \end{center}
 %
+% \changes{v3.3.3}{2016/01/20}{兼容 \LaTeXe{} 2016/02/01 的字符类设置。}
 % \begin{macro}[internal]{Default,CJK,FullLeft,FullRight,Boundary}
-% 这五类是 \XeTeX\ 预定义的类别。
+% \LaTeXe{} 2016/02/01 不再预设置 CJK 字符类。
 %    \begin{macrocode}
 \xeCJK_save_class:nn { Default }   { \c_zero  }
-\xeCJK_save_class:nn { CJK }       { \c_one   }
-\xeCJK_save_class:nn { FullLeft }  { \c_two   }
-\xeCJK_save_class:nn { FullRight } { \c_three }
 \xeCJK_save_class:nn { Boundary }  { \c_two_hundred_fifty_five }
+\int_compare:nNnTF { \xetex_charclass:D "4E00 } = \c_one
+  {
+    \xeCJK_save_class:nn { CJK }       { \c_one   }
+    \xeCJK_save_class:nn { FullLeft }  { \c_two   }
+    \xeCJK_save_class:nn { FullRight } { \c_three }
+    \int_const:Nn \c_@@_class_begin_int { \c_three }
+  }
+  {
+    \xeCJK_new_class:n { CJK }
+    \xeCJK_new_class:n { FullLeft }
+    \xeCJK_new_class:n { FullRight }
+    \int_const:Nn \c_@@_class_begin_int { \c_zero }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2839,12 +2850,15 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.7}{2013/08/29}{修正 \file{unicode-letters.tex} 中谚文符号
 % \tn{catcode} 不准的问题。}
 %    \begin{macrocode}
-\int_set:Nn \l_@@_begin_int { "AC00 }
-\int_set:Nn \l_@@_end_int   { "D7A3 }
-\xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
+\token_if_letter:NF ^^^^ac00
   {
-    \char_set_catcode_letter:n { \l_@@_begin_int }
-    \int_incr:N \l_@@_begin_int
+    \int_set:Nn \l_@@_begin_int { "AC00 }
+    \int_set:Nn \l_@@_end_int   { "D7A3 }
+    \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
+      {
+        \char_set_catcode_letter:n { \l_@@_begin_int }
+        \int_incr:N \l_@@_begin_int
+      }
   }
 %    \end{macrocode}
 %
@@ -7532,10 +7546,11 @@ CJK scripts fonts (TrueType or OpenType).
 \@@_after_end_preamble:n
   {
     \int_compare:nNnF
-      { \c_three + \seq_count:N \g_@@_new_class_seq } =
+      { \c_@@_class_begin_int + \seq_count:N \g_@@_new_class_seq } =
       { \g_@@_xetex_allocator_int }
       {
-        \int_step_inline:nnnn \c_four \c_one \g_@@_xetex_allocator_int
+        \int_step_inline:nnnn
+          { \c_@@_class_begin_int + \c_one} \c_one \g_@@_xetex_allocator_int
           {
             \seq_if_in:NnF \g_@@_new_class_seq {#1}
               { \@@_set_others_toks:n {#1} }
