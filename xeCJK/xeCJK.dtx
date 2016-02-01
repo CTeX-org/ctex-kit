@@ -453,7 +453,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9809}
+% \CheckSum{9814}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9657,26 +9657,32 @@ CJK scripts fonts (TrueType or OpenType).
 %
 %    \begin{macrocode}
 \clist_new:N \g_@@_encname_clist
-\DeclareOption*
-  { \clist_gput_left:NV \g_@@_encname_clist \CurrentOption }
-\ProcessOptions \scan_stop:
 \tl_if_exist:NT \UTFencname
-  { \clist_gput_left:Nx \g_@@_encname_clist { \UTFencname } }
+  { \clist_gput_right:Nx \g_@@_encname_clist { \UTFencname } }
+\DeclareOption*
+  { \clist_gput_right:NV \g_@@_encname_clist \CurrentOption }
+\ProcessOptions \scan_stop:
 %    \end{macrocode}
 %
 % 若 \pkg{xunicode} 已经被调用，则在宏包结束的时候，重新设置 \tn{UTFencname}
 % 对应的编码命令。否则设置 \tn{UTFencname}，如果使用的是 \hologo{LuaLaTeX}，则
 % 需要作一些设置，使得 \pkg{xunicode} 可用。
 %
+% \changes{v3.3.3}{2016/02/01}{使用新的 Unicode 编码名称 \texttt{TU}。}
+%
 %    \begin{macrocode}
 \@ifpackageloaded { xunicode } { }
   {
     \clist_get:NNF \g_@@_encname_clist \UTFencname
       {
-        \sys_if_engine_xetex:TF
-          { \tl_set:Nn \UTFencname { EU1 } }
-          { \tl_set:Nn \UTFencname { EU2 } }
-        \clist_set_eq:NN \g_@@_encname_clist \UTFencname
+        \file_if_exist:nTF { tuenc.def }
+          { \tl_set:Nn \UTFencname { TU } }
+          {
+            \sys_if_engine_xetex:TF
+              { \tl_set:Nn \UTFencname { EU1 } }
+              { \tl_set:Nn \UTFencname { EU2 } }
+          }
+        \clist_gset_eq:NN \g_@@_encname_clist \UTFencname
       }
     \sys_if_engine_xetex:TF
       { \RequirePackage { xunicode } }
@@ -9687,7 +9693,7 @@ CJK scripts fonts (TrueType or OpenType).
         \cs_set_eq:NN \XeTeXpicfile \@@_tmp:w
       }
   }
-\AtEndOfPackage { \ReloadXunicode { \g_@@_encname_clist } }
+\AtEndOfPackage { \@@_reload:N \g_@@_encname_clist }
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\ReloadXunicode}
@@ -9697,35 +9703,35 @@ CJK scripts fonts (TrueType or OpenType).
 \RenewDocumentCommand \ReloadXunicode { m }
   {
     \clist_set:Nx \l_@@_encname_clist {#1}
-    \clist_remove_duplicates:N \l_@@_encname_clist
-    \use:x
-      {
-        \ExplSyntaxOff
-        \char_set_catcode_letter:n { 64 }
-        \@@_reload:N \exp_not:N \l_@@_encname_clist
-        \bool_if:NTF \l__kernel_expl_bool
-          { \ExplSyntaxOn }
-          { \ExplSyntaxOff }
-        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
-      }
+    \@@_reload:N \l_@@_encname_clist
   }
 \cs_new_protected:Npn \@@_reload:N #1
   {
     \cs_set_eq:NN \@@_tmp:w \iftipaonetoken
     \cs_set_eq:NN \iftipaonetoken \scan_stop:
-    \clist_map_inline:Nn #1
+    \use:x
       {
-        \cs_if_exist:cTF { T@ ##1 }
-          {
-            \tl_set:Nx \UTFencname {##1}
-            \clist_gput_right:Nx \g_@@_encname_clist {##1}
-            \file_input:n { xunicode.sty }
-            \file_input:n { xunicode-extra.def }
-          }
-          { \msg_error:nnn { xunicode-addon } { encoding-unknown } {##1} }
+        \ExplSyntaxOff
+        \char_set_catcode_letter:n { 64 }
+        \exp_not:N \clist_map_function:NN \exp_not:N #1 \@@_reload_aux:n
+        \bool_if:NTF \l__kernel_expl_bool
+          { \ExplSyntaxOn }
+          { \ExplSyntaxOff }
+        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
       }
     \cs_set_eq:NN \iftipaonetoken \@@_tmp:w
-    \clist_gremove_duplicates:N \g_@@_encname_clist
+  }
+\cs_new_protected:Npn \@@_reload_aux:n #1
+  {
+    \cs_if_exist:cTF { T@ #1 }
+      {
+        \tl_set:Nn \UTFencname {#1}
+        \clist_if_in:NnF \g_@@_encname_clist {#1}
+          { \clist_gput_right:Nn \g_@@_encname_clist {#1} }
+        \file_input:n { xunicode.sty }
+        \file_input:n { xunicode-extra.def }
+      }
+      { \msg_error:nnn { xunicode-addon } { encoding-unknown } {#1} }
   }
 \clist_new:N \l_@@_encname_clist
 \msg_new:nnnn { xunicode-addon } { encoding-unknown }
