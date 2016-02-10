@@ -11,11 +11,12 @@
 %			Changed \hbox to \mbox. Changed default option to
 %			noactive.
 %		071215	Removed \XeTeXinterchartokenstate=0, as the XeTeX bug
-%			is fixed by JK. Changed \mathcjksizec/d to fit the 
+%			is fixed by JK. Changed \mathcjksizec/d to fit the
 %			main text size.
-%		071229	Added \XeTeXinterchartokenstate=0 again, because not 
+%		071229	Added \XeTeXinterchartokenstate=0 again, because not
 %			everyone has the latest version of XeTeX. Added custom
 %			and nocustom options.
+%		2016/02/20	Improved \@setzhmathfonts.
 \catcode`\@=11
 \ifx\zhmath@defined\@undefined
 \def\zhmath@defined{\relax}
@@ -74,7 +75,7 @@
   \def\zhmath@zhfont@text#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksizeb\char#1\relax}}}
   \def\zhmath@zhfont@scrp#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksizec\char#1\relax}}}
   \def\zhmath@zhfont@subs#1{{\mbox{\XeTeXinterchartokenstate=0\zhmathfont\mathcjksized\char#1\relax}}}
-  
+
   \zhmath@setactivemathchar{"2E80}{"9FFF}{\zhmath@zhfont@disp}%
     {\zhmath@zhfont@text}{\zhmath@zhfont@scrp}{\zhmath@zhfont@subs}
 
@@ -124,15 +125,27 @@
 \newfam\zhmath@letterfam
 \newfam\zhmath@numberfam
 
-\def\@setzhmathfonts#1#2{%
-  \edef\zhmath@font{\fontname#1 }%
-  \font\zhmath@tenfont=\zhmath@font at 10pt
-  \font\zhmath@sevenfont=\zhmath@font at 7pt
-  \font\zhmath@fivefont=\zhmath@font at 5pt\relax
-  \textfont#2=\zhmath@tenfont
-  \scriptfont#2=\zhmath@sevenfont
-  \scriptscriptfont#2=\zhmath@fivefont
+\begingroup
+  \catcode`\A=12 %
+  \catcode`\P=12 %
+  \catcode`\T=12 %
+\lowercase{\endgroup
+  \def\@setzhmathfonts#1#2{%
+    \expandafter\@setzhmathfonts@auxi\fontname#1 AT PT\relax#2}
+  \def\@setzhmathfonts@auxi #1 AT #2PT#3\relax#4{%
+    \ifx\relax#2\relax
+      \@setzhmathfonts@auxii#4{#1}{10pt}%
+    \else
+      \@setzhmathfonts@auxii#4{#1}{#2pt}%
+    \fi}%
 }
+\def\@setzhmathfonts@auxii#1#2#3{%
+  \font\zhmath@textfont=#2 at #3 \relax
+  \font\zhmath@scriptfont=#2 at .7\dimexpr#3\relax\relax
+  \font\zhmath@scriptscriptfont=#2 at .5\dimexpr#3\relax\relax
+  \textfont#1=\zhmath@textfont
+  \scriptfont#1=\zhmath@scriptfont
+  \scriptscriptfont#1=\zhmath@scriptscriptfont}
 \def\setzhmathfont#1{\@setzhmathfonts{#1}\zhmath@fam}
 \setzhmathfont\zhmathfont
 
