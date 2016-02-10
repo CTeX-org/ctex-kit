@@ -21,7 +21,14 @@ supportdir = supportdir or maindir .. "/build/support"
 gitverfiles = gitverfiles or unpackfiles
 gbkfiles = gbkfiles or { }
 big5files = big5files or { }
-generic_insatllfiles = generic_insatllfiles or { }
+context_insatllfiles  = context_insatllfiles  or { }
+generic_insatllfiles  = generic_insatllfiles  or { }
+plain_insatllfiles    = plain_insatllfiles    or { }
+latex_insatllfiles    = latex_insatllfiles    or { }
+luatex_insatllfiles   = luatex_insatllfiles   or { }
+lualatex_insatllfiles = lualatex_insatllfiles or { }
+xetex_insatllfiles    = xetex_insatllfiles    or { }
+xelatex_insatllfiles  = xelatex_insatllfiles  or { }
 subtexdirs = subtexdirs or { }
 
 -- MiKTeX 中，环境变量 TEXINPUTS 的优先级低于系统路径
@@ -176,22 +183,34 @@ copytds_posthook = copytds_posthook or function() end
 function hooked_copytds()
   copytds_prehook()
   unhooked_copytds()
-  -- 移动文件到 tex/generic/<module>/ 目录
-  local tds_latexdir = tdsdir .. "/tex/" .. moduledir
-  local tds_genericdir = tdsdir .. "/tex/generic/" .. module
-  if next(generic_insatllfiles) ~= nil then
-    mkdir(tds_genericdir)
-  end
-  for _,glob in ipairs(generic_insatllfiles) do
-    for _,f in ipairs(filelist(tds_latexdir, glob)) do
-      mv(tds_latexdir .. "/" .. f, tds_genericdir .. "/" .. f)
+  -- 移动文件到对应的 tds 子目录
+  local tds_basedir = tdsdir .. "/tex/" .. moduledir
+  local tds_t = {
+    { context_insatllfiles,  tdsdir .. "/tex/context/third/" .. module } ,
+    { generic_insatllfiles,  tdsdir .. "/tex/generic/" .. module } ,
+    { plain_insatllfiles,    tdsdir .. "/tex/plain/" .. module } ,
+    { latex_insatllfiles,    tdsdir .. "/tex/latex/" .. module } ,
+    { luatex_insatllfiles,   tdsdir .. "/tex/luatex/" .. module } ,
+    { lualatex_insatllfiles, tdsdir .. "/tex/lualatex/" .. module } ,
+    { xetex_insatllfiles,    tdsdir .. "/tex/xetex/" .. module } ,
+    { xelatex_insatllfiles,  tdsdir .. "/tex/xelatex/" .. module } ,
+  }
+  for _,t in ipairs(tds_t) do
+    local files, dir = t[1], t[2]
+    if next(files) ~=nil then
+      mkdir(dir)
+      for _,glob in ipairs(files) do
+        for _,f in ipairs(filelist(tds_basedir, glob)) do
+          mv(tds_basedir .. "/" .. f, dir .. "/" .. f)
+        end
+      end
     end
   end
   -- 移动文件到 tex/latex/<module>/ 下的子目录
   for subdir,glob in pairs(subtexdirs) do
-    mkdir(tds_latexdir .. "/" .. subdir)
-    for _,f in ipairs(filelist(tds_latexdir, glob)) do
-      mv(tds_latexdir .. "/" .. f, tds_latexdir .. "/" .. subdir .. "/" .. f)
+    mkdir(tds_basedir .. "/" .. subdir)
+    for _,f in ipairs(filelist(tds_basedir, glob)) do
+      mv(tds_basedir .. "/" .. f, tds_basedir .. "/" .. subdir .. "/" .. f)
     end
   end
   -- 其他钩子
