@@ -7,12 +7,12 @@ packtdszip = true
 sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
 unpacksuppfiles = {"ctex.ver"}
-installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex"}
+installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex", "*.dict"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
 
-gbkfiles = {"ctex-name-gbk.cfg"}
+gbkfiles = {"ctex-name-gbk.cfg", "translator-theorem-dictionary-ChineseGBK.dict"}
 generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
 subtexdirs = {
     ["config"] = "*.cfg",
@@ -20,6 +20,7 @@ subtexdirs = {
     ["engine"] = "ctex-engine-*.def",
     ["fontset"] = "ctex-fontset-*.def",
     ["scheme"] = "ctex-scheme-*.def",
+    ["dictionary"] = "*.dict",
 }
 
 dofile("../tool/zhl3build.lua")
