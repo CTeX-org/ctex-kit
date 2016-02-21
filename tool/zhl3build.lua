@@ -155,14 +155,18 @@ function hooked_bundleunpack()
   -- Unbundle
   unhooked_bundleunpack()
   -- UTF-8 to GBK conversion
-  for _,f in ipairs(gbkfiles) do
-    local f_utf = unpackdir .. "/" .. f
-    zhconv(f_utf, f_utf)
+  for _,glob in ipairs(gbkfiles) do
+    for _,f in ipairs(filelist(unpackdir,glob)) do
+      local f_utf = unpackdir .. "/" .. f
+      zhconv(f_utf, f_utf)
+    end
   end
   -- UTF-8 to Big5 conversion
   for _,f in ipairs(big5files) do
-    local f_utf = unpackdir .. "/" .. f
-    zhconv(f_utf, f_utf, "big5")
+    for _,f in ipairs(filelist(unpackdir,glob)) do
+      local f_utf = unpackdir .. "/" .. f
+      zhconv(f_utf, f_utf, "big5")
+    end
   end
   is_unpacked = true
   unpack_posthook()
