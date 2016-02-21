@@ -162,7 +162,7 @@ function hooked_bundleunpack()
     end
   end
   -- UTF-8 to Big5 conversion
-  for _,f in ipairs(big5files) do
+  for _,glob in ipairs(big5files) do
     for _,f in ipairs(filelist(unpackdir,glob)) do
       local f_utf = unpackdir .. "/" .. f
       zhconv(f_utf, f_utf, "big5")
