@@ -12,7 +12,7 @@ unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
 
-gbkfiles = {"ctex-name-gbk.cfg", "translator-theorem-dictionary-ChineseGBK.dict"}
+gbkfiles = {"ctex-name-gbk.cfg", "*-ChineseGBK.dict"}
 generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
 subtexdirs = {
     ["config"] = "*.cfg",
