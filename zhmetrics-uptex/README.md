@@ -12,4 +12,4 @@
 
 Run:
 
-`texlua buld.lua`
+`texlua build.lua`
