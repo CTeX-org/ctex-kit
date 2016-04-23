@@ -1,5 +1,11 @@
-zhmetrics-uptex: Chinese Font Metrics for upTeX
+zhmetrics-uptex
 ===============================================
+
+**2016/04/23 Ver 1.0**
+
+The `zhmetrics-uptex` package contains some Chinese font metrics (JFM, VF, etc) for upTeX engine, together with a simple DVIPDFMx font mapping of Fandol fonts for DVIPDFMx.
+
+The font mapping can be loaded in the TeX source file, or changed in the document to use other fonts.
 
 Files
 -----
@@ -7,22 +13,19 @@ Files
 * `upzh*-{h,v}.tfm` are the JFM files used by upTeX.
 * `upzh*-{h,v}.vf` are the virtual fonts used by the output driver (dvipdfmx).
 * `up*-{h,v}.tfm` are the PS TFM files used by the output driver.
-* `upzhfandolfonts.tex` contains the font mappings for Fandol fonts.
+* `upzhfandolfonts.tex` contains the font mappings of Fandol fonts for DVIPDFMx.
 * `upzhfandolfonts-test.tex` is a small LaTeX test file.
 * `upzhm-{h,v}.pl` are the JPL source files used to produce JFM files.
-* `build.lua` is the build script.
+* `makemetrics.lua` is the build script.
 
 Build
 -----
 
-* To create a TDS zip file, run:
-  ```shell
-  texlua build.lua tds
-  ```
-* To create a CTAN zip file, run:
-  ```shell
-  texlua build.lua ctan
-  ```
+To create the metric files, just run:
+```shell
+texlua makemetrics.lua
+```
+in the source directory.
 
 Contributing
 ------------
@@ -45,10 +48,11 @@ This work has the LPPL maintenance status `maintained'.
 The Current Maintainer of this work is Leo Liu.
 
 This work consists of the files
-        build.lua
+        makemetrics.lua
         upzhm-{h,v}.pl
         upzhfandolfonts.tex
         upzhfandolfongs-test.tex
+        README.md
 and the derived files
         upzhserif-{h,v}.tfm
         upzhserifit-{h,v}.tfm

@@ -4,8 +4,6 @@
 -- Copyright (C) 2016 by Leo Liu <leoliu.pku@gmail.com>
 
 local fonts = {'serif', 'serifit', 'serifb', 'sans', 'sansb', 'mono'}
-local pltopf = 'uppltotf -kanji=uptex'
-local makejvf = 'makejvf -i -u gb'
 
 function copyfile(path_src, path_dst)
 	local cp = 'cp -f'
@@ -51,30 +49,7 @@ function rmdir(dir)
 	os.execute(rd .. ' ' .. dir)
 end
 
-function unpack()
-	mkdir('tfm')
-	mkdir('vf')
-	for _, hv in pairs({'h', 'v'}) do
-		for _, fnt in pairs(fonts) do
-			local pl = string.format("upzhm-%s.pl", hv)
-			local jfm = string.format('upzh%s-%s.tfm', fnt, hv)
-			local vf = string.format('upzh%s-%s.vf', fnt, hv)
-			local pstfm = string.format('up%s-%s.tfm', fnt, hv)
-			os.execute(string.format("%s %s %s", pltopf, pl, jfm))
-			os.execute(string.format("%s %s %s", makejvf, jfm, pstfm))
-			move(jfm, 'tfm/' .. jfm)
-			move(vf, 'vf/' .. vf)
-			move(pstfm, 'tfm/' .. pstfm)
-		end
-	end
-end
-
-function tds()
-	local tfmdir = 'tds/fonts/tfm/zhmetrics-uptex'
-	local vfdir = 'tds/fonts/vf/zhmetrics-uptex'
-	local texdir = 'tds/tex/uptex/zhmetrics-uptex'
-	local sourcedir = 'tds/source/fonts/zhmetrics-uptex'
-	local docdir = 'tds/doc/fonts/zhmetrics-uptex'
+function packfiles(zipname, workdir, tfmdir, vfdir, texdir, sourcedir, docdir)
 	mkdir(tfmdir)
 	mkdir(vfdir)
 	mkdir(texdir)
@@ -85,51 +60,84 @@ function tds()
 			local jfm = string.format('upzh%s-%s.tfm', fnt, hv)
 			local vf = string.format('upzh%s-%s.vf', fnt, hv)
 			local pstfm = string.format('up%s-%s.tfm', fnt, hv)
-			copyfile('tfm/' .. jfm, tfmdir .. '/' .. jfm)
-			copyfile('tfm/' .. pstfm, tfmdir .. '/' .. pstfm)
-			copyfile('vf/' .. vf, vfdir .. '/' .. vf)
+			copyfile(jfm, tfmdir .. '/')
+			copyfile(pstfm, tfmdir .. '/')
+			copyfile(vf, vfdir .. '/')
 		end
-		local pl = string.format("upzhm-%s.pl", hv)
-		copyfile(pl, sourcedir .. '/' .. pl)
+		local pl = string.format('upzhm-%s.pl', hv)
+		copyfile(pl, sourcedir .. '/')
 	end
-	copyfile('build.lua', sourcedir .. '/build.lua')
-	copyfile('upzhfandolfonts.tex', texdir .. '/upzhfandolfonts.tex')
-	copyfile('README.md', docdir .. '/README.md')
-	copyfile('upzhfandolfonts-test.tex', docdir .. '/upzhfandolfonts-test.tex')
+	copyfile('makemetrics.lua', sourcedir .. '/')
+	copyfile('upzhfandolfonts.tex', texdir .. '/')
+	copyfile('README.md', docdir .. '/')
+	copyfile('upzhfandolfonts-test.tex', docdir .. '/')
+	copyfile('upzhfandolfonts-test.pdf', docdir .. '/')
 	local tdszipname = 'zhmetrics-uptex.tds.zip'
-	lfs.chdir('tds')
-	os.execute('zip -r ' .. '../' .. tdszipname .. ' *')
+	if lfs.attributes(zipname) then
+		os.remove(zipname)
+	end
+	local curdir = lfs.currentdir()
+	lfs.chdir(workdir)
+	os.execute('zip -r ' .. curdir .. '/' .. zipname .. ' *')
+	lfs.chdir(curdir)
+end
+
+function tds()
+	packfiles('zhmetrics-uptex.tds.zip', 'tds',
+		'tds/fonts/tfm/zhmetrics-uptex',
+		'tds/fonts/vf/zhmetrics-uptex',
+		'tds/tex/uptex/zhmetrics-uptex',
+		'tds/source/fonts/zhmetrics-uptex',
+		'tds/doc/fonts/zhmetrics-uptex')
 end
 
 function ctan()
-	local zipname = 'zhmetrics-uptex.zip'
-	os.execute('zip ' .. zipname .. ' README.md' ..
-		' build.lua upzhm-h.pl upzhm-v.pl' ..
-		' upzhfandolfonts.tex upzhfandolfonts-test.tex')
-	os.execute('zip -r ' .. zipname .. ' tfm/ vf/')
+	packfiles('zhmetrics-uptex.zip', 'ctan',
+		'ctan/tfm',
+		'ctan/vf',
+		'ctan/tex',
+		'ctan/source',
+		'ctan/doc')
+	copyfile('README.md', 'ctan/')
+	os.execute('zip zhmetrics-uptex.zip README.md')
 end
 
 function clean()
+	for _, hv in pairs({'h', 'v'}) do
+		for _, fnt in pairs(fonts) do
+			local jfm = string.format('upzh%s-%s.tfm', fnt, hv)
+			local vf = string.format('upzh%s-%s.vf', fnt, hv)
+			local pstfm = string.format('up%s-%s.tfm', fnt, hv)
+			os.remove(jfm)
+			os.remove(vf)
+			os.remove(pstfm)
+		end
+	end
 	rmdir('tds')
-	rmdir('tfm')
-	rmdir('vf')
-	os.remove('zhmetrics-uptex.zip')
-	os.remove('zhmetrics-uptex.tds.zip')
+	rmdir('ctan')
 end
 
 function main(target)
-	if target == "unpack" then
+	local unpack = function()
+		dofile('makemetrics.lua')
+		os.execute('uplatex upzhfandolfonts-test')
+		os.execute('dvipdfmx upzhfandolfonts-test')
+		for _, suf in pairs({'.aux', '.log', '.dvi'}) do
+			os.remove('upzhfandolfonts-test' .. suf)
+		end
+	end
+	if target == 'unpack' then
 		unpack()
-	elseif target == "tds" then
+	elseif target == 'tds' then
 		unpack()
 		tds()
-	elseif target == "ctan" then
+	elseif target == 'ctan' then
 		unpack()
 		ctan()
-	elseif target == "clean" then
+	elseif target == 'clean' then
 		clean()
 	else
-		print("Usage: " .. arg[0] .. " [unpack|tds|ctan|clean]")
+		print('Usage: ' .. arg[0] .. ' [unpack|tds|ctan|clean]')
 	end
 end
 
