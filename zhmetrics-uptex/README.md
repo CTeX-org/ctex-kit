@@ -1,28 +1,38 @@
-# zhmetrics-uptex: Chinese Font Metrics for upTeX
+zhmetrics-uptex: Chinese Font Metrics for upTeX
+===============================================
 
-## Files
+Files
+-----
 
 * `upzh*-{h,v}.tfm` are the JFM files used by upTeX.
 * `upzh*-{h,v}.vf` are the virtual fonts used by the output driver (dvipdfmx).
 * `up*-{h,v}.tfm` are the PS TFM files used by the output driver.
-* `upzhwinfonts.tex` contains the font mappings for Simplified Chinese version of Windows 8+.
-* `upzhwinfonts-test.tex` is a small LaTeX test file.
+* `upzhfandolfonts.tex` contains the font mappings for Fandol fonts.
+* `upzhfandolfonts-test.tex` is a small LaTeX test file.
 * `upzhm-{h,v}.pl` are the JPL source files used to produce JFM files.
 * `build.lua` is the build script.
 
-## Build
+Build
+-----
 
-Run:
+* To create a TDS zip file, run:
+  ```shell
+  texlua build.lua tds
+  ```
+* To create a CTAN zip file, run:
+  ```shell
+  texlua build.lua ctan
+  ```
 
-`texlua build.lua`
-
-## Contributing
+Contributing
+------------
 
 This font package is a part of the [ctex-kit](https://github.com/CTeX-org/ctex-kit) project.
 
 Issues and pull requests are welcome.
 
-## Copyright and Licence
+Copyright and Licence
+---------------------
 
 Copyright (C) 2016 by Leo Liu <leoliu.pku@gmail.com>
 

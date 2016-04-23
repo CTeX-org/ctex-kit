@@ -55,12 +55,12 @@
 (CHARSINTYPE O 1
    ‘ “ （ 〔 ［ ｛ 〈 《 「 『
    【
-   UFF5F U3018 U3016 U301D 
+   UFF5F U3018 U3016 U301D
    )
 (CHARSINTYPE O 2
    、 ， ’ ” ） 〕 ］ ｝ 〉 》
    」 』 】
-   UFF60 U3019 U3017 U301F 
+   UFF60 U3019 U3017 U301F
    )
 (CHARSINTYPE O 3
    ・ ： ；
