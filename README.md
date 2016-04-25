@@ -20,6 +20,7 @@ Our Packages/Collections on CTAN
 * [xeCJK][xeCJK-ctan]: <http://www.ctan.org/pkg/xecjk>
 * [xpinyin][xpinyin-ctan]: <http://www.ctan.org/pkg/xpinyin>
 * [zhmetrics][zhmetrics-ctan]: <http://www.ctan.org/pkg/zhmetrics>
+* [zhmetrics-uptex][zhmetrics-uptex-ctan]: <http://www.ctan.org/pkg/zhmetrics-uptex>
 * [zhnumber][zhnumber-ctan]: <http://www.ctan.org/pkg/zhnumber>
 * [zhspacing][zhspacing-ctan]: <http://www.ctan.org/pkg/zhspacing>
 
@@ -28,6 +29,7 @@ Our Packages/Collections on CTAN
 [xeCJK-ctan]: http://www.ctan.org/tex-archive/macros/xetex/latex/xecjk
 [xpinyin-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xpinyin
 [zhmetrics-ctan]: http://www.ctan.org/tex-archive/fonts/psfonts/zhmetrics
+[zhmetrics-uptex-ctan]: http://www.ctan.org/tex-archive/fonts/zhmetrics-uptex
 [zhnumber-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/zhnumber
 [zhspacing-ctan]: http://www.ctan.org/tex-archive/macros/xetex/generic/zhspacing
 
@@ -38,5 +40,5 @@ Current Upstream Versions
 * CJKpunct: 4.8.2, from [cjkpunct]
 * zhmCJK: 0.9a, from [leo-liu/tex-pkg][zhmcjk]
 
-[cjkpunct]: http://bbs.ctex.org/viewthread.php?tid=49516&page=1&fromuid=56635#pid344946
+[cjkpunct]: http://bbs.ctex.org/viewthread.php?tid=49516&amp;page=1&amp;fromuid=56635#pid344946
 [zhmcjk]: https://github.com/leo-liu/tex-pkg/commit/589985d67fab11f3d1cb249a070deba6863a5077
