@@ -455,7 +455,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9822}
+% \CheckSum{9838}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2810,22 +2810,27 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKDeclareCharClass { s > { \TrimSpaces } m m }
   {
-    \xeCJK_declare_char_class:nx {#2} {#3}
+    \xeCJK_declare_char_class:nn {#2} {#3}
     \IfBooleanT {#1} { \xeCJKResetPunctClass }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_declare_char_class:nn,\@@_set_char_class_aux:Nnw}
+% \begin{macro}[internal]{\xeCJK_declare_char_class:nn,\xeCJK_declare_char_class:nN}
+% \begin{macro}[aux]{\@@_set_char_class_aux:Nnw}
 % 用于设置字符所属的类别，|#1| 为类别名称，|#2| 为字符的 |Unicode|，相邻字符用
 % 半角逗号隔开，支持类似 |"1100 -> "11FF| 起止范围的使用方式。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_declare_char_class:nn #1#2
   {
-    \clist_set:Nn \l_@@_tmp_clist {#2}
+    \clist_set:Nx \l_@@_tmp_clist {#2}
+    \xeCJK_declare_char_class:nN {#1} \l_@@_tmp_clist
+  }
+\cs_new_protected_nopar:Npn \xeCJK_declare_char_class:nN #1#2
+  {
     \clist_gconcat:ccN
-      { g_@@_#1_range_clist } { g_@@_#1_range_clist } \l_@@_tmp_clist
-    \clist_map_inline:Nn \l_@@_tmp_clist
+      { g_@@_#1_range_clist } { g_@@_#1_range_clist } #2
+    \clist_map_inline:Nn #2
       {
         \str_if_eq:nnF {##1} { -> }
           {
@@ -2838,8 +2843,9 @@ CJK scripts fonts (TrueType or OpenType).
 \NewDocumentCommand \@@_set_char_class_aux:Nnw
   { m > { \SplitArgument { 1 } { -> } } m } { #1 #2 }
 \cs_generate_variant:Nn \clist_gconcat:NNN { cc }
-\cs_generate_variant:Nn \xeCJK_declare_char_class:nn { nx , nV }
+\cs_generate_variant:Nn \xeCJK_declare_char_class:nn { nc }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[internal]{\@@_check_num_range:nnNN}
@@ -2922,10 +2928,14 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKResetPunctClass { }
   {
-    \xeCJK_declare_char_class:nV { HalfLeft  } \c_@@_HalfLeft_chars_clist
-    \xeCJK_declare_char_class:nV { HalfRight } \c_@@_HalfRight_chars_clist
-    \xeCJK_declare_char_class:nV { FullLeft  } \c_@@_FullLeft_chars_clist
-    \xeCJK_declare_char_class:nV { FullRight } \c_@@_FullRight_chars_clist
+    \clist_gclear:N \g_@@_HalfLeft_range_clist
+    \clist_gclear:N \g_@@_HalfRight_range_clist
+    \clist_gclear:N \g_@@_FullLeft_range_clist
+    \clist_gclear:N \g_@@_FullRight_range_clist
+    \xeCJK_declare_char_class:nN { HalfLeft  } \c_@@_HalfLeft_chars_clist
+    \xeCJK_declare_char_class:nN { HalfRight } \c_@@_HalfRight_chars_clist
+    \xeCJK_declare_char_class:nN { FullLeft  } \c_@@_FullLeft_chars_clist
+    \xeCJK_declare_char_class:nN { FullRight } \c_@@_FullRight_chars_clist
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2936,10 +2946,14 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKResetCharClass { }
   {
-    \xeCJK_declare_char_class:nV { CJK } \c_@@_CJK_chars_clist
-    \xeCJK_declare_char_class:nV { NormalSpace } \c_@@_NormalSpace_chars_clist
-    \xeCJK_declare_char_class:nV { CM } \c_@@_CM_chars_clist
-    \xeCJK_declare_char_class:nV { HangulJamo } \c_@@_HangulJamo_chars_clist
+    \clist_gclear:N \g_@@_CJK_range_clist
+    \clist_gclear:N \g_@@_NormalSpace_range_clist
+    \clist_gclear:N \g_@@_CM_range_clist
+    \clist_gclear:N \g_@@_HangulJamo_range_clist
+    \xeCJK_declare_char_class:nN { CJK } \c_@@_CJK_chars_clist
+    \xeCJK_declare_char_class:nN { NormalSpace } \c_@@_NormalSpace_chars_clist
+    \xeCJK_declare_char_class:nN { CM } \c_@@_CM_chars_clist
+    \xeCJK_declare_char_class:nN { HangulJamo } \c_@@_HangulJamo_chars_clist
     \xeCJKResetPunctClass
   }
 %    \end{macrocode}
@@ -4531,9 +4545,9 @@ CJK scripts fonts (TrueType or OpenType).
 % 声明 CJK 子区范围，|#1| 为自定义名称，|#2| 为子区的 |Unicode| 范围。
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKDeclareSubCJKBlock
-  { s > { \TrimSpaces } m > { \TrimSpaces } m }
+  { s > { \TrimSpaces } m m }
   {
-    \xeCJK_declare_sub_char_class:nxx { CJK } {#2} {#3}
+    \xeCJK_declare_sub_char_class:nxn { CJK } {#2} {#3}
     \IfBooleanT {#1} { \xeCJKResetPunctClass }
   }
 \@onlypreamble \xeCJKDeclareSubCJKBlock
@@ -4573,9 +4587,9 @@ CJK scripts fonts (TrueType or OpenType).
       {
         \int_if_exist:cTF { \@@_class_csname:n { CJK/##1 } }
           {
-            \xeCJK_declare_char_class:nx
+            \xeCJK_declare_char_class:nc
               { CJK \bool_if:NF \l_@@_sub_cancel_bool { /##1 } }
-              { \tl_use:c { g_@@_CJK/##1_range_clist } }
+              { g_@@_CJK/##1_range_clist }
           }
           { \@@_error:nx { SubBlock-undefined } {##1} }
       }
@@ -4602,7 +4616,7 @@ CJK scripts fonts (TrueType or OpenType).
       }
     \xeCJK_declare_char_class:nn { #1/#2 } {#3}
   }
-\cs_generate_variant:Nn \xeCJK_declare_sub_char_class:nnn { nxx }
+\cs_generate_variant:Nn \xeCJK_declare_sub_char_class:nnn { nx }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6538,6 +6552,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.6}{2013/08/01}{设置粗体时先检查对应字体是否存在。}
 % \changes{v3.2.7}{2013/11/09}{将 CJK 字符的数学归类由 $7$ 改为 $0$，解决汉字路径的问题。}
 % \changes{v3.2.13}{2014/06/20}{修复参数类型错误。}
+% \changes{v3.3.5}{2016/05/01}{CJKmath 的字符范围遵从 \tn{xeCJKDeclareCharClass} 的设置。}
 % 当没有设置 CJK 数学字体时，使用 \tn{CJKfamilydefault} 作为数学字体。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
@@ -6551,18 +6566,18 @@ CJK scripts fonts (TrueType or OpenType).
       {
         \tl_const:Nx \c_@@_math_family_tl { \l_@@_fontspec_family_tl }
         \DeclareSymbolFont { \c_@@_math_tl } { \c_@@_encoding_tl }
-          { \c_@@_math_family_tl } { \mddefault } { \shapedefault }
+          { \c_@@_math_family_tl } { \mddefault } { \updefault }
         \cs_if_free:cF
-          { \c_@@_encoding_tl/\c_@@_math_family_tl/\bfdefault/\shapedefault }
+          { \c_@@_encoding_tl/\c_@@_math_family_tl/\bfdefault/\updefault }
           {
             \SetSymbolFont { \c_@@_math_tl } { bold } { \c_@@_encoding_tl }
-              { \c_@@_math_family_tl } { \bfdefault } { \shapedefault }
+              { \c_@@_math_family_tl } { \bfdefault } { \updefault }
           }
         \int_const:Nn \c_xeCJK_math_fam_int { \use:c { sym \c_@@_math_tl } }
         \clist_concat:NNN \l_@@_tmp_clist
-          \c_@@_CJK_chars_clist \c_@@_FullLeft_chars_clist
+          \g_@@_CJK_range_clist \g_@@_FullLeft_range_clist
         \clist_concat:NNN \l_@@_tmp_clist
-          \l_@@_tmp_clist \c_@@_FullRight_chars_clist
+          \l_@@_tmp_clist \g_@@_FullRight_range_clist
         \clist_map_inline:Nn \l_@@_tmp_clist
           {
             \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn {##1}
