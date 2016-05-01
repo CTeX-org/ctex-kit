@@ -821,7 +821,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5515}
+% \CheckSum{5528}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -5746,30 +5746,6 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \paragraph{其它设置}
 %
-% \begin{macro}[int]{\ctex_ltj_update_xkanjiskip:,\l_@@_xkanjiskip_skip}
-% \tn{ltjsetparameter} 对 \opt{xkanjiskip} 是即时赋值。\tn{zw} 与字体相关，因此
-% 需要每次 \tn{selectfont} 的时候更新一次 \opt{xkanjiskip}。如果用户设置过
-% \opt{xkanjiskip}，就不更新。注意，同 \TeX{} 的 \tn{baselineskip} 一样，如果在
-% 一个段落内多次设置了 \opt{kanjiskip} 或 \opt{xkanjiskip}，最后的设置会影响
-% 全段。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_ltj_update_xkanjiskip:
-  {
-    \skip_if_eq:nnT
-      { \ltjgetparameter { xkanjiskip } } { \l_@@_xkanjiskip_skip }
-      {
-        \skip_set:Nn \l_@@_xkanjiskip_skip { .25 \zw plus 1pt minus 1pt }
-        \ltjsetxkanjiskip \l_@@_xkanjiskip_skip
-      }
-  }
-%    \end{macrocode}
-% 注意，此时还没有实际设置字体，所以 \tn{zw} 是 \opt{0pt}。
-%    \begin{macrocode}
-\skip_new:N \l_@@_xkanjiskip_skip
-\skip_set:Nn \l_@@_xkanjiskip_skip { .25 \zw plus 1pt minus 1pt }
-%    \end{macrocode}
-% \end{macro}
-%
 % 在抄录环境中禁用 \opt{autospacing} 和 \opt{autoxspacing}。然而，\pkg{LuaTeX-ja}
 % 还是会使 JAchar 自动折行。没有看到有简单的禁用折行的办法，可能需要设置所有的
 % JAchar 的 \opt{prebreakpenalty} 或 \opt{postbreakpenalty} 为 \texttt{10000}：
@@ -5936,11 +5912,11 @@ This package consists of the file ctex.dtx, and the derived files
     \@ifpackageloaded { tracefnt }
       {
         \EverySelectfont
-        {
-          \ifnum \tracingfonts > \tw@
-            \@font@info { Switching~ to~ \font@name }
-          \fi
-        }
+          {
+            \ifnum \tracingfonts > \tw@
+              \@font@info { Switching~ to~ \font@name }
+            \fi
+          }
       }
       { }
     \let \@EverySelectfont@Init \undefined
@@ -6285,7 +6261,7 @@ This package consists of the file ctex.dtx, and the derived files
   { \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } + \zw } }
 %</luatex>
 %<*uptex>
-  { \skip_set:Nn \ccwd { 1zw + \kanjiskip } }
+  { \skip_set:Nn \ccwd { 1zw + \ptex_kanjiskip:D } }
 %</uptex>
 \dim_new:N \ccwd
 %    \end{macrocode}
@@ -6308,7 +6284,7 @@ This package consists of the file ctex.dtx, and the derived files
   { \ltjsetkanjiskip \l_@@_ccglue_skip }
 %</luatex>
 %<*uptex>
-  { \kanjiskip \l_@@_ccglue_skip }
+  { \skip_set_eq:NN \ptex_kanjiskip:D \l_@@_ccglue_skip }
 %</uptex>
 \skip_new:N \l_@@_ccglue_skip
 %    \end{macrocode}
@@ -6328,7 +6304,7 @@ This package consists of the file ctex.dtx, and the derived files
       { \prg_return_false: } { \prg_return_true: }
 %</luatex>
 %<*uptex>
-    \skip_if_eq:nnTF { \l_@@_ccglue_skip } { \kanjiskip }
+    \skip_if_eq:nnTF { \l_@@_ccglue_skip } { \ptex_kanjiskip:D }
       { \prg_return_false: } { \prg_return_true: }
 %</uptex>
   }
@@ -6403,11 +6379,47 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \ctex_ltj_select_font:
     \ctex_ltj_select_alternate_font:
-    \ctex_ltj_update_xkanjiskip:
   }
 \tl_set:Nn \CJK@family { song } \selectfont
 \tl_clear:N \CJK@family
 %</luatex>
+%    \end{macrocode}
+%
+% \changes{v2.4.1}{2016/05/01}{随字体更新 \upTeX{} 的 \tn{xkanjiskip}。}
+%
+% \begin{macro}[int]{\ctex_update_xkanjiskip:,\l_@@_xkanjiskip_skip}
+% \upTeX{} 和 \pkg{LuaTeX-ja} 对 \tn{xkanjiskip} 都是即时赋值。单位 \opt{zw} 与字体相关，因此
+% 需要每次 \tn{selectfont} 的时候更新一次 \tn{xkanjiskip}。如果用户设置过
+% \tn{xkanjiskip}，就不更新。注意，同 \TeX{} 的 \tn{baselineskip} 一样，如果在
+% 一个段落内多次设置了 \tn{kanjiskip} 或 \tn{xkanjiskip}，只有最后的设置会影响
+% 全段。
+%    \begin{macrocode}
+%<*luatex|uptex>
+\cs_new_protected_nopar:Npn \ctex_update_xkanjiskip:
+  {
+    \skip_if_eq:nnT
+%<luatex>      { \ltjgetparameter { xkanjiskip } } { \l_@@_xkanjiskip_skip }
+%<uptex>      { \ptex_xkanjiskip:D } { \l_@@_xkanjiskip_skip }
+      {
+        \skip_set:Nn \l_@@_xkanjiskip_skip { \l_@@_xkanjiskip_tl }
+%<luatex>        \ltjsetxkanjiskip \l_@@_xkanjiskip_skip
+%<uptex>        \skip_set_eq:NN \ptex_xkanjiskip:D \l_@@_xkanjiskip_skip
+      }
+  }
+\tl_new:N \l_@@_xkanjiskip_tl
+\tl_set:Nn \l_@@_xkanjiskip_tl
+%<luatex>  { .25\zw plus 1pt minus 1pt }
+%<uptex>  { .25zw plus 1pt minus 1pt }
+\skip_new:N \l_@@_xkanjiskip_skip
+\skip_set:Nn \l_@@_xkanjiskip_skip
+%<luatex>  { \ltjgetparameter { xkanjiskip } }
+%<uptex>  { \ptex_xkanjiskip:D }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\ctex_add_to_selectfont:n { \ctex_update_xkanjiskip: }
+%</luatex|uptex>
 %    \end{macrocode}
 %
 % \begin{macro}{space}
