@@ -311,7 +311,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1216}
+% \CheckSum{1219}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -513,6 +513,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %     \zhnumsetup{time=Chinese}
 %     \zhtoday\zhcurrtime
 %   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2016-05-01]{arabicsep}
+%   \begin{syntax}
+%     arabicsep = \Arg{sep}
+%   \end{syntax}
+%   设置日期和时间的数字格式为阿拉伯数字时，阿拉伯数字与汉字的间隔内容。默认为一个空格。
 % \end{function}
 %
 % \begin{function}[updated=2012-05-25]{style}
@@ -1150,11 +1157,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       { \@@_week_day:www #2 \q_stop }
   }
 \cs_new:Npn \@@_date:www #1/#2/#3 \q_stop
-  {
-    \zhnum_check_time:Nn \zhnum_digits_null:n {#1} \c_@@_year_tl
-    \zhnum_check_time:Nn \zhnum_int:n {#2} \c_@@_month_tl
-    \zhnum_check_time:Nn \zhnum_int:n {#3} \c_@@_day_tl
-  }
+  { \@@_date_aux:nnn {#1} {#2} {#3} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1162,19 +1165,27 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 % 输出当天日期。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhtoday
-  {
-    \zhnum_check_time:Nn \zhnum_digits_null:V \tex_year:D \c_@@_year_tl
-    \zhnum_check_time:Nn \zhnum_int:n \tex_month:D \c_@@_month_tl
-    \zhnum_check_time:Nn \zhnum_int:n \tex_day:D   \c_@@_day_tl
-  }
+  { \@@_date_aux:Vnn \tex_year:D \tex_month:D \tex_day:D }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\zhnum_check_time:Nn}
-% 判断是用中文数字还是用阿拉伯数组。
+% \begin{macro}{\@@_date_aux:nnn}
 %    \begin{macrocode}
-\cs_new:Npn \zhnum_check_time:Nn #1
-  { \bool_if:NTF \l_@@_time_bool {#1} { \int_to_arabic:n } }
+\cs_new_nopar:Npn \@@_date_aux:nnn
+  {
+    \bool_if:NTF \l_@@_time_bool
+      { \@@_date_aux:NNnnnn \zhnum_digits_null:n \zhnum_int:n { } }
+      { \@@_date_aux:Nnnnn \int_to_arabic:n { \l_@@_arabic_sep_tl } }
+  }
+\cs_new:Npn \@@_date_aux:Nnnnn #1
+  { \@@_date_aux:NNnnnn #1#1 }
+\cs_new:Npn \@@_date_aux:NNnnnn #1#2#3#4#5#6
+  {
+    #1 {#4} #3 \c_@@_year_tl  #3
+    #2 {#5} #3 \c_@@_month_tl #3
+    #2 {#6} #3 \c_@@_day_tl
+  }
+\cs_generate_variant:Nn \@@_date_aux:nnn { V }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1286,10 +1297,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   {
     \cs_new:Npn \exp_not:N \@@_time:ww ##1 \c_colon_str ##2 \exp_not:N \q_stop
   }
-  {
-    \zhnum_check_time:Nn \zhnum_int:n {#1} \c_@@_hour_tl
-    \zhnum_check_time:Nn \zhnum_int:n {#2} \c_@@_minute_tl
-  }
+  { \@@_time_aux:nn {#1} {#2} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1298,10 +1306,25 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_nopar:Npn \zhcurrtime
   {
-    \zhnum_check_time:Nn \zhnum_int:n
-      { \int_div_truncate:nn \tex_time:D { 60 } } \c_@@_hour_tl
-    \zhnum_check_time:Nn \zhnum_int:n
-      { \int_mod:nn \tex_time:D { 60 } } \c_@@_minute_tl
+    \@@_time_aux:nn
+      { \int_div_truncate:nn \tex_time:D { 60 } }
+      { \int_mod:nn \tex_time:D { 60 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[aux]{\@@_time_aux:nn,\@@_time_aux:Nnnn}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_time_aux:nn
+  {
+    \bool_if:NTF \l_@@_time_bool
+      { \@@_time_aux:Nnnn \zhnum_int:n { } }
+      { \@@_time_aux:Nnnn \int_to_arabic:n { \l_@@_arabic_sep_tl } }
+  }
+\cs_new:Npn \@@_time_aux:Nnnn #1#2#3#4
+  {
+    #1 {#3} #2 \c_@@_hour_tl #2
+    #1 {#4} #2 \c_@@_minute_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1889,6 +1912,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
     ganzhi-cyclic / false.code:n =
       { \cs_set_eq:NN \zhnum_ganzhi:nnn \zhnum_ganzhi_normal:nnn } ,
     ganzhi-cyclic     .default:n = { true } ,
+    arabicsep          .tl_set:N = \l_@@_arabic_sep_tl
   }
 \str_new:N \l_@@_encoding_str
 \msg_new:nnnn { zhnumber } { encoding-invalid }
@@ -1910,7 +1934,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % 初始化设置和执行宏包选项。
 %    \begin{macrocode}
-\keys_set:nn { zhnum / options } { style , time }
+\keys_set:nn { zhnum / options } { style , time , arabicsep = { ~ } }
 \ProcessKeysOptions { zhnum / options }
 %    \end{macrocode}
 %
