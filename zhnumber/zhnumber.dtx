@@ -200,7 +200,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %<config&utf8>  {\ExplFileName-utf8.cfg}
 %<config&big5>  {\ExplFileName-big5.cfg}
 %<config&gbk>  {\ExplFileName-gbk.cfg}
-  {\ExplFileDate}{2.3}{\ExplFileDescription}
+  {\ExplFileDate}{2.4}{\ExplFileDescription}
 %</driver|package|config>
 %<*driver>
 \ExplSyntaxOff
@@ -311,7 +311,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %</driver>
 % \fi
 %
-% \CheckSum{1193}
+% \CheckSum{1216}
 % \GetFileInfo{\jobname.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -323,8 +323,8 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %
 % \section{简介}
 % \pkg{zhnumber} 宏包用于将阿拉伯数字按照中文格式输出。相比于 \pkg{CJKnumb}，它提供
-% 的三个格式转换命令 \tn{zhnumber}，\tn{zhdigits} 和 \tn{zhnum} 都是可以适当展开的，
-% 可以正常使用于 |PDF| 书签和交叉引用。
+% 的四个格式转换命令 \tn{zhnumber}，\tn{zhdigits}、\tn{zhnum} 和 \tn{zhdig}
+% 都是可以适当展开的，可以正常使用于 |PDF| 书签和交叉引用。
 %
 % \pkg{zhnumber} 支持 |GBK|，|Big5| 和 |UTF8| 编码，依赖 \hologo{LaTeX3} 项目的
 % \pkg{expl3}，\pkg{xparse} 和 \pkg{l3keys2e} 宏包。
@@ -373,13 +373,25 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   \end{SideBySideExample}
 % \end{function}
 %
-% \begin{function}[rEXP, updated=2014-09-09]{\zhnum}
+% \begin{function}[rEXP, updated=2016-05-01]{\zhnum}
 %   \begin{syntax}
 %     \tn{zhnum} \Arg{counter}
+%     \tn{pagenumbering} \{zhnum\}
 %   \end{syntax}
 %   与 |\roman| 等类似，用于将 \LaTeX 计数器的值转换为中文数字。例如
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
 %     \zhnum{section}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[rEXP, added=2016-05-01]{\zhdig}
+%   \begin{syntax}
+%     \tn{zhdig} \Arg{counter}
+%     \tn{pagenumbering} \{zhdig\}
+%   \end{syntax}
+%   与 |\roman| 等类似，用于将 \LaTeX 计数器的值转换为中文数字串。例如
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.6\linewidth,gobble=5]
+%     \zhdig{section}
 %   \end{SideBySideExample}
 % \end{function}
 %
@@ -594,11 +606,12 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %   才会有效果。
 % \end{function}
 %
-% \begin{function}[updated=2014-09-09]{\zhnumber,\zhdigits,\zhnum}
+% \begin{function}[updated=2016-05-01]{\zhnumber,\zhdigits,\zhnum,\zhdig}
 %   \begin{syntax}
 %     \tn{zhnumber}   \oarg{options} \Arg{number}
 %     \tn{zhdigits} * \oarg{options} \Arg{number}
 %     \tn{zhnum}      \oarg{options} \Arg{counter}
+%     \tn{zhdig}      \oarg{options} \Arg{counter}
 %   \end{syntax}
 %   如果只改变当前数字的中文输出格式，可以使用带选项的格式转换命令，其中 \meta{options}
 %   与 \tn{zhnumsetup} 的参数相同，如上所介绍。这些带了选项的命令是不可展开的，在某些场合使
@@ -789,6 +802,13 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
       }
   }
 \cs_generate_variant:Nn \zhnum_int:n { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@zhnum}
+% 用于支持 |\pagenumbering{zhnum}|。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@zhnum { \zhnum_int:n }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -1002,6 +1022,39 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\zhdig}
+% 用于将 \LaTeX{} 计数器按中文数字串输出。
+%    \begin{macrocode}
+\DeclareExpandableDocumentCommand \zhdig { +o +m }
+  {
+    \IfNoValueTF {#1}
+      { \zhnum_digits_counter:n }
+      { \zhdigwithoptions {#1} }
+    {#2}
+  }
+\NewDocumentCommand \zhdigwithoptions { +m +m }
+  {
+    \group_begin:
+      \keys_set:nn { zhnum / options } {#1}
+      \zhnum_digits_counter:n #1 {#2}
+    \group_end:
+  }
+\cs_new:Npn \zhnum_digits_counter:n #1
+  {
+    \int_if_exist:cTF { c@#1 }
+      { \zhnum_digits_null:v { c@#1 } }
+      { \@@_counter_error:n {#1} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\@zhdig}
+% 用于支持 |\pagenumbering{zhdig}|。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@zhdig #1 { \zhnum_digits_null:f { \int_eval:n {#1} } }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\zhdigits,\zhdigitswithoptions}
 % 将输入的数字输出为中文数字串输出。
 %    \begin{macrocode}
@@ -1029,7 +1082,7 @@ and some specific Chinese Simplified fonts (TrueType or OpenType).
   { \zhnum_digits:Nn \BooleanTrue }
 \cs_new_nopar:Npn \zhnum_digits_null:n
   { \zhnum_digits:Nn \BooleanFalse }
-\cs_generate_variant:Nn \zhnum_digits_null:n { V }
+\cs_generate_variant:Nn \zhnum_digits_null:n { V , v , f }
 %    \end{macrocode}
 % \end{macro}
 %
