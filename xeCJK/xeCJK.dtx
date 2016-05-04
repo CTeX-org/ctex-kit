@@ -40,6 +40,7 @@ This package consists of the file  xeCJK.dtx,
                                    xeCJK-example-verbatim.tex,
                                    xeCJK-example-CM.tex,
                                    xeCJK-example-listings.tex,
+                                   xeCJK-example-mathblock.tex,
                                    xunicode-symbols.tex,
                                    xunicode-commands.tex,
                                    xunicode-combine-marks.tex,
@@ -185,6 +186,7 @@ CJK scripts fonts (TrueType or OpenType).
                                       xeCJK-example-verbatim.tex,
                                       xeCJK-example-CM.tex,
                                       xeCJK-example-listings.tex,
+                                      xeCJK-example-mathblock.tex,
                                       xunicode-symbols.tex,
                                       xunicode-commands.tex,
                                       xunicode-combine-marks.tex,
@@ -225,6 +227,7 @@ CJK scripts fonts (TrueType or OpenType).
     \file{xeCJK-example-verbatim.tex}     {\from{\jobname.dtx}{ex-verb}}
     \file{xeCJK-example-CM.tex}           {\from{\jobname.dtx}{ex-cm}}
     \file{xeCJK-example-listings.tex}     {\from{\jobname.dtx}{ex-listings}}
+    \file{xeCJK-example-mathblock.tex}    {\from{\jobname.dtx}{ex-mathblock}}
     \file{xunicode-symbols.tex}           {\from{\jobname.dtx}{xunicode-symbols}}
     \nopreamble\nopostamble
     \usedir{doc/xelatex/xecjk}
@@ -455,7 +458,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9838}
+% \CheckSum{9978}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -589,7 +592,7 @@ CJK scripts fonts (TrueType or OpenType).
 %   缺省状态下，\pkg{xeCJK} 会忽略 CJK 文字之间的空格，使用这一选项来保留它们之间的空格。
 % \end{function}
 %
-% \begin{function}[EXP]{CJKmath}
+% \begin{function}[EXP,updated=2016-05-04]{CJKmath}
 %   \begin{syntax}
 %     CJKmath = \meta{\TFF}
 %   \end{syntax}
@@ -5998,7 +6001,7 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_copy_family:nn}
+% \begin{macro}[internal]{\@@_copy_family:nn,\@@_copy_family:xx}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_copy_family:nn #1#2
   {
@@ -6020,7 +6023,8 @@ CJK scripts fonts (TrueType or OpenType).
           { \@@_family_nfss_csname:n {#2} }
       }
   }
-\cs_generate_variant:Nn \@@_copy_family:nn { xx }
+\cs_new_protected_nopar:Npn \@@_copy_family:xx #1#2
+  { \use:x { \@@_copy_family:nn {#1} {#2} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6056,34 +6060,38 @@ CJK scripts fonts (TrueType or OpenType).
         \@@_info:nxx { CJK-block } {#1} {#2}
         \str_if_eq:nnTF {#2} { CJK }
           { \xeCJK_select_font: }
-          { \@@_block_select_font:n {#2} }
+          { \xeCJK_select_font:n {#2} }
       }
   }
 \@@_msg_new:nn { CJK-block } { Switch~from~block~`#1'~to~`#2'. }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_block_select_font:n}
+% \begin{macro}[internal]{\xeCJK_select_font:n,\xeCJK_block_family:nn}
 % 若当前 CJK 字体族没有定义子分区 |#1| 的字体，则使用 \tn{CJKfamilydefault} 的对应
 % 分区字体；若 \tn{CJKfamilydefault} 也没有定义该分区字体，则使用当前 CJK 字体族的
 % 主分区字体。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_block_select_font:n #1
+\cs_new_protected_nopar:Npn \xeCJK_select_font:n #1
   {
     \exp_args:Nc \cs_if_exist_use:NF { \@@_font_csname:n { \CJK@family/#1 } }
       {
-        \xeCJK_family_if_exist:xF { \l_xeCJK_family_tl/#1 }
-          {
-            \@@_copy_family:xx { \l_xeCJK_family_tl/#1 }
-              {
-                \cs_if_exist:cTF
-                  { \@@_family_csname:n { \CJKfamilydefault/#1 } }
-                  { \CJKfamilydefault/#1 } { \l_xeCJK_family_tl }
-              }
-          }
+        \xeCJK_block_family:nn { \l_xeCJK_family_tl } {#1}
         \@@_family_use:x { \l_xeCJK_family_tl/#1 }
         \xeCJK_font_gset_to_current:c
           { \@@_font_csname:n { \CJK@family/#1 } }
+      }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_block_family:nn #1#2
+  {
+    \xeCJK_family_if_exist:xF { #1/#2 }
+      {
+        \@@_copy_family:xx { #1/#2 }
+          {
+            \cs_if_exist:cTF
+              { \@@_family_csname:n { \CJKfamilydefault/#2 } }
+              { \CJKfamilydefault/#2 } {#1}
+          }
       }
   }
 %    \end{macrocode}
@@ -6478,37 +6486,35 @@ CJK scripts fonts (TrueType or OpenType).
           {
             \@@_warning:n { fandol }
             \@@_load_fandol:
-            \use:n
+            \xeCJK_ensure_default_family:
           }
-          {
-            \@@_warning:nx { no-CJKfamily } { \CJKfamilydefault }
-            \use_none:n
-          }
+          { \@@_warning:nx { no-CJKfamily } { \CJKfamilydefault } }
       }
-      { \use:n }
+      { \xeCJK_ensure_default_family: }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_ensure_default_family:
+  {
+    \xeCJK_family_if_exist:xF { \CJKfamilydefault }
       {
-        \xeCJK_family_if_exist:xF { \CJKfamilydefault }
+        \tl_set_eq:NN \l_@@_tmp_tl \CJKfamilydefault
+        \str_if_eq_x:nnTF { \CJKfamilydefault } { \CJKrmdefault }
+          { \use:n }
           {
-            \tl_set_eq:NN \l_@@_tmp_tl \CJKfamilydefault
-            \str_if_eq_x:nnTF { \CJKfamilydefault } { \CJKrmdefault }
-              { \use:n }
-              {
-                \xeCJK_family_if_exist:xTF { \CJKrmdefault }
-                  { \tl_gset:Nn \CJKfamilydefault { \CJKrmdefault } }
-              }
-              {
-                \prop_map_inline:Nn \g_@@_family_font_name_prop
-                  {
-                    \prop_map_break:n
-                      { \tl_gset_rescan:Nnn \CJKfamilydefault { } {#1} }
-                  }
-              }
-            \@@_warning:nxx { CJKfamilydefault-undefined }
-              { \l_@@_tmp_tl } { \CJKfamilydefault }
+            \xeCJK_family_if_exist:xTF { \CJKrmdefault }
+              { \tl_gset:Nn \CJKfamilydefault { \CJKrmdefault } }
           }
-        \xeCJK_switch_family:n { \CJKfamilydefault }
-        \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
+          {
+            \prop_map_inline:Nn \g_@@_family_font_name_prop
+              {
+                \prop_map_break:n
+                  { \tl_gset_rescan:Nnn \CJKfamilydefault { } { ##1 } }
+              }
+          }
+        \@@_warning:nxx { CJKfamilydefault-undefined }
+          { \l_@@_tmp_tl } { \CJKfamilydefault }
       }
+    \xeCJK_switch_family:n { \CJKfamilydefault }
+    \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
   }
 \@@_msg_new:nn { no-CJKfamily }
   {
@@ -6558,48 +6564,172 @@ CJK scripts fonts (TrueType or OpenType).
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
   {
     \xeCJK_family_if_exist:xTF { \c_@@_math_tl }
-      { \use:n }
+      { \@@_set_mathfont_aux: }
       {
-        \xeCJK_family_if_exist:xTF { \CJKfamilydefault }
-          { \use:n } { \use_none:n }
-      }
-      {
-        \tl_const:Nx \c_@@_math_family_tl { \l_@@_fontspec_family_tl }
-        \DeclareSymbolFont { \c_@@_math_tl } { \c_@@_encoding_tl }
-          { \c_@@_math_family_tl } { \mddefault } { \updefault }
-        \cs_if_free:cF
-          { \c_@@_encoding_tl/\c_@@_math_family_tl/\bfdefault/\updefault }
+        \xeCJK_family_if_exist:xT { \CJKfamilydefault }
           {
-            \SetSymbolFont { \c_@@_math_tl } { bold } { \c_@@_encoding_tl }
-              { \c_@@_math_family_tl } { \bfdefault } { \updefault }
-          }
-        \int_const:Nn \c_xeCJK_math_fam_int { \use:c { sym \c_@@_math_tl } }
-        \clist_concat:NNN \l_@@_tmp_clist
-          \g_@@_CJK_range_clist \g_@@_FullLeft_range_clist
-        \clist_concat:NNN \l_@@_tmp_clist
-          \l_@@_tmp_clist \g_@@_FullRight_range_clist
-        \clist_map_inline:Nn \l_@@_tmp_clist
-          {
-            \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn {##1}
-              { \c_zero } { \c_xeCJK_math_fam_int }
+            \@@_copy_family:xx { \c_@@_math_tl } { \CJKfamilydefault }
+            \@@_set_mathfont_aux:
           }
       }
+  }
+\cs_new_protected_nopar:Npn \@@_set_mathfont_aux:
+  {
+    \tl_const:Nx \c_@@_math_family_tl { \l_@@_fontspec_family_tl }
+    \xeCJK_declare_mathfont:nn { \c_@@_math_tl } { \c_@@_math_family_tl }
+    \int_const:Nn \c_xeCJK_math_fam_int { \use:c { sym \c_@@_math_tl } }
+    \clist_concat:NNN \g_@@_math_chars_clist
+      \g_@@_CJK_range_clist \g_@@_FullLeft_range_clist
+    \clist_concat:NNN \g_@@_math_chars_clist
+      \g_@@_math_chars_clist \g_@@_FullRight_range_clist
+    \xeCJK_gset_mathcode:Nn \g_@@_math_chars_clist { \c_xeCJK_math_fam_int }
+    \xeCJK_set_mathfont_block:
+  }
+\clist_new:N \g_@@_math_chars_clist
+\prop_new:N \g_@@_fam_prop
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.3.5}{2016/05/04}{CJKmath 功能也支持分区字体。}
+%
+% \begin{macro}[internal]{\xeCJK_set_mathfont_block:}
+% 分区数学字体。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_set_mathfont_block:
+  {
+    \seq_if_empty:NF \g_@@_CJK_sub_class_seq
+      {
+        \seq_map_function:NN
+          \g_@@_CJK_sub_class_seq
+          \xeCJK_set_mathfont_block:n
+      }
+  }
+\cs_new_protected_nopar:Npn \xeCJK_set_mathfont_block:n #1
+  {
+    \xeCJK_block_family:nn { \c_@@_math_tl } {#1}
+    \prop_get:NoNTF \g_@@_fam_prop
+      { \l_@@_fontspec_family_tl } \l_@@_tmp_tl
+      { \int_set:Nn \l_@@_fam_int { \l_@@_tmp_tl } }
+      {
+        \xeCJK_declare_mathfont:nn
+          { \c_@@_math_tl / #1 } { \l_@@_fontspec_family_tl }
+        \@@_set_mathfont_block_aux:cn { sym \c_@@_math_tl / #1 } {#1}
+      }
+    \xeCJK_gset_mathcode:cn { g_@@_CJK/#1_range_clist } { \l_@@_fam_int }
+  }
+\cs_new_protected_nopar:Npn \@@_set_mathfont_block_aux:Nn #1#2
+  {
+    \int_set_eq:NN \l_@@_fam_int #1
+    \prop_gput:Nnn \g_@@_block_fam_prop {#2} {#1}
+  }
+\int_new:N \l_@@_fam_int
+\prop_new:N \g_@@_block_fam_prop
+\cs_generate_variant:Nn \@@_set_mathfont_block_aux:Nn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_declare_mathfont:nn}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_declare_mathfont:nn #1#2
+  {
+    \xeCJK_declare_symbol_font:nnnnn {#1} { \c_@@_encoding_tl }
+      {#2} { \mddefault } { \updefault }
+    \cs_if_free:cF
+      { \c_@@_encoding_tl/#2/\bfdefault/\updefault }
+      {
+        \SetSymbolFont {#1} { bold } { \c_@@_encoding_tl }
+          {#2} { \bfdefault } { \updefault }
+      }
+    \prop_gput:Nxx \g_@@_fam_prop {#2} { \exp_not:c { sym #1 } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\xeCJK_gset_mathcode:nnnn}
+% \begin{macro}[internal]{\xeCJK_declare_symbol_font:nnnnn}
+% 主要功能同 \tn{DeclareSymbolFont}，不带编码和重复定义检查。
 %    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_declare_symbol_font:nnnnn #1
+  { \@@_declare_symbol_font:cnnnn { sym #1 } }
+\cs_new_protected:Npn \@@_declare_symbol_font:Nnnnn #1
+  {
+    \xeCJK_new_fam:N #1
+    \xeCJK_new_symbol_font:Nnnnn #1
+  }
+\cs_generate_variant:Nn \@@_declare_symbol_font:Nnnnn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_new_fam:N}
+% 我们从 $255$ 往下分配 \tn{fam}，|\count18| 是 \LaTeXe{} 记录最后分配的 \tn{fam} 编号，
+% 作为我们的分配器的下限。事实上，还应该相应地减小 \tn{e@mathgroup@top} 才合理，但这可能会有不利影响，
+% 我们暂未处理。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_new_fam:N #1
+  {
+    \int_compare:nNnTF
+      { \g_@@_fam_allocation_int } > { \g_@@_fam_bottom_int }
+      {
+        \int_set_eq:NN \allocationnumber \g_@@_fam_allocation_int
+        \int_const:Nn #1 { \allocationnumber }
+        \iow_log:x
+          {
+            \token_to_str:N #1 =
+            \token_to_str:N \mathgroup \int_use:N \allocationnumber
+          }
+        \int_gdecr:N \g_@@_fam_allocation_int
+      }
+      { \@@_error:n { fam-overflow } }
+  }
+\tex_countdef:D \g_@@_fam_bottom_int = 18 ~
+\int_new:N \g_@@_fam_allocation_int
+\int_gset_eq:NN \g_@@_fam_allocation_int \c_two_hundred_fifty_five
+\@@_msg_new:nn { fam-overflow }
+  { No~room~for~a~new~fam. }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_new_symbol_font:Nnnnn}
+% \begin{macro}[aux]{\@@_new_symbol_font:NN}
+% 功能同 \tn{new@symbolfont}，但我们不增加 \tn{c@mv@normal} 和 \tn{c@mv@bold} 之类的计数器。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_new_symbol_font:Nnnnn #1#2#3#4#5
+  { \@@_new_symbol_font:Nc #1 { #2/#3/#4/#5 } }
+\cs_new_protected:Npn \@@_new_symbol_font:NN #1#2
+  {
+    \tl_put_right:Nn \group@list { \group@elt #1 #2 }
+    \cs_set_nopar:Npn \version@elt ##1
+      { \tl_put_right:Nn ##1 { \getanddefine@fonts #1 #2 } }
+    \version@list
+  }
+\cs_generate_variant:Nn \@@_new_symbol_font:NN { Nc }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \begin{macro}[internal]{\xeCJK_gset_mathcode:Nn,
+%   \xeCJK_gset_mathcode:Nnn,\xeCJK_gset_mathcode:nnnn}
+% CJK 字符的数学类别固定为 $0$（\tn{mathord}）。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:Nn #1#2
+  {
+    \clist_map_inline:Nn #1
+      {
+        \@@_set_char_class_aux:Nnw \xeCJK_gset_mathcode:nnnn { ##1 }
+          { \c_zero } {#2}
+      }
+  }
+\cs_generate_variant:Nn \xeCJK_gset_mathcode:Nn { c }
 \cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:nnnn #1#2#3#4
   {
     \@@_check_num_range:nnNN {#1} {#2} \l_@@_begin_int \l_@@_end_int
     \xeCJK_int_until_do:nn { \l_@@_begin_int > \l_@@_end_int }
       {
-        \tex_global:D \utex_mathcode:D
-          \l_@@_begin_int = #3 ~ #4 \l_@@_begin_int
+        \xeCJK_gset_mathcode:Nnn \l_@@_begin_int {#3} {#4}
         \int_incr:N \l_@@_begin_int
       }
   }
+\cs_new_protected_nopar:Npn \xeCJK_gset_mathcode:Nnn #1#2#3
+  { \tex_global:D \utex_mathcode:D #1 = #2 ~ #3 ~ #1 }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7274,20 +7404,47 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_update_url_font:,\Url@MathSetup}
+% \begin{macro}[internal]{\xeCJK@update@fam,\Url@MathSetup}
 % \changes{v3.2.7}{2013/11/09}{使通过 \tn{UrlFont} 等命令设置的 CJK 字体生效。}
 % 使通过 \tn{urlstyle} 或者 \tn{UrlFont} 设置的路径中使用的 CJK 字体生效。
+% 清空 \tn{glb@currsize}，强制更新字体，以便执行 \tn{every@math@size} 钩子，
+% 重定义 CJK 数学字体。更合理的方式是定义一个新的 \tn{mathversion} 来切换。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_update_url_font:
+\cs_new_protected_nopar:Npn \xeCJK@update@fam
+  {
+    \tl_gclear:N \glb@currsize
+    \addto@hook \every@math@size
+      {
+        \@@_update_main_fam:
+        \@@_update_block_fam:
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_update_main_fam:
   {
     \group_begin: \xeCJK_select_font: \exp_after:wN \group_end:
-    \exp_after:wN \tex_textfont:D \exp_after:wN \c_xeCJK_math_fam_int
-    \tex_the:D \tex_font:D
+      \exp_after:wN \tex_textfont:D \exp_after:wN \c_xeCJK_math_fam_int
+        \tex_the:D \tex_font:D
+  }
+\cs_new_protected_nopar:Npn \@@_update_block_fam:
+  {
+    \prop_if_empty:NF \g_@@_block_fam_prop
+      {
+        \prop_map_function:NN
+          \g_@@_block_fam_prop
+          \@@_update_block_fam:nn
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_update_block_fam:nn #1#2
+  {
+    \int_set:Nn \l_@@_fam_int {#2}
+    \group_begin: \xeCJK_select_font:n {#1} \exp_after:wN \group_end:
+      \exp_after:wN \tex_textfont:D \exp_after:wN \l_@@_fam_int
+        \tex_the:D \tex_font:D
   }
 \@@_after_end_preamble:n
   {
     \bool_if:nT { \g_@@_math_bool && \cs_if_exist_p:N \Url@MathSetup }
-      { \tl_put_right:Nn \Url@MathSetup { \@@_update_url_font: } }
+      { \tl_put_right:Nn \Url@MathSetup { \xeCJK@update@fam } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -12625,6 +12782,55 @@ int main()
 %
 %    \begin{macrocode}
 %</ex-listings>
+%    \end{macrocode}
+%
+% \subsection{\pkg{xeCJK-example-mathblock.tex}}
+%
+%    \begin{macrocode}
+%<*ex-mathblock>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\documentclass{article}
+
+\usepackage{url}
+\usepackage[CJKmath]{xeCJK}
+
+\setCJKmainfont[BoldFont=SimHei]{SimSun}
+\setCJKmonofont{KaiTi}
+
+\ExplSyntaxOn
+\tl_const:Nn \c_test_text_tl { 天地玄黃宇宙洪荒日月盈昃辰宿列張寒來暑往秋收冬藏閏餘成歲律呂調陽 }
+\cs_new:Npn \test_color:n #1
+  { \exp_args:No \str_range:nnn { \mdfivesum {#1} } { 1 } { 6 } }
+\tl_map_inline:Nn \c_test_text_tl
+  {
+    \xeCJKDeclareSubCJKBlock {#1} { `#1 }
+    \setCJKmainfont
+      [ #1 , Color = \test_color:n {#1} , BoldFont = SimHei ] { SimSun }
+    \setCJKmonofont [ #1 ] { KaiTi }
+  }
+\cs_new_protected_nopar:Npn \TEST
+  {
+    \exp_args:No \path { \c_test_text_tl } \par
+    \c_test_text_tl \par
+    $ \c_test_text_tl $
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\TEST
+
+\bigskip
+
+\bfseries\mathversion{bold}\TEST
+
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</ex-mathblock>
 %    \end{macrocode}
 %
 % \subsection{\pkg{xunicode-symbols.tex}}
