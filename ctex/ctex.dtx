@@ -821,7 +821,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5528}
+% \CheckSum{5524}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -10483,18 +10483,17 @@ This package consists of the file ctex.dtx, and the derived files
         \ctex_get_macro_meaning:N ##1 { TF }
         {
           \exp_after:wN \@@_get_macro_meaning:w
-            \token_to_meaning:N ##1 \q_mark #1 -> \q_no_value \q_mark \q_stop
+            \token_to_meaning:N ##1 \q_mark #1 -> \q_mark \q_stop
         }
       \cs_new_protected:Npn \@@_get_macro_meaning:w
           ##1 #1 ##2 -> ##3 \q_mark ##4 \q_stop
         {
-          \tl_set:Nn \l_@@_replacement_tl {##3}
-          \quark_if_no_value:NTF \l_@@_replacement_tl
+          \tl_if_empty:nTF { ##4 }
             { \prg_return_false: }
             {
-              \str_set:Nn \l_@@_prefix_str {##1}
-              \str_set:Nn \l_@@_parameter_str {##2}
-              \str_set:Nn \l_@@_replacement_str {##3}
+              \str_set:Nn \l_@@_prefix_str      { ##1 }
+              \str_set:Nn \l_@@_parameter_str   { ##2 }
+              \str_set:Nn \l_@@_replacement_str { ##3 }
               \prg_return_true:
             }
         }
@@ -10540,7 +10539,7 @@ This package consists of the file ctex.dtx, and the derived files
   {
     \str_if_empty:NTF #2
       { \tl_clear:N #1 }
-      { \tl_set_rescan:Nnx #1 {#3} {#2} }
+      { \tl_set_rescan:Nno #1 {#3} {#2} }
   }
 \tl_new:N \l_@@_prefix_tl
 \tl_new:N \l_@@_parameter_tl
@@ -10593,30 +10592,31 @@ This package consists of the file ctex.dtx, and the derived files
     \ctex_get_macro_meaning:NTF #1
       {
         \str_if_empty:NTF \l_@@_parameter_str
-          { \@@_hookto_cmd_parameterless:Nnnw #1 {#2} {#4} }
-          { \@@_hookto_cmd_parameter:Nnnnw #1 {#2} {#3} {#4} }
+          { \@@_hookto_cmd_parameterless:Nnnnw }
+          { \@@_hookto_cmd_parameter:Nnnnw }
+          #1 {#2} {#3} {#4}
       }
       { \@@_patch_false:w }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[aux]{\@@_hookto_cmd_parameterless:Nnnw}
+% \begin{macro}[aux]{\@@_hookto_cmd_parameterless:Nnnnw}
 % 如果宏没有参数，可以直接进行附加操作。注意保持宏的前缀。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_hookto_cmd_parameterless:Nnnw #1#2#3
+\cs_new_protected:Npn \@@_hookto_cmd_parameterless:Nnnnw #1#2#3#4
   {
     \str_if_empty:NF \l_@@_prefix_str
-      { \tl_rescan:nx { } { \l_@@_prefix_str } }
+      { \tl_rescan:no {#3} { \l_@@_prefix_str } }
     \tex_edef:D #1
       {
         \use:c { @@_ #2 _hook_aux:nn }
           { \exp_not:o {#1} }
-          { \exp_not:n {#3} }
+          { \exp_not:n {#4} }
       }
     \@@_patch_true:w
   }
-\cs_generate_variant:Nn \tl_rescan:nn { nx }
+\cs_generate_variant:Nn \tl_rescan:nn { no }
 \cs_new:Npn \@@_left_hook_aux:nn #1#2 { #2#1 }
 \cs_new_eq:NN \@@_right_hook_aux:nn \use:nn
 %    \end{macrocode}
