@@ -458,7 +458,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{9976}
+% \CheckSum{10015}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3247,21 +3247,8 @@ CJK scripts fonts (TrueType or OpenType).
   { \xeCJK_check_for_ecglue: }
 \cs_new_protected_nopar:Npn \@@_check_for_xecglue:
   {
-    \bool_if:nTF
-      {
-        \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-        \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
-      }
-      {
-        \tex_unskip:D
-        \bool_if:nTF
-          {
-            \xeCJK_if_last_node_p:n { CJK }       ||
-            \xeCJK_if_last_node_p:n { CJK-space }
-          }
-          { \xeCJK_remove_node: \CJKecglue }
-          { \xeCJK_space_glue: }
-      }
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
+      { \@@_replace_space: }
       { \@@_check_for_ecglue: }
   }
 \cs_new_protected_nopar:Npn \@@_check_for_ecglue:
@@ -3278,6 +3265,32 @@ CJK scripts fonts (TrueType or OpenType).
       }
   }
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.3.5}{2016/05/08}{改进 \texttt{xCJKecglue} 的实现。}
+%
+% \begin{macro}[internal]{\@@_replace_space:}
+% 将空格替换为 \tn{CJKecglue}。注意由 \tn{leaders} 等产生的 glue，并不能正确地还回去。
+% 好在 \LaTeXe{} 中常用的 \tn{hrulefill} 和 \tn{dotfill} 定义末尾都有 |\kern\z@| 保护。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_replace_space:
+  {
+    \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+    \tex_unskip:D
+    \xeCJK_if_last_node:nTF { CJK-space }
+      { \xeCJK_remove_node: \CJKecglue }
+      {
+        \xeCJK_if_last_node:nTF { CJK }
+          {
+            \skip_if_eq:nnTF { \l_@@_last_skip } { \c_xeCJK_space_skip_tl }
+              { \xeCJK_remove_node: \CJKecglue }
+              { \skip_horizontal:N \l_@@_last_skip }
+          }
+          { \skip_horizontal:N \l_@@_last_skip }
+      }
+  }
+\skip_new:N \l_@@_last_skip
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3318,21 +3331,8 @@ CJK scripts fonts (TrueType or OpenType).
   { \xeCJK_check_for_ecglue_normalsp: }
 \cs_new_protected_nopar:Npn \@@_check_for_xecglue_normalsp:
   {
-    \bool_if:nTF
-      {
-        \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-        \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl
-      }
-      {
-        \tex_unskip:D
-        \bool_if:nTF
-          {
-            \xeCJK_if_last_node_p:n { CJK }       ||
-            \xeCJK_if_last_node_p:n { CJK-space }
-          }
-          { \xeCJK_remove_node: \CJKecglue }
-          { \xeCJK_space_glue: }
-      }
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
+      { \@@_replace_space: }
       { \@@_check_for_ecglue_normalsp: }
   }
 \cs_new_protected_nopar:Npn \@@_check_for_ecglue_normalsp:
@@ -3398,37 +3398,39 @@ CJK scripts fonts (TrueType or OpenType).
 \cs_new_eq:NN \xeCJK_check_for_xglue: \prg_do_nothing:
 \cs_new_protected_nopar:Npn \@@_check_for_xglue:
   {
-    \bool_if:nT
+    \int_compare:nNnT \etex_lastnodetype:D = \c_eleven
       {
-        \int_compare_p:nNn \etex_lastnodetype:D = \c_eleven &&
-        ( \skip_if_eq_p:nn \tex_lastskip:D \c_xeCJK_space_skip_tl ||
-          \skip_if_eq_p:nn \tex_lastskip:D \l_@@_ecglue_skip )
-      }
-      {
+        \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
         \tex_unskip:D
-        \bool_if:nTF
+        \xeCJK_if_last_node:nTF { CJK-space }
+          { \xeCJK_remove_node: \@@_ccglue_or_space: }
           {
-            \xeCJK_if_last_node_p:n { default-space }        ||
-            \int_compare_p:nNn \etex_lastnodetype:D = \c_ten ||
-            \xeCJK_if_last_node_p:n { default }
-          }
-          { \xeCJK_remove_node: \CJKecglue }
-          {
-            \bool_if:nTF
-              {
-                \xeCJK_if_last_node_p:n { CJK } ||
-                \xeCJK_if_last_node_p:n { CJK-space }
-              }
-              {
-                \xeCJK_remove_node:
-                \bool_if:NTF \l_@@_reserve_space_bool
-                  { \xeCJK_space_glue: }
-                  { \CJKglue }
-              }
-              { \xeCJK_space_glue: }
+            \xeCJK_if_last_node:nTF { default-space }
+              { \xeCJK_remove_node: \CJKecglue }
+              { \@@_check_for_xglue_aux: }
           }
       }
   }
+\cs_new_protected_nopar:Npn \@@_check_for_xglue_aux:
+  {
+    \skip_if_eq:nnTF { \l_@@_last_skip } { \c_xeCJK_space_skip_tl }
+      {
+        \xeCJK_if_last_node:nTF { CJK }
+          { \xeCJK_remove_node: \@@_ccglue_or_space: }
+          {
+            \xeCJK_if_last_node:nTF { default }
+              { \xeCJK_remove_node: \CJKecglue }
+              {
+                \int_compare:nNnTF \etex_lastnodetype:D = \c_ten
+                  { \CJKecglue }
+                  { \skip_horizontal:N \l_@@_last_skip }
+              }
+          }
+      }
+      { \skip_horizontal:N \l_@@_last_skip }
+  }
+\cs_new_protected_nopar:Npn \@@_ccglue_or_space:
+  { \CJKglue }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3535,6 +3537,10 @@ CJK scripts fonts (TrueType or OpenType).
         \xeCJK_glue_to_skip:nN {#1} \l_@@_ecglue_skip
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
         \cs_set_eq:NN \xeCJK_check_for_xglue: \@@_check_for_xglue:
+        \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_xecglue:
+        \cs_set_eq:NN
+          \xeCJK_check_for_ecglue_normalsp:
+          \@@_check_for_xecglue_normalsp:
       } ,
     xCJKecglue        .default:n = { true }
   }
@@ -3549,10 +3555,26 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
   {
-    CJKspace .bool_set:N = \l_@@_reserve_space_bool ,
-    space        .meta:n = { CJKspace = true  } ,
-    nospace      .meta:n = { CJKspace = false }
+    CJKspace .choice: ,
+    CJKspace / true  .code:n =
+      {
+        \bool_set_true:N \l_@@_reserve_space_bool
+        \cs_set_eq:NN \@@_maybe_reserve_space: \@@_reserve_space:
+        \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
+          { \xeCJK_space_glue: }
+      } ,
+    CJKspace / false .code:n =
+      {
+        \bool_set_false:N \l_@@_reserve_space_bool
+        \xeCJK_cs_clear:N \@@_maybe_reserve_space:
+        \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
+          { \CJKglue }
+      } ,
+    CJKspace      .default:n = { true } ,
+    space            .meta:n = { CJKspace = true  } ,
+    nospace          .meta:n = { CJKspace = false }
   }
+\bool_new:N \l_@@_reserve_space_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3578,16 +3600,20 @@ CJK scripts fonts (TrueType or OpenType).
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           {
-            \bool_if:nTF
+            \group_align_safe_begin:
+            \token_if_macro:NTF \l_peek_token
               {
-                \token_if_macro_p:N \l_peek_token ||
-                ( \l_@@_reserve_space_bool && \token_if_letter_p:N \l_peek_token )
-              }
-              {
-                \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK-space } }
+                \group_align_safe_end:
+                \xeCJK_class_group_end:
+                { \xeCJK_make_node:n { CJK-space } }
                 \xeCJK_space_or_xecglue:
               }
-              { \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK-space } } }
+              {
+                \group_align_safe_end:
+                \xeCJK_class_group_end:
+                { \xeCJK_make_node:n { CJK-space } }
+                \@@_maybe_reserve_space:
+              }
           }
           {
             \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
@@ -3604,6 +3630,9 @@ CJK scripts fonts (TrueType or OpenType).
     \token_if_eq_meaning:NNTF #1 \scan_stop:
       {#1} { \cs_set_eq:NN #1 \scan_stop: #1 }
   }
+\cs_new_protected:Npn \@@_reserve_space:
+  { \token_if_letter:NT \l_peek_token { \xeCJK_space_or_xecglue: } }
+\cs_new_eq:NN \@@_maybe_reserve_space: \prg_do_nothing:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3621,12 +3650,10 @@ CJK scripts fonts (TrueType or OpenType).
           {
             \xeCJK_if_last_node:nT { CJK }
               { \xeCJK_remove_node: { \xeCJK_make_node:n { CJK-space } } }
-            \bool_if:nT
-              {
-                \token_if_macro_p:N \l_peek_token ||
-                ( \l_@@_reserve_space_bool && \token_if_letter_p:N \l_peek_token )
-              }
-              { \xeCJK_space_or_xecglue: }
+            \group_align_safe_begin:
+            \token_if_macro:NTF \l_peek_token
+              { \group_align_safe_end: \xeCJK_space_or_xecglue: }
+              { \group_align_safe_end: \@@_maybe_reserve_space: }
           }
       }
   }
@@ -6678,12 +6705,12 @@ CJK scripts fonts (TrueType or OpenType).
           }
         \int_gdecr:N \g_@@_fam_allocation_int
       }
-      { \@@_error:n { fam-overflow } }
+      { \@@_error:n { fam-exhausted } }
   }
 \tex_countdef:D \g_@@_fam_bottom_int = 18 ~
 \int_new:N \g_@@_fam_allocation_int
 \int_gset_eq:NN \g_@@_fam_allocation_int \c_two_hundred_fifty_five
-\@@_msg_new:nn { fam-overflow }
+\@@_msg_new:nn { fam-exhausted }
   { No~room~for~a~new~fam. }
 %    \end{macrocode}
 % \end{macro}
