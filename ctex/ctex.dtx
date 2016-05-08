@@ -87,6 +87,7 @@ This package consists of the file ctex.dtx, and the derived files
     ctex-engine-pdftex.def,
     ctex-engine-xetex.def,
     ctex-engine-luatex.def,
+    ctex-engine-aptex.def,
     ctex-engine-uptex.def,
     c19rm.fd,
     c19sf.fd,
@@ -232,6 +233,7 @@ This package consists of the file ctex.dtx, and the derived files
                                        ctex-engine-pdftex.def,
                                        ctex-engine-xetex.def,
                                        ctex-engine-luatex.def,
+                                       ctex-engine-aptex.def,
                                        ctex-engine-uptex.def,
                                        c19rm.fd,
                                        c19sf.fd,
@@ -302,6 +304,7 @@ This package consists of the file ctex.dtx, and the derived files
     \file{ctex-engine-pdftex.def}          {\from{\jobname.dtx}{pdftex}}
     \file{ctex-engine-xetex.def}           {\from{\jobname.dtx}{xetex}}
     \file{ctex-engine-luatex.def}          {\from{\jobname.dtx}{luatex}}
+    \file{ctex-engine-aptex.def}           {\from{\jobname.dtx}{aptex}}
     \file{ctex-engine-uptex.def}           {\from{\jobname.dtx}{uptex}}
     \file{c19rm.fd}                        {\from{\jobname.dtx}{rm,c19}}
     \file{c19sf.fd}                        {\from{\jobname.dtx}{sf,c19}}
@@ -382,6 +385,7 @@ This package consists of the file ctex.dtx, and the derived files
 \Msg{*     ctex-engine-pdftex.def                                *}
 \Msg{*     ctex-engine-xetex.def                                 *}
 \Msg{*     ctex-engine-luatex.def                                *}
+\Msg{*     ctex-engine-aptex.def                                 *}
 \Msg{*     ctex-engine-uptex.def                                 *}
 \Msg{*     c19rm.fd                                              *}
 \Msg{*     c19sf.fd                                              *}
@@ -500,6 +504,8 @@ This package consists of the file ctex.dtx, and the derived files
 %<xetex>\ProvidesExplFile{ctex-engine-xetex.def}
 %<luatex>  {LuaLaTeX adapter (CTEX)}
 %<luatex>\ProvidesExplFile{ctex-engine-luatex.def}
+%<aptex>  {Asian pTeX adapter (CTEX)}
+%<aptex>\ProvidesExplFile{ctex-engine-aptex.def}
 %<uptex>  {upTeX adapter (CTEX)}
 %<uptex>\ProvidesExplFile{ctex-engine-uptex.def}
 %<windows>  {Windows fonts definition (CTEX)}
@@ -761,6 +767,9 @@ This package consists of the file ctex.dtx, and the derived files
 \def\LaTeXe{\hologo{LaTeX2e}}
 \def\LaTeXiii{\hologo{LaTeX3}}
 \def\dvipdfmx{DVIPDFM\textit{x}}
+\def\TeX{\hologo{TeX}}
+\def\ApTeX{Ap\TeX}
+\def\ApLaTeX{Ap\LaTeX}
 \def\upTeX{up\TeX}
 \def\upLaTeX{up\LaTeX}
 \def\ctexkitrev#1{%
@@ -821,7 +830,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5524}
+% \CheckSum{5529}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3169,18 +3178,20 @@ This package consists of the file ctex.dtx, and the derived files
 %</class>
 %    \end{macrocode}
 %
-% \begin{variable}[int]{\c_@@_engine_file_str}
-% 引擎检查，暂不支持 \pTeX{} 系。
+% \begin{variable}[int]{\c_@@_engine_str,\c_@@_engine_file_str}
+% 引擎检查。目前 \LaTeXiii{} 将 \ApTeX{} 识别为 \upTeX。
 %    \begin{macrocode}
+\str_const:Nx \c_@@_engine_str
+  { \cs_if_exist:NTF \ngostype { aptex } { \c_sys_engine_str } }
 \msg_new:nnnn { ctex } { engine-not-supported }
   { Engine~`#1'~is~not~yet~supported,~ctex~will~abort! }
-  { You~can~switch~to~xelatex,~lualatex~or~pdflatex.}
-\file_if_exist:nTF { ctex-engine- \c_sys_engine_str .def }
+  { You~can~switch~to~xelatex,~lualatex,~pdflatex,~uplatex,~or~aplatex. }
+\file_if_exist:nTF { ctex-engine- \c_@@_engine_str .def }
   {
     \str_const:Nx \c_@@_engine_file_str
-      { ctex-engine- \c_sys_engine_str .def }
+      { ctex-engine- \c_@@_engine_str .def }
   }
-  { \msg_critical:nnx { ctex } { engine-not-supported } { \c_sys_engine_str } }
+  { \msg_critical:nnx { ctex } { engine-not-supported } { \c_@@_engine_str } }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -3892,7 +3903,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 设置 \upTeX{} 字体映射，同时作用于 \tn{AtBeginDvi} 与
 % \tn{AtBeginShipoutFirst}。该宏对 \pdfTeX{} 和 \upTeX{} 均有用。
 %     \begin{macrocode}
-%<*pdftex|uptex>
+%<*pdftex|uptex|aptex>
 \cs_new_protected_nopar:Npn \ctex_set_zhmap:n #1
   {
     \AtBeginDvi { #1 }
@@ -3900,7 +3911,7 @@ This package consists of the file ctex.dtx, and the derived files
       { \AtBeginShipoutFirst { #1 } }
   }
 \@onlypreamble \ctex_set_zhmap:n
-%</pdftex|uptex>
+%</pdftex|uptex|aptex>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5797,7 +5808,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \subsubsection{\pkg{ctex-engine-uptex.def}}
 %
 %    \begin{macrocode}
-%<*uptex>
+%<*uptex|aptex>
 %    \end{macrocode}
 %
 % \changes{v2.4}{2016/02/28}{初步支持 \upLaTeX。}
@@ -5925,7 +5936,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 %    \begin{macrocode}
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 % \subsubsection{调整 \tn{CJKfamilydefault}}
@@ -5937,7 +5948,7 @@ This package consists of the file ctex.dtx, and the derived files
 % 在导言区结束，如果 \tn{CJKfamilydefault} 没有被更改，则在此时根据西文字体的情况
 % 更新 \tn{CJKfamilydefault}。\pkg{xeCJK} 已经有这个功能，不需要再调整。
 %    \begin{macrocode}
-%<*pdftex|luatex|uptex>
+%<*pdftex|luatex|uptex|aptex>
 \cs_new_protected_nopar:Npn \ctex_update_default_family:
   {
     \tl_if_eq:NNT \CJKfamilydefault \l_@@_family_default_init_tl
@@ -5979,7 +5990,7 @@ This package consists of the file ctex.dtx, and the derived files
       { \exp_not:o { \CJKfamilydefault } }
   }
 \tl_gset_eq:NN \CJKfamilydefault \l_@@_family_default_init_tl
-%</pdftex|luatex|uptex>
+%</pdftex|luatex|uptex|aptex>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6153,17 +6164,17 @@ This package consists of the file ctex.dtx, and the derived files
 % 我们假定 \upTeX{} 使用 \dvipdfmx{} 驱动输出，于是使用与 \pdfTeX{} 类似的设
 % 置。注意 \upTeX{} 需要使用 UTF8-UTF16 的编码转换。
 %    \begin{macrocode}
-%<*uptex>
+%<*uptex|aptex>
 \ctex_hypersetup:n { driverfallback = dvipdfmx }
 \ctex_at_end_package:nn { hyperref }
   {
     \AtBeginShipoutFirst{ \special{ pdf:tounicode~ UTF8-UTF16 } }
   }
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%<*pdftex|xetex|luatex|uptex>
+%<*pdftex|xetex|luatex|uptex|aptex>
 %    \end{macrocode}
 %
 % \subsubsection{\pkg{CJKfntef}、\pkg{xeCJKfntef} 相关设置}
@@ -6199,11 +6210,11 @@ This package consists of the file ctex.dtx, and the derived files
       { \tl_clear:c { CJK#1color } }
   }
 %</xetex>
-%<*luatex|uptex>
+%<*luatex|uptex|aptex>
 \msg_new:nnn { ctex } { fntef-not-available }
   { Functions~ of~ `CJKfntef'~ is~ not~ available~ in~ LuaLaTeX. }
 \msg_warning:nn { ctex } { fntef-not-available }
-%</luatex|uptex>
+%</luatex|uptex|aptex>
 \clist_map_inline:nn
   { underdot , underline , underdblline , underwave , sout , xout }
 %<*pdftex|xetex>
@@ -6224,11 +6235,11 @@ This package consists of the file ctex.dtx, and the derived files
   }
 \cs_new_protected_nopar:Npn { \endCTEXfilltwosides } { \endCJKfilltwosides }
 %</pdftex|xetex>
-%<*luatex|uptex>
+%<*luatex|uptex|aptex>
   { \cs_new_eq:cN { CTEX#1 } \use:n }
 \cs_new_eq:NN \CTEXfilltwosides \use_none:n
 \cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
-%</luatex|uptex>
+%</luatex|uptex|aptex>
 %<*pdftex>
 \clist_map_inline:nn
   {
@@ -6260,9 +6271,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<*luatex>
   { \skip_set:Nn \ccwd { \ltjgetparameter { kanjiskip } + \zw } }
 %</luatex>
-%<*uptex>
+%<*uptex|aptex>
   { \skip_set:Nn \ccwd { 1zw + \ptex_kanjiskip:D } }
-%</uptex>
+%</uptex|aptex>
 \dim_new:N \ccwd
 %    \end{macrocode}
 % \end{macro}
@@ -6283,9 +6294,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<*luatex>
   { \ltjsetkanjiskip \l_@@_ccglue_skip }
 %</luatex>
-%<*uptex>
+%<*uptex|aptex>
   { \skip_set_eq:NN \ptex_kanjiskip:D \l_@@_ccglue_skip }
-%</uptex>
+%</uptex|aptex>
 \skip_new:N \l_@@_ccglue_skip
 %    \end{macrocode}
 % \end{macro}
@@ -6303,10 +6314,10 @@ This package consists of the file ctex.dtx, and the derived files
     \skip_if_eq:nnTF { \l_@@_ccglue_skip } { \ltjgetparameter { kanjiskip } }
       { \prg_return_false: } { \prg_return_true: }
 %</luatex>
-%<*uptex>
+%<*uptex|aptex>
     \skip_if_eq:nnTF { \l_@@_ccglue_skip } { \ptex_kanjiskip:D }
       { \prg_return_false: } { \prg_return_true: }
-%</uptex>
+%</uptex|aptex>
   }
 %    \end{macrocode}
 % 注意下面的标记不能用 \verb"%<pdftex|xetex>"，它会导致旧版本的 \pkg{l3docstrip}
@@ -6331,7 +6342,7 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected_nopar:Npn \ctex_update_em_unit:
 %<pdftex|xetex>  { \dim_set:Nn \ccwd { \f@size \p@ } }
 %<luatex>  { \dim_set:Nn \ccwd { \zw } }
-%<uptex>  { \dim_set:Nn \ccwd { 1zw } }
+%<uptex|aptex>  { \dim_set:Nn \ccwd { 1zw } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6366,9 +6377,9 @@ This package consists of the file ctex.dtx, and the derived files
 %<*pdftex>
 \EverySelectfont { \cs_if_exist:NF \CJK@plane { \CTEX@selectfont@hook } }
 %</pdftex>
-%<*xetex|luatex|uptex>
+%<*xetex|luatex|uptex|aptex>
 \EverySelectfont { \CTEX@selectfont@hook }
-%</xetex|luatex|uptex>
+%</xetex|luatex|uptex|aptex>
 %    \end{macrocode}
 %
 % Attribute 寄存器 \tn{ltj@curjfnt} 的初始值是 $-1$，必须把它设置为一个有效的
@@ -6394,32 +6405,32 @@ This package consists of the file ctex.dtx, and the derived files
 % 一个段落内多次设置了 \tn{kanjiskip} 或 \tn{xkanjiskip}，只有最后的设置会影响
 % 全段。
 %    \begin{macrocode}
-%<*luatex|uptex>
+%<*luatex|uptex|aptex>
 \cs_new_protected_nopar:Npn \ctex_update_xkanjiskip:
   {
     \skip_if_eq:nnT
 %<luatex>      { \ltjgetparameter { xkanjiskip } } { \l_@@_xkanjiskip_skip }
-%<uptex>      { \ptex_xkanjiskip:D } { \l_@@_xkanjiskip_skip }
+%<uptex|aptex>      { \ptex_xkanjiskip:D } { \l_@@_xkanjiskip_skip }
       {
         \skip_set:Nn \l_@@_xkanjiskip_skip { \l_@@_xkanjiskip_tl }
 %<luatex>        \ltjsetxkanjiskip \l_@@_xkanjiskip_skip
-%<uptex>        \skip_set_eq:NN \ptex_xkanjiskip:D \l_@@_xkanjiskip_skip
+%<uptex|aptex>        \skip_set_eq:NN \ptex_xkanjiskip:D \l_@@_xkanjiskip_skip
       }
   }
 \tl_new:N \l_@@_xkanjiskip_tl
 \tl_set:Nn \l_@@_xkanjiskip_tl
 %<luatex>  { .25\zw plus 1pt minus 1pt }
-%<uptex>  { .25zw plus 1pt minus 1pt }
+%<uptex|aptex>  { .25zw plus 1pt minus 1pt }
 \skip_new:N \l_@@_xkanjiskip_skip
 \skip_set:Nn \l_@@_xkanjiskip_skip
 %<luatex>  { \ltjgetparameter { xkanjiskip } }
-%<uptex>  { \ptex_xkanjiskip:D }
+%<uptex|aptex>  { \ptex_xkanjiskip:D }
 %    \end{macrocode}
 % \end{macro}
 %
 %    \begin{macrocode}
 \ctex_add_to_selectfont:n { \ctex_update_xkanjiskip: }
-%</luatex|uptex>
+%</luatex|uptex|aptex>
 %    \end{macrocode}
 %
 % \begin{macro}{space}
@@ -6443,10 +6454,10 @@ This package consists of the file ctex.dtx, and the derived files
     space .default:n = { true } ,
     space .initial:n = { auto }
 %</pdftex|xetex>
-%<*luatex|uptex>
+%<*luatex|uptex|aptex>
     space .code:n =
       { \msg_warning:nn { ctex } { invalid-option } }
-%</luatex|uptex>
+%</luatex|uptex|aptex>
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6463,7 +6474,7 @@ This package consists of the file ctex.dtx, and the derived files
 %<pdftex>        \punctstyle { \l_@@_punct_tl }
 %<xetex>        \xeCJKsetup { PunctStyle = \l_@@_punct_tl }
 %<luatex>        \ctex_mono_jfm:o { \l_@@_punct_tl }
-%<uptex>        \msg_warning:nn { ctex } { invalid-option }
+%<uptex|aptex>        \msg_warning:nn { ctex } { invalid-option }
       } ,
     punct .default:n = { quanjiao } ,
   }
@@ -6472,13 +6483,13 @@ This package consists of the file ctex.dtx, and the derived files
 %
 % \XeLaTeX{}、\LuaLaTeX{} 和 \upLaTeX{} 总是使用 \texttt{UTF8} 编码。
 %    \begin{macrocode}
-%<*xetex|luatex|uptex>
+%<*xetex|luatex|uptex|aptex>
 \tl_set:Nn \l_@@_encoding_tl { UTF8 }
-%</xetex|luatex|uptex>
+%</xetex|luatex|uptex|aptex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-%</pdftex|xetex|luatex|uptex>
+%</pdftex|xetex|luatex|uptex|aptex>
 %<*class|ctex>
 %    \end{macrocode}
 %
@@ -8913,14 +8924,14 @@ This package consists of the file ctex.dtx, and the derived files
 % \upTeX{} 使用的字体族。\upLaTeX 在 NFSS 下使用字体编码 |JY2| 和 |JT2| 来分别
 % 表示横排与直排的日文。
 %    \begin{macrocode}
-%<*uptex>
+%<*uptex|aptex>
 \DeclareKanjiFamily{JY2}{rm}{}
 \DeclareKanjiFamily{JY2}{sf}{}
 \DeclareKanjiFamily{JY2}{tt}{}
 \DeclareKanjiFamily{JT2}{rm}{}
 \DeclareKanjiFamily{JT2}{sf}{}
 \DeclareKanjiFamily{JT2}{tt}{}
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 %
@@ -8949,14 +8960,14 @@ This package consists of the file ctex.dtx, and the derived files
 \DeclareFontShape{C70}{rm}{bx}{it}{<-> CJKb * unikai}{\CJKbold}
 %</c70>
 %</rm>
-%<*uptex>
+%<*uptex|aptex>
 \DeclareFontShape{JY2}{rm}{m}{n}{<-> upzhserif-h}{}
 \DeclareFontShape{JY2}{rm}{m}{it}{<-> upzhserifit-h}{}
 \DeclareFontShape{JY2}{rm}{bx}{n}{<-> upzhserifb-h}{}
 \DeclareFontShape{JT2}{rm}{m}{n}{<-> upzhserif-v}{}
 \DeclareFontShape{JT2}{rm}{m}{it}{<-> upzhserifit-v}{}
 \DeclareFontShape{JT2}{rm}{bx}{n}{<-> upzhserifb-v}{}
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -8984,12 +8995,12 @@ This package consists of the file ctex.dtx, and the derived files
 \DeclareFontShape{C70}{sf}{bx}{it}{<-> CJKb * uniyou}{\CJKbold}
 %</c70>
 %</sf>
-%<*uptex>
+%<*uptex|aptex>
 \DeclareFontShape{JY2}{sf}{m}{n}{<-> upzhsans-h}{}
 \DeclareFontShape{JY2}{sf}{bx}{n}{<-> upzhsansb-h}{}
 \DeclareFontShape{JT2}{sf}{m}{n}{<-> upzhsans-v}{}
 \DeclareFontShape{JT2}{sf}{bx}{n}{<-> upzhsansb-v}{}
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -9017,10 +9028,10 @@ This package consists of the file ctex.dtx, and the derived files
 \DeclareFontShape{C70}{tt}{bx}{it}{<-> CJKb * unifs}{\CJKbold}
 %</c70>
 %</tt>
-%<*uptex>
+%<*uptex|aptex>
 \DeclareFontShape{JY2}{tt}{m}{n}{<-> upzhmono-h}{}
 \DeclareFontShape{JT2}{tt}{m}{n}{<-> upzhmono-v}{}
-%</uptex>
+%</uptex|aptex>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
