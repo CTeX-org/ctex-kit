@@ -830,7 +830,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5535}
+% \CheckSum{5544}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -8379,51 +8379,21 @@ This package consists of the file ctex.dtx, and the derived files
 %<article|book|report>\pagestyle { headings }
 %    \end{macrocode}
 %
-% 汉化标题名字。
+% 日期格式。
 %    \begin{macrocode}
-%<*generic>
-\tl_if_exist:NTF \c_@@_std_class_tl
-  {
-    \str_if_eq:onTF { \c_@@_std_class_tl } { beamer }
-      {
-        \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-          {
-            \uselanguage { ChineseGBK }
-            \languagealias { chinese } { ChineseGBK }
-            \ctex_file_input:n { ctex-name-gbk.cfg }
-          }
-          {
-            \uselanguage { ChineseUTF8 }
-            \languagealias { chinese } { ChineseUTF8 }
-            \ctex_file_input:n { ctex-name-utf8.cfg }
-          }
-        \clist_put_left:Nn \trans@languagepath { chinese }
-      }
-      {
-        \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-          { \ctex_file_input:n { ctex-name-gbk.cfg } }
-          { \ctex_file_input:n { ctex-name-utf8.cfg } }
+\keys_set:nn { ctex } { today = small }
 %    \end{macrocode}
-% \changes{v2.0.2}{2015/05/16}{修复加载 \pkg{ctex} 宏包后章节标题后第一段
-% 无段首缩进的问题。}
-% 若 \pkg{ctex} 宏包与标准文档类及其衍生文档类联用，则将载入 \pkg{indentfirst} 宏包，
-% 实现章节标题后首个段落的段首缩进。
+%
+% 若用户未设置宏包选项 \opt{autoindent}，则自动调整首行缩进。
 %    \begin{macrocode}
-        \RequirePackage { indentfirst }
-      }
-  }
-  {
-    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-      { \ctex_file_input:n { ctex-name-gbk.cfg } }
-      { \ctex_file_input:n { ctex-name-utf8.cfg } }
-  }
-%</generic>
+\ctex_if_autoindent_touched:F
+  { \keys_set:nn { ctex } { autoindent = true } }
+%    \end{macrocode}
+%
+% 使用标题定义时的设置。首先是命题名字汉化。\cls{beamer} 需要汉化定理名称。
+%    \begin{macrocode}
 %<*!generic>
 \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
-%<*article|book|report>
-  { \ctex_file_input:n { ctex-name-gbk.cfg } }
-  { \ctex_file_input:n { ctex-name-utf8.cfg } }
-%</article|book|report>
 %<*beamer>
   {
     \uselanguage { ChineseGBK }
@@ -8435,17 +8405,19 @@ This package consists of the file ctex.dtx, and the derived files
     \languagealias { chinese } { ChineseUTF8 }
     \ctex_file_input:n { ctex-name-utf8.cfg }
   }
+%    \end{macrocode}
+% 让 \pkg{translator} 包优先查找中文翻译。
+%    \begin{macrocode}
 \clist_put_left:Nn \trans@languagepath { chinese }
 %</beamer>
-%</!generic>
+%<*!beamer>
+  { \ctex_file_input:n { ctex-name-gbk.cfg } }
+  { \ctex_file_input:n { ctex-name-utf8.cfg } }
 %    \end{macrocode}
 %
-% 日期格式。
-%    \begin{macrocode}
-\keys_set:nn { ctex } { today = small }
-%    \end{macrocode}
-%
-% 若用户未设置宏包选项 \opt{zihao}，则设置 \tn{normalsize} 为五号字。
+% \changes{v2.4.1}{2016/05/09}{\cls{beamer} 不调整默认字体大小。}
+% 对 \cls{beamer} 以外的文档类，若用户未设置宏包选项 \opt{zihao}，则设置 \tn{normalsize}
+% 为五号字。\cls{beamer} 不调整默认字体大小。
 %    \begin{macrocode}
 \int_compare:nNnF \g_@@_font_size_flag > \c_minus_one
   { \cs_gset_eq:NN \g_@@_font_size_flag \c_zero }
@@ -8455,16 +8427,49 @@ This package consists of the file ctex.dtx, and the derived files
 % 对 \cls{beamer} 以外的文档类，若用户未设置宏包选项 \opt{linespread}，则设置行
 % 距初始值为 $1.3\times 1.2=1.56$ 倍字体大小。\cls{beamer} 不调整行距。
 %    \begin{macrocode}
-%<*!beamer>
 \fp_compare:nNnT { \l_@@_line_spread_fp } ? { \c_zero_fp }
   { \keys_set:nn { ctex / option } { linespread = 1.3 } }
 %</!beamer>
+%</!generic>
 %    \end{macrocode}
 %
-% 若用户未设置宏包选项 \opt{autoindent}，则自动调整首行缩进。
+% 不使用标题定义时的通用设置。
 %    \begin{macrocode}
-\ctex_if_autoindent_touched:F
-  { \keys_set:nn { ctex } { autoindent = true } }
+%<*generic>
+\tl_set:Nn \l_@@_tmp_tl { beamer }
+\tl_if_eq:NNTF \c_@@_std_class_tl \l_@@_tmp_tl
+  {
+    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+      {
+        \uselanguage { ChineseGBK }
+        \languagealias { chinese } { ChineseGBK }
+        \ctex_file_input:n { ctex-name-gbk.cfg }
+      }
+      {
+        \uselanguage { ChineseUTF8 }
+        \languagealias { chinese } { ChineseUTF8 }
+        \ctex_file_input:n { ctex-name-utf8.cfg }
+      }
+    \clist_put_left:Nn \trans@languagepath { chinese }
+  }
+  {
+    \str_if_eq:onTF { \l_@@_encoding_tl } { GBK }
+      { \ctex_file_input:n { ctex-name-gbk.cfg } }
+      { \ctex_file_input:n { ctex-name-utf8.cfg } }
+    \int_compare:nNnF \g_@@_font_size_flag > \c_minus_one
+      { \cs_gset_eq:NN \g_@@_font_size_flag \c_zero }
+    \fp_compare:nNnT { \l_@@_line_spread_fp } ? { \c_zero_fp }
+      { \keys_set:nn { ctex / option } { linespread = 1.3 } }
+%    \end{macrocode}
+% \changes{v2.0.2}{2015/05/16}{修复加载 \pkg{ctex} 宏包后章节标题后第一段
+% 无段首缩进的问题。}
+% 若 \pkg{ctex} 宏包与标准文档类及其衍生文档类联用，则将载入 \pkg{indentfirst} 宏包，
+% 实现章节标题后首个段落的段首缩进。
+%    \begin{macrocode}
+    \tl_if_exist:NT \c_@@_std_class_tl
+      { \RequirePackage { indentfirst } }
+  }
+%</generic>
 %    \end{macrocode}
 %
 %    \begin{macrocode}
