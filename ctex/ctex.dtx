@@ -830,7 +830,7 @@ This package consists of the file ctex.dtx, and the derived files
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5546}
+% \CheckSum{5578}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2295,6 +2295,15 @@ This package consists of the file ctex.dtx, and the derived files
 % \bottomrule
 % \end{tabular}
 % \end{table}
+%
+% \begin{function}[EXP,updated=2016-05-10]{part/fixbeforeskip,chapter/fixbeforeskip}
+%   \begin{syntax}
+%   fixbeforeskip = \TFF
+%   \end{syntax}
+%   \cls{book} 和 \cls{report} 类的 \tn{part} 和 \tn{chapter} 标题与正文顶部的距离除了由
+%   \opt{beforeskip} 设置的垂直间距外，还会有一个多余空行。
+%   \opt{fixbeforeskip} 选项用于抑制这个多余空行。
+% \end{function}
 %
 % \begin{function}[EXP,updated=2015-06-27]{.../afterskip}
 %   \begin{syntax}
@@ -7028,17 +7037,26 @@ This package consists of the file ctex.dtx, and the derived files
 % \end{macro}
 %
 % \changes{v2.0}{2014/03/21}{标题设置新增 \opt{pagestyle} 选项。}
+% \changes{v2.4.1}{2016/05/10}{新的标题格式选项 \opt{part/fixbeforeskip} 和
+%   \opt{chapter/fixbeforeskip}。}
 %
-% \begin{macro}{part/pagestyle,chapter/pagestyle}
+% \begin{macro}{part/pagestyle,chapter/pagestyle,
+%   part/fixbeforeskip,chapter/fixbeforeskip}
 % 只在 \cls{ctexbook} 和 \cls{ctexrep} 下有定义。
 %    \begin{macrocode}
+\group_begin:
 %<*book|report>
 \tl_set:Nn \l_@@_tmp_tl
   {
-    part    / pagestyle .tl_set:N = \CTEX@part@pagestyle ,
-    chapter / pagestyle .tl_set:N = \CTEX@chapter@pagestyle ,
+    part    / pagestyle       .tl_set:N = \CTEX@part@pagestyle ,
+    chapter / pagestyle       .tl_set:N = \CTEX@chapter@pagestyle ,
+    part    / fixbeforeskip .bool_set:N = \CTEX@part@fixbeforeskip ,
+    chapter / fixbeforeskip .bool_set:N = \CTEX@chapter@fixbeforeskip ,
   }
 %</book|report>
+%<*article|beamer>
+\tl_clear:N \l_@@_tmp_tl
+%</article|beamer>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7049,8 +7067,11 @@ This package consists of the file ctex.dtx, and the derived files
     \@@_initial_heading:n {#1}
     \@@_def_heading_keys:n {#1}
   }
-\use:x { \keys_define:nn { ctex } { \exp_not:o { \l_@@_tmp_tl } } }
-\tl_clear:N \l_@@_tmp_tl
+\use:x
+  {
+    \group_end:
+    \keys_define:nn { ctex } { \exp_not:o { \l_@@_tmp_tl } }
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -7065,6 +7086,22 @@ This package consists of the file ctex.dtx, and the derived files
 \cs_new_protected_nopar:Npn \CTEX@makeheadinganchor { }
 \ctex_at_end_package:nn { hyperref }
   { \cs_gset_protected_nopar:Npn \CTEX@makeheadinganchor { \phantomsection } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CTEX@fixbeforeskip}
+% 修正 \cls{book} 和 \cls{report} 类的 \tn{part} 和 \tn{chapter} 标题之前的多余空行。
+%    \begin{macrocode}
+%<*book|report>
+\cs_new_protected_nopar:Npn \CTEX@fixbeforeskip
+  {
+    \par
+    \ifdim \pagegoal = \maxdimen
+      \advance \@tempskipa -\topskip
+      \nointerlineskip
+    \fi
+  }
+%</book|report>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7111,7 +7148,11 @@ This package consists of the file ctex.dtx, and the derived files
     \@tempswafalse
   \fi
 % \null\vfil
-  \null\vskip \glueexpr \CTEX@part@beforeskip \relax
+  \@tempskipa = \glueexpr \CTEX@part@beforeskip \relax
+  \ifodd \CTEX@part@fixbeforeskip
+    \CTEX@fixbeforeskip
+  \fi
+  \vspace*{\@tempskipa}%
   \secdef\@part\@spart}
 %</book|report>
 %    \end{macrocode}
@@ -7289,7 +7330,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \def\@makechapterhead#1{%
 % \vspace*{50\p@}%
-  \vspace*{\glueexpr\CTEX@chapter@beforeskip\relax}%
+  \@tempskipa = \glueexpr \CTEX@chapter@beforeskip \relax
+  \ifodd \CTEX@chapter@fixbeforeskip
+    \CTEX@fixbeforeskip
+  \fi
+  \vspace*{\@tempskipa}%
 % {\normalfont \parindent \z@ \raggedright
   {\normalfont \parindent \dimexpr \CTEX@chapter@indent \relax
    \CTEX@chapter@format
@@ -7316,7 +7361,11 @@ This package consists of the file ctex.dtx, and the derived files
 %    \begin{macrocode}
 \def\@makeschapterhead#1{%
 % \vspace*{50\p@}%
-  \vspace*{\glueexpr\CTEX@chapter@beforeskip\relax}%
+  \@tempskipa = \glueexpr \CTEX@chapter@beforeskip \relax
+  \ifodd \CTEX@chapter@fixbeforeskip
+    \CTEX@fixbeforeskip
+  \fi
+  \vspace*{\@tempskipa}%
 % {\normalfont \parindent \z@ \raggedright
   {\normalfont \parindent \dimexpr \CTEX@chapter@indent \relax
    \CTEX@chapter@format
