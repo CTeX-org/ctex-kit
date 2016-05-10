@@ -31,6 +31,8 @@ xetex_insatllfiles    = xetex_insatllfiles    or { }
 xelatex_insatllfiles  = xelatex_insatllfiles  or { }
 subtexdirs = subtexdirs or { }
 
+typesetopts = typesetopts or "-halt-on-error"
+
 -- MiKTeX 中，环境变量 TEXINPUTS 的优先级低于系统路径
 -- 但可以设置编译选项 -include-directory
 miktex_hook = os.selfdir:find([[miktex\bin$]]) and function ()
