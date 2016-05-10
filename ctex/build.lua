@@ -8,6 +8,7 @@ sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
 unpacksuppfiles = {"ctex.ver"}
 installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex", "*.dict"}
+excludefiles = {"*ctxdoc.cls"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
