@@ -271,7 +271,7 @@ CJK scripts fonts (TrueType or OpenType).
 %<fntef>  {xeCJKfntef}
 %<listings>  {xeCJK-listings}
 %<xunicode>  {xunicode-addon}
-  {\ExplFileDate}{3.3.4}{\ExplFileDescription}
+  {\ExplFileDate}{3.4.0}{\ExplFileDescription}
 %<xunextra>\ExplSyntaxOff
 %<*driver>
 \let\xeCJKrevnum\ExplFileVersion
@@ -458,7 +458,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10015}
+% \CheckSum{10038}
 % \GetFileInfo{\jobname.dtx}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -787,7 +787,7 @@ CJK scripts fonts (TrueType or OpenType).
 %   这一选项改变这一设置。
 % \end{function}
 %
-% \begin{function}[added=2014-05-13]{RubberPunctSkip}
+% \begin{function}[updated=2016-05-12]{RubberPunctSkip}
 %   \begin{syntax}
 %     RubberPunctSkip = \meta{\TTF}
 %   \end{syntax}
@@ -3268,7 +3268,7 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.3.5}{2016/05/08}{改进 \texttt{xCJKecglue} 的实现。}
+% \changes{v3.4.0}{2016/05/08}{改进 \texttt{xCJKecglue} 的实现。}
 %
 % \begin{macro}[internal]{\@@_replace_space:}
 % 将空格替换为 \tn{CJKecglue}。注意由 \tn{leaders} 等产生的 glue，并不能正确地还回去。
@@ -3766,17 +3766,12 @@ CJK scripts fonts (TrueType or OpenType).
 % 根据所选的标点处理方式在标点符号左/右增加的空白。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_punct_glue:NN #1#2
-  { \@@_punct_hskip:n { \@@_punct_skip:nn {#1} {#2} } }
-\cs_new_eq:NN \@@_punct_hskip:n \skip_horizontal:n
-\cs_new_protected_nopar:Npn \@@_punct_rigid_skip:nn #1#2
-  { \@@_use_punct_dim:nnn { glue } {#1} {#2} }
-\cs_new_protected_nopar:Npn \@@_punct_rubber_skip:nn #1#2
   {
-    \@@_use_punct_dim:nnn { glue } {#1} {#2}
-      plus  \@@_use_punct_dim:nnn { plus } {#1} {#2}
-      minus \@@_use_punct_dim:nnn { minus } {#1} {#2}
+    \@@_punct_hskip:n
+      { \@@_use_dim_or_skip:nnn { glue } {#1} {#2} }
   }
-\cs_new_eq:NN \@@_punct_skip:nn \@@_punct_rubber_skip:nn
+\cs_new_eq:NN \@@_punct_hskip:n \skip_horizontal:n
+\cs_new_eq:NN \@@_use_dim_or_skip:nnn \@@_use_punct_skip:nnn
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3784,7 +3779,10 @@ CJK scripts fonts (TrueType or OpenType).
 % 相邻两个标点之间的间距。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_punct_kern:NN #1#2
-  { \tex_kern:D \@@_use_punct_dim:nnn { kern } {#1} {#2} \exp_stop_f: }
+  {
+    \@@_nobreak_hskip:n
+      { \@@_use_dim_or_skip:nnn { kern } {#1} {#2} }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4115,7 +4113,7 @@ CJK scripts fonts (TrueType or OpenType).
   {
     \@@_punct_rule:NN \c_@@_right_tl #1
     \@@_punct_breakable_kern:n
-      { \@@_use_punct_dim:nnn { break_kern } {#1} {#2} }
+      { \@@_use_dim_or_skip:nnn { break_kern } {#1} {#2} }
     \@@_punct_rule:NN \c_@@_left_tl #2
   }
 \cs_new_eq:NN \@@_punct_breakable_kern:n \skip_horizontal:n
@@ -4792,9 +4790,9 @@ CJK scripts fonts (TrueType or OpenType).
     RubberPunctSkip .choice: ,
     RubberPunctSkip      .default:n = { true } ,
     RubberPunctSkip / true  .code:n =
-      { \cs_set_eq:NN \@@_punct_skip:nn \@@_punct_rubber_skip:nn } ,
+      { \cs_set_eq:NN \@@_use_dim_or_skip:nnn \@@_use_punct_skip:nnn } ,
     RubberPunctSkip / false .code:n =
-      { \cs_set_eq:NN \@@_punct_skip:nn \@@_punct_rigid_skip:nn }
+      { \cs_set_eq:NN \@@_use_dim_or_skip:nnn \@@_use_punct_dim:nnn }
   }
 \bool_new:N \l_@@_punct_breakable_bool
 %    \end{macrocode}
@@ -4860,18 +4858,25 @@ CJK scripts fonts (TrueType or OpenType).
 %
 % 一些用于记录的辅助函数。
 %    \begin{macrocode}
-\cs_new_nopar:Npn \@@_punct_dim_csname:nn #1#2
-  { c__\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/#2/tl }
-\cs_new_nopar:Npn \@@_punct_dim_csname:nnn #1#2#3
-  { c__\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/#2/#3/tl }
-\cs_new_nopar:Npn \@@_use_punct_dim:nn #1#2
-  { \use:c { \@@_punct_dim_csname:nn {#1} {#2} } }
-\cs_new_nopar:Npn \@@_use_punct_dim:nnn #1#2#3
-  { \use:c { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } }
-\cs_new_protected_nopar:Npn \@@_save_punct_dim:nnn #1#2#3
-  { \tl_const:cx { \@@_punct_dim_csname:nn {#1} {#2} } { \dim_eval:n {#3} } }
-\cs_new_protected_nopar:Npn \@@_save_punct_dim:nnnn #1#2#3#4
-  { \tl_const:cx { \@@_punct_dim_csname:nnn {#1} {#2} {#3} } { \dim_eval:n {#4} } }
+\cs_new:Npn \@@_punct_csname:n #1
+  { c_@@_\l_xeCJK_current_font_tl/\l_xeCJK_punct_style_tl/#1/tl }
+\cs_new:Npn \@@_use_punct_dim:nn #1#2
+  { \use:c { \@@_punct_csname:n { dim/#1/#2 } } }
+\cs_new:Npn \@@_use_punct_dim:nnn #1#2#3
+  { \use:c { \@@_punct_csname:n { dim/#1/#2/#3 } } }
+\cs_new:Npn \@@_use_punct_skip:nnn #1#2#3
+  { \use:c { \@@_punct_csname:n { skip/#1/#2/#3 } } }
+\cs_new_protected:Npn \@@_save_punct_dim:nnn #1#2
+  { \@@_save_punct_width_aux:nnn { dim } { #1/#2 } }
+\cs_new_protected:Npn \@@_save_punct_dim:nnnn #1#2#3
+  { \@@_save_punct_width_aux:nnn { dim } { #1/#2/#3 } }
+\cs_new_protected:Npn \@@_save_punct_skip:nnnn #1#2#3
+  { \@@_save_punct_width_aux:nnn { skip } { #1/#2/#3 } }
+\cs_new_protected:Npn \@@_save_punct_width_aux:nnn #1#2#3
+  {
+    \tl_const:cx { \@@_punct_csname:n { #1/#2 } }
+                 { \use:c { #1_eval:n } {#3} }
+  }
 %    \end{macrocode}
 %
 % \changes{v3.1.0}{2012/11/14}{使用 \pkg{xtemplate} 宏包的机制来组织标点符号的处理。}
@@ -4965,20 +4970,19 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:NN #1#2
   {
-    \tl_if_exist:cF { \@@_punct_dim_csname:nnn { glue } {#1} {#2} }
+    \tl_if_exist:cF { \@@_punct_csname:n { dim/glue/#1/#2 } }
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
           {
             \@@_save_punct_dim:nnnn { rule }   {#1} {#2} { \c_zero_dim }
             \@@_save_punct_dim:nnnn { glue }   {#1} {#2} { \c_zero_dim }
-            \@@_save_punct_dim:nnnn { plus }   {#1} {#2} { \c_zero_dim }
-            \@@_save_punct_dim:nnnn { minus }  {#1} {#2} { \c_zero_dim }
             \@@_save_punct_dim:nnnn { offset } {#1} {#2} { \c_zero_dim }
             \@@_save_punct_dim:nnnn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
             \@@_save_punct_dim:nnnn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
+            \@@_save_punct_skip:nnnn { glue }  {#1} {#2} { \c_zero_skip }
           }
           {
-            { \xeCJK_select_font: \xeCJK_calc_punct_dimen:f {#2} }
+            { \xeCJK_select_font: \xeCJK_calc_punct_dimen:o {#2} }
             \dim_set:Nn \l_@@_bound_dim
               { \@@_use_punct_dim:nnn { bound } {#1} {#2} }
             \dim_set:Nn \l_@@_reverse_bound_dim
@@ -5003,12 +5007,14 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_kerning:NN #1#2
   {
-    \tl_if_exist:cF { \@@_punct_dim_csname:nnn { kern } {#1} {#2} }
+    \tl_if_exist:cF { \@@_punct_csname:n { dim/kern/#1/#2 } }
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
           {
             \@@_save_punct_dim:nnnn { kern } {#1} {#2} { \c_zero_dim }
             \@@_save_punct_dim:nnnn { break_kern } {#1} {#2} { \c_zero_dim }
+            \@@_save_punct_skip:nnnn { kern } {#1} {#2} { \c_zero_skip }
+            \@@_save_punct_skip:nnnn { break_kern } {#1} {#2} { \c_zero_skip }
           }
           {
             \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
@@ -5099,9 +5105,10 @@ CJK scripts fonts (TrueType or OpenType).
           }
       }
     \@@_save_punct_dim:nnnn { glue } {#1} {#2} { \l_@@_tmp_dim }
-    \@@_save_punct_dim:nnnn { plus } {#1} {#2}
+    \@@_save_punct_skip:nnnn { glue } {#1} {#2}
       {
-        \dim_max:nn { \c_zero_dim }
+        \l_@@_tmp_dim
+        plus ~  \dim_max:nn { \c_zero_dim }
           {
             \@@_punct_if_middle:NTF {#2}
               {
@@ -5110,16 +5117,13 @@ CJK scripts fonts (TrueType or OpenType).
                 - \l_@@_tmp_dim
               }
               { \l_@@_bound_dim - \l_@@_tmp_dim }
-          }
-      }
-    \@@_save_punct_dim:nnnn { minus } {#1} {#2}
-      {
-        \dim_max:nn { \c_zero_dim }
+          } ~
+        minus ~ \dim_max:nn { \c_zero_dim }
           {
             \@@_punct_if_middle:NTF {#2}
               { .5 \l_@@_tmp_dim }
               { \l_@@_tmp_dim - \l_@@_reverse_bound_dim }
-          }
+          } ~
       }
   }
 %    \end{macrocode}
@@ -5218,37 +5222,58 @@ CJK scripts fonts (TrueType or OpenType).
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_punct_kerning_process:NN #1#2
   {
-    \dim_set:Nn \l_@@_tmp_dim
+    \dim_set:Nn \l_@@_original_margin_dim
+      { \@@_original_kerning_margin:NN {#1} {#2} }
+    \dim_set:Nn \l_@@_minimum_bound_dim
+      { \@@_punct_min_bound:NN {#1} {#2} }
+    \dim_set:Nn \l_@@_kerning_margin_dim
       {
         \bool_if:nTF
           {
             \l_@@_enabled_global_setting_bool &&
             \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
           }
-          { \tl_use:c { g_@@_punct/kern/#1/#2/tl } }
+          { \use:c { g_@@_punct/kern/#1/#2/tl } }
           {
             \bool_if:NTF \l_@@_enabled_kerning_bool
               { \@@_calc_kerning_margin:NN {#1} {#2} }
-              { \@@_original_kerning_margin:NN {#1} {#2} }
+              { \l_@@_original_margin_dim }
           }
       }
-    \@@_save_punct_dim:nnnn { kern } {#1} {#2}
-      {
-        \l_@@_tmp_dim
-        - ( \@@_use_punct_dim:nnn { bound } \c_@@_right_tl {#1} )
-        - ( \@@_use_punct_dim:nnn { bound } \c_@@_left_tl  {#2} )
-      }
+    \@@_save_kerning:nnNN { kern } { bound } {#1} {#2}
     \@@_punct_if_right:NF {#2}
       {
         \@@_punct_if_right:NT {#1}
-          {
-            \@@_save_punct_dim:nnnn { break_kern } {#1} {#2}
-              {
-                \l_@@_tmp_dim
-                - ( \@@_use_punct_dim:nnn { offset } \c_@@_right_tl {#1} )
-                - ( \@@_use_punct_dim:nnn { offset } \c_@@_left_tl  {#2} )
-              }
-          }
+          { \@@_save_kerning:nnNN { break_kern } { offset } {#1} {#2} }
+      }
+  }
+\dim_new:N \l_@@_minimum_bound_dim
+\dim_new:N \l_@@_kerning_margin_dim
+\dim_new:N \l_@@_original_margin_dim
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.4.0}{2016/05/12}{标点符号的压缩量能伸长到原始空白，能收缩到较小边距。}
+%
+% \begin{macro}[internal]{\@@_save_kerning:nnNN}
+% 相邻两个标点符号的间距能伸长到原始空白（未压缩时的状态），能收缩到较小边距。
+%    \begin{macrocode}
+\cs_new_nopar:Npn \@@_save_kerning:nnNN #1#2#3#4
+  {
+    \dim_set:Nn \l_@@_tmp_dim
+      {
+        \l_@@_kerning_margin_dim
+        - ( \@@_use_punct_dim:nnn {#2} \c_@@_right_tl {#3} )
+        - ( \@@_use_punct_dim:nnn {#2} \c_@@_left_tl  {#4} )
+      }
+    \@@_save_punct_dim:nnnn {#1} {#3} {#4} { \l_@@_tmp_dim }
+    \@@_save_punct_skip:nnnn {#1} {#3} {#4}
+      {
+        \l_@@_tmp_dim
+        plus  ~ \dim_max:nn { \c_zero_dim }
+          { \l_@@_original_margin_dim - \l_@@_kerning_margin_dim } ~
+        minus ~ \dim_max:nn { \c_zero_dim }
+          { \l_@@_kerning_margin_dim - \l_@@_minimum_bound_dim } ~
       }
   }
 %    \end{macrocode}
@@ -5280,10 +5305,10 @@ CJK scripts fonts (TrueType or OpenType).
       { \l_@@_kerning_margin_minimum_dim }
       {
         \bool_if:NTF \l_@@_min_bound_to_kerning_bool
-          { \@@_punct_min_bound:NN  {#1} {#2} }
+          { \l_@@_minimum_bound_dim }
           {
             \bool_if:NTF \l_@@_optimize_kerning_bool
-              { \dim_max:nn { \@@_punct_min_bound:NN  {#1} {#2} } }
+              { \dim_max:nn { \l_@@_minimum_bound_dim } }
               { \use:n }
               {
                 \dim_compare:nNnTF \l_@@_kerning_total_width_dim < \c_max_dim
@@ -5328,7 +5353,7 @@ CJK scripts fonts (TrueType or OpenType).
               { \fp_use:N \l_@@_kerning_margin_ratio_fp \use:n }
           }
           { \fp_use:c { l_@@_#1_align_ratio_fp } \use:n }
-          { \etex_dimexpr:D \@@_original_kerning_margin:NN {#2} {#3} \scan_stop: }
+          { \l_@@_original_margin_dim }
       }
   }
 %    \end{macrocode}
@@ -5395,16 +5420,18 @@ CJK scripts fonts (TrueType or OpenType).
       { \@@_use_punct_dim:nn { width } {#1} - \l_@@_tmp_dim }
     \@@_punct_if_long:NT {#1}
       {
-        \@@_save_punct_dim:nnnn { kern } {#1} {#1}
+        \dim_set:Nn \l_@@_tmp_dim
           {
             \str_case:nnTF {#1}
               { { ^^^^2025 } { } { ^^^^2026 } { } }
               { \c_zero_dim }
               { - \l_@@_tmp_dim }
           }
+        \@@_save_punct_dim:nnnn { kern } {#1} {#1} { \l_@@_tmp_dim }
+        \@@_save_punct_skip:nnnn { kern } {#1} {#1} { \l_@@_tmp_dim }
       }
   }
-\cs_generate_variant:Nn \xeCJK_calc_punct_dimen:N { f }
+\cs_generate_variant:Nn \xeCJK_calc_punct_dimen:N { o }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6585,7 +6612,7 @@ CJK scripts fonts (TrueType or OpenType).
 % \changes{v3.2.6}{2013/08/01}{设置粗体时先检查对应字体是否存在。}
 % \changes{v3.2.7}{2013/11/09}{将 CJK 字符的数学归类由 $7$ 改为 $0$，解决汉字路径的问题。}
 % \changes{v3.2.13}{2014/06/20}{修复参数类型错误。}
-% \changes{v3.3.5}{2016/05/01}{CJKmath 的字符范围遵从 \tn{xeCJKDeclareCharClass} 的设置。}
+% \changes{v3.4.0}{2016/05/01}{CJKmath 的字符范围遵从 \tn{xeCJKDeclareCharClass} 的设置。}
 % 当没有设置 CJK 数学字体时，使用 \tn{CJKfamilydefault} 作为数学字体。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_set_mathfont:
@@ -6617,7 +6644,7 @@ CJK scripts fonts (TrueType or OpenType).
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.3.5}{2016/05/04}{CJKmath 功能也支持分区字体。}
+% \changes{v3.4.0}{2016/05/04}{CJKmath 功能也支持分区字体。}
 %
 % \begin{macro}[internal]{\xeCJK_set_mathfont_block:}
 % 分区数学字体。
@@ -12157,6 +12184,8 @@ CJK scripts fonts (TrueType or OpenType).
 %</xunextra>
 %    \end{macrocode}
 %
+% \end{implementation}
+%
 % \setbox\xeCJKtmpbox\vbox\bgroup\gobblelineno
 %    \begin{macrocode}
 %<@@=xeCJK>
@@ -12178,7 +12207,13 @@ CJK scripts fonts (TrueType or OpenType).
 %</config>
 %    \end{macrocode}
 %
-% \begin{comment}
+% \Finale
+%
+% \endinput
+%
+% \DisableImplementation
+%
+% \begin{implementation}
 %
 % \makeatletter
 % \let\special@index\@gobble
@@ -13051,11 +13086,6 @@ int main()
 %</xunicode-symbols>
 %    \end{macrocode}
 %
-% \end{comment}
-%
 % \end{implementation}
-%
-%
-% \Finale
 %
 \endinput
