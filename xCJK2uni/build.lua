@@ -6,7 +6,8 @@ packtdszip = true
 
 sourcefiles = {"xCJK2uni.dtx"}
 unpackfiles = {"xCJK2uni.dtx"}
-unpacksuppfiles = {"xCJK2uni.ver"}
+unpacksuppfiles = {"xCJK2uni.id", "ctxdocstrip.tex"}
+typesetsuppfiles = {"ctxdoc.cls"}
 installfiles = {"*.sty", "xCJK2uni-U*.def", "*.cmap"}
 unpackexe = "luatex"
 typesetexe = "xelatex"
@@ -16,7 +17,7 @@ subtexdirs = {
 }
 
 function copytds_posthook()
-  -- ins 文件
+  cp("xCJK2uni.ins", unpackdir, ctandir .. "/" .. ctanpkg)
   cp("xCJK2uni.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
 end
 
