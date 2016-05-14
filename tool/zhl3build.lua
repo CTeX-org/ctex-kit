@@ -17,7 +17,7 @@
 --]]
 
 maindir = maindir or "."
-supportdir = supportdir or maindir .. "/build/support"
+supportdir = supportdir or "../tool"
 gitverfiles = gitverfiles or unpackfiles
 gbkfiles = gbkfiles or { }
 big5files = big5files or { }
@@ -129,16 +129,11 @@ end
 function extract_git_version()
   mkdir(supportdir)
   for _,f in ipairs(gitverfiles) do
-    local mainname = f:match("(.*)%.") or f
-    local vername =  supportdir .. '/' .. mainname .. '.ver'
+    local mainname = stripext(f)
+    local vername =  supportdir .. "/" .. mainname .. ".id"
     if os_windows then vername = unix_to_win(vername) end
-    os.execute(shellescape([[git log -1 --pretty=format:"\expandafter\def\csname\detokenize{]]
-                               .. mainname .. [[PutVersion}\endcsname{\string\GetIdInfo]] .. [[$Id: ]]
-                               .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' > ' .. vername))
-    append_newline(vername)
-    os.execute(shellescape([[git log -1 --pretty=format:"\expandafter\def\csname\detokenize{]]
-                               .. mainname .. [[GetVersionInfo}\endcsname{\GetIdInfo]] .. [[$Id: ]]
-                               .. f .. [[ %h %ai %an <%ae> $}" ]] .. f .. ' >> ' .. vername))
+    os.execute(shellescape([[git log -1 --pretty=format:"$Id: ]]
+                               .. f .. [[ %h %ai %an <%ae> $" ]] .. f .. " > " .. vername))
     append_newline(vername)
   end
 end

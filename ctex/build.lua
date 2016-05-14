@@ -6,15 +6,14 @@ packtdszip = true
 
 sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles = {"ctex.dtx"}
-unpacksuppfiles = {"ctex.ver"}
-installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "zh*.tex", "ctex*spa*.tex", "*.dict"}
-excludefiles = {"*ctxdoc.cls"}
+unpacksuppfiles = {"ctex.id","ctxdocstrip.tex"}
+installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
 
 gbkfiles = {"ctex-name-gbk.cfg", "*-ChineseGBK.dict"}
-generic_insatllfiles = {"zh*.tex", "ctex*spa*.tex"}
+generic_insatllfiles = {"*.tex"}
 subtexdirs = {
     ["config"] = "*.cfg",
     ["fd"] = "*.fd",
@@ -23,6 +22,11 @@ subtexdirs = {
     ["scheme"] = "ctex-scheme-*.def",
     ["dictionary"] = "*.dict",
 }
+
+function copytds_posthook()
+  cp("ctex.ins", unpackdir, ctandir .. "/" .. ctanpkg)
+  cp("ctex.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
+end
 
 dofile("../tool/zhl3build.lua")
 
