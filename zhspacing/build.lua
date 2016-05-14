@@ -10,7 +10,7 @@ unpackfiles  = { }
 installfiles = {"*.sty", "t-zhspacing.tex"}
 sourcefiles  = installfiles
 typesetfiles = {"zhs-man.tex"}
-demofiles    = {"zhspacing-context-test.tex", "README"}
+demofiles    = {"zhspacing-context-test.tex"}
 typesetexe   = "xelatex"
 
 context_insatllfiles = {"t-zhspacing.tex"}
