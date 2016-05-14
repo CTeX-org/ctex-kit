@@ -51,42 +51,43 @@ function file_md5 (file)
   end
 end
 
--- 以 .aux, .glo, .idx, .hd 文件的 md5 来决定编译次数，默认最大为 5 次
+-- 以 .aux, .bbl, .glo, .idx, .hd 文件的 md5 来决定编译次数，默认最大为 5 次
 max_typeset_run = max_typeset_run or 5
 typeset = typeset or function (file)
   local name = stripext(file)
   local path_name = typesetdir .. "/" .. name
-  local aux, glo, idx, hd = path_name .. ".aux", path_name .. ".glo", path_name .. ".idx", path_name .. ".hd"
-  local aux_md5, glo_md5, idx_md5, hd_md5, prev_aux_md5, prev_glo_md5, prev_idx_md5, prev_hd_md5
+  local aux, bbl = path_name .. ".aux", path_name .. ".bbl"
+  local glo, idx, hd = path_name .. ".glo", path_name .. ".idx", path_name .. ".hd"
+  local aux_md5, bbl_md5, glo_md5, idx_md5, hd_md5
+  local prev_aux_md5, prev_bbl_md5, prev_glo_md5, prev_idx_md5, prev_hd_md5
   local errorlevel
   local cnt = 0
-  local typeset_stop = true
-  repeat
+  local typeset_flag = true
+  while typeset_flag and cnt < max_typeset_run do
     cnt = cnt + 1
     errorlevel = tex(file)
     if errorlevel ~= 0 then return errorlevel end
-    prev_aux_md5, prev_glo_md5, prev_idx_md5, prev_hd_md5 = aux_md5, glo_md5, idx_md5, hd_md5
-    aux_md5, glo_md5, idx_md5, hd_md5 = file_md5(aux), file_md5(glo), file_md5(idx), file_md5(hd)
-    typeset_stop = aux_md5 == prev_aux_md5 and hd_md5 == prev_hd_md5
-    if glo_md5 ~= prev_glo_md5 then
-      typeset_stop = false
-      errorlevel = makeindex(name, ".glo", ".gls", ".glg", glossarystyle)
-      if errorlevel ~= 0 then return errorlevel end
-    end
-    if idx_md5 ~= prev_idx_md5 then
-      typeset_stop = false
-      errorlevel = makeindex(name, ".idx", ".ind", ".ilg", indexstyle)
-      if errorlevel ~= 0 then return errorlevel end
-    end
-  until typeset_stop or cnt >= max_typeset_run
+    errorlevel = biber(name) + bibtex(name)
+                             + makeindex(name, ".glo", ".gls", ".glg", glossarystyle)
+                             + makeindex(name, ".idx", ".ind", ".ilg", indexstyle)
+    if errorlevel ~= 0 then return errorlevel end
+    prev_aux_md5, prev_bbl_md5 = aux_md5, bbl_md5
+    prev_glo_md5, prev_idx_md5, prev_hd_md5 = glo_md5, idx_md5, hd_md5
+    aux_md5, bbl_md5 = file_md5(aux), file_md5(bbl)
+    glo_md5, idx_md5, hd_md5 = file_md5(glo), file_md5(idx), file_md5(hd)
+    typeset_flag = aux_md5 ~= prev_aux_md5 or bbl_md5 ~= prev_bbl_md5
+                                           or glo_md5 ~= prev_glo_md5
+                                           or idx_md5 ~= prev_idx_md5
+                                           or hd_md5 ~= prev_hd_md5
+  end
   return 0
 end
 
 -- 返回脚本所在目录
 local function script_path()
    local str = debug.getinfo(2, "S").source:sub(2)
-   str = str:match("(.*[/\\])") or './'
-   return str:gsub('\\', '/')
+   str = str:match("(.*[/\\])") or "./"
+   return str:gsub("\\", "/")
 end
 
 dtxchecksum = dofile(script_path() .. "dtxchecksum.lua").checksum
@@ -97,6 +98,9 @@ function checksum()
   -- 不进行重复解包
   if not is_unpacked then unpack() end
   unpack = function() end
+  for _,i in ipairs(typesetsuppfiles) do
+    cp (i, supportdir, localdir)
+  end
   for _,glob in ipairs(typesetfiles) do
     for _,f in ipairs(filelist(".", glob)) do
       if f:sub(-4) == ".dtx" then
@@ -155,7 +159,7 @@ function hooked_bundleunpack()
   extract_git_version()
   unpack_prehook()
   -- Unbundle
-  unhooked_bundleunpack()
+  local retval = unhooked_bundleunpack()
   -- UTF-8 to GBK conversion
   for _,glob in ipairs(gbkfiles) do
     for _,f in ipairs(filelist(unpackdir,glob)) do
@@ -171,7 +175,7 @@ function hooked_bundleunpack()
     end
   end
   is_unpacked = true
-  unpack_posthook()
+  return retval
 end
 
 local doc_prehook = doc_prehook or function() end
@@ -223,22 +227,11 @@ function hooked_copytds()
   copytds_posthook()
 end
 
-function hooked_bundlectan()
-  local err = unhooked_bundlectan()
-  -- 复制 docstrip 生成的 README 文件
-  if err == 0 then
-    for _,f in ipairs (readmefiles) do
-      cp(f, unpackdir, ctandir .. "/" .. ctanpkg .. "/" .. stripext(f))
-      cp(f, unpackdir, tdsdir .. "/doc/" .. tdsroot .. "/" .. bundle .. "/" .. stripext(f))
-    end
-  end
-  return err
-end
-
 function hooked_help()
-  print ""
-  io.stdout:write " build checksum              - adjust checksum"
   unhooked_help()
+  print("")
+  print("zhl3build extension:")
+  print([[   checksum   Adjust \CheckSum{...}]])
 end
 
 function main (target, file, engine)
@@ -249,8 +242,6 @@ function main (target, file, engine)
   doc = hooked_doc
   unhooked_copytds = copytds
   copytds = hooked_copytds
-  unhooked_bundlectan = bundlectan
-  bundlectan = hooked_bundlectan
   unhooked_help = help
   help = hooked_help
   if target == "checksum" then
