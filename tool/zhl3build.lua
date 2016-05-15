@@ -229,6 +229,41 @@ function hooked_help()
   print([[   checksum   Adjust \CheckSum{...}]])
 end
 
+-- 更改版本号时不改变换行符
+function zh_setversion()
+  local function rewrite(file, date, version)
+    local changed = false
+    local lines = { }
+    local f = assert(io.open(file, "rb"))
+    local line = f:read("*L")
+    local EOL = assert(line:match(".-([\r\n]+)$"))
+    f:close()
+    for line in io.lines(file) do
+      local newline = setversion_update_line(line, date, version)
+      if newline ~= line then
+        line = newline
+        changed = true
+      end
+      table.insert(lines, line)
+    end
+    if changed then
+      ren(".", file, file .. bakext)
+      f = assert(io.open(file, "wb"))
+      f:write(table.concat(lines, EOL), EOL)
+      f:close()
+      rm(".", file .. bakext)
+    end
+  end
+  local date = optdate and optdate[1] or os.date("%Y-%m-%d")
+  local version = optversion and optversion[1] or "-1"
+  for _,i in pairs(versionfiles) do
+    for _,j in pairs(filelist(".", i)) do
+      rewrite(j, date, version)
+    end
+  end
+  return 0
+end
+
 function main (target, file, engine)
   if miktex_hook then miktex_hook() end
   unhooked_bundleunpack = bundleunpack
@@ -239,6 +274,7 @@ function main (target, file, engine)
   copytds = hooked_copytds
   unhooked_help = help
   help = hooked_help
+  setversion = zh_setversion
   if target == "checksum" then
     checksum()
   else
