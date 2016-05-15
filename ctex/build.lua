@@ -28,6 +28,22 @@ function copytds_posthook()
   cp("ctex.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
 end
 
+function setversion_update_line (line, date, version)
+  local left, right = line:match([[^(%%%b<>  {\ExplFileDate}{).-(}{.+})$]])
+  if left and right then
+    local line = left .. version .. right
+    print(line)
+    return line
+  end
+  if line:sub(-7) == "(CTEX)]" then
+    local line = line:gsub("%d+/%d+/%d+ v%S+", date:gsub("-","/") .. " v" .. version)
+    print(line)
+    return line
+  end
+  return line
+end
+
+
 dofile("../tool/zhl3build.lua")
 
 -- vim:sw=2:et
