@@ -16,7 +16,7 @@ local ctan = #arg > 0 and arg or ctex_kit
  
 for _, pkg in ipairs(ctan) do
   local currdir = lfs.currentdir()
-	lfs.chdir(pkg)
-	os.execute("texlua build.lua ctan")
-	lfs.chdir(currdir)
+  lfs.chdir(pkg)
+  os.execute("texlua build.lua ctan")
+  lfs.chdir(currdir)
 end
