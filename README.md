@@ -15,30 +15,26 @@ It is maintained by [CTeX][ctex] community.
 Our Packages/Collections on CTAN
 --------------------------------
 
-* [CTeX Collection][ctex-collection-ctan]: <http://www.ctan.org/pkg/ctex>
-* [xCJK2uni][xCJK2uni-ctan]: <http://www.ctan.org/pkg/xcjk2uni>
-* [xeCJK][xeCJK-ctan]: <http://www.ctan.org/pkg/xecjk>
-* [xpinyin][xpinyin-ctan]: <http://www.ctan.org/pkg/xpinyin>
-* [zhmetrics][zhmetrics-ctan]: <http://www.ctan.org/pkg/zhmetrics>
-* [zhmetrics-uptex][zhmetrics-uptex-ctan]: <http://www.ctan.org/pkg/zhmetrics-uptex>
-* [zhnumber][zhnumber-ctan]: <http://www.ctan.org/pkg/zhnumber>
-* [zhspacing][zhspacing-ctan]: <http://www.ctan.org/pkg/zhspacing>
+Package/Collection                      | Version
+--------------------------------------- | -------
+[CJKpunct][CJKpunct-ctan]               | [![CTAN](https://img.shields.io/ctan/v/cjkpunct.svg)](http://www.ctan.org/pkg/cjkpunct)
+[CTeX Collection][ctex-collection-ctan] | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](https://www.ctan.org/pkg/ctex)
+[xCJK2uni][xCJK2uni-ctan]               | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](http://www.ctan.org/pkg/xcjk2uni)
+[xeCJK][xeCJK-ctan]                     | [![CTAN](https://img.shields.io/ctan/v/xecjk.svg)](http://www.ctan.org/pkg/xecjk)
+[xpinyin][xpinyin-ctan]                 | [![CTAN](https://img.shields.io/ctan/v/xpinyin.svg)](http://www.ctan.org/pkg/xpinyin)
+[zhmCJK][zhmCJK-ctan]                   | [![CTAN](https://img.shields.io/ctan/v/zhmcjk.svg)](http://www.ctan.org/pkg/zhmcjk)
+[zhmetrics][zhmetrics-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhmetrics.svg)](http://www.ctan.org/pkg/zhmetrics)
+[zhmetrics-uptex][zhmetrics-uptex-ctan] | [![CTAN](https://img.shields.io/ctan/v/zhmetrics-uptex.svg)](http://www.ctan.org/pkg/zhmetrics-uptex)
+[zhnumber][zhnumber-ctan]               | [![CTAN](https://img.shields.io/ctan/v/zhnumber.svg)](http://www.ctan.org/pkg/zhnumber)
+[zhspacing][zhspacing-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhspacing.svg)](http://www.ctan.org/pkg/zhspacing)
 
+[CJKpunct-ctan]: http://www.ctan.org/tex-archive/language/chinese/cjkpunct
 [ctex-collection-ctan]: http://www.ctan.org/tex-archive/language/chinese/ctex
 [xCJK2uni-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xcjk2uni
 [xeCJK-ctan]: http://www.ctan.org/tex-archive/macros/xetex/latex/xecjk
 [xpinyin-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xpinyin
+[zhmCJK-ctan]: http://www.ctan.org/tex-archive/language/chinese/zhmcjk
 [zhmetrics-ctan]: http://www.ctan.org/tex-archive/fonts/psfonts/zhmetrics
 [zhmetrics-uptex-ctan]: http://www.ctan.org/tex-archive/fonts/zhmetrics-uptex
 [zhnumber-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/zhnumber
 [zhspacing-ctan]: http://www.ctan.org/tex-archive/macros/xetex/generic/zhspacing
-
-
-Current Upstream Versions
--------------------------
-
-* CJKpunct: 4.8.2, from [cjkpunct]
-* zhmCJK: 0.9a, from [leo-liu/tex-pkg][zhmcjk]
-
-[cjkpunct]: http://bbs.ctex.org/viewthread.php?tid=49516&amp;page=1&amp;fromuid=56635#pid344946
-[zhmcjk]: https://github.com/leo-liu/tex-pkg/commit/589985d67fab11f3d1cb249a070deba6863a5077
