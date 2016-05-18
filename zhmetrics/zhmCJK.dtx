@@ -1,6 +1,6 @@
 % \iffalse meta-comment
 %
-% Copyright (C) 2012--2014 by Leo Liu <leoliu.pku@gmail.com>
+% Copyright (C) 2012--2015 by Leo Liu <leoliu.pku@gmail.com>
 % ---------------------------------------------------------------------------
 % This work may be distributed and/or modified under the
 % conditions of the LaTeX Project Public License, either version 1.3
@@ -154,7 +154,7 @@ If you are interested in the process of development you may observe
 %<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
 %<package>\ProvidesPackage{zhmCJK}
 %<*package>
-    [2014/06/20 v0.9a setup CJK fonts dynamically]
+    [2015/04/20 v0.9b setup CJK fonts dynamically]
 %</package>
 %
 %<*driver>
@@ -231,7 +231,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{873}
+% \CheckSum{786}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -871,11 +871,19 @@ If you are interested in the process of development you may observe
 %
 % \changes{v0.9a}{2014/06/20}{使用 \texttt{CJK*} 的环境头代替完整 \texttt{CJK*}
 % 环境，可以减少一个全局分组。（由李清建议）}
-% 在导言区和正文中分别开启 \pkg{CJK} 的功能。这里使用 "\CJK*" 代替原来的 "CJK"
-% 环境，可以避免在 "document" 环境内引入一层分组，同时全局使用也不需要在全文最
-% 后使用 "\end{CJK}"，最后也不需要 "\clearpage"。
+% \changes{v0.9b}{2015/04/08}{使用 \cs{CJK@@enc} 避免一些定义问题。}
+% \changes{v0.9b}{2015/05/01}{UTF8 编码不使用 \cs{CJK@makeActive}。}
+% 在导言区和正文中分别开启 \pkg{CJK} 的功能。非 UTF8 编码环境下，导言区使用
+% "\CJK@makeActive" 设置 128 以上字符为活动字符，并用 "\CJK@@enc" 定义这些活动字符。
+% 这里使用 "\CJK*" 代替原来的 "CJK" 环境，可以避免在 "document" 环境内引入一层分组，
+% 同时全局使用也不需要在全文最后使用 "\end{CJK}"，最后也不需要 "\clearpage"。
 %    \begin{macrocode}
-\AtEndOfPackage{\CJK@makeActive}
+\begingroup\def\zhm@UTF{UTF8}\expandafter\endgroup
+\unless\ifx\zhm@encoding\zhm@UTF
+  \AtEndOfPackage{%
+    \CJK@makeActive
+    \CJK@@enc}
+\fi
 \AtBeginDocument{%
   \@nameuse{CJK*}{\zhm@encoding}{\CJKfamilydefault}}
 %    \end{macrocode}
@@ -1421,7 +1429,7 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@setup@pinyin@UTF8}
-% \changes{v???}{2014/06/20}{处理 UTF-8 编码下的拼音符号输入。}
+% \changes{v0.9a}{2014/06/20}{处理 UTF-8 编码下的拼音符号输入。}
 % 下面简单处理 UTF-8 编码下的汉语拼音符号，让下列拼音符号
 % \begin{quote}
 %   \ttfamily
@@ -1476,42 +1484,6 @@ If you are interested in the process of development you may observe
   \@namedef{u8:\detokenize{Ń}}{\'{N}}%
   \@namedef{u8:\detokenize{Ň}}{\v{N}}%
   \@namedef{u8:\detokenize{Ǹ}}{\`{N}}%
-%    \end{macrocode}
-% 修正 \pkg{CJKutf8} 的一个 bug。截至 2012/05/07 v4.8.3 此问题还存在，如果后续
-% 版本修正此错误则删去这里的补丁。
-%    \begin{macrocode}
-  \def\CJK@XX##1##2{%
-    \ifx ##2\protect
-      \expandafter\CJK@XXp\expandafter##1%
-    \else
-      \expandafter\ifx\csname u8:\string ##1\string ##2\endcsname \relax
-        \csname CJK@\number `##1\endcsname{`##2}\expandafter\CJK@ignorespaces
-      \else
-        \csname u8:\string ##1\string ##2\endcsname
-      \fi
-    \fi}%
-  \def\CJK@XXp##1##2{%
-    \expandafter\ifx\csname u8:\string ##1\string ##2\endcsname \relax
-      \csname CJK@\number `##1\endcsname{`##2}\expandafter\CJK@ignorespaces
-    \else
-      \csname u8:\string ##1\string ##2\endcsname
-    \fi}%
-  \def\CJK@XXX##1##2##3{%
-    \ifx ##2\protect
-      \expandafter\CJK@XXXp\expandafter##1##3%
-    \else
-      \expandafter\ifx\csname u8:\string ##1\string ##2\string ##3\endcsname \relax
-        \csname CJK@\number `##1\endcsname{`##2}{`##3}\expandafter\CJK@ignorespaces
-      \else
-        \csname u8:\string ##1\string ##2\string ##3\endcsname
-      \fi
-    \fi}%
-  \def\CJK@XXXp##1##2##3##4{%
-    \expandafter\ifx\csname u8:\string ##1\string ##2\string ##4\endcsname \relax
-      \csname CJK@\number `##1\endcsname{`##2}{`##4}\expandafter\CJK@ignorespaces
-    \else
-      \csname u8:\string ##1\string ##2\string ##4\endcsname
-    \fi}%
 }
 %    \end{macrocode}
 % \end{macro}
