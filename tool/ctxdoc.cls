@@ -28,10 +28,10 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx f745b21 2016-05-14 12:17:18 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx e942124 2016-05-18 19:46:02 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
-  {\ExplFileDate}{2.4.1}{\ExplFileDescription}
+  {\ExplFileDate}{2.4.2}{\ExplFileDescription}
 \ExplSyntaxOff
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
@@ -166,15 +166,7 @@
 \newcounter{ctexexam}
 \BeforeBeginEnvironment{function}{\par\nointerlineskip}
 \AtEndEnvironment{function}{%
-  \par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}%
-  \ctexfixdescrcoffinyoffset}
-%% l3doc 会在 function 环境的 syntax 和 descr 盒子中间加上 \medskipamount 的距离。
-%% 但是若 syntax 盒子为空（未使用 syntax 环境），就会显得不好看。
-%% 此时我们通过将 \medskipamount 设置为零来修正。
-\def\ctexfixdescrcoffinyoffset{%
-  \aftergroup\aftergroup\aftergroup\ctexzeromedskipamount}
-\def\ctexzeromedskipamount{\setlength\medskipamount{\z@skip}}
-\AfterEndEnvironment{syntax}{\let\ctexfixdescrcoffinyoffset\relax}
+  \par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
 \AtBeginEnvironment{syntax}{\linespread{1}\ctexplainps\ctexdisableecglue}
 \BeforeBeginEnvironment{SideBySideExample}{\par\addvspace{\medskipamount}}
@@ -196,19 +188,42 @@
     \exp_last_unbraced:Nf \tl_head:w
       { \prop_item:Nn \c__ctex_font_size_prop {#1} } { } \q_stop
   }
+%% 抑制首段的 \parskip
+\ctex_patch_cmd_once:NnnnTF \__codedoc_function_descr_start:w
+  { }
+  { \noindent }
+  { \skip_vertical:n { -\parskip } \noindent }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+%% l3doc 会在 function 环境的 syntax 和 descr 盒子中间加上 \medskipamount 的距离。
+%% 但是若 syntax 盒子为空（未使用 syntax 环境），就会显得不好看。
+%% 此时我们通过将 \medskipamount 设置为零来修正。若盒子非空，则将 \parskip 还回去。
+\ctex_preto_cmd:NnnTF \__codedoc_function_assemble:
+  { }
+  { \ctex_doc_fix_yoffset: }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\cs_new_protected_nopar:Npn \ctex_doc_fix_yoffset:
+  {
+    \box_if_empty:NTF \g__codedoc_syntax_box
+      { \skip_zero:N \medskipamount }
+      { \skip_add:Nn \medskipamount { \parskip } }
+  }
 %% 用 \vtop 让函数名字和语法盒子首行对齐
-\patchcmd \__codedoc_syntax:w
+\ctex_patch_cmd_once:NnnnTF \__codedoc_syntax:w
+  { }
   { { minipage } { \l__codedoc_syntax_dim } }
   { { minipage } [t] { \l__codedoc_syntax_dim } }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
 %% 左侧边注的函数列表采用单倍行距
-\cs_set_protected_nopar:Npx \__codedoc_typeset_names:
-  {
-    \exp_not:N \linespread { 1 }
-    \exp_not:o { \__codedoc_typeset_names: }
-  }
-\patchcmd \__codedoc_macro_typeset_one:n
+\ctex_preto_cmd:NnnTF \__codedoc_typeset_names:
+  { }
+  { \linespread { 1 } }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:n
+  { }
   { \vbox_unpack_clear:N }
   { \linespread { 1 } \selectfont \vbox_unpack_clear:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
@@ -274,16 +289,72 @@
 \DeclareDocumentCommand \GetFileId { m }
   {
     \GetFileInfo {#1}
-    \ior_open:NnTF \g_ctxdoc_ior { \c_sys_jobname_str .id }
+    \ior_open:NnTF \g__ctex_doc_ior { \c_sys_jobname_str .id }
       {
-        \ior_get:NN \g_ctxdoc_ior \l_tmpa_tl
-        \ior_close:N \g_ctxdoc_ior
-        \exp_after:wN \GetIdInfo \l_tmpa_tl
+        \ior_get:NN \g__ctex_doc_ior \l__ctex_tmp_tl
+        \ior_close:N \g__ctex_doc_ior
+        \exp_after:wN \GetIdInfo \l__ctex_tmp_tl
       }
       { \GetIdInfo $Id$ }
       { \fileinfo }
   }
-\iow_new:N \g_ctxdoc_ior
+\ior_new:N \g__ctex_doc_ior
+\cs_new_protected:Npn \CTEX@saveversiondate #1#2
+  {
+    \prop_get:NnNTF \g__ctex_version_date_prop {#1} \l__ctex_tmp_tl
+      { \exp_after:wN \__ctex_save_version_date:nnnn \l__ctex_tmp_tl {#2} {#1} }
+      { \__ctex_save_version_date:nnn {#1} {#2} {#2} }
+  }
+\cs_new_protected:Npn \__ctex_save_version_date:nnnn #1#2#3#4
+  {
+    \__ctex_if_date_later:nnTF {#1} {#3}
+      { \__ctex_save_version_date:nnn {#4} {#3} {#2} }
+      {
+        \__ctex_if_date_later:nnT {#3} {#2}
+          { \__ctex_save_version_date:nnn {#4} {#1} {#3} }
+      }
+  }
+\prg_new_conditional:Npnn \__ctex_if_date_later:nn #1#2 { TF , T }
+  {
+    \if_int_compare:w \__ctex_parse_date:w #1 / / / 0 \q_stop >
+                      \__ctex_parse_date:w #2 / / / 0 \q_stop \exp_stop_f:
+      \prg_return_true: \else: \prg_return_false: \fi:
+  }
+\cs_new:Npn \__ctex_parse_date:w #1/#2/#3/ #4 \q_stop
+  { #1#2#3 }
+\cs_new_protected:Npn \__ctex_save_version_date:nnn #1#2#3
+  { \prop_gput:Nnn \g__ctex_version_date_prop {#1} { {#2} {#3} } }
+\cs_new_protected:Npn \CTEX@versionitem #1 \efill
+  {
+    \@idxitem
+    \prop_get:NnNTF \g__ctex_version_date_prop {#1} \l__ctex_tmp_tl
+      { \exp_after:wN \__ctex_version_item:nnn \l__ctex_tmp_tl {#1} }
+      { \BOOM }
+  }
+\cs_new_protected:Npn \__ctex_version_item:nnn #1#2#3
+  {
+    \textbf {#3} \hfill
+    \hbox:n
+      {
+        \footnotesize
+        \str_if_eq:nnTF {#1} {#2}
+          { ( #1 ) }
+          { ( #1 ~ -- ~ #2 ) }
+      }
+    \par \nopagebreak
+  }
+\prop_new:N \g__ctex_version_date_prop
+\ctex_preto_cmd:NnnTF \changes@
+  { \ExplSyntaxOff }
+  { \CTEX@saveversiondate {#1} {#2} }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \HDorg@theglossary
+  { \ExplSyntaxOff }
+  { \let \item \@idxitem }
+  { \let \item \CTEX@versionitem }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
 \ExplSyntaxOff
 \AtBeginDocument{\addtocontents{toc}{\StopSpecialIndexModule}}
 \pdfstringdefDisableCommands{%
