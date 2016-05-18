@@ -110,14 +110,6 @@ function checksum()
   end
 end
 
-function append_newline(file)
-  if os_windows then
-    os.execute("echo.>> " .. file)
-  else
-    os.execute("echo >> " .. file)
-  end
-end
-
 function shellescape(s)
   if not os_windows then
     s = s:gsub([[\]], [[\\]])
@@ -126,15 +118,48 @@ function shellescape(s)
   return s
 end
 
+git_id_info = { }
+
 function extract_git_version()
   mkdir(supportdir)
-  for _,f in ipairs(gitverfiles) do
-    local mainname = stripext(f)
-    local vername =  supportdir .. "/" .. mainname .. ".id"
-    if os_windows then vername = unix_to_win(vername) end
-    os.execute(shellescape([[git log -1 --pretty=format:"$Id: ]]
-                               .. f .. [[ %h %ai %an <%ae> $" ]] .. f .. " > " .. vername))
-    append_newline(vername)
+  for _,i in ipairs(gitverfiles) do
+    for _,j in ipairs(filelist(".", i)) do
+      local mainname = stripext(j)
+      local idfile =  supportdir .. "/" .. mainname .. ".id"
+      if os_windows then idfile = unix_to_win(idfile) end
+      local cmdline = shellescape([[git log -1 --pretty=format:"$Id: ]]
+                                      .. j .. [[ %h %ai %an <%ae> $" ]] .. j)
+      local  f = assert(io.popen(cmdline, "r"))
+      local id = f:read("*all")
+      f:close()
+      git_id_info[j] = id
+      f = assert(io.open(idfile, "w"))
+      f:write(id, "\n")
+      f:close()
+    end
+  end
+end
+
+function expand_git_version()
+  local sourcedir = tdsdir .. "/source/" .. moduledir
+  for _,i in ipairs(gitverfiles) do
+    for _,j in ipairs(filelist(sourcedir, i)) do
+      replace_git_id(sourcedir, j)
+    end
+  end
+end
+
+function replace_git_id (path, file)
+  local f = assert(io.open(path .. "/" .. file, "rb"))
+  local s = f:read("*all")
+  f:close()
+  local id = assert(git_id_info[file])
+  local s, n = s:gsub([[(%b<>\GetIdInfo)%b$$]], "%1" .. id)
+  if n > 0 then
+    f = assert(io.open(path .. "/" .. file, "wb"))
+    f:write(s)
+    f:close()
+    cp(file, path, ctandir .. "/" .. ctanpkg)
   end
 end
 
@@ -218,6 +243,8 @@ function hooked_copytds()
       mv(tds_basedir .. "/" .. f, tds_basedir .. "/" .. subdir .. "/" .. f)
     end
   end
+  -- 展开源文件中的 $Id$
+  expand_git_version()
   -- 其他钩子
   copytds_posthook()
 end
@@ -237,8 +264,8 @@ function zh_setversion()
     local f = assert(io.open(file, "rb"))
     local line = f:read("*L")
     local EOL = assert(line:match(".-([\r\n]+)$"))
-    f:close()
-    for line in io.lines(file) do
+    assert(f:seek("set"))
+    for line in f:lines() do
       local newline = setversion_update_line(line, date, version)
       if newline ~= line then
         line = newline
@@ -246,6 +273,7 @@ function zh_setversion()
       end
       table.insert(lines, line)
     end
+    f:close()
     if changed then
       ren(".", file, file .. bakext)
       f = assert(io.open(file, "wb"))
