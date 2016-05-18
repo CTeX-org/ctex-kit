@@ -19,7 +19,7 @@ Package/Collection                      | Version
 --------------------------------------- | -------
 [CJKpunct][CJKpunct-ctan]               | [![CTAN](https://img.shields.io/ctan/v/cjkpunct.svg)](http://www.ctan.org/pkg/cjkpunct)
 [CTeX Collection][ctex-collection-ctan] | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](https://www.ctan.org/pkg/ctex)
-[xCJK2uni][xCJK2uni-ctan]               | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](http://www.ctan.org/pkg/xcjk2uni)
+[xCJK2uni][xCJK2uni-ctan]               | [![CTAN](https://img.shields.io/ctan/v/xcjk2uni.svg)](http://www.ctan.org/pkg/xcjk2uni)
 [xeCJK][xeCJK-ctan]                     | [![CTAN](https://img.shields.io/ctan/v/xecjk.svg)](http://www.ctan.org/pkg/xecjk)
 [xpinyin][xpinyin-ctan]                 | [![CTAN](https://img.shields.io/ctan/v/xpinyin.svg)](http://www.ctan.org/pkg/xpinyin)
 [zhmCJK][zhmCJK-ctan]                   | [![CTAN](https://img.shields.io/ctan/v/zhmcjk.svg)](http://www.ctan.org/pkg/zhmcjk)
