@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10060}
+% \CheckSum{10081}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3366,6 +3366,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.4.1}{2016/05/21}{修复 \texttt{CJKspace} 功能失效。}
+%
 % \begin{macro}{CJKspace}
 % 是否保留 CJK 文字间的空白，默认不保留。
 %    \begin{macrocode}
@@ -3375,14 +3377,20 @@ Copyright and Licence
     CJKspace / true  .code:n =
       {
         \bool_set_true:N \l_@@_reserve_space_bool
-        \cs_set_eq:NN \@@_maybe_reserve_space: \@@_reserve_space:
+        \cs_set_eq:NN \@@_ignore_space_end:
+                      \@@_maybe_reserve_space:
+        \cs_set_eq:NN \@@_boundary_group_end_space:
+                      \@@_boundary_maybe_reserve_space:
         \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
           { \xeCJK_space_glue: }
       } ,
     CJKspace / false .code:n =
       {
         \bool_set_false:N \l_@@_reserve_space_bool
-        \xeCJK_cs_clear:N \@@_maybe_reserve_space:
+        \cs_set_eq:NN \@@_ignore_space_end:
+                      \group_align_safe_end:
+        \cs_set_eq:NN \@@_boundary_group_end_space:
+                      \@@_boundary_group_end_aux:
         \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
           { \CJKglue }
       } ,
@@ -3414,41 +3422,46 @@ Copyright and Licence
           { \xeCJK_class_group_end: \CJKecglue }
       }
       {
+        \group_align_safe_begin:
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           {
-            \group_align_safe_begin:
             \token_if_macro:NTF \l_peek_token
-              {
-                \group_align_safe_end:
-                \xeCJK_class_group_end:
-                { \xeCJK_make_node:n { CJK-space } }
-                \xeCJK_space_or_xecglue:
-              }
-              {
-                \group_align_safe_end:
-                \xeCJK_class_group_end:
-                { \xeCJK_make_node:n { CJK-space } }
-                \@@_maybe_reserve_space:
-              }
+              { \@@_boundary_reserve_space: }
+              { \@@_boundary_group_end_space: }
           }
           {
             \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
               { \@@_CJK_and_Boundary_relax:N }
-              { \@@_CJK_and_Boundary_aux: }
+              { \@@_boundary_group_end:n { CJK } }
           }
       }
   }
-\cs_new_protected_nopar:Npn \@@_CJK_and_Boundary_aux:
-  { \xeCJK_class_group_end: { \xeCJK_make_node:n { CJK } } }
+\cs_new_protected_nopar:Npn \@@_boundary_reserve_space:
+  {
+    \@@_boundary_group_end_aux:
+    \xeCJK_space_or_xecglue:
+  }
+\cs_new_protected_nopar:Npn \@@_boundary_maybe_reserve_space:
+  {
+    \token_if_letter:NTF \l_peek_token
+      { \@@_boundary_reserve_space: }
+      { \@@_boundary_group_end_aux: }
+  }
+\cs_new_protected_nopar:Npn \@@_boundary_group_end_aux:
+  { \@@_boundary_group_end:n { CJK-space } }
+\cs_new_eq:NN \@@_boundary_group_end_space: \@@_boundary_group_end_aux:
 \cs_new_protected:Npn \@@_CJK_and_Boundary_relax:N #1
   {
-    \@@_CJK_and_Boundary_aux:
+    \@@_boundary_group_end:n { CJK }
     \token_if_eq_meaning:NNTF #1 \scan_stop:
       {#1} { \cs_set_eq:NN #1 \scan_stop: #1 }
   }
-\cs_new_protected:Npn \@@_reserve_space:
-  { \token_if_letter:NT \l_peek_token { \xeCJK_space_or_xecglue: } }
-\cs_new_eq:NN \@@_maybe_reserve_space: \prg_do_nothing:
+\cs_new_protected_nopar:Npn \@@_boundary_group_end:n #1
+  {
+    \group_align_safe_end:
+    \xeCJK_class_group_end:
+    { \xeCJK_make_node:n {#1} }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3468,11 +3481,23 @@ Copyright and Licence
               { \xeCJK_remove_node: { \xeCJK_make_node:n { CJK-space } } }
             \group_align_safe_begin:
             \token_if_macro:NTF \l_peek_token
-              { \group_align_safe_end: \xeCJK_space_or_xecglue: }
-              { \group_align_safe_end: \@@_maybe_reserve_space: }
+              { \@@_reserve_space_aux: }
+              { \@@_ignore_space_end: }
           }
       }
   }
+\cs_new_protected:Npn \@@_reserve_space_aux:
+  {
+    \group_align_safe_end:
+    \xeCJK_space_or_xecglue:
+  }
+\cs_new_protected:Npn \@@_maybe_reserve_space:
+  {
+    \token_if_letter:NTF \l_peek_token
+      { \@@_reserve_space_aux: }
+      { \group_align_safe_end: }
+  }
+\cs_new_eq:NN \@@_ignore_space_end: \group_align_safe_end:
 %    \end{macrocode}
 % \end{macro}
 %
