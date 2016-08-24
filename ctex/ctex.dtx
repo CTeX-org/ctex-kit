@@ -10530,6 +10530,13 @@ Copyright and Licence
 %
 %    \begin{macrocode}
 %<*ctxdoc>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%<@@=ctxdoc>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 \ExplSyntaxOff
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
@@ -10682,7 +10689,7 @@ Copyright and Licence
 \cs_new_nopar:Npn \zihaopt #1
   {
     \exp_last_unbraced:Nf \tl_head:w
-      { \prop_item:Nn \c_@@_font_size_prop {#1} } { } \q_stop
+      { \prop_item:Nn \c__ctex_font_size_prop {#1} } { } \q_stop
   }
 %% 抑制首段的 \parskip
 \ctex_patch_cmd_once:NnnnTF \__codedoc_function_descr_start:w
@@ -10705,64 +10712,30 @@ Copyright and Licence
       { \skip_zero:N \medskipamount }
       { \skip_add:Nn \medskipamount { \parskip } }
   }
-%% 用 \vtop 让函数名字和语法盒子首行对齐
-\ctex_patch_cmd_once:NnnnTF \__codedoc_syntax:w
-  { }
-  { { minipage } { \l__codedoc_syntax_dim } }
-  { { minipage } [t] { \l__codedoc_syntax_dim } }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
 %% 左侧边注的函数列表采用单倍行距
-\cs_if_exist:NTF \__codedoc_typeset_names:
-  { \ctex_preto_cmd:NnnTF \__codedoc_typeset_names: }
-  { \ctex_preto_cmd:NnnTF \__codedoc_typeset_functions: }
+\ctex_preto_cmd:NnnTF \__codedoc_typeset_functions:
   { }
-  { \linespread { 1 } }
+  { \MacroFont }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:n
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_init:
+  { }
+  { \hbox:n }
+  { \MacroFont \hbox:n }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:nN
   { }
   { \vbox_unpack_clear:N }
-  { \linespread { 1 } \selectfont \vbox_unpack_clear:N }
+  { \MacroFont \vbox_unpack_clear:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-%% 不重复使用 \HD@target，避免索引出现重复页码
-\cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
-  {
-    \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
-    \str_if_eq:onTF { \@currenvir } { macrocode }
-      { \codeline@wrindex }
-      {
-        \HD@target
-        \index
-      }
-      {
-        \tl_if_empty:nF { #3 #4 }
-          { #3 \actualchar #4 \levelchar }
-        #1
-        \actualchar
-        {
-          \token_to_str:N \verbatim@font \c_space_tl
-          \l__codedoc_index_escaped_macro_tl
-        }
-        \encapchar
-        hdclindex{\the\c@HD@hypercount}{#5}
-      }
-  }
-\DeclareDocumentCommand \cs { O{} m }
-  { \__codedoc_cmd_aux:no {#1} { \c_backslash_str #2 } }
-\DeclareDocumentCommand \tn { O{} m }
-  {
-    \__codedoc_cmd_aux:no
-      { index = TeX , replace = false , #1 }
-      { \c_backslash_str #2 }
-  }
-\DeclareDocumentCommand \meta { +m }
-  { \__codedoc_meta_aux:n {#1} }
-\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
-  { \textbackslash \tl_to_str:n {#2} }
-\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
-\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_dump:
+  { }
+  { \hbox_unpack_clear:N }
+  { \MacroFont \hbox_unpack_clear:N }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
 \AtBeginEnvironment { syntax }
   {
     \char_set_catcode_active:N \|
@@ -10772,7 +10745,7 @@ Copyright and Licence
   }
 %% 不对目录中出现的 \cs 和 \tn 等编索引
 \DeclareDocumentCommand \StopSpecialIndexModule { }
-  { \cs_set_eq:NN \__codedoc_special_index_module:nnnn \use_none:nnnn }
+  { \cs_set_eq:NN \__codedoc_special_index_module:nnnnN \use_none:nnnnn }
 \tl_map_inline:nn { \actualchar \encapchar \levelchar }
   { \exp_args:Nx \DoNotIndex { \bslash \tl_to_str:N #1 } }
 \DeclareDocumentCommand \package { o m }
@@ -10787,16 +10760,16 @@ Copyright and Licence
 \DeclareDocumentCommand \GetFileId { m }
   {
     \GetFileInfo {#1}
-    \ior_open:NnTF \g_@@_doc_ior { \c_sys_jobname_str .id }
+    \ior_open:NnTF \g_@@_id_ior { \c_sys_jobname_str .id }
       {
-        \ior_get:NN \g_@@_doc_ior \l_@@_tmp_tl
-        \ior_close:N \g_@@_doc_ior
+        \ior_get:NN \g_@@_id_ior \l_@@_tmp_tl
+        \ior_close:N \g_@@_id_ior
         \exp_after:wN \GetIdInfo \l_@@_tmp_tl
       }
       { \GetIdInfo $Id$ }
       { \fileinfo }
   }
-\ior_new:N \g_@@_doc_ior
+\ior_new:N \g_@@_id_ior
 \ctex_patch_cmd:Nnn \changes@
   { \space \actualchar }
   { \actualchar }
@@ -10818,10 +10791,12 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_version_zfill:nnnn #1#2
   {
     \tl_clear:N \l_@@_tmp_tl
-    \seq_set_split:Nnn \l_tmpa_seq { . } {#1}
-    \seq_map_function:NN \l_tmpa_seq \@@_version_zfill:n
+    \seq_set_split:Nnn \l_@@_tmp_seq { . } {#1}
+    \seq_map_function:NN \l_@@_tmp_seq \@@_version_zfill:n
     \@@_ltx_changes:nnn { \l_@@_tmp_tl \actualchar #2 }
   }
+\tl_new:N \l_@@_tmp_tl
+\seq_new:N \l_@@_tmp_seq
 \cs_new_protected:Npn \@@_version_zfill:n #1
   {
     \tl_put_right:Nx \l_@@_tmp_tl
@@ -10900,9 +10875,6 @@ Copyright and Licence
   \color{purple}\footnotesize\normalfont\sffamily\textlangle#1\textrangle}}
 \AtBeginDocument{\addtocontents{toc}{\StopSpecialIndexModule}}
 \pdfstringdefDisableCommands{%
-  \let\cs\bookmarkcstn
-  \let\tn\bookmarkcstn
-  \let\meta\bookmarkmeta
   \let\path\meta
   \let\opt\@firstofone}
 \preto\@thehead{\cslet{MakeUppercase\space}{\@iden}}
@@ -10960,6 +10932,9 @@ Copyright and Licence
 \EnableCrossrefs
 \CodelineIndex
 \RecordChanges
+%    \end{macrocode}
+%
+%    \begin{macrocode}
 %</ctxdoc>
 %    \end{macrocode}
 %
