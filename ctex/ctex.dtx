@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5648}
+% \CheckSum{5629}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4165,6 +4165,7 @@ Copyright and Licence
   }
 \AtEndUTFCommand { \group_end: }
 %    \end{macrocode}
+%
 % \changes{v2.4.2}{2016/05/15}{恢复 \pkg{luatexja} 对 \tn{emshape} 和
 % \tn{eminnershape} 的重定义。}
 % 对 \pkg{fontspec} 沿用 \pkg{LuaTeX-ja} 的补丁。但恢复对 \tn{emshape} 和
@@ -4174,57 +4175,38 @@ Copyright and Licence
 \cs_set:Npn \emshape { \itshape }
 \cs_set:Npn \eminnershape { \upshape }
 %    \end{macrocode}
-% \pkg{lltjp-unicode-math} 让数学符号命令成为普通的文字宏。为了避免它被展开，应该
-% 用 \tn{protected} 来定义。
+%
+% \changes{v2.4.3}{2016/08/25}{更新 \pkg{unicode-math} 补丁。}
+% 对 \pkg{unicode-math} 的补丁主要是将 \file{unicode-math-table.tex} 中的数学符号设置为
+% \pkg{luatexja} 中的数学字母。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_um_define_math_chars:
+\cs_new_protected:Npn \ctex_ltj_set_math_letter:NN #1#2
   {
     \group_begin:
-      \cs_set_protected:Npn \__um_sym:nnn ##1##2##3
-        {
-          \tl_if_in:nnT
-            {
-              \mathord \mathalpha \mathbin \mathrel
-              \mathpunct \mathop \mathfence
-            }
-            { ##3 }
-            { \@@_um_char:Nn ##2 { ##1 } }
-        }
-      \__um_input_math_symbol_table:
+      \cs_set_protected:Npn #1 ##1##2##3
+        { \ltjsetmathletter { ##1 } }
+      #2
     \group_end:
   }
-\cs_new_protected:Npn \@@_um_char:Nn #1#2
-  {
-    \@@_um_char_aux:Nx #1 { \char_generate:nn {#2} { 12 } }
-    \ltjsetmathletter {#2}
-  }
-\cs_new_protected:Npn \@@_um_char_aux:Nn #1#2
-  {
-    \cs_gset_protected_nopar:Npn #1
-      {
-        \mode_if_math:TF
-          {#2}
-          {
-            {
-              \lua_now_x:n { tex.globaldefs = 0 }
-              \ltj@allalchar #2
-            }
-          }
-      }
-  }
-\cs_generate_variant:Nn \@@_um_char_aux:Nn { Nx }
 \ctex_at_end_package:nn { unicode-math }
   {
-    \cs_set_eq:NN \__um_define_math_chars: \@@_um_define_math_chars:
-    \@ifpackagelater { unicode-math } { 2015/06/28 }
+    \cs_if_exist:NTF \um_input_math_symbol_table:
+      {
+        \ctex_ltj_set_math_letter:NN
+          \um_sym:nnn
+          \um_input_math_symbol_table:
+      }
       {
         \cs_set_eq:NN \use@mathgroup \ctex_ltj_use_math_group:Nn
         \cs_set_protected_nopar:Npn \ctex_ltj_math_group_hook:
           { \__um_switchto_literal: }
+        \ctex_ltj_set_math_letter:NN
+          \__um_sym:nnn
+          \__um_input_math_symbol_table:
       }
-      { }
   }
 %    \end{macrocode}
+%
 % 对 \pkg{listings} 的补丁是让代码环境支持 JAchar 类。\pkg{LuaTeX-ja} 的补丁会将
 % 代码目录标题改为日文，我们不需要。
 %    \begin{macrocode}
