@@ -10736,6 +10736,17 @@ Copyright and Licence
   { \MacroFont \hbox_unpack_clear:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_end:
+  { }
+  { \endtrivlist }
+  { \@noparlisttrue \endtrivlist }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_appto_cmd:NnnTF \__codedoc_macro_end_style:n
+  { }
+  { \@endparenv }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
 \AtBeginEnvironment { syntax }
   {
     \char_set_catcode_active:N \|
@@ -10856,9 +10867,6 @@ Copyright and Licence
 \ctex_patch_cmd:Nnn \HDorg@theglossary
   { \let \item \@idxitem }
   { \let \item \CTEX@versionitem }
-\ctex_patch_cmd:Nnn \theCodelineNo
-  { \sffamily \tiny }
-  { \normalfont \sffamily \tiny }
 \ctex_patch_cmd:Nnn \l@section    { 2.5em } { 1.5em }
 \ctex_patch_cmd:Nnn \l@subsection { 2.5em } { 1.5em }
 \ctex_patch_cmd:Nnn \@wrglossary
@@ -10870,9 +10878,282 @@ Copyright and Licence
       hdclindex { \the \c@HD@hypercount }
     \fi
   }
+%% 重定义 macrocode 环境的实现，逐行处理
+\cs_set_protected_nopar:Npn \xmacro@code
+  { \@@_marco_code:w }
+\cs_set_protected_nopar:Npn \sxmacro@code
+  {
+    \fontspec_print_visible_spaces:
+    \xmacro@code
+  }
+\cs_new_protected_nopar:Npn \@@_marco_code:w
+  {
+    \ifcodeline@index
+      \everypar { \@@_code_line_no: }
+    \else:
+      \everypar { }
+    \fi:
+    \exp_args:Nx \@@_make_finish_tag:n { \@currenvir }
+    \@@_verbatim_start:w
+  }
+\group_begin:
+  \int_set_eq:NN \tex_endlinechar:D \c_minus_one
+  \use:n
+    {
+      \char_set_catcode_active:n { 32 }
+      \tl_const:Nn \c_@@_active_space_tl
+    }
+    { }
+\group_end:
+\group_begin:
+  \char_set_catcode_active:n { 13 }
+  \cs_new_protected:Npx \@@_make_finish_tag:n #1
+    {
+      \tl_set:Nn \exp_not:N \l_@@_verbatim_finish_tl
+        {
+          \c_percent_str
+          \prg_replicate:nn { 4 }
+            { \exp_not:o { \c_@@_active_space_tl } }
+          \exp_not:o { \active@escape@char } end
+          \c_left_brace_str #1 \c_right_brace_str
+          \exp_not:N ^^M
+        }
+    }
+  \cs_new_protected:Npn \@@_verbatim_start:w #1
+    {
+      \str_if_eq:nnTF {#1} { ^^M }
+        { \@@_verbatim_read_line:w }
+        { \@@_verbatim_read_line:w #1 }
+    }
+  \cs_new_protected:Npn \@@_verbatim_read_line:w #1 ^^M
+    {
+      \tl_set:Nn \l_@@_verbatim_line_tl { #1 ^^M }
+      \tl_if_eq:NNTF \l_@@_verbatim_line_tl \l_@@_verbatim_finish_tl
+        { \exp_args:Nx \end { \@currenvir } }
+        {
+          \@@_verbatim_process_line:
+          \@@_verbatim_read_line:w
+        }
+    }
+  \tl_const:Nn \c_@@_active_cr_tl { ^^M }
+\group_end:
+\tl_new:N \l_@@_verbatim_line_tl
+\tl_new:N \l_@@_verbatim_finish_tl
+\tl_new:N \g_@@_verbatim_verb_stop_tl
+\cs_new_protected_nopar:Npn \@@_process_normal_line:
+  {
+    \str_if_eq_x:nnTF
+      { \str_head:N \l_@@_verbatim_line_tl } { \c_percent_str }
+      { \@@_check_angle:x { \tl_tail:N \l_@@_verbatim_line_tl } }
+      { \@@_output_line: }
+  }
+\cs_new_protected_nopar:Npn \@@_process_verb_line:
+  {
+    \tl_if_eq:NNTF \l_@@_verbatim_line_tl \g_@@_verbatim_verb_stop_tl
+      {
+        \tl_gclear:N \g_@@_verbatim_verb_stop_tl
+        \cs_gset_eq:NN \@@_verbatim_process_line: \@@_process_normal_line:
+        \@@_output_module:nn
+          { slash@guard }
+          { \@@_module_pop:n { \l_@@_verbatim_line_tl } }
+      }
+      { \tl_use:N \l_@@_verbatim_line_tl }
+  }
+\cs_new_eq:NN \@@_verbatim_process_line: \@@_process_normal_line:
+\cs_new_protected:Npn \@@_check_angle:n #1
+  {
+     \str_if_eq_x:nnTF { \str_head:n {#1} } { < }
+      { \@@_check_module:x { \tl_tail:n {#1} } }
+      { \@@_output_percent_line: }
+  }
+\cs_generate_variant:Nn \@@_check_angle:n { x }
+\cs_new_protected:Npn \@@_check_module:n #1
+  {
+    \exp_args:Nx \str_case:nnF { \str_head:n {#1} }
+      {
+        { * } { \@@_module_star:w }
+        { / } { \@@_module_slash:w }
+        { @ } { \@@_module_at:w }
+        { < } { \@@_module_verb:w }
+      }
+      { \@@_module_pm:w }
+    #1 \q_stop
+  }
+\cs_generate_variant:Nn \@@_check_module:n { x }
+\group_begin:
+  \char_set_catcode_active:N \>
+  \cs_new_protected:Npn \@@_module_star:w #1 > #2 \q_stop
+    {
+      \@@_output_module:nn
+        { star@guard }
+        { \@@_module_push:n { \@@_module_angle:n {#1} } }
+      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+        {
+          \cs_gset_eq:NN \macro@font \AltMacroFont
+          \macro@font
+        }
+      \int_gincr:N \guard@level
+      \@@_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \@@_module_slash:w #1 > #2 \q_stop
+    {
+      \@@_output_module:nn
+        { slash@guard }
+        { \@@_module_pop:n { \@@_module_angle:n {#1} } }
+      \int_gdecr:N \guard@level
+      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+        {
+          \cs_gset_eq:NN \macro@font \MacroFont
+          \macro@font
+        }
+      \@@_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \@@_module_at:w @ @ = #1 > #2 \q_stop
+    {
+      \@@_output_module:nn
+        { at@guard }
+        { \@@_module_angle:n { @ @ = #1 } }
+      \tl_gset:Nn \g__codedoc_module_name_tl {#1}
+      \@@_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \@@_module_pm:w #1 > #2 \q_stop
+    {
+      \@@_output_module:nn
+        { pm@guard }
+        { \@@_module_angle:n {#1} }
+      \group_begin:
+        \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+          { \AltMacroFont }
+        \@@_output_line:n {#2}
+      \group_end:
+    }
+  \cs_new_protected:Npn \@@_module_verb:w #1 \q_stop
+    {
+      \cs_gset_eq:NN \@@_verbatim_process_line: \@@_process_verb_line:
+      \tl_gset:Nx \g_@@_verbatim_verb_stop_tl
+        { \c_percent_str \tl_tail:n {#1} }
+      \@@_output_module:nn
+        { star@guard }
+        { \@@_module_push:n { \l_@@_verbatim_line_tl } }
+    }
+\group_end:
+\cs_new_protected_nopar:Npn \@@_output_line:
+  {
+    \tex_noindent:D
+    \@@_replace_at_at:N \l_@@_verbatim_line_tl
+    \tl_use:N \l_@@_verbatim_line_tl
+  }
+\cs_new_protected:Npn \@@_replace_at_at:N #1
+  {
+    \tl_if_empty:NF \g__codedoc_module_name_tl
+      {
+        \exp_args:NNo \@@_replace_at_at_aux:Nn
+          #1 \g__codedoc_module_name_tl
+      }
+  }
+\cs_new_protected:Npn \@@_replace_at_at_aux:Nn #1#2
+  {
+    \tl_replace_all:Nnn #1 { _ @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 {   @ @ } { _ _ #2 }
+  }
+\cs_new_protected:Npn \@@_output_line:n #1
+  {
+    \tl_set:Nn \l_@@_verbatim_line_tl {#1}
+    \tl_if_eq:NNTF \l_@@_verbatim_line_tl \c_@@_active_cr_tl
+      { \tl_use:N \l_@@_verbatim_line_tl }
+      {
+        \str_if_eq_x:nnTF
+          { \str_head:N \l_@@_verbatim_line_tl }
+          { \c_percent_str }
+          { \@@_output_percent_line: }
+          { \@@_output_line: }
+      }
+  }
+\cs_new_protected:Npn \@@_output_percent_line:
+  {
+    \tex_noindent:D
+    \group_begin:
+      \color { code@gray }
+      \str_if_eq_x:nnTF { \f@shape } { \updefault }
+        { \slshape }
+        { \upshape }
+      \@@_output_line:
+    \group_end:
+  }
+\cs_new_protected_nopar:Npn \@@_module_push:n
+  { \exp_args:Nx \@@_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
+\cs_new_protected:Npn \@@_module_push_aux:nn #1
+  {
+    \seq_gpush:Nn \g_@@_module_dest_seq {#1}
+    \HD@savedest@add {#1}
+    \cs_if_exist:cTF { r@HD. #1 }
+      {
+        \hypersetup { hidelinks }
+        \hyperref [ HD. #1 ]
+      }
+      { \use:n }
+  }
+\cs_new_protected_nopar:Npn \@@_module_pop:n
+  {
+    \seq_gpop:NNTF \g_@@_module_dest_seq \l_@@_tmp_tl
+      {
+        \tl_set:Nx \@currentlabel { \int_use:N \c@HD@hypercount }
+        \HD@savedest@add { \@currentlabel }
+        \Hy@MakeCurrentHref { HD. \@currentlabel }
+        \label { HD. \l_@@_tmp_tl }
+        \hypersetup { hidelinks }
+        \hdclindex { \l_@@_tmp_tl } { }
+      }
+      { \BOOM \use:n }
+  }
+\seq_new:N \g_@@_module_dest_seq
+\cs_new_protected:Npn \@@_output_module:nn #1#2
+  {
+    \tex_noindent:D
+    \group_begin:
+      \color {#1} \footnotesize \normalfont \sffamily #2
+    \group_end:
+  }
+\definecolor { star@guard }  { rgb } { 0    , 0   , 0.55 }
+\definecolor { slash@guard } { rgb } { 0.75 , 0   , 0.25 }
+\definecolor { pm@guard }    { rgb } { 0.5  , 0.5 , 0 }
+\definecolor { at@guard }    { rgb } { 0.5  , 0   , 0.5 }
+\definecolor { code@gray }  { gray } { 0.5 }
+\cs_new_protected:Npn \@@_module_angle:n #1
+  { \textlangle #1 \textrangle }
+\cs_new_protected_nopar:Npn \@@_code_line_no:
+  {
+    \int_gincr:N \c@CodelineNo
+    \hbox_overlap_left:n
+      {
+        \hbox_to_wd:nn
+          { \MacroIndent }
+          {
+            \HD@target
+            \tex_hss:D
+            \@@_code_line_no_style:
+            \theCodelineNo \tex_space:D
+          }
+        \tex_kern:D \@totalleftmargin
+      }
+  }
+\tl_set:Nn \theCodelineNo
+  { \arabic { CodelineNo } }
+\cs_new_protected_nopar:Npn \@@_code_line_no_style:
+  { \color { code@gray } \normalfont \sffamily \tiny }
+\cs_set_protected:Npn \HD@SetMacroIndent #1
+  {
+    \group_begin:
+      \settowidth \MacroIndent
+        {
+          \@@_code_line_no_style:
+          \prg_replicate:nn { \tl_count:n {#1} } { 0 }
+          \tex_space:D
+        }
+      \dim_gset_eq:NN \MacroIndent \MacroIndent
+    \group_end:
+  }
 \ExplSyntaxOff
-\def\Module#1{\mbox{%
-  \color{purple}\footnotesize\normalfont\sffamily\textlangle#1\textrangle}}
 \AtBeginDocument{\addtocontents{toc}{\StopSpecialIndexModule}}
 \pdfstringdefDisableCommands{%
   \let\path\meta
