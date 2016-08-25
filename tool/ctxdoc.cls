@@ -28,7 +28,7 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx e942124 2016-05-18 19:46:02 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx f193b1d 2016-08-25 16:49:27 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
   {\ExplFileDate}{2.4.2}{\ExplFileDescription}
@@ -174,8 +174,6 @@
 \appto\MacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \preto\AltMacroFont{\linespread{1}}
 \appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
-\def\Module#1{\mbox{%
-  \color{purple}\footnotesize\normalfont\sffamily\textlangle#1\textrangle}}
 \newcommand*\exptarget{\Hy@raisedlink{\hypertarget{expstar}{}}}
 \newcommand*\rexptarget{\Hy@raisedlink{\hypertarget{rexpstar}{}}}
 \newcommand*\expstar{\hyperlink{expstar}{$\star$}}
@@ -209,62 +207,41 @@
       { \skip_zero:N \medskipamount }
       { \skip_add:Nn \medskipamount { \parskip } }
   }
-%% 用 \vtop 让函数名字和语法盒子首行对齐
-\ctex_patch_cmd_once:NnnnTF \__codedoc_syntax:w
-  { }
-  { { minipage } { \l__codedoc_syntax_dim } }
-  { { minipage } [t] { \l__codedoc_syntax_dim } }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
 %% 左侧边注的函数列表采用单倍行距
-\ctex_preto_cmd:NnnTF \__codedoc_typeset_names:
+\ctex_preto_cmd:NnnTF \__codedoc_typeset_functions:
   { }
-  { \linespread { 1 } }
+  { \MacroFont }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:n
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_init:
+  { }
+  { \hbox:n }
+  { \MacroFont \hbox:n }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:nN
   { }
   { \vbox_unpack_clear:N }
-  { \linespread { 1 } \selectfont \vbox_unpack_clear:N }
+  { \MacroFont \vbox_unpack_clear:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-%% 不重复使用 \HD@target，避免索引出现重复页码
-\cs_set_protected:Npn \__codedoc_special_index_aux:nnnnn #1#2#3#4#5
-  {
-    \__codedoc_special_index_set:Nn \l__codedoc_index_escaped_macro_tl {#2}
-    \str_if_eq:onTF { \@currenvir } { macrocode }
-      { \codeline@wrindex }
-      {
-        \HD@target
-        \index
-      }
-      {
-        \tl_if_empty:nF { #3 #4 }
-          { #3 \actualchar #4 \levelchar }
-        #1
-        \actualchar
-        {
-          \token_to_str:N \verbatim@font \c_space_tl
-          \l__codedoc_index_escaped_macro_tl
-        }
-        \encapchar
-        hdclindex{\the\c@HD@hypercount}{#5}
-      }
-  }
-\DeclareDocumentCommand \cs { O{} m }
-  { \__codedoc_cmd_aux:no {#1} { \c__codedoc_backslash_tl #2 } }
-\DeclareDocumentCommand \tn { O{} m }
-  {
-    \__codedoc_cmd_aux:no
-      { index = TeX , replace = false , #1 }
-      { \c__codedoc_backslash_tl #2 }
-  }
-\DeclareDocumentCommand \meta { +m }
-  { \__codedoc_meta_aux:n {#1} }
-\DeclareExpandableDocumentCommand \bookmarkcstn { O{} m }
-  { \textbackslash \tl_to_str:n {#2} }
-\cs_new:Npn \bookmarkmeta #1 { < \tl_to_str:n {#1} > }
-\cs_generate_variant:Nn \__codedoc_cmd_aux:nn { no }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_dump:
+  { }
+  { \hbox_unpack_clear:N }
+  { \MacroFont \hbox_unpack_clear:N }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_end:
+  { }
+  { \endtrivlist }
+  { \@noparlisttrue \endtrivlist }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_appto_cmd:NnnTF \__codedoc_macro_end_style:n
+  { }
+  { \@endparenv }
+  { \iow_term:n { *** ~ SUCCESS ~ *** } }
+  { \iow_term:n { *** ~ FAIL ~ *** } }
 \AtBeginEnvironment { syntax }
   {
     \char_set_catcode_active:N \|
@@ -274,7 +251,7 @@
   }
 %% 不对目录中出现的 \cs 和 \tn 等编索引
 \DeclareDocumentCommand \StopSpecialIndexModule { }
-  { \cs_set_eq:NN \__codedoc_special_index_module:nnnn \use_none:nnnn }
+  { \cs_set_eq:NN \__codedoc_special_index_module:nnnnN \use_none:nnnnn }
 \tl_map_inline:nn { \actualchar \encapchar \levelchar }
   { \exp_args:Nx \DoNotIndex { \bslash \tl_to_str:N #1 } }
 \DeclareDocumentCommand \package { o m }
@@ -289,50 +266,88 @@
 \DeclareDocumentCommand \GetFileId { m }
   {
     \GetFileInfo {#1}
-    \ior_open:NnTF \g__ctex_doc_ior { \c_sys_jobname_str .id }
+    \ior_open:NnTF \g__ctxdoc_id_ior { \c_sys_jobname_str .id }
       {
-        \ior_get:NN \g__ctex_doc_ior \l__ctex_tmp_tl
-        \ior_close:N \g__ctex_doc_ior
-        \exp_after:wN \GetIdInfo \l__ctex_tmp_tl
+        \ior_get:NN \g__ctxdoc_id_ior \l__ctxdoc_tmp_tl
+        \ior_close:N \g__ctxdoc_id_ior
+        \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl
       }
       { \GetIdInfo $Id$ }
       { \fileinfo }
   }
-\ior_new:N \g__ctex_doc_ior
-\cs_new_protected:Npn \CTEX@saveversiondate #1#2
+\ior_new:N \g__ctxdoc_id_ior
+\ctex_patch_cmd:Nnn \changes@
+  { \space \actualchar }
+  { \actualchar }
+\cs_new_eq:NN \__ctxdoc_ltx_changes:nnn \changes@
+\cs_set_protected:Npn \changes@ #1#2
   {
-    \prop_get:NnNTF \g__ctex_version_date_prop {#1} \l__ctex_tmp_tl
-      { \exp_after:wN \__ctex_save_version_date:nnnn \l__ctex_tmp_tl {#2} {#1} }
-      { \__ctex_save_version_date:nnn {#1} {#2} {#2} }
+    \__ctxdoc_save_version_date:nn {#1} {#2}
+    \tl_if_empty:nTF {#1}
+      { \__ctxdoc_ltx_changes:nnn }
+      { \__ctxdoc_version_zfill:wnnn #1 \q_stop }
+      {#1} {#2}
   }
-\cs_new_protected:Npn \__ctex_save_version_date:nnnn #1#2#3#4
+\cs_new_protected:Npn \__ctxdoc_version_zfill:wnnn #1#2 \q_stop
   {
-    \__ctex_if_date_later:nnTF {#1} {#3}
-      { \__ctex_save_version_date:nnn {#4} {#3} {#2} }
+    \str_if_eq:nnTF {#1} { v }
+      { \__ctxdoc_version_zfill:nnnn {#2} }
+      { \__ctxdoc_ltx_changes:nnn }
+  }
+\cs_new_protected:Npn \__ctxdoc_version_zfill:nnnn #1#2
+  {
+    \tl_clear:N \l__ctxdoc_tmp_tl
+    \seq_set_split:Nnn \l__ctxdoc_tmp_seq { . } {#1}
+    \seq_map_function:NN \l__ctxdoc_tmp_seq \__ctxdoc_version_zfill:n
+    \__ctxdoc_ltx_changes:nnn { \l__ctxdoc_tmp_tl \actualchar #2 }
+  }
+\tl_new:N \l__ctxdoc_tmp_tl
+\seq_new:N \l__ctxdoc_tmp_seq
+\cs_new_protected:Npn \__ctxdoc_version_zfill:n #1
+  {
+    \tl_put_right:Nx \l__ctxdoc_tmp_tl
       {
-        \__ctex_if_date_later:nnT {#3} {#2}
-          { \__ctex_save_version_date:nnn {#4} {#1} {#3} }
+        \prg_replicate:nn
+          { \int_max:nn { 0 } { 10 - \tl_count:n {#1} } } { 0 }
+        \exp_not:n {#1}
       }
   }
-\prg_new_conditional:Npnn \__ctex_if_date_later:nn #1#2 { TF , T }
+\cs_new_protected:Npn \__ctxdoc_save_version_date:nn #1#2
   {
-    \if_int_compare:w \__ctex_parse_date:w #1 / / / 0 \q_stop >
-                      \__ctex_parse_date:w #2 / / / 0 \q_stop \exp_stop_f:
+    \prop_get:NnNTF \g__ctxdoc_version_date_prop {#1} \l__ctxdoc_tmp_tl
+      { \exp_after:wN \__ctxdoc_save_version_date:nnnn \l__ctxdoc_tmp_tl {#2} {#1} }
+      { \__ctxdoc_save_version_date:nnn {#1} {#2} {#2} }
+  }
+\cs_new_protected:Npn \__ctxdoc_save_version_date:nnnn #1#2#3#4
+  {
+    \__ctxdoc_if_date_later:nnTF {#1} {#3}
+      { \__ctxdoc_save_version_date:nnn {#4} {#3} {#2} }
+      {
+        \__ctxdoc_if_date_later:nnT {#3} {#2}
+          { \__ctxdoc_save_version_date:nnn {#4} {#1} {#3} }
+      }
+  }
+\prg_new_conditional:Npnn \__ctxdoc_if_date_later:nn #1#2 { TF , T }
+  {
+    \if_int_compare:w \__ctxdoc_parse_date:w #1 / / / 0 \q_stop >
+                      \__ctxdoc_parse_date:w #2 / / / 0 \q_stop \exp_stop_f:
       \prg_return_true: \else: \prg_return_false: \fi:
   }
-\cs_new:Npn \__ctex_parse_date:w #1/#2/#3/ #4 \q_stop
+\cs_new:Npn \__ctxdoc_parse_date:w #1/#2/#3/ #4 \q_stop
   { #1#2#3 }
-\cs_new_protected:Npn \__ctex_save_version_date:nnn #1#2#3
-  { \prop_gput:Nnn \g__ctex_version_date_prop {#1} { {#2} {#3} } }
+\cs_new_protected:Npn \__ctxdoc_save_version_date:nnn #1#2#3
+  { \prop_gput:Nnn \g__ctxdoc_version_date_prop {#1} { {#2} {#3} } }
 \cs_new_protected:Npn \CTEX@versionitem #1 \efill
   {
     \@idxitem
-    \prop_get:NnNTF \g__ctex_version_date_prop {#1} \l__ctex_tmp_tl
-      { \exp_after:wN \__ctex_version_item:nnn \l__ctex_tmp_tl {#1} }
+    \prop_get:NnNTF \g__ctxdoc_version_date_prop {#1} \l__ctxdoc_tmp_tl
+      { \exp_after:wN \__ctxdoc_version_item:nnn \l__ctxdoc_tmp_tl {#1} }
       { \BOOM }
   }
-\cs_new_protected:Npn \__ctex_version_item:nnn #1#2#3
+\cs_new_protected:Npn \__ctxdoc_version_item:nnn #1#2#3
   {
+    \noindent
+    \Hy@raisedlink { \belowpdfbookmark {#3} { HD.#3 } }
     \textbf {#3} \hfill
     \hbox:n
       {
@@ -343,24 +358,299 @@
       }
     \par \nopagebreak
   }
-\prop_new:N \g__ctex_version_date_prop
-\ctex_preto_cmd:NnnTF \changes@
-  { \ExplSyntaxOff }
-  { \CTEX@saveversiondate {#1} {#2} }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_patch_cmd_once:NnnnTF \HDorg@theglossary
-  { \ExplSyntaxOff }
+\prop_new:N \g__ctxdoc_version_date_prop
+\ctex_patch_cmd:Nnn \HDorg@theglossary
   { \let \item \@idxitem }
   { \let \item \CTEX@versionitem }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+\ctex_patch_cmd:Nnn \l@section    { 2.5em } { 1.5em }
+\ctex_patch_cmd:Nnn \l@subsection { 2.5em } { 1.5em }
+\ctex_patch_cmd:Nnn \@wrglossary
+  { hdpindex }
+  {
+    \ifnum \c@HD@hypercount = \z@
+      hdpindex
+    \else
+      hdclindex { \the \c@HD@hypercount }
+    \fi
+  }
+%% 重定义 macrocode 环境的实现，逐行处理
+\cs_set_protected_nopar:Npn \xmacro@code
+  { \__ctxdoc_marco_code:w }
+\cs_set_protected_nopar:Npn \sxmacro@code
+  {
+    \fontspec_print_visible_spaces:
+    \xmacro@code
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_marco_code:w
+  {
+    \ifcodeline@index
+      \everypar { \__ctxdoc_code_line_no: }
+    \else:
+      \everypar { }
+    \fi:
+    \exp_args:Nx \__ctxdoc_make_finish_tag:n { \@currenvir }
+    \__ctxdoc_verbatim_start:w
+  }
+\group_begin:
+  \int_set_eq:NN \tex_endlinechar:D \c_minus_one
+  \use:n
+    {
+      \char_set_catcode_active:n { 32 }
+      \tl_const:Nn \c__ctxdoc_active_space_tl
+    }
+    { }
+\group_end:
+\group_begin:
+  \char_set_catcode_active:n { 13 }
+  \cs_new_protected:Npx \__ctxdoc_make_finish_tag:n #1
+    {
+      \tl_set:Nn \exp_not:N \l__ctxdoc_verbatim_finish_tl
+        {
+          \c_percent_str
+          \prg_replicate:nn { 4 }
+            { \exp_not:o { \c__ctxdoc_active_space_tl } }
+          \exp_not:o { \active@escape@char } end
+          \c_left_brace_str #1 \c_right_brace_str
+          \exp_not:N ^^M
+        }
+    }
+  \cs_new_protected:Npn \__ctxdoc_verbatim_start:w #1
+    {
+      \str_if_eq:nnTF {#1} { ^^M }
+        { \__ctxdoc_verbatim_read_line:w }
+        { \__ctxdoc_verbatim_read_line:w #1 }
+    }
+  \cs_new_protected:Npn \__ctxdoc_verbatim_read_line:w #1 ^^M
+    {
+      \tl_set:Nn \l__ctxdoc_verbatim_line_tl { #1 ^^M }
+      \tl_if_eq:NNTF \l__ctxdoc_verbatim_line_tl \l__ctxdoc_verbatim_finish_tl
+        { \exp_args:Nx \end { \@currenvir } }
+        {
+          \__ctxdoc_verbatim_process_line:
+          \__ctxdoc_verbatim_read_line:w
+        }
+    }
+  \tl_const:Nn \c__ctxdoc_active_cr_tl { ^^M }
+\group_end:
+\tl_new:N \l__ctxdoc_verbatim_line_tl
+\tl_new:N \l__ctxdoc_verbatim_finish_tl
+\tl_new:N \g__ctxdoc_verbatim_verb_stop_tl
+\cs_new_protected_nopar:Npn \__ctxdoc_process_normal_line:
+  {
+    \str_if_eq_x:nnTF
+      { \str_head:N \l__ctxdoc_verbatim_line_tl } { \c_percent_str }
+      { \__ctxdoc_check_angle:x { \tl_tail:N \l__ctxdoc_verbatim_line_tl } }
+      { \__ctxdoc_output_line: }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_process_verb_line:
+  {
+    \tl_if_eq:NNTF \l__ctxdoc_verbatim_line_tl \g__ctxdoc_verbatim_verb_stop_tl
+      {
+        \tl_gclear:N \g__ctxdoc_verbatim_verb_stop_tl
+        \cs_gset_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line:
+        \__ctxdoc_output_module:nn
+          { slash@guard }
+          { \__ctxdoc_module_pop:n { \l__ctxdoc_verbatim_line_tl } }
+      }
+      { \tl_use:N \l__ctxdoc_verbatim_line_tl }
+  }
+\cs_new_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line:
+\cs_new_protected:Npn \__ctxdoc_check_angle:n #1
+  {
+     \str_if_eq_x:nnTF { \str_head:n {#1} } { < }
+      { \__ctxdoc_check_module:x { \tl_tail:n {#1} } }
+      { \__ctxdoc_output_percent_line: }
+  }
+\cs_generate_variant:Nn \__ctxdoc_check_angle:n { x }
+\cs_new_protected:Npn \__ctxdoc_check_module:n #1
+  {
+    \exp_args:Nx \str_case:nnF { \str_head:n {#1} }
+      {
+        { * } { \__ctxdoc_module_star:w }
+        { / } { \__ctxdoc_module_slash:w }
+        { @ } { \__ctxdoc_module_at:w }
+        { < } { \__ctxdoc_module_verb:w }
+      }
+      { \__ctxdoc_module_pm:w }
+    #1 \q_stop
+  }
+\cs_generate_variant:Nn \__ctxdoc_check_module:n { x }
+\group_begin:
+  \char_set_catcode_active:N \>
+  \cs_new_protected:Npn \__ctxdoc_module_star:w #1 > #2 \q_stop
+    {
+      \__ctxdoc_output_module:nn
+        { star@guard }
+        { \__ctxdoc_module_push:n { \__ctxdoc_module_angle:n {#1} } }
+      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+        {
+          \cs_gset_eq:NN \macro@font \AltMacroFont
+          \macro@font
+        }
+      \int_gincr:N \guard@level
+      \__ctxdoc_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \__ctxdoc_module_slash:w #1 > #2 \q_stop
+    {
+      \__ctxdoc_output_module:nn
+        { slash@guard }
+        { \__ctxdoc_module_pop:n { \__ctxdoc_module_angle:n {#1} } }
+      \int_gdecr:N \guard@level
+      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+        {
+          \cs_gset_eq:NN \macro@font \MacroFont
+          \macro@font
+        }
+      \__ctxdoc_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \__ctxdoc_module_at:w @ @ = #1 > #2 \q_stop
+    {
+      \__ctxdoc_output_module:nn
+        { at@guard }
+        { \__ctxdoc_module_angle:n { @ @ = #1 } }
+      \tl_gset:Nn \g__codedoc_module_name_tl {#1}
+      \__ctxdoc_output_line:n {#2}
+    }
+  \cs_new_protected:Npn \__ctxdoc_module_pm:w #1 > #2 \q_stop
+    {
+      \__ctxdoc_output_module:nn
+        { pm@guard }
+        { \__ctxdoc_module_angle:n {#1} }
+      \group_begin:
+        \int_compare:nNnF \guard@level < \c@StandardModuleDepth
+          { \AltMacroFont }
+        \__ctxdoc_output_line:n {#2}
+      \group_end:
+    }
+  \cs_new_protected:Npn \__ctxdoc_module_verb:w #1 \q_stop
+    {
+      \cs_gset_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_verb_line:
+      \tl_gset:Nx \g__ctxdoc_verbatim_verb_stop_tl
+        { \c_percent_str \tl_tail:n {#1} }
+      \__ctxdoc_output_module:nn
+        { star@guard }
+        { \__ctxdoc_module_push:n { \l__ctxdoc_verbatim_line_tl } }
+    }
+\group_end:
+\cs_new_protected_nopar:Npn \__ctxdoc_output_line:
+  {
+    \tex_noindent:D
+    \__ctxdoc_replace_at_at:N \l__ctxdoc_verbatim_line_tl
+    \tl_use:N \l__ctxdoc_verbatim_line_tl
+  }
+\cs_new_protected:Npn \__ctxdoc_replace_at_at:N #1
+  {
+    \tl_if_empty:NF \g__codedoc_module_name_tl
+      {
+        \exp_args:NNo \__ctxdoc_replace_at_at_aux:Nn
+          #1 \g__codedoc_module_name_tl
+      }
+  }
+\cs_new_protected:Npn \__ctxdoc_replace_at_at_aux:Nn #1#2
+  {
+    \tl_replace_all:Nnn #1 { _ @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 {   @ @ } { _ _ #2 }
+  }
+\cs_new_protected:Npn \__ctxdoc_output_line:n #1
+  {
+    \tl_set:Nn \l__ctxdoc_verbatim_line_tl {#1}
+    \tl_if_eq:NNTF \l__ctxdoc_verbatim_line_tl \c__ctxdoc_active_cr_tl
+      { \tl_use:N \l__ctxdoc_verbatim_line_tl }
+      {
+        \str_if_eq_x:nnTF
+          { \str_head:N \l__ctxdoc_verbatim_line_tl }
+          { \c_percent_str }
+          { \__ctxdoc_output_percent_line: }
+          { \__ctxdoc_output_line: }
+      }
+  }
+\cs_new_protected:Npn \__ctxdoc_output_percent_line:
+  {
+    \tex_noindent:D
+    \group_begin:
+      \color { code@gray }
+      \str_if_eq_x:nnTF { \f@shape } { \updefault }
+        { \slshape }
+        { \upshape }
+      \__ctxdoc_output_line:
+    \group_end:
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_module_push:n
+  { \exp_args:Nx \__ctxdoc_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
+\cs_new_protected:Npn \__ctxdoc_module_push_aux:nn #1
+  {
+    \seq_gpush:Nn \g__ctxdoc_module_dest_seq {#1}
+    \HD@savedest@add {#1}
+    \cs_if_exist:cTF { r@HD. #1 }
+      {
+        \hypersetup { hidelinks }
+        \hyperref [ HD. #1 ]
+      }
+      { \use:n }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_module_pop:n
+  {
+    \seq_gpop:NNTF \g__ctxdoc_module_dest_seq \l__ctxdoc_tmp_tl
+      {
+        \tl_set:Nx \@currentlabel { \int_use:N \c@HD@hypercount }
+        \HD@savedest@add { \@currentlabel }
+        \Hy@MakeCurrentHref { HD. \@currentlabel }
+        \label { HD. \l__ctxdoc_tmp_tl }
+        \hypersetup { hidelinks }
+        \hdclindex { \l__ctxdoc_tmp_tl } { }
+      }
+      { \BOOM \use:n }
+  }
+\seq_new:N \g__ctxdoc_module_dest_seq
+\cs_new_protected:Npn \__ctxdoc_output_module:nn #1#2
+  {
+    \tex_noindent:D
+    \group_begin:
+      \color {#1} \footnotesize \normalfont \sffamily #2
+    \group_end:
+  }
+\definecolor { star@guard }  { rgb } { 0    , 0   , 0.55 }
+\definecolor { slash@guard } { rgb } { 0.75 , 0   , 0.25 }
+\definecolor { pm@guard }    { rgb } { 0.5  , 0.5 , 0 }
+\definecolor { at@guard }    { rgb } { 0.5  , 0   , 0.5 }
+\definecolor { code@gray }  { gray } { 0.5 }
+\cs_new_protected:Npn \__ctxdoc_module_angle:n #1
+  { \textlangle #1 \textrangle }
+\cs_new_protected_nopar:Npn \__ctxdoc_code_line_no:
+  {
+    \int_gincr:N \c@CodelineNo
+    \hbox_overlap_left:n
+      {
+        \hbox_to_wd:nn
+          { \MacroIndent }
+          {
+            \HD@target
+            \tex_hss:D
+            \__ctxdoc_code_line_no_style:
+            \theCodelineNo \tex_space:D
+          }
+        \tex_kern:D \@totalleftmargin
+      }
+  }
+\tl_set:Nn \theCodelineNo
+  { \arabic { CodelineNo } }
+\cs_new_protected_nopar:Npn \__ctxdoc_code_line_no_style:
+  { \color { code@gray } \normalfont \sffamily \tiny }
+\cs_set_protected:Npn \HD@SetMacroIndent #1
+  {
+    \group_begin:
+      \settowidth \MacroIndent
+        {
+          \__ctxdoc_code_line_no_style:
+          \prg_replicate:nn { \tl_count:n {#1} } { 0 }
+          \tex_space:D
+        }
+      \dim_gset_eq:NN \MacroIndent \MacroIndent
+    \group_end:
+  }
 \ExplSyntaxOff
 \AtBeginDocument{\addtocontents{toc}{\StopSpecialIndexModule}}
 \pdfstringdefDisableCommands{%
-  \let\cs\bookmarkcstn
-  \let\tn\bookmarkcstn
-  \let\meta\bookmarkmeta
   \let\path\meta
   \let\opt\@firstofone}
 \preto\@thehead{\cslet{MakeUppercase\space}{\@iden}}
@@ -398,19 +688,11 @@
 \def\ctexkit{\href{https://github.com/CTeX-org/ctex-kit/}{\texttt{ctex-kit}}}
 \def\ctexkitrev#1{%
   \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
-\patchcmd\theCodelineNo{\sffamily\tiny}{\normalfont\sffamily\tiny}{}{}
 \appto\GlossaryParms{%
+  \let\Hy@writebookmark\HDorg@writebookmark
   \def\@idxitem{\par\hangindent 2em }%
   \def\subitem{\@idxitem\hspace*{1em}}%
   \def\subsubitem{\@idxitem\hspace*{2em}}}
-\patchcmd\l@section{2.5em}{1.5em}{}{}
-\patchcmd\l@subsection{2.5em}{1.5em}{}{}
-\patchcmd\changes@{\space}{\lbrack}{}{}
-\patchcmd\@wrglossary{hdpindex}{%
-  \ifnum\c@HD@hypercount=\z@
-    hdpindex%
-  \else
-    hdclindex{\the\c@HD@hypercount}\fi}{}{}
 \def\glossaryname{版本历史}
 \GlossaryPrologue{\section{\glossaryname}}
 \IndexPrologue{%
