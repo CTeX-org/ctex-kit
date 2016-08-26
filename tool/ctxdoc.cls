@@ -28,7 +28,7 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx f193b1d 2016-08-25 16:49:27 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx 24927da 2016-08-26 09:57:16 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
   {\ExplFileDate}{2.4.2}{\ExplFileDescription}
@@ -627,7 +627,7 @@
             \HD@target
             \tex_hss:D
             \__ctxdoc_code_line_no_style:
-            \theCodelineNo \tex_space:D
+            \theCodelineNo \enspace
           }
         \tex_kern:D \@totalleftmargin
       }
@@ -643,7 +643,7 @@
         {
           \__ctxdoc_code_line_no_style:
           \prg_replicate:nn { \tl_count:n {#1} } { 0 }
-          \tex_space:D
+          \enspace
         }
       \dim_gset_eq:NN \MacroIndent \MacroIndent
     \group_end:
@@ -689,6 +689,7 @@
 \def\ctexkitrev#1{%
   \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
 \appto\GlossaryParms{%
+  \raggedcolumns
   \let\Hy@writebookmark\HDorg@writebookmark
   \def\@idxitem{\par\hangindent 2em }%
   \def\subitem{\@idxitem\hspace*{1em}}%
