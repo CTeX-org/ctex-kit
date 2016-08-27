@@ -28,11 +28,12 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx 24927da 2016-08-26 09:57:16 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx 2f389b0 2016-08-27 10:50:07 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
   {\ExplFileDate}{2.4.2}{\ExplFileDescription}
 \ExplSyntaxOff
+\let\pdfmdfivesum\mdfivesum
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
@@ -384,13 +385,28 @@
 \cs_new_protected_nopar:Npn \__ctxdoc_marco_code:w
   {
     \ifcodeline@index
-      \everypar { \__ctxdoc_code_line_no: }
+      \__ctxdoc_marco_every_par:n { \__ctxdoc_code_line_no: }
     \else:
-      \everypar { }
+      \__ctxdoc_marco_every_par:n { }
     \fi:
     \exp_args:Nx \__ctxdoc_make_finish_tag:n { \@currenvir }
     \__ctxdoc_verbatim_start:w
   }
+\cs_new_protected:Npn \__ctxdoc_marco_every_par:n #1
+  {
+    \everypar
+      {
+        \everypar {#1}
+        \if@inlabel
+          \global \@inlabelfalse
+          \llap { \box \@labels \hskip \leftskip }
+        \fi
+        #1
+      }
+  }
+\ctex_patch_cmd:Nnn \macro@code
+  { \if@inlabel \leavevmode \fi }
+  { }
 \group_begin:
   \int_set_eq:NN \tex_endlinechar:D \c_minus_one
   \use:n
@@ -455,6 +471,10 @@
       { \tl_use:N \l__ctxdoc_verbatim_line_tl }
   }
 \cs_new_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line:
+\DeclareDocumentCommand \CheckModules { }
+  { \cs_set_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line: }
+\DeclareDocumentCommand \DontCheckModules { }
+  { \cs_set_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_output_line: }
 \cs_new_protected:Npn \__ctxdoc_check_angle:n #1
   {
      \str_if_eq_x:nnTF { \str_head:n {#1} } { < }
