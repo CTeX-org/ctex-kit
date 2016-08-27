@@ -10555,6 +10555,7 @@ Copyright and Licence
 \RequirePackage{xcolor}
 \RequirePackage{caption}
 \RequirePackage{fvrb-ex}
+\RequirePackage{zref-base}
 \geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
 \hypersetup{pdfstartview=FitH,bookmarksdepth=subparagraph}
 \setcounter{secnumdepth}{4}
@@ -11088,32 +11089,30 @@ Copyright and Licence
     \group_end:
   }
 \cs_new_protected_nopar:Npn \@@_module_push:n
-  { \exp_args:Nx \@@_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
+  { \exp_args:No \@@_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
 \cs_new_protected:Npn \@@_module_push_aux:nn #1
   {
     \seq_gpush:Nn \g_@@_module_dest_seq {#1}
-    \HD@savedest@add {#1}
-    \cs_if_exist:cTF { r@HD. #1 }
-      {
-        \hypersetup { hidelinks }
-        \hyperref [ HD. #1 ]
-      }
-      { \use:n }
+    \hypersetup { hidelinks }
+    \exp_args:Nx \hdclindex
+      { \zref@extractdefault { HD.#1 } { guard@end } { 1 } } { }
   }
 \cs_new_protected_nopar:Npn \@@_module_pop:n
   {
     \seq_gpop:NNTF \g_@@_module_dest_seq \l_@@_tmp_tl
-      {
-        \tl_set:Nx \@currentlabel { \int_use:N \c@HD@hypercount }
-        \HD@savedest@add { \@currentlabel }
-        \Hy@MakeCurrentHref { HD. \@currentlabel }
-        \label { HD. \l_@@_tmp_tl }
-        \hypersetup { hidelinks }
-        \hdclindex { \l_@@_tmp_tl } { }
-      }
+      { \exp_args:No \@@_module_pop_aux:nn { \l_@@_tmp_tl } }
       { \BOOM \use:n }
   }
+\cs_new_protected:Npn \@@_module_pop_aux:nn #1
+  {
+    \zref@labelbylist { HD.#1 } { ctxdoc }
+    \hypersetup { hidelinks }
+    \hdclindex {#1} { }
+  }
 \seq_new:N \g_@@_module_dest_seq
+\zref@newlist { ctxdoc }
+\zref@newprop { guard@end } [ 1 ] { \the \c@HD@hypercount }
+\zref@addprop { ctxdoc } { guard@end }
 \cs_new_protected:Npn \@@_output_module:nn #1#2
   {
     \tex_noindent:D
