@@ -195,6 +195,7 @@ function hooked_bundleunpack()
     end
   end
   is_unpacked = true
+  unpack_posthook()
   return retval
 end
 
