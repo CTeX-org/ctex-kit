@@ -3,7 +3,7 @@ CTeX-kit
 
 CTeX-kit is a collection of TeX/LaTeX/ConTeXt macro packages, related scripts,
 and resource files made specifically for Chinese TeX users, especially
-Mandrarin users.
+Mandarin users.
 
 This project aims to bring together many existing efforts including xeCJK,
 zhspacing, LuaTeX related Chinese support, etc.
