@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5629}
+% \CheckSum{5640}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3637,9 +3637,9 @@ Copyright and Licence
 %<*pdftex|uptex|aptex>
 \cs_new_protected_nopar:Npn \ctex_set_zhmap:n #1
   {
-    \AtBeginDvi { #1 }
+    \AtBeginDvi {#1}
     \ctex_at_end_package:nn { atbegshi }
-      { \AtBeginShipoutFirst { #1 } }
+      { \AtBeginShipoutFirst {#1} }
   }
 \@onlypreamble \ctex_set_zhmap:n
 %</pdftex|uptex|aptex>
@@ -3747,9 +3747,29 @@ Copyright and Licence
       \tl_set:Nn \CJKrmdefault {#1}
       \tl_set:Nn \CJKsfdefault {#2}
       \tl_set:Nn \CJKttdefault {#3}
-      \ctex_set_zhmap:n { \file_input:n {#4} }
+      \ctex_set_zhmap:n { \ctex_zhmap_input:n {#4} }
     }
   \@onlypreamble \ctex_load_zhmap:nnnn
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.4.4}{2016/09/09}{解决 \opt{zhmap} 文件的 \tn{catcode} 问题。}
+% \begin{macro}[int]{\ctex_zhmap_input:n}
+% 载入字体映射文件时，确认 |%| 和 |\| 的 \tn{catcode}。
+%    \begin{macrocode}
+  \cs_new_protected_nopar:Npn \ctex_zhmap_input:n #1
+    {
+      \ctex_file_wrapper:nnn
+        {
+          \char_set_catcode_comment:n { 37 } % %
+          \char_set_catcode_escape:n  { 92 } % \
+        }
+        { \file_input:n {#1} }
+        {
+          \char_set_catcode:nn { 37 } { \char_value_catcode:n { 37 } }
+          \char_set_catcode:nn { 92 } { \char_value_catcode:n { 92 } }
+        }
+    }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4132,7 +4152,7 @@ Copyright and Licence
   local s = kpse.find_file('ltj-kinsoku.lua', 'tex')
   luatexja.stack.charprop_stack_table[0] = s and dofile(s) or {}
 }
-\ltjsetparameter{kanjiskip=\z@ plus .4pt minus .4pt,
+\ltjsetparameter{kanjiskip=\z@ plus .4pt minus .5pt,
   xkanjiskip=.25\zw plus 1pt minus 1pt,
   autospacing, autoxspacing, jacharrange={-1},
   yalbaselineshift=\z@, yjabaselineshift=\z@,
@@ -5920,9 +5940,7 @@ Copyright and Licence
 %<*uptex|aptex>
 \ctex_hypersetup:n { driverfallback = dvipdfmx }
 \ctex_at_end_package:nn { hyperref }
-  {
-    \AtBeginShipoutFirst{ \special{ pdf:tounicode~ UTF8-UTF16 } }
-  }
+  { \AtBeginShipoutFirst { \special { pdf:tounicode~ UTF8-UTF16 } } }
 %</uptex|aptex>
 %    \end{macrocode}
 %
