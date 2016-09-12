@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5640}
+% \CheckSum{5696}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -6835,15 +6835,6 @@ Copyright and Licence
 %
 % \subsubsection{标准标题命令的修改}
 %
-% \begin{macro}[int]{\CTEX@makeheadinganchor}
-% 用于 |numbering=false| 时，设置超链接跳转描点。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \CTEX@makeheadinganchor { }
-\ctex_at_end_package:nn { hyperref }
-  { \cs_gset_protected_nopar:Npn \CTEX@makeheadinganchor { \phantomsection } }
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[int]{\CTEX@fixtopskip}
 % 修正 \cls{book} 和 \cls{report} 类的 \tn{part} 和 \tn{chapter} 标题之前的多余空行。
 %    \begin{macrocode}
@@ -6940,10 +6931,11 @@ Copyright and Licence
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
       \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
-      \CTEX@makeheadinganchor
+      \CTEX@makeanchor{part*}%
       \addcontentsline{toc}{part}{#1}%
     \fi
   \else
+    \CTEX@makeanchor@part{part*}%
     \addcontentsline{toc}{part}{#1}%
   \fi
   {\interlinepenalty \@M
@@ -6972,10 +6964,11 @@ Copyright and Licence
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
       \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
-      \CTEX@makeheadinganchor
+      \CTEX@makeanchor{part*}%
       \addcontentsline{toc}{part}{#1}%
     \fi
   \else
+    \CTEX@makeanchor@part{part*}%
     \addcontentsline{toc}{part}{#1}%
   \fi
   \markboth{}{}%
@@ -6998,6 +6991,7 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*article>
 \def\@spart#1{%
+    \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \parindent \z@ \raggedright
      \normalfont \parindent \dimexpr \CTEX@part@indent \relax
@@ -7014,6 +7008,7 @@ Copyright and Licence
 %</article>
 %<*book|report>
 \def\@spart#1{%
+    \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \centering
      \normalfont \CTEX@part@format
@@ -7083,13 +7078,15 @@ Copyright and Licence
 %         {\protect\numberline{\thechapter}#1}%
           {\protect\numberline{\CTEXthechapter\hspace{0.3em}}#1}%
       \else
-        \CTEX@makeheadinganchor
+        \CTEX@makeanchor{\Hy@chapapp*}%
         \addcontentsline{toc}{chapter}{#1}%
       \fi
 %<book>    \else
+%<book>      \CTEX@makeanchor@chapter{\Hy@chapapp*}%
 %<book>      \addcontentsline{toc}{chapter}{#1}%
 %<book>    \fi
   \else
+    \CTEX@makeanchor@chapter{\Hy@chapapp*}%
     \addcontentsline{toc}{chapter}{#1}%
   \fi
   \chaptermark{#1}%
@@ -7100,6 +7097,19 @@ Copyright and Licence
   \else
     \@makechapterhead{#2}%
   \@afterheading
+  \fi}
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@schapter}
+%    \begin{macrocode}
+\def\@schapter#1{%
+  \CTEX@makeanchor@schapter{\Hy@chapapp*}%
+  \if@twocolumn
+    \@topnewpage[\@makeschapterhead{#1}]%
+  \else
+    \@makeschapterhead{#1}%
+    \@afterheading
   \fi}
 %    \end{macrocode}
 % \end{macro}
@@ -7190,7 +7200,7 @@ Copyright and Licence
     \addvspace \CTEX@headingskip
   \fi
   \@ifstar
-    {\@ssect{#3}{#4}{#5}{#6}}%
+    {\CTEX@makeanchor@ssect{#1*}\@ssect{#3}{#4}{#5}{#6}}%
     {\@dblarg{\@sect{#1}{#2}{#3}{#4}{#5}{#6}}}}
 %    \end{macrocode}
 % \end{macro}
@@ -7199,7 +7209,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \def\@seccntformat#1{%
 % \csname the#1\endcsname\quad}%
-  \csname CTEX@#1name\endcsname \csname CTEX@#1@aftername\endcsname}
+  \csname CTEX@#1name\endcsname
+  \csname CTEX@#1@aftername\endcsname}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7207,13 +7218,14 @@ Copyright and Licence
 %    \begin{macrocode}
 \def\@sect#1#2#3#4#5#6[#7]#8{%
   \ifnum #2>\c@secnumdepth
+    \CTEX@makeanchor@sect{#1*}%
     \let\@svsec\@empty
   \else
     \ifodd \csname CTEX@#1@numbering\endcsname
       \refstepcounter{#1}%
       \protected@edef\@svsec{\@seccntformat{#1}\relax}%
     \else
-      \CTEX@makeheadinganchor
+      \CTEX@makeanchor{#1*}%
       \let\@svsec\@empty
     \fi
   \fi
@@ -7394,6 +7406,76 @@ Copyright and Licence
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \paragraph{设置 \pkg{hyperref} 宏包的标题锚点}
+%
+% \changes{v2.4.4}{2016/09/12}{改进 \pkg{hyperref} 宏包的标题锚点设置。}
+%
+% \begin{macro}[int]{\CTEX@makeanchor}
+% 设置超链接跳转锚点，在 \pkg{hyperref} 载入后才有意义。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \CTEX@makeanchor #1
+  { }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}[int]{\c_@@_headings_cs_seq}
+% 保存内部标题命令的 \CTeX{} 定义，用于随后比较。
+%    \begin{macrocode}
+\seq_new:N \c_@@_headings_cs_seq
+\seq_gset_from_clist:Nn \c_@@_headings_cs_seq
+%<article>  { part , spart , sect , ssect }
+%<book|report>  { part , spart , chapter , schapter , sect , ssect }
+\seq_map_inline:Nn \c_@@_headings_cs_seq
+  {
+    \cs_new_eq:cc { CTEX@ #1 } { @ #1 }
+    \cs_new_eq:cN { CTEX@makeanchor@ #1 } \CTEX@makeanchor
+  }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\CTEX@hyperheadinghook}
+% \pkg{hyperref} 会重定义内部标题命令，目的在于为没有编号的标题设置锚点（这一功能受他的
+% \opt{implicit} 选项的控制）。我们在上面对标题命令的修改已经包含这一功能，如果这些标题命令在
+% \pkg{hyperref} 载入之前没有被修改过，则恢复 \CTeX{} 的定义。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \CTEX@hyperheadinghook
+  {
+    \group_begin:
+      \ifHy@implicit
+        \cs_set_eq:NN \H@old@chapter \Hy@org@chapter
+        \seq_map_inline:Nn \c_@@_headings_cs_seq
+          {
+            \cs_if_eq:ccT { H@old@ ##1 } { CTEX@ ##1 }
+              {
+                \cs_gset_eq:cc { @ ##1 } { CTEX@ ##1 }
+                \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor
+              }
+          }
+      \else:
+        \seq_map_inline:Nn \c_@@_headings_cs_seq
+          { \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor }
+      \fi:
+    \group_end:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+%    \begin{macrocode}
+\ctex_at_end_package:nn { hyperref }
+  {
+    \cs_gset_protected_nopar:Npn \CTEX@makeanchor #1
+      {
+        \Hy@MakeCurrentHrefAuto {#1}
+        \Hy@raisedlink
+          {
+            \hyper@anchorstart { \@currentHref }
+            \hyper@anchorend
+          }
+      }
+    \CTEX@hyperheadinghook
+  }
+%    \end{macrocode}
 %
 % \paragraph{兼容 \pkg{titlesec} 宏包}
 %
