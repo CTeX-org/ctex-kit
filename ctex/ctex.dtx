@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5721}
+% \CheckSum{5767}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1478,7 +1478,7 @@ Copyright and Licence
 %   \pagestyle{fancy}
 %   % \sectionmark 的重定义需要在 \pagestyle 之后生效
 %   \renewcommand\sectionmark[1]{%
-%     \markright{\CTEXthesection——#1}}
+%     \markright{\CTEXifname{\CTEXthesection——}{}#1}}
 %
 %   \begin{document}
 %
@@ -1663,6 +1663,25 @@ Copyright and Licence
 %   节的完整编号。例如用于帮助定义自定义的目录格式、页眉格式等。
 % \end{function}
 %
+% \begin{function}[added=2016-09-18]{\CTEXifname}
+%   \begin{syntax}
+%     \tn{CTEXifname} \Arg{有名字时的格式命令} \Arg{无名字时的格式命令}
+%   \end{syntax}
+%   \tn{CTEXifname} 用于根据当前章节的名字的有无设置不同的格式。
+%
+%   它可用于 \opt{format}, \opt{titleformat}, \opt{aftertitle}, \opt{afterskip},
+%   \opt{indent} 这五个选项和 \tn{chapter} 标题 \opt{beforeskip} 选项的格式设置之中。
+%   也可用于帮助定义自定义的目录格式、页眉格式等。
+%
+%   例如，设置章的标题有名字时左对齐，无名字时居中对齐，并且在标题后画一条横线。
+%   \begin{ctexexam}
+%   \ctexset{
+%     chapter/format = \CTEXifname{\raggedright}{\centering},
+%     chapter/aftertitle = \par\CTEXifname{}{\hrule},
+%   }
+%   \end{ctexexam}
+% \end{function}
+%
 % \begin{function}[EXP,updated=2015-06-30]{.../format, .../format+}
 %   \begin{syntax}
 %     format = \Arg{格式命令}
@@ -1674,13 +1693,13 @@ Copyright and Licence
 %   带加号的 \opt{format+} 选项则用于在已有格式之后追加新的格式命令。
 %
 %   例如，设置章格式为无衬线字体左对齐，为节格式增加无衬线字体设置：
-% \end{function}
 %   \begin{ctexexam}
 %   \ctexset{
 %     chapter/format  = \sffamily\raggedright,
 %     section/format += \sffamily
 %   }
 %   \end{ctexexam}
+% \end{function}
 %
 % \begin{table}[htbp]
 % \small\centering
@@ -6869,6 +6888,29 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.4.4}{2016/09/18}{提供 \tn{partmark}。}
+% \begin{macro}[int]{\partmark}
+% 提供 \tn{partmark}。
+%    \begin{macrocode}
+\ProvideDocumentCommand \partmark { m }
+  { \markboth { } { } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.4.4}{2016/09/19}{提供 \tn{CTEXifname}。}
+% \begin{macro}{\CTEXifname}
+% \begin{macro}[int]{\CTEX@ifnametrue,\CTEX@ifnamefalse}
+% 用于判断当前标题是否有编号。
+%    \begin{macrocode}
+\cs_new_eq:NN \CTEXifname \use_i:nn
+\cs_new_protected_nopar:Npn \CTEX@ifnametrue
+  { \cs_set_eq:NN \CTEXifname \use_i:nn }
+\cs_new_protected_nopar:Npn \CTEX@ifnamefalse
+  { \cs_set_eq:NN \CTEXifname \use_ii:nn }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
 % \changes{v2.2}{2015/06/27}{\opt{beforeskip}、\opt{afterskip} 和 \opt{indent}
 %   选项支持表达式。}
 %
@@ -6928,14 +6970,17 @@ Copyright and Licence
 \def\@part[#1]#2{%
   \ifnum \c@secnumdepth >\m@ne
     \ifodd \CTEX@part@numbering
+      \CTEX@ifnametrue
       \refstepcounter{part}%
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
       \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
+      \CTEX@ifnamefalse
       \CTEX@makeanchor{part*}%
       \addcontentsline{toc}{part}{#1}%
     \fi
   \else
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@part{part*}%
     \addcontentsline{toc}{part}{#1}%
   \fi
@@ -6948,7 +6993,8 @@ Copyright and Licence
    \fi \fi
 %  \huge\bfseries #2%
    \CTEX@part@titleformat{#2}%
-   \markboth{}{}%
+%  \markboth{}{}%
+   \partmark{#1}%
    \CTEX@part@aftertitle}%
   \nobreak
 % \vskip 3ex
@@ -6961,18 +7007,22 @@ Copyright and Licence
 \def\@part[#1]#2{%
   \ifnum \c@secnumdepth >-2\relax
     \ifodd \CTEX@part@numbering
+      \CTEX@ifnametrue
       \refstepcounter{part}%
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
       \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
+      \CTEX@ifnamefalse
       \CTEX@makeanchor{part*}%
       \addcontentsline{toc}{part}{#1}%
     \fi
   \else
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@part{part*}%
     \addcontentsline{toc}{part}{#1}%
   \fi
-  \markboth{}{}%
+%  \markboth{}{}%
+   \partmark{#1}%
   {\interlinepenalty \@M
 %  \normalfont \centering
    \normalfont \CTEX@part@format
@@ -6992,6 +7042,7 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*article>
 \def\@spart#1{%
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \parindent \z@ \raggedright
@@ -7009,6 +7060,7 @@ Copyright and Licence
 %</article>
 %<*book|report>
 \def\@spart#1{%
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \centering
@@ -7072,6 +7124,7 @@ Copyright and Licence
   \ifnum \c@secnumdepth >\m@ne
 %<book>    \if@mainmatter
       \ifodd \CTEX@chapter@numbering
+        \CTEX@ifnametrue
         \refstepcounter{chapter}%
 %       \typeout{\@chapapp\space\thechapter.}%
         \typeout{\CTEXthechapter}%
@@ -7079,14 +7132,17 @@ Copyright and Licence
 %         {\protect\numberline{\thechapter}#1}%
           {\protect\numberline{\CTEXthechapter\hspace{0.3em}}#1}%
       \else
+        \CTEX@ifnamefalse
         \CTEX@makeanchor{\Hy@chapapp*}%
         \addcontentsline{toc}{chapter}{#1}%
       \fi
 %<book>    \else
+%<book>      \CTEX@ifnamefalse
 %<book>      \CTEX@makeanchor@chapter{\Hy@chapapp*}%
 %<book>      \addcontentsline{toc}{chapter}{#1}%
 %<book>    \fi
   \else
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@chapter{\Hy@chapapp*}%
     \addcontentsline{toc}{chapter}{#1}%
   \fi
@@ -7105,6 +7161,7 @@ Copyright and Licence
 % \begin{macro}[int]{\@schapter}
 %    \begin{macrocode}
 \def\@schapter#1{%
+  \CTEX@ifnamefalse
   \CTEX@makeanchor@schapter{\Hy@chapapp*}%
   \if@twocolumn
     \@topnewpage[\@makeschapterhead{#1}]%
@@ -7125,14 +7182,12 @@ Copyright and Licence
 % {\normalfont \parindent \z@ \raggedright
   {\normalfont \parindent \dimexpr \CTEX@chapter@indent \relax
    \CTEX@chapter@format
-   \ifnum \c@secnumdepth >\m@ne
-%<book>     \if@mainmatter
-       \ifodd \CTEX@chapter@numbering
-%        \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
-         \CTEX@chaptername \CTEX@chapter@aftername
-       \fi
-%<book>     \fi
-   \fi
+%  \ifnum \c@secnumdepth >\m@ne
+%    \if@mainmatter
+%      \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
+%    \fi
+%  \fi
+   \CTEXifname{\CTEX@chaptername\CTEX@chapter@aftername}{}%
    \interlinepenalty\@M
 %  \Huge \bfseries #1\par\nobreak
    \CTEX@chapter@titleformat{#1}%
@@ -7219,13 +7274,16 @@ Copyright and Licence
 %    \begin{macrocode}
 \def\@sect#1#2#3#4#5#6[#7]#8{%
   \ifnum #2>\c@secnumdepth
+    \CTEX@ifnamefalse
     \CTEX@makeanchor@sect{#1*}%
     \let\@svsec\@empty
   \else
     \ifodd \csname CTEX@#1@numbering\endcsname
+      \CTEX@ifnametrue
       \refstepcounter{#1}%
       \protected@edef\@svsec{\@seccntformat{#1}\relax}%
     \else
+      \CTEX@ifnamefalse
       \CTEX@makeanchor{#1*}%
       \let\@svsec\@empty
     \fi
@@ -7243,12 +7301,10 @@ Copyright and Licence
     \endgroup
     \csname #1mark\endcsname{#7}%
     \addcontentsline{toc}{#1}{%
-      \ifnum #2>\c@secnumdepth \else
-        \ifodd \csname CTEX@#1@numbering\endcsname
-%         \protect\numberline{\csname the#1\endcsname}%
-          \protect\numberline{\csname CTEXthe#1\endcsname}%
-        \fi
-      \fi
+%     \ifnum #2>\c@secnumdepth \else
+%       \protect\numberline{\csname the#1\endcsname}%
+%     \fi
+      \CTEXifname{\protect\numberline{\csname CTEXthe#1\endcsname}}{}%
       #7}%
   \else
     \def\@svsechd{%
@@ -7259,12 +7315,10 @@ Copyright and Licence
       \csname CTEX@#1@aftertitle\endcsname}%
     \csname #1mark\endcsname{#7}%
     \addcontentsline{toc}{#1}{%
-      \ifnum #2>\c@secnumdepth \else
-        \ifodd \csname CTEX@#1@numbering\endcsname
-%         \protect\numberline{\csname the#1\endcsname}%
-          \protect\numberline{\csname CTEXthe#1\endcsname}%
-        \fi
-      \fi
+%     \ifnum #2>\c@secnumdepth \else
+%       \protect\numberline{\csname the#1\endcsname}%
+%     \fi
+      \CTEXifname{\protect\numberline{\csname CTEXthe#1\endcsname}}{}%
       #7}}%
   \fi
   \@xsect{#5}}
@@ -7274,6 +7328,7 @@ Copyright and Licence
 % \begin{macro}[int]{\@ssect}
 %    \begin{macrocode}
 \def\@ssect#1#2#3#4#5{%
+  \CTEX@ifnamefalse
 % \@tempskipa #3\relax
 % \ifdim \@tempskipa>\z@
   \unless \ifodd \CTEX@runin
@@ -7677,6 +7732,24 @@ Copyright and Licence
 % \end{verbatim}
 % 但 \tn{newtitlemark} 不包含章节间的层次信息，功能上不及修改内部命令完整。
 %
+% \begin{macro}[int]{\ttl@setifthe}
+% 使 |\iftheXXX| 等命令在页眉设置中可用。
+%    \begin{macrocode}
+\ctex_at_end_package:nn { titleps }
+  {
+    \cs_set_protected_nopar:Npn \ttl@setifthe #1
+      {
+        \exp_args:Nco \cs_set_nopar:Npn { ifthe #1 }
+          {
+            \CTEXifname
+              { \protect \@firstoftwo }
+              { \protect \@secondoftwo }
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 %
 % \subsubsection{目录标签的宽度}
 %
@@ -7722,22 +7795,26 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*article>
 \ctex_patch_cmd:Nnn \ps@headings
-  { \thesection \quad }
-  { \ifodd \CTEX@section@numbering \CTEXthesection \quad \fi }
+  { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+  { \CTEXifname { \CTEXthesection \quad } { } }
 \if@twoside
   \ctex_patch_cmd:Nnn \ps@headings
-    { \thesubsection \quad }
-    { \ifodd \CTEX@subsection@numbering \CTEXthesubsection \quad \fi }
+    { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
+    { \CTEXifname { \CTEXthesubsection \quad } { } }
 \fi:
 %</article>
 %<*book|report>
 \ctex_patch_cmd:Nnn \ps@headings
-  { \@chapapp\ \thechapter.~\ }
-  { \ifodd \CTEX@chapter@numbering \CTEXthechapter \quad \fi }
+  {
+    \ifnum \c@secnumdepth > \m@ne \if@mainmatter
+      \@chapapp \ \thechapter . ~ \
+    \fi \fi
+  }
+  { \CTEXifname { \CTEXthechapter \quad } { } }
 \if@twoside
   \ctex_patch_cmd:Nnn \ps@headings
-    { \thesection.~\ }
-    { \ifodd \CTEX@section@numbering \CTEXthesection \quad \fi }
+    { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
+    { \CTEXifname { \CTEXthesection } { } }
 \fi:
 %</book|report>
 %    \end{macrocode}
@@ -7753,20 +7830,19 @@ Copyright and Licence
   {
 %<*article>
     \ctex_patch_cmd:Nnn \ps@fancy
-      { \thesection \hskip 1em \relax }
-      { \ifodd \CTEX@section@numbering \CTEXthesection \quad \fi }
+      { \ifnum \c@secnumdepth > \z@ \thesection \hskip 1em \relax \fi }
+      { \CTEXifname { \CTEXthesection \quad } { } }
     \ctex_patch_cmd:Nnn \ps@fancy
-      { \thesubsection \hskip 1em \relax }
-      { \ifodd \CTEX@subsection@numbering \CTEXthesubsection \quad \fi }
+      { \ifnum \c@secnumdepth > \@ne \thesubsection \hskip 1em \relax \fi }
+      { \CTEXifname { \CTEXthesubsection \quad } { } }
 %</article>
 %<*book|report>
     \ctex_patch_cmd:Nnn \ps@fancy
-      { \@chapapp\ \thechapter.~\ }
-%<book>      { \if@mainmatter \ifodd \CTEX@chapter@numbering \CTEXthechapter \quad \fi \fi }
-%<report>      { \ifodd \CTEX@chapter@numbering \CTEXthechapter \quad \fi }
+      { \ifnum \c@secnumdepth > \m@ne \@chapapp \ \thechapter . ~ \ \fi }
+      { \CTEXifname { \CTEXthechapter \quad } { } }
     \ctex_patch_cmd:Nnn \ps@fancy
-      { \thesection.~\ }
-      { \ifodd \CTEX@section@numbering \CTEXthesection \quad \fi }
+      { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
+      { \CTEXifname { \CTEXthesection } { } }
 %</book|report>
   }
 %    \end{macrocode}
