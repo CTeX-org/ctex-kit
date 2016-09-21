@@ -28,10 +28,10 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx 2f389b0 2016-08-27 10:50:07 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx b7f83de 2016-09-21 21:27:31 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
-  {\ExplFileDate}{2.4.2}{\ExplFileDescription}
+  {\ExplFileDate}{2.4.4}{\ExplFileDescription}
 \ExplSyntaxOff
 \let\pdfmdfivesum\mdfivesum
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
@@ -63,6 +63,7 @@
 \RequirePackage{xcolor}
 \RequirePackage{caption}
 \RequirePackage{fvrb-ex}
+\RequirePackage{zref-base}
 \geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
 \hypersetup{pdfstartview=FitH,bookmarksdepth=subparagraph}
 \setcounter{secnumdepth}{4}
@@ -71,6 +72,7 @@
 \setmainfont{TeX Gyre Pagella}
 \setsansfont{TeX Gyre Heros}
 \setmonofont[
+  HyphenChar = None ,
   UprightFont=* Light, BoldFont=* Bold,
   SlantedFont=* Light Oblique]{CMU Typewriter Text}
 \setmathfont{texgyrepagella-math.otf}
@@ -171,10 +173,6 @@
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
 \AtBeginEnvironment{syntax}{\linespread{1}\ctexplainps\ctexdisableecglue}
 \BeforeBeginEnvironment{SideBySideExample}{\par\addvspace{\medskipamount}}
-\preto\MacroFont{\linespread{1}}
-\appto\MacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
-\preto\AltMacroFont{\linespread{1}}
-\appto\AltMacroFont{\hyphenchar\font\m@ne\ctexdocverbaddon}
 \newcommand*\exptarget{\Hy@raisedlink{\hypertarget{expstar}{}}}
 \newcommand*\rexptarget{\Hy@raisedlink{\hypertarget{rexpstar}{}}}
 \newcommand*\expstar{\hyperlink{expstar}{$\star$}}
@@ -220,29 +218,57 @@
   { \MacroFont \hbox:n }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_typeset_one:nN
-  { }
-  { \vbox_unpack_clear:N }
-  { \MacroFont \vbox_unpack_clear:N }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
 \ctex_patch_cmd_once:NnnnTF \__codedoc_macro_dump:
   { }
   { \hbox_unpack_clear:N }
   { \MacroFont \hbox_unpack_clear:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_patch_cmd_once:NnnnTF \__codedoc_macro_end:
-  { }
-  { \endtrivlist }
-  { \@noparlisttrue \endtrivlist }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
-\ctex_appto_cmd:NnnTF \__codedoc_macro_end_style:n
-  { }
-  { \@endparenv }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+\cs_set_eq:NN \__codedoc_macro_end_style:n \use_none:n
+\cs_set_protected:Npn \__codedoc_macro_typeset_one:nN #1#2
+  {
+    \vbox_set:Nn \l__codedoc_macro_box
+      {
+        \MacroFont
+        \vbox_unpack_clear:N \l__codedoc_macro_box
+        \hbox_set:Nn \l_tmpa_box
+          { \__codedoc_print_macroname:nN {#1} #2 }
+        \dim_set:Nn \l_tmpa_dim { \marginparwidth - \labelsep }
+        \dim_compare:nNnT { \box_wd:N \l_tmpa_box } > \l_tmpa_dim
+          {
+            \box_resize_to_wd_and_ht:Nnn \l_tmpa_box
+              { \l_tmpa_dim }
+              { \box_ht:N \l_tmpa_box }
+          }
+        \hbox_overlap_left:n
+          {
+            \box_use:N \l_tmpa_box
+            \skip_horizontal:n { \marginparsep - \labelsep }
+          }
+      }
+    \int_incr:N \l__codedoc_macro_int
+  }
+\cs_set_protected:Npn \__codedoc_print_macroname:nN #1#2
+  {
+    \strut
+    \__codedoc_get_hyper_target:xN
+      {
+        \exp_not:n {#1}
+        \bool_if:NT #2 { \tl_to_str:n {TF} }
+      }
+      \l__codedoc_tmpa_tl
+    \cs_if_exist:cTF { r@ \l__codedoc_tmpa_tl }
+      { \exp_args:NNo \label@hyperref [ \l__codedoc_tmpa_tl ] }
+      { \use:n }
+      {
+        \tl_set:Nn \l__codedoc_tmpa_tl {#1}
+        \tl_replace_all:Non \l__codedoc_tmpa_tl
+          { \c_catcode_other_space_tl }
+          { \fontspec_visible_space: }
+        \__codedoc_macroname_prefix:o \l__codedoc_tmpa_tl
+        \__codedoc_macroname_suffix:N #2
+      }
+  }
 \AtBeginEnvironment { syntax }
   {
     \char_set_catcode_active:N \|
@@ -277,9 +303,6 @@
       { \fileinfo }
   }
 \ior_new:N \g__ctxdoc_id_ior
-\ctex_patch_cmd:Nnn \changes@
-  { \space \actualchar }
-  { \actualchar }
 \cs_new_eq:NN \__ctxdoc_ltx_changes:nnn \changes@
 \cs_set_protected:Npn \changes@ #1#2
   {
@@ -298,18 +321,24 @@
 \cs_new_protected:Npn \__ctxdoc_version_zfill:nnnn #1#2
   {
     \tl_clear:N \l__ctxdoc_tmp_tl
-    \seq_set_split:Nnn \l__ctxdoc_tmp_seq { . } {#1}
-    \seq_map_function:NN \l__ctxdoc_tmp_seq \__ctxdoc_version_zfill:n
+    \int_zero:N \l_tmpa_int
+    \seq_set_split:Nnn \l_tmpa_seq { . } {#1}
+    \seq_map_function:NN \l_tmpa_seq \__ctxdoc_version_zfill:n
+    \int_compare:nNnF \l_tmpa_int > \c_two
+      {
+        \tl_put_right:Nx \l__ctxdoc_tmp_tl
+          { \prg_replicate:nn { \c_three - \l_tmpa_int } { 00000 } }
+      }
     \__ctxdoc_ltx_changes:nnn { \l__ctxdoc_tmp_tl \actualchar #2 }
   }
 \tl_new:N \l__ctxdoc_tmp_tl
-\seq_new:N \l__ctxdoc_tmp_seq
 \cs_new_protected:Npn \__ctxdoc_version_zfill:n #1
   {
+    \int_incr:N \l_tmpa_int
     \tl_put_right:Nx \l__ctxdoc_tmp_tl
       {
         \prg_replicate:nn
-          { \int_max:nn { 0 } { 10 - \tl_count:n {#1} } } { 0 }
+          { \int_max:nn { 0 } { 5 - \tl_count:n {#1} } } { 0 }
         \exp_not:n {#1}
       }
   }
@@ -465,7 +494,7 @@
         \tl_gclear:N \g__ctxdoc_verbatim_verb_stop_tl
         \cs_gset_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line:
         \__ctxdoc_output_module:nn
-          { slash@guard }
+          { \color { verb@guard } }
           { \__ctxdoc_module_pop:n { \l__ctxdoc_verbatim_line_tl } }
       }
       { \tl_use:N \l__ctxdoc_verbatim_line_tl }
@@ -500,45 +529,39 @@
   \cs_new_protected:Npn \__ctxdoc_module_star:w #1 > #2 \q_stop
     {
       \__ctxdoc_output_module:nn
-        { star@guard }
+        { \__ctxdoc_star_color: }
         { \__ctxdoc_module_push:n { \__ctxdoc_module_angle:n {#1} } }
-      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
-        {
-          \cs_gset_eq:NN \macro@font \AltMacroFont
-          \macro@font
-        }
-      \int_gincr:N \guard@level
       \__ctxdoc_output_line:n {#2}
+      \__ctxdoc_star_format:
     }
   \cs_new_protected:Npn \__ctxdoc_module_slash:w #1 > #2 \q_stop
     {
       \__ctxdoc_output_module:nn
-        { slash@guard }
+        { \__ctxdoc_slash_color: }
         { \__ctxdoc_module_pop:n { \__ctxdoc_module_angle:n {#1} } }
-      \int_gdecr:N \guard@level
-      \int_compare:nNnF \guard@level < \c@StandardModuleDepth
-        {
-          \cs_gset_eq:NN \macro@font \MacroFont
-          \macro@font
-        }
       \__ctxdoc_output_line:n {#2}
+      \__ctxdoc_slash_format:
     }
   \cs_new_protected:Npn \__ctxdoc_module_at:w @ @ = #1 > #2 \q_stop
     {
       \__ctxdoc_output_module:nn
-        { at@guard }
+        { \color { at@guard } }
         { \__ctxdoc_module_angle:n { @ @ = #1 } }
       \tl_gset:Nn \g__codedoc_module_name_tl {#1}
       \__ctxdoc_output_line:n {#2}
     }
   \cs_new_protected:Npn \__ctxdoc_module_pm:w #1 > #2 \q_stop
     {
-      \__ctxdoc_output_module:nn
-        { pm@guard }
-        { \__ctxdoc_module_angle:n {#1} }
+      \tex_noindent:D
+      \hbox_overlap_left:n
+        {
+          \__ctxdoc_output_module:nn
+            { \__ctxdoc_pm_color: }
+            { \__ctxdoc_module_angle:n {#1} }
+          \skip_horizontal:n { \leftskip + \smallskipamount }
+        }
       \group_begin:
-        \int_compare:nNnF \guard@level < \c@StandardModuleDepth
-          { \AltMacroFont }
+        \__ctxdoc_pm_format:
         \__ctxdoc_output_line:n {#2}
       \group_end:
     }
@@ -548,7 +571,7 @@
       \tl_gset:Nx \g__ctxdoc_verbatim_verb_stop_tl
         { \c_percent_str \tl_tail:n {#1} }
       \__ctxdoc_output_module:nn
-        { star@guard }
+        { \color { verb@guard } }
         { \__ctxdoc_module_push:n { \l__ctxdoc_verbatim_line_tl } }
     }
 \group_end:
@@ -596,43 +619,141 @@
     \group_end:
   }
 \cs_new_protected_nopar:Npn \__ctxdoc_module_push:n
-  { \exp_args:Nx \__ctxdoc_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
+  { \exp_args:No \__ctxdoc_module_push_aux:nn { \int_use:N \c@HD@hypercount } }
 \cs_new_protected:Npn \__ctxdoc_module_push_aux:nn #1
   {
     \seq_gpush:Nn \g__ctxdoc_module_dest_seq {#1}
-    \HD@savedest@add {#1}
-    \cs_if_exist:cTF { r@HD. #1 }
-      {
-        \hypersetup { hidelinks }
-        \hyperref [ HD. #1 ]
-      }
-      { \use:n }
+    \hypersetup { hidelinks }
+    \exp_args:Nx \hdclindex
+      { \zref@extractdefault { HD.#1 } { guard@end } { 1 } } { }
   }
 \cs_new_protected_nopar:Npn \__ctxdoc_module_pop:n
   {
     \seq_gpop:NNTF \g__ctxdoc_module_dest_seq \l__ctxdoc_tmp_tl
-      {
-        \tl_set:Nx \@currentlabel { \int_use:N \c@HD@hypercount }
-        \HD@savedest@add { \@currentlabel }
-        \Hy@MakeCurrentHref { HD. \@currentlabel }
-        \label { HD. \l__ctxdoc_tmp_tl }
-        \hypersetup { hidelinks }
-        \hdclindex { \l__ctxdoc_tmp_tl } { }
-      }
+      { \exp_args:No \__ctxdoc_module_pop_aux:nn { \l__ctxdoc_tmp_tl } }
       { \BOOM \use:n }
   }
+\cs_new_protected:Npn \__ctxdoc_module_pop_aux:nn #1
+  {
+    \zref@labelbylist { HD.#1 } { ctxdoc }
+    \hypersetup { hidelinks }
+    \hdclindex {#1} { }
+  }
 \seq_new:N \g__ctxdoc_module_dest_seq
+\zref@newlist { ctxdoc }
+\zref@newprop { guard@end } [ 1 ]
+  { \int_eval:n { \c@HD@hypercount - 1 } }
+\zref@addprop { ctxdoc } { guard@end }
+\cs_new_protected_nopar:Npn \__ctxdoc_star_format:
+  {
+    \seq_gpush:No \g__ctxdoc_slash_format_seq { \macro@font }
+    \seq_gpop:NNF \g__ctxdoc_star_format_seq \l__ctxdoc_format_tl
+      { \__ctxdoc_pop_format: }
+    \__ctxdoc_select_format:
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_slash_format:
+  {
+    \seq_gpop:NNTF \g__ctxdoc_slash_format_seq \l__ctxdoc_format_tl
+      {
+        \seq_gpush:No \g__ctxdoc_star_format_seq { \macro@font }
+        \__ctxdoc_select_format:
+      }
+      { \BOOM }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_pm_format:
+  {
+    \seq_get:NNF \g__ctxdoc_star_format_seq \l__ctxdoc_format_tl
+      {
+        \__ctxdoc_pop_format:
+        \seq_gpush:No \g__ctxdoc_star_format_seq { \l__ctxdoc_format_tl }
+      }
+    \cs_if_eq:NNF \macro@font \l__ctxdoc_format_tl
+      { \l__ctxdoc_format_tl }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_pop_format:
+  {
+    \seq_gpop_left:NN \g__ctxdoc_format_seq \l__ctxdoc_format_tl
+    \seq_gput_right:No \g__ctxdoc_format_seq { \l__ctxdoc_format_tl }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_select_format:
+  {
+    \cs_if_eq:NNF \macro@font \l__ctxdoc_format_tl
+      {
+        \cs_gset_eq:NN \macro@font \l__ctxdoc_format_tl
+        \macro@font
+      }
+  }
+\tl_new:N \l__ctxdoc_format_tl
+\seq_new:N \g__ctxdoc_format_seq
+\seq_new:N \g__ctxdoc_star_format_seq
+\seq_new:N \g__ctxdoc_slash_format_seq
+\seq_gput_right:Nn \g__ctxdoc_format_seq { \MacroFont }
+\seq_gput_right:Nn \g__ctxdoc_format_seq { \AltMacroFont }
+\cs_set_protected:Npn \MacroFont
+  {
+    \linespread { 1 }
+    \small
+    \fontseries { \mddefault }
+    \fontshape  { \updefault }
+    \ttfamily
+    \ctexdocverbaddon
+  }
+\cs_set_protected:Npn \AltMacroFont
+  {
+    \linespread { 1 }
+    \small
+    \fontseries { \mddefault }
+    \fontshape  { \sldefault }
+    \ttfamily
+    \ctexdocverbaddon
+  }
+\AtBeginDocument
+  {
+    \tl_gset:Nx \macro@font
+      { \seq_item:Nn \g__ctxdoc_format_seq { 1 } }
+  }
 \cs_new_protected:Npn \__ctxdoc_output_module:nn #1#2
   {
     \tex_noindent:D
     \group_begin:
-      \color {#1} \footnotesize \normalfont \sffamily #2
+      #1
+      \footnotesize \normalfont \sffamily #2
     \group_end:
   }
-\definecolor { star@guard }  { rgb } { 0    , 0   , 0.55 }
-\definecolor { slash@guard } { rgb } { 0.75 , 0   , 0.25 }
-\definecolor { pm@guard }    { rgb } { 0.5  , 0.5 , 0 }
-\definecolor { at@guard }    { rgb } { 0.5  , 0   , 0.5 }
+\cs_new_protected_nopar:Npn \__ctxdoc_star_color:
+  {
+    \seq_gpop:NNTF \g__ctxdoc_star_color_seq \current@color
+      { \set@color }
+      { \__ctxdoc_select_color: }
+    \seq_gpush:No \g__ctxdoc_slash_color_seq { \current@color }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_slash_color:
+  {
+    \seq_gpop:NNTF \g__ctxdoc_slash_color_seq \current@color
+      {
+        \set@color
+        \seq_gpush:No \g__ctxdoc_star_color_seq { \current@color }
+      }
+      { \BOOM }
+  }
+\cs_new_protected_nopar:Npn \__ctxdoc_pm_color:
+  {
+    \seq_get:NNTF \g__ctxdoc_star_color_seq \current@color
+      { \set@color }
+      {
+        \__ctxdoc_select_color:
+        \seq_gpush:No \g__ctxdoc_star_color_seq { \current@color }
+      }
+  }
+\seq_new:N \g__ctxdoc_star_color_seq
+\seq_new:N \g__ctxdoc_slash_color_seq
+\cs_new_protected_nopar:Npn \__ctxdoc_select_color:
+  { \color { guard@series!!+ } }
+\definecolorseries { guard@series }
+  { cmyk } { last } { blue } { purple }
+\resetcolorseries [ 3 ] { guard@series }
+\definecolor { verb@guard } { rgb }  { 0.5  , 0.5 , 0 }
+\definecolor { at@guard }   { rgb }  { 0.5  , 0   , 0.5 }
 \definecolor { code@gray }  { gray } { 0.5 }
 \cs_new_protected:Npn \__ctxdoc_module_angle:n #1
   { \textlangle #1 \textrangle }
