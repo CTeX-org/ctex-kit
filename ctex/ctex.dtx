@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5805}
+% \CheckSum{5836}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1136,7 +1136,7 @@ Copyright and Licence
 % \end{function}
 %   \begin{optdesc}[itemsep=\medskipamount]
 %     \item[chinese] 对 \cls{beamer} 以外的文档类，调整默认字号为五号字，并调
-%`      整行距为 |1.3|；汉化文档中的标题名字（如“图”、“表”、“目录”和“参
+%       整行距为 |1.3|；汉化文档中的标题名字（如“图”、“表”、“目录”和“参
 %       考文献”等，见 \ref{subs:capname}~节）；
 %       在 \opt{heading = true} 的情况下^^A
 %       \footnote{使用 \CTeX{} 文档类，或者使用 \pkg{ctex} 宏包且开启该选项时。}^^A
@@ -2091,6 +2091,19 @@ Copyright and Licence
 %   默认情况下，\cls{article}、\cls{book} 和 \cls{report} 类的标题与正文的距离除了由
 %   \opt{beforeskip} 和 \opt{afterskip} 选项设置的垂直间距外，还会有一些多余的间距。
 %   \opt{fixskip} 选项用于抑制这些多余间距。
+% \end{function}
+%
+% \begin{function}[EXP,added=2016-10-01]{chapter/lofskip, chapter/lotskip}
+%   \begin{syntax}
+%   lofskip = \Arg{弹性间距}
+%   lotskip = \Arg{弹性间距}
+%   \end{syntax}
+%   \opt{lofskip} 选项控制插图目录（\file{.lof}）中，章之间的插图标题的距离。
+%
+%   同样，\opt{lotskip} 选项控制表格目录（\file{.lot}）中，章之间的表格标题的距离。
+%
+%   目前，这两个选项只在 \opt{chapter} 标题下有定义。
+%   他们的默认值，在 \opt{scheme} 选项的不同取值下都为 \SI{10}{pt}。
 % \end{function}
 %
 % \begin{function}[EXP,updated=2015-06-27]{.../indent}
@@ -6858,8 +6871,10 @@ Copyright and Licence
 %   \opt{chapter/fixbeforeskip}。}
 % \changes{v2.4.3}{2016/06/03}{删除选项 \opt{part/fixbeforeskip} 和
 %   \opt{chapter/fixbeforeskip}。}
+% \changes{v2.4.5}{2016/10/01}{新的标题格式选项 \opt{chapter/lofskip} 和
+%   \opt{chapter/lotskip}。}
 %
-% \begin{macro}{part/pagestyle,chapter/pagestyle}
+% \begin{macro}{part/pagestyle,chapter/pagestyle,chapter/lofskip,chapter/lotskip}
 % 只在 \cls{ctexbook} 和 \cls{ctexrep} 下有定义。
 %    \begin{macrocode}
 \group_begin:
@@ -6868,6 +6883,12 @@ Copyright and Licence
   {
     part    / pagestyle .tl_set:N = \CTEX@part@pagestyle ,
     chapter / pagestyle .tl_set:N = \CTEX@chapter@pagestyle ,
+    chapter / lofskip   .tl_set:N = \CTEX@chapter@lofskip ,
+    chapter / lotskip   .tl_set:N = \CTEX@chapter@lotskip ,
+    chapter / lofskip  .initial:n = \c_zero_skip ,
+    chapter / lotskip  .initial:n = \c_zero_skip ,
+    chapter / lofskip  .value_required:n = true ,
+    chapter / lotskip  .value_required:n = true ,
   }
 %</book|report>
 %<*article|beamer>
@@ -6950,6 +6971,29 @@ Copyright and Licence
   { \cs_set_eq:NN \CTEXifname \use_ii:nn }
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
+%
+% \begin{macro}[int]{\CTEX@addloflotskip}
+% 往插图和表格目录中加入额外间距。如果间距为零，则不加入。
+%    \begin{macrocode}
+%<*book|report>
+\cs_new_protected_nopar:Npn \CTEX@addloflotskip #1
+  {
+    \skip_set:Nn \l_@@_heading_skip { \use:c { CTEX@#1@lofskip } }
+    \skip_if_eq:nnF { \l_@@_heading_skip } { \c_zero_skip }
+      {
+        \addtocontents { lof }
+          { \protect \addvspace { \skip_use:N \l_@@_heading_skip } }
+      }
+    \skip_set:Nn \l_@@_heading_skip { \use:c { CTEX@#1@lotskip } }
+    \skip_if_eq:nnF { \l_@@_heading_skip } { \c_zero_skip }
+      {
+        \addtocontents { lot }
+          { \protect \addvspace { \skip_use:N \l_@@_heading_skip } }
+      }
+  }
+%</book|report>
+%    \end{macrocode}
 % \end{macro}
 %
 % \changes{v2.2}{2015/06/27}{\opt{beforeskip}、\opt{afterskip} 和 \opt{indent}
@@ -7192,8 +7236,9 @@ Copyright and Licence
     \addcontentsline{toc}{chapter}{#1}%
   \fi
   \chaptermark{#1}%
-  \addtocontents{lof}{\protect\addvspace{10\p@}}%
-  \addtocontents{lot}{\protect\addvspace{10\p@}}%
+% \addtocontents{lof}{\protect\addvspace{10\p@}}%
+% \addtocontents{lot}{\protect\addvspace{10\p@}}%
+  \CTEX@addloflotskip{chapter}%
   \if@twocolumn
     \@topnewpage[\@makechapterhead{#2}]%
   \else
@@ -8150,6 +8195,8 @@ Copyright and Licence
     aftertitle  = \par ,
     beforeskip  = 50 \p@ ,
     afterskip   = 40 \p@ ,
+    lofskip     = 10 \p@ ,
+    lotskip     = 10 \p@ ,
     break       = \if@openright \cleardoublepage \else \clearpage \fi ,
 %<*plain>
     name        = \chaptername \space ,
