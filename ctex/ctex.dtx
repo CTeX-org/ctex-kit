@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5793}
+% \CheckSum{5805}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1442,7 +1442,7 @@ Copyright and Licence
 %     }
 %   }
 %   \renewcommand\sectionmark[1]{%
-%     \markright{\CTEXthesection——#1}}
+%     \markright{\CTEXifname{\CTEXthesection——}{}#1}}
 %
 %   \begin{document}
 %
@@ -7837,15 +7837,23 @@ Copyright and Licence
 % \subsubsection{页眉信息的修改}
 %
 % \begin{macro}[int]{\ps@headings}
+% \changes{v2.4.5}{2016/10/01}{修复补丁失败。}
 %    \begin{macrocode}
 %<*article>
-\ctex_patch_cmd:Nnn \ps@headings
-  { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
-  { \CTEXifname { \CTEXthesection \quad } { } }
 \if@twoside
+  \ctex_patch_cmd:Nnn \ps@headings
+    { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+    { \CTEXifname { \CTEXthesection \quad } { } }
   \ctex_patch_cmd:Nnn \ps@headings
     { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
     { \CTEXifname { \CTEXthesubsection \quad } { } }
+\else:
+%    \end{macrocode}
+% 不知为何，标准文档类此处对 \texttt{secnumdepth} 的判断为 $0$，与 \tn{section} 的层次 $1$ 不符。
+%    \begin{macrocode}
+  \ctex_patch_cmd:Nnn \ps@headings
+    { \ifnum \c@secnumdepth > \m@ne \thesection \quad \fi }
+    { \CTEXifname { \CTEXthesection \quad } { } }
 \fi:
 %</article>
 %<*book|report>
@@ -11179,6 +11187,7 @@ Copyright and Licence
         \everypar {#1}
         \if@inlabel
           \global \@inlabelfalse
+          \@noparlistfalse
           \llap { \box \@labels \hskip \leftskip }
         \fi
         #1
@@ -11186,7 +11195,7 @@ Copyright and Licence
   }
 \ctex_patch_cmd:Nnn \macro@code
   { \if@inlabel \leavevmode \fi }
-  { }
+  { \partopsep \z@skip }
 \group_begin:
   \int_set_eq:NN \tex_endlinechar:D \c_minus_one
   \use:n
