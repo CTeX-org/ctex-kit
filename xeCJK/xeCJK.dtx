@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10130}
+% \CheckSum{10136}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2613,25 +2613,6 @@ Copyright and Licence
 %
 % \subsection{字符类别处理}
 %
-% \begin{macro}[internal,var]
-%  {\g_@@_base_class_seq,\g_@@_non_CJK_class_seq,\g_@@_CJK_class_seq}
-%    \begin{macrocode}
-\seq_new:N \g_@@_base_class_seq
-\seq_gset_eq:NN \g_@@_base_class_seq \g_@@_class_seq
-\seq_new:N \g_@@_non_CJK_class_seq
-\seq_gset_from_clist:Nn \g_@@_non_CJK_class_seq
-  { Default , HalfLeft , HalfRight , NormalSpace , Boundary }
-\seq_new:N \g_@@_CJK_class_seq
-\cs_new_protected_nopar:Npn \@@_save_CJK_class:n #1
-  {
-    \seq_gput_right:Nn \g_@@_CJK_class_seq {#1}
-    \tl_const:cn { \@@_CJK_class_tl:c { \@@_class_csname:n {#1} } } {#1}
-  }
-\clist_map_function:nN
-  { CJK , FullLeft , FullRight , CM , HangulJamo } \@@_save_CJK_class:n
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[internal]{\xeCJK_class_num:n}
 % |#1| 为字符类别名称，用于取得字符类别对应的编号。
 %    \begin{macrocode}
@@ -2889,12 +2870,42 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_clear_Boundary_and_CJK_toks:}
+% \changes{v3.4.2}{2016/10/19}{提高效率，避免重复循环。}
 % 清除边界与 CJK 文字、全角左右标点之间的内容。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_clear_Boundary_and_CJK_toks:
-  { \seq_map_function:NN \g_@@_CJK_class_seq \@@_clear_Boundary_and_CJK_toks:n }
-\cs_new_protected_nopar:Npn \@@_clear_Boundary_and_CJK_toks:n #1
-  { \xeCJK_clear_inter_class_toks:nn { Boundary } {#1} }
+  { }
+\cs_new_protected_nopar:Npn \@@_update_clear_toks:n #1
+  {
+    \cs_gset_protected_nopar:Npx \xeCJK_clear_Boundary_and_CJK_toks:
+      {
+        \exp_not:o { \xeCJK_clear_Boundary_and_CJK_toks: }
+        \xetex_interchartoks:D
+          \xeCJK_class_num:n { Boundary } ~ \xeCJK_class_num:n {#1}
+            = { \exp_not:N \prg_do_nothing: }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[internal,var]
+%  {\g_@@_base_class_seq,\g_@@_non_CJK_class_seq,\g_@@_CJK_class_seq}
+%  保存宏包预先定义的字符类。
+%    \begin{macrocode}
+\seq_new:N \g_@@_base_class_seq
+\seq_gset_eq:NN \g_@@_base_class_seq \g_@@_class_seq
+\seq_new:N \g_@@_non_CJK_class_seq
+\seq_gset_from_clist:Nn \g_@@_non_CJK_class_seq
+  { Default , HalfLeft , HalfRight , NormalSpace , Boundary }
+\seq_new:N \g_@@_CJK_class_seq
+\cs_new_protected_nopar:Npn \@@_save_CJK_class:n #1
+  {
+    \seq_gput_right:Nn \g_@@_CJK_class_seq {#1}
+    \tl_const:cn { \@@_CJK_class_tl:c { \@@_class_csname:n {#1} } } {#1}
+    \@@_update_clear_toks:n {#1}
+  }
+\clist_map_function:nN
+  { CJK , FullLeft , FullRight , CM , HangulJamo } \@@_save_CJK_class:n
 %    \end{macrocode}
 % \end{macro}
 %
