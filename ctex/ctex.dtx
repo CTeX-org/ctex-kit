@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5836}
+% \CheckSum{5849}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -558,7 +558,7 @@ Copyright and Licence
 % \GetFileId{ctex.sty}%
 %
 % \title{\bfseries \CTeX{} 宏集手册}
-% \author{\href{http://www.ctex.org}{ctex.org}}
+% \author{\href{http://www.ctex.org}{CTEX.ORG}}
 % \date{\filedate\qquad\fileversion\thanks{\ctexkitrev{\ExplFileVersion}.}}
 % \maketitle
 %
@@ -1515,13 +1515,14 @@ Copyright and Licence
 % \opt{name}, \opt{number}, \opt{format}, \opt{nameformat}, \opt{numberformat},
 % \opt{aftername}, \opt{titleformat}, \opt{aftertitle}, \opt{runin},
 % \opt{afterindent}, \opt{beforeskip}, \opt{afterskip}, \opt{fixskip},
-% \opt{indent}, \opt{pagestyle}, \opt{break} 等。
+% \opt{lotskip}, \opt{lofskip}, \opt{indent}, \opt{hang},
+% \opt{pagestyle}, \opt{break} 等。
 %
 % 注意，对 \cls{article} 及其衍生的 \cls{ctexart} 等文档类，没有 |chapter|
 % 级别的标题。而对于 \cls{beamer} 文档类，这些选项控制的是由 \tn{partpage},
 % \tn{sectionpage} 和 \tn{subsectionpage} 产生的标题格式，此时只有 |part|,
 % |section| 和 |subsection| 这三层级别，并且 \opt{runin}, \opt{afterindent},
-% \opt{fixskip} 和 \opt{break} 这四个格式无效。
+% \opt{fixskip}, \opt{hang} 和 \opt{break} 这五个格式无效。
 %
 % 多级选项之间用斜线分开，例如，\opt{part/name} 选项设置 \tn{part} 标题的在数
 % 字前后的名称，而 \opt{section/number} 选项设置 \tn{section} 标题的数字类型。
@@ -2125,6 +2126,15 @@ Copyright and Licence
 %   \section{首行缩进的标题}
 %   \noindent 无缩进的正文。
 % \end{ctexexam}
+%
+% \begin{function}[EXP,added=2016-10-22]{section/hang, subsection/hang,
+%   subsubsection/hang, paragraph/hang, subparagraph/hang}
+%   \begin{syntax}
+%   hang = \TTF
+%   \end{syntax}
+%   默认情况下，\tn{section} 级以下标题具有悬挂缩进的效果（缩进的宽度为名字宽度和 \opt{indent} 选项
+%   设置的宽度之和）。设置 \opt{hang} 选项为 \opt{false} 可以取消这一效果。
+% \end{function}
 %
 % \begin{function}[EXP,added=2014-03-21]{part/pagestyle, chapter/pagestyle}
 %   \begin{syntax}
@@ -6793,6 +6803,7 @@ Copyright and Licence
 % \changes{v2.2}{2015/06/27}{新的标题格式选项 \opt{runin}。}
 % \changes{v2.4.3}{2016/06/03}{新的标题格式选项 \opt{fixskip}。}
 % \changes{v2.4.4}{2016/09/19}{新的标题格式选项 \opt{break}。}
+% \changes{v2.4.5}{2016/10/22}{新的标题格式选项 \opt{hang}。}
 %
 % \begin{macro}[int]{\@@_def_heading_keys:n}
 %    \begin{macrocode}
@@ -6817,6 +6828,7 @@ Copyright and Licence
 %<*article|book|report>
         #1 / afterindent .bool_set:N = \exp_not:c { CTEX@#1@afterindent } ,
         #1 / fixskip     .bool_set:N = \exp_not:c { CTEX@#1@fixskip } ,
+        #1 / hang        .bool_set:N = \exp_not:c { CTEX@#1@hang } ,
         #1 / runin       .bool_set:N = \exp_not:c { CTEX@#1@runin } ,
         #1 / break         .tl_set:N = \exp_not:c { CTEX@#1@break } ,
         #1 / break+          .code:n =
@@ -7383,7 +7395,7 @@ Copyright and Licence
   \unless \ifodd \CTEX@runin
     \begingroup
       #6{%
-        \@hangfrom{\hskip\glueexpr #3\relax\@svsec}%
+        \CTEX@hangfrom{\hskip\glueexpr #3\relax\@svsec}%
 %       \interlinepenalty \@M #8\@@par}%
         \interlinepenalty \@M
         \csname CTEX@#1@titleformat\endcsname{#8}%
@@ -7424,7 +7436,7 @@ Copyright and Licence
   \unless \ifodd \CTEX@runin
     \begingroup
       #4{%
-        \@hangfrom{\hskip\glueexpr #1\relax}%
+        \CTEX@hangfrom{\hskip\glueexpr #1\relax}%
 %         \interlinepenalty \@M #5\@@par}%
           \interlinepenalty \@M
           \CTEX@titleformat@n{#5}%
@@ -7477,6 +7489,18 @@ Copyright and Licence
 %<@@=ctex>
 %    \end{macrocode}
 %
+% \begin{macro}[int]{\CTEX@hangfrom}
+% \opt{hang} 选项控制是否采用悬挂缩进。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \CTEX@hangfrom
+  {
+    \bool_if:NTF \CTEX@hang
+      { \@hangfrom }
+      { \noindent \use:n }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\CTEX@update@sectionformat@n}
 % 在 \tn{@startsection} 中设置 \tn{CTEX@titleformat@n} 等为相应函数。
 %    \begin{macrocode}
@@ -7486,12 +7510,14 @@ Copyright and Licence
     \cs_set_eq:Nc \CTEX@aftertitle { CTEX@#1@aftertitle }
     \cs_set_eq:Nc \CTEX@afterindent { CTEX@#1@afterindent }
     \cs_set_eq:Nc \CTEX@fixskip { CTEX@#1@fixskip }
+    \cs_set_eq:Nc \CTEX@hang { CTEX@#1@hang }
     \cs_set_eq:Nc \CTEX@runin { CTEX@#1@runin }
   }
 \cs_new_eq:NN \CTEX@titleformat@n \use:n
 \cs_new_eq:NN \CTEX@aftertitle \prg_do_nothing:
 \cs_new_eq:NN \CTEX@afterindent \c_true_bool
 \cs_new_eq:NN \CTEX@fixskip \c_false_bool
+\cs_new_eq:NN \CTEX@hang \c_true_bool
 \cs_new_eq:NN \CTEX@runin \c_false_bool
 %    \end{macrocode}
 % \end{macro}
