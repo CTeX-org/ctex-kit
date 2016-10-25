@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5849}
+% \CheckSum{5862}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1516,13 +1516,13 @@ Copyright and Licence
 % \opt{aftername}, \opt{titleformat}, \opt{aftertitle}, \opt{runin},
 % \opt{afterindent}, \opt{beforeskip}, \opt{afterskip}, \opt{fixskip},
 % \opt{lotskip}, \opt{lofskip}, \opt{indent}, \opt{hang},
-% \opt{pagestyle}, \opt{break} 等。
+% \opt{pagestyle}, \opt{break}, \opt{tocline} 等。
 %
 % 注意，对 \cls{article} 及其衍生的 \cls{ctexart} 等文档类，没有 |chapter|
 % 级别的标题。而对于 \cls{beamer} 文档类，这些选项控制的是由 \tn{partpage},
 % \tn{sectionpage} 和 \tn{subsectionpage} 产生的标题格式，此时只有 |part|,
 % |section| 和 |subsection| 这三层级别，并且 \opt{runin}, \opt{afterindent},
-% \opt{fixskip}, \opt{hang} 和 \opt{break} 这五个格式无效。
+% \opt{fixskip}, \opt{hang}, \opt{break} 和 \opt{tocline} 这六个格式无效。
 %
 % 多级选项之间用斜线分开，例如，\opt{part/name} 选项设置 \tn{part} 标题的在数
 % 字前后的名称，而 \opt{section/number} 选项设置 \tn{section} 标题的数字类型。
@@ -2195,6 +2195,42 @@ Copyright and Licence
 % \end{tabular}
 % \end{table}
 %
+% \begin{function}[EXP,added=2016-10-25]{.../tocline}
+%   \begin{syntax}
+%     tocline = \Arg{格式定义}
+%   \end{syntax}
+%   \opt{tocline} 选项用于定义章节标题在目录文件（\file{.toc}）中的格式。\meta{格式定义}有两个参数：
+%   参数 |#1| 是 |part|、|chapter| 等名字，参数 |#2| 是标题内容。
+% \end{function}
+%
+% \begin{table}[htbp]
+% \small\centering
+% \caption{\opt{tocline} 选项的默认设置}
+% \begin{tabular}{ll}
+% \toprule
+% 标题名 & 默认值 \\
+% \midrule
+% part & |\CTEXifname{\CTEXthepart\hspace{1em}}{}#2| \\
+% chapter (\opt{chinese})
+%   & |\CTEXifname{\protect\numberline{\CTEXthechapter\hspace{.3em}}}{}#2| \\
+% chapter (\opt{plain})
+%   & |\CTEXnumberline{#1}#2| \\
+% section & |\CTEXnumberline{#1}#2| \\
+% subsection & 同上 \\
+% subsubsection & 同上 \\
+% paragraph & 同上 \\
+% subparagraph & 同上 \\
+% \bottomrule
+% \end{tabular}
+%
+% \medskip
+% 其中 \tn{CTEXnumberline} 的意义是若标题 |#1| 没有名字，则不输出 |\numberline{\CTEXthe#1}|
+% 等编号：
+% \begin{verbatim}
+%   \CTEXifname{\protect\numberline{\csname CTEXthe#1\endcsname}}{}
+% \end{verbatim}
+% \end{table}
+%
 % \begin{function}[EXP,added=2015-06-21]{appendix/numbering}
 %   \begin{syntax}
 %     numbering = \TTF
@@ -2205,7 +2241,7 @@ Copyright and Licence
 %   用法与普通章节 \opt{numbering} 选项类似。
 % \end{function}
 %
-% \begin{function}[updated=2014-03-08]{appendix/name}
+% \begin{function}[EXP,updated=2014-03-08]{appendix/name}
 %   \begin{syntax}
 %     name = \{<前名字>,<后名字>\}
 %     name = \Arg{前名字}
@@ -6804,6 +6840,7 @@ Copyright and Licence
 % \changes{v2.4.3}{2016/06/03}{新的标题格式选项 \opt{fixskip}。}
 % \changes{v2.4.4}{2016/09/19}{新的标题格式选项 \opt{break}。}
 % \changes{v2.4.5}{2016/10/22}{新的标题格式选项 \opt{hang}。}
+% \changes{v2.4.5}{2016/10/25}{新的标题格式选项 \opt{tocline}。}
 %
 % \begin{macro}[int]{\@@_def_heading_keys:n}
 %    \begin{macrocode}
@@ -6834,6 +6871,11 @@ Copyright and Licence
         #1 / break         .tl_set:N = \exp_not:c { CTEX@#1@break } ,
         #1 / break+          .code:n =
           { \tl_put_right:Nn \exp_not:c { CTEX@#1@break } { ####1 } } ,
+        #1 / tocline         .code:n =
+          {
+            \cs_set:Npn \exp_not:c { CTEX@#1@tocline}
+                        \exp_not:n { ####1####2 } { ####1 }
+          } ,
 %</article|book|report>
         #1 / format+         .code:n =
           { \tl_put_right:Nn \exp_not:c { CTEX@#1@format } { ####1 } } ,
@@ -7009,6 +7051,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\CTEX@addtocline}
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@addtocline #1#2
+  { \addcontentsline { toc } {#1} { \use:c { CTEX@#1@tocline } {#1} {#2} } }
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v2.2}{2015/06/27}{\opt{beforeskip}、\opt{afterskip} 和 \opt{indent}
 %   选项支持表达式。}
 %
@@ -7073,17 +7122,17 @@ Copyright and Licence
       \CTEX@ifnametrue
       \refstepcounter{part}%
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
-      \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
       \CTEX@ifnamefalse
       \CTEX@makeanchor{part*}%
-      \addcontentsline{toc}{part}{#1}%
+%     \addcontentsline{toc}{part}{#1}%
     \fi
   \else
     \CTEX@ifnamefalse
-    \CTEX@makeanchor@part{part*}%
-    \addcontentsline{toc}{part}{#1}%
+    \CTEX@makeanchor{part*}%
+%   \addcontentsline{toc}{part}{#1}%
   \fi
+  \CTEX@addtocline{part}{#1}%
   {\interlinepenalty \@M
 %  \normalfont \parindent \z@ \raggedright
    \normalfont \parindent \dimexpr \CTEX@part@indent \relax \CTEX@part@format
@@ -7110,17 +7159,17 @@ Copyright and Licence
       \CTEX@ifnametrue
       \refstepcounter{part}%
 %     \addcontentsline{toc}{part}{\thepart\hspace{1em}#1}%
-      \addcontentsline{toc}{part}{\CTEXthepart\hspace{1em}#1}%
     \else
       \CTEX@ifnamefalse
       \CTEX@makeanchor{part*}%
-      \addcontentsline{toc}{part}{#1}%
+%     \addcontentsline{toc}{part}{#1}%
     \fi
   \else
     \CTEX@ifnamefalse
-    \CTEX@makeanchor@part{part*}%
-    \addcontentsline{toc}{part}{#1}%
+    \CTEX@makeanchor{part*}%
+%   \addcontentsline{toc}{part}{#1}%
   \fi
+  \CTEX@addtocline{part}{#1}%
 %  \markboth{}{}%
    \partmark{#1}%
   {\interlinepenalty \@M
@@ -7224,30 +7273,34 @@ Copyright and Licence
 %    \begin{macrocode}
 \def\@chapter[#1]#2{%
   \ifnum \c@secnumdepth >\m@ne
-%<book>    \if@mainmatter
+%<*book>
+    \if@mainmatter
+%</book>
       \ifodd \CTEX@chapter@numbering
         \CTEX@ifnametrue
         \refstepcounter{chapter}%
 %       \typeout{\@chapapp\space\thechapter.}%
         \typeout{\CTEXthechapter}%
-        \addcontentsline{toc}{chapter}
+%       \addcontentsline{toc}{chapter}
 %         {\protect\numberline{\thechapter}#1}%
-          {\protect\numberline{\CTEXthechapter\hspace{0.3em}}#1}%
       \else
         \CTEX@ifnamefalse
         \CTEX@makeanchor{\Hy@chapapp*}%
-        \addcontentsline{toc}{chapter}{#1}%
+%       \addcontentsline{toc}{chapter}{#1}%
       \fi
-%<book>    \else
-%<book>      \CTEX@ifnamefalse
-%<book>      \CTEX@makeanchor@chapter{\Hy@chapapp*}%
-%<book>      \addcontentsline{toc}{chapter}{#1}%
-%<book>    \fi
+%<*book>
+    \else
+      \CTEX@ifnamefalse
+      \CTEX@makeanchor@chapter{\Hy@chapapp*}%
+%     \addcontentsline{toc}{chapter}{#1}%
+    \fi
+%</book>
   \else
     \CTEX@ifnamefalse
     \CTEX@makeanchor@chapter{\Hy@chapapp*}%
-    \addcontentsline{toc}{chapter}{#1}%
+%   \addcontentsline{toc}{chapter}{#1}%
   \fi
+  \CTEX@addtocline{chapter}{#1}%
   \chaptermark{#1}%
 % \addtocontents{lof}{\protect\addvspace{10\p@}}%
 % \addtocontents{lot}{\protect\addvspace{10\p@}}%
@@ -7403,12 +7456,12 @@ Copyright and Licence
         \csname CTEX@#1@aftertitle\endcsname}%
     \endgroup
     \csname #1mark\endcsname{#7}%
-    \addcontentsline{toc}{#1}{%
+%   \addcontentsline{toc}{#1}{%
 %     \ifnum #2>\c@secnumdepth \else
 %       \protect\numberline{\csname the#1\endcsname}%
 %     \fi
-      \CTEXifname{\protect\numberline{\csname CTEXthe#1\endcsname}}{}%
-      #7}%
+%     #7}%
+    \CTEX@addtocline{#1}{#7}%
   \else
     \def\@svsechd{%
     #6{\hskip\glueexpr #3\relax
@@ -7417,12 +7470,12 @@ Copyright and Licence
       \csname CTEX@#1@titleformat\endcsname{#8}%
       \csname CTEX@#1@aftertitle\endcsname}%
     \csname #1mark\endcsname{#7}%
-    \addcontentsline{toc}{#1}{%
+%   \addcontentsline{toc}{#1}{%
 %     \ifnum #2>\c@secnumdepth \else
 %       \protect\numberline{\csname the#1\endcsname}%
 %     \fi
-      \CTEXifname{\protect\numberline{\csname CTEXthe#1\endcsname}}{}%
-      #7}}%
+%     #7}%
+    \CTEX@addtocline{#1}{#7}}%
   \fi
   \@xsect{#5}}
 %    \end{macrocode}
@@ -7523,6 +7576,36 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\CTEX@part@tocline, \CTEX@chapter@tocline}
+%    \begin{macrocode}
+\cs_new:Npn \CTEX@part@tocline #1#2
+  {
+    \CTEXifname
+      { \CTEXthepart \hspace { 1em } }
+      { }
+    #2
+  }
+\cs_new:Npn \CTEX@chapter@tocline #1#2
+  {
+    \CTEXifname
+      { \protect \numberline { \CTEXthechapter \hspace { .3em } } }
+      { }
+    #2
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CTEXnumberline}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \CTEXnumberline #1
+  {
+    \CTEXifname
+      { \protect \numberline { \use:c { CTEXthe #1 } } }
+      { }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 %    \begin{macrocode}
 \int_zero:N \l_@@_tmp_int
 \seq_map_inline:Nn \c_@@_section_headings_seq
@@ -7537,6 +7620,8 @@ Copyright and Licence
           { \exp_not:c { CTEX@#1@afterskip } }
           { \exp_not:N \normalfont \exp_not:c { CTEX@#1@format } }
       }
+    \cs_new:cpn { CTEX@#1@tocline } ##1##2
+      { \CTEXnumberline { ##1 } ##2 }
   }
 %    \end{macrocode}
 %
@@ -8232,7 +8317,8 @@ Copyright and Licence
     nameformat  = \huge \bfseries ,
     aftername   = \par \nobreak \vskip 20 \p@ ,
     titleformat = \Huge \bfseries ,
-    afterindent = false
+    afterindent = false ,
+    tocline     = \CTEXnumberline {#1} #2
 %</plain>
 %<*chinese>
     number      = \chinese { chapter } ,
