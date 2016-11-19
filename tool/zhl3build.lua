@@ -91,7 +91,16 @@ local function script_path()
 end
 
 dtxchecksum = dofile(script_path() .. "dtxchecksum.lua").checksum
-zhconv = dofile(script_path() .. "zhconv.lua").conv
+
+function zhconv (input, output, encoding)
+  local cmdline = "iconv -f utf-8 -t " .. ( encoding or "gbk" ) .. " " .. input
+  local handle = assert(io.popen(shellescape(cmdline), "r"))
+  local buffer = handle:read("*all")
+  assert(handle:close())
+  local f = assert(io.open(output, "w"))
+  f:write(buffer)
+  f:close()
+end
 
 -- 只对 .dtx 进行 \CheckSum 校正
 function checksum()
