@@ -154,7 +154,7 @@ If you are interested in the process of development you may observe
 %<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
 %<package>\ProvidesPackage{zhmCJK}
 %<*package>
-    [2015/04/20 v0.9b setup CJK fonts dynamically]
+    [2016/11/20 v0.9c setup CJK fonts dynamically]
 %</package>
 %
 %<*driver>
@@ -163,7 +163,7 @@ If you are interested in the process of development you may observe
 \usepackage[numbered]{hypdoc}
 \hypersetup{pdfstartview=FitH}
 \usepackage{zhmCJK}
-\setCJKmainfont[BoldFont=simhei.ttf,ItalicFont=simkai.ttf]{simsun.ttc}
+\setCJKmainfont{simsun.ttc}[BoldFont=simhei.ttf,ItalicFont=simkai.ttf]
 \setCJKsansfont{simhei.ttf}
 \setCJKmonofont{simfang.ttf}
 \usepackage[T1]{fontenc}
@@ -231,7 +231,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{786}
+% \CheckSum{794}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -344,6 +344,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{quote}
 % \DescribeMacro{\setCJKmainfont}
+% "\setCJKmainfont{"\meta{字体文件名}"}["\meta{选项}"]" 或\\
 % "\setCJKmainfont["\meta{选项}"]{"\meta{字体文件名}"}"
 % \end{quote}
 % 设置正文默认罗马族的 CJK 字体，字体用 TrueType 文件名表示。该命令影响
@@ -378,6 +379,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{quote}
 % \DescribeMacro{\setCJKsansfont}
+% "\setCJKsansfont{"\meta{字体文件名}"}["\meta{选项}"]" 或\\
 % "\setCJKsansfont["\meta{选项}"]{"\meta{字体文件名}"}"
 % \end{quote}
 % 设置正文无衬线族的 CJK 字体。影响 "\sffamily" 和 "\textsf" 的字体。例如用
@@ -388,6 +390,7 @@ If you are interested in the process of development you may observe
 %
 % \begin{quote}
 % \DescribeMacro{\setCJKmonofont}
+% "\setCJKmonofont{"\meta{字体文件名}"}["\meta{选项}"]" 或\\
 % "\setCJKmonofont["\meta{选项}"]{"\meta{字体文件名}"}"
 % \end{quote}
 % 设置正文等宽族的 CJK 字体。影响 "\ttfamily" 和 "\texttt" 的字体。例如用
@@ -398,6 +401,7 @@ If you are interested in the process of development you may observe
 %
 % \DescribeMacro{\setCJKfamilyfont}
 % \begin{quote}
+% "\setCJKfamilyfont{"\meta{族}"}{"\meta{字体文件名}"}["\meta{选项}"]" 或\\
 % "\setCJKfamilyfont{"\meta{族}"}["\meta{选项}"]{"\meta{字体文件名}"}"
 % \end{quote}
 % 定义新的 CJK 字体族并指定字体。例如用
@@ -1323,6 +1327,22 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\zhm@newfontfamily@post}
+% \begin{macro}{\zhm@newfontfamily@postaux}
+% 为了支持字体属性可选项在前在后两种语法，给出两个辅助工具。
+%    \begin{macrocode}
+\def\zhm@newfontfamily@post#1#2{%
+  \@ifnextchar[%]
+    {\zhm@newfontfamily@postaux{#1}{#2}}%
+    {\zhm@newfontfamily{#1}[]{#2}}}
+\def\zhm@newfontfamily@postaux#1#2[#3]{%
+  \zhm@newfontfamily{#1}[{#3}]{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%
+% \changes{v0.9c}{2016/11/20}{支持字体属性可选项在后的新语法。}
+%
 % \begin{macro}{\setCJKfamilyfont}
 % \changes{v0.7}{2012/02/06}{修改可选参数位置，以与 \pkg{xeCJK} 包语法一致。}
 % 设置一个 CJK 字体族。实际有三个参数，语法与 "\zhm@newfontfamily" 大致相同，
@@ -1331,7 +1351,7 @@ If you are interested in the process of development you may observe
 \newcommand*\setCJKfamilyfont[1]{%
   \@ifnextchar[%]
     {\zhm@newfontfamily{#1}}%
-    {\zhm@newfontfamily{#1}[]}}
+    {\zhm@newfontfamily@post{#1}}}
 \@onlypreamble\setCJKfamilyfont
 %    \end{macrocode}
 % \end{macro}
@@ -1340,8 +1360,8 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\setCJKmainfont}
 % 设置 CJK 普通（罗马）字体。
 %    \begin{macrocode}
-\newcommand*\setCJKmainfont[2][]{%
-  \zhm@newfontfamily{\CJKrmdefault}[#1]{#2}}
+\newcommand*\setCJKmainfont{%
+  \setCJKfamilyfont{\CJKrmdefault}}
 \@onlypreamble\setCJKmainfont
 %    \end{macrocode}
 % \end{macro}
@@ -1358,8 +1378,8 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\setCJKsansfont}
 % 设置 CJK 无衬线字体。
 %    \begin{macrocode}
-\newcommand*\setCJKsansfont[2][]{%
-  \zhm@newfontfamily{\CJKsfdefault}[#1]{#2}}
+\newcommand*\setCJKsansfont{%
+  \setCJKfamilyfont{\CJKsfdefault}}
 \@onlypreamble\setCJKsansfont
 %    \end{macrocode}
 % \end{macro}
@@ -1368,8 +1388,8 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\setCJKmonofont}
 % 设置 CJK 等宽（打字机）字体。
 %    \begin{macrocode}
-\newcommand*\setCJKmonofont[2][]{%
-  \zhm@newfontfamily{\CJKttdefault}[#1]{#2}}
+\newcommand*\setCJKmonofont{%
+  \setCJKfamilyfont{\CJKttdefault}}
 \@onlypreamble\setCJKmonofont
 %    \end{macrocode}
 % \end{macro}
