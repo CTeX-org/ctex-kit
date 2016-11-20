@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5862}
+% \CheckSum{5876}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4789,8 +4789,6 @@ Copyright and Licence
       }
     \group_end:
   }
-\cs_new_protected:Npn \ctex_ltj_set_family:xxx #1#2#3
-  { \use:x { \ctex_ltj_set_family:nnn {#1} {#2} {#3} } }
 \tl_new:N \l_@@_base_CJKfamily_tl
 \clist_new:N \l_@@_font_options_clist
 \cs_new_protected_nopar:Npn \@@_use_global_options:N #1
@@ -5025,23 +5023,52 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_pass_args:nnnn}
+% 为了支持字体属性可选项在前在后两种语法，给出两个辅助工具，自带展开功能。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_pass_args:nnnn #1#2#3#4
+  {
+    \IfNoValueTF {#2}
+      { \@@_post_arg:w {#1} {#3} {#4} }
+      {
+        \use:x { #1 {#2} {#3} }
+        #4
+      }
+  }
+\NewDocumentCommand \@@_post_arg:w { m m m O { } }
+  {
+    \use:x { #1 {#4} {#2} }
+    #3
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.4.6}{2016/11/20}{支持字体属性可选项在后的新语法。}
+%
 % \begin{macro}[int]
 % {\setCJKfamilyfont,\newCJKfontfamily,\CJKfontspec,\addCJKfontfeatures}
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKfamilyfont { m O { } m }
-  { \ctex_ltj_set_family:xxx {#1} {#2} {#3} }
-\NewDocumentCommand \newCJKfontfamily { o m O { } m }
+\NewDocumentCommand \setCJKfamilyfont { m o m }
+  {
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn {#1} } {#2} {#3}
+      { }
+  }
+\NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \IfNoValueTF {#1} { \cs_to_str:N #2 } {#1} }
     \cs_new_protected_nopar:Npx #2
       { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
-    \ctex_ltj_set_family:xxx { \l_@@_tmp_tl } {#3} {#4}
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn { \l_@@_tmp_tl } } {#3} {#4}
+      { }
   }
-\NewDocumentCommand \CJKfontspec { O { } m }
+\NewDocumentCommand \CJKfontspec { o m }
   {
-    \ctex_ltj_fontspec:xx {#1} {#2}
-    \tex_ignorespaces:D
+    \@@_pass_args:nnnn
+      { \ctex_ltj_fontspec:nn } {#1} {#2}
+      { \tex_ignorespaces:D }
   }
 \NewDocumentCommand \addCJKfontfeatures { m }
   {
@@ -5056,24 +5083,31 @@ Copyright and Licence
 % {\setCJKmainfont,\setCJKsansfont,\setCJKmonofont,
 %  \setCJKmathfont,\defaultCJKfontfeatures}
 %    \begin{macrocode}
-\NewDocumentCommand \setCJKmainfont { O { } m }
+\NewDocumentCommand \setCJKmainfont { o m }
   {
-    \ctex_ltj_set_family:xxx { \CJKrmdefault } {#1} {#2}
-    \normalfont
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn { \CJKrmdefault } } {#1} {#2}
+      { \normalfont }
   }
 \cs_new_eq:NN \setCJKromanfont \setCJKmainfont
-\NewDocumentCommand \setCJKsansfont { O { } m }
+\NewDocumentCommand \setCJKsansfont { o m }
   {
-    \ctex_ltj_set_family:xxx { \CJKsfdefault } {#1} {#2}
-    \normalfont
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn { \CJKsfdefault } } {#1} {#2}
+      { \normalfont }
   }
-\NewDocumentCommand \setCJKmonofont { O { } m }
+\NewDocumentCommand \setCJKmonofont { o m }
   {
-    \ctex_ltj_set_family:xxx { \CJKttdefault } {#1} {#2}
-    \normalfont
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn { \CJKttdefault } } {#1} {#2}
+      { \normalfont }
   }
-\NewDocumentCommand \setCJKmathfont { O { } m }
-  { \ctex_ltj_set_family:xxx { \c_@@_math_tl } {#1} {#2} }
+\NewDocumentCommand \setCJKmathfont { o m }
+  {
+    \@@_pass_args:nnnn
+      { \ctex_ltj_set_family:nnn { \c_@@_math_tl } } {#1} {#2}
+      { }
+  }
 \NewDocumentCommand \defaultCJKfontfeatures { m }
   { \clist_gset:Nn \g_@@_default_features_clist {#1} }
 \clist_new:N \g_@@_default_features_clist
@@ -7015,6 +7049,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v2.4.4}{2016/09/19}{提供 \tn{CTEXifname}。}
+% \changes{v2.4.6}{2016/10/31}{\tn{CTEXifname} 初始为假。}
 % \begin{macro}{\CTEXifname}
 % \begin{macro}[int]{\CTEX@ifnametrue,\CTEX@ifnamefalse}
 % 用于判断当前标题是否有编号。
@@ -7936,6 +7971,7 @@ Copyright and Licence
 % \end{verbatim}
 % 但 \tn{newtitlemark} 不包含章节间的层次信息，功能上不及修改内部命令完整。
 %
+% \changes{v2.4.6}{2016/10/31}{重新初始化 \tn{ifthechapter} 等。}
 % \begin{macro}[int]{\ttl@setifthe}
 % 使 |\iftheXXX| 等命令在页眉设置中可用。
 %    \begin{macrocode}
