@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10153}
+% \CheckSum{10161}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3643,8 +3643,9 @@ Copyright and Licence
   { \@@_punct_kern:n { - \@@_use_punct_dim:nnn { offset } {#1} {#2} } }
 \cs_new_protected_nopar:Npn \@@_punct_kern:n #1
   {
-    \dim_compare:nNnF {#1} = \c_zero_dim
-      { \tex_kern:D #1 \exp_stop_f: }
+    \dim_set:Nn \l_@@_tmp_dim {#1}
+    \dim_compare:nNnF \l_@@_tmp_dim = \c_zero_dim
+      { \tex_kern:D \l_@@_tmp_dim }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5132,7 +5133,10 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.4.4}{2016/11/30}{不压缩长标点与其他标点的间距。}
+%
 % \begin{macro}[internal]{\xeCJK_punct_kerning_process:NN}
+% 当标点之一为长标点时，不必进行压缩。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_punct_kerning_process:NN #1#2
   {
@@ -5140,14 +5144,21 @@ Copyright and Licence
       { \@@_original_kerning_margin:NN {#1} {#2} }
     \dim_set:Nn \l_@@_minimum_bound_dim
       { \@@_punct_min_bound:NN {#1} {#2} }
+    \@@_punct_if_long:NTF {#1}
+      { \bool_set_false:N \l_@@_enabled_kerning_bool }
+      {
+        \@@_punct_if_long:NT {#2}
+          { \bool_set_false:N \l_@@_enabled_kerning_bool }
+      }
     \dim_set:Nn \l_@@_kerning_margin_dim
       {
-        \bool_if:nTF
+        \bool_if:NTF \l_@@_enabled_global_setting_bool
           {
-            \l_@@_enabled_global_setting_bool &&
-            \tl_if_exist_p:c { g_@@_punct/kern/#1/#2/tl }
+            \cs_if_exist_use:cTF { g_@@_punct/kern/#1/#2/tl }
+              { \use_none:n }
+              { \use:n }
           }
-          { \use:c { g_@@_punct/kern/#1/#2/tl } }
+          { \use:n }
           {
             \bool_if:NTF \l_@@_enabled_kerning_bool
               { \@@_calc_kerning_margin:NN {#1} {#2} }
