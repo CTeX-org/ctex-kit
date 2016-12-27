@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5880}
+% \CheckSum{5878}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2890,6 +2890,7 @@ Copyright and Licence
 %     \item \pkg{xkeyval} 宏包。
 %   \end{itemize}
 %   \item[\ding{229}] 以上是使用 \LuaLaTeX{} 编译时的依赖项。
+%   \item \pkg{pxeverysel} 宏包，属于 \pkg{platex-tools} 宏集。
 %   \item \pkg{zhmetrics-uptex} 宏包。
 %   \item[\ding{229}] 以上是使用 \upLaTeX{} 编译时的依赖项。
 % \end{itemize}
@@ -3708,39 +3709,6 @@ Copyright and Licence
 %    \begin{macrocode}
 %</class>
 %    \end{macrocode}
-%
-% \subsection{用户设置接口}
-%
-% \changes{v2.0}{2014/03/18}{新增统一设置接口 \tn{ctexset}。}
-%
-% \begin{macro}{\ctexset}
-%    \begin{macrocode}
-%<*class|ctex|ctexheading>
-\NewDocumentCommand \ctexset { } { \keys_set:nn { ctex } }
-%</class|ctex|ctexheading>
-%    \end{macrocode}
-% \end{macro}
-%
-% \changes{v2.0}{2015/03/21}{\tn{CTEXsetup}, \tn{CTEXoptions} 是过时命令。}
-% \begin{macro}{\CTEXsetup,\CTEXoptions}
-% 过时命令。
-%    \begin{macrocode}
-%<*class|ctex>
-\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
-  {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXsetup }
-      { \ctexset~ {~ #2~ =~ {~ #1~ }~ }~ is~ set. }
-    \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} }
-  }
-\NewDocumentCommand \CTEXoptions { +o }
-  {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXoptions }
-      { \ctexset~ {~ #1~ }~ is~ set. }
-    \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} }
-  }
-%</class|ctex>
-%    \end{macrocode}
-% \end{macro}
 %
 % \subsection{特定引擎支持与设置}
 %
@@ -5808,35 +5776,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@EverySelectfont@Init}
+% \changes{v2.4.7}{2016/12/27}{依赖 \pkg{pxeverysel} 宏包。}
+%
 % \pkg{everysel} 宏包（2011/10/28）未考虑 \upLaTeX{} 对 \tn{selectfont} 的修
-% 改，因此这里需要对其给出正确的定义。因为不会使用 \pkg{CJK}，这里忽略有关
-% \pkg{CJK} 的定义。
+% 改，需要引入 \pkg{pxeverysel} 宏包。
 %    \begin{macrocode}
-\cs_set_nopar:Npn \@EverySelectfont@Init
-  {
-    \ctex_patch_cmd:Nnn \selectfont
-      { \enc@update }
-      {
-        \@EverySelectfont@EveryHook
-        \@EverySelectfont@AtNextHook
-        \gdef \@EverySelectfont@AtNextHook { }
-        \enc@update
-      }
-    \@ifpackageloaded { tracefnt }
-      {
-        \EverySelectfont
-          {
-            \ifnum \tracingfonts > \tw@
-              \@font@info { Switching~ to~ \font@name }
-            \fi
-          }
-      }
-      { }
-    \let \@EverySelectfont@Init \undefined
-  }
+\RequirePackage { pxeverysel }
 %    \end{macrocode}
-% \end{macro}
 %
 %    \begin{macrocode}
 %</uptex|aptex>
@@ -6276,7 +6222,7 @@ Copyright and Licence
 % 字体设置在导言区也可用，我们还需要在这里手工修改 \tn{selectfont}。\pkg{everysel}
 % 宏包会用 \tn{CheckCommand} 来检查 \tn{selectfont} 是否为标准定义。我们修改了
 % \tn{selectfont}，所以会给出一个警告。为了消除这个警告，在它检查之前，还原本来
-% 定义。
+% 定义。\pkg{pxeverysel} 宏包取消了检查，但也需要恢复定义，避免重复使用钩子。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_add_to_selectfont:n #1
   {
@@ -6284,14 +6230,26 @@ Copyright and Licence
       { \exp_not:o { \CTEX@selectfont@hook #1 } }
   }
 \cs_new_eq:NN \CTEX@selectfont@hook \prg_do_nothing:
-\cs_new_eq:Nc \@@_save_selectfont: { selectfont ~ }
-\ctex_preto_cmd:NnnTF \selectfont { \ExplSyntaxOff }
-  { \CTEX@selectfont@hook }
-  {
-    \tl_put_left:Nn \@EverySelectfont@Init
-      { \cs_set_eq:cN { selectfont ~ } \@@_save_selectfont: }
-  }
-  { \ctex_patch_failure:N \selectfont }
+\if_cs_exist:N \@EverySelectfont@Init
+  \group_begin:
+    \cs_set:Npn \@@_tmp:N #1
+      {
+        \tl_set:Nn \l_@@_tmp_tl {#1}
+        \cs_new_eq:NN \CTEX@selectfont@save #1
+        \cs_new_protected_nopar:Npn \@@_restore_selectfont:
+          {
+            \tl_put_left:Nn \@EverySelectfont@Init
+              { \let #1 \CTEX@selectfont@save }
+            \cs_undefine:N \@@_restore_selectfont:
+          }
+      }
+    \ctex_parse_name:NN \@@_tmp:N \selectfont
+  \exp_last_unbraced:NNo \group_end:
+  \ctex_preto_cmd:NnnTF { \l_@@_tmp_tl } { \ExplSyntaxOff }
+    { \CTEX@selectfont@hook }
+    { \@@_restore_selectfont: }
+    { \ctex_patch_failure:N \selectfont }
+\fi:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6422,6 +6380,39 @@ Copyright and Licence
 %    \begin{macrocode}
 \ctex_file_input:n { \c_@@_engine_file_str }
 %    \end{macrocode}
+%
+% \subsection{用户设置接口}
+%
+% \changes{v2.0}{2014/03/18}{新增统一设置接口 \tn{ctexset}。}
+%
+% \begin{macro}{\ctexset}
+%    \begin{macrocode}
+%<*class|ctex|ctexheading>
+\NewDocumentCommand \ctexset { } { \keys_set:nn { ctex } }
+%</class|ctex|ctexheading>
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.0}{2015/03/21}{\tn{CTEXsetup}, \tn{CTEXoptions} 是过时命令。}
+% \begin{macro}{\CTEXsetup,\CTEXoptions}
+% 过时命令。出于历史原因，\tn{CTEXoptions} 需要在 \pkg{pxeverysel} 宏包之后定义。
+%    \begin{macrocode}
+%<*class|ctex>
+\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
+  {
+    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXsetup }
+      { \ctexset~ {~ #2~ =~ {~ #1~ }~ }~ is~ set. }
+    \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} }
+  }
+\NewDocumentCommand \CTEXoptions { +o }
+  {
+    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXoptions }
+      { \ctexset~ {~ #1~ }~ is~ set. }
+    \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} }
+  }
+%</class|ctex>
+%    \end{macrocode}
+% \end{macro}
 %
 % \subsection{字距与缩进}
 %
