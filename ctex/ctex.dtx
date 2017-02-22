@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5878}
+% \CheckSum{5898}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4725,12 +4725,12 @@ Copyright and Licence
 \newfontfeature { JFM-var } { jfmvar = #1 }
 %    \end{macrocode}
 %
-% 在新版本的 \pkg{fontspec} 中，\cs{__fontspec_namewrap:n} 变成了私有函数。
+% 在新版本的 \pkg{fontspec} 中，\cs{__fontspec_fontname_wrap:n} 变成了私有函数。
 %    \begin{macrocode}
 \keys_define:nn { fontspec-preparse-external }
   {
     NoEmbed .code:n =
-      { \cs_set_eq:NN \__fontspec_namewrap:n \@@_noembed_wrap:n }
+      { \cs_set_eq:NN \__fontspec_fontname_wrap:n \@@_noembed_wrap:n }
   }
 \cs_new:Npn \@@_noembed_wrap:n #1 { psft: #1 }
 %    \end{macrocode}
@@ -4813,6 +4813,7 @@ Copyright and Licence
         \group_begin:
         \@@_change_encoding:
         \exp_not:n { \cs_set_eq:NN \CJKfamily \use_none:n }
+        \exp_not:n { \cs_set_eq:NN \CTEX@fontfamily \use_none:n }
         \exp_not:n { \fontspec_set_family:Nnn \g_@@_fontspec_family_tl }
           { \exp_not:o { \l_@@_font_options_clist } } {#2}
         \prop_gput:Nno \exp_not:N \g_@@_family_name_prop {#1}
@@ -5094,23 +5095,38 @@ Copyright and Licence
 \tl_if_exist:NF \CJKrmdefault { \tl_const:Nn \CJKrmdefault { rm } }
 \tl_if_exist:NF \CJKsfdefault { \tl_const:Nn \CJKsfdefault { sf } }
 \tl_if_exist:NF \CJKttdefault { \tl_const:Nn \CJKttdefault { tt } }
-\ctex_preto_cmd:NnnTF \rmfamily { \ExplSyntaxOff }
-  { \CJKfamily { \CJKrmdefault } }
-  { }
-  { \ctex_patch_failure:N \rmfamily }
-\ctex_preto_cmd:NnnTF \sffamily { \ExplSyntaxOff }
-  { \CJKfamily { \CJKsfdefault } }
-  { }
-  { \ctex_patch_failure:N \sffamily }
-\ctex_preto_cmd:NnnTF \ttfamily { \ExplSyntaxOff }
-  { \CJKfamily { \CJKttdefault } }
-  { }
-  { \ctex_patch_failure:N \ttfamily }
-\ctex_preto_cmd:NnnTF \normalfont { \ExplSyntaxOff }
-  { \CJKfamily { \CJKfamilydefault } }
-  { \cs_set_eq:NN \reset@font \normalfont }
-  { \ctex_patch_failure:N \normalfont }
 %    \end{macrocode}
+%
+% \begin{macro}[int]{\fontfamily}
+% \begin{macro}[int]{\CTEX@fontfamily}
+% \changes{v2.4.8}{2017/02/23}
+%   {解决与 \pkg{fontspec} 2017/01/24 v2.5d 的字体族匹配兼容问题。}
+% 修改 \tn{fontfamily}，使主要 |CJK| 字体族能随西文主要字体更新。
+%    \begin{macrocode}
+\RenewDocumentCommand \fontfamily { m }
+  {
+    \tl_set:Nx \f@family {#1}
+    \CTEX@fontfamily {#1}
+  }
+\cs_new_protected_nopar:Npn \CTEX@fontfamily #1
+  {
+    \str_if_eq:nnTF {#1} { \familydefault }
+      { \CJKfamily { \CJKfamilydefault } }
+      { \@@_update_family_aux: }
+  }
+\cs_new_protected_nopar:Npn \@@_update_family_aux:
+  {
+    \str_case_x:nn { \f@family }
+      {
+        { \rmdefault }     { \CJKfamily { \CJKrmdefault } }
+        { \sfdefault }     { \CJKfamily { \CJKsfdefault } }
+        { \ttdefault }     { \CJKfamily { \CJKttdefault } }
+        { \familydefault } { \CJKfamily { \CJKfamilydefault } }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
 %
 % 在导言区末尾更新 \tn{CJKfamilydefault}。
 %    \begin{macrocode}
@@ -5680,9 +5696,22 @@ Copyright and Licence
 \tl_set:Nn \CJKsfdefault { sf }
 \tl_set:Nn \CJKttdefault { tt }
 \tl_set:Nn \CJKfamilydefault { \CJKrmdefault }
-\tl_put_left:Nn \rmfamily { \kanjifamily { \CJKrmdefault } }
-\tl_put_left:Nn \sffamily { \kanjifamily { \CJKsfdefault } }
-\tl_put_left:Nn \ttfamily { \kanjifamily { \CJKttdefault } }
+\ctex_preto_cmd:NnnTF \rmfamily { \ExplSyntaxOff }
+  { \kanjifamily { \CJKrmdefault } }
+  { }
+  { \ctex_patch_failure:N \rmfamily }
+\ctex_preto_cmd:NnnTF \sffamily { \ExplSyntaxOff }
+  { \kanjifamily { \CJKsfdefault } }
+  { }
+  { \ctex_patch_failure:N \sffamily }
+\ctex_preto_cmd:NnnTF \ttfamily { \ExplSyntaxOff }
+  { \kanjifamily { \CJKttdefault } }
+  { }
+  { \ctex_patch_failure:N \ttfamily }
+\ctex_preto_cmd:NnnTF \normalfont { \ExplSyntaxOff }
+  { \kanjifamily { \CJKfamilydefault } }
+  { \cs_set_eq:NN \reset@font \normalfont }
+  { \ctex_patch_failure:N \normalfont }
 \NewDocumentCommand \CJKfamily { m }
   {
     \kanjifamily { #1 }
