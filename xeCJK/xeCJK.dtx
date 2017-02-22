@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10163}
+% \CheckSum{10171}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -5847,7 +5847,7 @@ Copyright and Licence
     \cs_gset_protected_nopar:cpx { \@@_family_csname:n {#1} }
       {
         \group_begin:
-        \exp_not:n { \cs_set_eq:NN \@@_update_family:nn \use_none:nn }
+        \exp_not:n { \cs_set_eq:NN \xeCJK@fontfamily \use_none:n }
         \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
@@ -7646,14 +7646,27 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \begin{macro}[internal]{\fontfamily}
+% \begin{macro}[internal]{\xeCJK@fontfamily}
 % \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
 % \changes{v3.1.2}{2013/01/01}{不将参数完全展开。}
+% \changes{v3.4.6}{2017/02/23}
+%   {将族名参数完全展开，以解决与 \pkg{fontspec} 2017/01/24 v2.5d 的兼容问题。}
 % 修改 \tn{fontfamily}，使主要 |CJK| 字体族能随西文主要字体更新。
 %    \begin{macrocode}
 \RenewDocumentCommand \fontfamily { m }
   {
     \tl_set:Nx \f@family {#1}
-    \@@_update_family:nn {#1}
+    \xeCJK@fontfamily {#1}
+  }
+\cs_new_protected_nopar:Npn \xeCJK@fontfamily #1
+  {
+    \str_if_eq:nnTF {#1} { \familydefault }
+      { \xeCJK_switch_family:n { \CJKfamilydefault } }
+      { \@@_update_family_aux: }
+  }
+\cs_new_protected_nopar:Npn \@@_update_family_aux:
+  {
+    \str_case_x:nn { \f@family }
       {
         { \rmdefault }     { \xeCJK_switch_family:n { \CJKrmdefault } }
         { \sfdefault }     { \xeCJK_switch_family:n { \CJKsfdefault } }
@@ -7661,8 +7674,8 @@ Copyright and Licence
         { \familydefault } { \xeCJK_switch_family:n { \CJKfamilydefault } }
       }
   }
-\cs_new_eq:NN \@@_update_family:nn \str_case:nn
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 %    \begin{macrocode}
