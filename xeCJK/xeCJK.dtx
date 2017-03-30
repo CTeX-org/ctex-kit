@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10165}
+% \CheckSum{10155}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -4204,20 +4204,27 @@ Copyright and Licence
 % \changes{v3.4.8}{2017/03/20}{简化 \texttt{CheckSingle} 的实现，不再展开宏。}
 %
 % \begin{macro}[internal]{\xeCJK_check_single:Nw}
+% \begin{macro}[aux]{\@@_check_single_end:N}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single:Nw #1
   {
+    \group_align_safe_begin:
     \peek_catcode:NTF \c_catcode_letter_token
       { \xeCJK_check_single:NNw #1 }
       {
-        \group_align_safe_begin:
         \token_if_other:NTF \l_peek_token
-          { \group_align_safe_end: \xeCJK_check_single:NNw }
-          { \group_align_safe_end: \@@_check_single_save:N }
+          { \xeCJK_check_single:NNw }
+          { \@@_check_single_end:N }
         #1
       }
   }
+\cs_new_protected_nopar:Npn \@@_check_single_end:N
+  {
+    \group_align_safe_end:
+    \@@_check_single_save:N
+  }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \begin{macro}[internal]{\xeCJK_check_single:NNw}
@@ -4234,19 +4241,17 @@ Copyright and Licence
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           {
             \bool_if:NTF \l_@@_reserve_space_bool
-              { \@@_check_single_save:N #1 #2 ~ }
+              { \@@_check_single_end:N #1 #2 ~ }
               { \@@_check_single_space:NN #1#2 }
           }
-          { \@@_check_single_save:N #1 #2 }
+          { \@@_check_single_end:N #1 #2 }
       }
       {
-        \group_align_safe_begin:
         \token_if_other:NTF \l_peek_token
           {
-            \group_align_safe_end:
             \bool_if:NTF \l_@@_peek_ignore_spaces_bool
               { \@@_check_single_space:NN }
-              { \@@_check_single_save:N }
+              { \@@_check_single_end:N }
           }
           {
             \bool_if:NTF \l_@@_peek_ignore_spaces_bool
@@ -4259,7 +4264,7 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_check_single_aux:nNNw #1#2#3
   {
     \token_if_cs:NTF \l_peek_token
-      { \group_align_safe_end: \xeCJK_check_single_cs:NNn }
+      { \xeCJK_check_single_cs:NNn }
       { \xeCJK_check_single_end:NNnw }
     #2 #3 {#1}
   }
@@ -4271,18 +4276,12 @@ Copyright and Licence
 % \begin{macro}[aux]{\@@_check_single_end_aux:NNn,\@@_check_single_end_equation:NNnw}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_check_single_end_aux:NNn #1#2#3
-  {
-    \group_align_safe_end:
-    \@@_check_single_save:N #1 #2 #3
-  }
+  { \@@_check_single_end:N #1 #2 #3 }
 \cs_new_eq:NN \xeCJK_check_single_end:NNnw \@@_check_single_end_aux:NNn
 \cs_new_protected_nopar:Npn \@@_check_single_end_equation:NNnw
   {
     \token_if_math_toggle:NTF \l_peek_token
-      {
-        \group_align_safe_end:
-        \xeCJK_check_single_equation:NNnNw
-      }
+      { \xeCJK_check_single_equation:NNnNw }
       { \@@_check_single_end_aux:NNn }
   }
 %    \end{macrocode}
@@ -4321,10 +4320,10 @@ Copyright and Licence
     \xeCJK_if_CJK_class:NTF #2
       {
         \xeCJK_if_CJK_class:NTF \l_peek_token
-          { \@@_check_single_save:N #1 #2 }
-          { \@@_check_single_save:N #1 #2 ~ }
+          { \@@_check_single_end:N #1 #2 }
+          { \@@_check_single_end:N #1 #2 ~ }
       }
-      { \@@_check_single_save:N #1 #2 ~ }
+      { \@@_check_single_end:N #1 #2 ~ }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4335,10 +4334,10 @@ Copyright and Licence
   {
     \peek_catcode:NTF \c_math_toggle_token
       {
-        \xeCJK_widow_penalty: \@@_check_single_save:N #1
+        \xeCJK_widow_penalty: \@@_check_single_end:N #1
         \xeCJK_make_node:n { CJK-widow } #2 #4
       }
-      { \@@_check_single_save:N #1 #2#3#4 }
+      { \@@_check_single_end:N #1 #2#3#4 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -4365,16 +4364,16 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_cs:NNn #1#2#3
   {
-    \group_align_safe_begin:
     \tl_case:NoF \l_peek_token
       { \l_@@_check_single_cs_case_tl }
-      { \group_align_safe_end: \use_iii:nnn }
+      { \use_iii:nnn }
       { \xeCJK_check_single_env:nnNn }
       {
-        \xeCJK_widow_penalty: \@@_check_single_save:N #1
+        \xeCJK_widow_penalty:
+        \@@_check_single_end:N #1
         \xeCJK_make_node:n { CJK-widow } #2#3
       }
-      { \@@_check_single_save:N #1 #2#3 }
+      { \@@_check_single_end:N #1 #2#3 }
   }
 \tl_new:N \l_@@_check_single_cs_case_tl
 \cs_generate_variant:Nn \tl_case:NnF { No }
@@ -4385,11 +4384,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_single_env:nnNn #1#2#3#4
   {
-    \group_align_safe_begin:
     \str_case_x:noTF {#4}
       { \l_@@_inline_env_case_tl }
-      { \group_align_safe_end: #2 }
-      { \group_align_safe_end: #1 }
+      {#2}
+      {#1}
     #3 {#4}
   }
 \cs_generate_variant:Nn \str_case_x:nnTF { no }
@@ -4402,7 +4400,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \xeCJK_cs_case_keys_define:nNNnn { NewLineCS }
   \l_@@_new_line_cs_case_tl \l_@@_new_line_cs_seq
-  { \group_align_safe_end: \use_ii:nnn }
+  { \use_ii:nnn }
   {
     \tl_concat:NNN \l_@@_check_single_cs_case_tl
       \l_@@_new_line_cs_case_tl \l_@@_env_cs_case_tl
@@ -4414,7 +4412,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \xeCJK_cs_case_keys_define:nNNnn { EnvCS }
   \l_@@_env_cs_case_tl \l_@@_env_cs_seq
-  { \group_align_safe_end: \use:n }
+  { \use:n }
   {
     \tl_concat:NNN \l_@@_check_single_cs_case_tl
       \l_@@_new_line_cs_case_tl \l_@@_env_cs_case_tl
@@ -4428,7 +4426,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
   {
-    InlineEnv  .code:n =
+    InlineEnv       .code:n =
       {
         \seq_set_from_clist:Nn \l_@@_inline_env_seq {#1}
         \@@_update_inline_env_case_tl:
