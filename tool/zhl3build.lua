@@ -41,7 +41,7 @@ miktex_hook = os.selfdir:find([[miktex\bin$]]) and function ()
 end
 
 -- 计算文件的 md5
-local md5sum = require("md5").sumhexa
+local md5sum = require("md5").sum
 function file_md5 (file)
   local f = io.open(file, "rb")
   if f then
