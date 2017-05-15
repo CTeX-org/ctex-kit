@@ -275,7 +275,7 @@ Copyright and Licence
 % \changes{v3.3.2}{2015/05/15}{随 Unicode 7.0.0 更新简繁汉字映射。}
 % \changes{v3.3.3}{2015/09/25}{更新 \hologo{LaTeX3} 代码。}
 %
-% \CheckSum{10167}
+% \CheckSum{10169}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9836,18 +9836,23 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_listings_inside_convert:nw,\@@_listings_inline_group:w}
+% \begin{macro}[internal]{\@@_listings_rescan:Nn,
+%  \@@_listings_inside_convert:nw,\@@_listings_inline_group:w}
 % 当 \tn{lstinline} 被使用在参数中时，\pkg{listings} 会使用一个循环逐个将
 % \tn{lstinline} 参数中的字符设置为活动字符。我们可以通过 \cs{tl_set_rescan:Nnn}
 % 来完成这里的 \tn{catcode} 转换，避免将 \tn{charcode} 超过 $255$ 的字符都设置为
 % 活动字符。
 %    \begin{macrocode}
+\cs_new_protected:Npn \@@_listings_rescan:Nn #1#2
+  {
+    \@@_listings_set_escape:
+    \tl_set:Nn \l_@@_tmp_tl {#2}
+    \@@_listings_escape_backslash:
+    \tl_set_rescan:Nno #1 { } { \l_@@_tmp_tl }
+  }
 \cs_new_protected:Npn \@@_listings_inside_convert:nw #1 ~ \@empty
   {
-    \tl_set:Nn \l_@@_tmp_tl {#1}
-    \@@_listings_escape_backslash:
-    \tl_set_rescan:Nno \l_@@_tmp_tl { } { \l_@@_tmp_tl }
-    \@@_set_listings_escape:
+    \@@_listings_rescan:Nn \l_@@_tmp_tl {#1}
     \tl_put_right:No \lst@arg { \l_@@_tmp_tl }
   }
 \cs_set_eq:NN \lst@InsideConvert@ \@@_listings_inside_convert:nw
@@ -9859,14 +9864,13 @@ Copyright and Licence
 \cs_set_eq:NN \lst@InlineGJ \@@_listings_inline_group:w
 \cs_new_protected:Npn \@@_listings_inline_group:n #1
   {
-    \tl_set_rescan:Nnn \lst@arg { } {#1}
-    \@@_set_listings_escape:
+    \@@_listings_rescan:Nn \lst@arg {#1}
     \lst@InlineGJEnd
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[internal]{\@@_set_listings_escape:}
+% \begin{macro}[internal]{\@@_listings_set_escape:}
 % 由于我们在上面的修改，需要保留 |\| 用于转义 \tn{lstinline} 参数中的某些 \TeX
 % 特殊字符，与原来宏包一致。
 %    \begin{macrocode}
@@ -9874,7 +9878,7 @@ Copyright and Licence
 \cs_set:Npn \@@_tmp:w #1
   {
     \group_end:
-    \cs_new_protected_nopar:Npn \@@_set_listings_escape:
+    \cs_new_protected_nopar:Npn \@@_listings_set_escape:
       { \xeCJK_swap_cs:NN #1 \@@_listings_escape:N }
     \cs_new_protected:Npn \@@_listings_escape:N ##1
       { \cs_if_eq:NNTF #1 ##1 { \@@_listings_escape:N } {##1} }
@@ -9889,7 +9893,7 @@ Copyright and Licence
 % \end{macro}
 %
 %
-% \changes{v3.4.9}{2017/05/15}{转义 \tn{lstinline} 参数中的 $\texttt{\textbackslash}_{12}$。}
+% \changes{v3.4.8}{2017/05/15}{转义 \tn{lstinline} 参数中的 $\texttt{\textbackslash}_{12}$。}
 % \begin{macro}[internal]{\@@_listings_escape_backslash:}
 % \tn{catcode} 为 $12$ 的 |\| 需要双写转义。
 %    \begin{macrocode}
