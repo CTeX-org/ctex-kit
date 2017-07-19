@@ -437,7 +437,7 @@
   { \if@inlabel \leavevmode \fi }
   { }
 \group_begin:
-  \int_set_eq:NN \tex_endlinechar:D \c_minus_one
+  \int_set:Nn \tex_endlinechar:D { -1 }
   \use:n
     {
       \char_set_catcode_active:n { 32 }
