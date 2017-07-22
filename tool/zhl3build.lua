@@ -302,7 +302,15 @@ function zh_setversion()
   return 0
 end
 
-function main (target, file, engine)
+function main (target, file, engine)  
+  if os_windows then
+    os_newline = "\n"
+    if tonumber(status.luatex_version) < 100 or
+       (tonumber(status.luatex_version) == 100
+         and tonumber(status.luatex_revision) < 4) then
+      os_newline = "\r\n"
+    end
+  end
   if miktex_hook then miktex_hook() end
   unhooked_bundleunpack = bundleunpack
   bundleunpack = hooked_bundleunpack
