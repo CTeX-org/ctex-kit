@@ -537,7 +537,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 %
 %
-% \CheckSum{5900}
+% \CheckSum{5923}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4282,9 +4282,11 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_set_protected:Npn \fontspec_visible_space:
   {
-    \font_glyph_if_exist:NnTF \font { "2423 }
-      { \ltjalchar "2423 \exp_stop_f: }
-      { \fontspec_visible_space_fallback: }
+    \etex_iffontchar:D \tex_font:D "2423 \exp_stop_f:
+      \ltjalchar "2423 \exp_stop_f:
+    \else:
+      \fontspec_visible_space_fallback:
+    \fi:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6350,6 +6352,42 @@ Copyright and Licence
 \ctex_add_to_selectfont:n { \ctex_update_xkanjiskip: }
 %</luatex|uptex|aptex>
 %    \end{macrocode}
+%
+% \changes{v2.4.10}{2017/07/23}{定义 \tn{cht}，\tn{cdp} 和 \tn{cwd}。}
+%
+% \begin{macro}[int]{\cht,\cdp,\cwd}
+% 分别从 \file{.jfm} 中读取字符高度、深度和宽度，目前仅考虑横排的情况。
+%    \begin{macrocode}
+%<*luatex>
+\dim_new:N \cht
+\dim_new:N \cdp
+\dim_new:N \cwd
+\newluafunction \g_@@_kanjisize_func
+\group_begin:
+\char_set_catcode_space:n { 32 }
+\lua_now_x:n
+  {
+    local nulltable = { }
+    local t = lua.get_functions_table()
+    local fmt = luatexja.jfont.font_metric_table
+    local getattribute = tex.getattribute
+    local setdimen = tex.setdimen
+    t[\int_use:N \g_@@_kanjisize_func] = function ()
+      local ft = fmt[getattribute('ltj@curjfnt')] or nulltable
+      local ft = ft and ft.char_type or nulltable
+      local fk = ft and ft[0] or nulltable
+      setdimen('cht', fk.height or 0)
+      setdimen('cdp', fk.depth or 0)
+      setdimen('cwd', fk.width or ft.zw or 0)
+    end
+  }
+\group_end:
+\cs_new_protected_nopar:Npn \ctex_update_kanjisize:
+ { \luatex_luafunction:D \g_@@_kanjisize_func }
+\ctex_add_to_selectfont:n { \ctex_update_kanjisize: }
+%</luatex>
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{space}
 % 在导言区或正文中设置忽略空格方式。
