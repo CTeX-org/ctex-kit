@@ -158,8 +158,8 @@ function show_version()
 $name $version ($date) Copyright (C) 2009 ctex.org
 Automatically configure Chinese fonts for TeX.
 
-This program comes with ABSOLUTELY NO WARRANTY.  This is free software, 
-you are welcome to redistribute it under the terms of the GNU General 
+This program comes with ABSOLUTELY NO WARRANTY.  This is free software,
+you are welcome to redistribute it under the terms of the GNU General
 Public License.
 
 This program is written in Lua based on the perl script FontsGen written
@@ -177,21 +177,21 @@ function show_usage()
 Usage:   $name [-options]
 Avaliable options:
 
-  [-encoding=...]         Set encoding of fonts. Supported encodings 
+  [-encoding=...]         Set encoding of fonts. Supported encodings
                           are GBK, UTF8 and Big5. Defaults to $encoding;
-  [-prefix=...]           Prefix for CJK fonts. Defaults to gbk for GBK 
-                          encoding, uni for UTF8 and b5 for Big5 encodings.  
+  [-prefix=...]           Prefix for CJK fonts. Defaults to gbk for GBK
+                          encoding, uni for UTF8 and b5 for Big5 encodings.
                           Normally there is no need to reset this option;
   [-ttf=....ttf/c]        Specify name of the TrueType fonts;
   [-CJKname=...]          CJKfamily name of the generated fonts;
   [-cjkmap=...]           Base name of the .map file to be placed under
-                          fonts\map. Defaults to be $cjkmap (corresponds to 
+                          fonts\map. Defaults to be $cjkmap (corresponds to
                           $cjkmap.map and $cjkmap_ttf.map);
   [-ttfdir=...]           Path to the TrueType fonts. Defaults to
                           $ttfdir;
   [-destdir=...]          Location of destination. Defaults to $destdir;
   [-stemv=...]            Add -v parameter into cid-x.map;
-  [-Type1]                Force generating Type1 fonts. Will not generate 
+  [-Type1]                Force generating Type1 fonts. Will not generate
                           Type1 fonts if omitted;
   [-updmap]               Add map file info into updmap.cfg file;
   [-texlive]              Change default settings for texlive
@@ -212,7 +212,6 @@ valid_options[1] = {"type1", "updmap", "texlive", "overwrite", "verbose", "versi
 valid_options[2] = {"encoding", "prefix", "ttf", "cjkname", "cjkmap", "ttfdir", "destdir", "stemv"}
 
 -- parse options
-args = {...}
 args_valid = {}
 for i, o in ipairs(valid_options) do
 	for _, v in pairs(o) do
@@ -220,12 +219,12 @@ for i, o in ipairs(valid_options) do
 	end
 end
 args_parsed = {}
-for i = 1, #args do
-	local k, v = string.match(args[i], "^%-(.-)=(.*)$")
-	if not k then k = string.match(args[i], "^%-(.*)$") end
+for i = 1, #arg do
+	local k, v = string.match(arg[i], "^%-(.-)=(.*)$")
+	if not k then k = string.match(arg[i], "^%-(.*)$") end
 	if k then k = string.lower(k) end
 	if not k or not args_valid[k] then
-		io.write("Warning: Invalid option ", args[i], "\n")
+		io.write("Warning: Invalid option ", arg[i], "\n")
 	elseif args_parsed[k] then
 		io.write("Warning: Duplicated option ", k, ", ignored\n")
 	elseif args_valid[k] == 1 then
@@ -243,7 +242,7 @@ for i = 1, #args do
 end
 
 -- no option or version/help option
-if #args < 1 then
+if #arg < 1 then
 	show_version()
 	show_usage()
 	return
