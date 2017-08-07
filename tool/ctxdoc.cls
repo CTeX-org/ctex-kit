@@ -6,7 +6,7 @@
 %%
 %% ctex.dtx  (with options: `ctxdoc')
 %% 
-%%     Copyright (C) 2003--2016
+%%     Copyright (C) 2003--2017
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %% ------------------------------------------------------------------------------
 %% 
@@ -28,10 +28,10 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx b7f83de 2016-09-21 21:27:31 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx e177d82 2017-08-07 16:58:14 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
-  {\ExplFileDate}{2.4.4}{\ExplFileDescription}
+  {\ExplFileDate}{2.4.10}{\ExplFileDescription}
 \ExplSyntaxOff
 \let\pdfmdfivesum\mdfivesum
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
@@ -428,6 +428,7 @@
         \everypar {#1}
         \if@inlabel
           \global \@inlabelfalse
+          \@noparlistfalse
           \llap { \box \@labels \hskip \leftskip }
         \fi
         #1
@@ -435,7 +436,7 @@
   }
 \ctex_patch_cmd:Nnn \macro@code
   { \if@inlabel \leavevmode \fi }
-  { }
+  { \partopsep \z@skip }
 \group_begin:
   \int_set:Nn \tex_endlinechar:D { -1 }
   \use:n
@@ -475,6 +476,13 @@
           \__ctxdoc_verbatim_read_line:w
         }
     }
+  \cs_new_protected:Npn \__ctxdoc_swap_cr:
+    { \exp_after:wN \__ctxdoc_swap_cr:w \l__ctxdoc_verbatim_line_tl }
+  \cs_new_protected:Npn \__ctxdoc_swap_cr:w #1 ^^M
+    {
+      \group_insert_after:N ^^M
+      \tl_set:Nn \l__ctxdoc_verbatim_line_tl {#1}
+    }
   \tl_const:Nn \c__ctxdoc_active_cr_tl { ^^M }
 \group_end:
 \tl_new:N \l__ctxdoc_verbatim_line_tl
@@ -495,7 +503,10 @@
         \cs_gset_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_process_normal_line:
         \__ctxdoc_output_module:nn
           { \color { verb@guard } }
-          { \__ctxdoc_module_pop:n { \l__ctxdoc_verbatim_line_tl } }
+          {
+            \__ctxdoc_swap_cr:
+            \__ctxdoc_module_pop:n { \l__ctxdoc_verbatim_line_tl }
+          }
       }
       { \tl_use:N \l__ctxdoc_verbatim_line_tl }
   }
@@ -572,7 +583,10 @@
         { \c_percent_str \tl_tail:n {#1} }
       \__ctxdoc_output_module:nn
         { \color { verb@guard } }
-        { \__ctxdoc_module_push:n { \l__ctxdoc_verbatim_line_tl } }
+        {
+          \__ctxdoc_swap_cr:
+          \__ctxdoc_module_push:n { \l__ctxdoc_verbatim_line_tl }
+        }
     }
 \group_end:
 \cs_new_protected_nopar:Npn \__ctxdoc_output_line:
@@ -612,6 +626,7 @@
     \tex_noindent:D
     \group_begin:
       \color { code@gray }
+      \__ctxdoc_swap_cr:
       \str_if_eq_x:nnTF { \f@shape } { \updefault }
         { \slshape }
         { \upshape }
