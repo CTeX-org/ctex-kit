@@ -278,7 +278,7 @@ Copyright and Licence
 % \changes{v3.5.0}{2017/07/22}{使用 \texttt{lazy} 函数对 Boolean 表达式
 % 进行最小化运算（\hologo{LaTeX3} 2017/07/19）。}
 %
-% \CheckSum{10170}
+% \CheckSum{10190}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -5523,12 +5523,31 @@ Copyright and Licence
     \xeCJK_glyph_if_exist:NTF {#1}
       { \@@_fallback_save_CJKsymbol:N {#1} }
       {
-        \xeCJK_class_group_begin:
-        \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
-        \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack }
-        \xeCJK_class_group_end:
+        \group_begin:
+          \xeCJK_aftergroup_reset_Boundary:N {#1}
+          \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
+          \xeCJK_fallback_loop:Nn {#1} { \l_xeCJK_family_tl/FallBack }
+        \group_end:
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.5.1}{2017/11/16}{修正 fallback 字体后无法忽略空格的错误。}
+%
+% \begin{macro}[internal]{\xeCJK_aftergroup_reset_Boundary:N}
+% 在分组中暂时清空 |#1| 与边界的 toks，分组后恢复。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_aftergroup_reset_Boundary:N #1
+  {
+    \tl_set:Nx \l_@@_tmp_tl
+      { \tex_the:D \xetex_charclass:D `#1 ~ \xeCJK_class_num:n { Boundary } }
+    \tl_gset:Nx \g_@@_aftergroup_Boundary_tl
+      { \tex_the:D \xetex_interchartoks:D \l_@@_tmp_tl }
+    \xetex_interchartoks:D \l_@@_tmp_tl = { \prg_do_nothing: }
+    \group_insert_after:N \g_@@_aftergroup_Boundary_tl
+  }
+\tl_new:N \g_@@_aftergroup_Boundary_tl
 %    \end{macrocode}
 % \end{macro}
 %
