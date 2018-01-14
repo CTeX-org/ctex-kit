@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.5.2}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10178}
+% \CheckSum{10182}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3918,21 +3918,22 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.5.2}{2018/01/14}
+% {修正标点同为 \texttt{LongPunct} 与 \texttt{MiddlePunct} 时的实现错误。}
+%
 % \begin{macro}
 % {\@@_CJK_and_FullRight_glue:N,\@@_Default_and_FullRight_glue:N}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_CJK_and_FullRight_glue:N #1
   {
     \@@_punct_if_long:NTF #1
-      { \CJKglue }
+      { \xeCJK_allow_break: }
+      { \xeCJK_no_break: }
+    \@@_punct_if_middle:NT #1
       {
-        \@@_punct_if_middle:NTF #1
-          {
-            \xeCJK_no_break:
-            \@@_punct_glue:NN \c_@@_right_tl #1
-            \@@_punct_bound_rule:NN \c_@@_left_tl #1
-          }
-          { \xeCJK_no_break: }
+        \CJKglue
+        \@@_punct_glue:NN \c_@@_right_tl #1
+        \@@_punct_bound_rule:NN \c_@@_left_tl #1
       }
   }
 \cs_new_eq:NN \@@_Default_and_FullRight_glue:N \@@_CJK_and_FullRight_glue:N
@@ -3947,7 +3948,7 @@ Copyright and Licence
     \xeCJK_get_punct_bounds:NN \c_@@_left_tl #1
     \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl #1
     \@@_punct_kern:NN \g_@@_last_punct_tl #1
-    \tl_gset:Nn \g_@@_last_punct_tl #1
+    \tl_gset:Nn \g_@@_last_punct_tl {#1}
     \CJKpunctsymbol {#1}
   }
 %    \end{macrocode}
@@ -8677,7 +8678,7 @@ Copyright and Licence
         \xeCJK_class_group_end:
         \UL@stop
         \@@_ulem_skip_punct_begin:
-        \@@_ulem_ccglue:
+        \@@_ulem_punct_ccglue:
         \@@_punct_glue:NN \c_@@_left_tl #1
         \@@_punct_offset:NN \c_@@_left_tl #1
         \UL@start
@@ -8697,15 +8698,13 @@ Copyright and Licence
         \UL@stop
         \@@_ulem_skip_punct_begin:
         \@@_punct_if_long:NTF #1
-          { \@@_ulem_ccglue: }
+          { \xeCJK_allow_break: }
+          { \xeCJK_no_break: }
+        \@@_punct_if_middle:NT #1
           {
-            \@@_punct_if_middle:NTF #1
-              {
-                \xeCJK_no_break:
-                \@@_punct_glue:NN \c_@@_right_tl #1
-                \@@_punct_bound_rule:NN \c_@@_left_tl #1
-              }
-              { \xeCJK_no_break: }
+            \@@_ulem_punct_ccglue:
+            \@@_punct_glue:NN \c_@@_right_tl #1
+            \@@_punct_bound_rule:NN \c_@@_left_tl #1
           }
         \UL@start
       }
@@ -8799,7 +8798,7 @@ Copyright and Licence
         \UL@stop
         \@@_punct_offset:NN \c_@@_right_tl \g_@@_last_punct_tl
         \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
-        \@@_ulem_ccglue:
+        \@@_ulem_punct_ccglue:
         \@@_ulem_skip_punct_end:
         \UL@start
         \@@_ulem_class_group_begin:
@@ -8849,7 +8848,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_ulem_glue:n,\@@_ulem_ccglue:}
+% \begin{macro}{\@@_ulem_glue:n,\@@_ulem_ccglue:,\@@_ulem_punct_ccglue:}
 % 在下划线状态下的分别代替 \tn{CJKglue} 等。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_ulem_glue:n #1
@@ -8876,6 +8875,8 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_ulem_ccglue:
   { { \skip_set_eq:NN \UL@skip \l_@@_ccglue_skip \UL@leaders } }
+\cs_new_protected_nopar:Npn \@@_ulem_punct_ccglue:
+  { \@@_punct_hskip:n { \l_@@_ccglue_skip } }
 %    \end{macrocode}
 % \end{macro}
 %
