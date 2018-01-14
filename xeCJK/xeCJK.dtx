@@ -211,7 +211,7 @@ Copyright and Licence
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
-\xeCJKDeclareSubCJKBlock{SP} { "2E3A , "FF65 }
+\xeCJKDeclareSubCJKBlock{SP} { "2E3A , "301C , "30A0 , "FF65 }
 \xeCJKDeclareSubCJKBlock{Ext-B} { "20000 -> "2A6DF }
 \xeCJKDeclareSubCJKBlock{Hangul}
   { "1100 -> "11FF, "3130 -> "318F, "A960 -> "A97F, "AC00 -> "D7AF }
@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.5.2}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10199}
+% \CheckSum{10218}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -575,7 +575,7 @@ Copyright and Licence
 %
 % \begin{function}[EXP]{MiddlePunct,MiddlePunct+,MiddlePunct-}
 %   \begin{syntax}
-%     MiddlePunct = \Arg{( – — ⸺ · · ･ )}
+%     MiddlePunct = \Arg{( – — ⸺ · · ･ 〜゠～)}
 %   \end{syntax}
 %   设置居中显示的标点，例如间隔号“\textbf{·}”。对于在 CJK 文字之间的居中标点，
 %   \pkg{xeCJK} 会根据不同的标点处理格式，调整居中标点与前后文字之间的空白，保证
@@ -2301,11 +2301,10 @@ Copyright and Licence
 % \begin{variable}{\c_@@_FullLeft_chars_clist}
 % 以上两类标点符号出现在文字的左边，不应出现在行尾位置。
 %    \begin{macrocode}
-\clist_const:Nx \c_@@_FullLeft_chars_clist
-  {
-    \c_@@_OP_chars_clist ,
-    \c_@@_PR_chars_clist
-  }
+\clist_new:N \c_@@_FullLeft_chars_clist
+\clist_gconcat:NNN \c_@@_FullLeft_chars_clist
+                   \c_@@_OP_chars_clist
+                   \c_@@_PR_chars_clist
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2333,7 +2332,9 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
-% \changes{v3.3.0}{2014/12/26}{不把 NS 类中的一些有禁则的日文归入 FullRight 类。}
+% \changes{v3.3.0}{2014/12/26}{不把 NS 类中的一些有禁则的日文归入 \texttt{FullRight} 类。}
+% \changes{v3.5.2}{2018/01/14}
+% {将全角浪线 \texttt{U+FF5E} 等连接号归入 \texttt{FullRight} 类和设为 \texttt{MiddlePunct}。}
 %
 % \begin{variable}{\c_@@_NS_chars_clist}
 % Nonstarter (NS)
@@ -2343,14 +2344,23 @@ Copyright and Licence
 % \noindent Iteration marks (cl-09)
 % \PrintPunctList{iteration_marks}{Iteration marks}
 % 根据 W3C 的资料\footnote{\url{http://www.w3.org/TR/jlreq/}}，\texttt{cl-03} 和
-% \texttt{cl-09} 在非常松散的情况下可以没有禁则。我们就不把它们当成标点来处理禁则，
-% 避免间距错误。
+% \texttt{cl-09} 在非常松散的情况下可以没有禁则。我们仅将全角浪线 \texttt{U+FF5E} 等连接号归入
+% \texttt{FullRight} 类并在宏包末尾设为 \texttt{MiddlePunct}。
 %    \begin{macrocode}
-\clist_const:Nn \c_@@_hyphens_chars_clist { "301C , "30A0 }
+\clist_const:Nn \c_@@_hyphens_chars_clist
+  { "301C , "30A0 , "FF5E }
 \clist_const:Nn \c_@@_iteration_marks_chars_clist
   { "3005 , "303B , "309D , "309E , "30FD , "30FE }
 \clist_const:Nn \c_@@_NS_chars_clist
   { "30FB , "FE54 , "FE55 , "FF1A , "FF1B , "FF65 , "16FE0 }
+\AtEndOfPackage
+  {
+    \cs_set:Npn \@@_tmp:w #1
+      { \char_generate:nn {#1} { \c_twelve } }
+    \@@_add_special_punct:nn { middle }
+      { \clist_map_function:NN \c_@@_hyphens_chars_clist \@@_tmp:w }
+    \cs_undefine:N \@@_tmp:w
+  }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2397,18 +2407,24 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
-% \changes{v3.3.0}{2014/12/26}{不把小写日文假名归入 FullRight 类。}
+% \changes{v3.3.0}{2014/12/26}{不把小写日文假名归入 \texttt{FullRight} 类。}
 %
 % \begin{variable}{\c_@@_FullRight_chars_clist}
 % 以上六类标点符号出现在文字的右边，不应出现在行首位置。
 %    \begin{macrocode}
-\clist_const:Nx \c_@@_FullRight_chars_clist
+\clist_new:N \c_@@_FullRight_chars_clist
+\tl_map_inline:nn
   {
-    \c_@@_CL_chars_clist ,
-    \c_@@_NS_chars_clist ,
-    \c_@@_EX_chars_clist ,
-    \c_@@_IS_chars_clist ,
+    \c_@@_CL_chars_clist
+    \c_@@_NS_chars_clist
+    \c_@@_EX_chars_clist
+    \c_@@_IS_chars_clist
     \c_@@_PO_chars_clist
+    \c_@@_hyphens_chars_clist
+  }
+  {
+    \clist_gconcat:NNN \c_@@_FullRight_chars_clist
+                       \c_@@_FullRight_chars_clist #1
   }
 %    \end{macrocode}
 % \end{variable}
@@ -4916,31 +4932,33 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:NN #1#2
   {
     \tl_if_exist:cF { \@@_punct_csname:n { dim/glue/#1/#2 } }
+      { \@@_get_punct_bounds_aux:NN #1 #2 }
+  }
+\cs_new_protected_nopar:Npn \@@_get_punct_bounds_aux:NN #1#2
+  {
+    \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
       {
-        \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
+        \@@_save_punct_dim:nNNn { rule }   #1 #2 { \c_zero_dim }
+        \@@_save_punct_dim:nNNn { glue }   #1 #2 { \c_zero_dim }
+        \@@_save_punct_dim:nNNn { offset } #1 #2 { \c_zero_dim }
+        \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
+        \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
+        \@@_save_punct_skip:nNNn { glue }  #1 #2 { \c_zero_skip }
+      }
+      {
+        { \xeCJK_select_font: \xeCJK_calc_punct_dimen:N #2 }
+        \dim_set:Nn \l_@@_bound_dim
+          { \@@_use_punct_dim:nNN { bound } #1 #2 }
+        \dim_set:Nn \l_@@_reverse_bound_dim
           {
-            \@@_save_punct_dim:nNNn { rule }   #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { glue }   #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { offset } #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
-            \@@_save_punct_skip:nNNn { glue }  #1 #2 { \c_zero_skip }
+            \tl_if_eq:NNTF #1 \c_@@_left_tl
+              { \@@_use_punct_dim:nNN { bound } \c_@@_right_tl }
+              { \@@_use_punct_dim:nNN { bound } \c_@@_left_tl }
+              #2
           }
-          {
-            \xeCJK_calc_punct_dimen:N #2
-            \dim_set:Nn \l_@@_bound_dim
-              { \@@_use_punct_dim:nNN { bound } #1 #2 }
-            \dim_set:Nn \l_@@_reverse_bound_dim
-              {
-                \tl_if_eq:NNTF #1 \c_@@_left_tl
-                  { \@@_use_punct_dim:nNN { bound } \c_@@_right_tl }
-                  { \@@_use_punct_dim:nNN { bound } \c_@@_left_tl }
-                  #2
-              }
-            \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
-            \xeCJK_punct_margin_process:NN #1 #2
-            \xeCJK_punct_offset_process:NN #1 #2
-          }
+        \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
+        \xeCJK_punct_margin_process:NN #1 #2
+        \xeCJK_punct_offset_process:NN #1 #2
       }
   }
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:No
@@ -5358,16 +5376,16 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \xeCJK_calc_punct_dimen:N #1
   {
     \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl #1
-      { \xeCJK_glyph_bounds:NN \c_one {#1} }
+      { \xeCJK_glyph_bounds:NN \c_one #1 }
     \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl #1
-      { \xeCJK_glyph_bounds:NN \c_three {#1} }
+      { \xeCJK_glyph_bounds:NN \c_three #1 }
     \dim_set:Nn \l_@@_tmp_dim
       {
         ( \@@_use_punct_dim:nNN { bound } \c_@@_left_tl  #1 ) +
         ( \@@_use_punct_dim:nNN { bound } \c_@@_right_tl #1 )
       }
     \@@_save_punct_dim:nNn { width } #1
-      { \etex_fontcharwd:D \tex_font:D \xeCJK_token_value_charcode:N #1 }
+      { \etex_fontcharwd:D \tex_font:D `#1 }
     \@@_save_punct_dim:nNn { dimen } #1
       { \@@_use_punct_dim:nN { width } #1 - \l_@@_tmp_dim }
     \@@_punct_if_long:NT #1
@@ -5390,10 +5408,7 @@ Copyright and Licence
 % 用 \tn{XeTeXglyphbounds} 取得标点符号的上下左右空白。
 %    \begin{macrocode}
 \cs_new_nopar:Npn \xeCJK_glyph_bounds:NN #1#2
-  {
-    \dim_use:N \xetex_glyphbounds:D #1 ~
-      \xetex_charglyph:D \xeCJK_token_value_charcode:N #2 \exp_stop_f:
-  }
+  { \xetex_glyphbounds:D #1 ~ \xetex_charglyph:D `#2 \exp_stop_f: }
 %    \end{macrocode}
 % \end{macro}
 %
