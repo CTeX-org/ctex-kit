@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.5.2}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10218}
+% \CheckSum{10217}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3614,7 +3614,8 @@ Copyright and Licence
 % \begin{macro}[int]{\xeCJK_FullRight_and_Boundary:}
 % \hypertarget{fl-fr-bound}{}
 %    \begin{macrocode}
-\xeCJK_app_inter_class_toks:nnn { FullLeft } { Boundary } { \tex_ignorespaces:D }
+\xeCJK_app_inter_class_toks:nnn { FullLeft } { Boundary }
+  { \tex_ignorespaces:D }
 \xeCJK_inter_class_toks:nnn { FullRight } { Boundary }
   { \xeCJK_FullRight_and_Boundary: }
 %    \end{macrocode}
@@ -3826,67 +3827,96 @@ Copyright and Licence
 % \changes{v3.2.4}{2013/07/03}{细化边界与全角左标点之间是否压缩空白的判断。}
 % \changes{v3.2.5}{2013/07/13}{细化全角左标点是否位于段首的判断。}
 % \changes{v3.2.5}{2013/07/13}{增加对 \pkg{enumitem} 宏包修改的 \tn{item} 的判断。}
-% \cs{etex_lastnodetype:D} 为 $1$ 表示 hlist node，在这里用来判断是否位于段首。基于
-% 正常情况下，\TeX 会在段落开头插入宽度为 \tn{parindent} 的水平盒子用于缩进。
-% $-1$ 表示 empty list，常出现在盒子的起始位置，在段落前使用 \tn{noindent} 就
-% 是这种情况。$11$ 表示 glue node，这里判断的目的是当全角左标点出现在 \LaTeX 表格
-% 的非 \texttt{p} 列行首时，能够对齐到单元格的边界。判断基于标准 \LaTeX 表格的
-% 列格式（\tn{@tabclassz}）定义中，在 \texttt{l} 列和 \texttt{r} 列前为了防止
-% \tn{tabcolsep} 被无意 \tn{unskip} 掉，都加了 |\hskip1sp|，而 \texttt{c} 列前
-% 则有 \tn{hfil}。$13$ 表示 penalty node，这里判断的目的是全角左标点出现在 \LaTeX
-% 列表环境的 \tn{item} 后面时，能对齐到边界。判断基于 \tn{item} 的内部定义
-% \tn{@item} 对 \tn{everypar} 进行了修改，在这里起到影响作用的是
-% |\box\@labels \penalty\z@|。\package{enumitem} 宏包修改了 \env{description}
-% 环境中使用的 \tn{item}（\tn{enit@postlabel@i}），在这里起到影响作用的是
-% |\penalty\z@ \hskip\labelsep|。以上判断都比较粗略，暂时也没有想起更好的办法。
+% 根据 \cs{etex_lastnodetype:D} 的值进行分别处理。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
-    \int_case:nnTF { \etex_lastnodetype:D }
-      {
-        { \c_one       }
-        {
-          \box_set_to_last:N \l_@@_tmp_box
-          \bool_lazy_and:nnTF
-            { \int_compare_p:nNn \etex_lastnodetype:D = { -1 } }
-            { \dim_compare_p:nNn { \box_wd:N \l_@@_tmp_box } = \tex_parindent:D }
-            { \box_use_drop:N \l_@@_tmp_box \use_none:n }
-            { \box_use_drop:N \l_@@_tmp_box \use:n }
-        }
-        { -1 } { \@@_zero_glue: \use_none:n }
-        { \c_eleven    }
-        {
-          \bool_lazy_or:nnTF
-            { ! ( \skip_if_finite_p:n { \tex_lastskip:D } ) }
-            { \skip_if_eq_p:nn { \tex_lastskip:D } { 1 sp } }
-            { \@@_zero_glue: \use_none:n }
-            {
-              \skip_if_eq:nnTF { \tex_lastskip:D } { \labelsep }
-                {
-                  \tex_unskip:D
-                  \bool_lazy_and:nnTF
-                    { \int_compare_p:nNn \etex_lastnodetype:D = \c_thirteen }
-                    { \int_compare_p:nNn \tex_lastpenalty:D = \c_zero }
-                    { \skip_horizontal:n { \labelsep } \use_none:n }
-                    { \skip_horizontal:n { \labelsep } \use:n }
-                }
-                { \use:n }
-            }
-        }
-        { \c_thirteen  }
-        {
-          \int_compare:nNnTF \tex_lastpenalty:D = \c_zero
-            {
-              \tex_unpenalty:D
-              \int_compare:nNnTF \etex_lastnodetype:D = \c_one
-                { \tex_penalty:D \c_zero \use_none:n }
-                { \tex_penalty:D \c_zero \use:n }
-            }
-            { \use:n }
-        }
-      }
-      { { \@@_punct_glue:NN \c_@@_left_tl #1 } }
+    \group_begin: \exp_args:NNc \group_end: \cs_if_exist_use:NF
+      { @@_bound_type_ \int_use:N \etex_lastnodetype:D _glue:n }
+      { \use:n }
       { \@@_punct_glue:NN \c_@@_left_tl #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_bound_type_-1_glue:n}
+% \cs{etex_lastnodetype:D} 为 $-1$ 表示 empty list，常出现在盒子的起始位置，
+% 在段落前使用 \tn{noindent} 就是这种情况。
+%    \begin{macrocode}
+\cs_new_protected_nopar:cpn { @@_bound_type_ -1 _glue:n } #1
+  { \@@_zero_glue: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_bound_type_1_glue:n}
+% $1$ 表示 hlist node，在这里用来判断是否位于段首。基于正常情况下，\TeX 会在段落开头插入宽度为
+% \tn{parindent} 的水平盒子用于缩进。
+%    \begin{macrocode}
+\cs_new_protected_nopar:cpn { @@_bound_type_  1 _glue:n } #1
+  {
+    \box_set_to_last:N \l_@@_tmp_box
+    \int_compare:nNnTF \etex_lastnodetype:D = { -1 }
+      {
+        \dim_compare:nNnTF
+          { \box_wd:N \l_@@_tmp_box } = \tex_parindent:D
+          { \box_use_drop:N \l_@@_tmp_box }
+          { \box_use_drop:N \l_@@_tmp_box #1 }
+      }
+      { \box_use_drop:N \l_@@_tmp_box #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_bound_type_11_glue:n}
+% $11$ 表示 glue node，这里判断的目的是当全角左标点出现在 \LaTeX 表格的非 \texttt{p} 列行首时，
+% 能够对齐到单元格的边界。判断基于标准 \LaTeX 表格的列格式（\tn{@tabclassz}）定义中，
+% 在 \texttt{l} 列和 \texttt{r} 列前为了防止 \tn{tabcolsep} 被无意 \tn{unskip} 掉，
+% 都加了 |\hskip1sp|，而 \texttt{c} 列前则有 \tn{hfil}。\package{enumitem} 宏包修改了
+% \env{description} 环境中使用的 \tn{item}（\tn{enit@postlabel@i}），
+% 在这里起到影响作用的是 |\penalty\z@ \hskip\labelsep|。
+%    \begin{macrocode}
+\cs_new_protected_nopar:cpn { @@_bound_type_ 11 _glue:n } #1
+  {
+    \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
+    \skip_if_finite:nTF { \l_@@_tmp_skip }
+      {
+        \skip_if_eq:nnTF { \l_@@_tmp_skip } { 1 sp }
+          { \@@_zero_glue: }
+          {
+            \skip_if_eq:nnTF { \l_@@_tmp_skip } { \labelsep }
+              {
+                \tex_unskip:D
+                \int_compare:nNnTF \etex_lastnodetype:D = \c_thirteen
+                  {
+                    \int_compare:nNnTF \etex_lastpenalty:D = \c_zero
+                      { \skip_horizontal:N \l_@@_tmp_skip }
+                      { \skip_horizontal:N \l_@@_tmp_skip #1 }
+                  }
+                  { \skip_horizontal:N \l_@@_tmp_skip #1 }
+              }
+              {#1}
+          }
+      }
+      { \@@_zero_glue: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_bound_type_13_glue:n}
+% $13$ 表示 penalty node，这里判断的目的是全角左标点出现在 \LaTeX 列表环境的 \tn{item} 后面时，
+% 能对齐到边界。判断基于 \tn{item} 的内部定义 \tn{@item} 对 \tn{everypar} 进行了修改，在这里起
+% 到影响作用的是 |\box\@labels \penalty\z@|。以上判断都比较粗略，暂时也没有想起更好的办法。
+%    \begin{macrocode}
+\cs_new_protected_nopar:cpn { @@_bound_type_ 13 _glue:n } #1
+  {
+    \int_compare:nNnTF \tex_lastpenalty:D = \c_zero
+      {
+        \tex_unpenalty:D
+        \int_compare:nNnTF \etex_lastnodetype:D = \c_one
+          { \tex_penalty:D \c_zero }
+          { \tex_penalty:D \c_zero #1 }
+      }
+      {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3977,7 +4007,7 @@ Copyright and Licence
     \xeCJK_get_punct_kerning:oN \g_@@_last_punct_tl #1
     \@@_punct_kern:NN \g_@@_last_punct_tl #1
     \tl_gset:Nn \g_@@_last_punct_tl {#1}
-    \CJKpunctsymbol {#1}
+    \CJKpunctsymbol #1
   }
 %    \end{macrocode}
 % \end{macro}
