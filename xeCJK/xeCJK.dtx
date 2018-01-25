@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10707}
+% \CheckSum{10769}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1670,6 +1670,7 @@ Copyright and Licence
 \box_new:N \l_@@_tmp_box
 \dim_new:N \l_@@_tmp_dim
 \bool_new:N \l_@@_tmp_bool
+\skip_new:N \l_@@_tmp_skip
 \clist_new:N \l_@@_tmp_clist
 %    \end{macrocode}
 %
@@ -3310,11 +3311,35 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_check_for_glue:
   {
-    \xeCJK_if_last_punct:TF
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_twelve
       { \@@_check_for_glue_auxi: }
-      { \@@_check_for_glue_auxii: }
+      {
+        \int_compare:nNnTF \etex_lastnodetype:D = \c_ten
+          { \xeCJK_remove_node: \CJKecglue }
+          { \@@_check_for_glue_auxii: }
+      }
   }
 \cs_new_protected_nopar:Npn \@@_check_for_glue_auxi:
+  {
+    \dim_case:nn { \tex_lastkern:D }
+      {
+        { \@@_node:n { CJK } }
+        { \xeCJK_remove_node: \CJKglue }
+        { \@@_node:n { CJK-space } }
+        { \xeCJK_remove_node: \CJKglue }
+        { \@@_node:n { CJK-widow } }
+        { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+        { \@@_node:n { default } }
+        { \xeCJK_remove_node: \CJKecglue }
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_check_for_glue_auxii:
+  {
+    \xeCJK_if_last_punct:TF
+      { \@@_check_for_glue_auxiii: }
+      { \xeCJK_check_for_xglue: }
+  }
+\cs_new_protected_nopar:Npn \@@_check_for_glue_auxiii:
   {
     \bool_if:NT \l_@@_last_penalty_bool
       {
@@ -3323,24 +3348,6 @@ Copyright and Licence
       }
     \skip_horizontal:N \l_@@_last_skip
     \tl_if_eq:NNF \l_@@_aligni_tl \c_@@_left_tl { \CJKglue }
-  }
-\cs_new_protected_nopar:Npn \@@_check_for_glue_auxii:
-  {
-    \bool_lazy_or:nnTF
-      { \xeCJK_if_last_node_p:n { CJK } }
-      { \xeCJK_if_last_node_p:n { CJK-space } }
-      { \xeCJK_remove_node: \CJKglue }
-      {
-        \xeCJK_if_last_node:nTF { CJK-widow }
-          { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
-          {
-            \bool_lazy_or:nnTF
-              { \xeCJK_if_last_node_p:n { default } }
-              { \int_compare_p:nNn \etex_lastnodetype:D = \c_ten }
-              { \xeCJK_remove_node: \CJKecglue }
-              { \xeCJK_check_for_xglue: }
-          }
-      }
   }
 \cs_new_eq:NN \xeCJK_check_for_xglue: \prg_do_nothing:
 \cs_new_protected_nopar:Npn \@@_check_for_xglue:
@@ -3410,6 +3417,8 @@ Copyright and Licence
 \int_gset_eq:NN \g_@@_node_int \c_ten
 \cs_new_protected_nopar:Npn \xeCJK_make_node:n #1
   { \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim } }
+\cs_new_nopar:Npn \@@_node:n #1
+  { \use:c { c_@@_#1_node_dim } }
 \cs_new_protected_nopar:Npn \@@_make_node:N #1
   {
     \tex_kern:D - #1
@@ -3813,8 +3822,8 @@ Copyright and Licence
         \l_@@_punct_kern_skip *
         \dim_ratio:nn
           {
-              \@@_use_punct_dim:nNN { bound } \c_@@_left_tl #1
-            + \l_@@_last_bound_dim
+              \l_@@_last_bound_dim
+            + \@@_use_punct_dim:nNN { bound } \c_@@_left_tl #1
           }
           { \l_@@_bound_dim }
       }
@@ -4277,38 +4286,30 @@ Copyright and Licence
 % \begin{macro}{\xeCJK_if_last_punct:TF}
 % 判断之前是否是一个标点符号。
 %    \begin{macrocode}
-\cs_new_protected:Npn \xeCJK_if_last_punct:TF #1#2
+\cs_new_protected_nopar:Npn \xeCJK_if_last_punct:TF
   {
     \bool_set_false:N \l_@@_last_penalty_bool
-    \int_case:nnTF { \etex_lastnodetype:D }
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
+      { \@@_if_last_punct_glue:TF }
       {
-        { \c_eleven }   { \@@_if_last_punct_glue:TF }
-        { \c_thirteen } { \@@_if_last_punct_penalty:TF }
+        \int_compare:nNnTF \etex_lastnodetype:D = \c_thirteen
+         { \@@_if_last_punct_penalty:TF }
+         { \use_ii:nn }
       }
-      { {#1} {#2} }
-      {#2}
   }
 \cs_new_protected:Npn \@@_if_last_punct_glue:TF #1#2
   {
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
     \tex_unskip:D
     \int_compare:nNnTF \tex_lastpenalty:D = \c_ten_thousand
+      { \@@_if_last_punct_auxi:TF }
       {
-        \tex_unpenalty:D
-        \bool_if:NF \l_@@_last_penalty_bool
-          {
-            \bool_set_true:N \l_@@_last_penalty_bool
-            \int_set_eq:NN \l_@@_last_penalty_int \c_ten_thousand
-          }
-        \@@_if_last_punct_auxi:TF
-          {#1}
-          { \xeCJK_no_break: \skip_horizontal:N \l_@@_last_skip #2 }
+        \xeCJK_if_last_node:TF
+          { \@@_if_last_punct_auxii:TF }
+          { \@@_if_last_punct_auxiii:TF }
       }
-      {
-        \@@_if_last_punct_auxi:TF
-          {#1}
-          { \skip_horizontal:N \l_@@_last_skip #2 }
-      }
+      {#1}
+      { \skip_horizontal:N \l_@@_last_skip #2 }
   }
 \cs_new_protected:Npn \@@_if_last_punct_penalty:TF #1#2
   {
@@ -4325,9 +4326,15 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_if_last_punct_auxi:TF #1#2
   {
-    \xeCJK_if_last_node:TF
-      { \@@_if_last_punct_auxii:TF {#1} {#2} }
-      {#2}
+    \tex_unpenalty:D
+    \bool_if:NF \l_@@_last_penalty_bool
+      {
+        \bool_set_true:N \l_@@_last_penalty_bool
+        \int_set_eq:NN \l_@@_last_penalty_int \c_ten_thousand
+      }
+    \@@_if_last_punct_auxiv:TF
+      {#1}
+      { \xeCJK_no_break: #2 }
   }
 \cs_new_protected:Npn \@@_if_last_punct_auxii:TF #1#2
   {
@@ -4338,10 +4345,22 @@ Copyright and Licence
         { \xeCJK_class_num:n { FullLeft } }
         { \tl_set_eq:NN \l_@@_aligni_tl \c_@@_left_tl }
       }
-      { \@@_if_last_punct_auxiii:TF {#1} {#2} }
+      { \@@_if_last_punct_auxv:TF {#1} {#2} }
       { \@@_make_node:N \l_@@_last_kern_dim #2 }
   }
-\cs_new_protected:Npn \@@_if_last_punct_auxiii:TF #1#2
+\cs_new_protected_nopar:Npn \@@_if_last_punct_auxiii:TF
+  {
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
+      { \@@_if_last_punct_auxvi:TF }
+      { \use_ii:nn }
+  }
+\cs_new_protected_nopar:Npn \@@_if_last_punct_auxiv:TF
+  {
+    \xeCJK_if_last_node:TF
+      { \@@_if_last_punct_auxii:TF }
+      { \use_ii:nn }
+  }
+\cs_new_protected:Npn \@@_if_last_punct_auxv:TF #1#2
   {
     \dim_set_eq:NN \l_@@_tmp_dim \l_@@_last_kern_dim
     \xeCJK_if_last_node:TF
@@ -4352,6 +4371,23 @@ Copyright and Licence
         #1
       }
       { \@@_make_node:N \l_@@_tmp_dim #2 }
+  }
+\cs_new_protected:Npn \@@_if_last_punct_auxvi:TF #1#2
+  {
+    \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D
+    \skip_if_eq:nnTF
+      { \l_@@_last_skip }
+      { \c_xeCJK_space_skip_tl }
+      {
+        \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
+        \tex_unskip:D
+        \int_compare:nNnTF \tex_lastpenalty:D = \c_ten_thousand
+          { \@@_if_last_punct_auxi:TF }
+          { \@@_if_last_punct_auxiv:TF }
+          { \skip_set_eq:NN \l_@@_last_skip \l_@@_tmp_skip #1 }
+          { \skip_horizontal:N \l_@@_tmp_skip #2 }
+      }
+      {#2}
   }
 \tl_new:N \l_@@_aligni_tl
 \tl_new:N \l_@@_alignii_tl
@@ -8082,7 +8118,7 @@ Copyright and Licence
           \cs_set_protected_nopar:Npx \hbar
             { {
               \mathchar
-                \int_eval:n { \symlegacymaths * \c_two_hundred_fifty_six + '26 } ~
+                \int_eval:n { \symlegacymaths * 256 + '26 } ~
               \mkern -9mu h
             } }
         \fi:
@@ -8383,43 +8419,7 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \xeCJK@italiccorr
   {
     \int_compare:nNnTF \xetex_interchartokenstate:D > \c_zero
-      {
-        \xeCJK_if_last_node:nTF { default }
-          {
-            \xeCJK_remove_node: \@@italiccorr
-            { \xeCJK_make_node:n { default } }
-          }
-          {
-            \xeCJK_if_last_node:nTF { CJK }
-              {
-                \xeCJK_remove_node: \@@italiccorr
-                { \xeCJK_make_node:n { CJK } } \use:n
-              }
-              {
-                \xeCJK_if_last_node:nTF { CJK-space }
-                  {
-                    \xeCJK_remove_node: \@@italiccorr
-                    { \xeCJK_make_node:n { CJK-space } } \use:n
-                  }
-                  { \@@italiccorr \use_none:n }
-              }
-%    \end{macrocode}
-% \cs{xeCJK_ignore_spaces:w} 里面用到 |peek| 函数来判断后面是不是空格，而此时它
-% 后面还有 $4$ 个 \tn{fi} 或者 |\else...\fi| 没有被展开，将影响 |peek| 函数的
-% 判断。因此我们需要用 $2^4-1=15$ 个 \cs{exp_after:wN} 来展开它们。
-% 显然，这里用 \cs{exp_last_unbraced:Nf} 会比较方便，但是它会吃掉
-% \verb*|\textit{...} | 等后面原来存在的空格作为完全展开的结束。要正确使用它还
-% 需要另外的处理（使用 \cs{exp_stop_f:}）。
-%    \begin{macrocode}
-              {
-                              \exp_after:wN \exp_after:wN \exp_after:wN
-                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
-                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
-                \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
-                \xeCJK_ignore_spaces:w
-              }
-          }
-      }
+      { \xeCJK_italic_correction: }
       { \@@italiccorr }
   }
 %    \end{macrocode}
@@ -8428,6 +8428,57 @@ Copyright and Licence
 %    \begin{macrocode}
 %<@@=xeCJK>
 %    \end{macrocode}
+%
+% \begin{macro}[int]{\xeCJK_italic_correction:}
+% 修复倾斜校正，并处理汉字后面的空格。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_italic_correction:
+  {
+    \int_compare:nNnT \etex_lastnodetype:D = \c_twelve
+      { \@@_italic_correction: }
+  }
+\cs_new_protected_nopar:Npn \@@_italic_correction:
+  {
+    \dim_case:nnF { \tex_lastkern:D }
+      {
+        { \@@_node:n { default } }
+        {
+          \xeCJK_remove_node: \tex_italiccorrection:D
+          \xeCJK_make_node:n { default }
+        }
+        { \@@_node:n { CJK } }
+        {
+          \xeCJK_remove_node: \tex_italiccorrection:D
+          \xeCJK_make_node:n { CJK }
+          \@@_italic_correction_aux:
+        }
+        { \@@_node:n { CJK-space } }
+        {
+          \xeCJK_remove_node: \tex_italiccorrection:D
+          \xeCJK_make_node:n { CJK-space }
+          \@@_italic_correction_aux:
+        }
+      }
+      { \tex_italiccorrection:D }
+  }
+%    \end{macrocode}
+% \cs{xeCJK_ignore_spaces:w} 里面用到 |peek| 函数来判断后面是不是空格，而此时它
+% 后面还有 $4$ 个 \tn{fi} 或者 |\else...\fi| 没有被展开，将影响 |peek| 函数的
+% 判断。因此我们需要用 $2^4-1=15$ 个 \cs{exp_after:wN} 来展开它们。
+% 显然，这里用 \cs{exp_last_unbraced:Nf} 会比较方便，但是它会吃掉
+% \verb*|\textit{...} | 等后面原来存在的空格作为完全展开的结束。要正确使用它还
+% 需要另外的处理（使用 \cs{exp_stop_f:}）。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_italic_correction_aux:
+  {
+                  \exp_after:wN \exp_after:wN \exp_after:wN
+    \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+    \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+    \exp_after:wN \exp_after:wN \exp_after:wN \exp_after:wN
+    \xeCJK_ignore_spaces:w
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{variable}{\g_@@_xetex_allocator_int}
 % \changes{v3.3.1}{2015/04/14}{兼容 \LaTeXe{} 2015。}
@@ -9063,9 +9114,9 @@ Copyright and Licence
     \skip_if_eq:nnT { \tex_lastskip:D } { - \UL@pixel }
       {
         \tex_unskip:D
-        \skip_set:Nn \l_@@_last_skip { \tex_lastskip:D - \UL@pixel }
+        \skip_set:Nn \l_@@_tmp_skip { \tex_lastskip:D - \UL@pixel }
         \tex_unskip:D
-        \UL@leadtype \skip_horizontal:N \l_@@_last_skip
+        \UL@leadtype \skip_horizontal:N \l_@@_tmp_skip
       }
   }
 \cs_new_protected_nopar:Npn \@@_ulem_right_skip_penalty:
