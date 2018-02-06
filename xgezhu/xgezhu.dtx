@@ -23,7 +23,7 @@ Issues and pull requests are welcome.
 Copyright and Licence
 ---------------------
 
-    Copyright (C) 2019 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2018 by Qing Lee <sobenlee@gmail.com>
     ----------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -61,7 +61,7 @@ Copyright and Licence
 
 \preamble
 
-    Copyright (C) 2019 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2018 by Qing Lee <sobenlee@gmail.com>
 --------------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -138,7 +138,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{525}
+% \CheckSum{403}
 % \GetFileId{xgezhu.sty}
 %
 % \title{\bfseries\pkg{xgezhu} 宏包}
@@ -358,7 +358,7 @@ Copyright and Licence
     \@@_make_opening_closing_box:
     \dim_set_eq:NN \tex_hfuzz:D \l_@@_unit_dim
     \dim_set:Nn \tex_splitmaxdepth:D { \box_dp:N \strutbox }
-    \hbox_set:Nn \l_@@_text_box {#2}
+    \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
     \@@_processing:
   }
 \box_new:N \l_@@_text_box
@@ -413,7 +413,6 @@ Copyright and Licence
             \selectfont \l_@@_closing_tl \tex_unskip:D
           }
       }
-    \dim_set:Nn \l_@@_closing_dim { \box_wd:N \l_@@_closing_box }
   }
 \cs_new_protected_nopar:Npn \@@_put_opening_box:
   {
@@ -434,7 +433,6 @@ Copyright and Licence
   }
 \box_new:N \l_@@_opening_box
 \box_new:N \l_@@_closing_box
-\dim_new:N \l_@@_closing_dim
 %    \end{macrocode}
 % \end{macro}
 %
@@ -442,11 +440,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_processing:
   {
-      \dim_compare:nNnTF
-        { \box_wd:N \l_@@_text_box / 2 } >
-        { \l_@@_remaining_width_dim }
-        { \@@_split_first_two_lines: }
-        { \@@_split_remaining_lines: }
+      \@@_split_lines:
       \@@_put_closing_box:
     \group_end:
     \@@_hskip:N \l_@@_after_skip_tl
@@ -461,6 +455,20 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\@@_split_lines:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_split_lines:
+  {
+    \dim_set:Nn \l_@@_width_dim
+      { \box_wd:N \l_@@_text_box / 2 }
+    \dim_compare:nNnTF \l_@@_width_dim > \l_@@_remaining_width_dim
+      { \@@_split_first_two_lines: }
+      { \@@_typeset_remaining: }
+  }
+\dim_new:N \l_@@_width_dim
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\@@_split_first_two_lines:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_split_first_two_lines:
@@ -471,9 +479,9 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxi:
   {
-    \par \tex_noindent:D
+    \@@_newline:
     \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
-    \@@_split_remaining_lines:
+    \@@_split_lines:
   }
 \cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxii:
   {
@@ -481,10 +489,7 @@ Copyright and Licence
       {
         \dim_compare:nNnF
           \l_@@_remaining_width_dim = \l_@@_line_width_dim
-          {
-            \@@_unitization:N \l_@@_remaining_width_dim
-            \dim_sub:Nn \l_@@_remaining_width_dim { \l_@@_unit_dim }
-          }
+          { \@@_dim_normalize:N \l_@@_remaining_width_dim }
         \tex_parshape:D \c_three
           \c_zero_dim \l_@@_remaining_width_dim
           \c_zero_dim \l_@@_remaining_width_dim
@@ -497,22 +502,11 @@ Copyright and Licence
       { \vbox_unpack:N \l_@@_typeset_box }
     \@@_typeset:
     \box_if_empty:NF \l_@@_text_box
-      { \@@_split_remaining_lines_aux: }
+      { \@@_split_remaining_lines: }
   }
+\cs_new_protected_nopar:Npn \@@_newline:
+  { \tex_penalty:D - \c_ten_thousand }
 \box_new:N \l_@@_typeset_box
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_split_remaining_lines_aux:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_split_remaining_lines_aux:
-  {
-    \tex_penalty:D - \c_ten_thousand
-    \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
-    \@@_extract_hbox:Nn \l_@@_text_box
-      { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
-    \@@_split_remaining_lines:
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -520,51 +514,12 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_split_remaining_lines:
   {
-    \dim_set:Nn \l_@@_max_dim
-      { \box_wd:N \l_@@_text_box / 2 }
-    \@@_unitization:N \l_@@_width_dim
-    \vbox_set:Nn \l_@@_tmpa_box
-      {
-        \dim_set_eq:NN \tex_hfuzz:D \c_max_dim
-        \dim_set_eq:NN \tex_hsize:D \l_@@_min_dim
-        \hbox_unpack:N \l_@@_text_box \par
-        \box_gset_to_last:N \g_@@_last_box
-        \tex_unskip:D \tex_unskip:D
-      }
-    \int_set_eq:NN \l_@@_lines_int \c_one
-    \hbox_set:Nn \l_@@_tmpb_box
-      {
-        \hbox_unpack_clear:N \g_@@_last_box
-        \tex_unskip:D \tex_unskip:D \tex_unpenalty:D
-      }
-    \dim_set:Nn \l_@@_min_dim { \box_wd:N \l_@@_tmpb_box }
-    \bool_until_do:nn
-      { \box_if_empty_p:N \l_@@_tmpa_box }
-      { \@@_set_max_min_width: }
-    \int_compare:nNnTF \l_@@_lines_int < \c_three
-      { \dim_set_eq:NN \l_@@_width_dim \l_@@_max_dim }
-      { \@@_calc_width: }
-    \dim_compare:nNnTF \l_@@_width_dim > \l_@@_remaining_width_dim
-      { \@@_split_first_two_lines: }
-      { \@@_typeset_remaining: }
+    \@@_newline:
+    \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
+    \@@_extract_hbox:Nn \l_@@_text_box
+      { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
+    \@@_split_lines:
   }
-\cs_new_protected_nopar:Npn \@@_set_max_min_width:
-  {
-    \int_incr:N \l_@@_lines_int
-    \vbox_set_split_to_ht:NNn
-      \l_@@_tmpb_box \l_@@_tmpa_box { \tex_baselineskip:D }
-    \@@_extract_hbox:Nn \l_@@_tmpb_box { \tex_unskip:D }
-    \dim_set:Nn \l_@@_max_dim
-      { \dim_max:nn { \l_@@_max_dim } { \box_wd:N \l_@@_tmpb_box } }
-    \dim_set:Nn \l_@@_min_dim
-      { \dim_min:nn { \l_@@_min_dim } { \box_wd:N \l_@@_tmpb_box } }
-  }
-\dim_new:N \l_@@_min_dim
-\dim_new:N \l_@@_max_dim
-\dim_new:N \l_@@_width_dim
-\box_new:N \l_@@_tmpa_box
-\box_new:N \l_@@_tmpb_box
-\int_new:N \l_@@_lines_int
 %    \end{macrocode}
 % \end{macro}
 %
@@ -585,28 +540,14 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_unitization:N}
+% \begin{macro}{\@@_dim_normalize:N}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_unitization:N #1
+\cs_new_protected_nopar:Npn \@@_dim_normalize:N #1
   {
-    \int_set:Nn \l_@@_tmp_int {#1}
-    \tex_divide:D \l_@@_tmp_int \l_@@_unit_dim
-    \int_incr:N \l_@@_tmp_int
-    \dim_set:Nn #1 { \l_@@_tmp_int \l_@@_unit_dim }
-  }
-\int_new:N \l_@@_tmp_int
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_calc_width:}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_calc_width:
-  {
-    \dim_set_eq:NN \l_@@_width_dim \l_@@_max_dim
-    \int_if_even:nF { \l_@@_lines_int }
+    \dim_set:Nn #1
       {
-        \dim_add:Nn \l_@@_width_dim
-          { \l_@@_min_dim / \int_eval:n { \l_@@_lines_int - 1 } }
+        \int_div_truncate:nn {#1} { \l_@@_unit_dim }
+        \l_@@_unit_dim
       }
   }
 %    \end{macrocode}
@@ -639,33 +580,21 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxii:
   {
     \int_compare:nNnTF \g_@@_lines_int = \c_one
+      { \@@_typeset_remaining_auxiii: }
       {
-        \vbox_set:Nn \l_@@_typeset_box
-          {
-            \@@_extract_hbox:Nn \l_@@_typeset_box
-              { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
-            \dim_set:Nn \tex_hsize:D { \box_wd:N \l_@@_typeset_box }
-            \tex_noindent:D
-            \box_move_up:nn
-              { \tex_baselineskip:D }
-              { \box_use_clear:N \l_@@_typeset_box }
-          }
-        \@@_typeset:
-      }
-      {
-        \@@_unitization:N \l_@@_width_dim
-        \@@_typeset_remaining_auxiii:
+        \dim_add:Nn \l_@@_width_dim { \l_@@_unit_dim / 4 }
+        \@@_typeset_remaining:
       }
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxiii:
   {
-    \@@_typeset_remaining_auxi:
-    \int_if_even:nTF { \g_@@_lines_int }
-      { \@@_typeset: }
+    \hbox_set:Nn \l_@@_typeset_box
       {
-        \dim_add:Nn \l_@@_width_dim { \l_@@_width_dim / 3 }
-        \@@_typeset_remaining_auxiii:
+        \box_move_up:nn
+          { \tex_baselineskip:D }
+          { \box_use_drop:N \l_@@_typeset_box }
       }
+    \@@_typeset:
   }
 \int_new:N \g_@@_lines_int
 %    \end{macrocode}
@@ -740,6 +669,8 @@ Copyright and Licence
 
 \catcode`\| = \active
 \setlength\parskip{30pt}
+
+%%\sloppy
 
 \loop
 \noindent\hrulefill\par
