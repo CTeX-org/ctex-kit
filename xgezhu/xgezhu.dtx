@@ -138,7 +138,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{423}
+% \CheckSum{462}
 % \GetFileId{xgezhu.sty}
 %
 % \title{\bfseries\pkg{xgezhu} 宏包}
@@ -169,6 +169,12 @@ Copyright and Licence
 % \begin{function}{format}
 %   \begin{syntax}
 %     format = \Arg{格式命令}
+%   \end{syntax}
+% \end{function}
+%
+% \begin{function}{lines}
+%   \begin{syntax}
+%     lines = \Arg{正整数}
 %   \end{syntax}
 % \end{function}
 %
@@ -385,6 +391,8 @@ Copyright and Licence
     \@@_make_opening_closing_box:
     \dim_set_eq:NN \tex_hfuzz:D \l_@@_unit_dim
     \dim_set:Nn \tex_splitmaxdepth:D { \box_dp:N \strutbox }
+    \skip_set:Nn \l_@@_good_break_skip
+      { \c_zero_dim plus 0.5\l_@@_outer_unit_dim }
     \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
     \@@_processing:
   }
@@ -452,7 +460,7 @@ Copyright and Licence
     \box_if_empty:NF \l_@@_closing_box
       { \@@_put_box:N \l_@@_closing_box }
   }
-\cs_new_protected_nopar:Npn \@@_put_box:N #1
+\cs_new_protected:Npn \@@_put_box:N #1
   {
     \box_move_down:nn
       { ( \box_ht:N #1 - 0.8\l_@@_outer_unit_dim ) / 2 }
@@ -463,21 +471,63 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\@@_set_lines:n}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_set_lines:n #1
+  {
+    \int_compare:nNnTF {#1} > \c_zero
+      {
+        \int_set:Nn \l_@@_lines_int {#1}
+        \@@_make_parshape:n { \l_@@_lines_int }
+      }
+      { \msg_error:nn { xgezhu } { invalid-number } }
+  }
+\cs_new_protected:Npn \@@_make_parshape:n #1
+  {
+    \cs_set_protected_nopar:Npx \@@_parshape:
+      {
+        \tex_parshape:D
+          \int_eval:n { #1 + \c_one } ~
+          \prg_replicate:nn
+            {#1} { \c_zero_dim \l_@@_remaining_width_dim }
+          \c_zero_dim \c_max_dim \scan_stop:
+      }
+  }
+\int_new:N \l_@@_lines_int
+\cs_new_eq:NN \@@_parshape: \prg_do_nothing:
+\msg_new:nnn { xgezhu } { invalid-number }
+  { Please~specify~a~positive~integer. }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\@@_processing:}
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_processing:
   {
       \@@_split_lines:
       \@@_put_closing_box:
+      \@@_good_break:
+      \@@_hskip:N \l_@@_after_skip_tl
     \group_end:
-    \@@_hskip:N \l_@@_after_skip_tl
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_good_break:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_good_break:
+  {
+    \skip_horizontal:N \l_@@_good_break_skip
+    \tex_penalty:D - \c_one_hundred
+    \skip_horizontal:n { -\l_@@_good_break_skip }
+  }
+\skip_new:N \l_@@_good_break_skip
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\@@_hskip:N}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_hskip:N #1
+\cs_new_protected:Npn \@@_hskip:N #1
   { \tl_if_empty:NF #1 { \skip_horizontal:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
@@ -487,7 +537,11 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_split_lines:
   {
     \dim_set:Nn \l_@@_width_dim
-      { \box_wd:N \l_@@_text_box / 2 }
+      {
+        \dim_max:nn
+          { \l_@@_unit_dim }
+          { \box_wd:N \l_@@_text_box / \l_@@_lines_int }
+      }
     \dim_compare:nNnTF \l_@@_width_dim > \l_@@_remaining_width_dim
       { \@@_split_first_two_lines: }
       { \@@_typeset_remaining: }
@@ -516,15 +570,16 @@ Copyright and Licence
       {
         \dim_compare:nNnF
           \l_@@_remaining_width_dim = \l_@@_line_width_dim
-          { \@@_dim_normalize:N \l_@@_remaining_width_dim }
-        \tex_parshape:D \c_three
-          \c_zero_dim \l_@@_remaining_width_dim
-          \c_zero_dim \l_@@_remaining_width_dim
-          \c_zero_dim \c_max_dim \scan_stop:
+          {
+            \@@_dim_normalize:N \l_@@_remaining_width_dim
+            \dim_set:Nn \tex_emergencystretch:D { -\l_@@_unit_dim }
+          }
+        \int_set:Nn \tex_looseness:D { -1 }
+        \@@_parshape:
         \hbox_unpack_clear:N \l_@@_text_box
       }
-    \vbox_set_split_to_ht:NNn
-      \l_@@_typeset_box \l_@@_text_box { 2 \tex_baselineskip:D }
+    \vbox_set_split_to_ht:NNn \l_@@_typeset_box
+      \l_@@_text_box { \l_@@_lines_int \tex_baselineskip:D }
     \vbox_set:Nn \l_@@_typeset_box
       { \vbox_unpack:N \l_@@_typeset_box }
     \@@_typeset:
@@ -553,7 +608,7 @@ Copyright and Licence
 % \begin{macro}{\@@_extract_hbox:Nn}
 % 从 \tn{vbox} 中取出 \tn{hbox}。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_extract_hbox:Nn #1#2
+\cs_new_protected:Npn \@@_extract_hbox:Nn #1#2
   {
     \vbox_set:Nn #1
       {
@@ -569,7 +624,7 @@ Copyright and Licence
 %
 % \begin{macro}{\@@_dim_normalize:N}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_dim_normalize:N #1
+\cs_new_protected:Npn \@@_dim_normalize:N #1
   {
     \dim_set:Nn #1
       {
@@ -589,39 +644,30 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining:
   {
+    \@@_dim_normalize:N \l_@@_width_dim
     \@@_typeset_remaining_auxi:
-    \int_if_even:nTF { \g_@@_lines_int }
-      { \@@_typeset: }
-      { \@@_typeset_remaining_auxii: }
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxi:
   {
     \vbox_set:Nn \l_@@_typeset_box
       {
-        \skip_set:Nn \tex_rightskip:D { 0pt plus 2\l_@@_unit_dim }
         \dim_set_eq:NN \tex_hsize:D \l_@@_width_dim
+        \int_set_eq:NN \etex_lastlinefit:D \c_one_thousand
         \hbox_unpack:N \l_@@_text_box \par
         \int_gset_eq:NN \g_@@_lines_int \tex_prevgraf:D
       }
+    \int_compare:nNnTF \g_@@_lines_int > \l_@@_lines_int
+      { \@@_typeset_remaining_auxii: }
+      { \@@_typeset: }
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxii:
   {
-    \int_compare:nNnTF \g_@@_lines_int = \c_one
-      { \@@_typeset_remaining_auxiii: }
+    \int_compare:nNnTF \g_@@_lines_int < \l_@@_lines_int
+      { \@@_typeset: }
       {
         \dim_add:Nn \l_@@_width_dim { \l_@@_unit_dim / 4 }
-        \@@_typeset_remaining:
+        \@@_typeset_remaining_auxi:
       }
-  }
-\cs_new_protected_nopar:Npn \@@_typeset_remaining_auxiii:
-  {
-    \hbox_set:Nn \l_@@_typeset_box
-      {
-        \box_move_up:nn
-          { \tex_baselineskip:D }
-          { \box_use_drop:N \l_@@_typeset_box }
-      }
-    \@@_typeset:
   }
 \int_new:N \g_@@_lines_int
 %    \end{macrocode}
@@ -637,22 +683,25 @@ Copyright and Licence
     afterskip            .tl_set:N = \l_@@_after_skip_tl ,
     opening              .tl_set:N = \l_@@_opening_tl ,
     closing              .tl_set:N = \l_@@_closing_tl ,
-    ratio                .fp_set:N = \l_@@_ratio_fp  ,
-    bracketratio         .fp_set:N = \l_@@_bracket_ratio_fp  ,
+    ratio                .fp_set:N = \l_@@_ratio_fp ,
+    bracketratio         .fp_set:N = \l_@@_bracket_ratio_fp ,
+    lines                  .code:n = \@@_set_lines:n {#1} ,
     beforeskip          .initial:n = \smallskipamount ,
     afterskip           .initial:n = \smallskipamount ,
     ratio               .initial:n = 0.5 ,
     bracketratio        .initial:n = 2.5 ,
+    lines               .initial:n = 2 ,
     ratio        .value_required:n = true ,
     bracketratio .value_required:n = true ,
+    lines        .value_required:n = true
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\gezhu,\xgezhset}
+% \begin{macro}{\gezhu,\gezhuset}
 % 用户命令。
 %    \begin{macrocode}
-\NewDocumentCommand \gezhu { o m }
+\NewDocumentCommand \gezhu { +o +m }
   { \xgezhu:nn {#1} {#2} }
 \NewDocumentCommand \gezhuset { }
   { \keys_set:nn { xgezhu } }
