@@ -138,7 +138,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{467}
+% \CheckSum{599}
 % \GetFileId{xgezhu.sty}
 %
 % \title{\bfseries\pkg{xgezhu} 宏包}
@@ -271,6 +271,8 @@ Copyright and Licence
     \mode_leave_vertical:
     \group_begin:
       \@@_set_line_width:
+      \bool_set_true:N \l_@@_full_line_bool
+      \bool_set_false:N \l_@@_before_skip_bool
       \dim_set:Nn \l_@@_remaining_width_dim
         {
           \int_compare:nNnTF \etex_lastnodetype:D = \c_one
@@ -279,6 +281,7 @@ Copyright and Licence
         }
       \@@_boot:nn
   }
+\bool_new:N \l_@@_full_line_bool
 \dim_new:N \l_@@_remaining_width_dim
 %    \end{macrocode}
 % \end{macro}
@@ -288,11 +291,21 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_horizontal_mode:nn
   {
-    \@@_extract_previous_line_width:
     \group_begin:
+      \@@_extract_previous_line_width:
       \@@_set_line_width:
-      \dim_set:Nn \l_@@_remaining_width_dim
-        { \l_@@_line_width_dim - \g_@@_previous_line_width_dim }
+      \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
+      \int_compare:nNnTF \etex_lastnodetype:D = \c_twelve
+        {
+          \bool_set_false:N \l_@@_full_line_bool
+          \bool_set_true:N \l_@@_before_skip_bool
+          \dim_sub:Nn \l_@@_remaining_width_dim
+            { \g_@@_previous_line_width_dim }
+        }
+        {
+          \bool_set_true:N \l_@@_full_line_bool
+          \bool_set_false:N \l_@@_before_skip_bool
+        }
       \@@_boot:nn
   }
 %    \end{macrocode}
@@ -303,8 +316,11 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_inner_mode:nn
   {
-    \@@_hskip:N \l_@@_before_skip_tl
     \group_begin:
+      \bool_set_false:N \l_@@_full_line_bool
+      \int_compare:nNnTF \etex_lastnodetype:D = { -1 }
+        { \bool_set_false:N \l_@@_before_skip_bool }
+        { \bool_set_true:N \l_@@_before_skip_bool }
       \dim_set_eq:NN \l_@@_remaining_width_dim \c_max_dim
       \@@_boot:nn
   }
@@ -341,7 +357,8 @@ Copyright and Licence
         \int_set_eq:NN \tex_postdisplaypenalty:D \c_ten_thousand
         \skip_set:Nn \tex_abovedisplayskip:D
           {
-            \dim_compare:nNnTF \g_@@_previous_line_width_dim < \c_max_dim
+            \dim_compare:nNnTF
+              { \dim_abs:n { \g_@@_previous_line_width_dim } } < \c_max_dim
               { -2 } { - } \tex_baselineskip:D
           }
         \skip_zero:N \tex_belowdisplayskip:D
@@ -350,7 +367,8 @@ Copyright and Licence
       \c_math_toggle_token \c_math_toggle_token
     \group_end:
     \int_set:Nn \tex_prevgraf:D { \tex_prevgraf:D - \c_three }
-    \dim_compare:nNnTF \g_@@_previous_line_width_dim < \c_max_dim
+    \dim_compare:nNnTF
+      { \dim_abs:n { \g_@@_previous_line_width_dim } } < \c_max_dim
       {
         \dim_gsub:Nn \g_@@_previous_line_width_dim
           {
@@ -358,13 +376,7 @@ Copyright and Licence
               { \tex_leftskip:D + 2em + \etex_parshapeindent:D \c_one }
               { \tex_leftskip:D + 2em }
           }
-        \skip_horizontal:n
-          {
-            \tl_if_empty:NF \l_@@_before_skip_tl
-              { ( \l_@@_before_skip_tl ) + }
-            \g_@@_previous_line_width_dim
-          }
-        \box_use:N \strutbox
+        \tex_kern:D \g_@@_previous_line_width_dim
       }
       { \dim_gzero:N \g_@@_previous_line_width_dim }
   }
@@ -387,18 +399,21 @@ Copyright and Licence
       { \fp_eval:n { \l_@@_ratio_fp * \f@baselineskip } }
     \tl_use:N \l_@@_format_tl
     \selectfont
+    \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
     \dim_set:Nn \l_@@_unit_dim { \f@size pt }
     \@@_make_opening_closing_box:
-    \dim_set_eq:NN \tex_hfuzz:D \l_@@_unit_dim
     \dim_set:Nn \tex_splitmaxdepth:D { \box_dp:N \strutbox }
     \skip_set:Nn \l_@@_good_break_skip
       { \c_zero_dim plus 0.5\l_@@_outer_unit_dim }
-    \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
+    \skip_set:Nn \l_@@_unit_stretch_skip
+      { \c_zero_dim plus \l_@@_unit_dim }
+    \@@_set_before_skip:
     \@@_processing:
   }
 \box_new:N \l_@@_text_box
 \dim_new:N \l_@@_unit_dim
 \dim_new:N \l_@@_outer_unit_dim
+\skip_new:N \l_@@_unit_stretch_skip
 %    \end{macrocode}
 % \end{macro}
 %
@@ -409,9 +424,12 @@ Copyright and Licence
   {
     \@parboxrestore
     \tex_everypar:D { { \box_set_to_last:N \c_zero } }
+    \dim_zero:N \tex_emergencystretch:D
+    \dim_set_eq:NN \tex_hfuzz:D \c_max_dim
     \dim_set_eq:NN \tex_vfuzz:D \c_max_dim
     \int_set_eq:NN \tex_hbadness:D \c_max_int
     \int_set_eq:NN \tex_vbadness:D \c_max_int
+    \int_set_eq:NN \tex_tolerance:D \c_one_thousand
     \skip_zero:N \tex_splittopskip:D
     \int_zero:N \tex_linepenalty:D
     \int_zero:N \tex_clubpenalty:D
@@ -451,9 +469,11 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_put_opening_box:
   {
-    \cs_set_eq:NN \@@_put_opening_box: \prg_do_nothing:
+    \bool_if:NT \l_@@_before_skip_bool
+      { \skip_horizontal:N \l_@@_before_skip }
     \box_if_empty:NF \l_@@_opening_box
       { \@@_put_box:N \l_@@_opening_box }
+    \cs_set_eq:NN \@@_put_opening_box: \prg_do_nothing:
   }
 \cs_new_protected_nopar:Npn \@@_put_closing_box:
   {
@@ -468,6 +488,33 @@ Copyright and Licence
   }
 \box_new:N \l_@@_opening_box
 \box_new:N \l_@@_closing_box
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_set_before_skip:}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_set_before_skip:
+  {
+    \tl_if_empty:NTF \l_@@_before_skip_tl
+      { \bool_set_false:N \l_@@_before_skip_bool }
+      {
+        \bool_if:NT \l_@@_before_skip_bool
+          {
+            \skip_set:Nn \l_@@_before_skip
+              { \l_@@_before_skip_tl }
+            \dim_compare:nNnF \l_@@_remaining_width_dim = \c_max_dim
+              {
+                \dim_sub:Nn \l_@@_remaining_width_dim
+                  {
+                      \l_@@_before_skip
+                    - \etex_glueshrink:D \l_@@_before_skip
+                  }
+              }
+          }
+      }
+  }
+\bool_new:N \l_@@_before_skip_bool
+\skip_new:N \l_@@_before_skip
 %    \end{macrocode}
 % \end{macro}
 %
@@ -560,22 +607,19 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxi:
   {
-    \@@_newline:
+    \@@_fill_newline:
     \dim_set:Nn \l_@@_remaining_width_dim
       { \l_@@_line_width_dim - \box_wd:N \l_@@_opening_box }
+    \bool_set_true:N \l_@@_full_line_bool
     \@@_split_lines:
   }
 \cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxii:
   {
     \vbox_set:Nn \l_@@_text_box
       {
-        \dim_compare:nNnF
-          \l_@@_remaining_width_dim = \l_@@_line_width_dim
-          {
-            \@@_dim_normalize:N \l_@@_remaining_width_dim
-            \dim_set:Nn \tex_emergencystretch:D { -\l_@@_unit_dim }
-          }
-        \int_set:Nn \tex_looseness:D { -1 }
+        \bool_if:NTF \l_@@_full_line_bool
+          { \int_set:Nn \tex_looseness:D { -1 } }
+          { \@@_dim_normalize:N \l_@@_remaining_width_dim }
         \@@_parshape:
         \hbox_unpack_clear:N \l_@@_text_box
       }
@@ -583,16 +627,16 @@ Copyright and Licence
       \l_@@_text_box { \l_@@_lines_int \tex_baselineskip:D }
     \vbox_set:Nn \l_@@_typeset_box
       { \vbox_unpack:N \l_@@_typeset_box }
+    \bool_if:NF \l_@@_full_line_bool
+      { \skip_horizontal:N \l_@@_unit_stretch_skip }
     \@@_typeset:
     \box_if_empty:NF \l_@@_text_box
       { \@@_split_remaining_lines: }
   }
+\cs_new_protected_nopar:Npn \@@_fill_newline:
+  { \tex_penalty:D \c_ten_thousand \tex_hfil:D \@@_newline: }
 \cs_new_protected_nopar:Npn \@@_newline:
-  {
-    \tex_penalty:D \c_ten_thousand
-    \tex_hfil:D
-    \tex_penalty:D - \c_ten_thousand
-  }
+  { \tex_penalty:D - \c_ten_thousand }
 \box_new:N \l_@@_typeset_box
 %    \end{macrocode}
 % \end{macro}
@@ -603,6 +647,7 @@ Copyright and Licence
   {
     \@@_newline:
     \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
+    \bool_set_true:N \l_@@_full_line_bool
     \@@_extract_hbox:Nn \l_@@_text_box
       { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
     \@@_split_lines:
@@ -650,6 +695,8 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_typeset_remaining:
   {
     \@@_dim_normalize:N \l_@@_width_dim
+    \dim_set:Nn \l_@@_step_dim
+      { \l_@@_unit_dim / \l_@@_lines_int }
     \@@_typeset_remaining_auxi:
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxi:
@@ -657,24 +704,73 @@ Copyright and Licence
     \vbox_set:Nn \l_@@_typeset_box
       {
         \dim_set_eq:NN \tex_hsize:D \l_@@_width_dim
-        \int_set_eq:NN \etex_lastlinefit:D \c_one_thousand
+        \skip_set_eq:NN \tex_rightskip:D \l_@@_unit_stretch_skip
+        \skip_zero:N \tex_parfillskip:D
         \hbox_unpack:N \l_@@_text_box \par
         \int_gset_eq:NN \g_@@_lines_int \tex_prevgraf:D
       }
     \int_compare:nNnTF \g_@@_lines_int > \l_@@_lines_int
       { \@@_typeset_remaining_auxii: }
-      { \@@_typeset: }
+      { \@@_typeset_remaining_auxiii: }
   }
 \cs_new_protected_nopar:Npn \@@_typeset_remaining_auxii:
   {
+    \dim_add:Nn \l_@@_width_dim { \l_@@_step_dim }
+    \@@_typeset_remaining_auxi:
+  }
+\cs_new_protected_nopar:Npn \@@_typeset_remaining_auxiii:
+  {
+    \@@_extract_max_natural_width:N \l_@@_typeset_box
     \int_compare:nNnTF \g_@@_lines_int < \l_@@_lines_int
-      { \@@_typeset: }
       {
-        \dim_add:Nn \l_@@_width_dim { \l_@@_unit_dim / 4 }
-        \@@_typeset_remaining_auxi:
+        \box_set_wd:Nn \l_@@_typeset_box { \l_@@_max_dim }
+        \box_set_ht:Nn \l_@@_typeset_box
+          {
+            \int_eval:n { \l_@@_lines_int - \g_@@_lines_int }
+            \tex_baselineskip:D + \box_ht:N \l_@@_typeset_box
+          }
+      }
+      {
+        \dim_compare:nNnT
+          { \l_@@_max_dim } < { \box_wd:N \l_@@_typeset_box }
+          { \box_set_wd:Nn \l_@@_typeset_box { \l_@@_max_dim } }
+      }
+    \@@_typeset:
+  }
+\dim_new:N \l_@@_step_dim
+\int_new:N \g_@@_lines_int
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_extract_max_natural_width:N}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_extract_max_natural_width:N #1
+  {
+    \dim_zero:N \l_@@_max_dim
+    \box_if_empty:NF #1
+      {
+        \box_set_eq:NN \l_@@_tmpa_box #1
+        \@@_extract_max_natural_width_aux:
       }
   }
-\int_new:N \g_@@_lines_int
+\cs_new_protected:Npn \@@_extract_max_natural_width_aux:
+  {
+    \vbox_set_split_to_ht:NNn \l_@@_tmpb_box
+      \l_@@_tmpa_box { \tex_baselineskip:D }
+    \@@_extract_hbox:Nn \l_@@_tmpb_box
+      { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
+    \dim_set:Nn \l_@@_max_dim
+      {
+        \dim_max:nn
+          { \l_@@_max_dim }
+          { \box_wd:N \l_@@_tmpb_box }
+      }
+    \box_if_empty:NF \l_@@_tmpa_box
+      { \@@_extract_max_natural_width_aux: }
+  }
+\box_new:N \l_@@_tmpa_box
+\box_new:N \l_@@_tmpb_box
+\dim_new:N \l_@@_max_dim
 %    \end{macrocode}
 % \end{macro}
 %
