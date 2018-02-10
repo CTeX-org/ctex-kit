@@ -1,20 +1,20 @@
 #!/usr/bin/env texlua
 
-module = "xgezhu"
+module = "jiazhu"
 
 packtdszip = true
 
-sourcefiles = {"xgezhu.dtx"}
-unpackfiles = {"xgezhu.dtx"}
-unpacksuppfiles = {"xgezhu.id", "ctxdocstrip.tex"}
+sourcefiles = {"jiazhu.dtx"}
+unpackfiles = {"jiazhu.dtx"}
+unpacksuppfiles = {"jiazhu.id", "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
 installfiles = {"*.sty"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 
 function copytds_posthook()
-  cp("xgezhu.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("xgezhu.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
+  cp("jiazhu.ins", unpackdir, ctandir .. "/" .. ctanpkg)
+  cp("jiazhu.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
 end
 
 dofile("../tool/zhl3build.lua")
