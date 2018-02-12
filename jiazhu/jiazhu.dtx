@@ -138,7 +138,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{685}
+% \CheckSum{808}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -223,6 +223,14 @@ Copyright and Licence
 % \begin{function}{alignment}
 %   \begin{syntax}
 %     alignment = <(justified)|left|right|centered|distributed>
+%   \end{syntax}
+% \end{function}
+%
+% \begin{function}{shortcut}
+%   \begin{syntax}
+%     shortcut  = \Arg{字符}
+%     shortcut  = \{<开始字符><结束字符>\}
+%     shortcut- = \Arg{字符列表}
 %   \end{syntax}
 % \end{function}
 %
@@ -645,22 +653,22 @@ Copyright and Licence
           { \box_wd:N \l_@@_text_box / \l_@@_lines_int }
       }
     \dim_compare:nNnTF \l_@@_width_dim > \l_@@_remaining_width_dim
-      { \@@_split_first_two_lines: }
+      { \@@_split_parshape_lines: }
       { \@@_typeset_remaining: }
   }
 \dim_new:N \l_@@_width_dim
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_split_first_two_lines:}
+% \begin{macro}{\@@_split_parshape_lines:}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_split_first_two_lines:
+\cs_new_protected_nopar:Npn \@@_split_parshape_lines:
   {
     \dim_compare:nNnTF \l_@@_remaining_width_dim < \l_@@_unit_dim
-      { \@@_split_first_two_lines_auxi: }
-      { \@@_split_first_two_lines_auxii: }
+      { \@@_split_parshape_lines_auxi: }
+      { \@@_split_parshape_lines_auxii: }
   }
-\cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxi:
+\cs_new_protected_nopar:Npn \@@_split_parshape_lines_auxi:
   {
     \@@_fill_newline:
     \dim_set:Nn \l_@@_remaining_width_dim
@@ -668,7 +676,7 @@ Copyright and Licence
     \bool_set_true:N \l_@@_full_line_bool
     \@@_split_lines:
   }
-\cs_new_protected_nopar:Npn \@@_split_first_two_lines_auxii:
+\cs_new_protected_nopar:Npn \@@_split_parshape_lines_auxii:
   {
     \vbox_set:Nn \l_@@_text_box
       {
@@ -844,6 +852,118 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\@@_add_shortcut:n, \@@_remove_shortcuts:n}
+% 设置和删除快捷命令。保险起见，我们只在文档开始时才实际设置快捷命令。
+%    \begin{macrocode}
+\AtBeginDocument { \@@_activate_shortcut: }
+\cs_new_protected_nopar:Npn \@@_activate_shortcut:
+  {
+    \seq_if_empty:NF \l_@@_shortcut_seq
+      {
+        \seq_map_function:NN
+          \l_@@_shortcut_seq \@@_add_shortcut_document:n
+      }
+    \cs_set_eq:NN \@@_add_shortcut_aux:n \@@_add_shortcut_document:n
+    \cs_set_eq:NN \@@_remove_shortcut:n \@@_remove_shortcut_document:n
+  }
+\cs_new_protected:Npn \@@_add_shortcut:n #1
+  {
+    \tl_if_blank:nF {#1}
+      { \@@_add_shortcut_aux:n {#1} }
+  }
+\cs_new_protected_nopar:Npn \@@_add_shortcut_aux:n
+  { \seq_put_right:Nn \l_@@_shortcut_seq }
+\cs_new_protected:Npn \@@_remove_shortcuts:n #1
+  {
+    \tl_map_inline:nn {#1}
+      { \exp_args:Nf \@@_remove_shortcut:n { \int_to_arabic:n { `##1 } } }
+  }
+\cs_new_protected:Npn \@@_add_shortcut_document:n #1
+  {
+    \tl_if_single_token:nTF {#1}
+      { \@@_set_shortcut_group:N #1 }
+      { \@@_set_shortcut_delimiter:NNw #1 \q_stop }
+  }
+\cs_new_protected:Npn \@@_set_shortcut_group:N #1
+  { \exp_args:Nf \@@_set_shortcut_group:n { \int_to_arabic:n { `#1 } } }
+\cs_new_protected:Npn \@@_set_shortcut_group:n #1
+  {
+    \@@_save_shortcut:n {#1}
+    \char_set_active_eq:nN {#1} \jiazhu
+  }
+\cs_new_protected:Npn \@@_set_shortcut_delimiter:NNw #1#2#3 \q_stop
+  {
+    \@@_set_shortcut_delimiter:NNf #1#2
+      { \int_to_arabic:n { `#1 } }
+  }
+\cs_new_protected:Npn \@@_set_shortcut_delimiter:NNn #1#2
+  {
+    \str_if_eq:nnTF {#1} {#2}
+      { \@@_set_shortcut_delimiter:n }
+      { \@@_set_shortcut_delimiter:Nn #2 }
+  }
+\cs_generate_variant:Nn \@@_set_shortcut_delimiter:NNn { NNf }
+\cs_new_protected:Npn \@@_set_shortcut_delimiter:n #1
+  {
+    \@@_active_char:nn
+      { \@@_set_shortcut_delimiter:Nn } {#1} {#1}
+  }
+\cs_new_protected:Npn \@@_set_shortcut_delimiter:Nn #1#2
+  {
+    \exp_args:Nc \@@_set_shortcut_delimiter_aux:NNn
+      { @@_shortcut_ #2 :w } #1 {#2}
+  }
+\cs_new_protected:Npn \@@_set_shortcut_delimiter_aux:NNn #1#2#3
+  {
+    \@@_save_shortcut:n {#3}
+    \DeclareDocumentCommand #1 { +o +u{#2} }
+      { \jiazhu:nn { ##1 } { ##2 } }
+    \char_set_active_eq:nN {#3} #1
+  }
+\cs_new_protected:Npn \@@_save_shortcut:n #1
+  {
+    \prop_get:NnNF \l_@@_shortcut_prop {#1} \l_@@_catcode_tl
+      {
+        \exp_args:Nc \@@_save_active_char:Nn
+          { @@_save_active_ #1 :w } {#1}
+        \prop_put:Nnx \l_@@_shortcut_prop
+          {#1} { \char_value_catcode:n {#1} }
+        \char_set_catcode_active:n {#1}
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_remove_shortcut:n
+  { \seq_remove_all:Nn \l_@@_shortcut_seq }
+\cs_new_protected_nopar:Npn \@@_remove_shortcut_document:n #1
+  {
+    \prop_pop:NnNT \l_@@_shortcut_prop {#1} \l_@@_catcode_tl
+      {
+        \char_set_catcode:nn {#1} { \l_@@_catcode_tl }
+        \exp_args:Nc \@@_restore_active_char:Nn
+          { @@_save_active_ #1 :w } {#1}
+      }
+  }
+\cs_new_protected:Npn \@@_save_active_char:Nn #1
+  { \@@_active_char:nn { \cs_set_eq:NN #1 } }
+\cs_new_protected:Npn \@@_restore_active_char:Nn #1#2
+  {
+    \char_set_active_eq:nN {#2} #1
+    \cs_set_eq:NN #1 \tex_undefined:D
+  }
+\group_begin:
+  \char_set_catcode_active:n { \c_zero }
+  \cs_new_protected:Npn \@@_active_char:nn #1#2
+    {
+      \group_begin:
+        \char_set_lccode:nn { \c_zero } {#2}
+      \tex_lowercase:D { \group_end: #1 ^^@ }
+    }
+\group_end:
+\tl_new:N \l_@@_catcode_tl
+\seq_new:N \l_@@_shortcut_seq
+\prop_new:N \l_@@_shortcut_prop
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{format}
 % 定义键值选项。
 %    \begin{macrocode}
@@ -858,6 +978,8 @@ Copyright and Licence
     bracketratio         .fp_set:N = \l_@@_bracket_ratio_fp ,
     baselineshift       .dim_set:N = \l_@@_shift_dim ,
     lines                  .code:n = \@@_set_lines:n {#1} ,
+    shortcut               .code:n = \@@_add_shortcut:n {#1} ,
+    shortcut-              .code:n = \@@_remove_shortcuts:n {#1} ,
     alignment          .choices:nn =
       { justified , left , right , centered , distributed }
       { \@@_set_alignment:n { \l_keys_choice_tl } } ,
@@ -866,6 +988,8 @@ Copyright and Licence
     baselineshift.value_required:n = true ,
     lines        .value_required:n = true ,
     alignment    .value_required:n = true ,
+    shortcut     .value_required:n = true ,
+    shortcut-    .value_required:n = true ,
     beforeskip          .initial:n = \smallskipamount ,
     afterskip           .initial:n = \smallskipamount ,
     ratio               .initial:n = 0.5 ,
@@ -911,17 +1035,15 @@ Copyright and Licence
 
 \usepackage{jiazhu}
 
-\jiazhuset { opening = 〔 , closing = 〕 }
+\jiazhuset { opening = 〔 , closing = 〕 , shortcut = | }
 
 \ExplSyntaxOn
   \cs_if_exist_use:NT \xeCJKsetup
     { { AllowBreakBetweenPuncts } }
-  \char_set_active_eq:NN \| \jiazhu
 \ExplSyntaxOff
 
 \begin{document}
 
-\catcode`\| = \active
 \setlength\parskip{30pt}
 
 %%\sloppy
