@@ -138,7 +138,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{808}
+% \CheckSum{836}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -846,8 +846,6 @@ Copyright and Licence
         \@@_extract_max_width_auxii:
       }
   }
-\box_new:N \l_@@_tmpa_box
-\box_new:N \l_@@_tmpb_box
 \dim_new:N \l_@@_max_dim
 %    \end{macrocode}
 % \end{macro}
@@ -1007,6 +1005,70 @@ Copyright and Licence
   { \jiazhu:nn {#1} {#2} }
 \NewDocumentCommand \jiazhuset { }
   { \keys_set:nn { jiazhu } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \LuaTeX{} 单独处理。
+%
+%    \begin{macrocode}
+\sys_if_engine_luatex:F
+  {
+    \box_new:N \l_@@_tmpa_box
+    \box_new:N \l_@@_tmpb_box
+    \file_input_stop:
+  }
+%    \end{macrocode}
+%
+% \begin{macro}{\@@_extract_max_width:N}
+%    \begin{macrocode}
+\cs_gset_protected:Npn \@@_extract_max_width:N #1
+  {
+    \box_if_empty:NTF #1
+      { \dim_zero:N \l_@@_max_dim }
+      {
+        \int_set:Nn \l_@@_box_int {#1}
+        \luatex_luafunction:D \g_@@_box_max_width_func
+        \dim_set_eq:NN \l_@@_width_dim \l_@@_max_dim
+      }
+  }
+\int_new:N \l_@@_box_int
+\newluafunction \g_@@_box_max_width_func
+\cs_undefine:N \@@_extract_max_width_auxi:
+\cs_undefine:N \@@_extract_max_width_auxii:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{extract_max_width}
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_space:n { 32 }
+\lua_now_x:n
+  {
+    jiazhu                = jiazhu or { }
+    local jiazhu          = jiazhu
+    local getbox          = tex.getbox
+    local getcount        = tex.getcount
+    local setdimen        = tex.setdimen
+    local dnode           = node.direct
+    local getlist         = dnode.getlist
+    local todirect        = dnode.todirect
+    local traverse_id     = dnode.traverse_id
+    local rangedimensions = dnode.rangedimensions
+
+    function jiazhu.extract_max_width ()
+      local box   = getbox(getcount("l_@@_box_int"))
+      local width = 0
+      for hlist in traverse_id(id_hlist, getlist(todirect(box))) do
+        local w = rangedimensions(hlist, getlist(hlist))
+        if w > width then width = w end
+      end
+      setdimen("l_@@_max_dim", width)
+    end
+
+    local t = lua.get_functions_table()
+    t[\int_use:N \g_@@_box_max_width_func] = jiazhu.extract_max_width
+  }
+\group_end:
 %    \end{macrocode}
 % \end{macro}
 %
