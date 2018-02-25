@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10769}
+% \CheckSum{10796}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -4284,6 +4284,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/23}{解决标点中间被隔开的禁则与压缩问题。}
 %
 % \begin{macro}{\xeCJK_if_last_punct:TF}
+% \changes{v3.6.1}{2018/02/25}{细化判断。}
 % 判断之前是否是一个标点符号。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_if_last_punct:TF
@@ -4297,7 +4298,14 @@ Copyright and Licence
          { \use_ii:nn }
       }
   }
-\cs_new_protected:Npn \@@_if_last_punct_glue:TF #1#2
+\cs_new_protected_nopar:Npn \@@_if_last_punct_glue:TF
+  {
+    \seq_if_in:NoTF \g_@@_punct_skip_seq
+      { \skip_use:N \tex_lastskip:D }
+      { \@@_if_last_punct_glue_auxi:TF }
+      { \@@_if_last_punct_glue_auxii:TF }
+  }
+\cs_new_protected:Npn \@@_if_last_punct_glue_auxi:TF #1#2
   {
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
     \tex_unskip:D
@@ -4306,10 +4314,32 @@ Copyright and Licence
       {
         \xeCJK_if_last_node:TF
           { \@@_if_last_punct_auxii:TF }
-          { \@@_if_last_punct_auxiii:TF }
+          { \use_ii:nn }
       }
       {#1}
       { \skip_horizontal:N \l_@@_last_skip #2 }
+  }
+\cs_new_protected_nopar:Npn \@@_if_last_punct_glue_auxii:TF
+  {
+    \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D
+    \skip_if_eq:nnTF { \tex_lastskip:D } { \c_xeCJK_space_skip_tl }
+      { \@@_if_last_punct_glue_auxiii:TF }
+      { \use_ii:nn }
+  }
+\cs_new_protected:Npn \@@_if_last_punct_glue_auxiii:TF #1#2
+  {
+    \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
+    \tex_unskip:D
+    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
+      {
+        \seq_if_in:NoTF \g_@@_punct_skip_seq
+          { \skip_use:N \tex_lastskip:D }
+          { \@@_if_last_punct_glue_auxi:TF }
+          { \use_ii:nn }
+      }
+      { \use_ii:nn }
+      {#1}
+      { \skip_horizontal:N \l_@@_tmp_skip #2 }
   }
 \cs_new_protected:Npn \@@_if_last_punct_penalty:TF #1#2
   {
@@ -4317,11 +4347,9 @@ Copyright and Licence
     \tex_unpenalty:D
     \bool_set_true:N \l_@@_last_penalty_bool
     \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
-      {
-        \@@_if_last_punct_glue:TF
-          {#1}
-          { \tex_penalty:D \l_@@_last_penalty_int #2 }
-      }
+      { \@@_if_last_punct_glue:TF }
+      { \use_ii:nn }
+      {#1}
       { \tex_penalty:D \l_@@_last_penalty_int #2 }
   }
 \cs_new_protected:Npn \@@_if_last_punct_auxi:TF #1#2
@@ -4332,11 +4360,19 @@ Copyright and Licence
         \bool_set_true:N \l_@@_last_penalty_bool
         \int_set_eq:NN \l_@@_last_penalty_int \c_ten_thousand
       }
-    \@@_if_last_punct_auxiv:TF
+    \xeCJK_if_last_node:TF
+      { \@@_if_last_punct_auxii:TF }
+      { \use_ii:nn }
       {#1}
       { \xeCJK_no_break: #2 }
   }
-\cs_new_protected:Npn \@@_if_last_punct_auxii:TF #1#2
+\cs_new_protected_nopar:Npn \@@_if_last_punct_auxii:TF
+  {
+    \dim_compare:nNnTF \l_@@_last_kern_dim > \c_zero_dim
+      { \@@_if_last_punct_auxiii:TF }
+      { \@@_make_node:N \l_@@_last_kern_dim \use_ii:nn }
+  }
+\cs_new_protected_nopar:Npn \@@_if_last_punct_auxiii:TF
   {
     \int_case:nnTF { \xetex_charclass:D \l_@@_last_kern_dim }
       {
@@ -4345,22 +4381,10 @@ Copyright and Licence
         { \xeCJK_class_num:n { FullLeft } }
         { \tl_set_eq:NN \l_@@_aligni_tl \c_@@_left_tl }
       }
-      { \@@_if_last_punct_auxv:TF {#1} {#2} }
-      { \@@_make_node:N \l_@@_last_kern_dim #2 }
-  }
-\cs_new_protected_nopar:Npn \@@_if_last_punct_auxiii:TF
-  {
-    \int_compare:nNnTF \etex_lastnodetype:D = \c_eleven
-      { \@@_if_last_punct_auxvi:TF }
+      { \@@_if_last_punct_auxiv:TF }
       { \use_ii:nn }
   }
 \cs_new_protected_nopar:Npn \@@_if_last_punct_auxiv:TF
-  {
-    \xeCJK_if_last_node:TF
-      { \@@_if_last_punct_auxii:TF }
-      { \use_ii:nn }
-  }
-\cs_new_protected:Npn \@@_if_last_punct_auxv:TF #1#2
   {
     \dim_set_eq:NN \l_@@_tmp_dim \l_@@_last_kern_dim
     \xeCJK_if_last_node:TF
@@ -4368,26 +4392,9 @@ Copyright and Licence
         \tl_gset:Nx \g_@@_last_punct_tl
           { \utex_char:D \l_@@_tmp_dim }
         \dim_set_eq:NN \l_@@_last_bound_dim \l_@@_last_kern_dim
-        #1
+        \use_i:nn
       }
-      { \@@_make_node:N \l_@@_tmp_dim #2 }
-  }
-\cs_new_protected:Npn \@@_if_last_punct_auxvi:TF #1#2
-  {
-    \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D
-    \skip_if_eq:nnTF
-      { \l_@@_last_skip }
-      { \c_xeCJK_space_skip_tl }
-      {
-        \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
-        \tex_unskip:D
-        \int_compare:nNnTF \tex_lastpenalty:D = \c_ten_thousand
-          { \@@_if_last_punct_auxi:TF }
-          { \@@_if_last_punct_auxiv:TF }
-          { \skip_set_eq:NN \l_@@_last_skip \l_@@_tmp_skip #1 }
-          { \skip_horizontal:N \l_@@_tmp_skip #2 }
-      }
-      {#2}
+      { \@@_make_node:N \l_@@_tmp_dim \use_ii:nn }
   }
 \tl_new:N \l_@@_aligni_tl
 \tl_new:N \l_@@_alignii_tl
@@ -5295,39 +5302,50 @@ Copyright and Licence
 \cs_new:Npn \@@_use_punct_skip_minus:nNN #1#2#3
   { \use:c { \@@_punct_csname:n { skip/minus/#1/#2/#3 } } }
 \cs_new_protected:Npn \@@_save_punct_dim:nNn #1#2
-  { \@@_save_punct_width_aux:nnn { dim } { #1/#2 } }
+  { \@@_save_punct_width_aux:nnnn { dim } {#1} { #1/#2 } }
 \cs_new_protected:Npn \@@_save_punct_dim:nNNn #1#2#3
-  { \@@_save_punct_width_aux:nnn { dim } { #1/#2/#3 } }
+  { \@@_save_punct_width_aux:nnnn { dim } {#1} { #1/#2/#3 } }
 \cs_new_protected:Npn \@@_save_punct_skip:nNNn #1#2#3#4
   {
-    \@@_save_punct_width_aux:nnn { skip } { #1/#2/#3 } {#4}
-    \@@_save_punct_width_aux:nnn { skip } { plus/#1/#2/#3 } {#4}
-    \@@_save_punct_width_aux:nnn { skip } { minus/#1/#2/#3 } {#4}
+    \@@_save_punct_width_aux:nnnn { skip } {#1} { #1/#2/#3 } {#4}
+    \@@_save_punct_width_aux:nnnn { skip } {#1} { plus/#1/#2/#3 } {#4}
+    \@@_save_punct_width_aux:nnnn { skip } {#1} { minus/#1/#2/#3 } {#4}
   }
 \cs_new_protected:Npn \@@_save_punct_skip:nNNnnn #1#2#3#4#5#6
   {
     \use:x
       {
-        \@@_save_punct_skip_aux:nnnn { #1/#2/#3 }
+        \@@_save_punct_skip_aux:nnnnn {#1} { #1/#2/#3 }
           { \dim_eval:n {#4} }
           { \dim_max:nn { \c_zero_dim } {#5} }
           { \dim_max:nn { \c_zero_dim } {#6} }
       }
   }
-\cs_new_protected:Npn \@@_save_punct_skip_aux:nnnn #1#2#3#4
+\cs_new_protected:Npn \@@_save_punct_skip_aux:nnnnn #1#2#3#4#5
   {
-    \@@_save_punct_width_aux:nnn { skip }
-      {#1}         { #2 ~ plus ~ #3 ~ minus ~ #4 ~ }
-    \@@_save_punct_width_aux:nnn { skip }
-      { plus/#1 }  { #2 ~ plus ~ #3 ~ }
-    \@@_save_punct_width_aux:nnn { skip }
-      { minus/#1 } { #2 ~ minus ~ #4 ~ }
+    \@@_save_punct_width_aux:nnnn { skip } {#1}
+      {#2}         { #3 ~ plus ~ #4 ~ minus ~ #5 ~ }
+    \@@_save_punct_width_aux:nnnn { skip } {#1}
+      { plus/#2 }  { #3 ~ plus ~ #4 ~ }
+    \@@_save_punct_width_aux:nnnn { skip } {#1}
+      { minus/#2 } { #3 ~ minus ~ #5 ~ }
   }
-\cs_new_protected:Npn \@@_save_punct_width_aux:nnn #1#2#3
+\cs_new_protected:Npn \@@_save_punct_width_aux:nnnn #1#2#3#4
   {
-    \tl_const:cx { \@@_punct_csname:n { #1/#2 } }
-                 { \use:c { #1_eval:n } {#3} }
+    \@@_save_punct_width_aux:cxn
+      { \@@_punct_csname:n { #1/#3 } }
+      { \use:c { #1_eval:n } {#4} }
+      {#2}
   }
+\cs_new_protected:Npn \@@_save_punct_width_aux:Nnn #1#2#3
+  {
+    \tl_const:Nn #1 {#2}
+    \str_if_eq:nnT {#3} { glue }
+      { \seq_gput_right:Nn \g_@@_punct_skip_seq {#2} }
+  }
+\seq_new:N \g_@@_punct_skip_seq
+\seq_gput_right:No \g_@@_punct_skip_seq { \skip_use:N \c_zero_skip }
+\cs_generate_variant:Nn \@@_save_punct_width_aux:Nnn { cx }
 \cs_new_eq:NN \@@_use_dim_or_skip:nNN \@@_use_punct_skip:nNN
 %    \end{macrocode}
 %
