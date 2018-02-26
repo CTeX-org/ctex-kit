@@ -279,7 +279,7 @@ Copyright and Licence
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 %
-% \CheckSum{10810}
+% \CheckSum{10801}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1781,7 +1781,7 @@ Copyright and Licence
 % 去掉 |#1| 外层的分组括号。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_tl_remove_outer_braces:N #1
-  { \tl_set:Nx #1 { \exp_args:NV \xeCJK_tl_remove_outer_braces:n #1 } }
+  { \tl_set:Nx #1 { \exp_args:No \xeCJK_tl_remove_outer_braces:n {#1} } }
 \cs_new:Npn \xeCJK_tl_remove_outer_braces:n #1
   {
     \exp_last_unbraced:Nf
@@ -1789,11 +1789,14 @@ Copyright and Licence
   }
 \cs_new:Npn \@@_tl_remove_outer_braces:w #1 \s__stop
   {
-    \bool_lazy_and:nnTF
-      { \tl_if_single_p:n {#1} }
-      { ! ( \tl_if_head_is_N_type_p:n {#1} ) }
-      { \xeCJK_tl_remove_outer_braces:n {#1} }
-      { \tl_trim_spaces:n {#1} }
+    \tl_if_single:nTF {#1}
+      {
+        \tl_if_head_is_N_type:nTF {#1}
+          { \tl_trim_spaces:n }
+          { \xeCJK_tl_remove_outer_braces:n }
+      }
+      { \tl_trim_spaces:n }
+      {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -3185,9 +3188,9 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_check_for_ecglue:
   {
-    \bool_lazy_or:nnTF
-      { \xeCJK_if_last_node_p:n { CJK } }
-      { \xeCJK_if_last_node_p:n { CJK-widow } }
+    \xeCJK_if_last_node:nTF { CJK }
+      { \use_i:nn }
+      { \xeCJK_if_last_node:nTF { CJK-widow } }
       { \xeCJK_remove_node: \CJKecglue }
       {
         \xeCJK_if_last_node:nT { CJK-space }
@@ -10487,14 +10490,12 @@ Copyright and Licence
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
       {
-        \bool_lazy_or:nnF
-          { \int_compare_p:nNn \l_@@_listings_flag_int = \c_two }
+        \int_compare:nNnF \l_@@_listings_flag_int = \c_two
           {
-            \bool_lazy_and_p:nn
-              { \int_compare_p:nNn \l_@@_listings_flag_int = \c_three }
-              { ! \l_@@_punct_breakable_bool }
+            \int_compare:nNnTF \l_@@_listings_flag_int = \c_three
+              { \bool_if:NT \l_@@_punct_breakable_bool { \lst@Output } }
+              { \lst@Output }
           }
-          { \lst@Output }
         \lst@lettertrue
       }
       {
@@ -10509,10 +10510,8 @@ Copyright and Licence
     \lst@whitespacefalse
     \bool_if:NTF \l_@@_listings_letter_bool
       {
-        \bool_lazy_and:nnT
-          { \int_compare_p:nNn \l_@@_listings_flag_int < \c_two }
-          {  \@@_punct_if_long_p:N #2 }
-          { \lst@Output }
+        \int_compare:nNnT \l_@@_listings_flag_int < \c_two
+          { \@@_punct_if_long:NT #2 { \lst@Output } }
         \lst@lettertrue
       }
       {
@@ -10905,9 +10904,9 @@ Copyright and Licence
 % \begin{macro}{\@@_composite_cs:Nnn,\@@_composite_cs:nnn}
 %    \begin{macrocode}
 \cs_new:Npx \@@_composite_cs:Nnn #1#2#3
-  { \cs_to_str:N \\ #2 \exp_not:N \token_to_str:N #1 - \exp_not:N \tl_to_str:n {#3} }
+  { \c_backslash_str #2 \exp_not:N \token_to_str:N #1 - \exp_not:N \tl_to_str:n {#3} }
 \cs_new:Npx \@@_composite_cs:nnn #1#2#3
-  { \cs_to_str:N \\ #2 #1 - \exp_not:N \tl_to_str:n {#3} }
+  { \c_backslash_str #2 #1 - \exp_not:N \tl_to_str:n {#3} }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -10921,9 +10920,13 @@ Copyright and Licence
   {
     \tl_if_single_token:nTF {#1}
       {
-        \if_predicate:w
-          \bool_if_p:n { \token_if_cs_p:N #1 || \token_if_active_p:N #1 }
-          \prg_return_true: \else: \prg_return_false: \fi:
+        \token_if_cs:NTF #1
+          { \prg_return_true: }
+          {
+            \token_if_active:NTF #1
+              { \prg_return_true: }
+              { \prg_return_false: }
+          }
       }
       { \prg_return_false: }
   }
@@ -11022,10 +11025,14 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_provide_text_command_default:N #1
   {
-    \bool_lazy_or:nnF
-      { \cs_if_exist_p:c { ?   \token_to_str:N #1 } }
-      { \cs_if_free_p:c  { ? - \token_to_str:N #1 } }
-      { \exp_args:NNv \ProvideTextCommandDefault #1 { ? - \token_to_str:N #1 } }
+    \cs_if_exist:cF { ? \token_to_str:N #1 }
+      {
+        \cs_if_free:cF { ? - \token_to_str:N #1 }
+          {
+            \exp_args:NNv \ProvideTextCommandDefault #1
+              { ? - \token_to_str:N #1 }
+          }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -11336,9 +11343,9 @@ Copyright and Licence
     \tl_if_blank:nTF {#1}
       { \cs_if_exist_use:cTF { ? #2 } { {#1} } {#1} }
       {
-        \bool_lazy_and:nnTF
-          { \@@_glyph_if_exist_p:n { `#3 } }
-          { \@@_glyph_if_exist_p:n { `#4 } }
+        \@@_glyph_if_exist:nTF { `#3 }
+          { \@@_glyph_if_exist:nTF { `#4 } }
+          { \use_ii:nn }
           { #1#3#4 }
           { \cs_if_exist_use:cTF { ? #2 } { {#1} } { #1#3#4 } }
       }
