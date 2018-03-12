@@ -280,7 +280,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 %
-% \CheckSum{10801}
+% \CheckSum{10828}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3857,7 +3857,7 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_punct_bound_kern_aux:NNN #1#2
   {
     \str_if_eq:nnTF {#1} {#2}
-      { \@@_punct_bound_kern:N }
+      { \@@_nobreak_hskip:N }
       {
         \@@_punct_if_long:NTF #1
           { \skip_horizontal:N }
@@ -5444,65 +5444,111 @@ Copyright and Licence
     \tl_if_exist:cF { \@@_punct_csname:n { dim/glue/#1/#2 } }
       { \@@_get_punct_bounds_aux:NN #1 #2 }
   }
-\cs_new_protected_nopar:Npn \@@_get_punct_bounds_aux:NN #1#2
+\cs_new_protected_nopar:Npn \@@_get_punct_bounds_aux:NN
   {
     \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
-      {
-        \@@_save_punct_dim:nNNn { rule }   #1 #2 { \c_zero_dim }
-        \@@_save_punct_dim:nNNn { glue }   #1 #2 { \c_zero_dim }
-        \@@_save_punct_dim:nNNn { offset } #1 #2 { \c_zero_dim }
-        \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
-        \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
-        \@@_save_punct_skip:nNNn { glue }  #1 #2 { \c_zero_skip }
-      }
-      {
-        { \xeCJK_select_punct_font: \xeCJK_calc_punct_dimen:N #2 }
-        \dim_set:Nn \l_@@_bound_dim
-          { \@@_use_punct_dim:nNN { bound } #1 #2 }
-        \dim_set:Nn \l_@@_reverse_bound_dim
-          {
-            \tl_if_eq:NNTF #1 \c_@@_left_tl
-              { \@@_use_punct_dim:nNN { bound } \c_@@_right_tl }
-              { \@@_use_punct_dim:nNN { bound } \c_@@_left_tl }
-              #2
-          }
-        \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
-        \xeCJK_punct_margin_process:NN #1 #2
-        \xeCJK_punct_offset_process:NN #1 #2
-      }
+      { \@@_save_punct_margin_plain:NN }
+      { \@@_save_punct_margin:NN }
   }
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_bounds:No
   { \exp_last_unbraced:NNo \xeCJK_get_punct_bounds:NN }
+\cs_new_protected_nopar:Npn \@@_save_punct_margin_plain:NN #1#2
+  {
+    \@@_save_punct_dim:nNNn { rule }   #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { glue }   #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { offset } #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
+    \@@_save_punct_skip:nNNn { glue }  #1 #2 { \c_zero_skip }
+  }
+\cs_new_protected_nopar:Npn \@@_save_punct_margin:NN #1#2
+  {
+    \group_begin:
+      \xeCJK_select_punct_font:
+      \xeCJK_calc_punct_dimen:N #2
+    \group_end:
+    \dim_set:Nn \l_@@_bound_dim
+      { \@@_use_punct_dim:nNN { bound } #1 #2 }
+    \dim_set:Nn \l_@@_reverse_bound_dim
+      {
+        \tl_if_eq:NNTF #1 \c_@@_left_tl
+          { \@@_use_punct_dim:nNN { bound } \c_@@_right_tl }
+          { \@@_use_punct_dim:nNN { bound } \c_@@_left_tl }
+          #2
+      }
+    \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
+    \xeCJK_punct_margin_process:NN #1 #2
+    \xeCJK_punct_offset_process:NN #1 #2
+    \@@_punct_if_long:NT #2
+      { \@@_long_punct_kerning:N #2 }
+  }
 \dim_new:N \l_@@_bound_dim
 \dim_new:N \l_@@_reverse_bound_dim
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.6.2}{2018/03/12}{修正长标点被隔开时的压缩处理错误。}
+%
+% \begin{macro}[int]{\@@_long_punct_kerning:N}
+% \changes{v3.4.3}{2016/10/27}{考虑破折号边界为负值的情况。}
+% 相同长标点压缩。对于破折号，计算两标点之间的空白，保证它中间不被断开。
+% 注意，破折号的边界可能为负值（比如方正新书宋），此时不必压缩。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_long_punct_kerning:N #1
+  {
+    \dim_set:Nn \l_@@_tmp_dim
+      {
+        \str_case:nnTF {#1}
+          { { ^^^^2025 } { } { ^^^^2026 } { } }
+          { \c_zero_dim }
+          {
+            \dim_min:nn
+              { - \l_@@_bound_dim - \l_@@_reverse_bound_dim }
+              { \c_zero_dim }
+          }
+      }
+    \@@_save_punct_dim:nNNn  { kern } #1 #1 { \l_@@_tmp_dim }
+    \@@_save_punct_skip:nNNn { kern } #1 #1 { \l_@@_tmp_dim }
+    \dim_add:Nn \l_@@_tmp_dim
+      { \dim_max:nn { \l_@@_bound_dim } { \c_zero_dim } }
+    \@@_save_punct_dim:nNNn  { bound_kern } #1 #1 { \l_@@_tmp_dim }
+    \@@_save_punct_skip:nNNn { bound_kern } #1 #1 { \l_@@_tmp_dim }
+    \@@_save_punct_dim:nNNn  { bound_width } #1 #1
+      { \l_@@_bound_dim + \l_@@_reverse_bound_dim }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\xeCJK_get_punct_kerning:NN}
-% 标点挤压。
+% 标点压缩。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_kerning:NN #1#2
   {
     \tl_if_exist:cF { \@@_punct_csname:n { dim/kern/#1/#2 } }
       {
         \tl_if_eq:NNTF \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl
-          {
-            \@@_save_punct_dim:nNNn { kern } #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { break_kern } #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { bound_kern } #1 #2 { \c_zero_dim }
-            \@@_save_punct_dim:nNNn { bound_width } #1 #2 { \c_zero_dim }
-            \@@_save_punct_skip:nNNn { kern } #1 #2 { \c_zero_skip }
-            \@@_save_punct_skip:nNNn { break_kern } #1 #2 { \c_zero_skip }
-            \@@_save_punct_skip:nNNn { bound_kern } #1 #2 { \c_zero_skip }
-          }
-          {
-            \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
-            \xeCJK_punct_kerning_process:NN #1 #2
-          }
+          { \@@_save_punct_kerning_plain:NN }
+          { \@@_save_punct_kerning:NN }
+          #1 #2
       }
   }
 \cs_new_protected_nopar:Npn \xeCJK_get_punct_kerning:oN
   { \exp_after:wN \xeCJK_get_punct_kerning:NN }
+\cs_new_protected_nopar:Npn \@@_save_punct_kerning_plain:NN #1#2
+  {
+    \@@_save_punct_dim:nNNn { kern } #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { break_kern } #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { bound_kern } #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { bound_width } #1 #2 { \c_zero_dim }
+    \@@_save_punct_skip:nNNn { kern } #1 #2 { \c_zero_skip }
+    \@@_save_punct_skip:nNNn { break_kern } #1 #2 { \c_zero_skip }
+    \@@_save_punct_skip:nNNn { bound_kern } #1 #2 { \c_zero_skip }
+  }
+\cs_new_protected_nopar:Npn \@@_save_punct_kerning:NN
+  {
+    \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
+    \xeCJK_punct_kerning_process:NN
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5945,9 +5991,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_calc_punct_dimen:N}
-% \changes{v3.4.3}{2016/10/27}{考虑破折号边界为负值的情况。}
-% 计算标点的左右实际边距和实际尺寸。对于破折号，计算两标点之间的空白，保证它中间
-% 不被断开。注意，破折号的边界可能为负值（比如方正新书宋），此时不必压缩。
+% 计算标点的左右实际边距和实际尺寸。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_calc_punct_dimen:N #1
   {
@@ -5955,26 +5999,13 @@ Copyright and Licence
       { \xeCJK_glyph_bounds:NN \c_one #1 }
     \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl #1
       { \xeCJK_glyph_bounds:NN \c_three #1 }
-    \dim_set:Nn \l_@@_tmp_dim
-      {
-        ( \@@_use_punct_dim:nNN { bound } \c_@@_left_tl  #1 ) +
-        ( \@@_use_punct_dim:nNN { bound } \c_@@_right_tl #1 )
-      }
     \@@_save_punct_dim:nNn { width } #1
       { \etex_fontcharwd:D \tex_font:D `#1 }
     \@@_save_punct_dim:nNn { dimen } #1
-      { \@@_use_punct_dim:nN { width } #1 - \l_@@_tmp_dim }
-    \@@_punct_if_long:NT #1
       {
-        \dim_set:Nn \l_@@_tmp_dim
-          {
-            \str_case:nnTF {#1}
-              { { ^^^^2025 } { } { ^^^^2026 } { } }
-              { \c_zero_dim }
-              { \dim_min:nn { - \l_@@_tmp_dim } { \c_zero_dim } }
-          }
-        \@@_save_punct_dim:nNNn  { kern } #1 #1 { \l_@@_tmp_dim }
-        \@@_save_punct_skip:nNNn { kern } #1 #1 { \l_@@_tmp_dim }
+        ( \@@_use_punct_dim:nN { width } #1 )                 -
+        ( \@@_use_punct_dim:nNN { bound } \c_@@_left_tl  #1 ) -
+        ( \@@_use_punct_dim:nNN { bound } \c_@@_right_tl #1 )
       }
   }
 %    \end{macrocode}
