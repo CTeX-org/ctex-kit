@@ -280,7 +280,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 %
-% \CheckSum{10828}
+% \CheckSum{10907}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -2117,6 +2117,14 @@ Copyright and Licence
                       \xeCJK_token_value_class:N #2 \exp_stop_f:
       \prg_return_true: \else: \prg_return_false: \fi:
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\xeCJK_make_boundary:}
+% 利用 \cs{scan_stop:} 结束 CJK 分组，用于恢复字体等。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK_make_boundary:
+  { \bool_if:NT \l_@@_CJK_group_bool { \scan_stop: } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5487,7 +5495,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.6.2}{2018/03/12}{修正长标点被隔开时的压缩处理错误。}
+% \changes{v3.7.0}{2018/03/12}{修正长标点被隔开时的压缩处理错误。}
 %
 % \begin{macro}[int]{\@@_long_punct_kerning:N}
 % \changes{v3.4.3}{2016/10/27}{考虑破折号边界为负值的情况。}
@@ -5498,14 +5506,17 @@ Copyright and Licence
   {
     \dim_set:Nn \l_@@_tmp_dim
       {
+        \dim_max:nn
+          { \l_@@_bound_dim + \l_@@_reverse_bound_dim }
+          { \c_zero_dim }
+      }
+    \@@_save_punct_dim:nNNn { bound_width } #1 #1 { \l_@@_tmp_dim }
+    \dim_set:Nn \l_@@_tmp_dim
+      {
         \str_case:nnTF {#1}
           { { ^^^^2025 } { } { ^^^^2026 } { } }
           { \c_zero_dim }
-          {
-            \dim_min:nn
-              { - \l_@@_bound_dim - \l_@@_reverse_bound_dim }
-              { \c_zero_dim }
-          }
+          { -\l_@@_tmp_dim }
       }
     \@@_save_punct_dim:nNNn  { kern } #1 #1 { \l_@@_tmp_dim }
     \@@_save_punct_skip:nNNn { kern } #1 #1 { \l_@@_tmp_dim }
@@ -5513,8 +5524,6 @@ Copyright and Licence
       { \dim_max:nn { \l_@@_bound_dim } { \c_zero_dim } }
     \@@_save_punct_dim:nNNn  { bound_kern } #1 #1 { \l_@@_tmp_dim }
     \@@_save_punct_skip:nNNn { bound_kern } #1 #1 { \l_@@_tmp_dim }
-    \@@_save_punct_dim:nNNn  { bound_width } #1 #1
-      { \l_@@_bound_dim + \l_@@_reverse_bound_dim }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7828,7 +7837,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_visible_space:
   {
-    \bool_if:NT \l_@@_CJK_group_bool { \scan_stop: }
+    \xeCJK_make_boundary:
     \xeCJK_glyph_if_exist:NTF { ^^^^2423 }
       { ^^^^2423 }
       {
@@ -8029,11 +8038,12 @@ Copyright and Licence
 \xeCJKsetwidth { ^^^^2013 } { 0.5 em }
 %    \end{macrocode}
 %
-% 执行宏包选项，并载入 \pkg{fontspec} 宏包和 \pkg{xunicode-addon}。
+% \changes{v3.7.0}{2018/03/16}{不再默认引入 \pkg{xunicode} 宏包。}
+%
+% 执行宏包选项，并载入 \pkg{fontspec} 宏包。
 %    \begin{macrocode}
 \ProcessKeysOptions { xeCJK / options }
 \RequirePackage { fontspec } [ 2012/05/01 ]
-\RequirePackage { xunicode-addon }
 %    \end{macrocode}
 %
 % \begin{variable}{\c_@@_encoding_tl}
@@ -8354,21 +8364,10 @@ Copyright and Licence
 % \changes{v3.2.5}{2013/07/25}{解决 \pkg{fixltx2e} 和 \pkg{amsthm} 的冲突。}
 % \changes{v3.3.1}{2015/04/15}{删去 \pkg{fixltx2e} 和 \pkg{amsthm} 的冲突补丁。}
 %
-% \begin{macro}[int]{\nobreakspace}
 % \changes{v3.1.2}{2013/01/01}
 % {修正非 \tn{UTFencname} 编码下面 \pkg{xunicode} 重定义的 \tn{nobreakspace} 会失效的问题。}
 % \changes{v3.2.5}{2013/07/18}{恢复 \tn{nobreakspace} 的原始定义。}
-% 空格在 \TeX 中是特殊的记号，似乎不应该把它定义为字体中的符号（\texttt{U+00A0}）。
-%    \begin{macrocode}
-\UndeclareTextCommand \nobreakspace { \UTFencname }
-\RenewDocumentCommand \nobreakspace { } { \leavevmode \nobreak \ }
-%    \end{macrocode}
-% \end{macro}
-%
-% 当符号命令紧跟在 CJK 字符类后面时，强制发生状态转移，使字体回到西文状态。
-%    \begin{macrocode}
-\AtBeginUTFCommand { \bool_if:NT \l_@@_CJK_group_bool { \scan_stop: } }
-%    \end{macrocode}
+% \changes{v3.7.0}{2018/03/18}{对 \tn{nobreakspace} 的恢复放到 \pkg{xunicode-addon} 中处理。}
 %
 % \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
 % 比较老版本的 \pkg{realscripts} 定义了 \cs{dim_max:nn} 和 \cs{dim_min:nn}，这与
@@ -8586,33 +8585,155 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_group_begin:,\@@_group_end:}
+% \begin{macro}{\@@_inactive_group_begin:,\@@_inactive_group_end:}
 % 用于保护下面歧义宽度标点的分组。
 %    \begin{macrocode}
-\cs_new_eq:NN \@@_group_begin: \group_begin:
-\cs_new_eq:NN \@@_group_end:   \group_end:
+\cs_new_protected_nopar:Npn \@@_inactive_group_begin:
+  { \group_begin: \makexeCJKinactive }
+\cs_new_eq:NN \@@_inactive_group_end: \group_end:
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\textellipsis}
+% \begin{macro}{\@@_patch_text_command:}
+% \begin{variable}{\c_@@_ambigious_char_prop}
 % 单独处理宽度有分歧的几个标点：包括省略号、破折号、间隔号、引号等中西文混用的
 % 符号， 保证其命令形式输出的是西文字体。
+% 如果 \pkg{xunicode} 宏包被载入，则通过 \pkg{xunicode-addon} 处理。
 %    \begin{macrocode}
-\tl_map_inline:nn
+\prop_const_from_keyval:Nn \c_@@_ambigious_char_prop
   {
-    \textellipsis      \textendash     \textemdash     \textperiodcentered
-    \textcentereddot   \textquoteleft  \textquoteright \textquotedblleft
-    \textquotedblright \textcdot       \textgrq        \textgrqq
+    "00B7 = \textperiodcentered \textcentereddot \textcdot ,
+    "2013 = \textendash ,
+    "2014 = \textemdash ,
+    "2018 = \textquoteleft \textgrq ,
+    "2019 = \textquoteright ,
+    "201C = \textquotedblleft \textgrqq ,
+    "201D = \textquotedblright ,
+    "2025 = \texthdotfor ,
+    "2026 = \textellipsis ,
+    "2027 = \texthyphenationpoint ,
+    "2E3A = \texttwoemdash
   }
+\@@_at_end_preamble:n { \@@_patch_text_command: }
+\cs_new_protected_nopar:Npn \@@_patch_text_command:
   {
-    \AtBeginUTFCommand [#1] { \@@_group_begin: \makexeCJKinactive }
-    \AtEndUTFCommand   [#1] { \@@_group_end: }
+    \xeCJK_if_package_loaded:nTF { xunicode }
+      { \@@_patch_xunicode_ambigious_char: }
+      {
+        \exp_args:Nx \@@_patch_tuenc_ambigious_char:n
+          { \UnicodeEncodingName }
+        \@@_patch_tuenc_accent:
+        \@@_patch_tuenc_composite:
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_xunicode_ambigious_char:
+  {
+    \RequirePackage { xunicode-addon }
+    \prop_map_inline:Nn \c_@@_ambigious_char_prop
+      {
+        \tl_map_inline:nn { ##2 }
+          {
+            \xunadd_set_begin_hook:nn { ####1 }
+              { \@@_inactive_group_begin: }
+            \xunadd_set_end_hook:nn { ####1 }
+              { \@@_inactive_group_end: }
+          }
+      }
+    \xunadd_append_begin_hook:n { \xeCJK_make_boundary: }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_tuenc_ambigious_char:n #1
+  {
+    \prop_map_inline:Nn \c_@@_ambigious_char_prop
+      {
+        \tl_map_inline:nn { ##2 }
+          {
+            \cs_if_exist:NF ####1
+              { \DeclareTextSymbol ####1 {#1} { ##1 } }
+            \@@_patch_ambigious_char:nN {#1} ####1
+          }
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:nN #1#2
+  {
+    \exp_args:Nx \@@_patch_ambigious_char:n
+      { #1 \token_to_str:N #2 }
+  }
+\cs_new_protected_nopar:Npx \@@_patch_ambigious_char:nNn #1#2#3
+  {
+    \exp_args:Nx \exp_not:N \@@_patch_ambigious_char:n
+      {
+        \c_backslash_str #1
+        \exp_not:N \token_to_str:N #2 -
+        \exp_not:N \token_to_str:N #3
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:n #1
+  {
+    \cs_if_free:cF {#1}
+      { \exp_args:Nc \@@_patch_ambigious_char:N {#1} }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:N #1
+  {
+    \cs_set_protected_nopar:Npx #1
+      {
+        \@@_ambigious_char:n
+          { \token_if_chardef:NTF #1 { \utex_char:D } { \exp_not:o } #1 }
+      }
+  }
+\cs_new_protected_nopar:Npn \@@_ambigious_char:n #1
+  {
+    \int_compare:nNnTF \xetex_interchartokenstate:D > \c_zero
+      { \@@_inactive_group_begin: #1 \@@_inactive_group_end: }
+      {#1}
+  }
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+%
+% \begin{macro}{\@@_patch_tuenc_composite:}
+% \tn{DeclareUnicodeComposite} 具有检查字符是否存在的功能，
+% 当符号命令紧跟在 CJK 字符类后面时，需要使字体回到西文状态
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xeCJK@composite@patch
+  {
+    \str_if_eq_x:nnT { \f@encoding } { \UnicodeEncodingName }
+      { \xeCJK_make_boundary: }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_tuenc_composite:
+  {
+    \cs_set_nopar:Npn \@text@composite@x ##1
+      {
+        \xeCJK@composite@patch
+        \ifx ##1 \relax
+          \expandafter \@secondoftwo
+        \else
+          \expandafter \@firstoftwo
+        \fi
+        ##1
+      }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_patch_Bxii:n}
-% \begin{variable}{\l_@@_patch_Bxii_tl}
+% \begin{macro}{\@@_patch_tuenc_accent:}
+% \tn{add@unicode@accent} 定义最后用于截断数字展开的 \tn{relax} 会造成边界，可能会影响组合标记。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_other:n { "A0 }
+\cs_new_protected_nopar:Npn \@@_patch_tuenc_accent:
+  {
+    \cs_set_protected_nopar:Npn \add@unicode@accent ##1 ##2
+      {
+        \tl_if_blank:nTF { ##2 } { ^^a0 } { ##2 }
+        \utex_char:D \etex_numexpr:D ##1 \scan_stop:
+      }
+  }
+\group_end:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_patch_middle_dot:}
+% \begin{variable}{\c_@@_middle_dot_prop}
 % \changes{v3.2.9}{2013/12/08}
 % {完整处理 \file{encguide.pdf} 的编码符号表中，与旧编码的 \texttt{U+00B7} 冲突。}
 % 常被用作中文间隔号的 \texttt{U+00B7} 与 T1 等旧字体编码下定义的符号命令冲突。
@@ -8631,78 +8752,36 @@ Copyright and Licence
 %   \DeclareTextSymbol{\textperiodcentered}{LY1}{183}
 % \end{verbatim}
 % LGR 编码的符号表有 \texttt{183} 号字符，但在 \file{lgrenc.def} 中未找到相应的
-% 符号命令，它的输入方式为 |>`w| 或者 |\accpsilivaria{w}|。前者比较特殊，如果
-% 与 \pkg{xeCJK} 一起使用，\XeTeX\ 会出现如下错误。
-% \begin{verbatim}
-%   ! Cannot use \xetex_glyphbounds:D with grmn1000; not a native platform font.
-%   \xeCJK_glyph_bounds:NN ...use:N \xetex_glyphbounds:D
-%                                                     #1 \xetex_charglyph:D \xeCJK_...
-% \end{verbatim}
-% 这个不好处理，只修改后者。
+% 符号命令。
 %    \begin{macrocode}
-\@@_after_end_preamble:n { \l_@@_patch_Bxii_tl }
-\tl_new:N \l_@@_patch_Bxii_tl
-\cs_new_protected_nopar:Npn \@@_patch_Bxii:nN #1#2
+\prop_const_from_keyval:Nn \c_@@_middle_dot_prop
   {
-    \tl_put_right:Nx \l_@@_patch_Bxii_tl
-      { \@@_patch_Bxii:n { #1 \token_to_str:N #2 } }
+    T2A = \cyrchvcrs ,
+    T2B = \cyrchldsc ,
+    T2C = \cyrabhha ,
+    X2  = \cyrchldsc ,
+    TS1 = \textperiodcentered ,
+    LY1 = \textperiodcentered ,
+    T1  = \r u ,
+    T4  = \B t ,
+    T5  = \` \ecircumflex
   }
-\group_begin:
-\cs_set:Npn \@@_tmp:w #1
+\@@_after_end_preamble:n { \@@_patch_middle_dot: }
+\cs_new_protected_nopar:Npn \@@_patch_middle_dot:
   {
-    \group_end:
-    \cs_new_protected_nopar:Npn \@@_patch_Bxii:nNN ##1##2##3
-      {
-        \tl_put_right:Nx \l_@@_patch_Bxii_tl
-          {
-            \@@_patch_Bxii:Nnn
-              #1 { ##1 \token_to_str:N ##2 } { \token_to_str:N ##3 }
-          }
-      }
+    \prop_map_inline:Nn \c_@@_middle_dot_prop
+      { \@@_patch_middle_dot:nw { ##1 } ##2 \q_stop }
+    \@@_patch_ambigious_char:nNn { T5 } \` { \^ - e }
   }
-\use:n
+\cs_new_protected_nopar:Npn \@@_patch_middle_dot:nw #1#2#3 \q_stop
   {
-    \char_set_catcode_other:N \\
-    \@@_tmp:w
+    \tl_if_empty:nTF {#3}
+      { \@@_patch_ambigious_char:nN {#1} #2 }
+      { \@@_patch_ambigious_char:nNn {#1} #2 {#3} }
   }
-  { \ }
-\cs_new_protected_nopar:Npn \@@_patch_Bxii:n #1
-  { \cs_if_free:cF {#1} { \cs_gset_eq:cN {#1} \@@_Default_Bxii: } }
-\cs_new_protected_nopar:Npn \@@_patch_Bxii:Nnn #1#2#3
-  { \cs_if_free:cF {#2} { \cs_gset_eq:cN { #1#2 - #3 } \@@_Default_Bxii: } }
-\group_begin:
-\char_set_catcode_other:n { 183 }
-\cs_new_protected_nopar:Npn \@@_Default_Bxii:
-  {
-    \int_compare:nNnTF \xetex_interchartokenstate:D > \c_zero
-      { \@@_group_begin: \makexeCJKinactive ^^b7 \@@_group_end: }
-      { ^^b7 }
-  }
-\group_end:
-\clist_map_inline:nn
-  {
-    { T3  } \textvibyy ,
-    { T2A } \cyrchvcrs ,
-    { T2B } \cyrchldsc ,
-    { T2C } \cyrabhha ,
-    { X2  } \cyrchldsc ,
-    { TS1 } \textperiodcentered ,
-    { LY1 } \textperiodcentered
-  }
-  { \@@_patch_Bxii:nN #1 }
-\clist_map_inline:nn
-  {
-    { T1  } \r u ,
-    { T4  } \B t ,
-    { T5  } \` \ecircumflex ,
-    { LGR } \accpsilivaria w
-  }
-  { \@@_patch_Bxii:nNN #1 }
-\tl_put_right:Nx \l_@@_patch_Bxii_tl
-  {
-    \@@_patch_Bxii:n
-      { \token_to_str:N \T 5 \token_to_str:N \` - \token_to_str:N \^ - e }
-  }
+%    \end{macrocode}
+% \pkg{pifont} 宏包的符号 |\ding{183}| 也有冲突。
+%    \begin{macrocode}
 \@@_after_end_preamble:n
   {
     \xeCJK_if_package_loaded:nT { pifont }
@@ -8719,15 +8798,15 @@ Copyright and Licence
 %    \begin{macrocode}
 \@@_after_end_preamble:n
   {
-    \xeCJK_if_package_loaded:nT { hyperref }
+    \cs_if_exist_use:NT \pdfstringdefDisableCommands
       {
-        \pdfstringdefDisableCommands
-          {
-            \@@_gobble_CJKfamily:
-            \xeCJK_cs_clear:N \makexeCJKinactive
-            \xeCJK_cs_clear:N \@@_group_begin:
-            \xeCJK_cs_clear:N \@@_group_end:
-          }
+        {
+          \@@_gobble_CJKfamily:
+          \xeCJK_cs_clear:N \@@_inactive_group_begin:
+          \xeCJK_cs_clear:N \@@_inactive_group_end:
+          \xeCJK_cs_clear:N \makexeCJKinactive
+          \xeCJK_cs_clear:N \xeCJK@composite@patch
+        }
       }
   }
 %    \end{macrocode}
@@ -10775,8 +10854,8 @@ Copyright and Licence
   {
     \clist_get:NNF \g_@@_encname_clist \UTFencname
       {
-        \file_if_exist:nTF { tuenc.def }
-          { \tl_set:Nn \UTFencname { TU } }
+        \cs_if_exist:NTF \UnicodeEncodingName
+          { \tl_set:Nx \UTFencname { \UnicodeEncodingName } }
           {
             \sys_if_engine_xetex:TF
               { \tl_set:Nn \UTFencname { EU1 } }
@@ -10970,8 +11049,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \RenewDocumentCommand \DeclareUTFcharacter { O { \UTFencname } m m }
   {
-    \str_if_eq:nnTF {#3} { \hbar }
-      { \@@_restore_hbar: }
+    \cs_if_exist_use:cF
+      { @@_restore_ \tl_to_str:n {#3} : }
       {
         \@@_if_csname:nTF {#3}
           { \@@_declare_character:Nnn #3 }
@@ -10982,20 +11061,29 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_restore_hbar:}
-% 恢复 \tn{hbar} 为原本定义。
+% \begin{macro}{\@@_restore_cmd:N}
+% 恢复 \tn{hbar} 和 \tn{nobreakspace} 为原本定义。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_restore_hbar:
+\cs_new_protected_nopar:cpn
+  { @@_restore_ \tl_to_str:n { \hbar } : }
+  { \@@_restore_cmd:N \hbar }
+\cs_new_protected_nopar:cpn
+  { @@_restore_ \tl_to_str:n { \nobreakspace } : }
+  { \@@_restore_cmd:N \nobreakspace }
+\cs_new_protected_nopar:Npn \@@_restore_cmd:N #1
+  { \@@_restore_cmd:Nx #1 { ? - \token_to_str:N #1 } }
+\cs_new_protected_nopar:Npn \@@_restore_cmd:Nn #1#2
   {
-    \cs_if_free:cF { ? - \token_to_str:N \hbar }
-      { \@@_restore_hbar:c { ? - \token_to_str:N \hbar } }
+    \cs_if_free:cF {#2}
+      { \@@_restore_cmd:Nc #1 {#2} }
   }
-\cs_new_protected_nopar:Npn \@@_restore_hbar:N #1
+\cs_new_protected_nopar:Npn \@@_restore_cmd:NN #1#2
   {
-    \cs_gset_eq:NN \hbar #1
-    \cs_undefine:N #1
+    \cs_gset_eq:NN #1 #2
+    \cs_undefine:N #2
   }
-\cs_generate_variant:Nn \@@_restore_hbar:N { c }
+\cs_generate_variant:Nn \@@_restore_cmd:Nn { Nx }
+\cs_generate_variant:Nn \@@_restore_cmd:NN { Nc }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11528,28 +11616,39 @@ Copyright and Licence
     \tl_if_blank:nTF {#2}
       {
         \IfBooleanTF {#1}
-          { \tl_set:Nn \l_@@_begin_hook_tl {#3} }
-          { \tl_put_right:Nn \l_@@_begin_hook_tl {#3} }
+          { \xunadd_set_begin_hook:n }
+          { \xunadd_append_begin_hook:n }
       }
-      { \@@_set_cmd_hook:nnn { begin } {#2} {#3} }
+      { \xunadd_set_begin_hook:nn {#2} }
   }
 \NewDocumentCommand \AtEndUTFCommand { s O { } +m }
   {
     \tl_if_blank:nTF {#2}
       {
         \IfBooleanTF {#1}
-          { \tl_set:Nn \l_@@_end_hook_tl {#3} }
-          { \tl_put_right:Nn \l_@@_end_hook_tl {#3} }
+          { \xunadd_set_end_hook:n }
+          { \xunadd_append_end_hook:n }
       }
-      { \@@_set_cmd_hook:nnn { end } {#2} {#3} }
+      { \xunadd_set_begin_hook:nn {#2} }
+      {#3}
   }
-\tl_new:N \l_@@_begin_hook_tl
-\tl_new:N \l_@@_end_hook_tl
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_set_cmd_hook:nnn}
+% \begin{macro}[int]{\xunadd_set_begin_hook:n,\xunadd_set_end_hook:n}
 %    \begin{macrocode}
+\cs_new_protected_nopar:Npn \xunadd_set_begin_hook:n
+  { \tl_set:Nn \l_@@_begin_hook_tl }
+\cs_new_protected_nopar:Npn \xunadd_append_begin_hook:n
+  { \tl_put_right:Nn \l_@@_begin_hook_tl }
+\cs_new_protected_nopar:Npn \xunadd_set_end_hook:n
+  { \tl_set:Nn \l_@@_end_hook_tl }
+\cs_new_protected_nopar:Npn \xunadd_append_end_hook:n
+  { \tl_put_right:Nn \l_@@_end_hook_tl }
+\cs_new_protected_nopar:Npn \xunadd_set_begin_hook:nn
+  { \@@_set_cmd_hook:nnn { begin } }
+\cs_new_protected_nopar:Npn \xunadd_set_end_hook:nn
+  { \@@_set_cmd_hook:nnn { end } }
 \cs_new_protected:Npn \@@_set_cmd_hook:nnn #1#2#3
   {
     \cs_set_protected:cpn
@@ -11564,6 +11663,8 @@ Copyright and Licence
   { \use:c { @@_#3_csname:n } { \token_to_str:N #1 - \tl_to_str:n {#2} } }
 \cs_new_nopar:Npn \@@_begin_csname:n #1 { @@_begin_#1_hook:n }
 \cs_new_nopar:Npn \@@_end_csname:n #1   { @@_end_#1_hook:n }
+\tl_new:N \l_@@_begin_hook_tl
+\tl_new:N \l_@@_end_hook_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11619,6 +11720,14 @@ Copyright and Licence
 %    \begin{macrocode}
 %</xunicode>
 %<*xunextra>
+%    \end{macrocode}
+%
+% \changes{v3.7.0}{2018/03/16}{补充定义 \tn{texthyphenationpoint} 和 \tn{texttwoemdash}。}
+%
+% 我们补充定义 HYPHENATION POINT 和 TWO-EM DASH，他们默认被归入 CJK 标点符号。
+%    \begin{macrocode}
+\DeclareUTFSymbol\texthyphenationpoint{"2027}
+\DeclareUTFSymbol\texttwoemdash{"2E3A}
 %    \end{macrocode}
 %
 % 以下内容选自 \pkg{xunicode}，并做了适当修改。
