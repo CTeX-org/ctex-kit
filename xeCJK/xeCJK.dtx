@@ -280,7 +280,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 %
-% \CheckSum{10907}
+% \CheckSum{10889}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8891,39 +8891,20 @@ Copyright and Licence
     \str_if_eq:nnT {#1} { \CJK@UnicodeEnc }
       {
         \group_begin:
-          \cs_set_eq:NN \Unicode \@@_calc_unicode:nn
-          \cs_set_eq:NN \def \xeCJK_char_from_charcode:Nn
+          \cs_set_eq:NN \Unicode \xeCJK_unicode_char:nn
+          \cs_set_eq:NN \def \xdef
           #2
         \group_end:
-        \tl_gset:Nn \CJK@tenthousand    { ^^^^4e07 }
-        \tl_gset:Nn \CJK@hundredmillion { ^^^^4ebf }
+        \str_gset:Nx \CJK@tenthousand    { ^^^^4e07 }
+        \str_gset:Nx \CJK@hundredmillion { ^^^^4ebf }
         \tl_if_exist:NF \CJK@UnicodeEnc
           { \tl_const:Nn \CJK@UnicodeEnc { UTF8 } }
         \cs_if_exist:NF \Unicode
           { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
       }
   }
-\cs_if_exist:NTF \utex_charcat:D
-  {
-    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
-      { \tl_const:Nx #1 { \char_generate:nn {#2} { \c_eleven } } }
-  }
-  {
-    \cs_new_protected_nopar:Npn \xeCJK_char_from_charcode:Nn #1#2
-      {
-        \group_begin:
-        \char_set_lccode:nn { "4E00 } {#2}
-        \tex_lowercase:D
-          {
-            \group_end:
-            \tl_const:Nn #1 { ^^^^4e00 }
-          }
-      }
-  }
-\cs_new_nopar:Npn \@@_calc_unicode:nn #1#2
-  { (#1) * \c_two_hundred_fifty_six + (#2) }
-\cs_new_protected_nopar:Npn \xeCJK_unicode_char:nn #1#2
-  { \tex_char:D \etex_numexpr:D \@@_calc_unicode:nn {#1} {#2} \scan_stop: }
+\cs_new_nopar:Npn \xeCJK_unicode_char:nn #1#2
+  { \utex_char:D \etex_numexpr:D (#1) * 256 + (#2) \scan_stop: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11088,20 +11069,15 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\@@_declare_character:Nnn}
-% 通过 \texttt{lowercase} 技巧，直接由 Unicode |#3| 得到编码 |#2| 下的符号命令
+% 通过 \cs{utex_char:D} 直接由 Unicode |#3| 得到编码 |#2| 下的符号命令
 % |#1| 对应的实际字符。\tn{DeclareUTFSymbol} 的参数格式与 \tn{DeclareTextSymbol}
 % 完全一致。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_declare_character:Nnn #1#2#3
   {
     \@@_provide_text_command_default:N #1
-    \group_begin:
-    \char_set_lccode:nn { `0 } { \@@_check_slot:n {#3} }
-    \tex_lowercase:D
-      {
-        \group_end:
-        \@@_declare_character:NNxn 0
-      }
+    \exp_after:wN \@@_declare_character:NNxn
+      \utex_char:D \@@_check_slot:n {#3} \exp_stop_f:
       #1 { \token_to_str:N #1 } {#2}
   }
 \cs_generate_variant:Nn \@@_declare_character:Nnn { c }
@@ -11355,18 +11331,13 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\@@_declare_encoded:NNnnn}
-% 通过 \texttt{lowercase} 技巧，直接由重音符号的 Unicode 得到实际字符。
+% 通过 \cs{utex_char:D} 直接由重音符号的 Unicode 得到实际字符。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_declare_encoded:NNnnn #1#2#3#4#5
   {
-    \group_begin:
-    \char_set_lccode:nn { `4 } { \@@_check_slot:n {#4} }
-    \char_set_lccode:nn { `5 } { \@@_check_slot:n {#5} }
-    \tex_lowercase:D
-      {
-        \group_end:
-        \@@_declare_encoded:NNNNxx 4 5
-      }
+    \exp_after:wN \@@_declare_encoded:NNNNxx
+      \utex_char:D \@@_check_slot:n {#4} \exp_after:wN \exp_stop_f:
+      \utex_char:D \@@_check_slot:n {#5} \exp_stop_f:
       #1 #2 { \token_to_str:N #2 } {#3}
   }
 \cs_new_protected:Npn \@@_declare_encoded:NNNNnn #1#2#3#4#5#6
