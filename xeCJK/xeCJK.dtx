@@ -280,7 +280,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 %
-% \CheckSum{10889}
+% \CheckSum{10882}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8691,25 +8691,25 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\@@_patch_tuenc_composite:}
+% \changes{v3.7.2}{2018/05/02}{修复补丁错误。}
 % \tn{DeclareUnicodeComposite} 具有检查字符是否存在的功能，
 % 当符号命令紧跟在 CJK 字符类后面时，需要使字体回到西文状态
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK@composite@patch
+\cs_new_protected_nopar:Npn \xeCJK_text_composite_patch:
   {
     \str_if_eq_x:nnT { \f@encoding } { \UnicodeEncodingName }
       { \xeCJK_make_boundary: }
   }
+%    \end{macrocode}
+% 注意 \cs{xeCJK_text_composite_patch:} 可能会结束分组，从而导致 |##1| 没有定义时是
+% \tn{undefined} 而不是 \tn{relax}，所以不能将它与 \tn{relax} 作比较。
+%    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_patch_tuenc_composite:
   {
-    \cs_set_nopar:Npn \@text@composite@x ##1
+    \cs_set_nopar:Npn \@text@composite@x ##1##2
       {
-        \xeCJK@composite@patch
-        \ifx ##1 \relax
-          \expandafter \@secondoftwo
-        \else
-          \expandafter \@firstoftwo
-        \fi
-        ##1
+        \xeCJK_text_composite_patch:
+        \cs_if_exist_use:NF ##1 { ##2 }
       }
   }
 %    \end{macrocode}
@@ -11581,6 +11581,7 @@ Copyright and Licence
 % 设置在符号命令前后使用的钩子，可选参数用于指定单个符号命名。可以用 |#1|
 % 引用带参数的组合符号命令的参数或者符号命令对应的符号。
 % \changes{v3.2.6}{2013/08/15}{可以指定特定符号命令使用的钩子。}
+% \changes{v3.7.1}{2018/04/30}{修复代码重构而引入的新错误。}
 %    \begin{macrocode}
 \NewDocumentCommand \AtBeginUTFCommand { s O { } +m }
   {
