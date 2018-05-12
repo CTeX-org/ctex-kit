@@ -280,7 +280,7 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 %
-% \CheckSum{10882}
+% \CheckSum{11011}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8655,29 +8655,39 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_patch_ambigious_char:nN #1#2
   {
-    \exp_args:Nx \@@_patch_ambigious_char:n
+    \exp_args:Nx \@@_patch_ambigious_char:nn
       { #1 \token_to_str:N #2 }
+      { #1 - #2 }
   }
 \cs_new_protected_nopar:Npx \@@_patch_ambigious_char:nNn #1#2#3
   {
-    \exp_args:Nx \exp_not:N \@@_patch_ambigious_char:n
+    \exp_args:Nx \exp_not:N \@@_patch_ambigious_char:nn
       {
         \c_backslash_str #1
         \exp_not:N \token_to_str:N #2 -
         \exp_not:N \token_to_str:N #3
       }
+      { #1 - #2#3 }
   }
-\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:n #1
+\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:nn #1#2
   {
     \cs_if_free:cF {#1}
-      { \exp_args:Nc \@@_patch_ambigious_char:N {#1} }
+      { \exp_args:Nc \@@_patch_ambigious_char:Nn {#1} {#2} }
   }
-\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:N #1
+\cs_new_protected_nopar:Npn \@@_patch_ambigious_char:Nn #1#2
   {
-    \cs_set_protected_nopar:Npx #1
+    \token_if_chardef:NTF #1
       {
-        \@@_ambigious_char:n
-          { \token_if_chardef:NTF #1 { \utex_char:D } { \exp_not:o } #1 }
+        \prop_gput:Nnx \c_@@_ambigious_char_slot_prop {#2}
+          { \int_eval:n {#1} }
+        \cs_set_protected_nopar:Npx #1
+          { \@@_ambigious_char:n { \utex_char:D #1 } }
+      }
+      {
+        \prop_gput:Nnx \c_@@_ambigious_char_slot_prop {#2}
+          { \int_eval:n { \exp_after:wN ` #1 } }
+        \cs_set_protected_nopar:Npx #1
+          { \@@_ambigious_char:n { \exp_not:o {#1} } }
       }
   }
 \cs_new_protected_nopar:Npn \@@_ambigious_char:n #1
@@ -8686,6 +8696,7 @@ Copyright and Licence
       { \@@_inactive_group_begin: #1 \@@_inactive_group_end: }
       {#1}
   }
+\prop_new:N \c_@@_ambigious_char_slot_prop
 %    \end{macrocode}
 % \end{variable}
 % \end{macro}
@@ -8766,7 +8777,7 @@ Copyright and Licence
     T4  = \B t ,
     T5  = \` \ecircumflex
   }
-\@@_after_end_preamble:n { \@@_patch_middle_dot: }
+\@@_at_end_preamble:n { \@@_patch_middle_dot: }
 \cs_new_protected_nopar:Npn \@@_patch_middle_dot:
   {
     \prop_map_inline:Nn \c_@@_middle_dot_prop
@@ -8792,6 +8803,35 @@ Copyright and Licence
   }
 %    \end{macrocode}
 % \end{variable}
+% \end{macro}
+%
+% \begin{macro}{\@@_patch_microtype_get_slot:}
+% 兼容 \pkg{microtype}。
+%    \begin{macrocode}
+\@@_at_end_preamble:n
+  {
+    \cs_if_free:NF \MT@get@slot@
+      { \@@_patch_microtype_get_slot: }
+  }
+\cs_new_protected_nopar:Npn \@@_patch_microtype_get_slot:
+  {
+    \cs_new_eq:NN \xeCJK@original@get@slot \MT@get@slot@
+    \cs_set_eq:NN \MT@get@slot@ \xeCJK@microtype@get@slot
+    \cs_set_eq:NN \MT@warn@unknown@once \use_none:n
+  }
+\cs_new_protected_nopar:Npn \xeCJK@microtype@get@slot
+  {
+    \int_compare:nNnT \MT@char < 0
+      { \@@_get_ambigious_char_slot: }
+    \xeCJK@original@get@slot
+  }
+\cs_new_protected_nopar:Npn \@@_get_ambigious_char_slot:
+  {
+    \exp_args:NNx \prop_get:NnNF \c_@@_ambigious_char_slot_prop
+      { \MT@encoding - \tex_the:D \MT@toks } \MT@char
+      { }
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
@@ -11684,6 +11724,88 @@ Copyright and Licence
           { \exp_after:wN #1 \use_none:n #3 }
       }
       { #2 {#3} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\xunadd_get_slot:nn}
+% |#1| 是编码，|#2| 是诸如 \tn{textendash} 或 |\v C| 等形式的文本命令，取得他们对应的字符编码。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xunadd_get_slot:nn #1#2
+  { \@@_get_slot:wn #2 \q_nil \q_stop {#1} }
+\cs_new_protected:Npn \@@_get_slot:wn #1#2#3 \q_stop #4
+  {
+    \int_set:Nn \l_xunadd_slot_int { -1 }
+    \bool_set_false:N \l_xunadd_rest_bool
+    \group_begin: \exp_last_unbraced:NNo \group_end:
+    \@@_get_slot:NNnn
+      \cs:w #4 \token_to_str:N #1     \exp_after:wN \cs_end:
+      \cs:w \@@_composite_cs:Nnn #1 {#4} {#2} \cs_end:
+      {#2}
+      {#3}
+  }
+\int_new:N \l_xunadd_slot_int
+\bool_new:N \l_xunadd_rest_bool
+\cs_new_protected:Npn \@@_get_slot:NNnn #1#2#3#4
+  {
+    \cs_if_free:NF #1
+      {
+        \cs_if_exist:NTF #2
+          { \@@_get_composite_slot:Nn #2 {#4} }
+          { \@@_get_character_slot:Nn #1 { #3 #4 } }
+      }
+  }
+\cs_new_protected:Npn \@@_get_composite_slot:Nn #1#2
+  {
+    \token_if_chardef:NT #1
+      {
+        \int_set:Nn \l_xunadd_slot_int {#1}
+        \quark_if_nil:nF {#2}
+          { \bool_set_true:N \l_xunadd_rest_bool }
+      }
+  }
+\cs_new_protected:Npn \@@_get_character_slot:Nn #1
+  {
+    \exp_after:wN \@@_get_character_slot_aux:wn #1
+      \@@_text_character:nN \q_nil \q_nil \q_stop
+  }
+\cs_new_protected:Npn \@@_get_character_slot_aux:wn
+  #1 \@@_text_character:nN #2#3#4 \q_stop #5
+  {
+    \quark_if_nil:nF {#2}
+      {
+        \int_set:Nn \l_xunadd_slot_int { `#3 }
+        \quark_if_nil:nF {#5}
+          { \bool_set_true:N \l_xunadd_rest_bool }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.7.2}{2018/05/12}{解决与 \pkg{microtype} 宏包的兼容问题。}
+%
+% \begin{macro}[int]{\xunadd@microtype@is@charx}
+% \pkg{microtype} 宏包中使用的函数，我们通过对 \tn{MT@is@charx} 打补丁来实现功能。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xunadd@microtype@is@charx #1 \relax
+  {
+    \use:x
+      { \xunadd_get_slot:nn { \MT@encoding } { \tex_the:D \MT@toks } }
+    \int_compare:nNnTF \l_xunadd_slot_int < 0
+      { \xunadd@original@is@charx #1 \relax }
+      {
+        \cs_set_nopar:Npx \MT@char@ { \int_use:N \l_xunadd_slot_int }
+        \bool_if:NT \l_xunadd_rest_bool { \MT@norestfalse }
+      }
+  }
+\AtBeginDocument
+  {
+    \cs_if_free:NF \MT@is@charx
+      {
+        \cs_new_eq:NN \xunadd@original@is@charx \MT@is@charx
+        \cs_set_eq:NN \MT@is@charx \xunadd@microtype@is@charx
+        \cs_set_eq:NN \MT@warn@unknown@once \use_none:n
+      }
   }
 %    \end{macrocode}
 % \end{macro}
