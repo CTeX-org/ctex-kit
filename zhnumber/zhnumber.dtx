@@ -161,7 +161,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{1215}
+% \CheckSum{1186}
 % \GetFileId{zhnumber.sty}
 %
 % \title{\bfseries\pkg{zhnumber} 宏包}
@@ -499,7 +499,7 @@ Copyright and Licence
     'l3kernel'~and~'l3packages'\\\\
     using~your~TeX~package~manager~or~from~CTAN.
   }
-\@ifpackagelater { expl3 } { 2017/12/16 } { }
+\@ifpackagelater { expl3 } { 2018/05/12 } { }
   { \msg_error:nn  { zhnumber }  { l3-too-old } }
 %    \end{macrocode}
 %
@@ -647,10 +647,10 @@ Copyright and Licence
   { `#1'~is~not~a~LaTeX~counter. }
 \cs_new:Npn \zhnum_int:n #1
   {
-    \int_compare:nNnTF {#1} > \c_zero
+    \int_compare:nNnTF {#1} > \c_zero_int
       { \zhnum_parse_number:f { \int_eval:n {#1} } }
       {
-        \int_compare:nNnTF {#1} < \c_zero
+        \int_compare:nNnTF {#1} < \c_zero_int
           {
             \c_@@_minus_tl
             \zhnum_parse_number:f { \int_eval:n { - #1 } }
@@ -676,11 +676,11 @@ Copyright and Licence
 \cs_new:Npn \zhnum_integer:n #1
   {
     \exp_after:wN \@@_read_integer:www
-    \tex_number:D
+    \int_value:w
       \exp_after:wN \@@_read_sign_loop:N
       \exp:w \exp_end_continue_f:w \use:n
       #1 \exp_stop_f: \q_recursion_tail \q_recursion_stop
-         \@@_result:nn { \c_zero } { } ;
+         \@@_result:nn { \c_zero_int } { } ;
   }
 \cs_new:Npn \@@_read_sign_loop:N #1
   {
@@ -717,7 +717,7 @@ Copyright and Licence
 \cs_new:Npn \@@_read_abs_loop:Nw #1#2 \q_recursion_stop
   {
     \zhnum_if_digit:NTF #1
-      { \@@_output:nnwnn { + \c_one } #1 }
+      { \@@_output:nnwnn { + 1 } #1 }
       { \quark_if_recursion_tail_stop_do:Nn #1 { \@@_loop_end:wnn } }
     \exp_after:wN \@@_read_abs_loop:Nw
       \exp:w \exp_end_continue_f:w \use:n #2 \q_recursion_stop
@@ -734,10 +734,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \@@_read_integer:www #1 ; #2 ; #3 ;
   {
-    \int_compare:nNnTF {#2} = \c_zero
+    \int_compare:nNnTF {#2} = \c_zero_int
       { \c_@@_zero_tl }
       {
-        \int_compare:nNnF {#1} = \c_one
+        \int_compare:nNnF {#1} = \c_one_int
           { \c_@@_minus_tl }
         \zhnum_parse_number:nn {#2} {#3}
       }
@@ -750,7 +750,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_if_digit:NTF #1
   {
-    \if_int_compare:w \c_nine < 1 \exp_not:N #1 \exp_stop_f:
+    \if_int_compare:w 9 < 1 \exp_not:N #1 \exp_stop_f:
       \exp_after:wN \use_i:nn
     \else:
       \exp_after:wN \use_ii:nn
@@ -768,14 +768,14 @@ Copyright and Licence
 \cs_new:Npn \zhnum_parse_number:n #1
   { \exp_args:Nf \zhnum_parse_number:nn { \tl_count:n {#1} } {#1} }
 \cs_new:Npn \zhnum_parse_number:nn #1
-  { \exp_args:Nf \@@_parse_number:nnn { \int_mod:nn {#1} \c_four } {#1} }
+  { \exp_args:Nf \@@_parse_number:nnn { \int_mod:nn {#1} { 4 } } {#1} }
 \cs_new:Npn \@@_parse_number:nnn #1#2
   {
-    \int_compare:nNnTF {#2} < \c_two
+    \int_compare:nNnTF {#2} < 2
       { \zhnum_digit_map:n }
       {
-        \int_compare:nNnTF {#1} = \c_zero
-          { \zhnum_split_number:fn { \int_eval:n { #2 / \c_four - \c_one } } }
+        \int_compare:nNnTF {#1} = \c_zero_int
+          { \zhnum_split_number:fn { \int_eval:n { #2 / 4 - 1 } } }
           { \@@_split_number_aux:nnn {#1} {#2} }
       }
   }
@@ -789,7 +789,7 @@ Copyright and Licence
 \cs_new:Npn \@@_split_number_aux:nnn #1#2
   {
     \exp_after:wN \@@_split_number_aux:wwn
-      \tex_number:D \int_div_truncate:nn {#2} \c_four
+      \int_value:w \int_div_truncate:nn {#2} { 4 }
         \if_case:w #1 \exp_stop_f:
           \or: \exp_after:wN \use:n
           \or: \exp_after:wN \use_i_ii:nnn
@@ -820,17 +820,17 @@ Copyright and Licence
 \cs_new:Npn \zhnum_split_number:NNnNNNNw #1#2#3#4#5#6#7
   {
     \quark_if_recursion_tail_stop:N #4
-    \int_compare:nNnTF { #4#5#6#7 } = \c_zero
+    \int_compare:nNnTF { #4#5#6#7 } = \c_zero_int
       { \use_i:nn }
       {
         \bool_if:NF #1 { \c_@@_zero_tl }
         \zhnum_process_number:NNNNNN #4#5#6#7#1#2
         \zhnum_scale_map:n {#3}
-        \int_compare:nNnTF {#7} = \c_zero
+        \int_compare:nNnTF {#7} = \c_zero_int
       }
       { \zhnum_split_number:NNfNNNNw \c_false_bool \c_true_bool }
       { \zhnum_split_number:NNfNNNNw \c_true_bool  \c_false_bool }
-    { \int_eval:n { #3 - \c_one } }
+    { \int_eval:n { #3 - 1 } }
   }
 \cs_generate_variant:Nn \zhnum_split_number:NNnNNNNw { NNf }
 %    \end{macrocode}
@@ -841,38 +841,38 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_process_number:NNNNNN #1#2#3#4#5#6
   {
-    \int_compare:nNnTF {#1} = \c_zero
+    \int_compare:nNnTF {#1} = \c_zero_int
       { \bool_if:NF #6 { \c_@@_zero_tl } }
       { \zhnum_digit_map:n {#1} \c_@@_thousand_tl }
-    \int_compare:nNnTF {#2} = \c_zero
-      { \int_compare:nNnF { #1 * (#3#4) } = \c_zero { \c_@@_zero_tl } }
+    \int_compare:nNnTF {#2} = \c_zero_int
+      { \int_compare:nNnF { #1 * (#3#4) } = \c_zero_int { \c_@@_zero_tl } }
       {
         \bool_lazy_and:nnTF
           { \l_@@_ancient_bool }
-          { \int_compare_p:nNn {#2} = \c_two }
+          { \int_compare_p:nNn {#2} = 2 }
           { \zhnum_digit_map:n { #2 00 } }
           { \zhnum_digit_map:n {#2} \c_@@_hundred_tl }
       }
-    \int_compare:nNnTF {#3} = \c_zero
-      { \int_compare:nNnF { #2 * #4 } = \c_zero { \c_@@_zero_tl } }
+    \int_compare:nNnTF {#3} = \c_zero_int
+      { \int_compare:nNnF { #2 * #4 } = \c_zero_int { \c_@@_zero_tl } }
       {
         \bool_lazy_all:nF
           {
-            { \int_compare_p:nNn {#3}   = \c_one }
-            { \int_compare_p:nNn {#1#2} = \c_zero }
+            { \int_compare_p:nNn {#3}   = \c_one_int }
+            { \int_compare_p:nNn {#1#2} = \c_zero_int }
             {#6}
             {#5}
           }
           {
             \bool_lazy_and:nnTF
               { \l_@@_ancient_bool }
-              { \int_compare_p:n { \c_one < #3 < \c_five } }
+              { \int_compare_p:n { 1 < #3 < 5 } }
               { \zhnum_digit_map:n { #3 0 } \use_none:n }
               { \zhnum_digit_map:n {#3} }
           }
         \c_@@_ten_tl
       }
-    \int_compare:nNnF {#4} = \c_zero { \zhnum_digit_map:n {#4} }
+    \int_compare:nNnF {#4} = \c_zero_int { \zhnum_digit_map:n {#4} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -947,7 +947,7 @@ Copyright and Licence
 \cs_new:Npn \zhnum_digits:Nn #1#2
   {
     \exp_after:wN \@@_read_digits:w
-    \tex_number:D
+    \int_value:w
       \exp_after:wN \@@_read_sign_loop:NN \exp_after:wN #1
       \exp:w \exp_end_continue_f:w \use:n
       #2 \exp_stop_f: \q_recursion_tail \q_recursion_stop
@@ -977,14 +977,14 @@ Copyright and Licence
   }
 \cs_new:Npn \@@_read_digits:w #1 ;
   {
-    \int_compare:nNnF {#1} = \c_one
+    \int_compare:nNnF {#1} = \c_one_int
       { \c_@@_minus_tl }
   }
 \cs_new:Npn \@@_output_digits:NN #1#2
   {
     \cs:w
       c_@@_
-        \if_int_compare:w #2 = \c_zero
+        \if_int_compare:w #2 = \c_zero_int
           \IfBooleanTF #1 { zero } { null }
         \else:
           #2
@@ -1077,13 +1077,13 @@ Copyright and Licence
   }
 \cs_new:Npn \@@_Zeller_aux:Nnnn  #1#2#3#4
   {
-    \int_compare:nNnTF {#3} < \c_three
-      { #1 { #2 - \c_one } { #3 + \c_twelve } {#4} }
+    \int_compare:nNnTF {#3} < 3
+      { #1 { #2 - 1 } { #3 + 12 } {#4} }
       { #1 {#2} {#3} {#4} }
   }
 \cs_new:Npn \zhnum_two_digits:n #1
   {
-    \int_compare:nNnT {#1} < \c_ten { 0 }
+    \int_compare:nNnT {#1} < { 10 } { 0 }
     \int_eval:n {#1}
   }
 %    \end{macrocode}
@@ -1103,13 +1103,13 @@ Copyright and Licence
     \int_mod:nn
       {
           (#3)
-        + \int_div_truncate:nn { 26 * ( #2 + \c_one ) } \c_ten
+        + \int_div_truncate:nn { 26 * ( #2 + 1 ) } { 10 }
         + (#1)
-        + \int_div_truncate:nn {#1} \c_four
-        + \c_six * \int_div_truncate:nn {#1} \c_one_hundred
+        + \int_div_truncate:nn {#1} { 4 }
+        + 6 * \int_div_truncate:nn {#1} { 100 }
         + \int_div_truncate:nn {#1} { 400 }
       }
-      { \c_seven }
+      { 7 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1126,12 +1126,12 @@ Copyright and Licence
     \int_mod:nn
       {
           (#3)
-        + \int_div_truncate:nn { 26 * ( #2 + \c_one ) } \c_ten
+        + \int_div_truncate:nn { 26 * ( #2 + 1 ) } { 10 }
         + (#1)
-        + \int_div_truncate:nn {#1} \c_four
-        + \c_five
+        + \int_div_truncate:nn {#1} { 4 }
+        + 5
       }
-      { \c_seven }
+      { 7 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1197,7 +1197,7 @@ Copyright and Licence
   { \zhnum_scale_map:n { \int_mod:nn {#1} \l_@@_scale_int } }
 \cs_generate_variant:Nn \zhnum_scale_map:n { f }
 \int_new:N \l_@@_scale_int
-\int_set_eq:NN \l_@@_scale_int \c_eleven
+\int_set:Nn \l_@@_scale_int { 11 }
 \cs_new_eq:NN \zhnum_scale_map_hook:n \zhnum_scale_map_loop:n
 \tl_const:cn { c_@@_s0_tl } { }
 %    \end{macrocode}
@@ -1222,7 +1222,7 @@ Copyright and Licence
   {
     \int_incr:N \l_tmpa_int
     \tl_set:Nx \l_tmpa_tl
-      { c_@@_s \int_eval:n { \l_tmpa_int + \c_eleven } _tl }
+      { c_@@_s \int_eval:n { \l_tmpa_int + 11 } _tl }
     \tl_if_exist:cF { \l_tmpa_tl }
       { \int_incr:N \l_@@_scale_int }
     \tl_set:cn { \l_tmpa_tl } {#1}
@@ -1235,7 +1235,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_ganzhi_normal:nnn #1#2#3
   {
-    \int_compare:nNnF {#1} < \c_one
+    \int_compare:nNnF {#1} < \c_one_int
       { \cs_if_exist_use:c { c_@@_ #2 _ #1 _tl } }
   }
 %    \end{macrocode}
@@ -1247,7 +1247,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_ganzhi_cyclic:nnn #1#2#3
   {
-    \int_compare:nNnF {#1} = \c_zero
+    \int_compare:nNnF {#1} = \c_zero_int
       {
         \cs_if_exist_use:cF { c_@@_ #2 _ #1 _tl }
           {
@@ -1258,10 +1258,10 @@ Copyright and Licence
   }
 \cs_new:Npn \@@_ganzhi_cyclic_mod:nnnn #1#2#3#4
   {
-    \int_compare:nNnTF {#2} > \c_zero
+    \int_compare:nNnTF {#2} > \c_zero_int
       { \use:c { c_@@_ #3 _ #1 _tl } }
       {
-        \int_compare:nNnTF {#1} = \c_zero
+        \int_compare:nNnTF {#1} = \c_zero_int
           { \use:c { c_@@_ #3 _ 1 _tl } }
           { \use:c { c_@@_ #3 _ \int_eval:n {  #1 + #4 + 1 } _tl } }
       }
@@ -1316,10 +1316,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \zhnum_ganzhi_nian:n #1
   {
-    \int_compare:nNnTF {#1} > \c_zero
+    \int_compare:nNnTF {#1} > \c_zero_int
       { \use:c { c_@@_ganzhi_ \int_mod:nn { #1 + 57 } { 60 } _tl } }
       {
-        \int_compare:nNnF {#1} = \c_zero
+        \int_compare:nNnF {#1} = \c_zero_int
           {
             \use:c
               {
@@ -1352,7 +1352,7 @@ Copyright and Licence
       D12 .tl_set:N = \exp_not:c { l_@@_dizhi_ 12 _tl } ,
       E44 .tl_set:N = \exp_not:c { l_@@_ s11 _tl } ,
     }
-  \int_step_inline:nnnn { 1 } { 1 } { 10 }
+  \int_step_inline:nn { 10 }
     {
       \tl_put_right:Nx \l_tmpa_tl
         {
@@ -1538,8 +1538,8 @@ Copyright and Licence
 \cs_new:Npn \zhnum_zero_mod:nn #1#2
   { \exp_args:Nf \@@_zero_mod_aux:nn { \int_mod:nn {#1} {#2} } {#2} }
 \cs_new:Npn \@@_zero_mod_aux:nn #1#2
-  { \int_compare:nNnTF {#1} = \c_zero {#2} {#1} }
-\int_step_inline:nnnn { 1 } { 1 } { 60 }
+  { \int_compare:nNnTF {#1} = \c_zero_int {#2} {#1} }
+\int_step_inline:nn { 60 }
   {
     \tl_const:cx { c_@@_ganzhi_ #1 _tl } { \exp_not:c { l_@@_ganzhi_ #1 _tl } }
     \tl_set:cx { l_@@_ganzhi_ #1 _tl }
@@ -1692,7 +1692,7 @@ Copyright and Licence
           \int_set:Nn \l_@@_byte_max_int { "EF }
         }
       \int_step_function:nnnN
-        { \l_@@_byte_min_int } { \c_one }
+        { \l_@@_byte_min_int } { 1 }
         { \l_@@_byte_max_int } \char_set_catcode_active:n
     }
   \int_new:N \l_@@_byte_min_int
