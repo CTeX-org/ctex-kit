@@ -6,7 +6,7 @@
 %%
 %% ctex.dtx  (with options: `ctxdoc')
 %% 
-%%     Copyright (C) 2003--2017
+%%     Copyright (C) 2003--2018
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %% ------------------------------------------------------------------------------
 %% 
@@ -28,10 +28,10 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx e177d82 2017-08-07 16:58:14 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx 0612a77 2018-05-15 20:18:15 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
-  {\ExplFileDate}{2.4.10}{\ExplFileDescription}
+  {\ExplFileDate}{2.4.14}{\ExplFileDescription}
 \ExplSyntaxOff
 \let\pdfmdfivesum\mdfivesum
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
@@ -324,10 +324,10 @@
     \int_zero:N \l_tmpa_int
     \seq_set_split:Nnn \l_tmpa_seq { . } {#1}
     \seq_map_function:NN \l_tmpa_seq \__ctxdoc_version_zfill:n
-    \int_compare:nNnF \l_tmpa_int > \c_two
+    \int_compare:nNnF \l_tmpa_int > 2
       {
         \tl_put_right:Nx \l__ctxdoc_tmp_tl
-          { \prg_replicate:nn { \c_three - \l_tmpa_int } { 00000 } }
+          { \prg_replicate:nn { 3 - \l_tmpa_int } { 00000 } }
       }
     \__ctxdoc_ltx_changes:nnn { \l__ctxdoc_tmp_tl \actualchar #2 }
   }
