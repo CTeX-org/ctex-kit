@@ -5,7 +5,7 @@
 
 local fonts = {'serif', 'serifit', 'serifb', 'sans', 'sansb', 'mono'}
 local pltopf = 'uppltotf -kanji=uptex'
-local makejvf = 'makejvf -i -u gb'
+local makejvf = 'makejvf -e -3 -i -u gb'
 
 for _, hv in pairs({'h', 'v'}) do
 	for _, fnt in pairs(fonts) do
