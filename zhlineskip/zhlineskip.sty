@@ -1,0 +1,146 @@
+%
+% Copyright (C) 2018 by Ruixi Zhang <ruixizhang42@gmail.com>
+%
+% This work may be distributed and/or modified under the
+% conditions of the LaTeX Project Public License, either version 1.3
+% of this license or (at your option) any later version.
+% The latest version of this license is in
+%   http://www.latex-project.org/lppl.txt
+% and version 1.3 or later is part of all distributions of LaTeX
+% version 2005/12/01 or later.
+%
+% This work has the LPPL maintenance status `maintained'.
+%
+% The Current Maintainer of this work is Ruixi Zhang.
+%
+% This work consists of the files zhlineskip.sty,
+%                                 zhlineskip-man.pdf,
+%                             and zhlineskip-test.tex.
+%
+\NeedsTeXFormat{LaTeX2e}[1994/06/01]
+\ProvidesPackage{zhlineskip}[2018/06/10]
+
+\RequirePackage{kvoptions}
+
+\SetupKeyvalOptions{
+  family=ZhLS,
+  prefix=ZhLS@
+}
+
+\DeclareStringOption[1.5]{bodytextleadingratio}[1.5]
+\DeclareStringOption[1.5]{captionleadingratio}[1.5]
+\DeclareStringOption[1.48]{footnoteleadingratio}[1.48]
+\DeclareBoolOption[true]{restoremathleading}
+\DeclareBoolOption[false]{UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts}
+\DeclareStringOption[1.15]{MicrosoftWordLineSpacingMultiple}[1.15]
+
+\ProcessKeyvalOptions*
+
+\newcommand*{\basicbodyleadingr@tio}{1.2}
+\newcommand*{\basicfootleadingr@tio}{1.2}
+
+\RequirePackage{xintexpr}
+\newcommand*{\bodytextlinespre@d}{%
+  \xintthefloatexpr\xintexpr\ZhLS@bodytextleadingratio/\basicbodyleadingr@tio\relax\relax}
+\newcommand*{\captionlinespre@d} {%
+  \xintthefloatexpr\xintexpr\ZhLS@captionleadingratio/\basicbodyleadingr@tio\relax\relax}
+\newcommand*{\footnotelinespre@d}{%
+  \xintthefloatexpr\xintexpr\ZhLS@footnoteleadingratio/\basicfootleadingr@tio\relax\relax}
+
+\ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
+  \newcommand*{\MicrosoftWordFontbasicleadingr@tio}{(332/256)}
+  \renewcommand*{\bodytextlinespre@d}{%
+    \xintthefloatexpr\xintexpr\ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicbodyleadingr@tio\relax\relax}
+  \renewcommand*{\captionlinespre@d} {%
+    \xintthefloatexpr\xintexpr\ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicbodyleadingr@tio\relax\relax}
+  \renewcommand*{\footnotelinespre@d}{%
+    \xintthefloatexpr\xintexpr\ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicfootleadingr@tio\relax\relax}
+  \PackageWarningNoLine{zhlineskip}{%
+    Use Microsoft Word multiple line spacing\MessageBreak
+    Fonts: SimSun, SimHei, SimKai, SimFang\MessageBreak
+    Multiple = `\ZhLS@MicrosoftWordLineSpacingMultiple'%
+  }%
+\fi
+
+\RequirePackage[nodisplayskipstretch]{setspace}
+\setstretch{\bodytextlinespre@d}
+
+\RequirePackage{caption}
+\captionsetup{font+={stretch=\captionlinespre@d}}
+
+\newcommand{\glob@lresetfootnotesep}[1]{%
+  \begingroup\footnotesize\linespread{#1}\selectfont%
+  \global\footnotesep=\ht\strutbox\endgroup}
+\glob@lresetfootnotesep{\footnotelinespre@d}
+\RequirePackage{etoolbox}
+\patchcmd{\@footnotetext}
+  {\setspace@singlespace}
+  {\footnotelinespre@d}
+  {}{}
+\patchcmd{\@mpfootnotetext}
+  {\setspace@singlespace}
+  {\footnotelinespre@d}
+  {}{}
+
+\newcommand*{\restoretextenvironmentle@ding}[1]{%
+  \AtBeginEnvironment{#1}{%
+    \setstretch{\setspace@singlespace}\ignorespaces}}
+\restoretextenvironmentle@ding{tabular}
+
+\ifZhLS@restoremathleading
+  \RequirePackage{mathtools}
+  \newcommand*{\m@thlinespre@d}{\setspace@singlespace}
+  \newcommand*{\restorem@thenvironmentle@ding}[1]{%
+    \AtBeginEnvironment{#1}{%
+      \linespread{\m@thlinespre@d}\selectfont\ignorespaces}}
+  \restorem@thenvironmentle@ding{array}
+  \restorem@thenvironmentle@ding{matrix}
+  \restorem@thenvironmentle@ding{pmatrix}
+  \restorem@thenvironmentle@ding{bmatrix}
+  \restorem@thenvironmentle@ding{Bmatrix}
+  \restorem@thenvironmentle@ding{vmatrix}
+  \restorem@thenvironmentle@ding{Vmatrix}
+  \restorem@thenvironmentle@ding{cases}
+  \restorem@thenvironmentle@ding{aligned}
+  \restorem@thenvironmentle@ding{alignedat}
+  \restorem@thenvironmentle@ding{gathered}
+  \patchcmd{\start@gather}
+    {\collect@body}
+    {\linespread{\m@thlinespre@d}\selectfont\ignorespaces\collect@body}
+    {}{}
+  \patchcmd{\start@align}
+    {\collect@body}
+    {\linespread{\m@thlinespre@d}\selectfont\ignorespaces\collect@body}
+    {}{}
+  \patchcmd{\start@multline}
+    {\collect@body}
+    {\linespread{\m@thlinespre@d}\selectfont\ignorespaces\collect@body}
+    {}{}
+%  \restorem@thenvironmentle@ding{split} % ???
+  \PackageWarningNoLine{zhlineskip}{%
+    Leading in inner-math `split' cannot be restored!\MessageBreak
+    Patches needed%
+  }%
+  \restorem@thenvironmentle@ding{matrix*}
+  \restorem@thenvironmentle@ding{pmatrix*}
+  \restorem@thenvironmentle@ding{bmatrix*}
+  \restorem@thenvironmentle@ding{Bmatrix*}
+  \restorem@thenvironmentle@ding{vmatrix*}
+  \restorem@thenvironmentle@ding{Vmatrix*}
+  \restorem@thenvironmentle@ding{cases*}
+  \restorem@thenvironmentle@ding{dcases}
+  \restorem@thenvironmentle@ding{dcases*}
+  \restorem@thenvironmentle@ding{rcases}
+  \restorem@thenvironmentle@ding{rcases*}
+  \restorem@thenvironmentle@ding{drcases}
+  \restorem@thenvironmentle@ding{drcases*}
+  \restorem@thenvironmentle@ding{multlined}
+  \restorem@thenvironmentle@ding{lgathered}
+  \restorem@thenvironmentle@ding{rgathered}
+\else
+  \PackageWarningNoLine{zhlineskip}{%
+    Leading in multi-line math will be stretched%
+  }%
+\fi
+
+\endinput
