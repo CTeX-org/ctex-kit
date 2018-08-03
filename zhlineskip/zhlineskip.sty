@@ -15,108 +15,110 @@
 %
 % This work consists of the files zhlineskip.sty,
 %                                 zhlineskip-man.pdf,
-%                             and zhlineskip-test.tex.
+%                                 zhlineskip-test.tex and
+%                                 README.md.
 %
 \NeedsTeXFormat{LaTeX2e}[1994/06/01]
 \ProvidesPackage{zhlineskip}[%
-  2018/07/13 v1.0 Line spacing for CJK documents]
+  2018/08/02 v1.0a Line spacing for CJK documents]
 
 \RequirePackage{kvoptions}
+\RequirePackage{xintexpr}
+\RequirePackage{etoolbox}
+
 \SetupKeyvalOptions{
   family=ZhLS,
   prefix=ZhLS@
 }
 \DeclareStringOption[1.5]{bodytextleadingratio}[1.5]
-\DeclareStringOption[1.5]{captionleadingratio}[1.5]
 \DeclareStringOption[1.48]{footnoteleadingratio}[1.48]
 \DeclareBoolOption[true]{restoremathleading}
 \DeclareBoolOption[false]{UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts}
-\DeclareStringOption[1.15]{MicrosoftWordLineSpacingMultiple}[1.15]
+\DeclareStringOption[1.15]{MSLineSpacingMultiple}[1.15]
 \ProcessKeyvalOptions*
 
-\RequirePackage{xintexpr}
-\begingroup
-  \normalsize
-  \dimen@\f@baselineskip
-  \edef\@tempnuma{\strip@pt\dimen@}%
-  \xdef\basicbodyleadingr@tio{%
-    \xintthefloatexpr\xintexpr
-      \@tempnuma/\f@size\relax\relax}%
-\endgroup
-\begingroup
-  \footnotesize
-  \dimen@\f@baselineskip
-  \edef\@tempnuma{\strip@pt\dimen@}%
-  \xdef\basicfootleadingr@tio{%
-    \xintthefloatexpr\xintexpr
-      \@tempnuma/\f@size\relax\relax}%
-\endgroup
-\edef\bodytextlinespre@d{%
-  \xintthefloatexpr\xintexpr
-    \ZhLS@bodytextleadingratio/\basicbodyleadingr@tio\relax\relax}
-\edef\captionlinespre@d{%
-  \xintthefloatexpr\xintexpr
-    \ZhLS@captionleadingratio/\basicbodyleadingr@tio\relax\relax}
-\edef\footnotelinespre@d{%
-  \xintthefloatexpr\xintexpr
-    \ZhLS@footnoteleadingratio/\basicfootleadingr@tio\relax\relax}
-
 \ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
-  \def\MicrosoftWordFontbasicleadingr@tio{(332/256)}
-  \edef\bodytextlinespre@d{%
-    \xintthefloatexpr\xintexpr
-      \ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicbodyleadingr@tio\relax\relax}
-  \edef\captionlinespre@d{%
-    \xintthefloatexpr\xintexpr
-      \ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicbodyleadingr@tio\relax\relax}
-  \edef\footnotelinespre@d{%
-    \xintthefloatexpr\xintexpr
-      \ZhLS@MicrosoftWordLineSpacingMultiple*\MicrosoftWordFontbasicleadingr@tio/\basicfootleadingr@tio\relax\relax}
+  \def\ZhLS@MSBasicRatio{(332/256)}
   \PackageWarningNoLine{\@currname}{%
     Use Microsoft Word multiple line spacing\MessageBreak
     Fonts: SimSun, SimHei, SimKai, SimFang\MessageBreak
-    Multiple = `\ZhLS@MicrosoftWordLineSpacingMultiple'%
+    Multiple = `\ZhLS@MSLineSpacingMultiple'%
   }%
 \fi
 
-\RequirePackage[nodisplayskipstretch]{setspace}
-\setstretch{\bodytextlinespre@d}
+\begingroup
+  \normalsize
+  \@tempdima\f@size\p@
+  \@tempdimb\f@baselineskip
+  \edef\@tempnuma{\the\numexpr\@tempdima\relax}%
+  \ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
+    \xdef\ZhLS@targetbodyleading{%
+      \@tempnuma*\ZhLS@MSBasicRatio*\ZhLS@MSLineSpacingMultiple}%
+  \else
+    \xdef\ZhLS@targetbodyleading{%
+      \@tempnuma*\ZhLS@bodytextleadingratio}%
+  \fi
+  \xdef\ZhLS@defaultbodyleading{\the\numexpr\@tempdimb\relax}%
+\endgroup
+\begingroup
+  \footnotesize
+  \@tempdima\f@size\p@
+  \@tempdimb\f@baselineskip
+  \edef\@tempnuma{\the\numexpr\@tempdima\relax}%
+  \ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
+    \xdef\ZhLS@targetfootleading{%
+      \@tempnuma*\ZhLS@MSBasicRatio*\ZhLS@MSLineSpacingMultiple}%
+  \else
+    \xdef\ZhLS@targetfootleading{%
+      \@tempnuma*\ZhLS@footnoteleadingratio}%
+  \fi
+  \xdef\ZhLS@defaultfootleading{\the\numexpr\@tempdimb\relax}%
+\endgroup
+\edef\ZhLS@bodylinespread{%
+  \xintthefloatexpr\xintexpr
+    \ZhLS@targetbodyleading/\ZhLS@defaultbodyleading\relax\relax}
+\edef\ZhLS@footlinespread{%
+  \xintthefloatexpr\xintexpr
+    \ZhLS@targetfootleading/\ZhLS@defaultfootleading\relax\relax}
 
-\RequirePackage{caption}
-\captionsetup{font+={stretch=\captionlinespre@d}}
+\linespread{\ZhLS@bodylinespread}\selectfont
 
-\def\GloballyResetFootnoteSep@#1{%
-  \begingroup
-    \footnotesize\linespread{#1}\selectfont
-    \global\footnotesep=\ht\strutbox
-  \endgroup}
-\GloballyResetFootnoteSep@{\footnotelinespre@d}
-\RequirePackage{etoolbox}
 \patchcmd{\@footnotetext}
-  {\setspace@singlespace}
-  {\footnotelinespre@d}
+  {\reset@font}
+  {\def\baselinestretch{\ZhLS@footlinespread}\reset@font}
   {}{}
 \patchcmd{\@mpfootnotetext}
-  {\setspace@singlespace}
-  {\footnotelinespre@d}
+  {\reset@font}
+  {\def\baselinestretch{\ZhLS@footlinespread}\reset@font}
   {}{}
+\def\ZhLS@resetfootnotesep#1{%
+  \begingroup
+    \footnotesize
+    \linespread{#1}\selectfont
+    \global\footnotesep=\ht\strutbox
+  \endgroup}
+\ZhLS@resetfootnotesep{\ZhLS@footlinespread}
 
+\newcommand*\SetTextEnvironmentSinglespace[1]{%
+  \def\ZhLS@textlinespread{#1}}
+\SetTextEnvironmentSinglespace{1}
 \newcommand*\RestoreTextEnvironmentLeading{%
-  \restoretextenvironmentle@ding}
-\def\textlinespre@d{\setspace@singlespace}
-\def\restoretextenvironmentle@ding#1{%
+  \ZhLS@restoretextenvironmentleading}
+\def\ZhLS@restoretextenvironmentleading#1{%
   \AtBeginEnvironment{#1}{%
-    \setstretch{\textlinespre@d}\ignorespaces}}
+    \linespread{\ZhLS@textlinespread}\selectfont\ignorespaces}}
 \RestoreTextEnvironmentLeading{tabular}
 
 \ifZhLS@restoremathleading
   \RequirePackage{mathtools}
+  \newcommand*\SetMathEnvironmentSinglespace[1]{%
+    \def\ZhLS@mathlinespread{#1}}
+  \SetMathEnvironmentSinglespace{1}
   \newcommand*\RestoreMathEnvironmentLeading{%
-    \restorem@thenvironmentle@ding}
-  \def\m@thlinespre@d{\setspace@singlespace}
-  \def\restorem@thenvironmentle@ding#1{%
+    \ZhLS@restoremathenvironmentleading}
+  \def\ZhLS@restoremathenvironmentleading#1{%
     \AtBeginEnvironment{#1}{%
-      \linespread{\m@thlinespre@d}\selectfont\ignorespaces}}
+      \linespread{\ZhLS@mathlinespread}\selectfont\ignorespaces}}
   \RestoreMathEnvironmentLeading{array}
   \RestoreMathEnvironmentLeading{matrix}
   \RestoreMathEnvironmentLeading{pmatrix}
@@ -130,19 +132,19 @@
   \RestoreMathEnvironmentLeading{gathered}
   \patchcmd{\start@gather}
     {\collect@body}
-    {\linespread{\m@thlinespre@d}\selectfont\collect@body}
+    {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
   \patchcmd{\start@align}
     {\collect@body}
-    {\linespread{\m@thlinespre@d}\selectfont\collect@body}
+    {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
   \patchcmd{\start@multline}
     {\collect@body}
-    {\linespread{\m@thlinespre@d}\selectfont\collect@body}
+    {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
   \patchcmd{\gather@split}
     {\spread@equation}
-    {\linespread{\m@thlinespre@d}\selectfont\spread@equation}
+    {\linespread{\ZhLS@mathlinespread}\selectfont\spread@equation}
     {}{}
   \RestoreMathEnvironmentLeading{matrix*}
   \RestoreMathEnvironmentLeading{pmatrix*}
