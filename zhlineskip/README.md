@@ -1,10 +1,10 @@
 ﻿zhlineskip
 ==========
 
-`zhlineskip` is a package for typesetting CJK documents. This package allows
-users to specify the two ratios between the leading and the font size of the
-body text and the footnote text. For Latin typesetting, these ratios usually
-range [from 1.2 to 1.45](https://practicaltypography.com/line-spacing.html),
+`zhlineskip` is a package for typesetting CJK documents. This package allows users
+to specify the two ratios between the leading and the font size of the body text
+and the footnote text. For Latin typesetting, these ratios usually range
+[from&nbsp;1.2 to&nbsp;1.45](https://practicaltypography.com/line-spacing.html),
 but they should be larger for CJK typesetting.
 
 On the one hand, CJK text requires larger line spacing. On the other hand, math
@@ -12,7 +12,7 @@ line spacing should follow Latin typesetting, since math often consists of only
 Latin letters and symbols. The `zhlineskip` package is capable of restoring the
 math leading to that of the Latin leading.
 
-Finally, it is possible to achieve the `Microsoft Word multiple line spacing'
+Finally, it is possible to achieve the “Microsoft Word multiple line spacing”
 style using `zhlineskip`.
 
 Contributing
