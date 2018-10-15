@@ -14,13 +14,16 @@
 % The Current Maintainer of this work is Ruixi Zhang.
 %
 % This work consists of the files zhlineskip.sty,
-%                                 zhlineskip-man.pdf,
-%                                 zhlineskip-test.tex and
-%                                 README.md.
+%                                 zhlineskip-man.tex,
+%                                 zhlineskip-test.tex,
+%                                 Latinmetrics.pdf,
+%                                 CJKmetrics.pdf,
+%                                 README.md and
+%                the derived file zhlineskip-man.pdf.
 %
-\NeedsTeXFormat{LaTeX2e}[1994/06/01]
+\NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{zhlineskip}[%
-  2018/08/02 v1.0a Line spacing for CJK documents]
+  2018/10/15 v1.0b Line spacing for CJK documents]
 
 \RequirePackage{kvoptions}
 \RequirePackage{xintexpr}
@@ -33,30 +36,29 @@
 \DeclareStringOption[1.5]{bodytextleadingratio}[1.5]
 \DeclareStringOption[1.48]{footnoteleadingratio}[1.48]
 \DeclareBoolOption[true]{restoremathleading}
-\DeclareBoolOption[false]{UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts}
-\DeclareStringOption[1.15]{MSLineSpacingMultiple}[1.15]
+\DeclareBoolOption[false]{UseMSWordMultipleLineSpacing}
+\DeclareStringOption[1.15]{MSWordLineSpacingMultiple}[1.15]
+\DeclareStringOption[1.296875]{MSWordSinglespaceRatio}[1.296875]
 \ProcessKeyvalOptions*
-
-\ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
-  \def\ZhLS@MSBasicRatio{(332/256)}
-  \PackageWarningNoLine{\@currname}{%
-    Use Microsoft Word multiple line spacing\MessageBreak
-    Fonts: SimSun, SimHei, SimKai, SimFang\MessageBreak
-    Multiple = `\ZhLS@MSLineSpacingMultiple'%
-  }%
-\fi
 
 \begingroup
   \normalsize
   \@tempdima\f@size\p@
   \@tempdimb\f@baselineskip
   \edef\@tempnuma{\the\numexpr\@tempdima\relax}%
-  \ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
+  \ifZhLS@UseMSWordMultipleLineSpacing
+    \PackageWarningNoLine{\@currname}{%
+      Use Microsoft Word multiple line spacing\MessageBreak
+      Singlespace to fontsize ratio = `\ZhLS@MSWordSinglespaceRatio'\MessageBreak
+      Multiple = `\ZhLS@MSWordLineSpacingMultiple'%
+    }%
     \xdef\ZhLS@targetbodyleading{%
-      \@tempnuma*\ZhLS@MSBasicRatio*\ZhLS@MSLineSpacingMultiple}%
+      \@tempnuma*\ZhLS@MSWordSinglespaceRatio*\ZhLS@MSWordLineSpacingMultiple
+    }%
   \else
     \xdef\ZhLS@targetbodyleading{%
-      \@tempnuma*\ZhLS@bodytextleadingratio}%
+      \@tempnuma*\ZhLS@bodytextleadingratio
+    }%
   \fi
   \xdef\ZhLS@defaultbodyleading{\the\numexpr\@tempdimb\relax}%
 \endgroup
@@ -65,29 +67,33 @@
   \@tempdima\f@size\p@
   \@tempdimb\f@baselineskip
   \edef\@tempnuma{\the\numexpr\@tempdima\relax}%
-  \ifZhLS@UseMicrosoftWordMultipleLineSpacingWithSimSunHeiKaiFangFonts
+  \ifZhLS@UseMSWordMultipleLineSpacing
     \xdef\ZhLS@targetfootleading{%
-      \@tempnuma*\ZhLS@MSBasicRatio*\ZhLS@MSLineSpacingMultiple}%
+      \@tempnuma*\ZhLS@MSWordSinglespaceRatio*\ZhLS@MSWordLineSpacingMultiple
+    }%
   \else
     \xdef\ZhLS@targetfootleading{%
-      \@tempnuma*\ZhLS@footnoteleadingratio}%
+      \@tempnuma*\ZhLS@footnoteleadingratio
+    }%
   \fi
   \xdef\ZhLS@defaultfootleading{\the\numexpr\@tempdimb\relax}%
 \endgroup
 \edef\ZhLS@bodylinespread{%
   \xintthefloatexpr\xintexpr
-    \ZhLS@targetbodyleading/\ZhLS@defaultbodyleading\relax\relax}
+    \ZhLS@targetbodyleading/\ZhLS@defaultbodyleading\relax\relax
+}
 \edef\ZhLS@footlinespread{%
   \xintthefloatexpr\xintexpr
-    \ZhLS@targetfootleading/\ZhLS@defaultfootleading\relax\relax}
+    \ZhLS@targetfootleading/\ZhLS@defaultfootleading\relax\relax
+}
 
 \linespread{\ZhLS@bodylinespread}\selectfont
 
-\patchcmd{\@footnotetext}
+\patchcmd\@footnotetext
   {\reset@font}
   {\def\baselinestretch{\ZhLS@footlinespread}\reset@font}
   {}{}
-\patchcmd{\@mpfootnotetext}
+\patchcmd\@mpfootnotetext
   {\reset@font}
   {\def\baselinestretch{\ZhLS@footlinespread}\reset@font}
   {}{}
@@ -96,29 +102,38 @@
     \footnotesize
     \linespread{#1}\selectfont
     \global\footnotesep=\ht\strutbox
-  \endgroup}
+  \endgroup
+}
 \ZhLS@resetfootnotesep{\ZhLS@footlinespread}
 
 \newcommand*\SetTextEnvironmentSinglespace[1]{%
-  \def\ZhLS@textlinespread{#1}}
+  \def\ZhLS@textlinespread{#1}%
+}
 \SetTextEnvironmentSinglespace{1}
 \newcommand*\RestoreTextEnvironmentLeading{%
-  \ZhLS@restoretextenvironmentleading}
+  \ZhLS@restoretextenvironmentleading
+}
 \def\ZhLS@restoretextenvironmentleading#1{%
   \AtBeginEnvironment{#1}{%
-    \linespread{\ZhLS@textlinespread}\selectfont\ignorespaces}}
-\RestoreTextEnvironmentLeading{tabular}
+    \linespread{\ZhLS@textlinespread}\selectfont\ignorespaces
+  }%
+}
+%\RestoreTextEnvironmentLeading{tabular}
 
 \ifZhLS@restoremathleading
   \RequirePackage{mathtools}
   \newcommand*\SetMathEnvironmentSinglespace[1]{%
-    \def\ZhLS@mathlinespread{#1}}
+    \def\ZhLS@mathlinespread{#1}%
+  }
   \SetMathEnvironmentSinglespace{1}
   \newcommand*\RestoreMathEnvironmentLeading{%
-    \ZhLS@restoremathenvironmentleading}
+    \ZhLS@restoremathenvironmentleading
+  }
   \def\ZhLS@restoremathenvironmentleading#1{%
     \AtBeginEnvironment{#1}{%
-      \linespread{\ZhLS@mathlinespread}\selectfont\ignorespaces}}
+      \linespread{\ZhLS@mathlinespread}\selectfont\ignorespaces
+    }%
+  }
   \RestoreMathEnvironmentLeading{array}
   \RestoreMathEnvironmentLeading{matrix}
   \RestoreMathEnvironmentLeading{pmatrix}
@@ -130,19 +145,19 @@
   \RestoreMathEnvironmentLeading{aligned}
   \RestoreMathEnvironmentLeading{alignedat}
   \RestoreMathEnvironmentLeading{gathered}
-  \patchcmd{\start@gather}
+  \patchcmd\start@gather
     {\collect@body}
     {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
-  \patchcmd{\start@align}
+  \patchcmd\start@align
     {\collect@body}
     {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
-  \patchcmd{\start@multline}
+  \patchcmd\start@multline
     {\collect@body}
     {\linespread{\ZhLS@mathlinespread}\selectfont\collect@body}
     {}{}
-  \patchcmd{\gather@split}
+  \patchcmd\gather@split
     {\spread@equation}
     {\linespread{\ZhLS@mathlinespread}\selectfont\spread@equation}
     {}{}
