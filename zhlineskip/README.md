@@ -44,5 +44,5 @@ Copyright and Licence
                                     zhlineskip-test.tex,
                                     Latinmetrics.pdf,
                                     CJKmetrics.pdf,
-                                    README.md (this file) and
-                   the derived file zhlineskip-man.pdf.
+                                    README.md (this file)
+              and the derived file  zhlineskip-man.pdf.
