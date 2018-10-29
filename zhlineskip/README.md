@@ -1,4 +1,4 @@
-﻿zhlineskip
+zhlineskip
 ==========
 
 `zhlineskip` is a package for typesetting CJK documents. This package allows users
