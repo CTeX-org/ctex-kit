@@ -549,6 +549,7 @@ Copyright and Licence
 % \changes{v2.4}{2015/02/19}{加强 \pkg{beamer} 宏包支持。}
 % \changes{v2.4.12}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v2.4.15}{2018/05/15}{同步 \LaTeXiii{} 2018/05/13。}
+% \changes{v2.4.16}{2019/01/29}{修正 \opt{indent} 的实现方法。}^^A 未完待续
 %
 %
 % \CheckSum{5901}
@@ -7272,6 +7273,9 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.4.16}{2019/01/29}{局部指定 \opt{autoindent=false}，并交换
+%   \cs{CTEX@XXX@indent} 与 \cs{CTEX@XXX@format} 的顺序。}
+%
 % \begin{macro}[int]{\@part}
 %    \begin{macrocode}
 %<*article>
@@ -7292,9 +7296,14 @@ Copyright and Licence
 %   \addcontentsline{toc}{part}{#1}%
   \fi
   \CTEX@addtocline{part}{#1}%
-  {\interlinepenalty \@M
+%<@@=ctex>
+  {\tl_clear:N \l_@@_autoindent_tl
+%<@@=>
+   \interlinepenalty \@M
 %  \normalfont \parindent \z@ \raggedright
-   \normalfont \parindent \dimexpr \CTEX@part@indent \relax \CTEX@part@format
+   \normalfont
+   \CTEX@part@format
+   \parindent \dimexpr \CTEX@part@indent \relax
    \ifnum \c@secnumdepth >\m@ne \ifodd \CTEX@part@numbering
 %    \Large\bfseries\partname\nobreakspace\thepart\par\nobreak
      \CTEX@partname \CTEX@part@aftername
@@ -7352,10 +7361,14 @@ Copyright and Licence
 \def\@spart#1{%
     \CTEX@ifnamefalse
     \CTEX@makeanchor@spart{part*}%
-    {\interlinepenalty \@M
+%<@@=ctex>
+    {\tl_clear:N \l_@@_autoindent_tl
+%<@@=>
+     \interlinepenalty \@M
 %    \normalfont \parindent \z@ \raggedright
-     \normalfont \parindent \dimexpr \CTEX@part@indent \relax
+     \normalfont
      \CTEX@part@format
+     \parindent \dimexpr \CTEX@part@indent \relax
 %    \huge \bfseries #1\par}%
      \CTEX@part@titleformat{#1}%
      \CTEX@part@aftertitle}%
@@ -7495,8 +7508,12 @@ Copyright and Licence
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
-  {\normalfont \parindent \dimexpr \CTEX@chapter@indent \relax
+%<@@=ctex>
+  {\tl_clear:N \l_@@_autoindent_tl
+%<@@=>
+   \normalfont
    \CTEX@chapter@format
+   \parindent \dimexpr \CTEX@chapter@indent \relax
 %  \ifnum \c@secnumdepth >\m@ne
 %    \if@mainmatter
 %      \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
@@ -7524,8 +7541,12 @@ Copyright and Licence
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
-  {\normalfont \parindent \dimexpr \CTEX@chapter@indent \relax
+%<@@=ctex>
+  {\tl_clear:N \l_@@_autoindent_tl
+%<@@=>
+   \normalfont
    \CTEX@chapter@format
+   \parindent \dimexpr \CTEX@chapter@indent \relax
    \interlinepenalty\@M
 %  \Huge \bfseries  #1\par\nobreak
    \CTEX@chapter@titleformat{#1}
@@ -8238,24 +8259,28 @@ Copyright and Licence
 \ExplSyntaxOff
 %    \end{macrocode}
 %
+% \changes{v2.4.16}{2019/01/29}{局部指定 \opt{autoindent=false}，并交换
+%   \cs{CTEX@XXX@indent} 与 \cs{CTEX@XXX@format} 的顺序。}
+%
 % 对应 \tn{partpage}。
 %    \begin{macrocode}
-\defbeamertemplate*{part page}{CTEX}[1][]{
+\defbeamertemplate*{part page}{CTEX}[1][]{%
   \begingroup
+    \ctexset{autoindent=false}%
 %    \centering
 %    {\usebeamerfont{part name}%
 %     \usebeamercolor[fg]{part name}\partname~\insertromanpartnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@part@beforeskip\relax}%
-    \parindent \dimexpr \CTEX@part@indent \relax
     \CTEX@part@format
+    \parindent \dimexpr \CTEX@part@indent \relax
     \ifodd \CTEX@part@numbering
       \CTEX@partname \CTEX@part@aftername
     \fi
     \begin{beamercolorbox}[sep=16pt,center,#1]{part title}
 %      \usebeamerfont{part title}\insertpart\par
       \CTEX@part@titleformat \insertpart \CTEX@part@aftertitle
-    \end{beamercolorbox}
+    \end{beamercolorbox}%
     \par \addvspace{\glueexpr\CTEX@part@afterskip\relax}%
   \endgroup
 }
@@ -8263,22 +8288,23 @@ Copyright and Licence
 %
 % 对应 \tn{sectionpage}。
 %    \begin{macrocode}
-\defbeamertemplate*{section page}{CTEX}[1][]{
+\defbeamertemplate*{section page}{CTEX}[1][]{%
   \begingroup
+    \ctexset{autoindent=false}%
 %    \centering
 %    {\usebeamerfont{section name}%
 %     \usebeamercolor[fg]{section name}\sectionname~\insertsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@section@beforeskip\relax}%
-    \parindent \dimexpr \CTEX@section@indent \relax
     \CTEX@section@format
+    \parindent \dimexpr \CTEX@section@indent \relax
     \ifodd \CTEX@section@numbering
       \CTEX@sectionname \CTEX@section@aftername
     \fi
     \begin{beamercolorbox}[sep=12pt,center,#1]{part title}
 %      \usebeamerfont{section title}\insertsection\par
       \CTEX@section@titleformat \insertsection \CTEX@section@aftertitle
-    \end{beamercolorbox}
+    \end{beamercolorbox}%
     \par \addvspace{\glueexpr\CTEX@section@afterskip\relax}%
   \endgroup
 }
@@ -8288,20 +8314,21 @@ Copyright and Licence
 %    \begin{macrocode}
 \defbeamertemplate*{subsection page}{CTEX}[1][]{
   \begingroup
+    \ctexset{autoindent=false}%
 %    \centering
 %    {\usebeamerfont{subsection name}%
 %     \usebeamercolor[fg]{subsection name}\subsectionname~\insertsubsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@subsection@beforeskip\relax}%
-    \parindent \dimexpr \CTEX@subsection@indent \relax
     \CTEX@subsection@format
+    \parindent \dimexpr \CTEX@subsection@indent \relax
     \ifodd \CTEX@subsection@numbering
       \CTEX@subsectionname \CTEX@subsection@aftername
     \fi
     \begin{beamercolorbox}[sep=8pt,center,#1]{part title}
 %      \usebeamerfont{subsection title}\insertsubsection\par
       \CTEX@subsection@titleformat \insertsubsection \CTEX@subsection@aftertitle
-    \end{beamercolorbox}
+    \end{beamercolorbox}%
     \par \addvspace{\glueexpr\CTEX@subsection@afterskip\relax}%
   \endgroup
 }
