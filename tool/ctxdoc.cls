@@ -6,7 +6,7 @@
 %%
 %% ctex.dtx  (with options: `ctxdoc')
 %% 
-%%     Copyright (C) 2003--2018
+%%     Copyright (C) 2003--2019
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %% ------------------------------------------------------------------------------
 %% 
@@ -28,7 +28,7 @@
 %% 
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx 0612a77 2018-05-15 20:18:15 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id: ctex.dtx cda7631 2019-03-23 18:41:31 +0800 Qing Lee <sobenlee@gmail.com> $
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}
   {\ExplFileDate}{2.4.14}{\ExplFileDescription}
@@ -62,7 +62,7 @@
 \RequirePackage{unicode-math}
 \RequirePackage{xcolor}
 \RequirePackage{caption}
-\RequirePackage{fvrb-ex}
+\RequirePackage{fancyvrb-ex}
 \RequirePackage{zref-base}
 \geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
 \hypersetup{pdfstartview=FitH,bookmarksdepth=subparagraph}
@@ -220,8 +220,8 @@
   { \iow_term:n { *** ~ FAIL ~ *** } }
 \ctex_patch_cmd_once:NnnnTF \__codedoc_macro_dump:
   { }
-  { \hbox_unpack_clear:N }
-  { \MacroFont \hbox_unpack_clear:N }
+  { \hbox_unpack_drop:N }
+  { \MacroFont \hbox_unpack_drop:N }
   { \iow_term:n { *** ~ SUCCESS ~ *** } }
   { \iow_term:n { *** ~ FAIL ~ *** } }
 \cs_set_eq:NN \__codedoc_macro_end_style:n \use_none:n
@@ -230,7 +230,7 @@
     \vbox_set:Nn \l__codedoc_macro_box
       {
         \MacroFont
-        \vbox_unpack_clear:N \l__codedoc_macro_box
+        \vbox_unpack_drop:N \l__codedoc_macro_box
         \hbox_set:Nn \l_tmpa_box
           { \__codedoc_print_macroname:nN {#1} #2 }
         \dim_set:Nn \l_tmpa_dim { \marginparwidth - \labelsep }
@@ -293,16 +293,12 @@
 \DeclareDocumentCommand \GetFileId { m }
   {
     \GetFileInfo {#1}
-    \ior_open:NnTF \g__ctxdoc_id_ior { \c_sys_jobname_str .id }
-      {
-        \ior_get:NN \g__ctxdoc_id_ior \l__ctxdoc_tmp_tl
-        \ior_close:N \g__ctxdoc_id_ior
-        \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl
-      }
+    \file_get:nnNTF { \c_sys_jobname_str .id }
+      { \int_set:Nn \tex_endlinechar:D { -1 } } \l__ctxdoc_tmp_tl
+      { \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl }
       { \GetIdInfo $Id$ }
       { \fileinfo }
   }
-\ior_new:N \g__ctxdoc_id_ior
 \cs_new_eq:NN \__ctxdoc_ltx_changes:nnn \changes@
 \cs_set_protected:Npn \changes@ #1#2
   {
@@ -490,7 +486,7 @@
 \tl_new:N \g__ctxdoc_verbatim_verb_stop_tl
 \cs_new_protected_nopar:Npn \__ctxdoc_process_normal_line:
   {
-    \str_if_eq_x:nnTF
+    \str_if_eq:eeTF
       { \str_head:N \l__ctxdoc_verbatim_line_tl } { \c_percent_str }
       { \__ctxdoc_check_angle:x { \tl_tail:N \l__ctxdoc_verbatim_line_tl } }
       { \__ctxdoc_output_line: }
@@ -517,7 +513,7 @@
   { \cs_set_eq:NN \__ctxdoc_verbatim_process_line: \__ctxdoc_output_line: }
 \cs_new_protected:Npn \__ctxdoc_check_angle:n #1
   {
-     \str_if_eq_x:nnTF { \str_head:n {#1} } { < }
+     \str_if_eq:eeTF { \str_head:n {#1} } { < }
       { \__ctxdoc_check_module:x { \tl_tail:n {#1} } }
       { \__ctxdoc_output_percent_line: }
   }
@@ -614,7 +610,7 @@
     \tl_if_eq:NNTF \l__ctxdoc_verbatim_line_tl \c__ctxdoc_active_cr_tl
       { \tl_use:N \l__ctxdoc_verbatim_line_tl }
       {
-        \str_if_eq_x:nnTF
+        \str_if_eq:eeTF
           { \str_head:N \l__ctxdoc_verbatim_line_tl }
           { \c_percent_str }
           { \__ctxdoc_output_percent_line: }
@@ -627,7 +623,7 @@
     \group_begin:
       \color { code@gray }
       \__ctxdoc_swap_cr:
-      \str_if_eq_x:nnTF { \f@shape } { \updefault }
+      \str_if_eq:eeTF { \f@shape } { \updefault }
         { \slshape }
         { \upshape }
       \__ctxdoc_output_line:
