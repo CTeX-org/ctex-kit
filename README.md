@@ -17,24 +17,26 @@ Our Packages/Collections on CTAN
 
 Package/Collection                      | Version
 --------------------------------------- | -------
-[CJKpunct][CJKpunct-ctan]               | [![CTAN](https://img.shields.io/ctan/v/cjkpunct.svg)](http://www.ctan.org/pkg/cjkpunct)
-[CTeX Collection][ctex-collection-ctan] | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](https://www.ctan.org/pkg/ctex)
-[xCJK2uni][xCJK2uni-ctan]               | [![CTAN](https://img.shields.io/ctan/v/xcjk2uni.svg)](http://www.ctan.org/pkg/xcjk2uni)
-[xeCJK][xeCJK-ctan]                     | [![CTAN](https://img.shields.io/ctan/v/xecjk.svg)](http://www.ctan.org/pkg/xecjk)
-[xpinyin][xpinyin-ctan]                 | [![CTAN](https://img.shields.io/ctan/v/xpinyin.svg)](http://www.ctan.org/pkg/xpinyin)
-[zhmCJK][zhmCJK-ctan]                   | [![CTAN](https://img.shields.io/ctan/v/zhmcjk.svg)](http://www.ctan.org/pkg/zhmcjk)
-[zhmetrics][zhmetrics-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhmetrics.svg)](http://www.ctan.org/pkg/zhmetrics)
-[zhmetrics-uptex][zhmetrics-uptex-ctan] | [![CTAN](https://img.shields.io/ctan/v/zhmetrics-uptex.svg)](http://www.ctan.org/pkg/zhmetrics-uptex)
-[zhnumber][zhnumber-ctan]               | [![CTAN](https://img.shields.io/ctan/v/zhnumber.svg)](http://www.ctan.org/pkg/zhnumber)
-[zhspacing][zhspacing-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhspacing.svg)](http://www.ctan.org/pkg/zhspacing)
+[CJKpunct][CJKpunct-ctan]               | [![CTAN](https://img.shields.io/ctan/v/cjkpunct.svg)](https://ctan.org/pkg/cjkpunct)
+[CTeX Collection][ctex-collection-ctan] | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](https://ctan.org/pkg/ctex)
+[xCJK2uni][xCJK2uni-ctan]               | [![CTAN](https://img.shields.io/ctan/v/xcjk2uni.svg)](https://ctan.org/pkg/xcjk2uni)
+[xeCJK][xeCJK-ctan]                     | [![CTAN](https://img.shields.io/ctan/v/xecjk.svg)](https://ctan.org/pkg/xecjk)
+[xpinyin][xpinyin-ctan]                 | [![CTAN](https://img.shields.io/ctan/v/xpinyin.svg)](https://ctan.org/pkg/xpinyin)
+[zhlineskip][zhlineskip-ctan]           | [![CTAN](https://img.shields.io/ctan/v/zhlineskip.svg)](https://ctan.org/pkg/zhlineskip)
+[zhmCJK][zhmCJK-ctan]                   | [![CTAN](https://img.shields.io/ctan/v/zhmcjk.svg)](https://ctan.org/pkg/zhmcjk)
+[zhmetrics][zhmetrics-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhmetrics.svg)](https://ctan.org/pkg/zhmetrics)
+[zhmetrics-uptex][zhmetrics-uptex-ctan] | [![CTAN](https://img.shields.io/ctan/v/zhmetrics-uptex.svg)](https://ctan.org/pkg/zhmetrics-uptex)
+[zhnumber][zhnumber-ctan]               | [![CTAN](https://img.shields.io/ctan/v/zhnumber.svg)](https://ctan.org/pkg/zhnumber)
+[zhspacing][zhspacing-ctan]             | [![CTAN](https://img.shields.io/ctan/v/zhspacing.svg)](https://ctan.org/pkg/zhspacing)
 
-[CJKpunct-ctan]: http://www.ctan.org/tex-archive/language/chinese/cjkpunct
-[ctex-collection-ctan]: http://www.ctan.org/tex-archive/language/chinese/ctex
-[xCJK2uni-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xcjk2uni
-[xeCJK-ctan]: http://www.ctan.org/tex-archive/macros/xetex/latex/xecjk
-[xpinyin-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/xpinyin
-[zhmCJK-ctan]: http://www.ctan.org/tex-archive/language/chinese/zhmcjk
-[zhmetrics-ctan]: http://www.ctan.org/tex-archive/fonts/psfonts/zhmetrics
-[zhmetrics-uptex-ctan]: http://www.ctan.org/tex-archive/fonts/zhmetrics-uptex
-[zhnumber-ctan]: http://www.ctan.org/tex-archive/macros/latex/contrib/zhnumber
-[zhspacing-ctan]: http://www.ctan.org/tex-archive/macros/xetex/generic/zhspacing
+[CJKpunct-ctan]: https://ctan.org/tex-archive/language/chinese/cjkpunct
+[ctex-collection-ctan]: https://ctan.org/tex-archive/language/chinese/ctex
+[xCJK2uni-ctan]: https://ctan.org/tex-archive/macros/latex/contrib/xcjk2uni
+[xeCJK-ctan]: https://ctan.org/tex-archive/macros/xetex/latex/xecjk
+[xpinyin-ctan]: https://ctan.org/tex-archive/macros/latex/contrib/xpinyin
+[zhlineskip-ctan]: https://ctan.org/tex-archive/language/chinese/zhlineskip
+[zhmCJK-ctan]: https://ctan.org/tex-archive/language/chinese/zhmcjk
+[zhmetrics-ctan]: https://ctan.org/tex-archive/fonts/psfonts/zhmetrics
+[zhmetrics-uptex-ctan]: https://ctan.org/tex-archive/fonts/zhmetrics-uptex
+[zhnumber-ctan]: https://ctan.org/tex-archive/macros/latex/contrib/zhnumber
+[zhspacing-ctan]: https://ctan.org/tex-archive/macros/xetex/generic/zhspacing
