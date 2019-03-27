@@ -281,7 +281,7 @@ Copyright and Licence
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 % \changes{v3.7.2}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{10906}
+% \CheckSum{10883}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6343,10 +6343,12 @@ Copyright and Licence
             \tl_if_blank:nTF {##1}
               {
                 \prop_clear:N \l_@@_sub_key_prop
-                \tl_put_right:Nn \l_@@_family_name_tl { /#1 }
+                \tl_set:Nx \l_@@_sub_family_name_tl
+                  { \l_@@_family_name_tl /#1 }
                 \clist_remove_all:Nn \l_@@_font_options_clist {#1}
               }
               {
+                \tl_clear:N \l_@@_sub_family_name_tl
                 \str_if_eq:nnTF {##1} { * }
                   { \prop_put:Nnn \l_@@_sub_key_prop {#1} { \q_no_value } }
                   { \@@_get_sub_features:nn {#1} {##1} }
@@ -6462,6 +6464,7 @@ Copyright and Licence
     \prop_clear:N \l_@@_sub_key_prop
     \tl_clear:N \l_@@_font_name_bf_tl
     \tl_clear:N \l_@@_font_name_it_tl
+    \tl_clear:N \l_@@_sub_family_name_tl
     \clist_clear:N \l_@@_fontspec_options_clist
     \bool_set_eq:NN \l_@@_auto_fake_bold_bool  \g_@@_auto_fake_bold_bool
     \bool_set_eq:NN \l_@@_auto_fake_slant_bool \g_@@_auto_fake_slant_bool
@@ -6490,9 +6493,9 @@ Copyright and Licence
     \tl_set:Nn \l_@@_font_name_tl {#3}
     \clist_concat:NNN \l_@@_font_options_clist
       \g_@@_default_features_clist \l_@@_font_options_clist
-    \@@_remove_duplicate_keys:N \l_@@_font_options_clist
     \keys_set_known:nVN { xeCJK / features }
       \l_@@_font_options_clist \l_@@_fontspec_options_clist
+    \@@_binding_sub_family:
     \@@_parse_font_shape:
     \@@_check_family:V \l_@@_family_name_tl
     \@@_gset_family_cs:x { \l_@@_family_name_tl }
@@ -6507,30 +6510,15 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_remove_duplicate_keys:N}
+% \changes{v3.7.2}{2019/03/27}{删除定义新字体族时过滤重复选项的功能。}
+%
+% \begin{macro}{\@@_binding_sub_family:}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_remove_duplicate_keys:N #1
+\cs_new_protected_nopar:Npn \@@_binding_sub_family:
   {
-    \prop_clear:N \l_@@_font_options_prop
-    \keyval_parse:NNV \@@_prop_put_aux:n \@@_prop_put_aux:nn #1
-    \clist_clear:N #1
-    \prop_map_inline:Nn \l_@@_font_options_prop
-      {
-        \tl_set:No \l_@@_tmp_tl { \use_ii:nn ##2 }
-        \tl_if_blank:VTF \l_@@_tmp_tl
-          { \clist_put_right:No #1 { \use_i:nn ##2 } }
-          {
-            \clist_put_right:Nx #1
-              { \exp_not:o { \use_i:nn ##2 } = { \exp_not:V \l_@@_tmp_tl } }
-          }
-      }
+    \tl_if_empty:NF \l_@@_sub_family_name_tl
+      { \tl_set_eq:NN \l_@@_family_name_tl \l_@@_sub_family_name_tl }
   }
-\prop_new:N \l_@@_font_options_prop
-\cs_generate_variant:Nn \keyval_parse:NNn { NNV }
-\cs_new_protected_nopar:Npn \@@_prop_put_aux:n #1
-  { \prop_put:Nnn \l_@@_font_options_prop {#1} { {#1} {  } } }
-\cs_new_protected_nopar:Npn \@@_prop_put_aux:nn #1#2
-  { \prop_put:Nnn \l_@@_font_options_prop {#1} { {#1} {#2} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6542,16 +6530,17 @@ Copyright and Licence
       {
         \group_begin:
         \exp_not:n { \cs_set_eq:NN \xeCJK@fontfamily \use_none:n }
-        \exp_not:n { \fontspec_set_family:Nnn \l_@@_fontspec_family_tl }
+        \exp_not:n { \fontspec_gset_family:Nnn \g_@@_fontspec_family_tl }
           { \exp_not:V \l_@@_fontspec_options_clist }
           { \exp_not:V \l_@@_font_name_tl }
         \@@_gset_family_nfss_cs:xx
-          {#1} { \exp_not:N \l_@@_fontspec_family_tl }
-        \exp_not:N \exp_args:NNNo \group_end:
-        \tl_set:Nn \exp_not:N \l_@@_fontspec_family_tl
-          { \exp_not:N \l_@@_fontspec_family_tl }
+          {#1} { \exp_not:N \g_@@_fontspec_family_tl }
+        \group_end:
+        \tl_set_eq:NN \exp_not:N \l_@@_fontspec_family_tl
+                      \exp_not:N \g_@@_fontspec_family_tl
       }
   }
+\tl_new:N \g_@@_fontspec_family_tl
 \tl_new:N \l_@@_fontspec_family_tl
 %    \end{macrocode}
 % \end{macro}
@@ -8055,7 +8044,7 @@ Copyright and Licence
 % 执行宏包选项，并载入 \pkg{fontspec} 宏包。
 %    \begin{macrocode}
 \ProcessKeysOptions { xeCJK / options }
-\RequirePackage { fontspec } [ 2012/05/01 ]
+\RequirePackage { fontspec } [ 2019/03/15 ]
 %    \end{macrocode}
 %
 % \begin{variable}{\c_@@_encoding_tl}
