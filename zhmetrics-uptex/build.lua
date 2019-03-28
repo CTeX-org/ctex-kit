@@ -42,7 +42,7 @@ function rmdir(dir)
 		do return end
 	end
 	local rd = 'rm -r -f'
-	if os.type == windows then
+	if os.type == 'windows' then
 		rd = 'rmdir /s /q'
 		dir = dir:gsub('/', '\\')
 	end
