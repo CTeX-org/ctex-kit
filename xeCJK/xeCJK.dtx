@@ -281,7 +281,7 @@ Copyright and Licence
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 % \changes{v3.7.2}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{10883}
+% \CheckSum{10855}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3340,7 +3340,7 @@ Copyright and Licence
         { \@@_node:n { CJK } }
         { \xeCJK_remove_node: \CJKglue }
         { \@@_node:n { CJK-space } }
-        { \xeCJK_remove_node: \CJKglue }
+        { \xeCJK_remove_node: \@@_ccglue_or_space: }
         { \@@_node:n { CJK-widow } }
         { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
         { \@@_node:n { default } }
@@ -3518,6 +3518,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.4.1}{2016/05/21}{修复 \texttt{CJKspace} 功能失效。}
+% \changes{v3.7.2}{2019/04/07}{简化 \texttt{CJKspace} 的实现，并修复错误。}
 %
 % \begin{macro}{CJKspace}
 % 是否保留 CJK 文字间的空白，默认不保留。
@@ -3528,20 +3529,12 @@ Copyright and Licence
     CJKspace / true  .code:n =
       {
         \bool_set_true:N \l_@@_reserve_space_bool
-        \cs_set_eq:NN \@@_ignore_space_end:
-                      \@@_maybe_reserve_space:
-        \cs_set_eq:NN \@@_boundary_group_end_space:
-                      \@@_boundary_maybe_reserve_space:
         \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
           { \xeCJK_space_glue: }
       } ,
     CJKspace / false .code:n =
       {
         \bool_set_false:N \l_@@_reserve_space_bool
-        \cs_set_eq:NN \@@_ignore_space_end:
-                      \group_align_safe_end:
-        \cs_set_eq:NN \@@_boundary_group_end_space:
-                      \@@_boundary_group_end_aux:
         \cs_set_protected_nopar:Npn \@@_ccglue_or_space:
           { \CJKglue }
       } ,
@@ -3578,7 +3571,7 @@ Copyright and Licence
           {
             \token_if_macro:NTF \l_peek_token
               { \@@_boundary_reserve_space: }
-              { \@@_boundary_group_end_space: }
+              { \@@_boundary_group_end:n { CJK-space } }
           }
           {
             \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
@@ -3589,18 +3582,9 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_boundary_reserve_space:
   {
-    \@@_boundary_group_end_aux:
+    \@@_boundary_group_end:n { CJK-space }
     \xeCJK_space_or_xecglue:
   }
-\cs_new_protected_nopar:Npn \@@_boundary_maybe_reserve_space:
-  {
-    \token_if_letter:NTF \l_peek_token
-      { \@@_boundary_reserve_space: }
-      { \@@_boundary_group_end_aux: }
-  }
-\cs_new_protected_nopar:Npn \@@_boundary_group_end_aux:
-  { \@@_boundary_group_end:n { CJK-space } }
-\cs_new_eq:NN \@@_boundary_group_end_space: \@@_boundary_group_end_aux:
 \cs_new_protected:Npn \@@_CJK_and_Boundary_relax:N #1
   {
     \@@_boundary_group_end:n { CJK }
@@ -3628,27 +3612,25 @@ Copyright and Licence
       {
         \bool_if:NT \l_@@_peek_ignore_spaces_bool
           {
-            \xeCJK_if_last_node:nT { CJK }
-              { \xeCJK_remove_node: { \xeCJK_make_node:n { CJK-space } } }
+            \dim_case:nn { \tex_lastkern:D }
+              {
+                { \@@_node:n { CJK } }
+                { \xeCJK_remove_node: \xeCJK_make_node:n { CJK-space } }
+                { \@@_node:n { default } }
+                { \xeCJK_remove_node: \xeCJK_make_node:n { default-space } }
+              }
             \group_align_safe_begin:
             \token_if_macro:NTF \l_peek_token
               { \@@_reserve_space_aux: }
-              { \@@_ignore_space_end: }
+              { \group_align_safe_end: }
           }
       }
   }
-\cs_new_protected:Npn \@@_reserve_space_aux:
+\cs_new_protected_nopar:Npn \@@_reserve_space_aux:
   {
     \group_align_safe_end:
     \xeCJK_space_or_xecglue:
   }
-\cs_new_protected:Npn \@@_maybe_reserve_space:
-  {
-    \token_if_letter:NTF \l_peek_token
-      { \@@_reserve_space_aux: }
-      { \group_align_safe_end: }
-  }
-\cs_new_eq:NN \@@_ignore_space_end: \group_align_safe_end:
 %    \end{macrocode}
 % \end{macro}
 %
