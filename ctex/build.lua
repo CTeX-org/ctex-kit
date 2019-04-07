@@ -23,11 +23,6 @@ subtexdirs = {
     ["dictionary"] = "*.dict",
 }
 
-function copytds_posthook()
-  cp("ctex.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("ctex.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
-end
-
 function setversion_update_line (line, date, version)
   local left, right = line:match([[^(%%%b<>  {\ExplFileDate}{).-(}{.+})$]])
   if left and right then

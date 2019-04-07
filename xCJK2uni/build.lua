@@ -16,11 +16,6 @@ subtexdirs = {
   ["cmap"] = "*.cmap",
 }
 
-function copytds_posthook()
-  cp("xCJK2uni.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("xCJK2uni.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
-end
-
 dofile("../tool/zhl3build.lua")
 
 -- vim:sw=2:et

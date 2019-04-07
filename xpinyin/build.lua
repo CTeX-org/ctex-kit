@@ -27,11 +27,6 @@ function unpack_posthook()
   os.remove("xpinyin.ins")
 end
 
-function copytds_posthook()
-  cp("xpinyin.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("xpinyin.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
-end
-
 dofile("../tool/zhl3build.lua")
 
 -- vim:sw=2:et

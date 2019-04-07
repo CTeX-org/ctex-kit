@@ -175,9 +175,6 @@ function copytds_posthook()
   local exampledir = docdir .. "/example"
   mkdir(exampledir)
   cp("xeCJK-example-*.tex", unpackdir, exampledir)
-  -- ins 文件
-  cp("xeCJK.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("xeCJK.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
 end
 
 dofile("../tool/zhl3build.lua")

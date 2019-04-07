@@ -31,8 +31,6 @@ function copytds_posthook()
   cp("examples", ".", docdir)
   cp("setpunct", ".", ctandir)
   cp("setpunct", ".", docdir)
-  cp("CJKpunct.ins", unpackdir, ctandir)
-  cp("CJKpunct.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
 end
 
 dofile("../tool/zhl3build.lua")

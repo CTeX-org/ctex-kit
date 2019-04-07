@@ -15,11 +15,6 @@ typesetexe = "xelatex"
 gbkfiles = {"zhnumber-gbk.cfg"}
 big5files = {"zhnumber-big5.cfg"}
 
-function copytds_posthook()
-  cp("zhnumber.ins", unpackdir, ctandir .. "/" .. ctanpkg)
-  cp("zhnumber.ins", unpackdir, tdsdir .. "/source/" .. moduledir)
-end
-
 dofile("../tool/zhl3build.lua")
 
 -- vim:sw=2:et
