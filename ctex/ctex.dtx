@@ -581,7 +581,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
 %
-% \CheckSum{5914}
+% \CheckSum{5920}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -7301,10 +7301,20 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\CTEX@disableautoindent}
+% 禁用自动调整首行缩进。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \CTEX@disableautoindent
+  { \tl_clear:N \l_@@_autoindent_tl }
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v2.2}{2015/06/27}{\opt{beforeskip}、\opt{afterskip} 和 \opt{indent}
 %   选项支持表达式。}
 % \changes{v2.4.15}{2019/03/31}{修正 \opt{part/indent} 和 \opt{chapter/indent} 的实现方法。}
 % \changes{v2.4.15}{2019/03/31}{定义 \opt{part/hang} 和 \opt{chapter/hang}。}
+% \changes{v2.4.16}{2019/05/11}{修正 \opt{part/indent} 和 \opt{chapter/indent}
+%   的实现方法，在其标题内部禁用 \opt{autoindent}。}
 %
 % \paragraph{part 的标题}
 %
@@ -7380,6 +7390,7 @@ Copyright and Licence
   \CTEX@addtocline{part}{#1}%
   {\interlinepenalty \@M
 %  \normalfont \parindent \z@ \raggedright
+   \CTEX@disableautoindent
    \normalfont \CTEX@part@format
 %  \ifnum \c@secnumdepth >\m@ne
 %    \Large\bfseries\partname\nobreakspace\thepart\par\nobreak
@@ -7420,6 +7431,7 @@ Copyright and Licence
    \partmark{#1}%
   {\interlinepenalty \@M
 %  \normalfont \centering
+   \CTEX@disableautoindent
    \normalfont \CTEX@part@format
 %  \ifnum \c@secnumdepth >-2\relax
 %    \huge\bfseries\partname\nobreakspace\thepart\par\vskip 20\p@
@@ -7442,6 +7454,7 @@ Copyright and Licence
     \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \parindent \z@ \raggedright
+     \CTEX@disableautoindent
      \normalfont \CTEX@part@format
      \CTEX@hangindent{part}{}%
 %    \huge \bfseries #1\par}%
@@ -7460,6 +7473,7 @@ Copyright and Licence
     \CTEX@makeanchor@spart{part*}%
     {\interlinepenalty \@M
 %    \normalfont \centering
+     \CTEX@disableautoindent
      \normalfont \CTEX@part@format
      \CTEX@hangindent{part}{}%
 %    \Huge \bfseries #1\par}%
@@ -7584,7 +7598,8 @@ Copyright and Licence
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
-  {\normalfont \CTEX@chapter@format
+  {\CTEX@disableautoindent
+   \normalfont \CTEX@chapter@format
    \interlinepenalty\@M
 %  \ifnum \c@secnumdepth >\m@ne
 %    \if@mainmatter
@@ -7613,7 +7628,8 @@ Copyright and Licence
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
-  {\normalfont \CTEX@chapter@format
+  {\CTEX@disableautoindent
+   \normalfont \CTEX@chapter@format
    \interlinepenalty\@M
    \CTEX@hangindent{chapter}{}%
 %  \Huge \bfseries  #1\par\nobreak
@@ -7796,18 +7812,15 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \CTEX@hangindent #1#2
   {
+    \dim_set:Nn \parindent { \use:c { CTEX@#1@indent } }
     \bool_if:cTF { CTEX@#1@hang }
-      { \@hangfrom }
-      { \noindent \use:n }
-      { \@@_indent_aux:n {#1} #2 }
+      { \@hangfrom { \@@_indent_aux: #2 } }
+      {#2}
   }
-\cs_new_protected:Npn \@@_indent_aux:n #1
+\cs_new_protected_nopar:Npn \@@_indent_aux:
   {
-    \group_begin:
-      \skip_set:Nn \l_@@_heading_skip { \use:c { CTEX@#1@indent } }
-      \dim_compare:nNnF \l_@@_heading_skip = \c_zero_dim
-        { \skip_horizontal:N \l_@@_heading_skip }
-    \group_end:
+    \dim_compare:nNnF \parindent = \c_zero_dim
+      { \skip_horizontal:n { \parindent } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8355,7 +8368,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \defbeamertemplate*{part page}{CTEX}[1][]{%
   \begingroup
-    \ctexset{autoindent=false}%
+    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{part name}%
 %     \usebeamercolor[fg]{part name}\partname~\insertromanpartnumber}
@@ -8379,7 +8392,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \defbeamertemplate*{section page}{CTEX}[1][]{%
   \begingroup
-    \ctexset{autoindent=false}%
+    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{section name}%
 %     \usebeamercolor[fg]{section name}\sectionname~\insertsectionnumber}
@@ -8403,7 +8416,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \defbeamertemplate*{subsection page}{CTEX}[1][]{%
   \begingroup
-    \ctexset{autoindent=false}%
+    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{subsection name}%
 %     \usebeamercolor[fg]{subsection name}\subsectionname~\insertsubsectionnumber}
