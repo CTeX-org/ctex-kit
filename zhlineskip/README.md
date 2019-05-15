@@ -2,15 +2,16 @@ zhlineskip
 ==========
 
 `zhlineskip` is a package for typesetting CJK documents. This package allows users
-to specify the two ratios between the leading and the font size of the body text
-and the footnote text. For Latin typesetting, these ratios usually range
+to specify two ratios: One between the leading and the font size of the body text
+and the other between those of the footnote text.
+For Latin typography, these ratios usually range
 [from&nbsp;1.2 to&nbsp;1.45](https://practicaltypography.com/line-spacing.html),
-but they should be larger for CJK typesetting (usually from&nbsp;1.5 to&nbsp;1.67).
+but they should be larger for CJK typography (usually from&nbsp;1.5 to&nbsp;1.67).
 
-On the one hand, CJK text requires larger line spacing. On the other hand, math
-line spacing should follow Latin typesetting, since math often consists of only
-Latin letters and symbols. The `zhlineskip` package is capable of restoring the
-math leading to that of the Latin text.
+Although CJK text requires larger line spacing, maths formulae should follow
+the rules of Latin typography, since maths often consists of only Latin-based
+letters and symbols. The `zhlineskip` package is capable of restoring the
+maths leading to that of the Latin text.
 
 Finally, it is possible to achieve the “Microsoft Word multiple line spacing”
 style using `zhlineskip`.
@@ -25,7 +26,7 @@ Issues and pull requests are welcome.
 Copyright and Licence
 ---------------------
 
-    Copyright (C) 2018 by Ruixi Zhang <ruixizhang42@gmail.com>
+    Copyright (C) 2018, 2019 by Ruixi Zhang <ruixizhang42@gmail.com>
     
     This work may be distributed and/or modified under the
     conditions of the LaTeX Project Public License, either version 1.3c
@@ -40,9 +41,9 @@ Copyright and Licence
     The Current Maintainer of this work is Ruixi Zhang.
     
     This work consists of the files zhlineskip.sty,
-                                    zhlineskip-man.tex,
+                                    zhlineskip.tex,
                                     zhlineskip-test.tex,
                                     Latinmetrics.pdf,
                                     CJKmetrics.pdf,
                                     README.md (this file)
-              and the derived file  zhlineskip-man.pdf.
+              and the derived file  zhlineskip.pdf.
