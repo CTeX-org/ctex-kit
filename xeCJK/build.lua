@@ -15,6 +15,8 @@ installfiles = {"*.sty", "*.cfg", "*.def"}
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
+checkopts = "-file-line-error -halt-on-error -interaction=nonstopmode"
+typesetopts = "-file-line-error -halt-on-error -interaction=nonstopmode"
 
 local http_request = require("socket.http").request
 local ltn12_sink_file = require("ltn12").sink.file

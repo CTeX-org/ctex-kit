@@ -11,6 +11,9 @@ installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*
 unpackexe = "xetex"
 typesetexe = "xelatex"
 makeindexexe = "zhmakeindex"
+checkopts = "-file-line-error -halt-on-error -interaction=nonstopmode"
+typesetopts = "-file-line-error -halt-on-error -interaction=nonstopmode"
+
 
 gbkfiles = {"ctex-name-gbk.cfg", "*-ChineseGBK.dict"}
 generic_insatllfiles = {"*.tex"}
