@@ -6012,92 +6012,9 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
-% \subsubsection{操作系统的判断}
-%
 % \changes{v2.0}{2014/04/16}{自动检测操作系统，载入对应的字体配置。}
-%
-% \begin{macro}[int]{\ctex_detected_platform:}
-% 在 \LuaTeX{} 下直接用调用 |os.name| 来判断。
-%    \begin{macrocode}
-%<*luatex>
-\cs_new_protected_nopar:Npn \ctex_detected_platform:
-  {
-    \tl_gset:Nx \g_@@_fontset_tl
-      {
-        \lua_now:e
-          {
-            if ~ os.name == 'windows' then ~
-              tex.sprint ( 'windows' )
-            elseif ~ os.name == 'macosx' then ~
-              tex.sprint ( 'mac' )
-            else ~
-              tex.sprint ( 'fandol' )
-            end
-          }
-      }
-  }
-%</luatex>
-%    \end{macrocode}
-%
-% \ApTeX{} 可以使用 \tn{ngostype} 来判断。
-%    \begin{macrocode}
-%<*aptex>
-\cs_new_protected_nopar:Npn \ctex_detected_platform:
-  {
-    \tl_gset:Nx \g_@@_fontset_tl
-      {
-        \str_case:onF { \ngostype }
-          {
-            { Win32 }  { windows }
-            { Win64 }  { windows }
-            { Darwin } { mac }
-          }
-          { fandol }
-      }
-  }
-%</aptex>
-%    \end{macrocode}
-%
-% \pdfTeX{} 和 \XeTeX{} 下则依据 \file{/dev/null} 和 \file{nul:} 的存在性以及
-% 文件系统的大小写敏感性来判断。Mac~OS~X 的大小写敏感性在安装时是可选的。为了
-% 保险起见，这里的判断很繁琐，最多要进行 4 次文件操作！
-%    \begin{macrocode}
-%<*xetex|pdftex|uptex>
-\cs_new_protected_nopar:Npn \ctex_detected_platform:
-  {
-    \file_if_exist:nTF { /dev/null }
-      {
-        \file_if_exist:nTF { nul: }
-          {
-            \file_if_exist:nTF { \c_@@_upper_case_file_str }
-              { \ctex_if_macosx:TF { mac } { windows } }
-              { \ctex_if_macosx:TF { mac } { fandol } }
-          }
-          { \ctex_if_macosx:TF { mac } { fandol } }
-      }
-      { \tl_gset:Nn \g_@@_fontset_tl { windows } }
-  }
-\str_const:Nx \c_@@_upper_case_file_str
-  { \exp_args:No \str_upper_case:n { \g_file_curr_name_str } }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_if_macosx:TF}
-% \changes{v2.1}{2015/06/17}{改用 \file{/Library/Fonts/Songti.ttc} 为特征文件。}
-% \changes{v2.4.17}{2019/10/25}{改用 \file{/System/Library/Fonts/STHeiti~
-%   Light.ttc} 为特征文件。}
-% 以 \file{/System/Library/Fonts/STHeiti~Light.ttc} 为特征文件判断 macOS。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \ctex_if_macosx:TF #1#2
-  {
-    \file_if_exist:nTF { \c_@@_macosx_file_str }
-      { \tl_gset:Nn \g_@@_fontset_tl {#1} }
-      { \tl_gset:Nn \g_@@_fontset_tl {#2} }
-  }
-\str_const:Nn \c_@@_macosx_file_str { /System/Library/Fonts/STHeiti~Light.ttc }
-%</xetex|pdftex|uptex>
-%    \end{macrocode}
-% \end{macro}
+% \changes{v2.5.0}{2019/10/25}{操作系统检测移动至载入中文字库处，且不再需要
+%   依赖特定引擎。}
 %
 % \subsubsection{\pkg{hyperref} 兼容性处理}
 %
@@ -9370,7 +9287,7 @@ Copyright and Licence
 % {解决 \pkg{etoolbox} 与 \pkg{breqn} 关于 \tn{end} 的冲突。}
 % \changes{v2.2}{2015/06/23}{删去 \pkg{etoolbox} 与 \pkg{breqn} 的兼容补丁。}
 %
-% \subsection{载入中文字体}
+% \subsection{载入中文字库}
 %
 % \begin{macro}[int]{\ctex_fontset_error:n}
 % 字库不可用时给出紧急错误信息，停止读取定义文件。
@@ -9382,29 +9299,57 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\ctex_detect_platform:}
+% 根据操作系统判断默认字体配置。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_detect_platform:
+  {
+    \sys_if_platform_windows:TF
+      { \tl_gset:Nn \g_@@_fontset_tl { windows } }
+      {
+        \ctex_if_platform_macos:TF
+          { \tl_gset:Nn \g_@@_fontset_tl { mac    } }
+          { \tl_gset:Nn \g_@@_fontset_tl { fandol } }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_if_platform_macos:TF}
+% \changes{v2.1}{2015/06/17}{改用 \file{/Library/Fonts/Songti.ttc} 为特征文件。}
+% \changes{v2.5.0}{2019/10/25}{改用 \file{/System/Library/Fonts/Menlo.ttc}
+%   为特征文件。}
+%^^A \changes{v2.5.0}{2019/10/25}{由 \cs{ctex_if_macosx:TF} 更名为
+%^^A   \cs{ctex_if_platform_macos:TF}。}
+% 以特定字体判断 macOS 系统。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_if_platform_macos:TF
+  {
+    \file_if_exist:nTF { /System/Library/Fonts/Menlo.ttc }
+      { \use_i:nn } { \use_ii:nn }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\ctex_load_fontset:}
 % 如果用户没有指定字体，则探测操作系统，载入相应的字体配置。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_load_fontset:
   {
     \tl_if_empty:NTF \g_@@_fontset_tl
+      { \ctex_detect_platform: }
       {
-        \ctex_detected_platform:
-        \ctex_file_input:n { ctex-fontset- \g_@@_fontset_tl .def }
-      }
-      {
-        \file_if_exist:nTF { ctex-fontset- \g_@@_fontset_tl .def }
-          { \ctex_file_input:n { ctex-fontset- \g_@@_fontset_tl .def } }
+        \file_if_exist:nF { ctex-fontset- \g_@@_fontset_tl .def }
           {
             \use:x
               {
-                \ctex_detected_platform:
+                \ctex_detect_platform:
                 \msg_error:nnxx { ctex } { fontset-not-found }
                   { \g_@@_fontset_tl } { \exp_not:N \g_@@_fontset_tl }
               }
-            \ctex_file_input:n { ctex-fontset- \g_@@_fontset_tl .def }
           }
       }
+    \ctex_file_input:n { ctex-fontset- \g_@@_fontset_tl .def }
   }
 \@onlypreamble \ctex_load_fontset:
 \msg_new:nnnn { ctex } { fontset-not-found }
@@ -9449,9 +9394,7 @@ Copyright and Licence
   }
   { Only~one~fontset~can~be~loaded~in~the~preamble. }
 \msg_new:nnn { ctex } { fontset-only-preamble }
-  {
-    The~ `fontset'~ option~ can~ be~ used~ only~ in~ preamble.
-  }
+  { The~`fontset'~option~can~be~used~only~in~preamble. }
 %    \end{macrocode}
 % \end{macro}
 %
