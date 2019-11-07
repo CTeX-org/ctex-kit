@@ -90,8 +90,6 @@ local function script_path()
    return str:gsub("\\", "/")
 end
 
-dtxchecksum = dofile(script_path() .. "dtxchecksum.lua").checksum
-
 function zhconv (input, output, encoding)
   local cmdline = "iconv -f utf-8 -t " .. ( encoding or "gbk" ) .. " " .. input
   local handle = assert(io.popen(shellescape(cmdline), "r"))
@@ -100,23 +98,6 @@ function zhconv (input, output, encoding)
   local f = assert(io.open(output, "w"))
   f:write(buffer)
   f:close()
-end
-
--- 只对 .dtx 进行 \CheckSum 校正
-function checksum()
-  -- 不进行重复解包
-  if not is_unpacked then unpack() end
-  unpack = function() end
-  for _,i in ipairs(typesetsuppfiles) do
-    cp (i, supportdir, localdir)
-  end
-  for _,glob in ipairs(typesetfiles) do
-    for _,f in ipairs(filelist(".", glob)) do
-      if f:sub(-4) == ".dtx" then
-        dtxchecksum(f, localdir)
-      end
-    end
-  end
 end
 
 function shellescape(s)
@@ -211,7 +192,6 @@ end
 local doc_prehook = doc_prehook or function() end
 local doc_posthook = doc_posthook or function() end
 function hooked_doc()
-  checksum()
   doc_prehook()
   local retval = unhooked_doc()
   doc_posthook()
@@ -263,7 +243,6 @@ function hooked_help()
   unhooked_help()
   print("")
   print("zhl3build extension:")
-  print([[   checksum   Adjust \CheckSum{...}]])
 end
 
 -- 更改版本号时不改变换行符
@@ -302,7 +281,7 @@ function zh_setversion()
   return 0
 end
 
-function main (target, file, engine)  
+function main (target, file, engine)
   if os_windows then
     os_newline = "\n"
     if tonumber(status.luatex_version) < 100 or
@@ -321,11 +300,7 @@ function main (target, file, engine)
   unhooked_help = help
   help = hooked_help
   setversion = zh_setversion
-  if target == "checksum" then
-    checksum()
-  else
-    stdmain(target, file, engine)
-  end
+  stdmain(target, file, engine)
 end
 
 -- 使用本地固定的版本

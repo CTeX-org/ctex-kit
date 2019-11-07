@@ -14,9 +14,6 @@ unpackexe = "pdftex"
 typesetexe = "latex"
 makeindexexe = "zhmakeindex"
 
-dtxchecksum = dtxchecksum or { }
-dtxchecksum.exe = "latex"
-
 function doc_prehook()
   cp("zhmCJK-test.tex", unpackdir, ".")
 end

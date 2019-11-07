@@ -12,10 +12,6 @@ typesetfiles = {"CJKpunct.dtx"}
 unpackexe = "pdftex"
 typesetexe = "latex"
 
-dtxchecksum = dtxchecksum or { }
-dtxchecksum.exe     = "latex"
-dtxchecksum.cfgfile = "ltxdoc.cfg"
-
 function doc_posthook()
   for _, i in pairs(typesetfiles) do
     local name = stripext(i)
