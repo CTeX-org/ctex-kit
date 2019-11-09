@@ -981,7 +981,7 @@ Copyright and Licence
 %   ，由 \pkg{zhmCJK} 宏包提供从 CJK 字库到 \file{.ttf} 的映射。
 % \end{optdesc}
 %
-% \begin{function}[rEXP,added=2014-03-08,updated=2019-11-03]{fontset}
+% \begin{function}[added=2014-03-08]{fontset}
 %   \begin{syntax}
 %     fontset = <adobe|fandol|founder|mac|macnew|macold|ubuntu|windows|none|...>
 %   \end{syntax}
@@ -1024,6 +1024,17 @@ Copyright and Licence
 %   里面自定义中文字体。然后通过使用 |fontset=|\meta{name} 选项来调用它。字体配置
 %   文件的具体写法可以参考 \CTeX{} 宏集 \texttt{fontset} 目录下的字体配置文件。
 % \end{optdesc}
+%
+% 注意：\emph{如果希望使用 \tn{ctexset} 在导言区指定字库，则需要先在宏包/文档类选项中指定
+% \opt{fontset = none}}。例如：
+% \begin{ctexexam}
+%   \documentclass[fontset = none]{ctexart}
+%   \ctexset{fontset = founder}
+%   \begin{document}
+%   在文档类选项中声明 \verb|fontset = none|，随后在导言区用 \verb|\ctexset|
+%   指定字体。
+%   \end{document}
+% \end{ctexexam}
 %
 % \CTeX{} 宏集预定义的中文字库还定义了一些字体命令。除了在 \opt{ubuntu} 字库中没有
 % \tn{fangsong} 的定义外，所有字库都有以下四个字体命令：
@@ -6049,7 +6060,7 @@ Copyright and Licence
 % \end{variable}
 %
 % \changes{v2.0}{2014/04/16}{自动检测操作系统，载入对应的字体配置。}
-% \changes{v2.5}{2019/11/03}{操作系统检测移动至载入中文字库处，且不再需要
+% \changes{v2.5}{2019/10/25}{操作系统检测移动至载入中文字库处，且不再需要
 %   依赖特定引擎。}
 %
 % \subsubsection{\pkg{hyperref} 兼容性处理}
@@ -9303,8 +9314,10 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\ctex_if_platform_macos:TF}
 % \changes{v2.1}{2015/06/17}{改用 \file{/Library/Fonts/Songti.ttc} 为特征文件。}
-% \changes{v2.5}{2019/11/03}{改用 \file{/System/Library/Fonts/Menlo.ttc}
+% \changes{v2.5}{2019/10/25}{改用 \file{/System/Library/Fonts/Menlo.ttc}
 %   为特征文件。}
+%^^A \changes{v2.5.0}{2019/10/25}{由 \cs{ctex_if_macosx:TF} 更名为
+%^^A   \cs{ctex_if_platform_macos:TF}。}
 % 以特定字体判断 macOS 系统。
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \ctex_if_platform_macos:TF
@@ -9349,6 +9362,44 @@ Copyright and Licence
 \msg_new:nnnn { ctex } { fontset-not-found }
   { CTeX~fontset~`#1'~could~not~be~found.\\ Fontset~`#2'~will~be~used~instead. }
   { You~may~run~`mktexlsr'~firstly. }
+\@onlypreamble \ctex_load_fontset:
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{fontset}
+% 在导言区通过 \tn{ctexset} 载入中文字库的选项。
+%    \begin{macrocode}
+\keys_define:nn { ctex }
+  {
+    fontset .code:n =
+      {
+        \ctex_if_preamble:TF
+          {
+            \str_if_eq:eeTF {#1} { none }
+              { \msg_warning:nnn { ctex } { invalid-value } {#1} }
+              {
+                \str_if_eq:onTF { \g_@@_fontset_tl } { none }
+                  {
+                    \tl_gset:Nx \g_@@_fontset_tl {#1}
+                    \ctex_load_fontset:
+                  }
+                  {
+                    \msg_error:nnxx { ctex } { fontset-loaded }
+                      { \g_@@_fontset_tl } {#1}
+                  }
+              }
+          }
+          { \msg_error:nn { ctex } { fontset-only-preamble } }
+      }
+  }
+\msg_new:nnnn { ctex } { fontset-loaded }
+  {
+    CTeX~fontset~`#1'~has~been~loaded.
+    \str_if_eq:nnF {#1} {#2} { \\ Fontset~`#2'~will~be~ignored. }
+  }
+  { Only~one~fontset~can~be~loaded~in~the~preamble. }
+\msg_new:nnn { ctex } { fontset-only-preamble }
+  { The~`fontset'~option~can~be~used~only~in~preamble. }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9357,8 +9408,6 @@ Copyright and Licence
 \str_if_eq:onF { \g_@@_fontset_tl } { none }
   { \ctex_load_fontset: }
 %    \end{macrocode}
-%
-% \changes{v2.5}{2019/11/03}{不再支持使用 \tn{ctexset} 命令设置 \opt{fontset}。}
 %
 % \subsection{宏包配置文件}
 %
