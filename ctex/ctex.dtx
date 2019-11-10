@@ -2814,20 +2814,22 @@ Copyright and Licence
 %
 % \begin{function}{fntef}
 % 旧版本的 \opt{fntef} 选项用于统一 \pkg{CCTfntef} 与 \pkg{CJKfntef} 的界面，
-% 新版本 \CTeX{} 宏集不再支持 \pkg{CCT}，而是直接载入 \pkg{CJKfntef} 或
-% \pkg{xeCJKfntef} 宏包并禁用其彩色设置。该选项是过时选项。
+% 新版本 \CTeX{} 宏集不再支持 \pkg{CCT}，也不再自动载入 \pkg{CJKfntef} 或
+% \pkg{xeCJKfntef} 宏包，而仅在其末尾做适当格式调整。
+%
+% \opt{fntef} 选项过时，因兼容性保留，功能是根据引擎载入 \pkg{CJKfntef}
+% (\pdfTeX{}) 或 \pkg{xeCJKfntef} (\XeTeX{}) 宏包。
 % \end{function}
 %
 % \begin{function}{\CTEXunderdot, \CTEXunderline, \CTEXunderdblline,
 %   \CTEXunderwave, \CTEXsout, \CTEXxout, \CTEXfilltwosides}
 % 在调用 \opt{fntef} 宏包选项的同时，旧版本 \CTeX{} 宏包由于需要支持 \pkg{CCT}
 % 系统，会将以 |\CJK| 开头的 \tn{CJKunderline} 等宏换名为以 |\CTEX| 开头的
-% \tn{CTEXunderline} 等宏。此功能在新版本的 \CTeX{} 宏集中已失去意义。
+% \tn{CTEXunderline} 等宏。此功能在新版本的 \CTeX{} 宏集中已失去意义。此外，
+% 在 \pdfTeX{} 引擎下，用于设置格式的 \tn{CJKunderdotbasesep} 等宏也被更名为
+% \tn{CTEXunderdotbasesep} 等宏。
 %
-% 此外，在 \pdfTeX{} 引擎下，用于设置格式的 \tn{CJKunderdotbasesep} 等宏也被换
-% 名为 \tn{CTEXunderdotbasesep} 等宏。
-%
-% 在新版本中，上述由 \opt{fntef} 衍生的相关宏都成为过时命令。
+% 在新版本中，上述由 \opt{fntef} 衍生的相关命令和环境均被移除。
 % \end{function}
 %
 % \begin{function}{\CTEXsetfont}
@@ -3626,6 +3628,7 @@ Copyright and Licence
 %
 % \changes{v2.0}{2015/04/15}{新增 \opt{scheme} 选项，并将 \opt{cap} 和 \opt{nocap}
 % 列为过时选项。}
+%
 % \begin{macro}{scheme}
 %    \begin{macrocode}
     scheme .tl_set:N  = \l_@@_scheme_tl ,
@@ -3639,12 +3642,15 @@ Copyright and Licence
     scheme .initial:n = { chinese } ,
 %</!ctexheading>
 %    \end{macrocode}
+% \end{macro}
 %
 %    \begin{macrocode}
 %</class|ctex|ctexheading>
 %<*class|ctex>
 %    \end{macrocode}
 %
+% \begin{macro}{cap,nocap}
+% \opt{cap} 和 \opt{nocap} 是过时选项。
 % \begin{macrocode}
     cap    .code:n    =
       {
@@ -3666,25 +3672,55 @@ Copyright and Licence
 % \changes{v2.0}{2015/04/20}{\opt{hyperref} 成为过时选项，原选项功能总是打开。}
 % \changes{v2.0}{2015/04/20}{\opt{fancyhdr} 成为过时选项，原选项功能总是打开。}
 % \changes{v2.0}{2015/04/20}{\opt{fntef} 成为过时选项，原选项功能总是打开。}
-% \begin{macro}{fntef,fancyhdr,hyperref}
-% \changes{v2.1}{2015/06/03}{补充定义 \tn{hypersetup}。}
-% 这些都是过时的宏包兼容选项，原选项功能总是打开的。
+%
+% 以下三项都是过时的兼容选项，它们会载入有关宏包。
+%
+% \begin{macro}{fntef}
+% \changes{v2.5}{2019/11/10}{仅在该选项启用时会载入 \pkg{CJKfntef} 或
+% \pkg{xeCJKfntef} 宏包。}
 %   \begin{macrocode}
-    fntef    .code:n =
+    fntef .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { `(xe)CJKfntef'~ package~ is~ always~ loaded. }
+        \sys_if_engine_xetex:TF
+          {
+            \msg_warning:nnn { ctex } { deprecated-option }
+              { `xeCJKfntef'~package~is~loaded. }
+            \RequirePackage { xeCJKfntef }
+          }
+          {
+            \sys_if_engine_pdftex:TF
+              {
+                \msg_warning:nnn { ctex } { deprecated-option }
+                  { `CJKfntef'~package~is~loaded. }
+                \RequirePackage { CJKfntef }
+              }
+              {
+                \msg_warning:nnn { ctex } { deprecated-option }
+                  { Furthermore,~option~`fntef'~is~invalid~in~current~mode. }
+              }
+          }
       } ,
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{fancyhdr}
+%   \begin{macrocode}
     fancyhdr .code:n =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
-          { `fancyhdr'~ package~ is~ loaded. }
+          { `fancyhdr'~package~is~loaded. }
         \RequirePackage { fancyhdr }
       } ,
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{hyperref}
+% \changes{v2.1}{2015/06/03}{补充定义 \tn{hypersetup}。}
+%   \begin{macrocode}
     hyperref .code:n =
       {
         \msg_warning:nnn { ctex } { deprecated-option }
-          { `hyperref'~ package~ will~ be~ loaded. }
+          { `hyperref'~package~will~be~loaded. }
         \ctex_at_end:n
           {
             \cs_if_exist:NF \hypersetup
@@ -6237,83 +6273,46 @@ Copyright and Licence
 %
 % \subsubsection{\pkg{CJKfntef}、\pkg{xeCJKfntef} 相关设置}
 %
-% \CTeX{} 宏集对 \pdfTeX{} 与 \XeTeX{} 引擎，分别载入 \pkg{CJKfntef} 或
-% \pkg{xeCJKfntef} 宏包，并关闭宏包默认的彩色等多余格式。
-%
 % \changes{v2.0}{2015/03/25}{默认关闭 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 的彩
 % 色设置。}
-% \changes{v2.0}{2015/03/25}{\tn{CTEXunderdot}, \tn{CTEXunderline},
-% \tn{CTEXunderdblline}, \tn{CTEXunderwave}, \tn{CTEXsout}, \tn{CTEXxout} 是过
+% \changes{v2.0}{2015/03/25}{\tn{CTEXunderdot}、\tn{CTEXunderline}、
+% \tn{CTEXunderdblline}、\tn{CTEXunderwave}、\tn{CTEXsout}、\tn{CTEXxout} 是过
 % 时命令；\env{CTEXfilltwosides} 是过时环境。}
+% \changes{v2.5}{2019/11/10}{不再自动载入 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 宏包。}
+% \changes{v2.5}{2019/11/10}{移除 \tn{CTEXunderdot}、\tn{CTEXunderline}、
+% \tn{CTEXunderdblline}、\tn{CTEXunderwave}、\tn{CTEXsout}、\tn{CTEXxout}、
+% \env{CTEXfilltwosides} 等命令和环境。}
 %
-% 载入 \pkg{CJKfntef} 或 \pkg{xeCJKfntef} 并做适当格式设置。有关 |\CTEX| 开头
-% 的宏定义是过时命令，仅做兼容性保留。
+% 对 \pdfTeX{} 与 \XeTeX{} 引擎，分别在 \pkg{CJKfntef}、\pkg{xeCJKfntef} 宏包
+% 的末尾关闭彩色显式等多余格式。
 %
 %    \begin{macrocode}
 %<*pdftex>
-\RequirePackage { CJKfntef }
-\normalem
-\cs_new_protected_nopar:Npn \@@_clear_fntef_color:n #1
-  { \tl_clear:c { CJK#1color } }
-%</pdftex>
-%<*xetex>
-\RequirePackage { xeCJKfntef }
-\@ifpackagelater { xeCJKfntef } { 2014/11/04 }
+\ctex_at_end_package:nn { CJKfntef }
   {
-    \cs_new_protected_nopar:Npn \@@_clear_fntef_color:n #1
-      { \xeCJKsetup { #1 / format = { } } }
-  }
-  {
+    \normalem
     \cs_new_protected_nopar:Npn \@@_clear_fntef_color:n #1
       { \tl_clear:c { CJK#1color } }
-  }
-%</xetex>
-%<*luatex|uptex|aptex>
-\msg_new:nnn { ctex } { fntef-not-available }
-%<luatex>  { Functions~ of~ `CJKfntef'~ is~ not~ available~ in~ LuaLaTeX. }
-%<uptex>  { Functions~ of~ `CJKfntef'~ is~ not~ available~ in~ upLaTeX. }
-%<aptex>  { Functions~ of~ `CJKfntef'~ is~ not~ available~ in~ ApLaTeX. }
-\msg_warning:nn { ctex } { fntef-not-available }
-%</luatex|uptex|aptex>
-\clist_map_inline:nn
-  { underdot , underline , underdblline , underwave , sout , xout }
-%<*pdftex|xetex>
-  {
-    \@@_clear_fntef_color:n {#1}
-    \cs_new_protected_nopar:cpx { CTEX#1 }
-      {
-        \msg_warning:nnnn { ctex } { deprecated-command } { \exp_not:c { CTEX#1 } }
-          { You~ can~ use~ the~ command~ with~ prefix~ \exp_not:N \CJK~ instead. }
-        \exp_not:c { CJK#1 }
-      }
-  }
-\cs_new_protected_nopar:Npn { \CTEXfilltwosides }
-  {
-    \msg_warning:nnnn { ctex } { deprecated-environment } { CTEXfilltwosides }
-      { You~ can~ use~ `CJKfilltwosides'~ environment~ instead. }
-    \CJKfilltwosides
-  }
-\cs_new_protected_nopar:Npn { \endCTEXfilltwosides } { \endCJKfilltwosides }
-%</pdftex|xetex>
-%<*luatex|uptex|aptex>
-  { \cs_new_eq:cN { CTEX#1 } \use:n }
-\cs_new_eq:NN \CTEXfilltwosides \use_none:n
-\cs_new_eq:NN \endCTEXfilltwosides \prg_do_nothing:
-%</luatex|uptex|aptex>
-%<*pdftex>
-\clist_map_inline:nn
-  {
-    underdotbasesep ,   underdotsep ,     underlinebasesep ,
-    underlinesep ,      underdbllinesep , underdbllinebasesep ,
-    underwavebasesep ,  underwavesep ,    southeight ,
-    underdotcolor ,     underwavecolor ,  underlinecolor ,
-    underdbllinecolor , soutcolor ,       xoutcolor
-  }
-  {
-    \cs_new_eq:cc { CTEX#1 } { CJK#1 }
-    \cs_set_nopar:cpx { CJK#1 } { \exp_not:c { CTEX#1 } }
-  }
 %</pdftex>
+%<*xetex>
+\ctex_at_end_package:nn { xeCJKfntef }
+  {
+    \@ifpackagelater { xeCJKfntef } { 2014/11/04 }
+      {
+        \cs_new_protected_nopar:Npn \@@_clear_fntef_color:n #1
+          { \xeCJKsetup { #1 / format = { } } }
+      }
+      {
+        \cs_new_protected_nopar:Npn \@@_clear_fntef_color:n #1
+          { \tl_clear:c { CJK#1color } }
+      }
+%</xetex>
+%<*pdftex|xetex>
+    \clist_map_inline:nn
+      { underdot , underline , underdblline , underwave , sout , xout }
+      { \@@_clear_fntef_color:n {#1} }
+  }
+%</pdftex|xetex>
 %    \end{macrocode}
 %
 % \subsubsection{\tn{ccwd} 的更新}
