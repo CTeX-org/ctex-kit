@@ -39,6 +39,6 @@ function setversion_update_line (line, date, version)
 end
 
 
-dofile("../tool/zhl3build.lua")
+-- dofile("../tool/zhl3build.lua")
 
 -- vim:sw=2:et
