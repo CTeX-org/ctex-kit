@@ -40,5 +40,7 @@ end
 
 
 -- dofile("../tool/zhl3build.lua")
+maindir = maindir or "."
+supportdir = supportdir or "../tool"
 
 -- vim:sw=2:et
