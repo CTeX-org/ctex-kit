@@ -1,21 +1,19 @@
-CTeX-kit
-========
+# CTeX-kit
 
 CTeX-kit is a collection of TeX/LaTeX/ConTeXt macro packages, related scripts,
 and resource files made specifically for Chinese TeX users, especially
 Mandarin users.
 
-This project aims to bring together many existing efforts including xeCJK,
-zhspacing, LuaTeX related Chinese support, etc.
+This project aims to bring together many existing efforts including `ctex`,
+`xeCJK`, `zhspacing`, LuaTeX related Chinese support, etc.
 
 It is maintained by [CTeX][ctex] community.
 
 [ctex]: http://www.ctex.org
 
-Our Packages/Collections on CTAN
---------------------------------
+## Our packages/collections on CTAN
 
-Package/Collection                      | Version
+Package/collection                      | Version
 --------------------------------------- | -------
 [CJKpunct][CJKpunct-ctan]               | [![CTAN](https://img.shields.io/ctan/v/cjkpunct.svg)](https://ctan.org/pkg/cjkpunct)
 [CTeX Collection][ctex-collection-ctan] | [![CTAN](https://img.shields.io/ctan/v/ctex.svg)](https://ctan.org/pkg/ctex)
@@ -40,3 +38,17 @@ Package/Collection                      | Version
 [zhmetrics-uptex-ctan]: https://ctan.org/tex-archive/fonts/zhmetrics-uptex
 [zhnumber-ctan]: https://ctan.org/tex-archive/macros/latex/contrib/zhnumber
 [zhspacing-ctan]: https://ctan.org/tex-archive/macros/xetex/generic/zhspacing
+
+## Build status
+
+CTeX-kit uses [Github Actions](https://github.com/features/actions) as a hosted
+continuousintegration service. For each commit, CTeX-kit is tested using the
+current release of TeX Live on Ubuntu Linux, macOS and Windows.
+
+| Current build status |
+|:--------------------:|
+| [![build](https://github.com/CTeX-org/ctex-kit/workflows/Github%20action%20for%20ctex-kit%20test/badge.svg)](https://github.com/CTeX-org/ctex-kit/actions)
+
+---
+
+Copyright (C) 2003&ndash;2020 [CTeX][ctex] community.
