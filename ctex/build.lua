@@ -44,5 +44,3 @@ maindir = maindir or "."
 supportdir = supportdir or "../tool"
 
 excludetests = {}  -- Placeholder
-
--- vim:sw=2:et
