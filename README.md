@@ -42,7 +42,7 @@ Package/collection                      | Version
 ## Build status
 
 CTeX-kit uses [Github Actions](https://github.com/features/actions) as a hosted
-continuousintegration service. For each commit, CTeX-kit is tested using the
+continuous integration service. For each commit, CTeX-kit is tested using the
 current release of TeX Live on Ubuntu Linux, macOS and Windows.
 
 | Current build status |
