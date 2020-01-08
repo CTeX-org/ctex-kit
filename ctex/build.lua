@@ -41,10 +41,12 @@ end
 -- dofile("../tool/zhl3build.lua")
 maindir        = "."
 supportdir     = "../tool"
+testfiledir    = "./test/testfiles"
+testsuppdir    = "./test/support"
 checkruns      = 2
-stdengine      = ""
+stdengine      = "xetex"
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
-specialformats = { }
+specialformats = {}
 specialformats.latex = {
   pdftex = {binary = "latex", options = "-output-format=dvi"},
   uptex  = {binary = "euptex"}
