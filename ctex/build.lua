@@ -41,7 +41,7 @@ end
 -- dofile("../tool/zhl3build.lua")
 maindir        = "."
 supportdir     = "../tool"
-stdengine      = "xetex"
+stdengine      = ""
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
 specialformats = { }
 specialformats.latex = {
