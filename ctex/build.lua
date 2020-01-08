@@ -38,11 +38,10 @@ function setversion_update_line (line, date, version)
   return line
 end
 
-
 -- dofile("../tool/zhl3build.lua")
 maindir        = "."
 supportdir     = "../tool"
-stdengine      = ""
+stdengine      = "xetex"
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
 specialformats = { }
 specialformats.latex = {
