@@ -43,6 +43,7 @@ maindir        = "."
 supportdir     = "../tool"
 testfiledir    = "./test/testfiles"
 testsuppdir    = "./test/support"
+testdir        = "./build/l3test"
 checkruns      = 2
 stdengine      = "xetex"
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
