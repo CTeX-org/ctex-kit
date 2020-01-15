@@ -286,7 +286,7 @@
     \exp_args:Nx \href
       {
         http \c_colon_str //www.ctan.org/pkg/
-        \IfNoValueTF {#1} { \str_fold_case:n {#2} } {#1}
+        \IfNoValueTF {#1} { \str_foldcase:n {#2} } {#1}
       }
       { \pkg {#2} }
   }
