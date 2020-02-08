@@ -280,8 +280,9 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 % \changes{v3.7.2}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
+% \changes{v3.7.5}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
 %
-% \CheckSum{10786}
+% \CheckSum{10840}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1827,14 +1828,12 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\xeCJK_font_gset_to_current:c}
+% \begin{macro}[int]{\xeCJK_font_gset_to_current:N}
 % |#1| 是控制序列的名字，令它等于当前字体命令。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_font_gset_to_current:c #1
-  {
-    \exp_last_unbraced:Nco \cs_gset_eq:NN
-      {#1} \tex_the:D \tex_font:D
-  }
+\cs_new_protected_nopar:Npn \xeCJK_font_gset_to_current:N #1
+  { \exp_after:wN \cs_gset_eq:NN \exp_after:wN #1 \tex_the:D \tex_font:D }
+\cs_generate_variant:Nn \xeCJK_font_gset_to_current:N { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6627,12 +6626,19 @@ Copyright and Licence
   { \@@_font_csname:n { \CJK@family } }
 \cs_new_protected_nopar:Npn \xeCJK_select_font:
   {
-    \exp_args:Nc \cs_if_exist_use:NF { \l_xeCJK_current_font_tl }
+    \@@_select_font:cn
+      { \l_xeCJK_current_font_tl }
+      { \l_xeCJK_family_tl }
+  }
+\cs_new_protected_nopar:Npn \@@_select_font:Nn #1#2
+  {
+    \cs_if_exist_use:NF #1
       {
-        \@@_family_use:n { \l_xeCJK_family_tl }
-        \xeCJK_font_gset_to_current:c { \l_xeCJK_current_font_tl }
+        \@@_family_use:n {#2}
+        \xeCJK_font_gset_to_current:N #1
       }
   }
+\cs_generate_variant:Nn \@@_select_font:Nn { c }
 \tl_new:N \l_@@_current_coor_tl
 \cs_new_eq:NN \xeCJK@setfont \xeCJK_select_font:
 %    \end{macrocode}
@@ -6646,11 +6652,9 @@ Copyright and Licence
 \cs_new_eq:NN \xeCJK_select_punct_font: \xeCJK_select_font:
 \cs_new_protected_nopar:Npn \@@_select_punct_font_aux:
   {
-    \exp_args:Nc \cs_if_exist_use:NF { \l_xeCJK_current_punct_font_tl }
-      {
-        \@@_family_use:n { \l_xeCJK_punct_family_tl }
-        \xeCJK_font_gset_to_current:c { \l_xeCJK_current_punct_font_tl }
-      }
+    \@@_select_font:cn
+      { \l_xeCJK_current_punct_font_tl }
+      { \l_xeCJK_punct_family_tl }
   }
 \tl_new:N \CJK@punctfamily
 \tl_new:N \l_xeCJK_punct_family_tl
@@ -6688,15 +6692,21 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xeCJK_select_font:n #1
   {
-    \exp_args:Nc \cs_if_exist_use:NF
+    \@@_select_font:cnn
       { \@@_font_csname:n { \CJK@family/#1 } }
+      { \l_xeCJK_family_tl }
+      {#1}
+  }
+\cs_new_protected_nopar:Npn \@@_select_font:Nnn #1#2#3
+  {
+    \cs_if_exist_use:NF #1
       {
-        \xeCJK_block_family:nn { \l_xeCJK_family_tl } {#1}
-        \@@_family_use:n { \l_xeCJK_family_tl/#1 }
-        \xeCJK_font_gset_to_current:c
-          { \@@_font_csname:n { \CJK@family/#1 } }
+        \xeCJK_block_family:nn {#2} {#3}
+        \@@_family_use:n { #2/#3 }
+        \xeCJK_font_gset_to_current:N #1
       }
   }
+\cs_generate_variant:Nn \@@_select_font:Nnn { c }
 \cs_new_protected_nopar:Npn \xeCJK_block_family:nn #1#2
   {
     \xeCJK_family_if_exist:xF { #1/#2 }
@@ -6729,11 +6739,42 @@ Copyright and Licence
       { \@@_family_nfss_csname:n {#1} }
       {
         \exp_not:N \fontencoding { \c_@@_encoding_tl }
-        \tl_set:Nn \exp_not:N \f@family {#2}
+        \@@_nfss_family:n {#2}
         \exp_not:N \selectfont
       }
   }
 \cs_generate_variant:Nn \@@_gset_family_nfss_cs:nn { xx }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_nfss_family:n}
+% 用于处理 \LaTeXe\ 2020/02/02 中 \tn{bfseries@rm} 等与 \tn{\bfdefault} 不一致可能导致的问题。
+%    \begin{macrocode}
+\cs_if_exist:NTF \fontseriesforce
+  {
+    \cs_new_protected_nopar:Npn \@@_nfss_family:n #1
+      {
+        \str_if_eq:eeF { \f@series } { \bfdefault }
+          {
+            \str_case_e:nn { \f@family }
+              {
+                { \rmdefault } { \@@_nfss_series:n { rm } }
+                { \sfdefault } { \@@_nfss_series:n { sf } }
+                { \ttdefault } { \@@_nfss_series:n { tt } }
+              }
+          }
+        \fontfamily {#1}
+      }
+    \cs_new_protected_nopar:Npn \@@_nfss_series:n #1
+      {
+        \str_if_eq:eeT { \f@series } { \use:c { bfseries@#1 } }
+          { \fontseriesforce { \bfdefault } }
+      }
+  }
+  {
+    \cs_new_protected_nopar:Npn \@@_nfss_family:n #1
+      { \tl_set:Nn \f@family {#1} }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8337,32 +8378,49 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\fontfamily}
-% \begin{macro}[int]{\xeCJK@fontfamily}
+% \begin{macro}[int]{\xeCJK@fontfamily,\xeCJK@family}
 % \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
 % \changes{v3.1.2}{2013/01/01}{不将参数完全展开。}
 % \changes{v3.4.6}{2017/02/23}
 %   {将族名参数完全展开，以解决与 \pkg{fontspec} 2017/01/24 v2.5d 的兼容问题。}
-% 修改 \tn{fontfamily}，使主要 |CJK| 字体族能随西文主要字体更新。
+% 对于 \LaTeXe\ 2020/02/02 之前的版本，修改 \tn{fontfamily}，
+% 使主要 |CJK| 字体族能随西文主要字体更新，之后的版本可以使用 \tn{@rmfamilyhook} 等新钩子处理。
 %    \begin{macrocode}
-\RenewDocumentCommand \fontfamily { m }
+\cs_if_exist:NTF \@rmfamilyhook
   {
-    \tl_set:Nx \f@family {#1}
-    \xeCJK@fontfamily {#1}
-  }
-\cs_new_protected_nopar:Npn \xeCJK@fontfamily #1
-  {
-    \str_if_eq:nnTF {#1} { \familydefault }
-      { \xeCJK_switch_family:x { \CJKfamilydefault } }
-      { \@@_update_family_aux: }
-  }
-\cs_new_protected_nopar:Npn \@@_update_family_aux:
-  {
-    \str_case_e:nn { \f@family }
+    \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:x
+    \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
+    \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
+    \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
+    \exp_args:Nx \g@addto@macro
       {
-        { \rmdefault }     { \xeCJK_switch_family:x { \CJKrmdefault } }
-        { \sfdefault }     { \xeCJK_switch_family:x { \CJKsfdefault } }
-        { \ttdefault }     { \xeCJK_switch_family:x { \CJKttdefault } }
-        { \familydefault } { \xeCJK_switch_family:x { \CJKfamilydefault } }
+        \cs_if_exist:NTF \@defaultfamilyhook
+          { \exp_not:N \@defaultfamilyhook }
+          { \exp_not:c { normalfont ~ } }
+      }
+      { \xeCJK@family { \CJKfamilydefault } }
+  }
+  {
+    \RenewDocumentCommand \fontfamily { m }
+      {
+        \tl_set:Nx \f@family {#1}
+        \xeCJK@fontfamily {#1}
+      }
+    \cs_new_protected_nopar:Npn \xeCJK@fontfamily #1
+      {
+        \str_if_eq:nnTF {#1} { \familydefault }
+          { \xeCJK_switch_family:x { \CJKfamilydefault } }
+          { \@@_update_family_aux: }
+      }
+    \cs_new_protected_nopar:Npn \@@_update_family_aux:
+      {
+        \str_case_e:nn { \f@family }
+          {
+            { \rmdefault }     { \xeCJK_switch_family:x { \CJKrmdefault } }
+            { \sfdefault }     { \xeCJK_switch_family:x { \CJKsfdefault } }
+            { \ttdefault }     { \xeCJK_switch_family:x { \CJKttdefault } }
+            { \familydefault } { \xeCJK_switch_family:x { \CJKfamilydefault } }
+          }
       }
   }
 %    \end{macrocode}
