@@ -280,9 +280,10 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v3.6.1}{2018/02/27}{减少 \texttt{bool} 运算。}
 % \changes{v3.7.2}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
-% \changes{v3.7.5}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
+% \changes{v3.8.0}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
+% \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 %
-% \CheckSum{10840}
+% \CheckSum{10770}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1639,12 +1640,13 @@ Copyright and Licence
     The~`#1'~package~and~xeCJK~are~incompatible.\\\\
     Please~load~it~after~xeCJK.
   }
-\clist_map_inline:nn { CJKfntef , CJKnumb }
+\clist_map_inline:nn { CJKnumb }
   {
     \xeCJK_if_package_loaded:nT {#1}
       { \msg_error:nnn { xeCJK } { after-package } {#1} }
   }
-\clist_map_inline:nn { CJKulem , CJKvert , CJKpunct , CJKutf8 , CJK }
+\clist_map_inline:nn
+  { CJKfntef , CJKulem , CJKvert , CJKpunct , CJKutf8 , CJK }
   {
     \xeCJK_if_package_loaded:nTF {#1}
       { \msg_error:nnn { xeCJK } { incompatible-package } {#1} }
@@ -1652,16 +1654,8 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
-% 以下日期以前的 \pkg{xtemplate} 宏包关于 \tn{KeyValue} 的 Bug 会影响到后面
-% 标点符号的处理。
 %    \begin{macrocode}
-\RequirePackage { xtemplate }
-\@ifpackagelater { xtemplate } { 2012/11/10 } { }
-  { \msg_error:nnn { xeCJK } { l3-too-old } { xtemplate } }
-%    \end{macrocode}
-%
-%    \begin{macrocode}
-\RequirePackage { xparse , l3keys2e }
+\RequirePackage { l3keys2e , xtemplate , xparse }
 %    \end{macrocode}
 %
 % \subsection{内部工具}
@@ -6894,7 +6888,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \@@_gobble_CJKfamily:
   { \cs_set_eq:NN \CJKfamily \@@_gobble_CJKfamily:wn }
-\DeclareExpandableDocumentCommand \@@_gobble_CJKfamily:wn { t+ t- m } {  }
+\NewExpandableDocumentCommand \@@_gobble_CJKfamily:wn { t+ t- m } {  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7795,64 +7789,73 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_visible_space:}
+% \begin{macro}[int]{\@setupverbvisiblespace}
 % \changes{v3.2.5}{2013/07/13}{可视空格考虑传统 \TeX 字体的情况。}
+% \changes{v3.8.0}{2020/02/09}{更新可视空格补丁。}
 % 如果文档不使用 \texttt{EU1} 作为默认字体编码，那么默认的打字机字体族很可能是
 % 传统的 \TeX 字体，这时可视空格按照 \texttt{OT1} 编码传统一般就是字体中的 |\char32|。
-% 这里加入 \cs{scan_stop:} 的目的是强制发生状态转移。这样当空格出现在 CJK 文字
-% 后面时，使字体回到西文，保证在当前西文字体而不是在 CJK 字体中检查有没有 |U+2423|。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_visible_space:
+\cs_new_protected_nopar:Npn \xeCJK_setup_visible_space:
   {
     \xeCJK_make_boundary:
     \xeCJK_glyph_if_exist:NTF { ^^^^2423 }
-      { ^^^^2423 }
+      { \tl_set:Nn \l_@@_visible_space_tl { ^^^^2423 } }
       {
         \int_compare:nNnTF { \tex_XeTeXfonttype:D \tex_font:D } = \c_zero_int
           {
-            \str_if_eq:eeTF { \f@family } { \ttdefault }
-              { \c_catcode_other_space_tl }
-              { \textvisiblespace }
+            \tl_set:Nx \l_@@_visible_space_tl
+              {
+                \str_if_eq:eeTF { \f@family } { \ttdefault }
+                    { \c_catcode_other_space_tl }
+                    { \exp_not:N \textvisiblespace }
+              }
           }
-          { \xeCJK_visible_space_fallback: }
+          { \@@_visible_space_fallback: }
       }
+    \cs_set_eq:NN \@xobeysp \l_@@_visible_space_tl
   }
-\AtEndOfPackage
-  { \cs_gset_eq:NN \fontspec_visible_space: \xeCJK_visible_space: }
+\tl_new:N \l_@@_visible_space_tl
+\cs_set_eq:NN \@setupverbvisiblespace \xeCJK_setup_visible_space:
 %    \end{macrocode}
 % \end{macro}
+% \end{macro}
 %
-% \begin{macro}[int]{\xeCJK_visible_space_fallback:}
-% \changes{v3.1.0}{2012/11/19}
-% {调整 \pkg{fontspec} 的后备可视空格符号，以便于使用时对齐。}
-% \pkg{fontspec} 使用 |lmtt| 字体中的可视空格符号（|U+2423|）作为当前字体中相应符号
-% 的后备。但是 |lmtt| 的字体大小未必与当前字体匹配。因此，我们在这里做一些调整，以
+% \begin{macro}{\@@_visible_space_fallback:}
+% 我们使用 |lmtt| 字体中的可视空格符号（|U+2423|）作为当前字体中相应符号
+% 的后备，但是 |lmtt| 的字体大小未必与当前字体匹配。因此，这里需要做一些调整，以
 % 保证使用后备可视空格符号时，也能保证对齐。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_visible_space_fallback:
-  { {
-      \cs_if_exist_use:cF { xeCJK/space/\curr@fontshape/\f@size }
-        { \xeCJK_set_visible_space_font: }
-      ^^^^2423
-  } }
+\cs_new_protected_nopar:Npn \@@_visible_space_fallback:
+  {
+    \exp_args:Nc \@@_visible_space_fallback_auxi:N
+      { xeCJK/space/\curr@fontshape/\f@size }
+  }
+\cs_new_protected_nopar:Npn \@@_visible_space_fallback_auxi:N #1
+  {
+    \cs_if_exist:NF #1
+      { \@@_visible_space_fallback_auxii:N #1 }
+    \tl_set:Nn \l_@@_visible_space_tl {#1}
+  }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\xeCJK_set_visible_space_font:}
+% \begin{macro}{\@@_visible_space_fallback_auxii:N}
 % 当前字体空格的宽度与后备字体 |lmtt| 不一样时，就对 \tn{textvisiblespace} 的字体尺寸
 % 按相应的比例放缩。
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_set_visible_space_font:
+\cs_new_protected_nopar:Npn \@@_visible_space_fallback_auxii:N #1
   {
-    \tl_set:Nx \l_@@_current_coor_tl
-      { xeCJK/space/\curr@fontshape/\f@size }
-    \exp_args:No \@@_set_visible_space_size:n
-      { \dim_use:N \tex_fontdimen:D 2 ~ \tex_font:D }
-    \xeCJK_font_gset_to_current:c { \l_@@_current_coor_tl }
+    \group_begin:
+      \exp_args:No \@@_set_visible_space_size:n
+        { \dim_use:N \tex_fontdimen:D 2 ~ \tex_font:D }
+      \cs_new_protected_nopar:Npx #1
+        { \group_begin: \tex_the:D \tex_font:D ^^^^2423 \group_end: }
+    \group_end:
   }
 \cs_new_protected_nopar:Npn \@@_set_visible_space_size:n #1
   {
     \fontencoding { \g_fontspec_encoding_tl }
-    \tl_set:Nx \f@family { lmtt }
+    \tl_set:Nn \f@family { lmtt }
     \selectfont
     \dim_compare:nNnF {#1} = { \tex_fontdimen:D 2 ~ \tex_font:D }
       {
@@ -8127,40 +8130,8 @@ Copyright and Licence
 %
 % \subsection{兼容性修补}
 %
-% \begin{macro}[int]{\hbar}
 % \changes{v3.2.16}{2014/11/20}{修复 \tn{hbar}。}
-% \pkg{fontspec} 会设置 operators 数学字体族（|\fam0|）为 \texttt{EU1} 编码的
-% \tn{rmdefault} 字体。这导致 \LaTeXe{} 定义的 \tn{hbar} 只显示为 $h$。
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \xeCJK_fix_hbar:
-  {
-    \cs_if_free:NF \symlegacymaths
-      {
-        \group_begin:
-          \cs_set_nopar:Npn \@@_tmp:w
-            { { \mathchar '26 \mkern -9mu h } }
-        \exp_after:wN \group_end:
-        \if_meaning:w \@@_tmp:w \hbar
-          \cs_set_protected_nopar:Npx \hbar
-            { {
-              \mathchar
-                \int_eval:n { \symlegacymaths * 256 + '26 } ~
-              \mkern -9mu h
-            } }
-        \fi:
-      }
-  }
-\cs_if_exist:NTF \fontspec_maybe_setup_maths:
-  {
-    \cs_gset_protected_nopar:Npx \fontspec_maybe_setup_maths:
-      {
-        \exp_not:o { \fontspec_maybe_setup_maths: }
-        \xeCJK_fix_hbar:
-      }
-  }
-  { \AtBeginDocument { \xeCJK_fix_hbar: } }
-%    \end{macrocode}
-% \end{macro}
+% \changes{v3.8.0}{2020/02/09}{删除 \tn{hbar} 补丁。}
 %
 % \begin{macro}[int]{\xeCJK@update@fam,\Url@MathSetup}
 % \changes{v3.2.7}{2013/11/09}{使通过 \tn{UrlFont} 等命令设置的 CJK 字体生效。}
@@ -8211,29 +8182,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\fontspec_setup_maths:,\mathrm}
 % \changes{v3.2.6}{2013/08/02}{为 \tn{mathrm} 减少一个可能的数学字体族。}
-% 如果没有设置 \tn{setboldmathrm}，即 \cs{g_fontspec_bfmathrm_tl} 为空，那么
-% \tn{mathrm} 的字体实际与 \texttt{operators} 字体族完全一致。这时候应该通过
-% \tn{DeclareSymbolFontAlphabet} 来定义 \tn{mathrm}，避免使用它的时候再声明
-% 一个重复的数学字体族。\pkg{fontspec} v2.4a 已经正确定义了 \tn{mathrm}。
-%    \begin{macrocode}
-\@ifpackagelater { fontspec } { 2014/06/21 } { }
-  {
-    \cs_gset_protected_nopar:Npx \fontspec_setup_maths:
-      {
-        \exp_not:o
-          {
-            \fontspec_setup_maths:
-            \bool_lazy_or:nnT
-              { \tl_if_empty_p:N \g__fontspec_bfmathrm_tl }
-              { \tl_if_empty_p:N \g_fontspec_bfmathrm_tl }
-              { \DeclareSymbolFontAlphabet \mathrm { operators } }
-          }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
+% \changes{v3.8.0}{2020/02/09}{删除 \tn{mathrm} 补丁。}
 %
 % \changes{v3.4.5}{2017/01/02}{更新 \LaTeXiii{} 的过时用法。}
 %
@@ -8338,44 +8288,7 @@ Copyright and Licence
 % \changes{v3.7.0}{2018/03/18}{对 \tn{nobreakspace} 的恢复放到 \pkg{xunicode-addon} 中处理。}
 %
 % \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
-% 比较老版本的 \pkg{realscripts} 定义了 \cs{dim_max:nn} 和 \cs{dim_min:nn}，这与
-% 新版本的 \pkg{expl3} 冲突。
-%    \begin{macrocode}
-\@@_msg_new:nn { conflict-package }
-  {
-    The~`#1'~package~is~too~old. \\
-    Please~update~an~up~to~date~version~of~it\\
-    using~your~TeX~package~manager~or~from~CTAN.
-  }
-\xeCJK_if_package_loaded:nTF { realscripts }
-  {
-    \@ifpackagelater { realscripts } { 2010/10/10 } { }
-      {
-        \@@_error:nx { conflict-package }
-          {
-            \xeCJK_if_package_loaded:nTF { xltxtra }
-              { xltxtra } { realscripts }
-          }
-      }
-  }
-  {
-    \cs_new_eq:NN \@@_dim_max:nn \dim_max:nn
-    \cs_new_eq:NN \@@_dim_min:nn \dim_min:nn
-    \@@_at_end_preamble:n
-      {
-        \xeCJK_if_package_loaded:nT { realscripts }
-          {
-            \@ifpackagelater { realscripts } { 2010/10/10 } { }
-              {
-                \cs_gset_eq:NN \dim_max:nn \@@_dim_max:nn
-                \cs_gset_eq:NN \dim_min:nn \@@_dim_min:nn
-              }
-          }
-        \cs_undefine:N \@@_dim_max:nn
-        \cs_undefine:N \@@_dim_min:nn
-      }
-  }
-%    \end{macrocode}
+% \changes{v3.8.0}{2020/02/09}{删除 \pkg{realscripts} 补丁。}
 %
 % \begin{macro}[int]{\fontfamily}
 % \begin{macro}[int]{\xeCJK@fontfamily,\xeCJK@family}
@@ -8848,31 +8761,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \changes{v3.2.11}{2014/03/14}{删除 \tn{xeCJKcaption}。}
-%
-% 由于 \pkg{xeCJK} 禁止 \pkg{CJKulem} 的载入，因此当使用 \pkg{ctex} 宏包的 |fntef|
-% 选项时，就会出现 \tn{normalem} 没有定义的问题。此时改用 \pkg{xeCJKfntef} 以便
-% 载入 \pkg{ulem}。
-%
-% 判断过于繁琐，应该在 \pkg{ctex} 包中妥善处理。这段代码应在 \pkg{ctex} 包发布
-% 新版本后删去。
-%    \begin{macrocode}
-\cs_if_eq:NNTF \ifCTEX@fntef \tex_iftrue:D
-  { \AtEndOfPackage { \RequirePackage { xeCJKfntef } } }
-  {
-    \@@_at_end_preamble:n
-      {
-        \xeCJK_if_package_loaded:nF { xeCJKfntef }
-          {
-            \xeCJK_if_package_loaded:nTF { CJKfntef }
-              { \RequirePackage { xeCJKfntef } }
-              {
-                \xeCJK_if_package_loaded:nT { ulem }
-                  { \RequirePackage { xeCJKfntef } }
-              }
-          }
-      }
-  }
-%    \end{macrocode}
+% \changes{v3.8.0}{2020/02/09}{删除 \pkg{CJKfntef} 补丁。}
 %
 % 导言区末尾检测到 \pkg{listings} 时，自动载入 \pkg{xeCJK-listings}。
 %    \begin{macrocode}
@@ -8968,12 +8857,6 @@ Copyright and Licence
 %    \begin{macrocode}
 \RequirePackage { xeCJK }
 \RequirePackage { ulem }
-%    \end{macrocode}
-%
-% 虽然我们不再依赖 \pkg{CJKfntef}，但基于历史原因，我们仍然载入它。
-%    \begin{macrocode}
-\file_if_exist:nT { CJKfntef.sty }
-  { \RequirePackage { CJKfntef } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -9776,7 +9659,7 @@ Copyright and Licence
 %
 % \begin{macro}{\CJKunderline}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderline { s t- s o }
+\NewDocumentCommand \CJKunderline { s t- s o }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { underline } { uline } #1#2#3 {#4}
@@ -9792,14 +9675,14 @@ Copyright and Licence
         }
       \xeCJK_ulem_on:n
   }
-\DeclareDocumentCommand \varCJKunderline { }
+\NewDocumentCommand \varCJKunderline { }
   { \CJKunderline - }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\CJKunderwave}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderwave { s t- s o }
+\NewDocumentCommand \CJKunderwave { s t- s o }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { underwave } { uwave } #1#2#3 {#4}
@@ -9814,7 +9697,7 @@ Copyright and Licence
 %
 % \begin{macro}{\CJKunderdblline}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderdblline { s t- s o }
+\NewDocumentCommand \CJKunderdblline { s t- s o }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { underdblline } { udbline } #1#2#3 {#4}
@@ -9843,7 +9726,7 @@ Copyright and Licence
 %
 % \begin{macro}{\CJKsout}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKsout { s t- s o }
+\NewDocumentCommand \CJKsout { s t- s o }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { sout } { sout } #1#2#3 {#4}
@@ -9867,7 +9750,7 @@ Copyright and Licence
 %
 % \begin{macro}{\CJKxout}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKxout { s t- s o }
+\NewDocumentCommand \CJKxout { s t- s o }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { xout } { xout } #1#2#3 {#4}
@@ -9890,7 +9773,7 @@ Copyright and Licence
 % \begin{macro}{\CJKunderanyline}
 % \changes{v3.2.15}{2014/11/07}{完善选项。}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderanyline { s t- s o m m }
+\NewDocumentCommand \CJKunderanyline { s t- s o m m }
   {
     \xeCJK_ulem_group_begin:
       \xeCJK_ulem_boot:NNNn #1#2#3 {#4}
@@ -10119,7 +10002,7 @@ Copyright and Licence
 %
 % \begin{macro}{\CJKunderanysymbol}
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderanysymbol { o m m m }
+\NewDocumentCommand \CJKunderanysymbol { o m m m }
   {
     \xeCJK_under_symbol:nnnnnn { symbol } { symbol } {#1} {#2} {#3} {#4}
     \tex_ignorespaces:D
@@ -10131,7 +10014,7 @@ Copyright and Licence
 % \tn{CJKunderdot} 是 \tn{CJKunderanysymbol} 的特殊情况。\pkg{CJKfntef} 原来使用
 % 的是数学符号 \tn{cdot}，这里改成更合适的 |.|。
 %    \begin{macrocode}
-\DeclareDocumentCommand \CJKunderdot { o m }
+\NewDocumentCommand \CJKunderdot { o m }
   {
     \xeCJK_under_symbol:nnnnnn { underdot } { udot }
       {#1}
@@ -10273,7 +10156,7 @@ Copyright and Licence
 % 可选参数 |#1| 表示环境的垂直对齐位置，默认居中；参数 |#2| 表示环境的宽度。
 % 带星号的环境，如果 |#2| 不大于零或者不大于环境最长文本行的宽度，则取环境的自然宽度。
 %    \begin{macrocode}
-\DeclareDocumentEnvironment { CJKfilltwosides } { O { c } m }
+\NewDocumentEnvironment { CJKfilltwosides } { O { c } m }
   {
     \use:x { \exp_not:N \minipage [#1] { \dim_eval:n {#2} } }
     \cs_set_eq:NN \CJKglue \xeCJK_fntef_hfilll:
@@ -10282,7 +10165,7 @@ Copyright and Licence
     \endminipage
     \ignorespacesafterend
   }
-\DeclareDocumentEnvironment { CJKfilltwosides* } { O { c } m +b }
+\NewDocumentEnvironment { CJKfilltwosides* } { O { c } m +b }
   {
     \mode_leave_vertical:
     \cs_set_eq:NN \CJKglue \xeCJK_fntef_hfilll:
