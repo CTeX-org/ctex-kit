@@ -225,6 +225,8 @@ Copyright and Licence
 \newcommand\PSKeyVal[2]{%
   \item[#1]\makebox[4em][l]{\meta{#2}}\ignorespaces}
 \newcommand\tokslink[1]{\hyperlink{#1}{\ding{51}}}
+\newcommand\ghissue[1]{%
+  \href{https://github.com/CTeX-org/ctex-kit/issues/#1}{\##1}}
 \AtBeginDocument{\DeleteShortVerb{\"}}
 \ExplSyntaxOn
 \NewDocumentCommand \PrintPunctList { O{7} m m }
@@ -283,7 +285,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 %
-% \CheckSum{10751}
+% \CheckSum{10759}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6709,35 +6711,41 @@ Copyright and Licence
 \cs_new_protected_nopar:Npn \@@_gset_family_nfss_cs:nn #1#2
   {
     \prop_gput:Nnn \g_@@_family_name_prop {#1} {#2}
-    \cs_gset_protected_nopar:cpx
+    \cs_gset_protected_nopar:cpn
       { \@@_family_nfss_csname:n {#1} }
-      {
-        \exp_not:N \fontencoding { \c_@@_encoding_tl }
-        \@@_nfss_family:n {#2}
-        \exp_not:N \selectfont
-      }
+      { \@@_nfss_family:n {#2} }
   }
 \cs_generate_variant:Nn \@@_gset_family_nfss_cs:nn { xx }
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.8.1}{2020/02/14}{修复 \cs{l_xeCJK_current_font_tl} 标记错误。}
+%
 % \begin{macro}{\@@_nfss_family:n}
-% 用于处理 \LaTeXe\ 2020/02/02 中 \tn{bfseries@rm} 等与 \tn{\bfdefault} 不一致可能导致的问题。
+% 用于处理 \LaTeXe\ 2020/02/02 中 \tn{bfseries@rm} 等与 \tn{bfdefault} 不一致可能导致的问题。
 %    \begin{macrocode}
 \cs_if_exist:NTF \fontseriesforce
   {
     \cs_new_protected_nopar:Npn \@@_nfss_family:n #1
       {
-        \str_if_eq:eeF { \f@series } { \bfdefault }
-          {
-            \str_case_e:nn { \f@family }
-              {
-                { \rmdefault } { \@@_nfss_series:n { rm } }
-                { \sfdefault } { \@@_nfss_series:n { sf } }
-                { \ttdefault } { \@@_nfss_series:n { tt } }
-              }
-          }
-        \fontfamily {#1}
+%    \end{macrocode}
+% 注意要将 \tn{selectfont} 放在分组中调用，防止 \tn{f@series} 等字体参数不一致，
+% 导致 \cs{l_xeCJK_current_font_tl} 标记前后不一致，引发错误（见~\ghissue{486}）。
+%    \begin{macrocode}
+        \group_begin:
+          \fontencoding { \c_@@_encoding_tl }
+          \str_if_eq:eeF { \f@series } { \bfdefault }
+            {
+              \str_case_e:nn { \f@family }
+                {
+                  { \rmdefault } { \@@_nfss_series:n { rm } }
+                  { \sfdefault } { \@@_nfss_series:n { sf } }
+                  { \ttdefault } { \@@_nfss_series:n { tt } }
+                }
+            }
+          \fontfamily {#1}
+          \selectfont \scan_stop:
+        \exp_after:wN \group_end: \tex_the:D \tex_font:D
       }
     \cs_new_protected_nopar:Npn \@@_nfss_series:n #1
       {
@@ -6747,7 +6755,11 @@ Copyright and Licence
   }
   {
     \cs_new_protected_nopar:Npn \@@_nfss_family:n #1
-      { \tl_set:Nn \f@family {#1} }
+      {
+        \exp_not:N \fontencoding { \c_@@_encoding_tl }
+        \tl_set:Nn \f@family {#1}
+        \selectfont
+      }
   }
 %    \end{macrocode}
 % \end{macro}
