@@ -285,7 +285,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 %
-% \CheckSum{10757}
+% \CheckSum{10752}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6608,17 +6608,30 @@ Copyright and Licence
   }
 \cs_new_protected_nopar:Npn \@@_select_font:Nn #1#2
   {
-    \cs_if_exist_use:NF #1
-      {
-        \@@_family_use:n {#2}
-        \xeCJK_font_gset_to_current:N #1
-      }
+    \cs_if_exist:NF #1 { \@@_font_initial:Nn #1 {#2} }
+    #1
   }
 \cs_generate_variant:Nn \@@_select_font:Nn { c }
 \tl_new:N \l_@@_current_coor_tl
 \cs_new_eq:NN \xeCJK@setfont \xeCJK_select_font:
 %    \end{macrocode}
 % \end{variable}
+% \end{macro}
+%
+% \changes{v3.8.1}{2020/02/14}{修复 \cs{l_xeCJK_current_font_tl} 标记错误。}
+%
+% \begin{macro}{\@@_font_initial:Nn}
+% 注意要将 \tn{selectfont} 放在分组中调用，防止 \tn{f@series} 等字体参数被修改，
+% 导致 \cs{l_xeCJK_current_font_tl} 标记前后不一致，引发错误（见~\ghissue{486}）。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_font_initial:Nn #1#2
+  {
+    \group_begin:
+      \@@_family_use:n {#2}
+      \xeCJK_font_gset_to_current:N #1
+    \group_end:
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_select_punct_font:}
@@ -6678,8 +6691,7 @@ Copyright and Licence
     \cs_if_exist_use:NF #1
       {
         \xeCJK_block_family:nn {#2} {#3}
-        \@@_family_use:n { #2/#3 }
-        \xeCJK_font_gset_to_current:N #1
+        \@@_font_initial:Nn #1 { #2/#3 }
       }
   }
 \cs_generate_variant:Nn \@@_select_font:Nnn { c }
@@ -6706,7 +6718,7 @@ Copyright and Licence
   { xeCJK/family/#1 }
 \cs_new_nopar:Npn \@@_family_nfss_csname:n #1
   { xeCJK/family/nfss/#1 }
-\cs_new_nopar:Npn \@@_family_use:n #1
+\cs_new_protected_nopar:Npn \@@_family_use:n #1
   { \use:c { \@@_family_nfss_csname:n {#1} } }
 \cs_new_protected_nopar:Npn \@@_gset_family_nfss_cs:nn #1#2
   {
@@ -6719,8 +6731,6 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.8.1}{2020/02/14}{修复 \cs{l_xeCJK_current_font_tl} 标记错误。}
-%
 % \begin{macro}{\@@_nfss_family:n}
 % 用于处理 \LaTeXe\ 2020/02/02 中 \tn{bfseries@rm} 等与 \tn{bfdefault} 不一致可能导致的问题。
 %    \begin{macrocode}
@@ -6728,24 +6738,18 @@ Copyright and Licence
   {
     \cs_new_protected_nopar:Npn \@@_nfss_family:nn #1#2
       {
-%    \end{macrocode}
-% 注意要将 \tn{selectfont} 放在分组中调用，防止 \tn{f@series} 等字体参数不一致，
-% 导致 \cs{l_xeCJK_current_font_tl} 标记前后不一致，引发错误（见~\ghissue{486}）。
-%    \begin{macrocode}
-        \group_begin:
-          \fontencoding {#1}
-          \str_if_eq:eeF { \f@series } { \bfdefault }
-            {
-              \str_case_e:nn { \f@family }
-                {
-                  { \rmdefault } { \@@_nfss_series:n { rm } }
-                  { \sfdefault } { \@@_nfss_series:n { sf } }
-                  { \ttdefault } { \@@_nfss_series:n { tt } }
-                }
-            }
-          \fontfamily {#2}
-          \selectfont \scan_stop:
-        \exp_after:wN \group_end: \tex_the:D \tex_font:D
+        \fontencoding {#1}
+        \str_if_eq:eeF { \f@series } { \bfdefault }
+          {
+            \str_case_e:nn { \f@family }
+              {
+                { \rmdefault } { \@@_nfss_series:n { rm } }
+                { \sfdefault } { \@@_nfss_series:n { sf } }
+                { \ttdefault } { \@@_nfss_series:n { tt } }
+              }
+          }
+        \fontfamily {#2}
+        \selectfont
       }
     \cs_new_protected_nopar:Npn \@@_nfss_series:n #1
       {
@@ -8297,11 +8301,10 @@ Copyright and Licence
     \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
     \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
     \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
-    \exp_args:Nx \g@addto@macro
+    \exp_args:Nc \g@addto@macro
       {
         \cs_if_exist:NTF \@defaultfamilyhook
-          { \exp_not:N \@defaultfamilyhook }
-          { \exp_not:c { normalfont ~ } }
+          { @defaultfamilyhook } { normalfont ~ }
       }
       { \xeCJK@family { \CJKfamilydefault } }
   }
