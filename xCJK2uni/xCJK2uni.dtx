@@ -25,12 +25,10 @@ Set the current encoding. The default encoding is GBK.
     \CJKchartouni{<character>}
 
 Convert a single CJK character to its Unicode.
-It requires two steps of expansion.
 
     \CJKsfdtouni{<plane>}{<slot>}
 
 Convert the .sfd coordinate to its Unicode.
-It requires two steps of expansion.
 
 You can read the package manual (in Chinese) for more detailed explanations.
 
@@ -44,7 +42,7 @@ Issues and pull requests are welcome.
 Copyright and Licence
 ---------------------
 
-    Copyright (C) 2013-2014, 2016, 2018-2019 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2013-2014, 2016, 2018-2020 by Qing Lee <sobenlee@gmail.com>
     ----------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -89,7 +87,7 @@ Copyright and Licence
 
 \preamble
 
-    Copyright (C) 2013-2014, 2016, 2018-2019 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2013-2014, 2016, 2018-2020 by Qing Lee <sobenlee@gmail.com>
 --------------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -226,7 +224,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{585}
+% \CheckSum{532}
 % \GetFileId{xCJK2uni.sty}
 %
 % \title{\bfseries\pkg{xCJK2uni} 宏包}
@@ -264,8 +262,7 @@ Copyright and Licence
 %   \begin{syntax}
 %     \cs{CJKchartouni} \Arg{单个CJK文字}
 %   \end{syntax}
-%   将文字转换成 $16$ 进制形式的 Unicode。例如 |\CJKchartouni{一}| 将得到 |4E00|。
-%   将它展开两次就可以得到结果。
+%   将文字转换成 Unicode。例如 |\CJKchartouni{一}| 将得到 \texttt{\number\string"4E00 }。
 % \end{function}
 %
 % \begin{function}[EXP]{\CJKsfdtouni}
@@ -273,8 +270,8 @@ Copyright and Licence
 %     \cs{CJKsfdtouni} \Arg{plane} \Arg{slot}
 %   \end{syntax}
 %   \meta{plane} 表示由 \file{.sfd} 文件定义的子字体的编号，\meta{slot} 表示在
-%   子字体中的位置，这个命令将得到该坐标位置的 Unicode。将它展开两次就可以得到结果。
-%   如果在当前编码下，该坐标位置不合法，将展开为空。
+%   子字体中的位置，这个命令将得到该坐标位置的 Unicode。
+%   如果在当前编码下，该坐标位置不合法，将展开为空并报错。
 % \end{function}
 %
 % \end{documentation}
@@ -300,7 +297,7 @@ Copyright and Licence
     'l3kernel'~and~'l3packages'\\\\
     using~your~TeX~package~manager~or~from~CTAN.
   }
-\@ifpackagelater { expl3 } { 2019/03/05 } { }
+\@ifpackagelater { expl3 } { 2020/03/06 } { }
   { \msg_error:nn { xCJK2uni } { l3-too-old } }
 %    \end{macrocode}
 %
@@ -373,18 +370,56 @@ Copyright and Licence
     \int_set_eq:Nc \l_@@_gap_begin_int { c_@@_ #1 _gap_begin_int }
     \int_set_eq:Nc \l_@@_gap_end_int   { c_@@_ #1 _gap_end_int }
     \int_set_eq:Nc \l_@@_plane_int     { c_@@_ #1 _plane_int }
-    \cs_if_exist:cF { CJKtu_ #1 _sfd_map:nn }
-      { \group_begin: \file_input:n { xCJK2uni-#2.def } \group_end: }
-    \cs_set_eq:Nc \CJKtu_sfd_map:nn { CJKtu_ #1 _sfd_map:nn }
+    \cs_if_exist:cF { CJKtu_ #1 _index_map:n }
+      { \@@_input_sfd_map:n {#2} }
+    \cs_set_eq:Nc \@@_index_map:n { CJKtu_ #1 _index_map:n }
+  }
+\cs_new_protected_nopar:Npn \@@_input_sfd_map:n #1
+  {
+    \group_begin:
+      \ExplSyntaxOn
+      \file_input:n { xCJK2uni-#1.def }
+    \group_end:
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_use_enc_map:n}
+% \begin{macro}[int]{\CJKtu_index_map:n}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_use_enc_map:n #1
+\cs_new_nopar:Npn \CJKtu_index_map:n #1
+  { \CJKtu_unicode:n { \@@_index_map:n {#1} } }
+\cs_new_eq:NN \CJKtu_unicode:n \use:n
+\cs_new_eq:NN \@@_index_map:n \use_none:n
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CJKtu_index_map:nn}
+%    \begin{macrocode}
+\cs_new_protected:Npn \CJKtu_index_map:nn #1
   {
-    \prop_get:NxNTF \c_@@_sfd_prop {#1} \l_@@_sfd_tl
+    \exp_args:Ncc \@@_index_map_aux:NNn
+      { CJKtu_ #1 _index_map:n } { c_@@_ #1 _intarray }
+  }
+\cs_new_protected:Npn \@@_index_map_aux:NNn #1#2
+  {
+    \cs_new:Npn #1 ##1 { \intarray_item:Nn #2 { ##1 + 1 } }
+    \intarray_const_from_clist:Nn #2
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CJKtu_sfd_map:nn}
+%    \begin{macrocode}
+\cs_new_nopar:Npn \CJKtu_sfd_map:nn #1#2
+  { \CJKtu_index_map:n { ( #1 - 1 ) * 256 + (#2) } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CJKtu_use_enc_map:n}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \CJKtu_use_enc_map:n #1
+  {
+    \prop_get:NnNTF \c_@@_sfd_prop {#1} \l_@@_sfd_tl
       { \@@_enc_map:nn {#1} { \l_@@_sfd_tl } }
       { \msg_error:nnx { xCJK2uni } { invalid-encoding } {#1} }
   }
@@ -394,7 +429,7 @@ Copyright and Licence
     Only~\seq_use:Nnnn \c_@@_encoding_seq { ~and~ } { ,~ } { ,~and~ } ~
     are~supported.
   }
-\prg_generate_conditional_variant:Nnn \prop_get:NnN { Nx } { TF }
+\cs_generate_variant:Nn \CJKtu_use_enc_map:n { x }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -407,36 +442,12 @@ Copyright and Licence
 \@@_set_enc:nnnnnn { GBK  } { UGBK }     { "81 } { "40 } { "7E } { "80 }
 %    \end{macrocode}
 %
-% \begin{macro}{\@@_sfd_to_unicode:nn}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_sfd_to_unicode:nn #1#2
-  {
-    \exp:w \exp_last_unbraced:Nf
-      \@@_get_unicode:w \CJKtu_sfd_map:nn {#1} {#2} \exp_end:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_get_unicode:w}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_get_unicode:w #1 \exp_end:
-  {
-    \tl_if_empty:nTF {#1}
-      { \exp_end: }
-      { \@@_get_unicode_aux:w #1 \q_stop }
-  }
-\cs_new_nopar:Npn \@@_get_unicode_aux:w #1 \or: #2 \q_stop
-  { \or: #2 \exp_end: #1 }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_char_to_unicode:n}
+% \begin{macro}[int]{\CJKtu_char_to_unicode:n}
 %    \begin{macrocode}
 \group_begin:
 \char_set_catcode_active:n { "7F }
-\cs_new_nopar:Npn \@@_char_to_unicode:n #1
+\cs_new_nopar:Npn \CJKtu_char_to_unicode:n #1
   {
-    \exp:w
     \int_compare:nNnTF { \tl_count:n {#1} } = 2
       { \CJKtu_byte:NN #1 }
       {
@@ -447,7 +458,7 @@ Copyright and Licence
   }
 \cs_new_nopar:Npn \@@_byte:wNwnw ^^7f #1 ^^7f #2 ^^7f
   { \CJKtu_byte_map:nn { `#1 } {#2} }
-\cs_new_nopar:Npn \@@_byte:Nwnw #1 ^^7f #2 ^^7f
+\cs_new_nopar:Npn \@@_active_byte:Nwnw #1 ^^7f #2 ^^7f
   { \CJKtu_byte_map:nn { `#1 } {#2} }
 %    \end{macrocode}
 % \end{macro}
@@ -456,12 +467,12 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \CJKtu_bookmarks_hook:
   {
-    \cs_set_eq:NN ^^7f \@@_byte:Nwnw
-    \cs_set_eq:NN \CJK@XX  \CJKtu_byte:NN
-    \cs_set_eq:NN \CJKchar \@@_byte:wnn
-    \cs_set_eq:NN \CCTchar \CJKtu_byte:nn
-    \cs_set_eq:NN \@CCTSetChar \@@_CCT_byte:NNN
-    \cs_set_eq:NN \@@_get_unicode:n \@@_UTF_xvi_be:n
+    \cs_set_eq:NN ^^7f              \@@_active_byte:Nwnw
+    \cs_set_eq:NN \CJK@XX           \CJKtu_byte:NN
+    \cs_set_eq:NN \CJKchar          \@@_byte:wnn
+    \cs_set_eq:NN \CCTchar          \CJKtu_byte:nn
+    \cs_set_eq:NN \@CCTSetChar      \@@_CCT_byte:NNN
+    \cs_set_eq:NN \CJKtu_unicode:n  \@@_UTF_xvi_be_octal:n
   }
 \group_end:
 %    \end{macrocode}
@@ -502,10 +513,7 @@ Copyright and Licence
       { \@@_encoding_error: }
   }
 \cs_new_nopar:Npn \@@_encoding_error:
-  {
-    \msg_expandable_error:nn { xCJK2uni } { encoding-error }
-    \exp_end:
-  }
+  { \msg_expandable_error:nn { xCJK2uni } { encoding-error } }
 \msg_new:nnn { xCJK2uni } { encoding-error }
   { Wrong~encoding~scheme. }
 %    \end{macrocode}
@@ -515,7 +523,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_nopar:Npn \CJKtu_byte_map:nn #1#2
   {
-    \exp_args:Nf \@@_index_map:n
+    \exp_args:Nf \CJKtu_index_map:n
       {
         \int_eval:n
           {
@@ -529,37 +537,20 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_index_map:n}
+% \begin{macro}{\@@_UTF_xvi_be_octal:n}
 %    \begin{macrocode}
-\cs_new_nopar:Npn \@@_index_map:n #1
+\cs_new_nopar:Npn \@@_UTF_xvi_be_octal:n #1
+  { \exp_args:Nf \@@_UTF_xvi_be_octal_aux:n { \int_eval:n {#1} } }
+\cs_new_nopar:Npn \@@_UTF_xvi_be_octal_aux:n #1
   {
-    \@@_get_unicode:n
-      {
-        \CJKtu_sfd_map:nn
-          { \int_div_truncate:nn {#1} { 256 } + 1 }
-          { \int_mod:nn {#1} { 256 } }
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_get_unicode:n}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_get_unicode:n #1
-  { \exp_last_unbraced:Nf \@@_get_unicode:w #1 \exp_end: }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_UTF_xvi_be:n}
-%    \begin{macrocode}
-\cs_new_nopar:Npn \@@_UTF_xvi_be:n #1
-  { \exp_args:Nf \@@_UTF_xvi_aux:n { \int_eval:n { "#1 } } }
-\cs_new_nopar:Npn \@@_UTF_xvi_aux:n #1
-  {
-    \HyPsd@DecimalToOctalFirst
+    \@@_UTF_xvi_be_octal:nn
       { \int_div_truncate:nn {#1} { 256 } }
-    \HyPsd@DecimalToOctalSecond
       { \int_mod:nn {#1} { 256 } }
+  }
+\cs_new_nopar:Npn \@@_UTF_xvi_be_octal:nn #1#2
+  {
+    \HyPsd@DecimalToOctalFirst  {#1}
+    \HyPsd@DecimalToOctalSecond {#2}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -589,9 +580,9 @@ Copyright and Licence
 %
 % \begin{macro}{\useCJKencmap,\CJKchartouni,\CJKsfdtouni}
 %    \begin{macrocode}
-\cs_new_eq:NN \useCJKencmap \@@_use_enc_map:n
-\cs_new_eq:NN \CJKchartouni \@@_char_to_unicode:n
-\cs_new_eq:NN \CJKsfdtouni  \@@_sfd_to_unicode:nn
+\cs_new_eq:NN \useCJKencmap \CJKtu_use_enc_map:x
+\cs_new_eq:NN \CJKchartouni \CJKtu_char_to_unicode:n
+\cs_new_eq:NN \CJKsfdtouni  \CJKtu_sfd_map:nn
 %    \end{macrocode}
 % \end{macro}
 %
@@ -603,15 +594,17 @@ Copyright and Licence
       {
         \prop_get:NxNTF \c_@@_sfd_prop {#1} \l_@@_sfd_tl
           { \@@_enc_map:nn {#1} { \l_@@_sfd_tl } }
-          { \@@_use_enc_map:n { GBK } }
+          { \CJKtu_use_enc_map:n { GBK } }
       }
-      { \@@_use_enc_map:n { GBK } }
+      { \CJKtu_use_enc_map:n { GBK } }
   }
+\prg_generate_conditional_variant:Nnn \prop_get:NnN { Nx } { TF }
 %    \end{macrocode}
 % \end{macro}
 %
 %    \begin{macrocode}
-\exp_args:Nc \@@_initial:N { CJK @ @ @ enc }
+\group_begin: \exp_args:NNc \group_end:
+\@@_initial:N { CJK @ @ @ enc }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -641,7 +634,7 @@ Copyright and Licence
       {
         \lua_now:e
           {
-            kpse.set_program_name("kpsewhich") ~
+            kpse.set_program_name("luatex") ~
             local ~ sfd = kpse.find_file("UGBK.sfd", "subfont~definition~files") ~
             if ~ sfd ~ then ~
               tex.write(sfd) ~
@@ -650,7 +643,7 @@ Copyright and Licence
       }
   }
   {
-    \sys_shell_get:nnNTF { kpsewhich ~ UGBK.sfd } { } \l_tmpa_str
+    \sys_get_shell:nnNTF { kpsewhich ~ UGBK.sfd } { } \l_tmpa_str
       { \str_gset_eq:NN \g_@@_path_str \l_tmpa_str }
       { \msg_fatal:nnnn { xCJK2uni } { file-not-found } { GBK } { UGBK.sfd } }
   }
@@ -704,19 +697,14 @@ Copyright and Licence
         \seq_clear:N \l_@@_sfd_plane_seq
         \@@_write_sfd_map_header:n {#1}
         \ior_str_map_inline:Nn \g_@@_sfd_ior
-          { \str_if_eq:nnT {##1} { 00 ~ 0x0000_0x00FF } { \ior_map_break: } }
+          { \str_if_eq:nnT { ##1 } { 00 ~ 0x0000_0x00FF } { \ior_map_break: } }
         \ior_str_map_inline:Nn \g_@@_sfd_ior
           {
-            \tl_if_blank:nTF {##1}
-              {
-                \ior_map_break:n
-                  {
-                    \@@_write_sfd_map_trailer:n {#1}
-                    \@@_write_cmap_file:n {#2}
-                  }
-              }
-              { \@@_read_sfd_line:nnn {##1} {#1} {#2} }
+            \tl_if_blank:nT { ##1 } { \ior_map_break: }
+            \@@_read_sfd_line:nn { ##1 } {#2}
           }
+        \@@_write_sfd_map_trailer:n {#1}
+        \@@_write_cmap_file:n {#2}
         \iow_close:N \g_@@_sfd_cmap_iow
         \ior_close:N \g_@@_sfd_ior
         \seq_clear:N \l_@@_sfd_plane_seq
@@ -732,19 +720,18 @@ Copyright and Licence
 %
 % \begin{macro}{\@@_read_sfd_line:n,\@@_read_sfd_line:nn}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npx \@@_read_sfd_line:nnn #1#2#3
+\cs_new_protected_nopar:Npx \@@_read_sfd_line:nn #1
   {
-    \exp_not:N \@@_read_sfd_line:nwnn #1
-      \c_backslash_str \exp_not:N \q_nil \exp_not:N \q_stop {#2} {#3}
+    \exp_not:N \@@_read_sfd_line:nwn #1
+      \c_backslash_str \exp_not:N \q_nil \exp_not:N \q_stop
   }
-\use:x
+\use:e
   {
-    \cs_new_protected_nopar:Npn \exp_not:N \@@_read_sfd_line:nwnn
-      ##1 0 \token_to_str:N x ##2 \c_backslash_str ##3 \exp_not:N \q_stop
-      ##4##5
+    \cs_new_protected_nopar:Npn \exp_not:N \@@_read_sfd_line:nwn
+      #1 0 \token_to_str:N x #2 \c_backslash_str #3 \exp_not:N \q_stop
       {
-        \exp_not:N \@@_read_sfd_line:nnnnn
-          {##1} { 0 \token_to_str:N x } {##2} {##4} {##5}
+        \exp_not:N \@@_read_sfd_line:nnnn
+          {#1} { 0 \token_to_str:N x } {#2}
       }
   }
 %    \end{macrocode}
@@ -752,48 +739,22 @@ Copyright and Licence
 %
 % \begin{macro}{\@@_read_sfd_line:nnnnn}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_read_sfd_line:nnnnn #1#2#3#4#5
+\cs_new_protected_nopar:Npn \@@_read_sfd_line:nnnn #1#2#3#4
   {
     \tl_if_blank:nF {#1}
       {
         \seq_if_empty:NF \l_@@_sfd_plane_seq
-          {
-            \iow_now:Nx \g_@@_sfd_map_iow
-              {
-                \c_@@_indent_str \c_@@_indent_str
-                \token_to_str:N \fi: \iow_newline:
-                \c_@@_indent_str \c_right_brace_str
-              }
-            \@@_write_cmap_file:n {#5}
-          }
-        \@@_write_plane_map:nn {#1} {#4}
+          { \@@_write_cmap_file:n {#4} }
         \tl_set:Nx \l_@@_sfd_plane_tl { \tl_trim_spaces:n {#1} }
+        \@@_write_plane_map:n { \l_@@_sfd_plane_tl }
       }
     \seq_set_split:Nnn \l_@@_sfd_line_seq {#2} {#3}
     \seq_concat:NNN \l_@@_sfd_plane_seq
       \l_@@_sfd_plane_seq \l_@@_sfd_line_seq
     \iow_now:Nx \g_@@_sfd_map_iow
       {
-        \c_@@_indent_str \c_@@_indent_str \c_@@_indent_str
-        \seq_use:Nn \l_@@_sfd_line_seq { ~ \or: } ~
-        \token_to_str:N \or:
-      }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_write_plane_map:nn}
-%    \begin{macrocode}
-\cs_new_protected_nopar:Npn \@@_write_plane_map:nn #1#2
-  {
-    \iow_now:Nx \g_@@_sfd_map_iow
-      {
-        \cs_new_nopar:cpn { ~ @@_ #2 _sfd_map_ \int_eval:n {#1} :n ~ } ~
-        \c_hash_str 1 \iow_newline:
-        \c_@@_indent_str \c_left_brace_str \iow_newline:
         \c_@@_indent_str \c_@@_indent_str
-        \exp_not:N \if_case:w \tex_numexpr:D
-          \c_hash_str 1 ~ \token_to_str:N \scan_stop:
+        " \seq_use:Nn \l_@@_sfd_line_seq { ~ , ~ " } ~ ,
       }
   }
 %    \end{macrocode}
@@ -809,13 +770,13 @@ Copyright and Licence
     \@@_write_cmap_header:nn { C #1 } { \l_@@_sfd_plane_tl }
     \iow_now:Nx \g_@@_sfd_cmap_iow
       {
-        \iow_newline:
-        1~begincodespacerange \iow_newline:
+                                                            \iow_newline:
+        1~begincodespacerange                               \iow_newline:
         \c_@@_indent_str < 00 > ~
         <
           \int_to_Hex:n
             { \seq_count:N \l_@@_sfd_plane_seq - 1 }
-        > \iow_newline:
+        >                                                   \iow_newline:
         endcodespacerange
       }
     \seq_map_function:NN \l_@@_sfd_plane_seq \@@_write_cmap_body:n
@@ -823,9 +784,9 @@ Copyright and Licence
       {
         \iow_now:Nx \g_@@_sfd_cmap_iow
           {
-            \iow_newline:
+                                                            \iow_newline:
             \int_mod:nn { \l_@@_sfd_index_int } { 100 } ~
-            beginbfchar \iow_newline:
+            beginbfchar                                     \iow_newline:
             \l_@@_cmap_block_tl
             endbfchar
           }
@@ -845,11 +806,11 @@ Copyright and Licence
       {
         \iow_now:Nx \g_@@_sfd_cmap_iow
           {
-            \iow_newline:
-            100 ~ beginbfchar \iow_newline:
+                                                            \iow_newline:
+            100 ~ beginbfchar                               \iow_newline:
             \l_@@_cmap_block_tl
             < \int_to_Hex:n { \l_@@_sfd_index_int } > ~
-            <#1> \iow_newline:
+            <#1>                                            \iow_newline:
             endbfchar
           }
         \tl_clear:N \l_@@_cmap_block_tl
@@ -860,7 +821,7 @@ Copyright and Licence
             <
               \int_compare:nNnF \l_@@_sfd_index_int > { 15 } { 0 }
               \int_to_Hex:n { \l_@@_sfd_index_int }
-            > ~ <#1> \iow_newline:
+            > ~ <#1>                                        \iow_newline:
           }
       }
     \int_incr:N \l_@@_sfd_index_int
@@ -876,16 +837,9 @@ Copyright and Licence
   {
     \iow_now:Nx \g_@@_sfd_map_iow
       {
-        %<*#1> \iow_newline:
-        \cs_new_nopar:cpn { ~ CJKtu_#1_sfd_map:nn ~ } ~ \c_hash_str 1
-        \iow_newline: \c_@@_indent_str \c_left_brace_str \iow_newline:
-        \c_@@_indent_str \c_@@_indent_str
-        \token_to_str:N \cs_if_exist_use:cF
-        \iow_newline: \c_@@_indent_str \c_@@_indent_str \c_@@_indent_str
-          { ~ @@_#1_sfd_map_ ~ \exp_not:N \int_eval:n { \c_hash_str 1 } ~ :n ~}
-        \iow_newline: \c_@@_indent_str \c_@@_indent_str \c_@@_indent_str
-          { ~ \exp_not:N \use_none:n } \iow_newline:
-        \c_@@_indent_str \c_right_brace_str
+        %<*#1>                                              \iow_newline:
+        \exp_not:N \CJKtu_index_map:nn { ~ #1 ~ }           \iow_newline:
+        \c_@@_indent_str \c_left_brace_str
       }
   }
 %    \end{macrocode}
@@ -897,11 +851,19 @@ Copyright and Licence
   {
     \iow_now:Nx \g_@@_sfd_map_iow
       {
-        \c_@@_indent_str \c_@@_indent_str
-        \token_to_str:N \fi: \iow_newline:
-        \c_@@_indent_str \c_right_brace_str \iow_newline:
+        \c_@@_indent_str \c_right_brace_str                 \iow_newline:
         %</#1>
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_write_plane_map:n}
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \@@_write_plane_map:n #1
+  {
+    \iow_now:Nx \g_@@_sfd_map_iow
+      { %% ~ <#1> }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -919,17 +881,17 @@ Copyright and Licence
         %%Title:~(TeX-#1-#2-0~TeX~#1-#2~0) \iow_newline:
         %%Version:~1.000 \iow_newline:
         %%EndComments \iow_newline: \iow_newline:
-        /CIDInit~/ProcSet~findresource~begin \iow_newline: \iow_newline:
-        12~dict~begin \iow_newline: \iow_newline:
-        begincmap \iow_newline: \iow_newline:
-        /CIDSystemInfo~3~dict~dup~begin \iow_newline:
-        \c_@@_indent_str /Registry~(TeX)~def \iow_newline:
-        \c_@@_indent_str /Ordering~(#1-#2)~def \iow_newline:
-        \c_@@_indent_str /Supplement~0~def \iow_newline:
-        end~def \iow_newline: \iow_newline:
-        /CMapName~/TeX-#1-#2-0~def \iow_newline:
-        /CMapVersion~1.000~def \iow_newline:
-        /CMapType~2~def \iow_newline: \iow_newline:
+        /CIDInit~/ProcSet~findresource~begin  \iow_newline: \iow_newline:
+        12~dict~begin                         \iow_newline: \iow_newline:
+        begincmap                             \iow_newline: \iow_newline:
+        /CIDSystemInfo~3~dict~dup~begin                     \iow_newline:
+        \c_@@_indent_str /Registry~(TeX)~def                \iow_newline:
+        \c_@@_indent_str /Ordering~(#1-#2)~def              \iow_newline:
+        \c_@@_indent_str /Supplement~0~def                  \iow_newline:
+        end~def                               \iow_newline: \iow_newline:
+        /CMapName~/TeX-#1-#2-0~def                          \iow_newline:
+        /CMapVersion~1.000~def                              \iow_newline:
+        /CMapType~2~def                       \iow_newline: \iow_newline:
         /WMode~0~def
       }
   }
@@ -938,16 +900,16 @@ Copyright and Licence
 %
 % \begin{macro}{\@@_write_cmap_trailer:}
 %    \begin{macrocode}
-\cs_new_protected_nopar:Npx  \@@_write_cmap_trailer:
+\cs_new_protected_nopar:Npx \@@_write_cmap_trailer:
   {
     \iow_now:Nn \g_@@_sfd_cmap_iow
       {
-        \iow_newline:
-        endcmap \iow_newline:
-        CMapName~currentdict~/CMap~defineresource~pop \iow_newline:
-        end \iow_newline:
-        end \iow_newline: \iow_newline:
-        %%EndResource \iow_newline:
+                                                            \iow_newline:
+        endcmap                                             \iow_newline:
+        CMapName~currentdict~/CMap~defineresource~pop       \iow_newline:
+        end                                                 \iow_newline:
+        end                                   \iow_newline: \iow_newline:
+        %%EndResource                                       \iow_newline:
         %%EOF
       }
   }
