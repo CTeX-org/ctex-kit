@@ -284,9 +284,9 @@ Copyright and Licence
 % \changes{v3.7.2}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v3.8.0}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
-% \changes{v3.8.3}{2020/03/07}{删除 \texttt{\_nopar}。}
+% \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10763}
+% \CheckSum{10758}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1700,38 +1700,34 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.8.3}{2020/04/07}{依赖 \pkg{ctexhook} 宏包。}
+%
 % \begin{macro}
-%  {\@@_at_end_preamble:n,\@@_after_preamble:n,\@@_after_end_preamble:n}
-%  在 \tn{document} 前后加上各种钩子。
+%  {\@@_at_end_preamble:n,\@@_after_preamble:n,
+%   \@@_after_end_preamble:n,\@@_package_hook:nn}
+%  在 \tn{document} 前后和宏包后加上各种钩子，依赖 \pkg{ctexhook}。
 %    \begin{macrocode}
+\RequirePackage { ctexhook }
+\AtBeginDocument           { \xeCJK@document@hook }
+\ctex_at_end_preamble:n    { \xeCJK@document@left@hook }
+\ctex_after_end_preamble:n { \xeCJK@document@right@hook }
+\cs_new_protected:Npn \xeCJK@document@hook
+  { \tl_use:N \g_@@_after_preamble_hook_tl }
+\cs_new_protected:Npn \xeCJK@document@left@hook
+  { \tl_use:N \g_@@_at_end_preamble_hook_tl }
+\cs_new_protected:Npn \xeCJK@document@right@hook
+  { \tl_use:N \g_@@_after_end_preamble_hook_tl }
+\cs_new_protected:Npn \@@_at_end_preamble:n
+  { \tl_gput_right:Nn \g_@@_at_end_preamble_hook_tl }
+\cs_new_protected:Npn \@@_after_preamble:n
+  { \tl_gput_right:Nn \g_@@_after_preamble_hook_tl }
+\cs_new_protected:Npn \@@_after_end_preamble:n
+  { \tl_gput_right:Nn \g_@@_after_end_preamble_hook_tl }
+\cs_new_protected:Npn \@@_package_hook:nn
+  { \ctex_at_end_package:nn }
 \tl_new:N \g_@@_at_end_preamble_hook_tl
 \tl_new:N \g_@@_after_preamble_hook_tl
 \tl_new:N \g_@@_after_end_preamble_hook_tl
-\cs_new_protected:Npn \@@_at_end_preamble:n #1
-  { \tl_gput_right:Nn \g_@@_at_end_preamble_hook_tl {#1} }
-\cs_new_protected:Npn \@@_after_preamble:n #1
-  { \tl_gput_right:Nn \g_@@_after_preamble_hook_tl {#1} }
-\cs_new_protected:Npn \@@_after_end_preamble:n #1
-  { \tl_gput_right:Nn \g_@@_after_end_preamble_hook_tl {#1} }
-\xeCJK_if_package_loaded:nTF { etoolbox }
-  {
-    \AtEndPreamble { \g_@@_at_end_preamble_hook_tl }
-    \AfterPreamble { \g_@@_after_preamble_hook_tl }
-    \AfterEndPreamble { \g_@@_after_end_preamble_hook_tl }
-  }
-  {
-    \AtBeginDocument { \g_@@_after_preamble_hook_tl }
-    \cs_new_protected:Npn \xeCJK@document@left@hook
-      { \group_end: \g_@@_at_end_preamble_hook_tl \group_begin: }
-    \cs_new_protected:Npn \xeCJK@document@right@hook
-      { \scan_stop: \g_@@_after_end_preamble_hook_tl \tex_ignorespaces:D }
-    \cs_gset:Npx \document
-      {
-        \xeCJK@document@left@hook
-        \exp_not:o { \document }
-        \xeCJK@document@right@hook
-      }
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8719,13 +8715,10 @@ Copyright and Licence
 %    \end{macrocode}
 % \pkg{pifont} 宏包的符号 |\ding{183}| 也有冲突。
 %    \begin{macrocode}
-\@@_after_end_preamble:n
+\@@_package_hook:nn { pifont }
   {
-    \xeCJK_if_package_loaded:nT { pifont }
-      {
-        \RenewDocumentCommand \Pifont { m }
-          { \makexeCJKinactive \usefont { U } {#1} { m } { n } }
-      }
+    \RenewDocumentCommand \Pifont { m }
+      { \makexeCJKinactive \usefont { U } {#1} { m } { n } }
   }
 %    \end{macrocode}
 % \end{variable}
@@ -8734,7 +8727,7 @@ Copyright and Licence
 % \begin{macro}{\@@_patch_microtype_get_slot:}
 % 兼容 \pkg{microtype}。
 %    \begin{macrocode}
-\@@_at_end_preamble:n
+\@@_package_hook:nn { microtype }
   {
     \cs_if_free:NF \MT@get@slot@
       { \@@_patch_microtype_get_slot: }
@@ -8745,7 +8738,7 @@ Copyright and Licence
     \cs_set_eq:NN \MT@get@slot@ \xeCJK@microtype@get@slot
     \cs_set_eq:NN \MT@warn@unknown@once \use_none:n
   }
-\cs_new_protected:Npn \xeCJK@microtype@get@slot
+\cs_new_protected_nopar:Npn \xeCJK@microtype@get@slot
   {
     \int_compare:nNnT \MT@char < \c_zero_int
       { \@@_get_ambiguous_slot: }
@@ -8762,17 +8755,15 @@ Copyright and Licence
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
 %    \begin{macrocode}
-\@@_after_end_preamble:n
+\@@_package_hook:nn { hyperref }
   {
-    \cs_if_exist_use:NT \pdfstringdefDisableCommands
+    \pdfstringdefDisableCommands
       {
-        {
-          \@@_gobble_CJKfamily:
-          \xeCJK_cs_clear:N \@@_inactive_group_begin:
-          \xeCJK_cs_clear:N \@@_inactive_group_end:
-          \xeCJK_cs_clear:N \makexeCJKinactive
-          \xeCJK_cs_clear:N \xeCJK@composite@patch
-        }
+        \@@_gobble_CJKfamily:
+        \xeCJK_cs_clear:N \@@_inactive_group_begin:
+        \xeCJK_cs_clear:N \@@_inactive_group_end:
+        \xeCJK_cs_clear:N \makexeCJKinactive
+        \xeCJK_cs_clear:N \xeCJK@composite@patch
       }
   }
 %    \end{macrocode}
@@ -8780,11 +8771,9 @@ Copyright and Licence
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}
-\@@_after_end_preamble:n
+\@@_package_hook:nn { cprotect }
   {
-    \bool_lazy_and:nnT
-      { \xeCJK_if_package_loaded_p:n { cprotect } }
-      { \cs_if_exist_p:N \icprotect }
+    \cs_if_free:NF \icprotect
       { \exp_after:wN \tex_let:D \cs:w cprotect \cs_end: \icprotect }
   }
 %    \end{macrocode}
@@ -8792,30 +8781,21 @@ Copyright and Licence
 % \changes{v3.2.11}{2014/03/14}{删除 \tn{xeCJKcaption}。}
 % \changes{v3.8.0}{2020/02/09}{删除 \pkg{CJKfntef} 补丁。}
 %
-% 导言区末尾检测到 \pkg{listings} 时，自动载入 \pkg{xeCJK-listings}。
+% 在 \pkg{listings} 宏包后自动载入 \pkg{xeCJK-listings}。
 %    \begin{macrocode}
-\@@_at_end_preamble:n
-  {
-    \xeCJK_if_package_loaded:nT { listings }
-      { \RequirePackage { xeCJK-listings } }
-  }
+\@@_package_hook:nn { listings }
+  { \RequirePackage { xeCJK-listings } }
 %    \end{macrocode}
 %
 %
 % \changes{v3.3.3}{2015/12/12}{解决与 \pkg{microtype} 宏包的兼容问题。}
-% 由于 \pkg{xeCJK} 假装 \pkg{CJK} 已经被引入了，这回导致 \pkg{everysel} 和
+% 由于 \pkg{xeCJK} 假装 \pkg{CJK} 已经被引入了，这会导致 \pkg{everysel} 和
 % \pkg{microtype} 等宏包判断错误。需要在它们判断之前取消定义。
 %    \begin{macrocode}
-\@@_at_end_preamble:n
+\clist_map_inline:nn { everysel , microtype }
   {
-    \clist_map_inline:nn { everysel , microtype }
-      {
-        \xeCJK_if_package_loaded:nT {#1}
-          {
-            \cs_undefine:c { ver@CJK . \c_@@_package_ext_tl }
-            \clist_map_break:
-          }
-      }
+    \@@_package_hook:nn {#1}
+      { \cs_undefine:c { ver@CJK . \c_@@_package_ext_tl } }
   }
 %    \end{macrocode}
 %
@@ -11665,7 +11645,7 @@ Copyright and Licence
 % \begin{macro}[int]{\xunadd@microtype@is@charx}
 % \pkg{microtype} 宏包中使用的函数，我们通过对 \tn{MT@is@charx} 打补丁来实现功能。
 %    \begin{macrocode}
-\cs_new_protected:Npn \xunadd@microtype@is@charx #1 \relax
+\cs_new_protected_nopar:Npn \xunadd@microtype@is@charx #1 \relax
   {
     \use:x
       { \xunadd_get_slot:nn { \MT@encoding } { \tex_the:D \MT@toks } }
@@ -11676,7 +11656,7 @@ Copyright and Licence
         \bool_if:NT \l_xunadd_rest_bool { \MT@norestfalse }
       }
   }
-\AtBeginDocument
+\cs_new_protected_nopar:Npn \xunadd@microtype@hook
   {
     \cs_if_free:NF \MT@is@charx
       {
@@ -11685,6 +11665,9 @@ Copyright and Licence
         \cs_set_eq:NN \MT@warn@unknown@once \use_none:n
       }
   }
+\@ifpackageloaded { microtype }
+  { \use:n } { \AtBeginDocument }
+  { \xunadd@microtype@hook }
 %    \end{macrocode}
 % \end{macro}
 %
