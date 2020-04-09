@@ -286,7 +286,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10790}
+% \CheckSum{10796}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -5090,11 +5090,11 @@ Copyright and Licence
       {
         \keys_define:nn { xeCJK / options }
           {
-            PunctStyle / unknown .code:n =
-              { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
+            PunctStyle .code:n =
+              { \@@_error:nx { punct-style-unknown } {#1} }
           }
         \seq_gclear:N \g_@@_punct_style_seq
-        \keys_set:nn { xeCJK / options } { PunctStyle = plain }
+        \@@_set_punct_style:n { plain }
       }
   }
 %    \end{macrocode}
@@ -5949,24 +5949,29 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.8.3}{2020/04/09}{重构 \opt{PunctStyle} 选项，完全展开参数。}
+%
 % \begin{macro}{PunctStyle}
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
+  { PunctStyle .code:n = \exp_args:Nx \@@_set_punct_style:n {#1} }
+\cs_new_protected:Npn \@@_set_punct_style:n #1
   {
-    PunctStyle .choice: ,
-    PunctStyle              .default:n = { quanjiao } ,
-    PunctStyle / halfwidth     .meta:n = { PunctStyle = banjiao } ,
-    PunctStyle / fullwidth     .meta:n = { PunctStyle = quanjiao } ,
-    PunctStyle / mixedwidth    .meta:n = { PunctStyle = kaiming } ,
-    PunctStyle / marginkerning .meta:n = { PunctStyle = hangmobanjiao } ,
-    PunctStyle / plain         .code:n =
-      { \tl_set_eq:NN \l_xeCJK_punct_style_tl \c_@@_punct_style_plain_tl } ,
-    PunctStyle / unknown       .code:n =
+    \IfInstanceExistTF { xeCJK / punctuation } {#1}
+      { \tl_set:Nn \l_xeCJK_punct_style_tl {#1} }
       {
-        \IfInstanceExistTF { xeCJK / punctuation } { \l_keys_value_tl }
-          { \tl_set:Nx \l_xeCJK_punct_style_tl { \l_keys_value_tl } }
-          { \@@_error:nx { punct-style-unknown } { \l_keys_value_tl } }
+        \prop_get:NnNF \c_@@_punct_style_alias_prop
+          {#1} \l_xeCJK_punct_style_tl
+          { \@@_error:nx { punct-style-unknown } {#1} }
       }
+  }
+\prop_const_from_keyval:Nn \c_@@_punct_style_alias_prop
+  {
+    halfwidth     = banjiao ,
+    fullwidth     = quanjiao ,
+    mixedwidth    = kaiming ,
+    marginkerning = hangmobanjiao ,
+    plain         = plain
   }
 \tl_new:N \l_xeCJK_punct_style_tl
 \tl_const:Nn \c_@@_punct_style_plain_tl { plain }
@@ -5974,7 +5979,19 @@ Copyright and Licence
   {
     Punctuation~style~"#1"~is~unknown. \\\\
     The~available~styles~are~listed~as~follow.\\\\
-    "plain,~\seq_use:Nnnn \g_@@_punct_style_seq { ~and~ } { ,~ } { ,~and~ }".\\
+    "plain,~\seq_use:Nnnn \g_@@_punct_style_seq
+      { ~and~ } { ,~ } { ,~and~ }".\\
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_trim_spaces:n}
+% \pkg{xparse} 处理函数，先完全展开参数再删除两边空格。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_trim_spaces:n #1
+  {
+    \tl_set:Nx \ProcessedArgument
+      { \exp_args:Ne \tl_trim_spaces:n {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5982,12 +5999,13 @@ Copyright and Licence
 % \begin{macro}{\xeCJKDeclarePunctStyle}
 % 定义新的标点处理风格，已经存在的同名风格将被覆盖。
 %    \begin{macrocode}
-\NewDocumentCommand \xeCJKDeclarePunctStyle { > { \TrimSpaces } m m }
+\NewDocumentCommand \xeCJKDeclarePunctStyle
+  { > { \@@_trim_spaces:n } m m }
   {
     \IfInstanceExistTF { xeCJK / punctuation } {#1}
       { \@@_warning:nx { punct-style-already-defined } {#1} }
-      { \seq_gput_right:Nx \g_@@_punct_style_seq {#1} }
-    \exp_args:Nnx \DeclareInstance { xeCJK / punctuation } {#1} { basic } {#2}
+      { \seq_gput_right:Nn \g_@@_punct_style_seq {#1} }
+    \DeclareInstance { xeCJK / punctuation } {#1} { basic } {#2}
   }
 \seq_new:N \g_@@_punct_style_seq
 \@@_msg_new:nn { punct-style-already-defined }
@@ -6002,10 +6020,11 @@ Copyright and Licence
 % \begin{macro}{\xeCJKEditPunctStyle}
 % 对已有的标点处理风格进行修改。
 %    \begin{macrocode}
-\NewDocumentCommand \xeCJKEditPunctStyle { > { \TrimSpaces } m m }
+\NewDocumentCommand \xeCJKEditPunctStyle
+  { > { \@@_trim_spaces:n } m m }
   {
     \IfInstanceExistTF { xeCJK / punctuation } {#1}
-      { \exp_args:Nnx \EditInstance { xeCJK / punctuation } {#1} {#2} }
+      { \EditInstance { xeCJK / punctuation } {#1} {#2} }
       { \@@_error:nx { punct-style-unknown } {#1} }
   }
 \@onlypreamble \xeCJKEditPunctStyle
