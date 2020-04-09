@@ -286,7 +286,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10758}
+% \CheckSum{10790}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -7327,6 +7327,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_set_mathfont:
   {
+    \cs_if_exist_use:N \@@_save_um_char:
     \xeCJK_family_if_exist:xTF { \c_@@_math_tl }
       { \@@_set_mathfont_aux: }
       {
@@ -7336,6 +7337,7 @@ Copyright and Licence
             \@@_set_mathfont_aux:
           }
       }
+    \cs_if_exist_use:N \@@_restore_um_char:
   }
 \cs_new_protected:Npn \@@_set_mathfont_aux:
   {
@@ -8722,6 +8724,45 @@ Copyright and Licence
   }
 %    \end{macrocode}
 % \end{variable}
+% \end{macro}
+%
+% \changes{v3.8.3}{2020/04/09}{兼容 \pkg{unicode-math} 和 \opt{CJKmath} 选项。}
+%
+% \begin{macro}{\@@_save_um_char:, \@@_save_um_char:}
+% 兼容 \pkg{unicode-math} 和 \opt{CJKmath} 选项，
+% 避免将一些中西文混用的标点设置为 CJK 字体。
+%    \begin{macrocode}
+\@@_package_hook:nn { unicode-math }
+  {
+    \prop_const_from_keyval:Nn \c_@@_um_ambiguous_char_prop
+      {
+        "00B7 = \cdotp ,
+        "2025 = \enleadertwodots ,
+        "2026 = \unicodeellipsis
+      }
+    \cs_new_protected:Npn \@@_save_um_char:
+      {
+        \cs_set_protected:Npx \@@_restore_um_char:
+          {
+            \prop_map_function:NN
+              \c_@@_um_ambiguous_char_prop
+              \@@_restore_um_char_aux:nn
+          }
+      }
+    \cs_new_eq:NN \@@_restore_um_char: \prg_do_nothing:
+    \cs_new:Npn \@@_restore_um_char_aux:nn #1#2
+      {
+        \@@_gset_mathcodenum:nn
+          { \int_value:w #1 }
+          { \int_value:w \tex_Umathcodenum:D #1 }
+      }
+    \cs_new_protected:Npn \@@_gset_mathcodenum:nn #1#2
+      {
+        \int_compare:nNnF { \tex_Umathcodenum:D #1 } = {#2}
+          { \tex_global:D \tex_Umathcodenum:D #1 = #2 ~ }
+      }
+  }
+%    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\@@_patch_microtype_get_slot:}
