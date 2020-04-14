@@ -44,7 +44,7 @@ local utf = require("unicode").utf8
 local ubyte, ugsub = utf.byte, utf.gsub
 
 local floor = math.floor
-local unpack = table.unpack
+local unpack, insert, sort = table.unpack, table.insert, table.sort
 local char, format = string.char, string.format
 
 zhconv.index = require("zhconv-index")
@@ -54,7 +54,7 @@ zhconv.mapping = { }
 local mapping = zhconv.mapping
 
 mapping.big5, mapping.gbk, mapping.gb18030 = { }, { }, { }
-local gbk, gb18030 = mapping.gbk, mapping.gb18030
+local gbk, gb18030, big5 = mapping.gbk, mapping.gb18030, mapping.big5
 
 zhconv.bytes = { }
 local bytes = zhconv.bytes
@@ -123,12 +123,53 @@ do
   gb18030 = setmetatable(gb18030, metatable)
 end
 
-for _, v in ipairs { { "big5", "big5" }, { "gb18030", "gbk" } } do
-  local ind, enc = unpack(v)
-  local map, bytes = mapping[enc], bytes[enc]
-  for i, v in pairs(index[ind]) do
-    map[v] = bytes(i)
+-- The index Big5 pointer for code point is the return value of these steps:
+-- 1. Let index be index Big5 excluding all entries whose pointer
+--    is less than (0xA1 - 0x81) × 157.
+-- 2. If code point is U+2550, U+255E, U+2561, U+256A, U+5341, or U+5345,
+--    return the last pointer corresponding to code point in index.
+local big5_last = {
+  [0x2550] = true ,
+  [0x255E] = true ,
+  [0x2561] = true ,
+  [0x256A] = true ,
+  [0x5341] = true ,
+  [0x5345] = true ,
+}
+
+do
+
+local function spairs (t)
+  local a = { }
+  for i, n in pairs(t) do insert(a, {i, n}) end
+  sort(a, function(b, c) return b[1] < c[1] end)
+  local i = 0
+  local iter = function ()
+    i = i + 1
+    if a[i] then
+      return a[i][1], a[i][2]
+    end
   end
+  return iter
+end
+
+local chars = bytes.big5
+local m = (0xA1 - 0x81) * 157
+for i, v in spairs(index.big5) do
+  if i >= m then
+    if big5[v] then
+      if big5_last[v] then big5[v] = chars(i) end
+    else
+      big5[v] = chars(i)
+    end
+  end
+end
+
+local chars = bytes.gbk
+for i, v in pairs(index.gb18030) do
+  gbk[v] = chars(i)
+end
+
 end
 
 -- If the gbk flag is set and code point is U+20AC, return byte 0x80.
