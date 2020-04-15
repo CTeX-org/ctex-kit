@@ -38,7 +38,17 @@ function setversion_update_line (line, date, version)
   return line
 end
 
-
-dofile("../tool/zhl3build.lua")
-
--- vim:sw=2:et
+-- dofile("../tool/zhl3build.lua")
+maindir        = "."
+supportdir     = "../tool"
+testfiledir    = "./test/testfiles"
+testsuppdir    = "./test/support"
+testdir        = "./build/check"
+checkruns      = 2
+stdengine      = "xetex"
+checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
+specialformats = {}
+specialformats.latex = {
+  pdftex = {binary = "latex", options = "-output-format=dvi"},
+  uptex  = {binary = "euptex"}
+}

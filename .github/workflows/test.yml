@@ -1,0 +1,83 @@
+name: Github action for ctex-kit test
+
+on: [push]
+
+env:
+  CTAN_URL: https://mirrors.rit.edu/CTAN
+  TL_PACKAGES: adobemapping amsfonts amsmath atbegshi cjk cjkutils cm ctablestack currfile dvipdfmx epstopdf-pkg etex etoolbox euenc fancyhdr fandol filehook fontspec graphics graphics-cfg graphics-def iftex l3build l3experimental l3kernel l3packages latex-bin lm lm-math ltxcmds lualatex-math lualibs luaotfload luatex luatex85 luatexbase luatexja metafont mfware ms oberdiek platex-tools tex tex-ini-files tools trimspaces ucharcat ulem unicode-data uplatex varwidth xcolor xetex xkeyval xunicode
+  TL_EXTRA_PACKAGES: amscls atveryend auxhook beamer bibunits bigintcalc bitset booktabs caption cjkpunct context enumitem environ eso-pic etexcmds everyhook fontaxes footmisc geometry gettitlestring hycolor hyperref infwarerr intcalc kastrup koma-script kvdefinekeys kvoptions kvsetkeys letltxmacro mweights natbib newtx notoccite ntheorem pdfescape pdflscape pdfpages pdftexcmds pgf pkuthss psnfss refcount rerunfilecheck sansmathaccent setspace svn-prov tex-gyre tex-gyre-math thuthesis titlesec tocloft translator txfonts unicode-math uniquecounter url xecjk xits zhmetrics zhmetrics-uptex zhnumber
+  NOTO_URL: https://noto-website-2.storage.googleapis.com/pkgs
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install TeX Live
+      run: |
+        export PATH=/tmp/texlive/bin/x86_64-linux:$PATH
+        wget ${{ env.CTAN_URL }}/systems/texlive/tlnet/install-tl-unx.tar.gz
+        tar -xzf install-tl-unx.tar.gz
+        cd install-tl-20* && ./install-tl --profile ../.github/workflows/texlive.profile
+        tlmgr install ${{ env.TL_PACKAGES }} ${{ env.TL_EXTRA_PACKAGES }}
+        tlmgr update --self --all --no-auto-install --repository=${{ env.CTAN_URL }}/systems/texlive/tlnet/
+    - name: Install Noto fonts
+      run: |
+        sudo apt-get install fonts-noto-cjk
+    - name: Test ctex
+      working-directory: ./ctex
+      run: |
+        export PATH=/tmp/texlive/bin/x86_64-linux:$PATH
+        l3build check -q -H
+        l3build check -c test/config-contrib -q -H
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install TeX Live
+      run: |
+        export PATH=/tmp/texlive/bin/x86_64-darwin:$PATH
+        curl -O ${{ env.CTAN_URL }}/systems/texlive/tlnet/install-tl-unx.tar.gz
+        tar -xzf install-tl-unx.tar.gz
+        cd install-tl-20* && ./install-tl --profile ../.github/workflows/texlive.profile
+        tlmgr install ${{ env.TL_PACKAGES }} ${{ env.TL_EXTRA_PACKAGES }}
+        tlmgr update --self --all --no-auto-install --repository=${{ env.CTAN_URL }}/systems/texlive/tlnet/
+    - name: Install Noto fonts
+      run: |
+        for i in NotoSerifCJK-Regular NotoSerifCJK-Bold NotoSansCJK-Regular NotoSansCJK-Bold; do curl -O ${{ env.NOTO_URL }}/$i.ttc.zip; done
+        unzip -o "*.zip"
+        cp -vf *.ttc /Library/Fonts/
+    - name: Test ctex
+      working-directory: ./ctex
+      run: |
+        export PATH=/tmp/texlive/bin/x86_64-darwin:$PATH
+        l3build check -q -H
+        l3build check -c test/config-contrib -q -H
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install TeX Live
+      run: |
+        ${env:PATH} = "${{ github.workspace }}\tmp\texlive\bin\win32;" + ${env:PATH}
+        Invoke-WebRequest -Uri ${{ env.CTAN_URL }}/systems/texlive/tlnet/install-tl.zip -OutFile install-tl.zip
+        Expand-Archive install-tl.zip -DestinationPath .
+        Set-Location install-tl-*
+        .\install-tl-windows --no-gui --profile ..\.github\workflows\texlive-win.profile
+        tlmgr install ${{ env.TL_PACKAGES }} ${{ env.TL_EXTRA_PACKAGES }}
+        tlmgr update --self --all --no-auto-install --repository=${{ env.CTAN_URL }}/systems/texlive/tlnet/
+    - name: Install Noto fonts
+      run: |
+        ${env:PATH} = "${{ github.workspace }}\tmp\texlive\bin\win32;" + ${env:PATH}
+        "NotoSerifCJK-Regular", "NotoSerifCJK-Bold", "NotoSansCJK-Regular", "NotoSansCJK-Bold" | ForEach-Object -Process {Invoke-WebRequest -Uri "${{ env.NOTO_URL }}/$_.ttc.zip" -OutFile "$_.ttc.zip"}
+        Get-ChildItem *.ttc.zip | Expand-Archive -DestinationPath . -Force
+        Copy-Item *.ttc C:\Windows\Fonts
+        fc-cache -fv
+    - name: Test ctex
+      working-directory: ./ctex
+      run: |
+        ${env:PATH} = "${{ github.workspace }}\tmp\texlive\bin\win32;" + ${env:PATH}
+        l3build check -q -H
+        l3build check -c test/config-contrib -q -H
