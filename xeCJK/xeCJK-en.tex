@@ -1,0 +1,1558 @@
+\PassOptionsToPackage{scheme=plain, linespread=1.1}{ctex}
+\documentclass{ctxdoc}
+\setCJKmainfont[Language=Chinese Simplified]{Source Han Serif}
+
+\ctexset{section/name={}}
+\pagestyle{headings}
+
+\makeatletter
+\RecustomVerbatimEnvironment{frameverb}{Verbatim}{%
+  gobble=2,
+  frame=single, framesep=8pt,
+  listparameters=
+    \setlength\topsep{\medskipamount}%
+    \appto\FV@EndList{\nointerlineskip}}
+\RecustomVerbatimEnvironment{ctexexam}{Verbatim}{%
+  gobble=2,
+  frame=single, framesep=10pt,
+  label=\rule{0pt}{12pt}\textnormal{\bfseries Example \arabic{ctexexam}},
+  listparameters=%
+    \setlength\topsep{\bigskipamount}%
+    \refstepcounter{ctexexam}\ctexexamlabelref
+    \appto\FV@EndList{\nointerlineskip}}
+\newlist{psopt}{description}{3}
+\setlist[psopt]{%
+  font=\mdseries\ttfamily, align=right,
+  labelsep=.5em, leftmargin=4.5em, labelindent=0pt}
+\newcommand\PSKeyVal[2]{%
+  \item[#1]\makebox[4em][l]{\meta{#2}}\ignorespaces}
+\AtBeginDocument{\DeleteShortVerb{\"}}
+\newcommand\USV[1]{\texttt{U+#1}}
+\makeatother
+
+\title{\bfseries The \pkg{xeCJK} package}
+\author{\href{http://www.ctex.org}{CTEX.ORG}}
+\date{2019/04/07\qquad3.7.2\thanks{\ctexkitrev{\ExplFileVersion}.}}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+\pkg{xeCJK} is a \XeLaTeX{} package for typesetting Chinese (C), Japanese (J)
+and Korean (K) scripts. Its main functions are:
+\begin{enumerate}
+  \item Set fonts for CJK scripts and other scripts separately.
+  \item Automatically ignore the spaces between CJK characters while keep other
+    spaces; allow ling-breaking between non-punctuation CJK and Latin
+    characters (a--z, A--Z).
+  \item Provide multiple punctuation styles: fullwidth, halfwidth, kaiming,
+    EOL-halfwidth and CCT style.
+  \item Automatically adjust the spacing between CJK and other characters.
+\end{enumerate}
+
+\pkg{xeCJK} uses some newest features of \XeTeX{}, hence requires \XeTeX{}
+after version 0.9995.0 (2009/06/29) or higher. \pkg{xeCJK} relies on
+\package{l3kernel} and \package{l3packages} in \LaTeXiii{} project. In addition,
+\pkg{xeCJK} also needs package \package{fontspec} to use system fonts.
+\pkg{xeCJK} will load the packages above wehn needed.
+
+The original author of \pkg{xeCJK} is Sun Wenchang (孙文昌). From May 2009,
+this package was merged into \ctexkit{} project. Currently, the primary
+maintainers are Liu Haiyang\footnote{\email{leoliu.pku@gmail.com}} (刘海洋) and
+Li Qing\footnote{\email{sobenlee@gmail.com}} (李清).
+
+\section{Basic Usage}
+
+As other \LaTeX{} packages, using
+\begin{frameverb}
+  \usepackage{xeCJK}
+\end{frameverb}
+in the preamble will load the \pkg{xeCJK} package. After this declaration,
+CJK scripts can be then used as long as proper fonts are selected.
+
+\pkg{xeCJK} may be used in all kinds of document classes. A minimal example is:
+\begin{ctexexam}
+  \documentclass{article}
+  \usepackage{xeCJK}
+  \setCJKmainfont{SimSun}
+
+  \begin{document}
+  中文 \LaTeX 示例。
+  \end{document}
+\end{ctexexam}
+In the example above, SimSun (the default Simplified Chinese font in Microsoft
+Windows) is used for Chinese font. To build this example, this font must have
+been installed in your system, the file itself saved in UTF-8 encoding, and
+\XeLaTeX{} used for compilation.
+
+\pkg{xeCJK} only offers fundamental CJK language support such as font selection
+and punctuation handling. For Chinese document, you can use the \package{ctex}
+package or classes for higher-level support. It will load \pkg{xeCJK}
+automatically (when using \XeLaTeX{}), set Chinese fonts, as well as offering
+further localization support. You can find more details in the documentation of
+\package{ctex} bundle.
+
+\pkg{xeCJK} provides a wide variety of options, which can either be declared as
+package options or specified with \tn{xeCJKsetup}, as described in
+Section~\ref{subsec:opts}. Besides \tn{setCJKmainfont} command, \pkg{xeCJK}
+also defines many other commands to set and choose CJK fonts, which can be
+found in Section~\ref{subsec:fontset}. Other functionalities will also be
+described below in more details. In the |example| folder under the same
+directory of this documentation, there are also some examples for references.
+
+\section{User's Manual}
+
+\subsection{Package options}
+\label{subsec:opts}
+
+The package options of \pkg{xeCJK} have the form of \meta{key}|=|\meta{val}.
+You can specify the options when loading the package, or use \tn{xeCJKsetup}
+command afterwards. \pkg{xeCJK} loads \pkg{fontspec} package internally. So you
+can use its options when loading \pkg{xeCJK}, and \pkg{xeCJK} will pass them
+to \pkg{fontspec}.
+
+\begin{function}{\xeCJKsetup}
+  \begin{syntax}
+    \tn{xeCJKsetup} \{\meta{key_1}=\meta{val_1}, \meta{key_2}=\meta{val_2}, ...\}
+  \end{syntax}
+  \meta{key_1}, \meta{key_2}, \emph{etc.} are options, while \meta{val_1},
+  \meta{val_2}, \emph{etc.} are the corresponding values. For example,
+  \begin{ctexexam}
+  \usepackage[PunctStyle=kaiming]{xeCJK}
+  \end{ctexexam}
+  is equivalent to
+  \begin{ctexexam}
+  \usepackage{xeCJK}
+  ......
+  \xeCJKsetup{PunctStyle=kaiming}
+  \end{ctexexam}
+\end{function}
+
+The \expstar{} after some options or commands means that this option or command
+can only be used in the preamble. Symbol \rexpstar{} indicates that the option
+or command can only used in the preamble as well, and only affect the CJK font
+defined afterwards. Other options or commands without any special marks can be
+used in both the preamble or the document body. Boldface represents the default
+settings of \pkg{xeCJK}.
+
+\begin{function}[EXP,added=2012-11-22]{LocalConfig}
+  \begin{syntax}
+    LocalConfig = \Arg{\TTF|name}
+  \end{syntax}
+  Whether or not use the local configuration file
+  \texttt{xeCJK-\meta{name}.cfg}. \meta{name} can be any string that contains
+  no spaces and should make the filename valid. If set to be |true|, then
+  |xeCJK.cfg| is used; if set to be |false|, then no configuration file
+  will be loaded. You can save some settings of \pkg{xeCJK} mentioned below
+  (e.g., setting common used CJK fonts, modifying range of characters and
+  defining new punctuation styles) into file \texttt{xeCJK-\meta{name}.cfg},
+  then put this file to a proper location of |TDS| directory. \TeXLive{} users
+  may create the following directory and then put \texttt{xeCJK-\meta{name}.cfg}
+  inside:
+  \begin{frameverb}
+  texlive/texmf-local/tex/xelatex/xecjk
+  \end{frameverb}
+  After that, execute |mktexlsr| in the command line, so that the \TeX{}
+  system may find it.
+\end{function}
+
+Note that only the |LocalConfig| option above must be set when loading
+\pkg{xeCJK} package. It cannot be used with command \tn{xeCJKsetup}.
+
+\begin{function}{xeCJKactive}
+  \begin{syntax}
+    xeCJKactive = \meta{\TTF}
+  \end{syntax}
+  Turn on/off the special treatment for CJK scripts. In fact, this option will
+  turn on/off the entire character classes system of \XeTeX{}, and all packages
+  relying on it will be affected.
+\end{function}
+
+\begin{function}{CJKspace}
+  \begin{syntax}
+    CJKspace = \meta{\TFF}
+  \end{syntax}
+  By default, \pkg{xeCJK} will ignore spaces between CJK characters. This option
+  will keep the spaces between them (for example, when typesetting Korean).
+\end{function}
+
+\begin{function}[EXP,updated=2016-05-04]{CJKmath}
+  \begin{syntax}
+    CJKmath = \meta{\TFF}
+  \end{syntax}
+  Whether or not allow CJK characters in math mode. When this option is used,
+  CJK characters can be typed in math mode directly. The \pkg{url} package puts
+  URLs in a special math environment, so this option need to be specified when
+  you want to use CJK characters correctly inside the parameter of \tn{path} or
+  other commands.
+\end{function}
+
+\begin{function}{CJKglue}
+  \begin{syntax}
+    CJKglue = \{\tn{hskip} 0pt plus 0.08\tn{baselineskip}\}
+  \end{syntax}
+  Set the |glue| between CJK characters. The above is the default value of
+  \pkg{xeCJK}. Normally, you should simply keep the default value and not
+  modify it unless there are special needs (such as changing the distance
+  between characters). If you want to modify this value, the |glue| should be
+  flexible for line justification.
+\end{function}
+
+\begin{function}{CJKecglue}
+  \begin{syntax}
+    CJKecglue = \Arg{glue}
+  \end{syntax}
+  Set the glue between CJK characters and other characters or inline math
+  formulas. The default value is a space. If you want to modify this value,
+  the |glue| should be flexible as well. Note that the \meta{glue} set here
+  only affects spaces add automatically by \pkg{xeCJK}. Explicit spaces between
+  CJK and other characters in source code will not be affected (output
+  directly). In some cases, \pkg{xeCJK} is unable to adjust the spaces
+  correctly, and manual inserting spaces is necessary.
+\end{function}
+
+\begin{function}{xCJKecglue}
+  \begin{syntax}
+    xCJKecglue = \Arg{\TFF|glue}
+  \end{syntax}
+  By default, \pkg{xeCJK} does not adjust the spaces directly inserted between
+  CJK characters and other characters. Use this option if you want to adjust
+  it. When set to be |true|, spaces between CJK and other characters will be
+  replaced by |CJKecglue|; when set to be \meta{glue}, |CJKecglue| will be
+  overridden and all the spaces between CJK and other characters will be set as
+  \meta{glue}.
+\end{function}
+
+\begin{function}[updated=2013-06-26]{CheckSingle}
+  \begin{syntax}
+    CheckSingle = \meta{\TFF}
+  \end{syntax}
+  Whether or not avoid a single CJK character occupying the last line of a
+  paragraph. This option can work properly only when the last character
+  of a paragraph is a CJK character or punctuation, and the two characters
+  before it are both ordinary characters. When any of the three is a parameter
+  of a control sequence, then in general it may not be handled correctly.
+\end{function}
+
+\begin{function}[added=2015-04-08]{WidowPenalty}
+  \begin{syntax}
+    WidowPenalty = \Arg{penalty|(10000)}
+  \end{syntax}
+  Set the penalty between the last three CJK characters after using
+  |CheckSingle|. The default value is \num{10000}, \emph{i.e.}, line
+  break between them is forbidden.
+\end{function}
+
+\begin{function}[added=2012-12-06]{PlainEquation}
+  \begin{syntax}
+    PlainEquation = \meta{\TFF}
+  \end{syntax}
+  If you use |$$...$$| for display equations, then this option should be used,
+  so that |CheckSingle| option can work properly. We recommend to use |\[...\]|
+  for display equations.
+\end{function}
+
+\begin{function}[added=2012-12-04]{NewLineCS,NewLineCS+,NewLineCS-}
+  \begin{syntax}
+    NewLineCS = \{ \tn{par} \tn{[} \}
+  \end{syntax}
+  Set the control sequences that may result in line break, so that 
+  |CheckSingle| option can work properly. The list above is the default value
+  of \pkg{xeCJK}.
+\end{function}
+
+\begin{function}[added=2012-12-04]{EnvCS,EnvCS+,EnvCS-}
+  \begin{syntax}
+    EnvCS = \{ \tn{begin} \tn{end} \}
+  \end{syntax}
+  Set the control sequence that can begin or end a \LaTeX{} environment, so
+  that |CheckSingle| option can work properly. The list above is the default
+  value of \pkg{xeCJK}.
+\end{function}
+
+\begin{function}[updated=2012-12-06]{InlineEnv,InlineEnv+,InlineEnv-}
+  \begin{syntax}
+    InlineEnv = \{\meta{env_1}, \meta{env_2}, \meta{env_3}, ...\}
+  \end{syntax}
+  When the |CheckSingle| option is used, \pkg{xeCJK} will treat the beginning
+  (|\begin{...}|) and ending (|\end{...}|) of \LaTeX{} environments after a CJK
+  character as line breaks. When there are some special \LaTeX{} environments
+  that do not result in line breaks, they should be declared in this option,
+  so that |CheckSingle| can work properly.
+\end{function}
+
+\begin{function}{AutoFallBack}
+  \begin{syntax}
+    AutoFallBack = \meta{\TFF}
+  \end{syntax}
+  When there are several rarely-used characters in the document that the
+  default font family does not contain, this option can be used to output these
+  characters with fallback font. The settings of fallback fonts will be
+  discussed in Section~\ref{subsec:fontset}.
+\end{function}
+
+\begin{function}[rEXP]{AutoFakeBold}
+  \begin{syntax}
+    AutoFakeBold = \Arg{\TFF|number}
+  \end{syntax}
+  Globally set whether or not to use
+  \textbf{\addfontfeatures{AutoFakeBold}fake bold} when the real bold were not
+  declared for the fonts. When set to be \meta{number}, fake bold will be used
+  and the number stands for the default embolden factor.
+\end{function}
+
+\begin{function}[rEXP]{AutoFakeSlant}
+  \begin{syntax}
+    AutoFakeSlant = \Arg{\TFF|number}
+  \end{syntax}
+  Globally set whether or not to use
+  \textit{\addfontfeatures{AutoFakeSlant}fake slant} when the real italic or
+  slant were not declared for the fonts. When set to be \meta{number}, fake
+  slant will be used and the number stands for the default slant factor. The
+  range of the slant factor is $[-0.999, 0.999]$.
+\end{function}
+
+\begin{function}[rEXP]{EmboldenFactor}
+  \begin{syntax}
+    EmboldenFactor = \Arg{number|(4)}
+  \end{syntax}
+  Set the default embolden factor for fake bold.
+\end{function}
+
+\begin{function}[rEXP]{SlantFactor}
+  \begin{syntax}
+    SlantFactor = \Arg{number|(0.167)}
+  \end{syntax}
+  Set the default slant factor for fake slant. The range is $[-0.999, 0.999]$.
+\end{function}
+
+\begin{function}[updated=2012-11-10]{PunctStyle}
+  \begin{syntax}
+    PunctStyle = \Arg{(quanjiao)|banjiao|kaiming|hangmobanjiao|CCT|plain|...}
+  \end{syntax}
+  Set the punctuation style. The pre-defined styles in \pkg{xeCJK} are:
+  \begin{optdesc}
+    \item[quanjiao] Fullwidth style (全角式): all punctuation marks have the
+      same width as 1 CJK character (汉字)， while two adjacent punctuation
+      marks take the width of 1.5 CJK characters.
+    \item[banjiao] Halfwidth style (半角式): all punctuation marks have the
+      same width as 0.5 CJK character.
+    \item[kaiming] Kaiming style (开明式): punctuation marks at end-sentence
+      use fullwidth style, while others use halfwidth style.
+    \item[hangmobanjiao] EOL-halfwidth (行末半角式): all punctuation marks have
+      the same width as 1 CJK character, except those at the end of lines.
+      Their width will be the same as 0.5 CJK character for purpose of visual
+      justification.
+    \item[CCT] CCT style: all punctuation marks take a slightly smaller width
+      of 1 CJK character.
+    \item[plain] The width of punctuation marks will not adjusted.
+  \end{optdesc}
+  You can use the \tn{xeCJKDeclarePunctStyle} command described in
+  Section~\ref{subsec:punctstyle} to define new punctuation styles.
+\end{function}
+
+\begin{function}[added=2018-01-24]{PunctFamily}
+  \begin{syntax}
+    PunctFamily = \Arg{(false)|family}
+  \end{syntax}
+  By default, the font of CJK punctuation are the same as CJK text. The option
+  \opt{PunctFamily} is used to set font for CJK punctuation separately.
+  \meta{family} should be declared by \tn{setCJKfamilyfont} or
+  \tn{newCJKfontfamily}, as described later. \opt{false} means to disable this
+  setting and let CJK punctuation and text use the same font.
+\end{function}
+
+\begin{function}[EXP]{KaiMingPunct,KaiMingPunct+,KaiMingPunct-}
+  \begin{syntax}
+    KaiMingPunct = \Arg{\normalfont\CJKfamily+{rm}\ ^^^^3002 ^^^^ff0e ^^^^ff1f ^^^^ff01 }
+  \end{syntax}
+  Set the end-sentence punctuation marks used in |kaiming| style. The |+| and
+  |-| symbol after |KaiMingPunct| means to add or delete punctuation marks from
+  the existing list. The |LongPunct| and |MiddlePunct| options below have the
+  similar syntax.
+
+  By default, |KaiMingPunct| is set to be the following characters:
+  \begin{center}
+    \begin{tabular}{ccc}
+      \toprule
+        Unicode code point & Character & Name \\
+      \midrule
+        \USV{3002} & {\CJKfamily+{rm}^^^^3002} & Ideographic full stop      \\
+        \USV{FF0E} & {\CJKfamily+{rm}^^^^ff0e} & Fullwidth full stop        \\
+        \USV{FF1F} & {\CJKfamily+{rm}^^^^ff1f} & Fullwidth question mark    \\
+        \USV{FF01} & {\CJKfamily+{rm}^^^^ff01} & Fullwidth exclamation mark \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{function}
+
+\begin{function}[EXP]{LongPunct,LongPunct+,LongPunct-}
+  \begin{syntax}
+    LongPunct = \Arg{\normalfont\CJKfamily+{rm}\ ^^^^2014 ^^^^2e3a ^^^^2025 ^^^^2026 }
+  \end{syntax}
+  Set the long punctuation marks, such as em dash ``——'' or ellipsis ``……''.
+  Line break is allowed before or after them, but not between them.
+
+  By default, |LongPunct| is set to be the following characters:
+  \begin{center}
+    \begin{tabular}{ccc}
+      \toprule
+        Unicode code point & Character & Name \\
+      \midrule
+        \USV{2014} & {\CJKfamily+{rm}^^^^2014} & Em dash             \\
+        \USV{2E3A} & {\CJKfamily+{rm}^^^^2e3a} & Two-em dash         \\
+        \USV{2025} & {\CJKfamily+{rm}^^^^2025} & Two dot leader      \\
+        \USV{2026} & {\CJKfamily+{rm}^^^^2026} & Horizontal ellipsis \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{function}
+
+\begin{function}[EXP]{MiddlePunct,MiddlePunct+,MiddlePunct-}
+  \begin{syntax}
+    MiddlePunct = \Arg{\normalfont\CJKfamily+{rm}\ ^^^^2013 ^^^^2014 ^^^^2e3a ^^^^2027 ^^^^00b7 ^^^^30fb ^^^^ff65 }
+  \end{syntax}
+  Set the middle punctuation marks, such as the middle dot ``·''. For middle
+  punctuation marks between CJK characters, \pkg{xeCJK} will adjust the space
+  before and after them to make sure that they appear centered, according to
+  the punctuation style. When a middle punctuation mark appears at the end of
+  line, line break is allowed after it, but not before it.
+
+  By default, |MiddlePunct| is set to be the following characters:
+  \begin{center}
+    \begin{tabular}{ccc}
+      \toprule
+        Unicode code point & Character & Name \\
+      \midrule
+        \USV{2013} & {\CJKfamily+{rm}^^^^2013} & En dash                       \\
+        \USV{2014} & {\CJKfamily+{rm}^^^^2014} & Em dash                       \\
+        \USV{2E3A} & {\CJKfamily+{rm}^^^^2e3a} & Two-em dash                   \\
+        \USV{2027} & {\CJKfamily+{rm}^^^^2027} & Hyphenation point             \\
+        \USV{00B7} & {\CJKfamily+{rm}^^^^00b7} & Middle dot                    \\
+        \USV{30FB} & {\CJKfamily+{rm}^^^^30fb} & Katakana middle dot           \\
+        \USV{FF65} & {\CJKfamily+{rm}^^^^ff65} & Halfwidth katakana middle dot \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{function}
+
+\begin{function}[EXP]{PunctWidth}
+  \begin{syntax}
+    PunctWidth = \Arg{length}
+  \end{syntax}
+  By default, \pkg{xeCJK} will calculate the width of punctuation marks based
+  on punctuation style. If the default settings are not satisfying, you may use
+  this option. In order that the width of punctuation marks can change
+  according to font size, it is preferred to use a relative unit like |em| for
+  the \meta{length}, rather than an absolute unit like |pt|. The settings here
+  can be used for all punctuation styles except |plain|. In addition, the
+  settings apply to all CJK punctuation marks. If you wang to set the width of
+  a specific range of punctuation marks, use \tn{xeCJKsetwidth} command
+  described in Section~\ref{subsec:punct}.
+\end{function}
+
+\begin{function}[EXP,added=2013-08-22]{PunctBoundWidth}
+  \begin{syntax}
+    PunctBoundWidth = \Arg{length}
+  \end{syntax}
+  Similar to |PunctWidth|, but only set the width of punctuation at the start
+  or end of a line.
+\end{function}
+
+\begin{function}{AllowBreakBetweenPuncts}
+  \begin{syntax}
+    AllowBreakBetweenPuncts = \meta{\TFF}
+  \end{syntax}
+  By default, \pkg{xeCJK} forbids line break between adjacent CJK right/left
+  punctuation marks. This option can be used to change this setting.
+\end{function}
+
+\begin{function}[updated=2016-05-13]{RubberPunctSkip}
+  \begin{syntax}
+    RubberPunctSkip = \meta{\TTF|plus|minus}
+  \end{syntax}
+  By default, the skip before/after a punctuation mark is flexible. It can
+  stretch to the width of original side bearing, or shrink to the side bearing
+  on the other side. When the option is set to be |plus|, only stretching is
+  allowed; when set to be |minus|, only shrinking is allowed; when set to be
+  |false|, this feature is disabled so that the space before/after a
+  punctuation mark is fixed.
+\end{function}
+
+\begin{function}[added=2012-12-02]{CheckFullRight}
+  \begin{syntax}
+    CheckFullRight = \meta{\TFF}
+  \end{syntax}
+  Some control sequences do not allow line break before them. However, line
+  break is always enabled after a single CJK right punctuation mark by default.
+  As a result, when these control sequence appears after such punctuation
+  marks, an unexpected line break may occur. The situation can be avoided with
+  this option.
+\end{function}
+
+\begin{function}[added=2012-12-02]{NoBreakCS,NoBreakCS+,NoBreakCS-}
+  \begin{syntax}
+    NoBreakCS = \{ \tn{footnote} \tn{footnotemark} \tn{nobreak} \}
+  \end{syntax}
+  Set the control sequences that do not allow line break after a CJK right
+  punctuation. The default value of \pkg{xeCJK} is listed above. If such
+  control sequences only appear several times in the document, it may not be
+  necessary to set this option. Instead, you can use \tn{xeCJKnobreak}
+  described in Section~\ref{subsec:others} to control them manually.
+\end{function}
+
+\begin{function}[updated=2013-11-16]{Verb}
+  \begin{syntax}
+    Verb = \meta{\TF|(env)|env+}
+  \end{syntax}
+  Set the space between CJK and other characters in verbatim environments.
+  \begin{optdesc}
+    \item[true] Do not adjust the space between CJK and other characters in
+      \tn{verb} command or |verbatim| environment.
+    \item[env] Calculate the space within CJK characters, or between CJK and
+      other characters automatically, in order to keep the code aligned.
+    \item[env+] Similar as |env|, but add the settings of normal text into
+      \tn{verb} command.
+    \item[false] Do not adjust the space.
+  \end{optdesc}
+  The above values, except |false|, all forbid automatic line break between
+  CJK and other characters. This option is actually valid for all commands
+  using \tn{verbatim@font} command. More general cases can be handled with
+  \tn{xeCJKVerbAddon} described in Section~\ref{subsec:others}.
+\end{function}
+
+\begin{function}[rEXP,added=2014-03-01]{LoadFandol}
+  \begin{syntax}
+    LoadFandol = \meta{\TTF}
+  \end{syntax}
+  Whether or not to use Fandol font when CJK fonts are not declared in the
+  preamble. To use this option, the \package{Fandol} font series should be
+  installed.
+\end{function}
+
+
+\subsection{Font settings and selection}
+\label{subsec:fontset}
+
+\begin{function}[EXP,updated=2016-11-18]{\setCJKmainfont}
+  \begin{syntax}
+    \tn{setCJKmainfont} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKmainfont} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Set the CJK font corresponding to roman family, affecting
+  \tn{rmfamily} and \tn{textrm}. The parameters are inherited from
+  package \pkg{fontspec}; \meta{font features} selects property options
+  of the font, and \meta{font name} can be either a font's family name
+  or its filename. For searching of font names, see
+  Section~\ref{subsubsec:fontsearch}; for other font features not
+  mentioned here, see the documentation of \pkg{fontspec}. However,
+  \pkg{xeCJK} modified |AutoFakeBold| and |AutoFakeSlant| options to
+  work with global settings mentioned above.
+
+  For compatibility, the parameter for font features can be put either
+  before or after font name. If it is put after, there should be no
+  line break between.
+\end{function}
+
+\begin{function}[label = ]{AutoFakeBold,AutoFakeSlant}
+  \begin{syntax}
+    AutoFakeBold  = \Arg{\TF|number}
+    AutoFakeSlant = \Arg{\TF|number}
+  \end{syntax}
+  Locally set the fake bold and fake slant property of the current
+  font family. If it is absent, the global setting is used.
+\end{function}
+
+\begin{function}[added=2013-06-07]{Mapping}
+  \begin{syntax}
+    Mapping = \Arg{fullwidth-stop|full-stop|han-trad|han-simp|...}
+  \end{syntax}
+  \pkg{xeCJK} offers the four
+  \href{http://scripts.sil.org/teckit}{TECKit} mapping files above,
+  which can be used through \texttt{Mapping} option at font
+  declaration. \texttt{fullwidth-stop} maps a normal CJK full
+  stop ``。'' to a fullwidth solid full stop ``．'', and \texttt{full-stop}
+  has an opposite effect. \texttt{han-trad} maps simplified Chinese
+  characters to traditional ones, and \texttt{han-simp} has an
+  opposite effect. It should be noticed that the conversions are only
+  based on individual characters, and might not be accurate. For
+  example, ``发挥'' and ``头发'' in simplified Chinese becomes ``發揮'' and
+  ``頭發'' respectively, while the latter should be ``頭髮''. Users may also
+  make new mapping files based on actual needs. See the documentation
+  of TECKit for more information.
+\end{function}
+
+\begin{function}[EXP,updated=2016-11-18]{\setCJKsansfont}
+  \begin{syntax}
+    \tn{setCJKsansfont} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKsansfont} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Set the CJK font corresponding to sans-serif family, affecting
+  \tn{rmfamily} and \tn{textrm}.
+\end{function}
+
+\begin{function}[EXP,updated=2016-11-18]{\setCJKmonofont}
+  \begin{syntax}
+    \tn{setCJKmonofont} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKmonofont} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Set the CJK font corresponding to typewriter family, affecting
+  \tn{rmfamily} and \tn{textrm}.
+\end{function}
+
+\begin{function}[EXP,updated=2016-11-18]{\setCJKfamilyfont}
+  \begin{syntax}
+    \tn{setCJKfamilyfont} \Arg{family} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKfamilyfont} \Arg{family} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Declare new CJK family \meta{family} with appropriate fonts.
+\end{function}
+
+\begin{function}[updated=2012-10-27]{\CJKfamily}
+  \begin{syntax}
+    \tn{CJKfamily}  \Arg{family}
+    \tn{CJKfamily} + \Arg{family}
+    \tn{CJKfamily} - \Arg{family}
+  \end{syntax}
+  Switch CJK font families in the document. \meta{family} must be
+  declared before using. \tn{CJKfamily} is only effective on CJK
+  characters, \tn{CJKfamily}|+| is effective on all characters,
+  and \tn{CJKfamily}|-| is effective on non-CJK characters. When the
+  parameter of \tn{CJKfamily}|+| or \tn{CJKfamily}|-| is empty, the
+  the current CJK font family is used.
+\end{function}
+
+\begin{function}[EXP,updated=2016-11-18]{\newCJKfontfamily}
+  \begin{syntax}
+    \tn{newCJKfontfamily} \oarg{family} \cs{\meta{font-switch}} \Arg{font name}\oarg{font features} or\\
+    \tn{newCJKfontfamily} \oarg{family} \cs{\meta{font-switch}} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Declare new CJK family CJK \meta{family} with appropriate fonts,
+  as well as defining a command \cs{\meta{font-switch}} to switch to the CJK
+  font family. \meta{family} is optional; when it is omitted,
+  \meta{family} would be the same as \meta{font-switch}.
+\end{function}
+
+  In fact, \tn{newCJKfontfamily} is the combination of
+  \tn{setCJKfamilyfont} and \tn{CJKfamily}. For example,
+  \begin{ctexexam}
+  \newCJKfontfamily[song]\songti{SimSun}
+  \end{ctexexam}
+  is equivalent to
+  \begin{ctexexam}
+  \setCJKfamilyfont{song}{SimSun}
+  \newcommand*{\songti}{\CJKfamily{song}}
+  \end{ctexexam}
+
+\begin{function}[updated=2016-11-18]{\CJKfontspec}
+  \begin{syntax}
+    \tn{CJKfontspec} \Arg{font name}\oarg{font features} or\\
+    \tn{CJKfontspec} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Declare new CJK font family in the document, and use it immediately.
+\end{function}
+
+
+\begin{function}[rEXP]{\defaultCJKfontfeatures}
+  \begin{syntax}
+    \tn{defaultCJKfontfeatures} \Arg{font features}
+  \end{syntax}
+  Set global options for all CJK font families. For example, using
+  \begin{ctexexam}
+  \defaultCJKfontfeatures{Scale=0.962216}
+  \end{ctexexam}
+  will shrink all CJK font to |0.962216| times of the original size.
+  The initial setting of \pkg{xeCJK} is
+  \begin{frameverb}
+  \defaultCJKfontfeatures{Script=CJK}
+  \end{frameverb}
+\end{function}
+
+\begin{function}[updated=2013-06-30]{\addCJKfontfeatures}
+  \begin{syntax}
+    \tn{addCJKfontfeatures}   \Arg{font features}
+    \tn{addCJKfontfeatures} * \Arg{font features}
+    \tn{addCJKfontfeatures}   \oarg{block_1, block_2, ...} \Arg{font features}
+    \tn{addCJKfontfeatures} * \oarg{block_1, block_2, ...} \Arg{font features}
+  \end{syntax}
+  Temporarily add features to current CJK font faily. The first command
+  is only effective on the current CJK main block; the second one is
+  effective on both main block and all other blocks; the third one is
+  effective on the appointed blocks; The fourth one is effective on
+  both the main block and the appointed blocks. For example, using
+  \begin{ctexexam}
+  \addCJKfontfeatures{Scale=1.1}
+  \end{ctexexam}
+  enlarges the main block of current CJK font to |1.1| times.
+\end{function}
+
+\begin{function}{\CJKrmdefault}
+  CJK font family used in \tn{textrm} and \tn{rmfamily}. The default
+  is |rm|.
+\end{function}
+
+\begin{function}{\CJKsfdefault}
+  CJK font family used in \tn{textsf} and \tn{sffamily}. The default
+  is |sf|.
+\end{function}
+
+\begin{function}{\CJKttdefault}
+  CJK font family used in \tn{texttt} and \tn{ttfamily}. The default
+  is |tt|.
+\end{function}
+
+\begin{function}[updated=2013-01-01]{\CJKfamilydefault}
+  CJK font family used in \tn{textnormal} and \tn{normalfont},
+  analogous to \tn{familydefault}. The initial value is
+  \tn{CJKrmdefault}. If it is not modified in the preamble,
+  \pkg{xeCJK} will update \tn{CJKfamilydefault} automatically according
+  to Western fonts. Therefore, using
+  \begin{frameverb}
+  \renewcommand\familydefault{\sfdefault}
+  \end{frameverb}
+  in the preamble modifies both the CJK font and Western font to
+  sans-serif family.
+\end{function}
+
+\begin{function}[EXP,updated=2016-11-18]{\setCJKmathfont}
+  \begin{syntax}
+    \tn{setCJKmathfont} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKmathfont} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Set CJK family in math mode. If |CJKmath| is used, but this command
+  is not used, then \tn{CJKfamilydefault} will be used in math mode
+  instead.
+\end{function}
+
+\begin{function}[EXP, label=, updated=2016-11-18]{\setCJKfallbackfamilyfont}
+  \begin{syntax}
+    \tn{setCJKfallbackfamilyfont} \Arg{family} \Arg{font name}\oarg{font features} or\\
+    \tn{setCJKfallbackfamilyfont} \Arg{family} \oarg{font features} \Arg{font name}
+  \end{syntax}
+  Set the fallback font of the CJK font family \meta{family}. For
+  example,
+  \begin{ctexexam}
+  \setCJKmainfont{SimSun}
+  \setCJKfallbackfamilyfont{\CJKrmdefault}{SimSun-ExtB}
+  \end{ctexexam}
+  sets |SimSun-ExtB| as the fall back font of |SimSun|.
+\end{function}
+
+\begin{function}{FallBack}
+  \begin{syntax}
+    FallBack = \{\oarg{font features}\Arg{font name}\}
+  \end{syntax}
+  \pkg{xeCJK} adds |FallBack| to \meta{font features}, so that fallback
+  font may be declared the same time as the main font. The example
+  above is thus equivalent to:
+  \begin{ctexexam}
+  \setCJKmainfont[FallBack=SimSun-ExtB]{SimSun}
+  \end{ctexexam}
+  When the value of |FallBack| is empty, the command itself sets the
+  fallback font. For example,
+  \begin{ctexexam}
+  \setCJKmainfont[FallBack,AutoFakeBold,Scale=.97]{SimSun-ExtB}
+  \end{ctexexam}
+  is equivalent to
+  \begin{ctexexam}
+  \setCJKfallbackfamilyfont{\CJKrmdefault}[AutoFakeBold,Scale=.97]{SimSun-ExtB}
+  \end{ctexexam}
+\end{function}
+
+\begin{function}[EXP,updated=2013-06-30]{\setCJKfallbackfamilyfont}
+  \begin{syntax}
+    \tn{setCJKfallbackfamilyfont} \Arg{family}
+       \  \{
+       \    \{\oarg{font features_1} \Arg{font name_1}\} ,
+       \    \{\oarg{font features_2} \Arg{font name_2}\} ,
+       \     ......
+       \  \}\oarg{common font features} or\\
+    \tn{setCJKfallbackfamilyfont} \Arg{family} \oarg{common font features}
+       \  \{
+       \    \{\oarg{font features_1} \Arg{font name_1}\} ,
+       \    \{\oarg{font features_2} \Arg{font name_2}\} ,
+       \     ......
+       \  \}
+  \end{syntax}
+  \tn{setCJKfallbackfamilyfont} can also be used to set multi-level
+  fallbacks. For example, the declaration
+  \begin{ctexexam}
+  \setCJKmainfont[AutoFakeBold,AutoFakeSlant]{KaiTi_GB2312}
+  \setCJKfallbackfamilyfont{\CJKrmdefault}[AutoFakeSlant]
+    { [BoldFont=SimHei]{SimSun} ,
+      [AutoFakeBold]   {SimSun-ExtB} }
+  \end{ctexexam}
+  means that |SimSun| is the fallback font of |KaiTi_GB2312|, and
+  |SimSun-ExtB| is the fall back font of |SimSun|. When a character is
+  missing in the current font and all its fallback fonts, then the
+  fallback font of \tn{CJKfamilydefault} will be used.
+\end{function}
+
+\subsubsection{Font searching under \XeTeX{}}
+\label{subsubsec:fontsearch}
+
+Because there is no description of how to check the available fonts in
+the documentation of \pkg{fontspec}, I will describe briefly here.
+
+\XeTeX{} ordinarily search and call fonts with library
+\textit{fontconfig}, so |fc-list| will show all the available fonts.
+Type the following command in the command line (|cmd| under Windows,
+Terminal under Linux):
+\begin{frameverb}
+  fc-list > fontlist.txt
+\end{frameverb}
+This will save a list of all the fonts installed into file
+\file{fontlist.txt}.
+
+A lot of information is listed with |fc-list|, and it will be long
+under Windows with hundreds of fonts installed. For example, this might
+be a section of the list:
+\begin{frameverb}
+  Times New Roman:style=cursiva,kurzíva,kursiv,Πλάγια,Italic,
+    Kursivoitu,Italique,Dőlt,Corsivo,Cursief,kursywa,Itálico,Курсив,
+    İtalik,Poševno,nghiêng,Etzana
+  Times New Roman:style=Negreta cursiva,tučné kurzíva,fed kursiv,
+    Fett Kursiv,Έντονα Πλάγια,Bold Italic,Negrita Cursiva,
+    Lihavoitu Kursivoi,Gras Italique,Félkövér dőlt,Grassetto Corsivo,
+    Vet Cursief,Halvfet Kursiv,Pogrubiona kursywa,Negrito Itálico,
+    Полужирный Курсив,Tučná kurzíva,Fet Kursiv,Kalın İtalik,
+    Krepko poševno,nghiêng đậm,Lodi etzana
+  Times New Roman:style=Negreta,tučné,fed,Fett,Έντονα,Bold,Negrita,
+    Lihavoitu,Gras,Félkövér,Grassetto,Vet,Halvfet,Pogrubiona,Negrito,
+    Полужирный,Fet,Kalın,Krepko,đậm,Lodia
+  Times New Roman:style=Normal,obyčejné,Standard,Κανονικά,Regular,
+    Normaali,Normál,Normale,Standaard,Normalny,Обычный,Normálne,Navadno,
+    thường,Arrunta
+  宋体,SimSun:style=Regular
+  黑体,SimHei:style=Normal,obyčejné,Standard,Κανονικά,Regular,Normaali,
+    Normál,Normale,Standaard,Normalny,Обычный,Normálne,Navadno,Arrunta
+\end{frameverb}
+The font name used in \pkg{fontspec} and \pkg{xeCJK} is the part before
+the colon. For example,
+\begin{ctexexam}
+  \setmainfont{Times New Roman}
+  \setCJKmainfont{SimSun} % 或者 \setCJKmainfont{宋体}
+\end{ctexexam}
+might ne used in the document.
+
+For simplicity's sake, options may be added to control the output
+format. For example, if we only want the font name for all Chinese
+fonts, we can use:
+\begin{frameverb}
+  fc-list -f "%{family}\n" :lang=zh  > zhfont.txt
+\end{frameverb}
+In this way, the list of fonts is saved in file \file{zhfont.txt}.\footnote{Because of the encoding issue, the list 
+should always be output to a separate file under Windows.} The list
+now would be simpler and more readable. For example, here are
+pre-installed Chinese fonts under Windows:
+\begin{frameverb}
+  Arial Unicode MS
+  FangSong,仿宋
+  KaiTi,楷体
+  Microsoft YaHei,微软雅黑
+  MingLiU,細明體
+  NSimSun,新宋体
+  PMingLiU,新細明體
+  SimHei,黑体
+  SimSun,宋体
+\end{frameverb}
+To list Japanese or Korean font, |zh| in |:lang=zh| should be changed
+to |ja| or |ko| respectively.
+
+Fonts' filenames may also be used in \pkg{fontspec} and \pkg{xeCJK}.
+For example, |Simsun| under Windows may also be called with
+\begin{frameverb}
+  \setCJKmainfont{simsun.ttc}
+\end{frameverb}
+since it is a TTC font. Related options and syntax for setting a font's
+filename is described in detail in the documentation of \pkg{fontspec},
+so I will not repeat. There are several Chinese fonts whose name is
+irregular and cannot be accesses with font names, then this method can
+be used.
+
+\subsection{CJK font specification by block}
+\label{subsec:block}
+
+The number of CJK characters is immense, and it is impossible for one 
+font to contain all of them. \pkg{xeCJK} allows declaring different
+fonts under the same CJK family, and use them to output CJK characters
+in different blocks. To do so, the blocks need to be declared in
+advance.
+
+\begin{function}[EXP]{\xeCJKDeclareSubCJKBlock}
+  \begin{syntax}
+    \tn{xeCJKDeclareSubCJKBlock}  \Arg{block} \Arg{block range}
+    \tn{xeCJKDeclareSubCJKBlock} * \Arg{block} \Arg{block range}
+  \end{syntax}
+  \meta{block range} is a list separated by commas, containing either
+  a |Unicode| range of CJK characters, or an individual character as
+  |Unicode|, such as
+\end{function}
+  \begin{ctexexam}
+  { `中 -> `文 , "3400 -> "4DBF , "5000 -> "7000 , `汉 , `字 , "3500 }
+  \end{ctexexam}
+  The \meta{block range} being set here should not exceed the
+  \hyperlink{CJKcharclass}{CJK character range} set in the source code,
+  unless it is necessary (for example, some special fonts that use the PUA region of |Unicode|). The following code
+  \begin{ctexexam}
+  \xeCJKDeclareSubCJKBlock{SPUA}{ "E400 -> "E4DA , "E500 -> "E5E8 , "E600 -> "E6CE }
+  \xeCJKDeclareSubCJKBlock{Ext-B}{ "20000 -> "2A6DF }
+  \end{ctexexam}
+  declares two sub-block called |SPUA| and |Ext-B|, and creates two
+  new options, again |SPUA| and |Ext-B|, in \meta{font features} of CJK
+  font setting described in Section~\ref{subsec:fontset}.
+  These two new options are analogous to |FallBack| described in
+  Section~\ref{subsec:fontset}, and they may be used in font setting.
+
+  For example, the declaration
+  \begin{ctexexam}
+  \setCJKmainfont[SPUA=SunmanPUA,Ext-B=SimSun-ExtB]{SimSun}
+  \end{ctexexam}
+  sets |SimSun| as the main font of the document, using |SunmanPUA| for
+  |SPUA| sub-block, and using |SimSun-ExtB| for |Ext-B| sub-block.
+
+  \tn{xeCJKDeclareSubCJKBlock} should be used before all declaration
+  of CJK font families. If some CJK font family has no setting for
+  certain \meta{block}s, the setting for \tn{CJKfamilydefault} will be
+  used instead. If one wants to declare a font family without font
+  switch between defferent \meta{block}s, option \meta{block}|=*| may
+  be used. The starred version resets character classes of punctuation
+  besides setting CJK sub-blocks.
+
+\begin{function}{\xeCJKCancelSubCJKBlock}
+  \begin{syntax}
+    \tn{xeCJKCancelSubCJKBlock}  \Arg{block_1, block_2, ...}
+    \tn{xeCJKCancelSubCJKBlock} \Arg{block_1, block_2, ...}
+  \end{syntax}
+  Cancel the declaration of |CJK| blocks in the document. The starred
+  version resets character classes of punctuation.
+\end{function}
+
+\begin{function}{\xeCJKRestoreSubCJKBlock}
+  \begin{syntax}
+    \tn{xeCJKRestoreSubCJKBlock}  \Arg{block_1, block_2, ...}
+    \tn{xeCJKRestoreSubCJKBlock} * \Arg{block_1, block_2, ...}
+  \end{syntax}
+  Restore the declaration of |CJK| blocks in the document. The starred
+  version resets character classes of punctuation.
+\end{function}
+
+\subsection{Setting of CJK character ranges}
+
+\begin{function}[EXP]{\xeCJKDeclareCharClass}
+  \begin{syntax}
+    \tn{xeCJKDeclareCharClass}  \Arg{class} \Arg{class range}
+    \tn{xeCJKDeclareCharClass} * \Arg{class} \Arg{class range}
+  \end{syntax}
+  The format of \meta{class range} is the same as that of
+  \meta{block range} mentioned in Section~\ref{subsec:block}. The valid
+  values of \meta{class} are described in the source code
+  (Section~\ref{sec:xeCJK-class-set}). \pkg{xeCJK} has supported all
+  CJK characters and punctuations in |Unicode|. Generally, the
+  character class should not be modified without reason. The starred command resets character classes of punctuation
+  besides setting CJK sub-blocks, in order to make sure that
+  punctuations are handled correctly.
+\end{function}
+
+\begin{function}[EXP]{\xeCJKResetCharClass}
+  Restore the setting of character classes to the default of
+  \pkg{xeCJK}.
+\end{function}
+
+\begin{function}[EXP]{\xeCJKResetPunctClass}
+  Restore the character classes of CJK punctuations.
+\end{function}
+
+\begin{function}{\normalspacedchars}
+  \begin{syntax}
+    \tn{normalspacedchars} \Arg{char list}
+  \end{syntax}
+  No spacing will be added to either side of the characters in
+  \meta{char list}. The default setting is |/|, |\|,  and |-|
+  (|U+002D|).
+\end{function}
+
+\subsection{Processing of punctuations}
+
+\pkg{xeCJK} adjusts the output width of punctuation characters by
+adjusting its side bearings. Currently, for left punctuation (such as
+left double quote), \pkg{xeCJK} can only adjust its left side
+bearings; for right punctuation (such as comma or right double
+quote), \pkg{xeCJK} can only adjust its right side bearings; for
+centered punctuation, both side bearings will be adjusted, in order to
+keep it centered. The related settings for punctuation can only be made
+in the preamble.
+
+\subsubsection{Setting width and side bearings for specific punctuation}
+\label{subsec:punct}
+
+The settings here applies to all punctuation styles except |plain|.
+
+\begin{function}[EXP,updated=2013-08-22]{\xeCJKsetwidth}
+  \begin{syntax}
+    \tn{xeCJKsetwidth}  \Arg{punct list} \Arg{length}
+    \tn{xeCJKsetwidth} * \Arg{punct list} \Arg{length}
+  \end{syntax}
+  \meta{punct list} can consist of one or more punctuations. For example,
+  \begin{ctexexam}
+  \xeCJKsetwidth{。？}{0.7em}
+  \end{ctexexam}
+  sets the width of full stop and question mark to |0.7em|. The starred
+  version sets the width at the beginning/ending of lines.
+\end{function}
+
+\begin{function}[EXP]{\xeCJKsetkern}
+  \begin{syntax}
+    \tn{xeCJKsetkern} \Arg{punct 1} \Arg{punct 2} \Arg{length}
+  \end{syntax}
+  \pkg{xeCJK} adjusts the space between two adjacent |CJK| punctuation
+  according to punctuation style. This command can be used to modify
+  specific cases. For example,
+  \begin{ctexexam}
+  \xeCJKsetkern{：}{“}{0.3em}
+  \end{ctexexam}
+  sets the space between a colon and a left double quote as |0.3em|.
+\end{function}
+
+\subsubsection{Define punctuation style.}
+\label{subsec:punctstyle}
+
+\begin{function}[EXP,updated=2013-08-22]{\xeCJKDeclarePunctStyle}
+  \begin{syntax}
+    \tn{xeCJKDeclarePunctStyle} \Arg{style} \Arg{options}
+  \end{syntax}
+  Define a new punctuation style. The existing style of the same name
+  will be overwritten. The options can be set will be introduced below.
+\end{function}
+
+\begin{function}[EXP,updated=2013-08-22]{\xeCJKEditPunctStyle}
+  \begin{syntax}
+    \tn{xeCJKEditPunctStyle} \Arg{style} \Arg{options}
+  \end{syntax}
+  Modify an existing punctuation style.
+\end{function}
+
+The following are valid options in the setting. The left column is the
+name of option, the middle column is the type of parameter, and the
+right column is description. Some options are mutually exclusive, and
+there is a matter of precedence: the options of lower precedence is
+effective only when that of higher precedence is disabled, which means
+setting to |false| for \meta{boolean}, \tn{maxdimen} for
+\meta{length}, or |nan| for \meta{real}.
+
+\begin{psopt}
+  \PSKeyVal{enabled-global-setting}{boolean}
+    Whether to use |PunctWidth| and |PunctBoundWidth| options in
+    \tn{xeCJKsetup}, as well as settings of \tn{xeCJKsetwidth} and
+    \tn{xeCJKsetkern}. Default is |true|.
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{fixed-punct-width}{length}
+    Set the width of a single punctuation. Default is \tn{maxdimen}.
+  \PSKeyVal{fixed-punct-ratio}{real}
+    Set the ratio of the output width to the actual width of a single
+    punctuation. Default is |1.0|.
+  \PSKeyVal{mixed-punct-width}{length}
+    Set the width of end-of-sentence punctuation, as defined by
+    |KaiMingPunct| in \tn{xeCJKsetup}. Default is the same as
+    |fixed-punct-width|.
+  \PSKeyVal{mixed-punct-ratio}{real}
+    Set the width ratio of end-of-sentence punctuation. Default is the
+    same as |fixed-punct-ratio|.
+  \PSKeyVal{middle-punct-width}{length}
+    Set the width ratio of centered punctuation, as defined by
+    |MiddlePunct| in \tn{xeCJKsetup}. Default is the same as
+    |fixed-punct-width|.
+  \PSKeyVal{middle-punct-ratio}{real}
+    Set the width ratio of centered punctuation. Default is the
+    same as |fixed-punct-ratio|.
+\end{psopt}
+
+The options above sets the fixed width or ratio of punctuation, and
+\pkg{xeCJK} calculates the left/right side bearings of punctuation
+based on these options. The following options sets the left/right side
+bearings of punctuation directly, so the width of different punctuation might be different. The following options would be
+effective only when the related options above are disabled. The
+precedence decreases from top to bottom.
+
+\begin{psopt}
+  \PSKeyVal{fixed-margin-width}{length}
+    Set the left/right side bearing of punctuation. default is \tn{maxdimen}.
+  \PSKeyVal{fixed-margin-ratio}{real}
+    Set the ratio of left/right side bearings of punctuation to the actual side bearing in the font. Default is~|1.0|。
+  \PSKeyVal{mixed-margin-width}{length}
+    Set the left/right side bearing of end-of-sentence punctuation. Default is the same as |fixed-margin-width|.
+  \PSKeyVal{mixed-margin-ratio}{real}
+    Set the ratio of left/right side bearings of end-of-sentence punctuation. Default is the same as |fixed-margin-ratio|.
+  \PSKeyVal{middle-margin-width}{length}
+    Set the left/right side bearing of centered punctuation. Default is the same as |fixed-margin-width|.
+  \PSKeyVal{middle-margin-ratio}{real}
+    Set the left/right side bearings of centered punctuation. Default is the same as |fixed-margin-width|.
+\end{psopt}
+
+The following options sets the width or ratio for punctuation at the beginning or ending of a line.
+
+\begin{psopt}
+  \PSKeyVal{bound-punct-width}{length}
+    Set the width of punctuation occurring at the beginning or ending of a line. Default is \tn{maxdimen}.
+  \PSKeyVal{bound-punct-ratio}{real}
+    Set the ratio of output width of punctuation occurring at the beginning or ending of a line to the actual width. Default is |nan|.
+  \PSKeyVal{bound-margin-width}{length}
+    Set the left/right side bearing of punctuation occurring at the beginning or ending of a line. Default is \tn{maxdimen}.
+  \PSKeyVal{bound-margin-ratio}{real}
+    Set the ratio of left/right side bearings of punctuation occurring at the beginning or ending of a line to the actual side bearings. Default is |0|.
+  \PSKeyVal{enabled-hanging}{boolean}
+    Whether or not punctuation hanging is allowed, when the width calculated from options above is smaller than the
+  actual glyph width. Default is |false|。
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{add-min-bound-to-margin}{boolean}
+    Whether or not the less of left/right side bearing should be added to the result calculated. Does not affect centered punctuation.
+    Default is |false|.
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{optimize-margin}{boolean}
+    When using the options above, the left/right side bearing of a
+    punctuation might be larger than the original. If the option is set
+    to |true|, the original side bearing is used; when the left/right side bearing is smaller than the side bearing of the other side, the value of the other side is used. Default is |false|.
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{margin-minimum}{length}
+    Set the minimum left/right side bearing of punctuation. When the
+    result calculated is smaller than this value, then it is used.
+    Default is |0pt|.
+\end{psopt}
+
+The following options adjust the space between two adjacent
+punctuation. They are mutually exclusive, and precedence decreases from
+top to bottom.
+
+\begin{psopt}
+  \PSKeyVal{enabled-kerning}{boolean}
+    Whether or not spacing is adjusted for two adjacent punctuation.
+    If it is set to |false|, all punctuation are output as the original
+    output width. Default is |true|.
+  \PSKeyVal{min-bound-to-kerning}{boolean}
+    Whether or not to use the more one between the lesser of side
+    bearings of the former punctuation and that of the latter one as
+    the spacing between two punctuation. Default is |false|.
+  \PSKeyVal{kerning-total-width}{length}
+    Set the total width of two punctuation. \pkg{xeCJK} will then
+    calculate the spacing between two punctuation automatically.
+    Default is \tn{maxdimen}.
+  \PSKeyVal{kerning-total-ratio}{real}
+    Set the ratio of total output width to the actual width. Default
+    is |0.75|.
+  \PSKeyVal{same-align-margin}{length}
+    Set the spacing between two punctuation at the same side. Default
+    is \tn{maxdimen}.
+  \PSKeyVal{same-align-ratio}{real}
+    Set the ratio of spacing between two punctuation at the same side
+    to the actual spacing. Default is |nan|.
+  \PSKeyVal{different-align-margin}{length}
+    Set the spacing between two punctuation at different sides.
+    Default is \tn{maxdimen}.
+  \PSKeyVal{different-align-ratio}{real}
+    Set the ratio of spacing between two punctuation at different
+    sides to the actual spacing. Default is |nan|.
+  \PSKeyVal{kerning-margin-width}{length}
+    Set the spacing between two adjacent punctuation. Default is
+    \tn{maxdimen}.
+  \PSKeyVal{kerning-margin-ratio}{real}
+    Set the ratio of spacing between two punctuation to the actual
+    spacing. Default is |1.0|.
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{optimize-kerning}{boolean}
+    The spacing between punctuation calculated based on the option
+    above may be less than that calculated based on
+    |min-bound-to-kerning|. When it is set to |true|, then the value
+    from |min-bound-to-kerning| is used instead. Default is |false|.
+\end{psopt}
+
+\begin{psopt}
+  \PSKeyVal{kerning-margin-minimum}{length}
+    Set the minimum spacing between two punctuation. When the value
+    calculated based on options above is less than its value, its
+    value is used instead. Default is |0pt|.
+\end{psopt}
+
+In fact, the default setting of \pkg{xeCJK} is equivalent to the
+full-width (|quanjiao|) style. The options used above may be used to
+define new punctuation styles. For example,
+\begin{ctexexam}
+  \xeCJKDeclarePunctStyle { mine }
+    {
+      fixed-punct-ratio       = nan ,
+      fixed-margin-width      = 0 pt ,
+      mixed-margin-width      = \maxdimen ,
+      mixed-margin-ratio      = 0.5 ,
+      middle-margin-width     = \maxdimen ,
+      middle-margin-ratio     = 0.5 ,
+      add-min-bound-to-margin = true ,
+      bound-punct-width       = 0 em ,
+      enabled-hanging         = true ,
+      min-bound-to-kerning    = true ,
+      kerning-margin-minimum  = 0.1 em
+    }
+\end{ctexexam}
+defines a new punctuation style called |mine|, and can be used with
+\begin{frameverb}
+  \xeCJKsetup{PunctStyle=mine}
+\end{frameverb}
+in the preamble. The meaning is:
+\begin{itemize}
+  \item Use the lesser of the side bearings of punctuation as both of
+    its side bearings; for end-of-sentence or centered punctuation, half
+    of its actual side bearing is added;
+  \item When a punctuation occurs at the beginning or ending of a
+    line, it has a width of zero, and hanging is allowed;
+  \item Use the lesser of actual side bearings of two adjacent
+    punctuation as the spacing between then, with a minimum of |0.1em|.
+\end{itemize}
+Another example:
+\begin{ctexexam}
+  \xeCJKEditPunctStyle { hangmobanjiao } { enabled-global-setting = false }
+\end{ctexexam}
+This disables the settings of \tn{xeCJKsetkern} and so on to
+|hangmobanjiao| punctuation style.
+
+\subsection{Usage of \pkg{xeCJKfntef}}
+
+\pkg{xeCJK} bundle includes a package called \pkg{xeCJKfntef}, which
+can be used to put dots (\CJKunderdot{汉字加点}) and breakable underline
+under CJK characters. It is the replacement of \pkg{CJKfntef} under
+\XeLaTeX{}, and the user interface is the same.
+
+\pkg{xeCJKfntef} is based on package \package{ulem}, and some
+extensions are made besides \pkg{ulem} commands.
+
+\begin{function}[updated=2014-11-04]
+ {\CJKunderline,\CJKunderdblline,\CJKunderwave,\CJKsout,\CJKxout}
+  \begin{syntax}
+    \tn{CJKunderline} [*] [-] \oarg{options} \Arg{text}
+  \end{syntax}
+  \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.35\linewidth,gobble=4]
+    \CJKunderline{虚室生白，吉祥止止}\\
+    \CJKunderdblline{虚室生白，吉祥止止}\\
+    \CJKunderwave{虚室生白，吉祥止止}\\
+    \CJKsout{虚室生白，吉祥止止}\\
+    \CJKxout{虚室生白，吉祥止止}
+  \end{SideBySideExample}
+\end{function}
+
+\csappto{NoHighlight@Attributes}{\catcode37=14\relax}
+
+\begin{Example}[frame=single,numbers=left,gobble=2]
+  \CJKunderline-{南朝}\CJKunderline-{梁}\CJKunderline-{劉勰}%
+  \CJKunderwave-{文心雕龍}\CJKunderwave-{養氣}\\
+  \CJKunderline*[thickness=1pt, hidden=true]{瞻彼阕者，虚室生白，吉祥止止}
+\end{Example}
+
+\begin{function}[updated=2014-11-04]{\CJKunderdot}
+  \begin{syntax}
+    \tn{CJKunderdot} \oarg{options} \Arg{text}
+  \end{syntax}
+  Add dots under CJK characters, can be used in conjunction with the
+  underline comment above. For example:
+
+  \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.35\linewidth,gobble=4]
+    \CJKunderline{虚室生白，\CJKunderdot{吉祥}止止}\\
+    \CJKunderdot{虚室生白，\CJKunderline{吉祥}止止}
+  \end{SideBySideExample}
+\end{function}
+
+\bigskip
+
+For the six commands above, \pkg{xeCJKfntef} offers some options to
+set the position or color of dots and lines. They can either be set
+using \tn{xeCJKsetup} in advance, or during using.
+
+\begin{function}[added=2014-11-04]{skip}
+  \begin{syntax}
+    \tn{xeCJKsetup} \{ underline/skip = \meta{\TTF} \}
+    \tn{xeCJKsetup} \{ underline = \{ skip = \meta{\TTF} , ... \} \}
+  \end{syntax}
+  By default, the underline will skip punctuation. This feature can be
+  disabled by setting the option to \texttt{false}. Adding |*| after
+  the command has the same effect.
+\end{function}
+
+\begin{function}{subtract}
+  When it is set to \texttt{true}, the underline will be
+  slightly shortened, so that adjacent underlines will not be
+  connected. This can be used for marking proper nouns or book titles
+  in pre-modern writing. Adding |-| after the command has the same
+  effect.
+\end{function}
+
+\begin{function}{hidden}
+  When it is set to \texttt{true}，the text itself will be hidden,
+  and only the underline is drawn.
+\end{function}
+
+\begin{function}{format}
+  \begin{syntax}
+    \tn{xeCJKsetup} \{ underline/format = \tn{color}\{red\} \}
+    \tn{xeCJKsetup} \{ underwave = \{ format = \tn{color}\{red\}, ... \} \}
+  \end{syntax}
+  Set the format of line or dot, for example, color.
+\end{function}
+
+\begin{function}[added=2016-06-03]{textformat}
+  Set the fornat of the underlined or dotted text. For example:\smallskip
+  \begin{Example}[frame=single,numbers=left,gobble=4]
+    \CJKunderline[textformat=\color{red}]{虚室生白，吉祥止止}\\
+    \CJKunderdot[textformat=\bfseries, format=\color{blue}]{虚室生白，吉祥止止}
+  \end{Example}
+\end{function}
+
+\begin{function}{symbol}
+  Set the symbol of \tn{CJKunderwave} or \tn{CJKunderdot}.
+\end{function}
+
+For example, the symbol of \tn{CJKunderwave} will not change when font
+size changes, so it does not look good under small sizes. We can modify
+it to change size as font size changes:
+
+\begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.35\linewidth]
+  \xeCJKsetup{%
+    underwave/symbol=
+      \fontsize{0.5em}{0pt}%
+      \fontencoding{U}\fontfamily{lasy}\selectfont
+      \char 58\relax}
+  \footnotesize
+  \CJKunderwave{瞻彼阕者，虚室生白，吉祥止止}
+\end{SideBySideExample}
+
+\begin{function}{thickness}
+  Set the thickness of lines used in \tn{CJKunderline},
+  \tn{CJKunderdblline} and \tn{CJKsout}. Default is \tn{ULthickness}.
+\end{function}
+
+\begin{function}{depth}
+  Set the depth of lines or dots (distance from the baseline to the
+  top of the line or dot). Default is \texttt{0.2em}.
+\end{function}
+
+\begin{function}{boxdepth}
+  \tn{CJKunderdot} might affect line spacing, which can be adjusted
+  by this option. If it is not desirable that \tn{CJKunderdot} affect
+  line spacing, this option can be set to \texttt{0pt}.
+\end{function}
+
+\begin{function}{sep}
+  Set the separation between lines/dots when \tn{CJKunderdot} is used 
+  along with \tn{CJKunderline}, \tn{CJKunderdblline} or 
+  \tn{CJKunderwave}.
+\end{function}
+
+\begin{function}{gap}
+  Set the distance between two lines in \tn{CJKunderdblline}. Default
+  is \texttt{1.1pt}。
+\end{function}
+
+\begin{function}{height}
+  Set the height of cross-out line \tn{CJKsout} (distance from the center of line to the baseline). Default is \texttt{0.35em}.
+
+  For example, we can set the thickness and color of \tn{CJKsout}, so it
+  will look like highlighting:\smallskip
+
+  \begin{Example}[frame=single,numbers=left,gobble=4]
+    \CJKsout*[thickness=2.5ex, format=\color{yellow}]{瞻彼阕者，虚室生白，吉祥止止}
+  \end{Example}
+\end{function}
+
+\medskip
+
+\pkg{xeCJKfntef} also offers \tn{CJKunderanyline} and
+\tn{CJKunderanysymbol} to define styles of underline and symbols.
+
+\begin{function}[updated=2014-11-07]{\CJKunderanyline}
+  \begin{syntax}
+    \tn{CJKunderanyline} [*] [-] \oarg{options} \Arg{depth} \Arg{underline} \Arg{text}
+  \end{syntax}
+  \pkg{xeCJKfntef} first put \meta{underline} into a box called
+  \tn{xeCJKfntefbox}, move it down by \meta{depth}, and use it for
+  filling. Valid \meta{options} are \texttt{textformat},
+  \texttt{skip}, \texttt{hidden}, \texttt{subtract}, \texttt{sep} and
+  \texttt{boxdepth}. The initial value of \texttt{sep} and
+  \texttt{boxdepth} are empty, which means that they are disabled. They
+  can be set using \texttt{ulem} in \tn{xeCJKsetup}.
+\end{function}
+
+For example, this can also be used for highlighting: \smallskip
+
+\begin{Example}[frame=single,numbers=left,gobble=2]
+  \CJKunderanyline*{0.5ex}{\color{yellow}\rule{2pt}{2.5ex}}{虚室生白，吉祥止止}
+\end{Example}
+
+\begin{function}[updated=2014-11-04]{\CJKunderanysymbol}
+  \begin{syntax}
+    \tn{CJKunderanysymbol} \oarg{options} \Arg{depth} \Arg{symbol} \Arg{text}
+  \end{syntax}
+  \pkg{xeCJKfntef} put \meta{symbol} into a box called
+  (\tn{xeCJKfntefbox}). \meta{depth} us used to set the box's depth
+  (distance from the baseline to the top of the box). Valid 
+  \meta{options} are \texttt{textformat}, \texttt{sep} and
+  \texttt{boxdepth}，with the same meaning as in \tn{CJKunderdot}.
+\end{function}
+
+For example, the code below adds triangle under Chinese characters:\smallskip
+
+\begin{Example}[frame=single,numbers=left,gobble=2]
+  \CJKunderanysymbol[sep=0.1em]{0.2em}{\tiny$\triangle$}
+    {瞻彼阕者，虚室生白，\CJKunderline{吉祥止止}}
+\end{Example}
+
+\begin{function}[updated=2014-11-07]{\xeCJKfntefon}
+  \begin{syntax}
+    \tn{xeCJKfntefon} [*] [-] \oarg{options}
+  \end{syntax}
+  The same as \tn{ULon} offered in package \pkg{ulem}, with the
+  extension of |*| 和 |-|. Valid \meta{options} are
+  \texttt{textformat}, \texttt{skip}, \texttt{hidden} and
+  \texttt{subtract}. These options are also effective to command
+  \tn{uline} and so on in \pkg{ulem}, and it requires setting
+  \texttt{ulem} in \tn{xeCJKsetup}. For example:\smallskip
+
+  \begin{Example}[frame=single,numbers=left,gobble=4]
+    \xeCJKsetup{ulem={textformat=\bfseries\color{red}, skip=true}}
+    \uline{虚室生白，吉祥止止}
+  \end{Example}
+\end{function}
+
+\medskip
+
+In addition, \pkg{xeCJKfntef} also has environments that allows Chinese
+characters to spread across the set width: \env{CJKfilltwosides} and \env{CJKfilltwosides*}。
+
+\begin{function}[updated=2014-11-04]{CJKfilltwosides}
+  \begin{syntax}
+    \tn{begin}\{CJKfilltwosides\} \oarg{position} \Arg{width}
+      text\verb=\\=
+      text
+    \tn{end}\{CJKfilltwosides\}
+  \end{syntax}
+  The content in the environment is pun into a \tn{vbox}. The
+  optional parameter \meta{position} sets the baseline position of the
+  box to as \texttt{t}op, \texttt{c}enter or \texttt{b}ottom; default
+  is \texttt{c}.
+  \meta{宽度} sets the width of the box.
+  \env{CJKfilltwosides*} is different from \env{CJKfilltwosides}, in that it will use the natural width of the box when \meta{width} is zero, negative or smaller than the natural width. For example,
+\end{function}
+
+\begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.5\linewidth,gobble=2]
+  \begin{CJKfilltwosides}{.8\linewidth}
+    瞻彼阕者，\\
+    虚室生白，吉祥止止
+  \end{CJKfilltwosides}
+\end{SideBySideExample}
+
+\begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.5\linewidth,gobble=2]
+  \begin{CJKfilltwosides*}{0pt}
+    瞻彼阕者，\\
+    虚室生白，吉祥止止
+  \end{CJKfilltwosides*}
+\end{SideBySideExample}
+
+\subsection{Others}
+\label{subsec:others}
+
+\begin{function}[updated=2013-11-16]{\xeCJKVerbAddon,\xeCJKOffVerbAddon}
+  Adjust the spacing between CJK characters, so that they the space
+  occupied equals two spaces in the Western monospace font. If the
+  width of two spaces is smaller than the normal width of one CJK character, then the CJK characters will be shrunk. This is useful
+  for situations like code alignment. It need to be noticed that \tn{xeCJKVerbAddon} modifies \pkg{xeCJK} internals greatly, and line
+  breaking between CJK characters will be forbidden if it is enabled.
+  Therefore, it should never be used alone, but should be put into a
+  a group or environment to keep the modifications local. Otherwise,
+  it will be disabled.
+  
+  The option may be used along with other options about verbatim/code,
+  such as \texttt{formatcom} option in package\package{fancyvrb}. The
+  Western font being used should be monospaced to keep alignment. If
+  the Western font (including size) is changed, then
+  \tn{xeCJKVerbAddon} should be execute again to re-calculate the
+  amount of spacing. \tn{xeCJKOffVerbAddon} is used in the group or
+  environment to locally disable \tn{xeCJKVerbAddon}. Because
+  \package{listings} use its own mechanism of code alignment, 
+  \tn{xeCJKVerbAddon} is disabled in its code environments.
+\end{function}
+
+\begin{function}[added=2012-12-03]{\xeCJKnobreak}
+  \begin{syntax}
+    ……汉字。\tn{xeCJKnobreak}\tn{footnote}\{脚注\}
+  \end{syntax}
+  \tn{xeCJKnobreak} is used after a full-width punctuation to avoid
+  line breaking. It is unnecessary if |CheckFullRight| described before
+  is invalid.
+\end{function}
+
+\begin{function}[added=2013-11-09]{\xeCJKShipoutHook}
+  \pkg{xeCJK} has some special settings (dots under Chinese
+  characters, line breaking in \env{verbatim} or \env{lstlisting}
+  environment) that may affect \TeX{}'s output routine such as header or
+  footer. \tn{xeCJKShipoutHook} is used to restore the ordinary settings. \pkg{xeCJK} has already processed the header and footer,
+  while manual calling is still necessary in other situations need.
+  For example, when \pkg{eso-pic} or \pkg{atbegshi} is used for
+  watermark, and the special situations described above are used in the
+  document, then \tn{xeCJKShipoutHook} should used at the beginning of
+  \tn{AtBeginShipout}.
+\end{function}
+
+\section{Known Issues and Compatibility}
+
+\XeTeX{} set the \tn{catcode} of all CJK ideographs to 11 in
+\file{unicode-letters.tex}. Therefore, Chinese characters can be used
+in control sequences, while a space should be used between a control
+sequence and a Chinese character. Otherwise, message ``\texttt{! Undefined control sequence.}'' will appear.
+
+\pkg{xeCJK} uses and redefines some commands from package \pkg{CJK},
+such as \tn{CJKfamily}, \tn{CJKsymbol} and \tn{CJKglue}. \pkg{xeCJK}
+does not require \pkg{CJK}, and \pkg{xeCJK} forbids loading \pkg{CJK}
+after it. However, \pkg{CJKnumb} may be loaded \textit{after}
+\pkg{xeCJK} to support Chinese numerals; \package{zhnumber} can also
+be used.
+
+\pkg{xeCJK} have some processes that allows direct Unicode in package
+\package{listings}, so Chinese characters may be used directly in \texttt{listings} environment, and \texttt{escapechar} is unnecessary.
+
+The newer version (\texttt{3.x}) of \pkg{xeCJK} is written completely
+in \LaTeXiii{} syntax. \LaTeXiii{} abandons the concept of \tn{outer}
+macro, so related tools using the macro may face problems. In the
+current implementation, an \tn{outer} after a CJK character will create
+an error like
+\begin{frameverb}
+  ! Forbidden control sequence found while scanning use of \use_i:nn
+\end{frameverb}
+An example of this is \tn{cprotect} command offered in package
+\package{cprotect}. It is defined as
+\begin{frameverb}
+  \outer\long\def\cprotect{\icprotect}
+\end{frameverb}
+so \tn{icprotect} can be used in place of \tn{cprotect}. In fact, when
+\pkg{cprotect} is being loaded, \pkg{xeCJK} will use
+\begin{frameverb}
+  \let\cprotect\icprotect
+\end{frameverb}
+to cancel the outer macro limitation. \tn{cprotect} However, the
+specialty of \tn{cprotect} means that it should only be used outerly,
+or never as a parameter of another macro. Other situations involving
+\tn{outer} can be resolved by placing \tn{relax} in front of it.
+
+\pkg{xeCJK} relies on \tn{XeTeXinterchartoks} mechanism of \XeTeX{}, and
+there might be conflict with other packages using the same mechanism
+like \pkg{polyglossia} and \pkg{xesearch}. Although \pkg{xeCJK} tried
+to deal with these conflicts, attention should still be made when they
+are used together.
+
+\end{document}
