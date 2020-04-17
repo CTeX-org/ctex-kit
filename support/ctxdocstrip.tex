@@ -1,15 +1,8 @@
 %%
-%% This is file `ctxdocstrip.tex',
-%% generated with the docstrip utility.
+%% File ctxdocstrip.tex
 %%
-%% The original source files were:
+%%     Copyright (C) 2020 by Qing Lee <sobenlee@gmail.com> %%-------------------------------------------------------------------
 %%
-%% ctex.dtx  (with options: `docstrip')
-%% 
-%%     Copyright (C) 2003--2019
-%%     CTEX.ORG and any individual authors listed in the documentation.
-%% ------------------------------------------------------------------------------
-%% 
 %%     This work may be distributed and/or modified under the
 %%     conditions of the LaTeX Project Public License, either
 %%     version 1.3c of this license or (at your option) any later
@@ -19,19 +12,25 @@
 %%        http://www.latex-project.org/lppl.txt
 %%     and version 1.3 or later is part of all distributions of
 %%     LaTeX version 2005/12/01 or later.
-%% 
-%%     This work has the LPPL maintenance status `maintained'.
-%% 
-%%     The Current Maintainers of this work are Leo Liu, Qing Lee and Liam Huang.
-%% 
-%% ------------------------------------------------------------------------------
-%% 
-\csname ctxdocstriploaded\endcsname
-\let\ctxdocstriploaded\endinput
+%%
+%%     This work has the LPPL maintenance status "maintained".
+%%
+%% ------------------------------------------------------------------
+%%
+\csname ctxDocstripLoaded\endcsname
+\let\ctxDocstripLoaded\endinput
+\begingroup\expandafter\expandafter\expandafter\endgroup
+\expandafter\ifx\csname directlua\endcsname\relax
+  \errmessage{LuaTeX is required to compile this document.}
+  \csname @@end\expandafter\endcsname\expandafter\end%
+\fi
 \input l3docstrip %
 \edef\ctxresetcatcode{%
-  \catcode\number`\$=\the\catcode`\$\relax}
+  \catcode\number`\$=\the\catcode`\$\relax
+  \catcode\number`\@=\the\catcode`\@\relax
+}
 \makeOther\$
+\catcode`\@=11\relax
 \def\plusOption+#1>#2$#3$\endLine{%
   \maybeMsg{<+#1 . >}%
   \Evaluate{#1}%
@@ -57,6 +56,41 @@
   \maybeMsg{^^J\ctxID^^J}%
   \def\inLine{\ctxCMD\ctxID}%
 }
+\let\OriginalStreamClose\StreamClose
+\def\ctxStreamClose#1{%
+  \OriginalStreamClose{#1}%
+  \ctxConvFile{#1}%
+}
+\def\ctxConvFile#1{%
+  \ifcsname zhconv@\csstring#1\endcsname
+    \ctxConv{\lastnamedcs}%
+      {\begincsname pth@\csstring#1\endcsname}%
+  \fi
+}
+\directlua{
+  local zhconv = require("zhconv").conv
+  local scan_string = token.scan_string
+  local t = lua.get_functions_table()
+  t[20] = function ()
+    local enc  = scan_string()
+    local file = scan_string()
+    return zhconv(enc, file, file)
+  end
+  token.set_lua("ctxConv", 20, "protected")
+}
+\def\convfile{%
+  \ifx\@file\file
+    \expandafter\ctxfile\else
+    \expandafter\setconvfile\fi
+}
+\def\setconvfile#1#2{%
+  \Name\def{zhconv@#2}{#1}%
+  \let\StreamClose\ctxStreamClose
+}
+\def\ctxfile#1#2{%
+  \setconvfile{#1}{#2}%
+  \file{#2}%
+}
 \keepsilent
 \askforoverwritefalse
 \declarepreamble\emptypreamble
@@ -64,6 +98,6 @@
 \declarepostamble\emptypostamble
 \endpostamble
 \ctxresetcatcode
-%% 
 %%
-%% End of file `ctxdocstrip.tex'.
+%%
+%% End of file ctxdocstrip.tex
