@@ -1,20 +1,23 @@
-#!/usr/bin/env texlua
 
 module = "xecjk"
 
 packtdszip = true
 tdsroot = "xelatex"
 
-sourcefiles = {"xeCJK.dtx"}
-unpackfiles = {"xeCJK.dtx"}
-unpacksuppfiles = {"xeCJK.id", "ctxdocstrip.tex"}
-typesetfiles = {"xeCJK.dtx", "xunicode-symbols.tex"}
-typesetsuppfiles = {"UnicodeData.txt", "ctxdoc.cls"}
-binaryfiles = {"*.pdf", "*.zip", "*.tec"}
-installfiles = {"*.sty", "*.cfg", "*.def"}
-unpackexe = "xetex"
-typesetexe = "xelatex"
-makeindexexe = "zhmakeindex"
+sourcefiles      = {"xeCJK.dtx"}
+unpackfiles      = {"xeCJK.dtx"}
+installfiles     = {"*.sty", "*.cfg", "*.def", "*.tex", "*.map", "*.tec"}
+unpacksuppfiles  = {"xeCJK.id", "ctxdocstrip.tex"}
+typesetsuppfiles = {"ctxdoc.cls"}
+typesetfiles     = {"xeCJK.dtx", "xunicode-symbols.tex"}
+scriptfiles      = {"xunicode-com*.tex"} -- dirty hack
+
+tdslocations = {
+  "doc/xelatex/xecjk/xunicode-*.tex",
+  "doc/xelatex/xecjk/example/xeCJK-example-*.tex",
+  "fonts/misc/xetex/fontmapping/xecjk/*.map",
+  "fonts/misc/xetex/fontmapping/xecjk/*.tec",
+}
 
 local http_request = require("socket.http").request
 local ltn12_sink_file = require("ltn12").sink.file
@@ -137,46 +140,10 @@ U+FF0E <> U+3002
 
 end
 
--- 下载 UnicodeData.txt，并准备 xunicode-symbols.tex
-function doc_prehook()
-  mkdir(supportdir)
-  local unicode_data = supportdir .. "/UnicodeData.txt"
-  if not lfs.isfile(unicode_data) then
-    local status, err = http_request{
-      url  = "http://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt",
-      sink = ltn12_sink_file(io.open(unicode_data, "wb")) }
-    if not status then
-      error([[Download "]] .. "UnicodeData.txt" .. [[" failed because of ]] .. err .. ".")
-    end
+function unpack_posthook()
+  if install_files_bool then
+    make_teckit_mapping()
   end
-  cp("xunicode-symbols.tex", unpackdir, maindir)
 end
 
-function doc_posthook()
-  os.remove(maindir .. "/xunicode-symbols.tex")
-end
-
-function copytds_posthook()
-  -- 生成字符映射文件
-  make_teckit_mapping()
-  -- 字符映射文件
-  local mapdir = tdsdir .. "/fonts/misc/xetex/fontmapping/" .. ctanpkg
-  mkdir(mapdir)
-  cp("*.map", unpackdir, mapdir)
-  cp("*.tec", unpackdir, mapdir)
-  -- 将字符映射文件复制到 CTAN 目录
-  mapdir = ctandir .. "/" .. ctanpkg .. "/teckit-mapping"
-  mkdir(mapdir)
-  cp("*.map", unpackdir, mapdir)
-  -- xunicode 符号表
-  local docdir = tdsdir .. "/doc/" .. moduledir
-  cp("xunicode-*.tex", typesetdir, docdir)
-  -- 示例
-  local exampledir = docdir .. "/example"
-  mkdir(exampledir)
-  cp("xeCJK-example-*.tex", unpackdir, exampledir)
-end
-
-dofile("../tool/zhl3build.lua")
-
--- vim:sw=2:et
+dofile("../support/build-config.lua")

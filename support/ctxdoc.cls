@@ -1,15 +1,10 @@
 %%
-%% This is file `ctxdoc.cls',
-%% generated with the docstrip utility.
+%% File ctxdoc.cls
 %%
-%% The original source files were:
-%%
-%% ctex.dtx  (with options: `ctxdoc')
-%% 
-%%     Copyright (C) 2003--2019
+%%     Copyright (C) 2016--2020
 %%     CTEX.ORG and any individual authors listed in the documentation.
-%% ------------------------------------------------------------------------------
-%% 
+%%---------------------------------------------------------------------
+%%
 %%     This work may be distributed and/or modified under the
 %%     conditions of the LaTeX Project Public License, either
 %%     version 1.3c of this license or (at your option) any later
@@ -19,39 +14,31 @@
 %%        http://www.latex-project.org/lppl.txt
 %%     and version 1.3 or later is part of all distributions of
 %%     LaTeX version 2005/12/01 or later.
-%% 
-%%     This work has the LPPL maintenance status `maintained'.
-%% 
-%%     The Current Maintainers of this work are Leo Liu, Qing Lee and Liam Huang.
-%% 
-%% ------------------------------------------------------------------------------
-%% 
+%%
+%%     This work has the LPPL maintenance status "maintained".
+%%
+%%---------------------------------------------------------------------
+%%
 \NeedsTeXFormat{LaTeX2e}
 \RequirePackage{expl3}
-\GetIdInfo$Id: ctex.dtx cda7631 2019-03-23 18:41:31 +0800 Qing Lee <sobenlee@gmail.com> $
+\GetIdInfo$Id$
   {ctex documentation (CTEX)}
-\ProvidesExplClass{ctxdoc}
-  {\ExplFileDate}{2.4.14}{\ExplFileDescription}
+\ProvidesExplClass{ctxdoc}{\ExplFileDate}{}{\ExplFileDescription}
 \ExplSyntaxOff
-\let\pdfmdfivesum\mdfivesum
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
 \@namedef{ver@thumbpdf.sty}{9999/99/99}
 \LoadClass{l3doc}
-\RequirePackage[UTF8, punct = kaiming, heading, fontset = none,
-  linespread = 1.2, sub3section]{ctex}
+\RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ifxetex
   \xeCJKsetup{AutoFakeBold=false}
 \fi
 \ctexset{
-  fontset,
   abstractname   = 简介,
   indexname      = 代码索引,
-  section        = {
-    format = \Large\bfseries\raggedright,
-    name   = {第,节},
-  },
+  section/format = \Large\bfseries\raggedright,
+  section/name   = {第,节},
 }
 \RequirePackage[toc]{multitoc}
 \RequirePackage{geometry}
@@ -64,17 +51,30 @@
 \RequirePackage{caption}
 \RequirePackage{fancyvrb-ex}
 \RequirePackage{zref-base}
-\geometry{includemp,hmargin={0mm,15mm},vmargin={25mm,15mm},footskip=7mm}
-\hypersetup{pdfstartview=FitH,bookmarksdepth=subparagraph}
+\geometry{includemp, hmargin={0mm,15mm}, vmargin={25mm,15mm}, footskip=7mm}
+\hypersetup{pdfstartview=FitH, bookmarksdepth=subparagraph}
 \setcounter{secnumdepth}{4}
 \setcounter{tocdepth}{2}
 \newcommand*\email{\nolinkurl}
-\setmainfont{TeX Gyre Pagella}
-\setsansfont{TeX Gyre Heros}
-\setmonofont[
-  HyphenChar = None ,
-  UprightFont=* Light, BoldFont=* Bold,
-  SlantedFont=* Light Oblique]{CMU Typewriter Text}
+\setmainfont{texgyrepagella}[
+  Extension      = .otf,
+  UprightFont    = *-regular,
+  BoldFont       = *-bold,
+  ItalicFont     = *-italic,
+  BoldItalicFont = *-bolditalic]
+\setsansfont{texgyreheros}[
+  Extension      = .otf,
+  UprightFont    = *-regular,
+  BoldFont       = *-bold,
+  ItalicFont     = *-italic,
+  BoldItalicFont = *-bolditalic]
+\setmonofont{cmun}[
+  Extension      = .otf,
+  UprightFont    = *btl,
+  BoldFont       = *tb,
+  ItalicFont     = *bto,
+  BoldItalicFont = *tx,
+  HyphenChar     = None]
 \setmathfont{texgyrepagella-math.otf}
 \captionsetup{strut=off, labelsep=quad, labelfont+=bf}
 %% <--- http://tex.stackexchange.com/a/40896
@@ -129,7 +129,7 @@
 %% 设置间距为 \marginparsep，与 l3doc 一致
 \setlist[optdesc]{%
   font=\mdseries\small\ttfamily,align=right,listparindent=\parindent,
-  labelsep=\marginparsep,labelindent=-\marginparsep,leftmargin=*}
+  labelsep=\marginparsep,labelindent=-\marginparsep,leftmargin=0pt}
 %% 重新定义 threeparttable 包的 tablenotes 环境
 \renewlist{tablenotes}{description}{1}
 \setlist[tablenotes]{%
@@ -599,10 +599,15 @@
           #1 \g__codedoc_module_name_tl
       }
   }
-\cs_new_protected:Npn \__ctxdoc_replace_at_at_aux:Nn #1#2
+\cs_new_protected:Npx \__ctxdoc_replace_at_at_aux:Nn #1#2
   {
-    \tl_replace_all:Nnn #1 { _ @ @ } { _ _ #2 }
-    \tl_replace_all:Nnn #1 {   @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 { \token_to_str:N @ } { @ }
+    \tl_replace_all:Nnn #1 { \token_to_str:N _ } { _ }
+    \tl_replace_all:Nnn #1 { @ @ @ @ } { \token_to_str:N a a }
+    \tl_replace_all:Nnn #1 { _ _ @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 {   _ @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 {     @ @ } { _ _ #2 }
+    \tl_replace_all:Nnn #1 { \token_to_str:N a a } { @ @ }
   }
 \cs_new_protected:Npn \__ctxdoc_output_line:n #1
   {
@@ -861,6 +866,6 @@
 \EnableCrossrefs
 \CodelineIndex
 \RecordChanges
-%% 
 %%
-%% End of file `ctxdoc.cls'.
+%%
+%% End of file ctxdoc.cls.

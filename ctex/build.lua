@@ -1,46 +1,44 @@
-#!/usr/bin/env texlua
 
 module = "ctex"
 
 packtdszip = true
 
-sourcefiles = {"ctex.dtx", "ctexpunct.spa"}
-unpackfiles = {"ctex.dtx"}
-unpacksuppfiles = {"ctex.id","ctxdocstrip.tex"}
-installfiles = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict"}
-unpackexe = "xetex"
-typesetexe = "xelatex"
-makeindexexe = "zhmakeindex"
+sourcefiles      = {"ctex.dtx", "ctexpunct.spa"}
+unpackfiles      = {"ctex.dtx"}
+installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict", "*.lua", "*.luc"}
+unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.luc"}
+typesetsuppfiles = {"ctxdoc.cls"}
+gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 
-gbkfiles = {"ctex-name-gbk.cfg", "*-ChineseGBK.dict"}
-generic_insatllfiles = {"*.tex"}
-subtexdirs = {
-    ["config"] = "*.cfg",
-    ["fd"] = "*.fd",
-    ["engine"] = "ctex-engine-*.def",
-    ["fontset"] = "ctex-fontset-*.def",
-    ["scheme"] = "ctex-scheme-*.def",
-    ["dictionary"] = "*.dict",
+tdslocations = {
+  "source/latex/ctex/zhconv-make.lua",
+  "tex/generic/ctex/*.tex",
+  "tex/latex/ctex/config/*.cfg",
+  "tex/latex/ctex/fd/*.fd",
+  "tex/latex/ctex/engine/ctex-engine-*.def",
+  "tex/latex/ctex/fontset/ctex-fontset-*.def",
+  "tex/latex/ctex/scheme/ctex-scheme-*.def",
+  "tex/latex/ctex/dictionary/*.dict",
+  "tex/luatex/ctex/*.lua",
+  "tex/luatex/ctex/*.luc",
 }
 
-function setversion_update_line (line, date, version)
-  local left, right = line:match([[^(%%%b<>  {\ExplFileDate}{).-(}{.+})$]])
-  if left and right then
-    local line = left .. version .. right
-    print(line)
-    return line
+function unpack_posthook()
+  if install_files_bool then
+    for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex",
+                      "zhconv*.lua", "zhconv*.luc", } do
+      cp(i, supportdir, unpackdir)
+    end
   end
-  if line:sub(-7) == "(CTEX)]" then
-    local line = line:gsub("%d+/%d+/%d+ v%S+", date:gsub("-","/") .. " v" .. version)
-    print(line)
-    return line
-  end
-  return line
 end
 
--- dofile("../tool/zhl3build.lua")
-maindir        = "."
-supportdir     = "../tool"
+function copyctan_posthook()
+  local dest = ctandir .. "/" .. ctanpkg
+  for _,file in ipairs{"ctxdocstrip.tex", "zhconv.lua", "zhconv-make.lua"} do
+    cp(file, unpackdir, dest)
+  end
+end
+
 testfiledir    = "./test/testfiles"
 testsuppdir    = "./test/support"
 testdir        = "./build/check"
@@ -52,3 +50,5 @@ specialformats.latex = {
   pdftex = {binary = "latex", options = "-output-format=dvi"},
   uptex  = {binary = "euptex"}
 }
+
+dofile("../support/build-config.lua")

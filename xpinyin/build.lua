@@ -1,32 +1,28 @@
-#!/usr/bin/env texlua
 
 module = "xpinyin"
 
 packtdszip = true
 
-gitverfiles = {"xpinyin.dtx"}
-sourcefiles = {"xpinyin.dtx", "xpinyin.ins"}
-unpackfiles = {"xpinyin.ins"}
-unpacksuppfiles = {"xpinyin.id", "xpinyin.db", "ctxdocstrip.tex"}
+sourcefiles      = {"xpinyin.dtx", "xpinyin.ins"}
+unpackfiles      = {"xpinyin.ins"}
+gitverfiles      = {"xpinyin.dtx"}
+installfiles     = {"*.sty", "*.def"}
+unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
-installfiles = {"*.sty", "*.def"}
-unpackexe = "luatex"
-typesetexe = "xelatex"
 
 function unpack_prehook()
   cleandir(unpackdir)
-  cp("ctxdocstrip.tex", supportdir, ".")
+  cp("ctxdocstrip.tex",  supportdir, currentdir)
   os.execute(unpackexe .. " -output-directory=" .. unpackdir .." xpinyin.dtx > " .. os_null)
-  os.remove("ctxdocstrip.tex")
-  cp("xpinyin.ins", unpackdir, ".")
+  rmfile(".", "ctxdocstrip.tex")
+  cp("xpinyin.ins", unpackdir, currentdir)
   cp("xpinyin.lua", unpackdir, supportdir)
   run(supportdir, "texlua xpinyin.lua")
 end
 
 function unpack_posthook()
-  os.remove("xpinyin.ins")
+  rmfile(currentdir, "ctxdocstrip.tex")
+  rmfile(currentdir, "xpinyin.ins")
 end
 
-dofile("../tool/zhl3build.lua")
-
--- vim:sw=2:et
+dofile("../support/build-config.lua")
