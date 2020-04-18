@@ -5,7 +5,7 @@ packtdszip = true
 
 sourcefiles      = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles      = {"ctex.dtx"}
-installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict", "*.lua"}
+installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.lua"}
 unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.lua"}
 typesetsuppfiles = {"ctxdoc.cls"}
 gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
@@ -43,11 +43,23 @@ testsuppdir    = "./test/support"
 testdir        = "./build/check"
 checkruns      = 2
 stdengine      = "xetex"
+checkdeps      = {"../xeCJK","../zhnumber"}
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
 specialformats = {}
 specialformats.latex = {
-  pdftex = {binary = "latex", options = "-output-format=dvi"},
+  pdftex = {format = "latex"},
   uptex  = {binary = "euptex"}
 }
+
+checkinit_hook = function()
+  for _,i in ipairs(checkdeps) do
+    local unpackdir = i .. "/" .. unpackdir
+    for _,i in ipairs(installfiles) do
+      cp(i, unpackdir, testdir)
+    end
+  end
+  return 0
+end
+
 
 dofile("../support/build-config.lua")
