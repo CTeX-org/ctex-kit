@@ -71,6 +71,8 @@ function checksum()
   end
 end
 
+target_list = target_list or { }
+
 target_list.checksum = { desc = "Adjust \\CheckSum{...}", func = checksum }
 
 shellescape = os.type == "windows"
@@ -140,6 +142,35 @@ function update_tag(file, content, tagname, tagdate)
 end
 
 null_function = function() return 0 end
+
+local insert = table.insert
+
+function saveall(names)
+  local t, engines = { }, { }
+  if names then
+    for _,i in ipairs(names) do engines[i] = true end
+  end
+  for _,file in ipairs(filelist(testfiledir, "*.tlg")) do
+    local base = jobname(file)
+    local lvt, tex = base:match([[^(.+)%.(%w+)$]])
+    local lvt = lvt or base
+    local tex = tex or stdengine
+    if not t[tex] then t[tex] = { } end
+    insert(t[tex], lvt)
+  end
+  if next(t) then
+    checkinit()
+    checkinit = null_function
+    for tex, lvts in pairs(t) do
+      if not next(engines) or engines[tex] then
+        options.engine = { tex }
+        save(lvts)
+      end
+    end
+  end
+end
+
+target_list.saveall = { desc = "Saves all test validation log", func = saveall }
 
 doc_prehook  = doc_prehook  or null_function
 doc_posthook = doc_posthook or null_function
