@@ -5,8 +5,8 @@ packtdszip = true
 
 sourcefiles      = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles      = {"ctex.dtx"}
-installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict", "*.lua", "*.luc"}
-unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.luc"}
+installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "*.tex", "*.dict", "*.lua"}
+unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.lua"}
 typesetsuppfiles = {"ctxdoc.cls"}
 gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 
@@ -20,7 +20,6 @@ tdslocations = {
   "tex/latex/ctex/scheme/ctex-scheme-*.def",
   "tex/latex/ctex/dictionary/*.dict",
   "tex/luatex/ctex/*.lua",
-  "tex/luatex/ctex/*.luc",
 }
 
 function unpack_posthook()

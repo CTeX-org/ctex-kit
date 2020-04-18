@@ -109,10 +109,6 @@ insert(index, "}\n")
 
 local index = concat(index, "\n")
 
-local handle = io_open("zhconv-index.luc", "wb")
-handle:write(dump(load(index), true))
-handle:close()
-
 local handle = io_open("zhconv-index.lua", "wb")
 handle:write(preamble:format(unpack(date)), index)
 handle:close()

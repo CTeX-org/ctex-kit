@@ -19,7 +19,7 @@
 --     The Current Maintainer of this work is Qing Lee.
 --
 --     This work consists of the files zhconv.lua, zhconv-make.lua
---               and the derived files zhconv-index.lua, zhconv-index.luc.
+--               and the derived files zhconv-index.lua.
 --
 --------------------------------------------------------------------------
 --
