@@ -560,7 +560,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
 %
-% \CheckSum{5983}
+% \CheckSum{6001}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -6300,6 +6300,7 @@ Copyright and Licence
 % \subsubsection{其它}
 %
 % \changes{v2.4.13}{2018/03/23}{修正导言区 \tn{selectfont} 钩子位置。}
+% \changes{v2.5}{2020/04/19}{兼容 \pkg{KOMA-Script} 的 \tn{selectfont} 补丁。}
 %
 % \begin{macro}[int]{\ctex_add_to_selectfont:n,\CTEX@selectfont@hook}
 % \tn{EverySelectfont} 直到文档开始时才有效。为了 \tn{ccwd} 和 \pkg{LuaTeX-ja} 的
@@ -6307,6 +6308,7 @@ Copyright and Licence
 % 宏包会用 \tn{CheckCommand} 来检查 \tn{selectfont} 是否为标准定义。我们修改了
 % \tn{selectfont}，所以会给出一个警告。为了消除这个警告，在它检查之前，还原本来
 % 定义。\pkg{pxeverysel} 宏包取消了检查，但也需要恢复定义，避免重复使用钩子。
+% \pkg{KOMA-Script} 宏包也会进行检查，我们需要小心处理。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_add_to_selectfont:n #1
   {
@@ -6322,8 +6324,30 @@ Copyright and Licence
         \cs_new_eq:NN \CTEX@selectfont@save #1
         \cs_new_protected:Npn \@@_restore_selectfont:
           {
+            \cs_if_free:NF \scr@new@selectfont
+              {
+%    \end{macrocode}
+% \pkg{CJK} 直接修改 \tn{selectfont} 和 \pkg{pxeverysel} 的补丁，
+% 会使 \pkg{KOMA-Script} 的 \tn{par@update} 失效。
+%    \begin{macrocode}
+%<*pdftex|uptex|aptex>
+                \cs_if_free:NF \par@update
+%<*uptex|aptex>
+                  {
+                    \tl_put_right:Nn \@EverySelectfont@Init
+                      { \tl_put_right:Nn #1 { \par@update } }
+                  }
+%</uptex|aptex>
+%<*pdftex>
+                  { \tl_put_right:Nn #1 { \par@update } }
+                \cs_set_eq:NN \scr@selectfont \CTEX@selectfont@save
+%</pdftex>
+%</pdftex|uptex|aptex>
+                \cs_set_eq:NN \scr@new@selectfont #1
+%<!pdftex>                \cs_set_eq:NN \CTEX@selectfont@save \scr@selectfont
+              }
             \tl_put_left:Nn \@EverySelectfont@Init
-              { \let #1 \CTEX@selectfont@save }
+              { \cs_set_eq:NN #1 \CTEX@selectfont@save }
             \cs_undefine:N \@@_restore_selectfont:
           }
       }
