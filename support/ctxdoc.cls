@@ -23,17 +23,13 @@
 \RequirePackage{expl3}
 \GetIdInfo$Id$
   {ctex documentation (CTEX)}
-\ProvidesExplClass{ctxdoc}{\ExplFileDate}{}{\ExplFileDescription}
+\ProvidesExplClass{\ExplFileName}{\ExplFileDate}{}{\ExplFileDescription}
 \ExplSyntaxOff
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
-\@namedef{ver@thumbpdf.sty}{9999/99/99}
 \LoadClass{l3doc}
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
-\ifxetex
-  \xeCJKsetup{AutoFakeBold=false}
-\fi
 \ctexset{
   abstractname   = 简介,
   indexname      = 代码索引,
