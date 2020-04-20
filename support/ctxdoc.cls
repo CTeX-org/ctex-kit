@@ -23,7 +23,7 @@
 \RequirePackage{expl3}
 \GetIdInfo$Id$
   {ctex documentation (CTEX)}
-\ProvidesExplClass{\ExplFileName}{\ExplFileDate}{}{\ExplFileDescription}
+\ProvidesExplClass{ctxdoc}{\ExplFileDate}{}{\ExplFileDescription}
 \ExplSyntaxOff
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
