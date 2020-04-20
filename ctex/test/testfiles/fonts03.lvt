@@ -1,0 +1,95 @@
+\input{regression-test}
+
+\documentclass[fontset=none]{ctexart}
+
+\pagestyle{empty}
+
+\ExplSyntaxOn
+
+\cs_if_exist:NF \tex_Umathcode:D
+  {
+    \START \str_log:N \c_sys_engine_str \END
+    \file_input_stop:
+  }
+
+\setCJKmainfont
+  { FandolSong-Regular.otf }
+  [ ItalicFont = FandolKai-Regular.otf ]
+
+\sys_if_engine_luatex:TF
+  {
+    \ctexset
+      {
+        declarecharrange =
+          {
+            { 1 } { `一, `三 } ,
+            { 2 } { `二 }
+          }
+      }
+    \cs_new_protected:Npn \CLEAR
+      { \ctexset { clearalternatefont } }
+    \cs_new_protected:Npn \RESET
+      { \ctexset { resetalternatefont } }
+    \cs_new_eq:Nc \mdfivesum:n { pdf@mdfivesum }
+  }
+  {
+    \xeCJKDeclareSubCJKBlock { 1 } { `一, `三 }
+    \xeCJKDeclareSubCJKBlock { 2 } { `二 }
+    \cs_new_protected:Npn \CLEAR
+      { \xeCJKCancelSubCJKBlock { 1 , 2 } }
+    \cs_new_protected:Npn \RESET
+      { \xeCJKRestoreSubCJKBlock { 1 , 2 } }
+    \cs_new_eq:NN \mdfivesum:n \tex_mdfivesum:D
+  }
+
+\cs_new:Npn \test_color:n #1
+  {
+    Color = \exp_args:Ne \str_range:nnn
+      { \mdfivesum:n {#1} } { 1 } { 6 }
+  }
+
+\int_step_inline:nn { 2 }
+  {
+    \setCJKmainfont
+      { FandolHei-Regular.otf }
+      [
+        #1 , \test_color:n {#1} ,
+        ItalicFont = FandolFang-Regular.otf
+      ]
+  }
+
+\ExplSyntaxOff
+
+\begin{document}
+
+一二三四
+
+\itshape
+
+一二三四
+
+\normalfont
+
+一二三四
+
+\CLEAR
+
+一二三四
+
+\RESET
+
+一二三四
+
+\itshape
+
+一二三四
+
+\START
+\loggingoutput
+
+\clearpage
+
+\END
+
+\end{document}
+
