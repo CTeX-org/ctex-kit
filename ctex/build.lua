@@ -17,6 +17,7 @@ tdslocations = {
   "tex/latex/ctex/fd/*.fd",
   "tex/latex/ctex/engine/ctex-engine-*.def",
   "tex/latex/ctex/fontset/ctex-fontset-*.def",
+  "tex/latex/ctex/heading/ctex-heading-*.def",
   "tex/latex/ctex/scheme/ctex-scheme-*.def",
   "tex/latex/ctex/dictionary/*.dict",
   "tex/luatex/ctex/*.lua",
