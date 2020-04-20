@@ -560,7 +560,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
 %
-% \CheckSum{6001}
+% \CheckSum{6025}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4417,13 +4417,16 @@ Copyright and Licence
 % 字符是 ALchar 类。我们这里用 \pkg{xunicode-addon} 来处理 \pkg{xunicode}。
 %    \begin{macrocode}
 \RequirePackage { xunicode-addon }
-\AtBeginUTFCommand
+\AtBeginUTFCommand { \CTEX@beginallalchar }
+\AtEndUTFCommand   { \CTEX@endallalchar }
+\cs_new_protected:Npn \CTEX@beginallalchar
   {
     \group_begin:
-    \lua_now:e { tex.globaldefs = 0 }
-    \ltj@allalchar
+      \ctex_ltj_zero_globaldefs:
+      \ltj@allalchar
   }
-\AtEndUTFCommand { \group_end: }
+\cs_new_protected:Npn \CTEX@endallalchar
+  { \group_end: }
 %    \end{macrocode}
 %
 % \changes{v2.4.2}{2016/05/15}{恢复 \pkg{luatexja} 对 \tn{emshape} 和
@@ -4439,28 +4442,55 @@ Copyright and Licence
 %
 % \paragraph{\pkg{Lua} 函数}
 %
-% \begin{macro}{\ctex_ltj_add_kyenc:n,\ctex_ltj_is_kenc:n,
-% \ctex_ltj_patch_external_font:n}
 % 直接用 |token.set_lua| 定义，不是传统意义上的 \TeX \ 宏。
 %    \begin{macrocode}
 \newluafunction \g_@@_add_kyenc_func
 \newluafunction \g_@@_is_kenc_func
 \newluafunction \g_@@_patch_external_font_func
+\newluafunction \g_@@_use_jfont_func
+\newluafunction \g_@@_set_alt_font_func
+\newluafunction \g_@@_clear_alt_font_func
+\newluafunction \g_@@_pickup_alt_font_func
+\newluafunction \g_@@_pickup_alt_font_aux_func
+\newluafunction \g_@@_if_alt_set_func
+\newluafunction \g_@@_zero_globaldefs_func
 \group_begin:
 \char_set_catcode_space:n { 32 }
 \lua_now:e
   {
     local t = lua.get_functions_table()
-    local set_lua, scan_string = token.set_lua, token.scan_string
-
+    local ltjfont = luatexja.jfont
+    local set_lua = token.set_lua
+    local scan_int, scan_string = token.scan_int, token.scan_string
+%    \end{macrocode}
+% \begin{macro}{\ctex_ltj_add_kyenc:n}
+% 保存 jfont 的编码，用于判断。
+%    \begin{macrocode}
     local id = \int_value:w \g_@@_add_kyenc_func
-    t[id] = luatexja.jfont.add_kyenc_list
+    t[id] = ltjfont.add_kyenc_list
     set_lua("ctex_ltj_add_kyenc:n", id, "global", "protected")
-
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_is_kenc:n}
+% 判断编码是否属于 jfont。
+%    \begin{macrocode}
     local id = \int_value:w \g_@@_is_kenc_func
-    t[id] = luatexja.jfont.is_kenc
+    t[id] = ltjfont.is_kenc
     set_lua("ctex_ltj_is_kenc:n", id, "global")
-
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_patch_external_font:n}
+% 若对字体的定义完全相同，则它们有相同的 \texttt{font.id}。因此如果字形是由
+% \textsf{NFSS} 的替换机制定义的，它们就有相同的 \texttt{font.id}。
+% |print_aftl_address| 函数的定义是
+% \begin{verbatim}
+%   function luatexja.jfont.print_aftl_address()
+%     return ';ltjaltfont' .. tostring(aftl_base):sub(8)
+%   end
+% \end{verbatim}
+% 主要目的是，如果当前字形有替代字体，则往字形的定义中加入一些标志，确保
+% \texttt{font.id} 唯一。
+%    \begin{macrocode}
     local id = \int_value:w \g_@@_patch_external_font_func
     t[id] = function ()
       local s = scan_string()
@@ -4471,13 +4501,103 @@ Copyright and Licence
       if s:sub(1,1) == '"' and s:sub(-1) == '"' then
         is_quoted = true; s = s:sub(2,-2)
       end
-      s = s .. luatexja.jfont.print_aftl_address()
+      s = s .. ltjfont.print_aftl_address()
       if     is_braced then s = '{'..s..'}'
       elseif is_quoted then s = '"'..s..'"'
       end
       tex.sprint(-2, s)
     end
     set_lua("ctex_ltj_patch_external_font:n", id, "global")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_use_jfont:}
+% 使用 jfont，确保当前的 \tn{font} 是 jfont。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_use_jfont_func
+    t[id] = function ()
+      font.current(tex.getattribute("ltj@curjfnt"))
+    end
+    set_lua("ctex_ltj_use_jfont:", id, "global", "protected")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_set_alt_font:nnnn}
+% |#1| 和 |#2| 分别是字符区间的首末，|#3| 是基础字体，|#4| 是替代字体。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_set_alt_font_func
+    t[id] = function ()
+      local b = tonumber(scan_string())
+      local e = tonumber(scan_string())
+      local alt  = scan_string()
+      local base = scan_string()
+      ltjfont.set_alt_font_latex(b, e, alt, base)
+    end
+    set_lua("ctex_ltj_set_alt_font:nnnn", id, "global", "protected")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_clear_alt_font:n}
+% 清除 |#1| 的替代字体。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_clear_alt_font_func
+    t[id] = function ()
+      local base = scan_string()
+      ltjfont.clear_alt_font_latex(base)
+    end
+    set_lua("ctex_ltj_clear_alt_font:n", id, "global", "protected")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_pickup_alt_font:nn}
+% 定义 |#1| 的替代字体，|#2| 是字体大小。\\
+% 会在内部执行 \tn{ltj@pickup@altfont@auxy} 和 \tn{ltj@pickup@altfont@copy}。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_pickup_alt_font_func
+    t[id] = function ()
+      local base = scan_string()
+      local size = scan_string()
+      ltjfont.output_alt_font_cmd("y", base)
+      ltjfont.pickup_alt_font_a(size)
+    end
+    set_lua("ctex_ltj_pickup_alt_font:nn", id, "global", "protected")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\@@_pickup_alt_font:Nn}
+% |#1| 是 \texttt{font.id}，|#2| 是字体名称。
+% 在 \tn{ltj@pickup@altfont@copy} 之中使用。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_pickup_alt_font_aux_func
+    t[id] = function()
+      local num  = scan_int()
+      local base = scan_string()
+      ltjfont.pickup_alt_font_b(num, base)
+    end
+    set_lua("@@_pickup_alt_font:Nn", id, "global", "protected")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\@@_if_alt_set:nT}
+% 判断是否存在替代字体。会设置变量 |aftl_base| 和返回 \tn{@firstofone} 或 \tn{@gobble}。
+% \begin{verbatim}
+%   function luatexja.jfont.does_alt_set(bbase)
+%     aftl_base = alt_font_table_latex[bbase]
+%     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
+%   end
+% \end{verbatim}
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_if_alt_set_func
+    t[id] = function()
+      local base = scan_string()
+      ltjfont.does_alt_set(base)
+    end
+    set_lua("@@_if_alt_set:nT", id, "global")
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\ctex_ltj_zero_globaldefs:}
+% 设置 \tn{globaldefs} 为 $0$，避免全局设置，应当在分组中使用。
+% 这里通过 Lua 设置，可以不受外部 \TeX\ 环境中的 \tn{globaldefs} 的影响。
+%    \begin{macrocode}
+    local id = \int_value:w \g_@@_zero_globaldefs_func
+    t[id] = function()
+      tex.set("globaldefs", 0)
+    end
+    set_lua("ctex_ltj_zero_globaldefs:", id, "global", "protected")
   }
 \group_end:
 %    \end{macrocode}
@@ -4562,10 +4682,12 @@ Copyright and Licence
 %   %%%%%%%% \jfont\CS={...:...;jfm=metric;...}, \globaljfont
 %   \protected\def\jfont#1{%
 %     \afterassignment\ltj@@jfont
-%     \directlua{luatexja.jfont.jfontdefX(false, 'yoko','\luatexluaescapestring{\noexpand#1}')}}
+%     \directlua{luatexja.jfont.jfontdefX
+%       (false, 'yoko','\luatexluaescapestring{\noexpand#1}')}}
 %   \protected\def\globaljfont#1{%
 %     \afterassignment\ltj@@jfont
-%     \directlua{luatexja.jfont.jfontdefX(true,  'yoko','\luatexluaescapestring{\noexpand#1}')}}
+%     \directlua{luatexja.jfont.jfontdefX
+%       (true,  'yoko','\luatexluaescapestring{\noexpand#1}')}}
 %   \newluafunction\ltj@@jfont@inner
 %   \directlua{
 %     local t = lua.get_functions_table()
@@ -4598,7 +4720,7 @@ Copyright and Licence
 % 赋值总是全局的，不会受到分组的影响。
 %    \begin{macrocode}
     \font@name
-    \lua_now:e { font.current(tex.getattribute('ltj@curjfnt')) }
+    \ctex_ltj_use_jfont:
     \use:c { \f@encoding + \f@family }
     \use:c { \curr@fontshape }
   }
@@ -4647,32 +4769,16 @@ Copyright and Licence
 %
 % \begin{macro}[int,TF]{\ctex_ltj_if_alternate_shape_exist:n}
 % 即 \pkg{LuaTeX-ja} 中的 \tn{ltj@@does@alt@set}，判断是否存在替代字体。
-% \begin{verbatim}
-%   function luatexja.jfont.does_alt_set(bbase)
-%     aftl_base = alt_font_table_latex[bbase]
-%     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
-%   end
-% \end{verbatim}
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \ctex_ltj_if_alternate_shape_exist:n #1 { T , F , TF }
   {
-    \lua_now:e { luatexja.jfont.does_alt_set ('\lua_escape:e {#1}') }
-      { \exp_after:wN \prg_return_true: \use_none:n } \prg_return_false:
+    \@@_if_alt_set:nT {#1} { \prg_return_true: \use_none:n }
+    \prg_return_false:
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}{\@@_patch_external_font:w}
-% 若对字体的定义完全相同，则它们有相同的 \texttt{font.id}。因此如果字形是由
-% \textsf{NFSS} 的替换机制定义的，它们就有相同的 \texttt{font.id}。
-% |print_aftl_address| 函数的定义是
-% \begin{verbatim}
-%   function luatexja.jfont.print_aftl_address()
-%     return ';ltjaltfont' .. tostring(aftl_base):sub(8)
-%   end
-% \end{verbatim}
-% 主要目的是，如果当前字形有替代字体，则往字形的定义中加入一些标志，确保
-% \texttt{font.id} 唯一。
 %    \begin{macrocode}
 \cs_new:Npn \@@_patch_external_font:w #1 ~ at
   { \ctex_ltj_patch_external_font:n {#1} ~ at }
@@ -4686,12 +4792,8 @@ Copyright and Licence
   {
     \ctex_ltj_if_alternate_shape_exist:nT { \l_@@_current_shape_tl }
       {
-        \lua_now:e
-          {
-            luatexja.jfont.output_alt_font_cmd
-              ('y', '\lua_escape:e { \l_@@_current_shape_tl }')
-          }
-        \lua_now:e { luatexja.jfont.pickup_alt_font_a ('\f@size') }
+        \ctex_ltj_pickup_alt_font:nn
+          { \l_@@_current_shape_tl } { \f@size }
       }
   }
 \tl_new:N \l_@@_current_shape_tl
@@ -4725,11 +4827,7 @@ Copyright and Licence
 \cs_new_protected:Npn \ltj@pickup@altfont@copy #1#2
   {
     \ltj@@@@getjfontnumber #1
-    \lua_now:e
-      {
-        luatexja.jfont.pickup_alt_font_b
-          ( \int_use:N \ltj@tempcntc, '\lua_escape:e {#2}' )
-      }
+    \@@_pickup_alt_font:Nn \ltj@tempcntc {#2}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5570,10 +5668,9 @@ Copyright and Licence
           }
           { \ctex_ltj_set_alternate_shape:nnn { #2/#3/#4 } { #5/#6/#7 } { ##1 } }
       }
-    \@@_save_alternate_shape:cnn
+    \@@_save_alternate_shape:cn
       { \@@_alternate_cs:n { clear / \l_@@_base_CJKfamily_tl } }
-      { luatexja.jfont.clear_alt_font_latex }
-      { '\lua_escape:e { \CJK@encoding/#2/#3/#4 }' }
+      { \ctex_ltj_clear_alt_font:n { \CJK@encoding/#2/#3/#4 } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -5589,25 +5686,21 @@ Copyright and Licence
   { \ctex_ltj_set_alternate_shape:nnnn {#1} {#2} #3 }
 \cs_new_protected:Npn \ctex_ltj_set_alternate_shape:nnnn #1#2#3#4
   {
-    \ctex_ltj_set_alternate_shape:n
+    \ctex_ltj_set_alternate_shape:e
       {
-        \IfNoValueTF {#4}
-          { \int_eval:n {#3} , \int_eval:n {#3} , }
-          {
-            \int_eval:n { \tl_if_blank:nTF {#3} { "80 } {#3} } ,
-            \int_eval:n { \tl_if_blank:nTF {#4} { "10FFFF } {#4} } ,
-          }
-        '\lua_escape:e { \CJK@encoding/#2 }' ,
-        '\lua_escape:e { \CJK@encoding/#1 }'
+        \@@_range_normalization:nn {#3} {#4}
+        { \CJK@encoding / \exp_not:n {#2} }
+        { \CJK@encoding / \exp_not:n {#1} }
       }
   }
 \cs_new_protected:Npn \ctex_ltj_set_alternate_shape:n #1
   {
-    \lua_now:e { luatexja.jfont.set_alt_font_latex ( #1 ) }
-    \@@_save_alternate_shape:cnn
+    \ctex_ltj_set_alt_font:nnnn #1
+    \@@_save_alternate_shape:cn
       { \@@_alternate_cs:n { reset / \l_@@_base_CJKfamily_tl } }
-      { luatexja.jfont.set_alt_font_latex } {#1}
+      { \ctex_ltj_set_alt_font:nnnn #1 }
   }
+\cs_generate_variant:Nn \ctex_ltj_set_alternate_shape:n { e }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5620,31 +5713,29 @@ Copyright and Licence
       {
         \ctex_ltj_set_alternate_shape:n
           {
-            ##1 ,
-            '\lua_escape:e { \CJK@encoding/#2 }' ,
-            '\lua_escape:e { \CJK@encoding/#1 }'
+            ##1
+            { \CJK@encoding/#2 }
+            { \CJK@encoding/#1 }
           }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_save_alternate_shape:Nnn}
+% \begin{macro}{\@@_save_alternate_shape:Nn}
 % 将实际设置的替换字形保存起来用于清除或恢复。
 % 暂时令 \cs{l_@@_base_family_tl} 为 \cs{scan_stop:} 是让它不被展开，使得替换
 % 字体的设置可以在 \tn{addCJKfontfeature} 中直接使用。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_save_alternate_shape:Nnn #1#2#3
+\cs_new_protected:Npn \@@_save_alternate_shape:Nn #1#2
   {
     \group_begin:
-    \cs_if_exist:NF #1 { \cs_set_eq:NN #1 \prg_do_nothing: }
-    \cs_set_eq:NN \l_@@_base_family_tl \scan_stop:
-    \cs_set_eq:NN \lua_escape:e \scan_stop:
-    \cs_gset_protected:Npx #1
-      { \exp_not:o {#1} \exp_not:N \lua_now:e { #2 ( #3 ) } }
+      \cs_if_exist:NF #1 { \cs_set_eq:NN #1 \prg_do_nothing: }
+      \cs_set_eq:NN \l_@@_base_family_tl \scan_stop:
+      \cs_gset_protected:Npx #1 { \exp_not:o {#1} #2 }
     \group_end:
   }
-\cs_generate_variant:Nn \@@_save_alternate_shape:Nnn { c }
+\cs_generate_variant:Nn \@@_save_alternate_shape:Nn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5665,7 +5756,8 @@ Copyright and Licence
     \group_begin:
       \ctex_ltj_family_if_exist:xNTF {#1} \l_@@_base_family_tl
         {
-          \cs_if_exist_use:cT { \@@_alternate_cs:n { clear / #1 } }
+          \cs_if_exist_use:cT
+            { \@@_alternate_cs:n { clear / #1 } }
             {
               \prop_gput:Nno \g_@@_reset_alternate_prop
                 {#1} { \l_@@_base_family_tl }
@@ -5735,15 +5827,22 @@ Copyright and Licence
 \cs_new_protected:Npn \ctex_ltj_save_char_range:nn #1#2
   {
     \tl_put_right:Nx \l_@@_char_range_tl
-      { {
-          \IfNoValueTF {#2}
-            { \int_eval:n {#1} , \int_eval:n {#1} }
-            {
-              \int_eval:n { \tl_if_blank:nTF {#1} { "80 } {#1} } ,
-              \int_eval:n { \tl_if_blank:nTF {#2} { "10FFFF } {#2} }
-            }
-      } }
+      { { \@@_range_normalization:nn {#1} {#2} } }
   }
+\cs_new:Npn \@@_range_normalization:nn #1#2
+  {
+    \tl_if_novalue:nTF {#2}
+      {
+        { \int_eval:n {#1} }
+        { \int_eval:n {#1} }
+      }
+      {
+        { \int_eval:n { \tl_if_blank:nTF {#1} { \c_@@_range_min_int } {#1} } }
+        { \int_eval:n { \tl_if_blank:nTF {#2} { \c_@@_range_max_int } {#2} } }
+      }
+  }
+\int_const:Nn \c_@@_range_min_int { "80 }
+\int_const:Nn \c_@@_range_max_int { \c_max_char_int }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5879,10 +5978,7 @@ Copyright and Licence
 \g@addto@macro \@sffamilyhook { \kanjifamily { \CJKsfdefault } }
 \g@addto@macro \@ttfamilyhook { \kanjifamily { \CJKttdefault } }
 \NewDocumentCommand \CJKfamily { m }
-  {
-    \kanjifamily {#1}
-    \selectfont
-  }
+  { \kanjifamily {#1} \selectfont }
 %    \end{macrocode}
 %
 % \changes{v2.4.15}{2019/04/05}{将 \upLaTeX 的默认字体由 \texttt{mc} 改为
@@ -5890,9 +5986,9 @@ Copyright and Licence
 %
 % 将 \upLaTeX 的默认字体由 |mc| 改为 |zhrm|，并启用 \tn{jfam}。
 %    \begin{macrocode}
-\DeclareErrorKanjiFont{JY2}{zhrm}{m}{n}{10}
-\DeclareKanjiSubstitution{JY2}{zhrm}{m}{n}
-\DeclareKanjiSubstitution{JT2}{zhrm}{m}{n}
+\DeclareErrorKanjiFont    {JY2}{zhrm}{m}{n}{10}
+\DeclareKanjiSubstitution {JY2}{zhrm}{m}{n}
+\DeclareKanjiSubstitution {JT2}{zhrm}{m}{n}
 \DeclareSymbolFont{mincho}{JY2}{zhrm}{m}{n}
 \SetSymbolFont{mincho}{bold}{JY2}{zhrm}{bx}{n}
 \jfam \symmincho
@@ -6457,7 +6553,7 @@ Copyright and Licence
 %
 % \changes{v2.4.10}{2017/07/23}{定义 \tn{cht}，\tn{cdp} 和 \tn{cwd}。}
 %
-% \begin{macro}[int]{\cht,\cdp,\cwd}
+% \begin{macro}[int]{\cht,\cdp,\cwd,\ctex_update_kanjisize:}
 % 分别从 \file{.jfm} 中读取字符高度、深度和宽度，目前仅考虑横排的情况。
 %    \begin{macrocode}
 %<*luatex>
@@ -6476,17 +6572,16 @@ Copyright and Licence
     local getattribute = tex.getattribute
     local setdimen = tex.setdimen
     t[id] = function ()
-      local ft = fmt[getattribute('ltj@curjfnt')] or nulltable
+      local ft = fmt[getattribute("ltj@curjfnt")] or nulltable
       local ft = ft and ft.char_type or nulltable
       local fk = ft and ft[0] or nulltable
-      setdimen('cht', fk.height or 0)
-      setdimen('cdp', fk.depth or 0)
-      setdimen('cwd', fk.width or ft.zw or 0)
+      setdimen("cht", fk.height or 0)
+      setdimen("cdp", fk.depth or 0)
+      setdimen("cwd", fk.width or ft.zw or 0)
     end
+    token.set_lua("ctex_update_kanjisize:", id, "global", "protected")
   }
 \group_end:
-\cs_new_protected:Npn \ctex_update_kanjisize:
- { \tex_luafunction:D \g_@@_kanjisize_func }
 \ctex_add_to_selectfont:n { \ctex_update_kanjisize: }
 %</luatex>
 %    \end{macrocode}
@@ -8056,7 +8151,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_titlesec_format_explicit:Nn #1#2
   {
-    \cs_set:Npx #1 ##1
+    \cs_set_nopar:Npx #1 ##1
       {
         \bool_if:cTF { CTEX@#2@runin }
           { \exp_not:N \ttlh@runin }
