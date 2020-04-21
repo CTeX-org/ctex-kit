@@ -558,7 +558,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
 %
-% \CheckSum{5981}
+% \CheckSum{6012}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3137,15 +3137,18 @@ Copyright and Licence
 %
 % \changes{v2.5}{2020/04/19}
 %   {处理 \cs{ctex_file_input:n} 在 \pkg{ctexsize} 中未定义的错误。}
+% \changes{v2.5}{2020/04/21}{在 \pkg{ctexsize} 也载入 \pkg{fix-cm}。}
 %
 %    \begin{macrocode}
 %<*class|ctex|ctexheading|ctexsize>
-%<*!ctexsize>
 %    \end{macrocode}
 %
+% \pkg{ctexsize} 也要载入 \pkg{fix-cm} 包解决传统 cm 字体字号缺失的问题。
 %    \begin{macrocode}
-\RequirePackage { ctexhook , ctexpatch }
-%<!ctexheading>\RequirePackage { fix-cm , everysel }
+%<!ctexsize>\RequirePackage { ctexhook , ctexpatch }
+%<!ctexheading>\RequirePackage { fix-cm }
+%<*!ctexsize>
+%<!ctexheading>\RequirePackage { everysel }
 %    \end{macrocode}
 %
 % \subsection{内部函数与变量}
@@ -10914,6 +10917,7 @@ Copyright and Licence
 % \subsection{\pkg{ctexhook} 宏包}
 %
 % \changes{v2.2}{2015/06/26}{将文档开头和宏包末尾钩子提取到 \pkg{ctexhook} 宏包中。}
+% \changes{v2.5}{2020/04/21}{增加宏包开头钩子。}
 %
 %    \begin{macrocode}
 %<*ctexhook>
@@ -10941,22 +10945,46 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\ctex_at_begin_package:nn}
+% 如果宏包已经被载入，则钩子无效，给出警告。
+% 在 \pkg{filehook} 的钩子\emph{之前}起作用。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_at_begin_package:nn #1
+  {
+    \@ifpackageloaded {#1}
+      { \@@_package_loaded_warning:nn {#1} }
+      { \ctex_gadd_package_hook:nnn { begin } {#1} }
+  }
+\cs_new_protected:Npn \@@_package_loaded_warning:nn #1#2
+  { \msg_warning:nnx { ctex } { invalid-hook } {#1} }
+\msg_new:nnn { ctex } { invalid-hook }
+  {
+    Package~`#1'~is~loaded. \\
+    \token_to_str:N \ctex_at_begin_package:nn \{#1\}\{...\}~is~invalid.
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\ctex_at_end_package:nn}
 % 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
 % 在宏包末尾执行语句，否则立即执行。
+% 在 \pkg{filehook} 的钩子\emph{之后}起作用。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_at_end_package:nn #1
   {
     \@ifpackageloaded {#1}
       { \use:n }
-      { \ctex_gadd_hook:cn { g_@@_at_end_ #1 _hook_tl } }
+      { \ctex_gadd_package_hook:nnn { end } {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\ctex_gadd_hook:Nn, \ctex_gadd_hook:cn}
+% \begin{macro}[int]{\ctex_gadd_package_hook:nn,
+% \ctex_gadd_hook:Nn, \ctex_gadd_hook:cn}
 % 给钩子附加内容。
 %    \begin{macrocode}
+\cs_new_protected:Npn \ctex_gadd_package_hook:nnn #1#2
+  { \ctex_gadd_hook:cn { g_@@_at_ #1 _ #2 _hook_tl } }
 \cs_new_protected:Npn \ctex_gadd_hook:Nn #1
   {
     \tl_if_exist:NF #1 { \tl_new:N #1 }
@@ -10966,27 +10994,39 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\ctex_package_end_hook:n}
-% 宏包末尾钩子，只执行一次，用后清除。
+% \begin{macro}[int]{\ctex_use_package_hook:nn}
+% 宏包钩子，只执行一次，用后清除。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_package_end_hook:n #1
+\cs_new_protected:Npn \ctex_use_package_hook:nn #1#2
   {
     \group_begin: \exp_args:NNc \group_end:
-    \@@_package_end_hook_aux:N { g_@@_at_end_ #1 _hook_tl }
+    \@@_use_package_hook_aux:N { g_@@_at_ #1 _ #2 _hook_tl }
   }
-\cs_new_protected:Npn \@@_package_end_hook_aux:N #1
+\cs_new_protected:Npn \@@_use_package_hook_aux:N #1
   { \cs_if_exist_use:NT #1 { \cs_undefine:N #1 } }
-\cs_new_protected:Npn \CTEX@popfilename@hook
-  {
-    \cs_if_eq:NNT \@currext \@pkgextension
-      { \ctex_package_end_hook:n { \@currname } }
-  }
 %    \end{macrocode}
 % \end{macro}
+%
+% \tn{@pushfilename} 内部的 \tn{@currname} 和 \tn{@currext} 保存的是
+% 前一个宏包的状态，不能使用。需要对其后的 \tn{@reset@ptions} 做补丁来实现
+% \cs{ctex_at_begin_package:nn} 的功能。
+%    \begin{macrocode}
+\tl_put_right:Nn \@reset@ptions { \CTEX@reset@ptions@hook }
+\cs_new_protected:Npn \CTEX@reset@ptions@hook
+  {
+    \cs_if_eq:NNT \@currext \@pkgextension
+      { \ctex_use_package_hook:nn { begin } { \@currname } }
+  }
+%    \end{macrocode}
 %
 % 对 \tn{@popfilename} 做补丁来实现 \cs{ctex_at_end_package:nn} 的功能。
 %    \begin{macrocode}
 \tl_put_left:Nn \@popfilename { \CTEX@popfilename@hook }
+\cs_new_protected:Npn \CTEX@popfilename@hook
+  {
+    \cs_if_eq:NNT \@currext \@pkgextension
+      { \ctex_use_package_hook:nn { end } { \@currname } }
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -11125,7 +11165,7 @@ Copyright and Licence
                   \exp_not:N ##2
                   \exp_not:c { ##3 ~ }
                   \exp_not:c { #1##3 }
-              } {##3} ##1
+              } { ##3 } ##1
           }
           { ##1##2 }
       }
