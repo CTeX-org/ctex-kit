@@ -1,13 +1,15 @@
 -- Common settings for ctex-kit development repo, used by l3build script
 
-supportdir   = supportdir   or "../support"
-unpackexe    = unpackexe    or "luatex"
-gitverfiles  = gitverfiles  or unpackfiles
-unpackexe    = unpackexe    or "luatex"
-typesetexe   = typesetexe   or "xelatex"
-makeindexexe = makeindexexe or "zhmakeindex"
-typesetopts  = typesetopts  or "-halt-on-error"
-binaryfiles  = binaryfiles  or {"*.pdf", "*.zip", "*.luc", "*.tec", "*.tfm", "*.tar.bz2"}
+supportdir    = supportdir    or "../support"
+unpackexe     = unpackexe     or "luatex"
+gitverfiles   = gitverfiles   or unpackfiles
+unpackexe     = unpackexe     or "luatex"
+typesetexe    = typesetexe    or "xelatex"
+makeindexexe  = makeindexexe  or "zhmakeindex"
+makeindexopts = makeindexopts or "-q"
+checkopts     = checkopts     or "-halt-on-error"
+typesetopts   = typesetopts   or "-halt-on-error"
+binaryfiles   = binaryfiles   or {"*.pdf", "*.zip", "*.luc", "*.tec", "*.tfm", "*.tar.bz2"}
 
 kpse.set_program_name("kpsewhich")
 local lookup = kpse.lookup
@@ -146,11 +148,25 @@ null_function = function() return 0 end
 local insert = table.insert
 
 function saveall(names)
+  local names, opt_engine = names, options.engine
   local t, engines = { }, { }
-  if names then
-    for _,i in ipairs(names) do engines[i] = true end
+  if opt_engine then
+    for _,i in ipairs(opt_engine) do engines[i] = true end
   end
-  for _,file in ipairs(filelist(testfiledir, "*.tlg")) do
+  local lvts = names and { }
+  if names then
+    local uniq = { }
+    local glob = "*%s*.tlg"
+    for _,i in ipairs(names) do
+      for _,j in ipairs(filelist(testfiledir, glob:format(i))) do
+        if not uniq[j] then
+          uniq[j] = true
+          insert(lvts, j)
+        end
+      end
+    end
+  end
+  for _,file in ipairs(lvts or filelist(testfiledir, "*.tlg")) do
     local base = jobname(file)
     local lvt, tex = base:match([[^(.+)%.(%w+)$]])
     local lvt = lvt or base
@@ -161,8 +177,9 @@ function saveall(names)
   if next(t) then
     checkinit()
     checkinit = null_function
-    for tex, lvts in pairs(t) do
-      if not next(engines) or engines[tex] then
+    for _, tex in ipairs(checkengines) do
+      local lvts = t[tex]
+      if lvts and (not next(engines) or engines[tex]) then
         options.engine = { tex }
         save(lvts)
       end
