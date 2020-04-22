@@ -197,7 +197,7 @@ doc = function (...)
   checksum()
   local retval = unhooked_doc(...)
   doc_posthook()
-  return 0
+  return retval
 end
 target_list.doc.func = doc
 
