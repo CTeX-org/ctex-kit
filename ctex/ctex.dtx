@@ -1595,7 +1595,7 @@ Copyright and Licence
 %   并且使用不带星号的章节标题命令（即 \tn{section}）。
 %
 %   \LaTeX{} 标准的章节标题命令（如 \tn{section}）大体上完成四项工作：
-%   输出标题内容、对标题编号（计数器增加 1）、将标题例如目录（及 PDF 书签，
+%   输出标题内容、对标题编号（计数器增加 1）、将标题列入目录（及 PDF 书签，
 %   若使用 \pkg{hyperref} 宏包）、更新页眉页脚标记。
 %   带星号的章节标题命令（如 \tn{section*}）只简单地输出章节标题内容
 %  （而不对标题编号，不将标题列入目录或 PDF 书签，也不写入页眉页脚标记）。
@@ -1724,7 +1724,7 @@ Copyright and Licence
 %   \end{ctexexam}
 % \end{function}
 %
-% \begin{function}[EXP,updated=2015-06-30]{.../format, .../format+}
+% \begin{function}[EXP,updated=2020-04-22]{.../format, .../format+}
 %   \begin{syntax}
 %     format = \Arg{格式命令}
 %     format+= \Arg{格式命令}
@@ -1733,6 +1733,12 @@ Copyright and Licence
 %   内容。可以用于控制章节标题的对齐方式、整体字体字号等格式。
 %
 %   带加号的 \opt{format+} 选项则用于在已有格式之后追加新的格式命令。
+%
+%   \opt{format} 选项的最后一个格式命令可以是一个有一个参数的命令。
+%   这个命令的参数用于接受章节名字、编号和标题内容，并且接受相关的
+%   \opt{nameformat}, \opt{numberformat}, \opt{aftername},
+%   \opt{titleformat}, \opt{aftertitle}, \opt{indent}
+%   和 \opt{hang} 等选项设置的格式。
 %
 %   例如，设置章格式为无衬线字体左对齐，为节格式增加无衬线字体设置：
 %   \begin{ctexexam}
@@ -2639,7 +2645,7 @@ Copyright and Licence
 % 例如对于 \TeX{} Live，系统自带的配置文件就在 \TeX{} Live 安装目录下的
 % \path{texmf-dist/tex/latex/ctex/config/} 子目录下，可以修改它的副本，保存在
 % 本地 TDS 树的 \path{texmf-local/tex/latex/ctex/} 目录下，或者用户 TDS 树的
-% \path{~/.texlive2015/texmf-var/tex/latex/ctex/} 目录下，作为本地/用户专有的
+% \path{~/texmf/tex/latex/ctex/} 目录下，作为本地/用户专有的
 % 配置文件。复制配置文件后需要运行 |texhash| 命令使本地配置文件生效。
 %
 % \MiKTeX{} 的配置文件也保存在类似的目录结构中，\MiKTeX{} 管理的
@@ -2926,10 +2932,10 @@ Copyright and Licence
 %         同步移除 \tn{CTEXunderdot}、\tn{CTEXunderline}、
 %         \tn{CTEXunderdblline}、\tn{CTEXunderwave}、\tn{CTEXsout}、\tn{CTEXxout}、
 %         \env{CTEXfilltwosides} 等命令和环境。
-%         若需使用相关宏包，建议用户使用 \cs{usepackage} 命令主动载入；
+%         若需使用相关宏包，建议用户使用 \tn{usepackage} 命令主动载入；
 %         此外，使用作为兼容性保留的 \opt{fntef} 也会视编译引擎载入相应宏包。
 %   \item 不再支持 Windows XP 系统，默认要求 Windows 系统有微软雅黑字体。
-%         同时 \opt{windowsold} 和 \opt{windowsnew} 成为过时字库选项。
+%         同时删除 \opt{windowsold} 和 \opt{windowsnew} 字库选项。
 %         建议 Windows XP 系统的用户及时更新操作系统。若一定要在 Windows XP 中使用，
 %         请使用 2.5 以前的版本。
 %   \item \opt{ubuntu} 字库改用思源（Noto CJK）和文鼎字库。该字库不再支持 \pdfLaTeX\ 编译。
@@ -3921,8 +3927,8 @@ Copyright and Licence
         \let\CTEX@add\@ne
         \@tfor\x:={dvips}{dvipdfmx}{dvisvgm}\do{%
           \expandafter\in@\expandafter{\expandafter,\x,}{,#1,}%
-          \ifin@ \let\CTEX@add\tw@ \@break@tfor \fi}
-        \ifodd\CTEX@add\gdef\@classoptionslist{dvipdfmx,#1}\fi
+          \ifin@ \let\CTEX@add\tw@ \@break@tfor \fi}%
+        \ifodd\CTEX@add \gdef\@classoptionslist{dvipdfmx,#1}\fi
       \fi}
     \expandafter\x\expandafter{\@classoptionslist}
   \fi
@@ -7419,6 +7425,8 @@ Copyright and Licence
 % \changes{v2.4.16}{2019/05/11}{修正 \opt{part/indent} 和 \opt{chapter/indent}
 %   的实现方法，在其标题内部禁用 \opt{autoindent}。}
 %
+% \changes{v2.5}{2020/04/22}{标题选项 \opt{format} 也可以接受参数。}
+%
 % \paragraph{part 的标题}
 %
 % \changes{v2.2}{2015/06/27}{非 \cls{ctexart} 类的 \opt{part/beforeskip} 和
@@ -7488,10 +7496,11 @@ Copyright and Licence
   \fi
   \CTEX@gettitle{#1}%
   \CTEX@addtocline{part}{#1}%
+  \partmark{#1}%
   {\interlinepenalty \@M
 %  \normalfont \parindent \z@ \raggedright
    \CTEX@disableautoindent
-   \normalfont \CTEX@part@format
+   \normalfont \CTEX@part@format{%
 %  \ifnum \c@secnumdepth >\m@ne
 %    \Large\bfseries\partname\nobreakspace\thepart\par\nobreak
 %  \fi
@@ -7500,8 +7509,7 @@ Copyright and Licence
 %  \huge\bfseries #2%
    \CTEX@part@titleformat{#2}%
 %  \markboth{}{}%
-   \partmark{#1}%
-   \CTEX@part@aftertitle}%
+   \CTEX@part@aftertitle}}%
   \nobreak
 % \vskip 3ex
   \CTEX@setheadingskip \CTEX@part@afterskip
@@ -7533,7 +7541,7 @@ Copyright and Licence
   {\interlinepenalty \@M
 %  \normalfont \centering
    \CTEX@disableautoindent
-   \normalfont \CTEX@part@format
+   \normalfont \CTEX@part@format{%
 %  \ifnum \c@secnumdepth >-2\relax
 %    \huge\bfseries\partname\nobreakspace\thepart\par\vskip 20\p@
 %  \fi
@@ -7541,7 +7549,7 @@ Copyright and Licence
      {\CTEXifname{\CTEX@partname\CTEX@part@aftername}{}}%
 %  \Huge\bfseries #2\par}%
    \CTEX@part@titleformat{#2}%
-   \CTEX@part@aftertitle}%
+   \CTEX@part@aftertitle}}%
   \@endpart}
 %</book|report>
 %    \end{macrocode}
@@ -7557,11 +7565,11 @@ Copyright and Licence
     {\interlinepenalty \@M
 %    \normalfont \parindent \z@ \raggedright
      \CTEX@disableautoindent
-     \normalfont \CTEX@part@format
+     \normalfont \CTEX@part@format{%
      \CTEX@hangindent{part}{}%
 %    \huge \bfseries #1\par}%
      \CTEX@part@titleformat{#1}%
-     \CTEX@part@aftertitle}%
+     \CTEX@part@aftertitle}}%
      \nobreak
 %    \vskip 3ex
      \CTEX@setheadingskip \CTEX@part@afterskip
@@ -7577,11 +7585,11 @@ Copyright and Licence
     {\interlinepenalty \@M
 %    \normalfont \centering
      \CTEX@disableautoindent
-     \normalfont \CTEX@part@format
+     \normalfont \CTEX@part@format{%
      \CTEX@hangindent{part}{}%
 %    \Huge \bfseries #1\par}%
      \CTEX@part@titleformat{#1}%
-     \CTEX@part@aftertitle}%
+     \CTEX@part@aftertitle}}%
     \@endpart}
 %</book|report>
 %    \end{macrocode}
@@ -7704,8 +7712,8 @@ Copyright and Licence
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
   {\CTEX@disableautoindent
-   \normalfont \CTEX@chapter@format
    \interlinepenalty\@M
+   \normalfont \CTEX@chapter@format{%
 %  \ifnum \c@secnumdepth >\m@ne
 %    \if@mainmatter
 %      \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
@@ -7715,7 +7723,7 @@ Copyright and Licence
      {\CTEXifname{\CTEX@chaptername\CTEX@chapter@aftername}{}}%
 %  \Huge \bfseries #1\par\nobreak
    \CTEX@chapter@titleformat{#1}%
-   \CTEX@chapter@aftertitle
+   \CTEX@chapter@aftertitle}%
    \nobreak
 %  \vskip 40\p@
    \CTEX@setheadingskip \CTEX@chapter@afterskip
@@ -7734,12 +7742,12 @@ Copyright and Licence
   \vspace*{\CTEX@headingskip}%
 % {\normalfont \parindent \z@ \raggedright
   {\CTEX@disableautoindent
-   \normalfont \CTEX@chapter@format
    \interlinepenalty\@M
+   \normalfont \CTEX@chapter@format{%
    \CTEX@hangindent{chapter}{}%
 %  \Huge \bfseries  #1\par\nobreak
    \CTEX@chapter@titleformat{#1}%
-   \CTEX@chapter@aftertitle
+   \CTEX@chapter@aftertitle}%
    \nobreak
 %  \vskip 40\p@
    \CTEX@setheadingskip \CTEX@chapter@afterskip
@@ -7756,6 +7764,11 @@ Copyright and Licence
 % \paragraph{section 类的标题}
 %
 % \begin{macro}[int]{\@startsection}
+% \LaTeX 的标准参数是：
+% \begin{quote}\small
+%   \Arg{name}\Arg{level}\Arg{indent}\Arg{beforeskip}\Arg{afterskip}^^A
+%   \Arg{style}|*|\oarg{altheading}\Arg{heading}
+% \end{quote}
 %    \begin{macrocode}
 \def\@startsection#1#2#3#4#5#6{%
   \if@noskipsec \leavevmode \fi
@@ -7818,10 +7831,10 @@ Copyright and Licence
 % \ifdim \@tempskipa>\z@
   \unless \ifodd \CTEX@runin
     \begingroup
+      \interlinepenalty \@M
       #6{%
         \CTEX@hangfrom{\hskip\glueexpr #3\relax\@svsec}%
-%       \interlinepenalty \@M #8\@@par}%
-        \interlinepenalty \@M
+%       \interlinepenalty \@M #8\@@@@par}%
         \csname CTEX@#1@titleformat\endcsname{#8}%
         \csname CTEX@#1@aftertitle\endcsname}%
     \endgroup
@@ -7860,10 +7873,10 @@ Copyright and Licence
 % \ifdim \@tempskipa>\z@
   \unless \ifodd \CTEX@runin
     \begingroup
+      \interlinepenalty \@M
       #4{%
         \CTEX@hangfrom{\hskip\glueexpr #1\relax}%
-%         \interlinepenalty \@M #5\@@par}%
-          \interlinepenalty \@M
+%         \interlinepenalty \@M #5\@@@@par}%
           \CTEX@titleformat@n{#5}%
           \CTEX@aftertitle}%
     \endgroup
@@ -8514,7 +8527,7 @@ Copyright and Licence
 %     \usebeamercolor[fg]{part name}\partname~\insertromanpartnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@part@beforeskip\relax}%
-    \CTEX@part@format
+    \CTEX@part@format{%
     \parindent \dimexpr \CTEX@part@indent \relax
     \ifodd \CTEX@part@numbering
       \CTEX@partname \CTEX@part@aftername
@@ -8522,7 +8535,7 @@ Copyright and Licence
     \begin{beamercolorbox}[sep=16pt,center,#1]{part title}
 %      \usebeamerfont{part title}\insertpart\par
       \CTEX@part@titleformat \insertpart \CTEX@part@aftertitle
-    \end{beamercolorbox}%
+    \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@part@afterskip\relax}%
   \endgroup
 }
@@ -8538,7 +8551,7 @@ Copyright and Licence
 %     \usebeamercolor[fg]{section name}\sectionname~\insertsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@section@beforeskip\relax}%
-    \CTEX@section@format
+    \CTEX@section@format{
     \parindent \dimexpr \CTEX@section@indent \relax
     \ifodd \CTEX@section@numbering
       \CTEX@sectionname \CTEX@section@aftername
@@ -8546,7 +8559,7 @@ Copyright and Licence
     \begin{beamercolorbox}[sep=12pt,center,#1]{part title}
 %      \usebeamerfont{section title}\insertsection\par
       \CTEX@section@titleformat \insertsection \CTEX@section@aftertitle
-    \end{beamercolorbox}%
+    \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@section@afterskip\relax}%
   \endgroup
 }
@@ -8562,7 +8575,7 @@ Copyright and Licence
 %     \usebeamercolor[fg]{subsection name}\subsectionname~\insertsubsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@subsection@beforeskip\relax}%
-    \CTEX@subsection@format
+    \CTEX@subsection@format{%
     \parindent \dimexpr \CTEX@subsection@indent \relax
     \ifodd \CTEX@subsection@numbering
       \CTEX@subsectionname \CTEX@subsection@aftername
@@ -8570,7 +8583,7 @@ Copyright and Licence
     \begin{beamercolorbox}[sep=8pt,center,#1]{part title}
 %      \usebeamerfont{subsection title}\insertsubsection\par
       \CTEX@subsection@titleformat \insertsubsection \CTEX@subsection@aftertitle
-    \end{beamercolorbox}%
+    \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@subsection@afterskip\relax}%
   \endgroup
 }
