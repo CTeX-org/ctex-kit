@@ -564,7 +564,7 @@ Copyright and Licence
 % \changes{v2.4.12}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{6082}
+% \CheckSum{6120}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2141,7 +2141,7 @@ Copyright and Licence
 %   他们的默认值，在 \opt{scheme} 选项的不同取值下都为 \SI{10}{pt}。
 % \end{function}
 %
-% \begin{function}[EXP,updated=2015-06-27]{.../indent}
+% \begin{function}[EXP,updated=2020-04-23]{.../indent}
 %   \begin{syntax}
 %   indent = \Arg{缩进间距}
 %   \end{syntax}
@@ -2213,8 +2213,7 @@ Copyright and Licence
 % \end{minipage}^^A
 % \end{table}
 %
-% \begin{function}[EXP,updated=2019-03-31]{part/hang, chapter/hang, section/hang,
-%   subsection/hang, subsubsection/hang, paragraph/hang, subparagraph/hang}
+% \begin{function}[EXP,updated=2020-04-23]{.../hang}
 %   \begin{syntax}
 %   hang = \TF
 %   \end{syntax}
@@ -2934,7 +2933,7 @@ Copyright and Licence
 %
 % \CTeX\ 2.5 有一些比较大的变动。
 %
-% \begin{function}{UTF8, GBK}
+% \begin{function}[label =]{UTF8, GBK}
 %   (pdf)\LaTeX{} 格式下，文档编码初始值统一设置成 UTF-8。因此，仍旧使用 GBK
 %   编码的文档，需要在文档类或宏包选项中显式指定 \opt{GBK}。
 % \end{function}
@@ -2956,7 +2955,7 @@ Copyright and Licence
 % \end{function}
 %
 % \begin{function}{windowsold, windowsnew}
-%   相关字库选项已删除。
+%   过时字库选项，作为兼容性保留，功能是载入 \opt{windows} 字库。
 % \end{function}
 %
 % \begin{function}{ubuntu}
@@ -7144,14 +7143,6 @@ Copyright and Licence
 %<*class|heading>
 %    \end{macrocode}
 %
-% \begin{macro}[int]{\CTEX@disableautoindent}
-% 禁用自动调整首行缩进。
-%    \begin{macrocode}
-\cs_new_protected:Npn \CTEX@disableautoindent
-  { \tl_clear:N \l_@@_autoindent_tl }
-%    \end{macrocode}
-% \end{macro}
-%
 % \subsubsection{定义标题格式选项}
 %
 % \begin{variable}{\c_@@_section_headings_seq}
@@ -7349,11 +7340,45 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
+% \changes{v2.5}{2020/04/23}{重构标题选项 \opt{indent} 和 \opt{hang}。}
+%
+% \begin{macro}[int]{\CTEX@heading@format@initial}
+% 标题格式的一些初始设置，包括恢复默认字体，并禁用自动调整首行缩进，禁止在标题中分页。
+% 同时用 \tn{noindent} 抑制首行缩进并进入水平模式。
+% 统一在各级标题的 \opt{format} 选项之前使用。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@heading@format@initial
+  {
+    \normalfont
+    \tl_clear:N \l_@@_autoindent_tl
+    \int_set:Nn \tex_interlinepenalty:D { 10 000 }
+    \tex_noindent:D
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_indent_box:n}
+% 设置 \tn{parindent}，并插入用于产生缩进的盒子，如果缩进为 |0|，就不插入。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_indent_box:n #1
+  {
+    \dim_set:Nn \tex_parindent:D {#1}
+    \@@_insert_indent:
+  }
+\cs_new_protected:Npn \@@_insert_indent:
+  {
+    \dim_compare:nNnF \tex_parindent:D = \c_zero_dim
+      { \tex_indent:D }
+  }
+\cs_new_eq:NN \CTEX@indentbox \ctex_indent_box:n
+%    \end{macrocode}
+% \end{macro}
+%
+% \subsubsection{标准标题命令的修改}
+%
 %    \begin{macrocode}
 %<*article|book|report>
 %    \end{macrocode}
-%
-% \subsubsection{标准标题命令的修改}
 %
 % \begin{macro}[int]{\CTEX@fixtopskip}
 % 修正 \cls{book} 和 \cls{report} 类的 \tn{part} 和 \tn{chapter} 标题之前的多余空行。
@@ -7460,19 +7485,19 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*article>
 \renewcommand\part{%
-   \if@noskipsec \leavevmode \fi
-   \par
-   \CTEX@part@break
-%  \addvspace{4ex}%
-   \CTEX@setheadingskip \CTEX@part@beforeskip
-   \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
-   \addvspace \CTEX@headingskip
-   \ifodd \CTEX@part@afterindent
-     \@afterindenttrue
-   \else
-     \@afterindentfalse
-   \fi
-   \secdef\@part\@spart}
+  \if@noskipsec \leavevmode \fi
+  \par
+  \CTEX@part@break
+% \addvspace{4ex}%
+  \CTEX@setheadingskip \CTEX@part@beforeskip
+  \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
+  \addvspace \CTEX@headingskip
+  \ifodd \CTEX@part@afterindent
+   \@afterindenttrue
+  \else
+   \@afterindentfalse
+  \fi
+  \secdef\@part\@spart}
 %</article>
 %<*book|report>
 \renewcommand\part{%
@@ -7521,19 +7546,20 @@ Copyright and Licence
   \CTEX@gettitle{#1}%
   \CTEX@addtocline{part}{#1}%
   \partmark{#1}%
-  {\interlinepenalty \@M
-%  \normalfont \parindent \z@ \raggedright
-   \CTEX@disableautoindent
-   \normalfont \CTEX@part@format{%
-%  \ifnum \c@secnumdepth >\m@ne
-%    \Large\bfseries\partname\nobreakspace\thepart\par\nobreak
-%  \fi
-   \CTEX@hangindent{part}%
-     {\CTEXifname{\CTEX@partname\CTEX@part@aftername}{}}%
-%  \huge\bfseries #2%
-   \CTEX@part@titleformat{#2}%
-%  \markboth{}{}%
-   \CTEX@part@aftertitle}}%
+  \begingroup
+%   \parindent \z@ \raggedright \interlinepenalty \@M \normalfont
+    \CTEX@heading@format@initial
+    \CTEX@part@format{%
+%   \ifnum \c@secnumdepth >\m@ne
+%     \Large\bfseries\partname\nobreakspace\thepart\par\nobreak
+%   \fi
+      \CTEX@headinghang{part}%
+        {\CTEXifname{\CTEX@partname\CTEX@part@aftername}{}}%
+%   \huge\bfseries #2%
+        \CTEX@part@titleformat{#2}%
+%   \markboth{}{}\par
+        \CTEX@part@aftertitle}\par
+  \endgroup
   \nobreak
 % \vskip 3ex
   \CTEX@setheadingskip \CTEX@part@afterskip
@@ -7561,19 +7587,20 @@ Copyright and Licence
   \CTEX@gettitle{#1}%
   \CTEX@addtocline{part}{#1}%
 %  \markboth{}{}%
-   \partmark{#1}%
-  {\interlinepenalty \@M
-%  \normalfont \centering
-   \CTEX@disableautoindent
-   \normalfont \CTEX@part@format{%
-%  \ifnum \c@secnumdepth >-2\relax
-%    \huge\bfseries\partname\nobreakspace\thepart\par\vskip 20\p@
-%  \fi
-   \CTEX@hangindent{part}%
-     {\CTEXifname{\CTEX@partname\CTEX@part@aftername}{}}%
-%  \Huge\bfseries #2\par}%
-   \CTEX@part@titleformat{#2}%
-   \CTEX@part@aftertitle}}%
+  \partmark{#1}%
+  \begingroup
+%   \centering \interlinepenalty \@M \normalfont
+    \CTEX@heading@format@initial
+    \CTEX@part@format{%
+%   \ifnum \c@secnumdepth >-2\relax
+%     \huge\bfseries\partname\nobreakspace\thepart\par\vskip 20\p@
+%   \fi
+      \CTEX@headinghang{part}%
+        {\CTEXifname{\CTEX@partname\CTEX@part@aftername}{}}%
+%   \Huge\bfseries #2\par
+      \CTEX@part@titleformat{#2}%
+      \CTEX@part@aftertitle}\par
+  \endgroup
   \@endpart}
 %</book|report>
 %    \end{macrocode}
@@ -7583,38 +7610,40 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*article>
 \def\@spart#1{%
-    \CTEX@ifnamefalse
-    \CTEX@makeanchor@spart{part*}%
-    \CTEX@gettitle{#1}%
-    {\interlinepenalty \@M
-%    \normalfont \parindent \z@ \raggedright
-     \CTEX@disableautoindent
-     \normalfont \CTEX@part@format{%
-     \CTEX@hangindent{part}{}%
-%    \huge \bfseries #1\par}%
-     \CTEX@part@titleformat{#1}%
-     \CTEX@part@aftertitle}}%
-     \nobreak
-%    \vskip 3ex
-     \CTEX@setheadingskip \CTEX@part@afterskip
-     \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
-     \vskip \CTEX@headingskip
-     \@afterheading}
+  \CTEX@ifnamefalse
+  \CTEX@makeanchor@spart{part*}%
+  \CTEX@gettitle{#1}%
+  \begingroup
+%   \parindent \z@ \raggedright \interlinepenalty \@M \normalfont
+    \CTEX@heading@format@initial
+    \CTEX@part@format{%
+      \CTEX@headinghang{part}{}%
+%   \huge \bfseries #1\par
+      \CTEX@part@titleformat{#1}%
+      \CTEX@part@aftertitle}\par
+  \endgroup
+  \nobreak
+% \vskip 3ex
+  \CTEX@setheadingskip \CTEX@part@afterskip
+  \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
+  \vskip \CTEX@headingskip
+  \@afterheading}
 %</article>
 %<*book|report>
 \def\@spart#1{%
-    \CTEX@ifnamefalse
-    \CTEX@makeanchor@spart{part*}%
-    \CTEX@gettitle{#1}%
-    {\interlinepenalty \@M
-%    \normalfont \centering
-     \CTEX@disableautoindent
-     \normalfont \CTEX@part@format{%
-     \CTEX@hangindent{part}{}%
-%    \Huge \bfseries #1\par}%
-     \CTEX@part@titleformat{#1}%
-     \CTEX@part@aftertitle}}%
-    \@endpart}
+  \CTEX@ifnamefalse
+  \CTEX@makeanchor@spart{part*}%
+  \CTEX@gettitle{#1}%
+  \begingroup
+%   \centering \interlinepenalty \@M \normalfont
+    \CTEX@heading@format@initial
+    \CTEX@part@format{%
+      \CTEX@headinghang{part}{}%
+%    \Huge \bfseries #1\par%
+      \CTEX@part@titleformat{#1}%
+      \CTEX@part@aftertitle}\par
+  \endgroup
+  \@endpart}
 %</book|report>
 %    \end{macrocode}
 % \end{macro}
@@ -7623,21 +7652,21 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*book|report>
 \def\@endpart{%
-%             \vfil
-              \CTEX@setheadingskip \CTEX@part@afterskip
-              \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
-              \vskip \CTEX@headingskip
-              \newpage
-              \if@twoside
-               \if@openright
-                \null
-                \thispagestyle{empty}%
-                \newpage
-               \fi
-              \fi
-              \if@tempswa
-                \twocolumn
-              \fi}
+% \vfil
+  \CTEX@setheadingskip \CTEX@part@afterskip
+  \ifodd \CTEX@part@fixskip \CTEX@fixheadingskip \fi
+  \vskip \CTEX@headingskip
+  \newpage
+  \if@twoside
+    \if@openright
+      \null
+      \thispagestyle{empty}%
+      \newpage
+    \fi
+  \fi
+  \if@tempswa
+    \twocolumn
+  \fi}
 %</book|report>
 %    \end{macrocode}
 % \end{macro}
@@ -7651,18 +7680,18 @@ Copyright and Licence
 % \begin{macro}[int]{\chapter}
 %    \begin{macrocode}
 \renewcommand\chapter{%
-%                   \if@openright\cleardoublepage\else\clearpage\fi
-%                   \thispagestyle{plain}%
-                    \CTEX@chapter@break
-                    \thispagestyle{\CTEX@chapter@pagestyle}%
-                    \global\@topnum\z@
-%                   \@afterindentfalse
-                    \ifodd \CTEX@chapter@afterindent
-                      \@afterindenttrue
-                    \else
-                      \@afterindentfalse
-                    \fi
-                    \secdef\@chapter\@schapter}
+% \if@openright\cleardoublepage\else\clearpage\fi
+% \thispagestyle{plain}%
+  \CTEX@chapter@break
+  \thispagestyle{\CTEX@chapter@pagestyle}%
+  \global\@topnum\z@
+% \@afterindentfalse
+  \ifodd \CTEX@chapter@afterindent
+    \@afterindenttrue
+  \else
+    \@afterindentfalse
+  \fi
+  \secdef\@chapter\@schapter}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7734,26 +7763,26 @@ Copyright and Licence
   \CTEX@setheadingskip \CTEX@chapter@beforeskip
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
-% {\normalfont \parindent \z@ \raggedright
-  {\CTEX@disableautoindent
-   \interlinepenalty\@M
-   \normalfont \CTEX@chapter@format{%
-%  \ifnum \c@secnumdepth >\m@ne
-%    \if@mainmatter
-%      \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
-%    \fi
-%  \fi
-   \CTEX@hangindent{chapter}%
-     {\CTEXifname{\CTEX@chaptername\CTEX@chapter@aftername}{}}%
-%  \Huge \bfseries #1\par\nobreak
-   \CTEX@chapter@titleformat{#1}%
-   \CTEX@chapter@aftertitle}%
-   \nobreak
+  \begingroup
+%   \parindent \z@ \raggedright \normalfont
+    \CTEX@heading@format@initial
+    \CTEX@chapter@format{%
+%   \ifnum \c@secnumdepth >\m@ne
+%     \if@mainmatter
+%       \huge\bfseries\@chapapp\space\thechapter\par\nobreak\vskip 20\p@
+%     \fi
+%   \fi
+      \CTEX@headinghang{chapter}%
+        {\CTEXifname{\CTEX@chaptername\CTEX@chapter@aftername}{}}%
+%   \Huge \bfseries #1\par\nobreak
+      \CTEX@chapter@titleformat{#1}%
+      \CTEX@chapter@aftertitle}\par
+  \endgroup
+  \nobreak
 %  \vskip 40\p@
-   \CTEX@setheadingskip \CTEX@chapter@afterskip
-   \ifodd \CTEX@chapter@fixskip \CTEX@fixheadingskip \fi
-   \vskip \CTEX@headingskip
-  }}
+  \CTEX@setheadingskip \CTEX@chapter@afterskip
+  \ifodd \CTEX@chapter@fixskip \CTEX@fixheadingskip \fi
+  \vskip \CTEX@headingskip}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7764,20 +7793,20 @@ Copyright and Licence
   \CTEX@setheadingskip \CTEX@chapter@beforeskip
   \ifodd \CTEX@chapter@fixskip \CTEX@fixtopskip \fi
   \vspace*{\CTEX@headingskip}%
-% {\normalfont \parindent \z@ \raggedright
-  {\CTEX@disableautoindent
-   \interlinepenalty\@M
-   \normalfont \CTEX@chapter@format{%
-   \CTEX@hangindent{chapter}{}%
-%  \Huge \bfseries  #1\par\nobreak
-   \CTEX@chapter@titleformat{#1}%
-   \CTEX@chapter@aftertitle}%
-   \nobreak
-%  \vskip 40\p@
-   \CTEX@setheadingskip \CTEX@chapter@afterskip
-   \ifodd \CTEX@chapter@fixskip \CTEX@fixheadingskip \fi
-   \vskip \CTEX@headingskip
-  }}
+  \begingroup
+% \parindent \z@ \raggedright \normalfont \interlinepenalty\@M
+    \CTEX@heading@format@initial
+    \CTEX@chapter@format{%
+      \CTEX@headinghang{chapter}{}%
+%     \Huge \bfseries  #1\par\nobreak
+      \CTEX@chapter@titleformat{#1}%
+      \CTEX@chapter@aftertitle}\par
+  \endgroup
+  \nobreak
+% \vskip 40\p@
+  \CTEX@setheadingskip \CTEX@chapter@afterskip
+  \ifodd \CTEX@chapter@fixskip \CTEX@fixheadingskip \fi
+  \vskip \CTEX@headingskip}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7855,12 +7884,13 @@ Copyright and Licence
 % \ifdim \@tempskipa>\z@
   \unless \ifodd \CTEX@runin
     \begingroup
-      \interlinepenalty \@M
+      \CTEX@heading@format@initial
       #6{%
-        \CTEX@hangfrom{\hskip\glueexpr #3\relax\@svsec}%
-%       \interlinepenalty \@M #8\@@@@par}%
+%       \@hangfrom{\hskip #3\relax\@svsec}%
+%       \interlinepenalty \@M #8\@@@@par
+        \CTEX@sectionhang{#3}{\@svsec}%
         \csname CTEX@#1@titleformat\endcsname{#8}%
-        \csname CTEX@#1@aftertitle\endcsname}%
+        \csname CTEX@#1@aftertitle\endcsname}\par
     \endgroup
     \csname #1mark\endcsname{#7}%
 %   \addcontentsline{toc}{#1}{%
@@ -7871,18 +7901,18 @@ Copyright and Licence
     \CTEX@addtocline{#1}{#7}%
   \else
     \def\@svsechd{%
-    #6{\hskip\glueexpr #3\relax
-%     \@svsec #8}%
-      \@svsec
-      \csname CTEX@#1@titleformat\endcsname{#8}%
-      \csname CTEX@#1@aftertitle\endcsname}%
-    \csname #1mark\endcsname{#7}%
-%   \addcontentsline{toc}{#1}{%
-%     \ifnum #2>\c@secnumdepth \else
-%       \protect\numberline{\csname the#1\endcsname}%
-%     \fi
-%     #7}%
-    \CTEX@addtocline{#1}{#7}}%
+      #6{%
+%       \hskip #3\relax \@svsec #8
+        {\CTEX@indentbox{#3}}\@svsec
+        \csname CTEX@#1@titleformat\endcsname{#8}%
+        \csname CTEX@#1@aftertitle\endcsname}%
+      \csname #1mark\endcsname{#7}%
+%     \addcontentsline{toc}{#1}{%
+%       \ifnum #2>\c@secnumdepth \else
+%         \protect\numberline{\csname the#1\endcsname}%
+%       \fi
+%       #7}%
+      \CTEX@addtocline{#1}{#7}}%
   \fi
   \@xsect{#5}}
 %    \end{macrocode}
@@ -7897,17 +7927,18 @@ Copyright and Licence
 % \ifdim \@tempskipa>\z@
   \unless \ifodd \CTEX@runin
     \begingroup
-      \interlinepenalty \@M
+      \CTEX@heading@format@initial
       #4{%
-        \CTEX@hangfrom{\hskip\glueexpr #1\relax}%
-%         \interlinepenalty \@M #5\@@@@par}%
+%       \@hangfrom{\hskip #1}%
+%       \interlinepenalty \@M #5\@@par
+        \CTEX@sectionhang{#1}{}%
           \CTEX@titleformat@n{#5}%
-          \CTEX@aftertitle}%
+          \CTEX@aftertitle}\par
     \endgroup
   \else
-%   \def\@svsechd{#4{\hskip\glueexpr #1\relax #5}}%
-    \def\@svsechd{#4{\hskip\glueexpr #1\relax
-                     \CTEX@titleformat@n{#5}\CTEX@aftertitle}}%
+%   \def\@svsechd{#4{\hskip #1\relax #5}}%
+    \def\@svsechd{#4{{\CTEX@indentbox{#1}}%
+      \CTEX@titleformat@n{#5}\CTEX@aftertitle}}%
   \fi
   \@xsect{#3}}
 %    \end{macrocode}
@@ -7937,7 +7968,7 @@ Copyright and Licence
         \unskip
 %       \@tempskipa #1\relax
 %       \hskip -\@tempskipa
-        \hskip\glueexpr #1\relax
+        \CTEX@heading@glue{#1}%
       \else
         \clubpenalty \@clubpenalty
         \everypar{}%
@@ -7947,33 +7978,55 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\CTEX@hangindent}
-% 用于实现 \tn{part} 和 \tn{chapter} 标题的 \opt{indent} 和 \opt{hang} 选项。
+% \begin{macro}[int]{\CTEX@headinghang,\CTEX@sectionhang}
+% 分别用于用于实现 \tn{part}/\tn{chapter} 和 \tn{section} 类标题的
+% \opt{indent} 和 \opt{hang} 选项。
 %    \begin{macrocode}
-\cs_new_protected:Npn \CTEX@hangindent #1#2
+\cs_new_protected:Npn \CTEX@headinghang #1
   {
-    \dim_set:Nn \parindent { \use:c { CTEX@#1@indent } }
-    \bool_if:cTF { CTEX@#1@hang }
-      { \@hangfrom { \@@_indent_aux: #2 } }
-      {#2}
+    \ctex_heading_hang:cnn
+      { CTEX@#1@hang }
+      { \use:c { CTEX@#1@indent } }
   }
-\cs_new_protected:Npn \@@_indent_aux:
-  {
-    \dim_compare:nNnF \parindent = \c_zero_dim
-      { \skip_horizontal:n { \parindent } }
-  }
+\cs_new_protected:Npn \CTEX@sectionhang
+  { \ctex_heading_hang:Nnn \CTEX@hang }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\CTEX@hangfrom}
-% \opt{hang} 选项控制是否采用悬挂缩进。
+% \begin{macro}[int]{\ctex_heading_hang:Nnn,\ctex_hang_from:n}
+% \opt{hang} 选项控制是否采用悬挂缩进，同时设置 \tn{parindent}。
 %    \begin{macrocode}
-\cs_new_protected:Npn \CTEX@hangfrom
+\cs_new_protected:Npn \ctex_heading_hang:Nnn #1#2#3
   {
-    \bool_if:NTF \CTEX@hang
-      { \@hangfrom }
-      { \noindent \use:n }
+    \dim_set:Nn \tex_parindent:D {#2}
+    \bool_if:NTF #1
+      { \ctex_hang_from:n }
+      { \use:n }
+      { \@@_insert_indent: #3 }
   }
+\cs_new_protected:Npn \ctex_hang_from:n #1
+  {
+    \tex_noindent:D
+    \hbox_set:Nn \l_@@_tmp_box {#1}
+    \tex_hangindent:D = \box_wd:N \l_@@_tmp_box
+    \box_use_drop:N \l_@@_tmp_box
+  }
+\cs_generate_variant:Nn \ctex_heading_hang:Nnn { c }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_heading_glue:n,\CTEX@heading@glue}
+% 如果缩进 |#1| 长度为零，就不插入水平间距。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_heading_glue:n #1
+  {
+    \group_begin:
+      \skip_set:Nn \l_@@_heading_skip {#1}
+      \dim_compare:nNnF \l_@@_heading_skip = \c_zero_dim
+        { \skip_horizontal:N \l_@@_heading_skip }
+    \group_end:
+  }
+\cs_new_eq:NN \CTEX@heading@glue \ctex_heading_glue:n
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8545,72 +8598,69 @@ Copyright and Licence
 %    \begin{macrocode}
 \defbeamertemplate*{part page}{CTEX}[1][]{%
   \begingroup
-    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{part name}%
 %     \usebeamercolor[fg]{part name}\partname~\insertromanpartnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@part@beforeskip\relax}%
+    \CTEX@heading@format@initial
     \CTEX@part@format{%
-    \parindent \dimexpr \CTEX@part@indent \relax
-    \ifodd \CTEX@part@numbering
-      \CTEX@partname \CTEX@part@aftername
-    \fi
-    \begin{beamercolorbox}[sep=16pt,center,#1]{part title}
-%      \usebeamerfont{part title}\insertpart\par
-      \CTEX@part@titleformat \insertpart \CTEX@part@aftertitle
-    \end{beamercolorbox}}%
+      \CTEX@indentbox{\CTEX@part@indent}%
+      \ifodd \CTEX@part@numbering
+        \CTEX@partname \CTEX@part@aftername
+      \fi
+      \begin{beamercolorbox}[sep=16pt,center,#1]{part title}
+%       \usebeamerfont{part title}\insertpart\par
+        \CTEX@part@titleformat \insertpart \CTEX@part@aftertitle
+      \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@part@afterskip\relax}%
-  \endgroup
-}
+  \endgroup}
 %    \end{macrocode}
 %
 % 对应 \tn{sectionpage}。
 %    \begin{macrocode}
 \defbeamertemplate*{section page}{CTEX}[1][]{%
   \begingroup
-    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{section name}%
 %     \usebeamercolor[fg]{section name}\sectionname~\insertsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@section@beforeskip\relax}%
-    \CTEX@section@format{
-    \parindent \dimexpr \CTEX@section@indent \relax
-    \ifodd \CTEX@section@numbering
-      \CTEX@sectionname \CTEX@section@aftername
-    \fi
-    \begin{beamercolorbox}[sep=12pt,center,#1]{part title}
-%      \usebeamerfont{section title}\insertsection\par
-      \CTEX@section@titleformat \insertsection \CTEX@section@aftertitle
-    \end{beamercolorbox}}%
+    \CTEX@heading@format@initial
+    \CTEX@section@format{%
+      \CTEX@indentbox{\CTEX@section@indent}%
+      \ifodd \CTEX@section@numbering
+        \CTEX@sectionname \CTEX@section@aftername
+      \fi
+      \begin{beamercolorbox}[sep=12pt,center,#1]{part title}
+%       \usebeamerfont{section title}\insertsection\par
+        \CTEX@section@titleformat \insertsection \CTEX@section@aftertitle
+      \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@section@afterskip\relax}%
-  \endgroup
-}
+  \endgroup}
 %    \end{macrocode}
 %
 % 对应 \tn{subsectionpage}。
 %    \begin{macrocode}
 \defbeamertemplate*{subsection page}{CTEX}[1][]{%
   \begingroup
-    \CTEX@disableautoindent
 %    \centering
 %    {\usebeamerfont{subsection name}%
 %     \usebeamercolor[fg]{subsection name}\subsectionname~\insertsubsectionnumber}
 %    \vskip1em\par
     \par \addvspace{\glueexpr\CTEX@subsection@beforeskip\relax}%
+    \CTEX@heading@format@initial
     \CTEX@subsection@format{%
-    \parindent \dimexpr \CTEX@subsection@indent \relax
-    \ifodd \CTEX@subsection@numbering
-      \CTEX@subsectionname \CTEX@subsection@aftername
-    \fi
-    \begin{beamercolorbox}[sep=8pt,center,#1]{part title}
-%      \usebeamerfont{subsection title}\insertsubsection\par
-      \CTEX@subsection@titleformat \insertsubsection \CTEX@subsection@aftertitle
-    \end{beamercolorbox}}%
+      \CTEX@indentbox{\CTEX@subsection@indent}%
+      \ifodd \CTEX@subsection@numbering
+        \CTEX@subsectionname \CTEX@subsection@aftername
+      \fi
+      \begin{beamercolorbox}[sep=8pt,center,#1]{part title}
+%       \usebeamerfont{subsection title}\insertsubsection\par
+        \CTEX@subsection@titleformat \insertsubsection \CTEX@subsection@aftertitle
+      \end{beamercolorbox}}%
     \par \addvspace{\glueexpr\CTEX@subsection@afterskip\relax}%
-  \endgroup
-}
+  \endgroup}
 %    \end{macrocode}
 %
 % 将 \cls{beamer} 的默认模板重定向为 \texttt{CTEX} 模板。
