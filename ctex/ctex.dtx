@@ -564,7 +564,7 @@ Copyright and Licence
 % \changes{v2.4.12}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{6120}
+% \CheckSum{6128}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -2675,11 +2675,10 @@ Copyright and Licence
 % \begin{ctexexam}
 %   % 系统自带 ctexopts.cfg 注释中的示例语句，固定默认字体集为 windows。
 %   % 该设置可以用在安装了 Windows 字体的非 Windows 系统中。
-%   \keys_set:nn { ctex / option } { fontset = windows }
+%   \ctex_set:nn { option } { fontset = windows }
 % \end{ctexexam}
-% 如上例所示，宏包选项通常使用 \LaTeXiii{} 的 \cs{keys_set:nn} 命令完成键值设置，
-% 第一个参数是固定的子模块 |ctex/option|，第二个参数中是用户定义的新的默认宏包
-% 选项。
+% 如上例所示，宏包选项通常使用 \LaTeXiii{} 的 \cs{ctex_set:nn} 命令完成键值设置，
+% 第一个参数是固定的子模块 |option|，第二个参数中是用户定义的新的默认宏包选项。
 %
 % \file{ctexopts.cfg} 中的设置将在 \CTeX{} 宏集的开始处，定义过宏包选项之后，
 % \tn{ProcessKeysOptions} 命令之前生效。最好只使用此配置文件修改宏包默认选项。
@@ -3222,6 +3221,23 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
+% \begin{macro}[int]{\ctex_define_option:n,
+% \ctex_define:n,\ctex_set:n,\ctex_set:nn}
+% 在宏包内部使用的键值选项定义、设置命令。
+%    \begin{macrocode}
+%</!ctexsize>
+\cs_new_protected:Npn \ctex_define_option:n
+  { \keys_define:nn { ctex / option } }
+%<*!ctexsize>
+\cs_new_protected:Npn \ctex_define:n
+  { \keys_define:nn { ctex } }
+\cs_new_protected:Npn \ctex_set:n
+  { \keys_set:nn { ctex } }
+\cs_new_protected:Npn \ctex_set:nn #1
+  { \keys_set:nn { ctex / #1 } }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\ctex_file_wrapper:nnn}
 % 设置文件操作的 \tn{catcode} 环境，参数 |#1| 是设置，|#2| 是文件操作，|#3| 是恢复。
 % 默认关闭 \LaTeXiii{} 语法环境，并设置 |@| 的 \tn{catcode} 为 $11$。
@@ -3404,15 +3420,28 @@ Copyright and Licence
   { Value~`#1'~is~invalid~for~the~key~`\l_keys_key_tl'. }
 %    \end{macrocode}
 %
+% \begin{macro}[int]{\ctex_deprecated_option:nn,
+% \ctex_set_deprecated_option:n,\ctex_deprecated_command:Nn}
 % 对过时选项或命令给出警告。
 %    \begin{macrocode}
+\cs_new_protected:Npn \ctex_deprecated_option:n
+  { \msg_warning:nnn { ctex } { deprecated-option } }
+\cs_new_protected:Npn \ctex_set_deprecated_option:n #1
+  {
+    \ctex_deprecated_option:n { Option~`#1'~is~set. }
+    \ctex_set:nn { option } {#1}
+  }
+\cs_new_protected:Npn \ctex_deprecated_command:Nn #1#2
+  {
+    \msg_warning:nnxx { ctex } { deprecated-command }
+      { \token_to_str:N #1 } { \exp_not:n {#2} }
+  }
 \msg_new:nnn { ctex } { deprecated-option }
-  { Option~ `\l_keys_key_tl'~ is~ deprecated.\\ #1 }
+  { Option~`\l_keys_key_tl'~is~deprecated.\\ #1 }
 \msg_new:nnn { ctex } { deprecated-command }
-  { Command~ #1 is~ deprecated.\\ #2 }
-\msg_new:nnn { ctex } { deprecated-environment }
-  { Environment~ `#1'~ is~ deprecated.\\ #2 }
+  { Command~`#1'~is~deprecated.\\ #2 }
 %    \end{macrocode}
+% \end{macro}
 %
 %    \begin{macrocode}
 %</class|ctex>
@@ -3436,7 +3465,7 @@ Copyright and Licence
 %
 %   \begin{macrocode}
 %<*class|style>
-\keys_define:nn { ctex / option }
+\ctex_define_option:n
   {
 %</class|style>
 %    \end{macrocode}
@@ -3456,18 +3485,8 @@ Copyright and Licence
 %<ctexsize>  }
 %</class|ctex|ctexsize>
 %<*class|ctex>
-    c5size  .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `zihao=5'~ is~ set. }
-        \keys_set:nn { ctex / option } { zihao = 5 }
-      } ,
-    cs4size  .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `zihao=-4'~ is~ set. }
-        \keys_set:nn { ctex / option } { zihao = -4 }
-      } ,
+    c5size  .code:n = { \ctex_set_deprecated_option:n { zihao =  5 } } ,
+    cs4size .code:n = { \ctex_set_deprecated_option:n { zihao = -4 } } ,
     c5size  .value_forbidden:n = true ,
     cs4size .value_forbidden:n = true ,
 %    \end{macrocode}
@@ -3515,21 +3534,19 @@ Copyright and Licence
 %    \begin{macrocode}
     indent .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
+        \ctex_deprecated_option:n
           {
-            The~ functionality~ has~ been~ removed.\\
-            It's~ better~ to~ set~ the~ heading~ styles~ via~ `afterindent'~
-            options.~
+            The~functionality~has~been~removed.\\
+            It's~better~to~set~the~heading~styles~via~`afterindent'~option.
           }
       } ,
     indent .value_forbidden:n = true ,
     noindent .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
+        \ctex_deprecated_option:n
           {
-            The~ functionality~ has~ been~ removed.\\
-            It's~ better~ to~ set~ the~ heading~ styles~ via~ `afterindent'~
-            options.
+            The~functionality~has~been~removed.\\
+            It's~better~to~set~the~heading~styles~via~`afterindent'~option.
           }
       } ,
     noindent .value_forbidden:n = true ,
@@ -3565,33 +3582,9 @@ Copyright and Licence
 % Mac~OS~X 和其它。
 %   \begin{macrocode}
     fontset    .tl_gset:N = \g_@@_fontset_tl ,
-    nofonts    .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          {
-            Option~ `fontset=none'~ is~ set.~ It~ is~ better~ to~ use~
-            fontset~ option.
-          }
-        \keys_set:nn { ctex / option } { fontset = none }
-      } ,
-    adobefonts .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          {
-            Option~ `fontset=adobe'~ is~ set.~ It~ is~ better~ to~ use~
-            fontset~ option.
-          }
-        \keys_set:nn { ctex / option } { fontset = adobe }
-      } ,
-    winfonts   .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          {
-            Option~ `fontset=windows'~ is~ set.~ It~ is~ better~ to~ use~
-            fontset~ option.
-          }
-        \keys_set:nn { ctex / option } { fontset = windows }
-      } ,
+    nofonts    .code:n = { \ctex_set_deprecated_option:n { fontset = none } } ,
+    adobefonts .code:n = { \ctex_set_deprecated_option:n { fontset = adobe } } ,
+    winfonts   .code:n = { \ctex_set_deprecated_option:n { fontset = windows } } ,
     nofonts    .value_forbidden:n = true ,
     winfonts   .value_forbidden:n = true ,
     adobefonts .value_forbidden:n = true ,
@@ -3621,11 +3614,7 @@ Copyright and Licence
         \cs_gset_eq:NN \ctex_zhmap_case:nnn \use_iii:nnn
       } ,
     nozhmap   .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `zhmap=false'~ is~ set. }
-        \keys_set:nn { ctex / option } { zhmap = false }
-      } ,
+      { \ctex_set_deprecated_option:n { zhmap = false } } ,
     nozhmap   .value_forbidden:n = true ,
 %    \end{macrocode}
 % \end{macro}
@@ -3639,12 +3628,7 @@ Copyright and Licence
     punct   .tl_set:N = \l_@@_punct_tl ,
     punct  .default:n = { quanjiao } ,
     punct  .initial:n = { quanjiao } ,
-    nopunct   .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `punct=plain'~ is~ set.  }
-        \keys_set:nn { ctex / option } { punct = plain }
-      } ,
+    nopunct   .code:n = \ctex_set_deprecated_option:n { punct = plain } ,
     nopunct   .value_forbidden:n = true ,
 %    \end{macrocode}
 % \end{macro}
@@ -3656,15 +3640,10 @@ Copyright and Licence
       { true , auto , false }
       {
         \exp_args:Nx \ctex_at_end:n
-          { \keys_set:nn { ctex } { space = \l_keys_choice_tl } }
+          { \ctex_set:n { space = \l_keys_choice_tl } }
       } ,
     space  .default:n = { true } ,
-    nospace   .code:n =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `space=false'~ is~ set. }
-        \keys_set:nn { ctex / option } { space = false }
-      } ,
+    nospace   .code:n = { \ctex_deprecated_option:nn { space = false } } ,
     nospace   .value_forbidden:n = true ,
 %    \end{macrocode}
 % \end{macro}
@@ -3721,18 +3700,8 @@ Copyright and Licence
 % \begin{macro}{cap,nocap}
 % \opt{cap} 和 \opt{nocap} 是过时选项。
 % \begin{macrocode}
-    cap    .code:n    =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `scheme = chinese' ~ is~ set. }
-        \keys_set:nn { ctex / option } { scheme = chinese }
-      } ,
-    nocap  .code:n    =
-      {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { Option~ `scheme = plain' ~ is~ set. }
-        \keys_set:nn { ctex / option } { scheme = plain }
-      } ,
+    cap    .code:n = { \ctex_set_deprecated_option:n { scheme = chinese } } ,
+    nocap  .code:n = { \ctex_set_deprecated_option:n { scheme = plain } } ,
     cap    .value_forbidden:n = true ,
     nocap  .value_forbidden:n = true ,
 %    \end{macrocode}
@@ -3752,19 +3721,17 @@ Copyright and Licence
       {
         \sys_if_engine_xetex:TF
           {
-            \msg_warning:nnn { ctex } { deprecated-option }
-              { `xeCJKfntef'~package~is~loaded. }
+            \ctex_deprecated_option:n { `xeCJKfntef'~package~is~loaded. }
             \ctex_at_end:n { \RequirePackage { xeCJKfntef } }
           }
           {
             \sys_if_engine_pdftex:TF
               {
-                \msg_warning:nnn { ctex } { deprecated-option }
-                  { `CJKfntef'~package~is~loaded. }
+                \ctex_deprecated_option:n { `CJKfntef'~package~is~loaded. }
                 \ctex_at_end:n { \RequirePackage { CJKfntef } }
               }
               {
-                \msg_warning:nnn { ctex } { deprecated-option }
+                \ctex_deprecated_option:n
                   { Furthermore,~option~`fntef'~is~invalid~in~current~mode. }
               }
           }
@@ -3776,9 +3743,8 @@ Copyright and Licence
 %   \begin{macrocode}
     fancyhdr .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { `fancyhdr'~package~is~loaded. }
-        \RequirePackage { fancyhdr }
+        \ctex_deprecated_option:n { `fancyhdr'~package~is~loaded. }
+        \ctex_at_end:n { \RequirePackage { fancyhdr } }
       } ,
 %    \end{macrocode}
 % \end{macro}
@@ -3788,8 +3754,7 @@ Copyright and Licence
 %   \begin{macrocode}
     hyperref .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
-          { `hyperref'~package~will~be~loaded. }
+        \ctex_deprecated_option:n { `hyperref'~package~will~be~loaded. }
         \ctex_at_end:n
           {
             \cs_if_exist:NF \hypersetup
@@ -3835,7 +3800,7 @@ Copyright and Licence
         #1 .value_forbidden:n = true ,
       }
   }
-\use:x { \keys_define:nn { ctex / option } { \exp_not:o { \l_@@_tmp_tl } } }
+\exp_args:No \ctex_define_option:n { \l_@@_tmp_tl }
 \tl_clear:N \l_@@_tmp_tl
 %    \end{macrocode}
 % \end{macro}
@@ -3843,7 +3808,7 @@ Copyright and Licence
 % 将未知选项传给标准文档类。
 %    \begin{macrocode}
 %<*class>
-\keys_define:nn { ctex / option }
+\ctex_define_option:n
   {
     unknown .code:n =
       { \clist_gput_right:No \g_@@_std_options_clist { \CurrentOption } }
@@ -5378,7 +5343,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_pass_args:nnnn #1#2#3#4
   {
-    \IfNoValueTF {#2}
+    \tl_if_novalue:nTF {#2}
       { \@@_post_arg:w {#1} {#3} {#4} }
       {
         \use:x { #1 {#2} {#3} }
@@ -5407,7 +5372,7 @@ Copyright and Licence
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
-      { \IfNoValueTF {#1} { \cs_to_str:N #2 } {#1} }
+      { \tl_if_novalue:nTF {#1} { \cs_to_str:N #2 } {#1} }
     \cs_new_protected:Npx #2
       { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
     \@@_pass_args:nnnn
@@ -5837,7 +5802,7 @@ Copyright and Licence
 % \begin{macro}{clearalternatefont,resetalternatefont}
 % 清除和重置操作总是全局的。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     clearalternatefont    .code:n =
       { \clist_map_function:xN {#1} \ctex_ltj_clear_alternate_font:n } ,
@@ -5882,7 +5847,7 @@ Copyright and Licence
 % \begin{macro}{declarecharrange}
 % 预先声明字符范围。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     declarecharrange .code:n = \ctex_ltj_declare_char_range:x {#1} ,
     declarecharrange .value_required:n = true
@@ -5984,9 +5949,9 @@ Copyright and Licence
   {
     \exp_args:NNf \tl_put_right:Nn \l_@@_tmp_tl
       {
-        \IfNoValueTF {#1} { {#3} }
+        \tl_if_novalue:nTF {#1} { {#3} }
           {
-            \IfNoValueTF {#2}
+            \tl_if_novalue:nTF {#2}
               { \tl_if_blank:nTF {#3} { { [#1] } } { [ {#1} ] {#3} } }
               { [ {#1} ] { [#2] } }
           }
@@ -6686,7 +6651,7 @@ Copyright and Licence
 % \pdfTeX{} 和 \XeTeX{} 下初始设置为 \opt{auto}，\LuaTeX{}、\upTeX{} 下是无效
 % 选项。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
 %<*pdftex|xetex>
     space .choice: ,
@@ -6714,7 +6679,7 @@ Copyright and Licence
 % 在导言区或正文中设置标点符号输出格式。\pkg{LuaTeX-ja} 设置的是字体的默认 \texttt{JFM}，
 % 只会影响到之后设置的字体。\upTeX{} 暂时无效。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     punct .code:n =
       {
@@ -6749,27 +6714,35 @@ Copyright and Licence
 % \begin{macro}{\ctexset}
 %    \begin{macrocode}
 %<*class|ctex|ctexheading>
-\NewDocumentCommand \ctexset { } { \keys_set:nn { ctex } }
+\NewDocumentCommand \ctexset { } { \ctex_set:n }
 %</class|ctex|ctexheading>
 %    \end{macrocode}
 % \end{macro}
 %
 % \changes{v2.0}{2015/03/21}{\tn{CTEXsetup}, \tn{CTEXoptions} 是过时命令。}
 % \begin{macro}{\CTEXsetup,\CTEXoptions}
-% 过时命令。出于历史原因，\tn{CTEXoptions} 需要在 \pkg{pxeverysel} 宏包之后定义。
+% 过时命令。
 %    \begin{macrocode}
 %<*class|ctex>
-\NewDocumentCommand \CTEXsetup { +o > { \TrimSpaces } m }
+\NewDocumentCommand \CTEXsetup { +O { } > { \TrimSpaces } m }
   {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXsetup }
-      { \ctexset~ \{~ #2~ =~ \{~ #1~ \}~ \}~ is~ set. }
-    \IfNoValueF {#1} { \keys_set:nn { ctex / #2 } {#1} }
+    \tl_if_blank:nTF {#1}
+      { \ctex_deprecated_command:Nn \CTEXsetup { } }
+      {
+        \ctex_deprecated_command:Nn \CTEXsetup
+          { \ctexset {~#2~=~{~#1~}~}~is~set. }
+        \ctex_set:nn {#2} {#1}
+      }
   }
-\NewDocumentCommand \CTEXoptions { +o }
+\NewDocumentCommand \CTEXoptions { +O { } }
   {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXoptions }
-      { \ctexset~ \{~ #1~ \}~ is~ set. }
-    \IfNoValueF {#1} { \keys_set:nn { ctex } {#1} }
+    \tl_if_blank:nTF {#1}
+      { \ctex_deprecated_command:Nn \CTEXoptions { } }
+      {
+        \ctex_deprecated_command:Nn \CTEXoptions
+          { \ctexset {~#1~}~is~set. }
+        \ctex_set:n {#1}
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6779,7 +6752,7 @@ Copyright and Licence
 % \begin{macro}{autoindent}
 % \opt{autoindent} 也是可以用在正文中的选项，意义与宏包选项 |option/autoindent| 相同。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     autoindent .choice: ,
     autoindent .default:n = { true } ,
@@ -6839,7 +6812,7 @@ Copyright and Licence
 % 额外伸展量。初始化为一个汉字的宽度。若设置为 \tn{maxdimen}，则禁用此功能。
 % 参数的默认单位是汉字的宽度 \tn{ccwd}。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     linestretch .code:n =
       {
@@ -6984,14 +6957,15 @@ Copyright and Licence
 %    \begin{macrocode}
 \NewDocumentCommand \CTEXindent { }
   {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXindent }
-      { \parindent is~ set~ to~ 2\ccwd. }
-    \ctex_update_ccwd: \dim_set:Nn \parindent { 2 \ccwd }
+    \ctex_deprecated_command:Nn \CTEXindent
+      { \parindent is~set~to~2\ccwd. }
+    \ctex_update_ccwd:
+    \dim_set:Nn \parindent { 2 \ccwd }
   }
 \NewDocumentCommand \CTEXnoindent { }
   {
-    \msg_warning:nnnn { ctex } { deprecated-command } { \CTEXnoindent }
-      { \parindent is~ set~ to~ 0pt. }
+    \ctex_deprecated_command:Nn \CTEXnoindent
+      { \parindent is~set~to~0pt. }
     \dim_zero:N \parindent
   }
 %    \end{macrocode}
@@ -7042,7 +7016,7 @@ Copyright and Licence
 % \begin{macro}{today}
 %    \begin{macrocode}
 \cs_set_eq:NN \CTEX@todayold \today
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     today .choice: ,
     today / old     .code:n =
@@ -7083,7 +7057,7 @@ Copyright and Licence
 % \end{macro}
 %
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     contentsname   .tl_set:N = \contentsname ,
     listfigurename .tl_set:N = \listfigurename ,
@@ -7114,7 +7088,7 @@ Copyright and Licence
   }
 \tl_if_exist:NTF \insertcontinuationtext
   {
-    \keys_define:nn { ctex }
+    \ctex_define:n
       {
         algorithmname .tl_set:N = \algorithmname ,
         bibname       .tl_set:N = \bibname ,
@@ -7124,13 +7098,13 @@ Copyright and Licence
   }
   {
     \tl_if_exist:NTF \bibname
-      { \keys_define:nn { ctex } { bibname .tl_set:N = \bibname } }
+      { \ctex_define:n { bibname .tl_set:N = \bibname } }
       {
         \tl_if_exist:NTF \refname
-          { \keys_define:nn { ctex } { bibname .tl_set:N = \refname } }
+          { \ctex_define:n { bibname .tl_set:N = \refname } }
           {
             \msg_warning:nn { ctex } { ctexbibname }
-            \keys_define:nn { ctex } { bibname .tl_set:N = \ctexbibname }
+            \ctex_define:n { bibname .tl_set:N = \ctexbibname }
           }
       }
   }
@@ -7292,7 +7266,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_assign_heading_name:nnn #1#2#3
   {
     \tl_set:cn { CTEX@pre#1 } {#2}
-    \IfNoValueTF {#3}
+    \tl_if_novalue:nTF {#3}
       { \tl_clear:c { CTEX@post#1 } }
       { \tl_set:cn { CTEX@post#1 } {#3} }
   }
@@ -7338,11 +7312,7 @@ Copyright and Licence
     \@@_initial_heading:n {#1}
     \@@_def_heading_keys:n {#1}
   }
-\use:x
-  {
-    \group_end:
-    \keys_define:nn { ctex } { \exp_not:o { \l_@@_tmp_tl } }
-  }
+\exp_args:NNo \group_end: \ctex_define:n { \l_@@_tmp_tl }
 %    \end{macrocode}
 %
 % \changes{v2.5}{2020/04/23}{重构标题选项 \opt{indent} 和 \opt{hang}。}
@@ -8111,7 +8081,7 @@ Copyright and Licence
 %
 % \begin{macro}[int]{appendix/name,appendix/number,appendix/numbering}
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     appendix                .meta:nn = { ctex / appendix } {#1} ,
     appendix / name          .code:n =
@@ -8776,7 +8746,7 @@ Copyright and Licence
 % 标题的 \opt{nameformat} 和 \opt{titleformat} 选项的初值合并到 \opt{format} 中。}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / part }
+\ctex_set:nn { part }
   {
     aftertitle  = \par ,
 %<*article|book|report>
@@ -8837,7 +8807,7 @@ Copyright and Licence
 %
 %    \begin{macrocode}
 %<*book|report>
-\keys_set:nn { ctex / chapter }
+\ctex_set:nn { chapter }
   {
     pagestyle   = plain ,
     aftertitle  = \par ,
@@ -8868,7 +8838,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / section }
+\ctex_set:nn { section }
   {
 %<*article|book|report>
     number      = \thesection ,
@@ -8903,7 +8873,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / subsection }
+\ctex_set:nn { subsection }
   {
 %<*article|book|report>
     number      = \thesubsection ,
@@ -8944,7 +8914,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / subsubsection }
+\ctex_set:nn { subsubsection }
   {
     number      = \thesubsubsection ,
     format      = \normalsize \bfseries ,
@@ -8964,7 +8934,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / paragraph }
+\ctex_set:nn { paragraph }
   {
     number      = \theparagraph ,
     format      = \normalsize \bfseries ,
@@ -8981,7 +8951,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-\keys_set:nn { ctex / subparagraph }
+\ctex_set:nn { subparagraph }
   {
     number      = \thesubparagraph ,
     format      = \normalsize \bfseries ,
@@ -9001,7 +8971,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \int_compare:nNnTF \g__ctex_section_depth_int > 2
   {
-    \keys_set:nn { ctex / paragraph }
+    \ctex_set:nn { paragraph }
       {
         aftertitle  = \@@@@par ,
         afterskip   = 1ex \@plus .2ex ,
@@ -9009,7 +8979,7 @@ Copyright and Licence
       }
   }
   {
-    \keys_set:nn { ctex / paragraph }
+    \ctex_set:nn { paragraph }
       {
         afterskip   = 1em ,
         runin       = true
@@ -9017,7 +8987,7 @@ Copyright and Licence
   }
 \int_compare:nNnTF \g__ctex_section_depth_int > 3
   {
-    \keys_set:nn { ctex / subparagraph }
+    \ctex_set:nn { subparagraph }
       {
         aftertitle  = \@@@@par ,
         afterskip   = 1ex \@plus .2ex ,
@@ -9025,20 +8995,20 @@ Copyright and Licence
       }
   }
   {
-    \keys_set:nn { ctex / subparagraph }
+    \ctex_set:nn { subparagraph }
       {
         afterskip   = 1em ,
         runin       = true
       }
   }
 \int_compare:nNnTF \g__ctex_section_depth_int > 2
-  { \keys_set:nn { ctex / subparagraph } { indent = \c_zero_dim } }
-  { \keys_set:nn { ctex / subparagraph } { indent = \parindent } }
+  { \ctex_set:nn { subparagraph } { indent = \c_zero_dim } }
+  { \ctex_set:nn { subparagraph } { indent = \parindent } }
 %    \end{macrocode}
 %
 % 处理附录的格式。
 %    \begin{macrocode}
-\keys_set:nn { ctex / appendix }
+\ctex_set:nn { appendix }
 %<*article>
   { number      = \@Alph \c@section }
 %</article>
@@ -9153,13 +9123,13 @@ Copyright and Licence
 %
 % 日期格式。
 %    \begin{macrocode}
-\keys_set:nn { ctex } { today = small }
+\ctex_set:n { today = small }
 %    \end{macrocode}
 %
 % 若用户未设置宏包选项 \opt{autoindent}，则自动调整首行缩进。
 %    \begin{macrocode}
 \ctex_if_autoindent_touched:F
-  { \keys_set:nn { ctex } { autoindent = true } }
+  { \ctex_set:n { autoindent = true } }
 %    \end{macrocode}
 %
 % 使用标题定义时的设置。首先是命题名字汉化。\cls{beamer} 需要汉化定理名称。
@@ -9542,11 +9512,11 @@ Copyright and Licence
 % \begin{macro}{captiondelimiter}
 % 过时选项。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     captiondelimiter .code:n =
       {
-        \msg_warning:nnn { ctex } { deprecated-option }
+        \ctex_deprecated_option:n
           { You~can~load~the~package~`caption'~to~get~its~functionality. }
       }
   }
@@ -9684,7 +9654,7 @@ Copyright and Licence
 % \begin{macro}{fontset}
 % 在导言区通过 \tn{ctexset} 载入中文字库的选项。
 %    \begin{macrocode}
-\keys_define:nn { ctex }
+\ctex_define:n
   {
     fontset .code:n =
       {
@@ -9748,7 +9718,7 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*ctexopts>
 %%
-%% \keys_set:nn { ctex / option } { fontset = windows }
+%% \ctex_set:nn { option } { fontset = windows }
 %</ctexopts>
 %    \end{macrocode}
 %
