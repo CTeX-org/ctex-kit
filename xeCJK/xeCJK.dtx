@@ -286,7 +286,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10795}
+% \CheckSum{10799}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1867,13 +1867,13 @@ Copyright and Licence
           {
             \int_compare:nNnTF \g_@@_space_factor_int < { 2000 }
               {
-                \_@@_space_skip_scale:nnn
+                \@@_space_skip_scale:nnn
                   { \tex_fontdimen:D 2 ~ \tex_font:D }
               }
               {
                 \skip_if_eq:nnTF \tex_xspaceskip:D \c_zero_skip
                   {
-                    \_@@_space_skip_scale:nnn
+                    \@@_space_skip_scale:nnn
                       {
                         \tex_fontdimen:D 2 ~ \tex_font:D +
                         \tex_fontdimen:D 7 ~ \tex_font:D
@@ -1886,11 +1886,11 @@ Copyright and Licence
           }
           {
             \int_compare:nNnTF \g_@@_space_factor_int < { 2000 }
-              { \_@@_space_skip_scale:nnn { \tex_spaceskip:D } }
+              { \@@_space_skip_scale:nnn { \tex_spaceskip:D } }
               {
                 \skip_if_eq:nnTF \tex_xspaceskip:D \c_zero_skip
                   {
-                    \_@@_space_skip_scale:nnn
+                    \@@_space_skip_scale:nnn
                       {
                         \tex_spaceskip:D +
                         \tex_fontdimen:D 7 ~ \tex_font:D
@@ -1903,7 +1903,7 @@ Copyright and Licence
           }
       }
   }
-\cs_new:Npn \_@@_space_skip_scale:nnn #1#2#3
+\cs_new:Npn \@@_space_skip_scale:nnn #1#2#3
   {
     \dim_eval:n {#1}
     plus \fp_eval:n { \g_@@_space_factor_int / 1000 } #2
@@ -1911,10 +1911,21 @@ Copyright and Licence
       \int_div_truncate:nn
         { 1000 * \int_value:w #3 } { \g_@@_space_factor_int } sp
   }
-\int_new:N \g_@@_space_factor_int
-\int_gset:Nn \g_@@_space_factor_int { 1000 }
 %    \end{macrocode}
 % \end{variable}
+%
+% \begin{macro}[int]{\xeCJK_reset_space_factor:}
+% \begin{variable}[int]{\g_@@_space_factor_int}
+% 在 \tn{XeTeXinterchartoks} 里，\tn{spacefactor} 已经被重置为 $1000$。
+% 我们需要在 Default 类里保存 \tn{spacefactor} 用于计算空格宽度。
+%    \begin{macrocode}
+\int_new:N \g_@@_space_factor_int
+\cs_new_protected:Npn \xeCJK_reset_space_factor:
+  { \int_gset:Nn \g_@@_space_factor_int { 1000 } }
+\xeCJK_reset_space_factor:
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_glue_to_skip:nN}
 % 取得一个 |glue| 的长度，包括伸展和收缩部分。如果参数不是 |glue|，则取其宽度。
@@ -3119,7 +3130,7 @@ Copyright and Licence
   {
     \c_group_begin_token
     \bool_set_true:N \l_@@_CJK_group_bool
-    \int_gset:Nn \g_@@_space_factor_int { 1000 }
+    \xeCJK_reset_space_factor:
     \int_zero:N \tex_XeTeXdashbreakstate:D
   }
 \bool_new:N \l_@@_CJK_group_bool
@@ -4255,6 +4266,7 @@ Copyright and Licence
 %
 % \changes{v3.6.0}{2018/01/23}{解决标点中间被隔开的禁则与压缩问题。}
 % \changes{v3.7.3}{2019/04/15}{修复 penalty 数值错误。}
+% \changes{v3.8.3}{2020/04/27}{修复 \opt{xCJKecglue} 选项。}
 %
 % \begin{macro}{\xeCJK_if_last_punct:TF}
 % \changes{v3.6.1}{2018/02/25}{细化判断。}
@@ -4293,10 +4305,11 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_if_last_punct_glue_auxii:TF
   {
-    \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D
-    \skip_if_eq:nnTF { \tex_lastskip:D } { \c_xeCJK_space_skip_tl }
-      { \@@_if_last_punct_glue_auxiii:TF }
-      { \use_ii:nn }
+    \group_begin:
+      \g_@@_space_factor_int \tex_spacefactor:D
+      \skip_if_eq:nnTF { \tex_lastskip:D } { \c_xeCJK_space_skip_tl }
+        { \group_end: \@@_if_last_punct_glue_auxiii:TF }
+        { \group_end: \use_ii:nn }
   }
 \cs_new_protected:Npn \@@_if_last_punct_glue_auxiii:TF
   {
