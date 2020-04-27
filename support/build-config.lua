@@ -1,7 +1,6 @@
 -- Common settings for ctex-kit development repo, used by l3build script
 
 supportdir    = supportdir    or "../support"
-unpackexe     = unpackexe     or "luatex"
 gitverfiles   = gitverfiles   or unpackfiles
 unpackexe     = unpackexe     or "luatex"
 typesetexe    = typesetexe    or "xelatex"
@@ -235,4 +234,3 @@ copyctan = function (...)
   copyctan_posthook()
   return retval
 end
-
