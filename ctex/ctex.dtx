@@ -564,7 +564,7 @@ Copyright and Licence
 % \changes{v2.4.12}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{6109}
+% \CheckSum{6110}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4641,7 +4641,7 @@ Copyright and Licence
     local ltjfont = luatexja.jfont
     local getattribute = tex.getattribute
     local set_lua = token.set_lua
-    local scan_int, scan_string = token.scan_int, token.scan_string
+    local scan_int, scan_arg = token.scan_int, token.scan_argument
     local new_luafunction = luatexbase.new_luafunction
 %    \end{macrocode}
 % \begin{macro}{\ctex_ltj_add_kyenc:n}
@@ -4674,7 +4674,7 @@ Copyright and Licence
 %    \begin{macrocode}
     local id = new_luafunction("ctex")
     func[id] = function ()
-      local s = scan_string()
+      local s = scan_arg()
       local is_braced, is_quoted
       if s:sub(1,1) == '{' and s:sub(-1)=='}' then
         is_braced = true; s = s:sub(2,-2)
@@ -4706,10 +4706,10 @@ Copyright and Licence
 %    \begin{macrocode}
     local id = new_luafunction("ctex")
     func[id] = function ()
-      local b = tonumber(scan_string())
-      local e = tonumber(scan_string())
-      local alt  = scan_string()
-      local base = scan_string()
+      local b = tonumber(scan_arg())
+      local e = tonumber(scan_arg())
+      local alt  = scan_arg()
+      local base = scan_arg()
       ltjfont.set_alt_font_latex(b, e, alt, base)
     end
     set_lua("ctex_ltj_set_alt_font:nnnn", id, "global", "protected")
@@ -4720,7 +4720,7 @@ Copyright and Licence
 %    \begin{macrocode}
     local id = new_luafunction("ctex")
     func[id] = function ()
-      local base = scan_string()
+      local base = scan_arg()
       ltjfont.clear_alt_font_latex(base)
     end
     set_lua("ctex_ltj_clear_alt_font:n", id, "global", "protected")
@@ -4732,8 +4732,8 @@ Copyright and Licence
 %    \begin{macrocode}
     local id = new_luafunction("ctex")
     func[id] = function ()
-      local base = scan_string()
-      local size = scan_string()
+      local base = scan_arg()
+      local size = scan_arg()
       ltjfont.output_alt_font_cmd("y", base)
       ltjfont.pickup_alt_font_a(size)
     end
@@ -4747,7 +4747,7 @@ Copyright and Licence
     local id = new_luafunction("ctex")
     func[id] = function ()
       local num  = scan_int()
-      local base = scan_string()
+      local base = scan_arg()
       ltjfont.pickup_alt_font_b(num, base)
     end
     set_lua("@@_pickup_alt_font:Nn", id, "global", "protected")
@@ -4761,12 +4761,21 @@ Copyright and Licence
 %     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
 %   end
 % \end{verbatim}
+% \pkg{luatexja} 20200412.0 以后的定义为：
+% \begin{verbatim}
+%   function luatexja.jfont.does_alt_set()
+%     aftl_base = alt_font_table_latex[scan_arg()]
+%     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
+%   end
+% \end{verbatim}
 %    \begin{macrocode}
     local id = new_luafunction("ctex")
-    func[id] = function ()
-      local base = scan_string()
-      ltjfont.does_alt_set(base)
-    end
+    func[id] = \LuaTeXjaversion > 20200412.0
+      and ltjfont.does_alt_set
+      or  function ()
+            local base = scan_arg()
+            ltjfont.does_alt_set(base)
+          end
     set_lua("@@_if_alt_set:nT", id, "global")
 %    \end{macrocode}
 % \end{macro}
