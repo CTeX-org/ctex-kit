@@ -62,5 +62,4 @@ checkinit_hook = function()
   return 0
 end
 
-
 dofile("../support/build-config.lua")
