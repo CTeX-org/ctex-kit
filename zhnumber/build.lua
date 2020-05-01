@@ -6,7 +6,7 @@ packtdszip = true
 sourcefiles      = {"zhnumber.dtx"}
 unpackfiles      = {"zhnumber.dtx"}
 installfiles     = {"*.sty", "*.cfg", "*.ins"}
-unpacksuppfiles  = {"zhnumber.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.lua"}
+unpacksuppfiles  = {"zhnumber.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"}
 typesetsuppfiles = {"ctxdoc.cls"}
 
 tdslocations = {

@@ -1,5 +1,5 @@
 --
---  File zhconv.lua
+--  File ctex-zhconv.lua
 --
 --     Copyright (C) 2020 by Qing Lee <sobenlee@gmail.com>
 --------------------------------------------------------------------------
@@ -18,8 +18,8 @@
 --
 --     The Current Maintainer of this work is Qing Lee.
 --
---     This work consists of the files zhconv.lua, zhconv-make.lua
---               and the derived files zhconv-index.lua.
+--     This work consists of the files ctex-zhconv.lua, ctex-zhconv-make.lua
+--               and the derived file  ctex-zhconv-index.lua.
 --
 --------------------------------------------------------------------------
 --
@@ -28,12 +28,11 @@ if status.kpse_used ~= 1 then
   kpse.set_program_name("luatex")
 end
 
-zhconv        = zhconv or { }
-local zhconv  = zhconv
+local zhconv  = { }
 zhconv.module = {
-  name        = "zhconv",
-  version     = "0.1",
-  date        = "2020/05/01",
+  name        = "ctex-zhconv",
+  version     = "0.2",
+  date        = "2020/05/02",
   description = "GBK/GB18030/Big5 encoder",
   author      = "Qing Lee",
   copyright   = "Qing Lee",
@@ -47,7 +46,7 @@ local floor = math.floor
 local unpack, insert, sort = table.unpack, table.insert, table.sort
 local char, format = string.char, string.format
 
-zhconv.index = require("zhconv-index")
+zhconv.index = require("ctex-zhconv-index")
 local index = zhconv.index
 
 zhconv.mapping = { }

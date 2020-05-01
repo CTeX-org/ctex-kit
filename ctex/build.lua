@@ -6,12 +6,12 @@ packtdszip = true
 sourcefiles      = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles      = {"ctex.dtx"}
 installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.ins", "*.lua"}
-unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.lua"}
+unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"}
 typesetsuppfiles = {"ctxdoc.cls"}
 gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 
 tdslocations = {
-  "source/latex/ctex/zhconv-make.lua",
+  "source/latex/ctex/*-make.lua",
   "source/latex/ctex/*.ins",
   "tex/generic/ctex/*.tex",
   "tex/latex/ctex/config/*.cfg",
@@ -26,8 +26,7 @@ tdslocations = {
 
 function unpack_posthook()
   if install_files_bool then
-    for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex",
-                      "zhconv*.lua", "zhconv*.luc", } do
+    for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
       cp(i, supportdir, unpackdir)
     end
   end
@@ -35,7 +34,7 @@ end
 
 function copyctan_posthook()
   local dest = ctandir .. "/" .. ctanpkg
-  for _,file in ipairs{"ctxdocstrip.tex", "zhconv.lua", "zhconv-make.lua"} do
+  for _,file in ipairs{"ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-make.lua"} do
     cp(file, unpackdir, dest)
   end
 end

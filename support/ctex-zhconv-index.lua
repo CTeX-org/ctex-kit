@@ -1,5 +1,5 @@
 --
---  File zhconv-index.lua
+--  File ctex-zhconv-index.lua
 --
 --     Copyright (C) 2020 by Qing Lee <sobenlee@gmail.com>
 --------------------------------------------------------------------------
@@ -18,8 +18,8 @@
 --
 --     The Current Maintainer of this work is Qing Lee.
 --
---     This work consists of the files zhconv.lua, zhconv-make.lua
---               and the derived files zhconv-index.lua, zhconv-index.luc.
+--     This work consists of the files ctex-zhconv.lua, ctex-zhconv-make.lua
+--               and the derived file  ctex-zhconv-index.lua.
 --
 --------------------------------------------------------------------------
 --
