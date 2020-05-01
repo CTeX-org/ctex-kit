@@ -6,7 +6,7 @@ tdsroot = "xelatex"
 
 sourcefiles      = {"xeCJK.dtx"}
 unpackfiles      = {"xeCJK.dtx"}
-installfiles     = {"*.sty", "*.cfg", "*.def", "*.tex", "*.map", "*.tec"}
+installfiles     = {"*.sty", "*.cfg", "*.def", "*.tex", "*.ins", "*.map", "*.tec"}
 unpacksuppfiles  = {"xeCJK.id", "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
 typesetfiles     = {"xeCJK.dtx", "xunicode-symbols.tex"}
@@ -15,6 +15,7 @@ scriptfiles      = {"xunicode-com*.tex"} -- dirty hack
 tdslocations = {
   "doc/xelatex/xecjk/xunicode-*.tex",
   "doc/xelatex/xecjk/example/xeCJK-example-*.tex",
+  "source/xelatex/xecjk/*.ins",
   "fonts/misc/xetex/fontmapping/xecjk/*.map",
   "fonts/misc/xetex/fontmapping/xecjk/*.tec",
 }

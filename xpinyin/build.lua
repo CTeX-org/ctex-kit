@@ -6,9 +6,13 @@ packtdszip = true
 sourcefiles      = {"xpinyin.dtx", "xpinyin.ins"}
 unpackfiles      = {"xpinyin.ins"}
 gitverfiles      = {"xpinyin.dtx"}
-installfiles     = {"*.sty", "*.def"}
+installfiles     = {"*.sty", "*.def", "*.ins"}
 unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
+
+tdslocations = {
+  "source/latex/xpinyin/*.ins",
+}
 
 function unpack_prehook()
   cleandir(unpackdir)

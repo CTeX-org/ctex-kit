@@ -5,13 +5,14 @@ packtdszip = true
 
 sourcefiles      = {"ctex.dtx", "ctexpunct.spa"}
 unpackfiles      = {"ctex.dtx"}
-installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.lua"}
+installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.ins", "*.lua"}
 unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "zhconv.lua", "zhconv-index.lua"}
 typesetsuppfiles = {"ctxdoc.cls"}
 gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 
 tdslocations = {
   "source/latex/ctex/zhconv-make.lua",
+  "source/latex/ctex/*.ins",
   "tex/generic/ctex/*.tex",
   "tex/latex/ctex/config/*.cfg",
   "tex/latex/ctex/fd/*.fd",
