@@ -564,7 +564,7 @@ Copyright and Licence
 % \changes{v2.4.12}{2018/01/13}{同步 \LaTeXiii{} 2017/12/16。}
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 %
-% \CheckSum{6110}
+% \CheckSum{6105}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -5674,18 +5674,10 @@ Copyright and Licence
   { \clist_map_function:nN {#1} \@@_push_alternate_prop:n }
 \cs_new_protected:Npn \@@_push_alternate_prop:n #1
   {
-    \use:e
-      {
-        \@@_push_alternate_prop_aux:nn
-          { \tl_head:n {#1} }
-          { \tl_tail:n {#1} }
-      }
-  }
-\cs_new_protected:Npn \@@_push_alternate_prop_aux:nn #1
-  {
-    \clist_set:Nn \l_@@_tmp_clist {#1}
+    \clist_set:Nx \l_@@_tmp_clist { \tl_head:n {#1} }
     \tl_remove_all:Nn \l_@@_tmp_clist { ~ }
-    \exp_args:No \@@_push_alternate_prop:nn { \l_@@_tmp_clist }
+    \exp_args:No \@@_push_alternate_prop:nn
+      { \l_@@_tmp_clist } {#1}
   }
 \cs_new_protected:Npn \@@_push_alternate_prop:nn #1
   {
@@ -5724,25 +5716,25 @@ Copyright and Licence
 \cs_new_protected:Npn \ctex_ltj_save_alternate_seq:Nn #1#2
   {
     \prop_map_inline:Nn \l_@@_alternate_prop
-      { \@@_save_alternate_auxi:w ##2 { } \q_mark { ##1 } #1 {#2} }
+      { \@@_save_alternate_auxi:w ##2 { } \q_mark #1 {#2} }
   }
-\cs_new_protected:Npn \@@_save_alternate_auxi:w #1#
+\cs_new_protected:Npn \@@_save_alternate_auxi:w #1#2#
   {
-    \tl_if_blank:nTF {#1}
-      { \@@_save_alternate_auxii:w }
+    \tl_if_blank:nTF {#2}
       { \@@_save_alternate_auxii:w {#1} }
+      { \@@_save_alternate_auxii:w {#1} {#2} }
   }
-\cs_new_protected:Npn \@@_save_alternate_auxii:w #1#2 #3 \q_mark #4#5#6
+\cs_new_protected:Npn \@@_save_alternate_auxii:w #1#2#3 #4 \q_mark #5#6
   {
-    \clist_set:Nn \l_@@_alternate_options_clist {#2}
+    \clist_set:Nn \l_@@_char_range_clist {#1}
+    \clist_set:Nn \l_@@_alternate_options_clist {#3}
     \@@_use_global_options:N \l_@@_alternate_options_clist
-    \tl_if_blank:nTF {#1}
+    \tl_if_blank:nTF {#2}
       { \tl_set:Nn \l_@@_tmp_tl {#6} }
       {
-        \tl_set:Nx \l_@@_tmp_tl { \tl_trim_spaces:n {#1} }
+        \tl_set:Nx \l_@@_tmp_tl { \tl_trim_spaces:n {#2} }
         \tl_replace_all:Nnn \l_@@_tmp_tl { * } {#6}
       }
-    \clist_set:Nn \l_@@_char_range_clist {#4}
     \use:e
       {
         \ctex_ltj_save_alternate_family:Nnnn \exp_not:N #5
@@ -5751,8 +5743,8 @@ Copyright and Licence
           { \exp_not:o { \l_@@_tmp_tl } }
       }
   }
-\cs_generate_variant:Nn \ctex_ltj_save_alternate_seq:Nn { c }
 \clist_new:N \l_@@_alternate_options_clist
+\cs_generate_variant:Nn \ctex_ltj_save_alternate_seq:Nn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5944,9 +5936,9 @@ Copyright and Licence
 \ctex_define:n
   {
     clearalternatefont    .code:n =
-      { \clist_map_function:xN {#1} \ctex_ltj_clear_alternate_font:n } ,
+      { \clist_map_function:eN {#1} \ctex_ltj_clear_alternate_font:n } ,
     resetalternatefont    .code:n =
-      { \clist_map_function:xN {#1} \ctex_ltj_reset_alternate_font:n } ,
+      { \clist_map_function:eN {#1} \ctex_ltj_reset_alternate_font:n } ,
     clearalternatefont .default:n = \l_ctex_ltj_family_tl ,
     resetalternatefont .default:n = \l_ctex_ltj_family_tl
   }
@@ -5979,7 +5971,7 @@ Copyright and Licence
     \group_end:
   }
 \prop_new:N \g_@@_reset_alternate_prop
-\cs_generate_variant:Nn \clist_map_function:nN { x }
+\cs_generate_variant:Nn \clist_map_function:nN { e }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5988,14 +5980,14 @@ Copyright and Licence
 %    \begin{macrocode}
 \ctex_define:n
   {
-    declarecharrange .code:n = \ctex_ltj_declare_char_range:x {#1} ,
+    declarecharrange .code:n = \ctex_ltj_declare_char_range:e {#1} ,
     declarecharrange .value_required:n = true
   }
 \cs_new_protected:Npn \ctex_ltj_declare_char_range:n #1
   { \clist_map_inline:nn {#1} { \@@_declare_char_range:nn ##1 } }
-\cs_generate_variant:Nn \ctex_ltj_declare_char_range:n { x }
-\cs_new_protected:Npn \@@_declare_char_range:nn #1#2
-  { \use:e { \ctex_ltj_declare_char_range:nn { \tl_trim_spaces:n {#1} } } {#2} }
+\cs_generate_variant:Nn \ctex_ltj_declare_char_range:n { e }
+\cs_new_protected:Npn \@@_declare_char_range:nn #1
+  { \exp_args:Ne \ctex_ltj_declare_char_range:nn { \tl_trim_spaces:n {#1} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6065,8 +6057,8 @@ Copyright and Licence
 \cs_new_protected:Npn \ctex_ltj_char_range_key:nn #1#2
   {
     \tl_if_blank:nTF {#2}
-      { \tl_set:Nn \l_@@_char_range_clist {#1} }
-      { \@@_push_alternate_prop:nn {#1} {#2} }
+      { \clist_set:Nn \l_@@_char_range_clist {#1} }
+      { \@@_push_alternate_prop:nn {#1} { {#1} #2 } }
   }
 %    \end{macrocode}
 % \end{macro}
