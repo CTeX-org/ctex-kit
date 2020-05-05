@@ -13,6 +13,7 @@ gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 tdslocations = {
   "source/latex/ctex/*-make.lua",
   "source/latex/ctex/*.ins",
+  "tex/generic/ctex/zhmap/ctex-zhmap*.tex",
   "tex/generic/ctex/*.tex",
   "tex/latex/ctex/config/*.cfg",
   "tex/latex/ctex/fd/*.fd",
