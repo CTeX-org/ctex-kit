@@ -72,7 +72,9 @@
   BoldItalicFont = *tx,
   HyphenChar     = None]
 \setmathfont{texgyrepagella-math.otf}
-\captionsetup{strut=off, labelsep=quad, labelfont+=bf}
+\captionsetup{%
+  strut=off, labelsep=quad, labelfont+=bf,
+  figureposition = bottom, tableposition = top}
 %% <--- http://tex.stackexchange.com/a/40896
 \patchcmd{\@addtocurcol}%
     {\vskip \intextsep}%
@@ -169,10 +171,14 @@
 \AfterEndEnvironment{function}{\ctexfixprevdepth}
 \AtBeginEnvironment{syntax}{\linespread{1}\ctexplainps\ctexdisableecglue}
 \BeforeBeginEnvironment{SideBySideExample}{\par\addvspace{\medskipamount}}
-\newcommand*\exptarget{\Hy@raisedlink{\hypertarget{expstar}{}}}
-\newcommand*\rexptarget{\Hy@raisedlink{\hypertarget{rexpstar}{}}}
-\newcommand*\expstar{\hyperlink{expstar}{$\star$}}
-\newcommand*\rexpstar{\hyperlink{rexpstar}{\ding{73}}}
+\newrobustcmd\exptarget{%
+  \AddLineBeginMainAux{\csgdef{Codedoc@expstar}{}}%
+  \Hy@raisedlink{\hypertarget{expstar}{}}}
+\newrobustcmd\rexptarget{%
+  \AddLineBeginMainAux{\csgdef{Codedoc@rexpstar}{}}%
+  \Hy@raisedlink{\hypertarget{rexpstar}{}}}
+\newrobustcmd\expstar{\hyperlink{expstar}{$\star$}}
+\newrobustcmd\rexpstar{\hyperlink{rexpstar}{\ding{73}}}
 \ExplSyntaxOn
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
@@ -814,6 +820,7 @@
 \def\TTF{\defaultval{true}\orbar false}
 \def\TFF{true\orbar\defaultval{false}}
 \protected\def\opt{\texttt}
+\def\TeX{\hologo{TeX}}
 \def\pdfTeX{\hologo{pdfTeX}}
 \def\XeTeX{\hologo{XeTeX}}
 \def\XeLaTeX{\hologo{XeLaTeX}}
@@ -822,15 +829,29 @@
 \def\LaTeX{\hologo{LaTeX}}
 \def\LaTeXe{\hologo{LaTeX2e}}
 \def\LaTeXiii{\hologo{LaTeX3}}
-\def\dvipdfmx{DVIPDFM\textit{x}}
-\def\TeX{\hologo{TeX}}
-\def\ApTeX{Ap\TeX}
-\def\ApLaTeX{Ap\LaTeX}
-\def\upTeX{up\TeX}
-\def\upLaTeX{up\LaTeX}
-\def\bashcmd{\texttt}
-\def\TeXLive{\TeX\ Live}
+\def\dvipdfmx{\hologo{DVIPDFMx}}
+\def\TeXLive{\hologo{TeXLive}}
 \def\MiKTeX{\hologo{MiKTeX}}
+\def\pTeX{\hologo{pTeX}}
+\def\ApTeX{\hologo{ApTeX}}
+\def\upTeX{\hologo{upTeX}}
+\def\ApLaTeX{\hologo{ApLaTeX}}
+\def\upLaTeX{\hologo{upLaTeX}}
+\def\HoLogo@pTeX#1{p\kern -.15em \hologo{TeX}}
+\def\HoLogo@pLaTeX#1{p\kern -.05em \hologo{LaTeX}}
+\def\HoLogo@ApTeX#1{A\kern -.05em \hologo{pTeX}}
+\def\HoLogo@upTeX#1{u\kern -.05em \hologo{pTeX}}
+\def\HoLogo@ApLaTeX#1{A\kern -.05em \hologo{pLaTeX}}
+\def\HoLogo@upLaTeX#1{u\kern -.05em \hologo{pLaTeX}}
+\def\HoLogoBkm@pTeX#1{p\hologo{TeX}}
+\def\HoLogoBkm@pLaTeX#1{p\hologo{LaTeX}}
+\def\HoLogoBkm@ApTeX#1{A\hologo{pTeX}}
+\def\HoLogoBkm@upTeX#1{u\hologo{pTeX}}
+\def\HoLogoBkm@ApLaTeX#1{A\hologo{pLaTeX}}
+\def\HoLogoBkm@upLaTeX#1{u\hologo{pLaTeX}}
+\def\HoLogo@TeXLive#1{\TeX\ Live}
+\def\HoLogo@DVIPDFMx#1{DVIPDFM\ensuremath{x}}
+\def\bashcmd{\texttt}
 \def\BSTACK{\begin{tabular}[t]{@{}l@{}}}
 \def\ESTACK{\end{tabular}}
 \newenvironment{defaultcapconfig}{%
