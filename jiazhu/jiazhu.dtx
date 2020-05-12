@@ -414,15 +414,38 @@ Copyright and Licence
     \dim_set:Nn \l_@@_outer_unit_dim { \f@size pt }
     \tl_if_novalue:nF {#1}
       { \keys_set:nn { jiazhu } {#1} }
-    \linespread { 1 }
+%    \end{macrocode}
+% 初始化设置：夹注的字号设为 $\tn{l_@@_ratio_fp}\times\tn{f@size}$\,pt，
+% 默认的行距取相同值（即设置行间距为零）。
+%    \begin{macrocode}
     \exp_args:Nxx \fontsize
       { \fp_eval:n { \l_@@_ratio_fp * \f@size } }
-      { \fp_eval:n { \l_@@_ratio_fp * \f@baselineskip } }
+      { \fp_eval:n { \l_@@_ratio_fp * \f@size } }
+%    \end{macrocode}
+% 更新当前的 \tn{baselinestretch} 为~1。
+%    \begin{macrocode}
+    \linespread { 1 }
+%    \end{macrocode}
+% 思源宋体/思源黑体的简体中文版对标点符号的设计有些独特，横排用的全角逗号的
+% 底部低于汉字字框的底端，全角引号的顶部又高于字框的顶端，这会导致 \TeX 往
+% 行间插入 \tn{lineskip}。我们局部把 \tn{lineskiplimit} 设成最小的
+% dimen，相当于局部禁用 \tn{lineskip} 机制，结果是夹注可能会部分重叠
+% （横排就不应该有夹注嘛！希望这个默认的设置能够“防止”横排夹注的滥用）。
+%    \begin{macrocode}
+    \dim_set:Nn \tex_lineskiplimit:D { - \c_max_dim }
+%    \end{macrocode}
+% 接下来是用户自定义的 \opt{format}，并用 \tn{selectfont} 使字体变更生效。
+%    \begin{macrocode}
     \tl_use:N \l_@@_format_tl
     \selectfont
     \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
     \dim_set:Nn \l_@@_unit_dim { \f@size pt }
     \@@_make_opening_closing_box:
+%    \end{macrocode}
+% \tn{strutbox} 默认有 $0.3\times\tn{baselineskip}$ 的深度（横排），除
+% \XeLaTeX 外的直排模式下，则有 $0.5\times\tn{baselineskip}$ 的“深度”。
+% 应该足够分割夹注用了。
+%    \begin{macrocode}
     \dim_set:Nn \tex_splitmaxdepth:D { \box_dp:N \strutbox }
     \skip_set:Nn \l_@@_good_break_skip
       { \c_zero_dim plus 0.5\l_@@_outer_unit_dim }
