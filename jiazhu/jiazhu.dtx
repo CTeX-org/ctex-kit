@@ -178,6 +178,12 @@ Copyright and Licence
 %   \end{syntax}
 % \end{function}
 %
+% \begin{function}{ideographht}
+%   \begin{syntax}
+%     ideographht = \Arg{数字}
+%   \end{syntax}
+% \end{function}
+%
 % \begin{function}{ratio}
 %   \begin{syntax}
 %     ratio = \Arg{数字}
@@ -415,7 +421,7 @@ Copyright and Licence
     \tl_if_novalue:nF {#1}
       { \keys_set:nn { jiazhu } {#1} }
 %    \end{macrocode}
-% 初始化设置：夹注的字号设为 $\tn{l_@@_ratio_fp}\times\tn{f@size}$\,pt，
+% 初始化设置：夹注的字号设为 $\cs{l_@@_ratio_fp}\times\tn{f@size}$\,pt，
 % 默认的行距取相同值（即设置行间距为零）。
 %    \begin{macrocode}
     \exp_args:Nxx \fontsize
@@ -516,22 +522,85 @@ Copyright and Licence
     \bool_if:NT \l_@@_before_skip_bool
       { \skip_horizontal:N \l_@@_before_skip }
     \box_if_empty:NF \l_@@_opening_box
-      { \@@_put_box:N \l_@@_opening_box }
+      { \@@_put_mark_box:N \l_@@_opening_box }
     \cs_set_eq:NN \@@_put_opening_box: \prg_do_nothing:
   }
 \cs_new_protected:Npn \@@_put_closing_box:
   {
     \box_if_empty:NF \l_@@_closing_box
-      { \@@_put_box:N \l_@@_closing_box }
-  }
-\cs_new_protected:Npn \@@_put_box:N #1
-  {
-    \box_move_down:nn
-      { ( \box_ht:N #1 - 0.8\l_@@_outer_unit_dim ) / 2 }
-      { \box_use_drop:N #1 }
+      { \@@_put_mark_box:N \l_@@_closing_box }
   }
 \box_new:N \l_@@_opening_box
 \box_new:N \l_@@_closing_box
+%    \end{macrocode}
+% \end{macro}
+%
+% \TeX 排放夹注的位置，是以西文基线为准的：
+% \begin{center}
+% \footnotesize
+% \def\textbox{\fbox{\rule[-3.6pt]{0pt}{30pt}\rule{30pt}{0pt}}}
+% \def\jiazhubox{\fbox{\rule[-2.16pt]{0pt}{18pt}\rule{18pt}{0pt}}}
+% \setlength{\fboxrule}{0.25pt}
+% \setlength{\fboxsep}{-\fboxrule}
+% \setbox0=\hbox{\textbox\textbox}
+% \setbox2=\hbox{\jiazhubox\jiazhubox\jiazhubox}
+% \setbox4=\hbox{$\vcenter{}$}
+% \rule[-0.25pt]{150pt}{0.5pt}\kern-135pt
+% \copy0 \kern-65pt
+% \rule[11.15pt]{70pt}{0.5pt}\kern5pt
+% \vbox{\baselineskip=24pt \copy2 \copy2 }\kern-59pt
+% \rule[18.59pt]{64pt}{0.5pt}\kern10pt
+% \lower\ht4\rlap{$\leftarrow$ 西文基线}
+% \end{center}
+% 设 $r$ 为汉字字框高与字号的比值（例如横排时 $r=0.88$，而直排时 $r=0.5$），
+% 又设 $s_{\mathrm{outer}}$ 与 $s_{\mathrm{inner}}$ 分别为正文字号与
+% 夹注字号；记夹注的行距为~$b$（夹注的行间距即为 $b-s_{\mathrm{inner}}$）；
+% 最后设夹注有 $n$~行。为了实现在正文汉字的中线处对齐，夹注需要向下平移，
+% 该平移量的计算公式为
+% \[
+% (r-0.5) \cdot s_{\mathrm{inner}} + \frac{(n-1) \cdot b}{2}
+%  - (r-0.5) \cdot s_{\mathrm{outer}}, \quad n\ge1.
+% \]
+%
+% \begin{macro}{\@@_put_mark_box:N}
+% 对于夹注两端括弧盒子的下移量，我们修改 $s_{\mathrm{inner}}$ 为括弧字号，
+% 并取 $n=1$ 即可。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_put_mark_box:N #1
+  {
+    \box_move_down:nn
+      {
+        \fp_eval:n
+          {
+            ( \l_@@_ideoht_fp - 0.5 ) * \l_@@_bracket_ratio_fp
+          }
+          \l_@@_unit_dim
+        - \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
+            \l_@@_outer_unit_dim
+      }
+      { \box_use_drop:N #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_put_box:N}
+% 对于夹注内容盒子的下移量，我们直接套用公式。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_put_box:N #1
+  {
+    \box_move_down:nn
+      {
+        \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
+          \l_@@_unit_dim
+        + (
+            \l_@@_lines_int \tex_baselineskip:D
+            - \tex_baselineskip:D
+          ) / 2
+        - \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
+            \l_@@_outer_unit_dim
+      }
+      { \box_use_drop:N #1 }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -995,6 +1064,7 @@ Copyright and Licence
     afterskip            .tl_set:N = \l_@@_after_skip_tl ,
     opening              .tl_set:N = \l_@@_opening_tl ,
     closing              .tl_set:N = \l_@@_closing_tl ,
+    ideographht          .fp_set:N = \l_@@_ideoht_fp ,
     ratio                .fp_set:N = \l_@@_ratio_fp ,
     bracketratio         .fp_set:N = \l_@@_bracket_ratio_fp ,
     baselineshift       .dim_set:N = \l_@@_shift_dim ,
@@ -1013,6 +1083,7 @@ Copyright and Licence
     shortcut-    .value_required:n = true ,
     beforeskip          .initial:n = \smallskipamount ,
     afterskip           .initial:n = \smallskipamount ,
+    ideographht         .initial:n = 0.88 ,
     ratio               .initial:n = 0.5 ,
     bracketratio        .initial:n = 2.5 ,
     lines               .initial:n = 2 ,
