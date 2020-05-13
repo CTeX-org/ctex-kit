@@ -140,7 +140,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{840}
+% \CheckSum{856}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -414,7 +414,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\@@_boot:nn}
-% 当前行的宽度，\tn{hsize} 与 \tn{linewidth} 可能不一致，我们取其较小值。
+% 准备工作。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boot:nn #1#2
   {
@@ -426,9 +426,10 @@ Copyright and Licence
 % 初始化设置：夹注的字号设为 $\cs{l_@@_ratio_fp}\times\tn{f@size}$\,pt，
 % 默认的行距取相同值（即设置行间距为零）。
 %    \begin{macrocode}
+    \fp_set:Nn \l_@@_tmp_fp { \l_@@_ratio_fp * \f@size }
     \exp_args:Nxx \fontsize
-      { \fp_eval:n { \l_@@_ratio_fp * \f@size } }
-      { \fp_eval:n { \l_@@_ratio_fp * \f@size } }
+      { \fp_use:N \l_@@_tmp_fp }
+      { \fp_use:N \l_@@_tmp_fp }
 %    \end{macrocode}
 % 更新当前的 \tn{baselinestretch} 为~1。
 %    \begin{macrocode}
@@ -460,8 +461,10 @@ Copyright and Licence
     \skip_set:Nn \l_@@_unit_stretch_skip
       { \c_zero_dim plus \l_@@_unit_dim }
     \@@_set_before_skip:
+    \@@_calc_box_offset:
     \@@_processing:
   }
+\fp_new:N \l_@@_tmp_fp
 \box_new:N \l_@@_text_box
 \dim_new:N \l_@@_unit_dim
 \dim_new:N \l_@@_outer_unit_dim
@@ -537,6 +540,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{\@@_calc_box_offset:}
 % \TeX 排放夹注的位置，是以西文基线为准的：
 % \begin{center}
 % \footnotesize
@@ -560,47 +564,57 @@ Copyright and Licence
 % 最后设夹注有 $n$~行。为了实现在正文汉字的中线处对齐，夹注需要向下平移，
 % 该平移量的计算公式为
 % \[
-% (r-0.5) \cdot s_{\mathrm{inner}} + \frac{(n-1) \cdot b}{2}
-%  - (r-0.5) \cdot s_{\mathrm{outer}}, \quad n\ge1.
+%    (r-0.5) \cdot s_{\mathrm{inner}} + \frac{(n-1) \cdot b}{2}
+%  - (r-0.5) \cdot s_{\mathrm{outer}}, \quad n\ge 1.
 % \]
-%
-% \begin{macro}{\@@_put_mark_box:N}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_calc_box_offset:
+  {
+%    \end{macrocode}
+% 这里提前展开 $r-0.5$ 的计算结果，避免后续的重复计算。
+%    \begin{macrocode}
+    \exp_args:Ne \@@_calc_box_offset_aux:n
+      { \fp_eval:n { \l_@@_ideoht_fp - 0.5 } }
+  }
+\cs_new_protected:Npn \@@_calc_box_offset_aux:n #1
+  {
+%    \end{macrocode}
+% 对于夹注内容盒子的下移量，我们直接套用公式。
+%    \begin{macrocode}
+    \dim_set:Nn \l_@@_box_offset_dim
+      {
+          #1 \l_@@_unit_dim
+        + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D / 2
+        - #1 \l_@@_outer_unit_dim
+      }
+%    \end{macrocode}
 % 对于夹注两端括弧盒子的下移量，我们修改 $s_{\mathrm{inner}}$ 为括弧字号，
 % 并取 $n=1$ 即可。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_put_mark_box:N #1
-  {
-    \box_move_down:nn
+    \dim_set:Nn \l_@@_mark_offset_dim
       {
-        \fp_eval:n
-          {
-            ( \l_@@_ideoht_fp - 0.5 ) * \l_@@_bracket_ratio_fp
-          }
-          \l_@@_unit_dim
-        - \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
-            \l_@@_outer_unit_dim
+          \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
+        - #1 \l_@@_outer_unit_dim
       }
-      { \box_use_drop:N #1 }
   }
+\dim_new:N \l_@@_box_offset_dim
+\dim_new:N \l_@@_mark_offset_dim
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_put_box:N}
-% 对于夹注内容盒子的下移量，我们直接套用公式。
+% \begin{macro}{\@@_put_box:N,\@@_put_mark_box:N}
+% 输出夹注盒子，并适当下移保证与正文中线对齐。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_put_box:N #1
   {
     \box_move_down:nn
-      {
-        \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
-          \l_@@_unit_dim
-        + (
-            \l_@@_lines_int \tex_baselineskip:D
-            - \tex_baselineskip:D
-          ) / 2
-        - \fp_eval:n { \l_@@_ideoht_fp - 0.5 }
-            \l_@@_outer_unit_dim
-      }
+      { \l_@@_box_offset_dim }
+      { \box_use_drop:N #1 }
+  }
+\cs_new_protected:Npn \@@_put_mark_box:N #1
+  {
+    \box_move_down:nn
+      { \l_@@_mark_offset_dim }
       { \box_use_drop:N #1 }
   }
 %    \end{macrocode}
