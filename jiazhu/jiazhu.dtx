@@ -140,7 +140,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{849}
+% \CheckSum{840}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -1122,19 +1122,16 @@ Copyright and Licence
     \box_if_empty:NTF #1
       { \dim_zero:N \l_@@_max_dim }
       {
-        \int_set:Nn \l_@@_box_int {#1}
-        \tex_luafunction:D \g_@@_box_max_width_func
+        \@@_extract_max_width_lua:N #1
         \dim_set_eq:NN \l_@@_width_dim \l_@@_max_dim
       }
   }
-\int_new:N \l_@@_box_int
-\newluafunction \g_@@_box_max_width_func
 \cs_undefine:N \@@_extract_max_width_auxi:
 \cs_undefine:N \@@_extract_max_width_auxii:
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{extract_max_width}
+% \begin{macro}{\@@_extract_max_width_lua:N}
 %    \begin{macrocode}
 \group_begin:
 \char_set_catcode_space:n { 32 }
@@ -1145,6 +1142,7 @@ Copyright and Licence
     local getbox          = tex.getbox
     local getcount        = tex.getcount
     local setdimen        = tex.setdimen
+    local scan_int        = token.scan_int
     local id_hlist        = node.id("hlist")
     local dnode           = node.direct
     local getlist         = dnode.getlist
@@ -1153,7 +1151,7 @@ Copyright and Licence
     local rangedimensions = dnode.rangedimensions
 
     function jiazhu.extract_max_width ()
-      local box   = getbox(getcount("l_@@_box_int"))
+      local box = getbox(scan_int())
       local width = 0
       for hlist in traverse_id(id_hlist, getlist(todirect(box))) do
         local w = rangedimensions(hlist, getlist(hlist))
@@ -1162,8 +1160,11 @@ Copyright and Licence
       setdimen("l_@@_max_dim", width)
     end
 
+    local id = luatexbase.new_luafunction("jiazhu")
     local t = lua.get_functions_table()
-    t[\int_use:N \g_@@_box_max_width_func] = jiazhu.extract_max_width
+    t[id] = jiazhu.extract_max_width
+
+    token.set_lua("@@_extract_max_width_lua:N", id, "global", "protected")
   }
 \group_end:
 %    \end{macrocode}
