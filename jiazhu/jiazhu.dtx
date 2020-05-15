@@ -131,6 +131,7 @@ Copyright and Licence
 \usepackage{jiazhu}
 
 \jiazhuset { ideographht = 0.8 , opening = 〔 , closing = 〕 }
+\newCJKfontfamily\mincho{HaranoAjiMincho}
 
 \begin{document}
   \DocInput{\jobname.dtx}
@@ -140,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{855}
+% \CheckSum{861}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -155,7 +156,7 @@ Copyright and Licence
 % \pkg{jiazhu} 是一个 \LaTeX 宏包，用于支持
 % 夹注\jiazhu{夹注（简体中文）、夾注（繁體中文），指夹在正文中间的注解。
 % 夹注一般为两行，故又名双行夹注（简）、雙行夾注（繁）。}^^A
-% 或割注\jiazhu{割注（日本語），本文中で，複数行に割書きした注釈．}排版。
+% 或割注\jiazhu[format=\mincho]{割注（日本語），本文中で，複数行に割書きした注釈．}排版。
 % 夹注一般只出现在直排（竖排）的文档中，常见于古籍，
 % 横排文档则几乎不用、也不适用夹注。
 %
@@ -245,13 +246,13 @@ Copyright and Licence
 %   \begin{center}
 %   \def\hfilll{\hskip 0pt plus 1filll\relax}^^A 慎用
 %   \begin{tabular}{cccc}
-%   \hline
+%   \toprule
 %   字体厂商 & 直排 & 横排 & 备注\\
-%   \hline
+%   \midrule
 %   中易  & 0.5 & 0.859375 \hfilll (220/256)  & Windows 系统字体\\
 %   华文  & 0.5 & 0.8      \hfilll (800/1000) & macOS 系统字体\\
 %   Adobe & 0.5 & 0.88     \hfilll (880/1000) & 思源系列字体\\
-%   \hline
+%   \bottomrule
 %   \end{tabular}
 %   \end{center}
 %   该值影响夹注的对齐算法。
@@ -484,8 +485,8 @@ Copyright and Licence
       \skip_set_eq:NN \tex_parfillskip:D \c_@@_fil_skip
       \c_math_toggle_token \c_math_toggle_token
         \dim_gset_eq:NN \g_@@_previous_line_width_dim \tex_predisplaysize:D
-        \int_set:Nn \tex_predisplaypenalty:D  { 1000 }
-        \int_set:Nn \tex_postdisplaypenalty:D { 1000 }
+        \int_set_eq:NN \tex_predisplaypenalty:D  \c_@@_nobreak_int
+        \int_set_eq:NN \tex_postdisplaypenalty:D \c_@@_nobreak_int
         \skip_set:Nn \tex_abovedisplayskip:D
           {
             \dim_compare:nNnTF
@@ -515,6 +516,14 @@ Copyright and Licence
 \dim_new:N \g_@@_previous_line_width_dim
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}{\c_@@_break_int, \c_@@_nobreak_int}
+% 强制换/页和禁止换行/页的 penalty 值。
+%    \begin{macrocode}
+\int_const:Nn \c_@@_break_int   { -10000 }
+\int_const:Nn \c_@@_nobreak_int {  10000 }
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{macro}{\@@_boot:nn}
 % 准备工作。
@@ -908,9 +917,12 @@ Copyright and Licence
       { \@@_split_remaining_lines: }
   }
 \cs_new_protected:Npn \@@_fill_newline:
-  { \tex_penalty:D 1000 \exp_stop_f: \tex_hfil:D \@@_newline: }
+  {
+    \tex_penalty:D \c_@@_nobreak_int
+    \tex_hfil:D    \@@_newline:
+  }
 \cs_new_protected:Npn \@@_newline:
-  { \tex_penalty:D -1000 \exp_stop_f: }
+  { \tex_penalty:D \c_@@_break_int }
 \box_new:N \l_@@_typeset_box
 %    \end{macrocode}
 % \end{macro}
@@ -1257,7 +1269,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \group_begin:
 \char_set_catcode_space:n { 32 }
-\lua_now:e
+\lua_now:n
   {
     jiazhu                = jiazhu or { }
     local jiazhu          = jiazhu
