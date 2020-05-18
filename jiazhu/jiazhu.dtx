@@ -141,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{876}
+% \CheckSum{884}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -156,7 +156,8 @@ Copyright and Licence
 % \pkg{jiazhu} 是一个 \LaTeX 宏包，用于支持
 % 夹注\jiazhu{夹注（简体中文）、夾注（繁體中文），指夹在正文中间的注解。
 % 夹注一般为两行，故又名双行夹注（简）、雙行夾注（繁）。}^^A
-% 或割注\jiazhu[format=\mincho]{割注（日本語），本文中で，複数行に割書きした注釈．}排版。
+% 或割注\jiazhu[format=\mincho,jzideographht=0.88]{^^A
+% 割注（日本語），本文中で，複数行に割書きした注釈．}排版。
 % 夹注一般只出现在直排（竖排）的文档中，常见于古籍，
 % 横排文档则几乎不用、也不适用夹注。
 %
@@ -256,6 +257,19 @@ Copyright and Licence
 %   \end{tabular}
 %   \end{center}
 %   该值影响夹注的对齐算法。
+% \end{function}
+%
+% \begin{function}{jzideographht}
+%   \begin{syntax}
+%     jzideographht = \Arg{数字}
+%   \end{syntax}
+%   额外指定夹注汉字的字框高与其字号的比值，是实数
+%   （也接受 \opt{jzideographht=8/10} 这种分数写法）。
+%   如果该值被设为~0，则认为夹注字框高的百分比与正文字框高的百分比相等
+%   （即无需另设）。
+%   如果正文、夹注分别用了来自不同厂商的字体，横排时字框高的百分比就可能不一样，
+%   此时可以通过 \opt{jzideographht} 另设夹注字体字框高的百分比。
+%   默认值是~0。
 % \end{function}
 %
 % \begin{function}{ratio}
@@ -671,13 +685,14 @@ Copyright and Licence
 % \lower\ht4\rlap{$\leftarrow$ 西文基线}
 % \end{center}
 % 设 $r$ 为汉字字框高与字号的比值（例如横排时 $r=0.88$，而直排时 $r=0.5$），
+% 其中正文为~$r_{\mathrm{outer}}$、夹注为~$r_{\mathrm{inner}}$；
 % 又设 $s_{\mathrm{outer}}$ 与 $s_{\mathrm{inner}}$ 分别为正文字号与
 % 夹注字号；记夹注的行距为~$b$（夹注的行间距即为 $b-s_{\mathrm{inner}}$）；
 % 最后设夹注有 $n$~行。为了实现在正文汉字的中线处对齐，夹注需要向下平移，
 % 该平移量的计算公式为
 % \[
-%    (r-0.5) \cdot s_{\mathrm{inner}} + \frac{(n-1) \cdot b}{2}
-%  - (r-0.5) \cdot s_{\mathrm{outer}}, \quad n\ge 1.
+%    (r_{\mathrm{inner}}-0.5) \cdot s_{\mathrm{inner}} + \frac{(n-1) \cdot b}{2}
+%  - (r_{\mathrm{outer}}-0.5) \cdot s_{\mathrm{outer}}, \quad n\ge 1.
 % \]
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_calc_box_offset:
@@ -685,10 +700,21 @@ Copyright and Licence
 %    \end{macrocode}
 % 这里提前展开 $r-0.5$ 的计算结果，避免后续的重复计算。
 %    \begin{macrocode}
-    \exp_args:Ne \@@_calc_box_offset_aux:n
+    \exp_args:Nxx \@@_calc_box_offset_aux:nn
+%    \end{macrocode}
+% 首先是 $r_{\mathrm{inner}}-0.5$ 的计算结果。
+%    \begin{macrocode}
+      {
+        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+          { \fp_eval:n { \l_@@_ideoht_fp   - 0.5 } }
+          { \fp_eval:n { \l_@@_jzideoht_fp - 0.5 } }
+      }
+%    \end{macrocode}
+% 其次是 $r_{\mathrm{outer}}-0.5$ 的计算结果。
+%    \begin{macrocode}
       { \fp_eval:n { \l_@@_ideoht_fp - 0.5 } }
   }
-\cs_new_protected:Npn \@@_calc_box_offset_aux:n #1
+\cs_new_protected:Npn \@@_calc_box_offset_aux:nn #1#2
   {
 %    \end{macrocode}
 % 对于夹注内容盒子的下移量，我们直接套用公式。
@@ -697,7 +723,7 @@ Copyright and Licence
       {
           #1 \l_@@_unit_dim
         + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D / 2
-        - #1 \l_@@_outer_unit_dim
+        - #2 \l_@@_outer_unit_dim
       }
 %    \end{macrocode}
 % 对于夹注两端括弧盒子的下移量，我们修改 $s_{\mathrm{inner}}$ 为括弧字号，
@@ -706,7 +732,7 @@ Copyright and Licence
     \dim_set:Nn \l_@@_mark_offset_dim
       {
           \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
-        - #1 \l_@@_outer_unit_dim
+        - #2 \l_@@_outer_unit_dim
       }
   }
 \dim_new:N \l_@@_box_offset_dim
@@ -1209,6 +1235,7 @@ Copyright and Licence
     opening              .tl_set:N = \l_@@_opening_tl ,
     closing              .tl_set:N = \l_@@_closing_tl ,
     ideographht          .fp_set:N = \l_@@_ideoht_fp ,
+    jzideographht        .fp_set:N = \l_@@_jzideoht_fp ,
     ratio                .fp_set:N = \l_@@_ratio_fp ,
     bracketratio         .fp_set:N = \l_@@_bracket_ratio_fp ,
     baselineshift       .dim_set:N = \l_@@_shift_dim ,
@@ -1229,6 +1256,7 @@ Copyright and Licence
 % 来设定下面这些数值选项的默认值。
 %    \begin{macrocode}
     ideographht         .initial:n = 0.5 ,
+    jzideographht       .initial:n = 0 ,
     ratio               .initial:n = 2 / 3 ,
     bracketratio        .initial:n = 2 ,
     lines               .initial:n = 2 ,
