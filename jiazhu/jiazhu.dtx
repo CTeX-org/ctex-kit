@@ -141,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{884}
+% \CheckSum{882}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -344,6 +344,32 @@ Copyright and Licence
 %   \begin{syntax}
 %     baselineshift = \Arg{尺寸}
 %   \end{syntax}
+%   \emph{正常情况下，不需要设定此值！}
+%
+%   如果夹注本身（或者紧随其后的正文）有超常的高度，
+%   那么夹注前后的正文可能会错位。例如，
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.25\linewidth,gobble=5]
+%     \newcommand\ideobaseline{\llap{\rule[-2.1bp]{76.2625pt}{0.2pt}}}
+%     正文\jiazhu[lines=4]{特殊效果}正文错位\ideobaseline
+%   \end{SideBySideExample}
+%
+%   \medskip
+%
+%   让我们设这个“特殊”夹注所处那一行的行距（\tn{baselineskip}）为
+%   $b$~plus~$y_b$~minus~$z_b$，
+%   又设该夹注与其后同一行正文的最大高度（西文基线以上的部分）为~$h$，
+%   则一旦 $h>b$，就会出现正文错位的情况。
+%   此时，你可以指定 \opt{baselineshift} 将这个夹注
+%   连同后方的正文一起竖直平移（直排时则水平平移）。
+%   正值表示向上平移（直排时向右），负值表示向下平移（直排时向左）。
+%   设 \tn{lineskip} 为 $l$~plus~$y_l$~minus~$z_l$，
+%   当 $h>b$ 时，可以声明 \opt{baselineshift=\meta{$h-b+l$}}。
+%   例如，
+%   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.25\linewidth,gobble=5]
+%     \newcommand\ideobaseline{\llap{\rule[-2.1bp]{76.2625pt}{0.2pt}}}
+%     正文\jiazhu[lines=4,baselineshift=3.0376125pt]%
+%       {特殊效果}正文对齐\ideobaseline
+%   \end{SideBySideExample}
 % \end{function}
 %
 % \begin{function}{alignment}
@@ -392,83 +418,86 @@ Copyright and Licence
 % \begin{macro}[int]{\jiazhu:nn}
 % 主要函数。
 %    \begin{macrocode}
-\cs_new_protected:Npn \jiazhu:nn
+\cs_new_protected:Npn \jiazhu:nn #1
   {
-    \mode_if_vertical:TF
-      { \@@_vertical_mode:nn }
-      {
-        \mode_if_horizontal:TF
-          {
-            \mode_if_inner:TF
-              { \@@_inner_mode:nn }
-              { \@@_horizontal_mode:nn }
-          }
-          { \@@_inner_mode:nn }
-      }
+    \group_begin:
+%    \end{macrocode}
+% 水平模式下需要用到 \cs{l_@@_shift_dim}，所以必须在这里提前处理键值选项。
+%    \begin{macrocode}
+      \tl_if_novalue:nF {#1}
+        { \keys_set:nn { jiazhu } {#1} }
+      \mode_if_vertical:TF
+        { \@@_vertical_mode:n }
+        {
+          \mode_if_horizontal:TF
+            {
+              \mode_if_inner:TF
+                { \@@_inner_mode:n }
+                { \@@_horizontal_mode:n }
+            }
+            { \@@_inner_mode:n }
+        }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_vertical_mode:nn}
+% \begin{macro}{\@@_vertical_mode:n}
 % 竖直模式下不用计算上一段最后一行的宽度，但要注意处理 \tn{parindent}。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_vertical_mode:nn
+\cs_new_protected:Npn \@@_vertical_mode:n
   {
     \mode_leave_vertical:
-    \group_begin:
-      \@@_set_line_width:
-      \bool_set_true:N \l_@@_full_line_bool
-      \bool_set_false:N \l_@@_before_skip_bool
-      \dim_set:Nn \l_@@_remaining_width_dim
-        {
-          \int_compare:nNnTF \tex_lastnodetype:D = \c_one_int
-            { \l_@@_line_width_dim - \tex_parindent:D }
-            { \l_@@_line_width_dim }
-        }
-      \@@_boot:nn
+    \@@_set_line_width:
+    \bool_set_true:N \l_@@_full_line_bool
+    \bool_set_false:N \l_@@_before_skip_bool
+    \dim_set:Nn \l_@@_remaining_width_dim
+      {
+        \int_compare:nNnTF \tex_lastnodetype:D = \c_one_int
+          { \l_@@_line_width_dim - \tex_parindent:D }
+          { \l_@@_line_width_dim }
+      }
+    \@@_boot:n
   }
 \bool_new:N \l_@@_full_line_bool
 \dim_new:N \l_@@_remaining_width_dim
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_horizontal_mode:nn}
+% \begin{macro}{\@@_horizontal_mode:n}
 % 水平模式下需要获取最后一行的宽度，以便将夹注放到段落的后面。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_horizontal_mode:nn
+\cs_new_protected:Npn \@@_horizontal_mode:n
   {
-    \group_begin:
-      \@@_extract_previous_line_width:
-      \@@_set_line_width:
-      \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
-      \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
-        {
-          \bool_set_false:N \l_@@_full_line_bool
-          \bool_set_true:N \l_@@_before_skip_bool
-          \dim_sub:Nn \l_@@_remaining_width_dim
-            { \g_@@_previous_line_width_dim }
-        }
-        {
-          \bool_set_true:N \l_@@_full_line_bool
-          \bool_set_false:N \l_@@_before_skip_bool
-        }
-      \@@_boot:nn
+    \@@_extract_previous_line_width:
+    \@@_set_line_width:
+    \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
+    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+      {
+        \bool_set_false:N \l_@@_full_line_bool
+        \bool_set_true:N \l_@@_before_skip_bool
+        \dim_sub:Nn \l_@@_remaining_width_dim
+          { \g_@@_previous_line_width_dim }
+      }
+      {
+        \bool_set_true:N \l_@@_full_line_bool
+        \bool_set_false:N \l_@@_before_skip_bool
+      }
+    \@@_boot:n
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_inner_mode:nn}
+% \begin{macro}{\@@_inner_mode:n}
 % 在内部水平或数学模式下，直接将夹注分行输出。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_inner_mode:nn
+\cs_new_protected:Npn \@@_inner_mode:n
   {
-    \group_begin:
-      \bool_set_false:N \l_@@_full_line_bool
-      \int_compare:nNnTF \tex_lastnodetype:D = { -1 }
-        { \bool_set_false:N \l_@@_before_skip_bool }
-        { \bool_set_true:N \l_@@_before_skip_bool }
-      \dim_set_eq:NN \l_@@_remaining_width_dim \c_max_dim
-      \@@_boot:nn
+    \bool_set_false:N \l_@@_full_line_bool
+    \int_compare:nNnTF \tex_lastnodetype:D = { -1 }
+      { \bool_set_false:N \l_@@_before_skip_bool }
+      { \bool_set_true:N \l_@@_before_skip_bool }
+    \dim_set_eq:NN \l_@@_remaining_width_dim \c_max_dim
+    \@@_boot:n
   }
 %    \end{macrocode}
 % \end{macro}
@@ -539,15 +568,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{macro}{\@@_boot:nn}
+% \begin{macro}{\@@_boot:n}
 % 准备工作。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_boot:nn #1#2
+\cs_new_protected:Npn \@@_boot:n #1
   {
     \@@_tex_parameter:
     \dim_set:Nn \l_@@_outer_unit_dim { \f@size pt }
-    \tl_if_novalue:nF {#1}
-      { \keys_set:nn { jiazhu } {#1} }
 %    \end{macrocode}
 % 初始化设置：夹注的字号设为 $\cs{l_@@_ratio_fp}\times\tn{f@size}$\,pt，
 % 默认的行距取相同值（即设置行间距为零）。
@@ -573,8 +600,8 @@ Copyright and Licence
 %    \begin{macrocode}
     \tl_use:N \l_@@_format_tl
     \selectfont
-    \hbox_set:Nn \l_@@_text_box { #2 \tex_unskip:D }
     \dim_set:Nn \l_@@_unit_dim { \f@size pt }
+    \hbox_set:Nn \l_@@_text_box { #1 \tex_unskip:D }
     \@@_make_opening_closing_box:
 %    \end{macrocode}
 % \tn{strutbox} 默认有 $0.3\times\tn{baselineskip}$ 的深度（横排），除
