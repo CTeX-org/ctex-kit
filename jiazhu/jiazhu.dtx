@@ -141,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{882}
+% \CheckSum{898}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -358,13 +358,19 @@ Copyright and Licence
 %   让我们设这个“特殊”夹注所处那一行的行距（\tn{baselineskip}）为
 %   $b$~plus~$y_b$~minus~$z_b$，
 %   又设该夹注与其后同一行正文的最大高度（西文基线以上的部分）为~$h$，
-%   则一旦 $h>b$，就会出现正文错位的情况。
+%   则一旦 $h>b-\tn{lineskiplimit}$，就会出现正文错位的情况。
 %   此时，你可以指定 \opt{baselineshift} 将这个夹注
 %   连同后方的正文一起竖直平移（直排时则水平平移）。
 %   正值表示向上平移（直排时向右），负值表示向下平移（直排时向左）。
 %   设 \tn{lineskip} 为 $l$~plus~$y_l$~minus~$z_l$，
-%   当 $h>b$ 时，可以声明 \opt{baselineshift=\meta{$h-b+l$}}。
-%   例如，
+%   当 $h>b-\tn{lineskiplimit}$ 时，
+%   可以声明 \opt{baselineshift=\meta{$h-b+l$}}。
+%   在上一例中，
+%   $h=(0.8-0.5)\times 10.5\,\mathrm{bp}+2\times 7\,\mathrm{bp}$，
+%   $b=1.2\times 1.2\times 10.5\,\mathrm{bp}$，
+%   $\tn{lineskiplimit}=0\,\mathrm{pt}$，
+%   $l=1\,\mathrm{pt}$。
+%   因此，
 %   \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.25\linewidth,gobble=5]
 %     \newcommand\ideobaseline{\llap{\rule[-2.1bp]{76.2625pt}{0.2pt}}}
 %     正文\jiazhu[lines=4,baselineshift=3.0376125pt]%
@@ -601,7 +607,14 @@ Copyright and Licence
     \tl_use:N \l_@@_format_tl
     \selectfont
     \dim_set:Nn \l_@@_unit_dim { \f@size pt }
-    \hbox_set:Nn \l_@@_text_box { #1 \tex_unskip:D }
+    \hbox_set:Nn \l_@@_text_box
+      {
+%    \end{macrocode}
+% 往夹注首行开头插入支架。
+%    \begin{macrocode}
+        \@@_insert_jzideoht_strut:
+        \tex_ignorespaces:D #1 \tex_unskip:D
+      }
     \@@_make_opening_closing_box:
 %    \end{macrocode}
 % \tn{strutbox} 默认有 $0.3\times\tn{baselineskip}$ 的深度（横排），除
@@ -642,6 +655,34 @@ Copyright and Licence
     \int_zero:N \tex_linepenalty:D
     \int_zero:N \tex_clubpenalty:D
     \int_zero:N \tex_widowpenalty:D
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_insert_jzideoht_strut:}
+% 往每个夹注的首行开头插入一个“支架”。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_insert_jzideoht_strut:
+  {
+    \tex_vrule:D
+%    \end{macrocode}
+% 支架的高度等于夹注汉字的字框高，
+% 这能给 \opt{baselineshift} 提供更可靠的参考。
+%    \begin{macrocode}
+      height
+        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+          { \fp_use:N \l_@@_ideoht_fp }
+          { \fp_use:N \l_@@_jzideoht_fp }
+        \l_@@_unit_dim
+%    \end{macrocode}
+% 在夹注里 \tn{lineskiplimit} 已经最小了，支架的深度不会起任何作用，
+% 我们设成零即可。
+%    \begin{macrocode}
+      depth \c_zero_dim
+%    \end{macrocode}
+% 支架的宽度当然是零。^^A 也可以改成 \cs{l_@@_unit_dim} 进行视觉 debug
+%    \begin{macrocode}
+      width \c_zero_dim
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1005,7 +1046,13 @@ Copyright and Licence
         \box_gset_to_last:N \g_@@_last_box
       }
     \hbox_set:Nn #1
-      { \hbox_unpack_drop:N \g_@@_last_box #2 }
+      {
+%    \end{macrocode}
+% 往继续的夹注首行开头插入支架。
+%    \begin{macrocode}
+        \@@_insert_jzideoht_strut:
+        \hbox_unpack_drop:N \g_@@_last_box #2
+      }
   }
 \box_new:N \g_@@_last_box
 %    \end{macrocode}
