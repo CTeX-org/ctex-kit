@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6116}
+% \CheckSum{6200}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3214,16 +3214,6 @@ Copyright and Licence
 %     \item \pkg{xkeyval} 宏包。
 %   \end{itemize}
 %   \item \pkg{fontspec} 宏包。
-%   \item \pkg{xunicode-addon} 宏包，属于 \pkg{xeCJK} 宏集，它还依赖
-%   \begin{itemize}
-%     \item \pkg{xunicode} 宏包，它还依赖
-%     \begin{itemize}
-%       \item \pkg{graphics} 宏集。
-%       \item \pkg{graphics-cfg} 宏包。
-%       \item \pkg{graphics-def} 宏包。
-%       \item \pkg{tipa} 宏包。
-%     \end{itemize}
-%   \end{itemize}
 %   \item[\ding{229}] 以上是使用 \LuaLaTeX{} 编译时的依赖项。
 %   \item \pkg{pxeverysel} 宏包，属于 \pkg{platex-tools} 宏集。
 %   \item \pkg{zhmetrics-uptex} 宏包。
@@ -4623,10 +4613,10 @@ Copyright and Licence
   "A960-"A97F, "AC00-"D7FF}
 \ltjdefcharrange{8}{"A7, "A8, "B0, "B1, "B4, "B6, "D7, "F7}
 %    \end{macrocode}
-% 将引号、破折号等中西文公用的标点符号归入字符范围 9，将他们设置为 JAchar。
+% 将间隔号、引号、破折号等中西文公用的标点符号归入字符范围 9，将他们设置为 JAchar。
 %    \begin{macrocode}
 \ltjdefcharrange{9}{%
-  "2018, "2019, "201C, "201D, "2013, "2014, "2025, "2026, "2027, "2E3A}
+  "00B7, "2018, "2019, "201C, "201D, "2013, "2014, "2025, "2026, "2027, "2E3A}
 %    \end{macrocode}
 % \changes{v2.4.11}{2017/08/17}{不把希腊和西里尔字母设置为 JAchar。}
 % \pkg{LuaTeX-ja} 默认把字符范围 2 和 3 设置为 JAchar，我们这里把它们都改成 ALchar。
@@ -4659,15 +4649,13 @@ Copyright and Licence
 %<@@=ctex_ltj>
 %    \end{macrocode}
 %
-% \changes{v2.3}{2015/09/26}{更新 \pkg{unicode-math} 宏包补丁。}
+% \changes{v2.5.3}{2020/05/31}{不再依赖 \pkg{xunicode}，单独补丁 \file{tuenc.def}。}
 %
-% 在 \LaTeX{} 下，\pkg{LuaTeX-ja} 对 \pkg{fontspec}、\pkg{xunicode}、\pkg{unicode-math}
-% 和 \pkg{listings} 打了补丁。其中前三个是把 \tn{char} 换成 \tn{ltjalchar}，确保
-% 字符是 ALchar 类。我们这里用 \pkg{xunicode-addon} 来处理 \pkg{xunicode}。
+% \begin{macro}{\CTEX@alchar, \CTEX@beginallalchar, \CTEX@endallalchar}
+% 分组中的字符都是 ALchar 类。
 %    \begin{macrocode}
-\RequirePackage { xunicode-addon }
-\AtBeginUTFCommand { \CTEX@beginallalchar }
-\AtEndUTFCommand   { \CTEX@endallalchar }
+\cs_new_protected:Npn \CTEX@alchar #1
+  { \CTEX@beginallalchar #1 \CTEX@endallalchar }
 \cs_new_protected:Npn \CTEX@beginallalchar
   {
     \group_begin:
@@ -4676,6 +4664,110 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \CTEX@endallalchar
   { \group_end: }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@chardef@text@cmd}
+% 补丁 \tn{chardef@text@cmd}，应用于 \tn{DeclareTextSymbol}，使其定义的符号都是 ALchar。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@chardef@text@cmd #1
+  {
+    \cs_set_eq:NN \@ifdefinable \@@@@ifdefinable
+    \tl_set:Nn \l_@@_cmd_tl {#1}
+    \tex_afterassignment:D \@@_chardef_text_cmd:
+    \tex_chardef:D #1
+  }
+\tl_new:N \l_@@_cmd_tl
+\cs_new_protected:Npn \@@_chardef_text_cmd:
+  { \exp_after:wN \@@_chardef_text_cmd_aux:N \l_@@_cmd_tl }
+\cs_new_protected:Npn \@@_chardef_text_cmd_aux:N #1
+  {
+    \int_compare:nNnF {#1} < { "80 }
+      { \cs_set_protected:Npx #1 { \CTEX@alchar { \tex_Uchar:D #1 } } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@text@composite@x}
+% \tn{@text@composite@x} 的重定义，应用于 \tn{DeclareUnicodeComposite} 等。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@text@composite@x #1#2
+  {
+    \CTEX@beginallalchar
+      \cs_if_exist_use:NF #1 {#2}
+    \CTEX@endallalchar
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@add@unicode@accent}
+% \tn{add@unicode@accent} 的重定义，应用于 \tn{DeclareUnicodeAccent}。
+%    \begin{macrocode}
+\cs_new_protected:Npx \CTEX@add@unicode@accent #1#2
+  {
+    \CTEX@beginallalchar
+      \exp_not:N \tl_if_blank:nTF {#2} { \tex_Uchar:D "A0 ~ } {#2}
+      \exp_not:N \tex_Uchar:D \tex_numexpr:D #1 \scan_stop:
+    \CTEX@endallalchar
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@patch@text@cmd}
+% 单独补丁由 \tn{DeclareTextCommand} 定义的命令。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@patch@text@cmd #1
+  {
+    \exp_args:NNc \@@_patch_text_cmd:NN #1
+      { \UnicodeEncodingName \token_to_str:N #1 }
+  }
+\cs_new_protected:Npn \@@_patch_text_cmd:NN #1#2
+  {
+    \cs_set_eq:NN \CTEX@textcmd #2
+    \ctex_preto_cmd:NnnTF \CTEX@textcmd
+      { \ExplSyntaxOff \makeatletter }
+      { \CTEX@beginallalchar }
+      {
+        \ctex_appto_cmd:NnnTF \CTEX@textcmd
+          { \ExplSyntaxOff \makeatletter }
+          { \CTEX@endallalchar }
+          { \cs_set_eq:NN #2 \CTEX@textcmd }
+          { \ctex_patch_failure:N #1 }
+      }
+      { \ctex_patch_failure:N #1 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@patch@tunec}
+% 重新载入 \tn{tunec.def}，使补丁生效。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@patch@tunec
+  {
+    \cs_set_eq:NN \chardef@text@cmd   \CTEX@chardef@text@cmd
+    \input { tuenc.def }
+    \cs_set_eq:NN \@text@composite@x  \CTEX@text@composite@x
+    \cs_set_eq:NN \add@unicode@accent \CTEX@add@unicode@accent
+    \CTEX@patch@text@cmd \textasteriskcentered
+  }
+\@ifpackageloaded { xunicode }
+  { }
+  { \CTEX@patch@tunec }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.3}{2015/09/26}{更新 \pkg{unicode-math} 宏包补丁。}
+%
+% 在 \LaTeX{} 下，\pkg{LuaTeX-ja} 对 \pkg{fontspec}、\pkg{xunicode}、\pkg{unicode-math}
+% 和 \pkg{listings} 打了补丁。其中前三个是把 \tn{char} 换成 \tn{ltjalchar}，确保
+% 字符是 ALchar 类。我们这里用 \pkg{xunicode-addon} 来处理 \pkg{xunicode}。
+%    \begin{macrocode}
+\ctex_at_end_package:nn { xunicode }
+  {
+    \RequirePackage { xunicode-addon }
+    \AtBeginUTFCommand { \CTEX@beginallalchar }
+    \AtEndUTFCommand   { \CTEX@endallalchar }
+  }
 %    \end{macrocode}
 %
 % \changes{v2.4.2}{2016/05/15}{恢复 \pkg{luatexja} 对 \tn{emshape} 和
