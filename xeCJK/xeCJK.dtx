@@ -6106,11 +6106,18 @@ Copyright and Licence
             \cs_set_eq:NN \@@_fallback_save_CJKsymbol:N \CJKsymbol
             \cs_set_eq:NN \CJKsymbol \xeCJK_fallback_test_glyph:N
           }
+        \cs_if_eq:NNF \CJKpunctsymbol \xeCJK_fallback_test_glyph_punct:N
+          {
+            \cs_set_eq:NN \@@_fallback_save_CJKpunctsymbol:N \CJKpunctsymbol
+            \cs_set_eq:NN \CJKpunctsymbol \xeCJK_fallback_test_glyph_punct:N
+          }
       } ,
     AutoFallBack / false .code:n =
       {
         \cs_if_eq:NNT \CJKsymbol \xeCJK_fallback_test_glyph:N
           { \cs_set_eq:NN \CJKsymbol \@@_fallback_save_CJKsymbol:N }
+        \cs_if_eq:NNT \CJKpunctsymbol \xeCJK_fallback_test_glyph_punct:N
+          { \cs_set_eq:NN \CJKpunctsymbol \@@_fallback_save_CJKpunctsymbol:N }
       } ,
     AutoFallBack      .default:n = { true } ,
     fallback             .meta:n = { AutoFallBack = true }
@@ -6130,6 +6137,24 @@ Copyright and Licence
           \xeCJK_aftergroup_reset_Boundary:N #1
           \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
           \xeCJK_fallback_loop:No #1 { \l_xeCJK_family_tl/FallBack }
+        \group_end:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\xeCJK_fallback_test_glyph_punct:N}
+% 测试当前字体中是否存在当前字符，如存在则直接输出，否则启用后备字体。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_fallback_test_glyph_punct:N #1
+  {
+    \xeCJK_glyph_if_exist:NTF #1
+      { \@@_fallback_save_CJKpunctsymbol:N #1 }
+      {
+        \group_begin:
+          \xeCJK_aftergroup_reset_Boundary:N #1
+          \tl_set_eq:NN \l_@@_fallback_family_tl \l_xeCJK_family_tl
+          \xeCJK_fallback_loop_punct:No #1 { \l_xeCJK_family_tl/FallBack }
         \group_end:
       }
   }
@@ -6189,6 +6214,40 @@ Copyright and Licence
       }
   }
 \cs_generate_variant:Nn \xeCJK_fallback_loop:Nn { No }
+%
+% \begin{macro}[int]{\xeCJK_fallback_loop_punct:Nn}
+% \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
+% \changes{v3.2.4}{2013/06/30}
+% {使 \tn{CJKfamilydefault} 的 \texttt{FallBack} 设置全局可用。}
+% 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
+% 结束循环。当前字体族没有备用字体时，使用 \tn{CJKfamilydefault} 的设置。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_fallback_loop_punct:Nn #1#2
+  {
+    \xeCJK_family_if_exist:nTF {#2}
+      {
+        \tl_set:Nn \l_xeCJK_family_tl {#2}
+        \tl_set_eq:NN \CJK@family \l_@@_fontspec_family_tl
+        \xeCJK_select_font:
+        \xeCJK_glyph_if_exist:NTF #1
+          { \@@_fallback_save_CJKpunctsymbol:N #1 }
+          { \xeCJK_fallback_loop_punct:No #1 { \l_xeCJK_family_tl/FallBack } }
+      }
+      {
+        \str_if_eq:eeTF { \CJKfamilydefault } { \l_@@_fallback_family_tl }
+          {
+            \@@_warning:nxxx { missing-glyph }
+              { \l_xeCJK_family_tl } {#1}
+              { \int_to_Hex:n { `#1 } }
+            \@@_fallback_save_CJKpunctsymbol:N #1
+          }
+          {
+            \tl_set:Nx \l_@@_fallback_family_tl { \CJKfamilydefault }
+            \xeCJK_fallback_loop_punct:Nn #1 { \l_@@_fallback_family_tl }
+          }
+      }
+  }
+\cs_generate_variant:Nn \xeCJK_fallback_loop_punct:Nn { No }
 \@@_msg_new:nn { missing-glyph }
   {
     CJKfamily~`\@@_msg_family_map:n {#1}'~
