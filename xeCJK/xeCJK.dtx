@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10883}
+% \CheckSum{10882}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6169,30 +6169,26 @@ Copyright and Licence
   }
 \cs_new_eq:NN \xeCJK_fallback_symbol:NN       \prg_do_nothing:
 \cs_new_eq:NN \xeCJK_fallback_punct_symbol:NN \prg_do_nothing:
-\cs_new_protected:Npn \@@_fallback_symbol_aux:NN #1#2
+\cs_new_protected:Npn \@@_fallback_symbol_aux:NN
   {
-    \@@_fallback_symbol_aux:NNnn #1#2
+    \@@_fallback_symbol_aux:nnNN
       { \CJK@family }
       { \l_xeCJK_family_tl }
   }
-\cs_new_protected:Npn \@@_fallback_punct_symbol_aux:NN #1#2
+\cs_new_protected:Npn \@@_fallback_punct_symbol_aux:NN
   {
-    \@@_fallback_symbol_aux:NNnn #1#2
+    \@@_fallback_symbol_aux:nnNN
       { \CJK@punctfamily }
       { \l_xeCJK_punct_family_tl }
   }
-\cs_new_protected:Npn \@@_fallback_symbol_aux:NNnn #1#2#3#4
+\cs_new_protected:Npn \@@_fallback_symbol_aux:nnNN
   {
     \cs_set_protected:Npx \xeCJK_reset_fallback_font:
       {
         \tex_the:D \tex_font:D
         \xeCJK_clear_fallback_font:
       }
-    \use:e
-      {
-        \@@_fallback_loop:NNnn
-          \exp_not:N #1 \exp_not:N #2 {#3} {#4}
-      }
+    \exp_args:Nxx \@@_fallback_loop:nnNN
   }
 \cs_new_protected:Npn \@@_clear_fallback_font:
   { \cs_set_eq:NN \xeCJK_reset_fallback_font: \prg_do_nothing: }
@@ -6204,55 +6200,56 @@ Copyright and Licence
 % \changes{v3.5.1}{2017/11/16}{修正 fallback 字体后无法忽略空格的错误。}
 % \changes{v3.2.12}{2014/05/12}{更新 \cs{int_to_Hex:n}。}
 %
-% \begin{macro}[int]{\@@_fallback_loop:NNnn}
+% \begin{macro}[int]{\@@_fallback_loop:nnNN}
 % \changes{v3.1.0}{2012/11/19}{调整备用字体的循环方式。}
 % \changes{v3.2.4}{2013/06/30}
 % {使 \tn{CJKfamilydefault} 的 \texttt{FallBack} 设置全局可用。}
 % 循环测试后备字体是否包含字符 |#1|。若后备字体中存在该字符或者再没有后备字体，则
 % 结束循环。当前字体族没有备用字体时，使用 \tn{CJKfamilydefault} 的设置。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_fallback_loop:NNnn #1#2#3#4
+\cs_new_protected:Npn \@@_fallback_loop:nnNN
   {
     \cs_set_eq:NN \@@_fallback_loop:TF \use_i:nn
-    \@@_fallback_loop:NNnnn #1 #2 {#3} {#4} { FallBack }
+    \@@_fallback_loop:nnnNN { FallBack }
   }
 \cs_generate_variant:Nn \@@_fallback_loop:Nn { Nx }
-\cs_new_protected:Npn \@@_fallback_loop:NNnnn #1#2#3#4#5
+\cs_new_protected:Npn \@@_fallback_loop:nnnNN #1#2#3
   {
-    \xeCJK_select_fallback_font:nnn {#3} {#4} {#5}
+    \xeCJK_select_fallback_font:nnn {#1} {#2} {#3}
     \@@_fallback_loop:TF
-      { \@@_fallback_loop_aux:NNnnn }
-      { \@@_fallback_missing_glyph:NNnnn }
-      #1 #2 {#3} {#4} {#5}
+      { \@@_fallback_loop_aux:nnnNN }
+      { \@@_fallback_missing_glyph:nnnNN }
+      {#1} {#2} {#3}
   }
-\cs_new_protected:Npn \@@_fallback_loop_aux:NNnnn #1#2#3#4#5
+\cs_new_protected:Npn \@@_fallback_loop_aux:nnnNN #1#2#3#4#5
   {
-    \xeCJK_glyph_if_exist:NTF #2
-      { #1 #2 }
-      { \@@_fallback_loop:NNnnn #1 #2 {#3} {#4} { #5 / FallBack } }
+    \xeCJK_glyph_if_exist:NF #5
+      { \@@_fallback_loop:nnnNN { #1/FallBack } {#2} {#3} }
+    #4#5
   }
-\cs_new_protected:Npn \@@_fallback_missing_glyph:NNnnn #1#2#3#4#5
+\cs_new_protected:Npn \@@_fallback_missing_glyph:nnnNN #1#2#3#4#5
   {
-    \@@_warning:nxxx { missing-glyph } {#2} {#3} {#4}
-    #1 #2
+    \@@_warning:nxxx { missing-glyph } {#1} {#2} {#5}
+    #4#5
   }
-\cs_new_protected:Npn \xeCJK_select_fallback_font:nnn #1#2#3
+\cs_new_protected:Npn \xeCJK_select_fallback_font:nnn #1#2
   {
     \@@_select_fallback_font:cnnn
-      { \@@_font_csname:n { #1/#3 } } {#1} {#2} {#3}
+      { \@@_font_csname:n { #2/#1 } } {#1} {#2}
   }
-\cs_new_protected:Npn \@@_select_fallback_font:Nnnn #1#2#3#4
+\cs_new_protected:Npn \@@_select_fallback_font:Nnnn #1
   {
     \cs_if_exist:NF #1
-      { \@@_fallback_font_initial:Nnnn #1 {#2} {#3} {#4} }
-    #1
+      { \@@_fallback_font_initial:NNnnn }
+    #1 \use_none:nnn
   }
 \cs_generate_variant:Nn \@@_select_fallback_font:Nnnn { c }
-\cs_new_protected:Npn \@@_fallback_font_initial:Nnnn #1#2#3#4
+\cs_new_protected:Npn \@@_fallback_font_initial:NNnnn #1#2#3#4#5
   {
-    \xeCJK_family_if_exist:nTF { #3/#4 }
-      { \@@_font_initial:Nn #1 { #3/#4 } }
-      { \@@_fallback_font_initial_auxi:Nnnn #1 {#3} {#4} {#2} }
+    \xeCJK_family_if_exist:nTF { #5/#3 }
+      { \@@_font_initial:Nn #1 { #5/#3 } }
+      { \@@_fallback_font_initial_auxi:Nnnn #1 {#5} {#3} {#4} }
+    #1
   }
 \cs_new_protected:Npn \@@_fallback_font_initial_auxi:Nnnn #1
   {
@@ -6287,9 +6284,9 @@ Copyright and Licence
   { \cs_set_eq:NN \@@_fallback_loop:TF \use_ii:nn }
 \@@_msg_new:nn { missing-glyph }
   {
-    CJKfamily~`\@@_msg_family_map:n {#3}'~(#2)~
-    does~not~contain~glyph~`#1'~
-    ( U + \int_to_Hex:n { `#1 } )~\msg_line_context:.
+    CJKfamily~`\@@_msg_family_map:n {#2}'~(#1)~
+    does~not~contain~glyph~`#3'~
+    ( U + \int_to_Hex:n { `#3 } )~\msg_line_context:.
   }
 %    \end{macrocode}
 % \end{macro}
