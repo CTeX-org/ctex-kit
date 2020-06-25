@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10884}
+% \CheckSum{10901}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -6772,10 +6772,16 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_font_initial:Nn #1#2
   {
     \group_begin:
+      \@@_font_initial_hook:
       \@@_family_use:n {#2}
       \xeCJK_font_gset_to_current:N #1
     \group_end:
   }
+\cs_new_protected:Npn \@@_font_initial_hook:
+  { \tl_use:N \g_@@_font_initial_hook_tl }
+\cs_new_protected:Npn \@@_gadd_font_initial_hook:n
+  { \tl_gput_right:Nn \g_@@_font_initial_hook_tl }
+\tl_new:N \g_@@_font_initial_hook_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8903,14 +8909,11 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.8.5}{2020/06/25}{进一步兼容 \pkg{microtype}。}
+%
 % \begin{macro}{\@@_patch_microtype_get_slot:}
 % 兼容 \pkg{microtype}。
 %    \begin{macrocode}
-\@@_package_hook:nn { microtype }
-  {
-    \cs_if_free:NF \MT@get@slot@
-      { \@@_patch_microtype_get_slot: }
-  }
 \cs_new_protected:Npn \@@_patch_microtype_get_slot:
   {
     \cs_new_eq:NN \xeCJK@original@get@slot \MT@get@slot@
@@ -8929,6 +8932,14 @@ Copyright and Licence
       { \MT@encoding - \tex_the:D \MT@toks } \l_@@_tmp_tl
       { \cs_set_eq:NN \MT@char \l_@@_tmp_tl }
   }
+\cs_new_protected:Npn \xeCJK@microtype@restore@pickupfont
+  { \@@_gadd_font_initial_hook:n { \MT@ltx@pickupfont } }
+\@@_package_hook:nn { microtype }
+  {
+    \cs_if_free:NF \MT@get@slot@
+      { \@@_patch_microtype_get_slot: }
+    \MT@addto@setup { \xeCJK@microtype@restore@pickupfont }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -8942,7 +8953,7 @@ Copyright and Licence
         \xeCJK_cs_clear:N \@@_inactive_group_begin:
         \xeCJK_cs_clear:N \@@_inactive_group_end:
         \xeCJK_cs_clear:N \makexeCJKinactive
-        \xeCJK_cs_clear:N \xeCJK@composite@patch
+        \xeCJK_cs_clear:N \xeCJK_text_composite_patch:
       }
   }
 %    \end{macrocode}
