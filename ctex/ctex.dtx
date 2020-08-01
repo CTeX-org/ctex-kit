@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6229}
+% \CheckSum{6244}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -11416,10 +11416,60 @@ Copyright and Licence
 %
 % \changes{v2.2}{2015/06/26}{将文档开头和宏包末尾钩子提取到 \pkg{ctexhook} 宏包中。}
 % \changes{v2.5}{2020/04/21}{增加宏包开头钩子。}
+% \changes{v2.5.4}{2020/08/02}{兼容 \LaTeX \ 2020/10/01 的钩子机制。}
 %
 %    \begin{macrocode}
 %<*ctexhook>
 %    \end{macrocode}
+%
+% \begin{macro}[int]{\ctex_at_begin_package:nn}
+% 如果宏包已经被载入，则钩子无效，给出警告。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_at_begin_package:nn #1
+  {
+    \@ifpackageloaded {#1}
+      { \@@_package_loaded_warning:nn {#1} }
+      { \ctex_gadd_package_hook:nnn { before } {#1} }
+  }
+\cs_new_protected:Npn \@@_package_loaded_warning:nn #1#2
+  { \msg_warning:nnx { ctex } { invalid-hook } {#1} }
+\msg_new:nnn { ctex } { invalid-hook }
+  {
+    Package~`#1'~is~loaded. \\
+    \token_to_str:N \ctex_at_begin_package:nn \{#1\}\{...\}~is~invalid.
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_at_end_package:nn}
+% 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
+% 在宏包末尾执行语句，否则立即执行。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_at_end_package:nn #1
+  {
+    \@ifpackageloaded {#1}
+      { \use:n }
+      { \ctex_gadd_package_hook:nnn { after } {#1} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \LaTeX \ 2020/10/01 开始提供常用钩子管理机制。在新机制下，我们只需要做简单的包装。
+%    \begin{macrocode}
+\@ifl@t@r \fmtversion { 2020/10/01 }
+  {
+    \cs_new_protected:Npx \ctex_at_end_preamble:n
+      { \hook_gput_code:nnn { env/document/before } { \c_novalue_tl } }
+    \cs_new_protected:Npx \ctex_after_end_preamble:n
+      { \hook_gput_code:nnn { begindocument/end }   { \c_novalue_tl } }
+    \cs_new_protected:Npx \ctex_gadd_package_hook:nnn #1#2
+      { \hook_gput_code:nnn { package/#1/#2 }       { \c_novalue_tl } }
+    \file_input_stop:
+  }
+  { }
+%    \end{macrocode}
+%
+% 对于 \LaTeX \ 2020/10/01 之前的版本，需要自行补丁。
 %
 % \begin{macro}[int]{\ctex_at_end_preamble:n,\ctex_after_end_preamble:n}
 % 实现 \pkg{etoolbox} 宏包的 \tn{AtEndPreamble} 和 \tn{AfterEndPreamble}。
@@ -11440,40 +11490,6 @@ Copyright and Licence
   }
 \tl_new:N \g_@@_end_preamble_hook_tl
 \tl_new:N \g_@@_after_end_preamble_hook_tl
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_at_begin_package:nn}
-% 如果宏包已经被载入，则钩子无效，给出警告。
-% 在 \pkg{filehook} 的钩子\emph{之前}起作用。
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_at_begin_package:nn #1
-  {
-    \@ifpackageloaded {#1}
-      { \@@_package_loaded_warning:nn {#1} }
-      { \ctex_gadd_package_hook:nnn { begin } {#1} }
-  }
-\cs_new_protected:Npn \@@_package_loaded_warning:nn #1#2
-  { \msg_warning:nnx { ctex } { invalid-hook } {#1} }
-\msg_new:nnn { ctex } { invalid-hook }
-  {
-    Package~`#1'~is~loaded. \\
-    \token_to_str:N \ctex_at_begin_package:nn \{#1\}\{...\}~is~invalid.
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_at_end_package:nn}
-% 与 \pkg{filehook} 的 \tn{AtEndOfPackageFile*} 类似，如果原来没有在载入宏包则
-% 在宏包末尾执行语句，否则立即执行。
-% 在 \pkg{filehook} 的钩子\emph{之后}起作用。
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_at_end_package:nn #1
-  {
-    \@ifpackageloaded {#1}
-      { \use:n }
-      { \ctex_gadd_package_hook:nnn { end } {#1} }
-  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11514,7 +11530,7 @@ Copyright and Licence
 \cs_new_protected:Npn \CTEX@reset@ptions@hook
   {
     \cs_if_eq:NNT \@currext \@pkgextension
-      { \ctex_use_package_hook:nn { begin } { \@currname } }
+      { \ctex_use_package_hook:nn { before } { \@currname } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -11526,7 +11542,7 @@ Copyright and Licence
 \cs_new_protected:Npn \CTEX@popfilename@hook
   {
     \cs_if_eq:NNT \@currext \@pkgextension
-      { \ctex_use_package_hook:nn { end } { \@currname } }
+      { \ctex_use_package_hook:nn { after } { \@currname } }
   }
 %    \end{macrocode}
 % \end{macro}
