@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6244}
+% \CheckSum{6223}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3346,7 +3346,7 @@ Copyright and Licence
     `l3kernel'~and~`l3packages'\\\\
     using~your~TeX~package~manager~or~from~CTAN.
   }
-\@ifpackagelater { expl3 } { 2020/04/06 } { }
+\@ifpackagelater { expl3 } { 2020/07/17 } { }
   { \msg_error:nnn { ctex } { l3-too-old } { expl3 } }
 %<*class>
 \@ifpackagelater { l3keys2e } { 2015/12/20 } { }
@@ -3417,68 +3417,44 @@ Copyright and Licence
   { \keys_set:nn { ctex } }
 \cs_new_protected:Npn \ctex_set:nn #1
   { \keys_set:nn { ctex / #1 } }
+%</!ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
 % \changes{v2.5.3}{2020/06/06}{正确关闭和恢复 \LaTeXiii 语法环境。}
-%
-% \begin{macro}[int]{\ctex_file_wrapper:nnn}
-% 设置文件操作的 \tn{catcode} 环境，参数 |#1| 是设置，|#2| 是文件操作，|#3| 是恢复。
-% 默认关闭 \LaTeXiii{} 语法环境，并设置 |@| 的 \tn{catcode} 为 $11$。
-% 这里最自然的使用 \pkg{l3cctab} 来实现，但目前 \pkg{l3cctab} 还属于
-% \pkg{l3experimental}，我们暂时不依赖它。
-%    \begin{macrocode}
-%</!ctexsize>
-\cs_new_protected:Npn \ctex_file_wrapper:nnn
-  {
-    \exp_args:NNx \ExplSyntaxOff
-    \@@_file_wrapper_aux:nnnn
-      {
-        \bool_if:NTF \l__kernel_expl_bool
-          { \ExplSyntaxOn }
-          { \ExplSyntaxOff }
-      }
-  }
-\cs_new_protected:Npn \@@_file_wrapper_aux:nnnn #1#2#3#4
-  {
-    \use:x
-      {
-        \char_set_catcode_letter:n { 64 }
-        #2
-        \exp_not:n {#3}
-        \char_set_catcode:nn { 64 } { \char_value_catcode:n { 64 } }
-        #4
-      }
-    #1
-  }
-%    \end{macrocode}
-% \end{macro}
+% \changes{v2.5.4}{2020/08/02}{应用 \pkg{l3cctab}。}
 %
 % \begin{macro}[int]{\ctex_file_input:n}
-% 输入文件。
+% 输入文件，关闭 \LaTeXiii 语法环境，并设置 |@| 为字母类。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_file_input:n #1
-  { \ctex_file_wrapper:nnn { } { \file_input:n {#1} } { } }
-%<*!ctexsize>
+  {
+    \cctab_begin:N \c_@@_package_cctab
+      \file_input:n {#1}
+    \cctab_end:
+  }
+\cctab_const:Nn \c_@@_package_cctab
+  {
+    \cctab_select:N \c_document_cctab
+    \char_set_catcode_letter:n { 64 }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{macro}[int]{\ctex_scheme_input:n}
 % 输入 \opt{scheme} 文件。先查找当前文档类下的 \meta{scheme}，找不到再查找一般的文件。
 %    \begin{macrocode}
+%<*!ctexsize>
 \cs_new_protected:Npn \ctex_scheme_input:n #1
   {
-    \ctex_file_wrapper:nnn
-      { }
-      {
-        \tl_if_exist:NTF \c_@@_class_tl
-          {
-            \file_if_exist_input:nF { ctex-scheme- #1 - \c_@@_class_tl .def }
-              { \file_input:n  { ctex-scheme- #1 .def } }
-          }
-          { \file_input:n  { ctex-scheme- #1 .def } }
-      }
-      { }
+    \cctab_begin:N \c_@@_package_cctab
+      \tl_if_exist:NTF \c_@@_class_tl
+        {
+          \file_if_exist_input:nF { ctex-scheme- #1 - \c_@@_class_tl .def }
+            { \file_input:n  { ctex-scheme- #1 .def } }
+        }
+        { \file_input:n  { ctex-scheme- #1 .def } }
+    \cctab_end:
   }
 \cs_generate_variant:Nn \ctex_scheme_input:n { o }
 %    \end{macrocode}
@@ -4241,6 +4217,8 @@ Copyright and Licence
   \RequirePackage { CJKpunct , CJKspace }
 %    \end{macrocode}
 %
+% \changes{v2.4.4}{2016/09/09}{解决 \opt{zhmap} 文件的 \tn{catcode} 问题。}
+%
 % \begin{macro}[int]{\ctex_load_zhmap:nnnn}
 % 载入 \pkg{zhmetrics} 的字体映射文件，同时设置 \tn{CJKrmdefault} 等。
 %    \begin{macrocode}
@@ -4249,29 +4227,9 @@ Copyright and Licence
       \tl_set:Nn \CJKrmdefault {#1}
       \tl_set:Nn \CJKsfdefault {#2}
       \tl_set:Nn \CJKttdefault {#3}
-      \ctex_set_zhmap:n { \ctex_zhmap_input:n { ctex-zhmap- #4 .tex } }
+      \ctex_set_zhmap:n { \ctex_file_input:n { ctex-zhmap- #4 .tex } }
     }
   \@onlypreamble \ctex_load_zhmap:nnnn
-%    \end{macrocode}
-% \end{macro}
-%
-% \changes{v2.4.4}{2016/09/09}{解决 \opt{zhmap} 文件的 \tn{catcode} 问题。}
-% \begin{macro}[int]{\ctex_zhmap_input:n}
-% 载入字体映射文件时，确认 |%| 和 |\| 的 \tn{catcode}。
-%    \begin{macrocode}
-  \cs_new_protected:Npn \ctex_zhmap_input:n #1
-    {
-      \ctex_file_wrapper:nnn
-        {
-          \char_set_catcode_comment:n { 37 } % %
-          \char_set_catcode_escape:n  { 92 } % \
-        }
-        { \file_input:n {#1} }
-        {
-          \char_set_catcode:nn { 37 } { \char_value_catcode:n { 37 } }
-          \char_set_catcode:nn { 92 } { \char_value_catcode:n { 92 } }
-        }
-    }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4284,22 +4242,18 @@ Copyright and Licence
 % \pkg{breqn} 包可能会在正文中将 |^| 的 \tn{catcode} 改为 $12$ 或 $13$，这将
 % 破坏 \pkg{CJK} 对汉字的首字节的定义（\tn{CJK@loadBinding} 和
 % \tn{CJK@loadEncoding}）。因此需要确保载入 \file{.enc} 和 \file{.bdg} 文件时，
-% |^| 的 \tn{catcode} 为 $7$。
+% |^| 的 \tn{catcode} 为 $7$。同时要设置 \tn{endlinechar} 为 $-1$。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_CJK_input:n #1
   {
-    \ctex_file_wrapper:nnn
-      {
-        \char_set_catcode_other:n            { 60 } % <
-        \char_set_catcode_math_superscript:n { 94 } % ^
-        \int_set:Nn \tex_endlinechar:D { -1 }
-      }
-      { \file_input:n {#1} }
-      {
-        \char_set_catcode:nn { 60 } { \char_value_catcode:n { 60 } }
-        \char_set_catcode:nn { 94 } { \char_value_catcode:n { 94 } }
-        \int_set:Nn \tex_endlinechar:D { \int_use:N \tex_endlinechar:D }
-      }
+    \cctab_begin:N \c_@@_CJK_cctab
+      \file_input:n {#1}
+    \cctab_end:
+  }
+\cctab_const:Nn \c_@@_CJK_cctab
+  {
+    \cctab_select:N \c_@@_package_cctab
+    \int_set:Nn \tex_endlinechar:D { -1 }
   }
 \cs_set_eq:NN \CJK@input \ctex_CJK_input:n
 %    \end{macrocode}
@@ -10786,9 +10740,10 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*zhmap>
 \begingroup\catcode61\catcode48\catcode32=10\relax%
-  \catcode 35=6 % #
-  \catcode123=1 % {
-  \catcode125=2 % }
+  \catcode 35=6  % #
+  \catcode 45=12 % -
+  \catcode123=1  % {
+  \catcode125=2  % }
   \toks0{\endlinechar=\the\endlinechar\relax}%
   \toks2{\endlinechar=-1 }%
   \def\x#1 #2 {%
