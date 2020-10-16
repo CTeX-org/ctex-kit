@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10905}
+% \CheckSum{10922}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -8469,6 +8469,8 @@ Copyright and Licence
 % \changes{v3.1.1}{2012/12/13}{对于与 \pkg{xltxtra} 的冲突给出错误警告。}
 % \changes{v3.8.0}{2020/02/09}{删除 \pkg{realscripts} 补丁。}
 %
+% \changes{v3.8.6}{2020/10/17}{兼容 \LaTeX\ 2020/10/01 的 \pkg{NFSS} 钩子机制。}
+%
 % \begin{macro}[int]{\fontfamily}
 % \begin{macro}[int]{\xeCJK@fontfamily,\xeCJK@family}
 % \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
@@ -8477,40 +8479,51 @@ Copyright and Licence
 %   {将族名参数完全展开，以解决与 \pkg{fontspec} 2017/01/24 v2.5d 的兼容问题。}
 % 对于 \LaTeXe\ 2020/02/02 之前的版本，修改 \tn{fontfamily}，
 % 使主要 |CJK| 字体族能随西文主要字体更新，之后的版本可以使用 \tn{@rmfamilyhook} 等新钩子处理。
+% \LaTeXe\ 2020/10/01 提供了新的的 \pkg{NFSS} 钩子。
 %    \begin{macrocode}
-\cs_if_exist:NTF \@rmfamilyhook
+\@ifl@t@r \fmtversion { 2020/10/01 }
   {
     \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:x
-    \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
-    \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
-    \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
-    \exp_args:Nc \g@addto@macro
-      {
-        \cs_if_exist:NTF \@defaultfamilyhook
-          { @defaultfamilyhook } { normalfont ~ }
-      }
-      { \xeCJK@family { \CJKfamilydefault } }
+    \AddToHook { rmfamily }   { \xeCJK@family { \CJKrmdefault } }
+    \AddToHook { sffamily }   { \xeCJK@family { \CJKsfdefault } }
+    \AddToHook { ttfamily }   { \xeCJK@family { \CJKttdefault } }
+    \AddToHook { normalfont } { \xeCJK@family { \CJKfamilydefault } }
   }
   {
-    \RenewDocumentCommand \fontfamily { m }
+    \cs_if_exist:NTF \@rmfamilyhook
       {
-        \tl_set:Nx \f@family {#1}
-        \xeCJK@fontfamily {#1}
-      }
-    \cs_new_protected:Npn \xeCJK@fontfamily #1
-      {
-        \str_if_eq:nnTF {#1} { \familydefault }
-          { \xeCJK_switch_family:x { \CJKfamilydefault } }
-          { \@@_update_family_aux: }
-      }
-    \cs_new_protected:Npn \@@_update_family_aux:
-      {
-        \str_case_e:nn { \f@family }
+        \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:x
+        \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
+        \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
+        \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
+        \exp_args:Nc \g@addto@macro
           {
-            { \rmdefault }     { \xeCJK_switch_family:x { \CJKrmdefault } }
-            { \sfdefault }     { \xeCJK_switch_family:x { \CJKsfdefault } }
-            { \ttdefault }     { \xeCJK_switch_family:x { \CJKttdefault } }
-            { \familydefault } { \xeCJK_switch_family:x { \CJKfamilydefault } }
+            \cs_if_exist:NTF \@defaultfamilyhook
+              { @defaultfamilyhook } { normalfont ~ }
+          }
+          { \xeCJK@family { \CJKfamilydefault } }
+      }
+      {
+        \RenewDocumentCommand \fontfamily { m }
+          {
+            \tl_set:Nx \f@family {#1}
+            \xeCJK@fontfamily {#1}
+          }
+        \cs_new_protected:Npn \xeCJK@fontfamily #1
+          {
+            \str_if_eq:nnTF {#1} { \familydefault }
+              { \xeCJK_switch_family:x { \CJKfamilydefault } }
+              { \@@_update_family_aux: }
+          }
+        \cs_new_protected:Npn \@@_update_family_aux:
+          {
+            \str_case_e:nn { \f@family }
+              {
+                { \rmdefault }     { \xeCJK_switch_family:x { \CJKrmdefault } }
+                { \sfdefault }     { \xeCJK_switch_family:x { \CJKsfdefault } }
+                { \ttdefault }     { \xeCJK_switch_family:x { \CJKttdefault } }
+                { \familydefault } { \xeCJK_switch_family:x { \CJKfamilydefault } }
+              }
           }
       }
   }
