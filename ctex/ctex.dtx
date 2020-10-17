@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6228}
+% \CheckSum{6265}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3423,21 +3423,49 @@ Copyright and Licence
 %
 % \changes{v2.5.3}{2020/06/06}{正确关闭和恢复 \LaTeXiii 语法环境。}
 % \changes{v2.5.4}{2020/08/02}{应用 \pkg{l3cctab}。}
+% \changes{v2.5.5}{2020/10/17}{放弃应用 \pkg{l3cctab}。}
 %
 % \begin{macro}[int]{\ctex_file_input:n}
-% 输入文件，关闭 \LaTeXiii 语法环境，并设置 |@| 为字母类。
+% 输入文件，关闭 \LaTeXiii 语法环境，并设置 |@| 为字母类、|^| 为上标和 \tn{endlinechar} 为 $13$。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_file_input:n #1
   {
-    \cctab_begin:N \c_@@_package_cctab
+    \ctex_push_file:
       \file_input:n {#1}
-    \cctab_end:
+    \ctex_pop_file:
   }
-\cctab_const:Nn \c_@@_package_cctab
+\cs_new_protected:Npn \ctex_push_file:
   {
-    \cctab_select:N \c_document_cctab
+    \seq_gpush:Nx \g_@@_file_status_seq
+      {
+        {
+          \bool_if:NTF \l__kernel_expl_bool
+            { \ExplSyntaxOn }
+            { \ExplSyntaxOff }
+        }
+        { \char_value_catcode:n { 64 } }
+        { \char_value_catcode:n { 94 } }
+        { \int_use:N \tex_endlinechar:D }
+      }
+    \ExplSyntaxOff
     \char_set_catcode_letter:n { 64 }
+    \char_set_catcode_math_superscript:n { 94 }
+    \int_set:Nn \tex_endlinechar:D { 13 }
   }
+\cs_new_protected:Npn \ctex_pop_file:
+  {
+    \seq_gpop:NN \g_@@_file_status_seq \l_@@_file_status_tl
+    \exp_after:wN \@@_pop_file_aux:nnnn \l_@@_file_status_tl
+  }
+\cs_new_protected:Npn \@@_pop_file_aux:nnnn #1#2#3#4
+  {
+    #1
+    \char_set_catcode:nn { 64 } {#2}
+    \char_set_catcode:nn { 94 } {#3}
+    \int_set:Nn \tex_endlinechar:D {#4}
+  }
+\tl_new:N \l_@@_file_status_tl
+\seq_new:N \g_@@_file_status_seq
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3447,14 +3475,14 @@ Copyright and Licence
 %<*!ctexsize>
 \cs_new_protected:Npn \ctex_scheme_input:n #1
   {
-    \cctab_begin:N \c_@@_package_cctab
+    \ctex_push_file:
       \tl_if_exist:NTF \c_@@_class_tl
         {
           \file_if_exist_input:nF { ctex-scheme- #1 - \c_@@_class_tl .def }
             { \file_input:n  { ctex-scheme- #1 .def } }
         }
         { \file_input:n  { ctex-scheme- #1 .def } }
-    \cctab_end:
+    \ctex_pop_file:
   }
 \cs_generate_variant:Nn \ctex_scheme_input:n { o }
 %    \end{macrocode}
@@ -4105,19 +4133,25 @@ Copyright and Licence
 % \tn{AtBeginShipoutFirst}。该宏对 \pdfTeX{} 和 \upTeX{} 均有用。
 % \tn{AtBeginDvi} 直接将 \tn{special} 保存到盒子中，
 % \tn{AtBeginShipoutFirst} 是保存到到宏中，并且不展开参数。
+%
+% 可以使用 \LaTeX\ 2020/10/01 的钩子机制来统一设置。
 %     \begin{macrocode}
 %<*pdftex|uptex|aptex>
 \cs_new_protected:Npn \ctex_set_zhmap:n
   { \tl_gput_right:Nx \g_@@_zhmap_tl }
 \cs_new_protected:Npn \ctex_use_zhmap:
   { \tl_use:N \g_@@_zhmap_tl }
-\cs_new_protected:Npn \ctex_add_dvi_zhmap:
-  { \AtBeginDvi { \ctex_use_zhmap: } }
-\ctex_after_end_preamble:n { \ctex_add_dvi_zhmap: }
-\ctex_at_end_package:nn { atbegshi }
+\cs_if_exist:NTF \ctex_gadd_ltxhook:nn
+  { \ctex_gadd_ltxhook:nn { shipout/firstpage } { \ctex_use_zhmap: } }
   {
-    \AtBeginShipoutFirst { \ctex_use_zhmap: }
-    \cs_gset_eq:NN \ctex_add_dvi_zhmap: \prg_do_nothing:
+    \cs_new_protected:Npn \ctex_add_dvi_zhmap:
+      { \AtBeginDvi { \ctex_use_zhmap: } }
+    \ctex_after_end_preamble:n { \ctex_add_dvi_zhmap: }
+    \ctex_at_end_package:nn { atbegshi }
+      {
+        \AtBeginShipoutFirst { \ctex_use_zhmap: }
+        \cs_gset_eq:NN \ctex_add_dvi_zhmap: \prg_do_nothing:
+      }
   }
 \tl_new:N \g_@@_zhmap_tl
 \@onlypreamble \ctex_set_zhmap:n
@@ -4246,14 +4280,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_CJK_input:n #1
   {
-    \cctab_begin:N \c_@@_CJK_cctab
+    \ctex_push_file:
+      \int_set:Nn \tex_endlinechar:D { -1 }
       \file_input:n {#1}
-    \cctab_end:
-  }
-\cctab_const:Nn \c_@@_CJK_cctab
-  {
-    \cctab_select:N \c_@@_package_cctab
-    \int_set:Nn \tex_endlinechar:D { -1 }
+    \ctex_pop_file:
   }
 \cs_set_eq:NN \CJK@input \ctex_CJK_input:n
 %    \end{macrocode}
@@ -4390,7 +4420,7 @@ Copyright and Licence
 % 宏包提供的 \tn{CJKhook} 里重新设置它，让这两个环境忽略空格的方式都受 \opt{space}
 % 选项的控制。这对 \pkg{zhmCJK} 是必要的。
 %    \begin{macrocode}
-\tl_new:N \CJKhook
+\tl_if_exist:NF \CJKhook { \tl_new:N \CJKhook }
 \tl_gput_right:Nn \CJKhook { \ctex_set_ignorespaces: }
 %    \end{macrocode}
 % \end{macro}
@@ -4548,13 +4578,6 @@ Copyright and Licence
 \RequirePackage { fontspec }
 \@ifpackagelater { fontspec } { 2020/02/21 } { }
   { \msg_error:nnn { ctex } { package-too-old } { fontspec } }
-%    \end{macrocode}
-%
-% 引擎文件是通过 \cs{ctex_file_input:n} 载入的，其中的 \tn{catcodetable} 机制会完整恢复
-% 文件载入之前的 \tn{catcode} 状态，在引擎文件中的 \tn{catcode} 设置都无效。
-% 因此，对 \tn{ltjlineendcomment} 的设置要放到文件之外进行。
-%    \begin{macrocode}
-\ctex_at_end:n { \char_set_catcode_comment:n { \ltjlineendcomment } }
 %    \end{macrocode}
 %
 % \paragraph{\pkg{LuaTeX-ja} 的默认设置}
@@ -6392,6 +6415,8 @@ Copyright and Licence
 %<pdftex>\reverse_if:N \if_bool:N \g_@@_zhmCJK_bool
 %    \end{macrocode}
 %
+% \changes{v2.5.5}{2020/10/17}{进一步应用 \LaTeX\ 2020/10/01 的新钩子。}
+%
 % \begin{macro}[int]{\ctex_provide_font_hook:NNN,\CTEX@rmfamilyhook}
 % 给 \tn{rmfamily} 等字体命令加钩子，钩子名字统一为 \tn{CTEX@rmfamilyhook} 等。
 %    \begin{macrocode}
@@ -6400,17 +6425,27 @@ Copyright and Licence
     \exp_args:Nc \@@_provide_font_hook_aux:NNNN
       { CTEX \cs_to_str:N #2 } #1#2
   }
-\cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
+\cs_if_exist:NTF \ctex_gadd_ltxhook:nn
   {
-    \tl_new:N #1
-    \cs_if_exist:NTF #3
-      { \tl_gput_right:Nn #3 {#1} }
+    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
+      {
+        \tl_new:N #1
+        \exp_args:Nx \ctex_gadd_ltxhook:nn { \cs_to_str:N #2 } {#1}
+      }
+  }
+  {
+    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
+      {
+        \tl_new:N #1
+        \cs_if_exist:NTF #3
+          { \tl_gput_right:Nn #3 {#1} }
 %    \end{macrocode}
 % 注意此处不能用 \cs{ctex_patch_cmd:Nnn} 来打补丁，因其会关闭 \LaTeXiii 语法，
 % 但 \pkg{fontspec} 会在 \tn{rmfamily} 的命令中相应加入
 % \cs{l__fontspec_rmfamily_encoding_tl} 等，导致补丁失败。
 %    \begin{macrocode}
-      { \ctex_parse_name:NN \tl_replace_once:Nnn #2 {#4} { #1#4 } }
+          { \ctex_parse_name:NN \tl_replace_once:Nnn #2 {#4} { #1#4 } }
+      }
   }
 \ctex_provide_font_hook:NNN \rmfamily \@rmfamilyhook \selectfont
 \ctex_provide_font_hook:NNN \sffamily \@sffamilyhook \selectfont
@@ -11428,12 +11463,14 @@ Copyright and Licence
 %    \begin{macrocode}
 \@ifl@t@r \fmtversion { 2020/10/01 }
   {
-    \cs_new_protected:Npx \ctex_at_end_preamble:n
-      { \hook_gput_code:nnn { env/document/before } { \c_novalue_tl } }
-    \cs_new_protected:Npx \ctex_after_end_preamble:n
-      { \hook_gput_code:nnn { begindocument/end }   { \c_novalue_tl } }
-    \cs_new_protected:Npx \ctex_gadd_package_hook:nnn #1#2
-      { \hook_gput_code:nnn { package/#1/#2 }       { \c_novalue_tl } }
+    \cs_new_protected:Npx \ctex_gadd_ltxhook:nn #1
+      { \hook_gput_code:nnn {#1} { \c_novalue_tl } }
+    \cs_new_protected:Npn \ctex_at_end_preamble:n
+      { \ctex_gadd_ltxhook:nn { env/document/before } }
+    \cs_new_protected:Npn \ctex_after_end_preamble:n
+      { \ctex_gadd_ltxhook:nn { begindocument/end } }
+    \cs_new_protected:Npn \ctex_gadd_package_hook:nnn #1#2
+      { \ctex_gadd_ltxhook:nn { package/#1/#2 } }
     \file_input_stop:
   }
   { }
