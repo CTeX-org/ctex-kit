@@ -141,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{971}
+% \CheckSum{961}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -670,7 +670,7 @@ Copyright and Licence
       { \c_zero_dim plus 0.5\l_@@_outer_unit_dim }
     \skip_set:Nn \l_@@_unit_stretch_skip
       { \c_zero_dim plus \l_@@_unit_dim }
-    \@@_calc_box_offset:
+    \@@_set_valign:
     \@@_set_before_skip:
     \@@_processing:
   }
@@ -778,7 +778,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_calc_box_offset:}
+% \begin{macro}{\@@_set_valign:}
 % \TeX 排放夹注的位置，是以西文基线为准的：
 % \begin{center}
 % \footnotesize
@@ -824,112 +824,103 @@ Copyright and Licence
 % 
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_set_valign:n #1
-  { \cs_set_eq:Nc \@@_valign: { @@_valign_ #1 : } }
-\cs_new_protected:Npn \@@_calc_box_offset:
+  { \cs_set_eq:Nc \@@_set_valign: { @@_set_valign_ #1 : } }
+\cs_new_protected:Npn \@@_set_valign_middle:
   {
-    \tl_if_eq:NNT \@@_valign: \@@_valign_middle:
-      {
 %    \end{macrocode}
-% 中线对齐时，提前展开 $r-0.5$ 的计算结果，避免后续重复计算。
+% 中线对齐时，提前展开 $r-0.5$ 的计算结果，避免后续的重复计算。
 %    \begin{macrocode}
-        \exp_args:Nxx \@@_calc_box_offset_aux:nn
+    \exp_args:Nxx \@@_set_valign_middle_aux:nn
 %    \end{macrocode}
 % 首先是 $r_{\mathrm{inner}}-0.5$ 的计算结果。
 %    \begin{macrocode}
-          {
-            \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
-              { \fp_eval:n { \l_@@_ideoht_fp   - 0.5 } }
-              { \fp_eval:n { \l_@@_jzideoht_fp - 0.5 } }
-          }
+      {
+        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+          { \fp_eval:n { \l_@@_ideoht_fp   - 0.5 } }
+          { \fp_eval:n { \l_@@_jzideoht_fp - 0.5 } }
+      }
 %    \end{macrocode}
 % 其次是 $r_{\mathrm{outer}}-0.5$ 的计算结果。
 %    \begin{macrocode}
-          { \fp_eval:n { \l_@@_ideoht_fp - 0.5 } }
-      }
-    \tl_if_eq:NNT \@@_valign: \@@_valign_bottom:
-%    \end{macrocode}
-% 底线对齐时，则展开 $1-r_{\mathrm{outer}}$ 的计算结果。
-%    \begin{macrocode}
-      {
-        \exp_args:Nxx \@@_calc_box_offset_aux:nn
-          {
-            \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
-              { \fp_eval:n { 1 -   \l_@@_ideoht_fp } }
-              { \fp_eval:n { 1 - \l_@@_jzideoht_fp } }
-          }
-          { \fp_eval:n { 1 - \l_@@_ideoht_fp } }
-      }
-    \tl_if_eq:NNT \@@_valign: \@@_valign_top:
-      {
-%    \end{macrocode}
-% 顶线对齐时
-%    \begin{macrocode}
-        \exp_args:Nxx \@@_calc_box_offset_aux:nn
-          {
-            \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
-              { \fp_eval:n { \l_@@_ideoht_fp   } }
-              { \fp_eval:n { \l_@@_jzideoht_fp } }
-          }
-          { \fp_eval:n { \l_@@_ideoht_fp } }
-      }
+      { \fp_eval:n { \l_@@_ideoht_fp - 0.5 } }
   }
-\cs_new_protected:Npn \@@_calc_box_offset_aux:nn #1#2
+\cs_new_protected:Npn \@@_set_valign_middle_aux:nn #1#2
   {
-    \tl_if_eq:NNT \@@_valign: \@@_valign_middle:
-      {
 %    \end{macrocode}
-% 中线对齐时，对于夹注内容盒子的下移量，我们直接套用公式。
+% 对于夹注内容盒子的下移量，我们直接套用公式。
 %    \begin{macrocode}
-        \dim_set:Nn \l_@@_box_offset_dim
-          {
-              #1 \l_@@_unit_dim
-            + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D / 2
-            - #2 \l_@@_outer_unit_dim
-          }
+    \dim_set:Nn \l_@@_box_offset_dim
+      {
+          #1 \l_@@_unit_dim
+        + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D / 2
+        - #2 \l_@@_outer_unit_dim
+      }
 %    \end{macrocode}
 % 对于夹注两端括弧盒子的下移量，我们修改 $s_{\mathrm{inner}}$ 为括弧字号，
 % 并取 $n=1$ 即可。
 %    \begin{macrocode}
-        \dim_set:Nn \l_@@_mark_offset_dim
-          {
-              \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
-            - #2 \l_@@_outer_unit_dim
-          }
-      }
-    \tl_if_eq:NNT \__jiazhu_valign: \__jiazhu_valign_bottom:
+    \dim_set:Nn \l_@@_mark_offset_dim
       {
+          \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
+        - #2 \l_@@_outer_unit_dim
+      }
+  }
+\cs_new_protected:Npn \@@_set_valign_bottom:
+  {
 %    \end{macrocode}
-% 底线对齐时
+% 底线对齐时，则展开 $1-r_{\mathrm{outer}}$ 的计算结果。
 %    \begin{macrocode}
-        \dim_set:Nn \l_@@_box_offset_dim
-          {
-            #2 \l_@@_outer_unit_dim - #1 \l_@@_unit_dim
-          }
-        \dim_set:Nn \l_@@_mark_offset_dim
-          {
-              #2 \l_@@_outer_unit_dim
-            - \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
-          }
-      }
-    \tl_if_eq:NNT \@@_valign: \@@_valign_top:
+    \exp_args:Nxx \@@_set_valign_bottom_aux:nn
       {
+        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+          { \fp_eval:n { 1 -   \l_@@_ideoht_fp } }
+          { \fp_eval:n { 1 - \l_@@_jzideoht_fp } }
+      }
+      { \fp_eval:n { 1 - \l_@@_ideoht_fp } }
+  }
+\cs_new_protected:Npn \@@_set_valign_bottom_aux:nn #1#2
+  {
+%    \end{macrocode}
+% 夹注内容盒子的下移量
+%    \begin{macrocode}
+    \dim_set:Nn \l_@@_box_offset_dim
+      {
+        #2 \l_@@_outer_unit_dim - #1 \l_@@_unit_dim
+      }
+    \dim_set:Nn \l_@@_mark_offset_dim
+      {
+          #2 \l_@@_outer_unit_dim
+        - \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
+      }
+  }
 %    \end{macrocode}
 % 顶线对齐时
 %    \begin{macrocode}
-        \dim_set:Nn \l_@@_box_offset_dim
-          {
-              #1 \l_@@_unit_dim
-            + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D
-            - #2 \l_@@_outer_unit_dim
-          }
-        \dim_set:Nn \l_@@_mark_offset_dim
-          {
-              \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
-            - #2 \l_@@_outer_unit_dim
-          }
+\cs_new_protected:Npn \@@_set_valign_top:
+  {
+    \exp_args:Nxx \@@_set_valign_top_aux:nn
+      {
+        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+          { \fp_eval:n { \l_@@_ideoht_fp   } }
+          { \fp_eval:n { \l_@@_jzideoht_fp } }
+      }
+      { \fp_eval:n { \l_@@_ideoht_fp } }
+  }
+\cs_new_protected:Npn \@@_set_valign_top_aux:nn #1#2
+  {
+    \dim_set:Nn \l_@@_box_offset_dim
+      {
+          #1 \l_@@_unit_dim
+        + \int_eval:n { \l_@@_lines_int - 1 } \tex_baselineskip:D
+        - #2 \l_@@_outer_unit_dim
+      }
+    \dim_set:Nn \l_@@_mark_offset_dim
+      {
+          \fp_eval:n { #1 * \l_@@_bracket_ratio_fp } \l_@@_unit_dim
+        - #2 \l_@@_outer_unit_dim
       }
   }
-\cs_new_eq:NN \@@_valign: \@@_valign_middle:
+\cs_new_eq:NN \@@_set_valign: \@@_set_valign_middle:
 \dim_new:N \l_@@_box_offset_dim
 \dim_new:N \l_@@_mark_offset_dim
 %    \end{macrocode}
