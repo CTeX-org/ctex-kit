@@ -8801,29 +8801,65 @@ Copyright and Licence
 % \end{macro}
 %
 %
-% \begin{macro}[int]{\ps@fancy}
+% \begin{macro}[int]{\f@nch@initialise}
 % 这里对 \pkg{fancyhdr} 宏包打补丁。原来 \pkg{fancyhdr} 宏包中使用
 % \tn{thesection} 等宏表示页眉中的章节编号，这里改用 \pkg{ctex} 包所用的
 % \tn{CTEXthesection} 系列宏。
+% \changes{v2.5.6}{2021/01/11}{更新 \pkg{fancyhdr} 宏包的补丁。}
 %    \begin{macrocode}
 \ctex_at_end_package:nn { fancyhdr }
   {
-%<*article>
-    \ctex_patch_cmd:Nnn \ps@fancy
+    \ctex_patch_cmd:Nnn \f@nch@initialise
       { \ifnum \c@secnumdepth > \z@ \thesection \hskip 1em \relax \fi }
       { \CTEXifname { \CTEXthesection \quad } { } }
-    \ctex_patch_cmd:Nnn \ps@fancy
+    \ctex_patch_cmd:Nnn \f@nch@initialise
       { \ifnum \c@secnumdepth > \@ne \thesubsection \hskip 1em \relax \fi }
       { \CTEXifname { \CTEXthesubsection \quad } { } }
-%</article>
-%<*book|report>
-    \ctex_patch_cmd:Nnn \ps@fancy
-      { \ifnum \c@secnumdepth > \m@ne \@chapapp \ \thechapter . ~ \ \fi }
+    \ctex_patch_cmd:Nnn \f@nch@initialise
+      { \ifnum \c@secnumdepth > \m@ne \@chapapp\ \thechapter . ~ \ \fi }
       { \CTEXifname { \CTEXthechapter \quad } { } }
-    \ctex_patch_cmd:Nnn \ps@fancy
+    \ctex_patch_cmd:Nnn \f@nch@initialise
       { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
       { \CTEXifname { \CTEXthesection \quad } { } }
+    \f@nch@initialise
+%    \end{macrocode}
+% \pkg{fancyhdr} 的 \opt{headings} 选项会重定义 \cs{ps@headings}，
+% 这里也要打补丁。
+%    \begin{macrocode}
+    \@ifpackagewith { fancyhdr } { headings }
+      {
+%<*article>
+        \if@twoside
+          \ctex_patch_cmd:Nnn \ps@headings
+            { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+            { \CTEXifname { \CTEXthesection \quad } { } }
+          \ctex_patch_cmd:Nnn \ps@headings
+            { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
+            { \CTEXifname { \CTEXthesubsection \quad } { } }
+        \else:
+          \ctex_patch_cmd:Nnn \ps@headings
+            { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+            { \CTEXifname { \CTEXthesection \quad } { } }
+        \fi:
+%</article>
+%<*book|report>
+        \ctex_patch_cmd:Nnn \ps@headings
+          {
+%<book>            \ifnum \c@secnumdepth > \m@ne \if@mainmatter
+%<report>            \ifnum \c@secnumdepth > \m@ne
+              \@chapapp \ \thechapter . ~ \ %
+%<report>            \fi
+%<book>            \fi \fi
+          }
+          { \CTEXifname { \CTEXthechapter \quad } { } }
+        \if@twoside
+          \ctex_patch_cmd:Nnn \ps@headings
+            { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
+            { \CTEXifname { \CTEXthesection \quad } { } }
+        \fi:
 %</book|report>
+      }
+      { }
   }
 %    \end{macrocode}
 % \end{macro}
