@@ -26,8 +26,8 @@ Copyright and Licence
 ---------------------
 
     Copyright (C) 2007--2010 by Wenchang Sun <sunwch@nankai.edu.cn>
-    Copyright (C) 2009--2020 by Leo Liu <leoliu.pku@gmail.com>
-    Copyright (C) 2012--2020 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2009--2021 by Leo Liu <leoliu.pku@gmail.com>
+    Copyright (C) 2012--2021 by Qing Lee <sobenlee@gmail.com>
     ----------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -92,8 +92,8 @@ Copyright and Licence
 \preamble
 
     Copyright (C) 2007--2010 by Wenchang Sun <sunwch@nankai.edu.cn>
-    Copyright (C) 2009--2020 by Leo Liu <leoliu.pku@gmail.com>
-    Copyright (C) 2012--2020 by Qing Lee <sobenlee@gmail.com>
+    Copyright (C) 2009--2021 by Leo Liu <leoliu.pku@gmail.com>
+    Copyright (C) 2012--2021 by Qing Lee <sobenlee@gmail.com>
 ----------------------------------------------------------------------
 
     This work may be distributed and/or modified under the
@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10926}
+% \CheckSum{10939}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9006,18 +9006,19 @@ Copyright and Licence
 %
 %
 % \changes{v3.3.3}{2015/12/12}{解决与 \pkg{microtype} 宏包的兼容问题。}
-% 由于 \pkg{xeCJK} 假装 \pkg{CJK} 已经被引入了，这会导致 \pkg{everysel} 和
-% \pkg{microtype} 等宏包判断错误。需要在它们判断之前取消定义。
+% 由于 \pkg{xeCJK} 假装 \pkg{CJK} 已经被引入了，这会可能导致旧版本的 \pkg{everysel} 包判断错误。
+% 需要在它们判断之前取消定义。
 %    \begin{macrocode}
-\clist_map_inline:nn { everysel , microtype }
+\@@_package_hook:nn { everysel }
   {
-    \@@_package_hook:nn {#1}
+    \cs_if_exist:NF \@EverySelectfont@Legacy
       { \cs_undefine:c { ver@CJK . \c_@@_package_ext_tl } }
   }
 %    \end{macrocode}
 %
 % \changes{v3.2.4}{2013/06/25}{不再使用 \texttt{CJKnumber} 选项，可以在
 % \pkg{xeCJK} 之后直接使用 \pkg{CJKnumb} 宏包得到中文数字。}
+% \changes{v3.8.7}{2021/06/04}{更好地兼容 \pkg{CJKnumb}。}
 %
 % \begin{macro}[int]{\CJKaddEncHook}
 % 为使用 \pkg{CJKnumb} 宏包而作一些处理。另外 \pkg{CJKnumb} 使用的是传统汉字“萬”
@@ -9025,25 +9026,33 @@ Copyright and Licence
 % \changes{v3.2.10}{2014/03/01}{使用 \pkg{CJKnumb} 时，让 \tn{Unicode} 有定义。}
 % \changes{v3.3.1}{2015/05/08}{应用 \texttt{0.99992} 版的新原语 \tn{Ucharcat}。}
 %    \begin{macrocode}
-\cs_new_protected:Npn \CJKaddEncHook #1#2
+\ctex_at_begin_package:nn { CJKnumb }
   {
-    \str_if_eq:nnT {#1} { \CJK@UnicodeEnc }
+    \tl_new:N \l_@@_CJK_version_tl
+    \tl_set_eq:Nc \l_@@_CJK_version_tl { ver@CJK . \c_@@_package_ext_tl }
+    \tl_set:cn { ver@CJK . \c_@@_package_ext_tl } { 9999/99/99 }
+    \cs_new_protected:Npn \CJKaddEncHook #1#2
       {
-        \group_begin:
-          \cs_set_eq:NN \Unicode \xeCJK_unicode_char:nn
-          \cs_set_eq:NN \def \xdef
-          #2
-        \group_end:
-        \str_gset:Nn \CJK@tenthousand    { ^^^^4e07 }
-        \str_gset:Nn \CJK@hundredmillion { ^^^^4ebf }
-        \tl_if_exist:NF \CJK@UnicodeEnc
-          { \tl_const:Nn \CJK@UnicodeEnc { UTF8 } }
-        \cs_if_exist:NF \Unicode
-          { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
+        \str_if_eq:nnT {#1} { \CJK@UnicodeEnc }
+          {
+            \group_begin:
+              \cs_set_eq:NN \Unicode \xeCJK_unicode_char:nn
+              \cs_set_eq:NN \def \xdef
+              #2
+            \group_end:
+            \str_gset:Nn \CJK@tenthousand    { ^^^^4e07 }
+            \str_gset:Nn \CJK@hundredmillion { ^^^^4ebf }
+            \tl_if_exist:NF \CJK@UnicodeEnc
+              { \tl_const:Nn \CJK@UnicodeEnc { UTF8 } }
+            \cs_if_exist:NF \Unicode
+              { \cs_new_eq:NN \Unicode \xeCJK_unicode_char:nn }
+          }
       }
+    \cs_new:Npn \xeCJK_unicode_char:nn #1#2
+      { \tex_Uchar:D \tex_numexpr:D (#1) * 256 + (#2) \scan_stop: }
   }
-\cs_new:Npn \xeCJK_unicode_char:nn #1#2
-  { \tex_Uchar:D \tex_numexpr:D (#1) * 256 + (#2) \scan_stop: }
+\ctex_at_end_package:nn { CJKnumb }
+  { \tl_set_eq:cN { ver@CJK . \c_@@_package_ext_tl } \l_@@_CJK_version_tl }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -14050,7 +14059,7 @@ int main()
 \usepackage[margin=2cm]{geometry}
 \usepackage{fontspec}
 \usepackage{xunicode-addon}
-\usepackage{longtable,tabu,booktabs}
+\usepackage{array,longtable,booktabs}
 \usepackage{zref-base}
 
 \setmainfont{FreeSerif}
@@ -14196,14 +14205,17 @@ int main()
     \section{#2~(\zref@extractdefault{#1}{default}{0})}
     \zref@refused{#1}
     \noindent
-    \begin{longtabu} to \linewidth {>{\ttfamily\footnotesize}rc>{\ttfamily\footnotesize}X>{\tiny}X}
-      \toprule\rowfont{\normalfont\normalsize}
-      \multicolumn1c{USV} & Symbol & Macro(s) & Description \\
+    \begin{longtable}[c]{>{\ttfamily\footnotesize}rc>{\ttfamily\footnotesize}p{55mm}>{\tiny}l}
+      \toprule
+      \multicolumn1c{\normalfont\normalsize USV} &
+      \normalfont\normalsize Symbol &
+      \normalfont\normalsize Macro(s) &
+      \normalfont\normalsize Description \\
       \midrule \endhead
       \bottomrule \endfoot
       \int_gzero:N \g_@@_symbol_int
       \input{#3}
-    \end{longtabu}
+    \end{longtable}
     \group_begin:
       \zref@setcurrent{default}{\int_use:N\g_@@_symbol_int}
       \zref@wrapper@immediate{\zref@labelbyprops{#1}{default}}
