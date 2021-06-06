@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6392}
+% \CheckSum{6406}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4202,6 +4202,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.5.7}{2021/06/06}{更好地兼容 \pkg{cmap} 包。}
+%
 % \begin{macro}[int]{\ctex_add_cmap:n}
 % \changes{v2.5.7}{2021/06/06}{确保 cmap 文件存在。}
 % 给 |#1| 编码的 CJK 字体加上 CMap。
@@ -4209,24 +4211,26 @@ Copyright and Licence
 \cs_new_protected:Npn \ctex_add_cmap:n #1
   {
     \cs_if_free:NF \CJK@plane
-      { \ctex_add_cmap:cn { @@_add_cmap_ #1 \CJK@plane : } {#1} }
+      { \exp_args:Ne \@@_add_cmap_auxi:n { #1 \CJK@plane } }
   }
-\cs_new_protected:Npn \ctex_add_cmap:Nn #1#2
+\cs_new_protected:Npn \@@_add_cmap_auxi:n #1
+  { \exp_args:Nc \@@_add_cmap_auxii:Nn { @@_add_cmap_ #1 : } {#1} }
+\cs_new_protected:Npn \@@_add_cmap_auxii:Nn #1#2
   {
     \cs_if_exist:NF #1 { \@@_save_cmap:Nn #1 {#2} }
     #1
   }
-\cs_generate_variant:Nn \ctex_add_cmap:Nn { c }
 \cs_new_protected:Npn \@@_save_cmap:Nn #1#2
   {
     \exp_args:Ne \file_get_full_name:nNTF
-      { \str_lowercase:n {#2} \CJK@plane .cmap } \l_@@_cmap_file_tl
+      { \str_lowercase:n {#2} .cmap } \l_@@_cmap_file_tl
       {
         \tex_immediate:D \tex_pdfobj:D stream ~ file { \l_@@_cmap_file_tl }
         \cs_new_protected:Npx #1
           {
-            \exp_not:N \tex_pdffontattr:D \exp_not:N \tex_font:D
-              { /ToUnicode ~ \int_use:N \tex_pdflastobj:D \c_space_tl 0 ~ R }
+            \pdfnobuiltintounicode \tex_font:D
+            \tex_pdffontattr:D \tex_font:D
+              { /ToUnicode ~ \int_value:w \tex_pdflastobj:D \c_space_tl 0 ~ R }
           }
       }
       { \cs_new_eq:NN #1 \prg_do_nothing: }
@@ -4247,7 +4251,10 @@ Copyright and Licence
       { \CTEX@Family@CMap {#1} {#2} }
       {
         \ctex_at_end_package:nn { cmap }
-          { \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn }
+          {
+            \cs_gset_eq:NN \ctex_add_cmap:n \use_none:n
+            \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn
+          }
       }
       { \ctex_patch_failure:N \DeclareFontFamily }
   }
@@ -4342,27 +4349,44 @@ Copyright and Licence
 % \footnote{\url{https://github.com/CTeX-org/ctex-kit/issues/146}}。
 % 我们在这里给出 \tn{CJK@surr} 的一个不依赖 \tn{uppercase} 的实现。
 %    \begin{macrocode}
-\if_cs_exist:N \CJK@surr
-  \cs_new_protected:Npn \ctex_plane_to_utfxvibe:Nn #1#2
-    {
-      \tl_set:Nx \l_@@_tmp_tl {#2}
-      \int_set:Nn \l_@@_tmp_int
-        { \exp_args:No \int_from_hex:n { \l_@@_tmp_tl } }
-      \int_compare:nNnTF \l_@@_tmp_int < { 256 }
-        { \tl_gset:Nx #1 { \int_to_Hex:n { \l_@@_tmp_int } } }
-        {
-          \int_sub:Nn \l_@@_tmp_int { 256 }
-          \tl_gset:Nx #1
-            {
-              \int_to_Hex:n
-                { \int_div_truncate:nn { \l_@@_tmp_int } { 4 } + "D800 }
-              \int_to_Hex:n
-                { \int_mod:nn { \l_@@_tmp_int } { 4 } + "DC }
-            }
-        }
-    }
-  \cs_set_eq:NN \CJK@surr \ctex_plane_to_utfxvibe:Nn
-\fi:
+\cs_if_free:NF \CJK@surr
+  {
+    \cs_new_protected:Npn \ctex_plane_to_utfxvibe:Nn #1#2
+      {
+        \tl_set:Nx \l_@@_tmp_tl {#2}
+        \int_set:Nn \l_@@_tmp_int
+          { \exp_args:No \int_from_hex:n { \l_@@_tmp_tl } }
+        \int_compare:nNnTF \l_@@_tmp_int < { 256 }
+          { \tl_gset:Nx #1 { \int_to_Hex:n { \l_@@_tmp_int } } }
+          {
+            \int_sub:Nn \l_@@_tmp_int { 256 }
+            \tl_gset:Nx #1
+              {
+                \int_to_Hex:n
+                  { \int_div_truncate:nn { \l_@@_tmp_int } { 4 } + "D800 }
+                \int_to_Hex:n
+                  { \int_mod:nn { \l_@@_tmp_int } { 4 } + "DC }
+              }
+          }
+      }
+    \cs_set_eq:NN \CJK@surr \ctex_plane_to_utfxvibe:Nn
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\CJK@addcmap}
+% \changes{v2.5.7}{2021/06/06}{应用 \tn{pdfnobuiltintounicode}。}
+% \LaTeX \ 2021-06-01 默认载入 \file{glyphtounicode.tex}，我们对 CJK 字体禁用这一内建设置。
+%    \begin{macrocode}
+\cs_if_free:NF \CJK@addcmap
+  {
+    \ctex_patch_cmd:Nnn \CJK@addcmap
+      { \pdffontattr \font@name }
+      {
+        \pdfnobuiltintounicode \font@name
+        \pdffontattr \font@name
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
