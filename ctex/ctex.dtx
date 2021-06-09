@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6377}
+% \CheckSum{6390}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3292,34 +3292,6 @@ Copyright and Licence
 %<@@=ctex>
 %    \end{macrocode}
 %
-% 宏包载入检查。
-%    \begin{macrocode}
-%<*class|ctex>
-\tl_const:Nx \c_@@_version_tl
-  { \cs_if_exist_use:cF { ver@ \@currname . \@currext } { 9999/99/99 } }
-%<*class>
-\cs_new_eq:cN { ver@ctex.        \@pkgextension } \c_@@_version_tl
-\cs_new_eq:cN { ver@ctexcap.     \@pkgextension } \c_@@_version_tl
-\cs_new_eq:cN { ver@ctexsize.    \@pkgextension } \c_@@_version_tl
-\cs_new_eq:cN { ver@ctexheading. \@pkgextension } \c_@@_version_tl
-%</class>
-%<*ctex>
-\msg_new:nnnn { ctex } { subpackage-loaded }
-  { Package~`#1'~can~not~be~loaded~with~`ctex'. }
-  {
-    `#1'~is~actually~a~part~of~`ctex'.\\
-    It~is~not~necessary~to~load~it~separately.
-  }
-\@ifpackageloaded { ctexsize }
-  { \msg_error:nnn { ctex } { subpackage-loaded } { ctexsize } }
-  { \cs_new_eq:cN { ver@ctexsize. \@pkgextension } \c_@@_version_tl }
-\@ifpackageloaded { ctexheading }
-  { \msg_error:nnn { ctex } { subpackage-loaded } { ctexheading } }
-  { \cs_new_eq:cN { ver@ctexheading. \@pkgextension } \c_@@_version_tl }
-%</ctex>
-%</class|ctex>
-%    \end{macrocode}
-%
 %    \begin{macrocode}
 %<*class|style>
 \RequirePackage { xparse , l3keys2e }
@@ -3385,6 +3357,18 @@ Copyright and Licence
 %    \begin{macrocode}
 %<!ctexsize>\RequirePackage { ctexhook , ctexpatch }
 %<!ctexheading>\RequirePackage { fix-cm }
+%    \end{macrocode}
+%
+% 宏包载入检查。
+%    \begin{macrocode}
+%<*class|ctex>
+%<*class>
+\ctex_disable_package:n { ctex }
+\ctex_disable_package:n { ctexcap }
+%</class>
+\ctex_disable_package:n { ctexsize }
+\ctex_disable_package:n { ctexheading }
+%</class|ctex>
 %    \end{macrocode}
 %
 % \changes{v2.5.7}{2021/06/04}{兼容 \LaTeX \ 2021/06/01 的字体钩子。}
@@ -4155,14 +4139,20 @@ Copyright and Licence
 \cs_new_protected:Npn \ctex_use_zhmap:
   { \tl_use:N \g_@@_zhmap_tl }
 \cs_if_exist:NTF \ctex_gadd_ltxhook:nn
-  { \ctex_gadd_ltxhook:nn { shipout/firstpage } { \ctex_use_zhmap: } }
+  {
+    \cs_new_protected:Npn \ctex_at_shipout_first:n
+      { \ctex_gadd_ltxhook:nn { shipout/firstpage } }
+    \ctex_at_shipout_first:n { \ctex_use_zhmap: }
+  }
   {
     \cs_new_protected:Npn \ctex_add_dvi_zhmap:
       { \AtBeginDvi { \ctex_use_zhmap: } }
     \ctex_after_end_preamble:n { \ctex_add_dvi_zhmap: }
     \ctex_at_end_package:nn { atbegshi }
       {
-        \AtBeginShipoutFirst { \ctex_use_zhmap: }
+        \cs_new_protected:Npn \ctex_at_shipout_first:n
+          { \AtBeginShipoutFirst }
+        \ctex_at_shipout_first:n { \ctex_use_zhmap: }
         \cs_gset_eq:NN \ctex_add_dvi_zhmap: \prg_do_nothing:
       }
   }
@@ -4608,7 +4598,7 @@ Copyright and Licence
   }
 \@ifpackageloaded { luatexja }
   { \msg_critical:nnx { ctex } { luatexja-loaded } { \g_file_curr_name_str } }
-  { \tl_const:cn { ver@ltj-latex.\@pkgextension } { 9999/99/99 } }
+  { \ctex_disable_package:n { ltj-latex } }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -6647,7 +6637,7 @@ Copyright and Licence
           {
             \str_if_eq:onTF { \Hy@driver } { hdvipdfm }
               {
-                \AtBeginShipoutFirst
+                \ctex_at_shipout_first:n
                   { \special { pdf:tounicode~GBK-EUC-UCS2 } }
               }
               { \RequirePackage { xCJK2uni } }
@@ -6674,7 +6664,10 @@ Copyright and Licence
     pdfencoding    = pdfdoc
   }
 \ctex_at_end_package:nn { hyperref }
-  { \AtBeginShipoutFirst { \special { pdf:tounicode~UTF8-UTF16 } } }
+  {
+    \ctex_at_shipout_first:n
+      { \special { pdf:tounicode~UTF8-UTF16 } }
+  }
 %</uptex|aptex>
 %    \end{macrocode}
 %
@@ -11534,6 +11527,66 @@ Copyright and Licence
 %<*ctexhook>
 %    \end{macrocode}
 %
+% \begin{macro}[int]{\ctex_if_format_at_least:nTF}
+%  与 \tn{IfFormatAtLeastTF} 同义。
+%    \begin{macrocode}
+\cs_new:Npn \ctex_if_format_at_least:nTF
+  { \@ifl@t@r \fmtversion }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.5.7}{2021/06/09}{使用 \tn{disable@package@load} 禁止宏包载入。}
+%
+% \begin{macro}[int]{\ctex_disable_package:n}
+% 禁止宏包载入。采用 \LaTeX \ 2020-10-01 提供的 \tn{disable@package@load} 实现，
+% 否则采用传统方式：预定义 |\ver@|\meta{package}|.sty| 标识符。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_disable_package:n #1
+  {
+    \@ifpackageloaded {#1}
+      { \msg_error:nnxx }
+      { \@@_disable_package_aux:nnnn }
+      { ctex } { disable-package } {#1} { \@currname }
+  }
+\cs_new_protected:Npx \@@_disable_package_aux:nnnn #1#2#3#4
+  {
+    \cs_if_exist:NTF \disable@package@load
+      {
+        \exp_args:Nnx \exp_not:N \disable@package@load {#3}
+          { \msg_warning:nnnn {#1} {#2} {#3} {#4} }
+      }
+      { \tl_const:cn { ver@ #3 . \exp_not:N \@pkgextension } { 9999/99/99 } }
+  }
+\msg_new:nnn { ctex } { disable-package }
+  { Package~`#1'~can~not~be~loaded~with~`#2'. }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\ctex_replace_package:nn}
+% 替换宏包。采用 \LaTeX \ 2020-10-01 提供的 \tn{declare@file@substitution} 实现，
+% 否则给出无效警告。
+%    \begin{macrocode}
+\ctex_if_format_at_least:nTF { 2020/10/01 }
+  {
+    \cs_new_protected:Npn \ctex_replace_package:nn #1#2
+      {
+        \declare@file@substitution
+          { #1 . \@pkgextension }
+          { #2 . \@pkgextension }
+      }
+  }
+  {
+    \cs_new_protected:Npn \ctex_replace_package:nn
+      { \msg_warning:nnnn { ctex } { replace-package-invalid } }
+    \msg_new:nnn { ctex } { replace-package-invalid }
+      {
+        \token_to_str:N \ctex_replace_package:nn \{#1\}\{#2\}~is~invalid~
+        before~LaTeX~2020-10-01.
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\ctex_at_begin_package:nn}
 % 如果宏包已经被载入，则钩子无效，给出警告。
 %    \begin{macrocode}
@@ -11563,14 +11616,6 @@ Copyright and Licence
       { \use:n }
       { \ctex_gadd_package_hook:nnn { after } {#1} }
   }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[int]{\ctex_if_format_at_least:nTF}
-%  与 \tn{IfFormatAtLeastTF} 同义。
-%    \begin{macrocode}
-\cs_new:Npn \ctex_if_format_at_least:nTF
-  { \@ifl@t@r \fmtversion }
 %    \end{macrocode}
 % \end{macro}
 %
