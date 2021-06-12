@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6391}
+% \CheckSum{6396}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3414,7 +3414,6 @@ Copyright and Licence
   { \keys_set:nn { ctex } }
 \cs_new_protected:Npn \ctex_set:nn #1
   { \keys_set:nn { ctex / #1 } }
-%</!ctexsize>
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3422,54 +3421,9 @@ Copyright and Licence
 % \changes{v2.5.4}{2020/08/02}{应用 \pkg{l3cctab}。}
 % \changes{v2.5.5}{2020/10/17}{放弃应用 \pkg{l3cctab}。}
 %
-% \begin{macro}[int]{\ctex_file_input:n}
-% 输入文件，关闭 \LaTeXiii 语法环境，并设置 |@| 为字母类、|^| 为上标和 \tn{endlinechar} 为 $13$。
-%    \begin{macrocode}
-\cs_new_protected:Npn \ctex_file_input:n #1
-  {
-    \ctex_push_file:
-      \file_input:n {#1}
-    \ctex_pop_file:
-  }
-\cs_new_protected:Npn \ctex_push_file:
-  {
-    \seq_gpush:Nx \g_@@_file_status_seq
-      {
-        {
-          \bool_if:NTF \l__kernel_expl_bool
-            { \ExplSyntaxOn }
-            { \ExplSyntaxOff }
-        }
-        { \char_value_catcode:n { 64 } }
-        { \char_value_catcode:n { 94 } }
-        { \int_use:N \tex_endlinechar:D }
-      }
-    \ExplSyntaxOff
-    \char_set_catcode_letter:n { 64 }
-    \char_set_catcode_math_superscript:n { 94 }
-    \int_set:Nn \tex_endlinechar:D { 13 }
-  }
-\cs_new_protected:Npn \ctex_pop_file:
-  {
-    \seq_gpop:NN \g_@@_file_status_seq \l_@@_file_status_tl
-    \exp_after:wN \@@_pop_file_aux:nnnn \l_@@_file_status_tl
-  }
-\cs_new_protected:Npn \@@_pop_file_aux:nnnn #1#2#3#4
-  {
-    #1
-    \char_set_catcode:nn { 64 } {#2}
-    \char_set_catcode:nn { 94 } {#3}
-    \int_set:Nn \tex_endlinechar:D {#4}
-  }
-\tl_new:N \l_@@_file_status_tl
-\seq_new:N \g_@@_file_status_seq
-%    \end{macrocode}
-% \end{macro}
-%
 % \begin{macro}[int]{\ctex_scheme_input:n}
 % 输入 \opt{scheme} 文件。先查找当前文档类下的 \meta{scheme}，找不到再查找一般的文件。
 %    \begin{macrocode}
-%<*!ctexsize>
 \cs_new_protected:Npn \ctex_scheme_input:n #1
   {
     \ctex_push_file:
@@ -4289,10 +4243,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\ctex_CJK_input:n,\CJK@input}
-% \pkg{breqn} 包可能会在正文中将 |^| 的 \tn{catcode} 改为 $12$ 或 $13$，这将
-% 破坏 \pkg{CJK} 对汉字的首字节的定义（\tn{CJK@loadBinding} 和
-% \tn{CJK@loadEncoding}）。因此需要确保载入 \file{.enc} 和 \file{.bdg} 文件时，
-% |^| 的 \tn{catcode} 为 $7$。同时要设置 \tn{endlinechar} 为 $-1$。
+% 载入 \pkg{CJK} 包的 \file{.enc} 和 \file{.bdg} 等文件时，需要设置 \tn{endlinechar} 为 $-1$。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_CJK_input:n #1
   {
@@ -4316,9 +4267,8 @@ Copyright and Licence
   {
     \cs_new_protected:Npn \ctex_plane_to_utfxvibe:Nn #1#2
       {
-        \tl_set:Nx \l_@@_tmp_tl {#2}
         \int_set:Nn \l_@@_tmp_int
-          { \exp_args:No \int_from_hex:n { \l_@@_tmp_tl } }
+          { \exp_args:Ne \int_from_hex:n {#2} }
         \int_compare:nNnTF \l_@@_tmp_int < { 256 }
           { \tl_gset:Nx #1 { \int_to_Hex:n { \l_@@_tmp_int } } }
           {
@@ -4611,6 +4561,13 @@ Copyright and Licence
 \RequirePackage { fontspec }
 \@ifpackagelater { fontspec } { 2020/02/21 } { }
   { \msg_error:nnn { ctex } { package-too-old } { fontspec } }
+%    \end{macrocode}
+%
+% 引擎文件是通过 \cs{ctex_file_input:n} 载入的，其中的 \tn{catcodetable} 机制会完整恢复
+% 文件载入之前的 \tn{catcode} 状态，在引擎文件中的 \tn{catcode} 设置都无效。
+% 因此，对 \tn{ltjlineendcomment} 的设置要放到文件之外进行。
+%    \begin{macrocode}
+\ctex_at_end:n { \char_set_catcode_comment:n { \ltjlineendcomment } }
 %    \end{macrocode}
 %
 % \paragraph{\pkg{LuaTeX-ja} 的默认设置}
@@ -9825,8 +9782,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \int_case:nn { \g_@@_font_size_int }
   {
-    { 0 } { \ctex_file_input:n { ctex-c5size.clo } }
-    { 1 } { \ctex_file_input:n { ctex-cs4size.clo } }
+    { 0 } { \file_input:n { ctex-c5size.clo } }
+    { 1 } { \file_input:n { ctex-cs4size.clo } }
   }
 %    \end{macrocode}
 %
@@ -11532,6 +11489,53 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \ctex_if_format_at_least:nTF
   { \@ifl@t@r \fmtversion }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.5.7}{2021/06/12}{重新应用 \pkg{l3cctab}。}
+%
+% \begin{macro}[int]{\ctex_file_input:n,\ctex_push_file:,\ctex_pop_file:}
+% 输入文件，关闭 \LaTeXiii 语法环境，并设置 |@| 为字母类，利用 \pkg{l3cctab} 实现。
+% 我们使用 \cs{file_input:n} 而不是 \LaTeXe \ 的 \tn{input} 或者 \tn{InputIfFileExists}
+% 载入文件，因此 \LaTeXe \ 的文件钩子都\emph{无效}。
+%    \begin{macrocode}
+\cs_new_protected:Npn \ctex_file_input:n #1
+  {
+    \ctex_push_file:
+      \file_input:n {#1}
+    \ctex_pop_file:
+  }
+\bool_if_exist:NTF \l__kernel_expl_bool
+  {
+    \cs_new_protected:Npn \ctex_push_file:
+      {
+        \seq_gpush:Nx \g_@@_expl_status_seq
+          { \bool_if:NTF \l__kernel_expl_bool { 1 } { 0 } }
+        \bool_set_false:N \l__kernel_expl_bool
+        \cctab_begin:N \c_@@_package_cctab
+      }
+    \cs_new_protected:Npn \ctex_pop_file:
+      {
+        \cctab_end:
+        \seq_gpop:NN \g_@@_expl_status_seq \l_@@_expl_status_tl
+        \int_if_odd:nTF { \l_@@_expl_status_tl }
+          { \bool_set_true:N  \l__kernel_expl_bool }
+          { \bool_set_false:N \l__kernel_expl_bool }
+      }
+    \tl_new:N \l_@@_expl_status_tl
+    \seq_new:N \g_@@_expl_status_seq
+  }
+  {
+    \cs_new_protected:Npn \ctex_push_file:
+      { \cctab_begin:N \c_@@_package_cctab }
+    \cs_new_protected:Npn \ctex_pop_file:
+      { \cctab_end: }
+  }
+\cctab_const:Nn \c_@@_package_cctab
+  {
+    \cctab_select:N \c_document_cctab
+    \char_set_catcode_letter:n { 64 }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
