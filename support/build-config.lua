@@ -145,17 +145,13 @@ end
 null_function = function() return 0 end
 
 local insert = table.insert
+local os_remove = os.remove
 
 function saveall(names)
-  local names, opt_engine = names, options.engine
-  local t, engines = { }, { }
-  if opt_engine then
-    for _,i in ipairs(opt_engine) do engines[i] = true end
-  end
-  local lvts = names and { }
+  local lvts = names and { } or filelist(testfiledir, "*" .. lvtext)
   if names then
     local uniq = { }
-    local glob = "*%s*.tlg"
+    local glob = "*%s*" .. lvtext
     for _,i in ipairs(names) do
       for _,j in ipairs(filelist(testfiledir, glob:format(i))) do
         if not uniq[j] then
@@ -165,22 +161,24 @@ function saveall(names)
       end
     end
   end
-  for _,file in ipairs(lvts or filelist(testfiledir, "*.tlg")) do
-    local base = jobname(file)
-    local lvt, tex = base:match([[^(.+)%.(%w+)$]])
-    local lvt = lvt or base
-    local tex = tex or stdengine
-    if not t[tex] then t[tex] = { } end
-    insert(t[tex], lvt)
-  end
-  if next(t) then
+  if next(lvts) then
     checkinit()
     checkinit = null_function
-    for _, tex in ipairs(checkengines) do
-      local lvts = t[tex]
-      if lvts and (not next(engines) or engines[tex]) then
-        options.engine = { tex }
-        save(lvts)
+    local stdfile  = testfiledir .. "/%s"    .. tlgext
+    local extfile  = testfiledir .. "/%s.%s" .. tlgext
+    local opt_engine = options.engine or checkengines
+    options.engine = opt_engine
+    for _, lvt in ipairs(lvts) do
+      local name = lvt:gsub("%" .. lvtext .."$", "")
+      save( { name } )
+      local stdtlg = file_md5(stdfile:format(name))
+      for _, tex in ipairs(opt_engine) do
+        if tex ~= stdengine then
+          local file = extfile:format(name, tex)
+          if file_md5(file) == stdtlg then
+            os_remove(file)
+          end
+        end
       end
     end
   end
