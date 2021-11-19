@@ -123,6 +123,10 @@
 \setlist[1]{labelindent=\parindent}
 \setlist[enumerate]{leftmargin=*}
 \setlist[itemize]{leftmargin=*}
+\renewlist{arguments}{enumerate}{1}
+\setlist[arguments]{nolistsep,
+  leftmargin=\parindent, labelindent=0pt, labelsep=*,
+  label=\texttt{\#\arabic*}\,:}
 \newlist{optdesc}{description}{3}
 %% 设置间距为 \marginparsep，与 l3doc 一致
 \setlist[optdesc]{%
