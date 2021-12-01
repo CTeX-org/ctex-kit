@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6404}
+% \CheckSum{6403}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4782,33 +4782,53 @@ Copyright and Licence
 %
 % \paragraph{\pkg{Lua} 函数}
 %
+% \changes{v2.5.8}{2021/11/29}{简化部分 \pkg{Lua} 函数。}
+%
 % 直接用 |token.set_lua| 定义，不是传统意义上的 \TeX \ 宏。
 %    \begin{macrocode}
 \group_begin:
 \char_set_catcode_space:n { 32 }
 \lua_now:e
   {
-    local func = lua.get_functions_table()
+%    \end{macrocode}
+% \begin{macro}{ctex.newluacmd}
+% 定义新的 \pkg{Lua} 函数。
+%    \begin{macrocode}
+    ctex = ctex or { }
+    local ctex = ctex
+    local functions = lua.get_functions_table()
+    local new_luafunction = luatexbase.new_luafunction
+    local create, set_lua = token.create, token.set_lua
+    local lua_cmds = {
+      lua_call            = true ,
+      lua_expandable_call = true ,
+    }
+    local newluacmd = function (name, func, ...)
+      local tok = create(name)
+      local id = lua_cmds[tok.cmdname] and tok.index
+      local id = id or new_luafunction(name)
+      set_lua(name, id, ...)
+      functions[id] = func
+    end
+    ctex.newluacmd = newluacmd
+%    \end{macrocode}
+% \end{macro}
+%    \begin{macrocode}
     local ltjfont = luatexja.jfont
     local getattribute = tex.getattribute
-    local set_lua = token.set_lua
+    local tex_set, sprint = tex.set, tex.sprint
     local scan_int, scan_arg = token.scan_int, token.scan_argument
-    local new_luafunction = luatexbase.new_luafunction
 %    \end{macrocode}
 % \begin{macro}{\ctex_ltj_add_kyenc:n}
 % 保存 jfont 的编码，用于判断。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = ltjfont.add_kyenc_list
-    set_lua("ctex_ltj_add_kyenc:n", id, "global", "protected")
+    newluacmd("ctex_ltj_add_kyenc:n", ltjfont.add_kyenc_list, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_is_kenc:n}
 % 判断编码是否属于 jfont。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = ltjfont.is_kenc
-    set_lua("ctex_ltj_is_kenc:n", id, "global")
+    newluacmd("ctex_ltj_is_kenc:n", ltjfont.is_kenc, "global")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_patch_external_font:n}
@@ -4823,8 +4843,7 @@ Copyright and Licence
 % 主要目的是，如果当前字形有替代字体，则往字形的定义中加入一些标志，确保
 % \texttt{font.id} 唯一。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("ctex_ltj_patch_external_font:n", function ()
       local s = scan_arg()
       local is_braced, is_quoted
       if s:sub(1,1) == '{' and s:sub(-1)=='}' then
@@ -4837,108 +4856,75 @@ Copyright and Licence
       if     is_braced then s = '{'..s..'}'
       elseif is_quoted then s = '"'..s..'"'
       end
-      tex.sprint(-2, s)
-    end
-    set_lua("ctex_ltj_patch_external_font:n", id, "global")
+      sprint(-2, s)
+    end, "global")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_use_jfont:}
 % 使用 jfont，确保当前的 \tn{font} 是 jfont。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("ctex_ltj_use_jfont:", function ()
       font.current(getattribute("ltj@curjfnt"))
-    end
-    set_lua("ctex_ltj_use_jfont:", id, "global", "protected")
+    end, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_set_alt_font:nnnn}
 % |#1| 和 |#2| 分别是字符区间的首末，|#3| 是基础字体，|#4| 是替代字体。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("ctex_ltj_set_alt_font:nnnn", function ()
       local b = tonumber(scan_arg())
       local e = tonumber(scan_arg())
       local alt  = scan_arg()
       local base = scan_arg()
       ltjfont.set_alt_font_latex(b, e, alt, base)
-    end
-    set_lua("ctex_ltj_set_alt_font:nnnn", id, "global", "protected")
+    end, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_clear_alt_font:n}
 % 清除 |#1| 的替代字体。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("ctex_ltj_clear_alt_font:n", function ()
       local base = scan_arg()
       ltjfont.clear_alt_font_latex(base)
-    end
-    set_lua("ctex_ltj_clear_alt_font:n", id, "global", "protected")
+    end, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_pickup_alt_font:nn}
 % 定义 |#1| 的替代字体，|#2| 是字体大小。\\
 % 会在内部执行 \tn{ltj@pickup@altfont@auxy} 和 \tn{ltj@pickup@altfont@copy}。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("ctex_ltj_pickup_alt_font:nn", function ()
       local base = scan_arg()
       local size = scan_arg()
       ltjfont.output_alt_font_cmd("y", base)
       ltjfont.pickup_alt_font_a(size)
-    end
-    set_lua("ctex_ltj_pickup_alt_font:nn", id, "global", "protected")
+    end, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\@@_pickup_alt_font:Nn}
 % |#1| 是 \texttt{font.id}，|#2| 是字体名称。
 % 在 \tn{ltj@pickup@altfont@copy} 之中使用。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
+    newluacmd("@@_pickup_alt_font:Nn", function ()
       local num  = scan_int()
       local base = scan_arg()
       ltjfont.pickup_alt_font_b(num, base)
-    end
-    set_lua("@@_pickup_alt_font:Nn", id, "global", "protected")
+    end, "global", "protected")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\@@_if_alt_set:nT}
 % 判断是否存在替代字体。会设置变量 |aftl_base| 和返回 \tn{@firstofone} 或 \tn{@gobble}。
-% \begin{verbatim}
-%   function luatexja.jfont.does_alt_set(bbase)
-%     aftl_base = alt_font_table_latex[bbase]
-%     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
-%   end
-% \end{verbatim}
-% \pkg{luatexja} 20200412.0 以后的定义为：
-% \begin{verbatim}
-%   function luatexja.jfont.does_alt_set()
-%     aftl_base = alt_font_table_latex[scan_arg()]
-%     tex.sprint(cat_lp, aftl_base and '\\@firstofone' or '\\@gobble')
-%   end
-% \end{verbatim}
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = \LuaTeXjaversion > 20200412.0
-      and ltjfont.does_alt_set
-      or  function ()
-            local base = scan_arg()
-            ltjfont.does_alt_set(base)
-          end
-    set_lua("@@_if_alt_set:nT", id, "global")
+    newluacmd("@@_if_alt_set:nT", ltjfont.does_alt_set, "global")
 %    \end{macrocode}
 % \end{macro}
 % \begin{macro}{\ctex_ltj_zero_globaldefs:}
 % 设置 \tn{globaldefs} 为 $0$，避免全局设置，应当在分组中使用。
 % 这里通过 Lua 设置，可以不受外部 \TeX\ 环境中的 \tn{globaldefs} 的影响。
 %    \begin{macrocode}
-    local id = new_luafunction("ctex")
-    func[id] = function ()
-      tex.set("globaldefs", 0)
-    end
-    set_lua("ctex_ltj_zero_globaldefs:", id, "global", "protected")
+    newluacmd("ctex_ltj_zero_globaldefs:", function ()
+      tex_set("globaldefs", 0)
+    end, "global", "protected")
   }
 \group_end:
 %    \end{macrocode}
@@ -6925,17 +6911,14 @@ Copyright and Licence
     local fmt = luatexja.jfont.font_metric_table
     local getattribute = tex.getattribute
     local setdimen = tex.setdimen
-    local func = lua.get_functions_table()
-    local id = luatexbase.new_luafunction("ctex")
-    func[id] = function ()
+    ctex.newluacmd("ctex_update_kanjisize:", function ()
       local ft = fmt[getattribute("ltj@curjfnt")] or nulltable
       local ft = ft and ft.char_type or nulltable
       local fk = ft and ft[0] or nulltable
       setdimen("cht", fk.height or 0)
       setdimen("cdp", fk.depth or 0)
       setdimen("cwd", fk.width or ft.zw or 0)
-    end
-    token.set_lua("ctex_update_kanjisize:", id, "global", "protected")
+    end, "global", "protected")
   }
 \group_end:
 \ctex_add_to_selectfont:n { \ctex_update_kanjisize: }
