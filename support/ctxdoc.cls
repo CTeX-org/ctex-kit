@@ -431,14 +431,20 @@
         \if@inlabel
           \global \@inlabelfalse
           \@noparlistfalse
-          \llap { \box \@labels \hskip \leftskip }
+          \unless \ifvoid \CTEX@labelbox
+            \llap { \box \CTEX@labelbox \hskip \leftskip }
+          \fi
         \fi
         #1
       }
   }
 \ctex_patch_cmd:Nnn \macro@code
   { \if@inlabel \leavevmode \fi }
-  { \partopsep \z@skip }
+  {
+    \partopsep \z@skip
+    \if@inlabel \setbox \CTEX@labelbox \copy \@labels \fi
+  }
+\newbox \CTEX@labelbox
 \group_begin:
   \int_set:Nn \tex_endlinechar:D { -1 }
   \use:n
