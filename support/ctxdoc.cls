@@ -301,8 +301,10 @@
     \GetFileInfo {#1}
     \file_get:nnNTF { \c_sys_jobname_str .id }
       { \int_set:Nn \tex_endlinechar:D { -1 } } \l__ctxdoc_tmp_tl
-      { \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl }
+      { \tl_if_empty:NTF \l__ctxdoc_tmp_tl }
+      { \use_i:nn }
       { \GetIdInfo $Id$ }
+      { \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl }
       { \fileinfo }
   }
 \cs_new_eq:NN \__ctxdoc_ltx_changes:nnn \changes@
