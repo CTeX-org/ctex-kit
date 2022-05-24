@@ -133,7 +133,8 @@ env:
     zhmetrics
     zhmetrics-uptex
     zhnumber
-  NOTO_URL: https://noto-website-2.storage.googleapis.com/pkgs
+  NOTO_SANS_URL: https://github.com/googlefonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
+  NOTO_SERIF_URL: https://github.com/googlefonts/noto-cjk/releases/download/Serif2.001/04_NotoSerifCJKOTC.zip
 
 jobs:
   build-ubuntu:
@@ -143,14 +144,16 @@ jobs:
     - name: Install TeX Live
       run: |
         export PATH=/tmp/texlive/bin/x86_64-linux:$PATH
-        wget ${{ env.CTAN_URL }}/systems/texlive/tlnet/install-tl-unx.tar.gz
+        curl -O ${{ env.CTAN_URL }}/systems/texlive/tlnet/install-tl-unx.tar.gz
         tar -xzf install-tl-unx.tar.gz
         cd install-tl-20* && ./install-tl --profile ../.github/workflows/texlive.profile
         tlmgr install ${{ env.TL_PACKAGES }} ${{ env.TL_EXTRA_PACKAGES }}
         tlmgr update --self --all --no-auto-install --repository=${{ env.CTAN_URL }}/systems/texlive/tlnet/
     - name: Install Noto fonts
       run: |
-        sudo apt-get install fonts-noto-cjk
+        curl -LO ${{ env.NOTO_SANS_URL }}
+        curl -LO ${{ env.NOTO_SERIF_URL }}
+        unzip -ojd /usr/share/fonts/truetype/ "*OTC.zip" "*.ttc"
     - name: Test ctex
       working-directory: ./ctex
       run: |
@@ -173,9 +176,9 @@ jobs:
         tlmgr update --self --all --no-auto-install --repository=${{ env.CTAN_URL }}/systems/texlive/tlnet/
     - name: Install Noto fonts
       run: |
-        for i in NotoSerifCJK-Regular NotoSerifCJK-Bold NotoSansCJK-Regular NotoSansCJK-Bold; do curl -O ${{ env.NOTO_URL }}/$i.ttc.zip; done
-        unzip -o "*.zip"
-        cp -vf *.ttc /Library/Fonts/
+        curl -LO ${{ env.NOTO_SANS_URL }}
+        curl -LO ${{ env.NOTO_SERIF_URL }}
+        unzip -ojd /Library/Fonts/ "*OTC.zip" "*.ttc"
     - name: Test ctex
       working-directory: ./ctex
       run: |
@@ -200,10 +203,9 @@ jobs:
     - name: Install Noto fonts
       run: |
         ${env:PATH} = "${{ github.workspace }}\tmp\texlive\bin\win32;" + ${env:PATH}
-        "NotoSerifCJK-Regular", "NotoSerifCJK-Bold", "NotoSansCJK-Regular", "NotoSansCJK-Bold" | ForEach-Object -Process {Invoke-WebRequest -Uri "${{ env.NOTO_URL }}/$_.ttc.zip" -OutFile "$_.ttc.zip"}
-        Get-ChildItem *.ttc.zip | Expand-Archive -DestinationPath . -Force
-        Copy-Item *.ttc C:\Windows\Fonts
-        fc-cache -fv
+        Invoke-WebRequest -Uri ${{ env.NOTO_SANS_URL }}  -OutFile NotoSansCJK-OTC.zip
+        Invoke-WebRequest -Uri ${{ env.NOTO_SERIF_URL }} -OutFile NotoSerifCJK-OTC.zip
+        unzip -ojd C:\Windows\Fonts\ "*OTC.zip" "*.ttc"
     - name: Test ctex
       working-directory: ./ctex
       run: |
