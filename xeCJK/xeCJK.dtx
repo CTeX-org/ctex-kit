@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10952}
+% \CheckSum{10966}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3732,7 +3732,7 @@ Copyright and Licence
   {
     \@@_punct_if_middle:NTF \g_@@_last_punct_tl
       {
-        \@@_punct_bound_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
         \xeCJK_class_group_end:
         \exp_after:wN \xeCJK_punct_node:N \g_@@_last_punct_tl
         \xeCJK_no_break:
@@ -4006,7 +4006,7 @@ Copyright and Licence
   {
     \@@_punct_if_middle:NTF \g_@@_last_punct_tl
       {
-        \@@_punct_bound_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
         \xeCJK_no_break:
         \@@_punct_glue:NN \c_@@_left_tl \g_@@_last_punct_tl
       }
@@ -4025,7 +4025,7 @@ Copyright and Licence
   {
     \@@_punct_if_middle:NTF \g_@@_last_punct_tl
       {
-        \@@_punct_bound_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
         \xeCJK_class_group_end: \xeCJK_no_break:
         \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
       }
@@ -4493,7 +4493,7 @@ Copyright and Licence
       {
         \CJKglue
         \@@_punct_glue:NN \c_@@_right_tl #1
-        \@@_punct_bound_rule:NN \c_@@_left_tl #1
+        \@@_punct_rule:NN \c_@@_left_tl #1
       }
   }
 \cs_new_protected:Npn \@@_Default_and_FullRight_glue:N #1
@@ -4504,7 +4504,7 @@ Copyright and Licence
     \@@_punct_if_middle:NT #1
       {
         \@@_punct_glue:NN \c_@@_right_tl #1
-        \@@_punct_bound_rule:NN \c_@@_left_tl #1
+        \@@_punct_rule:NN \c_@@_left_tl #1
       }
   }
 %    \end{macrocode}
@@ -5509,10 +5509,11 @@ Copyright and Licence
   { \exp_last_unbraced:NNo \xeCJK_get_punct_bounds:NN }
 \cs_new_protected:Npn \@@_save_punct_margin_plain:NN #1#2
   {
-    \@@_save_punct_dim:nNNn { rule }   #1 #2 { \c_zero_dim }
     \@@_save_punct_dim:nNNn { glue }   #1 #2 { \c_zero_dim }
     \@@_save_punct_dim:nNNn { offset } #1 #2 { \c_zero_dim }
     \@@_save_punct_dim:nNNn { margin } #1 #2 { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { rule } \c_@@_left_tl  {#2} { \c_zero_dim }
+    \@@_save_punct_dim:nNNn { rule } \c_@@_right_tl {#2} { \c_zero_dim }
     \@@_save_punct_dim:nNNn { bound } \c_@@_left_tl  {#2} { \c_zero_dim }
     \@@_save_punct_dim:nNNn { bound } \c_@@_right_tl {#2} { \c_zero_dim }
     \@@_save_punct_skip:nNNn { glue }  #1 #2 { \c_zero_skip }
@@ -5526,19 +5527,18 @@ Copyright and Licence
     \group_end:
     \dim_set:Nn \l_@@_bound_dim
       { \@@_use_punct_dim:nNN { bound } #1 #2 }
+    \tl_if_eq:NNTF #1 \c_@@_right_tl
+      { \tl_set_eq:NN \l_@@_reverse_tl \c_@@_left_tl }
+      { \tl_set_eq:NN \l_@@_reverse_tl \c_@@_right_tl }
     \dim_set:Nn \l_@@_reverse_bound_dim
-      {
-        \tl_if_eq:NNTF #1 \c_@@_left_tl
-          { \@@_use_punct_dim:nNN { bound } \c_@@_right_tl }
-          { \@@_use_punct_dim:nNN { bound } \c_@@_left_tl }
-          #2
-      }
+      { \@@_use_punct_dim:nNN { bound } \l_@@_reverse_tl #2 }
     \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
     \xeCJK_punct_margin_process:NN #1 #2
     \xeCJK_punct_offset_process:NN #1 #2
     \@@_punct_if_long:NT #2
       { \@@_long_punct_kerning:N #2 }
   }
+\tl_new:N \l_@@_reverse_tl
 \dim_new:N \l_@@_bound_dim
 \dim_new:N \l_@@_reverse_bound_dim
 %    \end{macrocode}
@@ -5710,6 +5710,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.8.9}{2022/05/26}{修正居中标点悬挂错误。}
+%
 % \begin{macro}[int]{\xeCJK_punct_offset_process:NN}
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_punct_offset_process:NN #1#2
@@ -5759,6 +5761,8 @@ Copyright and Licence
       { \l_@@_tmp_dim }
     \@@_save_punct_dim:nNNn { rule } #1 #2
       { \l_@@_tmp_dim - \l_@@_bound_dim }
+    \@@_save_punct_dim:nNNn { rule } \l_@@_reverse_tl #2
+      { \l_@@_tmp_dim - \l_@@_reverse_bound_dim }
     \@@_save_punct_dim:nNNn { glue } #1 #2
       { \l_@@_margin_dim - \l_@@_tmp_dim }
     \@@_save_punct_skip:nNNnnn { glue } #1 #2
@@ -5774,7 +5778,7 @@ Copyright and Licence
       }
       {
         \@@_punct_if_middle:NTF #2
-          { .5 \l_@@_margin_dim }
+          { \l_@@_margin_dim / 2 }
           { \l_@@_margin_dim - \l_@@_reverse_bound_dim }
       }
   }
@@ -7901,7 +7905,7 @@ Copyright and Licence
       }
       {
         \skip_set_eq:NN \l_@@_ccglue_skip \l_@@_verb_exspace_skip
-        \skip_set:Nn \l_@@_ecglue_skip { .5 \l_@@_verb_exspace_skip }
+        \skip_set:Nn \l_@@_ecglue_skip { \l_@@_verb_exspace_skip / 2 }
         \cs_set_eq:NN \CJKglue   \@@_nobreak_ccglue:
         \cs_set_eq:NN \CJKecglue \@@_nobreak_ecglue:
       }
@@ -9683,7 +9687,7 @@ Copyright and Licence
         \@@_punct_if_middle:NT #1
           {
             \@@_punct_glue:NN \c_@@_right_tl #1
-            \@@_punct_bound_rule:NN \c_@@_left_tl #1
+            \@@_punct_rule:NN \c_@@_left_tl #1
           }
         \UL@start
       }
@@ -9709,7 +9713,7 @@ Copyright and Licence
           {
             \@@_ulem_punct_ccglue:
             \@@_punct_glue:NN \c_@@_right_tl #1
-            \@@_punct_bound_rule:NN \c_@@_left_tl #1
+            \@@_punct_rule:NN \c_@@_left_tl #1
           }
         \UL@start
         \@@_ulem_class_group_begin:
@@ -9729,7 +9733,7 @@ Copyright and Licence
         \@@_punct_if_middle:NTF \g_@@_last_punct_tl
           {
             \xeCJK_get_punct_bounds:No \c_@@_left_tl \g_@@_last_punct_tl
-            \@@_punct_bound_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+            \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
             \xeCJK_class_group_end: \UL@stop \xeCJK_no_break:
             \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
           }
@@ -9752,7 +9756,7 @@ Copyright and Licence
         \@@_punct_if_middle:NTF \g_@@_last_punct_tl
           {
             \xeCJK_get_punct_bounds:No \c_@@_left_tl \g_@@_last_punct_tl
-            \@@_punct_bound_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+            \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
             \xeCJK_class_group_end: \UL@stop \xeCJK_no_break:
             \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
           }
