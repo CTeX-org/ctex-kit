@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6420}
+% \CheckSum{6430}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3211,6 +3211,7 @@ Copyright and Licence
 %     \item \pkg{ltxcmds} 宏包。
 %     \item \pkg{pdftexcmds} 宏包。
 %     \item \pkg{xkeyval} 宏包。
+%     \item \pkg{chinese-jfm} 宏包。
 %   \end{itemize}
 %   \item \pkg{fontspec} 宏包。
 %   \item[\ding{229}] 以上是使用 \LuaLaTeX{} 编译时的依赖项。
@@ -4860,14 +4861,6 @@ Copyright and Licence
     end, "global")
 %    \end{macrocode}
 % \end{macro}
-% \begin{macro}{\ctex_ltj_use_jfont:}
-% 使用 jfont，确保当前的 \tn{font} 是 jfont。
-%    \begin{macrocode}
-    newluacmd("ctex_ltj_use_jfont:", function ()
-      font.current(getattribute("ltj@curjfnt"))
-    end, "global", "protected")
-%    \end{macrocode}
-% \end{macro}
 % \begin{macro}{\ctex_ltj_set_alt_font:nnnn}
 % |#1| 和 |#2| 分别是字符区间的首末，|#3| 是基础字体，|#4| 是替代字体。
 %    \begin{macrocode}
@@ -5054,6 +5047,14 @@ Copyright and Licence
     \use:c { \f@encoding + \f@family }
     \use:c { \curr@fontshape }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\ctex_ltj_use_jfont:}
+% 使用 jfont，确保当前的 \tn{font} 是 jfont。
+%    \begin{macrocode}
+\cs_new_protected_nopar:Npn \ctex_ltj_use_jfont:
+  { \tex_setfontid:D \ltj@curjfnt }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5285,19 +5286,33 @@ Copyright and Licence
 %
 % \paragraph{字体族的定义与使用}
 %
-% \begin{macro}[int]{\ctex_mono_jfm:n}
-% \begin{variable}{\l_@@_jfm_tl}
-% \pkg{LuaTeX-ja} 中与标点格式 \opt{plain} 对应的 \texttt{JFM} 是 \opt{mono}。
+% \changes{v2.5.9}{2022/05/26}{依赖 \pkg{chinese-jfm} 宏包。}
+%
+% \begin{macro}[int]{\ctex_set_jfm:n}
+% \begin{variable}{\l_@@_jfm_tl, \l_@@_redirect_jfm_prop}
+% 设置 \texttt{JFM}，需要进行一些重定向操作。
 %    \begin{macrocode}
-\cs_new_protected:Npn \ctex_mono_jfm:n #1
+\cs_new_protected:Npn \ctex_set_jfm:n #1
   {
-    \str_if_eq:nnTF {#1} { plain }
-      { \tl_set:Nn \l_@@_jfm_tl { mono } }
+    \prop_get:NnNF \l_@@_redirect_jfm_prop {#1} \l_@@_jfm_tl
       { \tl_set:Nn \l_@@_jfm_tl {#1} }
   }
+\cs_generate_variant:Nn \ctex_set_jfm:n { o }
+\prop_new:N \l_@@_redirect_jfm_prop
+\prop_set_from_keyval:Nn \l_@@_redirect_jfm_prop
+  {
+    plain    = mono ,
+    quanjiao = zh_CN / quanjiao ,
+    banjiao  = zh_CN / banjiao ,
+    kaiming  = zh_CN / kaiming
+  }
+\keys_define:nn { ctex_ltj / fontspec }
+  {
+    JFM           .code:n = \ctex_set_jfm:n {#1} ,
+    JFM .value_required:n = true
+  }
 \tl_new:N \l_@@_jfm_tl
-\cs_generate_variant:Nn \ctex_mono_jfm:n { o }
-\ctex_mono_jfm:o { \l__ctex_punct_tl }
+\ctex_set_jfm:o { \l__ctex_punct_tl }
 %    \end{macrocode}
 % \end{variable}
 % \end{macro}
@@ -6966,7 +6981,7 @@ Copyright and Licence
         \tl_set:Nx \l_@@_punct_tl {#1}
 %<pdftex>        \punctstyle { \l_@@_punct_tl }
 %<xetex>        \xeCJKsetup { PunctStyle = \l_@@_punct_tl }
-%<luatex>        \ctex_mono_jfm:o { \l_@@_punct_tl }
+%<luatex>        \ctex_set_jfm:o { \l_@@_punct_tl }
 %<uptex|aptex>        \msg_warning:nn { ctex } { invalid-option }
       } ,
     punct .default:n = { quanjiao } ,
