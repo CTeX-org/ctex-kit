@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10966}
+% \CheckSum{10962}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -5695,10 +5695,8 @@ Copyright and Licence
         \dim_compare:nNnTF \l_@@_middle_margin_width_dim < \c_max_dim
           { \l_@@_middle_margin_width_dim }
           {
-            \fp_use:N \l_@@_middle_margin_ratio_fp
-            \tex_dimexpr:D
-              ( \l_@@_bound_dim + \l_@@_reverse_bound_dim ) / 2
-            \scan_stop:
+            \@@_dim_ratio:Nn \l_@@_middle_margin_ratio_fp
+              { ( \l_@@_bound_dim + \l_@@_reverse_bound_dim ) / 2 }
           }
       }
       {
@@ -5707,6 +5705,14 @@ Copyright and Licence
           { \@@_margin_width_or_ratio:n { fixed } }
       }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_dim_ratio:Nn}
+%    \begin{macrocode}
+\cs_new:Npn \@@_dim_ratio:Nn #1#2
+  { \fp_to_dim:n { #1 \dim_to_fp:n {#2} } }
+\cs_generate_variant:Nn \@@_dim_ratio:Nn { c }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5798,8 +5804,9 @@ Copyright and Licence
         \fp_if_nan:nTF { \use:c { l_@@_#1_punct_ratio_fp } }
           { \c_max_dim }
           {
-            \fp_use:c { l_@@_#1_punct_ratio_fp }
-            \tex_dimexpr:D \@@_use_punct_dim:nN { width } #2 \scan_stop:
+            \@@_dim_ratio:cn
+              { l_@@_#1_punct_ratio_fp }
+              { \@@_use_punct_dim:nN { width } #2 }
           }
       }
   }
@@ -5813,8 +5820,9 @@ Copyright and Licence
     \dim_compare:nNnTF { \use:c { l_@@_#1_margin_width_dim } } < \c_max_dim
       { \use:c { l_@@_#1_margin_width_dim } }
       {
-        \fp_use:c { l_@@_#1_margin_ratio_fp }
-        \tex_dimexpr:D \l_@@_bound_dim \scan_stop:
+        \@@_dim_ratio:cn
+          { l_@@_#1_margin_ratio_fp }
+          { \l_@@_bound_dim }
       }
     \bool_if:NT \l_@@_add_min_bound_to_margin_bool
       { + \dim_min:nn \l_@@_bound_dim \l_@@_reverse_bound_dim }
@@ -5947,11 +5955,11 @@ Copyright and Licence
           {
             \@@_calc_kerning_margin:nNN
               {
-                \fp_use:N \l_@@_kerning_total_ratio_fp
-                \tex_dimexpr:D
-                  \@@_use_punct_dim:nN { width } #1 +
-                  \@@_use_punct_dim:nN { width } #2
-                \scan_stop:
+                \@@_dim_ratio:Nn \l_@@_kerning_total_ratio_fp
+                  {
+                    \@@_use_punct_dim:nN { width } #1 +
+                    \@@_use_punct_dim:nN { width } #2
+                  }
               }
           }
       }
@@ -5971,9 +5979,9 @@ Copyright and Licence
           {
             \dim_compare:nNnTF \l_@@_kerning_margin_width_dim < \c_max_dim
               { \l_@@_kerning_margin_width_dim \use_none:n }
-              { \fp_use:N \l_@@_kerning_margin_ratio_fp \use:n }
+              { \@@_dim_ratio:Nn \l_@@_kerning_margin_ratio_fp }
           }
-          { \fp_use:c { l_@@_#1_align_ratio_fp } \use:n }
+          { \@@_dim_ratio:cn { l_@@_#1_align_ratio_fp } }
           { \l_@@_margin_dim }
       }
   }
