@@ -141,7 +141,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{961}
+% \CheckSum{975}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -652,12 +652,15 @@ Copyright and Licence
     \selectfont
     \dim_set:Nn \l_@@_unit_dim { \f@size pt }
     \hbox_set:Nn \l_@@_text_box
-      {
+      { \tex_ignorespaces:D #1 \tex_unskip:D }
 %    \end{macrocode}
 % 往夹注首行开头插入支架。
 %    \begin{macrocode}
+    \@@_make_jzideoht_strut:
+    \hbox_set:Nn \l_@@_text_box
+      {
         \@@_insert_jzideoht_strut:
-        \tex_ignorespaces:D #1 \tex_unskip:D
+        \hbox_unpack:N \l_@@_text_box
       }
     \@@_make_opening_closing_box:
 %    \end{macrocode}
@@ -703,31 +706,38 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_insert_jzideoht_strut:}
+% \begin{macro}{\@@_make_jzideoht_strut:, \@@_insert_jzideoht_strut:}
 % 往每个夹注的首行开头插入一个“支架”。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_insert_jzideoht_strut:
+\cs_new_protected:Npn \@@_make_jzideoht_strut:
   {
-    \tex_vrule:D
+    \hbox_set:Nn \l_@@_strut_box
+      {
+        \tex_vrule:D
 %    \end{macrocode}
 % 支架的高度等于夹注汉字的字框高，
 % 这能给 \opt{baselineshift} 提供更可靠的参考。
 %    \begin{macrocode}
-      height
-        \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
-          { \fp_use:N \l_@@_ideoht_fp }
-          { \fp_use:N \l_@@_jzideoht_fp }
-        \l_@@_unit_dim
+          height
+            \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
+              { \fp_use:N \l_@@_ideoht_fp }
+              { \fp_use:N \l_@@_jzideoht_fp }
+            \l_@@_unit_dim
 %    \end{macrocode}
 % 在夹注里 \tn{lineskiplimit} 已经最小了，支架的深度不会起任何作用，
 % 我们设成零即可。
 %    \begin{macrocode}
-      depth \c_zero_dim
+          depth \c_zero_dim
 %    \end{macrocode}
 % 支架的宽度当然是零。^^A 也可以改成 \cs{l_@@_unit_dim} 进行视觉 debug
 %    \begin{macrocode}
-      width \c_zero_dim
+          width \c_zero_dim
+        \scan_stop:
+    }
   }
+\cs_new_protected:Npn \@@_insert_jzideoht_strut:
+  { \hbox_unpack:N \l_@@_strut_box }
+\box_new:N \l_@@_strut_box
 %    \end{macrocode}
 % \end{macro}
 %
@@ -821,7 +831,7 @@ Copyright and Licence
 %          - r_{\mathrm{outer}} \cdot s_{\mathrm{outer}} , \quad n \ge 1.
 %         \]
 % \end{itemize}
-% 
+%
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_set_valign:n #1
   { \cs_set_eq:Nc \@@_set_valign: { @@_set_valign_ #1 : } }
@@ -925,7 +935,7 @@ Copyright and Licence
 \dim_new:N \l_@@_mark_offset_dim
 %    \end{macrocode}
 % \end{macro}
-% 
+%
 % \begin{macro}{\@@_put_box:N, \@@_put_mark_box:N}
 % 输出夹注盒子，并适当下移保证对齐。
 %    \begin{macrocode}
@@ -1438,7 +1448,7 @@ Copyright and Licence
     halign             .choices:nn =
       { justified , left , right , centered , distributed }
       { \@@_set_halign:n { \l_keys_choice_tl } } ,
-    valign             .choices:nn = 
+    valign             .choices:nn =
       { middle , top , bottom }
       { \@@_set_valign:n { \l_keys_choice_tl } } ,
     lines        .value_required:n = true ,
