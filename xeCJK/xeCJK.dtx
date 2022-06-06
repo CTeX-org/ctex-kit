@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{10962}
+% \CheckSum{10998}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3288,7 +3288,7 @@ Copyright and Licence
           }
           {
             \token_if_space:NTF \l_peek_token
-              { { \xeCJK_make_node:n { default-space } } }
+              { \xeCJK_make_space_node: }
               { { \xeCJK_make_node:n { default } } }
           }
       }
@@ -3337,7 +3337,7 @@ Copyright and Licence
       }
       {
         \token_if_space:NTF \l_peek_token
-          { { \xeCJK_make_node:n { default-space } } }
+          { \xeCJK_make_space_node: }
           { { \xeCJK_make_node:n { normalspace } } }
       }
   }
@@ -3440,7 +3440,10 @@ Copyright and Licence
 %    \begin{macrocode}
  \prg_new_conditional:Npnn \xeCJK_if_last_node:n #1 { p , T , F , TF }
   {
-    \if_dim:w \use:c { c_@@_#1_node_dim } = \tex_lastkern:D
+    \if_dim:w
+      \cs_if_exist_use:cTF { c_@@_#1_node_dim }
+        { = \tex_lastkern:D }
+        { \use:c { c_@@_#1_node_skip } = \tex_lastskip:D }
       \prg_return_true: \else: \prg_return_false: \fi:
   }
 %    \end{macrocode}
@@ -3450,7 +3453,7 @@ Copyright and Licence
 % \changes{v3.2.4}{2013/07/03}{尽量移除用作判断标志的 \tn{kern}。}
 %
 % \begin{macro}[int]{\xeCJK_declare_node:n,\xeCJK_make_node:n}
-% 用于判断插入的各种 |kern|。
+% 用于判断插入的各种 |kern| 和 |glue|。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_declare_node:n #1
   {
@@ -3459,25 +3462,56 @@ Copyright and Licence
       { \dim_gset:cn } { \dim_const:cn }
       { c_@@_#1_node_dim } { \g_@@_node_int sp }
   }
+\cs_new_protected:Npn \xeCJK_declare_glue_node:n #1
+  {
+    \int_gincr:N \g_@@_node_int
+    \skip_if_exist:cTF { c_@@_#1_node_skip }
+      { \skip_gset:cn } { \skip_const:cn }
+      { c_@@_#1_node_skip } { \g_@@_node_int sp }
+  }
 \int_new:N \g_@@_node_int
 \int_gset:Nn \g_@@_node_int { 10 }
 \cs_new_protected:Npn \xeCJK_make_node:n #1
   { \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim } }
 \cs_new:Npn \@@_node:n #1
   { \use:c { c_@@_#1_node_dim } }
+\cs_new:Npn \@@_gule_node:n #1
+  { \use:c { c_@@_#1_node_skip } }
 \cs_new_protected:Npn \@@_make_node:N #1
   {
     \tex_kern:D - #1
     \tex_kern:D   #1
   }
 \cs_new_protected:Npn \xeCJK_remove_node:
-  { \tex_unkern:D \tex_unkern:D }
+  {
+    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+      { \tex_unkern:D \tex_unkern:D }
+      {
+        \int_compare:nNnT \tex_lastnodetype:D = { 11 }
+          { \tex_unskip:D \tex_unskip:D }
+      }
+  }
 \xeCJK_declare_node:n { CJK }
 \xeCJK_declare_node:n { CJK-space }
 \xeCJK_declare_node:n { default }
-\xeCJK_declare_node:n { default-space }
 \xeCJK_declare_node:n { CJK-widow }
 \xeCJK_declare_node:n { normalspace }
+\xeCJK_declare_glue_node:n { default-space }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.9.0}{2022/06/06}{修复西文的 character protrusion 功能。}
+%
+% \begin{macro}[int]{\xeCJK_make_space_node:}
+% 用于判断插入空格之前的 node，默认为空，只有用户设置了 \opt{xCJKecglue} 选项才有意义。
+% 需要使用 |glue| 来标记，使用 |kern| 会影响 character protrusion 功能。
+%    \begin{macrocode}
+\cs_new_eq:NN \xeCJK_make_space_node: \prg_do_nothing:
+\cs_new_protected:Npx \@@_make_space_node:
+  {
+    \tex_hskip:D - \@@_gule_node:n { default-space }
+    \tex_hskip:D   \@@_gule_node:n { default-space }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3513,6 +3547,7 @@ Copyright and Licence
       {
         \bool_set_true:N  \l_@@_xecglue_bool
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
+        \cs_set_eq:NN \xeCJK_make_space_node: \@@_make_space_node:
         \cs_set_eq:NN \xeCJK_check_for_xglue: \@@_check_for_xglue:
         \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_xecglue:
         \cs_set_eq:NN
@@ -3523,6 +3558,7 @@ Copyright and Licence
       {
         \bool_set_false:N \l_@@_xecglue_bool
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \xeCJK_space_glue:
+        \xeCJK_cs_clear:N \xeCJK_make_space_node:
         \xeCJK_cs_clear:N \xeCJK_check_for_xglue:
         \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
         \cs_set_eq:NN
@@ -3535,6 +3571,7 @@ Copyright and Licence
         \cs_set_protected:Npn \CJKecglue {#1}
         \xeCJK_glue_to_skip:nN {#1} \l_@@_ecglue_skip
         \cs_set_eq:NN \xeCJK_space_or_xecglue: \CJKecglue
+        \cs_set_eq:NN \xeCJK_make_space_node: \@@_make_space_node:
         \cs_set_eq:NN \xeCJK_check_for_xglue: \@@_check_for_xglue:
         \cs_set_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_xecglue:
         \cs_set_eq:NN
@@ -3649,7 +3686,7 @@ Copyright and Licence
                 { \@@_node:n { CJK } }
                 { \xeCJK_remove_node: \xeCJK_make_node:n { CJK-space } }
                 { \@@_node:n { default } }
-                { \xeCJK_remove_node: \xeCJK_make_node:n { default-space } }
+                { \xeCJK_remove_node: \xeCJK_make_space_node: }
               }
             \group_align_safe_begin:
             \token_if_macro:NTF \l_peek_token
