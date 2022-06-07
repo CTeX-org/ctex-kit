@@ -1,7 +1,7 @@
 %%
 %% File ctxdoc.cls
 %%
-%%     Copyright (C) 2016--2020
+%%     Copyright (C) 2016--2022
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %%---------------------------------------------------------------------
 %%
@@ -123,6 +123,7 @@
 \setlist[1]{labelindent=\parindent}
 \setlist[enumerate]{leftmargin=*}
 \setlist[itemize]{leftmargin=*}
+\setlist[trivlist]{topsep=\medskipamount}
 \renewlist{arguments}{enumerate}{1}
 \setlist[arguments]{nolistsep,
   leftmargin=\parindent, labelindent=0pt, labelsep=*,
@@ -169,12 +170,9 @@
 \define@key{FV}{labelref}{\def\ctexexamlabelref{\label{#1}}}
 \let\ctexexamlabelref\empty
 \newcounter{ctexexam}
-\BeforeBeginEnvironment{function}{\par\nointerlineskip}
-\AtEndEnvironment{function}{%
-  \par\xdef\ctexfixprevdepth{\prevdepth=\the\prevdepth\space}}
-\AfterEndEnvironment{function}{\ctexfixprevdepth}
+\AtEndEnvironment{function}{\ctexsetverticalspacing}
+\AfterEndEnvironment{function}{\ctexfixverticalspacing}
 \AtBeginEnvironment{syntax}{\linespread{1}\ctexplainps\ctexdisableecglue}
-\BeforeBeginEnvironment{SideBySideExample}{\par\addvspace{\medskipamount}}
 \newrobustcmd\exptarget{%
   \AddLineBeginMainAux{\csgdef{Codedoc@expstar}{}}%
   \Hy@raisedlink{\hypertarget{expstar}{}}}
@@ -184,6 +182,35 @@
 \newrobustcmd\expstar{\hyperlink{expstar}{$\star$}}
 \newrobustcmd\rexpstar{\hyperlink{rexpstar}{\ding{73}}}
 \ExplSyntaxOn
+\cs_new_protected:Npn \ctexsetverticalspacing
+  {
+    \par
+    \tl_gset:Nx \ctexfixverticalspacing
+      { \dim_set:Nn \prevdepth { \dim_use:N \prevdepth } }
+    \int_compare:nNnT \lastnodetype = { 11 }
+      {
+        \tl_gput_right:Nx \ctexfixverticalspacing
+          { \exp_not:N \skip_vertical:n { \skip_use:N \lastskip } }
+        \unskip
+      }
+  }
+\tl_new:N \ctexfixverticalspacing
+\NewDocumentCommand \SideBySideExampleSet { }
+  { \prop_put_from_keyval:Nn \l__ctxdoc_side_example_prop }
+\prop_new:N \l__ctxdoc_side_example_prop
+\prop_set_from_keyval:Nn \l__ctxdoc_side_example_prop
+  { frame=single, numbers=left, gobble=5, xrightmargin=.5\linewidth }
+\tl_put_left:Nn \SideBySideExample
+  {
+    \trivlist \item \relax
+    \exp_args:Ne \fvset
+      { \prop_to_keyval:N \l__ctxdoc_side_example_prop }
+  }
+\tl_put_right:Nn \endSideBySideExample
+  { \endtrivlist }
+\ctex_patch_cmd:Nnn \__codedoc_function_typeset_start:
+  { \bigskip }
+  { \nointerlineskip \addvspace { \bigskipamount } }
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
 \cs_new_nopar:Npn \zihaopt #1
