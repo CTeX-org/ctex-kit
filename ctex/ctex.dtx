@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6444}
+% \CheckSum{6418}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1608,7 +1608,6 @@ Copyright and Licence
 %
 % 多层选项之间用斜线分开，例如，\opt{part/name} 选项设置 \tn{part} 标题的在数
 % 字前后的名称，而 \opt{section/number} 选项设置 \tn{section} 标题的数字类型。
-% 注意，斜线 |/| 的前后不能有空格或者换行。
 %
 % 使用 \tn{ctexset} 设置多级选项时，还可以在同一个上级选项下设置多个下级选项。
 % 例如，同时设置 |part| 一级标题的 \opt{pagestyle} 选项，|chapter| 一级标题的
@@ -3294,6 +3293,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \changes{v2.5.9}{2022/05/27}{设置消息模块的名字和类型。}
+% \changes{v2.5.10}{2022/06/10}{更新一些内部函数。}
 %
 %    \begin{macrocode}
 %<*class|style>
@@ -4218,17 +4218,19 @@ Copyright and Licence
 %
 % 首先检查选项，决定是否载入 \pkg{zhmCJK} 宏包。
 %    \begin{macrocode}
-\if_bool:N \g_@@_zhmCJK_bool
-  \PassOptionsToPackage { encoding = \g_@@_encoding_tl } { zhmCJK }
-  \RequirePackage { zhmCJK }
+\bool_if:NTF \g_@@_zhmCJK_bool
+  {
+    \PassOptionsToPackage { encoding = \g_@@_encoding_tl } { zhmCJK }
+    \RequirePackage { zhmCJK }
+  }
 %    \end{macrocode}
 % 不载入 \pkg{zhmCJK} 宏包时直接调用 \pkg{CJK} 及相关宏包。
 %    \begin{macrocode}
-\else:
-  \str_if_eq:onTF { \g_@@_encoding_tl } { GBK }
-    { \RequirePackage { CJK } }
-    { \RequirePackage { CJKutf8 } }
-  \RequirePackage { CJKpunct , CJKspace }
+  {
+    \str_if_eq:onTF { \g_@@_encoding_tl } { GBK }
+      { \RequirePackage { CJK } }
+      { \RequirePackage { CJKutf8 } }
+    \RequirePackage { CJKpunct , CJKspace }
 %    \end{macrocode}
 %
 % \changes{v2.4.4}{2016/09/09}{解决 \opt{zhmap} 文件的 \tn{catcode} 问题。}
@@ -4236,21 +4238,17 @@ Copyright and Licence
 % \begin{macro}[int]{\ctex_load_zhmap:nnnn}
 % 载入 \pkg{zhmetrics} 的字体映射文件，同时设置 \tn{CJKrmdefault} 等。
 %    \begin{macrocode}
-  \cs_new_protected:Npn \ctex_load_zhmap:nnnn #1#2#3#4
-    {
-      \tl_set:Nn \CJKrmdefault {#1}
-      \tl_set:Nn \CJKsfdefault {#2}
-      \tl_set:Nn \CJKttdefault {#3}
-      \ctex_set_zhmap:n { \ctex_file_input:n { ctex-zhmap- #4 .tex } }
-    }
-  \@onlypreamble \ctex_load_zhmap:nnnn
+    \cs_new_protected:Npn \ctex_load_zhmap:nnnn #1#2#3#4
+      {
+        \tl_set:Nn \CJKrmdefault {#1}
+        \tl_set:Nn \CJKsfdefault {#2}
+        \tl_set:Nn \CJKttdefault {#3}
+        \ctex_set_zhmap:n { \ctex_file_input:n { ctex-zhmap- #4 .tex } }
+      }
+    \@onlypreamble \ctex_load_zhmap:nnnn
+  }
 %    \end{macrocode}
 % \end{macro}
-%
-% \pkg{zhmCJK} 判断结束。
-%    \begin{macrocode}
-\fi:
-%    \end{macrocode}
 %
 % \begin{macro}[int]{\ctex_CJK_input:n,\CJK@input}
 % 载入 \pkg{CJK} 包的 \file{.enc} 和 \file{.bdg} 等文件时，需要设置 \tn{endlinechar} 为 $-1$。
@@ -4333,12 +4331,13 @@ Copyright and Licence
 % 注意 \tn{CJK@loadBinding} 需要调用补丁后的 \tn{CJK@input}。使用
 % \pkg{zhmCJK} 时，此功能已经被启用。
 %    \begin{macrocode}
-\reverse_if:N \if_bool:N \g_@@_zhmCJK_bool
-  \str_if_eq:onF { \g_@@_encoding_tl } { UTF8 }
-    {
-      \CJK@makeActive
-      \CJK@loadBinding { standard }
-    }
+\bool_if:NF \g_@@_zhmCJK_bool
+  {
+    \str_if_eq:onF { \g_@@_encoding_tl } { UTF8 }
+      {
+        \CJK@makeActive
+        \CJK@loadBinding { standard }
+      }
 %    \end{macrocode}
 %
 % 在导言区结束时调用 \tn{CJK@envStart} 启用完整的中文功能。
@@ -4372,17 +4371,13 @@ Copyright and Licence
 % 最里层，最后也就不需要 \tn{clearpage}。\pkg{zhmCJK} 已经提供类似功能。
 % 注意先使用 \cs{ctex_update_default_family:} 更新 \tn{CJKfamilydefault}。
 %    \begin{macrocode}
-  \exp_args:Nx \ctex_at_end_preamble:n
-    {
-      \exp_not:N \CJK@envStart
-        { } { \g_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
-      \exp_not:N \CJKtilde
-    }
-%    \end{macrocode}
-%
-% \pkg{zhmCJK} 判断结束。
-%    \begin{macrocode}
-\fi:
+    \exp_args:Nx \ctex_at_end_preamble:n
+      {
+        \exp_not:N \CJK@envStart
+          { } { \g_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
+        \exp_not:N \CJKtilde
+      }
+  }
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\ctex_auto_ignorespaces:}
@@ -5187,7 +5182,7 @@ Copyright and Licence
 \cs_new:Npn \ctex_ltj_if_jfont:nTF #1
   {
     \ctex_ltj_is_kenc:n { \@@_ltj_if_jfont:w #1 / \q_stop }
-    \ifin@ \exp_after:wN \use_i:nn \else: \exp_after:wN \use_ii:nn \fi:
+    \legacy_if:nTF { in@ }
   }
 \cs_new:Npn \@@_ltj_if_jfont:w #1 / #2 \q_stop
   {#1}
@@ -6797,60 +6792,63 @@ Copyright and Licence
 % 定义。\pkg{pxeverysel} 宏包取消了检查，但也需要恢复定义，避免重复使用钩子。
 % \pkg{KOMA-Script} 宏包也会进行检查，我们需要小心处理。
 %    \begin{macrocode}
-\if_bool:N \c_@@_everysel_loaded_bool
-  \if_cs_exist:N \@EverySelectfont@Init
-    \group_begin:
-      \cs_set:Npn \@@_tmp:N #1
-        {
-          \tl_set:Nn \l_@@_tmp_tl {#1}
-          \cs_new_eq:NN \CTEX@selectfont@save #1
-          \cs_new_protected:Npn \@@_restore_selectfont:
-            {
-              \cs_if_free:NF \scr@new@selectfont
-                {
+\bool_if:NTF \c_@@_everysel_loaded_bool
+  {
+    \cs_if_free:NF \@EverySelectfont@Init
+      {
+        \group_begin:
+        \cs_set:Npn \@@_tmp:N #1
+          {
+            \tl_set:Nn \l_@@_tmp_tl {#1}
+            \cs_new_eq:NN \CTEX@selectfont@save #1
+            \cs_new_protected:Npn \@@_restore_selectfont:
+              {
+                \cs_if_free:NF \scr@new@selectfont
+                  {
 %    \end{macrocode}
 % \pkg{CJK} 直接修改 \tn{selectfont} 和 \pkg{pxeverysel} 的补丁，
 % 会使 \pkg{KOMA-Script} 的 \tn{par@update} 失效。
 %    \begin{macrocode}
 %<*pdftex|uptex|aptex>
-                  \cs_if_free:NF \par@update
+                    \cs_if_free:NF \par@update
 %<*uptex|aptex>
-                    {
-                      \tl_put_right:Nn \@EverySelectfont@Init
-                        { \tl_put_right:Nn #1 { \par@update } }
-                    }
+                      {
+                        \tl_put_right:Nn \@EverySelectfont@Init
+                          { \tl_put_right:Nn #1 { \par@update } }
+                      }
 %</uptex|aptex>
 %<*pdftex>
-                    { \tl_put_right:Nn #1 { \par@update } }
-                  \cs_set_eq:NN \scr@selectfont \CTEX@selectfont@save
+                      { \tl_put_right:Nn #1 { \par@update } }
+                    \cs_set_eq:NN \scr@selectfont \CTEX@selectfont@save
 %</pdftex>
 %</pdftex|uptex|aptex>
-                  \cs_set_eq:NN \scr@new@selectfont #1
-%<!pdftex>                  \cs_set_eq:NN \CTEX@selectfont@save \scr@selectfont
-                }
-              \tl_put_left:Nn \@EverySelectfont@Init
-                { \cs_set_eq:NN #1 \CTEX@selectfont@save }
-              \cs_undefine:N \@@_restore_selectfont:
-            }
-        }
-      \ctex_parse_name:NN \@@_tmp:N \selectfont
-    \exp_last_unbraced:NNo \group_end:
-    \ctex_patch_cmd_once:NnnnTF { \l_@@_tmp_tl }
-      { \ExplSyntaxOff }
-      { \size@update }
-      { \CTEX@selectfont@hook \size@update }
-      { \@@_restore_selectfont: }
-      { \ctex_patch_failure:N \selectfont }
-  \fi:
-  \cs_new_protected:Npn \ctex_gadd_selectfont_hook:n
-    { \EverySelectfont }
+                    \cs_set_eq:NN \scr@new@selectfont #1
+%<!pdftex>                    \cs_set_eq:NN \CTEX@selectfont@save \scr@selectfont
+                  }
+                \tl_put_left:Nn \@EverySelectfont@Init
+                  { \cs_set_eq:NN #1 \CTEX@selectfont@save }
+                \cs_undefine:N \@@_restore_selectfont:
+              }
+          }
+        \ctex_parse_name:NN \@@_tmp:N \selectfont
+      \exp_last_unbraced:NNo \group_end:
+      \ctex_patch_cmd_once:NnnnTF { \l_@@_tmp_tl }
+        { \ExplSyntaxOff }
+        { \size@update }
+        { \CTEX@selectfont@hook \size@update }
+        { \@@_restore_selectfont: }
+        { \ctex_patch_failure:N \selectfont }
+      }
+    \cs_new_protected:Npn \ctex_gadd_selectfont_hook:n
+      { \EverySelectfont }
+  }
 %    \end{macrocode}
 % 使用 \LaTeX \ 2021-06-01 的新钩子，不使用 \pkg{everysel} 包的情况。
 %    \begin{macrocode}
-\else:
-  \cs_new_protected:Npn \ctex_gadd_selectfont_hook:n
-    { \ctex_gadd_ltxhook:nn { selectfont } }
-\fi:
+  {
+    \cs_new_protected:Npn \ctex_gadd_selectfont_hook:n
+      { \ctex_gadd_ltxhook:nn { selectfont } }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7514,11 +7512,11 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_def_heading_keys:n #1
   {
-    \tl_put_right:Nx \l_@@_tmp_tl
+    \exp_args:NNe \tl_put_right:Nn \l_@@_tmp_tl
       {
-        #1                  .meta:nn = { ctex / #1 } { ####1 } ,
+        #1                  .meta:nn = { ctex / #1 } { ##1 } ,
         #1 / name            .code:n =
-          { \ctex_assign_heading_name:nn {#1} { ####1 } } ,
+          { \ctex_assign_heading_name:nn {#1} { ##1 } } ,
         #1 / number        .tl_set:N = \exp_not:c { CTEX@the#1 } ,
         #1 / beforeskip    .tl_set:N = \exp_not:c { CTEX@#1@beforeskip } ,
         #1 / afterskip     .tl_set:N = \exp_not:c { CTEX@#1@afterskip} ,
@@ -7537,8 +7535,7 @@ Copyright and Licence
         #1 / hang        .bool_set:N = \exp_not:c { CTEX@#1@hang } ,
         #1 / hang         .initial:n = true ,
         #1 / runin       .bool_set:N = \exp_not:c { CTEX@#1@runin } ,
-        #1 / tocline      .cs_set:Np = \exp_not:c { CTEX@#1@tocline}
-                                       \exp_not:n { ##1##2 } ,
+        #1 / tocline      .cs_set:Np = \exp_not:c { CTEX@#1@tocline } ##1##2 ,
         \@@_plus_key_aux:nn {#1} { break } ,
 %</article|book|report>
         \@@_plus_key_aux:nn {#1} { format } ,
@@ -7553,9 +7550,9 @@ Copyright and Licence
   {
     #1 / #2   .tl_set:N = \exp_not:c { CTEX@#1@#2 } ,
     #1 / #2 +   .code:n =
-      { \tl_put_right:Nn \exp_not:c { CTEX@#1@#2 } { ####1 } } ,
+      { \tl_put_right:Nn \exp_not:c { CTEX@#1@#2 } { ##1 } } ,
     #1 / #2 ~ + .code:n =
-      { \tl_put_right:Nn \exp_not:c { CTEX@#1@#2 } { ####1 } }
+      { \tl_put_right:Nn \exp_not:c { CTEX@#1@#2 } { ##1 } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -8459,20 +8456,22 @@ Copyright and Licence
 \cs_new_protected:Npn \CTEX@hyperheadinghook
   {
     \group_begin:
-      \ifHy@implicit
-        \cs_set_eq:NN \H@old@chapter \Hy@org@chapter
-        \seq_map_inline:Nn \c_@@_headings_cs_seq
-          {
-            \cs_if_eq:ccT { H@old@ ##1 } { CTEX@ ##1 }
-              {
-                \cs_gset_eq:cc { @ ##1 } { CTEX@ ##1 }
-                \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor
-              }
-          }
-      \else:
-        \seq_map_inline:Nn \c_@@_headings_cs_seq
-          { \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor }
-      \fi:
+      \legacy_if:nTF { Hy@implicit }
+        {
+          \cs_set_eq:NN \H@old@chapter \Hy@org@chapter
+          \seq_map_inline:Nn \c_@@_headings_cs_seq
+            {
+              \cs_if_eq:ccT { H@old@ ##1 } { CTEX@ ##1 }
+                {
+                  \cs_gset_eq:cc { @ ##1 } { CTEX@ ##1 }
+                  \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor
+                }
+            }
+        }
+        {
+          \seq_map_inline:Nn \c_@@_headings_cs_seq
+            { \cs_gset_eq:cN { CTEX@makeanchor@ ##1 } \CTEX@makeanchor }
+        }
     \group_end:
   }
 %    \end{macrocode}
@@ -8657,7 +8656,7 @@ Copyright and Licence
         \CTEX@updatettlifname
       }
     \cs_new_protected:Npn \CTEX@updatettlifname
-      { \ifttl@label \CTEX@ifnametrue \else: \CTEX@ifnamefalse \fi: }
+      { \legacy_if:nTF { ttl@label } { \CTEX@ifnametrue } { \CTEX@ifnamefalse } }
   }
 %    \end{macrocode}
 %
@@ -8813,21 +8812,23 @@ Copyright and Licence
 % \changes{v2.4.11}{2017/09/13}{补充页眉空格。}
 %    \begin{macrocode}
 %<*article>
-\if@twoside
-  \ctex_patch_cmd:Nnn \ps@headings
-    { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
-    { \CTEXifname { \CTEXthesection \quad } { } }
-  \ctex_patch_cmd:Nnn \ps@headings
-    { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
-    { \CTEXifname { \CTEXthesubsection \quad } { } }
-\else:
+\legacy_if:nTF { @twoside }
+  {
+    \ctex_patch_cmd:Nnn \ps@headings
+      { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+      { \CTEXifname { \CTEXthesection \quad } { } }
+    \ctex_patch_cmd:Nnn \ps@headings
+      { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
+      { \CTEXifname { \CTEXthesubsection \quad } { } }
+  }
 %    \end{macrocode}
 % 不知为何，标准文档类此处对 \texttt{secnumdepth} 的判断为 $0$，与 \tn{section} 的层次 $1$ 不符。
 %    \begin{macrocode}
-  \ctex_patch_cmd:Nnn \ps@headings
-    { \ifnum \c@secnumdepth > \m@ne \thesection \quad \fi }
-    { \CTEXifname { \CTEXthesection \quad } { } }
-\fi:
+  {
+    \ctex_patch_cmd:Nnn \ps@headings
+      { \ifnum \c@secnumdepth > \m@ne \thesection \quad \fi }
+      { \CTEXifname { \CTEXthesection \quad } { } }
+  }
 %</article>
 %<*book|report>
 \ctex_patch_cmd:Nnn \ps@headings
@@ -8839,11 +8840,12 @@ Copyright and Licence
 %<book>    \fi \fi
   }
   { \CTEXifname { \CTEXthechapter \quad } { } }
-\if@twoside
-  \ctex_patch_cmd:Nnn \ps@headings
-    { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
-    { \CTEXifname { \CTEXthesection \quad } { } }
-\fi:
+\legacy_if:nT { @twoside }
+  {
+    \ctex_patch_cmd:Nnn \ps@headings
+      { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
+      { \CTEXifname { \CTEXthesection \quad } { } }
+  }
 %</book|report>
 %    \end{macrocode}
 % \end{macro}
@@ -8877,18 +8879,20 @@ Copyright and Licence
     \@ifpackagewith { fancyhdr } { headings }
       {
 %<*article>
-        \if@twoside
-          \ctex_patch_cmd:Nnn \ps@headings
-            { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
-            { \CTEXifname { \CTEXthesection \quad } { } }
-          \ctex_patch_cmd:Nnn \ps@headings
-            { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
-            { \CTEXifname { \CTEXthesubsection \quad } { } }
-        \else:
-          \ctex_patch_cmd:Nnn \ps@headings
-            { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
-            { \CTEXifname { \CTEXthesection \quad } { } }
-        \fi:
+        \legacy_if:nTF { @twoside }
+          {
+            \ctex_patch_cmd:Nnn \ps@headings
+              { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+              { \CTEXifname { \CTEXthesection \quad } { } }
+            \ctex_patch_cmd:Nnn \ps@headings
+              { \ifnum \c@secnumdepth > \@ne \thesubsection \quad \fi }
+              { \CTEXifname { \CTEXthesubsection \quad } { } }
+          }
+          {
+            \ctex_patch_cmd:Nnn \ps@headings
+              { \ifnum \c@secnumdepth > \z@ \thesection \quad \fi }
+              { \CTEXifname { \CTEXthesection \quad } { } }
+          }
 %</article>
 %<*book|report>
         \ctex_patch_cmd:Nnn \ps@headings
@@ -8900,11 +8904,12 @@ Copyright and Licence
 %<book>            \fi \fi
           }
           { \CTEXifname { \CTEXthechapter \quad } { } }
-        \if@twoside
-          \ctex_patch_cmd:Nnn \ps@headings
-            { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
-            { \CTEXifname { \CTEXthesection \quad } { } }
-        \fi:
+        \legacy_if:nT { @twoside }
+          {
+            \ctex_patch_cmd:Nnn \ps@headings
+              { \ifnum \c@secnumdepth > \z@ \thesection . ~ \ \fi }
+              { \CTEXifname { \CTEXthesection \quad } { } }
+          }
 %</book|report>
       }
       { }
@@ -9627,8 +9632,7 @@ Copyright and Licence
 % 不使用标题定义时的通用设置，注意此处 \cs{c_@@_std_class_tl} 可能没有定义。
 %    \begin{macrocode}
 %<*generic>
-\tl_set:Nn \l_@@_tmp_tl { beamer }
-\tl_if_eq:NNTF \c_@@_std_class_tl \l_@@_tmp_tl
+\tl_if_eq:NnTF \c_@@_std_class_tl { beamer }
   {
     \str_if_eq:onTF { \g_@@_encoding_tl } { GBK }
       {
