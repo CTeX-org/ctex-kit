@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6441}
+% \CheckSum{6545}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4419,6 +4419,116 @@ Copyright and Licence
 % 保存 \tn{CJK@@ignorespaces} 的定义，方便使用。
 %    \begin{macrocode}
 \cs_new_eq:NN \ctex_auto_ignorespaces: \CJK@@@@ignorespaces
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.5.10}{2022/07/08}{解决 \pkg{CJK} 包与 \cs{text_uppercase:n} 等转化函数的冲突。}
+%
+% \begin{macro}{\CJK@X,\CJK@XX,\CJK@XXX,\CJK@XXXX}
+% 最新 \LaTeX\ 中的 \tn{MakeUppercase} 等大小写转化命令被定义为 \LaTeXiii\ 中对应的
+% \cs{text_uppercase:n} 等函数。它会将参数逐步展开，这与 \pkg{CJK} 包的定义不兼容。
+% 可以有多种方法解决这个冲突，最简单直接的方法是将首字节的活动字符用 \tn{protected} 来定义，
+% 但可能有一定的兼容性问题。保险起见，我们采用将 \tn{CJK@X} 等内部宏转化为 \tn{protected}
+% 宏的方式，并将参数提前由字符转化为数字，避免可能的转化。
+%    \begin{macrocode}
+\cs_new:Npn \@@_char:N #1
+  { \exp_args:Ne \CTEX@char@n { \int_value:w `#1 } }
+\cs_new:Npn \@@_char:NN #1#2
+  {
+    \token_if_eq_meaning:NNTF #2 \protect
+      { \@@_char_aux:NN #1 }
+      { \@@_char_aux:NN #1#2 }
+  }
+\cs_new:Npn \@@_char_aux:NN #1#2
+  {
+    \exp_last_unbraced:Ne \CTEX@char@nn
+      {
+        { \int_value:w `#1 }
+        { \int_value:w `#2 }
+      }
+  }
+\cs_new:Npn \@@_char:NNN #1#2#3
+  {
+    \token_if_eq_meaning:NNTF #2 \protect
+      { \@@_char_auxi:NNNN #1#3 }
+      { \@@_char_auxii:NNN #1#2#3 }
+  }
+\cs_new:Npn \@@_char_auxi:NNN #1#2#3#4
+  { \@@_char_auxii:NNN #1#2#4 }
+\cs_new:Npn \@@_char_auxii:NNN #1#2#3
+  {
+    \exp_last_unbraced:Ne \CTEX@char@nnn
+      {
+        { \int_value:w `#1 }
+        { \int_value:w `#2 }
+        { \int_value:w `#3 }
+      }
+  }
+\cs_new:Npn \@@_char:NNNN #1#2#3#4
+  {
+    \token_if_eq_meaning:NNTF #2 \protect
+      { \@@_char_auxi:NNNNN #1#3 }
+      { \@@_char_auxii:NNNN #1#2#3#4 }
+  }
+\cs_new:Npn \@@_char_auxi:NNNNN #1#2#3#4#5
+  { \@@_char_auxii:NNNN #1#2#3#5 }
+\cs_new:Npn \@@_char_auxii:NNNN #1#2#3#4
+  {
+    \exp_last_unbraced:Ne \CTEX@char@nnnn
+      {
+        { \int_value:w `#1 }
+        { \int_value:w `#2 }
+        { \int_value:w `#3 }
+        { \int_value:w `#4 }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\CTEX@char@n,\CTEX@char@nn,\CTEX@char@nnn,\CTEX@char@nnnn}
+% 额外加入 \cs{mode_leave_vertical:} 是为了解决某些历史遗留问题。
+%    \begin{macrocode}
+\cs_new_protected:Npn \CTEX@char@n #1
+  {
+    \mode_leave_vertical:
+    \use:c { CJK@ #1 } \CJK@ignorespaces
+  }
+\cs_new_protected:Npn \CTEX@char@nn #1#2
+  {
+    \mode_leave_vertical:
+    \use:c { CJK@ #1 } {#2} \CJK@ignorespaces
+  }
+\cs_new_protected:Npn \CTEX@char@nnn  #1#2#3
+  {
+    \mode_leave_vertical:
+    \use:c { CJK@ #1 } {#2} {#3} \CJK@ignorespaces
+  }
+\cs_new_protected:Npn \CTEX@char@nnnn #1#2#3#4
+  {
+    \mode_leave_vertical:
+    \use:c { CJK@ #1 } {#2} {#3} {#4} \CJK@ignorespaces
+  }
+\cs_gset_eq:NN \CJK@X    \@@_char:N
+\cs_gset_eq:NN \CJK@XX   \@@_char:NN
+\cs_gset_eq:NN \CJK@XXX  \@@_char:NNN
+\cs_gset_eq:NN \CJK@XXXX \@@_char:NNNN
+\str_if_eq:onF { \g_@@_encoding_tl } { GBK }
+  {
+    \exp_args:Nne \use:n
+      { \cs_gset:Npn \@@_char_aux:NN #1#2 }
+      {
+        \exp_not:N \cs_if_exist_use:cF
+          { u8: \exp_not:N \tl_to_str:n { #1#2 } }
+          { \exp_not:o { \@@_char_aux:NN {#1} {#2} } }
+      }
+    \exp_args:Nne \use:n
+      { \cs_gset:Npn \@@_char_auxii:NNN #1#2#3 }
+      {
+        \exp_not:N \cs_if_exist_use:cF
+          { u8: \exp_not:N \tl_to_str:n { #1#2#3 } }
+          { \exp_not:o { \@@_char_auxii:NNN {#1} {#2} {#3} } }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
