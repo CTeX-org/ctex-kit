@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6443}
+% \CheckSum{6441}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3294,10 +3294,12 @@ Copyright and Licence
 %
 % \changes{v2.5.9}{2022/05/27}{设置消息模块的名字和类型。}
 % \changes{v2.5.10}{2022/06/10}{更新一些内部函数。}
+% \changes{v2.5.10}{2022/07/08}{不直接依赖 \pkg{xparse} 和 \pkg{l3keys2e}。}
 %
 %    \begin{macrocode}
 %<*class|style>
-\RequirePackage { xparse , l3keys2e }
+\cs_if_exist:NF \NewDocumentCommand
+  { \RequirePackage { xparse } }
 %<class>\prop_gput:Nnn \g_msg_module_type_prop { ctex } { Class }
 %<article>\prop_gput:Nnn \g_msg_module_name_prop { ctex } { ctexart }
 %<book>\prop_gput:Nnn \g_msg_module_name_prop { ctex } { ctexbook }
@@ -3317,7 +3319,7 @@ Copyright and Licence
 % \changes{v2.4.10}{2017/07/22}{使用 \texttt{lazy} 函数对 Boolean 表达式
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
 %
-% 检查 \pkg{expl3} 和 \pkg{l3keys2e} 的版本。
+% 检查 \pkg{expl3} 的版本。
 %    \begin{macrocode}
 \msg_new:nnnn { ctex } { l3-too-old }
   { Support~package~`#1'~too~old. }
@@ -3328,10 +3330,6 @@ Copyright and Licence
   }
 \@ifpackagelater { expl3 } { 2020/07/17 } { }
   { \msg_error:nnn { ctex } { l3-too-old } { expl3 } }
-%<*class>
-\@ifpackagelater { l3keys2e } { 2015/12/20 } { }
-  { \msg_error:nnn { ctex } { l3-too-old } { l3keys2e } }
-%</class>
 %    \end{macrocode}
 %
 % \begin{variable}{\c_@@_engine_str,\c_@@_engine_file_str}
@@ -3561,10 +3559,19 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}{\g_@@_std_options_clist}
+% \begin{variable}{\ctex_load_std_class:n,\g_@@_std_options_clist}
 % 保存传递给标准文档类的选项。
+% 使用 \tn{PassOptionsToClass} 是为了预防可能存在的选项冲突，选项列表展开后再传递。
 %    \begin{macrocode}
 %<*class>
+\cs_new_protected:Npn \ctex_load_std_class:n #1
+  {
+    \tl_const:Nn \c_@@_class_tl {#1}
+    \exp_args:No \PassOptionsToClass
+      { \g_@@_std_options_clist }
+      {#1}
+    \LoadClass {#1}
+  }
 \clist_new:N \g_@@_std_options_clist
 %</class>
 %    \end{macrocode}
@@ -3983,7 +3990,12 @@ Copyright and Licence
 % 处理宏包选项。
 %    \begin{macrocode}
 %<*class|style>
-\ProcessKeysOptions { ctex / option }
+\cs_if_exist:NTF \ProcessKeyOptions
+  { \ProcessKeyOptions [ ctex / option ] }
+  {
+    \RequirePackage { l3keys2e }
+    \ProcessKeysOptions { ctex / option }
+  }
 %</class|style>
 %    \end{macrocode}
 %
@@ -4014,27 +4026,19 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
-% 使用 \tn{PassOptionsToClass} 是为了预防可能存在的选项冲突。
+% 载入标准文档类。
 %    \begin{macrocode}
 %<*article>
-\tl_const:Nn \c_@@_class_tl { article }
-\PassOptionsToClass { \g_@@_std_options_clist } { article }
-\LoadClass { article }
+\ctex_load_std_class:n { article }
 %</article>
 %<*book>
-\tl_const:Nn \c_@@_class_tl { book }
-\PassOptionsToClass { \g_@@_std_options_clist } { book }
-\LoadClass { book }
+\ctex_load_std_class:n { book }
 %</book>
 %<*report>
-\tl_const:Nn \c_@@_class_tl { report }
-\PassOptionsToClass { \g_@@_std_options_clist } { report }
-\LoadClass { report }
+\ctex_load_std_class:n { report }
 %</report>
 %<*beamer>
-\tl_const:Nn \c_@@_class_tl { beamer }
-\PassOptionsToClass { \g_@@_std_options_clist } { beamer }
-\LoadClass { beamer }
+\ctex_load_std_class:n { beamer }
 %</beamer>
 %    \end{macrocode}
 %
@@ -4220,7 +4224,9 @@ Copyright and Licence
 %    \begin{macrocode}
 \bool_if:NTF \g_@@_zhmCJK_bool
   {
-    \PassOptionsToPackage { encoding = \g_@@_encoding_tl } { zhmCJK }
+    \exp_args:Ne \PassOptionsToPackage
+      { encoding = \g_@@_encoding_tl }
+      { zhmCJK }
     \RequirePackage { zhmCJK }
   }
 %    \end{macrocode}
@@ -7308,8 +7314,13 @@ Copyright and Licence
 %
 % \subsection{中文数字与日期}
 %
+% 需要注意的是，\pkg{ltkeys} 设置的选项列表是
+% |\@raw@opt@|\meta{\textbackslash @currname}|.|\meta{\textbackslash @currext}，
+% 该列表不会将 \tn{PassOptionsToPackage} 传递的选项完全展开。
 %    \begin{macrocode}
-\PassOptionsToPackage { encoding = \g_@@_encoding_tl } { zhnumber }
+\exp_args:Ne \PassOptionsToPackage
+  { encoding = \g_@@_encoding_tl }
+  { zhnumber }
 \RequirePackage { zhnumber }
 %    \end{macrocode}
 %
