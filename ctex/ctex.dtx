@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6620}
+% \CheckSum{6615}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -3804,7 +3804,7 @@ Copyright and Licence
     space .choices:nn =
       { true , auto , false }
       {
-        \exp_args:Nx \ctex_at_end:n
+        \exp_args:Ne \ctex_at_end:n
           { \ctex_set:n { space = \l_keys_choice_tl } }
       } ,
     space  .default:n = { true } ,
@@ -4155,8 +4155,8 @@ Copyright and Licence
           { \tl_gput_right:cn { #1 + #2 } { \ctex_add_cmap:n {#1} } }
       }
   }
-\cs_generate_variant:Nn \ctex_family_cmap:nn { x }
-\cs_new_eq:NN \CTEX@Family@CMap \ctex_family_cmap:xn
+\cs_generate_variant:Nn \ctex_family_cmap:nn { ee }
+\cs_new_eq:NN \CTEX@Family@CMap \ctex_family_cmap:ee
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4183,7 +4183,8 @@ Copyright and Licence
     \exp_args:Ne \file_get_full_name:nNTF
       { \str_lowercase:n {#2} .cmap } \l_@@_cmap_file_tl
       {
-        \tex_immediate:D \tex_pdfobj:D stream ~ file { \l_@@_cmap_file_tl }
+        \tex_immediate:D
+        \tex_pdfobj:D stream ~ file { \l_@@_cmap_file_tl }
         \cs_new_protected:Npx #1
           {
             \pdfnobuiltintounicode \tex_font:D
@@ -4200,23 +4201,20 @@ Copyright and Licence
 % \begin{macro}[int]{\DeclareFontFamily}
 % 只在 \pdfLaTeX{} 下加 CMap。如 \pkg{cmap} 宏包被引入，则不重复设置。
 %    \begin{macrocode}
-\group_begin:
-\char_set_catcode_other:N \#
-\sys_if_output_pdf:TF
+\sys_if_output_pdf:T
   {
-    \group_end:
-    \ctex_appto_cmd:NnnTF \DeclareFontFamily { \ExplSyntaxOff }
-      { \CTEX@Family@CMap {#1} {#2} }
+    \exp_args:Nno \use:n
+      { \cs_gset_protected:Npn \DeclareFontFamily #1#2#3 }
       {
-        \ctex_at_end_package:nn { cmap }
-          {
-            \cs_gset_eq:NN \ctex_add_cmap:n \use_none:n
-            \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn
-          }
+        \DeclareFontFamily {#1} {#2} {#3}
+        \CTEX@Family@CMap  {#1} {#2}
       }
-      { \ctex_patch_failure:N \DeclareFontFamily }
+    \ctex_at_end_package:nn { cmap }
+      {
+        \cs_gset_eq:NN \ctex_add_cmap:n \use_none:n
+        \cs_gset_eq:NN \CTEX@Family@CMap \use_none:nn
+      }
   }
-  { \group_end: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4406,7 +4404,7 @@ Copyright and Licence
 % 最里层，最后也就不需要 \tn{clearpage}。\pkg{zhmCJK} 已经提供类似功能。
 % 注意先使用 \cs{ctex_update_default_family:} 更新 \tn{CJKfamilydefault}。
 %    \begin{macrocode}
-    \exp_args:Nx \ctex_at_end_preamble:n
+    \exp_args:Ne \ctex_at_end_preamble:n
       {
         \exp_not:N \CJK@envStart
           { } { \g_@@_encoding_tl } { \exp_not:N \CJKfamilydefault }
@@ -4724,7 +4722,7 @@ Copyright and Licence
 % \changes{v2.4.4}{2016/09/12}{不再默认设置 \pkg{xeCJK} 的伪粗体。}
 %    \begin{macrocode}
 \RequirePackage { xeCJK }
-\exp_args:Nx \xeCJKsetup
+\exp_args:Ne \xeCJKsetup
   {
     LoadFandol   = false ,
     PunctStyle   = \l_@@_punct_tl
@@ -9946,7 +9944,7 @@ Copyright and Licence
 \seq_new:N \c_@@_font_size_seq
 \cs_new_protected:Npn \@@_save_font_size:nn #1#2
   {
-    \use:x
+    \use:e
       {
         \prop_gput:Nnn \exp_not:N \c_@@_font_size_prop {#1}
           {
@@ -10312,7 +10310,7 @@ Copyright and Licence
           {
             \file_if_exist:nF { ctex-fontset- \g_@@_fontset_tl .def }
               {
-                \use:x
+                \use:e
                   {
                     \ctex_detect_platform:
                     \msg_error:nnxx { ctex } { fontset-not-found }
@@ -12117,7 +12115,7 @@ Copyright and Licence
           { \cs_if_exist_p:c { #1##3 } }
           {
             \group_begin:
-            \use:x
+            \use:e
               {
                 \group_end:
                 \@@_parse_name:nNNNnN
@@ -12159,7 +12157,7 @@ Copyright and Licence
       }
     \cs_new:Npn \@@_parse_name:w ##1 #3 ~ ##2 #2 ##3 \q_stop { ##1##2 }
   }
-\use:x
+\use:e
   {
     \@@_tmp:w
       { \c_backslash_str }
@@ -12236,7 +12234,7 @@ Copyright and Licence
     \@@_patch_rescan:NNn \l_@@_prefix_tl      \l_@@_prefix_str      {#2}
     \@@_patch_rescan:NNn \l_@@_parameter_tl   \l_@@_parameter_str   {#2}
     \@@_patch_rescan:NNn \l_@@_replacement_tl \l_@@_replacement_str {#2}
-    \use:x
+    \use:e
       {
         \exp_not:o { \l_@@_prefix_tl } \tex_def:D \exp_not:N #1
           \exp_not:o { \l_@@_parameter_tl }
@@ -12263,7 +12261,7 @@ Copyright and Licence
     \group_end:
     \ctex_if_rescanable:NnTF #1 {#3}
       {
-        \use:x
+        \use:e
           {
             \@@_patch_replace:nnnTF {#2}
               { \tl_to_str:n {#4} }
