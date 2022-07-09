@@ -157,7 +157,7 @@ If you are interested in the process of development you may observe
 %<package>\NeedsTeXFormat{LaTeX2e}[1999/12/01]
 %<package>\ProvidesPackage{zhmCJK}
 %<*package>
-    [2016/11/23 v0.9c setup CJK fonts dynamically]
+    [2022/07/09 v0.9d setup CJK fonts dynamically]
 %</package>
 %
 %<*driver>
@@ -239,7 +239,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{794}
+% \CheckSum{806}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1119,14 +1119,25 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\zhm@setfontmap}
 % \begin{macro}{\zhm@maplines}
 % \changes{v0.9a}{2014/06/20}{保存重复的字体映射。（李清）}
+% \changes{v0.9d}{2022/07/09}{兼容 \LaTeX\ 2020/10/01 的钩子机制。}
 % 设置字体映射，两个参数是字体编号和字体文件名。字体映射需要在输出例程初始处设
 % 置。同时将映射行完全展开后保存起来备用。
+% 从 2020/10/01 开始，\LaTeX\ 启用新的钩子机制，"\AtBeginDvi" 不再是将参数保存在一个盒子中，
+% 我们需要提前展开。
 %    \begin{macrocode}
-\def\zhm@setfontmap#1#2{%
-  \AtBeginDvi{\zhm@mapline{#1}{#2}}%
-  \xdef\zhm@maplines{%
-    \unexpanded\expandafter{\zhm@maplines}%
-    \zhm@mapline{#1}{#2}}}
+\let\zhm@maplines\empty
+\@ifl@t@r\fmtversion{2020/10/01}{
+  \AddToHook{shipout/firstpage}{\zhm@maplines}
+  \def\zhm@setfontmap#1#2{%
+    \xdef\zhm@maplines{%
+      \unexpanded\expandafter{\zhm@maplines}%
+      \zhm@mapline{#1}{#2}}}
+}{
+  \def\zhm@setfontmap#1#2{%
+    \AtBeginDvi{\zhm@mapline{#1}{#2}}%
+    \xdef\zhm@maplines{%
+      \unexpanded\expandafter{\zhm@maplines}%
+      \zhm@mapline{#1}{#2}}}
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}
@@ -1134,10 +1145,10 @@ If you are interested in the process of development you may observe
 % 如果载入了 \pkg{atbegshi} 宏包，则还要处理修改了的输出例程。这会影响
 % \pkg{eso-pic} 等用户层宏包。
 %    \begin{macrocode}
-\AtBeginDocument{%
-  \@ifpackageloaded{atbegshi}{%
-    \AtBeginShipoutFirst{\zhm@maplines}}{}}
-\let\zhm@maplines\empty
+  \AtBeginDocument{%
+    \@ifpackageloaded{atbegshi}{%
+      \AtBeginShipoutFirst{\zhm@maplines}}{}}
+}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@DeclareRealFont}
