@@ -575,7 +575,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6615}
+% \CheckSum{6633}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -4348,8 +4348,11 @@ Copyright and Licence
 %    \begin{macrocode}
 \AtBeginDocument
   {
-    \str_if_eq:eeF { \l_@@_punct_tl } { quanjiao }
-      { \punctstyle { \l_@@_punct_tl } }
+    \use:e
+      {
+        \str_if_eq:nnF { \l_@@_punct_tl } { quanjiao }
+          { \exp_not:N \punctstyle { \l_@@_punct_tl } }
+      }
   }
 %    \end{macrocode}
 %
@@ -4358,23 +4361,8 @@ Copyright and Licence
 \ctex_at_end_preamble:n { \ctex_update_default_family: }
 %    \end{macrocode}
 %
-% 启用中文字符功能。\opt{GBK} 编码时，将汉字的首字节设置为活动字符，并对这些
-% 字符初始化；\opt{UTF8} 编码时，上游宏包已经处理好。
-% \tn{CJK@makeActive} 应该先于 \file{ctex-name-gbk.cfg} 等文件的载入。
-% 注意 \tn{CJK@loadBinding} 需要调用补丁后的 \tn{CJK@input}。使用
-% \pkg{zhmCJK} 时，此功能已经被启用。
-%    \begin{macrocode}
-\bool_if:NF \g_@@_zhmCJK_bool
-  {
-    \str_if_eq:onF { \g_@@_encoding_tl } { UTF8 }
-      {
-        \CJK@makeActive
-        \CJK@loadBinding { standard }
-      }
-%    \end{macrocode}
-%
-% 在导言区结束时调用 \tn{CJK@envStart} 启用完整的中文功能。
-%
+% 从 \LaTeX\ 2018-04-01 开始，传统引擎的默认编码被设置成 UTF-8，
+% 汉字的首字节已经被设置成活动字符，我们无需再使用 \tn{CJK@makeActive} 设置。
 % \tn{CJK@envStart} 的定义是
 % \begin{verbatim}
 %   \def\CJK@envStart#1#2#3{
@@ -4404,6 +4392,11 @@ Copyright and Licence
 % 最里层，最后也就不需要 \tn{clearpage}。\pkg{zhmCJK} 已经提供类似功能。
 % 注意先使用 \cs{ctex_update_default_family:} 更新 \tn{CJKfamilydefault}。
 %    \begin{macrocode}
+\bool_if:NF \g_@@_zhmCJK_bool
+  {
+    \str_if_eq:onTF { \g_@@_encoding_tl } { UTF8 }
+      { \CJK@loadBinding { UTF8 } }
+      { \CJK@loadBinding { standard } }
     \exp_args:Ne \ctex_at_end_preamble:n
       {
         \exp_not:N \CJK@envStart
@@ -4504,6 +4497,24 @@ Copyright and Licence
           { u8: \exp_not:N \tl_to_str:n { #1#2#3 } }
           { \exp_not:o { \@@_char_auxii:NNN {#1} {#2} {#3} } }
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\mule@arg}
+% 处理文档被 |extconv| 等工具预处理过的情况，只考虑最简单的情形。
+%    \begin{macrocode}
+\group_begin:
+\char_set_catcode_active:n { "7F }
+\cs_new:Npn \@@_char_preproc:w #1 ^^7f #2 ^^7f
+  { \exp_args:No \CTEX@char@nn { \int_value:w `#1 } {#2} }
+\cs_gset_eq:NN \mule@arg \@@_char_preproc:w
+\group_end:
+\exp_args:Ne \ctex_at_end:n
+  {
+    \char_set_catcode:nn
+      { \int_value:w "7F }
+      { \char_value_catcode:n { "7F } }
   }
 %    \end{macrocode}
 % \end{macro}
