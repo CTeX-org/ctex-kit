@@ -239,7 +239,7 @@ If you are interested in the process of development you may observe
 %</driver>
 % \fi
 %
-% \CheckSum{806}
+% \CheckSum{820}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -264,6 +264,7 @@ If you are interested in the process of development you may observe
 % \changes{v0.5}{2012/02/05}{使用 Lua 脚本生成 TFM 和映射文件；为 MiKTeX 生成
 % 单独的 TFM 文件。将原来的 \texttt{zhmetrics.tfm} 改名为
 % \texttt{zhmCJK.tfm}，不再依赖原有的 \pkg{zhmetrics} 包。}
+% \changes{v0.9d}{2022/07/09}{兼容 \LaTeX\ 2020/10/01 的钩子机制。}
 %
 % \DoNotIndex{\newcommand,\newenvironment,
 %   \@ifpackageloaded, \@ne, \@onlypreamble, \@xxxii, \advance, \aftergroup,
@@ -280,7 +281,7 @@ If you are interested in the process of development you may observe
 %   \textit, \textsf, \texttt, \title, \usepackage, \@font@warning, \dimexpr,
 %   \strip@pt, \textsl, \@ifnextchar, \eTeXversion, \luatexversion,
 %   \XeTeXrevision, \meaning, \string, \tempa, \tempb, \hbox, \hss, \unexpanded,
-%   \symbol, \newif}
+%   \symbol, \newif, \@ifl@t@r, \fmtversion, \detokenize}
 %
 % \GetFileInfo{zhmCJK.dtx}
 % \title{\pkg{zhmCJK} 宏包}
@@ -1119,7 +1120,6 @@ If you are interested in the process of development you may observe
 % \begin{macro}{\zhm@setfontmap}
 % \begin{macro}{\zhm@maplines}
 % \changes{v0.9a}{2014/06/20}{保存重复的字体映射。（李清）}
-% \changes{v0.9d}{2022/07/09}{兼容 \LaTeX\ 2020/10/01 的钩子机制。}
 % 设置字体映射，两个参数是字体编号和字体文件名。字体映射需要在输出例程初始处设
 % 置。同时将映射行完全展开后保存起来备用。
 % 从 2020/10/01 开始，\LaTeX\ 启用新的钩子机制，"\AtBeginDvi" 不再是将参数保存在一个盒子中，
@@ -1447,26 +1447,33 @@ If you are interested in the process of development you may observe
 %    \end{macrocode}
 % \end{macro}
 %
-% 重定义 "\normalfont", "\rmfamily", "\sffamily" 和 "\ttfamily"，使其同时设置
-% CJK 字体。
+% 调整 "\normalfont", "\rmfamily", "\sffamily" 和 "\ttfamily"，使其同时设置
+% CJK 字体。\LaTeX\ 2020/10/01 可以使用字体钩子，旧版本的需要重定义字体命令。
 %    \begin{macrocode}
-\DeclareRobustCommand\normalfont
-        {\CJKfamily{\CJKfamilydefault}%
-         \usefont\encodingdefault
-                 \familydefault
-                 \seriesdefault
-                 \shapedefault
-         \relax}
-\let\reset@font\normalfont
-\DeclareRobustCommand\rmfamily
-        {\not@math@alphabet\rmfamily\mathrm
-         \fontfamily\rmdefault\CJKfamily{\CJKrmdefault}\selectfont}
-\DeclareRobustCommand\sffamily
-        {\not@math@alphabet\sffamily\mathsf
-         \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
-\DeclareRobustCommand\ttfamily
-        {\not@math@alphabet\ttfamily\mathtt
-         \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
+\@ifl@t@r\fmtversion{2020/10/01}{
+  \AddToHook{normalfont}{\CJKfamily{\CJKfamilydefault}}
+  \AddToHook{rmfamily}{\CJKfamily{\CJKrmdefault}}
+  \AddToHook{sffamily}{\CJKfamily{\CJKsfdefault}}
+  \AddToHook{ttfamily}{\CJKfamily{\CJKttdefault}}
+}{
+  \DeclareRobustCommand\normalfont
+          {\CJKfamily{\CJKfamilydefault}%
+           \usefont\encodingdefault
+                   \familydefault
+                   \seriesdefault
+                   \shapedefault
+           \relax}
+  \let\reset@font\normalfont
+  \DeclareRobustCommand\rmfamily
+          {\not@math@alphabet\rmfamily\mathrm
+           \fontfamily\rmdefault\CJKfamily{\CJKrmdefault}\selectfont}
+  \DeclareRobustCommand\sffamily
+          {\not@math@alphabet\sffamily\mathsf
+           \fontfamily\sfdefault\CJKfamily{\CJKsfdefault}\selectfont}
+  \DeclareRobustCommand\ttfamily
+          {\not@math@alphabet\ttfamily\mathtt
+           \fontfamily\ttdefault\CJKfamily{\CJKttdefault}\selectfont}
+}
 %    \end{macrocode}
 %
 % \begin{macro}{\zhm@setup@pinyin@UTF8}
