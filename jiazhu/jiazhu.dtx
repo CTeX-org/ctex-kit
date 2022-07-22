@@ -145,7 +145,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{988}
+% \CheckSum{1003}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -840,7 +840,7 @@ Copyright and Licence
 %    \end{macrocode}
 % 中线对齐时，提前展开 $r-0.5$ 的计算结果，避免后续的重复计算。
 %    \begin{macrocode}
-    \exp_args:Nxx \@@_set_valign_middle_aux:nn
+    \exp_args:Nee \@@_set_valign_middle_aux:nn
 %    \end{macrocode}
 % 首先是 $r_{\mathrm{inner}}-0.5$ 的计算结果。
 %    \begin{macrocode}
@@ -880,7 +880,7 @@ Copyright and Licence
 %    \end{macrocode}
 % 底线对齐时，则展开 $1-r_{\mathrm{outer}}$ 的计算结果。
 %    \begin{macrocode}
-    \exp_args:Nxx \@@_set_valign_bottom_aux:nn
+    \exp_args:Nee \@@_set_valign_bottom_aux:nn
       {
         \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
           { \fp_eval:n { 1 -   \l_@@_ideoht_fp } }
@@ -908,7 +908,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_set_valign_top:
   {
-    \exp_args:Nxx \@@_set_valign_top_aux:nn
+    \exp_args:Nee \@@_set_valign_top_aux:nn
       {
         \fp_compare:nNnTF \l_@@_jzideoht_fp = \c_zero_fp
           { \fp_eval:n { \l_@@_ideoht_fp   } }
@@ -1270,17 +1270,31 @@ Copyright and Licence
     \dim_zero:N \l_@@_max_dim
     \box_if_empty:NF #1
       {
-        \box_set_eq:NN \l_@@_tmpa_box #1
         \dim_set:Nn \l_@@_width_dim { \box_wd:N #1 }
-        \@@_extract_max_width_auxi:
+        \@@_extract_max_width_auxi:N #1
+      }
+  }
+\cs_new_protected:Npn \@@_extract_max_width_auxi:N #1
+  {
+    \vbox_set:Nw \l_@@_tmpa_box
+      \vbox_unpack:N #1
+      \int_while_do:nNnn \tex_lastnodetype:D = \c_one_int
+        { \@@_extract_max_width_auxi: }
+    \exp_last_unbraced:Ne \vbox_set_end:
+      {
+        \dim_set:Nn \l_@@_max_dim   { \dim_use:N \l_@@_max_dim }
+        \dim_set:Nn \l_@@_width_dim { \dim_use:N \l_@@_width_dim }
       }
   }
 \cs_new_protected:Npn \@@_extract_max_width_auxi:
   {
-    \vbox_set_split_to_ht:NNn \l_@@_tmpb_box
-      \l_@@_tmpa_box { \tex_baselineskip:D }
-    \@@_extract_hbox:Nn \l_@@_tmpb_box
-      { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
+    \box_set_to_last:N \l_@@_tmpb_box
+    \tex_unskip:D
+    \hbox_set:Nn \l_@@_tmpb_box
+      {
+        \hbox_unpack_drop:N \l_@@_tmpb_box
+        \tex_unskip:D \tex_unskip:D \tex_unpenalty:D
+      }
     \dim_set:Nn \l_@@_max_dim
       {
         \dim_max:nn
@@ -1290,8 +1304,6 @@ Copyright and Licence
     \dim_compare:nNnT
       { \box_wd:N \l_@@_tmpb_box } > \l_@@_width_dim
       { \@@_extract_max_width_auxii: }
-    \box_if_empty:NF \l_@@_tmpa_box
-      { \@@_extract_max_width_auxi: }
   }
 \cs_new_protected:Npn \@@_extract_max_width_auxii:
   {
