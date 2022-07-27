@@ -145,7 +145,7 @@ Copyright and Licence
 %</driver>
 % \fi
 %
-% \CheckSum{1005}
+% \CheckSum{976}
 % \GetFileId{jiazhu.sty}
 %
 % \title{\bfseries\pkg{jiazhu} 宏包}
@@ -670,12 +670,6 @@ Copyright and Licence
         \hbox_unpack:N \l_@@_text_box
       }
     \@@_make_opening_closing_box:
-%    \end{macrocode}
-% \tn{strutbox} 默认有 $0.3\times\tn{baselineskip}$ 的深度（横排），除
-% \XeLaTeX 外的直排模式下，则有 $0.5\times\tn{baselineskip}$ 的“深度”。
-% 应该足够分割夹注用了。
-%    \begin{macrocode}
-    \dim_set:Nn \tex_splitmaxdepth:D { \box_dp:N \strutbox }
     \skip_set:Nn \l_@@_good_break_skip
       { \c_zero_dim plus 0.5\l_@@_outer_unit_dim }
     \skip_set:Nn \l_@@_unit_stretch_skip
@@ -705,13 +699,6 @@ Copyright and Licence
     \int_set_eq:NN \tex_hbadness:D \c_max_int
     \int_set_eq:NN \tex_vbadness:D \c_max_int
     \int_set:Nn \tex_tolerance:D { 1000 }
-    \skip_zero:N \tex_splittopskip:D
-    \int_zero:N \tex_linepenalty:D
-    \int_zero:N \tex_clubpenalty:D
-    \int_zero:N \tex_widowpenalty:D
-    \int_zero:N \tex_interlinepenalty:D
-    \int_zero:N \tex_clubpenalties:D
-    \int_zero:N \tex_widowpenalties:D
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1012,12 +999,6 @@ Copyright and Licence
             {#1}
             { \c_zero_dim \l_@@_remaining_width_dim }
           \c_zero_dim \c_max_dim
-        \tex_interlinepenalties:D
-          \int_eval:n {#1} ~
-          \prg_replicate:nn
-            { #1 - 1 }
-            { \c_@@_nobreak_int }
-          \c_@@_break_int
       }
   }
 \int_new:N \l_@@_lines_int
@@ -1138,7 +1119,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_split_parshape_lines_auxii:
   {
-    \vbox_set:Nn \l_@@_text_box
+    \vbox_set:Nn \l_@@_typeset_box
       {
         \bool_if:NTF \l_@@_full_line_bool
           { \int_set:Nn \tex_looseness:D { -1 } }
@@ -1146,15 +1127,17 @@ Copyright and Licence
         \@@_parshape:
         \hbox_unpack_drop:N \l_@@_text_box
         \para_raw_end:
+        \int_compare:nNnTF \tex_prevgraf:D > \l_@@_lines_int
+          {
+            \box_gset_to_last:N \g_@@_last_box
+            \tex_unskip:D \tex_unpenalty:D
+          }
+          { \box_gclear:N \g_@@_last_box }
       }
-    \vbox_set_split_to_ht:NNn \l_@@_typeset_box
-      \l_@@_text_box { \l_@@_lines_int \tex_baselineskip:D }
-    \vbox_set:Nn \l_@@_typeset_box
-      { \vbox_unpack:N \l_@@_typeset_box }
     \bool_if:NF \l_@@_full_line_bool
       { \skip_horizontal:N \l_@@_unit_stretch_skip }
     \@@_typeset:
-    \box_if_empty:NF \l_@@_text_box
+    \box_if_empty:NF \g_@@_last_box
       { \@@_split_remaining_lines: }
   }
 \cs_new_protected:Npn \@@_fill_newline:
@@ -1175,31 +1158,13 @@ Copyright and Licence
     \@@_newline:
     \dim_set_eq:NN \l_@@_remaining_width_dim \l_@@_line_width_dim
     \bool_set_true:N \l_@@_full_line_bool
-    \@@_extract_hbox:Nn \l_@@_text_box
-      { \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
-    \@@_split_lines:
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}{\@@_extract_hbox:Nn}
-% 从 \tn{vbox} 中取出 \tn{hbox}。
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_extract_hbox:Nn #1#2
-  {
-    \vbox_set:Nn #1
+    \hbox_set:Nn \l_@@_text_box
       {
-        \vbox_unpack_drop:N #1
-        \box_gset_to_last:N \g_@@_last_box
-      }
-    \hbox_set:Nn #1
-      {
-%    \end{macrocode}
-% 往继续的夹注首行开头插入支架。
-%    \begin{macrocode}
         \@@_insert_jzideoht_strut:
-        \hbox_unpack_drop:N \g_@@_last_box #2
+        \hbox_unpack_drop:N \g_@@_last_box
+        \tex_unskip:D \tex_unskip:D \tex_unpenalty:D
       }
+    \@@_split_lines:
   }
 \box_new:N \g_@@_last_box
 %    \end{macrocode}
@@ -1299,7 +1264,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_extract_max_width_auxi:
   {
     \box_set_to_last:N \l_@@_tmpb_box
-    \tex_unskip:D
+    \tex_unskip:D \tex_unpenalty:D
     \hbox_set:Nn \l_@@_tmpb_box
       {
         \hbox_unpack_drop:N \l_@@_tmpb_box
