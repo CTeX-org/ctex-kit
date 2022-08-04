@@ -287,7 +287,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{11033}
+% \CheckSum{11032}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1783,19 +1783,16 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]
-% {\xeCJK_tl_remove_outer_braces:N,\xeCJK_tl_remove_outer_braces:n}
+% \begin{macro}[int]{\xeCJK_tl_remove_outer_braces:n}
 % \changes{v3.2.4}{2013/07/02}{去掉外层分组括号时，移除空格，避免死循环。}
 % 去掉 |#1| 外层的分组括号。
 %    \begin{macrocode}
-\cs_new_protected:Npn \xeCJK_tl_remove_outer_braces:N #1
-  { \tl_set:Nx #1 { \exp_args:No \xeCJK_tl_remove_outer_braces:n {#1} } }
 \cs_new:Npn \xeCJK_tl_remove_outer_braces:n #1
   {
-    \exp_last_unbraced:Nf
-    \@@_tl_remove_outer_braces:w { \tl_trim_spaces:n {#1} } \s__stop
+    \exp_last_unbraced:Ne
+    \@@_tl_remove_outer_braces:w { \tl_trim_spaces:n {#1} } \s_stop
   }
-\cs_new:Npn \@@_tl_remove_outer_braces:w #1 \s__stop
+\cs_new:Npn \@@_tl_remove_outer_braces:w #1 \s_stop
   {
     \tl_if_single:nTF {#1}
       {
@@ -1947,7 +1944,7 @@ Copyright and Licence
   {
     \group_begin:
       \hbox_set:Nw \l_@@_tmp_box #1 \scan_stop:
-      \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+      \@@_if_last_glue:TF
         {
           \exp_args:NNNo \hbox_set_end:
           \skip_set:Nn #2 { \skip_use:N \tex_lastskip:D }
@@ -1958,21 +1955,6 @@ Copyright and Licence
         }
     \exp_args:NNNo \group_end:
     \skip_set:Nn #2 { \skip_use:N #2 }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \begin{macro}[pTF,int]{\xeCJK_if_blank_x:n}
-% 判断是否为空或者仅含一个空格。
-%    \begin{macrocode}
-\prg_new_conditional:Npnn \xeCJK_if_blank_x:n #1 { p , T , F , TF }
-  {
-    \if_case:w \tex_strcmp:D { } {#1} \exp_stop_f:
-      \prg_return_true:
-    \else:
-      \if_case:w \tex_strcmp:D { ~ } {#1} \exp_stop_f:
-        \prg_return_true: \else: \prg_return_false: \fi:
-    \fi:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2787,10 +2769,10 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_check_num_range:nnNN #1#2#3#4
   {
     \bool_lazy_or:nnTF
-      { \xeCJK_if_blank_x_p:n {#1} }
-      { \xeCJK_if_blank_x_p:n {#2} }
+      { \tl_if_blank_p:n {#1} }
+      { \tl_if_blank_p:n {#2} }
       {
-        \int_set:Nn #3 { \xeCJK_if_blank_x:nTF {#1} {#2} {#1} }
+        \int_set:Nn #3 { \tl_if_blank:nTF {#1} {#2} {#1} }
         \int_set_eq:NN #3 #4
       }
       {
@@ -2908,7 +2890,7 @@ Copyright and Licence
     \tex_XeTeXinterchartoks:D \xeCJK_class_num:n {#1} ~
                               \xeCJK_class_num:n {#2} = {#3}
   }
-\cs_generate_variant:Nn \xeCJK_inter_class_toks:nnn { nnx }
+\cs_generate_variant:Nn \xeCJK_inter_class_toks:nnn { nne }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2948,10 +2930,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_pre_inter_class_toks:nnn #1#2#3
   {
-    \xeCJK_inter_class_toks:nnx {#1} {#2}
+    \xeCJK_inter_class_toks:nne {#1} {#2}
       { \exp_not:n {#3} \xeCJK_get_inter_class_toks:nn {#1} {#2} }
   }
-\cs_generate_variant:Nn \xeCJK_pre_inter_class_toks:nnn { nnx }
+\cs_generate_variant:Nn \xeCJK_pre_inter_class_toks:nnn { nne }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2960,10 +2942,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_app_inter_class_toks:nnn #1#2#3
   {
-    \xeCJK_inter_class_toks:nnx {#1} {#2}
+    \xeCJK_inter_class_toks:nne {#1} {#2}
       { \xeCJK_get_inter_class_toks:nn {#1} {#2} \exp_not:n {#3} }
   }
-\cs_generate_variant:Nn \xeCJK_app_inter_class_toks:nnn { nnx }
+\cs_generate_variant:Nn \xeCJK_app_inter_class_toks:nnn { nne }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -2981,7 +2963,7 @@ Copyright and Licence
         \tl_if_empty:NF \l_@@_tmp_tl
           { \xeCJK_clear_inter_class_toks:nn {#1} {#2} }
       }
-      { \xeCJK_inter_class_toks:nnx {#1} {#2} { \exp_not:o \l_@@_tmp_tl } }
+      { \xeCJK_inter_class_toks:nne {#1} {#2} { \exp_not:o \l_@@_tmp_tl } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -2996,7 +2978,7 @@ Copyright and Licence
     \tl_if_empty:NF \l_@@_tmp_tl
       {
         \tl_replace_all:Nnn \l_@@_tmp_tl {#3} {#4}
-        \xeCJK_inter_class_toks:nnx {#1} {#2}
+        \xeCJK_inter_class_toks:nne {#1} {#2}
           { \exp_not:o \l_@@_tmp_tl }
       }
   }
@@ -3231,7 +3213,7 @@ Copyright and Licence
   { \xeCJK_check_for_ecglue: }
 \cs_new_protected:Npn \@@_check_for_xecglue:
   {
-    \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       { \@@_replace_space: }
       { \@@_check_for_ecglue: }
   }
@@ -3315,7 +3297,7 @@ Copyright and Licence
   { \xeCJK_check_for_ecglue_normalsp: }
 \cs_new_protected:Npn \@@_check_for_xecglue_normalsp:
   {
-    \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       { \@@_replace_space: }
       { \@@_check_for_ecglue_normalsp: }
   }
@@ -3364,10 +3346,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_check_for_glue:
   {
-    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+    \@@_if_last_kern:TF
       { \@@_check_for_glue_auxi: }
       {
-        \int_compare:nNnTF \tex_lastnodetype:D = { 10 }
+        \@@_if_last_math:TF
           { \xeCJK_remove_node: \CJKecglue }
           { \@@_check_for_glue_auxii: }
       }
@@ -3402,7 +3384,7 @@ Copyright and Licence
 \cs_new_eq:NN \xeCJK_check_for_xglue: \prg_do_nothing:
 \cs_new_protected:Npn \@@_check_for_xglue:
   {
-    \int_compare:nNnT \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       {
         \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
         \tex_unskip:D
@@ -3427,7 +3409,7 @@ Copyright and Licence
             \xeCJK_if_last_node:nTF { default }
               { \xeCJK_remove_node: \CJKecglue }
               {
-                \int_compare:nNnTF \tex_lastnodetype:D = { 10 }
+                \@@_if_last_math:TF
                   { \CJKecglue }
                   { \skip_horizontal:N \l_@@_last_skip }
               }
@@ -3437,6 +3419,43 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_ccglue_or_space:
   { \CJKglue }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.9.1}{2022/08/02}{简化部分内部实现。}
+%
+% \begin{macro}[TF]{
+%   \@@_if_last_none:,
+%   \@@_if_last_hlist:,
+%   \@@_if_last_math:,
+%   \@@_if_last_glue:,
+%   \@@_if_last_kern:,
+%   \@@_if_last_penalty:}
+% 一些 \hologo{eTeX} 结点判定函数。
+%    \begin{macrocode}
+\group_begin:
+\cs_set:Npn \@@_tmp:nn #1
+  {
+    \exp_args:Ncc \@@_tmp_aux:NNn
+      { @@_if_last_ #1 : }
+      { c_@@_ #1 _node }
+  }
+\cs_set:Npn \@@_tmp_aux:NNn #1#2#3
+  {
+    \int_const:Nn #2 {#3}
+    \prg_new_conditional:Npnn #1 { T , F , TF }
+      {
+        \if_int_compare:w \tex_lastnodetype:D = #2
+          \prg_return_true: \else: \prg_return_false: \fi:
+      }
+  }
+\@@_tmp:nn { none }    { -1 }
+\@@_tmp:nn { hlist }   {  1 }
+\@@_tmp:nn { math }    { 10 }
+\@@_tmp:nn { glue }    { 11 }
+\@@_tmp:nn { kern }    { 12 }
+\@@_tmp:nn { penalty } { 13 }
+\group_end:
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3488,10 +3507,10 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \xeCJK_remove_node:
   {
-    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+    \@@_if_last_kern:TF
       { \tex_unkern:D \tex_unkern:D }
       {
-        \int_compare:nNnT \tex_lastnodetype:D = { 11 }
+        \@@_if_last_glue:T
           { \tex_unskip:D \tex_unskip:D }
       }
   }
@@ -3742,9 +3761,9 @@ Copyright and Licence
   {
     \clist_map_inline:nn { FullLeft , FullRight }
       {
-        \xeCJK_inter_class_toks:nnx {#1} {##1}
+        \xeCJK_inter_class_toks:nne {#1} {##1}
           { \exp_not:c { xeCJK_Default_and_##1:nN } {#1} }
-        \xeCJK_inter_class_toks:nnx {##1} {#1}
+        \xeCJK_inter_class_toks:nne {##1} {#1}
           { \exp_not:c { xeCJK_##1_and_Default: } }
       }
   }
@@ -3941,7 +3960,7 @@ Copyright and Licence
   {
     \clist_map_inline:nn { FullLeft , FullRight }
       {
-        \xeCJK_inter_class_toks:nnx {#1} {##1}
+        \xeCJK_inter_class_toks:nne {#1} {##1}
           { \exp_not:c { xeCJK_#1_and_##1:N } }
       }
   }
@@ -4203,9 +4222,9 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:cpn { @@_bound_type_  1 _glue:Nn } #1
   {
-    \int_do_while:nNnn \tex_lastnodetype:D = \c_one_int
+    \int_do_while:nNnn \tex_lastnodetype:D = \c_@@_hlist_node
       { \@@_bound_hbox_auxi: }
-    \int_compare:nNnTF \tex_lastnodetype:D = { -1 }
+    \@@_if_last_none:TF
       {
         \dim_case:nnF { \box_wd:N \l_@@_indent_box }
           {
@@ -4266,7 +4285,7 @@ Copyright and Licence
         \skip_if_eq:nnTF { \l_@@_last_skip } { \labelsep }
           {
             \tex_unskip:D
-            \int_compare:nNnTF \tex_lastnodetype:D = { 13 }
+            \@@_if_last_penalty:TF
               {
                 \int_compare:nNnTF \tex_lastpenalty:D = \c_zero_int
                   { \skip_horizontal:N \l_@@_last_skip }
@@ -4306,7 +4325,7 @@ Copyright and Licence
         \int_compare:nNnTF \tex_lastpenalty:D = \c_zero_int
           {
             \tex_unpenalty:D
-            \int_compare:nNnTF \tex_lastnodetype:D = \c_one_int
+            \@@_if_last_hlist:TF
               { \tex_penalty:D \c_zero_int }
               { \tex_penalty:D \c_zero_int #2 }
           }
@@ -4378,10 +4397,10 @@ Copyright and Licence
 \cs_new_protected:Npn \xeCJK_if_last_punct:TF
   {
     \bool_set_false:N \l_@@_last_penalty_bool
-    \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       { \@@_if_last_punct_glue:TF }
       {
-        \int_compare:nNnTF \tex_lastnodetype:D = { 13 }
+        \@@_if_last_penalty:TF
          { \@@_if_last_punct_penalty:TF }
          { \use_ii:nn }
       }
@@ -4418,7 +4437,7 @@ Copyright and Licence
   {
     \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
     \tex_unskip:D
-    \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       {
         \prop_get:NoNTF \g_@@_punct_skip_prop
           { \skip_use:N \tex_lastskip:D } \l_@@_tmp_tl
@@ -4433,7 +4452,7 @@ Copyright and Licence
     \int_set_eq:NN \l_@@_last_penalty_int \tex_lastpenalty:D
     \tex_unpenalty:D
     \bool_set_true:N \l_@@_last_penalty_bool
-    \int_compare:nNnTF \tex_lastnodetype:D = { 11 }
+    \@@_if_last_glue:TF
       { \@@_if_last_punct_glue:TF { \use_i:nn } }
       { \use:n }
       { \@@_last_punct_penalty_false:nn }
@@ -4499,11 +4518,11 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_if_last_node:TF #1#2
   {
-    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+    \@@_if_last_kern:TF
       {
         \dim_set_eq:NN \l_@@_last_kern_dim \tex_lastkern:D
         \tex_unkern:D
-        \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+        \@@_if_last_kern:TF
           {
             \dim_compare:nNnTF \tex_lastkern:D = { - \l_@@_last_kern_dim }
               { \tex_unkern:D #1 }
@@ -4733,7 +4752,7 @@ Copyright and Licence
 \NewDocumentCommand \xeCJKnobreak { }
   {
     \bool_set_true:N \l_@@_tmp_bool
-    \int_while_do:nNnn \tex_lastnodetype:D = { 11 }
+    \int_while_do:nNnn \tex_lastnodetype:D = \c_@@_glue_node
       {
         \bool_if:NTF \l_@@_tmp_bool
           {
@@ -4748,7 +4767,7 @@ Copyright and Licence
         \dim_set_eq:NN \l_@@_tmp_dim \l_@@_last_kern_dim
         \xeCJK_if_last_node:TF
           {
-            \int_compare:nNnT \tex_lastnodetype:D = { 11 }
+            \@@_if_last_glue:TF
               {
                 \exp_args:NNNo \tex_unskip:D \xeCJK_no_break:
                 \skip_horizontal:n { \skip_use:N \tex_lastskip:D }
@@ -5089,7 +5108,7 @@ Copyright and Licence
 \NewDocumentCommand \xeCJKDeclareSubCJKBlock
   { s > { \TrimSpaces } m m }
   {
-    \xeCJK_declare_sub_char_class:nxn { CJK } {#2} {#3}
+    \xeCJK_declare_sub_char_class:nen { CJK } {#2} {#3}
     \IfBooleanT {#1} { \xeCJKResetPunctClass }
   }
 \@onlypreamble \xeCJKDeclareSubCJKBlock
@@ -5105,7 +5124,7 @@ Copyright and Licence
     \bool_if:NF \l_@@_sub_cancel_bool
       {
         \bool_set_true:N \l_@@_sub_cancel_bool
-        \@@_sub_restore_or_cancel:x {#2}
+        \@@_sub_restore_or_cancel:e {#2}
         \IfBooleanT {#1} { \xeCJKResetPunctClass }
       }
   }
@@ -5114,7 +5133,7 @@ Copyright and Licence
     \bool_if:NT \l_@@_sub_cancel_bool
       {
         \bool_set_false:N \l_@@_sub_cancel_bool
-        \@@_sub_restore_or_cancel:x {#2}
+        \@@_sub_restore_or_cancel:e {#2}
         \IfBooleanT {#1} { \xeCJKResetPunctClass }
       }
   }
@@ -5136,7 +5155,7 @@ Copyright and Licence
           { \@@_error:nx { SubBlock-undefined } {##1} }
       }
   }
-\cs_generate_variant:Nn \@@_sub_restore_or_cancel:n { x }
+\cs_generate_variant:Nn \@@_sub_restore_or_cancel:n { e }
 \@@_msg_new:nn { SubBlock-undefined }
   {
     The~CJK~sub~block~`#1'~is~undefined.\\\\
@@ -5158,7 +5177,7 @@ Copyright and Licence
       }
     \xeCJK_declare_char_class:nn { #1/#2 } {#3}
   }
-\cs_generate_variant:Nn \xeCJK_declare_sub_char_class:nnn { nx }
+\cs_generate_variant:Nn \xeCJK_declare_sub_char_class:nnn { ne }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5242,16 +5261,16 @@ Copyright and Licence
   {
     \IfBooleanTF {#1}
       {
-        \tl_map_inline:xn {#2}
+        \tl_map_inline:en {#2}
           { \tl_gset:cn { g_@@_punct_bound_width/##1/tl } {#3} }
       }
       {
-        \tl_map_inline:xn {#2}
+        \tl_map_inline:en {#2}
           { \tl_gset:cn { g_@@_punct_width/##1/tl } {#3} }
       }
   }
 \@onlypreamble \xeCJKsetwidth
-\cs_generate_variant:Nn \tl_map_inline:nn { x }
+\cs_generate_variant:Nn \tl_map_inline:nn { e }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5338,7 +5357,7 @@ Copyright and Licence
     \seq_map_inline:cn { \@@_special_punct_seq:n {#1} }
       { \cs_undefine:c { \@@_special_punct_tl:nN {#1} {##1} } }
     \seq_gclear:c { \@@_special_punct_seq:n {#1} }
-    \tl_map_inline:xn {#2}
+    \tl_map_inline:en {#2}
       {
         \tl_new:c { \@@_special_punct_tl:nN {#1} {##1} }
         \seq_gput_right:cn { \@@_special_punct_seq:n {#1} } {##1}
@@ -5346,7 +5365,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_add_special_punct:nn #1#2
   {
-    \tl_map_inline:xn {#2}
+    \tl_map_inline:en {#2}
       {
         \seq_if_in:cnF { \@@_special_punct_seq:n {#1} } {##1}
           {
@@ -5357,7 +5376,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_sub_special_punct:nn #1#2
   {
-    \tl_map_inline:xn {#2}
+    \tl_map_inline:en {#2}
       {
         \cs_undefine:c { \@@_special_punct_tl:nN {#1} {##1} }
         \seq_gremove_all:cn { \@@_special_punct_seq:n {#1} } {##1}
@@ -5410,12 +5429,14 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_save_punct_skip:nNNnnn #1#2#3#4#5#6
   {
-    \use:x
+    \exp_last_unbraced:Ne
+    \@@_save_punct_skip_aux:nnnnn
       {
-        \@@_save_punct_skip_aux:nnnnn {#1} { #1/#2/#3 }
-          { \dim_eval:n {#4} }
-          { \dim_max:nn { \c_zero_dim } {#5} }
-          { \dim_max:nn { \c_zero_dim } {#6} }
+        {#1}
+        { #1/#2/#3 }
+        { \dim_eval:n {#4} }
+        { \dim_max:nn { \c_zero_dim } {#5} }
+        { \dim_max:nn { \c_zero_dim } {#6} }
       }
   }
 \cs_new_protected:Npn \@@_save_punct_skip_aux:nnnnn #1#2#3#4#5
@@ -5429,7 +5450,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_save_punct_width_aux:nnnn #1#2#3#4
   {
-    \@@_save_punct_width_aux:cxn
+    \@@_save_punct_width_aux:cen
       { \@@_punct_csname:n { #1/#3 } }
       { \use:c { #1_eval:n } {#4} }
       {#2}
@@ -5442,7 +5463,7 @@ Copyright and Licence
   }
 \prop_new:N \g_@@_punct_skip_prop
 \prop_gput:Non \g_@@_punct_skip_prop { \skip_use:N \c_zero_skip } { }
-\cs_generate_variant:Nn \@@_save_punct_width_aux:Nnn { cx }
+\cs_generate_variant:Nn \@@_save_punct_width_aux:Nnn { ce }
 \cs_new_eq:NN \@@_use_dim_or_skip:nNN \@@_use_punct_skip:nNN
 %    \end{macrocode}
 %
@@ -6289,7 +6310,7 @@ Copyright and Licence
         \tex_the:D \tex_font:D
         \xeCJK_clear_fallback_font:
       }
-    \exp_args:Nxx \@@_fallback_loop:nnNN
+    \exp_args:Nee \@@_fallback_loop:nnNN
   }
 \cs_new_protected:Npn \@@_clear_fallback_font:
   { \cs_set_eq:NN \xeCJK_reset_fallback_font: \prg_do_nothing: }
@@ -6313,7 +6334,6 @@ Copyright and Licence
     \cs_set_eq:NN \@@_fallback_loop:TF \use_i:nn
     \@@_fallback_loop:nnnNN { FallBack }
   }
-\cs_generate_variant:Nn \@@_fallback_loop:Nn { Nx }
 \cs_new_protected:Npn \@@_fallback_loop:nnnNN #1#2#3
   {
     \xeCJK_select_fallback_font:nnn {#1} {#2} {#3}
@@ -6354,7 +6374,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_fallback_font_initial_auxi:Nnnn #1
   {
-    \exp_args:NNx \@@_fallback_font_initial_auxii:Nnnnn
+    \exp_args:NNe \@@_fallback_font_initial_auxii:Nnnnn
       #1 { \CJKfamilydefault }
   }
 \cs_new_protected:Npn \@@_fallback_font_initial_auxii:Nnnnn #1#2#3
@@ -6413,17 +6433,24 @@ Copyright and Licence
     \prop_get:NoNF \g_@@_family_font_name_prop
       \l_@@_fallback_family_tl \l_@@_font_name_tl
       { \tl_clear:N \l_@@_font_name_tl }
-    \clist_map_inline:nn {#3}
-      {
-        \tl_put_right:Nn \l_@@_fallback_family_tl { /FallBack }
-        \@@_get_sub_features:Vn \l_@@_fallback_family_tl {##1}
-        \clist_put_left:Nn \l_@@_sub_font_options_clist {#2}
-        \xeCJK_set_family:VVV \l_@@_fallback_family_tl
-          \l_@@_sub_font_options_clist \l_@@_sub_font_name_tl
-      }
+    \clist_set:Nn \l_@@_public_options_clist {#2}
+    \clist_map_function:nN {#3} \@@_set_family_fallback:n
     \group_end:
   }
+\cs_new_protected:Npn \@@_set_family_fallback:n #1
+  {
+    \tl_put_right:Nn \l_@@_fallback_family_tl { /FallBack }
+    \@@_get_sub_features:on \l_@@_fallback_family_tl {#1}
+    \clist_concat:NNN \l_@@_sub_font_options_clist
+      \l_@@_public_options_clist
+      \l_@@_sub_font_options_clist
+    \exp_args:Nooo \xeCJK_set_family:nnn
+      \l_@@_fallback_family_tl
+      \l_@@_sub_font_options_clist
+      \l_@@_sub_font_name_tl
+  }
 \tl_new:N \l_@@_fallback_family_tl
+\clist_new:N \l_@@_public_options_clist
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6515,11 +6542,11 @@ Copyright and Licence
       \q_mark [ \q_nil ] \q_mark \q_stop
     \tl_if_empty:NTF \l_@@_sub_font_name_tl
       { \tl_set_eq:NN \l_@@_sub_font_name_tl \l_@@_font_name_tl }
-      { \tl_replace_all:NnV \l_@@_sub_font_name_tl { * } \l_@@_font_name_tl }
-    \prop_put:Nnx \l_@@_sub_key_prop {#1}
+      { \tl_replace_all:Nno \l_@@_sub_font_name_tl { * } \l_@@_font_name_tl }
+    \prop_put:Nne \l_@@_sub_key_prop {#1}
       {
-        { \exp_not:V \l_@@_sub_font_options_clist }
-        { \exp_not:V \l_@@_sub_font_name_tl }
+        { \exp_not:o \l_@@_sub_font_options_clist }
+        { \exp_not:o \l_@@_sub_font_name_tl }
       }
   }
 \cs_new_protected:Npn \@@_get_sub_features:w #1 [#2] #3 \q_mark #4 \q_stop
@@ -6537,8 +6564,8 @@ Copyright and Licence
 \tl_new:N \l_@@_sub_family_name_tl
 \tl_new:N \l_@@_sub_font_name_tl
 \clist_new:N \l_@@_sub_font_options_clist
-\cs_generate_variant:Nn \@@_get_sub_features:nn { V }
-\cs_generate_variant:Nn \tl_replace_all:Nnn { NnV }
+\cs_generate_variant:Nn \@@_get_sub_features:nn { o }
+\cs_generate_variant:Nn \tl_replace_all:Nnn { Nno }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6635,12 +6662,12 @@ Copyright and Licence
     \tl_set:Nn \l_@@_font_name_tl {#3}
     \clist_concat:NNN \l_@@_font_options_clist
       \g_@@_default_features_clist \l_@@_font_options_clist
-    \keys_set_known:nVN { xeCJK / features }
+    \keys_set_known:noN { xeCJK / features }
       \l_@@_font_options_clist \l_@@_fontspec_options_clist
     \@@_binding_sub_family:
     \@@_parse_font_shape:
-    \@@_check_family:V \l_@@_family_name_tl
-    \@@_gset_family_cs:x { \l_@@_family_name_tl }
+    \@@_check_family:o \l_@@_family_name_tl
+    \@@_gset_family_cs:n { \l_@@_family_name_tl }
     \@@_save_family_info:
     \@@_set_sub_block_family:
     \group_end:
@@ -6648,7 +6675,7 @@ Copyright and Licence
 \tl_new:N \l_@@_family_name_tl
 \tl_new:N \l_@@_font_name_tl
 \clist_new:N \l_@@_font_options_clist
-\cs_generate_variant:Nn \xeCJK_set_family:nnn { x , VVV , Voo }
+\cs_generate_variant:Nn \xeCJK_set_family:nnn { e , o }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6664,18 +6691,18 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_gset_family_cs:x}
+% \begin{macro}{\@@_gset_family_cs:n}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_gset_family_cs:x #1
+\cs_new_protected:Npn \@@_gset_family_cs:n #1
   {
     \cs_gset_protected:cpx { \@@_family_csname:n {#1} }
       {
         \group_begin:
         \exp_not:n { \cs_set_eq:NN \xeCJK@fontfamily \use_none:n }
         \exp_not:n { \fontspec_gset_family:Nnn \g_@@_fontspec_family_tl }
-          { \exp_not:V \l_@@_fontspec_options_clist }
-          { \exp_not:V \l_@@_font_name_tl }
-        \@@_gset_family_nfss_cs:xx
+          { \exp_not:o \l_@@_fontspec_options_clist }
+          { \exp_not:o \l_@@_font_name_tl }
+        \@@_gset_family_nfss_cs:no
           {#1} { \exp_not:N \g_@@_fontspec_family_tl }
         \group_end:
         \tl_set_eq:NN \exp_not:N \l_@@_fontspec_family_tl
@@ -6701,7 +6728,7 @@ Copyright and Licence
         \@@_warning:nxx { CJKfamily-redef } {#1} { \l_@@_tmp_tl }
       }
   }
-\cs_generate_variant:Nn \@@_check_family:n { V }
+\cs_generate_variant:Nn \@@_check_family:n { o }
 \@@_msg_new:nn { CJKfamily-redef }
   { Redefining~CJKfamily~`\@@_msg_family_map:n {#1}'~(#2). }
 %    \end{macrocode}
@@ -6711,7 +6738,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_parse_font_shape:
   {
-    \tl_if_blank:VTF \l_@@_font_name_bf_tl
+    \tl_if_blank:oTF \l_@@_font_name_bf_tl
       {
         \bool_if:NT \l_@@_auto_fake_bold_bool
           {
@@ -6721,9 +6748,9 @@ Copyright and Licence
       }
       {
         \clist_put_right:Nx \l_@@_fontspec_options_clist
-          { BoldFont = { \exp_not:V \l_@@_font_name_bf_tl } }
+          { BoldFont = { \exp_not:o \l_@@_font_name_bf_tl } }
       }
-    \tl_if_blank:VTF \l_@@_font_name_it_tl
+    \tl_if_blank:oTF \l_@@_font_name_it_tl
       {
         \bool_if:NT \l_@@_auto_fake_slant_bool
           {
@@ -6733,7 +6760,7 @@ Copyright and Licence
       }
       {
         \clist_put_right:Nx \l_@@_fontspec_options_clist
-          { ItalicFont = { \exp_not:V \l_@@_font_name_it_tl } }
+          { ItalicFont = { \exp_not:o \l_@@_font_name_it_tl } }
       }
   }
 %    \end{macrocode}
@@ -6752,10 +6779,15 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_save_family_info:
   {
-    \prop_gput:NVV \g_@@_family_font_name_prop
-      \l_@@_family_name_tl \l_@@_font_name_tl
-    \prop_gput:NVV \g_@@_family_font_options_prop
-      \l_@@_family_name_tl \l_@@_font_options_clist
+    \exp_args:Nooo \@@_save_family_info:nnn
+      \l_@@_family_name_tl
+      \l_@@_font_name_tl
+      \l_@@_font_options_clist
+  }
+\cs_new_protected:Npn \@@_save_family_info:nnn #1#2#3
+  {
+    \prop_gput:Nnn \g_@@_family_font_name_prop    {#1} {#2}
+    \prop_gput:Nnn \g_@@_family_font_options_prop {#1} {#3}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -6764,39 +6796,42 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_set_sub_block_family:
   {
-    \prop_map_inline:Nn \l_@@_sub_key_prop
+    \prop_if_empty:NF \l_@@_sub_key_prop
       {
-        \tl_set:Nx \l_@@_sub_family_name_tl { \l_@@_family_name_tl/##1 }
-        \quark_if_no_value:nTF {##2}
-          { \@@_copy_sub_family:n {##1} }
-          {
-            \xeCJK_set_family:Voo \l_@@_sub_family_name_tl
-              { \use_i:nn ##2 } { \use_ii:nn ##2 }
-          }
+        \prop_map_function:NN
+          \l_@@_sub_key_prop
+          \@@_set_sub_block_family:nn
       }
+  }
+\cs_new_protected:Npn \@@_set_sub_block_family:nn #1#2
+  {
+    \tl_set:Nx \l_@@_sub_family_name_tl { \l_@@_family_name_tl/#1 }
+    \quark_if_no_value:nTF {#2}
+      { \@@_copy_sub_family:n {#1} }
+      { \xeCJK_set_family:onn \l_@@_sub_family_name_tl #2 }
   }
 \cs_new_protected:Npn \@@_copy_sub_family:n #1
   {
-    \@@_check_family:V \l_@@_sub_family_name_tl
+    \@@_check_family:o \l_@@_sub_family_name_tl
     \prop_get:NoNT \g_@@_family_font_name_prop
       \l_@@_family_name_tl \l_@@_sub_font_name_tl
       {
-        \prop_gput:NVV \g_@@_family_font_name_prop
+        \prop_gput:Noo \g_@@_family_font_name_prop
           \l_@@_sub_family_name_tl \l_@@_sub_font_name_tl
       }
     \prop_get:NoNT \g_@@_family_font_options_prop
       \l_@@_family_name_tl \l_@@_sub_font_options_clist
       {
         \clist_remove_all:Nn \l_@@_sub_font_options_clist { #1 = * }
-        \prop_gput:NVV \g_@@_family_font_options_prop
+        \prop_gput:Noo \g_@@_family_font_options_prop
           \l_@@_sub_family_name_tl \l_@@_sub_font_options_clist
       }
     \cs_gset_protected:cpx
       { \@@_family_csname:n { \l_@@_sub_family_name_tl } }
       {
-        \xeCJK_family_if_exist:xT { \l_@@_family_name_tl }
+        \xeCJK_family_if_exist:eT { \l_@@_family_name_tl }
           {
-            \@@_gset_family_nfss_cs:xx
+            \@@_gset_family_nfss_cs:no
               { \l_@@_sub_family_name_tl }
               { \exp_not:N \l_@@_fontspec_family_tl }
           }
@@ -6805,13 +6840,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_copy_family:nn,\@@_copy_family:xx}
+% \begin{macro}{\@@_copy_family:nn,\@@_copy_family:ee}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_copy_family:nn #1#2
   {
     \xeCJK_family_if_exist:nT {#2}
       {
-        \prop_gput:NnV \g_@@_family_name_prop
+        \prop_gput:Nno \g_@@_family_name_prop
           {#1} \l_@@_fontspec_family_tl
         \tl_map_inline:nn
           {
@@ -6820,15 +6855,14 @@ Copyright and Licence
           }
           {
             \prop_get:NnNT ##1 {#2} \l_@@_tmp_tl
-              { \prop_gput:NnV ##1 {#1} \l_@@_tmp_tl }
+              { \prop_gput:Nno ##1 {#1} \l_@@_tmp_tl }
           }
         \cs_gset_eq:cc
           { \@@_family_nfss_csname:n {#1} }
           { \@@_family_nfss_csname:n {#2} }
       }
   }
-\cs_new_protected:Npn \@@_copy_family:xx #1#2
-  { \use:x { \@@_copy_family:nn {#1} {#2} } }
+\cs_generate_variant:Nn \@@_copy_family:nn { ee }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -6955,9 +6989,9 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \xeCJK_block_family:nn #1#2
   {
-    \xeCJK_family_if_exist:xF { #1/#2 }
+    \xeCJK_family_if_exist:eF { #1/#2 }
       {
-        \@@_copy_family:xx { #1/#2 }
+        \@@_copy_family:ee { #1/#2 }
           {
             \cs_if_exist:cTF
               { \@@_family_csname:n { \CJKfamilydefault/#2 } }
@@ -6985,7 +7019,7 @@ Copyright and Licence
       { \@@_family_nfss_csname:n {#1} }
       { \@@_nfss_family:nn { \c_@@_encoding_tl } {#2} }
   }
-\cs_generate_variant:Nn \@@_gset_family_nfss_cs:nn { xx }
+\cs_generate_variant:Nn \@@_gset_family_nfss_cs:nn { no }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7034,12 +7068,13 @@ Copyright and Licence
       {#1} \l_@@_fontspec_family_tl
       { \prg_return_true: }
       {
-        \cs_if_exist_use:cTF { \@@_family_csname:n {#1} }
+        \exp_args:Ne \cs_if_exist_use:cTF
+          { \@@_family_csname:n {#1} }
           { \prg_return_true: }
           { \prg_return_false: }
       }
   }
-\prg_generate_conditional_variant:Nnn \xeCJK_family_if_exist:n { x } { T , F , TF }
+\prg_generate_conditional_variant:Nnn \xeCJK_family_if_exist:n { e } { T , F , TF }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7048,7 +7083,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \NewDocumentCommand \CJKfamily { t+ t- m }
   {
-    \xeCJK_family:NNx #1 #2 {#3}
+    \xeCJK_family:NNe #1 #2 {#3}
     \tex_ignorespaces:D
   }
 \cs_new_protected:Npn \xeCJK_family:NNn #1#2#3
@@ -7056,7 +7091,7 @@ Copyright and Licence
     \tl_if_blank:nTF {#3}
       {
         \bool_if:NF #1 { \bool_if:NF #2 { \use_none:nn } }
-        \xeCJK_family_if_exist_use:x { \l_xeCJK_family_tl }
+        \xeCJK_family_if_exist_use:e { \l_xeCJK_family_tl }
       }
       {
         \bool_if:NTF #2
@@ -7072,7 +7107,7 @@ Copyright and Licence
           }
       }
   }
-\cs_generate_variant:Nn \xeCJK_family:NNn { NNx }
+\cs_generate_variant:Nn \xeCJK_family:NNn { NNe }
 \cs_new_protected:Npn \xeCJK_switch_family:n #1
   {
     \xeCJK_family_if_exist:nTF {#1}
@@ -7082,7 +7117,7 @@ Copyright and Licence
       }
       { \@@_family_unknown_warning:n {#1} }
   }
-\cs_generate_variant:Nn \xeCJK_switch_family:n { x , o }
+\cs_generate_variant:Nn \xeCJK_switch_family:n { e , o }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7104,7 +7139,7 @@ Copyright and Licence
         \cs_set_eq:NN \xeCJK_select_punct_font: \xeCJK_select_font:
       } ,
     PunctFamily / unknown .code:n =
-      { \xeCJK_punct_family:x {#1} } ,
+      { \xeCJK_punct_family:e {#1} } ,
   }
 \cs_new_protected:Npn \xeCJK_punct_family:n #1
   {
@@ -7118,7 +7153,7 @@ Copyright and Licence
       }
       { \@@_family_unknown_warning:n {#1} }
   }
-\cs_generate_variant:Nn \xeCJK_punct_family:n { x }
+\cs_generate_variant:Nn \xeCJK_punct_family:n { e }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7154,7 +7189,7 @@ Copyright and Licence
       { \@@_family_use:n {#1} }
       { \@@_family_unknown_warning:n {#1} }
   }
-\cs_generate_variant:Nn \xeCJK_family_if_exist_use:n { x }
+\cs_generate_variant:Nn \xeCJK_family_if_exist_use:n { e }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7173,7 +7208,6 @@ Copyright and Licence
           }
       }
   }
-\cs_generate_variant:Nn \@@_family_unknown_warning:n { x }
 \seq_new:N \g_@@_unknown_family_seq
 \@@_msg_new:nn { CJKfamily-Unknown }
   {
@@ -7189,7 +7223,7 @@ Copyright and Licence
         \CJKttdefault { \token_to_str:N \setCJKmonofont }
       }
       { \token_to_str:N \setCJKfamilyfont \{ #1 \} }
-    [...]\{...\}
+    [<...>]\{<...>\}
   }
 \cs_new:Npn \@@_msg_family_map:n #1
   {
@@ -7213,13 +7247,13 @@ Copyright and Licence
     \tl_if_novalue:nTF {#2}
       { \@@_post_arg:w {#1} {#3} {#4} }
       {
-        \use:x { #1 {#2} {#3} }
+        \use:e { #1 {#2} {#3} }
         #4
       }
   }
 \NewDocumentCommand \@@_post_arg:w { m m m O { } }
   {
-    \use:x { #1 {#4} {#2} }
+    \use:e { #1 {#4} {#2} }
     #3
   }
 %    \end{macrocode}
@@ -7307,7 +7341,7 @@ Copyright and Licence
       { CJKfontspec/#1/#2/id } \l_xeCJK_family_tl
       { \xeCJK_switch_family:o { \l_xeCJK_family_tl } }
       {
-        \@@_fontspec:xnn
+        \@@_fontspec:enn
           { CJKfontspec ( \int_eval:n { \g_@@_family_int + 1 } ) }
           {#1} {#2}
       }
@@ -7318,8 +7352,8 @@ Copyright and Licence
     \xeCJK_set_family:nnn {#1} {#2} {#3}
     \xeCJK_switch_family:n {#1}
   }
-\cs_generate_variant:Nn \xeCJK_fontspec:nn { VV }
-\cs_generate_variant:Nn \@@_fontspec:nnn { x }
+\cs_generate_variant:Nn \xeCJK_fontspec:nn { oo }
+\cs_generate_variant:Nn \@@_fontspec:nnn { e }
 \prop_new:N \g_@@_fontspec_prop
 %    \end{macrocode}
 % \end{macro}
@@ -7334,7 +7368,7 @@ Copyright and Licence
 \@onlypreamble \defaultCJKfontfeatures
 \NewDocumentCommand \addCJKfontfeatures { s O { } m }
   {
-    \xeCJK_add_font_features:Nxx #1 {#2} {#3}
+    \xeCJK_add_font_features:Nee #1 {#2} {#3}
     \tex_ignorespaces:D
   }
 \cs_new_eq:NN \addCJKfontfeature \addCJKfontfeatures
@@ -7353,15 +7387,7 @@ Copyright and Licence
           { \clist_remove_all:Nn \l_@@_add_font_features_clist {##1} }
         \seq_clear:N \l_@@_sub_key_seq
         \clist_clear:N \l_@@_add_block_features_clist
-        \clist_map_inline:nn {#2}
-          {
-            \seq_if_in:NnTF \g_@@_sub_key_seq {##1}
-              {
-                \seq_put_right:Nn \l_@@_sub_key_seq {##1}
-                \@@_add_sub_class_features:n {##1}
-              }
-              { \@@_warning:nx { SubBlock-undefined } {##1} }
-          }
+        \clist_map_function:nN {#2} \@@_add_sub_features:n
         \bool_lazy_and:nnT
           {#1}
           { \seq_if_empty_p:N \l_@@_sub_key_seq }
@@ -7382,13 +7408,22 @@ Copyright and Licence
             \clist_concat:NNN \l_@@_font_options_clist
               \l_@@_font_options_clist \l_@@_add_block_features_clist
           }
-        \xeCJK_fontspec:VV \l_@@_font_options_clist \l_@@_font_name_tl
+        \xeCJK_fontspec:oo \l_@@_font_options_clist \l_@@_font_name_tl
       }
       { \@@_warning:n { addCJKfontfeature-ignored } }
   }
+\cs_new_protected:Npn \@@_add_sub_features:n #1
+  {
+    \seq_if_in:NnTF \g_@@_sub_key_seq {#1}
+      {
+        \seq_put_right:Nn \l_@@_sub_key_seq {#1}
+        \@@_add_sub_class_features:n {#1}
+      }
+      { \@@_warning:nx { SubBlock-undefined } {#1} }
+  }
 \clist_new:N \l_@@_add_font_features_clist
 \clist_new:N \l_@@_add_block_features_clist
-\cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nxx , Nnx }
+\cs_generate_variant:Nn \xeCJK_add_font_features:Nnn { Nee , Nne }
 \@@_msg_new:nn { addCJKfontfeature-ignored }
   {
     \token_to_str:N \addCJKfontfeature (s)~ignored.\\\\
@@ -7408,10 +7443,10 @@ Copyright and Licence
           { \l_xeCJK_family_tl/#1 } \l_@@_sub_font_options_clist
       }
       {
-        \prop_get:NxNTF \g_@@_family_font_name_prop
+        \prop_get:NeNTF \g_@@_family_font_name_prop
           { \CJKfamilydefault/#1 } \l_@@_sub_font_name_tl
           {
-            \prop_get:NxN \g_@@_family_font_options_prop
+            \prop_get:NeN \g_@@_family_font_options_prop
               { \CJKfamilydefault/#1 } \l_@@_sub_font_options_clist
           }
           {
@@ -7426,13 +7461,13 @@ Copyright and Licence
       {
         #1 =
           {
-            [ \exp_not:V \l_@@_sub_font_options_clist ]
-            { \exp_not:V \l_@@_sub_font_name_tl }
+            [ \exp_not:o \l_@@_sub_font_options_clist ]
+            { \exp_not:o \l_@@_sub_font_name_tl }
           }
       }
   }
-\cs_generate_variant:Nn \prop_get:NnN { Nx }
-\prg_generate_conditional_variant:Nnn \prop_get:NnN { Nx } { TF }
+\cs_generate_variant:Nn \prop_get:NnN { Ne }
+\prg_generate_conditional_variant:Nnn \prop_get:NnN { Ne } { T , TF }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7444,12 +7479,12 @@ Copyright and Licence
   { LoadFandol .bool_gset:N = \g_@@_fandol_bool }
 \cs_new_protected:Npn \@@_load_fandol:
   {
-    \xeCJK_set_family:xnn { \CJKrmdefault }
+    \xeCJK_set_family:enn { \CJKrmdefault }
       { Extension = .otf , BoldFont = FandolSong-Bold , ItalicFont = FandolKai-Regular }
       { FandolSong-Regular }
-    \xeCJK_set_family:xnn { \CJKsfdefault }
+    \xeCJK_set_family:enn { \CJKsfdefault }
       { Extension = .otf , BoldFont = FandolHei-Bold } { FandolHei-Regular }
-    \xeCJK_set_family:xnn { \CJKttdefault }
+    \xeCJK_set_family:enn { \CJKttdefault }
       { Extension = .otf } { FandolFang-Regular }
   }
 %    \end{macrocode}
@@ -7496,13 +7531,13 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \xeCJK_ensure_default_family:
   {
-    \xeCJK_family_if_exist:xF { \CJKfamilydefault }
+    \xeCJK_family_if_exist:eF { \CJKfamilydefault }
       {
         \tl_set_eq:NN \l_@@_tmp_tl \CJKfamilydefault
         \str_if_eq:eeTF { \CJKfamilydefault } { \CJKrmdefault }
           { \use:n }
           {
-            \xeCJK_family_if_exist:xTF { \CJKrmdefault }
+            \xeCJK_family_if_exist:eTF { \CJKrmdefault }
               { \tl_gset:Nn \CJKfamilydefault { \CJKrmdefault } }
           }
           {
@@ -7515,7 +7550,7 @@ Copyright and Licence
         \@@_warning:nxx { CJKfamilydefault-undefined }
           { \l_@@_tmp_tl } { \CJKfamilydefault }
       }
-    \xeCJK_switch_family:x { \CJKfamilydefault }
+    \xeCJK_switch_family:e { \CJKfamilydefault }
     \bool_if:NT \g_@@_math_bool { \xeCJK_set_mathfont: }
   }
 \@@_msg_new:nn { no-CJKfamily }
@@ -7571,12 +7606,12 @@ Copyright and Licence
 \cs_new_protected:Npn \xeCJK_set_mathfont:
   {
     \cs_if_exist_use:N \@@_save_um_char:
-    \xeCJK_family_if_exist:xTF { \c_@@_math_tl }
+    \xeCJK_family_if_exist:eTF { \c_@@_math_tl }
       { \@@_set_mathfont_aux: }
       {
-        \xeCJK_family_if_exist:xT { \CJKfamilydefault }
+        \xeCJK_family_if_exist:eT { \CJKfamilydefault }
           {
-            \@@_copy_family:xx { \c_@@_math_tl } { \CJKfamilydefault }
+            \@@_copy_family:ee { \c_@@_math_tl } { \CJKfamilydefault }
             \@@_set_mathfont_aux:
           }
       }
@@ -7586,7 +7621,7 @@ Copyright and Licence
   {
     \tl_const:Nx \c_@@_math_family_tl
       { \l_@@_fontspec_family_tl }
-    \xeCJK_declare_mathfont:xx
+    \xeCJK_declare_mathfont:ee
       { \c_@@_math_tl }
       { \c_@@_math_family_tl }
     \int_const:Nn \c_xeCJK_math_fam_int
@@ -7625,7 +7660,7 @@ Copyright and Licence
       \l_@@_fontspec_family_tl \l_@@_tmp_tl
       { \int_set:Nn \l_@@_fam_int { \l_@@_tmp_tl } }
       {
-        \xeCJK_declare_mathfont:xx
+        \xeCJK_declare_mathfont:ee
           { \c_@@_math_tl / #1 }
           { \l_@@_fontspec_family_tl }
         \@@_set_mathfont_block_aux:cn
@@ -7661,10 +7696,11 @@ Copyright and Licence
         \SetSymbolFont {#1} { bold } { \c_@@_encoding_tl }
           {#2} { \bfdefault } { \shapedefault }
       }
-    \prop_gput:Nnx \g_@@_fam_prop {#2} { \exp_not:c { sym #1 } }
+    \prop_gput:Nne \g_@@_fam_prop {#2} { \exp_not:c { sym #1 } }
   }
-\cs_generate_variant:Nn \prop_gput:Nnn { Nnx }
-\cs_generate_variant:Nn \xeCJK_declare_mathfont:nn { xx }
+\cs_generate_variant:Nn \prop_put:Nnn { Nne }
+\cs_generate_variant:Nn \prop_gput:Nnn { Nne }
+\cs_generate_variant:Nn \xeCJK_declare_mathfont:nn { ee }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -7915,38 +7951,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_verb_addon:
   {
     \bool_if:NF \l_@@_verb_addon_bool
-      {
-        \bool_set_true:N \l_@@_verb_addon_bool
-        \@@_set_char_class_eq:nn { FullLeft }    { CJK }
-        \@@_set_char_class_eq:nn { FullRight }   { CJK }
-        \@@_set_char_class_eq:nn { HalfLeft }    { Default }
-        \@@_set_char_class_eq:nn { HalfRight }   { Default }
-        \@@_set_char_class_eq:nn { NormalSpace } { Default }
-        \cs_set_eq:NN \@@_shipout_CJKglue:   \CJKglue
-        \cs_set_eq:NN \@@_shipout_CJKecglue: \CJKecglue
-        \cs_set_eq:NN \@@_shipout_check_for_glue: \xeCJK_check_for_glue:
-        \cs_set_eq:NN \@@_shipout_boundary:w \xeCJK_CJK_and_Boundary:w
-        \cs_set_protected:Npx \xeCJKOffVerbAddon
-          {
-            \@@_reset_char_class:n { FullLeft }
-            \@@_reset_char_class:n { FullRight }
-            \@@_reset_char_class:n { HalfLeft }
-            \@@_reset_char_class:n { HalfLeft }
-            \@@_reset_char_class:n { NormalSpace }
-            \bool_if:NTF \l_@@_xecglue_bool
-              { \keys_set:nn { xeCJK / options } { xCJKecglue = true } }
-              { \keys_set:nn { xeCJK / options } { xCJKecglue = false } }
-            \exp_not:n
-              {
-                \cs_set_eq:NN \CJKglue   \@@_shipout_CJKglue:
-                \cs_set_eq:NN \CJKecglue \@@_shipout_CJKecglue:
-                \cs_set_eq:NN \xeCJK_check_for_glue: \@@_shipout_check_for_glue:
-                \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_shipout_boundary:w
-              }
-          }
-        \xeCJK_add_to_shipout:n { \xeCJKOffVerbAddon }
-        \keys_set:nn { xeCJK / options } { xCJKecglue = false }
-      }
+      { \@@_verb_addon_action: }
     \skip_if_eq:nnTF { \l_@@_verb_exspace_skip } { \c_zero_skip }
       {
         \xeCJK_cs_clear:N \CJKglue
@@ -7960,6 +7965,39 @@ Copyright and Licence
       }
     \cs_set_eq:NN \xeCJK_check_for_glue: \CJKecglue
     \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_verb_CJK_and_Boundary:w
+  }
+\cs_new_protected:Npn \@@_verb_addon_action:
+  {
+    \bool_set_true:N \l_@@_verb_addon_bool
+    \@@_set_char_class_eq:nn { FullLeft }    { CJK }
+    \@@_set_char_class_eq:nn { FullRight }   { CJK }
+    \@@_set_char_class_eq:nn { HalfLeft }    { Default }
+    \@@_set_char_class_eq:nn { HalfRight }   { Default }
+    \@@_set_char_class_eq:nn { NormalSpace } { Default }
+    \cs_set_eq:NN \@@_shipout_CJKglue:   \CJKglue
+    \cs_set_eq:NN \@@_shipout_CJKecglue: \CJKecglue
+    \cs_set_eq:NN \@@_shipout_check_for_glue: \xeCJK_check_for_glue:
+    \cs_set_eq:NN \@@_shipout_boundary:w \xeCJK_CJK_and_Boundary:w
+    \cs_set_protected:Npx \xeCJKOffVerbAddon
+      {
+        \@@_reset_char_class:n { FullLeft }
+        \@@_reset_char_class:n { FullRight }
+        \@@_reset_char_class:n { HalfLeft }
+        \@@_reset_char_class:n { HalfLeft }
+        \@@_reset_char_class:n { NormalSpace }
+        \bool_if:NTF \l_@@_xecglue_bool
+          { \keys_set:nn { xeCJK / options } { xCJKecglue = true } }
+          { \keys_set:nn { xeCJK / options } { xCJKecglue = false } }
+        \exp_not:n
+          {
+            \cs_set_eq:NN \CJKglue   \@@_shipout_CJKglue:
+            \cs_set_eq:NN \CJKecglue \@@_shipout_CJKecglue:
+            \cs_set_eq:NN \xeCJK_check_for_glue: \@@_shipout_check_for_glue:
+            \cs_set_eq:NN \xeCJK_CJK_and_Boundary:w \@@_shipout_boundary:w
+          }
+      }
+    \xeCJK_add_to_shipout:n { \xeCJKOffVerbAddon }
+    \keys_set:nn { xeCJK / options } { xCJKecglue = false }
   }
 \cs_new_protected:Npn \@@_verb_CJK_and_Boundary:w
   { \xeCJK_class_group_end: \CJKecglue }
@@ -8016,12 +8054,9 @@ Copyright and Licence
     \dim_compare:nNnTF \l_@@_verb_exspace_skip < \c_zero_dim
       {
         \skip_zero:N \l_@@_verb_exspace_skip
-        \use:x
-          {
-            \@@_set_verb_scale:nn
-              { \dim_to_fp:n { 2 \tex_fontdimen:D 2 ~ \tex_font:D } }
-              { \dim_to_fp:n {#1} }
-          }
+        \exp_args:Nee \@@_set_verb_scale:nn
+          { \dim_to_fp:n { 2 \tex_fontdimen:D 2 ~ \tex_font:D } }
+          { \dim_to_fp:n {#1} }
       }
       {
         \tl_const:cx { xeCJK/verb/\CJK@family/\curr@fontshape/\f@size }
@@ -8040,9 +8075,9 @@ Copyright and Licence
     \@@_warning:nxx { scale-factor }
       { \fp_eval:n { trunc ( \l_@@_scale_factor_fp , 4 ) } }
       { \fp_eval:n {  ceil ( #2 / #1 , 4 ) } }
-    \xeCJK_add_font_features:Nnx \c_true_bool
+    \xeCJK_add_font_features:Nne \c_true_bool
       { } { Scale = { \fp_use:N \l_@@_scale_factor_fp } }
-    \prop_gput:NVV \g_@@_scale_family_prop
+    \prop_gput:Noo \g_@@_scale_family_prop
       \l_@@_current_coor_tl \l_xeCJK_family_tl
   }
 \@@_msg_new:nn { scale-factor }
@@ -8327,7 +8362,7 @@ Copyright and Licence
     \exp_not:N \@@_family_default_wrap:n
       {
         \tl_if_exist:NTF \CJKfamilydefault
-          { \exp_not:V \CJKfamilydefault }
+          { \exp_not:o \CJKfamilydefault }
           { \exp_not:N \CJKrmdefault }
       }
   }
@@ -8492,7 +8527,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_math_robust_aux:NN #1#2
   {
-    \exp_args:Nx \str_case:nnTF { \cs_replacement_spec:N #1 }
+    \exp_args:Ne \str_case:nnTF { \cs_replacement_spec:N #1 }
       {
         { \x@protect #1 \protect #2 } { }
         { \protect #2 } { }
@@ -8580,7 +8615,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \ctex_if_format_at_least:nTF { 2020/10/01 }
   {
-    \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:x
+    \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:e
     \ctex_gadd_ltxhook:nn { rmfamily }   { \xeCJK@family { \CJKrmdefault } }
     \ctex_gadd_ltxhook:nn { sffamily }   { \xeCJK@family { \CJKsfdefault } }
     \ctex_gadd_ltxhook:nn { ttfamily }   { \xeCJK@family { \CJKttdefault } }
@@ -8589,7 +8624,7 @@ Copyright and Licence
   {
     \cs_if_exist:NTF \@rmfamilyhook
       {
-        \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:x
+        \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:e
         \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
         \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
         \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
@@ -8609,17 +8644,17 @@ Copyright and Licence
         \cs_new_protected:Npn \xeCJK@fontfamily #1
           {
             \str_if_eq:nnTF {#1} { \familydefault }
-              { \xeCJK_switch_family:x { \CJKfamilydefault } }
+              { \xeCJK_switch_family:e { \CJKfamilydefault } }
               { \@@_update_family_aux: }
           }
         \cs_new_protected:Npn \@@_update_family_aux:
           {
             \str_case_e:nn { \f@family }
               {
-                { \rmdefault }     { \xeCJK_switch_family:x { \CJKrmdefault } }
-                { \sfdefault }     { \xeCJK_switch_family:x { \CJKsfdefault } }
-                { \ttdefault }     { \xeCJK_switch_family:x { \CJKttdefault } }
-                { \familydefault } { \xeCJK_switch_family:x { \CJKfamilydefault } }
+                { \rmdefault }     { \xeCJK_switch_family:e { \CJKrmdefault } }
+                { \sfdefault }     { \xeCJK_switch_family:e { \CJKsfdefault } }
+                { \ttdefault }     { \xeCJK_switch_family:e { \CJKttdefault } }
+                { \familydefault } { \xeCJK_switch_family:e { \CJKfamilydefault } }
               }
           }
       }
@@ -8668,10 +8703,7 @@ Copyright and Licence
 % 修复倾斜校正，并处理汉字后面的空格。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_italic_correction:
-  {
-    \int_compare:nNnT \tex_lastnodetype:D = { 12 }
-      { \@@_italic_correction: }
-  }
+  { \@@_if_last_kern:T { \@@_italic_correction: } }
 \cs_new_protected:Npn \@@_italic_correction:
   {
     \dim_case:nnF { \tex_lastkern:D }
@@ -8749,17 +8781,17 @@ Copyright and Licence
       {
         \xeCJK_copy_inter_class_toks:nnnn {##1} { Others } {##1} { NormalSpace }
         \xeCJK_copy_inter_class_toks:nnnn { Others } {##1} { NormalSpace } {##1}
-        \xeCJK_app_inter_class_toks:nnx {##1} { Others }
+        \xeCJK_app_inter_class_toks:nne {##1} { Others }
           { \xeCJK_get_inter_class_toks:nn { Default } { Others } }
-        \xeCJK_pre_inter_class_toks:nnx { Others } {##1}
+        \xeCJK_pre_inter_class_toks:nne { Others } {##1}
           { \xeCJK_get_inter_class_toks:nn { Others } { Default } }
-        \xeCJK_if_blank_x:nT
+        \tl_if_blank:eT
           { \xeCJK_get_inter_class_toks:nn { Others } { Boundary } }
           {
             \xeCJK_copy_inter_class_toks:nnnn
               { Others } { Boundary } { Default } { Boundary }
           }
-        \xeCJK_if_blank_x:nT
+        \tl_if_blank:eT
           { \xeCJK_get_inter_class_toks:nn { Boundary } { Others } }
           {
             \xeCJK_copy_inter_class_toks:nnnn
@@ -8805,7 +8837,7 @@ Copyright and Licence
     \xeCJK_if_package_loaded:nTF { xunicode }
       { \@@_patch_xunicode_ambiguous_char: }
       {
-        \exp_args:Nx \@@_patch_tuenc_ambiguous_char:n
+        \exp_args:Ne \@@_patch_tuenc_ambiguous_char:n
           { \UnicodeEncodingName }
         \@@_patch_tuenc_accent:
         \@@_patch_tuenc_composite:
@@ -8840,13 +8872,14 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_patch_ambiguous_char:nN #1#2
   {
-    \exp_args:Nx \@@_patch_ambiguous_char:nn
+    \exp_args:Ne \@@_patch_ambiguous_char:nn
       { #1 \token_to_str:N #2 }
       { #1 - #2 }
   }
 \cs_new_protected:Npx \@@_patch_ambiguous_char:nNn #1#2#3
   {
-    \exp_args:Nx \exp_not:N \@@_patch_ambiguous_char:nn
+    \exp_not:N \exp_args:Ne
+    \exp_not:N \@@_patch_ambiguous_char:nn
       {
         \c_backslash_str #1
         \exp_not:N \token_to_str:N #2 -
@@ -8863,13 +8896,13 @@ Copyright and Licence
   {
     \token_if_chardef:NTF #1
       {
-        \prop_gput:Nnx \c_@@_ambiguous_slot_prop {#2}
+        \prop_gput:Nne \c_@@_ambiguous_slot_prop {#2}
           { \int_eval:n {#1} }
         \cs_set_protected:Npx #1
           { \@@_ambiguous_char:n { \tex_Uchar:D #1 } }
       }
       {
-        \prop_gput:Nnx \c_@@_ambiguous_slot_prop {#2}
+        \prop_gput:Nne \c_@@_ambiguous_slot_prop {#2}
           { \int_eval:n { \exp_after:wN ` #1 } }
         \cs_set_protected:Npx #1
           { \@@_ambiguous_char:n { \exp_not:o {#1} } }
@@ -9045,7 +9078,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_get_ambiguous_slot:
   {
-    \exp_args:NNx \prop_get:NnNT \c_@@_ambiguous_slot_prop
+    \prop_get:NeNT \c_@@_ambiguous_slot_prop
       { \MT@encoding - \tex_the:D \MT@toks } \l_@@_tmp_tl
       { \cs_set_eq:NN \MT@char \l_@@_tmp_tl }
   }
@@ -9428,15 +9461,15 @@ Copyright and Licence
   {
     \int_case:nn { \tex_lastnodetype:D }
       {
-        { 1 }  { \@@_ulem_right_skip_hbox: }
-        { 11 } { \@@_ulem_right_skip_glue: }
-        { 13 } { \@@_ulem_right_skip_penalty: }
+        { \c_@@_hlist_node }   { \@@_ulem_right_skip_hbox: }
+        { \c_@@_glue_node }    { \@@_ulem_right_skip_glue: }
+        { \c_@@_penalty_node } { \@@_ulem_right_skip_penalty: }
       }
   }
 \cs_new_protected:Npn \@@_ulem_right_skip_hbox:
   {
     \box_set_to_last:N \l_@@_tmp_box
-    \int_compare:nNnTF \tex_lastnodetype:D = { 12 }
+    \@@_if_last_kern:TF
       { \@@_ulem_right_skip_kern: }
       { \@@_ulem_right_skip_glue: }
     \box_use_drop:N \l_@@_tmp_box
@@ -9465,7 +9498,7 @@ Copyright and Licence
   {
     \int_set_eq:NN \l_@@_tmp_int \tex_lastpenalty:D
     \tex_unpenalty:D
-    \int_compare:nNnT \tex_lastnodetype:D = \c_one_int
+    \@@_if_last_hlist:T
       { \@@_ulem_right_skip_hbox: }
     \tex_penalty:D \l_@@_tmp_int
   }
@@ -10245,12 +10278,7 @@ Copyright and Licence
 \cs_new_protected:Npn \xeCJK_fntef_sbox:n #1
   {
     \hbox_set:Nn \l_@@_fntef_box
-      {
-        \color_group_begin:
-          \color_ensure_current:
-          #1
-        \color_group_end:
-      }
+      { \color_ensure_current: #1 }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10505,7 +10533,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \NewDocumentEnvironment { CJKfilltwosides } { O { c } m }
   {
-    \use:x { \exp_not:N \minipage [#1] { \dim_eval:n {#2} } }
+    \use:e { \exp_not:N \minipage [#1] { \dim_eval:n {#2} } }
     \cs_set_eq:NN \CJKglue \xeCJK_fntef_hfilll:
   }
   {
@@ -10519,7 +10547,7 @@ Copyright and Licence
     \tl_set:Nn \arraystretch { 1 }
     \cs_if_free:NF \extrarowheight
       { \cs_set_eq:NN \extrarowheight \c_zero_dim }
-    \use:x { \@@_fill_two_sides:nnn {#1} { \dim_eval:n {#2} } } {#3}
+    \use:e { \@@_fill_two_sides:nnn {#1} { \dim_eval:n {#2} } } {#3}
   }
   { \ignorespacesafterend }
 \cs_new_protected:Npn \@@_fill_two_sides:nnn #1#2#3
@@ -11057,7 +11085,7 @@ Copyright and Licence
 \tl_if_exist:NT \UTFencname
   { \clist_gput_right:Nx \g_@@_encname_clist { \UTFencname } }
 \DeclareOption*
-  { \clist_gput_right:NV \g_@@_encname_clist \CurrentOption }
+  { \clist_gput_right:No \g_@@_encname_clist \CurrentOption }
 \ProcessOptions \scan_stop:
 %    \end{macrocode}
 %
@@ -11106,7 +11134,7 @@ Copyright and Licence
   {
     \cs_set_eq:NN \@@_tmp:w \iftipaonetoken
     \cs_set_eq:NN \iftipaonetoken \scan_stop:
-    \use:x
+    \use:e
       {
         \ExplSyntaxOff
         \char_set_catcode_letter:n { 64 }
@@ -11289,7 +11317,7 @@ Copyright and Licence
   { @@_restore_ \tl_to_str:n { \nobreakspace } : }
   { \@@_restore_cmd:N \nobreakspace }
 \cs_new_protected:Npn \@@_restore_cmd:N #1
-  { \@@_restore_cmd:Nx #1 { ? - \token_to_str:N #1 } }
+  { \@@_restore_cmd:Ne #1 { ? - \token_to_str:N #1 } }
 \cs_new_protected:Npn \@@_restore_cmd:Nn #1#2
   {
     \cs_if_free:cF {#2}
@@ -11300,7 +11328,7 @@ Copyright and Licence
     \cs_gset_eq:NN #1 #2
     \cs_undefine:N #2
   }
-\cs_generate_variant:Nn \@@_restore_cmd:Nn { Nx }
+\cs_generate_variant:Nn \@@_restore_cmd:Nn { Ne }
 \cs_generate_variant:Nn \@@_restore_cmd:NN { Nc }
 %    \end{macrocode}
 % \end{macro}
@@ -11313,7 +11341,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_declare_character:Nnn #1#2#3
   {
     \@@_provide_text_command_default:N #1
-    \exp_after:wN \@@_declare_character:NNxn
+    \exp_after:wN \@@_declare_character:NNen
       \tex_Uchar:D \@@_check_slot:n {#3} \exp_stop_f:
       #1 { \token_to_str:N #1 } {#2}
   }
@@ -11384,7 +11412,7 @@ Copyright and Licence
       {#2} { \cs_if_exist_use:cF { ? #1 } {#2} }
     \@@_end_hook:nn {#1} {#2}
   }
-\cs_generate_variant:Nn \@@_declare_character:NNnn { NNx }
+\cs_generate_variant:Nn \@@_declare_character:NNnn { NNe }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11462,7 +11490,7 @@ Copyright and Licence
 % 将 |#1| 设置为编码 |#2| 下的带一个参数的复合符号命令。
 %    \begin{macrocode}
 \NewDocumentCommand \DeclareUTFComposite { m O { \UTFencname } }
-  { \use:x { \@@_declare_composite:Nnn \exp_not:N #1 { \token_to_str:N #1 } {#2} } }
+  { \use:e { \@@_declare_composite:Nnn \exp_not:N #1 { \token_to_str:N #1 } {#2} } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11572,7 +11600,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_declare_encoded:NNnnn #1#2#3#4#5
   {
-    \exp_after:wN \@@_declare_encoded:NNNNxx
+    \exp_after:wN \@@_declare_encoded:NNNNee
       \tex_Uchar:D \@@_check_slot:n {#4} \exp_after:wN \exp_stop_f:
       \tex_Uchar:D \@@_check_slot:n {#5} \exp_stop_f:
       #1 #2 { \token_to_str:N #2 } {#3}
@@ -11580,7 +11608,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_declare_encoded:NNNNnn #1#2#3#4#5#6
   { \DeclareTextCommand #4 {#6} { #3 {#5} {#6} {#1} {#2} } }
 \cs_generate_variant:Nn \@@_declare_encoded:NNnnn { c }
-\cs_generate_variant:Nn \@@_declare_encoded:NNNNnn { NNNNxx }
+\cs_generate_variant:Nn \@@_declare_encoded:NNNNnn { NNNNee }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11901,7 +11929,7 @@ Copyright and Licence
 % \changes{v3.2.10}{2014/02/20}{检查 \tn{t} 和 \tn{sliding} 的参数是否以 \tn{textipa} 开头。}
 %    \begin{macrocode}
 \NewDocumentCommand \DeclareUTFTIPACommand { O { \UTFencname } m }
-  { \use:x { \@@_text_tipa_command:Nnn \exp_not:N #2 { \token_to_str:N #2 } {#1} } }
+  { \use:e { \@@_text_tipa_command:Nnn \exp_not:N #2 { \token_to_str:N #2 } {#1} } }
 \cs_new_protected:Npn \@@_text_tipa_command:Nnn #1#2#3
   {
     \cs_set_eq:cc { UTF/#3#2 } { #3#2 }
@@ -11985,7 +12013,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected_nopar:Npn \xunadd@microtype@is@charx #1 \relax
   {
-    \use:x
+    \use:e
       { \xunadd_get_slot:nn { \MT@encoding } { \tex_the:D \MT@toks } }
     \int_compare:nNnTF \l_xunadd_slot_int < \c_zero_int
       { \xunadd@original@is@charx #1 \relax }
@@ -14254,7 +14282,7 @@ int main()
 ^^@ \cs_new_protected:Npn \@@_save_combine_marks:nnnn #1#2#3#4
 ^^@   { \@@_save_UTF_text_command:Nxx \l_@@_combine_marks_prop { { "#4 } { "#3 } } { \token_to_str:N #2 } }
 ^^@ \cs_new_protected:Npn \@@_save_UTF_text_command:Nxx #1#2#3
-^^@   { \use:x { \@@_save_UTF_text_command:Nnn \exp_not:N #1 {#2} {#3} } }
+^^@   { \use:e { \@@_save_UTF_text_command:Nnn \exp_not:N #1 {#2} {#3} } }
 ^^@ \cs_new_protected:Npn \@@_save_UTF_text_command:Nnn #1#2#3
 ^^@   {
 ^^@     \prop_get:NnNTF #1 {#2} \l_@@_command_tl
