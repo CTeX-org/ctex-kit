@@ -44,6 +44,7 @@ testfiledir    = "./test/testfiles"
 testsuppdir    = "./test/support"
 testdir        = "./build/check"
 checkruns      = 2
+maxprintline   = 2000
 stdengine      = "xetex"
 checkdeps      = {"../xeCJK","../zhnumber"}
 checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
