@@ -851,7 +851,13 @@
 \pdfstringdefDisableCommands{%
   \let\path\meta
   \let\opt\@firstofone}
-\preto\@thehead{\cslet{MakeUppercase\space}{\@iden}}
+% full expansion of \MakeUppercase is changed in LaTeX2e 2022-11-01,
+% see latex3/latex2e repo, commit 7447e931820114aa459e66b1a7937cdc9aebb0f4
+\ifcsdef{MakeUppercase\space\space\space}
+  {\preto\@thehead
+    {\protected\long\csdef{MakeUppercase\space\space\space}[#1]#2{{#2}}}}
+  {\preto\@thehead
+    {\protected\long\csdef{MakeUppercase\space}#1{{#1}}}}
 \def\orbar{\textup{\textbar}}
 \def\defaultval#1{\textbf{\textup{#1}}}
 \def\defaultvalaux#1){\defaultval{#1}}
