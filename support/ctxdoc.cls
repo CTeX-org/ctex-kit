@@ -284,7 +284,7 @@
 \cs_set_protected:Npn \__codedoc_print_macroname:nN #1#2
   {
     \strut
-    \__codedoc_get_hyper_target:xN
+    \__codedoc_get_hyper_target:eN
       {
         \exp_not:n {#1}
         \bool_if:NT #2 { \tl_to_str:n {TF} }
