@@ -20,7 +20,9 @@ tdslocations = {
   "fonts/misc/xetex/fontmapping/xecjk/*.tec",
 }
 
-local http_request = require("socket.http").request
+if install_files_bool then
+  local http_request = require("socket.http").request
+end
 local ltn12_sink_file = require("ltn12").sink.file
 local zip_open = require("zip").open
 
