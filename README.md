@@ -47,7 +47,7 @@ current release of TeX Live on Ubuntu Linux, macOS and Windows.
 
 | Current build status |
 |:--------------------:|
-| [![GitHub action for ctex-kit test](https://github.com/CTeX-org/ctex-kit/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/CTeX-org/ctex-kit/actions/workflows/test.yml?query=branch%3Amaster) |
+| [![ctex-kit test](https://github.com/CTeX-org/ctex-kit/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/CTeX-org/ctex-kit/actions/workflows/test.yml?query=branch%3Amaster) |
 
 ---
 
