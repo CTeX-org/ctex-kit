@@ -51,4 +51,4 @@ current release of TeX Live on Ubuntu Linux, macOS and Windows.
 
 ---
 
-Copyright (C) 2003&ndash;2021 [CTeX][ctex] community.
+Copyright (C) 2003&ndash;2024 [CTeX][ctex] community.
