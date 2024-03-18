@@ -298,8 +298,8 @@
         \tl_replace_all:NVn \l__codedoc_tmpa_tl
           \c_catcode_other_space_tl 
           { \fontspec_visible_space: }
-        \__codedoc_macroname_prefix:o \l__codedoc_tmpa_tl
-        \__codedoc_macroname_suffix:N #2
+        \__codedoc_print_macroname_aux:on
+          \l__codedoc_tmpa_tl { \bool_if:NT #2 { \__codedoc_typeset_TF: } }
       }
   }
 \AtBeginEnvironment { syntax }
