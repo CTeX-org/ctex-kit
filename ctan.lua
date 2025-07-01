@@ -1,5 +1,7 @@
 #!/usr/bin/env texlua
 
+local lfs = require("lfs")
+
 local ctex_kit = {
   "CJKpunct"        ,
   "ctex"            ,

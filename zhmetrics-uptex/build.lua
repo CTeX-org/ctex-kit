@@ -26,8 +26,8 @@ function move(path_src, path_dst)
 end
 
 function mkdir(dir)
-	if lfs.attributes(dir) ~= nil then
-		do return end
+	if lfs.attributes(dir) then
+		return
 	end
 	local md = 'mkdir -p'
 	if os.type == 'windows' then
@@ -38,8 +38,8 @@ function mkdir(dir)
 end
 
 function rmdir(dir)
-	if lfs.attributes(dir) == nil then
-		do return end
+	if not lfs.attributes(dir) then
+		return
 	end
 	local rd = 'rm -r -f'
 	if os.type == 'windows' then

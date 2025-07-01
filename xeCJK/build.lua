@@ -33,12 +33,25 @@ local function make_teckit_mapping()
     local unihan_zip = supportdir .. "/Unihan.zip"
     local zfile = zip_open(unihan_zip)
     if not zfile then
+      -- Use HTTPS for secure download and add basic validation
+      local temp_file = unihan_zip .. ".tmp"
       local status, err = http_request{
-        url  = "http://www.unicode.org/Public/UNIDATA/Unihan.zip",
-        sink = ltn12_sink_file(io.open(unihan_zip, "wb")) }
+        url  = "https://www.unicode.org/Public/UNIDATA/Unihan.zip",
+        sink = ltn12_sink_file(io.open(temp_file, "wb")) }
       if not status then
         error([[Download "]] .. "Unihan.zip" .. [[" failed because of ]] .. err .. ".")
       end
+      
+      -- Basic validation: check if downloaded file is a valid zip
+      local temp_zfile = zip_open(temp_file)
+      if not temp_zfile then
+        os.remove(temp_file)
+        error("Downloaded file is not a valid ZIP archive.")
+      end
+      temp_zfile:close()
+      
+      -- Move temp file to final location only after validation
+      os.rename(temp_file, unihan_zip)
       zfile = assert(zip_open(unihan_zip))
     end
     f = assert(zfile:open(unihan_variants))
