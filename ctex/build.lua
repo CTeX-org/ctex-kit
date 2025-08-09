@@ -53,6 +53,12 @@ specialformats.latex = {
   uptex  = {binary = "euptex"}
 }
 
+-- unfortunately cleveref is incompatible with recent LaTeX2e
+excludetests   = {
+  "cleveref02",
+  "cleveref03",
+}
+
 checkinit_hook = function()
   for _,i in ipairs(checkdeps) do
     local unpackdir = i .. "/" .. unpackdir
