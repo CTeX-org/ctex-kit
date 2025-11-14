@@ -882,20 +882,6 @@
 \def\upTeX{\hologo{upTeX}}
 \def\ApLaTeX{\hologo{ApLaTeX}}
 \def\upLaTeX{\hologo{upLaTeX}}
-\def\HoLogo@pTeX#1{p\kern -.15em \hologo{TeX}}
-\def\HoLogo@pLaTeX#1{p\kern -.05em \hologo{LaTeX}}
-\def\HoLogo@ApTeX#1{A\kern -.05em \hologo{pTeX}}
-\def\HoLogo@upTeX#1{u\kern -.05em \hologo{pTeX}}
-\def\HoLogo@ApLaTeX#1{A\kern -.05em \hologo{pLaTeX}}
-\def\HoLogo@upLaTeX#1{u\kern -.05em \hologo{pLaTeX}}
-\def\HoLogoBkm@pTeX#1{p\hologo{TeX}}
-\def\HoLogoBkm@pLaTeX#1{p\hologo{LaTeX}}
-\def\HoLogoBkm@ApTeX#1{A\hologo{pTeX}}
-\def\HoLogoBkm@upTeX#1{u\hologo{pTeX}}
-\def\HoLogoBkm@ApLaTeX#1{A\hologo{pLaTeX}}
-\def\HoLogoBkm@upLaTeX#1{u\hologo{pLaTeX}}
-\def\HoLogo@TeXLive#1{\TeX\ Live}
-\def\HoLogo@DVIPDFMx#1{DVIPDFM\ensuremath{x}}
 \def\bashcmd{\texttt}
 \def\BSTACK{\begin{tabular}[t]{@{}l@{}}}
 \def\ESTACK{\end{tabular}}
