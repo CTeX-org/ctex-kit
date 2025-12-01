@@ -1,7 +1,7 @@
 %%
 %% File ctxdoc.cls
 %%
-%%     Copyright (C) 2016--2022
+%%     Copyright (C) 2016--2025
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %%---------------------------------------------------------------------
 %%
@@ -20,7 +20,6 @@
 %%---------------------------------------------------------------------
 %%
 \NeedsTeXFormat{LaTeX2e}
-\RequirePackage{expl3}
 \GetIdInfo$Id$
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}{\ExplFileDate}{}{\ExplFileDescription}
@@ -28,7 +27,7 @@
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
-\LoadClass{l3doc}[2023-10-10]
+\LoadClass{l3doc}[2025-11-14]
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ctexset{
   abstractname   = 简介,
