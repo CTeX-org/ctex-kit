@@ -61,7 +61,7 @@ jobs:
         unzip -ojd ${{ matrix.font-dir }} "*OTC.zip" "*.ttc"
 
     - name: Test ctex
-      id: test
+      id: test-ctex
       working-directory: ./ctex
       run: |
         set -x
@@ -74,17 +74,51 @@ jobs:
         diffexe: git diff --no-index --text --
         L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
 
+    - name: Test xeCJK
+      if: ${{ !cancelled() }}
+      id: test-xecjk
+      working-directory: ./xeCJK
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
+    - name: Test zhnumber
+      if: ${{ !cancelled() }}
+      id: test-zhnumber
+      working-directory: ./zhnumber
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
     - name: Get short commit SHA
       # if-expression starting with "!" must be escaped,
       # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure') }}
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
     - name: Upload test diffs
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure') }}
       uses: actions/upload-artifact@v7
       with:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}
         path: |
           ctex/build/**/*.diff
+          xeCJK/build/**/*.diff
+          zhnumber/build/**/*.diff
