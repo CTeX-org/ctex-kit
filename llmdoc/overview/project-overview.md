@@ -44,5 +44,6 @@
 仓库处于持续维护状态：
 
 - 根级 `README.md` 展示了多个 CTAN 包版本徽章与 GitHub Actions 构建状态，见 `README.md:13-49`。
-- `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml:1-90`。
-- 当前自动化测试主焦点是 `ctex/`，通过 `ctex/build.lua` 的 `checkdeps` 间接覆盖 `xeCJK` 与 `zhnumber`，而并非每个卫星包都在 CI 中独立跑一遍。这意味着修改非核心包时要额外关注其本地构建与测试可达性。
+- `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml`。
+- 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/` 与 `zhnumber/` 的 `l3build check`，其中 `xeCJK` 与 `zhnumber` 已拥有各自的 `testfiles/` 回归目录。这表明仓库的测试维护正从“核心包主导、卫星包间接覆盖”逐步演进为“核心包 + 关键卫星包独立回归”。
+- 仍然不是每个卫星包都在 CI 中独立跑一遍；修改未接入测试框架的历史包时，仍要额外关注其本地构建与验证可达性。

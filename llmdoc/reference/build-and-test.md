@@ -86,7 +86,14 @@
 - `.tlg`：期望日志输出
 - 引擎差异时可使用 `name.<engine>.tlg`
 
-`ctex/test/testfiles/` 是该仓库最完整的回归测试目录。调查指出，测试文件使用 `\START`、`\END`、`\TEST{...}{...}` 之类标准测试宏组织案例；运行 `l3build check` 后会把实际日志与 `.tlg` 对比。若某引擎结果与标准引擎一致，`saveall()` 会清理重复的引擎专属 `.tlg`。
+`ctex/test/testfiles/` 仍是该仓库最完整的回归测试目录。测试文件使用 `\START`、`\END`、`\TEST{...}{...}` 之类标准测试宏组织案例；运行 `l3build check` 后会把实际日志与 `.tlg` 对比。若某引擎结果与标准引擎一致，`saveall()` 会清理重复的引擎专属 `.tlg`。
+
+现在除 `ctex` 外，`xeCJK/` 与 `zhnumber/` 也已经接入独立的 `testfiles/` 回归目录：
+
+- `xeCJK/testfiles/`：`basic01`、`punctstyle01`、`fonts01`
+- `zhnumber/testfiles/`：`basic01`、`style01`、`deprecation01`
+
+这意味着这两个子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
 
 ## 引擎矩阵
 
@@ -102,14 +109,22 @@
 - XeTeX 结果是主基线
 - 其他引擎只在确有差异时保留独立 `.tlg`
 
+新增的卫星包测试矩阵如下：
+
+- `xeCJK`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xeCJK/build.lua`。
+- `zhnumber`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"pdftex", "xetex", "luatex"}`，见 `zhnumber/build.lua`。
+
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
+
 ## 非典型测试模式
 
-并非所有子包都使用 `.lvt` / `.tlg`：
+仓库中仍有一些老包或历史目录没有统一纳入 l3build 测试框架，但 `xeCJK` 已不再只是依赖 example 文档编译来验证功能。当前较新的独立回归测试覆盖面可以概括为：
 
-- `xeCJK` 当前更依赖 example 文档编译来验证功能，调查未发现同级的标准 `testfiles/` 回归目录。
-- 一些老包或历史目录没有统一纳入 l3build 测试框架。
+- `ctex`：主干测试最完整，含多个测试配置。
+- `xeCJK`：已有独立 `testfiles/`，专注 XeTeX 行为回归。
+- `zhnumber`：已有独立 `testfiles/`，覆盖多引擎差异。
 
-这意味着修改 `xeCJK` 或历史包时，不应假设存在和 `ctex` 同等粒度的自动回归保护。
+因此，修改 `xeCJK` 与 `zhnumber` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
 
 ## CI/CD 配置
 
@@ -120,19 +135,29 @@ GitHub Actions 工作流位于 `.github/workflows/test.yml`。当前稳定事实
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
 - 字体准备：下载 Noto Sans/Serif CJK OTC 并解压到系统字体目录
-- 实际测试目录：`working-directory: ./ctex`
+- 当前 CI 在同一 job 中依次进入 `ctex/`、`xeCJK/`、`zhnumber/` 运行测试，而不再只停留在 `ctex/`
 
-见 `.github/workflows/test.yml:1-90`。
+见 `.github/workflows/test.yml`。
 
-CI 中执行的命令是：
+CI 中当前执行的测试步骤是：
 
-- `l3build check -q`
-- `l3build check -c test/config-cmap -q`
-- `l3build check -c test/config-contrib -q`
+- `Test ctex`：在 `./ctex` 运行
+  - `l3build check -q`
+  - `l3build check -c test/config-cmap -q`
+  - `l3build check -c test/config-contrib -q`
+- `Test xeCJK`：在 `./xeCJK` 运行 `l3build check -q`
+- `Test zhnumber`：在 `./zhnumber` 运行 `l3build check -q`
 
-因此 CI 的主检测面是 `ctex` 及其依赖链，而不是全仓库所有子包逐目录遍历。
+`Test xeCJK` 与 `Test zhnumber` 都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。两个卫星包步骤还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
 
-当测试失败时，工作流会把 `ctex/build/**/*.diff` 作为 artifact 上传，便于比对回归差异，见 `.github/workflows/test.yml:76-89`。
+失败时，artifact 上传范围也已扩展为：
+
+- `ctex/build/**/*.diff`
+- `xeCJK/build/**/*.diff`
+- `zhnumber/build/**/*.diff`
+
+另外，`ctex` 测试步骤的 step id 已由 `test` 调整为 `test-ctex`，以便与新增的 `test-xecjk`、`test-zhnumber` 一起在后续 artifact 条件表达式中区分引用。
+
 
 ## CTAN 发布流程
 
