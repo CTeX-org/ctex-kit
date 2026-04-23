@@ -55,6 +55,14 @@
 - 改了某个产物对应标签，却遗漏并行产物
 - 错判某段代码的实际输出文件
 
+### 引擎标签与 ctex.sty 的陷阱
+
+`ctex.sty` 以 `{style,ctex}` 标签从 `ctex.dtx` 生成，**不含**引擎标签（`pdftex`、`xetex`、`luatex`、`uptex`）。引擎 `.def` 文件分别以 `{pdftex}`、`{xetex}`、`{luatex}`、`{uptex}` 标签生成。
+
+关键约束：在 `ctex.sty` 输出的公共代码区域中使用 `%<*pdftex|xetex>` 守卫，该代码会被 docstrip 剥离，**不会**出现在 `ctex.sty` 中。这是一个已确认的陷阱（Issue #761 修复中踩过）。
+
+引擎条件代码的正确做法：在引擎 `.def` 代码段中，用 `\ctex_at_end:n`（= `\AtEndOfPackage`）延迟到包加载末尾重定义公共区域中已存在的默认实现。
+
 调查报告还指出，`xeCJK` 的 example 文档直接封装在 `xeCJK.dtx` 的剥离块里；这类文件既是示例，也是该包当前重要的验证载体。
 
 ## `\CTEX@` 遗留接口与 expl3 共存

@@ -16,3 +16,8 @@
 ## guides
 
 - 当前暂无指南文档。
+
+## memory
+
+- `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
+- `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
