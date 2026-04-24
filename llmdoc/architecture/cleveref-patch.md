@@ -46,6 +46,10 @@ ctex.dtx %<*class|heading> 区段:
 - 作用域: 在 `\ctex_cleveref_hook:` 执行前设置即可生效（通常在导言区）
 - 场景: 当 cleveref 补丁与上游修复冲突或引起副作用时，用户可关闭
 
+### 用户文档
+
+ctex.dtx 手册正文中新增了"第三方宏包兼容"章节（位于"自定义字体集"和"对旧版本的兼容性"之间），使用 `\begin{function}...\end{function}` 描述 `patch/cleveref` 选项的用户接口，包含 appendix 问题的 `\crefalias` 规避示例。
+
 ## Issue #725 问题根因链
 
 LaTeX2e 2024-11-01 之后:
