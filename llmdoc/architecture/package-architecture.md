@@ -102,6 +102,12 @@
 
 优先去 `xeCJK/xeCJK.dtx` 查找，而不是从 `ctex` 入手。
 
+## 第三方包兼容 hook
+
+xeCJK 在 `xeCJK.dtx` 中通过 `\@@_package_hook:nn` 为多个第三方包（如 `pifont`、`listings`、`ulem` 等）注册兼容 hook。这些 hook 在目标包加载后执行，通常重定义目标包的关键命令以避免与 xeCJK 的 interchar token 机制冲突。
+
+典型模式是在命令中临时调用 `\makexeCJKinactive`（将 `\XeTeXinterchartokenstate` 设为 0），执行目标操作后由 TeX 分组恢复状态。但在垂直模式下调用这些命令时，需要先进入水平模式（`\mode_leave_vertical:`），否则分页可能导致局部赋值泄漏到输出例程。
+
 ## TECkit 映射
 
 `xeCJK/build.lua` 在标准 l3build 配置之外，还在 `unpack_posthook()` 中调用 `make_teckit_mapping()`，动态生成并编译 `.map`/`.tec` 文件。其输入来自 Unicode `Unihan.zip` 中的变体数据，并额外生成全角句号/句点映射。见 `xeCJK/build.lua:28-149`。
