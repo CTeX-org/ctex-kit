@@ -1,0 +1,96 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\OMIT
+\usepackage{CJKutf8}
+\usepackage{CJKspace}
+\usepackage{CJKpunct}
+\TIMO
+
+\begin{document}
+
+\START
+
+\begin{CJK*}{UTF8}{gbsn}
+
+\ExplSyntaxOn
+
+% The fix for #747: opening punctuation at paragraph start should NOT have
+% extra lglue insertion.  Before the fix, opening punct in a fresh hbox
+% (where \lastkern = 0) would get ~5.4pt of lglue; after the fix, it does not.
+%
+% We test this by comparing the width of an hbox containing only opening
+% punctuation (where lastkern = 0) against an hbox where opening punctuation
+% follows a CJK character (where lastkern > 0).
+
+\TEST{Opening~punct~at~start~has~no~lglue}{
+  % In a fresh hbox, \lastkern = 0, so no lglue should be inserted
+  \hbox_set:Nn \l_tmpa_box { （ }
+  \dim_set:Nn \l_tmpa_dim { \box_wd:N \l_tmpa_box }
+  \TYPE { opening-punct-alone-width:~ \dim_use:N \l_tmpa_dim }
+}
+
+\TEST{Opening~punct~after~CJK~text~has~lglue}{
+  % After CJK text, \lastkern > 0, so lglue should be inserted
+  \hbox_set:Nn \l_tmpa_box { 文（ }
+  \dim_set:Nn \l_tmpa_dim { \box_wd:N \l_tmpa_box }
+  \TYPE { cjk-then-opening-punct-width:~ \dim_use:N \l_tmpa_dim }
+}
+
+\TEST{Width~difference~shows~lglue~only~after~CJK}{
+  \hbox_set:Nn \l_tmpa_box { （ }
+  \hbox_set:Nn \l_tmpb_box { 文（ }
+  % Also measure a bare CJK character for reference
+  \box_set_to_last:N \l_tmpc_box
+  \hbox_set:Nn \l_tmpc_box { 文 }
+  % The difference between (文（) and (（) should be approximately
+  % the width of 文 + CJKglue + lglue.
+  % The difference between (文（) and (文) + (（) should be approximately
+  % CJKglue + lglue (i.e., positive, not just CJKglue).
+  \dim_set:Nn \l_tmpa_dim {
+    \box_wd:N \l_tmpb_box - \box_wd:N \l_tmpa_box - \box_wd:N \l_tmpc_box }
+  \bool_set:Nn \l_tmpa_bool { \dim_compare_p:nNn { \l_tmpa_dim } > { 0pt } }
+  \TYPE { extra-space-after-cjk:~ \bool_if:NTF \l_tmpa_bool { yes } { no } }
+}
+
+\TEST{Paragraph~start~in~minipage~no~extra~indent}{
+  % Reproduce the #747 scenario: opening punct at paragraph start
+  % inside minipage + trivlist should not have extra indentation
+  \vbox_set:Nn \l_tmpa_box {
+    \dim_set:Nn \tex_hsize:D { 345pt }
+    \dim_zero:N \tex_parindent:D
+    （test）aaa \tex_par:D
+    （test）bbb \tex_par:D
+    （test）ccc \tex_par:D
+  }
+  \TYPE { minipage-test:~ ok }
+}
+
+\TEST{Opening~punct~in~consecutive~paragraphs~consistent~width}{
+  % Set two separate single-line paragraphs with opening punct at start
+  % Their natural line widths should be the same
+  \vbox_set:Nn \l_tmpa_box {
+    \dim_set:Nn \tex_hsize:D { 345pt }
+    \dim_zero:N \tex_parindent:D
+    （test） \tex_par:D
+  }
+  \vbox_set:Nn \l_tmpb_box {
+    \dim_set:Nn \tex_hsize:D { 345pt }
+    \dim_zero:N \tex_parindent:D
+    （test） \tex_par:D
+  }
+  % Both vboxes should have the same width
+  \bool_set:Nn \l_tmpa_bool {
+    \dim_compare_p:nNn { \box_wd:N \l_tmpa_box } = { \box_wd:N \l_tmpb_box } }
+  \TYPE { consistent-width:~
+    \bool_if:NTF \l_tmpa_bool { yes } { no } }
+}
+
+\ExplSyntaxOff
+
+\end{CJK*}
+
+\END
+
+\end{document}
