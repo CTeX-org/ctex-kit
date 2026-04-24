@@ -9370,22 +9370,41 @@ Copyright and Licence
 % \changes{v2.5.3}{2020/06/04}{兼容 \pkg{cleveref}。}
 % \changes{v2.5.4}{2020/06/17}{同时兼容 \pkg{cleveref} 和 \pkg{hyperref}。}
 % \changes{v2.5.7}{2021/06/04}{同时兼容 \pkg{cleveref} 和 \cls{beamer}。}
+%
+% \begin{macro}{patch/cleveref}
+% \pkg{cleveref} 宏包长期未维护，与较新的 \LaTeX{} 内核和 \pkg{hyperref}
+% 存在兼容问题。\CTeX{} 提供了对 \pkg{cleveref} 的补丁，但用户也可以选择
+% 关闭它。
+%    \begin{macrocode}
+\bool_new:N \l_@@_patch_cleveref_bool
+\bool_set_true:N \l_@@_patch_cleveref_bool
+\ctex_define:n
+  {
+    patch / cleveref .bool_set:N = \l_@@_patch_cleveref_bool ,
+    patch / cleveref .default:n = true
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\ctex_cleveref_hook:,\@@_cleveref_hook_aux:N}
 % 需要将\pkg{cleveref} 包对应命令中 |\p@|\meta{counter} 的参数及时展开，以兼容 \tn{labelformat}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_cleveref_hook:
   {
-    \@ifpackageloaded { hyperref }
+    \bool_if:NT \l_@@_patch_cleveref_bool
       {
-        \@ifpackagewith { hyperref } { implicit = false }
-          { }
-          { \@@_cleveref_hook_aux:N \H@refstepcounter }
+        \@ifpackageloaded { hyperref }
+          {
+            \@ifpackagewith { hyperref } { implicit = false }
+              { }
+              { \@@_cleveref_hook_aux:N \H@refstepcounter }
+          }
+          {
+            \@@_cleveref_hook_aux:N \refstepcounter@noarg
+            \@@_cleveref_hook_aux:N \refstepcounter@optarg
+          }
+        \@@_cleveref_hook_aux:N \appendix
       }
-      {
-        \@@_cleveref_hook_aux:N \refstepcounter@noarg
-        \@@_cleveref_hook_aux:N \refstepcounter@optarg
-      }
-    \@@_cleveref_hook_aux:N \appendix
   }
 \cs_new_protected:Npn \@@_cleveref_hook_aux:N #1
   {
