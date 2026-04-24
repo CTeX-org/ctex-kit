@@ -7319,6 +7319,10 @@ Copyright and Licence
 %
 % \begin{macro}{\setCJKfamilyfont, \newCJKfontfamily, \CJKfontspec}
 % \changes{v3.4.3}{2016/11/18}{允许字体属性可选项在后的新语法。}
+% \changes{v3.9.0}{2026/04/24}{\textbf{Breaking:}
+%   \tn{newCJKfontfamily} 定义的字体切换命令改为局部定义，
+%   与 \tn{newcommand} 行为一致。在分组内调用时，
+%   命令不再泄漏到分组外（\#751）。}
 % 分别用于预声明 CJK 字体族和声明并马上调用 CJK 字体族。
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKfamilyfont { m o m }
@@ -7327,12 +7331,18 @@ Copyright and Licence
       { \xeCJK_set_family:nnn {#1} } {#2} {#3}
       { }
   }
+\@@_msg_new:nn { command-already-defined }
+  { Control~sequence~\iow_char:N \\#1~is~already~defined. }
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \tl_if_novalue:nTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected:Npx #2
-      { \xeCJK_switch_family:n { \l_@@_tmp_tl } }
+    \cs_if_exist:NTF #2
+      { \@@_error:nx { command-already-defined } { \token_to_str:N #2 } }
+      {
+        \cs_set_protected:Npx #2
+          { \xeCJK_switch_family:n { \l_@@_tmp_tl } }
+      }
     \@@_pass_args:nnnn
       { \xeCJK_set_family:nnn { \l_@@_tmp_tl } } {#3} {#4}
       { }
