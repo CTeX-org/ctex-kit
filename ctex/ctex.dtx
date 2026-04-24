@@ -5875,6 +5875,10 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v2.4.6}{2016/11/20}{支持字体属性可选项在后的新语法。}
+% \changes{v2.6.0}{2026/04/24}{\textbf{Breaking:}
+%   \tn{newCJKfontfamily} 定义的字体切换命令改为局部定义，
+%   与 \tn{newcommand} 行为一致。在分组内调用时，
+%   命令不再泄漏到分组外（\#751）。}
 %
 % \begin{macro}[int]
 % {\setCJKfamilyfont,\newCJKfontfamily,\CJKfontspec,\addCJKfontfeatures}
@@ -5885,12 +5889,19 @@ Copyright and Licence
       { \ctex_ltj_set_family:nnn {#1} } {#2} {#3}
       { }
   }
+\msg_new:nnn { ctex } { command-already-defined }
+  { Control~sequence~\iow_char:N \\#1~is~already~defined. }
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \tl_if_novalue:nTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected:Npx #2
-      { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
+    \cs_if_exist:NTF #2
+      { \msg_error:nnx { ctex } { command-already-defined }
+          { \token_to_str:N #2 } }
+      {
+        \cs_set_protected:Npx #2
+          { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
+      }
     \@@_pass_args:nnnn
       { \ctex_ltj_set_family:nnn { \l_@@_tmp_tl } } {#3} {#4}
       { }
