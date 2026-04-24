@@ -558,10 +558,10 @@ Copyright and Licence
 %<backend>\ProvidesFile{ctexbackend.cfg}%
 %<dict&theorem&GBK>\ProvidesDictionary{translator-theorem-dictionary}{ChineseGBK}%
 %<dict&theorem&UTF8>\ProvidesDictionary{translator-theorem-dictionary}{ChineseUTF8}%
-%<fd>  [2022/07/14 v2.5.10 Chinese font definition (CTEX)]
-%<ctexspa>  [2022/07/14 v2.5.10 Space info for CJKpunct (CTEX)]
-%<backend>  [2022/07/14 v2.5.10 Backend configuration file (CTEX)]
-%<dict&theorem>  [2022/07/14 v2.5.10 Chinese translation for theorem name (CTEX)]
+%<fd>  [2024/03/20 v2.5.11 Chinese font definition (CTEX)]
+%<ctexspa>  [2024/03/20 v2.5.11 Space info for CJKpunct (CTEX)]
+%<backend>  [2024/03/20 v2.5.11 Backend configuration file (CTEX)]
+%<dict&theorem>  [2024/03/20 v2.5.11 Chinese translation for theorem name (CTEX)]
 %</!(driver|readme|install|zhmap|spa|docstrip)>
 %<*driver>
 \documentclass{ctxdoc}
@@ -2262,13 +2262,17 @@ Copyright and Licence
 %   \end{syntax}
 %   \opt{beforeskip} 选项用于设置章节标题前的垂直间距。
 %   该选项的默认设置见表~\ref{tab:beforeskip-default}。
+%
+%   \textbf{注意：}若加载了 \pkg{titlesec} 宏包（且未使用其 \opt{loadonly} 选项），
+%   \pkg{titlesec} 将完全接管章节标题命令。此时 \opt{beforeskip} 选项不再生效，
+%   应改用 \pkg{titlesec} 的 \tn{titlespacing} 命令来设置标题前间距。
 % \end{function}
 %
 % \begin{function}[EXP,updated=2015-06-27]{.../afterskip}
 %   \begin{syntax}
 %   afterskip = \Arg{弹性间距}
 %   \end{syntax}
-%   \opt{afterskip} 选项控制章节标题与后面下方之间的距离。
+%   \opt{afterskip} 选项控制章节标题下方或后面的间距。
 %
 %   对于 \tn{section} 级以下标题，\opt{runin} 选项会影响 \opt{afterskip} 选项的意义：
 %   若 \opt{runin} 为 \opt{true}，标题与随后正文排在同一段，\meta{弹性间距} 给出水平间距。
@@ -2277,6 +2281,10 @@ Copyright and Licence
 %   该选项的默认设置见表~\ref{tab:afterskip-default}。
 %   注意 \opt{sub3section} 或 \opt{sub4section} 宏包选项（见
 %   \ref{subs:options-heading}~节）会影响 \opt{aftertitle} 选项的默认值。
+%
+%   \textbf{注意：}若加载了 \pkg{titlesec} 宏包（且未使用其 \opt{loadonly} 选项），
+%   \pkg{titlesec} 将完全接管章节标题命令。此时 \opt{afterskip} 选项不再生效，
+%   应改用 \pkg{titlesec} 的 \tn{titlespacing} 命令来设置标题后间距。
 % \end{function}
 %
 % \begin{table}[htbp]
@@ -2920,6 +2928,39 @@ Copyright and Licence
 % 类似于 \CTeX{} 宏集的配置文件，也应该与其他本地配置文件一起保存在本地
 % \texttt{TDS} 目录树下，并可以配合 \file{ctexopts.cfg} 等配置文件使用。
 %
+% \section{第三方宏包兼容}
+% \label{sec:third-party}
+%
+% \CTeX{} 宏集为使 \tn{labelformat} 功能与章节标题设置兼容，对 \pkg{cleveref}
+% 等宏包进行了补丁。由于 \pkg{cleveref} 长期未维护（CTAN 上仍为 0.21.4），与新版
+% \LaTeX{} 内核和 \pkg{hyperref} 存在兼容问题，\CTeX{} 提供了选项以控制补丁行为。
+%
+% \begin{function}[EXP, added = 2026-04-24]{patch/cleveref}
+%   \begin{syntax}
+%     \tn{ctexset} |{ patch/cleveref = true \| false }|
+%   \end{syntax}
+%   控制是否对 \pkg{cleveref} 宏包应用兼容补丁。默认为 |true|。
+%   该补丁在 \pkg{cleveref} 的 \tn{refstepcounter} 变体中注入 \tn{expandafter}，
+%   以确保 \tn{labelformat} 格式化后的标签能正确展开。
+%
+%   当该补丁与上游 \LaTeX{} 内核或 \pkg{hyperref} 的更新产生冲突时，
+%   可以将此选项设为 |false| 以关闭补丁。
+%
+%   \textbf{注意：}当同时使用 \pkg{hyperref} 和 \pkg{cleveref} 时，|\appendix|
+%   之后的交叉引用类型可能不正确（例如，\texttt{appendix} 退化为
+%   \texttt{chapter}）。这是上游 \LaTeX{} 内核 \texttt{firstaid} 对
+%   \pkg{cleveref} 补丁不完整所致，与 \CTeX{} 无关。
+%   可以使用以下方法规避：
+% \begin{ctexexam}
+%   \AddToHook{cmd/appendix/before}{%
+%     \crefalias{chapter}{appendix}%
+%     \crefalias{section}{subappendix}%
+%     \crefalias{subsection}{subsubappendix}%
+%     \crefalias{subsubsection}{subsubsubappendix}%
+%   }
+% \end{ctexexam}
+% \end{function}
+%
 % \section{对旧版本的兼容性}
 %
 % \subsection{\CTeX\ 0.8a 及以前的版本}
@@ -3329,6 +3370,7 @@ Copyright and Licence
 % \changes{v2.4.10}{2017/07/19}{常数 \cs{c_minus_one} 已过时。}
 % \changes{v2.4.10}{2017/07/22}{使用 \texttt{lazy} 函数对 Boolean 表达式
 % 进行最小化运算（\LaTeXiii{} 2017/07/19）。}
+% \changes{v2.5.11}{2024/04/20}{提升 \LaTeXiii{} 版本至 2022/10/09。}
 %
 % 检查 \pkg{expl3} 的版本。
 %    \begin{macrocode}
@@ -3339,7 +3381,7 @@ Copyright and Licence
     `l3kernel'~and~`l3packages'\\\\
     using~your~TeX~package~manager~or~from~CTAN.
   }
-\@ifpackagelater { expl3 } { 2021/02/10 } { }
+\@ifpackagelater { expl3 } { 2022/10/09 } { }
   { \msg_error:nnn { ctex } { l3-too-old } { expl3 } }
 %    \end{macrocode}
 %
@@ -4269,25 +4311,14 @@ Copyright and Licence
 %
 % \changes{v2.5.10}{2022/06/10}{取消 \LaTeX\ 2022-06-01 对书名号的定义。}
 %
-% \begin{macro}{\ctex_undeclare_unicode_character:n,\ctex_utfviii_char:n}
+% \begin{macro}{\ctex_undeclare_unicode_character:n}
+% \changes{v2.5.11}{2024/04/20}{替换废弃命令 \cs{char_to_utfviii_bytes:n}。}
 % \LaTeX\ 2022-06-01 将通常用作中文书名号的 U+3008 和 U+3009 分别定义为
-% \tn{textlangle} 和 \tn{textrangle}，这个定义会被 \pkg{CJKutf8} 包会优先使用。
+% \tn{textlangle} 和 \tn{textrangle}，这个定义会被 \pkg{CJKutf8} 包优先使用。
 % 我们总是使用中文书名号，需要取消 \LaTeX\ 的定义，作用是局部的，不使用 \cs{cs_undefine:N}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_undeclare_unicode_character:n #1
-  { \cs_set_eq:cN { u8 : \ctex_utfviii_char:n {#1} } \tex_undefined:D }
-\cs_new:Npn \ctex_utfviii_char:n #1
-  {
-    \exp_last_unbraced:Ne \@@_utfviii_char_aux:nnnn
-      { \char_to_utfviii_bytes:n {#1} }
-  }
-\cs_new:Npn \@@_utfviii_char_aux:nnnn #1#2#3#4
-  {
-    \char_generate:nn {#1} { 12 }
-    \tl_if_empty:nF {#2} { \char_generate:nn {#2} { 12 } }
-    \tl_if_empty:nF {#3} { \char_generate:nn {#3} { 12 } }
-    \tl_if_empty:nF {#4} { \char_generate:nn {#4} { 12 } }
-  }
+  { \cs_set_eq:cN { u8 : \codepoint_str_generate:n {#1} } \tex_undefined:D }
 \CJKaddEncHook { UTF8 }
   {
     \ctex_undeclare_unicode_character:n { "3008 }
@@ -5885,6 +5916,10 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v2.4.6}{2016/11/20}{支持字体属性可选项在后的新语法。}
+% \changes{v2.6.0}{2026/04/24}{\textbf{Breaking:}
+%   \tn{newCJKfontfamily} 定义的字体切换命令改为局部定义，
+%   与 \tn{newcommand} 行为一致。在分组内调用时，
+%   命令不再泄漏到分组外（\#751）。}
 %
 % \begin{macro}[int]
 % {\setCJKfamilyfont,\newCJKfontfamily,\CJKfontspec,\addCJKfontfeatures}
@@ -5895,12 +5930,19 @@ Copyright and Licence
       { \ctex_ltj_set_family:nnn {#1} } {#2} {#3}
       { }
   }
+\msg_new:nnn { ctex } { command-already-defined }
+  { Control~sequence~\iow_char:N \\#1~is~already~defined. }
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \tl_if_novalue:nTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected:Npx #2
-      { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
+    \cs_if_exist:NTF #2
+      { \msg_error:nnx { ctex } { command-already-defined }
+          { \token_to_str:N #2 } }
+      {
+        \cs_set_protected:Npx #2
+          { \ctex_ltj_switch_family:n { \l_@@_tmp_tl } }
+      }
     \@@_pass_args:nnnn
       { \ctex_ltj_set_family:nnn { \l_@@_tmp_tl } } {#3} {#4}
       { }
@@ -6646,10 +6688,12 @@ Copyright and Licence
 %
 % \changes{v2.5.2}{2020/05/06}{兼容 \LaTeX\ 2020-02-02 之前的版本。}
 % \changes{v2.5.4}{2020/06/07}{修正主要字体命令补丁。}
+% \changes{v2.6.0}{2026/04/24}{\textbf{Breaking:}
+%   移除对 \LaTeX\ 2020/10/01 之前版本的字体钩子兼容代码。
+%   现在需要 \LaTeX\ 2020/10/01 或更新版本（\#746）。}
 %
 % 修改 \tn{rmfamily} 等主要字体命令，使得中文字体能随西文主要字体更新。
-% \LaTeX\ 2020-02-02 以后的版本可以直接使用 \tn{@rmfamilyhook} 等钩子。
-% 我们暂时需要处理旧内核的情况，以保持兼容性。
+% 使用 \LaTeX\ 2020/10/01 提供的 \texttt{rmfamily} 等 \pkg{NFSS} 钩子。
 %
 % \pkg{xeCJK} 和 \pkg{zhmCJK} 已经有相同的工作，本段代码不需要对他们使用。
 %    \begin{macrocode}
@@ -6667,27 +6711,10 @@ Copyright and Licence
     \exp_args:Nc \@@_provide_font_hook_aux:NNNN
       { CTEX \cs_to_str:N #2 } #1#2
   }
-\cs_if_exist:NTF \ctex_gadd_ltxhook:nn
+\cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
   {
-    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
-      {
-        \tl_new:N #1
-        \exp_args:Nx \ctex_gadd_ltxhook:nn { \cs_to_str:N #2 } {#1}
-      }
-  }
-  {
-    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
-      {
-        \tl_new:N #1
-        \cs_if_exist:NTF #3
-          { \tl_gput_right:Nn #3 {#1} }
-%    \end{macrocode}
-% 注意此处不能用 \cs{ctex_patch_cmd:Nnn} 来打补丁，因其会关闭 \LaTeXiii 语法，
-% 但 \pkg{fontspec} 会在 \tn{rmfamily} 的命令中相应加入
-% \cs{l__fontspec_rmfamily_encoding_tl} 等，导致补丁失败。
-%    \begin{macrocode}
-          { \ctex_parse_name:NN \tl_replace_once:Nnn #2 {#4} { #1#4 } }
-      }
+    \tl_new:N #1
+    \exp_args:Nx \ctex_gadd_ltxhook:nn { \cs_to_str:N #2 } {#1}
   }
 \ctex_provide_font_hook:NNN \rmfamily \@rmfamilyhook \selectfont
 \ctex_provide_font_hook:NNN \sffamily \@sffamilyhook \selectfont
@@ -7683,17 +7710,17 @@ Copyright and Licence
 % \end{variable}
 %
 % \begin{variable}{\c_@@_headings_seq}
+% 保存各级标题名字。
 %    \begin{macrocode}
+%<article|book|report|beamer>\seq_const_from_clist:Nn \c_@@_headings_seq
 %<*article|book|report>
-\seq_new:N \c_@@_headings_seq
-\seq_gset_eq:NN \c_@@_headings_seq \c_@@_section_headings_seq
-%<book|report>\seq_gput_left:Nn \c_@@_headings_seq { chapter }
-\seq_gput_left:Nn \c_@@_headings_seq { part }
+  { 
+    part ,
+%<book|report>    chapter ,
+    section , subsection , subsubsection , paragraph , subparagraph
+  }
 %</article|book|report>
-%<*beamer>
-\seq_const_from_clist:Nn \c_@@_headings_seq
-  { part , section , subsection }
-%</beamer>
+%<beamer>  { part , section , subsection }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -9380,22 +9407,54 @@ Copyright and Licence
 % \changes{v2.5.3}{2020/06/04}{兼容 \pkg{cleveref}。}
 % \changes{v2.5.4}{2020/06/17}{同时兼容 \pkg{cleveref} 和 \pkg{hyperref}。}
 % \changes{v2.5.7}{2021/06/04}{同时兼容 \pkg{cleveref} 和 \cls{beamer}。}
+%
+% \begin{macro}{patch/cleveref}
+% \pkg{cleveref} 宏包长期未维护，与较新的 \LaTeX{} 内核和 \pkg{hyperref}
+% 存在兼容问题。\CTeX{} 提供了对 \pkg{cleveref} 的补丁，但用户也可以选择
+% 关闭它。
+%
+% 当同时使用 \pkg{hyperref} 和 \pkg{cleveref} 时，|\appendix| 之后的交叉引用
+% 类型可能不正确（例如，\texttt{appendix} 退化为 \texttt{chapter}）。
+% 这是上游 \LaTeX{} 内核 \texttt{firstaid} 对 \pkg{cleveref} 补丁不完整所致，
+% 与 \CTeX{} 无关。可以使用以下方法规避：
+% \begin{verbatim}
+%   \AddToHook{cmd/appendix/before}{%
+%     \crefalias{chapter}{appendix}%
+%     \crefalias{section}{subappendix}%
+%     \crefalias{subsection}{subsubappendix}%
+%     \crefalias{subsubsection}{subsubsubappendix}%
+%   }
+% \end{verbatim}
+%    \begin{macrocode}
+\bool_new:N \l_@@_patch_cleveref_bool
+\bool_set_true:N \l_@@_patch_cleveref_bool
+\ctex_define:n
+  {
+    patch / cleveref .bool_set:N = \l_@@_patch_cleveref_bool ,
+    patch / cleveref .default:n = true
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\ctex_cleveref_hook:,\@@_cleveref_hook_aux:N}
 % 需要将\pkg{cleveref} 包对应命令中 |\p@|\meta{counter} 的参数及时展开，以兼容 \tn{labelformat}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \ctex_cleveref_hook:
   {
-    \@ifpackageloaded { hyperref }
+    \bool_if:NT \l_@@_patch_cleveref_bool
       {
-        \@ifpackagewith { hyperref } { implicit = false }
-          { }
-          { \@@_cleveref_hook_aux:N \H@refstepcounter }
+        \@ifpackageloaded { hyperref }
+          {
+            \@ifpackagewith { hyperref } { implicit = false }
+              { }
+              { \@@_cleveref_hook_aux:N \H@refstepcounter }
+          }
+          {
+            \@@_cleveref_hook_aux:N \refstepcounter@noarg
+            \@@_cleveref_hook_aux:N \refstepcounter@optarg
+          }
+        \@@_cleveref_hook_aux:N \appendix
       }
-      {
-        \@@_cleveref_hook_aux:N \refstepcounter@noarg
-        \@@_cleveref_hook_aux:N \refstepcounter@optarg
-      }
-    \@@_cleveref_hook_aux:N \appendix
   }
 \cs_new_protected:Npn \@@_cleveref_hook_aux:N #1
   {
@@ -9968,40 +10027,45 @@ Copyright and Licence
 % 要比简单的 |1.2\dimexpr| 精确^^A
 % \footnote{\url{http://thread.gmane.org/gmane.comp.tex.latex.latex3/3190}}。
 %    \begin{macrocode}
-\prop_new:N \c_@@_font_size_prop
-\seq_new:N \c_@@_font_size_seq
+\prop_new:N \l_@@_font_size_temp_prop
+\seq_new:N  \l_@@_font_size_temp_seq
 \cs_new_protected:Npn \@@_save_font_size:nn #1#2
   {
-    \use:e
+    \prop_put:Nne \l_@@_font_size_temp_prop {#1}
       {
-        \prop_gput:Nnn \exp_not:N \c_@@_font_size_prop {#1}
-          {
-            { \dim_to_decimal:n {#2} }
-            { \dim_to_decimal:n { (#2) * 6 / 5 } }
-          }
+        { \dim_to_decimal:n {#2} }
+        { \dim_to_decimal:n { (#2) * 6 / 5 } }
       }
-    \seq_gput_right:Nn \c_@@_font_size_seq {#1}
+    \seq_put_right:Nn \l_@@_font_size_temp_seq {#1}
   }
-\clist_map_inline:nn
-  {
-    {  8 } { 5    bp } ,
-    {  7 } { 5.5  bp } ,
-    { -6 } { 6.5  bp } ,
-    {  6 } { 7.5  bp } ,
-    { -5 } { 9    bp } ,
-    {  5 } { 10.5 bp } ,
-    { -4 } { 12   bp } ,
-    {  4 } { 14   bp } ,
-    { -3 } { 15   bp } ,
-    {  3 } { 16   bp } ,
-    { -2 } { 18   bp } ,
-    {  2 } { 22   bp } ,
-    { -1 } { 24   bp } ,
-    {  1 } { 26   bp } ,
-    { -0 } { 36   bp } ,
-    {  0 } { 42   bp }
-  }
-  { \@@_save_font_size:nn #1 }
+\group_begin:
+  \prop_clear:N \l_@@_font_size_temp_prop
+  \seq_clear:N  \l_@@_font_size_temp_seq
+  \clist_map_inline:nn
+    {
+      {  8 } { 5    bp } ,
+      {  7 } { 5.5  bp } ,
+      { -6 } { 6.5  bp } ,
+      {  6 } { 7.5  bp } ,
+      { -5 } { 9    bp } ,
+      {  5 } { 10.5 bp } ,
+      { -4 } { 12   bp } ,
+      {  4 } { 14   bp } ,
+      { -3 } { 15   bp } ,
+      {  3 } { 16   bp } ,
+      { -2 } { 18   bp } ,
+      {  2 } { 22   bp } ,
+      { -1 } { 24   bp } ,
+      {  1 } { 26   bp } ,
+      { -0 } { 36   bp } ,
+      {  0 } { 42   bp }
+    }
+    { \@@_save_font_size:nn #1 }
+  \exp_args:NNe \prop_const_from_keyval:Nn \c_@@_font_size_prop
+    { \prop_to_keyval:N \l_@@_font_size_temp_prop }
+  \exp_args:NNe \seq_const_from_clist:Nn \c_@@_font_size_seq
+    { \seq_use:Nn \l_@@_font_size_temp_seq { , } }
+\group_end:
 %    \end{macrocode}
 % \end{macro}
 % \end{variable}

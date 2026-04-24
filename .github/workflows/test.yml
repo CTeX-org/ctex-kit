@@ -13,137 +13,6 @@ on:
   workflow_dispatch:
 
 env:
-  TL_PACKAGES: |
-    adobemapping
-    amsfonts
-    amsmath
-    atbegshi
-    cjk
-    cjkutils
-    cm
-    ctablestack
-    currfile
-    dvipdfmx
-    ec
-    epstopdf-pkg
-    everysel
-    etex
-    etoolbox
-    euenc
-    fancyhdr
-    fandol
-    filehook
-    fontspec
-    graphics
-    graphics-cfg
-    graphics-def
-    iftex
-    l3build
-    l3experimental
-    l3kernel
-    l3packages
-    latex-bin
-    lm
-    lm-math
-    ltxcmds
-    lualatex-math
-    lualibs
-    luaotfload
-    luatex
-    luatex85
-    luatexbase
-    luatexja
-    metafont
-    mfware
-    ## not needed since LaTeX 2021-06-01
-    # everysel
-    oberdiek
-    platex-tools
-    tex
-    tex-ini-files
-    tools
-    trimspaces
-    ucharcat
-    ulem
-    unicode-data
-    uplatex
-    varwidth
-    xcolor
-    xetex
-    xkeyval
-    xunicode
-  TL_EXTRA_PACKAGES: |
-    amscls
-    atveryend
-    auxhook
-    beamer
-    bibunits
-    bigfoot
-    bigintcalc
-    bitset
-    booktabs
-    caption
-    carlisle
-    chinese-jfm
-    cjkpunct
-    cleveref
-    context
-    enumitem
-    environ
-    eso-pic
-    etexcmds
-    everyhook
-    fontaxes
-    footmisc
-    geometry
-    gettitlestring
-    hycolor
-    hyperref
-    infwarerr
-    intcalc
-    ipaex
-    kastrup
-    koma-script
-    kvdefinekeys
-    kvoptions
-    kvsetkeys
-    letltxmacro
-    mweights
-    natbib
-    newtx
-    notoccite
-    ntheorem
-    pdfescape
-    pdflscape
-    pdfpages
-    pdftexcmds
-    pgf
-    pkuthss
-    psnfss
-    refcount
-    rerunfilecheck
-    sansmathaccent
-    setspace
-    soul
-    svn-prov
-    tex-gyre
-    tex-gyre-math
-    thuthesis
-    titlesec
-    tocloft
-    translator
-    ttfutils
-    txfonts
-    unicode-math
-    uniquecounter
-    url
-    xcjk2uni
-    xecjk
-    xits
-    xstring
-    zhmetrics
-    zhmetrics-uptex
-    zhnumber
   NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
   NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
 
@@ -179,12 +48,10 @@ jobs:
 
     - name: Install TeX Live
       timeout-minutes: 30 # fail fast
-      uses: TeX-Live/setup-texlive-action@v3
+      uses: TeX-Live/setup-texlive-action@v4
       with:
-        packages: |
-          ${{ env.TL_PACKAGES }}
-          ${{ env.TL_EXTRA_PACKAGES }}
-          ${{ matrix.tl-pkgs }}
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
         update-all-packages: true
 
     - name: Install Noto fonts
@@ -194,28 +61,64 @@ jobs:
         unzip -ojd ${{ matrix.font-dir }} "*OTC.zip" "*.ttc"
 
     - name: Test ctex
-      id: test
+      id: test-ctex
       working-directory: ./ctex
       run: |
-        l3build check -q -H
-        l3build check -c test/config-cmap -q -H
-        l3build check -c test/config-contrib -q -H
+        set -x
+        l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        l3build check -c test/config-cmap -q "$L3BUILD_EXTRA_OPTIONS"
+        l3build check -c test/config-contrib -q "$L3BUILD_EXTRA_OPTIONS"
       env:
         # see https://github.com/muzimuzhi/latex-zutil/commit/14f74f8085de4f101bcd4e12738043b371afd161
         diffext: .diff
         diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
+    - name: Test xeCJK
+      if: ${{ !cancelled() }}
+      id: test-xecjk
+      working-directory: ./xeCJK
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
+    - name: Test zhnumber
+      if: ${{ !cancelled() }}
+      id: test-zhnumber
+      working-directory: ./zhnumber
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
 
     - name: Get short commit SHA
       # if-expression starting with "!" must be escaped,
       # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure') }}
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
     - name: Upload test diffs
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
-      uses: actions/upload-artifact@v5
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure') }}
+      uses: actions/upload-artifact@v7
       with:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}
         path: |
           ctex/build/**/*.diff
+          xeCJK/build/**/*.diff
+          zhnumber/build/**/*.diff

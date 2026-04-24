@@ -207,7 +207,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.9.1}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.9.2}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -3486,6 +3486,7 @@ Copyright and Licence
 %
 % \changes{v3.1.0}{2012/11/14}{删除多余的 \texttt{default-itcorr} 结点。}
 % \changes{v3.2.4}{2013/07/03}{尽量移除用作判断标志的 \tn{kern}。}
+% \changes{v3.9.2}{2026/04/03}{改正拼写错误 \cs{@@_glue_node:n}。}
 %
 % \begin{macro}[int]{\xeCJK_declare_node:n,\xeCJK_make_node:n}
 % 用于判断插入的各种 |kern| 和 |glue|。
@@ -3510,7 +3511,7 @@ Copyright and Licence
   { \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim } }
 \cs_new:Npn \@@_node:n #1
   { \use:c { c_@@_#1_node_dim } }
-\cs_new:Npn \@@_gule_node:n #1
+\cs_new:Npn \@@_glue_node:n #1
   { \use:c { c_@@_#1_node_skip } }
 \cs_new_protected:Npn \@@_make_node:N #1
   {
@@ -3544,8 +3545,8 @@ Copyright and Licence
 \cs_new_eq:NN \xeCJK_make_space_node: \prg_do_nothing:
 \cs_new_protected:Npx \@@_make_space_node:
   {
-    \tex_hskip:D - \@@_gule_node:n { default-space }
-    \tex_hskip:D   \@@_gule_node:n { default-space }
+    \tex_hskip:D - \@@_glue_node:n { default-space }
+    \tex_hskip:D   \@@_glue_node:n { default-space }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7318,6 +7319,10 @@ Copyright and Licence
 %
 % \begin{macro}{\setCJKfamilyfont, \newCJKfontfamily, \CJKfontspec}
 % \changes{v3.4.3}{2016/11/18}{允许字体属性可选项在后的新语法。}
+% \changes{v3.9.0}{2026/04/24}{\textbf{Breaking:}
+%   \tn{newCJKfontfamily} 定义的字体切换命令改为局部定义，
+%   与 \tn{newcommand} 行为一致。在分组内调用时，
+%   命令不再泄漏到分组外（\#751）。}
 % 分别用于预声明 CJK 字体族和声明并马上调用 CJK 字体族。
 %    \begin{macrocode}
 \NewDocumentCommand \setCJKfamilyfont { m o m }
@@ -7326,12 +7331,18 @@ Copyright and Licence
       { \xeCJK_set_family:nnn {#1} } {#2} {#3}
       { }
   }
+\@@_msg_new:nn { command-already-defined }
+  { Control~sequence~\iow_char:N \\#1~is~already~defined. }
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
       { \tl_if_novalue:nTF {#1} { \cs_to_str:N #2 } {#1} }
-    \cs_new_protected:Npx #2
-      { \xeCJK_switch_family:n { \l_@@_tmp_tl } }
+    \cs_if_exist:NTF #2
+      { \@@_error:nx { command-already-defined } { \token_to_str:N #2 } }
+      {
+        \cs_set_protected:Npx #2
+          { \xeCJK_switch_family:n { \l_@@_tmp_tl } }
+      }
     \@@_pass_args:nnnn
       { \xeCJK_set_family:nnn { \l_@@_tmp_tl } } {#3} {#4}
       { }
@@ -8442,9 +8453,19 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJKsetcharclass}
+% \changes{v3.9.0}{2026/04/24}{\textbf{Deprecated:}
+%   \tn{xeCJKsetcharclass} 已弃用，
+%   调用时报错并提示改用 \tn{xeCJKDeclareCharClass}（\#709）。}
 %    \begin{macrocode}
+\@@_msg_new:nn { xeCJKsetcharclass-deprecated }
+  {
+    \token_to_str:N \xeCJKsetcharclass\ is~deprecated~and~
+    does~not~update~CJKmath~char~lists.\\\\
+    Use~\token_to_str:N \xeCJKDeclareCharClass\ instead.
+  }
 \NewDocumentCommand \xeCJKsetcharclass { m m m }
   {
+    \@@_error:n { xeCJKsetcharclass-deprecated }
     \xeCJK_set_char_class:nnn {#1} {#2} {#3}
     \xeCJKResetPunctClass
   }
@@ -8616,63 +8637,22 @@ Copyright and Licence
 % \changes{v3.8.6}{2020/10/17}{兼容 \LaTeX\ 2020/10/01 的 \pkg{NFSS} 钩子机制。}
 %
 % \begin{macro}[int]{\fontfamily}
-% \begin{macro}[int]{\xeCJK@fontfamily,\xeCJK@family}
+% \begin{macro}[int]{\xeCJK@family}
 % \changes{v3.1.1}{2012/12/06}{修改主要 \texttt{CJK} 字体族的自动更新方式。}
 % \changes{v3.1.2}{2013/01/01}{不将参数完全展开。}
 % \changes{v3.4.6}{2017/02/23}
 %   {将族名参数完全展开，以解决与 \pkg{fontspec} 2017/01/24 v2.5d 的兼容问题。}
-% 对于 \LaTeXe\ 2020/02/02 之前的版本，修改 \tn{fontfamily}，
-% 使主要 |CJK| 字体族能随西文主要字体更新，之后的版本可以使用 \tn{@rmfamilyhook} 等新钩子处理。
-% \LaTeXe\ 2020/10/01 提供了新的的 \pkg{NFSS} 钩子。
+% \changes{v3.9.0}{2026/04/24}{\textbf{Breaking:}
+%   移除对 \LaTeXe\ 2020/10/01 之前版本的字体钩子兼容代码（\#746）。}
+% 使用 \LaTeXe\ 2020/10/01 提供的 \pkg{NFSS} 钩子，
+% 使主要 |CJK| 字体族能随西文主要字体更新。
 %    \begin{macrocode}
-\ctex_if_format_at_least:nTF { 2020/10/01 }
-  {
-    \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:e
-    \ctex_gadd_ltxhook:nn { rmfamily }   { \xeCJK@family { \CJKrmdefault } }
-    \ctex_gadd_ltxhook:nn { sffamily }   { \xeCJK@family { \CJKsfdefault } }
-    \ctex_gadd_ltxhook:nn { ttfamily }   { \xeCJK@family { \CJKttdefault } }
-    \ctex_gadd_ltxhook:nn { normalfont } { \xeCJK@family { \CJKfamilydefault } }
-  }
-  {
-    \cs_if_exist:NTF \@rmfamilyhook
-      {
-        \cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:e
-        \g@addto@macro \@rmfamilyhook { \xeCJK@family { \CJKrmdefault } }
-        \g@addto@macro \@sffamilyhook { \xeCJK@family { \CJKsfdefault } }
-        \g@addto@macro \@ttfamilyhook { \xeCJK@family { \CJKttdefault } }
-        \exp_args:Nc \g@addto@macro
-          {
-            \cs_if_exist:NTF \@defaultfamilyhook
-              { @defaultfamilyhook } { normalfont ~ }
-          }
-          { \xeCJK@family { \CJKfamilydefault } }
-      }
-      {
-        \RenewDocumentCommand \fontfamily { m }
-          {
-            \tl_set:Nx \f@family {#1}
-            \xeCJK@fontfamily {#1}
-          }
-        \cs_new_protected:Npn \xeCJK@fontfamily #1
-          {
-            \str_if_eq:nnTF {#1} { \familydefault }
-              { \xeCJK_switch_family:e { \CJKfamilydefault } }
-              { \@@_update_family_aux: }
-          }
-        \cs_new_protected:Npn \@@_update_family_aux:
-          {
-            \str_case_e:nn { \f@family }
-              {
-                { \rmdefault }     { \xeCJK_switch_family:e { \CJKrmdefault } }
-                { \sfdefault }     { \xeCJK_switch_family:e { \CJKsfdefault } }
-                { \ttdefault }     { \xeCJK_switch_family:e { \CJKttdefault } }
-                { \familydefault } { \xeCJK_switch_family:e { \CJKfamilydefault } }
-              }
-          }
-      }
-  }
+\cs_set_eq:NN \xeCJK@family \xeCJK_switch_family:e
+\ctex_gadd_ltxhook:nn { rmfamily }   { \xeCJK@family { \CJKrmdefault } }
+\ctex_gadd_ltxhook:nn { sffamily }   { \xeCJK@family { \CJKsfdefault } }
+\ctex_gadd_ltxhook:nn { ttfamily }   { \xeCJK@family { \CJKttdefault } }
+\ctex_gadd_ltxhook:nn { normalfont } { \xeCJK@family { \CJKfamilydefault } }
 %    \end{macrocode}
-% \end{macro}
 % \end{macro}
 %
 %    \begin{macrocode}
@@ -9022,11 +9002,13 @@ Copyright and Licence
   }
 %    \end{macrocode}
 % \pkg{pifont} 宏包的符号 |\ding{183}| 也有冲突。
+% \changes{v3.9.0}{2026/04/24}{在 \tn{Pifont} 中先进入水平模式，
+%   防止 \tn{makexeCJKinactive} 在垂直模式下通过分页泄漏到输出例程（\#688）。}
 %    \begin{macrocode}
 \@@_package_hook:nn { pifont }
   {
     \RenewDocumentCommand \Pifont { m }
-      { \makexeCJKinactive \usefont { U } {#1} { m } { n } }
+      { \mode_leave_vertical: \makexeCJKinactive \usefont { U } {#1} { m } { n } }
   }
 %    \end{macrocode}
 % \end{variable}

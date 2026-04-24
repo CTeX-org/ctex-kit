@@ -12,6 +12,10 @@ typesetsuppfiles = {"ctxdoc.cls"}
 typesetfiles     = {"xeCJK.dtx", "xunicode-symbols.tex"}
 scriptfiles      = {"xunicode-com*.tex"} -- dirty hack
 
+testfiledir  = "./testfiles"
+stdengine    = "xetex"
+checkengines = {"xetex"}
+
 tdslocations = {
   "doc/xelatex/xecjk/xunicode-*.tex",
   "doc/xelatex/xecjk/example/xeCJK-example-*.tex",
