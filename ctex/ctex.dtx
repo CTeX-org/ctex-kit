@@ -6688,10 +6688,12 @@ Copyright and Licence
 %
 % \changes{v2.5.2}{2020/05/06}{兼容 \LaTeX\ 2020-02-02 之前的版本。}
 % \changes{v2.5.4}{2020/06/07}{修正主要字体命令补丁。}
+% \changes{v2.6.0}{2026/04/24}{\textbf{Breaking:}
+%   移除对 \LaTeX\ 2020/10/01 之前版本的字体钩子兼容代码。
+%   现在需要 \LaTeX\ 2020/10/01 或更新版本（\#746）。}
 %
 % 修改 \tn{rmfamily} 等主要字体命令，使得中文字体能随西文主要字体更新。
-% \LaTeX\ 2020-02-02 以后的版本可以直接使用 \tn{@rmfamilyhook} 等钩子。
-% 我们暂时需要处理旧内核的情况，以保持兼容性。
+% 使用 \LaTeX\ 2020/10/01 提供的 \texttt{rmfamily} 等 \pkg{NFSS} 钩子。
 %
 % \pkg{xeCJK} 和 \pkg{zhmCJK} 已经有相同的工作，本段代码不需要对他们使用。
 %    \begin{macrocode}
@@ -6709,27 +6711,10 @@ Copyright and Licence
     \exp_args:Nc \@@_provide_font_hook_aux:NNNN
       { CTEX \cs_to_str:N #2 } #1#2
   }
-\cs_if_exist:NTF \ctex_gadd_ltxhook:nn
+\cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
   {
-    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
-      {
-        \tl_new:N #1
-        \exp_args:Nx \ctex_gadd_ltxhook:nn { \cs_to_str:N #2 } {#1}
-      }
-  }
-  {
-    \cs_new_protected:Npn \@@_provide_font_hook_aux:NNNN #1#2#3#4
-      {
-        \tl_new:N #1
-        \cs_if_exist:NTF #3
-          { \tl_gput_right:Nn #3 {#1} }
-%    \end{macrocode}
-% 注意此处不能用 \cs{ctex_patch_cmd:Nnn} 来打补丁，因其会关闭 \LaTeXiii 语法，
-% 但 \pkg{fontspec} 会在 \tn{rmfamily} 的命令中相应加入
-% \cs{l__fontspec_rmfamily_encoding_tl} 等，导致补丁失败。
-%    \begin{macrocode}
-          { \ctex_parse_name:NN \tl_replace_once:Nnn #2 {#4} { #1#4 } }
-      }
+    \tl_new:N #1
+    \exp_args:Nx \ctex_gadd_ltxhook:nn { \cs_to_str:N #2 } {#1}
   }
 \ctex_provide_font_hook:NNN \rmfamily \@rmfamilyhook \selectfont
 \ctex_provide_font_hook:NNN \sffamily \@sffamilyhook \selectfont
