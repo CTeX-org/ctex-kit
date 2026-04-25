@@ -88,13 +88,22 @@
 
 `ctex/test/testfiles/` 仍是该仓库最完整的回归测试目录。测试文件使用 `\START`、`\END`、`\TEST{...}{...}` 之类标准测试宏组织案例；运行 `l3build check` 后会把实际日志与 `.tlg` 对比。若某引擎结果与标准引擎一致，`saveall()` 会清理重复的引擎专属 `.tlg`。
 
-现在除 `ctex` 外，`xeCJK/`、`zhnumber/` 与 `CJKpunct/` 也已经接入独立的 `testfiles/` 回归目录：
+以下包接入了独立的 `testfiles/` 回归目录：
 
-- `xeCJK/testfiles/`：`basic01`、`punctstyle01`、`fonts01`
-- `zhnumber/testfiles/`：`basic01`、`style01`、`deprecation01`
-- `CJKpunct/testfiles/`：`punct-basic`、`punct-indent`、`punct-rglue`
+- `ctex`
+- `xeCJK`
+- `zhnumber`
+- `CJKpunct`
 
 这意味着这些子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
+
+此外，现在还维护多个专项测试配置：
+
+- `ctex/test/config-cmap.lua`：CMap 相关测试
+- `ctex/test/config-contrib.lua`：contrib 目录相关测试
+- `ctex/test/config-ctxdoc.lua`：`support/ctxdoc.cls` patch 健康检查，测试目录为 `ctex/test/testfiles-ctxdoc/`
+
+其中 `config-ctxdoc` 使用 `testfiledir = "./test/testfiles-ctxdoc"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，并通过 `checksuppfiles = {"ctxdoc.cls"}` 把本地 `support/ctxdoc.cls` 复制到 check 目录，确保测试覆盖仓库中的当前实现，而不是系统安装版本。对应测试 `patch-health.lvt` 会先传入 `fontset=fandol` 以避免系统字体依赖，再加载 `ctxdoc` 验证全部 patch 在 nonstop 模式下也能以致命错误暴露失败。
 
 ## 引擎矩阵
 
@@ -147,18 +156,21 @@ CI 中当前执行的测试步骤是：
   - `l3build check -q`
   - `l3build check -c test/config-cmap -q`
   - `l3build check -c test/config-contrib -q`
+  - `l3build check -c test/config-ctxdoc -q`
 - `Test xeCJK`：在 `./xeCJK` 运行 `l3build check -q`
 - `Test zhnumber`：在 `./zhnumber` 运行 `l3build check -q`
+- `Test CJKpunct`：在 `./CJKpunct` 运行 `l3build check -q`
 
-`Test xeCJK` 与 `Test zhnumber` 都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。两个卫星包步骤还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
+`Test xeCJK`、`Test zhnumber`、`Test CJKpunct` 都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。卫星包步骤还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
 
 失败时，artifact 上传范围也已扩展为：
 
 - `ctex/build/**/*.diff`
 - `xeCJK/build/**/*.diff`
 - `zhnumber/build/**/*.diff`
+- `CJKpunct/build/**/*.diff`
 
-另外，`ctex` 测试步骤的 step id 已由 `test` 调整为 `test-ctex`，以便与新增的 `test-xecjk`、`test-zhnumber` 一起在后续 artifact 条件表达式中区分引用。
+另外，`ctex` 测试步骤的 step id 已由 `test` 调整为 `test-ctex`，以便与新增的 `test-xecjk`、`test-zhnumber`、`test-cjkpunct` 一起在后续 artifact 条件表达式中区分引用。
 
 
 ## CTAN 发布流程
