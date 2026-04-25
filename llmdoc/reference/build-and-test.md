@@ -94,6 +94,7 @@
 - `xeCJK`
 - `zhnumber`
 - `CJKpunct`
+- `zhlineskip`
 
 这意味着这些子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
 
@@ -124,6 +125,7 @@
 - `xeCJK`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xeCJK/build.lua`。
 - `zhnumber`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"pdftex", "xetex", "luatex"}`，见 `zhnumber/build.lua`。
 - `CJKpunct`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `CJKpunct/build.lua`。CJKpunct 仅工作在 pdfTeX (CJK 宏包) 路线下。
+- `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 是独立 `.sty`（无 `.dtx` unpack），`unpackfiles = {}`。测试使用 vbox 尺寸捕获策略验证行距行为。
 
 `zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
 
@@ -160,6 +162,10 @@ CI 中当前执行的测试步骤是：
 - `Test xeCJK`：在 `./xeCJK` 运行 `l3build check -q`
 - `Test zhnumber`：在 `./zhnumber` 运行 `l3build check -q`
 - `Test CJKpunct`：在 `./CJKpunct` 运行 `l3build check -q`
+<<<<<<< HEAD
+=======
+- `Test zhlineskip`：在 `./zhlineskip` 运行 `l3build check -q`
+>>>>>>> 5448b292 (fix(zhlineskip): 修复 split 环境行距恢复泄漏导致的 display 间距异常 (#735))
 
 `Test xeCJK`、`Test zhnumber`、`Test CJKpunct` 都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。卫星包步骤还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
 
@@ -169,6 +175,10 @@ CI 中当前执行的测试步骤是：
 - `xeCJK/build/**/*.diff`
 - `zhnumber/build/**/*.diff`
 - `CJKpunct/build/**/*.diff`
+<<<<<<< HEAD
+=======
+- `zhlineskip/build/**/*.diff`
+>>>>>>> 5448b292 (fix(zhlineskip): 修复 split 环境行距恢复泄漏导致的 display 间距异常 (#735))
 
 另外，`ctex` 测试步骤的 step id 已由 `test` 调整为 `test-ctex`，以便与新增的 `test-xecjk`、`test-zhnumber`、`test-cjkpunct` 一起在后续 artifact 条件表达式中区分引用。
 

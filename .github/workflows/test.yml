@@ -128,15 +128,31 @@ jobs:
         diffexe: git diff --no-index --text --
         L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
 
+    - name: Test zhlineskip
+      if: ${{ !cancelled() }}
+      id: test-zhlineskip
+      working-directory: ./zhlineskip
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
     - name: Get short commit SHA
       # if-expression starting with "!" must be escaped,
       # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
     - name: Upload test diffs
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
       uses: actions/upload-artifact@v7
       with:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}
@@ -145,3 +161,4 @@ jobs:
           xeCJK/build/**/*.diff
           zhnumber/build/**/*.diff
           CJKpunct/build/**/*.diff
+          zhlineskip/build/**/*.diff
