@@ -88,12 +88,13 @@
 
 `ctex/test/testfiles/` 仍是该仓库最完整的回归测试目录。测试文件使用 `\START`、`\END`、`\TEST{...}{...}` 之类标准测试宏组织案例；运行 `l3build check` 后会把实际日志与 `.tlg` 对比。若某引擎结果与标准引擎一致，`saveall()` 会清理重复的引擎专属 `.tlg`。
 
-现在除 `ctex` 外，`xeCJK/` 与 `zhnumber/` 也已经接入独立的 `testfiles/` 回归目录：
+现在除 `ctex` 外，`xeCJK/`、`zhnumber/` 与 `CJKpunct/` 也已经接入独立的 `testfiles/` 回归目录：
 
 - `xeCJK/testfiles/`：`basic01`、`punctstyle01`、`fonts01`
 - `zhnumber/testfiles/`：`basic01`、`style01`、`deprecation01`
+- `CJKpunct/testfiles/`：`punct-basic`、`punct-indent`、`punct-rglue`
 
-这意味着这两个子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
+这意味着这些子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
 
 ## 引擎矩阵
 
@@ -113,6 +114,7 @@
 
 - `xeCJK`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xeCJK/build.lua`。
 - `zhnumber`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"pdftex", "xetex", "luatex"}`，见 `zhnumber/build.lua`。
+- `CJKpunct`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `CJKpunct/build.lua`。CJKpunct 仅工作在 pdfTeX (CJK 宏包) 路线下。
 
 `zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
 
