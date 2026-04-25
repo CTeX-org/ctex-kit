@@ -585,7 +585,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6719}
+% \CheckSum{6711}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -6858,9 +6858,18 @@ Copyright and Licence
 % \texttt{UTF-16BE} 字节流。
 % \pkg{hyperref} 2021-02-04 版开始默认设置 \opt{unicode} 为 \opt{true}，
 % 对于 \dvipdfmx\ 驱动，我们需要禁用这个设置，为此设置 \opt{pdfencoding} 为 \opt{pdfdoc}。
+%
+% \changes{v2.6.0}{2026/04/25}{修复 \pkg{hyperref} 在 \pkg{ctex}
+%   之前被加载时 \opt{driverfallback} 选项重复设置的警告（\#715）。}
+%
+% \opt{driverfallback} 是 \pkg{hyperref} 的加载选项，加载后即被禁用，不能通过
+% \tn{hypersetup} 设置。因此当 \pkg{hyperref} 已被其他宏包（如 \cls{beamer}）
+% 加载时，只能跳过此选项。
 %    \begin{macrocode}
 %<*pdftex>
-\ctex_hypersetup:n { driverfallback = dvipdfmx }
+\@ifpackageloaded { hyperref }
+  { }
+  { \PassOptionsToPackage { driverfallback = dvipdfmx } { hyperref } }
 \str_if_eq:onTF { \g_@@_encoding_tl } { GBK }
   {
     \ctex_hypersetup:n { CJKbookmarks = true }
@@ -6893,10 +6902,14 @@ Copyright and Licence
 % 置。注意 \upTeX{} 需要使用 UTF8-UTF16 的编码转换。
 %    \begin{macrocode}
 %<*uptex|aptex>
-\ctex_hypersetup:n
+\@ifpackageloaded { hyperref }
+  { \ctex_hypersetup:n { pdfencoding = pdfdoc } }
   {
-    driverfallback = dvipdfmx ,
-    pdfencoding    = pdfdoc
+    \ctex_hypersetup:n
+      {
+        driverfallback = dvipdfmx ,
+        pdfencoding    = pdfdoc
+      }
   }
 \ctex_at_end_package:nn { hyperref }
   {
