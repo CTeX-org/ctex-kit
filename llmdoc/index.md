@@ -29,6 +29,7 @@
 
 ### reflections
 
+- `llmdoc/memory/reflections/782-mac15plus-ci-os-gated-smoke-test.md` — 反思: macOS 专属字体问题需要 CI 级 OS 条件 smoke test 覆盖。
 - `llmdoc/memory/reflections/722-mac15plus-fontset.md` — 反思: PingFang 不可访问的错误假设、expl3 中 Lua 代码换行处理、l3build 缓存问题。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
 - `llmdoc/memory/reflections/671-cjkpunct-rglue-nobreak.md` — 反思: CJKpunct #671 修复中的节点级调试技术与 `\unhbox` 测试模式。

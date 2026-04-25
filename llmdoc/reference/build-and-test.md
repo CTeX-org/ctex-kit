@@ -148,7 +148,8 @@ GitHub Actions 工作流位于 `.github/workflows/test.yml`。当前稳定事实
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
 - 字体准备：下载 Noto Sans/Serif CJK OTC 并解压到系统字体目录
-- 当前 CI 在同一 job 中依次进入 `ctex/`、`xeCJK/`、`zhnumber/` 运行测试，而不再只停留在 `ctex/`
+- 当前 CI 在同一 job 中依次进入 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/` 运行测试
+- `ctex/test/support/test-mac15plus.tex` 是一个不依赖 l3build 基线比较的 smoke test，用于在 macOS runner 上直接验证 `fontset=mac15plus` 能被 XeLaTeX 与 LuaLaTeX 编译
 
 见 `.github/workflows/test.yml`。
 
@@ -159,26 +160,28 @@ CI 中当前执行的测试步骤是：
   - `l3build check -c test/config-cmap -q`
   - `l3build check -c test/config-contrib -q`
   - `l3build check -c test/config-ctxdoc -q`
+- `Test mac15plus fontset (macOS only)`：仅在 `runner.os == 'macOS'` 且工作流未取消时运行
+  - 先在 `./ctex` 执行 `l3build unpack -q`
+  - 进入 `build/unpacked/`
+  - 用 XeLaTeX 与 LuaLaTeX 分别编译 `../../test/support/test-mac15plus.tex`
+  - 该步骤位于 `Test ctex` 之后、`Test xeCJK` 之前，用于捕获 macOS 15+ 字体集这类只能在 macOS 环境复现的问题
 - `Test xeCJK`：在 `./xeCJK` 运行 `l3build check -q`
 - `Test zhnumber`：在 `./zhnumber` 运行 `l3build check -q`
 - `Test CJKpunct`：在 `./CJKpunct` 运行 `l3build check -q`
-<<<<<<< HEAD
-=======
 - `Test zhlineskip`：在 `./zhlineskip` 运行 `l3build check -q`
->>>>>>> 5448b292 (fix(zhlineskip): 修复 split 环境行距恢复泄漏导致的 display 间距异常 (#735))
 
-`Test xeCJK`、`Test zhnumber`、`Test CJKpunct` 都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。卫星包步骤还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
+`Test mac15plus fontset (macOS only)` 与后续四个卫星包步骤都带有 `if: ${{ !cancelled() }}`，因此只要工作流未被取消，就会继续执行，不会因为前一个测试步骤失败而自动跳过。`Test xeCJK`、`Test zhnumber`、`Test CJKpunct` 与 `Test zhlineskip` 还会在运行前检测 `testfiles` 目录或 `build.lua` 中的 `testfiledir` 配置；若未发现测试配置，则安全输出跳过信息，而不是直接失败。
 
-失败时，artifact 上传范围也已扩展为：
+失败时，artifact 上传范围当前只收集 l3build 生成的 diff：
 
 - `ctex/build/**/*.diff`
 - `xeCJK/build/**/*.diff`
 - `zhnumber/build/**/*.diff`
 - `CJKpunct/build/**/*.diff`
-<<<<<<< HEAD
-=======
 - `zhlineskip/build/**/*.diff`
->>>>>>> 5448b292 (fix(zhlineskip): 修复 split 环境行距恢复泄漏导致的 display 间距异常 (#735))
+
+`Test mac15plus fontset (macOS only)` 这类 shell 级 smoke test 若失败，主要依赖步骤日志定位问题，而不会额外上传独立 diff artifact。
+
 
 另外，`ctex` 测试步骤的 step id 已由 `test` 调整为 `test-ctex`，以便与新增的 `test-xecjk`、`test-zhnumber`、`test-cjkpunct` 一起在后续 artifact 条件表达式中区分引用。
 
