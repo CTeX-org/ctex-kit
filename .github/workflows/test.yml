@@ -7,6 +7,7 @@ on:
       # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
       [opened, ready_for_review, reopened, synchronize]
   push:
+    branches: [master]
   schedule:
     # at 12:00 UTC (20:00 CST/UTC +8) on Friday
     - cron: "0 12 * * 5"
@@ -52,6 +53,7 @@ jobs:
       with:
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
 
     - name: Install Noto fonts
@@ -128,15 +130,39 @@ jobs:
         diffexe: git diff --no-index --text --
         L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
 
+    - name: Test zhlineskip
+      if: ${{ !cancelled() }}
+      id: test-zhlineskip
+      working-directory: ./zhlineskip
+      run: |
+        set -x
+        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+          l3build check -q "$L3BUILD_EXTRA_OPTIONS" || {
+            echo "::group::zhlineskip raw logs"
+            for f in build/test/*.log; do
+              echo "=== $f ==="
+              head -80 "$f" 2>/dev/null || echo "(not found)"
+            done
+            echo "::endgroup::"
+            exit 1
+          }
+        else
+          echo "No test configuration found, skipping"
+        fi
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+
     - name: Get short commit SHA
       # if-expression starting with "!" must be escaped,
       # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
     - name: Upload test diffs
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
       uses: actions/upload-artifact@v7
       with:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}
@@ -145,3 +171,4 @@ jobs:
           xeCJK/build/**/*.diff
           zhnumber/build/**/*.diff
           CJKpunct/build/**/*.diff
+          zhlineskip/build/**/*.diff
