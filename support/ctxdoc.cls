@@ -29,6 +29,17 @@
 \ProcessOptions
 \LoadClass{l3doc}[2025-11-14]
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
+\ExplSyntaxOn
+\msg_new:nnn { ctxdoc } { patch-failure }
+  { Failed~to~patch~command~`#1'. }
+\cs_gset_protected:Npn \ctex_patch_failure:N #1
+  { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
+\ExplSyntaxOff
+\def\ctxdoc@patchfail#1{%
+  \ExplSyntaxOn
+  \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 }%
+  \ExplSyntaxOff
+}
 \ctexset{
   abstractname   = 简介,
   indexname      = 代码索引,
@@ -89,7 +100,7 @@
       \else
                          \addvspace\intextsep
       \fi}%
-    {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+    {}{\ctxdoc@patchfail\@addtocurcol}
 \patchcmd{\@addtocurcol}%
     {\vskip\intextsep \ifnum\outputpenalty <-\@Mii \vskip -\parskip\fi}%
     {\ifnum\outputpenalty <-\@Mii
@@ -98,9 +109,9 @@
      \else
        \vskip\intextsep
      \fi}%
-    {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+    {}{\ctxdoc@patchfail\@addtocurcol}
 \patchcmd{\@getpen}{\@M}{\@Mi}
-  {\typeout{*** SUCCESS ***}}{\typeout{*** FAIL ***}}
+  {}{\ctxdoc@patchfail\@getpen}
 %% --->
 %% 不对代码实现的 \section 以下标题编目录。
 \AtBeginEnvironment{implementation}{%
@@ -222,16 +233,18 @@
   { }
   { \noindent }
   { \skip_vertical:n { -\parskip } \noindent }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+  { }
+  { \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_function_descr_start:w } }
 %% l3doc 会在 function 环境的 syntax 和 descr 盒子中间加上 \medskipamount 的距离。
 %% 但是若 syntax 盒子为空（未使用 syntax 环境），就会显得不好看。
 %% 此时我们通过将 \medskipamount 设置为零来修正。若盒子非空，则将 \parskip 还回去。
 \ctex_preto_cmd:NnnTF \__codedoc_function_assemble:
   { }
   { \ctex_doc_fix_yoffset: }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+  { }
+  { \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_function_assemble: } }
 \cs_new_protected_nopar:Npn \ctex_doc_fix_yoffset:
   {
     \box_if_empty:NTF \g__codedoc_syntax_box
@@ -242,20 +255,23 @@
 \ctex_preto_cmd:NnnTF \__codedoc_typeset_functions:
   { }
   { \MacroFont }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+  { }
+  { \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_typeset_functions: } }
 \ctex_patch_cmd_once:NnnnTF \__codedoc_macro_init:
   { }
   { \hbox:n }
   { \MacroFont \hbox:n }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+  { }
+  { \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_macro_init: } }
 \ctex_patch_cmd_once:NnnnTF \__codedoc_macro_dump:
   { }
   { \hbox_unpack_drop:N }
   { \MacroFont \hbox_unpack_drop:N }
-  { \iow_term:n { *** ~ SUCCESS ~ *** } }
-  { \iow_term:n { *** ~ FAIL ~ *** } }
+  { }
+  { \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_macro_dump: } }
 \cs_set_eq:NN \__codedoc_macro_end_style:n \use_none:n
 \cs_set_protected:Npn \__codedoc_macro_typeset_one:nN #1#2
   {
