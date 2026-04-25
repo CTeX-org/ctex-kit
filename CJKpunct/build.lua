@@ -11,6 +11,10 @@ typesetfiles = {"CJKpunct.dtx"}
 unpackexe    = "pdftex"
 typesetexe   = "latex"
 
+stdengine    = "pdftex"
+checkengines = {"pdftex"}
+checkruns    = 1
+
 dtxchecksum = dtxchecksum or { }
 dtxchecksum.exe     = "latex"
 dtxchecksum.cfgfile = "ltxdoc.cfg"

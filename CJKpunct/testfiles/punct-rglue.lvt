@@ -1,0 +1,46 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\OMIT
+\usepackage{CJKutf8}
+\usepackage{CJKspace}
+\usepackage{CJKpunct}
+\TIMO
+
+\begin{document}
+
+\START
+
+\begin{CJK*}{UTF8}{gbsn}
+
+\ExplSyntaxOn
+
+% Test for issue #671: right punctuation's rglue must be preceded by
+% \nobreak to prevent TeX from breaking at paragraph end.
+%
+% Strategy: build hbox with "测。", unhbox to get all nodes on a fresh
+% hlist, then peel [kern][kern][rglue] from the tail and verify that a
+% penalty 10000 (\nobreak) sits immediately before the rglue.
+
+\TEST{Right~punct~rglue~preceded~by~nobreak~(github~\#671)}{
+  \hbox_set:Nn \l_tmpa_box { 测。 }
+  \hbox_set:Nn \l_tmpb_box {
+    \tex_unhbox:D \l_tmpa_box
+    \tex_unkern:D
+    \tex_unkern:D
+    \tex_unskip:D
+    \xdef \g_tmpa_tl { \the \tex_lastpenalty:D }
+  }
+  \int_compare:nNnTF { \g_tmpa_tl } = { 10000 }
+    { \TYPE { PASS:~nobreak~before~rglue } }
+    { \TYPE { FAIL:~penalty~is~\g_tmpa_tl } }
+}
+
+\ExplSyntaxOff
+
+\end{CJK*}
+
+\END
+
+\end{document}
