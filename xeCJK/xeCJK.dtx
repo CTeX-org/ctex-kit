@@ -587,8 +587,19 @@ Copyright and Licence
 %   \begin{syntax}
 %     LongPunct = \Arg{( — ⸺ ‥ … )}
 %   \end{syntax}
-%   设置长标点，例如破折号“——”与省略号“……”，允许在长标点前后
-%   断行，但是禁止在它们之间断行。
+%   设置长标点，例如破折号”——“与省略号”……”，允许在长标点前后
+%   断行，但是禁止在它们之间断行。同时属于 |NoBreakLongPunct|
+%   的长标点则禁止在其前面断行。
+% \end{function}
+%
+% \begin{function}[EXP]{NoBreakLongPunct,NoBreakLongPunct+,NoBreakLongPunct-}
+%   \begin{syntax}
+%     NoBreakLongPunct = \Arg{( ‥ … )}
+%   \end{syntax}
+%   设置禁止在其前面断行的长标点。属于 |NoBreakLongPunct| 的字符必须同时属于
+%   |LongPunct|。与普通长标点不同，\pkg{xeCJK} 禁止在这类标点前面断行，但仍
+%   允许在其后面断行，并禁止在相同长标点之间断行。缺省值包含省略号
+%   “\textbf{‥}”和”\textbf{…}”。
 % \end{function}
 %
 % \begin{function}[EXP]{MiddlePunct,MiddlePunct+,MiddlePunct-}
@@ -4021,8 +4032,11 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.6.0}{2018/01/23}{总允许长标点与其他标点之间折行。}
+% \changes{v3.9.3}{2026/04/27}
+% {\texttt{NoBreakLongPunct} 在右侧时禁止折行。}
 % \begin{macro}{\xeCJK_punct_kern:NN,\@@_punct_kern:NN}
-% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行。
+% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行，
+% 但 |NoBreakLongPunct| 在右侧时禁止折行。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_punct_kern:NN #1#2
   {
@@ -4033,7 +4047,11 @@ Copyright and Licence
           { \@@_punct_breakable_kern:NN }
           {
             \@@_punct_if_long:NTF #2
-              { \@@_punct_breakable_kern:NN }
+              {
+                \@@_punct_if_nobreak_long:NTF #2
+                  { \@@_punct_nobreak_kern:NN }
+                  { \@@_punct_breakable_kern:NN }
+              }
               { \@@_punct_nobreak_kern:NN }
           }
       }
@@ -4557,6 +4575,8 @@ Copyright and Licence
 % {修正标点同为 \texttt{LongPunct} 与 \texttt{MiddlePunct} 时的实现错误。}
 % \changes{v3.6.0}{2018/01/14}
 % {\texttt{Default} 类与 \texttt{MiddlePunct} 之间不应该有 \tn{CJKglue}。}
+% \changes{v3.9.3}{2026/04/27}
+% {新增 \texttt{NoBreakLongPunct} 属性，禁止在省略号等长标点前断行。}
 %
 % \begin{macro}
 % {\@@_CJK_and_FullRight_glue:N,\@@_Default_and_FullRight_glue:N}
@@ -4564,7 +4584,11 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_CJK_and_FullRight_glue:N #1
   {
     \@@_punct_if_long:NTF #1
-      { \xeCJK_allow_break: }
+      {
+        \@@_punct_if_nobreak_long:NTF #1
+          { \xeCJK_no_break: }
+          { \xeCJK_allow_break: }
+      }
       { \xeCJK_no_break: }
     \@@_punct_if_middle:NT #1
       {
@@ -4576,7 +4600,11 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_Default_and_FullRight_glue:N #1
   {
     \@@_punct_if_long:NTF #1
-      { \xeCJK_allow_break: }
+      {
+        \@@_punct_if_nobreak_long:NTF #1
+          { \xeCJK_no_break: }
+          { \xeCJK_allow_break: }
+      }
       { \xeCJK_no_break: }
     \@@_punct_if_middle:NT #1
       {
@@ -5311,7 +5339,7 @@ Copyright and Licence
 % \changes{v3.4.0}{2016/05/13}{\texttt{RubberPunctSkip} 选项有新的值 \texttt{plus} 和 \texttt{minus}。}
 %
 % \begin{macro}
-%  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,
+%  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,NoBreakLongPunct,
 %   MiddlePunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
@@ -5339,6 +5367,9 @@ Copyright and Licence
     LongPunct     .code:n = { \@@_set_special_punct:nn { long } {#1} } ,
     LongPunct+    .code:n = { \@@_add_special_punct:nn { long } {#1} } ,
     LongPunct-    .code:n = { \@@_sub_special_punct:nn { long } {#1} } ,
+    NoBreakLongPunct  .code:n = { \@@_set_special_punct:nn { nobreak_long } {#1} } ,
+    NoBreakLongPunct+ .code:n = { \@@_add_special_punct:nn { nobreak_long } {#1} } ,
+    NoBreakLongPunct- .code:n = { \@@_sub_special_punct:nn { nobreak_long } {#1} } ,
     MiddlePunct   .code:n = { \@@_set_special_punct:nn { middle } {#1} } ,
     MiddlePunct+  .code:n = { \@@_add_special_punct:nn { middle } {#1} } ,
     MiddlePunct-  .code:n = { \@@_sub_special_punct:nn { middle } {#1} } ,
@@ -5364,7 +5395,7 @@ Copyright and Licence
 % 相关选项定义的辅助函数。
 %    \begin{macrocode}
 \clist_new:N \g_@@_special_punct_clist
-\clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , middle }
+\clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , nobreak_long , middle }
 \cs_new:Npn \@@_special_punct_seq:n #1 { g_@@_special_punct_#1_seq }
 \cs_new:Npn \@@_special_punct_tl:nN #1#2 { g_@@_special_punct_#1_#2_tl }
 \clist_map_inline:Nn \g_@@_special_punct_clist
@@ -8328,6 +8359,7 @@ Copyright and Licence
     NoBreakCS       = { \footnote \footnotemark \nobreak } ,
     KaiMingPunct    = { ^^^^3002 ^^^^ff0e ^^^^ff1f ^^^^ff01 } ,
     LongPunct       = { ^^^^2014 ^^^^2e3a ^^^^2025 ^^^^2026 } ,
+    NoBreakLongPunct = { ^^^^2025 ^^^^2026 } ,
     MiddlePunct     = { ^^^^2013 ^^^^2014 ^^^^2e3a ^^^^2027 ^^^^00b7 ^^^^30fb ^^^^ff65 } ,
     AllowBreakBetweenPuncts = false
   }
