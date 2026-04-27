@@ -98,8 +98,6 @@
 
 这意味着这些子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
 
-其中 `xeCJK/testfiles/ellipsis01.lvt` 是为 issue #681 新增的省略号断行回归测试，覆盖 `NoBreakLongPunct` 路径：它验证省略号（`‥`、`…`）仍保留在 `LongPunct` 集合中，但在默认设置下额外获得 `NoBreakLongPunct` 属性，从而在长标点相关路径中禁止出现在行首。与之对应，`ctex/test/testfiles/punct.tlg` 的基线也随本次修复更新，反映省略号前断行 penalty 从 `0` 提升为 `10000`。
-
 此外，现在还维护多个专项测试配置：
 
 - `ctex/test/config-cmap.lua`：CMap 相关测试
