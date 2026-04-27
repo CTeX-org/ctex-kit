@@ -3236,10 +3236,11 @@ Copyright and Licence
     \xeCJK_if_last_node:nTF { CJK }
       { \use_i:nn }
       { \xeCJK_if_last_node:nTF { CJK-widow } }
-      { \xeCJK_remove_node: \CJKecglue }
+      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       {
-        \xeCJK_if_last_node:nT { CJK-space }
-          { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
+        \xeCJK_if_last_node:nTF { CJK-space }
+          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          { \@@_recover_ecglue_whatsit: }
       }
   }
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
@@ -3257,14 +3258,14 @@ Copyright and Licence
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
     \tex_unskip:D
     \xeCJK_if_last_node:nTF { CJK-space }
-      { \xeCJK_remove_node: \CJKecglue }
+      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       {
         \xeCJK_if_last_node:nTF { CJK }
           {
             \skip_if_eq:nnTF
               { \l_@@_last_skip }
               { \c_xeCJK_space_skip_tl }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               { \skip_horizontal:N \l_@@_last_skip }
           }
           { \skip_horizontal:N \l_@@_last_skip }
@@ -3363,9 +3364,13 @@ Copyright and Licence
     \@@_if_last_kern:TF
       { \@@_check_for_glue_auxi: }
       {
-        \@@_if_last_math:TF
-          { \xeCJK_remove_node: \CJKecglue }
-          { \@@_check_for_glue_auxii: }
+        \@@_if_last_whatsit:TF
+          { \@@_recover_glue_whatsit: }
+          {
+            \@@_if_last_math:TF
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              { \@@_check_for_glue_auxii: }
+          }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxi:
@@ -3379,7 +3384,7 @@ Copyright and Licence
         { \@@_node:n { CJK-widow } }
         { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
         { \@@_node:n { default } }
-        { \xeCJK_remove_node: \CJKecglue }
+        { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxii:
@@ -3406,7 +3411,7 @@ Copyright and Licence
           { \xeCJK_remove_node: \@@_ccglue_or_space: }
           {
             \xeCJK_if_last_node:nTF { default-space }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               { \@@_check_for_xglue_aux: }
           }
       }
@@ -3421,10 +3426,10 @@ Copyright and Licence
           { \xeCJK_remove_node: \@@_ccglue_or_space: }
           {
             \xeCJK_if_last_node:nTF { default }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               {
                 \@@_if_last_math:TF
-                  { \CJKecglue }
+                  { \skip_horizontal:N \l_@@_ecglue_skip }
                   { \skip_horizontal:N \l_@@_last_skip }
               }
           }
@@ -3439,6 +3444,8 @@ Copyright and Licence
 % \changes{v3.9.1}{2022/08/02}{简化部分内部实现。}
 % \changes{v3.9.2}{2022/08/31}{修复 \opt{xCJKecglue} 错误。}
 % \changes{v3.9.2}{2024/05/03}{修复 \cs{xeCJKnobreak} 错误。}
+% \changes{v3.9.2}{2026/04/27}{修复 \cs{textcolor} 等 whatsit 节点导致 \texttt{CJKecglue} 丢失的问题。}
+% \changes{v3.9.2}{2026/04/27}{修复字体切换组（如 \cs{texttt}、\cs{zihao}）导致 \texttt{CJKecglue} 使用错误字体度量的问题。}
 %
 % \begin{macro}[TF]{
 %   \@@_if_last_none:,
@@ -3471,6 +3478,7 @@ Copyright and Licence
 \@@_tmp:nn { glue }    { 11 }
 \@@_tmp:nn { kern }    { 12 }
 \@@_tmp:nn { penalty } { 13 }
+\@@_tmp:nn { whatsit } {  9 }
 \group_end:
 %    \end{macrocode}
 % \end{macro}
@@ -3511,8 +3519,12 @@ Copyright and Licence
   }
 \int_new:N \g_@@_node_int
 \int_gset:Nn \g_@@_node_int { 10 }
+\tl_new:N \g_@@_last_node_tl
 \cs_new_protected:Npn \xeCJK_make_node:n #1
-  { \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim } }
+  {
+    \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim }
+    \tl_gset:Nn \g_@@_last_node_tl {#1}
+  }
 \cs_new:Npn \@@_node:n #1
   { \use:c { c_@@_#1_node_dim } }
 \cs_new:Npn \@@_glue_node:n #1
@@ -3529,6 +3541,43 @@ Copyright and Licence
       {
         \@@_if_last_glue:T
           { \tex_unskip:D \tex_unskip:D }
+      }
+    \tl_gclear:N \g_@@_last_node_tl
+  }
+\cs_new_protected:Npn \@@_recover_ecglue_whatsit:
+  {
+    \@@_if_last_whatsit:T
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              {
+                \tl_if_eq:NnT \g_@@_last_node_tl { CJK-space }
+                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_recover_glue_whatsit:
+  {
+    \@@_if_last_whatsit:T
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+          { \xeCJK_remove_node: \CJKglue }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
+              { \xeCJK_remove_node: \@@_ccglue_or_space: }
+              {
+                \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+                  { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+                  {
+                    \tl_if_eq:NnT \g_@@_last_node_tl { default }
+                      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+                  }
+              }
+          }
       }
   }
 \xeCJK_declare_node:n { CJK }
@@ -3704,6 +3753,7 @@ Copyright and Licence
   {
     \group_align_safe_end:
     \xeCJK_class_group_end:
+    \xeCJK_glue_to_skip:nN { \CJKecglue } \l_@@_ecglue_skip
     { \xeCJK_make_node:n {#1} }
   }
 %    \end{macrocode}

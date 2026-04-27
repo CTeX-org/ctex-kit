@@ -96,7 +96,45 @@
 
 xeCJK 的字距控制还依赖 XeTeX 的 interchar 机制：字符先被分入 `Default`、`CJK`、`FullLeft`、`FullRight`、`Boundary` 等预定义类，以及 xeCJK 额外建立的 `HalfLeft`、`HalfRight`、`NormalSpace`、`CM` 等类，再由 `\XeTeXinterchartoks` 在类边界插入 `CJKglue` / `CJKecglue` 与相关分组 token。这里的关键不变量是：只有真正参与版面边界判定的可见字符，才应进入 class 序列；零宽格式字符若被当作普通字符参与分类，就会打断原本连续的 CJK 或 CJK↔Latin 边界，触发错误的 `CJKecglue` 或其他 inter-class toks 插入。
 
+从维护视角看，xeCJK 的这套 interchar 逻辑更适合被理解成一个“边界恢复状态机”，而不是若干零散的 glue 宏：
+
+- 第一层是边界判定。xeCJK 会在 `\xeCJK_make_node:n` 时插入内部标记 kern，后续主要通过 `\lastkern` 判断上一边界上保存的标记类型，以决定当前是否需要恢复 `CJKglue` 或 `CJKecglue`。
+- 第二层是异常回退。若边界标记与当前待处理位置之间夹入 `\special` 产生的 whatsit，则 `\lastkern` 观察链会被打断，需要额外的 whatsit 回退路径跨越节点干扰继续恢复。
+- 第三层是取值时机。前侧 `CJKecglue` 不是固定常量，而默认来自 `~` 的字体相关 glue，因此状态机除了判断“该不该恢复”，还必须保证“恢复时用的是哪一个已经在正确字体上下文里测得的值”。
+
+因此，xeCJK 的边界问题若表现为“glue 丢失”或“glue 数值不对”，都应优先从同一条 interchar 恢复链来理解，而不是拆成互不相关的字符类、字体或颜色子问题。
+
 Issue #581 暴露了这一点：U+200B ZERO WIDTH SPACE、U+200C ZERO WIDTH NON-JOINER、U+200D ZERO WIDTH JOINER 与 U+2060 WORD JOINER 虽然本身零宽，但若保留普通 catcode，仍会进入 xeCJK 的字符分类路径，导致原本不应变化的间距发生改变。当前实现选择在 `xeCJK/xeCJK.dtx` 的类设定初始化阶段，直接将这些字符与既有的 U+FEFF（BOM）一起设为 `\char_set_catcode_ignore:n`，使其在 TeX 输入层被忽略，不再触发 interchar 分类与 token 插入。
+
+Issue #315 则暴露了另一类更隐蔽的边界恢复问题：即使参与排版的字符本身没有分类错误，`\textcolor`、`color`/`xcolor` 以及 PDF 注解等机制仍可能通过 `\special` 在节点链中插入 whatsit 节点（`\lastnodetype = 9`）。xeCJK 旧实现把“上一类边界标记是否存在”主要建模为 `\lastkern` 上的标记 kern；一旦 Boundary→Default 或 Boundary→CJK 过渡之间夹入 whatsit，这条检测链就会被打断，导致本应恢复的 `CJKecglue` / `CJKglue` 丢失。
+
+当前修复在 `xeCJK/xeCJK.dtx` 中增加了一条“whatsit 回退”路径：
+
+- 新增全局变量 `\g_@@_last_node_tl`，在 `\xeCJK_make_node:n` 创建内部标记节点时同步保存标记类型。
+- 新增 `\@@_if_last_whatsit:TF`，以 `\lastnodetype = 9` 判断上一节点是否为 whatsit。
+- 新增 `\@@_recover_ecglue_whatsit:` 与 `\@@_recover_glue_whatsit:`，当常规 `\lastkern` 检测失败但上一节点是 whatsit 时，回看 `\g_@@_last_node_tl` 决定是否恢复 `CJKecglue` 或 `CJKglue`。
+- `\@@_check_for_ecglue:` 与 `\xeCJK_check_for_glue:` 在标准检测链末尾追加上述回退逻辑。
+- `\xeCJK_remove_node:` 在消费完内部标记节点后清空保存的节点类型，避免跨边界误判。
+
+这说明 xeCJK 的 glue 恢复机制不能只理解成“检查上一项是否有特定 kern”，而要理解成“围绕 interchar 边界标记的一个小状态机”：正常路径依赖标记 kern，异常路径需要跨越 whatsit 节点恢复之前保存的边界类型。遇到 xcolor、hyperref 注解或其他 `\special` 参与时出现的 CJK-Latin / CJK-CJK 间距丢失，首查的就不应只是 glue 参数或字符类，而应直接检查 `xeCJK/xeCJK.dtx` 中这条 whatsit 回退链是否被覆盖。
+
+Issue #252 / #476 进一步说明，这条状态机不仅要解决“能否恢复”的问题，还要解决“恢复时取哪个 glue 值”的问题。`\CJKecglue` 默认是 `~`，其宽度、stretch、shrink 取决于当前字体的 `\fontdimen`；因此如果在 `\texttt`、`\textbf`、`\textit`、`\zihao` 或其他局部分组里切换了字体，再在边界恢复时直接重新展开 `\CJKecglue`，就会错误地使用组内字体的空格度量，而不是外层 CJK 字体的度量。
+
+当前实现为此前侧 ecglue 恢复增加了“缓存值”这一层状态：
+
+- 在 `\@@_boundary_group_end:n`，也就是 CJK→Boundary 过渡时，先把当时正确 CJK 字体上下文中的 `\CJKecglue` 缓存到 `\l_@@_ecglue_skip`。
+- 后续所有前侧边界恢复路径统一使用这个缓存 skip，而不再在恢复点重新测量 `\CJKecglue`。
+- 这样即使 Boundary 区间内部出现局部字体切换，真正恢复出来的 ecglue 仍保持离开 CJK 区域时的度量。
+
+这个设计刻意选择“CJK→Boundary 时缓存”，而不是初始化时缓存或每个字符都缓存：初始化时拿到的值会随着后续字体/字号切换而过期；每字符缓存则频率过高、状态复杂度也更大。CJK→Boundary 正好是离开正确 CJK 字体上下文前的最后稳定时机，既保证度量正确，也把缓存成本限制在边界级别。
+
+因此，修复后的 xeCJK interchar 状态机应整体理解为：
+
+1. 用 `\lastkern` 标记 kern 判定上一边界类型；
+2. 若被 whatsit 打断，则通过 `\lastnodetype` 与保存的节点类型走回退路径；
+3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`。
+
+也就是说，#315 解决的是“边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是“边界恢复时重新测量 ecglue 会拿错字体度量”，二者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
 
 这个决策刻意没有采用另外两条看似直观的路线：
 
@@ -165,6 +203,34 @@ ctex 在 `%<*class|heading>` 区段（`ctex/ctex.dtx` 约 7660-9448 行）维护
 - apTeX → 独立引擎适配层
 
 这是整个仓库最关键的架构不变量之一：`ctex` 不试图用一套底层实现覆盖所有引擎，而是把统一接口建立在多后端适配之上。调查中明确指出，XeTeX、LuaTeX、pdfTeX、upTeX 各自对应不同的底层机制，见 `ctex/ctex.dtx` 的 engine support 段落与 `ctex/build.lua:46-53` 的多引擎测试配置。
+
+### 引擎条件代码的延迟重定义模式
+
+`ctex.sty` 以 `{style,ctex}` 标签从 `ctex.dtx` 生成，不含引擎标签（`pdftex`、`xetex` 等）。这意味着在 `ctex.sty` 对应的公共代码区域中直接使用 `%<*pdftex|xetex>` docstrip 守卫会被剥离，实际无效。
+
+正确的引擎条件化方案是：在引擎 `.def` 代码段（以 `{pdftex}`、`{xetex}` 等标签生成）中，用 `\ctex_at_end:n`（= `\AtEndOfPackage`）延迟到包加载末尾执行重定义。这样，引擎 `.def` 的代码在包加载链后期覆写公共区域中定义的默认实现，实现引擎特化。
+
+这一模式在 linestretch/CJKglue 子系统的修复中被确立。详见 `llmdoc/memory/decisions/761-ccglue-override.md`。
+
+## Linestretch 与 CJKglue 子系统
+
+### 调用链
+
+`\selectfont` → `\ctex_update_size:` → `\ctex_update_stretch:` → 分支到 `\@@_update_stretch_auxi:` 或 `\@@_update_stretch_auxii:`。
+
+- `\@@_update_stretch_auxi:`：linestretch 禁用时的路径。一开始就含有 `\ctex_if_ccglue_touched:TF` 守卫。
+- `\@@_update_stretch_auxii:`：linestretch 启用时的默认路径。在公共区域定义为直接调用 `\@@_update_stretch_auxiii:`。
+- `\@@_update_stretch_auxiii:`：提取出的 linestretch 计算逻辑，计算弹性胶并调用 `\ctex_update_ccglue:`。
+
+### 引擎特化覆写
+
+pdftex/xetex 的引擎 `.def` 中通过 `\ctex_at_end:n` 重定义 `\@@_update_stretch_auxii:`，加入 `\ctex_if_ccglue_touched:TF` 检查：用户已设置 CJKglue 时仅更新 `\ccwd`，不覆盖用户的 `\CJKglue` 定义。
+
+luatex/uptex 保持原始行为（直接调用 `auxiii:`），因为其 `\ctex_if_ccglue_touched:` 检测机制存在预存缺陷（`\l_@@_ccglue_skip` 未初始化），需另行修复。
+
+### 涉及源码
+
+`ctex/ctex.dtx` 中的 linestretch 函数定义（公共区域）和引擎 `.def` 代码段（pdftex/xetex 特化）。回归测试 `ctex/test/testfiles/ccglue01.lvt`。
 
 ## 包间依赖图
 
