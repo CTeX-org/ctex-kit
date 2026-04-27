@@ -9053,6 +9053,41 @@ Copyright and Licence
 % \end{variable}
 % \end{macro}
 %
+% \changes{v3.9.2}{2026/04/27}{重定义 \tn{char}，使其绕过 interchar 机制（\#407）。}
+%
+% \begin{macro}{\xeCJK_default_char:w}
+% \begin{macro}{\@@_default_char_aux:}
+% \begin{variable}{\l_@@_default_char_int}
+% \tn{char} 是 \TeX 原语，用户使用它直接通过字符编码从当前字体取字形，
+% 不经过 NFSS 层。一些宏包（如 \pkg{mtpro2}）在数学模式中用 \tn{char} 取
+% 非 CJK 字形时，会被 \pkg{xeCJK} 的 interchar 机制拦截并切换到中文字体，
+% 导致字形变成中文标点（如间隔号）。这里参照 \pkg{LuaTeX-ja} 的做法，
+% 重定义 \tn{char}，使之临时关闭 |XeTeXinterchartokenstate|，保证输出的字符
+% 来自当前字体。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_default_char:w
+  {
+    \int_compare:nNnTF \tex_XeTeXinterchartokenstate:D > \c_zero_int
+      {
+        \c_group_begin_token
+          \tex_afterassignment:D \@@_default_char_aux:
+          \l_@@_default_char_int =
+      }
+      { \tex_char:D }
+  }
+\cs_new_protected:Npn \@@_default_char_aux:
+  {
+      \tex_XeTeXinterchartokenstate:D = \c_zero_int
+      \tex_char:D \l_@@_default_char_int
+    \c_group_end_token
+  }
+\int_new:N \l_@@_default_char_int
+\cs_set_eq:NN \char \xeCJK_default_char:w
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+% \end{macro}
+%
 % \changes{v3.8.3}{2020/04/09}{兼容 \pkg{unicode-math} 和 \opt{CJKmath} 选项。}
 %
 % \begin{macro}{\@@_save_um_char:, \@@_save_um_char:}
