@@ -58,7 +58,15 @@
 
 #### 3. 字体集层
 
-`ctex-fontset-{windows,mac,macnew,ubuntu,fandol,adobe,founder,hanyi}.def` 提供默认字体族映射，负责把“中文主字体/无衬线/等宽”等高层概念落到具体发行版或操作系统字体名。
+`ctex-fontset-{adobe,fandol,founder,hanyi,mac,mac15plus,macnew,macold,ubuntu,windows}.def` 提供默认字体族映射，负责把”中文主字体/无衬线/等宽”等高层概念落到具体发行版或操作系统字体名。
+
+其中 `mac` 是 macOS 的自动检测入口，根据系统版本转发到三个具体字体集之一：
+
+1. `mac15plus`（macOS 15 Sequoia 及之后）：Apple 将部分 CJK 字体移至私有目录，PingFang 改为系统 UI 专用不可访问。LuaTeX 通过 Lua `lfs` 扫描 AssetsV2 目录定位字体文件并显式加载；无衬线族统一用 Heiti SC。
+2. `macnew`（El Capitan ~ macOS 14）：使用多字重华文字体和苹方字体。
+3. `macold`（Yosemite 及更早）：使用旧版华文字体。
+
+检测逻辑在 `ctex/ctex.dtx` 的 `%<*mac>` guard 中（约行 10989），以 `/System/Library/Fonts/Supplemental/Songti.ttc` 和 `/System/Library/Fonts/PingFang.ttc` 的存在性为判据。
 
 #### 4. 方案层
 

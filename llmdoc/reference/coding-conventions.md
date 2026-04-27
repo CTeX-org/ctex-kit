@@ -111,3 +111,20 @@
 - **实现文档**（代码实现部分）：使用 `\begin{macro}...\end{macro}` 描述内部机制，排版后出现在手册后半部分。
 
 新增选项或命令时，两处都需要添加说明：`\begin{function}` 面向用户解释用法和效果，`\begin{macro}` 面向开发者说明实现细节。
+
+## expl3 中嵌入 Lua 代码的空格约定
+
+在 `.dtx` 的 `\lua_now:e` 块中编写 Lua 代码时，`\ExplSyntaxOn` 会将换行符设为 catcode 9（ignored），因此**行尾和行首之间的换行不产生空格**。如果 Lua 代码依赖换行作为语句分隔符（如 `do` 后跟 `local`），行尾关键字会与下一行关键字粘连（`dolocal`），导致 Lua 语法错误。
+
+解决方式：在每行末尾添加 `~`（expl3 中 `~` 是 catcode 10 空格），例如：
+
+```tex
+\lua_now:e
+  {
+    for~_,~base~in~ipairs(t)~do ~
+      local~x~=~base ~
+    end
+  }
+```
+
+此约定来自 #722 实现 `mac15plus` 的 Lua lfs 字体扫描代码（`ctex/ctex.dtx` 约行 11128-11163）。
