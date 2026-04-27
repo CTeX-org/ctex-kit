@@ -94,6 +94,17 @@
 
 `xeCJK` 的一个核心能力是标点挤压与样式策略。它提供 `PunctStyle` 机制以及 `quanjiao`、`banjiao`、`kaiming`、`hangmobanjiao`、`CCT` 等预设，并允许用 `\xeCJKDeclarePunctStyle` 声明自定义规则。相关内部实现大量使用 `\xeCJK_...` 与私有 `\@@_...` 例程处理 kerning margin、相邻标点压缩与行末位移。
 
+xeCJK 的字距控制还依赖 XeTeX 的 interchar 机制：字符先被分入 `Default`、`CJK`、`FullLeft`、`FullRight`、`Boundary` 等预定义类，以及 xeCJK 额外建立的 `HalfLeft`、`HalfRight`、`NormalSpace`、`CM` 等类，再由 `\XeTeXinterchartoks` 在类边界插入 `CJKglue` / `CJKecglue` 与相关分组 token。这里的关键不变量是：只有真正参与版面边界判定的可见字符，才应进入 class 序列；零宽格式字符若被当作普通字符参与分类，就会打断原本连续的 CJK 或 CJK↔Latin 边界，触发错误的 `CJKecglue` 或其他 inter-class toks 插入。
+
+Issue #581 暴露了这一点：U+200B ZERO WIDTH SPACE、U+200C ZERO WIDTH NON-JOINER、U+200D ZERO WIDTH JOINER 与 U+2060 WORD JOINER 虽然本身零宽，但若保留普通 catcode，仍会进入 xeCJK 的字符分类路径，导致原本不应变化的间距发生改变。当前实现选择在 `xeCJK/xeCJK.dtx` 的类设定初始化阶段，直接将这些字符与既有的 U+FEFF（BOM）一起设为 `\char_set_catcode_ignore:n`，使其在 TeX 输入层被忽略，不再触发 interchar 分类与 token 插入。
+
+这个决策刻意没有采用另外两条看似直观的路线：
+
+- 把零宽字符归入 `NormalSpace` 类并不安全，因为它会打断 CJK class 序列，反而破坏 `CJKglue`、字体选择和边界判定。
+- 把零宽字符归入 XeTeX 256 透明类也不安全；`xeCJK.dtx` 已记录透明类在 `\bgroup` / `\egroup` 型 interchartoks 场景下会因为行尾或边界状态导致分组不匹配，这是已知限制。
+
+因此，遇到“不可见 Unicode 格式字符影响 xeCJK 间距或边界行为”的问题时，应优先把它视为输入层字符过滤问题，而不是单纯的标点样式或 glue 参数问题，首查 `xeCJK/xeCJK.dtx` 中 catcode ignore 与字符分类初始化区段。
+
 因此，在 XeTeX 路线下如果问题表现为：
 
 - 中文标点宽度或压缩异常
