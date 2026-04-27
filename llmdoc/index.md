@@ -27,5 +27,8 @@
 - `llmdoc/memory/decisions/715-hyperref-driverfallback.md` — 决策: hyperref driverfallback 按加载状态分支处理，避免重复设置警告。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
 - `llmdoc/memory/reflections/671-cjkpunct-rglue-nobreak.md` — 反思: CJKpunct #671 修复中的节点级调试技术与 `\unhbox` 测试模式。
+- `llmdoc/memory/reflections/681-xecjk-nobreaklongpunct.md` — 反思: xeCJK #681 通过新增 `NoBreakLongPunct` 属性把“长标点挤压”和“禁止行首断开”解耦，并记录 3 条断行路径需要同步修补的经验。
+- `llmdoc/memory/reflections/674-uplatex-leading-left-punct.md` — 反思: upLaTeX #674 的根因在 upTeX JFM glue 结构，段首可用 `\everypar + \inhibitglue` 缓解，但 `\\` 后行首问题超出 ctex 宏层控制。
+- `llmdoc/memory/reflections/788-macos-26-font-verification.md` — 反思: macOS 26 字体验证确认 PingFang 缺失、AssetsV2 目录迁移到 Font8，以及 XeLaTeX/LuaLaTeX 在 downloadable 字体上的不同限制。
 - `llmdoc/memory/reflections/704-ctxdoc-patch-health-test.md` — 反思: 为 `support/ctxdoc.cls` 建立 patch 健康检查时，确认 l3build `check` 目标需要用 `checksuppfiles` 显式复制 support 文件，且 nonstop 模式下必须使用 `\msg_critical` 才能把 patch 失败升级为真正终止编译的错误。
 - `llmdoc/memory/reflections/735-zhlineskip-split-leading-leak.md` — 反思: zhlineskip #735 split 行距泄漏的根因（TeX 分组层级）、vbox 尺寸回归测试策略与 l3build 框架补建。
