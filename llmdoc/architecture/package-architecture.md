@@ -166,6 +166,20 @@ ctex 在 `%<*class|heading>` 区段（`ctex/ctex.dtx` 约 7660-9448 行）维护
 
 这是整个仓库最关键的架构不变量之一：`ctex` 不试图用一套底层实现覆盖所有引擎，而是把统一接口建立在多后端适配之上。调查中明确指出，XeTeX、LuaTeX、pdfTeX、upTeX 各自对应不同的底层机制，见 `ctex/ctex.dtx` 的 engine support 段落与 `ctex/build.lua:46-53` 的多引擎测试配置。
 
+### LuaTeX 路线的特殊点：ctex 会主动屏蔽 `ltj-latex`
+
+LuaTeX 路线并不是“原样加载 LuaTeX-ja 全家桶”，而是由 `ctex` 在自己的引擎适配层中接管一部分接口，并通过 `\@namedef{ver@ltj-latex.sty}{}` 主动阻止 `ltj-latex` 再次进入标准加载链。这样做的直接目的，是避免 `ctex` 与 LuaTeX-ja 在 LaTeX 层包装上重复接管同一批接口。
+
+但这个设计有一个重要副作用：`ltj-latex` 被屏蔽时，依赖它进入加载链的 `lltjcore.sty` 也会一起缺席。后者不只是“普通底层文件”，还携带若干对 LaTeX 原生命令的兼容补丁，因此在排查 LuaLaTeX 专属异常时，不能只看 `ctex-engine-luatex.def` 是否设置了某个参数，还要检查 ctex 是否因此漏接了原本由 `lltjcore` 提供的行为修正。
+
+### v2.5.12 补回 `lltjcore` 的 `\verb`/`\do@noligs` 补丁
+
+Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xkanjiskip 被吞掉，并不是因为 `autoxspacing` 选项被关闭，而是因为 `ctex` 禁用 `ltj-latex` 后，连带漏掉了 `lltjcore.sty` 对 `\verb` 和 `\do@noligs` 的关键补丁。
+
+`lltjcore` 的核心修正是把 `\verb` 流程里的 `\null`（空 `\hbox{}`）替换为 `\vadjust{}`。对 luatexja 而言，空 `\hbox{}` 会插入一个真实盒节点，打断相邻字符边界的观察，从而阻断 xkanjiskip 自动插入；改成 `\vadjust{}` 后则不会在水平列表里留下这个阻断点。
+
+因此，自 v2.5.12 / PR #792 起，`ctex/ctex.dtx` 的 LuaTeX 引擎适配中显式移植了 `lltjcore` 对 `\verb` 与 `\do@noligs` 的相关补丁。这个案例说明：LuaTeX 适配层不仅负责“选择后端”，还要补齐因屏蔽上游入口包而丢失的细粒度兼容行为。
+
 ## 包间依赖图
 
 从发布、构建和运行三个层面看，可以用下面的检索图理解依赖关系：

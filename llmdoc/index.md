@@ -30,3 +30,4 @@
 - `llmdoc/memory/reflections/704-ctxdoc-patch-health-test.md` — 反思: 为 `support/ctxdoc.cls` 建立 patch 健康检查时，确认 l3build `check` 目标需要用 `checksuppfiles` 显式复制 support 文件，且 nonstop 模式下必须使用 `\msg_critical` 才能把 patch 失败升级为真正终止编译的错误。
 - `llmdoc/memory/reflections/735-zhlineskip-split-leading-leak.md` — 反思: zhlineskip #735 split 行距泄漏的根因（TeX 分组层级）、vbox 尺寸回归测试策略与 l3build 框架补建。
 - `llmdoc/memory/reflections/581-xecjk-zero-width-format-chars.md` — 反思: xeCJK #581 中零宽格式字符应在输入层忽略，而不是进入 interchar 字符分类。
+- `llmdoc/memory/reflections/556-verb-xkanjiskip-lltjcore.md` — 反思: ctex #556 中从 autoxspacing 误判修正为“禁用 ltj-latex 后漏掉 lltjcore 的 `\verb` 补丁”，以及基于 `\showbox` 的节点级定位方法。
