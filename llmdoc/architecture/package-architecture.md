@@ -98,6 +98,18 @@ xeCJK 的字距控制还依赖 XeTeX 的 interchar 机制：字符先被分入 `
 
 Issue #581 暴露了这一点：U+200B ZERO WIDTH SPACE、U+200C ZERO WIDTH NON-JOINER、U+200D ZERO WIDTH JOINER 与 U+2060 WORD JOINER 虽然本身零宽，但若保留普通 catcode，仍会进入 xeCJK 的字符分类路径，导致原本不应变化的间距发生改变。当前实现选择在 `xeCJK/xeCJK.dtx` 的类设定初始化阶段，直接将这些字符与既有的 U+FEFF（BOM）一起设为 `\char_set_catcode_ignore:n`，使其在 TeX 输入层被忽略，不再触发 interchar 分类与 token 插入。
 
+Issue #315 则暴露了另一类更隐蔽的边界恢复问题：即使参与排版的字符本身没有分类错误，`\textcolor`、`color`/`xcolor` 以及 PDF 注解等机制仍可能通过 `\special` 在节点链中插入 whatsit 节点（`\lastnodetype = 9`）。xeCJK 旧实现把“上一类边界标记是否存在”主要建模为 `\lastkern` 上的标记 kern；一旦 Boundary→Default 或 Boundary→CJK 过渡之间夹入 whatsit，这条检测链就会被打断，导致本应恢复的 `CJKecglue` / `CJKglue` 丢失。
+
+当前修复在 `xeCJK/xeCJK.dtx` 中增加了一条“whatsit 回退”路径：
+
+- 新增全局变量 `\g_@@_last_node_tl`，在 `\xeCJK_make_node:n` 创建内部标记节点时同步保存标记类型。
+- 新增 `\@@_if_last_whatsit:TF`，以 `\lastnodetype = 9` 判断上一节点是否为 whatsit。
+- 新增 `\@@_recover_ecglue_whatsit:` 与 `\@@_recover_glue_whatsit:`，当常规 `\lastkern` 检测失败但上一节点是 whatsit 时，回看 `\g_@@_last_node_tl` 决定是否恢复 `CJKecglue` 或 `CJKglue`。
+- `\@@_check_for_ecglue:` 与 `\xeCJK_check_for_glue:` 在标准检测链末尾追加上述回退逻辑。
+- `\xeCJK_remove_node:` 在消费完内部标记节点后清空保存的节点类型，避免跨边界误判。
+
+这说明 xeCJK 的 glue 恢复机制不能只理解成“检查上一项是否有特定 kern”，而要理解成“围绕 interchar 边界标记的一个小状态机”：正常路径依赖标记 kern，异常路径需要跨越 whatsit 节点恢复之前保存的边界类型。遇到 xcolor、hyperref 注解或其他 `\special` 参与时出现的 CJK-Latin / CJK-CJK 间距丢失，首查的就不应只是 glue 参数或字符类，而应直接检查 `xeCJK/xeCJK.dtx` 中这条 whatsit 回退链是否被覆盖。
+
 这个决策刻意没有采用另外两条看似直观的路线：
 
 - 把零宽字符归入 `NormalSpace` 类并不安全，因为它会打断 CJK class 序列，反而破坏 `CJKglue`、字体选择和边界判定。
