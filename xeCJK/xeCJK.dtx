@@ -9742,15 +9742,48 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.9.2}{2026/04/28}{在下划线内 CJK 分组切换时保存/恢复字体状态（\#465）。}
+%
+% \begin{macro}{\@@_ulem_save_font_state:,\@@_ulem_restore_font_state:}
+% \begin{variable}{\g_@@_ulem_saved_series_tl,\g_@@_ulem_saved_shape_tl,
+%   \g_@@_ulem_saved_CJK_family_tl,\g_@@_ulem_saved_CJK_fam_tl}
+% 在 \cs{xeCJK_class_group_end:} 前保存字体状态，在
+% \cs{@@_ulem_class_group_begin:} 后恢复，使 \tn{bfseries}、
+% \tn{sffamily} 等字体声明能跨越下划线内的 CJK 分组边界。
+%    \begin{macrocode}
+\tl_new:N \g_@@_ulem_saved_series_tl
+\tl_new:N \g_@@_ulem_saved_shape_tl
+\tl_new:N \g_@@_ulem_saved_CJK_family_tl
+\tl_new:N \g_@@_ulem_saved_CJK_fam_tl
+\cs_new_protected:Npn \@@_ulem_save_font_state:
+  {
+    \tl_gset:Nx \g_@@_ulem_saved_series_tl { \f@series }
+    \tl_gset:Nx \g_@@_ulem_saved_shape_tl  { \f@shape }
+    \tl_gset_eq:NN \g_@@_ulem_saved_CJK_family_tl \l_xeCJK_family_tl
+    \tl_gset_eq:NN \g_@@_ulem_saved_CJK_fam_tl \CJK@family
+  }
+\cs_new_protected:Npn \@@_ulem_restore_font_state:
+  {
+    \tl_set:Nx \f@series { \g_@@_ulem_saved_series_tl }
+    \tl_set:Nx \f@shape  { \g_@@_ulem_saved_shape_tl  }
+    \tl_set_eq:NN \l_xeCJK_family_tl \g_@@_ulem_saved_CJK_family_tl
+    \tl_set_eq:NN \CJK@family \g_@@_ulem_saved_CJK_fam_tl
+  }
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+%
 % \begin{macro}{\@@_ulem_CJK_and_CJK:N}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_ulem_CJK_and_CJK:N
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \@@_ulem_save_font_state:
         \xeCJK_class_group_end:
         \UL@stop \@@_ulem_ccglue: \UL@start
         \@@_ulem_class_group_begin:
+        \@@_ulem_restore_font_state:
         \xeCJK_select_font:
         \xeCJK_fallback_symbol:NN
         \CJKsymbol
@@ -9776,10 +9809,12 @@ Copyright and Licence
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \@@_ulem_save_font_state:
         \xeCJK_class_group_end:
         \UL@stop \@@_ulem_ccglue: \UL@start
         \xeCJK_class_group_begin:
         \xeCJK_clear_Boundary_and_CJK_toks:
+        \@@_ulem_restore_font_state:
         \@@_switch_font:nn {#1} {#2}
         \xeCJK_fallback_symbol:NN
         \CJKsymbol
@@ -10437,11 +10472,11 @@ Copyright and Licence
 % \changes{v3.8.3}{2020/04/07}{取消 \pkg{xeCJKfntef} 的初始彩色设置。}
 %
 % \begin{macro}{\CJKunderanysymbol}
+% \changes{v3.9.2}{2026/04/28}{移除 \tn{ignorespaces}，修复命令后空格丢失（\#465）。}
 %    \begin{macrocode}
 \NewDocumentCommand \CJKunderanysymbol { o m m m }
   {
     \xeCJK_under_symbol:nnnnnn { symbol } { symbol } {#1} {#2} {#3} {#4}
-    \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10449,6 +10484,7 @@ Copyright and Licence
 % \begin{macro}{\CJKunderdot}
 % \tn{CJKunderdot} 是 \tn{CJKunderanysymbol} 的特殊情况。\pkg{CJKfntef} 原来使用
 % 的是数学符号 \tn{cdot}，这里改成更合适的 |.|。
+% \changes{v3.9.2}{2026/04/28}{移除 \tn{ignorespaces}，修复命令后空格丢失（\#465）。}
 %    \begin{macrocode}
 \NewDocumentCommand \CJKunderdot { o m }
   {
@@ -10457,7 +10493,6 @@ Copyright and Licence
       { \l_@@_udot_depth_tl }
       { \l_@@_udot_format_tl \l_@@_udot_symbol_tl }
       {#2}
-    \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
