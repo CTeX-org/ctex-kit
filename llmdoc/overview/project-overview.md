@@ -45,5 +45,7 @@
 
 - 根级 `README.md` 展示了多个 CTAN 包版本徽章与 GitHub Actions 构建状态，见 `README.md:13-49`。
 - `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml`。
-- 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/` 与 `zhnumber/` 的 `l3build check`，其中 `xeCJK` 与 `zhnumber` 已拥有各自的 `testfiles/` 回归目录。这表明仓库的测试维护正从“核心包主导、卫星包间接覆盖”逐步演进为“核心包 + 关键卫星包独立回归”。
-- 仍然不是每个卫星包都在 CI 中独立跑一遍；修改未接入测试框架的历史包时，仍要额外关注其本地构建与验证可达性。
+- 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/` 与 `zhlineskip/` 的 `l3build check`。这表明仓库的测试维护已从“核心包主导、卫星包间接覆盖”进一步演进为“核心包 + 多个关键卫星包独立回归”。
+- 仓库现已新增 `.github/workflows/release.yml`，可对 `ctex-v*`、`xeCJK-v*`、`CJKpunct-v*` tag 自动执行打包、release notes 生成、测试门控和 GitHub prerelease 创建，说明该仓库已具备面向部分核心发布单元的自动化发布出口。
+- CI 与文档构建现在明确依赖一组可在流水线中安装的 CJK / 符号字体，而不再隐含依赖 Windows 自带字体；这反映出项目维护已把“跨平台字体可达性”上升为稳定基础设施约束。
+- 仍然不是每个卫星包都在 CI 中独立跑一遍，也不是每个 CTAN 包都接入了 release 自动化；修改未接入测试框架或发布流水线的历史包时，仍要额外关注其本地构建与验证可达性。

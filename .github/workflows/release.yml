@@ -1,0 +1,240 @@
+name: Release package
+
+on:
+  push:
+    tags:
+      - 'ctex-v*'
+      - 'xeCJK-v*'
+      - 'CJKpunct-v*'
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
+  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Parse tag
+      id: parse
+      run: |
+        TAG="${GITHUB_REF_NAME}"
+        echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+        case "${TAG}" in
+          ctex-v*)
+            echo "pkg=ctex"       >> "$GITHUB_OUTPUT"
+            echo "dir=ctex"       >> "$GITHUB_OUTPUT"
+            echo "module=ctex"    >> "$GITHUB_OUTPUT"
+            echo "dtx=ctex.dtx"   >> "$GITHUB_OUTPUT"
+            echo "ver=${TAG#ctex-v}" >> "$GITHUB_OUTPUT"
+            ;;
+          xeCJK-v*)
+            echo "pkg=xeCJK"      >> "$GITHUB_OUTPUT"
+            echo "dir=xeCJK"      >> "$GITHUB_OUTPUT"
+            echo "module=xecjk"   >> "$GITHUB_OUTPUT"
+            echo "dtx=xeCJK.dtx"  >> "$GITHUB_OUTPUT"
+            echo "ver=${TAG#xeCJK-v}" >> "$GITHUB_OUTPUT"
+            ;;
+          CJKpunct-v*)
+            echo "pkg=CJKpunct"       >> "$GITHUB_OUTPUT"
+            echo "dir=CJKpunct"       >> "$GITHUB_OUTPUT"
+            echo "module=cjkpunct"    >> "$GITHUB_OUTPUT"
+            echo "dtx=CJKpunct.dtx"   >> "$GITHUB_OUTPUT"
+            echo "ver=${TAG#CJKpunct-v}" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "::error::Unknown tag format: ${TAG}"
+            exit 1
+            ;;
+        esac
+
+    - name: Install TeX Live
+      timeout-minutes: 30
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        package-file: .github/tl_packages
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        update-all-packages: true
+
+    - name: Install zhmakeindex
+      run: |
+        ZHMK_VERSION=$(gh api repos/Liam0205/zhmakeindex/releases/latest --jq '.tag_name')
+        ZHMK_URL="https://github.com/Liam0205/zhmakeindex/releases/download/${ZHMK_VERSION}/zhmakeindex_${ZHMK_VERSION#v}_linux_amd64.tar.gz"
+        curl -fsSL "$ZHMK_URL" | tar xz -C /usr/local/bin zhmakeindex
+        zhmakeindex >/dev/null 2>&1
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Install CJK fonts
+      run: |
+        sudo apt-get install -y --no-install-recommends fonts-freefont-ttf
+        SRCHAN_SERIF_URL="https://github.com/adobe-fonts/source-han-serif/releases/download/2.003R/03_SourceHanSerifOTC.zip"
+        HANAMINB_URL="https://github.com/googlefonts/chinese/raw/gh-pages/fonts/HanaMin/HanaMinB.ttf"
+        NOTO_SYMBOLS2_URL="https://github.com/notofonts/symbols/releases/download/NotoSansSymbols2-v2.008/NotoSansSymbols2-v2.008.zip"
+        curl -LO ${{ env.NOTO_SANS_URL }}
+        curl -LO ${{ env.NOTO_SERIF_URL }}
+        curl -LO "$SRCHAN_SERIF_URL"
+        curl -fsSL -o HanaMinB.ttf "$HANAMINB_URL"
+        curl -LO "$NOTO_SYMBOLS2_URL"
+        sudo mkdir -p /usr/share/fonts/truetype
+        unzip -ojd /usr/share/fonts/truetype "*OTC.zip" "*.ttc"
+        unzip -ojd /usr/share/fonts/truetype "NotoSansSymbols2-*.zip" "*.ttf"
+        cp HanaMinB.ttf /usr/share/fonts/truetype/
+        fc-cache -f
+
+    - name: Download Unihan data (xeCJK)
+      if: steps.parse.outputs.pkg == 'xeCJK'
+      run: curl -fsSL -o support/Unihan.zip "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
+
+    - name: Build CTAN zip
+      working-directory: ./${{ steps.parse.outputs.dir }}
+      run: l3build ctan
+
+    - name: Prepare release asset
+      run: |
+        MODULE="${{ steps.parse.outputs.module }}"
+        VER="${{ steps.parse.outputs.ver }}"
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        ASSET="${MODULE}-v${VER}-${SHORT_SHA}.zip"
+        mv "${{ steps.parse.outputs.dir }}/${MODULE}-ctan.zip" "${ASSET}"
+        echo "asset=${ASSET}" >> "$GITHUB_ENV"
+
+    - name: Generate release notes
+      run: |
+        PKG="${{ steps.parse.outputs.pkg }}"
+        DIR="${{ steps.parse.outputs.dir }}"
+        DTX="${{ steps.parse.outputs.dtx }}"
+        VER="${{ steps.parse.outputs.ver }}"
+        TAG="${{ steps.parse.outputs.tag }}"
+
+        NOTES_FILE="release-notes.md"
+
+        # Try extracting from \changes entries
+        if grep -q "\\\\changes{v${VER}}" "${DIR}/${DTX}" 2>/dev/null; then
+          python3 - "${DIR}/${DTX}" "v${VER}" > "${NOTES_FILE}" << 'PYEOF'
+        import re, sys
+        dtx_path, target_ver = sys.argv[1], sys.argv[2]
+        with open(dtx_path) as f:
+            lines = f.readlines()
+        tag = '\\changes{' + target_ver + '}'
+        entries = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            if tag not in line:
+                i += 1
+                continue
+            # Extract content after the third {
+            m = re.search(r'\\changes\{[^}]*\}\{[^}]*\}\{', line)
+            if not m:
+                i += 1
+                continue
+            text = line[m.end():]
+            # Collect continuation lines (start with '% ')
+            i += 1
+            while i < len(lines) and re.match(r'^%\s+\S', lines[i]) and '\\changes{' not in lines[i] and '\\begin{' not in lines[i]:
+                text += ' ' + lines[i].lstrip('% ').rstrip('\n')
+                i += 1
+            # Strip trailing }
+            depth = 1
+            result = []
+            for ch in text:
+                if ch == '{': depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                result.append(ch)
+            text = ''.join(result).strip()
+            text = re.sub(r'\\(?:cs|tn|opt|pkg|cls|file|texttt)\{([^}]*)\}', r'`\1`', text)
+            text = re.sub(r'\\textbf\{([^}]*)\}', r'**\1**', text)
+            text = re.sub(r'\\#', '#', text)
+            text = re.sub(r'\\LaTeXe(?:\\\s*|\{\})?', 'LaTeX2e ', text)
+            text = re.sub(r'\\LaTeXiii\{?\}?', 'LaTeX3', text)
+            text = re.sub(r'\\[A-Za-z]+\s*', '', text)
+            text = text.strip()
+            if text:
+                entries.append(text)
+        seen = set()
+        for e in entries:
+            if e not in seen:
+                seen.add(e)
+                print(f"- {e}")
+        PYEOF
+        fi
+
+        # Fallback: use git log between previous tag and current tag
+        if [ ! -s "${NOTES_FILE}" ]; then
+          PREV_TAG=$(git tag -l "${PKG}-v*" --sort=-version:refname | sed -n '2p')
+          if [ -n "${PREV_TAG}" ]; then
+            git log --oneline "${PREV_TAG}..${TAG}" -- "${DIR}/" \
+              | grep -v -E "^[a-f0-9]+ (chore|docs|Merge)" \
+              | sed 's/^[a-f0-9]* /- /' > "${NOTES_FILE}"
+          fi
+        fi
+
+        # Final fallback
+        if [ ! -s "${NOTES_FILE}" ]; then
+          echo "Release ${PKG} v${VER}" > "${NOTES_FILE}"
+        fi
+
+        echo "--- Release Notes ---"
+        cat "${NOTES_FILE}"
+
+    - name: Wait for test CI to pass
+      run: |
+        SHA="${{ github.sha }}"
+        echo "Waiting for 'ctex-kit test' to pass on ${SHA:0:8}..."
+
+        for i in $(seq 1 60); do
+          RESULT=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=${SHA}&per_page=1" \
+            --jq 'if (.workflow_runs | length) == 0 then "none"
+                  else .workflow_runs[0] | "\(.status);\(.conclusion)" end') || RESULT=""
+
+          if [ -z "$RESULT" ] || [ "$RESULT" = "none" ]; then
+            echo "  No test run found yet, retrying... (attempt ${i}/60)"
+            sleep 30
+            continue
+          fi
+
+          STATUS="${RESULT%%;*}"
+          CONCLUSION="${RESULT##*;}"
+
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "Test CI passed!"
+            exit 0
+          elif [ "$STATUS" = "completed" ]; then
+            echo "::error::Test CI finished with: ${CONCLUSION}"
+            exit 1
+          fi
+
+          echo "  Test CI status: ${STATUS}, waiting... (attempt ${i}/60)"
+          sleep 30
+        done
+
+        echo "::error::Timeout after 30 minutes waiting for test CI"
+        exit 1
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create GitHub Release
+      run: |
+        gh release delete "${{ steps.parse.outputs.tag }}" --yes 2>/dev/null || true
+        gh release create "${{ steps.parse.outputs.tag }}" \
+          "${{ env.asset }}" \
+          --prerelease \
+          --title "${{ steps.parse.outputs.pkg }} v${{ steps.parse.outputs.ver }}" \
+          --notes-file release-notes.md
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

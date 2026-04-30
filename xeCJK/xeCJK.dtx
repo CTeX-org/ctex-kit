@@ -207,7 +207,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.9.2}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.10.0}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -217,7 +217,10 @@ Copyright and Licence
 \xeCJKDeclareSubCJKBlock{Hangul}
   { "1100 -> "11FF, "3130 -> "318F, "A960 -> "A97F, "AC00 -> "D7AF }
 \setCJKmainfont[SP, Language=Chinese Simplified]{Source Han Serif SC}
-\setCJKmainfont[Ext-B]{SimSun-ExtB}
+\IfFontExistsTF{SimSun-ExtB}
+  {\setCJKmainfont[Ext-B]{SimSun-ExtB}}
+  {\IfFontExistsTF{HanaMinB}
+    {\setCJKmainfont[Ext-B]{HanaMinB}}{}}
 \setCJKmainfont[Hangul, Script=Hangul, Language=Korean]{Source Han Serif K}
 \newlist{psopt}{description}{3}
 \setlist[psopt]{%
@@ -237,7 +240,7 @@ Copyright and Licence
     \CJKfontspec[Language=Chinese ~ Simplified]{Source ~ Han ~ Serif ~ SC}
     \tl_clear:N \l_tmpa_tl
     \int_zero:N \l_tmpa_int
-    \tl_set:Nx \l_tmpb_tl { \tl_to_str:n { c_@@_#2_chars_clist } }
+    \tl_set:Nx \l_tmpb_tl { \tl_to_str:n { c__xeCJK_#2_chars_clist } }
     \int_set:Nn \l_tmpb_int { \clist_count:c { \l_tmpb_tl } }
     \clist_map_inline:cn { \l_tmpb_tl }
       {
@@ -287,7 +290,7 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 %
-% \CheckSum{11032}
+% \CheckSum{11154}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -587,8 +590,19 @@ Copyright and Licence
 %   \begin{syntax}
 %     LongPunct = \Arg{( — ⸺ ‥ … )}
 %   \end{syntax}
-%   设置长标点，例如破折号“——”与省略号“……”，允许在长标点前后
-%   断行，但是禁止在它们之间断行。
+%   设置长标点，例如破折号”——“与省略号”……”，允许在长标点前后
+%   断行，但是禁止在它们之间断行。同时属于 |NoBreakLongPunct|
+%   的长标点则禁止在其前面断行。
+% \end{function}
+%
+% \begin{function}[EXP]{NoBreakLongPunct,NoBreakLongPunct+,NoBreakLongPunct-}
+%   \begin{syntax}
+%     NoBreakLongPunct = \Arg{( ‥ … )}
+%   \end{syntax}
+%   设置禁止在其前面断行的长标点。属于 |NoBreakLongPunct| 的字符必须同时属于
+%   |LongPunct|。与普通长标点不同，\pkg{xeCJK} 禁止在这类标点前面断行，但仍
+%   允许在其后面断行，并禁止在相同长标点之间断行。缺省值包含省略号
+%   “\textbf{‥}”和”\textbf{…}”。
 % \end{function}
 %
 % \begin{function}[EXP]{MiddlePunct,MiddlePunct+,MiddlePunct-}
@@ -1573,6 +1587,41 @@ Copyright and Licence
 % \pkg{polyglossia} 和 \pkg{xesearch}）可能会存在大小不一的冲突。
 % \pkg{xeCJK} 虽然为此作了一些处理，但与它们共同使用时应该小心。
 %
+% \subsection{\tn{char} 原语与 interchar 的冲突}
+%
+% \XeTeX 的 interchar 机制工作在 token 层面，无法区分
+% |\char| 原语的输出和直接字符输入。因此当第三方宏包在内部使用 |\char|
+% 从非 CJK 字体取字形时，如果该字符编码恰好属于 \pkg{xeCJK} 的
+% interchar 字符分类，就会被拦截并切换到 CJK 字体，产生错误的字形。
+% 例如 \pkg{mtpro2} 的 |\overcbrace| 通过 |\char183| 取
+% 花括号字形，而 |U+00B7|（MIDDLE DOT）在 \pkg{xeCJK} 中属于
+% |FullRight| 类，导致花括号变成中文间隔号。
+%
+% 为此，\pkg{xeCJK} 提供 \tn{xeCJKchar} 命令，用法与 \tn{char} 完全
+% 相同，但在输出字符前临时关闭 |XeTeXinterchartokenstate|。
+% 用户可以使用 |\xeCJKchar"00B7| 代替 |\char"00B7|
+% 来避免 interchar 拦截。
+%
+% \pkg{xeCJK} 已为以下宏包的命令提供了自动兼容补丁：
+% \begin{itemize}
+%   \item \pkg{mtpro2}：|\overcbrace|、|\undercbrace|
+%   \item \pkg{pifont}：|\Pifont|（|U| 编码字体切换）
+% \end{itemize}
+% 如果遇到其他宏包的类似问题，可以在导言区手动包装有冲突的命令：
+% \begin{frameverb}
+%   % 方法一：直接用 \xeCJKchar 替换 \char
+%   \hbox{\myfont\xeCJKchar183}
+%
+%   % 方法二：包装第三方命令，关闭 interchar
+%   \let\origProblemCmd\problemCmd
+%   \renewcommand\problemCmd[1]{%
+%     \makexeCJKinactive  % 关闭 interchar
+%     \origProblemCmd{#1}}
+% \end{frameverb}
+% |\makexeCJKinactive| 是赋值操作，受 \TeX{} 分组约束——
+% 在 |{...}|、|$...$| 或 |\begingroup...\endgroup|
+% 内使用时，结束后自动恢复。
+%
 %\end{documentation}
 %
 %
@@ -2134,9 +2183,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% 抑制 |BOM|。
+% 抑制 |BOM| 和零宽格式字符，避免触发错误的 inter-class toks 插入。
 %    \begin{macrocode}
 \char_set_catcode_ignore:n { "FEFF }
+\char_set_catcode_ignore:n { "200B }
+\char_set_catcode_ignore:n { "200C }
+\char_set_catcode_ignore:n { "200D }
+\char_set_catcode_ignore:n { "2060 }
 %    \end{macrocode}
 %
 % \subsection{字符类别设定}\label{sec:xeCJK-class-set}
@@ -2324,10 +2377,11 @@ Copyright and Licence
 % \begin{variable}{\c_@@_FullLeft_chars_clist}
 % 以上两类标点符号出现在文字的左边，不应出现在行尾位置。
 %    \begin{macrocode}
-\clist_new:N \c_@@_FullLeft_chars_clist
-\clist_gconcat:NNN \c_@@_FullLeft_chars_clist
-                   \c_@@_OP_chars_clist
-                   \c_@@_PR_chars_clist
+\clist_const:Ne \c_@@_FullLeft_chars_clist
+  {
+    \exp_not:V \c_@@_OP_chars_clist ,
+    \exp_not:V \c_@@_PR_chars_clist
+  }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -2358,6 +2412,9 @@ Copyright and Licence
 % \changes{v3.3.0}{2014/12/26}{不把 NS 类中的一些有禁则的日文归入 \texttt{FullRight} 类。}
 % \changes{v3.6.0}{2018/01/14}
 % {将全角浪线 \texttt{U+FF5E} 等连接号归入 \texttt{FullRight} 类和设为 \texttt{MiddlePunct}。}
+% \changes{v3.10.0}{2026/04/27}
+% {将全角浪线等连接号从 \texttt{MiddlePunct} 改为 \texttt{LongPunct}，
+%  消除不必要的标点压缩间距。}
 %
 % \begin{variable}{\c_@@_NS_chars_clist}
 % Nonstarter (NS)
@@ -2367,8 +2424,8 @@ Copyright and Licence
 % \noindent Iteration marks (cl-09)
 % \PrintPunctList{iteration_marks}{Iteration marks}
 % 根据 W3C 的资料\footnote{\url{http://www.w3.org/TR/jlreq/}}，\texttt{cl-03} 和
-% \texttt{cl-09} 在非常松散的情况下可以没有禁则。我们仅将全角浪线 \texttt{U+FF5E} 等连接号归入
-% \texttt{FullRight} 类并在宏包末尾设为 \texttt{MiddlePunct}。
+% \texttt{cl-09} 在非常松散的情况下可以没有禁则。我们将全角浪线 \texttt{U+FF5E} 等连接号归入
+% \texttt{FullRight} 类并在宏包末尾设为 \texttt{LongPunct}。
 %    \begin{macrocode}
 \clist_const:Nn \c_@@_hyphens_chars_clist
   { "301C , "30A0 , "FF5E }
@@ -2380,7 +2437,7 @@ Copyright and Licence
   {
     \cs_set:Npn \@@_tmp:w #1
       { \char_generate:nn {#1} { 12 } }
-    \@@_add_special_punct:nn { middle }
+    \@@_add_special_punct:nn { long }
       { \clist_map_function:NN \c_@@_hyphens_chars_clist \@@_tmp:w }
     \cs_undefine:N \@@_tmp:w
   }
@@ -2435,19 +2492,14 @@ Copyright and Licence
 % \begin{variable}{\c_@@_FullRight_chars_clist}
 % 以上六类标点符号出现在文字的右边，不应出现在行首位置。
 %    \begin{macrocode}
-\clist_new:N \c_@@_FullRight_chars_clist
-\tl_map_inline:nn
+\clist_const:Ne \c_@@_FullRight_chars_clist
   {
-    \c_@@_CL_chars_clist
-    \c_@@_NS_chars_clist
-    \c_@@_EX_chars_clist
-    \c_@@_IS_chars_clist
-    \c_@@_PO_chars_clist
-    \c_@@_hyphens_chars_clist
-  }
-  {
-    \clist_gconcat:NNN \c_@@_FullRight_chars_clist
-                       \c_@@_FullRight_chars_clist #1
+    \exp_not:V \c_@@_CL_chars_clist ,
+    \exp_not:V \c_@@_NS_chars_clist ,
+    \exp_not:V \c_@@_EX_chars_clist ,
+    \exp_not:V \c_@@_IS_chars_clist ,
+    \exp_not:V \c_@@_PO_chars_clist ,
+    \exp_not:V \c_@@_hyphens_chars_clist
   }
 %    \end{macrocode}
 % \end{variable}
@@ -2460,8 +2512,8 @@ Copyright and Licence
 % \changes{v3.8.3}{2020/04/09}{补充 \texttt{U+02EA} 和 \texttt{U+02EB}。}
 % \changes{v3.8.8}{2021/09/15}{同步 Unicode 14.0。}
 % \changes{v3.8.8}{2021/09/16}{补充女书。}
-% \changes{v3.9.2}{2022/09/17}{同步 Unicode 15.0。}
-% \changes{v3.9.2}{2023/12/02}{同步 Unicode 15.1。}
+% \changes{v3.10.0}{2022/09/17}{同步 Unicode 15.0。}
+% \changes{v3.10.0}{2023/12/02}{同步 Unicode 15.1。}
 %
 % \begin{variable}{\c_@@_CJK_chars_clist}
 % CJK 字符类，包括文字和标点符号。
@@ -3232,10 +3284,11 @@ Copyright and Licence
     \xeCJK_if_last_node:nTF { CJK }
       { \use_i:nn }
       { \xeCJK_if_last_node:nTF { CJK-widow } }
-      { \xeCJK_remove_node: \CJKecglue }
+      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       {
-        \xeCJK_if_last_node:nT { CJK-space }
-          { \xeCJK_remove_node: \xeCJK_space_or_xecglue: }
+        \xeCJK_if_last_node:nTF { CJK-space }
+          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          { \@@_recover_ecglue_whatsit: }
       }
   }
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
@@ -3253,14 +3306,14 @@ Copyright and Licence
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
     \tex_unskip:D
     \xeCJK_if_last_node:nTF { CJK-space }
-      { \xeCJK_remove_node: \CJKecglue }
+      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       {
         \xeCJK_if_last_node:nTF { CJK }
           {
             \skip_if_eq:nnTF
               { \l_@@_last_skip }
               { \c_xeCJK_space_skip_tl }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               { \skip_horizontal:N \l_@@_last_skip }
           }
           { \skip_horizontal:N \l_@@_last_skip }
@@ -3359,9 +3412,13 @@ Copyright and Licence
     \@@_if_last_kern:TF
       { \@@_check_for_glue_auxi: }
       {
-        \@@_if_last_math:TF
-          { \xeCJK_remove_node: \CJKecglue }
-          { \@@_check_for_glue_auxii: }
+        \@@_if_last_whatsit:TF
+          { \@@_recover_glue_whatsit: }
+          {
+            \@@_if_last_math:TF
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              { \@@_check_for_glue_auxii: }
+          }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxi:
@@ -3375,7 +3432,7 @@ Copyright and Licence
         { \@@_node:n { CJK-widow } }
         { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
         { \@@_node:n { default } }
-        { \xeCJK_remove_node: \CJKecglue }
+        { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxii:
@@ -3402,7 +3459,7 @@ Copyright and Licence
           { \xeCJK_remove_node: \@@_ccglue_or_space: }
           {
             \xeCJK_if_last_node:nTF { default-space }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               { \@@_check_for_xglue_aux: }
           }
       }
@@ -3417,10 +3474,10 @@ Copyright and Licence
           { \xeCJK_remove_node: \@@_ccglue_or_space: }
           {
             \xeCJK_if_last_node:nTF { default }
-              { \xeCJK_remove_node: \CJKecglue }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               {
                 \@@_if_last_math:TF
-                  { \CJKecglue }
+                  { \skip_horizontal:N \l_@@_ecglue_skip }
                   { \skip_horizontal:N \l_@@_last_skip }
               }
           }
@@ -3433,8 +3490,10 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.9.1}{2022/08/02}{简化部分内部实现。}
-% \changes{v3.9.2}{2022/08/31}{修复 \opt{xCJKecglue} 错误。}
-% \changes{v3.9.2}{2024/05/03}{修复 \cs{xeCJKnobreak} 错误。}
+% \changes{v3.10.0}{2022/08/31}{修复 \opt{xCJKecglue} 错误。}
+% \changes{v3.10.0}{2024/05/03}{修复 \cs{xeCJKnobreak} 错误。}
+% \changes{v3.10.0}{2026/04/27}{修复 \cs{textcolor} 等 whatsit 节点导致 \texttt{CJKecglue} 丢失的问题。}
+% \changes{v3.10.0}{2026/04/27}{修复字体切换组（如 \cs{texttt}、\cs{zihao}）导致 \texttt{CJKecglue} 使用错误字体度量的问题。}
 %
 % \begin{macro}[TF]{
 %   \@@_if_last_none:,
@@ -3467,6 +3526,7 @@ Copyright and Licence
 \@@_tmp:nn { glue }    { 11 }
 \@@_tmp:nn { kern }    { 12 }
 \@@_tmp:nn { penalty } { 13 }
+\@@_tmp:nn { whatsit } {  9 }
 \group_end:
 %    \end{macrocode}
 % \end{macro}
@@ -3486,7 +3546,7 @@ Copyright and Licence
 %
 % \changes{v3.1.0}{2012/11/14}{删除多余的 \texttt{default-itcorr} 结点。}
 % \changes{v3.2.4}{2013/07/03}{尽量移除用作判断标志的 \tn{kern}。}
-% \changes{v3.9.2}{2026/04/03}{改正拼写错误 \cs{@@_glue_node:n}。}
+% \changes{v3.10.0}{2026/04/03}{改正拼写错误 \cs{@@_glue_node:n}。}
 %
 % \begin{macro}[int]{\xeCJK_declare_node:n,\xeCJK_make_node:n}
 % 用于判断插入的各种 |kern| 和 |glue|。
@@ -3507,8 +3567,12 @@ Copyright and Licence
   }
 \int_new:N \g_@@_node_int
 \int_gset:Nn \g_@@_node_int { 10 }
+\tl_new:N \g_@@_last_node_tl
 \cs_new_protected:Npn \xeCJK_make_node:n #1
-  { \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim } }
+  {
+    \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim }
+    \tl_gset:Nn \g_@@_last_node_tl {#1}
+  }
 \cs_new:Npn \@@_node:n #1
   { \use:c { c_@@_#1_node_dim } }
 \cs_new:Npn \@@_glue_node:n #1
@@ -3525,6 +3589,43 @@ Copyright and Licence
       {
         \@@_if_last_glue:T
           { \tex_unskip:D \tex_unskip:D }
+      }
+    \tl_gclear:N \g_@@_last_node_tl
+  }
+\cs_new_protected:Npn \@@_recover_ecglue_whatsit:
+  {
+    \@@_if_last_whatsit:T
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              {
+                \tl_if_eq:NnT \g_@@_last_node_tl { CJK-space }
+                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_recover_glue_whatsit:
+  {
+    \@@_if_last_whatsit:T
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+          { \xeCJK_remove_node: \CJKglue }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
+              { \xeCJK_remove_node: \@@_ccglue_or_space: }
+              {
+                \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+                  { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+                  {
+                    \tl_if_eq:NnT \g_@@_last_node_tl { default }
+                      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+                  }
+              }
+          }
       }
   }
 \xeCJK_declare_node:n { CJK }
@@ -3700,6 +3801,7 @@ Copyright and Licence
   {
     \group_align_safe_end:
     \xeCJK_class_group_end:
+    \xeCJK_glue_to_skip:nN { \CJKecglue } \l_@@_ecglue_skip
     { \xeCJK_make_node:n {#1} }
   }
 %    \end{macrocode}
@@ -4017,8 +4119,11 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.6.0}{2018/01/23}{总允许长标点与其他标点之间折行。}
+% \changes{v3.10.0}{2026/04/27}
+% {\texttt{NoBreakLongPunct} 在右侧时禁止折行。}
 % \begin{macro}{\xeCJK_punct_kern:NN,\@@_punct_kern:NN}
-% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行。
+% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行，
+% 但 |NoBreakLongPunct| 在右侧时禁止折行。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_punct_kern:NN #1#2
   {
@@ -4029,7 +4134,11 @@ Copyright and Licence
           { \@@_punct_breakable_kern:NN }
           {
             \@@_punct_if_long:NTF #2
-              { \@@_punct_breakable_kern:NN }
+              {
+                \@@_punct_if_nobreak_long:NTF #2
+                  { \@@_punct_nobreak_kern:NN }
+                  { \@@_punct_breakable_kern:NN }
+              }
               { \@@_punct_nobreak_kern:NN }
           }
       }
@@ -4553,6 +4662,8 @@ Copyright and Licence
 % {修正标点同为 \texttt{LongPunct} 与 \texttt{MiddlePunct} 时的实现错误。}
 % \changes{v3.6.0}{2018/01/14}
 % {\texttt{Default} 类与 \texttt{MiddlePunct} 之间不应该有 \tn{CJKglue}。}
+% \changes{v3.10.0}{2026/04/27}
+% {新增 \texttt{NoBreakLongPunct} 属性，禁止在省略号等长标点前断行。}
 %
 % \begin{macro}
 % {\@@_CJK_and_FullRight_glue:N,\@@_Default_and_FullRight_glue:N}
@@ -4560,7 +4671,11 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_CJK_and_FullRight_glue:N #1
   {
     \@@_punct_if_long:NTF #1
-      { \xeCJK_allow_break: }
+      {
+        \@@_punct_if_nobreak_long:NTF #1
+          { \xeCJK_no_break: }
+          { \xeCJK_allow_break: }
+      }
       { \xeCJK_no_break: }
     \@@_punct_if_middle:NT #1
       {
@@ -4572,7 +4687,11 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_Default_and_FullRight_glue:N #1
   {
     \@@_punct_if_long:NTF #1
-      { \xeCJK_allow_break: }
+      {
+        \@@_punct_if_nobreak_long:NTF #1
+          { \xeCJK_no_break: }
+          { \xeCJK_allow_break: }
+      }
       { \xeCJK_no_break: }
     \@@_punct_if_middle:NT #1
       {
@@ -5275,11 +5394,19 @@ Copyright and Licence
     \IfBooleanTF {#1}
       {
         \tl_map_inline:en {#2}
-          { \tl_gset:cn { g_@@_punct_bound_width/##1/tl } {#3} }
+          {
+            \tl_if_exist:cF { g_@@_punct_width/##1/tl }
+              { \tl_new:c { g_@@_punct_width/##1/tl } }
+            \tl_gset:cn { g_@@_punct_bound_width/##1/tl } {#3}
+          }
       }
       {
         \tl_map_inline:en {#2}
-          { \tl_gset:cn { g_@@_punct_width/##1/tl } {#3} }
+          {
+            \tl_if_exist:cF { g_@@_punct_width/##1/tl }
+              { \tl_new:c { g_@@_punct_width/##1/tl } }
+            \tl_gset:cn { g_@@_punct_width/##1/tl } {#3}
+          }
       }
   }
 \@onlypreamble \xeCJKsetwidth
@@ -5307,7 +5434,7 @@ Copyright and Licence
 % \changes{v3.4.0}{2016/05/13}{\texttt{RubberPunctSkip} 选项有新的值 \texttt{plus} 和 \texttt{minus}。}
 %
 % \begin{macro}
-%  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,
+%  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,NoBreakLongPunct,
 %   MiddlePunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
@@ -5335,6 +5462,9 @@ Copyright and Licence
     LongPunct     .code:n = { \@@_set_special_punct:nn { long } {#1} } ,
     LongPunct+    .code:n = { \@@_add_special_punct:nn { long } {#1} } ,
     LongPunct-    .code:n = { \@@_sub_special_punct:nn { long } {#1} } ,
+    NoBreakLongPunct  .code:n = { \@@_set_special_punct:nn { nobreak_long } {#1} } ,
+    NoBreakLongPunct+ .code:n = { \@@_add_special_punct:nn { nobreak_long } {#1} } ,
+    NoBreakLongPunct- .code:n = { \@@_sub_special_punct:nn { nobreak_long } {#1} } ,
     MiddlePunct   .code:n = { \@@_set_special_punct:nn { middle } {#1} } ,
     MiddlePunct+  .code:n = { \@@_add_special_punct:nn { middle } {#1} } ,
     MiddlePunct-  .code:n = { \@@_sub_special_punct:nn { middle } {#1} } ,
@@ -5360,7 +5490,7 @@ Copyright and Licence
 % 相关选项定义的辅助函数。
 %    \begin{macrocode}
 \clist_new:N \g_@@_special_punct_clist
-\clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , middle }
+\clist_gset:Nn \g_@@_special_punct_clist { mixed_width , long , nobreak_long , middle }
 \cs_new:Npn \@@_special_punct_seq:n #1 { g_@@_special_punct_#1_seq }
 \cs_new:Npn \@@_special_punct_tl:nN #1#2 { g_@@_special_punct_#1_#2_tl }
 \clist_map_inline:Nn \g_@@_special_punct_clist
@@ -7319,7 +7449,7 @@ Copyright and Licence
 %
 % \begin{macro}{\setCJKfamilyfont, \newCJKfontfamily, \CJKfontspec}
 % \changes{v3.4.3}{2016/11/18}{允许字体属性可选项在后的新语法。}
-% \changes{v3.9.0}{2026/04/24}{\textbf{Breaking:}
+% \changes{v3.10.0}{2026/04/24}{\textbf{Breaking:}
 %   \tn{newCJKfontfamily} 定义的字体切换命令改为局部定义，
 %   与 \tn{newcommand} 行为一致。在分组内调用时，
 %   命令不再泄漏到分组外（\#751）。}
@@ -7332,7 +7462,7 @@ Copyright and Licence
       { }
   }
 \@@_msg_new:nn { command-already-defined }
-  { Control~sequence~\iow_char:N \\#1~is~already~defined. }
+  { Control~sequence~#1~is~already~defined. }
 \NewDocumentCommand \newCJKfontfamily { o m o m }
   {
     \tl_set:Nx \l_@@_tmp_tl
@@ -8324,6 +8454,7 @@ Copyright and Licence
     NoBreakCS       = { \footnote \footnotemark \nobreak } ,
     KaiMingPunct    = { ^^^^3002 ^^^^ff0e ^^^^ff1f ^^^^ff01 } ,
     LongPunct       = { ^^^^2014 ^^^^2e3a ^^^^2025 ^^^^2026 } ,
+    NoBreakLongPunct = { ^^^^2025 ^^^^2026 } ,
     MiddlePunct     = { ^^^^2013 ^^^^2014 ^^^^2e3a ^^^^2027 ^^^^00b7 ^^^^30fb ^^^^ff65 } ,
     AllowBreakBetweenPuncts = false
   }
@@ -8375,9 +8506,12 @@ Copyright and Licence
 %
 % \begin{variable}{\CJKrmdefault,\CJKsfdefault,\CJKttdefault,\CJKfamilydefault}
 %    \begin{macrocode}
-\tl_if_exist:NF \CJKrmdefault { \tl_gset:Nn \CJKrmdefault { rm } }
-\tl_if_exist:NF \CJKsfdefault { \tl_gset:Nn \CJKsfdefault { sf } }
-\tl_if_exist:NF \CJKttdefault { \tl_gset:Nn \CJKttdefault { tt } }
+\tl_if_exist:NF \CJKrmdefault
+  { \tl_new:N \CJKrmdefault \tl_gset:Nn \CJKrmdefault { rm } }
+\tl_if_exist:NF \CJKsfdefault
+  { \tl_new:N \CJKsfdefault \tl_gset:Nn \CJKsfdefault { sf } }
+\tl_if_exist:NF \CJKttdefault
+  { \tl_new:N \CJKttdefault \tl_gset:Nn \CJKttdefault { tt } }
 \tl_new:N \l_@@_family_default_init_tl
 \cs_new_eq:NN \@@_family_default_wrap:n \use:n
 \tl_set:Nx \l_@@_family_default_init_tl
@@ -8389,6 +8523,8 @@ Copyright and Licence
           { \exp_not:N \CJKrmdefault }
       }
   }
+\tl_if_exist:NF \CJKfamilydefault
+  { \tl_new:N \CJKfamilydefault }
 \tl_gset_eq:NN \CJKfamilydefault \l_@@_family_default_init_tl
 %    \end{macrocode}
 % \end{variable}
@@ -8453,7 +8589,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJKsetcharclass}
-% \changes{v3.9.0}{2026/04/24}{\textbf{Deprecated:}
+% \changes{v3.10.0}{2026/04/24}{\textbf{Deprecated:}
 %   \tn{xeCJKsetcharclass} 已弃用，
 %   调用时报错并提示改用 \tn{xeCJKDeclareCharClass}（\#709）。}
 %    \begin{macrocode}
@@ -8642,7 +8778,7 @@ Copyright and Licence
 % \changes{v3.1.2}{2013/01/01}{不将参数完全展开。}
 % \changes{v3.4.6}{2017/02/23}
 %   {将族名参数完全展开，以解决与 \pkg{fontspec} 2017/01/24 v2.5d 的兼容问题。}
-% \changes{v3.9.0}{2026/04/24}{\textbf{Breaking:}
+% \changes{v3.10.0}{2026/04/24}{\textbf{Breaking:}
 %   移除对 \LaTeXe\ 2020/10/01 之前版本的字体钩子兼容代码（\#746）。}
 % 使用 \LaTeXe\ 2020/10/01 提供的 \pkg{NFSS} 钩子，
 % 使主要 |CJK| 字体族能随西文主要字体更新。
@@ -8653,6 +8789,7 @@ Copyright and Licence
 \ctex_gadd_ltxhook:nn { ttfamily }   { \xeCJK@family { \CJKttdefault } }
 \ctex_gadd_ltxhook:nn { normalfont } { \xeCJK@family { \CJKfamilydefault } }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 %    \begin{macrocode}
@@ -8888,13 +9025,13 @@ Copyright and Licence
   {
     \token_if_chardef:NTF #1
       {
-        \prop_gput:Nne \c_@@_ambiguous_slot_prop {#2}
+        \prop_gput:Nne \g_@@_ambiguous_slot_prop {#2}
           { \int_eval:n {#1} }
         \cs_set_protected:Npx #1
           { \@@_ambiguous_char:n { \tex_Uchar:D #1 } }
       }
       {
-        \prop_gput:Nne \c_@@_ambiguous_slot_prop {#2}
+        \prop_gput:Nne \g_@@_ambiguous_slot_prop {#2}
           { \int_eval:n { \exp_after:wN ` #1 } }
         \cs_set_protected:Npx #1
           { \@@_ambiguous_char:n { \exp_not:o {#1} } }
@@ -8906,7 +9043,7 @@ Copyright and Licence
       { \@@_inactive_group_begin: #1 \@@_inactive_group_end: }
       {#1}
   }
-\prop_new:N \c_@@_ambiguous_slot_prop
+\prop_new:N \g_@@_ambiguous_slot_prop
 %    \end{macrocode}
 % \end{variable}
 % \end{macro}
@@ -9002,7 +9139,7 @@ Copyright and Licence
   }
 %    \end{macrocode}
 % \pkg{pifont} 宏包的符号 |\ding{183}| 也有冲突。
-% \changes{v3.9.0}{2026/04/24}{在 \tn{Pifont} 中先进入水平模式，
+% \changes{v3.10.0}{2026/04/24}{在 \tn{Pifont} 中先进入水平模式，
 %   防止 \tn{makexeCJKinactive} 在垂直模式下通过分页泄漏到输出例程（\#688）。}
 %    \begin{macrocode}
 \@@_package_hook:nn { pifont }
@@ -9013,6 +9150,77 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 % \end{macro}
+%
+% \changes{v3.10.0}{2026/04/27}{新增 \tn{xeCJKchar}，绕过 interchar 机制（\#407）。}
+% \changes{v3.10.0}{2026/04/29}{撤回对 \tn{char} 的重定义，改为提供 \tn{xeCJKchar}
+%   新命令，避免破坏依赖 |\let| 保存 \tn{char} 原语的宏包（\#800）。}
+%
+% \begin{macro}{\xeCJKchar, \xeCJK_default_char:w}
+% \begin{macro}{\@@_default_char_aux:}
+% \begin{variable}{\l_@@_default_char_int}
+% \tn{char} 是 \TeX{} 原语，用户使用它直接通过字符编码从当前字体取字形，
+% 不经过 NFSS 层。一些宏包（如 \pkg{mtpro2}）在数学模式中用 \tn{char} 取
+% 非 CJK 字形时，会被 \pkg{xeCJK} 的 interchar 机制拦截并切换到中文字体，
+% 导致字形变成中文标点（如间隔号，\#407）。
+%
+% 参照 \LuaTeX-ja 提供 |\ltjalchar|/|\ltjjachar| 新命令的思路，
+% \pkg{xeCJK} 提供 \tn{xeCJKchar} 命令，在输出字符前临时关闭
+% |XeTeXinterchartokenstate|，保证输出的字符来自当前字体而不被 interchar
+% 拦截。与 \LuaTeX-ja 不同的是，XeTeX 的 interchar 机制工作在 token 层面，
+% 没有节点级回调，因此无法自动区分 \tn{char} 和直接字符输入。
+% \tn{xeCJKchar} 供用户和第三方宏包显式使用，\tn{char} 本身不做任何修改。
+%
+% 用法与 \tn{char} 完全相同：|\xeCJKchar"00B7| 或 |\xeCJKchar183|。
+% 用户指南和手动补丁方法参见"已知问题和兼容性"一节。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_default_char:w
+  {
+    \int_compare:nNnTF \tex_XeTeXinterchartokenstate:D > \c_zero_int
+      {
+        \c_group_begin_token
+          \tex_afterassignment:D \@@_default_char_aux:
+          \l_@@_default_char_int =
+      }
+      { \tex_char:D }
+  }
+\cs_new_protected:Npn \@@_default_char_aux:
+  {
+      \tex_XeTeXinterchartokenstate:D = \c_zero_int
+      \tex_char:D \l_@@_default_char_int
+    \c_group_end_token
+  }
+\int_new:N \l_@@_default_char_int
+\cs_new_eq:NN \xeCJKchar \xeCJK_default_char:w
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+% \end{macro}
+%
+% \changes{v3.10.0}{2026/04/29}{为 \pkg{mtpro2} 提供兼容补丁，
+%   使大花括号内部的 \tn{char} 不被 interchar 拦截（\#407）。}
+%
+% \pkg{mtpro2} 的 \cs{overcbrace} 和 \cs{undercbrace} 通过
+% |\char| 访问 |mt2exe| 等字体的特殊位置，其中部分位置
+% （如 183\,=\,|U+00B7|）与 \pkg{xeCJK} 的 interchar 字符分类冲突。
+% 由于这两个命令只用在数学模式中，参数不含 CJK 字符，可以在入口处
+% 直接关闭 |XeTeXinterchartokenstate|，由数学模式的分组自动恢复。
+%    \begin{macrocode}
+\@@_package_hook:nn { mtpro2 }
+  {
+    \cs_set_eq:NN \@@_mtpro_overcbrace:w \overcbrace
+    \cs_gset_protected:Npn \overcbrace #1
+      {
+        \makexeCJKinactive
+        \@@_mtpro_overcbrace:w {#1}
+      }
+    \cs_set_eq:NN \@@_mtpro_undercbrace:w \undercbrace
+    \cs_gset_protected:Npn \undercbrace #1
+      {
+        \makexeCJKinactive
+        \@@_mtpro_undercbrace:w {#1}
+      }
+  }
+%    \end{macrocode}
 %
 % \changes{v3.8.3}{2020/04/09}{兼容 \pkg{unicode-math} 和 \opt{CJKmath} 选项。}
 %
@@ -9072,7 +9280,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_get_ambiguous_slot:
   {
-    \prop_get:NeNT \c_@@_ambiguous_slot_prop
+    \prop_get:NeNT \g_@@_ambiguous_slot_prop
       { \MT@encoding - \tex_the:D \MT@toks } \l_@@_tmp_tl
       { \cs_set_eq:NN \MT@char \l_@@_tmp_tl }
   }
@@ -9675,15 +9883,48 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.10.0}{2026/04/28}{在下划线内 CJK 分组切换时保存/恢复字体状态（\#465）。}
+%
+% \begin{macro}{\@@_ulem_save_font_state:,\@@_ulem_restore_font_state:}
+% \begin{variable}{\g_@@_ulem_saved_series_tl,\g_@@_ulem_saved_shape_tl,
+%   \g_@@_ulem_saved_CJK_family_tl,\g_@@_ulem_saved_CJK_fam_tl}
+% 在 \cs{xeCJK_class_group_end:} 前保存字体状态，在
+% \cs{@@_ulem_class_group_begin:} 后恢复，使 \tn{bfseries}、
+% \tn{sffamily} 等字体声明能跨越下划线内的 CJK 分组边界。
+%    \begin{macrocode}
+\tl_new:N \g_@@_ulem_saved_series_tl
+\tl_new:N \g_@@_ulem_saved_shape_tl
+\tl_new:N \g_@@_ulem_saved_CJK_family_tl
+\tl_new:N \g_@@_ulem_saved_CJK_fam_tl
+\cs_new_protected:Npn \@@_ulem_save_font_state:
+  {
+    \tl_gset:Nx \g_@@_ulem_saved_series_tl { \f@series }
+    \tl_gset:Nx \g_@@_ulem_saved_shape_tl  { \f@shape }
+    \tl_gset_eq:NN \g_@@_ulem_saved_CJK_family_tl \l_xeCJK_family_tl
+    \tl_gset_eq:NN \g_@@_ulem_saved_CJK_fam_tl \CJK@family
+  }
+\cs_new_protected:Npn \@@_ulem_restore_font_state:
+  {
+    \tl_set:Nx \f@series { \g_@@_ulem_saved_series_tl }
+    \tl_set:Nx \f@shape  { \g_@@_ulem_saved_shape_tl  }
+    \tl_set_eq:NN \l_xeCJK_family_tl \g_@@_ulem_saved_CJK_family_tl
+    \tl_set_eq:NN \CJK@family \g_@@_ulem_saved_CJK_fam_tl
+  }
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+%
 % \begin{macro}{\@@_ulem_CJK_and_CJK:N}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_ulem_CJK_and_CJK:N
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \@@_ulem_save_font_state:
         \xeCJK_class_group_end:
         \UL@stop \@@_ulem_ccglue: \UL@start
         \@@_ulem_class_group_begin:
+        \@@_ulem_restore_font_state:
         \xeCJK_select_font:
         \xeCJK_fallback_symbol:NN
         \CJKsymbol
@@ -9709,10 +9950,12 @@ Copyright and Licence
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \@@_ulem_save_font_state:
         \xeCJK_class_group_end:
         \UL@stop \@@_ulem_ccglue: \UL@start
         \xeCJK_class_group_begin:
         \xeCJK_clear_Boundary_and_CJK_toks:
+        \@@_ulem_restore_font_state:
         \@@_switch_font:nn {#1} {#2}
         \xeCJK_fallback_symbol:NN
         \CJKsymbol
@@ -10370,11 +10613,11 @@ Copyright and Licence
 % \changes{v3.8.3}{2020/04/07}{取消 \pkg{xeCJKfntef} 的初始彩色设置。}
 %
 % \begin{macro}{\CJKunderanysymbol}
+% \changes{v3.10.0}{2026/04/28}{移除 \tn{ignorespaces}，修复命令后空格丢失（\#465）。}
 %    \begin{macrocode}
 \NewDocumentCommand \CJKunderanysymbol { o m m m }
   {
     \xeCJK_under_symbol:nnnnnn { symbol } { symbol } {#1} {#2} {#3} {#4}
-    \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10382,6 +10625,7 @@ Copyright and Licence
 % \begin{macro}{\CJKunderdot}
 % \tn{CJKunderdot} 是 \tn{CJKunderanysymbol} 的特殊情况。\pkg{CJKfntef} 原来使用
 % 的是数学符号 \tn{cdot}，这里改成更合适的 |.|。
+% \changes{v3.10.0}{2026/04/28}{移除 \tn{ignorespaces}，修复命令后空格丢失（\#465）。}
 %    \begin{macrocode}
 \NewDocumentCommand \CJKunderdot { o m }
   {
@@ -10390,7 +10634,6 @@ Copyright and Licence
       { \l_@@_udot_depth_tl }
       { \l_@@_udot_format_tl \l_@@_udot_symbol_tl }
       {#2}
-    \tex_ignorespaces:D
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10964,13 +11207,22 @@ Copyright and Licence
 % \tn{lstinline} 参数中的字符设置为活动字符。我们可以通过 \cs{tl_set_rescan:Nnn}
 % 来完成这里的 \tn{catcode} 转换，避免将 \tn{charcode} 超过 $255$ 的字符都设置为
 % 活动字符。
+%
+% 当 \tn{lstinline} 出现在宏参数中时，\TeX{} 参数传递将 |#| 双写为 |##|
+% （catcode 6 parameter token）。\cs{tl_set_rescan:Nnn} 底层的 \cs{scantokens}
+% 在字符串化阶段会再次将 catcode~6 的 |#| 双写，导致输出中 |#| 数量翻倍。
+% 修复方法是在 rescan 前用 \cs{regex_replace_all:nnN} 将 catcode~6 的 |#|
+% 替换为 active |#|（catcode 13），这是 \pkg{listings} 期望的字符类型。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_listings_rescan:Nn #1#2
   {
     \@@_listings_set_escape:
     \tl_set:Nn \l_@@_tmp_tl {#2}
     \@@_listings_escape_backslash:
-    \tl_set_rescan:Nno #1 { } { \l_@@_tmp_tl }
+    \regex_replace_all:nnN { \cP . } { \cA \x{23} } \l_@@_tmp_tl
+    \tl_set_rescan:Nno #1
+      { \char_set_catcode_active:n { 35 } }
+      { \l_@@_tmp_tl }
   }
 \cs_new_protected:Npn \@@_listings_inside_convert:nw #1 ~ \@empty
   {
@@ -12047,7 +12299,7 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % 以下内容选自 \pkg{xunicode}，并做了适当修改。
-% \changes{v3.9.2}{2023/11/22}{修复 \tn{textsbleftarrow} 的定义。}
+% \changes{v3.10.0}{2023/11/22}{修复 \tn{textsbleftarrow} 的定义。}
 %    \begin{macrocode}
 \DeclareUTFComposite\textsuperscript
 \DeclareUTFComposite\textsubscript
@@ -12266,12 +12518,12 @@ Copyright and Licence
 % {增加 \file{xunicode-extra.def} 中，用于加入 \file{puenc.def} 中的符号定义。}
 %
 % 以下定义取自 \pkg{hyperref} 的 \file{puenc.def}。
-% \changes{v3.9.2}{2023/11/10}{修复拼错的命令名，
+% \changes{v3.10.0}{2023/11/10}{修复拼错的命令名，
 %   \tn{cyreref} $\to$ \tn{cyrerev} 和
 %   \tn{textDiamandSolid} $\to$ \tn{textDiamondSolid}。}
-% \changes{v3.9.2}{2023/11/11}{修复 \tn{textnleqslant} 的定义，
+% \changes{v3.10.0}{2023/11/11}{修复 \tn{textnleqslant} 的定义，
 %   修复 \tn{textnbacksim} 和 \tn{textnlessapprox} 定义里的自引。}
-% \changes{v3.9.2}{2023/11/27}{修复组合符号 |U+04AA| 的定义。}
+% \changes{v3.10.0}{2023/11/27}{修复组合符号 \texttt{U+04AA} 的定义。}
 %    \begin{macrocode}
 \DeclareUTFEncodedAccent\textinvbreve{"0311}{"0311}
 \DeclareUTFEncodedSymbol\textsubbreve{"032E}{"203F}
@@ -14207,7 +14459,11 @@ int main()
 \usepackage{zref-base}
 
 \setmainfont{FreeSerif}
-\newfontfamily\falllbackfont{Segoe UI Symbol}
+\IfFontExistsTF{Segoe UI Symbol}
+  {\newfontfamily\falllbackfont{Segoe UI Symbol}}
+  {\IfFontExistsTF{Noto Sans Symbols 2}
+    {\newfontfamily\falllbackfont{Noto Sans Symbols 2}}
+    {\let\falllbackfont\relax}}
 
 \makeatletter
 \ExplSyntaxOn

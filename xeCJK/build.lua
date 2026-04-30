@@ -153,4 +153,9 @@ function unpack_posthook()
   end
 end
 
+dtxchecksum = dtxchecksum or {}
+dtxchecksum.syntonly = false
+dtxchecksum.doccfg  = [[\AtBeginDocument{\XeTeXinterchartokenstate=\z@}]] ..
+                      [[\AtBeginDocument{\RenewDocumentCommand\PrintPunctList{O{7}mm}{}}]]
+
 dofile("../support/build-config.lua")

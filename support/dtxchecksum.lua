@@ -43,6 +43,7 @@ local checksumopt = dtxchecksum.opt or ( checksumexe == "xelatex" and "-no-pdf" 
 local ltxdocfile = dtxchecksum.cfgfile or "l3doc.cfg"
 local ltxdoccfg  = dtxchecksum.doccfg or ( checksumexe == "xelatex" and [[\AtBeginDocument{\XeTeXinterchartokenstate=\z@}]]
                                                                     or "" )
+local use_syntonly = dtxchecksum.syntonly ~= false
 
 local kpathsea = kpse.new(checksumexe)
 
@@ -67,9 +68,9 @@ local cfg = [[
   \pretolerance10000 %
   \tolerance10000 %
   \csname DisableDocumentation\endcsname
-  \usepackage{syntonly}%
+]] .. ( use_syntonly and [[  \usepackage{syntonly}%
   \AtBeginDocument{\syntaxonly}
-  ]] .. ltxdoccfg .. [[
+]] or "" ) .. [[  ]] .. ltxdoccfg .. [[
 }
 \endinput
 ]]

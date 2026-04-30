@@ -51,6 +51,10 @@
 
 这条约定在定义用户可见切换命令时尤其重要：若命令的存在性本身属于用户接口的一部分，就必须先判断它应该是“全局注册”还是“仅在当前组有效”。Issue #751 的修复正是一个典型案例：字体族注册可继续全局保存，但 `\newCJKfontfamily` 生成的用户切换命令需要改为局部定义，才能与 `fontspec` / LaTeX 用户对命令作用域的直觉保持一致。
 
+## expl3 正则里的 catcode class 记法
+
+处理 token 级 catcode 问题时，优先记住 `\regex_replace_all` 可直接匹配字符类别，而不只是字符字面值：常见写法如 `\cP`（parameter，catcode 6）、`\cA`（active，catcode 13）、`\cO`（other，catcode 12）。这类语法适合区分“同样显示为 `#`、但 catcode 不同”的 token；若目标是只转换某一类 token，普通 `str`/`tl` 字符串替换往往不够精确。
+
 ## docstrip 标签系统
 
 `ctex-kit` 的核心源码大量使用 docstrip 标签在单个 `.dtx` 中生成多个产物。稳定事实包括：
@@ -64,6 +68,14 @@
 - 改了文档区，未改实现区
 - 改了某个产物对应标签，却遗漏并行产物
 - 错判某段代码的实际输出文件
+
+### 引擎标签与 ctex.sty 的陷阱
+
+`ctex.sty` 以 `{style,ctex}` 标签从 `ctex.dtx` 生成，**不含**引擎标签（`pdftex`、`xetex`、`luatex`、`uptex`）。引擎 `.def` 文件分别以 `{pdftex}`、`{xetex}`、`{luatex}`、`{uptex}` 标签生成。
+
+关键约束：在 `ctex.sty` 输出的公共代码区域中使用 `%<*pdftex|xetex>` 守卫，该代码会被 docstrip 剥离，**不会**出现在 `ctex.sty` 中。这是一个已确认的陷阱（Issue #761 修复中踩过）。
+
+引擎条件代码的正确做法：在引擎 `.def` 代码段中，用 `\ctex_at_end:n`（= `\AtEndOfPackage`）延迟到包加载末尾重定义公共区域中已存在的默认实现。
 
 调查报告还指出，`xeCJK` 的 example 文档直接封装在 `xeCJK.dtx` 的剥离块里；这类文件既是示例，也是该包当前重要的验证载体。
 

@@ -9,16 +9,18 @@ unpackfiles  = {"CJKpunct.dtx"}
 installfiles = {"CJKpunct.sty", "CJKpunct.spa"}
 typesetfiles = {"CJKpunct.dtx"}
 unpackexe    = "pdftex"
-typesetexe   = "latex"
+typesetexe   = "xelatex"
+
+stdengine    = "pdftex"
+checkengines = {"pdftex"}
+checkruns    = 1
 
 dtxchecksum = dtxchecksum or { }
-dtxchecksum.exe     = "latex"
-dtxchecksum.cfgfile = "ltxdoc.cfg"
+dtxchecksum.exe     = "xelatex"
 
 function doc_posthook()
   for _, i in pairs(typesetfiles) do
     local name = jobname(i)
-    run(typesetdir, "dvipdfmx " .. name)
     cp(name .. ".pdf", typesetdir, currentdir)
   end
 end
@@ -34,3 +36,6 @@ end
 
 
 dofile("../support/build-config.lua")
+
+-- CJKpunct's driver (ctxdoc) is incompatible with dtxchecksum
+checksum = function() end

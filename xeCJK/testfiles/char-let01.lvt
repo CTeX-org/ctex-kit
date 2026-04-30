@@ -1,0 +1,47 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+% Simulate xint's pattern: \let\savedtoken\char at preamble load time
+\ExplSyntaxOn
+\cs_new_eq:NN \testSavedChar \char
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+% The saved token should be the \char primitive, not a macro
+\ExplSyntaxOn
+\TEST{let~copy~of~char~from~preamble~is~primitive}{
+  \token_if_macro:NTF \testSavedChar
+    { \TYPE{FAIL:~\token_to_meaning:N \testSavedChar} }
+    { \TYPE{PASS} }
+}
+\ExplSyntaxOff
+
+% Verify the saved \char primitive works for character production
+\TEST{saved~char~produces~characters}{
+  \setbox0=\hbox{\testSavedChar "41\relax}
+  \ifdim\wd0>0pt
+    \TYPE{PASS}
+  \else
+    \TYPE{FAIL:~no~output}
+  \fi
+}
+
+% Verify \char is NOT redefined in document body (new approach: #407 + #800)
+\ExplSyntaxOn
+\TEST{char~is~still~primitive~in~document~body}{
+  \token_if_macro:NTF \char
+    { \TYPE{FAIL:~\token_to_meaning:N \char} }
+    { \TYPE{PASS} }
+}
+\ExplSyntaxOff
+
+\END
+
+\end{document}
