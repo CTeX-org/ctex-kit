@@ -29,6 +29,7 @@
 - `llmdoc/memory/decisions/715-hyperref-driverfallback.md` — 决策: hyperref driverfallback 按加载状态分支处理，避免重复设置警告。
 - `llmdoc/memory/decisions/717-experiment-cjkecglue.md` — 决策: 将跨引擎 `CJKecglue` 统一接口保持为实验性，并固定在 `ctex / experiment` 子路径下。
 - `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
+- `llmdoc/memory/decisions/811-halfright-prebreakpenalty.md` — 决策: #811 对整个 `HalfRight` 类施加条件禁则，不拆分类；其中 `FullRight -> HalfRight` 必须覆写 interchartoks 以保证 penalty 位于 punct glue 之前。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。

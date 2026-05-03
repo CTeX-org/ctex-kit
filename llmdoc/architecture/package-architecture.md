@@ -100,6 +100,10 @@
 
 xeCJK 的字距控制还依赖 XeTeX 的 interchar 机制：字符先被分入 `Default`、`CJK`、`FullLeft`、`FullRight`、`Boundary` 等预定义类，以及 xeCJK 额外建立的 `HalfLeft`、`HalfRight`、`NormalSpace`、`CM` 等类，再由 `\XeTeXinterchartoks` 在类边界插入 `CJKglue` / `CJKecglue` 与相关分组 token。这里的关键不变量是：只有真正参与版面边界判定的可见字符，才应进入 class 序列；零宽格式字符若被当作普通字符参与分类，就会打断原本连续的 CJK 或 CJK↔Latin 边界，触发错误的 `CJKecglue` 或其他 inter-class toks 插入。
 
+Issue #811 在这套 interchar 分类上新增了实验性选项 `experiment/halfright-prebreakpenalty`。该选项默认关闭；打开后，xeCJK 会在 `CJK -> HalfRight` 与 `FullRight -> HalfRight` 两类过渡中条件性插入 `\xeCJK_no_break:`，也就是 penalty 10000，阻止半角右标点出现在行首。这里的 `HalfRight` 不是一个为 #811 临时拆出来的新类，而是 xeCJK 既有的“半角右标点”整体类别，当前固定包含 13 个成员：`!`、`"`、`%`、`'`、`)`、`,`、`.`、`:`、`;`、`?`、`]`、`}` 与 `U+232A`，全部都属于收尾型右侧标点，因此实现上直接针对整个类施加统一禁则，而不是再细分字符类。
+
+这个选项的实现还确立了一个重要顺序约束：`FullRight -> HalfRight` 过渡不能只是在原有 interchartoks 后面追加 penalty，而必须完整覆写该过渡的 interchartoks 定义。原因是 xeCJK 原有这一路径会先执行 `\@@_punct_glue:NN`；如果 penalty 放在 glue 之后，断行点已经落在 glue 之前，无法真正阻止半角右标点被排到下一行的行首。因此新的定义必须把 penalty 放在 `\@@_punct_glue:NN` 之前，再接续原有标点胶逻辑。相比之下，`CJK -> HalfRight` 路径原本没有同样的前置 glue 顺序约束，因此可以在既有定义上条件追加禁则。
+
 另一个稳定约束是 `\char` 与 interchar 的边界。XeTeX 的 interchar 机制在 token 层面工作，只会看到“将要输出的字符 token”，无法区分这个字符是来自直接 Unicode 输入，还是来自 `\char` 原语；这与 LuaTeX-ja 可在节点级 callback 中区分输出来源的模型根本不同。因此，xeCJK 不可能像 LuaTeX-ja 那样在完全不碰 `\char` 的前提下自动修复 Issue #407。
 
 xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`：
