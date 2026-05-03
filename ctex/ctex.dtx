@@ -585,7 +585,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6871}
+% \CheckSum{6886}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1339,6 +1339,27 @@ Copyright and Licence
 %   如果将 \opt{linestretch} 选项的值设置为 \tn{maxdimen}，则可以禁止按字号自
 %   动修改每行的允许伸长量。此时汉字间的弹性间距则固定为 \tn{baselineskip} 的
 %   $0.08$ 倍。
+%
+% \begin{function}[added=2026-05-03]{experiment/CJKecglue}
+%   \begin{syntax}
+%     experiment/CJKecglue = \Arg{弹性长度}
+%   \end{syntax}
+%   设置 CJK 文字与西文之间的间距（汉英文间胶）。这是一个实验性选项，
+%   目前仅在 \XeLaTeX{}、\LuaLaTeX{} 和 \upLaTeX{} 下有效，
+%   使用 \pdfLaTeX{} 编译时会产生警告。
+% \end{function}
+%
+%   在 \XeLaTeX{} 下，此选项等价于设置
+%   \lstinline[language={[LaTeX]TeX}]|\xeCJKsetup{CJKecglue={\hskip ...}}|；
+%   在 \LuaLaTeX{} 和 \upLaTeX{} 下，此选项设置 |xkanjiskip|。
+%   例如：
+%   \begin{ctexexam}
+%   \ctexset{experiment/CJKecglue = 0.25em plus 0.15em minus 0.05em}
+%   \end{ctexexam}
+%
+%   请注意，由于 \pdfLaTeX{} 下的 \pkg{CJK} 宏包没有独立的汉英文间胶概念，
+%   此选项无法在所有引擎下提供一致的行为。因此，\emph{除非确定文档仅会在
+%   \XeLaTeX{} 或 \LuaLaTeX{} 下编译}，否则不建议使用此选项。
 %
 % \section{文档汉化}
 % \label{sec:chinese-localization}
@@ -3653,6 +3674,8 @@ Copyright and Licence
   { Option~`\l_keys_key_str'~is~invalid~in~current~mode. }
 \msg_new:nnn { ctex } { invalid-value }
   { Value~`#1'~is~invalid~for~the~key~`\l_keys_key_str'. }
+\msg_new:nnn { ctex } { CJKecglue-unsupported }
+  { `experiment/CJKecglue'~is~not~supported~by~the~current~engine. }
 %    \end{macrocode}
 %
 % \begin{macro}[int]{\ctex_deprecated_option:nn,
@@ -7322,6 +7345,39 @@ Copyright and Licence
 %<uptex|aptex>        \msg_warning:nn { ctex } { invalid-option }
       } ,
     punct .default:n = { quanjiao } ,
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.6.0}{2026/05/03}{新增实验性 \opt{experiment/CJKecglue} 选项（\#717）。}
+%
+% \begin{macro}{experiment,experiment/CJKecglue}
+% 实验性选项。\opt{experiment/CJKecglue} 用于统一设置 CJK 文字与西文之间的间距。
+% \XeTeX{} 下转发给 \pkg{xeCJK}，\LuaTeX{} 和 \upTeX{} 下设置 |xkanjiskip|，
+% \pdfTeX{} 下不支持。
+%    \begin{macrocode}
+\ctex_define:n
+  { experiment .meta:nn = { ctex / experiment } {#1} }
+\keys_define:nn { ctex / experiment }
+  {
+%<*xetex>
+    CJKecglue .code:n =
+      { \xeCJKsetup { CJKecglue = { \skip_horizontal:n {#1} } } } ,
+%</xetex>
+%<*luatex|uptex|aptex>
+    CJKecglue .code:n =
+      {
+        \tl_set:Nn \l_@@_xkanjiskip_tl {#1}
+        \skip_set:Nn \l_@@_xkanjiskip_skip {#1}
+%<luatex>        \ctex_ltj_set_xkanjiskip:N \l_@@_xkanjiskip_skip
+%<uptex|aptex>        \skip_set_eq:NN \tex_xkanjiskip:D \l_@@_xkanjiskip_skip
+      } ,
+%</luatex|uptex|aptex>
+%<*pdftex>
+    CJKecglue .code:n =
+      { \msg_warning:nn { ctex } { CJKecglue-unsupported } } ,
+%</pdftex>
+    CJKecglue .value_required:n = true
   }
 %    \end{macrocode}
 % \end{macro}
