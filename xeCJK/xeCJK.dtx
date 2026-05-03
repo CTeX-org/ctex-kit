@@ -291,8 +291,9 @@ Copyright and Licence
 % \changes{v3.8.0}{2020/02/09}{兼容 \LaTeXe\ 2020/02/02 对 \pkg{NFSS} 的修改。}
 % \changes{v3.8.0}{2020/02/09}{清理过时的兼容性补丁代码。}
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
+% \changes{v3.10.0}{2026/04/29}{提升版本号至 v3.10.0。}
 %
-% \CheckSum{11186}
+% \CheckSum{11216}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9311,6 +9312,10 @@ Copyright and Licence
 % \end{macro}
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
+% \changes{v3.10.0}{2026/05/03}{通过在 \cs{Hy@BeginAnnot} 中保存并
+%   选择性恢复 xeCJK 节点标记，同时清除旧标记，
+%   解决目录中链接注释起始处的虚假 \texttt{ecglue}（\#810），
+%   并为 \cs{ref} 提供前侧 \texttt{ecglue}（\#809）。}
 %    \begin{macrocode}
 \@@_package_hook:nn { hyperref }
   {
@@ -9321,6 +9326,26 @@ Copyright and Licence
         \xeCJK_cs_clear:N \@@_inactive_group_end:
         \xeCJK_cs_clear:N \makexeCJKinactive
         \xeCJK_cs_clear:N \xeCJK_text_composite_patch:
+      }
+    \@@_patch_hyperref_annot:
+  }
+\tl_new:N \g_@@_hyper_saved_node_tl
+\cs_new_protected:Npn \@@_patch_hyperref_annot:
+  {
+    \cs_gset_eq:NN \@@_orig_Hy_BeginAnnot:n \Hy@BeginAnnot
+    \cs_gset_protected:Npn \Hy@BeginAnnot ##1
+      {
+        \xeCJK_if_last_node:TF
+          { \tl_gset_eq:NN \g_@@_hyper_saved_node_tl \g_@@_last_node_tl }
+          { \tl_gclear:N \g_@@_hyper_saved_node_tl }
+        \tl_gclear:N \g_@@_last_node_tl
+        \@@_orig_Hy_BeginAnnot:n { ##1 }
+        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK }
+          { \xeCJK_make_node:n { CJK } }
+        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK-space }
+          { \xeCJK_make_node:n { CJK-space } }
+        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK-widow }
+          { \xeCJK_make_node:n { CJK-widow } }
       }
   }
 %    \end{macrocode}
