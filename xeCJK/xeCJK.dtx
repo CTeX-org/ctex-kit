@@ -293,7 +293,7 @@ Copyright and Licence
 % \changes{v3.8.3}{2020/04/07}{删除 \texttt{\_nopar}。}
 % \changes{v3.10.0}{2026/04/29}{提升版本号至 v3.10.0。}
 %
-% \CheckSum{11216}
+% \CheckSum{11235}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -670,6 +670,24 @@ Copyright and Licence
 %   设置不能在全角右标点后断行的控制序列。以上是 \pkg{xeCJK} 的默认设置。如果这些
 %   控制序列在文档中只出现少量几次，也可以不必使用 |CheckFullRight| 选项，而是手工
 %   在这些控制序列前面加上 \ref{subsec:others}~节介绍的 \tn{xeCJKnobreak}。
+% \end{function}
+%
+% \begin{function}[added=2026-05-03]{experiment/halfright-prebreakpenalty}
+%   \begin{syntax}
+%     experiment/halfright-prebreakpenalty = \meta{\TFF}
+%   \end{syntax}
+%   这是一个实验性选项。缺省状态下，\pkg{xeCJK} 不会禁止在
+%   CJK 文字或全角右标点后面紧跟的半角右标点（如 |.| |,| |;| |:| |!| |?|
+%   |)| |]| 等）之前换行。例如 |）.| 中，|.| 有可能被排在下一行的行首。
+%   打开此选项后，\pkg{xeCJK} 会在这类位置插入禁则（penalty 10\,000），
+%   防止半角右标点出现在行首。
+%
+%   此选项的效果类似于 \pkg{LuaTeX-ja} 中的 |prebreakpenalty| 机制，
+%   但受限于 \XeTeX{} interchar 机制，粒度为字符类级别而非逐字符级别。
+%   例如：
+%   \begin{verbatim}
+%   \xeCJKsetup{experiment/halfright-prebreakpenalty}
+%   \end{verbatim}
 % \end{function}
 %
 % \begin{function}[updated=2013-11-16]{Verb}
@@ -3912,6 +3930,38 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
+% \changes{v3.10.0}{2026/05/03}{新增实验性
+%   \opt{experiment/halfright-prebreakpenalty} 选项（\#811）。}
+%
+% \begin{macro}{\l_@@_halfright_nobreak_bool}
+%    \begin{macrocode}
+\bool_new:N \l_@@_halfright_nobreak_bool
+%    \end{macrocode}
+% \end{macro}
+%
+% 在 |CJK| $\to$ |HalfRight| 和 |FullRight| $\to$ |HalfRight| 的过渡中，
+% 条件性地插入禁则 penalty。
+%    \begin{macrocode}
+\xeCJK_app_inter_class_toks:nnn { CJK } { HalfRight }
+  {
+    \bool_if:NT \l_@@_halfright_nobreak_bool
+      { \xeCJK_no_break: }
+  }
+%    \end{macrocode}
+%
+% |FullRight| $\to$ |HalfRight| 需要将 penalty 插入 |punct_glue| 之前，
+% 因此覆写而非追加。
+%    \begin{macrocode}
+\xeCJK_inter_class_toks:nnn { FullRight } { HalfRight }
+  {
+    \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+    \xeCJK_class_group_end:
+    \bool_if:NT \l_@@_halfright_nobreak_bool
+      { \xeCJK_no_break: }
+    \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
+  }
+%    \end{macrocode}
+%
 % \hypertarget{bound-fl-fr}{}
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
@@ -4818,6 +4868,17 @@ Copyright and Licence
           }
       } ,
     CheckFullRight      .default:n = { true }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{experiment/halfright-prebreakpenalty}
+%    \begin{macrocode}
+\keys_define:nn { xeCJK / options / experiment }
+  {
+    halfright-prebreakpenalty .bool_set:N = \l_@@_halfright_nobreak_bool ,
+    halfright-prebreakpenalty .default:n  = true ,
+    halfright-prebreakpenalty .initial:n  = false
   }
 %    \end{macrocode}
 % \end{macro}
