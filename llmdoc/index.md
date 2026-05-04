@@ -21,6 +21,7 @@
 
 ## memory
 
+- `llmdoc/memory/decisions/271-varioref-chinese-upstream-locale.md` — 决策: 中文 varioref 本地化优先以上游 `varioref` 的 `chinese` locale 实现，先推动 latex2e PR #2071，而非在 ctex 侧维护整套描述性文本补丁。
 - `llmdoc/memory/decisions/725-cleveref-patch-toggle.md` — 决策: 不在 ctex 侧修复 cleveref appendix 语义问题，改为提供 `patch/cleveref` 开关。
 - `llmdoc/memory/decisions/751-newCJKfontfamily-scope.md` — 记录 #751 / PR #773 中 `\newCJKfontfamily` 从全局命令定义改为局部定义的原因、决策与影响范围。
 - `llmdoc/memory/decisions/782-fontset-mac-macos15plus-detection.md` — 决策: 不新增 `mac15plus`，改为在 `fontset=mac` 内增加 macOS 版本检测后备，并按 XeTeX/LuaTeX 分别探测 macOS 15+ downloadable 字体。
