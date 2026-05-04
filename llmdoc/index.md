@@ -28,6 +28,7 @@
 - `llmdoc/memory/decisions/688-pifont-interchartokenstate-leak.md` — 决策: pifont hook 中先进入水平模式防止 interchartokenstate 泄漏到输出例程。
 - `llmdoc/memory/decisions/715-hyperref-driverfallback.md` — 决策: hyperref driverfallback 按加载状态分支处理，避免重复设置警告。
 - `llmdoc/memory/decisions/717-experiment-cjkecglue.md` — 决策: 将跨引擎 `CJKecglue` 统一接口保持为实验性，并固定在 `ctex / experiment` 子路径下。
+- `llmdoc/memory/decisions/543-font-size-system.md` — 决策: 将字号系统切换能力放入 `experiment/font-size-system`，仅在类/宏包选项阶段选择 `word`、`traditional` 或用户自定义字号表。
 - `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
 - `llmdoc/memory/decisions/811-halfright-prebreakpenalty.md` — 决策: #811 对整个 `HalfRight` 类施加条件禁则，不拆分类；其中 `FullRight -> HalfRight` 必须覆写 interchartoks 以保证 penalty 位于 punct glue 之前。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
