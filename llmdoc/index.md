@@ -6,7 +6,7 @@
 
 ## architecture
 
-- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及 ecglue 边界恢复链从通用 whatsit 回退收缩为 color/xcolor `\set@color` 与 hyperref `\Hy@BeginAnnot` 的定点重放策略。
+- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放、#324 宏路径多余 glue 遮蔽、ecglue 缓存取值三层约束的统一心智模型。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
@@ -49,3 +49,4 @@
 - `llmdoc/memory/reflections/756-802-spa-unicode17-baseline.md` — 反思: #756 XeTeX 字体查找语法陷阱、#802 Unicode 区块同步流程、xeCJK→ctex 跨包基线联动模式。
 - `llmdoc/memory/reflections/807-set-color-stale-state.md` — 反思: xeCJK #807 中 `\set@color` 无节点分支未清空 `\g_@@_last_node_tl`，导致首次 `\textcolor` 把初始化阶段残留的 `default` 误送入 whatsit 恢复链并错误插入 ecglue。
 - `llmdoc/memory/reflections/809-810-hyperref-annot-ecglue.md` — 反思: xeCJK #809/#810 中 hyperref 注释起始 whatsit 需在 `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态；`default` 分支保留给 color/xcolor，但不应在注释开始端被重放。
+- `llmdoc/memory/reflections/324-boundary-reserve-space-glue.md` — 反思: xeCJK #324 中宏路径提前输出空格 glue 遮蔽 `CJK-space` 标记 kern，破坏 `\lastkern` 边界恢复；修复同时揭示 xeCJK→ctex 的广泛基线联动。
