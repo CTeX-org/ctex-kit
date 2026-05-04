@@ -13,15 +13,15 @@
 
 1. 新接口命名为 `experiment/font-size-system`，放在 `ctex / experiment` 命名空间下，而不是直接提升为主选项。
 2. 该接口仅作为类/宏包选项使用，不支持通过 `\ctexset` 在运行时切换。
-3. 内建提供两套预设字号系统：默认 `word` 与可选 `traditional`。
-4. `traditional` 的字号数据采用 issue #543 中 tanukihee 提出的传统倍数体系方案。
+3. 内建提供两套预设字号系统：默认 `word` 与可选 `letterpress`。
+4. `letterpress` 的字号数据采用 issue #543 中 tanukihee 提出的传统倍数体系方案，并在 Issue #813 后将原名 `traditional` 更名为更准确的 `letterpress`，明确指向金属活字排印（letterpress printing）时代的字号体系。
 5. 用户自定义字号系统的扩展机制固定为：提供 `ctex-fontsize-<name>.def` 文件，并在其中通过公开 API `\ctex_save_font_size:nn` 写入字号数据。
 
 ## 理由
 
 - 命名空间一致性：#717 已确认实验性统一接口应集中放在 `experiment/` 下；字号系统切换同样属于新增接口与可演进语义的组合，沿用这一约束可降低主 keypath 的承诺强度。
 - 初始化时机限制：字号数据在初始化阶段写入临时 prop/seq，随后被冻结为常量 `\c_@@_font_size_prop` 与 `\c_@@_font_size_seq`；后续 `\zihao`、`\ctex_declare_math_sizes:nnnn` 等路径都直接读取这组常量，因此运行时重切换没有稳定语义，也不能靠 `\ctexset` 局部重建。
-- 传统体系来源需要可追溯：`traditional` 不是随意调参，而是明确采用 #543 中 tanukihee 提出的传统倍数体系，便于后续讨论其合理性与兼容性。
+- 传统体系来源需要可追溯：`letterpress` 不是随意调参，而是明确采用 #543 中 tanukihee 提出的传统倍数体系，并在 #813 后用更准确的命名指向金属活字排印语境，便于后续讨论其合理性与兼容性。
 - 自定义接口要最小而明确：用 `ctex-fontsize-<name>.def` 约定发现机制，再用 `\ctex_save_font_size:nn` 作为单一写入口，既避免把内部临时变量暴露给用户，也让未来扩展新的字号表时不必修改主分派结构。
 
 ## 约束
