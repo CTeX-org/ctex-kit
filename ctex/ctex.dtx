@@ -589,7 +589,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6886}
+% \CheckSum{6905}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -1115,6 +1115,77 @@ Copyright and Licence
 % \label{sec:format-settings}
 % \subsection{文档默认字号}
 % \label{subs:options-class}
+%
+% \begin{function}[rEXP,added=2026-05-04]{experiment/font-size-system}
+%   \begin{syntax}
+%     experiment/font-size-system = <(word)|traditional|\meta{自定义名称}>
+%   \end{syntax}
+%   选择字号系统。本选项位于 |experiment| 命名空间下，表明其实验性质。
+%   本选项只能作为文档类或宏包选项使用，不能在导言区通过 \tn{ctexset} 设置。
+%   例如：
+%   \begin{verbatim}
+%   \documentclass[experiment/font-size-system=traditional]{ctexart}
+%   \end{verbatim}
+% \end{function}
+%
+% \CTeX{} 提供两种预设字号系统：
+%   \begin{optdesc}[itemsep=\medskipamount]
+%     \item[word] 默认值。源自 Microsoft Word / Adobe 等桌面排版软件的字号定义，
+%       亦与 GB/T~40070---2021 国家标准一致。这是 \CTeX{} 历史以来使用的字号体系。
+%     \item[traditional] 传统活字排印字号体系，基于严格的倍数关系。
+%       初号/二号/五号/七号形成 $\times 2$ 等比序列（$42:21:10.5:5.25$），
+%       一号/四号形成 $\times 2$ 序列（$28:14$），
+%       三号/六号/八号形成 $\times 2$ 序列（$16:8:4$）。
+%   \end{optdesc}
+%
+% 两种字号系统仅在以下六个字号上存在差异：
+%
+% \begin{center}
+% \begin{tabular}{l*2{r}l}
+%   \toprule
+%     & |word| (\si{bp}) & |traditional| (\si{bp}) & 倍数关系 \\
+%   \midrule
+%   一号~(\opt{1})  & 26   & 28   & 四号 $\times 2$ \\
+%   二号~(\opt{2})  & 22   & 21   & 五号 $\times 2$ \\
+%   六号~(\opt{6})  & 7.5  & 8    & 三号 $\div 2$ \\
+%   小六~(\opt{-6}) & 6.5  & 7.5  & 小三 $\div 2$ \\
+%   七号~(\opt{7})  & 5.5  & 5.25 & 二号 $\div 4$ \\
+%   八号~(\opt{8})  & 5    & 4    & 六号 $\div 2$ \\
+%   \bottomrule
+% \end{tabular}
+% \end{center}
+%
+% 两种字号系统的其余十个字号完全相同，且行距公式（字号的 $1.2$ 倍）不变。
+%
+% 用户也可以定义自己的字号系统。将字号数据保存在
+% \file{ctex-fontsize-\meta{name}.def} 文件中，
+% 放到工作目录或 \TeX{} 目录树（TDS）中，然后指定
+% |experiment/font-size-system=|\meta{name} 即可。
+% 自定义文件应使用 \cs{ctex_save_font_size:nn} 为每个字号注册数据。
+% 例如：
+% \begin{verbatim}
+% % 文件：ctex-fontsize-custom.def
+% \clist_map_inline:nn
+%   {
+%     {  8 } { 5    bp } ,
+%     {  7 } { 5.5  bp } ,
+%     { -6 } { 6.5  bp } ,
+%     {  6 } { 7.5  bp } ,
+%     { -5 } { 9    bp } ,
+%     {  5 } { 10.5 bp } ,
+%     { -4 } { 12   bp } ,
+%     {  4 } { 14   bp } ,
+%     { -3 } { 15   bp } ,
+%     {  3 } { 16   bp } ,
+%     { -2 } { 18   bp } ,
+%     {  2 } { 22   bp } ,
+%     { -1 } { 24   bp } ,
+%     {  1 } { 26   bp } ,
+%     { -0 } { 36   bp } ,
+%     {  0 } { 42   bp }
+%   }
+%   { \ctex_save_font_size:nn #1 }
+% \end{verbatim}
 %
 % \begin{function}[rEXP,added=2015-05-06]{zihao}
 %   \begin{syntax}
@@ -3744,6 +3815,20 @@ Copyright and Licence
   {
 %</class|style>
 %    \end{macrocode}
+%
+% \changes{v2.6.0}{2026/05/04}{新增实验性
+%   \opt{experiment/font-size-system} 选项（\#543）。}
+%
+% \begin{macro}{experiment/font-size-system}
+% 选择字号系统。预设有 |word| 和 |traditional| 两种字号系统，用户也可以自定义。
+%    \begin{macrocode}
+%<*class|ctex|ctexsize>
+    experiment / font-size-system .tl_gset:N = \g_@@_font_size_system_tl ,
+    experiment / font-size-system .initial:n = { word } ,
+    experiment / font-size-system .value_required:n = true ,
+%</class|ctex|ctexsize>
+%    \end{macrocode}
+% \end{macro}
 %
 % \changes{v2.0}{2015/05/06}{新增 \opt{zihao} 选项。}
 % \changes{v2.0}{2015/05/06}{\opt{c5size}, \opt{cs4size} 是过时选项。}
@@ -10162,6 +10247,7 @@ Copyright and Licence
 %
 % \begin{variable}{\c_@@_font_size_prop}
 % \begin{macro}{\@@_save_font_size:nn}
+% \begin{macro}[int]{\ctex_save_font_size:nn}
 % 基础行距是字号的 $1.2$ 倍，采用 \hologo{eTeX} 的 scaling 运算得到的结果
 % 要比简单的 |1.2\dimexpr| 精确^^A
 % \footnote{\url{http://thread.gmane.org/gmane.comp.tex.latex.latex3/3190}}。
@@ -10177,35 +10263,103 @@ Copyright and Licence
       }
     \seq_put_right:Nn \l_@@_font_size_temp_seq {#1}
   }
+\cs_new_eq:NN \ctex_save_font_size:nn \@@_save_font_size:nn
 \group_begin:
   \prop_clear:N \l_@@_font_size_temp_prop
   \seq_clear:N  \l_@@_font_size_temp_seq
-  \clist_map_inline:nn
+  \str_case:onF { \g_@@_font_size_system_tl }
     {
-      {  8 } { 5    bp } ,
-      {  7 } { 5.5  bp } ,
-      { -6 } { 6.5  bp } ,
-      {  6 } { 7.5  bp } ,
-      { -5 } { 9    bp } ,
-      {  5 } { 10.5 bp } ,
-      { -4 } { 12   bp } ,
-      {  4 } { 14   bp } ,
-      { -3 } { 15   bp } ,
-      {  3 } { 16   bp } ,
-      { -2 } { 18   bp } ,
-      {  2 } { 22   bp } ,
-      { -1 } { 24   bp } ,
-      {  1 } { 26   bp } ,
-      { -0 } { 36   bp } ,
-      {  0 } { 42   bp }
+      { word }
+      {
+        \clist_map_inline:nn
+          {
+            {  8 } { 5    bp } ,
+            {  7 } { 5.5  bp } ,
+            { -6 } { 6.5  bp } ,
+            {  6 } { 7.5  bp } ,
+            { -5 } { 9    bp } ,
+            {  5 } { 10.5 bp } ,
+            { -4 } { 12   bp } ,
+            {  4 } { 14   bp } ,
+            { -3 } { 15   bp } ,
+            {  3 } { 16   bp } ,
+            { -2 } { 18   bp } ,
+            {  2 } { 22   bp } ,
+            { -1 } { 24   bp } ,
+            {  1 } { 26   bp } ,
+            { -0 } { 36   bp } ,
+            {  0 } { 42   bp }
+          }
+          { \@@_save_font_size:nn #1 }
+      }
+      { traditional }
+      {
+        \clist_map_inline:nn
+          {
+            {  8 } { 4    bp } ,
+            {  7 } { 5.25 bp } ,
+            { -6 } { 7.5  bp } ,
+            {  6 } { 8    bp } ,
+            { -5 } { 9    bp } ,
+            {  5 } { 10.5 bp } ,
+            { -4 } { 12   bp } ,
+            {  4 } { 14   bp } ,
+            { -3 } { 15   bp } ,
+            {  3 } { 16   bp } ,
+            { -2 } { 18   bp } ,
+            {  2 } { 21   bp } ,
+            { -1 } { 24   bp } ,
+            {  1 } { 28   bp } ,
+            { -0 } { 36   bp } ,
+            {  0 } { 42   bp }
+          }
+          { \@@_save_font_size:nn #1 }
+      }
     }
-    { \@@_save_font_size:nn #1 }
+    {
+      \file_if_exist:nTF { ctex-fontsize- \g_@@_font_size_system_tl .def }
+        {
+          \ctex_file_input:n
+            { ctex-fontsize- \g_@@_font_size_system_tl .def }
+        }
+        {
+          \msg_error:nne { ctex } { fontsize-system-not-found }
+            { \g_@@_font_size_system_tl }
+          \clist_map_inline:nn
+            {
+              {  8 } { 5    bp } ,
+              {  7 } { 5.5  bp } ,
+              { -6 } { 6.5  bp } ,
+              {  6 } { 7.5  bp } ,
+              { -5 } { 9    bp } ,
+              {  5 } { 10.5 bp } ,
+              { -4 } { 12   bp } ,
+              {  4 } { 14   bp } ,
+              { -3 } { 15   bp } ,
+              {  3 } { 16   bp } ,
+              { -2 } { 18   bp } ,
+              {  2 } { 22   bp } ,
+              { -1 } { 24   bp } ,
+              {  1 } { 26   bp } ,
+              { -0 } { 36   bp } ,
+              {  0 } { 42   bp }
+            }
+            { \@@_save_font_size:nn #1 }
+        }
+    }
   \exp_args:NNe \prop_const_from_keyval:Nn \c_@@_font_size_prop
     { \prop_to_keyval:N \l_@@_font_size_temp_prop }
   \exp_args:NNe \seq_const_from_clist:Nn \c_@@_font_size_seq
     { \seq_use:Nn \l_@@_font_size_temp_seq { , } }
 \group_end:
+\msg_new:nnnn { ctex } { fontsize-system-not-found }
+  {
+    CTeX~font~size~system~`#1'~could~not~be~found.
+    \\ The~`word'~system~will~be~used~instead.
+  }
+  { You~may~need~to~create~`ctex-fontsize-#1.def'. }
 %    \end{macrocode}
+% \end{macro}
 % \end{macro}
 % \end{variable}
 %
