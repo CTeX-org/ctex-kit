@@ -7,6 +7,7 @@
 ## architecture
 
 - `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放、#324 宏路径多余 glue 遮蔽、ecglue 缓存取值三层约束的统一心智模型。
+- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵、边界恢复状态机三层模型、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
