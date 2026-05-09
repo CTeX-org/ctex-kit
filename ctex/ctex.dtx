@@ -589,7 +589,7 @@ Copyright and Licence
 % \changes{v2.4.15}{2019/03/23}{同步 \LaTeXiii{} 2019/03/05。}
 % \changes{v2.5.1}{2020/05/02}{\pkg{zhconv} 更名为 \pkg{ctex-zhconv}。}
 %
-% \CheckSum{6905}
+% \CheckSum{6916}
 %
 % \CharacterTable
 %  {Upper-case    \A\B\C\D\E\F\G\H\I\J\K\L\M\N\O\P\Q\R\S\T\U\V\W\X\Y\Z
@@ -12238,29 +12238,47 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % \begin{macro}{\@@_if_font_exists:nTF}
-% 检测字体是否为 \TeX\ Tree 字体，\cs{@@_write_family:nn} 会根据结果调用
-% |kpathsea| 查文件或 |fontconfig| 查名称。
+% 优先搜索字体是否为 \TeX\ Tree 字体或是否存在于当前路径下\footnote{^^A
+%   事实上 \path{TEXINPUTS} 也会被一并优先搜索。}，
+% 如果不存在，\cs{@@_write_family:nn} 会根据结果在 |shell| 中调用 |kpathsea| 查文件
+% 或 |fontconfig| 查名称\footnote{^^A
+%   如果用户把字体目录加入到了 \path{TEXINPUTS} 中，
+%   \cs{file_if_exist_p:n} 可能找到一个 \XeTeX\ |"[basename]"| 加载不了的文件，
+%   因为 \XeTeX\ 搜索字体专属路径 \path{OPENTYPEFONTS}/\path{TTFONTS}，
+%   不搜索 \path{TEXINPUTS}）。
+% }。
 %    \begin{macrocode}
 \prg_new_protected_conditional:Nnn \@@_if_font_exists:n { TF }
   {
-    \sys_get_shell:nnN { kpsewhich ~ #1.otf } { \endlinechar=-1 }
-      \l_@@_if_font_exists_otf_tl
-    \sys_get_shell:nnN { kpsewhich ~ #1.ttf } { \endlinechar=-1 }
-      \l_@@_if_font_exists_ttf_tl
+    \tl_clear:N \l_@@_if_otf_exists_tl
+    \tl_clear:N \l_@@_if_ttf_exists_tl
+    \bool_case:nF
+      {
+        { \file_if_exist_p:n { #1.otf }          }
+        { \tl_set:Nn \l_@@_if_otf_exists_tl {#1} }
+        { \file_if_exist_p:n { #1.ttf }          }
+        { \tl_set:Nn \l_@@_if_ttf_exists_tl {#1} }
+      }
+      {
+        \sys_get_shell:nnN { kpsewhich ~ #1.otf } { \endlinechar=-1 }
+          \l_@@_if_otf_exists_tl
+        \sys_get_shell:nnN { kpsewhich ~ #1.ttf } { \endlinechar=-1 }
+          \l_@@_if_ttf_exists_tl
+      }
     \bool_lazy_and:nnTF
-      { \tl_if_blank_p:V \l_@@_if_font_exists_otf_tl }
-      { \tl_if_blank_p:V \l_@@_if_font_exists_ttf_tl }
+      { \tl_if_blank_p:V \l_@@_if_otf_exists_tl }
+      { \tl_if_blank_p:V \l_@@_if_ttf_exists_tl }
       { \prg_return_false: } { \prg_return_true: }
   }
 %    \end{macrocode}
 % \end{macro}
 %
 % \begin{variable}
-%   {\l_@@_if_font_exists_otf_tl, \l_@@_if_font_exists_ttf_tl}
+%   {\l_@@_if_otf_exists_tl, \l_@@_if_ttf_exists_tl}
 % 用于存储 |shell| 输出的 |kpsewhich| 结果。
 %    \begin{macrocode}
-\tl_new:N \l_@@_if_font_exists_otf_tl
-\tl_new:N \l_@@_if_font_exists_ttf_tl
+\tl_clear_new:N \l_@@_if_otf_exists_tl
+\tl_clear_new:N \l_@@_if_ttf_exists_tl
 %    \end{macrocode}
 % \end{variable}
 %
