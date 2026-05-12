@@ -31,10 +31,13 @@ xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox
 
 ### 关键设计决策
 
-- **boolean flag 门控 `\l_@@_last_skip` 赋值**：`\g_@@_ulem_pending_bool` 确保只有 ulem hbox 刚关闭时才保存 `\lastskip`，防止对 `\l_@@_last_skip` 的状态污染影响后续正常 glue 路径
-- **`\g_@@_ulem_pending_bool` 由 `\@@_ulem_group_end:n` 置真**：fntef 模块在 ulem hbox 关闭时全局设置此标记，将 fntef 专属状态传递到边界恢复逻辑
+- **boolean flag 门控 `\l_@@_last_skip` 赋值**：`\g_@@_ulem_pending_bool` 确保只有已知会产生多余 inter-word glue 的场景才保存 `\lastskip`，防止对 `\l_@@_last_skip` 的状态污染影响后续正常 glue 路径
+- **`\g_@@_ulem_pending_bool` 的三个 set 点**：
+  1. `\@@_ulem_group_end:n`：fntef 的 ulem hbox 关闭时全局置真（覆盖 `\CJKsout`、`\CJKunderline` 等）
+  2. `\@@_under_symbol_auxii:nnnnnn`：着重号独立模式（`\CJKunderdot`、`\CJKunderdbldot`）不走 ulem group，末尾单独设置（commit `61242df8`）
+  3. `\xeCJK_CJK_and_Boundary:w`：CJK→Boundary handler 中当 peek token 是 catcode 2（显式 `}`）时设置（commit `a9525312`，归属 #770）
 - **只处理 finite glue**：排除 listings 等插入的 fil 级 glue，避免破坏其列对齐
-- **glueshrink 检查排除 `\quad`**：`\quad` 等无 shrink component 的显式空距不应被移除并替换为 CJKglue；只有带 shrink 的 inter-word space 才是 fntef 右侧的意外 glue
+- **glueshrink 检查排除 `\quad`**：`\quad` 等无 shrink component 的显式空距不应被移除并替换为 CJKglue；只有带 shrink 的 inter-word space 才是意外 glue
 - **所有 fallback 统一到 `\@@_check_for_glue_auxii:`**：该路径包含 punct 检测链，保证标点识别正常；不回退到 `\xeCJK_check_for_xglue:`
 - **不处理 whatsit 层级**：`\textcolor{red}{文字}` 右侧的 `\special{color pop}` whatsit 隔断了 kern pair 探测，但无法安全区分 xcolor `\special` 和 XeTeX native word 节点
 
@@ -42,10 +45,11 @@ xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox
 
 - `fntef-space02`：覆盖 `\quad`（不应被吃掉）、显式空格（应被替换为 CJKglue）、标点（fallback 到 punct 检测链）三种场景
 
-## 已知未修复
+## 已知未修复（已由 #770 后续修复解决）
 
-- `\textcolor{red}{文字}` 右侧仍有 3.33pt 多余空间（`\special{color pop}` whatsit 阻断 kern pair 探测）
-- 这是已有问题（not regression），属于 xeCJK whatsit 定点恢复策略的已知边界
+- `\textcolor{red}{文字}` 右侧多余空间 — 已通过 `\reset@color` 补丁解决（commit `129fa191`）
+- `前\mbox{中} 后` 多余空格 — 已通过 hlist 回退路径解决（commit `129fa191`）
+- 详见 `llmdoc/memory/decisions/770-boundary-explicit-brace-ecglue.md`
 
 ## 归属
 
