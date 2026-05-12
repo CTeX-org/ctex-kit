@@ -1,4 +1,4 @@
-# 决策: #770 显式 } / \mbox / \textcolor 右侧多余 inter-word glue
+# 决策: #831 显式 } / \mbox / \textcolor 右侧多余 inter-word glue
 
 ## 问题
 
@@ -34,19 +34,19 @@ xeCJK 原来只补丁了 `\set@color`（颜色推入），未补丁 `\reset@colo
 
 `\ `（control space）也触发 CJK->Boundary，但其 peek token 是控制序列而非 catcode 2 字符，`\token_if_group_end:NTF` 能正确区分。
 
-### 阶段 2：`\reset@color` 补丁（commit 129fa191）
+### 阶段 2：`\reset@color` 补丁
 
 新增 `\reset@color` 定点补丁（`xeCJK/xeCJK.dtx` ~line 9588-9601）。在 color-pop whatsit 插入后，重新放置 kern pair 标记并设置 `\g_@@_ulem_pending_bool`，使后续 `\@@_check_for_glue_skip:` 能正确处理 glue-on-kern-pair。
 
 这将定点颜色补丁从只覆盖 `\set@color`（颜色推入）扩展到同时覆盖 `\reset@color`（颜色弹出），与 hyperref `\Hy@BeginAnnot` 补丁的"进入端补丁"策略保持一致。
 
-### 阶段 3：hlist 回退路径（commit 129fa191）
+### 阶段 3：hlist 回退路径
 
 在 `\@@_check_for_glue_skip:` 中新增 hlist 回退路径（`xeCJK/xeCJK.dtx` ~line 3563-3582）。当 `\lastkern` 不存在时，检查 `\lastnodetype` 是否为 hlist（类型 1），并通过 `\g_@@_last_node_tl` 判断 hbox 内的 CJK 内容类型。
 
 关键设计：hlist 路径不依赖 `\g_@@_ulem_pending_bool` 门控——`\mbox` 不设置 boolean，但 hlist + `\g_@@_last_node_tl` 的组合本身足够安全。限定 hlist 类型避免了 whatsit（如 `\write`，lastnodetype = 4）的干扰。
 
-### `\@@_check_for_glue_skip:` 重构（commit 129fa191）
+### `\@@_check_for_glue_skip:` 重构
 
 将 finite/shrink 检查提到 boolean 门控之前，形成两条分支路径：
 - **kern 路径**：由 boolean 门控，保护 `space=true` 模式

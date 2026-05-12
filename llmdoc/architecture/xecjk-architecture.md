@@ -249,7 +249,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 
 | 目标包 | 补丁内容 |
 |--------|----------|
-| `color`/`xcolor` | `\set@color` 后重放 xeCJK 边界标记；`\reset@color` 后重放 kern pair 并设置 `\g_@@_ulem_pending_bool`（#770） |
+| `color`/`xcolor` | `\set@color` 后重放 xeCJK 边界标记；`\reset@color` 后重放 kern pair 并设置 `\g_@@_ulem_pending_bool`（#831） |
 | `hyperref` | `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态 |
 | `ulem` | 临时关闭 interchar (`\makexeCJKinactive`) |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
