@@ -3488,37 +3488,44 @@ Copyright and Licence
       }
   }
 % \changes{v3.10.0}{2026/05/12}{新增 glue 分支处理，修复 \pkg{xeCJKfntef} 命令右侧空格问题。}
+% \changes{v3.10.0}{2026/05/12}{当 glue 下方是 hlist（\tn{mbox} 等命令产生的 hbox）时，
+%   不依赖 boolean，直接通过 \cs{g_@@_last_node_tl} 判断前方内容类型，
+%   修复 \tn{mbox}、\tn{colorbox} 等 hbox 命令右侧多余 inter-word glue（\#770）。}
 % \pkg{xeCJKfntef} 的命令内部使用 \pkg{ulem} 的 \tn{hbox} 排版 CJK 文字，
 % 导致 \XeTeX{} 的 interchar class 在命令结束后不是 CJK 而是 Boundary。
 % 源码空格因此产生 inter-word glue（而非被吃掉），叠在 CJK kern pair 标记
 % 上方。本函数通过 |\unskip| 探测 glue 下方的 kern pair 来解决。
+% kern pair 的探测由 |\g_@@_ulem_pending_bool| 门控：仅在 \pkg{xeCJKfntef}
+% 组结束或颜色恢复（\tn{reset@color}）之后才启用，以避免在 |space=true|
+% 模式下误替换用户输入的空格。该标志分别由 |\@@_ulem_group_end:n|
+% 和 \tn{reset@color} 补丁设置。
 %
-% 对于 \tn{textcolor} 等命令，|\special| whatsit 节点隔在 kern pair 和
-% glue 之间，而 \XeTeX{} 的 native word 节点也是 whatsit（type\,9），
-% 无法通过 |\lastnodetype| 区分两者，因此暂不处理。
+% 对于 \tn{mbox}、\tn{colorbox} 等产生 hbox 的命令，hbox 节点
+% 隔在 kern pair 和 glue 之间，|\lastkern| 无法穿透。
+% 此时检查 |\unskip| 后的最后节点是否为 hlist，若是则通过全局
+% |\g_@@_last_node_tl| 判断前方内容类型。该变量由 |\xeCJK_make_node:n|
+% 设置，能穿透 hbox/group 边界保持 CJK 标记。
+% 限定为 hlist 类型避免了 whatsit（如 |\write|）的干扰。
 %
 % \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
 % 通过 |\skip_if_finite:nTF| 将其排除。
 % 标题格式中的 |\quad| 等有意放置的间距没有 shrink 分量，
 % 通过检测 |\tex_glueshrink:D| 来排除。
-% 此外，|space=true| 时用户显式输入的 |\ | 等空格也带 shrink，
-% 通过 |\g_@@_ulem_pending_bool| 精确限定只在 \pkg{xeCJKfntef}
-% 组结束后的首次探测中处理。该标志由 |\@@_ulem_group_end:n| 设置。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_check_for_glue_skip:
   {
-    \bool_if:NTF \g_@@_ulem_pending_bool
+    \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+    \skip_if_finite:nTF { \l_@@_last_skip }
       {
-        \bool_gset_false:N \g_@@_ulem_pending_bool
-        \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
-        \skip_if_finite:nTF { \l_@@_last_skip }
+        \dim_compare:nNnTF
+          { \tex_glueshrink:D \l_@@_last_skip } > \c_zero_dim
           {
-            \dim_compare:nNnTF
-              { \tex_glueshrink:D \l_@@_last_skip } > \c_zero_dim
+            \tex_unskip:D
+            \@@_if_last_kern:TF
               {
-                \tex_unskip:D
-                \@@_if_last_kern:TF
+                \bool_if:NTF \g_@@_ulem_pending_bool
                   {
+                    \bool_gset_false:N \g_@@_ulem_pending_bool
                     \dim_case:nnF { \tex_lastkern:D }
                       {
                         { \@@_node:n { CJK } }
@@ -3538,11 +3545,48 @@ Copyright and Licence
                     \@@_check_for_glue_auxii:
                   }
               }
-              { \@@_check_for_glue_auxii: }
+              {
+                \bool_if:NT \g_@@_ulem_pending_bool
+                  { \bool_gset_false:N \g_@@_ulem_pending_bool }
+                \@@_if_last_hlist:TF
+                  { \@@_check_for_glue_skip_hlist_aux: }
+                  {
+                    \skip_horizontal:N \l_@@_last_skip
+                    \@@_check_for_glue_auxii:
+                  }
+              }
           }
-          { \@@_check_for_glue_auxii: }
+          {
+            \bool_if:NT \g_@@_ulem_pending_bool
+              { \bool_gset_false:N \g_@@_ulem_pending_bool }
+            \@@_check_for_glue_auxii:
+          }
       }
-      { \@@_check_for_glue_auxii: }
+      {
+        \bool_if:NT \g_@@_ulem_pending_bool
+          { \bool_gset_false:N \g_@@_ulem_pending_bool }
+        \@@_check_for_glue_auxii:
+      }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_hlist_aux:
+  {
+    \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+      { \tl_gclear:N \g_@@_last_node_tl \CJKglue }
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
+          { \tl_gclear:N \g_@@_last_node_tl \@@_ccglue_or_space: }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+              {
+                \tl_gclear:N \g_@@_last_node_tl
+                \xeCJK_widow_penalty: \CJKglue
+              }
+              {
+                \skip_horizontal:N \l_@@_last_skip
+                \@@_check_for_glue_auxii:
+              }
+          }
+      }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxi:
   {
@@ -3761,7 +3805,6 @@ Copyright and Licence
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
 %    \begin{macrocode}
 \bool_new:N \g_@@_ulem_pending_bool
-%    \end{macrocode}
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9521,12 +9564,18 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/01}{修复 \tn{set@color} 补丁在无真实节点标记时
 %   未清除全局状态，导致首次 \tn{textcolor} 在标点或段首后插入虚假
 %   \texttt{ecglue} 的问题（\#807）。}
+% \changes{v3.10.0}{2026/05/12}{补丁 \tn{reset@color} 以在颜色弹出 whatsit
+%   之后重新放置 xeCJK 节点标记，修复 \tn{textcolor} 命令右侧
+%   多余 inter-word glue 的问题（\#770）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
 % \pkg{color}/\pkg{xcolor} 的颜色切换通过 \tn{set@color} 插入 \tn{special}
 % 节点（whatsit），会遮蔽 xeCJK 的标记 kern，导致后续的 \texttt{CJKecglue}
-% 检测失败。此处在 \tn{set@color} 之后重新放置 xeCJK 节点标记。
+% 检测失败。此处在 \tn{set@color} 和 \tn{reset@color} 之后重新放置
+% xeCJK 节点标记。\tn{set@color} 负责颜色推入（push），
+% \tn{reset@color} 负责颜色弹出（pop）——后者通过 \tn{aftergroup}
+% 在分组结束时自动调用，用于恢复原始颜色。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_set_color:
   {
@@ -9541,6 +9590,20 @@ Copyright and Licence
                 \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
               }
               { \tl_gclear:N \g_@@_last_node_tl \@@_orig_set_color: }
+          }
+      }
+    \cs_if_exist:NF \@@_orig_reset_color:
+      {
+        \cs_set_eq:NN \@@_orig_reset_color: \reset@color
+        \cs_gset_protected:Npn \reset@color
+          {
+            \xeCJK_if_last_node:TF
+              {
+                \@@_orig_reset_color:
+                \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+                \bool_gset_true:N \g_@@_ulem_pending_bool
+              }
+              { \@@_orig_reset_color: }
           }
       }
   }
