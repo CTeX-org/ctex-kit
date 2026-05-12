@@ -121,15 +121,21 @@ Boundary → CJK 时：
 
 **背景**：xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。XeTeX 的 interchar class 在 `}` 后看到的不是 CJK 字符，因此源码空格产生 finite inter-word glue，叠在 CJK kern pair 标记上方。原先的 `check_for_glue` 没有处理"glue on top of kern pair"的情况。
 
-**处理逻辑**：
+**处理逻辑（三层过滤）**：
 
 ```
 \@@_check_for_glue_skip:
-  1. 保存 \lastskip
+  1. \g_@@_ulem_pending_bool 门控
+     → false：直接跳过，回退到 \@@_check_for_glue_auxii:
+     → true：进入下一层，同时保存 \lastskip 到 \l_@@_last_skip
   2. \skip_if_finite:nTF {saved skip}
      → 非 finite（fil 级 glue，如 listings 列对齐）：
-       跳过处理，回退到 \xeCJK_check_for_xglue:
-     → finite（如 inter-word space）：
+       回退到 \@@_check_for_glue_auxii:
+     → finite：进入下一层
+  3. \tex_glueshrink:D > 0 检查
+     → glueshrink = 0（\quad 等无 shrink 的显式空距）：
+       回退到 \@@_check_for_glue_auxii:
+     → glueshrink > 0（inter-word space）：
        a. \unskip 移除 glue
        b. 检查下方是否有 CJK kern pair 标记
           （CJK / CJK-space / CJK-widow）
@@ -141,8 +147,10 @@ Boundary → CJK 时：
 ```
 
 **设计决策**：
-- 只处理 finite stretch 的 glue，排除 listings 等插入的 fil 级 glue
-- 非 kern pair 情况回退到 `\@@_check_for_glue_auxii:`（包含 punct 检测链），而非 `\xeCJK_check_for_xglue:`
+- boolean flag 门控 `\l_@@_last_skip` 赋值：`\g_@@_ulem_pending_bool` 确保只有 ulem hbox 刚关闭时才执行 skip 保存和探测，防止对 `\l_@@_last_skip` 的状态污染
+- `\g_@@_ulem_pending_bool` 由 fntef 模块的 `\@@_ulem_group_end:n` 在 ulem hbox 关闭时全局置真
+- glueshrink 检查区分 inter-word space（有 shrink）和 `\quad`（无 shrink），避免吞掉用户有意的显式空距
+- 所有 fallback 统一到 `\@@_check_for_glue_auxii:`（包含 punct 检测链），而非 `\xeCJK_check_for_xglue:`
 - 不处理 whatsit 层级的情况（如 `\textcolor`），因为无法区分 xcolor `\special` 和 XeTeX native word 节点
 
 **已知限制**：`\textcolor{red}{文字}` 右侧仍有多余空间（`\special{color pop}` whatsit 隔断了 kern pair 探测），属于已有问题而非 regression。
