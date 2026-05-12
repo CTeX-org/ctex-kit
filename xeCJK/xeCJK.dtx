@@ -3890,6 +3890,9 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/04}{修复 CJK 字符后行尾空格在宏命令前
 %   未被消除的问题，不再立即输出空格 glue，改为只留标记由后续
 %   恢复路径决定间距（\#324）。}
+% \changes{v3.10.0}{2026/05/12}{当显式 \verb|}| 触发 CJK→Boundary 转换时，
+%   设置 \cs{g_@@_ulem_pending_bool} 以启用后续的 glue 检查，
+%   修复 \verb|前{中} 后| 类型排版中多余的 \tn{CJKecglue}（\#770）。}
 % 当边界是 \tn{relax} 的时候，它可能是由 |\csname ...\endcsname| 的形式产生的，
 % 这样就可能出现问题\footnote{参见 \url{http://bbs.ctex.org/forum.php?mod=viewthread&tid=71563}。}。
 % 原来是都在未定义控制序列前都加上 \cs{exp_not:N}，现在是采用分组结束后手工恢复的方式。
@@ -3913,7 +3916,14 @@ Copyright and Licence
           {
             \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
               { \@@_CJK_and_Boundary_relax:N }
-              { \@@_boundary_group_end:n { CJK } }
+              {
+                \token_if_group_end:NTF \l_peek_token
+                  {
+                    \bool_gset_true:N \g_@@_ulem_pending_bool
+                    \@@_boundary_group_end:n { CJK }
+                  }
+                  { \@@_boundary_group_end:n { CJK } }
+              }
           }
       }
   }
