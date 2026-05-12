@@ -6,8 +6,9 @@
 
 ## architecture
 
-- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放、#324 宏路径多余 glue 遮蔽、ecglue 缓存取值三层约束的统一心智模型。
-- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵、边界恢复状态机三层模型、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包。
+- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放、#324 宏路径多余 glue 遮蔽、#826 fntef 右侧 glue-on-kern-pair 遮蔽、ecglue 缓存取值四层约束的统一心智模型。
+- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵、边界恢复状态机三层模型（含 `\@@_check_for_glue_skip:` glue 分支）、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配、字号系统、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
@@ -33,6 +34,7 @@
 - `llmdoc/memory/decisions/543-font-size-system.md` — 决策: 将字号系统切换能力放入 `experiment/font-size-system`，仅在类/宏包选项阶段选择 `word`、`letterpress` 或用户自定义字号表；#813 将原名 `traditional` 更名为 `letterpress` 以明确其金属活字语义。
 - `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
 - `llmdoc/memory/decisions/811-halfright-prebreakpenalty.md` — 决策: #811 对整个 `HalfRight` 类施加条件禁则，不拆分类；其中 `FullRight -> HalfRight` 必须覆写 interchartoks 以保证 penalty 位于 punct glue 之前。
+- `llmdoc/memory/decisions/826-fntef-right-side-cjkglue.md` — 决策: #826 新增 `\@@_check_for_glue_skip:` 处理 xeCJKfntef 命令右侧 finite glue 叠在 CJK kern pair 标记上方导致 CJKglue 恢复失败的问题。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
@@ -51,3 +53,4 @@
 - `llmdoc/memory/reflections/807-set-color-stale-state.md` — 反思: xeCJK #807 中 `\set@color` 无节点分支未清空 `\g_@@_last_node_tl`，导致首次 `\textcolor` 把初始化阶段残留的 `default` 误送入 whatsit 恢复链并错误插入 ecglue。
 - `llmdoc/memory/reflections/809-810-hyperref-annot-ecglue.md` — 反思: xeCJK #809/#810 中 hyperref 注释起始 whatsit 需在 `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态；`default` 分支保留给 color/xcolor，但不应在注释开始端被重放。
 - `llmdoc/memory/reflections/324-boundary-reserve-space-glue.md` — 反思: xeCJK #324 中宏路径提前输出空格 glue 遮蔽 `CJK-space` 标记 kern，破坏 `\lastkern` 边界恢复；修复同时揭示 xeCJK→ctex 的广泛基线联动。
+- `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。

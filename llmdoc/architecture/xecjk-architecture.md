@@ -112,8 +112,40 @@ Boundary → CJK 时：
   3. 上一节点是 math？
      → 是：插入 ecglue
   4. 上一节点有 glue？
-     → 是：检查 glue 前的标记 kern 决定恢复什么
+     → 是：\@@_check_for_glue_skip: 处理
 ```
+
+### glue 分支处理（`\@@_check_for_glue_skip:`）
+
+当 `\@@_if_last_glue:TF` 为真时，进入 `\@@_check_for_glue_skip:` 处理。这一分支处理 xeCJKfntef 命令（如 `\CJKsout`、`\CJKunderdot`）右侧出现的 inter-word space glue 叠加在 CJK kern pair 标记上的情况。
+
+**背景**：xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。XeTeX 的 interchar class 在 `}` 后看到的不是 CJK 字符，因此源码空格产生 finite inter-word glue，叠在 CJK kern pair 标记上方。原先的 `check_for_glue` 没有处理"glue on top of kern pair"的情况。
+
+**处理逻辑**：
+
+```
+\@@_check_for_glue_skip:
+  1. 保存 \lastskip
+  2. \skip_if_finite:nTF {saved skip}
+     → 非 finite（fil 级 glue，如 listings 列对齐）：
+       跳过处理，回退到 \xeCJK_check_for_xglue:
+     → finite（如 inter-word space）：
+       a. \unskip 移除 glue
+       b. 检查下方是否有 CJK kern pair 标记
+          （CJK / CJK-space / CJK-widow）
+       c. 如果找到 kern pair：
+          移除标记 kern，放置正确的 CJKglue
+       d. 如果不是 kern pair：
+          恢复 glue，调用 \@@_check_for_glue_auxii:
+          （保证 punct 检测链正常运行）
+```
+
+**设计决策**：
+- 只处理 finite stretch 的 glue，排除 listings 等插入的 fil 级 glue
+- 非 kern pair 情况回退到 `\@@_check_for_glue_auxii:`（包含 punct 检测链），而非 `\xeCJK_check_for_xglue:`
+- 不处理 whatsit 层级的情况（如 `\textcolor`），因为无法区分 xcolor `\special` 和 XeTeX native word 节点
+
+**已知限制**：`\textcolor{red}{文字}` 右侧仍有多余空间（`\special{color pop}` whatsit 隔断了 kern pair 探测），属于已有问题而非 regression。
 
 ### 关键约束
 

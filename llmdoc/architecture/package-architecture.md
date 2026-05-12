@@ -150,7 +150,9 @@ PR #791 对 #315 的修复曾把这条恢复链泛化为“只要上一节点是
 
 Issue #252 / #476 进一步说明，这条状态机不仅要解决“能否恢复”的问题，还要解决“恢复时取哪个 glue 值”的问题。`\CJKecglue` 默认是 `~`，其宽度、stretch、shrink 取决于当前字体的 `\fontdimen`；因此如果在 `\texttt`、`\textbf`、`\textit`、`\zihao` 或其他局部分组里切换了字体，再在边界恢复时直接重新展开 `\CJKecglue`，就会错误地使用组内字体的空格度量，而不是外层 CJK 字体的度量。
 
-Issue #324 则补上了另一条前置约束：在 `\@@_boundary_reserve_space:` 这条 CJK→Boundary 宏路径里，旧实现会先经 `\@@_boundary_group_end:n { CJK-space }` 留下 `CJK-space` 标记 kern，再立即执行 `\xeCJK_space_or_xecglue:` 输出一个普通空格 glue。这样一来，后续 `Boundary -> CJK` / `Boundary -> Default` 恢复逻辑再做 `\lastkern` 检查时，看到的最后节点已经变成这段 glue，而不是刚写下的 `CJK-space` 标记；症状上与 whatsit 打断恢复链相同，都是“标记不再是 `\lastkern` 可见的最后节点”，但根因不同：#315 一类问题来自第三方插入的 whatsit，#324 则是 xeCJK 自己在宏路径上额外输出了不该提前出现的 glue。
+Issue #324 则补上了另一条前置约束：在 `\@@_boundary_reserve_space:` 这条 CJK→Boundary 宏路径里，旧实现会先经 `\@@_boundary_group_end:n { CJK-space }` 留下 `CJK-space` 标记 kern，再立即执行 `\xeCJK_space_or_xecglue:` 输出一个普通空格 glue。这样一来，后续 `Boundary -> CJK` / `Boundary -> Default` 恢复逻辑再做 `\lastkern` 检查时，看到的最后节点已经变成这段 glue，而不是刚写下的 `CJK-space` 标记；症状上与 whatsit 打断恢复链相同，都是”标记不再是 `\lastkern` 可见的最后节点”，但根因不同：#315 一类问题来自第三方插入的 whatsit，#324 则是 xeCJK 自己在宏路径上额外输出了不该提前出现的 glue。
+
+Issue #826 揭示了同一类遮蔽模式的第三个变体：xeCJKfntef 命令（`\CJKsout`、`\CJKunderdot` 等）的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox 关闭后，XeTeX 的 interchar 机制看到的不是 CJK 字符类，源码空格因此产生 finite inter-word glue，叠在先前写下的 CJK kern pair 标记上方。`\xeCJK_check_for_glue:` 的 `\@@_if_last_glue:TF` 分支原来只做了简单回退，没有尝试”揭开 glue 查看下方是否有 kern pair 标记”的探测。修复通过新增 `\@@_check_for_glue_skip:` 函数完成：先保存并移除 finite glue，探测下方标记 kern，若为 CJK kern pair 则替换为 CJKglue，否则恢复 glue 并回退到 punct 检测链。fil 级 glue（如 listings 列对齐）则完全跳过。
 
 v3.10.0 起，`\@@_boundary_reserve_space:` 不再在宏路径中立即输出这段空格 glue，而是与非宏路径保持一致，只保留 `CJK-space` 标记，把是否恢复以及恢复什么间距继续交给后续 interchar 边界状态机统一决定。也就是说，源码中的空格是否最终转化为可见间距，不应在 `\@@_boundary_reserve_space:` 阶段抢先决定；该阶段真正需要保留的是供后续恢复链读取的边界标记。
 
@@ -166,9 +168,10 @@ v3.10.0 起，`\@@_boundary_reserve_space:` 不再在宏路径中立即输出这
 
 1. 用 `\lastkern` 标记 kern 判定上一边界类型；
 2. 若被 whatsit 打断，则通过 `\lastnodetype` 与保存的节点类型走回退路径；
-3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`。
+3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`；
+4. 若上一节点是 glue，则通过 `\@@_check_for_glue_skip:` 判断 glue 性质：finite glue 被 `\unskip` 后探测下方是否有 CJK kern pair 标记，有则替换为 CJKglue；fil 级 glue 直接跳过。
 
-也就是说，#315 解决的是“边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是“边界恢复时重新测量 ecglue 会拿错字体度量”，#324 解决的是“宏路径中的 `\@@_boundary_reserve_space:` 额外输出 glue，先把 `CJK-space` 标记自身遮蔽掉”，三者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
+也就是说，#315 解决的是”边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是”边界恢复时重新测量 ecglue 会拿错字体度量”，#324 解决的是”宏路径中的 `\@@_boundary_reserve_space:` 额外输出 glue，先把 `CJK-space` 标记自身遮蔽掉”，#826 解决的是”xeCJKfntef 命令右侧的 inter-word space glue 叠在 kern pair 标记上方导致 CJKglue 恢复失败”，四者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
 
 这个决策刻意没有采用另外两条看似直观的路线：
 
