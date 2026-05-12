@@ -298,7 +298,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/04}{文档字体从 Source Han Serif 统一为
 %   Noto Serif CJK（\#686）。}
 %
-% \CheckSum{11234}
+% \CheckSum{11279}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1503,6 +1503,16 @@ Copyright and Licence
 %     \uline{虚室生白，吉祥止止}
 %   \end{Example}
 % \end{function}
+%
+% \medskip
+%
+% \pkg{xeCJKfntef} 的下划线和删除线命令内部使用 \package{ulem} 宏包的
+% \tn{hbox} 机制排版文字。理想情况下，|汉字 \CJKsout{文字} 汉字| 中
+% \tn{CJKsout} 前后的源码空格应被 \pkg{xeCJK} 自动处理为 CJK 文字间距
+% （\texttt{CJKglue}），与 |汉字 文字 汉字| 的效果一致。
+% 当前版本已实现对 \pkg{xeCJKfntef} 命令（如 \tn{CJKsout}、\tn{CJKunderline}、
+% \tn{CJKunderdot} 等）前后空格的自动处理。但对于 \tn{textcolor} 等
+% 在 CJK 文字间插入 whatsit 节点的命令，右侧的空格处理尚未实现。
 %
 % \medskip
 %
@@ -3477,6 +3487,19 @@ Copyright and Licence
           }
       }
   }
+% \changes{v3.10.0}{2026/05/12}{新增 glue 分支处理，修复 \pkg{xeCJKfntef} 命令右侧空格问题。}
+% \pkg{xeCJKfntef} 的命令内部使用 \pkg{ulem} 的 \tn{hbox} 排版 CJK 文字，
+% 导致 \XeTeX{} 的 interchar class 在命令结束后不是 CJK 而是 Boundary。
+% 源码空格因此产生 inter-word glue（而非被吃掉），叠在 CJK kern pair 标记
+% 上方。本函数通过 |\unskip| 探测 glue 下方的 kern pair 来解决。
+%
+% 对于 \tn{textcolor} 等命令，|\special| whatsit 节点隔在 kern pair 和
+% glue 之间，而 \XeTeX{} 的 native word 节点也是 whatsit（type\,9），
+% 无法通过 |\lastnodetype| 区分两者，因此暂不处理。
+%
+% \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
+% 通过 |\skip_if_finite:nTF| 将其排除。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_check_for_glue_skip:
   {
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
