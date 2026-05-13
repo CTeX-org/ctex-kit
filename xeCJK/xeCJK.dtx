@@ -300,7 +300,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/13}{修复 \cs{textcolor} 包裹 \pkg{ulem}
 %   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 %
-% \CheckSum{11368}
+% \CheckSum{11370}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -3536,7 +3536,7 @@ Copyright and Licence
 % 导致 \XeTeX{} 的 interchar class 在命令结束后不是 CJK 而是 Boundary。
 % 源码空格因此产生 inter-word glue（而非被吃掉），叠在 CJK kern pair 标记
 % 上方。本函数通过 |\unskip| 探测 glue 下方的 kern pair 来解决。
-% kern pair 的探测由 |\g_@@_ulem_pending_bool| 门控：仅在 \pkg{xeCJKfntef}
+% kern pair 的探测由 |\g_@@_glue_check_pending_bool| 门控：仅在 \pkg{xeCJKfntef}
 % 组结束或颜色恢复（\tn{reset@color}）之后才启用，以避免在 |space=true|
 % 模式下误替换用户输入的空格。该标志分别由 |\@@_ulem_group_end:n|
 % 和 \tn{reset@color} 补丁设置。
@@ -3567,63 +3567,58 @@ Copyright and Licence
           {
             \tex_unskip:D
             \@@_if_last_kern:TF
-              {
-                \bool_if:NTF \g_@@_ulem_pending_bool
-                  {
-                    \bool_gset_false:N \g_@@_ulem_pending_bool
-                    \dim_case:nnF { \tex_lastkern:D }
-                      {
-                        { \@@_node:n { CJK } }
-                        { \xeCJK_remove_node: \CJKglue }
-                        { \@@_node:n { CJK-space } }
-                        { \xeCJK_remove_node: \@@_ccglue_or_space: }
-                        { \@@_node:n { CJK-widow } }
-                        { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
-                      }
-                      {
-                        \skip_horizontal:N \l_@@_last_skip
-                        \@@_check_for_glue_auxii:
-                      }
-                  }
-                  {
-                    \skip_horizontal:N \l_@@_last_skip
-                    \@@_check_for_glue_auxii:
-                  }
-              }
-              {
-                \bool_if:NT \g_@@_ulem_pending_bool
-                  { \bool_gset_false:N \g_@@_ulem_pending_bool }
-                \@@_if_last_hlist:TF
-                  { \@@_check_for_glue_skip_hlist_aux: }
-                  {
-                    \bool_if:NTF \g_@@_reset_color_pending_bool
-                      {
-                        \bool_gset_false:N \g_@@_reset_color_pending_bool
-                        \@@_if_last_whatsit:TF
-                          { \@@_check_for_glue_skip_hlist_aux: }
-                          {
-                            \skip_horizontal:N \l_@@_last_skip
-                            \@@_check_for_glue_auxii:
-                          }
-                      }
-                      {
-                        \skip_horizontal:N \l_@@_last_skip
-                        \@@_check_for_glue_auxii:
-                      }
-                  }
-              }
+              { \@@_check_for_glue_skip_kern: }
+              { \@@_check_for_glue_skip_nonkern: }
           }
-          {
-            \bool_if:NT \g_@@_ulem_pending_bool
-              { \bool_gset_false:N \g_@@_ulem_pending_bool }
-            \@@_check_for_glue_auxii:
-          }
+          { \@@_check_for_glue_skip_consume_and_fallback: }
       }
+      { \@@_check_for_glue_skip_consume_and_fallback: }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_kern:
+  {
+    \bool_if:NTF \g_@@_glue_check_pending_bool
       {
-        \bool_if:NT \g_@@_ulem_pending_bool
-          { \bool_gset_false:N \g_@@_ulem_pending_bool }
-        \@@_check_for_glue_auxii:
+        \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \dim_case:nnF { \tex_lastkern:D }
+          {
+            { \@@_node:n { CJK } }
+            { \xeCJK_remove_node: \CJKglue }
+            { \@@_node:n { CJK-space } }
+            { \xeCJK_remove_node: \@@_ccglue_or_space: }
+            { \@@_node:n { CJK-widow } }
+            { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+          }
+          { \@@_check_for_glue_skip_restore: }
       }
+      { \@@_check_for_glue_skip_restore: }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_nonkern:
+  {
+    \bool_if:NT \g_@@_glue_check_pending_bool
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \@@_if_last_hlist:TF
+      { \@@_check_for_glue_skip_hlist_aux: }
+      {
+        \bool_if:NTF \g_@@_reset_color_pending_bool
+          {
+            \bool_gset_false:N \g_@@_reset_color_pending_bool
+            \@@_if_last_whatsit:TF
+              { \@@_check_for_glue_skip_hlist_aux: }
+              { \@@_check_for_glue_skip_restore: }
+          }
+          { \@@_check_for_glue_skip_restore: }
+      }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_restore:
+  {
+    \skip_horizontal:N \l_@@_last_skip
+    \@@_check_for_glue_auxii:
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_consume_and_fallback:
+  {
+    \bool_if:NT \g_@@_glue_check_pending_bool
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \@@_check_for_glue_auxii:
   }
 \cs_new_protected:Npn \@@_check_for_glue_skip_hlist_aux:
   {
@@ -3859,14 +3854,14 @@ Copyright and Licence
 \xeCJK_declare_node:n { normalspace }
 \xeCJK_declare_glue_node:n { default-space }
 %    \end{macrocode}
-% \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_ulem_pending_bool}
+% \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
 % \changes{v3.10.0}{2026/05/13}{新增 \cs{g_@@_reset_color_pending_bool}
 %   用于标记 \tn{reset@color} 在 hlist 上下文中触发，延迟到
 %   \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
 %   右侧的 color pop whatsit（\#831）。}
 %    \begin{macrocode}
-\bool_new:N \g_@@_ulem_pending_bool
+\bool_new:N \g_@@_glue_check_pending_bool
 \bool_new:N \g_@@_reset_color_pending_bool
 %    \end{macrocode}
 % \end{macro}
@@ -3997,7 +3992,7 @@ Copyright and Licence
 %   未被消除的问题，不再立即输出空格 glue，改为只留标记由后续
 %   恢复路径决定间距（\#324）。}
 % \changes{v3.10.0}{2026/05/12}{当显式 \texttt{\}} 触发 CJK→Boundary 转换时，
-%   设置 \cs{g_@@_ulem_pending_bool} 以启用后续的 glue 检查，
+%   设置 \cs{g_@@_glue_check_pending_bool} 以启用后续的 glue 检查，
 %   修复 \texttt{前\{中\} 后} 类型排版中多余的 \tn{CJKecglue}（\#831）。}
 % 当边界是 \tn{relax} 的时候，它可能是由 |\csname ...\endcsname| 的形式产生的，
 % 这样就可能出现问题\footnote{参见 \url{http://bbs.ctex.org/forum.php?mod=viewthread&tid=71563}。}。
@@ -4025,7 +4020,7 @@ Copyright and Licence
               {
                 \token_if_group_end:NTF \l_peek_token
                   {
-                    \bool_gset_true:N \g_@@_ulem_pending_bool
+                    \bool_gset_true:N \g_@@_glue_check_pending_bool
                     \@@_boundary_group_end:n { CJK }
                   }
                   { \@@_boundary_group_end:n { CJK } }
@@ -9672,7 +9667,7 @@ Copyright and Licence
               {
                 \@@_orig_reset_color:
                 \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
-                \bool_gset_true:N \g_@@_ulem_pending_bool
+                \bool_gset_true:N \g_@@_glue_check_pending_bool
               }
               {
                 \@@_if_last_hlist:TF
@@ -10225,7 +10220,7 @@ Copyright and Licence
     \xeCJK_class_group_end: \UL@stop
     \UL@start { \xeCJK_make_node:n {#1} }
     \xeCJK_make_group_tag:
-    \bool_gset_true:N \g_@@_ulem_pending_bool
+    \bool_gset_true:N \g_@@_glue_check_pending_bool
   }
 %    \end{macrocode}
 % \end{macro}
@@ -11030,7 +11025,7 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\xeCJK_under_symbol:nnnnnn}
 % 当处在下划线中时，我们先断开下划线，在分组外设置下划符号。
-% \changes{v3.10.0}{2026/05/12}{在独立模式的末尾设置 \cs{g_@@_ulem_pending_bool}，
+% \changes{v3.10.0}{2026/05/12}{在独立模式的末尾设置 \cs{g_@@_glue_check_pending_bool}，
 %   修复 \tn{CJKunderdot} 等命令右侧空格问题（\#826）。}
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_under_symbol:nnnnnn
@@ -11061,7 +11056,7 @@ Copyright and Licence
       \xeCJK_ulem_right:
     \group_end:
     \xeCJK_ulem_right_node:
-    \bool_gset_true:N \g_@@_ulem_pending_bool
+    \bool_gset_true:N \g_@@_glue_check_pending_bool
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5
   {
