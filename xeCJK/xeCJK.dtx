@@ -300,7 +300,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/13}{修复 \cs{textcolor} 包裹 \pkg{ulem}
 %   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 %
-% \CheckSum{11378}
+% \CheckSum{11382}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -9654,6 +9654,10 @@ Copyright and Licence
 %   当 color pop 后最后节点为 hlist 时设置 \cs{g_@@_reset_color_pending_bool}，
 %   延迟到 \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
 %   右侧间距（\#831）。}
+% \changes{v3.10.0}{2026/05/14}{修复颜色补丁在
+%   \cs{g_@@_last_node_tl} 被无关的 \tn{set@color} 清空后
+%   仍尝试重放节点导致 \texttt{Missing number} 错误的问题，
+%   影响 \pkg{listings} 与 \tn{rulecolor} 组合（\#836）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
@@ -9678,7 +9682,8 @@ Copyright and Licence
             \xeCJK_if_last_node:TF
               {
                 \@@_orig_set_color:
-                \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+                \tl_if_empty:NF \g_@@_last_node_tl
+                  { \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl } }
               }
               { \tl_gclear:N \g_@@_last_node_tl \@@_orig_set_color: }
           }
@@ -9691,8 +9696,11 @@ Copyright and Licence
             \xeCJK_if_last_node:TF
               {
                 \@@_orig_reset_color:
-                \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
-                \bool_gset_true:N \g_@@_glue_check_pending_bool
+                \tl_if_empty:NF \g_@@_last_node_tl
+                  {
+                    \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+                    \bool_gset_true:N \g_@@_glue_check_pending_bool
+                  }
               }
               {
                 \@@_if_last_hlist:TF
