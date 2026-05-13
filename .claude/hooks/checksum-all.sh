@@ -7,7 +7,7 @@ cd "$PROJECT_DIR" || exit 0
 
 for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
   if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
-    (cd "$dir" && l3build checksum) 2>/dev/null
+    (cd "$dir" && l3build checksum) > /dev/null 2>&1 || true
   fi
 done
 
