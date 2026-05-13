@@ -9567,6 +9567,8 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/12}{补丁 \tn{reset@color} 以在颜色弹出 whatsit
 %   之后重新放置 xeCJK 节点标记，修复 \tn{textcolor} 命令右侧
 %   多余 inter-word glue 的问题（\#831）。}
+% \changes{v3.10.0}{2026/05/13}{\tn{reset@color} 补丁增加 hlist 回退路径，
+%   修复 \tn{colorbox} 等嵌套 hbox + color 命令右侧间距异常（\#831）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
@@ -9603,8 +9605,32 @@ Copyright and Licence
                 \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
                 \bool_gset_true:N \g_@@_ulem_pending_bool
               }
-              { \@@_orig_reset_color: }
+              {
+                \@@_if_last_hlist:TF
+                  { \@@_reset_color_hlist_aux: }
+                  { \@@_orig_reset_color: }
+              }
           }
+      }
+    \cs_new_protected:Npn \@@_reset_color_hlist_aux:
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+          { \@@_reset_color_hlist_recover: }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
+              { \@@_reset_color_hlist_recover: }
+              {
+                \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+                  { \@@_reset_color_hlist_recover: }
+                  { \@@_orig_reset_color: }
+              }
+          }
+      }
+    \cs_new_protected:Npn \@@_reset_color_hlist_recover:
+      {
+        \@@_orig_reset_color:
+        \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+        \bool_gset_true:N \g_@@_ulem_pending_bool
       }
   }
 \@@_package_hook:nn { color }  { \@@_patch_set_color: }
