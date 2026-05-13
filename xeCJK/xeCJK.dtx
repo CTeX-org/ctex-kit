@@ -298,7 +298,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/04}{文档字体从 Source Han Serif 统一为
 %   Noto Serif CJK（\#686）。}
 %
-% \CheckSum{11359}
+% \CheckSum{11354}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1511,8 +1511,8 @@ Copyright and Licence
 % \tn{CJKsout} 前后的源码空格应被 \pkg{xeCJK} 自动处理为 CJK 文字间距
 % （\texttt{CJKglue}），与 |汉字 文字 汉字| 的效果一致。
 % 当前版本已实现对 \pkg{xeCJKfntef} 命令（如 \tn{CJKsout}、\tn{CJKunderline}、
-% \tn{CJKunderdot} 等）前后空格的自动处理。但对于 \tn{textcolor} 等
-% 在 CJK 文字间插入 whatsit 节点的命令，右侧的空格处理尚未实现。
+% \tn{CJKunderdot} 等）以及 \tn{textcolor}、\tn{colorbox} 等颜色命令
+% 前后空格的自动处理。
 %
 % \medskip
 %
@@ -3506,7 +3506,11 @@ Copyright and Licence
 % 此时检查 |\unskip| 后的最后节点是否为 hlist，若是则通过全局
 % |\g_@@_last_node_tl| 判断前方内容类型。该变量由 |\xeCJK_make_node:n|
 % 设置，能穿透 hbox/group 边界保持 CJK 标记。
-% 限定为 hlist 类型避免了 whatsit（如 |\write|）的干扰。
+% 对于 \tn{colorbox} 等带颜色的 hbox 命令，\tn{reset@color} 在 hbox
+% 之后插入 color pop whatsit，遮蔽了 hlist 检测。此时通过专用标志
+% |\g_@@_reset_color_pending_bool| 门控 whatsit 回退路径：仅当
+% \tn{reset@color} 已标记 hlist 上下文时才启用，避免 |\write| 等
+% 无关 whatsit 的干扰。
 %
 % \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
 % 通过 |\skip_if_finite:nTF| 将其排除。
@@ -3552,8 +3556,20 @@ Copyright and Licence
                 \@@_if_last_hlist:TF
                   { \@@_check_for_glue_skip_hlist_aux: }
                   {
-                    \skip_horizontal:N \l_@@_last_skip
-                    \@@_check_for_glue_auxii:
+                    \bool_if:NTF \g_@@_reset_color_pending_bool
+                      {
+                        \bool_gset_false:N \g_@@_reset_color_pending_bool
+                        \@@_if_last_whatsit:TF
+                          { \@@_check_for_glue_skip_hlist_aux: }
+                          {
+                            \skip_horizontal:N \l_@@_last_skip
+                            \@@_check_for_glue_auxii:
+                          }
+                      }
+                      {
+                        \skip_horizontal:N \l_@@_last_skip
+                        \@@_check_for_glue_auxii:
+                      }
                   }
               }
           }
@@ -3805,8 +3821,13 @@ Copyright and Licence
 %    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_ulem_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
+% \changes{v3.10.0}{2026/05/13}{新增 \cs{g_@@_reset_color_pending_bool}
+%   用于标记 \tn{reset@color} 在 hlist 上下文中触发，延迟到
+%   \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
+%   右侧的 color pop whatsit（\#831）。}
 %    \begin{macrocode}
 \bool_new:N \g_@@_ulem_pending_bool
+\bool_new:N \g_@@_reset_color_pending_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -9570,7 +9591,9 @@ Copyright and Licence
 %   之后重新放置 xeCJK 节点标记，修复 \tn{textcolor} 命令右侧
 %   多余 inter-word glue 的问题（\#831）。}
 % \changes{v3.10.0}{2026/05/13}{\tn{reset@color} 补丁增加 hlist 回退路径，
-%   修复 \tn{colorbox} 等嵌套 hbox + color 命令右侧间距异常（\#831）。}
+%   当 color pop 后最后节点为 hlist 时设置 \cs{g_@@_reset_color_pending_bool}，
+%   延迟到 \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
+%   右侧间距（\#831）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
@@ -9579,7 +9602,11 @@ Copyright and Licence
 % 检测失败。此处在 \tn{set@color} 和 \tn{reset@color} 之后重新放置
 % xeCJK 节点标记。\tn{set@color} 负责颜色推入（push），
 % \tn{reset@color} 负责颜色弹出（pop）——后者通过 \tn{aftergroup}
-% 在分组结束时自动调用，用于恢复原始颜色。
+% 在分组结束时自动调用，用于恢复原始颜色。当最后一个节点
+% 是 xeCJK 标记 kern 对时直接重放标记；当最后一个节点是 hlist
+% 且 |\g_@@_last_node_tl| 非空时，仅设置 |\g_@@_reset_color_pending_bool|
+% 以延迟到 |\@@_check_for_glue_skip:| 的 whatsit 回退路径中处理，
+% 避免在页面布局结构中插入多余 kern。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_set_color:
   {
@@ -9609,29 +9636,13 @@ Copyright and Licence
               }
               {
                 \@@_if_last_hlist:TF
-                  { \@@_reset_color_hlist_aux: }
+                  {
+                    \tl_if_empty:NF \g_@@_last_node_tl
+                      { \bool_gset_true:N \g_@@_reset_color_pending_bool }
+                    \@@_orig_reset_color:
+                  }
                   { \@@_orig_reset_color: }
               }
-          }
-        \cs_new_protected:Npn \@@_reset_color_hlist_aux:
-          {
-            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
-              { \@@_reset_color_hlist_recover: }
-              {
-                \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
-                  { \@@_reset_color_hlist_recover: }
-                  {
-                    \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
-                      { \@@_reset_color_hlist_recover: }
-                      { \@@_orig_reset_color: }
-                  }
-              }
-          }
-        \cs_new_protected:Npn \@@_reset_color_hlist_recover:
-          {
-            \@@_orig_reset_color:
-            \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
-            \bool_gset_true:N \g_@@_ulem_pending_bool
           }
       }
   }
