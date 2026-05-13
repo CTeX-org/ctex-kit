@@ -24,11 +24,29 @@ tdslocations = {
   "fonts/misc/xetex/fontmapping/xecjk/*.tec",
 }
 
-if install_files_bool then
-  local http_request = require("socket.http").request
-end
-local ltn12_sink_file = require("ltn12").sink.file
 local zip_open = require("zip").open
+
+local function download_file(url, dest)
+  local ok, http = pcall(require, "socket.http")
+  if ok then
+    local lok, ltn12 = pcall(require, "ltn12")
+    if lok then
+      local fh = io.open(dest, "wb")
+      if fh then
+        local status = http.request{
+          url  = url,
+          sink = ltn12.sink.file(fh)
+        }
+        if status then return true end
+      end
+    end
+  end
+  local ret = os.execute('curl -fsSL -o "' .. dest .. '" "' .. url .. '"')
+  if ret == 0 or ret == true then return true end
+  ret = os.execute('wget -q -O "' .. dest .. '" "' .. url .. '"')
+  if ret == 0 or ret == true then return true end
+  return false
+end
 
 local function make_teckit_mapping()
   local unihan_variants = "Unihan_Variants.txt"
@@ -37,11 +55,15 @@ local function make_teckit_mapping()
     local unihan_zip = supportdir .. "/Unihan.zip"
     local zfile = zip_open(unihan_zip)
     if not zfile then
-      local status, err = http_request{
-        url  = "http://www.unicode.org/Public/UNIDATA/Unihan.zip",
-        sink = ltn12_sink_file(io.open(unihan_zip, "wb")) }
-      if not status then
-        error([[Download "]] .. "Unihan.zip" .. [[" failed because of ]] .. err .. ".")
+      if not download_file(
+        "https://www.unicode.org/Public/UNIDATA/Unihan.zip", unihan_zip)
+      then
+        error(
+          'Failed to download Unihan.zip. Try one of:\n'
+          .. '  - Run: texlua --socket "$(kpsewhich l3build.lua)" install\n'
+          .. '  - Install curl or wget\n'
+          .. '  - Manually place Unihan.zip in ' .. supportdir .. '/'
+        )
       end
       zfile = assert(zip_open(unihan_zip))
     end
