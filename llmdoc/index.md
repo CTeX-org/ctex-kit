@@ -8,13 +8,13 @@
 
 - `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放（含 `\set@color` / `\reset@color` / `\Hy@BeginAnnot` 三处）、#324 宏路径多余 glue 遮蔽、#826 fntef 右侧 glue-on-kern-pair 遮蔽、#831 显式 `}` / `\textcolor` color-pop / `\mbox` hlist 三种变体、ecglue 缓存取值四层约束的统一心智模型；以及 fntef 双向 `\g_@@_last_node_tl` 全局状态隔离模式（`\xeCJK_fntef_sbox:n` hbox 隔离 + #830 ulem save/restore 隔离）。
 - `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵（含 CJK→Boundary handler 对 catcode 2 的处理）、边界恢复状态机三层模型（含 `\@@_check_for_glue_skip:` kern 路径 + 非 kern 三分支：hlist / whatsit（`\g_@@_reset_color_pending_bool` 门控）/ fallback；`\g_@@_ulem_pending_bool` 三 set 点）、`\reset@color` 定点补丁、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包（含 xeCJKfntef 双向全局状态隔离：`\xeCJK_fntef_sbox:n` hbox 隔离 + `\xeCJK_ulem_right:` save/restore 隔离）。
-- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配、字号系统、方案/标题/字体集、命令补丁与实验性接口。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找）、字号系统、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
 
 - `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热与 CI/CD 参考。
-- `llmdoc/reference/coding-conventions.md` — expl3 命名、`@@` 私有空间、作用域语义、docstrip 标签、`\CTEX@` 遗留接口与文档排版基础设施。
+- `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、作用域语义、docstrip 标签、`\CTEX@` 遗留接口与文档排版基础设施。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 
 ## guides

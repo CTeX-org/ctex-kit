@@ -18,6 +18,12 @@
 
 因此，在搜索符号时，应优先用模块前缀作为入口，而不是先搜通用动词。
 
+## e-type 优先于 x-type
+
+自 #679 起，本仓库（ctex、xeCJK、zhnumber）全面使用 e-type expansion variant 代替 x-type（跟进 l3kernel 的推荐做法）。例如 `\tl_set:Ne` 代替 `\tl_set:Nx`，`\exp_args:Nne` 代替 `\exp_args:Nnx`。
+
+**例外**：在 `Npx`（`\cs_new:Npx`、`\cs_gset:Npx` 等）定义体内部，必须保留 `\exp_args:Nnx` 而非改为 `\exp_args:Nne`。原因是 e-type `\exp_args` 是 expandable 的，在 `\edef` 体内会被提前展开导致崩溃，而 x-type 是 protected 的，不会在 `\edef` 体内展开。
+
 ## `@@` 私有命名空间
 
 本仓库广泛使用 expl3 的私有命名约定 `\@@_...`。其含义不是“全仓库共享私有名”，而是“当前模块在 docstrip/expl3 语义下的私有占位前缀”。
