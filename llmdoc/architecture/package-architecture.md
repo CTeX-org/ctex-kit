@@ -139,7 +139,7 @@ PR #791 对 #315 的修复曾把这条恢复链泛化为“只要上一节点是
   - `hyperref` 的 `\Hy@BeginAnnot`：进入链接注释前先保存当前 xeCJK 节点类别并清空旧状态，待注释起始 whatsit 插入后，只对 `CJK` / `CJK-space` / `CJK-widow` 三类节点选择性重放标记，而显式不重放 `default`。
 - 这等价于把“跨 whatsit 恢复 glue”改写成“在已知安全的 whatsit 之后补回 xeCJK 自己的标记 kern”，让后续 `\lastkern` 检测继续工作，而不是让恢复函数去猜测任意 whatsit 后面应不应该补 glue。
 
-这一变化把 Issue #315、#803、#807、#809 与 #810 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表“合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color` 与 `hyperref` 的 `\Hy@BeginAnnot`；而 `\raise\hbox` 包裹内容内部的 whatsit 等其他场景，都不能再使用通用恢复逻辑。
+这一变化把 Issue #315、#803、#807、#809 与 #810 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表”合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color` 与 `hyperref` 的 `\Hy@BeginAnnot`；而 `\raise\hbox` 包裹内容内部的 whatsit 等其他场景，都不能再使用通用恢复逻辑。此外，`\set@color` 补丁本身依赖 `\g_@@_last_node_tl` 来决定重建什么类型的 kern pair，因此任何在 hbox 内部触发 interchar toks 全局修改 `\g_@@_last_node_tl` 的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离该状态，否则 `\set@color` 会用错误的节点类型重建标记，导致后续恢复链走错路径。
 
 `hyperref` 补丁的策略切换本身也值得单独记住。早先尝试曾把修复点放在链接结束端（如 `\Hy@endcolorlink`）附近，希望在注释结束后补回缺失状态；但 #809/#810 的联动表明，真正稳定的做法是只 patch 链接开始端 `\Hy@BeginAnnot`：
 
@@ -173,6 +173,7 @@ v3.10.0 起，`\@@_boundary_reserve_space:` 不再在宏路径中立即输出这
 2. 若被 whatsit 打断，则通过 `\lastnodetype` 与保存的节点类型走回退路径；`\reset@color` 的定点补丁在 color-pop whatsit 后重建标记 kern 并设置 boolean；
 3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`；
 4. 若上一节点是 glue，则通过 `\@@_check_for_glue_skip:` 判断 glue 性质，分两条路径：kern 路径（boolean 门控）移除 finite glue 后探测下方 kern pair 标记；hlist 路径（不依赖 boolean）通过 `\g_@@_last_node_tl` 穿透 hbox 判断 CJK 内容类型。fil 级 glue 和无 shrink 的 `\quad` 在前置检查中直接跳过。
+5. 在 fntef 子系统中，任何通过 `\hbox_set:Nn` 渲染可能包含 CJK 字符的内容时，必须在 hbox 前后保存/恢复 `\g_@@_last_node_tl`——hbox 内部的 interchar toks 会全局修改该状态，污染外层水平列表的节点标记（`\xeCJK_fntef_sbox:n` 是已知实例）。
 
 也就是说，#315 解决的是”边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是”边界恢复时重新测量 ecglue 会拿错字体度量”，#324 解决的是”宏路径中的 `\@@_boundary_reserve_space:` 额外输出 glue，先把 `CJK-space` 标记自身遮蔽掉”，#826 解决的是”xeCJKfntef 命令右侧的 inter-word space glue 叠在 kern pair 标记上方导致 CJKglue 恢复失败”，#831 进一步解决了显式 `}`、`\textcolor` color-pop whatsit、`\mbox` hbox 三种 glue-on-kern-pair 变体，五者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
 

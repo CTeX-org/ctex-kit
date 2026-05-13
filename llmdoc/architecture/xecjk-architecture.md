@@ -291,6 +291,10 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 提供 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 等中文文字效果命令。基于 `ulem` 机制重实现，处理 CJK 字符的下划线位置和连续性。
 
+**`\xeCJK_fntef_sbox:n` 的全局状态隔离**：该函数通过 `\hbox_set:Nn` 渲染装饰符号（如 underdot 的 `.`）。hbox 内部的字符会触发 XeTeX interchar toks，全局修改 `\g_@@_last_node_tl`（例如从 `CJK-space` 变为 `default`）。这会污染外层水平列表的状态，导致 `\set@color` 补丁用错误的节点类型重建 kern pair，后续 `\@@_check_for_glue_skip:` 走 ecglue 路径而非 CJKglue 路径。
+
+修复方式：在 `\hbox_set:Nn` 前后保存/恢复 `\g_@@_last_node_tl`。这是一个通用模式——**任何包含 CJK 字符的 `\hbox_set:Nn` 都可能通过 interchar toks 污染全局节点标记状态**，应在 hbox 前后隔离 `\g_@@_last_node_tl`。测试覆盖见 `xeCJK/testfiles/fntef-color01.lvt`。
+
 ### xeCJK-listings
 
 重写 `listings` 的字符转换机制，使 CJK 字符不再需要设为 active catcode。核心是用 `\tl_set_rescan:Nno`（即 `\scantokens`）替代 `\lccode` + `\lowercase` 路线。
