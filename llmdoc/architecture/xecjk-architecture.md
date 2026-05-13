@@ -149,7 +149,7 @@ Boundary → CJK 时：
 
   kern 路径（boolean 门控）：
   1. \g_@@_ulem_pending_bool 门控
-     → false：回退到 \@@_check_for_glue_auxii:
+     → false：进入非 kern 路径
      → true：保存 \lastskip 到 \l_@@_last_skip
   2. \unskip 移除 glue
   3. 检查下方是否有 CJK kern pair 标记
@@ -159,23 +159,29 @@ Boundary → CJK 时：
   5. 如果不是 kern pair：
      恢复 glue，调用 \@@_check_for_glue_auxii:
 
-  hlist 路径（不依赖 boolean）：
-  1. \lastkern 不存在时检查 \g_@@_last_node_tl
-  2. 如果上一内容是 hlist（\lastnodetype = 1）
-     且 \g_@@_last_node_tl 为 CJK / CJK-space / CJK-widow：
-     \unskip 移除 glue，放置正确的 CJKglue
-  3. 限定 hlist 类型，避免 whatsit（如 \write）干扰
+  非 kern 路径（三分支）：
+  1. hlist 分支（无门控）：
+     \lastnodetype = 1（hbox）且 \g_@@_last_node_tl 非空
+     → \unskip 移除 glue，路由到 \@@_check_for_glue_skip_hlist_aux:
+     覆盖 \mbox 场景
+  2. whatsit 分支（\g_@@_reset_color_pending_bool 门控）：
+     hlist 检查失败后，boolean 为真且 \lastnodetype 为 whatsit
+     → 路由到 \@@_check_for_glue_skip_hlist_aux:
+     覆盖 \textcolor color-pop 场景
+  3. fallback：
+     → 回退到 \@@_check_for_glue_auxii:
 ```
 
 **设计决策**：
 - finite/shrink 检查提到 boolean 门控之前：这使 fil 级 glue（如 listings）和 `\quad` 等无 shrink 的显式空距在 boolean 判断前就被过滤掉，减少误触发
 - kern 路径由 boolean 门控保护 `space=true` 模式：`\g_@@_ulem_pending_bool` 确保只有"已知会产生多余 inter-word glue"的场景才执行 `\unskip` + kern pair 探测
-- hlist 路径不依赖 boolean：`\mbox{中}` 产生 hbox（hlist 节点类型 1），`\lastkern` 无法穿透；通过 `\g_@@_last_node_tl` 判断 hbox 内的 CJK 内容类型即可，不需要 boolean 门控
-- `\g_@@_ulem_pending_bool` 的三个 set 点（全局置真）：
+- 非 kern 路径分三支：hlist 分支不依赖 boolean（`\mbox{中}` 产生 hbox，通过 `\g_@@_last_node_tl` 判断）；whatsit 分支由 `\g_@@_reset_color_pending_bool` 门控（`\textcolor` color-pop）；其余 fallback
+- `\g_@@_ulem_pending_bool` 的三个 set 点（全局置真，不变）：
   1. `\@@_ulem_group_end:n`：fntef 模块在 ulem hbox 关闭时设置（覆盖 `\CJKsout`、`\CJKunderline` 等使用 ulem group 的命令）
   2. `\@@_under_symbol_auxii:nnnnnn`：着重号独立模式（`\CJKunderdot`、`\CJKunderdbldot`）不走 ulem group，在 hbox 关闭后的末尾单独设置
   3. `\xeCJK_CJK_and_Boundary:w`：CJK→Boundary handler 中，当 peek token 是 catcode 2（显式 `}`）时设置——因为显式 `}` 结束的 TeX 分组后，若紧跟源码空格，XeTeX 看到的不是 CJK 字符类，会产生 inter-word glue
 - `\g_@@_ulem_pending_bool` 在 `\@@_check_for_glue_skip:` 消费后即刻清除（全局置假），保证不向后续字符泄漏
+- `\g_@@_reset_color_pending_bool`（专用 boolean）：仅由 `\reset@color` 补丁设置（当最后节点是 hlist 且 `\g_@@_last_node_tl` 非空），在 `\@@_check_for_glue_skip:` whatsit 分支消费后清除。不能复用 `\g_@@_ulem_pending_bool`，因为 catcode 2 的 `}` 会先设置后者，与 `\reset@color` 的 `\aftergroup` 回调时序交叉
 - glueshrink 检查区分 inter-word space（有 shrink）和 `\quad`（无 shrink），避免吞掉用户有意的显式空距
 - 所有 fallback 统一到 `\@@_check_for_glue_auxii:`（包含 punct 检测链），而非 `\xeCJK_check_for_xglue:`
 
@@ -249,7 +255,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 
 | 目标包 | 补丁内容 |
 |--------|----------|
-| `color`/`xcolor` | `\set@color` 后重放 xeCJK 边界标记；`\reset@color` 后重放 kern pair 并设置 `\g_@@_ulem_pending_bool`（#831） |
+| `color`/`xcolor` | `\set@color` 后重放 xeCJK 边界标记；`\reset@color` hlist 路径设置 `\g_@@_reset_color_pending_bool` 后调用原始 reset（#831） |
 | `hyperref` | `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态 |
 | `ulem` | 临时关闭 interchar (`\makexeCJKinactive`) |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |

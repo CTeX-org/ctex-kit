@@ -36,21 +36,27 @@ xeCJK 原来只补丁了 `\set@color`（颜色推入），未补丁 `\reset@colo
 
 ### 阶段 2：`\reset@color` 补丁
 
-新增 `\reset@color` 定点补丁（`xeCJK/xeCJK.dtx` ~line 9588-9601）。在 color-pop whatsit 插入后，重新放置 kern pair 标记并设置 `\g_@@_ulem_pending_bool`，使后续 `\@@_check_for_glue_skip:` 能正确处理 glue-on-kern-pair。
+新增 `\reset@color` 定点补丁（`xeCJK/xeCJK.dtx` ~line 9588-9601）。当最后节点是 hlist 且 `\g_@@_last_node_tl` 非空时，设置专用的 `\g_@@_reset_color_pending_bool`，然后调用原始 `\@@_orig_reset_color:`。`\reset@color` 不再在 hlist 路径中直接插入 kern pair——它只设置 boolean，由 `\@@_check_for_glue_skip:` 的 whatsit 分支统一消费。
 
 这将定点颜色补丁从只覆盖 `\set@color`（颜色推入）扩展到同时覆盖 `\reset@color`（颜色弹出），与 hyperref `\Hy@BeginAnnot` 补丁的"进入端补丁"策略保持一致。
 
-### 阶段 3：hlist 回退路径
+注意：不能复用 `\g_@@_ulem_pending_bool`，因为该 boolean 在 CJK→Boundary catcode 2 路径中也会被设置——在 `\textcolor{red}{中}后` 这类场景中，catcode 2 的 `}` 会先设置 `\g_@@_ulem_pending_bool`，如果 `\reset@color` 也通过它来传递信号，两者的语义会冲突。专用 boolean 隔离了 color-pop 路径的生命周期。
 
-在 `\@@_check_for_glue_skip:` 中新增 hlist 回退路径（`xeCJK/xeCJK.dtx` ~line 3563-3582）。当 `\lastkern` 不存在时，检查 `\lastnodetype` 是否为 hlist（类型 1），并通过 `\g_@@_last_node_tl` 判断 hbox 内的 CJK 内容类型。
+### 阶段 3：`\@@_check_for_glue_skip:` 非 kern 三分支
 
-关键设计：hlist 路径不依赖 `\g_@@_ulem_pending_bool` 门控——`\mbox` 不设置 boolean，但 hlist + `\g_@@_last_node_tl` 的组合本身足够安全。限定 hlist 类型避免了 whatsit（如 `\write`，lastnodetype = 4）的干扰。
+在 `\@@_check_for_glue_skip:` 的非 kern 路径中，将原来的 hlist 单分支重构为三分支：
+
+1. **hlist 分支（无门控）**：`\lastnodetype = 1`（hbox）且 `\g_@@_last_node_tl` 非空 → 直接路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\mbox{中}` 场景——`\mbox` 不设置任何 boolean，但 hlist + `\g_@@_last_node_tl` 的组合本身足够安全。
+2. **whatsit 分支（`\g_@@_reset_color_pending_bool` 门控）**：hlist 检查失败后，若 `\g_@@_reset_color_pending_bool` 为真且 `\lastnodetype` 为 whatsit → 路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\textcolor{red}{中}后` 场景——color-pop whatsit 在 CJK kern pair 标记之后插入。
+3. **fallback**：上述检查均失败 → 回退到 `\@@_check_for_glue_auxii:`。
+
+关键设计：hlist 分支不依赖任何 boolean 门控，限定 hlist 类型避免了 whatsit（如 `\write`，lastnodetype = 4）的干扰。whatsit 分支由专用 `\g_@@_reset_color_pending_bool` 门控，不依赖 `\g_@@_ulem_pending_bool`。
 
 ### `\@@_check_for_glue_skip:` 重构
 
-将 finite/shrink 检查提到 boolean 门控之前，形成两条分支路径：
-- **kern 路径**：由 boolean 门控，保护 `space=true` 模式
-- **hlist 路径**：不依赖 boolean，通过 `\g_@@_last_node_tl` 自主判断
+将 finite/shrink 检查提到 boolean 门控之前，形成 kern 路径和非 kern 三分支路径：
+- **kern 路径**：由 `\g_@@_ulem_pending_bool` 门控，保护 `space=true` 模式
+- **非 kern 路径**：hlist（无门控）/ whatsit（`\g_@@_reset_color_pending_bool` 门控）/ fallback
 
 ## 复用 `\@@_check_for_glue_skip:` 消费端
 
@@ -63,4 +69,11 @@ xeCJK 原来只补丁了 `\set@color`（颜色推入），未补丁 `\reset@colo
 
 ## 归属
 
-此修复将 `\g_@@_ulem_pending_bool` 的语义从"fntef 专属标记"扩展为"已知会产生 glue-on-kern-pair 的场景标记"，生产端来自三个来源：fntef 模块、CJK->Boundary handler（catcode 2）、`\reset@color` 补丁。消费端统一在 `\@@_check_for_glue_skip:` 的 kern 路径和 hlist 路径。
+此修复使用两个独立的 boolean 进行生产-消费：
+
+- `\g_@@_ulem_pending_bool`：语义为"已知会产生 glue-on-kern-pair 的场景标记"。生产端三个 set 点（不变）：fntef 模块（ulem group end）、着重号独立模式（underdot standalone）、CJK→Boundary handler（catcode 2）。消费端在 `\@@_check_for_glue_skip:` 的 kern 路径。
+- `\g_@@_reset_color_pending_bool`：专用于 `\reset@color` color-pop 路径。生产端仅为 `\reset@color` 补丁（当最后节点是 hlist 且 `\g_@@_last_node_tl` 非空时设置）。消费端在 `\@@_check_for_glue_skip:` 的 whatsit 分支。
+
+不能复用 `\g_@@_ulem_pending_bool` 的原因：CJK→Boundary catcode 2 路径中 `}` 会先设置该 boolean，而 `\textcolor` 场景中 `\reset@color` 的 `\aftergroup` 回调发生在 `}` 之后——两者的设置时序交叉，共享同一 boolean 会导致语义混淆。
+
+hlist 回退路径（`\mbox`）不依赖任何 boolean，通过 `\g_@@_last_node_tl` 自主判断。
