@@ -6,8 +6,26 @@ on:
       # added "ready_for_review"
       # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
       [opened, ready_for_review, reopened, synchronize]
+    paths-ignore:
+      - 'llmdoc/**'
+      - '**/README.md'
+      - '**/README-en.md'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.claude/**'
   push:
     branches: [master]
+    paths-ignore:
+      - 'llmdoc/**'
+      - '**/README.md'
+      - '**/README-en.md'
+      - 'CLAUDE.md'
+      - 'AGENTS.md'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.claude/**'
   schedule:
     # at 12:00 UTC (20:00 CST/UTC +8) on Friday
     - cron: "0 12 * * 5"
@@ -154,15 +172,33 @@ jobs:
         diffexe: git diff --no-index --text --
         L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
 
+    - name: Verify dtx checksums
+      if: ${{ !cancelled() && runner.os == 'Linux' }}
+      id: verify-checksums
+      run: |
+        set -x
+        for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
+          if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
+            echo "::group::checksum $dir"
+            (cd "$dir" && l3build checksum) || true
+            echo "::endgroup::"
+          fi
+        done
+        git diff --exit-code -- '*.dtx' || {
+          echo "::error::Checksum mismatch detected! Run 'l3build checksum' in the affected project(s)."
+          git diff --stat -- '*.dtx'
+          exit 1
+        }
+
     - name: Get short commit SHA
       # if-expression starting with "!" must be escaped,
       # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure' || steps.verify-checksums.outcome == 'failure') }}
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
     - name: Upload test diffs
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
+      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure' || steps.verify-checksums.outcome == 'failure') }}
       uses: actions/upload-artifact@v7
       with:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}

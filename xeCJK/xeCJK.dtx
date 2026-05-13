@@ -297,8 +297,10 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/04/29}{提升版本号至 v3.10.0。}
 % \changes{v3.10.0}{2026/05/04}{文档字体从 Source Han Serif 统一为
 %   Noto Serif CJK（\#686）。}
+% \changes{v3.10.0}{2026/05/13}{修复 \cs{textcolor} 包裹 \pkg{ulem}
+%   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 %
-% \CheckSum{11234}
+% \CheckSum{11370}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -1506,6 +1508,15 @@ Copyright and Licence
 %
 % \medskip
 %
+% \pkg{xeCJKfntef} 的下划线和删除线命令内部使用 \package{ulem} 宏包的
+% \tn{hbox} 机制排版文字。|汉字 \CJKsout{文字} 汉字| 中
+% \tn{CJKsout} 前后的源码空格会被 \pkg{xeCJK} 自动处理为 CJK 文字间距
+% （\texttt{CJKglue}），与 |汉字 文字 汉字| 的效果一致。
+% 关于 \pkg{xeCJKfntef} 命令与颜色命令的嵌套组合等更多细节，
+% 请参见"已知问题和兼容性"一节中关于"CJK 文字与命令交互时的间距"的说明。
+%
+% \medskip
+%
 % 此外，\pkg{xeCJKfntef} 还提供了指定宽度，让汉字分散对齐的的环境
 % \env{CJKfilltwosides} 和 \env{CJKfilltwosides*}。
 %
@@ -1612,6 +1623,45 @@ Copyright and Licence
 % \pkg{xeCJK} 依赖 \XeTeX 的 \tn{XeTeXinterchartoks} 机制，与使用相同机制的宏包（例如
 % \pkg{polyglossia} 和 \pkg{xesearch}）可能会存在大小不一的冲突。
 % \pkg{xeCJK} 虽然为此作了一些处理，但与它们共同使用时应该小心。
+%
+% \subsection{CJK 文字与命令交互时的间距}
+%
+% \pkg{xeCJK} 利用 \XeTeX 的 interchar 机制，在 CJK 文字之间自动插入
+% |CJKglue|，在 CJK 文字与西文之间自动插入 |CJKecglue|，并自动忽略
+% CJK 文字间的源码空格。当 CJK 文字被 \LaTeX 命令包裹时，命令引入的
+% 分组、盒子或特殊节点可能干扰这一机制。\pkg{xeCJK} 的预期行为是：
+% \begin{frameverb}
+%   前 中 后            % 直接排版
+%   前 \foo{中} 后      % 用命令包裹
+% \end{frameverb}
+% 两种写法应产生相同的 CJK 间距。
+%
+% 目前 \pkg{xeCJK} 已确保以下命令在此场景下的间距行为正确：
+% \begin{itemize}
+%   \item 字体切换命令：\tn{textbf}、\tn{textit}、\tn{emph} 等。
+%     这些命令仅切换字体，对 interchar 机制透明。
+%   \item 颜色命令：\tn{textcolor}、\tn{colorbox} 等
+%     （基于 \LaTeXe{} 颜色机制的命令）。
+%   \item \pkg{xeCJKfntef} 命令：\tn{CJKunderdot}、\tn{CJKunderline}、
+%     \tn{CJKsout}、\tn{CJKunderwave}、\tn{CJKunderdblline}、\tn{CJKxout}。
+%   \item 盒子命令：\tn{mbox}。
+%   \item \pkg{hyperref} 的链接注释：\tn{ref}、\tn{hyperref} 等。
+%   \item 以上命令的嵌套组合，例如：
+% \begin{frameverb}
+%   前 \CJKunderline{\textcolor{red}{中}} 后
+%   前 \textcolor{red}{\CJKunderline{中}} 后
+% \end{frameverb}
+% \end{itemize}
+%
+% 需要注意的是，\pkg{xeCJK} 的间距兼容是针对上述命令的内部行为
+% 逐一实现的，并非通用的自动检测机制。
+% 未列出的第三方命令如果在 CJK 文字间引入特殊的分组或节点结构，
+% 仍可能产生多余或缺失的间距。
+% 已知的限制包括：使用 \LaTeXiii{} 颜色后端（\pkg{l3color}）
+% 的命令尚未覆盖。
+% 如果遇到间距异常，欢迎到
+% \href{https://github.com/CTeX-org/ctex-kit/issues}{GitHub Issues}
+% 提交兼容请求。
 %
 % \subsection{\tn{char} 原语与 interchar 的冲突}
 %
@@ -3464,12 +3514,135 @@ Copyright and Licence
     \@@_if_last_kern:TF
       { \@@_check_for_glue_auxi: }
       {
-        \@@_if_last_whatsit:TF
-          { \@@_recover_glue_whatsit: }
+        \@@_if_last_glue:TF
+          { \@@_check_for_glue_skip: }
           {
-            \@@_if_last_math:TF
-              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-              { \@@_check_for_glue_auxii: }
+            \@@_if_last_whatsit:TF
+              { \@@_recover_glue_whatsit: }
+              {
+                \@@_if_last_math:TF
+                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+                  { \@@_check_for_glue_auxii: }
+              }
+          }
+      }
+  }
+%    \end{macrocode}
+% \changes{v3.10.0}{2026/05/12}{新增 glue 分支处理，修复 \pkg{xeCJKfntef} 命令右侧空格问题。}
+% \changes{v3.10.0}{2026/05/12}{当 glue 下方是 hlist（\tn{mbox} 等命令产生的 hbox）时，
+%   不依赖 boolean，直接通过 \cs{g_@@_last_node_tl} 判断前方内容类型，
+%   修复 \tn{mbox}、\tn{colorbox} 等 hbox 命令右侧多余 inter-word glue（\#831）。}
+% \pkg{xeCJKfntef} 的命令内部使用 \pkg{ulem} 的 \tn{hbox} 排版 CJK 文字，
+% 导致 \XeTeX{} 的 interchar class 在命令结束后不是 CJK 而是 Boundary。
+% 源码空格因此产生 inter-word glue（而非被吃掉），叠在 CJK kern pair 标记
+% 上方。本函数通过 |\unskip| 探测 glue 下方的 kern pair 来解决。
+% kern pair 的探测由 |\g_@@_glue_check_pending_bool| 门控：仅在 \pkg{xeCJKfntef}
+% 组结束或颜色恢复（\tn{reset@color}）之后才启用，以避免在 |space=true|
+% 模式下误替换用户输入的空格。该标志分别由 |\@@_ulem_group_end:n|
+% 和 \tn{reset@color} 补丁设置。
+%
+% 对于 \tn{mbox}、\tn{colorbox} 等产生 hbox 的命令，hbox 节点
+% 隔在 kern pair 和 glue 之间，|\lastkern| 无法穿透。
+% 此时检查 |\unskip| 后的最后节点是否为 hlist，若是则通过全局
+% |\g_@@_last_node_tl| 判断前方内容类型。该变量由 |\xeCJK_make_node:n|
+% 设置，能穿透 hbox/group 边界保持 CJK 标记。
+% hlist 分支本身不设门控：其安全性依赖于 |\g_@@_last_node_tl| 仅在
+% CJK 输出路径中被设置，非 CJK 上下文中该变量为空，
+% |\@@_check_for_glue_skip_hlist_aux:| 会直接走 fallback。
+% 对于 \tn{colorbox} 等带颜色的 hbox 命令，\tn{reset@color} 在 hbox
+% 之后插入 color pop whatsit，遮蔽了 hlist 检测。此时通过专用标志
+% |\g_@@_reset_color_pending_bool| 门控 whatsit 回退路径：仅当
+% \tn{reset@color} 已标记 hlist 上下文时才启用，避免 |\write| 等
+% 无关 whatsit 的干扰。
+%
+% \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
+% 通过 |\skip_if_finite:nTF| 将其排除。
+% 标题格式中的 |\quad| 等有意放置的间距没有 shrink 分量，
+% 通过检测 |\tex_glueshrink:D| 来排除。
+%
+% 本函数仅在 |\@@_if_last_glue:TF| 的 true 分支中调用，
+% 因此入口处 |\tex_lastskip:D| 保证为非零 glue。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_check_for_glue_skip:
+  {
+    \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+    \skip_if_finite:nTF { \l_@@_last_skip }
+      {
+        \dim_compare:nNnTF
+          { \tex_glueshrink:D \l_@@_last_skip } > \c_zero_dim
+          {
+            \tex_unskip:D
+            \@@_if_last_kern:TF
+              { \@@_check_for_glue_skip_kern: }
+              { \@@_check_for_glue_skip_nonkern: }
+          }
+          { \@@_check_for_glue_skip_consume_and_fallback: }
+      }
+      { \@@_check_for_glue_skip_consume_and_fallback: }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_kern:
+  {
+    \bool_if:NTF \g_@@_glue_check_pending_bool
+      {
+        \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \dim_case:nnF { \tex_lastkern:D }
+          {
+            { \@@_node:n { CJK } }
+            { \xeCJK_remove_node: \CJKglue }
+            { \@@_node:n { CJK-space } }
+            { \xeCJK_remove_node: \@@_ccglue_or_space: }
+            { \@@_node:n { CJK-widow } }
+            { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+          }
+          { \@@_check_for_glue_skip_restore: }
+      }
+      { \@@_check_for_glue_skip_restore: }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_nonkern:
+  {
+    \bool_if:NT \g_@@_glue_check_pending_bool
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \@@_if_last_hlist:TF
+      { \@@_check_for_glue_skip_hlist_aux: }
+      {
+        \bool_if:NTF \g_@@_reset_color_pending_bool
+          {
+            \bool_gset_false:N \g_@@_reset_color_pending_bool
+            \@@_if_last_whatsit:TF
+              { \@@_check_for_glue_skip_hlist_aux: }
+              { \@@_check_for_glue_skip_restore: }
+          }
+          { \@@_check_for_glue_skip_restore: }
+      }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_restore:
+  {
+    \skip_horizontal:N \l_@@_last_skip
+    \@@_check_for_glue_auxii:
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_consume_and_fallback:
+  {
+    \bool_if:NT \g_@@_glue_check_pending_bool
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \@@_check_for_glue_auxii:
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_hlist_aux:
+  {
+    \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
+      { \tl_gclear:N \g_@@_last_node_tl \CJKglue }
+      {
+        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
+          { \tl_gclear:N \g_@@_last_node_tl \@@_ccglue_or_space: }
+          {
+            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
+              {
+                \tl_gclear:N \g_@@_last_node_tl
+                \xeCJK_widow_penalty: \CJKglue
+              }
+              {
+                \skip_horizontal:N \l_@@_last_skip
+                \@@_check_for_glue_auxii:
+              }
           }
       }
   }
@@ -3687,6 +3860,16 @@ Copyright and Licence
 \xeCJK_declare_node:n { normalspace }
 \xeCJK_declare_glue_node:n { default-space }
 %    \end{macrocode}
+% \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
+%   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
+% \changes{v3.10.0}{2026/05/13}{新增 \cs{g_@@_reset_color_pending_bool}
+%   用于标记 \tn{reset@color} 在 hlist 上下文中触发，延迟到
+%   \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
+%   右侧的 color pop whatsit（\#831）。}
+%    \begin{macrocode}
+\bool_new:N \g_@@_glue_check_pending_bool
+\bool_new:N \g_@@_reset_color_pending_bool
+%    \end{macrocode}
 % \end{macro}
 %
 % \changes{v3.9.0}{2022/06/06}{修复西文的 character protrusion 功能。}
@@ -3814,6 +3997,9 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/04}{修复 CJK 字符后行尾空格在宏命令前
 %   未被消除的问题，不再立即输出空格 glue，改为只留标记由后续
 %   恢复路径决定间距（\#324）。}
+% \changes{v3.10.0}{2026/05/12}{当显式 \texttt{\}} 触发 CJK→Boundary 转换时，
+%   设置 \cs{g_@@_glue_check_pending_bool} 以启用后续的 glue 检查，
+%   修复 \texttt{前\{中\} 后} 类型排版中多余的 \tn{CJKecglue}（\#831）。}
 % 当边界是 \tn{relax} 的时候，它可能是由 |\csname ...\endcsname| 的形式产生的，
 % 这样就可能出现问题\footnote{参见 \url{http://bbs.ctex.org/forum.php?mod=viewthread&tid=71563}。}。
 % 原来是都在未定义控制序列前都加上 \cs{exp_not:N}，现在是采用分组结束后手工恢复的方式。
@@ -3837,7 +4023,14 @@ Copyright and Licence
           {
             \token_if_eq_meaning:NNTF \l_peek_token \scan_stop:
               { \@@_CJK_and_Boundary_relax:N }
-              { \@@_boundary_group_end:n { CJK } }
+              {
+                \token_if_group_end:NTF \l_peek_token
+                  {
+                    \bool_gset_true:N \g_@@_glue_check_pending_bool
+                    \@@_boundary_group_end:n { CJK }
+                  }
+                  { \@@_boundary_group_end:n { CJK } }
+              }
           }
       }
   }
@@ -9435,12 +9628,26 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/01}{修复 \tn{set@color} 补丁在无真实节点标记时
 %   未清除全局状态，导致首次 \tn{textcolor} 在标点或段首后插入虚假
 %   \texttt{ecglue} 的问题（\#807）。}
+% \changes{v3.10.0}{2026/05/12}{补丁 \tn{reset@color} 以在颜色弹出 whatsit
+%   之后重新放置 xeCJK 节点标记，修复 \tn{textcolor} 命令右侧
+%   多余 inter-word glue 的问题（\#831）。}
+% \changes{v3.10.0}{2026/05/13}{\tn{reset@color} 补丁增加 hlist 回退路径，
+%   当 color pop 后最后节点为 hlist 时设置 \cs{g_@@_reset_color_pending_bool}，
+%   延迟到 \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
+%   右侧间距（\#831）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
 % \pkg{color}/\pkg{xcolor} 的颜色切换通过 \tn{set@color} 插入 \tn{special}
 % 节点（whatsit），会遮蔽 xeCJK 的标记 kern，导致后续的 \texttt{CJKecglue}
-% 检测失败。此处在 \tn{set@color} 之后重新放置 xeCJK 节点标记。
+% 检测失败。此处在 \tn{set@color} 和 \tn{reset@color} 之后重新放置
+% xeCJK 节点标记。\tn{set@color} 负责颜色推入（push），
+% \tn{reset@color} 负责颜色弹出（pop）——后者通过 \tn{aftergroup}
+% 在分组结束时自动调用，用于恢复原始颜色。当最后一个节点
+% 是 xeCJK 标记 kern 对时直接重放标记；当最后一个节点是 hlist
+% 且 |\g_@@_last_node_tl| 非空时，仅设置 |\g_@@_reset_color_pending_bool|
+% 以延迟到 |\@@_check_for_glue_skip:| 的 whatsit 回退路径中处理，
+% 避免在页面布局结构中插入多余 kern。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_set_color:
   {
@@ -9455,6 +9662,28 @@ Copyright and Licence
                 \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
               }
               { \tl_gclear:N \g_@@_last_node_tl \@@_orig_set_color: }
+          }
+      }
+    \cs_if_exist:NF \@@_orig_reset_color:
+      {
+        \cs_set_eq:NN \@@_orig_reset_color: \reset@color
+        \cs_gset_protected:Npn \reset@color
+          {
+            \xeCJK_if_last_node:TF
+              {
+                \@@_orig_reset_color:
+                \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+                \bool_gset_true:N \g_@@_glue_check_pending_bool
+              }
+              {
+                \@@_if_last_hlist:TF
+                  {
+                    \tl_if_empty:NF \g_@@_last_node_tl
+                      { \bool_gset_true:N \g_@@_reset_color_pending_bool }
+                    \@@_orig_reset_color:
+                  }
+                  { \@@_orig_reset_color: }
+              }
           }
       }
   }
@@ -9664,6 +9893,7 @@ Copyright and Licence
       \xeCJK_ulem_right_skip:
     \xeCJK_ulem_group_end:
     \xeCJK_ulem_right_node:
+    \tl_gset_eq:NN \g_@@_last_node_tl \g_@@_ulem_saved_last_node_tl
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
   }
 \cs_new_protected:Npn \@@_ulem_loop:nw
@@ -9755,6 +9985,7 @@ Copyright and Licence
 \cs_new_protected:Npn \xeCJK_ulem_right:
   {
     \scan_stop:
+    \tl_gset_eq:NN \g_@@_ulem_saved_last_node_tl \g_@@_last_node_tl
     \dim_compare:nNnTF \tex_lastkern:D = \c_zero_dim
       { \xeCJK_cs_gclear:N \xeCJK_ulem_right_node: }
       {
@@ -9766,6 +9997,7 @@ Copyright and Licence
           }
       }
   }
+\tl_new:N \g_@@_ulem_saved_last_node_tl
 \cs_new_protected:Npn \@@_ulem_right_aux:n #1
   {
     \dim_compare:nNnTF \tex_lastkern:D = { - #1 }
@@ -9994,6 +10226,7 @@ Copyright and Licence
     \xeCJK_class_group_end: \UL@stop
     \UL@start { \xeCJK_make_node:n {#1} }
     \xeCJK_make_group_tag:
+    \bool_gset_true:N \g_@@_glue_check_pending_bool
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10660,14 +10893,20 @@ Copyright and Licence
 % \end{variable}
 %
 % \begin{macro}[int]{\xeCJK_fntef_sbox:n}
+% \changes{v3.10.0}{2026/05/13}{保存并恢复 \cs{g_@@_last_node_tl}，
+%   避免 hbox 内渲染装饰符号时 interchar toks 污染全局节点标记，
+%   修复 \pkg{xeCJKfntef} 与 \tn{textcolor} 组合使用时
+%   多余的 \texttt{CJKecglue}。}
 % 与 \cs{hcoffin_set:Nn} 和 \LaTeXe{} 的 \tn{sbox} 功能类似，确保颜色的正确。
 % 虽然 \texttt{coffin} 可以更方便的操作盒子，但速度要慢一点。并且，我们的需求
 % 也比较简单，就不用它了。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_fntef_sbox:n #1
   {
+    \tl_set_eq:NN \l_@@_tmp_tl \g_@@_last_node_tl
     \hbox_set:Nn \l_@@_fntef_box
       { \color_ensure_current: #1 }
+    \tl_gset_eq:NN \g_@@_last_node_tl \l_@@_tmp_tl
   }
 %    \end{macrocode}
 % \end{macro}
@@ -10792,6 +11031,8 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\xeCJK_under_symbol:nnnnnn}
 % 当处在下划线中时，我们先断开下划线，在分组外设置下划符号。
+% \changes{v3.10.0}{2026/05/12}{在独立模式的末尾设置 \cs{g_@@_glue_check_pending_bool}，
+%   修复 \tn{CJKunderdot} 等命令右侧空格问题（\#826）。}
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_under_symbol:nnnnnn
   {
@@ -10821,6 +11062,7 @@ Copyright and Licence
       \xeCJK_ulem_right:
     \group_end:
     \xeCJK_ulem_right_node:
+    \bool_gset_true:N \g_@@_glue_check_pending_bool
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5
   {

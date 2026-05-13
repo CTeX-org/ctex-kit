@@ -6,8 +6,9 @@
 
 ## architecture
 
-- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放、#324 宏路径多余 glue 遮蔽、ecglue 缓存取值三层约束的统一心智模型。
-- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵、边界恢复状态机三层模型、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包。
+- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略，以及边界恢复链中 `\lastkern` 标记 kern、whatsit 定点重放（含 `\set@color` / `\reset@color` / `\Hy@BeginAnnot` 三处）、#324 宏路径多余 glue 遮蔽、#826 fntef 右侧 glue-on-kern-pair 遮蔽、#831 显式 `}` / `\textcolor` color-pop / `\mbox` hlist 三种变体、ecglue 缓存取值四层约束的统一心智模型；以及 fntef 双向 `\g_@@_last_node_tl` 全局状态隔离模式（`\xeCJK_fntef_sbox:n` hbox 隔离 + #830 ulem save/restore 隔离）。
+- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 机制、字符分类体系、类别转换矩阵（含 CJK→Boundary handler 对 catcode 2 的处理）、边界恢复状态机三层模型（含 `\@@_check_for_glue_skip:` kern 路径 + 非 kern 三分支：hlist / whatsit（`\g_@@_reset_color_pending_bool` 门控）/ fallback；`\g_@@_ulem_pending_bool` 三 set 点）、`\reset@color` 定点补丁、字体管理、标点压缩系统、间距系统、兼容性补丁模式、`\char` 约束与扩展子包（含 xeCJKfntef 双向全局状态隔离：`\xeCJK_fntef_sbox:n` hbox 隔离 + `\xeCJK_ulem_right:` save/restore 隔离）。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配、字号系统、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
@@ -33,6 +34,10 @@
 - `llmdoc/memory/decisions/543-font-size-system.md` — 决策: 将字号系统切换能力放入 `experiment/font-size-system`，仅在类/宏包选项阶段选择 `word`、`letterpress` 或用户自定义字号表；#813 将原名 `traditional` 更名为 `letterpress` 以明确其金属活字语义。
 - `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
 - `llmdoc/memory/decisions/811-halfright-prebreakpenalty.md` — 决策: #811 对整个 `HalfRight` 类施加条件禁则，不拆分类；其中 `FullRight -> HalfRight` 必须覆写 interchartoks 以保证 penalty 位于 punct glue 之前。
+- `llmdoc/memory/decisions/826-fntef-right-side-cjkglue.md` — 决策: #826 新增 `\@@_check_for_glue_skip:` 三层过滤（boolean flag + finite check + glueshrink）处理 xeCJKfntef 命令右侧 glue 叠在 CJK kern pair 标记上方导致 CJKglue 恢复失败的问题；`\g_@@_ulem_pending_bool` 现有三个 set 点（ulem group / underdot 独立模式 / CJK→Boundary catcode 2）。
+- `llmdoc/memory/decisions/826-fntef-color-global-state.md` — 决策: fntef+textcolor 组合时 `\xeCJK_fntef_sbox:n` 的 `\hbox_set:Nn` 内 interchar toks 全局修改 `\g_@@_last_node_tl` 导致 `\set@color` 补丁用错误节点类型重建 kern pair；修复为 hbox 前后保存/恢复该状态。
+- `llmdoc/memory/decisions/830-color-wraps-ulem-last-node-tl.md` — 决策: textcolor 包裹 ulem 类 fntef 命令时，ulem `\UL@end` 的 `*` 字符触发 Default→Boundary interchar 转换污染 `\g_@@_last_node_tl`；修复为 `\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 前后 save/restore，与 #826 fntef(color) 方向互补。
+- `llmdoc/memory/decisions/831-boundary-explicit-brace-ecglue.md` — 决策: #831 显式 `}` / `\mbox` / `\textcolor` 右侧多余 inter-word glue 的三阶段修复：CJK→Boundary handler catcode 2 set 点、`\reset@color` 设置专用 `\g_@@_reset_color_pending_bool`、`\@@_check_for_glue_skip:` 非 kern 三分支（hlist / whatsit 门控 / fallback）。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
@@ -51,3 +56,6 @@
 - `llmdoc/memory/reflections/807-set-color-stale-state.md` — 反思: xeCJK #807 中 `\set@color` 无节点分支未清空 `\g_@@_last_node_tl`，导致首次 `\textcolor` 把初始化阶段残留的 `default` 误送入 whatsit 恢复链并错误插入 ecglue。
 - `llmdoc/memory/reflections/809-810-hyperref-annot-ecglue.md` — 反思: xeCJK #809/#810 中 hyperref 注释起始 whatsit 需在 `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态；`default` 分支保留给 color/xcolor，但不应在注释开始端被重放。
 - `llmdoc/memory/reflections/324-boundary-reserve-space-glue.md` — 反思: xeCJK #324 中宏路径提前输出空格 glue 遮蔽 `CJK-space` 标记 kern，破坏 `\lastkern` 边界恢复；修复同时揭示 xeCJK→ctex 的广泛基线联动。
+- `llmdoc/memory/reflections/826-fntef-boolean-flag-iteration.md` — 反思: xeCJK #826 fntef glue-on-kern-pair 初始修复后的迭代——`\l_@@_last_skip` 状态污染、`\quad` 误处理、fallback 路径错误的根因与三层过滤收敛过程。
+- `llmdoc/memory/reflections/831-reset-color-pending-bool.md` — 反思: #831 colorbox/textcolor 右侧间距修复四轮迭代——从 `\reset@color` 直接插入 kern 对到 `\g_@@_reset_color_pending_bool` 专用布尔延迟处理的收敛过程，核心教训为共享全局布尔的语义过载风险。
+- `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
