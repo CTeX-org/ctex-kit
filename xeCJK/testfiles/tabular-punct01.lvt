@@ -1,0 +1,68 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newdimen\testdimA
+
+\newcommand\testwidthclose[2]{%
+  % Check |wd#1 - wd#2| < 0.01pt
+  \testdimA=\dimexpr\wd#1-\wd#2\relax
+  \ifdim\testdimA<0pt \testdimA=-\testdimA \fi
+  \ifdim\testdimA<0.01pt
+    \TYPE{PASS:~\the\wd#1}%
+  \else
+    \TYPE{FAIL:~\the\wd#1\space vs~\the\wd#2}%
+  \fi
+}
+
+\begin{document}
+
+\START
+
+% Issue #827: FullRight punctuation in tabular loses trailing glue due to \unskip
+% The compensating glue after punct_rule is removed by \\, causing wrong cell width.
+% tabular adds a tiny internal glue (0.00002pt), so we use 0.01pt tolerance.
+
+\TEST{FullRight~punct~in~hbox~vs~tabular~same~width}{
+  \setbox0=\hbox{test：}
+  \setbox2=\hbox{%
+    \begin{tabular}{@{}l@{}}
+      test：\\
+    \end{tabular}}
+  \testwidthclose{0}{2}
+}
+
+\TEST{FullRight~punct~r-align~no~extra~left~space}{
+  \setbox0=\hbox{%
+    \begin{tabular}{@{}r@{}}
+      test：\\
+    \end{tabular}}
+  \setbox2=\hbox{test：}
+  \testwidthclose{0}{2}
+}
+
+\TEST{FullRight~punct~PunctStyle=plain~in~tabular}{
+  \xeCJKsetup{PunctStyle=plain}
+  \setbox0=\hbox{test：}
+  \setbox2=\hbox{%
+    \begin{tabular}{@{}l@{}}
+      test：\\
+    \end{tabular}}
+  \testwidthclose{0}{2}
+}
+
+\TEST{Punct~followed~by~CJK~across~group~boundary}{
+  \setbox0=\hbox{前：後}
+  \setbox2=\hbox{{前：}後}
+  \ifdim\wd0=\wd2
+    \TYPE{PASS:~\the\wd0}
+  \else
+    \TYPE{FAIL:~\the\wd0\space vs~\the\wd2}
+  \fi
+}
+
+\END
+\end{document}
