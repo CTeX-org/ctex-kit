@@ -173,7 +173,9 @@ v3.10.0 起，`\@@_boundary_reserve_space:` 不再在宏路径中立即输出这
 2. 若被 whatsit 打断，则通过 `\lastnodetype` 与保存的节点类型走回退路径；`\reset@color` 的定点补丁在 color-pop whatsit 后重建标记 kern 并设置 boolean；
 3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`；
 4. 若上一节点是 glue，则通过 `\@@_check_for_glue_skip:` 判断 glue 性质，分两条路径：kern 路径（boolean 门控）移除 finite glue 后探测下方 kern pair 标记；hlist 路径（不依赖 boolean）通过 `\g_@@_last_node_tl` 穿透 hbox 判断 CJK 内容类型。fil 级 glue 和无 shrink 的 `\quad` 在前置检查中直接跳过。
-5. 在 fntef 子系统中，任何通过 `\hbox_set:Nn` 渲染可能包含 CJK 字符的内容时，必须在 hbox 前后保存/恢复 `\g_@@_last_node_tl`——hbox 内部的 interchar toks 会全局修改该状态，污染外层水平列表的节点标记（`\xeCJK_fntef_sbox:n` 是已知实例）。
+5. 在 fntef 子系统中，`\g_@@_last_node_tl` 的全局状态隔离有两个方向：
+   - fntef(color)：fntef 包裹 textcolor 时，`\xeCJK_fntef_sbox:n` 的 `\hbox_set:Nn` 内 interchar toks 全局修改该状态——修复为 hbox 前后保存/恢复。
+   - color(fntef)：textcolor 包裹 ulem 类 fntef 命令时，ulem `\UL@end` 的 `*` 字符触发 Default→Boundary interchar 转换污染该状态——修复为 `\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 前后 save/restore（#830）。
 
 也就是说，#315 解决的是”边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是”边界恢复时重新测量 ecglue 会拿错字体度量”，#324 解决的是”宏路径中的 `\@@_boundary_reserve_space:` 额外输出 glue，先把 `CJK-space` 标记自身遮蔽掉”，#826 解决的是”xeCJKfntef 命令右侧的 inter-word space glue 叠在 kern pair 标记上方导致 CJKglue 恢复失败”，#831 进一步解决了显式 `}`、`\textcolor` color-pop whatsit、`\mbox` hbox 三种 glue-on-kern-pair 变体，五者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
 

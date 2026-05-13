@@ -293,7 +293,15 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 **`\xeCJK_fntef_sbox:n` 的全局状态隔离**：该函数通过 `\hbox_set:Nn` 渲染装饰符号（如 underdot 的 `.`）。hbox 内部的字符会触发 XeTeX interchar toks，全局修改 `\g_@@_last_node_tl`（例如从 `CJK-space` 变为 `default`）。这会污染外层水平列表的状态，导致 `\set@color` 补丁用错误的节点类型重建 kern pair，后续 `\@@_check_for_glue_skip:` 走 ecglue 路径而非 CJKglue 路径。
 
-修复方式：在 `\hbox_set:Nn` 前后保存/恢复 `\g_@@_last_node_tl`。这是一个通用模式——**任何包含 CJK 字符的 `\hbox_set:Nn` 都可能通过 interchar toks 污染全局节点标记状态**，应在 hbox 前后隔离 `\g_@@_last_node_tl`。测试覆盖见 `xeCJK/testfiles/fntef-color01.lvt`。
+修复方式：在 `\hbox_set:Nn` 前后保存/恢复 `\g_@@_last_node_tl`。这是一个通用模式——**任何包含 CJK 字符的 `\hbox_set:Nn` 都可能通过 interchar toks 污染全局节点标记状态**，应在 hbox 前后隔离 `\g_@@_last_node_tl`。
+
+**`\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 的全局状态隔离（#830）**：当 `\textcolor` 包裹 ulem 类 fntef 命令时，ulem 的 `\UL@end` 定界符中的 `*` 字符（Default 字符类）在 ulem 处理结束时被排版，触发 Default->Boundary interchar class 转换，将 `\g_@@_last_node_tl` 从 `CJK` 污染为 `default`。随后 `\reset@color` 读取被污染的值，用 default 类型 kern pair 标记，导致后续 CJK->CJK 间距检测走到 ecglue 分支。修复方式：在 `\xeCJK_ulem_right:` 开始时将 `\g_@@_last_node_tl` 保存到 `\g__xeCJK_ulem_saved_last_node_tl`，在 `\__xeCJK_ulem_end:` 完成后恢复。
+
+**两个方向的完整覆盖**：
+- fntef(color) 方向：fntef 包裹 textcolor — `\xeCJK_fntef_sbox:n` hbox 隔离（#826-fntef-color-global-state）
+- color(fntef) 方向：textcolor 包裹 fntef — `\xeCJK_ulem_right:` save/restore 隔离（#830）
+
+测试覆盖见 `xeCJK/testfiles/fntef-color01.lvt`（Test 1-7 覆盖 fntef(color)，Test 8-12 覆盖 color(fntef)）。
 
 ### xeCJK-listings
 
