@@ -1509,12 +1509,11 @@ Copyright and Licence
 % \medskip
 %
 % \pkg{xeCJKfntef} 的下划线和删除线命令内部使用 \package{ulem} 宏包的
-% \tn{hbox} 机制排版文字。理想情况下，|汉字 \CJKsout{文字} 汉字| 中
-% \tn{CJKsout} 前后的源码空格应被 \pkg{xeCJK} 自动处理为 CJK 文字间距
+% \tn{hbox} 机制排版文字。|汉字 \CJKsout{文字} 汉字| 中
+% \tn{CJKsout} 前后的源码空格会被 \pkg{xeCJK} 自动处理为 CJK 文字间距
 % （\texttt{CJKglue}），与 |汉字 文字 汉字| 的效果一致。
-% 当前版本已实现对 \pkg{xeCJKfntef} 命令（如 \tn{CJKsout}、\tn{CJKunderline}、
-% \tn{CJKunderdot} 等）以及 \tn{textcolor}、\tn{colorbox} 等颜色命令
-% 前后空格的自动处理。
+% 关于 \pkg{xeCJKfntef} 命令与颜色命令的嵌套组合等更多细节，
+% 请参见"已知问题和兼容性"一节中关于"CJK 文字与命令交互时的间距"的说明。
 %
 % \medskip
 %
@@ -1624,6 +1623,45 @@ Copyright and Licence
 % \pkg{xeCJK} 依赖 \XeTeX 的 \tn{XeTeXinterchartoks} 机制，与使用相同机制的宏包（例如
 % \pkg{polyglossia} 和 \pkg{xesearch}）可能会存在大小不一的冲突。
 % \pkg{xeCJK} 虽然为此作了一些处理，但与它们共同使用时应该小心。
+%
+% \subsection{CJK 文字与命令交互时的间距}
+%
+% \pkg{xeCJK} 利用 \XeTeX 的 interchar 机制，在 CJK 文字之间自动插入
+% |CJKglue|，在 CJK 文字与西文之间自动插入 |CJKecglue|，并自动忽略
+% CJK 文字间的源码空格。当 CJK 文字被 \LaTeX 命令包裹时，命令引入的
+% 分组、盒子或特殊节点可能干扰这一机制。\pkg{xeCJK} 的预期行为是：
+% \begin{frameverb}
+%   前 中 后            % 直接排版
+%   前 \foo{中} 后      % 用命令包裹
+% \end{frameverb}
+% 两种写法应产生相同的 CJK 间距。
+%
+% 目前 \pkg{xeCJK} 已确保以下命令在此场景下的间距行为正确：
+% \begin{itemize}
+%   \item 字体切换命令：\tn{textbf}、\tn{textit}、\tn{emph} 等。
+%     这些命令仅切换字体，对 interchar 机制透明。
+%   \item 颜色命令：\tn{textcolor}、\tn{colorbox} 等
+%     （基于 \LaTeXe{} 颜色机制的命令）。
+%   \item \pkg{xeCJKfntef} 命令：\tn{CJKunderdot}、\tn{CJKunderline}、
+%     \tn{CJKsout}、\tn{CJKunderwave}、\tn{CJKunderdblline}、\tn{CJKxout}。
+%   \item 盒子命令：\tn{mbox}。
+%   \item \pkg{hyperref} 的链接注释：\tn{ref}、\tn{hyperref} 等。
+%   \item 以上命令的嵌套组合，例如：
+% \begin{frameverb}
+%   前 \CJKunderline{\textcolor{red}{中}} 后
+%   前 \textcolor{red}{\CJKunderline{中}} 后
+% \end{frameverb}
+% \end{itemize}
+%
+% 需要注意的是，\pkg{xeCJK} 的间距兼容是针对上述命令的内部行为
+% 逐一实现的，并非通用的自动检测机制。
+% 未列出的第三方命令如果在 CJK 文字间引入特殊的分组或节点结构，
+% 仍可能产生多余或缺失的间距。
+% 已知的限制包括：使用 \LaTeXiii{} 颜色后端（\pkg{l3color}）
+% 的命令尚未覆盖。
+% 如果遇到间距异常，欢迎到
+% \href{https://github.com/CTeX-org/ctex-kit/issues}{GitHub Issues}
+% 提交兼容请求。
 %
 % \subsection{\tn{char} 原语与 interchar 的冲突}
 %

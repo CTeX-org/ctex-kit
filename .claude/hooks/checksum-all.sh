@@ -5,18 +5,22 @@
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 cd "$PROJECT_DIR" || exit 0
 
+# Snapshot dtx diff BEFORE running checksum
+before=$(git diff -- '*.dtx' | sha256sum)
+
 for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
   if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
     (cd "$dir" && l3build checksum) > /dev/null 2>&1 || true
   fi
 done
 
-changed=$(git diff --name-only -- '*.dtx')
-if [ -n "$changed" ]; then
-  echo "Checksum mismatch detected in:"
-  echo "$changed"
+# Only flag if l3build checksum introduced NEW changes
+after=$(git diff -- '*.dtx' | sha256sum)
+if [ "$before" != "$after" ]; then
+  echo "Checksum mismatch detected — l3build checksum auto-corrected:"
+  echo "$after"
   echo ""
-  echo "The .dtx files have been auto-corrected. Please review and commit."
+  echo "Please review and commit the checksum changes."
   exit 2
 fi
 
