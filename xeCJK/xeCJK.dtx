@@ -300,7 +300,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/13}{修复 \cs{textcolor} 包裹 \pkg{ulem}
 %   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 %
-% \CheckSum{11370}
+% \CheckSum{11378}
 % \GetFileId{xeCJK.sty}
 %
 % \title{\bfseries\pkg{xeCJK} 宏包}
@@ -4189,6 +4189,7 @@ Copyright and Licence
         \exp_after:wN \xeCJK_punct_node:N \g_@@_last_punct_tl
         \xeCJK_no_break:
         \@@_punct_glue:NN \c_@@_left_tl  \g_@@_last_punct_tl
+        \@@_punct_boundary_guard:
       }
       {
         \xeCJK_class_group_end:
@@ -4208,8 +4209,25 @@ Copyright and Licence
     \xeCJK_class_group_end:
     \exp_after:wN \xeCJK_punct_node:N \g_@@_last_punct_tl
     \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
+    \@@_punct_boundary_guard:
     \tex_ignorespaces:D
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_punct_boundary_guard:}
+% \changes{v3.10.0}{2026/05/13}
+% {修复 \env{tabular} 中 \tn{unskip} 吞掉标点补偿 glue 的问题（\#827）。}
+% 在 restricted horizontal mode（\env{tabular} 单元格、\tn{hbox} 等）中，
+% \tn{\\} 结束行时通过 \tn{unskip} 移除最后一个 glue。
+% 这会吞掉标点的补偿 glue，导致单元格宽度错误。
+% 此函数在 glue 之后插入 |\penalty 0|，
+% 使最后节点不再是 glue，从而保护它。
+% 仅限 inner mode，因为段落模式下 \TeX{} 自身的 \tn{unskip}
+% （添加 \tn{parfillskip} 前）是正常行为，不应阻止。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_punct_boundary_guard:
+  { \mode_if_inner:T { \tex_penalty:D \c_zero_int } }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5110,6 +5128,7 @@ Copyright and Licence
     \exp_after:wN \xeCJK_punct_node:N \g_@@_last_punct_tl
     \xeCJK_class_group_end:
     \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
+    \@@_punct_boundary_guard:
   }
 \prg_generate_conditional_variant:Nnn \token_case_meaning:Nn { No } { TF , F }
 %    \end{macrocode}
