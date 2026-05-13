@@ -1231,7 +1231,7 @@ xpinyin = {
 %
 %    \begin{macrocode}
   database = {
-    source  = "http://www.unicode.org/Public/UNIDATA/Unihan.zip",
+    source  = "https://www.unicode.org/Public/UNIDATA/Unihan.zip",
     file    = "Unihan_Readings.txt",
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
     version = "Unicode version: 7.0.0",
@@ -1255,8 +1255,6 @@ xpinyin = {
 %    \end{macrocode}
 %
 %    \begin{macrocode}
-local http_request = require("socket.http").request
-local ltn12_sink_file = require("ltn12").sink.file
 local zip_open = require("zip").open
 %    \end{macrocode}
 %
@@ -1306,12 +1304,30 @@ end
 %    \begin{macrocode}
 function xpinyin.download (source, zip)
   print("\nRetrieving Unihan Database from\n", source)
-  local status, err = http_request{
-    url  = source,
-    sink = ltn12_sink_file(io.open(zip, "wb")) }
-  if not status then
-    error([[Download ']] .. zip .. [[' failed because of ]] .. err .. ".")
+  local ok, http = pcall(require, "socket.http")
+  if ok then
+    local lok, ltn12 = pcall(require, "ltn12")
+    if lok then
+      local fh = io.open(zip, "wb")
+      if fh then
+        local status = http.request{
+          url  = source,
+          sink = ltn12.sink.file(fh)
+        }
+        if status then return end
+      end
+    end
   end
+  local ret = os.execute('curl -fsSL -o "' .. zip .. '" "' .. source .. '"')
+  if ret == 0 or ret == true then return end
+  ret = os.execute('wget -q -O "' .. zip .. '" "' .. source .. '"')
+  if ret == 0 or ret == true then return end
+  error(
+    "Failed to download '" .. zip .. "'. Try one of:\n"
+    .. '  - Run: texlua --socket xpinyin.lua\n'
+    .. '  - Install curl or wget\n'
+    .. "  - Manually place " .. zip .. " in the current directory"
+  )
 end
 %    \end{macrocode}
 %
