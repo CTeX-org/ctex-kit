@@ -12,11 +12,69 @@ permissions:
 
 jobs:
   pr-review:
-    uses: Lightspeed-Intelligence/agentic-workflow-template/.github/workflows/pr-review.yml@main
-    secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-      FEISHU_WEBHOOK_TOKEN: ${{ secrets.FEISHU_WEBHOOK_TOKEN }}
-    with:
-      use_feishu_notify: true
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: PR Review with Claude
+        id: review
+        uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+        with:
+          github_token: ${{ secrets.PAT_TOKEN || github.token }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
+          allowed_non_write_users: "*"
+          prompt: |
+            仓库: ${{ github.repository }}
+            仓库 URL: https://github.com/${{ github.repository }}
+
+            执行 `pr-review` skill 审查 PR #${{ github.event.pull_request.number }}，并使用 `gh pr comment` 发表审查评论。
+
+            Title: ${{ github.event.pull_request.title }}
+            Author: ${{ github.event.pull_request.user.login }}
+
+            审查完成后必须调用 `gh pr comment ${{ github.event.pull_request.number }} --body "..."` 发表审查结果。
+            注意: 所有代码链接必须使用 https://github.com/${{ github.repository }}/blob/main/... 格式。
+          claude_args: |
+            --model opus --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep,Task,Skill"
+            --json-schema '{"type":"object","properties":{"description":{"type":"string","description":"审查结论一句话摘要，如：代码良好，发现2个小问题"},"conclusion":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"],"description":"审查结论"},"critical_count":{"type":"number","description":"阻塞问题数量"},"important_count":{"type":"number","description":"重要建议数量"},"suggestion_count":{"type":"number","description":"小问题数量"}},"required":["description","conclusion","critical_count","important_count","suggestion_count"]}'
+
+      - name: Output Structured Result
+        if: always()
+        run: |
+          echo "## PR Review Result" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          STRUCTURED_OUTPUT='${{ steps.review.outputs.structured_output }}'
+          echo "${STRUCTURED_OUTPUT}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Feishu
+        if: always() && secrets.FEISHU_WEBHOOK_TOKEN != ''
+        uses: actions/checkout@v6
+        with:
+          repository: Lightspeed-Intelligence/agentic-workflow-template
+          ref: main
+          token: ${{ secrets.PAT_TOKEN || github.token }}
+          path: .agentic-actions
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+
+      - name: Send Feishu Notification
+        if: always() && secrets.FEISHU_WEBHOOK_TOKEN != ''
+        uses: ./.agentic-actions/.github/actions/feishu-notify
+        with:
+          webhook_token: ${{ secrets.FEISHU_WEBHOOK_TOKEN }}
+          title: "PR 审查: #${{ github.event.pull_request.number }}"
+          description: |
+            **${{ github.repository }}** PR #${{ github.event.pull_request.number }}
+            *${{ github.event.pull_request.title }}*
+          link_text: "🔗 查看 PR"
+          link_url: ${{ github.event.pull_request.html_url }}
+          status: ${{ job.status == 'success' && 'success' || 'warning' }}
