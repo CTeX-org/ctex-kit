@@ -1,0 +1,19 @@
+#!/bin/bash
+# pre-push: block push if any .dtx checksum is stale.
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_DIR" || exit 0
+
+for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
+  if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
+    (cd "$dir" && l3build checksum) > /dev/null 2>&1 || true
+  fi
+done
+
+if ! git diff --quiet -- '*.dtx'; then
+  echo "pre-push: checksum mismatch in .dtx files:" >&2
+  git diff --stat -- '*.dtx' >&2
+  echo "Run 'l3build checksum', commit the fix, then push again." >&2
+  git checkout -- '*.dtx'
+  exit 1
+fi
