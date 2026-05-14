@@ -34,8 +34,37 @@ jobs:
     with:
       use_feishu_notify: true
 
+  prepare-llmdoc:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      since_period: ${{ steps.check.outputs.since_period }}
+    steps:
+      - name: Close stale llmdoc PRs and extend time range
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          EXISTING=$(gh pr list --state open --json number,headRefName,createdAt \
+            --jq '[.[] | select(.headRefName | startswith("docs/llmdoc-update-"))]')
+          COUNT=$(echo "$EXISTING" | jq 'length')
+          DEFAULT="${{ github.event.inputs.since_period || '24 hours ago' }}"
+
+          if [ "$COUNT" -gt 0 ]; then
+            OLDEST=$(echo "$EXISTING" | jq -r 'sort_by(.createdAt) | .[0].createdAt')
+            echo "Closing $COUNT stale llmdoc PR(s), extending range to $OLDEST"
+            echo "$EXISTING" | jq -r '.[].number' | while read num; do
+              gh pr close "$num" --delete-branch 2>/dev/null || true
+            done
+            echo "since_period=$OLDEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "since_period=$DEFAULT" >> "$GITHUB_OUTPUT"
+          fi
+
   update-llmdoc:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: prepare-llmdoc
     uses: Lightspeed-Intelligence/agentic-workflow-template/.github/workflows/update-llmdoc.yml@main
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -44,5 +73,5 @@ jobs:
       FEISHU_WEBHOOK_TOKEN: ${{ secrets.FEISHU_LLMDOC_WEBHOOK_TOKEN }}
     with:
       use_feishu_notify: true
-      since_period: ${{ github.event.inputs.since_period || '24 hours ago' }}
+      since_period: ${{ needs.prepare-llmdoc.outputs.since_period }}
       target_branch: master
