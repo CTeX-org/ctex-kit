@@ -62,14 +62,26 @@ gh issue list --state=open --limit=20 --json number,title,labels,comments,stateR
 
 每个 Issue 处理完成后，用 `gh issue comment` 发布分析结果。
 
-### 4. CI 失败处理
+### 4. 自动修复边界
+
+**可以自动修复**：
+- 测试基线更新：上游 TeX Live 变化导致 `.tlg` 输出变化，`l3build save` 即可
+- Checksum 不匹配：`l3build checksum` 即可
+- 单文件 `.dtx` 改动，且本地 `l3build check` 能复现和验证
+
+**不自动修复**（开 Issue 说明，等人工介入）：
+- 涉及宏逻辑变更（影响用户可见行为）
+- 需要设计决策（多种修复路径）
+- 跨多个子项目的改动
+
+### 5. CI 失败处理
 
 1. 用 `gh run view --log-failed` 读取失败日志
 2. 用 `bug-analyze` 思路定位根因
-3. 简单问题直接修复（本环境有完整 TeX Live）
-4. 复杂问题开 Issue 说明
+3. 符合自动修复标准的问题直接修复（本环境有完整 TeX Live）
+4. 不符合的开 Issue 说明
 
-### 5. 修复环境
+### 6. 修复环境
 
 本环境已安装 TeX Live 和 Noto CJK 字体，可运行编译和测试：
 
