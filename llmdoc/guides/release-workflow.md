@@ -2,13 +2,19 @@
 
 ## 触发与适用范围
 
-`.github/workflows/release.yml` 为当前仓库新增了 GitHub Release 自动化入口，仅在推送以下 tag 时触发：
+`.github/workflows/release.yml` 为当前仓库新增了 GitHub Release 自动化入口，在推送以下 tag 时触发：
 
 - `ctex-v*`
 - `xeCJK-v*`
 - `CJKpunct-v*`
+- `zhnumber-v*`
+- `xCJK2uni-v*`
+- `xpinyin-v*`
+- `zhmetrics-v*`
+- `zhmetrics-uptex-v*`
+- `zhspacing-v*`
 
-工作流会先解析 tag 前缀，把包名、目录、`l3build` 模块名、目标 `.dtx` 与版本号映射出来；未知格式会直接失败。因此当前 release 自动化只覆盖这三个发布单元，而不是 `ctan.lua` 中的全部 CTAN 包。
+工作流会先解析 tag 前缀，把包名、目录、`l3build` 模块名、目标 `.dtx` 与版本号映射出来；未知格式会直接失败。release 自动化现已覆盖全部 9 个 CTAN 发布单元。其中 `zhmetrics-uptex` 和 `zhspacing` 没有 `.dtx` 文件，因此 release notes 生成会直接回退到 git log 或最小占位说明。
 
 ## 流水线阶段
 
