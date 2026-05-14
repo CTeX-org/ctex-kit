@@ -11259,25 +11259,12 @@ Copyright and Licence
 \tl_new:N \g_@@_macos_ver_tl
 \msg_new:nnn { ctex } { macos-version-detect-failed }
   { Cannot~detect~macOS~version.~Falling~back~to~macold~fontset. }
-\sys_if_engine_luatex:TF
-  {
-    \lua_now:n
-      {
-        local~f~=~io.open("/System/Library/CoreServices/SystemVersion.plist",~"r");~
-        if~f~then~
-          local~content~=~f:read("*a");~
-          f:close();~
-          local~ver~=~content:match("ProductVersion.-<string>(.-)</string>");~
-          if~ver~then~
-            local~dot~=~ver:find(".",~1,~true);~
-            local~major~=~dot~and~ver:sub(1,~dot~-~1)~or~ver;~
-            if~major~then~
-              token.set_macro("g__ctex_macos_ver_tl",~major,~"global");~
-            end;~
-          end;~
-        end
-      }
-  }
+%    \end{macrocode}
+% 为方便人类阅读，把 \LuaTeX{} 分支挪到后面，在不忽略空格的 catcode scheme 下编写。
+% 这样 Lua 代码就不必以 |~| 代替空格。非 \LuaTeX{} 分支，在末尾使用
+% \cs{use_none_delimit_by_q_stop:w} 来跳过 \LuaTeX{} 分支。
+%    \begin{macrocode}
+\sys_if_engine_luatex:F
   {
     \ior_new:N \g_@@_macos_ver_ior
     \bool_new:N \g_@@_macos_ver_found_bool
@@ -11302,7 +11289,27 @@ Copyright and Licence
           }
         \ior_close:N \g_@@_macos_ver_ior
       }
+    \use_none_delimit_by_q_stop:w
   }
+\char_set_catcode_space:n { 32 }
+\lua_now:n
+  {
+    local f = io.open("/System/Library/CoreServices/SystemVersion.plist", "r");
+    if f then
+      local content = f:read("*a");
+      f:close();
+      local ver = content:match("ProductVersion.-<string>(.-)</string>");
+      if ver then
+        local dot = ver:find(".", 1, true);
+        local major = dot and ver:sub(1, dot - 1) or ver;
+        if major then
+          token.set_macro("g_@@_macos_ver_tl", major, "global");
+        end;
+      end;
+    end
+  }
+\char_set_catcode_ignore:n { 32 }
+\use_none_delimit_by_q_stop:w \q_stop
 \file_if_exist:nTF { /System/Library/Fonts/PingFang.ttc }
   { \ctex_file_input:n { ctex-fontset-macnew.def } }
   {
@@ -11337,7 +11344,10 @@ Copyright and Licence
 %    \begin{macrocode}
 %<*macold|macnew>
 \ctex_fontset_case:nnnn
-  { \ctex_fontset_error:n { mac } }
+  {
+    \ctex_fontset_error:n { mac }
+    \use_none_delimit_by_q_stop:w
+  }
 %<*macold>
   { \ctex_fontset_error:n { macold } }
   { \ctex_fontset_error:n { macold } }
@@ -11378,6 +11388,7 @@ Copyright and Licence
         \ctex_punct_map_itshape:nn  { \CJKrmdefault } { zhkai  }
       }
       { \ctex_fontset_error:n { macnew } }
+    \use_none_delimit_by_q_stop:w
   }
   {
     \ctex_set_upmap:nnn { upserif   } { :3:Songti.ttc } { :1:Songti.ttc }
@@ -11392,6 +11403,7 @@ Copyright and Licence
     \ctex_set_upfamily:nnn { zhkai  } { upzhserifit } { }
     \ctex_set_upfamily:nnn { zhli   } { upschrm     } { }
     \ctex_set_upfamily:nnn { zhyou  } { upschgt     } { }
+    \use_none_delimit_by_q_stop:w
   }
 %</macnew>
   {
@@ -11407,122 +11419,13 @@ Copyright and Licence
 %</macold>
 %<*macnew>
     \bool_new:N \g_@@_mac_pingfang_bool
-    \sys_if_engine_luatex:TF
-      {
-        \lua_now:n
-          {
-            local~lfs~=~require("lfs");~
-            local~search_bases~=~{};~
-            local~asset_roots~=~{
-              "/System/Library/AssetsV2",
-              "/System/Library/AssetsV2/PreinstalledAssetsV2/InstallWithOs",
-            };~
-            for~_,~root~in~ipairs(asset_roots)~do~
-              local~ok,~iter,~obj~=~pcall(lfs.dir,~root);~
-              if~ok~then~
-                for~d~in~iter,~obj~do~
-                  if~d:find("^com_apple_MobileAsset_Font")~then~
-                    table.insert(search_bases,~root~..~"/"~..~d);~
-                  end;~
-                end;~
-              end;~
-            end;~
-            local~function~find_font_dir(filename)~
-              for~_,~base~in~ipairs(search_bases)~do~
-                local~ok,~iter,~obj~=~pcall(lfs.dir,~base);~
-                if~ok~then~
-                  for~entry~in~iter,~obj~do~
-                    if~not~(entry~==~"."~or~entry~==~"..")~then~
-                      local~p~=~base~..~"/"~..~entry
-                        ..~"/AssetData/"~..~filename;~
-                      if~lfs.attributes(p,~"mode")~then~
-                        return~base~..~"/"~..~entry~..~"/AssetData/";~
-                      end;~
-                    end;~
-                  end;~
-                end;~
-              end;~
-              return~nil;~
-            end;~
-            local~fonts~=~{
-              {"PingFang.ttc",~"g__ctex_mac_pingfang_dir_tl"},
-              {"Kaiti.ttc",~~~~"g__ctex_mac_kaiti_dir_tl"},
-              {"STFANGSO.ttf",~"g__ctex_mac_stfangso_dir_tl"},
-              {"Baoli.ttc",~~~~"g__ctex_mac_baoli_dir_tl"},
-              {"Yuanti.ttc",~~~"g__ctex_mac_yuanti_dir_tl"},
-            };~
-            for~_,~f~in~ipairs(fonts)~do~
-              local~dir~=~find_font_dir(f[1]);~
-              token.set_macro(f[2],~dir~or~"",~"global");~
-            end
-          }
-        \tl_if_empty:NTF \g_@@_mac_kaiti_dir_tl
-          {
-            \setCJKmainfont { Songti~SC~Light }
-              [ BoldFont = Songti~SC~Bold ]
-          }
-          {
-            \setCJKmainfont { Songti~SC~Light }
-              [
-                BoldFont       = Songti~SC~Bold ,
-                ItalicFont     = Kaiti.ttc ,
-                ItalicFeatures = { Path = \g_@@_mac_kaiti_dir_tl , FontIndex = 0 } ,
-                BoldItalicFont = Kaiti.ttc ,
-                BoldItalicFeatures = { Path = \g_@@_mac_kaiti_dir_tl , FontIndex = 3 } ,
-              ]
-          }
-        \setCJKfamilyfont { zhsong } { Songti~SC~Light }
-          [ BoldFont = Songti~SC~Bold ]
-        \setCJKfamilyfont { zhhei  } { Heiti~SC~Light  }
-          [ BoldFont = Heiti~SC~Medium ]
-        \tl_if_empty:NTF \g_@@_mac_pingfang_dir_tl
-          { \setCJKsansfont { Heiti~SC~Light } [ BoldFont = Heiti~SC~Medium ] }
-          {
-            \setCJKsansfont { PingFang.ttc }
-              [
-                Path          = \g_@@_mac_pingfang_dir_tl ,
-                FontIndex     = 2 ,
-                BoldFont      = PingFang.ttc ,
-                BoldFontIndex = 8 ,
-              ]
-            \setCJKfamilyfont { zhpf } { PingFang.ttc }
-              [ Path = \g_@@_mac_pingfang_dir_tl , FontIndex = 2 ]
-            \bool_gset_true:N \g_@@_mac_pingfang_bool
-          }
-        \tl_if_empty:NTF \g_@@_mac_stfangso_dir_tl
-          { \setCJKmonofont { Heiti~SC~Light } }
-          {
-            \setCJKmonofont { STFANGSO.ttf }
-              [ Path = \g_@@_mac_stfangso_dir_tl ]
-            \setCJKfamilyfont { zhfs } { STFANGSO.ttf }
-              [ Path = \g_@@_mac_stfangso_dir_tl ]
-          }
-        \tl_if_empty:NF \g_@@_mac_kaiti_dir_tl
-          {
-            \setCJKfamilyfont { zhkai } { Kaiti.ttc }
-              [
-                Path          = \g_@@_mac_kaiti_dir_tl ,
-                FontIndex     = 0 ,
-                BoldFont      = Kaiti.ttc ,
-                BoldFontIndex = 3 ,
-              ]
-          }
-        \tl_if_empty:NF \g_@@_mac_baoli_dir_tl
-          {
-            \setCJKfamilyfont { zhli } { Baoli.ttc }
-              [ Path = \g_@@_mac_baoli_dir_tl , FontIndex = 0 ]
-          }
-        \tl_if_empty:NF \g_@@_mac_yuanti_dir_tl
-          {
-            \setCJKfamilyfont { zhyou } { Yuanti.ttc }
-              [
-                Path          = \g_@@_mac_yuanti_dir_tl ,
-                FontIndex     = 4 ,
-                BoldFont      = Yuanti.ttc ,
-                BoldFontIndex = 0 ,
-              ]
-          }
-      }
+%    \end{macrocode}
+% 为方便人类阅读，把 \LuaTeX{} 分支挪到 \cs{ctex_fontset_case:nnnn} 之后，在不忽略
+% 空格的 catcode scheme 下编写。这样 Lua 代码就不必以 |~| 代替空格。
+% |macnew| 的其他 \cs{ctex_fontset_case:nnnn} 和其他 \cs{ctex_zhmap_case:nnn}
+% 分支，末尾均使用 \cs{use_none_delimit_by_q_stop:w} 来跳过 \LuaTeX{} 分支。
+%    \begin{macrocode}
+    \sys_if_engine_luatex:F
       {
         \fontspec_font_if_exist:nTF { Kaiti~SC }
           {
@@ -11566,9 +11469,128 @@ Copyright and Licence
             \setCJKfamilyfont { zhyou } { Yuanti~SC~Light }
               [ BoldFont = Yuanti~SC~Regular ]
           }
+        \use_none_delimit_by_q_stop:w
       }
 %</macnew>
   }
+%<*macnew>
+\char_set_catcode_space:n { 32 }
+\lua_now:n
+  {
+    local lfs = require("lfs");
+    local search_bases = {};
+    local asset_roots = {
+      "/System/Library/AssetsV2",
+      "/System/Library/AssetsV2/PreinstalledAssetsV2/InstallWithOs",
+    };
+    for _, root in ipairs(asset_roots) do
+      local ok, iter, obj = pcall(lfs.dir, root);
+      if ok then
+        for d in iter, obj do
+          if d:find("^com_apple_MobileAsset_Font") then
+            table.insert(search_bases, root .. "/" .. d);
+          end;
+        end;
+      end;
+    end;
+    local function find_font_dir(filename)
+      for _, base in ipairs(search_bases) do
+        local ok, iter, obj = pcall(lfs.dir, base);
+        if ok then
+          for entry in iter, obj do
+            if not (entry == "." or entry == "..") then
+              local p = base .. "/" .. entry
+                .. "/AssetData/" .. filename;
+              if lfs.attributes(p, "mode") then
+                return base .. "/" .. entry .. "/AssetData/";
+              end;
+            end;
+          end;
+        end;
+      end;
+      return nil;
+    end;
+    local fonts = {
+      {"PingFang.ttc", "g_@@_mac_pingfang_dir_tl"},
+      {"Kaiti.ttc",    "g_@@_mac_kaiti_dir_tl"},
+      {"STFANGSO.ttf", "g_@@_mac_stfangso_dir_tl"},
+      {"Baoli.ttc",    "g_@@_mac_baoli_dir_tl"},
+      {"Yuanti.ttc",   "g_@@_mac_yuanti_dir_tl"},
+    };
+    for _, f in ipairs(fonts) do
+      local dir = find_font_dir(f[1]);
+      token.set_macro(f[2], dir or "", "global");
+    end
+  }
+\char_set_catcode_ignore:n { 32 }
+\tl_if_empty:NTF \g_@@_mac_kaiti_dir_tl
+  {
+    \setCJKmainfont { Songti~SC~Light }
+      [ BoldFont = Songti~SC~Bold ]
+  }
+  {
+    \setCJKmainfont { Songti~SC~Light }
+      [
+        BoldFont       = Songti~SC~Bold ,
+        ItalicFont     = Kaiti.ttc ,
+        ItalicFeatures = { Path = \g_@@_mac_kaiti_dir_tl , FontIndex = 0 } ,
+        BoldItalicFont = Kaiti.ttc ,
+        BoldItalicFeatures = { Path = \g_@@_mac_kaiti_dir_tl , FontIndex = 3 } ,
+      ]
+  }
+\setCJKfamilyfont { zhsong } { Songti~SC~Light }
+  [ BoldFont = Songti~SC~Bold ]
+\setCJKfamilyfont { zhhei  } { Heiti~SC~Light  }
+  [ BoldFont = Heiti~SC~Medium ]
+\tl_if_empty:NTF \g_@@_mac_pingfang_dir_tl
+  { \setCJKsansfont { Heiti~SC~Light } [ BoldFont = Heiti~SC~Medium ] }
+  {
+    \setCJKsansfont { PingFang.ttc }
+      [
+        Path          = \g_@@_mac_pingfang_dir_tl ,
+        FontIndex     = 2 ,
+        BoldFont      = PingFang.ttc ,
+        BoldFontIndex = 8 ,
+      ]
+    \setCJKfamilyfont { zhpf } { PingFang.ttc }
+      [ Path = \g_@@_mac_pingfang_dir_tl , FontIndex = 2 ]
+    \bool_gset_true:N \g_@@_mac_pingfang_bool
+  }
+\tl_if_empty:NTF \g_@@_mac_stfangso_dir_tl
+  { \setCJKmonofont { Heiti~SC~Light } }
+  {
+    \setCJKmonofont { STFANGSO.ttf }
+      [ Path = \g_@@_mac_stfangso_dir_tl ]
+    \setCJKfamilyfont { zhfs } { STFANGSO.ttf }
+      [ Path = \g_@@_mac_stfangso_dir_tl ]
+  }
+\tl_if_empty:NF \g_@@_mac_kaiti_dir_tl
+  {
+    \setCJKfamilyfont { zhkai } { Kaiti.ttc }
+      [
+        Path          = \g_@@_mac_kaiti_dir_tl ,
+        FontIndex     = 0 ,
+        BoldFont      = Kaiti.ttc ,
+        BoldFontIndex = 3 ,
+      ]
+  }
+\tl_if_empty:NF \g_@@_mac_baoli_dir_tl
+  {
+    \setCJKfamilyfont { zhli } { Baoli.ttc }
+      [ Path = \g_@@_mac_baoli_dir_tl , FontIndex = 0 ]
+  }
+\tl_if_empty:NF \g_@@_mac_yuanti_dir_tl
+  {
+    \setCJKfamilyfont { zhyou } { Yuanti.ttc }
+      [
+        Path          = \g_@@_mac_yuanti_dir_tl ,
+        FontIndex     = 4 ,
+        BoldFont      = Yuanti.ttc ,
+        BoldFontIndex = 0 ,
+      ]
+  }
+\use_none_delimit_by_q_stop:w \q_stop
+%</macnew>
 %</macold|macnew>
 %    \end{macrocode}
 %
