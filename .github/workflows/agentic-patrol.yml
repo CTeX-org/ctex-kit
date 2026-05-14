@@ -45,7 +45,8 @@ jobs:
       run: |
         curl -LO ${{ env.NOTO_SANS_URL }}
         curl -LO ${{ env.NOTO_SERIF_URL }}
-        unzip -ojd /usr/share/fonts/truetype "*OTC.zip" "*.ttc"
+        for f in *OTC.zip; do unzip -ojd /usr/share/fonts/truetype "$f" "*.ttc"; done
+        fc-cache -f
 
     - name: Install Claude Code CLI
       id: setup_claude
@@ -59,6 +60,7 @@ jobs:
 
     - name: Run Patrol
       id: patrol
+      timeout-minutes: 60
       uses: anthropics/claude-code-action@e7b588b6eaa5263c2e7c6c7b34a29e190d32ee68
       env:
         ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
@@ -81,17 +83,21 @@ jobs:
 
     - name: Output Result
       if: always()
+      env:
+        STRUCTURED_OUTPUT: ${{ steps.patrol.outputs.structured_output }}
       run: |
         echo "## Patrol Result" >> $GITHUB_STEP_SUMMARY
         echo '```json' >> $GITHUB_STEP_SUMMARY
-        echo '${{ steps.patrol.outputs.structured_output }}' >> $GITHUB_STEP_SUMMARY
+        echo "$STRUCTURED_OUTPUT" >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
 
     - name: Parse Patrol Output
       if: always()
       id: parse
+      env:
+        STRUCTURED_OUTPUT: ${{ steps.patrol.outputs.structured_output }}
+        JOB_STATUS: ${{ job.status }}
       run: |
-        STRUCTURED_OUTPUT='${{ steps.patrol.outputs.structured_output }}'
         if [ -n "$STRUCTURED_OUTPUT" ] && [ "$STRUCTURED_OUTPUT" != "null" ]; then
           DESCRIPTION=$(echo "$STRUCTURED_OUTPUT" | jq -r '.description // "巡查完成"')
           CI_STATUS=$(echo "$STRUCTURED_OUTPUT" | jq -r '.ci_status // "unknown"')
@@ -107,9 +113,12 @@ jobs:
           TITLE="巡查完成"
           DESCRIPTION="未能获取结构化输出"
           STATUS="warning"
+          ISSUES=0
+          PRS=0
+          CI_STATUS="unknown"
         fi
 
-        if [ "${{ job.status }}" != "success" ]; then
+        if [ "$JOB_STATUS" != "success" ]; then
           STATUS="warning"
           DESCRIPTION="GitHub Action 执行失败"
         fi
