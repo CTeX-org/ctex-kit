@@ -187,7 +187,7 @@ Boundary → CJK 时：
 
 ### 关键约束
 
-1. **不做通用 whatsit 恢复**：只有 `\set@color`、`\reset@color` 和 `\Hy@BeginAnnot` 三处定点补丁，其他 whatsit 不参与恢复（避免 #803 类误判）
+1. **不做通用 whatsit 恢复**：只有 `\set@color`、`\reset@color`、`\Hy@BeginAnnot` 和 `l3color` 后端四类定点补丁，其他 whatsit 不参与恢复（避免 #803 类误判）。其中 `l3color`（expl3 内置）的颜色机制使用独立的后端代码路径，不经过 `\set@color`/`\reset@color`；#832 对 `\__color_select:N`（颜色推入）和 `\__color_backend_reset:`（颜色弹出）施加了与 `\set@color`/`\reset@color` 相同的 kern 对保护
 2. **ecglue 缓存在 CJK→Boundary 时机**：`\l_@@_ecglue_skip` 在离开 CJK 上下文前测量并缓存，后续恢复不重新展开 `\CJKecglue`
 3. **宏路径不提前输出 glue**：`\@@_boundary_reserve_space:` 只保留标记 kern，不抢先输出空格 glue
 
