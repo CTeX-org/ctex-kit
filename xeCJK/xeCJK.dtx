@@ -9718,6 +9718,61 @@ Copyright and Licence
 \@@_package_hook:nn { xcolor } { \@@_patch_set_color: }
 %    \end{macrocode}
 %
+% \changes{v3.10.0}{2026/05/14}{补丁 \pkg{l3color} 后端的
+%   \cs{__color_select:N} 和 \cs{__color_backend_reset:}，
+%   使 \pkg{l3color} 接口的颜色切换也能正确保持 xeCJK 间距（\#832）。}
+%
+% \pkg{l3color}（\pkg{expl3} 内置）的颜色机制使用独立的后端代码路径，
+% 不经过 \tn{set@color}/\tn{reset@color}。
+% \cs{__color_select:N} 负责颜色推入（调用后端 select 并注册
+% aftergroup reset），\cs{__color_backend_reset:} 负责颜色弹出。
+% 此处对这两个函数施加与上面相同的 kern 对保护。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_l3color:
+  {
+    \cs_if_exist:NF \@@_orig_color_select:N
+      {
+        \cs_set_eq:NN \@@_orig_color_select:N \__color_select:N
+        \cs_gset_protected:Npn \__color_select:N ##1
+          {
+            \xeCJK_if_last_node:TF
+              {
+                \@@_orig_color_select:N ##1
+                \tl_if_empty:NF \g_@@_last_node_tl
+                  { \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl } }
+              }
+              { \tl_gclear:N \g_@@_last_node_tl \@@_orig_color_select:N ##1 }
+          }
+      }
+    \cs_if_exist:NF \@@_orig_color_backend_reset:
+      {
+        \cs_set_eq:NN \@@_orig_color_backend_reset: \__color_backend_reset:
+        \cs_gset_protected:Npn \__color_backend_reset:
+          {
+            \xeCJK_if_last_node:TF
+              {
+                \@@_orig_color_backend_reset:
+                \tl_if_empty:NF \g_@@_last_node_tl
+                  {
+                    \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
+                    \bool_gset_true:N \g_@@_glue_check_pending_bool
+                  }
+              }
+              {
+                \@@_if_last_hlist:TF
+                  {
+                    \tl_if_empty:NF \g_@@_last_node_tl
+                      { \bool_gset_true:N \g_@@_reset_color_pending_bool }
+                    \@@_orig_color_backend_reset:
+                  }
+                  { \@@_orig_color_backend_reset: }
+              }
+          }
+      }
+  }
+\@@_patch_l3color:
+%    \end{macrocode}
+%
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}
