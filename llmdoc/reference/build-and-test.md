@@ -74,7 +74,9 @@
 
 见 `ctex/build.lua:1-71`。
 
-`xeCJK/build.lua` 则在标准骨架之上增加 TECkit 映射生成逻辑，是“共享框架 + 包级特化”的典型例子。见 `xeCJK/build.lua:1-151`。
+`xeCJK/build.lua` 则在标准骨架之上增加 TECkit 映射生成逻辑，是”共享框架 + 包级特化”的典型例子。见 `xeCJK/build.lua:1-151`。
+
+`zhmetrics-uptex/build.lua` 已从原先的自定义打包脚本迁移为标准 l3build 结构（旧脚本保留为 `build-legacy.lua`）。它声明 `module = “zhmetrics-uptex”`、`packtdszip = true`、`unpackfiles = {}`（无 `.dtx` 需要解包）、`tdslocations` 显式指定 TDS 安装路径。由于该包没有 `.dtx` 文档源且不使用 `support/build-config.lua`，其构建独立于主干共享框架。
 
 ## 测试框架
 
@@ -173,10 +175,13 @@
 
 ## CI/CD 配置
 
-GitHub Actions 工作流当前至少包含两条主线：
+GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流
+- `.github/workflows/agentic-pr-review.yml`：PR 自动审查工作流，由 `pull_request_target` 事件触发，使用 Claude Code 执行代码审查并发表评论；含并发控制，同一 PR 仅保留最新 run
+- `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 文档自动更新工作流，每天北京时间 5:00 定时触发或手动触发；会先关闭已有的过期 llmdoc PR 并扩展时间范围
+- `.github/workflows/agentic-patrol.yml`：仓库巡查工作流，每 4 小时执行一次，监控 CI 状态、扫描未处理 Issue 并自动分发处理
 
 ### 测试工作流：`.github/workflows/test.yml`
 
@@ -245,11 +250,17 @@ CI 中当前执行的测试步骤是：
 
 ### Release 工作流：`.github/workflows/release.yml`
 
-release 自动化只在以下 tag 推送时触发：
+release 自动化在以下 tag 推送时触发：
 
 - `ctex-v*`
 - `xeCJK-v*`
 - `CJKpunct-v*`
+- `zhnumber-v*`
+- `xCJK2uni-v*`
+- `xpinyin-v*`
+- `zhmetrics-v*`
+- `zhmetrics-uptex-v*`
+- `zhspacing-v*`
 
 工作流按 tag 前缀解析目标包，再依次完成：
 
@@ -277,18 +288,9 @@ release notes 的稳定优先级是：
 
 ## CTAN 发布流程
 
-根级 `ctan.lua` 是统一发布入口。它定义了一个包数组，并对每个子目录执行：
+CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原根级 `ctan.lua` 脚本已删除，发布入口统一为 tag 推送触发的 GitHub Actions 工作流。
 
-- 切换到包目录
-- 执行 `l3build ctan`
-- 返回原目录
-
-见 `ctan.lua:1-21`。
-
-这意味着 CTAN 发布的稳定入口不是手工逐包记忆命令，而是：
-
-- 先确认包是否在 `ctan.lua` 列表中
-- 再由该脚本触发各包自己的 `build.lua` 打包逻辑
+当前 release 自动化覆盖全部 9 个 CTAN 发布单元：`CJKpunct`、`ctex`、`xCJK2uni`、`xeCJK`、`xpinyin`、`zhmetrics`、`zhmetrics-uptex`、`zhnumber`、`zhspacing`。工作流按 tag 前缀解析包名与目标目录，在对应子目录运行 `l3build ctan` 完成打包。
 
 每个包是否生成 TDS zip、安装哪些文件、如何排版文档，最终仍由该包目录下的 `build.lua` 决定。
 
