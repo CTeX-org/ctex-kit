@@ -133,13 +133,14 @@ PR #791 对 #315 的修复曾把这条恢复链泛化为“只要上一节点是
 
 - `\@@_check_for_ecglue:` 的最后回退分支不再调用 `\@@_recover_ecglue_whatsit:`；也就是说，xeCJK 不再因为“上一节点是任意 whatsit”就恢复前侧 ecglue。
 - `\g_@@_last_node_tl` 仍然保留，用于记录最近一次 `\xeCJK_make_node:n` 创建的 xeCJK 内部标记类型；但这份状态不再被 `\@@_check_for_ecglue:` 当作全局后备。
-- 真正需要跨 whatsit 续接边界语义的场景，目前分成三类定点补丁：
+- 真正需要跨 whatsit 续接边界语义的场景，目前分成四类定点补丁：
   - `color` / `xcolor` 的 `\set@color`：在颜色切换 whatsit 插入后，如果 `\g_@@_last_node_tl` 非空，就立即重放对应的 xeCJK 标记节点；而在 no-node 分支则必须先清空 `\g_@@_last_node_tl`，避免把初始化阶段或前序调用残留的 `default` 送进后续恢复链。
   - `color` / `xcolor` 的 `\reset@color`（#831）：在 color-pop whatsit 插入后，重新放置 kern pair 标记并设置 `\g_@@_ulem_pending_bool`，使后续 `\@@_check_for_glue_skip:` 能正确处理 `\textcolor` 结束端的 glue-on-kern-pair。
   - `hyperref` 的 `\Hy@BeginAnnot`：进入链接注释前先保存当前 xeCJK 节点类别并清空旧状态，待注释起始 whatsit 插入后，只对 `CJK` / `CJK-space` / `CJK-widow` 三类节点选择性重放标记，而显式不重放 `default`。
+  - `l3color`（expl3 内置）的 `\__color_select:N` 和 `\__color_backend_reset:`（#832）：l3color 的颜色机制使用独立的后端代码路径，不经过 `\set@color`/`\reset@color`。`\__color_select:N` 负责颜色推入（调用后端 select 并注册 aftergroup reset），`\__color_backend_reset:` 负责颜色弹出。此处对这两个函数施加与 `\set@color`/`\reset@color` 相同的 kern 对保护，使 l3color 接口的颜色切换也能正确保持 xeCJK 间距。
 - 这等价于把“跨 whatsit 恢复 glue”改写成“在已知安全的 whatsit 之后补回 xeCJK 自己的标记 kern”，让后续 `\lastkern` 检测继续工作，而不是让恢复函数去猜测任意 whatsit 后面应不应该补 glue。
 
-这一变化把 Issue #315、#803、#807、#809 与 #810 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表”合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color` 与 `hyperref` 的 `\Hy@BeginAnnot`；而 `\raise\hbox` 包裹内容内部的 whatsit 等其他场景，都不能再使用通用恢复逻辑。此外，`\set@color` 补丁本身依赖 `\g_@@_last_node_tl` 来决定重建什么类型的 kern pair，因此任何在 hbox 内部触发 interchar toks 全局修改 `\g_@@_last_node_tl` 的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离该状态，否则 `\set@color` 会用错误的节点类型重建标记，导致后续恢复链走错路径。
+这一变化把 Issue #315、#803、#807、#809、#810 与 #832 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表”合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color`/`\reset@color`、`l3color` 的 `\__color_select:N`/`\__color_backend_reset:` 与 `hyperref` 的 `\Hy@BeginAnnot`；而 `\raise\hbox` 包裹内容内部的 whatsit 等其他场景，都不能再使用通用恢复逻辑。此外，`\set@color` 补丁本身依赖 `\g_@@_last_node_tl` 来决定重建什么类型的 kern pair，因此任何在 hbox 内部触发 interchar toks 全局修改 `\g_@@_last_node_tl` 的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离该状态，否则 `\set@color` 会用错误的节点类型重建标记，导致后续恢复链走错路径。
 
 `hyperref` 补丁的策略切换本身也值得单独记住。早先尝试曾把修复点放在链接结束端（如 `\Hy@endcolorlink`）附近，希望在注释结束后补回缺失状态；但 #809/#810 的联动表明，真正稳定的做法是只 patch 链接开始端 `\Hy@BeginAnnot`：
 
