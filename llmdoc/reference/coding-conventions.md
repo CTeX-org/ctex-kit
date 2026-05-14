@@ -22,7 +22,7 @@
 
 自 #679 起，本仓库（ctex、xeCJK、zhnumber）全面使用 e-type expansion variant 代替 x-type（跟进 l3kernel 的推荐做法）。例如 `\tl_set:Ne` 代替 `\tl_set:Nx`，`\exp_args:Nne` 代替 `\exp_args:Nnx`。
 
-**例外**：在 `Npx`（`\cs_new:Npx`、`\cs_gset:Npx` 等）定义体内部，必须保留 `\exp_args:Nnx` 而非改为 `\exp_args:Nne`。原因是 e-type `\exp_args` 是 expandable 的，在 `\edef` 体内会被提前展开导致崩溃，而 x-type 是 protected 的，不会在 `\edef` 体内展开。
+**`Npx` 定义体的处理**：xeCJK/zhnumber 将 `Npx` 一并转为 `Npe`，体内需要延迟展开的 `\exp_args` 使用 `\exp_not:N` 保护；ctex 则将唯一含 `\exp_args:Nnx` 的 `Npx` 重构为 `Npn`（`\@@_disable_package_aux:nnnn`），从而消除了 `\edef` 体内的展开冲突。当前代码中不存在 `Npx`/`Npe` 体内保留裸 x-type `\exp_args` 的情况。
 
 ## `@@` 私有命名空间
 
