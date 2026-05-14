@@ -18,12 +18,21 @@ jobs:
   pr-review:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    env:
+      HAS_FEISHU_TOKEN: ${{ secrets.FEISHU_WEBHOOK_TOKEN != '' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Install pinned Claude Code CLI
+        id: setup_claude
+        run: |
+          CLAUDE_INSTALL_DIR="$RUNNER_TEMP/claude-code-2.1.80"
+          npm install --prefix "$CLAUDE_INSTALL_DIR" @anthropic-ai/claude-code@2.1.80
+          echo "path=$CLAUDE_INSTALL_DIR/node_modules/.bin/claude" >> $GITHUB_OUTPUT
 
       - name: PR Review with Claude
         id: review
@@ -35,6 +44,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           use_sticky_comment: true
           allowed_non_write_users: "*"
+          path_to_claude_code_executable: ${{ steps.setup_claude.outputs.path }}
           prompt: |
             仓库: ${{ github.repository }}
             仓库 URL: https://github.com/${{ github.repository }}
@@ -60,7 +70,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Notify Feishu
-        if: always() && secrets.FEISHU_WEBHOOK_TOKEN != ''
+        if: always() && env.HAS_FEISHU_TOKEN == 'true'
         uses: actions/checkout@v6
         with:
           repository: Lightspeed-Intelligence/agentic-workflow-template
@@ -71,7 +81,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Send Feishu Notification
-        if: always() && secrets.FEISHU_WEBHOOK_TOKEN != ''
+        if: always() && env.HAS_FEISHU_TOKEN == 'true'
         uses: ./.agentic-actions/.github/actions/feishu-notify
         with:
           webhook_token: ${{ secrets.FEISHU_WEBHOOK_TOKEN }}
