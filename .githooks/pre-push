@@ -9,8 +9,9 @@ if ! command -v l3build &>/dev/null; then
   exit 0
 fi
 
+stash_before=$(git rev-parse --verify refs/stash 2>/dev/null || echo "")
 git stash push -q -- '*.dtx'
-stashed=$?
+stash_after=$(git rev-parse --verify refs/stash 2>/dev/null || echo "")
 
 for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
   if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
@@ -27,7 +28,7 @@ if ! git diff --quiet -- '*.dtx'; then
   mismatch=1
 fi
 
-if [ "$stashed" -eq 0 ]; then
+if [ "$stash_before" != "$stash_after" ]; then
   git stash pop -q || echo "pre-push: warning: failed to restore stashed .dtx changes, run 'git stash pop' manually" >&2
 fi
 
