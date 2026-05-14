@@ -38,10 +38,17 @@ gh run list --workflow=test.yml --limit=5 --json status,conclusion,event,created
 ### 2. 扫描 Issue
 
 ```bash
-gh issue list --state=open --limit=20 --json number,title,labels,comments
+gh issue list --state=open --limit=20 --json number,title,labels,comments,stateReason
 ```
 
-**跳过已处理的 Issue**：检查评论中是否已有 `github-actions[bot]` 的回复。
+**判断是否需要处理**：
+
+对每个 Issue，用 `gh issue view <number> --json comments` 获取完整评论列表，检查最后一条评论的作者：
+
+- **最后一条评论来自 `github-actions[bot]`** → 跳过（bot 已回复，无新用户活动）
+- **最后一条评论来自用户**（非 bot）→ 需要处理（用户在 bot 回复后追问或补充了信息）
+- **无评论** → 需要处理（新 Issue）
+- **`stateReason` 为 `reopened`** → 需要处理（即使 bot 之前回复过，重新打开意味着问题未解决）
 
 ### 3. 分发处理
 
