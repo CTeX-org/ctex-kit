@@ -56,25 +56,6 @@ typeset = function (file,dir,exe)
   return 0
 end
 
-dtxchecksum = require(lookup("dtxchecksum.lua", {path=supportdir})).checksum
-function checksum()
-  if not is_unpacked then unpack() end
-  unpack = null_function
-  for _,i in ipairs(typesetsuppfiles) do
-    cp(i, supportdir, localdir)
-  end
-  for _,glob in ipairs(typesetfiles) do
-    for _,f in ipairs(filelist(".", glob)) do
-      if f:sub(-4) == ".dtx" then
-        dtxchecksum(f, localdir)
-      end
-    end
-  end
-end
-
-target_list = target_list or { }
-
-target_list.checksum = { desc = "Adjust \\CheckSum{...}", func = checksum }
 
 shellescape = os.type == "windows"
   and function (s) return s end
@@ -191,7 +172,6 @@ doc_posthook = doc_posthook or null_function
 unhooked_doc = doc
 doc = function (...)
   doc_prehook()
-  checksum()
   local retval = unhooked_doc(...)
   doc_posthook()
   return retval
