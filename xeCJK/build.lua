@@ -175,3 +175,5 @@ function unpack_posthook()
   end
 end
 
+dofile("../support/build-config.lua")
+
