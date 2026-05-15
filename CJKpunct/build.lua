@@ -15,8 +15,6 @@ stdengine    = "pdftex"
 checkengines = {"pdftex"}
 checkruns    = 1
 
-dtxchecksum = dtxchecksum or { }
-dtxchecksum.exe     = "xelatex"
 
 function doc_posthook()
   for _, i in pairs(typesetfiles) do
@@ -37,5 +35,3 @@ end
 
 dofile("../support/build-config.lua")
 
--- CJKpunct's driver (ctxdoc) is incompatible with dtxchecksum
-checksum = function() end

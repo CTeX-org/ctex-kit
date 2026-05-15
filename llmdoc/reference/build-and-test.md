@@ -30,19 +30,15 @@
 
 自定义 `typeset()` 会在多轮 TeX / biber / bibtex / makeindex 之间循环，直到 `.aux`、`.bbl`、`.glo`、`.idx`、`.hd` 的 MD5 不再变化，避免文档尚未收敛就停止。见 `support/build-config.lua:25-56`。
 
-### 3. dtx 校验和维护
-
-通过 `target_list.checksum` 和 `dtxchecksum()`，仓库可以批量调整 `\CheckSum{...}`。对 `.dtx` 大改后，如需更新文档校验和，先看这里而不是手工维护。见 `support/build-config.lua:58-76`。
-
-### 4. Git 版本展开
+### 3. Git 版本展开
 
 `extract_git_version()`、`expand_git_version()`、`replace_git_id()` 会抽取最近一次 git 提交信息，替换源文件中的 `\GetIdInfo` 区段，并把生成后的 `.id` 信息用于打包。见 `support/build-config.lua:86-133`。
 
-### 5. 测试基线保存
+### 4. 测试基线保存
 
 `saveall()` 为所有 `.lvt` 保存验证日志，并在非标准引擎的 `.tlg` 与标准引擎结果一致时删除冗余文件。见 `support/build-config.lua:149-186`。
 
-### 6. 对 l3build 目标的钩子化覆写
+### 5. 对 l3build 目标的钩子化覆写
 
 它重写并包装了：
 

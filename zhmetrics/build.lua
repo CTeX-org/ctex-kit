@@ -11,9 +11,6 @@ typesetfiles = {"zhmCJK.dtx", "zhmCJK-test.tex"}
 unpackexe    = "pdftex"
 typesetexe   = "latex"
 
-dtxchecksum = dtxchecksum or { }
-dtxchecksum.exe     = "latex"
-dtxchecksum.cfgfile = "ltxdoc.cfg"
 
 function docinit_hook()
   cp("zhmCJK-test.tex", unpackdir, typesetdir)

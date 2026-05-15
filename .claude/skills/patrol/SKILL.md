@@ -66,7 +66,6 @@ gh issue list --state=open --limit=20 --json number,title,labels,comments,stateR
 
 **可以自动修复**：
 - 测试基线更新：上游 TeX Live 变化导致 `.tlg` 输出变化，`l3build save` 即可
-- Checksum 不匹配：`l3build checksum` 即可
 - 单文件 `.dtx` 改动，且本地 `l3build check` 能复现和验证
 
 **不自动修复**（开 Issue 说明，等人工介入）：
