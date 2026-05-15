@@ -24,19 +24,19 @@
 - `checkopts` / `typesetopts`
 - 二进制文件后缀列表
 
-见 `support/build-config.lua:2-10`。
+见 `support/build-config.lua:3-11`。
 
 ### 2. 文档排版循环
 
-自定义 `typeset()` 会在多轮 TeX / biber / bibtex / makeindex 之间循环，直到 `.aux`、`.bbl`、`.glo`、`.idx`、`.hd` 的 MD5 不再变化，避免文档尚未收敛就停止。见 `support/build-config.lua:25-56`。
+自定义 `typeset()` 会在多轮 TeX / biber / bibtex / makeindex 之间循环，直到 `.aux`、`.bbl`、`.glo`、`.idx`、`.hd` 的 MD5 不再变化，避免文档尚未收敛就停止。见 `support/build-config.lua:27-57`。
 
 ### 3. Git 版本展开
 
-`extract_git_version()`、`expand_git_version()`、`replace_git_id()` 会抽取最近一次 git 提交信息，替换源文件中的 `\GetIdInfo` 区段，并把生成后的 `.id` 信息用于打包。见 `support/build-config.lua:86-133`。
+`extract_git_version()`、`expand_git_version()`、`replace_git_id()` 会抽取最近一次 git 提交信息，替换源文件中的 `\GetIdInfo` 区段，并把生成后的 `.id` 信息用于打包。见 `support/build-config.lua:70-115`。
 
 ### 4. 测试基线保存
 
-`saveall()` 为所有 `.lvt` 保存验证日志，并在非标准引擎的 `.tlg` 与标准引擎结果一致时删除冗余文件。见 `support/build-config.lua:149-186`。
+`saveall()` 为所有 `.lvt` 保存验证日志，并在非标准引擎的 `.tlg` 与标准引擎结果一致时删除冗余文件。见 `support/build-config.lua:131-166`。
 
 ### 5. 对 l3build 目标的钩子化覆写
 
@@ -47,7 +47,7 @@
 - `install_files`
 - `copyctan`
 
-因此很多包级 `*_prehook` / `*_posthook` 逻辑只有结合这个共享文件才能正确理解。见 `support/build-config.lua:188-233`。
+因此很多包级 `*_prehook` / `*_posthook` 逻辑只有结合这个共享文件才能正确理解。见 `support/build-config.lua:170-214`。
 
 ## 各包 `build.lua` 的标准结构
 
@@ -303,7 +303,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 ## Git 信息注入
 
-发布/打包过程中，`support/build-config.lua` 会借助 git 历史展开 `\GetIdInfo`，把最近提交标识写入相应 `.id` 文件及输出产物。见 `support/build-config.lua:86-133`。
+发布/打包过程中，`support/build-config.lua` 会借助 git 历史展开 `\GetIdInfo`，把最近提交标识写入相应 `.id` 文件及输出产物。见 `support/build-config.lua:70-115`。
 
 因此，修改版本相关内容时，要同时区分三件事：
 

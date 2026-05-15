@@ -110,7 +110,7 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 - 包级 `typesetsuppfiles = {"ctxdoc.cls"}`
 - `support/build-config.lua` 的文档流程
 
-把它复制到排版环境中，见 `ctex/build.lua:8-10`、`xeCJK/build.lua:9-12`、`support/build-config.lua:58-66`。
+把它复制到排版环境中，见 `ctex/build.lua:8-10`、`xeCJK/build.lua:9-12`、`support/build-config.lua:170-178`。
 
 因此，如果文档构建、索引、变更记录排版或 `.dtx` 文档样式出问题，优先检查 `support/ctxdoc.cls`，不要先怀疑业务包逻辑。
 
