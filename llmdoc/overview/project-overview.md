@@ -37,7 +37,7 @@
 
 ### l3build
 
-多数现代子包以 `build.lua` 驱动 `l3build` 完成解包、构建、测试和 CTAN 打包，并共享 `support/build-config.lua` 中的项目级覆写与钩子。见 `ctex/build.lua:1-71`、`xeCJK/build.lua:1-151`、`support/build-config.lua:1-234`。
+多数现代子包以 `build.lua` 驱动 `l3build` 完成解包、构建、测试和 CTAN 打包，并共享 `support/build-config.lua` 中的项目级覆写与钩子。见 `ctex/build.lua:1-72`、`xeCJK/build.lua:1-179`、`support/build-config.lua:1-215`。
 
 ## 维护状态
 
