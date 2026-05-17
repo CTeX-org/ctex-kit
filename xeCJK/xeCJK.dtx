@@ -696,6 +696,31 @@ Copyright and Licence
 %   \end{verbatim}
 % \end{function}
 %
+% \begin{function}[added=2026-05-17]{experiment/punct-measure-fix}
+%   \begin{syntax}
+%     experiment/punct-measure-fix = \meta{\TFF}
+%   \end{syntax}
+%   这是一个实验性选项。缺省状态下，\LaTeX{} 的 |\para_end:| 在执行
+%   |\tex_par:D| 之前会通过 \tn{unskip} 移除水平列表末尾的 glue。如果
+%   段末恰好是全角标点，其标点补偿 glue 也会被移除，导致 \pkg{tabularray}
+%   等使用 \tn{par} 结束测量段落的宏包得到不正确的宽度。
+%
+%   打开此选项后，\pkg{xeCJK} 会在 |para/end| 钩子中插入一个
+%   \tn{kern}，补偿被 \tn{unskip} 移除的标点 glue 的自然宽度，确保
+%   测量宽度与排版宽度一致。
+%
+%   \textbf{注意：}此修复涉及一个权衡。\tn{kern} 只保留了原 glue 的
+%   自然宽度，丢弃了弹性分量（stretch/shrink）。对于段末最后一行，
+%   \tn{parfillskip} 提供的 |0pt plus 1fil| 拉伸量会吸收所有剩余空间，
+%   因此弹性丢失在绝大多数情况下无视觉影响。但在 CheckSingle 等
+%   强制 overfull 的极端场景下，最后一行的 overfull 报告值可能增大。
+%
+%   使用示例：
+%   \begin{verbatim}
+%   \xeCJKsetup{experiment/punct-measure-fix}
+%   \end{verbatim}
+% \end{function}
+%
 % \begin{function}[updated=2013-11-16]{Verb}
 %   \begin{syntax}
 %     Verb = \meta{\TF|(env)|env+}
@@ -4217,16 +4242,65 @@ Copyright and Licence
 % \begin{macro}{\@@_punct_boundary_guard:}
 % \changes{v3.10.0}{2026/05/13}
 % {修复 \env{tabular} 中 \tn{unskip} 吞掉标点补偿 glue 的问题（\#827）。}
+% \changes{v3.10.0}{2026/05/17}
+% {新增 \opt{experiment/punct-measure-fix} 选项：段落模式下通过
+%  para/end 钩子恢复被 \tn{unskip} 移除的标点补偿 glue（\#859）。}
 % 在 restricted horizontal mode（\env{tabular} 单元格、\tn{hbox} 等）中，
 % \tn{\\} 结束行时通过 \tn{unskip} 移除最后一个 glue。
 % 这会吞掉标点的补偿 glue，导致单元格宽度错误。
-% 此函数在 glue 之后插入 |\penalty 0|，
+% 此函数在 inner mode 下于 glue 之后插入 |\penalty 0|，
 % 使最后节点不再是 glue，从而保护它。
-% 仅限 inner mode，因为段落模式下 \TeX{} 自身的 \tn{unskip}
-% （添加 \tn{parfillskip} 前）是正常行为，不应阻止。
+%
+% 在段落模式下，当 \opt{experiment/punct-measure-fix} 选项启用时，
+% 记录 glue 的自然宽度，并通过 |para/end| 钩子插入等宽
+% \tn{kern} 恢复。使用 \tn{kern} 而非 \tn{hskip}：\tn{kern} 不会被
+% \tn{unskip} 移除（无需额外保护），也不构成合法断行点
+% （避免 CheckSingle 等场景下产生空行）。
 %    \begin{macrocode}
+\bool_new:N \g_@@_par_guard_bool
+\dim_new:N \g_@@_par_guard_dim
 \cs_new_protected:Npn \@@_punct_boundary_guard:
-  { \mode_if_inner:T { \tex_penalty:D \c_zero_int } }
+  {
+    \mode_if_inner:TF
+      { \tex_penalty:D \c_zero_int }
+      {
+        \bool_if:NT \g_@@_punct_measure_fix_bool
+          {
+            \bool_gset_true:N \g_@@_par_guard_bool
+            \dim_gset:Nn \g_@@_par_guard_dim { \tex_lastskip:D }
+          }
+      }
+  }
+%    \end{macrocode}
+%
+% 当 |Boundary| 之后紧跟其他字符类时，说明标点不在段末，
+% 需要重置保护标志。
+%    \begin{macrocode}
+\clist_map_inline:nn
+  {
+    Default , HalfLeft , HalfRight , NormalSpace ,
+    CJK , FullLeft , FullRight , CM , HangulJamo
+  }
+  {
+    \xeCJK_pre_inter_class_toks:nnn { Boundary } {#1}
+      { \bool_gset_false:N \g_@@_par_guard_bool }
+  }
+%    \end{macrocode}
+%
+% 在 |para/begin| 中重置标志，避免跨段落残留状态。
+% 在 |para/end| 中，若标志为真则插入 \tn{kern} 补偿被 \tn{unskip}
+% 移除的标点 glue 的自然宽度。
+%    \begin{macrocode}
+\AddToHook { para/begin }
+  { \bool_gset_false:N \g_@@_par_guard_bool }
+\AddToHook { para/end }
+  {
+    \bool_if:NT \g_@@_par_guard_bool
+      {
+        \tex_kern:D \g_@@_par_guard_dim
+        \bool_gset_false:N \g_@@_par_guard_bool
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5088,13 +5162,16 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{experiment/halfright-prebreakpenalty}
+% \begin{macro}{experiment/halfright-prebreakpenalty, experiment/punct-measure-fix}
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options / experiment }
   {
     halfright-prebreakpenalty .bool_set:N = \l_@@_halfright_nobreak_bool ,
     halfright-prebreakpenalty .default:n  = true ,
-    halfright-prebreakpenalty .initial:n  = false
+    halfright-prebreakpenalty .initial:n  = false ,
+    punct-measure-fix .bool_gset:N = \g_@@_punct_measure_fix_bool ,
+    punct-measure-fix .default:n   = true ,
+    punct-measure-fix .initial:n   = false
   }
 %    \end{macrocode}
 % \end{macro}
