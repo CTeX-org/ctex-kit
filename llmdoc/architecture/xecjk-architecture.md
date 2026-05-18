@@ -241,6 +241,24 @@ xeCJK 预定义了多种标点样式：
 
 相邻标点的压缩量通过 `\xeCJKsetkern` 手动设置或由样式规则自动计算。内部通过 `g_@@_punct/kern/<char1>/<char2>/tl` 属性表存储。
 
+### 标点补偿 glue 的边界保护（`\@@_punct_boundary_guard:`）
+
+全角标点的压缩量通过补偿 glue 实现。但在某些上下文中，`\unskip` 会移除水平列表末尾的 glue，吞掉标点补偿 glue，导致宽度计算错误。`\@@_punct_boundary_guard:` 函数在补偿 glue 之后插入保护节点，防止被 `\unskip` 移除。
+
+- **Inner mode**（`\env{tabular}` 单元格、`\tn{hbox}` 等，#827）：在 glue 之后插入 `\penalty 0`，使最后节点不再是 glue，从而保护补偿 glue 不被 `\\` 触发的 `\unskip` 移除。
+- **段落模式**（`experiment/punct-measure-fix` 选项，#859）：LaTeX 的 `\para_end:` 在执行 `\tex_par:D` 之前会通过 `\unskip` 移除水平列表末尾的 glue。如果段末恰好是全角标点，其补偿 glue 也会被移除，导致 `tabularray` 等使用 `\par` 结束测量段落的宏包得到不正确的宽度。
+
+  启用 `experiment/punct-measure-fix` 后，xeCJK 通过以下机制补偿：
+  - `\g_@@_par_guard_bool`：全局标志，记录段末是否存在需要保护的标点补偿 glue。
+  - `\g_@@_par_guard_dim`：全局尺寸，记录被保护的标点补偿 glue 的自然宽度（`\lastskip`）。
+  - `para/begin` 钩子：重置 `\g_@@_par_guard_bool`，避免跨段落残留状态。
+  - `para/end` 钩子：若标志为真，插入等宽 `\kern` 补偿被 `\unskip` 移除的 glue 自然宽度。
+  - inter-class tokens 重置：当 `Boundary` 之后紧跟其他字符类（`Default`、`CJK`、`FullLeft` 等）时，说明标点不在段末，重置标志。
+
+  **设计权衡**：使用 `\kern` 而非 `\hskip`——`\kern` 不会被 `\unskip` 移除（无需额外保护），也不构成合法断行点。但 `\kern` 只保留了原 glue 的自然宽度，丢弃了弹性分量（stretch/shrink）。对于段末最后一行，`\parfillskip` 的 `0pt plus 1fil` 拉伸量会吸收所有剩余空间，因此弹性丢失在绝大多数情况下无视觉影响。
+
+  使用示例：`\xeCJKsetup{experiment/punct-measure-fix}`
+
 ## 间距系统
 
 | 间距类型 | 作用位置 | 默认值 | 配置方式 |
