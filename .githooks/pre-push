@@ -1,0 +1,74 @@
+#!/bin/bash
+# pre-push: self-wrapped push + CI watch.
+set -uo pipefail
+
+if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  exit 0
+fi
+
+if [ -n "${GIT_POSTPUSH:-}" ]; then
+  exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+
+# ── Self-wrapped push + CI watch ───────────────────────────────────────────
+# git has no native post-push hook. We emulate one: the OUTER push runs lint,
+# then we perform the real push ourselves (INNER) with GIT_POSTPUSH set, which
+# re-enters this hook and exits immediately at the top. Control returns here
+# and we block on the remote CI.
+zero="0000000000000000000000000000000000000000"
+refspecs=()
+have_update=0
+needs_force=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${remote_ref:-}" ] && continue
+  if [ "$local_sha" = "$zero" ]; then
+    refspecs+=(":${remote_ref}")
+  else
+    refspecs+=("${local_ref}:${remote_ref}")
+    have_update=1
+    if [ "$remote_sha" != "$zero" ] \
+       && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      needs_force=1
+    fi
+  fi
+done
+
+if [ "${#refspecs[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+if [ "$have_update" -eq 0 ]; then
+  exit 0
+fi
+
+remote_name="${1:-origin}"
+
+echo "post-push: performing real push to '${remote_name}' (${refspecs[*]})..." >&2
+GIT_POSTPUSH=1 git push "${remote_name}" "${refspecs[@]}"
+push_rc=$?
+if [ "$push_rc" -ne 0 ]; then
+  echo "post-push: inner push failed (rc=${push_rc})." >&2
+  if [ "$needs_force" -eq 1 ]; then
+    echo "post-push: this looks like a non-fast-forward push." >&2
+    echo "post-push: retry with: GIT_POSTPUSH=1 git push --force-with-lease ${remote_name} ..." >&2
+  fi
+  echo "post-push: not watching CI." >&2
+  exit "$push_rc"
+fi
+
+echo "post-push: ✔ push succeeded (remote updated by inner push)." >&2
+echo "post-push:   any outer 'remote rejected' or 'connection closed' line below is expected — ignore it." >&2
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${hook_dir}/check-pr-ci.sh" ]; then
+  "${hook_dir}/check-pr-ci.sh"
+  ci_rc=$?
+  if [ "$ci_rc" -eq 1 ]; then
+    exit 1
+  fi
+fi
+
+exit 0
