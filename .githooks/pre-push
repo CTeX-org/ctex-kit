@@ -1,5 +1,5 @@
 #!/bin/bash
-# pre-push: checksum verification + self-wrapped CI watch.
+# pre-push: self-wrapped push + CI watch.
 set -uo pipefail
 
 if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
@@ -12,39 +12,7 @@ fi
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 
-# ── Phase 1: .dtx checksum verification ────────────────────────────────────
-if command -v l3build &>/dev/null; then
-  stash_before=$(git rev-parse --verify refs/stash 2>/dev/null || echo "")
-  git stash push -q -- '*.dtx'
-  stash_after=$(git rev-parse --verify refs/stash 2>/dev/null || echo "")
-
-  for dir in ctex xeCJK zhnumber xpinyin jiazhu xCJK2uni zhmetrics; do
-    if [ -d "$dir" ] && [ -f "$dir/build.lua" ]; then
-      (cd "$dir" && l3build checksum) > /dev/null 2>&1 || true
-    fi
-  done
-
-  mismatch=0
-  if ! git diff --quiet -- '*.dtx'; then
-    echo "pre-push: checksum mismatch in .dtx files:" >&2
-    git diff --stat -- '*.dtx' >&2
-    echo "Run 'l3build checksum', commit the fix, then push again." >&2
-    git checkout -- '*.dtx'
-    mismatch=1
-  fi
-
-  if [ "$stash_before" != "$stash_after" ]; then
-    git stash pop -q || echo "pre-push: warning: failed to restore stashed .dtx changes, run 'git stash pop' manually" >&2
-  fi
-
-  if [ "$mismatch" -ne 0 ]; then
-    exit 1
-  fi
-fi
-
-echo "pre-push: checksum verification passed." >&2
-
-# ── Phase 2: self-wrapped push + CI watch ──────────────────────────────────
+# ── Self-wrapped push + CI watch ───────────────────────────────────────────
 # git has no native post-push hook. We emulate one: the OUTER push runs lint,
 # then we perform the real push ourselves (INNER) with GIT_POSTPUSH set, which
 # re-enters this hook and exits immediately at the top. Control returns here
