@@ -45,16 +45,17 @@ if [ "$have_update" -eq 0 ]; then
 fi
 
 remote_name="${1:-origin}"
-force_args=()
-if [ "$needs_force" -eq 1 ]; then
-  force_args=(--force-with-lease)
-fi
 
 echo "post-push: performing real push to '${remote_name}' (${refspecs[*]})..." >&2
-GIT_POSTPUSH=1 git push "${force_args[@]}" "${remote_name}" "${refspecs[@]}"
+GIT_POSTPUSH=1 git push "${remote_name}" "${refspecs[@]}"
 push_rc=$?
 if [ "$push_rc" -ne 0 ]; then
-  echo "post-push: inner push failed (rc=${push_rc}) — not watching CI." >&2
+  echo "post-push: inner push failed (rc=${push_rc})." >&2
+  if [ "$needs_force" -eq 1 ]; then
+    echo "post-push: this looks like a non-fast-forward push." >&2
+    echo "post-push: retry with: GIT_POSTPUSH=1 git push --force-with-lease ${remote_name} ..." >&2
+  fi
+  echo "post-push: not watching CI." >&2
   exit "$push_rc"
 fi
 
