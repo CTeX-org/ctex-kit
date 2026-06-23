@@ -40,3 +40,4 @@
 
 ## Follow-up
 - 后续若再遇到由 `\scantokens`、rescan 或 active 字符引发的 xeCJK/listings 问题，先做三步检查：一是最小例子复现并确认是否与宏参数传递相关；二是确认候选替换 token 是否还能进入原包的正常输出流水线；三是用盒子结构或宽度比较写回归测试，避免只凭日志或文本提取判断修复是否正确。
+- **2026-06 更新**：#879 已暴露 catcode-class regex 替换端硬编码 codepoint 的局限——当用户用 `\catcode` 把其它字符改为 catcode 6 时该前提被打破，已改为 token 级 `\tl_map_inline:Nn` + `\char_generate:nn` 保留原字符码；详见 [[879-lstinline-parameter-tokens-charcode]]。

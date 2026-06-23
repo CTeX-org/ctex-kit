@@ -348,6 +348,8 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 重写 `listings` 的字符转换机制，使 CJK 字符不再需要设为 active catcode。核心是用 `\tl_set_rescan:Nno`（即 `\scantokens`）替代 `\lccode` + `\lowercase` 路线。
 
+`\@@_listings_rescan:Nn`（`xeCJK.dtx` L11856-11878）在 rescan 前用 `\tl_map_inline:Nn` 逐 token 扫描 `\l_@@_tmp_tl`，对 catcode 6 parameter token 通过 `\char_generate:nn { \int_value:w ``##1 } { 13 }` 转换为**同字符码**的 active token，避免 `\scantokens` 字符串化阶段对 catcode 6 token 的二次双写，同时保留用户通过 `\catcode\`\&=6` 等方式自定义的 parameter token 原字符身份。该模式由 \#378 → \#879 演化而来：\#378 用 catcode-class regex 修双写（替换端硬编码 codepoint），\#879 在 `\catcode\`\&=6` 场景下显式暴露其局限，改为 token-level map 保留原 codepoint。
+
 ### xunicode-addon
 
 为 xunicode 补充额外的 Unicode 符号命令定义。
