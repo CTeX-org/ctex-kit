@@ -1840,6 +1840,7 @@ Copyright and Licence
 % 分配临时变量。
 %    \begin{macrocode}
 \tl_new:N \l_@@_tmp_tl
+\tl_new:N \l_@@_tmpb_tl
 \int_new:N \l_@@_tmp_int
 \box_new:N \l_@@_tmp_box
 \dim_new:N \l_@@_tmp_dim
@@ -11450,6 +11451,9 @@ Copyright and Licence
 %
 % \changes{v3.2.2}{2013/06/04}{增加小宏包 \pkg{xeCJK-listings}，用于支持 \pkg{listings} 宏包。}
 % \changes{v3.2.3}{2013/06/06}{完善对 \pkg{listings} 宏包的支持。}
+% \changes{v3.10.0}{2026/06/23}{修复在 \tn{lstinline} 参数中使用非 |#| 的
+%   catcode~6 字符（如 \texttt{\textbackslash catcode`\textbackslash\&=6}）时
+%   输出错字的问题（\#879）。}
 %
 % 仿照 \package{luatexja} 宏包中 \pkg{lltjp-listings} 的处理，支持 \package{listings} 宏包。
 %
@@ -11838,18 +11842,35 @@ Copyright and Licence
 % 来完成这里的 \tn{catcode} 转换，避免将 \tn{charcode} 超过 $255$ 的字符都设置为
 % 活动字符。
 %
-% 当 \tn{lstinline} 出现在宏参数中时，\TeX{} 参数传递将 |#| 双写为 |##|
-% （catcode 6 parameter token）。\cs{tl_set_rescan:Nnn} 底层的 \tn{scantokens}
-% 在字符串化阶段会再次将 catcode~6 的 |#| 双写，导致输出中 |#| 数量翻倍。
-% 修复方法是在 rescan 前用 \cs{regex_replace_all:nnN} 将 catcode~6 的 |#|
-% 替换为 active |#|（catcode 13），这是 \pkg{listings} 期望的字符类型。
+% 当 \tn{lstinline} 出现在宏参数中时，\TeX{} 参数传递将 catcode~6 的 parameter
+% token（通常是 |#|）双写为成对的相邻 token。\cs{tl_set_rescan:Nnn} 底层的
+% \tn{scantokens} 在字符串化阶段会再次将 catcode~6 token 双写，导致输出中数量
+% 翻倍。修复方法是在 rescan 前逐 token 扫描 \cs{l_@@_tmp_tl}，将每个 catcode~6
+% 的 token 替换为 \emph{保留原字符码} 的 active token（catcode 13），这是
+% \pkg{listings} 期望的字符类型。最初的实现用 \cs{regex_replace_all:nnN} 把所有
+% catcode~6 token 硬替换成 \texttt{U+0023}，对一般 |#| 没问题，但当用户用
+% \tn{catcode} 把别的字符（如 |&|）改为 parameter 时，原字符码会被丢失，导致
+% 输出错字（\#879）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_listings_rescan:Nn #1#2
   {
     \@@_listings_set_escape:
     \tl_set:Nn \l_@@_tmp_tl {#2}
     \@@_listings_escape_backslash:
-    \regex_replace_all:nnN { \cP . } { \cA \x{23} } \l_@@_tmp_tl
+    \tl_clear:N \l_@@_tmpb_tl
+    \tl_map_inline:Nn \l_@@_tmp_tl
+      {
+        \token_if_parameter:NTF ##1
+          {
+            \tl_put_right:Ne \l_@@_tmpb_tl
+              {
+                \exp_after:wN \exp_after:wN \exp_after:wN \exp_not:N
+                \char_generate:nn { \int_value:w `##1 } { 13 }
+              }
+          }
+          { \tl_put_right:Nn \l_@@_tmpb_tl { ##1 } }
+      }
+    \tl_set_eq:NN \l_@@_tmp_tl \l_@@_tmpb_tl
     \tl_set_rescan:Nno #1
       { \char_set_catcode_active:n { 35 } }
       { \l_@@_tmp_tl }
