@@ -1,74 +1,160 @@
-#!/bin/bash
-# pre-push: self-wrapped push + CI watch.
+#!/usr/bin/env bash
+# pre-push:
+#   1) 可选本地构建 sanity (默认跳过, LATEX_PREPUSH_BUILD=1 启用; 全量 l3build
+#      check 单包动辄 20min, 不适合无脑挂 pre-push, 故默认关).
+#   2) self-wrapping post-push: 跑完 sanity 后由自家执行 inner push, 然后阻塞
+#      等 CI 跑完 + 抓 PR 评论活动, 把结果通过 stderr 报告给上层 (脚本 /
+#      Claude Code background bash). git 无原生 post-push, 这是模拟办法.
+#
+# 跳过: 仅紧急情况下用 `git push --no-verify`.
 set -uo pipefail
 
 if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
   exit 0
 fi
 
+# Inner (self-wrapped) push: outer 那一轮已跑过 sanity, 此处是真正的 push 操作
+# 正在被 git 内部发起. marker 是这棵进程子树的 env 变量 (不写文件、不持久化),
+# 不会泄漏到后续无关的 git push (无 stale-flag 风险).
 if [ -n "${GIT_POSTPUSH:-}" ]; then
   exit 0
 fi
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 
-# ── Self-wrapped push + CI watch ───────────────────────────────────────────
-# git has no native post-push hook. We emulate one: the OUTER push runs lint,
-# then we perform the real push ourselves (INNER) with GIT_POSTPUSH set, which
-# re-enters this hook and exits immediately at the top. Control returns here
-# and we block on the remote CI.
+# ── 可选本地 sanity (LATEX_PREPUSH_BUILD=1 启用) ────────────────────────────
+# LaTeX 全量 check 太慢, 故默认 off. 想做最小 sanity (l3build unpack 验证 .dtx
+# 能解包) 时手动开:
+#     LATEX_PREPUSH_BUILD=1 git push ...
+if [ -n "${LATEX_PREPUSH_BUILD:-}" ]; then
+  if command -v l3build >/dev/null 2>&1; then
+    echo "pre-push: LATEX_PREPUSH_BUILD=1 — running l3build unpack on all packages..."
+    for pkg in xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
+               zhmetrics zhmetrics-uptex zhnumber zhspacing jiazhu; do
+      [ -f "${pkg}/build.lua" ] || continue
+      echo "  → ${pkg}"
+      ( cd "${pkg}" && l3build unpack -q ) || {
+        echo "✗ l3build unpack 在 ${pkg} 失败; fix 后重 push (跳过: git push --no-verify, 仅紧急情况)" >&2
+        exit 1
+      }
+    done
+    echo "pre-push: l3build unpack sanity passed."
+  else
+    echo "pre-push: l3build 未安装 — 跳过 sanity." >&2
+  fi
+fi
+
+# ── post-push CI watch (self-wrapping) ─────────────────────────────────────
+# git 没有原生 post-push hook. 模拟办法: OUTER push 进入本 hook 时 GIT_POSTPUSH
+# 未设置, 我们自己用 marker 跑一次 INNER push; INNER push 重新进入本 hook 时
+# marker 已设置, 从最顶头直接 exit 0 放行. 控制流回到 OUTER 继续走下面的 CI
+# watch.
+#
+# 从 stdin 读 git 传来的 refspec (每行一条:
+#   <local ref> <local sha> <remote ref> <remote sha>)
+# INNER push 时**逐字镜像**这些 refspec, 而不是简单假设当前分支 push. force
+# push / tag push / 删除 push (`git push origin :foo`) / 多 ref push
+# (`git push --all`) 都能正确处理.
 zero="0000000000000000000000000000000000000000"
 refspecs=()
-have_update=0
-needs_force=0
+# Per-refspec `--force-with-lease=<ref>:<expect>` 参数. **精确形式**比裸
+# `--force-with-lease` 准: 裸形式按**远端跟踪引用** (`refs/remotes/origin/*`)
+# 算 lease, 本地若没 `fetch` 跟踪引用陈旧, lease 会误判 mismatch 拒掉用户显式
+# 发起的 force push. `remote_sha` 已经从 stdin 拿到了 git 当前看到的远端实际
+# sha, 直接用它做 lease 才准.
+force_lease_args=()
+have_update=0   # 至少有一条非删除的 ref ⟹ CI watch 有意义
+head_branch_pushed=0   # refspecs 是否包含当前 HEAD 所在的分支
+
+# 当前 HEAD 是哪条分支 (detached 时为空, 此时不考虑 -u)
+head_ref="$(git symbolic-ref HEAD 2>/dev/null || true)"
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ -z "${remote_ref:-}" ] && continue
   if [ "$local_sha" = "$zero" ]; then
+    # 删除: refspec 是 ":<remote_ref>" (源为空)
     refspecs+=(":${remote_ref}")
   else
     refspecs+=("${local_ref}:${remote_ref}")
     have_update=1
+    # 非快进 (远端有本地没有的 commit) ⟹ 普通 push 会被拒, 用户必然用了
+    # --force. INNER push 用 `--force-with-lease=<ref>:<remote_sha>` 精确镜像,
+    # 避免被拒.
     if [ "$remote_sha" != "$zero" ] \
        && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
-      needs_force=1
+      force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
+    fi
+    # 当前 HEAD 分支被推送 ⟹ 候选 -u 目标
+    if [ -n "$head_ref" ] && [ "$local_ref" = "$head_ref" ]; then
+      head_branch_pushed=1
+      head_remote_ref="$remote_ref"
     fi
   fi
 done
 
+# stdin 空 ⟹ 让 OUTER push 自己跑; 没什么可 wrap 的.
 if [ "${#refspecs[@]}" -eq 0 ]; then
   exit 0
 fi
 
+# 只有删除 ⟹ 没 CI 可看. 让 OUTER push 自己执行删除并返回.
 if [ "$have_update" -eq 0 ]; then
   exit 0
 fi
 
 remote_name="${1:-origin}"
 
+# `-u` 自动接力: git 不把 outer 命令行参数透传给 hook, 所以 inner push 不知道
+# 用户原本带了 `-u`. 检测: 当前 HEAD 分支被 push 且**目前没有 upstream**, 自动
+# 在 inner 加 `--set-upstream`. 已经有 upstream 的不动, detached HEAD 不动, 只
+# 推 tag / 别的分支不动 — 无副作用.
+set_upstream_args=()
+if [ "$head_branch_pushed" -eq 1 ] \
+   && ! git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' >/dev/null 2>&1; then
+  set_upstream_args=(--set-upstream)
+  echo "post-push: auto --set-upstream ($(git rev-parse --abbrev-ref HEAD) → ${remote_name}/${head_remote_ref#refs/heads/})" >&2
+fi
+
+# bash 3.2 (macOS 自带) 在 set -u 下展开**空数组** `"${arr[@]}"` 会 unbound 中断.
+# `${arr[@]+"${arr[@]}"}` 形式仅在数组已设时展开, 空数组安全无副作用.
+# bash >= 4.4 行为等价.
 echo "post-push: performing real push to '${remote_name}' (${refspecs[*]})..." >&2
-GIT_POSTPUSH=1 git push "${remote_name}" "${refspecs[@]}"
+GIT_POSTPUSH=1 git push \
+  ${set_upstream_args[@]+"${set_upstream_args[@]}"} \
+  ${force_lease_args[@]+"${force_lease_args[@]}"} \
+  "${remote_name}" "${refspecs[@]}"
 push_rc=$?
 if [ "$push_rc" -ne 0 ]; then
-  echo "post-push: inner push failed (rc=${push_rc})." >&2
-  if [ "$needs_force" -eq 1 ]; then
-    echo "post-push: this looks like a non-fast-forward push." >&2
-    echo "post-push: retry with: GIT_POSTPUSH=1 git push --force-with-lease ${remote_name} ..." >&2
-  fi
-  echo "post-push: not watching CI." >&2
+  echo "post-push: inner push failed (rc=${push_rc}) — not watching CI." >&2
   exit "$push_rc"
 fi
 
+# INNER push 已经更新了 remote. 调用本 hook 的 OUTER push 接下来必然会失败 ——
+# 要么 git 的原子 ref 保护拒绝 ("remote rejected / cannot lock ref"), 要么长 CI
+# watch 期间连接被掐 (SIGPIPE / "connection closed"). **两种都是预期且无害**:
+# push 实际上已经经 INNER 成功了. OUTER push 的 exit code **不反映 CI 状态**
+# —— 真正的 verdict 看下面的 ✓/✗ 报告.
 echo "post-push: ✔ push succeeded (remote updated by inner push)." >&2
 echo "post-push:   any outer 'remote rejected' or 'connection closed' line below is expected — ignore it." >&2
+echo "post-push:   the real verdict is the ✓/✗ report once CI finishes." >&2
 
+# INNER push 已更新 remote. 阻塞等 CI, 然后报告.
 hook_dir="$(cd "$(dirname "$0")" && pwd)"
 if [ -x "${hook_dir}/check-pr-ci.sh" ]; then
   "${hook_dir}/check-pr-ci.sh"
   ci_rc=$?
-  if [ "$ci_rc" -eq 1 ]; then
+  # rc 2  = no PR / gh 缺失       ⟹ 非致命, 放行
+  # rc 1  = CI 失败                ⟹ 报失败
+  # rc 75 = CI 过了但有新 review 活动 / 未解决 thread ⟹ 也报失败. 返回 0 会让
+  #         OUTER push 退 0, 只看 exit status 的工具 (agent loop / CI driver)
+  #         就会静默漏掉「address review feedback」那段 stderr 指令.
+  if [ "$ci_rc" -eq 1 ] || [ "$ci_rc" -eq 75 ]; then
     exit 1
   fi
+  # rc 0: check-pr-ci.sh 已经打出「nothing more to do」终止符, 或是面向 Claude
+  # 的指令 block. 这里没有要补充的.
 fi
 
+# 走到这里说明 real push 已经成功 (INNER 干的). 返回 0 让 OUTER push 变成
+# no-op ("Everything up-to-date") —— 它**不会**再 push 一次.
 exit 0
