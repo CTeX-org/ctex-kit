@@ -14994,6 +14994,25 @@ int main()
 %
 % \subsection{\pkg{xunicode-symbols.tex}}
 %
+% 该文档用于生成 \pkg{xunicode} 中所声明字符的对照表。每一个字符
+% 先尝试用主字体 |FreeSerif| 渲染；若主字体不覆盖该码位，则按顺序
+% 回退到 |Noto Sans Symbols 2|、|Symbola|、|Segoe UI Symbol|、
+% |DejaVu Sans| 中第一个能渲染该字符的字体。
+%
+% 在 \CTeX{} 团队的发版构建中，运行环境同时安装了 |FreeSerif|
+% （Ubuntu \pkg{fonts-freefont-ttf}）和 |Noto Sans Symbols 2|，
+% 因此 pre-release 内附的 \file{xunicode-symbols.pdf} 通常已能完整
+% 渲染所有字符。用户在本地通过 |l3build install --full| 重新编译时，
+% 输出是否完整取决于本机已安装的字体；若仅依赖系统自带字体（例如
+% Windows 上仅有 |Segoe UI Symbol|），表中的部分字符会出现
+% “Missing character” 提示。此时建议补装 |Noto Sans Symbols 2|
+% 或直接使用 pre-release 中已编译好的版本。
+%
+% \changes{v3.10.0}{2026/06/23}{\file{xunicode-symbols.tex} 改为按
+%   \pkg{Noto Sans Symbols 2}/\pkg{Symbola}/\pkg{Segoe UI Symbol}/\pkg{DejaVu Sans}
+%   逐字符尝试的多级 fallback，缓解 Windows 等仅有
+%   \pkg{Segoe UI Symbol} 时部分字符缺失的问题（\#878）。}
+%
 %    \begin{macrocode}
 %<*xunicode-symbols>
 %    \end{macrocode}
@@ -15011,11 +15030,14 @@ int main()
 \usepackage{zref-base}
 
 \setmainfont{FreeSerif}
+\IfFontExistsTF{Noto Sans Symbols 2}
+  {\newfontfamily\xunsymNoto{Noto Sans Symbols 2}}{}
+\IfFontExistsTF{Symbola}
+  {\newfontfamily\xunsymSymbola{Symbola}}{}
 \IfFontExistsTF{Segoe UI Symbol}
-  {\newfontfamily\falllbackfont{Segoe UI Symbol}}
-  {\IfFontExistsTF{Noto Sans Symbols 2}
-    {\newfontfamily\falllbackfont{Noto Sans Symbols 2}}
-    {\let\falllbackfont\relax}}
+  {\newfontfamily\xunsymSegoe{Segoe UI Symbol}}{}
+\IfFontExistsTF{DejaVu Sans}
+  {\newfontfamily\xunsymDejaVu{DejaVu Sans}}{}
 
 \makeatletter
 \ExplSyntaxOn
@@ -15130,7 +15152,18 @@ int main()
     \int_gincr:N \g_@@_symbol_int
     \use_none:n #1 &
     \scan_stop:
-    \reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f: \falllbackfont \fi:
+    \reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f:
+      \cs_if_exist_use:N \xunsymNoto
+      \reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f:
+        \cs_if_exist_use:N \xunsymSymbola
+        \reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f:
+          \cs_if_exist_use:N \xunsymSegoe
+          \reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f:
+            \cs_if_exist_use:N \xunsymDejaVu
+          \fi:
+        \fi:
+      \fi:
+    \fi:
     \tex_char:D #1 \exp_stop_f: &
     \tl_set:Nn \l_tmpa_clist {#2}
     \clist_use:Nn \l_tmpa_clist { \par }
