@@ -23,7 +23,7 @@ make hooks    # 等同 git config core.hooksPath .githooks
 
 `feat fix doc docs test chore perf refactor ci bench build revert`
 
-scope 可选,字符集 `[A-Za-z0-9/_.,\ -]+`。允许大小写、逗号/空格,以兼容仓库已有的 `xeCJK`、`CJKpunct`、`xCJK2uni` 大写包名,以及 `chore(ctex, xeCJK, zhlineskip): ...` 多包风格。
+scope 可选,字符集 `[A-Za-z0-9/_., -]+`。允许大小写、逗号/空格,以兼容仓库已有的 `xeCJK`、`CJKpunct`、`xCJK2uni` 大写包名,以及 `chore(ctex, xeCJK, zhlineskip): ...` 多包风格。
 
 放行的自动消息:`Merge ...` / `Revert ...` / `fixup! ...` / `squash! ...`。
 
