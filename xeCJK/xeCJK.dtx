@@ -9849,6 +9849,84 @@ Copyright and Licence
 \@@_patch_l3color:
 %    \end{macrocode}
 %
+% \changes{v3.10.0}{2026/06/23}{为 \pkg{hypdoc} 的 \tn{HD@target} 添加补丁，
+%   在它产生的 hbox 之后重放 xeCJK 节点标记，
+%   修复 \pkg{l3doc} 中 \cs{cs}、\cs{meta} 等命令后 \texttt{CJKecglue}
+%   丢失或保留为原始空格的问题（\#873）。}
+%
+% \pkg{hypdoc} 的 \tn{HD@target} 通过 \tn{raisebox} 产生 \texttt{hbox(0+0)x0}
+% 用于放置 \tn{special\{pdf:dest...\}}。该 hbox 隔在 xeCJK 标记 kern
+% 对和后续字符之间，使 |\tex_lastkern:D| 探测失败，导致
+% Boundary→\{Default,CJK\} 路径中 |\xeCJK_if_last_node:n| / |\@@_if_last_kern:|
+% 检查返回 false，间距因此丢失。
+% 此处保存 |\g_@@_last_node_tl|、清除现有标记 kern、调用原始
+% \tn{HD@target}、然后根据保存的状态重放节点标记，
+% 使后续触发路径能正确识别前方上下文。
+%    \begin{macrocode}
+\tl_new:N \g_@@_hd_saved_node_tl
+\cs_new_protected:Npn \@@_patch_hd_target:
+  {
+    \cs_if_exist:NF \@@_orig_HD_target:
+      {
+        \cs_set_eq:NN \@@_orig_HD_target: \HD@target
+        \cs_gset_protected:Npn \HD@target
+          {
+            \xeCJK_if_last_node:TF
+              { \tl_gset_eq:NN \g_@@_hd_saved_node_tl \g_@@_last_node_tl }
+              { \tl_gclear:N \g_@@_hd_saved_node_tl }
+            \tl_gclear:N \g_@@_last_node_tl
+            \@@_orig_HD_target:
+            \tl_if_empty:NF \g_@@_hd_saved_node_tl
+              { \exp_args:No \xeCJK_make_node:n { \g_@@_hd_saved_node_tl } }
+          }
+      }
+  }
+\@@_package_hook:nn { hypdoc } { \@@_patch_hd_target: }
+%    \end{macrocode}
+%
+% \changes{v3.10.0}{2026/06/23}{为 \pkg{url} 的 \tn{Url@FormatString} 添加补丁，
+%   在进入数学模式前 drain 缓存的 \texttt{CJKecglue}，
+%   修复 CJK 文字与 \tn{url} 命令之间间距丢失的问题（\#880）。}
+%
+% \pkg{url} 的 \tn{url} 命令通过 \tn{Url@FormatString} 进入数学模式
+% 排版 URL 字符串。
+% 数学模式 node 隔在 xeCJK 标记 kern 对和数学公式之间，
+% 又因 \XeTeX{} 在数学模式中不触发 interchar class 转换，
+% 标记 kern 对永远等不到匹配的 Boundary→\{CJK,Default\} 触发，
+% 缓存的 \texttt{CJKecglue} 因此在 CJK 与 \tn{url} 之间丢失。
+% 此处在进入数学模式前直接 drain 缓存间距：\tn{url} 排版的内容
+% 必然是西文，前方上下文为 CJK / CJK-space / CJK-widow / default
+% 中任意一种时均应使用 \texttt{CJKecglue}（西文边界间距）。
+% \tn{url} 数学模式结束至 CJK 文字之间的右侧间距由
+% \cs{xeCJK_check_for_glue:} 的 \cs{@@_if_last_math:} 路径自然处理。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_drain_ecglue:
+  {
+    \xeCJK_if_last_node:TF
+      {
+        \tl_if_empty:NF \g_@@_last_node_tl
+          {
+            \xeCJK_remove_node:
+            \skip_horizontal:N \l_@@_ecglue_skip
+          }
+      }
+      { \tl_gclear:N \g_@@_last_node_tl }
+  }
+\cs_new_protected:Npn \@@_patch_url_format:
+  {
+    \cs_if_exist:NF \@@_orig_Url_FormatString:
+      {
+        \cs_set_eq:NN \@@_orig_Url_FormatString: \Url@FormatString
+        \cs_gset_protected:Npn \Url@FormatString
+          {
+            \@@_drain_ecglue:
+            \@@_orig_Url_FormatString:
+          }
+      }
+  }
+\@@_package_hook:nn { url } { \@@_patch_url_format: }
+%    \end{macrocode}
+%
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}
