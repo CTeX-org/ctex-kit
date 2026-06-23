@@ -59,7 +59,9 @@
 
 ## expl3 正则里的 catcode class 记法
 
-处理 token 级 catcode 问题时，优先记住 `\regex_replace_all` 可直接匹配字符类别，而不只是字符字面值：常见写法如 `\cP`（parameter，catcode 6）、`\cA`（active，catcode 13）、`\cO`（other，catcode 12）。这类语法适合区分“同样显示为 `#`、但 catcode 不同”的 token；若目标是只转换某一类 token，普通 `str`/`tl` 字符串替换往往不够精确。
+处理 token 级 catcode 问题时，优先记住 `\regex_replace_all` 可直接匹配字符类别，而不只是字符字面值：常见写法如 `\cP`（parameter，catcode 6）、`\cA`（active，catcode 13）、`\cO`（other，catcode 12）。这类语法适合区分“同样显示为 `#`、但 catcode 不同”的 token；若目标是只转换某一类 token，普通 `str`/`tl` 字符串替换往往不够精确（\#378）。
+
+**反例 / 适用边界（\#879）**：`\regex_replace_all:nnN { \cP . } { \cA \x{23} } ...` 这类写法只在匹配端精确，**替换端 `\x{NN}` 是字面 codepoint**——所有匹配项被一律映射到固定字符码，丢失输入侧 token 的原字符身份。当用户通过 `\catcode\`\&=6` 等方式把其它字符设为 catcode 6 时，该前提被打破。需要保留原 codepoint 的场景应改用 token 级路径：`\tl_map_inline:Nn` + `\token_if_parameter:NTF` + `\char_generate:nn { \int_value:w ``##1 } { 13 }` 逐 token 重建。`\@@_listings_rescan:Nn` 的 \#378 → \#879 演化是典型案例。
 
 ## `.choices:nn` 中优先使用 `#1` 而非 `\l_keys_choice_str`
 
