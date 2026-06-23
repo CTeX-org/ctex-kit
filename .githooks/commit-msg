@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# commit-msg: 强制 conventional commits 'type(scope): subject'.
+#
+# 跳过: Merge/Revert/fixup!/squash! 自动消息放行; CI 环境短路.
+set -euo pipefail
+
+if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then exit 0; fi
+
+msg=$(head -1 "$1")
+
+case "$msg" in
+    Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|doc|docs|test|chore|perf|refactor|ci|bench|build|revert)(\([A-Za-z0-9/_.,\ -]+\))?: .+'
+if ! [[ "$msg" =~ $pattern ]]; then
+    echo "✗ commit message 不符合 'type(scope): subject' 格式:" >&2
+    echo "    $msg" >&2
+    echo "允许的 type: feat fix doc docs test chore perf refactor ci bench build revert" >&2
+    echo "示例: fix(xeCJK): 修复 \\lstinline 中 catcode 6 字符原字符码丢失" >&2
+    echo "      docs(llmdoc): 同步架构图至最新实现" >&2
+    exit 1
+fi
