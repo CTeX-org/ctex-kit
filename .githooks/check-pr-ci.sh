@@ -118,6 +118,10 @@ if [ -n "$head_committed_at" ]; then
 fi
 
 # 2) 未解决的 review thread
+# 一次 gh repo view 拿 owner+name, 喂给 GraphQL 而非两次子 shell.
+repo_owner_name="$(gh repo view --json owner,name --jq '"\(.owner.login)\t\(.name)"' 2>/dev/null)"
+repo_owner="${repo_owner_name%$'\t'*}"
+repo_name="${repo_owner_name#*$'\t'}"
 unresolved_threads="$(gh api graphql -f query='
   query($owner:String!, $repo:String!, $pr:Int!) {
     repository(owner:$owner, name:$repo) {
@@ -131,8 +135,8 @@ unresolved_threads="$(gh api graphql -f query='
       }
     }
   }
-' -F owner="$(gh repo view --json owner --jq '.owner.login' 2>/dev/null)" \
-   -F repo="$(gh repo view --json name --jq '.name' 2>/dev/null)" \
+' -F owner="$repo_owner" \
+   -F repo="$repo_name" \
    -F pr="$pr_number" 2>/dev/null \
   | jq -r '
       .data.repository.pullRequest.reviewThreads.nodes[]?
