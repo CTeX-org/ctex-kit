@@ -329,6 +329,18 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 为 xunicode 补充额外的 Unicode 符号命令定义。
 
+#### `xunicode-symbols.tex` 驱动的逐字符多级字体回退（#878）
+
+`xunicode-symbols.tex` 是 `xunicode-addon` 用于演示其覆盖字符集合的驱动文件，由 `l3build install --full` 排版生成 `xunicode-symbols.pdf`。该集合横跨多个 Unicode 区段（符号、几何形状、CJK Stroke 等），**不存在**在主流 Windows / Linux / macOS 上都默认装且覆盖完整的单一字体；此前版本采用“整段单字体 if-else”的回退策略时，凡是被选中字体未覆盖的字符都会以 `Missing character` 警告出现。
+
+PR #886（fix #878）将驱动改为“逐字符多级字体回退链”：
+
+1. 用 fontspec 的 `\IfFontExistsTF` 条件声明候选 NFSS 字体家族 `\xunsymNoto`、`\xunsymSymbola`、`\xunsymSegoe`、`\xunsymDejaVu`，主字体仍为 `FreeSerif`。
+2. `\UnicodeTextSymbol` 在排出每个 codepoint 前，使用 `\reverse_if:N \tex_iffontchar:D \tex_font:D #1 \exp_stop_f:` 测试当前激活字体是否含该字符；不命中则通过 `\cs_if_exist_use:N` 切换到下一级候选家族后再次测试，形成 `FreeSerif → Noto Sans Symbols 2 → Symbola → Segoe UI Symbol → DejaVu Sans` 五级嵌套链。
+3. `\cs_if_exist_use:N` 用于在“候选字体在本机不存在 ⇒ `\newfontfamily` 未定义该家族”时静默跳过、由外层 `\reverse_if:N` 继续向下级落，避免 `! Undefined control sequence`。
+
+该模式只适用于“演示性符号目录”驱动文件，**不应**推广到 xeCJK 正文 / CJK 字体路径（后者属于字符分类驱动的字体切换，不是 codepoint glyph 级缺失）。详细根因、嵌套顺序选择理由与适用边界见反思 [[878-xunicode-symbols-multilevel-fallback]]；驱动新增段对应 `xeCJK.dtx` `\changes` v3.10.0 2026/06/23。
+
 ## TECkit 映射
 
 xeCJK 在构建时通过 `xeCJK/build.lua` 中的 `make_teckit_mapping()` 从 Unicode Unihan 数据生成 `.map`/`.tec` 字体映射文件，用于繁简转换和句号形态映射。这部分功能数据在构建阶段动态生成，不完全静态存储。

@@ -61,6 +61,19 @@
 
 处理 token 级 catcode 问题时，优先记住 `\regex_replace_all` 可直接匹配字符类别，而不只是字符字面值：常见写法如 `\cP`（parameter，catcode 6）、`\cA`（active，catcode 13）、`\cO`（other，catcode 12）。这类语法适合区分“同样显示为 `#`、但 catcode 不同”的 token；若目标是只转换某一类 token，普通 `str`/`tl` 字符串替换往往不够精确。
 
+## `.choices:nn` 中优先使用 `#1` 而非 `\l_keys_choice_str`
+
+l3keys 的 `<key>.choices:nn = {<choice 列表>}{<code>}` 在 `<code>` 中既可以读 `\l_keys_choice_str`（被选中分支名的字符串变量），也可以直接读 `#1`。**优先使用 `#1`**：
+
+- `#1` 在选项解析时已被替换为字面分支名，不依赖运行时局部变量；
+- `\l_keys_choice_str` 是局部状态，在 `\exp_args:N...`、`\ctex_at_end:n` 这类延迟展开链中容易因分组结束被回滚或被嵌套选项解析覆盖。
+
+`ctex/ctex.dtx` 中 `space .choices:nn` 即因此踩过坑：原写法用 `\exp_args:Ne \ctex_at_end:n { ... \l_keys_choice_str ... }` 试图把选中值带到 `\AtEndOfPackage` 阶段执行，但延迟执行时 `\l_keys_choice_str` 已不再持有当时的值。PR #881（#806）将其改写为 `\ctex_at_end:n { \ctex_set:n { space = #1 } }`，同时把 `xeCJK / jiazhu / zhnumber` 中同类用法（如 `\use:c { bool_gset_ #1 :N }`）一并简化。
+
+**Why:** `#1` 解决了“选项参数在静态展开期就固化”的需求，不需要纠结后续是否还在 keys 解析的局部组里。
+
+**How to apply:** 新写 `.choices:nn` 时直接用 `#1`；遇到旧代码读 `\l_keys_choice_str` 而又涉及 `\exp_args`、`\AtEndOfPackage`、`\AtEndOfClass` 等延迟点时，应顺手替换为 `#1`。仅当代码确实需要“当前 key 名”等其它 l3keys 局部状态（如 `\l_keys_key_str`）时才保留显式变量。
+
 ## docstrip 标签系统
 
 `ctex-kit` 的核心源码大量使用 docstrip 标签在单个 `.dtx` 中生成多个产物。稳定事实包括：
