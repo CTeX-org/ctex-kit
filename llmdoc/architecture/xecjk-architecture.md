@@ -191,6 +191,28 @@ Boundary → CJK 时：
 2. **ecglue 缓存在 CJK→Boundary 时机**：`\l_@@_ecglue_skip` 在离开 CJK 上下文前测量并缓存，后续恢复不重新展开 `\CJKecglue`
 3. **宏路径不提前输出 glue**：`\@@_boundary_reserve_space:` 只保留标记 kern，不抢先输出空格 glue
 
+### 边界恢复修复点选择矩阵
+
+修复 marker 失效问题时，**修复位置由“被遮蔽的节点类型”决定，不由 marker 类型决定**。已实际落地的四类对照：
+
+| 遮蔽类型 | 案例 | 修复位置 | 修复模式 |
+|---------|------|---------|---------|
+| hbox 节点（marker 仍在但 `\lastkern` 回看不到） | #873 `\HD@target` 的 `\raisebox` 0x0 hbox | 调用方入口（fixed-point patch） | **save/replay**：入口保存 `\g_@@_last_node_tl` 到本地 tl，调用结束后 `\xeCJK_make_node:n` 重发 marker |
+| math 模式（marker 被 math 节点吞掉） | #880 `\Url@FormatString` 的 `$ \fam\z@ ... $` | 调用方入口（fixed-point patch） | **drain**：入口 `\xeCJK_remove_node:` 拔掉 marker，直接补 `\l_@@_ecglue_skip` |
+| whatsit 节点（color / hyperref annot 等） | #807 / #809 / #810 / #831 | `\@@_recover_glue_whatsit:` 或调用方入口 | **whatsit 恢复链**，必要时配合**专用 pending boolean**（如 `\g_@@_reset_color_pending_bool`） |
+| 用户显式分组（catcode 2 `}`） | #831 catcode 2 路径 | CJK→Boundary handler 内 | **brace 路径状态保存**：在 handler 内部识别 catcode 2，设置 `\g_@@_ulem_pending_bool` 让下游 glue-skip 接管 |
+
+#### 选择 drain 还是 save/replay 的判断
+
+- 如果遮蔽点之后**始终是西文**（如 `\url` 内容必然是西文），CJK→西文方向边界永远是 ecglue，无需保留 marker 类型，用 drain。
+- 如果遮蔽点之后可能既是 CJK 又是西文（如 `\HD@target` 后面什么都可能），必须保留 marker 类型让下游状态机判断，用 save/replay。
+
+#### 与“收窄 `\@@_recover_glue_whatsit:` default 分支”思路的边界
+
+PR #831 在 whatsit 路径上用 `\g_@@_reset_color_pending_bool` 实现了“只在已知调用方显式置位时才允许 fallback 分支吐 ecglue”的门控。这一思路理论上可继续推广到 `\@@_recover_glue_whatsit:` 的 default 分支以收窄“任意 whatsit 误触发”的攻击面，但与 #873 / #880 无关——hbox 走 else 分支、math 直接吃 marker，都不进入 `recover_glue_whatsit`。是否做这一收窄是独立 PR 范畴。
+
+详见反思 [[873-880-meta-url-hbox-math-boundary]]。落地点：`xeCJK/xeCJK.dtx` 中 `\@@_patch_hd_target:` / `\@@_patch_url_format:` 段（commit `7c3a2c2e`），与回归测试 `xeCJK/testfiles/hypdoc-ecglue01.lvt` / `url-ecglue01.lvt`。
+
 ## 字体管理
 
 ### 分层设计
@@ -278,7 +300,8 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | `ulem` | 临时关闭 interchar (`\makexeCJKinactive`) |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
 | `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换 |
-| `url` | 确保 CJK 字体在 URL 数学模式中正确切换 |
+| `url` | `\Url@FormatString` 入口 drain marker kern 并补 ecglue（#880） |
+| `hypdoc` | `\HD@target` 入口 save/replay `\g_@@_last_node_tl`，保证 hbox 节点不遮蔽 marker（#873） |
 
 ### 补丁模式
 
