@@ -119,31 +119,34 @@ fi
 
 # 2) 未解决的 review thread
 # 一次 gh repo view 拿 owner+name, 喂给 GraphQL 而非两次子 shell.
+unresolved_threads=""
 repo_owner_name="$(gh repo view --json owner,name --jq '"\(.owner.login)\t\(.name)"' 2>/dev/null)"
-repo_owner="${repo_owner_name%$'\t'*}"
-repo_name="${repo_owner_name#*$'\t'}"
-unresolved_threads="$(gh api graphql -f query='
-  query($owner:String!, $repo:String!, $pr:Int!) {
-    repository(owner:$owner, name:$repo) {
-      pullRequest(number:$pr) {
-        reviewThreads(first:100) {
-          nodes {
-            isResolved
-            comments(first:1) { nodes { author { login } body url } }
+if [ -n "$repo_owner_name" ]; then
+  repo_owner="${repo_owner_name%$'\t'*}"
+  repo_name="${repo_owner_name#*$'\t'}"
+  unresolved_threads="$(gh api graphql -f query='
+    query($owner:String!, $repo:String!, $pr:Int!) {
+      repository(owner:$owner, name:$repo) {
+        pullRequest(number:$pr) {
+          reviewThreads(first:100) {
+            nodes {
+              isResolved
+              comments(first:1) { nodes { author { login } body url } }
+            }
           }
         }
       }
     }
-  }
-' -F owner="$repo_owner" \
-   -F repo="$repo_name" \
-   -F pr="$pr_number" 2>/dev/null \
-  | jq -r '
-      .data.repository.pullRequest.reviewThreads.nodes[]?
-      | select(.isResolved == false)
-      | .comments.nodes[0]
-      | "\(.author.login // "?")\t\(.body // "" | gsub("\n"; " ") | .[0:80])\t\(.url // "")"
-    ' 2>/dev/null || true)"
+  ' -F owner="$repo_owner" \
+     -F repo="$repo_name" \
+     -F pr="$pr_number" 2>/dev/null \
+    | jq -r '
+        .data.repository.pullRequest.reviewThreads.nodes[]?
+        | select(.isResolved == false)
+        | .comments.nodes[0]
+        | "\(.author.login // "?")\t\(.body // "" | gsub("\n"; " ") | .[0:80])\t\(.url // "")"
+      ' 2>/dev/null || true)"
+fi
 
 # 状态报告: 区分三档
 if [ -n "$new_review_after_push" ] || [ -n "$unresolved_threads" ]; then
