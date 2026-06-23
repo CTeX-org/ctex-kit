@@ -325,3 +325,38 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - `.dtx` 中声明的公开版本号
 - `\changes` 中的人类可读变更记录
 - 打包阶段自动注入的 git 标识
+
+## 本地 TeX Live usertree 同步
+
+仓库在 PR #883 中声明了 LaTeX2e 2026-06-01 作为最低依赖。CI 通过 `setup-texlive-action@v4 + update-all-packages: true` 每次拉 TLnet 最新版（含最新 LaTeX2e 内核与 hyperref / graphics 等包），所以 CI 始终对齐。本地若用冻结发行版（如 Homebrew TeX Live），需要靠 `tlmgr` 的 **usermode** 维护一个用户树跟进。
+
+### 双步同步流程
+
+```bash
+# 1. 同步包到 usertree（前提：已 init 过 ~/texmf + ~/.texlive2026/）
+tlmgr --usermode update --all
+
+# 2. 重生成 xelatex fmt（必须，否则启动时仍加载老内核）
+fmtutil-user --byfmt xelatex
+```
+
+仅做第 1 步是常见坑：xelatex 启动加载的是预编译 `xelatex.fmt`，里面 dump 的 `latex.ltx` 是包升级**前**的版本，新 `.ltx` / `.sty` 文件即使已落盘也不会生效。
+
+`tlmgr --usermode` 的边界：
+
+- 不能更新 `tlmgr` 自身、不能更新引擎包（`xetex` / `luaotfload` / `latex-bin` 会显示 `mentioned, but neither new nor forcibly removed`，这是预期行为）。
+- 引擎相关包要等冻结发行版（Homebrew 等）的 formula 升级，或者另装一份官方 install-tl。
+
+### 本地测试失败的环境指纹检查表
+
+当本地 `l3build check` 失败而最新 master CI 全绿时，先看 `.tlg` diff 的指纹：
+
+| 指纹 | 含义 |
+|------|------|
+| 前几行出现 `LaTeX Warning: You have requested release '<日期>' of LaTeX` | 本地 LaTeX2e 内核 < 仓库声明的最低日期（通常即 #883 的 2026-06-01）|
+| diff 出现 `\mathon` / `\mathoff` 节点 或 `$[]$` 风格 Overfull 标记 | 本地 LaTeX / hyperref / graphics 的 `\showbox` 实现旧版 |
+| 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
+
+出现以上任一指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查。
+
+详见反思 [[873-880-meta-url-hbox-math-boundary]]。
