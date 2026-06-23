@@ -177,7 +177,13 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流
 - `.github/workflows/agentic-pr-review.yml`：PR 自动审查工作流，由 `pull_request_target` 事件触发，使用 Claude Code 执行代码审查并发表评论；含并发控制，同一 PR 仅保留最新 run
 - `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 文档自动更新工作流，每天北京时间 5:00 定时触发或手动触发；会先关闭已有的过期 llmdoc PR 并扩展时间范围
-- `.github/workflows/agentic-patrol.yml`：仓库巡查工作流，每 4 小时执行一次，监控 CI 状态、扫描未处理 Issue 并自动分发处理
+- `.github/workflows/agentic-patrol.yml`：仓库巡查工作流，每天北京时间 08:00 (UTC 0:00) 触发一次，监控 CI 状态、扫描未处理 Issue 并自动分发处理
+
+#### agentic 工作流的来源与频率约束
+
+所有 `agentic-*.yml` 在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 把 fork 仓库的定时 / `workflow_dispatch` 调度直接挡在 runner 分配之前（#875 / PR #876）。这是 job 级 if，不是 step 级——只有 job 级才能避免 fork 主消耗 Actions 配额并避免误向真实仓库写入 issue/comment。
+
+`agentic-patrol.yml` 的 `schedule` 频率在 #874 中从“每 4 小时一次”调整为“每天一次北京时间 08:00”。新增 agentic 工作流时，频率默认值应取“每天一次”而非更高频；除非有不能等一天的工程动机，否则不要回到 4 小时级或更密。详见反思 [[874-876-agentic-fork-shielding-cron]]。
 
 ### 测试工作流：`.github/workflows/test.yml`
 
@@ -198,8 +204,8 @@ GitHub Actions 工作流当前包含以下主线：
 - `Source Han Serif` OTC：主 CJK 文档字体，供 xeCJK / 文档 driver 使用。
 - `Noto Sans CJK` / `Noto Serif CJK` OTC：跨平台 CJK 基础字体。
 - `HanaMinB`：作为 `SimSun-ExtB` 缺失时的 Ext-B fallback，覆盖扩展 B 区字符。
-- `Noto Sans Symbols 2`：作为 `Segoe UI Symbol` 缺失时的符号字体 fallback。
-- `FreeSerif`：通过 `apt install fonts-freefont-ttf` 提供，用于 `xunicode-symbols` 文档路径。
+- `Noto Sans Symbols 2`：`xunicode-symbols.tex` 五级符号字体回退链的第二级（参见下文）。
+- `FreeSerif`：通过 `apt install fonts-freefont-ttf` 提供，作为 `xunicode-symbols` 驱动的**主字体**与符号字体回退链起点。
 - `FandolSong` / `FandolFang`：由 TeX Live 自带，主要作为无需系统字体下载时的稳定后备。
 
 Linux CI 在手工安装或解压字体后，必须执行 `fc-cache -f` 刷新 fontconfig 缓存；否则即使字体文件已落盘，XeTeX / fontspec 仍可能在同一 job 中看不到新字体。
@@ -207,7 +213,7 @@ Linux CI 在手工安装或解压字体后，必须执行 `fc-cache -f` 刷新 f
 这套策略对应最近文档驱动兼容性修复的两个关键约束：
 
 - `xeCJK/xeCJK.dtx` driver 不再假定 CI 上一定存在 `SimSun-ExtB`，而是通过 `\IfFontExistsTF` 回退到 `HanaMinB`。
-- `xunicode-symbols.tex` 不再假定 Windows 自带的 `Segoe UI Symbol`，而是条件化回退到 `Noto Sans Symbols 2`。
+- `xunicode-symbols.tex` 不再使用“整段单字体 if-else”模式，而是采用**逐字符多级字体回退链** `FreeSerif → Noto Sans Symbols 2 → Symbola → Segoe UI Symbol → DejaVu Sans`（#878 / PR #886）：每个 codepoint 通过 `\tex_iffontchar:D \tex_font:D #1` 测试当前字体，未命中则 `\cs_if_exist_use:N` 切下一级候选。CI 端的 `fonts-freefont-ttf` 与下载的 `Noto Sans Symbols 2` 是回退链的**最低保证**而非全部，确保发布产物 PDF 完整；用户机器只要装有链上任意覆盖目标字符的字体即可正常排版。设计细节见 [[architecture/xecjk-architecture]] 中 `xunicode-symbols.tex` 一节与反思 [[878-xunicode-symbols-multilevel-fallback]]。
 
 #### `.github/tl_packages` 维护约束
 
@@ -300,6 +306,15 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - 变更历史使用 `\changes{版本号}{日期}{说明}`
 
 调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，这些信息会进入最终文档输出。
+
+## LaTeX2e 格式依赖声明
+
+`ctex`、`xeCJK`、`zhlineskip` 在 `\NeedsTeXFormat{LaTeX2e}[...]` 中统一声明依赖 LaTeX2e 2026-06-01（PR #883）。该日期对应当时 LaTeX2e kernel 的发布快照；当 LaTeX2e 升级、kernel 在某些 token、命令钩子或字体接口上发生兼容性变化时，`testfiles` 基线会同步刷新（PR #882 为 2026-06-01 这批基线的批量更新）。
+
+由此衍生的稳定约束：
+
+- 当用户报告“同一份 dtx 在旧 TeX Live 上失败”时，先看其 `\NeedsTeXFormat` 行——本仓库声明的下限即是 2026-06-01，旧 TeX Live 直接不应被当作支持目标。
+- 升级声明日期（如未来到下一个 LaTeX2e 快照）通常意味着一次成批的 `.tlg` 基线更新；这类基线 PR 不应被当成业务回归处理。
 
 ## Git 信息注入
 
