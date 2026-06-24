@@ -78,13 +78,25 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   else
     refspecs+=("${local_ref}:${remote_ref}")
     have_update=1
-    # 非快进 (远端有本地没有的 commit) ⟹ 普通 push 会被拒, 用户必然用了
-    # --force. INNER push 用 `--force-with-lease=<ref>:<remote_sha>` 精确镜像,
-    # 避免被拒.
-    if [ "$remote_sha" != "$zero" ] \
-       && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
-      force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
-    fi
+    # 何时给 INNER push 加 `--force-with-lease=<ref>:<remote_sha>`:
+    #   • 分支 ref: 远端有本地没有的 commit (非快进) ⟹ outer 必然用了 --force.
+    #   • tag  ref: 远端 sha 与本地不同 ⟹ git 默认拒绝任何同名 tag 更新
+    #               ("already exists"), 不论能否 ff. outer 必然用了 --force.
+    # 用精确 lease (而非裸 --force-with-lease) 镜像 git 在 stdin 看到的远端 sha,
+    # 避免裸 lease 依赖 stale 跟踪引用造成误判.
+    case "$remote_ref" in
+      refs/tags/*)
+        if [ "$remote_sha" != "$zero" ] && [ "$remote_sha" != "$local_sha" ]; then
+          force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
+        fi
+        ;;
+      *)
+        if [ "$remote_sha" != "$zero" ] \
+           && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+          force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
+        fi
+        ;;
+    esac
     # 当前 HEAD 分支被推送 ⟹ 候选 -u 目标
     if [ -n "$head_ref" ] && [ "$local_ref" = "$head_ref" ]; then
       head_branch_pushed=1
