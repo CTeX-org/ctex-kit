@@ -9,6 +9,23 @@
 - 包级 `build.lua`：描述该包自己的源码、安装文件、测试目录、引擎与额外钩子。
 - `support/build-config.lua`：定义整个仓库共享的 l3build 覆写、目标扩展和发布期处理。
 
+## 本地任务入口：根 Makefile
+
+仓库根目录提供一个 `Makefile`（PR #888）作为本地任务统一入口，封装各包的 `l3build` 调用，避免反复 `cd <pkg> && l3build <verb>`。命名约定为：
+
+- `make <verb>`：等价于 `make <verb>-all`，对全部包执行。
+- `make <verb>-all`：显式对全部 `l3build` 包执行。
+- `make <verb>-<pkg>`：只对指定包执行，例如 `make check-xeCJK`、`make ctan-ctex`。
+
+覆盖的 verb 为 `doc` / `unpack` / `ctan` / `check` / `clean`，分别对应 `l3build doc` / `unpack` / `ctan` / `check` / `clean`。包列表由 `Makefile` 顶部的 `L3BUILD_PKGS` 维护（`xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip zhmetrics zhmetrics-uptex zhnumber zhspacing jiazhu`），其中 `gbk2uni` 不走 `l3build`，而是委托到其子 `Makefile`。
+
+此外还有两个 git workflow 入口：
+
+- `make hooks`：一次性安装 git hooks（`git config core.hooksPath .githooks`）。
+- `make check-pr-ci`：手动触发 PR CI watch + review 抓取（同 `pre-push` 调用的 `./.githooks/check-pr-ci.sh`）。
+
+注意 `make check`（全包回归）单包即需 20min+，本地慎用，默认仍由 CI 跑。hook 的详细说明见 `.githooks/README.md`。
+
 ## `support/build-config.lua` 的角色
 
 `support/build-config.lua` 是仓库的构建中枢，主要负责以下稳定机制：
