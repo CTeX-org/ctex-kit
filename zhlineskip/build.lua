@@ -1,12 +1,7 @@
+module       = "zhlineskip"
 
-module = "zhlineskip"
-
-sourcefiles  = {"zhlineskip.sty"}
-unpackfiles  = {}
-installfiles = {"zhlineskip.sty"}
-typesetfiles = {}
-
-gitverfiles  = {}
+unpackfiles  = {module .. ".dtx"}
+installfiles = {module .. ".sty", module .. ".ins"}
 
 stdengine    = "pdftex"
 checkengines = {"pdftex"}
