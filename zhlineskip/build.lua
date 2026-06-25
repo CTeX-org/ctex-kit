@@ -25,6 +25,10 @@ function fetchdocsupp(shortlink)
 end
 function docinit_hook()
   fetchdocsupp(
+    "github.com/rayshan/mplus-fonts/raw/master/fonts/mplus-1m-regular.ttf")
+  fetchdocsupp(
+    "github.com/rayshan/mplus-fonts/raw/master/fonts/mplus-1m-bold.ttf")
+  fetchdocsupp(
     "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Medium.otf")
   fetchdocsupp(
     "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Bold.otf")
