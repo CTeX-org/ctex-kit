@@ -2,7 +2,7 @@ module              = "zhlineskip"
 
 sourcefiles         = {module .. ".dtx", "*.pdf"}
 installfiles        = {module .. ".sty", module .. ".ins"}
-demofiles           = {module .. "-*-test.tex"}
+demofiles           = {module .. "-test.tex"}
 unpackfiles         = {module .. ".dtx"}
 
 stdengine           = "pdftex"
