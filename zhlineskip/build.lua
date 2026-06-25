@@ -25,7 +25,7 @@ function fetchdocsupp(shortlink)
 end
 function docinit_hook()
   fetchdocsupp(
-    "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Regular.otf")
+    "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Medium.otf")
   fetchdocsupp(
     "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Bold.otf")
   fetchdocsupp(
