@@ -13,7 +13,7 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、CI/CD、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888）、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、CI/CD、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义、docstrip 标签、`\CTEX@` 遗留接口与文档排版基础设施。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 
