@@ -1,5 +1,8 @@
-module              = "zhlineskip"
+--[==========================================================================[--
+    L3BUILD FILE FOR ZHLINESKIP                     Copyright (C) by CTeX-kit
+--]==========================================================================]--
 
+module              = "zhlineskip"
 sourcefiles         = {module .. ".dtx", "*.pdf"}
 installfiles        = {module .. ".sty", module .. ".ins"}
 demofiles           = {module .. "-test.tex"}
@@ -16,8 +19,21 @@ function unpack_posthook()
     end
   end
 end
+function fetchdocsupp(shortlink)
+  run(typesetdir, "curl -O -L \"https://" .. shortlink .. "\"")
+  return 0
+end
 function docinit_hook()
-  -- run(typesetdir, "curl -O -L " ..)
+  fetchdocsupp(
+    "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Regular.otf")
+  fetchdocsupp(
+    "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Bold.otf")
+  fetchdocsupp(
+    "mirrors.ctan.org/fonts/notocjksc/NotoSerifCJKsc-Black.otf")
+  fetchdocsupp(
+    "mirrors.ctan.org/fonts/notocjksc/NotoSansCJKsc-Regular.otf")
+  fetchdocsupp(
+    "mirrors.ctan.org/fonts/notocjksc/NotoSansCJKsc-Bold.otf")
   cp(ctanreadme, unpackdir, currentdir)
   return 0
 end
