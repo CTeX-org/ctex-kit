@@ -1,8 +1,12 @@
 --[==========================================================================[--
-    L3BUILD FILE FOR ZHLINESKIP                     Copyright (C) by CTeX-kit
+    L3BUILD FILE FOR ZHLINESKIP                  Copyright (C) by Ruixi Zhang
 --]==========================================================================]--
 
 module              = "zhlineskip"
+version             = "v0.1f"
+date                = "2026-06-27"
+maintainer          = "Ruixi Zhang"
+email               = "ruixizhang42@gmail.com"
 sourcefiles         = {module .. ".dtx", "*.pdf"}
 installfiles        = {module .. ".sty", module .. ".ins"}
 demofiles           = {module .. "-test.tex"}
@@ -11,6 +15,21 @@ unpackfiles         = {module .. ".dtx"}
 stdengine           = "pdftex"
 checkengines        = {"pdftex"}
 checkruns           = 1
+
+dofile("../support/build-config.lua")
+
+function update_tag(file, content, tagname, tagdate)
+  tagname = version
+  tagdate = date
+  if string.match(file, module .. ".dtx$") then
+    content = string.gsub(content,
+      "%%<++!driver>\\GetIdInfo $Id: " .. module .. ".dtx " ..
+      "v%d+%.%d+%w %d+%-%d+%-%d+ (.-)<(.-)>",
+      "%%<+!driver>\\GetIdInfo $Id: "  .. module .. ".dtx " ..
+      tagname .. " " .. tagdate .. " " .. maintainer .. "<" .. email .. ">")
+  end
+  return content
+end
 
 function unpack_posthook()
   if install_files_bool then
@@ -37,5 +56,3 @@ function docinit_hook()
   cp(ctanreadme, unpackdir, currentdir)
   return 0
 end
-
-dofile("../support/build-config.lua")

@@ -1,0 +1,261 @@
+%%
+%% This is file `zhlineskip.sty',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% zhlineskip.dtx  (with options: `package')
+%% -----------------------------------------------------------------------
+%%   Copyright (C) 2018-2019 by Ruixi Zhang <ruixizhang42@gmail.com>     *
+%% -----------------------------------------------------------------------
+%%   This work may be distributed and/or modified under the conditions   *
+%%   of the LaTeX Project Public License (LPPL), either version 1.3c of  *
+%%   this license or (at your option) any later version.                 *
+%%   The latest version of this license is in                            *
+%%                                                                       *
+%%       http://www.latex-project.org/lppl.txt                           *
+%%                                                                       *
+%%   and version 1.3c or later is part of all distributions of LaTeX     *
+%%   version 2008 or later.                                              *
+%%                                                                       *
+%%   This work has the LPPL maintenance status `maintained'.             *
+%%                                                                       *
+%%   The Current Maintainer of this work is Ruixi Zhang.                 *
+%% -----------------------------------------------------------------------
+\NeedsTeXFormat{LaTeX2e}[2026/06/01]
+\RequirePackage{expl3}
+\GetIdInfo$Id$
+  {Line spacing for CJK documents}
+\ProvidesExplPackage{\ExplFileName}
+  {\ExplFileDate}{\ExplFileVersion}{\ExplFileDescription}
+\clist_map_inline:nn { new, error, warning, info }
+  {
+    \cs_new_protected:cpn { __ZhLS_msg_#1:n   }
+      { \use:c { msg_#1:nn   } { ZhLS } }
+    \cs_new_protected:cpn { __ZhLS_msg_#1:nn  }
+      { \use:c { msg_#1:nnn  } { ZhLS } }
+    \cs_new_protected:cpn { __ZhLS_msg_#1:nnn }
+      { \use:c { msg_#1:nnnn } { ZhLS } }
+  }
+\__ZhLS_msg_new:nn { Unknown ~ Option }
+  {
+    Unknown ~ Option ~ `#1'.                                \iow_newline:
+    Available ~ options ~ are:                              \iow_newline:
+    \space\space`bodytextleadingratio',                     \iow_newline:
+    \space\space`footnoteleadingratio',                     \iow_newline:
+    \space\space`restoremathleading',                       \iow_newline:
+    \space\space`UseMSWordMultipleLineSpacing',             \iow_newline:
+    \space\space`MSWordLineSpacingMultiple', ~ and          \iow_newline:
+    \space\space`MSWordSinglespaceRatio'
+  }
+\__ZhLS_msg_new:nn { UseMSWordMultipleLineSpacing }
+  {
+    Use ~ Microsoft ~ Word ~ multiple ~ line ~ spacing      \iow_newline:
+    Singlespace ~ to ~ fontsize ~ ratio ~ = ~ `#1'          \iow_newline:
+    Multiple ~ = ~ `#2'
+  }
+\__ZhLS_msg_new:nn { Not ~ Loaded ~ `mathtools' }
+  {
+    mathtools ~ is ~ NOT ~ loaded ~ by ~ zhlineskip         \iow_newline:
+    Some ~ of ~ its ~ features ~ may ~ not ~ be ~ available \iow_newline:
+    Leading ~ in ~ multi-line ~ math ~ will ~ be ~ stretched
+  }
+\__ZhLS_msg_new:nn { Illegal ~ Usage }
+  {
+    Cannot ~ use ~ \string#1\space here                     \iow_newline:
+    Try ~ loading ~ zhlineskip ~ with ~ option              \iow_newline:
+    `restoremathleading ~ = ~ true'
+  }
+\RequirePackage{etoolbox}
+\keys_define:nn { ZhLS / pkgopt }
+  {
+    bodytextleadingratio           .fp_set:N  = \g__ZhLS_bodytextleadingratio_fp,
+      bodytextleadingratio         .initial:n = { 1.5 },
+    footnoteleadingratio           .fp_set:N  = \g__ZhLS_footnoteleadingratio_fp,
+      footnoteleadingratio         .initial:n = { 1.48 },
+    restoremathleading             .bool_set:N= \g__ZhLS_restoremathleading_bool,
+      restoremathleading           .initial:n = { true },
+      restoremathleading           .default:n = { true },
+    UseMSWordMultipleLineSpacing   .bool_set:N=
+                                    \g__ZhLS_UseMSWordMultipleLineSpacing_bool,
+      UseMSWordMultipleLineSpacing .initial:n = { false },
+      UseMSWordMultipleLineSpacing .default:n = { true },
+    MSWordLineSpacingMultiple      .fp_set:N  =
+                                    \g__ZhLS_MSWordLineSpacingMultiple_fp,
+    MSWordLineSpacingMultiple      .initial:n = { 1.15 },
+    MSWordSinglespaceRatio         .fp_set:N  =
+                                    \g__ZhLS_MSWordSinglespaceRatio_fp,
+    MSWordSinglespaceRatio         .initial:n = { 1.296875 },
+    unknown                        .code:n    = \exp_args:Nno
+      \__ZhLS_msg_error:nn { Unknown ~ Option } { \l_keys_key_str },
+  }
+\ProcessKeyOptions [ ZhLS / pkgopt ]
+\fp_new:N  \g__ZhLS_targetbodyleading_fp
+\fp_new:N  \g__ZhLS_targetfootleading_fp
+\fp_new:N  \g__ZhLS_bodylinespread_fp
+\fp_new:N  \g__ZhLS_footlinespread_fp
+\fp_new:N  \g__ZhLS_defaultbodyleading_fp
+\fp_new:N  \g__ZhLS_defaultfootleading_fp
+\fp_new:N  \g__ZhLS_tmpa_fp
+\dim_new:N \g__ZhLS_tmpa_dim
+\dim_new:N \g__ZhLS_tmpb_dim
+\group_begin:
+  \normalsize
+  \dim_set:Nn    \g__ZhLS_tmpa_dim { \f@size\p@ }
+  \dim_set_eq:NN \g__ZhLS_tmpb_dim \f@baselineskip
+  \fp_set:Nn \g__ZhLS_tmpa_fp { \dim_to_decimal_in_sp:n { \g__ZhLS_tmpa_dim } }
+  \bool_if:NTF \g__ZhLS_UseMSWordMultipleLineSpacing_bool
+    {
+      \exp_args:Nnff \__ZhLS_msg_warning:nnn { UseMSWordMultipleLineSpacing }
+        { \fp_use:N \g__ZhLS_MSWordSinglespaceRatio_fp    }
+        { \fp_use:N \g__ZhLS_MSWordLineSpacingMultiple_fp }
+      \fp_gset:Nn \g__ZhLS_targetbodyleading_fp
+        {
+          \g__ZhLS_tmpa_fp * \g__ZhLS_MSWordSinglespaceRatio_fp
+                        * \g__ZhLS_MSWordLineSpacingMultiple_fp
+        }
+    }
+    {
+      \fp_gset:Nn \g__ZhLS_targetbodyleading_fp
+        { \g__ZhLS_tmpa_fp * \g__ZhLS_bodytextleadingratio_fp }
+    }
+  \fp_gset:Nn \g__ZhLS_defaultbodyleading_fp
+    { \dim_to_decimal_in_sp:n { \g__ZhLS_tmpb_dim } }
+\group_end:
+\group_begin:
+  \footnotesize
+  \dim_set:Nn    \g__ZhLS_tmpa_dim { \f@size\p@ }
+  \dim_set_eq:NN \g__ZhLS_tmpb_dim \f@baselineskip
+  \fp_set:Nn \g__ZhLS_tmpa_fp { \dim_to_decimal_in_sp:n { \g__ZhLS_tmpa_dim } }
+  \bool_if:NTF \g__ZhLS_UseMSWordMultipleLineSpacing_bool
+    {
+      \fp_gset:Nn \g__ZhLS_targetfootleading_fp
+        {
+          \g__ZhLS_tmpa_fp * \g__ZhLS_MSWordSinglespaceRatio_fp
+                        * \g__ZhLS_MSWordLineSpacingMultiple_fp
+        }
+    }
+    {
+      \fp_gset:Nn \g__ZhLS_targetfootleading_fp
+        { \g__ZhLS_tmpa_fp * \g__ZhLS_bodytextleadingratio_fp }
+    }
+  \fp_gset:Nn \g__ZhLS_defaultfootleading_fp
+    { \dim_to_decimal_in_sp:n { \g__ZhLS_tmpb_dim } }
+\group_end:
+\fp_set:Nn \g__ZhLS_bodylinespread_fp
+  { \g__ZhLS_targetbodyleading_fp / \g__ZhLS_defaultbodyleading_fp }
+\fp_set:Nn \g__ZhLS_footlinespread_fp
+  { \g__ZhLS_targetfootleading_fp / \g__ZhLS_defaultfootleading_fp }
+\hook_gput_code:nnn { begindocument } { . }
+  { \linespread { \fp_use:N \g__ZhLS_bodylinespread_fp } \selectfont }
+\patchcmd \@footnotetext { \reset@font }
+  { \def \baselinestretch { \fp_use:N \g__ZhLS_footlinespread_fp } \reset@font }
+  {}{}
+\patchcmd\@mpfootnotetext { \reset@font }
+  { \def \baselinestretch { \fp_use:N \g__ZhLS_footlinespread_fp } \reset@font }
+  {}{}
+\cs_new:Npn \__ZhLS_resetfootnotesep:n #1
+  {
+    \group_begin:
+      \footnotesize
+      \linespread { \fp_use:N #1 } \selectfont
+      \dim_gset:Nn \footnotesep { \box_ht:N \strutbox }
+    \group_end:
+  }
+\__ZhLS_resetfootnotesep:n { \g__ZhLS_footlinespread_fp }
+\newcommand*\SetTextEnvironmentSinglespace[1]
+  { \tl_set:Nn \l__ZhLS_textlinespread_tl {#1} }
+\tl_set:Nn \l__ZhLS_textlinespread_tl { 1 }
+\newcommand*\RestoreTextEnvironmentLeading[1]
+  { \forcsvlist \__ZhLS_restoretextenvironmentleading:n {#1} }
+\cs_new:Npn \__ZhLS_restoretextenvironmentleading:n #1
+  {
+    \hook_gput_code:nnn { env / #1 / begin } { . }
+      { \linespread { \l__ZhLS_textlinespread_tl } \selectfont \ignorespaces }
+}
+\bool_if:NTF \g__ZhLS_restoremathleading_bool
+  {
+    \RequirePackage { mathtools }
+    \newcommand*\SetMathEnvironmentSinglespace[1]
+      { \tl_set:Nn \l__ZhLS_mathlinespread_tl {#1} }
+    \SetMathEnvironmentSinglespace{1}
+    \newcommand*\RestoreMathEnvironmentLeading[1]
+      { \forcsvlist \__ZhLS_restoremathenvironmentleading:n {#1} }
+    \cs_new:Npn \__ZhLS_restoremathenvironmentleading:n #1
+      {
+        \hook_gput_code:nnn { env / #1 / begin } { . }
+          { \linespread { \l__ZhLS_mathlinespread_tl } \selectfont \ignorespaces }
+      }
+    \patchcmd \start@gather { \collect@body }
+      { \linespread { \l__ZhLS_mathlinespread_tl } \selectfont \collect@body }
+      {} {}
+    \patchcmd \start@align { \collect@body }
+      { \linespread { \l__ZhLS_mathlinespread_tl } \selectfont \collect@body }
+      {} {}
+    \patchcmd \start@multline { \collect@body }
+      { \linespread { \l__ZhLS_mathlinespread_tl } \selectfont \collect@body }
+      {} {}
+    \patchcmd \gather@split { \spread@equation\vcenter\bgroup }
+      {
+        \vcenter\bgroup
+        \linespread { \l__ZhLS_mathlinespread_tl } \selectfont \spread@equation
+      } {}{}
+    \clist_map_inline:nn
+      {
+        array,
+        matrix,
+        pmatrix,
+        bmatrix,
+        Bmatrix,
+        vmatrix,
+        Vmatrix,
+        cases,
+        aligned,
+        alignedat,
+        gathered,
+        matrix*,
+        pmatrix*,
+        bmatrix*,
+        Bmatrix*,
+        vmatrix*,
+        Vmatrix*,
+        cases,
+        dcases,
+        dcases*,
+        rcases,
+        rcases*,
+        drcases,
+        drcases*,
+        multlined,
+        lgathered,
+        rgathered*,
+      } { \RestoreMathEnvironmentLeading {#1} }
+  }
+  {
+    \__ZhLS_msg_warning:n { Not ~ Loaded ~ `mathtools' }
+    \newcommand*\SetMathEnvironmentSinglespace[1]
+      {
+        \__ZhLS_msg_error:nn { Illegal ~ Usage }
+          { \SetMathEnvironmentSinglespace }
+      }
+    \newcommand*\RestoreMathEnvironmentLeading[1]
+      {
+        \__ZhLS_msg_error:nn { Illegal ~ Usage }
+          { \RestoreMathEnvironmentLeading }
+    }
+  }
+      \exp_args:Nnff \__ZhLS_msg_warning:nnn { UseMSWordMultipleLineSpacing }
+        { \fp_use:N \g__ZhLS_MSWordSinglespaceRatio_fp    }
+        { \fp_use:N \g__ZhLS_MSWordLineSpacingMultiple_fp }
+\endinput
+%% -----------------------------------------------------------------------
+%%   This work consists of the files zhlineskip.dtx,                     *
+%%                 the derived files zhlineskip.ins,                     *
+%%                                   zhlineskip.sty,                     *
+%%           the documentation files zhlineskip.pdf,                     *
+%%                                   Latinmetrics.pdf,                   *
+%%                                   CJKmetrics.pdf,                     *
+%%                               and README.md.                          *
+%% -----------------------------------------------------------------------
+%%
+%% End of file `zhlineskip.sty'.
