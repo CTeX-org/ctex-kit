@@ -35,16 +35,21 @@ parent_dir="$(dirname "$pkg_dir")"
 # 包目录 cp. 复用 git ls-files 保证只 cp 受版本控制的文件 (不带 build/).
 work_root="${parent_dir}/tmp/parallel-check"
 mkdir -p "$work_root"
-trap 'rm -rf "$work_root"' EXIT
+# 失败时**保留** work_root, 让上层 (test.yml 的 || 块) 能 cat 各 engine
+# 的 patch-health.log / *.log 做诊断. 成功时再删.
+cleanup() { [ "$?" -eq 0 ] && rm -rf "$work_root"; }
+trap cleanup EXIT
 
 # 用 git archive | tar 高效生成快照: 比 cp -r 快 (无需扫 build/ 等大目录).
 # 需要包目录在 git 控制下.
+# 注: 不吞 stderr — snapshot 失败会让 l3build 在难以诊断的位置炸, 让错误
+# 直接冒出来更省事.
 snapshot_pkg() {
   local dest="$1"
   mkdir -p "$dest"
   # 包根目录的所有 git 跟踪文件; 排除 build/ (l3build 工作区).
-  (cd "$pkg_dir" && git ls-files -z | tar --null -T- -cf - 2>/dev/null) \
-    | tar -xf - -C "$dest" 2>/dev/null
+  (cd "$pkg_dir" && git ls-files -z | tar --null -T- -cf -) \
+    | tar -xf - -C "$dest"
 }
 
 # ctex 的 checkdeps = {"../xeCJK", "../zhnumber"}. 包目录在 work_root/<engine>/<pkg>
@@ -56,8 +61,8 @@ snapshot_dep() {
   local dep_dest="${dest_root}/${dep}"
   [ -d "$dep_src" ] || return 0
   mkdir -p "$dep_dest"
-  (cd "$dep_src" && git ls-files -z | tar --null -T- -cf - 2>/dev/null) \
-    | tar -xf - -C "$dep_dest" 2>/dev/null
+  (cd "$dep_src" && git ls-files -z | tar --null -T- -cf -) \
+    | tar -xf - -C "$dep_dest"
 }
 
 # 从 build.lua 抠出 checkdeps. ctex 是 {"../xeCJK", "../zhnumber"}.
@@ -95,8 +100,10 @@ for engine in $ENGINES; do
   (
     cd "$engine_workdir"
     # bash 3.2 安全: 空数组用 ${arr[@]+"${arr[@]}"} 形式避免 set -u 炸.
+    # 用 awk 而非 sed -u 加前缀: awk 默认按行刷, 跨平台 (sed -u 是 GNU 扩展,
+    # windows git bash 的 sed 不支持).
     l3build check -e "${engine}" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
-      | sed -u "s|^|[${engine}] |"
+      | awk -v prefix="[${engine}] " '{ print prefix $0; fflush() }'
     exit "${PIPESTATUS[0]}"
   ) &
   pid=$!
