@@ -9,10 +9,7 @@ module              = "zhlineskip"
 version             = "v1.0f"
 date                = "2026-06-27"
 maintainer          = "Ruixi Zhang"
-uploader            = "Ruixi Zhang"
-maintainid          = "CTeX-org"
 email               = "ruixizhang42@gmail.com"
-repository          = "https://github.com/" .. maintainid .. "/ctex-kit"
 summary             = "Line spacing for CJK documents"
 description         = "This package supports typesetting CJK documents. It allows users to specify the two ratios between the leading and the font size of the body text and the footnote text. For CJK typesetting, these ratios usually range from 1.5 to 1.67. This package is also capable of restoring the math leading to that of the Latin text (usually 1.2 times the font size). Finally, it is possible to achieve the `Microsoft Word` multiple line spacing style using `zhlineskip`."
 
@@ -32,26 +29,20 @@ unpackfiles         = {module .. ".dtx"}
 stdengine           = "pdftex"
 supportdir          = "../support/"
 typesetexe          = "xelatex"
-uploadconfig  = {
-  note              = "",
-  announcement_file = "announcement.md",
-  pkg               = module,
-  version           = version .. " " .. date,
-  author            = maintainer,
-  uploader          = uploader,
-  email             = email,
-  summary           = summary,
-  description       = description,
-  license           = "lppl1.3c",
-  ctanPath          = "/language/chinese/" .. module,
-  home              = "http://ctex.org",
-  bugtracker        = repository .. "/issues",
-  support           = repository .. "/issues",
-  repository        = repository,
-  development       = "https://github.com/" .. maintainid,
-  update            = true
-}
 dofile(supportdir .. "build-config.lua")
+
+-- CTAN upload 走 release-ctan-upload.yml workflow 触发. uploader / email
+-- 不在 build.lua 硬编码, 由 workflow 通过 CTAN_UPLOADER / CTAN_EMAIL
+-- 环境变量注入, 避免任何 clone 仓库的人直接 l3build upload 冒名提交.
+uploadconfig = ctex_kit_uploadconfig {
+  pkg         = module,
+  version     = version .. " " .. date,
+  author      = maintainer,
+  summary     = summary,
+  description = description,
+  ctanPath    = "/language/chinese/" .. module,
+}
+
 function update_tag(file, content, tagname, tagdate)
   tagname = version
   tagdate = date
