@@ -93,12 +93,16 @@ jobs:
       working-directory: ./ctex
       run: |
         set -x
-        l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-cmap -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-contrib -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-ctxdoc -q "$L3BUILD_EXTRA_OPTIONS" || {
+        # 并行 4 engine, ~5-7min wall-clock (串行 ~20min). 4 个 config 一起
+        # 透过 CONFIGS env 喂给每个 engine 进程; 进程间 build/check-<engine>
+        # 隔离 (build.lua 通过 L3BUILD_TESTDIR_SUFFIX env 切 testdir).
+        CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+          ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
           echo "::group::patch-health raw log"
-          cat build/check-test/config-ctxdoc/patch-health.log 2>/dev/null || echo "raw log not found"
+          for d in build/check-*; do
+            f="$d/patch-health.log"
+            [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+          done
           echo "::endgroup::"
           exit 1
         }

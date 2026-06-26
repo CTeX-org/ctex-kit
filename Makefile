@@ -19,7 +19,7 @@ L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
 
 VERBS := doc unpack ctan check clean
 
-.PHONY: help hooks check-pr-ci \
+.PHONY: help hooks check-pr-ci check-ctex-serial \
         $(VERBS) \
         $(foreach v,$(VERBS),$(v)-all) \
         $(foreach v,$(VERBS),$(addprefix $(v)-,$(L3BUILD_PKGS))) \
@@ -68,6 +68,10 @@ clean-all: $(addprefix clean-,$(L3BUILD_PKGS)) clean-gbk2uni
 
 # ── 单包 target: $(verb)-$(pkg) → cd $(pkg) && l3build $(verb) ─────────────
 # 用 pattern rule 写法, 一条规则覆盖全部 verb × pkg 笛卡儿积.
+#
+# 注: check 的 ctex / xeCJK 等"大包"的 pattern 规则会被下方的 per-pkg
+# override (check-ctex 走 scripts/check-parallel.sh 多 engine 并行).
+# 其他小包仍走默认串行规则.
 define L3BUILD_PKG_RULES
 $(addprefix doc-,    $(1)): doc-%:    ; cd $$* && l3build doc
 $(addprefix unpack-, $(1)): unpack-%: ; cd $$* && l3build unpack
@@ -76,6 +80,21 @@ $(addprefix check-,  $(1)): check-%:  ; cd $$* && l3build check
 $(addprefix clean-,  $(1)): clean-%:  ; cd $$* && l3build clean
 endef
 $(eval $(call L3BUILD_PKG_RULES,$(L3BUILD_PKGS)))
+
+# ── check 大包并行加速 (override 上方 pattern rule) ────────────────────────
+# ctex 默认跑 4 engine, 串行 ~20min wall-clock; 并行后 ~5-7min. 走
+# scripts/check-parallel.sh, 通过 L3BUILD_TESTDIR_SUFFIX env 让每个 engine
+# 用独立的 build/check-<engine> 目录, 不争抢. 同步 ctex 主 test 与各 -c
+# config 三个 (cmap / contrib / ctxdoc) 都跑.
+check-ctex:                  ## ctex 4-engine 并行 l3build check (~5-7min)
+	cd ctex && CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+	  ../scripts/check-parallel.sh
+
+check-ctex-serial:           ## ctex 串行 l3build check (~20min, 用于调试并行)
+	cd ctex && l3build check
+	cd ctex && l3build check -c test/config-cmap
+	cd ctex && l3build check -c test/config-contrib
+	cd ctex && l3build check -c test/config-ctxdoc
 
 # ── gbk2uni 走子 Makefile ──────────────────────────────────────────────────
 doc-gbk2uni unpack-gbk2uni:
