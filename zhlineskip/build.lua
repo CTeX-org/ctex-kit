@@ -30,9 +30,8 @@ sourcefiles         = {module .. ".dtx", "*.pdf"}
 textfiles           = {"README.md", "*.lua"}
 unpackfiles         = {module .. ".dtx"}
 stdengine           = "pdftex"
-supportdir          = "../support"
-typesetexe          = "latexmk -pdfxe -xelatex"
-typesetruns         = 1
+supportdir          = "../support/"
+typesetexe          = "xelatex"
 uploadconfig  = {
   note              = "",
   announcement_file = "announcement.md",
@@ -52,6 +51,7 @@ uploadconfig  = {
   development       = "https://github.com/" .. maintainid,
   update            = true
 }
+dofile(supportdir .. "build-config.lua")
 function update_tag(file, content, tagname, tagdate)
   tagname = version
   tagdate = date
@@ -84,19 +84,4 @@ function docinit_hook()
   end
   cp(ctanreadme, unpackdir, currentdir)
   return 0
-end
-function tex(file,dir,cmd)
-  dir = dir or "."
-  cmd = cmd or typesetexe
-  if os.getenv("WINDIR") ~= nil or os.getenv("COMSPEC") ~= nil then
-    upretex_aux = "-usepretex=\"" .. typesetcmds .. "\""
-    makeidx_aux = "-e \"$makeindex=q/makeindex -s " .. indexstyle .. " %O %S/\""
-    sandbox_aux = "set \"TEXINPUTS=../local;%TEXINPUTS%;\" &&"
-  else
-    upretex_aux = "-usepretex=\'" .. typesetcmds .. "\'"
-    makeidx_aux = "-e \'$makeindex=q/makeindex -s " .. indexstyle .. " %O %S/\'"
-    sandbox_aux = "TEXINPUTS=\"../local:$(kpsewhich -var-value=TEXINPUTS):\""
-  end
-  return run(dir, sandbox_aux .. " " .. cmd         .. " " ..
-                  upretex_aux .. " " .. makeidx_aux .. " " .. file)
 end
