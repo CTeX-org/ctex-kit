@@ -49,5 +49,3 @@ version 2008 or later.
 This work has the LPPL maintenance status `maintained`.
 
 The Current Maintainer of this work is **Ruixi Zhang**.
-\GetIdInfo $Id: zhlineskip.dtx v1.0? 2026-06-27 Ruixi Zhang<ruixizhang42@gmail.com>$
-  {\ExplFileDate} {\ExplFileVersion} {\ExplFileDescription}
