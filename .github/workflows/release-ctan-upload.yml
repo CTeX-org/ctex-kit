@@ -237,6 +237,14 @@ jobs:
     needs: prepare-announcement
     if: github.repository == 'CTeX-org/ctex-kit'
     runs-on: ubuntu-latest
+    # Environment gate (仅 live mode 启用):
+    # - dry_run=true ⟹ 不进 environment, 任意 collaborator 可跑测试
+    # - dry_run=false ⟹ 进 ctan-release-<module>, 等该包 required reviewers
+    #   在 GH UI 点 Approve 才放行真上 CTAN. environment 名跟 module (全小写).
+    # 需先在 Settings → Environments 建好 environment + 配 required reviewers
+    # (+ 可选 wait timer); environment 名缺失会让 job fail.
+    environment:
+      name: ${{ inputs.dry_run == false && format('ctan-release-{0}', needs.prepare-announcement.outputs.module) || '' }}
     steps:
       - uses: actions/checkout@v7
         with:
