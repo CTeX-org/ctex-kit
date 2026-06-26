@@ -30,7 +30,7 @@ sourcefiles         = {module .. ".dtx", "*.pdf"}
 textfiles           = {"README.md", "*.lua"}
 unpackfiles         = {module .. ".dtx"}
 stdengine           = "pdftex"
-supportdir          = "../supprot"
+supportdir          = "../support"
 typesetexe          = "latexmk -pdfxe -xelatex"
 typesetruns         = 1
 uploadconfig  = {
@@ -66,13 +66,6 @@ function update_tag(file, content, tagname, tagdate)
 end
 
 --[================== "Hacks" to `l3build` | Do not Modify ==================]--
-function unpack_posthook()
-  if install_files_bool then
-    for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
-      cp(i, supportdir, localdir)
-    end
-  end
-end
 function fetchdocsupp(shortlink)
   run(typesetdir, "curl -O -L \"https://" .. shortlink .. "\"")
   return 0
@@ -85,6 +78,9 @@ function docinit_hook()
   for _, series in pairs(notofontset) do
     fetchdocsupp(
       "mirrors.ctan.org/fonts/notocjksc/Noto" .. series .. ".otf")
+  end
+  for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
+    cp(i, supportdir, localdir)
   end
   cp(ctanreadme, unpackdir, currentdir)
   return 0
