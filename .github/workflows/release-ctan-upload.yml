@@ -35,7 +35,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   # ── 阶段 A: 生成英文 announcement ──────────────────────────────────────
@@ -207,15 +206,22 @@ jobs:
             --model opus --allowedTools "Read,Write,Bash(cat:*),Bash(ls:*),Bash(wc:*)"
             --json-schema '{"type":"object","properties":{"announcement":{"type":"string","description":"完整 announcement 英文文本"},"summary":{"type":"string","description":"一句话摘要 (给 GH Actions step summary 用)"}},"required":["announcement","summary"]}'
 
-      - name: Write announcement.md from structured output
+      - name: Verify announcement.md exists
+        env:
+          # 把 structured_output 通过 env 安全传入 (避免 GH Actions 表达式直接
+          # 插值到 shell 字符串造成的引号转义/命令注入风险). 仅用于失败时打日志.
+          STRUCTURED_OUTPUT: ${{ steps.announce.outputs.structured_output }}
         run: |
-          # 双保险: LLM 已经 Write 了 announcement.md, 但有些情况下文件可能
-          # 没写成 (claude-code-action 调度异常). 这里从 structured_output
-          # 兜底再写一次.
+          # LLM 已经被 prompt 要求用 Write 工具写 announcement.md. 这里不做
+          # heredoc 兜底, 避免把 structured_output 内容直接拼进 shell — 假如
+          # LLM 输出含独占一行 "EOF" 类标记, heredoc 会提前终止, 后续被当
+          # 命令执行 (注入向量, 即便 LLM 受控也不应该留这种路径).
           if [ ! -s announcement.md ]; then
-            cat > announcement.md <<'ANN_EOF'
-          ${{ fromJSON(steps.announce.outputs.structured_output).announcement }}
-          ANN_EOF
+            echo "::error::LLM 未写入 announcement.md. 检查上一个 step 的日志."
+            echo "::group::structured_output (调试用)"
+            printf '%s\n' "$STRUCTURED_OUTPUT"
+            echo "::endgroup::"
+            exit 1
           fi
           echo "=== announcement.md ==="
           cat announcement.md
