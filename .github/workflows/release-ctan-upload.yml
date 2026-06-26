@@ -1,0 +1,324 @@
+name: Release CTAN upload
+
+# 两阶段 release 流程的「正式发布」阶段:
+#   1) push tag → release.yml 自动跑, l3build ctan 打包, 上传到 GitHub
+#      Release (prerelease=true). 这是「公测」阶段, 用户可以下载 zip 自测.
+#   2) 公测无误 ⟹ 本 workflow 手动触发, 把同一个 GH Release zip 改名后
+#      喂给 l3build upload, 投递到 CTAN. CTAN reviewer 接收后正式发布.
+#
+# 安全设计:
+#   - workflow_dispatch only, 无 push trigger ⟹ 不会被打 tag 误触
+#   - dry_run 默认 true ⟹ 第一次跑必然是 --dry-run, 不会真上传
+#   - announcement 由 LLM 从 .dtx \changes 整理英文, 投递到 CTAN
+#   - 上传成功且非 dry-run ⟹ 自动把 GH Release prerelease 翻成 latest
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '已发布的 GH Release tag (必填), 如 xeCJK-v3.10.0'
+        required: true
+        type: string
+      uploader:
+        description: 'CTAN 上传者真名 (CTAN reviewer 回邮抬头), 如 Liam Huang'
+        required: true
+        type: string
+      email:
+        description: 'CTAN 上传者 email (CTAN reviewer 回邮地址)'
+        required: true
+        type: string
+      dry_run:
+        description: '只跑 l3build upload --dry-run, 不真上传'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # ── 阶段 A: 生成英文 announcement ──────────────────────────────────────
+  prepare-announcement:
+    if: github.repository == 'CTeX-org/ctex-kit'
+    runs-on: ubuntu-latest
+    outputs:
+      pkg: ${{ steps.parse.outputs.pkg }}
+      dir: ${{ steps.parse.outputs.dir }}
+      module: ${{ steps.parse.outputs.module }}
+      dtx: ${{ steps.parse.outputs.dtx }}
+      ver: ${{ steps.parse.outputs.ver }}
+      ctan_path: ${{ steps.ctan.outputs.path }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${{ inputs.tag }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          case "${TAG}" in
+            ctex-v*)
+              echo "pkg=ctex"       >> "$GITHUB_OUTPUT"
+              echo "dir=ctex"       >> "$GITHUB_OUTPUT"
+              echo "module=ctex"    >> "$GITHUB_OUTPUT"
+              echo "dtx=ctex.dtx"   >> "$GITHUB_OUTPUT"
+              echo "ver=${TAG#ctex-v}" >> "$GITHUB_OUTPUT"
+              ;;
+            xeCJK-v*)
+              echo "pkg=xeCJK"      >> "$GITHUB_OUTPUT"
+              echo "dir=xeCJK"      >> "$GITHUB_OUTPUT"
+              echo "module=xecjk"   >> "$GITHUB_OUTPUT"
+              echo "dtx=xeCJK.dtx"  >> "$GITHUB_OUTPUT"
+              echo "ver=${TAG#xeCJK-v}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::目前只支持 ctex / xeCJK. 其它包请扩展 Parse tag step." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Fetch CTAN path from JSON API
+        id: ctan
+        env:
+          PKG_MODULE: ${{ steps.parse.outputs.module }}
+        run: |
+          # CTAN 的 JSON API 返回 .ctan = {path: "/macros/xetex/latex/xecjk", file: true}.
+          # 万一 CTAN 重组结构, 这里直接同步, 不必再手改 build.lua.
+          PATH_FROM_CTAN="$(curl -fsSL \
+            "https://ctan.org/json/2.0/pkg/${PKG_MODULE}" \
+            | jq -r '.ctan.path // empty')"
+          if [ -z "$PATH_FROM_CTAN" ]; then
+            echo "::error::CTAN API 没返回 ${PKG_MODULE} 的 .ctan.path 路径." >&2
+            exit 1
+          fi
+          echo "path=${PATH_FROM_CTAN}" >> "$GITHUB_OUTPUT"
+          echo "  CTAN path: ${PATH_FROM_CTAN}"
+
+      - name: Extract v<ver> changes block
+        id: changes
+        env:
+          DTX_PATH: ${{ steps.parse.outputs.dir }}/${{ steps.parse.outputs.dtx }}
+          VER: ${{ steps.parse.outputs.ver }}
+        run: |
+          # 抽出所有 \changes{v<ver>}{...}{...} 条目 (含 \begin{macrocode} 前的
+          # 续行) 写入 changes-context.txt 作为 LLM 的输入材料.
+          # 注意: heredoc 必须用 quoted EOF + 零缩进 (python 对前导空格敏感).
+          python3 > changes-context.txt <<'PYEOF'
+          import os
+          path = os.environ["DTX_PATH"]
+          ver  = os.environ["VER"]
+          with open(path, encoding="utf-8", errors="replace") as f:
+              lines = f.read().splitlines()
+          marker = f"\\changes{{v{ver}}}"
+          out, i = [], 0
+          while i < len(lines):
+              if marker in lines[i]:
+                  buf = [lines[i].lstrip("% ").rstrip()]
+                  # 续行: `% ` 开头且不开新 \changes / macrocode block / 空行
+                  j = i + 1
+                  while j < len(lines):
+                      s = lines[j]
+                      if not s.startswith("%"): break
+                      stripped = s.lstrip("% ").rstrip()
+                      if (stripped.startswith("\\changes")
+                              or stripped.startswith("\\begin{macrocode}")
+                              or stripped.startswith("\\end{macrocode}")
+                              or stripped == ""):
+                          break
+                      buf.append("  " + stripped)
+                      j += 1
+                  out.append("\n".join(buf))
+                  i = j
+              else:
+                  i += 1
+          print("\n\n".join(out))
+          PYEOF
+          if [ ! -s changes-context.txt ]; then
+              echo "::error::No \\changes{v${VER}} entries found in ${DTX_PATH}" >&2
+              exit 1
+          fi
+          wc -l changes-context.txt
+
+      - name: Fetch previous CTAN announcement for tone reference
+        id: prev_ann
+        env:
+          PKG_MODULE: ${{ steps.parse.outputs.module }}
+        run: |
+          # CTAN 暴露 announcement 列表的 ID, 我们用 .announcements 字段拿到
+          # 最近一条 announcement URL, 然后取它的纯文本做 LLM tone reference.
+          # 失败不阻塞 (写个空文件让 LLM 自由发挥).
+          if PREV_URL="$(curl -fsSL \
+              "https://ctan.org/json/2.0/pkg/${PKG_MODULE}" \
+              | jq -r '.announcement[-1].href // empty' 2>/dev/null)" \
+             && [ -n "$PREV_URL" ]; then
+              curl -fsSL "https://ctan.org${PREV_URL}" \
+                > prev-announcement.txt || echo "" > prev-announcement.txt
+          else
+              echo "" > prev-announcement.txt
+          fi
+          ls -la prev-announcement.txt
+
+      - name: Install pinned Claude Code CLI
+        id: setup_claude
+        run: |
+          CLAUDE_INSTALL_DIR="$RUNNER_TEMP/claude-code-2.1.80"
+          npm install --prefix "$CLAUDE_INSTALL_DIR" @anthropic-ai/claude-code@2.1.80
+          echo "path=$CLAUDE_INSTALL_DIR/node_modules/.bin/claude" >> $GITHUB_OUTPUT
+
+      - name: Generate English announcement (LLM)
+        id: announce
+        uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+        with:
+          github_token: ${{ secrets.PAT_TOKEN || github.token }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          path_to_claude_code_executable: ${{ steps.setup_claude.outputs.path }}
+          prompt: |
+            你是 LaTeX 包发布工程师, 任务是为 CTAN 上传准备英文 announcement.
+
+            包: ${{ steps.parse.outputs.pkg }}
+            版本: v${{ steps.parse.outputs.ver }}
+            标签: ${{ inputs.tag }}
+
+            **请先 Read 两个本地文件作为材料**:
+            - `changes-context.txt`: v${{ steps.parse.outputs.ver }} 的全部 `\changes` 中文条目 (主材料)
+            - `prev-announcement.txt`: 上一版 CTAN announcement 英文 (风格参考, 可能为空)
+
+            要求:
+            - 输出**英文** announcement, 300-500 词
+            - 风格简洁 / 技术性, 参考 prev-announcement.txt 的口吻 (若有)
+            - 分类: NEW FEATURES / BUG FIXES / BREAKING CHANGES / DEPRECATIONS
+              其中空类直接略掉, 不留标题
+            - 每条一句概括 + (#issue) 引用 (若 \changes 提及 #)
+            - 末尾两行: source + issue tracker URL
+              https://github.com/CTeX-org/ctex-kit
+              https://github.com/CTeX-org/ctex-kit/issues
+            - **不要直译** \changes 的中文, 要按 LaTeX 包发布的英文表达整理总结
+            - 用 Write 工具把最终 announcement 写到 `announcement.md` (与
+              changes-context.txt 同目录)
+
+            写完后通过 structured_output 返回该 announcement 的全文.
+          claude_args: |
+            --model opus --allowedTools "Read,Write,Bash(cat:*),Bash(ls:*),Bash(wc:*)"
+            --json-schema '{"type":"object","properties":{"announcement":{"type":"string","description":"完整 announcement 英文文本"},"summary":{"type":"string","description":"一句话摘要 (给 GH Actions step summary 用)"}},"required":["announcement","summary"]}'
+
+      - name: Write announcement.md from structured output
+        run: |
+          # 双保险: LLM 已经 Write 了 announcement.md, 但有些情况下文件可能
+          # 没写成 (claude-code-action 调度异常). 这里从 structured_output
+          # 兜底再写一次.
+          if [ ! -s announcement.md ]; then
+            cat > announcement.md <<'ANN_EOF'
+          ${{ fromJSON(steps.announce.outputs.structured_output).announcement }}
+          ANN_EOF
+          fi
+          echo "=== announcement.md ==="
+          cat announcement.md
+          echo "======================="
+          echo "## Generated Announcement" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat announcement.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload announcement artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: announcement
+          path: announcement.md
+          retention-days: 90
+
+  # ── 阶段 B: l3build upload (从 GH Release zip 复用) ─────────────────────
+  upload-ctan:
+    needs: prepare-announcement
+    if: github.repository == 'CTeX-org/ctex-kit'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Install TeX Live (minimal for l3build)
+        timeout-minutes: 15
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          # l3build upload 只需要 l3build script 本身 + LuaTeX (用于跑 build.lua).
+          # 全套字体 / Unihan / makeindex 都不需要 — 我们不重新打 zip.
+          packages: |
+            l3build
+            luatex
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+
+      - name: Download announcement artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: announcement
+          path: .
+
+      - name: Download GH Release ctan zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIR: ${{ needs.prepare-announcement.outputs.dir }}
+          MODULE: ${{ needs.prepare-announcement.outputs.module }}
+        run: |
+          mkdir -p downloaded
+          gh release download "${{ inputs.tag }}" \
+            --pattern '*.zip' \
+            --dir downloaded
+          # GH Release 上的 zip 文件名是 `<module>-v<ver>-<sha>.zip`,
+          # l3build upload 期待 `<DIR>/<module>-ctan.zip`. 改名后放对位置.
+          ASSET="$(ls downloaded/*.zip | head -1)"
+          if [ -z "$ASSET" ]; then
+            echo "::error::GH Release ${{ inputs.tag }} has no zip asset" >&2
+            exit 1
+          fi
+          mv "$ASSET" "${DIR}/${MODULE}-ctan.zip"
+          ls -la "${DIR}/${MODULE}-ctan.zip"
+
+      - name: Run l3build upload
+        working-directory: ${{ needs.prepare-announcement.outputs.dir }}
+        env:
+          # CTAN announcement 文件相对 working-directory (..) 的位置
+          ANN_FILE: ../announcement.md
+          # ctex_kit_uploadconfig() 从 env 读 uploader / email, 这样 build.lua
+          # 不需要把个人信息硬编码进 git, 本地跑 l3build upload 也是同一套.
+          CTAN_UPLOADER: ${{ inputs.uploader }}
+          CTAN_EMAIL: ${{ inputs.email }}
+        run: |
+          # --file 把 announcement.md 喂给 CTAN announcement 表单.
+          # --email 显式再传一次 (l3build CLI 接受, 兜底防 build.lua 里漏读 env).
+          ARGS=(--file "$ANN_FILE")
+          ARGS+=(--email "${{ inputs.email }}")
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS+=(--dry-run)
+            echo "::notice::DRY-RUN mode: 不会真投递到 CTAN."
+          else
+            echo "::warning::LIVE mode: 正在投递到 CTAN."
+          fi
+          echo "l3build upload ${ARGS[*]}"
+          l3build upload "${ARGS[@]}"
+
+      - name: Mark GH Release as latest (live mode only)
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 公测期 release.yml 创建的是 prerelease. CTAN 投递成功 ⟹ 翻成正式版.
+          gh release edit "${{ inputs.tag }}" --prerelease=false --latest
+          echo "::notice::Marked ${{ inputs.tag }} as latest (no longer prerelease)."
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## CTAN Upload Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: ${{ needs.prepare-announcement.outputs.pkg }} v${{ needs.prepare-announcement.outputs.ver }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ inputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CTAN Path**: ${{ needs.prepare-announcement.outputs.ctan_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Uploader**: ${{ inputs.uploader }} <${{ inputs.email }}>" >> $GITHUB_STEP_SUMMARY
+          echo "- **Mode**: ${{ inputs.dry_run == true && 'DRY-RUN' || 'LIVE' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Result**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
