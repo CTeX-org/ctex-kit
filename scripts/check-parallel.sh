@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
-# scripts/check-parallel.sh — 加速 l3build check.
+# scripts/check-parallel.sh — 加速 l3build check, 多 engine 并行.
 #
-# 现状: ctex 默认 4 engine (pdftex/xetex/luatex/uptex) × 181 test × 2 checkruns,
-# 单进程串行 ~20min. 加速策略:
-#   - 主测(无 -c)按 engine 拆 4 个并行进程, 每个独立 build/check-<engine>/
-#     (build.lua 通过 L3BUILD_TESTDIR_SUFFIX env 切 testdir).
-#   - -c <config> 配置仍串行跑 (config 本身就只针对部分 engine, 数量少,
-#     不值得并行).
+# 设计: l3build 内部用相对路径写 .tlg, 让 build/check 多一层 (如
+# build/check-<engine>) 会让 .log 里的相对路径 "../foo" 而非 "foo", 与
+# .tlg 不匹配, 整个 baseline 报 diff.
 #
-# 用法 (在 ctex/ 等包目录内):
-#   ENGINES="pdftex xetex luatex uptex"     # 主测并行 engine 列表
-#   CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc"  # 串行 config
+# 解决: 每个 engine 进程在**独立的子工作目录**里跑 (整个包 cp 一份),
+# testdir 仍是 build/check (相对路径不变, .tlg 兼容).
+#
+# 用法 (在 ctex/ 等包目录内执行):
+#   ENGINES="pdftex xetex luatex uptex"
+#   CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc"
 #   ../scripts/check-parallel.sh [extra-l3build-args...]
 #
-# 前提: build.lua 把 testdir 设为 "./build/check" .. (env L3BUILD_TESTDIR_SUFFIX
-# or ""), 这样并行进程不争抢同一 testdir.
+# bash 兼容: 不依赖 bash 4+ 特性 (declare -A 等). macOS 自带 bash 3.2 可跑.
 set -uo pipefail
 
 ENGINES="${ENGINES:-pdftex xetex luatex uptex}"
@@ -26,48 +25,105 @@ if [ ! -f build.lua ]; then
   exit 1
 fi
 
+pkg_dir="$(pwd)"
+pkg_name="$(basename "$pkg_dir")"
+parent_dir="$(dirname "$pkg_dir")"
+
+# 工作目录在仓库根的 tmp/parallel-check/<engine>/, 每个 engine 一份完整的
+# 包目录 cp. 复用 git ls-files 保证只 cp 受版本控制的文件 (不带 build/).
+work_root="${parent_dir}/tmp/parallel-check"
+mkdir -p "$work_root"
+trap 'rm -rf "$work_root"' EXIT
+
+# 用 git archive | tar 高效生成快照: 比 cp -r 快 (无需扫 build/ 等大目录).
+# 需要包目录在 git 控制下.
+snapshot_pkg() {
+  local dest="$1"
+  mkdir -p "$dest"
+  # 包根目录的所有 git 跟踪文件; 排除 build/ (l3build 工作区).
+  (cd "$pkg_dir" && git ls-files -z | tar --null -T- -cf - 2>/dev/null) \
+    | tar -xf - -C "$dest" 2>/dev/null
+}
+
+# ctex 的 checkdeps = {"../xeCJK", "../zhnumber"}. 包目录在 work_root/<engine>/<pkg>
+# 跑时, ../<dep> 应当是 work_root/<engine>/<dep>. 所以 deps 也要 cp.
+snapshot_dep() {
+  local dep="$1"
+  local dest_root="$2"
+  local dep_src="${parent_dir}/${dep}"
+  local dep_dest="${dest_root}/${dep}"
+  [ -d "$dep_src" ] || return 0
+  mkdir -p "$dep_dest"
+  (cd "$dep_src" && git ls-files -z | tar --null -T- -cf - 2>/dev/null) \
+    | tar -xf - -C "$dep_dest" 2>/dev/null
+}
+
+# 从 build.lua 抠出 checkdeps. ctex 是 {"../xeCJK", "../zhnumber"}.
+CHECKDEPS=$(awk '/^checkdeps/,/}/ {
+  while (match($0, /"\.\.\/[^"]+"/)) {
+    s = substr($0, RSTART+4, RLENGTH-5)
+    print s
+    $0 = substr($0, RSTART+RLENGTH)
+  }
+}' build.lua | sort -u)
+
+# 始终需要的兄弟目录: support/ 含共享 build-config.lua, 被各包的 build.lua
+# 末尾 dofile. 即使 checkdeps 没列也必须 cp.
+SIBLING_ALWAYS="support"
+
 # Phase 1: 主测多 engine 并行
 echo "==================== Phase 1: 主测 (并行 engines: $ENGINES) ===================="
 
-run_engine_main() {
-  local engine="$1"
-  L3BUILD_TESTDIR_SUFFIX="-${engine}" \
-    l3build check -e "${engine}" -q ${EXTRA_ARGS} \
-    2>&1 | sed -u "s/^/[${engine}] /"
-  return "${PIPESTATUS[0]}"
-}
+# 为每个 engine 准备一个独立子工作目录, 后台跑.
+declare_pids() { :; }   # no-op marker
+pid_list=""              # space-separated; 用字符串避免 declare -A
+engine_for_pid=""        # "pid:engine pid:engine ..." 格式
+exit_for_engine=""       # "engine:rc engine:rc ..."
 
-declare -a MAIN_PIDS=()
-declare -A MAIN_RC=()
-declare -A MAIN_ENG=()
 for engine in $ENGINES; do
-  run_engine_main "$engine" &
+  engine_workdir="${work_root}/${engine}/${pkg_name}"
+  snapshot_pkg "$engine_workdir"
+  for dep in $CHECKDEPS; do
+    snapshot_dep "$dep" "${work_root}/${engine}"
+  done
+  for sib in $SIBLING_ALWAYS; do
+    snapshot_dep "$sib" "${work_root}/${engine}"
+  done
+
+  (
+    cd "$engine_workdir"
+    l3build check -e "${engine}" -q ${EXTRA_ARGS} 2>&1 \
+      | sed -u "s|^|[${engine}] |"
+    exit "${PIPESTATUS[0]}"
+  ) &
   pid=$!
-  MAIN_PIDS+=("$pid")
-  MAIN_ENG["$pid"]="$engine"
+  pid_list="$pid_list $pid"
+  engine_for_pid="$engine_for_pid ${pid}:${engine}"
 done
 
 MAIN_FAIL=0
-for pid in "${MAIN_PIDS[@]}"; do
+for pid in $pid_list; do
   wait "$pid"
   rc=$?
-  engine="${MAIN_ENG[$pid]}"
-  MAIN_RC["$engine"]="$rc"
+  # 从 engine_for_pid 找回对应 engine
+  engine=$(echo "$engine_for_pid" | tr ' ' '\n' | grep "^${pid}:" | cut -d: -f2)
+  exit_for_engine="$exit_for_engine ${engine}:${rc}"
   [ "$rc" -ne 0 ] && MAIN_FAIL=1
 done
 
-# Phase 2: -c configs 串行 (单进程, 默认 testdir, 4 engine 内部串行)
+# Phase 2: -c configs 串行, 在原 pkg_dir 跑 (configs 不并行, 相对路径无忧).
 CONFIG_FAIL=0
-declare -A CONFIG_RC=()
+config_exits=""
 if [ -n "$CONFIGS" ]; then
   echo ""
   echo "==================== Phase 2: configs (串行: $CONFIGS) ===================="
   for c in $CONFIGS; do
     echo "--- config: $c ---"
-    if l3build check -c "$c" -q ${EXTRA_ARGS} 2>&1; then
-      CONFIG_RC["$c"]=0
+    if l3build check -c "$c" -q ${EXTRA_ARGS}; then
+      config_exits="$config_exits ${c}:0"
     else
-      CONFIG_RC["$c"]=$?
+      rc=$?
+      config_exits="$config_exits ${c}:${rc}"
       CONFIG_FAIL=1
     fi
   done
@@ -77,8 +133,9 @@ fi
 echo ""
 echo "==================== check-parallel summary ===================="
 echo "Phase 1 (main test, parallel by engine):"
-for engine in $ENGINES; do
-  rc="${MAIN_RC[$engine]}"
+for entry in $exit_for_engine; do
+  engine="${entry%:*}"
+  rc="${entry#*:}"
   if [ "$rc" -eq 0 ]; then
     echo "  ✓ ${engine}"
   else
@@ -87,8 +144,9 @@ for engine in $ENGINES; do
 done
 if [ -n "$CONFIGS" ]; then
   echo "Phase 2 (configs, serial):"
-  for c in $CONFIGS; do
-    rc="${CONFIG_RC[$c]:-N/A}"
+  for entry in $config_exits; do
+    c="${entry%:*}"
+    rc="${entry#*:}"
     if [ "$rc" = "0" ]; then
       echo "  ✓ ${c}"
     else
