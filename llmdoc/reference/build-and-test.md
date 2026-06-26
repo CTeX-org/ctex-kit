@@ -24,7 +24,7 @@
 - `make hooks`：一次性安装 git hooks（`git config core.hooksPath .githooks`）。
 - `make check-pr-ci`：手动触发 PR CI watch + review 抓取（同 `pre-push` 调用的 `./.githooks/check-pr-ci.sh`）。
 
-注意 `make check`（全包回归）单包即需 20min+，本地慎用，默认仍由 CI 跑。hook 的详细说明见 `.githooks/README.md`。
+注意 `make check`(全包回归)单包动辄 8min+(`make check-ctex` 经 4-engine 并行已从 ~20min 压到 ~8min),本地按需用。hook 的详细说明见 `.githooks/README.md`。
 
 ## `support/build-config.lua` 的角色
 

@@ -18,7 +18,9 @@ set -uo pipefail
 
 ENGINES="${ENGINES:-pdftex xetex luatex uptex}"
 CONFIGS="${CONFIGS:-}"
-EXTRA_ARGS="$*"
+# 用数组保 EXTRA_ARGS, 避免单字符串模式下 word splitting 出错 (例如未来
+# 有用户传 --first foo 这种带空格的参数). bash 3.2 安全: 不依赖 4+ 特性.
+EXTRA_ARGS=("$@")
 
 if [ ! -f build.lua ]; then
   echo "ERROR: 必须在含 build.lua 的包目录里跑这个脚本" >&2
@@ -92,7 +94,8 @@ for engine in $ENGINES; do
 
   (
     cd "$engine_workdir"
-    l3build check -e "${engine}" -q ${EXTRA_ARGS} 2>&1 \
+    # bash 3.2 安全: 空数组用 ${arr[@]+"${arr[@]}"} 形式避免 set -u 炸.
+    l3build check -e "${engine}" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
       | sed -u "s|^|[${engine}] |"
     exit "${PIPESTATUS[0]}"
   ) &
@@ -119,7 +122,7 @@ if [ -n "$CONFIGS" ]; then
   echo "==================== Phase 2: configs (串行: $CONFIGS) ===================="
   for c in $CONFIGS; do
     echo "--- config: $c ---"
-    if l3build check -c "$c" -q ${EXTRA_ARGS}; then
+    if l3build check -c "$c" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; then
       config_exits="$config_exits ${c}:0"
     else
       rc=$?

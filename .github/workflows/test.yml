@@ -99,8 +99,14 @@ jobs:
         CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
           ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
           echo "::group::patch-health raw log"
-          for d in build/check-*; do
-            f="$d/patch-health.log"
+          # patch-health.log 可能在两个位置:
+          # - build/check-test/config-ctxdoc/patch-health.log (config 串行跑, 默认 testdir 子目录)
+          # - tmp/parallel-check/<engine>/ctex/build/check/.../patch-health.log
+          #   (主测在 wrapper 独立子工作目录跑)
+          # 递归找两类位置.
+          for f in build/check-test/config-ctxdoc/patch-health.log \
+                   ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                   build/check-*/patch-health.log; do
             [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
           done
           echo "::endgroup::"
