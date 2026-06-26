@@ -52,19 +52,17 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      ctex:       ${{ steps.filter.outputs.ctex }}
-      xeCJK:      ${{ steps.filter.outputs.xeCJK }}
-      zhnumber:   ${{ steps.filter.outputs.zhnumber }}
-      CJKpunct:   ${{ steps.filter.outputs.CJKpunct }}
-      zhlineskip: ${{ steps.filter.outputs.zhlineskip }}
+      # JSON 数组的 pkg 名, 给下游 matrix 用 fromJSON 转 list. push /
+      # schedule / workflow_dispatch 触发时直接给全 5 个; pull_request
+      # 触发时按 path filter 结果给子集.
+      packages: ${{ steps.compute.outputs.packages }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
         id: filter
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v4
         with:
-          # 对于非 PR 触发, 这个 step 通过 base 比较, 但其实结果会被下游
-          # if 强制 true (见下方 needs.changes.outputs).
           filters: |
             # 公共改动 → 全包都要跑
             _all: &all
@@ -90,18 +88,46 @@ jobs:
             zhlineskip:
               - *all
               - 'zhlineskip/**'
+      - name: Compute active packages
+        id: compute
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          FILTER_CTEX:       ${{ steps.filter.outputs.ctex       }}
+          FILTER_XECJK:      ${{ steps.filter.outputs.xeCJK      }}
+          FILTER_ZHNUMBER:   ${{ steps.filter.outputs.zhnumber   }}
+          FILTER_CJKPUNCT:   ${{ steps.filter.outputs.CJKpunct   }}
+          FILTER_ZHLINESKIP: ${{ steps.filter.outputs.zhlineskip }}
+        run: |
+          # PR 走 path filter; 其它触发全跑.
+          if [ "$IS_PR" != "true" ]; then
+            pkgs='["ctex","xeCJK","zhnumber","CJKpunct","zhlineskip"]'
+          else
+            pkgs="["
+            sep=""
+            [ "$FILTER_CTEX"       = "true" ] && pkgs="${pkgs}${sep}\"ctex\""       && sep=","
+            [ "$FILTER_XECJK"      = "true" ] && pkgs="${pkgs}${sep}\"xeCJK\""      && sep=","
+            [ "$FILTER_ZHNUMBER"   = "true" ] && pkgs="${pkgs}${sep}\"zhnumber\""   && sep=","
+            [ "$FILTER_CJKPUNCT"   = "true" ] && pkgs="${pkgs}${sep}\"CJKpunct\""   && sep=","
+            [ "$FILTER_ZHLINESKIP" = "true" ] && pkgs="${pkgs}${sep}\"zhlineskip\"" && sep=","
+            pkgs="${pkgs}]"
+          fi
+          echo "packages=${pkgs}" >> "$GITHUB_OUTPUT"
+          echo "Active packages: ${pkgs}"
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 1: 各包 × 各 OS 并行测试. 15 个 job 同时跑 (3 OS × 5 pkg).
   # ──────────────────────────────────────────────────────────────────────
   test:
     needs: changes
+    # 包列表为空 (PR 上没改任何相关包) 时整个 matrix 跳过.
+    if: ${{ needs.changes.outputs.packages != '[]' }}
     strategy:
       # 一个 job 失败不取消其它. 我们想看到所有 OS / 所有 pkg 的结果.
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        pkg: [ctex, xeCJK, zhnumber, CJKpunct, zhlineskip]
+        # pkg 由 changes job 动态计算 (PR filter / 全跑).
+        pkg: ${{ fromJSON(needs.changes.outputs.packages) }}
         include:
           - os: ubuntu-latest
             font-dir: /usr/share/fonts/truetype
@@ -124,18 +150,6 @@ jobs:
     defaults:
       run:
         shell: ${{ matrix.shell }}
-
-    # PR 触发时, 仅当本 pkg 的 path filter 命中才跑. 非 PR 触发
-    # (push / schedule / workflow_dispatch) 时直接全跑.
-    # GH Actions 表达式不支持 outputs[matrix.pkg] 动态查 key, 用 contains
-    # 把 5 个 filter 输出拼成 JSON 再按 pkg 名匹配.
-    if: |
-      github.event_name != 'pull_request'
-      || (matrix.pkg == 'ctex'       && needs.changes.outputs.ctex       == 'true')
-      || (matrix.pkg == 'xeCJK'      && needs.changes.outputs.xeCJK      == 'true')
-      || (matrix.pkg == 'zhnumber'   && needs.changes.outputs.zhnumber   == 'true')
-      || (matrix.pkg == 'CJKpunct'   && needs.changes.outputs.CJKpunct   == 'true')
-      || (matrix.pkg == 'zhlineskip' && needs.changes.outputs.zhlineskip == 'true')
 
     steps:
     - uses: actions/checkout@v7
