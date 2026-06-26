@@ -9,7 +9,8 @@
 #   doc    —— l3build doc:生成 PDF 文档
 #   unpack —— l3build unpack:解包 .dtx 得到 .sty/.cls/.cfg 等运行时文件
 #   ctan   —— l3build ctan:打 ctan 发布包(含 doc + tds.zip)
-#   check  —— l3build check:跑回归测试(单包 20min+,本地慎用,默认 CI 跑)
+#   check  —— l3build check:跑回归测试(ctex 经 check-ctex 4-engine 并行 ~8min,
+#             串行旧法 ~20min;小包通常几十秒)
 #   clean  —— l3build clean
 #
 # 另: hooks / check-pr-ci 是 git workflow 入口, build-gbk2uni 走子 Makefile.
@@ -82,11 +83,12 @@ endef
 $(eval $(call L3BUILD_PKG_RULES,$(L3BUILD_PKGS)))
 
 # ── check 大包并行加速 (override 上方 pattern rule) ────────────────────────
-# ctex 默认跑 4 engine, 串行 ~20min wall-clock; 并行后 ~5-7min. 走
-# scripts/check-parallel.sh, 通过 L3BUILD_TESTDIR_SUFFIX env 让每个 engine
-# 用独立的 build/check-<engine> 目录, 不争抢. 同步 ctex 主 test 与各 -c
-# config 三个 (cmap / contrib / ctxdoc) 都跑.
-check-ctex:                  ## ctex 4-engine 并行 l3build check (~5-7min)
+# ctex 默认跑 4 engine, 串行 ~20min wall-clock; 并行后 ~8min. 走
+# scripts/check-parallel.sh, 给每个 engine 准备一份独立子工作目录
+# (tmp/parallel-check/<engine>/, git ls-files + tar 快照), 各 engine 进程在
+# 自己的目录下跑 l3build check, 互不争抢. 同步 ctex 主测 + 各 -c config 三个
+# (cmap / contrib / ctxdoc) 都跑.
+check-ctex:                  ## ctex 4-engine 并行 l3build check (~8min)
 	cd ctex && CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
 	  ../scripts/check-parallel.sh
 

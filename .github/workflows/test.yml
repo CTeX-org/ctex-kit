@@ -93,9 +93,10 @@ jobs:
       working-directory: ./ctex
       run: |
         set -x
-        # 并行 4 engine, ~5-7min wall-clock (串行 ~20min). 4 个 config 一起
-        # 透过 CONFIGS env 喂给每个 engine 进程; 进程间 build/check-<engine>
-        # 隔离 (build.lua 通过 L3BUILD_TESTDIR_SUFFIX env 切 testdir).
+        # 并行 4 engine, 实测 wall-clock ~5-8min (串行旧法 ~13-17min).
+        # 进程间隔离方式: wrapper 给每个 engine 一份 tmp/parallel-check/<engine>/
+        # 独立子工作目录 (git ls-files | tar snapshot), 各自 build/check 相互
+        # 不争抢. CONFIGS 透过 env 喂给 Phase 2 串行跑.
         CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
           ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
           echo "::group::patch-health raw log"
