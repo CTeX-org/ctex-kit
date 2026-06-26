@@ -172,22 +172,25 @@ jobs:
       id: font-cache
       uses: actions/cache@v6
       with:
-        path: ~/.cache/ctex-kit-fonts
+        path: ${{ github.workspace }}/.font-cache
         key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}-v1
         # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
 
     - name: Install Noto fonts
       run: |
-        mkdir -p ~/.cache/ctex-kit-fonts
-        if [ ! -f ~/.cache/ctex-kit-fonts/.done ]; then
-          cd ~/.cache/ctex-kit-fonts
+        # 用 workspace 内绝对路径而非 ~/.cache/, 避免 msys2 bash 在 Windows
+        # 上 ~ expansion 与 mkdir/cd 不一致的诡异行为.
+        FONT_CACHE="${{ github.workspace }}/.font-cache"
+        mkdir -p "$FONT_CACHE"
+        if [ ! -f "$FONT_CACHE/.done" ]; then
+          cd "$FONT_CACHE"
           curl -LO "${{ env.NOTO_SANS_URL }}"
           curl -LO "${{ env.NOTO_SERIF_URL }}"
           for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
           touch .done
           cd - >/dev/null
         fi
-        cp ~/.cache/ctex-kit-fonts/*.ttc "${{ matrix.font-dir }}/"
+        cp "$FONT_CACHE"/*.ttc "${{ matrix.font-dir }}/"
         fc-cache -f
 
     - name: Test ${{ matrix.pkg }}
