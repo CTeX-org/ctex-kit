@@ -3,7 +3,7 @@
 --]==========================================================================]--
 
 module              = "zhlineskip"
-version             = "v0.1f"
+version             = "v1.0f"
 date                = "2026-06-27"
 maintainer          = "Ruixi Zhang"
 email               = "ruixizhang42@gmail.com"
