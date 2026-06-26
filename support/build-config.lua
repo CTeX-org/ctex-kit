@@ -214,15 +214,22 @@ copyctan = function (...)
 end
 
 -- ── CTAN upload 支持 ──────────────────────────────────────────────────────
--- 从 .dtx 读取版本号 (匹配 `{\ExplFileDate}{<ver>}{\ExplFileDescription}` 形式,
--- 与本文件 update_tag 写入端对称). 失败返回 nil — 调用方可 fallback.
+-- 从 .dtx 读取版本号. 兼容两种风格 (l3build 项目里都有):
+--   (a) `{\ExplFileDate}{<ver>}{\ExplFileDescription}` — xeCJK / ctex 为
+--       代表的 expl3-only 风格, 版本号显式写在大括号里 (与本文件 update_tag
+--       写入端对称).
+--   (b) `\GetIdInfo $Id: <file> v<ver> <date> <author>$` — zhlineskip 等
+--       传统 docstrip 风格, 版本号在 SVN keyword 串里 (允许字母后缀,
+--       如 v1.0f).
+-- 失败返回 nil — 调用方可 fallback.
 function read_dtx_version(dtx_path)
   local f = io.open(dtx_path, "r")
   if not f then return nil end
   local content = f:read("*all")
   f:close()
-  -- e.g. `%<!driver>  {\ExplFileDate}{3.10.0}{\ExplFileDescription}`
-  return content:match("{\\ExplFileDate}{([%d%.]+)}{\\ExplFileDescription}")
+  local v = content:match("{\\ExplFileDate}{([%d%.]+)}{\\ExplFileDescription}")
+  if v then return v end
+  return content:match("\\GetIdInfo%s+%$Id:%s+%S+%s+v?([%w%.]+)%s")
 end
 
 -- 构造 l3build uploadconfig 表. 仓库公共字段固定写在这里, 各包传 opts 覆写
