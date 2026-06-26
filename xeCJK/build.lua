@@ -177,3 +177,19 @@ end
 
 dofile("../support/build-config.lua")
 
+-- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
+-- 版本号从 xeCJK.dtx 的 `\ExplFileDate` 动态读取, 避免与 .dtx 失同步.
+-- uploader/email 不在此填, 由 workflow 在 `l3build upload` 命令行注入.
+uploadconfig = ctex_kit_uploadconfig {
+  pkg         = "xecjk",
+  version     = read_dtx_version("xeCJK.dtx"),
+  author      = "Leo Liu; Qing Lee; Liam Huang",
+  summary     = "Typeset CJK in XeLaTeX",
+  description = "xeCJK is a package for typesetting documents in Chinese, "
+             .. "Japanese or Korean with XeLaTeX. It provides CJK-specific "
+             .. "automatic glue between CJK and non-CJK characters, full "
+             .. "control over CJK punctuation compression, separate font "
+             .. "families for CJK and Latin scripts, and a number of "
+             .. "fine-grained typographic refinements for the CJK script.",
+  ctanPath    = "/macros/xetex/latex/xecjk",
+}
