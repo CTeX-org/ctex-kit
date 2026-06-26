@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tmp/fix-test-tilde.py — 修 .lvt 文件中 \\TEST/\\BEGINTEST/\\TYPE 命令
+"""scripts/fix-test-tilde.py — 修 .lvt 文件中 \\TEST/\\BEGINTEST/\\TYPE 命令
 大括号里的 `~` 误用 (#893).
 
 策略 (用 .tlg 作 oracle):
@@ -23,7 +23,7 @@
     处理 (它们都从同一 .lvt 跑出, 字符一致).
   - .lvt 与 .tlg 文件名一一对应 (basename 相同, 后缀不同).
 
-用法: 在仓库根跑 python3 tmp/fix-test-tilde.py
+用法: 在仓库根跑 python3 scripts/fix-test-tilde.py
 """
 
 import re

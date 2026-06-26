@@ -49,20 +49,30 @@ if [ -z "$candidates" ]; then
   exit 0
 fi
 
-# Step 2 + 3: 对每个候选, 判断是否在 ExplSyntaxOff 段, 仅报 Off 段
-declare -A explsyntax_cache
+# Step 2 + 3: 对每个候选, 判断是否在 ExplSyntaxOff 段, 仅报 Off 段.
+#
+# 缓存策略: 用 tmp 目录的文件做 per-source-file 缓存, 避免 bash 4+ 才有的
+# associative array (declare -A) — macOS 自带 bash 是 3.2, 不支持. 这种
+# 缓存方式跨任意 bash 版本.
+cache_dir="$(mktemp -d)"
+trap 'rm -rf "$cache_dir"' EXIT
+# 文件路径 -> 缓存路径: 把 / 换成 _ 做唯一 key
+cache_key() { printf '%s' "$1" | tr '/' '_'; }
+
 offending=""
 n=0
 while IFS=$'\t' read -r file lineno line; do
   [ -z "$file" ] && continue
 
   # 缓存每个文件的 line→state 表
-  if [ -z "${explsyntax_cache[$file]:-}" ]; then
+  ckey="$(cache_key "$file")"
+  cfile="${cache_dir}/${ckey}"
+  if [ ! -s "$cfile" ]; then
     if [ ! -f "$file" ]; then
       # 文件可能被删除, 跳过
       continue
     fi
-    explsyntax_cache[$file]=$(awk '
+    awk '
       BEGIN { state = "off"; depth = 0 }
       # awk (POSIX) 不支持 \b 字符级锚, 用 [^a-zA-Z] 替代防止前缀
       # 误匹配 (e.g. \ExplSyntaxOnDemand).
@@ -83,11 +93,11 @@ while IFS=$'\t' read -r file lineno line; do
         c = 0; while (match(sline, /\}/)) { c++; sline = substr(sline, RSTART+1) }
         depth = depth + o - c
       }
-    ' "$file")
+    ' "$file" > "$cfile"
   fi
 
   # 查 lineno 对应的 state
-  state=$(echo "${explsyntax_cache[$file]}" | awk -F'\t' -v ln="$lineno" '$1 == ln { print $2; exit }')
+  state=$(awk -F'\t' -v ln="$lineno" '$1 == ln { print $2; exit }' "$cfile")
 
   if [ "$state" = "off" ]; then
     n=$((n + 1))
