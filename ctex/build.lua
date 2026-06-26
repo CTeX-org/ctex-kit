@@ -70,3 +70,21 @@ checkinit_hook = function()
 end
 
 dofile("../support/build-config.lua")
+
+-- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
+-- 版本号从 ctex.dtx 的 `\ExplFileDate` 动态读取, 避免与 .dtx 失同步.
+-- uploader/email 不在此填, 由 workflow 在 `l3build upload` 命令行注入.
+uploadconfig = ctex_kit_uploadconfig {
+  pkg         = "ctex",
+  version     = read_dtx_version("ctex.dtx"),
+  author      = "Leo Liu; Qing Lee; Liam Huang",
+  summary     = "LaTeX classes and packages for Chinese typesetting",
+  description = "ctex is a bundle of LaTeX classes and packages for "
+             .. "typesetting documents in Chinese. It works with the "
+             .. "(pdf)LaTeX, XeLaTeX and LuaLaTeX engines, supports "
+             .. "GB2312 / UTF-8 / Unicode input, integrates Chinese "
+             .. "punctuation kerning, multi-engine font configuration, "
+             .. "and provides Chinese-style section heading commands "
+             .. "for the standard article / book / report classes.",
+  ctanPath    = "/language/chinese/ctex",
+}

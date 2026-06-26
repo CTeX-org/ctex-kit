@@ -212,3 +212,48 @@ copyctan = function (...)
   copyctan_posthook()
   return retval
 end
+
+-- ── CTAN upload 支持 ──────────────────────────────────────────────────────
+-- 从 .dtx 读取版本号 (匹配 `{\ExplFileDate}{<ver>}{\ExplFileDescription}` 形式,
+-- 与本文件 update_tag 写入端对称). 失败返回 nil — 调用方可 fallback.
+function read_dtx_version(dtx_path)
+  local f = io.open(dtx_path, "r")
+  if not f then return nil end
+  local content = f:read("*all")
+  f:close()
+  -- e.g. `%<!driver>  {\ExplFileDate}{3.10.0}{\ExplFileDescription}`
+  return content:match("{\\ExplFileDate}{([%d%.]+)}{\\ExplFileDescription}")
+end
+
+-- 构造 l3build uploadconfig 表. 仓库公共字段固定写在这里, 各包传 opts 覆写
+-- pkg / version / author / summary / description / ctanPath 等差异字段.
+--
+-- 注意: uploader / email 留空 (从环境变量读), 由 release-ctan-upload.yml
+-- workflow 用 `CTAN_UPLOADER=... CTAN_EMAIL=... l3build upload` 注入, 避免
+-- 把任何个人 email 落到 git 里. l3build CLI 只支持 --email 覆盖, 不支持
+-- --uploader, 所以走 env 是最通用的办法 (本地 / CI 同一套).
+function ctex_kit_uploadconfig(opts)
+  return {
+    pkg               = opts.pkg,
+    version           = opts.version,
+    author            = opts.author,
+    uploader          = opts.uploader     or os.getenv("CTAN_UPLOADER"),
+    email             = opts.email        or os.getenv("CTAN_EMAIL"),
+    license           = opts.license       or "lppl1.3c",
+    summary           = opts.summary,
+    description       = opts.description,
+    topic             = opts.topic         or { "chinese" },
+    ctanPath          = opts.ctanPath,
+    home              = opts.home          or "https://github.com/CTeX-org/ctex-kit",
+    bugtracker        = opts.bugtracker
+                      or "https://github.com/CTeX-org/ctex-kit/issues",
+    support           = opts.support
+                      or "https://github.com/CTeX-org/ctex-kit/issues",
+    repository        = opts.repository
+                      or "https://github.com/CTeX-org/ctex-kit",
+    development       = opts.development
+                      or "https://github.com/CTeX-org",
+    announcement_file = opts.announcement_file or "announcement.md",
+    update            = (opts.update ~= nil) and opts.update or true,
+  }
+end
