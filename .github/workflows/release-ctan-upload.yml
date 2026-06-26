@@ -314,12 +314,22 @@ jobs:
           ARGS+=(--email "${{ inputs.email }}")
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             ARGS+=(--dry-run)
+            ANSWER=n   # 见下方注释
             echo "::notice::DRY-RUN mode: 不会真投递到 CTAN."
           else
+            ANSWER=y
             echo "::warning::LIVE mode: 正在投递到 CTAN."
           fi
           echo "l3build upload ${ARGS[*]}"
-          l3build upload "${ARGS[@]}"
+          # l3build 在 validate 成功后总会问 "Do you want to upload? [y/n]" —
+          # 即便带 --dry-run. 这是 l3build (TL 2026) 的设计 bug:
+          # l3build-upload.lua 顶层 `if options["dry-run"] then ctanupload = false end`
+          # 把 ctanupload 设为 false, 但随后 l3build-variables.lua 又跑
+          # `ctanupload = ctanupload or "ask"`, 用 `or` 会把 false 覆盖成
+          # "ask" — 没区分 nil 与 false. 结果 --dry-run 仍会等 stdin.
+          # 我们用 stdin 喂答案: dry-run 喂 n (走到 validate 后停止);
+          # live 模式喂 y (validate + 真上传).
+          printf '%s\n' "$ANSWER" | l3build upload "${ARGS[@]}"
 
       - name: Mark GH Release as latest (live mode only)
         if: inputs.dry_run == false
