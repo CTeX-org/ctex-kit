@@ -117,6 +117,22 @@ if [ -n "$head_committed_at" ]; then
     ' 2>/dev/null || true)"
 fi
 
+# 1b) push 之后是否有新 issue comment. agentic-pr-review bot 用
+# `gh pr comment` (issue comment API) 发评论, 不走 formal review
+# (.reviews[]) — 上面 (1) 永远看不到 bot 的增量审核. 这里补一刀:
+# 检查 .comments[] 里 createdAt > 头 commit 时间的, 且作者是 github-actions
+# (排除人类纯日常评论, 避免噪声).
+new_bot_comment_after_push=""
+if [ -n "$head_committed_at" ]; then
+  new_bot_comment_after_push="$(gh pr view "$pr_number" --json comments \
+    --jq --arg t "$head_committed_at" '
+      .comments[]?
+      | select(.author.login == "github-actions")
+      | select((.createdAt // "") > $t)
+      | "\(.author.login)\tCOMMENT\t\(.createdAt)\t\(.url)"
+    ' 2>/dev/null || true)"
+fi
+
 # 2) 未解决的 review thread
 # 一次 gh repo view 拿 owner+name, 喂给 GraphQL 而非两次子 shell.
 unresolved_threads=""
@@ -149,17 +165,27 @@ if [ -n "$repo_owner_name" ]; then
 fi
 
 # 状态报告: 区分三档
-if [ -n "$new_review_after_push" ] || [ -n "$unresolved_threads" ]; then
+if [ -n "$new_review_after_push" ] || [ -n "$new_bot_comment_after_push" ] \
+   || [ -n "$unresolved_threads" ]; then
   log ""
   log "════════════════════════════════════════════════════════════"
   log "  ⚠ post-push: CI passed for PR #${pr_number}, but review activity pending"
   if [ -n "$new_review_after_push" ]; then
     log ""
-    log "  New review(s) submitted after this push:"
+    log "  New formal review(s) submitted after this push:"
     while IFS=$'\t' read -r who state when; do
       [ -z "$who" ] && continue
       log "    • ${who}  [${state}]  @${when}"
     done <<< "$new_review_after_push"
+  fi
+  if [ -n "$new_bot_comment_after_push" ]; then
+    log ""
+    log "  New bot comment(s) (agentic-pr-review etc.) after this push:"
+    while IFS=$'\t' read -r who state when url; do
+      [ -z "$who" ] && continue
+      log "    • ${who}  [${state}]  @${when}"
+      [ -n "$url" ] && log "        ${url}"
+    done <<< "$new_bot_comment_after_push"
   fi
   if [ -n "$unresolved_threads" ]; then
     log ""

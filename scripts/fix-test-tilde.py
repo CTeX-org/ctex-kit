@@ -86,7 +86,7 @@ def fix_lvt(path: Path) -> int:
     实际 .lvt 不会这么混杂写, 这条记录是为未来注意."""
     data = path.read_bytes()
     out_lines = []
-    state = b"off"
+    state = "off"
     depth = 0
     changes = 0
 
@@ -100,11 +100,11 @@ def fix_lvt(path: Path) -> int:
         # 恢复, 状态机不该跟.
         if depth == 0:
             if EXPL_ON.search(stripped):
-                state = b"on"
+                state = "on"
             if EXPL_OFF.search(stripped):
-                state = b"off"
+                state = "off"
 
-        if state == b"off":
+        if state == "off":
             new_line, n = CMD_PATTERN.subn(_replace_tildes_in_match, line)
             changes += n
             out_lines.append(new_line)
@@ -122,7 +122,8 @@ def fix_lvt(path: Path) -> int:
 def find_lvts(repo: Path) -> list[Path]:
     out = []
     for p in repo.rglob("*.lvt"):
-        if "build/" in str(p):
+        # 用 path parts 而非子串匹配, 避免 rebuild/ 等被误过滤
+        if "build" in p.parts:
             continue
         out.append(p)
     return out
