@@ -100,17 +100,24 @@ while IFS=$'\t' read -r file lineno line; do
       # state 再算 depth, 而 depth 更新在最后). 实际 .lvt 不会这么写,
       # 这条记录是为未来注意.
       {
-        # TeX 注释 (% 后): % 不在 escape 里就吃掉余下. \% 转义不算.
-        # 这避免 % } 或 % \ExplSyntaxOff 被状态机错算.
+        # TeX 注释 (% 后): 第一个非转义 % 起到行末都是注释.
+        # 转义判定: % 前面**连续**的反斜杠数为奇数才是 \% 转义.
+        # \\% 是 "字面反斜杠 + 注释开始", 前 2 个 \ 互为转义对, % 本身
+        # 不被转义, 应当作注释起点.
         stripped = $0
-        # 找第一个非转义 %; gawk 的 gensub 不可移植, 用 awk 标准 match
-        # 循环找到 % 位置, 且前一字符不是 \\ (反斜杠).
         i = 1
         while (i <= length(stripped)) {
           c = substr(stripped, i, 1)
-          if (c == "%" && (i == 1 || substr(stripped, i-1, 1) != "\\")) {
-            stripped = substr(stripped, 1, i-1)
-            break
+          if (c == "%") {
+            # 数 i 前面连续的 `\` 个数
+            bs = 0; j = i - 1
+            while (j >= 1 && substr(stripped, j, 1) == "\\") {
+              bs++; j--
+            }
+            if (bs % 2 == 0) {
+              stripped = substr(stripped, 1, i-1)
+              break
+            }
           }
           i++
         }
