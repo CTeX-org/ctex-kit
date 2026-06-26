@@ -353,11 +353,15 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 # 1. 同步包到 usertree（前提：已 init 过 ~/texmf + ~/.texlive2026/）
 tlmgr --usermode update --all
 
-# 2. 重生成 xelatex fmt（必须，否则启动时仍加载老内核）
+# 2. 重生成 fmt（必须，否则启动时仍加载老内核）。要按你跑的引擎一个个来：
+#    ctex 默认跨 4 个 engine 测试，全部都要 rebuild
+fmtutil-user --byfmt latex      # pdftex
 fmtutil-user --byfmt xelatex
+fmtutil-user --byfmt lualatex
+fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 个 uptex 测试 fail
 ```
 
-仅做第 1 步是常见坑：xelatex 启动加载的是预编译 `xelatex.fmt`，里面 dump 的 `latex.ltx` 是包升级**前**的版本，新 `.ltx` / `.sty` 文件即使已落盘也不会生效。
+仅做第 1 步是常见坑：xelatex 启动加载的是预编译 `xelatex.fmt`，里面 dump 的 `latex.ltx` 是包升级**前**的版本，新 `.ltx` / `.sty` 文件即使已落盘也不会生效。**只 rebuild 部分 engine fmt** 也是常见坑——漏掉的 engine 全部 fail 同一种 `expl3.sty Mismatched LaTeX support files` 错。
 
 `tlmgr --usermode` 的边界：
 
