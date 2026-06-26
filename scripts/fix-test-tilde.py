@@ -49,9 +49,30 @@ EXPL_ON  = re.compile(rb"\\ExplSyntaxOn(?:[^a-zA-Z]|$)")
 EXPL_OFF = re.compile(rb"\\ExplSyntaxOff(?:[^a-zA-Z]|$)")
 
 
+def _strip_tex_comment(line: bytes) -> bytes:
+    """剥掉 TeX 注释 — 第一个非转义 `%` 之后的内容. \\% 转义不算注释."""
+    i = 0
+    while i < len(line):
+        if line[i:i+1] == b"%" and (i == 0 or line[i-1:i] != b"\\"):
+            return line[:i]
+        i += 1
+    return line
+
+
+def _replace_tildes_in_match(m: "re.Match[bytes]") -> bytes:
+    """\\TEST/\\BEGINTEST/\\TYPE 命中里把 body 中的 `~` 替换为空格."""
+    head, body = m.group(1), m.group(2)
+    new_body = body.replace(b"~", b" ")
+    return head + b"{" + new_body + b"}"
+
+
 def fix_lvt(path: Path) -> int:
     """改 .lvt: 用 group-depth-aware 状态机判定, 仅 ExplSyntaxOff 段内的
-    \\TEST/\\BEGINTEST/\\TYPE 大括号内 `~` 替换为空格. 返回替换次数."""
+    \\TEST/\\BEGINTEST/\\TYPE 大括号内 `~` 替换为空格. 返回替换次数.
+
+    简化假设: 状态机按整行判定 — 同一行同时出现 \\ExplSyntaxOff 和
+    \\TEST{...} 时, 该行的 state 是该行 ExplSyntax 切换**之后**的状态.
+    实际 .lvt 不会这么混杂写, 这条记录是为未来注意."""
     data = path.read_bytes()
     out_lines = []
     state = b"off"
@@ -59,30 +80,28 @@ def fix_lvt(path: Path) -> int:
     changes = 0
 
     for line in data.splitlines(keepends=True):
+        # 状态切换与 depth 更新都基于剥掉 TeX 注释后的内容, 否则 `% }`
+        # 或 `% \ExplSyntaxOff` 这种字面字符会误算.
+        stripped = _strip_tex_comment(line)
+
         # 状态切换只在 file-level top scope (depth == 0) 生效. depth > 0
         # 时即便看到 \ExplSyntaxOff 也是某 group 内局部切换, 出 group 自动
         # 恢复, 状态机不该跟.
         if depth == 0:
-            if EXPL_ON.search(line):
+            if EXPL_ON.search(stripped):
                 state = b"on"
-            if EXPL_OFF.search(line):
+            if EXPL_OFF.search(stripped):
                 state = b"off"
 
         if state == b"off":
-            def _sub(m):
-                nonlocal changes
-                head, body = m.group(1), m.group(2)
-                new_body = body.replace(b"~", b" ")
-                changes += 1
-                return head + b"{" + new_body + b"}"
-
-            new_line = CMD_PATTERN.sub(_sub, line)
+            new_line, n = CMD_PATTERN.subn(_replace_tildes_in_match, line)
+            changes += n
             out_lines.append(new_line)
         else:
             out_lines.append(line)
 
-        # 更新 depth 留给下一行用
-        depth += line.count(b"{") - line.count(b"}")
+        # 更新 depth 留给下一行用 (基于 stripped, 避免 `% {` 影响)
+        depth += stripped.count(b"{") - stripped.count(b"}")
 
     if changes:
         path.write_bytes(b"".join(out_lines))
