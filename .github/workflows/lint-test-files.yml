@@ -1,0 +1,33 @@
+name: Lint test files
+
+# 检查 PR 引入的 .lvt 测试文件改动是否含 `~` 误用 (#893).
+# 与 .githooks/pre-commit 共用 .githooks/check-test-tilde.sh 脚本.
+# 只检 PR 新增/修改的行, 不动存量.
+
+on:
+  pull_request:
+    paths:
+      - '**/*.lvt'
+      - '.githooks/check-test-tilde.sh'
+      - '.github/workflows/lint-test-files.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check-test-tilde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 需要 PR base 才能算 merge-base diff
+          fetch-depth: 0
+
+      - name: Check .lvt files for ~ misuse (#893)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # 从 PR base 到 head 的 diff, 不输出 context 行加速 awk.
+          git diff "${BASE_SHA}" "${HEAD_SHA}" -U0 -- '*.lvt' \
+            | .githooks/check-test-tilde.sh
