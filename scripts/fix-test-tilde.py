@@ -2,26 +2,35 @@
 """scripts/fix-test-tilde.py — 修 .lvt 文件中 \\TEST/\\BEGINTEST/\\TYPE 命令
 大括号里的 `~` 误用 (#893).
 
-策略 (用 .tlg 作 oracle):
-  - .tlg 是 LaTeX 自己输出的 baseline; 里面字面 `~` = 该位置的 `~` 在
-    LaTeX/expl3 catcode 求值后是 active char (不可断空格), 即 #893 想
-    清掉的形态.
-  - .tlg 不含字面 `~` = 该 .lvt 里所有 `~` 都没产生 active 输出
-    (要么在 expl3 group 里被当 space, 要么没被执行).
-  - 因此: 仅修改**对应 .tlg 含字面 `~`** 的 .lvt 文件, 把它所有
-    \\TYPE/\\TEST/\\BEGINTEST 大括号里的 `~` 换为空格. 同时把 .tlg 里
-    所有的 `~` 也换为空格 (.tlg 是文本, 字面替换直观无歧义).
+策略 (与 .githooks/check-test-tilde.sh 对称):
+  - 扫所有 .lvt
+  - 维护 group-depth-aware 的 \\ExplSyntax 状态机:
+      * 状态切换只在 file-level top scope (depth == 0) 生效
+      * depth > 0 时即便看到 \\ExplSyntaxOff 也是 group 内局部切换, 出 group
+        自动恢复, 状态机不跟. 正确处理
+        \\sys_if_engine_luatex:F { \\ExplSyntaxOff ... } 这种 expl3 group
+        内的局部 catcode 切换 (例 ctex/test/testfiles/verb01.lvt)
+  - 仅在 ExplSyntaxOff 状态下, 把 \\TEST/\\BEGINTEST/\\TYPE 大括号里的
+    `~` 替换为空格. ExplSyntaxOn 段内 `~` 是合法 expl3 空格 (catcode 10),
+    不动 (改成普通空格反而被 ignore, 例 zhnumber/testfiles/basic01.lvt)
 
-为何这样**比写状态机靠谱**:
-  - 不用判断 \\ExplSyntaxOn/Off 段
-  - 不用追踪 group 嵌套
-  - 不用区分 catcode
-  - LaTeX 已经把 catcode 求过值, 字面结果就在 .tlg, 这是 ground truth
+为何用状态机而非"以 .tlg 为 oracle":
+  - .tlg 只记录实际执行到的输出. 死代码路径 (例 \\showbox 中断后的代码)
+    / 未触发的 \\if 分支不出 .tlg, oracle 漏检
+    (例 xeCJK/testfiles/fntef-nest01.lvt 第 24/32 行)
+  - hook 与 fix 必须对称: hook 报告的命中就该是 fix 处理的命中
+
+为何不顺手改 .tlg:
+  - 字面 `~` 在 .tlg 里**可能来自其它命令** (例 ctex 的
+    \\ctexset{section/name = {Section~}} 用户故意用 `~` 作 nobreakspace,
+    .tlg 输出 `Section~2` 是正确的, 不该改)
+  - 改 .lvt 后由 maintainer 跑 `l3build save` 重 baseline, 让 LaTeX 自己
+    决定 .tlg 内容. 这是唯一不会误伤的办法.
 
 边界情况:
-  - 多 engine 测试 (xeCJK.luatex.tlg / .pdftex.tlg / .uptex.tlg) 等都同时
-    处理 (它们都从同一 .lvt 跑出, 字符一致).
-  - .lvt 与 .tlg 文件名一一对应 (basename 相同, 后缀不同).
+  - GBK / iso-8859-1 编码的 .lvt (例 ctex/.../hyperref-pdfstringdef0[23].lvt)
+    用 bytes 模式处理. \\TEST/\\BEGINTEST/\\TYPE/\\ExplSyntax 全是 ASCII,
+    在任何编码下字节一致, 正则匹配安全.
 
 用法: 在仓库根跑 python3 scripts/fix-test-tilde.py
 """
@@ -30,86 +39,63 @@ import re
 import subprocess
 from pathlib import Path
 
-# 匹配 .tlg 里 "text~text" 形态: `~` 两侧都是字母数字 / 常见标点 ASCII
-# 这种"文本字符". 关键是要排除 LaTeX font tracing 的 ".../12.045/76 ~"
-# (前面是空格 / 行末) 与 line-end 空 `~` — 那些 `~` 不源自 \TYPE/\TEST.
-#
-# `=` 必须在范围内因 `\TYPE{key~=~value}` 是常见模式 (verb01.luatex.tlg).
-TLG_TEXT_TILDE = re.compile(rb"[a-zA-Z0-9):,;.][~]+[=a-zA-Z0-9(]")
-
 # 匹配 \TEST/\BEGINTEST/\TYPE { ...~... } (允许命令后空格).
-# 用 bytes 因仓库有 GBK 编码 .lvt; ASCII 命令在任何编码下字节一致.
 CMD_PATTERN = re.compile(
     rb"(\\(?:TEST|BEGINTEST|TYPE)\s*)\{([^{}]*~[^{}]*)\}"
 )
 
-
-def find_tlg_with_text_tilde(repo: Path) -> list[Path]:
-    """找所有含 'text~text' 的 .tlg (排除 build 目录, 排除 LaTeX trace 中
-    的孤立 ~)."""
-    out = []
-    for p in repo.rglob("*.tlg"):
-        if "build/" in str(p):
-            continue
-        try:
-            if TLG_TEXT_TILDE.search(p.read_bytes()):
-                out.append(p)
-        except OSError:
-            pass
-    return out
-
-
-def tlg_to_lvt(tlg: Path) -> Path:
-    """从 .tlg 路径推 .lvt 路径. 处理 multi-engine 的 *.<engine>.tlg.
-
-    e.g. ctex/test/testfiles/foo.luatex.tlg → foo.lvt
-         xeCJK/testfiles/bar.tlg            → bar.lvt
-    """
-    name = tlg.name
-    # 剥多 engine 后缀
-    for eng in (".luatex", ".pdftex", ".uptex", ".xetex"):
-        if name.endswith(eng + ".tlg"):
-            stem = name[: -len(eng + ".tlg")]
-            break
-    else:
-        stem = name[: -len(".tlg")]
-    return tlg.parent / (stem + ".lvt")
+# \ExplSyntaxOn/Off 检测, 后跟非字母字符或行尾, 防 \ExplSyntaxOnDemand 误匹配.
+EXPL_ON  = re.compile(rb"\\ExplSyntaxOn(?:[^a-zA-Z]|$)")
+EXPL_OFF = re.compile(rb"\\ExplSyntaxOff(?:[^a-zA-Z]|$)")
 
 
 def fix_lvt(path: Path) -> int:
-    """改 .lvt: \\TEST/\\BEGINTEST/\\TYPE 大括号内 `~` → 空格. 返回替换次数."""
+    """改 .lvt: 用 group-depth-aware 状态机判定, 仅 ExplSyntaxOff 段内的
+    \\TEST/\\BEGINTEST/\\TYPE 大括号内 `~` 替换为空格. 返回替换次数."""
     data = path.read_bytes()
+    out_lines = []
+    state = b"off"
+    depth = 0
     changes = 0
 
-    def _sub(m):
-        nonlocal changes
-        head, body = m.group(1), m.group(2)
-        new_body = body.replace(b"~", b" ")
-        changes += 1
-        return head + b"{" + new_body + b"}"
+    for line in data.splitlines(keepends=True):
+        # 状态切换只在 file-level top scope (depth == 0) 生效. depth > 0
+        # 时即便看到 \ExplSyntaxOff 也是某 group 内局部切换, 出 group 自动
+        # 恢复, 状态机不该跟.
+        if depth == 0:
+            if EXPL_ON.search(line):
+                state = b"on"
+            if EXPL_OFF.search(line):
+                state = b"off"
 
-    new_data = CMD_PATTERN.sub(_sub, data)
+        if state == b"off":
+            def _sub(m):
+                nonlocal changes
+                head, body = m.group(1), m.group(2)
+                new_body = body.replace(b"~", b" ")
+                changes += 1
+                return head + b"{" + new_body + b"}"
+
+            new_line = CMD_PATTERN.sub(_sub, line)
+            out_lines.append(new_line)
+        else:
+            out_lines.append(line)
+
+        # 更新 depth 留给下一行用
+        depth += line.count(b"{") - line.count(b"}")
+
     if changes:
-        path.write_bytes(new_data)
+        path.write_bytes(b"".join(out_lines))
     return changes
 
 
-def fix_tlg(path: Path) -> int:
-    """改 .tlg: 仅替换 'text~text' 形态的 `~` 为空格 (与 oracle 一致, 不动
-    LaTeX trace 里的孤立 `~`). 返回替换次数."""
-    data = path.read_bytes()
-    n = 0
-
-    def _sub(m):
-        nonlocal n
-        s = m.group(0)
-        n += s.count(b"~")
-        return s.replace(b"~", b" ")
-
-    new_data = TLG_TEXT_TILDE.sub(_sub, data)
-    if n:
-        path.write_bytes(new_data)
-    return n
+def find_lvts(repo: Path) -> list[Path]:
+    out = []
+    for p in repo.rglob("*.lvt"):
+        if "build/" in str(p):
+            continue
+        out.append(p)
+    return out
 
 
 def main():
@@ -119,47 +105,29 @@ def main():
         ).strip()
     )
 
-    tlgs = find_tlg_with_text_tilde(repo)
-    if not tlgs:
-        print("No .tlg files contain text-surrounded `~`. Nothing to do.")
-        return
-
-    # .tlg -> .lvt; .lvt 去重
-    lvt_set = set()
-    for t in tlgs:
-        lvt = tlg_to_lvt(t)
-        if lvt.exists():
-            lvt_set.add(lvt)
-
-    modified_lvt = []
-    for lvt in sorted(lvt_set):
+    modified = []
+    for lvt in sorted(find_lvts(repo)):
         n = fix_lvt(lvt)
         if n:
-            modified_lvt.append((lvt.relative_to(repo), n))
+            modified.append((lvt.relative_to(repo), n))
 
-    modified_tlg = []
-    for tlg in sorted(tlgs):
-        n = fix_tlg(tlg)
-        if n:
-            modified_tlg.append((tlg.relative_to(repo), n))
+    if not modified:
+        print("Nothing to fix.")
+        return
 
+    pkgs = sorted({str(f).split("/")[0] for f, _ in modified})
     print(
-        f"Modified {len(modified_lvt)} .lvt files "
-        f"({sum(n for _, n in modified_lvt)} substitutions)"
+        f"Modified {len(modified)} .lvt files "
+        f"({sum(n for _, n in modified)} substitutions)"
     )
-    for f, n in modified_lvt:
-        print(f"  {f}  ({n} subs)")
-    print()
-    print(
-        f"Modified {len(modified_tlg)} .tlg files "
-        f"({sum(n for _, n in modified_tlg)} substitutions)"
-    )
-    for f, n in modified_tlg:
+    for f, n in modified:
         print(f"  {f}  ({n} subs)")
     print()
     print("Next steps:")
-    print("  cd <pkg> && l3build check   # 验证 .lvt 和 .tlg 同步; 应当 0 diff")
+    for pkg in pkgs:
+        print(f"  cd {pkg} && l3build save && l3build check   # 重 baseline + 验证")
 
 
 if __name__ == "__main__":
     main()
+
