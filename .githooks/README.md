@@ -13,11 +13,15 @@ make hooks    # 等同 git config core.hooksPath .githooks
 | hook | 时机 | 做什么 | 量级 |
 |---|---|---|---|
 | `commit-msg` | 提交时 | 强制 `type(scope): subject` 格式 | 毫秒级 |
+| `pre-commit` | 提交前 | 检查 staged `.lvt` 测试文件新增行是否含 `\TEST{...~...}` / `\BEGINTEST{...~...}` / `\TYPE{...~...}` 误用(见 [#893]) | 毫秒级 |
 | `pre-push` | 推送前 + 推送后 | ① 可选 l3build sanity(`LATEX_PREPUSH_BUILD=1` 启用);② self-wrapping inner push;③ 阻塞等 CI + 抓 PR 新评论活动 | 推送时秒级 + CI 等待 |
 
 - 所有 hook 在 CI 环境(`$CI`/`$GITHUB_ACTIONS`)自动短路。
+- `pre-commit` 的同款检查 CI 上由 `.github/workflows/lint-test-files.yml` 跑,确保未装 hook 的 PR 也被拦截。
 - 完整测试(`l3build check`)**不在 hook 里跑** —— LaTeX 单包全量 check 动辄 20min,那是 CI 的事。
 - 紧急跳过:`git commit --no-verify` / `git push --no-verify`(仅紧急情况)。
+
+[#893]: https://github.com/CTeX-org/ctex-kit/issues/893
 
 ## `commit-msg` 允许的 type
 
