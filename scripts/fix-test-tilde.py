@@ -50,11 +50,22 @@ EXPL_OFF = re.compile(rb"\\ExplSyntaxOff(?:[^a-zA-Z]|$)")
 
 
 def _strip_tex_comment(line: bytes) -> bytes:
-    """剥掉 TeX 注释 — 第一个非转义 `%` 之后的内容. \\% 转义不算注释."""
+    """剥掉 TeX 注释 — 第一个非转义 `%` 之后的内容.
+
+    转义判定: `%` 前面**连续**的反斜杠数为奇数才是 \\% 转义. `\\\\%` 是
+    "字面反斜杠 + 注释开始", 前面 2 个 `\\` 互为转义对, `%` 本身**不**
+    被转义, 应当作注释起点."""
     i = 0
     while i < len(line):
-        if line[i:i+1] == b"%" and (i == 0 or line[i-1:i] != b"\\"):
-            return line[:i]
+        if line[i:i+1] == b"%":
+            # 数 i 前面连续的 `\` 个数
+            bs = 0
+            j = i - 1
+            while j >= 0 and line[j:j+1] == b"\\":
+                bs += 1
+                j -= 1
+            if bs % 2 == 0:
+                return line[:i]
         i += 1
     return line
 
