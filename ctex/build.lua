@@ -42,7 +42,11 @@ end
 
 testfiledir    = "./test/testfiles"
 testsuppdir    = "./test/support"
-testdir        = "./build/check"
+-- testdir 支持 env-driven 切换, 用于多 engine 并行: scripts/check-parallel.sh
+-- 同时跑 4 个 l3build check 进程, 每个进程通过 L3BUILD_TESTDIR_SUFFIX 拿到
+-- 独立的 build/check-<engine> 目录, 互不干扰. 默认空 ⟹ build/check (兼容
+-- 原行为, CI 单进程跑或本地 l3build check 直跑都不受影响).
+testdir        = "./build/check" .. (os.getenv("L3BUILD_TESTDIR_SUFFIX") or "")
 checkruns      = 2
 stdengine      = "xetex"
 checkdeps      = {"../xeCJK","../zhnumber"}
