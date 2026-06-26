@@ -19,7 +19,7 @@
 
 ## guides
 
-- `llmdoc/guides/release-workflow.md` — release tag 触发条件、构建阶段、release notes 生成、测试门控与 GitHub prerelease 重建流程。
+- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 生成英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest。
 
 ## memory
 
