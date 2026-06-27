@@ -90,14 +90,24 @@ TESTFILEDIR="${TESTFILEDIR:-./testfiles}"
 #   bucket_range <idx> <total>   # idx 从 1 到 total
 # 输出 "first last" (空格分隔). l3build --first/--last 按字母序选区间, 这跟
 # 它 globbing testfiledir/*.lvt 后 sort 的行为一致.
+# 空 testfiledir 或 N > 文件数等极端 case: 返回 "EMPTY", 调用方应跳过该桶.
 bucket_range() {
   local idx="$1" total="$2"
   local files all_count start_idx end_idx first last
   files=$(ls "${TESTFILEDIR}"/*.lvt 2>/dev/null | sort | awk -F/ '{n=$NF; sub(/\.lvt$/,"",n); print n}')
+  if [ -z "$files" ]; then
+    echo "EMPTY"
+    return
+  fi
   all_count=$(echo "$files" | wc -l)
   # 整数除法 + 余数分摊给前几个 bucket. idx=1..total.
   start_idx=$(( (idx - 1) * all_count / total + 1 ))
   end_idx=$(( idx * all_count / total ))
+  if [ "$start_idx" -gt "$end_idx" ]; then
+    # bucket 数比文件数还多, 当前桶分不到东西.
+    echo "EMPTY"
+    return
+  fi
   first=$(echo "$files" | sed -n "${start_idx}p")
   last=$(echo "$files" | sed -n "${end_idx}p")
   echo "$first" "$last"
@@ -158,6 +168,11 @@ for engine in $ENGINES; do
       slot="luatex-b${i}"
       workdir=$(prepare_workdir "$slot")
       range=$(cd "$workdir" && bucket_range "$i" "$LUATEX_BUCKETS")
+      if [ "$range" = "EMPTY" ]; then
+        echo "skip luatex/b${i}: empty bucket (LUATEX_BUCKETS > testfile count?)"
+        i=$((i + 1))
+        continue
+      fi
       first=${range% *}
       last=${range#* }
       label="luatex/b${i}"
