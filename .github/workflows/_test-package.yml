@@ -23,6 +23,14 @@ on:
         description: 'Caller 顶层 github.event_name (透传)'
         required: true
         type: string
+      tl-version:
+        # 显式 pin TeX Live 版本: 跳过 setup-texlive 的 remote version check
+        # (这步早于 cache restore, 若 mirror 不通 cache 再热也没用 — PR #899
+        # 实测 windows caller cache 命中但仍 ETIMEDOUT). 由 caller (test.yml)
+        # 顶层 env 统一管理, 年度 TL 发版只需改一处.
+        description: 'TeX Live 版本 (例 "2026"). 由 test.yml 顶层 env TL_VERSION 透传.'
+        required: true
+        type: string
 
 env:
   NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
@@ -63,28 +71,41 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Install TeX Live (from cache, then tlmgr update)
-      timeout-minutes: 30
+    # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
+    # 在 'Updating packages' 阶段仍会联网拉 tlmgr db checksum 判断要不要 update.
+    # PR #899 实测 windows ctan.math.illinois.edu 网络抖动时 "Unable to download
+    # the checksum of the remote TeX Live database", tlmgr 用本地老 db 跳过
+    # update → cache 是数月前的 TL revision → 跟仓库 .tlg (用 latest TLnet 包
+    # save 的) 不一致 → environ01 等测试 fail.
+    #
+    # 2 次 retry: try1 illinois, try2 fau.de. 同 warmup 思路但更轻 (只 2 次,
+    # 因为 caller 是 cache hit 路径, update 阶段联网比 install-tl 阶段稳定
+    # 些). 真正 install-tl 兜底仍在 warmup-tl.
+    - name: Install TeX Live (try 1, illinois mirror)
+      id: tl1
+      continue-on-error: true
+      timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
-        # 显式 pin version 跳过 setup-texlive 的 remote version check
-        # (这步早于 cache restore, 若联网不通 cache 再热也没用 — PR #899
-        # 实测 windows caller cache key 一致但 remote check 联 illinois
-        # mirror ETIMEDOUT, install-tl 没机会被跳过).
-        version: '2026'
+        version: ${{ inputs.tl-version }}
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        # update-all-packages: true 必须保留. 看起来浪费 (~70s/caller 跑
-        # 58 包 update), 但 setup-texlive-action 的 cache 设计是"同
-        # primaryKey 不覆写", warmup 跑了 update-all 也只保到含 uuid 的
-        # uniqueKey, 但 caller restore 时 GH cache **精确优先** 命中
-        # 老的 primaryKey entry (无 uuid 那个), 拿到 update 前的 TL.
-        # 即便我们设了 SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1 也救不
-        # 了, 因为 caller 端无法控制 GH cache 选哪份.
-        # 真要消除这 70s 得绕开 setup-texlive 自带 cache 自己用
-        # actions/cache, 代价大且不稳, 接受 70s/caller 的 update overhead.
-        # 总 wall-clock 仍优于旧串行方案 (13min → ~9min).
+        # update-all-packages: true 是必须的: 仓库 .tlg baseline 是在 TLnet
+        # 最新版下 save 的, cache 内容可能旧, update 才能对齐. 每 caller
+        # 70s 是 setup-texlive cache 设计的固有代价 (同 primaryKey 不覆写),
+        # 实测无合理方案绕开. 见 _test-package.yml head 注释.
+        update-all-packages: true
+
+    - name: Install TeX Live (try 2, fau.de mirror)
+      if: steps.tl1.outcome == 'failure'
+      timeout-minutes: 15
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        version: ${{ inputs.tl-version }}
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
         update-all-packages: true
 
     - name: Cache CJK fonts
