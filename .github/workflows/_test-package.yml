@@ -39,10 +39,6 @@ on:
         required: true
         type: string
 
-env:
-  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
-  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
-
 jobs:
   run:
     strategy:
@@ -194,8 +190,10 @@ jobs:
       uses: actions/cache@v6
       with:
         path: ${{ github.workspace }}/.font-cache
-        # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
-        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/_test-package.yml') }}-v1
+        # font-urls.txt 列了所有字体 URL, 它变才让 cache key 变. 用 yml hash
+        # 会被 caller / matrix 这类无关改动连带掀翻 cache, 害每 PR 重 download
+        # 5 caller × 3 OS × ~170MB.
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/font-urls.txt') }}-v1
 
     - name: Install Noto fonts
       run: |
@@ -205,8 +203,13 @@ jobs:
         mkdir -p "$FONT_CACHE"
         if [ ! -f "$FONT_CACHE/.done" ]; then
           cd "$FONT_CACHE"
-          curl -LO "${{ env.NOTO_SANS_URL }}"
-          curl -LO "${{ env.NOTO_SERIF_URL }}"
+          # 从 .github/font-urls.txt 逐行读 URL (# 注释行 / 空行忽略). 跟
+          # cache key 的 hashFiles 同源, 保证 "URL 改 → cache invalidate +
+          # 实际重 download" 完全同步.
+          while IFS= read -r url; do
+            case "$url" in ''|\#*) continue ;; esac
+            curl -LO "$url"
+          done < "${{ github.workspace }}/.github/font-urls.txt"
           for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
           # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
           rm -f *.zip
