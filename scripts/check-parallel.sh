@@ -196,21 +196,34 @@ for pid in $pid_list; do
   [ "$rc" -ne 0 ] && MAIN_FAIL=1
 done
 
-# Phase 2: -c configs 串行, 在原 pkg_dir 跑 (configs 不并行, 相对路径无忧).
+# Phase 2: -c configs 并行, 在原 pkg_dir 跑.
+# 每个 -c <config> 的 testdir 是 build/check-<configbasename>, 各自独立 dir,
+# 不会冲突. l3build 内部相对路径在 -c 模式下走 testdir/<config>, 也不会因为
+# 多 config 并行而搞乱 .tlg 对比. 实测 (PR #902) 3 个 config 串行 ~43s 是
+# wall-clock 超 6min 的最后一根稻草, 并行后压到最慢的单 config (~23s).
 CONFIG_FAIL=0
 config_exits=""
 if [ -n "$CONFIGS" ]; then
   echo ""
-  echo "==================== Phase 2: configs (串行: $CONFIGS) ===================="
+  echo "==================== Phase 2: configs (并行: $CONFIGS) ===================="
+  config_pids=""
+  pid_for_config=""    # "pid:config pid:config ..."
   for c in $CONFIGS; do
-    echo "--- config: $c ---"
-    if l3build check -c "$c" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; then
-      config_exits="$config_exits ${c}:0"
-    else
-      rc=$?
-      config_exits="$config_exits ${c}:${rc}"
-      CONFIG_FAIL=1
-    fi
+    (
+      l3build check -c "$c" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
+        | awk -v prefix="[$c] " '{ print prefix $0; fflush() }'
+      exit "${PIPESTATUS[0]}"
+    ) &
+    pid=$!
+    config_pids="$config_pids $pid"
+    pid_for_config="$pid_for_config ${pid}:${c}"
+  done
+  for pid in $config_pids; do
+    wait "$pid"
+    rc=$?
+    c=$(echo "$pid_for_config" | tr ' ' '\n' | grep "^${pid}:" | cut -d: -f2)
+    config_exits="$config_exits ${c}:${rc}"
+    [ "$rc" -ne 0 ] && CONFIG_FAIL=1
   done
 fi
 
