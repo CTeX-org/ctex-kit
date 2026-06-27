@@ -4,6 +4,11 @@
 
 --[==========================================================================[--
     Basic Information: Do Check Before Push
+
+    version + date 是 release 的"事实源". l3build tag 流程会用这俩值回写
+    .dtx 里 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx vX.Yz YYYY-MM-DD ...$`
+    (见下方 update_tag 函数), 所以发新版只需改这里两行 + 在 .dtx 里写
+    `\changes` 记录, 不必手动碰 .dtx 的 GetIdInfo 行.
 --]==========================================================================]--
 module              = "zhlineskip"
 version             = "v1.0f"
@@ -47,8 +52,16 @@ function update_tag(file, content, tagname, tagdate)
   tagname = version
   tagdate = date
   if string.match(file, module .. ".dtx$") then
+    -- 匹配 .dtx 里的 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx vX.Yz YYYY-MM-DD ...<...>`
+    -- 把 `vX.Yz YYYY-MM-DD` 和后面的 `<...>` 替换成 build.lua 的 version/date/maintainer/email.
+    -- Lua pattern 注意点:
+    --   `%%`    -> 字面 `%`
+    --   `%<`    -> 字面 `<`
+    --   `%+`    -> 字面 `+`         (+ 在 Lua 是量词, 这里要字面所以转义)
+    --   `(.-)`  -> 最短匹配捕获组 (Author 名)
+    --   `<(.-)>`-> 捕获 email
     content = string.gsub(content,
-      "%%<++!driver>\\GetIdInfo $Id: " .. module .. ".dtx " ..
+      "%%<%+!driver>\\GetIdInfo $Id: " .. module .. ".dtx " ..
       "v%d+%.%d+%w %d+%-%d+%-%d+ (.-)<(.-)>",
       "%%<+!driver>\\GetIdInfo $Id: "  .. module .. ".dtx " ..
       tagname .. " " .. tagdate .. " " .. maintainer .. "<" .. email .. ">")
@@ -58,7 +71,13 @@ end
 
 --[================== "Hacks" to `l3build` | Do not Modify ==================]--
 function fetchdocsupp(shortlink)
-  run(typesetdir, "curl -O -L \"https://" .. shortlink .. "\"")
+  -- run() 返回 shell rc. curl 失败 (网络不通 / 链接失效) 时 rc != 0,
+  -- 让 l3build 在 docinit 阶段就报错, 避免后续 typeset 因缺字体静默生成
+  -- 缺字符的 pdf. (PR #892 bot review #3.)
+  local rc = run(typesetdir, "curl -O -L --fail \"https://" .. shortlink .. "\"")
+  if rc ~= 0 then
+    error("fetchdocsupp: curl failed (rc=" .. rc .. ") for " .. shortlink)
+  end
   return 0
 end
 function docinit_hook()
@@ -73,6 +92,8 @@ function docinit_hook()
   for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
     cp(i, supportdir, localdir)
   end
+  -- ctanreadme 是 support/build-config.lua 里设的默认值 ("README.md"),
+  -- 此处隐式继承. 不在 build.lua 单独覆写, 跟其他包 (ctex/xeCJK) 保持一致.
   cp(ctanreadme, unpackdir, currentdir)
   return 0
 end
