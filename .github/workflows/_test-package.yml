@@ -74,14 +74,16 @@ jobs:
     # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
     # 在 'Updating packages' 阶段仍会联网拉 tlmgr db checksum 判断要不要 update.
     # PR #899 实测 windows ctan.math.illinois.edu 网络抖动时 "Unable to download
-    # the checksum of the remote TeX Live database", tlmgr 用本地老 db 跳过
-    # update → cache 是数月前的 TL revision → 跟仓库 .tlg (用 latest TLnet 包
-    # save 的) 不一致 → environ01 等测试 fail.
+    # the checksum of the remote TeX Live database", tlmgr **静默用本地老 db**
+    # → cache 是数月前的 TL revision → 跟仓库 .tlg (用 latest TLnet 包 save 的)
+    # 不一致 → environ01 / footnote01 等测试 fail.
     #
-    # 2 次 retry: try1 illinois, try2 fau.de. 同 warmup 思路但更轻 (只 2 次,
-    # 因为 caller 是 cache hit 路径, update 阶段联网比 install-tl 阶段稳定
-    # 些). 真正 install-tl 兜底仍在 warmup-tl.
-    - name: Install TeX Live (try 1, illinois mirror)
+    # 关键: tlmgr 这种 silent fallback 让 setup-texlive 步骤 success, 我们的
+    # try1 if: outcome == 'failure' 不会触发. 修法: try 1 直接走
+    # mirror.ctan.org 全球自动重定向 (而非 pin illinois 一个单点), GH runner
+    # 网络好时它会自动选最快/最稳的 mirror. illinois pin 给 try 2 兜底
+    # (mirror.ctan.org 极端不可用时).
+    - name: Install TeX Live (try 1, ctan.org auto-redirect)
       id: tl1
       continue-on-error: true
       timeout-minutes: 15
@@ -90,14 +92,14 @@ jobs:
         version: ${{ inputs.tl-version }}
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
-        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        repository: https://mirror.ctan.org/systems/texlive/tlnet
         # update-all-packages: true 是必须的: 仓库 .tlg baseline 是在 TLnet
         # 最新版下 save 的, cache 内容可能旧, update 才能对齐. 每 caller
         # 70s 是 setup-texlive cache 设计的固有代价 (同 primaryKey 不覆写),
         # 实测无合理方案绕开. 见 _test-package.yml head 注释.
         update-all-packages: true
 
-    - name: Install TeX Live (try 2, fau.de mirror)
+    - name: Install TeX Live (try 2, illinois mirror)
       if: steps.tl1.outcome == 'failure'
       timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
@@ -105,8 +107,24 @@ jobs:
         version: ${{ inputs.tl-version }}
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
-        repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
+
+    # 验证 setup-texlive 真的 update 到了最新 TLnet, 而非 tlmgr 在 mirror
+    # 不通时 silent fallback 用本地老 db. PR #899 实测 ubuntu 上 tlmgr 在
+    # "Unable to download the checksum" 时 silent 用 local, setup-texlive
+    # 退码 0 看不出来, caller cache 是数月前的 TL → 跟仓库 .tlg baseline 不一致.
+    # 这里 tlmgr update --self --list 强制访问 remote, grep 输出验证 "Unable
+    # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
+    # Actions UI 上可手动重跑.
+    - name: Verify TL mirror reachable (no silent fallback to local db)
+      run: |
+        out=$(tlmgr update --self --list 2>&1) || true
+        echo "$out"
+        if echo "$out" | grep -qiE "Unable to download|not verified"; then
+          echo "::error::tlmgr 报 mirror 不可达, 跑 update 时 silent fallback 用本地老 db. caller 拿到的 TL revision 比 .tlg baseline 旧, 测试一定 fail. 重跑 (rerun --failed) 或换 mirror."
+          exit 1
+        fi
 
     - name: Cache CJK fonts
       id: font-cache
