@@ -15,6 +15,14 @@ on:
         description: '包名: ctex / xeCJK / zhnumber / CJKpunct / zhlineskip'
         required: true
         type: string
+      event-name:
+        # reusable workflow 内部 github.event_name 永远是 'workflow_call'
+        # (GH Actions 已知行为), 拿不到顶层触发事件. caller 必须显式透传
+        # github.event_name 进来, 用于区分 schedule (--show-saves) vs
+        # 其他 (-H) 等行为.
+        description: 'Caller 顶层 github.event_name (透传)'
+        required: true
+        type: string
 
 env:
   NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
@@ -55,9 +63,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Install TeX Live (try 1)
-      id: tl1
-      continue-on-error: true
+    - name: Install TeX Live (from cache filled by warmup-tl job)
       timeout-minutes: 30
       uses: TeX-Live/setup-texlive-action@v4
       with:
@@ -65,34 +71,9 @@ jobs:
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
-        # 最新版下 save 的, PR CI 若走旧 cache (没 update), TL 包行为
-        # 漂移 → .log vs .tlg 不匹配 (PR #899 实测).
-        update-all-packages: true
-
-    # setup-texlive-action 本身没 retry, install-tl download 偶发
-    # FAILED_TO_DOWNLOAD (ETIMEDOUT 192.17.3.223:443) 频率不低. 包 3 次
-    # retry: try 2 / try 3 仅在前一次失败时跑, try 3 不带 continue-on-error,
-    # 真失败才让 job 挂.
-    - name: Install TeX Live (try 2, retry on network failure)
-      id: tl2
-      if: steps.tl1.outcome == 'failure'
-      continue-on-error: true
-      timeout-minutes: 30
-      uses: TeX-Live/setup-texlive-action@v4
-      with:
-        package-file: .github/tl_packages
-        packages: ${{ matrix.tl-pkgs }}
-        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        update-all-packages: true
-
-    - name: Install TeX Live (try 3, final)
-      if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
-      timeout-minutes: 30
-      uses: TeX-Live/setup-texlive-action@v4
-      with:
-        package-file: .github/tl_packages
-        packages: ${{ matrix.tl-pkgs }}
-        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        # 最新版下 save 的. 但这里 update 是廉价的, 因为 cache 已经被
+        # 上游 warmup-tl job 填好 (走 cache hit ~10-20s + tlmgr update).
+        # 真正昂贵的 install-tl 下载只在 warmup-tl 那 3 个 job 跑.
         update-all-packages: true
 
     - name: Cache CJK fonts
@@ -128,7 +109,7 @@ jobs:
       env:
         diffext: .diff
         diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+        L3BUILD_EXTRA_OPTIONS: ${{ inputs.event-name == 'schedule' && '--show-saves' || '-H' }}
       run: |
         set -x
         case "${{ inputs.pkg }}" in

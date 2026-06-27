@@ -117,45 +117,138 @@ jobs:
           fi
 
   # ──────────────────────────────────────────────────────────────────────
+  # 阶段 0.5: 预热 TeX Live 缓存. 每 OS 1 个 job, 跑 setup-texlive-action.
+  #
+  # 动机: PR 上 5 个 caller × 3 OS = 15 job 同时启动, 都 uses
+  # setup-texlive-action. 如果 GH cache 还没填好 (首次 PR 或 cache key
+  # 变), 15 job 全部并发 cache miss → 全部跑 install-tl 下载 → 同一
+  # ctan.math.illinois.edu mirror 被 5 个并发请求轰炸 → 偶发 ETIMEDOUT
+  # 让其中一个 job fail.
+  #
+  # 用 warmup-tl 收敛到每 OS 1 个 job 抢先装好 cache, 5 个 caller 串
+  # 在它后面, 100% 走 cache hit (~10-20s vs 冷启动 2-3min), 也不再产生
+  # 5 路并发 install-tl 请求, 从根本上消除 mirror ETIMEDOUT.
+  #
+  # 同时这个 job 也是 schedule / workflow_dispatch 时的 update-all 入口:
+  # 这两个触发器把 update-all-packages 设为 true, 把 cache baseline
+  # 推进到 TLnet 最新; PR / push 走 cache hit, baseline 不变.
+  # ──────────────────────────────────────────────────────────────────────
+  warmup-tl:
+    needs: changes
+    # 只要有任何 caller 要跑, 就要预热
+    if: |
+      needs.changes.outputs.ctex == 'true'
+      || needs.changes.outputs.xeCJK == 'true'
+      || needs.changes.outputs.zhnumber == 'true'
+      || needs.changes.outputs.CJKpunct == 'true'
+      || needs.changes.outputs.zhlineskip == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            tl-pkgs: ""
+            shell: bash
+          - os: macos-latest
+            tl-pkgs: ""
+            shell: bash
+          - os: windows-latest
+            tl-pkgs: wintools.windows
+            shell: C:\msys64\usr\bin\bash.exe -e {0}
+    name: warmup-tl on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
+      # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
+      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit.
+      - name: Install TeX Live (try 1)
+        id: tl1
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          # schedule / workflow_dispatch 触发时 update-all 推 baseline;
+          # 其他 (PR / push) 走 cache baseline.
+          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+
+      - name: Install TeX Live (try 2, retry on network failure)
+        id: tl2
+        if: steps.tl1.outcome == 'failure'
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+
+      - name: Install TeX Live (try 3, final)
+        if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
+        timeout-minutes: 30
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+
+  # ──────────────────────────────────────────────────────────────────────
   # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable
   # workflow 避免 matrix.pkg 维度造成的"幽灵 cancelled job" (动态 name
   # 模板在 strategy expansion 前 GH 注册 placeholder check 用未渲染模板
   # 作 name, 然后 cancel — 这是 GH Actions 已知行为).
+  #
+  # 5 个 caller 都 needs warmup-tl: cache 已被 warmup 填好, caller 内的
+  # setup-texlive-action 100% 走 cache hit, 不再有 mirror ETIMEDOUT 风险.
   # ──────────────────────────────────────────────────────────────────────
   test-ctex:
-    needs: changes
+    needs: [changes, warmup-tl]
     if: needs.changes.outputs.ctex == 'true'
     uses: ./.github/workflows/_test-package.yml
     with:
       pkg: ctex
+      event-name: ${{ github.event_name }}
 
   test-xeCJK:
-    needs: changes
+    needs: [changes, warmup-tl]
     if: needs.changes.outputs.xeCJK == 'true'
     uses: ./.github/workflows/_test-package.yml
     with:
       pkg: xeCJK
+      event-name: ${{ github.event_name }}
 
   test-zhnumber:
-    needs: changes
+    needs: [changes, warmup-tl]
     if: needs.changes.outputs.zhnumber == 'true'
     uses: ./.github/workflows/_test-package.yml
     with:
       pkg: zhnumber
+      event-name: ${{ github.event_name }}
 
   test-CJKpunct:
-    needs: changes
+    needs: [changes, warmup-tl]
     if: needs.changes.outputs.CJKpunct == 'true'
     uses: ./.github/workflows/_test-package.yml
     with:
       pkg: CJKpunct
+      event-name: ${{ github.event_name }}
 
   test-zhlineskip:
-    needs: changes
+    needs: [changes, warmup-tl]
     if: needs.changes.outputs.zhlineskip == 'true'
     uses: ./.github/workflows/_test-package.yml
     with:
       pkg: zhlineskip
+      event-name: ${{ github.event_name }}
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 失败, 这个 job
