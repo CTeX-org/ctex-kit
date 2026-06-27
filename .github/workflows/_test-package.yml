@@ -55,17 +55,23 @@ jobs:
             shell: bash
             tl-pkgs: ""
             tl-bin-platform: x86_64-linux
+            tlmgr-exe: tlmgr
           - os: macos-latest
             font-dir: /Library/Fonts
             shell: bash
             tl-pkgs: ""
             tl-bin-platform: universal-darwin
+            tlmgr-exe: tlmgr
           - os: windows-latest
             font-dir: /c/Windows/Fonts
             shell: C:\msys64\usr\bin\bash.exe -e {0}
             # for `unzip` shipped with texlive
             tl-pkgs: wintools.windows
             tl-bin-platform: windows
+            # Windows 上 tlmgr 实际是 tlmgr.bat. msys2 bash 不按 PATHEXT
+            # 补后缀, sanity check 直调必须显式写出. 测试阶段不影响 — l3build
+            # 调的是 latex/xelatex/luatex 这些 .exe, 走 PATH 没问题.
+            tlmgr-exe: tlmgr.bat
 
     # workflow_call 触发时, 整个 reusable workflow 在 caller 视角显示为
     # 一个 check, 名字 = "<caller_job_id> / <reusable_job_id> (<matrix>)".
@@ -94,14 +100,15 @@ jobs:
         path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
         key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ inputs.tl-cache-week }}
 
-    # cache hit fast path. sanity check 用 `continue-on-error: true` 兜底两种
-    # 情况:
-    #   1. cache 损坏 (理论极少)
-    #   2. Windows 上 tlmgr 是 tlmgr.bat, msys2 bash 不按 PATHEXT 补后缀,
-    #      "$TL_BIN/tlmgr" 直接 127. warmup 那边用 `|| true` 屏蔽过, 这里
-    #      改用 continue-on-error + 下游 fallback 走 outcome 自愈, 更稳.
-    # 失败时 step.outcome == 'failure', 下面所有 fallback step 的 if 都
-    # 同时 OR 这个 outcome, 让 setup-texlive fallback 自动接管.
+    # cache hit fast path. sanity check 用 `continue-on-error: true` 兜底 cache
+    # 真损坏的极端情况 (理论极少 — warmup 验证过才 save). 失败时
+    # step.outcome == 'failure', 下面所有 fallback step 的 if 都同时 OR 这个
+    # outcome, 让 setup-texlive fallback 自动接管.
+    #
+    # Windows: tlmgr 是 tlmgr.bat, msys2 bash 不按 PATHEXT 补后缀, 所以 matrix
+    # 里给出显式 tlmgr-exe (windows 用 tlmgr.bat, ubuntu/macos 用 tlmgr) — 不靠
+    # continue-on-error 兜 Windows, 否则 Windows 每次都假阳 fallback 退化成跟没
+    # bypass cache 一样慢.
     - name: Export PATH (cache hit fast path, skip setup-texlive)
       id: export-path
       if: steps.bypass-cache.outputs.cache-hit == 'true'
@@ -111,7 +118,7 @@ jobs:
         echo "$TL_BIN" >> "$GITHUB_PATH"
         echo "Added to PATH: $TL_BIN"
         # 不联网, 用 cache 内的本地 db 简单 sanity check.
-        "$TL_BIN/tlmgr" version
+        "$TL_BIN/${{ matrix.tlmgr-exe }}" version
 
     # ────────────────────────────────────────────────────────────────────
     # 以下是 cache miss 的 fallback 路径. 触发条件: cache miss, 或 cache hit
