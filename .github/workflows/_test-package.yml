@@ -1,0 +1,159 @@
+# Reusable workflow: 跑单个包 × 3 OS 测试. 由 test.yml 主 workflow 的 5 个
+# caller job 各自 `uses:` 调用 (ctex / xeCJK / zhnumber / CJKpunct / zhlineskip).
+#
+# 这么拆是为了消除 GitHub Actions 在 matrix.pkg 维度上的"幽灵 cancelled job"
+# (动态 name `${{ matrix.pkg }} on ...` 在 strategy expansion 前 GH 会注册一个
+# placeholder check 用未渲染模板作 name, 然后 cancel). caller job 用静态 job
+# name, 没这问题.
+
+name: test package
+
+on:
+  workflow_call:
+    inputs:
+      pkg:
+        description: '包名: ctex / xeCJK / zhnumber / CJKpunct / zhlineskip'
+        required: true
+        type: string
+
+env:
+  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
+  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+
+jobs:
+  run:
+    strategy:
+      # 一个 OS 失败不取消其它. 我们想看到所有 OS 的结果.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            font-dir: /usr/share/fonts/truetype
+            shell: bash
+            tl-pkgs: ""
+          - os: macos-latest
+            font-dir: /Library/Fonts
+            shell: bash
+            tl-pkgs: ""
+          - os: windows-latest
+            font-dir: /c/Windows/Fonts
+            shell: C:\msys64\usr\bin\bash.exe -e {0}
+            # for `unzip` shipped with texlive
+            tl-pkgs: wintools.windows
+
+    # workflow_call 触发时, 整个 reusable workflow 在 caller 视角显示为
+    # 一个 check, 名字 = "<caller_job_id> / <reusable_job_id> (<matrix>)".
+    # 这里 matrix only os, name 取 os.
+    name: on ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install TeX Live
+      timeout-minutes: 30 # fail fast
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
+        # 最新版下 save 的, PR CI 若走旧 cache (没 update), TL 包行为
+        # 漂移 → .log vs .tlg 不匹配 (PR #899 实测).
+        update-all-packages: true
+
+    - name: Cache CJK fonts
+      id: font-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}/.font-cache
+        # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/_test-package.yml') }}-v1
+
+    - name: Install Noto fonts
+      run: |
+        # 用 workspace 内绝对路径而非 ~/.cache/, 避免 msys2 bash 在 Windows
+        # 上 ~ expansion 与 mkdir/cd 不一致的诡异行为.
+        FONT_CACHE="${{ github.workspace }}/.font-cache"
+        mkdir -p "$FONT_CACHE"
+        if [ ! -f "$FONT_CACHE/.done" ]; then
+          cd "$FONT_CACHE"
+          curl -LO "${{ env.NOTO_SANS_URL }}"
+          curl -LO "${{ env.NOTO_SERIF_URL }}"
+          for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
+          # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
+          rm -f *.zip
+          touch .done
+          cd - >/dev/null
+        fi
+        cp "$FONT_CACHE"/*.ttc "${{ matrix.font-dir }}/"
+        fc-cache -f
+
+    - name: Test ${{ inputs.pkg }}
+      id: test
+      working-directory: ./${{ inputs.pkg }}
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+      run: |
+        set -x
+        case "${{ inputs.pkg }}" in
+          ctex)
+            # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
+            # wall-clock ~5-8min (串行旧法 ~13-17min).
+            CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+              ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
+              echo "::group::patch-health raw log"
+              for f in build/check-test/config-ctxdoc/patch-health.log \
+                       ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                       build/check-*/patch-health.log; do
+                [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+              done
+              echo "::endgroup::"
+              exit 1
+            }
+            ;;
+          zhlineskip)
+            # zhlineskip 失败时 dump 完整 .log 帮调试 (上游沿用风格).
+            if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+              l3build check -q "$L3BUILD_EXTRA_OPTIONS" || {
+                echo "::group::zhlineskip raw logs"
+                for f in build/test/*.log; do
+                  echo "=== $f ==="
+                  head -80 "$f" 2>/dev/null || echo "(not found)"
+                done
+                echo "::endgroup::"
+                exit 1
+              }
+            else
+              echo "No test configuration found, skipping"
+            fi
+            ;;
+          *)
+            # xeCJK / zhnumber / CJKpunct 等小包, 默认串行直接跑.
+            if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+              l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+            else
+              echo "No test configuration found, skipping"
+            fi
+            ;;
+        esac
+
+    - name: Get short commit SHA
+      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      run: |
+        echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_ENV"
+
+    - name: Upload test diffs
+      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ inputs.pkg }}-${{ runner.os }}
+        path: |
+          ${{ inputs.pkg }}/build/**/*.diff

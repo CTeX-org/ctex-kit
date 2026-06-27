@@ -254,21 +254,27 @@ CI 现在的结构 (PR #899 后):
 **阶段 0 — `changes` job (paths filter):**
 PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 5 个 bool (ctex / xeCJK / zhnumber / CJKpunct / zhlineskip). push / schedule / workflow_dispatch 触发时 filter 不影响, 全跑.
 
-依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑. 公共改动 (`.github/workflows/test.yml`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 5 个包都跑.
+依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 5 个包都跑.
 
-**阶段 1 — `test` matrix job (15 job 并行):**
-`os × pkg` = 3 × 5 = 15 个 job 同时跑, `fail-fast: false` 一个失败不取消其它. 每个 job:
-- 装 TL (setup-texlive-action@v4 内部缓存命中 ~10–20s, 冷启动 ~2–3min)
-- 装字体 (`actions/cache@v6` 缓存 ~/.cache/ctex-kit-fonts/, key 含本 yml hash)
-- 跑 `Test <pkg>`:
+**阶段 1 — 5 个 caller job 并行 (uses reusable workflow):**
+`test-ctex` / `test-xeCJK` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 五个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` 输入. 各 caller `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑.
+
+每个 reusable workflow 实例内部 `strategy.matrix.os = [ubuntu-latest, macos-latest, windows-latest]`, 三个 OS 并行. `fail-fast: false` 一个失败不取消其它.
+
+之所以拆 5 caller job 而非用 `matrix.pkg` 维度, 是为了消除 GH Actions 在动态 name (`${{ matrix.pkg }} on ...`) strategy expansion 前注册 placeholder check 用未渲染模板作 name 然后 cancel 的"幽灵 job"行为.
+
+每个实例步骤:
+- 装 TL (setup-texlive-action@v4 内部缓存, `update-all-packages: true` 让 baseline 跟 .tlg save 时的 TLnet 最新一致)
+- 装字体 (`actions/cache@v6` 缓存 `$GITHUB_WORKSPACE/.font-cache/`, key 含 `_test-package.yml` hash; zip 解完即删只留 ttc)
+- 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
   - 其他 (xeCJK / zhnumber / CJKpunct): `l3build check -q` 直接跑.
 
 **阶段 2 — `test-result` job (汇总):**
-`needs: test`, 检查 matrix job 结果. branch protection 只盯这一个 status check 即可, 不必列 15 个 matrix slot.
+`needs: [test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). branch protection 只盯这一个 status check 即可.
 
-失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ matrix.pkg }}/build/**/*.diff`, artifact name 含 pkg 名 + OS 区分.
+失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ inputs.pkg }}/build/**/*.diff`, artifact name 含 pkg 名 + OS 区分.
 
 ### Release 工作流：`.github/workflows/release.yml`
 

@@ -55,10 +55,13 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      # JSON 数组的 pkg 名, 给下游 matrix 用 fromJSON 转 list. push /
-      # schedule / workflow_dispatch 触发时直接给全 5 个; pull_request
-      # 触发时按 path filter 结果给子集.
-      packages: ${{ steps.compute.outputs.packages }}
+      # 五个 bool, 给下游 5 个 caller job 各自 if 用. push / schedule /
+      # workflow_dispatch 触发时全部 true; pull_request 时按 path filter 结果.
+      ctex:       ${{ steps.compute.outputs.ctex }}
+      xeCJK:      ${{ steps.compute.outputs.xeCJK }}
+      zhnumber:   ${{ steps.compute.outputs.zhnumber }}
+      CJKpunct:   ${{ steps.compute.outputs.CJKpunct }}
+      zhlineskip: ${{ steps.compute.outputs.zhlineskip }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -70,6 +73,7 @@ jobs:
             # 公共改动 → 全包都要跑
             _all: &all
               - '.github/workflows/test.yml'
+              - '.github/workflows/_test-package.yml'
               - 'scripts/check-parallel.sh'
               - 'support/**'
               - 'Makefile'
@@ -103,180 +107,91 @@ jobs:
         run: |
           # PR 走 path filter; 其它触发全跑.
           if [ "$IS_PR" != "true" ]; then
-            pkgs='["ctex","xeCJK","zhnumber","CJKpunct","zhlineskip"]'
-          else
-            pkgs="["
-            sep=""
-            [ "$FILTER_CTEX"       = "true" ] && pkgs="${pkgs}${sep}\"ctex\""       && sep=","
-            [ "$FILTER_XECJK"      = "true" ] && pkgs="${pkgs}${sep}\"xeCJK\""      && sep=","
-            [ "$FILTER_ZHNUMBER"   = "true" ] && pkgs="${pkgs}${sep}\"zhnumber\""   && sep=","
-            [ "$FILTER_CJKPUNCT"   = "true" ] && pkgs="${pkgs}${sep}\"CJKpunct\""   && sep=","
-            [ "$FILTER_ZHLINESKIP" = "true" ] && pkgs="${pkgs}${sep}\"zhlineskip\"" && sep=","
-            pkgs="${pkgs}]"
-          fi
-          echo "packages=${pkgs}" >> "$GITHUB_OUTPUT"
-          echo "Active packages: ${pkgs}"
-
-  # ──────────────────────────────────────────────────────────────────────
-  # 阶段 1: 各包 × 各 OS 并行测试. 15 个 job 同时跑 (3 OS × 5 pkg).
-  # ──────────────────────────────────────────────────────────────────────
-  test:
-    needs: changes
-    # 包列表为空 (PR 上没改任何相关包) 时整个 matrix 跳过.
-    if: ${{ needs.changes.outputs.packages != '[]' }}
-    strategy:
-      # 一个 job 失败不取消其它. 我们想看到所有 OS / 所有 pkg 的结果.
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        # pkg 由 changes job 动态计算 (PR filter / 全跑).
-        pkg: ${{ fromJSON(needs.changes.outputs.packages) }}
-        include:
-          - os: ubuntu-latest
-            font-dir: /usr/share/fonts/truetype
-            shell: bash
-            tl-pkgs: ""
-          - os: macos-latest
-            font-dir: /Library/Fonts
-            shell: bash
-            tl-pkgs: ""
-          - os: windows-latest
-            font-dir: /c/Windows/Fonts
-            shell: C:\msys64\usr\bin\bash.exe -e {0}
-            # for `unzip` shipped with texlive
-            tl-pkgs: wintools.windows
-
-    name: ${{ matrix.pkg }} on ${{ matrix.os }}
-
-    runs-on: ${{ matrix.os }}
-
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
-
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Install TeX Live
-      timeout-minutes: 30 # fail fast
-      uses: TeX-Live/setup-texlive-action@v4
-      with:
-        package-file: .github/tl_packages
-        packages: ${{ matrix.tl-pkgs }}
-        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
-        # 最新版下 save 的, PR CI 若走旧的 cache baseline (没 update),
-        # 部分包行为漂移 → 9/15 job .log vs .tlg 不匹配 (PR #899 实测).
-        # setup-texlive-action 本身已有 TL 安装缓存 (~10-20s cache hit),
-        # update-all 之后的 tlmgr update 增量是必须代价 (~1min/job, 并发
-        # 取 max wall-clock).
-        update-all-packages: true
-
-    # 字体缓存: key 含字体 URL hash, URL 变 (升级版本) 自动失效重 download.
-    # 缓存内容是已 unzip 的字体目录, 直接 cp 到 OS 字体目录即可.
-    - name: Cache CJK fonts
-      id: font-cache
-      uses: actions/cache@v6
-      with:
-        path: ${{ github.workspace }}/.font-cache
-        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}-v1
-        # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
-
-    - name: Install Noto fonts
-      run: |
-        # 用 workspace 内绝对路径而非 ~/.cache/, 避免 msys2 bash 在 Windows
-        # 上 ~ expansion 与 mkdir/cd 不一致的诡异行为.
-        FONT_CACHE="${{ github.workspace }}/.font-cache"
-        mkdir -p "$FONT_CACHE"
-        if [ ! -f "$FONT_CACHE/.done" ]; then
-          cd "$FONT_CACHE"
-          curl -LO "${{ env.NOTO_SANS_URL }}"
-          curl -LO "${{ env.NOTO_SERIF_URL }}"
-          for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
-          # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
-          rm -f *.zip
-          touch .done
-          cd - >/dev/null
-        fi
-        cp "$FONT_CACHE"/*.ttc "${{ matrix.font-dir }}/"
-        fc-cache -f
-
-    - name: Test ${{ matrix.pkg }}
-      id: test
-      working-directory: ./${{ matrix.pkg }}
-      env:
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
-      run: |
-        set -x
-        if [ "${{ matrix.pkg }}" = "ctex" ]; then
-          # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
-          # wall-clock ~5-8min (串行旧法 ~13-17min).
-          CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
-            ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
-            echo "::group::patch-health raw log"
-            for f in build/check-test/config-ctxdoc/patch-health.log \
-                     ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                     build/check-*/patch-health.log; do
-              [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+            for p in ctex xeCJK zhnumber CJKpunct zhlineskip; do
+              echo "${p}=true" >> "$GITHUB_OUTPUT"
             done
-            echo "::endgroup::"
-            exit 1
-          }
-        elif [ "${{ matrix.pkg }}" = "zhlineskip" ]; then
-          # zhlineskip 失败时 dump 完整 .log 帮调试 (上游沿用风格).
-          if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-            l3build check -q "$L3BUILD_EXTRA_OPTIONS" || {
-              echo "::group::zhlineskip raw logs"
-              for f in build/test/*.log; do
-                echo "=== $f ==="
-                head -80 "$f" 2>/dev/null || echo "(not found)"
-              done
-              echo "::endgroup::"
-              exit 1
-            }
+            echo "Non-PR trigger: running all packages"
           else
-            echo "No test configuration found, skipping"
+            echo "ctex=${FILTER_CTEX:-false}"             >> "$GITHUB_OUTPUT"
+            echo "xeCJK=${FILTER_XECJK:-false}"           >> "$GITHUB_OUTPUT"
+            echo "zhnumber=${FILTER_ZHNUMBER:-false}"     >> "$GITHUB_OUTPUT"
+            echo "CJKpunct=${FILTER_CJKPUNCT:-false}"     >> "$GITHUB_OUTPUT"
+            echo "zhlineskip=${FILTER_ZHLINESKIP:-false}" >> "$GITHUB_OUTPUT"
+            echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
           fi
-        else
-          # xeCJK / zhnumber / CJKpunct 等小包, 默认串行直接跑.
-          if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-            l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-          else
-            echo "No test configuration found, skipping"
-          fi
-        fi
-
-    - name: Get short commit SHA
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
-      run: |
-        echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_ENV"
-
-    - name: Upload test diffs
-      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
-      uses: actions/upload-artifact@v7
-      with:
-        name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ matrix.pkg }}-${{ runner.os }}
-        path: |
-          ${{ matrix.pkg }}/build/**/*.diff
 
   # ──────────────────────────────────────────────────────────────────────
-  # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test 矩阵 job 失败, 这个 job
-  # 也 fail. 这样 branch protection 上只盯这一个 status check 就够了, 不
-  # 用列 15 个 matrix slot.
+  # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable
+  # workflow 避免 matrix.pkg 维度造成的"幽灵 cancelled job" (动态 name
+  # 模板在 strategy expansion 前 GH 注册 placeholder check 用未渲染模板
+  # 作 name, 然后 cancel — 这是 GH Actions 已知行为).
+  # ──────────────────────────────────────────────────────────────────────
+  test-ctex:
+    needs: changes
+    if: needs.changes.outputs.ctex == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: ctex
+
+  test-xeCJK:
+    needs: changes
+    if: needs.changes.outputs.xeCJK == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: xeCJK
+
+  test-zhnumber:
+    needs: changes
+    if: needs.changes.outputs.zhnumber == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: zhnumber
+
+  test-CJKpunct:
+    needs: changes
+    if: needs.changes.outputs.CJKpunct == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: CJKpunct
+
+  test-zhlineskip:
+    needs: changes
+    if: needs.changes.outputs.zhlineskip == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: zhlineskip
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 失败, 这个 job
+  # 也 fail. 这样 branch protection 上只盯这一个 status check 就够了.
   # ──────────────────────────────────────────────────────────────────────
   test-result:
     if: ${{ !cancelled() }}
-    needs: test
+    needs: [test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     steps:
-      - name: Verify all test matrix jobs succeeded or were skipped
+      - name: Verify all package test caller jobs succeeded or were skipped
+        env:
+          R_CTEX:       ${{ needs.test-ctex.result }}
+          R_XECJK:      ${{ needs.test-xeCJK.result }}
+          R_ZHNUMBER:   ${{ needs.test-zhnumber.result }}
+          R_CJKPUNCT:   ${{ needs.test-CJKpunct.result }}
+          R_ZHLINESKIP: ${{ needs.test-zhlineskip.result }}
         run: |
-          if [ "${{ needs.test.result }}" = "success" ] \
-             || [ "${{ needs.test.result }}" = "skipped" ]; then
-            echo "✓ All test matrix jobs passed or were skipped"
-          else
-            echo "✗ test result: ${{ needs.test.result }}"
-            exit 1
-          fi
+          fail=0
+          for nv in \
+            "ctex:$R_CTEX" \
+            "xeCJK:$R_XECJK" \
+            "zhnumber:$R_ZHNUMBER" \
+            "CJKpunct:$R_CJKPUNCT" \
+            "zhlineskip:$R_ZHLINESKIP"; do
+            name="${nv%%:*}"
+            res="${nv#*:}"
+            if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
+              echo "✓ ${name}: ${res}"
+            else
+              echo "✗ ${name}: ${res}"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
