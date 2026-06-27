@@ -21,6 +21,8 @@ permissions:
 env:
   NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
   NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+  # 跟 test.yml 顶层 env 保持一致, 复用 PR #901 weekly bypass cache.
+  TL_VERSION: '2026'
 
 jobs:
   release:
@@ -114,13 +116,48 @@ jobs:
             ;;
         esac
 
-    - name: Install TeX Live
+    # PR #901 weekly bypass cache, 跟 test.yml 的 caller / warmup-tl 共享同
+    # 一个 key (tl-bypass-Linux-2026-<ISO 周>). Schedule 每周一 12:00 UTC
+    # 跑 test.yml warmup-tl 刷新这个 cache, 周内打 release tag 触发本工作流
+    # 时直接 cache hit, 跳过 setup-texlive-action (~70s → ~10s restore).
+    - name: Compute TL cache week
+      id: tlcache
+      run: |
+        week="$(TZ=UTC date +'%G-W%V')"
+        echo "week=${week}" >> "$GITHUB_OUTPUT"
+        echo "TL cache week: ${week}"
+
+    - name: TL bypass cache (restore)
+      id: bypass-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}
+        key: tl-bypass-${{ runner.os }}-${{ env.TL_VERSION }}-${{ steps.tlcache.outputs.week }}
+
+    # cache hit fast path: export PATH + sanity check. 失败时 continue-on-error
+    # 让下面 setup-texlive fallback 接管 (cache 损坏 / 极少). Linux runner 上
+    # tlmgr 直接可调用, 不需要 tlmgr.bat hack.
+    - name: Export PATH (cache hit fast path)
+      id: export-path
+      if: steps.bypass-cache.outputs.cache-hit == 'true'
+      continue-on-error: true
+      run: |
+        TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}/bin/x86_64-linux"
+        echo "$TL_BIN" >> "$GITHUB_PATH"
+        echo "Added to PATH: $TL_BIN"
+        "$TL_BIN/tlmgr" version
+
+    - name: Install TeX Live (fallback, cache miss or corrupt)
+      if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
       timeout-minutes: 30
       uses: TeX-Live/setup-texlive-action@v4
       with:
+        version: ${{ env.TL_VERSION }}
         package-file: .github/tl_packages
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
+        # 关闭 setup-texlive 内部 cache, 我们自己用 bypass-cache.
+        cache: false
 
     - name: Install zhmakeindex
       run: |
