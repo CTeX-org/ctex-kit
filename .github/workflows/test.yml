@@ -314,6 +314,12 @@ jobs:
   # 5 个 caller 都 needs warmup-tl: cache 已被 warmup 填好, caller 内的
   # setup-texlive-action 100% 走 cache hit, 不再有 mirror ETIMEDOUT 风险.
   # ──────────────────────────────────────────────────────────────────────
+  # ctex 主测拆 2 job 并行: 实测 (PR #902) luatex 单 engine ~8min 远慢于
+  # 其他 3 engine 加起来 ~3min. 同一 caller 内开 5 进程 (3 engine + luatex
+  # 切 2 桶) 会 oversubscribe 4 vCPU 反而拖慢全体. 拆 job 后:
+  #   - test-ctex: pdftex/xetex/uptex 3 engine 并行 + Phase 2 configs
+  #   - test-ctex-luatex: luatex 切 4 桶并行, 独占 runner 4 vCPU
+  # 两 job 同时跑, wall-clock = max(两者), 都 ~3-4min, 整 run 进 6min 内.
   test-ctex:
     needs: [changes, warmup-tl]
     if: needs.changes.outputs.ctex == 'true'
@@ -323,6 +329,19 @@ jobs:
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
       tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      engines: pdftex xetex uptex
+
+  test-ctex-luatex:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.ctex == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: ctex
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      engines: luatex
+      luatex-buckets: 4
 
   test-xeCJK:
     needs: [changes, warmup-tl]
@@ -371,22 +390,24 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────
   test-result:
     if: ${{ !cancelled() }}
-    needs: [warmup-tl, test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all caller jobs (incl. warmup-tl) succeeded or were skipped
         env:
-          R_WARMUP:     ${{ needs.warmup-tl.result }}
-          R_CTEX:       ${{ needs.test-ctex.result }}
-          R_XECJK:      ${{ needs.test-xeCJK.result }}
-          R_ZHNUMBER:   ${{ needs.test-zhnumber.result }}
-          R_CJKPUNCT:   ${{ needs.test-CJKpunct.result }}
-          R_ZHLINESKIP: ${{ needs.test-zhlineskip.result }}
+          R_WARMUP:        ${{ needs.warmup-tl.result }}
+          R_CTEX:          ${{ needs.test-ctex.result }}
+          R_CTEX_LUATEX:   ${{ needs.test-ctex-luatex.result }}
+          R_XECJK:         ${{ needs.test-xeCJK.result }}
+          R_ZHNUMBER:      ${{ needs.test-zhnumber.result }}
+          R_CJKPUNCT:      ${{ needs.test-CJKpunct.result }}
+          R_ZHLINESKIP:    ${{ needs.test-zhlineskip.result }}
         run: |
           fail=0
           for nv in \
             "warmup-tl:$R_WARMUP" \
             "ctex:$R_CTEX" \
+            "ctex-luatex:$R_CTEX_LUATEX" \
             "xeCJK:$R_XECJK" \
             "zhnumber:$R_ZHNUMBER" \
             "CJKpunct:$R_CJKPUNCT" \
