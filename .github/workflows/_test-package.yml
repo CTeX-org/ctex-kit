@@ -94,8 +94,18 @@ jobs:
         path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
         key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ inputs.tl-cache-week }}
 
+    # cache hit fast path. sanity check 用 `continue-on-error: true` 兜底两种
+    # 情况:
+    #   1. cache 损坏 (理论极少)
+    #   2. Windows 上 tlmgr 是 tlmgr.bat, msys2 bash 不按 PATHEXT 补后缀,
+    #      "$TL_BIN/tlmgr" 直接 127. warmup 那边用 `|| true` 屏蔽过, 这里
+    #      改用 continue-on-error + 下游 fallback 走 outcome 自愈, 更稳.
+    # 失败时 step.outcome == 'failure', 下面所有 fallback step 的 if 都
+    # 同时 OR 这个 outcome, 让 setup-texlive fallback 自动接管.
     - name: Export PATH (cache hit fast path, skip setup-texlive)
+      id: export-path
       if: steps.bypass-cache.outputs.cache-hit == 'true'
+      continue-on-error: true
       run: |
         TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}/bin/${{ matrix.tl-bin-platform }}"
         echo "$TL_BIN" >> "$GITHUB_PATH"
@@ -104,7 +114,8 @@ jobs:
         "$TL_BIN/tlmgr" version
 
     # ────────────────────────────────────────────────────────────────────
-    # 以下是 cache miss 的 fallback 路径. cache hit 时全部 skip.
+    # 以下是 cache miss 的 fallback 路径. 触发条件: cache miss, 或 cache hit
+    # 但 export-path sanity check 失败 (cache 损坏 / Windows tlmgr 路径问题).
     # ────────────────────────────────────────────────────────────────────
 
     # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
@@ -120,7 +131,7 @@ jobs:
     # 网络好时它会自动选最快/最稳的 mirror. illinois pin 给 try 2 兜底
     # (mirror.ctan.org 极端不可用时).
     - name: Install TeX Live (try 1, ctan.org auto-redirect, fallback)
-      if: steps.bypass-cache.outputs.cache-hit != 'true'
+      if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
       id: tl1
       continue-on-error: true
       timeout-minutes: 15
@@ -139,7 +150,7 @@ jobs:
         cache: false
 
     - name: Install TeX Live (try 2, illinois mirror, fallback)
-      if: steps.bypass-cache.outputs.cache-hit != 'true' && steps.tl1.outcome == 'failure'
+      if: (steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure') && steps.tl1.outcome == 'failure'
       timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
@@ -158,7 +169,7 @@ jobs:
     # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
     # Actions UI 上可手动重跑. 仅在 cache miss 走 fallback 路径时跑.
     - name: Verify TL mirror reachable (fallback path only)
-      if: steps.bypass-cache.outputs.cache-hit != 'true'
+      if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
       run: |
         out=$(tlmgr update --self --list 2>&1) || true
         echo "$out"
