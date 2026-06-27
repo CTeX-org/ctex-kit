@@ -236,8 +236,12 @@ jobs:
         case "${{ inputs.pkg }}" in
           ctex)
             # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
-            # wall-clock ~5-8min (串行旧法 ~13-17min).
+            # 实测 (PR #901): wall-clock 瓶颈是 luatex 单 engine ~8min,
+            # 其他三个加起来才 ~3min. 用 LUATEX_BUCKETS=2 把 luatex 切两桶
+            # 内部并行, 4 engine 并行总共 5 进程 (3+2), 4 vCPU 略超载但
+            # 大部分时间是 tex 启动 + I/O 等待, 实测加速明显.
             CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+            LUATEX_BUCKETS=2 \
               ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
               echo "::group::patch-health raw log"
               for f in build/check-test/config-ctxdoc/patch-health.log \
