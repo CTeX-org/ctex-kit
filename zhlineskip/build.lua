@@ -70,25 +70,18 @@ function update_tag(file, content, tagname, tagdate)
 end
 
 --[================== "Hacks" to `l3build` | Do not Modify ==================]--
-function fetchdocsupp(shortlink)
-  -- run() 返回 shell rc. curl 失败 (网络不通 / 链接失效) 时 rc != 0,
-  -- 让 l3build 在 docinit 阶段就报错, 避免后续 typeset 因缺字体静默生成
-  -- 缺字符的 pdf. (PR #892 bot review #3.)
-  local rc = run(typesetdir, "curl -O -L --fail \"https://" .. shortlink .. "\"")
-  if rc ~= 0 then
-    error("fetchdocsupp: curl failed (rc=" .. rc .. ") for " .. shortlink)
-  end
-  return 0
-end
+-- docinit_hook 在 typeset 前给 build/local 准备额外文件:
+--   1. ctxdoc.cls / ctxdocstrip.tex / ctex-zhconv*.lua 来自 ../support/
+--      (跟 ctex/xeCJK 一样, 用 ctex-kit 的 ctxdoc 排版类)
+--   2. README.md cp 到包根目录, l3build ctan 打包 zip 时要带上
+--
+-- 不再从 mirrors.ctan.org 下载 Noto CJK 字体: zhlineskip.dtx driver 部分已
+-- 跟 xeCJK 对齐用 fontconfig 风格字体名 (`Noto Serif CJK SC` 而非
+-- `NotoSerifCJKsc-Medium.otf`), 走系统 fontconfig 查找. CI 上 release.yml
+-- 的 "Install CJK fonts" step 已 fontfetch + fc-cache; 本地开发需自行装
+-- Noto CJK (Debian: `fonts-noto-cjk`; mac: `brew install --cask
+-- font-noto-serif-cjk-sc font-noto-sans-cjk-sc`).
 function docinit_hook()
-  local notofontset = {
-    "SerifCJKsc-Medium", "SerifCJKsc-Bold", "SerifCJKsc-Black",
-    "SansCJKsc-Regular", "SansCJKsc-Bold"
-  }
-  for _, series in pairs(notofontset) do
-    fetchdocsupp(
-      "mirrors.ctan.org/fonts/notocjksc/Noto" .. series .. ".otf")
-  end
   for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
     cp(i, supportdir, localdir)
   end
