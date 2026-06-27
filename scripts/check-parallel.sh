@@ -11,6 +11,9 @@
 # 用法 (在 ctex/ 等包目录内执行):
 #   ENGINES="pdftex xetex luatex uptex"
 #   CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc"
+#   LUATEX_BUCKETS=2    # 可选: luatex 内部再切 N 桶 (--first/--last)
+#                       # 并行, 用于打平 luatex 远慢于其他 engine 的瓶颈.
+#                       # 默认 1 (不切桶).
 #   ../scripts/check-parallel.sh [extra-l3build-args...]
 #
 # bash 兼容: 不依赖 bash 4+ 特性 (declare -A 等). macOS 自带 bash 3.2 可跑.
@@ -18,6 +21,7 @@ set -uo pipefail
 
 ENGINES="${ENGINES:-pdftex xetex luatex uptex}"
 CONFIGS="${CONFIGS:-}"
+LUATEX_BUCKETS="${LUATEX_BUCKETS:-1}"
 # 用数组保 EXTRA_ARGS, 避免单字符串模式下 word splitting 出错 (例如未来
 # 有用户传 --first foo 这种带空格的参数). bash 3.2 安全: 不依赖 4+ 特性.
 EXTRA_ARGS=("$@")
@@ -78,46 +82,102 @@ CHECKDEPS=$(awk '/^checkdeps/,/}/ {
 # 末尾 dofile. 即使 checkdeps 没列也必须 cp.
 SIBLING_ALWAYS="support"
 
+# 从 build.lua 抠 testfiledir (默认 "./testfiles"). 用于 luatex bucket split.
+TESTFILEDIR=$(awk -F'"' '/^[[:space:]]*testfiledir[[:space:]]*=/ {print $2; exit}' build.lua)
+TESTFILEDIR="${TESTFILEDIR:-./testfiles}"
+
+# bucket-<idx>-of-<N> 的 first/last test 名字 (按字母序). 调用约定:
+#   bucket_range <idx> <total>   # idx 从 1 到 total
+# 输出 "first last" (空格分隔). l3build --first/--last 按字母序选区间, 这跟
+# 它 globbing testfiledir/*.lvt 后 sort 的行为一致.
+bucket_range() {
+  local idx="$1" total="$2"
+  local files all_count start_idx end_idx first last
+  files=$(ls "${TESTFILEDIR}"/*.lvt 2>/dev/null | sort | awk -F/ '{n=$NF; sub(/\.lvt$/,"",n); print n}')
+  all_count=$(echo "$files" | wc -l)
+  # 整数除法 + 余数分摊给前几个 bucket. idx=1..total.
+  start_idx=$(( (idx - 1) * all_count / total + 1 ))
+  end_idx=$(( idx * all_count / total ))
+  first=$(echo "$files" | sed -n "${start_idx}p")
+  last=$(echo "$files" | sed -n "${end_idx}p")
+  echo "$first" "$last"
+}
+
 # Phase 1: 主测多 engine 并行
-echo "==================== Phase 1: 主测 (并行 engines: $ENGINES) ===================="
+PHASE1_DESC="并行 engines: $ENGINES"
+if [ "$LUATEX_BUCKETS" -gt 1 ] && echo "$ENGINES" | grep -qw luatex; then
+  PHASE1_DESC="$PHASE1_DESC; luatex 切 ${LUATEX_BUCKETS} 桶"
+fi
+echo "==================== Phase 1: 主测 ($PHASE1_DESC) ===================="
 
-# 为每个 engine 准备一个独立子工作目录, 后台跑.
-declare_pids() { :; }   # no-op marker
-pid_list=""              # space-separated; 用字符串避免 declare -A
-engine_for_pid=""        # "pid:engine pid:engine ..." 格式
-exit_for_engine=""       # "engine:rc engine:rc ..."
+# 为每个 engine (或 luatex bucket) 准备独立子工作目录, 后台跑.
+# 用字符串列表保留 pid / label / rc 映射, 避免 declare -A (bash 3.2).
+pid_list=""              # space-separated pids
+label_for_pid=""         # "pid:label pid:label ..."
+exit_for_label=""        # "label:rc label:rc ..."
 
-for engine in $ENGINES; do
-  engine_workdir="${work_root}/${engine}/${pkg_name}"
-  snapshot_pkg "$engine_workdir"
-  for dep in $CHECKDEPS; do
-    snapshot_dep "$dep" "${work_root}/${engine}"
-  done
-  for sib in $SIBLING_ALWAYS; do
-    snapshot_dep "$sib" "${work_root}/${engine}"
-  done
-
+spawn_check() {
+  # spawn_check <label> <workdir> [extra l3build args...]
+  local label="$1" workdir="$2"
+  shift 2
+  local extra=("$@")
   (
-    cd "$engine_workdir"
+    cd "$workdir"
     # bash 3.2 安全: 空数组用 ${arr[@]+"${arr[@]}"} 形式避免 set -u 炸.
     # 用 awk 而非 sed -u 加前缀: awk 默认按行刷, 跨平台 (sed -u 是 GNU 扩展,
     # windows git bash 的 sed 不支持).
-    l3build check -e "${engine}" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
-      | awk -v prefix="[${engine}] " '{ print prefix $0; fflush() }'
+    l3build check -q ${extra[@]+"${extra[@]}"} ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
+      | awk -v prefix="[${label}] " '{ print prefix $0; fflush() }'
     exit "${PIPESTATUS[0]}"
   ) &
-  pid=$!
+  local pid=$!
   pid_list="$pid_list $pid"
-  engine_for_pid="$engine_for_pid ${pid}:${engine}"
+  label_for_pid="$label_for_pid ${pid}:${label}"
+}
+
+prepare_workdir() {
+  # prepare_workdir <slot>  — slot 是 work_root 下的子目录名 (engine 或 engine-bucketK).
+  local slot="$1"
+  local workdir="${work_root}/${slot}/${pkg_name}"
+  snapshot_pkg "$workdir"
+  local dep
+  for dep in $CHECKDEPS; do
+    snapshot_dep "$dep" "${work_root}/${slot}"
+  done
+  for dep in $SIBLING_ALWAYS; do
+    snapshot_dep "$dep" "${work_root}/${slot}"
+  done
+  echo "$workdir"
+}
+
+for engine in $ENGINES; do
+  if [ "$engine" = "luatex" ] && [ "$LUATEX_BUCKETS" -gt 1 ]; then
+    # luatex 切桶: 各桶独立 workdir, 用 --first/--last 切区间.
+    i=1
+    while [ "$i" -le "$LUATEX_BUCKETS" ]; do
+      slot="luatex-b${i}"
+      workdir=$(prepare_workdir "$slot")
+      range=$(cd "$workdir" && bucket_range "$i" "$LUATEX_BUCKETS")
+      first=${range% *}
+      last=${range#* }
+      label="luatex/b${i}"
+      echo "spawn ${label}: --first ${first} --last ${last}"
+      spawn_check "$label" "$workdir" -e luatex --first "$first" --last "$last"
+      i=$((i + 1))
+    done
+  else
+    workdir=$(prepare_workdir "$engine")
+    spawn_check "$engine" "$workdir" -e "$engine"
+  fi
 done
 
 MAIN_FAIL=0
 for pid in $pid_list; do
   wait "$pid"
   rc=$?
-  # 从 engine_for_pid 找回对应 engine
-  engine=$(echo "$engine_for_pid" | tr ' ' '\n' | grep "^${pid}:" | cut -d: -f2)
-  exit_for_engine="$exit_for_engine ${engine}:${rc}"
+  # 从 label_for_pid 找回对应 label
+  label=$(echo "$label_for_pid" | tr ' ' '\n' | grep "^${pid}:" | cut -d: -f2)
+  exit_for_label="$exit_for_label ${label}:${rc}"
   [ "$rc" -ne 0 ] && MAIN_FAIL=1
 done
 
@@ -142,14 +202,14 @@ fi
 # 汇总
 echo ""
 echo "==================== check-parallel summary ===================="
-echo "Phase 1 (main test, parallel by engine):"
-for entry in $exit_for_engine; do
-  engine="${entry%:*}"
+echo "Phase 1 (main test, parallel):"
+for entry in $exit_for_label; do
+  label="${entry%:*}"
   rc="${entry#*:}"
   if [ "$rc" -eq 0 ]; then
-    echo "  ✓ ${engine}"
+    echo "  ✓ ${label}"
   else
-    echo "  ✗ ${engine} (rc=${rc})"
+    echo "  ✗ ${label} (rc=${rc})"
   fi
 done
 if [ -n "$CONFIGS" ]; then
