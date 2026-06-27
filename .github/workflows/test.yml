@@ -171,43 +171,58 @@ jobs:
       # 都炸 (实测 PR #899 上 ctan.math.illinois.edu 单点不通时 3 次
       # 同 mirror 全 ETIMEDOUT). try 2 走德国 fau.de, try 3 走 ctan.org
       # 全球自动重定向.
+      #
+      # env SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1: 强制 setup-texlive
+      # 把 "update-all 完成后" 的 TEXDIR 保到独立 uniqueKey (= primaryKey
+      # + random uuid). 默认行为是 cache hit on primaryKey 不 save, 导致
+      # 下游 caller 每次都得重跑 update. 用 FORCE_UPDATE_CACHE 后, save
+      # uniqueKey, caller restoreKeys = primaryKey prefix 模糊匹配能命中
+      # 这个 uniqueKey, 拿到 update 后的 TL, 跳过 update. 实测每 caller
+      # 省 ~70s.
       - name: Install TeX Live (try 1, illinois mirror)
         id: tl1
         continue-on-error: true
         timeout-minutes: 30
+        env:
+          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
         uses: TeX-Live/setup-texlive-action@v4
         with:
           version: '2026'
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-          # schedule / workflow_dispatch 触发时 update-all 推 baseline;
-          # 其他 (PR / push) 走 cache baseline.
-          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          # warmup 总是 update-all, 把 update 后的 TL 写入 cache uniqueKey,
+          # caller 复用. (schedule / workflow_dispatch 也是 true, 没区别 —
+          # 即便 PR / push 触发, baseline 仍跟 .tlg save 时一致.)
+          update-all-packages: true
 
       - name: Install TeX Live (try 2, fau.de mirror)
         id: tl2
         if: steps.tl1.outcome == 'failure'
         continue-on-error: true
         timeout-minutes: 30
+        env:
+          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
         uses: TeX-Live/setup-texlive-action@v4
         with:
           version: '2026'
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
-          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          update-all-packages: true
 
       - name: Install TeX Live (try 3, ctan.org auto-redirect, final)
         if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
         timeout-minutes: 30
+        env:
+          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
         uses: TeX-Live/setup-texlive-action@v4
         with:
           version: '2026'
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://mirror.ctan.org/systems/texlive/tlnet
-          update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          update-all-packages: true
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable

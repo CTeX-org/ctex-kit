@@ -75,11 +75,13 @@ jobs:
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
-        # 最新版下 save 的. 但这里 update 是廉价的, 因为 cache 已经被
-        # 上游 warmup-tl job 填好 (走 cache hit ~10-20s + tlmgr update).
-        # 真正昂贵的 install-tl 下载只在 warmup-tl 那 3 个 job 跑.
-        update-all-packages: true
+        # caller 端必须 false: warmup-tl 用 SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1
+        # 已把 "update 完成后" 的 TL 保到 uniqueKey, caller restore 时
+        # 按 primaryKey prefix 模糊匹配命中那份 uniqueKey, cache 里就是
+        # 已 update 状态. 这里再 update-all=true 会重复跑 ~70s 浪费.
+        # baseline 一致性: warmup 跑 update-all=true 与仓库 .tlg save 时
+        # 的 TL 状态一致, caller 直接复用, 不漂.
+        update-all-packages: false
 
     - name: Cache CJK fonts
       id: font-cache
