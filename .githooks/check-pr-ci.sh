@@ -52,15 +52,21 @@ if [ -z "$checks_json" ]; then
   exit 2
 fi
 
-# 修假阳: concurrency cancel-in-progress 会把同名 workflow 的旧 run 标记为
+# 修假阳 1: concurrency cancel-in-progress 会把同名 workflow 的旧 run 标记为
 # cancelled. gh pr checks 把所有 run 一股脑列出来, 直接看 .bucket=="fail" or
 # "cancel" 会把这些"被取代的"旧 run 误报成失败 (PR #887/#888 已两次踩坑).
 # 修法: 按 .name 分组只保留 startedAt 最新的一条; 之后再判 fail/cancel.
 # (cancel 在 latest 仍出现极少, 几种正常路径: 1) 主分支合并并发触发 2) 用户手
 # 动 cancel — 后者本就该是 fail, 前者是 bug, 不在这里兜底.)
+#
+# 修假阳 2: GH Actions matrix 在 strategy expansion 前会注册一个 placeholder
+# check, 用未渲染的 ${{ matrix.X }} 模板作 name, 然后 cancel. 这些 placeholder
+# 的 name 含 "${{" 字面, 不会与真 matrix job 撞 name, 单独成组, dedupe 救不了.
+# 直接按 name 含 "${{" 排除掉.
 latest_per_workflow="$(printf '%s' "$checks_json" \
   | jq -c '
-      group_by(.name)
+      map(select(.name | contains("${{") | not))
+      | group_by(.name)
       | map(
           sort_by(.startedAt // "") | last
         )
