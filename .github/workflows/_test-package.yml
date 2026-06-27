@@ -63,7 +63,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Install TeX Live (from cache filled by warmup-tl job)
+    - name: Install TeX Live (from cache, then tlmgr update)
       timeout-minutes: 30
       uses: TeX-Live/setup-texlive-action@v4
       with:
@@ -75,13 +75,17 @@ jobs:
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        # caller 端必须 false: warmup-tl 用 SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1
-        # 已把 "update 完成后" 的 TL 保到 uniqueKey, caller restore 时
-        # 按 primaryKey prefix 模糊匹配命中那份 uniqueKey, cache 里就是
-        # 已 update 状态. 这里再 update-all=true 会重复跑 ~70s 浪费.
-        # baseline 一致性: warmup 跑 update-all=true 与仓库 .tlg save 时
-        # 的 TL 状态一致, caller 直接复用, 不漂.
-        update-all-packages: false
+        # update-all-packages: true 必须保留. 看起来浪费 (~70s/caller 跑
+        # 58 包 update), 但 setup-texlive-action 的 cache 设计是"同
+        # primaryKey 不覆写", warmup 跑了 update-all 也只保到含 uuid 的
+        # uniqueKey, 但 caller restore 时 GH cache **精确优先** 命中
+        # 老的 primaryKey entry (无 uuid 那个), 拿到 update 前的 TL.
+        # 即便我们设了 SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1 也救不
+        # 了, 因为 caller 端无法控制 GH cache 选哪份.
+        # 真要消除这 70s 得绕开 setup-texlive 自带 cache 自己用
+        # actions/cache, 代价大且不稳, 接受 70s/caller 的 update overhead.
+        # 总 wall-clock 仍优于旧串行方案 (13min → ~9min).
+        update-all-packages: true
 
     - name: Cache CJK fonts
       id: font-cache
