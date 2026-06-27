@@ -102,7 +102,13 @@ fi
 head_sha="$(gh pr view "$pr_number" --json headRefOid --jq '.headRefOid' 2>/dev/null)"
 head_committed_at=""
 if [ -n "$head_sha" ]; then
-  head_committed_at="$(git show -s --format=%cI "$head_sha" 2>/dev/null || true)"
+  # 强制 UTC ISO 8601 (Z 后缀): GitHub API 的 created_at / submittedAt 都是
+  # 这种格式. git 默认 %cI 用 commit 自己的 timezone (+08:00 等), 字符串
+  # 比较 (jq 用) 按字母序错配: "2026-06-27T04:23:05Z" < "...12:05:26+08:00",
+  # 实际 push 后的 bot 评论 (UTC) 被误判为 push 前的旧评论, 漏检 (PR #899
+  # 实测命中). 必须 --date=iso-strict-local + TZ=UTC 才让 git 输出 Z 后缀
+  # UTC. (单纯 TZ=UTC %cI 对 git 无效, git 用 commit 自带 timezone.)
+  head_committed_at="$(TZ=UTC git show -s --format=%cd --date=iso-strict-local "$head_sha" 2>/dev/null || true)"
 fi
 
 # 1) push 之后是否有新 review (state != PENDING && submittedAt > head_committed_at)
