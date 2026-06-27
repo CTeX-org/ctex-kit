@@ -31,6 +31,13 @@ on:
         description: 'TeX Live 版本 (例 "2026"). 由 test.yml 顶层 env TL_VERSION 透传.'
         required: true
         type: string
+      tl-cache-week:
+        # ISO 年-周 (例 "2026-W26"), 用作 TL bypass cache key 的时间维度.
+        # 周内 cache hit, 跨周翻新. 由 changes job 在 ubuntu runner 上算
+        # 一次, 透传给所有 caller × 3 OS 保证 key 一致.
+        description: 'ISO 年-周字符串 (例 2026-W26). 由 test.yml changes job 计算.'
+        required: true
+        type: string
 
 env:
   NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
@@ -47,15 +54,18 @@ jobs:
             font-dir: /usr/share/fonts/truetype
             shell: bash
             tl-pkgs: ""
+            tl-bin-platform: x86_64-linux
           - os: macos-latest
             font-dir: /Library/Fonts
             shell: bash
             tl-pkgs: ""
+            tl-bin-platform: universal-darwin
           - os: windows-latest
             font-dir: /c/Windows/Fonts
             shell: C:\msys64\usr\bin\bash.exe -e {0}
             # for `unzip` shipped with texlive
             tl-pkgs: wintools.windows
+            tl-bin-platform: windows
 
     # workflow_call 触发时, 整个 reusable workflow 在 caller 视角显示为
     # 一个 check, 名字 = "<caller_job_id> / <reusable_job_id> (<matrix>)".
@@ -71,6 +81,32 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
+    # TL bypass cache: warmup-tl 已经把 update 后的整个 TEXDIR 保到这个
+    # key. caller restore 这份 cache + 把 bin/<platform> 加入 PATH, 完全
+    # 不跑 setup-texlive-action, 不联网, 秒过.
+    #
+    # cache miss (例 weekly 边界 + push race, 或 cache eviction): fallback
+    # 到 setup-texlive-action (下面 try 1/2 + verification). 保险但慢.
+    - name: TL bypass cache (caller restore)
+      id: bypass-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
+        key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ inputs.tl-cache-week }}
+
+    - name: Export PATH (cache hit fast path, skip setup-texlive)
+      if: steps.bypass-cache.outputs.cache-hit == 'true'
+      run: |
+        TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}/bin/${{ matrix.tl-bin-platform }}"
+        echo "$TL_BIN" >> "$GITHUB_PATH"
+        echo "Added to PATH: $TL_BIN"
+        # 不联网, 用 cache 内的本地 db 简单 sanity check.
+        "$TL_BIN/tlmgr" version
+
+    # ────────────────────────────────────────────────────────────────────
+    # 以下是 cache miss 的 fallback 路径. cache hit 时全部 skip.
+    # ────────────────────────────────────────────────────────────────────
+
     # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
     # 在 'Updating packages' 阶段仍会联网拉 tlmgr db checksum 判断要不要 update.
     # PR #899 实测 windows ctan.math.illinois.edu 网络抖动时 "Unable to download
@@ -83,7 +119,8 @@ jobs:
     # mirror.ctan.org 全球自动重定向 (而非 pin illinois 一个单点), GH runner
     # 网络好时它会自动选最快/最稳的 mirror. illinois pin 给 try 2 兜底
     # (mirror.ctan.org 极端不可用时).
-    - name: Install TeX Live (try 1, ctan.org auto-redirect)
+    - name: Install TeX Live (try 1, ctan.org auto-redirect, fallback)
+      if: steps.bypass-cache.outputs.cache-hit != 'true'
       id: tl1
       continue-on-error: true
       timeout-minutes: 15
@@ -98,9 +135,11 @@ jobs:
         # 70s 是 setup-texlive cache 设计的固有代价 (同 primaryKey 不覆写),
         # 实测无合理方案绕开. 见 _test-package.yml head 注释.
         update-all-packages: true
+        # 关掉 setup-texlive 内部 cache, 我们自己用 bypass-cache.
+        cache: false
 
-    - name: Install TeX Live (try 2, illinois mirror)
-      if: steps.tl1.outcome == 'failure'
+    - name: Install TeX Live (try 2, illinois mirror, fallback)
+      if: steps.bypass-cache.outputs.cache-hit != 'true' && steps.tl1.outcome == 'failure'
       timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
@@ -109,6 +148,7 @@ jobs:
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
+        cache: false
 
     # 验证 setup-texlive 真的 update 到了最新 TLnet, 而非 tlmgr 在 mirror
     # 不通时 silent fallback 用本地老 db. PR #899 实测 ubuntu 上 tlmgr 在
@@ -116,8 +156,9 @@ jobs:
     # 退码 0 看不出来, caller cache 是数月前的 TL → 跟仓库 .tlg baseline 不一致.
     # 这里 tlmgr update --self --list 强制访问 remote, grep 输出验证 "Unable
     # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
-    # Actions UI 上可手动重跑.
-    - name: Verify TL mirror reachable (no silent fallback to local db)
+    # Actions UI 上可手动重跑. 仅在 cache miss 走 fallback 路径时跑.
+    - name: Verify TL mirror reachable (fallback path only)
+      if: steps.bypass-cache.outputs.cache-hit != 'true'
       run: |
         out=$(tlmgr update --self --list 2>&1) || true
         echo "$out"
