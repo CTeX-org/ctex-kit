@@ -164,11 +164,13 @@ jobs:
         package-file: .github/tl_packages
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        # 仅在 schedule / workflow_dispatch 触发时 update-all-packages.
-        # PR / push 走缓存 baseline (节省 ~1min/job). schedule 每周五跑
-        # update-all 把 baseline 推进到 TLnet 最新, workflow_dispatch 是
-        # 维护者强制刷新口子.
-        update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
+        # 最新版下 save 的, PR CI 若走旧的 cache baseline (没 update),
+        # 部分包行为漂移 → 9/15 job .log vs .tlg 不匹配 (PR #899 实测).
+        # setup-texlive-action 本身已有 TL 安装缓存 (~10-20s cache hit),
+        # update-all 之后的 tlmgr update 增量是必须代价 (~1min/job, 并发
+        # 取 max wall-clock).
+        update-all-packages: true
 
     # 字体缓存: key 含字体 URL hash, URL 变 (升级版本) 自动失效重 download.
     # 缓存内容是已 unzip 的字体目录, 直接 cp 到 OS 字体目录即可.
@@ -191,6 +193,8 @@ jobs:
           curl -LO "${{ env.NOTO_SANS_URL }}"
           curl -LO "${{ env.NOTO_SERIF_URL }}"
           for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
+          # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
+          rm -f *.zip
           touch .done
           cd - >/dev/null
         fi
