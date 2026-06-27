@@ -38,6 +38,21 @@ on:
         description: 'ISO 年-周字符串 (例 2026-W26). 由 test.yml changes job 计算.'
         required: true
         type: string
+      engines:
+        # 仅 ctex 用. 空 = 跑全 4 engine + Phase 2 configs (单 caller 默认).
+        # 非空 = 只跑指定 engine 列表, 跳过 Phase 2 configs (用于拆 ctex 为
+        # test-ctex / test-ctex-luatex 两 job 时只跑各自的 engine 子集).
+        description: '可选 ENGINES 透传 (空 = 默认全 engine + configs).'
+        required: false
+        type: string
+        default: ''
+      luatex-buckets:
+        # 仅 ctex 用. luatex 单 engine 比其他三个加起来还慢一倍, 拆桶并行打平
+        # 瓶颈. 1 = 不拆桶. 拆 job 后 luatex 独占 runner 4 vCPU, 可设 4.
+        description: '可选 LUATEX_BUCKETS 透传 (1 = 不切桶).'
+        required: false
+        type: number
+        default: 1
 
 jobs:
   run:
@@ -237,21 +252,40 @@ jobs:
           ctex)
             # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
             # 实测 (PR #901): wall-clock 瓶颈是 luatex 单 engine ~8min,
-            # 其他三个加起来才 ~3min. 用 LUATEX_BUCKETS=2 把 luatex 切两桶
-            # 内部并行, 4 engine 并行总共 5 进程 (3+2), 4 vCPU 略超载但
-            # 大部分时间是 tex 启动 + I/O 等待, 实测加速明显.
-            CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
-            LUATEX_BUCKETS=2 \
-              ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
-              echo "::group::patch-health raw log"
-              for f in build/check-test/config-ctxdoc/patch-health.log \
-                       ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                       build/check-*/patch-health.log; do
-                [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
-              done
-              echo "::endgroup::"
-              exit 1
-            }
+            # 其他三个加起来才 ~3min. 拆 caller 后:
+            #   - inputs.engines 空: 跑全 4 engine + Phase 2 configs (单
+            #     caller 默认, 同旧行为)
+            #   - inputs.engines 非空: 只跑指定 engine, 跳 configs. test.yml
+            #     用此模式把 ctex 拆 test-ctex (3 engine) + test-ctex-luatex
+            #     (luatex only, LUATEX_BUCKETS=4), 两 job 同时跑, wall-clock
+            #     = max. configs (~44s) 跟 3 engine job 一起跑.
+            if [ -n "${{ inputs.engines }}" ]; then
+              ENGINES="${{ inputs.engines }}" \
+              LUATEX_BUCKETS="${{ inputs.luatex-buckets }}" \
+                ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
+                echo "::group::patch-health raw log"
+                for f in build/check-test/config-ctxdoc/patch-health.log \
+                         ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                         build/check-*/patch-health.log; do
+                  [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+                done
+                echo "::endgroup::"
+                exit 1
+              }
+            else
+              CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+              LUATEX_BUCKETS="${{ inputs.luatex-buckets }}" \
+                ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
+                echo "::group::patch-health raw log"
+                for f in build/check-test/config-ctxdoc/patch-health.log \
+                         ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                         build/check-*/patch-health.log; do
+                  [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+                done
+                echo "::endgroup::"
+                exit 1
+              }
+            fi
             ;;
           zhlineskip)
             # zhlineskip 失败时 dump 完整 .log 帮调试 (上游沿用风格).
