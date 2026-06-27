@@ -196,11 +196,11 @@ for pid in $pid_list; do
   [ "$rc" -ne 0 ] && MAIN_FAIL=1
 done
 
-# Phase 2: -c configs 并行, 在原 pkg_dir 跑.
-# 每个 -c <config> 的 testdir 是 build/check-<configbasename>, 各自独立 dir,
-# 不会冲突. l3build 内部相对路径在 -c 模式下走 testdir/<config>, 也不会因为
-# 多 config 并行而搞乱 .tlg 对比. 实测 (PR #902) 3 个 config 串行 ~43s 是
-# wall-clock 超 6min 的最后一根稻草, 并行后压到最慢的单 config (~23s).
+# Phase 2: -c configs 并行, 各自独立 workdir.
+# 同 Phase 1 设计: 每个 config 在 work_root/config-<name>/<pkg> 的 git
+# snapshot 里跑, build/local/ 完全独立, 不会有多个 l3build 并发 cp installfiles
+# 到同一 build/local/ 的 race ("File exists" 警告; PR #902 实测).
+# Phase 1 跑串行 ~43s, 并行后 wall-clock = max(三 config) ≈ 23s.
 CONFIG_FAIL=0
 config_exits=""
 if [ -n "$CONFIGS" ]; then
@@ -209,7 +209,12 @@ if [ -n "$CONFIGS" ]; then
   config_pids=""
   pid_for_config=""    # "pid:config pid:config ..."
   for c in $CONFIGS; do
+    # config 名字含 '/' (例 "test/config-cmap"), workdir slot 用 basename 避免
+    # 路径分层. test/config-cmap -> config-cmap.
+    slot="$(basename "$c")"
+    workdir=$(prepare_workdir "config-${slot}")
     (
+      cd "$workdir"
       l3build check -c "$c" -q ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1 \
         | awk -v prefix="[$c] " '{ print prefix $0; fflush() }'
       exit "${PIPESTATUS[0]}"
