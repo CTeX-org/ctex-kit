@@ -53,6 +53,14 @@ on:
         required: false
         type: number
         default: 1
+      configs:
+        # 仅 ctex 用. ctex Phase 2 跑 -c <config> 列表 (config-cmap /
+        # config-contrib / config-ctxdoc). 空 = 不跑 Phase 2. 拆 job 时
+        # configs 跟 3 engine job (test-ctex) 一起跑, luatex job 不跑 configs.
+        description: '可选 CONFIGS 透传 (空 = 不跑 Phase 2 configs).'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   run:
@@ -250,42 +258,38 @@ jobs:
         set -x
         case "${{ inputs.pkg }}" in
           ctex)
-            # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
-            # 实测 (PR #901): wall-clock 瓶颈是 luatex 单 engine ~8min,
-            # 其他三个加起来才 ~3min. 拆 caller 后:
-            #   - inputs.engines 空: 跑全 4 engine + Phase 2 configs (单
-            #     caller 默认, 同旧行为)
-            #   - inputs.engines 非空: 只跑指定 engine, 跳 configs. test.yml
-            #     用此模式把 ctex 拆 test-ctex (3 engine) + test-ctex-luatex
-            #     (luatex only, LUATEX_BUCKETS=4), 两 job 同时跑, wall-clock
-            #     = max. configs (~44s) 跟 3 engine job 一起跑.
-            if [ -n "${{ inputs.engines }}" ]; then
-              ENGINES="${{ inputs.engines }}" \
-              LUATEX_BUCKETS="${{ inputs.luatex-buckets }}" \
-                ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
-                echo "::group::patch-health raw log"
-                for f in build/check-test/config-ctxdoc/patch-health.log \
-                         ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                         build/check-*/patch-health.log; do
-                  [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
-                done
-                echo "::endgroup::"
-                exit 1
-              }
-            else
-              CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
-              LUATEX_BUCKETS="${{ inputs.luatex-buckets }}" \
-                ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
-                echo "::group::patch-health raw log"
-                for f in build/check-test/config-ctxdoc/patch-health.log \
-                         ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                         build/check-*/patch-health.log; do
-                  [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
-                done
-                echo "::endgroup::"
-                exit 1
-              }
+            # ctex 跨 4 engine 跑 181 测试 + 3 个 -c configs (cmap / contrib /
+            # ctxdoc). 用并行 wrapper. 实测 (PR #901) luatex 单 engine ~8min
+            # 远慢于其他 3 个 (加起来 ~3min). PR #902 拆 caller:
+            #
+            #   单 caller 模式 (engines 空): 全 4 engine + 全 configs, 旧行为.
+            #   拆 job 模式: test.yml 的 caller 显式传 engines/configs/luatex-buckets:
+            #     - test-ctex:        engines="pdftex xetex uptex", 跑 configs
+            #     - test-ctex-luatex: engines="luatex", luatex-buckets=4, 不跑 configs
+            #
+            # 关键: ENGINES / CONFIGS / LUATEX_BUCKETS 都是 check-parallel.sh
+            # 读的 env. 这里写一次, 错误处理只一份, 避免 if/else 两分支漂移
+            # (bot review #902 抓到上一版 if 分支漏传 CONFIGS, Phase 2 静默丢).
+            ENGINES_ENV="${{ inputs.engines }}"
+            CONFIGS_ENV="${{ inputs.configs }}"
+            LUATEX_BUCKETS_ENV="${{ inputs.luatex-buckets }}"
+            # engines 空 = 单 caller 模式, 默认全 4 engine + 全 3 configs.
+            if [ -z "$ENGINES_ENV" ]; then
+              CONFIGS_ENV="test/config-cmap test/config-contrib test/config-ctxdoc"
             fi
+            ENGINES="$ENGINES_ENV" \
+            CONFIGS="$CONFIGS_ENV" \
+            LUATEX_BUCKETS="$LUATEX_BUCKETS_ENV" \
+              ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
+              echo "::group::patch-health raw log"
+              for f in build/check-test/config-ctxdoc/patch-health.log \
+                       ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                       build/check-*/patch-health.log; do
+                [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+              done
+              echo "::endgroup::"
+              exit 1
+            }
             ;;
           zhlineskip)
             # zhlineskip 失败时 dump 完整 .log 帮调试 (上游沿用风格).
