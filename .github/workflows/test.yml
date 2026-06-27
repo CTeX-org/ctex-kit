@@ -166,7 +166,12 @@ jobs:
       # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
       # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
       # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit.
-      - name: Install TeX Live (try 1)
+      #
+      # 三次 retry 换不同 mirror, 避免单一 mirror 长时间不可达时 3 次
+      # 都炸 (实测 PR #899 上 ctan.math.illinois.edu 单点不通时 3 次
+      # 同 mirror 全 ETIMEDOUT). try 2 走德国 fau.de, try 3 走 ctan.org
+      # 全球自动重定向.
+      - name: Install TeX Live (try 1, illinois mirror)
         id: tl1
         continue-on-error: true
         timeout-minutes: 30
@@ -179,7 +184,7 @@ jobs:
           # 其他 (PR / push) 走 cache baseline.
           update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
-      - name: Install TeX Live (try 2, retry on network failure)
+      - name: Install TeX Live (try 2, fau.de mirror)
         id: tl2
         if: steps.tl1.outcome == 'failure'
         continue-on-error: true
@@ -188,17 +193,17 @@ jobs:
         with:
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
-          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
           update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
-      - name: Install TeX Live (try 3, final)
+      - name: Install TeX Live (try 3, ctan.org auto-redirect, final)
         if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
         timeout-minutes: 30
         uses: TeX-Live/setup-texlive-action@v4
         with:
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
-          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          repository: https://mirror.ctan.org/systems/texlive/tlnet
           update-all-packages: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
   # ──────────────────────────────────────────────────────────────────────
@@ -251,16 +256,18 @@ jobs:
       event-name: ${{ github.event_name }}
 
   # ──────────────────────────────────────────────────────────────────────
-  # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 失败, 这个 job
-  # 也 fail. 这样 branch protection 上只盯这一个 status check 就够了.
+  # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 或 warmup-tl
+  # 失败, 这个 job 也 fail. 这样 branch protection 上只盯这一个 status
+  # check 就够了.
   # ──────────────────────────────────────────────────────────────────────
   test-result:
     if: ${{ !cancelled() }}
-    needs: [test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    needs: [warmup-tl, test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     steps:
-      - name: Verify all package test caller jobs succeeded or were skipped
+      - name: Verify all caller jobs (incl. warmup-tl) succeeded or were skipped
         env:
+          R_WARMUP:     ${{ needs.warmup-tl.result }}
           R_CTEX:       ${{ needs.test-ctex.result }}
           R_XECJK:      ${{ needs.test-xeCJK.result }}
           R_ZHNUMBER:   ${{ needs.test-zhnumber.result }}
@@ -269,6 +276,7 @@ jobs:
         run: |
           fail=0
           for nv in \
+            "warmup-tl:$R_WARMUP" \
             "ctex:$R_CTEX" \
             "xeCJK:$R_XECJK" \
             "zhnumber:$R_ZHNUMBER" \
