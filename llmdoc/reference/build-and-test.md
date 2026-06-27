@@ -66,6 +66,10 @@
 
 因此很多包级 `*_prehook` / `*_posthook` 逻辑只有结合这个共享文件才能正确理解。见 `support/build-config.lua:170-214`。
 
+### 6. CTAN 上传配置生成器
+
+`ctex_kit_uploadconfig{...}` 为接入 CTAN 投递的包生成 `uploadconfig` 表，`uploader` / `email` 不落 git，而是在 build.lua 加载时通过 `os.getenv("CTAN_UPLOADER")` / `CTAN_EMAIL` 从环境读取。目前 `xeCJK` / `ctex` 的 `build.lua` 已接入，供 `release-ctan-upload.yml`（stage 2 CTAN 投递）的 `l3build upload` 使用。完整投递流程见 `llmdoc/guides/release-workflow.md`。
+
 ## 各包 `build.lua` 的标准结构
 
 现代子包的 `build.lua` 通常遵循同一骨架：
@@ -191,7 +195,9 @@
 GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
-- `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流
+- `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
+- `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
+- `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
 - `.github/workflows/agentic-pr-review.yml`：PR 自动审查工作流，由 `pull_request_target` 事件触发，使用 Claude Code 执行代码审查并发表评论；含并发控制，同一 PR 仅保留最新 run
 - `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 文档自动更新工作流，每天北京时间 5:00 定时触发或手动触发；会先关闭已有的过期 llmdoc PR 并扩展时间范围
 - `.github/workflows/agentic-patrol.yml`：仓库巡查工作流，每天北京时间 08:00 (UTC 0:00) 触发一次，监控 CI 状态、扫描未处理 Issue 并自动分发处理

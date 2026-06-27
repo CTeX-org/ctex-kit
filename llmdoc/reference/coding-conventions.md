@@ -63,6 +63,22 @@
 
 **反例 / 适用边界（\#879）**：`\regex_replace_all:nnN { \cP . } { \cA \x{23} } ...` 这类写法只在匹配端精确，**替换端 `\x{NN}` 是字面 codepoint**——所有匹配项被一律映射到固定字符码，丢失输入侧 token 的原字符身份。当用户通过 `\catcode\`\&=6` 等方式把其它字符设为 catcode 6 时，该前提被打破。需要保留原 codepoint 的场景应改用 token 级路径：`\tl_map_inline:Nn` + `\token_if_parameter:NTF` + `\char_generate:nn { \int_value:w ``##1 } { 13 }` 逐 token 重建。`\@@_listings_rescan:Nn` 的 \#378 → \#879 演化是典型案例。
 
+## `.lvt` 测试文件中 `~` 的使用约定（#893）
+
+`.lvt` 测试文件里 `~` 的合法性取决于所在的 catcode 段，写测试时必须区分：
+
+- **`\ExplSyntaxOff` 段（默认 LaTeX catcode）**：`~` 是 active char（不可断空格）。在 `\TEST{...}` / `\BEGINTEST{...}` 标题与 `\TYPE{...}` 的 log 输出大括号内若把 `~` 当普通空格用，会让 `.tlg` baseline 出现字面 `~`，污染基线。**应改用普通空格。**
+- **`\ExplSyntaxOn` 段（expl3 catcode）**：`~` 是合法的 expl3 空格（catcode 10），而普通空格反被 ignore（catcode 9）。此处的 `~` 不能盲目替换。
+
+该约定由两道同源检查强制执行，共用脚本 `.githooks/check-test-tilde.sh`：
+
+- **pre-commit 钩子**（`.githooks/pre-commit`）：本地提交时对 `git diff --cached` 检查。
+- **CI 工作流**（`.github/workflows/lint-test-files.yml`）：PR 触发，对 base→head 的 `.lvt` 改动检查。
+
+两者都**只检 diff 中新增行**（`+` 行），不动存量；并用 group-depth-aware 状态机判定当前是否在 `\ExplSyntaxOff` 段——进入大括号 group（如 `\sys_if_engine_luatex:F { \ExplSyntaxOff ... }`）后忽略内层 ExplSyntax 切换，避免误伤 expl3 内的合法 `~`。匹配 `[^{}]*` 不跨嵌套大括号，宁可漏报不误报。紧急情况可用 `git commit --no-verify` 跳过本地钩子。
+
+存量一次性修复由 `scripts/fix-test-tilde.py` 完成：它以 `.tlg` 作 oracle（LaTeX 已求过 catcode，`.tlg` 字面是 ground truth），定位 `.tlg` 中 `text~text` 形态的 `~` 再回改对应 `.lvt`。#893 首轮修了 45 个 `.lvt`、约 280 处，影响 `ctex` 与 `xeCJK`，并同步刷新 `.tlg` baseline。
+
 ## `.choices:nn` 中优先使用 `#1` 而非 `\l_keys_choice_str`
 
 l3keys 的 `<key>.choices:nn = {<choice 列表>}{<code>}` 在 `<code>` 中既可以读 `\l_keys_choice_str`（被选中分支名的字符串变量），也可以直接读 `#1`。**优先使用 `#1`**：
