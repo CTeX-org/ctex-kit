@@ -24,7 +24,8 @@ description         = "This package supports typesetting CJK documents. It allow
 checkengines        = {"pdftex"}
 checkruns           = 1
 cleanfiles          = {"*.log", "*.pdf", "*.zip", "*.curlopt"}
-ctanzip             = module
+-- ctanzip 不显式设, 走 l3build 默认 (= module .. "-ctan"), 跟 ctex/xeCJK 等
+-- 对齐. release.yml 的 Prepare release asset step 期望 zhlineskip-ctan.zip.
 demofiles           = {module .. "-test.tex"}
 excludefiles        = {"*~"}
 installfiles        = {module .. ".sty", module .. ".ins"}
