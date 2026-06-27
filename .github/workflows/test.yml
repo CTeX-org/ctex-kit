@@ -229,6 +229,17 @@ jobs:
           repository: https://mirror.ctan.org/systems/texlive/tlnet
           update-all-packages: true
 
+      # 验证 cache 真的 update 到了最新 TLnet (而非 tlmgr 在 mirror 不通时
+      # silent fallback 用本地老 db). 见 _test-package.yml 同名 step.
+      - name: Verify TL mirror reachable (no silent fallback to local db)
+        run: |
+          out=$(tlmgr update --self --list 2>&1) || true
+          echo "$out"
+          if echo "$out" | grep -qiE "Unable to download|not verified"; then
+            echo "::error::tlmgr 报 mirror 不可达, silent fallback 用本地老 db. cache 写入的 TL revision 偏老, 下游 caller 测试一定 fail. 重跑 (rerun --failed)."
+            exit 1
+          fi
+
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable
   # workflow 避免 matrix.pkg 维度造成的"幽灵 cancelled job" (动态 name
