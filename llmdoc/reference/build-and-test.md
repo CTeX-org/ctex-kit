@@ -216,7 +216,7 @@ GitHub Actions 工作流当前包含以下主线：
 - 操作系统矩阵：`ubuntu-latest`、`macos-latest`、`windows-latest`
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
-- 当前 CI 在同一 job 中依次进入 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/`、`zhlineskip/` 运行测试，而不再只停留在 `ctex/`
+- 当前 CI 拆为 5 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller
 
 见 `.github/workflows/test.yml`。
 
