@@ -162,6 +162,9 @@ The Current Maintainer of this work is **Ruixi Zhang**.
 %<package>\edef \ZhLSFileDate        {\ExplFileDate}
 %<package>\edef \ZhLSFileVersion     {\ExplFileVersion}
 %<package>\edef \ZhLSFileDescription {\ExplFileDescription}
+%<package>% \ExplFileDate 是 "YYYY/MM/DD" 格式. 这里把斜杠换破折号统一显示风格.
+%<package>% 用全局 (g) 版本是因为 \ZhLSFileDate 由上方 \edef 在包加载期定义,
+%<package>% 此时无分组嵌套, g/l 等价, 用 g 跟 \edef 的全局可见性匹配.
 %<package>\tl_greplace_all:Nnn \ZhLSFileDate { / } { - }
 %</package>
 %<*driver>
@@ -204,7 +207,11 @@ The Current Maintainer of this work is **Ruixi Zhang**.
   BoldFont          = NotoSansCJKsc-Bold.otf
 ]
 \frenchspacing
-\usepackage{zhlineskip, unicode-math}
+% zhlineskip 在 `restoremathleading=true` (默认) 时会 \RequirePackage{mathtools},
+% 而 unicode-math 必须在 mathtools 之后加载, 否则 mathtools 的 `\colon` 之类
+% 会被 unicode-math 后续重定义覆盖. 顺序固定: zhlineskip -> unicode-math.
+\usepackage{zhlineskip}
+\usepackage{unicode-math}
 \newenvironment{english}{\addvspace\medskipamount}
                         {\par\addvspace\medskipamount}
 \SetTextEnvironmentSinglespace{1.112}
@@ -871,6 +878,11 @@ race, colour, sex, language\dots
 % 的 TF 分支下计算正文和页脚的 |linespread|.
 % 两部分计算中分别采用 \tn{f@size} 和 \tn{f@baselineskip} 在 \tn{normalsize} 和
 % \tn{footnotesize} 下的值, 计算原理相同.
+%
+% 作用域说明: 这些 fp 变量用全局 (g) 命名空间, 因为计算结果 (linespread
+% 等) 要在用户文档全周期生效, 不受分组限制. 后面 \tn{SetTextEnvironmentSinglespace}
+% / \tn{SetMathEnvironmentSinglespace} 写的 tl 变量则用局部 (l), 它们只在
+% 当前作用域内影响 \tn{linespread}, 是用户文档级临时调整.
 %    \begin{macrocode}
 \fp_new:N  \g_@@_targetbodyleading_fp
 \fp_new:N  \g_@@_targetfootleading_fp
