@@ -209,9 +209,10 @@ jobs:
           #
           # Windows checkout 把 LF 转 CRLF, 这里 `tr -d '\r'` 把行尾 CR 干
           # 掉, 否则 curl 拿到 "URL\r" 报 "Failed to extract a filename".
-          while IFS= read -r url; do
+          # `|| [ -n "$url" ]` 防 trailing-newline 缺失时 read 丢最后一行.
+          while IFS= read -r url || [ -n "$url" ]; do
             url="$(printf '%s' "$url" | tr -d '\r')"
-            case "$url" in ''|\#*) continue ;; esac
+            case "$url" in ''|'#'*) continue ;; esac
             curl -LO "$url"
           done < "${{ github.workspace }}/.github/font-urls.txt"
           for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
