@@ -212,7 +212,13 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}
-          key: tl-bypass-${{ runner.os }}-${{ env.TL_VERSION }}-${{ needs.changes.outputs.tl-cache-week }}
+          # key 含 weekly + tl_packages hash:
+          #   - weekly: schedule 周一刷新 cache, 周内 PR 享用
+          #   - tl_packages hash: 改 tl_packages (例加新包) 立即 invalidate, 防
+          #     PR 加新包时 release / 下游 caller 用到老 cache 找不到包 fail
+          #     (实测 zhlineskip-v1.0f 加 inconsolata 后老 cache 没含, release.yml
+          #     从 cache restore 后直接 fontspec 报 Inconsolatazi4 找不到).
+          key: tl-bypass-${{ runner.os }}-${{ env.TL_VERSION }}-${{ needs.changes.outputs.tl-cache-week }}-${{ hashFiles('.github/tl_packages') }}
 
       # cache hit: 跳过整个 setup-texlive 流程, 只 export PATH.
       # cache miss: 跑 setup-texlive (3 mirror retry) + verification, cache 会在
