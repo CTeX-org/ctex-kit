@@ -272,9 +272,16 @@ jobs:
           cache: false
 
       # 验证 cache 真的 update 到了最新 TLnet (而非 tlmgr 在 mirror 不通时
-      # silent fallback 用本地老 db). cache hit 路径下也跑一遍, 防 cache
-      # 内 TL 损坏 (理论不会, 防御性).
-      - name: Verify TL mirror reachable (no silent fallback to local db)
+      # silent fallback 用本地老 db). 只在 cache miss 走 setup-texlive 时
+      # 跑 — cache hit 时跑这步会引入两个问题:
+      #   1. 本不需要联网, 反而联 mirror, mirror 抖动时把 warmup fail 掉,
+      #      下游 5 caller 全被 needs: warmup-tl 阻塞 (这正是 bypass cache
+      #      最想避免的)
+      #   2. cache hit 时 TL 是 warmup 上次 verify 过的, 内容稳定
+      # cache hit 路径下 cache 真损坏怎么办: caller 端 export-path step 用
+      # continue-on-error 自愈, 走 setup-texlive fallback.
+      - name: Verify TL mirror reachable (fallback path only)
+        if: steps.bypass-cache.outputs.cache-hit != 'true'
         run: |
           out=$(tlmgr update --self --list 2>&1) || true
           echo "$out"
@@ -282,7 +289,6 @@ jobs:
             echo "::error::tlmgr 报 mirror 不可达, silent fallback 用本地老 db. cache 写入的 TL revision 偏老, 下游 caller 测试一定 fail. 重跑 (rerun --failed)."
             exit 1
           fi
-
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable
