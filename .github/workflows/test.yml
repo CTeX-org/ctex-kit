@@ -33,8 +33,10 @@ on:
       - '.githooks/**'
       - '.github/workflows/agentic-*.yml'
   schedule:
-    # at 12:00 UTC (20:00 CST/UTC +8) on Friday
-    - cron: "0 12 * * 5"
+    # 周一 UTC 12:00 (北京时间 20:00). 故意贴 ISO 周边界 (周一 00:00 UTC
+    # 翻周) — 周一一过 cache key 翻新, 12:00 schedule 跑刷新 TL cache, 周内
+    # PR / push 享用 cache hit. 见 changes job 的 tl-cache-week 输出.
+    - cron: "0 12 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -67,6 +69,11 @@ jobs:
       zhlineskip: ${{ steps.compute.outputs.zhlineskip }}
       # TL_VERSION 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
       tl-version: ${{ env.TL_VERSION }}
+      # ISO 年-周 (例 "2026-W26"), 用作 TL bypass cache key 的时间维度.
+      # 每周一 UTC 00:00 自动翻周, 紧接的周一 12:00 UTC schedule 跑会用新
+      # key save 一份新 cache, 周内 PR/push 享用 cache hit, 跳过整个 TL
+      # install + update 流程 (~70-600s/job → 秒过).
+      tl-cache-week: ${{ steps.compute.outputs.tl-cache-week }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -79,6 +86,7 @@ jobs:
             _all: &all
               - '.github/workflows/test.yml'
               - '.github/workflows/_test-package.yml'
+              - '.github/font-urls.txt'
               - 'scripts/check-parallel.sh'
               - 'support/**'
               - 'Makefile'
@@ -124,23 +132,37 @@ jobs:
             echo "zhlineskip=${FILTER_ZHLINESKIP:-false}" >> "$GITHUB_OUTPUT"
             echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
           fi
+          # ISO 8601 年-周 (例 "2026-W26"). `%G` 是 ISO 周对应的年份 (与 `%V`
+          # 配套), 不是日历年 `%Y` — 跨年那周 (例 2025-12-29 周一) `%V` 报
+          # 2026-W01 但 `%Y` 还是 2025, 用 `%Y-W%V` 会得到 `2025-W01` 错 key,
+          # 与下一周 `2026-W02` 不连续, 害每年 1-3 天假阳 cache miss.
+          # UTC 跟 GH Actions 调度时区一致.
+          week="$(TZ=UTC date +'%G-W%V')"
+          echo "tl-cache-week=${week}" >> "$GITHUB_OUTPUT"
+          echo "TL cache week: ${week}"
 
   # ──────────────────────────────────────────────────────────────────────
-  # 阶段 0.5: 预热 TeX Live 缓存. 每 OS 1 个 job, 跑 setup-texlive-action.
+  # 阶段 0.5: 预热 TeX Live 缓存 + 用 actions/cache 自定义 save 整个 TEXDIR
+  # 到 weekly bypass key. 让 caller 完全跳过 setup-texlive-action.
   #
-  # 动机: PR 上 5 个 caller × 3 OS = 15 job 同时启动, 都 uses
-  # setup-texlive-action. 如果 GH cache 还没填好 (首次 PR 或 cache key
-  # 变), 15 job 全部并发 cache miss → 全部跑 install-tl 下载 → 同一
-  # ctan.math.illinois.edu mirror 被 5 个并发请求轰炸 → 偶发 ETIMEDOUT
-  # 让其中一个 job fail.
+  # 动机: setup-texlive-action 的 cache 设计是"同 primaryKey immutable",
+  # 一旦保存就不更新. 即便 warmup 跑了 update-all, 也无法把 update 后的
+  # 状态回写到原 primaryKey, caller restore 时永远拿到的是 update 前的
+  # baseline, 必须自己再跑 70s+ 的 tlmgr update. mirror 抖动时 update
+  # 阶段单 step 卡 10min 不奇怪 (PR #899 实测 macos test-ctex 17min).
   #
-  # 用 warmup-tl 收敛到每 OS 1 个 job 抢先装好 cache, 5 个 caller 串
-  # 在它后面, 100% 走 cache hit (~10-20s vs 冷启动 2-3min), 也不再产生
-  # 5 路并发 install-tl 请求, 从根本上消除 mirror ETIMEDOUT.
+  # 绕开方案: warmup-tl 跑完 setup-texlive 后, 把整个 $TEXDIR (默认
+  # $RUNNER_TEMP/setup-texlive-action/2026) 用 actions/cache@v6 save 到
+  # 自定义 key (含 year-week). caller 直接 restore 这份 cache + 把
+  # $TEXDIR/bin/<platform> 加入 PATH, 完全不跑 setup-texlive-action, 不
+  # 联网, 秒过.
   #
-  # 同时这个 job 也是 schedule / workflow_dispatch 时的 update-all 入口:
-  # 这两个触发器把 update-all-packages 设为 true, 把 cache baseline
-  # 推进到 TLnet 最新; PR / push 走 cache hit, baseline 不变.
+  # 周一翻周 + schedule 周一 12:00 UTC 跑刷新 cache, 周内 PR/push 享用
+  # cache hit. cache miss (例 weekly 边界 + push race / cache eviction)
+  # 时 caller fallback 到 setup-texlive-action.
+  #
+  # warmup-tl 内部 3 mirror retry 应对 install-tl ETIMEDOUT (try 1
+  # illinois 10min, try 2 fau.de 10min, try 3 mirror.ctan.org 30min 兜底).
   # ──────────────────────────────────────────────────────────────────────
   warmup-tl:
     needs: changes
@@ -158,12 +180,22 @@ jobs:
           - os: ubuntu-latest
             tl-pkgs: ""
             shell: bash
+            tl-bin-platform: x86_64-linux
+            tlmgr-exe: tlmgr
           - os: macos-latest
             tl-pkgs: ""
             shell: bash
+            # Apple Silicon. setup-texlive-action 装到 universal-darwin, 但
+            # bin 目录是 universal-darwin (含 arm64+x86_64 universal binary).
+            tl-bin-platform: universal-darwin
+            tlmgr-exe: tlmgr
           - os: windows-latest
             tl-pkgs: wintools.windows
             shell: C:\msys64\usr\bin\bash.exe -e {0}
+            tl-bin-platform: windows
+            # Windows tlmgr 是 tlmgr.bat, msys2 bash 不补 PATHEXT, 这里 sanity
+            # check 阶段直调必须用全名.
+            tlmgr-exe: tlmgr.bat
     name: warmup-tl on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     defaults:
@@ -172,26 +204,45 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # bypass cache (我们自己管的, 与 setup-texlive 内部 cache 解耦).
+      # key 含 year-week, 同周内 cache hit; 跨周翻新.
+      # path 用 setup-texlive 默认装的 $RUNNER_TEMP/setup-texlive-action/<version>.
+      - name: TL bypass cache (warmup save)
+        id: bypass-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}
+          key: tl-bypass-${{ runner.os }}-${{ env.TL_VERSION }}-${{ needs.changes.outputs.tl-cache-week }}
+
+      # cache hit: 跳过整个 setup-texlive 流程, 只 export PATH.
+      # cache miss: 跑 setup-texlive (3 mirror retry) + verification, cache 会在
+      # job 末尾自动 save (actions/cache@v6 行为).
+      #
+      # 用 step 级 continue-on-error 而非 `|| true` — cache 真损坏时 step 标记
+      # failure annotation, warmup 日志能看到, 否则 warmup 全绿但下游 caller
+      # 全走 fallback 重装就很难定位.
+      - name: Export PATH (cache hit fast path)
+        if: steps.bypass-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: |
+          TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}/bin/${{ matrix.tl-bin-platform }}"
+          echo "$TL_BIN" >> "$GITHUB_PATH"
+          echo "Added to PATH: $TL_BIN"
+          # 用 cache 内的 tlmgr 验证一下 (不联网, 看本地 db 是否完好)
+          # Windows: tlmgr 实际是 tlmgr.bat, msys2 bash 不补 PATHEXT, 显式带后缀.
+          "$TL_BIN/${{ matrix.tlmgr-exe }}" version
+
       # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
       # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
-      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit
-      # (但 cache 内仍可能是旧 TL revision, caller 端还需 update-all
-      # 真正同步到 TLnet 最新 — 见 _test-package.yml 的 retry 注释).
+      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 bypass cache hit.
       #
       # 三次 retry 换不同 mirror, 避免单一 mirror 长时间不可达时 3 次
       # 都炸 (实测 PR #899 上 ctan.math.illinois.edu 单点不通时 3 次
       # 同 mirror 全 ETIMEDOUT). try 2 走德国 fau.de, try 3 走 ctan.org
       # 全球自动重定向. try 1/2 短超时 10min 让换 mirror 反应快, try 3
       # 30min 兜底 (冷启动正常 3-5min, 留余量).
-      #
-      # 历史: 早期尝试用 env SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1
-      # 让 warmup 把 update 后的 TL 保到 uniqueKey, 让下游 caller 命中
-      # 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在
-      # restoreCache 时按 restoreKeys 数组 primaryKey 精确匹配优先, caller
-      # 命中老的纯 primaryKey entry (无 uuid 那个), 跳过 warmup 的 uniqueKey.
-      # 现在 caller 端必须 update-all=true 自己跑 update 才与仓库 .tlg
-      # baseline 一致. 见 _test-package.yml head 注释.
       - name: Install TeX Live (try 1, illinois mirror)
+        if: steps.bypass-cache.outputs.cache-hit != 'true'
         id: tl1
         continue-on-error: true
         timeout-minutes: 10
@@ -202,12 +253,16 @@ jobs:
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
           # warmup 总是 update-all, 把 cache 推到 TLnet 最新.
-          # schedule / workflow_dispatch 触发也是 true, 无区别.
           update-all-packages: true
+          # 关掉 setup-texlive 内部的 cache, 让它每次真跑 install + update.
+          # 我们自己用 actions/cache@v6 (上面的 bypass-cache) 缓存 update
+          # 后的 TEXDIR. 内部 cache 的"同 primaryKey immutable"设计正是
+          # 我们要绕开的.
+          cache: false
 
       - name: Install TeX Live (try 2, fau.de mirror)
+        if: steps.bypass-cache.outputs.cache-hit != 'true' && steps.tl1.outcome == 'failure'
         id: tl2
-        if: steps.tl1.outcome == 'failure'
         continue-on-error: true
         timeout-minutes: 10
         uses: TeX-Live/setup-texlive-action@v4
@@ -217,9 +272,10 @@ jobs:
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
           update-all-packages: true
+          cache: false
 
       - name: Install TeX Live (try 3, ctan.org auto-redirect, final)
-        if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
+        if: steps.bypass-cache.outputs.cache-hit != 'true' && steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
         timeout-minutes: 30
         uses: TeX-Live/setup-texlive-action@v4
         with:
@@ -228,10 +284,19 @@ jobs:
           packages: ${{ matrix.tl-pkgs }}
           repository: https://mirror.ctan.org/systems/texlive/tlnet
           update-all-packages: true
+          cache: false
 
       # 验证 cache 真的 update 到了最新 TLnet (而非 tlmgr 在 mirror 不通时
-      # silent fallback 用本地老 db). 见 _test-package.yml 同名 step.
-      - name: Verify TL mirror reachable (no silent fallback to local db)
+      # silent fallback 用本地老 db). 只在 cache miss 走 setup-texlive 时
+      # 跑 — cache hit 时跑这步会引入两个问题:
+      #   1. 本不需要联网, 反而联 mirror, mirror 抖动时把 warmup fail 掉,
+      #      下游 5 caller 全被 needs: warmup-tl 阻塞 (这正是 bypass cache
+      #      最想避免的)
+      #   2. cache hit 时 TL 是 warmup 上次 verify 过的, 内容稳定
+      # cache hit 路径下 cache 真损坏怎么办: caller 端 export-path step 用
+      # continue-on-error 自愈, 走 setup-texlive fallback.
+      - name: Verify TL mirror reachable (fallback path only)
+        if: steps.bypass-cache.outputs.cache-hit != 'true'
         run: |
           out=$(tlmgr update --self --list 2>&1) || true
           echo "$out"
@@ -249,6 +314,12 @@ jobs:
   # 5 个 caller 都 needs warmup-tl: cache 已被 warmup 填好, caller 内的
   # setup-texlive-action 100% 走 cache hit, 不再有 mirror ETIMEDOUT 风险.
   # ──────────────────────────────────────────────────────────────────────
+  # ctex 主测拆 2 job 并行: 实测 (PR #902) luatex 单 engine ~8min 远慢于
+  # 其他 3 engine 加起来 ~3min. 同一 caller 内开 5 进程 (3 engine + luatex
+  # 切 2 桶) 会 oversubscribe 4 vCPU 反而拖慢全体. 拆 job 后:
+  #   - test-ctex: pdftex/xetex/uptex 3 engine 并行 + Phase 2 configs
+  #   - test-ctex-luatex: luatex 切 4 桶并行, 独占 runner 4 vCPU
+  # 两 job 同时跑, wall-clock = max(两者), 都 ~3-4min, 整 run 进 6min 内.
   test-ctex:
     needs: [changes, warmup-tl]
     if: needs.changes.outputs.ctex == 'true'
@@ -257,6 +328,21 @@ jobs:
       pkg: ctex
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      engines: pdftex xetex uptex
+      configs: test/config-cmap test/config-contrib test/config-ctxdoc
+
+  test-ctex-luatex:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.ctex == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: ctex
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      engines: luatex
+      luatex-buckets: 4
 
   test-xeCJK:
     needs: [changes, warmup-tl]
@@ -266,6 +352,7 @@ jobs:
       pkg: xeCJK
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
 
   test-zhnumber:
     needs: [changes, warmup-tl]
@@ -275,6 +362,7 @@ jobs:
       pkg: zhnumber
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
 
   test-CJKpunct:
     needs: [changes, warmup-tl]
@@ -284,6 +372,7 @@ jobs:
       pkg: CJKpunct
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
 
   test-zhlineskip:
     needs: [changes, warmup-tl]
@@ -293,6 +382,7 @@ jobs:
       pkg: zhlineskip
       event-name: ${{ github.event_name }}
       tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 或 warmup-tl
@@ -301,22 +391,24 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────
   test-result:
     if: ${{ !cancelled() }}
-    needs: [warmup-tl, test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all caller jobs (incl. warmup-tl) succeeded or were skipped
         env:
-          R_WARMUP:     ${{ needs.warmup-tl.result }}
-          R_CTEX:       ${{ needs.test-ctex.result }}
-          R_XECJK:      ${{ needs.test-xeCJK.result }}
-          R_ZHNUMBER:   ${{ needs.test-zhnumber.result }}
-          R_CJKPUNCT:   ${{ needs.test-CJKpunct.result }}
-          R_ZHLINESKIP: ${{ needs.test-zhlineskip.result }}
+          R_WARMUP:        ${{ needs.warmup-tl.result }}
+          R_CTEX:          ${{ needs.test-ctex.result }}
+          R_CTEX_LUATEX:   ${{ needs.test-ctex-luatex.result }}
+          R_XECJK:         ${{ needs.test-xeCJK.result }}
+          R_ZHNUMBER:      ${{ needs.test-zhnumber.result }}
+          R_CJKPUNCT:      ${{ needs.test-CJKpunct.result }}
+          R_ZHLINESKIP:    ${{ needs.test-zhlineskip.result }}
         run: |
           fail=0
           for nv in \
             "warmup-tl:$R_WARMUP" \
             "ctex:$R_CTEX" \
+            "ctex-luatex:$R_CTEX_LUATEX" \
             "xeCJK:$R_XECJK" \
             "zhnumber:$R_ZHNUMBER" \
             "CJKpunct:$R_CJKPUNCT" \

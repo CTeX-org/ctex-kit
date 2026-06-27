@@ -31,10 +31,36 @@ on:
         description: 'TeX Live 版本 (例 "2026"). 由 test.yml 顶层 env TL_VERSION 透传.'
         required: true
         type: string
-
-env:
-  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
-  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+      tl-cache-week:
+        # ISO 年-周 (例 "2026-W26"), 用作 TL bypass cache key 的时间维度.
+        # 周内 cache hit, 跨周翻新. 由 changes job 在 ubuntu runner 上算
+        # 一次, 透传给所有 caller × 3 OS 保证 key 一致.
+        description: 'ISO 年-周字符串 (例 2026-W26). 由 test.yml changes job 计算.'
+        required: true
+        type: string
+      engines:
+        # 仅 ctex 用. 空 = 跑全 4 engine + Phase 2 configs (单 caller 默认).
+        # 非空 = 只跑指定 engine 列表, 跳过 Phase 2 configs (用于拆 ctex 为
+        # test-ctex / test-ctex-luatex 两 job 时只跑各自的 engine 子集).
+        description: '可选 ENGINES 透传 (空 = 默认全 engine + configs).'
+        required: false
+        type: string
+        default: ''
+      luatex-buckets:
+        # 仅 ctex 用. luatex 单 engine 比其他三个加起来还慢一倍, 拆桶并行打平
+        # 瓶颈. 1 = 不拆桶. 拆 job 后 luatex 独占 runner 4 vCPU, 可设 4.
+        description: '可选 LUATEX_BUCKETS 透传 (1 = 不切桶).'
+        required: false
+        type: number
+        default: 1
+      configs:
+        # 仅 ctex 用. ctex Phase 2 跑 -c <config> 列表 (config-cmap /
+        # config-contrib / config-ctxdoc). 空 = 不跑 Phase 2. 拆 job 时
+        # configs 跟 3 engine job (test-ctex) 一起跑, luatex job 不跑 configs.
+        description: '可选 CONFIGS 透传 (空 = 不跑 Phase 2 configs).'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   run:
@@ -47,15 +73,24 @@ jobs:
             font-dir: /usr/share/fonts/truetype
             shell: bash
             tl-pkgs: ""
+            tl-bin-platform: x86_64-linux
+            tlmgr-exe: tlmgr
           - os: macos-latest
             font-dir: /Library/Fonts
             shell: bash
             tl-pkgs: ""
+            tl-bin-platform: universal-darwin
+            tlmgr-exe: tlmgr
           - os: windows-latest
             font-dir: /c/Windows/Fonts
             shell: C:\msys64\usr\bin\bash.exe -e {0}
             # for `unzip` shipped with texlive
             tl-pkgs: wintools.windows
+            tl-bin-platform: windows
+            # Windows 上 tlmgr 实际是 tlmgr.bat. msys2 bash 不按 PATHEXT
+            # 补后缀, sanity check 直调必须显式写出. 测试阶段不影响 — l3build
+            # 调的是 latex/xelatex/luatex 这些 .exe, 走 PATH 没问题.
+            tlmgr-exe: tlmgr.bat
 
     # workflow_call 触发时, 整个 reusable workflow 在 caller 视角显示为
     # 一个 check, 名字 = "<caller_job_id> / <reusable_job_id> (<matrix>)".
@@ -71,6 +106,44 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
+    # TL bypass cache: warmup-tl 已经把 update 后的整个 TEXDIR 保到这个
+    # key. caller restore 这份 cache + 把 bin/<platform> 加入 PATH, 完全
+    # 不跑 setup-texlive-action, 不联网, 秒过.
+    #
+    # cache miss (例 weekly 边界 + push race, 或 cache eviction): fallback
+    # 到 setup-texlive-action (下面 try 1/2 + verification). 保险但慢.
+    - name: TL bypass cache (caller restore)
+      id: bypass-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
+        key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ inputs.tl-cache-week }}
+
+    # cache hit fast path. sanity check 用 `continue-on-error: true` 兜底 cache
+    # 真损坏的极端情况 (理论极少 — warmup 验证过才 save). 失败时
+    # step.outcome == 'failure', 下面所有 fallback step 的 if 都同时 OR 这个
+    # outcome, 让 setup-texlive fallback 自动接管.
+    #
+    # Windows: tlmgr 是 tlmgr.bat, msys2 bash 不按 PATHEXT 补后缀, 所以 matrix
+    # 里给出显式 tlmgr-exe (windows 用 tlmgr.bat, ubuntu/macos 用 tlmgr) — 不靠
+    # continue-on-error 兜 Windows, 否则 Windows 每次都假阳 fallback 退化成跟没
+    # bypass cache 一样慢.
+    - name: Export PATH (cache hit fast path, skip setup-texlive)
+      id: export-path
+      if: steps.bypass-cache.outputs.cache-hit == 'true'
+      continue-on-error: true
+      run: |
+        TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}/bin/${{ matrix.tl-bin-platform }}"
+        echo "$TL_BIN" >> "$GITHUB_PATH"
+        echo "Added to PATH: $TL_BIN"
+        # 不联网, 用 cache 内的本地 db 简单 sanity check.
+        "$TL_BIN/${{ matrix.tlmgr-exe }}" version
+
+    # ────────────────────────────────────────────────────────────────────
+    # 以下是 cache miss 的 fallback 路径. 触发条件: cache miss, 或 cache hit
+    # 但 export-path sanity check 失败 (cache 损坏 / Windows tlmgr 路径问题).
+    # ────────────────────────────────────────────────────────────────────
+
     # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
     # 在 'Updating packages' 阶段仍会联网拉 tlmgr db checksum 判断要不要 update.
     # PR #899 实测 windows ctan.math.illinois.edu 网络抖动时 "Unable to download
@@ -83,7 +156,8 @@ jobs:
     # mirror.ctan.org 全球自动重定向 (而非 pin illinois 一个单点), GH runner
     # 网络好时它会自动选最快/最稳的 mirror. illinois pin 给 try 2 兜底
     # (mirror.ctan.org 极端不可用时).
-    - name: Install TeX Live (try 1, ctan.org auto-redirect)
+    - name: Install TeX Live (try 1, ctan.org auto-redirect, fallback)
+      if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
       id: tl1
       continue-on-error: true
       timeout-minutes: 15
@@ -98,9 +172,12 @@ jobs:
         # 70s 是 setup-texlive cache 设计的固有代价 (同 primaryKey 不覆写),
         # 实测无合理方案绕开. 见 _test-package.yml head 注释.
         update-all-packages: true
+        # 关掉 setup-texlive 内部 cache, 我们自己用 bypass-cache.
+        cache: false
 
-    - name: Install TeX Live (try 2, illinois mirror)
-      if: steps.tl1.outcome == 'failure'
+    - name: Install TeX Live (try 2, illinois mirror, fallback)
+      if: (steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure') && steps.tl1.outcome == 'failure'
+      id: tl2
       timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
@@ -109,6 +186,7 @@ jobs:
         packages: ${{ matrix.tl-pkgs }}
         repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
+        cache: false
 
     # 验证 setup-texlive 真的 update 到了最新 TLnet, 而非 tlmgr 在 mirror
     # 不通时 silent fallback 用本地老 db. PR #899 实测 ubuntu 上 tlmgr 在
@@ -116,8 +194,12 @@ jobs:
     # 退码 0 看不出来, caller cache 是数月前的 TL → 跟仓库 .tlg baseline 不一致.
     # 这里 tlmgr update --self --list 强制访问 remote, grep 输出验证 "Unable
     # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
-    # Actions UI 上可手动重跑.
-    - name: Verify TL mirror reachable (no silent fallback to local db)
+    # Actions UI 上可手动重跑. 仅在 cache miss 走 fallback 路径时跑.
+    #
+    # 触发条件除了 "走 fallback 路径", 还要 tl1 或 tl2 真装上了 — 否则
+    # tlmgr 不在 PATH, 这里报 "command not found" 噪音掩盖真正的 install fail.
+    - name: Verify TL mirror reachable (fallback path only)
+      if: (steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure') && (steps.tl1.outcome == 'success' || steps.tl2.outcome == 'success')
       run: |
         out=$(tlmgr update --self --list 2>&1) || true
         echo "$out"
@@ -131,8 +213,10 @@ jobs:
       uses: actions/cache@v6
       with:
         path: ${{ github.workspace }}/.font-cache
-        # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
-        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/_test-package.yml') }}-v1
+        # font-urls.txt 列了所有字体 URL, 它变才让 cache key 变. 用 yml hash
+        # 会被 caller / matrix 这类无关改动连带掀翻 cache, 害每 PR 重 download
+        # 5 caller × 3 OS × ~170MB.
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/font-urls.txt') }}-v1
 
     - name: Install Noto fonts
       run: |
@@ -142,8 +226,18 @@ jobs:
         mkdir -p "$FONT_CACHE"
         if [ ! -f "$FONT_CACHE/.done" ]; then
           cd "$FONT_CACHE"
-          curl -LO "${{ env.NOTO_SANS_URL }}"
-          curl -LO "${{ env.NOTO_SERIF_URL }}"
+          # 从 .github/font-urls.txt 逐行读 URL (# 注释行 / 空行忽略). 跟
+          # cache key 的 hashFiles 同源, 保证 "URL 改 → cache invalidate +
+          # 实际重 download" 完全同步.
+          #
+          # Windows checkout 把 LF 转 CRLF, 这里 `tr -d '\r'` 把行尾 CR 干
+          # 掉, 否则 curl 拿到 "URL\r" 报 "Failed to extract a filename".
+          # `|| [ -n "$url" ]` 防 trailing-newline 缺失时 read 丢最后一行.
+          while IFS= read -r url || [ -n "$url" ]; do
+            url="$(printf '%s' "$url" | tr -d '\r')"
+            case "$url" in ''|'#'*) continue ;; esac
+            curl -LO "$url"
+          done < "${{ github.workspace }}/.github/font-urls.txt"
           for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
           # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
           rm -f *.zip
@@ -164,14 +258,40 @@ jobs:
         set -x
         case "${{ inputs.pkg }}" in
           ctex)
-            # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
-            # wall-clock ~5-8min (串行旧法 ~13-17min).
-            CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+            # ctex 跨 4 engine 跑 181 测试 + 3 个 -c configs (cmap / contrib /
+            # ctxdoc). 用并行 wrapper. 实测 (PR #901) luatex 单 engine ~8min
+            # 远慢于其他 3 个 (加起来 ~3min). PR #902 拆 caller:
+            #
+            #   单 caller 模式 (engines 空): 全 4 engine + 全 configs, 旧行为.
+            #   拆 job 模式: test.yml 的 caller 显式传 engines/configs/luatex-buckets:
+            #     - test-ctex:        engines="pdftex xetex uptex", 跑 configs
+            #     - test-ctex-luatex: engines="luatex", luatex-buckets=4, 不跑 configs
+            #
+            # 关键: ENGINES / CONFIGS / LUATEX_BUCKETS 都是 check-parallel.sh
+            # 读的 env. 这里写一次, 错误处理只一份, 避免 if/else 两分支漂移
+            # (bot review #902 抓到上一版 if 分支漏传 CONFIGS, Phase 2 静默丢).
+            ENGINES_ENV="${{ inputs.engines }}"
+            CONFIGS_ENV="${{ inputs.configs }}"
+            LUATEX_BUCKETS_ENV="${{ inputs.luatex-buckets }}"
+            # engines 空 = 单 caller 模式, 默认全 4 engine + 全 3 configs.
+            if [ -z "$ENGINES_ENV" ]; then
+              CONFIGS_ENV="test/config-cmap test/config-contrib test/config-ctxdoc"
+            fi
+            ENGINES="$ENGINES_ENV" \
+            CONFIGS="$CONFIGS_ENV" \
+            LUATEX_BUCKETS="$LUATEX_BUCKETS_ENV" \
               ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
               echo "::group::patch-health raw log"
+              # 三种可能位置:
+              #   1. 单 caller 模式 Phase 2 在 pkg_dir 跑: build/check-*/patch-health.log
+              #   2. 拆 job 模式 Phase 2 在独立 workdir (PR #902 a420bfe1):
+              #      ../tmp/parallel-check/config-config-ctxdoc/ctex/build/check-test/config-ctxdoc/patch-health.log
+              #   3. 拆 job 模式 Phase 1 engine bucket (luatex 不跑 ctxdoc, 但留通用 glob 防未来其他 patch):
+              #      ../tmp/parallel-check/<engine|luatex-bN>/ctex/build/check/patch-health.log
               for f in build/check-test/config-ctxdoc/patch-health.log \
+                       build/check-*/patch-health.log \
                        ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                       build/check-*/patch-health.log; do
+                       ../tmp/parallel-check/config-*/ctex/build/check-test/config-ctxdoc/patch-health.log; do
                 [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
               done
               echo "::endgroup::"
