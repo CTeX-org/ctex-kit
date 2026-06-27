@@ -55,8 +55,10 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - name: Install TeX Live
-      timeout-minutes: 30 # fail fast
+    - name: Install TeX Live (try 1)
+      id: tl1
+      continue-on-error: true
+      timeout-minutes: 30
       uses: TeX-Live/setup-texlive-action@v4
       with:
         package-file: .github/tl_packages
@@ -65,6 +67,32 @@ jobs:
         # update-all-packages 必须 true: 仓库 .tlg baseline 是在 TLnet
         # 最新版下 save 的, PR CI 若走旧 cache (没 update), TL 包行为
         # 漂移 → .log vs .tlg 不匹配 (PR #899 实测).
+        update-all-packages: true
+
+    # setup-texlive-action 本身没 retry, install-tl download 偶发
+    # FAILED_TO_DOWNLOAD (ETIMEDOUT 192.17.3.223:443) 频率不低. 包 3 次
+    # retry: try 2 / try 3 仅在前一次失败时跑, try 3 不带 continue-on-error,
+    # 真失败才让 job 挂.
+    - name: Install TeX Live (try 2, retry on network failure)
+      id: tl2
+      if: steps.tl1.outcome == 'failure'
+      continue-on-error: true
+      timeout-minutes: 30
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        update-all-packages: true
+
+    - name: Install TeX Live (try 3, final)
+      if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
+      timeout-minutes: 30
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
         update-all-packages: true
 
     - name: Cache CJK fonts
