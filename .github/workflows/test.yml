@@ -177,16 +177,21 @@ jobs:
             tl-pkgs: ""
             shell: bash
             tl-bin-platform: x86_64-linux
+            tlmgr-exe: tlmgr
           - os: macos-latest
             tl-pkgs: ""
             shell: bash
             # Apple Silicon. setup-texlive-action 装到 universal-darwin, 但
             # bin 目录是 universal-darwin (含 arm64+x86_64 universal binary).
             tl-bin-platform: universal-darwin
+            tlmgr-exe: tlmgr
           - os: windows-latest
             tl-pkgs: wintools.windows
             shell: C:\msys64\usr\bin\bash.exe -e {0}
             tl-bin-platform: windows
+            # Windows tlmgr 是 tlmgr.bat, msys2 bash 不补 PATHEXT, 这里 sanity
+            # check 阶段直调必须用全名.
+            tlmgr-exe: tlmgr.bat
     name: warmup-tl on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     defaults:
@@ -215,7 +220,8 @@ jobs:
           echo "$TL_BIN" >> "$GITHUB_PATH"
           echo "Added to PATH: $TL_BIN"
           # 用 cache 内的 tlmgr 验证一下 (不联网, 看本地 db 是否完好)
-          "$TL_BIN/tlmgr" version || true
+          # Windows: tlmgr 实际是 tlmgr.bat, msys2 bash 不补 PATHEXT, 显式带后缀.
+          "$TL_BIN/${{ matrix.tlmgr-exe }}" version || true
 
       # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
       # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
