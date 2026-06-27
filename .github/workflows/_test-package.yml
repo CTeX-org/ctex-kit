@@ -175,8 +175,11 @@ jobs:
     # 这里 tlmgr update --self --list 强制访问 remote, grep 输出验证 "Unable
     # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
     # Actions UI 上可手动重跑. 仅在 cache miss 走 fallback 路径时跑.
+    #
+    # 触发条件除了 "走 fallback 路径", 还要 tl1 或 tl2 真装上了 — 否则
+    # tlmgr 不在 PATH, 这里报 "command not found" 噪音掩盖真正的 install fail.
     - name: Verify TL mirror reachable (fallback path only)
-      if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
+      if: (steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure') && (steps.tl1.outcome == 'success' || steps.tl2.outcome == 'success')
       run: |
         out=$(tlmgr update --self --list 2>&1) || true
         echo "$out"

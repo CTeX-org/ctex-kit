@@ -131,9 +131,12 @@ jobs:
             echo "zhlineskip=${FILTER_ZHLINESKIP:-false}" >> "$GITHUB_OUTPUT"
             echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
           fi
-          # ISO 年-周 (例 "2026-W26"). 用 UTC, 跟 GH Actions 调度时区
-          # 一致.
-          week="$(TZ=UTC date +'%Y-W%V')"
+          # ISO 8601 年-周 (例 "2026-W26"). `%G` 是 ISO 周对应的年份 (与 `%V`
+          # 配套), 不是日历年 `%Y` — 跨年那周 (例 2025-12-29 周一) `%V` 报
+          # 2026-W01 但 `%Y` 还是 2025, 用 `%Y-W%V` 会得到 `2025-W01` 错 key,
+          # 与下一周 `2026-W02` 不连续, 害每年 1-3 天假阳 cache miss.
+          # UTC 跟 GH Actions 调度时区一致.
+          week="$(TZ=UTC date +'%G-W%V')"
           echo "tl-cache-week=${week}" >> "$GITHUB_OUTPUT"
           echo "TL cache week: ${week}"
 
@@ -213,15 +216,20 @@ jobs:
       # cache hit: 跳过整个 setup-texlive 流程, 只 export PATH.
       # cache miss: 跑 setup-texlive (3 mirror retry) + verification, cache 会在
       # job 末尾自动 save (actions/cache@v6 行为).
+      #
+      # 用 step 级 continue-on-error 而非 `|| true` — cache 真损坏时 step 标记
+      # failure annotation, warmup 日志能看到, 否则 warmup 全绿但下游 caller
+      # 全走 fallback 重装就很难定位.
       - name: Export PATH (cache hit fast path)
         if: steps.bypass-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
         run: |
           TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}/bin/${{ matrix.tl-bin-platform }}"
           echo "$TL_BIN" >> "$GITHUB_PATH"
           echo "Added to PATH: $TL_BIN"
           # 用 cache 内的 tlmgr 验证一下 (不联网, 看本地 db 是否完好)
           # Windows: tlmgr 实际是 tlmgr.bat, msys2 bash 不补 PATHEXT, 显式带后缀.
-          "$TL_BIN/${{ matrix.tlmgr-exe }}" version || true
+          "$TL_BIN/${{ matrix.tlmgr-exe }}" version
 
       # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
       # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
