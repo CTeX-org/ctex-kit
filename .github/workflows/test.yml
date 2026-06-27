@@ -41,6 +41,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: ${{ github.ref_name != 'master' }}
 
+env:
+  # TeX Live 版本统一定义. setup-texlive-action 4 处调用都用这个值, 跳过
+  # remote version check (PR #899 实测在 cache restore 前联网, mirror 抖动
+  # 时即便 cache 命中也会让 install-tl 步骤 ETIMEDOUT). TL 年度发版时只需
+  # 改这一处, _test-package.yml 通过 workflow_call input 透传.
+  TL_VERSION: '2026'
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 0: 检测改了哪些包. push / schedule / workflow_dispatch 触发时
@@ -58,6 +65,8 @@ jobs:
       zhnumber:   ${{ steps.compute.outputs.zhnumber }}
       CJKpunct:   ${{ steps.compute.outputs.CJKpunct }}
       zhlineskip: ${{ steps.compute.outputs.zhlineskip }}
+      # TL_VERSION 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
+      tl-version: ${{ env.TL_VERSION }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -165,47 +174,45 @@ jobs:
 
       # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
       # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
-      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit.
+      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit
+      # (但 cache 内仍可能是旧 TL revision, caller 端还需 update-all
+      # 真正同步到 TLnet 最新 — 见 _test-package.yml 的 retry 注释).
       #
       # 三次 retry 换不同 mirror, 避免单一 mirror 长时间不可达时 3 次
       # 都炸 (实测 PR #899 上 ctan.math.illinois.edu 单点不通时 3 次
       # 同 mirror 全 ETIMEDOUT). try 2 走德国 fau.de, try 3 走 ctan.org
-      # 全球自动重定向.
+      # 全球自动重定向. try 1/2 短超时 10min 让换 mirror 反应快, try 3
+      # 30min 兜底 (冷启动正常 3-5min, 留余量).
       #
-      # env SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1: 强制 setup-texlive
-      # 把 "update-all 完成后" 的 TEXDIR 保到独立 uniqueKey (= primaryKey
-      # + random uuid). 默认行为是 cache hit on primaryKey 不 save, 导致
-      # 下游 caller 每次都得重跑 update. 用 FORCE_UPDATE_CACHE 后, save
-      # uniqueKey, caller restoreKeys = primaryKey prefix 模糊匹配能命中
-      # 这个 uniqueKey, 拿到 update 后的 TL, 跳过 update. 实测每 caller
-      # 省 ~70s.
+      # 历史: 早期尝试用 env SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1
+      # 让 warmup 把 update 后的 TL 保到 uniqueKey, 让下游 caller 命中
+      # 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在
+      # restoreCache 时按 restoreKeys 数组 primaryKey 精确匹配优先, caller
+      # 命中老的纯 primaryKey entry (无 uuid 那个), 跳过 warmup 的 uniqueKey.
+      # 现在 caller 端必须 update-all=true 自己跑 update 才与仓库 .tlg
+      # baseline 一致. 见 _test-package.yml head 注释.
       - name: Install TeX Live (try 1, illinois mirror)
         id: tl1
         continue-on-error: true
-        timeout-minutes: 30
-        env:
-          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
+        timeout-minutes: 10
         uses: TeX-Live/setup-texlive-action@v4
         with:
-          version: '2026'
+          version: ${{ env.TL_VERSION }}
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-          # warmup 总是 update-all, 把 update 后的 TL 写入 cache uniqueKey,
-          # caller 复用. (schedule / workflow_dispatch 也是 true, 没区别 —
-          # 即便 PR / push 触发, baseline 仍跟 .tlg save 时一致.)
+          # warmup 总是 update-all, 把 cache 推到 TLnet 最新.
+          # schedule / workflow_dispatch 触发也是 true, 无区别.
           update-all-packages: true
 
       - name: Install TeX Live (try 2, fau.de mirror)
         id: tl2
         if: steps.tl1.outcome == 'failure'
         continue-on-error: true
-        timeout-minutes: 30
-        env:
-          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
+        timeout-minutes: 10
         uses: TeX-Live/setup-texlive-action@v4
         with:
-          version: '2026'
+          version: ${{ env.TL_VERSION }}
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
@@ -214,11 +221,9 @@ jobs:
       - name: Install TeX Live (try 3, ctan.org auto-redirect, final)
         if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
         timeout-minutes: 30
-        env:
-          SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE: 1
         uses: TeX-Live/setup-texlive-action@v4
         with:
-          version: '2026'
+          version: ${{ env.TL_VERSION }}
           package-file: .github/tl_packages
           packages: ${{ matrix.tl-pkgs }}
           repository: https://mirror.ctan.org/systems/texlive/tlnet
@@ -240,6 +245,7 @@ jobs:
     with:
       pkg: ctex
       event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
   test-xeCJK:
     needs: [changes, warmup-tl]
@@ -248,6 +254,7 @@ jobs:
     with:
       pkg: xeCJK
       event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
   test-zhnumber:
     needs: [changes, warmup-tl]
@@ -256,6 +263,7 @@ jobs:
     with:
       pkg: zhnumber
       event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
   test-CJKpunct:
     needs: [changes, warmup-tl]
@@ -264,6 +272,7 @@ jobs:
     with:
       pkg: CJKpunct
       event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
   test-zhlineskip:
     needs: [changes, warmup-tl]
@@ -272,6 +281,7 @@ jobs:
     with:
       pkg: zhlineskip
       event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
   # ──────────────────────────────────────────────────────────────────────
   # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 或 warmup-tl
