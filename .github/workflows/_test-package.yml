@@ -282,9 +282,16 @@ jobs:
             LUATEX_BUCKETS="$LUATEX_BUCKETS_ENV" \
               ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
               echo "::group::patch-health raw log"
+              # 三种可能位置:
+              #   1. 单 caller 模式 Phase 2 在 pkg_dir 跑: build/check-*/patch-health.log
+              #   2. 拆 job 模式 Phase 2 在独立 workdir (PR #902 a420bfe1):
+              #      ../tmp/parallel-check/config-config-ctxdoc/ctex/build/check-test/config-ctxdoc/patch-health.log
+              #   3. 拆 job 模式 Phase 1 engine bucket (luatex 不跑 ctxdoc, 但留通用 glob 防未来其他 patch):
+              #      ../tmp/parallel-check/<engine|luatex-bN>/ctex/build/check/patch-health.log
               for f in build/check-test/config-ctxdoc/patch-health.log \
+                       build/check-*/patch-health.log \
                        ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
-                       build/check-*/patch-health.log; do
+                       ../tmp/parallel-check/config-*/ctex/build/check-test/config-ctxdoc/patch-health.log; do
                 [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
               done
               echo "::endgroup::"
