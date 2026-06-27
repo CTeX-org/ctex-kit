@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# pre-commit: 检查 staged 变更里的 .lvt 测试文件是否引入 `~` 误用 (#893).
+#
+# 仅检查本次 commit 的**新增/修改行**, 不动存量, 避免阻塞修改其它部分.
+#
+# CI 环境短路 (CI 由 .github/workflows/lint-test-files.yml 单独检 PR diff).
+# 跳过: 仅紧急情况下 git commit --no-verify.
+set -uo pipefail
+
+if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  exit 0
+fi
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# -U0: 不输出 context 行, 加快 awk 状态机处理.
+git diff --cached -U0 -- '*.lvt' | "${hook_dir}/check-test-tilde.sh"

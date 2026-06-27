@@ -16,7 +16,10 @@ on:
       - '.gitattributes'
       - '.claude/**'
       - '.githooks/**'
-      - '.github/workflows/**'
+      # 只 ignore agentic 系列 workflow — 这些改动不影响主测.
+      # test.yml / release*.yml / lint-test-files.yml 等核心 workflow
+      # 改了**必须**触发 CI 验证, 不能 ignore.
+      - '.github/workflows/agentic-*.yml'
   push:
     paths-ignore:
       - 'llmdoc/**'
@@ -28,7 +31,7 @@ on:
       - '.gitattributes'
       - '.claude/**'
       - '.githooks/**'
-      - '.github/workflows/**'
+      - '.github/workflows/agentic-*.yml'
   schedule:
     # at 12:00 UTC (20:00 CST/UTC +8) on Friday
     - cron: "0 12 * * 5"
@@ -39,162 +42,292 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'master' }}
 
 env:
-  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
-  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+  # TeX Live 版本统一定义. setup-texlive-action 4 处调用都用这个值, 跳过
+  # remote version check (PR #899 实测在 cache restore 前联网, mirror 抖动
+  # 时即便 cache 命中也会让 install-tl 步骤 ETIMEDOUT). TL 年度发版时只需
+  # 改这一处, _test-package.yml 通过 workflow_call input 透传.
+  TL_VERSION: '2026'
 
 jobs:
-  test-ctex:
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 0: 检测改了哪些包. push / schedule / workflow_dispatch 触发时
+  # 一律跑全包 (回归保险); pull_request 触发时按 path 过滤精确跑.
+  # 依赖反查: ctex 依赖 xeCJK + zhnumber, 所以 xeCJK 或 zhnumber 改了也要
+  # 跑 ctex.
+  # ──────────────────────────────────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      # 五个 bool, 给下游 5 个 caller job 各自 if 用. push / schedule /
+      # workflow_dispatch 触发时全部 true; pull_request 时按 path filter 结果.
+      ctex:       ${{ steps.compute.outputs.ctex }}
+      xeCJK:      ${{ steps.compute.outputs.xeCJK }}
+      zhnumber:   ${{ steps.compute.outputs.zhnumber }}
+      CJKpunct:   ${{ steps.compute.outputs.CJKpunct }}
+      zhlineskip: ${{ steps.compute.outputs.zhlineskip }}
+      # TL_VERSION 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
+      tl-version: ${{ env.TL_VERSION }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Filter paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            # 公共改动 → 全包都要跑
+            _all: &all
+              - '.github/workflows/test.yml'
+              - '.github/workflows/_test-package.yml'
+              - 'scripts/check-parallel.sh'
+              - 'support/**'
+              - 'Makefile'
+            ctex:
+              - *all
+              - 'ctex/**'
+              # ctex 依赖 xeCJK + zhnumber, 它们改了也要跑 ctex
+              - 'xeCJK/**'
+              - 'zhnumber/**'
+            xeCJK:
+              - *all
+              - 'xeCJK/**'
+            zhnumber:
+              - *all
+              - 'zhnumber/**'
+            CJKpunct:
+              - *all
+              - 'CJKpunct/**'
+            zhlineskip:
+              - *all
+              - 'zhlineskip/**'
+      - name: Compute active packages
+        id: compute
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+          FILTER_CTEX:       ${{ steps.filter.outputs.ctex       }}
+          FILTER_XECJK:      ${{ steps.filter.outputs.xeCJK      }}
+          FILTER_ZHNUMBER:   ${{ steps.filter.outputs.zhnumber   }}
+          FILTER_CJKPUNCT:   ${{ steps.filter.outputs.CJKpunct   }}
+          FILTER_ZHLINESKIP: ${{ steps.filter.outputs.zhlineskip }}
+        run: |
+          # PR 走 path filter; 其它触发全跑.
+          if [ "$IS_PR" != "true" ]; then
+            for p in ctex xeCJK zhnumber CJKpunct zhlineskip; do
+              echo "${p}=true" >> "$GITHUB_OUTPUT"
+            done
+            echo "Non-PR trigger: running all packages"
+          else
+            echo "ctex=${FILTER_CTEX:-false}"             >> "$GITHUB_OUTPUT"
+            echo "xeCJK=${FILTER_XECJK:-false}"           >> "$GITHUB_OUTPUT"
+            echo "zhnumber=${FILTER_ZHNUMBER:-false}"     >> "$GITHUB_OUTPUT"
+            echo "CJKpunct=${FILTER_CJKPUNCT:-false}"     >> "$GITHUB_OUTPUT"
+            echo "zhlineskip=${FILTER_ZHLINESKIP:-false}" >> "$GITHUB_OUTPUT"
+            echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 0.5: 预热 TeX Live 缓存. 每 OS 1 个 job, 跑 setup-texlive-action.
+  #
+  # 动机: PR 上 5 个 caller × 3 OS = 15 job 同时启动, 都 uses
+  # setup-texlive-action. 如果 GH cache 还没填好 (首次 PR 或 cache key
+  # 变), 15 job 全部并发 cache miss → 全部跑 install-tl 下载 → 同一
+  # ctan.math.illinois.edu mirror 被 5 个并发请求轰炸 → 偶发 ETIMEDOUT
+  # 让其中一个 job fail.
+  #
+  # 用 warmup-tl 收敛到每 OS 1 个 job 抢先装好 cache, 5 个 caller 串
+  # 在它后面, 100% 走 cache hit (~10-20s vs 冷启动 2-3min), 也不再产生
+  # 5 路并发 install-tl 请求, 从根本上消除 mirror ETIMEDOUT.
+  #
+  # 同时这个 job 也是 schedule / workflow_dispatch 时的 update-all 入口:
+  # 这两个触发器把 update-all-packages 设为 true, 把 cache baseline
+  # 推进到 TLnet 最新; PR / push 走 cache hit, baseline 不变.
+  # ──────────────────────────────────────────────────────────────────────
+  warmup-tl:
+    needs: changes
+    # 只要有任何 caller 要跑, 就要预热
+    if: |
+      needs.changes.outputs.ctex == 'true'
+      || needs.changes.outputs.xeCJK == 'true'
+      || needs.changes.outputs.zhnumber == 'true'
+      || needs.changes.outputs.CJKpunct == 'true'
+      || needs.changes.outputs.zhlineskip == 'true'
     strategy:
+      fail-fast: false
       matrix:
         include:
-        - runs-on: ubuntu-latest
-          font-dir: /usr/share/fonts/truetype
-          shell: bash
-          tl-pkgs: ""
-        - runs-on: macos-latest
-          font-dir: /Library/Fonts
-          shell: bash
-          tl-pkgs: ""
-        - runs-on: windows-latest
-          font-dir: /c/Windows/Fonts
-          shell: C:\msys64\usr\bin\bash.exe -e {0}
-          # for `unzip` shipped with texlive
-          tl-pkgs: wintools.windows
-
-    name: on ${{ matrix.runs-on }}
-
-    runs-on: ${{ matrix.runs-on }}
-
+          - os: ubuntu-latest
+            tl-pkgs: ""
+            shell: bash
+          - os: macos-latest
+            tl-pkgs: ""
+            shell: bash
+          - os: windows-latest
+            tl-pkgs: wintools.windows
+            shell: C:\msys64\usr\bin\bash.exe -e {0}
+    name: warmup-tl on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: ${{ matrix.shell }}
-
     steps:
-    - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-    - name: Install TeX Live
-      timeout-minutes: 30 # fail fast
-      uses: TeX-Live/setup-texlive-action@v4
-      with:
-        package-file: .github/tl_packages
-        packages: ${{ matrix.tl-pkgs }}
-        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
-        update-all-packages: true
+      # 同 _test-package.yml 内的 retry 三段: 应对首次冷启动时 mirror
+      # ETIMEDOUT 间歇失败. 这里是唯一会真装 install-tl 的地方 — 一旦
+      # 这里成功保住 cache, 下游 5 caller × 3 OS 全部走 cache hit
+      # (但 cache 内仍可能是旧 TL revision, caller 端还需 update-all
+      # 真正同步到 TLnet 最新 — 见 _test-package.yml 的 retry 注释).
+      #
+      # 三次 retry 换不同 mirror, 避免单一 mirror 长时间不可达时 3 次
+      # 都炸 (实测 PR #899 上 ctan.math.illinois.edu 单点不通时 3 次
+      # 同 mirror 全 ETIMEDOUT). try 2 走德国 fau.de, try 3 走 ctan.org
+      # 全球自动重定向. try 1/2 短超时 10min 让换 mirror 反应快, try 3
+      # 30min 兜底 (冷启动正常 3-5min, 留余量).
+      #
+      # 历史: 早期尝试用 env SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1
+      # 让 warmup 把 update 后的 TL 保到 uniqueKey, 让下游 caller 命中
+      # 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在
+      # restoreCache 时按 restoreKeys 数组 primaryKey 精确匹配优先, caller
+      # 命中老的纯 primaryKey entry (无 uuid 那个), 跳过 warmup 的 uniqueKey.
+      # 现在 caller 端必须 update-all=true 自己跑 update 才与仓库 .tlg
+      # baseline 一致. 见 _test-package.yml head 注释.
+      - name: Install TeX Live (try 1, illinois mirror)
+        id: tl1
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: ${{ env.TL_VERSION }}
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          # warmup 总是 update-all, 把 cache 推到 TLnet 最新.
+          # schedule / workflow_dispatch 触发也是 true, 无区别.
+          update-all-packages: true
 
-    - name: Install Noto fonts
-      run: |
-        curl -LO ${{ env.NOTO_SANS_URL }}
-        curl -LO ${{ env.NOTO_SERIF_URL }}
-        for f in *OTC.zip; do unzip -ojd ${{ matrix.font-dir }} "$f" "*.ttc"; done
-        fc-cache -f
+      - name: Install TeX Live (try 2, fau.de mirror)
+        id: tl2
+        if: steps.tl1.outcome == 'failure'
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: ${{ env.TL_VERSION }}
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://ftp.fau.de/ctan/systems/texlive/tlnet
+          update-all-packages: true
 
-    - name: Test ctex
-      id: test-ctex
-      working-directory: ./ctex
-      run: |
-        set -x
-        l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-cmap -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-contrib -q "$L3BUILD_EXTRA_OPTIONS"
-        l3build check -c test/config-ctxdoc -q "$L3BUILD_EXTRA_OPTIONS" || {
-          echo "::group::patch-health raw log"
-          cat build/check-test/config-ctxdoc/patch-health.log 2>/dev/null || echo "raw log not found"
-          echo "::endgroup::"
-          exit 1
-        }
-      env:
-        # see https://github.com/muzimuzhi/latex-zutil/commit/14f74f8085de4f101bcd4e12738043b371afd161
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+      - name: Install TeX Live (try 3, ctan.org auto-redirect, final)
+        if: steps.tl1.outcome == 'failure' && steps.tl2.outcome == 'failure'
+        timeout-minutes: 30
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: ${{ env.TL_VERSION }}
+          package-file: .github/tl_packages
+          packages: ${{ matrix.tl-pkgs }}
+          repository: https://mirror.ctan.org/systems/texlive/tlnet
+          update-all-packages: true
 
-    - name: Test xeCJK
-      if: ${{ !cancelled() }}
-      id: test-xecjk
-      working-directory: ./xeCJK
-      run: |
-        set -x
-        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-        else
-          echo "No test configuration found, skipping"
-        fi
-      env:
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
-
-    - name: Test zhnumber
-      if: ${{ !cancelled() }}
-      id: test-zhnumber
-      working-directory: ./zhnumber
-      run: |
-        set -x
-        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-        else
-          echo "No test configuration found, skipping"
-        fi
-      env:
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
-
-    - name: Test CJKpunct
-      if: ${{ !cancelled() }}
-      id: test-cjkpunct
-      working-directory: ./CJKpunct
-      run: |
-        set -x
-        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-          l3build check -q "$L3BUILD_EXTRA_OPTIONS"
-        else
-          echo "No test configuration found, skipping"
-        fi
-      env:
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
-
-    - name: Test zhlineskip
-      if: ${{ !cancelled() }}
-      id: test-zhlineskip
-      working-directory: ./zhlineskip
-      run: |
-        set -x
-        if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
-          l3build check -q "$L3BUILD_EXTRA_OPTIONS" || {
-            echo "::group::zhlineskip raw logs"
-            for f in build/test/*.log; do
-              echo "=== $f ==="
-              head -80 "$f" 2>/dev/null || echo "(not found)"
-            done
-            echo "::endgroup::"
+      # 验证 cache 真的 update 到了最新 TLnet (而非 tlmgr 在 mirror 不通时
+      # silent fallback 用本地老 db). 见 _test-package.yml 同名 step.
+      - name: Verify TL mirror reachable (no silent fallback to local db)
+        run: |
+          out=$(tlmgr update --self --list 2>&1) || true
+          echo "$out"
+          if echo "$out" | grep -qiE "Unable to download|not verified"; then
+            echo "::error::tlmgr 报 mirror 不可达, silent fallback 用本地老 db. cache 写入的 TL revision 偏老, 下游 caller 测试一定 fail. 重跑 (rerun --failed)."
             exit 1
-          }
-        else
-          echo "No test configuration found, skipping"
-        fi
-      env:
-        diffext: .diff
-        diffexe: git diff --no-index --text --
-        L3BUILD_EXTRA_OPTIONS: ${{ github.event_name == 'schedule' && '--show-saves' || '-H' }}
+          fi
 
-    - name: Get short commit SHA
-      # if-expression starting with "!" must be escaped,
-      # since "!" is reserved notation in YAML
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
-      run: |
-        echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 1: 5 个 caller job, 每个 uses _test-package.yml. 用 reusable
+  # workflow 避免 matrix.pkg 维度造成的"幽灵 cancelled job" (动态 name
+  # 模板在 strategy expansion 前 GH 注册 placeholder check 用未渲染模板
+  # 作 name, 然后 cancel — 这是 GH Actions 已知行为).
+  #
+  # 5 个 caller 都 needs warmup-tl: cache 已被 warmup 填好, caller 内的
+  # setup-texlive-action 100% 走 cache hit, 不再有 mirror ETIMEDOUT 风险.
+  # ──────────────────────────────────────────────────────────────────────
+  test-ctex:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.ctex == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: ctex
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
 
-    - name: Upload test diffs
-      if: ${{ !cancelled() && (steps.test-ctex.outcome == 'failure' || steps.test-xecjk.outcome == 'failure' || steps.test-zhnumber.outcome == 'failure' || steps.test-cjkpunct.outcome == 'failure' || steps.test-zhlineskip.outcome == 'failure') }}
-      uses: actions/upload-artifact@v7
-      with:
-        name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ runner.os }}
-        path: |
-          ctex/build/**/*.diff
-          xeCJK/build/**/*.diff
-          zhnumber/build/**/*.diff
-          CJKpunct/build/**/*.diff
-          zhlineskip/build/**/*.diff
+  test-xeCJK:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.xeCJK == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: xeCJK
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+
+  test-zhnumber:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.zhnumber == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: zhnumber
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+
+  test-CJKpunct:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.CJKpunct == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: CJKpunct
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+
+  test-zhlineskip:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.zhlineskip == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: zhlineskip
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 2: 汇总 — 给分支保护规则用. 如果任何 test caller 或 warmup-tl
+  # 失败, 这个 job 也 fail. 这样 branch protection 上只盯这一个 status
+  # check 就够了.
+  # ──────────────────────────────────────────────────────────────────────
+  test-result:
+    if: ${{ !cancelled() }}
+    needs: [warmup-tl, test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all caller jobs (incl. warmup-tl) succeeded or were skipped
+        env:
+          R_WARMUP:     ${{ needs.warmup-tl.result }}
+          R_CTEX:       ${{ needs.test-ctex.result }}
+          R_XECJK:      ${{ needs.test-xeCJK.result }}
+          R_ZHNUMBER:   ${{ needs.test-zhnumber.result }}
+          R_CJKPUNCT:   ${{ needs.test-CJKpunct.result }}
+          R_ZHLINESKIP: ${{ needs.test-zhlineskip.result }}
+        run: |
+          fail=0
+          for nv in \
+            "warmup-tl:$R_WARMUP" \
+            "ctex:$R_CTEX" \
+            "xeCJK:$R_XECJK" \
+            "zhnumber:$R_ZHNUMBER" \
+            "CJKpunct:$R_CJKPUNCT" \
+            "zhlineskip:$R_ZHLINESKIP"; do
+            name="${nv%%:*}"
+            res="${nv#*:}"
+            if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
+              echo "✓ ${name}: ${res}"
+            else
+              echo "✗ ${name}: ${res}"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1

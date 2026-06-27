@@ -9,7 +9,8 @@
 #   doc    —— l3build doc:生成 PDF 文档
 #   unpack —— l3build unpack:解包 .dtx 得到 .sty/.cls/.cfg 等运行时文件
 #   ctan   —— l3build ctan:打 ctan 发布包(含 doc + tds.zip)
-#   check  —— l3build check:跑回归测试(单包 20min+,本地慎用,默认 CI 跑)
+#   check  —— l3build check:跑回归测试(ctex 经 check-ctex 4-engine 并行 ~8min,
+#             串行旧法 ~20min;小包通常几十秒)
 #   clean  —— l3build clean
 #
 # 另: hooks / check-pr-ci 是 git workflow 入口, build-gbk2uni 走子 Makefile.
@@ -19,7 +20,7 @@ L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
 
 VERBS := doc unpack ctan check clean
 
-.PHONY: help hooks check-pr-ci \
+.PHONY: help hooks check-pr-ci check-ctex-serial \
         $(VERBS) \
         $(foreach v,$(VERBS),$(v)-all) \
         $(foreach v,$(VERBS),$(addprefix $(v)-,$(L3BUILD_PKGS))) \
@@ -68,6 +69,10 @@ clean-all: $(addprefix clean-,$(L3BUILD_PKGS)) clean-gbk2uni
 
 # ── 单包 target: $(verb)-$(pkg) → cd $(pkg) && l3build $(verb) ─────────────
 # 用 pattern rule 写法, 一条规则覆盖全部 verb × pkg 笛卡儿积.
+#
+# 注: check 的 ctex / xeCJK 等"大包"的 pattern 规则会被下方的 per-pkg
+# override (check-ctex 走 scripts/check-parallel.sh 多 engine 并行).
+# 其他小包仍走默认串行规则.
 define L3BUILD_PKG_RULES
 $(addprefix doc-,    $(1)): doc-%:    ; cd $$* && l3build doc
 $(addprefix unpack-, $(1)): unpack-%: ; cd $$* && l3build unpack
@@ -76,6 +81,22 @@ $(addprefix check-,  $(1)): check-%:  ; cd $$* && l3build check
 $(addprefix clean-,  $(1)): clean-%:  ; cd $$* && l3build clean
 endef
 $(eval $(call L3BUILD_PKG_RULES,$(L3BUILD_PKGS)))
+
+# ── check 大包并行加速 (override 上方 pattern rule) ────────────────────────
+# ctex 默认跑 4 engine, 串行 ~20min wall-clock; 并行后 ~8min. 走
+# scripts/check-parallel.sh, 给每个 engine 准备一份独立子工作目录
+# (tmp/parallel-check/<engine>/, git ls-files + tar 快照), 各 engine 进程在
+# 自己的目录下跑 l3build check, 互不争抢. 同步 ctex 主测 + 各 -c config 三个
+# (cmap / contrib / ctxdoc) 都跑.
+check-ctex:                  ## ctex 4-engine 并行 l3build check (~8min)
+	cd ctex && CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+	  ../scripts/check-parallel.sh
+
+check-ctex-serial:           ## ctex 串行 l3build check (~20min, 用于调试并行)
+	cd ctex && l3build check
+	cd ctex && l3build check -c test/config-cmap
+	cd ctex && l3build check -c test/config-contrib
+	cd ctex && l3build check -c test/config-ctxdoc
 
 # ── gbk2uni 走子 Makefile ──────────────────────────────────────────────────
 doc-gbk2uni unpack-gbk2uni:

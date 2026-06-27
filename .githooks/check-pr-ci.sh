@@ -52,15 +52,21 @@ if [ -z "$checks_json" ]; then
   exit 2
 fi
 
-# 修假阳: concurrency cancel-in-progress 会把同名 workflow 的旧 run 标记为
+# 修假阳 1: concurrency cancel-in-progress 会把同名 workflow 的旧 run 标记为
 # cancelled. gh pr checks 把所有 run 一股脑列出来, 直接看 .bucket=="fail" or
 # "cancel" 会把这些"被取代的"旧 run 误报成失败 (PR #887/#888 已两次踩坑).
 # 修法: 按 .name 分组只保留 startedAt 最新的一条; 之后再判 fail/cancel.
 # (cancel 在 latest 仍出现极少, 几种正常路径: 1) 主分支合并并发触发 2) 用户手
 # 动 cancel — 后者本就该是 fail, 前者是 bug, 不在这里兜底.)
+#
+# 修假阳 2: GH Actions matrix 在 strategy expansion 前会注册一个 placeholder
+# check, 用未渲染的 ${{ matrix.X }} 模板作 name, 然后 cancel. 这些 placeholder
+# 的 name 含 "${{" 字面, 不会与真 matrix job 撞 name, 单独成组, dedupe 救不了.
+# 直接按 name 含 "${{" 排除掉.
 latest_per_workflow="$(printf '%s' "$checks_json" \
   | jq -c '
-      group_by(.name)
+      map(select(.name | contains("${{") | not))
+      | group_by(.name)
       | map(
           sort_by(.startedAt // "") | last
         )
@@ -102,7 +108,13 @@ fi
 head_sha="$(gh pr view "$pr_number" --json headRefOid --jq '.headRefOid' 2>/dev/null)"
 head_committed_at=""
 if [ -n "$head_sha" ]; then
-  head_committed_at="$(git show -s --format=%cI "$head_sha" 2>/dev/null || true)"
+  # 强制 UTC ISO 8601 (Z 后缀): GitHub API 的 created_at / submittedAt 都是
+  # 这种格式. git 默认 %cI 用 commit 自己的 timezone (+08:00 等), 字符串
+  # 比较 (jq 用) 按字母序错配: "2026-06-27T04:23:05Z" < "...12:05:26+08:00",
+  # 实际 push 后的 bot 评论 (UTC) 被误判为 push 前的旧评论, 漏检 (PR #899
+  # 实测命中). 必须 --date=iso-strict-local + TZ=UTC 才让 git 输出 Z 后缀
+  # UTC. (单纯 TZ=UTC %cI 对 git 无效, git 用 commit 自带 timezone.)
+  head_committed_at="$(TZ=UTC git show -s --format=%cd --date=iso-strict-local "$head_sha" 2>/dev/null || true)"
 fi
 
 # 1) push 之后是否有新 review (state != PENDING && submittedAt > head_committed_at)
@@ -117,13 +129,34 @@ if [ -n "$head_committed_at" ]; then
     ' 2>/dev/null || true)"
 fi
 
-# 2) 未解决的 review thread
-# 一次 gh repo view 拿 owner+name, 喂给 GraphQL 而非两次子 shell.
-unresolved_threads=""
+# 提前拿 owner+name 给后面 1b 和 2 两段共用 (一次 API 调用).
 repo_owner_name="$(gh repo view --json owner,name --jq '"\(.owner.login)\t\(.name)"' 2>/dev/null)"
+repo_owner=""; repo_name=""
 if [ -n "$repo_owner_name" ]; then
   repo_owner="${repo_owner_name%$'\t'*}"
   repo_name="${repo_owner_name#*$'\t'}"
+fi
+
+# 1b) push 之后是否有新 issue comment. agentic-pr-review bot 用
+# `gh pr comment` (issue comment API) 发评论, 不走 formal review
+# (.reviews[]) — 上面 (1) 永远看不到 bot 的增量审核. 这里补一刀:
+# 用 REST API 拿 user.type, 过滤所有 Bot 作者 (不硬编码具体 login —
+# 兼容 Dependabot / 自定义 GitHub App / 未来其它 bot).
+new_bot_comment_after_push=""
+if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
+  new_bot_comment_after_push="$(gh api \
+    "repos/${repo_owner}/${repo_name}/issues/${pr_number}/comments?per_page=100" \
+    --jq --arg t "$head_committed_at" '
+      .[]?
+      | select(.user.type == "Bot")
+      | select((.created_at // "") > $t)
+      | "\(.user.login)\tCOMMENT\t\(.created_at)\t\(.html_url)"
+    ' 2>/dev/null || true)"
+fi
+
+# 2) 未解决的 review thread (复用上面拿到的 owner+name)
+unresolved_threads=""
+if [ -n "$repo_owner" ]; then
   unresolved_threads="$(gh api graphql -f query='
     query($owner:String!, $repo:String!, $pr:Int!) {
       repository(owner:$owner, name:$repo) {
@@ -149,17 +182,27 @@ if [ -n "$repo_owner_name" ]; then
 fi
 
 # 状态报告: 区分三档
-if [ -n "$new_review_after_push" ] || [ -n "$unresolved_threads" ]; then
+if [ -n "$new_review_after_push" ] || [ -n "$new_bot_comment_after_push" ] \
+   || [ -n "$unresolved_threads" ]; then
   log ""
   log "════════════════════════════════════════════════════════════"
   log "  ⚠ post-push: CI passed for PR #${pr_number}, but review activity pending"
   if [ -n "$new_review_after_push" ]; then
     log ""
-    log "  New review(s) submitted after this push:"
+    log "  New formal review(s) submitted after this push:"
     while IFS=$'\t' read -r who state when; do
       [ -z "$who" ] && continue
       log "    • ${who}  [${state}]  @${when}"
     done <<< "$new_review_after_push"
+  fi
+  if [ -n "$new_bot_comment_after_push" ]; then
+    log ""
+    log "  New bot comment(s) (agentic-pr-review etc.) after this push:"
+    while IFS=$'\t' read -r who state when url; do
+      [ -z "$who" ] && continue
+      log "    • ${who}  [${state}]  @${when}"
+      [ -n "$url" ] && log "        ${url}"
+    done <<< "$new_bot_comment_after_push"
   fi
   if [ -n "$unresolved_threads" ]; then
     log ""

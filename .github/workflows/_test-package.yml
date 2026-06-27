@@ -1,0 +1,218 @@
+# Reusable workflow: 跑单个包 × 3 OS 测试. 由 test.yml 主 workflow 的 5 个
+# caller job 各自 `uses:` 调用 (ctex / xeCJK / zhnumber / CJKpunct / zhlineskip).
+#
+# 这么拆是为了消除 GitHub Actions 在 matrix.pkg 维度上的"幽灵 cancelled job"
+# (动态 name `${{ matrix.pkg }} on ...` 在 strategy expansion 前 GH 会注册一个
+# placeholder check 用未渲染模板作 name, 然后 cancel). caller job 用静态 job
+# name, 没这问题.
+
+name: test package
+
+on:
+  workflow_call:
+    inputs:
+      pkg:
+        description: '包名: ctex / xeCJK / zhnumber / CJKpunct / zhlineskip'
+        required: true
+        type: string
+      event-name:
+        # reusable workflow 内部 github.event_name 永远是 'workflow_call'
+        # (GH Actions 已知行为), 拿不到顶层触发事件. caller 必须显式透传
+        # github.event_name 进来, 用于区分 schedule (--show-saves) vs
+        # 其他 (-H) 等行为.
+        description: 'Caller 顶层 github.event_name (透传)'
+        required: true
+        type: string
+      tl-version:
+        # 显式 pin TeX Live 版本: 跳过 setup-texlive 的 remote version check
+        # (这步早于 cache restore, 若 mirror 不通 cache 再热也没用 — PR #899
+        # 实测 windows caller cache 命中但仍 ETIMEDOUT). 由 caller (test.yml)
+        # 顶层 env 统一管理, 年度 TL 发版只需改一处.
+        description: 'TeX Live 版本 (例 "2026"). 由 test.yml 顶层 env TL_VERSION 透传.'
+        required: true
+        type: string
+
+env:
+  NOTO_SANS_URL: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJK-OTC.zip
+  NOTO_SERIF_URL: https://github.com/notofonts/noto-cjk/releases/download/Serif2.002/04_NotoSerifCJKOTC.zip
+
+jobs:
+  run:
+    strategy:
+      # 一个 OS 失败不取消其它. 我们想看到所有 OS 的结果.
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            font-dir: /usr/share/fonts/truetype
+            shell: bash
+            tl-pkgs: ""
+          - os: macos-latest
+            font-dir: /Library/Fonts
+            shell: bash
+            tl-pkgs: ""
+          - os: windows-latest
+            font-dir: /c/Windows/Fonts
+            shell: C:\msys64\usr\bin\bash.exe -e {0}
+            # for `unzip` shipped with texlive
+            tl-pkgs: wintools.windows
+
+    # workflow_call 触发时, 整个 reusable workflow 在 caller 视角显示为
+    # 一个 check, 名字 = "<caller_job_id> / <reusable_job_id> (<matrix>)".
+    # 这里 matrix only os, name 取 os.
+    name: on ${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+    - uses: actions/checkout@v7
+
+    # caller 端 setup-texlive 也得 retry 换 mirror — 即便 cache hit, setup-texlive
+    # 在 'Updating packages' 阶段仍会联网拉 tlmgr db checksum 判断要不要 update.
+    # PR #899 实测 windows ctan.math.illinois.edu 网络抖动时 "Unable to download
+    # the checksum of the remote TeX Live database", tlmgr **静默用本地老 db**
+    # → cache 是数月前的 TL revision → 跟仓库 .tlg (用 latest TLnet 包 save 的)
+    # 不一致 → environ01 / footnote01 等测试 fail.
+    #
+    # 关键: tlmgr 这种 silent fallback 让 setup-texlive 步骤 success, 我们的
+    # try1 if: outcome == 'failure' 不会触发. 修法: try 1 直接走
+    # mirror.ctan.org 全球自动重定向 (而非 pin illinois 一个单点), GH runner
+    # 网络好时它会自动选最快/最稳的 mirror. illinois pin 给 try 2 兜底
+    # (mirror.ctan.org 极端不可用时).
+    - name: Install TeX Live (try 1, ctan.org auto-redirect)
+      id: tl1
+      continue-on-error: true
+      timeout-minutes: 15
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        version: ${{ inputs.tl-version }}
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://mirror.ctan.org/systems/texlive/tlnet
+        # update-all-packages: true 是必须的: 仓库 .tlg baseline 是在 TLnet
+        # 最新版下 save 的, cache 内容可能旧, update 才能对齐. 每 caller
+        # 70s 是 setup-texlive cache 设计的固有代价 (同 primaryKey 不覆写),
+        # 实测无合理方案绕开. 见 _test-package.yml head 注释.
+        update-all-packages: true
+
+    - name: Install TeX Live (try 2, illinois mirror)
+      if: steps.tl1.outcome == 'failure'
+      timeout-minutes: 15
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        version: ${{ inputs.tl-version }}
+        package-file: .github/tl_packages
+        packages: ${{ matrix.tl-pkgs }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        update-all-packages: true
+
+    # 验证 setup-texlive 真的 update 到了最新 TLnet, 而非 tlmgr 在 mirror
+    # 不通时 silent fallback 用本地老 db. PR #899 实测 ubuntu 上 tlmgr 在
+    # "Unable to download the checksum" 时 silent 用 local, setup-texlive
+    # 退码 0 看不出来, caller cache 是数月前的 TL → 跟仓库 .tlg baseline 不一致.
+    # 这里 tlmgr update --self --list 强制访问 remote, grep 输出验证 "Unable
+    # to download" 不出现; 出现就 exit 1 强 fail, 让 rerun --failed 在 GH
+    # Actions UI 上可手动重跑.
+    - name: Verify TL mirror reachable (no silent fallback to local db)
+      run: |
+        out=$(tlmgr update --self --list 2>&1) || true
+        echo "$out"
+        if echo "$out" | grep -qiE "Unable to download|not verified"; then
+          echo "::error::tlmgr 报 mirror 不可达, 跑 update 时 silent fallback 用本地老 db. caller 拿到的 TL revision 比 .tlg baseline 旧, 测试一定 fail. 重跑 (rerun --failed) 或换 mirror."
+          exit 1
+        fi
+
+    - name: Cache CJK fonts
+      id: font-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}/.font-cache
+        # hashFiles 取本 yml hash (URL 改了 → key 变 → 重 download).
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/workflows/_test-package.yml') }}-v1
+
+    - name: Install Noto fonts
+      run: |
+        # 用 workspace 内绝对路径而非 ~/.cache/, 避免 msys2 bash 在 Windows
+        # 上 ~ expansion 与 mkdir/cd 不一致的诡异行为.
+        FONT_CACHE="${{ github.workspace }}/.font-cache"
+        mkdir -p "$FONT_CACHE"
+        if [ ! -f "$FONT_CACHE/.done" ]; then
+          cd "$FONT_CACHE"
+          curl -LO "${{ env.NOTO_SANS_URL }}"
+          curl -LO "${{ env.NOTO_SERIF_URL }}"
+          for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
+          # zip 解压完就没用了 (~200MB), 删掉减小 cache 体积
+          rm -f *.zip
+          touch .done
+          cd - >/dev/null
+        fi
+        cp "$FONT_CACHE"/*.ttc "${{ matrix.font-dir }}/"
+        fc-cache -f
+
+    - name: Test ${{ inputs.pkg }}
+      id: test
+      working-directory: ./${{ inputs.pkg }}
+      env:
+        diffext: .diff
+        diffexe: git diff --no-index --text --
+        L3BUILD_EXTRA_OPTIONS: ${{ inputs.event-name == 'schedule' && '--show-saves' || '-H' }}
+      run: |
+        set -x
+        case "${{ inputs.pkg }}" in
+          ctex)
+            # ctex 默认跨 4 engine 跑 181 测试, 用并行 wrapper.
+            # wall-clock ~5-8min (串行旧法 ~13-17min).
+            CONFIGS="test/config-cmap test/config-contrib test/config-ctxdoc" \
+              ../scripts/check-parallel.sh "$L3BUILD_EXTRA_OPTIONS" || {
+              echo "::group::patch-health raw log"
+              for f in build/check-test/config-ctxdoc/patch-health.log \
+                       ../tmp/parallel-check/*/ctex/build/check/patch-health.log \
+                       build/check-*/patch-health.log; do
+                [ -f "$f" ] && { echo "=== $f ==="; cat "$f"; }
+              done
+              echo "::endgroup::"
+              exit 1
+            }
+            ;;
+          zhlineskip)
+            # zhlineskip 失败时 dump 完整 .log 帮调试 (上游沿用风格).
+            if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+              l3build check -q "$L3BUILD_EXTRA_OPTIONS" || {
+                echo "::group::zhlineskip raw logs"
+                for f in build/test/*.log; do
+                  echo "=== $f ==="
+                  head -80 "$f" 2>/dev/null || echo "(not found)"
+                done
+                echo "::endgroup::"
+                exit 1
+              }
+            else
+              echo "No test configuration found, skipping"
+            fi
+            ;;
+          *)
+            # xeCJK / zhnumber / CJKpunct 等小包, 默认串行直接跑.
+            if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
+              l3build check -q "$L3BUILD_EXTRA_OPTIONS"
+            else
+              echo "No test configuration found, skipping"
+            fi
+            ;;
+        esac
+
+    - name: Get short commit SHA
+      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      run: |
+        echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_ENV"
+
+    - name: Upload test diffs
+      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ inputs.pkg }}-${{ runner.os }}
+        path: |
+          ${{ inputs.pkg }}/build/**/*.diff
