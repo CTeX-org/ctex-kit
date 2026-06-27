@@ -36,6 +36,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # 跟 test.yml 顶层 env 保持一致, 复用 PR #901 weekly bypass cache (key 含
+  # TL_VERSION). 年度 TL 升级只需改这一处 (test.yml / release.yml 同步).
+  TL_VERSION: '2026'
+
 jobs:
   # ── 阶段 A: 生成英文 announcement ──────────────────────────────────────
   prepare-announcement:
@@ -268,16 +273,48 @@ jobs:
           # 那时 build.lua 还没 uploadconfig, l3build 会拿到空 author 而 abort.
           # 实际的 zip 资产由下面 gh release download 拉, 与本次 checkout 无关.
 
-      - name: Install TeX Live (minimal for l3build)
+      # PR #901 weekly bypass cache, 跟 test.yml warmup-tl / release.yml 共享同
+      # 一个 key (tl-bypass-Linux-2026-<ISO 周>). cache 内是全套 tl_packages 而
+      # 不只是 l3build + luatex, 但 restore + PATH export ~10s 还是比 setup-
+      # texlive 真装 minimal (~30s) 快, 且不依赖 mirror 通畅.
+      - name: Compute TL cache week
+        id: tlcache
+        run: |
+          week="$(TZ=UTC date +'%G-W%V')"
+          echo "week=${week}" >> "$GITHUB_OUTPUT"
+          echo "TL cache week: ${week}"
+
+      - name: TL bypass cache (restore)
+        id: bypass-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}
+          key: tl-bypass-${{ runner.os }}-${{ env.TL_VERSION }}-${{ steps.tlcache.outputs.week }}
+
+      - name: Export PATH (cache hit fast path)
+        id: export-path
+        if: steps.bypass-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: |
+          TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}/bin/x86_64-linux"
+          echo "$TL_BIN" >> "$GITHUB_PATH"
+          echo "Added to PATH: $TL_BIN"
+          "$TL_BIN/tlmgr" version
+
+      - name: Install TeX Live (minimal for l3build, fallback)
+        if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
         timeout-minutes: 15
         uses: TeX-Live/setup-texlive-action@v4
         with:
+          version: ${{ env.TL_VERSION }}
           # l3build upload 只需要 l3build script 本身 + LuaTeX (用于跑 build.lua).
           # 全套字体 / Unihan / makeindex 都不需要 — 我们不重新打 zip.
           packages: |
             l3build
             luatex
           repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          # 关闭 setup-texlive 内部 cache, 我们自己用 bypass-cache.
+          cache: false
 
       - name: Download announcement artifact
         uses: actions/download-artifact@v7
