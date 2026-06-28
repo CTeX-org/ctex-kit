@@ -12,9 +12,9 @@
 --]==========================================================================]--
 module              = "zhlineskip"
 version             = "v1.0f"
-date                = "2026-06-27"
-maintainer          = "Ruixi Zhang"
-email               = "ruixizhang42@gmail.com"
+date                = "2026-06-28"
+maintainer          = "Mingyu Xia"
+email               = "myhsia@outlook.com"
 summary             = "Line spacing for CJK documents"
 description         = "This package supports typesetting CJK documents. It allows users to specify the two ratios between the leading and the font size of the body text and the footnote text. For CJK typesetting, these ratios usually range from 1.5 to 1.67. This package is also capable of restoring the math leading to that of the Latin text (usually 1.2 times the font size). Finally, it is possible to achieve the `Microsoft Word` multiple line spacing style using `zhlineskip`."
 
