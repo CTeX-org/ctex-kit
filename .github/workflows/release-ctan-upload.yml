@@ -349,6 +349,27 @@ jobs:
           mv "$ASSET" "${DIR}/${MODULE}-ctan.zip"
           ls -la "${DIR}/${MODULE}-ctan.zip"
 
+      - name: Validate note length
+        # CTAN 表单 note 字段上限 4096 字符 (l3build-upload.lua ctan_field 写死).
+        # 提前在 workflow 内卡掉超长 note 比让 l3build 跑到 CTAN 服务端再返回
+        # 错误友好得多 — 后者要等真的 POST 一轮才能拿到反馈.
+        # 走 env 不走 ${{ }} 字符串插值, 防 note 内嵌 shell 元字符注入.
+        env:
+          NOTE: ${{ inputs.note }}
+        run: |
+          if [ -z "$NOTE" ]; then
+            echo "::notice::No CTAN note provided."
+            exit 0
+          fi
+          # 用 ${#NOTE} 数字符数; bash 默认按 byte 数 (locale=C), UTF-8 多字节
+          # 字符按字节算偏严, 但 CTAN 4096 上限本身也是 byte 级, 一致.
+          LEN=${#NOTE}
+          echo "::notice::CTAN note length: ${LEN} bytes (limit 4096)."
+          if [ "$LEN" -gt 4096 ]; then
+            echo "::error::CTAN note 超过 4096 byte 上限 (实际 ${LEN}). 请缩短后重新触发 workflow." >&2
+            exit 1
+          fi
+
       - name: Run l3build upload
         working-directory: ${{ needs.prepare-announcement.outputs.dir }}
         env:
