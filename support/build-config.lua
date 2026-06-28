@@ -232,13 +232,24 @@ function read_dtx_version(dtx_path)
   return content:match("\\GetIdInfo%s+%$Id:%s+%S+%s+v?([%w%.]+)%s")
 end
 
+-- env 读取小工具: GH Actions `env: X: ${{ inputs.x }}` 在 input 留空时
+-- 会注入空串 "", 而 `os.getenv("X") or fallback` 把空串当 truthy, 不会
+-- 走 fallback. 这里把 nil 和 "" 一并视为未设置, 让 uploadconfig 的
+-- `opts.note or ctex_kit_env_or_nil("CTAN_NOTE")` 在空 input 时跳过.
+function ctex_kit_env_or_nil(name)
+  local v = os.getenv(name)
+  if v == nil or v == "" then return nil end
+  return v
+end
+
 -- 构造 l3build uploadconfig 表. 仓库公共字段固定写在这里, 各包传 opts 覆写
 -- pkg / version / author / summary / description / ctanPath 等差异字段.
 --
--- 注意: uploader / email 留空 (从环境变量读), 由 release-ctan-upload.yml
--- workflow 用 `CTAN_UPLOADER=... CTAN_EMAIL=... l3build upload` 注入, 避免
--- 把任何个人 email 落到 git 里. l3build CLI 只支持 --email 覆盖, 不支持
--- --uploader, 所以走 env 是最通用的办法 (本地 / CI 同一套).
+-- 注意: uploader / email / note 留空 (从环境变量读), 由 release-ctan-upload.yml
+-- workflow 用 `CTAN_UPLOADER=... CTAN_EMAIL=... CTAN_NOTE=... l3build upload`
+-- 注入, 避免把任何个人 email / 临时备注落到 git 里. l3build CLI 只支持
+-- --email 覆盖, 不支持 --uploader / --note, 所以走 env 是最通用的办法
+-- (本地 / CI 同一套).
 function ctex_kit_uploadconfig(opts)
   return {
     pkg               = opts.pkg,
@@ -246,6 +257,13 @@ function ctex_kit_uploadconfig(opts)
     author            = opts.author,
     uploader          = opts.uploader     or os.getenv("CTAN_UPLOADER"),
     email             = opts.email        or os.getenv("CTAN_EMAIL"),
+    -- CTAN reviewer 内部备注 (≤4096 字符). l3build CLI 不暴露 note 参数,
+    -- 仅认 uploadconfig.note / note_file. 走 env 与 uploader/email 一致,
+    -- 避免把临时备注写进 build.lua. release-ctan-upload.yml 用 workflow
+    -- input 注入 CTAN_NOTE; 本地跑 l3build upload 也是同一套.
+    -- CTAN_NOTE 留空 (workflow input 默认值) 时 GH Actions 会注入空串,
+    -- 需显式过滤为 nil — 否则 l3build 会把空 note 字段提交给 CTAN.
+    note              = opts.note         or ctex_kit_env_or_nil("CTAN_NOTE"),
     license           = opts.license       or "lppl1.3c",
     summary           = opts.summary,
     description       = opts.description,
