@@ -37,7 +37,7 @@ Copyright (C) 2018-2019 by Ruixi Zhang
 [`<ruixizhang42@gmail.com>`](mailto:ruixizhang42@gmail.com)
 
 Copyright (C) 2026 by Mingyu Xia
-[`<myhsia@outlook.com>`](mailto:myhsia@outlook.com)
+[`<xiamingyu@westlake.edu.cn>`](mailto:xiamingyu@westlake.edu.cn)
 
 This work may be distributed and/or modified under the conditions
 of the LaTeX Project Public License (LPPL), either version 1.3c of
@@ -51,4 +51,4 @@ version 2008 or later.
 
 This work has the LPPL maintenance status `maintained`.
 
-The Current Maintainer of this work is **Ruixi Zhang** and **Mingyu Xia**.
+The Current Maintainer of this work are **Ruixi Zhang** and **Mingyu Xia**.
