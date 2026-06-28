@@ -27,6 +27,12 @@ on:
         description: 'CTAN 上传者 email (CTAN reviewer 回邮地址)'
         required: true
         type: string
+      note:
+        description: 'CTAN 内部备注 (可选, ≤4096 字符). 用于告知 CTAN 团队
+          维护者变更等需要 reviewer 注意的事项. 留空则不写 note 字段.'
+        required: false
+        type: string
+        default: ''
       dry_run:
         description: '只跑 l3build upload --dry-run, 不真上传'
         required: true
@@ -352,6 +358,11 @@ jobs:
           # 不需要把个人信息硬编码进 git, 本地跑 l3build upload 也是同一套.
           CTAN_UPLOADER: ${{ inputs.uploader }}
           CTAN_EMAIL: ${{ inputs.email }}
+          # ctex_kit_uploadconfig() 同样从 env 读 note (CTAN 内部备注).
+          # l3build CLI 不暴露 --note, 仅认 uploadconfig.note / note_file.
+          # input 留空时 GH Actions 会注入空串 "", build-config.lua 的
+          # ctex_kit_env_or_nil() 把空串当成 nil, 不会写入空 note 字段.
+          CTAN_NOTE: ${{ inputs.note }}
         run: |
           # --file 把 announcement.md 喂给 CTAN announcement 表单.
           # --email 显式再传一次 (l3build CLI 接受, 兜底防 build.lua 里漏读 env).
@@ -387,6 +398,10 @@ jobs:
 
       - name: Summary
         if: always()
+        env:
+          # 走 env 不走 ${{ }} 字符串插值, 防 note 内嵌 shell 元字符
+          # (`$(...)` / `` ` `` / `;` / 换行) 注入命令.
+          NOTE: ${{ inputs.note }}
         run: |
           echo "## CTAN Upload Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Package**: ${{ needs.prepare-announcement.outputs.pkg }} v${{ needs.prepare-announcement.outputs.ver }}" >> $GITHUB_STEP_SUMMARY
@@ -394,4 +409,12 @@ jobs:
           echo "- **CTAN Path**: ${{ needs.prepare-announcement.outputs.ctan_path }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Uploader**: ${{ inputs.uploader }} <${{ inputs.email }}>" >> $GITHUB_STEP_SUMMARY
           echo "- **Mode**: ${{ inputs.dry_run == true && 'DRY-RUN' || 'LIVE' }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$NOTE" ]; then
+            {
+              echo "- **Note to CTAN**:"
+              echo '  ```'
+              printf '%s\n' "$NOTE" | sed 's/^/  /'
+              echo '  ```'
+            } >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Result**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
