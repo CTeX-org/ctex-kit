@@ -118,15 +118,19 @@ if [ -n "$head_sha" ]; then
 fi
 
 # 1) push 之后是否有新 review (state != PENDING && submittedAt > head_committed_at)
+#
+# 注: gh CLI 的 --jq 是单参数 flag, 不支持 --arg t "..." 这种 jq 命令语法
+# (实测会报 'accepts 1 arg(s), received 4' 直接 abort 整条命令). 此处必须
+# 用 gh ... | jq -r --arg t "..." 走 pipe 让原生 jq 进程接 --arg.
 new_review_after_push=""
 if [ -n "$head_committed_at" ]; then
-  new_review_after_push="$(gh pr view "$pr_number" --json reviews \
-    --jq --arg t "$head_committed_at" '
-      .reviews[]?
-      | select(.state != "PENDING")
-      | select((.submittedAt // "") > $t)
-      | "\(.author.login // "?")\t\(.state)\t\(.submittedAt)"
-    ' 2>/dev/null || true)"
+  new_review_after_push="$(gh pr view "$pr_number" --json reviews 2>/dev/null \
+    | jq -r --arg t "$head_committed_at" '
+        .reviews[]?
+        | select(.state != "PENDING")
+        | select((.submittedAt // "") > $t)
+        | "\(.author.login // "?")\t\(.state)\t\(.submittedAt)"
+      ' 2>/dev/null || true)"
 fi
 
 # 提前拿 owner+name 给后面 1b 和 2 两段共用 (一次 API 调用).
@@ -142,16 +146,19 @@ fi
 # (.reviews[]) — 上面 (1) 永远看不到 bot 的增量审核. 这里补一刀:
 # 用 REST API 拿 user.type, 过滤所有 Bot 作者 (不硬编码具体 login —
 # 兼容 Dependabot / 自定义 GitHub App / 未来其它 bot).
+#
+# 同 (1): gh api --jq 不支持 --arg, 用 pipe 走 jq -r --arg.
 new_bot_comment_after_push=""
 if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
   new_bot_comment_after_push="$(gh api \
     "repos/${repo_owner}/${repo_name}/issues/${pr_number}/comments?per_page=100" \
-    --jq --arg t "$head_committed_at" '
-      .[]?
-      | select(.user.type == "Bot")
-      | select((.created_at // "") > $t)
-      | "\(.user.login)\tCOMMENT\t\(.created_at)\t\(.html_url)"
-    ' 2>/dev/null || true)"
+    2>/dev/null \
+    | jq -r --arg t "$head_committed_at" '
+        .[]?
+        | select(.user.type == "Bot")
+        | select((.created_at // "") > $t)
+        | "\(.user.login)\tCOMMENT\t\(.created_at)\t\(.html_url)"
+      ' 2>/dev/null || true)"
 fi
 
 # 2) 未解决的 review thread (复用上面拿到的 owner+name)
