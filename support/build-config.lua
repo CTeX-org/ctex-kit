@@ -269,7 +269,13 @@ function ctex_kit_uploadconfig(opts)
     description       = opts.description,
     topic             = opts.topic         or { "chinese" },
     ctanPath          = opts.ctanPath,
-    home              = opts.home          or "https://github.com/CTeX-org/ctex-kit",
+    -- home 字段刻意不设默认值: 默认 home 会与 repository 同为
+    -- https://github.com/CTeX-org/ctex-kit, CTAN 对同一包内重复 URL 会
+    -- 自动去重并在每次上传回执里提示 "I omitted the identical URL for
+    -- 'Home'. (Mind that we wish to use each URL only once.)". 留空 ⟹
+    -- l3build ctan_field 跳过 home, CTAN 上 source repository 链接已涵盖
+    -- 同一 URL 的导航需求 (见 #914).
+    home              = opts.home,
     bugtracker        = opts.bugtracker
                       or "https://github.com/CTeX-org/ctex-kit/issues",
     support           = opts.support
