@@ -9998,6 +9998,65 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.10.1}{2026/06/30}{为 \pkg{l3doc} 的 \cs{__codedoc_meta:n}
+%   添加补丁，将参数内容包入 \cs{hbox:n}，
+%   修复 \cs{meta} 内首字符前出现多余 \texttt{CJKecglue} 的问题（\#920）。}
+%
+% \pkg{l3doc} 类的 \cs{__codedoc_meta:n} 排版 \cs{meta} 命令的参数：
+% 由 \cs{__codedoc_meta_original:n} 输出 \texttt{\$\textbackslash langle\$}（数学节点）、
+% 内容、\texttt{\$\textbackslash rangle\$}。
+% 当内容首字符是 CJK 时，\texttt{Default\textrightarrow CJK} 类别转换的
+% \cs{xeCJK_pre_inter_class_toks:nnn} 自动 prepend \cs{CJKecglue}，
+% 在 \texttt{\$\textbackslash langle\$} 与首 CJK 字符之间产生多余间距。
+%
+% 此处采用与 myhsia 在 \pkg{hyperref}/\pkg{hypdoc} 兼容议题中提出的
+% \texttt{hbox} 包装方案：将 \cs{__codedoc_meta:n} 的参数包入
+% \cs{hbox:n}，\cs{hbox} 隔离了内部的 \XeTeX{} interchar transitions，
+% 使得 \texttt{Default\textrightarrow CJK} transition 不会跨越 \texttt{hbox}
+% 边界触发，从而避免插入多余 \cs{CJKecglue}。
+%
+% 仅 hbox 包装会丢失 \cs{meta} 之前 CJK 与 \cs{meta} 之间的边界 ecglue：
+% \cs{__codedoc_meta_original:n} 入口的 \cs{ensuremath} math 节点把
+% 缓存的 CJK 标记 kern 遮蔽在自己之后，下游 transition 探测不到
+% marker，原本的 \texttt{CJKecglue} 也跟着丢。
+% 与 \pkg{url}（\#880）、\cs{verb}（\#910）同型，此处在 \cs{__codedoc_meta:n}
+% 入口调用 \cs{@@_drain_ecglue_verb:} 排空 marker 并补 \cs{CJKecglue}，
+% 恢复 outer 左侧边界的 ecglue；复用 \texttt{verb} 版本（else 分支
+% 不清 \cs{g_@@_last_node_tl}）：\cs{meta} 出口仍走 token-level
+% interchar，需要保留 tl 状态。
+%
+% \cs{rangle} 之后到外部字符的 ecglue 仍由 \cs{__codedoc_meta:n}
+% 末尾 \cs{ensuremath} 退出后的 \texttt{Default\textrightarrow CJK}
+% transition 正常处理。
+%
+% 由于 \cs{__codedoc_meta:n} 与 \cs{Arg}、\cs{oarg}、\cs{parg} 等共用，
+% 此补丁也间接修复后者的类似问题。
+%
+% 选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}：
+% \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，需要在 preamble 结束时
+% 才能确定 \cs{__codedoc_meta:n} 是否定义。
+%
+% \begin{macro}[int]{\@@_patch_codedoc_meta:}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_codedoc_meta:
+  {
+    \cs_if_exist:NT \__codedoc_meta:n
+      {
+        \cs_if_exist:NF \@@_orig_codedoc_meta:n
+          {
+            \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
+            \cs_gset_protected:Npn \__codedoc_meta:n ##1
+              {
+                \mode_if_math:F { \@@_drain_ecglue_verb: }
+                \@@_orig_codedoc_meta:n { \hbox:n {##1} }
+              }
+          }
+      }
+  }
+\@@_at_end_preamble:n { \@@_patch_codedoc_meta: }
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}

@@ -1,0 +1,89 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+% Simulate l3doc's \__codedoc_meta:n: $\langle$ #1 $\rangle$.
+% xeCJK patch wraps content with \hbox:n and drains preceding marker kern.
+\makeatletter
+\ExplSyntaxOn
+\cs_new_protected:Npn \__codedoc_meta:n #1
+  {
+    \ensuremath { \langle }
+    #1
+    \ensuremath { \rangle }
+  }
+\ExplSyntaxOff
+\makeatother
+
+\begin{document}
+
+\START
+
+% --- Test 1: \meta content compact at \langle boundary ---
+% \__codedoc_meta:n content should be wrapped in \hbox by xeCJK patch,
+% isolating internal Default<->CJK transitions and removing the auto-inserted
+% \CJKecglue at \langle/\rangle boundaries.
+
+\makeatletter
+\ExplSyntaxOn
+\setbox0=\hbox{\__codedoc_meta:n {键值列表}}
+\ExplSyntaxOff
+\makeatother
+\setbox1=\hbox{$\langle$\hbox{键值列表}$\rangle$}
+\setbox2=\hbox{$\langle$键值列表$\rangle$}
+
+\TEST{meta content wrapped in hbox isolates transitions (920)}{
+  % Patched box0 should be equivalent to box1 (manual hbox wrap).
+  % Unpatched box2 (without hbox) has 2 extra ecglues (3.33 each ≈ 6.66pt).
+  \TYPE{INFO: wd0=\the\wd0, wd1(target)=\the\wd1, wd2(unpatched)=\the\wd2}
+  \dimen0=\wd0 \advance\dimen0 by -\wd1
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<1pt
+    \TYPE{PASS: patched matches hbox-wrapped reference (diff: \the\dimen0)}
+  \else
+    \TYPE{FAIL: patched diverges from hbox-wrapped reference (diff: \the\dimen0)}
+  \fi
+  % Also check patched is narrower than unpatched
+  \dimen2=\wd2 \advance\dimen2 by -\wd0
+  \ifdim\dimen2>3pt
+    \TYPE{PASS: patched is narrower than unpatched (saved: \the\dimen2)}
+  \else
+    \TYPE{FAIL: patched did not reduce width (diff: \the\dimen2)}
+  \fi
+}
+
+% --- Test 2: \meta outer ecglue preserved (CJK ... \meta ... CJK) ---
+% \meta wrapped in CJK context should still have outer ecglue between
+% surrounding CJK and \langle/\rangle. The drain pattern in the patch
+% removes the cached CJK marker kern and emits ecglue at the entry point.
+% Reference box4 has \hbox{中文} content but no \hbox wrapping inside
+% the outer hbox, so its outer Default<->CJK transitions also fire.
+% After our patch box3 should produce equivalent layout to box4.
+
+\makeatletter
+\ExplSyntaxOn
+\setbox3=\hbox{中文 \__codedoc_meta:n {中文} 西文}
+\ExplSyntaxOff
+\makeatother
+\setbox4=\hbox{中文$\langle$\hbox{中文}$\rangle$西文}
+
+\TEST{outer ecglue preserved around \string\meta (920)}{
+  % box3 should equal box4 (both have outer ecglue from drain/transition,
+  % no inner ecglue because content is hbox-wrapped).
+  \TYPE{INFO: wd3=\the\wd3, wd4(target)=\the\wd4}
+  \dimen0=\wd3 \advance\dimen0 by -\wd4
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<1pt
+    \TYPE{PASS: outer ecglue preserved (diff: \the\dimen0)}
+  \else
+    \TYPE{FAIL: outer ecglue mismatch (diff: \the\dimen0)}
+  \fi
+}
+
+\END
+
+\end{document}
+
