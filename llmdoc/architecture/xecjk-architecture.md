@@ -197,21 +197,44 @@ Boundary → CJK 时：
 
 | 遮蔽类型 | 案例 | 修复位置 | 修复模式 |
 |---------|------|---------|---------|
-| hbox 节点（marker 仍在但 `\lastkern` 回看不到） | #873 `\HD@target` 的 `\raisebox` 0x0 hbox | 调用方入口（fixed-point patch） | **save/replay**：入口保存 `\g_@@_last_node_tl` 到本地 tl，调用结束后 `\xeCJK_make_node:n` 重发 marker |
+| hbox 节点（marker 仍在但 `\lastkern` 回看不到） | #873 `\HD@target` 的 `\raisebox` 0x0 hbox、#910 `\verb` 的 `\leavevmode\null` 同型 hbox | 调用方入口（fixed-point patch） | **save/replay** 或 **drain**（具体见下） |
 | math 模式（marker 被 math 节点吞掉） | #880 `\Url@FormatString` 的 `$ \fam\z@ ... $` | 调用方入口（fixed-point patch） | **drain**：入口 `\xeCJK_remove_node:` 拔掉 marker，直接补 `\l_@@_ecglue_skip` |
 | whatsit 节点（color / hyperref annot 等） | #807 / #809 / #810 / #831 | `\@@_recover_glue_whatsit:` 或调用方入口 | **whatsit 恢复链**，必要时配合**专用 pending boolean**（如 `\g_@@_reset_color_pending_bool`） |
 | 用户显式分组（catcode 2 `}`） | #831 catcode 2 路径 | CJK→Boundary handler 内 | **brace 路径状态保存**：在 handler 内部识别 catcode 2，设置 `\g_@@_ulem_pending_bool` 让下游 glue-skip 接管 |
 
 #### 选择 drain 还是 save/replay 的判断
 
+第一维度（遮蔽点之后的内容类型）：
+
 - 如果遮蔽点之后**始终是西文**（如 `\url` 内容必然是西文），CJK→西文方向边界永远是 ecglue，无需保留 marker 类型，用 drain。
 - 如果遮蔽点之后可能既是 CJK 又是西文（如 `\HD@target` 后面什么都可能），必须保留 marker 类型让下游状态机判断，用 save/replay。
 
+第二维度（调用方控制序列的 token 扫描语义）：
+
+| 调用方语义 | 例子 | 可用模式 |
+|---|---|---|
+| 普通无参/受参控制序列（patch 体可 wrap，原命令后能注入代码） | `\HD@target` (#873)、`\set@color` (#807/#831)、`\Hy@BeginAnnot` (#809/#810) | save/replay 或 drain |
+| 分隔符扫描宏（patch 体只能在原命令**前**插代码，调用结束控制流不回到 patch 下文） | `\verb` (#910)、`\Url@FormatString` (#880) | **仅 drain** |
+| math 模式直接吞掉 marker | `\Url@FormatString` (#880) | **仅 drain** |
+
+即：**遮蔽节点类型** 决定 `\@@_check_for_glue:` 探测失败的根因，**调用方扫描语义** 决定能在哪个时机注入修复。`\verb` 与 `\HD@target` 都是 0×0 hbox 遮蔽，但 `\verb` 是分隔符扫描宏（读到分隔符 `|`/`+` 等才结束），patch 包装时控制流被 `\@ifstar\@sverb\@verb` 接管，没法在原命令后注入 replay，因此只能用 drain。
+
+#### drain 的两种变体（else 分支策略）
+
+xeCJK 内部维护两个 drain 函数，差别仅在 `\xeCJK_if_last_node:TF` 的 else 分支（无 marker 时）：
+
+| 函数 | else 分支 | 适用场景 |
+|---|---|---|
+| `\@@_drain_ecglue:` | **主动 `\tl_gclear:N \g_@@_last_node_tl`** | 调用方之后**不再有 token-level interchar 转换**（如 `\Url@FormatString` 进 math，math 模式不参与 interchar），需要主动清防御 tl 残留误导下游 `\@@_recover_glue_whatsit:` |
+| `\@@_drain_ecglue_verb:` | **保持 `\g_@@_last_node_tl` 不动** | 调用方之后仍走 token-level interchar（如 `\verb` 内 catcode-12 字符或 ctex 模式下 verb 内 CJK 字体延续，verb 关组后仍触发 Default→CJK 或 CJK→CJK transition），需要 tl 状态延续 |
+
+`\verb` 不能复用 `\@@_drain_ecglue:` 的具体证据：ctex `fontset=fandol` 下 `\verb|内联代码|` 内部 `内联代码` 是 FandolFang CJK 字体（仍是 CJK class），verb 外 `和` 是 FandolSong CJK，二者间需要 CJK→CJK transition 输出 `\CJKglue`。如果 else 分支 clear 了 `\g_@@_last_node_tl`，下游 transition 失败，ctex `verbatim01.xetex` 测试 fail。详见 [[910-verb-drain-vs-drain-verb]] 决策。
+
 #### 与“收窄 `\@@_recover_glue_whatsit:` default 分支”思路的边界
 
-PR #831 在 whatsit 路径上用 `\g_@@_reset_color_pending_bool` 实现了“只在已知调用方显式置位时才允许 fallback 分支吐 ecglue”的门控。这一思路理论上可继续推广到 `\@@_recover_glue_whatsit:` 的 default 分支以收窄“任意 whatsit 误触发”的攻击面，但与 #873 / #880 无关——hbox 走 else 分支、math 直接吃 marker，都不进入 `recover_glue_whatsit`。是否做这一收窄是独立 PR 范畴。
+PR #831 在 whatsit 路径上用 `\g_@@_reset_color_pending_bool` 实现了“只在已知调用方显式置位时才允许 fallback 分支吐 ecglue”的门控。这一思路理论上可继续推广到 `\@@_recover_glue_whatsit:` 的 default 分支以收窄“任意 whatsit 误触发”的攻击面，但与 #873 / #880 / #910 无关——hbox 走 else 分支、math 直接吃 marker，都不进入 `recover_glue_whatsit`。是否做这一收窄是独立 PR 范畴。
 
-详见反思 [[873-880-meta-url-hbox-math-boundary]]。落地点：`xeCJK/xeCJK.dtx` 中 `\@@_patch_hd_target:` / `\@@_patch_url_format:` 段（commit `7c3a2c2e`），与回归测试 `xeCJK/testfiles/hypdoc-ecglue01.lvt` / `url-ecglue01.lvt`。
+详见反思 [[873-880-meta-url-hbox-math-boundary]] 与 [[910-verb-null-hbox-drain]]。落地点：`xeCJK/xeCJK.dtx` 中 `\@@_patch_hd_target:` / `\@@_patch_url_format:` / `\@@_patch_verb:` 段，回归测试 `xeCJK/testfiles/hypdoc-ecglue01.lvt` / `url-ecglue01.lvt` / `verb-ecglue01.lvt`。
 
 ## 字体管理
 
