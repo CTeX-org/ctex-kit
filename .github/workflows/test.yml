@@ -40,7 +40,13 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  # group 加 event_name 维度: 主仓自家分支 push 与 pull_request 同 head sha
+  # 双触发时, 两个 run 进不同 group 互不 cancel — 否则后触发的 pull_request
+  # run 会 cancel 前面的 push run, GH UI 把 cancelled status 算 fail, PR 显红
+  # (实测 PR #921 / #922 踩坑). 配合 changes job 的 head-guard if (主仓 PR 的
+  # pull_request 全 skip), 副作用降到最低: pull_request run 只跑 changes 出
+  # SKIPPED, 几秒内出 test-result SUCCESS, 不浪费 runner 资源.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.ref_name != 'master' }}
 
 env:
