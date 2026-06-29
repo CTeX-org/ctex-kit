@@ -9956,7 +9956,29 @@ Copyright and Licence
 % 选择 \cs{@@_after_preamble:n} 而非 \cs{@@_package_hook:nn}（\tn{verb}
 % 是 \LaTeXe{} 核心命令，不来自宏包），并放在 preamble 之后以避免
 % 与其他 \tn{verb} 重定义（如 \pkg{cprotect}、\pkg{fancyvrb}）的时序冲突。
+%
+% 这里不直接复用 \cs{@@_drain_ecglue:}（\#880 \tn{Url@FormatString} 用的
+% drain）：后者在没有 marker 时会主动 clear |\g_@@_last_node_tl|（为
+% math 模式吃 marker 的场景做防御）。但 \tn{verb} 不进 math 模式，
+% 入口前的 |\g_@@_last_node_tl| 是合法状态——\pkg{ctex} 模式下
+% \tn{verb} 内会切换 CJK 字体（\opt{FandolFang}），verb 内字符到
+% verb 外字符仍走 \texttt{CJK}$\to$\texttt{CJK} interchar 路径，
+% 需要 |\g_@@_last_node_tl| 保持其当前值才能正确出 \tn{CJKglue}。
+% 因此 verb 专用 drain 仅在确实有 marker 时撤掉并补 ecglue，
+% 没有 marker 时保持现状不动 |\g_@@_last_node_tl|。
 %    \begin{macrocode}
+\cs_new_protected:Npn \@@_drain_ecglue_verb:
+  {
+    \xeCJK_if_last_node:TF
+      {
+        \tl_if_empty:NF \g_@@_last_node_tl
+          {
+            \xeCJK_remove_node:
+            \skip_horizontal:N \l_@@_ecglue_skip
+          }
+      }
+      { }
+  }
 \cs_new_protected:Npn \@@_patch_verb:
   {
     \cs_if_exist:NF \@@_orig_verb:
@@ -9964,7 +9986,7 @@ Copyright and Licence
         \cs_set_eq:NN \@@_orig_verb: \verb
         \cs_gset_protected:Npn \verb
           {
-            \mode_if_math:F { \@@_drain_ecglue: }
+            \mode_if_math:F { \@@_drain_ecglue_verb: }
             \@@_orig_verb:
           }
       }
