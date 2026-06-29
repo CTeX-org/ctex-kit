@@ -9929,6 +9929,48 @@ Copyright and Licence
 \@@_package_hook:nn { url } { \@@_patch_url_format: }
 %    \end{macrocode}
 %
+% \changes{v3.10.0}{2026/06/29}{为 \LaTeX{} 核心命令 \tn{verb} 添加补丁，
+%   在进入 verb 内容前 drain 缓存的 \texttt{CJKecglue}，
+%   修复 CJK 文字与 \tn{verb}（或 \pkg{shortvrb} 的 \texttt{|...|}）
+%   之间间距丢失的问题（\#910）。}
+%
+% \LaTeXe{} 的 \tn{verb} 命令展开后包含 \tn{leavevmode\null}，
+% 其中 \tn{null} = \tn{hbox\{\}} 产生 \texttt{hbox(0+0)x0} 节点。
+% 此 0\,$\times$\,0 hbox 紧跟在 xeCJK 标记 kern 对之后，
+% 隔断了下游 Boundary$\to$\{Default, CJK\} 路径中 |\tex_lastkern:D| 探测，
+% 导致 \texttt{CJKecglue} 在 CJK 与 \tn{verb} 之间丢失。
+% 此处在进入原始 \tn{verb} 前直接 drain 缓存间距：\tn{verb} 排版的内容
+% 必然是西文 (catcode 12 字符)，前方上下文为 CJK 等情形均应使用
+% \texttt{CJKecglue}。\tn{verb} 内最后字符到 CJK 文字之间的右侧间距
+% 由 Default$\to$CJK 类别转换的 |\xeCJK_pre_inter_class_toks:nnn| 自动恢复，
+% 不需要额外处理。
+%
+% 数学模式下原 \tn{verb} 走 \tn{hbox} 分支（不展开 \tn{leavevmode\null}），
+% 标记 kern 不被 0\,$\times$\,0 hbox 遮蔽，因此跳过 patch。
+%
+% \pkg{shortvrb} 的 \tn{MakeShortVerb} 将分隔符设为 active 字符后展开到
+% \tn{verb}，自动跟随此 patch。\tn{verb}* 与 \tn{verb} 共用入口
+% （\tn{@ifstar} 在 \tn{bgroup} 之后扫描），也自动覆盖。
+%
+% 选择 \cs{@@_after_preamble:n} 而非 \cs{@@_package_hook:nn}（\tn{verb}
+% 是 \LaTeXe{} 核心命令，不来自宏包），并放在 preamble 之后以避免
+% 与其他 \tn{verb} 重定义（如 \pkg{cprotect}、\pkg{fancyvrb}）的时序冲突。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_verb:
+  {
+    \cs_if_exist:NF \@@_orig_verb:
+      {
+        \cs_set_eq:NN \@@_orig_verb: \verb
+        \cs_gset_protected:Npn \verb
+          {
+            \mode_if_math:F { \@@_drain_ecglue: }
+            \@@_orig_verb:
+          }
+      }
+  }
+\@@_after_preamble:n { \@@_patch_verb: }
+%    \end{macrocode}
+%
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}
