@@ -464,7 +464,7 @@ The Current Maintainers of this work are **Ruixi Zhang** and **Mingyu Xia**.
 %
 % \subsection{载入宏包时的键值选项}\label{sec:key-value}
 %
-% 载入\CJKecglue\pkg{zhlineskip} 宏包时可以设定六个基本的键值选项，它们分别是：
+% 载入\CJKecglue\pkg{zhlineskip} 宏包时可以设定如下五个基本的键值选项：
 % \begin{keyval}
 %   \item [\keys{bodytextleadingratio}]\val{real}：
 %   指定正文目标行距相比于正文字号的倍数\hfill
@@ -498,6 +498,8 @@ The Current Maintainers of this work are **Ruixi Zhang** and **Mingyu Xia**.
 %   适用于中易字体（参见第~\ref{sec:MS-Word}~节）。
 %   若改用其他字体，则需调整该选项的值。
 % \end{keyval}
+% 以及 \opt{quiet} 选项用于压制已有的 |note| 型消息，
+% 并将 |warning| 型消息重定向到 |note| 型消息.
 %
 % \subsection{载入宏包后的用户命令}
 %
@@ -778,28 +780,18 @@ race, colour, sex, language\dots
 % \begin{macro}
 %   {
 %     \@@_msg_new:nn,
-%     \@@_msg_error:nn,
-%     \@@_msg_error:ne,
-%     \@@_msg_warning:nn,
-%     \@@_msg_warning:ne,
-%     \@@_msg_info:nn,
-%     \@@_msg_info:ne,
-%     \@@_msg_new:nnn,
 %     \@@_msg_error:nnn,
-%     \@@_msg_error:nne,
+%     \@@_msg_error:nee,
 %     \@@_msg_warning:nnn,
-%     \@@_msg_warning:nne
+%     \@@_msg_warning:nee,
+%     \@@_msg_note:nnn,
+%     \@@_msg_note:nee
 %   }
-% 消息管理: 私有函数用来创建新消息并作为 error, warning, 或 info 进行广播.
+% 消息管理: 私有函数用来创建新消息并作为 error, warning, 或 note 进行广播.
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_msg_new:nn  { \msg_new:nnn  { ZhLS } }
-\cs_new_protected:Npn \@@_msg_new:nnn { \msg_new:nnnn { ZhLS } }
-\clist_map_inline:nn { error, warning }
+\cs_new_protected:Npn \@@_msg_new:nn { \msg_new:nnn { ZhLS } }
+\clist_map_inline:nn { error, warning, note }
   {
-    \cs_new_protected:cpn { @@_msg_#1:nn  }
-      { \use:c { msg_#1:nnn  } { ZhLS } }
-    \cs_new_protected:cpn { @@_msg_#1:ne  }
-      { \use:c { msg_#1:nne  } { ZhLS } }
     \cs_new_protected:cpn { @@_msg_#1:nnn }
       { \use:c { msg_#1:nnnn } { ZhLS } }
     \cs_new_protected:cpn { @@_msg_#1:nee }
@@ -816,8 +808,9 @@ race, colour, sex, language\dots
     \space\space`bodytextleadingratio',                     \iow_newline:
     \space\space`footnoteleadingratio',                     \iow_newline:
     \space\space`restoremathleading',                       \iow_newline:
-    \space\space`MSWordLineSpacingMultiple', ~ and          \iow_newline:
-    \space\space`MSWordSinglespaceRatio'.
+    \space\space`MSWordLineSpacingMultiple',                \iow_newline:
+    \space\space`MSWordSinglespaceRatio', ~ and             \iow_newline:
+    \space\space`quiet`.
   }
 %    \end{macrocode}
 % 创建新消息: |MSWord ~ Multiple ~ Line ~ Spacing|.
@@ -834,7 +827,7 @@ race, colour, sex, language\dots
 \@@_msg_new:nn { Ineffective ~ Option }
   {
     The ~ `#1' ~ option ~ is ~ ineffective.                 \iow_newline:
-    It ~ only ~ takes ~ effect ~ when ~ #2.
+    It ~ only ~ takes ~ effect ~ when ~ `#2'.
   }
 %    \end{macrocode}
 % 创建新消息: |Not ~ Loaded ~ Package|.
@@ -852,7 +845,7 @@ race, colour, sex, language\dots
   {
     Cannot ~ use ~ \string#1\space here.                    \iow_newline:
     Try ~ loading ~ zhlineskip ~ with ~ option:             \iow_newline:
-    `restoremathleading ~ = ~ true'.
+    `#2'.
   }
 %    \end{macrocode}
 % 加载依赖 \pkg{etoolbox} 宏包.
@@ -861,8 +854,9 @@ race, colour, sex, language\dots
 %    \end{macrocode}
 %
 % \changes{v1.0c}{2018/10/29}{对未知的键值选项与无效的用户命令报错。}
-% \changes{v1.0f}{2026/06/27}{移除布尔选项 \texttt{UseMSWordMultipleLineSpacing}，
-%   将其并入选项 \texttt{MSWordLineSpacingMultiple} 中。}
+% \changes{v1.0f}{2026/06/27}{移除布尔选项 \opt{UseMSWordMultipleLineSpacing}，
+%   将其并入选项 \opt{MSWordLineSpacingMultiple} 中。}
+% \changes{v1.0g}{2026/06/29}{添加 \opt{quiet} 选项用于削弱警告信息。}
 %
 % \begin{variable}
 %   {
@@ -881,16 +875,16 @@ race, colour, sex, language\dots
   {
     bodytextleadingratio                .fp_set:N   =
       \g_@@_bodytextleadingratio_fp,
-      bodytextleadingratio              .initial:n  = { 1.5   },
+      bodytextleadingratio              .initial:n  = { 1.5      },
     footnoteleadingratio                .fp_set:N   =
       \g_@@_footnoteleadingratio_fp,
-      footnoteleadingratio              .initial:n  = { 1.48  },
+      footnoteleadingratio              .initial:n  = { 1.48     },
     restoremathleading                  .bool_set:N =
       \g_@@_restoremathleading_bool,
-      restoremathleading                .initial:n  = { true  },
-      restoremathleading                .default:n  = { true  },
+      restoremathleading                .initial:n  = { true     },
+      restoremathleading                .default:n  = { true     },
     MSWordLineSpacingMultiple           .choice:,
-    MSWordLineSpacingMultiple           .default:n  = { true  },
+    MSWordLineSpacingMultiple           .default:n  = { true     },
     MSWordLineSpacingMultiple / true    .code:n     =
       {
         \bool_gset_true:N \g_@@_MSWordLineSpacingMultiple_bool
@@ -906,8 +900,13 @@ race, colour, sex, language\dots
     MSWordSinglespaceRatio              .fp_set:N   =
       \g_@@_MSWordSinglespaceRatio_fp,
     MSWordSinglespaceRatio              .initial:n  = { 1.296875 },
+    quiet                               .code:n     =
+      {
+        \msg_redirect_module:nnn { ZhLS } { note    } { none }
+        \msg_redirect_module:nnn { ZhLS } { warning } { note }
+      },
     unknown                             .code:n     =
-      \@@_msg_error:ne { Unknown ~ Option } { \l_keys_key_str }
+      \@@_msg_error:nee { Unknown ~ Option } { \l_keys_key_str } {}
   }
 \ProcessKeyOptions [ ZhLS / pkgopt ]
 %    \end{macrocode}
@@ -965,7 +964,7 @@ race, colour, sex, language\dots
   \fp_set:Nn \l_@@_tmpa_fp { \dim_to_decimal_in_sp:n { \l_@@_tmpa_dim } }
   \bool_if:NTF \g_@@_MSWordLineSpacingMultiple_bool
     {
-      \@@_msg_warning:nee { MSWord ~ Multiple ~ Line ~ Spacing }
+      \@@_msg_note:nee { MSWord ~ Multiple ~ Line ~ Spacing }
         { \fp_use:N \g_@@_MSWordSinglespaceRatio_fp    }
         { \fp_use:N \g_@@_MSWordLineSpacingMultiple_fp }
       \fp_gset:Nn \g_@@_targetbodyleading_fp
@@ -1147,13 +1146,15 @@ race, colour, sex, language\dots
       { Leading ~ in ~ multi-line ~ math ~ will ~ be ~ stretched }
     \newcommand*\SetMathEnvironmentSinglespace[1]
       {
-        \@@_msg_error:nn { Illegal ~ Usage }
+        \@@_msg_error:nnn { Illegal ~ Usage }
           { \SetMathEnvironmentSinglespace }
+          { restoremathleading ~ = ~ true  }
       }
     \newcommand*\RestoreMathEnvironmentLeading[1]
       {
-        \@@_msg_error:nn { Illegal ~ Usage }
+        \@@_msg_error:nnn { Illegal ~ Usage }
           { \RestoreMathEnvironmentLeading }
+          { restoremathleading ~ = ~ true  }
       }
   }
 %    \end{macrocode}
