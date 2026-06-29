@@ -56,8 +56,19 @@ jobs:
   # 一律跑全包 (回归保险); pull_request 触发时按 path 过滤精确跑.
   # 依赖反查: ctex 依赖 xeCJK + zhnumber, 所以 xeCJK 或 zhnumber 改了也要
   # 跑 ctex.
+  #
+  # if: 主仓自家分支 push 与 pull_request 都会触发 — push 已经跑过完整
+  # CI, pull_request synchronize 再跑一遍是冗余, 而且两者同 concurrency
+  # group, 后者会 cancel 前者, GH UI 留 cancelled status 显红 (实测 PR
+  # #921 踩坑). 这里只让 pull_request 在 fork PR (head 仓库 != 主仓) 上
+  # 生效: fork 的 push 不会触发主仓 workflow, 必须靠 pull_request 才能
+  # 在 fork PR 上跑 CI; 主仓自家分支的 pull_request 直接 skip, 让 push
+  # 路径单独负责.
   # ──────────────────────────────────────────────────────────────────────
   changes:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     outputs:
       # 五个 bool, 给下游 5 个 caller job 各自 if 用. push / schedule /
