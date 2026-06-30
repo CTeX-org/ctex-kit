@@ -20,7 +20,10 @@ import sys
 
 
 def extract(dtx_path: str, target_ver: str) -> list[str]:
-    with open(dtx_path) as f:
+    # 显式指定 utf-8: 不依赖 locale.getpreferredencoding(). GH Actions
+    # Ubuntu runner 默认是 UTF-8, 但本地调试 / 别的 runner 不一定. dtx
+    # 偶发的损坏字节走 errors="replace" 不阻塞抽取.
+    with open(dtx_path, encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
 
     tag = "\\changes{" + target_ver + "}"
