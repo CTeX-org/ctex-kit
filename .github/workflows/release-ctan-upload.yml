@@ -124,10 +124,17 @@ jobs:
           # 抽出所有 \changes{v<ver>}{...}{...} 条目 (含 \begin{macrocode} 前的
           # 续行) 写入 changes-context.txt 作为 LLM 的输入材料.
           # 注意: heredoc 必须用 quoted EOF + 零缩进 (python 对前导空格敏感).
+          #
+          # 与 release.yml 保持一致: RC / pre / alpha / beta tag 共享 base
+          # 版本的 \changes 条目, 先用 sed 剥离 prerelease 后缀再 grep.
+          # 当前实践中 rc tag 不进入 CTAN upload, 但保持两个 workflow 的
+          # 版本号处理逻辑一致, 减少未来误解.
+          BASE_VER=$(printf '%s' "${VER}" | sed -E 's/-(rc[0-9]+|pre[0-9]*|alpha[0-9]*|beta[0-9]*)$//')
+          export BASE_VER
           python3 > changes-context.txt <<'PYEOF'
           import os
           path = os.environ["DTX_PATH"]
-          ver  = os.environ["VER"]
+          ver  = os.environ["BASE_VER"]
           with open(path, encoding="utf-8", errors="replace") as f:
               lines = f.read().splitlines()
           marker = f"\\changes{{v{ver}}}"
@@ -155,7 +162,7 @@ jobs:
           print("\n\n".join(out))
           PYEOF
           if [ ! -s changes-context.txt ]; then
-              echo "::error::No \\changes{v${VER}} entries found in ${DTX_PATH}" >&2
+              echo "::error::No \\changes{v${BASE_VER}} entries found in ${DTX_PATH} (VER=${VER}, BASE_VER=${BASE_VER})" >&2
               exit 1
           fi
           wc -l changes-context.txt
