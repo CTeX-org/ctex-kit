@@ -97,7 +97,11 @@ check-pr-ci:                 ## 手动触发 PR CI watch + review 抓取(同 pre
 # 贪婪匹配会先吃掉 zhmetrics.
 TAG_PKGS_REGEX := ctex|xeCJK|CJKpunct|xCJK2uni|xpinyin|zhlineskip|zhmetrics-uptex|zhmetrics|zhnumber|zhspacing
 
-TAG_NAME := $(filter-out tag,$(MAKECMDGOALS))
+# 只取第一个非 'tag' 的 goal 作为 tag 名. 用 firstword 是为了让
+# `make tag <tagname> clean` 这类多 goal 场景不把 clean 误当 tag 名,
+# 也避免下方 phony noop 规则把 clean 误声明为 noop 而潜在破坏 clean
+# 真实 recipe.
+TAG_NAME := $(firstword $(filter-out tag,$(MAKECMDGOALS)))
 
 tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<ver>[-rc<N>])
 	@if [ -z "$(TAG_NAME)" ]; then \
