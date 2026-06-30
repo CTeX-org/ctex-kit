@@ -12,7 +12,7 @@
 --]==========================================================================]--
 module              = "zhlineskip"
 version             = "v1.0g"
-date                = "2026-07-07"
+date                = "2026-06-30"
 maintainer          = "Mingyu Xia"
 email               = "myhsia@outlook.com"
 summary             = "Line spacing for CJK documents"
