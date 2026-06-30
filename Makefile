@@ -13,6 +13,10 @@
 #             串行旧法 ~20min;小包通常几十秒)
 #   clean  —— l3build clean
 #
+# Release 流程:
+#   make tag <pkg>-v<ver>      —— 本地打 tag, 不 push. push 需手动 git push origin <tag>
+#                                 (push 后由 .github/workflows/release.yml 自动跑 ctan 打包 + GH Release)
+#
 # 另: hooks / check-pr-ci 是 git workflow 入口, build-gbk2uni 走子 Makefile.
 
 L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
@@ -20,7 +24,7 @@ L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
 
 VERBS := doc unpack ctan check clean
 
-.PHONY: help hooks check-pr-ci check-ctex-serial \
+.PHONY: help hooks check-pr-ci check-ctex-serial tag \
         $(VERBS) \
         $(foreach v,$(VERBS),$(v)-all) \
         $(foreach v,$(VERBS),$(addprefix $(v)-,$(L3BUILD_PKGS))) \
@@ -48,6 +52,9 @@ help:                       ## 显示此帮助
 	@echo "Git workflow:"
 	@echo "  make hooks                # 一次性安装 git hooks (.githooks)"
 	@echo "  make check-pr-ci          # 手动触发 PR CI watch + review 抓取"
+	@echo ""
+	@echo "Release:"
+	@echo "  make tag <pkg>-v<ver>     # 本地打 release tag, 不 push (e.g. make tag xeCJK-v3.10.1-rc2)"
 
 # ── git workflow ───────────────────────────────────────────────────────────
 hooks:                       ## 一次性安装 git hooks
@@ -56,6 +63,57 @@ hooks:                       ## 一次性安装 git hooks
 
 check-pr-ci:                 ## 手动触发 PR CI watch + review 抓取(同 pre-push self-wrapper 调用的)
 	./.githooks/check-pr-ci.sh
+
+# ── tag (release) ──────────────────────────────────────────────────────────
+# 用法: make tag <pkg>-v<ver>     (e.g. make tag xeCJK-v3.10.1-rc2)
+#
+# 打本地 annotated tag, 不 push. push 需手动 git push origin <tag> —— 这是
+# 故意设计, 让操作者在 push 前可以最后核对 tag 是否落在期望 commit、是否
+# 还有未提交的版本号 / \changes 改动. push 之后 release.yml 自动跑.
+#
+# 实现: tag target 把第二个 MAKECMDGOALS 当 tag 名, 用 noop pattern rule
+# 吃掉它避免 "No rule to make target xeCJK-v..." 报错.
+TAG_NAME := $(filter-out tag,$(MAKECMDGOALS))
+
+tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<ver>)
+	@if [ -z "$(TAG_NAME)" ]; then \
+	  echo "用法: make tag <pkg>-v<ver>" >&2; \
+	  echo "  例如: make tag xeCJK-v3.10.1-rc2" >&2; \
+	  exit 1; \
+	fi
+	@case "$(TAG_NAME)" in \
+	  ctex-v*|xeCJK-v*|CJKpunct-v*|zhnumber-v*|xCJK2uni-v*|xpinyin-v*|zhmetrics-v*|zhmetrics-uptex-v*|zhspacing-v*|zhlineskip-v*) ;; \
+	  *) echo "✗ tag 名 '$(TAG_NAME)' 不匹配 release.yml 触发 pattern" >&2; \
+	     echo "  支持的 prefix: ctex-v / xeCJK-v / CJKpunct-v / zhnumber-v / xCJK2uni-v" >&2; \
+	     echo "                 xpinyin-v / zhmetrics-v / zhmetrics-uptex-v / zhspacing-v / zhlineskip-v" >&2; \
+	     exit 1 ;; \
+	esac
+	@if git rev-parse -q --verify "refs/tags/$(TAG_NAME)" >/dev/null 2>&1; then \
+	  echo "✗ tag '$(TAG_NAME)' 已存在本地. 先删: git tag -d $(TAG_NAME)" >&2; \
+	  exit 1; \
+	fi
+	git tag -a "$(TAG_NAME)" -m "$(TAG_NAME)"
+	@echo ""
+	@echo "✓ tag '$(TAG_NAME)' 已打在 $$(git rev-parse --short HEAD) ($$(git log -1 --format=%s | head -c 60))"
+	@echo ""
+	@echo "下一步 push 触发 release.yml (会自动 ctan 打包 + 上传 GH Release prerelease):"
+	@echo ""
+	@echo "    git push origin $(TAG_NAME)"
+	@echo ""
+	@echo "如果发现要重打:"
+	@echo "    git tag -d $(TAG_NAME)"
+	@echo ""
+
+# 让 MAKECMDGOALS 第二个 arg 不报 "No rule to make target".
+# 只在 tag 是当前 goal 且确实给了 tag 名时, 把 tag 名声明为 phony noop.
+# 这比通配 `%:` rule 安全, 不会触发 "overriding recipe for target ..." 警告.
+ifneq ($(filter tag,$(MAKECMDGOALS)),)
+ifneq ($(TAG_NAME),)
+.PHONY: $(TAG_NAME)
+$(TAG_NAME):
+	@:
+endif
+endif
 
 # ── 显式 -all 别名 (e.g. `make doc` = `make doc-all`) ──────────────────────
 $(VERBS): %: %-all
