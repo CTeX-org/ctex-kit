@@ -364,6 +364,21 @@ jobs:
           name: announcement
           path: .
 
+      # announce=false 时 prepare-announcement job 没有生成 announcement.md
+      # artifact, 上一步被 skip. 这里 echo 个空文件占位 — l3build-upload.lua
+      # 的 file_contents() 注释说 "if filename is non nil and file readable
+      # return contents otherwise nil", 但实现 (L382-396) 是
+      # `assert(open(filename))`, 文件不存在直接抛错而非返回 nil; 进不到 L319
+      # 的 "Empty announcement: No ctan announcement will be made" 放行路径.
+      # (rc-2 实测: announce=false 跑 dry-run 在 file_contents 里直接 fail.)
+      # 写空文件让 l3build 能 open, 读到空串 trim 后 == "" 走 L319 放行.
+      # build-config.lua 的 announcement_file 默认仍是 "announcement.md", 不必改.
+      - name: Create empty announcement.md (announce=false path)
+        if: inputs.announce == false
+        run: |
+          : > announcement.md
+          echo "::notice::announce=false: 写空 announcement.md, l3build 走 \"Empty announcement\" 放行路径."
+
       - name: Download GH Release ctan zip
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -410,7 +425,9 @@ jobs:
         working-directory: ${{ needs.prepare-announcement.outputs.dir }}
         env:
           # CTAN announcement 文件相对 working-directory (..) 的位置.
-          # announce=false ⟹ 不存在该文件, l3build 也不会被传 --file.
+          # announce=true: prepare-announcement job 产出真 announcement.md
+          # announce=false: 上方 "Create empty announcement.md" step 写了空文件
+          # 两种情况 announcement.md 都存在, l3build --file 都能 open.
           ANN_FILE: ../announcement.md
           # ctex_kit_uploadconfig() 从 env 读 uploader / email, 这样 build.lua
           # 不需要把个人信息硬编码进 git, 本地跑 l3build upload 也是同一套.
@@ -422,19 +439,12 @@ jobs:
           # ctex_kit_env_or_nil() 把空串当成 nil, 不会写入空 note 字段.
           CTAN_NOTE: ${{ inputs.note }}
         run: |
-          # announce=true: --file 把 announcement.md 喂给 CTAN announcement 表单.
-          # announce=false: 不传 --file, l3build 走 uploadconfig.announcement_file
-          # 默认 "announcement.md" → file_contents 找不到文件 → announcement = nil
-          # → l3build-upload.lua "Empty announcement: No ctan announcement will be
-          # made" 放行 (不强制, 见 l3build-upload.lua L319-320).
+          # 不分支: --file 总是传 announcement.md (上方 step 保证文件存在).
+          # announce=false 时文件为空 → l3build file_contents 读到空串 →
+          # trim 后 == "" → 走 L319 "Empty announcement: No ctan announcement
+          # will be made" 放行路径.
           # --email 显式再传一次 (l3build CLI 接受, 兜底防 build.lua 里漏读 env).
-          ARGS=()
-          if [ "${{ inputs.announce }}" = "true" ]; then
-            ARGS+=(--file "$ANN_FILE")
-          else
-            echo "::notice::announce=false: 跳过 CTAN announcement (--file 不传)."
-          fi
-          ARGS+=(--email "${{ inputs.email }}")
+          ARGS=(--file "$ANN_FILE" --email "${{ inputs.email }}")
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             ARGS+=(--dry-run)
             ANSWER=n   # 见下方注释
