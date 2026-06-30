@@ -217,73 +217,11 @@ jobs:
         # suffix to look up \changes against the base version.
         BASE_VER=$(printf '%s' "${VER}" | sed -E 's/-(rc[0-9]+|pre[0-9]*|alpha[0-9]*|beta[0-9]*)$//')
 
-        # Try extracting from \changes entries
+        # Try extracting from \changes entries. 共用 scripts/extract-changes.py
+        # 与 release-ctan-upload.yml 一致, 防 \changes → markdown 的清洗规则
+        # 在两个 workflow 间漂移.
         if grep -q "\\\\changes{v${BASE_VER}}" "${DIR}/${DTX}" 2>/dev/null; then
-          python3 - "${DIR}/${DTX}" "v${BASE_VER}" > "${NOTES_FILE}" << 'PYEOF'
-        import re, sys
-        dtx_path, target_ver = sys.argv[1], sys.argv[2]
-        with open(dtx_path) as f:
-            lines = f.readlines()
-        tag = '\\changes{' + target_ver + '}'
-        entries = []
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            if tag not in line:
-                i += 1
-                continue
-            # Extract content after the third {
-            m = re.search(r'\\changes\{[^}]*\}\{[^}]*\}\{', line)
-            if not m:
-                i += 1
-                continue
-            text = line[m.end():]
-            # Collect continuation lines (start with '% ')
-            i += 1
-            while i < len(lines) and re.match(r'^%\s+\S', lines[i]) and '\\changes{' not in lines[i] and '\\begin{' not in lines[i]:
-                text += ' ' + lines[i].lstrip('% ').rstrip('\n')
-                i += 1
-            # Strip trailing }
-            depth = 1
-            result = []
-            for ch in text:
-                if ch == '{': depth += 1
-                elif ch == '}':
-                    depth -= 1
-                    if depth == 0:
-                        break
-                result.append(ch)
-            text = ''.join(result)
-            text = re.sub(r'\s+', ' ', text).strip()
-            text = re.sub(r'\\(?:cs|tn)\{([^}]*)\}', lambda m: '\x00' + m.group(1) + '\x01', text)
-            text = re.sub(r'\\(?:opt|pkg|cls|file|texttt)\{([^}]*)\}', r'`\1`', text)
-            text = re.sub(r'\\textbf\{([^}]*)\}', r'**\1**', text)
-            text = re.sub(r'\\#', '#', text)
-            text = re.sub(r'\\LaTeXe(?:\\\s|\{\})?', 'LaTeX2e ', text)
-            text = re.sub(r'\\LaTeXiii(?:\\\s|\{\})?', 'LaTeX3 ', text)
-            text = re.sub(r'\\XeLaTeX(?:\\\s|\{\})?', 'XeLaTeX ', text)
-            text = re.sub(r'\\LuaLaTeX(?:\\\s|\{\})?', 'LuaLaTeX ', text)
-            text = re.sub(r'\\pdfLaTeX(?:\\\s|\{\})?', 'pdfLaTeX ', text)
-            text = re.sub(r'\\upLaTeX(?:\\\s|\{\})?', 'upLaTeX ', text)
-            text = re.sub(r'\\LaTeX(?:\\\s|\{\})?', 'LaTeX ', text)
-            text = re.sub(r'\\XeTeX(?:\\\s|\{\})?', 'XeTeX ', text)
-            text = re.sub(r'\\LuaTeX(?:\\\s|\{\})?', 'LuaTeX ', text)
-            text = re.sub(r'\\pdfTeX(?:\\\s|\{\})?', 'pdfTeX ', text)
-            text = re.sub(r'\\upTeX(?:\\\s|\{\})?', 'upTeX ', text)
-            text = re.sub(r'\\TeX(?:\\\s|\{\})?', 'TeX ', text)
-            text = re.sub(r'\\[A-Za-z]+(?:\{\})?\s*', '', text)
-            text = re.sub(r'\x00(.*?)\x01', r'`\\\1`', text)
-            text = re.sub(r'\\\s', ' ', text)
-            text = text.replace('~', ' ')
-            text = re.sub(r'  +', ' ', text).strip()
-            if text:
-                entries.append(text)
-        seen = set()
-        for e in entries:
-            if e not in seen:
-                seen.add(e)
-                print(f"- {e}")
-        PYEOF
+          python3 scripts/extract-changes.py "${DIR}/${DTX}" "v${BASE_VER}" > "${NOTES_FILE}"
         fi
 
         # Fallback: use git log between previous tag and current tag
