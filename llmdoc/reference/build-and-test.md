@@ -24,6 +24,10 @@
 - `make hooks`：一次性安装 git hooks（`git config core.hooksPath .githooks`）。
 - `make check-pr-ci`：手动触发 PR CI watch + review 抓取（同 `pre-push` 调用的 `./.githooks/check-pr-ci.sh`）。
 
+以及一个 release 入口：
+
+- `make tag <pkg>-v<ver>[-rc<N>]`：在当前 HEAD 打**本地 annotated tag，不 push**。push 需手动 `git push origin <tag>`，push 后由 `release.yml` 自动跑 CTAN 打包 + GH Release（见 `llmdoc/guides/release-workflow.md`）。不自动 push 是故意设计，让操作者在 push 前最后核对 tag 落点、版本号 / `\changes` 改动是否齐全。tag 名经正则校验为 `<pkg>-v<X>.<Y>[.<Z>][<letter>][-rc<N>]`（`<pkg>` 须是 `L3BUILD_PKGS` 之一，与 `release.yml` tags trigger 对齐），不合法或本地已存在同名 tag 直接报错；远古无 `v` 前缀的历史 tag（`ctex-1.02c` / `jiazhu-beta` / `zhspacing-<date>` 等）不再支持。
+
 注意 `make check`(全包回归)单包动辄 8min+(`make check-ctex` 经 4-engine 并行已从 ~20min 压到 ~8min),本地按需用。hook 的详细说明见 `.githooks/README.md`。
 
 ## `support/build-config.lua` 的角色

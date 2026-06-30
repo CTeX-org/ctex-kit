@@ -19,7 +19,7 @@
 
 ## guides
 
-- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 生成英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest。
+- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag。
 
 ## memory
 
