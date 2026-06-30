@@ -211,9 +211,15 @@ jobs:
 
         NOTES_FILE="release-notes.md"
 
+        # RC tags (e.g. 3.10.1-rc1, 3.10.1-rc2) share the same \changes entries
+        # as the base version (3.10.1), since RCs are pre-release builds of
+        # the same upcoming release. Strip the -rcN / -pre / -alpha / -beta
+        # suffix to look up \changes against the base version.
+        BASE_VER=$(printf '%s' "${VER}" | sed -E 's/-(rc[0-9]+|pre[0-9]*|alpha[0-9]*|beta[0-9]*)$//')
+
         # Try extracting from \changes entries
-        if grep -q "\\\\changes{v${VER}}" "${DIR}/${DTX}" 2>/dev/null; then
-          python3 - "${DIR}/${DTX}" "v${VER}" > "${NOTES_FILE}" << 'PYEOF'
+        if grep -q "\\\\changes{v${BASE_VER}}" "${DIR}/${DTX}" 2>/dev/null; then
+          python3 - "${DIR}/${DTX}" "v${BASE_VER}" > "${NOTES_FILE}" << 'PYEOF'
         import re, sys
         dtx_path, target_ver = sys.argv[1], sys.argv[2]
         with open(dtx_path) as f:
