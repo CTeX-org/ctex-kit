@@ -65,18 +65,25 @@ check-pr-ci:                 ## 手动触发 PR CI watch + review 抓取(同 pre
 	./.githooks/check-pr-ci.sh
 
 # ── tag (release) ──────────────────────────────────────────────────────────
-# 用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>]   (e.g. make tag xeCJK-v3.10.1-rc2)
+# 用法: make tag <pkg>-v<ver>[-rc<N>]   (e.g. make tag xeCJK-v3.10.1-rc2)
 #
-# 合法 tag 格式 (严格校验, 不向后兼容历史不规范 tag):
-#   <pkg>-v<X>.<Y>.<Z>           例如  xeCJK-v3.10.1
-#   <pkg>-v<X>.<Y>.<Z>-rc<N>     例如  xeCJK-v3.10.1-rc2
+# 合法 tag 格式 (校验规则与历史 tag 习惯一致):
+#   <pkg>-v<X>.<Y>[.<Z>][<letter>][-rc<N>]
+#
+# 历史 tag (audit 全部 ~100 个 tag) 统计:
+#   - 3 段 (v3.10.0):           65 tags, 主流 (ctex / xeCJK / CJKpunct 现行)
+#   - 2 段 (v3.1):              17 tags (xpinyin / zhnumber 早期 / xCJK2uni / ctex 早期)
+#   - 2 段 + 字母 (v1.0f):       1 tag  (zhlineskip)
+#   - 无 v 前缀 (ctex-1.02c /
+#     jiazhu-beta /
+#     zhspacing-20160514):       6 tags, 远古遗留, 不再支持
+# 本规则覆盖前三类共 83 tags, 不覆盖远古无 v 前缀的 6 tags (jiazhu-beta /
+# xeCJK 孤立 / ctex-1.02c/d / zhspacing-date) —— 新打 tag 不应再走这些
+# 不规范模式.
+#
 # <pkg> 必须是 L3BUILD_PKGS 之一 (与 release.yml tags trigger 对齐).
-# 三段语义化版本 (semver-lite), 可选 rc<N> 后缀. 其他形式 (2 段 / letter 后缀 /
-# alpha / beta / pre / date 串 / 缺 v 前缀等) 一律拒绝, 避免误打.
-#
-# 历史 tag (ctex-1.02c / xpinyin-v2.2 / zhmetrics-uptex-v1.0 / zhlineskip-v1.0f
-# / zhspacing-20160514) 与此规则不一致, 但只影响后续新打 tag, 不影响已存在
-# release 的可读性.
+# <X>.<Y>[.<Z>] 是 2 段或 3 段数字; <letter> 是可选单字母 (e.g. v1.0f);
+# -rc<N> 中 N 也是数字, 用于 prerelease.
 #
 # 打本地 annotated tag, 不 push. push 需手动 git push origin <tag> —— 这是
 # 故意设计, 让操作者在 push 前可以最后核对 tag 是否落在期望 commit、是否
@@ -92,19 +99,20 @@ TAG_PKGS_REGEX := ctex|xeCJK|CJKpunct|xCJK2uni|xpinyin|zhlineskip|zhmetrics-upte
 
 TAG_NAME := $(filter-out tag,$(MAKECMDGOALS))
 
-tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>])
+tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<ver>[-rc<N>])
 	@if [ -z "$(TAG_NAME)" ]; then \
-	  echo "用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>]" >&2; \
+	  echo "用法: make tag <pkg>-v<ver>[-rc<N>]" >&2; \
 	  echo "  例如: make tag xeCJK-v3.10.1" >&2; \
 	  echo "        make tag xeCJK-v3.10.1-rc2" >&2; \
+	  echo "        make tag zhlineskip-v1.0f" >&2; \
 	  exit 1; \
 	fi
 	@if ! printf '%s' "$(TAG_NAME)" \
-	  | grep -qE '^($(TAG_PKGS_REGEX))-v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$$'; then \
+	  | grep -qE '^($(TAG_PKGS_REGEX))-v[0-9]+\.[0-9]+(\.[0-9]+)?[a-z]?(-rc[0-9]+)?$$'; then \
 	  echo "✗ tag 名 '$(TAG_NAME)' 不是合法 release tag" >&2; \
-	  echo "  合法格式: <pkg>-v<X>.<Y>.<Z>[-rc<N>]" >&2; \
+	  echo "  合法格式: <pkg>-v<X>.<Y>[.<Z>][<letter>][-rc<N>]" >&2; \
 	  echo "  支持的 pkg: $(TAG_PKGS_REGEX)" >&2; \
-	  echo "  例如:     xeCJK-v3.10.1 / xeCJK-v3.10.1-rc2" >&2; \
+	  echo "  例如:     xeCJK-v3.10.1 / xeCJK-v3.10.1-rc2 / zhlineskip-v1.0f / xpinyin-v3.1" >&2; \
 	  exit 1; \
 	fi
 	@if git rev-parse -q --verify "refs/tags/$(TAG_NAME)" >/dev/null 2>&1; then \
