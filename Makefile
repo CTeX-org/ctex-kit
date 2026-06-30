@@ -65,29 +65,48 @@ check-pr-ci:                 ## 手动触发 PR CI watch + review 抓取(同 pre
 	./.githooks/check-pr-ci.sh
 
 # ── tag (release) ──────────────────────────────────────────────────────────
-# 用法: make tag <pkg>-v<ver>     (e.g. make tag xeCJK-v3.10.1-rc2)
+# 用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>]   (e.g. make tag xeCJK-v3.10.1-rc2)
+#
+# 合法 tag 格式 (严格校验, 不向后兼容历史不规范 tag):
+#   <pkg>-v<X>.<Y>.<Z>           例如  xeCJK-v3.10.1
+#   <pkg>-v<X>.<Y>.<Z>-rc<N>     例如  xeCJK-v3.10.1-rc2
+# <pkg> 必须是 L3BUILD_PKGS 之一 (与 release.yml tags trigger 对齐).
+# 三段语义化版本 (semver-lite), 可选 rc<N> 后缀. 其他形式 (2 段 / letter 后缀 /
+# alpha / beta / pre / date 串 / 缺 v 前缀等) 一律拒绝, 避免误打.
+#
+# 历史 tag (ctex-1.02c / xpinyin-v2.2 / zhmetrics-uptex-v1.0 / zhlineskip-v1.0f
+# / zhspacing-20160514) 与此规则不一致, 但只影响后续新打 tag, 不影响已存在
+# release 的可读性.
 #
 # 打本地 annotated tag, 不 push. push 需手动 git push origin <tag> —— 这是
 # 故意设计, 让操作者在 push 前可以最后核对 tag 是否落在期望 commit、是否
 # 还有未提交的版本号 / \changes 改动. push 之后 release.yml 自动跑.
 #
-# 实现: tag target 把第二个 MAKECMDGOALS 当 tag 名, 用 noop pattern rule
+# 实现: tag target 把第二个 MAKECMDGOALS 当 tag 名, 用 noop phony rule
 # 吃掉它避免 "No rule to make target xeCJK-v..." 报错.
+
+# 校验用的 pkg 列表 (与 release.yml tags trigger 对齐). 用 | 拼接成 regex
+# alternation, 注意 zhmetrics-uptex 必须排在 zhmetrics 前面, 否则 regex
+# 贪婪匹配会先吃掉 zhmetrics.
+TAG_PKGS_REGEX := ctex|xeCJK|CJKpunct|xCJK2uni|xpinyin|zhlineskip|zhmetrics-uptex|zhmetrics|zhnumber|zhspacing
+
 TAG_NAME := $(filter-out tag,$(MAKECMDGOALS))
 
-tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<ver>)
+tag:                         ## 本地打 release tag (用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>])
 	@if [ -z "$(TAG_NAME)" ]; then \
-	  echo "用法: make tag <pkg>-v<ver>" >&2; \
-	  echo "  例如: make tag xeCJK-v3.10.1-rc2" >&2; \
+	  echo "用法: make tag <pkg>-v<X>.<Y>.<Z>[-rc<N>]" >&2; \
+	  echo "  例如: make tag xeCJK-v3.10.1" >&2; \
+	  echo "        make tag xeCJK-v3.10.1-rc2" >&2; \
 	  exit 1; \
 	fi
-	@case "$(TAG_NAME)" in \
-	  ctex-v*|xeCJK-v*|CJKpunct-v*|zhnumber-v*|xCJK2uni-v*|xpinyin-v*|zhmetrics-v*|zhmetrics-uptex-v*|zhspacing-v*|zhlineskip-v*) ;; \
-	  *) echo "✗ tag 名 '$(TAG_NAME)' 不匹配 release.yml 触发 pattern" >&2; \
-	     echo "  支持的 prefix: ctex-v / xeCJK-v / CJKpunct-v / zhnumber-v / xCJK2uni-v" >&2; \
-	     echo "                 xpinyin-v / zhmetrics-v / zhmetrics-uptex-v / zhspacing-v / zhlineskip-v" >&2; \
-	     exit 1 ;; \
-	esac
+	@if ! printf '%s' "$(TAG_NAME)" \
+	  | grep -qE '^($(TAG_PKGS_REGEX))-v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$$'; then \
+	  echo "✗ tag 名 '$(TAG_NAME)' 不是合法 release tag" >&2; \
+	  echo "  合法格式: <pkg>-v<X>.<Y>.<Z>[-rc<N>]" >&2; \
+	  echo "  支持的 pkg: $(TAG_PKGS_REGEX)" >&2; \
+	  echo "  例如:     xeCJK-v3.10.1 / xeCJK-v3.10.1-rc2" >&2; \
+	  exit 1; \
+	fi
 	@if git rev-parse -q --verify "refs/tags/$(TAG_NAME)" >/dev/null 2>&1; then \
 	  echo "✗ tag '$(TAG_NAME)' 已存在本地. 先删: git tag -d $(TAG_NAME)" >&2; \
 	  exit 1; \
