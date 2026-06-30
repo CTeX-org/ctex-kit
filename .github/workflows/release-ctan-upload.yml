@@ -38,6 +38,14 @@ on:
         required: true
         type: boolean
         default: true
+      announce:
+        description: '是否生成 + 投递英文 announcement. minor changes
+          (typo / 注释 / 小补丁) 可设 false 跳过 announcement, 节省 LLM
+          调用并避免 CTAN 邮件列表噪声. false 时整个 prepare-announcement
+          的 LLM 步骤跳过, l3build upload 不传 --file.'
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -117,6 +125,7 @@ jobs:
 
       - name: Extract v<ver> changes block
         id: changes
+        if: inputs.announce
         env:
           DTX_PATH: ${{ steps.parse.outputs.dir }}/${{ steps.parse.outputs.dtx }}
           VER: ${{ steps.parse.outputs.ver }}
@@ -169,6 +178,7 @@ jobs:
 
       - name: Fetch previous CTAN announcement for tone reference
         id: prev_ann
+        if: inputs.announce
         env:
           PKG_MODULE: ${{ steps.parse.outputs.module }}
         run: |
@@ -188,6 +198,7 @@ jobs:
 
       - name: Install pinned Claude Code CLI
         id: setup_claude
+        if: inputs.announce
         run: |
           CLAUDE_INSTALL_DIR="$RUNNER_TEMP/claude-code-2.1.80"
           npm install --prefix "$CLAUDE_INSTALL_DIR" @anthropic-ai/claude-code@2.1.80
@@ -195,6 +206,7 @@ jobs:
 
       - name: Generate English announcement (LLM)
         id: announce
+        if: inputs.announce
         uses: anthropics/claude-code-action@v1
         env:
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
@@ -232,6 +244,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"announcement":{"type":"string","description":"完整 announcement 英文文本"},"summary":{"type":"string","description":"一句话摘要 (给 GH Actions step summary 用)"}},"required":["announcement","summary"]}'
 
       - name: Verify announcement.md exists
+        if: inputs.announce
         env:
           # 把 structured_output 通过 env 安全传入 (避免 GH Actions 表达式直接
           # 插值到 shell 字符串造成的引号转义/命令注入风险). 仅用于失败时打日志.
@@ -257,6 +270,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload announcement artifact
+        if: inputs.announce
         uses: actions/upload-artifact@v7
         with:
           name: announcement
@@ -331,6 +345,7 @@ jobs:
           cache: false
 
       - name: Download announcement artifact
+        if: inputs.announce
         uses: actions/download-artifact@v8
         with:
           name: announcement
@@ -381,7 +396,8 @@ jobs:
       - name: Run l3build upload
         working-directory: ${{ needs.prepare-announcement.outputs.dir }}
         env:
-          # CTAN announcement 文件相对 working-directory (..) 的位置
+          # CTAN announcement 文件相对 working-directory (..) 的位置.
+          # announce=false ⟹ 不存在该文件, l3build 也不会被传 --file.
           ANN_FILE: ../announcement.md
           # ctex_kit_uploadconfig() 从 env 读 uploader / email, 这样 build.lua
           # 不需要把个人信息硬编码进 git, 本地跑 l3build upload 也是同一套.
@@ -393,9 +409,18 @@ jobs:
           # ctex_kit_env_or_nil() 把空串当成 nil, 不会写入空 note 字段.
           CTAN_NOTE: ${{ inputs.note }}
         run: |
-          # --file 把 announcement.md 喂给 CTAN announcement 表单.
+          # announce=true: --file 把 announcement.md 喂给 CTAN announcement 表单.
+          # announce=false: 不传 --file, l3build 走 uploadconfig.announcement_file
+          # 默认 "announcement.md" → file_contents 找不到文件 → announcement = nil
+          # → l3build-upload.lua "Empty announcement: No ctan announcement will be
+          # made" 放行 (不强制, 见 l3build-upload.lua L319-320).
           # --email 显式再传一次 (l3build CLI 接受, 兜底防 build.lua 里漏读 env).
-          ARGS=(--file "$ANN_FILE")
+          ARGS=()
+          if [ "${{ inputs.announce }}" = "true" ]; then
+            ARGS+=(--file "$ANN_FILE")
+          else
+            echo "::notice::announce=false: 跳过 CTAN announcement (--file 不传)."
+          fi
           ARGS+=(--email "${{ inputs.email }}")
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             ARGS+=(--dry-run)
@@ -438,6 +463,7 @@ jobs:
           echo "- **CTAN Path**: ${{ needs.prepare-announcement.outputs.ctan_path }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Uploader**: ${{ inputs.uploader }} <${{ inputs.email }}>" >> $GITHUB_STEP_SUMMARY
           echo "- **Mode**: ${{ inputs.dry_run == true && 'DRY-RUN' || 'LIVE' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Announcement**: ${{ inputs.announce == true && 'sent' || 'skipped' }}" >> $GITHUB_STEP_SUMMARY
           if [ -n "$NOTE" ]; then
             {
               echo "- **Note to CTAN**:"
