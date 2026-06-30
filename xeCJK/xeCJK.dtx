@@ -9935,42 +9935,52 @@ Copyright and Licence
 %   修复 CJK 文字与 \tn{verb}（或 \pkg{shortvrb} 的短记号）
 %   之间间距丢失的问题（\#910）。}
 %
-% \LaTeXe{} 的 \tn{verb} 命令展开后包含 \tn{leavevmode\null}，
-% 其中 \tn{null} = \tn{hbox\{\}} 产生 \texttt{hbox(0+0)x0} 节点。
-% 此 0\,$\times$\,0 hbox 紧跟在 xeCJK 标记 kern 对之后，
-% 隔断了下游 Boundary$\to$\{Default, CJK\} 路径中 |\tex_lastkern:D| 探测，
-% 导致 \texttt{CJKecglue} 在 CJK 与 \tn{verb} 之间丢失。
-% 此处在进入原始 \tn{verb} 前直接 drain 缓存间距：\tn{verb} 排版的内容
-% 必然是西文 (catcode 12 字符)，前方上下文为 CJK 等情形均应使用
-% \texttt{CJKecglue}。\tn{verb} 内最后字符到 CJK 文字之间的右侧间距
-% 由 Default$\to$CJK 类别转换的 |\xeCJK_pre_inter_class_toks:nnn| 自动恢复，
-% 不需要额外处理。
+% \LaTeXe{} 的 \tn{verb} 命令展开后会执行 \tn{leavevmode\null}，
+% 其中 \tn{null} 等价于 \tn{hbox\{\}}，会产生一个
+% \texttt{hbox(0+0)x0} 节点。这个 $0\times0$ 的 hbox 紧跟在 \pkg{xeCJK}
+% 的标记 kern 对之后，会切断后续 Boundary$\to$\{Default, CJK\} 类别
+% 转换中 \cs{tex_lastkern:D} 的探测路径，导致 CJK 文字与 \tn{verb}
+% 之间应有的 \texttt{CJKecglue} 丢失。
 %
-% 数学模式下原 \tn{verb} 走 \tn{hbox} 分支（不展开 \tn{leavevmode\null}），
-% 标记 kern 不被 0\,$\times$\,0 hbox 遮蔽，因此跳过 patch。
+% 修复办法是在执行原始 \tn{verb} 之前先 drain 缓存的间距：因为
+% \tn{verb} 排版的内容必然是西文（catcode 12 字符），前文若为 CJK，
+% 那么这里就应该补上 \texttt{CJKecglue}。
+% 而 \tn{verb} 内最后一个字符到后续 CJK 文字之间的右侧间距，
+% 会由 Default$\to$CJK 类别转换中 \cs{xeCJK_pre_inter_class_toks:nnn}
+% 自动恢复，不需要额外处理。
 %
-% \pkg{shortvrb} 的 \tn{MakeShortVerb} 将分隔符设为 active 字符后展开到
-% \tn{verb}，自动跟随此 patch。\tn{verb}* 与 \tn{verb} 共用入口
-% （\tn{@ifstar} 在 \tn{bgroup} 之后扫描），也自动覆盖。
+% 数学模式下，原 \tn{verb} 走 \tn{hbox} 分支，不会展开
+% \tn{leavevmode\null}，标记 kern 不被 $0\times0$ 的 hbox 遮蔽，
+% 因此跳过这个 patch。
 %
-% 选择 \cs{@@_after_preamble:n} 而非 \cs{@@_package_hook:nn}（\tn{verb}
-% 是 \LaTeXe{} 核心命令，不来自宏包），并放在 preamble 之后以避免
-% 与其他 \tn{verb} 重定义（如 \pkg{cprotect}、\pkg{fancyvrb}）的时序冲突。
+% \pkg{shortvrb} 的 \tn{MakeShortVerb} 把分隔符设为 active 字符后
+% 展开到 \tn{verb}，会自动跟随这里的 patch。\tn{verb}* 与 \tn{verb}
+% 共用入口（\tn{@ifstar} 在 \tn{bgroup} 之后才扫描），因此也自动
+% 覆盖到。
 %
-% 这里不直接复用 \cs{@@_drain_ecglue:}（\#880 \tn{Url@FormatString} 用的
-% drain）：后者在没有 marker 时会主动 clear |\g_@@_last_node_tl|（为
-% math 模式吃 marker 的场景做防御）。但 \tn{verb} 不进 math 模式，
-% 入口前的 |\g_@@_last_node_tl| 是合法状态——\pkg{ctex} 模式下
-% \tn{verb} 内会切换 CJK 字体（\opt{FandolFang}），verb 内字符到
-% verb 外字符仍走 \texttt{CJK}$\to$\texttt{CJK} interchar 路径，
-% 需要 |\g_@@_last_node_tl| 保持其当前值才能正确出 \tn{CJKglue}。
-% 因此 verb 专用 drain 仅在确实有 marker 时撤掉并补 ecglue，
-% 没有 marker 时 else 分支故意留空——与 \cs{@@_drain_ecglue:} 的唯一
-% 差别即在此处，不调用 \cs{tl_gclear:N} 是为了不破坏入口前的合法状态。
+% 这里选择 \cs{@@_after_preamble:n} 而非 \cs{@@_package_hook:nn}，
+% 因为 \tn{verb} 是 \LaTeXe{} 核心命令，不来自宏包；放在 preamble
+% 之后注册，可以避开 \pkg{cprotect}、\pkg{fancyvrb} 等宏包对
+% \tn{verb} 重定义时的时序冲突。
 %
-% 此 drain 还被 \cs{@@_patch_codedoc_meta:}（\#920 \pkg{l3doc} \cs{meta}
-% 补丁）复用：\cs{meta} 出口同样有 token-level interchar，需要保留
-% |\g_@@_last_node_tl| 状态。新增 drain 调用点请同步更新本节注释。
+% 这里不直接复用 \cs{@@_drain_ecglue:}（\#880 中 \tn{Url@FormatString}
+% 使用的 drain 函数）：后者在没有标记时会主动清掉
+% \cs{g_@@_last_node_tl}，这是为 math 模式吃掉 marker 的场景做的防御。
+% 而 \tn{verb} 不会进入 math 模式，入口前的
+% \cs{g_@@_last_node_tl} 是合法状态——在 \pkg{ctex} 模式下，
+% \tn{verb} 内部会切换 CJK 字体（如 \opt{FandolFang}），\tn{verb}
+% 内字符到 \tn{verb} 外字符仍会走 CJK$\to$CJK 类别转换路径，
+% 此时需要保留 \cs{g_@@_last_node_tl} 的当前值，才能正确地输出
+% \tn{CJKglue}。
+% 因此 \tn{verb} 专用的 drain 只在确实存在标记时移除并补 ecglue，
+% 没有标记时 else 分支故意留空——与 \cs{@@_drain_ecglue:} 的唯一
+% 区别就在于此，不调用 \cs{tl_gclear:N} 是为了不破坏入口前的合法
+% 状态。
+%
+% 此 drain 函数同样被 \cs{@@_patch_codedoc_meta:}（\#920 中
+% \pkg{l3doc} \cs{meta} 补丁）复用：\cs{meta} 退出后仍然有
+% token 层面的 interchar 处理，需要保留 \cs{g_@@_last_node_tl}
+% 的状态。后续若有新的调用点，请同步更新本节注释。
 %
 % \begin{macro}[int]{\@@_drain_ecglue_verb:,\@@_patch_verb:}
 %    \begin{macrocode}
@@ -10006,40 +10016,42 @@ Copyright and Licence
 %   添加补丁，将参数内容包入 \cs{hbox:n}，
 %   修复 \cs{meta} 内首字符前出现多余 \texttt{CJKecglue} 的问题（\#920）。}
 %
-% \pkg{l3doc} 类的 \cs{__codedoc_meta:n} 排版 \cs{meta} 命令的参数：
-% 由 \cs{__codedoc_meta_original:n} 输出 \texttt{\$\textbackslash langle\$}（数学节点）、
-% 内容、\texttt{\$\textbackslash rangle\$}。
-% 当内容首字符是 CJK 时，\texttt{Default\textrightarrow CJK} 类别转换的
-% \cs{xeCJK_pre_inter_class_toks:nnn} 自动 prepend \cs{CJKecglue}，
-% 在 \texttt{\$\textbackslash langle\$} 与首 CJK 字符之间产生多余间距。
+% \pkg{l3doc} 类用 \cs{__codedoc_meta:n} 排版 \cs{meta} 命令的参数：
+% 内部由 \cs{__codedoc_meta_original:n} 依次输出 \cs{ensuremath}\verb*-{-\cs{langle}\verb*-}-
+% 数学节点、参数内容、以及对称的 \cs{ensuremath}\verb*-{-\cs{rangle}\verb*-}-。
+% 当参数内容的首字符是 CJK 时，Default$\to$CJK 类别转换中的
+% \cs{xeCJK_pre_inter_class_toks:nnn} 会自动加上 \cs{CJKecglue}，
+% 这会在 $\langle$ 与首个 CJK 字符之间产生多余的间距。
 %
-% 此处采用与 myhsia 在 \pkg{hyperref}/\pkg{hypdoc} 兼容议题中提出的
-% \texttt{hbox} 包装方案：将 \cs{__codedoc_meta:n} 的参数包入
-% \cs{hbox:n}，\cs{hbox} 隔离了内部的 \XeTeX{} interchar transitions，
-% 使得 \texttt{Default\textrightarrow CJK} transition 不会跨越 \texttt{hbox}
-% 边界触发，从而避免插入多余 \cs{CJKecglue}。
+% 这里采用 myhsia 在 \pkg{hyperref} / \pkg{hypdoc} 兼容议题中提出的
+% \texttt{hbox} 包装方案：把 \cs{__codedoc_meta:n} 的参数装进
+% \cs{hbox:n}。hbox 隔离了内部的 \XeTeX{} 类别转换，
+% Default$\to$CJK 转换不会跨越 hbox 边界触发，从而避免插入多余的
+% \cs{CJKecglue}。
 %
-% 仅 hbox 包装会丢失 \cs{meta} 之前 CJK 与 \cs{meta} 之间的边界 ecglue：
-% \cs{__codedoc_meta_original:n} 入口的 \cs{ensuremath} math 节点把
-% 缓存的 CJK 标记 kern 遮蔽在自己之后，下游 transition 探测不到
-% marker，原本的 \texttt{CJKecglue} 也跟着丢。
-% 与 \pkg{url}（\#880）、\cs{verb}（\#910，参见 \cs{@@_patch_verb:}）同型，
-% 此处在 \cs{__codedoc_meta:n} 入口调用 \cs{@@_drain_ecglue_verb:} 排空
-% marker 并补 \cs{CJKecglue}，恢复 outer 左侧边界的 ecglue；复用
-% \texttt{verb} 版本 drain（else 分支不清 \cs{g_@@_last_node_tl}）：
-% \cs{meta} 出口仍走 token-level interchar，需要保留 tl 状态。
-% \cs{@@_drain_ecglue_verb:} 的注释也列出此调用点。
+% 但仅用 hbox 包装会带来另一个副作用：\cs{meta} 之前的 CJK 与
+% \cs{meta} 之间的边界 ecglue 会丢失——\cs{__codedoc_meta_original:n}
+% 入口的 \cs{ensuremath} math 节点把缓存的 CJK 标记 kern 遮在自己
+% 之后，后续类别转换探测不到这个标记，原本应有的 \texttt{CJKecglue}
+% 也跟着丢失。
+% 与 \pkg{url}（\#880）、\tn{verb}（\#910，参见 \cs{@@_patch_verb:}）
+% 同型，这里在 \cs{__codedoc_meta:n} 入口调用 \cs{@@_drain_ecglue_verb:}
+% 移除标记并补上 \cs{CJKecglue}，恢复左侧的边界 ecglue。
+% 复用 \tn{verb} 版本的 drain（else 分支不清 \cs{g_@@_last_node_tl}）是
+% 因为 \cs{meta} 退出后仍然要经过 token 层面的类别转换，需要保留
+% \cs{g_@@_last_node_tl} 的当前状态。
+% \cs{@@_drain_ecglue_verb:} 的注释也列出了本处调用点，二者保持
+% 双向引用。
 %
 % \cs{rangle} 之后到外部字符的 ecglue 仍由 \cs{__codedoc_meta:n}
-% 末尾 \cs{ensuremath} 退出后的 \texttt{Default\textrightarrow CJK}
-% transition 正常处理。
+% 末尾 \cs{ensuremath} 退出后的 Default$\to$CJK 类别转换正常处理。
 %
-% 由于 \cs{__codedoc_meta:n} 与 \cs{Arg}、\cs{oarg}、\cs{parg} 等共用，
-% 此补丁也间接修复后者的类似问题。
+% \cs{__codedoc_meta:n} 同时被 \cs{Arg}、\cs{oarg}、\cs{parg} 等命令
+% 共用，此补丁也间接修复后者的相同问题。
 %
-% 选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}：
-% \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，需要在 preamble 结束时
-% 才能确定 \cs{__codedoc_meta:n} 是否定义。
+% 这里选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}，
+% 原因在于 \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，
+% 需要等到 preamble 结束时才能判定 \cs{__codedoc_meta:n} 是否定义。
 %
 % \begin{macro}[int]{\@@_patch_codedoc_meta:}
 %    \begin{macrocode}
