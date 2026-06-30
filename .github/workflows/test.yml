@@ -34,8 +34,23 @@ on:
       - '.github/workflows/agentic-*.yml'
   schedule:
     # 周一 UTC 12:00 (北京时间 20:00). 故意贴 ISO 周边界 (周一 00:00 UTC
-    # 翻周) — 周一一过 cache key 翻新, 12:00 schedule 跑刷新 TL cache, 周内
-    # PR / push 享用 cache hit. 见 changes job 的 tl-cache-week 输出.
+    # 翻周) 后约 12h — 角色是 weekly cache 的 **fallback 哨兵**, 不是
+    # 主动刷新源.
+    #
+    # 实际刷新模型: 周一 00:00 UTC 翻周后, W## cache key 翻新, "W## 内
+    # 第一个 run" 自然 cache miss → 走完整 setup-texlive (install +
+    # update-all) → save 新 cache. 周内剩余 run 全 cache hit. 既然
+    # "首个 run" 通常就是周一早上的某次 push, schedule 实际上多半
+    # 撞 cache hit 旁观, 不真刷新.
+    #
+    # 留 schedule 的意义: 万一某周周一 00:00~12:00 UTC 完全没人 push
+    # (例如假期 / 长 PR 评审周), 12 UTC schedule 接住 cache miss, 主动
+    # 把 W## cache 填好, 当周首个 push/PR 不必背 install-tl ~70s 成本.
+    # 也就是 "周内首次刷新的兜底", 不是主动定时刷新.
+    #
+    # GH cron 漂移 3h+ 不影响这个角色 — fallback 哨兵晚来无所谓, 真有
+    # push 早把 cache 填好了; 真没 push, 晚一点填上也没事. 见 changes
+    # job 的 tl-cache-week 输出 + warmup-tl 的 bypass cache 设计.
     - cron: "0 12 * * 1"
   workflow_dispatch:
 
@@ -87,9 +102,11 @@ jobs:
       # TL_VERSION 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
       tl-version: ${{ env.TL_VERSION }}
       # ISO 年-周 (例 "2026-W26"), 用作 TL bypass cache key 的时间维度.
-      # 每周一 UTC 00:00 自动翻周, 紧接的周一 12:00 UTC schedule 跑会用新
-      # key save 一份新 cache, 周内 PR/push 享用 cache hit, 跳过整个 TL
-      # install + update 流程 (~70-600s/job → 秒过).
+      # 每周一 UTC 00:00 自动翻周, W## 内首个 run cache miss 触发完整
+      # setup-texlive (install + update-all) + save 新 cache, 周内剩余
+      # run 全 cache hit, 跳过整个 TL install + update 流程
+      # (~70-600s/job → 秒过). 周一 12 UTC 的 schedule 是 fallback 哨兵
+      # (见上方 on.schedule 注释), 当周完全无 push 时由它接住 cache miss.
       tl-cache-week: ${{ steps.compute.outputs.tl-cache-week }}
     steps:
       - uses: actions/checkout@v7
@@ -174,9 +191,11 @@ jobs:
   # $TEXDIR/bin/<platform> 加入 PATH, 完全不跑 setup-texlive-action, 不
   # 联网, 秒过.
   #
-  # 周一翻周 + schedule 周一 12:00 UTC 跑刷新 cache, 周内 PR/push 享用
-  # cache hit. cache miss (例 weekly 边界 + push race / cache eviction)
-  # 时 caller fallback 到 setup-texlive-action.
+  # 周一翻周后, W## 内首个 run cache miss 触发完整 install + update-all
+  # 并 save 新 cache; 周内 PR / push 享用 cache hit. cache miss (例
+  # weekly 边界 + push race / cache eviction) 时 caller fallback 到
+  # setup-texlive-action. 周一 12 UTC 的 schedule 是 fallback 哨兵 (见
+  # 顶部 on.schedule 注释), 当周完全无 push 时由它兜底刷新 cache.
   #
   # warmup-tl 内部 3 mirror retry 应对 install-tl ETIMEDOUT (try 1
   # illinois 10min, try 2 fau.de 10min, try 3 mirror.ctan.org 30min 兜底).
@@ -230,7 +249,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/setup-texlive-action/${{ env.TL_VERSION }}
           # key 含 weekly + tl_packages hash:
-          #   - weekly: schedule 周一刷新 cache, 周内 PR 享用
+          #   - weekly: 周一翻周后 W## 内首个 run cache miss 自然刷新,
+          #     周内剩余 run 享用 cache hit (schedule 是 fallback 哨兵)
           #   - tl_packages hash: 改 tl_packages (例加新包) 立即 invalidate, 防
           #     PR 加新包时 release / 下游 caller 用到老 cache 找不到包 fail
           #     (实测 zhlineskip-v1.0f 加 inconsolata 后老 cache 没含, release.yml
