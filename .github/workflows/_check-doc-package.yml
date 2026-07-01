@@ -1,0 +1,279 @@
+# Reusable workflow: 单个包跑 l3build doc + verify PDF 输出. 由
+# check-doc.yml 主 workflow 的 9 个 caller job 各自 `uses:` 调用.
+#
+# 结构完全仿照 test.yml + _test-package.yml 的 "caller-per-pkg" 模式:
+# 每个 caller job 有独立 job-level if (needs.changes.outputs.<pkg>),
+# 未受影响的包 job 都不启动 runner. matrix.pkg 模式会引入 GH Actions
+# 已知的"幽灵 cancelled job" (test.yml 之所以拆 reusable workflow 的
+# 原因), 这里一并规避.
+#
+# 为什么是 l3build doc 而非 l3build ctan:
+#   l3build ctan 内部硬编码调 call({"."}, "check") → 整套 regression 都
+#   要跑一遍, 光 ctex 就 20+ min. 但 test.yml 已经覆盖 l3build check,
+#   ctan 在这里跑一遍纯冗余. 真正 PR CI 缺的是"文档 dtx→PDF 是否可编
+#   译" (l3build doc 的语义 = docinit + typesetpdf, 不 check 不打 zip).
+#   牺牲 tdslocations 打包路径的验证 — 那是低频问题, 打 release tag 时
+#   release.yml 兜底就够.
+
+name: check-doc package
+
+on:
+  workflow_call:
+    inputs:
+      pkg:
+        description: '包名: ctex / xeCJK / CJKpunct / zhnumber / xCJK2uni / xpinyin / zhmetrics / zhmetrics-uptex / zhlineskip'
+        required: true
+        type: string
+      tl-version:
+        description: 'TeX Live 版本 (例 "2026"). 由 check-doc.yml 顶层 env TL_VERSION 透传.'
+        required: true
+        type: string
+      tl-cache-week:
+        description: 'ISO 年-周字符串 (例 2026-W26). 由 changes job 计算, 与 test.yml 共享 cache key.'
+        required: true
+        type: string
+      needs-unihan:
+        description: '是否需要 Unihan.zip + HanaMinB/Symbols2 字体 (仅 xeCJK true).'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    name: on ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # ────────────────────────────────────────────────────────────────
+      # TL bypass cache: 与 test.yml warmup-tl / release.yml 共享 key.
+      # test.yml 在 PR 触发时同 head sha 并行跑 warmup-tl, cache 一填好
+      # 后续所有 check-doc job restore 即用. cache miss (weekly 边界 +
+      # race, 或 cache eviction) 时 fallback 到 setup-texlive-action.
+      # ────────────────────────────────────────────────────────────────
+      - name: TL bypass cache (restore)
+        id: bypass-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
+          # key 与 test.yml warmup-tl / _test-package.yml caller / release.yml
+          # 完全一致 — 保证 PR 触发时 test.yml warmup-tl 填的 cache 能被
+          # 本 caller restore.
+          key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ inputs.tl-cache-week }}-${{ hashFiles('.github/tl_packages') }}
+
+      - name: Export PATH (cache hit fast path)
+        id: export-path
+        if: steps.bypass-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: |
+          TL_BIN="${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}/bin/x86_64-linux"
+          echo "$TL_BIN" >> "$GITHUB_PATH"
+          echo "Added to PATH: $TL_BIN"
+          "$TL_BIN/tlmgr" version
+
+      # cache miss / cache 损坏 fallback. 复用 release.yml 单 mirror 打法
+      # (illinois pin), 抖动时 rerun --failed 一次就好.
+      - name: Install TeX Live (fallback)
+        if: steps.bypass-cache.outputs.cache-hit != 'true' || steps.export-path.outcome == 'failure'
+        timeout-minutes: 30
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: ${{ inputs.tl-version }}
+          package-file: .github/tl_packages
+          repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+          update-all-packages: true
+          # 关掉 setup-texlive 内部 cache, 走我们自己的 bypass-cache.
+          cache: false
+
+      - name: Install zhmakeindex
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 与 release.yml 完全一致的安装方式.
+          ZHMK_VERSION=$(gh api repos/Liam0205/zhmakeindex/releases/latest --jq '.tag_name')
+          ZHMK_URL="https://github.com/Liam0205/zhmakeindex/releases/download/${ZHMK_VERSION}/zhmakeindex_${ZHMK_VERSION#v}_linux_amd64.tar.gz"
+          curl -fsSL "$ZHMK_URL" | tar xz -C /usr/local/bin zhmakeindex
+          zhmakeindex >/dev/null 2>&1
+
+      # ────────────────────────────────────────────────────────────────
+      # 字体安装. 基础 CJK 字体 (Noto Sans/Serif CJK) 所有包都需要;
+      # 只有 xeCJK 额外需要 HanaMinB + NotoSansSymbols2 (release.yml 特殊
+      # 依赖, xeCJK.dtx / xunicode-symbols.tex typeset 用到).
+      # ────────────────────────────────────────────────────────────────
+      - name: Cache CJK fonts (base)
+        id: font-cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.font-cache
+          key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('.github/font-urls.txt') }}-v1
+
+      - name: Install base CJK fonts
+        run: |
+          FONT_CACHE="${{ github.workspace }}/.font-cache"
+          mkdir -p "$FONT_CACHE"
+          if [ ! -f "$FONT_CACHE/.done" ]; then
+            cd "$FONT_CACHE"
+            while IFS= read -r url || [ -n "$url" ]; do
+              url="$(printf '%s' "$url" | tr -d '\r')"
+              case "$url" in ''|'#'*) continue ;; esac
+              curl -LO "$url"
+            done < "${{ github.workspace }}/.github/font-urls.txt"
+            for f in *OTC.zip; do unzip -ojd . "$f" "*.ttc"; done
+            rm -f *.zip
+            touch .done
+            cd - >/dev/null
+          fi
+          sudo mkdir -p /usr/share/fonts/truetype
+          sudo cp "$FONT_CACHE"/*.ttc /usr/share/fonts/truetype/
+          sudo fc-cache -f
+
+      # ────────────────────────────────────────────────────────────────
+      # TL opentype 目录纳入 fontconfig. xpinyin.dtx typeset 时用
+      # `\newfontfamily{TeX Gyre Adventor}`, fontspec 走 fontconfig 查
+      # friendly name — TL 装了 tex-gyre 包但字体不在 fontconfig 索引.
+      # 加一个 conf.d 让 fc-cache 扫 TL 的 opentype 树, TeX Gyre Adventor
+      # 之类的 friendly name 就能被 xelatex 找到. 无条件执行, 别的包也
+      # 受益 (没坏处, 只是索引多几百个字体).
+      # ────────────────────────────────────────────────────────────────
+      - name: Register TL opentype fonts with fontconfig
+        run: |
+          # TL_ROOT 通过 tlmgr conf 获取, 兼容 setup-texlive fallback path
+          # 和 bypass cache path 两种情况.
+          TL_ROOT="$(tlmgr conf | awk -F= '/TEXMFDIST/{gsub(/^[ \t]+|[ \t]+$/,"",$2);print $2;exit}')"
+          if [ -z "$TL_ROOT" ] || [ ! -d "$TL_ROOT/fonts/opentype" ]; then
+            echo "::warning::TL opentype dir not found ($TL_ROOT/fonts/opentype), skipping"
+            exit 0
+          fi
+          sudo mkdir -p /etc/fonts/conf.d
+          sudo tee /etc/fonts/conf.d/09-texlive-opentype.conf >/dev/null <<CONF
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+          <fontconfig>
+            <dir>${TL_ROOT}/fonts/opentype</dir>
+            <dir>${TL_ROOT}/fonts/truetype</dir>
+          </fontconfig>
+          CONF
+          sudo fc-cache -f
+          # sanity: 至少能找到 tex-gyre 里的 Adventor.
+          if ! fc-list | grep -q "TeX Gyre Adventor"; then
+            echo "::warning::TeX Gyre Adventor still not in fontconfig after cache rebuild"
+            fc-list | grep -i gyre | head -5 || true
+          fi
+
+      - name: Cache xeCJK extra fonts
+        id: xecjk-font-cache
+        if: inputs.needs-unihan
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/.xecjk-font-cache
+          key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
+      - name: Install xeCJK extra fonts
+        if: inputs.needs-unihan
+        run: |
+          FONT_CACHE="${{ github.workspace }}/.xecjk-font-cache"
+          mkdir -p "$FONT_CACHE"
+          if [ ! -f "$FONT_CACHE/.done" ]; then
+            cd "$FONT_CACHE"
+            # 与 release.yml:172-185 完全一致的 URL.
+            curl -fsSL -o HanaMinB.ttf \
+              "https://github.com/googlefonts/chinese/raw/gh-pages/fonts/HanaMin/HanaMinB.ttf"
+            curl -LO \
+              "https://github.com/notofonts/symbols/releases/download/NotoSansSymbols2-v2.008/NotoSansSymbols2-v2.008.zip"
+            for f in NotoSansSymbols2-*.zip; do unzip -ojd . "$f" "*.ttf"; done
+            rm -f *.zip
+            touch .done
+            cd - >/dev/null
+          fi
+          sudo cp "$FONT_CACHE"/*.ttf /usr/share/fonts/truetype/
+          sudo apt-get install -y --no-install-recommends fonts-freefont-ttf
+          sudo fc-cache -f
+
+      # ────────────────────────────────────────────────────────────────
+      # Unihan.zip cache (仅 xeCJK). weekly key, unicode.org 不稳时不受
+      # 影响. Unihan 官方随 Unicode major 年度发一次, 内容年内不变, 按周
+      # 翻新纯粹是"稳当哨兵" (与 TL bypass cache 同频, 心智一致). URL
+      # 语义变化时手工 bump marker "v1".
+      #
+      # 路径: xeCJK/build.lua dofile "../support/build-config.lua",
+      # supportdir 解析为仓库根的 support/, 所以 Unihan.zip 放这里.
+      # ────────────────────────────────────────────────────────────────
+      - name: Cache Unihan.zip
+        id: unihan-cache
+        if: inputs.needs-unihan
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/support/Unihan.zip
+          key: unihan-zip-${{ inputs.tl-cache-week }}-v1
+
+      - name: Download Unihan.zip (cache miss)
+        if: inputs.needs-unihan && steps.unihan-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o support/Unihan.zip \
+            "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
+
+      # ────────────────────────────────────────────────────────────────
+      # zhmetrics 专有: TL 上的 zhmetrics 包只装 gbk/unicode 分片 tfm,
+      # 但**不含** zhmCJK.tfm / zhmCJK.map (顶层 tfm + fontname map),
+      # 而 zhmCJK.dtx typeset 时会请求 zhm35b 这样的 tfm 名 — 走 fontname
+      # 机制映射到 zhmCJK.tfm. 修法: 用包自己的 zhmCJK.lua 脚本生成
+      # zhmCJK.tfm + zhmCJK.map, 装到 TEXMFHOME 并 texhash, 让 kpse 能
+      # resolve. 与 release.yml 打 ctan zip 时 copyctan_posthook 里干的
+      # 事一致 (build.lua L28-49).
+      # ────────────────────────────────────────────────────────────────
+      - name: Generate zhmCJK tfm/map (zhmetrics pre-doc)
+        if: inputs.pkg == 'zhmetrics'
+        working-directory: ./zhmetrics
+        run: |
+          # 1) 生成 zhmCJK.tfm + zhmCJK.map (用包内 zhmCJK.lua)
+          texlua zhmCJK.lua map
+          # 2) 装到 TEXMFHOME 的 fontname tree. kpse 优先看 TEXMFHOME,
+          #    覆盖 TL 里的 zhmetrics 缺失.
+          TEXMFHOME="$(kpsewhich -var-value TEXMFHOME)"
+          FONTNAME_DIR="$TEXMFHOME/fonts/map/fontname"
+          TFM_DIR="$TEXMFHOME/fonts/tfm/zhmcjk"
+          mkdir -p "$FONTNAME_DIR" "$TFM_DIR"
+          cp zhmCJK.map "$FONTNAME_DIR/"
+          cp zhmCJK.tfm "$TFM_DIR/"
+          # 3) 让 mktexnam 能 map "zhm<fam><sid>" → "zhmCJK". 追加 zhmCJK.map
+          #    include 到 texfonts.map (mktextfm 查询它). 用户 texfonts.map
+          #    只能装到 TEXMFHOME 的相同相对路径. 先看 TL 系统级 texfonts.map
+          #    在哪, 复制到 TEXMFHOME 同路径后再 append.
+          SYS_TEXFONTS_MAP="$(kpsewhich texfonts.map || true)"
+          USER_TEXFONTS_MAP="$FONTNAME_DIR/texfonts.map"
+          if [ -n "$SYS_TEXFONTS_MAP" ] && [ ! -f "$USER_TEXFONTS_MAP" ]; then
+            cp "$SYS_TEXFONTS_MAP" "$USER_TEXFONTS_MAP"
+          fi
+          if ! grep -qE '^include zhmCJK\.map' "$USER_TEXFONTS_MAP" 2>/dev/null; then
+            printf 'include zhmCJK.map\n' >> "$USER_TEXFONTS_MAP"
+          fi
+          # 4) 刷新 ls-R 让 kpse 认识新文件.
+          mktexlsr "$TEXMFHOME"
+          # sanity: kpsewhich 找得到 zhmCJK.tfm 就算 OK. zhm35b 是通过 map
+          # 动态查 zhmCJK, kpsewhich 本身查不到 (mktextfm 才能).
+          echo "zhmCJK.tfm at $(kpsewhich zhmCJK.tfm)"
+          echo "zhmCJK.map at $(kpsewhich zhmCJK.map)"
+
+      # ────────────────────────────────────────────────────────────────
+      # l3build doc: 纯 typeset 路径 (docinit + typesetpdf), 不 check,
+      # 不打 zip. typesetfiles 为空的包 (zhmetrics-uptex) 秒过.
+      # ────────────────────────────────────────────────────────────────
+      - name: Typeset docs
+        id: doc
+        working-directory: ./${{ inputs.pkg }}
+        run: l3build doc
+
+      - name: Verify PDF outputs
+        if: steps.doc.outcome == 'success'
+        run: |
+          ./scripts/verify-doc-output.sh "${{ inputs.pkg }}"
+
+      - name: Upload artifacts on failure
+        if: ${{ !cancelled() && (steps.doc.outcome == 'failure' || failure()) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-doc-${{ inputs.pkg }}-failed
+          path: |
+            ${{ inputs.pkg }}/build/doc/**/*.log
+            ${{ inputs.pkg }}/build/doc/**/*.pdf
+          if-no-files-found: ignore
