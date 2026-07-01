@@ -1,0 +1,56 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+% Simulate biblatex's \blx@pagetracker: a \protected@write producing a whatsit.
+% biblatex.sty (via authoryear.bbx's \ExecuteBibliographyOptions{pagetracker})
+% lets \blx@pagetracker to \blx@pagetracker@context whose body is
+% \protected@write\@mainaux{}{\string\abx@aux@page{...}{...}}.
+%
+% xeCJK patch clears \g__xeCJK_last_node_tl at \blx@pagetracker entry so
+% that the following whatsit does NOT trigger \__xeCJK_recover_glue_whatsit:'s
+% default branch and spurious \CJKecglue does NOT get inserted before the
+% first CJK character of the entry (#931).
+\makeatletter
+\newwrite\bibaux
+\immediate\openout\bibaux=\jobname-bibaux.aux
+% Stub \blx@pagetracker: emits a \write whatsit node, same shape as biblatex.
+\def\blx@pagetracker{%
+  \protected@write\bibaux{}{\string\abx@aux@page{1}{\the\c@page}}%
+}
+\makeatother
+
+% Simulate that biblatex has been loaded so xeCJK's begindocument/end hook
+% fires the patch. The patch reads \blx@pagetracker (already defined above)
+% and wraps it.
+
+\begin{document}
+
+\START
+
+\makeatletter
+
+% --- Test 1: whatsit from stub pagetracker does not trigger spurious ecglue ---
+% Before the fix: xeCJK's \__xeCJK_recover_glue_whatsit: default branch
+% inserts \CJKecglue (~3.33pt) between the whatsit and 张. After the fix:
+% \g__xeCJK_last_node_tl is cleared at pagetracker entry, default branch
+% predicate is false, no spurious ecglue.
+
+\setbox0=\hbox{前文。\blx@pagetracker 张}
+\setbox1=\hbox{前文。张}
+
+\TEST{pagetracker whatsit does not inject spurious ecglue (931)}{
+  % Both boxes should have identical natural width (whatsit is 0-width and
+  % the fix ensures no glue node is added around it).
+  \showbox0
+  \showbox1
+}
+
+\makeatother
+
+\END
+
+\end{document}
