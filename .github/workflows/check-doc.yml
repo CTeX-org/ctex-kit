@@ -1,0 +1,305 @@
+name: ctex-kit check-doc
+
+# PR 门禁: 补 test.yml 缺失的"文档可编译性"维度. test.yml 只跑 l3build check
+# (regression), 完全不 typeset dtx → PDF. 文档编译链路只在 push tag 触发
+# release.yml 时才被验证 (release.yml 里 l3build ctan 会 typeset), 炸了要
+# 等打 tag 才发现. 这个 workflow 在 PR 阶段就把 9 个包各自跑一遍
+# l3build doc + verify PDF, 抓文档编译回归.
+#
+# 与 test.yml 分工:
+#   test.yml       — l3build check, 5 主包 × 4 engine × 数百 regression
+#   check-doc.yml  — l3build doc,   9 全包 × 1 engine, 只 typeset dtx → PDF
+#
+# 为什么不用 l3build ctan:
+#   l3build ctan 内部硬编码调 call({"."}, "check") → 整套 regression 会
+#   跑一遍, 光 ctex 就 20+ min. 但 test.yml 已经覆盖 check, ctan 在这里
+#   跑一遍纯冗余. l3build doc 是纯 typeset (docinit + typesetpdf), 秒过
+#   typesetfiles=[] 的包, 精确对应"文档可编译性"这个 CI 缺口.
+#   牺牲 tdslocations 打包路径的验证 — 那是低频问题, 打 release tag 时
+#   release.yml 兜底就够, 不放 PR 门禁.
+#
+# TL cache 共享: 与 test.yml warmup-tl / release.yml 用同一个
+# tl-bypass-<os>-<ver>-<week>-<hash> key. test.yml 在 PR 触发时同 head sha
+# 并行填 cache, 本 workflow 大多数情况 100% cache hit; cache miss 走
+# setup-texlive fallback.
+#
+# 结构: caller-per-pkg (仿 test.yml + _test-package.yml). 每个 caller
+# 有独立 job-level if (needs.changes.outputs.<pkg>), 未受影响的包不
+# 启动 runner.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, synchronize]
+    paths:
+      # 任一包目录, 或影响 typeset 的公共资源.
+      # 不做依赖传递 — 与 test.yml 不同. l3build doc 只 typeset 自身
+      # typesetfiles, xeCJK 变动不影响 ctex 的 doc.
+      #
+      # zhspacing 暂不覆盖 — zhspacing.sty 本身依赖 SimSun/SimHei/KaiTi
+      # /FangSong/Sun-Ext* 商业字体 + \@iforloop/\@nil 时序问题, 属于
+      # 包本身 CI 改造 (2016 年后未再 tag). 单独跟进 issue.
+      - 'ctex/**'
+      - 'xeCJK/**'
+      - 'CJKpunct/**'
+      - 'zhnumber/**'
+      - 'xCJK2uni/**'
+      - 'xpinyin/**'
+      - 'zhmetrics/**'
+      - 'zhmetrics-uptex/**'
+      - 'zhlineskip/**'
+      # 公共依赖: support/ 里改 ctxdoc.cls 会影响所有 dtx 的 typeset.
+      - 'support/**'
+      # 打包脚本 / TL 包清单 / workflow 本体 / caller reusable / verify /
+      # 字体 URL (font-urls.txt 与 _all filter 保持一致, 见 changes job).
+      - 'scripts/verify-doc-output.sh'
+      - '.github/workflows/check-doc.yml'
+      - '.github/workflows/_check-doc-package.yml'
+      - '.github/tl_packages'
+      - '.github/font-urls.txt'
+
+concurrency:
+  # 同 head_ref 上后触发的 run cancel 前一个.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'master' }}
+
+env:
+  # 与 test.yml / release.yml 统一, 保证共享 TL bypass cache.
+  TL_VERSION: '2026'
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 0: 检测哪些包受影响.
+  #
+  # 与 test.yml 的 changes job 类似, 但精简为 9 包 + 无依赖传递.
+  # ──────────────────────────────────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ctex:            ${{ steps.compute.outputs.ctex }}
+      xeCJK:           ${{ steps.compute.outputs.xeCJK }}
+      CJKpunct:        ${{ steps.compute.outputs.CJKpunct }}
+      zhnumber:        ${{ steps.compute.outputs.zhnumber }}
+      xCJK2uni:        ${{ steps.compute.outputs.xCJK2uni }}
+      xpinyin:         ${{ steps.compute.outputs.xpinyin }}
+      zhmetrics:       ${{ steps.compute.outputs.zhmetrics }}
+      zhmetrics-uptex: ${{ steps.compute.outputs.zhmetrics-uptex }}
+      zhlineskip:      ${{ steps.compute.outputs.zhlineskip }}
+      tl-version:      ${{ env.TL_VERSION }}
+      tl-cache-week:   ${{ steps.compute.outputs.tl-cache-week }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            # 公共改动 → 全 9 包都要跑 (support/ctxdoc.cls, tl_packages,
+            # verify 脚本, workflow 本体 / caller reusable, 字体 URL 清单).
+            _all: &all
+              - '.github/workflows/check-doc.yml'
+              - '.github/workflows/_check-doc-package.yml'
+              - '.github/tl_packages'
+              - '.github/font-urls.txt'
+              - 'scripts/verify-doc-output.sh'
+              - 'support/**'
+            ctex:
+              - *all
+              - 'ctex/**'
+            xeCJK:
+              - *all
+              - 'xeCJK/**'
+            CJKpunct:
+              - *all
+              - 'CJKpunct/**'
+            zhnumber:
+              - *all
+              - 'zhnumber/**'
+            xCJK2uni:
+              - *all
+              - 'xCJK2uni/**'
+            xpinyin:
+              - *all
+              - 'xpinyin/**'
+            zhmetrics:
+              - *all
+              - 'zhmetrics/**'
+            zhmetrics-uptex:
+              - *all
+              - 'zhmetrics-uptex/**'
+            zhlineskip:
+              - *all
+              - 'zhlineskip/**'
+      - name: Compute active packages + weekly key
+        id: compute
+        env:
+          FILTER_CTEX:            ${{ steps.filter.outputs.ctex }}
+          FILTER_XECJK:           ${{ steps.filter.outputs.xeCJK }}
+          FILTER_CJKPUNCT:        ${{ steps.filter.outputs.CJKpunct }}
+          FILTER_ZHNUMBER:        ${{ steps.filter.outputs.zhnumber }}
+          FILTER_XCJK2UNI:        ${{ steps.filter.outputs.xCJK2uni }}
+          FILTER_XPINYIN:         ${{ steps.filter.outputs.xpinyin }}
+          FILTER_ZHMETRICS:       ${{ steps.filter.outputs.zhmetrics }}
+          FILTER_ZHMETRICS_UPTEX: ${{ steps.filter.outputs.zhmetrics-uptex }}
+          FILTER_ZHLINESKIP:      ${{ steps.filter.outputs.zhlineskip }}
+        run: |
+          echo "ctex=${FILTER_CTEX:-false}"                     >> "$GITHUB_OUTPUT"
+          echo "xeCJK=${FILTER_XECJK:-false}"                   >> "$GITHUB_OUTPUT"
+          echo "CJKpunct=${FILTER_CJKPUNCT:-false}"             >> "$GITHUB_OUTPUT"
+          echo "zhnumber=${FILTER_ZHNUMBER:-false}"             >> "$GITHUB_OUTPUT"
+          echo "xCJK2uni=${FILTER_XCJK2UNI:-false}"             >> "$GITHUB_OUTPUT"
+          echo "xpinyin=${FILTER_XPINYIN:-false}"               >> "$GITHUB_OUTPUT"
+          echo "zhmetrics=${FILTER_ZHMETRICS:-false}"           >> "$GITHUB_OUTPUT"
+          echo "zhmetrics-uptex=${FILTER_ZHMETRICS_UPTEX:-false}" >> "$GITHUB_OUTPUT"
+          echo "zhlineskip=${FILTER_ZHLINESKIP:-false}"         >> "$GITHUB_OUTPUT"
+          # 与 test.yml 同款 ISO 年-周 (%G-W%V), UTC. 保证跟 test.yml
+          # warmup-tl 的 cache key 完全同步 → PR 触发时秒 cache hit.
+          week="$(TZ=UTC date +'%G-W%V')"
+          echo "tl-cache-week=${week}" >> "$GITHUB_OUTPUT"
+          echo "TL cache week: ${week}"
+          echo "Active: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} CJKpunct=${FILTER_CJKPUNCT} zhnumber=${FILTER_ZHNUMBER} xCJK2uni=${FILTER_XCJK2UNI} xpinyin=${FILTER_XPINYIN} zhmetrics=${FILTER_ZHMETRICS} zhmetrics-uptex=${FILTER_ZHMETRICS_UPTEX} zhlineskip=${FILTER_ZHLINESKIP}"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 阶段 1: 9 个 caller job. 每个 job 都有 job-level if — 不受影响的包
+  # 直接 skip, 完全不启动 runner.
+  # ──────────────────────────────────────────────────────────────────────
+  doc-ctex:
+    needs: changes
+    if: needs.changes.outputs.ctex == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: ctex
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-xeCJK:
+    needs: changes
+    if: needs.changes.outputs.xeCJK == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: xeCJK
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      needs-unihan: true
+    secrets: inherit
+
+  doc-CJKpunct:
+    needs: changes
+    if: needs.changes.outputs.CJKpunct == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: CJKpunct
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-zhnumber:
+    needs: changes
+    if: needs.changes.outputs.zhnumber == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: zhnumber
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-xCJK2uni:
+    needs: changes
+    if: needs.changes.outputs.xCJK2uni == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: xCJK2uni
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-xpinyin:
+    needs: changes
+    if: needs.changes.outputs.xpinyin == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: xpinyin
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-zhmetrics:
+    needs: changes
+    if: needs.changes.outputs.zhmetrics == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: zhmetrics
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-zhmetrics-uptex:
+    needs: changes
+    if: needs.changes.outputs.zhmetrics-uptex == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: zhmetrics-uptex
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  doc-zhlineskip:
+    needs: changes
+    if: needs.changes.outputs.zhlineskip == 'true'
+    uses: ./.github/workflows/_check-doc-package.yml
+    with:
+      pkg: zhlineskip
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+    secrets: inherit
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 汇总: 供 branch protection 单点盯 status check.
+  # ──────────────────────────────────────────────────────────────────────
+  check-doc-result:
+    if: ${{ !cancelled() }}
+    needs:
+      - doc-ctex
+      - doc-xeCJK
+      - doc-CJKpunct
+      - doc-zhnumber
+      - doc-xCJK2uni
+      - doc-xpinyin
+      - doc-zhmetrics
+      - doc-zhmetrics-uptex
+      - doc-zhlineskip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        env:
+          R_CTEX:            ${{ needs.doc-ctex.result }}
+          R_XECJK:           ${{ needs.doc-xeCJK.result }}
+          R_CJKPUNCT:        ${{ needs.doc-CJKpunct.result }}
+          R_ZHNUMBER:        ${{ needs.doc-zhnumber.result }}
+          R_XCJK2UNI:        ${{ needs.doc-xCJK2uni.result }}
+          R_XPINYIN:         ${{ needs.doc-xpinyin.result }}
+          R_ZHMETRICS:       ${{ needs.doc-zhmetrics.result }}
+          R_ZHMETRICS_UPTEX: ${{ needs.doc-zhmetrics-uptex.result }}
+          R_ZHLINESKIP:      ${{ needs.doc-zhlineskip.result }}
+        run: |
+          fail=0
+          for nv in \
+            "ctex:$R_CTEX" \
+            "xeCJK:$R_XECJK" \
+            "CJKpunct:$R_CJKPUNCT" \
+            "zhnumber:$R_ZHNUMBER" \
+            "xCJK2uni:$R_XCJK2UNI" \
+            "xpinyin:$R_XPINYIN" \
+            "zhmetrics:$R_ZHMETRICS" \
+            "zhmetrics-uptex:$R_ZHMETRICS_UPTEX" \
+            "zhlineskip:$R_ZHLINESKIP"; do
+            name="${nv%%:*}"
+            res="${nv#*:}"
+            if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
+              echo "✓ ${name}: ${res}"
+            else
+              echo "✗ ${name}: ${res}"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
