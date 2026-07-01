@@ -23,9 +23,9 @@
 }
 \makeatother
 
-% Simulate that biblatex has been loaded so xeCJK's begindocument/end hook
-% fires the patch. The patch reads \blx@pagetracker (already defined above)
-% and wraps it.
+% Simulate that biblatex has been loaded so xeCJK's begindocument/before hook
+% (i.e. \__xeCJK_at_end_preamble:n) fires the patch. The patch reads
+% \blx@pagetracker (already defined above) and wraps it.
 
 \begin{document}
 
@@ -38,15 +38,23 @@
 % inserts \CJKecglue (~3.33pt) between the whatsit and 张. After the fix:
 % \g__xeCJK_last_node_tl is cleared at pagetracker entry, default branch
 % predicate is false, no spurious ecglue.
+%
+% box0 (patched): 前文。<whatsit> 张
+% box1 (baseline): 前文。张
+% Both should have identical natural width — whatsit is 0-width, so any
+% inserted \CJKecglue would show up as an extra ~3.33pt.
 
 \setbox0=\hbox{前文。\blx@pagetracker 张}
 \setbox1=\hbox{前文。张}
 
 \TEST{pagetracker whatsit does not inject spurious ecglue (931)}{
-  % Both boxes should have identical natural width (whatsit is 0-width and
-  % the fix ensures no glue node is added around it).
+  % 显式对比两个 box 的宽度: 相等 → OK, 不等 → 打印实际宽度供诊断
+  \ifdim\wd0=\wd1
+    \typeout{OK:~box0~and~box1~have~identical~width}%
+  \else
+    \typeout{FAIL:~box0~width=\the\wd0,~box1~width=\the\wd1}%
+  \fi
   \showbox0
-  \showbox1
 }
 
 \makeatother
