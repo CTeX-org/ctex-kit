@@ -10074,6 +10074,74 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.10.1}{2026/07/01}{为 \pkg{biblatex} 的
+%   \cs{blx@pagetracker} 添加补丁，清空 \cs{g_@@_last_node_tl}，
+%   修复中文参考文献条目首字符前出现多余 \texttt{CJKecglue} 的问题（\#931）。}
+%
+% \pkg{biblatex} 在开启 \opt{pagetracker} 选项（\pkg{authoryear} 等
+% \texttt{bbx} 样式默认开启）时，每次排版 \tn{bibitem} 会在
+% \cs{blx@pagetracker@context} 内调用 \cs{protected@write} 往
+% \texttt{aux} 写入 \cs{abx@aux@page} 记录。该 \tn{write} 产生的
+% whatsit 节点紧接在前一条目结尾的 default 标记 kern 之后，遮蔽了
+% \cs{tex_lastkern:D} 探测路径。当下一条目首字符是 CJK 字符时，
+% Boundary$\to$CJK 类别转换的 \cs{xeCJK_check_for_glue:} 会走到
+% \cs{@@_recover_glue_whatsit:} 的 default 分支——它读到全局
+% \cs{g_@@_last_node_tl} 仍是 \texttt{default}（前一条目的合法残留），
+% 就误吐了一个 \texttt{CJKecglue}，表现为条目首字符前多出一段空白。
+%
+% 修复策略与 \pkg{hyperref} \cs{Hy@BeginAnnot}（\#809/\#810）
+% 同型：在 whatsit 插入前主动清空 \cs{g_@@_last_node_tl}，让下游
+% \cs{@@_recover_glue_whatsit:} 探到 whatsit 时 default 分支
+% 条件不成立，不再吐出多余 ecglue。
+%
+% 前一条目结尾如果确实需要往下一条目续接 CJK 边界语义
+% （例如后续 \cs{blx@driver} 内部先输出 CJK 字符），
+% \cs{blx@driver} 排版首字符时会由 \cs{xeCJK_make_node:n} 重新设置
+% \cs{g_@@_last_node_tl}，不受此清空影响；因此本补丁只切断
+% "前一条目 marker 通过 whatsit 遮蔽错误跨到下一条目" 的路径，
+% 不影响新条目内部的正常边界恢复。
+%
+% 与 \cs{Hy@BeginAnnot} 补丁的差异：这里没有 "选择性重放 CJK/CJK-space
+% 标记" 的需求，因为 \cs{blx@pagetracker} 入口时前文已经是
+% 完整段落结构（\cs{bibsentence}、\cs{blx@postpunct} 等），跨条目续接
+% xeCJK marker 的语义不成立，直接清空即可。
+%
+% \textbf{补丁点选 \cs{blx@pagetracker} 而非 \cs{blx@pagetracker@context}}：
+% \pkg{biblatex} 在 \texttt{bbx} style 加载时通过
+% \tn{ExecuteBibliographyOptions\{pagetracker\}} 展开
+% \cs{blx@opt@pagetracker@page}，其内部 \tn{let}
+% \cs{blx@pagetracker}$\leftarrow$\cs{blx@pagetracker@context}——注意
+% 是**\tn{let} 值传递**而非**符号引用**。若补丁挂在
+% \cs{blx@pagetracker@context}，只能改到源函数；但 \cs{blx@bibitem}
+% 实际调用的是 \cs{blx@pagetracker} 的 \tn{let} 拷贝，早在 \texttt{bbx}
+% 加载时就已定型，之后再改源函数已经无效。故补丁点选 \cs{blx@pagetracker}
+% 本身，并延迟到 \cs{@@_at_end_preamble:n} 执行——此时 \texttt{bbx} 已
+% 完全加载，\cs{blx@pagetracker} 已 \tn{let} 到最终目标（可能是
+% \cs{blx@pagetracker@context}、\cs{blx@pagetracker@spread} 或
+% \tn{relax}）。
+%
+% \begin{macro}[int]{\@@_patch_biblatex_pagetracker:}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_patch_biblatex_pagetracker:
+  {
+    \cs_if_exist:NT \blx@pagetracker
+      {
+        \cs_if_exist:NF \@@_orig_blx_pagetracker:
+          {
+            \cs_set_eq:NN \@@_orig_blx_pagetracker: \blx@pagetracker
+            \cs_gset_protected:Npn \blx@pagetracker
+              {
+                \tl_gclear:N \g_@@_last_node_tl
+                \@@_orig_blx_pagetracker:
+              }
+          }
+      }
+  }
+\@@_at_end_preamble:n { \@@_patch_biblatex_pagetracker: }
+%    \end{macrocode}
+% \end{macro}
+%
+%
 % \changes{v3.1.0}{2012/11/13}{取消 \tn{cprotect} 的外部宏限制。}
 % 当探测到 \pkg{cprotect} 宏包被引入时，则取消 \tn{cprotect} 宏的 \tn{outer} 定义。
 %    \begin{macrocode}
