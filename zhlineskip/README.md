@@ -1,6 +1,6 @@
 [![CTAN Version](https://img.shields.io/ctan/v/zhlineskip)](https://ctan.org/pkg/zhlineskip)
 [![GitHub Release](https://img.shields.io/github/v/release/CTeX-org/ctex-kit)](https://github.com/CTeX-org/ctex-kit/releases/latest)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/CTeX-org/ctex-kit?path=zhlineskip)](https://github.com/CTeX-org/ctex-kit/commits)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/CTeX-org/ctex-kit?path=zhlineskip)](https://github.com/CTeX-org/ctex-kit/commits/master/zhlineskip)
 [![Actions Status](https://github.com/CTeX-org/ctex-kit/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/CTeX-org/ctex-kit/actions)
 [![GitHub Repo stars](https://img.shields.io/github/stars/CTeX-org/ctex-kit)](https://github.com/CTeX-org/ctex-kit)
 
