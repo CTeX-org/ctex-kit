@@ -3,13 +3,25 @@ module = "ctex"
 
 packtdszip = true
 
-sourcefiles      = {module .. ".dtx", module .. "-fontset.dtx", "ctexpunct.spa"}
+sourcefiles      = {
+  module .. ".dtx", module .. "-kernel.dtx",
+  "ctexpunct.spa",  module .. "-engine.dtx",
+                    module .. "-scheme.dtx",
+                    module .. "-auxpkg.dtx",
+                    module .. "-fontset.dtx"
+}
 unpackfiles      = {module .. ".dtx"}
 installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.ins", "*.lua"}
 unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"}
 typesetfiles     = {module .. ".dtx"}
 typesetsuppfiles = {"ctxdoc.cls"}
-gitverfiles      = {module .. ".dtx", module .. "-fontset.dtx", "ctxdoc.cls"}
+gitverfiles      = {
+  module .. ".dtx", module .. "-kernel.dtx",
+  "ctxdoc.cls",     module .. "-engine.dtx",
+                    module .. "-scheme.dtx",
+                    module .. "-auxpkg.dtx",
+                    module .. "-fontset.dtx"
+}
 
 tdslocations = {
   "source/latex/ctex/*-make.lua",
