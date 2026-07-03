@@ -77,13 +77,6 @@ checkinit_hook = function()
   return 0
 end
 dofile("../support/build-config.lua")
-bundleunpack = function (...)
-  unpack_prehook()
-  local retval = unhooked_bundleunpack(...)
-  is_unpacked = true
-  unpack_posthook()
-  return retval
-end
 
 --[==========================================================================[--
     CTAN upload                     在 CI 中 用 release-ctan-upload.yml 触发
@@ -115,7 +108,7 @@ function update_tag(file, content, tagname, tagdate)
     if string.match(tagtarget, "%.dtx$") then
       content = string.gsub(content,
         "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..
-        "%d+%.%d+%.%d+ %d+%-%d+%-%d+ (.-)%$",
+        "%d+%.%d+%.%w+ %d+%-%d+%-%d+ (.-)%$",
         "%%<+!driver>\\GetIdInfo $Id: "  .. tag       .. " " ..
         tagname .. " " .. tagdateid ..   "$")
     end
