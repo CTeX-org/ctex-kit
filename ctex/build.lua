@@ -100,11 +100,11 @@ uploadconfig = ctex_kit_uploadconfig {
 function update_tag(file, content, tagname, tagdate)
   tagname = version
   for _, tag in ipairs(sourcefiles) do
-    tagtarget = string.gsub(tag, "%-", "%%-")
-    tagdateid =
+    local tagtarget = string.gsub(tag, "%-", "%%-")
+    local tagdateid =
       io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
       read('*l')
-    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
+    local tagdateid = string.gsub(tagdateid, "%%", "%%%%")
     if string.match(tagtarget, "%.dtx$") then
       content = string.gsub(content,
         "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..
