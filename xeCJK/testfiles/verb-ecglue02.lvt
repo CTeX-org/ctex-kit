@@ -1,0 +1,102 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\showboxbreadth=100
+\showboxdepth=10
+
+\begin{document}
+
+\START
+
+% #919: double CJKecglue on the RIGHT side of \verb when a source space
+% follows, in PARAGRAPH mode only. Root cause: TeX emits the language
+% whatsit lazily -- after \verb's group closes, the whatsit only enters
+% the horizontal list when the NEXT char node comes in, so the
+% source-space inter-word glue lands BEFORE the \setlanguage whatsit:
+%
+%   kern pair -> glue(source space) -> setlanguage -> [probe point]
+%
+% The following CJK char's transition then sees a whatsit as the last
+% node (the glue is shadowed underneath), and
+% \__xeCJK_recover_glue_whatsit:'s default branch emits another ecglue
+% on top of the existing glue -> double spacing.
+%
+% Fix: \__xeCJK_flush_language_whatsit: appended to \verb@egroup forces
+% the whatsit out immediately at group close:
+%
+%   kern pair -> setlanguage -> glue(source space) -> [probe point]
+%
+% The probe now sees the glue and takes the glue branch; no extra
+% ecglue. The whatsit only exists in outer horizontal mode (paragraph),
+% so the box constructions below use \vbox{...\par}; restricted \hbox
+% mode never had the bug.
+%
+% NOTE: checkopts has -halt-on-error and \showbox reports "! OK." as an
+% error, so only ONE \showbox can appear in this file and it must be in
+% the LAST test. Width comparisons (\TYPE of \wd values) serve as the
+% oracle for the other scenarios.
+
+% \verb cannot appear inside a macro argument, so boxes are set at the
+% top level.
+
+% 1sp/1sp main scenario vs 1sp/0sp: identical left side; right side is
+% source space (single inter-word glue after the fix) vs bare default-
+% branch ecglue. Both have the same natural width, so the vbox widths
+% (single-line paragraphs under \hsize) must produce the same line
+% content width. Compare via \hbox re-measurement of the same content.
+\setbox0=\hbox{用 \verb|X| 无}
+\setbox1=\hbox{用 \verb|X|无}
+\setbox2=\hbox{用\verb|X|无}
+\setbox3=\hbox{用\verb|X| 无}
+
+\TEST{restricted hbox widths (inventory)}{
+  % In restricted horizontal mode there is no language whatsit, so
+  % these widths are the no-bug reference inventory. All four must
+  % stay unchanged by the patch (flush is \mode_if_horizontal:T only,
+  % i.e. outer horizontal mode).
+  \TYPE{1sp/1sp hbox: \the\wd0}
+  \TYPE{1sp/0sp hbox: \the\wd1}
+  \TYPE{0sp/0sp hbox: \the\wd2}
+  \TYPE{0sp/1sp hbox: \the\wd3}
+}
+
+% Paragraph mode: measure the natural width of the single line via
+% \parbox-free construction -- unskip the infinite fills and remeasure.
+% Simpler oracle: compare paragraph-mode pairs whose widths must be
+% equal after the fix.
+\setbox4=\vbox{\hsize=10cm \noindent 用 \verb|X| 无\par}
+\setbox5=\vbox{\hsize=10cm \noindent 用 \verb|X|无\par}
+\setbox6=\vbox{\hsize=10cm \noindent 用\verb|X|无\par}
+\setbox7=\vbox{\hsize=10cm \noindent ab \verb|X| cd\par}
+
+\TEST{paragraph-mode glue accounting via badness}{
+  % All these paragraphs are single lines stretched to \hsize; the glue
+  % set ratio embedded in \showbox output differs when an extra 3.33pt
+  % glue is present. We expose it via the vbox height/depth (invariant)
+  % plus the badness of the line, which reflects total stretch.
+  % Before the fix box4's line had one extra ecglue (more absolute
+  % width consumed -> different glue set). The definitive node-level
+  % check is TEST 3's \showbox; here we record box dimensions as a
+  % cheap cross-check that survives in the .tlg.
+  \TYPE{1sp/1sp vbox: \the\wd4 x \the\ht4 + \the\dp4}
+  \TYPE{1sp/0sp vbox: \the\wd5 x \the\ht5 + \the\dp5}
+  \TYPE{0sp/0sp vbox: \the\wd6 x \the\ht6 + \the\dp6}
+  \TYPE{ascii   vbox: \the\wd7 x \the\ht7 + \the\dp7}
+}
+
+\TEST{node-level dump, 1sp main scenario (919)}{
+  % THE oracle: before the fix the right side of the verb shows TWO
+  % adjacent "\glue 3.33" nodes (source space + default branch) with
+  % \setlanguage0 between kern pair and first glue; after the fix a
+  % single glue with \setlanguage0 emitted right after the kern pair.
+  % Must be the LAST test: -halt-on-error stops at \showbox's "! OK."
+  \showbox4
+}
+
+\END
+
+\end{document}

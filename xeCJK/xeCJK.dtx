@@ -209,7 +209,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.10.1}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.10.2}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -300,6 +300,7 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/13}{修复 \tn{textcolor} 包裹 \pkg{ulem}
 %   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 % \changes{v3.10.1}{2026/06/29}{提升版本号至 v3.10.1。}
+% \changes{v3.10.2}{2026/07/03}{提升版本号至 v3.10.2。}
 %
 % \GetFileId{xeCJK.sty}
 %
@@ -9982,7 +9983,42 @@ Copyright and Licence
 % token 层面的 interchar 处理，需要保留 \cs{g_@@_last_node_tl}
 % 的状态。后续若有新的调用点，请同步更新本节注释。
 %
-% \begin{macro}[int]{\@@_drain_ecglue_verb:,\@@_patch_verb:}
+% \changes{v3.10.2}{2026/07/03}{\tn{verb} 组关闭时用 \tn{setlanguage}
+%   主动排出 language whatsit，修复 \tn{verb} 右侧源码空格场景下
+%   \texttt{CJKecglue} 双倍的问题（\#919）。}
+%
+% \tn{verb} 右侧还有一处独立问题（\#919）：\tn{verb} 组内
+% \tn{language} 被切到 \tn{l@nohyphenation}，组关闭后 \TeX{} 的
+% language whatsit 是\emph{延迟}排出的——要等下一个字符节点进入
+% 水平列表时才补插。于是 \tn{verb} 与后文之间的源码空格产生的
+% inter-word glue 先进列表，\tn{setlanguage} whatsit 反而排在
+% glue \emph{之后}：
+% \begin{quote}
+% \ttfamily kern pair → glue(source space) → setlanguage → [探测点]
+% \end{quote}
+% 后续 CJK 字符触发类别转换时，\cs{xeCJK_check_for_glue:} 看到的
+% last node 是 whatsit 而非 glue，走
+% \cs{@@_recover_glue_whatsit:} 的 default 分支再补一个
+% \texttt{CJKecglue}——与已有的 inter-word glue 相加成双倍间距。
+% \tn{lastskip} 无法穿透 whatsit，default 分支也不能收窄（无源码
+% 空格的 \texttt{字\tn{verb}\ldots 字} 场景依赖它补合法 ecglue），
+% 因此不从探测端修，而是从节点顺序入手：在 \tn{verb@egroup} 关组
+% 之后立即执行 \tn{setlanguage\tn{language}}，强制 language
+% whatsit 当场排出。此后源码空格的 glue 排在 whatsit 之后：
+% \begin{quote}
+% \ttfamily kern pair → setlanguage → glue(source space) → [探测点]
+% \end{quote}
+% 探测点看到的 last node 是 glue，走 \cs{@@_check_for_glue_skip:}
+% 正确处理，不再重复补 ecglue；无源码空格时 last node 是我们排出
+% 的 whatsit，default 分支照常补上合法 ecglue，原有行为不变。
+% \tn{setlanguage\tn{language}} 只按当前值排出 whatsit，不改变
+% hyphenation 状态，对断行无副作用。仅在水平模式下执行——数学
+% 模式或行首场景没有这个时序问题。
+%
+% \pkg{shortvrb} 短记号与 \tn{verb}* 都经由 \tn{verb} 入口且组关闭
+% 走同一个 \tn{verb@egroup}，因此同样被覆盖。
+%
+% \begin{macro}[int]{\@@_drain_ecglue_verb:,\@@_patch_verb:,\@@_flush_language_whatsit:}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_drain_ecglue_verb:
   {
@@ -9996,6 +10032,8 @@ Copyright and Licence
       }
       { }
   }
+\cs_new_protected:Npn \@@_flush_language_whatsit:
+  { \mode_if_horizontal:T { \tex_setlanguage:D \tex_language:D } }
 \cs_new_protected:Npn \@@_patch_verb:
   {
     \cs_if_exist:NF \@@_orig_verb:
@@ -10006,6 +10044,7 @@ Copyright and Licence
             \mode_if_math:F { \@@_drain_ecglue_verb: }
             \@@_orig_verb:
           }
+        \tl_gput_right:Nn \verb@egroup { \@@_flush_language_whatsit: }
       }
   }
 \@@_after_preamble:n { \@@_patch_verb: }
