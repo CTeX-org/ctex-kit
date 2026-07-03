@@ -111,7 +111,7 @@ function update_tag(file, content, tagname, tagdate)
     local tagdateid =
       io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
       read('*l')
-    local tagdateid = string.gsub(tagdateid, "%%", "%%%%")
+    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
     if string.match(tagtarget, "%.dtx$") then
       content = string.gsub(content,
         "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..
