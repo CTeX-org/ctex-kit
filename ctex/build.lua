@@ -98,10 +98,10 @@ uploadconfig = ctex_kit_uploadconfig {
   ctanPath    = "/language/chinese/ctex",
 }
 function update_tag(file, content, tagname, tagdate)
-  local tagname = version
+  tagname = version
   for _, tag in ipairs(sourcefiles) do
-    local tagtarget = string.gsub(tag, "%-", "%%-")
-    local tagdateid =
+    tagtarget = string.gsub(tag, "%-", "%%-")
+    tagdateid =
       io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
       read('*l')
     tagdateid = string.gsub(tagdateid, "%%", "%%%%")
