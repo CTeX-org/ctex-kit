@@ -93,7 +93,7 @@ dofile("../support/build-config.lua")
 -- uploader/email 不在此填, 由 workflow 在 `l3build upload` 命令行注入.
 uploadconfig = ctex_kit_uploadconfig {
   pkg         = "ctex",
-  version     = read_dtx_version("ctex.dtx"),
+  version     = read_dtx_version("ctex-kernel.dtx"),
   author      = "Leo Liu; Qing Lee; Liam Huang",
   summary     = "LaTeX classes and packages for Chinese typesetting",
   description = "ctex is a bundle of LaTeX classes and packages for "
