@@ -1,6 +1,6 @@
 -- Common settings for ctex-kit development repo, used by l3build script
 
-supportdir    = supportdir    or "../support"
+-- supportdir    = supportdir    or "../support"
 gitverfiles   = gitverfiles   or unpackfiles
 unpackexe     = unpackexe     or "luatex"
 typesetexe    = typesetexe    or "xelatex"

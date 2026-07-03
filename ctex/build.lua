@@ -1,32 +1,43 @@
+module              = "ctex"
+version             = "2.6.1"
 
-module = "ctex"
-
-packtdszip = true
-
-sourcefiles      = {
-  module .. ".dtx",
-  module .. "-kernel.dtx",
-  module .. "-engine.dtx",
-  module .. "-scheme.dtx",
-  module .. "-auxpkg.dtx",
-  module .. "-fontset.dtx",
+--[==========================================================================[--
+    Configuration: Check, Tag, Pack, Upload     Do NOT Modify if Unnecessary
+--]==========================================================================]--
+packtdszip          = true
+sourcefiles         = {
+  module .. ".dtx",         module .. "-kernel.dtx",  module .. "-engine.dtx",
+  module .. "-scheme.dtx",  module .. "-auxpkg.dtx",  module .. "-fontset.dtx",
   "ctexpunct.spa"
 }
-unpackfiles      = {module .. ".dtx"}
-installfiles     = {"*.sty", "*.cls", "*.clo", "*.def", "*.cfg", "*.fd", "ct*.tex", "zh*.tex", "*.dict", "*.ins", "*.lua"}
-unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"}
-typesetfiles     = {module .. ".dtx"}
-typesetsuppfiles = {"ctxdoc.cls"}
-gitverfiles      = {
-  module .. ".dtx",
-  module .. "-kernel.dtx",
-  module .. "-engine.dtx",
-  module .. "-scheme.dtx",
-  module .. "-auxpkg.dtx",
-  module .. "-fontset.dtx",
-  "ctxdoc.cls"
+unpackfiles         = {module .. ".dtx"}
+installfiles        = {
+  "*.ins", "*.sty",   "*.cls",   "*.clo",  "*.def", "*.cfg",
+  "*.fd",  "ct*.tex", "zh*.tex", "*.dict", "*.lua"
 }
-
+unpacksuppfiles     = {
+  "ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"
+}
+typesetfiles        = {module .. ".dtx"}
+typesetsuppfiles    = {"ctxdoc.cls"}
+gitverfiles         = {"ctxdoc.cls"}
+testfiledir         = "./test/testfiles"
+testsuppdir         = "./test/support"
+testdir             = "./build/check"
+checkruns           = 2
+stdengine           = "xetex"
+checkdeps           = {"../xeCJK", "../zhnumber"}
+checkengines        = {"pdftex", "xetex", "luatex", "uptex"}
+specialformats      = {}
+specialformats.latex= {
+  pdftex = {format = "latex"},
+  uptex  = {binary = "euptex"}
+}
+-- unfortunately cleveref is incompatible with recent LaTeX2e
+excludetests   = {
+  "cleveref02",
+  "cleveref03",
+}
 tdslocations = {
   "source/latex/ctex/*-make.lua",
   "source/latex/ctex/*.ins",
@@ -42,6 +53,7 @@ tdslocations = {
   "tex/luatex/ctex/*.lua",
 }
 
+--[================== "Hacks" to `l3build` | Do not Modify ==================]--
 function unpack_posthook()
   if install_files_bool then
     for _,i in ipairs{"ctxdoc.cls", "ctxdocstrip.tex", "ctex-zhconv*.lua"} do
@@ -49,33 +61,12 @@ function unpack_posthook()
     end
   end
 end
-
 function copyctan_posthook()
   local dest = ctandir .. "/" .. ctanpkg
   for _,file in ipairs{"ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-make.lua"} do
     cp(file, unpackdir, dest)
   end
 end
-
-testfiledir    = "./test/testfiles"
-testsuppdir    = "./test/support"
-testdir        = "./build/check"
-checkruns      = 2
-stdengine      = "xetex"
-checkdeps      = {"../xeCJK","../zhnumber"}
-checkengines   = {"pdftex", "xetex", "luatex", "uptex"}
-specialformats = {}
-specialformats.latex = {
-  pdftex = {format = "latex"},
-  uptex  = {binary = "euptex"}
-}
-
--- unfortunately cleveref is incompatible with recent LaTeX2e
-excludetests   = {
-  "cleveref02",
-  "cleveref03",
-}
-
 checkinit_hook = function()
   for _,i in ipairs(checkdeps) do
     local unpackdir = i .. "/" .. unpackdir
@@ -85,15 +76,23 @@ checkinit_hook = function()
   end
   return 0
 end
-
 dofile("../support/build-config.lua")
+bundleunpack = function (...)
+  unpack_prehook()
+  local retval = unhooked_bundleunpack(...)
+  is_unpacked = true
+  unpack_posthook()
+  return retval
+end
 
--- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
--- 版本号从 ctex.dtx 的 `\ExplFileDate` 动态读取, 避免与 .dtx 失同步.
--- uploader/email 不在此填, 由 workflow 在 `l3build upload` 命令行注入.
+--[==========================================================================[--
+    CTAN upload                     在 CI 中 用 release-ctan-upload.yml 触发
+    版本号定义在此文件, 并通过命令行执行 `l3build tag` 自动更新到相关 dtx 中
+    Uploader/Email 移动至 CI: GitHub UI 填写后在 `l3build upload` 命令行注入
+--]==========================================================================]--
 uploadconfig = ctex_kit_uploadconfig {
   pkg         = "ctex",
-  version     = read_dtx_version("ctex-kernel.dtx"),
+  version     = version,
   author      = "Leo Liu; Qing Lee; Liam Huang",
   summary     = "LaTeX classes and packages for Chinese typesetting",
   description = "ctex is a bundle of LaTeX classes and packages for "
@@ -105,3 +104,20 @@ uploadconfig = ctex_kit_uploadconfig {
              .. "for the standard article / book / report classes.",
   ctanPath    = "/language/chinese/ctex",
 }
+function update_tag(file, content, tagname, tagdate)
+  local tagname = version
+  for _, tag in ipairs(sourcefiles) do
+    local tagtarget = string.gsub(tag, "%-", "%%-")
+    local tagdateid =
+      io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
+      read('*l')
+    if string.match(tagtarget, ".dtx$") then
+      content = string.gsub(content,
+        "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..
+        "%d+%.%d+%.%d+ %d+%-%d+%-%d+ (.-)%$",
+        "%%<+!driver>\\GetIdInfo $Id: "  .. tag       .. " " ..
+        tagname .. " " .. tagdateid ..   "$")
+    end
+  end
+  return content
+end
