@@ -9987,6 +9987,23 @@ Copyright and Licence
 %   主动排出 language whatsit，修复 \tn{verb} 右侧源码空格场景下
 %   \texttt{CJKecglue} 双倍的问题（\#919）。}
 %
+% \begin{macro}[int]{\@@_drain_ecglue_verb:}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_drain_ecglue_verb:
+  {
+    \xeCJK_if_last_node:TF
+      {
+        \tl_if_empty:NF \g_@@_last_node_tl
+          {
+            \xeCJK_remove_node:
+            \skip_horizontal:N \l_@@_ecglue_skip
+          }
+      }
+      { }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \tn{verb} 右侧还有一处独立问题（\#919）：\tn{verb} 组内
 % \tn{language} 被切到 \tn{l@nohyphenation}，组关闭后 \TeX{} 的
 % language whatsit 是\emph{延迟}排出的——要等下一个字符节点进入
@@ -10011,29 +10028,28 @@ Copyright and Licence
 % 探测点看到的 last node 是 glue，走 \cs{@@_check_for_glue_skip:}
 % 正确处理，不再重复补 ecglue；无源码空格时 last node 是我们排出
 % 的 whatsit，default 分支照常补上合法 ecglue，原有行为不变。
-% \tn{setlanguage\tn{language}} 只按当前值排出 whatsit，不改变
-% hyphenation 状态，对断行无副作用。仅在水平模式下执行——数学
-% 模式或行首场景没有这个时序问题。
 %
-% \pkg{shortvrb} 短记号与 \tn{verb}* 都经由 \tn{verb} 入口且组关闭
-% 走同一个 \tn{verb@egroup}，因此同样被覆盖。
-%
-% \begin{macro}[int]{\@@_drain_ecglue_verb:,\@@_patch_verb:,\@@_flush_language_whatsit:}
+% \begin{macro}[int]{\@@_flush_language_whatsit:}
+% 按当前 \tn{language} 值主动排出一个 language whatsit。
+% \tn{setlanguage\tn{language}} 只排出 whatsit 记录当前值，不改变
+% hyphenation 状态，对断行无副作用。仅在（外层）水平模式下执行：
+% 数学模式或行首场景没有上述时序问题，restricted horizontal mode
+% （\tn{hbox} 内）则根本不产生延迟 whatsit。
+% 目前唯一调用点是 \tn{verb@egroup}（见下方 \cs{@@_patch_verb:}）；
+% 未来若有其他切换 \tn{language} 的分组宏需要同样的时序修正，
+% 可直接复用本函数，并在此注释中登记新的调用点。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_drain_ecglue_verb:
-  {
-    \xeCJK_if_last_node:TF
-      {
-        \tl_if_empty:NF \g_@@_last_node_tl
-          {
-            \xeCJK_remove_node:
-            \skip_horizontal:N \l_@@_ecglue_skip
-          }
-      }
-      { }
-  }
 \cs_new_protected:Npn \@@_flush_language_whatsit:
   { \mode_if_horizontal:T { \tex_setlanguage:D \tex_language:D } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \pkg{shortvrb} 短记号与 \tn{verb}* 都经由 \tn{verb} 入口且组关闭
+% 走同一个 \tn{verb@egroup}，因此 drain 与 flush 两个补丁都自动
+% 覆盖到。
+%
+% \begin{macro}[int]{\@@_patch_verb:}
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_verb:
   {
     \cs_if_exist:NF \@@_orig_verb:
