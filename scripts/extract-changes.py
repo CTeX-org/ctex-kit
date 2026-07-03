@@ -17,6 +17,7 @@ LaTeX 命令清洗规则与 release.yml 之前内联的 Python 完全一致.
 """
 import re
 import sys
+import os
 
 
 def extract(dtx_path: str, target_ver: str) -> list[str]:
@@ -95,12 +96,7 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
             entries.append(text)
     return entries
 
-
-def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"usage: {sys.argv[0]} <dtx_path> <version>", file=sys.stderr)
-        return 2
-    dtx_path, target_ver = sys.argv[1], sys.argv[2]
+def echo(dtx_path, target_ver):
     entries = extract(dtx_path, target_ver)
     seen: set[str] = set()
     for e in entries:
@@ -110,6 +106,20 @@ def main() -> int:
         print(f"- {e}")
     return 0
 
+def main() -> int:
+    if len(sys.argv) != 3:
+        print(f"usage: {sys.argv[0]} <dtx_path> <version>", file=sys.stderr)
+        return 2
+    dtx_path, target_ver = sys.argv[1], sys.argv[2]
+    if "*.dtx" in dtx_path:
+        dtx_path = dtx_path[:-len("*.dtx")]
+        for file in os.listdir(dtx_path):
+            if file.endswith(".dtx"):
+                dtx_path = os.path.join(dtx_path, file)
+                echo(dtx_path, target_ver)
+                dtx_path = dtx_path[:-len(file)]
+    else:
+        echo(dtx_path, target_ver)
 
 if __name__ == "__main__":
     raise SystemExit(main())
