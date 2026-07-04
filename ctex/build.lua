@@ -97,19 +97,31 @@ uploadconfig = ctex_kit_uploadconfig {
              .. "for the standard article / book / report classes.",
   ctanPath    = "/language/chinese/ctex",
 }
+-- l3build tag 回写 5 个拆分 .dtx 的 `%<+!driver>\GetIdInfo $Id: ...$` 行.
+-- update_tag 由 l3build 逐 tagfile 调用, `file` 即当前文件 basename.
+--
+-- 幂等性设计: stamp 里的版本号已经等于本文件顶部的 `version` 时**原样保留**
+-- (不动 date/sha), 只有版本号不一致 (即发新版 bump 了 version 还没 stamp)
+-- 才回写, date/sha 取该 dtx 的 `git log -1`. 若不做这个守卫, stamp 会追着
+-- commit 跑: 每次 commit stamp 更新本身就产生新 sha, 下次 tag 又想写新
+-- sha, 永不收敛 -- check-tag.yml CI 的 "l3build tag 后 diff 必须为零"
+-- 检查就永远 fire.
 function update_tag(file, content, tagname, tagdate)
   tagname = version
-  for _, tag in ipairs(sourcefiles) do
-    local tagtarget = string.gsub(tag, "%-", "%%-")
-    local tagdateid =
-      io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
-      read('*l') or ""
-    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
-    if string.match(tagtarget, "%.dtx$") then
+  if string.match(file, "%.dtx$") then
+    local filetarget = string.gsub(file, "%-", "%%-")
+    -- 现 stamp 的版本号 == version 时跳过, 保证幂等.
+    local stamped = content:match(
+      "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " (%d+%.%d+%.%w+) ")
+    if stamped ~= tagname then
+      local tagdateid =
+        io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. file):
+        read('*l') or ""
+      tagdateid = string.gsub(tagdateid, "%%", "%%%%")
       content = string.gsub(content,
-        "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..
+        "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " " ..
         "%d+%.%d+%.%w+ %d+%-%d+%-%d+ (.-)%$",
-        "%%<+!driver>\\GetIdInfo $Id: "  .. tag       .. " " ..
+        "%%<+!driver>\\GetIdInfo $Id: "  .. file       .. " " ..
         tagname .. " " .. tagdateid ..   "$")
     end
   end

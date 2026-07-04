@@ -1,0 +1,127 @@
+name: ctex-kit check-tag
+
+# PR 门禁: 校验"支持 l3build tag 的包"(zhlineskip / ctex) 的源文件版本
+# stamp 与 build.lua 的 version 字段一致.
+#
+# 机制: 这两个包的 build.lua 把 `version` 作为发版事实源, 重写 update_tag
+# 让 `l3build tag` 把 version 回写进 .dtx 的 `\GetIdInfo $Id: ...$` 行
+# (zhlineskip PR #892 首创, ctex PR #937 移植). 该回写是维护者本地手跑的,
+# 忘跑的话 stamp 落后于 version, 发出去的包源文件版本行是 stale 的.
+#
+# 本 workflow 在 PR 上跑 `l3build tag` + `git diff --exit-code`:
+#   - update_tag 有幂等守卫 (stamp 版本 == version 时不回写),
+#     所以 stamp 已同步时 diff 为零 → pass;
+#   - bump 了 version 没跑 tag 时 CI 会真回写 → diff 非零 → fail,
+#     提示作者本地跑 `l3build tag` 并 commit.
+#
+# 触发/结构参考 check-doc.yml (caller-per-pkg 的精简版: tag 是秒级纯文本
+# 操作, 不需要 reusable workflow, 两个包各一个内联 job 即可).
+#
+# release.yml 侧还有第二道闸: 打 release tag 时校验 git tag / build.lua
+# version / dtx stamp 三方一致, 不一致拒绝发版. 本 workflow 把问题拦在
+# PR 阶段, release 校验兜底.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, synchronize]
+    paths:
+      - 'zhlineskip/**'
+      - 'ctex/**'
+      - '.github/workflows/check-tag.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'master' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ctex:       ${{ steps.filter.outputs.ctex }}
+      zhlineskip: ${{ steps.filter.outputs.zhlineskip }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            _all: &all
+              - '.github/workflows/check-tag.yml'
+            ctex:
+              - *all
+              - 'ctex/**'
+            zhlineskip:
+              - *all
+              - 'zhlineskip/**'
+
+  tag-ctex:
+    needs: changes
+    if: needs.changes.outputs.ctex == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # ctex 的 update_tag 用 `git log -1 -- <dtx>` 取日期/sha (仅在
+          # stamp 版本落后需要回写时才执行). fetch-depth: 0 保证 log 可用
+          # 且信息与真实历史一致.
+          fetch-depth: 0
+      # l3build tag 是纯 texlua 文本操作, 只需 l3build + latex-bin (texlua),
+      # 不需要字体/引擎, 走最小安装 (~30s, action 内部有 cache).
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        working-directory: ./ctex
+        run: |
+          l3build tag
+          if ! git diff --exit-code -- .; then
+            echo "::error::ctex 源文件版本 stamp 与 build.lua 的 version 不一致."
+            echo "::error::请在本地运行: cd ctex && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ ctex stamp 与 version 一致 (l3build tag 为 no-op)"
+
+  tag-zhlineskip:
+    needs: changes
+    if: needs.changes.outputs.zhlineskip == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        working-directory: ./zhlineskip
+        run: |
+          l3build tag
+          if ! git diff --exit-code -- .; then
+            echo "::error::zhlineskip 源文件版本 stamp 与 build.lua 的 version/date 不一致."
+            echo "::error::请在本地运行: cd zhlineskip && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ zhlineskip stamp 与 version 一致 (l3build tag 为 no-op)"
+
+  # 汇总: 供 branch protection 单点盯 (与 test-result / check-doc-result 同构).
+  check-tag-result:
+    if: ${{ !cancelled() }}
+    needs: [tag-ctex, tag-zhlineskip]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate results
+        env:
+          R_CTEX:       ${{ needs.tag-ctex.result }}
+          R_ZHLINESKIP: ${{ needs.tag-zhlineskip.result }}
+        run: |
+          fail=0
+          for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP"; do
+            name="${nv%%:*}"; res="${nv#*:}"
+            if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
+              echo "✓ ${name}: ${res}"
+            else
+              echo "✗ ${name}: ${res}"; fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
