@@ -66,7 +66,9 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # \cs / \tn → `\<name>` (先用 \x00..\x01 临时占位, 避开后面 \\
         # 命令通杀正则把 \cs 自己也吃掉).
         text = re.sub(r"\\(?:cs|tn)\{([^}]*)\}", lambda m: "\x00" + m.group(1) + "\x01", text)
-        text = re.sub(r"\\(?:opt|pkg|cls|file|texttt)\{([^}]*)\}", r"`\1`", text)
+        text = re.sub(r"\\(?:|pkg|cls|file|texttt)\{([^}]*)\}", r"`\1`", text)
+        # `zhmakeindex` 会自动把 `\opt` 命令中可能出现的 `!=` 更换为 `=`
+        text = re.sub(r"\\opt\{([^}]*)!=([^}]*)\}", r"`\1 = \2`", text)
         text = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", text)
         text = re.sub(r"\\#", "#", text)
         # LaTeX 系列 logo 命令的常见形态: \LaTeX, \LaTeX\<space>, \LaTeX{}.
@@ -86,8 +88,6 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         text = re.sub(r"\\ApTeX(?:\\\s|\{\})?", "ApTeX ", text)
         text = re.sub(r"\\pTeX(?:\\\s|\{\})?", "pTeX ", text)
         text = re.sub(r"\\TeX(?:\\\s|\{\})?", "TeX ", text)
-        # `zhmakeindex` 会自动把 `!=` (多见于 `\opt` 命令中) 更换为 `=`
-        text = re.sub(r"!=", "=", text)
         # 余下的 \xxx / \xxx{} 一律剥掉 (\changes 里其他命令通常是引用类,
         # 直接去掉名字不影响信息量).
         text = re.sub(r"\\[A-Za-z]+(?:\{\})?\s*", "", text)
