@@ -625,6 +625,26 @@ Copyright and Licence
 %   其确实居中。对于行末出现的居中标点，允许在其后面断行，但禁止在它前面断行。
 % \end{function}
 %
+% \begin{function}[added=2026-07-04]{PoZheHaoLigature}
+%   \begin{syntax}
+%     PoZheHaoLigature = \meta{\TFF}
+%   \end{syntax}
+%   一些设计优良的 OpenType 字体（如思源宋体、思源黑体）提供了破折号合字功能：
+%   连续的两个 \texttt{U+2014} 会被替换为一个两倍字宽的字形。
+%   缺省状态下，\pkg{xeCJK} 在破折号之间插入的标点处理代码会阻断这一功能。
+%   启用这一选项后，\pkg{xeCJK} 把 \texttt{U+2014} 和 \texttt{U+2015} 归入
+%   |PoZheHao| 字符类，它们之间不插入任何内容，从而恢复字体的合字功能。
+%   这一选项需要字体的配合（一般还需启用 |fwid| 或 |locl| 等 OpenType 特性
+%   得到全角字形），对不支持破折号合字的字体（多数中文字库）不要启用它，
+%   否则连续破折号中间可能出现空隙。由于标点度量按字体缓存，
+%   这一选项建议在导言区或使用相应字体排版破折号之前设置。
+%   例如：
+% \begin{ctexexam}
+% \setCJKmainfont{Noto Serif CJK SC}[RawFeature=+fwid]
+% \xeCJKsetup{PoZheHaoLigature}
+% \end{ctexexam}
+% \end{function}
+%
 % \begin{function}[EXP]{PunctWidth}
 %   \begin{syntax}
 %     PunctWidth = \Arg{length}
@@ -2391,6 +2411,7 @@ Copyright and Licence
 % |Boundary|    & 边界               & 空格 \\
 % |CM|          & 组合标识           & 异体字选择符\\
 % |HangulJamo|  & 朝鲜文字母         & |ᄻ||ᆟ||ᇫ|\\
+% |PoZheHao|    & 支持合字的破折号   & ——\\
 % \bottomrule
 % \end{tabular}
 % \end{center}
@@ -2429,15 +2450,19 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.2.15}{2014/11/10}{增加 \texttt{HangulJamo} 字符类。}
+% \changes{v3.10.2}{2026/07/04}{增加 \texttt{PoZheHao} 字符类，
+%  支持字体的破折号合字功能（\#382）。}
 %
-% \begin{macro}[int]{HalfLeft,HalfRight,NormalSpace,CM,HangulJamo}
-% 新增西文半角左/右标点、前后原始间距的符号和异体字选择符类。
+% \begin{macro}[int]{HalfLeft,HalfRight,NormalSpace,CM,HangulJamo,PoZheHao}
+% 新增西文半角左/右标点、前后原始间距的符号和异体字选择符类，
+% 以及支持破折号合字的字符类。
 %    \begin{macrocode}
 \xeCJK_new_class:n { HalfLeft }
 \xeCJK_new_class:n { HalfRight }
 \xeCJK_new_class:n { NormalSpace }
 \xeCJK_new_class:n { CM }
 \xeCJK_new_class:n { HangulJamo }
+\xeCJK_new_class:n { PoZheHao }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3029,7 +3054,11 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\xeCJKResetPunctClass}
-% 用于重置标点符号所属的字符类。
+% \changes{v3.10.2}{2026/07/04}{重置后恢复 \texttt{PoZheHaoLigature}
+%  的设置（\#382）。}
+% 用于重置标点符号所属的字符类。注意，重新声明 |FullRight| 类会把
+% \texttt{U+2014} 移出 |PoZheHao| 类，因此在重置后需要恢复
+% \opt{PoZheHaoLigature} 的设置。
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKResetPunctClass { }
   {
@@ -3041,7 +3070,10 @@ Copyright and Licence
     \xeCJK_declare_char_class:nN { HalfRight } \c_@@_HalfRight_chars_clist
     \xeCJK_declare_char_class:nN { FullLeft  } \c_@@_FullLeft_chars_clist
     \xeCJK_declare_char_class:nN { FullRight } \c_@@_FullRight_chars_clist
+    \bool_if:NT \g_@@_pozhehao_ligature_bool
+      { \xeCJK_declare_char_class:nn { PoZheHao } { "2014 , "2015 } }
   }
+\bool_new:N \g_@@_pozhehao_ligature_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3210,7 +3242,7 @@ Copyright and Licence
     \@@_update_clear_toks:n {#1}
   }
 \clist_map_function:nN
-  { CJK , FullLeft , FullRight , CM , HangulJamo } \@@_save_CJK_class:n
+  { CJK , FullLeft , FullRight , CM , HangulJamo , PoZheHao } \@@_save_CJK_class:n
 %    \end{macrocode}
 % \end{variable}
 %
@@ -3361,6 +3393,23 @@ Copyright and Licence
           {
             \xeCJK_copy_inter_class_toks:nnnn { HangulJamo } {#1} { CJK } {#1}
             \xeCJK_copy_inter_class_toks:nnnn {#1} { HangulJamo } {#1} { CJK }
+          }
+      }
+  }
+%    \end{macrocode}
+%
+% \hypertarget{def-PZH}{\texttt{PoZheHao}} 字符类与 |FullRight| 字符类基本相同，
+% 只是 |PoZheHao| 类之间不加入任何内容，
+% 从而不阻断 OpenType 字体的破折号合字功能（\#382）。
+%    \begin{macrocode}
+\AtEndOfPackage
+  {
+    \seq_map_inline:Nn \g_@@_class_seq
+      {
+        \str_if_eq:nnF {#1} { PoZheHao }
+          {
+            \xeCJK_copy_inter_class_toks:nnnn { PoZheHao } {#1} { FullRight } {#1}
+            \xeCJK_copy_inter_class_toks:nnnn {#1} { PoZheHao } {#1} { FullRight }
           }
       }
   }
@@ -5818,10 +5867,12 @@ Copyright and Licence
 %
 % \changes{v3.2.12}{2014/05/12}{新增 \texttt{RubberPunctSkip} 选项。}
 % \changes{v3.4.0}{2016/05/13}{\texttt{RubberPunctSkip} 选项有新的值 \texttt{plus} 和 \texttt{minus}。}
+% \changes{v3.10.2}{2026/07/04}{新增 \texttt{PoZheHaoLigature} 选项，
+%  支持字体的破折号合字功能（\#382）。}
 %
 % \begin{macro}
 %  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,NoBreakLongPunct,
-%   MiddlePunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
+%   MiddlePunct,PoZheHaoLigature,PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
@@ -5854,6 +5905,19 @@ Copyright and Licence
     MiddlePunct   .code:n = { \@@_set_special_punct:nn { middle } {#1} } ,
     MiddlePunct+  .code:n = { \@@_add_special_punct:nn { middle } {#1} } ,
     MiddlePunct-  .code:n = { \@@_sub_special_punct:nn { middle } {#1} } ,
+    PoZheHaoLigature .choice: ,
+    PoZheHaoLigature / true  .code:n =
+      {
+        \bool_gset_true:N \g_@@_pozhehao_ligature_bool
+        \xeCJK_declare_char_class:nn { PoZheHao } { "2014 , "2015 }
+      } ,
+    PoZheHaoLigature / false .code:n =
+      {
+        \bool_gset_false:N \g_@@_pozhehao_ligature_bool
+        \xeCJK_declare_char_class:nn { FullRight } { "2014 }
+        \xeCJK_declare_char_class:nn { Default }   { "2015 }
+      } ,
+    PoZheHaoLigature .default:n = { true } ,
     PunctWidth      .tl_gset:N = \g_@@_punct_width_tl ,
     PunctBoundWidth .tl_gset:N = \g_@@_punct_bound_width_tl ,
     PunctWidth      .value_required:n = true ,
@@ -5914,12 +5978,24 @@ Copyright and Licence
 %    \end{macrocode}
 %
 % 判断一个标点符号是否为全角右标点和长标点符号。
+% \changes{v3.10.2}{2026/07/04}{\texttt{PoZheHao} 类字符同样按全角右标点
+%  处理（\#382）。}
+% 注意，|PoZheHao| 类的破折号同样按全角右标点处理，
+% 保证它与其他标点相邻时使用正确的间距参数。
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \@@_punct_if_right:N #1 { p , T , F , TF }
   {
     \if_int_compare:w \xeCJK_token_value_class:N #1 =
                       \xeCJK_class_num:n { FullRight }
-      \prg_return_true: \else: \prg_return_false: \fi:
+      \prg_return_true:
+    \else:
+      \if_int_compare:w \xeCJK_token_value_class:N #1 =
+                        \xeCJK_class_num:n { PoZheHao }
+        \prg_return_true:
+      \else:
+        \prg_return_false:
+      \fi:
+    \fi:
   }
 \clist_map_inline:Nn \g_@@_special_punct_clist
   {
@@ -6139,8 +6215,21 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\@@_long_punct_kerning:N}
 % \changes{v3.4.3}{2016/10/27}{考虑破折号边界为负值的情况。}
-% 相同长标点压缩。对于破折号，计算两标点之间的空白，保证它中间不被断开。
-% 注意，破折号的边界可能为负值（比如方正新书宋），此时不必压缩。
+% \changes{v3.10.2}{2026/07/04}{破折号中间的压缩量改为多路取大，
+%  保证两个 \texttt{U+2014} 的总宽不超过两个汉字宽（\#382）。}
+% 相同长标点压缩。对于破折号（\texttt{U+2014}），计算两标点之间的空白，
+% 保证它中间不被断开，同时保证其总宽（字面或字框）不超过两个汉字宽。
+% 压缩量取以下三者的最大值
+% （\texttt{width} 为字框宽，\texttt{dimen} 为字面宽，$F$ 为当前字号）：
+% \begin{itemize}
+%   \item \texttt{bound} 之和，用于字面窄于字框的字体（如中易宋体）；
+%   \item $\texttt{dimen} + \texttt{width} - 2F$，用于字面溢出字框的字体
+%     （如方正兰亭黑）；
+%   \item $2\,\texttt{width} - 2F$，用于字框宽于字号的字体（如微软雅黑）。
+% \end{itemize}
+% 注意，破折号的边界可能为负值（比如方正新书宋），此时不必压缩，
+% 故取值不小于零。省略号（\texttt{U+2025}、\texttt{U+2026}）连用时
+% 不需要压缩，其余长标点保持按边空压缩。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_long_punct_kerning:N #1
   {
@@ -6153,9 +6242,29 @@ Copyright and Licence
     \@@_save_punct_dim:nNNn { bound_width } #1 #1 { \l_@@_tmp_dim }
     \dim_set:Nn \l_@@_tmp_dim
       {
-        \str_case:nnTF {#1}
-          { { ^^^^2025 } { } { ^^^^2026 } { } }
-          { \c_zero_dim }
+        \str_case:nnF {#1}
+          {
+            { ^^^^2014 }
+              {
+                - \dim_max:nn
+                    { \l_@@_tmp_dim }
+                    {
+                      \dim_max:nn
+                        {
+                          \@@_use_punct_dim:nN { dimen } #1 +
+                          \@@_use_punct_dim:nN { width } #1 -
+                          \f@size pt - \f@size pt
+                        }
+                        {
+                          \@@_use_punct_dim:nN { width } #1 +
+                          \@@_use_punct_dim:nN { width } #1 -
+                          \f@size pt - \f@size pt
+                        }
+                    }
+              }
+            { ^^^^2025 } { \c_zero_dim }
+            { ^^^^2026 } { \c_zero_dim }
+          }
           { -\l_@@_tmp_dim }
       }
     \@@_save_punct_dim:nNNn  { kern } #1 #1 { \l_@@_tmp_dim }
@@ -6199,7 +6308,37 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_punct_if_full_margin_dash:N}
+% \changes{v3.10.2}{2026/07/04}{新增判断，配合破折号占两个汉字宽的
+%  空白补偿（\#382）。}
+% 判断标点 |#1| 是否为需要全空白补偿的破折号：即 \texttt{U+2014} 且未被
+% 归入 |PoZheHao| 类（没有启用破折号合字）。这类破折号在连用时，
+% 两个 \texttt{U+2014} 之间被挤压掉的空白恰好等于单个字符左右的总空白，
+% 因此在其两端各补偿一整份空白（而非一半），可以优先保证
+% 破折号占两个汉字宽。
+%    \begin{macrocode}
+\prg_new_conditional:Npnn \@@_punct_if_full_margin_dash:N #1 { p , T , F , TF }
+  {
+    \str_if_eq:nnTF {#1} { ^^^^2014 }
+      {
+        \if_int_compare:w \xeCJK_token_value_class:N #1 =
+                          \xeCJK_class_num:n { PoZheHao }
+          \prg_return_false:
+        \else:
+          \prg_return_true:
+        \fi:
+      }
+      { \prg_return_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\xeCJK_punct_margin_process:NN}
+% \changes{v3.10.2}{2026/07/04}{未启用合字的破折号两端各补偿一整份空白，
+%  保证连用的破折号占两个汉字宽（\#382）。}
+% 注意，未启用合字的破折号（\texttt{U+2014}）两端各补偿一整份空白。
+% 此时单独一个 \texttt{U+2014} 占一个字宽加一份空白，
+% 连用的两个 \texttt{U+2014} 恰好占两个字宽。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_punct_margin_process:NN #1#2
   {
@@ -6227,7 +6366,8 @@ Copyright and Licence
                   {
                     (   \l_@@_tmp_dim
                       - ( \@@_use_punct_dim:nN { dimen } #2 )
-                    ) / 2
+                    )
+                    \@@_punct_if_full_margin_dash:NF #2 { / 2 }
                   }
                   {
                     \bool_if:NTF \l_@@_optimize_margin_bool
@@ -6368,7 +6508,8 @@ Copyright and Licence
         \@@_punct_if_middle:NTF #2
           {
             ( \@@_use_punct_dim:nN { width } #2 -
-              \@@_use_punct_dim:nN { dimen } #2 ) / 2
+              \@@_use_punct_dim:nN { dimen } #2 )
+            \@@_punct_if_full_margin_dash:NF #2 { / 2 }
             - \l_@@_margin_dim
           }
           { \l_@@_bound_dim - \l_@@_margin_dim }
