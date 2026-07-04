@@ -76,12 +76,18 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         text = re.sub(r"\\LuaLaTeX(?:\\\s|\{\})?", "LuaLaTeX ", text)
         text = re.sub(r"\\pdfLaTeX(?:\\\s|\{\})?", "pdfLaTeX ", text)
         text = re.sub(r"\\upLaTeX(?:\\\s|\{\})?", "upLaTeX ", text)
+        text = re.sub(r"\\ApLaTeX(?:\\\s|\{\})?", "ApLaTeX ", text)
+        text = re.sub(r"\\pLaTeX(?:\\\s|\{\})?", "pLaTeX ", text)
         text = re.sub(r"\\LaTeX(?:\\\s|\{\})?", "LaTeX ", text)
         text = re.sub(r"\\XeTeX(?:\\\s|\{\})?", "XeTeX ", text)
         text = re.sub(r"\\LuaTeX(?:\\\s|\{\})?", "LuaTeX ", text)
         text = re.sub(r"\\pdfTeX(?:\\\s|\{\})?", "pdfTeX ", text)
         text = re.sub(r"\\upTeX(?:\\\s|\{\})?", "upTeX ", text)
+        text = re.sub(r"\\ApTeX(?:\\\s|\{\})?", "ApTeX ", text)
+        text = re.sub(r"\\pTeX(?:\\\s|\{\})?", "pTeX ", text)
         text = re.sub(r"\\TeX(?:\\\s|\{\})?", "TeX ", text)
+        # `zhmakeindex` 会自动把 `!=` (多见于 `\opt` 命令中) 更换为 `=`
+        text = re.sub(r"!=", "=", text)
         # 余下的 \xxx / \xxx{} 一律剥掉 (\changes 里其他命令通常是引用类,
         # 直接去掉名字不影响信息量).
         text = re.sub(r"\\[A-Za-z]+(?:\{\})?\s*", "", text)
