@@ -16,7 +16,7 @@ installfiles        = {
   "*.fd",  "ct*.tex", "zh*.tex", "*.dict", "*.lua"
 }
 unpacksuppfiles     = {
-  "ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"
+  "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhconv-index.lua"
 }
 typesetfiles        = {module .. ".dtx"}
 typesetsuppfiles    = {"ctxdoc.cls"}
@@ -103,8 +103,8 @@ function update_tag(file, content, tagname, tagdate)
     local tagtarget = string.gsub(tag, "%-", "%%-")
     local tagdateid =
       io.popen("git log -1 --pretty=format:'%ai %h %an <%ae>' " .. tag):
-      read('*l')
-    local tagdateid = string.gsub(tagdateid, "%%", "%%%%")
+      read('*l') or ""
+    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
     if string.match(tagtarget, "%.dtx$") then
       content = string.gsub(content,
         "%%<%+!driver>\\GetIdInfo $Id: " .. tagtarget .. " " ..

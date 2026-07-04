@@ -16,7 +16,7 @@ Example:
 
 LaTeX 命令清洗规则与 release.yml 之前内联的 Python 完全一致.
 """
-import re, sys, glob
+import glob, os, re, sys
 
 
 def extract(dtx_path: str, target_ver: str) -> list[str]:
@@ -105,15 +105,16 @@ def main() -> int:
     dtx_files: list[str] = []
     for pattern in path_patterns:
         matches = glob.glob(pattern)
-        dtx_files.extend(matches)
+        dtx_files.extend(sorted(matches))
     global_seen: set[str] = set()
 
     for file in dtx_files:
-        entries = extract(file, target_ver)
-        for e in entries:
-            if e not in global_seen:
-                global_seen.add(e)
-                print(f"- {e}")
+        if os.path.isfile(file):
+            entries = extract(file, target_ver)
+            for e in entries:
+                if e not in global_seen:
+                    global_seen.add(e)
+                    print(f"- {e}")
     return 0
 
 
