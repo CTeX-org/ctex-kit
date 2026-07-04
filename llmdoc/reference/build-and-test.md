@@ -200,6 +200,7 @@ GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/check-doc.yml`：PR 门禁 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
+- `.github/workflows/check-tag.yml`：PR 门禁 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本 stamp 与 build.lua 的 version 同步 (#937); 与 release.yml 的三方版本校验构成双闸, 详见 [[937-version-single-source-l3build-tag]] 与下方"版本管理"章节
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
@@ -370,6 +371,31 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - 变更历史使用 `\changes{版本号}{日期}{说明}`
 
 调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，这些信息会进入最终文档输出。
+
+## 版本单一事实源与 l3build tag（zhlineskip / ctex）
+
+完成 DocStrip & L3 重构的包（zhlineskip 自 PR #892，ctex 自 PR #937）采用统一的版本管理模式，详见决策 [[937-version-single-source-l3build-tag]]：
+
+- **`build.lua` 顶部 `version` 字段是唯一手改的版本事实源**（ctex 还有 `date` 等价物走 git 元数据；zhlineskip 是 `version` + `date` 两字段）。`uploadconfig`（CTAN 投递）直接引用它。
+- dtx 源文件的版本行是 `\GetIdInfo $Id: <file> <ver> <date> ...$` stamp，被 `\ProvidesExplPackage{...}{\ExplFileDate}{\ExplFileVersion}{...}` 消费——dtx 里没有第二处硬编码版本。
+- 本地手跑 `cd <pkg> && l3build tag`，包级重写的 `update_tag`（`ctex/build.lua` / `zhlineskip/build.lua`）把 version 回写进 stamp。**ctex 的 update_tag 带幂等守卫**：stamp 版本已等于 version 时原样保留（不动 date/sha），否则"回写产生新 commit → 新 sha → 又要回写"永不收敛。
+- 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
+
+### 发版 SOP（ctex 拆分后）
+
+```
+1. ctex/build.lua:2       version = "X.Y.Z"           （手改，唯一）
+2. 相应 ctex-*.dtx        补 \changes{vX.Y.Z}{...}     （随功能 PR）
+3. cd ctex && l3build tag 回写 5 个拆分 dtx 的 $Id:$ 行（自动）
+4. commit + PR            （check-tag.yml 验证 stamp 同步）
+5. merge 后 make tag ctex-vX.Y.Z[-rcN] && git push origin <tag>
+                          （release.yml 三方校验通过才发版）
+```
+
+### 双闸 CI
+
+- **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`），ctex job 需 `fetch-depth: 0`（update_tag 取 `git log -1`）。
+- **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。非该机制的包（xeCJK 等）跳过校验打 notice。
 
 ## LaTeX2e 格式依赖声明
 
