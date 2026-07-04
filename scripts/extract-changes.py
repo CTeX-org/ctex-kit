@@ -66,9 +66,11 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # \cs / \tn → `\<name>` (先用 \x00..\x01 临时占位, 避开后面 \\
         # 命令通杀正则把 \cs 自己也吃掉).
         text = re.sub(r"\\(?:cs|tn)\{([^}]*)\}", lambda m: "\x00" + m.group(1) + "\x01", text)
-        text = re.sub(r"\\(?:|pkg|cls|file|texttt)\{([^}]*)\}", r"`\1`", text)
+        text = re.sub(r"\\(?:pkg|cls|file|texttt)\{([^}]*)\}", r"`\1`", text)
         # `zhmakeindex` 会自动把 `\opt` 命令中可能出现的 `!=` 更换为 `=`
         text = re.sub(r"\\opt\{([^}]*)!=([^}]*)\}", r"`\1 = \2`", text)
+        # 再处理不含 `!=` 的 `\opt`
+        text = re.sub(r"\\opt\{([^}]*)\}", r"`\1`", text)
         text = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", text)
         text = re.sub(r"\\#", "#", text)
         # LaTeX 系列 logo 命令的常见形态: \LaTeX, \LaTeX\<space>, \LaTeX{}.
