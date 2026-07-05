@@ -219,9 +219,12 @@ Copyright and Licence
 \xeCJKDeclareSubCJKBlock{Hangul}
   { "1100 -> "11FF, "3130 -> "318F, "A960 -> "A97F, "AC00 -> "D7AF }
 \xeCJKsetup{PoZheHaoLigature}
-\setCJKmainfont{Noto Serif CJK SC}[Language=Chinese Simplified]
+\setCJKmainfont{Noto Serif CJK SC}[
+  Language   = Chinese Simplified,
+  ItalicFont = LXGWWenKaiGBLite-Regular.ttf
+]
 \setCJKsansfont{Noto Sans CJK SC}[Language=Chinese Simplified]
-\setCJKmonofont{Noto Sans Mono CJK SC}[Language=Chinese Simplified]
+\setCJKmonofont{LXGWZhuqueFangsong-Regular.ttf}[Language=Chinese Simplified]
 \setCJKmainfont[SP, Language=Chinese Simplified]{Noto Serif CJK SC}
 \IfFontExistsTF{SimSun-ExtB}
   {\setCJKmainfont[Ext-B]{SimSun-ExtB}}
@@ -300,6 +303,8 @@ Copyright and Licence
 %   Noto Serif CJK（\#686）。}
 % \changes{v3.10.2}{2026/07/05}{文档字体启用 \opt{Language} 与
 %   \opt{PoZheHaoLigature}，破折号按全角字形合字输出（\#382）。}
+% \changes{v3.10.2}{2026/07/05}{文档等宽字体改用朱雀仿宋，意大利体改用
+%   霞鹜文楷 GB Lite（\#908）。}
 % \changes{v3.10.0}{2026/05/13}{修复 \tn{textcolor} 包裹 \pkg{ulem}
 %   类下划线命令时 CJK 字间距异常的问题（\#830）。}
 % \changes{v3.10.1}{2026/06/29}{提升版本号至 v3.10.1。}
@@ -606,7 +611,9 @@ Copyright and Licence
 %   \end{syntax}
 %   设置长标点，例如破折号”——“与省略号”……”，允许在长标点前后
 %   断行，但是禁止在它们之间断行。同时属于 |NoBreakLongPunct|
-%   的长标点则禁止在其前面断行。
+%   的长标点则禁止在其前面断行。长标点与其他标点相邻时，
+%   断点两侧还须满足通常的标点禁则：全角左标点不悬于行尾，
+%   全角右标点不落于行首。
 % \end{function}
 %
 % \begin{function}[EXP]{NoBreakLongPunct,NoBreakLongPunct+,NoBreakLongPunct-}
@@ -646,6 +653,28 @@ Copyright and Licence
 % \setCJKmainfont{Noto Serif CJK SC}[RawFeature=+fwid]
 % \xeCJKsetup{PoZheHaoLigature}
 % \end{ctexexam}
+% \end{function}
+%
+% \begin{function}[added=2026-07-05]{LatinPunct}
+%   \begin{syntax}
+%     LatinPunct = \meta{\TFF}
+%   \end{syntax}
+%   Unicode 中的弯引号（|U+2018|、|U+2019|、|U+201C|、|U+201D|）、
+%   间隔号（|U+00B7|）与省略号（|U+2025|、|U+2026|、|U+2027|）等码位
+%   是中西文共用的。缺省状态下，\pkg{xeCJK} 把它们归入全角标点，
+%   用中文字体输出全角字形；在以西文为主的文档中，
+%   夹在英文单词中间的撇号（如 |Children’s| 的 |U+2019|）会因此变成
+%   突兀的全角形式。启用这一选项后，这些共用标点改归入西文半角标点类
+%   （|HalfLeft| / |HalfRight|），使用当前西文字体输出，
+%   也不再参与标点压缩。这一选项缺省未启用；|LatinPunct| 等价于
+%   |LatinPunct = true|。破折号（|U+2014|）的归属不受此选项影响，
+%   见 \opt{PoZheHaoLigature}。
+%   例如：
+% \begin{ctexexam}
+% \xeCJKsetup{LatinPunct}   % 共用标点使用西文字体
+% \end{ctexexam}
+%   这一选项可以在导言区或正文中随时切换，
+%   作用范围是当前 \TeX{} 分组。
 % \end{function}
 %
 % \begin{function}[EXP]{PunctWidth}
@@ -3059,9 +3088,12 @@ Copyright and Licence
 % \begin{macro}{\xeCJKResetPunctClass}
 % \changes{v3.10.2}{2026/07/04}{重置后恢复 \texttt{PoZheHaoLigature}
 %  的设置（\#382）。}
-% 用于重置标点符号所属的字符类。注意，重新声明 |FullRight| 类会把
-% \texttt{U+2014} 移出 |PoZheHao| 类，因此在重置后需要恢复
-% \opt{PoZheHaoLigature} 的设置。
+% \changes{v3.10.2}{2026/07/05}{重置后恢复 \texttt{LatinPunct}
+%  的设置（\#389）。}
+% 用于重置标点符号所属的字符类。注意，重新声明 |FullLeft| 和
+% |FullRight| 类会覆盖 \opt{PoZheHaoLigature} 与 \opt{LatinPunct}
+% 对共用标点的字符类调整，因此在重置后需要按记录的状态恢复这两个
+% 选项的设置。
 %    \begin{macrocode}
 \NewDocumentCommand \xeCJKResetPunctClass { }
   {
@@ -3073,10 +3105,13 @@ Copyright and Licence
     \xeCJK_declare_char_class:nN { HalfRight } \c_@@_HalfRight_chars_clist
     \xeCJK_declare_char_class:nN { FullLeft  } \c_@@_FullLeft_chars_clist
     \xeCJK_declare_char_class:nN { FullRight } \c_@@_FullRight_chars_clist
-    \bool_if:NT \g_@@_pozhehao_ligature_bool
-      { \xeCJK_declare_char_class:nn { PoZheHao } { "2014 , "2015 } }
+    \bool_if:NT \l_@@_pozhehao_ligature_bool
+      { \keys_set:nn { xeCJK / options } { PoZheHaoLigature = true } }
+    \bool_if:NT \l_@@_latin_punct_bool
+      { \keys_set:nn { xeCJK / options } { LatinPunct = true } }
   }
-\bool_new:N \g_@@_pozhehao_ligature_bool
+\bool_new:N \l_@@_pozhehao_ligature_bool
+\bool_new:N \l_@@_latin_punct_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4544,30 +4579,59 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/23}{总允许长标点与其他标点之间折行。}
 % \changes{v3.10.0}{2026/04/27}
 % {\texttt{NoBreakLongPunct} 在右侧时禁止折行。}
+% \changes{v3.10.2}{2026/07/05}
+% {长标点与其他标点之间折行时检查断点两侧的禁则：左标点不得悬于行尾，
+%  右标点与 \texttt{NoBreakLongPunct} 不得落于行首（\#456）。}
 % \begin{macro}{\xeCJK_punct_kern:NN,\@@_punct_kern:NN}
-% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行，
-% 但 |NoBreakLongPunct| 在右侧时禁止折行。
+% 相邻两个标点之间的间距。长标点与其他标点之间允许折行，
+% 但断点两侧的禁则必须同时满足，由 \cs{@@_punct_kern_break:NN} 判断。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_punct_kern:NN #1#2
   {
     \str_if_eq:eeTF {#1} {#2}
       { \@@_punct_nobreak_kern:NN }
       {
-        \@@_punct_if_long:NTF #1
-          { \@@_punct_breakable_kern:NN }
-          {
-            \@@_punct_if_long:NTF #2
-              {
-                \@@_punct_if_nobreak_long:NTF #2
-                  { \@@_punct_nobreak_kern:NN }
-                  { \@@_punct_breakable_kern:NN }
-              }
-              { \@@_punct_nobreak_kern:NN }
-          }
+        \bool_lazy_or:nnTF
+          { \@@_punct_if_long_p:N #1 }
+          { \@@_punct_if_long_p:N #2 }
+          { \@@_punct_kern_break:NN #1 #2 }
+          { \@@_punct_nobreak_kern:NN }
       }
     #1 #2
   }
 \cs_new_eq:NN \xeCJK_punct_kern:NN \@@_punct_kern:NN
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_punct_kern_break:NN}
+% 长标点与其他标点相邻时，判断二者之间的断点是否满足两侧禁则，
+% 并留下相应的间距函数（吃掉参数后，后续的 |#1 #2| 交由留下的函数处理）：
+% \begin{itemize}
+%   \item 断点之前（|#1|）必须是全角右标点或长标点，
+%     即全角左标点不得悬于行尾；
+%   \item 断点之后（|#2|）必须是全角左标点，或者不属于
+%     |NoBreakLongPunct| 的长标点，即全角右标点和省略号等
+%     不得落于行首。
+% \end{itemize}
+% 注意 |#1| 来自 \cs{g_@@_last_punct_tl}，参与字符类判断前
+% 需要先展开为字符记号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_punct_kern_break:NN #1#2
+  {
+    \exp_after:wN \@@_punct_if_right:NTF #1
+      {
+        \@@_punct_if_right:NTF #2
+          {
+            \bool_lazy_and:nnTF
+              { \@@_punct_if_long_p:N #2 }
+              { ! \@@_punct_if_nobreak_long_p:N #2 }
+              { \@@_punct_breakable_kern:NN }
+              { \@@_punct_nobreak_kern:NN }
+          }
+          { \@@_punct_breakable_kern:NN }
+      }
+      { \@@_punct_nobreak_kern:NN }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -5872,10 +5936,12 @@ Copyright and Licence
 % \changes{v3.4.0}{2016/05/13}{\texttt{RubberPunctSkip} 选项有新的值 \texttt{plus} 和 \texttt{minus}。}
 % \changes{v3.10.2}{2026/07/04}{新增 \texttt{PoZheHaoLigature} 选项，
 %  支持字体的破折号合字功能（\#382）。}
+% \changes{v3.10.2}{2026/07/05}{新增 \texttt{LatinPunct} 选项，
+%  中西文共用的弯引号、间隔号与省略号可以切换为西文标点（\#389、\#431）。}
 %
 % \begin{macro}
 %  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,NoBreakLongPunct,
-%   MiddlePunct,PoZheHaoLigature,PunctWidth,PunctBoundWidth,RubberPunctSkip}
+%   MiddlePunct,PoZheHaoLigature,LatinPunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
@@ -5911,16 +5977,34 @@ Copyright and Licence
     PoZheHaoLigature .choice: ,
     PoZheHaoLigature / true  .code:n =
       {
-        \bool_gset_true:N \g_@@_pozhehao_ligature_bool
+        \bool_set_true:N \l_@@_pozhehao_ligature_bool
         \xeCJK_declare_char_class:nn { PoZheHao } { "2014 , "2015 }
       } ,
     PoZheHaoLigature / false .code:n =
       {
-        \bool_gset_false:N \g_@@_pozhehao_ligature_bool
+        \bool_set_false:N \l_@@_pozhehao_ligature_bool
         \xeCJK_declare_char_class:nn { FullRight } { "2014 }
         \xeCJK_declare_char_class:nn { Default }   { "2015 }
       } ,
     PoZheHaoLigature .default:n = { true } ,
+    LatinPunct .choice: ,
+    LatinPunct / true  .code:n =
+      {
+        \bool_set_true:N \l_@@_latin_punct_bool
+        \xeCJK_declare_char_class:nn { HalfLeft }
+          { "2018 , "201C }
+        \xeCJK_declare_char_class:nn { HalfRight }
+          { "00B7 , "2019 , "201D , "2025 , "2026 , "2027 }
+      } ,
+    LatinPunct / false .code:n =
+      {
+        \bool_set_false:N \l_@@_latin_punct_bool
+        \xeCJK_declare_char_class:nn { FullLeft }
+          { "2018 , "201C }
+        \xeCJK_declare_char_class:nn { FullRight }
+          { "00B7 , "2019 , "201D , "2025 , "2026 , "2027 }
+      } ,
+    LatinPunct .default:n = { true } ,
     PunctWidth      .tl_gset:N = \g_@@_punct_width_tl ,
     PunctBoundWidth .tl_gset:N = \g_@@_punct_bound_width_tl ,
     PunctWidth      .value_required:n = true ,

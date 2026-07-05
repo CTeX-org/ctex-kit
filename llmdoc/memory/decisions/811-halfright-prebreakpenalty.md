@@ -7,7 +7,9 @@
 
 xeCJK 新增了实验性选项 `experiment/halfright-prebreakpenalty`，用于阻止半角右标点在 `CJK -> HalfRight` 与 `FullRight -> HalfRight` 过渡中被排到下一行行首。该能力建立在 xeCJK 既有的 `HalfRight` 字符类之上，而不是为个别字符单独建类。
 
-当前 `HalfRight` 类固定包含 13 个字符：`!`、`"`、`%`、`'`、`)`、`,`、`.`、`:`、`;`、`?`、`]`、`}` 与 `U+232A`。这些成员全部属于收尾型右侧标点。
+当时 `HalfRight` 类固定包含 13 个字符：`!`、`"`、`%`、`'`、`)`、`,`、`.`、`:`、`;`、`?`、`]`、`}` 与 `U+232A`。这些成员全部属于收尾型右侧标点。
+
+> 更新（#431，2026-07）：`LatinPunct` 选项默认 `true`，会把 U+00B7/U+2019/U+201D/U+2025/U+2026/U+2027 一并动态归入 `HalfRight`（`LatinPunct=false` 时移出）。上述"固定 13 个字符"仅描述 #811 落地时的静态基线，`HalfRight` 类成员现依赖 `LatinPunct` 开关状态。详见 [[431-latinpunct-option]]。
 
 ## 决策
 
