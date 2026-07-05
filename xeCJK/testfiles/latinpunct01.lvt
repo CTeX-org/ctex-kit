@@ -1,0 +1,78 @@
+% Issue #431 / #389: LatinPunct option
+% Shared-codepoint punctuation (curly quotes, middle dot, ellipses) can be
+% switched to Latin (HalfLeft/HalfRight) classes so that e.g. the apostrophe
+% in "Children's" uses the Latin font instead of a full-width CJK glyph.
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \ProbeClass #1
+  { \TYPE{ class(#1) = \int_use:N \tex_XeTeXcharclass:D "#1 } }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\TEST{default classes (full-width)}{
+  \ProbeClass{2018}
+  \ProbeClass{2019}
+  \ProbeClass{201C}
+  \ProbeClass{201D}
+  \ProbeClass{00B7}
+  \ProbeClass{2026}
+  \setbox0=\hbox{Children’s}
+  \TYPE{apostrophe-fullwidth: \the\wd0}
+}
+
+\TEST{LatinPunct=true switches to half-width classes}{
+  \xeCJKsetup{LatinPunct}
+  \ProbeClass{2018}
+  \ProbeClass{2019}
+  \ProbeClass{201C}
+  \ProbeClass{201D}
+  \ProbeClass{00B7}
+  \ProbeClass{2026}
+  \setbox0=\hbox{Children’s}
+  \TYPE{apostrophe-latin: \the\wd0}
+  \setbox0=\hbox{中文“文”中}
+  \TYPE{cjk-with-latin-quotes: \the\wd0}
+}
+
+\TEST{group-local scope}{
+  \xeCJKsetup{LatinPunct}
+  {\xeCJKsetup{LatinPunct=false}\ProbeClass{2019}}
+  \ProbeClass{2019}
+}
+
+\TEST{ResetPunctClass keeps LatinPunct}{
+  \xeCJKsetup{LatinPunct}
+  \xeCJKResetPunctClass
+  \ProbeClass{2019}
+  \ProbeClass{201C}
+}
+
+\TEST{LatinPunct=false restores full-width}{
+  \xeCJKsetup{LatinPunct}
+  \xeCJKsetup{LatinPunct=false}
+  \ProbeClass{2019}
+  \ProbeClass{201C}
+  \setbox0=\hbox{Children’s}
+  \TYPE{apostrophe-restored: \the\wd0}
+}
+
+\TEST{dash unaffected by LatinPunct}{
+  \xeCJKsetup{LatinPunct}
+  \ProbeClass{2014}
+  \setbox0=\hbox{中——中}
+  \TYPE{dash-width: \the\wd0}
+  \xeCJKsetup{LatinPunct=false}
+}
+
+\END
+
+\end{document}
