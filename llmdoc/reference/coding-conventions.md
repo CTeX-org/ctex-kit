@@ -57,6 +57,8 @@
 
 这条约定在定义用户可见切换命令时尤其重要：若命令的存在性本身属于用户接口的一部分，就必须先判断它应该是“全局注册”还是“仅在当前组有效”。Issue #751 的修复正是一个典型案例：字体族注册可继续全局保存，但 `\newCJKfontfamily` 生成的用户切换命令需要改为局部定义，才能与 `fontspec` / LaTeX 用户对命令作用域的直觉保持一致。
 
+同样的作用域一致性问题也出现在**镜像分组局部原语状态的布尔标志**上：`\bool_new:N` 声明的开关变量如果用来记录 `\XeTeXcharclass` 等本身受 TeX 分组约束的原语赋值当前状态，就必须同样声明为局部（`\bool_set_true:N`/`\bool_set_false:N`），而不能用全局布尔（`\bool_gset_true:N`/`\bool_gset_false:N`）——否则退组后原语状态自动回退，但全局布尔不回退，二者从此不一致。Issue #431（顺带回溯修正 #382）是该问题的具体案例，详见 `llmdoc/architecture/xecjk-architecture.md` "影子布尔的作用域必须与被控资源的作用域一致" 一节。
+
 ## expl3 正则里的 catcode class 记法
 
 处理 token 级 catcode 问题时，优先记住 `\regex_replace_all` 可直接匹配字符类别，而不只是字符字面值：常见写法如 `\cP`（parameter，catcode 6）、`\cA`（active，catcode 13）、`\cO`（other，catcode 12）。这类语法适合区分“同样显示为 `#`、但 catcode 不同”的 token；若目标是只转换某一类 token，普通 `str`/`tl` 字符串替换往往不够精确（\#378）。

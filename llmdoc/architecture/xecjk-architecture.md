@@ -59,6 +59,8 @@ xeCJK 定义了以下字符类：
 
 XeTeX 0.99994+ 支持最多 4096 个字符类；`Boundary` 固定为最大编号（4095）。
 
+上表"典型字符"为静态举例，非完整枚举。`FullLeft`/`FullRight`/`HalfLeft`/`HalfRight` 的实际成员会随 `LatinPunct` 选项（#389/#431，见下文标点压缩系统一节）动态增减：中西文共用码位的弯引号/间隔号/省略号在 `HalfLeft`/`HalfRight` 与 `FullLeft`/`FullRight` 之间切换归属。
+
 ### 零注入字符类模式（`HangulJamo` / `PoZheHao`）
 
 xeCJK 有两个字符类采用同一种"零注入"设计模式：类内相邻字符之间的 `\XeTeXinterchartoks` **不插入任何内容**，类间关系（与其他类的过渡处理）则复制自某个已有类。这是"interchar 机制打断字符序列"问题族（#382 破折号合字、#158 朝鲜文音节、#165 假名）的通用解法模板：
@@ -374,9 +376,38 @@ kern = -max( bound_l + bound_r,
 工程细节与踩坑记录：
 
 - **`\@@_punct_if_right:N` 必须承认 `PoZheHao` 类**：若不修改，「标点+破折号」相邻（如“爱。——”）时，该函数误判 U+2014 不是全角右标点，导致下游取用不存在的 `dim/glue/left/—/tl` 一类缓存键报 `Missing number`。这是 2018 年该功能原型中就已踩过的坑（回归测试 `dashwidth01.lvt` 专门覆盖"标点后接破折号"场景以固化此教训）。
-- **`\xeCJKResetPunctClass` 与状态恢复**：该命令会重新声明 `FullRight` 类，导致 U+2014 被重新拉回 `FullRight`（覆盖掉 `PoZheHao` 归类）。为此 `PoZheHaoLigature` 的开关状态记录在全局布尔 `\g_@@_pozhehao_ligature_bool` 中，`\xeCJKResetPunctClass` 执行尾部按该布尔值自动恢复 `PoZheHao` 类声明，避免用户重置标点类后合字状态跟着丢失。
+- **`\xeCJKResetPunctClass` 与状态恢复**：该命令会重新声明 `FullRight` 类，导致 U+2014 被重新拉回 `FullRight`（覆盖掉 `PoZheHao` 归类）。为此 `PoZheHaoLigature` 的开关状态记录在布尔 `\l_@@_pozhehao_ligature_bool`（局部，见下文 #431 影子布尔作用域一致性说明）中，`\xeCJKResetPunctClass` 执行尾部按该布尔值自动恢复 `PoZheHao` 类声明，避免用户重置标点类后合字状态跟着丢失。
 - **`PoZheHaoLigature=false` 的恢复目标**：U+2014 → `FullRight`，U+2015 → `Default`（普通类，编号 0）。注意 U+2015（水平线）自 v3.3.3 起已不属于 `FullRight`，这一点在本次修复中被实测验证，不能想当然认为两个字符对称恢复到同一个类。
 - **为什么是用户 opt-in 而非自动探测**：合字能力完全取决于字体（多数国产字库不提供），XeTeX 没有可靠原语能在不实际 shape 的情况下探测某字体是否具备特定 OpenType 合字特性；对不支持合字的字体启用 `PoZheHaoLigature` 会让连续破折号中间露出空隙（因为零注入类不再提供任何补偿）。因此设计为显式 `\xeCJKsetup{PoZheHaoLigature}` 键控制，且需要用户自行配合开启 `fwid`/`locl` 等 OpenType 特性以获得全角字形。
+
+### LatinPunct 选项：中西文共用码位标点的字体切换（#389/#431）
+
+部分 Unicode 码位是中西文共用的：弯引号 U+2018/U+2019/U+201C/U+201D、间隔号 U+00B7、省略号 U+2025/U+2026/U+2027。xeCJK 默认把它们归入全角标点类（`FullLeft`/`FullRight`），用 CJK 字体输出全角字形。在以西文为主的文档中，这会导致夹在英文单词内部的撇号（如 `Children's` 中的 U+2019——输入法/编辑器的 smart quotes 默认产生这一码位）被排成突兀的全角形式（Issue #431，原型讨论见 #389）。
+
+`\xeCJKsetup{LatinPunct}` 提供归类切换：
+
+| 值 | 归类 | 效果 |
+|---|---|---|
+| `true`（默认） | U+2018/U+201C → `HalfLeft`；U+00B7/U+2019/U+201D/U+2025/U+2026/U+2027 → `HalfRight` | 西文字体输出，不参与标点压缩 |
+| `false` | 对应码位恢复 `FullLeft`/`FullRight` | CJK 字体输出全角字形，参与标点压缩 |
+
+字符集选择归入 `Half*` 而非 `Default`（编号 0）：`Half*` 类保留了半角标点固有的 interchar 间距语义（如与 CJK 字符相邻时的 `\CJKecglue` 处理），`Default` 类语义更泛化、不专属于标点。字符集范围与 `true`/`false` 的处理动作沿用 Issue #389 中 `RuixiZhang42` 提出的 `\xeCJKUseLatinPunct` switch 原型。
+
+**与 `PoZheHaoLigature` 的正交性**：破折号 U+2014、二の字点 U+2E3A 与半字线 U+2013 刻意排除在 `LatinPunct` 字符集之外——它们属于上文 `PoZheHaoLigature`/CLReq 两字宽处理语义，两个选项分别控制不同的字符子集，互不干扰（`dashwidth01.lvt` 与 `latinpunct01.lvt` 均覆盖"破折号不受另一选项影响"的断言）。
+
+**`\xeCJKResetPunctClass` 恢复链**：与 `PoZheHaoLigature` 并列，`\xeCJKResetPunctClass` 重新声明 `FullLeft`/`FullRight` 会覆盖 `LatinPunct` 的归类调整；重置尾部按 `\l_@@_latin_punct_bool` 用 `\keys_set:nn { xeCJK / options } { LatinPunct = true }` 重放（`PoZheHaoLigature` 走同样的重放模式）。目前标点压缩系统里有两个选项走这一恢复模式。
+
+#### 影子布尔的作用域必须与被控资源的作用域一致（#431 工程教训，回溯修正 #382）
+
+初版 `LatinPunct` 状态记录沿用 `PoZheHaoLigature` 既有写法，用全局布尔 `\g_@@_latin_punct_bool`。实测暴露 bug：`\XeTeXcharclass` 赋值本身是 **TeX 分组局部**的——`{\xeCJKsetup{LatinPunct=false} ... }` 退出分组后字符类自动恢复为分组前的值，但全局布尔不会随分组恢复。此后一旦在分组外调用 `\xeCJKResetPunctClass`，就会按已经过时（不再反映当前字符类真实状态）的全局布尔值错误重放。
+
+修复为局部布尔 `\l_@@_latin_punct_bool`，使"记录当前配置"的影子状态与被记录的 `\XeTeXcharclass` 赋值同处于同一 TeX 分组作用域，开组切换、退组恢复能同步生效。
+
+**同一提交顺带修正了 `PoZheHaoLigature`**：`\g_@@_pozhehao_ligature_bool` 存在完全相同的作用域不一致问题，只是此前没有"分组内切换"的测试场景覆盖，未被触发。本次一并改为局部 `\l_@@_pozhehao_ligature_bool`。
+
+**通用教训**：任何"记录某个局部资源（TeX 分组局部生效的原语赋值）当前配置"的影子状态变量，其作用域必须与被记录资源本身的作用域一致——用全局变量记录局部状态，在跨分组场景下必然产生状态与实际不符的窗口期。这一教训同样适用于未来任何基于 `\XeTeXcharclass`/`\catcode` 等分组局部原语的 opt-in 开关设计。
+
+详见决策 [[431-latinpunct-option]]。
 
 ### 标点度量的 feature-blind 限制（架构级边界，#382 复测发现）
 
