@@ -55,8 +55,20 @@ xeCJK 定义了以下字符类：
 | `Boundary` (4095) | 边界（空格等） | 空格 |
 | `CM` | 组合标识 | 异体字选择符 (IVS) |
 | `HangulJamo` | 朝鲜文字母 | ᄻᆟᇫ |
+| `PoZheHao` | 支持合字的破折号（opt-in，#382） | U+2014/U+2015 |
 
 XeTeX 0.99994+ 支持最多 4096 个字符类；`Boundary` 固定为最大编号（4095）。
+
+### 零注入字符类模式（`HangulJamo` / `PoZheHao`）
+
+xeCJK 有两个字符类采用同一种"零注入"设计模式：类内相邻字符之间的 `\XeTeXinterchartoks` **不插入任何内容**，类间关系（与其他类的过渡处理）则复制自某个已有类。这是"interchar 机制打断字符序列"问题族（#382 破折号合字、#158 朝鲜文音节、#165 假名）的通用解法模板：
+
+| 字符类 | 类间关系复制自 | 目的 |
+|---|---|---|
+| `HangulJamo` | `CJK` | 朝鲜文字母连续输入时不产生字距干扰 |
+| `PoZheHao` | `FullRight`（`\AtEndOfPackage` 内通过 `\xeCJK_copy_inter_class_toks:nnnn` 复制） | 连续 U+2014 之间不注入内容，使 OpenType 破折号合字（如思源宋体/黑体的两字宽合字形）可以触发；与其他字符类的边界仍按全角右标点处理 |
+
+`PoZheHao` 类是 opt-in 的：用户通过 `\xeCJKsetup{PoZheHaoLigature}` 显式启用后，才把 U+2014、U+2015 从 `FullRight`/`Default` 改归为 `PoZheHao`；因为合字能力取决于字体（思源系字体支持，多数国产字库不支持），xeCJK 无法自动探测字体是否具备该 OpenType 特性，对不支持合字的字体启用会让连续破折号中间露出空隙。
 
 ### 类别间转换矩阵
 
@@ -329,6 +341,48 @@ xeCJK 预定义了多种标点样式：
 ### 标点间 kern 计算
 
 相邻标点的压缩量通过 `\xeCJKsetkern` 手动设置或由样式规则自动计算。内部通过 `g_@@_punct/kern/<char1>/<char2>/tl` 属性表存储。
+
+标点函数的结果按 `(标点字体, PunctStyle 风格, 字符)` 三元组缓存（`\@@_punct_csname:n` 生成的属性表键名）。这意味着任何对压缩公式本身的修改，一旦落地即对全部非 `plain` 风格（`quanjiao`/`banjiao`/`kaiming`/`hangmobanjiao`/`CCT`）自动生效，无需分别适配。
+
+### 破折号（U+2014）宽度算法（#382）
+
+CLReq（《中文排版需求》）要求连续破折号总宽随连用数量线性增长（n 个连用 U+2014 占 n 个汉字宽），但破折号所属的 `LongPunct` 类原始压缩公式只保证"中间连续无缝"，不保证总宽不变量。`\@@_long_punct_kerning:N` 与 `\xeCJK_punct_margin_process:NN` 两处联动修复覆盖了这一缺口，两者都要应对同一个根源问题：**不同字库对"破折号字面（glyph ink，`dimen`）"与"破折号字框（advance width，`width`）"的关系定义差异巨大**——中易系字库字面窄于字框、方正兰亭黑字面溢出字框、微软雅黑字框本身宽于字号。任何单一公式都无法同时兼容三类字库。
+
+**中间压缩量（`\@@_long_punct_kerning:N`）**：原公式 `kern = -max(bound_l + bound_r, 0)` 只用两侧 side bearing 之和，仅对"字面居中于字框、字框等于字号"的理想字体成立。修复为 U+2014 专用三路取大（`width` 为字框宽，`dimen` 为字面宽，`F` 为当前字号 `\f@size`，取值下界为 0 因为破折号边界可能为负，如方正新书宋）：
+
+```
+kern = -max( bound_l + bound_r,
+             dimen + width - 2F,
+             2*width - 2F,
+             0 )
+```
+
+三项分别覆盖：`bound 和` 对应字面窄于字框（中易系），`dimen+width-2F` 对应字面溢出字框（方正兰亭黑），`2*width-2F` 对应字框本身宽于字号（微软雅黑）。省略号 U+2025/U+2026 连用不需要压缩，保持零 kern；其余长标点（U+2E3A 二の字点、全角浪线等）行为不变，仍走原 bound 和压缩公式。
+
+**两端补偿 margin（`\xeCJK_punct_margin_process:NN`）**：破折号属于 `MiddlePunct`，原公式两端各补偿 `(目标宽 - dimen) / 2`（各半份空白，使标点在其目标宽度内居中）。但对未启用合字的 U+2014，连用时中间被上面的 kern 挤掉的空白，恰好等于单个字符两端总空白（而非半份），若仍按半份补偿，连用总宽会系统性偏差。修复为新增条件 `\@@_punct_if_full_margin_dash:N`（判定：字符是 U+2014 且未被归入 `PoZheHao` 类），成立时补偿两端**各一整份**（不除以 2）。该条件同时作用于 margin 计算本身与它传给 `\@@_save_punct_skip:nNNnnn` 的 glue plus（stretch）分量——两处必须保持同一份"是否除以 2"的判断，否则自然宽度与弹性分量会不一致。
+
+代价（相对 CLReq 理想值的已知偏差，均在可接受范围）：单个 U+2014 略超 1 字宽（约 1.087 ccwd），三连略欠 1 字宽（约 2.913 ccwd）——这是"仅调整两个自由度（kern、margin）去满足两个不变量（中间无缝、总宽正确）"必然存在的近似残差，测试 `dashwidth01.lvt` 对此按已知值断言而非要求精确 2.0/3.0。
+
+### PoZheHao 字符类（合字 opt-in，#382）
+
+阶段 1 的公式修正只解决"未合字"场景的宽度问题。对提供 OpenType 破折号合字特性的字体（如思源宋体、思源黑体：连续两个 U+2014 被替换为一个两倍字宽的合字字形），interchar 机制默认会在标点处理时于两个 U+2014 之间注入 token，从而阻断 OpenType shaping 层看到"相邻"两个字符、无法触发合字。
+
+修复采用零注入字符类模式（见上文字符分类体系）：新建 `PoZheHao` 类，类内（U+2014↔U+2014、U+2014↔U+2015）不插入任何 interchar token，交由字体自身的合字特性处理；类间关系复制自 `FullRight`，保证破折号与其他标点/CJK 相邻时仍按全角右标点语义处理。
+
+工程细节与踩坑记录：
+
+- **`\@@_punct_if_right:N` 必须承认 `PoZheHao` 类**：若不修改，「标点+破折号」相邻（如“爱。——”）时，该函数误判 U+2014 不是全角右标点，导致下游取用不存在的 `dim/glue/left/—/tl` 一类缓存键报 `Missing number`。这是 2018 年该功能原型中就已踩过的坑（回归测试 `dashwidth01.lvt` 专门覆盖"标点后接破折号"场景以固化此教训）。
+- **`\xeCJKResetPunctClass` 与状态恢复**：该命令会重新声明 `FullRight` 类，导致 U+2014 被重新拉回 `FullRight`（覆盖掉 `PoZheHao` 归类）。为此 `PoZheHaoLigature` 的开关状态记录在全局布尔 `\g_@@_pozhehao_ligature_bool` 中，`\xeCJKResetPunctClass` 执行尾部按该布尔值自动恢复 `PoZheHao` 类声明，避免用户重置标点类后合字状态跟着丢失。
+- **`PoZheHaoLigature=false` 的恢复目标**：U+2014 → `FullRight`，U+2015 → `Default`（普通类，编号 0）。注意 U+2015（水平线）自 v3.3.3 起已不属于 `FullRight`，这一点在本次修复中被实测验证，不能想当然认为两个字符对称恢复到同一个类。
+- **为什么是用户 opt-in 而非自动探测**：合字能力完全取决于字体（多数国产字库不提供），XeTeX 没有可靠原语能在不实际 shape 的情况下探测某字体是否具备特定 OpenType 合字特性；对不支持合字的字体启用 `PoZheHaoLigature` 会让连续破折号中间露出空隙（因为零注入类不再提供任何补偿）。因此设计为显式 `\xeCJKsetup{PoZheHaoLigature}` 键控制，且需要用户自行配合开启 `fwid`/`locl` 等 OpenType 特性以获得全角字形。
+
+### 标点度量的 feature-blind 限制（架构级边界，#382 复测发现）
+
+xeCJK 所有标点尺寸（`dimen`/`width`/`bound` 等）均通过 `\fontcharwd` 与 `\XeTeXglyphbounds n \XeTeXcharglyph` 获取。`\XeTeXcharglyph` 是**基于 cmap 的直接字符→字形编号查找**，不经过 OpenType shaping 管线，因此 `locl`（区域本地化替换）、`fwid`（全角变体替换）等 GSUB 特性替换掉原字形后，xeCJK 拿到的度量仍然是替换前那个"幻影字形"的度量，不会随特性生效而更新。
+
+这是一个已知且当前无法绕过的架构限制：没有原语能取得"shaped 后"的字符度量——advance width 尚可通过临时 `\hbox` 实测宽度间接获得，但 side bearing（字形左右边距，标点压缩公式的关键输入）没有对应的原语或测量手段。
+
+已知表现（本次修复中实测确认）：裸 Noto Serif CJK SC（未显式开启 `RawFeature=+fwid`）的连用破折号总宽仍是修复前的 1.78 ccwd 而非 CLReq 要求的 2.0，因为 `\XeTeXglyphbounds` 拿到的是全角替换前的窄字形边界；显式开启 `fwid`/`locl` 后（如 `\setCJKmainfont{Noto Serif CJK SC}[RawFeature=+fwid]`）度量与视觉字形一致，总宽达标 2.0。诊断这类问题时，`fontcharwd`/`\XeTeXglyphbounds` 在同一字体、开关某 OpenType 特性前后返回值恒定不变，本身就是"此路径 feature-blind"的直接证据，无需深入 shaping 引擎即可确认根因。
 
 ### 标点补偿 glue 的边界保护（`\@@_punct_boundary_guard:`）
 
