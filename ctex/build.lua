@@ -20,6 +20,8 @@ unpacksuppfiles     = {
 }
 typesetfiles        = {module .. ".dtx"}
 typesetsuppfiles    = {"ctxdoc.cls"}
+-- 手册排版依赖本仓库的 xeCJK (PoZheHaoLigature 等新特性)。
+typesetdeps         = {"../xeCJK"}
 gitverfiles         = {"ctxdoc.cls"}
 testfiledir         = "./test/testfiles"
 testsuppdir         = "./test/support"
@@ -73,6 +75,15 @@ checkinit_hook = function()
     for _,i in ipairs(installfiles) do
       cp(i, unpackdir, testdir)
     end
+  end
+  return 0
+end
+-- dep_install 只把 typesetdeps 产物放进 dep 自己的 build/local, kpse 搜
+-- 不到, 需要仿照 checkinit_hook 手动复制进本包的 localdir。
+docinit_hook = function()
+  for _,i in ipairs(typesetdeps) do
+    local dep_unpackdir = i .. "/" .. unpackdir
+    cp("*.sty", dep_unpackdir, localdir)
   end
   return 0
 end

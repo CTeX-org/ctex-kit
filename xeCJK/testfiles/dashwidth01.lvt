@@ -1,0 +1,74 @@
+% Issue #382: em-dash (U+2014) width algorithm
+% Two consecutive U+2014 must occupy exactly 2 ccwd (CLReq requirement).
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+\TEST{single em-dash width}{
+  \setbox0=\hbox{字—字}
+  \setbox2=\hbox{字字}
+  \TYPE{single-ctx: \the\wd0}
+  \TYPE{two-chars: \the\wd2}
+}
+
+\TEST{double em-dash occupies two ccwd}{
+  \setbox0=\hbox{字——字}
+  \setbox2=\hbox{字字}
+  \TYPE{double-ctx: \the\wd0}
+  \TYPE{two-chars: \the\wd2}
+}
+
+\TEST{triple em-dash occupies three ccwd}{
+  \setbox0=\hbox{字———字}
+  \setbox2=\hbox{字字}
+  \TYPE{triple-ctx: \the\wd0}
+  \TYPE{two-chars: \the\wd2}
+}
+
+\TEST{em-dash after full stop}{
+  % 2018 prototype of PoZheHao failed here with "Missing number"
+  \setbox0=\hbox{爱。——测}
+  \TYPE{stop-dash-ctx: \the\wd0}
+}
+
+\TEST{em-dash between quotes}{
+  \setbox0=\hbox{“——”}
+  \TYPE{quote-dash-ctx: \the\wd0}
+}
+
+\TEST{banjiao double em-dash}{
+  \xeCJKsetup{PunctStyle=banjiao}
+  \setbox0=\hbox{字——字}
+  \TYPE{banjiao-double-ctx: \the\wd0}
+  \xeCJKsetup{PunctStyle=quanjiao}
+}
+
+\TEST{PoZheHaoLigature key toggles char class}{
+  % FandolSong has no dash ligature, but the PoZheHao class itself
+  % (zero injection between dashes + FullRight semantics elsewhere)
+  % must keep the width invariant.
+  \xeCJKsetup{PoZheHaoLigature}
+  \setbox0=\hbox{字——字}
+  \TYPE{pozhehao-double-ctx: \the\wd0}
+  \setbox0=\hbox{爱。——测}
+  \TYPE{pozhehao-stop-dash-ctx: \the\wd0}
+  \xeCJKsetup{PoZheHaoLigature=false}
+  \setbox0=\hbox{字——字}
+  \TYPE{restored-double-ctx: \the\wd0}
+}
+
+\TEST{ellipsis width unchanged}{
+  \setbox0=\hbox{字……字}
+  \TYPE{ellipsis-ctx: \the\wd0}
+}
+
+\END
+
+\end{document}
