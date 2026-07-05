@@ -47,6 +47,7 @@
 - `llmdoc/memory/decisions/431-latinpunct-option.md` — 决策: #389/#431 新增 `LatinPunct` 选项让中西文共用码位标点（弯引号/间隔号/省略号）可切换为西文字体输出；归入 `Half*` 类而非 `Default`；破折号/半字线刻意排除保持与 `PoZheHaoLigature` 正交；状态记录改用局部布尔 `\l_@@_latin_punct_bool` 并回溯修正 `PoZheHaoLigature` 同类作用域问题（影子布尔作用域必须与被控 `\XeTeXcharclass` 资源一致）。
 - `llmdoc/memory/decisions/859-gh-assets-orphan-branch.md` — 决策: 建立长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源, 取代按事件建临时分支（`tmp-859-assets` / `tmp-456-assets`, 均已删除）; 添加新资产须用 worktree 或纯 plumbing 流, 禁止主工作区 `git checkout --orphan` 以避免 `git clean` 波及未跟踪文件。
 - `llmdoc/memory/decisions/456-longpunct-kinsoku-both-sides.md` — 决策: #456 长标点与其他标点相邻断点改为"两侧禁则联合判断"，落在既有 `\@@_punct_kern:NN` 内新增辅助函数 `\@@_punct_kern_break:NN`，不新增字符类/special punct 属性、不引入 penalty 类机制；`\g_@@_last_punct_tl` 参与 `\@@_punct_if_right:N` 前需 `\exp_after:wN` 展开为字符记号，参与 `\@@_punct_if_long:N` 判断则直接传 tl。
+- `llmdoc/memory/decisions/908-ubuntu-fontset-fangsong.md` — 决策: #908 `fontset=ubuntu` 补齐仿宋 `zhfs`/`\fangsong`，采用朱雀仿宋（lxgw-fonts）→ FandolFang → Noto 宋体三级运行时 fallback（仅 XeTeX/LuaTeX，`\fontspec_font_if_exist:nTF`）；基线定量（dp: Noto 0.76pt / 朱雀 1.21pt / Fandol 1.75pt）驱动候选排序；`\CJKsymbol`+`\raisebox` 基线抬升 hack 验证有效但判定与标点压缩系统冲突，ctex 不提供该功能；`DEPENDS.txt` 新增 `soft lxgw-fonts`。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
