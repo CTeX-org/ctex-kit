@@ -1,0 +1,234 @@
+% -*- coding: utf-8 -*-
+% Issue #859 / #827 统一视觉对比 MWE
+% 用三个版本的 xeCJK 分别编译此文件，对比视觉效果
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage[paperwidth=21cm,paperheight=29cm,margin=1.2cm]{geometry}
+\usepackage{tabularray}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\setmonofont{DejaVu Sans Mono}[Scale=0.75]
+\parindent=0pt
+\pagestyle{empty}
+\hbadness=10000
+\hfuzz=200pt
+\setlength{\fboxsep}{1pt}
+
+% 宽度对比工具
+\newcommand{\wtest}[1]{%
+  \begingroup
+  \setbox0=\hbox{#1}%
+  \setbox2=\vbox{\hsize=50cm\parfillskip=0pt\leftskip=0pt\rightskip=0pt #1\par}%
+  \setbox4=\vbox{\unvbox2\unskip\unpenalty\global\setbox6=\lastbox}%
+  \setbox8=\hbox{\unhbox6}%
+  \makebox[5.5em][l]{\small hbox:\the\wd0}%
+  \makebox[5.5em][l]{\small par:\the\wd8}%
+  \ifdim\wd0=\wd8
+    \textcolor{green!50!black}{\small\bfseries PASS}%
+  \else
+    \textcolor{red}{\small\bfseries FAIL}%
+    {\small\enspace$\Delta$=\the\dimexpr\wd0-\wd8\relax}%
+  \fi
+  \endgroup
+}
+
+\begin{document}
+
+% ====================================================================
+{\large\bfseries\sffamily 1. 原始 Bug 复现}
+\smallskip\hrule\smallskip
+
+{\small\sffamily Issue \#859: tabularray 中右对齐+标点结尾单元格左侧多余间距}
+
+\medskip
+\begin{tblr}{columns={colsep=0pt}, columns={halign=r}, hlines, vlines}
+  test  & 123456       \\
+  test: & 左侧英文标点 \\
+\end{tblr}
+\quad
+\begin{tblr}{columns={colsep=0pt}, columns={halign=r}, hlines, vlines}
+  test    & 123456             \\
+  test：  & 左侧中文标点全角式 \\
+\end{tblr}
+\quad
+\xeCJKsetup{PunctStyle=plain}%
+\begin{tblr}{columns={colsep=0pt}, columns={halign=r}, hlines, vlines}
+  test   & 123456           \\
+  test： & 左侧中文标点原样 \\
+\end{tblr}
+
+{\small\sffamily Issue \#827（comment）: tabular 中右对齐+标点结尾单元格左侧多余间距}
+
+\begin{tabular}{|@{}r@{}|@{}r@{}|}
+test  & 123456       \\
+test: & 左侧英文标点 \\
+\end{tabular}
+\quad
+\begin{tabular}{|@{}r@{}|@{}r@{}|}
+test    & 123456             \\
+test：  & 左侧中文标点全角式 \\
+\end{tabular}
+\quad
+\xeCJKsetup{PunctStyle=plain}
+\begin{tabular}{|@{}r@{}|@{}r@{}|}
+test   & 123456           \\
+test： & 左侧中文标点原样 \\
+\end{tabular}
+
+\bigskip
+
+\xeCJKsetup{PunctStyle=kaiming}%
+
+% ====================================================================
+{\large\bfseries\sffamily 2. 宽度一致性验证}
+\smallskip\hrule\smallskip
+
+\begin{minipage}[t]{0.48\linewidth}
+{\small\sffamily 以右标点结尾（\#859 核心场景）：}
+
+\smallskip
+\makebox[8em][l]{测试。}\wtest{测试。}
+
+\makebox[8em][l]{测试，}\wtest{测试，}
+
+\makebox[8em][l]{测试：}\wtest{测试：}
+
+\makebox[8em][l]{测试"}\wtest{测试"}
+
+\makebox[8em][l]{测试》}\wtest{测试》}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+{\small\sffamily 对照组（应始终 PASS）：}
+
+\smallskip
+\makebox[8em][l]{测试内容}\wtest{测试内容}
+
+\makebox[8em][l]{测试hello}\wtest{测试hello}
+
+\makebox[8em][l]{测试123}\wtest{测试123}
+
+\makebox[8em][l]{测试，内容}\wtest{测试，内容}
+
+\makebox[8em][l]{(空)}\wtest{测试}
+\end{minipage}
+
+\bigskip
+
+% ====================================================================
+{\large\bfseries\sffamily 3. 方案 1 影响范围：段中 Boundary 转换（heading 类）}
+\smallskip\hrule\smallskip
+
+{\small 方案 1 在标点后接非 CJK 字符处多一个 \texttt{\textbackslash penalty 0}。
+方案 2 和修复前在此处节点相同。以下验证视觉效果：}
+
+\medskip
+\begin{minipage}[t]{0.48\linewidth}
+\fbox{\parbox{16em}{%
+{\bfseries\sffamily 第一章：概述}
+
+本章概述全文内容。
+}}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+\fbox{\parbox{16em}{%
+{\bfseries\sffamily 问题：关于 xeCJK}
+
+标题中混合使用标点和字母。
+}}
+\end{minipage}
+
+\medskip
+\fbox{\parbox{0.96\linewidth}{%
+正文段落：hello world 继续中文。第一条：100 个单位。括号（parenthesis）混排。%
+}}
+
+\bigskip
+
+% ====================================================================
+{\large\bfseries\sffamily 4. 方案 2 影响范围：段末标点（basic/beamer 类）}
+\smallskip\hrule\smallskip
+
+{\small 方案 2 在段末多一个 \texttt{glue + penalty 0}。
+方案 1 在段末也保留了 glue 和 penalty 0（方式不同但结果相同）。
+以下验证视觉效果：}
+
+\medskip
+\begin{minipage}[t]{0.48\linewidth}
+\fbox{\parbox{14em}{%
+天地玄黄，宇宙洪荒。日月盈昃，辰宿列张。
+}}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+\fbox{\parbox{14em}{%
+设 $f(x) = x^2$，则 $f(0) = 0$。
+
+以上公式成立。
+}}
+\end{minipage}
+
+\medskip
+\fbox{\parbox{0.96\linewidth}{%
+这是一段以右书名号结尾的文字，引用《西游记》%
+}}
+
+\fbox{\parbox{0.96\linewidth}{%
+Beamer 幻灯片标题中使用 ctexbeamer 排版中文报告。
+}}
+
+\bigskip
+
+% ====================================================================
+{\large\bfseries\sffamily 5. 极端 Bad Case：窄行宽断行压力}
+\smallskip\hrule\smallskip
+
+{\small 方案 1 的 \texttt{\textbackslash penalty 0} 理论上可能在极端窄行宽下
+影响 \TeX{} 的最优断行。以下用 5em 行宽测试：}
+
+\medskip
+\begin{minipage}[t]{0.22\linewidth}
+{\small\sffamily 5em 行宽：}
+
+\fbox{\parbox{5em}{%
+这是测试：hello继续中文。
+}}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.22\linewidth}
+{\small\sffamily 4em 行宽：}
+
+\fbox{\parbox{4em}{%
+问题：AB和CD结论。
+}}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.22\linewidth}
+{\small\sffamily 6em 行宽：}
+
+\fbox{\parbox{6em}{%
+列表：第一，第二，第三。
+}}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.22\linewidth}
+{\small\sffamily 5em 行宽：}
+
+\fbox{\parbox{5em}{%
+"引号"后text续排。
+}}
+\end{minipage}
+
+\medskip
+{\small\sffamily 极端窄行宽 (3em)：}
+
+\smallskip
+\fbox{\parbox{3em}{测试：A。}}\enspace
+\fbox{\parbox{3em}{问题，B。}}\enspace
+\fbox{\parbox{3em}{结论：C！}}\enspace
+\fbox{\parbox{3em}{正常text}}
+
+\end{document}
