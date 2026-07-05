@@ -606,7 +606,9 @@ Copyright and Licence
 %   \end{syntax}
 %   设置长标点，例如破折号”——“与省略号”……”，允许在长标点前后
 %   断行，但是禁止在它们之间断行。同时属于 |NoBreakLongPunct|
-%   的长标点则禁止在其前面断行。
+%   的长标点则禁止在其前面断行。长标点与其他标点相邻时，
+%   断点两侧还须满足通常的标点禁则：全角左标点不悬于行尾，
+%   全角右标点不落于行首。
 % \end{function}
 %
 % \begin{function}[EXP]{NoBreakLongPunct,NoBreakLongPunct+,NoBreakLongPunct-}
@@ -4544,30 +4546,59 @@ Copyright and Licence
 % \changes{v3.6.0}{2018/01/23}{总允许长标点与其他标点之间折行。}
 % \changes{v3.10.0}{2026/04/27}
 % {\texttt{NoBreakLongPunct} 在右侧时禁止折行。}
+% \changes{v3.10.2}{2026/07/05}
+% {长标点与其他标点之间折行时检查断点两侧的禁则：左标点不得悬于行尾，
+%  右标点与 \texttt{NoBreakLongPunct} 不得落于行首（\#456）。}
 % \begin{macro}{\xeCJK_punct_kern:NN,\@@_punct_kern:NN}
-% 相邻两个标点之间的间距，总允许长标点与其他标点之间折行，
-% 但 |NoBreakLongPunct| 在右侧时禁止折行。
+% 相邻两个标点之间的间距。长标点与其他标点之间允许折行，
+% 但断点两侧的禁则必须同时满足，由 \cs{@@_punct_kern_break:NN} 判断。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_punct_kern:NN #1#2
   {
     \str_if_eq:eeTF {#1} {#2}
       { \@@_punct_nobreak_kern:NN }
       {
-        \@@_punct_if_long:NTF #1
-          { \@@_punct_breakable_kern:NN }
-          {
-            \@@_punct_if_long:NTF #2
-              {
-                \@@_punct_if_nobreak_long:NTF #2
-                  { \@@_punct_nobreak_kern:NN }
-                  { \@@_punct_breakable_kern:NN }
-              }
-              { \@@_punct_nobreak_kern:NN }
-          }
+        \bool_lazy_or:nnTF
+          { \@@_punct_if_long_p:N #1 }
+          { \@@_punct_if_long_p:N #2 }
+          { \@@_punct_kern_break:NN #1 #2 }
+          { \@@_punct_nobreak_kern:NN }
       }
     #1 #2
   }
 \cs_new_eq:NN \xeCJK_punct_kern:NN \@@_punct_kern:NN
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\@@_punct_kern_break:NN}
+% 长标点与其他标点相邻时，判断二者之间的断点是否满足两侧禁则，
+% 并留下相应的间距函数（吃掉参数后，后续的 |#1 #2| 交由留下的函数处理）：
+% \begin{itemize}
+%   \item 断点之前（|#1|）必须是全角右标点或长标点，
+%     即全角左标点不得悬于行尾；
+%   \item 断点之后（|#2|）必须是全角左标点，或者不属于
+%     |NoBreakLongPunct| 的长标点，即全角右标点和省略号等
+%     不得落于行首。
+% \end{itemize}
+% 注意 |#1| 来自 \cs{g_@@_last_punct_tl}，参与字符类判断前
+% 需要先展开为字符记号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_punct_kern_break:NN #1#2
+  {
+    \exp_after:wN \@@_punct_if_right:NTF #1
+      {
+        \@@_punct_if_right:NTF #2
+          {
+            \bool_lazy_and:nnTF
+              { \@@_punct_if_long_p:N #2 }
+              { ! \@@_punct_if_nobreak_long_p:N #2 }
+              { \@@_punct_breakable_kern:NN }
+              { \@@_punct_nobreak_kern:NN }
+          }
+          { \@@_punct_breakable_kern:NN }
+      }
+      { \@@_punct_nobreak_kern:NN }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
