@@ -386,6 +386,32 @@ xeCJK 所有标点尺寸（`dimen`/`width`/`bound` 等）均通过 `\fontcharwd`
 
 已知表现（本次修复中实测确认）：裸 Noto Serif CJK SC（未显式开启 `RawFeature=+fwid`）的连用破折号总宽仍是修复前的 1.78 ccwd 而非 CLReq 要求的 2.0，因为 `\XeTeXglyphbounds` 拿到的是全角替换前的窄字形边界；显式开启 `fwid`/`locl` 后（如 `\setCJKmainfont{Noto Serif CJK SC}[RawFeature=+fwid]`）度量与视觉字形一致，总宽达标 2.0。诊断这类问题时，`fontcharwd`/`\XeTeXglyphbounds` 在同一字体、开关某 OpenType 特性前后返回值恒定不变，本身就是"此路径 feature-blind"的直接证据，无需深入 shaping 引擎即可确认根因。
 
+### 长标点断点的两侧禁则检查（`\@@_punct_kern:NN` / `\@@_punct_kern_break:NN`，#456）
+
+v3.6.0（2018/01/23）起，长标点（`LongPunct`，如 U+2014 破折号、U+2026 省略号）与其他标点相邻时的断点策略是"只要一侧是长标点就总允许折行"（`\@@_punct_if_long:NTF #1 { breakable }`）。这只保证了"长标点内部不误断"，未检查断点另一侧是否违反通常的标点禁则，导致三类硬性违规：
+
+- `“——`：可在左引号（`FullLeft`）后断行 → 全角左标点悬于行尾
+- `——，` / `——。`：可在逗号/句号（`FullRight`）前断行 → 全角右标点落于行首
+- `——……`：可在省略号前断行 → `NoBreakLongPunct`（见 #681）落于行首；v3.10.0（2026/04/27）只修了"右侧是长标点"这一支，"右侧是 `NoBreakLongPunct` 但左侧是长标点"的组合依然漏判
+
+修复重写 `\@@_punct_kern:NN` 的决策树：外层先用 `\bool_lazy_or:nnTF { long_p #1 } { long_p #2 }` 快速筛掉"两侧都不是长标点"的常规情形（保持原有 nobreak 行为不变），只要有一侧是长标点，才进入新增的 `\@@_punct_kern_break:NN` 做两侧禁则联合判断：
+
+- 断点之前（`#1`）必须是全角右标点（`\@@_punct_if_right:NTF`，`PoZheHao` 类也被承认为 right，见上文 #382）或长标点——否则全角左标点会悬于行尾；
+- 断点之后（`#2`）必须是全角左标点，或者是长标点且**非** `NoBreakLongPunct`——否则全角右标点或省略号等会落于行首。
+
+两条件同时满足才走 `\@@_punct_breakable_kern:NN`，否则走 `\@@_punct_nobreak_kern:NN`。合法断点保留：`，——`、`……——`、`——（` 仍可断（右侧是长标点或左标点，左侧是全角右标点）。
+
+工程坑位：
+
+- **两类条件函数的参数形态不同**：`\@@_punct_if_right:N`（`prg_new_conditional`，内部用 `\xeCJKtoken_value_class:N` 查询 `\XeTeXcharclass`）要求参数是**字符记号**；而 `\@@_punct_if_long:N`（special punct clist 机制生成，内部 `\if_cs_exist:w` 判断缓存 csname 是否存在）可以直接吃 **tl 变量**作为 `#`-参数。`\@@_punct_kern_break:NN` 的 `#1` 来自 `\g_@@_last_punct_tl`（tl 类型），参与 `\@@_punct_if_right:NTF` 前必须先 `\exp_after:wN` 展开成字符记号，而参与 `\@@_punct_if_long_p:N` 判断时可以直接传 tl，不需要展开。混用这两类条件时必须先确认各自的参数形态要求。
+- **`\@@_punct_kern_break:NN` 延续"选函数再喂参数"的既有模式**：函数体只做条件判断、留下 `\@@_punct_breakable_kern:NN` 或 `\@@_punct_nobreak_kern:NN` 这个函数名，真正的 `#1 #2` 参数由外层 `\@@_punct_kern:NN` 尾部统一喂给最终留下的函数——与原 `\@@_punct_kern:NN` 的既有结构一致，未引入新模式。
+
+基线联动：ctex `punct.tlg`（180+ 测试的大文件）中 `……」` 组合从 `\rule(0pt) + \glue`（可断）变为 `\penalty 10000 + \glue`（禁则保护）——这正是本修复的目标行为，属预期变化，直接 `l3build save punct` 更新基线。
+
+测试：新增 `xeCJK/testfiles/longpunct-kinsoku01.lvt`，用 `\hsize=9em` 窄版面 + `\loggingoutput` 让断行真实发生，覆盖三类禁则违反场景（左引号/括号+破折号、破折号+逗号/句号、破折号+省略号）与两个合法断点保留场景（逗号后断、省略号后断）。
+
+详见决策 [[456-longpunct-kinsoku-both-sides]] 与反思 [[456-longpunct-kinsoku-both-sides]]。
+
 ### 标点补偿 glue 的边界保护（`\@@_punct_boundary_guard:`）
 
 全角标点的压缩量通过补偿 glue 实现。但在某些上下文中，`\unskip` 会移除水平列表末尾的 glue，吞掉标点补偿 glue，导致宽度计算错误。`\@@_punct_boundary_guard:` 函数在补偿 glue 之后插入保护节点，防止被 `\unskip` 移除。
