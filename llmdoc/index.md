@@ -16,6 +16,7 @@
 - `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888）、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + fontconfig alias 对 XeTeX 无效的稳定教训）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义、docstrip 标签、`\CTEX@` 遗留接口与文档排版基础设施。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
+- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 分支组织约定：长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源，目录组织与引用格式，添加新资产的安全操作方式（worktree / plumbing，禁止主工作区 `checkout --orphan`），迁移旧引用的收尾步骤。
 
 ## guides
 
@@ -43,6 +44,7 @@
 - `llmdoc/memory/decisions/931-biblatex-let-shadow.md` — 决策: #931 biblatex 补丁点选 `\let` 目标 `\blx@pagetracker` 且 hook 时机改用 `\@@_at_end_preamble:n`——补丁点必须挂到宏包内部 `\let` 拷贝的目标而非源，且必须在 `\let` 执行后装 patch，`\@@_package_hook:nn` 对 nested style-load 场景不够晚。
 - `llmdoc/memory/decisions/935-check-doc-vs-ctan.md` — 决策: #935 新增 PR 门禁 `check-doc.yml` 用 `l3build doc` 而非 `l3build ctan`。后者内部硬编码调 `l3build check` (整套 regression) 与 test.yml 完全重复; 前者是纯 typeset (docinit + typesetpdf), 精确对应"文档 dtx→PDF 可编译性"维度. 牺牲 tdslocations 打包路径验证 (低频问题, release.yml 兜底).
 - `llmdoc/memory/decisions/382-dash-width-and-ligature-opt-in.md` — 决策: #382 破折号宽度修复分两阶段——公式修正（`\@@_long_punct_kerning:N` 三路取大 kern + `\xeCJK_punct_margin_process:NN` 全份 margin 补偿）默认生效, OpenType 合字支持通过 `PoZheHao` 字符类 `PoZheHaoLigature` opt-in; margin 选择新增专用条件 `\@@_punct_if_full_margin_dash:N` 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性。
+- `llmdoc/memory/decisions/859-gh-assets-orphan-branch.md` — 决策: 建立长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源, 取代按事件建临时分支（`tmp-859-assets` / `tmp-456-assets`, 均已删除）; 添加新资产须用 worktree 或纯 plumbing 流, 禁止主工作区 `git checkout --orphan` 以避免 `git clean` 波及未跟踪文件。
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
