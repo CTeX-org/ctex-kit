@@ -17,8 +17,8 @@ typesetdeps = {"../xeCJK"}
 
 docinit_hook = function()
   for _,i in ipairs(typesetdeps) do
-    local unpackdir = i .. "/" .. unpackdir
-    cp("*.sty", unpackdir, localdir)
+    local dep_unpackdir = i .. "/" .. unpackdir
+    cp("*.sty", dep_unpackdir, localdir)
   end
   return 0
 end
