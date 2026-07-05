@@ -34,13 +34,12 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         if tag not in line:
             i += 1
             continue
-        # 抽 \changes{v<ver>}{<date>}{<text...>} 的第三个 {} 内容.
-        m = re.search(r"\\changes\{[^}]*\}\{[^}]*\}\{", line)
-        if not m:
-            i += 1
-            continue
-        text = line[m.end():]
+        # 先把续行拼接成完整逻辑行, 再抽第三个 {} 的内容: \changes 的
+        # 版本/日期与正文可能分行书写 (dtx 常见折行风格, 如
+        # `% \changes{v3.10.2}{2026/07/05}` + `% {正文...}`), 不能要求
+        # 三个 { 都出现在 tag 所在的物理行上.
         # 续行: 以 `% ` 开头, 且不开新的 \changes / macrocode block.
+        text = line.rstrip("\n")
         i += 1
         while (
             i < len(lines)
@@ -50,6 +49,10 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         ):
             text += " " + lines[i].lstrip("% ").rstrip("\n")
             i += 1
+        m = re.search(r"\\changes\{[^}]*\}\s*\{[^}]*\}\s*\{", text)
+        if not m:
+            continue
+        text = text[m.end():]
         # 用花括号深度匹配剥掉结尾 }, 容忍 text 内的嵌套 {}.
         depth = 1
         result: list[str] = []
