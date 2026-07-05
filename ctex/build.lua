@@ -10,6 +10,19 @@ unpacksuppfiles  = {"ctex.id", "ctxdocstrip.tex", "ctex-zhconv.lua", "ctex-zhcon
 typesetsuppfiles = {"ctxdoc.cls"}
 gitverfiles      = {"ctex.dtx", "ctxdoc.cls"}
 
+-- 手册排版依赖本仓库的 xeCJK (PoZheHaoLigature 等新特性)。
+-- dep_install 只把产物放进 dep 自己的 build/local, kpse 搜不到,
+-- 需要仿照 checkinit_hook 手动复制进本包的 localdir。
+typesetdeps = {"../xeCJK"}
+
+docinit_hook = function()
+  for _,i in ipairs(typesetdeps) do
+    local unpackdir = i .. "/" .. unpackdir
+    cp("*.sty", unpackdir, localdir)
+  end
+  return 0
+end
+
 tdslocations = {
   "source/latex/ctex/*-make.lua",
   "source/latex/ctex/*.ins",
