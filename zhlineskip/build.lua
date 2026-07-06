@@ -11,7 +11,7 @@
     `\changes` 记录, 不必手动碰 .dtx 的 GetIdInfo 行.
 --]==========================================================================]--
 module              = "zhlineskip"
-version             = "v1.0g"
+version             = "v1.0h"
 date                = "2026-06-30"
 maintainer          = "Mingyu Xia"
 email               = "myhsia@outlook.com"
@@ -63,7 +63,7 @@ function update_tag(file, content, tagname, tagdate)
     --   `<(.-)>`-> 捕获 email
     content = string.gsub(content,
       "%%<%+!driver>\\GetIdInfo $Id: " .. module .. ".dtx " ..
-      "v%d+%.%d+%w %d+%-%d+%-%d+ (.-)<(.-)>",
+      "v%d+%.%w+ %d+%-%d+%-%d+ (.-)<(.-)>",
       "%%<+!driver>\\GetIdInfo $Id: "  .. module .. ".dtx " ..
       tagname .. " " .. tagdate .. " " .. maintainer .. "<" .. email .. ">")
   end
