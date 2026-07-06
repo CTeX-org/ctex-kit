@@ -10295,9 +10295,12 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.10.1}{2026/06/30}{为 \pkg{l3doc} 的 \cs{__codedoc_meta:n}
+% \changes{v3.10.1}{2026/06/30}{为 \cls{l3doc} 的 \cs{__codedoc_meta:n}
 %   添加补丁，将参数内容包入 \cs{hbox:n}，
 %   修复 \tn{meta} 内首字符前出现多余 \texttt{CJKecglue} 的问题（\#920）。}
+% \changes{v3.10.2}{2026/07/06}{为 \pkg{doc} 的 \tn{meta}
+%   添加补丁，将参数内容包入 \cs{hbox:n}，
+%   修复 \tn{meta} 内首字符前出现多余 \texttt{CJKecglue} 的问题（\#951）。}
 %
 % \pkg{l3doc} 类用 \cs{__codedoc_meta:n} 排版 \tn{meta} 命令的参数：
 % 内部由 \cs{__codedoc_meta_original:n} 依次输出 \tn{ensuremath}\verb*-{-\tn{langle}\verb*-}-
@@ -10335,17 +10338,30 @@ Copyright and Licence
 % 这里选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}，
 % 原因在于 \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，
 % 需要等到 preamble 结束时才能判定 \cs{__codedoc_meta:n} 是否定义。
-%
+% 同时亦有开发者可能会在 \pkg{xeCJK} 前加载 \pkg{doc} 宏包。
 % \begin{macro}[int]{\@@_patch_codedoc_meta:}
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_codedoc_meta:
   {
-    \cs_if_exist:NT \__codedoc_meta:n
+    \cs_if_exist:NTF \__codedoc_meta:n
       {
         \cs_if_exist:NF \@@_orig_codedoc_meta:n
           {
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
             \cs_gset_protected:Npn \__codedoc_meta:n ##1
+              {
+                \mode_if_math:F { \@@_drain_ecglue_verb: }
+                \@@_orig_codedoc_meta:n { \hbox:n {##1} }
+              }
+          }
+      }
+      {
+        \bool_lazy_and:nnT
+          { \cs_if_exist_p:c { ver@doc.sty } }
+          { \cs_if_free_p:N \@@_orig_codedoc_meta:n }
+          {
+            \cs_set_eq:NN \@@_orig_codedoc_meta:n \meta
+            \DeclareDocumentCommand \meta { m }
               {
                 \mode_if_math:F { \@@_drain_ecglue_verb: }
                 \@@_orig_codedoc_meta:n { \hbox:n {##1} }
