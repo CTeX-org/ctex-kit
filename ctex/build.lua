@@ -22,6 +22,7 @@ typesetfiles        = {module .. ".dtx"}
 typesetsuppfiles    = {"ctxdoc.cls"}
 -- 手册排版依赖本仓库的 xeCJK (PoZheHaoLigature 等新特性)。
 typesetdeps         = {"../xeCJK"}
+typesetopts         = "--shell-escape"
 gitverfiles         = {"ctxdoc.cls"}
 testfiledir         = "./test/testfiles"
 testsuppdir         = "./test/support"
