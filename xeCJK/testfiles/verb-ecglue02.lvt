@@ -12,6 +12,8 @@
 
 \START
 
+\loggingoutput
+
 % #919: double CJKecglue on the RIGHT side of \verb when a source space
 % follows, in PARAGRAPH mode only. Root cause: TeX emits the language
 % whatsit lazily -- after \verb's group closes, the whatsit only enters
@@ -35,10 +37,9 @@
 % so the box constructions below use \vbox{...\par}; restricted \hbox
 % mode never had the bug.
 %
-% NOTE: checkopts has -halt-on-error and \showbox reports "! OK." as an
-% error, so only ONE \showbox can appear in this file and it must be in
-% the LAST test. Width comparisons (\TYPE of \wd values) serve as the
-% oracle for the other scenarios.
+% NOTE: checkopts has -halt-on-error and \showbox reports "! OK.", so we use
+% \box instead and add \loggingoutput before. Width comparisons (\TYPE of \wd
+% values) serve as the oracle for the other scenarios.
 
 % \verb cannot appear inside a macro argument, so boxes are set at the
 % top level.
@@ -75,12 +76,12 @@
 
 \TEST{paragraph-mode glue accounting via badness}{
   % All these paragraphs are single lines stretched to \hsize; the glue
-  % set ratio embedded in \showbox output differs when an extra 3.33pt
+  % set ratio embedded in \box output differs when an extra 3.33pt
   % glue is present. We expose it via the vbox height/depth (invariant)
   % plus the badness of the line, which reflects total stretch.
   % Before the fix box4's line had one extra ecglue (more absolute
   % width consumed -> different glue set). The definitive node-level
-  % check is TEST 3's \showbox; here we record box dimensions as a
+  % check is TEST 3's \box; here we record box dimensions as a
   % cheap cross-check that survives in the .tlg.
   \TYPE{1sp/1sp vbox: \the\wd4 x \the\ht4 + \the\dp4}
   \TYPE{1sp/0sp vbox: \the\wd5 x \the\ht5 + \the\dp5}
@@ -93,8 +94,9 @@
   % adjacent "\glue 3.33" nodes (source space + default branch) with
   % \setlanguage0 between kern pair and first glue; after the fix a
   % single glue with \setlanguage0 emitted right after the kern pair.
-  % Must be the LAST test: -halt-on-error stops at \showbox's "! OK."
-  \showbox4
+  % Must use \box, or -halt-on-error will stops at \showbox's "! OK."
+  \box4
+  \clearpage
 }
 
 \END
