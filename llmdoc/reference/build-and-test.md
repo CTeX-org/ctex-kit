@@ -380,6 +380,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - dtx 源文件的版本行是 `\GetIdInfo $Id: <file> <ver> <date> ...$` stamp，被 `\ProvidesExplPackage{...}{\ExplFileDate}{\ExplFileVersion}{...}` 消费——dtx 里没有第二处硬编码版本。
 - 本地手跑 `cd <pkg> && l3build tag`，包级重写的 `update_tag`（`ctex/build.lua` / `zhlineskip/build.lua`）把 version 回写进 stamp。**ctex 的 update_tag 带幂等守卫**：stamp 版本已等于 version 时原样保留（不动 date/sha），否则"回写产生新 commit → 新 sha → 又要回写"永不收敛。
 - 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
+- ctex 的 `update_tag` 在处理主 `ctex.dtx` 时还会额外固化手册首页页脚的 shorthash：取 `git log -1 --format='%h' *.dtx` 回写进 `ctex.dtx` 里的 `\GetFileId[<hash>]{ctex.sty}`（消费方是 `support/ctxdoc.cls` 的 `\GetFileId { O{} m }`，可选参数即固化 hash）。运行时**不**依赖 `\sys_get_shell` / `--shell-escape` 现取 git 信息——曾经的运行时方案已被否决，详见决策 [[937-version-single-source-l3build-tag]] 「手册页脚 shorthash」小节。
 
 ### 发版 SOP（ctex 拆分后）
 
