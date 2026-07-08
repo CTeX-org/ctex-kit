@@ -56,7 +56,17 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # 用花括号深度匹配剥掉结尾 }, 容忍 text 内的嵌套 {}.
         depth = 1
         result: list[str] = []
-        for ch in text:
+        # 跳过 LaTeX 转义 \{ 和 \}，避免增减 depth
+        idx = 0
+        while idx < len(text):
+            ch = text[idx]
+            if ch == "\\":
+                # 如果是检测到 \{ 或 \}，作为整体存入，不改变花括号深度
+                if idx + 1 < len(text) and text[idx + 1] in ("{", "}"):
+                    result.append(ch)
+                    result.append(text[idx + 1])
+                    idx += 2
+                    continue
             if ch == "{":
                 depth += 1
             elif ch == "}":
@@ -64,18 +74,26 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
                 if depth == 0:
                     break
             result.append(ch)
+            idx += 1
         text = "".join(result)
         text = re.sub(r"\s+", " ", text).strip()
+
+        # 使用 (?:\\.|[^}])*，使其能够安全匹配包含 \} 的命令参数
         # \cs / \tn → `\<name>` (先用 \x00..\x01 临时占位, 避开后面 \\
         # 命令通杀正则把 \cs 自己也吃掉).
-        text = re.sub(r"\\(?:cs|tn)\{([^}]*)\}", lambda m: "\x00" + m.group(1) + "\x01", text)
-        text = re.sub(r"\\(?:pkg|cls|file|texttt)\{([^}]*)\}", r"`\1`", text)
-        # `zhmakeindex` 会自动把 `\opt` 命令中可能出现的 `!=` 更换为 `=`
-        text = re.sub(r"\\opt\{([^}]*)!=([^}]*)\}", r"`\1 = \2`", text)
-        # 再处理不含 `!=` 的 `\opt`
-        text = re.sub(r"\\opt\{([^}]*)\}", r"`\1`", text)
-        text = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", text)
+        text = re.sub(r"\\(?:cs|tn)\{((?:\\.|[^}])*)\}",
+                      lambda m: "\x00" + m.group(1) + "\x01", text)
+        text = re.sub(r"\\(?:pkg|cls|file|texttt)\{((?:\\.|[^}])*)\}",
+                      r"`\1`", text)
+        # 处理 \opt 中可能出现的 != 
+        text = re.sub(r"\\opt\{((?:\\.|[^}])*?)!=((?:\\.|[^}])*?)\}",
+                      r"`\1 = \2`", text)
+        text = re.sub(r"\\opt\{((?:\\.|[^}])*)\}",    r"`\1`",   text)
+        text = re.sub(r"\\textbf\{((?:\\.|[^}])*)\}", r"**\1**", text)
         text = re.sub(r"\\#", "#", text)
+        # 将残留的 LaTeX 转义 `\{` 和 `\}` 还原为 md 里的常规 `{` 和 `}`
+        text = re.sub(r"\\\{", "{", text)
+        text = re.sub(r"\\\}", "}", text)
         # LaTeX 系列 logo 命令的常见形态: \LaTeX, \LaTeX\<space>, \LaTeX{}.
         text = re.sub(r"\\LaTeXe(?:\\\s|\{\})?", "LaTeX2e ", text)
         text = re.sub(r"\\LaTeXiii(?:\\\s|\{\})?", "LaTeX3 ", text)
