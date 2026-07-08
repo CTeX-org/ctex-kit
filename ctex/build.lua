@@ -119,17 +119,17 @@ uploadconfig = ctex_kit_uploadconfig {
 -- sha, 永不收敛 -- check-tag.yml CI 的 "l3build tag 后 diff 必须为零"
 -- 检查就永远 fire.
 function update_tag(file, content, tagname, tagdate)
-  tagname = version
-  filetarget = string.gsub(file, "%-", "%%-")
+  local tagname = version
+  local filetarget = string.gsub(file, "%-", "%%-")
   -- 现 stamp 的版本号 == version 时跳过, 保证幂等.
-  stamped = content:match(
+  local stamped = content:match(
     "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " (%d+%.%d+%.%w+) ")
   if stamped ~= tagname then
     local tagdateid = io.popen(
       "git log -1 --pretty=format:'%ai %h %an <%ae>' " .. file):read('*l') or ""
+    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
     tagdocrev = io.popen(
       "git log -1 --format='%h' *.dtx"):read('*l') or ""
-    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
     if string.match(file, "%.dtx$") then
       if string.match(file, module .. "%.dtx$") then
         content = string.gsub(content,
