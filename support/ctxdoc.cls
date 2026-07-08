@@ -329,9 +329,10 @@
       }
       { \pkg {#2} }
   }
-\DeclareDocumentCommand \GetFileId { m }
+\DeclareDocumentCommand \GetFileId { O{} m }
   {
-    \GetFileInfo {#1}
+    \tl_set:Nn \filehash {#1}
+    \GetFileInfo {#2}
     \file_get:nnNTF { \c_sys_jobname_str .id }
       { \int_set:Nn \tex_endlinechar:D { -1 } } \l__ctxdoc_tmp_tl
       { \tl_if_empty:NTF \l__ctxdoc_tmp_tl }

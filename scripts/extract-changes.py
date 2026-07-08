@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract \\changes{v<ver>}{...}{...} entries from a .dtx file and emit
+"""Extract \\changes{v<ver>}{...}{...} entries from .dtx files and emit
 markdown bullet list to stdout.
 
 Usage:
@@ -7,6 +7,7 @@ Usage:
 
 Example:
     extract-changes.py xeCJK/xeCJK.dtx v3.10.0
+    extract-changes.py ctex/*.dtx v3.10.0
 
 设计意图: release.yml 用它生成 GH Release body, release-ctan-upload.yml
 用它生成 CTAN announcement 的事实材料 (不再让 LLM 直接读 \\changes,
@@ -15,8 +16,7 @@ Example:
 
 LaTeX 命令清洗规则与 release.yml 之前内联的 Python 完全一致.
 """
-import re
-import sys
+import glob, os, re, sys
 
 
 def extract(dtx_path: str, target_ver: str) -> list[str]:
@@ -108,17 +108,24 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"usage: {sys.argv[0]} <dtx_path> <version>", file=sys.stderr)
+    if len(sys.argv) < 3:
+        print(f"Usage: {sys.argv[0]} <dtx_path...> <version>", file=sys.stderr)
         return 2
-    dtx_path, target_ver = sys.argv[1], sys.argv[2]
-    entries = extract(dtx_path, target_ver)
-    seen: set[str] = set()
-    for e in entries:
-        if e in seen:
-            continue
-        seen.add(e)
-        print(f"- {e}")
+
+    target_ver, path_patterns = sys.argv[-1], sys.argv[1:-1]
+    dtx_files: list[str] = []
+    for pattern in path_patterns:
+        matches = glob.glob(pattern)
+        dtx_files.extend(sorted(matches))
+    global_seen: set[str] = set()
+
+    for file in dtx_files:
+        if os.path.isfile(file):
+            entries = extract(file, target_ver)
+            for e in entries:
+                if e not in global_seen:
+                    global_seen.add(e)
+                    print(f"- {e}")
     return 0
 
 
