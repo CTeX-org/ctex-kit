@@ -329,9 +329,10 @@
       }
       { \pkg {#2} }
   }
-\DeclareDocumentCommand \GetFileId { m }
+\DeclareDocumentCommand \GetFileId { O{} m }
   {
-    \GetFileInfo {#1}
+    \tl_set:Nn \filehash {#1}
+    \GetFileInfo {#2}
     \file_get:nnNTF { \c_sys_jobname_str .id }
       { \int_set:Nn \tex_endlinechar:D { -1 } } \l__ctxdoc_tmp_tl
       { \tl_if_empty:NTF \l__ctxdoc_tmp_tl }
@@ -339,18 +340,6 @@
       { \GetIdInfo $Id$ }
       { \exp_after:wN \GetIdInfo \l__ctxdoc_tmp_tl }
       { \fileinfo }
-  }
-\DeclareDocumentCommand \GetFileHash { m }
-  {
-    \tl_clear:N \l__ctxdoc_tmp_tl
-    \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ -- ~ '#1' }
-      { \cctab_select:N \c_other_cctab \endlinechar=-1 } \l__ctxdoc_tmp_tl
-    \tl_if_blank:VT \l__ctxdoc_tmp_tl
-      {
-        \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ -- ~ '../../#1' }
-          { \cctab_select:N \c_other_cctab \endlinechar=-1 } \l__ctxdoc_tmp_tl
-      }
-    \tl_set_eq:NN \filehash \l__ctxdoc_tmp_tl
   }
 \cs_new_eq:NN \__ctxdoc_ltx_changes:nnn \changes@
 \cs_set_protected:Npn \changes@ #1#2
