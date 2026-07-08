@@ -77,7 +77,16 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
             idx += 1
         text = "".join(result)
         text = re.sub(r"\s+", " ", text).strip()
-
+        # 优先抽取并保护数学公式环境 $...$，防止其中的特殊命令被后续的 Markdown 转换规则误伤
+        math_blocks = []
+        def _save_math(m):
+            block = m.group(0)
+            # 洗练数学环境内部的特殊命令：剥离 \texttt 并将文本反斜杠 \textbackslash 规范化为数学反斜杠 \backslash
+            block = re.sub(r"\\texttt\{((?:\\.|[^}])*)\}", r"\1", block)
+            block = block.replace(r"\textbackslash", r"\backslash")
+            math_blocks.append(block)
+            return f"\x02{len(math_blocks) - 1}\x03"
+        text = re.sub(r"\$(?:\\\$|[^$])+\$", _save_math, text)
         # 使用 (?:\\.|[^}])*，使其能够安全匹配包含 \} 的命令参数
         # \cs / \tn → `\<name>` (先用 \x00..\x01 临时占位, 避开后面 \\
         # 命令通杀正则把 \cs 自己也吃掉).
@@ -111,16 +120,10 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         text = re.sub(r"\\ApTeX(?:\\\s|\{\})?", "ApTeX ", text)
         text = re.sub(r"\\pTeX(?:\\\s|\{\})?", "pTeX ", text)
         text = re.sub(r"\\TeX(?:\\\s|\{\})?", "TeX ", text)
-        # 临时保护数学公式环境 $...$ 避免其中的数学命令被后面的通用剥离正则误杀
-        math_blocks = []
-        def _save_math(m):
-            math_blocks.append(m.group(0))
-            return f"\x02{len(math_blocks) - 1}\x03"
-        text = re.sub(r"\$(?:\\\$|[^$])+\$", _save_math, text)
         # 余下的 \xxx / \xxx{} 一律剥掉 (\changes 里其他命令通常是引用类,
         # 直接去掉名字不影响信息量).
         text = re.sub(r"\\[A-Za-z]+(?:\{\})?\s*", "", text)
-        # 还原数学公式环境 $...$
+        # 安全还原数学公式环境 $...$ 到清洗完毕后的逻辑文本中
         text = re.sub(r"\x02(\d+)\x03", lambda m: math_blocks[int(m.group(1))], text)
         # 还原 \cs / \tn 占位符 → `\<name>`.
         text = re.sub(r"\x00(.*?)\x01", r"`\\\1`", text)
