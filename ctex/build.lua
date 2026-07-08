@@ -124,23 +124,20 @@ function update_tag(file, content, tagname, tagdate)
   -- 现 stamp 的版本号 == version 时跳过, 保证幂等.
   local stamped = content:match(
     "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " (%d+%.%d+%.%w+) ")
-  if stamped ~= tagname then
-    local tagdateid = io.popen(
-      "git log -1 --pretty=format:'%ai %h %an <%ae>' " .. file):read('*l') or ""
-    tagdateid = string.gsub(tagdateid, "%%", "%%%%")
-    tagdocrev = io.popen(
-      "git log -1 --format='%h' *.dtx"):read('*l') or ""
-    if string.match(file, "%.dtx$") then
-      if string.match(file, module .. "%.dtx$") then
-        content = string.gsub(content,
-          "%% \\GetFileId%[%w+%]", "%% \\GetFileId[" .. tagdocrev .. "]")
-      else
-        content = string.gsub(content,
-          "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " " ..
-          "%d+%.%d+%.%w+ %d+%-%d+%-%d+ (.-)%$",
-          "%%<+!driver>\\GetIdInfo $Id: "  .. file       .. " " ..
-          tagname .. " " .. tagdateid ..   "$")
-      end
+  local tagdateid = io.popen(
+    "git log -1 --pretty=format:'%ai %h %an <%ae>' " .. file):read('*l') or ""
+  tagdateid = string.gsub(tagdateid, "%%", "%%%%")
+  local tagdocrev = io.popen(
+    "git log -1 --format='%h' *.dtx"):read('*l') or ""
+  if stamped ~= tagname and string.match(file, "%.dtx$") then
+    content = string.gsub(content,
+      "%%<%+!driver>\\GetIdInfo $Id: " .. filetarget .. " " ..
+      "%d+%.%d+%.%w+ %d+%-%d+%-%d+ (.-)%$",
+      "%%<+!driver>\\GetIdInfo $Id: "  .. file       .. " " ..
+      tagname .. " " .. tagdateid ..   "$")
+    if string.match(file, module .. "%.dtx$") then
+      content = string.gsub(content,
+        "%% \\GetFileId%[%w+%]", "%% \\GetFileId[" .. tagdocrev .. "]")
     end
   end
   return content
