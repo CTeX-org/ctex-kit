@@ -343,11 +343,11 @@
 \DeclareDocumentCommand \GetFileHash { m }
   {
     \tl_clear:N \l__ctxdoc_tmp_tl
-    \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ '#1' }
+    \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ -- ~ '#1' }
       { \cctab_select:N \c_other_cctab \endlinechar=-1 } \l__ctxdoc_tmp_tl
     \tl_if_blank:VT \l__ctxdoc_tmp_tl
       {
-        \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ '../../#1' }
+        \sys_get_shell:nnN { git ~ log ~ -1 ~ --format=\%h ~ -- ~ '../../#1' }
           { \cctab_select:N \c_other_cctab \endlinechar=-1 } \l__ctxdoc_tmp_tl
       }
     \tl_set_eq:NN \filehash \l__ctxdoc_tmp_tl
