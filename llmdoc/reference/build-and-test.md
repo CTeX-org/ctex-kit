@@ -414,7 +414,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 ### `check-changelog.yml` 门禁细节
 
-`.github/workflows/check-changelog.yml` 在 PR 改到以下路径时触发：`ctex|xeCJK|zhlineskip|zhmetrics|zhnumber` 目录下的 `**.dtx`、任意 `**/CHANGELOG.md`、`scripts/extract-changes.py`、workflow 自身。单 job `check-changelog-result` 对 5 个包依次跑：
+`.github/workflows/check-changelog.yml` 在 PR 改到以下路径时触发：任意 `**.dtx`（故意放宽到全部包——不参与 CHANGELOG 的包触发后生成 + diff 秒级必 pass，换来新包接入零 workflow 改动）、任意 `**/CHANGELOG.md`、`scripts/extract-changes.py`、`Makefile`、workflow 自身。单 job `check-changelog-result` 直接跑 `make changelog`（包列表以 `Makefile` 的 `CHANGELOG_PKGS` 为单一事实源，等价于对每个包执行）：
 
 ```bash
 cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
@@ -422,7 +422,7 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 
 再 `git add -N -- '*/CHANGELOG.md'`（覆盖新包首次生成、CHANGELOG.md 尚未被 git 跟踪的场景，否则 `git diff` 看不到差异）+ `git diff --exit-code -- '*/CHANGELOG.md'`。fail 时按上述三通道贴出期望内容。
 
-`CHANGELOG_PKGS` 范围（与 `Makefile` 的 `CHANGELOG_PKGS` 变量、workflow 的 `for pkg in ...` 列表两处保持一致，需手动同步）：`ctex xeCJK zhlineskip zhmetrics zhnumber`。其余 4 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`/`xpinyin`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后可直接把包名加入这两处列表。
+`CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK zhlineskip zhmetrics zhnumber`。其余 4 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`/`xpinyin`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 

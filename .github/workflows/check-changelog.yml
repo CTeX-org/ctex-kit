@@ -13,6 +13,11 @@ name: ctex-kit check-changelog
 # 与 check-tag.yml 同构 ("生成物新鲜度校验": CI 只校验不回写, 无需 write
 # 权限). 生成是秒级纯文本操作, 全部包合一个 job 即可.
 #
+# 包列表单一事实源: Makefile 的 CHANGELOG_PKGS (生成 step 直接跑
+# make changelog). paths 故意放宽到全部 '**.dtx': 不参与 CHANGELOG 的包
+# (如 jiazhu) 的 dtx 改动也会触发, 但生成 + diff 是秒级且必 pass, 换来
+# 新包接入时只需改 Makefile 一行, 不存在三处漏改风险.
+#
 # 本地重新生成: make changelog (或 make changelog-<pkg>); 无 make 时
 #   cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 # 注意必须用 -o 而非 shell 重定向: Windows PowerShell 5 的 `>` 默认产出
@@ -22,13 +27,10 @@ on:
   pull_request:
     types: [opened, ready_for_review, reopened, synchronize]
     paths:
-      - 'ctex/**.dtx'
-      - 'xeCJK/**.dtx'
-      - 'zhlineskip/**.dtx'
-      - 'zhmetrics/**.dtx'
-      - 'zhnumber/**.dtx'
+      - '**.dtx'
       - '**/CHANGELOG.md'
       - 'scripts/extract-changes.py'
+      - 'Makefile'
       - '.github/workflows/check-changelog.yml'
 
 concurrency:
@@ -43,13 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Regenerate CHANGELOG.md for all packages
-        run: |
-          # 与 Makefile 的 CHANGELOG_PKGS 保持一致
-          for pkg in ctex xeCJK zhlineskip zhmetrics zhnumber; do
-            ( cd "$pkg" && \
-              python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md )
-            echo "✓ regenerated $pkg/CHANGELOG.md"
-          done
+        # 包列表由 Makefile 的 CHANGELOG_PKGS 决定 (单一事实源)
+        run: make changelog
       - name: CHANGELOG.md must be up to date
         run: |
           # add -N: 新包首次生成的 CHANGELOG.md 是未跟踪文件, 不加这步

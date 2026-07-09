@@ -52,9 +52,9 @@ UTF-16LE + CRLF，会让字节级 diff 门禁必然失败）。生成 `CHANGELOG
 ## 未参与范围
 
 `CJKpunct`/`jiazhu`/`xCJK2uni`/`xpinyin` 4 个含 dtx 的包目前没有写任何
-`\changes` 条目，不在 `CHANGELOG_PKGS` 范围内。补写 `\changes` 后可直接
-把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 与 `check-changelog.yml` 的包
-列表，两处需手动保持同步。
+`\changes` 条目，不在 `CHANGELOG_PKGS` 范围内。补写 `\changes` 后只需把
+包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行（单一事实源，workflow 经
+`make changelog` 间接消费，paths 已放宽到全部 `**.dtx`）。
 
 ## 未深入的分歧（留痕）
 
