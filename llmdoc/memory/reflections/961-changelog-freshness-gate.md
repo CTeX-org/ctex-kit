@@ -97,10 +97,11 @@ Liam 曾质疑"单纯罗列 `\changes` 是否是恰当的 CHANGELOG 形态"（vs
 ## 顺带发现（未处理，留给后续）
 
 4 个含 dtx 的包（CJKpunct/jiazhu/xCJK2uni/xpinyin）目前没有写任何
-`\changes` 条目，因此不在 `CHANGELOG_PKGS` 范围内；补写 `\changes` 后可
-直接加入 `Makefile` 的 `CHANGELOG_PKGS` 与 workflow 的包列表，两处需保
-持同步（当前 workflow 注释里显式写了"与 Makefile 的 CHANGELOG_PKGS 保
-持一致"作为提示）。
+`\changes` 条目，因此不在 `CHANGELOG_PKGS` 范围内；补写 `\changes` 后
+只需加入 `Makefile` 的 `CHANGELOG_PKGS` 一行（初版 workflow 内联了包
+列表 + 按包枚举 paths，bot 增量审查指出三处手动同步风险后收敛为：
+workflow 生成 step 直接跑 `make changelog`、paths 放宽到全部 `**.dtx`，
+Makefile 成为单一事实源）。
 
 ## 促进候选
 
