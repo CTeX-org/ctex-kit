@@ -257,15 +257,14 @@ Copyright and Licence
 %
 % \begin{function}[EXP, updated=2026-07-09]{\zhdate}
 %   \begin{syntax}
-%     \tn{zhdate}   \Arg{yyyy/mm/dd}
+%     \tn{zhdate}   \{\meta{yyyy/mm/dd} \meta{yyyy/mm} \meta{yyyy}\}
 %     \tn{zhdate} * \Arg{yyyy/mm/dd}
 %   \end{syntax}
 %   以中文格式输出日期，其中带 |*| 的命令还输出星期。例如
 %   \begin{SideBySideExample}
-%     \zhdate{2026/7/9}\\
-%     \zhdate{2026/7},  \zhdate{2026}\\
+%     \zhdate {2026/7/9}\\
 %     \zhdate*{2026/7/9}\\
-%     \zhdate*{2026/7}, \zhdate*{2026}
+%     \zhdate {2026}, \zhdate {2026/7}
 %   \end{SideBySideExample}
 % \end{function}
 %
@@ -1076,30 +1075,21 @@ Copyright and Licence
   { Weekday ~ is ~ unavailable. ~ Please ~ assign ~ the ~ `day'. }
 \NewExpandableDocumentCommand \zhdate { +s +m }
   {
-    \@@_date:Nwwww \l_@@_noday_bool #2 / / / \q_stop
-    \bool_if:NT #1
-      {
-        \bool_if:NTF \l_@@_noday_bool
-          { \msg_warning:nn { zhnumber } { weekday-unavailable } }
-          { \@@_week_day:www #2 \q_stop }
-      }
+    \@@_date:wwww #2 / / / \q_stop
+    \bool_if:NT #1 { \@@_date_star:wwww #2 / / / \q_stop }
   }
 %    \end{macrocode}
-% \begin{variable}{\l_@@_noday_bool}
-% Boolean 变量用于存储日期是否精确到天。
-%    \begin{macrocode}
-\bool_new:N \l_@@_noday_bool
-%    \end{macrocode}
-% \end{variable}
 % 为确保在输入 |yyyy| 或 |yyyy/mm| 的情况下提供足够的 delimiter，
 % 辅助函数 \cs{@@_date:Nwwww} 添加一个额外的 |/#5| 并在调用时添加等量的 delimiter
 % \footnote{\url{https://tex.stackexchange.com/a/764551/299948}}。^^A
 %    \begin{macrocode}
-\cs_new:Npn \@@_date:Nwwww #1 #2 / #3 / #4 / #5 \q_stop
+\cs_new:Npn \@@_date:wwww #1 / #2 / #3 / #4 \q_stop
+  { \@@_date_aux:nnn {#1} {#2} {#3} }
+\cs_new:Npn \@@_date_star:wwww #1 / #2 / #3 / #4 \q_stop
   {
-    \tl_if_blank:eTF {#4}
-      { \bool_set_true:N  #1 } { \bool_set_false:N #1 }
-    \@@_date_aux:nnn {#2} {#3} {#4}
+    \tl_if_blank:eTF {#3}
+      { \msg_expandable_error:nnn { zhnumber } { weekday-unavailable } { } }
+      { \@@_week_day:www #1/#2/#3 \q_stop }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -1130,9 +1120,9 @@ Copyright and Licence
 \zhnum_expand_wrap:wn
 \cs_new:Npn \@@_date_aux:NNnnnn #1#2#3#4#5#6
   {
-    \tl_if_empty:eF {#4} { #1 {#4} #3 \zhnum_output:n { year  } #3 }
-    \tl_if_empty:eF {#5} { #2 {#5} #3 \zhnum_output:n { month } #3 }
-    \tl_if_empty:eF {#6} { #2 {#6} #3 \zhnum_output:n { day   }    }
+    \tl_if_empty:eF {#4} {    #1 {#4} #3 \zhnum_output:n { year  } }
+    \tl_if_empty:eF {#5} { #3 #2 {#5} #3 \zhnum_output:n { month } }
+    \tl_if_empty:eF {#6} { #3 #2 {#6} #3 \zhnum_output:n { day   } }
   }
 %    \end{macrocode}
 % \end{macro}
