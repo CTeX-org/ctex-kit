@@ -20,7 +20,24 @@ ctex 不是引擎级实现，而是代理层——它把底层排版能力委托
 
 ## 源码组织
 
-核心集中在 `ctex/ctex.dtx`（约 13114 行），通过 docstrip 生成多类产物：
+### 源文件布局（#937 拆分后）
+
+自 #937 起，原本约 10600 行的单体 `ctex.dtx` 按功能区域拆分为 6 个 dtx 文件，避免单文件过大难以维护：
+
+| 源文件 | 承载内容 |
+|--------|----------|
+| `ctex.dtx` | `.ins`（`\generate` 段）、README、用户手册（driver 用 `\DocInput` 合并其余 dtx 排版） |
+| `ctex-kernel.dtx` | 核心宏包/类/heading 的 `.def`（ctex / ctexsize / ctexheading / ctexart / ctexbook / ctexrep / ctexbeamer / c5size / cs4size / heading-*） |
+| `ctex-auxpkg.dtx` | 辅助（内部使用）与过时包残尾（ctexcap / ctexhook / ctexpatch） |
+| `ctex-engine.dtx` | 引擎配置文件（`ctex-engine-*.def`） |
+| `ctex-scheme.dtx` | `scheme = plain/chinese` 配置 + `name` 中文名称 |
+| `ctex-fontset.dtx` | 字库、`zhmap`、pTeX 下的 `.fd` 文件 |
+
+`build.lua` 的 `sourcefiles` 列全 6 个 dtx；`unpackfiles` 只列主 `ctex.dtx`——其 `\generate` 段通过 `\from{\jobname-kernel.dtx}{...}` 等跨文件引用取各 dtx 内的 docstrip 段。拆分不改变产物集合，下表的所有产物仍由 docstrip 生成。版本号收敛为 `build.lua` 单一事实源 + `l3build tag` 回写 dtx `$Id:$` stamp，详见 `llmdoc/reference/build-and-test.md` 版本管理章节与 `llmdoc/memory/decisions/937-version-single-source-l3build-tag.md`。
+
+### 产物
+
+通过 docstrip 生成多类产物：
 
 | 产物类别 | 文件 | 标签 |
 |----------|------|------|

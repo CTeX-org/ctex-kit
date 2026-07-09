@@ -118,9 +118,9 @@ workflow 跑 `l3build tag`，纯靠维护者自觉 —— 双闸 CI 补的就是
 - ✅ 已促进：`reference/build-and-test.md` 版本管理章节重写（拆分后 SOP
   + 双闸机制）
 - 决策文档：[[937-version-single-source-l3build-tag]]
-- 未促进：ctex 拆分本身的架构描述等 PR #937 merge 后由
-  `architecture/ctex-architecture.md` 更新（拆分尚在 review 中，文件
-  边界可能还会调整）
+- ✅ 已促进：PR #937 merge 后，`architecture/ctex-architecture.md` 的
+  「源码组织」章节已重写为 6 文件源布局（源文件表 + build.lua
+  sourcefiles/unpackfiles 跨文件 docstrip 说明）
 
 ## 相关
 
