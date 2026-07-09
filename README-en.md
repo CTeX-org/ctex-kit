@@ -112,6 +112,7 @@ Before submitting code, please ensure:
 1. All relevant tests pass (`l3build check`)
 2. Code follows expl3 conventions
 3. Changes to `.dtx` files include `\changes` entries
+4. After editing `\changes`, regenerate the package's `CHANGELOG.md` with `make changelog` (or `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`) and commit it together; without a local Python, copy the expected content from the failed check-changelog CI log
 
 ## Related Links
 

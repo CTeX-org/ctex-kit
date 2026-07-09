@@ -1,0 +1,92 @@
+name: ctex-kit check-changelog
+
+# PR 门禁: 校验各包 CHANGELOG.md 与 .dtx 中的 \changes 条目同步.
+#
+# 机制: CHANGELOG.md 是 scripts/extract-changes.py 从 .dtx 的 \changes
+# 生成的确定性产物 (同一输入 → 同一字节输出). 本 workflow 在 PR 上重跑
+# 生成脚本 + `git diff --exit-code`:
+#   - CHANGELOG.md 已同步时 diff 为零 → pass;
+#   - 改了 \changes 没重新生成时 diff 非零 → fail, 并把期望内容贴到
+#     job log / step summary / artifact, 本地没有 Python 的 contributor
+#     直接复制粘贴即可.
+#
+# 与 check-tag.yml 同构 ("生成物新鲜度校验": CI 只校验不回写, 无需 write
+# 权限). 生成是秒级纯文本操作, 全部包合一个 job 即可.
+#
+# 本地重新生成: make changelog (或 make changelog-<pkg>); 无 make 时
+#   cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
+# 注意必须用 -o 而非 shell 重定向: Windows PowerShell 5 的 `>` 默认产出
+# UTF-16LE + CRLF, 字节级 diff 必挂.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, synchronize]
+    paths:
+      - 'ctex/**.dtx'
+      - 'xeCJK/**.dtx'
+      - 'zhlineskip/**.dtx'
+      - 'zhmetrics/**.dtx'
+      - 'zhnumber/**.dtx'
+      - '**/CHANGELOG.md'
+      - 'scripts/extract-changes.py'
+      - '.github/workflows/check-changelog.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'master' }}
+
+jobs:
+  # 汇总名与 check-tag-result / check-doc-result 同构, 供 branch protection
+  # 单点盯. 生成 + diff 均为秒级, 五个包串行跑在一个 job 里.
+  check-changelog-result:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Regenerate CHANGELOG.md for all packages
+        run: |
+          # 与 Makefile 的 CHANGELOG_PKGS 保持一致
+          for pkg in ctex xeCJK zhlineskip zhmetrics zhnumber; do
+            ( cd "$pkg" && \
+              python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md )
+            echo "✓ regenerated $pkg/CHANGELOG.md"
+          done
+      - name: CHANGELOG.md must be up to date
+        run: |
+          # add -N: 新包首次生成的 CHANGELOG.md 是未跟踪文件, 不加这步
+          # git diff 抓不到
+          git add -N -- '*/CHANGELOG.md'
+          if git diff --exit-code -- '*/CHANGELOG.md'; then
+            echo "✓ 所有 CHANGELOG.md 与 .dtx 的 \changes 条目同步"
+            exit 0
+          fi
+          echo "::error::CHANGELOG.md 与 .dtx 的 \changes 条目不同步."
+          echo "::error::本地有 Python: 运行 make changelog 后 commit; 没有: 从下方 log / step summary / artifact 复制期望内容覆盖对应 CHANGELOG.md."
+          # 把期望内容完整贴出来, 方便无 Python 环境的 contributor 复制粘贴
+          {
+            echo "## CHANGELOG.md 不同步"
+            echo ""
+            echo "以下文件需要更新 (内容为期望的完整文件, 直接复制覆盖即可):"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in $(git diff --name-only -- '*/CHANGELOG.md'); do
+            echo "::group::期望的 $f 完整内容"
+            cat "$f"
+            echo "::endgroup::"
+            {
+              echo ""
+              echo "<details><summary><code>$f</code></summary>"
+              echo ""
+              echo '````markdown'
+              cat "$f"
+              echo '````'
+              echo ""
+              echo "</details>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit 1
+      - name: Upload regenerated CHANGELOG.md
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-changelogs
+          path: '*/CHANGELOG.md'
+          retention-days: 14

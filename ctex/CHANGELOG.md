@@ -331,4 +331,3 @@
 - 解决 `etoolbox` 与 `breqn` 关于 `\end` 的冲突。
 - 应用 LaTeX3 重新整理代码。
 - 删除 `c19gbsn.fd` 和 `c19gkai.fd`。
-
