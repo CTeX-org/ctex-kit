@@ -106,6 +106,7 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # LaTeX 系列 logo 命令的常见形态: \LaTeX, \LaTeX\<space>, \LaTeX{}.
         text = re.sub(r"\\LaTeXe(?:\\\s|\{\})?", "LaTeX2e ", text)
         text = re.sub(r"\\LaTeXiii(?:\\\s|\{\})?", "LaTeX3 ", text)
+        text = re.sub(r"\\LaTeX3(?:\\\s|\{\})?", "LaTeX3 ", text)
         text = re.sub(r"\\XeLaTeX(?:\\\s|\{\})?", "XeLaTeX ", text)
         text = re.sub(r"\\LuaLaTeX(?:\\\s|\{\})?", "LuaLaTeX ", text)
         text = re.sub(r"\\pdfLaTeX(?:\\\s|\{\})?", "pdfLaTeX ", text)
