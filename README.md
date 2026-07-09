@@ -112,6 +112,7 @@ CI 在 Ubuntu、macOS 和 Windows 三个平台上针对当前 TeX Live 发行版
 1. 相关测试通过 (`l3build check`)
 2. 遵循 expl3 编程规范
 3. 对于 `.dtx` 文件的修改，请在 `\changes` 中记录变更
+4. 修改 `\changes` 后，运行 `make changelog`（或 `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`）重新生成对应包的 `CHANGELOG.md` 并一并提交；本地没有 Python 时，可直接从 CI（check-changelog）失败日志中复制期望内容
 
 ## 相关链接
 

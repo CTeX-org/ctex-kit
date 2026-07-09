@@ -3,13 +3,17 @@
 markdown bullet list to stdout.
 
 Usage:
-    extract-changes.py <dtx_path> <version_with_v_prefix|all>
+    extract-changes.py <dtx_path> <version_with_v_prefix|all> [-o <file>]
 
 Example:
     extract-changes.py xeCJK/xeCJK.dtx v3.10.0
     extract-changes.py ctex/*.dtx      v2.6.2
     extract-changes.py xeCJK/xeCJK.dtx all
-    extract-changes.py ctex/*.dtx      all
+    extract-changes.py ctex/*.dtx      all -o CHANGELOG.md
+
+生成 CHANGELOG.md 时必须用 -o 而非 shell 重定向: Windows PowerShell 5 的
+`>` 默认产出 UTF-16LE + CRLF, 会让 check-changelog.yml 的字节级 diff 校验
+失败. -o 由脚本自己以 UTF-8 + LF 写文件, 跨平台输出字节一致.
 
 设计意图: release.yml 用它生成 GH Release body, release-ctan-upload.yml
 用它生成 CTAN announcement 的事实材料 (不再让 LLM 直接读 \\changes,
@@ -207,17 +211,31 @@ def extract(dtx_path: str, target_ver: str) -> list[tuple[str, str]]:
 
 
 def main() -> int:
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <dtx_path...> <version>", file=sys.stderr)
+    argv = sys.argv[1:]
+    # -o <file>: 由脚本自己以 UTF-8 + LF 写文件, 而非 shell 重定向.
+    # Windows PowerShell 5 的 `>` 默认产出 UTF-16LE + CRLF, 会让
+    # check-changelog.yml 的字节级 diff 校验失败.
+    out_path = None
+    if "-o" in argv:
+        idx = argv.index("-o")
+        if idx + 1 >= len(argv):
+            print(f"Usage: {sys.argv[0]} <dtx_path...> <version> [-o <file>]",
+                  file=sys.stderr)
+            return 2
+        out_path = argv[idx + 1]
+        argv     = argv[:idx] + argv[idx + 2:]
+    if len(argv) < 2:
+        print(f"Usage: {sys.argv[0]} <dtx_path...> <version> [-o <file>]",
+              file=sys.stderr)
         return 2
-    target_ver, path_patterns = sys.argv[-1], sys.argv[1:-1]
+    target_ver, path_patterns = argv[-1], argv[:-1]
     dtx_files: list[str] = []
     for pattern in path_patterns:
         matches = glob.glob(pattern)
         dtx_files.extend(sorted(matches))
     # 修改去重集合, 以便对相同的 版本+内容 进行精准去重
     global_seen: set[tuple[str, str]] = set()
-    # 从所有匹配到的有效 DTX 文件名中, 智能提取共同的包名作为前缀 (剥离末尾的连转换或下划线)
+    # 从所有匹配到的有效 DTX 文件名中, 智能提取共同的包名作为前缀 (剥离末尾的连字符或下划线)
     basenames = [os.path.splitext(os.path.basename(f))[0]
                  for f in dtx_files if os.path.isfile(f)]
     package_name = os.path.commonprefix(basenames).rstrip("-_") \
@@ -241,19 +259,33 @@ def main() -> int:
     def version_key(v: str):
         parts = re.split(r'(\d+)', v.lower().lstrip('v'))
         return [(0, int(p)) if p.isdigit() else (1, p) for p in parts if p]
+    # 先攒到内存再统一输出: stdout 与 -o 文件共用同一份内容,
+    # -o 时显式指定 encoding="utf-8" + newline="\n" 保证跨平台字节一致.
+    out_lines: list[str] = []
     # 将所有提取到的版本按从新到老的顺序（reverse = True）进行倒序迭代输出
     for ver in sorted(version_groups.keys(), key = version_key, reverse = True):
         # 仅在 target_ver == "all" 时输出版本超链接小标题
         if target_ver.lower() == "all":
-            # 将原有标题及 tag 链接格式动态变更为带有包名 Brave 前缀的样式:
+            # 将原有标题及 tag 链接格式动态变更为带有包名前缀的样式:
             # <package_name>-<version>
-            print(f"## [{package_name}-{ver}]"
-                  f"(https://github.com/CTeX-org/ctex-kit/releases/tag/"
-                  f"{package_name}-{ver})\n")
+            out_lines.append(
+                f"## [{package_name}-{ver}]"
+                f"(https://github.com/CTeX-org/ctex-kit/releases/tag/"
+                f"{package_name}-{ver})\n")
         for e in version_groups[ver]:
-            print(f"- {e}")
+            out_lines.append(f"- {e}")
         # 每个版本分组之间保留一个空行
-        print()
+        out_lines.append("")
+    # 去掉末尾多余空行: 保持单版本模式输出与旧版字节一致
+    # (release.yml / upload-ctan 沿用), 也让 CHANGELOG.md 以单个换行结尾.
+    while out_lines and out_lines[-1] == "":
+        out_lines.pop()
+    output = "\n".join(out_lines) + "\n" if out_lines else ""
+    if out_path is not None:
+        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(output)
+    else:
+        sys.stdout.write(output)
     return 0
 
 

@@ -22,9 +22,15 @@
 L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
                 zhmetrics zhmetrics-uptex zhnumber zhspacing jiazhu
 
+# 有 \changes 条目、维护 CHANGELOG.md 的包 (与 check-changelog.yml 一致).
+# 其余包的 .dtx 没写 \changes (CJKpunct / jiazhu / xCJK2uni / xpinyin),
+# 补写后加进来即可.
+CHANGELOG_PKGS := ctex xeCJK zhlineskip zhmetrics zhnumber
+
 VERBS := doc unpack ctan check clean
 
 .PHONY: help hooks check-pr-ci check-ctex-serial tag \
+        changelog changelog-all $(addprefix changelog-,$(CHANGELOG_PKGS)) \
         $(VERBS) \
         $(foreach v,$(VERBS),$(v)-all) \
         $(foreach v,$(VERBS),$(addprefix $(v)-,$(L3BUILD_PKGS))) \
@@ -55,6 +61,10 @@ help:                       ## 显示此帮助
 	@echo ""
 	@echo "Release:"
 	@echo "  make tag <pkg>-v<ver>     # 本地打 release tag, 不 push (e.g. make tag xeCJK-v3.10.1-rc2)"
+	@echo ""
+	@echo "Changelog:"
+	@echo "  make changelog            # 重新生成全部 CHANGELOG.md ($(CHANGELOG_PKGS))"
+	@echo "  make changelog-<pkg>      # 只重新生成指定包 (e.g. make changelog-xeCJK)"
 
 # ── git workflow ───────────────────────────────────────────────────────────
 hooks:                       ## 一次性安装 git hooks
@@ -145,6 +155,16 @@ $(TAG_NAME):
 	@:
 endif
 endif
+
+# ── changelog: 从 .dtx 的 \changes 重新生成 CHANGELOG.md ────────────────────
+# CHANGELOG.md 是 scripts/extract-changes.py 的确定性产物, 改了 \changes 后
+# 须重新生成并 commit, 否则 check-changelog.yml PR 门禁 fail.
+# -o 由脚本以 UTF-8 + LF 写文件 (Windows 上 shell 重定向会产出 UTF-16LE).
+changelog: changelog-all
+changelog-all: $(addprefix changelog-,$(CHANGELOG_PKGS))
+$(addprefix changelog-,$(CHANGELOG_PKGS)): changelog-%:
+	cd $* && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
+	@echo "✓ $*/CHANGELOG.md"
 
 # ── 显式 -all 别名 (e.g. `make doc` = `make doc-all`) ──────────────────────
 $(VERBS): %: %-all
