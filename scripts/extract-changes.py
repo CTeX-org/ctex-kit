@@ -103,7 +103,7 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         text = re.sub(r"\$(?:\\\$|[^$])+\$", _save_math, text)
         # 使用 (?:\\.|[^}])*，使其能够安全匹配包含 \} 的命令参数
         # \cs / \tn → `\<name>` (先用 \x00..\x01 临时占位, 避开后面 \\
-        # 命令通杀正则把 \cs自己也吃掉).
+        # 命令通杀正则把 \cs 自己也吃掉).
         text = re.sub(r"\\(?:cs|tn)\{((?:\\.|[^}])*)\}",
                       lambda m: "\x00" + m.group(1) + "\x01", text)
         # 抽取并保护 shortvrb 的 |...|、"..." 以及 \texttt{...} 环境，防止其中的原生命令被后续的宏清理正则误伤
