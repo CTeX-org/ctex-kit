@@ -118,7 +118,7 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
             content = m.group(1)
             # 还原 \textbackslash 并自动吃掉后面因 TeX 宏特性而产生的多余空格
             content = re.sub(r"\\textbackslash\s*", "\\\\", content)
-            # 清理代码块内部因配合 TeX 编译环境而残留的字符转义符（如 \& -> &, \_ -> _）
+            # 清理代码块内部因配合 TeX 编译环境而残留的字符转义符（如 \& -> &）
             content = re.sub(r"\\([&%#{}])", r"\1", content)
             verbatim_blocks.append(content)
             return f"\x04{len(verbatim_blocks) - 1}\x05"
