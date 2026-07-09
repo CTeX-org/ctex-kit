@@ -1,4 +1,4 @@
-## [ctex-v2.6.2](https://github.com/CTeX-org/releases/tag/ctex-v2.6.2)
+## [ctex-v2.6.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.2)
 
 - `ubuntu` 字库新增仿宋配置和 `\fangsong` 命令。使用 XeLaTeX 或 LuaLaTeX 编译时，按朱雀仿宋、FandolFang、思源宋体的顺序自动选用（#908）。
 - 订正 `ctex-heading-*.def` 中 `\ProvidesExplFile` 使用与实际文件名不匹配的 `ctex-*.def`。
@@ -6,11 +6,11 @@
 - 文档字体启用 `Language` 与 `PoZheHaoLigature`，破折号按全角字形合字输出（#382）。
 - 文档等宽字体改用朱雀仿宋，意大利体改用霞鹜文楷 GB Lite（#908）。
 
-## [ctex-v2.6.1](https://github.com/CTeX-org/releases/tag/ctex-v2.6.1)
+## [ctex-v2.6.1](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.1)
 
 - 补全字库选项 `windows` 的 pdfTeX 分支中， `\ctex_zhmap_case:nnn` 的第三个子分支 `zhmap = false` 缺失的报错。
 
-## [ctex-v2.6.0](https://github.com/CTeX-org/releases/tag/ctex-v2.6.0)
+## [ctex-v2.6.0](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.0)
 
 - 替换废弃命令 `\char_to_utfviii_bytes:n`。
 - 修复参数签名，`\@@_char_auxi:NNNN` 原误为 `NNN`。
@@ -32,7 +32,7 @@
 - 文档字体统一为 Noto CJK 系列（#686）。
 - 文档说明 `runin` 与 `aftertitle` 的交互（#574）。
 
-## [ctex-v2.5.10](https://github.com/CTeX-org/releases/tag/ctex-v2.5.10)
+## [ctex-v2.5.10](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.10)
 
 - 使用封装好的函数。
 - 取消 LaTeX 2022-06-01 对书名号的定义。
@@ -41,19 +41,19 @@
 - 不直接依赖 `xparse` 和 `l3keys2e`。
 - 展开传递 `pagestyle` 的值。
 
-## [ctex-v2.5.9](https://github.com/CTeX-org/releases/tag/ctex-v2.5.9)
+## [ctex-v2.5.9](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.9)
 
 - 依赖 `chinese-jfm` 宏包。
 - 设置消息模块的名字和类型。
 
-## [ctex-v2.5.8](https://github.com/CTeX-org/releases/tag/ctex-v2.5.8)
+## [ctex-v2.5.8](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.8)
 
 - 兼容 LaTeX 2021/11/15。
 - 简化部分 `Lua` 函数。
 - 兼容 `microtype`。
 - 兼容 `titlesec` 包和 `\CTEXifname`。
 
-## [ctex-v2.5.7](https://github.com/CTeX-org/releases/tag/ctex-v2.5.7)
+## [ctex-v2.5.7](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.7)
 
 - 重新应用 `l3cctab`。
 - 使用 `\disable@package@load` 禁止宏包载入。
@@ -64,18 +64,18 @@
 - 兼容 LaTeX 2021/06/01 的字体钩子。
 - 同时兼容 `cleveref` 和 `beamer`。
 
-## [ctex-v2.5.6](https://github.com/CTeX-org/releases/tag/ctex-v2.5.6)
+## [ctex-v2.5.6](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.6)
 
 - 使用正确的导言区末尾钩子。
 - 更新 `fancyhdr` 宏包的补丁。
 
-## [ctex-v2.5.5](https://github.com/CTeX-org/releases/tag/ctex-v2.5.5)
+## [ctex-v2.5.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.5)
 
 - 不再通过旧的钩子命令来定义。
 - 进一步应用 LaTeX 2020/10/01 的新钩子。
 - 放弃应用 `l3cctab`。
 
-## [ctex-v2.5.4](https://github.com/CTeX-org/releases/tag/ctex-v2.5.4)
+## [ctex-v2.5.4](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.4)
 
 - 兼容 LaTeX 2020/10/01 的钩子机制。
 - 更新 `LuaTeX-ja` 支持（20200808.0）。
@@ -83,13 +83,13 @@
 - 应用 `l3cctab`。
 - 同时兼容 `cleveref` 和 `hyperref`。
 
-## [ctex-v2.5.3](https://github.com/CTeX-org/releases/tag/ctex-v2.5.3)
+## [ctex-v2.5.3](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.3)
 
 - 不再依赖 `xunicode`，单独补丁 `tuenc.def`。
 - 正确关闭和恢复 LaTeX3 语法环境。
 - 兼容 `cleveref`。
 
-## [ctex-v2.5.2](https://github.com/CTeX-org/releases/tag/ctex-v2.5.2)
+## [ctex-v2.5.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.2)
 
 - 兼容 LaTeX 2020-02-02 之前的版本。
 - 修正 `macnew` 和 `ubuntu` 字库的 `CJKpunct` 标点信息。
@@ -98,11 +98,11 @@
 - `ctexspamacro.tex` 更名为 `ctex-spa-macro.tex`。
 - 新增标题选项 `secnumdepth` 和 `tocdepth`。
 
-## [ctex-v2.5.1](https://github.com/CTeX-org/releases/tag/ctex-v2.5.1)
+## [ctex-v2.5.1](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5.1)
 
 - `zhconv` 更名为 `ctex-zhconv`。
 
-## [ctex-v2.5](https://github.com/CTeX-org/releases/tag/ctex-v2.5)
+## [ctex-v2.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.5)
 
 - 增加宏包开头钩子。
 - 给 LaTeX 和 upLaTeX 下的文档类指定驱动为 。
@@ -129,13 +129,13 @@
 - 应用新内核中的 `\labelformat`。
 - 改用 `/System/Library/Fonts/Menlo.ttc` 为特征文件。
 
-## [ctex-v2.4.16](https://github.com/CTeX-org/releases/tag/ctex-v2.4.16)
+## [ctex-v2.4.16](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.16)
 
 - 允许设置 `autoindent` 为 $0$。
 - 修正 `part/indent` 和 `chapter/indent` 的实现方法，在其标题内部禁用 `autoindent`。
 - 更好地兼容 `nameref` 宏包。
 
-## [ctex-v2.4.15](https://github.com/CTeX-org/releases/tag/ctex-v2.4.15)
+## [ctex-v2.4.15](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.15)
 
 - 显式补丁 upLaTeX 的 `\rmfamily` 等字体命令。
 - 将 upLaTeX 的默认字体由 `mc` 改为 `zhrm`，并启用 `\jfam`。
@@ -146,63 +146,63 @@
 - 局部指定 `autoindent` 为 `false`，并交换 `\CTEX@XXX@indent` 与 `\CTEX@XXX@format` 的顺序。
 - 同步 LaTeX3 2019/03/05。
 
-## [ctex-v2.4.14](https://github.com/CTeX-org/releases/tag/ctex-v2.4.14)
+## [ctex-v2.4.14](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.14)
 
 - 区分 `macold` 及 `macnew`。
 - 配置 `macnew` 的默认字体设置。
 - 为 `macnew` 配置字体命令。
 
-## [ctex-v2.4.13](https://github.com/CTeX-org/releases/tag/ctex-v2.4.13)
+## [ctex-v2.4.13](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.13)
 
 - 修正导言区 `\selectfont` 钩子位置。
 
-## [ctex-v2.4.12](https://github.com/CTeX-org/releases/tag/ctex-v2.4.12)
+## [ctex-v2.4.12](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.12)
 
 - 正确使用 `\ltjsetkanjiskip` 和 `\ltjsetxkanjiskip`。
 - 修正 `\ctexset` 在 `ctexheading` 包中无定义的错误（曾祥东）。
 - 不依赖 `\ifincsname`。
 - 同步 LaTeX3 2017/12/16。
 
-## [ctex-v2.4.11](https://github.com/CTeX-org/releases/tag/ctex-v2.4.11)
+## [ctex-v2.4.11](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.11)
 
 - 不把 Enclosed Alphanumerics 设置为 JAchar。
 - 不把希腊和西里尔字母设置为 JAchar。
 - 因上游 `l3keys` 变化，重新定义 `format+` 等带空格加号的选项。
 - 补充页眉空格。
 
-## [ctex-v2.4.10](https://github.com/CTeX-org/releases/tag/ctex-v2.4.10)
+## [ctex-v2.4.10](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.10)
 
 - 定义 `\cht`，`\cdp` 和 `\cwd`。
 - 常数 `\c_minus_one` 已过时。
 - 使用 `lazy` 函数对 Boolean 表达式进行最小化运算（LaTeX3 2017/07/19）。
 
-## [ctex-v2.4.9](https://github.com/CTeX-org/releases/tag/ctex-v2.4.9)
+## [ctex-v2.4.9](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.9)
 
 - 调整 `unicode-math` 补丁的代码顺序。
 
-## [ctex-v2.4.8](https://github.com/CTeX-org/releases/tag/ctex-v2.4.8)
+## [ctex-v2.4.8](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.8)
 
 - 解决与 `fontspec` 2017/01/24 v2.5d 的字体族匹配兼容问题。
 
-## [ctex-v2.4.7](https://github.com/CTeX-org/releases/tag/ctex-v2.4.7)
+## [ctex-v2.4.7](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.7)
 
 - 依赖 `pxeverysel` 宏包。
 - 修复 `ctexrep` 类的 `\chaptermark` 汉化错误。
 
-## [ctex-v2.4.6](https://github.com/CTeX-org/releases/tag/ctex-v2.4.6)
+## [ctex-v2.4.6](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.6)
 
 - 支持字体属性可选项在后的新语法。
 - `\CTEXifname` 初始为假。
 - 重新初始化 `\ifthechapter` 等。
 
-## [ctex-v2.4.5](https://github.com/CTeX-org/releases/tag/ctex-v2.4.5)
+## [ctex-v2.4.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.5)
 
 - 新的标题格式选项 `hang`。
 - 新的标题格式选项 `tocline`。
 - 新的标题格式选项 `chapter/lofskip` 和 `chapter/lotskip`。
 - 修复补丁失败。
 
-## [ctex-v2.4.4](https://github.com/CTeX-org/releases/tag/ctex-v2.4.4)
+## [ctex-v2.4.4](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.4)
 
 - 解决 `zhmap` 文件的 `\catcode` 问题。
 - 不再默认设置 `xeCJK` 的伪粗体。
@@ -212,7 +212,7 @@
 - 改进 `hyperref` 宏包的标题锚点设置。
 - 使用 `titlesec` 时，章节目录也使用 的编号。
 
-## [ctex-v2.4.3](https://github.com/CTeX-org/releases/tag/ctex-v2.4.3)
+## [ctex-v2.4.3](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.3)
 
 - 简化 `fontspec` 补丁。
 - 更新 `unicode-math` 补丁。
@@ -220,12 +220,12 @@
 - 新的标题格式选项 `fixskip`。
 - 删除选项 `part/fixbeforeskip` 和 `chapter/fixbeforeskip`。
 
-## [ctex-v2.4.2](https://github.com/CTeX-org/releases/tag/ctex-v2.4.2)
+## [ctex-v2.4.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.2)
 
 - 恢复 `luatexja` 对 `\emshape` 和 `\eminnershape` 的重定义。
 - 兼容 upLaTeX 2016/05/07u00 的定义。
 
-## [ctex-v2.4.1](https://github.com/CTeX-org/releases/tag/ctex-v2.4.1)
+## [ctex-v2.4.1](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4.1)
 
 - 正确更新 upLaTeX 的 `\CJKfamilydefault`。
 - 正确设置 upTeX 下的 `\ccwd`。
@@ -237,7 +237,7 @@
 - `beamer` 不调整默认字体大小。
 - `beamer` 不调整默认行距。
 
-## [ctex-v2.4](https://github.com/CTeX-org/releases/tag/ctex-v2.4)
+## [ctex-v2.4](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.4)
 
 - 提供 `translator` 宏包的中文定理名称翻译。
 - 修复宏名解析错误。
@@ -247,7 +247,7 @@
 - 提供 upLaTeX 的 NFSS 字体定义。
 - 加强 `beamer` 宏包支持。
 
-## [ctex-v2.3](https://github.com/CTeX-org/releases/tag/ctex-v2.3)
+## [ctex-v2.3](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.3)
 
 - 更新 `LuaTeX-ja` 支持（20150922.0）。
 - 更新 `unicode-math` 宏包补丁。
@@ -257,7 +257,7 @@
 - 修复 `nameformat` 作用域问题。
 - 兼容 `titleps` 宏包。
 
-## [ctex-v2.2](https://github.com/CTeX-org/releases/tag/ctex-v2.2)
+## [ctex-v2.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.2)
 
 - 将文档开头和宏包末尾钩子提取到 `ctexhook` 宏包中。
 - 新增子宏包 `ctexpatch` 实现给宏打补丁功能。
@@ -272,7 +272,7 @@
 - 将中文版式下的 `part` 和 `chapter` 标题的 `nameformat` 和 `titleformat` 选项的初值合并到 `format` 中。
 - 不再依赖 `etoolbox` 宏包。
 
-## [ctex-v2.1](https://github.com/CTeX-org/releases/tag/ctex-v2.1)
+## [ctex-v2.1](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.1)
 
 - 给 pdfLaTeX 下的非 UTF-8 编码 CJK 字体族加上 CMap。
 - 不依赖 `ifpdf` 宏包。
@@ -285,15 +285,15 @@
 - 修复 `ctexbook` 和 `ctexrep` 类的中文 `part/number` 选项初值为空的错误。
 - 将章节标题设置功能提取到可以独立使用的宏包 `ctexheading` 中。
 
-## [ctex-v2.0.2](https://github.com/CTeX-org/releases/tag/ctex-v2.0.2)
+## [ctex-v2.0.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.0.2)
 
 - 修复加载 `ctex` 宏包后章节标题后第一段无段首缩进的问题。
 
-## [ctex-v2.0.1](https://github.com/CTeX-org/releases/tag/ctex-v2.0.1)
+## [ctex-v2.0.1](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.0.1)
 
 - 修复 `10pt`、`11pt` 等选项无效的问题。
 
-## [ctex-v2.0](https://github.com/CTeX-org/releases/tag/ctex-v2.0)
+## [ctex-v2.0](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.0)
 
 - 解决与 `\nouppercase` 的冲突。
 - 通过 `LuaTeX-ja` 宏包支持 LuaLaTeX 。

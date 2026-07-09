@@ -243,11 +243,13 @@ def main() -> int:
         return [(0, int(p)) if p.isdigit() else (1, p) for p in parts if p]
     # 将所有提取到的版本按从新到老的顺序（reverse = True）进行倒序迭代输出
     for ver in sorted(version_groups.keys(), key = version_key, reverse = True):
-        # 将原有标题及 tag 链接格式动态变更为带有包名 Brave 前缀的样式:
-        # <package_name>-<version>
-        print(f"## [{package_name}-{ver}]"
-              f"(https://github.com/CTeX-org/releases/tag/{package_name}-{ver})"
-              f"\n")
+        # 仅在 target_ver == "all" 时输出版本超链接小标题
+        if target_ver.lower() == "all":
+            # 将原有标题及 tag 链接格式动态变更为带有包名 Brave 前缀的样式:
+            # <package_name>-<version>
+            print(f"## [{package_name}-{ver}]"
+                  f"(https://github.com/CTeX-org/ctex-kit/releases/tag/"
+                  f"{package_name}-{ver})\n")
         for e in version_groups[ver]:
             print(f"- {e}")
         # 每个版本分组之间保留一个空行

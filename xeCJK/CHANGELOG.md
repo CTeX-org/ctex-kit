@@ -1,4 +1,4 @@
-## [xeCJK-v3.10.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.10.2)
+## [xeCJK-v3.10.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.2)
 
 - 文档字体启用 `Language` 与 `PoZheHaoLigature`，破折号按全角字形合字输出（#382）。
 - 文档等宽字体改用朱雀仿宋，意大利体改用霞鹜文楷 GB Lite（#908）。
@@ -16,14 +16,14 @@
 - `\verb` 组关闭时用 `\setlanguage` 主动排出 language whatsit，修复 `\verb` 右侧源码空格场景下 `CJKecglue` 双倍的问题（#919）。
 - 为 `doc` 的 `\meta` 添加补丁，将参数内容包入 `\hbox:n`，修复 `\meta` 内首字符前出现多余 `CJKecglue` 的问题（#951）。
 
-## [xeCJK-v3.10.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.10.1)
+## [xeCJK-v3.10.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.1)
 
 - 提升版本号至 v3.10.1。
 - 为 LaTeX 核心命令 `\verb` 添加补丁，在进入 verb 内容前 drain 缓存的 `CJKecglue`，修复 CJK 文字与 `\verb`（或 `shortvrb` 的短记号）之间间距丢失的问题（#910）。
 - 为 `l3doc` 的 `\__codedoc_meta:n` 添加补丁，将参数内容包入 `\hbox:n`，修复 `\meta` 内首字符前出现多余 `CJKecglue` 的问题（#920）。
 - 为 `biblatex` 的 `\blx@pagetracker` 添加补丁，清空 `\g_@@_last_node_tl`，修复中文参考文献条目首字符前出现多余 `CJKecglue` 的问题（#931）。
 
-## [xeCJK-v3.10.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.10.0)
+## [xeCJK-v3.10.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.0)
 
 - 提升版本号至 v3.10.0。
 - 文档字体从 Source Han Serif 统一为 Noto Serif CJK（#686）。
@@ -78,48 +78,48 @@
 - 修复组合符号 `U+04AA` 的定义。
 - `xunicode-symbols.tex` 改为按 `Noto Sans Symbols 2`/`Symbola`/`Segoe UI Symbol`/`DejaVu Sans` 逐字符尝试的多级 fallback，缓解 Windows 等仅有 `Segoe UI Symbol` 时部分字符缺失的问题（#878）。
 
-## [xeCJK-v3.9.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.9.1)
+## [xeCJK-v3.9.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.9.1)
 
 - 简化部分内部实现。
 - 修复下划线中数学公式的错误处理。
 
-## [xeCJK-v3.9.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.9.0)
+## [xeCJK-v3.9.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.9.0)
 
 - 不直接依赖 `xparse` 和 `l3keys2e`。
 - 修复西文的 character protrusion 功能。
 
-## [xeCJK-v3.8.9](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.9)
+## [xeCJK-v3.8.9](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.9)
 
 - 增加位于段首的支架盒子判断。
 - 修正居中标点悬挂错误。
 
-## [xeCJK-v3.8.8](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.8)
+## [xeCJK-v3.8.8](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.8)
 
 - 同步 Unicode 14.0。
 - 补充女书。
 
-## [xeCJK-v3.8.7](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.7)
+## [xeCJK-v3.8.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.7)
 
 - 应用 `\disable@package@load` 和 `\declare@file@substitution`。
 - 将 `CJKfntef` 包替换为 `xeCJKfntef` 包。
 - 更好地兼容 `CJKnumb`。
 
-## [xeCJK-v3.8.6](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.6)
+## [xeCJK-v3.8.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.6)
 
 - 正确还原标点符号后的 penalty 状态。
 - 兼容 LaTeX 2020/10/01 的 `NFSS` 钩子机制。
 
-## [xeCJK-v3.8.5](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.5)
+## [xeCJK-v3.8.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.5)
 
 - 增加盒子高度判断。
 - 进一步兼容 `microtype`。
 
-## [xeCJK-v3.8.4](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.4)
+## [xeCJK-v3.8.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.4)
 
 - 不缓存 `\nullfont`。
 - 重构后备字体的实现，修正标点符号无后备字体的问题。
 
-## [xeCJK-v3.8.3](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.3)
+## [xeCJK-v3.8.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.3)
 
 - 删除 `\_nopar`。
 - 依赖 `ctexhook` 宏包。
@@ -131,17 +131,17 @@
 - `hidden` 选项保留原内容的高度和深度。
 - 取消 `xeCJKfntef` 的初始彩色设置。
 
-## [xeCJK-v3.8.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.2)
+## [xeCJK-v3.8.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.2)
 
 - 修复分区字体错误。
 - 避免导言区字体警告。
 
-## [xeCJK-v3.8.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.1)
+## [xeCJK-v3.8.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.1)
 
 - 修复 `\l_xeCJK_current_font_tl` 标记错误。
 - 应用 `\shapedefault`。
 
-## [xeCJK-v3.8.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.8.0)
+## [xeCJK-v3.8.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.0)
 
 - 兼容 LaTeX2e 2020/02/02 对 `NFSS` 的修改。
 - 清理过时的兼容性补丁代码。
@@ -153,16 +153,16 @@
 - 删除 `realscripts` 补丁。
 - 删除 `CJKfntef` 补丁。
 
-## [xeCJK-v3.7.4](https://github.com/CTeX-org/releases/tag/xeCJK-v3.7.4)
+## [xeCJK-v3.7.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.7.4)
 
 - 简化行首/尾标点符号宽度的实现。
 
-## [xeCJK-v3.7.3](https://github.com/CTeX-org/releases/tag/xeCJK-v3.7.3)
+## [xeCJK-v3.7.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.7.3)
 
 - 补充日文假名扩展。
 - 修复 penalty 数值错误。
 
-## [xeCJK-v3.7.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.7.2)
+## [xeCJK-v3.7.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.7.2)
 
 - 同步 LaTeX3 2019/03/05。
 - 简化 `CJKspace` 的实现，并修复错误。
@@ -172,23 +172,23 @@
 - 改用 `xparse` 的新参数类型 `b` 定义 `CJKfilltwosides*` 环境，不再依赖 `environ` 包。
 - 解决与 `microtype` 宏包的兼容问题。
 
-## [xeCJK-v3.7.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.7.1)
+## [xeCJK-v3.7.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.7.1)
 
 - 修复代码重构而引入的新错误。
 
-## [xeCJK-v3.7.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.7.0)
+## [xeCJK-v3.7.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.7.0)
 
 - 修正长标点被隔开时的压缩处理错误。
 - 不再默认引入 `xunicode` 宏包。
 - 对 `\nobreakspace` 的恢复放到 `xunicode-addon` 中处理。
 - 补充定义 `\texthyphenationpoint` 和 `\texttwoemdash`。
 
-## [xeCJK-v3.6.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.6.1)
+## [xeCJK-v3.6.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.6.1)
 
 - 减少 `bool` 运算。
 - 细化判断。
 
-## [xeCJK-v3.6.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.6.0)
+## [xeCJK-v3.6.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.6.0)
 
 - 同步 LaTeX3 2017/12/16。
 - 把 TWO-EM DASH (`U+2E3A`) 归入 `FullRight` 类和设为 `LongPunct` 与 `MiddlePunct`。
@@ -199,53 +199,53 @@
 - `Default` 类与 `MiddlePunct` 之间不应该有 `\CJKglue`。
 - 新增 `PunctFamily` 选项支持对汉字标点单独切换字体。
 
-## [xeCJK-v3.5.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.5.1)
+## [xeCJK-v3.5.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.5.1)
 
 - 修正 fallback 字体后无法忽略空格的错误。
 
-## [xeCJK-v3.5.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.5.0)
+## [xeCJK-v3.5.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.5.0)
 
 - 常数 `\c_minus_one` 已过时。
 - 使用 `lazy` 函数对 Boolean 表达式进行最小化运算（LaTeX3 2017/07/19）。
 - 补充 Ext-F。
 
-## [xeCJK-v3.4.8](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.8)
+## [xeCJK-v3.4.8](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.8)
 
 - 转义 `\lstinline` 参数中的 $\backslash_{12}$。
 
-## [xeCJK-v3.4.7](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.7)
+## [xeCJK-v3.4.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.7)
 
 - 简化 `CheckSingle` 的实现，不再展开宏。
 
-## [xeCJK-v3.4.6](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.6)
+## [xeCJK-v3.4.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.6)
 
 - 将族名参数完全展开，以解决与 `fontspec` 2017/01/24 v2.5d 的兼容问题。
 
-## [xeCJK-v3.4.5](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.5)
+## [xeCJK-v3.4.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.5)
 
 - 更新 LaTeX3 的过时用法。
 
-## [xeCJK-v3.4.4](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.4)
+## [xeCJK-v3.4.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.4)
 
 - 不压缩长标点与其他标点的间距。
 
-## [xeCJK-v3.4.3](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.3)
+## [xeCJK-v3.4.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.3)
 
 - 考虑破折号边界为负值的情况。
 - 允许字体属性可选项在后的新语法。
 
-## [xeCJK-v3.4.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.2)
+## [xeCJK-v3.4.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.2)
 
 - 提高效率，避免重复循环。
 - 避免在破折号之间折行。
 
-## [xeCJK-v3.4.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.1)
+## [xeCJK-v3.4.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.1)
 
 - 补充 Unicode 9.0 的西夏文。
 - 修复 `CJKspace` 功能失效。
 - 新的下划线选项 `textformat`。
 
-## [xeCJK-v3.4.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.4.0)
+## [xeCJK-v3.4.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.4.0)
 
 - 改进 `xCJKecglue` 的实现。
 - `RubberPunctSkip` 选项有新的值 `plus` 和 `minus`。
@@ -253,11 +253,11 @@
 - CJKmath 的字符范围遵从 `\xeCJKDeclareCharClass` 的设置。
 - CJKmath 功能也支持分区字体。
 
-## [xeCJK-v3.3.4](https://github.com/CTeX-org/releases/tag/xeCJK-v3.3.4)
+## [xeCJK-v3.3.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.3.4)
 
 - 兼容 XeTeX 0.99994 的边界字符类。
 
-## [xeCJK-v3.3.3](https://github.com/CTeX-org/releases/tag/xeCJK-v3.3.3)
+## [xeCJK-v3.3.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.3.3)
 
 - 更新 LaTeX3 代码。
 - 兼容 LaTeX2e 2016/02/01 的字符类设置。
@@ -268,12 +268,12 @@
 - 确保进入水平模式。
 - 使用新的 Unicode 编码名称 `TU`。
 
-## [xeCJK-v3.3.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.3.2)
+## [xeCJK-v3.3.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.3.2)
 
 - 随 Unicode 7.0 更新简繁汉字映射。
 - `\xe@alloc@intercharclass` 总是有定义的。
 
-## [xeCJK-v3.3.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.3.1)
+## [xeCJK-v3.3.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.3.1)
 
 - `0.99992` 版修复了 `\meaning` 的 Bug。
 - `IVS` 字符类更名为 `CM`。
@@ -287,19 +287,19 @@
 - 解决 `prebreak` 和 `postbreak` 功能失效的问题。
 - 对 `listings` 的字符扩展不影响到其符号表中的七位或八位字符。
 
-## [xeCJK-v3.3.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.3.0)
+## [xeCJK-v3.3.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.3.0)
 
 - 不把 `U+20A9` 归入 CJK 的 PR 类。
 - 不把 NS 类中的一些有禁则的日文归入 `FullRight` 类。
 - 不把小写日文假名归入 `FullRight` 类。
 
-## [xeCJK-v3.2.16](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.16)
+## [xeCJK-v3.2.16](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.16)
 
 - 不再依赖 `everypage` 宏包。
 - 整理 `xCJKecglue` 的部分代码。
 - 修复 `\hbar`。
 
-## [xeCJK-v3.2.15](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.15)
+## [xeCJK-v3.2.15](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.15)
 
 - 增加 `HangulJamo` 字符类。
 - 把 REVERSE SOLIDUS（`U+005C`）、HYPHEN-MINUS（`U+002D`）和 EN DASH（`U+2013`）归入 `NormalSpace` 类。
@@ -307,23 +307,23 @@
 - 完善选项。
 - 修正 `breaklines` 无效的问题。
 
-## [xeCJK-v3.2.14](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.14)
+## [xeCJK-v3.2.14](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.14)
 
 - 完善 `\varCJKunderline` 的实现。
 - 解决下划线前后没有 `\CJKglue` 或 `\CJKecglue` 的问题。
 - `xeCJKfntef` 不再依赖 `CJKfntef`。
 
-## [xeCJK-v3.2.13](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.13)
+## [xeCJK-v3.2.13](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.13)
 
 - 自动调整 `\CJKfamilydefault` 时，只将 `\familydefault` 展开一次。
 - 修复参数类型错误。
 
-## [xeCJK-v3.2.12](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.12)
+## [xeCJK-v3.2.12](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.12)
 
 - 新增 `RubberPunctSkip` 选项。
 - 更新 `\int_to_Hex:n`。
 
-## [xeCJK-v3.2.11](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.11)
+## [xeCJK-v3.2.11](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.11)
 
 - 不再使用内部名字。
 - 左右角括号 `U+2329` 和 `U+232A` 是西文标点符号。
@@ -331,7 +331,7 @@
 - 放弃 `indentfirst` 和 `CJKnumber` 选项。
 - 删除 `\xeCJKcaption`。
 
-## [xeCJK-v3.2.10](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.10)
+## [xeCJK-v3.2.10](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.10)
 
 - 当没有设置字体时，使用 Fandol 字体系列。
 - 使用 `CJKnumb` 时，让 `\Unicode` 有定义。
@@ -339,21 +339,21 @@
 - 改进 `\sliding` 等的定义方式。
 - 检查 `\t` 和 `\sliding` 的参数是否以 `\textipa` 开头。
 
-## [xeCJK-v3.2.9](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.9)
+## [xeCJK-v3.2.9](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.9)
 
 - 完整处理 `encguide.pdf` 的编码符号表中，与旧编码的 `U+00B7` 冲突。
 - 文档部分增加 `xunicode` 定义的符号表。
 - 修正 `xunicode` 中的错误定义。
 - 增加 `xunicode-extra.def` 中，用于加入 `puenc.def` 中的符号定义。
 
-## [xeCJK-v3.2.8](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.8)
+## [xeCJK-v3.2.8](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.8)
 
 - 禁止在 `\verb` 中断行。
 - 增加是否是等宽字体的判断。
 - 修正 `\UseMathAsText` 的功能，恢复 `\hbar` 和增加以 `text` 打头的文本符号命令。
 - 启用 `xunicode` 中的带圈数字和字母设置。
 
-## [xeCJK-v3.2.7](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.7)
+## [xeCJK-v3.2.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.7)
 
 - 使用 `everypage` 往 `\shipout` 盒子里加钩子。
 - 修正 `unicode-letters.tex` 中谚文符号 `\catcode` 不准的问题。
@@ -365,7 +365,7 @@
 - 将 CJK 字符的数学归类由 $7$ 改为 $0$，解决汉字路径的问题。
 - 使通过 `\UrlFont` 等命令设置的 CJK 字体生效。
 
-## [xeCJK-v3.2.6](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.6)
+## [xeCJK-v3.2.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.6)
 
 - `case` 类函数的用法与 LaTeX3 同步。
 - 更好的处理边界是 `\relax` 的情况。
@@ -376,7 +376,7 @@
 - 考虑 `\math` 和 `\ensuremath`。
 - 可以指定特定符号命令使用的钩子。
 
-## [xeCJK-v3.2.5](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.5)
+## [xeCJK-v3.2.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.5)
 
 - 修正 `CJK` 和 `NormalSpace` 字符类之间因为边界造成的间距不正确的问题。
 - 细化全角左标点是否位于段首的判断。
@@ -389,7 +389,7 @@
 - 恢复 `\nobreakspace` 的原始定义。
 - 增加小宏包 `xunicode-addon`，为 `xunicode` 提供判断字符是否存在的功能。
 
-## [xeCJK-v3.2.4](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.4)
+## [xeCJK-v3.2.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.4)
 
 - 遵循 LaTeX3 变量需要预先声明的原则。
 - 去掉外层分组括号时，移除空格，避免死循环。
@@ -408,7 +408,7 @@
 - 改用 `minipage` 和 LaTeX 表格（`tabular`）来实现。
 - 使 `listings` 的 `breaklines` 选项对 CJK 字符类可用，并保持标点符号的禁则。
 
-## [xeCJK-v3.2.3](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.3)
+## [xeCJK-v3.2.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.3)
 
 - 提供四个 TECkit 映射文件用于句号转换和简繁互换。
 - 根据 XeTeX 的脚本重新整理全角标点符号。
@@ -421,17 +421,17 @@
 - 解决 `listings` 坏境中代码行号输出不正确的问题，并解决在其中跨页时对页眉和页脚的影响。
 - 在 `listings` 坏境中对 `\charcode` 大于 $255$ 的字符根据其 `\catcode` 区分 `letter` 和 `other`。
 
-## [xeCJK-v3.2.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.2)
+## [xeCJK-v3.2.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.2)
 
 - 修正某些重音不能正确显示的问题。
 - 修正下划线不能跳过全角右标点的问题。
 - 增加小宏包 `xeCJK-listings`，用于支持 `listings` 宏包。
 
-## [xeCJK-v3.2.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.1)
+## [xeCJK-v3.2.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.1)
 
 - 调整 `Verb` 选项：在命令 `\verb` 里使用时，不破坏标点禁则，增加值 `env+`。
 
-## [xeCJK-v3.2.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.2.0)
+## [xeCJK-v3.2.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.0)
 
 - 字间空格考虑到 `\spacefactor` 和 `\xspaceskip` 的情况。
 - 增加 `IVS` 字符类用于处理异体字选择符。
@@ -441,7 +441,7 @@
 - 定义中加入 `\normalfont`。
 - 增加 `Verb` 选项。
 
-## [xeCJK-v3.1.2](https://github.com/CTeX-org/releases/tag/xeCJK-v3.1.2)
+## [xeCJK-v3.1.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.1.2)
 
 - 使用 `\xeCJK_if_CJK_class:NTF` 来代替 `\int_case:nnn` 判断是否是 CJK 字符类。
 - 在没有定义任何 CJK 字体的情况下，不再重复给出字体没有定义的警告。
@@ -450,7 +450,7 @@
 - 不将参数完全展开。
 - 解决在下划线状态下使用 `\makebox` 时的错误。
 
-## [xeCJK-v3.1.1](https://github.com/CTeX-org/releases/tag/xeCJK-v3.1.1)
+## [xeCJK-v3.1.1](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.1.1)
 
 - 不再依赖 `xpatch` 宏包。
 - 新增有省略空格标识的 `peek` 函数。
@@ -470,7 +470,7 @@
 - 增加小宏包 `xeCJKfntef`，用于处理下划线的问题。
 - 完全处理下划线里的标点符号的有关问题。
 
-## [xeCJK-v3.1.0](https://github.com/CTeX-org/releases/tag/xeCJK-v3.1.0)
+## [xeCJK-v3.1.0](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.1.0)
 
 - 放弃对 `\outer` 宏的特殊处理。
 - 改进 `fontspec` 宏包中定义的 `\font_glyph_if_exist:NnTF`。
