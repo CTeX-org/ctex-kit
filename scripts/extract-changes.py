@@ -95,7 +95,7 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
             r"([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\u2014\u2026])"
             r"\s+(?=[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\u2014\u2026])",
             r"\1", text)
-        # 安全还原数学公式环境 $...$ 到清洗完毕后的逻辑文本中
+        # 抽取并保护数学公式环境 $...$, 防止其中的特殊命令被后续的 Markdown 转换规则误伤
         math_blocks = []
         def _save_math(m):
             block = m.group(0)
