@@ -90,7 +90,12 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
             idx += 1
         text = "".join(result)
         text = re.sub(r"\s+", " ", text).strip()
-        # 抽取并保护数学公式环境 $...$，防止其中的特殊命令被后续的 Markdown 转换规则误伤
+        # 消除 CJK 字符及标点之间因换行引入的冗余空格
+        text = re.sub(
+            r"([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\u2014\u2026])"
+            r"\s+(?=[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\u2014\u2026])",
+            r"\1", text)
+        # 安全还原数学公式环境 $...$ 到清洗完毕后的逻辑文本中
         math_blocks = []
         def _save_math(m):
             block = m.group(0)
@@ -106,7 +111,8 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # 命令通杀正则把 \cs 自己也吃掉).
         text = re.sub(r"\\(?:cs|tn)\{((?:\\.|[^}])*)\}",
                       lambda m: "\x00" + m.group(1) + "\x01", text)
-        # 抽取并保护 shortvrb 的 |...|、"..." 以及 \texttt{...} 环境，防止其中的原生命令被后续的宏清理正则误伤
+        # 抽取并保护 shortvrb 的 |...|、"..." 以及 \texttt{...} 环境,
+        # 防止其中的原生命令被后续的宏清理正则误伤
         verbatim_blocks = []
         def _save_verbatim(m):
             content = m.group(1)
@@ -155,14 +161,16 @@ def extract(dtx_path: str, target_ver: str) -> list[str]:
         # (\changes 里其他命令通常是引用类, 直接去掉名字不影响信息量).
         text = re.sub(r"\\[A-Za-z]+(?:\{\})?\s*", "", text)
         # 杂项: \<space> 当 inter-word, ~ 当 non-break space, 多空格压一.
-        # （修改位置：移到占位符还原动作之前，防止洗掉已经还原出的 Markdown 行内代码内部的反斜杠与空格）
+        # 修改位置: 移到占位符还原动作之前, 防止洗掉已经还原出的
+        # Markdown 行内代码内部的反斜杠与空格
         text = re.sub(r"\\\s", " ", text)
         text = text.replace("~", " ")
         text = re.sub(r"  +", " ", text).strip()
         # 安全还原数学公式环境 $...$ 到清洗完毕后的逻辑文本中
         text = re.sub(r"\x02(\d+)\x03",
                       lambda m: math_blocks[int(m.group(1))], text)
-        # 合并并还原连续的 \cs / \tn / \texttt / shortvrb 占位符为单一的 Markdown 行内代码块
+        # 合并并还原连续的 \cs / \tn / \texttt / shortvrb
+        # 占位符为单一的 Markdown 行内代码块
         def _restore_combined_code(m):
             pieces = []
             # 迭代找出该连续块中的每一个代码占位符，恢复出对应的原始文本片段
