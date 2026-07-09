@@ -31,7 +31,7 @@ def to_inline_code(s: str) -> str:
     end_space = ' ' if s.endswith('`') else ''
     return f"{delimiter}{start_space}{s}{end_space}{delimiter}"
 
-# 返回类型为版本号和文本的元组列表
+# 从 dtx 中抽取指定版本的 \changes 条目，返回字符串列表
 def extract(dtx_path: str, target_ver: str) -> list[str]:
     # 显式指定 utf-8: 不依赖 locale.getpreferredencoding(). GH Actions
     # Ubuntu runner 默认是 UTF-8, 但本地调试 / 别的 runner 不一定. dtx
