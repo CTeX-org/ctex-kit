@@ -67,6 +67,14 @@ release notes 的稳定优先级是：
 
 维护上的含义是：若希望 release notes 稳定、可读且不依赖提交历史清洗，就应优先维护各包 `.dtx` 中的 `\changes` 条目。
 
+### `scripts/extract-changes.py` 参数语义（#961）
+
+脚本用法：`extract-changes.py <dtx_path...> <version|all> [-o <file>]`。
+
+- **单版本模式**（`<version>` 传具体版本号，如 `v3.10.0`）：只抽取该版本的 `\changes{v3.10.0}{...}{...}` 条目，输出与升级前字节完全一致——这是 `release.yml` / `release-ctan-upload.yml` 的既有消费路径，兼容性是硬约束，任何改造都不能引入字节级差异。
+- **`all` 模式**（#961 新增）：一次性抽取 dtx 中全部版本的 `\changes`，按语义化版本从新到老分组，每版本前加 `## [pkg-vX.Y.Z](https://github.com/CTeX-org/ctex-kit/releases/tag/pkg-vX.Y.Z)` 小标题——**只有 `all` 模式才输出版本标题**，用于生成完整的 `CHANGELOG.md`（见 `llmdoc/reference/build-and-test.md` 的 `check-changelog.yml` 一节）。包名前缀由多个 `.dtx` basename 的 `os.path.commonprefix` 推断（`ctex` 6 个拆分 dtx → 前缀 `ctex`；`zhmetrics` 目录里实际 dtx 是 `zhmCJK.dtx` → 推断前缀 `zhmCJK`，与目录名/发布 tag 习惯 `zhmetrics-*` 不一致，生成的版本链接是已知死链，见 [[961-changelog-gate-no-write-perm]]）。
+- **`-o <file>` 参数**（#961 新增）：脚本自己以 `encoding="utf-8"` + `newline="\n"` 写文件，不依赖 shell 重定向。生成 `CHANGELOG.md` 必须用 `-o` 而非 `python3 ... > CHANGELOG.md`——Windows PowerShell 5 的 `>` 默认产出 UTF-16LE + CRLF，会让字节级 `git diff` 门禁必然失败。不传 `-o` 时行为不变（打印到 stdout），`release.yml` / `release-ctan-upload.yml` 两处既有调用点无需改动。
+
 ## 已有 release 的重建语义
 
 `Create GitHub Release` 前会先执行：

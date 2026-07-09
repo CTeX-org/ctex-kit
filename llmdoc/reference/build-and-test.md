@@ -201,6 +201,7 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/check-doc.yml`：PR 门禁 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
 - `.github/workflows/check-tag.yml`：PR 门禁 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本 stamp 与 build.lua 的 version 同步 (#937); 与 release.yml 的三方版本校验构成双闸, 详见 [[937-version-single-source-l3build-tag]] 与下方"版本管理"章节
+- `.github/workflows/check-changelog.yml`：PR 门禁 workflow, 校验 5 个包 (ctex/xeCJK/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
@@ -397,6 +398,35 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 - **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`），ctex job 需 `fetch-depth: 0`（update_tag 取 `git log -1`）。
 - **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。非该机制的包（xeCJK 等）跳过校验打 notice。
+
+## 生成物新鲜度校验模式（"CI 只校验不回写"）
+
+`check-tag.yml`（#937，版本 stamp）与 `check-changelog.yml`（#961，`CHANGELOG.md`）是同一套仓库级架构模式的两个独立实例，值得作为通用解法记住：**当某个产物必须由脚本/工具从源文件确定性生成、且要求与源文件保持同步时，PR 门禁应"重新生成 + `git diff --exit-code`"，而不是让 CI 直接 commit 回写**。后者需要 write 权限，前者不需要。两个实例的共同结构：
+
+- 门禁只在改到相关源文件（dtx / 生成脚本 / 产物自身）时触发，用 `paths` filter 限定。
+- 生成 + diff 都是秒级操作，全部涉及包合一个 job 串行跑，不需要按包拆 caller job（区别于 test.yml / check-doc.yml 的 caller-per-pkg 模式，那是因为跨引擎/跨 OS 测试本身耗时）。
+- 汇总 job 名固定风格（`check-tag-result` 无独立汇总因单 job 即汇总；`check-changelog-result`），供 branch protection 单点盯。
+- 本地都有对应的 `make` 入口把生成动作暴露给贡献者（`l3build tag` / `make changelog`）。
+
+差异点在于校验对象的"大小"决定了 fail 时的可操作性设计：`check-tag.yml` 校验单行 stamp，提示"本地跑 `l3build tag`"即可；`check-changelog.yml` 校验整份 Markdown 文件，还需要在 fail 分支把期望的完整文件内容通过三个通道暴露（`::group::` 折叠的 job log、`$GITHUB_STEP_SUMMARY` 的 `<details>` 折叠块、`actions/upload-artifact`），确保没有本地 Python 环境的 contributor 也能直接复制粘贴过闸。
+
+**任何"字节级 diff 做门禁"的生成物，必须由生成脚本自己控制 encoding/newline，不能依赖 shell 重定向**：Windows PowerShell 5 的 `>` 默认产出 UTF-16LE + CRLF，与 Linux/macOS 上 UTF-8 + LF 字节不同，即使内容语义相同也会被 `git diff --exit-code` 判为不同步。`scripts/extract-changes.py` 因此新增 `-o <file>` 参数，脚本自己以 `encoding="utf-8"` + `newline="\n"` 写文件；`l3build tag` 走 Lua io 库不存在这个问题，此前未暴露过这个坑。
+
+### `check-changelog.yml` 门禁细节
+
+`.github/workflows/check-changelog.yml` 在 PR 改到以下路径时触发：`ctex|xeCJK|zhlineskip|zhmetrics|zhnumber` 目录下的 `**.dtx`、任意 `**/CHANGELOG.md`、`scripts/extract-changes.py`、workflow 自身。单 job `check-changelog-result` 对 5 个包依次跑：
+
+```bash
+cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
+```
+
+再 `git add -N -- '*/CHANGELOG.md'`（覆盖新包首次生成、CHANGELOG.md 尚未被 git 跟踪的场景，否则 `git diff` 看不到差异）+ `git diff --exit-code -- '*/CHANGELOG.md'`。fail 时按上述三通道贴出期望内容。
+
+`CHANGELOG_PKGS` 范围（与 `Makefile` 的 `CHANGELOG_PKGS` 变量、workflow 的 `for pkg in ...` 列表两处保持一致，需手动同步）：`ctex xeCJK zhlineskip zhmetrics zhnumber`。其余 4 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`/`xpinyin`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后可直接把包名加入这两处列表。
+
+本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
+
+已知接受的缺憾：详见 [[961-changelog-gate-no-write-perm]]。
 
 ## LaTeX2e 格式依赖声明
 

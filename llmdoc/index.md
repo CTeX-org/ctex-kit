@@ -13,14 +13,14 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888）、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + `check-changelog.yml` CHANGELOG.md 新鲜度门禁 #961 + 「生成物新鲜度校验」通用模式小节 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口与文档排版基础设施。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 分支组织约定：长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源，目录组织与引用格式，添加新资产的安全操作方式（worktree / plumbing，禁止主工作区 `checkout --orphan`），迁移旧引用的收尾步骤。
 
 ## guides
 
-- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag。
+- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961)。
 
 ## memory
 
@@ -44,6 +44,7 @@
 - `llmdoc/memory/decisions/931-biblatex-let-shadow.md` — 决策: #931 biblatex 补丁点选 `\let` 目标 `\blx@pagetracker` 且 hook 时机改用 `\@@_at_end_preamble:n`——补丁点必须挂到宏包内部 `\let` 拷贝的目标而非源，且必须在 `\let` 执行后装 patch，`\@@_package_hook:nn` 对 nested style-load 场景不够晚。
 - `llmdoc/memory/decisions/935-check-doc-vs-ctan.md` — 决策: #935 新增 PR 门禁 `check-doc.yml` 用 `l3build doc` 而非 `l3build ctan`。后者内部硬编码调 `l3build check` (整套 regression) 与 test.yml 完全重复; 前者是纯 typeset (docinit + typesetpdf), 精确对应"文档 dtx→PDF 可编译性"维度. 牺牲 tdslocations 打包路径验证 (低频问题, release.yml 兜底).
 - `llmdoc/memory/decisions/937-version-single-source-l3build-tag.md` — 决策: #937 版本管理收敛为 build.lua 单一事实源 + `l3build tag` 回写 dtx `$Id:$` stamp + 双闸 CI (check-tag.yml PR 门禁 + release.yml 三方校验 strip_rc(git tag)==build.lua==stamp)。update_tag 必须幂等 (stamp 版本相等即跳过, 否则回写追着 commit 跑永不收敛); RC 后缀只存在于 git tag, 发 rc 前 build.lua 必须已 bump 并 stamp。适用 zhlineskip / ctex, 其他包迁移路径已列出；同一原则延伸到手册首页页脚 shorthash——曾短暂采用编译时 `\sys_get_shell` 现场取 git hash (`--shell-escape`), 四环境实测在 CTAN 典型解压场景导致 Emergency stop 被否决, 改为 `update_tag` 在 `l3build tag` 阶段固化写入 `ctex.dtx` 的 `\GetFileId[<hash>]`。
+- `llmdoc/memory/decisions/961-changelog-gate-no-write-perm.md` — 决策: #961 CHANGELOG.md 生成物新鲜度校验收敛为「CI 每 PR 重新生成 + `git diff --exit-code` 只校验不回写」，与 #937 check-tag.yml 同一「生成物新鲜度校验」架构模式；否决 CI 打 tag 时生成并 commit（需 write 权限）与 tag 前本地手跑（流程不闭环）两案。已接受缺憾: zhmetrics 包名前缀推断为 `zhmCJK` 导致版本链接死链、并行 PR 的 CHANGELOG 合并冲突。
 - `llmdoc/memory/decisions/382-dash-width-and-ligature-opt-in.md` — 决策: #382 破折号宽度修复分两阶段——公式修正（`\@@_long_punct_kerning:N` 三路取大 kern + `\xeCJK_punct_margin_process:NN` 全份 margin 补偿）默认生效, OpenType 合字支持通过 `PoZheHao` 字符类 `PoZheHaoLigature` opt-in; margin 选择新增专用条件 `\@@_punct_if_full_margin_dash:N` 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性。
 - `llmdoc/memory/decisions/431-latinpunct-option.md` — 决策: #389/#431 新增 `LatinPunct` 选项让中西文共用码位标点（弯引号/间隔号/省略号）可切换为西文字体输出；归入 `Half*` 类而非 `Default`；破折号/半字线刻意排除保持与 `PoZheHaoLigature` 正交；状态记录改用局部布尔 `\l_@@_latin_punct_bool` 并回溯修正 `PoZheHaoLigature` 同类作用域问题（影子布尔作用域必须与被控 `\XeTeXcharclass` 资源一致）。
 - `llmdoc/memory/decisions/859-gh-assets-orphan-branch.md` — 决策: 建立长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源, 取代按事件建临时分支（`tmp-859-assets` / `tmp-456-assets`, 均已删除）; 添加新资产须用 worktree 或纯 plumbing 流, 禁止主工作区 `git checkout --orphan` 以避免 `git clean` 波及未跟踪文件。
@@ -80,3 +81,4 @@
 - `llmdoc/memory/reflections/456-longpunct-kinsoku-both-sides.md` — 反思: xeCJK #456 长标点断点两侧禁则修复中"标点属性判断"函数族参数形态不同（`\@@_punct_if_right:N` 吃字符记号需 `\exp_after:wN` 展开 tl，`\@@_punct_if_long:N` 直接吃 tl）、`punct.tlg` 大文件基线联动 diff 用"变化位置共同特征 + 节点变化统一模式"两条证据判定预期变化、以及标点对矩阵 + `\showbox` 节点判定的系统性禁则调试法。
 - `llmdoc/memory/reflections/874-876-agentic-fork-shielding-cron.md` — 反思: #875 / #874 `agentic-*.yml` 同时存在两条边界约束——job 级 `if: github.repository == ...` 把 fork 调度挡在 runner 分配之前，`schedule` 频率回退到每天一次北京时间 08:00；未来新增 agentic 工作流时这两条都应作为默认。
 - `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
+- `llmdoc/memory/reflections/961-changelog-freshness-gate.md` — 反思: #961 CHANGELOG.md 生成物新鲜度校验（check-changelog.yml）流程分歧收敛过程、跨平台字节一致性必须由脚本自控 encoding/newline 的新坑、用改造前脚本输出当字节级 oracle 验证回归的方法、门禁 fail 时按校验对象大小设计可操作性（整文件需三通道贴期望内容）、以及「生成物新鲜度校验」作为跨 #937/#961 的通用架构模式的提炼建议。
