@@ -217,39 +217,35 @@
 \ctex_patch_cmd:Nnn \__codedoc_function_typeset_start:
   { \bigskip }
   { \nointerlineskip \addvspace { \bigskipamount } }
-%% 水平压缩长函数, 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于 0.9 倍的
-%% \marginparwidth. 难以 patch \__codedoc_function_assemble:, 因为此举直接否掉了其内
-%% 部原有的 Boolean 分支 (对标 l3doc 2026-06-18)
-\cs_set_protected:Npn \__codedoc_function_assemble:
+%% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
+%% \__codedoc_typeset_TF: 并入 \l__codedoc_function_block_box, 并根据情况进行压缩.
+%% 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于 0.9 \marginparwidth.
+%% 由于难以 patch \__codedoc_typeset_function_block:nN, 记录重定义 (2026-07-12)
+%% 对标 l3doc.cls: 2026-06-18.
+\box_new:N \l__codedoc_function_block_box
+\cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
   {
-    \hcoffin_set:Nn  \l__codedoc_syntax_coffin
-      { \box_use_drop:N \g__codedoc_syntax_box }
-    \coffin_join:NnnNnnnn
-      \l__codedoc_output_coffin { hc } { vc }
-      \l__codedoc_syntax_coffin { l  } { t  }
-      { 0pt } { 0pt }
-    \coffin_join:NnnNnnnn
-      \l__codedoc_output_coffin { l  } { b  }
-      \l__codedoc_descr_coffin  { l  } { t  }
-      { 0pt } { -\medskipamount }
+    \__codedoc_function_index:e
+      { #1 \bool_if:NT #2 { \tl_to_str:n {TF} } }
+    \__codedoc_function_label:eN {#1} #2
+    \hbox_set:Nn \l__codedoc_function_block_box
+      { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
     \dim_until_do:nNnn
-      { \coffin_wd:N \l__codedoc_functions_coffin } <
-      { \marginparwidth - \marginparsep }
+      { \box_wd:N \l__codedoc_function_block_box } <
+      { .9\marginparwidth }
       {
-        \coffin_scale:Nnn \l__codedoc_functions_coffin
+        \box_scale:Nnn \l__codedoc_function_block_box
           {
             (
-              \coffin_wd:N \l__codedoc_functions_coffin - .1 \marginparwidth
-            ) / \coffin_wd:N \l__codedoc_functions_coffin
+              \box_wd:N \l__codedoc_function_block_box - .1 \marginparwidth
+            ) / \box_wd:N \l__codedoc_function_block_box
           } { 1 }
       }
-    \coffin_join:NnnNnnnn
-      \l__codedoc_output_coffin    { l } { t }
-      \l__codedoc_functions_coffin { r } { t }
-      { -\marginparsep } { 0pt }
-    \coffin_typeset:Nnnnn \l__codedoc_output_coffin
-      { \l__codedoc_syntax_coffin-l } { \l__codedoc_syntax_coffin-T }
-      { 0pt } { 0pt }
+    \box_use_drop:N \l__codedoc_function_block_box
+    \__codedoc_typeset_expandability:
+    \seq_if_empty:NF \g__codedoc_variants_seq
+      { \__codedoc_typeset_variant_list:nN {#1} #2 }
+    \\
   }
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
