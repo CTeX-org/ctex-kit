@@ -232,8 +232,9 @@
       \l__codedoc_output_coffin { l  } { b  }
       \l__codedoc_descr_coffin  { l  } { t  }
       { 0pt } { -\medskipamount }
-    \dim_do_while:nNnn
-      { \coffin_wd:N \l__codedoc_functions_coffin } > { .9 \marginparwidth }
+    \dim_until_do:nNnn
+      { \coffin_wd:N \l__codedoc_functions_coffin } <
+      { \marginparwidth - \marginparsep }
       {
         \coffin_scale:Nnn \l__codedoc_functions_coffin
           {
