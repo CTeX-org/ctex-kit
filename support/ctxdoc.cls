@@ -224,14 +224,14 @@
   {
     \hcoffin_set:Nn  \l__codedoc_syntax_coffin
       { \box_use_drop:N \g__codedoc_syntax_box }
-        \coffin_join:NnnNnnnn
-          \l__codedoc_output_coffin { hc } { vc }
-          \l__codedoc_syntax_coffin { l  } { t  }
-          {0pt} {0pt}
-        \coffin_join:NnnNnnnn
-          \l__codedoc_output_coffin {l} {b}
-          \l__codedoc_descr_coffin  {l} {t}
-          {0pt} {-\medskipamount}
+    \coffin_join:NnnNnnnn
+      \l__codedoc_output_coffin { hc } { vc }
+      \l__codedoc_syntax_coffin { l  } { t  }
+      { 0pt } { 0pt }
+    \coffin_join:NnnNnnnn
+      \l__codedoc_output_coffin { l  } { b  }
+      \l__codedoc_descr_coffin  { l  } { t  }
+      { 0pt } { -\medskipamount }
     \dim_do_while:nNnn
       { \coffin_wd:N \l__codedoc_functions_coffin } > { .9 \marginparwidth }
       {
@@ -243,12 +243,12 @@
           } { 1 }
       }
     \coffin_join:NnnNnnnn
-      \l__codedoc_output_coffin {l} {t}
-      \l__codedoc_functions_coffin  {r} {t}
-      {-\marginparsep} {0pt}
+      \l__codedoc_output_coffin    { l } { t }
+      \l__codedoc_functions_coffin { r } { t }
+      { -\marginparsep } { 0pt }
     \coffin_typeset:Nnnnn \l__codedoc_output_coffin
-      {\l__codedoc_syntax_coffin-l} {\l__codedoc_syntax_coffin-T}
-      {0pt} {0pt}
+      { \l__codedoc_syntax_coffin-l } { \l__codedoc_syntax_coffin-T }
+      { 0pt } { 0pt }
   }
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
