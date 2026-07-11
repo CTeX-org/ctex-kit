@@ -217,8 +217,9 @@
 \ctex_patch_cmd:Nnn \__codedoc_function_typeset_start:
   { \bigskip }
   { \nointerlineskip \addvspace { \bigskipamount } }
-%% 水平压缩长函数, 每次对其压缩掉 0.1 倍 \marginparwidth
-%% 直到函数长度 小于 0.9 倍 \marginparwidth
+%% 水平压缩长函数, 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于 0.9 倍的
+%% \marginparwidth. 难以 patch \__codedoc_function_assemble:, 因为此举直接否掉了其内
+%% 部原有的 Boolean 分支
 \cs_set_protected:Npn \__codedoc_function_assemble:
   {
     \hcoffin_set:Nn  \l__codedoc_syntax_coffin
@@ -231,8 +232,8 @@
           \l__codedoc_output_coffin {l} {b}
           \l__codedoc_descr_coffin  {l} {t}
           {0pt} {-\medskipamount}
-    \dim_until_do:nNnn
-      { \coffin_wd:N \l__codedoc_functions_coffin } < { .9 \marginparwidth }
+    \dim_do_while:nNnn
+      { \coffin_wd:N \l__codedoc_functions_coffin } > { .9 \marginparwidth }
       {
         \coffin_scale:Nnn \l__codedoc_functions_coffin
           {
