@@ -219,7 +219,7 @@
   { \nointerlineskip \addvspace { \bigskipamount } }
 %% 水平压缩长函数, 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于 0.9 倍的
 %% \marginparwidth. 难以 patch \__codedoc_function_assemble:, 因为此举直接否掉了其内
-%% 部原有的 Boolean 分支
+%% 部原有的 Boolean 分支 (对标 l3doc 2026-06-18)
 \cs_set_protected:Npn \__codedoc_function_assemble:
   {
     \hcoffin_set:Nn  \l__codedoc_syntax_coffin
