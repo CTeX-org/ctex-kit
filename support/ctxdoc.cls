@@ -217,6 +217,38 @@
 \ctex_patch_cmd:Nnn \__codedoc_function_typeset_start:
   { \bigskip }
   { \nointerlineskip \addvspace { \bigskipamount } }
+%% 水平压缩长函数, 每次对其压缩掉 0.1 倍 \marginparwidth
+%% 直到函数长度 小于 0.9 倍 \marginparwidth
+\cs_set_protected:Npn \__codedoc_function_assemble:
+  {
+    \hcoffin_set:Nn  \l__codedoc_syntax_coffin
+      { \box_use_drop:N \g__codedoc_syntax_box }
+        \coffin_join:NnnNnnnn
+          \l__codedoc_output_coffin { hc } { vc }
+          \l__codedoc_syntax_coffin { l  } { t  }
+          {0pt} {0pt}
+        \coffin_join:NnnNnnnn
+          \l__codedoc_output_coffin {l} {b}
+          \l__codedoc_descr_coffin  {l} {t}
+          {0pt} {-\medskipamount}
+    \dim_until_do:nNnn
+      { \coffin_wd:N \l__codedoc_functions_coffin } < { .9 \marginparwidth }
+      {
+        \coffin_scale:Nnn \l__codedoc_functions_coffin
+          {
+            (
+              \coffin_wd:N \l__codedoc_functions_coffin - .1 \marginparwidth
+            ) / \coffin_wd:N \l__codedoc_functions_coffin
+          } { 1 }
+      }
+    \coffin_join:NnnNnnnn
+      \l__codedoc_output_coffin {l} {t}
+      \l__codedoc_functions_coffin  {r} {t}
+      {-\marginparsep} {0pt}
+    \coffin_typeset:Nnnnn \l__codedoc_output_coffin
+      {\l__codedoc_syntax_coffin-l} {\l__codedoc_syntax_coffin-T}
+      {0pt} {0pt}
+  }
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
 \cs_new_nopar:Npn \zihaopt #1
