@@ -238,6 +238,7 @@
 %%   * \marginparsep 保证两侧空隙对称
 %%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
 %%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
+%% 若 l3doc 新增可展性类别, 需在此同步补充其右栏预留宽度.
 %% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
 %% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
