@@ -2,6 +2,11 @@
 
 - 提升版本号至 v3.10.3。
 - 使用 `\cleaders` 使下划线相对正文居中，避免起始位置改变时产生水平偏移（#531）。
+- 使用 `\cleaders` 使波浪线相对正文居中（#967）。
+- 使用 `\cleaders` 使双下划线相对正文居中（#967）。
+- 使用 `\cleaders` 使删除线相对正文居中（#967）。
+- 使用 `\cleaders` 使斜删除线相对正文居中（#967）。
+- 使用 `\cleaders` 使自定义线相对正文居中（#967）。
 
 ## [xeCJK-v3.10.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.2)
 
