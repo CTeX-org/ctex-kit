@@ -221,9 +221,12 @@
   { \nointerlineskip \addvspace { \bigskipamount } }
 %% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
 %% \__codedoc_typeset_TF: 并入 \l__ctxdoc_function_block_box, 并根据情况进行压缩.
-%% 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于
-%%        0.9 \marginparwidth - \marginparsep
-%% 其中 0.1 \marginparwidth 划分给可展函数末尾的星号.
+%% 每次对其压缩掉 0.15 倍 \marginparwidth 直到函数长度小于
+%%     \marginparwidth - \marginparsep - (1.2em or 1.5em or 0pt)
+%% 其中 -\marginparsep 保持左右对称; 而对于可展函数末尾的星号占位处理为
+%% - EXP  选项: 使用 $star$    + 6.0pt colsep, 约 1.2em.
+%% - rEXP 选项: 使用 \ding{73} + 6.0pt colsep, 约 1.5em.
+%% -    不可展: 不做函数最大长度的额外扣除.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
 %% 重定义中调用了 6 个函数:
 %% - \__codedoc_function_index:e
@@ -242,11 +245,18 @@
       { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
     \dim_until_do:nNnn
       { \box_wd:N \l__ctxdoc_function_block_box } <
-      { .9 \marginparwidth - \marginparsep }
+      {
+        \marginparwidth - \marginparsep -
+        \bool_case:nF
+          {
+            { \l__codedoc_macro_EXP_bool  } { 1.2em }
+            { \l__codedoc_macro_rEXP_bool } { 1.5em }
+          } { \c_zero_dim }
+      }
       {
         \box_scale:Nnn \l__ctxdoc_function_block_box
           {
-            ( \box_wd:N \l__ctxdoc_function_block_box - .1 \marginparwidth ) /
+            ( \box_wd:N \l__ctxdoc_function_block_box - .15 \marginparwidth ) /
               \box_wd:N \l__ctxdoc_function_block_box
           } { 1 }
       }
