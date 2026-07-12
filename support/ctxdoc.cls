@@ -28,6 +28,11 @@
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
 \LoadClass{l3doc}[2026-06-18]
+\@ifclasslater { l3doc } { 2026/06/18 } { }
+  {
+    \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_typeset_function_block:nN }
+  }
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ExplSyntaxOn
 \msg_new:nnn { ctxdoc } { patch-failure }
