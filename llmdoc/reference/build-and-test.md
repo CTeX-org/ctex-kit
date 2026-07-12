@@ -196,7 +196,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 
 因此，修改 `xeCJK` 与 `zhnumber` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
 
-xeCJKfntef 的线条类问题还要区分“节点尺寸”和“shipout 相位”。普通 `\leaders` 与 `\cleaders` 可以拥有完全相同的 glue、盒宽和总命令宽度，却因重复盒的对齐原点不同而画在不同横坐标；所以宽度比较不能单独作为 #531 一类回归的 oracle。稳定测试至少应在非零水平起点下用节点日志断言 leader 类型，并用 XDV/PDF 坐标或高分辨率栅格图确认线条首尾相对正文对称；`subtract` 还要单独确认两端等量缩短，而不是把设计要求的接缝留白误判成缺线。参考 `xeCJK/testfiles/fntef-underline-offset.lvt`。
+xeCJKfntef 的线条类问题还要区分“节点尺寸”和“shipout 相位”。普通 `\leaders` 与 `\cleaders` 可以拥有完全相同的 glue、盒宽和总命令宽度，却因重复盒的对齐原点不同而画在不同横坐标；所以宽度比较不能单独作为 #531/#967 一类回归的 oracle。稳定测试至少应在非零水平起点下用节点日志断言 leader 类型，并用 XDV/PDF 坐标或高分辨率栅格图确认线条首尾相对正文对称；`subtract` 要单独确认两端等量缩短，图案型命令还要人工检查标点跳过和换行产生的内部片段是否可接受。`xeCJK/testfiles/fntef-underline-offset.lvt` 同时探测 `\CJKunderline` 的非零起点节点，以及其余五个线型命令普通/`subtract` 路径的 10 次 `\cleaders` 选择；既有 `fntef-underline01`、`fntef-linebreak01` 基线用于约束标点和换行节点结构。
 
 ## CI/CD 配置
 
