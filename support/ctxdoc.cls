@@ -1,7 +1,7 @@
 %%
 %% File ctxdoc.cls
 %%
-%%     Copyright (C) 2016--2025
+%%     Copyright (C) 2016--2026
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %%---------------------------------------------------------------------
 %%
@@ -35,7 +35,8 @@
 \cs_gset_protected:Npn \ctex_patch_failure:N #1
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
-\ctex_patch_failure:N \__codedoc_typeset_function_block:nN
+\@ifclasslater { l3doc } { 2026/06/18 } { }
+  { \ctex_patch_failure:N \__codedoc_typeset_function_block:nN }
 \ExplSyntaxOff
 \ctexset{
   abstractname   = 简介,
