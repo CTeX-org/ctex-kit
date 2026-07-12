@@ -226,8 +226,9 @@
 %% 设定一个整数变量 \l__ctxdoc_function_block_scale_frac_int 初始值为 6.
 %% 第 1 次缩放到当前宽度的 5/6, 累计为原宽的 5/6, 对整数变量减 1.
 %% 第 2 次缩放到当前宽度的 4/5, 累计为原宽的 4/6, 对整数变量减 1.
-%% ...
-%% 最后一次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
+%% 第 3 次缩放到当前宽度的 3/4, 累计为原宽的 3/6, 对整数变量减 1.
+%% 第 4 次缩放到当前宽度的 2/3, 累计为原宽的 2/6, 对整数变量减 1.
+%% 第 5 次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
 %% B. 非均匀强行压缩
 %% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则自适应到可用左侧列宽.
 %% 循环 \dim_until_do:nNnn 压缩时参照的长度计算为
@@ -236,7 +237,8 @@
 %%   * \marginparsep 保证两侧空隙对称
 %%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
 %%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
-%% 最后设置 \l__ctxdoc_function_block_decr_dim 为其相反数, 确保退出循环.
+%% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
+%% 即被比较长度此时为 \marginparwidth 的 2 倍, 以确保退出循环.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
 %% 重定义中调用了 6 个函数:
 %% - \__codedoc_function_index:e
@@ -285,8 +287,7 @@
                   { \marginparwidth - \l__ctxdoc_function_block_decr_dim } /
                 \box_wd:N \l__ctxdoc_function_block_box
               } { 1 }
-            \dim_set:Nn \l__ctxdoc_function_block_decr_dim
-              { -\l__ctxdoc_function_block_decr_dim }
+            \dim_set:Nn \l__ctxdoc_function_block_decr_dim { -\marginparwidth }
           }
       }
     \box_use_drop:N \l__ctxdoc_function_block_box
