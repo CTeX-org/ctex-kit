@@ -221,12 +221,21 @@
   { \nointerlineskip \addvspace { \bigskipamount } }
 %% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
 %% \__codedoc_typeset_TF: 并入 \l__ctxdoc_function_block_box, 并根据情况进行压缩.
-%% 每次对其压缩掉 0.15 倍 \marginparwidth 直到函数长度小于
-%%     \marginparwidth - \marginparsep - (1.2em or 1.5em or 0pt)
-%% 其中 -\marginparsep 保持左右对称; 而对于可展函数末尾的星号占位处理为
-%% - EXP  选项: 使用 $star$    + 6.0pt colsep, 约 1.2em.
-%% - rEXP 选项: 使用 \ding{73} + 6.0pt colsep, 约 1.5em.
-%% -    不可展: 不做函数最大长度的额外扣除.
+%% 相比 l3doc 对 variable 和 macro 采用的 2/3 倍压缩, 这里采用柔和一些的方式.
+%% A. 正比弹性范围: 均匀压缩
+%% 设定一个整数变量 \l__ctxdoc_function_block_scale_frac_int 初始值为 6.
+%% 第 1 次    压缩掉 5/6,                                 对整数变量减 1.
+%% 第 2 次再次压缩掉 4/5, 共计压缩 (5/6) * (4/5) = (4/6), 对整数变量减 1.
+%% ...            最后一次共计压缩 1/2,                   对整数变量减 1.
+%% B. 非均匀强行压缩
+%% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则强行开启自适应左侧列宽.
+%% 循环 \dim_until_do:nNnn 压缩时参照的长度计算为
+%%     \marginparwidth - \l__ctxdoc_function_block_decr_dim
+%% 即左侧旁注宽度与扣除宽度之差. 扣除宽度中包含
+%%   * -\marginparsep 保证两侧空袭对称
+%%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
+%%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
+%% 最后设置 \l__ctxdoc_function_block_decr_dim 为 -\marginparwidth, 确保退出循环.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
 %% 重定义中调用了 6 个函数:
 %% - \__codedoc_function_index:e
@@ -236,6 +245,8 @@
 %% - \g__codedoc_variants_seq
 %% - \__codedoc_typeset_variant_list:nN
 \box_new:N \l__ctxdoc_function_block_box
+\dim_new:N \l__ctxdoc_function_block_decr_dim
+\int_new:N \l__ctxdoc_function_block_scale_frac_int
 \cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
   {
     \__codedoc_function_index:e
@@ -243,22 +254,39 @@
     \__codedoc_function_label:eN {#1} #2
     \hbox_set:Nn \l__ctxdoc_function_block_box
       { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
-    \dim_until_do:nNnn
-      { \box_wd:N \l__ctxdoc_function_block_box } <
+    \dim_set:Nn \l__ctxdoc_function_block_decr_dim
       {
-        \marginparwidth - \marginparsep -
         \bool_case:nF
           {
             { \l__codedoc_macro_EXP_bool  } { 1.2em }
             { \l__codedoc_macro_rEXP_bool } { 1.5em }
           } { \c_zero_dim }
+        + \marginparsep
       }
+    \int_set:Nn \l__ctxdoc_function_block_scale_frac_int { 6 }
+    \dim_until_do:nNnn
+      { \box_wd:N \l__ctxdoc_function_block_box } <
+      { \marginparwidth - \l__ctxdoc_function_block_decr_dim }
       {
-        \box_scale:Nnn \l__ctxdoc_function_block_box
+        \int_compare:nNnTF \l__ctxdoc_function_block_scale_frac_int > 1
           {
-            ( \box_wd:N \l__ctxdoc_function_block_box - .15 \marginparwidth ) /
-              \box_wd:N \l__ctxdoc_function_block_box
-          } { 1 }
+            \box_scale:Nnn \l__ctxdoc_function_block_box
+              {
+                ( \l__ctxdoc_function_block_scale_frac_int - 1 ) /
+                  \l__ctxdoc_function_block_scale_frac_int
+              } { 1 }
+            \int_decr:N \l__ctxdoc_function_block_scale_frac_int
+          }
+          {
+            \box_scale:Nnn \l__ctxdoc_function_block_box
+              {
+                \dim_to_decimal:n
+                  { \marginparwidth - \l__ctxdoc_function_block_decr_dim } /
+                \box_wd:N \l__ctxdoc_function_block_box
+              } { 1 }
+            \dim_set:Nn \l__ctxdoc_function_block_decr_dim
+              { -\l__ctxdoc_function_block_decr_dim }
+          }
       }
     \box_use_drop:N \l__ctxdoc_function_block_box
     \__codedoc_typeset_expandability:
