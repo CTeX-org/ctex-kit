@@ -23,5 +23,5 @@ Curated cross-task rules distilled from archived memory.
 
 ### leader 相位问题不能只测盒宽
 **Rule**: 调查 `\leaders` 线条偏移时，在非零水平起点下同时检查 leader 类型与实际输出坐标，不能只比较命令盒宽。
-**Why**: #531 中普通与偏移下划线的总宽完全相同，根因却是 `\leaders` 以外层列表为相位原点；`subtract` 的设计留白也一度被误当成缺线。
+**Why**: #531/#967 中普通、偏移和图案线型的总宽可以完全相同，根因却是 `\leaders` 以外层列表为相位原点；`subtract` 与内部片段还需分别验证端点和接缝。
 **Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`
