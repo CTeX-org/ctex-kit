@@ -1,3 +1,8 @@
+## [xeCJK-v3.10.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.3)
+
+- 提升版本号至 v3.10.3。
+- 使用 `\cleaders` 使下划线相对正文居中，避免起始位置改变时产生水平偏移（#531）。
+
 ## [xeCJK-v3.10.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.2)
 
 - 文档字体启用 `Language` 与 `PoZheHaoLigature`，破折号按全角字形合字输出（#382）。
