@@ -27,7 +27,7 @@
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
-\LoadClass{l3doc}[2025-11-14]
+\LoadClass{l3doc}[2026-06-18]
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ExplSyntaxOn
 \msg_new:nnn { ctxdoc } { patch-failure }
@@ -218,7 +218,7 @@
   { \bigskip }
   { \nointerlineskip \addvspace { \bigskipamount } }
 %% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
-%% \__codedoc_typeset_TF: 并入 \l__codedoc_function_block_box, 并根据情况进行压缩.
+%% \__codedoc_typeset_TF: 并入 \l__ctxdoc_function_block_box, 并根据情况进行压缩.
 %% 每次对其压缩掉 0.1 倍 \marginparwidth 直到函数长度小于
 %%        0.9 \marginparwidth - \marginparsep
 %% 其中 0.1 \marginparwidth 划分给可展函数末尾的星号.
@@ -230,25 +230,25 @@
 %% - \__codedoc_typeset_expandability:
 %% - \g__codedoc_variants_seq
 %% - \__codedoc_typeset_variant_list:nN
-\box_new:N \l__codedoc_function_block_box
+\box_new:N \l__ctxdoc_function_block_box
 \cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
   {
     \__codedoc_function_index:e
       { #1 \bool_if:NT #2 { \tl_to_str:n { TF } } }
     \__codedoc_function_label:eN {#1} #2
-    \hbox_set:Nn \l__codedoc_function_block_box
+    \hbox_set:Nn \l__ctxdoc_function_block_box
       { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
     \dim_until_do:nNnn
-      { \box_wd:N \l__codedoc_function_block_box } <
+      { \box_wd:N \l__ctxdoc_function_block_box } <
       { .9 \marginparwidth - \marginparsep }
       {
-        \box_scale:Nnn \l__codedoc_function_block_box
+        \box_scale:Nnn \l__ctxdoc_function_block_box
           {
-            ( \box_wd:N \l__codedoc_function_block_box - .1 \marginparwidth ) /
-              \box_wd:N \l__codedoc_function_block_box
+            ( \box_wd:N \l__ctxdoc_function_block_box - .1 \marginparwidth ) /
+              \box_wd:N \l__ctxdoc_function_block_box
           } { 1 }
       }
-    \box_use_drop:N \l__codedoc_function_block_box
+    \box_use_drop:N \l__ctxdoc_function_block_box
     \__codedoc_typeset_expandability:
     \seq_if_empty:NF \g__codedoc_variants_seq
       { \__codedoc_typeset_variant_list:nN {#1} #2 }
