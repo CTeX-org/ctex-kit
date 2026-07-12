@@ -231,7 +231,8 @@
 %% 第 5 次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
 %% B. 非均匀强行压缩
 %% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则自适应到可用左侧列宽.
-%% 循环 \dim_until_do:nNnn 压缩时参照的长度计算为
+%% 循环 \dim_while_do:nNnn 在函数宽度大于参照长度时压缩; 两者相等即停止.
+%% 参照长度计算为
 %%     \marginparwidth - \l__ctxdoc_function_block_decr_dim
 %% 即左侧旁注宽度与扣除宽度之差. 扣除宽度中包含
 %%   * \marginparsep 保证两侧空隙对称
@@ -267,8 +268,8 @@
         + \marginparsep
       }
     \int_set:Nn \l__ctxdoc_function_block_scale_frac_int { 6 }
-    \dim_until_do:nNnn
-      { \box_wd:N \l__ctxdoc_function_block_box } <
+    \dim_while_do:nNnn
+      { \box_wd:N \l__ctxdoc_function_block_box } >
       { \marginparwidth - \l__ctxdoc_function_block_decr_dim }
       {
         \int_compare:nNnTF \l__ctxdoc_function_block_scale_frac_int > 1
