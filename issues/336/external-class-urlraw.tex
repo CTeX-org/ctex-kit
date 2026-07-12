@@ -1,0 +1,60 @@
+\documentclass{article}
+\usepackage[paperwidth=10.5cm,paperheight=9cm,margin=9mm]{geometry}
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=numeric]{biblatex}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\hypersetup{hidelinks}
+\setCJKmainfont[AutoFakeSlant]{Noto Serif CJK SC}
+\setCJKmonofont{Noto Serif CJK SC}
+\addbibresource{issue-336.bib}
+\pagestyle{empty}
+
+% Define only the external-class-to-Default transition.  At the end of the
+% preamble xeCJK's existing Others compatibility layer derives the matching
+% transition to every CJK class.  No xeCJK internal command is used here.
+\newXeTeXintercharclass\urlBreakClass
+\newif\ifDerivedTransitionSeen
+\newcommand\URLBreakAction{\global\DerivedTransitionSeentrue\allowbreak}
+\XeTeXinterchartoks\urlBreakClass 0 {\URLBreakAction}
+
+\DeclareFieldFormat{url}{%
+  \begingroup
+    \XeTeXinterchartokenstate=1
+    \XeTeXcharclass`\/=\urlBreakClass
+    \mkbibacro{URL}\addcolon\space\href{#1}{\thefield{urlraw}}%
+  \endgroup}
+\DeclareBibliographyDriver{online}{%
+  \usebibmacro{begentry}\printfield{url}\usebibmacro{finentry}}
+
+\begin{document}
+% Trigger only the derived slash-to-CJK transition, then report whether the
+% user action propagated from slash-to-Default as promised.
+\begingroup
+  \XeTeXinterchartokenstate=1
+  \XeTeXcharclass`\/=\urlBreakClass
+  \setbox0=\hbox{/学}%
+\endgroup
+
+\section*{External class, no internal hack}
+\texttt{Only slash-to-Default was defined.}
+
+\medskip
+\noindent
+Derived slash-to-CJK transition:
+\ifDerivedTransitionSeen
+  \textcolor{green!50!black}{\bfseries PASS}
+\else
+  \textcolor{red}{\bfseries FAIL}
+\fi
+
+\nocite{Gakushyu}
+\printbibliography[heading=none]
+
+\smallskip
+\noindent
+The CJK font is selected, and normal xeCJK break opportunities remain active.
+\end{document}
