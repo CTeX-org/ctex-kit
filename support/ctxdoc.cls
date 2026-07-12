@@ -23,24 +23,22 @@
 \GetIdInfo$Id$
   {ctex documentation (CTEX)}
 \ProvidesExplClass{ctxdoc}{\ExplFileDate}{}{\ExplFileDescription}
-\ExplSyntaxOff
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
 \LoadClass{l3doc}[2026-06-18]
-\@ifclasslater { l3doc } { 2026/06/18 } { }
-  {
-    \msg_critical:nnx { ctxdoc } { patch-failure }
-      { \token_to_str:N \__codedoc_typeset_function_block:nN }
-  }
-\RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
-\ExplSyntaxOn
 \msg_new:nnn { ctxdoc } { patch-failure }
   { Failed~to~patch~command~`#1'. }
 \cs_gset_protected:Npn \ctex_patch_failure:N #1
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
+\@ifclasslater { l3doc } { 2026/06/18 } { }
+  {
+    \msg_critical:nnx { ctxdoc } { patch-failure }
+      { \token_to_str:N \__codedoc_typeset_function_block:nN }
+  }
 \ExplSyntaxOff
+\RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ctexset{
   abstractname   = 简介,
   indexname      = 代码索引,
