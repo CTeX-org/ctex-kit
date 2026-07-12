@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 07c39a3fe6c2b7b3d2c88872a2aaa2658612dbe1
-- watermark-subject: fix(xeCJK): 居中 CJKunderline 下划线
-- updated-at: 2026-07-12T08:39:11Z
+- watermark-commit: ed1e840004353b5d656640458ee99c22c0cd5135
+- watermark-subject: fix(xeCJK): 修正 CJKunderline 水平偏移 (#965)
+- updated-at: 2026-07-12T08:45:17Z
 - updated-by: /llmdoc:update
