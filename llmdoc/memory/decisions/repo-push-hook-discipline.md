@@ -9,6 +9,7 @@
 - 用 `make hooks` 安装仓库 hooks。
 - push 命令固定为 `git push 2>&1` 或其显式 remote/refspec 变体，后面不接管道。
 - 内层 push 才实际更新远端；外层 push 的失败是 self-wrapper 的预期副作用，必须从中间输出确认内层结果。
+- 共享分支 push 前先 fetch 并整合远端；非快进默认拒绝，只有显式 `CTEX_PREPUSH_ALLOW_FORCE=1` 才允许 exact-lease force。
 - 有对应 PR 时，等待 hook 检查 CI、新评论和未解决 thread；不得在远端更新成功后提前中断，也不得只用 CI watcher 替代。
 - 对评论中的阻塞问题、重要建议和小问题逐项核实；成立的全部修复、验证、commit、push，不保留已知技术债。
 - 审查意见涉及 PR 描述等元数据时同样修正；判定为误报必须给出可复核的不变量、官方文档或实验依据。
@@ -18,6 +19,8 @@
 ## 理由
 
 pre-push 同时承担真实 push、CI 等待和 review 活动检测。只看外层 rc 会把成功的内层 push 误判为失败；只看 `gh pr checks` 又会漏掉 push 后新增的 Bot 评论或未解决 thread。把完整输出、问题修复和 llmdoc 收尾统一成闭环，才能避免静默漏审和已知技术债。
+
+pre-push stdin 只描述待更新与远端 ref，不携带 outer 命令是否显式要求 force。因而“检测到非快进就自动加 force-with-lease”会把普通 push 错误升级为强推，并可能覆盖 hook 等待期间的协作者提交；force 必须另有显式授权信号。
 
 ## 实现依据
 

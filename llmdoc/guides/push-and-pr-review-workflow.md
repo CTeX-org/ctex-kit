@@ -10,6 +10,8 @@
 
 pre-push 是 self-wrapper：外层 push 进入 hook 后，hook 用 `GIT_POSTPUSH=1` 发起真正更新远端的内层 push；控制流返回后，外层 push 会因远端引用已更新或连接关闭而报告失败。这是预期现象。实际是否推送成功，以输出中的内层 push 结果和 `post-push: ✔ push succeeded` 为准，不能只看外层 rc 或最后一行。
 
+共享分支 push 前先 fetch 并整合远端最新提交。若 refspec 已非快进，hook 默认拒绝，不能把普通 push 自动升级成 force；先合并或 rebase 协作者改动。只有明确需要覆写历史时才运行 `CTEX_PREPUSH_ALLOW_FORCE=1 git push --force-with-lease 2>&1`，内层 push 会使用从 pre-push stdin 取得的远端 SHA 作为精确 lease。
+
 ## 等待 CI 与评论
 
 内层 push 成功后，hook 调用 `.githooks/check-pr-ci.sh`：等待当前分支对应 PR 的 CI 进入终态，按 workflow 名只保留最新 run，并检查 push 后的新 formal review、Bot issue comment 与未解决 review thread。
@@ -23,6 +25,8 @@ pre-push 是 self-wrapper：外层 push 进入 hook 后，hook 用 `GIT_POSTPUSH
 push 输出会给出下一步指示和相关链接，必须完整阅读。PR 评论可能列出阻塞问题、重要建议和小问题；逐项回到代码、测试或官方接口证据核实，不因评论来自 Bot 而直接接受，也不因标为“小问题”而跳过。
 
 审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。随后运行相称的验证，commit，再次执行无管道的 `git push 2>&1`，并重新等待 hook 完成。循环直到 CI 全绿、push 后无新评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
+
+hook 等待期间也可能有协作者推进同一分支。若外层输出显示 forced update、远端 SHA 异常变化或 cannot-lock-ref 的 actual 值不是内层刚推送的提交，立即恢复被覆盖提交、保留其作者历史并重新整合；不得把“外层失败属预期”泛化成忽略所有远端引用变化。
 
 ## 首次推送新分支
 

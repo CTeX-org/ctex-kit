@@ -61,8 +61,11 @@ refspecs=()
 # `--force-with-lease` 准: 裸形式按**远端跟踪引用** (`refs/remotes/origin/*`)
 # 算 lease, 本地若没 `fetch` 跟踪引用陈旧, lease 会误判 mismatch 拒掉用户显式
 # 发起的 force push. `remote_sha` 已经从 stdin 拿到了 git 当前看到的远端实际
-# sha, 直接用它做 lease 才准.
+# sha, 直接用它做 lease 才准. 但 pre-push stdin 不含 outer 命令是否带 `--force`
+# 的信息, 所以非快进默认拒绝; 只有用户显式设置 CTEX_PREPUSH_ALLOW_FORCE=1 才
+# 会消费这些 lease 参数.
 force_lease_args=()
+needs_force=0
 have_update=0   # 至少有一条非删除的 ref ⟹ CI watch 有意义
 head_branch_pushed=0   # refspecs 是否包含当前 HEAD 所在的分支
 head_remote_ref=""   # 当前 HEAD 对应的远端 ref (set -u 安全初始化)
@@ -78,21 +81,20 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   else
     refspecs+=("${local_ref}:${remote_ref}")
     have_update=1
-    # 何时给 INNER push 加 `--force-with-lease=<ref>:<remote_sha>`:
-    #   • 分支 ref: 远端有本地没有的 commit (非快进) ⟹ outer 必然用了 --force.
-    #   • tag  ref: 远端 sha 与本地不同 ⟹ git 默认拒绝任何同名 tag 更新
-    #               ("already exists"), 不论能否 ff. outer 必然用了 --force.
-    # 用精确 lease (而非裸 --force-with-lease) 镜像 git 在 stdin 看到的远端 sha,
-    # 避免裸 lease 依赖 stale 跟踪引用造成误判.
+    # 检测 INNER push 是否需要 force. 不能据此推断 outer 显式要求了 force:
+    # 普通 push 在远端被协作者推进后也会呈现同样的非快进 refspec. 默认拒绝,
+    # 避免 self-wrapper 把普通 push 意外升级成 force push.
     case "$remote_ref" in
       refs/tags/*)
         if [ "$remote_sha" != "$zero" ] && [ "$remote_sha" != "$local_sha" ]; then
+          needs_force=1
           force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
         fi
         ;;
       *)
         if [ "$remote_sha" != "$zero" ] \
            && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+          needs_force=1
           force_lease_args+=("--force-with-lease=${remote_ref}:${remote_sha}")
         fi
         ;;
@@ -116,6 +118,14 @@ if [ "$have_update" -eq 0 ]; then
 fi
 
 remote_name="${1:-origin}"
+
+if [ "$needs_force" -eq 1 ] && [ "${CTEX_PREPUSH_ALLOW_FORCE:-}" != 1 ]; then
+  echo "pre-push: refusing to upgrade a non-fast-forward push into an inner force push." >&2
+  echo "pre-push: fetch and integrate the remote branch first." >&2
+  echo "pre-push: if force is intentional, rerun exactly:" >&2
+  echo "  CTEX_PREPUSH_ALLOW_FORCE=1 git push --force-with-lease 2>&1" >&2
+  exit 1
+fi
 
 # `-u` 自动接力: git 不把 outer 命令行参数透传给 hook, 所以 inner push 不知道
 # 用户原本带了 `-u`. 检测: 当前 HEAD 分支被 push 且**目前没有 upstream**, 自动

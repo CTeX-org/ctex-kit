@@ -60,7 +60,7 @@ git 无原生 post-push hook。`pre-push` 模拟办法:
 
 INNER push 自动行为:
 
-- **`--force-with-lease=<ref>:<remote_sha>`**:非快进时自动加,精确镜像 git 在 stdin 看到的远端 sha,避免裸 lease 依赖 stale 跟踪引用造成误判。
+- **非快进默认拒绝**:pre-push stdin 无法判断 outer 是否显式带了 `--force`,所以不能把普通非快进自动升级成 force。先 fetch 并整合协作者提交；确需覆写时使用 `CTEX_PREPUSH_ALLOW_FORCE=1 git push --force-with-lease 2>&1`。显式放行后 INNER 使用 `--force-with-lease=<ref>:<remote_sha>` 精确 lease,避免 stale 跟踪引用和握手后的并发覆盖。
 - **`--set-upstream`**:当前 HEAD 分支被推送且**没有 upstream** 时自动加。等同 outer `git push -u` 的预期效果(git 不把 outer 命令行参数透传给 hook,需 hook 自行接力)。
 
 ## `check-pr-ci.sh` exit codes
