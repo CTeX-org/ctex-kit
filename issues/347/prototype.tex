@@ -1,0 +1,46 @@
+\documentclass{article}
+\usepackage[paperwidth=10cm,paperheight=7cm,margin=10mm]{geometry}
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\pagestyle{empty}
+
+\ExplSyntaxOn
+\newXeTeXintercharclass \l__test_rotate_class
+\box_new:N \l__test_char_box
+\fp_new:N \l__test_rotate_fp
+\fp_set:Nn \l__test_rotate_fp { 35 }
+
+\cs_new_protected:Npn \__test_box_begin:
+  { \hbox_set:Nw \l__test_char_box }
+\cs_new_protected:Npn \__test_box_end:
+  {
+    \hbox_set_end:
+    \box_rotate:Nn \l__test_char_box { \l__test_rotate_fp }
+    \box_use:N \l__test_char_box
+  }
+
+\cs_new_protected:Npn \__test_install_transitions:
+  {
+    % Install after xeCJK's end-of-preamble external-class integration.
+    \tex_XeTeXinterchartoks:D 1 \l__test_rotate_class
+      { \__test_box_begin: }
+    \tex_XeTeXinterchartoks:D \l__test_rotate_class 1
+      { \__test_box_end: }
+    \tex_XeTeXinterchartoks:D \l__test_rotate_class 4095
+      { \__test_box_end: }
+    \tex_XeTeXcharclass:D `地 = \l__test_rotate_class
+  }
+\ExplSyntaxOff
+
+\begin{document}
+\ExplSyntaxOn\__test_install_transitions:\ExplSyntaxOff
+
+\noindent 单个标记字符：\quad 天地玄黄
+
+\bigskip
+\noindent 两个相邻标记字符：\quad 天地地玄黄
+
+\bigskip
+第二行旋转的是一个包含两个目标字的盒子，而不是分别旋转两个字：同一个特殊
+字符类连续出现时，中间没有触发原型所定义的“开盒／关盒”转移。
+\end{document}
