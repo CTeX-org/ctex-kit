@@ -155,7 +155,9 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 
 ### 长函数名压缩边界
 
-`support/ctxdoc.cls` (`\l__ctxdoc_function_block_box`): 只把函数名本体与 pTF 后缀装入独立 hbox 并水平缩放，Added/Updated 日期、EXP/rEXP 标记与 variants 保持原尺寸。每轮宽度减少 `0.15\marginparwidth`，直到小于 `\marginparwidth - \marginparsep`；EXP 与 rEXP 分别再预留约 `1.2em` 与 `1.5em` 的右栏空间，不可展函数不额外预留。两档预留来自可展性符号加 function 表 6pt 列间距的实测近似，使用 em 是为了随字号缩放；离散步长则避免所有超长名称被连续自适应成几乎相同宽度。修改这一算法时不能退回缩放整个 functions coffin，否则日期行也会被压缩。
+`support/ctxdoc.cls` (`\l__ctxdoc_function_block_box`): 只把函数名本体与 pTF 后缀装入独立 hbox 并水平缩放，Added/Updated 日期、EXP/rEXP 标记与 variants 保持原尺寸。目标宽度是 `\marginparwidth - \marginparsep`，EXP 与 rEXP 分别再预留约 `1.2em` 与 `1.5em` 的右栏空间，不可展函数不额外预留；两档预留来自可展性符号加 function 表 6pt 列间距的实测近似，使用 em 是为了随字号缩放。
+
+压缩分两阶段。正常弹性范围以整数 6 起步，依次把当前宽度乘以 `5/6`、`4/5`、`3/4`、`2/3`、`1/2`，累计宽度因此是原宽的 `5/6`、`4/6`、`3/6`、`2/6`、`1/6`，形成相对原始宽度等差的档位；若五档后仍超宽，再一次自适应到目标宽度。修改这一算法时不能退回缩放整个 functions coffin，否则日期行也会被压缩；也不能把各轮因子误当成累计比例。
 
 ## 实际修改时的检索顺序
 
