@@ -1,0 +1,85 @@
+\input{regression-test}
+
+\documentclass{article}
+\usepackage{xeCJK-listings}
+\setCJKmainfont[Script=Hangul]{Noto Sans CJK KR}
+\setCJKmonofont[Script=Hangul]{Noto Sans CJK KR}
+\xeCJKsetup{CJKglue=\kern7pt}
+
+\ExplSyntaxOn
+\tl_new:N \g__test_events_tl
+\cs_new_eq:NN \__test_CJKglue: \CJKglue
+\cs_set_protected:Npn \CJKglue
+  { \tl_gput_right:Nn \g__test_events_tl { G } \__test_CJKglue: }
+\cs_new_eq:NN \__test_no_break: \xeCJK_no_break:
+\cs_set_protected:Npn \xeCJK_no_break:
+  { \tl_gput_right:Nn \g__test_events_tl { P } \__test_no_break: }
+\NewDocumentCommand \ResetTestEvents { }
+  { \tl_gclear:N \g__test_events_tl }
+\NewDocumentCommand \ShowTestEvents { m }
+  { \TYPE{#1:~\tl_use:N \g__test_events_tl} }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\TEST{Hangul Jamo classes follow Unicode syllable types}{
+  \TYPE{L: \the\XeTeXcharclass"113B}
+  \TYPE{V: \the\XeTeXcharclass"119F}
+  \TYPE{T: \the\XeTeXcharclass"11EB}
+  \TYPE{Extended L: \the\XeTeXcharclass"A97C}
+  \TYPE{Extended V: \the\XeTeXcharclass"D7C6}
+  \TYPE{Extended T: \the\XeTeXcharclass"D7FB}
+}
+
+\TEST{Jamo shaping is continuous inside syllables only}{
+  \ResetTestEvents
+  \setbox0=\hbox{한ᄻᆟᇫᄻᆟᇫ}
+  \TYPE{Width: \the\wd0}
+  \ShowTestEvents{Events}
+}
+
+\TEST{CJKsymbol accepts a decomposed Jamo syllable}{
+  \setbox0=\hbox{\CJKsymbol{ᄻᆟᇫ}}
+  \TYPE{Width: \the\wd0}
+}
+
+\TEST{CJLineBreak toggles strict class locally and survives reset}{
+  \TYPE{Normal: \the\XeTeXcharclass`ゃ}
+  \begingroup
+    \xeCJKsetup{CJLineBreak=strict}
+    \TYPE{Strict: \the\XeTeXcharclass`ゃ}
+    \TYPE{Unicode 17 CJ: \the\XeTeXcharclass"1B132}
+    \xeCJKResetCharClass
+    \TYPE{Strict after reset: \the\XeTeXcharclass`ゃ}
+  \endgroup
+  \TYPE{After group: \the\XeTeXcharclass`ゃ}
+}
+
+\TEST{strict CJ keeps CJK spacing and adds prebreak penalties}{
+  \begingroup
+    \xeCJKsetup{CJLineBreak=strict}
+    \ResetTestEvents
+    \setbox0=\hbox{きゃっ}
+    \TYPE{Kana width: \the\wd0}
+    \ShowTestEvents{Kana events}
+    \ResetTestEvents
+    \setbox0=\hbox{。ゃ}
+    \TYPE{Punct width: \the\wd0}
+    \ShowTestEvents{Punct events}
+  \endgroup
+}
+
+\TEST{listings counts one cell per decomposed Jamo syllable}{
+  \setbox0=\hbox{\lstinline|뭇|}
+  \TYPE{Precomposed: \the\wd0}
+  \setbox0=\hbox{\lstinline|ᄻᆟᇫ|}
+  \TYPE{Decomposed: \the\wd0}
+  \setbox0=\hbox{\lstinline|ᄻᆟᇫᄻᆟᇫ|}
+  \TYPE{Two decomposed: \the\wd0}
+}
+
+\END
+
+\end{document}

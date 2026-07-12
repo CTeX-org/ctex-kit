@@ -1,6 +1,9 @@
 ## [xeCJK-v3.10.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.3)
 
 - 提升版本号至 v3.10.3。
+- 将朝鲜文字母分为 L/V/T 三类，在音节内保持 shaping，在相邻音节间恢复 `\CJKglue`（#158）。
+- 新增 `CJStarter` 类和可选严格行首禁则，保持小假名的普通 CJK 字距（#165）。
+- 新增 `CJLineBreak` 选项，为日文小假名提供可选严格行首禁则（#165）。
 - 使用 `\cleaders` 使下划线相对正文居中，避免起始位置改变时产生水平偏移（#531）。
 - 使用 `\xleaders` 使波浪线相对正文对齐，同时保持字间连接连续（#967）。
 - 使用 `\cleaders` 使双下划线相对正文居中（#967）。
