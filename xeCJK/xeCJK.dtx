@@ -678,6 +678,17 @@ Copyright and Licence
 %   作用范围是当前 \TeX{} 分组。
 % \end{function}
 %
+% \begin{function}[added=2026-07-12]{CJLineBreak}
+%   \begin{syntax}
+%     CJLineBreak = \Arg{(normal)|strict}
+%   \end{syntax}
+%   设置 Unicode |Line_Break=CJ| 的日文小假名等字符是否采用严格行首禁则。
+%   |normal| 将它们作为普通 CJK 文字处理，保持历史默认行为；|strict| 保持
+%   同样的字距，但在这些字符前插入 penalty 10\,000，防止它们出现在行首。
+%   例如 |きゃ| 和 |きゃっ| 中的小假名前都不可断行。该选项可在分组内局部
+%   切换；调用 \tn{xeCJKResetCharClass} 后仍保留当前设置。
+% \end{function}
+%
 % \begin{function}[EXP]{PunctWidth}
 %   \begin{syntax}
 %     PunctWidth = \Arg{length}
@@ -2443,7 +2454,11 @@ Copyright and Licence
 % |NormalSpace| & 前后原始间距的符号 & / \\
 % |Boundary|    & 边界               & 空格 \\
 % |CM|          & 组合标识           & 异体字选择符\\
-% |HangulJamo|  & 朝鲜文字母         & |ᄻ||ᆟ||ᇫ|\\
+% |HangulJamo|  & 朝鲜文字母（兼容类） & |ᄻ||ᆟ||ᇫ|\\
+% |HangulJamoL| & 朝鲜文字母初声     & |ᄻ|\\
+% |HangulJamoV| & 朝鲜文字母中声     & |ᆟ|\\
+% |HangulJamoT| & 朝鲜文字母终声     & |ᇫ|\\
+% |CJStarter|   & 日文条件行首禁则字符 & |ゃ||っ|\\
 % |PoZheHao|    & 支持合字的破折号   & ——\\
 % \bottomrule
 % \end{tabular}
@@ -2486,7 +2501,9 @@ Copyright and Licence
 % \changes{v3.10.2}{2026/07/04}{增加 \texttt{PoZheHao} 字符类，
 %  支持字体的破折号合字功能（\#382）。}
 %
-% \begin{macro}[int]{HalfLeft,HalfRight,NormalSpace,CM,HangulJamo,PoZheHao}
+% \begin{macro}[int]
+%   {HalfLeft,HalfRight,NormalSpace,CM,HangulJamo,HangulJamoL,
+%    HangulJamoV,HangulJamoT,CJStarter,PoZheHao}
 % 新增西文半角左/右标点、前后原始间距的符号和异体字选择符类，
 % 以及支持破折号合字的字符类。
 %    \begin{macrocode}
@@ -2495,6 +2512,10 @@ Copyright and Licence
 \xeCJK_new_class:n { NormalSpace }
 \xeCJK_new_class:n { CM }
 \xeCJK_new_class:n { HangulJamo }
+\xeCJK_new_class:n { HangulJamoL }
+\xeCJK_new_class:n { HangulJamoV }
+\xeCJK_new_class:n { HangulJamoT }
+\xeCJK_new_class:n { CJStarter }
 \xeCJK_new_class:n { PoZheHao }
 %    \end{macrocode}
 % \end{macro}
@@ -2648,7 +2669,7 @@ Copyright and Licence
     "30E7 , "30EE , "30F5 , "30F6 , "30FC , "31F0 , "31F1 , "31F2 , "31F3 , "31F4 ,
     "31F5 , "31F6 , "31F7 , "31F8 , "31F9 , "31FA , "31FB , "31FC , "31FD , "31FE ,
     "31FF , "FF67 , "FF68 , "FF69 , "FF6A , "FF6B , "FF6C , "FF6D , "FF6E , "FF6F ,
-    "FF70
+    "FF70 , "1B132 , "1B150 -> "1B152 , "1B155 , "1B164 -> "1B167
   }
 %    \end{macrocode}
 % \end{variable}
@@ -2933,28 +2954,18 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{variable}
 %
-% \begin{variable}{\c_@@_HangulJamo_chars_clist}
-% 朝鲜文字母。
+% \begin{variable}
+%   {\c_@@_HangulJamoL_chars_clist,\c_@@_HangulJamoV_chars_clist,
+%    \c_@@_HangulJamoT_chars_clist}
+% 朝鲜文字母按 Unicode |Hangul_Syllable_Type| 分成初声（L）、中声（V）和
+% 终声（T）三类，以便区分音节内 shaping 与相邻音节边界（\#158）。
 %    \begin{macrocode}
-\clist_const:Nn \c_@@_HangulJamo_chars_clist
-  {
-%    \end{macrocode}
-% \begin{itemize}[nosep,leftmargin=0pt]
-% \item Hangul Jamo （谚文字母）
-%    \begin{macrocode}
-    "1100 -> "11FF ,
-%    \end{macrocode}
-% \item Hangul Jamo Extended-A （谚文扩展 A）
-%    \begin{macrocode}
-    "A960 -> "A97F ,
-%    \end{macrocode}
-% \item Hangul Jamo Extended-B （谚文扩展 B）
-%    \begin{macrocode}
-    "D7B0 -> "D7FF
-%    \end{macrocode}
-% \end{itemize}
-%    \begin{macrocode}
-  }
+\clist_const:Nn \c_@@_HangulJamoL_chars_clist
+  { "1100 -> "115F , "A960 -> "A97C }
+\clist_const:Nn \c_@@_HangulJamoV_chars_clist
+  { "1160 -> "11A7 , "D7B0 -> "D7C6 }
+\clist_const:Nn \c_@@_HangulJamoT_chars_clist
+  { "11A8 -> "11FF , "D7CB -> "D7FB }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -3126,12 +3137,21 @@ Copyright and Licence
     \clist_gclear:N \g_@@_NormalSpace_range_clist
     \clist_gclear:N \g_@@_CM_range_clist
     \clist_gclear:N \g_@@_HangulJamo_range_clist
+    \clist_gclear:N \g_@@_HangulJamoL_range_clist
+    \clist_gclear:N \g_@@_HangulJamoV_range_clist
+    \clist_gclear:N \g_@@_HangulJamoT_range_clist
+    \clist_gclear:N \g_@@_CJStarter_range_clist
     \xeCJK_declare_char_class:nN { CJK } \c_@@_CJK_chars_clist
     \xeCJK_declare_char_class:nN { NormalSpace } \c_@@_NormalSpace_chars_clist
     \xeCJK_declare_char_class:nN { CM } \c_@@_CM_chars_clist
-    \xeCJK_declare_char_class:nN { HangulJamo } \c_@@_HangulJamo_chars_clist
+    \xeCJK_declare_char_class:nN { HangulJamoL } \c_@@_HangulJamoL_chars_clist
+    \xeCJK_declare_char_class:nN { HangulJamoV } \c_@@_HangulJamoV_chars_clist
+    \xeCJK_declare_char_class:nN { HangulJamoT } \c_@@_HangulJamoT_chars_clist
+    \bool_if:NT \l_@@_CJ_strict_bool
+      { \xeCJK_declare_char_class:nN { CJStarter } \c_@@_CJ_chars_clist }
     \xeCJKResetPunctClass
   }
+\bool_new:N \l_@@_CJ_strict_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -3281,7 +3301,11 @@ Copyright and Licence
     \@@_update_clear_toks:n {#1}
   }
 \clist_map_function:nN
-  { CJK , FullLeft , FullRight , CM , HangulJamo , PoZheHao } \@@_save_CJK_class:n
+  {
+    CJK , FullLeft , FullRight , CM , HangulJamo ,
+    HangulJamoL , HangulJamoV , HangulJamoT , CJStarter , PoZheHao
+  }
+  \@@_save_CJK_class:n
 %    \end{macrocode}
 % \end{variable}
 %
@@ -3433,6 +3457,75 @@ Copyright and Licence
             \xeCJK_copy_inter_class_toks:nnnn { HangulJamo } {#1} { CJK } {#1}
             \xeCJK_copy_inter_class_toks:nnnn {#1} { HangulJamo } {#1} { CJK }
           }
+      }
+  }
+%    \end{macrocode}
+%
+% \changes{v3.10.3}{2026/07/12}{将朝鲜文字母分为 L/V/T 三类，在音节内保持
+%   shaping，在相邻音节间恢复 \tn{CJKglue}（\#158）。}
+%
+% |HangulJamoL|、|HangulJamoV|、|HangulJamoT| 对外都复制 |CJK| 的
+% 转移规则。三类之间先复制 |CJK| 到 |CJK|，再按 UAX~\#29 的 Hangul
+% 音节延续规则清空 L--L、L--V、V--V、V--T、T--T 五种转移；其余组合
+% 是音节边界，保留 \tn{CJKglue} 和断行机会。
+%    \begin{macrocode}
+\AtEndOfPackage
+  {
+    \clist_map_inline:nn { HangulJamoL , HangulJamoV , HangulJamoT }
+      {
+        \seq_map_inline:Nn \g_@@_class_seq
+          {
+            \str_if_eq:nnF {##1} {#1}
+              {
+                \xeCJK_copy_inter_class_toks:nnnn {#1} {##1} { CJK } {##1}
+                \xeCJK_copy_inter_class_toks:nnnn {##1} {#1} {##1} { CJK }
+              }
+          }
+      }
+    \clist_map_inline:nn { HangulJamoL , HangulJamoV , HangulJamoT }
+      {
+        \clist_map_inline:nn { HangulJamoL , HangulJamoV , HangulJamoT }
+          { \xeCJK_copy_inter_class_toks:nnnn {#1} {##1} { CJK } { CJK } }
+      }
+    \xeCJK_clear_inter_class_toks:nn { HangulJamoL } { HangulJamoL }
+    \xeCJK_clear_inter_class_toks:nn { HangulJamoL } { HangulJamoV }
+    \xeCJK_clear_inter_class_toks:nn { HangulJamoV } { HangulJamoV }
+    \xeCJK_clear_inter_class_toks:nn { HangulJamoV } { HangulJamoT }
+    \xeCJK_clear_inter_class_toks:nn { HangulJamoT } { HangulJamoT }
+  }
+%    \end{macrocode}
+%
+% \changes{v3.10.3}{2026/07/12}{新增 \texttt{CJStarter} 类和可选严格行首禁则，
+%   保持小假名的普通 CJK 字距（\#165）。}
+%
+% |CJStarter| 对外复制 |CJK| 转移，并在普通 CJK、同类小假名以及全角右
+% 标点之后进入该类时，把禁则 penalty 放在 \tn{CJKglue} 前。字符只有在
+% |CJLineBreak=strict| 时才归入该类。
+%    \begin{macrocode}
+\AtEndOfPackage
+  {
+    \seq_map_inline:Nn \g_@@_class_seq
+      {
+        \str_if_eq:nnF {#1} { CJStarter }
+          {
+            \xeCJK_copy_inter_class_toks:nnnn { CJStarter } {#1} { CJK } {#1}
+            \xeCJK_copy_inter_class_toks:nnnn {#1} { CJStarter } {#1} { CJK }
+          }
+      }
+    \xeCJK_copy_inter_class_toks:nnnn
+      { CJStarter } { CJStarter } { CJK } { CJK }
+    \xeCJK_pre_inter_class_toks:nnn { CJK } { CJStarter } { \xeCJK_no_break: }
+    \xeCJK_pre_inter_class_toks:nnn
+      { CJStarter } { CJStarter } { \xeCJK_no_break: }
+    \xeCJK_inter_class_toks:nnn { FullRight } { CJStarter }
+      {
+        \@@_punct_rule:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \xeCJK_no_break:
+        \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
+        \@@_select_font:
+        \CJKglue
+        \xeCJK_fallback_symbol:NN
+        \CJKsymbol
       }
   }
 %    \end{macrocode}
@@ -4370,7 +4463,8 @@ Copyright and Licence
 \clist_map_inline:nn
   {
     Default , HalfLeft , HalfRight , NormalSpace ,
-    CJK , FullLeft , FullRight , CM , HangulJamo
+    CJK , FullLeft , FullRight , CM , HangulJamo ,
+    HangulJamoL , HangulJamoV , HangulJamoT , CJStarter
   }
   {
     \xeCJK_pre_inter_class_toks:nnn { Boundary } {#1}
@@ -5850,7 +5944,11 @@ Copyright and Licence
       }
     \seq_gput_right:Nn \g_@@_CJK_sub_class_seq {#2}
     \@@_save_CJK_class:n { #1/#2 }
-    \clist_map_inline:nn { CJK , FullLeft , FullRight , HangulJamo }
+    \clist_map_inline:nn
+      {
+        CJK , FullLeft , FullRight , HangulJamo ,
+        HangulJamoL , HangulJamoV , HangulJamoT , CJStarter
+      }
       {
         \xeCJK_pre_inter_class_toks:nnn { #1/#2 } {##1}
           { \@@_switch_font:nn {#2} {#1} }
@@ -5939,10 +6037,13 @@ Copyright and Licence
 %  支持字体的破折号合字功能（\#382）。}
 % \changes{v3.10.2}{2026/07/05}{新增 \texttt{LatinPunct} 选项，
 %  中西文共用的弯引号、间隔号与省略号可以切换为西文标点（\#389、\#431）。}
+% \changes{v3.10.3}{2026/07/12}{新增 \texttt{CJLineBreak} 选项，
+%  为日文小假名提供可选严格行首禁则（\#165）。}
 %
 % \begin{macro}
 %  {AllowBreakBetweenPuncts,KaiMingPunct,LongPunct,NoBreakLongPunct,
-%   MiddlePunct,PoZheHaoLigature,LatinPunct,PunctWidth,PunctBoundWidth,RubberPunctSkip}
+%   MiddlePunct,PoZheHaoLigature,LatinPunct,CJLineBreak,
+%   PunctWidth,PunctBoundWidth,RubberPunctSkip}
 % 相关选项声明。
 %    \begin{macrocode}
 \keys_define:nn { xeCJK / options }
@@ -6006,6 +6107,19 @@ Copyright and Licence
           { "00B7 , "2019 , "201D , "2025 , "2026 , "2027 }
       } ,
     LatinPunct .default:n = { true } ,
+    CJLineBreak .choices:nn = { normal , strict }
+      {
+        \str_if_eq:nnTF {#1} { strict }
+          {
+            \bool_set_true:N \l_@@_CJ_strict_bool
+            \xeCJK_declare_char_class:nN { CJStarter } \c_@@_CJ_chars_clist
+          }
+          {
+            \bool_set_false:N \l_@@_CJ_strict_bool
+            \xeCJK_declare_char_class:nN { CJK } \c_@@_CJ_chars_clist
+          }
+      } ,
+    CJLineBreak .initial:n = { normal } ,
     PunctWidth      .tl_gset:N = \g_@@_punct_width_tl ,
     PunctBoundWidth .tl_gset:N = \g_@@_punct_bound_width_tl ,
     PunctWidth      .value_required:n = true ,
@@ -12107,6 +12221,14 @@ Copyright and Licence
       { \@@_listings_process_CJK:nN { 2 } }
     \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamo }
       { \@@_listings_process_CJK:nN { 2 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoL }
+      { \@@_listings_process_CJK:nN { 2 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoV }
+      { \@@_listings_process_CM:nN { 0 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoT }
+      { \@@_listings_process_CM:nN { 0 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { CJStarter }
+      { \@@_listings_process_CJK:nN { 2 } }
     \seq_map_inline:Nn \g_@@_CJK_sub_class_seq
       {
         \xeCJK_inter_class_toks:nnn { Boundary } { CJK/##1 }
@@ -12118,6 +12240,14 @@ Copyright and Licence
     \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
       { \@@_listings_process_breaklines_CJK:nN { 2 } }
     \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamo }
+      { \@@_listings_process_breaklines_CJK:nN { 2 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoL }
+      { \@@_listings_process_breaklines_CJK:nN { 2 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoV }
+      { \@@_listings_process_CM:nN { 0 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { HangulJamoT }
+      { \@@_listings_process_CM:nN { 0 } }
+    \xeCJK_inter_class_toks:nnn { Boundary } { CJStarter }
       { \@@_listings_process_breaklines_CJK:nN { 2 } }
     \xeCJK_inter_class_toks:nnn { Boundary } { FullLeft }
       { \@@_listings_process_FullLeft:nN { 2 } }
