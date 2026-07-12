@@ -22,6 +22,6 @@ Curated cross-task rules distilled from archived memory.
 ## TeX 节点与输出几何
 
 ### leader 相位问题不能只测盒宽
-**Rule**: 调查 `\leaders` 线条偏移时，在非零水平起点下同时检查 leader 类型与实际输出坐标，不能只比较命令盒宽。
-**Why**: #531/#967 中普通、偏移和图案线型的总宽可以完全相同，根因却是 `\leaders` 以外层列表为相位原点；`subtract` 与内部片段还需分别验证端点和接缝。
+**Rule**: 调查 leader 线条偏移时，在非零水平起点下同时检查 leader 类型、实际输出坐标和 mark 的跨片段连续性，不能只比较命令盒宽；规则型与周期型 mark 应分别选择原语。
+**Why**: #531/#967 中 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以完全相同，但前者端点随外层相位漂移，`\cleaders` 又会使周期波浪线在 CJK 分片间产生双峰；只有分开验证端点和接缝才能选出正确方案。
 **Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`
