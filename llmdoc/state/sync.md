@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 056271907c43e05a3dd9979689326aba19f4db9e
-- watermark-subject: docs(llmdoc): sync ctxdoc long-function changes
-- updated-at: 2026-07-12T06:11:19Z
+- watermark-commit: a0e25359b81a7f48d9eaf33d28da9a5c707421d3
+- watermark-subject: docs(llmdoc): record push and PR review discipline
+- updated-at: 2026-07-12T06:17:44Z
 - updated-by: /llmdoc:update
