@@ -18,3 +18,10 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 对名称相近的 expl3 控制流或异常分支，必须用 `interface3` 原文、最小实验或失败路径测试验证审查结论。
 **Why**: #964 的自动审查曾反转 `\dim_until_do:nNnn` 的真实语义，版本门禁也先后出现 ExplSyntax catcode 错位和条件丢失；仅跑正常路径不足以发现这些问题。
 **Source**: `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
+
+## TeX 节点与输出几何
+
+### leader 相位问题不能只测盒宽
+**Rule**: 调查 `\leaders` 线条偏移时，在非零水平起点下同时检查 leader 类型与实际输出坐标，不能只比较命令盒宽。
+**Why**: #531 中普通与偏移下划线的总宽完全相同，根因却是 `\leaders` 以外层列表为相位原点；`subtract` 的设计留白也一度被误当成缺线。
+**Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`
