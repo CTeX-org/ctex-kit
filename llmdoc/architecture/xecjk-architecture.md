@@ -512,6 +512,8 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 提供 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 等中文文字效果命令。基于 `ulem` 机制重实现，处理 CJK 字符的下划线位置和连续性。
 
+**固定下划线的 leader 相位（#531）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。`\CJKunderline` 用宽度 `.2em` 的 rule box 拼线时，段首缩进或前置水平位移会改变首尾丢弃的非完整盒，使整条线相对正文等长平移；总盒宽保持不变，因此仅比较 `\wd` 无法捕获该问题。当前实现只在 `\CJKunderline` 分组内把 `\ULleaders` 局部设为 `\cleaders`，由 TeX 将余量均分到两端；普通模式两端对称外扩，`subtract` 模式两端等量缩短并继续保留相邻线段不连接的公开语义。`\CJKunderwave`、`\CJKxout` 等图案型装饰仍使用 `\leaders`，避免各 ulem 片段独立居中后破坏图案的跨片段相位。
+
 **`\xeCJK_fntef_sbox:n` 的全局状态隔离**：该函数通过 `\hbox_set:Nn` 渲染装饰符号（如 underdot 的 `.`）。hbox 内部的字符会触发 XeTeX interchar toks，全局修改 `\g_@@_last_node_tl`（例如从 `CJK-space` 变为 `default`）。这会污染外层水平列表的状态，导致 `\set@color` 补丁用错误的节点类型重建 kern pair，后续 `\@@_check_for_glue_skip:` 走 ecglue 路径而非 CJKglue 路径。
 
 修复方式：在 `\hbox_set:Nn` 前后保存/恢复 `\g_@@_last_node_tl`。这是一个通用模式——**任何包含 CJK 字符的 `\hbox_set:Nn` 都可能通过 interchar toks 污染全局节点标记状态**，应在 hbox 前后隔离 `\g_@@_last_node_tl`。

@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 2a708a24a41f2204e596969c72860ce52b7501cd
-- watermark-subject: docs(ctxdoc): list private l3doc dependencies
-- updated-at: 2026-07-12T07:13:16Z
+- watermark-commit: 07c39a3fe6c2b7b3d2c88872a2aaa2658612dbe1
+- watermark-subject: fix(xeCJK): 居中 CJKunderline 下划线
+- updated-at: 2026-07-12T08:39:11Z
 - updated-by: /llmdoc:update
