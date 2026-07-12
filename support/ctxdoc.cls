@@ -224,9 +224,9 @@
 %% 相比 l3doc 对 variable 和 macro 采用的 2/3 倍压缩, 这里采用柔和一些的方式.
 %% A. 正比弹性范围: 均匀压缩
 %% 设定一个整数变量 \l__ctxdoc_function_block_scale_frac_int 初始值为 6.
-%% 第 1 次缩放到当前宽度的 5/6, 累计为原宽的 5/6, 对整数变量减 1.
-%% 第 2 次缩放到当前宽度的 4/5, 累计为原宽的 4/6, 对整数变量减 1.
-%% ...
+%% 第 1 次缩放到当前宽度的  5/6, 累计为原宽的 5/6, 对整数变量减 1.
+%% 第 2 次缩放到当前宽度的  4/5, 累计为原宽的 4/6, 对整数变量减 1.
+%%   ...
 %% 最后一次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
 %% B. 非均匀强行压缩
 %% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则自适应到可用左侧列宽.
@@ -236,7 +236,8 @@
 %%   * \marginparsep 保证两侧空隙对称
 %%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
 %%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
-%% 最后设置 \l__ctxdoc_function_block_decr_dim 为其相反数, 确保退出循环.
+%% 最后设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
+%% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
 %% 重定义中调用了 6 个函数:
 %% - \__codedoc_function_index:e
@@ -286,7 +287,7 @@
                 \box_wd:N \l__ctxdoc_function_block_box
               } { 1 }
             \dim_set:Nn \l__ctxdoc_function_block_decr_dim
-              { -\l__ctxdoc_function_block_decr_dim }
+              { -\marginparwidth }
           }
       }
     \box_use_drop:N \l__ctxdoc_function_block_box
