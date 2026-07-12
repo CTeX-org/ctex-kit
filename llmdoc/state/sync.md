@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 4f56b6986c6d3ff73679cb95e1a032056e145378
-- watermark-subject: Merge branch 'fix-long-function-963' of https://github.com/CTeX-org/ctex-kit into fix-long-function-963
-- updated-at: 2026-07-12T06:32:55Z
+- watermark-commit: 8f07fed9503abc9865d7941b02c2d603e596bf18
+- watermark-subject: chore(ctxdoc): merge concurrent loop-exit update
+- updated-at: 2026-07-12T06:47:31Z
 - updated-by: /llmdoc:update
