@@ -242,13 +242,15 @@
 %% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
 %% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
-%% 重定义中调用了 6 个函数:
+%% 重定义依赖 8 个 l3doc 私有接口:
 %% - \__codedoc_function_index:e
 %% - \__codedoc_function_label:eN
 %% - \__codedoc_typeset_TF:
 %% - \__codedoc_typeset_expandability:
 %% - \g__codedoc_variants_seq
 %% - \__codedoc_typeset_variant_list:nN
+%% - \l__codedoc_macro_EXP_bool
+%% - \l__codedoc_macro_rEXP_bool
 \box_new:N \l__ctxdoc_function_block_box
 \dim_new:N \l__ctxdoc_function_block_decr_dim
 \int_new:N \l__ctxdoc_function_block_scale_frac_int

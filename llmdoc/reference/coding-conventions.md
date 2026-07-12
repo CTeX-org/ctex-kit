@@ -151,7 +151,7 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 
 `support/ctxdoc.cls` (`\__codedoc_typeset_function_block:nN` override): ctxdoc 会完整重定义 l3doc 的函数条目排版函数，因此最低依赖与实现对标日期统一固定为 2026-06-18。`\LoadClass` 声明最低日期后，类还会用 `\@ifclasslater` 复核；版本过低时通过 `\ctex_patch_failure:N` 发出 critical 错误，而不是带着不匹配的私有接口继续排版。门禁必须放在 `\ExplSyntaxOn` 区域内，并位于消息声明和 `\ctex_patch_failure:N` 定义之后；否则只有旧版本失败分支才会暴露 catcode 或前向引用错误。
 
-完整重定义依赖 `\__codedoc_function_index:e`、`\__codedoc_function_label:eN`、`\__codedoc_typeset_TF:`、`\__codedoc_typeset_expandability:`、`\g__codedoc_variants_seq` 与 `\__codedoc_typeset_variant_list:nN`。升级 l3doc 时需要把这些接口、对标日期和 `ctex/test/testfiles-ctxdoc/` 专项基线一起核对；仅确认类能加载不足以证明排版补丁仍兼容。
+完整重定义依赖 `\__codedoc_function_index:e`、`\__codedoc_function_label:eN`、`\__codedoc_typeset_TF:`、`\__codedoc_typeset_expandability:`、`\g__codedoc_variants_seq`、`\__codedoc_typeset_variant_list:nN`、`\l__codedoc_macro_EXP_bool` 与 `\l__codedoc_macro_rEXP_bool`。升级 l3doc 时需要把这些接口、对标日期和 `ctex/test/testfiles-ctxdoc/` 专项基线一起核对；仅确认类能加载不足以证明排版补丁仍兼容。
 
 ### 长函数名压缩边界
 
