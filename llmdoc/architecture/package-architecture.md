@@ -104,6 +104,8 @@ Issue #811 在这套 interchar 分类上新增了实验性选项 `experiment/hal
 
 Issue #382 修复了破折号（U+2014）连用宽度不符合 CLReq 要求的问题：`\@@_long_punct_kerning:N` 的中间压缩量改为兼容三类字库（字面窄于字框/溢出字框/字框宽于字号）的三路取大公式，`\xeCJK_punct_margin_process:NN` 对未合字的破折号两端各补偿一整份空白而非半份；同时新增零注入字符类 `PoZheHao`（opt-in，`\xeCJKsetup{PoZheHaoLigature}`），使支持 OpenType 破折号合字的字体（如思源宋体/黑体）能正常触发合字。这也暴露了一条架构级限制：xeCJK 的标点度量经 `\XeTeXcharglyph`（cmap 直查）获取，不经过 OpenType shaping，`locl`/`fwid` 等字形替换特性生效后度量不会更新。详见 `llmdoc/architecture/xecjk-architecture.md` 标点压缩系统一节。
 
+Issue #158 将旧的单一 `HangulJamo` 零注入类拆为 Unicode 17 L/V/T 三类：只清空 UAX #29 音节延续转移，其他组合复制 CJK→CJK，从而同时保留分解音节 shaping 和相邻音节的 `CJKglue`；listings 只给 L 计一个 CJK 单元，V/T 计零宽。Issue #165 新增 `CJStarter` 与 `CJLineBreak=normal|strict`：默认保持普通 CJK 行为，strict 在 Unicode CJ 字符前加入 penalty 10000 而不改变字距。`FullRight→CJStarter` 的 penalty 必须在标点胶之前，且该专用 helper 必须加入 xeCJKfntef 的宏交换表，不能以内联 token 绕过 ulem 路径。
+
 这个选项的实现还确立了一个重要顺序约束：`FullRight -> HalfRight` 过渡不能只是在原有 interchartoks 后面追加 penalty，而必须完整覆写该过渡的 interchartoks 定义。原因是 xeCJK 原有这一路径会先执行 `\@@_punct_glue:NN`；如果 penalty 放在 glue 之后，断行点已经落在 glue 之前，无法真正阻止半角右标点被排到下一行的行首。因此新的定义必须把 penalty 放在 `\@@_punct_glue:NN` 之前，再接续原有标点胶逻辑。相比之下，`CJK -> HalfRight` 路径原本没有同样的前置 glue 顺序约束，因此可以在既有定义上条件追加禁则。
 
 Issue #859 新增了另一个实验性选项 `experiment/punct-measure-fix`，解决段落模式下 `\unskip` 吞掉段末标点补偿 glue 的问题。LaTeX 的 `\para_end:` 在执行 `\tex_par:D` 之前会通过 `\unskip` 移除水平列表末尾的 glue；如果段末恰好是全角标点，其补偿 glue 也会被移除，导致 `tabularray` 等使用 `\par` 结束测量段落的宏包得到不正确的宽度。启用该选项后，xeCJK 在 `\@@_punct_boundary_guard:` 的段落模式分支中记录补偿 glue 的自然宽度到 `\g_@@_par_guard_dim`，并通过 `para/end` 钩子插入等宽 `\kern` 补偿。这与 v3.10.0 为 #827 引入的 inner mode 分支（插入 `\penalty 0` 保护 `\env{tabular}` 中的补偿 glue）互补，两者共同构成 `\@@_punct_boundary_guard:` 的完整保护策略。
