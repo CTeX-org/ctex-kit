@@ -15,7 +15,7 @@ xeCJK 是 XeLaTeX 下的中文排版引擎，负责：
 
 ## 源码组织
 
-核心几乎全部集中在 `xeCJK/xeCJK.dtx`（约 14800 行），通过 docstrip 生成：
+核心几乎全部集中在 `xeCJK/xeCJK.dtx`（约 16000 行），通过 docstrip 生成：
 
 | 产物 | 标签 | 职责 |
 |------|------|------|
@@ -54,23 +54,26 @@ xeCJK 定义了以下字符类：
 | `NormalSpace` | 前后保持原始间距 | - / \\ |
 | `Boundary` (4095) | 边界（空格等） | 空格 |
 | `CM` | 组合标识 | 异体字选择符 (IVS) |
-| `HangulJamo` | 朝鲜文字母 | ᄻᆟᇫ |
+| `HangulJamo` | 旧朝鲜文字母类，仅保留兼容入口，不再分配字符 | / |
+| `HangulJamoL/V/T` | 朝鲜文字母初声/中声/终声 | ᄻ / ᆟ / ᇫ |
+| `CJStarter` | 严格模式下禁止出现在行首的日文小假名等 | ゃっ |
 | `PoZheHao` | 支持合字的破折号（opt-in，#382） | U+2014/U+2015 |
 
 XeTeX 0.99994+ 支持最多 4096 个字符类；`Boundary` 固定为最大编号（4095）。
 
 上表"典型字符"为静态举例，非完整枚举。`FullLeft`/`FullRight`/`HalfLeft`/`HalfRight` 的实际成员会随 `LatinPunct` 选项（#389/#431，见下文标点压缩系统一节）动态增减：中西文共用码位的弯引号/间隔号/省略号在 `HalfLeft`/`HalfRight` 与 `FullLeft`/`FullRight` 之间切换归属。
 
-### 零注入字符类模式（`HangulJamo` / `PoZheHao`）
+### 特殊 interchar 类：零注入、音节状态机与行首禁则
 
-xeCJK 有两个字符类采用同一种"零注入"设计模式：类内相邻字符之间的 `\XeTeXinterchartoks` **不插入任何内容**，类间关系（与其他类的过渡处理）则复制自某个已有类。这是"interchar 机制打断字符序列"问题族（#382 破折号合字、#158 朝鲜文音节、#165 假名）的通用解法模板：
+`PoZheHao` 仍是单类零注入模式：类内不插入任何 interchar token，类间关系复制 `FullRight`，让连续 U+2014 可触发 OpenType 合字；它由 `PoZheHaoLigature` 显式启用，避免不支持合字的字体出现空隙。
 
-| 字符类 | 类间关系复制自 | 目的 |
-|---|---|---|
-| `HangulJamo` | `CJK` | 朝鲜文字母连续输入时不产生字距干扰 |
-| `PoZheHao` | `FullRight`（`\AtEndOfPackage` 内通过 `\xeCJK_copy_inter_class_toks:nnnn` 复制） | 连续 U+2014 之间不注入内容，使 OpenType 破折号合字（如思源宋体/黑体的两字宽合字形）可以触发；与其他字符类的边界仍按全角右标点处理 |
+#158 证明单个 `HangulJamo` 零注入类不足以表达朝鲜文：它能保持分解音节内部 shaping，却无法区分相邻音节边界，因而会吞掉本应存在的 `CJKglue`。当前实现按 Unicode 17 `Hangul_Syllable_Type` 拆成三类：L 为 `1100..115F`、`A960..A97C`，V 为 `1160..11A7`、`D7B0..D7C6`，T 为 `11A8..11FF`、`D7CB..D7FB`。三类对外复制 `CJK` 转移；仅 UAX #29 的音节延续对 L→L、L→V、V→V、V→T、T→T 清空 interchar toks，其余 L/V/T 组合保留 CJK→CJK 行为。因此音节内连续 shaping，T→L 等音节边界恢复 `CJKglue` 和断行机会。旧 `HangulJamo` 类仅为用户代码兼容保留，不再接收默认字符。
 
-`PoZheHao` 类是 opt-in 的：用户通过 `\xeCJKsetup{PoZheHaoLigature}` 显式启用后，才把 U+2014、U+2015 从 `FullRight`/`Default` 改归为 `PoZheHao`；因为合字能力取决于字体（思源系字体支持，多数国产字库不支持），xeCJK 无法自动探测字体是否具备该 OpenType 特性，对不支持合字的字体启用会让连续破折号中间露出空隙。
+`xeCJK-listings` 对 L 计一个宽度 2 的 CJK 单元，对 V/T 走宽度 0 的组合字符路径；一个分解音节因此与一个预组 Hangul 音节等宽，相邻分解音节仍保留配置的 CJK 字距。
+
+#165 的 `CJStarter` 不是零注入类：它必须复制普通 `CJK` 字距，只在进入该类前增加 `\xeCJK_no_break:`。公开选项 `CJLineBreak=normal|strict` 默认 `normal`，保持历史上把 Unicode `Line_Break=CJ` 当作 `CJK` 的行为；`strict` 把 Unicode 17 CJ 集合改归 `CJStarter` 并插入 penalty 10000。局部布尔 `\l_@@_CJ_strict_bool` 与分组局部的 `\XeTeXcharclass` 状态同步，`\xeCJKResetCharClass` 后按当前选项恢复严格分类。
+
+`FullRight→CJStarter` 必须把 penalty 放在 `\@@_punct_glue:NN` 之前，否则标点胶已经提供断点。该转移封装为 `\xeCJK_FullRight_and_CJStarter:`，并在 `xeCJKfntef` 的 `\@@_ulem_initial:` 交换表中映射到 `\@@_ulem_FullRight_and_CJStarter:`；新增或覆写 CJK 转移时，若 fntef 依赖交换命名 helper 来重写 glue/标点路径，就不能只内联等价 token。`jamo-cj01.lvt` 用 hook 断言严格模式下 `\CJKunderline{。ゃ}` 确实进入 fntef 专用转移。
 
 ### 类别间转换矩阵
 
