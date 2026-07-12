@@ -147,6 +147,18 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 
 因此，如果文档构建、索引、变更记录排版或 `.dtx` 文档样式出问题，优先检查 `support/ctxdoc.cls`，不要先怀疑业务包逻辑。
 
+### l3doc 私有接口兼容门禁
+
+`support/ctxdoc.cls` (`\__codedoc_typeset_function_block:nN` override): ctxdoc 会完整重定义 l3doc 的函数条目排版函数，因此最低依赖与实现对标日期统一固定为 2026-06-18。`\LoadClass` 声明最低日期后，类还会用 `\@ifclasslater` 复核；版本过低时通过 `\ctex_patch_failure:N` 发出 critical 错误，而不是带着不匹配的私有接口继续排版。门禁必须放在 `\ExplSyntaxOn` 区域内，并位于消息声明和 `\ctex_patch_failure:N` 定义之后；否则只有旧版本失败分支才会暴露 catcode 或前向引用错误。
+
+完整重定义依赖 `\__codedoc_function_index:e`、`\__codedoc_function_label:eN`、`\__codedoc_typeset_TF:`、`\__codedoc_typeset_expandability:`、`\g__codedoc_variants_seq`、`\__codedoc_typeset_variant_list:nN`、`\l__codedoc_macro_EXP_bool` 与 `\l__codedoc_macro_rEXP_bool`。升级 l3doc 时需要把这些接口、对标日期和 `ctex/test/testfiles-ctxdoc/` 专项基线一起核对；仅确认类能加载不足以证明排版补丁仍兼容。
+
+### 长函数名压缩边界
+
+`support/ctxdoc.cls` (`\l__ctxdoc_function_block_box`): 只把函数名本体与 pTF 后缀装入独立 hbox 并水平缩放，Added/Updated 日期、EXP/rEXP 标记与 variants 保持原尺寸。目标宽度是 `\marginparwidth - \marginparsep`，EXP 与 rEXP 分别再预留约 `1.2em` 与 `1.5em` 的右栏空间，不可展函数不额外预留；两档预留来自可展性符号加 function 表 6pt 列间距的实测近似，使用 em 是为了随字号缩放。若上游新增可展性类别，版本升级审计还必须为新标记补充对应预留宽度。
+
+压缩分两阶段。正常弹性范围以整数 6 起步，依次把当前宽度乘以 `5/6`、`4/5`、`3/4`、`2/3`、`1/2`，累计宽度因此是原宽的 `5/6`、`4/6`、`3/6`、`2/6`、`1/6`，形成相对原始宽度等差的档位；若五档后仍超宽，再一次自适应到目标宽度。循环只在当前宽度严格大于目标宽度时执行，精确相等时必须停止。修改这一算法时不能退回缩放整个 functions coffin，否则日期行也会被压缩；也不能把各轮因子误当成累计比例。
+
 ## 实际修改时的检索顺序
 
 对现代包代码，推荐按以下顺序检索：

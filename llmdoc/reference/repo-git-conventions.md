@@ -1,5 +1,15 @@
 # 仓库级 git 分支组织约定
 
+## Push 与 PR 状态判定
+
+仓库通过 `make hooks` 安装 `.githooks/`，其中 pre-push 是 self-wrapper：外层 push 负责进入 hook，hook 发起内层 push 真正更新远端，再等待当前分支 PR 的 CI 并检查 push 后新增评论与未解决 review thread。外层 push 随后会报告失败，因此远端更新以 hook 中间输出的内层结果为准。
+
+自动化或人工调用 push 时必须使用独立的 `git push 2>&1` 形态，不得附加管道；完整 stderr 包含内层 push verdict、CI 失败项、评论链接和下一步指示。rc 75 表示 CI 已通过但仍有新 review 活动或未解决 thread，必须继续处理，不能当成功退出。
+
+共享分支必须先 fetch 并整合远端。pre-push 对非快进默认拒绝，只有 `CTEX_PREPUSH_ALLOW_FORCE=1 git push --force-with-lease 2>&1` 才允许内层 exact-lease force；这避免普通 push 在协作者同时提交时被错误升级为强推。
+
+新分支第一次 push 尚无 PR 时无法完成状态检查；PR 建立后立即运行 `make check-pr-ci 2>&1`。完整闭环见 `llmdoc/guides/push-and-pr-review-workflow.md`，仓库决策见 `llmdoc/memory/decisions/repo-push-hook-discipline.md`。
+
 ## `gh-assets`：长期静态资源分支
 
 ### 性质与用途

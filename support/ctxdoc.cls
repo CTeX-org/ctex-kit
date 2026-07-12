@@ -1,7 +1,7 @@
 %%
 %% File ctxdoc.cls
 %%
-%%     Copyright (C) 2016--2025
+%%     Copyright (C) 2016--2026
 %%     CTEX.ORG and any individual authors listed in the documentation.
 %%---------------------------------------------------------------------
 %%
@@ -27,7 +27,7 @@
 \DeclareOption*{\PassOptionsToClass{\CurrentOption}{l3doc}}
 \PassOptionsToClass{a4paper,full}{l3doc}
 \ProcessOptions
-\LoadClass{l3doc}[2025-11-14]
+\LoadClass{l3doc}[2026-06-18]
 \RequirePackage[UTF8, punct=kaiming, heading, linespread=1.2, sub3section]{ctex}
 \ExplSyntaxOn
 \msg_new:nnn { ctxdoc } { patch-failure }
@@ -35,6 +35,8 @@
 \cs_gset_protected:Npn \ctex_patch_failure:N #1
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
+\@ifclasslater { l3doc } { 2026/06/18 } { }
+  { \ctex_patch_failure:N \__codedoc_typeset_function_block:nN }
 \ExplSyntaxOff
 \ctexset{
   abstractname   = 简介,
@@ -217,6 +219,88 @@
 \ctex_patch_cmd:Nnn \__codedoc_function_typeset_start:
   { \bigskip }
   { \nointerlineskip \addvspace { \bigskipamount } }
+%% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
+%% \__codedoc_typeset_TF: 并入 \l__ctxdoc_function_block_box, 并根据情况进行压缩.
+%% 相比 l3doc 对 variable 和 macro 采用的 2/3 倍压缩, 这里采用柔和一些的方式.
+%% A. 正比弹性范围: 均匀压缩
+%% 设定一个整数变量 \l__ctxdoc_function_block_scale_frac_int 初始值为 6.
+%% 第 1 次缩放到当前宽度的 5/6, 累计为原宽的 5/6, 对整数变量减 1.
+%% 第 2 次缩放到当前宽度的 4/5, 累计为原宽的 4/6, 对整数变量减 1.
+%% 第 3 次缩放到当前宽度的 3/4, 累计为原宽的 3/6, 对整数变量减 1.
+%% 第 4 次缩放到当前宽度的 2/3, 累计为原宽的 2/6, 对整数变量减 1.
+%% 第 5 次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
+%% B. 非均匀强行压缩
+%% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则自适应到可用左侧列宽.
+%% 循环 \dim_while_do:nNnn 在函数宽度大于参照长度时压缩; 两者相等即停止.
+%% 参照长度计算为
+%%     \marginparwidth - \l__ctxdoc_function_block_decr_dim
+%% 即左侧旁注宽度与扣除宽度之差. 扣除宽度中包含
+%%   * \marginparsep 保证两侧空隙对称
+%%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
+%%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
+%% 若 l3doc 新增可展性类别, 需在此同步补充其右栏预留宽度.
+%% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
+%% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
+%% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
+%% 重定义依赖 8 个 l3doc 私有接口:
+%% - \__codedoc_function_index:e
+%% - \__codedoc_function_label:eN
+%% - \__codedoc_typeset_TF:
+%% - \__codedoc_typeset_expandability:
+%% - \g__codedoc_variants_seq
+%% - \__codedoc_typeset_variant_list:nN
+%% - \l__codedoc_macro_EXP_bool
+%% - \l__codedoc_macro_rEXP_bool
+\box_new:N \l__ctxdoc_function_block_box
+\dim_new:N \l__ctxdoc_function_block_decr_dim
+\int_new:N \l__ctxdoc_function_block_scale_frac_int
+\cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
+  {
+    \__codedoc_function_index:e
+      { #1 \bool_if:NT #2 { \tl_to_str:n { TF } } }
+    \__codedoc_function_label:eN {#1} #2
+    \hbox_set:Nn \l__ctxdoc_function_block_box
+      { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
+    \dim_set:Nn \l__ctxdoc_function_block_decr_dim
+      {
+        \bool_case:nF
+          {
+            { \l__codedoc_macro_EXP_bool  } { 1.2em }
+            { \l__codedoc_macro_rEXP_bool } { 1.5em }
+          } { \c_zero_dim }
+        + \marginparsep
+      }
+    \int_set:Nn \l__ctxdoc_function_block_scale_frac_int { 6 }
+    \dim_while_do:nNnn
+      { \box_wd:N \l__ctxdoc_function_block_box } >
+      { \marginparwidth - \l__ctxdoc_function_block_decr_dim }
+      {
+        \int_compare:nNnTF \l__ctxdoc_function_block_scale_frac_int > 1
+          {
+            \box_scale:Nnn \l__ctxdoc_function_block_box
+              {
+                ( \l__ctxdoc_function_block_scale_frac_int - 1 ) /
+                  \l__ctxdoc_function_block_scale_frac_int
+              } { 1 }
+            \int_decr:N \l__ctxdoc_function_block_scale_frac_int
+          }
+          {
+            \box_scale:Nnn \l__ctxdoc_function_block_box
+              {
+                \dim_to_decimal:n
+                  { \marginparwidth - \l__ctxdoc_function_block_decr_dim } /
+                \box_wd:N \l__ctxdoc_function_block_box
+              } { 1 }
+            \dim_set:Nn \l__ctxdoc_function_block_decr_dim
+              { -\marginparwidth }
+          }
+      }
+    \box_use_drop:N \l__ctxdoc_function_block_box
+    \__codedoc_typeset_expandability:
+    \seq_if_empty:NF \g__codedoc_variants_seq
+      { \__codedoc_typeset_variant_list:nN {#1} #2 }
+    \\
+  }
 %% l3doc 会设置列表环境中 \listparindent=\z@，我们在这里恢复它。
 \cs_set_eq:NN \list \__codedoc_oldlist:nn
 \cs_new_nopar:Npn \zihaopt #1
@@ -302,7 +386,7 @@
       {
         \tl_set:Nn \l__codedoc_tmpa_tl {#1}
         \tl_replace_all:NVn \l__codedoc_tmpa_tl
-          \c_catcode_other_space_tl 
+          \c_catcode_other_space_tl
           { \fontspec_visible_space: }
         \__codedoc_print_macroname_aux:on
           \l__codedoc_tmpa_tl { \bool_if:NT #2 { \__codedoc_typeset_TF: } }
