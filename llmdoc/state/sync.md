@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: daa691576b78c1a7b45cb21ebc6ba7e60c8ee41b
-- watermark-subject: docs(xeCJK): keep change notes with implementation
-- updated-at: 2026-07-13T08:11:31Z
+- watermark-commit: fa54414fd89c6f221894310377b048def0929383
+- watermark-subject: docs(xeCJK): address punctuation review follow-ups
+- updated-at: 2026-07-13T08:51:06Z
 - updated-by: /llmdoc:update
