@@ -31,6 +31,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #284 中总宽抵消掩盖了多余标点节点，#382 新增 `PoZheHao` 又因遗漏 `FullRight` 的直接判断重现历史错误；分类标签正确不代表所有下游语义自动正确。
 **Source**: `llmdoc/memory/archive/2026-07-13/284-fullwidth-tilde-longpunct.md`, `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`
 
+### 边界状态必须区分语义与可信来源
+**Rule**: 节点恢复链若要区分历史缓存与当前可见证据，应使用专用 marker，并在实际改变或观察状态的固定点发布；不能因输出类别相同就复用可能陈旧的通用状态。
+**Why**: #972 的普通 `default` 原型能修直接 URL MWE，却无法穿过 #810 正确拒绝陈旧状态的下一 annotation；只有从顶层 `\Hy@EndAnnot` 的真实末尾 math 发布 `hyperref-default` 才能安全组合。
+**Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
+
+### 可见排版修复需要三类证据
+**Rule**: 对间距、字形或线条等可见排版缺陷，同时提供可执行 MWE、定量测量和同条件前后渲染；再用会插入节点的 wrapper 组合回归证明状态能传递。
+**Why**: #972 的 3.33pt 测量证明几何差异，并排截图让审查者直接看到右侧间距恢复，而颜色和下一链接用例暴露了最初普通 `default` 原型的组合缺陷。
+**Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
+
 ## Feature request 评估
 
 ### 先验证真实任务是否已被现有机制覆盖
