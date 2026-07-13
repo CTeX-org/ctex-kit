@@ -1,5 +1,5 @@
 module              = "ctex"
-version             = "2.6.2"
+version             = "2.6.3"
 
 --[==========================================================================[--
     Configuration: Check, Tag, Pack, Upload     Do NOT Modify if Unnecessary
