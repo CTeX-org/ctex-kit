@@ -853,6 +853,8 @@
 % \changes{v2.3}{2015/09/25}{更新 \pkg{LuaTeX-ja} 支持（20150922.0）。}
 % \changes{v2.5}{2020/04/18}{更新 \pkg{LuaTeX-ja} 支持（20200412.0）。}
 % \changes{v2.5.4}{2020/08/16}{更新 \pkg{LuaTeX-ja} 支持（20200808.0）。}
+% \changes{v2.6.2}{2026/07/13}{禁止在 LuaTeX 后端载入不兼容的
+%   \pkg{CJKfntef}，并推荐使用 \pkg{lua-ul}（\#381）。}
 %
 % \pkg{LuaTeX-ja} 为了兼容 p\LaTeX 的使用习惯，对 \LaTeXe 的 \pkg{NFSS} 作了不少
 % 修改和扩充，这对于简体中文用户来说不是必要的。我们在这里禁用它。
@@ -870,6 +872,25 @@
     \ctex_at_end_package:nn { luatexja }
       { \msg_redirect_name:nnn { ctexhook } { disable-package } { } }
     \ctex_disable_package:n { ltj-latex }
+  }
+%    \end{macrocode}
+%
+% \pkg{CJKfntef} 会载入传统 \pkg{CJK} 宏包，覆盖 \pkg{LuaTeX-ja} 与
+% \CTeX{} 共用的字体族接口，使 \tn{setCJKmainfont} 的结果依赖宏包加载顺序。
+% 两套字体协议并不兼容，因此在 LuaTeX 后端直接禁止载入，并引导用户使用基于
+% LuaTeX 节点回调的 \pkg{lua-ul}。若 \pkg{CJKfntef} 已经载入，字体状态可能已经
+% 被污染，只能中止加载。
+%    \begin{macrocode}
+\msg_new:nnn { ctex } { cjkfntef-luatex }
+  {
+    Package~`#1'~is~incompatible~with~the~ctex~LuaTeX~backend.\\
+    Use~the~`lua-ul'~package~for~underlining~and~related~effects.
+  }
+\@ifpackageloaded { CJKfntef }
+  { \msg_critical:nnn { ctex } { cjkfntef-luatex } { CJKfntef } }
+  {
+    \@@_disable_package_aux:nnnn
+      { ctex } { cjkfntef-luatex } { CJKfntef } { }
   }
 %    \end{macrocode}
 %

@@ -1,5 +1,6 @@
 ## [ctex-v2.6.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.2)
 
+- 禁止在 LuaTeX 后端载入不兼容的 `CJKfntef`，并推荐使用 `lua-ul`（#381）。
 - `ubuntu` 字库新增仿宋配置和 `\fangsong` 命令。使用 XeLaTeX 或 LuaLaTeX 编译时，按朱雀仿宋、FandolFang、思源宋体的顺序自动选用（#908）。
 - 订正 `ctex-heading-*.def` 中 `\ProvidesExplFile` 使用与实际文件名不匹配的 `ctex-*.def`。
 - 将单一 `ctex.dtx` 拆分为 `ctex.dtx`（安装脚本与用户文档）与 `ctex-kernel.dtx`、 `ctex-engine.dtx`、`ctex-scheme.dtx`、`ctex-auxpkg.dtx`、 `ctex-fontset.dtx` 六个源文件，由夏明宇完成重构（#937）。
