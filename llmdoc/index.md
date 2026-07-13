@@ -6,17 +6,17 @@
 
 ## architecture
 
-- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、#972 hyperref 进入/结束固定点、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
+- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 #381 的 LuaTeX 拒绝传统 `CJKfntef` / XeTeX 透明替换边界，以及 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、#972 hyperref 进入/结束固定点、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
 - `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：
   - interchar token、字符分类（#158/#165/#336/#347/#382）、边界状态机与字体管理（#553）；
   - 标点压缩（#975 对 #443/#481/#488 的预设与方向性修复，以及 #511 重构边界）和间距语义（#808）；
   - 兼容补丁（#510、#873/#880/#910/#919/#931/#972）、`\char` 约束及扩展子包。
-- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集、命令补丁与实验性接口。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 180 个主回归测试的覆盖簇、多引擎基线策略、LuaTeX 预热、ctxdoc 专项回归（patch 硬失败 + #963 长函数名节点结构）、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + `check-changelog.yml` CHANGELOG.md 新鲜度门禁 #961 + 「生成物新鲜度校验」通用模式小节 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 183 个主回归测试的覆盖簇（含 #381 正常禁载与预加载 fatal 分支）、多引擎基线策略、LuaTeX 预热、ctxdoc 专项回归（patch 硬失败 + #963 长函数名节点结构）、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + `check-changelog.yml` CHANGELOG.md 新鲜度门禁 #961 + 「生成物新鲜度校验」通用模式小节 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾。
@@ -28,7 +28,7 @@
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先与可行性/产品化分离规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先、可行性/产品化分离和同名依赖实际解析/API 核验规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/158-165-jamo-cj-interchar-classes.md` — 决策: Hangul 用 L/V/T 转移区分音节内 shaping 与音节间 CJKglue；日文 CJ 默认 normal、可选 strict 独立类禁则，并保持 fntef 专用转移。

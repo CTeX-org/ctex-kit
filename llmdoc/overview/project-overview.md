@@ -12,7 +12,7 @@
 
 ### 核心包
 
-- `ctex/`：项目主入口与统一中文文档类/宏包集合，负责把标准 LaTeX 类、中文标题方案、字体集和不同引擎适配层组合起来。核心源码集中在 `ctex/ctex.dtx`。
+- `ctex/`：项目主入口与统一中文文档类/宏包集合，负责把标准 LaTeX 类、中文标题方案、字体集和不同引擎适配层组合起来。#937 后源码按职责拆为 `ctex.dtx`、`ctex-kernel.dtx`、`ctex-auxpkg.dtx`、`ctex-engine.dtx`、`ctex-scheme.dtx`、`ctex-fontset.dtx` 六个文件。
 - `xeCJK/`：XeTeX/XeLaTeX 下的中文字体、间距、标点压缩和扩展环境支持，核心源码集中在 `xeCJK/xeCJK.dtx`。
 
 ### 卫星包与工具
@@ -29,11 +29,11 @@
 
 ### LaTeX3 / expl3
 
-主干代码广泛采用 expl3 命名和编程模型，典型命名空间包括 `\ctex_`、`\xeCJK_`、`\CJKtu_` 与私有的 `\@@_`。与此同时，`ctex` 仍保留部分 `\CTEX@...` 的 LaTeX2e 遗留接口以兼容旧层。相关约定见 `ctex/ctex.dtx`、`xeCJK/xeCJK.dtx`、`xCJK2uni/xCJK2uni.dtx`。
+主干代码广泛采用 expl3 命名和编程模型，典型命名空间包括 `\ctex_`、`\xeCJK_`、`\CJKtu_` 与私有的 `\@@_`。与此同时，`ctex` 仍保留部分 `\CTEX@...` 的 LaTeX2e 遗留接口以兼容旧层。相关约定见 `ctex/ctex-kernel.dtx`、`ctex/ctex-engine.dtx`、`xeCJK/xeCJK.dtx`、`xCJK2uni/xCJK2uni.dtx`。
 
 ### docstrip / `.dtx`
 
-核心包多数以单体或少量 `.dtx` 文学化源码为中心，通过 docstrip 标签拆出 `.sty`、`.cls`、`.def`、示例和文档。`ctex/ctex.dtx` 和 `xeCJK/xeCJK.dtx` 是两个最重要的单体源文件。
+核心包以单体或少量 `.dtx` 文学化源码为中心，通过 docstrip 标签拆出 `.sty`、`.cls`、`.def`、示例和文档。`xeCJK/xeCJK.dtx` 仍是单体主源；`ctex/` 则由上述六个 `.dtx` 协同生成同一组产物。
 
 ### l3build
 
