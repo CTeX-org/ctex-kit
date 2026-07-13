@@ -55,9 +55,9 @@
 
 ---
 
-## 待落实的行动项（Action Items）
+## 已落实的行动项（Action Items）
 
-1. **修正变量作用域**：将 `rEXP` 盒子的所有相关引用统一重命名为全局变量 `\g__ctxdoc_function_rEXP_box`。
-2. **移交测宽时机**：将两个盒子的 `\hbox_gset:Nn` 测宽逻辑整体移入 `\AtBeginDocument` 钩子内，并重新生成 `.tlg` 回归基线，密切复核 `resize-function.tlg` 中的字体日志变化。
-3. **更正消息变体**：按照仓库风格，将 `\msg_note:nnx` 修改为 `\msg_note:nne`。
-4. **同步更新规约文档**：同步修改 `llmdoc/reference/coding-conventions.md` 第 156–160 行，将描述修正为：“3 档均匀压缩（`5/6`, `2/3`, `1/2`），通过 `\hbox_set:Nn` 在文档期（`\AtBeginDocument`）精确测量宽度 + 6pt colsep，超出 3 档后触发 `\ctex_overlong_function:n` 提示”。
+1. **变量作用域已修正**：`rEXP` 盒子的相关引用已统一为全局变量 `\g__ctxdoc_function_rEXP_box`。
+2. **测宽时机已移交**：两个盒子的 `\hbox_gset:Nn` 测宽逻辑已移入 `begindocument/end` 钩子，并由 `resize-function.tlg` 覆盖实际字体宽度。
+3. **消息变体已更正**：`\msg_note:nnx` 已改为仓库约定的 `\msg_note:nne`。
+4. **规约文档已同步**：`llmdoc/reference/coding-conventions.md` 已记录 3 档均匀压缩、文档期动态测宽和自适应兜底边界。
