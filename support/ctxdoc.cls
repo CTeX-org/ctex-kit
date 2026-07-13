@@ -38,7 +38,7 @@
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
 \cs_gset_protected:Npn \ctex_overlong_function:n #1
   {
-    \msg_note:nnx { ctxdoc } { overlong-function }
+    \msg_note:nne { ctxdoc } { overlong-function }
       { \tl_to_str:n {#1} }
   }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
@@ -263,9 +263,12 @@
 %% - \l__codedoc_macro_rEXP_bool
 \box_new:N \l__ctxdoc_function_block_box
 \box_new:N \g__ctxdoc_function_EXP_box
-\box_new:N \l__ctxdoc_function_rEXP_box
-\hbox_gset:Nn \g__ctxdoc_function_EXP_box  { $\star$      }
-\hbox_gset:Nn \l__ctxdoc_function_rEXP_box { \ding { 73 } }
+\box_new:N \g__ctxdoc_function_rEXP_box
+\hook_gput_code:nnn { begindocument / end } { . }
+  {
+    \hbox_gset:Nn \g__ctxdoc_function_EXP_box  { $\star$      }
+    \hbox_gset:Nn \g__ctxdoc_function_rEXP_box { \ding { 73 } }
+  }
 \dim_new:N \l__ctxdoc_function_block_decr_dim
 \int_new:N \l__ctxdoc_function_block_scale_frac_int
 \cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
@@ -282,7 +285,7 @@
             { \l__codedoc_macro_EXP_bool  }
             { \box_wd:N \g__ctxdoc_function_EXP_box }
             { \l__codedoc_macro_rEXP_bool }
-            { \box_wd:N \l__ctxdoc_function_rEXP_box }
+            { \box_wd:N \g__ctxdoc_function_rEXP_box }
           } { + 6.0 pt } { \c_zero_dim }
         + \marginparsep
       }
