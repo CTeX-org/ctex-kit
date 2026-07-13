@@ -32,8 +32,15 @@
 \ExplSyntaxOn
 \msg_new:nnn { ctxdoc } { patch-failure }
   { Failed~to~patch~command~`#1'. }
+\msg_new:nnn { ctxdoc } { overlong-function }
+  { Overlong ~ function ~ #1. }
 \cs_gset_protected:Npn \ctex_patch_failure:N #1
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
+\cs_gset_protected:Npn \ctex_overlong_function:n #1
+  {
+    \msg_note:nnx  { ctxdoc } { overlong-function }
+      { \tl_to_str:n { #1 } }
+  }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
 \@ifclasslater { l3doc } { 2026/06/18 } { }
   { \ctex_patch_failure:N \__codedoc_typeset_function_block:nN }
@@ -221,26 +228,28 @@
   { \nointerlineskip \addvspace { \bigskipamount } }
 %% 重新定义 \__codedoc_typeset_function_block:nN: 将函数本体与其后方
 %% \__codedoc_typeset_TF: 并入 \l__ctxdoc_function_block_box, 并根据情况进行压缩.
-%% 相比 l3doc 对 variable 和 macro 采用的 2/3 倍压缩, 这里采用柔和一些的方式.
-%% A. 正比弹性范围: 均匀压缩
+%% 相比 l3doc 对 variable 和 macro 采用的 2/3 倍压缩, 这里采用更灵活一些的方式.
+%% ### 分段式压缩函数
+%% A. 正比弹性范围: 3 档均匀压缩
 %% 设定一个整数变量 \l__ctxdoc_function_block_scale_frac_int 初始值为 6.
-%% 第 1 次缩放到当前宽度的 5/6, 累计为原宽的 5/6, 对整数变量减 1.
-%% 第 2 次缩放到当前宽度的 4/5, 累计为原宽的 4/6, 对整数变量减 1.
-%% 第 3 次缩放到当前宽度的 3/4, 累计为原宽的 3/6, 对整数变量减 1.
-%% 第 4 次缩放到当前宽度的 2/3, 累计为原宽的 2/6, 对整数变量减 1.
-%% 第 5 次缩放到当前宽度的 1/2, 累计为原宽的 1/6, 对整数变量减 1.
+%%   * 第 1 档缩放到当前宽度的 5/6, 累计为原宽的 5/6, 对整数变量减 1.
+%%   * 第 2 档缩放到当前宽度的 4/5, 累计为原宽的 2/3, 对整数变量减 1.
+%%   * 第 3 档缩放到当前宽度的 3/4, 累计为原宽的 1/2, 对整数变量减 1.
+%%   * 若继续压缩辨识度将大幅下降, 均匀压缩到此截断. 建议简化函数名!!
 %% B. 非均匀强行压缩
-%% 在经历 6 - 1 = 5 次均匀压缩后, 如仍无法满足, 则自适应到可用左侧列宽.
+%% 3 档均匀压缩后若函数宽度仍超出阈值, 则采用自适应到可用左侧列宽并广播 note 型警告.
 %% 循环 \dim_while_do:nNnn 在函数宽度大于参照长度时压缩; 两者相等即停止.
-%% 参照长度计算为
+%% ### 参照长度计算
+%% 计算方法为左侧旁注宽度与扣除宽度之差
 %%     \marginparwidth - \l__ctxdoc_function_block_decr_dim
-%% 即左侧旁注宽度与扣除宽度之差. 扣除宽度中包含
+%% 其中扣除宽度中包含
 %%   * \marginparsep 保证两侧空隙对称
-%%   * EXP  选项: 额外扣除宽度 =  ($star$    + 6.0pt colsep), 约 1.2em.
-%%   * rEXP 选项: 额外扣除宽度 =  (\ding{73} + 6.0pt colsep), 约 1.5em.
+%%   * EXP  选项: 额外扣除宽度 =  wd($star$)    + 6.0pt for colsep
+%%   * rEXP 选项: 额外扣除宽度 =  wd(\ding{73}) + 6.0pt for colsep
 %% 若 l3doc 新增可展性类别, 需在此同步补充其右栏预留宽度.
 %% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
 %% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
+%% ### 重定义的后续跟进
 %% 由于此命令含参无法 patch, 记录重定义 (2026-07-12) 对标 l3doc.cls: 2026-06-18.
 %% 重定义依赖 8 个 l3doc 私有接口:
 %% - \__codedoc_function_index:e
@@ -252,6 +261,10 @@
 %% - \l__codedoc_macro_EXP_bool
 %% - \l__codedoc_macro_rEXP_bool
 \box_new:N \l__ctxdoc_function_block_box
+\box_new:N \l__ctxdoc_function_EXP_box
+\box_new:N \l__ctxdoc_function_rEXP_box
+\hbox_set:Nn \l__ctxdoc_function_EXP_box  { $\star$      }
+\hbox_set:Nn \l__ctxdoc_function_rEXP_box { \ding { 73 } }
 \dim_new:N \l__ctxdoc_function_block_decr_dim
 \int_new:N \l__ctxdoc_function_block_scale_frac_int
 \cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
@@ -263,11 +276,13 @@
       { #1 \bool_if:NT #2 { \__codedoc_typeset_TF: } }
     \dim_set:Nn \l__ctxdoc_function_block_decr_dim
       {
-        \bool_case:nF
+        \bool_case:nTF
           {
-            { \l__codedoc_macro_EXP_bool  } { 1.2em }
-            { \l__codedoc_macro_rEXP_bool } { 1.5em }
-          } { \c_zero_dim }
+            { \l__codedoc_macro_EXP_bool  }
+            { \box_wd:N \l__ctxdoc_function_EXP_box }
+            { \l__codedoc_macro_rEXP_bool }
+            { \box_wd:N \l__ctxdoc_function_rEXP_box }
+          } { + 6.0 pt } { \c_zero_dim }
         + \marginparsep
       }
     \int_set:Nn \l__ctxdoc_function_block_scale_frac_int { 6 }
@@ -275,7 +290,7 @@
       { \box_wd:N \l__ctxdoc_function_block_box } >
       { \marginparwidth - \l__ctxdoc_function_block_decr_dim }
       {
-        \int_compare:nNnTF \l__ctxdoc_function_block_scale_frac_int > 1
+        \int_compare:nNnTF \l__ctxdoc_function_block_scale_frac_int > 3
           {
             \box_scale:Nnn \l__ctxdoc_function_block_box
               {
@@ -285,6 +300,7 @@
             \int_decr:N \l__ctxdoc_function_block_scale_frac_int
           }
           {
+            \ctex_overlong_function:n {#1}
             \box_scale:Nnn \l__ctxdoc_function_block_box
               {
                 \dim_to_decimal:n
