@@ -31,4 +31,4 @@ xeCJK 当前用 `\g_@@_non_CJK_class_seq` 与 `\g_@@_CJK_class_seq` 表达基本
 
 调查使用两类证据：可见对比图用于说明直接 `CJK` 类的两侧间距错误，`\showbox` 节点列表用于确认真实字体节点与 glue。混合类和显式字体命令得到相同目标宽度与边界结构，排除了只凭截图判断的歧义。
 
-架构说明见 `llmdoc/architecture/xecjk-architecture.md`“字体选择与间距语义并非引擎级绑定”一节。新增字符类的反向审计教训见 [[382-dash-width-and-ligature-opt-in]] 与 `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`。
+架构说明见 `llmdoc/architecture/xecjk-architecture.md`“字体选择与间距语义并非引擎级绑定”一节。新增字符类的反向审计教训见 [[./382-dash-width-and-ligature-opt-in]] 与 `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`。

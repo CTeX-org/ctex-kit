@@ -33,7 +33,12 @@ Curated cross-task rules distilled from archived memory.
 
 ## Feature request 评估
 
+### 先验证真实任务是否已被现有机制覆盖
+**Rule**: 复核长期 feature request 时，先检查当前源码、加载时序、上游生态和语义化公开接口，分别记录“原始故障已解决”“仍有兼容边界”和“需要新功能”，不要直接实现 issue 当年的 workaround。
+**Why**: #336 已有 `Others` 自动传播，#510 的 crash 已由禁载冲突包解决且有 PXrubrica，#808 已有 `\xeCJKVerbAddon`；三者都不需要表面请求中的更宽 API，但各自仍有明确的时序、旧协议或断行边界。
+**Source**: `llmdoc/memory/archive/2026-07-13/336-347-510-808-553-feature-request-triage.md`
+
 ### 把技术可行性与产品化决策分开
 **Rule**: 先把 feature request 重述为真实需求并用最小原型验证可能性，再独立审计作用域、架构假设、兼容面和低风险替代方案；原型成功不等于应增加稳定接口。
-**Why**: #553 的混合类原型推翻了“XeTeX 无法分离字体与间距”的判断，但该类同时跨越 xeCJK 的 CJK/非 CJK 二分并影响多个子系统，因此最终仍应 `not planned`。
-**Source**: `llmdoc/memory/archive/2026-07-13/553-feature-request-feasibility-vs-productization.md`
+**Why**: #553 的混合类原型推翻了“XeTeX 无法分离字体与间距”的判断，#347 的装盒原型也证明局部机制可行；两者一旦接入完整 class/shaping/Boundary 状态机都会跨越多个子系统，因此仍应 `not planned`。
+**Source**: `llmdoc/memory/archive/2026-07-13/336-347-510-808-553-feature-request-triage.md`
