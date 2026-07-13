@@ -7,7 +7,7 @@
 ## architecture
 
 - `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
-- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 与字符分类（含 #158 Hangul L/V/T 的 UAX #29 转移矩阵、listings 单元语义，#165 `CJLineBreak`/`CJStarter` 的 penalty 顺序与 fntef 交换，#382 `PoZheHao` 零注入类）、边界恢复状态机、字体管理（含 #553 字体选择与间距语义可分离但混合类不产品化的边界）、标点压缩、间距、兼容补丁、`\char` 约束及扩展子包；并收录 #873/#880/#910/#931 的修复点选择矩阵与 #919 language whatsit 双倍 ecglue 修复。
+- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 与字符分类（含 #336 `Others` 外部类传播、#347 装盒变换边界、#158/#165/#382 专用类）、边界恢复状态机、字体管理（含 #553 字体/间距可分离但混合类不产品化）、标点压缩、间距（含 #808 `\xeCJKVerbAddon` 行内代码语义）、兼容补丁（含 #510 传统 ruby 的协议边界）、`\char` 约束及扩展子包；并收录 #873/#880/#910/#931 的修复点选择矩阵与 #919 language whatsit 双倍 ecglue 修复。
 - `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
@@ -25,7 +25,7 @@
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计，以及 feature request 的可行性/产品化分离规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计，以及 feature request 的现有能力优先与可行性/产品化分离规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/158-165-jamo-cj-interchar-classes.md` — 决策: Hangul 用 L/V/T 转移区分音节内 shaping 与音节间 CJKglue；日文 CJ 默认 normal、可选 strict 独立类禁则，并保持 fntef 专用转移。
@@ -52,7 +52,11 @@
 - `llmdoc/memory/decisions/961-changelog-gate-no-write-perm.md` — 决策: #961 CHANGELOG.md 生成物新鲜度校验收敛为「CI 每 PR 重新生成 + `git diff --exit-code` 只校验不回写」，与 #937 check-tag.yml 同一「生成物新鲜度校验」架构模式；否决 CI 打 tag 时生成并 commit（需 write 权限）与 tag 前本地手跑（流程不闭环）两案。已接受缺憾: zhmetrics 包名前缀推断为 `zhmCJK` 导致版本链接死链、并行 PR 的 CHANGELOG 合并冲突。
 - `llmdoc/memory/decisions/382-dash-width-and-ligature-opt-in.md` — 决策: #382 破折号宽度修复分两阶段——公式修正（`\@@_long_punct_kerning:N` 三路取大 kern + `\xeCJK_punct_margin_process:NN` 全份 margin 补偿）默认生效, OpenType 合字支持通过 `PoZheHao` 字符类 `PoZheHaoLigature` opt-in; margin 选择新增专用条件 `\@@_punct_if_full_margin_dash:N` 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性。
 - `llmdoc/memory/decisions/431-latinpunct-option.md` — 决策: #389/#431 新增 `LatinPunct` 选项让中西文共用码位标点（弯引号/间隔号/省略号）可切换为西文字体输出；归入 `Half*` 类而非 `Default`；破折号/半字线刻意排除保持与 `PoZheHaoLigature` 正交；状态记录改用局部布尔 `\l_@@_latin_punct_bool` 并回溯修正 `PoZheHaoLigature` 同类作用域问题（影子布尔作用域必须与被控 `\XeTeXcharclass` 资源一致）。
+- `llmdoc/memory/decisions/336-external-interchar-class-others.md` — 决策: #336 的 CJK URL 断行由既有 `Others` 兼容层覆盖；外部 class 必须在导言区结束前定义 Default transition，不新增通用字符类继承 API。
+- `llmdoc/memory/decisions/347-boxed-glyph-transform-prototype.md` — 决策: #347 的 interchar 装盒变换保留为未来整体重构的设计原型，但逐 code point 装盒无法局部接入当前 class/shaping/Boundary 状态机，现阶段 `not planned`。
+- `llmdoc/memory/decisions/510-ruby-compatibility-boundary.md` — 决策: #510 的旧 `ruby.sty` crash 已由禁载 `CJK.sty` 解决，但这不构成传统 CJK 私有协议兼容；推荐 PXrubrica，不模拟旧 kern-marker 状态机。
 - `llmdoc/memory/decisions/553-mixed-font-spacing-class-not-planned.md` — 决策: #553 的“CJK 字体 + Default 间距”在 XeTeX 上技术可行，但混合类会破坏 xeCJK 的 CJK/非 CJK 二分；当前采用显式局部字体命令，不增加数字特例并以 `not planned` 关闭。
+- `llmdoc/memory/decisions/808-inline-code-verb-addon.md` — 决策: #808 的真实需求是行内代码网格而非字体族级 `CJKecglue`；组合等宽字体与 `\xeCJKVerbAddon`，不改变全部 `\texttt` 的断行行为。
 - `llmdoc/memory/decisions/859-gh-assets-orphan-branch.md` — 决策: 建立长期 orphan 分支 `gh-assets` 集中托管 issue/PR 讨论静态资源, 取代按事件建临时分支（`tmp-859-assets` / `tmp-456-assets`, 均已删除）; 添加新资产须用 worktree 或纯 plumbing 流, 禁止主工作区 `git checkout --orphan` 以避免 `git clean` 波及未跟踪文件。
 - `llmdoc/memory/decisions/456-longpunct-kinsoku-both-sides.md` — 决策: #456 长标点与其他标点相邻断点改为"两侧禁则联合判断"，落在既有 `\@@_punct_kern:NN` 内新增辅助函数 `\@@_punct_kern_break:NN`，不新增字符类/special punct 属性、不引入 penalty 类机制；`\g_@@_last_punct_tl` 参与 `\@@_punct_if_right:N` 前需 `\exp_after:wN` 展开为字符记号，参与 `\@@_punct_if_long:N` 判断则直接传 tl。
 - `llmdoc/memory/decisions/908-ubuntu-fontset-fangsong.md` — 决策: #908 `fontset=ubuntu` 补齐仿宋 `zhfs`/`\fangsong`，采用朱雀仿宋（lxgw-fonts）→ FandolFang → Noto 宋体三级运行时 fallback（仅 XeTeX/LuaTeX，`\fontspec_font_if_exist:nTF`）；基线定量（dp: Noto 0.76pt / 朱雀 1.21pt / Fandol 1.75pt）驱动候选排序；`\CJKsymbol`+`\raisebox` 基线抬升 hack 验证有效但判定与标点压缩系统冲突，ctex 不提供该功能；`DEPENDS.txt` 新增 `soft lxgw-fonts`。
