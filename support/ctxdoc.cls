@@ -246,6 +246,7 @@
 %%   * \marginparsep 保证两侧空隙对称
 %%   * EXP  选项: 额外扣除宽度 =  wd($star$)    + 6.0pt for colsep
 %%   * rEXP 选项: 额外扣除宽度 =  wd(\ding{73}) + 6.0pt for colsep
+%% 为代码简洁, 列间距 + 6.0 pt 通过 \bool_case:nTF 的 T-branch 共享拼接.
 %% 若 l3doc 新增可展性类别, 需在此同步补充其右栏预留宽度.
 %% 设置 \l__ctxdoc_function_block_decr_dim 为 \marginparwidth 的相反数,
 %% 即此时循环对比长度为 2\marginparwidth, 以确保退出循环.
@@ -261,10 +262,10 @@
 %% - \l__codedoc_macro_EXP_bool
 %% - \l__codedoc_macro_rEXP_bool
 \box_new:N \l__ctxdoc_function_block_box
-\box_new:N \l__ctxdoc_function_EXP_box
+\box_new:N \g__ctxdoc_function_EXP_box
 \box_new:N \l__ctxdoc_function_rEXP_box
-\hbox_set:Nn \l__ctxdoc_function_EXP_box  { $\star$      }
-\hbox_set:Nn \l__ctxdoc_function_rEXP_box { \ding { 73 } }
+\hbox_gset:Nn \g__ctxdoc_function_EXP_box  { $\star$      }
+\hbox_gset:Nn \l__ctxdoc_function_rEXP_box { \ding { 73 } }
 \dim_new:N \l__ctxdoc_function_block_decr_dim
 \int_new:N \l__ctxdoc_function_block_scale_frac_int
 \cs_set_protected:Npn \__codedoc_typeset_function_block:nN #1#2
@@ -279,7 +280,7 @@
         \bool_case:nTF
           {
             { \l__codedoc_macro_EXP_bool  }
-            { \box_wd:N \l__ctxdoc_function_EXP_box }
+            { \box_wd:N \g__ctxdoc_function_EXP_box }
             { \l__codedoc_macro_rEXP_bool }
             { \box_wd:N \l__ctxdoc_function_rEXP_box }
           } { + 6.0 pt } { \c_zero_dim }
