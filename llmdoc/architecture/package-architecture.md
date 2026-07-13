@@ -139,22 +139,24 @@ PR #791 对 #315 的修复曾把这条恢复链泛化为“只要上一节点是
 
 - `\@@_check_for_ecglue:` 的最后回退分支不再调用 `\@@_recover_ecglue_whatsit:`；也就是说，xeCJK 不再因为“上一节点是任意 whatsit”就恢复前侧 ecglue。
 - `\g_@@_last_node_tl` 仍然保留，用于记录最近一次 `\xeCJK_make_node:n` 创建的 xeCJK 内部标记类型；但这份状态不再被 `\@@_check_for_ecglue:` 当作全局后备。
-- 真正需要跨 whatsit 续接边界语义的场景，目前分成四类定点补丁：
+- 真正需要跨 whatsit 续接边界语义的场景，目前按已知调用方定点补丁：
   - `color` / `xcolor` 的 `\set@color`：在颜色切换 whatsit 插入后，如果 `\g_@@_last_node_tl` 非空，就立即重放对应的 xeCJK 标记节点；而在 no-node 分支则必须先清空 `\g_@@_last_node_tl`，避免把初始化阶段或前序调用残留的 `default` 送进后续恢复链。
   - `color` / `xcolor` 的 `\reset@color`（#831）：在 color-pop whatsit 插入后，重新放置 kern pair 标记并设置 `\g_@@_ulem_pending_bool`，使后续 `\@@_check_for_glue_skip:` 能正确处理 `\textcolor` 结束端的 glue-on-kern-pair。
   - `hyperref` 的 `\Hy@BeginAnnot`：进入链接注释前先保存当前 xeCJK 节点类别并清空旧状态，待注释起始 whatsit 插入后，只对 `CJK` / `CJK-space` / `CJK-widow` 三类节点选择性重放标记，而显式不重放 `default`。
+  - `hyperref` 的 `\Hy@EndAnnot`（#972）：在顶层 annotation 结束前若实际最后节点为 math，则在原始结束 whatsit 后发布专用 `hyperref-default`；它表示已验证的西文末边界，可跨随后颜色或 annotation 包装，而普通 `default` 仍按 #810 排除。
   - `l3color`（expl3 内置）的 `\__color_select:N` 和 `\__color_backend_reset:`（#832）：l3color 的颜色机制使用独立的后端代码路径，不经过 `\set@color`/`\reset@color`。`\__color_select:N` 负责颜色推入（调用后端 select 并注册 aftergroup reset），`\__color_backend_reset:` 负责颜色弹出。此处对这两个函数施加与 `\set@color`/`\reset@color` 相同的 kern 对保护，使 l3color 接口的颜色切换也能正确保持 xeCJK 间距。
 - 这等价于把“跨 whatsit 恢复 glue”改写成“在已知安全的 whatsit 之后补回 xeCJK 自己的标记 kern”，让后续 `\lastkern` 检测继续工作，而不是让恢复函数去猜测任意 whatsit 后面应不应该补 glue。
 
-这一变化把 Issue #315、#803、#807、#809、#810 与 #832 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表”合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color`/`\reset@color`、`l3color` 的 `\__color_select:N`/`\__color_backend_reset:` 与 `hyperref` 的 `\Hy@BeginAnnot`；而 `\raise\hbox` 包裹内容内部的 whatsit 等其他场景，都不能再使用通用恢复逻辑。此外，`\set@color` 补丁本身依赖 `\g_@@_last_node_tl` 来决定重建什么类型的 kern pair，因此任何在 hbox 内部触发 interchar toks 全局修改 `\g_@@_last_node_tl` 的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离该状态，否则 `\set@color` 会用错误的节点类型重建标记，导致后续恢复链走错路径。
+这一变化把 Issue #315、#803、#807、#809、#810、#832 与 #972 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表“合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建有证据的内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color`/`\reset@color`、`l3color` 的 `\__color_select:N`/`\__color_backend_reset:`，以及 `hyperref` 的 `\Hy@BeginAnnot` 与受末尾 math + 顶层 annotation 双重约束的 `\Hy@EndAnnot`；其他 whatsit 不能使用通用恢复逻辑。此外，`\set@color` 补丁依赖 `\g_@@_last_node_tl` 决定重建哪种 kern pair，因此任何在 hbox 内触发 interchar toks 全局修改该状态的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离状态。
 
-`hyperref` 补丁的策略切换本身也值得单独记住。早先尝试曾把修复点放在链接结束端（如 `\Hy@endcolorlink`）附近，希望在注释结束后补回缺失状态；但 #809/#810 的联动表明，真正稳定的做法是只 patch 链接开始端 `\Hy@BeginAnnot`：
+`hyperref` 的开始端与结束端处理不同事件，不能再泛化为“只 patch 某一端”：
 
 - #809 的缺前侧 ecglue，根因是 `\Hy@BeginAnnot` 内部 `\set@color` 生成的 whatsit 把原本应保留的 `CJK` 边界标记覆盖成 `default`，使 CJK→Default 边界不再触发 ecglue。
 - #810 的目录伪空白，根因则是链接注释起始处的 `pdf:bann` whatsit 错误继承旧 `default` 状态，通过 whatsit 恢复路径补出了本不该存在的 ecglue。
-- 因此，补丁必须在进入注释前就完成“保存真实状态 + 清空陈旧状态”的动作，并在注释开始后有选择地重放；如果等到链接结束端再修，既无法恢复 #809 中已经丢失的边界信息，也很难阻止 #810 中错误状态已经参与过恢复判定。
+- 对 #809/#810，补丁必须在进入注释前完成“保存真实状态 + 清空陈旧状态”，开始后选择性重放；结束端无法挽回已经发生的入口污染。
+- #972 是独立的输出端故障：`\url` 内容末尾的 math 节点本来足以触发右侧 ecglue，但 `\Hy@EndAnnot` 的 whatsit 把它遮蔽。此时结束端能在 whatsit 插入前观察真实末节点，因此以专用 `hyperref-default` 发布可信的西文边界是正确修复点。
 
-这里还有一个关键约束不能丢：`\__xeCJK_recover_glue_whatsit:` 内部的 `default` 分支不能删除，因为 `color` / `xcolor` 的修复仍依赖它来恢复颜色 whatsit 后的合法 default 边界。hyperref 的正确做法不是移除 `default` 恢复能力，而是在 `\Hy@BeginAnnot` 这类补丁点上避免把陈旧或不应继承的 `default` 状态重新送入恢复链。
+这里还有一个关键约束不能丢：`\@@_recover_glue_whatsit:` 内部的 `default` 分支不能删除，因为 `color` / `xcolor` 的修复仍依赖它恢复合法边界；同时也不能让 #972 复用普通 `default`，否则下一次 `\Hy@BeginAnnot` 会按 #810 正确地拒绝它。专用 marker 的名称同时编码 Default-like 语义与可信来源。
 
 Issue #252 / #476 进一步说明，这条状态机不仅要解决“能否恢复”的问题，还要解决“恢复时取哪个 glue 值”的问题。`\CJKecglue` 默认是 `~`，其宽度、stretch、shrink 取决于当前字体的 `\fontdimen`；因此如果在 `\texttt`、`\textbf`、`\textit`、`\zihao` 或其他局部分组里切换了字体，再在边界恢复时直接重新展开 `\CJKecglue`，就会错误地使用组内字体的空格度量，而不是外层 CJK 字体的度量。
 

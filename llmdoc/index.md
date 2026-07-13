@@ -6,11 +6,11 @@
 
 ## architecture
 
-- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
+- `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、#972 hyperref 进入/结束固定点、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
 - `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：
   - interchar token、字符分类（#158/#165/#336/#347/#382）、边界状态机与字体管理（#553）；
   - 标点压缩（#443/#481/#488 现存缺口与 #511 重构边界）和间距语义（#808）；
-  - 兼容补丁（#510、#873/#880/#910/#919/#931）、`\char` 约束及扩展子包。
+  - 兼容补丁（#510、#873/#880/#910/#919/#931/#972）、`\char` 约束及扩展子包。
 - `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
@@ -28,7 +28,7 @@
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计，以及 feature request 的现有能力优先与可行性/产品化分离规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先与可行性/产品化分离规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/158-165-jamo-cj-interchar-classes.md` — 决策: Hangul 用 L/V/T 转移区分音节内 shaping 与音节间 CJKglue；日文 CJ 默认 normal、可选 strict 独立类禁则，并保持 fntef 专用转移。
@@ -53,6 +53,7 @@
 - `llmdoc/memory/decisions/935-check-doc-vs-ctan.md` — 决策: #935 新增 PR 门禁 `check-doc.yml` 用 `l3build doc` 而非 `l3build ctan`。后者内部硬编码调 `l3build check` (整套 regression) 与 test.yml 完全重复; 前者是纯 typeset (docinit + typesetpdf), 精确对应"文档 dtx→PDF 可编译性"维度. 牺牲 tdslocations 打包路径验证 (低频问题, release.yml 兜底).
 - `llmdoc/memory/decisions/937-version-single-source-l3build-tag.md` — 决策: #937 版本管理收敛为 build.lua 单一事实源 + `l3build tag` 回写 dtx `$Id:$` stamp + 双闸 CI (check-tag.yml PR 门禁 + release.yml 三方校验 strip_rc(git tag)==build.lua==stamp)。update_tag 必须幂等 (stamp 版本相等即跳过, 否则回写追着 commit 跑永不收敛); RC 后缀只存在于 git tag, 发 rc 前 build.lua 必须已 bump 并 stamp。适用 zhlineskip / ctex, 其他包迁移路径已列出；同一原则延伸到手册首页页脚 shorthash——曾短暂采用编译时 `\sys_get_shell` 现场取 git hash (`--shell-escape`), 四环境实测在 CTAN 典型解压场景导致 Emergency stop 被否决, 改为 `update_tag` 在 `l3build tag` 阶段固化写入 `ctex.dtx` 的 `\GetFileId[<hash>]`。
 - `llmdoc/memory/decisions/961-changelog-gate-no-write-perm.md` — 决策: #961 CHANGELOG.md 生成物新鲜度校验收敛为「CI 每 PR 重新生成 + `git diff --exit-code` 只校验不回写」，与 #937 check-tag.yml 同一「生成物新鲜度校验」架构模式；否决 CI 打 tag 时生成并 commit（需 write 权限）与 tag 前本地手跑（流程不闭环）两案。已接受缺憾: zhmetrics 包名前缀推断为 `zhmCJK` 导致版本链接死链、并行 PR 的 CHANGELOG 合并冲突。
+- `llmdoc/memory/decisions/972-hyperref-end-annot-trusted-marker.md` — 决策: #972 在顶层 `\Hy@EndAnnot` 观察真实末尾 math 后发布专用 `hyperref-default`，把可信输出边界与 #810 排除的陈旧普通 `default` 分开。
 - `llmdoc/memory/decisions/382-dash-width-and-ligature-opt-in.md` — 决策: #382 破折号宽度修复分两阶段——公式修正（`\@@_long_punct_kerning:N` 三路取大 kern + `\xeCJK_punct_margin_process:NN` 全份 margin 补偿）默认生效, OpenType 合字支持通过 `PoZheHao` 字符类 `PoZheHaoLigature` opt-in; margin 选择新增专用条件 `\@@_punct_if_full_margin_dash:N` 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性。
 - `llmdoc/memory/decisions/431-latinpunct-option.md` — 决策: #389/#431 新增 `LatinPunct` 选项让中西文共用码位标点（弯引号/间隔号/省略号）可切换为西文字体输出；归入 `Half*` 类而非 `Default`；破折号/半字线刻意排除保持与 `PoZheHaoLigature` 正交；状态记录改用局部布尔 `\l_@@_latin_punct_bool` 并回溯修正 `PoZheHaoLigature` 同类作用域问题（影子布尔作用域必须与被控 `\XeTeXcharclass` 资源一致）。
 - `llmdoc/memory/decisions/336-external-interchar-class-others.md` — 决策: #336 的 CJK URL 断行由既有 `Others` 兼容层覆盖；外部 class 必须在导言区结束前定义 Default transition，不新增通用字符类继承 API。
@@ -78,7 +79,7 @@
 - `llmdoc/memory/reflections/315-252-476-xecjk-ecglue-fixes.md` — 反思: xeCJK #252/#476 的 ecglue 字体度量问题与 #315 一样属于 interchar 边界恢复链，应在正确 CJK 字体上下文中缓存前侧 ecglue，并提前按 CI 依赖链完整验证基线影响。
 - `llmdoc/memory/reflections/756-802-spa-unicode17-baseline.md` — 反思: #756 XeTeX 字体查找语法陷阱、#802 Unicode 区块同步流程、xeCJK→ctex 跨包基线联动模式。
 - `llmdoc/memory/reflections/807-set-color-stale-state.md` — 反思: xeCJK #807 中 `\set@color` 无节点分支未清空 `\g_@@_last_node_tl`，导致首次 `\textcolor` 把初始化阶段残留的 `default` 误送入 whatsit 恢复链并错误插入 ecglue。
-- `llmdoc/memory/reflections/809-810-hyperref-annot-ecglue.md` — 反思: xeCJK #809/#810 中 hyperref 注释起始 whatsit 需在 `\Hy@BeginAnnot` 处保存/清空/选择性重放节点状态；`default` 分支保留给 color/xcolor，但不应在注释开始端被重放。
+- `llmdoc/memory/reflections/809-810-hyperref-annot-ecglue.md` — 反思: xeCJK #809/#810 中 hyperref 注释起始 whatsit 需在 `\Hy@BeginAnnot` 保存/清空/选择性重放状态；#972 后明确该“开始端”结论只适用于入口污染，不覆盖结束 whatsit 遮蔽真实末节点的独立路径。
 - `llmdoc/memory/reflections/324-boundary-reserve-space-glue.md` — 反思: xeCJK #324 中宏路径提前输出空格 glue 遮蔽 `CJK-space` 标记 kern，破坏 `\lastkern` 边界恢复；修复同时揭示 xeCJK→ctex 的广泛基线联动。
 - `llmdoc/memory/reflections/826-fntef-boolean-flag-iteration.md` — 反思: xeCJK #826 fntef glue-on-kern-pair 初始修复后的迭代——`\l_@@_last_skip` 状态污染、`\quad` 误处理、fallback 路径错误的根因与三层过滤收敛过程。
 - `llmdoc/memory/reflections/831-reset-color-pending-bool.md` — 反思: #831 colorbox/textcolor 右侧间距修复四轮迭代——从 `\reset@color` 直接插入 kern 对到 `\g_@@_reset_color_pending_bool` 专用布尔延迟处理的收敛过程，核心教训为共享全局布尔的语义过载风险。

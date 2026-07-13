@@ -4,6 +4,10 @@
 
 记录 xeCJK issue #809 / #810 的联合修复经验：`hyperref` 链接注释起始处的 whatsit 既可能吃掉本应保留的 CJK 边界信息，也可能错误继承陈旧的 `default` 状态，分别导致正文 `\ref` 前侧 ecglue 丢失与目录链接起始处伪 ecglue 插入。最终修复与回归测试落在 `xeCJK/testfiles/hyperref-ecglue01.lvt` / `.tlg`。
 
+## #972 后的适用范围修正
+
+本文下文“真正的问题不在链接结束端”“只 patch `\Hy@BeginAnnot`”等结论只针对 #809/#810 的**注释进入端状态污染**。#972 后不能把它泛化为所有 hyperref 间距问题：`\url` 的实际末尾 math 节点会被 `\Hy@EndAnnot` 的结束 whatsit 遮蔽，这是独立的**输出端可见节点丢失**，必须在结束端观察末节点并发布可信 `hyperref-default`。两者不冲突：开始端拒绝陈旧普通 `default`，结束端只从真实末尾 math 生成专用可信标记。详见 [[../decisions/972-hyperref-end-annot-trusted-marker]]。
+
 ## 现象对照
 
 ### #809：正文 `\ref` 在 hyperref 下缺少前侧 ecglue
