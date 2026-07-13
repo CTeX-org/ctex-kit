@@ -38,8 +38,8 @@
   { \msg_critical:nnx { ctxdoc } { patch-failure } { \token_to_str:N #1 } }
 \cs_gset_protected:Npn \ctex_overlong_function:n #1
   {
-    \msg_note:nnx  { ctxdoc } { overlong-function }
-      { \tl_to_str:n { #1 } }
+    \msg_note:nnx { ctxdoc } { overlong-function }
+      { \tl_to_str:n {#1} }
   }
 \cs_new:Npn \ctxdoc@patchfail { \ctex_patch_failure:N }
 \@ifclasslater { l3doc } { 2026/06/18 } { }
