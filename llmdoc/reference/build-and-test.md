@@ -454,6 +454,11 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 - `\changes` 中的人类可读变更记录
 - 打包阶段自动注入的 git 标识
 
+还要先核对最新 release tag：一个版本已经发布后，新提交的 `\changes` 必须写入
+下一个未发布版本，即使 `build.lua` 的当前包版本尚未在发版准备阶段 bump。不能从
+`build.lua` 当前值或生成后 CHANGELOG 的首节反推新条目版本；#381 曾在
+`ctex-v2.6.2` 发布后误记为 v2.6.2，最终改为 v2.6.3 并重新生成 CHANGELOG。
+
 ## 本地 TeX Live usertree 同步
 
 仓库在 PR #883 中声明了 LaTeX2e 2026-06-01 作为最低依赖。CI 通过 `setup-texlive-action@v4 + update-all-packages: true` 每次拉 TLnet 最新版（含最新 LaTeX2e 内核与 hyperref / graphics 等包），所以 CI 始终对齐。本地若用冻结发行版（如 Homebrew TeX Live），需要靠 `tlmgr` 的 **usermode** 维护一个用户树跟进。
