@@ -60,4 +60,4 @@ xeCJK 所有标点尺寸都通过 `\fontcharwd` 与 `\XeTeXglyphbounds n \XeTeXc
 
 ## 归属
 
-对应决策见 [[../../decisions/382-dash-width-and-ligature-opt-in]]；架构说明见 `llmdoc/architecture/xecjk-architecture.md` 标点压缩系统一节（破折号宽度算法、`PoZheHao` 字符类、标点度量 feature-blind 限制、零注入字符类模式）。延续的既往标点系统方法论见 [[284-fullwidth-tilde-longpunct]]（`\showbox` 对比法确立）。
+对应决策见 [[../../decisions/382-dash-width-and-ligature-opt-in]]；架构说明见 `llmdoc/architecture/xecjk-architecture.md` 标点压缩系统一节（破折号宽度算法、`PoZheHao` 字符类、标点度量 feature-blind 限制、零注入字符类模式）。延续的既往标点系统方法论见 [[./284-fullwidth-tilde-longpunct]]（`\showbox` 对比法确立）。
