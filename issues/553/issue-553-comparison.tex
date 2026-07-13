@@ -1,0 +1,113 @@
+\documentclass[11pt]{article}
+\usepackage[paperwidth=180mm,paperheight=175mm,margin=10mm]{geometry}
+\usepackage{xcolor}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\setmainfont[BoldFont={[lmroman10-bold]}]{[lmroman10-regular]}
+\setCJKmainfont[BoldFont={[FandolSong-Bold]}]{[FandolSong-Regular]}
+\setCJKmonofont{[FandolSong-Regular]}
+\newfontfamily\CJKdigitfont{[FandolSong-Regular]}
+\pagestyle{empty}
+
+\definecolor{heading}{HTML}{17365D}
+\definecolor{good}{HTML}{E8F5E9}
+\definecolor{bad}{HTML}{FDECEC}
+\definecolor{neutral}{HTML}{EEF3F8}
+\definecolor{rulegray}{HTML}{CBD5E1}
+
+\newbox\DefaultCJK
+\newbox\DefaultLatin
+\newbox\ExplicitCJK
+\newbox\ExplicitLatin
+\newbox\DirectCJK
+\newbox\DirectLatin
+\newbox\HybridCJK
+\newbox\HybridLatin
+
+\newcommand\Sample[1]{\fontsize{19}{22}\selectfont#1}
+\newcommand\Cell[1]{\colorbox{white}{\fboxsep=5pt\fboxrule=.4pt\fbox{\strut#1}}}
+\newcommand\Result[5]{%
+  \noindent\colorbox{#1}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep\relax}{%
+      \textbf{#2}\hfill\small #3\par\vspace{2mm}
+      \begin{minipage}[c]{.44\linewidth}\centering\Cell{\copy#4}\end{minipage}%
+      \hfill
+      \begin{minipage}[c]{.44\linewidth}\centering\Cell{\copy#5}\end{minipage}\par
+    }}\par\vspace{2.2mm}}
+
+\begin{document}
+
+% Baseline: digits keep the Default class and Latin font.
+\setbox\DefaultCJK=\hbox{\Sample{中文012中文}}
+\setbox\DefaultLatin=\hbox{\Sample{abc123def}}
+
+% Small user-level solution: keep the class, switch only the font locally.
+\setbox\ExplicitCJK=\hbox{\Sample{中文{\CJKdigitfont 012}中文}}
+\setbox\ExplicitLatin=\hbox{\Sample{abc{\CJKdigitfont 123}def}}
+
+% Existing public operation: it changes both font and spacing semantics.
+\xeCJKDeclareCharClass{CJK}{`0 -> `9}
+\setbox\DirectCJK=\hbox{\Sample{中文012中文}}
+\setbox\DirectLatin=\hbox{\Sample{abc123def}}
+
+% Feasibility prototype: Default transitions plus CJK font selection.
+\ExplSyntaxOn
+\xeCJK_new_class:n { CJKDigit }
+\int_step_inline:nnn { `0 } { `9 }
+  { \tex_XeTeXcharclass:D #1 = \xeCJK_class_num:n { CJKDigit } }
+\seq_map_inline:Nn \g__xeCJK_class_seq
+  {
+    \str_if_eq:nnF {#1} { CJKDigit }
+      {
+        \xeCJK_copy_inter_class_toks:nnnn
+          {#1} { CJKDigit } {#1} { Default }
+        \xeCJK_copy_inter_class_toks:nnnn
+          { CJKDigit } {#1} { Default } {#1}
+        \xeCJK_app_inter_class_toks:nnn {#1} { CJKDigit }
+          { \xeCJK_class_group_begin: \xeCJK_select_font: }
+        \xeCJK_pre_inter_class_toks:nnn { CJKDigit } {#1}
+          { \xeCJK_class_group_end: }
+      }
+  }
+\ExplSyntaxOff
+\setbox\HybridCJK=\hbox{\Sample{中文012中文}}
+\setbox\HybridLatin=\hbox{\Sample{abc123def}}
+
+\typeout{ISSUE553 default-cjk=\the\wd\DefaultCJK, default-latin=\the\wd\DefaultLatin}
+\typeout{ISSUE553 direct-cjk=\the\wd\DirectCJK, direct-latin=\the\wd\DirectLatin}
+\typeout{ISSUE553 hybrid-cjk=\the\wd\HybridCJK, hybrid-latin=\the\wd\HybridLatin}
+\typeout{ISSUE553 explicit-cjk=\the\wd\ExplicitCJK, explicit-latin=\the\wd\ExplicitLatin}
+\ifdefined\IssueShowNodes
+  \showboxbreadth=100
+  \showboxdepth=10
+  \tracingonline=1
+  \showbox\DefaultCJK \showbox\DefaultLatin
+  \showbox\DirectCJK  \showbox\DirectLatin
+  \showbox\HybridCJK  \showbox\HybridLatin
+  \showbox\ExplicitCJK\showbox\ExplicitLatin
+\fi
+
+{\Large\bfseries\color{heading}Issue \#553: font selection and spacing are separable}\par
+\vspace{1mm}
+The two frames show the actual output. Node lists were inspected separately;
+``glue'' below means the normal \texttt{CJKecglue}.
+\vspace{2mm}
+
+\noindent
+\begin{minipage}{.48\linewidth}\centering\small CJK--digit boundaries\end{minipage}\hfill
+\begin{minipage}{.48\linewidth}\centering\small letter--digit boundaries\end{minipage}\par
+\vspace{1mm}
+
+\Result{neutral}{1. Baseline}{Latin digits; glue / no glue}{\DefaultCJK}{\DefaultLatin}
+\Result{bad}{2. Put digits directly in class CJK}{CJK digits; no glue / unwanted glue}{\DirectCJK}{\DirectLatin}
+\Result{good}{3. Hybrid-class prototype}{CJK digits; glue / no glue}{\HybridCJK}{\HybridLatin}
+\Result{good}{4. Explicit local font command}{CJK digits; glue / no glue}{\ExplicitCJK}{\ExplicitLatin}
+
+\vfill
+{\small\color{heading}\textbf{Conclusion.}}
+The requested output is technically possible. The prototype copies every
+\texttt{Default} transition to a new class and wraps each run in the current
+CJK font. Productizing that mixed class would, however, invalidate xeCJK's
+basic CJK/non-CJK class split across many subsystems.
+
+\end{document}
