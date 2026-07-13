@@ -451,24 +451,22 @@ xeCJK 所有标点尺寸（`dimen`/`width`/`bound` 等）均通过 `\fontcharwd`
 
 已知表现（本次修复中实测确认）：裸 Noto Serif CJK SC（未显式开启 `RawFeature=+fwid`）的连用破折号总宽仍是修复前的 1.78 ccwd 而非 CLReq 要求的 2.0，因为 `\XeTeXglyphbounds` 拿到的是全角替换前的窄字形边界；显式开启 `fwid`/`locl` 后（如 `\setCJKmainfont{Noto Serif CJK SC}[RawFeature=+fwid]`）度量与视觉字形一致，总宽达标 2.0。诊断这类问题时，`fontcharwd`/`\XeTeXglyphbounds` 在同一字体、开关某 OpenType 特性前后返回值恒定不变，本身就是"此路径 feature-blind"的直接证据，无需深入 shaping 引擎即可确认根因。
 
-### 仍未解决的预设与标点模型缺口（#443、#481、#488、#511）
+### #975 的预设修正与方向性标点对策略（#443、#481、#488、#511）
 
-xeCJK v3.10.3 仍保留三项 2019–2020 年提出的行为。当前模型把禁则角色、字形位置和压缩策略部分耦合在 `FullLeft`/`FullRight`、`MiddlePunct`/`KaiMingPunct` 与单一 `PunctStyle` 实例中；它能做定点参数修正，但不能完整表达文种、书写方向和有方向的标点对策略。
+xeCJK v3.10.3 用三项窄修覆盖了 #443、#481、#488，同时保留现有 `PunctStyle`、显式字符对设置和禁则行为。#511 所讨论的完整标点模型重构仍是长期边界。
 
-| Issue | v3.10.3 证据 | 当前机制 | 窄修方向 |
-|---|---|---|---|
-| #443 开明式句末点号宽度 | FandolSong 10pt 下，`字。字` 中句号贡献宽度：`quanjiao=10pt`、当前 `kaiming=8pt`、`mixed-punct-ratio=1.0` 原型 `=10pt` | `kaiming` 预设仍显式设置 `mixed-punct-ratio=0.8`，与手册“句末点号全角”不一致 | 把预设改为 `1.0`，同步 `punctstyle01`/`kaimingpunct01` 基线；另测相邻标点与行首尾，避免只修孤立宽度 |
-| #481 港台居中右标点相邻时过度挤压 | Noto Serif CJK TC 下 `。』？！`：默认 `quanjiao=26.04pt`，启用 `optimize-kerning=true` 后 `31.82pt`；原 MWE 的相邻标点错位仍可见 | `quanjiao` 是空预设，继承 `optimize-kerning=false`；只把字符加入 `MiddlePunct` 不会改变通用标点对的 `kerning-total-ratio` | 最窄方案是为 `quanjiao` 启用 `optimize-kerning` 或增加繁中/日文预设；必须评估简中基线影响，并要求使用独立 TC/JP 字体面，不能假定 `Language=` 的 GSUB 后度量可见 |
-| #488 `FullLeft→FullRight` 不应压掉中间空白 | Noto Serif CJK SC 下 `（？` 比用 `\kern0pt` 阻断相邻标点压缩的参考窄约 `0.98pt` | `\xeCJK_FullLeft_and_FullRight:N` 仍无条件调用通用 `\@@_punct_kern:NN`；`different-align-*` 同时覆盖相反方向且默认被 `kerning-total-ratio` 抢先，不能表达单向类对政策 | 可在该 transition 定点跳过 pair kern 并保持 nobreak，或新增有方向的类对选项；`\xeCJKsetkern` 只能按具体码位给固定长度，不能表达“使用该字体原始空白”的通用策略 |
-| #511 标点模型重构讨论 | 讨论中的新模型原型未合入；当前实现仍使用 `FullLeft`/`FullRight` 加 special-punct 列表和 `\XeTeXglyphbounds` 度量 | #443/#481/#488 分别暴露预设值、字形位置属性和有方向 pair policy 的缺口，不是三个互不相干的参数问题 | 将 opening/closing 禁则角色与字面位置/可压缩性分离，由文种和方向 profile 选属性，再用有方向的 pair matrix 生成 glue/kern/penalty；现有接口保留为迁移兼容层 |
+| Issue | v3.10.3 行为 | 实现与回归证据 |
+|---|---|---|
+| #443 开明式句末点号宽度 | `kaiming` 的 `mixed-punct-ratio` 从 `0.8` 改为 `1.0`；FandolSong 10pt 下 `字。字` 的句号贡献 10pt，`字，字` 的句内标点仍为 5pt | 只修改 `kaiming` 预设；`punctuation-model-975.lvt` 同时断言句末、句内和相邻标点，既有 `kaimingpunct01`/`punctstyle01` 固化节点基线 |
+| #481 港台/日文居中标点相邻时过度挤压 | `quanjiao` 默认启用 `optimize-kerning`，用两枚标点的实际边界下限约束通用 pair kern | 专用 Noto Serif CJK TC 字体面下 `。』？！` 从旧路径 26.04pt 恢复为 31.82pt，JP 字体面从 25pt 恢复为 27.19pt；不能用 `Language=` 替代专用字体面，因为 `\XeTeXglyphbounds` 不观察 GSUB 后字形 |
+| #488 `FullLeft→FullRight` 不应压掉自然空白 | 新增 `enabled-left-right-kerning` 样式键，默认 `true`；`quanjiao` 设为 `false`，只取消左标点后接右标点的自动压缩 | Noto Serif CJK SC 下 `（？` 与插入零 kern 阻断自动压缩的自然参考等宽；显式 `\xeCJKsetkern`、`enabled-global-setting=false`、`banjiao`、nobreak 调用、`FullRight→FullLeft` 与 `）（` 均有独立断言 |
+| #511 标点模型重构讨论 | 当前实现仍使用 `FullLeft`/`FullRight`、special-punct 列表、单个 `PunctStyle` 实例和 feature-blind 度量 | #975 修正三个具体默认值/策略，不处理语义化句末传播、文种/书写方向 profile、竖排、GSUB 后度量或通用有向 pair matrix |
 
-#443 的 `mixed-punct-ratio=1.0` 是低风险预设修正，但只解决“被列入 `KaiMingPunct` 的单个字符宽度”。#511 指出的“真・开明”还包括句末语义跨越右引号等标点传播，因此不能把一个比例改动描述成完整的开明式重构。
+方向策略落在标点样式层，而不是直接改 `FullLeft→FullRight` transition。`\@@_save_punct_kerning:NN` 必须先 `\UseInstance` 载入当前样式，再判断字符对方向；只有前标点不是 `FullRight` 且后标点是 `FullRight` 时进入 `\@@_save_left_right_kerning:NN`，反方向和同侧组合仍走通用计算。关闭自动压缩时保存零 kern，但原 transition 中的 `\xeCJK_no_break:` 不变，因此自然空白不会变成可断点。
 
-#481 的 `optimize-kerning` 是已经验证有效的兼容路径：它以两枚标点实际边界的下限约束通用 pair kerning，能防止居中标点被压到字面重叠。不过该路径仍依赖 feature-blind 的 `\XeTeXglyphbounds`；同一字体文件仅通过 `locl`/`Language=` 切出繁中字形时，测量可能仍对应替换前字形。稳定预设应优先使用独立 TC/JP 字体面，并把“文种 profile”与字体选择明确关联。
+这一层次还保留了两个既有优先级。若 `enabled-global-setting=true` 且该具体字符对存在 `\xeCJKsetkern` 记录，显式设置仍进入通用计算并优先生效；若全局设置关闭，则忽略该记录并保留自然空白。`banjiao`、`kaiming`、`CCT` 和未改写此键的自定义样式继承默认 `true`，保持历史压缩。若在 transition 中无条件跳过 kern，这些样式与显式覆盖都会被一并破坏。
 
-#488 暴露的是方向性缺口。`FullLeft→FullRight` 与 `FullRight→FullLeft` 都会落入现有“different align”一档，但两者的排版含义不同，不能共享一个标量配置。若只修当前组合，定点 transition 是最小影响方案；若要同时覆盖 #481 和不同文种，应升级为按“前标点角色 × 后标点角色”查表的 pair policy。
-
-#511 的重构原型仍是完整方案的正确起点：把 opening/closing 等禁则角色与“偏左/偏右半身、居中半身、居中全身”等字面位置/可压缩性分离，再由文种与书写方向 profile 选择字符属性，由有方向的 pair matrix 产生 glue/kern/penalty。迁移时应保留现有 `PunctStyle` 与 `\xeCJKsetkern` 作为兼容层，先让新模型能逐项复现 `quanjiao`/`banjiao`/`kaiming` 基线，再切换默认实现。
+#443 的比例修正只解决“被列入 `KaiMingPunct` 的单个字符宽度”。#511 指出的“真・开明”还包括句末语义跨越右引号等标点传播，因此不能把该比例改动描述成完整的开明式重构。完整方案仍应把 opening/closing 禁则角色与字面位置/可压缩性分离，由文种和书写方向 profile 选择字符属性，再以有方向的 pair matrix 生成 glue/kern/penalty；迁移时保留现有 `PunctStyle` 与 `\xeCJKsetkern` 作为兼容层。
 
 ### 长标点断点的两侧禁则检查（`\@@_punct_kern:NN` / `\@@_punct_kern_break:NN`，#456）
 

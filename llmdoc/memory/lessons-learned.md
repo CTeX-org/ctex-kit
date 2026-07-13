@@ -19,6 +19,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #964 的自动审查曾反转 `\dim_until_do:nNnn` 的真实语义，版本门禁也先后出现 ExplSyntax catcode 错位和条件丢失；仅跑正常路径不足以发现这些问题。
 **Source**: `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
 
+### 生成物排序不能反向支配源码组织
+**Rule**: `\changes` 等生成源注释应贴近对应实现；生成结果的不连续不能通过挪远源码注释或手改生成物来美化。
+**Why**: #975 中把三条记录集中虽让 CHANGELOG 连续，却让 `quanjiao`/`kaiming` 记录脱离实现；最终恢复源码邻近性并接受提取顺序。
+**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
+
 ## TeX 节点与输出几何
 
 ### leader 相位问题不能只测盒宽
@@ -40,6 +45,16 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 对间距、字形或线条等可见排版缺陷，同时提供可执行 MWE、定量测量和同条件前后渲染；再用会插入节点的 wrapper 组合回归证明状态能传递。
 **Why**: #972 的 3.33pt 测量证明几何差异，并排截图让审查者直接看到右侧间距恢复，而颜色和下一链接用例暴露了最初普通 `default` 原型的组合缺陷。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
+
+### 方向性标点策略必须保留样式与覆盖优先级
+**Rule**: 修复单向标点对时，把政策放在可配置的样式计算层，并分别回归反方向、其他样式、显式字符对、全局设置和禁则；不要在 transition 中无条件短路。
+**Why**: #975 若直接跳过 `FullLeft→FullRight` kern，会破坏 `banjiao` 和 `\xeCJKsetkern`；样式键只让 `quanjiao` 改默认且保持 nobreak。
+**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
+
+### 字体度量回归要隔离 shaping 与首次初始化
+**Rule**: 涉及区域字形和 side bearing 时使用独立字体面，并在 `\START` 前预热所有 lazy family，再记录定量基线和渲染证据。
+**Why**: #975 中 `Language=` 不能改变 feature-blind 的 glyphbounds 证据，首次按需加载 Noto TC/JP 又会把 fontspec Info 混入 `.tlg`。
+**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
 
 ## Feature request 评估
 
