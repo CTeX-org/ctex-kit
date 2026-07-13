@@ -3872,6 +3872,8 @@ Copyright and Licence
         { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
         { \@@_node:n { default } }
         { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+        { \@@_node:n { hyperref-default } }
+        { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxii:
@@ -3915,9 +3917,13 @@ Copyright and Licence
             \xeCJK_if_last_node:nTF { default }
               { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               {
-                \@@_if_last_math:TF
-                  { \skip_horizontal:N \l_@@_ecglue_skip }
-                  { \skip_horizontal:N \l_@@_last_skip }
+                \xeCJK_if_last_node:nTF { hyperref-default }
+                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+                  {
+                    \@@_if_last_math:TF
+                      { \skip_horizontal:N \l_@@_ecglue_skip }
+                      { \skip_horizontal:N \l_@@_last_skip }
+                  }
               }
           }
       }
@@ -4062,6 +4068,8 @@ Copyright and Licence
                   {
                     \tl_if_eq:NnT \g_@@_last_node_tl { default }
                       { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+                    \tl_if_eq:NnT \g_@@_last_node_tl { hyperref-default }
+                      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
                   }
               }
           }
@@ -4073,6 +4081,7 @@ Copyright and Licence
 \xeCJK_declare_node:n { CJK-widow }
 \xeCJK_declare_node:n { normalspace }
 \xeCJK_declare_glue_node:n { default-space }
+\xeCJK_declare_node:n { hyperref-default }
 %    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
@@ -10035,11 +10044,36 @@ Copyright and Licence
 %   选择性恢复 xeCJK 节点标记，同时清除旧标记，
 %   解决目录中链接注释起始处的虚假 \texttt{ecglue}（\#810），
 %   并为 \tn{ref} 提供前侧 \texttt{ecglue}（\#809）。}
+% \changes{v3.10.3}{2026/07/13}{在顶层 \tn{Hy@EndAnnot} 结束前检测
+%   URL 的数学节点，并在链接结束 whatsit 后放置可信的西文边界标记，
+%   修复 \tn{url} 右侧的 \texttt{CJKecglue} 丢失问题（\#972）。}
+%
+% \tn{Hy@BeginAnnot} 的补丁处理链接起始端：保存真实的 CJK 状态、清除
+% 历史状态，并且不重放可能陈旧的 \texttt{default}。链接结束端需要处理
+% 一个不同的问题。\pkg{url} 的 \tn{Url@FormatString} 以数学模式排版 URL；
+% 单独加载 \pkg{url} 时，后续 CJK 字符可以直接看到数学节点并恢复
+% \texttt{ecglue}。\pkg{hyperref} 随后由 \tn{Hy@EndAnnot} 插入链接结束
+% whatsit，数学节点因此不再是最后节点。
+%
+% 在顶层 annotation 结束前若最后节点确为数学节点，说明链接的可见内容
+% 提供了真实的西文边界。原始 \tn{Hy@EndAnnot} 插入结束 whatsit 后，重放
+% 一个专用的 \texttt{hyperref-default} 标记，让后续 CJK 转换走既有边界
+% 恢复链；若后续紧接颜色切换或另一个 annotation，现有补丁也能继续保存并
+% 重放这个可信标记。它与普通 \texttt{default} 分离，避免重新放宽 \#810
+% 为防御陈旧 \texttt{default} 而设的选择性重放规则。只处理
+% \tn{c@Hy@AnnotLevel}=1，避免嵌套 annotation 的内部结束点提前改写外层状态；
+% 非数学内容保持现有 CJK/default 状态机不变。
 %    \begin{macrocode}
 \tl_new:N \g_@@_hyper_saved_node_tl
+\cs_new_protected:Npn \@@_hyperref_end_annot_math:
+  {
+    \@@_orig_Hy_EndAnnot:
+    \xeCJK_make_node:n { hyperref-default }
+  }
 \cs_new_protected:Npn \@@_patch_hyperref_annot:
   {
     \cs_gset_eq:NN \@@_orig_Hy_BeginAnnot:n \Hy@BeginAnnot
+    \cs_gset_eq:NN \@@_orig_Hy_EndAnnot: \Hy@EndAnnot
     \cs_gset_protected:Npn \Hy@BeginAnnot ##1
       {
         \xeCJK_if_last_node:TF
@@ -10053,6 +10087,18 @@ Copyright and Licence
           { \xeCJK_make_node:n { CJK-space } }
         \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK-widow }
           { \xeCJK_make_node:n { CJK-widow } }
+        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { hyperref-default }
+          { \xeCJK_make_node:n { hyperref-default } }
+      }
+    \cs_gset_protected:Npn \Hy@EndAnnot
+      {
+        \int_compare:nNnTF { \c@Hy@AnnotLevel } = { 1 }
+          {
+            \@@_if_last_math:TF
+              { \@@_hyperref_end_annot_math: }
+              { \@@_orig_Hy_EndAnnot: }
+          }
+          { \@@_orig_Hy_EndAnnot: }
       }
   }
 \@@_package_hook:nn { hyperref }
