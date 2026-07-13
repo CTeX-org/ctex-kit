@@ -1,0 +1,33 @@
+\input{regression-test}
+
+\RequirePackage{CJKfntef}
+
+\ExplSyntaxOn
+
+\sys_if_engine_luatex:F
+  {
+    \START
+    \TYPE { LuaTeX~only. }
+    \END
+    \file_input_stop:
+  }
+
+\RequirePackage{ctexhook}
+
+% Intercept the expected critical message so l3build can record the branch
+% before LuaTeX-ja encounters the already-corrupted CJK font state.
+\cs_new_eq:NN \__ctex_test_msg_critical:nnn \msg_critical:nnn
+\cs_set_protected:Npn \msg_critical:nnn #1#2#3
+  {
+    \str_if_eq:nnTF { #1 / #2 } { ctex / cjkfntef-luatex }
+      {
+        \use:c { TYPE } { CJKfntef:~critical }
+        \use:c { END }
+      }
+      { \__ctex_test_msg_critical:nnn {#1} {#2} {#3} }
+  }
+
+\START
+\AUTHOR{Liam Huang}
+\makeatletter
+\file_input:n { ctex-engine-luatex.def }
