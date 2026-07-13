@@ -24,6 +24,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #975 中把三条记录集中虽让 CHANGELOG 连续，却让 `quanjiao`/`kaiming` 记录脱离实现；最终恢复源码邻近性并接受提取顺序。
 **Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
 
+### 本地审查报告是独立的完成门禁输入
+**Rule**: 运行过本地 code-review 时，在完成或 merge 前用忽略规则外的文件盘点读取全部 `.code-review` 报告，并把每条发现映射到当前树核实。
+**Why**: PR #976 只审计 GitHub 活动，漏掉被 `.gitignore` 隐藏的报告中两个有效小问题，合并后不得不用 #978 补修。
+**Source**: `llmdoc/memory/archive/2026-07-13/976-978-ignored-local-code-review.md`
+
 ## TeX 节点与输出几何
 
 ### leader 相位问题不能只测盒宽

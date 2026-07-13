@@ -23,7 +23,7 @@
 
 ## guides
 
-- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、处理 CI/PR 全部审查意见、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
+- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
 - `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961)。
 
 ## memory

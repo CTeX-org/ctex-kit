@@ -26,6 +26,8 @@ push 输出会给出下一步指示和相关链接，必须完整阅读。PR 评
 
 审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。随后运行相称的验证，commit，再次执行无管道的 `git push 2>&1`，并重新等待 hook 完成。循环直到 CI 全绿、push 后无新评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
 
+本地代码审查报告是独立于 GitHub review 活动的另一条输入。若本轮运行过本地 code-review 工作流，在完成审计和 merge 前必须用 `rg --files --hidden --no-ignore .code-review` 盘点报告并逐份阅读；`.code-review/.gitignore` 的 `/*` 会让这些文件不进入 git，普通 `rg --files`、PR 评论检查和 pre-push hook 都看不到它们。报告中的 commit hash 或行号若因 rebase 失效，应把每条发现重新映射到当前树并核实，不能因报告未出现在 PR 上或结论为 APPROVE 就跳过其中的小问题。最终审计必须同时覆盖 GitHub comment/review/thread 与本地 `.code-review` 报告。
+
 hook 等待期间也可能有协作者推进同一分支。若外层输出显示 forced update、远端 SHA 异常变化或 cannot-lock-ref 的 actual 值不是内层刚推送的提交，立即恢复被覆盖提交、保留其作者历史并重新整合；不得把“外层失败属预期”泛化成忽略所有远端引用变化。
 
 ## 首次推送新分支
