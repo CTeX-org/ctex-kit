@@ -1,7 +1,8 @@
 ---
 name: 336-347-510-808-553-feature-request-triage
 description: "反思: 连续调查旧 issue 时先还原真实需求、核实现有行为和现代替代，再用成功/失败 MWE、节点与截图分离已解决故障、剩余边界和不值得产品化的泛化接口"
-type: reflection
+metadata:
+  type: reflection
 ---
 
 # #336/#347/#510/#808/#553：从 feature 表述回到真实需求
