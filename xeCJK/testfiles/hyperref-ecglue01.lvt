@@ -6,8 +6,13 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
 
 \begin{document}
+
+\OMIT
+\setbox0=\hbox{\url{X}}
+\TIMO
 
 \START
 
@@ -53,6 +58,90 @@
   \setbox1=\hbox{\hyperref[sec]{信箱和冰箱会领导}}
   \ifdim\wd0=\wd1
     \TYPE{PASS: no extra glue in CJK link}
+  \else
+    \TYPE{FAIL: \the\wd0\space vs \the\wd1}
+  \fi
+}
+
+% Test 5: the end-annotation whatsit after a linked URL must not hide the
+%         math node which supplies the URL-to-CJK boundary (#972).
+\TEST{right ecglue after hyperref url (972)}{
+  \setbox0=\hbox{测\nolinkurl{X}无}
+  \setbox1=\hbox{测\url{X}无}
+  \ifdim\wd0=\wd1
+    \TYPE{PASS: linked and unlinked URL widths match}
+  \else
+    \TYPE{FAIL: \the\wd0\space vs \the\wd1}
+  \fi
+}
+
+% Test 6: check the right boundary directly instead of relying only on the
+%         total width comparison above.  The left and right boundaries of
+%         the same one-character URL should contribute equal ecglue.
+\TEST{equal ecglue on both sides of hyperref url (972)}{
+  \setbox0=\hbox{测\url{X}}
+  \setbox1=\hbox{\url{X}}
+  \setbox2=\hbox{测}
+  \dimen0=\wd0 \advance\dimen0 by -\wd1 \advance\dimen0 by -\wd2
+  \setbox3=\hbox{\url{X}无}
+  \setbox4=\hbox{无}
+  \dimen2=\wd3 \advance\dimen2 by -\wd1 \advance\dimen2 by -\wd4
+  \ifdim\dimen0=\dimen2
+    \TYPE{PASS: URL boundary ecglue is symmetric}
+  \else
+    \TYPE{FAIL: left \the\dimen0\space vs right \the\dimen2}
+  \fi
+}
+
+% Test 7: a source space after the linked URL is absorbed just as it is at
+%         an ordinary Default-to-CJK boundary; it must not add a second gap.
+\TEST{space after hyperref url is absorbed (972)}{
+  \setbox0=\hbox{测\url{X} 无}
+  \setbox1=\hbox{测\url{X}无}
+  \ifdim\wd0=\wd1
+    \TYPE{PASS: source space after URL is absorbed}
+  \else
+    \TYPE{FAIL: \the\wd0\space vs \the\wd1}
+  \fi
+}
+
+% Test 8: the end-annotation repair is keyed to a real trailing math node,
+%         not to the public \url command.  Compare only the right boundary;
+%         the left edge of a generic math link follows a separate path.
+\TEST{right ecglue after math-ending hyperlink (972)}{
+  \setbox0=\hbox{\href{https://example.com}{$X$}无}
+  \setbox1=\hbox{\href{https://example.com}{$X$}}
+  \setbox2=\hbox{$X$无}
+  \setbox3=\hbox{$X$}
+  \dimen0=\wd0 \advance\dimen0 by -\wd1
+  \dimen2=\wd2 \advance\dimen2 by -\wd3
+  \ifdim\dimen0=\dimen2
+    \TYPE{PASS: linked and unlinked math right boundaries match}
+  \else
+    \TYPE{FAIL: linked \the\dimen0\space vs plain \the\dimen2}
+  \fi
+}
+
+% Test 9: color selection inserts another whatsit before the CJK character.
+%         The trusted link-end marker must survive the existing color patch.
+\TEST{right ecglue after hyperref url and color switch (972)}{
+  \setbox0=\hbox{测\nolinkurl{X}无}
+  \setbox1=\hbox{测\url{X}\textcolor{red}{无}}
+  \ifdim\wd0=\wd1
+    \TYPE{PASS: URL boundary survives color switch}
+  \else
+    \TYPE{FAIL: \the\wd0\space vs \the\wd1}
+  \fi
+}
+
+% Test 10: a second annotation starts before the following CJK text.  Only
+%          the trusted hyperref-default marker may cross that start point;
+%          ordinary default remains excluded by the #810 protection.
+\TEST{right ecglue between hyperref url and CJK link (972)}{
+  \setbox0=\hbox{测\nolinkurl{X}无}
+  \setbox1=\hbox{测\url{X}\href{https://example.com}{无}}
+  \ifdim\wd0=\wd1
+    \TYPE{PASS: URL boundary survives following annotation}
   \else
     \TYPE{FAIL: \the\wd0\space vs \the\wd1}
   \fi
