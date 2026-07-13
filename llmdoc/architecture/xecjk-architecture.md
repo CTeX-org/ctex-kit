@@ -314,6 +314,14 @@ fontspec:    底层字体加载与 OpenType 特性处理
 
 字体切换发生在 interchar token 触发的 CJK 分组入口处（`\xeCJK_select_font:`）。即：只有当 XeTeX 检测到字符类从非 CJK 切换到 CJK 时，才会执行字体切换。CJK 区域内部字符间不重复切换。
 
+### 字体选择与间距语义并非引擎级绑定（#553）
+
+XeTeX 虽然规定每个字符只能属于一个 `\XeTeXcharclass`，但字符类本身只选择一组 `\XeTeXinterchartoks`，不会在引擎层把“使用哪套字体”与“插入哪种间距”绑定。#553 的普通文本原型新建混合类，复制 `Default` 的全部相邻类转换，并只在进入/离开该类时增加 `\xeCJK_select_font:` 的分组开关；节点列表确认 ASCII 数字可用 CJK 字体输出，同时在 CJK–数字边界保留 `\CJKecglue`、在字母–数字边界不产生 glue。因此，类似需求不能简单判定为“XeTeX 无法实现”。
+
+这项可行性不等于现有架构适合公开混合类。`\g_@@_non_CJK_class_seq` 与 `\g_@@_CJK_class_seq` 把字体选择、标点转换、Boundary 恢复、listings 单元和 fntef 转换建立在 CJK/非 CJK 二分上；“字体语义属于 CJK、间距语义属于 Default”的类无法自然归入任何一边。正式实现前必须反向审计所有直接枚举旧类或复制旧类转换的位置，并覆盖数学、verbatim/listings、fntef/ulem、fallback、字体族/字重切换、颜色、链接和外部分配字符类等路径。
+
+若目标内容可在源文件中明确标记，低风险方案是保持字符的 `Default` 类，只用局部 `\newfontfamily` 命令切换所需数字；这会自然复用现有间距转换。若要求全局按字符范围自动选字体，真实问题属于 range-to-font/composite-font 路由，还必须先明确数学、计数器、页码、引用、URL、代码以及字体族/字形跟随规则，不能收窄成 ASCII 数字特例。#553 因证据不足且产品化影响面过广，以 `not planned` 关闭；决策见 [[../memory/decisions/553-mixed-font-spacing-class-not-planned]]。
+
 ### 后备字体 (Fallback)
 
 xeCJK 支持为 CJK 字符范围设置后备字体链。当主字体不包含某字符时，按优先级尝试后备字体。实现基于 `\setCJKfallbackfamilyfont` 和内部的 `\xeCJK_fallback_symbol:NN` 检测机制。

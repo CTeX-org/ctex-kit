@@ -25,3 +25,15 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 调查 leader 线条偏移时，在非零水平起点下同时检查 leader 类型、实际输出坐标和 mark 的跨片段连续性，不能只比较命令盒宽；规则型与周期型 mark 应分别选择原语。
 **Why**: #531/#967 中 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以完全相同，但前者端点随外层相位漂移，`\cleaders` 又会使周期波浪线在 CJK 分片间产生双峰；只有分开验证端点和接缝才能选出正确方案。
 **Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`
+
+### 字符分类修改必须检查节点结构和旧类消费者
+**Rule**: 调整或新增 interchar 字符类时，用 `\showbox` 同时验证 glyph、glue、kern、penalty 等节点，并反向审计所有直接判断或枚举旧类的消费者，不能只比较视觉效果或总盒宽。
+**Why**: #284 中总宽抵消掩盖了多余标点节点，#382 新增 `PoZheHao` 又因遗漏 `FullRight` 的直接判断重现历史错误；分类标签正确不代表所有下游语义自动正确。
+**Source**: `llmdoc/memory/archive/2026-07-13/284-fullwidth-tilde-longpunct.md`, `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`
+
+## Feature request 评估
+
+### 把技术可行性与产品化决策分开
+**Rule**: 先把 feature request 重述为真实需求并用最小原型验证可能性，再独立审计作用域、架构假设、兼容面和低风险替代方案；原型成功不等于应增加稳定接口。
+**Why**: #553 的混合类原型推翻了“XeTeX 无法分离字体与间距”的判断，但该类同时跨越 xeCJK 的 CJK/非 CJK 二分并影响多个子系统，因此最终仍应 `not planned`。
+**Source**: `llmdoc/memory/archive/2026-07-13/553-feature-request-feasibility-vs-productization.md`
