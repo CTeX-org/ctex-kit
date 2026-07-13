@@ -3,8 +3,16 @@
 Tested with `ctex-kit` master `0aefee06`, XeTeX from TeX Live 2026, Biber
 2.21, and Noto Serif CJK SC.
 
-Both examples use `issue-336.bib` and the original `biblatex` `urlraw`
-approach.
+The examples use the original `biblatex` `urlraw` approach.
+
+## General Unicode route
+
+Source: `unicode-urlraw.tex`, with the original Cyrillic URL in
+`unicode-urlraw.bib`.  Biber emits a percent-encoded `url` for the clickable
+target and an unencoded `urlraw` for the printed label.  The screenshot shows
+the readable Cyrillic label produced by XeLaTeX.  `pdfinfo -url` confirms that
+the PDF annotation still contains the percent-encoded target; the log has no
+overfull/underfull box or missing-character diagnostic.
 
 ## Route A: `CJKmath` and `\nolinkurl`
 
@@ -25,6 +33,6 @@ overfull/underfull box or missing-character diagnostic.
 
 ## Build
 
-Run XeLaTeX, Biber, then XeLaTeX twice for each `.tex` file.  Ensure the local
-xeCJK under test is selected through `TEXINPUTS`, and that `issue-336.bib` is
-visible through `BIBINPUTS`.
+Run XeLaTeX, Biber, then XeLaTeX twice for each `.tex` file.  For the CJK
+examples, ensure the local xeCJK under test is selected through `TEXINPUTS`,
+and that `issue-336.bib` is visible through `BIBINPUTS`.
