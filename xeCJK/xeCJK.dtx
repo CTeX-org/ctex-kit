@@ -1257,6 +1257,8 @@ Copyright and Licence
 % 对于 \meta{length} 类型的选项，将其设置为 \tn{maxdimen}，而对于 \meta{real} 类型
 % 的选项，将其设置为 |nan|。
 %
+% \changes{v3.10.3}{2026/07/13}
+% {新增 \texttt{enabled-left-right-kerning} 标点格式选项（\#975）。}
 % \begin{psopt}
 %   \PSKeyVal{enabled-global-setting}{boolean}
 %     是否使用 \tn{xeCJKsetup} 的 |PunctWidth|、|PunctBoundWidth| 选项和
@@ -1343,6 +1345,10 @@ Copyright and Licence
 %   \PSKeyVal{enabled-kerning}{boolean}
 %     是否调整前后相邻的两个标点之间的空白宽度。如果设置为 |false|，则每个标点都按
 %     原来的输出宽度输出。默认值是 |true|。
+%   \PSKeyVal{enabled-left-right-kerning}{boolean}
+%     是否压缩左标点后紧跟右标点时二者之间的空白。默认值为 |true|；
+%     |quanjiao| 预设将它设为 |false|，保留字体的自然空白。
+%     通过 \tn{xeCJKsetkern} 显式设置的字符对不受此选项影响。
 %   \PSKeyVal{min-bound-to-kerning}{boolean}
 %     是否使用当前字体中前面标点实际左右边界的最小值与后面标点实际左右边界的最小值
 %     中的最大值作为两个标点之间的空白宽度。默认值是 |false|。
@@ -6320,7 +6326,8 @@ Copyright and Licence
     add-min-bound-to-margin : boolean = false ,
     optimize-margin         : boolean = false ,
     margin-minimum          : length  = \c_zero_dim ,
-    enabled-kerning         : boolean = true ,
+    enabled-kerning            : boolean = true ,
+    enabled-left-right-kerning : boolean = true ,
     min-bound-to-kerning    : boolean = false ,
     kerning-total-width     : length  = \c_max_dim ,
     kerning-total-ratio     : real    = 0.75 ,
@@ -6359,7 +6366,8 @@ Copyright and Licence
     add-min-bound-to-margin = \l_@@_add_min_bound_to_margin_bool ,
     optimize-margin         = \l_@@_optimize_margin_bool ,
     margin-minimum          = \l_@@_margin_minimum_dim ,
-    enabled-kerning         = \l_@@_enabled_kerning_bool ,
+    enabled-kerning            = \l_@@_enabled_kerning_bool ,
+    enabled-left-right-kerning = \l_@@_enabled_left_right_kerning_bool ,
     min-bound-to-kerning    = \l_@@_min_bound_to_kerning_bool ,
     kerning-total-width     = \l_@@_kerning_total_width_dim ,
     kerning-total-ratio     = \l_@@_kerning_total_ratio_fp ,
@@ -6494,8 +6502,12 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\xeCJK_get_punct_kerning:NN}
-% 标点压缩。
+% \begin{macro}[int]
+%   {\xeCJK_get_punct_kerning:NN,\@@_save_punct_kerning_plain:NN,
+%    \@@_save_punct_kerning:NN,\@@_save_left_right_kerning:NN}
+% 标点压缩。若当前格式关闭左标点到右标点的压缩，则保存零宽且无伸缩量的间距；
+% 用户通过 \cs{xeCJKsetkern} 显式设置的字符对仍然优先，除非当前格式同时关闭
+% 全局设置。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_get_punct_kerning:NN #1#2
   {
@@ -6517,10 +6529,30 @@ Copyright and Licence
     \@@_save_punct_skip:nNNn { kern } #1 #2 { \c_zero_skip }
     \@@_save_punct_skip:nNNn { bound_kern } #1 #2 { \c_zero_skip }
   }
-\cs_new_protected:Npn \@@_save_punct_kerning:NN
+\cs_new_protected:Npn \@@_save_punct_kerning:NN #1#2
   {
     \UseInstance { xeCJK / punctuation } { \l_xeCJK_punct_style_tl }
-    \xeCJK_punct_kerning_process:NN
+    \@@_punct_if_right:NTF #1
+      { \xeCJK_punct_kerning_process:NN #1 #2 }
+      {
+        \@@_punct_if_right:NTF #2
+          { \@@_save_left_right_kerning:NN #1 #2 }
+          { \xeCJK_punct_kerning_process:NN #1 #2 }
+      }
+  }
+\cs_new_protected:Npn \@@_save_left_right_kerning:NN #1#2
+  {
+    \bool_if:NTF \l_@@_enabled_left_right_kerning_bool
+      { \xeCJK_punct_kerning_process:NN #1 #2 }
+      {
+        \bool_if:NTF \l_@@_enabled_global_setting_bool
+          {
+            \tl_if_exist:cTF { g_@@_punct/kern/#1/#2/tl }
+              { \xeCJK_punct_kerning_process:NN #1 #2 }
+              { \@@_save_punct_kerning_plain:NN #1 #2 }
+          }
+          { \@@_save_punct_kerning_plain:NN #1 #2 }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -7089,8 +7121,14 @@ Copyright and Licence
 % \end{macro}
 %
 % 默认设置即为全角格式。
+% \changes{v3.10.3}{2026/07/13}
+% {全角格式启用相邻标点边界优化，并保留左标点后接右标点的自然空白（\#975）。}
 %    \begin{macrocode}
-\xeCJKDeclarePunctStyle { quanjiao } { }
+\xeCJKDeclarePunctStyle { quanjiao }
+  {
+    optimize-kerning           = true  ,
+    enabled-left-right-kerning = false
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -7107,11 +7145,13 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
+% \changes{v3.10.3}{2026/07/13}
+% {开明式句末点号的宽度由 \texttt{0.8em} 改为全角（\#975）。}
 %    \begin{macrocode}
 \xeCJKDeclarePunctStyle { kaiming }
   {
     fixed-punct-ratio   = 0.5  ,
-    mixed-punct-ratio   = 0.8  ,
+    mixed-punct-ratio   = 1.0  ,
     optimize-margin     = true ,
     kerning-total-ratio = 0.5  ,
     optimize-kerning    = true

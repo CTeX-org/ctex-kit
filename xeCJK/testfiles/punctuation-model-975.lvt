@@ -1,0 +1,130 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\newCJKfontfamily\NotoTC{Noto Serif CJK TC}
+\newCJKfontfamily\NotoJP{Noto Serif CJK JP}
+\newCJKfontfamily\NotoSC{Noto Serif CJK SC}
+
+\xeCJKDeclarePunctStyle{quanjiao-legacy}
+  { optimize-kerning = false }
+\xeCJKDeclarePunctStyle{quanjiao-left-right}
+  {
+    optimize-kerning           = true,
+    enabled-left-right-kerning = true
+  }
+\xeCJKDeclarePunctStyle{quanjiao-no-global}
+  {
+    enabled-global-setting     = false,
+    optimize-kerning           = true,
+    enabled-left-right-kerning = false
+  }
+\xeCJKsetkern{〔}{？}{0.25em}
+\ExplSyntaxOn
+\int_new:N \g__xeCJK_test_nobreak_int
+\cs_new_protected:Npn \TestPairNoBreak
+  {
+    \int_gzero:N \g__xeCJK_test_nobreak_int
+    \group_begin:
+      \cs_set_protected:Npn \xeCJK_no_break:
+        {
+          \int_gincr:N \g__xeCJK_test_nobreak_int
+          \tex_penalty:D 10 000 \scan_stop:
+        }
+      \hbox_set:Nn \l_tmpa_box {（？}
+    \group_end:
+    \TYPE { no-break~calls:~\int_use:N \g__xeCJK_test_nobreak_int }
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\setbox0=\hbox{\NotoTC 字}
+\setbox0=\hbox{\NotoJP 字}
+\setbox0=\hbox{\NotoSC 字}
+
+\START
+
+\TEST{kaiming sentence-final and inline widths}{
+  \xeCJKsetup{PunctStyle=kaiming}
+  \setbox0=\hbox{字。字}
+  \setbox2=\hbox{字，字}
+  \setbox4=\hbox{字字}
+  \dimen0=\wd0 \advance\dimen0 by -\wd4
+  \dimen2=\wd2 \advance\dimen2 by -\wd4
+  \TYPE{sentence-final: \the\dimen0}
+  \TYPE{inline: \the\dimen2}
+  \setbox0=\hbox{。」「。』}
+  \TYPE{adjacent: \the\wd0}
+}
+
+\TEST{Traditional Chinese centered punctuation}{
+  \NotoTC
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \setbox0=\hbox{。』？！}
+  \xeCJKsetup{PunctStyle=quanjiao-legacy}
+  \setbox2=\hbox{。』？！}
+  \TYPE{optimized: \the\wd0}
+  \TYPE{legacy: \the\wd2}
+}
+
+\TEST{Japanese mixed punctuation}{
+  \NotoJP
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \setbox0=\hbox{。』？！}
+  \xeCJKsetup{PunctStyle=quanjiao-legacy}
+  \setbox2=\hbox{。』？！}
+  \TYPE{optimized: \the\wd0}
+  \TYPE{legacy: \the\wd2}
+}
+
+\TEST{FullLeft to FullRight natural spacing}{
+  \NotoSC
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \setbox0=\hbox{字（？）字}
+  \setbox2=\hbox{字（\kern0pt ？）字}
+  \TYPE{default: \the\wd0}
+  \TYPE{natural-reference: \the\wd2}
+  \xeCJKsetup{PunctStyle=quanjiao-left-right}
+  \setbox4=\hbox{字（？）字}
+  \TYPE{opt-in-compression: \the\wd4}
+  \xeCJKsetup{PunctStyle=banjiao}
+  \setbox6=\hbox{字（？）字}
+  \TYPE{banjiao: \the\wd6}
+}
+
+\TEST{FullLeft to FullRight explicit kern}{
+  \NotoSC
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \setbox0=\hbox{字〔？〕字}
+  \TYPE{explicit-kern: \the\wd0}
+  \xeCJKsetup{PunctStyle=quanjiao-no-global}
+  \setbox2=\hbox{字〔？〕字}
+  \TYPE{global-setting-disabled: \the\wd2}
+}
+
+\TEST{FullLeft to FullRight remains unbreakable}{
+  \NotoSC
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \TestPairNoBreak
+}
+
+\TEST{reverse pair remains unchanged}{
+  \NotoSC
+  \xeCJKsetup{PunctStyle=quanjiao}
+  \setbox0=\hbox{字？（字}
+  \setbox2=\hbox{字）（字}
+  \xeCJKsetup{PunctStyle=quanjiao-legacy}
+  \setbox4=\hbox{字？（字}
+  \setbox6=\hbox{字）（字}
+  \TYPE{question-opening-default: \the\wd0}
+  \TYPE{question-opening-legacy: \the\wd4}
+  \TYPE{close-open-default: \the\wd2}
+  \TYPE{close-open-legacy: \the\wd6}
+}
+
+\END
+
+\end{document}
