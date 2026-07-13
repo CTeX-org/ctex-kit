@@ -7,7 +7,10 @@
 ## architecture
 
 - `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 xeCJK 对 #407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T 音节状态转移、#165 `CJStarter` 严格禁则及 fntef helper 交换约束，以及边界恢复链中 `\lastkern` 标记、whatsit 定点重放、glue-on-kern-pair 遮蔽和 ecglue 缓存取值的统一心智模型。
-- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：interchar token 与字符分类（含 #336 `Others` 外部类传播、#347 装盒变换边界、#158/#165/#382 专用类）、边界恢复状态机、字体管理（含 #553 字体/间距可分离但混合类不产品化）、标点压缩（含 #443/#481/#488 现存缺口与 #511 重构边界）、间距（含 #808 `\xeCJKVerbAddon` 行内代码语义）、兼容补丁（含 #510 传统 ruby 的协议边界）、`\char` 约束及扩展子包；并收录 #873/#880/#910/#931 的修复点选择矩阵与 #919 language whatsit 双倍 ecglue 修复。
+- `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：
+  - interchar token、字符分类（#158/#165/#336/#347/#382）、边界状态机与字体管理（#553）；
+  - 标点压缩（#443/#481/#488 现存缺口与 #511 重构边界）和间距语义（#808）；
+  - 兼容补丁（#510、#873/#880/#910/#919/#931）、`\char` 约束及扩展子包。
 - `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
