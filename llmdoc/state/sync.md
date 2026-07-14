@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 6cd93c9489ad9dd80afd6a8ab31316bf8b2097aa
-- watermark-subject: docs(ctex): clarify heading label equivalence
-- updated-at: 2026-07-14T05:48:07Z
+- watermark-commit: af520dd220e2ba3eba6da3fcc09610e76478ede4
+- watermark-subject: docs(ctex): explain autoindent zero exception
+- updated-at: 2026-07-14T07:15:03Z
 - updated-by: /llmdoc:update
