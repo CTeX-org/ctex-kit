@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 91d37826391a677afa00b2442d73ed84777ab2ab
-- watermark-subject: fix(ctex): record CJKfntef guard for v2.6.3
-- updated-at: 2026-07-13T14:15:21Z
+- watermark-commit: 19032eb1cea55d070ad5247e55f5c4e8692222f1
+- watermark-subject: docs(ctex): explain heading query use case
+- updated-at: 2026-07-14T05:12:00Z
 - updated-by: /llmdoc:update

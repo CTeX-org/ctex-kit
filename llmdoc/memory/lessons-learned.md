@@ -82,3 +82,18 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 跨后端判断宏包兼容性时，先核对实际载入文件、协议和输出证据；只有替代实现 API 同构时才可透明替换，否则应明确拒绝并给出迁移路径。
 **Why**: #381 中 XeTeX 的 `CJKfntef` 实际被替换为 `xeCJKfntef`，而 LuaTeX 会载入传统 `CJK.sty` 并破坏字体族状态；`lua-ul` 虽功能相近但 API 不同，不能静默冒充。
 **Source**: `llmdoc/memory/archive/2026-07-13/381-cjkfntef-backend-boundary.md`
+
+### 下游模板只应取得稳定数据，不应被上游接管样式
+**Rule**: 下游模板依赖私有状态时，按真实调用点提炼最小的数据与 predicate 接口，同时把标题文本和视觉样式留给下游现有模板系统。
+**Why**: #275 中 SJTUBeamer 的六个私有变量依赖可收敛为三个按层级查询；若新增 insert 命令或公开样式宏，反而会复制 Beamer 接口并冻结 ctex 内部组织。
+**Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
+
+### 功能变化与无回归迁移需要不同视觉 oracle
+**Rule**: 新接口既改变部分行为又替换下游私有依赖时，分别验证“目标行为确实变化”和“等价迁移像素不变”。
+**Why**: #275 的自定义 MWE 证明 `numbering=false` 会移除标签布局，SJTUBeamer 9 页 `AE=0` 则证明从私有宏迁移到公开接口不改变既有主题输出。
+**Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
+
+### 并行测试快照前先确认新文件已被 git 看见
+**Rule**: 使用基于 `git ls-files` 的隔离测试脚本前，确认新测试已进入索引；否则全量测试数量和结果都不会包含它。
+**Why**: #275 的新测试完全未跟踪时，`make check-ctex` 的四引擎快照仍各运行 183 项，进入索引后才运行 184 项。
+**Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
