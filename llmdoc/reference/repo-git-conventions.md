@@ -1,5 +1,12 @@
 # 仓库级 git 分支组织约定
 
+## CODEOWNERS 审查归属
+
+`.github/CODEOWNERS` 采用“后写路径规则整行覆盖先写规则”的 GitHub 语义：全仓库
+默认由 `@CTeX-org/core-developers` 负责；`/zhlineskip/` 的专门规则同时列出
+`@CTeX-org/core-developers` 与 `@CTeX-org/zhlineskip-maintainers`，任一团队批准即可。
+新增更具体的包级规则时必须保留所有可批准 owner，不能误以为后写行会与默认行合并。
+
 ## Push 与 PR 状态判定
 
 仓库通过 `make hooks` 安装 `.githooks/`，其中 pre-push 是 self-wrapper：外层 push 负责进入 hook，hook 发起内层 push 真正更新远端，再等待当前分支 PR 的 CI 并检查 push 后新增评论与未解决 review thread。外层 push 随后会报告失败，因此远端更新以 hook 中间输出的内层结果为准。
@@ -23,7 +30,10 @@
 - 目录组织：`issues/<issue 号>/<文件名>`，按关联 issue 归档。
 - 引用格式：`https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/<issue 号>/<文件名>`。
 
-现有内容：`issues/859/`（#859 标点测量对比图 5 张 + 1 个 MWE `.tex`）、`issues/456/`（#456 禁则修复前后对比图）。这两批分别取代了此前的临时分支 `tmp-859-assets` / `tmp-456-assets`（均已删除）。
+现有内容包括：`issues/859/`（#859 标点测量对比图与 MWE）、`issues/456/`
+（#456 禁则修复前后对比图）和 `issues/275/`（标题编号行为变化、SJTUBeamer
+私有宏迁移的 MWE、PDF 与前后对比图）。前两批分别取代了此前的临时分支
+`tmp-859-assets` / `tmp-456-assets`（均已删除）。
 
 ### 添加新资产的安全操作方式
 
