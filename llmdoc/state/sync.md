@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 19032eb1cea55d070ad5247e55f5c4e8692222f1
-- watermark-subject: docs(ctex): explain heading query use case
-- updated-at: 2026-07-14T05:12:00Z
+- watermark-commit: 6cd93c9489ad9dd80afd6a8ab31316bf8b2097aa
+- watermark-subject: docs(ctex): clarify heading label equivalence
+- updated-at: 2026-07-14T05:48:07Z
 - updated-by: /llmdoc:update
