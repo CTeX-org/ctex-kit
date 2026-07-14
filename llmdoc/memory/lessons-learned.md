@@ -34,6 +34,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: PR #976 只审计 GitHub 活动，漏掉被 `.gitignore` 隐藏的报告中两个有效小问题，合并后不得不用 #978 补修。
 **Source**: `llmdoc/memory/archive/2026-07-13/976-978-ignored-local-code-review.md`
 
+### APPROVE 总评不覆盖详情中的 finding
+**Rule**: 任务要求处理全部审查问题时，按阻塞、重要和小问题的逐项计数闭环；总评为 APPROVE 或建议标为 optional 都不能自动视为已处理。
+**Why**: PR #983 第一轮自动审查虽为 APPROVE，仍列出 1 个实现注释小问题；初次收尾跳过后，最终 completion audit 才补上并经增量审查确认 0/0/0。
+**Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
+
 ## TeX 节点与输出几何
 
 ### leader 相位问题不能只测盒宽
