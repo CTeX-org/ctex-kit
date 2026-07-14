@@ -435,8 +435,8 @@
 - 修正全角左标点后下划线与 `\CJKunderdot` 连用时结果不正常的问题。
 - 解决 `\CJKunderdot` 跨页使用时影响到页眉页脚的问题。
 - 完善对 `listings` 宏包的支持。
-- 解决 `listings` 坏境中代码行号输出不正确的问题，并解决在其中跨页时对页眉和页脚的影响。
-- 在 `listings` 坏境中对 `\charcode` 大于 $255$ 的字符根据其 `\catcode` 区分 `letter` 和 `other`。
+- 解决 `listings` 环境中代码行号输出不正确的问题，并解决在其中跨页时对页眉和页脚的影响。
+- 在 `listings` 环境中对 `\charcode` 大于 $255$ 的字符根据其 `\catcode` 区分 `letter` 和 `other`。
 
 ## [xeCJK-v3.2.2](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.2.2)
 
