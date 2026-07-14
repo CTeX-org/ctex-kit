@@ -17,11 +17,11 @@ PR #977（基于提交 `a12c4dda`）合入了这一修复，并关闭了 #265。
 引入并重新规范布尔控制链，对 `\xpinyin` 的执行逻辑和作用域约束进行如下调整：
 
 1. **变量规范与初始化**：
-  - 弃用不符合命名规范的全局标识，新定义局部影子布尔变量 `\l_@@_enable_outer_bool`，用以显式声明其主要作为局部状态受 TeX 分组约束。
+  - 弃用不符合命名规范的全局标识，新定义局部影子布尔变量 `\l_@@_enable_all_bool`，用以显式声明其主要作为局部状态受 TeX 分组约束。
   - 在 `\ExplSyntaxOn` 顶层（此时无分组）使用 `\bool_gset_true:N` 进行合法初始化，确保默认开启。
 2. **作用域受控的分支切换**：
   - 将 `\enablepinyin` 与 `\disablepinyin` 内部对该变量的操作定性为局部赋值（使用 `\bool_set_true:N` / `\bool_set_false:N`）。当在 `pinyinscope` 环境或局部组内调用时，退出分组后状态会自动恢复。
-  - 在 `\xpinyin` 宏中应用 `\bool_if:NTF \l_@@_enable_outer_bool` 进行分支控制。
+  - 在 `\xpinyin` 宏中应用 `\bool_if:NTF \l_@@_enable_all_bool` 进行分支控制。
 3. **保持底层行为一致性**：
   - 为了防止在禁用（disabled）路径下破坏原有的垂直模式行为，将 `\mode_leave_vertical:` 移至 `\bool_if:NTF` 分支判断之前。确保即使在段落起始位置且拼音被禁用时，`\xpinyin` 仍能无条件退出垂直模式，与原始代码行为绝对一致。
   - 在禁用路径下，非星号形式正确使用 `\use_i:nn {#3}` 消费并丢弃后续拼音参数，星号形式则直接输出原始文本 `#3`。
