@@ -23,3 +23,20 @@ private-macro baseline and public-API prototype are pixel-identical.
 
 The commands defined in `sjtu-prototype.tex` are investigation prototypes, not
 interfaces already shipped by CTeX.
+
+## Implementation evidence
+
+The following files were generated from ctex-kit commit `1813f19a` on the
+`feature/275-heading-query-interfaces` branch:
+
+- `custom-after.tex` / `.pdf`: uses the public numbering predicate to omit the
+  section label and its spacing when `section/numbering=false`.
+- `heading-numbering-before-after.png`: visible behavior before and after the
+  public predicate is used by the Beamer template.
+- `sjtu-after.tex` / `.pdf`: migrates the six SJTUBeamer private-macro reads to
+  the implemented public interfaces.
+- `sjtubeamer-before-after.png`: section-page comparisons for `maxplus`, `max`,
+  and `min`, labeled as private macros versus the implemented public API.
+
+The implemented SJTUBeamer before/after PDFs also compare at `AE = 0` for all
+nine pages.
