@@ -1,6 +1,7 @@
 ## [ctex-v2.6.3](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.3)
 
 - 禁止在 LuaTeX 后端载入不兼容的 `CJKfntef`，并推荐使用 `lua-ul`（#381）。
+- 提供按层级查询标题编号、完整标签和编号开关的接口（#275）。
 
 ## [ctex-v2.6.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.2)
 
