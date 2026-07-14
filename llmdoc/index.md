@@ -11,15 +11,15 @@
   - interchar token、字符分类（#158/#165/#336/#347/#382）、边界状态机与字体管理（#553）；
   - 标点压缩（#975 对 #443/#481/#488 的预设与方向性修复，以及 #511 重构边界）和间距语义（#808）；
   - 兼容补丁（#510、#873/#880/#910/#919/#931/#972）、`\char` 约束及扩展子包。
-- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号系统（含 #871 `letterpress` 仅为金属活字字号体系**之一**的勘误说明）、方案/标题/字体集（含 #275 可展开的标题编号、完整标签与编号开关查询）、命令补丁与实验性接口。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号与字距系统（含 #871 `letterpress` 语义及 #402 `autoindent` 零缩进兼容边界）、方案/标题/字体集（含 #275 可展开的标题编号、完整标签与编号开关查询）、命令补丁与实验性接口。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇（含 #275 标题查询与 #381 CJKfntef 两分支）、多引擎基线策略（含 git 跟踪文件快照与 l3build 参数顺序）、LuaTeX 预热、ctxdoc 专项回归（patch 硬失败 + #963 长函数名节点结构）、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + `check-changelog.yml` CHANGELOG.md 新鲜度门禁 #961 + 「生成物新鲜度校验」通用模式小节 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP + 已发布版本后的 `\changes` 归入下一未发布版本）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇（含 #275 标题查询、#381 CJKfntef 两分支与 #402 `autoindent` 零缩进契约）、多引擎基线策略（含 git 跟踪文件快照与 l3build 参数顺序）、LuaTeX 预热、ctxdoc 专项回归（patch 硬失败 + #963 长函数名节点结构）、CI/CD（含 `check-doc.yml` 文档编译门禁 #935 + `check-tag.yml` 版本 stamp 门禁 #937 + `check-changelog.yml` CHANGELOG.md 新鲜度门禁 #961 + 「生成物新鲜度校验」通用模式小节 + fontconfig alias 对 XeTeX 无效的稳定教训）、版本管理（build.lua 单一事实源 + l3build tag 回写 + 双闸校验 SOP + 已发布版本后的 `\changes` 归入下一未发布版本）、CI 字体策略（含 #878 `xunicode-symbols.tex` 五级逐字符字体回退链最低保证）、agentic 工作流来源与频率约束（#874/#876）、LaTeX2e 2026-06-01 格式依赖声明（#883）、本地 TL usertree 同步双步流程（#873/#880）。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
-- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾。
+- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402 等 MWE 与对比图）。
 
 ## guides
 
@@ -28,10 +28,11 @@
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、审查 APPROVE 总评仍须逐项闭环 finding、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先、可行性/产品化分离、下游数据/样式边界、双视觉 oracle 和 git 测试快照规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、审查 APPROVE 总评仍须逐项闭环 finding、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先、可行性/产品化分离、下游数据/样式边界、功能迁移与文档型修复的分层视觉 oracle、git 测试快照规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/275-heading-query-interfaces.md` — 决策: 为 Beamer 等下游提供可展开、按层级查询裸编号、完整本地化标签和 `numbering` 状态的公共接口；不新增 Beamer insert 命令，也不公开样式私有宏。
+- `llmdoc/memory/decisions/402-autoindent-zero-exception.md` — 决策: 保留 `autoindent` 对零 `\parindent` 不执行字号跟随的兼容语义，以保护旧文档和 `minipage`、居中段落等结构；补手册与四引擎回归，不改实现。
 - `llmdoc/memory/decisions/158-165-jamo-cj-interchar-classes.md` — 决策: Hangul 用 L/V/T 转移区分音节内 shaping 与音节间 CJKglue；日文 CJ 默认 normal、可选 strict 独立类禁则，并保持 fntef 专用转移。
 - `llmdoc/memory/decisions/271-varioref-chinese-upstream-locale.md` — 决策: 中文 varioref 本地化优先以上游 `varioref` 的 `chinese` locale 实现，先推动 latex2e PR #2071，而非在 ctex 侧维护整套描述性文本补丁。
 - `llmdoc/memory/decisions/725-cleveref-patch-toggle.md` — 决策: 不在 ctex 侧修复 cleveref appendix 语义问题，改为提供 `patch/cleveref` 开关。

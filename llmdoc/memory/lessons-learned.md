@@ -98,6 +98,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #275 的自定义 MWE 证明 `numbering=false` 会移除标签布局，SJTUBeamer 9 页 `AE=0` 则证明从私有宏迁移到公开接口不改变既有主题输出。
 **Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
 
+### 无运行变化的文档修复要分离说明差异与行为证据
+**Rule**: 只补充既有兼容契约时，用手册前后图证明信息缺口已修复，另用 MWE 展示稳定行为；不要虚构运行时“修复前后”。
+**Why**: #402 没有修改 `autoindent` 实现，真正变化是手册新增零缩进例外；同页手册对比与三场景 MWE 分别回答“说明变了什么”和“所述行为是否真实”。
+**Source**: `llmdoc/memory/archive/2026-07-14/402-autoindent-documentation-contract.md`
+
 ### 并行测试快照前先确认新文件已被 git 看见
 **Rule**: 使用基于 `git ls-files` 的隔离测试脚本前，确认新测试已进入索引；否则全量测试数量和结果都不会包含它。
 **Why**: #275 的新测试完全未跟踪时，`make check-ctex` 的四引擎快照仍各运行 183 项，进入索引后才运行 184 项。
