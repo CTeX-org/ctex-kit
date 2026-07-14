@@ -1,0 +1,159 @@
+\documentclass[fontset = fandol, 12pt]{ctexart}
+\usepackage{zhnumber}
+\usepackage{fontspec}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin = 2.2cm]{geometry}
+\pagestyle{empty}
+
+\newfontfamily\RodFont{Noto Sans Symbols 2}
+\newcommand\RawRodSample{{\RodFont\char"1D360\char"1D36A\char"1D362\char"1D36C\char"1D364}}
+
+\ExplSyntaxOn
+\bool_new:N \l__zhrod_units_vertical_bool
+\int_new:N  \l__zhrod_power_int
+\int_new:N  \l__zhrod_remaining_int
+\seq_new:N  \l__zhrod_parts_seq
+
+\msg_new:nnn { zhrod } { invalid-style }
+  { Unknown~counting-rod~style~`#1'.~Use~`hv'~or~`vh'. }
+\msg_new:nnn { zhrod } { invalid-input }
+  { Counting~rods~accept~a~signed~decimal~number;~received~`#1'. }
+
+\cs_new_protected:Npn \__zhrod_set_style:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        { hv } { \bool_set_true:N  \l__zhrod_units_vertical_bool }
+        { vh } { \bool_set_false:N \l__zhrod_units_vertical_bool }
+      }
+      { \msg_error:nnn { zhrod } { invalid-style } {#1} }
+  }
+
+\cs_new_protected:Npn \__zhrod_digit:nn #1#2
+  {
+    \str_if_eq:nnTF {#1} { 0 }
+      { \raisebox{.12ex}{\scalebox{.72}[.72]{〇}} }
+      {
+        \group_begin:
+          \RodFont
+          \int_if_odd:nTF {#2}
+            {
+              \bool_if:NTF \l__zhrod_units_vertical_bool
+                { \char_generate:nn { \int_eval:n { "1D368 + #1 } } { 12 } }
+                { \char_generate:nn { \int_eval:n { "1D35F + #1 } } { 12 } }
+            }
+            {
+              \bool_if:NTF \l__zhrod_units_vertical_bool
+                { \char_generate:nn { \int_eval:n { "1D35F + #1 } } { 12 } }
+                { \char_generate:nn { \int_eval:n { "1D368 + #1 } } { 12 } }
+            }
+        \group_end:
+      }
+  }
+
+\cs_new_protected:Npn \__zhrod_integer:n #1
+  {
+    \int_set:Nn \l__zhrod_power_int { \tl_count:n {#1} - 1 }
+    \tl_map_inline:nn {#1}
+      {
+        \__zhrod_digit:nn {##1} { \l__zhrod_power_int }
+        \int_compare:nNnT { \l__zhrod_power_int } > { 0 } { \kern-.14em }
+        \int_decr:N \l__zhrod_power_int
+      }
+  }
+
+\cs_new_protected:Npn \__zhrod_fraction:n #1
+  {
+    \int_set:Nn \l__zhrod_power_int { -1 }
+    \int_set:Nn \l__zhrod_remaining_int { \tl_count:n {#1} }
+    \tl_map_inline:nn {#1}
+      {
+        \__zhrod_digit:nn {##1} { \l__zhrod_power_int }
+        \int_decr:N \l__zhrod_remaining_int
+        \int_compare:nNnT { \l__zhrod_remaining_int } > { 0 } { \kern-.14em }
+        \int_decr:N \l__zhrod_power_int
+      }
+  }
+
+\cs_new_protected:Npn \__zhrod_signed_integer:n #1
+  {
+    \str_if_eq:eeTF { \tl_head:n {#1} } { - }
+      {
+        ＼\kern-.14em
+        \exp_args:Ne \__zhrod_integer:n { \tl_tail:n {#1} }
+      }
+      {
+        \str_if_eq:eeTF { \tl_head:n {#1} } { + }
+          { \exp_args:Ne \__zhrod_integer:n { \tl_tail:n {#1} } }
+          { \__zhrod_integer:n {#1} }
+      }
+  }
+
+\cs_new_protected:Npn \__zhrod_output:n #1
+  {
+    \seq_set_split:Nnn \l__zhrod_parts_seq { . } {#1}
+    \exp_args:Ne \__zhrod_signed_integer:n
+      { \seq_item:Nn \l__zhrod_parts_seq { 1 } }
+    \int_compare:nNnT { \seq_count:N \l__zhrod_parts_seq } = { 2 }
+      {
+        \kern .04em
+        \raisebox{.28ex}{\scalebox{.55}[.55]{．}}
+        \kern .04em
+        \exp_args:Ne \__zhrod_fraction:n
+          { \seq_item:Nn \l__zhrod_parts_seq { 2 } }
+      }
+  }
+
+\NewDocumentCommand \zhrod { O{hv} m }
+  {
+    \group_begin:
+      \__zhrod_set_style:n {#1}
+      \regex_match:nnTF { \A[-+]?[0-9]+(?:\.[0-9]+)?\Z } {#2}
+        { \__zhrod_output:n {#2} }
+        { \msg_error:nnn { zhrod } { invalid-input } {#2} }
+    \group_end:
+  }
+\ExplSyntaxOff
+
+\newsavebox{\zhrodRawBox}
+\newsavebox{\zhrodKernedBox}
+\AtBeginDocument
+  {
+    \sbox{\zhrodRawBox}{{\Large \RawRodSample}}
+    \sbox{\zhrodKernedBox}{{\Large \zhrod[hv]{12345}}}
+    \typeout{ZHROD raw width: \the\wd\zhrodRawBox}
+    \typeout{ZHROD kerned width: \the\wd\zhrodKernedBox}
+  }
+
+\begin{document}
+
+\section*{算筹数字原型（XeLaTeX / LuaLaTeX）}
+
+\noindent
+Unicode 已分别编码单位数与十位数的 1--9；原型按十进位交替选取字形，0 暂以缩小的
+\texttt{〇} 表示，负数以全角反斜线表示。此文件同时载入当前 \texttt{zhnumber}，但
+\verb|\zhrod| 仅是独立原型，尚未改变该宏包的任何正式接口。
+
+\bigskip
+\begin{tabular}{@{}lll@{}}
+\toprule
+输入 & \verb|\zhrod[hv]{...}|（个位纵） & \verb|\zhrod[vh]{...}|（个位横） \\
+\midrule
+123456789 & {\Large \zhrod[hv]{123456789}} & {\Large \zhrod[vh]{123456789}} \\
+-12030.405 & {\Large \zhrod[hv]{-12030.405}} & {\Large \zhrod[vh]{-12030.405}} \\
+\bottomrule
+\end{tabular}
+
+\bigskip
+\noindent\textbf{相邻字形的压缩：}\quad
+{\Large \RawRodSample}
+\quad（直接输入）\qquad
+{\Large \zhrod[hv]{12345}}
+\quad（每相邻数字 \verb|\kern-.14em|）
+
+\bigskip
+\noindent\textbf{原型边界：}本页只验证 XeLaTeX / LuaLaTeX 中的 Unicode 字形、位值交替和横排压缩。
+它尚未处理可展开性、pdfLaTeX 字体回退、真实纵书引擎中的横中排，以及历史字形/度量校勘。
+
+\end{document}
