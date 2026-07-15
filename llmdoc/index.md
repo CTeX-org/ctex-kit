@@ -11,7 +11,7 @@
   - interchar token、字符分类（#158/#165/#336/#347/#382）、边界状态机与字体管理（#553）；
   - 标点压缩（#975 对 #443/#481/#488 的预设与方向性修复，以及 #511 重构边界）和间距语义（#808）；
   - 兼容补丁（#510、#873/#880/#910/#919/#931/#972）、`\char` 约束及扩展子包。
-- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号与字距系统（含 #871 `letterpress` 语义及 #402 `autoindent` 零缩进兼容边界）、方案/标题/字体集（含 #275 可展开的标题编号、完整标签与编号开关查询）、命令补丁与实验性接口。
+- `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号与字距系统（含 #871 `letterpress` 语义及 #402 `autoindent` 零缩进兼容边界）、方案/标题/字体集（含 #275 可展开的标题编号、完整标签与编号开关查询）、命令补丁，以及 Babel/biblatex 公开组合方法与运行时补丁的职责边界。
 - `llmdoc/architecture/cleveref-patch.md` — cleveref 兼容补丁机制、挂钩链、`patch/cleveref` 开关与 Issue #725 根因分析。
 
 ## reference
@@ -23,12 +23,12 @@
 
 ## guides
 
-- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
+- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告、按当前增量风险选择验证强度、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
 - `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961)。
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、审查 APPROVE 总评仍须逐项闭环 finding、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先、可行性/产品化分离、下游数据/样式边界、功能迁移与文档型修复的分层视觉 oracle、git 测试快照规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含 ctxdoc 复合对象最窄缩放、上游私有补丁硬失败、审查 APPROVE 总评仍须逐项闭环 finding、按增量风险收缩验证强度、leader 相位、字符分类节点审计、边界状态可信来源、可见排版三类证据，以及 feature request 的现有能力优先、可行性/产品化分离、下游数据/样式边界、功能迁移与文档型修复的分层视觉 oracle、git 测试快照规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/275-heading-query-interfaces.md` — 决策: 为 Beamer 等下游提供可展开、按层级查询裸编号、完整本地化标签和 `numbering` 状态的公共接口；不新增 Beamer insert 命令，也不公开样式私有宏。

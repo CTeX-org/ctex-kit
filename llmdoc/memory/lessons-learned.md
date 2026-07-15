@@ -39,6 +39,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: PR #983 第一轮自动审查虽为 APPROVE，仍列出 1 个实现注释小问题；初次收尾跳过后，最终 completion audit 才补上并经增量审查确认 0/0/0。
 **Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
 
+### 验证强度按当前增量风险收缩
+**Rule**: 主体改动已有完整验证后，仅涉及注释或措辞的后续小改使用差异检查、必要的定向实验和强制 CI；只有增量重新触及语义、解析、生成物或基线时才重跑完整本地门禁。
+**Why**: PR #988 在完整 `l3build ctan` 已通过后仍为标题定义名称和一行注释重复全量构建，增加等待且中止时产生局部构建噪声，没有带来相称的新覆盖。
+**Source**: `llmdoc/memory/archive/2026-07-15/986-987-third-party-docs-and-proportional-verification.md`
+
 ## TeX 节点与输出几何
 
 ### leader 相位问题不能只测盒宽

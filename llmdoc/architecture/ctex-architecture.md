@@ -314,6 +314,20 @@ SJTUBeamer 等下游对 `\CTEX@...` 私有变量的直接访问，而不让 ctex
 
 部分补丁通过 `\ctexset{ patch/<name> = false }` 允许用户关闭。
 
+### 文档化的组合边界
+
+Babel 与 biblatex 不属于上述运行时补丁目标。CTeX 不载入或检测这两个包，也不改写
+它们的私有命令；
+用户手册第 11 节提供的是只使用公开接口的组合方法：Babel 保存语言状态，用户可在
+`\extraschinese`、`\extrasenglish` 等语言钩子中用 `\ctexset` 切换章节标签、编号
+和图表名称；biblatex 则继续
+拥有 locale strings 与 heading，按需求使用 `title`、`\DefineBibliographyStrings`
+或 `\defbibheading`。CTeX 的 `bibname` 面向标准 `thebibliography`，不是所有
+biblatex 标题的总开关。
+
+这一区分意味着“手册给出可编译 MWE”不等于新增运行时集成。Polyglossia 使用不同的
+语言接口，还可能与 xeCJK 的字符间机制冲突，不能从 Babel 示例类推兼容承诺。
+
 ## 实验性接口
 
 ctex 使用 `experiment/` 命名空间暴露尚未在所有引擎间拥有完全等价语义的功能：
