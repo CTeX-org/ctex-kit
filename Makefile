@@ -180,14 +180,15 @@ clean-all: $(addprefix clean-,$(L3BUILD_PKGS)) clean-gbk2uni
 # ── 单包 target: $(verb)-$(pkg) → cd $(pkg) && l3build $(verb) ─────────────
 # 用 pattern rule 写法, 一条规则覆盖全部 verb × pkg 笛卡儿积.
 #
-# 注: check 的 ctex / xeCJK 等"大包"的 pattern 规则会被下方的 per-pkg
-# override (check-ctex 走 scripts/check-parallel.sh 多 engine 并行).
-# 其他小包仍走默认串行规则.
+# 注: check-ctex 从 pattern 规则中 filter-out, 由下方专属规则接管
+# (走 scripts/check-parallel.sh 多 engine 并行). 若不排除, 两处 recipe
+# 会触发 make 的 "overriding recipe for target 'check-ctex'" 警告.
+# 其他包仍走默认串行规则.
 define L3BUILD_PKG_RULES
 $(addprefix doc-,    $(1)): doc-%:    ; cd $$* && l3build doc
 $(addprefix unpack-, $(1)): unpack-%: ; cd $$* && l3build unpack
 $(addprefix ctan-,   $(1)): ctan-%:   ; cd $$* && l3build ctan
-$(addprefix check-,  $(1)): check-%:  ; cd $$* && l3build check
+$(addprefix check-,  $(filter-out ctex,$(1))): check-%: ; cd $$* && l3build check
 $(addprefix clean-,  $(1)): clean-%:  ; cd $$* && l3build clean
 endef
 $(eval $(call L3BUILD_PKG_RULES,$(L3BUILD_PKGS)))
