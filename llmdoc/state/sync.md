@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: af520dd220e2ba3eba6da3fcc09610e76478ede4
-- watermark-subject: docs(ctex): explain autoindent zero exception
-- updated-at: 2026-07-14T07:15:03Z
+- watermark-commit: 9b80026c3925734c79a227fa5f006183e9dec8d7
+- watermark-subject: docs(ctex): explain biblatex locale in example
+- updated-at: 2026-07-15T04:39:13Z
 - updated-by: /llmdoc:update
