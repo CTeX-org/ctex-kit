@@ -114,6 +114,10 @@ Before submitting code, please ensure:
 3. Changes to `.dtx` files include `\changes` entries
 4. After editing `\changes`, regenerate the package's `CHANGELOG.md` with `make changelog` (or `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`) and commit it together; without a local Python, copy the expected content from the failed check-changelog CI log
 
+## Sponsoring
+
+The repository's CI runs a set of agentic automation workflows (automated PR review, llmdoc documentation updates, and periodic patrol), which incur ongoing LLM API token costs. We accept donations via [Open Collective](https://opencollective.com/ctex-kit), earmarked for these API bills. Funds are held by our fiscal host, Open Source Collective, with a fully transparent public ledger — they never pass through any maintainer's personal account.
+
 ## Related Links
 
 - [CTeX Community](http://www.ctex.org)

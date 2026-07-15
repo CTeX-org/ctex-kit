@@ -114,6 +114,10 @@ CI 在 Ubuntu、macOS 和 Windows 三个平台上针对当前 TeX Live 发行版
 3. 对于 `.dtx` 文件的修改，请在 `\changes` 中记录变更
 4. 修改 `\changes` 后，运行 `make changelog`（或 `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`）重新生成对应包的 `CHANGELOG.md` 并一并提交；本地没有 Python 时，可直接从 CI（check-changelog）失败日志中复制期望内容
 
+## 赞助
+
+仓库的 CI 运行着一组 agentic 自动化工作流（PR 自动审查、llmdoc 文档自动更新、定期巡查），它们调用 LLM API 会产生持续的 token 费用。我们通过 [Open Collective](https://opencollective.com/ctex-kit) 接受捐赠，专项用于支付这些 API 账单。资金由财政托管方 Open Source Collective 持有，收支账本公开透明，不经过任何维护者的个人账户。
+
 ## 相关链接
 
 - [CTeX 社区](http://www.ctex.org)
