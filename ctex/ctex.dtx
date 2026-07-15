@@ -2979,6 +2979,12 @@ This work has the LPPL maintenance status `maintained`.
 % \section{第三方宏包兼容}
 % \label{sec:third-party}
 %
+% 本节介绍 \CTeX{} 宏集与部分第三方宏包联用时的已知边界和推荐设置。
+% 除非另有说明，第三方宏包仍需由用户自行载入；示例只使用各宏包的公开接口。
+%
+% \subsection{与 \pkg{cleveref} 联用}
+% \label{subsec:third-party-cleveref}
+%
 % \CTeX{} 宏集为使 \tn{labelformat} 功能与章节标题设置兼容，对 \pkg{cleveref}
 % 等宏包进行了补丁。由于 \pkg{cleveref} 长期未维护（CTAN 上仍为 0.21.4），与新版
 % \LaTeX{} 内核和 \pkg{hyperref} 存在兼容问题，\CTeX{} 提供了选项以控制补丁行为。
@@ -3008,6 +3014,153 @@ This work has the LPPL maintenance status `maintained`.
 %   }
 % \end{ctexexam}
 % \end{function}
+%
+% \changes{v2.6.3}{2026/07/15}{按宏包整理第三方兼容说明，并增加与
+%   \pkg{babel}、\pkg{biblatex} 联用的内容（\#986、\#987）。}
+%
+% \subsection{与 \pkg{babel} 联用}
+% \label{subsec:third-party-babel}
+%
+% \pkg{babel} 负责保存和切换文档的语言状态；\CTeX{} 宏集则通过 \tn{ctexset}
+% 管理章节标签、中文数字和图表名称等中文排版设置。\CTeX{} 宏集不会自动载入
+% \pkg{babel}，也不会把自身的本地化交给 \pkg{babel} 或访问其私有命令。
+%
+% 只加载两个宏包并不能让 \CTeX{} 的章节格式随语言自动变化。例如，切换到
+% |english| 后，\CTeX{} 不会自行把“第一章”改为“Chapter 1”。需要这种
+% 结构性语言切换时，可以在 \pkg{babel} 的 \tn{extraschinese} 和
+% \tn{extrasenglish} 钩子中设置 \CTeX{} 的公开选项：
+% \begin{ctexexam}
+%   \documentclass[fontset=fandol]{ctexbook}
+%   \usepackage[english,chinese,provide=*]{babel}
+%
+%   \newcommand\CTEXBabelChinese{%
+%     \ctexset{
+%       part/name      = {第,部分},
+%       part/number    = \chinese{part},
+%       chapter/name   = {第,章},
+%       chapter/number = \chinese{chapter},
+%       figurename     = 图,
+%       tablename      = 表,
+%     }%
+%   }
+%   \newcommand\CTEXBabelEnglish{%
+%     \ctexset{
+%       part/name      = {Part~,},
+%       part/number    = \thepart,
+%       chapter/name   = {Chapter~,},
+%       chapter/number = \thechapter,
+%       figurename     = Figure,
+%       tablename      = Table,
+%     }%
+%   }
+%   \addto\extraschinese{\CTEXBabelChinese}
+%   \addto\extrasenglish{\CTEXBabelEnglish}
+%
+%   \begin{document}
+%   \selectlanguage{chinese}
+%   \part{中文部分}
+%   \chapter{中文章节}
+%   \begin{figure}[h]
+%     \centering\rule{20mm}{10mm}
+%     \caption{中文图题}
+%   \end{figure}
+%
+%   % 下面只为对照同一编号的中英文格式；实际文档无需重置计数器。
+%   \setcounter{part}{0}
+%   \setcounter{chapter}{0}
+%   \selectlanguage{english}
+%   \part{English Part}
+%   \chapter{English Chapter}
+%   \begin{figure}[h]
+%     \centering\rule{20mm}{10mm}
+%     \caption{English figure caption}
+%   \end{figure}
+%   \end{document}
+% \end{ctexexam}
+%
+% 对章节、部分、图表标题等文档结构进行语言切换时，应使用 \tn{selectlanguage}
+% 或 \env{otherlanguage} 环境。\tn{foreignlanguage} 面向行内文字，不应把它当作
+% 切换章节标签和图表名称的接口。
+%
+% 上例显式设置图表名称，是为了保持不同编译方式之间的结果一致。当前
+% \pkg{babel} 的中文语言设置在 \XeLaTeX{} 和 \LuaLaTeX{} 下可以提供这些名称，
+% 但在 \upLaTeX{} 和 \pdfLaTeX{} 的 DVI 路径下并未完整提供。完整的四引擎
+% MWE 和输出对比见
+% \href{https://github.com/CTeX-org/ctex-kit/tree/gh-assets/issues/626}{Issue~\#626
+% 的测试资料}；本节对应的文档工作见
+% \href{https://github.com/CTeX-org/ctex-kit/issues/986}{Issue~\#986}。
+%
+% \textbf{本节的设置只适用于 \pkg{babel}。}\pkg{polyglossia} 使用不同的语言
+% 接口，并且可能与 \pkg{xeCJK} 的字符间机制产生冲突，不能直接套用上述示例。
+%
+% \subsection{与 \pkg{biblatex} 联用}
+% \label{subsec:third-party-biblatex}
+%
+% \CTeX{} 的 \opt{bibname} 选项面向标准文档类的 \env{thebibliography} 环境：
+% 它根据文档类设置 \tn{bibname} 或 \tn{refname}。\pkg{biblatex} 则在自己的
+% 本地化流程中管理 |bibliography|、|references| 和 |shorthands| 等字符串，并在
+% 文档开始或语言切换时更新相关名称。因此，\CTeX{} 的 \opt{bibname} 选项不是
+% 控制所有 \pkg{biblatex} 标题的总开关。
+%
+% 根据需要，应使用 \pkg{biblatex} 提供的以下公开接口：
+% \begin{itemize}
+%   \item 只修改当前文献表的标题，使用
+%     \tn{printbibliography}|[title={...}]|；
+%   \item 修改当前本地化语言中的默认标题，使用
+%     \tn{DefineBibliographyStrings}；
+%   \item 同时控制标题层级、目录和页眉，使用 \tn{defbibheading} 定义标题，
+%     再通过 \opt{heading} 选项选择。
+% \end{itemize}
+% 下面的完整示例分别演示这三类需求。实际文档通常只需要保留所需的
+% \tn{printbibliography} 调用。
+% \begin{ctexexam}
+%   \begin{filecontents}{\jobname.bib}
+%   @book{sample,
+%     author = {Doe, Jane},
+%     title  = {A Sample Bibliography Entry},
+%     date   = {2026},
+%   }
+%   \end{filecontents}
+%
+%   \documentclass[fontset=fandol]{ctexbook}
+%   \usepackage[backend=biber,style=numeric]{biblatex}
+%   \addbibresource{\jobname.bib}
+%
+%   \DefineBibliographyStrings{english}{
+%     bibliography = {默认参考文献标题},
+%     references   = {默认参考文献标题},
+%   }
+%   \defbibheading{bibintoc}[\bibname]{%
+%     \chapter*{#1}%
+%     \addcontentsline{toc}{chapter}{#1}%
+%     \markboth{#1}{#1}%
+%   }
+%
+%   \begin{document}
+%   \tableofcontents
+%   \nocite{*}
+%
+%   \printbibliography[title={仅用于这一次的标题}]
+%   \printbibliography
+%   \printbibliography[heading=bibintoc,title={加入目录的参考文献}]
+%   \end{document}
+% \end{ctexexam}
+%
+% 不使用语言宏包时，\pkg{biblatex} 的默认本地化语言通常是 |english|，所以上例
+% 修改 |english| 的字符串。若文档使用 \pkg{babel} 等语言框架，应针对实际启用的
+% \pkg{biblatex} 本地化语言设置。当前 \pkg{biblatex} 尚未提供
+% \file{chinese.lbx}；\pkg{babel} 能切换到中文语言状态，并不表示
+% \pkg{biblatex} 已具有完整的中文本地化字符串。
+%
+% 主文献表、子文献表和缩略语表等结构并不共享同一个标题。使用
+% \pkg{biblatex-gb7714-2015} 等专门的文献样式时，应优先查阅相应样式的手册，
+% 并使用其公开选项；不要复制修改 \tn{blx@}\texttt{...} 私有命令的旧方案。
+% \CTeX{} 宏集不会载入 \pkg{biblatex}、改写它的私有命令或替用户选择文献样式。
+%
+% 关于标题设置被 \pkg{biblatex} 本地化流程覆盖的完整复现、MWE 和输出图示，见
+% \href{https://github.com/CTeX-org/ctex-kit/tree/gh-assets/issues/350}{Issue~\#350
+% 的测试资料}。与 \pkg{babel} 联用时，还应同时参阅
+% \ref{subsec:third-party-babel}~小节。
 %
 % \section{对旧版本的兼容性}
 %
