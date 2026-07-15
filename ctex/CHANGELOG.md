@@ -3,6 +3,7 @@
 - 禁止在 LuaTeX 后端载入不兼容的 `CJKfntef`，并推荐使用 `lua-ul`（#381）。
 - 提供按层级查询标题编号、完整标签和编号开关的接口，使 Beamer 主题作者可以通过公开接口读取并响应 CTeX 本地化编号设置，而无需访问私有变量（#275）。
 - 说明保留零段首缩进的兼容行为（#402）。
+- 按宏包整理第三方兼容说明，并增加与 `babel`、`biblatex` 联用的内容（#986、#987）。
 
 ## [ctex-v2.6.2](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.2)
 
