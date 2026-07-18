@@ -37,16 +37,6 @@
     \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
     \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
   }
-\cs_new_protected:Npn \ShowSource #1
-  {
-    \group_begin:
-      \ttfamily
-      \tl_set:Nx \l_tmpa_tl { \tl_to_str:n {#1} }
-      \tl_replace_all:Nnn \l_tmpa_tl { ~ }
-        { \textcolor { blue!70!black } { \textvisiblespace } }
-      \tl_use:N \l_tmpa_tl
-    \group_end:
-  }
 \ExplSyntaxOff
 
 \newbox\OracleBox
@@ -54,18 +44,24 @@
 \newdimen\BoundaryDelta
 \newdimen\AbsoluteDelta
 
-\newcommand\Compare[4]{%
+% \verb* must scan the literal source at the call site; it cannot be passed
+% through an ordinary macro argument.  \Compare prints the space label and
+% starts the verbatim scanner, then \CompareResult measures and renders the
+% oracle/candidate columns after the closing delimiter.
+\newcommand\Compare[1]{%
+  \texttt{#1}\quad\verb*}
+
+\newcommand\CompareResult[2]{%
   \MatrixReset
-  \global\setbox\OracleBox=\hbox{#3}%
+  \global\setbox\OracleBox=\hbox{#1}%
   \MatrixReset
-  \global\setbox\CandidateBox=\hbox{#4}%
+  \global\setbox\CandidateBox=\hbox{#2}%
   \global\BoundaryDelta=\dimexpr\wd\CandidateBox-\wd\OracleBox\relax
   \global\AbsoluteDelta=\BoundaryDelta
   \ifdim\AbsoluteDelta<0pt
     \global\AbsoluteDelta=-\AbsoluteDelta
   \fi
-  \texttt{#1}\quad\ShowSource{#2}&
-  \fbox{\copy\OracleBox}&
+  &\fbox{\copy\OracleBox}&
   \fbox{\copy\CandidateBox}&
   \ifdim\AbsoluteDelta<0.01pt
     \textcolor{teal!70!black}{same}%
@@ -86,7 +82,8 @@
 \smallskip
 Direct input is the oracle. The candidate must have the same visible content
 and the same boundary spacing. The two-bit prefix records left/right source
-spaces; every literal source space is printed as a blue \textvisiblespace.
+spaces; \texttt{\string\verb*} scans the candidate source directly and marks
+every literal space, without reconstructing that source through xeCJK.
 For visibility this MWE uses
 \texttt{CJKecglue=5pt} and \texttt{CJKglue=1pt}; the red value is
 \(\mathrm{candidate}-\mathrm{oracle}\).
@@ -99,44 +96,44 @@ For visibility this MWE uses
 \bfseries Width delta\\
 \hline
 \multicolumn{4}{@{}l}{\bfseries Western/numeric output between CJK text}\\
-\Compare{00}{中\ref{matrix-western}文}
+\Compare{00}|中\ref{matrix-western}文|\CompareResult
   {中1文}
   {中\ref{matrix-western}文}
-\Compare{10}{中 \ref{matrix-western}文}
+\Compare{10}|中 \ref{matrix-western}文|\CompareResult
   {中 1文}
   {中 \ref{matrix-western}文}
-\Compare{01}{中\ref{matrix-western} 文}
+\Compare{01}|中\ref{matrix-western} 文|\CompareResult
   {中1 文}
   {中\ref{matrix-western} 文}
-\Compare{11}{中 \ref{matrix-western} 文}
+\Compare{11}|中 \ref{matrix-western} 文|\CompareResult
   {中 1 文}
   {中 \ref{matrix-western} 文}
 \hline
 \multicolumn{4}{@{}l}{\bfseries CJK output between Western text}\\
-\Compare{00}{A\ref{matrix-chinese}B}
+\Compare{00}|A\ref{matrix-chinese}B|\CompareResult
   {A中文B}
   {A\ref{matrix-chinese}B}
-\Compare{10}{A \ref{matrix-chinese}B}
+\Compare{10}|A \ref{matrix-chinese}B|\CompareResult
   {A 中文B}
   {A \ref{matrix-chinese}B}
-\Compare{01}{A\ref{matrix-chinese} B}
+\Compare{01}|A\ref{matrix-chinese} B|\CompareResult
   {A中文 B}
   {A\ref{matrix-chinese} B}
-\Compare{11}{A \ref{matrix-chinese} B}
+\Compare{11}|A \ref{matrix-chinese} B|\CompareResult
   {A 中文 B}
   {A \ref{matrix-chinese} B}
 \hline
 \multicolumn{4}{@{}l}{\bfseries CJK output between CJK text}\\
-\Compare{00}{中\ref{matrix-chinese}文}
+\Compare{00}|中\ref{matrix-chinese}文|\CompareResult
   {中中文文}
   {中\ref{matrix-chinese}文}
-\Compare{10}{中 \ref{matrix-chinese}文}
+\Compare{10}|中 \ref{matrix-chinese}文|\CompareResult
   {中 中文文}
   {中 \ref{matrix-chinese}文}
-\Compare{01}{中\ref{matrix-chinese} 文}
+\Compare{01}|中\ref{matrix-chinese} 文|\CompareResult
   {中中文 文}
   {中\ref{matrix-chinese} 文}
-\Compare{11}{中 \ref{matrix-chinese} 文}
+\Compare{11}|中 \ref{matrix-chinese} 文|\CompareResult
   {中 中文 文}
   {中 \ref{matrix-chinese} 文}
 \end{tabular}

@@ -10,6 +10,8 @@ The audit was prepared against master commit
   all four source-space combinations, with Western/numeric output between CJK
   text and CJK output between both Western and CJK text. It deliberately uses
   CJKecglue=5pt and CJKglue=1pt so missing glue cannot be hidden by defaults.
+  Its source column is scanned directly with \verb*, so visible source spaces
+  are not reconstructed or widened by xeCJK itself.
 - oracle-ref-matrix.png is the released-v3.10.3 baseline issue image;
   oracle-ref-matrix.pdf is the corresponding vector output.
 - oracle-ref-before.png/pdf were compiled with the released xeCJK v3.10.3.
