@@ -1,3 +1,8 @@
+## xeCJK-v3.10.4
+
+- 提升版本号至 v3.10.4。
+- 在 LaTeX 内核 `\@setref` 末尾的零尺寸 `\null` 盒子后重放引用实际输出的末尾字符类别；若 CJK 输出后紧跟源码空格，同时恢复 `CJK-space` 语义，修复 `\ref`、`\pageref` 右边界间距（#991）。
+
 ## [xeCJK-v3.10.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.3)
 
 - 提升版本号至 v3.10.3。

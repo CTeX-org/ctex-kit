@@ -209,7 +209,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.10.3}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.10.4}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -310,6 +310,7 @@ Copyright and Licence
 % \changes{v3.10.1}{2026/06/29}{提升版本号至 v3.10.1。}
 % \changes{v3.10.2}{2026/07/03}{提升版本号至 v3.10.2。}
 % \changes{v3.10.3}{2026/07/12}{提升版本号至 v3.10.3。}
+% \changes{v3.10.4}{2026/07/18}{提升版本号至 v3.10.4。}
 %
 % \GetFileId{xeCJK.sty}
 %
@@ -1854,9 +1855,11 @@ Copyright and Licence
   { \msg_critical:nnn { xeCJK } { l3-too-old } { expl3 } }
 %    \end{macrocode}
 %
-% \cs{ctex_disable_package:n} 由 \pkg{ctexhook} 提供。
+% \cs{ctex_disable_package:n} 由 \pkg{ctexhook} 提供，
+% \cs{ctex_patch_cmd:Nnn} 由 \pkg{ctexpatch} 提供。
 %    \begin{macrocode}
 \RequirePackage { ctexhook }
+\RequirePackage { ctexpatch }
 %    \end{macrocode}
 %
 % \begin{macro}[pTF,int]{\xeCJK_if_package_loaded:n}
@@ -10079,6 +10082,91 @@ Copyright and Licence
     \MT@addto@setup { \xeCJK@microtype@restore@pickupfont }
   }
 %    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.10.4}{2026/07/18}{在 \tn{@setref} 的零尺寸盒子后重放
+%   引用内容的实际末尾类别，修复 \tn{ref} 右边界间距（\#991）。}
+%
+% \begin{macro}{\@@_patch_setref:}
+% \begin{macro}{\@@_setref_null:,\@@_setref_replay:,\@@_setref_replay_node:}
+% \begin{variable}{\g_@@_setref_saved_node_tl}
+% \LaTeXe{} 内核的 \tn{@setref} 在已定义的引用文本后附加一个
+% 零尺寸 \tn{null} 盒子。它会遮住引用末尾由 xeCJK 放置的 kern 对标记，
+% 使后续字符无法按引用实际输出的末尾类别恢复间距。
+%
+% 在原 \tn{null} 的位置先用 \cs{scan_stop:} 触发末尾字符到 Boundary 的
+% 转换，保存并移除由此产生的真实标记；排出原盒子后，再把标记放在盒子
+% 后面。补丁匹配 \tn{null} 后紧随的 \tn{fi}；
+% \cs{exp_after:wN} 先执行这个条件结束记号，保证重放阶段窥视到的是
+% 用户在 \tn{ref} 后写的记号，而不是 \tn{@setref} 内部的 \tn{fi}。
+%
+% 若实际末尾是 CJK 且后面紧跟源码空格，原本的 CJK→Boundary 转换应把
+% 空格记为 \texttt{CJK-space} 并吃掉。由于 \tn{null} 已经让 XeTeX 回到
+% Boundary，此处必须显式完成同一转换；否则该空格会成为普通 inter-word
+% glue。数学模式中只保留内核原有的 \tn{null} 行为。
+%    \begin{macrocode}
+\tl_new:N \g_@@_setref_saved_node_tl
+\cs_new_protected:Npn \@@_setref_null:
+  {
+    \mode_if_math:TF
+      { \null }
+      {
+        \scan_stop:
+        \xeCJK_if_last_node:TF
+          {
+            \tl_gset_eq:NN
+              \g_@@_setref_saved_node_tl
+              \g_@@_last_node_tl
+          }
+          { \tl_gclear:N \g_@@_setref_saved_node_tl }
+        \tl_gclear:N \g_@@_last_node_tl
+        \null
+        \exp_after:wN \@@_setref_replay:
+      }
+  }
+\cs_new_protected:Npn \@@_setref_replay:
+  {
+    \tl_if_eq:NnTF \g_@@_setref_saved_node_tl { CJK }
+      {
+        \peek_meaning:NTF \c_space_token
+          {
+            \peek_remove_spaces:n
+              {
+                \tl_gset:Nn
+                  \g_@@_setref_saved_node_tl { CJK-space }
+                \@@_setref_replay_node:
+              }
+          }
+          { \@@_setref_replay_node: }
+      }
+      { \@@_setref_replay_node: }
+  }
+\cs_new_protected:Npn \@@_setref_replay_node:
+  {
+    \tl_if_empty:NF \g_@@_setref_saved_node_tl
+      {
+        \exp_args:No \xeCJK_make_node:n
+          { \g_@@_setref_saved_node_tl }
+      }
+    \tl_gclear:N \g_@@_setref_saved_node_tl
+  }
+\cs_new_eq:cN { xeCJK@setref@null } \@@_setref_null:
+\cs_new_protected:Npn \@@_patch_setref:
+  {
+    \cs_if_exist:NTF \real@setref
+      {
+        \ctex_patch_cmd:Nnn \real@setref
+          { \null \fi } { \xeCJK@setref@null \fi }
+      }
+      {
+        \ctex_patch_cmd:Nnn \@setref
+          { \null \fi } { \xeCJK@setref@null \fi }
+      }
+  }
+\@@_at_end_preamble:n { \@@_patch_setref: }
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
 % \end{macro}
 %
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。

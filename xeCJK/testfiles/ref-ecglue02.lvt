@@ -1,0 +1,128 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{hyperref}
+\setCJKmainfont{FandolSong-Regular.otf}
+\xeCJKsetup{
+  CJKecglue={\hskip 5pt},
+  CJKglue={\hskip 1pt}
+}
+
+\makeatletter
+\expandafter\gdef\csname r@ref-western\endcsname
+  {{1}{2}{title}{ref.anchor.w}{}}
+\expandafter\gdef\csname r@ref-chinese\endcsname
+  {{中文}{三}{title}{ref.anchor.c}{}}
+\expandafter\gdef\csname r@ref-mixed-cd\endcsname
+  {{中A}{四}{title}{ref.anchor.cd}{}}
+\expandafter\gdef\csname r@ref-mixed-dc\endcsname
+  {{A中}{五}{title}{ref.anchor.dc}{}}
+\newcommand\UndefinedOracle[1]{%
+  \nfss@text{\reset@font\bfseries ??}}
+\makeatother
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \BoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \tl_if_exist:NT \g__xeCJK_setref_saved_node_tl
+      { \tl_gclear:N \g__xeCJK_setref_saved_node_tl }
+    \tl_gclear:N \g__xeCJK_hyper_saved_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
+  }
+\ExplSyntaxOff
+
+\newbox\OracleBox
+\newbox\CandidateBox
+\newdimen\BoundaryDelta
+
+\newcommand\CompareBoundary[3]{%
+  \BoundaryReset
+  \setbox\OracleBox=\hbox{#2}%
+  \BoundaryReset
+  \setbox\CandidateBox=\hbox{#3}%
+  \BoundaryDelta=\dimexpr
+    \wd\CandidateBox-\wd\OracleBox\relax
+  \ifdim\BoundaryDelta=0pt
+    \TYPE{PASS: #1}%
+  \else
+    \TYPE{FAIL: #1; delta=\the\BoundaryDelta}%
+  \fi
+}
+
+\begin{document}
+
+\START
+
+\TEST{Linked Western refs keep the existing boundary behavior}{
+  \CompareBoundary{linked-western/CWC/00}{中1文}{中\ref{ref-western}文}
+  \CompareBoundary{linked-western/CWC/10}{中 1文}{中 \ref{ref-western}文}
+  \CompareBoundary{linked-western/CWC/01}{中1 文}{中\ref{ref-western} 文}
+  \CompareBoundary{linked-western/CWC/11}{中 1 文}{中 \ref{ref-western} 文}
+}
+
+\TEST{Starred Western ref output between CJK characters}{
+  \CompareBoundary{star-western/CWC/00}{中1文}{中\ref*{ref-western}文}
+  \CompareBoundary{star-western/CWC/10}{中 1文}{中 \ref*{ref-western}文}
+  \CompareBoundary{star-western/CWC/01}{中1 文}{中\ref*{ref-western} 文}
+  \CompareBoundary{star-western/CWC/11}{中 1 文}{中 \ref*{ref-western} 文}
+}
+
+\TEST{Starred CJK ref output between Western characters}{
+  \CompareBoundary{star-chinese/WCW/00}{A中文B}{A\ref*{ref-chinese}B}
+  \CompareBoundary{star-chinese/WCW/10}{A 中文B}{A \ref*{ref-chinese}B}
+  \CompareBoundary{star-chinese/WCW/01}{A中文 B}{A\ref*{ref-chinese} B}
+  \CompareBoundary{star-chinese/WCW/11}{A 中文 B}{A \ref*{ref-chinese} B}
+}
+
+\TEST{Starred CJK ref output between CJK characters}{
+  \CompareBoundary{star-chinese/CCC/00}{中中文文}{中\ref*{ref-chinese}文}
+  \CompareBoundary{star-chinese/CCC/10}{中 中文文}{中 \ref*{ref-chinese}文}
+  \CompareBoundary{star-chinese/CCC/01}{中中文 文}{中\ref*{ref-chinese} 文}
+  \CompareBoundary{star-chinese/CCC/11}{中 中文 文}{中 \ref*{ref-chinese} 文}
+}
+
+\TEST{Starred mixed ref output uses its actual first and last classes}{
+  \CompareBoundary{star-mixed-CD/CWC/00}{中中A文}{中\ref*{ref-mixed-cd}文}
+  \CompareBoundary{star-mixed-CD/CWC/10}{中 中A文}{中 \ref*{ref-mixed-cd}文}
+  \CompareBoundary{star-mixed-CD/CWC/01}{中中A 文}{中\ref*{ref-mixed-cd} 文}
+  \CompareBoundary{star-mixed-CD/CWC/11}{中 中A 文}{中 \ref*{ref-mixed-cd} 文}
+  \CompareBoundary{star-mixed-DC/CWC/00}{中A中文}{中\ref*{ref-mixed-dc}文}
+  \CompareBoundary{star-mixed-DC/CWC/10}{中 A中文}{中 \ref*{ref-mixed-dc}文}
+  \CompareBoundary{star-mixed-DC/CWC/01}{中A中 文}{中\ref*{ref-mixed-dc} 文}
+  \CompareBoundary{star-mixed-DC/CWC/11}{中 A中 文}{中 \ref*{ref-mixed-dc} 文}
+}
+
+\TEST{Starred pageref output follows the same boundary oracle}{
+  \CompareBoundary{star-pageref-western/CWC/00}{中2文}{中\pageref*{ref-western}文}
+  \CompareBoundary{star-pageref-western/CWC/10}{中 2文}{中 \pageref*{ref-western}文}
+  \CompareBoundary{star-pageref-western/CWC/01}{中2 文}{中\pageref*{ref-western} 文}
+  \CompareBoundary{star-pageref-western/CWC/11}{中 2 文}{中 \pageref*{ref-western} 文}
+  \CompareBoundary{star-pageref-CJK/WCW/00}{A三B}{A\pageref*{ref-chinese}B}
+  \CompareBoundary{star-pageref-CJK/WCW/10}{A 三B}{A \pageref*{ref-chinese}B}
+  \CompareBoundary{star-pageref-CJK/WCW/01}{A三 B}{A\pageref*{ref-chinese} B}
+  \CompareBoundary{star-pageref-CJK/WCW/11}{A 三 B}{A \pageref*{ref-chinese} B}
+}
+
+\TEST{Undefined starred refs retain their intrinsic boundary spacing}{
+  \CompareBoundary{star-undefined/CWC/00}{中\UndefinedOracle{}文}{中\ref*{missing}文}
+  \CompareBoundary{star-undefined/CWC/10}{中 \UndefinedOracle{}文}{中 \ref*{missing}文}
+  \CompareBoundary{star-undefined/CWC/01}{中\UndefinedOracle{} 文}{中\ref*{missing} 文}
+  \CompareBoundary{star-undefined/CWC/11}{中 \UndefinedOracle{} 文}{中 \ref*{missing} 文}
+}
+
+\TEST{CJKspace=true is preserved for starred refs}{
+  \xeCJKsetup{CJKspace=true}
+  \CompareBoundary{star-CJKspace/chinese/WCW/01}{A中文 B}{A\ref*{ref-chinese} B}
+  \CompareBoundary{star-CJKspace/chinese/WCW/11}{A 中文 B}{A \ref*{ref-chinese} B}
+  \CompareBoundary{star-CJKspace/chinese/CCC/01}{中中文 文}{中\ref*{ref-chinese} 文}
+  \CompareBoundary{star-CJKspace/chinese/CCC/11}{中 中文 文}{中 \ref*{ref-chinese} 文}
+  \xeCJKsetup{CJKspace=false}
+}
+
+\END
+
+\end{document}
