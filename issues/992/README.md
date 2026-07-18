@@ -39,3 +39,27 @@ direct-input oracle after subtracting the command's intrinsic width.
 
 These files are investigation assets, not package regression tests. Stable
 regressions should use node-level assertions in xeCJK/testfiles/.
+
+## biblatex write-whatsit matrix
+
+- command-boundary-biblatex-matrix.tex stubs biblatex's \blx@pagetracker
+  with the same \protected@write whatsit shape biblatex emits (identical
+  to xeCJK/testfiles/biblatex-ecglue01.lvt), so xeCJK installs its #931
+  patch at begindocument. command-boundary-biblatex-custom.tex supplies
+  distinguishing glue values. Only the tracker-before-entry position is
+  audited: a control word gobbles following source spaces, so the
+  after-content 01/11 cells are not expressible with this stub.
+
+## Per-command showcase renders
+
+- showcase-lib.tex is the shared rendering harness: same \MatrixReset
+  isolation and intrinsic-width subtraction as the audit matrices, but
+  each cell renders framed oracle/candidate boxes with a red delta.
+  All showcase documents use the distinguishing glue values.
+- showcase-core.tex, showcase-links.tex, showcase-verb.tex, and
+  showcase-biblatex.tex produce one page per command row.
+- showcase/<row>.png are the cropped per-command images embedded in the
+  living status table (first comment of #992).
+- matrix-verdicts.tsv is the merged verdict table: a cell passes only if
+  it passes under BOTH default and distinguishing glue values, compiled
+  with xeCJK unpacked from master 4628cb443978d5507de61eaa70e520e31f926707.
