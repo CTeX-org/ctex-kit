@@ -78,7 +78,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 证据说明层不能再经过被测状态机
 **Rule**: 可视 MWE 的输入标签、源码转录和标尺应在被测排版路径之外生成；若无法隔离，就显式编码状态并把差异字符可视化。
-**Why**: #991 的第一版 MWE 用 `\texttt{\detokenize{...}}` 展示源码，但该文本仍被 xeCJK 处理，四种源码空格组合看起来相同；显式 `00/10/01/11` 与可见空格才恢复可审计性。
+**Why**: #991 的第一版 MWE 用 `\texttt{\detokenize{...}}` 展示源码，但该文本仍被 xeCJK 处理，四种源码空格组合看起来相同；显式 `00/10/01/11` 与 call-site `\verb*` 直接扫描才恢复可审计性。
 **Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
 
 ### 方向性标点策略必须保留样式与覆盖优先级
