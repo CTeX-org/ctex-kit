@@ -7,10 +7,16 @@ The audit was prepared against master commit
 ## Visual MWE
 
 - oracle-ref-mwe.tex compares direct-input oracles with kernel \ref output for
-  all four source-space combinations. It deliberately uses CJKecglue=5pt and
-  CJKglue=1pt so missing glue cannot be hidden by defaults.
-- oracle-ref-matrix.png is the cropped issue image.
-- oracle-ref-matrix.pdf is the corresponding vector output.
+  all four source-space combinations, with Western/numeric output between CJK
+  text and CJK output between both Western and CJK text. It deliberately uses
+  CJKecglue=5pt and CJKglue=1pt so missing glue cannot be hidden by defaults.
+- oracle-ref-matrix.png is the released-v3.10.3 baseline issue image;
+  oracle-ref-matrix.pdf is the corresponding vector output.
+- oracle-ref-before.png/pdf were compiled with the released xeCJK v3.10.3.
+- oracle-ref-after.png/pdf were compiled with the proposed v3.10.4 fix for
+  #991 at commit c4a6631d. Every displayed candidate then matches its
+  direct-input oracle.
+- oracle-ref-before-after.png stacks the two raster images for PR discussion.
 
 ## Log-producing audit matrices
 
