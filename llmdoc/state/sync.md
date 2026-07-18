@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 9b80026c3925734c79a227fa5f006183e9dec8d7
-- watermark-subject: docs(ctex): explain biblatex locale in example
-- updated-at: 2026-07-15T04:39:13Z
+- watermark-commit: 4628cb443978d5507de61eaa70e520e31f926707
+- watermark-subject: build(make): 从 pattern 规则排除 check-ctex, 消除 overriding recipe 警告
+- updated-at: 2026-07-18T09:01:12Z
 - updated-by: /llmdoc:update

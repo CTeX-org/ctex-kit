@@ -66,6 +66,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #972 的 3.33pt 测量证明几何差异，并排截图让审查者直接看到右侧间距恢复，而颜色和下一链接用例暴露了最初普通 `default` 原型的组合缺陷。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
 
+### 命令边界修复必须覆盖输出等价矩阵
+**Rule**: 验证命令边界间距时，以相同可见字符的直接输入为 oracle，按实际输出首尾类别和 `00/10/01/11` 记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。
+**Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 的完整矩阵和 #991 的 CJK 引用证明单点通过不能推出整类已修复。
+**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`
+
 ### 方向性标点策略必须保留样式与覆盖优先级
 **Rule**: 修复单向标点对时，把政策放在可配置的样式计算层，并分别回归反方向、其他样式、显式字符对、全局设置和禁则；不要在 transition 中无条件短路。
 **Why**: #975 若直接跳过 `FullLeft→FullRight` kern，会破坏 `banjiao` 和 `\xeCJKsetkern`；样式键只让 `quanjiao` 改默认且保持 nobreak。
