@@ -24,6 +24,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #975 中把三条记录集中虽让 CHANGELOG 连续，却让 `quanjiao`/`kaiming` 记录脱离实现；最终恢复源码邻近性并接受提取顺序。
 **Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
 
+### 跟踪生成物必须走仓库的 canonical target
+**Rule**: 源文件变化影响已跟踪生成物时，先从 Makefile/guide 找唯一生成入口，运行后核对只产生预期 diff；不要手改生成物去追 CI 文本。
+**Why**: #991 手工同步的 xeCJK CHANGELOG 与 `\changes` 提取器漂移，`check-changelog-result` 失败；`make changelog` 确定性重建后只有目标文件变化并通过门禁。
+**Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
+
 ### 已发布版本不能继续接收新变更条目
 **Rule**: 写 `\changes` 前核对最新正式 release tag；发布后的新变更使用下一个未发布版本，不从 `build.lua` 当前值或 CHANGELOG 首节反推。
 **Why**: #381 在 ctex 2.6.2 发布两天后落地，首版仍误记为 v2.6.2，合并后才纠正为 v2.6.3。
@@ -70,6 +75,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 验证命令边界间距时，以相同可见字符的直接输入为 oracle，按实际输出首尾类别和 `00/10/01/11` 记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。
 **Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 的完整矩阵和 #991 的 CJK 引用证明单点通过不能推出整类已修复。
 **Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`
+
+### 证据说明层不能再经过被测状态机
+**Rule**: 可视 MWE 的输入标签、源码转录和标尺应在被测排版路径之外生成；若无法隔离，就显式编码状态并把差异字符可视化。
+**Why**: #991 的第一版 MWE 用 `\texttt{\detokenize{...}}` 展示源码，但该文本仍被 xeCJK 处理，四种源码空格组合看起来相同；显式 `00/10/01/11` 与可见空格才恢复可审计性。
+**Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
 
 ### 方向性标点策略必须保留样式与覆盖优先级
 **Rule**: 修复单向标点对时，把政策放在可配置的样式计算层，并分别回归反方向、其他样式、显式字符对、全局设置和禁则；不要在 transition 中无条件短路。

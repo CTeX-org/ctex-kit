@@ -236,9 +236,13 @@ Boundary → CJK 时：
 
 纯 CJK 输出还要分别以 `中文 中文 中文` 和 `中文中文中文` 为有、无源码空格的 oracle。理想覆盖是“实际输出首尾类别 × 相邻字符类别 × `00/10/01/11`”的所有可实现组合。若 LaTeX/XeTeX 的节点与扫描机制确实不能可靠覆盖全部组合，最低保证仍包括两类：有中西文切换且相应边界有源码空格，如 `中文 \foo{en} 中文`；纯 CJK 且无源码空格，如 `中文\foo{中文}中文`。不可实现的单元必须留下机制证据、稳定 workaround 和明确支持边界。
 
-#491 的历史回归多为“一个命令、一个输出类别、一个源码空格组合”，只能证明精确矩阵单元，不能证明整个命令或节点类型已经修复。#992 取代 #491 作为长期跟踪入口；当前审计确认 boxes、中文链接、引用、hypdoc、verbatim、显式分组、颜色和 fntef 等路径仍有部分组合异常，而普通展开宏、常用字体切换以及已检查的西文 URL / hyperlink 相对完整。状态表和关闭条件必须按精确矩阵单元维护。
+#491 的历史回归多为“一个命令、一个输出类别、一个源码空格组合”，只能证明精确矩阵单元，不能证明整个命令或节点类型已经修复。#992 取代 #491 作为长期跟踪入口；当前审计确认 boxes、中文链接、引用的其他路径、hypdoc、verbatim、显式分组、颜色和 fntef 等仍有部分组合异常，而普通展开宏、常用字体切换以及已检查的西文 URL / hyperlink 相对完整。状态表和关闭条件必须按精确矩阵单元维护；v3.10.4 对 #991 的修复只提升已验证的引用单元，不把整个“引用”类别标为完成。
 
-#991 是已知的 hbox 遮蔽实例：LaTeX 内核 `\@setref` 在引用文本后追加 `\null`，其 0×0 hbox 使末尾 marker 不再能由 `\lastkern` 观察。引用结果既可能是西文/数字，也可能是 CJK，因此修复不能预设输出末尾为 `Default` 后直接 drain；需要保存并重放实际末尾类别。完整矩阵测试方法见 [[../reference/build-and-test]]。
+#991 是 hbox 遮蔽的 fixed-point 实例：LaTeX 内核 `\@setref` 在已定义的引用文本后追加 `\null`，其 0×0 hbox 使末尾 marker 不再能由 `\lastkern` 观察。v3.10.4 用 `ctexpatch` 在导言区末尾精确匹配 `\null \fi`：无 hyperref 时补丁 `\@setref`；若 hyperref 已把内核实现保存为 `\real@setref`，则补丁该副本，覆盖无链接的 starred `\ref` / `\pageref` 路径。
+
+`\@@_setref_null:` 在原 `\null` 位置先用 `\scan_stop:` 迫使引用的实际末尾字符进入 Boundary 转换，只保存经过 `\xeCJK_if_last_node:TF` 验证的真实 marker，并清空普通全局状态；排出原 hbox 后，`\exp_after:wN` 先越过 `\@setref` 内部的 `\fi`，再把 marker 重放到 hbox 后。若保存的是 `CJK` 且用户随后写了源码空格，重放阶段消费该空格并改发 `CJK-space`，使右边界与直接 CJK 输入一致。数学模式仍只执行原 `\null`，未定义引用继续走内核的 `??` 路径。
+
+该修复不能简化为硬编码 `Default` 的 drain：引用结果可能是数字、西文、CJK 或混合内容；也不能删除内核 hbox 或放宽为通用 hbox 恢复。hyperref 的普通 linked-reference 路径没有这枚尾随 `\null`，不由本补丁接管，仍按 #992 的精确矩阵单元审计。测试方法见 [[../reference/build-and-test]]，设计决策见 [[../memory/decisions/991-setref-null-marker-replay]]。
 
 ### hyperref 的进入端与结束端是两个独立固定点（#809/#810/#972）
 

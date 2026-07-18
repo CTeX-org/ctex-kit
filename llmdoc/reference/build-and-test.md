@@ -138,7 +138,11 @@
 
 引用类测试至少覆盖数字/西文结果、CJK 结果和未定义引用。#991 中 `\@setref` 末尾的 `\null` 是 0×0 hbox，能让默认宽度掩盖 CJK 场景中的缺口；不能只验证数字引用，也不能把输出末尾硬编码为 `Default`。状态报告按精确矩阵单元记录，不以“某命令已修复”概括单个通过场景。
 
-`gh-assets:issues/992/` 保存默认/可区分 glue 的 core、links、verb 调查矩阵和可视 MWE；这些文件是 issue 证据，不是包回归。确认可支持的单元应转为 `xeCJK/testfiles/` 下的节点级测试，图示状态必须与自动回归覆盖范围一致。
+`xeCJK/testfiles/ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 是该方法的首个完整落地：前者在无 hyperref 时做 36 次比较，后者在加载 hyperref 时做 40 次，共 76 个 direct-input oracle。覆盖数字/西文、CJK、两种混合末尾、CJK/西文外围、`00/10/01/11`、`\ref`、`\pageref`、starred 引用、现有 linked-Western 路径、未定义引用和 `CJKspace=true`；两份测试均使用 5pt ecglue 与 1pt CJKglue，并在 oracle/candidate 之间清空普通 marker、setref/hyperref saved marker 和两个 pending boolean，避免全局状态跨单元污染。内部 saved-marker 变量由主模块无条件声明，因此测试直接清空而不做存在性守卫；未来若变量改名，应让测试明确失败并同步更新。
+
+这两个测试的盒宽 oracle 与既有 `ctex/test/testfiles/label-ref01.tlg`、`testfiles-contrib/thuthesis.tlg` 的节点 oracle 共同判定 #991：后两者锁定 `reference text → 0pt null hbox → xeCJK kern pair → following text`，证明 `\null` 仍保留，只把 marker 移到可观察位置。新增宽度测试本身不应被误称为节点断言。
+
+可视 MWE 还要隔离“说明层”与“被测层”。`\texttt{\detokenize{...}}` 展示候选源码时仍会经过 xeCJK，源码空格可能被吞掉，导致 `00/10/01/11` 看起来相同；稳定图示应另外显式标出两位组合，并把源码中的每个 literal space 替换为可见空格 glyph，且该说明内容不得进入被测盒宽。`gh-assets:issues/992/` 保存默认/可区分 glue 的 core、links、verb 调查矩阵和可视 MWE；`ref-ecglue01/02` 已把 #991 支持的单元转成包回归，其余素材仍是 issue 证据，不能据图概括为整类支持。
 
 ### `ctex` 主测试目录当前覆盖面
 
