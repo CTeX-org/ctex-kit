@@ -1,7 +1,7 @@
 # xeCJK command-boundary matrix
 
 Assets for [CTeX-org/ctex-kit#992](https://github.com/CTeX-org/ctex-kit/issues/992).
-The audit was prepared against master commit
+The initial audit was prepared against master commit
 4628cb443978d5507de61eaa70e520e31f926707 on 2026-07-18.
 
 ## Visual MWE
@@ -61,7 +61,10 @@ regressions should use node-level assertions in xeCJK/testfiles/.
 - showcase-core.tex, showcase-links.tex, showcase-verb.tex, and
   showcase-biblatex.tex produce one page per command row.
 - showcase/<row>.png are the cropped per-command images embedded in the
-  living status table (first comment of #992).
-- matrix-verdicts.tsv is the merged verdict table: a cell passes only if
-  it passes under BOTH default and distinguishing glue values, compiled
-  with xeCJK unpacked from master 4628cb443978d5507de61eaa70e520e31f926707.
+  living status table (first comment of #992). Individual images are refreshed
+  as fixes merge; ref-plain.png was regenerated from master b46edbd0 after
+  #993 fixed the no-hyperref reference path.
+- matrix-verdicts.tsv is the initial-audit snapshot, not the living table. A
+  cell passes only if it passed under BOTH default and distinguishing glue
+  values when compiled with xeCJK unpacked from master
+  4628cb443978d5507de61eaa70e520e31f926707.
