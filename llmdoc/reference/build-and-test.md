@@ -142,7 +142,7 @@
 
 这两个测试的盒宽 oracle 与既有 `ctex/test/testfiles/label-ref01.tlg`、`testfiles-contrib/thuthesis.tlg` 的节点 oracle 共同判定 #991：后两者锁定 `reference text → 0pt null hbox → xeCJK kern pair → following text`，证明 `\null` 仍保留，只把 marker 移到可观察位置。新增宽度测试本身不应被误称为节点断言。
 
-可视 MWE 还要隔离“说明层”与“被测层”。`\texttt{\detokenize{...}}` 展示候选源码时仍会经过 xeCJK，源码空格可能被吞掉，导致 `00/10/01/11` 看起来相同；稳定图示应另外显式标出两位组合，并把源码中的每个 literal space 替换为可见空格 glyph，且该说明内容不得进入被测盒宽。`gh-assets:issues/992/` 保存默认/可区分 glue 的 core、links、verb 调查矩阵和可视 MWE；`ref-ecglue01/02` 已把 #991 支持的单元转成包回归，其余素材仍是 issue 证据，不能据图概括为整类支持。
+可视 MWE 还要隔离“说明层”与“被测层”。`\texttt{\detokenize{...}}` 展示候选源码时仍会经过 xeCJK，源码空格可能被吞掉或扩大，导致 `00/10/01/11` 看起来相同或带有伪间距。`\verb*` 又不能放进普通宏参数；稳定 harness 应拆成两阶段调用，如 `\Compare{10}|literal source|\CompareResult{oracle}{candidate}`：第一段展开出 starred verbatim scanner，从调用点直接读取源码并标记空格，第二段在分隔符后才测量和排出 oracle/candidate 列。两位组合仍要显式标出，verbatim 源码列不得进入被测盒宽。`gh-assets:issues/992/` 保存默认/可区分 glue 的 core、links、verb 调查矩阵和可视 MWE；`ref-ecglue01/02` 已把 #991 支持的单元转成包回归，其余素材仍是 issue 证据，不能据图概括为整类支持。
 
 ### `ctex` 主测试目录当前覆盖面
 
