@@ -1,0 +1,96 @@
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{hypdoc}
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
+  }
+\ExplSyntaxOff
+
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset\setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset\setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \ifdim\MatrixDelta<0pt \MatrixDelta=-\MatrixDelta\fi
+  \ifdim\MatrixDelta<0.01pt
+    \typeout{MATRIX|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \typeout{MATRIX|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset\setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset\setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\makeatletter
+\newcommand\HDtarget{\HD@target}
+\AtBeginDocument{%
+  \expandafter\gdef\csname r@matrix-western\endcsname
+    {{Alpha}{1}{title}{matrix.anchor.w}{}}%
+  \expandafter\gdef\csname r@matrix-chinese\endcsname
+    {{中文}{1}{title}{matrix.anchor.c}{}}%
+}
+\makeatother
+
+\begin{document}
+
+% Post-content 0x0 hbox: the exact structural shape of kernel \ref (#991).
+\Matrix{post-null/W/CWC}{中}{Alpha\null}{Alpha}{文}
+\Matrix{post-null/C/WCW}{A}{中文\null}{中文}{B}
+\Matrix{post-null/C/CCC}{中}{中文\null}{中文}{文}
+
+% Hyperref link entry/exit patches.
+\Matrix{hyperref/W/CWC}{中}{\hyperref[matrix-western]{Alpha}}{Alpha}{文}
+\Matrix{hyperref/C/WCW}{A}{\hyperref[matrix-chinese]{中文}}{中文}{B}
+\Matrix{hyperref/C/CCC}{中}{\hyperref[matrix-chinese]{中文}}{中文}{文}
+\Matrix{href/W/CWC}{中}{\href{https://example.com}{Alpha}}{Alpha}{文}
+\Matrix{href/C/WCW}{A}{\href{https://example.com}{中文}}{中文}{B}
+\Matrix{href/C/CCC}{中}{\href{https://example.com}{中文}}{中文}{文}
+
+% Kernel reference family with hyperref loaded.
+\Matrix{ref-hyper/W/CWC}{中}{\ref{matrix-western}}{Alpha}{文}
+\Matrix{ref-hyper/C/WCW}{A}{\ref{matrix-chinese}}{中文}{B}
+\Matrix{ref-hyper/C/CCC}{中}{\ref{matrix-chinese}}{中文}{文}
+\Matrix{pageref-hyper/W/CWC}{中}{\pageref{matrix-western}}{1}{文}
+\Matrix{eqref-hyper/W/CWC}{中}{\eqref{matrix-western}}{(Alpha)}{文}
+
+% URL math-mode fixed points, linked and unlinked.
+\Matrix{nolinkurl/W/CWC}{中}{\nolinkurl{Alpha}}{Alpha}{文}
+\Matrix{url/W/CWC}{中}{\url{Alpha}}{Alpha}{文}
+
+% hypdoc's invisible target and user-facing documentation commands.
+\Matrix{HDtarget-before-W/CWC}{中}{\HDtarget Alpha}{Alpha}{文}
+\Matrix{HDtarget-before-C/WCW}{A}{\HDtarget 中文}{中文}{B}
+\Matrix{HDtarget-before-C/CCC}{中}{\HDtarget 中文}{中文}{文}
+\Matrix{meta-W/CWC}{中}{\meta{Alpha}}{Alpha}{文}
+\Matrix{meta-Carg/CWC}{中}{\meta{中文}}{中文}{文}
+\Matrix{cs/CWC}{中}{\cs{Alpha}}{Alpha}{文}
+
+\end{document}

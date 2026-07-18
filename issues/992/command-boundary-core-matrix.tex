@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+\setCJKmainfont[BoldFont=FandolHei-Regular.otf,
+  ItalicFont=FandolFang-Regular.otf]{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
+  }
+\ExplSyntaxOff
+
+% Compare one command-wrapped expression with its visible-text oracle.
+% The standalone width difference removes the command's intrinsic width;
+% the remaining delta is entirely due to the surrounding boundaries.
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset
+  \setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset
+  \setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \ifdim\MatrixDelta<0pt
+    \MatrixDelta=-\MatrixDelta
+  \fi
+  \ifdim\MatrixDelta<0.01pt
+    \typeout{MATRIX|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \typeout{MATRIX|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+% Four literal-source-space combinations: 00, 10, 01, 11.
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset
+  \setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset
+  \setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\newcommand\Baseline[5]{%
+  \MatrixReset\setbox0=\hbox{#2#3#4}%
+  \MatrixReset\setbox1=\hbox{#2 #3#4}%
+  \MatrixReset\setbox2=\hbox{#2#3 #4}%
+  \MatrixReset\setbox3=\hbox{#2 #3 #4}%
+  \typeout{BASELINE|#1|00=\the\wd0|10=\the\wd1|01=\the\wd2|11=\the\wd3}%
+}
+
+\newcommand\WesternMacro{Alpha}
+\newcommand\ChineseMacro{中文}
+
+\makeatletter
+\AtBeginDocument{%
+  \def\@currentlabel{Alpha}\label{matrix-western}%
+  \def\@currentlabel{中文}\label{matrix-chinese}%
+}
+\makeatother
+
+\begin{document}
+
+\Baseline{C-W-C}{中}{Alpha}{文}{unused}
+\Baseline{W-C-W}{A}{中文}{B}{unused}
+\Baseline{C-C-C}{中}{中文}{文}{unused}
+
+% Plain expansion and grouping.
+\Matrix{macro/W/CWC}{中}{\WesternMacro}{Alpha}{文}
+\Matrix{macro/C/WCW}{A}{\ChineseMacro}{中文}{B}
+\Matrix{macro/C/CCC}{中}{\ChineseMacro}{中文}{文}
+\Matrix{group/W/CWC}{中}{{Alpha}}{Alpha}{文}
+\Matrix{group/C/WCW}{A}{{中文}}{中文}{B}
+\Matrix{group/C/CCC}{中}{{中文}}{中文}{文}
+
+% Font switches.
+\Matrix{textbf/W/CWC}{中}{\textbf{Alpha}}{Alpha}{文}
+\Matrix{textbf/C/WCW}{A}{\textbf{中文}}{中文}{B}
+\Matrix{textbf/C/CCC}{中}{\textbf{中文}}{中文}{文}
+\Matrix{textit/W/CWC}{中}{\textit{Alpha}}{Alpha}{文}
+\Matrix{textit/C/WCW}{A}{\textit{中文}}{中文}{B}
+\Matrix{textit/C/CCC}{中}{\textit{中文}}{中文}{文}
+\Matrix{texttt/W/CWC}{中}{\texttt{Alpha}}{Alpha}{文}
+\Matrix{texttt/C/WCW}{A}{\texttt{中文}}{中文}{B}
+\Matrix{texttt/C/CCC}{中}{\texttt{中文}}{中文}{文}
+
+% Color and box wrappers.
+\Matrix{textcolor/W/CWC}{中}{\textcolor{red}{Alpha}}{Alpha}{文}
+\Matrix{textcolor/C/WCW}{A}{\textcolor{red}{中文}}{中文}{B}
+\Matrix{textcolor/C/CCC}{中}{\textcolor{red}{中文}}{中文}{文}
+\Matrix{mbox/W/CWC}{中}{\mbox{Alpha}}{Alpha}{文}
+\Matrix{mbox/C/WCW}{A}{\mbox{中文}}{中文}{B}
+\Matrix{mbox/C/CCC}{中}{\mbox{中文}}{中文}{文}
+\Matrix{makebox/W/CWC}{中}{\makebox{Alpha}}{Alpha}{文}
+\Matrix{makebox/C/WCW}{A}{\makebox{中文}}{中文}{B}
+\Matrix{makebox/C/CCC}{中}{\makebox{中文}}{中文}{文}
+\Matrix{fbox/W/CWC}{中}{\fbox{Alpha}}{Alpha}{文}
+\Matrix{fbox/C/WCW}{A}{\fbox{中文}}{中文}{B}
+\Matrix{fbox/C/CCC}{中}{\fbox{中文}}{中文}{文}
+\Matrix{colorbox/W/CWC}{中}{\colorbox{yellow}{Alpha}}{Alpha}{文}
+\Matrix{colorbox/C/WCW}{A}{\colorbox{yellow}{中文}}{中文}{B}
+\Matrix{colorbox/C/CCC}{中}{\colorbox{yellow}{中文}}{中文}{文}
+
+% xeCJKfntef wrappers named in #491.
+\Matrix{underline/W/CWC}{中}{\CJKunderline{Alpha}}{Alpha}{文}
+\Matrix{underline/C/WCW}{A}{\CJKunderline{中文}}{中文}{B}
+\Matrix{underline/C/CCC}{中}{\CJKunderline{中文}}{中文}{文}
+\Matrix{underdot/W/CWC}{中}{\CJKunderdot{Alpha}}{Alpha}{文}
+\Matrix{underdot/C/WCW}{A}{\CJKunderdot{中文}}{中文}{B}
+\Matrix{underdot/C/CCC}{中}{\CJKunderdot{中文}}{中文}{文}
+\Matrix{sout/W/CWC}{中}{\CJKsout{Alpha}}{Alpha}{文}
+\Matrix{sout/C/WCW}{A}{\CJKsout{中文}}{中文}{B}
+\Matrix{sout/C/CCC}{中}{\CJKsout{中文}}{中文}{文}
+
+% Kernel \ref without hyperref. Compile twice so both labels resolve.
+\Matrix{ref/W/CWC}{中}{\ref{matrix-western}}{Alpha}{文}
+\Matrix{ref/C/WCW}{A}{\ref{matrix-chinese}}{中文}{B}
+\Matrix{ref/C/CCC}{中}{\ref{matrix-chinese}}{中文}{文}
+
+\end{document}

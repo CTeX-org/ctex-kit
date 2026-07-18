@@ -1,0 +1,131 @@
+\documentclass[11pt]{article}
+\usepackage[
+  a4paper,
+  landscape,
+  margin=12mm
+]{geometry}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+\xeCJKsetup{
+  CJKecglue={\hskip 5pt},
+  CJKglue={\hskip 1pt}
+}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\fboxsep}{3pt}
+\renewcommand\arraystretch{1.45}
+
+\makeatletter
+\AtBeginDocument{%
+  \expandafter\gdef\csname r@matrix-western\endcsname
+    {{1}{1}{title}{matrix.anchor.w}{}}%
+  \expandafter\gdef\csname r@matrix-chinese\endcsname
+    {{中文}{1}{title}{matrix.anchor.c}{}}%
+}
+\makeatother
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
+  }
+\ExplSyntaxOff
+
+\newbox\OracleBox
+\newbox\CandidateBox
+\newdimen\BoundaryDelta
+\newdimen\AbsoluteDelta
+
+\newcommand\Compare[3]{%
+  \MatrixReset
+  \global\setbox\OracleBox=\hbox{#2}%
+  \MatrixReset
+  \global\setbox\CandidateBox=\hbox{#3}%
+  \global\BoundaryDelta=\dimexpr\wd\CandidateBox-\wd\OracleBox\relax
+  \global\AbsoluteDelta=\BoundaryDelta
+  \ifdim\AbsoluteDelta<0pt
+    \global\AbsoluteDelta=-\AbsoluteDelta
+  \fi
+  \texttt{\detokenize{#1}}&
+  \fbox{\copy\OracleBox}&
+  \fbox{\copy\CandidateBox}&
+  \ifdim\AbsoluteDelta<0.01pt
+    \textcolor{teal!70!black}{same}%
+  \else
+    \textcolor{red!80!black}{\the\BoundaryDelta}%
+  \fi
+  \tabularnewline
+}
+
+\newcolumntype{S}{>{\raggedright\arraybackslash}p{68mm}}
+\newcolumntype{O}{>{\centering\arraybackslash}p{58mm}}
+\newcolumntype{D}{>{\centering\arraybackslash}p{25mm}}
+
+\begin{document}
+
+{\Large\bfseries xeCJK command-boundary oracle: kernel \texttt{\string\ref}}\par
+\smallskip
+Direct input is the oracle. The candidate must have the same visible content
+and the same boundary spacing. For visibility this MWE uses
+\texttt{CJKecglue=5pt} and \texttt{CJKglue=1pt}; the red value is
+\(\mathrm{candidate}-\mathrm{oracle}\).
+
+\medskip
+\begin{tabular}{@{}S O O D@{}}
+\bfseries Candidate source&
+\bfseries Direct-input oracle&
+\bfseries Command candidate&
+\bfseries Width delta\\
+\hline
+\multicolumn{4}{@{}l}{\bfseries Western/numeric output between CJK text}\\
+\Compare{中\ref{matrix-western}文}
+  {中1文}
+  {中\ref{matrix-western}文}
+\Compare{中 \ref{matrix-western}文}
+  {中 1文}
+  {中 \ref{matrix-western}文}
+\Compare{中\ref{matrix-western} 文}
+  {中1 文}
+  {中\ref{matrix-western} 文}
+\Compare{中 \ref{matrix-western} 文}
+  {中 1 文}
+  {中 \ref{matrix-western} 文}
+\hline
+\multicolumn{4}{@{}l}{\bfseries CJK output between Western text}\\
+\Compare{A\ref{matrix-chinese}B}
+  {A中文B}
+  {A\ref{matrix-chinese}B}
+\Compare{A \ref{matrix-chinese}B}
+  {A 中文B}
+  {A \ref{matrix-chinese}B}
+\Compare{A\ref{matrix-chinese} B}
+  {A中文 B}
+  {A\ref{matrix-chinese} B}
+\Compare{A \ref{matrix-chinese} B}
+  {A 中文 B}
+  {A \ref{matrix-chinese} B}
+\hline
+\multicolumn{4}{@{}l}{\bfseries CJK output between CJK text}\\
+\Compare{中\ref{matrix-chinese}文}
+  {中中文文}
+  {中\ref{matrix-chinese}文}
+\Compare{中 \ref{matrix-chinese} 文}
+  {中 中文 文}
+  {中 \ref{matrix-chinese} 文}
+\end{tabular}
+
+\medskip
+\footnotesize
+Known cause: LaTeX's \texttt{\string\@setref} appends
+\texttt{\string\null} after the reference text. The resulting 0\,pt
+\(\times\) 0\,pt hbox can hide xeCJK's final boundary marker; see
+CTeX-org/ctex-kit\#991 and \#992.
+
+\end{document}
