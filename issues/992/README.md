@@ -4,6 +4,13 @@ Assets for [CTeX-org/ctex-kit#992](https://github.com/CTeX-org/ctex-kit/issues/9
 The initial audit was prepared against master commit
 4628cb443978d5507de61eaa70e520e31f926707 on 2026-07-18.
 
+The unified boundary-recovery prototype was rerun at implementation commit
+5338c5f99e4f3f34bb83e51131dc40a12e5ef134 on 2026-07-20. All 280 matrix
+cells pass with package defaults, and the same 280 cells pass again with
+CJKecglue=5pt and CJKglue=1pt. The living status-table showcases below were
+regenerated from that prototype; matrix-verdicts.tsv remains the initial
+v3.10.3 audit snapshot.
+
 ## Visual MWE
 
 - oracle-ref-mwe.tex compares direct-input oracles with kernel \ref output for
@@ -62,8 +69,9 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   showcase-biblatex.tex produce one page per command row.
 - showcase/<row>.png are the cropped per-command images embedded in the
   living status table (first comment of #992). Individual images are refreshed
-  as fixes merge; ref-plain.png was regenerated from master b46edbd0 after
-  #993 fixed the no-hyperref reference path.
+  as fixes merge; the current set was regenerated from the unified prototype
+  commit 5338c5f9 and shows all audited cells matching their direct-input
+  oracle.
 - matrix-verdicts.tsv is the initial-audit snapshot, not the living table. A
   cell passes only if it passed under BOTH default and distinguishing glue
   values when compiled with xeCJK unpacked from master
