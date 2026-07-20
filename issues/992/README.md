@@ -83,3 +83,16 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   cell passes only if it passed under BOTH default and distinguishing glue
   values when compiled with xeCJK unpacked from master
   4628cb443978d5507de61eaa70e520e31f926707.
+
+## Driver updates (2026-07-20, digit contexts)
+
+- All eight drivers and showcase-lib now guard the v3.10.3-only
+  `\g__xeCJK_reset_color_pending_bool` reset behind `\bool_if_exist:NT`,
+  so the same driver sources run on both v3.10.3 and post-#999 masters.
+- command-boundary-core-matrix.tex gains ten rows covering digit output
+  between CJK and between Latin contexts (中数中 / 西数西: macro and
+  \mbox with 3.14), plus \mbox{$x$}, \mbox{$1$} and \mbox{\vrule ...}
+  rows for #998 in both contexts (52 rows, 208 cells per glue mode).
+  On the fix branch for #996/#998/#1000 (commit a1df81ef) both glue
+  modes report 208/208 PASS; the living-table refresh happens after the
+  fix PR merges, per the preview/merged layering convention.

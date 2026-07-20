@@ -1,0 +1,83 @@
+% Issue #998 扩展矩阵：行内公式 / 标尺盒 / 数字，中·西双上下文 × 00/10/01/11。
+% 用法: xelatex issue998-matrix.tex && grep '^MATRIX|' issue998-matrix.log
+% oracle 说明:
+%   - math 行 oracle 为直接输入 $x$ / $1$（修复后 \mbox{$x$} 与其等价）;
+%   - rule 行 oracle 为 Default 字母 X（可见墨迹按 Default 参与边界的契约,
+%     引擎对直接输入的裸 \vrule 不触发 interchar 转换,属机制边界）;
+%   - 固有宽度差已扣除, 余量全部来自边界。
+\documentclass{article}
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\pagestyle{empty}
+\newcommand\auditrule{\vrule width 5pt height 5pt depth 0pt\relax}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_if_exist:NT \g__xeCJK_reset_color_pending_bool
+      { \bool_gset_false:N \g__xeCJK_reset_color_pending_bool }
+  }
+\ExplSyntaxOff
+
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset
+  \setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset
+  \setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \ifdim\MatrixDelta<0pt
+    \MatrixDelta=-\MatrixDelta
+  \fi
+  \ifdim\MatrixDelta<0.01pt
+    \typeout{MATRIX|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \typeout{MATRIX|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset
+  \setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset
+  \setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\begin{document}
+
+% 行内公式（西文字母输出）
+\Matrix{mbox-math/CWC}{中}{\mbox{$x$}}{$x$}{文}
+\Matrix{mbox-math/WWW}{A}{\mbox{$x$}}{$x$}{B}
+
+% 行内公式（数字输出）：中数中 / 西数西
+\Matrix{mbox-mathdigit/CDC}{中}{\mbox{$1$}}{$1$}{文}
+\Matrix{mbox-mathdigit/WDW}{A}{\mbox{$1$}}{$1$}{B}
+
+% 文本数字：中数中 / 西数西
+\Matrix{mbox-digit/CDC}{中}{\mbox{3.14}}{3.14}{文}
+\Matrix{mbox-digit/WDW}{A}{\mbox{3.14}}{3.14}{B}
+
+% 标尺盒（对 Default 字母契约 oracle）
+\Matrix{mbox-rule/CWC}{中}{\mbox{\auditrule}}{X}{文}
+\Matrix{mbox-rule/WWW}{A}{\mbox{\auditrule}}{X}{B}
+
+matrix done, see log
+
+\end{document}

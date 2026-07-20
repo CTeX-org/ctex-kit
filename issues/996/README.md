@@ -14,3 +14,15 @@ Boundary→CJK 路径在 pending 状态下消费了显式 glue。v3.10.3 与 PR 
 
 Workaround: 在显式 `\hskip` 前加 `\kern0pt`, 阻断源码空格检查越过
 显式边界到达 CJK marker。
+
+## 修复分支验证（2026-07-20）
+
+修复分支 `fix-996-998-1000-boundary-capture`（commit `085f4f86` 起）：
+Boundary→CJK 的源码空格检查补齐与 Default 方向对称的
+`\__xeCJK_skip_if_interword:N` 校验（候选须 finite、带 shrink、自然宽度
+等于当前词间空格），并在顶层恢复链于空列表探测时使过期 pending 失效
+（capture 活跃时不做此判断，保护 ulem 内部流）。实测本目录 MWE 输出
+`FIRST=30.0pt SECOND=30.0pt DELTA=0.0pt`；与词间空格同构的显式 glue
+仍处于文档化歧义窗口（workaround 仍为前置 `\kern0pt`）。回归：
+`xeCJK/testfiles/boundary-crossbox01.lvt`（7 断言：MWE、kern
+workaround、同盒分组、跨盒同构 glue、歧义窗口、源码空格两方向）。

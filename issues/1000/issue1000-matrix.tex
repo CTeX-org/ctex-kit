@@ -1,0 +1,80 @@
+% Issue #1000 扩展矩阵：siunitx 命令，中·西双上下文（中数中 / 西数西）
+% × 00/10/01/11 源码空格组合。
+% 用法: xelatex issue1000-matrix.tex && grep '^MATRIX|' issue1000-matrix.log
+% oracle 为去掉命令包装的直接输入（数字/单位输出首尾均为 Default）;
+% 固有宽度差已扣除, 余量全部来自边界。
+\documentclass{article}
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\usepackage{siunitx}
+\pagestyle{empty}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_if_exist:NT \g__xeCJK_reset_color_pending_bool
+      { \bool_gset_false:N \g__xeCJK_reset_color_pending_bool }
+  }
+\ExplSyntaxOff
+
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset
+  \setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset
+  \setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \ifdim\MatrixDelta<0pt
+    \MatrixDelta=-\MatrixDelta
+  \fi
+  \ifdim\MatrixDelta<0.01pt
+    \typeout{MATRIX|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \typeout{MATRIX|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset
+  \setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset
+  \setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\begin{document}
+
+% 中·数·中（CJK 上下文）
+\Matrix{unit/CDC}{单位}{\unit{kg}}{kg}{单位}
+\Matrix{qty/CDC}{中}{\qty{5}{kg}}{5kg}{文}
+\Matrix{num/CDC}{中}{\num{3.14}}{3.14}{文}
+\Matrix{si/CDC}{中}{\si{kg}}{kg}{文}
+\Matrix{SI/CDC}{中}{\SI{5}{kg}}{5kg}{文}
+
+% 西·数·西（西文上下文）
+\Matrix{unit/WDW}{A}{\unit{kg}}{kg}{B}
+\Matrix{qty/WDW}{A}{\qty{5}{kg}}{5kg}{B}
+\Matrix{num/WDW}{A}{\num{3.14}}{3.14}{B}
+
+% 可选参数与数学模式内使用
+\Matrix{unit-opt/CDC}{中}{\unit[per-mode=symbol]{kg.m/s}}{kg.m/s}{文}
+
+matrix done, see log
+
+\end{document}

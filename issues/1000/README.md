@@ -14,3 +14,13 @@ ecglue(-3.33pt);v3.10.3 与 #999 合并后的 master `cb6b2f73` 行为一致
 后,00/10/01/11 全部归零;v2 旧名 `\si`/`\SI` 是独立顶层命令,需单独
 注册同样生效。`\ang` 由于 `30°` 的度符号语义,需要另行确定 oracle,
 未包含在本验证内。
+
+## 修复分支验证（2026-07-20）
+
+修复分支 `fix-996-998-1000-boundary-capture`（commit `c8c803bf` 起）已按
+上述验证落地 `siunitx` package hook（`unit`/`qty`/`num` + 存在性守卫的
+`si`/`SI`）。
+
+- `issue1000-matrix.tex` — 扩展矩阵：五个命令 × 中·数·中 / 西·数·西 ×
+  00/10/01/11 + 可选参数形式。修复分支上 36/36 全 PASS。回归：
+  `xeCJK/testfiles/siunitx-ecglue01.lvt`。
