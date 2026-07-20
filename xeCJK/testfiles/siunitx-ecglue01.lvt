@@ -1,0 +1,119 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{siunitx}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newbox\BoundaryCandidate
+\newbox\BoundaryOracle
+\newbox\BoundaryCandidateContext
+\newbox\BoundaryOracleContext
+\newdimen\BoundaryIntrinsicDelta
+\newdimen\BoundaryDelta
+\newcount\BoundaryChecks
+\newcount\BoundaryFailures
+
+\ExplSyntaxOn
+% Test-only white-box reset/assertions; these internal variables are not API.
+\cs_new_protected:Npn \BoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \BoundaryCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\cs_new:Npn \BoundaryCaptureStackCount
+  { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
+\cs_new:Npn \BoundaryCaptureSuspendDepth
+  { \int_use:N \g__xeCJK_boundary_suspend_depth_int }
+\ExplSyntaxOff
+
+\newcommand\BoundaryAssertIdle[2]{%
+  \ifnum\BoundaryCaptureDepth=0\relax
+    \ifnum\BoundaryCaptureStackCount=0\relax
+    \else
+      \global\advance\BoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 left a nonempty capture stack}%
+    \fi
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture depth}%
+  \fi
+  \ifnum\BoundaryCaptureSuspendDepth=0\relax
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture suspension depth}%
+  \fi
+}
+
+\newcommand\BoundaryVariant[4]{%
+  \global\advance\BoundaryChecks by 1
+  \BoundaryReset
+  \setbox\BoundaryCandidateContext=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{#2}%
+  \BoundaryReset
+  \setbox\BoundaryOracleContext=\hbox{#4}%
+  \BoundaryDelta=\dimexpr
+    \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
+    \BoundaryIntrinsicDelta\relax
+  \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
+  \ifdim\BoundaryDelta<0.01pt
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
+  \fi
+}
+
+\newcommand\BoundaryMatrix[5]{%
+  \BoundaryReset
+  \setbox\BoundaryCandidate=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{standalone}%
+  \BoundaryReset
+  \setbox\BoundaryOracle=\hbox{#4}%
+  \BoundaryIntrinsicDelta=\dimexpr
+    \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+  \BoundaryVariant{#1}{00}{#2#3#5}{#2#4#5}%
+  \BoundaryVariant{#1}{10}{#2 #3#5}{#2 #4#5}%
+  \BoundaryVariant{#1}{01}{#2#3 #5}{#2#4 #5}%
+  \BoundaryVariant{#1}{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\begin{document}
+
+\OMIT
+% Warm up siunitx math fonts and any one-shot deprecation messages
+% before the recorded region.
+\setbox0=\hbox{\unit{kg}\qty{5}{kg}\num{3.14}\si{kg}\SI{5}{kg}$x$}
+\TIMO
+
+\START
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{siunitx unit and number commands vs direct-input oracles}{
+  \BoundaryMatrix{unit-CDC}{中}{\unit{kg}}{kg}{文}
+  \BoundaryMatrix{unit-WDW}{A}{\unit{kg}}{kg}{B}
+  \BoundaryMatrix{qty-CDC}{中}{\qty{5}{kg}}{5kg}{文}
+  \BoundaryMatrix{qty-WDW}{A}{\qty{5}{kg}}{5kg}{B}
+  \BoundaryMatrix{num-CDC}{中}{\num{3.14}}{3.14}{文}
+  \BoundaryMatrix{num-WDW}{A}{\num{3.14}}{3.14}{B}
+  \BoundaryMatrix{si-CDC}{中}{\si{kg}}{kg}{文}
+  \BoundaryMatrix{SI-CDC}{中}{\SI{5}{kg}}{5kg}{文}
+  \BoundaryMatrix{unit-opt-CDC}{中}{\unit[per-mode=symbol]{kg.m/s}}{kg.m/s}{文}
+}
+
+\TEST{siunitx inside math mode leaves the capture stack idle}{
+  \BoundaryReset
+  \setbox\BoundaryCandidateContext=\hbox{$x=\unit{kg}$}%
+  \BoundaryAssertIdle{math-inside}{00}
+}
+
+\TYPE{siunitx boundary checks: \the\BoundaryChecks}
+\TYPE{siunitx boundary failures: \the\BoundaryFailures}
+
+\END
+
+\end{document}

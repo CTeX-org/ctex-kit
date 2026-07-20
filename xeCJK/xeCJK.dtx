@@ -11288,6 +11288,33 @@ Copyright and Licence
   { \@@_boundary_register_transparent:n { HD@target } }
 %    \end{macrocode}
 %
+% \changes{v3.10.4}{2026/07/20}{新增 \pkg{siunitx} 兼容：\tn{unit}、\tn{qty}、\tn{num}
+%   与 v2 旧名 \tn{si}、\tn{SI} 注册为固定 Default 首尾的 stream
+%   capture，修复 CJK 上下文中单位命令边界的空格丢失（\#1000）。}
+%
+% \pkg{siunitx} 用 math 模式排版数字与单位。math 不触发 interchar
+% 转换，入口的 \tn{mathon} 又遮蔽左侧 marker，机制与修复前的 \tn{eqref}
+% 相同；数字与单位输出必然以西文或数字开始、结束，因此按 \tn{eqref}
+% 同款策略注册为固定 Default 首尾的 stream capture。v2 旧名 \tn{si}、
+% \tn{SI} 是独立顶层命令，不经由 \tn{unit}、\tn{qty} 的 cmd hook，需
+% 单独注册；加存在性守卫以兼容未来移除旧名的 \pkg{siunitx} 版本。数学
+% 模式内使用（如 |$x=\unit{kg}$|）时 capture 只压入 inactive 标记，
+% 保持透明。\tn{ang} 输出含度符号，其 oracle 语义未定，暂不注册。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_register_siunitx:
+  {
+    \@@_boundary_register_stream:nn { unit } { default }
+    \@@_boundary_register_stream:nn { qty } { default }
+    \@@_boundary_register_stream:nn { num } { default }
+    \cs_if_exist:cT { si }
+      { \@@_boundary_register_stream:nn { si } { default } }
+    \cs_if_exist:cT { SI }
+      { \@@_boundary_register_stream:nn { SI } { default } }
+  }
+\@@_package_hook:nn { siunitx }
+  { \@@_boundary_register_siunitx: }
+%    \end{macrocode}
+%
 % \changes{v3.10.0}{2026/06/23}{为 \pkg{url} 的 \tn{Url@FormatString} 添加补丁，
 %   在进入数学模式前 drain 缓存的 \texttt{CJKecglue}，
 %   修复 CJK 文字与 \tn{url} 命令之间间距丢失的问题（\#880）。}
