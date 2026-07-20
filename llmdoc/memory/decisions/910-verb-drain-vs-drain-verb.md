@@ -7,6 +7,10 @@ metadata:
 
 # 决策：#910 `\verb` 修复使用专用 drain 函数
 
+> **状态：已由 #992 / PR #999 替代。** `\verb`、`\verb*` 与 shortvrb
+> 当前共用 auto stream，旧 drain helper 已删除。#919 引入的 language
+> whatsit 主动落盘仍保留，但只负责让真实节点在 stream 结束前进入列表。
+
 ## 背景
 
 xeCJK issue #910 修复 CJK 文字与 `\verb` / shortvrb 之间 `\CJKecglue` 丢失。`\verb` 入口 `\leavevmode\null` 产生 0×0 hbox，与 #873 `\HD@target` 的 `\raisebox` 同型遮蔽。但 `\verb` 是分隔符扫描宏，patch 包装时控制流被 `\@ifstar\@sverb\@verb` 接管，无法在原命令调用后注入 save/replay，因此只能用 drain（与 #880 同型）。

@@ -62,8 +62,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-13/284-fullwidth-tilde-longpunct.md`, `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`
 
 ### 边界状态必须区分语义与可信来源
-**Rule**: 节点恢复链若要区分历史缓存与当前可见证据，应使用专用 marker，并在实际改变或观察状态的固定点发布；不能因输出类别相同就复用可能陈旧的通用状态。
-**Why**: #972 的普通 `default` 原型能修直接 URL MWE，却无法穿过 #810 正确拒绝陈旧状态的下一 annotation；只有从顶层 `\Hy@EndAnnot` 的真实末尾 math 发布 `hyperref-default` 才能安全组合。
+**Rule**: 边界恢复不能只信全局语义缓存；必须用当前列表证据，或让 capture 覆盖完整命令并在真实观察点记录首尾类别。
+**Why**: #972 的专用 marker 曾证明普通 `default` 可能是陈旧状态；#999 随后用完整 annotation stream 吸收该证据并删除专用 marker，使实际输出类别直接成为恢复依据。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
 
 ### 可见排版修复需要三类证据
@@ -81,9 +81,14 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #999 把 #491 看似分散的命令问题收敛为 box、wrapped-box、stream、transparent、post-transparent 五类，并用同一 capture 状态机覆盖实际首尾类别和嵌套。
 **Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
+### 替换旧框架必须审计全部真实入口
+**Rule**: 删除旧 helper 后，从每个公共命令追到真实扫描分支和共同结束点，并为每条入口补矩阵与状态归零断言；不能只验证最显眼的包装宏。
+**Why**: #999 复查时发现原生 `\uline` / `\xeCJKfntefon` 绕过包内 fntef 入口，`\lstinline{...}` 也绕过分隔符路径；补齐 `\ULon` 与 `\lst@InlineG` 后共享 framework 才真正涵盖旧补丁的支持面。
+**Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+
 ### 节点不可判源时必须声明机制边界
 **Rule**: 当两种输入产生完全同构节点时，记录不可区分的机制证据、最窄风险窗口和稳定 workaround，不用更宽的启发式扫描假装能够判源。
-**Why**: 已注册命令右侧的源码空格与同参数显式 `\hskip` 没有来源标签；#999 以 pending + marker 限定回卷，并用 `\kern0pt` 提供可测试的保护方法。
+**Why**: 已注册命令右侧的源码空格与同参数显式 `\hskip` 没有来源标签；#999 只在 pending 已设置且下方有可信 marker 时暂时移除候选 glue，并用 `\kern0pt` 提供可测试的保护方法。
 **Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ### 证据说明层不能再经过被测状态机

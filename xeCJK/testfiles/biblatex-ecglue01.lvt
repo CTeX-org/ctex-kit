@@ -10,10 +10,9 @@
 % lets \blx@pagetracker to \blx@pagetracker@context whose body is
 % \protected@write\@mainaux{}{\string\abx@aux@page{...}{...}}.
 %
-% xeCJK patch clears \g__xeCJK_last_node_tl at \blx@pagetracker entry so
-% that the following whatsit does NOT trigger \__xeCJK_recover_glue_whatsit:'s
-% default branch and spurious \CJKecglue does NOT get inserted before the
-% first CJK character of the entry (#931).
+% xeCJK registers \blx@pagetracker as transparent: its write whatsit stays
+% in the list while the surrounding marker/source-space state is restored
+% after it. No generic whatsit recovery is used (#931/#992).
 \makeatletter
 \newwrite\bibaux
 \immediate\openout\bibaux=\jobname-bibaux.aux
@@ -24,7 +23,7 @@
 \makeatother
 
 % Simulate that biblatex has been loaded so xeCJK's begindocument/before hook
-% (i.e. \__xeCJK_at_end_preamble:n) fires the patch. The patch reads
+% (i.e. \__xeCJK_at_end_preamble:n) performs the registration. It reads
 % \blx@pagetracker (already defined above) and wraps it.
 
 \begin{document}
@@ -36,10 +35,9 @@
 \makeatletter
 
 % --- Test 1: whatsit from stub pagetracker does not trigger spurious ecglue ---
-% Before the fix: xeCJK's \__xeCJK_recover_glue_whatsit: default branch
-% inserts \CJKecglue (~3.33pt) between the whatsit and 张. After the fix:
-% \g__xeCJK_last_node_tl is cleared at pagetracker entry, default branch
-% predicate is false, no spurious ecglue.
+% Before the fix, the write whatsit caused stale Default state to insert
+% \CJKecglue (~3.33pt) before 张. Transparent capture now restores the
+% actual entry boundary after the write, so no spurious ecglue is emitted.
 %
 % box0 (patched): 前文。<whatsit> 张
 % box1 (baseline): 前文。张

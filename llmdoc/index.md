@@ -8,7 +8,7 @@
 
 - `llmdoc/architecture/package-architecture.md` — `ctex` 与 `xeCJK` 的主干架构、引擎适配策略、第三方包补丁子系统与包间依赖图；现含 #381 的 LuaTeX 拒绝传统 `CJKfntef` / XeTeX 透明替换边界、#407/#800 的 `\xeCJKchar` + 定点补丁策略、#158 Hangul L/V/T、#165 `CJStarter`，以及 #992 按实际首尾类别工作的 box/wrapped-box/stream/transparent/post-transparent capture/register 高层模型。
 - `llmdoc/architecture/xecjk-architecture.md` — xeCJK 独立架构详解：
-  - interchar token、字符分类（#158/#165/#336/#347/#382）、基础 marker/glue 恢复链、#992 capture/register 策略与直接输入 oracle、嵌套/`\sbox` 隔离、显式 glue 判源边界和 `\kern0pt` workaround，以及 #991 `\@setref` 特例与字体管理（#553）；
+  - interchar token、字符分类（#158/#165/#336/#347/#382）、基础 marker/glue 恢复链、#992 capture/register 策略与直接输入 oracle、嵌套/`\sbox` 隔离、显式 glue 判源边界和 `\kern0pt` workaround，以及 #991 `\@setref` 特例被 auto stream 取代后的分工与字体管理（#553）；
   - 标点压缩（#975 对 #443/#481/#488 的预设与方向性修复，以及 #511 重构边界）和间距语义（#808）；
   - 兼容补丁（#510、#873/#880/#910/#919/#931/#972）、`\char` 约束及扩展子包。
 - `llmdoc/architecture/ctex-architecture.md` — ctex 独立架构详解：分层加载、键值选项、引擎适配（含 pdfTeX UTF-8 `\DeclareUnicodeCharacter` 优先查找和 #381 `CJKfntef` 后端边界）、字号与字距系统（含 #871 `letterpress` 语义及 #402 `autoindent` 零缩进兼容边界）、方案/标题/字体集（含 #275 可展开的标题编号、完整标签与编号开关查询）、命令补丁，以及 Babel/biblatex 公开组合方法与运行时补丁的职责边界。
@@ -16,7 +16,7 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇，以及 xeCJK #992 命令边界的三层证据：`command-boundary01` 的 90 组场景 × 4＝360 个宽度 oracle 与 idle-stack 断言、`command-boundary02` 的 11 个 paragraph/node 用例、#991 `ref-ecglue01/02` 的 76 个比较和 gh-assets 可视 MWE；另含显式 glue 判源边界、`\kern0pt` workaround、lazy family 预热、MWE 说明层隔离、多引擎基线、ctxdoc 专项回归、CI/CD、版本/生成物门禁与本地 TL usertree 同步。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇，以及 xeCJK #992 命令边界的三层证据：`command-boundary01` 的 93 组场景 × 4＝372 个宽度 oracle 与 idle-stack 断言、`command-boundary02` 的 12 个 paragraph/node 用例、`listings-color01` 的 20 个逐格 oracle、#991 `ref-ecglue01/02` 的 76 个比较和 gh-assets 可视 MWE；另含显式 glue 判源边界、`\kern0pt` workaround、lazy family 预热、MWE 说明层隔离、多引擎基线、ctxdoc 专项回归、CI/CD、版本/生成物门禁与本地 TL usertree 同步。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402 等 MWE 与对比图）。
@@ -45,19 +45,19 @@
 - `llmdoc/memory/decisions/543-font-size-system.md` — 决策: 将字号系统切换能力放入 `experiment/font-size-system`，仅在类/宏包选项阶段选择 `word`、`letterpress` 或用户自定义字号表；#813 将原名 `traditional` 更名为 `letterpress` 以明确其金属活字语义。
 - `llmdoc/memory/decisions/761-ccglue-override.md` — Issue #761 CJKglue 导言区覆盖问题的修复方案演进与确立的引擎延迟重定义模式。
 - `llmdoc/memory/decisions/811-halfright-prebreakpenalty.md` — 决策: #811 对整个 `HalfRight` 类施加条件禁则，不拆分类；其中 `FullRight -> HalfRight` 必须覆写 interchartoks 以保证 penalty 位于 punct glue 之前；"固定 13 个字符"仅为 #811 落地时静态基线，#431 起 `HalfRight` 成员随 `LatinPunct` 开关动态增减。
-- `llmdoc/memory/decisions/826-fntef-right-side-cjkglue.md` — 历史决策: #826 为 fntef 引入 glue-on-kern-pair 三层过滤；该 pending flag 后由 #992 更名并泛化为 `\g_@@_glue_check_pending_bool`，供显式分组、颜色和 command capture 共用。
-- `llmdoc/memory/decisions/826-fntef-color-global-state.md` — 决策: fntef+textcolor 组合时 `\xeCJK_fntef_sbox:n` 的 `\hbox_set:Nn` 内 interchar toks 全局修改 `\g_@@_last_node_tl` 导致 `\set@color` 补丁用错误节点类型重建 kern pair；修复为 hbox 前后保存/恢复该状态。
-- `llmdoc/memory/decisions/830-color-wraps-ulem-last-node-tl.md` — 决策: textcolor 包裹 ulem 类 fntef 命令时，ulem `\UL@end` 的 `*` 字符触发 Default→Boundary interchar 转换污染 `\g_@@_last_node_tl`；修复为 `\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 前后 save/restore，与 #826 fntef(color) 方向互补。
-- `llmdoc/memory/decisions/831-boundary-explicit-brace-ecglue.md` — 历史决策: #831 为显式 `}`、`\mbox`、`\textcolor` 建立 pending/hlist/whatsit 分支；#992 后 `\mbox` 进入 box 注册，颜色仍保留窄 hook，通用 pending 名为 `\g_@@_glue_check_pending_bool`。
-- `llmdoc/memory/decisions/873-880-fixed-point-vs-default-narrowing.md` — 历史决策: #873/#880 选择 input-side save/replay 与 drain；#992 后 `\HD@target` 迁移为 transparent，URL 仅在没有活跃 capture 时保留 drain。
-- `llmdoc/memory/decisions/910-verb-drain-vs-drain-verb.md` — 历史决策: #910 证明 verb 路径不能在无 marker 时清空 tl；helper 后更名为 `\@@_drain_ecglue_keep_state:`，#992 将 `\verb` 本身迁移为 auto stream，#919 的 language flush 保留。
-- `llmdoc/memory/decisions/931-biblatex-let-shadow.md` — 决策: biblatex 补丁必须挂最终 `\let` 目标 `\blx@pagetracker` 并在 preamble 结束后安装；#992 把该目标的动作从单向 clear 改为 transparent 注册。
+- `llmdoc/memory/decisions/826-fntef-right-side-cjkglue.md` — 已被 #999 替代的历史决策：旧 fntef pending/filter 由 `stream-ulem` 与统一 source-space 检查吸收，外侧 glue 由 framework 决定并排到装饰区间外。
+- `llmdoc/memory/decisions/826-fntef-color-global-state.md` — 已被 #999 替代的历史决策：装饰符号 hbox 的手工状态保存/恢复改由可嵌套 capture suspend/resume 统一隔离。
+- `llmdoc/memory/decisions/830-color-wraps-ulem-last-node-tl.md` — 已被 #999 替代的历史决策：ulem 不再保存并覆盖全局末状态，而是把可信末尾 marker 移到外层后由 stream capture 解释实际末类别。
+- `llmdoc/memory/decisions/831-boundary-explicit-brace-ecglue.md` — 已被 #999 替代的历史决策：显式分组保留基础 source-space 门控；`\mbox`、color/xcolor 分别进入 box、transparent/wrapped-box 注册，颜色专用 pending 与通用 hlist/whatsit 猜测已删除。
+- `llmdoc/memory/decisions/873-880-fixed-point-vs-default-narrowing.md` — 已被 #999 替代的历史决策：`\HD@target` 使用 transparent capture，完整 `\Url@z` 与 codedoc/doc meta 使用 stream；旧 save/replay 与 drain 均已删除。
+- `llmdoc/memory/decisions/910-verb-drain-vs-drain-verb.md` — 已被 #999 替代的历史决策：`\verb` 使用 auto stream，旧 drain helper 已删除；#919 的 language whatsit 主动落盘只保留节点时序职责。
+- `llmdoc/memory/decisions/931-biblatex-let-shadow.md` — 部分保留的历史决策：最终 `\let` 目标 `\blx@pagetracker` 与 preamble 末安装时机仍有效；旧单向 clear/whatsit 恢复算法已由 transparent capture 取代。
 - `llmdoc/memory/decisions/935-check-doc-vs-ctan.md` — 决策: #935 新增 PR 门禁 `check-doc.yml` 用 `l3build doc` 而非 `l3build ctan`。后者内部硬编码调 `l3build check` (整套 regression) 与 test.yml 完全重复; 前者是纯 typeset (docinit + typesetpdf), 精确对应"文档 dtx→PDF 可编译性"维度. 牺牲 tdslocations 打包路径验证 (低频问题, release.yml 兜底).
 - `llmdoc/memory/decisions/937-version-single-source-l3build-tag.md` — 决策: #937 版本管理收敛为 build.lua 单一事实源 + `l3build tag` 回写 dtx `$Id:$` stamp + 双闸 CI (check-tag.yml PR 门禁 + release.yml 三方校验 strip_rc(git tag)==build.lua==stamp)。update_tag 必须幂等 (stamp 版本相等即跳过, 否则回写追着 commit 跑永不收敛); RC 后缀只存在于 git tag, 发 rc 前 build.lua 必须已 bump 并 stamp。适用 zhlineskip / ctex, 其他包迁移路径已列出；同一原则延伸到手册首页页脚 shorthash——曾短暂采用编译时 `\sys_get_shell` 现场取 git hash (`--shell-escape`), 四环境实测在 CTAN 典型解压场景导致 Emergency stop 被否决, 改为 `update_tag` 在 `l3build tag` 阶段固化写入 `ctex.dtx` 的 `\GetFileId[<hash>]`。
 - `llmdoc/memory/decisions/961-changelog-gate-no-write-perm.md` — 决策: #961 CHANGELOG.md 生成物新鲜度校验收敛为「CI 每 PR 重新生成 + `git diff --exit-code` 只校验不回写」，与 #937 check-tag.yml 同一「生成物新鲜度校验」架构模式；否决 CI 打 tag 时生成并 commit（需 write 权限）与 tag 前本地手跑（流程不闭环）两案。已接受缺憾: zhmetrics 包名前缀推断为 `zhmCJK` 导致版本链接死链、并行 PR 的 CHANGELOG 合并冲突。
-- `llmdoc/memory/decisions/972-hyperref-end-annot-trusted-marker.md` — 历史决策: #972 证明顶层 `\Hy@EndAnnot` 的末尾 math 是可信 Default 证据；#992 将该观察纳入从 `\Hy@BeginAnnot` 到结束端的 auto stream，不再以专用 marker 作为 hyperref 主路径。
-- `llmdoc/memory/decisions/991-setref-null-marker-replay.md` — 决策: #991 保留 `\@setref` 的 `\null` hbox，在其后重放引用实际末尾 marker；CJK 后接源码空格改发 `CJK-space`，hyperref 只补丁 `\real@setref` 的 starred 路径，其他链接路径继续由 #992 追踪。
-- `llmdoc/memory/decisions/992-command-boundary-capture-register.md` — 决策: #992/PR #999 用 box、wrapped-box、stream、transparent、post-transparent 五类注册策略和运行时首尾类别统一恢复命令两侧边界；记录嵌套/`\sbox` 状态、#991 特例分工、显式同构 glue 的机制边界与 `\kern0pt` workaround。
+- `llmdoc/memory/decisions/972-hyperref-end-annot-trusted-marker.md` — 已被 #999 替代的历史决策：顶层 `\Hy@EndAnnot` 的末尾 math 仍作为 Default 观察点，但从 `\Hy@BeginAnnot` 到结束端的 auto stream 已取代专用 marker。
+- `llmdoc/memory/decisions/991-setref-null-marker-replay.md` — 已被 #999 替代的历史决策：保留 `\null` 的目标不变，但 `\@setref` / `\real@setref` 已改用 auto stream，一般 `\null` 走 post-transparent；专用 wrapper、saved-node 与 replay 已删除。
+- `llmdoc/memory/decisions/992-command-boundary-capture-register.md` — 决策: #992/PR #999 用 box、wrapped-box、stream、transparent、post-transparent 五类注册策略和运行时首尾类别统一恢复命令两侧边界；记录嵌套/`\sbox` 状态、旧逐命令补丁吸收结果、显式同构 glue 的机制边界与 `\kern0pt` workaround。
 - `llmdoc/memory/decisions/382-dash-width-and-ligature-opt-in.md` — 决策: #382 破折号宽度修复分两阶段——公式修正（`\@@_long_punct_kerning:N` 三路取大 kern + `\xeCJK_punct_margin_process:NN` 全份 margin 补偿）默认生效, OpenType 合字支持通过 `PoZheHao` 字符类 `PoZheHaoLigature` opt-in; margin 选择新增专用条件 `\@@_punct_if_full_margin_dash:N` 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性。
 - `llmdoc/memory/decisions/431-latinpunct-option.md` — 决策: #389/#431 新增 `LatinPunct` 选项让中西文共用码位标点（弯引号/间隔号/省略号）可切换为西文字体输出；归入 `Half*` 类而非 `Default`；破折号/半字线刻意排除保持与 `PoZheHaoLigature` 正交；状态记录改用局部布尔 `\l_@@_latin_punct_bool` 并回溯修正 `PoZheHaoLigature` 同类作用域问题（影子布尔作用域必须与被控 `\XeTeXcharclass` 资源一致）。
 - `llmdoc/memory/decisions/336-external-interchar-class-others.md` — 决策: #336 的 CJK URL 断行由既有 `Others` 兼容层覆盖；外部 class 必须在导言区结束前定义 Default transition，不新增通用字符类继承 API。

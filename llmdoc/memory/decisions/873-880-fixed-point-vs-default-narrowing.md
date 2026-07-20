@@ -7,6 +7,11 @@ metadata:
 
 # 决策：#873 / #880 选 input-side fixed-point patch 而非“收窄 default 分支”
 
+> **状态：已由 #992 / PR #999 替代。** 本文保留当时选择 save/replay 与
+> drain 的历史依据；当前 `\HD@target` 使用 transparent capture，完整
+> `\Url@z` 与 codedoc/doc meta 使用 stream capture，旧 helper 和通用
+> whatsit 恢复猜测均已删除。
+
 ## 背景
 
 #873（`\meta` 后 CJK 丢 ecglue）与 #880（`\url` 后 CJK 丢 ecglue）根因相同：xeCJK 边界恢复链通过 `\tex_lastkern:D` 判断 marker，但被中间节点遮蔽（#873 是 `\HD@target` 的 0x0 hbox，#880 是 `\Url@FormatString` 的 math 模式）。曾考虑两条修复路径。

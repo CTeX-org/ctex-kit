@@ -13,7 +13,67 @@
   rulecolor=\color{blue},
 }
 
+\newdimen\ListingsBoundaryIntrinsicDelta
+\newdimen\ListingsBoundaryDelta
+\newcount\ListingsBoundaryChecks
+\newcount\ListingsBoundaryFailures
+
+\ExplSyntaxOn
+% Test-only white-box reset/assertions; these internal variables are not API.
+\cs_new_protected:Npn \ListingsBoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \ListingsBoundaryCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\cs_new:Npn \ListingsBoundaryCaptureStackCount
+  { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
+\ExplSyntaxOff
+
+\newcommand\ListingsBoundaryAssertIdle[2]{%
+  \ifnum\ListingsBoundaryCaptureDepth=0\relax
+    \ifnum\ListingsBoundaryCaptureStackCount=0\relax
+    \else
+      \global\advance\ListingsBoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 left a nonempty capture stack}%
+    \fi
+  \else
+    \global\advance\ListingsBoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture depth}%
+  \fi
+}
+
+\newcommand\ListingsBoundaryCompare[4]{%
+  \global\advance\ListingsBoundaryChecks by 1
+  \ListingsBoundaryDelta=\dimexpr
+    \wd#3-\wd#4-\ListingsBoundaryIntrinsicDelta\relax
+  \ifdim\ListingsBoundaryDelta<0pt
+    \ListingsBoundaryDelta=-\ListingsBoundaryDelta
+  \fi
+  \ifdim\ListingsBoundaryDelta<0.01pt
+  \else
+    \global\advance\ListingsBoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\ListingsBoundaryDelta}%
+  \fi
+}
+
+% Boxes 0--3 are candidate contexts, 4--7 are their direct-input oracles,
+% and boxes 8--9 contain the standalone candidate and oracle content.
+\newcommand\ListingsBoundaryMatrix[1]{%
+  \ListingsBoundaryIntrinsicDelta=\dimexpr\wd8-\wd9\relax
+  \ListingsBoundaryCompare{#1}{00}{0}{4}%
+  \ListingsBoundaryCompare{#1}{10}{1}{5}%
+  \ListingsBoundaryCompare{#1}{01}{2}{6}%
+  \ListingsBoundaryCompare{#1}{11}{3}{7}%
+}
+
 \begin{document}
+
+% Prewarm the CJK inline path before log capture so lazy math-font loading
+% does not add platform-sensitive font information to this boundary test.
+\setbox0=\hbox{\lstinline{中文}}
+\ListingsBoundaryReset
 
 \START
 
@@ -22,6 +82,103 @@
 代码 \lstinline{lang=cn} 后续
 \clearpage
 \ENDTEST
+
+% Use distinguishable glue so equal default word-space widths cannot hide a
+% source-space error at the colored listings boundary.  Each source-space
+% variant is compared with its own direct-input oracle: the four oracle widths
+% are not required to equal one another.  \lstinline must stay at top level
+% because its scanners are not legal in a macro argument.
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\ListingsBoundaryReset\setbox8=\hbox{\lstinline{lang=cn}}
+\ListingsBoundaryAssertIdle{braced-W}{standalone}
+\ListingsBoundaryReset\setbox9=\hbox{lang=cn}
+\ListingsBoundaryReset\setbox0=\hbox{代码\lstinline{lang=cn}后续}
+\ListingsBoundaryAssertIdle{braced-W}{00}
+\ListingsBoundaryReset\setbox4=\hbox{代码lang=cn后续}
+\ListingsBoundaryReset\setbox1=\hbox{代码 \lstinline{lang=cn}后续}
+\ListingsBoundaryAssertIdle{braced-W}{10}
+\ListingsBoundaryReset\setbox5=\hbox{代码 lang=cn后续}
+\ListingsBoundaryReset\setbox2=\hbox{代码\lstinline{lang=cn} 后续}
+\ListingsBoundaryAssertIdle{braced-W}{01}
+\ListingsBoundaryReset\setbox6=\hbox{代码lang=cn 后续}
+\ListingsBoundaryReset\setbox3=\hbox{代码 \lstinline{lang=cn} 后续}
+\ListingsBoundaryAssertIdle{braced-W}{11}
+\ListingsBoundaryReset\setbox7=\hbox{代码 lang=cn 后续}
+\ListingsBoundaryMatrix{braced-W}
+
+\ListingsBoundaryReset\setbox8=\hbox{\lstinline{中文}}
+\ListingsBoundaryAssertIdle{braced-C}{standalone}
+\ListingsBoundaryReset\setbox9=\hbox{中文}
+\ListingsBoundaryReset\setbox0=\hbox{A\lstinline{中文}B}
+\ListingsBoundaryAssertIdle{braced-C}{00}
+\ListingsBoundaryReset\setbox4=\hbox{A中文B}
+\ListingsBoundaryReset\setbox1=\hbox{A \lstinline{中文}B}
+\ListingsBoundaryAssertIdle{braced-C}{10}
+\ListingsBoundaryReset\setbox5=\hbox{A 中文B}
+\ListingsBoundaryReset\setbox2=\hbox{A\lstinline{中文} B}
+\ListingsBoundaryAssertIdle{braced-C}{01}
+\ListingsBoundaryReset\setbox6=\hbox{A中文 B}
+\ListingsBoundaryReset\setbox3=\hbox{A \lstinline{中文} B}
+\ListingsBoundaryAssertIdle{braced-C}{11}
+\ListingsBoundaryReset\setbox7=\hbox{A 中文 B}
+\ListingsBoundaryMatrix{braced-C}
+
+\ListingsBoundaryReset\setbox8=\hbox{\lstinline{A中}}
+\ListingsBoundaryAssertIdle{braced-WC}{standalone}
+\ListingsBoundaryReset\setbox9=\hbox{A中}
+\ListingsBoundaryReset\setbox0=\hbox{前\lstinline{A中}后}
+\ListingsBoundaryAssertIdle{braced-WC}{00}
+\ListingsBoundaryReset\setbox4=\hbox{前A中后}
+\ListingsBoundaryReset\setbox1=\hbox{前 \lstinline{A中}后}
+\ListingsBoundaryAssertIdle{braced-WC}{10}
+\ListingsBoundaryReset\setbox5=\hbox{前 A中后}
+\ListingsBoundaryReset\setbox2=\hbox{前\lstinline{A中} 后}
+\ListingsBoundaryAssertIdle{braced-WC}{01}
+\ListingsBoundaryReset\setbox6=\hbox{前A中 后}
+\ListingsBoundaryReset\setbox3=\hbox{前 \lstinline{A中} 后}
+\ListingsBoundaryAssertIdle{braced-WC}{11}
+\ListingsBoundaryReset\setbox7=\hbox{前 A中 后}
+\ListingsBoundaryMatrix{braced-WC}
+
+\ListingsBoundaryReset\setbox8=\hbox{\lstinline{中A}}
+\ListingsBoundaryAssertIdle{braced-CW}{standalone}
+\ListingsBoundaryReset\setbox9=\hbox{中A}
+\ListingsBoundaryReset\setbox0=\hbox{前\lstinline{中A}后}
+\ListingsBoundaryAssertIdle{braced-CW}{00}
+\ListingsBoundaryReset\setbox4=\hbox{前中A后}
+\ListingsBoundaryReset\setbox1=\hbox{前 \lstinline{中A}后}
+\ListingsBoundaryAssertIdle{braced-CW}{10}
+\ListingsBoundaryReset\setbox5=\hbox{前 中A后}
+\ListingsBoundaryReset\setbox2=\hbox{前\lstinline{中A} 后}
+\ListingsBoundaryAssertIdle{braced-CW}{01}
+\ListingsBoundaryReset\setbox6=\hbox{前中A 后}
+\ListingsBoundaryReset\setbox3=\hbox{前 \lstinline{中A} 后}
+\ListingsBoundaryAssertIdle{braced-CW}{11}
+\ListingsBoundaryReset\setbox7=\hbox{前 中A 后}
+\ListingsBoundaryMatrix{braced-CW}
+
+\ListingsBoundaryReset\setbox8=\hbox{\lstinline|lang=cn|}
+\ListingsBoundaryAssertIdle{delimited-W}{standalone}
+\ListingsBoundaryReset\setbox9=\hbox{lang=cn}
+\ListingsBoundaryReset\setbox0=\hbox{代码\lstinline|lang=cn|后续}
+\ListingsBoundaryAssertIdle{delimited-W}{00}
+\ListingsBoundaryReset\setbox4=\hbox{代码lang=cn后续}
+\ListingsBoundaryReset\setbox1=\hbox{代码 \lstinline|lang=cn|后续}
+\ListingsBoundaryAssertIdle{delimited-W}{10}
+\ListingsBoundaryReset\setbox5=\hbox{代码 lang=cn后续}
+\ListingsBoundaryReset\setbox2=\hbox{代码\lstinline|lang=cn| 后续}
+\ListingsBoundaryAssertIdle{delimited-W}{01}
+\ListingsBoundaryReset\setbox6=\hbox{代码lang=cn 后续}
+\ListingsBoundaryReset\setbox3=\hbox{代码 \lstinline|lang=cn| 后续}
+\ListingsBoundaryAssertIdle{delimited-W}{11}
+\ListingsBoundaryReset\setbox7=\hbox{代码 lang=cn 后续}
+\ListingsBoundaryMatrix{delimited-W}
+
+\TEST{lstinline color paths follow direct-input boundaries}{
+  \TYPE{listings boundary checks: \the\ListingsBoundaryChecks}
+  \TYPE{listings boundary failures: \the\ListingsBoundaryFailures}
+}
 
 \END
 

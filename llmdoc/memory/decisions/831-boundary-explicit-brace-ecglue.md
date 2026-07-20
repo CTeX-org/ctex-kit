@@ -1,5 +1,10 @@
 # 决策: #831 显式 } / \mbox / \textcolor 右侧多余 inter-word glue
 
+> **状态：已由 #992 / PR #999 吸收。** 显式 `}` 继续通过基础恢复链发布
+> source-space pending；`\mbox` 改用 box 注册，color/xcolor 改用
+> transparent 与 wrapped-box 注册。旧颜色专用 pending、通用 hlist/whatsit
+> 恢复猜测和 fntef 专用 pending 均已删除。
+
 ## 问题
 
 多种场景在 CJK 字符后产生多余的 inter-word glue：

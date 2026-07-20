@@ -1,5 +1,10 @@
 # 决策: #826 xeCJKfntef 右侧 CJKglue 恢复
 
+> **状态：已由 #992 / PR #999 替代。** 本文记录旧 fntef pending/filter
+> 算法的历史理由；当前实现由 `stream-ulem` 观察实际首尾类别，以统一
+> source-space 检查处理右侧空格，并把 framework 决定的外侧 glue 排到
+> 装饰区间外。旧 `\g_@@_ulem_pending_bool` 已删除。
+
 ## 问题
 
 `\CJKsout{文字}`、`\CJKunderdot{文字}` 等 xeCJKfntef 命令右侧的 CJKglue 未被正确恢复。

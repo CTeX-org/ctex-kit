@@ -1,5 +1,9 @@
 # 决策: textcolor 包裹 ulem 类 fntef 命令时 last_node_tl 污染
 
+> **状态：已由 #992 / PR #999 替代。** 当前 ulem 路径把内部可信末尾
+> marker 移到外层列表，再由 `stream-ulem` 按列表证据解释实际末类别；旧
+> `\g__xeCJK_ulem_saved_last_node_tl` 与前后 save/restore 已删除。
+
 ## 问题
 
 `\textcolor{red}{\CJKunderline{文字}}文字` 等 textcolor 包裹 ulem 类 fntef 命令（`\CJKunderline`, `\CJKsout`, `\CJKunderwave`, `\CJKunderdblline`）时，fntef 效果后续的 CJK 字符前产生多余的 3.33pt CJKecglue（应为 CJKglue）。
