@@ -120,73 +120,22 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 
 这也解释了为何早先的 `\AtBeginDocument` 方案被撤回：把 `\char` 在正文期延迟重定义虽然能绕开 xint 这类“加载期 `\let` 保存 primitive”的兼容问题，但仍然会改变文档体内 `\char` 的全局身份，不符合 xeCJK 现在确立的低侵入策略。当前架构约束更严格：`\char` 必须始终保持 XeTeX primitive 身份，兼容层只能通过新命令、定点补丁和用户手动包装来表达“这里需要绕过 interchar”。凡是未来再调整 `\char` 或类似原语兼容补丁时，都应把“是否改变 primitive 身份”视为架构级红线，而不是实现细节。
 
-从维护视角看，xeCJK 的这套 interchar 逻辑更适合被理解成一个“边界恢复状态机”，而不是若干零散的 glue 宏：
+从维护视角看，xeCJK 的 interchar 间距由两层机制协作：
 
-- 第一层是边界判定。xeCJK 会在 `\xeCJK_make_node:n` 时插入内部标记 kern，后续主要通过 `\lastkern` 判断上一边界上保存的标记类型，以决定当前是否需要恢复 `CJKglue` 或 `CJKecglue`。
-- 第二层是异常回退。若边界标记与当前待处理位置之间夹入 `\special` 产生的 whatsit，则 `\lastkern` 观察链会被打断，需要额外的 whatsit 回退路径跨越节点干扰继续恢复。
-- 第三层是取值时机。前侧 `CJKecglue` 不是固定常量，而默认来自 `~` 的字体相关 glue，因此状态机除了判断“该不该恢复”，还必须保证“恢复时用的是哪一个已经在正确字体上下文里测得的值”。
-- 还有一个与 whatsit 不同、但症状同样表现为“`\lastkern` 看不到边界标记”的遮蔽模式：若 `CJK -> Boundary` 过渡在写下 `CJK-space` 标记 kern 之后，又立刻输出一个普通 glue，那么最后可观察节点同样不再是标记 kern，后续恢复判定会像遭遇 whatsit 一样失效。
+- 基础恢复链在 CJK→Boundary 时写入 marker kern 并缓存当时字体上下文中的 `\CJKecglue`，Boundary→CJK/Default 时用列表节点证据恢复 `\CJKglue` 或 `\CJKecglue`。源码词间 glue 只能在 `\g_@@_glue_check_pending_bool` 门控下有界回卷；通用 whatsit 恢复仍被禁止。
+- 命令边界 capture/register 层把分组、盒子、annotation、verbatim、锚点和 write 等遮蔽形状映射到共享恢复原语。interchar transition 在运行时报告实际首尾 `CJK` / `default` 类别，出口按直接输入语义重建两侧边界。
 
-因此，xeCJK 的边界问题若表现为“glue 丢失”或“glue 数值不对”，都应优先从同一条 interchar 恢复链来理解，而不是拆成互不相关的字符类、字体或颜色子问题。
+#992 的契约不是“某命令永远属于某类”，而是命令包装与相同可见字符的直接输入等价。西文/数字输出按 Default，中文输出按 CJK，混合输出左右分别判断，无可见输出应透明；`00/10/01/11` 四种源码空格必须逐格验证。#491 那种每个命令抽一个成功场景的证据不能推出整类已修复。
 
-Issue #581 暴露了这一点：U+200B ZERO WIDTH SPACE、U+200C ZERO WIDTH NON-JOINER、U+200D ZERO WIDTH JOINER 与 U+2060 WORD JOINER 虽然本身零宽，但若保留普通 catcode，仍会进入 xeCJK 的字符分类路径，导致原本不应变化的间距发生改变。当前实现选择在 `xeCJK/xeCJK.dtx` 的类设定初始化阶段，直接将这些字符与既有的 U+FEFF（BOM）一起设为 `\char_set_catcode_ignore:n`，使其在 TeX 输入层被忽略，不再触发 interchar 分类与 token 插入。
+注册策略按节点形状分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的零尺寸尾盒。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
-Issue #315 则暴露了另一类更隐蔽的边界恢复问题：即使参与排版的字符本身没有分类错误，`\textcolor`、`color`/`xcolor` 以及 PDF 注解等机制仍可能通过 `\special` 在节点链中插入 whatsit 节点（`\lastnodetype = 9`）。xeCJK 旧实现把“上一类边界标记是否存在”主要建模为 `\lastkern` 上的标记 kern；一旦 Boundary→Default 或 Boundary→CJK 过渡之间夹入 whatsit，这条检测链就会被打断，导致本应恢复的 `CJKecglue` / `CJKglue` 丢失。
+每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界并把实际末类别重放给基础恢复链。前两层 register 预分配，更深层惰性创建；`\sbox` 暂停观察，避免离线测量污染外层命令。该模型覆盖普通盒、12 层嵌套、混合输出、hyperref、verb、hypdoc、biblatex 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
 
-PR #791 对 #315 的修复曾把这条恢复链泛化为“只要上一节点是 whatsit，就根据 `\g_@@_last_node_tl` 恢复 glue”。这条通用 whatsit 恢复链虽然修复了 `\textcolor` 导致的 ecglue 丢失，但后来在 #803 中暴露出边界定义过宽的问题：如果 biblatex 的 `gb7714-2015` 样式把引用括号包进 `\raise\hbox{[}`，而 `hyperref` 又在括号与数字之间插入 PDF 注解 whatsit，那么 xeCJK 会把“hbox 后的任意 whatsit”误判成可恢复的 CJK→Default 边界，错误地在 `[` 与 `1` 之间补入 ecglue，生成可见的 `[ 1]` 类间距。
+旧定点补丁只在 token 或第三方加载时序不能由注册层表达时保留：#991 的 `\@setref` 要越过内核 `\fi` 后窥视源码空格；无 hyperref 的 URL math 仍需窄范围 drain；codedoc meta 的内部 hbox 修正与 color/l3color 的已知 marker hook 继续服务基础恢复链。#873/#880/#910/#931/#972 的 save/replay/drain 记录是演进历史，不再是总体架构。
 
-当前 xeCJK 对 whatsit 的稳定约束因此已经收窄为“定点恢复，而不是通用恢复”：
+TeX 节点不记录 glue 来源。已注册命令右侧完全同构于词间空格的显式 `\hskip` 与源码空格无法区分；若必须保留这种显式 glue，在其前加 `\kern0pt`，或使用不同自然宽度 / 无 shrink 的 glue。这是机制支持边界，不应靠扩大通用节点回看猜测来源。
 
-- `\@@_check_for_ecglue:` 的最后回退分支不再调用 `\@@_recover_ecglue_whatsit:`；也就是说，xeCJK 不再因为“上一节点是任意 whatsit”就恢复前侧 ecglue。
-- `\g_@@_last_node_tl` 仍然保留，用于记录最近一次 `\xeCJK_make_node:n` 创建的 xeCJK 内部标记类型；但这份状态不再被 `\@@_check_for_ecglue:` 当作全局后备。
-- 真正需要跨 whatsit 续接边界语义的场景，目前按已知调用方定点补丁：
-  - `color` / `xcolor` 的 `\set@color`：在颜色切换 whatsit 插入后，如果 `\g_@@_last_node_tl` 非空，就立即重放对应的 xeCJK 标记节点；而在 no-node 分支则必须先清空 `\g_@@_last_node_tl`，避免把初始化阶段或前序调用残留的 `default` 送进后续恢复链。
-  - `color` / `xcolor` 的 `\reset@color`（#831）：在 color-pop whatsit 插入后，重新放置 kern pair 标记并设置 `\g_@@_ulem_pending_bool`，使后续 `\@@_check_for_glue_skip:` 能正确处理 `\textcolor` 结束端的 glue-on-kern-pair。
-  - `hyperref` 的 `\Hy@BeginAnnot`：进入链接注释前先保存当前 xeCJK 节点类别并清空旧状态，待注释起始 whatsit 插入后，只对 `CJK` / `CJK-space` / `CJK-widow` 三类节点选择性重放标记，而显式不重放 `default`。
-  - `hyperref` 的 `\Hy@EndAnnot`（#972）：在顶层 annotation 结束前若实际最后节点为 math，则在原始结束 whatsit 后发布专用 `hyperref-default`；它表示已验证的西文末边界，可跨随后颜色或 annotation 包装，而普通 `default` 仍按 #810 排除。
-  - `l3color`（expl3 内置）的 `\__color_select:N` 和 `\__color_backend_reset:`（#832）：l3color 的颜色机制使用独立的后端代码路径，不经过 `\set@color`/`\reset@color`。`\__color_select:N` 负责颜色推入（调用后端 select 并注册 aftergroup reset），`\__color_backend_reset:` 负责颜色弹出。此处对这两个函数施加与 `\set@color`/`\reset@color` 相同的 kern 对保护，使 l3color 接口的颜色切换也能正确保持 xeCJK 间距。
-- 这等价于把“跨 whatsit 恢复 glue”改写成“在已知安全的 whatsit 之后补回 xeCJK 自己的标记 kern”，让后续 `\lastkern` 检测继续工作，而不是让恢复函数去猜测任意 whatsit 后面应不应该补 glue。
-
-这一变化把 Issue #315、#803、#807、#809、#810、#832 与 #972 统一到同一条更精确的心智模型里：并不是所有 whatsit 都代表“合法的边界中断”，只有 xeCJK 明确认识、并能在其后立即重建有证据的内部标记的 whatsit 才能参与边界恢复。当前已知的安全场景包括 `color` / `xcolor` 的 `\set@color`/`\reset@color`、`l3color` 的 `\__color_select:N`/`\__color_backend_reset:`，以及 `hyperref` 的 `\Hy@BeginAnnot` 与受末尾 math + 顶层 annotation 双重约束的 `\Hy@EndAnnot`；其他 whatsit 不能使用通用恢复逻辑。此外，`\set@color` 补丁依赖 `\g_@@_last_node_tl` 决定重建哪种 kern pair，因此任何在 hbox 内触发 interchar toks 全局修改该状态的代码路径（如 `\xeCJK_fntef_sbox:n`）都必须在 hbox 前后隔离状态。
-
-`hyperref` 的开始端与结束端处理不同事件，不能再泛化为“只 patch 某一端”：
-
-- #809 的缺前侧 ecglue，根因是 `\Hy@BeginAnnot` 内部 `\set@color` 生成的 whatsit 把原本应保留的 `CJK` 边界标记覆盖成 `default`，使 CJK→Default 边界不再触发 ecglue。
-- #810 的目录伪空白，根因则是链接注释起始处的 `pdf:bann` whatsit 错误继承旧 `default` 状态，通过 whatsit 恢复路径补出了本不该存在的 ecglue。
-- 对 #809/#810，补丁必须在进入注释前完成“保存真实状态 + 清空陈旧状态”，开始后选择性重放；结束端无法挽回已经发生的入口污染。
-- #972 是独立的输出端故障：`\url` 内容末尾的 math 节点本来足以触发右侧 ecglue，但 `\Hy@EndAnnot` 的 whatsit 把它遮蔽。此时结束端能在 whatsit 插入前观察真实末节点，因此以专用 `hyperref-default` 发布可信的西文边界是正确修复点。
-
-这里还有一个关键约束不能丢：`\@@_recover_glue_whatsit:` 内部的 `default` 分支不能删除，因为 `color` / `xcolor` 的修复仍依赖它恢复合法边界；同时也不能让 #972 复用普通 `default`，否则下一次 `\Hy@BeginAnnot` 会按 #810 正确地拒绝它。专用 marker 的名称同时编码 Default-like 语义与可信来源。
-
-Issue #252 / #476 进一步说明，这条状态机不仅要解决“能否恢复”的问题，还要解决“恢复时取哪个 glue 值”的问题。`\CJKecglue` 默认是 `~`，其宽度、stretch、shrink 取决于当前字体的 `\fontdimen`；因此如果在 `\texttt`、`\textbf`、`\textit`、`\zihao` 或其他局部分组里切换了字体，再在边界恢复时直接重新展开 `\CJKecglue`，就会错误地使用组内字体的空格度量，而不是外层 CJK 字体的度量。
-
-Issue #324 则补上了另一条前置约束：在 `\@@_boundary_reserve_space:` 这条 CJK→Boundary 宏路径里，旧实现会先经 `\@@_boundary_group_end:n { CJK-space }` 留下 `CJK-space` 标记 kern，再立即执行 `\xeCJK_space_or_xecglue:` 输出一个普通空格 glue。这样一来，后续 `Boundary -> CJK` / `Boundary -> Default` 恢复逻辑再做 `\lastkern` 检查时，看到的最后节点已经变成这段 glue，而不是刚写下的 `CJK-space` 标记；症状上与 whatsit 打断恢复链相同，都是”标记不再是 `\lastkern` 可见的最后节点”，但根因不同：#315 一类问题来自第三方插入的 whatsit，#324 则是 xeCJK 自己在宏路径上额外输出了不该提前出现的 glue。
-
-Issue #826 揭示了同一类遮蔽模式的第三个变体：xeCJKfntef 命令（`\CJKsout`、`\CJKunderdot` 等）的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox 关闭后，XeTeX 的 interchar 机制看到的不是 CJK 字符类，源码空格因此产生 finite inter-word glue，叠在先前写下的 CJK kern pair 标记上方。`\xeCJK_check_for_glue:` 的 `\@@_if_last_glue:TF` 分支原来只做了简单回退，没有尝试”揭开 glue 查看下方是否有 kern pair 标记”的探测。修复通过新增 `\@@_check_for_glue_skip:` 函数完成：先做 finite/shrink 前置检查过滤 fil 级 glue 和 `\quad`，再分两条路径处理——kern 路径由 `\g_@@_ulem_pending_bool` 门控保存并移除 finite glue 后探测下方标记 kern；hlist 路径不依赖 boolean，通过 `\g_@@_last_node_tl` 判断 hbox 内容类型（如 `\mbox` 产生的 hbox）。`\g_@@_ulem_pending_bool` 作为 kern 路径的门控，目前有三个 set 点：(1) `\@@_ulem_group_end:n`（ulem hbox 关闭），(2) `\@@_under_symbol_auxii:nnnnnn`（着重号独立模式），(3) CJK→Boundary handler 中 peek token 为 catcode 2（显式 `}`，#831）。此外，`\reset@color` 补丁在 color-pop whatsit 后也会设置该 boolean（#831）。
-
-Issue #831 揭示了相同 glue-on-kern-pair 模式的非 fntef 触发场景：`前{中} 后` 中显式 `}`（catcode 2）触发 Boundary class，分组结束后源码空格同样产生 inter-word glue。修复复用了 #826 的 `\@@_check_for_glue_skip:` 消费端，只需在 CJK→Boundary handler 中对 catcode 2 的 peek token 新增 boolean set 点。后续进一步解决了 `\textcolor` 和 `\mbox` 两个原先标记为已知限制的场景：(1) 新增 `\reset@color` 定点补丁，在 color-pop whatsit 后重放 kern pair 并设置 boolean；(2) 新增 hlist 回退路径，通过 `\g_@@_last_node_tl` 穿透 hbox 判断内容类型。这将 `\g_@@_ulem_pending_bool` 的语义从”fntef 专属标记”扩展为”已知会产生 glue-on-kern-pair 的场景标记”。
-
-v3.10.0 起，`\@@_boundary_reserve_space:` 不再在宏路径中立即输出这段空格 glue，而是与非宏路径保持一致，只保留 `CJK-space` 标记，把是否恢复以及恢复什么间距继续交给后续 interchar 边界状态机统一决定。也就是说，源码中的空格是否最终转化为可见间距，不应在 `\@@_boundary_reserve_space:` 阶段抢先决定；该阶段真正需要保留的是供后续恢复链读取的边界标记。
-
-当前实现为此前侧 ecglue 恢复增加了“缓存值”这一层状态：
-
-- 在 `\@@_boundary_group_end:n`，也就是 CJK→Boundary 过渡时，先把当时正确 CJK 字体上下文中的 `\CJKecglue` 缓存到 `\l_@@_ecglue_skip`。
-- 后续所有前侧边界恢复路径统一使用这个缓存 skip，而不再在恢复点重新测量 `\CJKecglue`。
-- 这样即使 Boundary 区间内部出现局部字体切换，真正恢复出来的 ecglue 仍保持离开 CJK 区域时的度量。
-
-这个设计刻意选择“CJK→Boundary 时缓存”，而不是初始化时缓存或每个字符都缓存：初始化时拿到的值会随着后续字体/字号切换而过期；每字符缓存则频率过高、状态复杂度也更大。CJK→Boundary 正好是离开正确 CJK 字体上下文前的最后稳定时机，既保证度量正确，也把缓存成本限制在边界级别。
-
-因此，修复后的 xeCJK interchar 状态机应整体理解为：
-
-1. 用 `\lastkern` 标记 kern 判定上一边界类型；
-2. 若被 whatsit 打断，则通过 `\lastnodetype` 与保存的节点类型走回退路径；`\reset@color` 的定点补丁在 color-pop whatsit 后重建标记 kern 并设置 boolean；
-3. 若需要恢复前侧 ecglue，则不在恢复点重新展开 `\CJKecglue`，而是使用先前在 CJK→Boundary 时缓存的 `\l_@@_ecglue_skip`；
-4. 若上一节点是 glue，则通过 `\@@_check_for_glue_skip:` 判断 glue 性质，分两条路径：kern 路径（boolean 门控）移除 finite glue 后探测下方 kern pair 标记；hlist 路径（不依赖 boolean）通过 `\g_@@_last_node_tl` 穿透 hbox 判断 CJK 内容类型。fil 级 glue 和无 shrink 的 `\quad` 在前置检查中直接跳过。
-5. 在 fntef 子系统中，`\g_@@_last_node_tl` 的全局状态隔离有两个方向：
-   - fntef(color)：fntef 包裹 textcolor 时，`\xeCJK_fntef_sbox:n` 的 `\hbox_set:Nn` 内 interchar toks 全局修改该状态——修复为 hbox 前后保存/恢复。
-   - color(fntef)：textcolor 包裹 ulem 类 fntef 命令时，ulem `\UL@end` 的 `*` 字符触发 Default→Boundary interchar 转换污染该状态——修复为 `\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 前后 save/restore（#830）。
-
-也就是说，#315 解决的是”边界恢复判定链会被 whatsit 打断”，#252 / #476 解决的是”边界恢复时重新测量 ecglue 会拿错字体度量”，#324 解决的是”宏路径中的 `\@@_boundary_reserve_space:` 额外输出 glue，先把 `CJK-space` 标记自身遮蔽掉”，#826 解决的是”xeCJKfntef 命令右侧的 inter-word space glue 叠在 kern pair 标记上方导致 CJKglue 恢复失败”，#831 进一步解决了显式 `}`、`\textcolor` color-pop whatsit、`\mbox` hbox 三种 glue-on-kern-pair 变体，五者共同构成当前 xeCJK 边界恢复机制的完整心智模型。
+Issue #581 属于输入层而非 command capture：U+200B、U+200C、U+200D、U+2060 与 U+FEFF 被设为 `\char_set_catcode_ignore:n`，避免零宽格式字符进入 class 序列并打断本来连续的边界。
 
 这个决策刻意没有采用另外两条看似直观的路线：
 

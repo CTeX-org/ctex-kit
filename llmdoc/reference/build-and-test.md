@@ -125,24 +125,29 @@
 
 ### xeCJK 命令边界矩阵（#992）
 
-命令边界回归以去掉命令包装后的直接输入为 oracle：候选命令的实际首、尾可见字符分别是什么类别，就与相同字符直接出现在该边界时的节点和间距比较。不能按命令名预设类别；数字与西文同属 Default 方向，CJK 输出走 CJK 方向，混合输出要独立判断左右两端，无可见输出还要检查边界透明性。
+命令边界回归以去掉命令包装后的直接输入为 oracle。候选的实际首、尾可见字符分别是什么类别，就与相同字符直接出现在该边界时比较；数字和西文属于 Default，CJK 输出属于 CJK，混合内容左右分别判断，无可见输出检查透明性。每个可表达场景展开 `00/10/01/11` 四种源码空格，并用可区分的 `CJKecglue={\hskip 5pt}`、`CJKglue={\hskip 1pt}` 避免默认等宽制造假通过。
 
-每个候选至少展开以下维度：
+`xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
 
-1. 左右源码空格 `00/10/01/11`，其中第一位表示左边界，第二位表示右边界。
-2. 西文/数字输出与 CJK 输出；混合内容按实际首尾类别另列，不能由单一参数标签代替。
-3. 普通段落与 restricted hbox；涉及链接时按需要分别覆盖加载和不加载 `hyperref`。
-4. 默认 glue 与可区分设置 `CJKecglue={\hskip 5pt}`、`CJKglue={\hskip 1pt}`。
+- 90 组边界场景各跑四种源码空格，共 360 个比较；其中 86 组走 `\BoundaryMatrix`，4 组分隔符扫描 `\verb` 用显式调用。测试先扣除候选命令与 oracle 单独排版的固有宽度差，再只比较外围边界，容差为 0.01pt。
+- 覆盖展开宏、显式分组、字体/颜色、fntef、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
+- 嵌套覆盖到 12 层盒；`\sbox` scratch 测量验证 capture suspend/resume 不污染外层实际输出。
+- 分隔符扫描的 `\verb` 不能进入矩阵宏参数，使用等价的显式四盒调用。
+- 每个候选单元之后都运行 `\BoundaryAssertIdle`，要求 capture depth、active stack count、suspend depth 同时归零；宽度正确但遗留活跃层仍算失败。
 
-默认设置只能作为兼容视图，不能单独判定通过：默认词间空格与 `CJKecglue` 的自然宽度可能相同，默认 `CJKglue` 的自然宽度又可能为零，都会制造假通过。稳定 oracle 应同时包含节点级断言与定量宽度比较；宽度比较要扣除候选命令自身的固有宽度，只比较外围边界，节点断言则区分来源空格、`CJKecglue`、`CJKglue`、marker kern 及遮蔽节点。
+`xeCJK/testfiles/command-boundary02.lvt` 提供 11 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` workaround。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
 
-引用类测试至少覆盖数字/西文结果、CJK 结果和未定义引用。#991 中 `\@setref` 末尾的 `\null` 是 0×0 hbox，能让默认宽度掩盖 CJK 场景中的缺口；不能只验证数字引用，也不能把输出末尾硬编码为 `Default`。状态报告按精确矩阵单元记录，不以“某命令已修复”概括单个通过场景。
+TeX glue 节点没有来源标签。已注册命令右侧若出现与词间空格自然宽度相同且带 shrink 的显式 `\hskip`，它与源码空格完全同构，恢复器无法可靠判源；需要保留时在前面放 `\kern0pt`，或改用不同自然宽度 / 无 shrink 的 glue。测试必须把这一点写成机制边界与稳定 workaround，不能用更宽的节点回卷掩盖。
 
-`xeCJK/testfiles/ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 是该方法的首个完整落地：前者在无 hyperref 时做 36 次比较，后者在加载 hyperref 时做 40 次，共 76 个 direct-input oracle。覆盖数字/西文、CJK、两种混合末尾、CJK/西文外围、`00/10/01/11`、`\ref`、`\pageref`、starred 引用、现有 linked-Western 路径、未定义引用和 `CJKspace=true`；两份测试均使用 5pt ecglue 与 1pt CJKglue，并在 oracle/candidate 之间清空普通 marker、setref/hyperref saved marker 和两个 pending boolean，避免全局状态跨单元污染。内部 saved-marker 变量由主模块无条件声明，因此测试直接清空而不做存在性守卫；未来若变量改名，应让测试明确失败并同步更新。
+`ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 继续专门覆盖 #991：无 hyperref 36 次、加载 hyperref 40 次，共 76 个比较，包含数字/西文、CJK、混合末尾、两种外围类别、四种源码空格、starred path、未定义引用和 `CJKspace=true`。每次 oracle/candidate 前只重置当前真实状态：`\g__xeCJK_last_node_tl`、`\g__xeCJK_setref_saved_node_tl`、`\g__xeCJK_glue_check_pending_bool`、`\g__xeCJK_reset_color_pending_bool`；旧的 hyperref saved-marker 已不存在。`label-ref01.tlg` 与 `thuthesis.tlg` 另以节点顺序证明内核 `\null` 保留、marker 被移到其后。
 
-这两个测试的盒宽 oracle 与既有 `ctex/test/testfiles/label-ref01.tlg`、`testfiles-contrib/thuthesis.tlg` 的节点 oracle 共同判定 #991：后两者锁定 `reference text → 0pt null hbox → xeCJK kern pair → following text`，证明 `\null` 仍保留，只把 marker 移到可观察位置。新增宽度测试本身不应被误称为节点断言。
+证据分三层使用，不能互相替代：
 
-可视 MWE 还要隔离“说明层”与“被测层”。`\texttt{\detokenize{...}}` 展示候选源码时仍会经过 xeCJK，源码空格可能被吞掉或扩大，导致 `00/10/01/11` 看起来相同或带有伪间距。`\verb*` 又不能放进普通宏参数；稳定 harness 应拆成两阶段调用，如 `\Compare{10}|literal source|\CompareResult{oracle}{candidate}`：第一段展开出 starred verbatim scanner，从调用点直接读取源码并标记空格，第二段在分隔符后才测量和排出 oracle/candidate 列。两位组合仍要显式标出，verbatim 源码列不得进入被测盒宽。`gh-assets:issues/992/` 保存默认/可区分 glue 的 core、links、verb 调查矩阵和可视 MWE；`ref-ecglue01/02` 已把 #991 支持的单元转成包回归，其余素材仍是 issue 证据，不能据图概括为整类支持。
+1. `command-boundary01` / `ref-ecglue01/02` 的宽度 oracle 证明边界几何等价。
+2. `command-boundary02` 与既有 `.tlg` 的节点 oracle 区分 glue、kern、box、math 和 whatsit。
+3. `gh-assets:issues/992/` 的默认/可区分 glue MWE 与截图供人工审阅；它们是 issue 证据，不是包回归基线。
+
+可视 MWE 的说明层不得再经过被测状态机。`\texttt{\detokenize{...}}` 仍受 xeCJK 影响，会让四种源码空格组合看起来相同；`\verb*` 又不能放入普通宏参数。稳定 harness 应让第一阶段从调用点直接扫描 starred verbatim 源码并显式标出空格，分隔符结束后再调用第二阶段测量 oracle/candidate。PR 上可以保存未合并实现的拟更新表；#992 活表必须等实现合并并从合并提交复验后再同步。
 
 ### `ctex` 主测试目录当前覆盖面
 

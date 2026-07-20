@@ -23,11 +23,12 @@ v3.10.4 采用调用点 fixed-point save/replay，并保留原 hbox：
 
 ## 支持边界与验证
 
-`ref-ecglue01/02` 用 36+40 个 direct-input oracle 覆盖无 hyperref 与 starred hyperref 引用的输出类别、外围类别和源码空格组合；`label-ref01` 与 `thuthesis` 的节点基线锁定 hbox/marker 新顺序。hyperref 的普通 linked-reference 路径没有这枚尾随 `\null`，不由本决策泛化，继续由 #992 按精确单元追踪。
+`ref-ecglue01/02` 用 36+40 个 direct-input oracle 覆盖无 hyperref 与 starred hyperref 引用的输出类别、外围类别和源码空格组合；`label-ref01` 与 `thuthesis` 的节点基线锁定 hbox/marker 新顺序。hyperref 的普通 linked-reference 路径没有这枚尾随 `\null`，不由本决策泛化；#992/PR #999 已改由 annotation stream capture 按实际首尾类别处理。一般 `\null` 的 post-transparent 注册也不能替代本 wrapper，因为它无法越过 `\@setref` 内部 `\fi` 后窥视用户源码空格。
 
 ## 相关
 
 - 架构：`llmdoc/architecture/xecjk-architecture.md`「命令边界的输出等价契约」
 - 测试方法：`llmdoc/reference/build-and-test.md`「xeCJK 命令边界矩阵」
 - 前置决策：`llmdoc/memory/decisions/873-880-fixed-point-vs-default-narrowing.md`
+- 后续统一框架：`llmdoc/memory/decisions/992-command-boundary-capture-register.md`
 - Issues：#991、#992

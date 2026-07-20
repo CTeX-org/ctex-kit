@@ -67,19 +67,34 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
 
 ### 可见排版修复需要三类证据
-**Rule**: 对间距、字形或线条等可见排版缺陷，同时提供可执行 MWE、定量测量和同条件前后渲染；再用会插入节点的 wrapper 组合回归证明状态能传递。
-**Why**: #972 的 3.33pt 测量证明几何差异，并排截图让审查者直接看到右侧间距恢复，而颜色和下一链接用例暴露了最初普通 `default` 原型的组合缺陷。
-**Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
+**Rule**: 对间距、字形或线条等可见排版缺陷，同时维护定量宽度、节点结构和同条件渲染三层 oracle；再用会插入节点的 wrapper 组合回归证明状态能传递。
+**Why**: #972 的测量、截图和组合用例暴露了普通 `default` 原型缺陷；#999 又证明默认 glue 等宽会让宽度或截图假通过，必须由节点测试区分来源。
+**Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ### 命令边界修复必须覆盖输出等价矩阵
 **Rule**: 验证命令边界间距时，以相同可见字符的直接输入为 oracle，按实际输出首尾类别和 `00/10/01/11` 记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。
 **Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 的完整矩阵和 #991 的 CJK 引用证明单点通过不能推出整类已修复。
-**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`
+**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+
+### 先穷举机制维度再抽象公共原语
+**Rule**: 面对不断增长的边界 edge case，先用完整矩阵和节点探针证明失败可归入有限节点形状，再按形状设计注册策略；不要从一个成功 MWE 直接泛化实现。
+**Why**: #999 把 #491 看似分散的命令问题收敛为 box、wrapped-box、stream、transparent、post-transparent 五类，并用同一 capture 状态机覆盖实际首尾类别和嵌套。
+**Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+
+### 节点不可判源时必须声明机制边界
+**Rule**: 当两种输入产生完全同构节点时，记录不可区分的机制证据、最窄风险窗口和稳定 workaround，不用更宽的启发式扫描假装能够判源。
+**Why**: 已注册命令右侧的源码空格与同参数显式 `\hskip` 没有来源标签；#999 以 pending + marker 限定回卷，并用 `\kern0pt` 提供可测试的保护方法。
+**Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ### 证据说明层不能再经过被测状态机
 **Rule**: 可视 MWE 的输入标签、源码转录和标尺应在被测排版路径之外生成；若无法隔离，就显式编码状态并把差异字符可视化。
 **Why**: #991 的第一版 MWE 用 `\texttt{\detokenize{...}}` 展示源码，但该文本仍被 xeCJK 处理，四种源码空格组合看起来相同；显式 `00/10/01/11` 与 call-site `\verb*` 直接扫描才恢复可审计性。
-**Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
+**Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+
+### 原型预览与已合并状态必须分层
+**Rule**: 未合并实现的状态表只作为固定提交的 PR 预览；面向用户的 issue 活表必须等合并后从合并提交复验再更新。
+**Why**: #999 的矩阵可以提前辅助 review，但若同步到 #992 就会把原型误报成主线事实，并失去对后续 rebase 或审查修订的可追溯性。
+**Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ### 方向性标点策略必须保留样式与覆盖优先级
 **Rule**: 修复单向标点对时，把政策放在可配置的样式计算层，并分别回归反方向、其他样式、显式字符对、全局设置和禁则；不要在 transition 中无条件短路。
@@ -88,8 +103,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### 字体度量回归要隔离 shaping 与首次初始化
 **Rule**: 涉及区域字形和 side bearing 时使用独立字体面，并在 `\START` 前预热所有 lazy family，再记录定量基线和渲染证据。
-**Why**: #975 中 `Language=` 不能改变 feature-blind 的 glyphbounds 证据，首次按需加载 Noto TC/JP 又会把 fontspec Info 混入 `.tlg`。
-**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
+**Why**: #975 中 `Language=` 不能改变 feature-blind 的 glyphbounds 证据，首次按需加载 Noto TC/JP 会污染 `.tlg`；#999 的 FandolFang 也必须预热才能消除三平台 fontspec 尾随日志差异。
+**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ## Feature request 评估
 
