@@ -2,15 +2,20 @@
 
 - 提升版本号至 v3.10.4。
 - 在用户手册说明显式 glue 与源码空格的歧义窗口及零宽 `\kern` workaround（#992）。
+- 手册歧义窗口说明扩展到 Boundary→CJK 方向：与词间空格同构的显式 glue 也可能被替换为 `CJKglue`（#996）。
 - 允许 Boundary 到 Default 的恢复路径暂时移除末尾不含无限阶伸缩、且有收缩量的源码词间 glue；若其下方确有 CJK marker，则将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
+- 新增 `\@@_glue_check_expire_stale:`：顶层恢复链在空列表上探测时结束过期的 pending 门控，阻止 `\g_@@_glue_check_pending_bool` 跨 `\hbox`/`\setbox` 存活（#996）。
 - 由命令边界 framework 接管 `xeCJKfntef`、盒命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit 下方类别的旧回退；glue 分支现在只接受紧邻的可信 marker（#992）。
+- Boundary 到 CJK 的源码空格候选校验升级为与 Default 方向同款的 `\@@_skip_if_interword:N` 谓词，自然宽度不等于当前词间空格的显式 glue 不再被替换为 `\CJKglue`（#996）。
 - 删除颜色专用 pending boolean；颜色 push/pop 和盒输出改由 transparent/wrapped-box capture 处理（#992）。
 - 新增命令边界 capture/register 框架，按实际可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（#992）。
+- box/wrapped-box 捕获在盒子有可见墨迹（宽度非零、高度或深度非零、尾节点为现场排版的 char/rule/math/kern）而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 `\vrule` 等不触发 interchar 转换的可见内容不再被误判为“无可见输出”，预排盒与空白占位盒保持透明（#998）。
 - 包装内核私有 `\@imakebox` 与 `\@iframebox` 的 `[#1][#2]#3` 签名以注册 `\makebox` / `\framebox`；内核若调整该签名须同步此 wrapper（#992）。
 - 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
 - 将 `\set@color` 与 `\reset@color` 注册为 transparent capture，删除颜色 push/pop 的专用 marker save/replay 分支（#992）。
 - 将 `l3color` 的颜色 push/pop 入口注册为 transparent capture，删除对应专用 marker 保护分支（#992）。
 - 把 `\HD@target` 迁移到统一 transparent capture，同时恢复其前后的 marker 与源码空格状态（#992）。
+- 新增 `siunitx` 兼容：`\unit`、`\qty`、`\num` 与 v2 旧名 `\si`、`\SI` 注册为固定 Default 首尾的 stream capture，修复 CJK 上下文中单位命令边界的空格丢失（#1000）。
 - 用固定 Default 首尾的 stream capture 包围 `\Url@z` 的完整格式化阶段，删除 #880 的专用 drain（#992）。
 - 把 `\verb` 从假定西文输出的入口 drain 迁移到统一 stream capture，按 verbatim 实际首尾类别恢复两侧边界（#992）。
 - 将 `\eqref` 注册为固定 Default 首尾、将 `\cs` 注册为仅固定 Default 首端的 stream capture； codedoc/doc 的 meta 内部适配器直接包围固定 Default stream，删除专用 drain 并覆盖其所有公共调用方（#992）。
