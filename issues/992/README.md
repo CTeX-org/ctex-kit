@@ -11,6 +11,13 @@ CJKecglue=5pt and CJKglue=1pt. The living status-table showcases below were
 regenerated from that prototype; matrix-verdicts.tsv remains the initial
 v3.10.3 audit snapshot.
 
+PR #999 was rebase-merged into master on 2026-07-20. The post-merge
+reverification at master commit cb6b2f7371a86cf74d76a92bea6b9db01005e33c
+reran all eight drivers (core/links/verb/biblatex, default and
+distinguishing glue): 280/280 cells pass, 0 FAIL lines. Rows 27-29 of the
+living table (#996/#998, assets under issues/996/ and issues/998/) were
+reverified from the same commit and remain open.
+
 ## Visual MWE
 
 - oracle-ref-mwe.tex compares direct-input oracles with kernel \ref output for
