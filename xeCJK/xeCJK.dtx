@@ -4179,6 +4179,7 @@ Copyright and Licence
 %
 % \begin{macro}[int]{
 %   \@@_boundary_capture_class:n,
+%   \@@_boundary_capture_report_first:n,
 %   \@@_boundary_capture_allocate:n,
 %   \@@_boundary_capture_suspend:,
 %   \@@_boundary_capture_resume:,
@@ -4197,6 +4198,7 @@ Copyright and Licence
 %   \@@_boundary_box_open:N,
 %   \@@_boundary_box_end:n,
 %   \@@_boundary_box_finish:nn,
+%   \@@_boundary_if_capture_box_visible:,
 %   \@@_boundary_last_box_end:n,
 %   \@@_boundary_register_makeboxes:,
 %   \@@_boundary_register_box:nn,
@@ -4223,6 +4225,11 @@ Copyright and Licence
 %   \@@_boundary_replay_node:n}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
+% \changes{v3.10.4}{2026/07/20}{box/wrapped-box 捕获在盒子有可见墨迹
+%   （宽度非零、高度或深度非零、尾节点为现场排版的 char/rule/math/kern）
+%   而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 \tn{vrule}
+%   等不触发 interchar 转换的可见内容不再被误判为“无可见输出”，预排盒
+%   与空白占位盒保持透明（\#998）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4239,6 +4246,14 @@ Copyright and Licence
 %
 % capture 结束时，框架按“前类别 × 首类别 × 是否有源码空格”重建左边界，
 % 再按实际末类别重放 marker 供右边界使用；无可见输出时则完整恢复入口状态。
+% “无可见输出”由观察类别、盒尺寸与尾节点形状联合判定：math 内容与
+% \tn{vrule} 不触发 interchar 转换，capture 观察不到它们的类别；若盒
+% 宽度非零、高度或深度非零，且尾节点是现场排版的墨迹（传统 char、rule、
+% math 或标点机制追加的 kern），box/wrapped-box 按 Default 首尾重建边界，
+% 与直接输入西文的边界一致。零尺寸盒（\tn{null}、空 \tn{mbox}）、纯空白
+% 占位盒（空 \tn{makebox}、strut、零高 rule），以及把预排盒或填充 glue
+% 留在末尾的命令（\tn{makebox} 放入 \tn{box}、对齐填充等，capture 无从
+% 得知其内容类别）保持完整恢复的透明语义。
 % 源码空格、\tn{CJKecglue}、\tn{CJKglue} 及 \opt{CJKspace}、
 % \opt{xCJKecglue} 状态都在入口字体和分组上下文中缓存，避免命令内部字体
 % 或选项切换改变恢复值。\tn{sbox} 这类只构造离线盒而不向当前列表输出的
@@ -4306,6 +4321,34 @@ Copyright and Licence
             \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
               {
                 \tl_gset:cn { g_@@_boundary_capture_##1_last_tl } {#1}
+                \tl_if_empty:cT { g_@@_boundary_capture_##1_first_tl }
+                  {
+                    \tl_gset:cn
+                      { g_@@_boundary_capture_##1_first_tl } {#1}
+                    \tl_if_eq:cnTF
+                      { g_@@_boundary_capture_##1_kind_tl } { stream }
+                      { \@@_boundary_capture_emit_left:nn {##1} {#1} }
+                      {
+                        \tl_if_eq:cnT
+                          { g_@@_boundary_capture_##1_kind_tl } { stream-ulem }
+                          { \@@_boundary_capture_emit_left:nn {##1} {#1} }
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_capture_report_first:n #1
+  {
+    \int_compare:nNnT
+      { \g_@@_boundary_capture_depth_int } > \c_zero_int
+      {
+        \int_compare:nNnT
+          { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+          {
+            \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+              {
                 \tl_if_empty:cT { g_@@_boundary_capture_##1_first_tl }
                   {
                     \tl_gset:cn
@@ -4729,6 +4772,76 @@ Copyright and Licence
       }
   }
 
+\int_new:N \g_@@_boundary_probe_type_int
+\box_new:N \l_@@_boundary_probe_box
+\prg_new_protected_conditional:Npnn \@@_boundary_if_capture_box_visible: { T }
+  {
+    \bool_lazy_and:nnTF
+      {
+        ! \dim_compare_p:nNn
+            {
+              \box_wd:c
+                {
+                  g_@@_boundary_capture_
+                  \int_use:N \g_@@_boundary_capture_depth_int _box
+                }
+            }
+            = \c_zero_dim
+      }
+      {
+        \bool_lazy_or_p:nn
+          {
+            ! \dim_compare_p:nNn
+                {
+                  \box_ht:c
+                    {
+                      g_@@_boundary_capture_
+                      \int_use:N \g_@@_boundary_capture_depth_int _box
+                    }
+                }
+                = \c_zero_dim
+          }
+          {
+            ! \dim_compare_p:nNn
+                {
+                  \box_dp:c
+                    {
+                      g_@@_boundary_capture_
+                      \int_use:N \g_@@_boundary_capture_depth_int _box
+                    }
+                }
+                = \c_zero_dim
+          }
+      }
+      {
+        % 只复制节点，不重扫 token，无排版副作用。
+        \hbox_set:Nn \l_@@_boundary_probe_box
+          {
+            \hbox_unpack:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _box
+              }
+            \int_gset:Nn \g_@@_boundary_probe_type_int
+              { \tex_lastnodetype:D }
+          }
+        \box_clear:N \l_@@_boundary_probe_box
+        % \lastnodetype 编码（XeTeX 实测）：0 传统 char、3 rule、10 math、
+        % 12 kern（未上报标点类字符后由标点机制追加）。native 文本报 9
+        % 但必然已被 interchar 观察，不会到达本探针。
+        \int_case:nnTF { \g_@@_boundary_probe_type_int }
+          {
+            { 0 }  { }
+            { 3 }  { }
+            { 10 } { }
+            { 12 } { }
+          }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+
 \cs_new_protected:Npn \@@_boundary_box_finish:nn #1#2
   {
     \tl_set:Ne \l_@@_boundary_first_tl
@@ -4751,6 +4864,23 @@ Copyright and Licence
       }
     \tl_gclear:N \g_@@_last_node_tl
     \bool_gset_false:N \g_@@_glue_check_pending_bool
+    % math 与 rule 不触发 interchar 转换；盒有可见墨迹（宽度、高度或
+    % 深度非零，尾节点为现场排版的 char/rule/math/kern）而无任何观察
+    % 类别时，按 Default 首尾重建边界，避免可见内容被当成透明命令；
+    % 空 makebox、strut 等空白占位盒和放入预排盒的命令保持透明
+    % （issue 998）。
+    % 只把 default 报告给尚未取得首类别的外层 capture（不覆写外层已有
+    % 观察的末类别），使 \nfss@text 这类嵌在 stream 内的盒命令与裸调用
+    % 等价；外层末类别由本层重放的 marker 以列表证据修正。
+    \tl_if_empty:NT \l_@@_boundary_first_tl
+      {
+        \@@_boundary_if_capture_box_visible:T
+          {
+            \tl_set:Nn \l_@@_boundary_first_tl { default }
+            \tl_set:Nn \l_@@_boundary_last_tl  { default }
+            \@@_boundary_capture_report_first:n { default }
+          }
+      }
     \tl_if_empty:NTF \l_@@_boundary_first_tl
       { \@@_boundary_box_end_transparent:n {#2} }
       {
