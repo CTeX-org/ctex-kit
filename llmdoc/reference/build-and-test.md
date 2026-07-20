@@ -129,7 +129,7 @@
 
 `xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
 
-- 98 组边界场景各跑四种源码空格，共 392 个比较；其中 94 组走 `\BoundaryMatrix`，4 组分隔符扫描 `\verb` 用显式调用。测试先扣除候选命令与 oracle 单独排版的固有宽度差，再只比较外围边界，容差为 0.01pt。
+- 102 组边界场景各跑四种源码空格，共 408 个比较；其中 98 组走 `\BoundaryMatrix`（含 ulem/fntef 双向嵌套与 transparent/box/wrapped-box 跨策略嵌套），4 组分隔符扫描 `\verb` 用显式调用。测试先扣除候选命令与 oracle 单独排版的固有宽度差，再只比较外围边界，容差为 0.01pt。
 - 覆盖展开宏、显式分组、字体/颜色、xeCJKfntef 与原生 `\uline`、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
 - 嵌套覆盖到 12 层盒；`\sbox` scratch 测量验证 capture suspend/resume 不污染外层实际输出。
 - ulem/fntef 双向嵌套覆盖原生 `\uline` / `\sout` 与 `\CJKunderline` / `\CJKunderdot`；每格的 idle-stack 断言同时防止内层重复启动却没有对应结束所造成的 capture 泄漏。

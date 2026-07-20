@@ -16,7 +16,7 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇，以及 xeCJK #992 命令边界的三层证据：`command-boundary01` 的 98 组场景 × 4＝392 个宽度 oracle 与 idle-stack 断言、`command-boundary02` 的 12 个 paragraph/node 用例、`listings-color01` 的 20 个逐格 oracle、`colorbox-measure01`（#995 `\settowidth`+`\colorbox` 状态隔离回归）、#991 `ref-ecglue01/02` 的 76 个比较和 gh-assets 可视 MWE；另含显式 glue 判源边界、`\kern0pt` workaround、lazy family 预热、MWE 说明层隔离、多引擎基线、ctxdoc 专项回归、CI/CD、版本/生成物门禁与本地 TL usertree 同步。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇，以及 xeCJK #992 命令边界的三层证据：`command-boundary01` 的 102 组场景 × 4＝408 个宽度 oracle 与 idle-stack 断言、`command-boundary02` 的 12 个 paragraph/node 用例、`listings-color01` 的 20 个逐格 oracle、`colorbox-measure01`（#995 `\settowidth`+`\colorbox` 状态隔离回归）、#991 `ref-ecglue01/02` 的 76 个比较和 gh-assets 可视 MWE；另含显式 glue 判源边界、`\kern0pt` workaround、lazy family 预热、MWE 说明层隔离、多引擎基线、ctxdoc 专项回归、CI/CD、版本/生成物门禁与本地 TL usertree 同步。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
