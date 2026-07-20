@@ -6,7 +6,8 @@
 \setCJKmainfont{FandolSong-Regular.otf}
 
 % Simulate l3doc's \__codedoc_meta:n: $\langle$ #1 $\rangle$.
-% xeCJK patch wraps content with \hbox:n and drains preceding marker kern.
+% xeCJK wraps the content with \hbox:n and surrounds the complete command
+% with a fixed-Default stream capture.
 \makeatletter
 \ExplSyntaxOn
 \cs_new_protected:Npn \__codedoc_meta:n #1
@@ -57,8 +58,8 @@
 
 % --- Test 2: \meta outer ecglue preserved (CJK ... \meta ... CJK) ---
 % \meta wrapped in CJK context should still have outer ecglue between
-% surrounding CJK and \langle/\rangle. The drain pattern in the patch
-% removes the cached CJK marker kern and emits ecglue at the entry point.
+% surrounding CJK and \langle/\rangle. The stream capture observes the
+% fixed-Default wrapper and rebuilds both outer boundaries.
 % Reference box4 has \hbox{中文} content but no \hbox wrapping inside
 % the outer hbox, so its outer Default<->CJK transitions also fire.
 % After our patch box3 should produce equivalent layout to box4.
@@ -71,7 +72,7 @@
 \setbox4=\hbox{中文$\langle$\hbox{中文}$\rangle$西文}
 
 \TEST{outer ecglue preserved around \string\meta (920)}{
-  % box3 should equal box4 (both have outer ecglue from drain/transition,
+  % box3 should equal box4 (both have outer ecglue from capture/transition,
   % no inner ecglue because content is hbox-wrapped).
   \TYPE{INFO: wd3=\the\wd3, wd4(target)=\the\wd4}
   \dimen0=\wd3 \advance\dimen0 by -\wd4
@@ -86,4 +87,3 @@
 \END
 
 \end{document}
-

@@ -1,14 +1,22 @@
 ## [xeCJK-v3.10.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.4)
 
 - 提升版本号至 v3.10.4。
-- 允许 Boundary 到 Default 的恢复路径回卷有限、带 shrink 的源码词间 glue，在真实 CJK marker 上将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
+- 允许 Boundary 到 Default 的恢复路径暂时移除末尾不含无限阶伸缩、且有收缩量的源码词间 glue；若其下方确有 CJK marker，则将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
+- 由命令边界 framework 接管 `xeCJKfntef`、盒命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit 下方类别的旧回退；glue 分支现在只接受紧邻的可信 marker（#992）。
+- 删除颜色专用 pending boolean；颜色 push/pop 和盒输出改由 transparent/wrapped-box capture 处理（#992）。
 - 新增命令边界 capture/register 框架，按实际可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（#992）。
-- 在 `\@setref` 的零尺寸盒子后重放引用内容的实际末尾类别，修复 `\ref` 右边界间距（#991）。
 - 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
+- 将 `\set@color` 与 `\reset@color` 注册为 transparent capture，删除颜色 push/pop 的专用 marker save/replay 分支（#992）。
+- 将 `l3color` 的颜色 push/pop 入口注册为 transparent capture，删除对应专用 marker 保护分支（#992）。
 - 把 `\HD@target` 迁移到统一 transparent capture，同时恢复其前后的 marker 与源码空格状态（#992）。
+- 用固定 Default 首尾的 stream capture 包围 `\Url@z` 的完整格式化阶段，删除 #880 的专用 drain（#992）。
 - 把 `\verb` 从假定西文输出的入口 drain 迁移到统一 stream capture，按 verbatim 实际首尾类别恢复两侧边界（#992）。
-- 将 `\eqref`、`\meta` 注册为固定 Default 首尾、将 `\cs` 注册为仅固定 Default 首端的 stream capture，恢复其完整边界矩阵（#992）。
+- 将 `\eqref` 注册为固定 Default 首尾、将 `\cs` 注册为仅固定 Default 首端的 stream capture； codedoc/doc 的 meta 内部适配器直接包围固定 Default stream，删除专用 drain 并覆盖其所有公共调用方（#992）。
+- 将内核 `\@setref`（或 `hyperref` 保存的 `\real@setref`）注册为 auto stream capture，以统一框架取代 #991 的专用 saved-node/replay 补丁。
 - 把 `\blx@pagetracker` 从单向清空状态改为 transparent capture，使 write whatsit 对两侧实际可见边界透明（#992）。
+- 将 xeCJKfntef 线型命令、原生 `ulem` 入口（如 `\uline`）、`\xeCJKfntefon` 与独立符号命令接入 stream capture，并让内部 pending 通过 framework 的统一辅助函数发布；删除 fntef 专用末状态恢复和 pending 设置（#992）。
+- 改用 framework 的可嵌套暂停区隔离装饰符号测量盒，同时保存、恢复 marker 与 pending 状态（#992）。
+- 将 `\lstinline` 的分隔符、活动字符和花括号扫描路径接入 auto stream capture，使颜色切换前后的四种源码空格组合都与直接输入一致（#992）。
 
 ## [xeCJK-v3.10.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.3)
 

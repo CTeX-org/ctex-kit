@@ -5,6 +5,21 @@
 \usepackage{xeCJK}
 \setCJKmainfont{FandolSong-Regular.otf}
 
+\newcommand\AssertVerbBoundaryEquivalent[4]{%
+  \dimen0=\wd#1
+  \advance\dimen0 by -\wd#2
+  \advance\dimen0 by -\wd#3
+  \advance\dimen0 by \wd#4
+  \ifdim\dimen0<0pt
+    \dimen0=-\dimen0
+  \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: boundary delta \the\dimen0}%
+  \else
+    \TYPE{FAIL: boundary delta \the\dimen0}%
+  \fi
+}
+
 \begin{document}
 
 \START
@@ -13,41 +28,31 @@
 % Without the fix, the boundary marker kern (written by the source space
 % before \verb triggering CJK->Boundary) is shadowed by \null's 0x0 hbox,
 % so the left ecglue is lost. This is structurally identical to #873
-% (\HD@target via \raisebox); the fix uses the #880-style drain pattern.
+% (\HD@target via \raisebox). The current fix uses an auto stream capture
+% around the complete delimiter-scanning command.
 
 % \verb cannot appear inside a macro argument (LaTeX rejects "\verb illegal
 % in argument"), so we set up the boxes at the top level and check widths
 % inside \TEST.
 
 \setbox0=\hbox{用 \verb|X| 无}
-\setbox1=\hbox{用 \hbox{} 无}
+\setbox1=\hbox{用 X 无}
 \setbox2=\hbox{用 \verb*|X| 无}
 \setbox3=\hbox{$\verb|X|$}
 \setbox4=\hbox{abc \verb|X| def}
+\setbox5=\hbox{abc X def}
+\setbox6=\hbox{\verb|X|}
+\setbox7=\hbox{X}
+\setbox8=\hbox{\verb*|X|}
 
 \TEST{ecglue between CJK and verb with source space (910)}{
-  % box0 = CJK verb CJK with source spaces.
-  % box1 = same but with a bare 0x0 hbox instead of verb content; this is
-  %        the "no ecglue" baseline (no CJK marker kern from a source space
-  %        triggering CJK->Boundary because the verb content is not present
-  %        to receive interchar transitions on the right side).
-  % After the fix, box0 picks up an ecglue drained from the boundary
-  % marker; box0 should be wider than box1.
-  \dimen0=\wd0 \advance\dimen0 by -\wd1
-  \ifdim\dimen0>2pt
-    \TYPE{PASS: left ecglue present: \the\dimen0}
-  \else
-    \TYPE{FAIL: left ecglue missing: \the\dimen0}
-  \fi
+  % Remove the command's intrinsic width delta, then compare the complete
+  % CJK--Default--CJK context with the corresponding direct-input oracle.
+  \AssertVerbBoundaryEquivalent{0}{1}{6}{7}
 }
 
 \TEST{ecglue between CJK and verb*}{
-  \dimen0=\wd2 \advance\dimen0 by -\wd1
-  \ifdim\dimen0>2pt
-    \TYPE{PASS: verb* left ecglue present: \the\dimen0}
-  \else
-    \TYPE{FAIL: verb* left ecglue missing: \the\dimen0}
-  \fi
+  \AssertVerbBoundaryEquivalent{2}{1}{8}{7}
 }
 
 \TEST{verb inside math mode is not patched}{
@@ -57,9 +62,8 @@
   \TYPE{INFO: math-mode verb width: \the\wd3}
 }
 
-\TEST{ascii context verb unchanged (non-regression)}{
-  % Patch must be a no-op when no CJK marker is on the node stack.
-  \TYPE{INFO: ASCII verb width: \the\wd4}
+\TEST{ascii context verb matches direct input}{
+  \AssertVerbBoundaryEquivalent{4}{5}{6}{7}
 }
 
 \END

@@ -117,15 +117,15 @@ handler 在执行时会 peek 下一个 token：
 
 ### 基础 marker 与 glue 恢复链
 
-`\xeCJK_make_node:n` 用一对微小 kern 编码最近的可见边界。当前恢复链识别 `CJK`、`CJK-space`、`CJK-widow`、`default`、`default-space`、`normalspace`，并兼容历史的 `hyperref-default`。`\g_@@_last_node_tl` 保存语义状态；`\lastkern` / `\lastnodetype` 提供当前列表上的节点证据。两者必须一致，不能只凭可能陈旧的全局 tl 恢复间距。
+`\xeCJK_make_node:n` 用一对微小 kern 编码最近的可见边界。当前恢复链识别 `CJK`、`CJK-space`、`CJK-widow`、`default`、`default-space`、`normalspace`；#972 曾引入的 `hyperref-default` 已由 annotation stream 吸收并删除。`\g_@@_last_node_tl` 保存语义状态；`\lastkern` / `\lastnodetype` 提供当前列表上的节点证据。两者必须一致，不能只凭可能陈旧的全局 tl 恢复间距。
 
 CJK→Boundary 时，`\@@_boundary_group_end:n` 在仍处于正确 CJK 字体上下文时缓存 `\CJKecglue` 到 `\l_@@_ecglue_skip`；后续恢复使用缓存值，不在命令内部的新字体或字号下重新测量。`\@@_boundary_reserve_space:` 只留下 `CJK-space` marker，不抢先输出会遮蔽 marker 的普通 glue。
 
-Boundary→CJK 的 `\xeCJK_check_for_glue:` 与 Boundary→Default 的 `\xeCJK_check_for_ecglue:` 都先读取可信 marker，再处理压在 marker 上方的源码词间 glue。`\g_@@_glue_check_pending_bool` 是通用门控：fntef、显式分组、颜色结束和统一命令边界框架都可设置它；`\g_@@_reset_color_pending_bool` 只处理 color-pop 后的 hlist/whatsit 时序。
+Boundary→CJK 的 `\xeCJK_check_for_glue:` 与 Boundary→Default 的 `\xeCJK_check_for_ecglue:` 都先读取可信 marker，再处理压在 marker 上方的源码词间 glue。`\g_@@_glue_check_pending_bool` 是唯一通用门控，由显式分组与 capture 重放可信 CJK marker 时设置；颜色、fntef 等历史专用 pending 已删除。
 
-Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 回卷候选 glue。候选必须是 finite、带 shrink、自然宽度等于当前词间空格，并且下方确有 `CJK` / `CJK-space` / `CJK-widow` marker；命中后才用缓存的 `\CJKecglue` 替换并清除 pending，未命中则原样还回。该路径补齐了历史上只在 Default→CJK 方向处理源码空格的非对称缺口。
+Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 暂时移除末尾的候选 glue，再检查其下方节点。候选必须是 finite、带 shrink、自然宽度等于当前词间空格，并且下方确有 `CJK` / `CJK-space` / `CJK-widow` marker；命中后才用缓存的 `\CJKecglue` 替换并清除 pending，未命中则原样还回。该路径补齐了历史上只在 Default→CJK 方向处理源码空格的非对称缺口。
 
-任意 whatsit 仍不能作为恢复证据。color/xcolor、l3color 等旧路径只在已知 hook 上重放 xeCJK 自己的 marker；URL math、codedoc meta 等未完全迁移的路径保留窄范围 drain。#803 证明了“看到 whatsit 就信任 `\g_@@_last_node_tl`”会在引用内部制造错误 ecglue。
+任意 whatsit 或 hlist 仍不能自行成为恢复证据。已知不可见命令使用 transparent capture，盒命令使用 box/wrapped-box，URL 与 codedoc meta 使用完整 stream；基础恢复链不再按任意节点类型猜测 `\g_@@_last_node_tl`。#803 证明了“看到 whatsit 就信任全局 tl”会在引用内部制造错误 ecglue。
 
 ### 命令边界的输出等价契约（#491/#992）
 
@@ -161,32 +161,39 @@ Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 回卷候选 glu
 | --- | --- | --- |
 | `box` | 命令只留下一个末尾 hbox；取出原盒、重建左边界、原样放回并重放末类别 | `\mbox`、`\fbox`、`\makebox`、`\framebox` |
 | `wrapped-box` | 命令可能直接写多个节点；用透明 hbox 收集，若无可见输出则解包 | `\colorbox` / `\fcolorbox` 的 `\color@b@x` |
-| `stream` | 内容直接写当前列表；首类别一出现就补左边界，结束时重放末类别 | hyperref annotation、`\verb`、`\eqref`、`\meta`、`\cs` |
-| `transparent` | 命令只有锚点、write 或其他不可见节点；结束后完整恢复入口状态 | `\HD@target`、`\blx@pagetracker` |
+| `stream` | 内容直接写当前列表；首类别一出现就补左边界，结束时重放末类别 | hyperref annotation、`\@setref` / `\real@setref`、完整 URL、`\verb`、`\eqref`、`\meta`、`\cs`、`\lstinline` |
+| `transparent` | 命令只有锚点、write、颜色 push/pop 等不可见节点；结束后完整恢复入口状态 | `\HD@target`、`\blx@pagetracker`、`\set@color` / `\reset@color`、l3color 后端 |
 | `post-transparent` | 只能使用 after hook；仅在零尺寸尾盒确实遮蔽 marker 时把可信状态移到盒后 | 一般 `\null` |
 
 `auto` 使用实际首尾类别；`default` 固定两端为 Default；`first-default` 只固定首端、末端仍取实际输出。`\eqref` 的括号和 `\meta` 的尖括号决定两端为 Default；`\cs` 只有开头反斜线固定为 Default。box 的 `default` 在结束函数同时覆盖首尾，stream 则在开始 hook 固定首端、结束 hook 固定末端，两条路径的公开语义相同。
 
 `\g_@@_boundary_registered_prop` 阻止同一命令重复注册。常用前两层 capture 的 box/tl register 在加载时预分配，第三层起按首次达到的 depth 惰性创建；`\g_@@_boundary_active_seq` 保证 before/after hook 成对，数学模式与暂停状态只压入 inactive 标记。测试已覆盖 12 层盒嵌套。
 
-`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。因此 `cmd/sbox/before` / `after` 分别调用 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，结束后必须归零。
+`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。因此 `cmd/sbox/before` / `after` 分别调用 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl` 与 source-space pending，结束后必须归零。
+
+ulem 把正文拆进固定宽度字盒，普通 stream 若直接在首次观察处排 glue，会把弹性间距和装饰 leader 一起困进内部盒。`stream-ulem` 仍由 framework 决定 glue 类型和值，但在 ulem 活跃时通过 `\UL@stop`、普通 `\hskip`、`\UL@start` 把 glue 排到外层且不画线；独立符号命令走普通 skip。包内线型命令在装饰符号测量前启动该 stream，原生 `\uline` 等入口由 `\ULon` 补上，公共结束点统一收束。
 
 ### 右侧源码空格的机制边界
 
 TeX 节点列表不保留“这枚 glue 来自源码空格还是显式 `\hskip`”的来源标签。注册命令结束后，如果用户显式写出的 glue 与当前词间空格具有相同自然宽度并带 shrink，它与源码空格节点完全同构；`\@@_recover_ecglue_source_space:` 在 pending 窗口内无法可靠区分二者。
 
-框架因此只做有界判断：pending 必须来自已知路径，候选必须 finite、带 shrink、自然宽度相同，下方还必须是可信 CJK marker。需要保留这种完全同构的显式 glue 时，在它前面加 `\kern0pt`；也可以改变自然宽度或移除 shrink，使回卷器在 marker 前停止。`command-boundary02` 同时锁定歧义和 workaround，避免把机制限制误写成偶发现象。
+框架因此只在严格条件下检查：pending 必须来自已知路径，候选必须 finite、带 shrink、自然宽度相同，下方还必须是可信 CJK marker。需要保留这种完全同构的显式 glue 时，在它前面加 `\kern0pt`；也可以改变自然宽度或移除 shrink，使检查过程无法越过显式边界到达 marker。`command-boundary02` 同时锁定歧义和 workaround，避免把机制限制误写成偶发现象。
 
-### 现有定点补丁与统一框架的分工
+### 旧边界补丁的吸收结果
 
-- #991 的 `\@setref` 补丁继续保留。内核在已定义引用后排出 `\null` 并紧跟内部 `\fi`；专用 wrapper 要在 `\fi` 之后窥视用户源码空格并把 CJK 末尾改记为 `CJK-space`。通用 `\null` post-transparent 只负责一般零盒遮蔽，不能替代这段 token 时序。无 hyperref 时补丁 `\@setref`；存在 `\real@setref` 时补丁该内核副本。普通 linked reference 由 hyperref stream capture 处理。
-- hyperref 的 `\Hy@BeginAnnot` 在 annotation 起始 whatsit 前启动 `auto` stream。顶层 `\Hy@EndAnnot` 若在原始结束前观察到末节点是 math，就把该末端报告为 Default；原始结束 whatsit 排出后结束 stream。旧的入口选择性 save/replay 与 `hyperref-default` 定点发布不再是当前主路径。
-- `\verb` 在原命令前启动 `auto` stream，并在 `\verb@egroup` 关闭后结束；`\@@_flush_language_whatsit:` 仍先强制排出延迟 language whatsit，避免右侧源码空格与恢复 glue 重复。`\verb*` 和 shortvrb 共用这两个挂载点。
-- `\Url@FormatString` 在活跃 capture 内只报告 Default；没有 hyperref stream 时继续使用窄范围 `\@@_drain_ecglue:`，因为 URL math 不触发 interchar transition。
-- codedoc/doc 的 meta hbox 修正与 `\@@_drain_ecglue_keep_state:` 仍保留，随后由 `default` stream 注册统一处理外侧边界。
-- biblatex 必须在 preamble 结束后注册 `\blx@pagetracker` 本身，而不是其 `\let` 源 `\blx@pagetracker@context`；nested style 已经把最终行为值拷贝到目标控制序列。
+#999 的完成条件是删除生效的逐命令边界恢复算法，而不只是让它们与 framework 并存。当前分工如下：
 
-详细决策见 [[../memory/decisions/992-command-boundary-capture-register]]；测试方法见 [[../reference/build-and-test]]。#873/#880/#910/#931/#972 的旧 decision/reflection 记录演进路径，不能再当作当前总体架构说明。
+- `\@setref`（无 hyperref）或 `\real@setref`（hyperref 保存的内核副本）直接注册为 `auto` stream；一般 `\null` 仍用 post-transparent。#991 的 `\null\fi` 文本替换、saved-node 与源码空格专用 replay 已删除。
+- hyperref 从 `\Hy@BeginAnnot` 到顶层 `\Hy@EndAnnot` 使用 `auto` stream；末尾 math 报告 Default。入口 save/replay、结束端专用 `hyperref-default` marker 均已删除。
+- URL 在完成花括号/分隔符扫描后的完整 `\Url@z` 外包围 `default` stream；不再按“当前是否已有 capture”分支，也没有 URL drain。
+- `\verb` 使用 `auto` stream；`\@@_flush_language_whatsit:` 只负责让延迟 language whatsit 在 stream 结束前真实进入列表，不判断或恢复边界。`\verb*` 与 shortvrb 共用入口和出口。
+- codedoc/doc 的 meta 保留参数 hbox，只为阻断尖括号与 CJK 参数之间不应有的内部 ecglue；完整外侧由 `default` stream 处理，旧 drain 已删除。
+- color/xcolor 的 `\set@color` / `\reset@color` 与 l3color 后端使用 transparent capture，`\color@b@x` 使用 wrapped-box；颜色专用 saved marker、hlist/whatsit fallback 与 pending 已删除。l3color 包装器只保留原参数签名。
+- biblatex 在 preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 transparent；旧的单向 clear 逻辑已删除。
+- xeCJKfntef、原生 ulem 与独立 under-symbol 入口使用 `stream-ulem` / stream；旧的 saved-last-node、颜色状态隔离和直接 pending 设置由 capture suspend/replay 取代。ulem 外层 glue callback 只解决装饰与断行节点位置。
+- `\lstinline` 的分隔符和花括号扫描入口都启动 `auto` stream，并在共同 `\lst@DeInit` 结束；listings 的 parameter-token rescan 修正属于内容扫描语义，不承担边界恢复。
+
+剩余适配器只处理第三方私有签名、扫描时机、加载时序或命令内部排版语义，均复用共享 begin/end 和 marker/glue 原语。详细决策见 [[../memory/decisions/992-command-boundary-capture-register]]；测试方法见 [[../reference/build-and-test]]。#873/#880/#910/#931/#972、#826/#830/#831 与 #991 的旧 decision/reflection 记录演进路径，不能再当作当前实现说明。
 
 ## 字体管理
 
@@ -400,12 +407,12 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 
 | 目标包 | 补丁内容 |
 |--------|----------|
-| `color`/`xcolor` | `\set@color` / `\reset@color` 后定点重放 marker；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
+| `color`/`xcolor` | `\set@color` / `\reset@color` 注册为 `transparent`；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
 | `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992） |
-| `ulem` | 临时关闭 interchar (`\makexeCJKinactive`) |
+| `ulem` | 通过 `stream-ulem` 观察实际首尾；framework 决定外侧 glue，`\UL@stop` / `\UL@start` 保证它位于装饰区间外 |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
-| `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换 |
-| `url` | 活跃 capture 内报告 Default；无 capture 时在 `\Url@FormatString` 入口窄范围 drain（#880/#992） |
+| `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换；`\lstinline` 两类扫描入口使用 `auto` stream |
+| `url` | 在完整 `\Url@z` 格式化阶段外包围 `default` stream（#880/#992） |
 | `hypdoc` | `\HD@target` 注册为 `transparent`；`\meta` / `\cs` 按固定首尾语义注册 stream（#873/#992） |
 | `biblatex` | preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 `transparent`（#931/#992） |
 
@@ -442,23 +449,17 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 **线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout`、`\CJKxout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量；普通模式的端点相对正文对称，`subtract` 模式两端等量缩短。周期图案 `\CJKunderwave` 则使用 `\xleaders`：它同样不继承外层 `\leaders` 相位，又把余量均匀分配到重复盒间距，避免 `\cleaders` 使逐个 CJK 片段独立居中而在字间接缝形成双峰。leader 原语必须按 mark 的连续性要求选择，不能把规则型线条的方案机械推广到周期图案。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
 
-**`\xeCJK_fntef_sbox:n` 的全局状态隔离**：该函数通过 `\hbox_set:Nn` 渲染装饰符号（如 underdot 的 `.`）。hbox 内部的字符会触发 XeTeX interchar toks，全局修改 `\g_@@_last_node_tl`（例如从 `CJK-space` 变为 `default`）。这会污染外层水平列表的状态，导致 `\set@color` 补丁用错误的节点类型重建 kern pair，后续 `\@@_check_for_glue_skip:` 走 ecglue 路径而非 CJKglue 路径。
+**边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。ulem 结束时把内部真实末尾 marker 移到外层列表，由 stream 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 
-修复方式：在 `\hbox_set:Nn` 前后保存/恢复 `\g_@@_last_node_tl`。这是一个通用模式——**任何包含 CJK 字符的 `\hbox_set:Nn` 都可能通过 interchar toks 污染全局节点标记状态**，应在 hbox 前后隔离 `\g_@@_last_node_tl`。
-
-**`\xeCJK_ulem_right:` / `\__xeCJK_ulem_end:` 的全局状态隔离（#830）**：当 `\textcolor` 包裹 ulem 类 fntef 命令时，ulem 的 `\UL@end` 定界符中的 `*` 字符（Default 字符类）在 ulem 处理结束时被排版，触发 Default->Boundary interchar class 转换，将 `\g_@@_last_node_tl` 从 `CJK` 污染为 `default`。随后 `\reset@color` 读取被污染的值，用 default 类型 kern pair 标记，导致后续 CJK->CJK 间距检测走到 ecglue 分支。修复方式：在 `\xeCJK_ulem_right:` 开始时将 `\g_@@_last_node_tl` 保存到 `\g__xeCJK_ulem_saved_last_node_tl`，在 `\__xeCJK_ulem_end:` 完成后恢复。
-
-**两个方向的完整覆盖**：
-- fntef(color) 方向：fntef 包裹 textcolor — `\xeCJK_fntef_sbox:n` hbox 隔离（#826-fntef-color-global-state）
-- color(fntef) 方向：textcolor 包裹 fntef — `\xeCJK_ulem_right:` save/restore 隔离（#830）
-
-测试覆盖见 `xeCJK/testfiles/fntef-color01.lvt`（Test 1-7 覆盖 fntef(color)，Test 8-12 覆盖 color(fntef)）。
+**外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格；`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
 ### xeCJK-listings
 
 重写 `listings` 的字符转换机制，使 CJK 字符不再需要设为 active catcode。核心是用 `\tl_set_rescan:Nno`（即 `\scantokens`）替代 `\lccode` + `\lowercase` 路线。
 
 `\@@_listings_rescan:Nn`（`xeCJK.dtx` L11856-11878）在 rescan 前用 `\tl_map_inline:Nn` 逐 token 扫描 `\l_@@_tmp_tl`，对 catcode 6 parameter token 通过 `\char_generate:nn { \int_value:w ``##1 } { 13 }` 转换为**同字符码**的 active token，避免 `\scantokens` 字符串化阶段对 catcode 6 token 的二次双写，同时保留用户通过 `\catcode\`\&=6` 等方式自定义的 parameter token 原字符身份。该模式由 \#378 → \#879 演化而来：\#378 用 catcode-class regex 修双写（替换端硬编码 codepoint），\#879 在 `\catcode\`\&=6` 场景下显式暴露其局限，改为 token-level map 保留原 codepoint。
+
+`\lstinline` 的正文不由公开命令参数直接读取：分隔符路径经过 `\lstinline@`，花括号路径直接进入 `\lst@InlineG`。两处都启动 `auto` stream，并在共同的 `\lst@DeInit` 通过 `\aftergroup` 结束；因此颜色 push/pop、CJK/Default 混合内容与左右源码空格都进入统一边界恢复。`listings-color01` 用 braced Latin、braced CJK、两种混合方向与 delimiter Latin 共 20 个 direct-input oracle 验证，`listings-hash01` 独立保护 rescan/catcode 行为。
 
 ### xunicode-addon
 

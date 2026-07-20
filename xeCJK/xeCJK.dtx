@@ -3611,23 +3611,26 @@ Copyright and Licence
 %   在错误位置插入（\#803）。配合 \tn{set@color} 定点补丁保持
 %   \tn{textcolor} 场景的正确性（\#315）。}
 % \changes{v3.10.4}{2026/07/20}{允许 Boundary 到 Default 的恢复路径
-%   回卷有限、带 shrink 的源码词间 glue，在真实 CJK marker 上将其替换为
-%   \tn{CJKecglue}，补齐与 Default 到 CJK 方向对称的命令边界处理（\#992）。}
+%   暂时移除末尾不含无限阶伸缩、且有收缩量的源码词间 glue；若其下方确有
+%   CJK marker，则将其替换为 \tn{CJKecglue}，补齐与 Default 到 CJK
+%   方向对称的命令边界处理（\#992）。}
 %
 % 字体组、颜色组或其他命令结束后，源码空格可能已经生成普通词间 glue，
 % 压在仍然有效的 CJK marker 上方。只有已知命令或分组路径设置了
-% \cs{g_@@_glue_check_pending_bool} 时才允许回卷，避免把直接输入的
-% 显式 \tn{hskip} 当成源码空格。候选 glue 还必须 finite、带 shrink 且自然
+% \cs{g_@@_glue_check_pending_bool} 时，才允许暂时移除末尾 glue 并检查
+% 其下方的 marker，避免把直接输入的显式 \tn{hskip} 当成源码空格。
+% 候选 glue 还必须 finite、带 shrink 且自然
 % 宽度与当前词间空格相等；spacefactor 会微调 stretch/shrink，不能要求
 % 整份 skip 严格相等。命中 CJK、CJK-space 或 CJK-widow marker 时才消费并换成
 % 缓存的 \tn{CJKecglue}。若下方不是可信 marker，则原样还回 glue。
-% 回卷前用 skip 变量完整保存 \tn{lastskip}，restore 还回的是同一份
+% 移除前用 skip 变量完整保存 \tn{lastskip}，restore 还回的是同一份
 % natural/stretch/shrink 数值，不会按当前 spacefactor 重新计算；只有节点的
 % 源码来源无法恢复。
 % 节点层无法区分源码空格与参数完全相同的显式 \tn{hskip}；因此紧跟在已注册
 % 命令之后、自然宽度等于当前词间空格且带 shrink 的显式 glue 也处在这段
 % 有界歧义窗口内。需要保留这类显式 glue 时，可在其前加零宽 \tn{kern}，
-% 或使用不同自然宽度 / 无 shrink 的 glue，使回卷器在可信 marker 前停止。
+% 或使用不同自然宽度 / 无 shrink 的 glue，使这项检查无法越过显式边界
+% 到达可信 marker。
 % restore/fallback 不清除 \cs{g_@@_glue_check_pending_bool}：该 glue 可能来自
 % \pkg{ulem} 内部列表，旗标仍须留给命令外真正的 CJK 边界；只有成功消费
 % marker 时才结束 pending 状态。
@@ -3850,13 +3853,9 @@ Copyright and Licence
         \@@_if_last_glue:TF
           { \@@_check_for_glue_skip: }
           {
-            \@@_if_last_whatsit:TF
-              { \@@_recover_glue_whatsit: }
-              {
-                \@@_if_last_math:TF
-                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-                  { \@@_check_for_glue_auxii: }
-              }
+            \@@_if_last_math:TF
+              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+              { \@@_check_for_glue_auxii: }
           }
       }
   }
@@ -3865,28 +3864,14 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/05/12}{当 glue 下方是 hlist（\tn{mbox} 等命令产生的 hbox）时，
 %   不依赖 boolean，直接通过 \cs{g_@@_last_node_tl} 判断前方内容类型，
 %   修复 \tn{mbox}、\tn{colorbox} 等 hbox 命令右侧多余 inter-word glue（\#831）。}
-% \pkg{xeCJKfntef} 的命令内部使用 \pkg{ulem} 的 \tn{hbox} 排版 CJK 文字，
-% 导致 \XeTeX{} 的 interchar class 在命令结束后不是 CJK 而是 Boundary。
-% 源码空格因此产生 inter-word glue（而非被吃掉），叠在 CJK kern pair 标记
-% 上方。本函数通过 |\unskip| 探测 glue 下方的 kern pair 来解决。
-% kern pair 的探测由 |\g_@@_glue_check_pending_bool| 门控：仅在 \pkg{xeCJKfntef}
-% 组结束或颜色恢复（\tn{reset@color}）之后才启用，以避免在 |space=true|
-% 模式下误替换用户输入的空格。该标志分别由 |\@@_ulem_group_end:n|
-% 和 \tn{reset@color} 补丁设置。
-%
-% 对于 \tn{mbox}、\tn{colorbox} 等产生 hbox 的命令，hbox 节点
-% 隔在 kern pair 和 glue 之间，|\lastkern| 无法穿透。
-% 此时检查 |\unskip| 后的最后节点是否为 hlist，若是则通过全局
-% |\g_@@_last_node_tl| 判断前方内容类型。该变量由 |\xeCJK_make_node:n|
-% 设置，能穿透 hbox/group 边界保持 CJK 标记。
-% hlist 分支本身不设门控：其安全性依赖于 |\g_@@_last_node_tl| 仅在
-% CJK 输出路径中被设置，非 CJK 上下文中该变量为空，
-% |\@@_check_for_glue_skip_hlist_aux:| 会直接走 fallback。
-% 对于 \tn{colorbox} 等带颜色的 hbox 命令，\tn{reset@color} 在 hbox
-% 之后插入 color pop whatsit，遮蔽了 hlist 检测。此时通过专用标志
-% |\g_@@_reset_color_pending_bool| 门控 whatsit 回退路径：仅当
-% \tn{reset@color} 已标记 hlist 上下文时才启用，避免 |\write| 等
-% 无关 whatsit 的干扰。
+% \changes{v3.10.4}{2026/07/20}{由命令边界 framework 接管
+%   \pkg{xeCJKfntef}、盒命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit
+%   下方类别的旧回退；glue 分支现在只接受紧邻的可信 marker（\#992）。}
+% 统一 framework 在已知命令出口重放可信 marker，并通过
+% |\g_@@_glue_check_pending_bool| 开启一次源码空格检查；显式分组的
+% catcode 2 结束点也使用同一门控。若候选 glue 下方不是 kern marker，
+% 本函数原样还回 glue 并进入标点检测链，不再根据任意 hlist、whatsit 或
+% 可能陈旧的 |\g_@@_last_node_tl| 猜测输出类别。
 %
 % \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
 % 通过 |\skip_if_finite:nTF| 将其排除。
@@ -3946,18 +3931,7 @@ Copyright and Licence
   {
     \bool_if:NT \g_@@_glue_check_pending_bool
       { \bool_gset_false:N \g_@@_glue_check_pending_bool }
-    \@@_if_last_hlist:TF
-      { \@@_check_for_glue_skip_hlist_aux: }
-      {
-        \bool_if:NTF \g_@@_reset_color_pending_bool
-          {
-            \bool_gset_false:N \g_@@_reset_color_pending_bool
-            \@@_if_last_whatsit:TF
-              { \@@_check_for_glue_skip_hlist_aux: }
-              { \@@_check_for_glue_skip_restore: }
-          }
-          { \@@_check_for_glue_skip_restore: }
-      }
+    \@@_check_for_glue_skip_restore:
   }
 \cs_new_protected:Npn \@@_check_for_glue_skip_restore:
   {
@@ -3970,26 +3944,6 @@ Copyright and Licence
       { \bool_gset_false:N \g_@@_glue_check_pending_bool }
     \@@_check_for_glue_auxii:
   }
-\cs_new_protected:Npn \@@_check_for_glue_skip_hlist_aux:
-  {
-    \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
-      { \tl_gclear:N \g_@@_last_node_tl \CJKglue }
-      {
-        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
-          { \tl_gclear:N \g_@@_last_node_tl \@@_ccglue_or_space: }
-          {
-            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
-              {
-                \tl_gclear:N \g_@@_last_node_tl
-                \xeCJK_widow_penalty: \CJKglue
-              }
-              {
-                \skip_horizontal:N \l_@@_last_skip
-                \@@_check_for_glue_auxii:
-              }
-          }
-      }
-  }
 \cs_new_protected:Npn \@@_check_for_glue_auxi:
   {
     \dim_case:nn { \tex_lastkern:D }
@@ -4001,8 +3955,6 @@ Copyright and Licence
         { \@@_node:n { CJK-widow } }
         { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
         { \@@_node:n { default } }
-        { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-        { \@@_node:n { hyperref-default } }
         { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
       }
   }
@@ -4047,13 +3999,9 @@ Copyright and Licence
             \xeCJK_if_last_node:nTF { default }
               { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               {
-                \xeCJK_if_last_node:nTF { hyperref-default }
-                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-                  {
-                    \@@_if_last_math:TF
-                      { \skip_horizontal:N \l_@@_ecglue_skip }
-                      { \skip_horizontal:N \l_@@_last_skip }
-                  }
+                \@@_if_last_math:TF
+                  { \skip_horizontal:N \l_@@_ecglue_skip }
+                  { \skip_horizontal:N \l_@@_last_skip }
               }
           }
       }
@@ -4167,51 +4115,12 @@ Copyright and Licence
       }
     \tl_gclear:N \g_@@_last_node_tl
   }
-\cs_new_protected:Npn \@@_recover_ecglue_whatsit:
-  {
-    \@@_if_last_whatsit:T
-      {
-        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
-          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-          {
-            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
-              { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-              {
-                \tl_if_eq:NnT \g_@@_last_node_tl { CJK-space }
-                  { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-              }
-          }
-      }
-  }
-\cs_new_protected:Npn \@@_recover_glue_whatsit:
-  {
-    \@@_if_last_whatsit:T
-      {
-        \tl_if_eq:NnTF \g_@@_last_node_tl { CJK }
-          { \xeCJK_remove_node: \CJKglue }
-          {
-            \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-space }
-              { \xeCJK_remove_node: \@@_ccglue_or_space: }
-              {
-                \tl_if_eq:NnTF \g_@@_last_node_tl { CJK-widow }
-                  { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
-                  {
-                    \tl_if_eq:NnT \g_@@_last_node_tl { default }
-                      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-                    \tl_if_eq:NnT \g_@@_last_node_tl { hyperref-default }
-                      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-                  }
-              }
-          }
-      }
-  }
 \xeCJK_declare_node:n { CJK }
 \xeCJK_declare_node:n { CJK-space }
 \xeCJK_declare_node:n { default }
 \xeCJK_declare_node:n { CJK-widow }
 \xeCJK_declare_node:n { normalspace }
 \xeCJK_declare_glue_node:n { default-space }
-\xeCJK_declare_node:n { hyperref-default }
 %    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
@@ -4219,9 +4128,10 @@ Copyright and Licence
 %   用于标记 \tn{reset@color} 在 hlist 上下文中触发，延迟到
 %   \cs{@@_check_for_glue_skip:} 中处理 \tn{colorbox} 等命令
 %   右侧的 color pop whatsit（\#831）。}
+% \changes{v3.10.4}{2026/07/20}{删除颜色专用 pending boolean；颜色
+%   push/pop 和盒输出改由 transparent/wrapped-box capture 处理（\#992）。}
 %    \begin{macrocode}
 \bool_new:N \g_@@_glue_check_pending_bool
-\bool_new:N \g_@@_reset_color_pending_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -4236,6 +4146,7 @@ Copyright and Licence
 %   \@@_boundary_inline_last_box_begin:,
 %   \@@_boundary_inline_last_box_end:n,
 %   \@@_boundary_inline_stream_begin:n,
+%   \@@_boundary_inline_stream_begin:nn,
 %   \@@_boundary_inline_stream_end:n,
 %   \@@_boundary_hmode_transparent_begin:,
 %   \@@_boundary_hmode_transparent_end:,
@@ -4245,35 +4156,41 @@ Copyright and Licence
 %   \@@_boundary_box_end:n,
 %   \@@_boundary_box_finish:nn,
 %   \@@_boundary_last_box_end:n,
-%   \@@_boundary_patch_makeboxes:,
+%   \@@_boundary_register_makeboxes:,
 %   \@@_boundary_register_box:nn,
 %   \@@_boundary_register_wrapped_box:nn,
 %   \@@_boundary_register_transparent:n,
 %   \@@_boundary_register_post_transparent:n,
-%   \@@_boundary_register_stream:nn}
+%   \@@_boundary_register_stream:nn,
+%   \@@_boundary_wrap_transparent_noarg:NN,
+%   \@@_boundary_wrap_transparent_onearg:NN}
 % \begin{macro}[int]{
 %   \@@_boundary_capture_space:,
+%   \@@_boundary_capture_emit_left:nn,
 %   \@@_boundary_pop_node:N,
 %   \@@_boundary_box_end_transparent:n,
 %   \@@_boundary_emit_left:nn,
 %   \@@_boundary_emit_left:nnn,
+%   \@@_boundary_use_glue:nn,
 %   \@@_boundary_use_ecglue:n,
 %   \@@_boundary_use_ccglue:n,
 %   \@@_boundary_restore_space:,
 %   \@@_boundary_restore_space:n,
+%   \@@_boundary_set_last_from_node:n,
+%   \@@_boundary_enable_source_space:n,
 %   \@@_boundary_replay_node:n}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
 %
-% 命令边界框架提供三类注册策略。|box| 策略在注册命令执行前保存并移除前一
+% 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
-% 边界后原样放回；多节点的盒命令可用 |wrapped-box| 先由透明 hbox 收集输出。
+% 边界后原样放回；|wrapped-box| 用透明 hbox 收集会直接写出多个节点的盒命令。
 % |stream| 策略让 annotation、数学包装或 verbatim 流直接写入当前列表；
 % 其 |default| 变体固定两端为 Default，|first-default| 只固定首类别、
 % 仍以实际输出决定末类别。
-% |transparent| 策略用于只插入锚点、write 或空盒而无可见输出的命令。
+% |transparent| 策略用于只插入锚点、write 等无可见输出的命令。
 % 其中 \tn{null} 还能合法地出现在 \tn{setbox}\meta{box} 后，不能在其前面插入
-% hook 代码，故使用 after-only 变体：只在空盒确实遮蔽 marker 时从可信的
+% hook 代码，故使用 |post-transparent| after-only 变体：只在空盒确实遮蔽 marker 时从可信的
 % 全局状态重放，原 marker 仍可见时不改变当前列表。
 % Boundary 到 Default/CJK 的转换会把观察到的类别同时写入所有活跃 capture，
 % 因而混合输出和嵌套命令都能分别取得实际首、尾类别。
@@ -4283,7 +4200,11 @@ Copyright and Licence
 % 源码空格、\tn{CJKecglue}、\tn{CJKglue} 及 \opt{CJKspace}、
 % \opt{xCJKecglue} 状态都在入口字体和分组上下文中缓存，避免命令内部字体
 % 或选项切换改变恢复值。\tn{sbox} 这类只构造离线盒而不向当前列表输出的
-% 路径会暂停观察，防止测量用 scratch box 污染外层 capture。
+% 路径会暂停观察，并按嵌套层保存、恢复外层 marker 与 pending 状态，防止
+% 测量用 scratch box 或其中的颜色切换污染外层 capture 和基础恢复链。
+% ulem 这类会把正文拆进固定宽度字盒的子系统使用专用 stream kind；框架仍
+% 统一决定应发哪一种左侧 glue，但把数值交回子系统自己的外层 glue 通道，
+% 避免弹性分量被困在内部固定宽度盒中。
 %
 % 额外 hbox 只用于 \tn{color@b@x} 这类本来会输出多个节点的注册命令；普通
 % 盒命令取出并放回原 hbox，不增加节点层级。每个同步嵌套层使用独立 register，
@@ -4291,7 +4212,9 @@ Copyright and Licence
 % 更多层则随首次达到的 depth 惰性创建。若 wrapped-box 没有观察到可见字符，
 % 结束路径会 unpack 该层透明外盒。每层的 token-list 状态同样惰性分配，使
 % 注册命令可以任意嵌套而不会静默退回未修复行为；首类别会写入所有尚未取得
-% 首字符的外层 capture。
+% 首字符的外层 capture。stream 结束时若外层列表上存在可信末尾 marker，
+% 该列表证据优先于内部不可见定界字符产生的观察值；annotation/math 等没有
+% 末尾 marker 的流仍使用运行时观察结果。
 %    \begin{macrocode}
 \int_new:N \g_@@_boundary_capture_depth_int
 \int_new:N \g_@@_boundary_suspend_depth_int
@@ -4341,15 +4264,13 @@ Copyright and Licence
                   {
                     \tl_gset:cn
                       { g_@@_boundary_capture_##1_first_tl } {#1}
-                    \tl_if_eq:cnT
+                    \tl_if_eq:cnTF
                       { g_@@_boundary_capture_##1_kind_tl } { stream }
+                      { \@@_boundary_capture_emit_left:nn {##1} {#1} }
                       {
-                        \tl_set:Ne \l_@@_boundary_node_tl
-                          { \tl_use:c { g_@@_boundary_capture_##1_before_tl } }
-                        \@@_boundary_emit_left:nVn
-                          {##1} \l_@@_boundary_node_tl {#1}
-                        \tl_gset:cn
-                          { g_@@_boundary_capture_##1_space_flag_tl } { false }
+                        \tl_if_eq:cnT
+                          { g_@@_boundary_capture_##1_kind_tl } { stream-ulem }
+                          { \@@_boundary_capture_emit_left:nn {##1} {#1} }
                       }
                   }
               }
@@ -4357,11 +4278,49 @@ Copyright and Licence
       }
   }
 
+\cs_new_protected:Npn \@@_boundary_capture_emit_left:nn #1#2
+  {
+    \tl_set:Ne \l_@@_boundary_node_tl
+      { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+    \@@_boundary_emit_left:nVn
+      {#1} \l_@@_boundary_node_tl {#2}
+    \tl_gset:cn
+      { g_@@_boundary_capture_#1_space_flag_tl } { false }
+  }
+
 \cs_new_protected:Npn \@@_boundary_capture_suspend:
-  { \int_gincr:N \g_@@_boundary_suspend_depth_int }
+  {
+    \int_gincr:N \g_@@_boundary_suspend_depth_int
+    \tl_if_exist:cF
+      { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _node_tl }
+      {
+        \tl_new:c
+          { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _node_tl }
+        \tl_new:c
+          { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _pending_tl }
+      }
+    \exp_args:Nc \tl_gset_eq:NN
+      { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _node_tl }
+      \g_@@_last_node_tl
+    \tl_gset:ce
+      { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _pending_tl }
+      { \bool_if:NTF \g_@@_glue_check_pending_bool { true } { false } }
+  }
 
 \cs_new_protected:Npn \@@_boundary_capture_resume:
-  { \int_gdecr:N \g_@@_boundary_suspend_depth_int }
+  {
+    \tl_gset:Ne \g_@@_last_node_tl
+      {
+        \tl_use:c
+          { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _node_tl }
+      }
+    \tl_if_eq:cnTF
+      { g_@@_boundary_suspend_\int_use:N \g_@@_boundary_suspend_depth_int _pending_tl }
+      { true }
+      { \bool_gset_true:N \g_@@_glue_check_pending_bool }
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \int_gdecr:N \g_@@_boundary_suspend_depth_int
+  }
 
 \cs_new_protected:Npn \@@_boundary_inline_box_begin:
   {
@@ -4417,6 +4376,9 @@ Copyright and Licence
   }
 
 \cs_new_protected:Npn \@@_boundary_inline_stream_begin:n #1
+  { \@@_boundary_inline_stream_begin:nn {#1} { stream } }
+
+\cs_new_protected:Npn \@@_boundary_inline_stream_begin:nn #1#2
   {
     \int_compare:nNnTF
       { \g_@@_boundary_suspend_depth_int } > \c_zero_int
@@ -4430,7 +4392,7 @@ Copyright and Licence
             \@@_boundary_capture_begin:
             \tl_gset:cn
               { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
-              { stream }
+              {#2}
             \str_case:nn {#1}
               {
                 { default }       { \@@_boundary_capture_class:n { default } }
@@ -4459,13 +4421,18 @@ Copyright and Licence
             \tl_use:c
               { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
           }
+        % 流式命令若在最外层留下可信 marker，以实际列表证据校正末类别。
+        % 这覆盖会在内部盒中使用不可见定界字符、但最终把真实末尾 marker
+        % 移到外层列表的实现；没有末尾 marker 的 annotation/math 仍使用
+        % capture 观察值。
+        \exp_args:NV
+          \@@_boundary_set_last_from_node:n \l_@@_boundary_node_tl
         % |default| 的开始 hook 已经固定首类别；这里仅覆写末类别即可让
         % stream 两端都为 Default，同时不丢弃其他模式实际观察到的首类别。
         \str_if_eq:nnT {#1} { default }
           { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
         \tl_gclear:N \g_@@_last_node_tl
         \bool_gset_false:N \g_@@_glue_check_pending_bool
-        \bool_gset_false:N \g_@@_reset_color_pending_bool
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
             \tl_set:Ne \l_@@_boundary_node_tl
@@ -4628,7 +4595,6 @@ Copyright and Licence
       \l_@@_boundary_node_tl
     \tl_gclear:N \g_@@_last_node_tl
     \bool_gset_false:N \g_@@_glue_check_pending_bool
-    \bool_gset_false:N \g_@@_reset_color_pending_bool
   }
 
 \cs_new_protected:Npn \@@_boundary_box_begin:
@@ -4677,7 +4643,6 @@ Copyright and Licence
             { \@@_node:n { CJK-widow } }       { \tl_set:Nn #1 { CJK-widow } }
             { \@@_node:n { default } }         { \tl_set:Nn #1 { default } }
             { \@@_node:n { normalspace } }     { \tl_set:Nn #1 { normalspace } }
-            { \@@_node:n { hyperref-default } }{ \tl_set:Nn #1 { hyperref-default } }
           }
           { \@@_make_node:N \l_@@_last_kern_dim }
       }
@@ -4707,7 +4672,6 @@ Copyright and Licence
       {
         \tl_gclear:N \g_@@_last_node_tl
         \bool_gset_false:N \g_@@_glue_check_pending_bool
-        \bool_gset_false:N \g_@@_reset_color_pending_bool
         \tl_set:Ne \l_@@_boundary_node_tl
           {
             \tl_use:c
@@ -4741,7 +4705,6 @@ Copyright and Licence
       }
     \tl_gclear:N \g_@@_last_node_tl
     \bool_gset_false:N \g_@@_glue_check_pending_bool
-    \bool_gset_false:N \g_@@_reset_color_pending_bool
     \tl_if_empty:NTF \l_@@_boundary_first_tl
       { \@@_boundary_box_end_transparent:n {#2} }
       {
@@ -4809,7 +4772,7 @@ Copyright and Licence
           { \@@_boundary_use_ecglue:n {#1} }
       }
       {
-        \clist_if_in:nnTF { default , default-space , hyperref-default } {#2}
+        \clist_if_in:nnTF { default , default-space } {#2}
           {
             \str_if_eq:nnTF {#3} { CJK }
               {
@@ -4832,14 +4795,22 @@ Copyright and Licence
 
 \cs_new_protected:Npn \@@_boundary_use_ecglue:n #1
   {
-    \skip_horizontal:n
+    \@@_boundary_use_glue:nn {#1}
       { \tl_use:c { g_@@_boundary_capture_#1_ecglue_skip_tl } }
   }
 
 \cs_new_protected:Npn \@@_boundary_use_ccglue:n #1
   {
-    \skip_horizontal:n
+    \@@_boundary_use_glue:nn {#1}
       { \tl_use:c { g_@@_boundary_capture_#1_ccglue_skip_tl } }
+  }
+
+\cs_new_protected:Npn \@@_boundary_use_glue:nn #1#2
+  {
+    \tl_if_eq:cnTF
+      { g_@@_boundary_capture_#1_kind_tl } { stream-ulem }
+      { \use:c { @@_boundary_use_ulem_glue:n } {#2} }
+      { \skip_horizontal:n {#2} }
   }
 
 \cs_new_protected:Npn \@@_boundary_restore_space:
@@ -4853,8 +4824,19 @@ Copyright and Licence
     \tl_if_eq:cnT
       { g_@@_boundary_capture_#1_space_flag_tl } { true }
       {
-        \skip_horizontal:n
+        \@@_boundary_use_glue:nn {#1}
           { \tl_use:c { g_@@_boundary_capture_#1_space_skip_tl } }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_set_last_from_node:n #1
+  {
+    \clist_if_in:nnTF { CJK , CJK-space , CJK-widow } {#1}
+      { \tl_set:Nn \l_@@_boundary_last_tl { CJK } }
+      {
+        \clist_if_in:nnT
+          { default , default-space } {#1}
+          { \tl_set:Nn \l_@@_boundary_last_tl { default } }
       }
   }
 
@@ -4867,14 +4849,18 @@ Copyright and Licence
       }
       {
         \clist_if_in:nnT
-          { CJK , CJK-space , CJK-widow , default , hyperref-default , normalspace }
+          { CJK , CJK-space , CJK-widow , default , normalspace }
           {#1}
           {
             \xeCJK_make_node:n {#1}
-            \clist_if_in:nnT { CJK , CJK-space , CJK-widow } {#1}
-              { \bool_gset_true:N \g_@@_glue_check_pending_bool }
+            \@@_boundary_enable_source_space:n {#1}
           }
       }
+  }
+\cs_new_protected:Npn \@@_boundary_enable_source_space:n #1
+  {
+    \clist_if_in:nnT { CJK , CJK-space , CJK-widow } {#1}
+      { \bool_gset_true:N \g_@@_glue_check_pending_bool }
   }
 
 \cs_new_protected:Npn \@@_boundary_register_box:nn #1#2
@@ -4938,11 +4924,41 @@ Copyright and Licence
       }
   }
 
+% expl3 内部函数不一定允许 LaTeX 通用 cmd hook。下面两个适配器仍复用
+% transparent capture 的同一 begin/end，只负责保留零参数或单参数调用签名。
+\cs_new_protected:Npn \@@_boundary_wrap_transparent_noarg:NN #1#2
+  {
+    \cs_if_exist:NF #1
+      {
+        \cs_set_eq:NN #1#2
+        \cs_gset_protected:Npn #2
+          {
+            \@@_boundary_hmode_transparent_begin:
+            #1
+            \@@_boundary_hmode_transparent_end:
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_wrap_transparent_onearg:NN #1#2
+  {
+    \cs_if_exist:NF #1
+      {
+        \cs_set_eq:NN #1#2
+        \cs_gset_protected:Npn #2 ##1
+          {
+            \@@_boundary_hmode_transparent_begin:
+            #1 ##1
+            \@@_boundary_hmode_transparent_end:
+          }
+      }
+  }
+
 % 这里包装的是本包最低支持内核 \LaTeXe{} 2026-06-01 中，内部
 % \tn{@imakebox}/\tn{@iframebox} 的 |[#1][#2]#3| 参数签名，不是稳定公共
 % 接口。若内核改变该签名，必须同步 wrapper；\texttt{command-boundary01}
 % 的 optional \tn{makebox}/\tn{framebox} 场景作为漂移门禁。
-\cs_new_protected:Npn \@@_boundary_patch_makeboxes:
+\cs_new_protected:Npn \@@_boundary_register_makeboxes:
   {
     \cs_if_exist:NF \@@_orig_imakebox:w
       {
@@ -4968,7 +4984,7 @@ Copyright and Licence
 
 \@@_boundary_register_box:nn { mbox } { auto }
 \@@_boundary_register_box:nn { fbox } { auto }
-\@@_boundary_patch_makeboxes:
+\@@_boundary_register_makeboxes:
 \@@_boundary_register_post_transparent:n { null }
 \AddToHook { cmd / sbox / before } [ xeCJK / boundary ]
   { \@@_boundary_capture_suspend: }
@@ -10957,91 +10973,6 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.10.4}{2026/07/18}{在 \tn{@setref} 的零尺寸盒子后重放
-%   引用内容的实际末尾类别，修复 \tn{ref} 右边界间距（\#991）。}
-%
-% \begin{macro}{\@@_patch_setref:}
-% \begin{macro}{\@@_setref_null:,\@@_setref_replay:,\@@_setref_replay_node:}
-% \begin{variable}{\g_@@_setref_saved_node_tl}
-% \LaTeXe{} 内核的 \tn{@setref} 在已定义的引用文本后附加一个
-% 零尺寸 \tn{null} 盒子。它会遮住引用末尾由 xeCJK 放置的 kern 对标记，
-% 使后续字符无法按引用实际输出的末尾类别恢复间距。
-%
-% 在原 \tn{null} 的位置先用 \cs{scan_stop:} 触发末尾字符到 Boundary 的
-% 转换，保存并移除由此产生的真实标记；排出原盒子后，再把标记放在盒子
-% 后面。补丁匹配 \tn{null} 后紧随的 \tn{fi}；
-% \cs{exp_after:wN} 先执行这个条件结束记号，保证重放阶段窥视到的是
-% 用户在 \tn{ref} 后写的记号，而不是 \tn{@setref} 内部的 \tn{fi}。
-%
-% 若实际末尾是 CJK 且后面紧跟源码空格，原本的 CJK→Boundary 转换应把
-% 空格记为 \texttt{CJK-space} 并吃掉。由于 \tn{null} 已经让 XeTeX 回到
-% Boundary，此处必须显式完成同一转换；否则该空格会成为普通 inter-word
-% glue。数学模式中只保留内核原有的 \tn{null} 行为。
-%    \begin{macrocode}
-\tl_new:N \g_@@_setref_saved_node_tl
-\cs_new_protected:Npn \@@_setref_null:
-  {
-    \mode_if_math:TF
-      { \null }
-      {
-        \scan_stop:
-        \xeCJK_if_last_node:TF
-          {
-            \tl_gset_eq:NN
-              \g_@@_setref_saved_node_tl
-              \g_@@_last_node_tl
-          }
-          { \tl_gclear:N \g_@@_setref_saved_node_tl }
-        \tl_gclear:N \g_@@_last_node_tl
-        \null
-        \exp_after:wN \@@_setref_replay:
-      }
-  }
-\cs_new_protected:Npn \@@_setref_replay:
-  {
-    \tl_if_eq:NnTF \g_@@_setref_saved_node_tl { CJK }
-      {
-        \peek_meaning:NTF \c_space_token
-          {
-            \peek_remove_spaces:n
-              {
-                \tl_gset:Nn
-                  \g_@@_setref_saved_node_tl { CJK-space }
-                \@@_setref_replay_node:
-              }
-          }
-          { \@@_setref_replay_node: }
-      }
-      { \@@_setref_replay_node: }
-  }
-\cs_new_protected:Npn \@@_setref_replay_node:
-  {
-    \tl_if_empty:NF \g_@@_setref_saved_node_tl
-      {
-        \exp_args:No \xeCJK_make_node:n
-          { \g_@@_setref_saved_node_tl }
-      }
-    \tl_gclear:N \g_@@_setref_saved_node_tl
-  }
-\cs_new_eq:cN { xeCJK@setref@null } \@@_setref_null:
-\cs_new_protected:Npn \@@_patch_setref:
-  {
-    \cs_if_exist:NTF \real@setref
-      {
-        \ctex_patch_cmd:Nnn \real@setref
-          { \null \fi } { \xeCJK@setref@null \fi }
-      }
-      {
-        \ctex_patch_cmd:Nnn \@setref
-          { \null \fi } { \xeCJK@setref@null \fi }
-      }
-  }
-\@@_at_end_preamble:n { \@@_patch_setref: }
-%    \end{macrocode}
-% \end{variable}
-% \end{macro}
-% \end{macro}
-%
 % 简单处理与 \pkg{hyperref} 宏包的兼容问题。
 % \changes{v3.10.0}{2026/05/03}{通过在 \tn{Hy@BeginAnnot} 中保存并
 %   选择性恢复 xeCJK 节点标记，同时清除旧标记，
@@ -11062,7 +10993,7 @@ Copyright and Licence
 % 混合链接文字和数学 URL 都由同一入口状态与实际末类别决定两侧间距；嵌套
 % annotation 仍只在最外层结束时收束，不会让内部结束点提前重放状态。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_hyperref_annot:
+\cs_new_protected:Npn \@@_boundary_register_hyperref_annot:
   {
     \cs_gset_eq:NN \@@_orig_Hy_BeginAnnot:n \Hy@BeginAnnot
     \cs_gset_eq:NN \@@_orig_Hy_EndAnnot: \Hy@EndAnnot
@@ -11089,7 +11020,7 @@ Copyright and Licence
         \xeCJK_cs_clear:N \makexeCJKinactive
         \xeCJK_cs_clear:N \xeCJK_text_composite_patch:
       }
-    \@@_patch_hyperref_annot:
+    \@@_boundary_register_hyperref_annot:
   }
 %    \end{macrocode}
 %
@@ -11110,127 +11041,52 @@ Copyright and Licence
 %   \cs{g_@@_last_node_tl} 被无关的 \tn{set@color} 清空后
 %   仍尝试重放节点导致 \texttt{Missing number} 错误的问题，
 %   影响 \pkg{listings} 与 \tn{rulecolor} 组合（\#836）。}
+% \changes{v3.10.4}{2026/07/20}{将 \tn{set@color} 与 \tn{reset@color}
+%   注册为 transparent capture，删除颜色 push/pop 的专用 marker
+%   save/replay 分支（\#992）。}
 % \changes{v3.10.0}{2026/05/02}{使用 \cs{l_keys_key_str} 和
 %   \cs{l_keys_choice_str} 替代已废弃的 \texttt{\_tl} 版本（\#806）。}
 %
-% \pkg{color}/\pkg{xcolor} 的颜色切换通过 \tn{set@color} 插入 \tn{special}
-% 节点（whatsit），会遮蔽 xeCJK 的标记 kern，导致后续的 \texttt{CJKecglue}
-% 检测失败。此处在 \tn{set@color} 和 \tn{reset@color} 之后重新放置
-% xeCJK 节点标记。\tn{set@color} 负责颜色推入（push），
-% \tn{reset@color} 负责颜色弹出（pop）——后者通过 \tn{aftergroup}
-% 在分组结束时自动调用，用于恢复原始颜色。当最后一个节点
-% 是 xeCJK 标记 kern 对时直接重放标记；当最后一个节点是 hlist
-% 且 |\g_@@_last_node_tl| 非空时，仅设置 |\g_@@_reset_color_pending_bool|
-% 以延迟到 |\@@_check_for_glue_skip:| 的 whatsit 回退路径中处理，
-% 避免在页面布局结构中插入多余 kern。
+% \pkg{color}/\pkg{xcolor} 的颜色切换通过 \tn{set@color} 插入颜色 push
+% whatsit，再由 aftergroup 中的 \tn{reset@color} 插入 pop whatsit。两者都没有
+% 可见输出，因此分别注册为 transparent：入口保存并移除可信 marker 与源码
+% 空格，颜色 whatsit 排出后原样恢复。\tn{color@b@x} 会直接写出多个节点，
+% 继续使用 wrapped-box 收集整个盒命令输出。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_set_color:
+\cs_new_protected:Npn \@@_boundary_register_color:
   {
-    \cs_if_exist:NF \@@_orig_set_color:
-      {
-        \cs_set_eq:NN \@@_orig_set_color: \set@color
-        \cs_gset_protected:Npn \set@color
-          {
-            \xeCJK_if_last_node:TF
-              {
-                \@@_orig_set_color:
-                \tl_if_empty:NF \g_@@_last_node_tl
-                  { \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl } }
-              }
-              { \tl_gclear:N \g_@@_last_node_tl \@@_orig_set_color: }
-          }
-      }
-    \cs_if_exist:NF \@@_orig_reset_color:
-      {
-        \cs_set_eq:NN \@@_orig_reset_color: \reset@color
-        \cs_gset_protected:Npn \reset@color
-          {
-            \xeCJK_if_last_node:TF
-              {
-                \@@_orig_reset_color:
-                \tl_if_empty:NF \g_@@_last_node_tl
-                  {
-                    \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
-                    \bool_gset_true:N \g_@@_glue_check_pending_bool
-                  }
-              }
-              {
-                \@@_if_last_hlist:TF
-                  {
-                    \tl_if_empty:NF \g_@@_last_node_tl
-                      { \bool_gset_true:N \g_@@_reset_color_pending_bool }
-                    \@@_orig_reset_color:
-                  }
-                  { \@@_orig_reset_color: }
-              }
-          }
-      }
+    \@@_boundary_register_transparent:n { set@color }
+    \@@_boundary_register_transparent:n { reset@color }
+    \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
   }
 \@@_package_hook:nn { color }
-  {
-    \@@_patch_set_color:
-    \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
-  }
+  { \@@_boundary_register_color: }
 \@@_package_hook:nn { xcolor }
-  {
-    \@@_patch_set_color:
-    \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
-  }
+  { \@@_boundary_register_color: }
 %    \end{macrocode}
 %
 % \changes{v3.10.0}{2026/05/14}{补丁 \pkg{l3color} 后端的
 %   \cs{__color_select:N} 和 \cs{__color_backend_reset:}，
 %   使 \pkg{l3color} 接口的颜色切换也能正确保持 xeCJK 间距（\#832）。}
+% \changes{v3.10.4}{2026/07/20}{将 \pkg{l3color} 的颜色 push/pop 入口
+%   注册为 transparent capture，删除对应专用 marker 保护分支（\#992）。}
 %
 % \pkg{l3color}（\pkg{expl3} 内置）的颜色机制使用独立的后端代码路径，
 % 不经过 \tn{set@color}/\tn{reset@color}。
 % \cs{__color_select:N} 负责颜色推入（调用后端 select 并注册
-% aftergroup reset），\cs{__color_backend_reset:} 负责颜色弹出。
-% 此处对这两个函数施加与上面相同的 kern 对保护。
+% aftergroup reset），\cs{__color_backend_reset:} 负责颜色弹出。两者都没有
+% 可见输出，使用与 LaTeX2e color push/pop 相同的 transparent capture。
+% expl3 内部函数不接受通用 cmd hook，因此只用保持原参数签名的薄适配器
+% 包围 framework begin/end，不再复制 marker 检测与重放算法。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_l3color:
+\cs_new_protected:Npn \@@_boundary_register_l3color:
   {
-    \cs_if_exist:NF \@@_orig_color_select:N
-      {
-        \cs_set_eq:NN \@@_orig_color_select:N \__color_select:N
-        \cs_gset_protected:Npn \__color_select:N ##1
-          {
-            \xeCJK_if_last_node:TF
-              {
-                \@@_orig_color_select:N ##1
-                \tl_if_empty:NF \g_@@_last_node_tl
-                  { \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl } }
-              }
-              { \tl_gclear:N \g_@@_last_node_tl \@@_orig_color_select:N ##1 }
-          }
-      }
-    \cs_if_exist:NF \@@_orig_color_backend_reset:
-      {
-        \cs_set_eq:NN \@@_orig_color_backend_reset: \__color_backend_reset:
-        \cs_gset_protected:Npn \__color_backend_reset:
-          {
-            \xeCJK_if_last_node:TF
-              {
-                \@@_orig_color_backend_reset:
-                \tl_if_empty:NF \g_@@_last_node_tl
-                  {
-                    \exp_args:No \xeCJK_make_node:n { \g_@@_last_node_tl }
-                    \bool_gset_true:N \g_@@_glue_check_pending_bool
-                  }
-              }
-              {
-                \@@_if_last_hlist:TF
-                  {
-                    \tl_if_empty:NF \g_@@_last_node_tl
-                      { \bool_gset_true:N \g_@@_reset_color_pending_bool }
-                    \@@_orig_color_backend_reset:
-                  }
-                  { \@@_orig_color_backend_reset: }
-              }
-          }
-      }
+    \@@_boundary_wrap_transparent_onearg:NN
+      \@@_orig_color_select:N \__color_select:N
+    \@@_boundary_wrap_transparent_noarg:NN
+      \@@_orig_color_backend_reset: \__color_backend_reset:
   }
-\@@_patch_l3color:
+\@@_boundary_register_l3color:
 %    \end{macrocode}
 %
 % \changes{v3.10.0}{2026/06/23}{为 \pkg{hypdoc} 的 \tn{HD@target} 添加补丁，
@@ -11256,6 +11112,8 @@ Copyright and Licence
 % \changes{v3.10.0}{2026/06/23}{为 \pkg{url} 的 \tn{Url@FormatString} 添加补丁，
 %   在进入数学模式前 drain 缓存的 \texttt{CJKecglue}，
 %   修复 CJK 文字与 \tn{url} 命令之间间距丢失的问题（\#880）。}
+% \changes{v3.10.4}{2026/07/20}{用固定 Default 首尾的 stream capture
+%   包围 \tn{Url@z} 的完整格式化阶段，删除 \#880 的专用 drain（\#992）。}
 %
 % \pkg{url} 的 \tn{url} 命令通过 \tn{Url@FormatString} 进入数学模式
 % 排版 URL 字符串。
@@ -11263,41 +11121,28 @@ Copyright and Licence
 % 又因 \XeTeX{} 在数学模式中不触发类别转换（interchar class），
 % 标记 kern 对永远等不到匹配的 Boundary$\to$\{CJK,Default\} 触发，
 % 缓存的 \texttt{CJKecglue} 因此在 CJK 与 \tn{url} 之间丢失。
-% 此处在进入数学模式前先 drain（排空）缓存间距：\tn{url} 排版的
-% 内容必然是西文，前方上下文为 CJK / CJK-space / CJK-widow / default
-% 中任意一种时均应补上 \texttt{CJKecglue}（西文边界间距）。
-% \tn{url} 数学模式结束到后续 CJK 文字之间的右侧间距，
-% 由 \cs{xeCJK_check_for_glue:} 的 \cs{@@_if_last_math:} 路径自然处理。
+% \tn{url} 同时支持花括号和任意分隔符扫描，不能用普通
+% \texttt{cmd/url/before} / \texttt{cmd/url/after} hook 包围；after hook
+% 会进入分隔符参数本身。
+% \tn{Url@z} 已经完成参数扫描，并覆盖 \tn{Url@HyperHook}、数学格式化和
+% 最后的分组关闭，因此在这里启动和结束固定 Default 首尾的 stream capture。
+% 数学模式不会触发 interchar 转换，但 |default| 模式会显式报告两端类别；
+% URL 左右边界由统一框架重建，不再需要专用的 marker 移除与补胶逻辑。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_drain_ecglue:
+\cs_new_protected:Npn \@@_boundary_register_url:
   {
-    \xeCJK_if_last_node:TF
+    \cs_if_exist:NF \@@_orig_Url_z:n
       {
-        \tl_if_empty:NF \g_@@_last_node_tl
+        \cs_set_eq:NN \@@_orig_Url_z:n \Url@z
+        \cs_gset_protected:Npn \Url@z ##1
           {
-            \xeCJK_remove_node:
-            \skip_horizontal:N \l_@@_ecglue_skip
-          }
-      }
-      % 无 marker kern：tl 与实际节点状态不一致，主动清空避免后续误读残留。
-      { \tl_gclear:N \g_@@_last_node_tl }
-  }
-\cs_new_protected:Npn \@@_patch_url_format:
-  {
-    \cs_if_exist:NF \@@_orig_Url_FormatString:
-      {
-        \cs_set_eq:NN \@@_orig_Url_FormatString: \Url@FormatString
-        \cs_gset_protected:Npn \Url@FormatString
-          {
-            \int_compare:nNnTF
-              { \g_@@_boundary_capture_depth_int } > \c_zero_int
-              { \@@_boundary_capture_class:n { default } }
-              { \@@_drain_ecglue: }
-            \@@_orig_Url_FormatString:
+            \@@_boundary_inline_stream_begin:n { default }
+            \@@_orig_Url_z:n {##1}
+            \@@_boundary_inline_stream_end:n { default }
           }
       }
   }
-\@@_package_hook:nn { url } { \@@_patch_url_format: }
+\@@_package_hook:nn { url } { \@@_boundary_register_url: }
 %    \end{macrocode}
 %
 % \changes{v3.10.1}{2026/06/29}{为 \LaTeX{} 核心命令 \tn{verb} 添加补丁，
@@ -11325,55 +11170,20 @@ Copyright and Licence
 % 共用同一入口和组结束点，因此继续自动覆盖。
 %
 % 补丁仍在 \cs{@@_after_preamble:n} 安装，以避开其他宏包在导言区重定义
-% \tn{verb} 的时序。下方保留的 drain helper 已不再供 \tn{verb} 使用；它只
-% 服务 \cs{@@_patch_codedoc_meta:}，因为该旧补丁仍需要“无 marker 时不清
-% \cs{g_@@_last_node_tl}”的行为。
+% \tn{verb} 的时序。
 %
 % \changes{v3.10.2}{2026/07/03}{\tn{verb} 组关闭时用 \tn{setlanguage}
 %   主动排出 language whatsit，修复 \tn{verb} 右侧源码空格场景下
 %   \texttt{CJKecglue} 双倍的问题（\#919）。}
 %
-% \begin{macro}[int]{\@@_drain_ecglue_keep_state:}
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_drain_ecglue_keep_state:
-  {
-    \xeCJK_if_last_node:TF
-      {
-        \tl_if_empty:NF \g_@@_last_node_tl
-          {
-            \xeCJK_remove_node:
-            \skip_horizontal:N \l_@@_ecglue_skip
-          }
-      }
-      { }
-  }
-%    \end{macrocode}
-% \end{macro}
-%
-% \tn{verb} 右侧还有一处独立问题（\#919）：\tn{verb} 组内
-% \tn{language} 被切到 \tn{l@nohyphenation}，组关闭后 \TeX{} 的
-% language whatsit 是\emph{延迟}排出的——要等下一个字符节点进入
-% 水平列表时才补插。于是 \tn{verb} 与后文之间的源码空格产生的
-% inter-word glue 先进列表，\tn{setlanguage} whatsit 反而排在
-% glue \emph{之后}：
-% \begin{quote}
-% \ttfamily kern pair → glue(source space) → setlanguage → [探测点]
-% \end{quote}
-% 后续 CJK 字符触发类别转换时，\cs{xeCJK_check_for_glue:} 看到的
-% last node 是 whatsit 而非 glue，走
-% \cs{@@_recover_glue_whatsit:} 的 default 分支再补一个
-% \texttt{CJKecglue}——与已有的 inter-word glue 相加成双倍间距。
-% \tn{lastskip} 无法穿透 whatsit，default 分支也不能收窄（无源码
-% 空格的 \texttt{字\tn{verb}\ldots 字} 场景依赖它补合法 ecglue），
-% 因此不从探测端修，而是从节点顺序入手：在 \tn{verb@egroup} 关组
-% 之后立即执行 \tn{setlanguage\tn{language}}，强制 language
-% whatsit 当场排出。此后源码空格的 glue 排在 whatsit 之后：
-% \begin{quote}
-% \ttfamily kern pair → setlanguage → glue(source space) → [探测点]
-% \end{quote}
-% 探测点看到的 last node 是 glue，走 \cs{@@_check_for_glue_skip:}
-% 正确处理，不再重复补 ecglue；无源码空格时 last node 是我们排出
-% 的 whatsit，default 分支照常补上合法 ecglue，原有行为不变。
+% \tn{verb} 右侧还有一处独立时序（\#919）：\tn{verb} 组内把
+% \tn{language} 切到 \tn{l@nohyphenation}，组关闭后的 language whatsit
+% 会延迟到下一字符进入列表时才排出。若让它留到 capture 结束之后，
+% 它会遮住 framework 刚刚重放的末尾 marker。这里仍在
+% \tn{verb@egroup} 关组后立即执行 \tn{setlanguage\tn{language}}，把
+% language whatsit 收进 stream capture；随后 framework 在它之后重放
+% 实际末类别，右侧有、无源码空格都交给普通恢复链处理。旧的通用
+% whatsit 类别猜测已经删除，不再参与这条路径。
 %
 % \begin{macro}[int]{\@@_flush_language_whatsit:}
 % 按当前 \tn{language} 值主动排出一个 language whatsit。
@@ -11381,7 +11191,8 @@ Copyright and Licence
 % hyphenation 状态，对断行无副作用。仅在（外层）水平模式下执行：
 % 数学模式或行首场景没有上述时序问题，restricted horizontal mode
 % （\tn{hbox} 内）则根本不产生延迟 whatsit。
-% 目前唯一调用点是 \tn{verb@egroup}（见下方 \cs{@@_patch_verb:}）；
+% 目前唯一调用点是 \tn{verb@egroup}（见下方
+% \cs{@@_boundary_register_verb:}）；
 % 未来若有其他切换 \tn{language} 的分组宏需要同样的时序修正，
 % 可直接复用本函数，并在此注释中登记新的调用点。
 %    \begin{macrocode}
@@ -11393,9 +11204,9 @@ Copyright and Licence
 % \pkg{shortvrb} 短记号与 \tn{verb}* 都经由 \tn{verb} 入口且组关闭
 % 走同一个 \tn{verb@egroup}，因此 capture 与 flush 两个补丁都自动覆盖。
 %
-% \begin{macro}[int]{\@@_patch_verb:}
+% \begin{macro}[int]{\@@_boundary_register_verb:}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_verb:
+\cs_new_protected:Npn \@@_boundary_register_verb:
   {
     \cs_if_exist:NF \@@_orig_verb:
       {
@@ -11412,7 +11223,7 @@ Copyright and Licence
           }
       }
   }
-\@@_after_preamble:n { \@@_patch_verb: }
+\@@_after_preamble:n { \@@_boundary_register_verb: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11436,34 +11247,22 @@ Copyright and Licence
 % Default$\to$CJK 转换不会跨越 hbox 边界触发，从而避免插入多余的
 % \tn{CJKecglue}。
 %
-% 但仅用 hbox 包装会带来另一个副作用：\tn{meta} 之前的 CJK 与
-% \tn{meta} 之间的边界 ecglue 会丢失——\cs{__codedoc_meta_original:n}
-% 入口的 \tn{ensuremath} math 节点把缓存的 CJK 标记 kern 遮在自己
-% 之后，后续类别转换探测不到这个标记，原本应有的 \texttt{CJKecglue}
-% 也跟着丢失。
-% 与 \pkg{url}（\#880）、\tn{verb}（\#910，参见 \cs{@@_patch_verb:}）
-% 同型，这里在 \cs{__codedoc_meta:n} 入口调用
-% \cs{@@_drain_ecglue_keep_state:}
-% 移除标记并补上 \tn{CJKecglue}，恢复左侧的边界 ecglue。
-% 复用 keep-state drain（else 分支不清 \cs{g_@@_last_node_tl}）是
-% 因为 \tn{meta} 退出后仍然要经过 token 层面的类别转换，需要保留
-% \cs{g_@@_last_node_tl} 的当前状态。
-% \cs{@@_drain_ecglue_keep_state:} 的注释也列出了本处调用点，二者保持
-% 双向引用。
-%
-% \tn{rangle} 之后到外部字符的 ecglue 仍由 \cs{__codedoc_meta:n}
-% 末尾 \tn{ensuremath} 退出后的 Default$\to$CJK 类别转换正常处理。
+% 仅用 hbox 包装会让入口的 math 节点遮住左侧 marker。当前适配器因此
+% 同时用固定 Default 首尾的 stream capture 包围完整
+% \cs{__codedoc_meta:n}：framework 负责外侧两端，hbox 只负责尖括号内部
+% 的输出规范化。这样 \tn{meta}、\tn{Arg}、\tn{oarg}、\tn{parg} 等所有
+% 共用内部实现的入口都走同一恢复算法，不再保留专用 drain。
 %
 % \cs{__codedoc_meta:n} 同时被 \tn{Arg}、\tn{oarg}、\tn{parg} 等命令
-% 共用，此补丁也间接修复后者的相同问题。
+% 共用，此适配器也覆盖后者的相同问题。
 %
 % 这里选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}，
 % 原因在于 \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，
 % 需要等到 preamble 结束时才能判定 \cs{__codedoc_meta:n} 是否定义。
 % 同时亦有开发者可能会在 \pkg{xeCJK} 前加载 \pkg{doc} 宏包。
-% \begin{macro}[int]{\@@_patch_codedoc_meta:}
+% \begin{macro}[int]{\@@_boundary_register_codedoc_meta:}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_codedoc_meta:
+\cs_new_protected:Npn \@@_boundary_register_codedoc_meta:
   {
     \cs_if_exist:NTF \__codedoc_meta:n
       {
@@ -11472,8 +11271,9 @@ Copyright and Licence
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
             \cs_gset_protected:Npn \__codedoc_meta:n ##1
               {
-                \mode_if_math:F { \@@_drain_ecglue_keep_state: }
+                \@@_boundary_inline_stream_begin:n { default }
                 \@@_orig_codedoc_meta:n { \hbox:n {##1} }
+                \@@_boundary_inline_stream_end:n { default }
               }
           }
       }
@@ -11485,16 +11285,21 @@ Copyright and Licence
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \meta
             \DeclareDocumentCommand \meta { m }
               {
-                \mode_if_math:F { \@@_drain_ecglue_keep_state: }
+                \@@_boundary_inline_stream_begin:n { default }
                 \@@_orig_codedoc_meta:n { \hbox:n {##1} }
+                \@@_boundary_inline_stream_end:n { default }
               }
           }
       }
   }
-\@@_at_end_preamble:n { \@@_patch_codedoc_meta: }
-% \changes{v3.10.4}{2026/07/20}{将 \tn{eqref}、\tn{meta} 注册为固定
-%   Default 首尾、将 \tn{cs} 注册为仅固定 Default 首端的 stream capture，
-%   恢复其完整边界矩阵（\#992）。}
+\@@_at_end_preamble:n { \@@_boundary_register_codedoc_meta: }
+% \changes{v3.10.4}{2026/07/20}{将 \tn{eqref} 注册为固定 Default
+%   首尾、将 \tn{cs} 注册为仅固定 Default 首端的 stream capture；
+%   codedoc/doc 的 meta 内部适配器直接包围固定 Default stream，删除专用
+%   drain 并覆盖其所有公共调用方（\#992）。}
+% \changes{v3.10.4}{2026/07/20}{将内核 \tn{@setref}（或 \pkg{hyperref}
+%   保存的 \tn{real@setref}）注册为 auto stream capture，以统一框架取代
+%   \#991 的专用 saved-node/replay 补丁。}
 % \tn{eqref} 的圆括号和 \tn{meta} 的数学尖括号决定了命令两端
 % 始终是 Default；参数内部即使包含中文，也不能把外侧 oracle
 % 误判为裸中文。\tn{cs} 只有开头的反斜线固定为 Default，末尾仍由
@@ -11502,10 +11307,11 @@ Copyright and Licence
 % 真实末类别。
 \@@_at_end_preamble:n
   {
+    \cs_if_exist:NTF \real@setref
+      { \@@_boundary_register_stream:nn { real@setref } { auto } }
+      { \@@_boundary_register_stream:nn { @setref } { auto } }
     \cs_if_exist:NT \eqref
       { \@@_boundary_register_stream:nn { eqref } { default } }
-    \cs_if_exist:NT \meta
-      { \@@_boundary_register_stream:nn { meta } { default } }
     \cs_if_exist:NT \cs
       { \@@_boundary_register_stream:nn { cs } { first-default } }
   }
@@ -11520,12 +11326,9 @@ Copyright and Licence
 % \texttt{bbx} 样式默认开启）时，每次排版 \tn{bibitem} 会在
 % \tn{blx@pagetracker@context} 内调用 \tn{protected@write} 往
 % \texttt{aux} 写入 \tn{abx@aux@page} 记录。该 \tn{write} 产生的
-% whatsit 节点紧接在前一条目结尾的 default 标记 kern 之后，遮蔽了
-% \cs{tex_lastkern:D} 探测路径。当下一条目首字符是 CJK 字符时，
-% Boundary$\to$CJK 类别转换的 \cs{xeCJK_check_for_glue:} 会走到
-% \cs{@@_recover_glue_whatsit:} 的 default 分支——它读到全局
-% \cs{g_@@_last_node_tl} 仍是 \texttt{default}（前一条目的合法残留），
-% 就误吐了一个 \texttt{CJKecglue}，表现为条目首字符前多出一段空白。
+% whatsit 节点会遮蔽前一条目结尾的 marker。历史通用 whatsit 回退曾把
+% 可能陈旧的 \cs{g_@@_last_node_tl} 当作列表证据，因而在下一条目首字符
+% 前误加 \texttt{CJKecglue}；该通用猜测现已删除。
 %
 % \changes{v3.10.4}{2026/07/20}{把 \tn{blx@pagetracker} 从单向清空状态
 %   改为 transparent capture，使 write whatsit 对两侧实际可见边界透明
@@ -11537,7 +11340,7 @@ Copyright and Licence
 % 后原样重放；已知 whatsit 不再遮蔽真实边界，也不会把陈旧状态带入下一个
 % 无关段落。
 %
-% \textbf{补丁点选 \tn{blx@pagetracker} 而非 \tn{blx@pagetracker@context}}：
+% \textbf{注册点选 \tn{blx@pagetracker} 而非 \tn{blx@pagetracker@context}}：
 % \pkg{biblatex} 在 \texttt{bbx} style 加载时通过
 % \tn{ExecuteBibliographyOptions\{pagetracker\}} 展开
 % \tn{blx@opt@pagetracker@page}，其内部 \tn{let}
@@ -11551,14 +11354,14 @@ Copyright and Licence
 % \tn{blx@pagetracker@context}、\tn{blx@pagetracker@spread} 或
 % \tn{relax}）。
 %
-% \begin{macro}[int]{\@@_patch_biblatex_pagetracker:}
+% \begin{macro}[int]{\@@_boundary_register_biblatex_pagetracker:}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_patch_biblatex_pagetracker:
+\cs_new_protected:Npn \@@_boundary_register_biblatex_pagetracker:
   {
     \cs_if_exist:NT \blx@pagetracker
       { \@@_boundary_register_transparent:n { blx@pagetracker } }
   }
-\@@_at_end_preamble:n { \@@_patch_biblatex_pagetracker: }
+\@@_at_end_preamble:n { \@@_boundary_register_biblatex_pagetracker: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -11765,7 +11568,8 @@ Copyright and Licence
       \xeCJK_ulem_right_skip:
     \xeCJK_ulem_group_end:
     \xeCJK_ulem_right_node:
-    \tl_gset_eq:NN \g_@@_last_node_tl \g_@@_ulem_saved_last_node_tl
+    \@@_boundary_inline_stream_end:n { auto }
+    \bool_set_false:N \l_@@_ulem_stream_started_bool
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
   }
 \cs_new_protected:Npn \@@_ulem_loop:nw
@@ -11852,12 +11656,12 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_ulem_right:, \xeCJK_ulem_right_node:}
-% 在下划线最后的位置保存 \texttt{node}。
+% 从 ulem 内部列表取出末尾 marker，并在外层列表原样放回；stream capture
+% 结束时会把这个可信 marker 解释为实际末类别。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_ulem_right:
   {
     \scan_stop:
-    \tl_gset_eq:NN \g_@@_ulem_saved_last_node_tl \g_@@_last_node_tl
     \dim_compare:nNnTF \tex_lastkern:D = \c_zero_dim
       { \xeCJK_cs_gclear:N \xeCJK_ulem_right_node: }
       {
@@ -11869,7 +11673,6 @@ Copyright and Licence
           }
       }
   }
-\tl_new:N \g_@@_ulem_saved_last_node_tl
 \cs_new_protected:Npn \@@_ulem_right_aux:n #1
   {
     \dim_compare:nNnTF \tex_lastkern:D = { - #1 }
@@ -12099,7 +11902,7 @@ Copyright and Licence
     \xeCJK_class_group_end: \UL@stop
     \UL@start { \xeCJK_make_node:n {#1} }
     \xeCJK_make_group_tag:
-    \bool_gset_true:N \g_@@_glue_check_pending_bool
+    \@@_boundary_enable_source_space:n {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -12537,16 +12340,57 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_ulem_group_begin:,\xeCJK_ulem_group_end:,\xeCJK_ulem_on:n}
+% \changes{v3.10.4}{2026/07/20}{将 xeCJKfntef 线型命令、原生
+%   \pkg{ulem} 入口（如 \tn{uline}）、\tn{xeCJKfntefon} 与独立符号命令
+%   接入 stream capture，并让内部 pending 通过 framework 的统一辅助函数
+%   发布；删除 fntef 专用末状态恢复和 pending 设置（\#992）。}
+% 线型命令的正文参数由 ulem 自己扫描，不能使用普通 cmd after hook。
+% ulem 会把正文拆进固定宽度字盒；framework 算出的左侧 glue 因此通过
+% \cs{@@_boundary_use_ulem_glue:n} 转交 ulem 的 \tn{UL@stop}/\tn{UL@start}
+% 外层通道，保留弹性和断行位置且不把间距画上线。本包的线型命令在
+% 装饰符号测量前启动 stream；原生 \tn{uline} 等命令和
+% \tn{xeCJKfntefon} 则由共有的 \tn{ULon} 补上同一入口。局部布尔避免
+% 本包命令在到达 \tn{ULon} 时重复启动。在 \cs{@@_ulem_end:} 把真实
+% 末尾 marker 移到外层列表后结束并清除布尔。
+% 独立符号命令在
+% \cs{@@_under_symbol_auxii:nnnnnn} 的对应两端使用同一 begin/end。
 %    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_use_ulem_glue:n #1
+  {
+    \xeCJK_if_ulem_patch:TF
+      {
+        \tl_if_empty:NTF \l_@@_group_tag_tl
+          { \UL@stop \skip_horizontal:n {#1} \UL@start }
+          {
+            \str_if_eq:eeTF { \l_@@_group_tag_tl } { \c_@@_group_tag_tl }
+              { \UL@stop \skip_horizontal:n {#1} \UL@start }
+              { \skip_horizontal:n {#1} }
+          }
+      }
+      { \skip_horizontal:n {#1} }
+  }
 \cs_new_protected:Npn \xeCJK_ulem_group_begin:
   {
     \mode_leave_vertical:
+    \bool_set_true:N \l_@@_ulem_stream_started_bool
+    \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
     \c_group_begin_token
   }
 \cs_new_protected:Npn \xeCJK_ulem_group_end:
   { \c_group_end_token }
 \cs_new_protected:Npn \xeCJK_ulem_on:n
   { \ULon }
+\cs_new_eq:NN \@@_orig_ulem_on: \ULon
+\cs_set_protected:Npn \ULon
+  {
+    \bool_if:NF \l_@@_ulem_stream_started_bool
+      {
+        \bool_set_true:N \l_@@_ulem_stream_started_bool
+        \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
+      }
+    \@@_orig_ulem_on:
+  }
+\bool_new:N \l_@@_ulem_stream_started_bool
 \cs_new_eq:NN \@@_ulem_on:n \UL@on
 \cs_set_protected:Npn \UL@on #1
   { \@@_ulem_on:n { \xeCJK_ulem_left: #1 \xeCJK_ulem_right: } }
@@ -12812,16 +12656,18 @@ Copyright and Licence
 %   避免 hbox 内渲染装饰符号时 interchar toks 污染全局节点标记，
 %   修复 \pkg{xeCJKfntef} 与 \tn{textcolor} 组合使用时
 %   多余的 \texttt{CJKecglue}。}
+% \changes{v3.10.4}{2026/07/20}{改用 framework 的可嵌套暂停区隔离
+%   装饰符号测量盒，同时保存、恢复 marker 与 pending 状态（\#992）。}
 % 与 \cs{hcoffin_set:Nn} 和 \LaTeXe{} 的 \tn{sbox} 功能类似，确保颜色的正确。
 % 虽然 \texttt{coffin} 可以更方便的操作盒子，但速度要慢一点。并且，我们的需求
 % 也比较简单，就不用它了。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_fntef_sbox:n #1
   {
-    \tl_set_eq:NN \l_@@_tmp_tl \g_@@_last_node_tl
+    \@@_boundary_capture_suspend:
     \hbox_set:Nn \l_@@_fntef_box
       { \color_ensure_current: #1 }
-    \tl_gset_eq:NN \g_@@_last_node_tl \l_@@_tmp_tl
+    \@@_boundary_capture_resume:
   }
 %    \end{macrocode}
 % \end{macro}
@@ -12969,7 +12815,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_under_symbol_auxii:nnnnnn #1#2#3#4#5#6
   {
-    \mode_leave_vertical:
+    \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
     \group_begin:
       \xeCJK_under_symbol_initial:nnnnn {#1} {#2} {#3} {#4} {#5}
       \@@_under_symbol_text_format:c { l_@@_#2_text_format_tl }
@@ -12977,7 +12823,7 @@ Copyright and Licence
       \xeCJK_ulem_right:
     \group_end:
     \xeCJK_ulem_right_node:
-    \bool_gset_true:N \g_@@_glue_check_pending_bool
+    \@@_boundary_inline_stream_end:n { auto }
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5
   {
@@ -13585,6 +13431,42 @@ Copyright and Licence
   {
     \@@_listings_rescan:Nn \lst@arg {#1}
     \lst@InlineGJEnd
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_listings_boundary_stream_end:}
+% \changes{v3.10.4}{2026/07/20}{将 \tn{lstinline} 的分隔符、活动字符和
+%   花括号扫描路径接入 auto stream capture，使颜色切换前后的四种源码空格
+%   组合都与直接输入一致（\#992）。}
+% \tn{lstinline} 自己只声明可选参数，正文由多个内部扫描器读取，普通 cmd
+% after hook 会过早结束。分隔符路径经过已经打开外层组、即将读取分隔符的
+% \tn{lstinline@}，花括号路径则绕过它而直接进入 \tn{lst@InlineG}；两个入口
+% 都启动 capture 并设置局部标志。\tn{lst@DeInit} 返回到该外层组后用
+% \tn{aftergroup} 安排单 token 结束函数。分隔符、活动字符、花括号与
+% short-inline 路径都调用 \tn{lst@DeInit}，因此共用同一结束适配点。
+%    \begin{macrocode}
+\bool_new:N \l_@@_listings_boundary_bool
+\cs_new_protected:Npn \@@_listings_boundary_stream_end:
+  { \@@_boundary_inline_stream_end:n { auto } }
+\cs_new_eq:NN \@@_orig_listings_inline:n \lstinline@
+\cs_set_protected:Npn \lstinline@ #1
+  {
+    \@@_boundary_inline_stream_begin:n { auto }
+    \bool_set_true:N \l_@@_listings_boundary_bool
+    \@@_orig_listings_inline:n #1
+  }
+\cs_new_eq:NN \@@_orig_listings_inline_group: \lst@InlineG
+\cs_set_protected:Npn \lst@InlineG
+  {
+    \@@_boundary_inline_stream_begin:n { auto }
+    \bool_set_true:N \l_@@_listings_boundary_bool
+    \@@_orig_listings_inline_group:
+  }
+\tl_gput_right:Nn \lst@DeInit
+  {
+    \bool_if:NT \l_@@_listings_boundary_bool
+      { \aftergroup \@@_listings_boundary_stream_end: }
   }
 %    \end{macrocode}
 % \end{macro}

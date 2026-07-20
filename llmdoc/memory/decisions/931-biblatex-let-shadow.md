@@ -7,6 +7,10 @@ metadata:
 
 # 决策：#931 biblatex 补丁点选 `\let` 目标 + hook 时机延到 preamble 末
 
+> **状态：绑定点与安装时机仍有效，恢复算法已由 #992 / PR #999 替代。**
+> 当前仍在 preamble 末注册最终 `\let` 目标 `\blx@pagetracker`，但动作已从
+> 单向清空状态改为 transparent capture；旧通用 whatsit 恢复猜测已删除。
+
 ## 背景
 
 xeCJK issue #931：中文参考文献条目首字符前多出一段空白。根因是 biblatex `\blx@pagetracker` 内的 `\protected@write` 产生的 whatsit 遮蔽了 `\g_@@_last_node_tl` 判定路径，`\@@_recover_glue_whatsit:` default 分支误吐 `\CJKecglue`。与 #920 l3doc `\codeline@wrindex` write 同源，属于 [[../reflections/910-verb-null-hbox-drain]] 中提到的"第三方 `\write` whatsit 误触发 default 分支"系列问题。

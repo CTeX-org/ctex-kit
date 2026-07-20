@@ -7,6 +7,11 @@ metadata:
 
 # 决策：#972 用结束端可信 marker 恢复链接 URL 右侧 ecglue
 
+> **状态：已由 #992 / PR #999 替代。** 顶层 `\Hy@EndAnnot` 的末尾 math
+> 仍是可信 Default 观察点；当前从 `\Hy@BeginAnnot` 到结束端的 auto stream
+> 直接记录实际首尾类别，旧 `hyperref-default` marker 与入口 save/replay
+> 均已删除。
+
 ## 背景
 
 `url` 的 `\Url@FormatString` 以 math 模式排版 URL；单独加载 `url` 时，后续 CJK 字符可直接观察末尾 math 节点并恢复右侧 `CJKecglue`。`hyperref` 在内容后调用 `\Hy@EndAnnot`，其 end-annotation/color whatsit 遮蔽 math 节点，使 #972 的右侧间距变为 0pt。

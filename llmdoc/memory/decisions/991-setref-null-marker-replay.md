@@ -1,5 +1,11 @@
 # 决策：#991 在 `\@setref` 的 `\null` 后重放实际末尾 marker
 
+> **状态：已由 #992 / PR #999 替代。** 本文保留 #991 当时的 fixed-point
+> 方案与理由作为历史记录；当前实现不再文本替换 `\null\fi`，也不存在
+> `\g_@@_setref_saved_node_tl`。无 hyperref 时把 `\@setref`、有 hyperref
+> 时把 `\real@setref` 注册为 `auto` stream，一般 `\null` 由
+> post-transparent 处理，四种源码空格由统一 source-space pending 恢复。
+
 ## 背景
 
 LaTeX 内核 `\@setref` 在已定义的引用文本后排出 `\null`。这个 0×0 hbox 保留内核语义，却遮住 xeCJK 在引用末尾产生的 kern pair marker；后续字符因而不能按引用实际输出类别恢复间距。引用值可以是数字、西文、CJK 或混合内容，单凭命令名不能推断末尾类别。
@@ -21,9 +27,9 @@ v3.10.4 采用调用点 fixed-point save/replay，并保留原 hbox：
 - **把任意 hbox 当作可恢复边界**：#803 一类经验表明通用恢复会把无证据节点误判为合法边界；补丁应固定在已知遮蔽点。
 - **始终补丁 `\@setref`**：hyperref 会保存并改写引用调用链，starred 路径实际使用 `\real@setref`；补错绑定无法覆盖目标路径。
 
-## 支持边界与验证
+## 当时的支持边界与验证
 
-`ref-ecglue01/02` 用 36+40 个 direct-input oracle 覆盖无 hyperref 与 starred hyperref 引用的输出类别、外围类别和源码空格组合；`label-ref01` 与 `thuthesis` 的节点基线锁定 hbox/marker 新顺序。hyperref 的普通 linked-reference 路径没有这枚尾随 `\null`，不由本决策泛化；#992/PR #999 已改由 annotation stream capture 按实际首尾类别处理。一般 `\null` 的 post-transparent 注册也不能替代本 wrapper，因为它无法越过 `\@setref` 内部 `\fi` 后窥视用户源码空格。
+`ref-ecglue01/02` 用 36+40 个 direct-input oracle 覆盖无 hyperref 与 starred hyperref 引用的输出类别、外围类别和源码空格组合。PR #999 随后用同一组 oracle 证明完整 `\@setref` / `\real@setref` stream 加一般 `\null` post-transparent 已能替代本 wrapper；“必须越过 `\fi` 窥视用户 token”因此不再是当前约束。
 
 ## 相关
 

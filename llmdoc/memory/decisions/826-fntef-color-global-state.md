@@ -1,5 +1,10 @@
 # 决策: fntef+textcolor 组合时 hbox 内 interchar 全局状态污染
 
+> **状态：已由 #992 / PR #999 替代。** 根因分析仍有效；当前
+> `\xeCJK_fntef_sbox:n` 使用可嵌套 capture suspend/resume 隔离装饰符号
+> 测量，同时保存、恢复 marker 与 source-space pending，不再手工只保存
+> `\g_@@_last_node_tl`。
+
 ## 问题
 
 `\textcolor{red}{\CJKunderdot{文字}}文字` 等 fntef+textcolor 组合在 fntef 效果后的 CJK 字符前产生多余的 CJKecglue（应为 CJKglue）。所有 6 种 fntef 效果（CJKunderdot、CJKunderline、CJKunderdblline、CJKunderwave、CJKsout、CJKxout）与 `\textcolor` 组合时均受影响。

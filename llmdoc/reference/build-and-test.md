@@ -129,17 +129,19 @@
 
 `xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
 
-- 90 组边界场景各跑四种源码空格，共 360 个比较；其中 86 组走 `\BoundaryMatrix`，4 组分隔符扫描 `\verb` 用显式调用。测试先扣除候选命令与 oracle 单独排版的固有宽度差，再只比较外围边界，容差为 0.01pt。
-- 覆盖展开宏、显式分组、字体/颜色、fntef、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
+- 93 组边界场景各跑四种源码空格，共 372 个比较；其中 89 组走 `\BoundaryMatrix`，4 组分隔符扫描 `\verb` 用显式调用。测试先扣除候选命令与 oracle 单独排版的固有宽度差，再只比较外围边界，容差为 0.01pt。
+- 覆盖展开宏、显式分组、字体/颜色、xeCJKfntef 与原生 `\uline`、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
 - 嵌套覆盖到 12 层盒；`\sbox` scratch 测量验证 capture suspend/resume 不污染外层实际输出。
 - 分隔符扫描的 `\verb` 不能进入矩阵宏参数，使用等价的显式四盒调用。
 - 每个候选单元之后都运行 `\BoundaryAssertIdle`，要求 capture depth、active stack count、suspend depth 同时归零；宽度正确但遗留活跃层仍算失败。
 
-`xeCJK/testfiles/command-boundary02.lvt` 提供 11 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` workaround。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
+`xeCJK/testfiles/command-boundary02.lvt` 提供 12 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` workaround。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
 
-TeX glue 节点没有来源标签。已注册命令右侧若出现与词间空格自然宽度相同且带 shrink 的显式 `\hskip`，它与源码空格完全同构，恢复器无法可靠判源；需要保留时在前面放 `\kern0pt`，或改用不同自然宽度 / 无 shrink 的 glue。测试必须把这一点写成机制边界与稳定 workaround，不能用更宽的节点回卷掩盖。
+TeX glue 节点没有来源标签。已注册命令右侧若出现与词间空格自然宽度相同且带 shrink 的显式 `\hskip`，它与源码空格完全同构，恢复器无法可靠判源；需要保留时在前面放 `\kern0pt`，或改用不同自然宽度 / 无 shrink 的 glue。测试必须把这一点写成机制边界与稳定 workaround，不能通过继续向前检查更多节点来掩盖。
 
-`ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 继续专门覆盖 #991：无 hyperref 36 次、加载 hyperref 40 次，共 76 个比较，包含数字/西文、CJK、混合末尾、两种外围类别、四种源码空格、starred path、未定义引用和 `CJKspace=true`。每次 oracle/candidate 前只重置当前真实状态：`\g__xeCJK_last_node_tl`、`\g__xeCJK_setref_saved_node_tl`、`\g__xeCJK_glue_check_pending_bool`、`\g__xeCJK_reset_color_pending_bool`；旧的 hyperref saved-marker 已不存在。`label-ref01.tlg` 与 `thuthesis.tlg` 另以节点顺序证明内核 `\null` 保留、marker 被移到其后。
+`ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 继续专门覆盖 #991：无 hyperref 36 次、加载 hyperref 40 次，共 76 个比较，包含数字/西文、CJK、混合末尾、两种外围类别、四种源码空格、starred path、未定义引用和 `CJKspace=true`。每次 oracle/candidate 前只重置当前真实状态：`\g__xeCJK_last_node_tl` 与 `\g__xeCJK_glue_check_pending_bool`；#991 saved-node、颜色 pending 和 hyperref 专用 marker 均已删除。无 hyperref 的 `\@setref` 或 hyperref 的 `\real@setref` 由 auto stream 处理，内核 `\null` 由一般 post-transparent 路径保持透明。
+
+`listings-color01.lvt` 另有 20 个逐格 direct-input oracle，覆盖 `\lstinline{...}` 的西文、CJK、两种混合首尾，以及 `\lstinline|...|` 的分隔符路径；每格分别比较 `00/10/01/11`，不能要求四个 oracle 宽度彼此相等。首次 CJK inline 的 lazy math 字体加载在 `\START` 前预热。
 
 证据分三层使用，不能互相替代：
 
