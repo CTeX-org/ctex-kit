@@ -31,6 +31,8 @@ Boundary→Default 新增受 `\g_@@_glue_check_pending_bool` 门控的 `\@@_reco
 
 - `\@@_boundary_emit_left:nnn` 用两份三元素 `\clist_if_in:nnTF` 表达“共享同一动作的语义类别集合”。这里不是逐值分派，改成 `\str_case:nn` 会复制分支或增加中间映射；函数又只在已注册命令的边界重建时执行，不在逐字符主路径，因此固定 O(3) 查找不是性能风险。
 - per-layer csname 保持 `g_@@_boundary_capture_<depth>_<field>` 的显式拼写。相同字段要经过 new、clear、set、use、equality 和 box 等不同操作；当前抽 helper 需要建立多组变体并隐藏具体字段。只有未来继续增加每层状态时，才一起评估 record/helper 抽象。
+- `\@@_boundary_patch_makeboxes:` 包装 LaTeX2e 内部 `\@imakebox [#1][#2]#3` 与 `\@iframebox [#1][#2]#3`，明确依赖当前内核参数签名。`command-boundary01` 的 optional `\makebox` / `\framebox` 场景是该依赖的漂移门禁；上游若改签名，补丁与测试必须同步。
+- `\@@_recover_ecglue_source_space_success:` 在当前调用图中只会从 pending=true 的入口到达，但仍保留 `\bool_if:NT` 防御守卫。该 helper 独立命名，未来增加调用点时不应在 pending 已失效后误清状态；一次命令边界上的布尔检查不构成可测性能成本。
 
 ## 保留的定点路径
 
