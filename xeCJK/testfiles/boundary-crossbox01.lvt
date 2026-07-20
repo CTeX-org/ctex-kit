@@ -1,0 +1,103 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newbox\CrossBoxA
+\newbox\CrossBoxB
+\newcount\CrossChecks
+\newcount\CrossFailures
+
+\ExplSyntaxOn
+% Test-only white-box reset/probe; these internal variables are not API.
+\cs_new_protected:Npn \CrossReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \CrossPendingState
+  { \bool_if:NTF \g__xeCJK_glue_check_pending_bool { true } { false } }
+\ExplSyntaxOff
+
+\newcommand\CrossAssertEqual[3]{%
+  \global\advance\CrossChecks by 1
+  \ifdim#2=#3\relax
+  \else
+    \global\advance\CrossFailures by 1
+    \TYPE{FAIL: #1: \the#2 <> \the#3}%
+  \fi
+}
+
+\begin{document}
+
+\START
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{issue 996 MWE: identical hboxes keep identical widths}{
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{中\hskip10pt plus 1pt minus 1pt 文}%
+  \setbox\CrossBoxB=\hbox{中\hskip10pt plus 1pt minus 1pt 文}%
+  \CrossAssertEqual{996-mwe}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+  \TYPE{FIRST=\the\wd\CrossBoxA}%
+  \TYPE{SECOND=\the\wd\CrossBoxB}%
+}
+
+\TEST{kern workaround still yields the same width}{
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{中\hskip10pt plus 1pt minus 1pt 文}%
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{中\kern0pt\hskip10pt plus 1pt minus 1pt 文}%
+  \CrossAssertEqual{996-kern-workaround}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+}
+
+\TEST{non-interword explicit glue survives a same-box group end}{
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{{中}\hskip10pt plus 1pt minus 1pt 文}%
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{{中}\kern0pt\hskip10pt plus 1pt minus 1pt 文}%
+  \CrossAssertEqual{996-samebox-group}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+}
+
+\TEST{interword-isomorphic explicit glue survives across boxes}{
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{中\hskip\fontdimen2\font plus 1pt minus 1pt 文}%
+  \setbox\CrossBoxA=\hbox{中文}%
+  \TYPE{PENDING-AFTER-CJK-BOX=\CrossPendingState}%
+  \setbox\CrossBoxA=\hbox{中\hskip\fontdimen2\font plus 1pt minus 1pt 文}%
+  \CrossAssertEqual{996-isomorphic-crossbox}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+}
+
+\TEST{same-list ambiguity window is unchanged}{
+  % A source space and an isomorphic explicit glue after a group end are
+  % indistinguishable node-wise; both collapse to CJKglue (documented
+  % mechanism boundary, workaround: leading kern).
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{{中}\hskip\fontdimen2\font plus 1pt minus 1pt 文}%
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{{中} 文}%
+  \CrossAssertEqual{996-ambiguity-window}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+}
+
+\TEST{source space handling after commands and between CJK is intact}{
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{\mbox{中文} 文}%
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{中文 文}%
+  \CrossAssertEqual{996-postcmd-space}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+  \CrossReset
+  \setbox\CrossBoxA=\hbox{中 文}%
+  \CrossReset
+  \setbox\CrossBoxB=\hbox{中文}%
+  \CrossAssertEqual{996-cjk-space-swallow}{\wd\CrossBoxA}{\wd\CrossBoxB}%
+}
+
+\TYPE{crossbox checks: \the\CrossChecks}
+\TYPE{crossbox failures: \the\CrossFailures}
+
+\END
+
+\end{document}
