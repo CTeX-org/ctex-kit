@@ -3569,6 +3569,7 @@ Copyright and Licence
   {
     \xeCJK_inter_class_toks:nnn {#1} { CJK }
       {
+        \@@_boundary_capture_class:n { CJK }
         \xeCJK_class_group_begin:
         \xeCJK_select_font:
         \xeCJK_clear_inter_class_toks:nn {#1} { CJK }
@@ -3576,7 +3577,11 @@ Copyright and Licence
         \xeCJK_fallback_symbol:NN
         \CJKsymbol
       }
-    \xeCJK_inter_class_toks:nnn { CJK } {#1} { \xeCJK_class_group_end: }
+    \xeCJK_inter_class_toks:nnn { CJK } {#1}
+      {
+        \xeCJK_class_group_end:
+        \@@_boundary_capture_class:n { default }
+      }
   }
 %    \end{macrocode}
 %
@@ -3591,14 +3596,40 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
-% \begin{macro}[int]{\xeCJK_Boundary_and_Default:}
+% \begin{macro}[int]{
+%   \xeCJK_Boundary_and_Default:,
+%   \@@_check_for_ecglue:,
+%   \@@_check_for_ecglue_aux:,
+%   \@@_check_for_ecglue_skip:,
+%   \@@_check_for_ecglue_skip_aux:,
+%   \@@_check_for_ecglue_skip_success:,
+%   \@@_check_for_ecglue_skip_restore:,
+%   \@@_check_for_ecglue_skip_fallback:,
+%   \@@_skip_if_interword:N}
 % \changes{v3.10.0}{2026/04/30}{移除通用 whatsit 恢复，避免
 %   \pkg{hyperref} 链接注释等 whatsit 节点导致 \texttt{CJKecglue}
 %   在错误位置插入（\#803）。配合 \tn{set@color} 定点补丁保持
 %   \tn{textcolor} 场景的正确性（\#315）。}
+% \changes{v3.10.4}{2026/07/20}{允许 Boundary 到 Default 的恢复路径
+%   回卷有限、带 shrink 的源码词间 glue，在真实 CJK marker 上将其替换为
+%   \tn{CJKecglue}，补齐与 Default 到 CJK 方向对称的命令边界处理（\#992）。}
+%
+% 字体组、颜色组或其他命令结束后，源码空格可能已经生成普通词间 glue，
+% 压在仍然有效的 CJK marker 上方。只有已知命令或分组路径设置了
+% \cs{g_@@_glue_check_pending_bool} 时才允许回卷，避免把直接输入的
+% 显式 \tn{hskip} 当成源码空格。候选 glue 还必须 finite、带 shrink 且自然
+% 宽度与当前词间空格相等；spacefactor 会微调 stretch/shrink，不能要求
+% 整份 skip 严格相等。命中 CJK、CJK-space 或 CJK-widow marker 时才消费并换成
+% 缓存的 \tn{CJKecglue}。若下方不是可信 marker，则原样还回 glue。
+% restore/fallback 不清除 \cs{g_@@_glue_check_pending_bool}：该 glue 可能来自
+% \pkg{ulem} 内部列表，旗标仍须留给命令外真正的 CJK 边界；只有成功消费
+% marker 时才结束 pending 状态。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_Boundary_and_Default:
-  { \xeCJK_check_for_ecglue: }
+  {
+    \@@_boundary_capture_class:n { default }
+    \xeCJK_check_for_ecglue:
+  }
 \cs_new_protected:Npn \@@_check_for_xecglue:
   {
     \@@_if_last_glue:TF
@@ -3606,6 +3637,12 @@ Copyright and Licence
       { \@@_check_for_ecglue: }
   }
 \cs_new_protected:Npn \@@_check_for_ecglue:
+  {
+    \@@_if_last_glue:TF
+      { \@@_check_for_ecglue_skip: }
+      { \@@_check_for_ecglue_aux: }
+  }
+\cs_new_protected:Npn \@@_check_for_ecglue_aux:
   {
     \xeCJK_if_last_node:nTF { CJK }
       { \use_i:nn }
@@ -3617,6 +3654,66 @@ Copyright and Licence
           { }
       }
   }
+\dim_new:N \l_@@_interword_dim
+\prg_new_conditional:Npnn \@@_skip_if_interword:N #1 { T , F , TF }
+  {
+    \skip_if_finite:nTF {#1}
+      {
+        \dim_set:Nn \l_@@_tmp_dim {#1}
+        \skip_set:Nn \l_@@_tmp_skip { \c_xeCJK_space_skip_tl }
+        \dim_set:Nn \l_@@_interword_dim { \l_@@_tmp_skip }
+        \dim_compare:nNnTF
+          { \l_@@_tmp_dim } = { \l_@@_interword_dim }
+          {
+            \dim_compare:nNnTF
+              { \tex_glueshrink:D #1 } > \c_zero_dim
+              { \prg_return_true: }
+              { \prg_return_false: }
+          }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_check_for_ecglue_skip:
+  {
+    \bool_if:NTF \g_@@_glue_check_pending_bool
+      {
+        \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+        \@@_skip_if_interword:NTF \l_@@_last_skip
+          {
+            \tex_unskip:D
+            \@@_check_for_ecglue_skip_aux:
+          }
+          { \@@_check_for_ecglue_skip_fallback: }
+      }
+      { \@@_check_for_ecglue_skip_fallback: }
+  }
+\cs_new_protected:Npn \@@_check_for_ecglue_skip_aux:
+  {
+    \xeCJK_if_last_node:nTF { CJK }
+      { \@@_check_for_ecglue_skip_success: }
+      {
+        \xeCJK_if_last_node:nTF { CJK-widow }
+          { \@@_check_for_ecglue_skip_success: }
+          {
+            \xeCJK_if_last_node:nTF { CJK-space }
+              { \@@_check_for_ecglue_skip_success: }
+              { \@@_check_for_ecglue_skip_restore: }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_check_for_ecglue_skip_success:
+  {
+    \xeCJK_remove_node:
+    \skip_horizontal:N \l_@@_ecglue_skip
+    \bool_if:NT \g_@@_glue_check_pending_bool
+      { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+  }
+\cs_new_protected:Npn \@@_check_for_ecglue_skip_restore:
+  {
+    \skip_horizontal:N \l_@@_last_skip
+  }
+\cs_new_eq:NN \@@_check_for_ecglue_skip_fallback: \prg_do_nothing:
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
 %    \end{macrocode}
 % \end{macro}
@@ -3722,6 +3819,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \xeCJK_inter_class_toks:nnn { Boundary } { CJK }
   {
+    \@@_boundary_capture_class:n { CJK }
     \xeCJK_check_for_glue:
     \xeCJK_class_group_begin:
     \xeCJK_clear_Boundary_and_CJK_toks:
@@ -3812,11 +3910,22 @@ Copyright and Licence
         \dim_case:nnF { \tex_lastkern:D }
           {
             { \@@_node:n { CJK } }
-            { \xeCJK_remove_node: \CJKglue }
+            {
+              \xeCJK_remove_node:
+              \bool_if:NTF \l_@@_reserve_space_bool
+                { \skip_horizontal:N \l_@@_last_skip }
+                { \CJKglue }
+            }
             { \@@_node:n { CJK-space } }
             { \xeCJK_remove_node: \@@_ccglue_or_space: }
             { \@@_node:n { CJK-widow } }
-            { \xeCJK_remove_node: \xeCJK_widow_penalty: \CJKglue }
+            {
+              \xeCJK_remove_node:
+              \xeCJK_widow_penalty:
+              \bool_if:NTF \l_@@_reserve_space_bool
+                { \skip_horizontal:N \l_@@_last_skip }
+                { \CJKglue }
+            }
           }
           { \@@_check_for_glue_skip_restore: }
       }
@@ -4103,6 +4212,758 @@ Copyright and Licence
 \bool_new:N \g_@@_glue_check_pending_bool
 \bool_new:N \g_@@_reset_color_pending_bool
 %    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{
+%   \@@_boundary_capture_class:n,
+%   \@@_boundary_capture_allocate:n,
+%   \@@_boundary_capture_suspend:,
+%   \@@_boundary_capture_resume:,
+%   \@@_boundary_capture_begin:,
+%   \@@_boundary_inline_box_begin:,
+%   \@@_boundary_inline_box_end:n,
+%   \@@_boundary_inline_last_box_begin:,
+%   \@@_boundary_inline_last_box_end:n,
+%   \@@_boundary_inline_stream_begin:n,
+%   \@@_boundary_inline_stream_end:n,
+%   \@@_boundary_hmode_transparent_begin:,
+%   \@@_boundary_hmode_transparent_end:,
+%   \@@_boundary_post_transparent:,
+%   \@@_boundary_box_begin:,
+%   \@@_boundary_box_open:N,
+%   \@@_boundary_box_end:n,
+%   \@@_boundary_box_finish:nn,
+%   \@@_boundary_last_box_end:n,
+%   \@@_boundary_patch_makeboxes:,
+%   \@@_boundary_register_box:nn,
+%   \@@_boundary_register_wrapped_box:nn,
+%   \@@_boundary_register_transparent:n,
+%   \@@_boundary_register_post_transparent:n,
+%   \@@_boundary_register_stream:nn}
+% \begin{macro}[int]{
+%   \@@_boundary_capture_space:,
+%   \@@_boundary_pop_node:N,
+%   \@@_boundary_box_end_transparent:n,
+%   \@@_boundary_emit_left:nn,
+%   \@@_boundary_emit_left:nnn,
+%   \@@_boundary_use_ecglue:n,
+%   \@@_boundary_use_ccglue:n,
+%   \@@_boundary_restore_space:,
+%   \@@_boundary_restore_space:n,
+%   \@@_boundary_replay_node:n}
+% \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
+%   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
+%
+% 命令边界框架提供三类注册策略。|box| 策略在注册命令执行前保存并移除前一
+% 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
+% 边界后原样放回；多节点的盒命令可用 |wrapped-box| 先由透明 hbox 收集输出。
+% |stream| 策略让 annotation、数学包装或 verbatim 流直接写入当前列表；
+% 其 |default| 变体固定两端为 Default，|first-default| 只固定首类别、
+% 仍以实际输出决定末类别。
+% |transparent| 策略用于只插入锚点、write 或空盒而无可见输出的命令。
+% 其中 \tn{null} 还能合法地出现在 \tn{setbox}\meta{box} 后，不能在其前面插入
+% hook 代码，故使用 after-only 变体：只在空盒确实遮蔽 marker 时从可信的
+% 全局状态重放，原 marker 仍可见时不改变当前列表。
+% Boundary 到 Default/CJK 的转换会把观察到的类别同时写入所有活跃 capture，
+% 因而混合输出和嵌套命令都能分别取得实际首、尾类别。
+%
+% capture 结束时，框架按“前类别 × 首类别 × 是否有源码空格”重建左边界，
+% 再按实际末类别重放 marker 供右边界使用；无可见输出时则完整恢复入口状态。
+% 源码空格、\tn{CJKecglue}、\tn{CJKglue} 及 \opt{CJKspace}、
+% \opt{xCJKecglue} 状态都在入口字体和分组上下文中缓存，避免命令内部字体
+% 或选项切换改变恢复值。\tn{sbox} 这类只构造离线盒而不向当前列表输出的
+% 路径会暂停观察，防止测量用 scratch box 污染外层 capture。
+%
+% 额外 hbox 只用于 \tn{color@b@x} 这类本来会输出多个节点的注册命令；普通
+% 盒命令取出并放回原 hbox，不增加节点层级。每个同步嵌套层使用独立 register，
+% 避免外层盒赋值尚未结束时被内层 capture 覆写；常用的前两层在加载时预分配，
+% 更多层则随首次达到的 depth 惰性创建。若 wrapped-box 没有观察到可见字符，
+% 结束路径会 unpack 该层透明外盒。每层的 token-list 状态同样惰性分配，使
+% 注册命令可以任意嵌套而不会静默退回未修复行为；首类别会写入所有尚未取得
+% 首字符的外层 capture。
+%    \begin{macrocode}
+\int_new:N \g_@@_boundary_capture_depth_int
+\int_new:N \g_@@_boundary_suspend_depth_int
+\seq_new:N \g_@@_boundary_active_seq
+\prop_new:N \g_@@_boundary_registered_prop
+\box_new:c { g_@@_boundary_capture_1_box }
+\box_new:c { g_@@_boundary_capture_2_box }
+\box_new:N \l_@@_boundary_post_box
+\tl_new:N \l_@@_boundary_node_tl
+\tl_new:N \l_@@_boundary_first_tl
+\tl_new:N \l_@@_boundary_last_tl
+\tl_new:N \l_@@_boundary_active_tl
+
+\cs_new_protected:Npn \@@_boundary_capture_allocate:n #1
+  {
+    \box_if_exist:cF { g_@@_boundary_capture_#1_box }
+      { \box_new:c { g_@@_boundary_capture_#1_box } }
+    \tl_if_exist:cF { g_@@_boundary_capture_#1_before_tl }
+      {
+        \tl_new:c { g_@@_boundary_capture_#1_before_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_first_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_last_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_kind_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_space_skip_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_ecglue_skip_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_ccglue_skip_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_space_flag_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_reserve_space_flag_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_xecglue_flag_tl }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_capture_class:n #1
+  {
+    \int_compare:nNnT
+      { \g_@@_boundary_capture_depth_int } > \c_zero_int
+      {
+        \int_compare:nNnT
+          { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+          {
+            \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+              {
+                \tl_gset:cn { g_@@_boundary_capture_##1_last_tl } {#1}
+                \tl_if_empty:cT { g_@@_boundary_capture_##1_first_tl }
+                  {
+                    \tl_gset:cn
+                      { g_@@_boundary_capture_##1_first_tl } {#1}
+                    \tl_if_eq:cnT
+                      { g_@@_boundary_capture_##1_kind_tl } { stream }
+                      {
+                        \tl_set:Ne \l_@@_boundary_node_tl
+                          { \tl_use:c { g_@@_boundary_capture_##1_before_tl } }
+                        \@@_boundary_emit_left:nVn
+                          {##1} \l_@@_boundary_node_tl {#1}
+                        \tl_gset:cn
+                          { g_@@_boundary_capture_##1_space_flag_tl } { false }
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_capture_suspend:
+  { \int_gincr:N \g_@@_boundary_suspend_depth_int }
+
+\cs_new_protected:Npn \@@_boundary_capture_resume:
+  { \int_gdecr:N \g_@@_boundary_suspend_depth_int }
+
+\cs_new_protected:Npn \@@_boundary_inline_box_begin:
+  {
+    \int_compare:nNnTF
+      { \g_@@_boundary_suspend_depth_int } > \c_zero_int
+      { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      {
+        \mode_if_math:TF
+          { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+          {
+            \mode_leave_vertical:
+            \seq_gpush:Nn \g_@@_boundary_active_seq { true }
+            \@@_boundary_box_begin:
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_inline_box_end:n #1
+  {
+    \seq_gpop:NN
+      \g_@@_boundary_active_seq
+      \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      { \@@_boundary_box_end:n {#1} }
+  }
+
+\cs_new_protected:Npn \@@_boundary_inline_last_box_begin:
+  {
+    \int_compare:nNnTF
+      { \g_@@_boundary_suspend_depth_int } > \c_zero_int
+      { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      {
+        \mode_if_math:TF
+          { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+          {
+            \mode_leave_vertical:
+            \seq_gpush:Nn \g_@@_boundary_active_seq { true }
+            \@@_boundary_capture_begin:
+            \tl_gset:cn
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
+              { box }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_inline_last_box_end:n #1
+  {
+    \seq_gpop:NN
+      \g_@@_boundary_active_seq
+      \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      { \@@_boundary_last_box_end:n {#1} }
+  }
+
+\cs_new_protected:Npn \@@_boundary_inline_stream_begin:n #1
+  {
+    \int_compare:nNnTF
+      { \g_@@_boundary_suspend_depth_int } > \c_zero_int
+      { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      {
+        \mode_if_math:TF
+          { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+          {
+            \mode_leave_vertical:
+            \seq_gpush:Nn \g_@@_boundary_active_seq { true }
+            \@@_boundary_capture_begin:
+            \tl_gset:cn
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
+              { stream }
+            \str_case:nn {#1}
+              {
+                { default }       { \@@_boundary_capture_class:n { default } }
+                { first-default } { \@@_boundary_capture_class:n { default } }
+              }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_inline_stream_end:n #1
+  {
+    \seq_gpop:NN
+      \g_@@_boundary_active_seq
+      \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      {
+        \scan_stop:
+        \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+        \tl_set:Ne \l_@@_boundary_first_tl
+          {
+            \tl_use:c
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _first_tl }
+          }
+        \tl_set:Ne \l_@@_boundary_last_tl
+          {
+            \tl_use:c
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
+          }
+        \str_if_eq:nnT {#1} { default }
+          { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
+        \tl_gclear:N \g_@@_last_node_tl
+        \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \bool_gset_false:N \g_@@_reset_color_pending_bool
+        \tl_if_empty:NTF \l_@@_boundary_first_tl
+          {
+            \tl_set:Ne \l_@@_boundary_node_tl
+              {
+                \tl_use:c
+                  { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+              }
+            \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+            \@@_boundary_restore_space:
+          }
+          {
+            \tl_if_empty:NT \l_@@_boundary_last_tl
+              { \tl_set_eq:NN \l_@@_boundary_last_tl \l_@@_boundary_first_tl }
+            \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_last_tl
+          }
+        \int_gdecr:N \g_@@_boundary_capture_depth_int
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_begin:
+  {
+    \int_compare:nNnTF
+      { \g_@@_boundary_suspend_depth_int } > \c_zero_int
+      { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      {
+        \mode_if_horizontal:TF
+          {
+            \seq_gpush:Nn \g_@@_boundary_active_seq { true }
+            \@@_boundary_capture_begin:
+            \tl_gset:cn
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
+              { transparent }
+          }
+          { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_end:
+  {
+    \seq_gpop:NN
+      \g_@@_boundary_active_seq
+      \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      {
+        \tl_set:Ne \l_@@_boundary_node_tl
+          {
+            \tl_use:c
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+          }
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \@@_boundary_restore_space:
+        \int_gdecr:N \g_@@_boundary_capture_depth_int
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_post_transparent:
+  {
+    \mode_if_horizontal:T
+      {
+        \tl_if_empty:NF \g_@@_last_node_tl
+          {
+            \@@_if_last_hlist:TF
+              {
+                \box_set_to_last:N \l_@@_boundary_post_box
+                \dim_compare:nNnTF
+                  {
+                    \box_wd:N \l_@@_boundary_post_box
+                    + \box_ht:N \l_@@_boundary_post_box
+                    + \box_dp:N \l_@@_boundary_post_box
+                  }
+                  = { \c_zero_dim }
+                  {
+                    \xeCJK_if_last_node:TF
+                      {
+                        \box_use_drop:N \l_@@_boundary_post_box
+                        \exp_args:NV
+                          \@@_boundary_replay_node:n \g_@@_last_node_tl
+                      }
+                      { \box_use_drop:N \l_@@_boundary_post_box }
+                  }
+                  { \box_use_drop:N \l_@@_boundary_post_box }
+              }
+              {
+                \xeCJK_if_last_node:TF
+                  {
+                    \exp_args:NV
+                      \@@_boundary_replay_node:n \g_@@_last_node_tl
+                  }
+                  { }
+              }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_capture_begin:
+  {
+    \int_gincr:N \g_@@_boundary_capture_depth_int
+    \exp_args:Ne \@@_boundary_capture_allocate:n
+      { \int_use:N \g_@@_boundary_capture_depth_int }
+    \tl_gclear:c
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+    \tl_gclear:c
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _first_tl }
+    \tl_gclear:c
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
+    \tl_gclear:c
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
+    \xeCJK_glue_to_skip:nN
+      { \tex_kern:D \c_zero_dim \xeCJK_space_glue: }
+      \l_@@_tmp_skip
+    \tl_gset:ce
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_skip_tl }
+      { \skip_use:N \l_@@_tmp_skip }
+    \xeCJK_glue_to_skip:nN { \CJKecglue } \l_@@_tmp_skip
+    \tl_gset:ce
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _ecglue_skip_tl }
+      { \skip_use:N \l_@@_tmp_skip }
+    \xeCJK_glue_to_skip:nN { \CJKglue } \l_@@_tmp_skip
+    \tl_gset:ce
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _ccglue_skip_tl }
+      { \skip_use:N \l_@@_tmp_skip }
+    \tl_gset:cn
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
+      { false }
+    \bool_if:NTF \l_@@_reserve_space_bool
+      {
+        \tl_gset:cn
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _reserve_space_flag_tl }
+          { true }
+      }
+      {
+        \tl_gset:cn
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _reserve_space_flag_tl }
+          { false }
+      }
+    \bool_if:NTF \l_@@_xecglue_bool
+      {
+        \tl_gset:cn
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
+          { true }
+      }
+      {
+        \tl_gset:cn
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
+          { false }
+      }
+    \@@_boundary_capture_space:
+    \scan_stop:
+    \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+    \tl_if_eq:NnT \l_@@_boundary_node_tl { CJK-space }
+      {
+        \tl_gset:cn
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
+          { true }
+      }
+    \tl_if_empty:NT \l_@@_boundary_node_tl
+      {
+        \tl_if_eq:cnT
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
+          { true }
+          {
+            \@@_boundary_restore_space:
+            \tl_gset:cn
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
+              { false }
+          }
+      }
+    \exp_args:Nc \tl_gset_eq:NN
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+      \l_@@_boundary_node_tl
+    \tl_gclear:N \g_@@_last_node_tl
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
+    \bool_gset_false:N \g_@@_reset_color_pending_bool
+  }
+
+\cs_new_protected:Npn \@@_boundary_box_begin:
+  {
+    \@@_boundary_capture_begin:
+    \tl_gset:cn
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _kind_tl }
+      { box }
+    \exp_args:Nc \@@_boundary_box_open:N
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
+  }
+
+\cs_new_protected:Npn \@@_boundary_box_open:N #1
+  {
+    \tex_global:D \tex_setbox:D #1
+      \tex_hbox:D \c_group_begin_token
+  }
+
+\cs_new_protected:Npn \@@_boundary_capture_space:
+  {
+    \@@_if_last_glue:T
+      {
+        \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+        \@@_skip_if_interword:NT \l_@@_last_skip
+          {
+            \tl_gset:ce
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_skip_tl }
+              { \skip_use:N \l_@@_last_skip }
+            \tl_gset:cn
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
+              { true }
+            \tex_unskip:D
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_pop_node:N #1
+  {
+    \tl_clear:N #1
+    \xeCJK_if_last_node:TF
+      {
+        \dim_case:nnF { \l_@@_last_kern_dim }
+          {
+            { \@@_node:n { CJK } }             { \tl_set:Nn #1 { CJK } }
+            { \@@_node:n { CJK-space } }       { \tl_set:Nn #1 { CJK-space } }
+            { \@@_node:n { CJK-widow } }       { \tl_set:Nn #1 { CJK-widow } }
+            { \@@_node:n { default } }         { \tl_set:Nn #1 { default } }
+            { \@@_node:n { normalspace } }     { \tl_set:Nn #1 { normalspace } }
+            { \@@_node:n { hyperref-default } }{ \tl_set:Nn #1 { hyperref-default } }
+          }
+          { \@@_make_node:N \l_@@_last_kern_dim }
+      }
+      {
+        \xeCJK_if_last_node:nT { default-space }
+          {
+            \xeCJK_remove_node:
+            \tl_set:Nn #1 { default-space }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_box_end:n #1
+  {
+    \c_group_end_token
+    \@@_boundary_box_finish:nn {#1} { wrapped }
+  }
+
+\cs_new_protected:Npn \@@_boundary_last_box_end:n #1
+  {
+    \@@_if_last_hlist:TF
+      {
+        \exp_args:Nc \box_set_to_last:N
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
+        \@@_boundary_box_finish:nn {#1} { last }
+      }
+      {
+        \tl_gclear:N \g_@@_last_node_tl
+        \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \bool_gset_false:N \g_@@_reset_color_pending_bool
+        \tl_set:Ne \l_@@_boundary_node_tl
+          {
+            \tl_use:c
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+          }
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \@@_boundary_restore_space:
+        \int_gdecr:N \g_@@_boundary_capture_depth_int
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_box_finish:nn #1#2
+  {
+    \tl_set:Ne \l_@@_boundary_first_tl
+      {
+        \tl_use:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _first_tl }
+      }
+    \tl_set:Ne \l_@@_boundary_last_tl
+      {
+        \tl_use:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
+      }
+    \str_if_eq:nnT {#1} { default }
+      {
+        \tl_set:Nn \l_@@_boundary_first_tl { default }
+        \tl_set:Nn \l_@@_boundary_last_tl  { default }
+      }
+    \tl_gclear:N \g_@@_last_node_tl
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
+    \bool_gset_false:N \g_@@_reset_color_pending_bool
+    \tl_if_empty:NTF \l_@@_boundary_first_tl
+      { \@@_boundary_box_end_transparent:n {#2} }
+      {
+        \tl_set:Ne \l_@@_boundary_node_tl
+          {
+            \tl_use:c
+              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+          }
+        \exp_args:NVV \@@_boundary_emit_left:nn
+          \l_@@_boundary_node_tl
+          \l_@@_boundary_first_tl
+        \box_use_drop:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
+        \tl_if_empty:NT \l_@@_boundary_last_tl
+          { \tl_set_eq:NN \l_@@_boundary_last_tl \l_@@_boundary_first_tl }
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_last_tl
+      }
+    \int_gdecr:N \g_@@_boundary_capture_depth_int
+  }
+
+\cs_new_protected:Npn \@@_boundary_box_end_transparent:n #1
+  {
+    \str_if_eq:nnTF {#1} { wrapped }
+      {
+        \hbox_unpack_drop:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
+      }
+      {
+        \box_use_drop:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
+      }
+    \tl_set:Ne \l_@@_boundary_node_tl
+      {
+        \tl_use:c
+          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+      }
+    \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+    \@@_boundary_restore_space:
+  }
+
+\cs_new_protected:Npn \@@_boundary_emit_left:nn #1#2
+  {
+    \@@_boundary_emit_left:nnn
+      { \int_use:N \g_@@_boundary_capture_depth_int } {#1} {#2}
+  }
+
+\cs_new_protected:Npn \@@_boundary_emit_left:nnn #1#2#3
+  {
+    \clist_if_in:nnTF { CJK , CJK-space , CJK-widow } {#2}
+      {
+        \str_if_eq:nnTF {#3} { CJK }
+          {
+            \str_if_eq:nnT {#2} { CJK-widow }
+              { \xeCJK_widow_penalty: }
+            \tl_if_eq:cnTF
+              { g_@@_boundary_capture_#1_space_flag_tl } { true }
+              {
+                \tl_if_eq:cnTF
+                  { g_@@_boundary_capture_#1_reserve_space_flag_tl } { true }
+                  { \@@_boundary_restore_space:n {#1} }
+                  { \@@_boundary_use_ccglue:n {#1} }
+              }
+              { \@@_boundary_use_ccglue:n {#1} }
+          }
+          { \@@_boundary_use_ecglue:n {#1} }
+      }
+      {
+        \clist_if_in:nnTF { default , default-space , hyperref-default } {#2}
+          {
+            \str_if_eq:nnTF {#3} { CJK }
+              {
+                \tl_if_eq:cnTF
+                  { g_@@_boundary_capture_#1_space_flag_tl } { true }
+                  {
+                    \tl_if_eq:cnTF
+                      { g_@@_boundary_capture_#1_xecglue_flag_tl } { true }
+                      { \@@_boundary_use_ecglue:n {#1} }
+                      { \@@_boundary_restore_space:n {#1} }
+                  }
+                  { \@@_boundary_use_ecglue:n {#1} }
+              }
+              { \@@_boundary_restore_space:n {#1} }
+          }
+          { \@@_boundary_restore_space:n {#1} }
+      }
+  }
+\cs_generate_variant:Nn \@@_boundary_emit_left:nnn { nVn }
+
+\cs_new_protected:Npn \@@_boundary_use_ecglue:n #1
+  {
+    \skip_horizontal:n
+      { \tl_use:c { g_@@_boundary_capture_#1_ecglue_skip_tl } }
+  }
+
+\cs_new_protected:Npn \@@_boundary_use_ccglue:n #1
+  {
+    \skip_horizontal:n
+      { \tl_use:c { g_@@_boundary_capture_#1_ccglue_skip_tl } }
+  }
+
+\cs_new_protected:Npn \@@_boundary_restore_space:
+  {
+    \@@_boundary_restore_space:n
+      { \int_use:N \g_@@_boundary_capture_depth_int }
+  }
+
+\cs_new_protected:Npn \@@_boundary_restore_space:n #1
+  {
+    \tl_if_eq:cnT
+      { g_@@_boundary_capture_#1_space_flag_tl } { true }
+      {
+        \skip_horizontal:n
+          { \tl_use:c { g_@@_boundary_capture_#1_space_skip_tl } }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_replay_node:n #1
+  {
+    \str_if_eq:nnTF {#1} { default-space }
+      {
+        \@@_make_space_node:
+        \tl_gset:Nn \g_@@_last_node_tl { default }
+      }
+      {
+        \clist_if_in:nnT
+          { CJK , CJK-space , CJK-widow , default , hyperref-default , normalspace }
+          {#1}
+          {
+            \xeCJK_make_node:n {#1}
+            \clist_if_in:nnT { CJK , CJK-space , CJK-widow } {#1}
+              { \bool_gset_true:N \g_@@_glue_check_pending_bool }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_box:nn #1#2
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn \g_@@_boundary_registered_prop {#1} {#2}
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_inline_last_box_begin: }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_inline_last_box_end:n {#2} }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_wrapped_box:nn #1#2
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn
+          \g_@@_boundary_registered_prop {#1} { wrapped-box/#2 }
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_inline_box_begin: }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_inline_box_end:n {#2} }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_transparent:n #1
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn
+          \g_@@_boundary_registered_prop {#1} { transparent }
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_begin: }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_end: }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_post_transparent:n #1
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn
+          \g_@@_boundary_registered_prop {#1} { post-transparent }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_post_transparent: }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_stream:nn #1#2
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn \g_@@_boundary_registered_prop {#1} { stream/#2 }
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_inline_stream_begin:n {#2} }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_inline_stream_end:n {#2} }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_patch_makeboxes:
+  {
+    \cs_if_exist:NF \@@_orig_imakebox:w
+      {
+        \cs_new_eq:NN \@@_orig_imakebox:w \@imakebox
+        \cs_gset_protected:Npn \@imakebox [##1][##2]##3
+          {
+            \@@_boundary_inline_last_box_begin:
+            \@@_orig_imakebox:w [##1][##2]{##3}
+            \@@_boundary_inline_last_box_end:n { auto }
+          }
+      }
+    \cs_if_exist:NF \@@_orig_iframebox:w
+      {
+        \cs_new_eq:NN \@@_orig_iframebox:w \@iframebox
+        \cs_gset_protected:Npn \@iframebox [##1][##2]##3
+          {
+            \@@_boundary_inline_last_box_begin:
+            \@@_orig_iframebox:w [##1][##2]{##3}
+            \@@_boundary_inline_last_box_end:n { auto }
+          }
+      }
+  }
+
+\@@_boundary_register_box:nn { mbox } { auto }
+\@@_boundary_register_box:nn { fbox } { auto }
+\@@_boundary_patch_makeboxes:
+\@@_boundary_register_post_transparent:n { null }
+\AddToHook { cmd / sbox / before } [ xeCJK / boundary ]
+  { \@@_boundary_capture_suspend: }
+\AddToHook { cmd / sbox / after } [ xeCJK / boundary ]
+  { \@@_boundary_capture_resume: }
+%    \end{macrocode}
+% \end{macro}
 % \end{macro}
 %
 % \changes{v3.9.0}{2022/06/06}{修复西文的 character protrusion 功能。}
@@ -10178,57 +11039,32 @@ Copyright and Licence
 %   URL 的数学节点，并在链接结束 whatsit 后放置可信的西文边界标记，
 %   修复 \tn{url} 右侧的 \texttt{CJKecglue} 丢失问题（\#972）。}
 %
-% \tn{Hy@BeginAnnot} 的补丁处理链接起始端：保存真实的 CJK 状态、清除
-% 历史状态，并且不重放可能陈旧的 \texttt{default}。链接结束端需要处理
-% 一个不同的问题。\pkg{url} 的 \tn{Url@FormatString} 以数学模式排版 URL；
-% 单独加载 \pkg{url} 时，后续 CJK 字符可以直接看到数学节点并恢复
-% \texttt{ecglue}。\pkg{hyperref} 随后由 \tn{Hy@EndAnnot} 插入链接结束
-% whatsit，数学节点因此不再是最后节点。
+% \changes{v3.10.4}{2026/07/20}{把链接 annotation 的入口保存和末尾定点
+%   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
+%   （\#992）。}
 %
-% 在顶层 annotation 结束前若最后节点确为数学节点，说明链接的可见内容
-% 提供了真实的西文边界。原始 \tn{Hy@EndAnnot} 插入结束 whatsit 后，重放
-% 一个专用的 \texttt{hyperref-default} 标记，让后续 CJK 转换走既有边界
-% 恢复链；若后续紧接颜色切换或另一个 annotation，现有补丁也能继续保存并
-% 重放这个可信标记。它与普通 \texttt{default} 分离，避免重新放宽 \#810
-% 为防御陈旧 \texttt{default} 而设的选择性重放规则。只处理
-% \tn{c@Hy@AnnotLevel}=1，避免嵌套 annotation 的内部结束点提前改写外层状态；
-% 非数学内容保持现有 CJK/default 状态机不变。
+% \tn{Hy@BeginAnnot} 在 annotation 起始 whatsit 之前启动 stream capture；
+% 链接文字中的 Default/CJK 转换随后直接记录实际首尾类别。顶层
+% \tn{Hy@EndAnnot} 若看到数学节点，则把它作为 URL 等命令的可信 Default
+% 输出记录下来，再在结束 whatsit 之后结束 capture。这样普通西文、中文、
+% 混合链接文字和数学 URL 都由同一入口状态与实际末类别决定两侧间距；嵌套
+% annotation 仍只在最外层结束时收束，不会让内部结束点提前重放状态。
 %    \begin{macrocode}
-\tl_new:N \g_@@_hyper_saved_node_tl
-\cs_new_protected:Npn \@@_hyperref_end_annot_math:
-  {
-    \@@_orig_Hy_EndAnnot:
-    \xeCJK_make_node:n { hyperref-default }
-  }
 \cs_new_protected:Npn \@@_patch_hyperref_annot:
   {
     \cs_gset_eq:NN \@@_orig_Hy_BeginAnnot:n \Hy@BeginAnnot
     \cs_gset_eq:NN \@@_orig_Hy_EndAnnot: \Hy@EndAnnot
     \cs_gset_protected:Npn \Hy@BeginAnnot ##1
       {
-        \xeCJK_if_last_node:TF
-          { \tl_gset_eq:NN \g_@@_hyper_saved_node_tl \g_@@_last_node_tl }
-          { \tl_gclear:N \g_@@_hyper_saved_node_tl }
-        \tl_gclear:N \g_@@_last_node_tl
+        \@@_boundary_inline_stream_begin:n { auto }
         \@@_orig_Hy_BeginAnnot:n { ##1 }
-        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK }
-          { \xeCJK_make_node:n { CJK } }
-        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK-space }
-          { \xeCJK_make_node:n { CJK-space } }
-        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { CJK-widow }
-          { \xeCJK_make_node:n { CJK-widow } }
-        \tl_if_eq:NnT \g_@@_hyper_saved_node_tl { hyperref-default }
-          { \xeCJK_make_node:n { hyperref-default } }
       }
     \cs_gset_protected:Npn \Hy@EndAnnot
       {
-        \int_compare:nNnTF { \c@Hy@AnnotLevel } = { 1 }
-          {
-            \@@_if_last_math:TF
-              { \@@_hyperref_end_annot_math: }
-              { \@@_orig_Hy_EndAnnot: }
-          }
-          { \@@_orig_Hy_EndAnnot: }
+        \int_compare:nNnT { \c@Hy@AnnotLevel } = { 1 }
+          { \@@_if_last_math:T { \@@_boundary_capture_class:n { default } } }
+        \@@_orig_Hy_EndAnnot:
+        \@@_boundary_inline_stream_end:n { auto }
       }
   }
 \@@_package_hook:nn { hyperref }
@@ -10318,8 +11154,16 @@ Copyright and Licence
           }
       }
   }
-\@@_package_hook:nn { color }  { \@@_patch_set_color: }
-\@@_package_hook:nn { xcolor } { \@@_patch_set_color: }
+\@@_package_hook:nn { color }
+  {
+    \@@_patch_set_color:
+    \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
+  }
+\@@_package_hook:nn { xcolor }
+  {
+    \@@_patch_set_color:
+    \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
+  }
 %    \end{macrocode}
 %
 % \changes{v3.10.0}{2026/05/14}{补丁 \pkg{l3color} 后端的
@@ -10387,29 +11231,14 @@ Copyright and Licence
 % 对和后续字符之间，使 |\tex_lastkern:D| 探测失败，导致
 % Boundary→\{Default,CJK\} 路径中 |\xeCJK_if_last_node:n| / |\@@_if_last_kern:|
 % 检查返回 false，间距因此丢失。
-% 此处保存 |\g_@@_last_node_tl|、清除现有标记 kern、调用原始
-% \tn{HD@target}、然后根据保存的状态重放节点标记，
-% 使后续触发路径能正确识别前方上下文。
+% \changes{v3.10.4}{2026/07/20}{把 \tn{HD@target} 迁移到统一 transparent
+%   capture，同时恢复其前后的 marker 与源码空格状态（\#992）。}
+% 该命令没有可见输出，因此注册为 transparent：入口保存并移除 marker 与
+% 可选源码空格，原命令插入锚点 hbox 后再原样恢复；后续边界不再受这个
+% $0\times0$ hbox 遮蔽。
 %    \begin{macrocode}
-\tl_new:N \g_@@_hd_saved_node_tl
-\cs_new_protected:Npn \@@_patch_hd_target:
-  {
-    \cs_if_exist:NF \@@_orig_HD_target:
-      {
-        \cs_set_eq:NN \@@_orig_HD_target: \HD@target
-        \cs_gset_protected:Npn \HD@target
-          {
-            \xeCJK_if_last_node:TF
-              { \tl_gset_eq:NN \g_@@_hd_saved_node_tl \g_@@_last_node_tl }
-              { \tl_gclear:N \g_@@_hd_saved_node_tl }
-            \tl_gclear:N \g_@@_last_node_tl
-            \@@_orig_HD_target:
-            \tl_if_empty:NF \g_@@_hd_saved_node_tl
-              { \exp_args:No \xeCJK_make_node:n { \g_@@_hd_saved_node_tl } }
-          }
-      }
-  }
-\@@_package_hook:nn { hypdoc } { \@@_patch_hd_target: }
+\@@_package_hook:nn { hypdoc }
+  { \@@_boundary_register_transparent:n { HD@target } }
 %    \end{macrocode}
 %
 % \changes{v3.10.0}{2026/06/23}{为 \pkg{url} 的 \tn{Url@FormatString} 添加补丁，
@@ -10448,7 +11277,10 @@ Copyright and Licence
         \cs_set_eq:NN \@@_orig_Url_FormatString: \Url@FormatString
         \cs_gset_protected:Npn \Url@FormatString
           {
-            \@@_drain_ecglue:
+            \int_compare:nNnTF
+              { \g_@@_boundary_capture_depth_int } > \c_zero_int
+              { \@@_boundary_capture_class:n { default } }
+              { \@@_drain_ecglue: }
             \@@_orig_Url_FormatString:
           }
       }
@@ -10468,53 +11300,30 @@ Copyright and Licence
 % 转换中 \cs{tex_lastkern:D} 的探测路径，导致 CJK 文字与 \tn{verb}
 % 之间应有的 \texttt{CJKecglue} 丢失。
 %
-% 修复办法是在执行原始 \tn{verb} 之前先 drain 缓存的间距：因为
-% \tn{verb} 排版的内容必然是西文（catcode 12 字符），前文若为 CJK，
-% 那么这里就应该补上 \texttt{CJKecglue}。
-% 而 \tn{verb} 内最后一个字符到后续 CJK 文字之间的右侧间距，
-% 会由 Default$\to$CJK 类别转换中 \cs{xeCJK_pre_inter_class_toks:nnn}
-% 自动恢复，不需要额外处理。
+% \changes{v3.10.4}{2026/07/20}{把 \tn{verb} 从假定西文输出的入口 drain
+%   迁移到统一 stream capture，按 verbatim 实际首尾类别恢复两侧边界
+%   （\#992）。}
 %
-% 数学模式下，原 \tn{verb} 走 \tn{hbox} 分支，不会展开
-% \tn{leavevmode\null}，标记 kern 不被 $0\times0$ 的 hbox 遮蔽，
-% 因此跳过这个 patch。
+% 原 \#910 补丁在入口直接补 \tn{CJKecglue}，隐含假设 verbatim 内容必为
+% 西文，因而不能处理中文输出或右边界。现在在原始 \tn{verb} 执行前启动
+% auto stream capture：入口先保存外侧 marker、源码空格和 glue 值；分隔符
+% 扫描及排版仍完全交给内核。\tn{verb@egroup} 关闭组并刷新 language whatsit
+% 后结束 capture，按真正观察到的首尾 Default/CJK 类别同时重建左右边界。
+% 数学模式由 capture 入口自动跳过；\pkg{shortvrb} 的短记号与 \tn{verb}*
+% 共用同一入口和组结束点，因此继续自动覆盖。
 %
-% \pkg{shortvrb} 的 \tn{MakeShortVerb} 把分隔符设为 active 字符后
-% 展开到 \tn{verb}，会自动跟随这里的 patch。\tn{verb}* 与 \tn{verb}
-% 共用入口（\tn{@ifstar} 在 \tn{bgroup} 之后才扫描），因此也自动
-% 覆盖到。
-%
-% 这里选择 \cs{@@_after_preamble:n} 而非 \cs{@@_package_hook:nn}，
-% 因为 \tn{verb} 是 \LaTeXe{} 核心命令，不来自宏包；放在 preamble
-% 之后注册，可以避开 \pkg{cprotect}、\pkg{fancyvrb} 等宏包对
-% \tn{verb} 重定义时的时序冲突。
-%
-% 这里不直接复用 \cs{@@_drain_ecglue:}（\#880 中 \tn{Url@FormatString}
-% 使用的 drain 函数）：后者在没有标记时会主动清掉
-% \cs{g_@@_last_node_tl}，这是为 math 模式吃掉 marker 的场景做的防御。
-% 而 \tn{verb} 不会进入 math 模式，入口前的
-% \cs{g_@@_last_node_tl} 是合法状态——在 \pkg{ctex} 模式下，
-% \tn{verb} 内部会切换 CJK 字体（如 \opt{FandolFang}），\tn{verb}
-% 内字符到 \tn{verb} 外字符仍会走 CJK$\to$CJK 类别转换路径，
-% 此时需要保留 \cs{g_@@_last_node_tl} 的当前值，才能正确地输出
-% \tn{CJKglue}。
-% 因此 \tn{verb} 专用的 drain 只在确实存在标记时移除并补 ecglue，
-% 没有标记时 else 分支故意留空——与 \cs{@@_drain_ecglue:} 的唯一
-% 区别就在于此，不调用 \cs{tl_gclear:N} 是为了不破坏入口前的合法
-% 状态。
-%
-% 此 drain 函数同样被 \cs{@@_patch_codedoc_meta:}（\#920 中
-% \pkg{l3doc} \tn{meta} 补丁）复用：\tn{meta} 退出后仍然有
-% token 层面的 interchar 处理，需要保留 \cs{g_@@_last_node_tl}
-% 的状态。后续若有新的调用点，请同步更新本节注释。
+% 补丁仍在 \cs{@@_after_preamble:n} 安装，以避开其他宏包在导言区重定义
+% \tn{verb} 的时序。下方保留的 drain helper 已不再供 \tn{verb} 使用；它只
+% 服务 \cs{@@_patch_codedoc_meta:}，因为该旧补丁仍需要“无 marker 时不清
+% \cs{g_@@_last_node_tl}”的行为。
 %
 % \changes{v3.10.2}{2026/07/03}{\tn{verb} 组关闭时用 \tn{setlanguage}
 %   主动排出 language whatsit，修复 \tn{verb} 右侧源码空格场景下
 %   \texttt{CJKecglue} 双倍的问题（\#919）。}
 %
-% \begin{macro}[int]{\@@_drain_ecglue_verb:}
+% \begin{macro}[int]{\@@_drain_ecglue_keep_state:}
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_drain_ecglue_verb:
+\cs_new_protected:Npn \@@_drain_ecglue_keep_state:
   {
     \xeCJK_if_last_node:TF
       {
@@ -10570,8 +11379,7 @@ Copyright and Licence
 % \end{macro}
 %
 % \pkg{shortvrb} 短记号与 \tn{verb}* 都经由 \tn{verb} 入口且组关闭
-% 走同一个 \tn{verb@egroup}，因此 drain 与 flush 两个补丁都自动
-% 覆盖到。
+% 走同一个 \tn{verb@egroup}，因此 capture 与 flush 两个补丁都自动覆盖。
 %
 % \begin{macro}[int]{\@@_patch_verb:}
 %    \begin{macrocode}
@@ -10582,10 +11390,14 @@ Copyright and Licence
         \cs_set_eq:NN \@@_orig_verb: \verb
         \cs_gset_protected:Npn \verb
           {
-            \mode_if_math:F { \@@_drain_ecglue_verb: }
+            \@@_boundary_inline_stream_begin:n { auto }
             \@@_orig_verb:
           }
-        \tl_gput_right:Nn \verb@egroup { \@@_flush_language_whatsit: }
+        \tl_gput_right:Nn \verb@egroup
+          {
+            \@@_flush_language_whatsit:
+            \@@_boundary_inline_stream_end:n { auto }
+          }
       }
   }
 \@@_after_preamble:n { \@@_patch_verb: }
@@ -10618,12 +11430,13 @@ Copyright and Licence
 % 之后，后续类别转换探测不到这个标记，原本应有的 \texttt{CJKecglue}
 % 也跟着丢失。
 % 与 \pkg{url}（\#880）、\tn{verb}（\#910，参见 \cs{@@_patch_verb:}）
-% 同型，这里在 \cs{__codedoc_meta:n} 入口调用 \cs{@@_drain_ecglue_verb:}
+% 同型，这里在 \cs{__codedoc_meta:n} 入口调用
+% \cs{@@_drain_ecglue_keep_state:}
 % 移除标记并补上 \tn{CJKecglue}，恢复左侧的边界 ecglue。
-% 复用 \tn{verb} 版本的 drain（else 分支不清 \cs{g_@@_last_node_tl}）是
+% 复用 keep-state drain（else 分支不清 \cs{g_@@_last_node_tl}）是
 % 因为 \tn{meta} 退出后仍然要经过 token 层面的类别转换，需要保留
 % \cs{g_@@_last_node_tl} 的当前状态。
-% \cs{@@_drain_ecglue_verb:} 的注释也列出了本处调用点，二者保持
+% \cs{@@_drain_ecglue_keep_state:} 的注释也列出了本处调用点，二者保持
 % 双向引用。
 %
 % \tn{rangle} 之后到外部字符的 ecglue 仍由 \cs{__codedoc_meta:n}
@@ -10647,7 +11460,7 @@ Copyright and Licence
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
             \cs_gset_protected:Npn \__codedoc_meta:n ##1
               {
-                \mode_if_math:F { \@@_drain_ecglue_verb: }
+                \mode_if_math:F { \@@_drain_ecglue_keep_state: }
                 \@@_orig_codedoc_meta:n { \hbox:n {##1} }
               }
           }
@@ -10660,13 +11473,30 @@ Copyright and Licence
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \meta
             \DeclareDocumentCommand \meta { m }
               {
-                \mode_if_math:F { \@@_drain_ecglue_verb: }
+                \mode_if_math:F { \@@_drain_ecglue_keep_state: }
                 \@@_orig_codedoc_meta:n { \hbox:n {##1} }
               }
           }
       }
   }
 \@@_at_end_preamble:n { \@@_patch_codedoc_meta: }
+% \changes{v3.10.4}{2026/07/20}{将 \tn{eqref}、\tn{meta} 注册为固定
+%   Default 首尾、将 \tn{cs} 注册为仅固定 Default 首端的 stream capture，
+%   恢复其完整边界矩阵（\#992）。}
+% \tn{eqref} 的圆括号和 \tn{meta} 的数学尖括号决定了命令两端
+% 始终是 Default；参数内部即使包含中文，也不能把外侧 oracle
+% 误判为裸中文。\tn{cs} 只有开头的反斜线固定为 Default，末尾仍由
+% 参数的实际最后字符决定，因此使用 first-default stream 固定首类别并记录
+% 真实末类别。
+\@@_at_end_preamble:n
+  {
+    \cs_if_exist:NT \eqref
+      { \@@_boundary_register_stream:nn { eqref } { default } }
+    \cs_if_exist:NT \meta
+      { \@@_boundary_register_stream:nn { meta } { default } }
+    \cs_if_exist:NT \cs
+      { \@@_boundary_register_stream:nn { cs } { first-default } }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -10685,22 +11515,15 @@ Copyright and Licence
 % \cs{g_@@_last_node_tl} 仍是 \texttt{default}（前一条目的合法残留），
 % 就误吐了一个 \texttt{CJKecglue}，表现为条目首字符前多出一段空白。
 %
-% 修复策略与 \pkg{hyperref} \tn{Hy@BeginAnnot}（\#809/\#810）
-% 同型：在 whatsit 插入前主动清空 \cs{g_@@_last_node_tl}，让下游
-% \cs{@@_recover_glue_whatsit:} 探到 whatsit 时 default 分支
-% 条件不成立，不再吐出多余 ecglue。
+% \changes{v3.10.4}{2026/07/20}{把 \tn{blx@pagetracker} 从单向清空状态
+%   改为 transparent capture，使 write whatsit 对两侧实际可见边界透明
+%   （\#992）。}
 %
-% 前一条目结尾如果确实需要往下一条目续接 CJK 边界语义
-% （例如后续 \tn{blx@driver} 内部先输出 CJK 字符），
-% \tn{blx@driver} 排版首字符时会由 \cs{xeCJK_make_node:n} 重新设置
-% \cs{g_@@_last_node_tl}，不受此清空影响；因此本补丁只切断
-% "前一条目 marker 通过 whatsit 遮蔽错误跨到下一条目" 的路径，
-% 不影响新条目内部的正常边界恢复。
-%
-% 与 \tn{Hy@BeginAnnot} 补丁的差异：这里没有 "选择性重放 CJK/CJK-space
-% 标记" 的需求，因为 \tn{blx@pagetracker} 入口时前文已经是
-% 完整段落结构（\tn{bibsentence}、\tn{blx@postpunct} 等），跨条目续接
-% xeCJK marker 的语义不成立，直接清空即可。
+% \#931 的旧补丁只清空 \cs{g_@@_last_node_tl}，能阻止虚假 ecglue，却也
+% 丢掉了 whatsit 两侧本来应有的 CJKecglue/CJKglue。pagetracker 本身没有
+% 可见输出，因此现在保存入口 marker、源码空格和 glue 状态，执行 write
+% 后原样重放；已知 whatsit 不再遮蔽真实边界，也不会把陈旧状态带入下一个
+% 无关段落。
 %
 % \textbf{补丁点选 \tn{blx@pagetracker} 而非 \tn{blx@pagetracker@context}}：
 % \pkg{biblatex} 在 \texttt{bbx} style 加载时通过
@@ -10721,17 +11544,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_patch_biblatex_pagetracker:
   {
     \cs_if_exist:NT \blx@pagetracker
-      {
-        \cs_if_exist:NF \@@_orig_blx_pagetracker:
-          {
-            \cs_set_eq:NN \@@_orig_blx_pagetracker: \blx@pagetracker
-            \cs_gset_protected:Npn \blx@pagetracker
-              {
-                \tl_gclear:N \g_@@_last_node_tl
-                \@@_orig_blx_pagetracker:
-              }
-          }
-      }
+      { \@@_boundary_register_transparent:n { blx@pagetracker } }
   }
 \@@_at_end_preamble:n { \@@_patch_biblatex_pagetracker: }
 %    \end{macrocode}

@@ -1,7 +1,14 @@
 ## [xeCJK-v3.10.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.4)
 
 - 提升版本号至 v3.10.4。
+- 允许 Boundary 到 Default 的恢复路径回卷有限、带 shrink 的源码词间 glue，在真实 CJK marker 上将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
+- 新增命令边界 capture/register 框架，按实际可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（#992）。
 - 在 `\@setref` 的零尺寸盒子后重放引用内容的实际末尾类别，修复 `\ref` 右边界间距（#991）。
+- 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
+- 把 `\HD@target` 迁移到统一 transparent capture，同时恢复其前后的 marker 与源码空格状态（#992）。
+- 把 `\verb` 从假定西文输出的入口 drain 迁移到统一 stream capture，按 verbatim 实际首尾类别恢复两侧边界（#992）。
+- 将 `\eqref`、`\meta` 注册为固定 Default 首尾、将 `\cs` 注册为仅固定 Default 首端的 stream capture，恢复其完整边界矩阵（#992）。
+- 把 `\blx@pagetracker` 从单向清空状态改为 transparent capture，使 write whatsit 对两侧实际可见边界透明（#992）。
 
 ## [xeCJK-v3.10.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.3)
 

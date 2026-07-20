@@ -1,0 +1,356 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{hypdoc}
+\usepackage{xeCJKfntef}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+
+\newbox\BoundaryCandidate
+\newbox\BoundaryOracle
+\newbox\BoundaryCandidateContext
+\newbox\BoundaryOracleContext
+\newdimen\BoundaryIntrinsicDelta
+\newdimen\BoundaryDelta
+\newcount\BoundaryChecks
+\newcount\BoundaryFailures
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \BoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_reset_color_pending_bool
+  }
+\cs_new:Npn \BoundaryCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\cs_new:Npn \BoundaryCaptureStackCount
+  { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
+\cs_new:Npn \BoundaryCaptureSuspendDepth
+  { \int_use:N \g__xeCJK_boundary_suspend_depth_int }
+\ExplSyntaxOff
+
+\newcommand\BoundaryAssertIdle[2]{%
+  \ifnum\BoundaryCaptureDepth=0\relax
+    \ifnum\BoundaryCaptureStackCount=0\relax
+    \else
+      \global\advance\BoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 left a nonempty capture stack}%
+    \fi
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture depth}%
+  \fi
+  \ifnum\BoundaryCaptureSuspendDepth=0\relax
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture suspension depth}%
+  \fi
+}
+
+\newcommand\BoundaryVariant[4]{%
+  \global\advance\BoundaryChecks by 1
+  \BoundaryReset
+  \setbox\BoundaryCandidateContext=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{#2}%
+  \BoundaryReset
+  \setbox\BoundaryOracleContext=\hbox{#4}%
+  \BoundaryDelta=\dimexpr
+    \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
+    \BoundaryIntrinsicDelta\relax
+  \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
+  \ifdim\BoundaryDelta<0.01pt
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
+  \fi
+}
+
+\newcommand\BoundaryMatrix[5]{%
+  \BoundaryReset
+  \setbox\BoundaryCandidate=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{standalone}%
+  \BoundaryReset
+  \setbox\BoundaryOracle=\hbox{#4}%
+  \BoundaryIntrinsicDelta=\dimexpr
+    \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+  \BoundaryVariant{#1}{00}{#2#3#5}{#2#4#5}%
+  \BoundaryVariant{#1}{10}{#2 #3#5}{#2 #4#5}%
+  \BoundaryVariant{#1}{01}{#2#3 #5}{#2#4 #5}%
+  \BoundaryVariant{#1}{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\newcommand\BoundaryReport[2]{%
+  \global\advance\BoundaryChecks by 1
+  \BoundaryDelta=\dimexpr
+    \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
+    \BoundaryIntrinsicDelta\relax
+  \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
+  \ifdim\BoundaryDelta<0.01pt
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
+  \fi
+}
+
+\makeatletter
+\newcommand\BoundaryHDTarget{\HD@target}
+\newwrite\BoundaryBibAux
+\immediate\openout\BoundaryBibAux=\jobname-bibaux.aux
+\def\blx@pagetracker{%
+  \protected@write\BoundaryBibAux{}{%
+    \string\abx@aux@page{1}{\the\c@page}}%
+}
+\newcommand\BoundaryPageTracker{\blx@pagetracker}
+\AtBeginDocument{%
+  \expandafter\gdef\csname r@boundary-western\endcsname
+    {{Alpha}{1}{title}{boundary.anchor.w}{}}%
+  \expandafter\gdef\csname r@boundary-chinese\endcsname
+    {{中文}{1}{title}{boundary.anchor.c}{}}%
+}
+\makeatother
+
+\newcommand\BoundaryMacroWestern{Alpha}
+\newcommand\BoundaryMacroChinese{中文}
+\newsavebox\BoundaryScratchBox
+\newsavebox\BoundaryNullBox
+\newcommand\BoundaryAssignedNullWestern{%
+  \setbox\BoundaryNullBox\null
+  Alpha%
+}
+\newcommand\BoundaryMeasuredWestern{%
+  \sbox\BoundaryScratchBox{中文}%
+  Alpha%
+}
+\newcommand\BoundaryDeepBoxes[1]{%
+  \mbox{\mbox{\mbox{\mbox{\mbox{\mbox{%
+    \mbox{\mbox{\mbox{\mbox{\mbox{\mbox{#1}}}}}}%
+  }}}}}}%
+}
+
+\begin{document}
+
+\OMIT
+\setbox0=\hbox{\url{X}}
+\setbox0=\hbox{\BoundaryDeepBoxes{中文}}
+\TIMO
+
+\START
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{restricted hbox direct-input matrices}{
+  \BoundaryMatrix{macro-W}{中}{\BoundaryMacroWestern}{Alpha}{文}
+  \BoundaryMatrix{macro-C-WCW}{A}{\BoundaryMacroChinese}{中文}{B}
+  \BoundaryMatrix{macro-C-CCC}{中}{\BoundaryMacroChinese}{中文}{文}
+  \BoundaryMatrix{group-W-CWC}{中}{{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{group-C-WCW}{A}{{中文}}{中文}{B}
+  \BoundaryMatrix{group-C-CCC}{中}{{中文}}{中文}{文}
+  \BoundaryMatrix{textbf-W-CWC}{中}{\textbf{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{textbf-C-WCW}{A}{\textbf{中文}}{中文}{B}
+  \BoundaryMatrix{textbf-C-CCC}{中}{\textbf{中文}}{中文}{文}
+  \BoundaryMatrix{textit-W-CWC}{中}{\textit{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{textit-C-WCW}{A}{\textit{中文}}{中文}{B}
+  \BoundaryMatrix{textit-C-CCC}{中}{\textit{中文}}{中文}{文}
+  \BoundaryMatrix{texttt-W-CWC}{中}{\texttt{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{texttt-C-WCW}{A}{\texttt{中文}}{中文}{B}
+  \BoundaryMatrix{texttt-C-CCC}{中}{\texttt{中文}}{中文}{文}
+  \BoundaryMatrix{textcolor-W-CWC}{中}{\textcolor{red}{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{textcolor-C-WCW}{A}{\textcolor{red}{中文}}{中文}{B}
+  \BoundaryMatrix{textcolor-C-CCC}{中}{\textcolor{red}{中文}}{中文}{文}
+  \BoundaryMatrix{underline-W-CWC}{中}{\CJKunderline{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{underline-C-WCW}{A}{\CJKunderline{中文}}{中文}{B}
+  \BoundaryMatrix{underline-C-CCC}{中}{\CJKunderline{中文}}{中文}{文}
+  \BoundaryMatrix{underdot-W-CWC}{中}{\CJKunderdot{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{underdot-C-WCW}{A}{\CJKunderdot{中文}}{中文}{B}
+  \BoundaryMatrix{underdot-C-CCC}{中}{\CJKunderdot{中文}}{中文}{文}
+  \BoundaryMatrix{sout-W-CWC}{中}{\CJKsout{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{sout-C-WCW}{A}{\CJKsout{中文}}{中文}{B}
+  \BoundaryMatrix{sout-C-CCC}{中}{\CJKsout{中文}}{中文}{文}
+
+  \BoundaryMatrix{mbox-W-CWC}{中}{\mbox{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{mbox-C-WCW}{A}{\mbox{中文}}{中文}{B}
+  \BoundaryMatrix{mbox-C-CCC}{中}{\mbox{中文}}{中文}{文}
+  \BoundaryMatrix{makebox-opt-W}{中}{\makebox[4em][l]{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{makebox-opt-C}{A}{\makebox[4em][l]{中文}}{中文}{B}
+  \BoundaryMatrix{makebox-opt-C-CCC}{中}{\makebox[4em][l]{中文}}{中文}{文}
+  \BoundaryMatrix{fbox-W-CWC}{中}{\fbox{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{fbox-C}{A}{\fbox{中文}}{中文}{B}
+  \BoundaryMatrix{fbox-C-CCC}{中}{\fbox{中文}}{中文}{文}
+  \BoundaryMatrix{framebox-opt-C}{A}{\framebox[4em][l]{中文}}{中文}{B}
+  \BoundaryMatrix{colorbox-W-CWC}{中}{\colorbox{yellow}{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{colorbox-C}{A}{\colorbox{yellow}{中文}}{中文}{B}
+  \BoundaryMatrix{colorbox-C-CCC}{中}{\colorbox{yellow}{中文}}{中文}{文}
+  \BoundaryMatrix{fcolorbox-C}{A}{\fcolorbox{red}{yellow}{中文}}{中文}{B}
+
+  \BoundaryMatrix{mixed-CD}{中}{\mbox{中A}}{中A}{文}
+  \BoundaryMatrix{mixed-DC}{中}{\mbox{A中}}{A中}{文}
+  \BoundaryMatrix{nested-CD}{中}{\fbox{\mbox{中A}}}{中A}{文}
+  \BoundaryMatrix{nested-DC}{中}{\fbox{\mbox{A中}}}{A中}{文}
+  \BoundaryMatrix{nested-depth-12}{中}{\BoundaryDeepBoxes{中文}}{中文}{文}
+  \BoundaryMatrix{scratch-hidden-CJK}{中}
+    {\fbox{\BoundaryMeasuredWestern}}{Alpha}{文}
+
+  \BoundaryMatrix{post-null-W}{中}{Alpha\null}{Alpha}{文}
+  \BoundaryMatrix{post-null-C-WCW}{A}{中文\null}{中文}{B}
+  \BoundaryMatrix{post-null-C}{中}{中文\null}{中文}{文}
+  \BoundaryMatrix{post-null-explicit-glue-W}{中}
+    {\hskip 7pt\null Alpha}{\hskip 7pt Alpha}{文}
+  \BoundaryMatrix{assigned-null-W}{中}
+    {\BoundaryAssignedNullWestern}{Alpha}{文}
+  \BoundaryMatrix{assigned-null-explicit-glue-W}{中}
+    {\hskip 7pt\BoundaryAssignedNullWestern}{\hskip 7pt Alpha}{文}
+  \BoundaryMatrix{HD-target-W}{中}{\BoundaryHDTarget Alpha}{Alpha}{文}
+  \BoundaryMatrix{HD-target-C}{A}{\BoundaryHDTarget 中文}{中文}{B}
+
+  \BoundaryMatrix{href-W}{中}{\href{https://example.com}{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{href-C-WCW}{A}{\href{https://example.com}{中文}}{中文}{B}
+  \BoundaryMatrix{href-C-CCC}{中}{\href{https://example.com}{中文}}{中文}{文}
+  \BoundaryMatrix{href-mixed-CD}{A}
+    {\href{https://example.com}{中A}}{中A}{文}
+  \BoundaryMatrix{href-mixed-DC}{中}
+    {\href{https://example.com}{A中}}{A中}{B}
+  \BoundaryMatrix{hyperref-W}{中}
+    {\hyperref[boundary-western]{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{hyperref-C-WCW}{A}
+    {\hyperref[boundary-chinese]{中文}}{中文}{B}
+  \BoundaryMatrix{hyperref-C-CCC}{中}
+    {\hyperref[boundary-chinese]{中文}}{中文}{文}
+  \BoundaryMatrix{ref-W}{中}{\ref{boundary-western}}{Alpha}{文}
+  \BoundaryMatrix{ref-C}{A}{\ref{boundary-chinese}}{中文}{B}
+  \BoundaryMatrix{ref-C-CCC}{中}{\ref{boundary-chinese}}{中文}{文}
+  \BoundaryMatrix{pageref-W}{中}{\pageref{boundary-western}}{1}{文}
+  \BoundaryMatrix{eqref-W}{中}{\eqref{boundary-western}}{(Alpha)}{文}
+  \BoundaryMatrix{eqref-C}{中}{\eqref{boundary-chinese}}{(中文)}{文}
+  \BoundaryMatrix{url-W}{中}{\url{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{nolinkurl-W}{中}{\nolinkurl{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{meta-W}{中}{\meta{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{meta-C}{中}{\meta{中文}}{<中文>}{文}
+  \BoundaryMatrix{cs-W}{中}{\cs{Alpha}}{Alpha}{文}
+  \BoundaryMatrix{cs-C}{A}{\cs{中文}}{\textbackslash 中文}{B}
+  \BoundaryMatrix{pagetracker-W-CWC}{中}
+    {\BoundaryPageTracker Alpha}{Alpha}{文}
+  \BoundaryMatrix{pagetracker-C-WCW}{A}
+    {\BoundaryPageTracker 中文}{中文}{B}
+  \BoundaryMatrix{pagetracker-C}{中}{\BoundaryPageTracker 中文}{中文}{文}
+}
+
+\TEST{CJKspace direct-input matrices}{
+  \begingroup
+    \xeCJKsetup{CJKspace=true}
+    \BoundaryMatrix{CJKspace-mbox-W}{中}{\mbox{Alpha}}{Alpha}{文}
+    \BoundaryMatrix{CJKspace-mbox}{中}{\mbox{中文}}{中文}{文}
+    \BoundaryMatrix{CJKspace-nested}{中}{\fbox{\mbox{中文}}}{中文}{文}
+    \BoundaryMatrix{CJKspace-href-W}{中}
+      {\href{https://example.com}{Alpha}}{Alpha}{文}
+    \BoundaryMatrix{CJKspace-href}{中}{\href{https://example.com}{中文}}{中文}{文}
+    \BoundaryMatrix{CJKspace-post-null-C}{中}{中文\null}{中文}{文}
+  \endgroup
+}
+
+\TEST{xCJKecglue direct-input matrices}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \BoundaryMatrix{xCJKecglue-mbox-W}{中}{\mbox{Alpha}}{Alpha}{文}
+    \BoundaryMatrix{xCJKecglue-mbox-C}{A}{\mbox{中文}}{中文}{B}
+  \endgroup
+}
+
+% Delimiter-scanning \verb cannot occur in \BoundaryMatrix's arguments.
+\BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|Alpha|}
+\BoundaryAssertIdle{verb-W}{standalone}
+\BoundaryReset\setbox\BoundaryOracle=\hbox{Alpha}
+\BoundaryIntrinsicDelta=\dimexpr
+  \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|Alpha|文}
+\BoundaryAssertIdle{verb-W}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中Alpha文}
+\BoundaryReport{verb-W}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|Alpha|文}
+\BoundaryAssertIdle{verb-W}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 Alpha文}
+\BoundaryReport{verb-W}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|Alpha| 文}
+\BoundaryAssertIdle{verb-W}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中Alpha 文}
+\BoundaryReport{verb-W}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|Alpha| 文}
+\BoundaryAssertIdle{verb-W}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 Alpha 文}
+\BoundaryReport{verb-W}{11}
+
+\BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|中文|}
+\BoundaryAssertIdle{verb-C}{standalone}
+\BoundaryReset\setbox\BoundaryOracle=\hbox{中文}
+\BoundaryIntrinsicDelta=\dimexpr
+  \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A\verb|中文|B}
+\BoundaryAssertIdle{verb-C-WCW}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A中文B}
+\BoundaryReport{verb-C-WCW}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A \verb|中文|B}
+\BoundaryAssertIdle{verb-C-WCW}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A 中文B}
+\BoundaryReport{verb-C-WCW}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A\verb|中文| B}
+\BoundaryAssertIdle{verb-C-WCW}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A中文 B}
+\BoundaryReport{verb-C-WCW}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A \verb|中文| B}
+\BoundaryAssertIdle{verb-C-WCW}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A 中文 B}
+\BoundaryReport{verb-C-WCW}{11}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文|文}
+\BoundaryAssertIdle{verb-C-CCC}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文文}
+\BoundaryReport{verb-C-CCC}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文|文}
+\BoundaryAssertIdle{verb-C-CCC}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文文}
+\BoundaryReport{verb-C-CCC}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文| 文}
+\BoundaryAssertIdle{verb-C-CCC}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文 文}
+\BoundaryReport{verb-C-CCC}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文| 文}
+\BoundaryAssertIdle{verb-C-CCC}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文 文}
+\BoundaryReport{verb-C-CCC}{11}
+
+\begingroup
+  \xeCJKsetup{CJKspace=true}
+  \BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|中文|}
+  \BoundaryAssertIdle{verb-CJKspace}{standalone}
+  \BoundaryReset\setbox\BoundaryOracle=\hbox{中文}
+  \BoundaryIntrinsicDelta=\dimexpr
+    \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+  \BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文|文}
+  \BoundaryAssertIdle{verb-CJKspace}{00}
+  \BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文文}
+  \BoundaryReport{verb-CJKspace}{00}
+  \BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文|文}
+  \BoundaryAssertIdle{verb-CJKspace}{10}
+  \BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文文}
+  \BoundaryReport{verb-CJKspace}{10}
+  \BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文| 文}
+  \BoundaryAssertIdle{verb-CJKspace}{01}
+  \BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文 文}
+  \BoundaryReport{verb-CJKspace}{01}
+  \BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文| 文}
+  \BoundaryAssertIdle{verb-CJKspace}{11}
+  \BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文 文}
+  \BoundaryReport{verb-CJKspace}{11}
+\endgroup
+
+\TYPE{command boundary checks: \the\BoundaryChecks}
+\TYPE{command boundary failures: \the\BoundaryFailures}
+
+\END
+
+\end{document}
