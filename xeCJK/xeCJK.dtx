@@ -12347,19 +12347,29 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\xeCJK_ulem_group_begin:,\xeCJK_ulem_group_end:,\xeCJK_ulem_on:n}
+% \begin{macro}[int]{
+%   \@@_ulem_stream_begin:,
+%   \xeCJK_ulem_group_begin:,
+%   \xeCJK_ulem_group_end:,
+%   \xeCJK_ulem_on:n}
 % \changes{v3.10.4}{2026/07/20}{将 xeCJKfntef 线型命令、原生
 %   \pkg{ulem} 入口（如 \tn{uline}）、\tn{xeCJKfntefon} 与独立符号命令
 %   接入 stream capture，并让内部 pending 通过 framework 的统一辅助函数
 %   发布；删除 fntef 专用末状态恢复和 pending 设置（\#992）。}
+% \changes{v3.10.4}{2026/07/20}{让嵌套的 \pkg{ulem}/xeCJKfntef
+%   线型命令只由最外层启动 stream capture，修复 capture 栈逐次累积的
+%   状态泄漏（\#992）。}
 % 线型命令的正文参数由 ulem 自己扫描，不能使用普通 cmd after hook。
 % ulem 会把正文拆进固定宽度字盒；framework 算出的左侧 glue 因此通过
 % \cs{@@_boundary_use_ulem_glue:n} 转交 ulem 的 \tn{UL@stop}/\tn{UL@start}
 % 外层通道，保留弹性和断行位置且不把间距画上线。本包的线型命令在
 % 装饰符号测量前启动 stream；原生 \tn{uline} 等命令和
 % \tn{xeCJKfntefon} 则由共有的 \tn{ULon} 补上同一入口。局部布尔避免
-% 本包命令在到达 \tn{ULon} 时重复启动。在 \cs{@@_ulem_end:} 把真实
-% 末尾 marker 移到外层列表后结束并清除布尔。
+% 本包命令在到达 \tn{ULon} 时重复启动。原生 ulem 命令嵌套本包线型命令
+% 时，内层会走 ulem 的 \tn{UL@onin} 路径而不会另行调用
+% \cs{@@_ulem_end:}；因此 group 入口与 \tn{ULon} 必须共用同一个“仅最外层
+% 启动”辅助函数。所有嵌套层复用外层 stream，最外层唯一的
+% \cs{@@_ulem_end:} 把真实末尾 marker 移到外层列表后结束并清除布尔。
 % 独立符号命令在
 % \cs{@@_under_symbol_auxii:nnnnnn} 的对应两端使用同一 begin/end。
 %    \begin{macrocode}
@@ -12377,11 +12387,18 @@ Copyright and Licence
       }
       { \skip_horizontal:n {#1} }
   }
+\cs_new_protected:Npn \@@_ulem_stream_begin:
+  {
+    \bool_if:NF \l_@@_ulem_stream_started_bool
+      {
+        \bool_set_true:N \l_@@_ulem_stream_started_bool
+        \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
+      }
+  }
 \cs_new_protected:Npn \xeCJK_ulem_group_begin:
   {
     \mode_leave_vertical:
-    \bool_set_true:N \l_@@_ulem_stream_started_bool
-    \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
+    \@@_ulem_stream_begin:
     \c_group_begin_token
   }
 \cs_new_protected:Npn \xeCJK_ulem_group_end:
@@ -12391,11 +12408,7 @@ Copyright and Licence
 \cs_new_eq:NN \@@_orig_ulem_on: \ULon
 \cs_set_protected:Npn \ULon
   {
-    \bool_if:NF \l_@@_ulem_stream_started_bool
-      {
-        \bool_set_true:N \l_@@_ulem_stream_started_bool
-        \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
-      }
+    \@@_ulem_stream_begin:
     \@@_orig_ulem_on:
   }
 \bool_new:N \l_@@_ulem_stream_started_bool

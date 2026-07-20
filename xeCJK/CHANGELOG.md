@@ -15,6 +15,7 @@
 - 将内核 `\@setref`（或 `hyperref` 保存的 `\real@setref`）注册为 auto stream capture，以统一框架取代 #991 的专用 saved-node/replay 补丁。
 - 把 `\blx@pagetracker` 从单向清空状态改为 transparent capture，使 write whatsit 对两侧实际可见边界透明（#992）。
 - 将 xeCJKfntef 线型命令、原生 `ulem` 入口（如 `\uline`）、`\xeCJKfntefon` 与独立符号命令接入 stream capture，并让内部 pending 通过 framework 的统一辅助函数发布；删除 fntef 专用末状态恢复和 pending 设置（#992）。
+- 让嵌套的 `ulem`/xeCJKfntef 线型命令只由最外层启动 stream capture，修复 capture 栈逐次累积的状态泄漏（#992）。
 - 改用 framework 的可嵌套暂停区隔离装饰符号测量盒，同时保存、恢复 marker 与 pending 状态（#992）。
 - 将 `\lstinline` 的分隔符、活动字符和花括号扫描路径接入 auto stream capture，使颜色切换前后的四种源码空格组合都与直接输入一致（#992）。
 
