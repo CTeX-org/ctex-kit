@@ -483,12 +483,16 @@ Copyright and Licence
 %
 % \changes{v3.10.4}{2026/07/20}{在用户手册说明显式 glue 与源码空格的
 %   歧义窗口及零宽 \tn{kern} workaround（\#992）。}
+% \changes{v3.10.4}{2026/07/20}{手册歧义窗口说明扩展到 Boundary→CJK
+%   方向：与词间空格同构的显式 glue 也可能被替换为
+%   |CJKglue|（\#996）。}
 % 注意：\TeX{} 的节点列表不记录一枚 glue 来自源码空格还是显式 \tn{hskip}。
 % 在 \tn{mbox}、\tn{textcolor} 等命令或分组之后，若显式写出的 glue 与当前
 % 词间空格具有相同的自然宽度并带 shrink，\pkg{xeCJK} 无法把它与源码空格
-% 区分，可能按边界恢复规则把它替换为 |CJKecglue|。需要原样保留这类显式
-% glue 时，请在它前面加零宽 |\kern0pt|（或改用不同自然宽度、无 shrink 的
-% glue），使边界检查在显式边界处停止。
+% 区分，可能按边界恢复规则把它替换为 |CJKecglue| 或 |CJKglue|。自然宽度
+% 不同于词间空格或没有 shrink 分量的显式 glue 不受影响。需要原样保留
+% 前一类显式 glue 时，请在它前面加零宽 |\kern0pt|（或改用不同自然宽度、
+% 无 shrink 的 glue），使边界检查在显式边界处停止。
 %
 % \begin{function}[updated=2013-06-26]{CheckSingle}
 %   \begin{syntax}
@@ -3614,6 +3618,7 @@ Copyright and Licence
 %   \@@_recover_ecglue_source_space_success:,
 %   \@@_recover_ecglue_source_space_restore:,
 %   \@@_recover_ecglue_source_space_fallback:,
+%   \@@_glue_check_expire_stale:,
 %   \@@_skip_if_interword:N}
 % \changes{v3.10.0}{2026/04/30}{移除通用 whatsit 恢复，避免
 %   \pkg{hyperref} 链接注释等 whatsit 节点导致 \texttt{CJKecglue}
@@ -3651,6 +3656,18 @@ Copyright and Licence
 % last node（或已由 restore 原样还回），aux 无法越过它取得下方 marker；
 % 这枚未获验证的 glue 本身就是要保留的显式边界。只有 success 路径移除
 % glue 并验证 CJK marker 后才允许改发 \tn{CJKecglue}。
+%
+% \changes{v3.10.4}{2026/07/20}{新增 \cs{@@_glue_check_expire_stale:}：
+%   顶层恢复链在空列表上探测时结束过期的 pending 门控，阻止
+%   \cs{g_@@_glue_check_pending_bool} 跨 \tn{hbox}/\tn{setbox}
+%   存活（\#996）。}
+% \cs{g_@@_glue_check_pending_bool} 是全局旗标，盒尾 catcode-2 分组结束
+% 设置后可能跨 \tn{setbox} 存活到下一个水平列表。pending 授权的是“紧邻
+% 可信 marker 的一次源码空格检查”；空列表上不可能存在这样的证据，因此
+% 顶层（无活跃 capture）恢复链在 |\tex_lastnodetype:D| 为负时直接结束
+% pending 状态。capture 活跃时不做此判断：\pkg{ulem} 等 stream 会在内部
+% 字盒中触发同一恢复链，其 pending 须留给命令外的真实边界；capture 入口
+% 本身已清空 pending，无陈旧状态可言。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_Boundary_and_Default:
   {
@@ -3678,7 +3695,7 @@ Copyright and Licence
       {
         \xeCJK_if_last_node:nTF { CJK-space }
           { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-          { }
+          { \@@_glue_check_expire_stale: }
       }
   }
 \dim_new:N \l_@@_interword_dim
@@ -3741,6 +3758,14 @@ Copyright and Licence
     \skip_horizontal:N \l_@@_last_skip
   }
 \cs_new_eq:NN \@@_recover_ecglue_source_space_fallback: \prg_do_nothing:
+\cs_new_protected:Npn \@@_glue_check_expire_stale:
+  {
+    \int_compare:nNnT { \g_@@_boundary_capture_depth_int } = \c_zero_int
+      {
+        \int_compare:nNnT { \tex_lastnodetype:D } < \c_zero_int
+          { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+      }
+  }
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
 %    \end{macrocode}
 % \end{macro}
@@ -3868,7 +3893,10 @@ Copyright and Licence
           {
             \@@_if_last_math:TF
               { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
-              { \@@_check_for_glue_auxii: }
+              {
+                \@@_glue_check_expire_stale:
+                \@@_check_for_glue_auxii:
+              }
           }
       }
   }
@@ -3880,16 +3908,22 @@ Copyright and Licence
 % \changes{v3.10.4}{2026/07/20}{由命令边界 framework 接管
 %   \pkg{xeCJKfntef}、盒命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit
 %   下方类别的旧回退；glue 分支现在只接受紧邻的可信 marker（\#992）。}
+% \changes{v3.10.4}{2026/07/20}{Boundary 到 CJK 的源码空格候选校验升级为
+%   与 Default 方向同款的 \cs{@@_skip_if_interword:N} 谓词，自然宽度
+%   不等于当前词间空格的显式 glue 不再被替换为 \tn{CJKglue}（\#996）。}
 % 统一 framework 在已知命令出口重放可信 marker，并通过
 % |\g_@@_glue_check_pending_bool| 开启一次源码空格检查；显式分组的
 % catcode 2 结束点也使用同一门控。若候选 glue 下方不是 kern marker，
 % 本函数原样还回 glue 并进入标点检测链，不再根据任意 hlist、whatsit 或
 % 可能陈旧的 |\g_@@_last_node_tl| 猜测输出类别。
 %
-% \pkg{listings} 等宏包在 CJK 字符间放置 fil 级别的 glue 用于列对齐，
-% 通过 |\skip_if_finite:nTF| 将其排除。
-% 标题格式中的 |\quad| 等有意放置的间距没有 shrink 分量，
-% 通过检测 |\tex_glueshrink:D| 来排除。
+% 候选 glue 使用与 Boundary→Default 方向相同的
+% \cs{@@_skip_if_interword:N} 谓词校验：\pkg{listings} 等宏包在 CJK
+% 字符间放置的 fil 级列对齐 glue 不是 finite；标题格式中 |\quad| 等
+% 有意放置的间距没有 shrink 分量；显式 |\hskip| 的自然宽度通常不等于
+% 当前词间空格。三类都不进入源码空格分支。与词间空格完全同构的显式
+% glue 仍处在文档化的歧义窗口内，workaround 与 Default 方向一致：在它
+% 前面加零宽 \tn{kern}。
 %
 % 本函数仅在 |\@@_if_last_glue:TF| 的 true 分支中调用，
 % 因此入口处 |\tex_lastskip:D| 保证为非零 glue。
@@ -3897,17 +3931,12 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_check_for_glue_skip:
   {
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
-    \skip_if_finite:nTF { \l_@@_last_skip }
+    \@@_skip_if_interword:NTF \l_@@_last_skip
       {
-        \dim_compare:nNnTF
-          { \tex_glueshrink:D \l_@@_last_skip } > \c_zero_dim
-          {
-            \tex_unskip:D
-            \@@_if_last_kern:TF
-              { \@@_check_for_glue_skip_kern: }
-              { \@@_check_for_glue_skip_nonkern: }
-          }
-          { \@@_check_for_glue_skip_consume_and_fallback: }
+        \tex_unskip:D
+        \@@_if_last_kern:TF
+          { \@@_check_for_glue_skip_kern: }
+          { \@@_check_for_glue_skip_nonkern: }
       }
       { \@@_check_for_glue_skip_consume_and_fallback: }
   }
