@@ -27,15 +27,17 @@
 % \__xeCJK_recover_glue_whatsit:'s default branch emits another ecglue
 % on top of the existing glue -> double spacing.
 %
-% Fix: \__xeCJK_flush_language_whatsit: appended to \verb@egroup forces
-% the whatsit out immediately at group close:
+% The #919 fix appends \__xeCJK_flush_language_whatsit: to \verb@egroup,
+% forcing the whatsit out immediately at group close:
 %
 %   kern pair -> setlanguage -> glue(source space) -> [probe point]
 %
 % The probe now sees the glue and takes the glue branch; no extra
-% ecglue. The whatsit only exists in outer horizontal mode (paragraph),
-% so the box constructions below use \vbox{...\par}; restricted \hbox
-% mode never had the bug.
+% ecglue. The #992 stream capture additionally saves the boundary before
+% \verb's leading \null and replays the actual final Default/CJK class
+% after the language whatsit. The whatsit only exists in outer horizontal
+% mode (paragraph), so the box constructions below use \vbox{...\par};
+% restricted \hbox mode still supplies the direct node/width reference.
 %
 % NOTE: checkopts has -halt-on-error and \showbox reports "! OK.", so we use
 % \box instead and add \loggingoutput before. Width comparisons (\TYPE of \wd
@@ -44,21 +46,18 @@
 % \verb cannot appear inside a macro argument, so boxes are set at the
 % top level.
 
-% 1sp/1sp main scenario vs 1sp/0sp: identical left side; right side is
-% source space (single inter-word glue after the fix) vs bare default-
-% branch ecglue. Both have the same natural width, so the vbox widths
-% (single-line paragraphs under \hsize) must produce the same line
-% content width. Compare via \hbox re-measurement of the same content.
+% Default inter-word space and CJKecglue have the same natural width in
+% this font. All four source-space variants therefore have the same
+% natural width once both verb boundaries follow the direct-input oracle.
 \setbox0=\hbox{用 \verb|X| 无}
 \setbox1=\hbox{用 \verb|X|无}
 \setbox2=\hbox{用\verb|X|无}
 \setbox3=\hbox{用\verb|X| 无}
 
 \TEST{restricted hbox widths (inventory)}{
-  % In restricted horizontal mode there is no language whatsit, so
-  % these widths are the no-bug reference inventory. All four must
-  % stay unchanged by the patch (flush is \mode_if_horizontal:T only,
-  % i.e. outer horizontal mode).
+  % In restricted horizontal mode there is no language whatsit. The
+  % capture must nevertheless restore both boundaries for all four
+  % source-space combinations.
   \TYPE{1sp/1sp hbox: \the\wd0}
   \TYPE{1sp/0sp hbox: \the\wd1}
   \TYPE{0sp/0sp hbox: \the\wd2}
@@ -90,10 +89,10 @@
 }
 
 \TEST{node-level dump, 1sp main scenario (919)}{
-  % THE oracle: before the fix the right side of the verb shows TWO
-  % adjacent "\glue 3.33" nodes (source space + default branch) with
-  % \setlanguage0 between kern pair and first glue; after the fix a
-  % single glue with \setlanguage0 emitted right after the kern pair.
+  % THE oracle: before #919 the right side showed TWO 3.33pt glues
+  % (source space + default recovery). The current list has one left
+  % ecglue after \null/\setlanguage2, a replayed Default marker after X,
+  % then \setlanguage0 and one right source-space glue.
   % Must use \box, or -halt-on-error will stops at \showbox's "! OK."
   \box4
   \clearpage
