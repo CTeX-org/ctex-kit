@@ -3600,11 +3600,11 @@ Copyright and Licence
 %   \xeCJK_Boundary_and_Default:,
 %   \@@_check_for_ecglue:,
 %   \@@_check_for_ecglue_aux:,
-%   \@@_check_for_ecglue_skip:,
-%   \@@_check_for_ecglue_skip_aux:,
-%   \@@_check_for_ecglue_skip_success:,
-%   \@@_check_for_ecglue_skip_restore:,
-%   \@@_check_for_ecglue_skip_fallback:,
+%   \@@_recover_ecglue_source_space:,
+%   \@@_recover_ecglue_source_space_aux:,
+%   \@@_recover_ecglue_source_space_success:,
+%   \@@_recover_ecglue_source_space_restore:,
+%   \@@_recover_ecglue_source_space_fallback:,
 %   \@@_skip_if_interword:N}
 % \changes{v3.10.0}{2026/04/30}{移除通用 whatsit 恢复，避免
 %   \pkg{hyperref} 链接注释等 whatsit 节点导致 \texttt{CJKecglue}
@@ -3621,6 +3621,10 @@ Copyright and Licence
 % 宽度与当前词间空格相等；spacefactor 会微调 stretch/shrink，不能要求
 % 整份 skip 严格相等。命中 CJK、CJK-space 或 CJK-widow marker 时才消费并换成
 % 缓存的 \tn{CJKecglue}。若下方不是可信 marker，则原样还回 glue。
+% 节点层无法区分源码空格与参数完全相同的显式 \tn{hskip}；因此紧跟在已注册
+% 命令之后、自然宽度等于当前词间空格且带 shrink 的显式 glue 也处在这段
+% 有界歧义窗口内。需要保留这类显式 glue 时，可在其前加零宽 \tn{kern}，
+% 或使用不同自然宽度 / 无 shrink 的 glue，使回卷器在可信 marker 前停止。
 % restore/fallback 不清除 \cs{g_@@_glue_check_pending_bool}：该 glue 可能来自
 % \pkg{ulem} 内部列表，旗标仍须留给命令外真正的 CJK 边界；只有成功消费
 % marker 时才结束 pending 状态。
@@ -3639,7 +3643,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_check_for_ecglue:
   {
     \@@_if_last_glue:TF
-      { \@@_check_for_ecglue_skip: }
+      { \@@_recover_ecglue_source_space: }
       { \@@_check_for_ecglue_aux: }
   }
 \cs_new_protected:Npn \@@_check_for_ecglue_aux:
@@ -3674,7 +3678,7 @@ Copyright and Licence
       }
       { \prg_return_false: }
   }
-\cs_new_protected:Npn \@@_check_for_ecglue_skip:
+\cs_new_protected:Npn \@@_recover_ecglue_source_space:
   {
     \bool_if:NTF \g_@@_glue_check_pending_bool
       {
@@ -3682,38 +3686,38 @@ Copyright and Licence
         \@@_skip_if_interword:NTF \l_@@_last_skip
           {
             \tex_unskip:D
-            \@@_check_for_ecglue_skip_aux:
+            \@@_recover_ecglue_source_space_aux:
           }
-          { \@@_check_for_ecglue_skip_fallback: }
+          { \@@_recover_ecglue_source_space_fallback: }
       }
-      { \@@_check_for_ecglue_skip_fallback: }
+      { \@@_recover_ecglue_source_space_fallback: }
   }
-\cs_new_protected:Npn \@@_check_for_ecglue_skip_aux:
+\cs_new_protected:Npn \@@_recover_ecglue_source_space_aux:
   {
     \xeCJK_if_last_node:nTF { CJK }
-      { \@@_check_for_ecglue_skip_success: }
+      { \@@_recover_ecglue_source_space_success: }
       {
         \xeCJK_if_last_node:nTF { CJK-widow }
-          { \@@_check_for_ecglue_skip_success: }
+          { \@@_recover_ecglue_source_space_success: }
           {
             \xeCJK_if_last_node:nTF { CJK-space }
-              { \@@_check_for_ecglue_skip_success: }
-              { \@@_check_for_ecglue_skip_restore: }
+              { \@@_recover_ecglue_source_space_success: }
+              { \@@_recover_ecglue_source_space_restore: }
           }
       }
   }
-\cs_new_protected:Npn \@@_check_for_ecglue_skip_success:
+\cs_new_protected:Npn \@@_recover_ecglue_source_space_success:
   {
     \xeCJK_remove_node:
     \skip_horizontal:N \l_@@_ecglue_skip
     \bool_if:NT \g_@@_glue_check_pending_bool
       { \bool_gset_false:N \g_@@_glue_check_pending_bool }
   }
-\cs_new_protected:Npn \@@_check_for_ecglue_skip_restore:
+\cs_new_protected:Npn \@@_recover_ecglue_source_space_restore:
   {
     \skip_horizontal:N \l_@@_last_skip
   }
-\cs_new_eq:NN \@@_check_for_ecglue_skip_fallback: \prg_do_nothing:
+\cs_new_eq:NN \@@_recover_ecglue_source_space_fallback: \prg_do_nothing:
 \cs_new_eq:NN \xeCJK_check_for_ecglue: \@@_check_for_ecglue:
 %    \end{macrocode}
 % \end{macro}
@@ -4312,6 +4316,8 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_xecglue_flag_tl }
       }
   }
+\@@_boundary_capture_allocate:n { 1 }
+\@@_boundary_capture_allocate:n { 2 }
 
 \cs_new_protected:Npn \@@_boundary_capture_class:n #1
   {
@@ -4446,6 +4452,8 @@ Copyright and Licence
             \tl_use:c
               { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
           }
+        % |default| 的开始 hook 已经固定首类别；这里仅覆写末类别即可让
+        % stream 两端都为 Default，同时不丢弃其他模式实际观察到的首类别。
         \str_if_eq:nnT {#1} { default }
           { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
         \tl_gclear:N \g_@@_last_node_tl
@@ -4548,8 +4556,12 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_capture_begin:
   {
     \int_gincr:N \g_@@_boundary_capture_depth_int
-    \exp_args:Ne \@@_boundary_capture_allocate:n
-      { \int_use:N \g_@@_boundary_capture_depth_int }
+    \int_compare:nNnT
+      { \g_@@_boundary_capture_depth_int } > { 2 }
+      {
+        \exp_args:Ne \@@_boundary_capture_allocate:n
+          { \int_use:N \g_@@_boundary_capture_depth_int }
+      }
     \tl_gclear:c
       { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
     \tl_gclear:c
@@ -4575,28 +4587,12 @@ Copyright and Licence
     \tl_gset:cn
       { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _space_flag_tl }
       { false }
-    \bool_if:NTF \l_@@_reserve_space_bool
-      {
-        \tl_gset:cn
-          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _reserve_space_flag_tl }
-          { true }
-      }
-      {
-        \tl_gset:cn
-          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _reserve_space_flag_tl }
-          { false }
-      }
-    \bool_if:NTF \l_@@_xecglue_bool
-      {
-        \tl_gset:cn
-          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
-          { true }
-      }
-      {
-        \tl_gset:cn
-          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
-          { false }
-      }
+    \tl_gset:ce
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _reserve_space_flag_tl }
+      { \bool_if:NTF \l_@@_reserve_space_bool { true } { false } }
+    \tl_gset:ce
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
+      { \bool_if:NTF \l_@@_xecglue_bool { true } { false } }
     \@@_boundary_capture_space:
     \scan_stop:
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
@@ -4726,6 +4722,9 @@ Copyright and Licence
         \tl_use:c
           { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
       }
+    % 盒捕获没有独立的 stream 入口，故 |default| 在这里同时覆写实际观察到
+    % 的首尾类别；stream 路径则由开始 hook 固定首类别、结束 hook 固定
+    % 末类别，两条路径的公开语义相同。
     \str_if_eq:nnT {#1} { default }
       {
         \tl_set:Nn \l_@@_boundary_first_tl { default }
