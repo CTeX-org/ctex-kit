@@ -10,7 +10,8 @@ Assets for [CTeX-org/ctex-kit#992](https://github.com/CTeX-org/ctex-kit/issues/9
 单元；候选与直接输入始终使用相同的 `xCJKecglue` 设置。
 
 - `false`：默认间距和可区分间距均为 320／320 通过；
-- `true`：默认间距为 318／320 通过，可区分间距为 312／320 通过。
+- `true`：初次审计时默认间距为 318／320 通过，可区分间距为
+  312／320 通过；PR #1005 合并后，两种设置均为 320／320 通过。
 
 精确失败单元见 [`xecglue-matrix-summary.txt`](./xecglue-matrix-summary.txt)。
 行内公式改用 #1002 决定的直接公式基准，不计入上述普通命令矩阵。
@@ -123,3 +124,15 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   showcase/crossbox-hskip.png, showcase/mbox-math.png,
   showcase/mbox-rule.png, and showcase/siunitx.png. These replace the wider
   PR before/after composites previously used in rows 27--30.
+
+## Post-merge refresh for PR #1005 (2026-07-21)
+
+- Rebase-merged master commit 8007e4df was unpacked before rerunning all 16
+  drivers: core, links, verb, and biblatex, each with
+  `xCJKecglue=false/true` and package-default/distinguishing glue values.
+- Each of the four configurations reports 320/320 ordinary command cells
+  passing, with no `MATRIX|...|FAIL|` lines. The four inline-math cells
+  tracked by #1002 remain outside that ordinary-command total.
+- The merged commit regenerated `mbox-xecglue-true.png`,
+  `fbox-xecglue-true.png`, and `post-null-xecglue-true.png`; all cells shown
+  in these living-table images now match their direct-input oracles.
