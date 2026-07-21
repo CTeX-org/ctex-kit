@@ -1,0 +1,146 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{xeCJKfntef}
+
+\setCJKmainfont
+  [
+    BoldFont = FandolHei-Regular.otf ,
+    ItalicFont = FandolFang-Regular.otf
+  ]
+  { FandolSong-Regular.otf }
+
+\newcommand\InlineMathWrapper[1]{#1}
+
+\showboxbreadth=100
+\showboxdepth=20
+
+\ExplSyntaxOn
+\cs_new:Npn \MathBoundaryPendingState
+  {
+    \bool_if:NTF \g__xeCJK_glue_check_pending_bool
+      { true } { false }
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+% Keep lazy fontspec family creation outside the normalized test log.
+\setbox0=\hbox{\textbf{中}\textit{中}}
+
+\START
+
+\loggingoutput
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{direct formula without source spaces}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}%
+    \setbox0=\hbox{中$x$文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{direct formula keeps source spaces when xCJKecglue is false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}%
+    \setbox0=\hbox{中 $x$ 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{direct formula replaces source spaces when xCJKecglue is true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 $x$ 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{explicit group preserves formula boundary nodes}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 {$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{identity macro preserves formula boundary nodes}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \InlineMathWrapper{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{box capture keeps formula glue outside the box}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \mbox{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{text color keeps formula glue outside color specials}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \textcolor{red}{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{hyperlink keeps formula glue on both sides of linked content}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \href{https://example.com}{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{ulem stream keeps formula glue outside the decoration}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \CJKunderline{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{under-dot stream restores both formula boundaries}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中 \CJKunderdot{$x$} 文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{formula in a box scratch assignment remains invisible}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \setbox0=\hbox{中\mbox{\setbox2=\hbox{$x$}}文}%
+    \box0
+    \clearpage
+  \endgroup
+}
+
+\TEST{scratch formula does not leave source-space recovery pending}{
+  \setbox2=\hbox{$x$}%
+  \TYPE{formula scratch pending: \MathBoundaryPendingState}%
+}
+
+\END
+
+\end{document}

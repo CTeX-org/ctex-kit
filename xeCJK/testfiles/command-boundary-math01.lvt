@@ -1,0 +1,217 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+\usepackage{hyperref}
+
+\setCJKmainfont
+  [
+    BoldFont = FandolHei-Regular.otf ,
+    ItalicFont = FandolFang-Regular.otf
+  ]
+  { FandolSong-Regular.otf }
+\setCJKmonofont{FandolFang-Regular.otf}
+
+\newbox\MathBoundaryCandidate
+\newbox\MathBoundaryOracle
+\newbox\MathBoundaryCandidateContext
+\newbox\MathBoundaryOracleContext
+\newbox\MathBoundaryScratch
+\newdimen\MathBoundaryIntrinsicDelta
+\newdimen\MathBoundaryDelta
+\newcount\MathBoundaryChecks
+\newcount\MathBoundaryFailures
+
+\ExplSyntaxOn
+% Test-only white-box reset/assertions; these internal variables are not API.
+\cs_new_protected:Npn \MathBoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \MathBoundaryCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\cs_new:Npn \MathBoundaryCaptureStackCount
+  { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
+\cs_new:Npn \MathBoundaryCaptureSuspendDepth
+  { \int_use:N \g__xeCJK_boundary_suspend_depth_int }
+\ExplSyntaxOff
+
+\newcommand\MathBoundaryAssertIdle[2]{%
+  \ifnum\MathBoundaryCaptureDepth=0\relax
+    \ifnum\MathBoundaryCaptureStackCount=0\relax
+    \else
+      \global\advance\MathBoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 left a nonempty capture stack}%
+    \fi
+  \else
+    \global\advance\MathBoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture depth}%
+  \fi
+  \ifnum\MathBoundaryCaptureSuspendDepth=0\relax
+  \else
+    \global\advance\MathBoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture suspension depth}%
+  \fi
+}
+
+\newcommand\MathBoundaryVariant[4]{%
+  \global\advance\MathBoundaryChecks by 1
+  \MathBoundaryReset
+  \setbox\MathBoundaryCandidateContext=\hbox{#3}%
+  \MathBoundaryAssertIdle{#1}{#2}%
+  \MathBoundaryReset
+  \setbox\MathBoundaryOracleContext=\hbox{#4}%
+  \MathBoundaryDelta=\dimexpr
+    \wd\MathBoundaryCandidateContext-\wd\MathBoundaryOracleContext-
+    \MathBoundaryIntrinsicDelta\relax
+  \ifdim\MathBoundaryDelta<0pt
+    \MathBoundaryDelta=-\MathBoundaryDelta
+  \fi
+  \ifdim\MathBoundaryDelta<0.01pt
+  \else
+    \global\advance\MathBoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\MathBoundaryDelta}%
+  \fi
+}
+
+% #1: label; #2/#5: surrounding text; #3: candidate; #4: direct output.
+\newcommand\MathBoundaryMatrix[5]{%
+  \MathBoundaryReset
+  \setbox\MathBoundaryCandidate=\hbox{#3}%
+  \MathBoundaryAssertIdle{#1}{standalone}%
+  \MathBoundaryReset
+  \setbox\MathBoundaryOracle=\hbox{#4}%
+  \MathBoundaryIntrinsicDelta=\dimexpr
+    \wd\MathBoundaryCandidate-\wd\MathBoundaryOracle\relax
+  \MathBoundaryVariant{#1}{00}{#2#3#5}{#2#4#5}%
+  \MathBoundaryVariant{#1}{10}{#2 #3#5}{#2 #4#5}%
+  \MathBoundaryVariant{#1}{01}{#2#3 #5}{#2#4 #5}%
+  \MathBoundaryVariant{#1}{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+% The mixed contexts isolate the left and right boundary respectively.
+\newcommand\MathBoundaryPairMatrix[3]{%
+  \MathBoundaryMatrix{#1/CMC}{中}{#2}{#3}{文}%
+  \MathBoundaryMatrix{#1/WMW}{A}{#2}{#3}{B}%
+  \MathBoundaryMatrix{#1/CMW}{中}{#2}{#3}{B}%
+  \MathBoundaryMatrix{#1/WMC}{A}{#2}{#3}{文}%
+}
+
+\newcommand\MathBoundaryCommandMatrix[2]{%
+  \MathBoundaryPairMatrix{#1}{#2}{$x$}%
+}
+
+\newcommand\InlineMathWrapper[1]{#1}
+
+\makeatletter
+\AtBeginDocument{%
+  \expandafter\gdef\csname r@inline-math-boundary-target\endcsname
+    {{1}{1}{title}{inline.math.boundary.target}{}}%
+}
+\makeatother
+
+\newcommand\MathBoundaryRunMatrices{%
+  \MathBoundaryCommandMatrix{paren}{\(x\)}%
+  \MathBoundaryCommandMatrix{ensuremath}{\ensuremath{x}}%
+  \MathBoundaryCommandMatrix{textbf-paren}{\textbf{\(x\)}}%
+  \MathBoundaryCommandMatrix{textcolor-paren}{\textcolor{red}{\(x\)}}%
+  \MathBoundaryCommandMatrix{mbox-ensuremath}{\mbox{\ensuremath{x}}}%
+  \MathBoundaryCommandMatrix{underline-paren}{\CJKunderline{\(x\)}}%
+  \MathBoundaryCommandMatrix{identity-macro}{\InlineMathWrapper{$x$}}%
+  \MathBoundaryCommandMatrix{group}{{$x$}}%
+  \MathBoundaryCommandMatrix{textbf}{\textbf{$x$}}%
+  \MathBoundaryCommandMatrix{textit}{\textit{$x$}}%
+  \MathBoundaryCommandMatrix{texttt}{\texttt{$x$}}%
+  \MathBoundaryCommandMatrix{textcolor}{\textcolor{red}{$x$}}%
+  \MathBoundaryCommandMatrix{mbox}{\mbox{$x$}}%
+  \MathBoundaryCommandMatrix{makebox}{\makebox{$x$}}%
+  \MathBoundaryCommandMatrix{fbox}{\fbox{$x$}}%
+  \MathBoundaryCommandMatrix{colorbox}{\colorbox{yellow}{$x$}}%
+  \MathBoundaryCommandMatrix{CJKunderline}{\CJKunderline{$x$}}%
+  \MathBoundaryCommandMatrix{CJKunderdot}{\CJKunderdot{$x$}}%
+  \MathBoundaryCommandMatrix{CJKsout}{\CJKsout{$x$}}%
+  \MathBoundaryCommandMatrix{hyperref}
+    {\hyperref[inline-math-boundary-target]{$x$}}%
+  \MathBoundaryCommandMatrix{href}
+    {\href{https://example.com}{$x$}}%
+  \MathBoundaryCommandMatrix{underline-textcolor}
+    {\CJKunderline{\textcolor{red}{$x$}}}%
+  \MathBoundaryCommandMatrix{textcolor-underline}
+    {\textcolor{red}{\CJKunderline{$x$}}}%
+  \MathBoundaryCommandMatrix{nested-boxes}
+    {\mbox{\fbox{\textbf{$x$}}}}%
+  % A formula built only in an offline scratch box is not visible output.
+  \MathBoundaryMatrix{scratch-formula-empty}{中}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{$x$}}}{\mbox{}}{文}%
+  \MathBoundaryMatrix{scratch-paren-empty}{中}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{\(x\)}}}{\mbox{}}{文}%
+  \MathBoundaryMatrix{scratch-ensuremath-empty}{中}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{\ensuremath{x}}}}{\mbox{}}{文}%
+  \MathBoundaryMatrix{scratch-sbox-paren-empty}{中}
+    {\mbox{\sbox\MathBoundaryScratch{\(x\)}}}{\mbox{}}{文}%
+  % An offline formula must not become the first or last class of later
+  % visible output from the registered box.
+  \MathBoundaryPairMatrix{scratch-before-default}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{$x$}A}}{\mbox{A}}%
+  \MathBoundaryPairMatrix{scratch-after-default}
+    {\mbox{A\setbox\MathBoundaryScratch=\hbox{$x$}}}{\mbox{A}}%
+  \MathBoundaryPairMatrix{scratch-paren-before-default}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{\(x\)}A}}{\mbox{A}}%
+  \MathBoundaryPairMatrix{scratch-ensuremath-after-default}
+    {\mbox{A\setbox\MathBoundaryScratch=\hbox{\ensuremath{x}}}}{\mbox{A}}%
+  \MathBoundaryPairMatrix{scratch-before-CJK}
+    {\mbox{\setbox\MathBoundaryScratch=\hbox{$x$}中}}{\mbox{中}}%
+  \MathBoundaryPairMatrix{scratch-after-CJK}
+    {\mbox{中\setbox\MathBoundaryScratch=\hbox{$x$}}}{\mbox{中}}%
+}
+
+\begin{document}
+
+\OMIT
+% Pre-warm lazy font families and deeply nested capture registers.
+\setbox0=\hbox{\textbf{中}\textit{中}\texttt{中}}
+\setbox0=\hbox{\textcolor{red}{\CJKunderdot{$x$}}}
+\TIMO
+
+\START
+
+\TEST{package-default glue, xCJKecglue=false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \MathBoundaryRunMatrices
+  \endgroup
+}
+
+\TEST{package-default glue, xCJKecglue=true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \MathBoundaryRunMatrices
+  \endgroup
+}
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{distinguishing glue, xCJKecglue=false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \MathBoundaryRunMatrices
+  \endgroup
+}
+
+\TEST{distinguishing glue, xCJKecglue=true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \MathBoundaryRunMatrices
+  \endgroup
+}
+
+\TYPE{inline math boundary checks: \the\MathBoundaryChecks}
+\TYPE{inline math boundary failures: \the\MathBoundaryFailures}
+
+\END
+
+\end{document}

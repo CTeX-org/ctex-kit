@@ -1,0 +1,136 @@
+\input{regression-test}
+
+\documentclass{article}
+
+% 先加载被适配的宏包，检查 xeCJK 对既有定义的安装路径。
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{ulem}
+\usepackage{amsmath}
+\usepackage{xeCJK}
+\usepackage{xeCJKfntef}
+
+\setCJKmainfont
+  [ BoldFont = FandolHei-Regular.otf ]
+  { FandolSong-Regular.otf }
+
+\newbox\MathCompatCandidate
+\newbox\MathCompatOracle
+\newbox\MathCompatCandidateContext
+\newbox\MathCompatOracleContext
+\newdimen\MathCompatIntrinsicDelta
+\newdimen\MathCompatDelta
+\newcount\MathCompatFailures
+
+\ExplSyntaxOn
+\cs_new:Npn \MathCompatCaptureState
+  {
+    \int_use:N \g__xeCJK_boundary_capture_depth_int /
+    \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } /
+    \int_use:N \g__xeCJK_boundary_suspend_depth_int
+  }
+\cs_new_protected:Npn \MathCompatReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\ExplSyntaxOff
+
+\newcommand\MathCompatAssertIdle[1]{%
+  \edef\MathCompatActualState{\MathCompatCaptureState}%
+  \def\MathCompatExpectedState{0/0/0}%
+  \ifx\MathCompatActualState\MathCompatExpectedState
+  \else
+    \global\advance\MathCompatFailures by 1
+    \TYPE{FAIL: #1 left capture state \MathCompatActualState}%
+  \fi
+}
+
+\newcommand\MathCompatCompare[3]{%
+  \MathCompatReset
+  \setbox\MathCompatCandidate=\hbox{#2}%
+  \MathCompatAssertIdle{#1 standalone candidate}%
+  \MathCompatReset
+  \setbox\MathCompatOracle=\hbox{#3}%
+  \MathCompatIntrinsicDelta=\dimexpr
+    \wd\MathCompatCandidate-\wd\MathCompatOracle\relax
+  \MathCompatReset
+  \setbox\MathCompatCandidateContext=\hbox{中 #2 文}%
+  \MathCompatAssertIdle{#1 context candidate}%
+  \MathCompatReset
+  \setbox\MathCompatOracleContext=\hbox{中 #3 文}%
+  \MathCompatDelta=\dimexpr
+    \wd\MathCompatCandidateContext-\wd\MathCompatOracleContext-
+    \MathCompatIntrinsicDelta\relax
+  \ifdim\MathCompatDelta<0pt
+    \MathCompatDelta=-\MathCompatDelta
+  \fi
+  \ifdim\MathCompatDelta<0.01pt
+  \else
+    \global\advance\MathCompatFailures by 1
+    \TYPE{FAIL: #1 boundary delta is \the\MathCompatDelta}%
+  \fi
+}
+
+\begin{document}
+
+\START
+
+\xeCJKsetup
+  { CJKecglue={\hskip 5pt}, CJKglue={\hskip 1pt}, xCJKecglue=true }
+
+\TEST{packages loaded before xeCJK keep formula boundaries}{
+  \MathCompatCompare{textcolor}{\textcolor{red}{$x$}}{$x$}%
+  \MathCompatCompare{colorbox}{\colorbox{yellow}{$x$}}{$x$}%
+  \MathCompatCompare{fcolorbox}{\fcolorbox{red}{yellow}{$x$}}{$x$}%
+  \MathCompatCompare{href}{\href{https://example.com}{$x$}}{$x$}%
+  \MathCompatCompare{uline}{\uline{$x$}}{$x$}%
+  \MathCompatCompare{CJKunderline}{\CJKunderline{$x$}}{$x$}%
+}
+
+\makeatletter
+\protected@edef\StoredParen{\(x\)}
+\protected@edef\StoredEnsureMath{\ensuremath{x}}
+\protected@edef\StoredTextbf{\textbf{$x$}}
+\makeatother
+
+\TEST{robust formula commands survive protected expansion}{
+  \MathCompatCompare{stored paren}{\StoredParen}{$x$}%
+  \MathCompatCompare{stored ensuremath}{\StoredEnsureMath}{$x$}%
+  \MathCompatCompare{stored textbf}{\StoredTextbf}{$x$}%
+}
+
+\TEST{moving arguments leave the capture stack balanced}{
+  \section{中 \texorpdfstring{\textbf{$x$}}{x} 文}
+  \MathCompatAssertIdle{section title}%
+  \begin{figure}[h]
+    \caption{中 \textcolor{red}{$x$} 文}%
+  \end{figure}
+  \MathCompatAssertIdle{figure caption}%
+  \TYPE{moving arguments: completed}%
+}
+
+\TEST{alignment scanners remain balanced}{
+  \setbox0=\vbox{%
+    \halign{#\hfil&#\hfil\cr
+      中&\(x\)\cr
+      \noalign{\kern0pt}%
+      文&\ensuremath{x}\cr}%
+    \begin{tabular}{cc}
+      中文 & \textbf{$x$} \\
+      测试 & \textcolor{red}{$y$}
+    \end{tabular}%
+    \begin{align}
+      \text{中文} & = x , \\
+      \text{测试} & = y .
+    \end{align}%
+  }%
+  \MathCompatAssertIdle{alignment scanners}%
+  \TYPE{alignment scanners: completed}%
+}
+
+\TYPE{formula compatibility failures: \the\MathCompatFailures}
+
+\END
+
+\end{document}
