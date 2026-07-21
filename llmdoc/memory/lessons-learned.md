@@ -72,9 +72,14 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
 ### 命令边界修复必须覆盖输出等价矩阵
-**Rule**: 验证命令边界间距时，以相同可见字符的直接输入为 oracle，按实际输出首尾类别和 `00/10/01/11` 记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。
-**Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 的完整矩阵和 #991 的 CJK 引用证明单点通过不能推出整类已修复。
+**Rule**: 验证命令边界间距时，以相同可见内容的直接输入为 oracle，按实际输出首尾类别、`00/10/01/11` 和会改变边界语义的选项值记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。公式必须与直接公式比较，候选与 oracle 必须使用相同的 `xCJKecglue` 设置。
+**Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 最初只覆盖 `xCJKecglue=false`，补测 `true` 后又在嵌套盒子和 `\null` 边界发现 #1003；#1002 还证明把 `$x$` 换成字母 `x` 会改变比较问题本身。单点或单一选项通过都不能推出整类已修复。
 **Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+
+### 状态表中的绿色单元才进入通过基线
+**Rule**: 矩阵出现部分失败时，为已经通过的精确单元增加回归测试；失败单元留在跟踪 issue 中，既不写成 `.tlg` 通过基线，也不通过跳过整个场景丢失邻近的绿色单元。
+**Why**: #992 的 `xCJKecglue=true` 补测中，同一个命令常只有 `01/11` 或 `10/11` 失败。如果按场景整体跳过，会让 `00/10` 或 `00/01` 的既有正确行为失去保护；如果接受当前输出，又会把 #1003 的缺陷固化为规范。
+**Source**: `llmdoc/memory/decisions/992-command-boundary-capture-register.md`
 
 ### 先穷举机制维度再抽象公共原语
 **Rule**: 面对不断增长的边界 edge case，先用完整矩阵和节点探针证明失败可归入有限节点形状，再按形状设计注册策略；不要从一个成功 MWE 直接泛化实现。
