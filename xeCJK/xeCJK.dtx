@@ -4234,6 +4234,7 @@ Copyright and Licence
 %   \@@_boundary_math_begin:,
 %   \@@_boundary_math_begin_visible:,
 %   \@@_boundary_math_end:n,
+%   \@@_boundary_math_end_confirm:,
 %   \@@_boundary_capture_report_first:n,
 %   \@@_boundary_capture_allocate:n,
 %   \@@_boundary_capture_suspend:,
@@ -4451,7 +4452,6 @@ Copyright and Licence
   }
 
 \tl_new:N \l_@@_boundary_math_tl
-\tl_new:N \l_@@_boundary_math_before_tl
 
 \prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
   { T , F , TF }
@@ -4501,9 +4501,10 @@ Copyright and Licence
   }
 
 % \cs{tl_reverse:N} 只反转顶层项目，保留花括号组内的次序。末项目为组时，
-% 若正文只有该组，或组前是普通非活跃字符，就递归检查组内末尾；组前是
-% \tn{ensuremath} 则直接识别其参数。组前是控制序列、活跃字符或另一个组时，
-% 该组可能只是未知宏消费的参数，不能在不展开宏的前提下认作可见公式。
+% 先识别 \tn{ensuremath} 的参数，否则递归检查组内末尾。所有语法判断都只
+% 产生候选：未知宏也可能把末尾的分组、|$| 或 \tn{)} 当作参数消费，
+% \cs{@@_boundary_math_end:n} 还要用当前列表的实际 math 节点或 marker
+% 确认，才会发布末类别。
 \prg_new_protected_conditional:Npnn
   \@@_boundary_if_math_tail_reversed:n #1 { T , F , TF }
   {
@@ -4519,62 +4520,15 @@ Copyright and Licence
                 \tl_if_head_is_group:nTF {#1}
                   {
                     \tl_set:Ne \l_@@_boundary_math_tl
-                      { \tl_tail:n {#1} }
-                    \tl_if_empty:NTF \l_@@_boundary_math_tl
+                      { \tl_trim_left_spaces:e { \tl_tail:n {#1} } }
+                    \exp_args:NV \tl_if_head_eq_meaning:nNTF
+                      \l_@@_boundary_math_tl \ensuremath
+                      { \prg_return_true: }
                       {
-                        \exp_args:Ne
-                          \@@_boundary_if_math_tail:nTF
+                        \exp_args:Ne \@@_boundary_if_math_tail:nTF
                           { \tl_head:n {#1} }
                           { \prg_return_true: }
                           { \prg_return_false: }
-                      }
-                      {
-                        \tl_set:Ne \l_@@_boundary_math_tl
-                          {
-                            \tl_trim_left_spaces:V
-                              \l_@@_boundary_math_tl
-                          }
-                        \tl_if_empty:NTF \l_@@_boundary_math_tl
-                          {
-                            \exp_args:Ne
-                              \@@_boundary_if_math_tail:nTF
-                              { \tl_head:n {#1} }
-                              { \prg_return_true: }
-                              { \prg_return_false: }
-                          }
-                          {
-                            \exp_args:NV \tl_if_head_eq_meaning:nNTF
-                              \l_@@_boundary_math_tl \ensuremath
-                              { \prg_return_true: }
-                              {
-                                \exp_args:NV \tl_if_head_is_group:nTF
-                                  \l_@@_boundary_math_tl
-                                  { \prg_return_false: }
-                                  {
-                                    \tl_set:Ne
-                                      \l_@@_boundary_math_before_tl
-                                      {
-                                        \tl_head:V
-                                          \l_@@_boundary_math_tl
-                                      }
-                                    \exp_args:NV \token_if_cs:NTF
-                                      \l_@@_boundary_math_before_tl
-                                      { \prg_return_false: }
-                                      {
-                                        \exp_args:NV \token_if_active:NTF
-                                          \l_@@_boundary_math_before_tl
-                                          { \prg_return_false: }
-                                          {
-                                            \exp_args:Ne
-                                              \@@_boundary_if_math_tail:nTF
-                                              { \tl_head:n {#1} }
-                                              { \prg_return_true: }
-                                              { \prg_return_false: }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
                       }
                   }
                   { \prg_return_false: }
@@ -4605,25 +4559,35 @@ Copyright and Licence
   {
     \@@_boundary_if_math_tail:nT {#1}
       {
-        \int_compare:nNnT
-          { \g_@@_boundary_capture_depth_int } > \c_zero_int
+        \@@_if_last_math:TF
+          { \@@_boundary_math_end_confirm: }
           {
-            \int_compare:nNnT
-              { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+            \xeCJK_if_last_node:nT { math }
+              { \@@_boundary_math_end_confirm: }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_end_confirm:
+  {
+    \int_compare:nNnT
+      { \g_@@_boundary_capture_depth_int } > \c_zero_int
+      {
+        \int_compare:nNnT
+          { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+          {
+            \tl_gset:cn
               {
-                \tl_gset:cn
-                  {
-                    g_@@_boundary_capture_
-                    \int_use:N \g_@@_boundary_capture_depth_int _last_tl
-                  }
-                  { math }
-                \tl_gset:cn
-                  {
-                    g_@@_boundary_capture_
-                    \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
-                  }
-                  { true }
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _last_tl
               }
+              { math }
+            \tl_gset:cn
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
+              }
+              { true }
           }
       }
   }
@@ -5499,8 +5463,8 @@ Copyright and Licence
     \cs_gset_protected:Npn #2 ##1
       {
         \@@_boundary_math_begin:n {##1}
-        \use:c { @@_boundary_orig_\cs_to_str:N #1 _box:n } {##1}
-        \@@_boundary_math_end:n {##1}
+        \use:c { @@_boundary_orig_\cs_to_str:N #1 _box:n }
+          { ##1 \@@_boundary_math_end:n {##1} }
       }
   }
 
@@ -5550,8 +5514,8 @@ Copyright and Licence
           {
             \@@_boundary_inline_last_box_begin:
             \@@_boundary_math_begin:n {##3}
-            \@@_orig_imakebox:w [##1][##2]{##3}
-            \@@_boundary_math_end:n {##3}
+            \@@_orig_imakebox:w [##1][##2]
+              { ##3 \@@_boundary_math_end:n {##3} }
             \@@_boundary_inline_last_box_end:n { auto }
           }
       }
@@ -5562,8 +5526,8 @@ Copyright and Licence
           {
             \@@_boundary_inline_last_box_begin:
             \@@_boundary_math_begin:n {##3}
-            \@@_orig_iframebox:w [##1][##2]{##3}
-            \@@_boundary_math_end:n {##3}
+            \@@_orig_iframebox:w [##1][##2]
+              { ##3 \@@_boundary_math_end:n {##3} }
             \@@_boundary_inline_last_box_end:n { auto }
           }
       }
@@ -11126,7 +11090,8 @@ Copyright and Licence
   }
 % LaTeX 标准文本字体命令的 robust 内部实现均为单参数。这里保存该内部实现，
 % 用 stream 包住公式位于正文任一边缘的调用；开头公式在 math-on 前报告，
-% 结尾公式在正文返回后确认。普通正文仍由 interchar 转换报告实际首尾类别。
+% 结尾公式在正文参数实际排完时确认。普通正文仍由 interchar 转换报告实际
+% 首尾类别。
 \cs_new_protected:Npn \@@_boundary_register_text_command:N #1
   {
     \group_begin: \exp_args:NcNc \group_end:
@@ -11143,8 +11108,8 @@ Copyright and Licence
           {
             \@@_boundary_inline_stream_begin:n { auto }
             \@@_boundary_math_begin:n {##1}
-            \use:c { @@_boundary_orig_\cs_to_str:N #1 :n } {##1}
-            \@@_boundary_math_end:n {##1}
+            \use:c { @@_boundary_orig_\cs_to_str:N #1 :n }
+              { ##1 \@@_boundary_math_end:n {##1} }
             \@@_boundary_inline_stream_end:n { auto }
           }
           { \use:c { @@_boundary_orig_\cs_to_str:N #1 :n } {##1} }
@@ -11811,7 +11776,8 @@ Copyright and Licence
 % 空格，颜色 whatsit 排出后原样恢复。\tn{color@b@x} 会直接写出多个节点，
 % 继续使用 wrapped-box 收集整个盒子命令的输出。\tn{@textcolor} 的当前
 % 三参数内部签名由一层 stream 适配器保留；第三个参数以字面数学切换符开始
-% 或结束时，适配器分别在 math-on 前报告首类别、在正文返回后确认末类别。
+% 或结束时，适配器分别在 math-on 前报告首类别、在正文参数实际排完时确认
+% 末类别。
 %    \begin{macrocode}
 % \tn{colorbox} 和 \tn{fcolorbox} 的扫描器都会把可见正文留作
 % \tn{color@b@x} 的第三个参数。先包装这个共同入口，再安装 wrapped-box
@@ -11821,8 +11787,8 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_color_box:nnn #1#2#3
   {
     \@@_boundary_math_begin:n {#3}
-    \@@_orig_color_box:nnn {#1} {#2} {#3}
-    \@@_boundary_math_end:n {#3}
+    \@@_orig_color_box:nnn {#1} {#2}
+      { #3 \@@_boundary_math_end:n {#3} }
   }
 \cs_new_protected:Npn \@@_boundary_prepare_color_box:
   {
@@ -11838,8 +11804,8 @@ Copyright and Licence
       {
         \@@_boundary_inline_stream_begin:n { auto }
         \@@_boundary_math_begin:n {#3}
-        \@@_orig_textcolor:nnn {#1} {#2} {#3}
-        \@@_boundary_math_end:n {#3}
+        \@@_orig_textcolor:nnn {#1} {#2}
+          { #3 \@@_boundary_math_end:n {#3} }
         \@@_boundary_inline_stream_end:n { auto }
       }
       { \@@_orig_textcolor:nnn {#1} {#2} {#3} }
@@ -13241,15 +13207,18 @@ Copyright and Licence
 \cs_set_protected:Npn \UL@on #1
   {
     \@@_boundary_math_begin:n {#1}
-    \@@_ulem_on:n { \xeCJK_ulem_left: #1 \xeCJK_ulem_right: }
-    \@@_boundary_math_end:n {#1}
+    \@@_ulem_on:n
+      {
+        \xeCJK_ulem_left: #1
+        \@@_boundary_math_end:n {#1}
+        \xeCJK_ulem_right:
+      }
   }
 \cs_new_eq:NN \@@_orig_ulem_onin:n \UL@onin
 \cs_set_protected:Npn \UL@onin #1
   {
     \@@_boundary_math_begin:n {#1}
-    \@@_orig_ulem_onin:n {#1}
-    \@@_boundary_math_end:n {#1}
+    \@@_orig_ulem_onin:n { #1 \@@_boundary_math_end:n {#1} }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -13678,10 +13647,10 @@ Copyright and Licence
       \xeCJK_under_symbol_initial:nnnnn {#1} {#2} {#3} {#4} {#5}
       \@@_under_symbol_text_format:c { l_@@_#2_text_format_tl }
       #6
+      \@@_boundary_math_end:n {#6}
       \xeCJK_ulem_right:
     \group_end:
     \xeCJK_ulem_right_node:
-    \@@_boundary_math_end:n {#6}
     \@@_boundary_inline_stream_end:n { auto }
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5
