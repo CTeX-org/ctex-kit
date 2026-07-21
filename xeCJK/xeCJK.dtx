@@ -3708,7 +3708,11 @@ Copyright and Licence
           {
             \xeCJK_if_last_node:nTF { math }
               { \xeCJK_remove_node: }
-              { \@@_glue_check_expire_stale: }
+              {
+                \xeCJK_if_last_node:nTF { math-space }
+                  { \@@_boundary_math_space_consume: }
+                  { \@@_glue_check_expire_stale: }
+              }
           }
       }
   }
@@ -3763,7 +3767,11 @@ Copyright and Licence
                     \@@_recover_ecglue_source_space_restore:
                     \bool_gset_false:N \g_@@_glue_check_pending_bool
                   }
-                  { \@@_recover_ecglue_source_space_restore: }
+                  {
+                    \xeCJK_if_last_node:nTF { math-space }
+                      { \@@_boundary_math_space_consume: }
+                      { \@@_recover_ecglue_source_space_restore: }
+                  }
               }
           }
       }
@@ -3813,7 +3821,15 @@ Copyright and Licence
               { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
               { \skip_horizontal:N \l_@@_last_skip }
           }
-          { \skip_horizontal:N \l_@@_last_skip }
+          {
+            \xeCJK_if_last_node:nTF { math-space }
+              {
+                \@@_skip_if_interword:NTF \l_@@_last_skip
+                  { \@@_boundary_math_space_consume: }
+                  { \skip_horizontal:N \l_@@_last_skip }
+              }
+              { \skip_horizontal:N \l_@@_last_skip }
+          }
       }
   }
 \skip_new:N \l_@@_last_skip
@@ -3964,6 +3980,16 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_check_for_glue_skip_kern:
   {
+    \dim_compare:nNnTF \tex_lastkern:D = { \@@_node:n { math-space } }
+      {
+        \bool_if:NTF \g_@@_glue_check_pending_bool
+          { \@@_boundary_math_space_to_CJK: }
+          { \@@_check_for_glue_skip_restore: }
+      }
+      { \@@_check_for_glue_skip_kern_normal: }
+  }
+\cs_new_protected:Npn \@@_check_for_glue_skip_kern_normal:
+  {
     \dim_compare:nNnTF \tex_lastkern:D = { \@@_node:n { math } }
       {
         \bool_if:NTF \g_@@_glue_check_pending_bool
@@ -3992,13 +4018,13 @@ Copyright and Licence
                 { \@@_node:n { CJK-space } }
                 { \xeCJK_remove_node: \@@_ccglue_or_space: }
                 { \@@_node:n { CJK-widow } }
-                {
-                  \xeCJK_remove_node:
-                  \xeCJK_widow_penalty:
-                  \bool_if:NTF \l_@@_reserve_space_bool
-                    { \skip_horizontal:N \l_@@_last_skip }
-                    { \CJKglue }
-                }
+                  {
+                    \xeCJK_remove_node:
+                    \xeCJK_widow_penalty:
+                    \bool_if:NTF \l_@@_reserve_space_bool
+                      { \skip_horizontal:N \l_@@_last_skip }
+                      { \CJKglue }
+                  }
               }
               { \@@_check_for_glue_skip_restore: }
           }
@@ -4042,6 +4068,8 @@ Copyright and Licence
         { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
         { \@@_node:n { math } }
         { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+        { \@@_node:n { math-space } }
+        { \@@_boundary_math_space_to_CJK: }
       }
   }
 \cs_new_protected:Npn \@@_check_for_glue_auxii:
@@ -4212,6 +4240,7 @@ Copyright and Licence
 \xeCJK_declare_node:n { normalspace }
 \xeCJK_declare_glue_node:n { default-space }
 \xeCJK_declare_node:n { math }
+\xeCJK_declare_node:n { math-space }
 %    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
@@ -4230,10 +4259,15 @@ Copyright and Licence
 %   \@@_boundary_capture_class:n,
 %   \@@_boundary_if_math_head:n,
 %   \@@_boundary_if_math_tail:n,
+%   \@@_boundary_if_math_tail_space:n,
 %   \@@_boundary_if_math_edge:n,
+%   \@@_boundary_if_last_math_node:,
 %   \@@_boundary_math_begin:,
 %   \@@_boundary_math_begin_visible:,
 %   \@@_boundary_math_end:n,
+%   \@@_boundary_math_end_confirm_node:,
+%   \@@_boundary_math_end_confirm_space:,
+%   \@@_boundary_math_end_confirm_space_visible:,
 %   \@@_boundary_math_end_confirm:,
 %   \@@_boundary_capture_report_first:n,
 %   \@@_boundary_capture_allocate:n,
@@ -4277,14 +4311,20 @@ Copyright and Licence
 %   \@@_boundary_box_end_transparent:n,
 %   \@@_boundary_emit_left:nn,
 %   \@@_boundary_emit_left:nnn,
+%   \@@_boundary_emit_left_math_space:nn,
+%   \@@_boundary_emit_left_normal:nnn,
 %   \@@_boundary_use_glue:nn,
 %   \@@_boundary_use_ecglue:n,
 %   \@@_boundary_use_ccglue:n,
 %   \@@_boundary_restore_space:,
 %   \@@_boundary_restore_space:n,
 %   \@@_boundary_set_last_from_node:n,
+%   \@@_boundary_set_math_tail_from_capture:,
+%   \@@_boundary_math_space_consume:,
+%   \@@_boundary_math_space_to_CJK:,
 %   \@@_boundary_enable_source_space:n,
-%   \@@_boundary_replay_node:n}
+%   \@@_boundary_replay_node:n,
+%   \@@_boundary_replay_before:}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
 % \changes{v3.10.4}{2026/07/20}{box/wrapped-box 捕获在盒子直接排出了
@@ -4296,8 +4336,9 @@ Copyright and Licence
 %   \tn{spacefactor}；post-transparent 同时搬移 marker 与其后的候选 glue，
 %   修复 \opt{xCJKecglue} 启用后盒内末尾大写字母和 \tn{null} 遮住边界后缀
 %   时的右边界间距（\#1003）。}
-% \changes{v3.10.4}{2026/07/21}{新增独立的行内公式边界类别，使注册命令
-%   能按直接公式的源码空格语义恢复左右边界（\#1002）。}
+% \changes{v3.10.4}{2026/07/21}{新增独立的行内公式边界类别，并区分
+%   “公式末尾”和“公式后已有参数内源码空格”，使注册命令能按直接公式的
+%   源码空格语义恢复左右边界（\#1002）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4324,13 +4365,22 @@ Copyright and Licence
 % 盒子直接排出的 char、rule 或标点处理添加的 kern，box/wrapped-box 就按
 % Default 首尾重建边界。行内公式另用 |math| 类别：stream 和 box 的正文
 % 以 |$|、\tn{(} 或 \tn{ensuremath} 开始时，参数适配器必须在 math-on
-% 节点之前报告首类别；正文以相应公式结束时，适配器把 |math| 记为当前
-% capture 的确定末类别。capture 结束时以这个明确的正文末类别覆盖命令内部
-% 留下的旧 marker，不把任意内部 math 节点猜成可见公式。这样“CJK 前缀
+% 节点之前报告首类别；正文语法以相应公式结束时只产生候选，正文实际排完后
+% 还要由末尾 math 节点或 marker 确认，才把 |math| 记为当前 capture 的
+% 确定末类别。未知宏若把公式记号或分组当作参数消费，实际节点检查不会通过。
+% capture 结束时以这个明确的正文末类别覆盖命令内部留下的旧 marker，
+% 不把任意内部 math 节点猜成可见公式。这样“CJK 前缀
 % + 公式后缀”和外层分组中的公式都能重放正确的右边界，同时嵌套命令只把
 % 结果逐层写回其实际输出列表，不会把离线 \tn{setbox} 中的公式直接认作
 % 外层可见输出。显式公式入口本身只处理当前列表，不把事件广播到外层
 % capture，因此不会改变裸公式和离线测量盒子的节点列表。
+%
+% 若公式后还有参数内尾随源码空格，框架保留这枚空格在命令、框线或装饰范围
+% 内的原位置，并在外层重放 |math-space| marker。右侧为 CJK 且
+% \opt{xCJKecglue} 启用时，只补“\tn{CJKecglue} 减外层普通词间空格”的
+% 差额；其他情况下不再补一整份间距。命令外紧接的另一枚源码空格按连续
+% 源码空格处理，显式 glue 则仍保留。ulem 会先把源码空格改造成 leaders，
+% 所以它的参数适配器在交出尾随空格前确认公式节点，再把空格交还 ulem 排版。
 % 宽、高、深均为零的盒子（\tn{null}、
 % 空 \tn{mbox}）、只用于留白的盒子（空 \tn{makebox}、strut、零高 rule），
 % 以及末尾放着另一个已经排好的盒子或填充 glue 的命令（例如
@@ -4390,6 +4440,7 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_reserve_space_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_xecglue_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_flag_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_math_tail_space_flag_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -4452,6 +4503,8 @@ Copyright and Licence
   }
 
 \tl_new:N \l_@@_boundary_math_tl
+\skip_new:N \l_@@_boundary_math_skip
+\skip_new:N \l_@@_boundary_math_delta_skip
 
 \prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
   { T , F , TF }
@@ -4559,13 +4612,71 @@ Copyright and Licence
   {
     \@@_boundary_if_math_tail:nT {#1}
       {
-        \@@_if_last_math:TF
-          { \@@_boundary_math_end_confirm: }
+        \@@_boundary_if_math_tail_space:nTF {#1}
+          { \@@_boundary_math_end_confirm_space: }
+          { \@@_boundary_math_end_confirm_node: }
+      }
+  }
+
+\prg_new_protected_conditional:Npnn \@@_boundary_if_math_tail_space:n #1
+  { T , F , TF }
+  {
+    \tl_set:Nn \l_@@_boundary_math_tl {#1}
+    \tl_set:Ne \l_@@_boundary_node_tl
+      { \tl_trim_right_spaces:n {#1} }
+    \tl_if_eq:NNTF \l_@@_boundary_math_tl \l_@@_boundary_node_tl
+      { \prg_return_false: }
+      { \prg_return_true: }
+  }
+
+\prg_new_conditional:Npnn \@@_boundary_if_last_math_node: { T , F , TF }
+  {
+    \@@_if_last_math:TF
+      { \prg_return_true: }
+      {
+        \xeCJK_if_last_node:nTF { math }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_end_confirm_node:
+  {
+    \@@_boundary_if_last_math_node:T
+      { \@@_boundary_math_end_confirm: }
+  }
+
+% 参数末尾的字面空格通常会成为一枚普通词间 glue，遮住它前面的公式节点。
+% 这里只允许越过语法扫描已经确认的尾随空格，并再次检查节点确为当前字体的
+% 词间空格；未知宏留下的其他 glue 不会进入这条路径。确认后把 glue 原样
+% 放回命令内部，并发布 |math-space| 末类别，供命令外只补所需差额。
+\cs_new_protected:Npn \@@_boundary_math_end_confirm_space:
+  {
+    \@@_if_last_glue:T
+      {
+        \skip_set_eq:NN \l_@@_boundary_math_skip \tex_lastskip:D
+        \@@_skip_if_interword:NT \l_@@_boundary_math_skip
           {
-            \xeCJK_if_last_node:nT { math }
-              { \@@_boundary_math_end_confirm: }
+            \tex_unskip:D
+            \@@_boundary_if_last_math_node:T
+              {
+                \@@_boundary_math_end_confirm_space_visible:
+              }
+            \skip_horizontal:N \l_@@_boundary_math_skip
           }
       }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_end_confirm_space_visible:
+  {
+    \@@_boundary_math_end_confirm:
+    \tl_gset:cn
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int
+        _math_tail_space_flag_tl
+      }
+      { true }
   }
 
 \cs_new_protected:Npn \@@_boundary_math_end_confirm:
@@ -4588,6 +4699,13 @@ Copyright and Licence
                 \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
               }
               { true }
+            \tl_gset:cn
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int
+                _math_tail_space_flag_tl
+              }
+              { false }
           }
       }
   }
@@ -4769,13 +4887,7 @@ Copyright and Licence
         % 仍使用 capture 观察值。
         \exp_args:NV
           \@@_boundary_set_last_from_node:n \l_@@_boundary_node_tl
-        \tl_if_eq:cnT
-          {
-            g_@@_boundary_capture_
-            \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
-          }
-          { true }
-          { \tl_set:Nn \l_@@_boundary_last_tl { math } }
+        \@@_boundary_set_math_tail_from_capture:
         % |default| 的开始 hook 已经固定首类别；这里仅覆写末类别即可让
         % stream 两端都为 Default，同时不丢弃其他模式实际观察到的首类别。
         \str_if_eq:nnT {#1} { default }
@@ -4784,13 +4896,7 @@ Copyright and Licence
         \bool_gset_false:N \g_@@_glue_check_pending_bool
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
-            \tl_set:Ne \l_@@_boundary_node_tl
-              {
-                \tl_use:c
-                  { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
-              }
-            \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-            \@@_boundary_restore_space:
+            \@@_boundary_replay_before:
           }
           {
             \tl_if_empty:NT \l_@@_boundary_last_tl
@@ -4826,13 +4932,7 @@ Copyright and Licence
       \l_@@_boundary_active_tl
     \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
       {
-        \tl_set:Ne \l_@@_boundary_node_tl
-          {
-            \tl_use:c
-              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
-          }
-        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-        \@@_boundary_restore_space:
+        \@@_boundary_replay_before:
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
   }
@@ -4953,6 +5053,12 @@ Copyright and Licence
     \tl_gset:cn
       { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl }
       { false }
+    \tl_gset:cn
+      {
+        g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int
+        _math_tail_space_flag_tl
+      }
+      { false }
     \@@_boundary_capture_space:
     \scan_stop:
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
@@ -5027,6 +5133,7 @@ Copyright and Licence
             { \@@_node:n { CJK-widow } }       { \tl_set:Nn #1 { CJK-widow } }
             { \@@_node:n { default } }         { \tl_set:Nn #1 { default } }
             { \@@_node:n { math } }            { \tl_set:Nn #1 { math } }
+            { \@@_node:n { math-space } }      { \tl_set:Nn #1 { math-space } }
             { \@@_node:n { normalspace } }     { \tl_set:Nn #1 { normalspace } }
           }
           { \@@_make_node:N \l_@@_last_kern_dim }
@@ -5037,6 +5144,31 @@ Copyright and Licence
             \xeCJK_remove_node:
             \tl_set:Nn #1 { default-space }
           }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_space_consume:
+  {
+    \xeCJK_remove_node:
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
+  }
+
+% 参数内的空格属于命令本身的固有宽度，保持原值和原位置。直接公式 oracle
+% 的源码空格使用外层字体；因此启用 |xCJKecglue| 且右侧为 CJK 时，外层只
+% 补 |CJKecglue - 当前外层词间空格|。命令内外字体不同时，二者的固有宽度
+% 差仍由命令自身承担，不能从内部空格值计算这份边界差额。
+\cs_new_protected:Npn \@@_boundary_math_space_to_CJK:
+  {
+    \@@_boundary_math_space_consume:
+    \bool_if:NT \l_@@_xecglue_bool
+      {
+        \skip_set:Nn \l_@@_boundary_math_skip
+          { \c_xeCJK_space_skip_tl }
+        \skip_set:Nn \l_@@_boundary_math_delta_skip
+          { \l_@@_ecglue_skip - \l_@@_boundary_math_skip }
+        \skip_if_eq:nnF
+          { \l_@@_boundary_math_delta_skip } { \c_zero_skip }
+          { \skip_horizontal:N \l_@@_boundary_math_delta_skip }
       }
   }
 
@@ -5057,13 +5189,7 @@ Copyright and Licence
       {
         \tl_gclear:N \g_@@_last_node_tl
         \bool_gset_false:N \g_@@_glue_check_pending_bool
-        \tl_set:Ne \l_@@_boundary_node_tl
-          {
-            \tl_use:c
-              { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
-          }
-        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-        \@@_boundary_restore_space:
+        \@@_boundary_replay_before:
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
   }
@@ -5171,13 +5297,7 @@ Copyright and Licence
     % 即使 capture 已记录末类别也不能跳过这一步：内部不可见的定界字符可能
     % 使观察值不准，此时应以节点列表末尾的 marker 为准。
     \@@_boundary_box_set_last_from_node:
-    \tl_if_eq:cnT
-      {
-        g_@@_boundary_capture_
-        \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
-      }
-      { true }
-      { \tl_set:Nn \l_@@_boundary_last_tl { math } }
+    \@@_boundary_set_math_tail_from_capture:
     % 盒子捕获没有独立的 stream 入口，故 |default| 在这里同时覆写实际观察到
     % 的首尾类别；stream 路径则由开始 hook 固定首类别、结束 hook 固定
     % 末类别，两条路径的公开语义相同。
@@ -5235,13 +5355,25 @@ Copyright and Licence
         \box_use_drop:c
           { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _box }
       }
+    \@@_boundary_replay_before:
+  }
+
+\cs_new_protected:Npn \@@_boundary_replay_before:
+  {
     \tl_set:Ne \l_@@_boundary_node_tl
       {
         \tl_use:c
-          { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _before_tl }
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _before_tl
+          }
       }
-    \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-    \@@_boundary_restore_space:
+    \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+      { \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl }
+      {
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \@@_boundary_restore_space:
+      }
   }
 
 \cs_new_protected:Npn \@@_boundary_emit_left:nn #1#2
@@ -5251,6 +5383,35 @@ Copyright and Licence
   }
 
 \cs_new_protected:Npn \@@_boundary_emit_left:nnn #1#2#3
+  {
+    \str_if_eq:nnTF {#2} { math-space }
+      { \@@_boundary_emit_left_math_space:nn {#1} {#3} }
+      { \@@_boundary_emit_left_normal:nnn {#1} {#2} {#3} }
+  }
+\cs_new_protected:Npn \@@_boundary_emit_left_math_space:nn #1#2
+  {
+    \str_if_eq:nnT {#2} { CJK }
+      {
+        \tl_if_eq:cnT
+          { g_@@_boundary_capture_#1_xecglue_flag_tl } { true }
+          {
+            \skip_set:Nn \l_@@_boundary_math_skip
+              { \tl_use:c { g_@@_boundary_capture_#1_space_skip_tl } }
+            \skip_set:Nn \l_@@_boundary_math_delta_skip
+              {
+                \tl_use:c { g_@@_boundary_capture_#1_ecglue_skip_tl }
+                - \l_@@_boundary_math_skip
+              }
+            \skip_if_eq:nnF
+              { \l_@@_boundary_math_delta_skip } { \c_zero_skip }
+              {
+                \@@_boundary_use_glue:nn {#1}
+                  { \l_@@_boundary_math_delta_skip }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_emit_left_normal:nnn #1#2#3
   {
     \clist_if_in:nnTF { CJK , CJK-space , CJK-widow } {#2}
       {
@@ -5352,6 +5513,29 @@ Copyright and Licence
           { \tl_set:Nn \l_@@_boundary_last_tl { default } }
         \str_if_eq:nnT {#1} { math }
           { \tl_set:Nn \l_@@_boundary_last_tl { math } }
+        \str_if_eq:nnT {#1} { math-space }
+          { \tl_set:Nn \l_@@_boundary_last_tl { math-space } }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_set_math_tail_from_capture:
+  {
+    \tl_if_eq:cnT
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
+      }
+      { true }
+      {
+        \tl_if_eq:cnTF
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int
+            _math_tail_space_flag_tl
+          }
+          { true }
+          { \tl_set:Nn \l_@@_boundary_last_tl { math-space } }
+          { \tl_set:Nn \l_@@_boundary_last_tl { math } }
       }
   }
 
@@ -5361,26 +5545,35 @@ Copyright and Licence
     % 内容则会直接更新外层值。重放 Default 类 marker 时，以当前列表真正的
     % spacefactor 同步源码空格检查上下文，避免把盒内末尾大写字母留下的 999
     % 错用于盒外以 1000 生成的源码空格。
-    \clist_if_in:nnT { default , default-space , math , normalspace } {#1}
+    \clist_if_in:nnT
+      { default , default-space , math , math-space , normalspace } {#1}
       { \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D }
-    \str_if_eq:nnTF {#1} { default-space }
+    \str_if_eq:nnTF {#1} { math-space }
       {
-        \@@_make_space_node:
-        \tl_gset:Nn \g_@@_last_node_tl { default }
+        \xeCJK_make_node:n { math-space }
+        \@@_boundary_enable_source_space:n {#1}
       }
       {
-        \clist_if_in:nnT
-          { CJK , CJK-space , CJK-widow , default , math , normalspace }
-          {#1}
+        \str_if_eq:nnTF {#1} { default-space }
           {
-            \xeCJK_make_node:n {#1}
-            \@@_boundary_enable_source_space:n {#1}
+            \@@_make_space_node:
+            \tl_gset:Nn \g_@@_last_node_tl { default }
+          }
+          {
+            \clist_if_in:nnT
+              { CJK , CJK-space , CJK-widow , default , math , normalspace }
+              {#1}
+              {
+                \xeCJK_make_node:n {#1}
+                \@@_boundary_enable_source_space:n {#1}
+              }
           }
       }
   }
 \cs_new_protected:Npn \@@_boundary_enable_source_space:n #1
   {
-    \clist_if_in:nnT { CJK , CJK-space , CJK-widow , math } {#1}
+    \clist_if_in:nnT
+      { CJK , CJK-space , CJK-widow , math , math-space } {#1}
       { \bool_gset_true:N \g_@@_glue_check_pending_bool }
   }
 
@@ -13139,6 +13332,7 @@ Copyright and Licence
 %
 % \begin{macro}[int]{
 %   \@@_ulem_stream_begin:,
+%   \@@_boundary_ulem_math_body:n,
 %   \xeCJK_ulem_group_begin:,
 %   \xeCJK_ulem_group_end:,
 %   \xeCJK_ulem_on:n}
@@ -13203,14 +13397,35 @@ Copyright and Licence
     \@@_orig_ulem_on:
   }
 \bool_new:N \l_@@_ulem_stream_started_bool
+% ulem 会把源码空格改造成 leaders；等到参数末尾再检查时，公式节点已经被
+% 装饰节点遮住。若正文语法确实是“公式＋尾随源码空格”，先让 ulem 排完
+% 去掉尾随空格的正文，在公式节点仍可见时确认 |math-space|，随后把一枚
+% 空格交还 ulem 排版。未知宏若消费公式，实际末节点检查仍会失败。
+\cs_new_protected:Npn \@@_boundary_ulem_math_body:n #1
+  {
+    \@@_boundary_if_math_tail:nTF {#1}
+      {
+        \@@_boundary_if_math_tail_space:nTF {#1}
+          {
+            \tl_set:Ne \l_@@_boundary_math_tl
+              { \tl_trim_right_spaces:n {#1} }
+            \tl_use:N \l_@@_boundary_math_tl
+            \@@_boundary_if_last_math_node:T
+              { \@@_boundary_math_end_confirm_space_visible: }
+            \c_space_tl
+          }
+          { #1 \@@_boundary_math_end:n {#1} }
+      }
+      {#1}
+  }
 \cs_new_eq:NN \@@_ulem_on:n \UL@on
 \cs_set_protected:Npn \UL@on #1
   {
     \@@_boundary_math_begin:n {#1}
     \@@_ulem_on:n
       {
-        \xeCJK_ulem_left: #1
-        \@@_boundary_math_end:n {#1}
+        \xeCJK_ulem_left:
+        \@@_boundary_ulem_math_body:n {#1}
         \xeCJK_ulem_right:
       }
   }
@@ -13218,7 +13433,7 @@ Copyright and Licence
 \cs_set_protected:Npn \UL@onin #1
   {
     \@@_boundary_math_begin:n {#1}
-    \@@_orig_ulem_onin:n { #1 \@@_boundary_math_end:n {#1} }
+    \@@_orig_ulem_onin:n { \@@_boundary_ulem_math_body:n {#1} }
   }
 %    \end{macrocode}
 % \end{macro}

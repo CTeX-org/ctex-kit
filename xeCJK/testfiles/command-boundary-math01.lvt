@@ -101,6 +101,35 @@
   \MathBoundaryMatrix{#1/WMC}{A}{#2}{#3}{文}%
 }
 
+% The candidate already contains one source space at the end of its text
+% argument.  Keep the direct formula free of a trailing space token while it
+% is passed through the matrix macros: a space produced at one macro-expansion
+% boundary and another produced at the next boundary do not have the same
+% mouth-level collapsing behaviour as two adjacent source spaces.  Insert the
+% oracle's single space here, and use the same oracle for the candidate's 00
+% and 01 variants because its internal and external source spaces are
+% consecutive in the original input.
+\newcommand\MathBoundaryTailSpaceMatrix[5]{%
+  \MathBoundaryReset
+  \setbox\MathBoundaryCandidate=\hbox{#3}%
+  \MathBoundaryAssertIdle{#1}{standalone}%
+  \MathBoundaryReset
+  \setbox\MathBoundaryOracle=\hbox{#4 }%
+  \MathBoundaryIntrinsicDelta=\dimexpr
+    \wd\MathBoundaryCandidate-\wd\MathBoundaryOracle\relax
+  \MathBoundaryVariant{#1}{00}{#2#3#5}{#2#4 #5}%
+  \MathBoundaryVariant{#1}{10}{#2 #3#5}{#2 #4 #5}%
+  \MathBoundaryVariant{#1}{01}{#2#3 #5}{#2#4 #5}%
+  \MathBoundaryVariant{#1}{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\newcommand\MathBoundaryTailSpacePairMatrix[3]{%
+  \MathBoundaryTailSpaceMatrix{#1/CMC}{中}{#2}{#3}{文}%
+  \MathBoundaryTailSpaceMatrix{#1/WMW}{A}{#2}{#3}{B}%
+  \MathBoundaryTailSpaceMatrix{#1/CMW}{中}{#2}{#3}{B}%
+  \MathBoundaryTailSpaceMatrix{#1/WMC}{A}{#2}{#3}{文}%
+}
+
 \newcommand\MathBoundaryCommandMatrix[2]{%
   \MathBoundaryPairMatrix{#1}{#2}{$x$}%
 }
@@ -209,6 +238,54 @@
     {\CJKunderline{中{$x$}}}{中$x$}%
   \MathBoundaryPairMatrix{suffix-group/CJKunderdot}
     {\CJKunderdot{中{$x$}}}{中$x$}%
+  % A source space at the end of a registered command's text is a real glue
+  % node.  It must remain in place while the formula immediately below it is
+  % confirmed as the visible right boundary.
+  \MathBoundaryTailSpacePairMatrix{suffix-space/mbox-pure}
+    {\mbox{$x$ }}{$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/mbox-dollar}
+    {\mbox{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/mbox-paren}
+    {\mbox{中\(x\) }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/mbox-ensuremath}
+    {\mbox{中\ensuremath{x} }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/mbox-group}
+    {\mbox{中{$x$} }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/fbox}
+    {\fbox{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/makebox}
+    {\makebox{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/colorbox}
+    {\colorbox{yellow}{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/textbf}
+    {\textbf{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/textcolor}
+    {\textcolor{red}{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/hyperref}
+    {\hyperref[inline-math-boundary-target]{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/CJKunderline}
+    {\CJKunderline{中$x$ }}{中$x$}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/CJKunderdot}
+    {\CJKunderdot{中$x$ }}{中$x$}%
+  % The trailing source space does not relax actual-output confirmation.
+  \MathBoundaryTailSpacePairMatrix{suffix-space/consumed-two-mbox}
+    {\mbox{中\HiddenTwo q{$x$} }}{中文}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/consumed-dollar-mbox}
+    {\mbox{中\HiddenDollar q$ }}{中文}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/consumed-two-underline}
+    {\CJKunderline{中\HiddenTwo q{$x$} }}{中文}%
+  \MathBoundaryTailSpacePairMatrix{suffix-space/consumed-dollar-underline}
+    {\CJKunderline{中\HiddenDollar q$ }}{中文}%
+  % An explicit glue after the command is not a second source space.  The
+  % bounded marker check must not remove it or look through it.
+  \MathBoundaryPairMatrix{suffix-space/explicit-glue}
+    {\mbox{$x$ }\hskip 7pt}{$x$ \hskip 7pt}%
+  % A following registered command must consume the same physical marker as a
+  % following character; capture begin/end must not duplicate the inner space.
+  \MathBoundaryPairMatrix{suffix-space/next-command-CJK}
+    {\mbox{$x$ }\textbf{中}}{$x$ 中}%
+  \MathBoundaryPairMatrix{suffix-space/next-command-default}
+    {\mbox{$x$ }\textbf{A}}{$x$ A}%
   \MathBoundaryPairMatrix{suffix-group/consumed-argument}
     {\mbox{中\InvisibleMathArgument{$x$}}}{中A}%
   % The syntax check may find a trailing formula candidate, but an arbitrary
