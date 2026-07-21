@@ -1,6 +1,19 @@
 # xeCJK command-boundary matrix
 
 Assets for [CTeX-org/ctex-kit#992](https://github.com/CTeX-org/ctex-kit/issues/992).
+
+## `xCJKecglue` 双值矩阵（2026-07-21）
+
+状态表现在分别记录 `xCJKecglue=false` 和 `true`。四个测试组
+（core、links、verb、biblatex）各有默认间距与可区分间距两个入口，
+合计 16 次编译。每个选项值包含 80 个场景、四种源码空格，共 320 个
+单元；候选与直接输入始终使用相同的 `xCJKecglue` 设置。
+
+- `false`：默认间距和可区分间距均为 320／320 通过；
+- `true`：默认间距为 318／320 通过，可区分间距为 312／320 通过。
+
+精确失败单元见 [`xecglue-matrix-summary.txt`](./xecglue-matrix-summary.txt)。
+行内公式改用 #1002 决定的直接公式基准，不计入上述普通命令矩阵。
 The initial audit was prepared against master commit
 4628cb443978d5507de61eaa70e520e31f926707 on 2026-07-18.
 
