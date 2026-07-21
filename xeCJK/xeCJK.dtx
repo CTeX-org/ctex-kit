@@ -4329,9 +4329,11 @@ Copyright and Licence
 %   \@@_boundary_math_space_encode:,
 %   \@@_boundary_math_space_decode:,
 %   \@@_boundary_math_space_set_delta:n,
+%   \@@_boundary_math_space_expire:,
 %   \@@_boundary_math_space_to_CJK:,
 %   \@@_boundary_enable_source_space:n,
 %   \@@_boundary_replay_node:n,
+%   \@@_boundary_replay_before_math_space:,
 %   \@@_boundary_replay_before:}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
@@ -4347,7 +4349,8 @@ Copyright and Licence
 % \changes{v3.10.4}{2026/07/21}{新增独立的行内公式边界类别，分别处理公式
 %   末尾与公式后已有参数内源码空格，使注册命令能按直接公式的源码空格语义
 %   恢复左右边界；另行区分仍参与外层断行的 stream 空格与已冻结在盒子中的
-%   空格，正确保留弹性间距的伸缩量（\#1002）。}
+%   空格，正确保留弹性间距的伸缩量；不可见节点将普通 stream 的真实空格
+%   与 marker 隔开时按直接公式语义让 marker 过期（\#1002）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4392,7 +4395,10 @@ Copyright and Licence
 % 后者完整保留 \tn{CJKecglue} 的伸缩量，并禁止用负的自然宽度把后续文字
 % 拉入框线或装饰范围。命令外紧接的另一枚源码空格按连续源码空格处理，
 % 显式 glue 则仍保留。ulem 会先把源码空格改造成 leaders，所以它的参数
-% 适配器在交出尾随空格前确认公式节点，再把空格交还 ulem 排版。
+% 适配器在交出尾随空格前确认公式节点，再把空格交还 ulem 排版。若
+% transparent 或 post-transparent 命令把 special、零尺寸盒子等不可见节点
+% 插到普通 stream 的真实空格与 marker 之间，直接公式的恢复链也会被同一
+% 节点截断；框架因此让 marker 过期，不在节点之后单独增加补偿 glue。
 % 宽、高、深均为零的盒子（\tn{null}、
 % 空 \tn{mbox}）、只用于留白的盒子（空 \tn{makebox}、strut、零高 rule），
 % 以及末尾放着另一个已经排好的盒子或填充 glue 的命令（例如
@@ -5009,7 +5015,9 @@ Copyright and Licence
 % glue。第一层先处理盒子直接盖住 marker 的情况；未命中时才暂存至多一枚
 % 末尾 glue，再按节点证据检查其下方的 marker。命中后把“marker + glue”整体
 % 移到盒子后面，使后续转换看到与没有该盒子时相同的列表末尾。未命中 marker
-% 时按原顺序还原，不能把任意 glue 搬过 hbox。
+% 时按原顺序还原，不能把任意 glue 搬过 hbox。普通 stream 的 |math-space|
+% 还有一枚真实空格留在 marker 前；零尺寸盒子已经把二者隔开时，应与含同一
+% 盒子的直接公式一样让 marker 过期，不能只把补偿状态搬到盒子后面。
 \cs_new_protected:Npn \@@_boundary_post_transparent_relocate:
   {
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
@@ -5022,8 +5030,12 @@ Copyright and Licence
       {
         % 盒子直接盖住 marker，中间没有 glue。
         \box_use_drop:N \l_@@_boundary_post_box
-        \exp_args:NV
-          \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+          { \@@_boundary_math_space_expire: }
+          {
+            \exp_args:NV
+              \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+          }
       }
   }
 
@@ -5039,8 +5051,12 @@ Copyright and Licence
       }
       {
         \box_use_drop:N \l_@@_boundary_post_box
-        \exp_args:NV
-          \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+          { \@@_boundary_math_space_expire: }
+          {
+            \exp_args:NV
+              \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+          }
         \skip_horizontal:N \l_@@_last_skip
       }
   }
@@ -5111,13 +5127,25 @@ Copyright and Licence
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
     \tl_if_eq:NnT \l_@@_boundary_node_tl { math-space }
       {
-        \tl_gset:ce
+        \@@_if_last_glue:TF
           {
-            g_@@_boundary_capture_
-            \int_use:N \g_@@_boundary_capture_depth_int
-            _before_math_space_skip_tl
+            \tl_gset:ce
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int
+                _before_math_space_skip_tl
+              }
+              { \skip_use:N \tex_lastskip:D }
           }
-          { \skip_use:N \l_@@_boundary_math_actual_skip }
+          {
+            \tl_gset:ce
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int
+                _before_math_space_skip_tl
+              }
+              { \skip_use:N \l_@@_boundary_math_actual_skip }
+          }
       }
     \tl_if_eq:NnT \l_@@_boundary_node_tl { CJK-space }
       {
@@ -5556,7 +5584,36 @@ Copyright and Licence
     \clist_if_in:nVTF
       { math-space , math-space-frozen } \l_@@_boundary_node_tl
       {
-        \tl_if_eq:NnT \l_@@_boundary_node_tl { math-space }
+        \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+          { \@@_boundary_replay_before_math_space: }
+          { \@@_boundary_replay_node:n { math-space-frozen } }
+      }
+      {
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \@@_boundary_restore_space:
+      }
+  }
+
+% 普通 stream 的 |math-space| 只在真实参数空格仍紧邻列表末尾时重放。
+% transparent 命令若已经在二者之间写入 special、零尺寸盒子等节点，直接
+% 公式的源码空格同样不会越过该节点触发恢复；此时必须让 marker 过期，
+% 不能把补偿 glue 单独移到不可见节点之后。skip 比较把判断限制在原来那枚
+% 真实空格，不把 transparent 命令偶然写出的不同规格 glue 当作边界后缀。
+\cs_new_protected:Npn \@@_boundary_replay_before_math_space:
+  {
+    \@@_if_last_glue:T
+      {
+        \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+        \skip_if_eq:nnT
+          { \l_@@_last_skip }
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int
+                _before_math_space_skip_tl
+              }
+          }
           {
             \exp_args:Ne \@@_boundary_math_space_set_actual:n
               {
@@ -5567,13 +5624,15 @@ Copyright and Licence
                     _before_math_space_skip_tl
                   }
               }
+            \@@_boundary_replay_node:n { math-space }
           }
-        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
       }
-      {
-        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-        \@@_boundary_restore_space:
-      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_space_expire:
+  {
+    \tl_gclear:N \g_@@_last_node_tl
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
   }
 
 \cs_new_protected:Npn \@@_boundary_emit_left:nn #1#2
