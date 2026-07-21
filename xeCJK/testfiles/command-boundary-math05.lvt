@@ -15,6 +15,7 @@
 \skip_new:N \l__xeCJK_test_math_space_total_skip
 \int_new:N \l__xeCJK_test_math_space_last_type_int
 \box_new:N \l__xeCJK_test_math_space_line_box
+\box_new:N \l__xeCJK_test_math_space_oracle_box
 \dim_new:N \l__xeCJK_test_math_space_line_dim
 
 \cs_new_protected:Npn \__xeCJK_test_math_space_probe:nn #1#2
@@ -77,6 +78,76 @@
   }
 \NewDocumentCommand \MathSpaceLine { m m }
   { \__xeCJK_test_math_space_line:nn {#1} {#2} }
+
+\cs_new_protected:Npn \__xeCJK_test_math_space_invisible_node:nn #1#2
+  {
+    \hbox_set:Nn \l__xeCJK_test_math_space_box {#2}
+    \hbox_set:Nn \l__xeCJK_test_math_space_oracle_box
+      {
+        \hbox_unpack:N \l__xeCJK_test_math_space_box
+        \int_set:Nn \l__xeCJK_test_math_space_last_type_int
+          { \tex_lastnodetype:D }
+        \TYPE
+          {
+            #1:last-type=
+            \int_use:N \l__xeCJK_test_math_space_last_type_int
+          }
+      }
+  }
+\NewDocumentCommand \MathSpaceInvisibleNode { m m }
+  { \__xeCJK_test_math_space_invisible_node:nn {#1} {#2} }
+
+\cs_new_protected:Npn \__xeCJK_test_math_space_invisible_width:nnn #1#2#3
+  {
+    \hbox_set:Nn \l__xeCJK_test_math_space_oracle_box {#2}
+    \hbox_set:Nn \l__xeCJK_test_math_space_box {#3}
+    \TYPE
+      {
+        #1:width-delta=
+        \dim_eval:n
+          {
+            \box_wd:N \l__xeCJK_test_math_space_box
+            - \box_wd:N \l__xeCJK_test_math_space_oracle_box
+          }
+      }
+  }
+\NewDocumentCommand \MathSpaceInvisibleWidth { m m m }
+  { \__xeCJK_test_math_space_invisible_width:nnn {#1} {#2} {#3} }
+
+\cs_new_protected:Npn \__xeCJK_test_math_space_invisible_lines:nnn #1#2#3
+  {
+    \vbox_set:Nn \l__xeCJK_test_math_space_oracle_box
+      {
+        \dim_set:Nn \tex_hsize:D { 10pt }
+        \int_set:Nn \tex_pretolerance:D { 100 }
+        \int_set:Nn \tex_tolerance:D { 100 }
+        \int_set:Nn \tex_hbadness:D { 10000 }
+        \dim_set:Nn \tex_hfuzz:D { \c_max_dim }
+        \tex_noindent:D #2 \tex_par:D
+      }
+    \vbox_set:Nn \l__xeCJK_test_math_space_line_box
+      {
+        \dim_set:Nn \tex_hsize:D { 10pt }
+        \int_set:Nn \tex_pretolerance:D { 100 }
+        \int_set:Nn \tex_tolerance:D { 100 }
+        \int_set:Nn \tex_hbadness:D { 10000 }
+        \dim_set:Nn \tex_hfuzz:D { \c_max_dim }
+        \tex_noindent:D #3 \tex_par:D
+      }
+    \TYPE
+      {
+        #1:height-delta=
+        \dim_eval:n
+          {
+            \box_ht:N \l__xeCJK_test_math_space_line_box
+            + \box_dp:N \l__xeCJK_test_math_space_line_box
+            - \box_ht:N \l__xeCJK_test_math_space_oracle_box
+            - \box_dp:N \l__xeCJK_test_math_space_oracle_box
+          }
+      }
+  }
+\NewDocumentCommand \MathSpaceInvisibleLines { m m m }
+  { \__xeCJK_test_math_space_invisible_lines:nnn {#1} {#2} {#3} }
 \ExplSyntaxOff
 
 \begin{document}
@@ -117,6 +188,24 @@
 \MathSpaceLine{wrapped-box}{\colorbox{yellow}{$x$ }}
 \MathSpaceLine{stream}{\textbf{$x$ }}
 \MathSpaceLine{stream-ulem}{\CJKunderline{$x$ }}
+\ENDTEST
+
+\BEGINTEST{invisible nodes expire a separated stream marker}
+\xeCJKsetup
+  {
+    CJKecglue = { \hskip 5pt plus 4pt minus 2pt } ,
+    xCJKecglue = true
+  }
+\MathSpaceInvisibleNode{color}{\textnormal{$x$ }\color{black}}
+\MathSpaceInvisibleNode{null}{\textnormal{$x$ }\null}
+\MathSpaceInvisibleWidth{color}
+  {$x$ \color{black}中}{\textnormal{$x$ }\color{black}中}
+\MathSpaceInvisibleWidth{null}
+  {$x$ \null{}中}{\textnormal{$x$ }\null{}中}
+\MathSpaceInvisibleLines{color}
+  {$x$ \color{black}中}{\textnormal{$x$ }\color{black}中}
+\MathSpaceInvisibleLines{null}
+  {$x$ \null{}中}{\textnormal{$x$ }\null{}中}
 \ENDTEST
 
 \END
