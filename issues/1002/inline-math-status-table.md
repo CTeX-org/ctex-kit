@@ -27,32 +27,32 @@
 | 7 | `\texttt{$x$}` | false | `❌❌❌❌` | `✅✅✅✅` | `❌❌❌❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/texttt.png" width="300" alt="texttt 包裹行内公式的间距对照"> | 默认间距下也存在字体相关的宽度差。 |
 | 7 | `\texttt{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `❌❌❌❌` | `✅✅✅✅` | 同上 | 同上 | 同上 |
 | 8 | `\textcolor{red}{$x$}` | false | `❌❌❌✅` | `✅✅✅✅` | `❌✅❌✅` | `❌❌✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/textcolor.png" width="300" alt="textcolor 包裹行内公式的间距对照"> | 混合方向显示左右两侧都可能出现差异。 |
-| 8 | `\textcolor{red}{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `❌✅❌✅` | `❌❌✅✅` | 同上 | 同上 | `11` 在 5pt/1pt 间距下仍相差 1.67pt。 |
+| 8 | `\textcolor{red}{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `❌❌❌❌` | `❌❌✅✅` | 同上 | 同上 | 打开选项后，中文位于公式左侧的混合方向四格都不一致。 |
 | 9 | `\mbox{$x$}` | false | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/mbox.png" width="300" alt="mbox 包裹行内公式的间距对照"> | 对应 #992 第 28 行；现在由 #1002 集中记录。 |
-| 9 | `\mbox{$x$}` | true | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | 同上 | 与 #992 旧表按字母 `x` 比较所得结论不同；本表统一使用直接公式 `$x$`。 |
+| 9 | `\mbox{$x$}` | true | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | 同上 | 同上 | 四种周边文字和四种源码空格均与直接输入 `$x$` 相同。 |
 | 10 | `\makebox{$x$}` | false | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/makebox.png" width="300" alt="makebox 包裹行内公式的间距对照"> | 结果与 `\mbox{$x$}` 相同。 |
-| 10 | `\makebox{$x$}` | true | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | 同上 | 同上 |
+| 10 | `\makebox{$x$}` | true | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | 同上 | 同上 | 打开选项后，四种周边文字和四种源码空格均与直接输入相同。 |
 | 11 | `\fbox{$x$}` | false | `❌❌❌✅` | `✅✅✅✅` | `✅❌❌✅` | `✅❌✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/fbox.png" width="300" alt="fbox 包裹行内公式的间距对照"> | 外框盒子两侧分别存在差异。 |
-| 11 | `\fbox{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅❌❌✅` | `✅❌✅✅` | 同上 | 同上 | `xCJKecglue=true` 时，中·公式·中的 `11` 也不一致。 |
+| 11 | `\fbox{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅✅❌❌` | `✅❌✅✅` | 同上 | 同上 | `xCJKecglue=true` 时，中·公式·中的四格仍不一致。 |
 | 12 | `\colorbox{yellow}{$x$}` | false | `❌❌❌✅` | `✅✅✅✅` | `✅❌❌✅` | `✅❌✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/colorbox.png" width="300" alt="colorbox 包裹行内公式的间距对照"> | `false` 时结果与 `\fbox{$x$}` 相同。 |
-| 12 | `\colorbox{yellow}{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅❌❌✅` | `✅❌❌✅` | 同上 | 同上 | `true` 时右侧源码空格也暴露出差异。 |
+| 12 | `\colorbox{yellow}{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅✅❌❌` | `✅❌❌✅` | 同上 | 同上 | 两个混合方向分别显示公式左右两侧的差异。 |
 | 13 | `\CJKunderline{$x$}` | false | `❌❌❌❌` | `✅✅✅✅` | `❌❌❌❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/cjkunderline.png" width="300" alt="CJKunderline 包裹行内公式的间距对照"> | 公式装饰后的边界与直接输入不同。 |
 | 13 | `\CJKunderline{$x$}` | true | `❌❌❌❌` | `✅❌✅❌` | `❌❌❌❌` | `✅❌❌❌` | 同上 | 同上 | `true` 时西文周边和右侧中文的部分组合也不一致。 |
 | 14 | `\CJKunderdot{$x$}` | false | `❌❌❌✅` | `✅✅✅✅` | `✅✅❌✅` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/cjkunderdot.png" width="300" alt="CJKunderdot 包裹行内公式的间距对照"> | 混合方向可定位到公式右侧的差异。 |
-| 14 | `\CJKunderdot{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅❌❌✅` | `✅❌✅✅` | 同上 | 同上 | `true` 时更多源码空格组合不一致。 |
+| 14 | `\CJKunderdot{$x$}` | true | `❌❌❌❌` | `✅✅✅✅` | `✅✅❌❌` | `✅❌✅✅` | 同上 | 同上 | `true` 时两个混合方向仍显示不同的左右边界问题。 |
 | 15 | `\CJKsout{$x$}` | false | `❌❌❌❌` | `✅✅✅✅` | `❌❌❌❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/cjksout.png" width="300" alt="CJKsout 包裹行内公式的间距对照"> | 结果与 `\CJKunderline{$x$}` 的 `false` 行相同。 |
 | 15 | `\CJKsout{$x$}` | true | `❌❌❌❌` | `✅❌✅❌` | `❌❌❌❌` | `✅❌❌❌` | 同上 | 同上 | 结果与 `\CJKunderline{$x$}` 的 `true` 行相同。 |
 | 16 | `\hyperref[...]{$x$}` | false | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/hyperref.png" width="300" alt="hyperref 包裹行内公式的间距对照"> | 左侧中文旁有源码空格时，与直接输入 `$x$` 不同。 |
-| 16 | `\hyperref[...]{$x$}` | true | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | 同上 | 同上 |
+| 16 | `\hyperref[...]{$x$}` | true | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | 同上 | 同上 | 打开选项后，所有组合都与直接输入相同。 |
 | 17 | `\href{...}{$x$}` | false | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | <img src="https://raw.githubusercontent.com/CTeX-org/ctex-kit/gh-assets/issues/1002/showcase/href.png" width="300" alt="href 包裹行内公式的间距对照"> | 结果与 `\hyperref` 相同。 |
-| 17 | `\href{...}{$x$}` | true | `✅❌✅❌` | `✅✅✅✅` | `✅❌✅❌` | `✅✅✅✅` | 同上 | 同上 | 同上 |
+| 17 | `\href{...}{$x$}` | true | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | `✅✅✅✅` | 同上 | 同上 | 打开选项后，所有组合都与直接输入相同。 |
 
 <details>
 <summary>测试方法和当前统计</summary>
 
 每项测试都把命令包裹的 `$x$` 与直接输入 `$x$` 比较。二者分别放入受限水平盒子测量，并扣除命令自身造成的宽度差，剩余差值只来自左右边界。
 
-完整测试共有 17 种命令、四种周边文字组合、四种源码空格、两个 `xCJKecglue` 值，再分别使用默认间距和 5pt/1pt 间距，共 1088 次比较。按“两个间距设置都通过才记 ✅”的规则，本表共有 544 格，其中 329 格通过、215 格不同。
+完整测试共有 17 种命令、四种周边文字组合、四种源码空格、两个 `xCJKecglue` 值，再分别使用默认间距和 5pt/1pt 间距，共 1088 次比较。按“两个间距设置都通过才记 ✅”的规则，本表共有 544 格，其中 343 格通过、201 格不同。
 
 测试基于 `master` 提交 `10500b33`。完整数值见 [`inline-math-verdicts.tsv`](https://github.com/CTeX-org/ctex-kit/blob/gh-assets/issues/1002/inline-math-verdicts.tsv)，测试文件和图片说明见 [`gh-assets/issues/1002/`](https://github.com/CTeX-org/ctex-kit/blob/gh-assets/issues/1002/README.md)。这些结果记录当前尚未修复的情况；修复合并后，应从新的 `master` 提交重新测试再更新本表。
 
