@@ -148,7 +148,7 @@
 
 同一测试还锁定 `math-space` 的物理相邻边界。transparent 颜色命令和 post-transparent `\null` 分别在真实参数空格与 marker 之间留下 9 型 special 和 1 型零尺寸 hbox；此时 marker 应当过期。`null-explicit` 再检查 `\textnormal{$x$ }\hskip7pt\null`：探测 marker 时暂存的 7pt glue 必须恢复到 `\null` 之前，保留“真实空格、显式 glue、零尺寸盒子”的直接 oracle 顺序。三项末节点类型分别为 9／1／1；候选与含同一不可见节点的直接公式 oracle 宽度差均为 0，在段宽 10pt、容差 100 下排段，段落高度差也均为 0。这证明框架既没有把补偿 glue 单独放到不可见节点之后，也没有把显式 glue 错移到盒子之后。
 
-`loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。加入 `command-boundary-math05` 后，xeCJK 标准测试共有 108 项，当前 108／108 通过。
+`loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。xeCJK 标准测试共有 109 项，当前 109／109 通过。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
