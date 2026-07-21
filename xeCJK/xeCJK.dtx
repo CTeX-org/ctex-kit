@@ -4229,8 +4229,11 @@ Copyright and Licence
 % \begin{macro}[int]{
 %   \@@_boundary_capture_class:n,
 %   \@@_boundary_if_math_head:n,
+%   \@@_boundary_if_math_tail:n,
+%   \@@_boundary_if_math_edge:n,
 %   \@@_boundary_math_begin:,
 %   \@@_boundary_math_begin_visible:,
+%   \@@_boundary_math_end:n,
 %   \@@_boundary_capture_report_first:n,
 %   \@@_boundary_capture_allocate:n,
 %   \@@_boundary_capture_suspend:,
@@ -4319,11 +4322,15 @@ Copyright and Licence
 % 不触发 interchar 转换；若盒子宽度非零、高度或深度非零，且末节点是这个
 % 盒子直接排出的 char、rule 或标点处理添加的 kern，box/wrapped-box 就按
 % Default 首尾重建边界。行内公式另用 |math| 类别：stream 和 box 的正文
-% 入口都必须在 math-on 节点之前报告，盒子结束后再把类别重放到外层。
-% 注册命令的参数适配器只在可见正文以 |$|、\tn{(} 或 \tn{ensuremath}
-% 开始时报告。显式公式入口本身只处理当前列表，不把事件广播到外层 capture；
-% 因此适配器不会监听命令内部用于测量的数学模式，也不会改变裸公式和
-% 离线测量盒子的节点列表。宽、高、深均为零的盒子（\tn{null}、
+% 以 |$|、\tn{(} 或 \tn{ensuremath} 开始时，参数适配器必须在 math-on
+% 节点之前报告首类别；正文以相应公式结束时，适配器把 |math| 记为当前
+% capture 的确定末类别。capture 结束时以这个明确的正文末类别覆盖命令内部
+% 留下的旧 marker，不把任意内部 math 节点猜成可见公式。这样“CJK 前缀
+% + 公式后缀”和外层分组中的公式都能重放正确的右边界，同时嵌套命令只把
+% 结果逐层写回其实际输出列表，不会把离线 \tn{setbox} 中的公式直接认作
+% 外层可见输出。显式公式入口本身只处理当前列表，不把事件广播到外层
+% capture，因此不会改变裸公式和离线测量盒子的节点列表。
+% 宽、高、深均为零的盒子（\tn{null}、
 % 空 \tn{mbox}）、只用于留白的盒子（空 \tn{makebox}、strut、零高 rule），
 % 以及末尾放着另一个已经排好的盒子或填充 glue 的命令（例如
 % \tn{makebox} 放入 \tn{box}，capture 无法知道其中的字符类别），都按
@@ -4381,6 +4388,7 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_space_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_reserve_space_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_xecglue_flag_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_math_tail_flag_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -4442,8 +4450,57 @@ Copyright and Licence
     \@@_boundary_math_begin:
   }
 
+\tl_new:N \l_@@_boundary_math_tl
+
 \prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
   { T , F , TF }
+  {
+    \tl_set:Ne \l_@@_boundary_math_tl
+      { \tl_trim_spaces:n {#1} }
+    \tl_if_empty:NTF \l_@@_boundary_math_tl
+      { \prg_return_false: }
+      {
+        \exp_args:NV \tl_if_head_is_group:nTF
+          \l_@@_boundary_math_tl
+          {
+            \exp_args:Ne \@@_boundary_if_math_head:nTF
+              { \tl_head:V \l_@@_boundary_math_tl }
+              { \prg_return_true: }
+              { \prg_return_false: }
+          }
+          {
+            \exp_args:NV \tl_if_head_eq_meaning:nNTF
+              \l_@@_boundary_math_tl $
+              { \prg_return_true: }
+              {
+                \exp_args:NV \tl_if_head_eq_meaning:nNTF
+                  \l_@@_boundary_math_tl \(
+                  { \prg_return_true: }
+                  {
+                    \exp_args:NV \tl_if_head_eq_meaning:nNTF
+                      \l_@@_boundary_math_tl \ensuremath
+                      { \prg_return_true: }
+                      { \prg_return_false: }
+                  }
+              }
+          }
+      }
+  }
+
+\prg_new_protected_conditional:Npnn \@@_boundary_if_math_tail:n #1
+  { T , F , TF }
+  {
+    \tl_set:Ne \l_@@_boundary_math_tl
+      { \tl_trim_spaces:n {#1} }
+    \tl_reverse:N \l_@@_boundary_math_tl
+    \exp_args:NV \@@_boundary_if_math_tail_reversed:nTF
+      \l_@@_boundary_math_tl
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+
+\prg_new_protected_conditional:Npnn
+  \@@_boundary_if_math_tail_reversed:n #1 { T , F , TF }
   {
     \tl_if_empty:nTF {#1}
       { \prg_return_false: }
@@ -4451,14 +4508,43 @@ Copyright and Licence
         \tl_if_head_eq_meaning:nNTF {#1} $
           { \prg_return_true: }
           {
-            \tl_if_head_eq_meaning:nNTF {#1} \(
+            \tl_if_head_eq_meaning:nNTF {#1} \)
               { \prg_return_true: }
               {
-                \tl_if_head_eq_meaning:nNTF {#1} \ensuremath
-                  { \prg_return_true: }
+                \tl_if_head_is_group:nTF {#1}
+                  {
+                    \tl_set:Ne \l_@@_boundary_math_tl
+                      { \tl_tail:n {#1} }
+                    \tl_if_empty:NTF \l_@@_boundary_math_tl
+                      {
+                        \exp_args:Ne
+                          \@@_boundary_if_math_tail_reversed:nTF
+                          { \tl_head:n {#1} }
+                          { \prg_return_true: }
+                          { \prg_return_false: }
+                      }
+                      {
+                        \exp_args:NV \tl_if_head_eq_meaning:nNTF
+                          \l_@@_boundary_math_tl \ensuremath
+                          { \prg_return_true: }
+                          { \prg_return_false: }
+                      }
+                  }
                   { \prg_return_false: }
               }
           }
+      }
+  }
+
+\prg_new_protected_conditional:Npnn \@@_boundary_if_math_edge:n #1
+  { T , F , TF }
+  {
+    \@@_boundary_if_math_head:nTF {#1}
+      { \prg_return_true: }
+      {
+        \@@_boundary_if_math_tail:nTF {#1}
+          { \prg_return_true: }
+          { \prg_return_false: }
       }
   }
 
@@ -4466,6 +4552,33 @@ Copyright and Licence
   {
     \@@_boundary_if_math_head:nT {#1}
       { \@@_boundary_math_begin_visible: }
+  }
+
+\cs_new_protected:Npn \@@_boundary_math_end:n #1
+  {
+    \@@_boundary_if_math_tail:nT {#1}
+      {
+        \int_compare:nNnT
+          { \g_@@_boundary_capture_depth_int } > \c_zero_int
+          {
+            \int_compare:nNnT
+              { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+              {
+                \tl_gset:cn
+                  {
+                    g_@@_boundary_capture_
+                    \int_use:N \g_@@_boundary_capture_depth_int _last_tl
+                  }
+                  { math }
+                \tl_gset:cn
+                  {
+                    g_@@_boundary_capture_
+                    \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
+                  }
+                  { true }
+              }
+          }
+      }
   }
 
 \cs_new_protected:Npn \@@_boundary_capture_report_first:n #1
@@ -4645,6 +4758,13 @@ Copyright and Licence
         % 仍使用 capture 观察值。
         \exp_args:NV
           \@@_boundary_set_last_from_node:n \l_@@_boundary_node_tl
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
+          }
+          { true }
+          { \tl_set:Nn \l_@@_boundary_last_tl { math } }
         % |default| 的开始 hook 已经固定首类别；这里仅覆写末类别即可让
         % stream 两端都为 Default，同时不丢弃其他模式实际观察到的首类别。
         \str_if_eq:nnT {#1} { default }
@@ -4819,6 +4939,9 @@ Copyright and Licence
     \tl_gset:ce
       { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _xecglue_flag_tl }
       { \bool_if:NTF \l_@@_xecglue_bool { true } { false } }
+    \tl_gset:cn
+      { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl }
+      { false }
     \@@_boundary_capture_space:
     \scan_stop:
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
@@ -5037,6 +5160,13 @@ Copyright and Licence
     % 即使 capture 已记录末类别也不能跳过这一步：内部不可见的定界字符可能
     % 使观察值不准，此时应以节点列表末尾的 marker 为准。
     \@@_boundary_box_set_last_from_node:
+    \tl_if_eq:cnT
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int _math_tail_flag_tl
+      }
+      { true }
+      { \tl_set:Nn \l_@@_boundary_last_tl { math } }
     % 盒子捕获没有独立的 stream 入口，故 |default| 在这里同时覆写实际观察到
     % 的首尾类别；stream 路径则由开始 hook 固定首类别、结束 hook 固定
     % 末类别，两条路径的公开语义相同。
@@ -5306,8 +5436,8 @@ Copyright and Licence
 
 % \tn{mbox} 和 \tn{fbox} 的公开命令是 robust wrapper；实际单参数正文由带
 % 尾随空格的内部控制序列接收。必须先包装这层，再安装公开命令的 before
-% hook：这样 hook 先启动 box capture，正文适配器随后才能在 math-on 前
-% 报告公式。适配器只检查用户交给盒子命令的可见正文，不监听命令内部的
+% hook：这样 hook 先启动 box capture，正文适配器随后才能报告开头和结尾
+% 的公式类别。适配器只检查用户交给盒子命令的可见正文，不监听命令内部的
 % \tn{setbox} 测量。
 \cs_new_protected:Npn \@@_boundary_prepare_onearg_box:N #1
   {
@@ -5323,6 +5453,7 @@ Copyright and Licence
       {
         \@@_boundary_math_begin:n {##1}
         \use:c { @@_boundary_orig_\cs_to_str:N #1 _box:n } {##1}
+        \@@_boundary_math_end:n {##1}
       }
   }
 
@@ -5373,6 +5504,7 @@ Copyright and Licence
             \@@_boundary_inline_last_box_begin:
             \@@_boundary_math_begin:n {##3}
             \@@_orig_imakebox:w [##1][##2]{##3}
+            \@@_boundary_math_end:n {##3}
             \@@_boundary_inline_last_box_end:n { auto }
           }
       }
@@ -5384,6 +5516,7 @@ Copyright and Licence
             \@@_boundary_inline_last_box_begin:
             \@@_boundary_math_begin:n {##3}
             \@@_orig_iframebox:w [##1][##2]{##3}
+            \@@_boundary_math_end:n {##3}
             \@@_boundary_inline_last_box_end:n { auto }
           }
       }
@@ -10918,9 +11051,10 @@ Copyright and Licence
 % stream 的左侧间距必须排在 math-on 节点之前。三个显式公式入口只处理
 % 当前列表的边界，再调用已经完成 robust 处理的原命令；它们不直接向所有
 % 外层 capture 报告，否则原语 \tn{setbox} 中不可见的测量公式也会被当成
-% 外层输出。已经注册的命令确认其可见正文以 |$|、\tn{(} 或
-% \tn{ensuremath} 开始后，才调用 \cs{@@_boundary_math_begin_visible:} 报告
-% |math|。\tn{ensuremath} 已在数学模式中时不重复处理当前列表。
+% 外层输出。已经注册的命令分别检查可见正文的开头和结尾：开头是 |$|、
+% \tn{(} 或 \tn{ensuremath} 时，在 math-on 前报告首类别；结尾是对应公式
+% 时，把 |math| 记为当前 capture 的确定末类别。\tn{ensuremath} 已在数学
+% 模式中时不重复处理当前列表。
 \cs_if_eq:NNTF \( \math
   {
     \cs_new_eq:NN \@@_orig_inline_math_begin: \(
@@ -10944,8 +11078,8 @@ Copyright and Licence
       { \@@_boundary_math_begin: \@@_orig_ensuremath: }
   }
 % LaTeX 标准文本字体命令的 robust 内部实现均为单参数。这里保存该内部实现，
-% 用 stream 包住实际正文，并只在正文首记号为字面数学切换符时于 math-on 前
-% 报告公式入口；普通正文仍由 interchar 转换报告实际首尾类别。
+% 用 stream 包住公式位于正文任一边缘的调用；开头公式在 math-on 前报告，
+% 结尾公式在正文返回后确认。普通正文仍由 interchar 转换报告实际首尾类别。
 \cs_new_protected:Npn \@@_boundary_register_text_command:N #1
   {
     \group_begin: \exp_args:NcNc \group_end:
@@ -10958,11 +11092,12 @@ Copyright and Licence
       { @@_boundary_orig_\cs_to_str:N #1 :n } #2
     \cs_gset_protected:Npn #2 ##1
       {
-        \@@_boundary_if_math_head:nTF {##1}
+        \@@_boundary_if_math_edge:nTF {##1}
           {
             \@@_boundary_inline_stream_begin:n { auto }
             \@@_boundary_math_begin:n {##1}
             \use:c { @@_boundary_orig_\cs_to_str:N #1 :n } {##1}
+            \@@_boundary_math_end:n {##1}
             \@@_boundary_inline_stream_end:n { auto }
           }
           { \use:c { @@_boundary_orig_\cs_to_str:N #1 :n } {##1} }
@@ -11531,9 +11666,9 @@ Copyright and Licence
 % 链接文字中的 Default/CJK 转换随后直接记录实际首尾类别。顶层
 % \tn{Hy@EndAnnot} 若看到数学节点，而 capture 尚未由显式公式入口记录
 % |math|，则把它作为 URL 等命令的可信 Default 输出记录下来；显式
-% \tn{hyperref} 或 \tn{href} 参数以字面数学切换符开始时，由
-% \tn{hyper@link}/\tn{hyper@linkurl} 的三参数／两参数适配器在 math-on 前
-% 报告 |math|。结束 whatsit 之后再结束 capture。这样普通西文、中文、
+% \tn{hyperref} 或 \tn{href} 参数以字面数学切换符开始或结束时，由
+% \tn{hyper@link}/\tn{hyper@linkurl} 的三参数／两参数适配器分别报告首、末
+% |math| 类别。结束 whatsit 之后再结束 capture。这样普通西文、中文、
 % 混合链接文字、数学 URL 和可见行内公式都保留各自语义；嵌套 annotation
 % 仍只在最外层结束时收束，不会让内部结束点提前重放状态。
 %    \begin{macrocode}
@@ -11568,13 +11703,22 @@ Copyright and Licence
     \cs_gset_protected:Npn \hyper@link ##1##2##3
       {
         \@@_orig_hyper_link:nnn {##1} {##2}
-          { \@@_boundary_math_begin:n {##3} ##3 }
+          {
+            \@@_boundary_math_begin:n {##3}
+            ##3
+            \@@_boundary_math_end:n {##3}
+          }
       }
     \cs_gset_eq:NN \@@_orig_hyper_linkurl:nn \hyper@linkurl
     \cs_gset_protected:Npn \hyper@linkurl ##1##2
       {
         \@@_orig_hyper_linkurl:nn
-          { \@@_boundary_math_begin:n {##1} ##1 } {##2}
+          {
+            \@@_boundary_math_begin:n {##1}
+            ##1
+            \@@_boundary_math_end:n {##1}
+          }
+          {##2}
       }
   }
 \@@_package_hook:nn { hyperref }
@@ -11620,17 +11764,18 @@ Copyright and Licence
 % 空格，颜色 whatsit 排出后原样恢复。\tn{color@b@x} 会直接写出多个节点，
 % 继续使用 wrapped-box 收集整个盒子命令的输出。\tn{@textcolor} 的当前
 % 三参数内部签名由一层 stream 适配器保留；第三个参数以字面数学切换符开始
-% 时，适配器在颜色正文进入 math-on 前报告公式入口。
+% 或结束时，适配器分别在 math-on 前报告首类别、在正文返回后确认末类别。
 %    \begin{macrocode}
 % \tn{colorbox} 和 \tn{fcolorbox} 的扫描器都会把可见正文留作
 % \tn{color@b@x} 的第三个参数。先包装这个共同入口，再安装 wrapped-box
-% hook；调用时便会先启动 capture，再由适配器在正文进入 math-on 前报告
-% 公式。\pkg{xcolor} 会重定义这个私有函数，因此它的 package hook 需要按
+% hook；调用时便会先启动 capture，再由适配器报告正文两端的公式类别。
+% \pkg{xcolor} 会重定义这个私有函数，因此它的 package hook 需要按
 % 当前定义重新保存原函数。
 \cs_new_protected:Npn \@@_boundary_color_box:nnn #1#2#3
   {
     \@@_boundary_math_begin:n {#3}
     \@@_orig_color_box:nnn {#1} {#2} {#3}
+    \@@_boundary_math_end:n {#3}
   }
 \cs_new_protected:Npn \@@_boundary_prepare_color_box:
   {
@@ -11642,11 +11787,12 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_textcolor:nnn #1#2#3
   {
-    \@@_boundary_if_math_head:nTF {#3}
+    \@@_boundary_if_math_edge:nTF {#3}
       {
         \@@_boundary_inline_stream_begin:n { auto }
         \@@_boundary_math_begin:n {#3}
         \@@_orig_textcolor:nnn {#1} {#2} {#3}
+        \@@_boundary_math_end:n {#3}
         \@@_boundary_inline_stream_end:n { auto }
       }
       { \@@_orig_textcolor:nnn {#1} {#2} {#3} }
@@ -13049,12 +13195,14 @@ Copyright and Licence
   {
     \@@_boundary_math_begin:n {#1}
     \@@_ulem_on:n { \xeCJK_ulem_left: #1 \xeCJK_ulem_right: }
+    \@@_boundary_math_end:n {#1}
   }
 \cs_new_eq:NN \@@_orig_ulem_onin:n \UL@onin
 \cs_set_protected:Npn \UL@onin #1
   {
     \@@_boundary_math_begin:n {#1}
     \@@_orig_ulem_onin:n {#1}
+    \@@_boundary_math_end:n {#1}
   }
 %    \end{macrocode}
 % \end{macro}
@@ -13486,6 +13634,7 @@ Copyright and Licence
       \xeCJK_ulem_right:
     \group_end:
     \xeCJK_ulem_right_node:
+    \@@_boundary_math_end:n {#6}
     \@@_boundary_inline_stream_end:n { auto }
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5

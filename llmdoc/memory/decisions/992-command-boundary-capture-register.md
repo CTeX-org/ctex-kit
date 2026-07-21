@@ -60,9 +60,11 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 **Boundary→CJK 方向已补上相同的检查（#996，PR #1001，commit 085f4f86）**：`\@@_check_for_glue_skip:` 在 Boundary→CJK 方向也调用 `\@@_skip_if_interword:N`。只有待检查的 glue 为 finite、带 shrink，而且自然宽度等于词间空格时，才可能把它当作源码空格；其他显式 glue 不再被替换为 `CJKglue`。新增的 `\@@_glue_check_expire_stale:` 会在最外层恢复逻辑发现节点列表为空时清除过期 pending，因为空列表中不可能有相邻的 xeCJK marker；capture 活跃时不清除，以便 ulem 等 stream 把 pending 从内部盒子带到命令外的实际边界。这两处修改修复了 `\g_@@_glue_check_pending_bool` 越过 `\hbox` 或 `\setbox` 分组、误把下一个盒子中的显式 `\hskip` 当作源码词间空格的问题。回归测试 `boundary-crossbox01.lvt` 覆盖 issue MWE、`\kern0pt` 处理方法、同一盒子与不同盒子中的显式 glue，以及两个方向的源码空格处理。旧基线 `boundary-space02.tlg` 和 `fntef-space02.tlg` 的 20pt、40pt 是 pending 泄漏造成的错误输出；修复后的 23.33pt、43.33pt 才符合“显式 `\ ` 原样保留”的测试说明。如果显式 glue 与词间空格在节点列表中没有区别，TeX 仍无法判断来源；处理方法见下文「右侧源码空格的机制边界」。
 
-**math 与 rule 内容现在按 Default 重建边界（#998，PR #1001，commits 14336c4d/19fedf48）**：math 模式内容与 `\vrule` 不触发 XeTeX interchar class 转换，所以 capture 看不到它们的首尾类别。box/wrapped-box 结束时，`\@@_boundary_if_capture_box_visible:` 会在没有观察到类别的情况下检查盒子尺寸和末节点类型。盒子必须宽度非零、高度或深度非零，并且末节点是 char(0)、rule(3)、math(10) 或 kern(12)，才认为它直接排出了可见内容。此时按 Default 重建首尾边界，使 `\mbox{$x$}`、`\mbox{\vrule...}` 的外围间距与直接输入西文相同。宽、高、深均为零的盒子、只用于留白的盒子，以及末尾为 hlist(1) 或 glue(11) 的命令仍恢复进入命令前的状态；这覆盖 `\null`、空 `\mbox`、ctex 内核 `\[` 使用的空白 `\makebox`，以及 thuthesis 的 `\thu@pad` 等把已经排好的盒子放到末尾的命令，因为 capture 无法据此判断里面的字符类别。
+**rule 按 Default、行内公式按独立 `math` 类别重建边界（#998/#1002）**：rule 和公式都不触发 XeTeX interchar class 转换，但两者的源码空格语义不同。`\vrule` 继续由 `\@@_boundary_if_capture_box_visible:` 根据盒子尺寸和末节点类型按 Default 处理；行内公式则以直接 `$x$` 为 oracle，不能再降为普通西文字母。
 
-推断出的 default 通过 `\@@_boundary_capture_report_first:n` 只补上外层尚未取得的 `first_tl`，不能直接覆盖所有外层 `last_tl`，否则 `\fcolorbox` 命令内部的辅助盒子会覆盖已经观察到的 CJK 末类别。嵌套盒子结束时写入的 marker 会留在外层盒子的节点列表末尾；外层结束时，`\@@_boundary_box_set_last_from_node:` 读取这个 marker，只更新本层末类别。这样，`\mbox{中\mbox{$x$}}` 以及对应的 rule 情况可以逐层得到 Default 末类别，`\nfss@text` 嵌套在 stream 内时也与单独调用相同。`\mbox{\vrule...}` 仍按 Default 类别检查；公式包装必须与直接公式比较，不能用字母代替。`\fbox{$x$}` 和 `\colorbox{yellow}{$x$}` 等公式包装的范围和基准统一转交 #1002。`command-boundary01` 先新增 12 组 math、数字、rule 和空盒子场景，从 408 个比较增加到 456 个；本地审查后再补 4 组嵌套 math/rule 场景，合计 472 个。
+公式适配器只识别可见正文两端的明确语法，不展开任意宏。开头公式在 math-on 前报告首类别；结尾公式把当前最内层 capture 的末类别标为 `math`。box/stream 结束时让这个明确的正文末类别覆盖内部旧 marker；任意内部 math 节点本身不能证明可见正文以公式结束。内层 capture 重放的 marker 留在它实际输出的列表中，外层 capture 再逐层读取；因此 `\mbox{中\fbox{中$x$}}` 能取得正确末类别，而原语 `\setbox` 中没有输出到当前列表的公式不会直接污染外层。这里不使用全局 `\everymath`，也不扫描任意 hbox 的内部节点。
+
+推断出的 Default 仍通过 `\@@_boundary_capture_report_first:n` 只补上外层尚未取得的 `first_tl`，不能直接覆盖所有外层 `last_tl`，否则 `\fcolorbox` 命令内部的辅助盒子会覆盖已经观察到的 CJK 末类别。宽、高、深均为零的盒子、只用于留白的盒子，以及末尾为 hlist(1) 或 glue(11) 的命令仍恢复进入命令前的状态；这覆盖 `\null`、空 `\mbox`、ctex 内核 `\[` 使用的空白 `\makebox`，以及 thuthesis 的 `\thu@pad`。`\mbox{\vrule...}` 仍按 Default 检查，公式包装的完整 oracle 和验证范围见 [[1002-inline-math-boundary-oracle]]。
 
 ## 未采用的方案
 
@@ -73,19 +75,19 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 ## 验证与状态
 
-`command-boundary01` 当前执行 1664 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，只精确跳过 #1002 的四个公式红叉；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接推断 math/rule 后缀”的嵌套场景。`command-boundary02` 用 15 个 paragraph/node 测试覆盖节点结构、ulem 外层不带装饰的 glue、TeX 无法区分来源的显式 glue、`\kern0pt` 处理方法，以及 #1003 的大写盒子尾部和 post-transparent 后缀。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。既有 xeCJK 回归测试、ctex 四引擎 184 项测试和专项测试共同检查下游变化。
+`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 3200 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、外层分组、嵌套命令和离线 `\setbox`；`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
 
 #992 的活表只代表已合并实现的状态。PR 未合并时，修复后的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再把红叉改成绿勾。
 
 2026-07-21 从已合并的 `master` `10500b33` 扩展审计维度：每个普通命令单元分别在 `xCJKecglue=false` 和 `xCJKecglue=true` 下运行默认间距与 5pt/1pt 可区分间距。排除交由 #1002 处理的公式后，每种设置有 320 个单元；初次审计中 `false` 两轮均为 320／320 通过，`true` 分别为 318／320 和 312／320 通过，失败形成 #1003。PR #1005 合并为 `master` `8007e4df` 后，从该提交重新运行 core、links、verb、biblatex 共 16 个驱动，四种配置的普通命令均为 320／320 通过；#992 活表第 7、9、15 行及三张规范图片据此更新。稳定回归只固化绿色单元，不能把失败输出保存为通过基线。
 
-第 28 行的行内公式另有一项 oracle 修正：`\mbox{$x$}` 必须与直接公式 `$x$` 比较，不能与字母 `x` 比较。按这个基准，`xCJKecglue=false` 的 `10`、`11` 不一致，`true` 的四种源码空格均一致，后续公式范围仍由 #1002 统一记录。`xCJKecglue=<glue>` 等价于 `CJKecglue=<glue>, xCJKecglue=true`，只增加一个等价性回归，不复制第三套矩阵；`CJKspace` 保持独立。
+第 28 行的行内公式以直接 `$x$` 为 oracle，不能与字母 `x` 比较。当前实现下，`xCJKecglue=false/true` 的四种源码空格都已一致；#1002 的四套外部矩阵也均为 272／272。#992 活表仍须等实现合并后从合并提交复验再更新。`xCJKecglue=<glue>` 等价于 `CJKecglue=<glue>, xCJKecglue=true`，只增加一个等价性回归，不复制第三套矩阵；`CJKspace` 保持独立。
 
 用户报告 #995/#996/#998 的 A/B 复现（v3.10.3 发行版 vs PR #999 开发分支）已完成根因定位；#1000 是后续独立报告的 siunitx 边界丢失问题：
 
 - **#995 已由 #999 框架顺带修复**。旧 `\set@color`/`\reset@color` 补丁曾在 `\settowidth` 等离线测量场景写 `\g_@@_last_node_tl` 并让旧 whatsit 猜测分支信任陈旧全局 tl，导致 `\settowidth{...}{甲\colorbox{yellow}{乙}}` 污染全局边界状态，使随后相同源码的 `\hbox{丙\special{audit} 丁}` 从 23.33pt 变为 20.0pt。capture/register 框架删除这两个机制（`\set@color`/`\reset@color` 改注册为 `transparent`）后 DELTA=0。回归测试 `xeCJK/testfiles/colorbox-measure01.lvt`：两组 direct-input oracle（含 `\special` whatsit 的盒子、纯文本盒子）在 `\settowidth`+`\colorbox` 测量前后逐次宽度比较（`\wd` 相等）。
 - **#996 已由 PR #1001（commit 085f4f86）修复**：见上文“机制边界”一节 Boundary→CJK 方向对称校验。
-- **#998 已由 PR #1001（commit 14336c4d）修复**：见上文“机制边界”一节 math/rule 按 Default 重建。
+- **#998 已由 PR #1001（commit 14336c4d）修复**：box/wrapped-box 的可见性后备能识别不触发 interchar 转换的 rule 和 math 节点；rule 继续按 Default 重建，公式的精确类别和源码空格语义随后由 #1002 的 `math` 类别补全。
 - **#1000 已由 PR #1001（commit c8c803bf）修复**：siunitx 的 `\unit`、`\qty` 和 `\num` 在 math 模式排版数字与单位，入口的 `\mathon` 会遮住左侧 CJK marker，情况与修复前的 `\eqref` 相同，因此注册为固定 Default 首尾的 `stream` capture（`\@@_boundary_register_siunitx:`）。v2 旧名 `\si`、`\SI` 是独立的顶层命令；注册前分别用 `\cs_if_exist:cT` 检查命令是否存在。`\ang` 会输出角度符号，目前还没有确定应与哪种直接输入比较，因此暂不注册。回归测试 `siunitx-ecglue01.lvt` 包含 9 组 `\BoundaryMatrix`，每组执行 4 种源码空格组合，共 36 个宽度比较，另检查 math 内嵌使用后的 capture 栈是否归零。
 
 四个问题均已发布确认评论；#996/#998/#1000 的 before/after 视觉对比落在 gh-assets 固定提交 `fcff1eb3`，#995 的 MWE/截图落在 `gh-assets:issues/995/`。#996、#998、#1000 在 #992 issue 活表上的行按既有惯例——PR #1001 未合并前只作预览，合并后须从合并提交复验再更新为已修复状态。PR #999 body 已加 `Closes #995`。
