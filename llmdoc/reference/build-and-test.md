@@ -131,7 +131,7 @@
 
 `xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
 
-- 当前有 100 组普通 `\BoundaryMatrix`，分别在默认/可区分间距和 `xCJKecglue=false/true` 的四种配置下运行；第 28 行另用直接公式 `$x$` 作为 oracle。矩阵中共有 1616 个可表达单元，其中只有 #1002 的 4 个公式红叉单元输出明确的 `SKIP` 记录，1612 个单元执行宽度比较。再加 `CJKspace` 和分隔符扫描 `\verb` 的 52 个比较，合计 1664 个通过断言。测试先扣除待测命令与直接输入分别排版时固有的宽度差，再只比较外围间距，容差为 0.01pt。
+- 当前有 100 组普通 `\BoundaryMatrix`，分别在默认/可区分间距和 `xCJKecglue=false/true` 的四种配置下运行；第 28 行另用直接公式 `$x$` 作为 oracle。矩阵中 1616 个可表达单元现已全部执行宽度比较；再加 `CJKspace` 和分隔符扫描 `\verb` 的 52 个比较，合计 1668 个通过断言。测试先扣除待测命令与直接输入分别排版时固有的宽度差，再只比较外围间距，容差为 0.01pt。
 - 覆盖展开宏、显式分组、字体/颜色、xeCJKfntef 与原生 `\uline`、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
 - 嵌套测试覆盖到 12 层盒子；`\sbox` scratch 测量用于确认 capture suspend/resume 不会污染外层实际输出。
 - ulem/fntef 双向嵌套覆盖原生 `\uline` / `\sout` 与 `\CJKunderline` / `\CJKunderdot`；每格的 idle-stack 断言同时防止内层重复启动却没有对应结束所造成的 capture 泄漏。
@@ -142,7 +142,9 @@
 
 公式的比较基准必须保留公式形式。比如 `\mbox{$x$}` 应与直接公式 `$x$` 比较，不能与字母 `x` 比较；二者在 xeCJK 中具有不同的源码空格语义。`xCJKecglue=false` 时，公式旁的源码空格保留为普通词间空格；`true` 时才改用 `CJKecglue`。外层命令不能改变这项选择。
 
-#1002 的公式矩阵还要覆盖中文—公式—中文和西文—公式—西文、直接 `$x$`、`\(x\)`、`\ensuremath{x}` 以及命令中的 `$x$`。左右两侧必须分别检查，不能只比较总宽度；否则一侧多出的间距可能与另一侧缺少的间距抵消。`$x$` 是优先支持形式，其他两种写法的目标行为与它相同，但允许在实现风险较高时明确保留尚未支持的精确组合。#992 第 28 行当前为：`xCJKecglue=false` 的 `10`、`11` 不一致，`xCJKecglue=true` 的四种源码空格均一致。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
+#1002 的公式矩阵覆盖中文—公式—中文、西文—公式—西文和两个混合方向，分别检查直接 `$x$`、`\(x\)`、`\ensuremath{x}` 以及字体、颜色、盒子、链接、ulem 和独立符号命令中的公式。左右两侧必须分别检查，不能只比较总宽度；否则一侧多出的间距可能与另一侧缺少的间距抵消。`command-boundary-math01.lvt` 在默认/可区分间距和 `xCJKecglue=false/true` 四种配置下执行 3200 次比较，包含公式位于命令开头、位于 CJK 后缀末尾、外层分组、嵌套命令和原语 `\setbox` 离线测量；每个候选还检查 capture、active 和 suspend 状态归零。`command-boundary-math02.lvt` 用节点日志确认 glue 位于盒子、链接 annotation 和 ulem 装饰区间之外，`03` 检查宏包加载顺序、移动参数和对齐扫描器，`04` 单独检查只加载标准 `color` 的路径。
+
+`gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
 `xeCJK/testfiles/command-boundary02.lvt` 提供 15 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` 处理方法。新增三项分别确认：盒内末尾大写字母后的源码空格变成 5pt `CJKecglue`；有源码空格时，`\null` 后的恢复链把显式 7pt glue 换成 5pt；没有源码空格时，7pt glue 原样保留。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
 
