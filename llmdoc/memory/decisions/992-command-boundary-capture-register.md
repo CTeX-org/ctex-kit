@@ -62,7 +62,7 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 **rule 按 Default、行内公式按独立 `math` 类别重建边界（#998/#1002）**：rule 和公式都不触发 XeTeX interchar class 转换，但两者的源码空格语义不同。`\vrule` 继续由 `\@@_boundary_if_capture_box_visible:` 根据盒子尺寸和末节点类型按 Default 处理；行内公式则以直接 `$x$` 为 oracle，不能再降为普通西文字母。
 
-公式适配器只识别可见正文两端的明确语法，不展开任意宏。开头公式在 math-on 前报告首类别；结尾公式把当前最内层 capture 的末类别标为 `math`。box/stream 结束时让这个明确的正文末类别覆盖内部旧 marker；任意内部 math 节点本身不能证明可见正文以公式结束。内层 capture 重放的 marker 留在它实际输出的列表中，外层 capture 再逐层读取；因此 `\mbox{中\fbox{中$x$}}` 能取得正确末类别，而原语 `\setbox` 中没有输出到当前列表的公式不会直接污染外层。这里不使用全局 `\everymath`，也不扫描任意 hbox 的内部节点。
+公式适配器不展开任意宏。开头公式在 math-on 前报告首类别；正文尾部识别出的 `$`、`\)`、`\ensuremath{...}` 或相应外层分组一律只是语法候选。可见正文实际排完、包装尚未关闭时，适配器再检查当前列表末尾：只有真实 math 节点或 xeCJK 的 `math` marker 才能确认候选并发布 `math`。这项实际输出确认不能省略，因为未知宏不仅可能在可选参数、普通双参数或分隔参数之后消费最后的公式分组，还可能直接把 `$` 或 `\)` 当作分隔参数的终止符；这些记号没有进入实际输出时，宏仍可能只排出 CJK 内容。box/stream 结束时使用已经确认的正文末类别覆盖内部旧 marker；任意内部 math 节点本身不能证明可见正文以公式结束。内层 capture 重放的 marker 留在它实际输出的列表中，外层 capture 再逐层读取；因此 `\mbox{中\fbox{中$x$}}` 能取得正确末类别，而原语 `\setbox` 中没有输出到当前列表的公式不会直接污染外层。这里不使用全局 `\everymath`，也不扫描任意 hbox 的内部节点。
 
 推断出的 Default 仍通过 `\@@_boundary_capture_report_first:n` 只补上外层尚未取得的 `first_tl`，不能直接覆盖所有外层 `last_tl`，否则 `\fcolorbox` 命令内部的辅助盒子会覆盖已经观察到的 CJK 末类别。宽、高、深均为零的盒子、只用于留白的盒子，以及末尾为 hlist(1) 或 glue(11) 的命令仍恢复进入命令前的状态；这覆盖 `\null`、空 `\mbox`、ctex 内核 `\[` 使用的空白 `\makebox`，以及 thuthesis 的 `\thu@pad`。`\mbox{\vrule...}` 仍按 Default 检查，公式包装的完整 oracle 和验证范围见 [[1002-inline-math-boundary-oracle]]。
 
@@ -75,7 +75,7 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 ## 验证与状态
 
-`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 3904 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、整个正文的外层分组、CJK 前缀后接分组公式、嵌套命令和离线 `\setbox`；一个忽略公式参数的普通宏反例防止语法检查越过“不展开任意宏”的边界。`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
+`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 4224 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、整个正文的外层分组、CJK 前缀后接分组公式、嵌套命令和离线 `\setbox`；三类消费尾部分组的宏，以及分别把 `$`、`\)` 当作分隔参数终止符的两类宏，共同确认所有尾部语法候选都必须经过实际输出节点确认。`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
 
 #992 的活表只代表已合并实现的状态。PR 未合并时，修复后的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再把红叉改成绿勾。
 
