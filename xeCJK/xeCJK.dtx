@@ -4350,7 +4350,8 @@ Copyright and Licence
 %   末尾与公式后已有参数内源码空格，使注册命令能按直接公式的源码空格语义
 %   恢复左右边界；另行区分仍参与外层断行的 stream 空格与已冻结在盒子中的
 %   空格，正确保留弹性间距的伸缩量；不可见节点将普通 stream 的真实空格
-%   与 marker 隔开时按直接公式语义让 marker 过期（\#1002）。}
+%   与 marker 隔开时按直接公式语义让 marker 过期，并保留中间 glue 与节点
+%   的原有次序（\#1002）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4398,7 +4399,8 @@ Copyright and Licence
 % 适配器在交出尾随空格前确认公式节点，再把空格交还 ulem 排版。若
 % transparent 或 post-transparent 命令把 special、零尺寸盒子等不可见节点
 % 插到普通 stream 的真实空格与 marker 之间，直接公式的恢复链也会被同一
-% 节点截断；框架因此让 marker 过期，不在节点之后单独增加补偿 glue。
+% 节点截断；框架因此让 marker 过期，不在节点之后单独增加补偿 glue；若
+% marker 与节点之间还有显式 glue，也把它恢复到节点之前的原位置。
 % 宽、高、深均为零的盒子（\tn{null}、
 % 空 \tn{mbox}）、只用于留白的盒子（空 \tn{makebox}、strut、零高 rule），
 % 以及末尾放着另一个已经排好的盒子或填充 glue 的命令（例如
@@ -5050,14 +5052,20 @@ Copyright and Licence
         \box_use_drop:N \l_@@_boundary_post_box
       }
       {
-        \box_use_drop:N \l_@@_boundary_post_box
         \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
-          { \@@_boundary_math_space_expire: }
           {
+            % |math-space| 过期时不再移动后缀；先恢复候选 glue，再放回
+            % 零尺寸盒子，保持与含同一盒子的直接公式相同的节点顺序。
+            \skip_horizontal:N \l_@@_last_skip
+            \box_use_drop:N \l_@@_boundary_post_box
+            \@@_boundary_math_space_expire:
+          }
+          {
+            \box_use_drop:N \l_@@_boundary_post_box
             \exp_args:NV
               \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+            \skip_horizontal:N \l_@@_last_skip
           }
-        \skip_horizontal:N \l_@@_last_skip
       }
   }
 
