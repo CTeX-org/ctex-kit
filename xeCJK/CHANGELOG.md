@@ -3,6 +3,7 @@
 - 提升版本号至 v3.10.4。
 - 在用户手册说明 TeX 无法区分源码空格与某些显式 glue，并给出前置零宽 `\kern` 的处理方法（#992）。
 - 补充 Boundary→CJK 方向的说明：某些显式 glue 也可能被替换为 `CJKglue`（#996）。
+- 修正 `\@@_check_num_range:nnNN` 中缺省端点的范围解析问题。
 - 允许 Boundary 到 Default 的恢复路径暂时移除末尾不含无限阶伸缩、且有收缩量的源码词间 glue；若其下方确有 CJK marker，则将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
 - 新增 `\@@_glue_check_expire_stale:`：顶层恢复链发现节点列表为空时清除过期的 pending 状态，阻止 `\g_@@_glue_check_pending_bool` 跨 `\hbox`/`\setbox` 存活（#996）。
 - 由命令边界 framework 接管 `xeCJKfntef`、盒子命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit 下方类别的旧回退；glue 分支现在只接受紧邻的 xeCJK marker（#992）。
