@@ -1,0 +1,87 @@
+\documentclass[a5paper,landscape]{article}
+\usepackage[margin=8mm]{geometry}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{siunitx}
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+\input{showcase-lib.tex}
+
+\newcommand\ShowcaseRule{\vrule width 5pt height 5pt depth 0pt\relax}
+
+% Issue #996 compares two boxes built from identical input.  Keep the
+% state between the two assignments: resetting it would hide the bug that
+% the example is meant to catch.
+\newbox\CrossboxFirst
+\newbox\CrossboxSecond
+\newbox\CrossboxProtected
+\newdimen\CrossboxDelta
+\newdimen\CrossboxAbsDelta
+
+\newcommand\CrossboxRow[3]{%
+  \global\CrossboxDelta=\dimexpr\wd#3-\wd#2\relax
+  \global\CrossboxAbsDelta=\CrossboxDelta
+  \ifdim\CrossboxAbsDelta<0pt
+    \global\CrossboxAbsDelta=-\CrossboxAbsDelta
+  \fi
+  \texttt{#1}&
+  \fbox{\copy#2}&
+  \fbox{\copy#3}&
+  \ifdim\CrossboxAbsDelta<0.01pt
+    \textcolor{teal!70!black}{same}%
+  \else
+    \textcolor{red!80!black}{\the\CrossboxDelta}%
+  \fi
+  \tabularnewline
+}
+
+\begin{document}
+
+{\large\bfseries \texttt{two \string\hbox\ assignments with explicit
+\string\hskip}}\quad
+{\footnotesize The second box is built without resetting xeCJK state;
+ framed boxes show natural width; $\Delta$ = measured $-$ first box}\par
+\smallskip
+\begin{tabular}{@{}D O O Q@{}}
+\bfseries case&
+\bfseries first box&
+\bfseries measured box&
+\bfseries $\Delta$\tabularnewline
+\hline
+\multicolumn{4}{@{}l}{\rule{0pt}{14pt}\bfseries
+  Identical input: 中\string\hskip10pt plus 1pt minus 1pt 文}\tabularnewline
+\MatrixReset
+\global\setbox\CrossboxFirst=\hbox{中\hskip10pt plus 1pt minus 1pt 文}%
+\global\setbox\CrossboxSecond=\hbox{中\hskip10pt plus 1pt minus 1pt 文}%
+\global\setbox\CrossboxProtected=\hbox{中\kern0pt
+  \hskip10pt plus 1pt minus 1pt 文}%
+\CrossboxRow{first}{\CrossboxFirst}{\CrossboxFirst}%
+\CrossboxRow{again}{\CrossboxFirst}{\CrossboxSecond}%
+\CrossboxRow{kern}{\CrossboxFirst}{\CrossboxProtected}%
+\end{tabular}
+\clearpage
+
+\CommandPage{\mbox with inline math (issue 998)}{%
+  \Matrix{Math output: 中\string\mbox{\string$x\string$}文}
+    {中}{\mbox{$x$}}{x}{文}
+  \Matrix{Math output: A\string\mbox{\string$x\string$}B}
+    {A}{\mbox{$x$}}{x}{B}
+}
+
+\CommandPage{\mbox with a rule (issue 998)}{%
+  \Matrix{Rule output: 中\string\mbox{\string\vrule...}文}
+    {中}{\mbox{\ShowcaseRule}}{X}{文}
+  \Matrix{Rule output: A\string\mbox{\string\vrule...}B}
+    {A}{\mbox{\ShowcaseRule}}{X}{B}
+}
+
+\CommandPage{\unit / \qty / \num (siunitx, issue 1000)}{%
+  \Matrix{\string\unit: 单位\string\unit{kg}单位}
+    {单位}{\unit{kg}}{kg}{单位}
+  \Matrix{\string\qty: 中\string\qty{5}{kg}文}
+    {中}{\qty{5}{kg}}{5kg}{文}
+  \Matrix{\string\num: 中\string\num{3.14}文}
+    {中}{\num{3.14}}{3.14}{文}
+}
+
+\end{document}

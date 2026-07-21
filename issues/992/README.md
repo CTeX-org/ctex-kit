@@ -72,8 +72,10 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   isolation and intrinsic-width subtraction as the audit matrices, but
   each cell renders framed oracle/candidate boxes with a red delta.
   All showcase documents use the distinguishing glue values.
-- showcase-core.tex, showcase-links.tex, showcase-verb.tex, and
-  showcase-biblatex.tex produce one page per command row.
+- showcase-core.tex, showcase-links.tex, showcase-verb.tex,
+  showcase-biblatex.tex, and showcase-followups.tex produce one page per
+  command row. The follow-up file covers the merged fixes for #996, #998,
+  and #1000 with the same table layout as the original rows.
 - showcase/<row>.png are the cropped per-command images embedded in the
   living status table (first comment of #992). Individual images are refreshed
   as fixes merge; the current set was regenerated from the unified prototype
@@ -96,3 +98,15 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   On the fix branch for #996/#998/#1000 (commit a1df81ef) both glue
   modes report 208/208 PASS; the living-table refresh happens after the
   fix PR merges, per the preview/merged layering convention.
+
+## Post-merge refresh for PR #1001 (2026-07-21)
+
+- Master commit 10500b33 was unpacked and used for a fresh run of all eight
+  core drivers: 320/320 cells pass with package defaults and 320/320 cells
+  pass with CJKecglue=5pt and CJKglue=1pt.
+- The #996 MWE reports FIRST=30.0pt, SECOND=30.0pt, and DELTA=0.0pt. The
+  #998 matrix reports 32/32 PASS, and the #1000 matrix reports 36/36 PASS.
+- showcase-followups.tex generates the four matching living-table images:
+  showcase/crossbox-hskip.png, showcase/mbox-math.png,
+  showcase/mbox-rule.png, and showcase/siunitx.png. These replace the wider
+  PR before/after composites previously used in rows 27--30.
