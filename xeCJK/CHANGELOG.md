@@ -10,6 +10,7 @@
 - 删除颜色专用 pending boolean；颜色 push/pop 和盒子输出改由 transparent/wrapped-box capture 处理（#992）。
 - 新增命令边界 capture/register 框架，按实际可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（#992）。
 - box/wrapped-box 捕获在盒子直接排出了可见内容（宽度非零、高度或深度非零，且末节点为 char/rule/math/kern）而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 `\vrule` 等不触发 interchar 转换的可见内容不再被误判为“无可见输出”。已经排好再放入的盒子与只用于留白的盒子仍按无可见输出处理（#998）。
+- 重放 Default marker 时按外层列表同步 `\spacefactor`；post-transparent 同时搬移 marker 与其后的候选 glue，修复 `xCJKecglue` 启用后盒内末尾大写字母和 `\null` 遮住边界后缀时的右边界间距（#1003）。
 - 包装内核私有 `\@imakebox` 与 `\@iframebox` 的 `[#1][#2]#3` 签名以注册 `\makebox` / `\framebox`；内核若调整该签名须同步此 wrapper（#992）。
 - 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
 - 将 `\set@color` 与 `\reset@color` 注册为 transparent capture，删除颜色 push/pop 的专用 marker save/replay 分支（#992）。
