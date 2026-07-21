@@ -15,15 +15,18 @@
   `4628cb44` 编译所得的完整数值。
 - `issue1002-visual.tex` 和 `issue1002-visual.png`：使用 5pt
   `CJKecglue` 和 1pt `CJKglue` 排出的代表性对照。
-- `inline-math-matrix.tex`：状态表使用的完整测试文件。它以直接输入
-  `$x$` 为比较基准，覆盖 17 种命令、四种周边文字组合、四种源码空格、
-  `xCJKecglue=false/true`，并分别使用默认间距和 5pt/1pt 间距编译。
+- `inline-math-matrix.tex` 及三个 `inline-math-matrix-*.tex`：状态表使用的
+  完整测试文件。四种间距设置分别启动 XeLaTeX 编译，避免同一次编译中
+  切换 `xCJKecglue` 影响后续结果。每次测试都以直接输入 `$x$` 为比较
+  基准，覆盖 17 种命令、四种周边文字组合和四种源码空格。
 - `inline-math-verdicts.tsv`：上述完整测试的逐命令结果。`CMC`、`WMW`、
   `CMW`、`WMC` 依次表示中文—公式—中文、西文—公式—西文、
   中文—公式—西文、西文—公式—中文；每列的四个字母对应
   `00`、`10`、`01`、`11`。
-- `inline-math-showcase.tex`：逐命令排版对照的源文件。每页同时展示
-  `xCJKecglue=false/true` 以及中文和西文两种周边文字。
+- `inline-math-showcase.tex` 和 `inline-math-showcase-true.tex`：逐命令排版
+  对照的源文件。`false` 和 `true` 分别启动 XeLaTeX 编译；最终图片把
+  对应页面上下合并，因此每张图都包含两种选项值和四种周边文字，共
+  8 组、32 项。
 - `showcase/*.png`：状态表引用的逐命令排版图片。
 
 ## 复查结果
@@ -44,7 +47,7 @@
 
 ## 公式专用状态表
 
-状态表采用 #992 已确定的规则：候选和直接输入使用相同的
+状态表采用 #992 已确定的规则：命令包裹后的写法和直接输入使用相同的
 `xCJKecglue` 设置；每格只有在默认间距和 5pt/1pt 间距下都与直接输入
 `$x$` 相同时才记为通过。两个混合方向用于分别检查公式左侧和右侧，
 避免两侧的宽度差互相抵消。
@@ -55,7 +58,7 @@
 - `xCJKecglue=false`：默认间距 191／272 通过，5pt/1pt 间距
   181／272 通过；
 - `xCJKecglue=true`：默认间距 182／272 通过，5pt/1pt 间距
-  186／272 通过。
+  176／272 通过。
 
 这些是当前失败情况的记录，不表示已经完成修复。修复合并后，应从新的
 `master` 提交重新编译，再更新 #1002 的表格和图片。
@@ -66,5 +69,10 @@
 TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex issue1002-mwe.tex
 grep '^MATH' issue1002-mwe.log
 TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-matrix.tex
-grep '^INLINE' inline-math-matrix.log
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-matrix-false-custom.tex
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-matrix-true-default.tex
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-matrix-true-custom.tex
+grep '^INLINE' inline-math-matrix*.log
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-showcase.tex
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-showcase-true.tex
 ```

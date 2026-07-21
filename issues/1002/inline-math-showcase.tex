@@ -1,6 +1,6 @@
 % Issue #1002：逐命令排版对照。
-% 每页同时展示 xCJKecglue=false/true，以及中文和西文两种周边文字。
-\documentclass[a5paper,landscape]{article}
+% false/true 分别编译；每页展示四种周边文字，最终图片合并对应页面。
+\documentclass[a4paper]{article}
 \usepackage[margin=8mm]{geometry}
 \usepackage{xeCJK}
 \usepackage{xcolor}
@@ -20,78 +20,133 @@
 }
 \makeatother
 
-\newcommand\InlineMathVariant[4]{%
-  \begingroup
-    \xeCJKsetup{xCJKecglue=#1}%
-    \MatrixReset\global\setbox\MatrixCandidateContext=\hbox{#3}%
-    \MatrixReset\global\setbox\MatrixOracleContext=\hbox{#4}%
-  \endgroup
+% 先完成一页中的全部测量，再排出组名和结果。若在测量之间排中文组名，
+% 组名本身会改变 xeCJK 的边界状态，使图片与纯日志测试不一致。
+\newbox\InlineRowCMCZero
+\newbox\InlineRowCMCLeft
+\newbox\InlineRowCMCRight
+\newbox\InlineRowCMCBoth
+\newbox\InlineRowWMWZero
+\newbox\InlineRowWMWLeft
+\newbox\InlineRowWMWRight
+\newbox\InlineRowWMWBoth
+\newbox\InlineRowCMWZero
+\newbox\InlineRowCMWLeft
+\newbox\InlineRowCMWRight
+\newbox\InlineRowCMWBoth
+\newbox\InlineRowWMCZero
+\newbox\InlineRowWMCLeft
+\newbox\InlineRowWMCRight
+\newbox\InlineRowWMCBoth
+\newcount\InlineCommandNumber
+
+\newcommand\InlineRowBox[2]{\csname InlineRow#1#2\endcsname}
+
+% #1 命令包裹后的内容，#2 直接输入，#3 源码空格，#4 组名，#5 行名。
+\newcommand\InlinePrepareVariant[5]{%
+  \MatrixReset\global\setbox\MatrixCandidateContext=\hbox{#1}%
+  \MatrixReset\global\setbox\MatrixOracleContext=\hbox{#2}%
   \global\MatrixDelta=\dimexpr
     \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
     \MatrixIntrinsicDelta\relax
   \global\MatrixAbsDelta=\MatrixDelta
-  \ifdim\MatrixAbsDelta<0pt \global\MatrixAbsDelta=-\MatrixAbsDelta\fi
-  \texttt{#2}&
-  \fbox{\copy\MatrixOracleContext}&
-  \fbox{\copy\MatrixCandidateContext}&
-  \ifdim\MatrixAbsDelta<0.01pt
-    \textcolor{teal!70!black}{same}%
-  \else
-    \textcolor{red!80!black}{\the\MatrixDelta}%
+  \ifdim\MatrixAbsDelta<0pt
+    \global\MatrixAbsDelta=-\MatrixAbsDelta
   \fi
-  \tabularnewline
+  \ifdim\MatrixAbsDelta<0.01pt
+    \typeout{SHOWCASE|\InlineMathMode|\the\InlineCommandNumber/#4|#3|PASS|%
+      delta=\the\MatrixDelta}%
+  \else
+    \typeout{SHOWCASE|\InlineMathMode|\the\InlineCommandNumber/#4|#3|FAIL|%
+      delta=\the\MatrixDelta}%
+  \fi
+  \global\setbox\InlineRowBox{#4}{#5}=\hbox{%
+    \makebox[10mm][c]{\texttt{#3}}\hspace{2\tabcolsep}%
+    \makebox[54mm][c]{\fbox{\copy\MatrixOracleContext}}%
+    \hspace{2\tabcolsep}%
+    \makebox[54mm][c]{\fbox{\copy\MatrixCandidateContext}}%
+    \hspace{2\tabcolsep}%
+    \makebox[20mm][c]{%
+      \ifdim\MatrixAbsDelta<0.01pt
+        \textcolor{teal!70!black}{same}%
+      \else
+        \textcolor{red!80!black}{\the\MatrixDelta}%
+      \fi}}%
 }
 
-% #1 xCJKecglue，#2 标题，#3 左侧文字，#4 候选，#5 直接输入，#6 右侧文字。
-\newcommand\InlineMathMatrix[6]{%
+% #1 组名，#2 左侧文字，#3 命令包裹后的内容，#4 直接输入，#5 右侧文字。
+\newcommand\InlinePrepareMatrix[5]{%
+  \MatrixReset\global\setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset\global\setbox\MatrixOracle=\hbox{#4}%
+  \global\MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \InlinePrepareVariant{#2#3#5}{#2#4#5}{00}{#1}{Zero}%
+  \InlinePrepareVariant{#2 #3#5}{#2 #4#5}{10}{#1}{Left}%
+  \InlinePrepareVariant{#2#3 #5}{#2#4 #5}{01}{#1}{Right}%
+  \InlinePrepareVariant{#2 #3 #5}{#2 #4 #5}{11}{#1}{Both}%
+}
+
+\newcommand\InlineDisplayMatrix[2]{%
   \multicolumn{4}{@{}l}{%
-    \begingroup
-      \xeCJKsetup{xCJKecglue=#1}%
-      \MatrixReset\global\setbox\MatrixCandidate=\hbox{#4}%
-      \MatrixReset\global\setbox\MatrixOracle=\hbox{#5}%
-    \endgroup
-    \global\MatrixIntrinsicDelta=\dimexpr
-      \wd\MatrixCandidate-\wd\MatrixOracle\relax
-    \rule{0pt}{14pt}\bfseries xCJKecglue=#1：#2}\tabularnewline
-  \InlineMathVariant{#1}{00}{#3#4#6}{#3#5#6}%
-  \InlineMathVariant{#1}{10}{#3 #4#6}{#3 #5#6}%
-  \InlineMathVariant{#1}{01}{#3#4 #6}{#3#5 #6}%
-  \InlineMathVariant{#1}{11}{#3 #4 #6}{#3 #5 #6}%
+    \rule{0pt}{14pt}\bfseries xCJKecglue=\InlineMathMode：#2}%
+    \tabularnewline
+  \multicolumn{4}{@{}l}{\copy\InlineRowBox{#1}{Zero}}\tabularnewline
+  \multicolumn{4}{@{}l}{\copy\InlineRowBox{#1}{Left}}\tabularnewline
+  \multicolumn{4}{@{}l}{\copy\InlineRowBox{#1}{Right}}\tabularnewline
+  \multicolumn{4}{@{}l}{\copy\InlineRowBox{#1}{Both}}\tabularnewline
 }
 
 \newcommand\InlineMathPage[2]{%
+  \advance\InlineCommandNumber by 1
+  \InlinePrepareMatrix{CMC}{中}{#2}{$x$}{文}%
+  \InlinePrepareMatrix{WMW}{A}{#2}{$x$}{B}%
+  \InlinePrepareMatrix{CMW}{中}{#2}{$x$}{B}%
+  \InlinePrepareMatrix{WMC}{A}{#2}{$x$}{文}%
   \CommandPage{#1}{%
-    \InlineMathMatrix{false}{中文—公式—中文}
-      {中}{#2}{$x$}{文}%
-    \InlineMathMatrix{false}{西文—公式—西文}
-      {A}{#2}{$x$}{B}%
-    \InlineMathMatrix{true}{中文—公式—中文}
-      {中}{#2}{$x$}{文}%
-    \InlineMathMatrix{true}{西文—公式—西文}
-      {A}{#2}{$x$}{B}%
+    \InlineDisplayMatrix{CMC}{中文—公式—中文}%
+    \InlineDisplayMatrix{WMW}{西文—公式—西文}%
+    \InlineDisplayMatrix{CMW}{中文—公式—西文}%
+    \InlineDisplayMatrix{WMC}{西文—公式—中文}%
   }%
+}
+
+\newcommand\InlineMathPages{%
+  \InlineMathPage{\(x\)}{\(x\)}
+  \InlineMathPage{\ensuremath{x}}{\ensuremath{x}}
+  \InlineMathPage{\InlineMathWrapper{$x$}}{\InlineMathWrapper{$x$}}
+  \InlineMathPage{{$x$}}{{$x$}}
+  \InlineMathPage{\textbf{$x$}}{\textbf{$x$}}
+  \InlineMathPage{\textit{$x$}}{\textit{$x$}}
+  \InlineMathPage{\texttt{$x$}}{\texttt{$x$}}
+  \InlineMathPage{\textcolor{red}{$x$}}{\textcolor{red}{$x$}}
+  \InlineMathPage{\mbox{$x$}}{\mbox{$x$}}
+  \InlineMathPage{\makebox{$x$}}{\makebox{$x$}}
+  \InlineMathPage{\fbox{$x$}}{\fbox{$x$}}
+  \InlineMathPage{\colorbox{yellow}{$x$}}{\colorbox{yellow}{$x$}}
+  \InlineMathPage{\CJKunderline{$x$}}{\CJKunderline{$x$}}
+  \InlineMathPage{\CJKunderdot{$x$}}{\CJKunderdot{$x$}}
+  \InlineMathPage{\CJKsout{$x$}}{\CJKsout{$x$}}
+  \InlineMathPage{\hyperref[...]{$x$}}
+    {\hyperref[inline-math-target]{$x$}}
+  \InlineMathPage{\href{...}{$x$}}
+    {\href{https://example.com}{$x$}}%
+}
+
+\newcommand\RunInlineMathMode[1]{%
+  \begingroup
+    \def\InlineMathMode{#1}%
+    \InlineCommandNumber=0
+    \xeCJKsetup{
+      CJKecglue={\hskip 5pt},
+      CJKglue={\hskip 1pt},
+      xCJKecglue=#1}%
+    \InlineMathPages
+  \endgroup
 }
 
 \begin{document}
 
-\InlineMathPage{\(x\)}{\(x\)}
-\InlineMathPage{\ensuremath{x}}{\ensuremath{x}}
-\InlineMathPage{\InlineMathWrapper{$x$}}{\InlineMathWrapper{$x$}}
-\InlineMathPage{{$x$}}{{$x$}}
-\InlineMathPage{\textbf{$x$}}{\textbf{$x$}}
-\InlineMathPage{\textit{$x$}}{\textit{$x$}}
-\InlineMathPage{\texttt{$x$}}{\texttt{$x$}}
-\InlineMathPage{\textcolor{red}{$x$}}{\textcolor{red}{$x$}}
-\InlineMathPage{\mbox{$x$}}{\mbox{$x$}}
-\InlineMathPage{\makebox{$x$}}{\makebox{$x$}}
-\InlineMathPage{\fbox{$x$}}{\fbox{$x$}}
-\InlineMathPage{\colorbox{yellow}{$x$}}{\colorbox{yellow}{$x$}}
-\InlineMathPage{\CJKunderline{$x$}}{\CJKunderline{$x$}}
-\InlineMathPage{\CJKunderdot{$x$}}{\CJKunderdot{$x$}}
-\InlineMathPage{\CJKsout{$x$}}{\CJKsout{$x$}}
-\InlineMathPage{\hyperref[...]{$x$}}
-  {\hyperref[inline-math-target]{$x$}}
-\InlineMathPage{\href{...}{$x$}}
-  {\href{https://example.com}{$x$}}
+\providecommand\InlineShowcaseRun{\RunInlineMathMode{false}}
+\InlineShowcaseRun
 
 \end{document}
