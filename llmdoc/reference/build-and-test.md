@@ -146,7 +146,7 @@
 
 `command-boundary-math05.lvt` 专门检查尾随空格的弹性，而不是重复宽度矩阵。普通 stream 的参数内空格仍在外层列表，`math-space` marker 以两对零净宽 kern 保存实际伸长量和收缩量；测试用字体不同的 `\textbf`、嵌套 `\emph{\textbf{...}}` 确认，外层补偿会扣除实际空格已有的弹性，同时保留内部字体造成的自然宽度差。box、wrapped-box、嵌套 `\mbox` 和 ulem 使用 `math-space-frozen`，内部空格不参与外层断行，外层补偿完整保留 `CJKecglue` 的弹性。另一组把 `CJKecglue` 设为比普通词间距更窄且不带伸缩量的 1pt glue，确认冻结路径的自然差额取零，不会用负 glue 把后续 CJK 拉进框线或装饰范围。段落断言还分别测出 direct、box、wrapped-box、stream 和 stream-ulem 的自然宽度，再把段宽缩短 1pt；五条路径的 badness 都是 12，证明 2pt 的外层收缩量都能被段落装箱实际使用，而不是只存在于节点日志中。
 
-同一测试还锁定 `math-space` 的物理相邻边界。transparent 颜色命令和 post-transparent `\null` 分别在真实参数空格与 marker 之间留下 9 型 special 和 1 型零尺寸 hbox；此时 marker 应当过期。候选与含同一不可见命令的直接公式 oracle 宽度差均为 0；在段宽 10pt、容差 100 下排段，两组段落高度差也均为 0。这同时证明框架没有把补偿 glue 单独重放到不可见节点之后，也没有改变直接输入原有的断行结果。
+同一测试还锁定 `math-space` 的物理相邻边界。transparent 颜色命令和 post-transparent `\null` 分别在真实参数空格与 marker 之间留下 9 型 special 和 1 型零尺寸 hbox；此时 marker 应当过期。`null-explicit` 再检查 `\textnormal{$x$ }\hskip7pt\null`：探测 marker 时暂存的 7pt glue 必须恢复到 `\null` 之前，保留“真实空格、显式 glue、零尺寸盒子”的直接 oracle 顺序。三项末节点类型分别为 9／1／1；候选与含同一不可见节点的直接公式 oracle 宽度差均为 0，在段宽 10pt、容差 100 下排段，段落高度差也均为 0。这证明框架既没有把补偿 glue 单独放到不可见节点之后，也没有把显式 glue 错移到盒子之后。
 
 `loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。加入 `command-boundary-math05` 后，xeCJK 标准测试共有 108 项，当前 108／108 通过。
 
