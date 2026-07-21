@@ -127,11 +127,11 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 
 #992 的契约不是“某命令永远属于某类”，而是命令包装与相同可见内容的直接输入等价。西文/数字输出按 Default，中文输出按 CJK，混合输出左右分别判断，无可见输出应透明；`00/10/01/11` 四种源码空格必须逐格验证。公式应与直接公式比较，不能用宽度相近的西文字母替代。候选与直接输入还必须分别在 `xCJKecglue=false` 和 `xCJKecglue=true` 的相同配置下比较；#491 那种每个命令抽一个成功场景的证据不能推出整类已修复。
 
-2026-07-21 的双值矩阵确认 `xCJKecglue=false` 的普通命令单元全部通过，但 `xCJKecglue=true` 下仍有嵌套盒子、中西混合内容和 `\null` 边界不一致，集中记录在 #1003。`xCJKecglue=<glue>` 是“设置 `CJKecglue` 后启用该选项”的简写，只需单独检查它与显式双项设置等价；`CJKspace` 仍作为独立维度测试。
+2026-07-21 的双值矩阵确认 `xCJKecglue=false` 的普通命令单元全部通过，并在 `true` 下发现嵌套盒子、中西混合内容和 `\null` 边界不一致，形成 #1003。PR #1005 恢复外层 `spacefactor` 和 post-transparent 的有界节点后缀后，普通命令在默认/可区分间距与两个选项值下均为 320／320 通过；#992 活表仍须等合并后复验再更新。`xCJKecglue=<glue>` 是“设置 `CJKecglue` 后启用该选项”的简写，只需单独检查它与显式双项设置等价；`CJKspace` 仍作为独立维度测试。
 
-注册策略按节点形式分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒子命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的末尾盒子，且该盒子的宽、高、深均为零。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
+注册策略按节点形式分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒子命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的零尺寸末尾盒子，并以真实 marker 为证据移动 `marker` 或 `marker + 一枚 glue`。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
-每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界，并把末类别写成 marker 交给普通恢复逻辑。嵌套的 box 如果以只能推断为 Default 的内容结束，该命令写入的 marker 会留在外层盒子的节点列表末尾；外层盒子结束时读取它，便能逐层更新末类别，而不必直接改写所有外层 capture。前两层 register 预先分配，更深层按需创建；`\sbox` 暂停观察并保存、恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒子、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef、原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
+每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界，并把末类别写成 marker 交给普通恢复逻辑。重放 Default 类 marker 时还要把源码空格检查使用的缓存同步为外层列表当前的 `spacefactor`；盒内字符设置的值不会传播到外层。嵌套的 box 如果以只能推断为 Default 的内容结束，该命令写入的 marker 会留在外层盒子的节点列表末尾；外层盒子结束时读取它，便能逐层更新末类别，而不必直接改写所有外层 capture。前两层 register 预先分配，更深层按需创建；`\sbox` 暂停观察并保存、恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒子、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef、原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
 
 #999 已删除这一问题族中生效的逐命令 save/replay/drain/pending 算法：`\@setref` / `\real@setref`、完整 `\Url@z`、hyperref annotation、`\verb`、codedoc/doc meta、color/l3color、biblatex、fntef/ulem 与 `\lstinline` 都进入共享 capture。仍保留的代码只解决控制序列签名、分隔符扫描、加载时序或命令内部排版语义，例如 meta 参数的 hbox 规范化、`\verb` 的 language whatsit 主动落盘、ulem 的外层非装饰 glue 通道；它们不再各自实现边界恢复状态机。#873/#880/#910/#931/#972 与 #991 的旧方案仅作为演进历史保留。
 

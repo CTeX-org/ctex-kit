@@ -66,6 +66,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #972 的专用 marker 曾证明普通 `default` 可能是陈旧状态；#999 随后用完整 annotation stream 吸收该证据并删除专用 marker，使实际输出类别直接成为恢复依据。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`
 
+### 边界出口必须恢复后续判断所需的完整状态
+**Rule**: 状态机在命令或子列表出口不能只重放最终分类；还要列出下一次恢复会读取的引擎状态、pending 标志和物理相邻节点，并逐项恢复。跨节点移动必须同时受注册范围、尺寸条件和真实 marker 证据约束。
+**Why**: #1003 中盒子的末类别和 `\null` 前的 marker 都正确，但盒内过期的 `spacefactor` 仍让源码空格比较失败，零尺寸 hbox 也会截断“marker + glue”的相邻关系。PR #1005 同步外层 `spacefactor`，并只跨已注册零尺寸盒子移动由 marker 证明的至多一枚 glue；没有证据时按原节点顺序还原。
+**Source**: `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
+
 ### 可见排版修复需要三类证据
 **Rule**: 对间距、字形或线条等可见排版缺陷，同时维护定量宽度、节点结构和同条件渲染三层 oracle；再用会插入节点的 wrapper 组合回归证明状态能传递。
 **Why**: #972 的测量、截图和组合用例暴露了普通 `default` 原型缺陷；#999 又证明默认 glue 等宽会让宽度或截图假通过，必须由节点测试区分来源。
@@ -74,7 +79,7 @@ Curated cross-task rules distilled from archived memory.
 ### 命令边界修复必须覆盖输出等价矩阵
 **Rule**: 验证命令边界间距时，以相同可见内容的直接输入为 oracle，按实际输出首尾类别、`00/10/01/11` 和会改变边界语义的选项值记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。公式必须与直接公式比较，候选与 oracle 必须使用相同的 `xCJKecglue` 设置。
 **Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 最初只覆盖 `xCJKecglue=false`，补测 `true` 后又在嵌套盒子和 `\null` 边界发现 #1003；#1002 还证明把 `$x$` 换成字母 `x` 会改变比较问题本身。单点或单一选项通过都不能推出整类已修复。
-**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
 
 ### 状态表中的绿色单元才进入通过基线
 **Rule**: 矩阵出现部分失败时，为已经通过的精确单元增加回归测试；失败单元留在跟踪 issue 中，既不写成 `.tlg` 通过基线，也不通过跳过整个场景丢失邻近的绿色单元。

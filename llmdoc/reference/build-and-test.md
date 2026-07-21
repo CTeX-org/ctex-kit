@@ -131,20 +131,20 @@
 
 `xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
 
-- 当前有 100 组普通 `\BoundaryMatrix`，分别在默认/可区分间距和 `xCJKecglue=false/true` 的四种配置下运行；第 28 行另用直接公式 `$x$` 作为 oracle。矩阵中共有 1616 个可表达单元，其中 20 个红叉单元输出明确的 `SKIP` 记录，1596 个绿色单元执行宽度比较。再加 `CJKspace` 和分隔符扫描 `\verb` 的 52 个比较，合计 1648 个通过断言。测试先扣除待测命令与直接输入分别排版时固有的宽度差，再只比较外围间距，容差为 0.01pt。
+- 当前有 100 组普通 `\BoundaryMatrix`，分别在默认/可区分间距和 `xCJKecglue=false/true` 的四种配置下运行；第 28 行另用直接公式 `$x$` 作为 oracle。矩阵中共有 1616 个可表达单元，其中只有 #1002 的 4 个公式红叉单元输出明确的 `SKIP` 记录，1612 个单元执行宽度比较。再加 `CJKspace` 和分隔符扫描 `\verb` 的 52 个比较，合计 1664 个通过断言。测试先扣除待测命令与直接输入分别排版时固有的宽度差，再只比较外围间距，容差为 0.01pt。
 - 覆盖展开宏、显式分组、字体/颜色、xeCJKfntef 与原生 `\uline`、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
 - 嵌套测试覆盖到 12 层盒子；`\sbox` scratch 测量用于确认 capture suspend/resume 不会污染外层实际输出。
 - ulem/fntef 双向嵌套覆盖原生 `\uline` / `\sout` 与 `\CJKunderline` / `\CJKunderdot`；每格的 idle-stack 断言同时防止内层重复启动却没有对应结束所造成的 capture 泄漏。
 - 分隔符扫描的 `\verb` 不能放进矩阵宏参数，因此使用等价的四次显式盒子调用。
 - 每个候选单元之后都运行 `\BoundaryAssertIdle`，要求 capture depth、active stack count、suspend depth 同时归零；宽度正确但遗留活跃层仍算失败。
 
-#992 的 2026-07-21 补测表明，排除由 #1002 单独跟踪的公式后，`xCJKecglue=false` 在默认间距和可区分间距下均为 320／320 通过；`xCJKecglue=true` 分别为 318／320 和 312／320 通过。`xCJKecglue=true` 下的嵌套盒子、中西混合内容和 `\null` 边界失败由 #1003 跟踪。仓库回归只固化状态表中的绿色单元；红叉必须留作 issue 证据，不能把当前错误输出写成 `.tlg` 基线，也不能为了让整组通过而丢掉同一场景中的绿色 `00`、`10` 等单元。
+#992 的 2026-07-21 补测最初表明，排除由 #1002 单独跟踪的公式后，`xCJKecglue=false` 在默认间距和可区分间距下均为 320／320 通过；`xCJKecglue=true` 分别为 318／320 和 312／320 通过。失败由 #1003 跟踪。PR #1005 恢复外层 `spacefactor`，并让 post-transparent 以真实 marker 为证据移动 `marker + 至多一枚 glue` 的有界后缀；修复后普通命令在四种配置下均为 320／320 通过。#992 活表仍须等 PR 合并后从合并提交复验再更新。仓库回归只固化绿色单元；红叉必须留作 issue 证据，不能把当前错误输出写成 `.tlg` 基线，也不能为了让整组通过而丢掉同一场景中的绿色单元。
 
 公式的比较基准必须保留公式形式。比如 `\mbox{$x$}` 应与直接公式 `$x$` 比较，不能与字母 `x` 比较；二者在 xeCJK 中具有不同的源码空格语义。`xCJKecglue=false` 时，公式旁的源码空格保留为普通词间空格；`true` 时才改用 `CJKecglue`。外层命令不能改变这项选择。
 
 #1002 的公式矩阵还要覆盖中文—公式—中文和西文—公式—西文、直接 `$x$`、`\(x\)`、`\ensuremath{x}` 以及命令中的 `$x$`。左右两侧必须分别检查，不能只比较总宽度；否则一侧多出的间距可能与另一侧缺少的间距抵消。`$x$` 是优先支持形式，其他两种写法的目标行为与它相同，但允许在实现风险较高时明确保留尚未支持的精确组合。#992 第 28 行当前为：`xCJKecglue=false` 的 `10`、`11` 不一致，`xCJKecglue=true` 的四种源码空格均一致。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
-`xeCJK/testfiles/command-boundary02.lvt` 提供 12 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` workaround。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
+`xeCJK/testfiles/command-boundary02.lvt` 提供 15 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` 处理方法。新增三项分别确认：盒内末尾大写字母后的源码空格变成 5pt `CJKecglue`；有源码空格时，`\null` 后的恢复链把显式 7pt glue 换成 5pt；没有源码空格时，7pt glue 原样保留。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
 
 TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`，而它的自然宽度和 shrink 与词间空格完全相同，恢复逻辑就无法判断它是源码空格还是显式 glue。需要保留时，可在前面加 `\kern0pt`，也可以改变自然宽度或去掉 shrink。测试必须明确记录这项限制和处理方法；继续向前检查更多节点也无法找回来源信息。
 
