@@ -2,10 +2,10 @@
 # check-pr-ci.sh — block until the current branch's PR finishes CI, then report.
 #
 # Exit codes:
-#   0  CI 全过 + push 后无新 review 活动 + 无未解决 thread (terminal)
+#   0  CI 全过 + push 后无未确认 review 活动 + 无未解决 thread (terminal)
 #   1  CI 一项及以上失败
 #   2  没找到 PR / gh 不可用 (pre-push 当非致命放行)
-#   75 CI 过, 但有 push 后新 review 活动或未解决 thread (pre-push 接到后
+#   75 CI 过, 但有 push 后未确认 review 活动或未解决 thread (pre-push 接到后
 #      exit 1, 迫使上层 agent 看 stderr 而非静默 0 通过)
 set -uo pipefail
 
@@ -141,11 +141,17 @@ if [ -n "$repo_owner_name" ]; then
   repo_name="${repo_owner_name#*$'\t'}"
 fi
 
-# 1b) push 之后是否有新 issue comment. agentic-pr-review bot 用
+# 1b) push 之后是否有尚未确认的新 issue comment. agentic-pr-review bot 用
 # `gh pr comment` (issue comment API) 发评论, 不走 formal review
 # (.reviews[]) — 上面 (1) 永远看不到 bot 的增量审核. 这里补一刀:
 # 用 REST API 拿 user.type, 过滤所有 Bot 作者 (不硬编码具体 login —
 # 兼容 Dependabot / 自定义 GitHub App / 未来其它 bot).
+#
+# agentic-pr-review 在每次 synchronize 都会新增评论. 若维护者已逐项核实并在
+# 该 bot 评论之后回复依据, 再要求一个 follow-up commit 会触发下一轮相同评论,
+# 形成无法终止的 push 循环. 因此 OWNER/MEMBER/COLLABORATOR 的后续 issue
+# comment 视为已确认; hook 只报告其后仍没有维护者回复的 bot 评论. 成立问题
+# 仍应先修复并 push; 无需改代码时可回复证据后手动跑 make check-pr-ci 收尾.
 #
 # 同 (1): gh api --jq 不支持 --arg, 用 pipe 走 jq -r --arg.
 new_bot_comment_after_push=""
@@ -154,9 +160,24 @@ if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
     "repos/${repo_owner}/${repo_name}/issues/${pr_number}/comments?per_page=100" \
     2>/dev/null \
     | jq -r --arg t "$head_committed_at" '
-        .[]?
+        . as $comments
+        | $comments[]?
         | select(.user.type == "Bot")
         | select((.created_at // "") > $t)
+        | . as $bot
+        | select(
+            [
+              $comments[]?
+              | select(.user.type != "Bot")
+              | select(
+                  .author_association == "OWNER"
+                  or .author_association == "MEMBER"
+                  or .author_association == "COLLABORATOR"
+                )
+              | select((.created_at // "") > ($bot.created_at // ""))
+            ]
+            | length == 0
+          )
         | "\(.user.login)\tCOMMENT\t\(.created_at)\t\(.html_url)"
       ' 2>/dev/null || true)"
 fi
@@ -204,7 +225,7 @@ if [ -n "$new_review_after_push" ] || [ -n "$new_bot_comment_after_push" ] \
   fi
   if [ -n "$new_bot_comment_after_push" ]; then
     log ""
-    log "  New bot comment(s) (agentic-pr-review etc.) after this push:"
+    log "  Unacknowledged bot comment(s) (agentic-pr-review etc.) after this push:"
     while IFS=$'\t' read -r who state when url; do
       [ -z "$who" ] && continue
       log "    • ${who}  [${state}]  @${when}"
@@ -221,8 +242,9 @@ if [ -n "$new_review_after_push" ] || [ -n "$new_bot_comment_after_push" ] \
     done <<< "$unresolved_threads"
   fi
   log ""
-  log "  → Review the comments above and address them in a follow-up commit."
-  log "  → Then re-push; this hook will re-watch CI and re-check review activity."
+  log "  → Review every finding above. Fix valid issues in a follow-up commit."
+  log "  → If no code change is needed, reply with evidence and run make check-pr-ci."
+  log "  → After a follow-up commit, re-push to re-watch CI and review activity."
   log "════════════════════════════════════════════════════════════"
   exit 75
 fi
@@ -230,7 +252,7 @@ fi
 log ""
 log "════════════════════════════════════════════════════════════"
 log "  ✓ post-push: all CI checks passed for PR #${pr_number}"
-log "  → No new review activity or unresolved threads since this push."
+log "  → No unacknowledged review activity or unresolved threads since this push."
 log "  → PR review status: ${review_decision}."
 if [ "$review_decision" != "APPROVED" ]; then
   log "  → PR is not yet APPROVED — request review before merging."

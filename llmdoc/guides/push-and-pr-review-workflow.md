@@ -14,17 +14,17 @@ pre-push 是 self-wrapper：外层 push 进入 hook 后，hook 用 `GIT_POSTPUSH
 
 ## 等待 CI 与评论
 
-内层 push 成功后，hook 调用 `.githooks/check-pr-ci.sh`：等待当前分支对应 PR 的 CI 进入终态，按 workflow 名只保留最新 run，并检查 push 后的新 formal review、Bot issue comment 与未解决 review thread。
+内层 push 成功后，hook 调用 `.githooks/check-pr-ci.sh`：等待当前分支对应 PR 的 CI 进入终态，按 workflow 名只保留最新 run，并检查 push 后的新 formal review、尚未由维护者确认的 Bot issue comment 与未解决 review thread。
 
 必须让 hook 自己运行到终止报告，不得在看到远端更新成功后提前中断。单独运行 `gh pr checks --watch` 只能看 CI，不能替代 hook 的评论和 thread 检查。
 
-终止结果按输出理解：rc 0 表示 CI 全绿且 push 后无新 review 活动或未解决 thread；rc 1 表示 CI 失败；rc 75 表示 CI 已过但出现新 review 活动或未解决 thread；rc 2 表示未找到 PR 或 `gh` 不可用，pre-push 将其视为非致命，但操作者仍需完成后续检查。
+终止结果按输出理解：rc 0 表示 CI 全绿且 push 后无未确认 review 活动或未解决 thread；rc 1 表示 CI 失败；rc 75 表示 CI 已过但出现未确认 review 活动或未解决 thread；rc 2 表示未找到 PR 或 `gh` 不可用，pre-push 将其视为非致命，但操作者仍需完成后续检查。
 
 ## 处理审查意见
 
 push 输出会给出下一步指示和相关链接，必须完整阅读。PR 评论可能列出阻塞问题、重要建议和小问题；逐项回到代码、测试或官方接口证据核实，不因评论来自 Bot 而直接接受，也不因标为“小问题”而跳过。
 
-审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。随后运行相称的验证，commit，再次执行无管道的 `git push 2>&1`，并重新等待 hook 完成。循环直到 CI 全绿、push 后无新评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
+审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。成立的问题运行相称验证、commit、再次执行无管道的 `git push 2>&1`，并重新等待 hook。若全部 finding 均无需代码改动，由仓库 OWNER/MEMBER/COLLABORATOR 在 bot 评论之后回复核实依据，再运行 `make check-pr-ci`；hook 将该 bot 评论视为已确认，避免用空 commit 触发下一轮相同 agentic review。循环直到 CI 全绿、push 后无未确认评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
 
 “相称的验证”按当前增量风险判断，不按整个 PR 的累计规模机械重跑。主体改动已经通过
 完整本地门禁后，纯注释、措辞或不改变语义的示例命名调整，可以只运行

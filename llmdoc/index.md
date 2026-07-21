@@ -19,18 +19,18 @@
 - `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试的覆盖簇，以及 xeCJK #992 命令边界的三层证据：`command-boundary01` 的 118 组场景 × 4＝472 个宽度 oracle 与 idle-stack 断言（含 PR #1001 新增 math/rule/空盒及“已观察前缀 + 推断后缀”嵌套场景 #998）、`command-boundary02` 的 12 个 paragraph/node 用例、`listings-color01` 的 20 个逐格 oracle、`colorbox-measure01`（#995 状态隔离回归）、`boundary-crossbox01`（#996 跨盒 pending 生命周期）、`siunitx-ecglue01`（#1000 单位命令边界）、#991 `ref-ecglue01/02` 的 76 个比较和 gh-assets 可视 MWE；另含显式 glue 判源边界、`\kern0pt` workaround、lazy family 预热、MWE 说明层隔离、多引擎基线、ctxdoc 专项回归、CI/CD、版本/生成物门禁与本地 TL usertree 同步。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
-- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
+- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
 
 ## guides
 
-- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告、按当前增量风险选择验证强度、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
+- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告、无需改代码的 bot finding 以维护者证据回复确认并手动复检、按当前增量风险选择验证强度、新分支首次 PR 补跑，以及最终 llmdoc 收尾的完整闭环。
 - `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961)。
 
 ## memory
 
 - `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含审查与生成物门禁、按风险收缩验证、节点/视觉证据、命令边界输出等价矩阵、先穷举机制再抽象原语、不可判源时公开支持边界、说明层隔离、lazy family 预热、PR 原型预览与已合并 issue 活表分层，以及 feature request 和 git 测试规则。
 
-- `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题，并以 llmdoc 更新收尾。
+- `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题；无需代码改动的 bot finding 用维护者证据回复确认，避免空提交触发无限 review 循环，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/275-heading-query-interfaces.md` — 决策: 为 Beamer 等下游提供可展开、按层级查询裸编号、完整本地化标签和 `numbering` 状态的公共接口；不新增 Beamer insert 命令，也不公开样式私有宏。
 - `llmdoc/memory/decisions/402-autoindent-zero-exception.md` — 决策: 保留 `autoindent` 对零 `\parindent` 不执行字号跟随的兼容语义，以保护旧文档和 `minipage`、居中段落等结构；补手册与四引擎回归，不改实现。
 - `llmdoc/memory/decisions/158-165-jamo-cj-interchar-classes.md` — 决策: Hangul 用 L/V/T 转移区分音节内 shaping 与音节间 CJKglue；日文 CJ 默认 normal、可选 strict 独立类禁则，并保持 fntef 专用转移。
