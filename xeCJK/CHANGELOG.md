@@ -1,15 +1,15 @@
 ## [xeCJK-v3.10.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.4)
 
 - 提升版本号至 v3.10.4。
-- 在用户手册说明：TeX 无法区分某些显式 glue 与源码空格；如需保留显式 glue，可在前面加零宽 `\kern`（#992）。
-- 补充 Boundary→CJK 方向的说明：显式 glue 如果在节点列表中与词间空格没有区别，也可能被替换为 `CJKglue`（#996）。
+- 在用户手册说明 TeX 无法区分源码空格与某些显式 glue，并给出前置零宽 `\kern` 的处理方法（#992）。
+- 补充 Boundary→CJK 方向的说明：某些显式 glue 也可能被替换为 `CJKglue`（#996）。
 - 允许 Boundary 到 Default 的恢复路径暂时移除末尾不含无限阶伸缩、且有收缩量的源码词间 glue；若其下方确有 CJK marker，则将其替换为 `\CJKecglue`，补齐与 Default 到 CJK 方向对称的命令边界处理（#992）。
 - 新增 `\@@_glue_check_expire_stale:`：顶层恢复链发现节点列表为空时清除过期的 pending 状态，阻止 `\g_@@_glue_check_pending_bool` 跨 `\hbox`/`\setbox` 存活（#996）。
 - 由命令边界 framework 接管 `xeCJKfntef`、盒子命令和颜色命令，删除按全局 tl 猜测 hlist/whatsit 下方类别的旧回退；glue 分支现在只接受紧邻的 xeCJK marker（#992）。
-- Boundary 到 CJK 的源码空格检查改用与 Default 方向相同的 `\@@_skip_if_interword:N` 判断函数；自然宽度不等于当前词间空格的显式 glue 不再被替换为 `\CJKglue`（#996）。
+- Boundary 到 CJK 的源码空格检查改用与 Default 方向相同的 `\@@_skip_if_interword:N` 判断函数，自然宽度不等于当前词间空格的显式 glue 不再被替换为 `\CJKglue`（#996）。
 - 删除颜色专用 pending boolean；颜色 push/pop 和盒子输出改由 transparent/wrapped-box capture 处理（#992）。
 - 新增命令边界 capture/register 框架，按实际可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（#992）。
-- box/wrapped-box 捕获在盒子直接排出可见内容（宽度非零、高度或深度非零，且末节点为 char/rule/math/kern）却未观察到任何字符类别时，按 Default 首尾重建边界；math 与 `\vrule` 等不触发 interchar 转换的可见内容不再被误判为“无可见输出”。已经排好再放入的盒子与只用于留白的盒子仍按无可见输出处理（#998）。
+- box/wrapped-box 捕获在盒子直接排出了可见内容（宽度非零、高度或深度非零，且末节点为 char/rule/math/kern）而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 `\vrule` 等不触发 interchar 转换的可见内容不再被误判为“无可见输出”。已经排好再放入的盒子与只用于留白的盒子仍按无可见输出处理（#998）。
 - 包装内核私有 `\@imakebox` 与 `\@iframebox` 的 `[#1][#2]#3` 签名以注册 `\makebox` / `\framebox`；内核若调整该签名须同步此 wrapper（#992）。
 - 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
 - 将 `\set@color` 与 `\reset@color` 注册为 transparent capture，删除颜色 push/pop 的专用 marker save/replay 分支（#992）。
