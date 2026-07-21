@@ -4194,6 +4194,8 @@ Copyright and Licence
 %   \@@_boundary_hmode_transparent_begin:,
 %   \@@_boundary_hmode_transparent_end:,
 %   \@@_boundary_post_transparent:,
+%   \@@_boundary_post_transparent_relocate:,
+%   \@@_boundary_post_transparent_relocate_glue:,
 %   \@@_boundary_box_begin:,
 %   \@@_boundary_box_open:N,
 %   \@@_boundary_box_end:n,
@@ -4231,6 +4233,10 @@ Copyright and Licence
 %   而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 \tn{vrule}
 %   等不触发 interchar 转换的可见内容不再被误判为“无可见输出”。已经排好
 %   再放入的盒子与只用于留白的盒子仍按无可见输出处理（\#998）。}
+% \changes{v3.10.4}{2026/07/21}{重放 Default marker 时按外层列表同步
+%   \tn{spacefactor}；post-transparent 同时搬移 marker 与其后的候选 glue，
+%   修复 \opt{xCJKecglue} 启用后盒内末尾大写字母和 \tn{null} 遮住边界后缀
+%   时的右边界间距（\#1003）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4241,13 +4247,17 @@ Copyright and Licence
 % |transparent| 策略用于只插入锚点、write 等无可见输出的命令。
 % 其中 \tn{null} 还能合法地出现在 \tn{setbox}\meta{box} 后，不能在其前面插入
 % hook 代码，故使用 |post-transparent| after-only 变体：只在宽、高、深均为零的
-% 盒子确实盖住 marker 时，从保存的全局状态重放；原 marker 仍可见时不改变
-% 当前列表。
+% 盒子确实盖住 marker 或“marker + 候选 glue”时，以列表中的真实 marker 为
+% 证据，把这一边界后缀移到盒子后；其下方没有 marker 时按原顺序还原 glue
+% 与盒子，不能把任意 glue 搬过 hbox。
 % Boundary 到 Default/CJK 的转换会把观察到的类别同时写入所有活跃 capture，
 % 因而混合输出和嵌套命令都能分别取得实际首、尾类别。
 %
 % capture 结束时，框架按“前类别 × 首类别 × 是否有源码空格”重建左边界，
 % 再按实际末类别重放 marker 供右边界使用；无可见输出时则完整恢复入口状态。
+% Default 字符在盒子内部设置的 \tn{spacefactor} 不会传播到外层列表，故重放
+% Default 类 marker 时还要把源码空格检查使用的值同步为外层列表当前的
+% \tn{spacefactor}；stream 内容会直接更新外层值，因此使用同一条同步路径。
 % “无可见输出”由观察类别、盒子尺寸与末节点类型共同判定：math 内容与
 % \tn{vrule} 不触发 interchar 转换，capture 观察不到它们的类别；若盒子
 % 宽度非零、高度或深度非零，且末节点是这个盒子直接排出的 char、rule、
@@ -4597,15 +4607,7 @@ Copyright and Licence
                     + \box_dp:N \l_@@_boundary_post_box
                   }
                   = { \c_zero_dim }
-                  {
-                    \xeCJK_if_last_node:TF
-                      {
-                        \box_use_drop:N \l_@@_boundary_post_box
-                        \exp_args:NV
-                          \@@_boundary_replay_node:n \g_@@_last_node_tl
-                      }
-                      { \box_use_drop:N \l_@@_boundary_post_box }
-                  }
+                  { \@@_boundary_post_transparent_relocate: }
                   { \box_use_drop:N \l_@@_boundary_post_box }
               }
               {
@@ -4617,6 +4619,44 @@ Copyright and Licence
                   { }
               }
           }
+      }
+  }
+
+% 零尺寸盒子前可能不只有 marker，还可能有一枚等待 Boundary 恢复链检查的
+% glue。先暂存这枚 glue，再按节点证据取出 marker；命中后把“marker + glue”
+% 整体移到盒子后面，使后续转换看到与没有该盒子时相同的列表末尾。未命中
+% marker 时按原顺序还原，不能把任意 glue 搬过 hbox。
+\cs_new_protected:Npn \@@_boundary_post_transparent_relocate:
+  {
+    \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+    \tl_if_empty:NTF \l_@@_boundary_node_tl
+      {
+        \@@_if_last_glue:TF
+          { \@@_boundary_post_transparent_relocate_glue: }
+          { \box_use_drop:N \l_@@_boundary_post_box }
+      }
+      {
+        \box_use_drop:N \l_@@_boundary_post_box
+        \exp_args:NV
+          \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_post_transparent_relocate_glue:
+  {
+    \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
+    \tex_unskip:D
+    \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+    \tl_if_empty:NTF \l_@@_boundary_node_tl
+      {
+        \skip_horizontal:N \l_@@_last_skip
+        \box_use_drop:N \l_@@_boundary_post_box
+      }
+      {
+        \box_use_drop:N \l_@@_boundary_post_box
+        \exp_args:NV
+          \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+        \skip_horizontal:N \l_@@_last_skip
       }
   }
 
@@ -5033,6 +5073,12 @@ Copyright and Licence
 
 \cs_new_protected:Npn \@@_boundary_replay_node:n #1
   {
+    % Default 字符在盒子内部更新的 spacefactor 不会传播到外层列表；stream
+    % 内容则会直接更新外层值。重放 Default 类 marker 时，以当前列表真正的
+    % spacefactor 同步源码空格检查上下文，避免把盒内末尾大写字母留下的 999
+    % 错用于盒外以 1000 生成的源码空格。
+    \clist_if_in:nnT { default , default-space , normalspace } {#1}
+      { \int_gset_eq:NN \g_@@_space_factor_int \tex_spacefactor:D }
     \str_if_eq:nnTF {#1} { default-space }
       {
         \@@_make_space_node:
