@@ -129,7 +129,7 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 
 注册策略按节点形状分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的零尺寸尾盒。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
-每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界并把实际末类别重放给基础恢复链。前两层 register 预分配，更深层惰性创建；`\sbox` 暂停观察并保存/恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef/原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
+每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界并把实际末类别重放给基础恢复链。box 若以只可由墨迹探针推断的 Default 内盒结尾，父盒结束时从盒内可信尾 marker 校正末类别，使推断结果按实际列表逐层传播而不直接覆写所有外层 capture。前两层 register 预分配，更深层惰性创建；`\sbox` 暂停观察并保存/恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef/原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
 
 #999 已删除这一问题族中生效的逐命令 save/replay/drain/pending 算法：`\@setref` / `\real@setref`、完整 `\Url@z`、hyperref annotation、`\verb`、codedoc/doc meta、color/l3color、biblatex、fntef/ulem 与 `\lstinline` 都进入共享 capture。仍保留的代码只解决控制序列签名、分隔符扫描、加载时序或命令内部排版语义，例如 meta 参数的 hbox 规范化、`\verb` 的 language whatsit 主动落盘、ulem 的外层非装饰 glue 通道；它们不再各自实现边界恢复状态机。#873/#880/#910/#931/#972 与 #991 的旧方案仅作为演进历史保留。
 
