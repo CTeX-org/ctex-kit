@@ -1,0 +1,124 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\ExplSyntaxOn
+\box_new:N \l__xeCJK_test_math_space_box
+\skip_new:N \l__xeCJK_test_math_space_last_skip
+\skip_new:N \l__xeCJK_test_math_space_previous_skip
+\skip_new:N \l__xeCJK_test_math_space_total_skip
+\int_new:N \l__xeCJK_test_math_space_last_type_int
+\box_new:N \l__xeCJK_test_math_space_line_box
+\dim_new:N \l__xeCJK_test_math_space_line_dim
+
+\cs_new_protected:Npn \__xeCJK_test_math_space_probe:nn #1#2
+  {
+    \hbox_set:Nn \l__xeCJK_test_math_space_box
+      {
+        #2
+        \xeCJK_check_for_glue:
+        \int_set:Nn \l__xeCJK_test_math_space_last_type_int
+          { \tex_lastnodetype:D }
+        \skip_zero:N \l__xeCJK_test_math_space_last_skip
+        \skip_zero:N \l__xeCJK_test_math_space_previous_skip
+        \int_compare:nNnT
+          { \l__xeCJK_test_math_space_last_type_int } = { 11 }
+          {
+            \skip_set_eq:NN
+              \l__xeCJK_test_math_space_last_skip \tex_lastskip:D
+            \tex_unskip:D
+            \int_compare:nNnT { \tex_lastnodetype:D } = { 11 }
+              {
+                \skip_set_eq:NN
+                  \l__xeCJK_test_math_space_previous_skip \tex_lastskip:D
+              }
+          }
+        \skip_set:Nn \l__xeCJK_test_math_space_total_skip
+          {
+            \l__xeCJK_test_math_space_previous_skip
+            + \l__xeCJK_test_math_space_last_skip
+          }
+        \TYPE
+          {
+            #1:last-type=
+            \int_use:N \l__xeCJK_test_math_space_last_type_int ;
+            previous=\skip_use:N \l__xeCJK_test_math_space_previous_skip ;
+            correction=\skip_use:N \l__xeCJK_test_math_space_last_skip ;
+            outer-total=\skip_use:N \l__xeCJK_test_math_space_total_skip
+          }
+      }
+  }
+\NewDocumentCommand \MathSpaceProbe { m m }
+  { \__xeCJK_test_math_space_probe:nn {#1} {#2} }
+
+\cs_new_protected:Npn \__xeCJK_test_math_space_line:nn #1#2
+  {
+    \hbox_set:Nn \l__xeCJK_test_math_space_box { #2 中 }
+    \dim_set:Nn \l__xeCJK_test_math_space_line_dim
+      { \box_wd:N \l__xeCJK_test_math_space_box - 1pt }
+    \vbox_set:Nn \l__xeCJK_test_math_space_line_box
+      {
+        \dim_set_eq:NN \tex_hsize:D \l__xeCJK_test_math_space_line_dim
+        \dim_zero:N \tex_parindent:D
+        \skip_zero:N \tex_leftskip:D
+        \skip_zero:N \tex_rightskip:D
+        \skip_zero:N \tex_parfillskip:D
+        \int_set:Nn \tex_hbadness:D { 10000 }
+        \dim_set:Nn \tex_hfuzz:D { \c_max_dim }
+        \tex_noindent:D #2 中 \tex_par:D
+        \TYPE { #1:badness=\int_value:w \tex_badness:D }
+      }
+  }
+\NewDocumentCommand \MathSpaceLine { m m }
+  { \__xeCJK_test_math_space_line:nn {#1} {#2} }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\BEGINTEST{elastic CJKecglue preserves outer stretch and shrink}
+\xeCJKsetup
+  {
+    CJKecglue = { \hskip 5pt plus 4pt minus 2pt } ,
+    xCJKecglue = true
+  }
+\MathSpaceProbe{direct}{$x$ }
+\MathSpaceProbe{box}{\mbox{$x$ }}
+\MathSpaceProbe{wrapped-box}{\colorbox{yellow}{$x$ }}
+\MathSpaceProbe{stream}{\textbf{$x$ }}
+\MathSpaceProbe{nested-stream}{\emph{\textbf{$x$ }}}
+\MathSpaceProbe{nested-box}{\mbox{\textbf{$x$ }}}
+\MathSpaceProbe{stream-ulem}{\CJKunderline{$x$ }}
+\ENDTEST
+
+\BEGINTEST{small rigid CJKecglue never pulls text into a frozen box}
+\xeCJKsetup{CJKecglue={\hskip 1pt},xCJKecglue=true}
+\MathSpaceProbe{box-small}{\fbox{$x$ }}
+\MathSpaceProbe{stream-small}{\textbf{$x$ }}
+\MathSpaceProbe{nested-mbox-small}{\mbox{\textbf{$x$ }}}
+\MathSpaceProbe{stream-ulem-small}{\CJKunderline{$x$ }}
+\ENDTEST
+
+\BEGINTEST{paragraph shrink remains available outside registered commands}
+\xeCJKsetup
+  {
+    CJKecglue = { \hskip 5pt plus 4pt minus 2pt } ,
+    xCJKecglue = true
+  }
+\MathSpaceLine{direct}{$x$ }
+\MathSpaceLine{box}{\mbox{$x$ }}
+\MathSpaceLine{wrapped-box}{\colorbox{yellow}{$x$ }}
+\MathSpaceLine{stream}{\textbf{$x$ }}
+\MathSpaceLine{stream-ulem}{\CJKunderline{$x$ }}
+\ENDTEST
+
+\END
+
+\end{document}

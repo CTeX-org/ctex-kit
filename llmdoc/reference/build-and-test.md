@@ -144,6 +144,10 @@
 
 #1002 的公式矩阵覆盖中文—公式—中文、西文—公式—西文和两个混合方向，分别检查直接 `$x$`、`\(x\)`、`\ensuremath{x}` 以及字体、颜色、盒子、链接、ulem 和独立符号命令中的公式。左右两侧必须分别检查，不能只比较总宽度；否则一侧多出的间距可能与另一侧缺少的间距抵消。`command-boundary-math01.lvt` 在默认/可区分间距和 `xCJKecglue=false/true` 四种配置下执行 5504 次比较，包含公式位于命令开头、位于 CJK 后缀末尾、整个正文由外层分组包围、CJK 前缀后接分组公式、嵌套命令和原语 `\setbox` 离线测量；每个候选还检查 capture、active 和 suspend 状态归零。尾随源码空格矩阵另覆盖 box、wrapped-box、stream、stream-ulem、参数内外连续空格、后接注册命令和显式 glue。所有尾部公式语法检查都只产生候选，适配器还要在可见正文实际排完时检查当前列表末节点，才能把末类别发布为 `math` 或 `math-space`。反例覆盖带可选参数的双参数宏、普通双参数宏和分隔参数宏消费末尾 `{$x$}` 的三种情况，并增加未知宏分别把 `$`、`\)` 当作分隔参数终止符的两种情况；尾随空格版本还在 box 和 ulem 中重复检查消费分组与 `$` 的路径。这些宏实际都只排出 CJK“文”，用来防止框架把被消费的尾部记号误认成可见公式。`command-boundary-math02.lvt` 用节点日志确认 glue 位于盒子、链接 annotation 和 ulem 装饰区间之外，`03` 检查宏包加载顺序、移动参数和对齐扫描器，`04` 单独检查只加载标准 `color` 的路径。
 
+`command-boundary-math05.lvt` 专门检查尾随空格的弹性，而不是重复宽度矩阵。普通 stream 的参数内空格仍在外层列表，`math-space` marker 以两对零净宽 kern 保存实际伸长量和收缩量；测试用字体不同的 `\textbf`、嵌套 `\emph{\textbf{...}}` 确认，外层补偿会扣除实际空格已有的弹性，同时保留内部字体造成的自然宽度差。box、wrapped-box、嵌套 `\mbox` 和 ulem 使用 `math-space-frozen`，内部空格不参与外层断行，外层补偿完整保留 `CJKecglue` 的弹性。另一组把 `CJKecglue` 设为比普通词间距更窄且不带伸缩量的 1pt glue，确认冻结路径的自然差额取零，不会用负 glue 把后续 CJK 拉进框线或装饰范围。段落断言还分别测出 direct、box、wrapped-box、stream 和 stream-ulem 的自然宽度，再把段宽缩短 1pt；五条路径的 badness 都是 12，证明 2pt 的外层收缩量都能被段落装箱实际使用，而不是只存在于节点日志中。
+
+`loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。加入 `command-boundary-math05` 后，xeCJK 标准测试共有 108 项，当前 108／108 通过。
+
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
 `xeCJK/testfiles/command-boundary02.lvt` 提供 15 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` 处理方法。新增三项分别确认：盒内末尾大写字母后的源码空格变成 5pt `CJKecglue`；有源码空格时，`\null` 后的恢复链把显式 7pt glue 换成 5pt；没有源码空格时，7pt glue 原样保留。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
