@@ -123,17 +123,17 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 从维护视角看，xeCJK 的 interchar 间距由两层机制协作：
 
 - 基础恢复链在 CJK→Boundary 时写入 marker kern 并缓存当时字体上下文中的 `\CJKecglue`，Boundary→CJK/Default 时用列表节点证据恢复 `\CJKglue` 或 `\CJKecglue`。只有 `\g_@@_glue_check_pending_bool` 已设置时，恢复链才会暂时移除末尾的源码词间 glue，并检查其下方的 marker；通用 whatsit 恢复仍被禁止。
-- 命令边界 capture/register 层把分组、盒子、annotation、verbatim、锚点和 write 等遮蔽形状映射到共享恢复原语。interchar transition 在运行时报告实际首尾 `CJK` / `default` 类别，出口按直接输入语义重建两侧边界。
+- 命令边界 capture/register 层把分组、盒子、annotation、verbatim、锚点和 write 等会遮住边界节点的情况交给一组共用的恢复函数处理。interchar transition 在运行时报告实际首尾 `CJK` / `default` 类别，出口按直接输入语义重建两侧边界。
 
 #992 的契约不是“某命令永远属于某类”，而是命令包装与相同可见字符的直接输入等价。西文/数字输出按 Default，中文输出按 CJK，混合输出左右分别判断，无可见输出应透明；`00/10/01/11` 四种源码空格必须逐格验证。#491 那种每个命令抽一个成功场景的证据不能推出整类已修复。
 
-注册策略按节点形状分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的零尺寸尾盒。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
+注册策略按节点形式分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒子命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的末尾盒子，且该盒子的宽、高、深均为零。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
-每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界并把实际末类别重放给基础恢复链。box 若以只可由墨迹探针推断的 Default 内盒结尾，父盒结束时从盒内可信尾 marker 校正末类别，使推断结果按实际列表逐层传播而不直接覆写所有外层 capture。前两层 register 预分配，更深层惰性创建；`\sbox` 暂停观察并保存/恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef/原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
+每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界，并把末类别写成 marker 交给普通恢复逻辑。嵌套的 box 如果以只能推断为 Default 的内容结束，该命令写入的 marker 会留在外层盒子的节点列表末尾；外层盒子结束时读取它，便能逐层更新末类别，而不必直接改写所有外层 capture。前两层 register 预先分配，更深层按需创建；`\sbox` 暂停观察并保存、恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒子、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef、原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
 
 #999 已删除这一问题族中生效的逐命令 save/replay/drain/pending 算法：`\@setref` / `\real@setref`、完整 `\Url@z`、hyperref annotation、`\verb`、codedoc/doc meta、color/l3color、biblatex、fntef/ulem 与 `\lstinline` 都进入共享 capture。仍保留的代码只解决控制序列签名、分隔符扫描、加载时序或命令内部排版语义，例如 meta 参数的 hbox 规范化、`\verb` 的 language whatsit 主动落盘、ulem 的外层非装饰 glue 通道；它们不再各自实现边界恢复状态机。#873/#880/#910/#931/#972 与 #991 的旧方案仅作为演进历史保留。
 
-TeX 节点不记录 glue 来源。已注册命令右侧完全同构于词间空格的显式 `\hskip` 与源码空格无法区分；若必须保留这种显式 glue，在其前加 `\kern0pt`，或使用不同自然宽度 / 无 shrink 的 glue。这是机制支持边界，不应靠扩大通用节点回看猜测来源。
+TeX 节点不记录 glue 的来源。显式 `\hskip` 如果与普通词间空格具有相同的自然宽度和 shrink，恢复逻辑就无法判断它是源码空格还是用户写出的 glue。若必须保留这种 glue，可在前面加 `\kern0pt`，也可以改变自然宽度或去掉 shrink。继续向前检查更多节点仍无法补回来源信息，因此不应靠猜测处理。
 
 Issue #581 属于输入层而非 command capture：U+200B、U+200C、U+200D、U+2060 与 U+FEFF 被设为 `\char_set_catcode_ignore:n`，避免零宽格式字符进入 class 序列并打断本来连续的边界。
 
