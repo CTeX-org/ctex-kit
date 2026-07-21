@@ -1,31 +1,61 @@
-% Issue #1002 MWE: 数学维度的边界矩阵探针
-% 用法: xelatex issue1002-mwe.tex && grep '^MATH|' issue1002-mwe.log
-% oracle 双契约: (a) 裸 $x$ 直接输入 / (b) Default 字母 x;
-% 固有宽度差已扣除, 余量全部来自边界。
+% Issue #1002 MWE：行内公式的边界间距测试
+% 用法：xelatex issue1002-mwe.tex && grep '^MATH' issue1002-mwe.log
+% 两种比较基准：（a）直接输入 $x$；（b）西文字母 x。
+% 已扣除公式与字母本身的宽度差，输出值只包含两侧间距的差。
 \documentclass{article}
 \usepackage{xeCJK}
 \usepackage{xcolor}
 \setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
 \pagestyle{empty}
-\begin{document}
-\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+\ExplSyntaxOn
+\cs_new_protected:Npn \IssueReset
+  {
+    \tl_if_exist:NT \g__xeCJK_last_node_tl
+      { \tl_gclear:N \g__xeCJK_last_node_tl }
+    \bool_if_exist:NT \g__xeCJK_glue_check_pending_bool
+      { \bool_gset_false:N \g__xeCJK_glue_check_pending_bool }
+    \bool_if_exist:NT \g__xeCJK_reset_color_pending_bool
+      { \bool_gset_false:N \g__xeCJK_reset_color_pending_bool }
+  }
+\ExplSyntaxOff
+\newcommand\Direct[2]{%
+  \IssueReset\setbox0=\hbox{中#2文}%
+  \IssueReset\setbox2=\hbox{中 #2文}%
+  \IssueReset\setbox4=\hbox{中#2 文}%
+  \IssueReset\setbox6=\hbox{中 #2 文}%
+  \typeout{MATH-DIRECT|#1|00=\the\wd0|10=\the\dimexpr\wd2-\wd0\relax|01=\the\dimexpr\wd4-\wd0\relax|11=\the\dimexpr\wd6-\wd0\relax}%
+}
 \newcommand\Cell[3]{%
-  \setbox4=\hbox{#2}\setbox6=\hbox{#3}\dimen0=\dimexpr\wd4-\wd6\relax
-  \setbox0=\hbox{中#3文}\setbox2=\hbox{中#2文}%
+  \IssueReset\setbox4=\hbox{#2}%
+  \IssueReset\setbox6=\hbox{#3}%
+  \dimen0=\dimexpr\wd4-\wd6\relax
+  \IssueReset\setbox0=\hbox{中#3文}%
+  \IssueReset\setbox2=\hbox{中#2文}%
   \dimen2=\dimexpr\wd2-\wd0-\dimen0\relax
-  \setbox0=\hbox{中 #3文}\setbox2=\hbox{中 #2文}%
+  \IssueReset\setbox0=\hbox{中 #3文}%
+  \IssueReset\setbox2=\hbox{中 #2文}%
   \dimen4=\dimexpr\wd2-\wd0-\dimen0\relax
-  \setbox0=\hbox{中#3 文}\setbox2=\hbox{中#2 文}%
+  \IssueReset\setbox0=\hbox{中#3 文}%
+  \IssueReset\setbox2=\hbox{中#2 文}%
   \dimen6=\dimexpr\wd2-\wd0-\dimen0\relax
-  \setbox0=\hbox{中 #3 文}\setbox2=\hbox{中 #2 文}%
+  \IssueReset\setbox0=\hbox{中 #3 文}%
+  \IssueReset\setbox2=\hbox{中 #2 文}%
   \dimen8=\dimexpr\wd2-\wd0-\dimen0\relax
   \typeout{MATH|#1|00=\the\dimen2|10=\the\dimen4|01=\the\dimen6|11=\the\dimen8}%
 }
-% —— 缺的行: 裸公式(oracle=字母 x) ——
+\begin{document}
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+% 先记录直接输入时，每个源码空格相对 00 的宽度变化。
+\Direct{letter}{x}
+\Direct{dollar}{$x$}
+% 直接输入公式，与字母 x 比较。
 \Cell{bare-dollar}{$x$}{x}
 \Cell{paren}{\(x\)}{x}
 \Cell{ensuremath}{\ensuremath{x}}{x}
-% —— 缺的列: 命令 x math, oracle 契约 (a) 裸 $x$ ——
+\Cell{paren-a}{\(x\)}{$x$}
+\Cell{ensuremath-a}{\ensuremath{x}}{$x$}
+% 命令内含公式，与直接输入 $x$ 比较。
 \Cell{group-a}{{$x$}}{$x$}
 \Cell{texttt-a}{\texttt{$x$}}{$x$}
 \Cell{textbf-a}{\textbf{$x$}}{$x$}
@@ -33,14 +63,18 @@
 \Cell{mbox-a}{\mbox{$x$}}{$x$}
 \Cell{fbox-a}{\fbox{$x$}}{$x$}
 \Cell{colorbox-a}{\colorbox{yellow}{$x$}}{$x$}
-% —— 同一批, oracle 契约 (b) 字母 x ——
+% 同一批测试，与字母 x 比较。
 \Cell{group-b}{{$x$}}{x}
 \Cell{texttt-b}{\texttt{$x$}}{x}
+\Cell{textbf-b}{\textbf{$x$}}{x}
 \Cell{textcolor-b}{\textcolor{red}{$x$}}{x}
 \Cell{mbox-b}{\mbox{$x$}}{x}
 \Cell{fbox-b}{\fbox{$x$}}{x}
-% —— 裸公式的 xCJKecglue 依赖 ——
+\Cell{colorbox-b}{\colorbox{yellow}{$x$}}{x}
+% 检查 xCJKecglue 对直接输入公式的影响。
 \xeCJKsetup{xCJKecglue=true}
+\Direct{letter-xec}{x}
+\Direct{dollar-xec}{$x$}
 \Cell{bare-dollar-xec}{$x$}{x}
 
 matrix done, see log
