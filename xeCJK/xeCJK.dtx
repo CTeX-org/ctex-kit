@@ -4199,6 +4199,7 @@ Copyright and Licence
 %   \@@_boundary_box_end:n,
 %   \@@_boundary_box_finish:nn,
 %   \@@_boundary_if_capture_box_visible:,
+%   \@@_boundary_box_set_last_from_node:,
 %   \@@_boundary_last_box_end:n,
 %   \@@_boundary_register_makeboxes:,
 %   \@@_boundary_register_box:nn,
@@ -4269,9 +4270,10 @@ Copyright and Licence
 % 更多层则随首次达到的 depth 惰性创建。若 wrapped-box 没有观察到可见字符，
 % 结束路径会 unpack 该层透明外盒。每层的 token-list 状态同样惰性分配，使
 % 注册命令可以任意嵌套而不会静默退回未修复行为；首类别会写入所有尚未取得
-% 首字符的外层 capture。stream 结束时若外层列表上存在可信末尾 marker，
-% 该列表证据优先于内部不可见定界字符产生的观察值；annotation/math 等没有
-% 末尾 marker 的流仍使用运行时观察结果。
+% 首字符的外层 capture。box 结束时以盒内可信尾 marker 校正末类别，使内层
+% 推断结果按实际列表证据逐层传播；stream 结束时若外层列表上存在可信末尾
+% marker，该列表证据同样优先于内部不可见定界字符产生的观察值；
+% annotation/math 等没有末尾 marker 的流仍使用运行时观察结果。
 % 每层字段在 \cs{@@_boundary_capture_begin:} 中按同一 depth 连续完成 clear、
 % 求值与写入。当前不把 flag 序列化单独抽成 helper：它仍需接收动态 depth
 % 和不同字段名，只会把可见的状态初始化拆散；若以后继续增加每层字段，再把
@@ -4825,6 +4827,27 @@ Copyright and Licence
       { \prg_return_false: }
   }
 
+\tl_new:N \g_@@_boundary_probe_last_tl
+\cs_new_protected:Npn \@@_boundary_box_set_last_from_node:
+  {
+    \tl_set:Ne \l_@@_boundary_probe_name_tl
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int _box
+      }
+    \tl_gclear:N \g_@@_boundary_probe_last_tl
+    \hbox_set:Nn \l_@@_boundary_probe_box
+      {
+        \hbox_unpack:c { \l_@@_boundary_probe_name_tl }
+        \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+        \tl_gset_eq:NN
+          \g_@@_boundary_probe_last_tl \l_@@_boundary_node_tl
+      }
+    \box_clear:N \l_@@_boundary_probe_box
+    \exp_args:NV
+      \@@_boundary_set_last_from_node:n \g_@@_boundary_probe_last_tl
+  }
+
 \cs_new_protected:Npn \@@_boundary_box_finish:nn #1#2
   {
     \tl_set:Ne \l_@@_boundary_first_tl
@@ -4837,6 +4860,12 @@ Copyright and Licence
         \tl_use:c
           { g_@@_boundary_capture_\int_use:N \g_@@_boundary_capture_depth_int _last_tl }
       }
+    \tl_gclear:N \g_@@_last_node_tl
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
+    % 内层 box 在父盒列表中重放的可信尾 marker 是实际列表证据；用它
+    % 校正本层末类别，使“已观察前缀 + 推断后缀”逐层传播，同时不把
+    % 内部构造盒的推断无条件写入所有外层 capture。
+    \@@_boundary_box_set_last_from_node:
     % 盒捕获没有独立的 stream 入口，故 |default| 在这里同时覆写实际观察到
     % 的首尾类别；stream 路径则由开始 hook 固定首类别、结束 hook 固定
     % 末类别，两条路径的公开语义相同。
@@ -4845,16 +4874,14 @@ Copyright and Licence
         \tl_set:Nn \l_@@_boundary_first_tl { default }
         \tl_set:Nn \l_@@_boundary_last_tl  { default }
       }
-    \tl_gclear:N \g_@@_last_node_tl
-    \bool_gset_false:N \g_@@_glue_check_pending_bool
     % math 与 rule 不触发 interchar 转换；盒有可见墨迹（宽度、高度或
     % 深度非零，尾节点为现场排版的 char/rule/math/kern）而无任何观察
     % 类别时，按 Default 首尾重建边界，避免可见内容被当成透明命令；
     % 空 makebox、strut 等空白占位盒和放入预排盒的命令保持透明
     % （issue 998）。
-    % 只把 default 报告给尚未取得首类别的外层 capture（不覆写外层已有
-    % 观察的末类别），使 \nfss@text 这类嵌在 stream 内的盒命令与裸调用
-    % 等价；外层末类别由本层重放的 marker 以列表证据修正。
+    % 只把 default 报告给尚未取得首类别的外层 capture，使 \nfss@text
+    % 这类嵌在 stream 内的盒命令与裸调用等价；外层末类别在各自盒结束时
+    % 由本层重放的可信尾 marker 校正。
     \tl_if_empty:NT \l_@@_boundary_first_tl
       {
         \@@_boundary_if_capture_box_visible:T
