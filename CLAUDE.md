@@ -1,10 +1,9 @@
-Always answer and write document in 简体中文; otherwise always use English --- writing commit messages, writing GitHub issues or pull requests, and writing comments in source code, etc.
+Always answer and write document in 简体中文.
 
 ## 语言约定
 
 1. **沟通交流和编写文档(`llmdoc/`、`docs/design/`、`README.md`、Issue、PR 描述与评论等)默认用中文**。技术名词、API 名、文件路径、代码引用保留原文不翻译。
-2. **代码注释和 commit message 默认用英文**(godoc、inline、block 注释,以及 `.s` 汇编头注、Plan 9 行内注释,均用英文)。除非有特殊原因(比如就是要验证中文在代码中的渲染效果),否则不要用中文。
-3. **中文要用正常的普通话**,不要夹杂日式汉语词或工程黑话堆砌。具体避免的写法:
+2. **中文要用正常的普通话**,不要夹杂日式汉语词或工程黑话堆砌。具体避免的写法:
    - 「实装」→ 用「实现 / 写好 / 做好」
    - 「真接入」→ 用「连上 / 接上」
    - 「真物理」→ 用「真机 / 实际硬件」
