@@ -16,7 +16,7 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试，以及 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界，xeCJK 标准测试当前为 108／108。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、版本检查和本地 TeX Live usertree 同步。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试，以及 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界，xeCJK 标准测试当前为 109／109。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、版本检查和本地 TeX Live usertree 同步。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
