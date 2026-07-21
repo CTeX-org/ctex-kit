@@ -1,0 +1,110 @@
+\input{regression-test}
+
+\documentclass{article}
+
+% 只加载 LaTeX 标准 color 宏包，不经过 xcolor 的重定义路径。
+\usepackage{color}
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newbox\ColorMathCandidate
+\newbox\ColorMathOracle
+\newbox\ColorMathCandidateContext
+\newbox\ColorMathOracleContext
+\newdimen\ColorMathIntrinsicDelta
+\newdimen\ColorMathDelta
+\newcount\ColorMathChecks
+\newcount\ColorMathFailures
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \ColorMathReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \ColorMathCaptureState
+  {
+    \int_use:N \g__xeCJK_boundary_capture_depth_int /
+    \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq }
+  }
+\ExplSyntaxOff
+
+\newcommand\ColorMathAssertIdle[1]{%
+  \edef\ColorMathActualState{\ColorMathCaptureState}%
+  \def\ColorMathExpectedState{0/0}%
+  \ifx\ColorMathActualState\ColorMathExpectedState
+  \else
+    \global\advance\ColorMathFailures by 1
+    \TYPE{FAIL: #1 left capture state \ColorMathActualState}%
+  \fi
+}
+
+\newcommand\ColorMathVariant[3]{%
+  \global\advance\ColorMathChecks by 1
+  \ColorMathReset
+  \setbox\ColorMathCandidateContext=\hbox{#2}%
+  \ColorMathAssertIdle{#1}%
+  \ColorMathReset
+  \setbox\ColorMathOracleContext=\hbox{#3}%
+  \ColorMathDelta=\dimexpr
+    \wd\ColorMathCandidateContext-\wd\ColorMathOracleContext-
+    \ColorMathIntrinsicDelta\relax
+  \ifdim\ColorMathDelta<0pt \ColorMathDelta=-\ColorMathDelta\fi
+  \ifdim\ColorMathDelta<0.01pt
+  \else
+    \global\advance\ColorMathFailures by 1
+    \TYPE{FAIL: #1 boundary delta is \the\ColorMathDelta}%
+  \fi
+}
+
+\newcommand\ColorMathCompare[2]{%
+  \ColorMathReset
+  \setbox\ColorMathCandidate=\hbox{#2}%
+  \ColorMathAssertIdle{#1 standalone}%
+  \ColorMathReset
+  \setbox\ColorMathOracle=\hbox{$x$}%
+  \ColorMathIntrinsicDelta=\dimexpr
+    \wd\ColorMathCandidate-\wd\ColorMathOracle\relax
+  \ColorMathVariant{#1/00}{中#2文}{中$x$文}%
+  \ColorMathVariant{#1/10}{中 #2文}{中 $x$文}%
+  \ColorMathVariant{#1/01}{中#2 文}{中$x$ 文}%
+  \ColorMathVariant{#1/11}{中 #2 文}{中 $x$ 文}%
+}
+
+\newcommand\RunColorMathCommands{%
+  \ColorMathCompare{textcolor}{\textcolor{red}{$x$}}%
+  \ColorMathCompare{colorbox}{\colorbox{yellow}{$x$}}%
+  \ColorMathCompare{fcolorbox}{\fcolorbox{red}{yellow}{$x$}}%
+}
+
+\begin{document}
+
+\OMIT
+\setbox0=\hbox{$x$}
+\TIMO
+
+\START
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{color-only commands, xCJKecglue=false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}%
+    \RunColorMathCommands
+  \endgroup
+}
+
+\TEST{color-only commands, xCJKecglue=true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}%
+    \RunColorMathCommands
+  \endgroup
+}
+
+\TYPE{color-only formula checks: \the\ColorMathChecks}
+\TYPE{color-only formula failures: \the\ColorMathFailures}
+
+\END
+
+\end{document}
