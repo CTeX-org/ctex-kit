@@ -57,7 +57,7 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 **math 与 rule 内容现在按 Default 重建边界（#998，PR #1001，commits 14336c4d/19fedf48）**：math 模式内容与 `\vrule` 不触发 XeTeX interchar class 转换，所以 capture 看不到它们的首尾类别。box/wrapped-box 结束时，`\@@_boundary_if_capture_box_visible:` 会在没有观察到类别的情况下检查盒子尺寸和末节点类型。盒子必须宽度非零、高度或深度非零，并且末节点是 char(0)、rule(3)、math(10) 或 kern(12)，才认为它直接排出了可见内容。此时按 Default 重建首尾边界，使 `\mbox{$x$}`、`\mbox{\vrule...}` 的外围间距与直接输入西文相同。宽、高、深均为零的盒子、只用于留白的盒子，以及末尾为 hlist(1) 或 glue(11) 的命令仍恢复进入命令前的状态；这覆盖 `\null`、空 `\mbox`、ctex 内核 `\[` 使用的空白 `\makebox`，以及 thuthesis 的 `\thu@pad` 等把已经排好的盒子放到末尾的命令，因为 capture 无法据此判断里面的字符类别。
 
-推断出的 default 通过 `\@@_boundary_capture_report_first:n` 只补上外层尚未取得的 `first_tl`，不能直接覆盖所有外层 `last_tl`，否则 `\fcolorbox` 命令内部的辅助盒子会覆盖已经观察到的 CJK 末类别。嵌套盒子结束时写入的 marker 会留在外层盒子的节点列表末尾；外层结束时，`\@@_boundary_box_set_last_from_node:` 读取这个 marker，只更新本层末类别。这样，`\mbox{中\mbox{$x$}}` 以及对应的 rule 情况可以逐层得到正确的 Default 末类别，`\nfss@text` 嵌套在 stream 内时也与单独调用相同。`\mbox{\vrule...}` 的比较对象是 Default 字母；直接输入裸 `\vrule` 本身不触发 interchar 转换，这项 XeTeX 限制没有改变。`\fbox{$x$}` 和 `\colorbox{yellow}{$x$}` 的末节点是 frame/wrapper hlist，目前仍恢复命令前的状态，记在 #992 的未处理项目中。`command-boundary01` 先新增 12 组 math、数字、rule 和空盒子场景，从 408 个比较增加到 456 个；本地审查后再补 4 组嵌套 math/rule 场景，合计 472 个。
+推断出的 default 通过 `\@@_boundary_capture_report_first:n` 只补上外层尚未取得的 `first_tl`，不能直接覆盖所有外层 `last_tl`，否则 `\fcolorbox` 命令内部的辅助盒子会覆盖已经观察到的 CJK 末类别。嵌套盒子结束时写入的 marker 会留在外层盒子的节点列表末尾；外层结束时，`\@@_boundary_box_set_last_from_node:` 读取这个 marker，只更新本层末类别。这样，`\mbox{中\mbox{$x$}}` 以及对应的 rule 情况可以逐层得到 Default 末类别，`\nfss@text` 嵌套在 stream 内时也与单独调用相同。`\mbox{\vrule...}` 仍按 Default 类别检查；公式包装必须与直接公式比较，不能用字母代替。`\fbox{$x$}` 和 `\colorbox{yellow}{$x$}` 等公式包装的范围和基准统一转交 #1002。`command-boundary01` 先新增 12 组 math、数字、rule 和空盒子场景，从 408 个比较增加到 456 个；本地审查后再补 4 组嵌套 math/rule 场景，合计 472 个。
 
 ## 未采用的方案
 
@@ -68,9 +68,13 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 ## 验证与状态
 
-`command-boundary01` 用 118 组场景执行 472 个 direct-input 宽度比较（114 组普通矩阵，加 4 组显式 `\verb`），并在每个单元后确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套，跨注册策略嵌套，PR #1001 新增的 12 组 math、数字、rule 和空盒子场景，以及 4 组“已观察 CJK 前缀后接推断 math/rule 后缀”的嵌套场景。`command-boundary02` 用 12 个 paragraph/node 测试覆盖节点结构、ulem 外层不带装饰的 glue、TeX 无法区分来源的显式 glue，以及 `\kern0pt` 处理方法。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。既有 xeCJK 回归测试、ctex 四引擎 184 项测试和专项测试共同检查下游变化。
+`command-boundary01` 当前执行 1648 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，红叉单元精确跳过；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接推断 math/rule 后缀”的嵌套场景。`command-boundary02` 用 12 个 paragraph/node 测试覆盖节点结构、ulem 外层不带装饰的 glue、TeX 无法区分来源的显式 glue，以及 `\kern0pt` 处理方法。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。既有 xeCJK 回归测试、ctex 四引擎 184 项测试和专项测试共同检查下游变化。
 
-#992 的活表只代表已合并状态。PR 未合并时，新的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再更新 issue。本文档当前口径基于 PR #1001 分支及本地 review 修复 19fedf48；最新代码已通过 xeCJK 103 项、ctex ctxdoc 专项与 3 项 contrib 本地回归，尚未 merge。
+#992 的活表只代表已合并实现的状态。PR 未合并时，修复后的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再把红叉改成绿勾。
+
+2026-07-21 从已合并的 `master` `10500b33` 扩展审计维度：每个普通命令单元分别在 `xCJKecglue=false` 和 `xCJKecglue=true` 下运行默认间距与 5pt/1pt 可区分间距。排除交由 #1002 处理的公式后，每种设置有 320 个单元；`false` 两轮均为 320／320 通过，`true` 分别为 318／320 和 312／320 通过。失败集中在嵌套盒子、中西混合内容和带显式 `\hskip` 的 `\null` 边界，见 #1003。稳定回归只固化绿色单元，不能把失败输出保存为通过基线，也不能因为同一场景有红叉而丢掉其中已经通过的源码空格组合。
+
+第 28 行的行内公式另有一项 oracle 修正：`\mbox{$x$}` 必须与直接公式 `$x$` 比较，不能与字母 `x` 比较。按这个基准，`xCJKecglue=false` 的 `10`、`11` 不一致，`true` 的四种源码空格均一致，后续公式范围仍由 #1002 统一记录。`xCJKecglue=<glue>` 等价于 `CJKecglue=<glue>, xCJKecglue=true`，只增加一个等价性回归，不复制第三套矩阵；`CJKspace` 保持独立。
 
 用户报告 #995/#996/#998 的 A/B 复现（v3.10.3 发行版 vs PR #999 开发分支）已完成根因定位；#1000 是后续独立报告的 siunitx 边界丢失问题：
 

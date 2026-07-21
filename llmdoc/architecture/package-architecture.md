@@ -125,7 +125,9 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 - 基础恢复链在 CJK→Boundary 时写入 marker kern 并缓存当时字体上下文中的 `\CJKecglue`，Boundary→CJK/Default 时用列表节点证据恢复 `\CJKglue` 或 `\CJKecglue`。只有 `\g_@@_glue_check_pending_bool` 已设置时，恢复链才会暂时移除末尾的源码词间 glue，并检查其下方的 marker；通用 whatsit 恢复仍被禁止。
 - 命令边界 capture/register 层把分组、盒子、annotation、verbatim、锚点和 write 等会遮住边界节点的情况交给一组共用的恢复函数处理。interchar transition 在运行时报告实际首尾 `CJK` / `default` 类别，出口按直接输入语义重建两侧边界。
 
-#992 的契约不是“某命令永远属于某类”，而是命令包装与相同可见字符的直接输入等价。西文/数字输出按 Default，中文输出按 CJK，混合输出左右分别判断，无可见输出应透明；`00/10/01/11` 四种源码空格必须逐格验证。#491 那种每个命令抽一个成功场景的证据不能推出整类已修复。
+#992 的契约不是“某命令永远属于某类”，而是命令包装与相同可见内容的直接输入等价。西文/数字输出按 Default，中文输出按 CJK，混合输出左右分别判断，无可见输出应透明；`00/10/01/11` 四种源码空格必须逐格验证。公式应与直接公式比较，不能用宽度相近的西文字母替代。候选与直接输入还必须分别在 `xCJKecglue=false` 和 `xCJKecglue=true` 的相同配置下比较；#491 那种每个命令抽一个成功场景的证据不能推出整类已修复。
+
+2026-07-21 的双值矩阵确认 `xCJKecglue=false` 的普通命令单元全部通过，但 `xCJKecglue=true` 下仍有嵌套盒子、中西混合内容和 `\null` 边界不一致，集中记录在 #1003。`xCJKecglue=<glue>` 是“设置 `CJKecglue` 后启用该选项”的简写，只需单独检查它与显式双项设置等价；`CJKspace` 仍作为独立维度测试。
 
 注册策略按节点形式分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒子命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的末尾盒子，且该盒子的宽、高、深均为零。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
