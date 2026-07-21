@@ -6,15 +6,25 @@
 
 ## 文件
 
-- `issue1002-mwe.tex`：完整测试文件。每次测量前都会清理 xeCJK 的相关
-  状态，避免前一项测试影响后一项。它同时记录直接输入的绝对宽度变化，
-  并分别以 `$x$` 和西文字母 `x` 为比较基准。
+- `issue1002-mwe.tex`：确定比较基准时使用的初始测试文件。每次测量前
+  都会清理 xeCJK 的相关状态，避免前一项测试影响后一项。它同时记录
+  直接输入的绝对宽度变化，并分别以 `$x$` 和西文字母 `x` 比较。
 - `issue1002-master-10500b33.txt`：使用 PR #1001 合并后的 `master`
   提交 `10500b33` 编译所得的完整数值。
 - `issue1002-v3.10.3-4628cb44.txt`：使用 xeCJK v3.10.3 对应提交
   `4628cb44` 编译所得的完整数值。
 - `issue1002-visual.tex` 和 `issue1002-visual.png`：使用 5pt
   `CJKecglue` 和 1pt `CJKglue` 排出的代表性对照。
+- `inline-math-matrix.tex`：状态表使用的完整测试文件。它以直接输入
+  `$x$` 为比较基准，覆盖 17 种命令、四种周边文字组合、四种源码空格、
+  `xCJKecglue=false/true`，并分别使用默认间距和 5pt/1pt 间距编译。
+- `inline-math-verdicts.tsv`：上述完整测试的逐命令结果。`CMC`、`WMW`、
+  `CMW`、`WMC` 依次表示中文—公式—中文、西文—公式—西文、
+  中文—公式—西文、西文—公式—中文；每列的四个字母对应
+  `00`、`10`、`01`、`11`。
+- `inline-math-showcase.tex`：逐命令排版对照的源文件。每页同时展示
+  `xCJKecglue=false/true` 以及中文和西文两种周边文字。
+- `showcase/*.png`：状态表引用的逐命令排版图片。
 
 ## 复查结果
 
@@ -32,9 +42,29 @@
 - 显式分组、颜色命令、`\fbox` 和 `\colorbox` 在两种比较方法下都有差异，
   需要在确定公式的间距规则后分别修正。
 
+## 公式专用状态表
+
+状态表采用 #992 已确定的规则：候选和直接输入使用相同的
+`xCJKecglue` 设置；每格只有在默认间距和 5pt/1pt 间距下都与直接输入
+`$x$` 相同时才记为通过。两个混合方向用于分别检查公式左侧和右侧，
+避免两侧的宽度差互相抵消。
+
+本次测试基于 `master` 提交 `10500b33`。每套设置包含 17 种命令、
+四种周边文字组合和四种源码空格，共 272 个单元：
+
+- `xCJKecglue=false`：默认间距 191／272 通过，5pt/1pt 间距
+  181／272 通过；
+- `xCJKecglue=true`：默认间距 182／272 通过，5pt/1pt 间距
+  164／272 通过。
+
+这些是当前失败情况的记录，不表示已经完成修复。修复合并后，应从新的
+`master` 提交重新编译，再更新 #1002 的表格和图片。
+
 编译命令：
 
 ```sh
 TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex issue1002-mwe.tex
 grep '^MATH' issue1002-mwe.log
+TEXINPUTS=/path/to/xeCJK/build/unpacked//: xelatex inline-math-matrix.tex
+grep '^INLINE' inline-math-matrix.log
 ```
