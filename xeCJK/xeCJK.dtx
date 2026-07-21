@@ -4451,6 +4451,7 @@ Copyright and Licence
   }
 
 \tl_new:N \l_@@_boundary_math_tl
+\tl_new:N \l_@@_boundary_math_before_tl
 
 \prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
   { T , F , TF }
@@ -4499,6 +4500,10 @@ Copyright and Licence
       { \prg_return_false: }
   }
 
+% \cs{tl_reverse:N} 只反转顶层项目，保留花括号组内的次序。末项目为组时，
+% 若正文只有该组，或组前是普通非活跃字符，就递归检查组内末尾；组前是
+% \tn{ensuremath} 则直接识别其参数。组前是控制序列、活跃字符或另一个组时，
+% 该组可能只是未知宏消费的参数，不能在不展开宏的前提下认作可见公式。
 \prg_new_protected_conditional:Npnn
   \@@_boundary_if_math_tail_reversed:n #1 { T , F , TF }
   {
@@ -4518,16 +4523,58 @@ Copyright and Licence
                     \tl_if_empty:NTF \l_@@_boundary_math_tl
                       {
                         \exp_args:Ne
-                          \@@_boundary_if_math_tail_reversed:nTF
+                          \@@_boundary_if_math_tail:nTF
                           { \tl_head:n {#1} }
                           { \prg_return_true: }
                           { \prg_return_false: }
                       }
                       {
-                        \exp_args:NV \tl_if_head_eq_meaning:nNTF
-                          \l_@@_boundary_math_tl \ensuremath
-                          { \prg_return_true: }
-                          { \prg_return_false: }
+                        \tl_set:Ne \l_@@_boundary_math_tl
+                          {
+                            \tl_trim_left_spaces:V
+                              \l_@@_boundary_math_tl
+                          }
+                        \tl_if_empty:NTF \l_@@_boundary_math_tl
+                          {
+                            \exp_args:Ne
+                              \@@_boundary_if_math_tail:nTF
+                              { \tl_head:n {#1} }
+                              { \prg_return_true: }
+                              { \prg_return_false: }
+                          }
+                          {
+                            \exp_args:NV \tl_if_head_eq_meaning:nNTF
+                              \l_@@_boundary_math_tl \ensuremath
+                              { \prg_return_true: }
+                              {
+                                \exp_args:NV \tl_if_head_is_group:nTF
+                                  \l_@@_boundary_math_tl
+                                  { \prg_return_false: }
+                                  {
+                                    \tl_set:Ne
+                                      \l_@@_boundary_math_before_tl
+                                      {
+                                        \tl_head:V
+                                          \l_@@_boundary_math_tl
+                                      }
+                                    \exp_args:NV \token_if_cs:NTF
+                                      \l_@@_boundary_math_before_tl
+                                      { \prg_return_false: }
+                                      {
+                                        \exp_args:NV \token_if_active:NTF
+                                          \l_@@_boundary_math_before_tl
+                                          { \prg_return_false: }
+                                          {
+                                            \exp_args:Ne
+                                              \@@_boundary_if_math_tail:nTF
+                                              { \tl_head:n {#1} }
+                                              { \prg_return_true: }
+                                              { \prg_return_false: }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
                       }
                   }
                   { \prg_return_false: }

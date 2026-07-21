@@ -75,7 +75,7 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 ## 验证与状态
 
-`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 3200 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、外层分组、嵌套命令和离线 `\setbox`；`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
+`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 3904 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、整个正文的外层分组、CJK 前缀后接分组公式、嵌套命令和离线 `\setbox`；一个忽略公式参数的普通宏反例防止语法检查越过“不展开任意宏”的边界。`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
 
 #992 的活表只代表已合并实现的状态。PR 未合并时，修复后的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再把红叉改成绿勾。
 
