@@ -67,11 +67,13 @@ INNER push 自动行为:
 
 | rc | 含义 | `pre-push` 行为 |
 |---|---|---|
-| `0`  | CI 全过 + push 后无新 review 活动 + 无未解决 thread(terminal) | 放行 |
+| `0`  | CI 全过 + push 后无未确认 review 活动 + 无未解决 thread(terminal) | 放行 |
 | `1`  | CI 一项及以上失败 | exit 1 |
 | `2`  | 没找到 PR / `gh` 不可用 | 非致命,放行 |
-| `75` | CI 过,但有 push 后新 review 活动或未解决 thread | exit 1(迫使上层 agent 看 stderr) |
+| `75` | CI 过,但有 push 后未确认 review 活动或未解决 thread | exit 1(迫使上层 agent 看 stderr) |
 
 **为什么需要 75**:返回 0 会让 OUTER push 退 0,只看 exit status 的工具(agent loop / CI driver)就会静默漏掉「address review feedback」那段 stderr 指令。
+
+agentic review 在每次 push 后都会新增 issue comment。评论中的全部 finding 仍须逐项核实；若无需代码改动，由 OWNER/MEMBER/COLLABORATOR 在该 bot 评论之后回复证据即视为已确认，随后运行 `make check-pr-ci` 可在不制造空 commit 的情况下完成终态检查。尚无维护者后续回复的 bot 评论继续返回 75。
 
 **并发取消假阳处理**:`gh pr checks` 会把同名 workflow 的旧 run(被 `cancel-in-progress` 取代的)列为 `cancelled`。脚本按 `.name` 分组只保留 `startedAt` 最新的一条再判 fail/cancel,避免误报。
