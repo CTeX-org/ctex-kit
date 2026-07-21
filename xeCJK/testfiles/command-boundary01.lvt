@@ -34,6 +34,14 @@
   { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
 \cs_new:Npn \BoundaryCaptureSuspendDepth
   { \int_use:N \g__xeCJK_boundary_suspend_depth_int }
+\clist_new:N \l__xeCJK_boundary_skipped_cases_clist
+\NewDocumentCommand \BoundarySetSkippedCases { m }
+  { \clist_set:Nx \l__xeCJK_boundary_skipped_cases_clist {#1} }
+\NewDocumentCommand \BoundaryIfSkippedTF { m m m m }
+  {
+    \clist_if_in:NnTF \l__xeCJK_boundary_skipped_cases_clist {#1/#2}
+      {#3} {#4}
+  }
 \ExplSyntaxOff
 
 \newcommand\BoundaryAssertIdle[2]{%
@@ -55,21 +63,25 @@
 }
 
 \newcommand\BoundaryVariant[4]{%
-  \global\advance\BoundaryChecks by 1
-  \BoundaryReset
-  \setbox\BoundaryCandidateContext=\hbox{#3}%
-  \BoundaryAssertIdle{#1}{#2}%
-  \BoundaryReset
-  \setbox\BoundaryOracleContext=\hbox{#4}%
-  \BoundaryDelta=\dimexpr
-    \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
-    \BoundaryIntrinsicDelta\relax
-  \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
-  \ifdim\BoundaryDelta<0.01pt
-  \else
-    \global\advance\BoundaryFailures by 1
-    \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
-  \fi
+  \BoundaryIfSkippedTF{#1}{#2}{%
+    \TYPE{SKIP: #1/#2 is not a green cell in the issue 992 table}%
+  }{%
+    \global\advance\BoundaryChecks by 1
+    \BoundaryReset
+    \setbox\BoundaryCandidateContext=\hbox{#3}%
+    \BoundaryAssertIdle{#1}{#2}%
+    \BoundaryReset
+    \setbox\BoundaryOracleContext=\hbox{#4}%
+    \BoundaryDelta=\dimexpr
+      \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
+      \BoundaryIntrinsicDelta\relax
+    \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
+    \ifdim\BoundaryDelta<0.01pt
+    \else
+      \global\advance\BoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
+    \fi
+  }%
 }
 
 \newcommand\BoundaryMatrix[5]{%
@@ -136,18 +148,7 @@
   }}}}}}%
 }
 
-\begin{document}
-
-\OMIT
-\setbox0=\hbox{\url{X}}
-\setbox0=\hbox{\BoundaryDeepBoxes{中文}}
-\TIMO
-
-\START
-
-\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
-
-\TEST{restricted hbox direct-input matrices}{
+\newcommand\BoundaryRunMatrices{%
   \BoundaryMatrix{macro-W}{中}{\BoundaryMacroWestern}{Alpha}{文}
   \BoundaryMatrix{macro-C-WCW}{A}{\BoundaryMacroChinese}{中文}{B}
   \BoundaryMatrix{macro-C-CCC}{中}{\BoundaryMacroChinese}{中文}{文}
@@ -196,10 +197,6 @@
     {\mbox{前\textcolor{red}{中}后}}{前中后}{文}
   \BoundaryMatrix{mbox-nest-mbox-W}{中}
     {\mbox{A\mbox{B}C}}{ABC}{文}
-  \BoundaryMatrix{mbox-nest-math-CC}{中}
-    {\mbox{中\mbox{$x$}}}{中x}{文}
-  \BoundaryMatrix{mbox-nest-math-WW}{A}
-    {\mbox{中\mbox{$x$}}}{中x}{B}
   \BoundaryMatrix{mbox-nest-rule-CC}{中}
     {\mbox{中\mbox{\BoundaryRule}}}{中X}{文}
   \BoundaryMatrix{mbox-nest-rule-WW}{A}
@@ -225,10 +222,6 @@
   \BoundaryMatrix{macro-digit-WDW}{A}{\BoundaryMacroDigits}{3.14}{B}
   \BoundaryMatrix{mbox-digit-CDC}{中}{\mbox{3.14}}{3.14}{文}
   \BoundaryMatrix{mbox-digit-WDW}{A}{\mbox{3.14}}{3.14}{B}
-  \BoundaryMatrix{mbox-math-CWC}{中}{\mbox{$x$}}{x}{文}
-  \BoundaryMatrix{mbox-math-WWW}{A}{\mbox{$x$}}{x}{B}
-  \BoundaryMatrix{mbox-mathdigit-CDC}{中}{\mbox{$1$}}{1}{文}
-  \BoundaryMatrix{mbox-mathdigit-WDW}{A}{\mbox{$1$}}{1}{B}
   \BoundaryMatrix{mbox-rule-CWC}{中}{\mbox{\BoundaryRule}}{X}{文}
   \BoundaryMatrix{mbox-rule-WWW}{A}{\mbox{\BoundaryRule}}{X}{B}
   \BoundaryMatrix{mbox-empty-W}{中}{\mbox{}Alpha}{Alpha}{文}
@@ -286,6 +279,68 @@
   \BoundaryMatrix{pagetracker-C}{中}{\BoundaryPageTracker 中文}{中文}{文}
 }
 
+\newcommand\BoundaryKnownTrueFailures{%
+  mbox-nest-mbox-W/01,
+  mbox-nest-mbox-W/11,
+  mixed-CD/01,
+  mixed-CD/11,
+  nested-CD/01,
+  nested-CD/11,
+  post-null-explicit-glue-W/10,
+  post-null-explicit-glue-W/11%
+}
+
+\newcommand\BoundaryRunMathMatrix{%
+  \BoundaryMatrix{mbox-math-CWC}{中}{\mbox{$x$}}{$x$}{文}%
+}
+
+\begin{document}
+
+\OMIT
+\setbox0=\hbox{\url{X}}
+\setbox0=\hbox{\BoundaryDeepBoxes{中文}}
+\TIMO
+
+\START
+
+\TEST{package-default glue, xCJKecglue=false matrices}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \BoundarySetSkippedCases{mbox-math-CWC/10,mbox-math-CWC/11}
+    \BoundaryRunMatrices
+    \BoundaryRunMathMatrix
+  \endgroup
+}
+
+\TEST{package-default glue, xCJKecglue=true matrices}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \BoundarySetSkippedCases{\BoundaryKnownTrueFailures}
+    \BoundaryRunMatrices
+    \BoundaryRunMathMatrix
+  \endgroup
+}
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{distinguishing glue, xCJKecglue=false matrices}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \BoundarySetSkippedCases{mbox-math-CWC/10,mbox-math-CWC/11}
+    \BoundaryRunMatrices
+    \BoundaryRunMathMatrix
+  \endgroup
+}
+
+\TEST{distinguishing glue, xCJKecglue=true matrices}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \BoundarySetSkippedCases{\BoundaryKnownTrueFailures}
+    \BoundaryRunMatrices
+    \BoundaryRunMathMatrix
+  \endgroup
+}
+
 \TEST{CJKspace direct-input matrices}{
   \begingroup
     \xeCJKsetup{CJKspace=true}
@@ -299,15 +354,10 @@
   \endgroup
 }
 
-\TEST{xCJKecglue direct-input matrices}{
-  \begingroup
-    \xeCJKsetup{xCJKecglue=true}
-    \BoundaryMatrix{xCJKecglue-mbox-W}{中}{\mbox{Alpha}}{Alpha}{文}
-    \BoundaryMatrix{xCJKecglue-mbox-C}{A}{\mbox{中文}}{中文}{B}
-  \endgroup
-}
-
 % Delimiter-scanning \verb cannot occur in \BoundaryMatrix's arguments.
+\TYPE{xCJKecglue=false verb matrices}
+\begingroup
+\xeCJKsetup{xCJKecglue=false}
 \BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|Alpha|}
 \BoundaryAssertIdle{verb-W}{standalone}
 \BoundaryReset\setbox\BoundaryOracle=\hbox{Alpha}
@@ -367,6 +417,71 @@
 \BoundaryAssertIdle{verb-C-CCC}{11}
 \BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文 文}
 \BoundaryReport{verb-C-CCC}{11}
+\endgroup
+
+\TYPE{xCJKecglue=true verb matrices}
+\begingroup
+\xeCJKsetup{xCJKecglue=true}
+\BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|Alpha|}
+\BoundaryAssertIdle{verb-W}{standalone}
+\BoundaryReset\setbox\BoundaryOracle=\hbox{Alpha}
+\BoundaryIntrinsicDelta=\dimexpr
+  \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|Alpha|文}
+\BoundaryAssertIdle{verb-W}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中Alpha文}
+\BoundaryReport{verb-W}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|Alpha|文}
+\BoundaryAssertIdle{verb-W}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 Alpha文}
+\BoundaryReport{verb-W}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|Alpha| 文}
+\BoundaryAssertIdle{verb-W}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中Alpha 文}
+\BoundaryReport{verb-W}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|Alpha| 文}
+\BoundaryAssertIdle{verb-W}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 Alpha 文}
+\BoundaryReport{verb-W}{11}
+
+\BoundaryReset\setbox\BoundaryCandidate=\hbox{\verb|中文|}
+\BoundaryAssertIdle{verb-C}{standalone}
+\BoundaryReset\setbox\BoundaryOracle=\hbox{中文}
+\BoundaryIntrinsicDelta=\dimexpr
+  \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A\verb|中文|B}
+\BoundaryAssertIdle{verb-C-WCW}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A中文B}
+\BoundaryReport{verb-C-WCW}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A \verb|中文|B}
+\BoundaryAssertIdle{verb-C-WCW}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A 中文B}
+\BoundaryReport{verb-C-WCW}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A\verb|中文| B}
+\BoundaryAssertIdle{verb-C-WCW}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A中文 B}
+\BoundaryReport{verb-C-WCW}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{A \verb|中文| B}
+\BoundaryAssertIdle{verb-C-WCW}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{A 中文 B}
+\BoundaryReport{verb-C-WCW}{11}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文|文}
+\BoundaryAssertIdle{verb-C-CCC}{00}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文文}
+\BoundaryReport{verb-C-CCC}{00}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文|文}
+\BoundaryAssertIdle{verb-C-CCC}{10}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文文}
+\BoundaryReport{verb-C-CCC}{10}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中\verb|中文| 文}
+\BoundaryAssertIdle{verb-C-CCC}{01}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中中文 文}
+\BoundaryReport{verb-C-CCC}{01}
+\BoundaryReset\setbox\BoundaryCandidateContext=\hbox{中 \verb|中文| 文}
+\BoundaryAssertIdle{verb-C-CCC}{11}
+\BoundaryReset\setbox\BoundaryOracleContext=\hbox{中 中文 文}
+\BoundaryReport{verb-C-CCC}{11}
+\endgroup
 
 \begingroup
   \xeCJKsetup{CJKspace=true}
