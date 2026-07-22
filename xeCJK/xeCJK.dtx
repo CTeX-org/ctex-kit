@@ -4387,6 +4387,9 @@ Copyright and Licence
 %   \@@_boundary_register_transparent:n,
 %   \@@_boundary_register_post_transparent:n,
 %   \@@_boundary_register_stream:nn,
+%   \@@_boundary_reserve:n,
+%   \@@_boundary_reserve:N,
+%   \@@_boundary_if_registered:n,
 %   \@@_boundary_user_register:n,
 %   \@@_boundary_user_register_command:n,
 %   \@@_boundary_user_register_strategy:n,
@@ -4527,16 +4530,19 @@ Copyright and Licence
 % allocate、initialize、restore 一并评估为 record/helper 抽象。
 %
 % 实验性用户注册接口先把控制序列名、策略和类别模式写入独立属性表，不立即
-% 修改命令。导言区末尾关闭声明窗口，先拒绝与内建注册冲突的项目，再调用同一
-% 组五种注册函数；LaTeX 随后在普通 \tn{AtBeginDocument} 代码执行完以后安装
-% 命令 hook。用户接口因此不复制恢复算法，也不改变内建注册的优先级。正文
-% 开始前再检查成功登记的控制序列是否存在，避免 LaTeX 对未定义命令的延迟
-% hook 静默失效。
+% 修改命令。通用命令 hook 记录在注册表中；必须直接重定义扫描器或内部排版
+% 入口的专用适配器另写入保留表。用户声明在保存时和导言区末尾应用时都查询
+% 这两张表，不能把通用 hook 叠加到已有专用适配器外层。随后再调用同一组
+% 五种注册函数；LaTeX 在普通 \tn{AtBeginDocument} 代码执行完以后安装命令
+% hook。用户接口因此不复制恢复算法，也不改变内建注册的优先级。正文开始前
+% 再检查成功登记的控制序列是否存在，避免 LaTeX 对未定义命令的延迟 hook
+% 静默失效。
 %    \begin{macrocode}
 \int_new:N \g_@@_boundary_capture_depth_int
 \int_new:N \g_@@_boundary_suspend_depth_int
 \seq_new:N \g_@@_boundary_active_seq
 \prop_new:N \g_@@_boundary_registered_prop
+\prop_new:N \g_@@_boundary_reserved_prop
 \prop_new:N \g_@@_boundary_user_registered_prop
 \seq_new:N \g_@@_boundary_user_applied_seq
 \bool_new:N \g_@@_boundary_user_register_closed_bool
@@ -6062,6 +6068,27 @@ Copyright and Licence
       }
   }
 
+% 通用注册函数把命令写入 \cs{g_@@_boundary_registered_prop}。另有一些
+% 命令必须直接重定义内部排版入口，不能使用 LaTeX 通用命令 hook；这些
+% 入口写入独立的保留表。用户接口同时查询两张表，防止把通用 hook 叠加到
+% 已有专用适配器外层。
+\cs_new_protected:Npn \@@_boundary_reserve:n #1
+  { \prop_gput:Nnn \g_@@_boundary_reserved_prop {#1} { adapter } }
+\cs_new_protected:Npn \@@_boundary_reserve:N #1
+  {
+    \exp_args:Ne \@@_boundary_reserve:n { \cs_to_str:N #1 }
+  }
+\prg_new_conditional:Npnn \@@_boundary_if_registered:n #1 { T , F , TF }
+  {
+    \prop_if_in:NnTF \g_@@_boundary_registered_prop {#1}
+      { \prg_return_true: }
+      {
+        \prop_if_in:NnTF \g_@@_boundary_reserved_prop {#1}
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+  }
+
 \@@_msg_new:nn { boundary-register-command }
   {
     The~value~of~`command'~in~`experiment/boundary-register'~must~be~
@@ -6213,8 +6240,8 @@ Copyright and Licence
 
 \cs_new_protected:Npn \@@_boundary_user_register_store:
   {
-    \exp_args:NNV \prop_if_in:NnTF
-      \g_@@_boundary_registered_prop \l_@@_boundary_user_name_tl
+    \exp_args:NV \@@_boundary_if_registered:nTF
+      \l_@@_boundary_user_name_tl
       {
         \@@_error:ne { boundary-register-conflict }
           { \c_backslash_str \l_@@_boundary_user_name_tl }
@@ -6245,7 +6272,7 @@ Copyright and Licence
     \bool_gset_true:N \g_@@_boundary_user_register_closed_bool
     \prop_map_inline:Nn \g_@@_boundary_user_registered_prop
       {
-        \prop_if_in:NnTF \g_@@_boundary_registered_prop {##1}
+        \@@_boundary_if_registered:nTF {##1}
           {
             \@@_error:ne { boundary-register-conflict }
               { \c_backslash_str ##1 }
@@ -6313,6 +6340,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_prepare_onearg_box:NN #1#2
   {
+    \@@_boundary_reserve:N #2
     \exp_args:Nc \cs_new_eq:NN
       { @@_boundary_orig_\cs_to_str:N #1 _box:n } #2
     \cs_gset_protected:Npn #2 ##1
@@ -6329,6 +6357,7 @@ Copyright and Licence
   {
     \cs_if_exist:NF #1
       {
+        \@@_boundary_reserve:N #2
         \cs_set_eq:NN #1#2
         \cs_gset_protected:Npn #2
           {
@@ -6343,6 +6372,7 @@ Copyright and Licence
   {
     \cs_if_exist:NF #1
       {
+        \@@_boundary_reserve:N #2
         \cs_set_eq:NN #1#2
         \cs_gset_protected:Npn #2 ##1
           {
@@ -6362,6 +6392,8 @@ Copyright and Licence
 % 的 optional \tn{makebox}/\tn{framebox} 场景作为漂移门禁。
 \cs_new_protected:Npn \@@_boundary_register_makeboxes:
   {
+    \clist_map_inline:nn { makebox , framebox , @imakebox , @iframebox }
+      { \@@_boundary_reserve:n {##1} }
     \cs_if_exist:NF \@@_orig_imakebox:w
       {
         \cs_new_eq:NN \@@_orig_imakebox:w \@imakebox
@@ -6394,6 +6426,7 @@ Copyright and Licence
 \@@_boundary_register_box:nn { fbox } { auto }
 \@@_boundary_register_makeboxes:
 \@@_boundary_register_post_transparent:n { null }
+\@@_boundary_reserve:n { sbox }
 \AddToHook { cmd / sbox / before } [ xeCJK / boundary ]
   { \@@_boundary_capture_suspend: }
 \AddToHook { cmd / sbox / after } [ xeCJK / boundary ]
@@ -11937,6 +11970,8 @@ Copyright and Licence
 % \tn{(} 或 \tn{ensuremath} 时，在 math-on 前报告首类别；结尾是对应公式
 % 时，把 |math| 记为当前 capture 的确定末类别。\tn{ensuremath} 已在数学
 % 模式中时不重复处理当前列表。
+\clist_map_inline:nn { ( , math , ensuremath }
+  { \@@_boundary_reserve:n {#1} }
 \cs_if_eq:NNTF \( \math
   {
     \cs_new_eq:NN \@@_orig_inline_math_begin: \(
@@ -11971,6 +12006,8 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_register_text_command:NN #1#2
   {
+    \@@_boundary_reserve:N #1
+    \@@_boundary_reserve:N #2
     \exp_args:Nc \cs_new_eq:NN
       { @@_boundary_orig_\cs_to_str:N #1 :n } #2
     \cs_gset_protected:Npn #2 ##1
@@ -12557,6 +12594,12 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_register_hyperref_annot:
   {
+    \clist_map_inline:nn
+      {
+        Hy@BeginAnnot , Hy@EndAnnot , hyper@link , hyper@linkurl ,
+        href , hyperref
+      }
+      { \@@_boundary_reserve:n {##1} }
     \cs_gset_eq:NN \@@_orig_Hy_BeginAnnot:n \Hy@BeginAnnot
     \cs_gset_eq:NN \@@_orig_Hy_EndAnnot: \Hy@EndAnnot
     \cs_gset_protected:Npn \Hy@BeginAnnot ##1
@@ -12663,6 +12706,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_prepare_color_box:
   {
+    \@@_boundary_reserve:n { color@b@x }
     \cs_if_eq:NNF \color@b@x \@@_boundary_color_box:nnn
       {
         \cs_gset_eq:NN \@@_orig_color_box:nnn \color@b@x
@@ -12683,6 +12727,8 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_register_textcolor:
   {
+    \@@_boundary_reserve:n { @textcolor }
+    \@@_boundary_reserve:n { textcolor }
     \cs_if_eq:NNF \@textcolor \@@_boundary_textcolor:nnn
       {
         \cs_gset_eq:NN \@@_orig_textcolor:nnn \@textcolor
@@ -12691,6 +12737,8 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_register_color:
   {
+    \@@_boundary_reserve:n { colorbox }
+    \@@_boundary_reserve:n { fcolorbox }
     \@@_boundary_register_transparent:n { set@color }
     \@@_boundary_register_transparent:n { reset@color }
     \@@_boundary_prepare_color_box:
@@ -12800,6 +12848,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_register_url:
   {
+    \clist_map_inline:nn { url , path , nolinkurl , Url@z }
+      { \@@_boundary_reserve:n {##1} }
     \cs_if_exist:NF \@@_orig_Url_z:n
       {
         \cs_set_eq:NN \@@_orig_Url_z:n \Url@z
@@ -12892,6 +12942,8 @@ Copyright and Licence
           }
       }
   }
+\@@_boundary_reserve:n { verb }
+\@@_boundary_reserve:n { verb@egroup }
 \@@_after_preamble:n { \@@_boundary_register_verb: }
 %    \end{macrocode}
 % \end{macro}
@@ -12935,6 +12987,9 @@ Copyright and Licence
   {
     \cs_if_exist:NTF \__codedoc_meta:n
       {
+        \clist_map_inline:nn
+          { __codedoc_meta:n , meta , Arg , marg , oarg , parg }
+          { \@@_boundary_reserve:n {##1} }
         \cs_if_exist:NF \@@_orig_codedoc_meta:n
           {
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
@@ -12951,6 +13006,7 @@ Copyright and Licence
           { \cs_if_exist_p:c { ver@doc.sty } }
           { \cs_if_free_p:N \@@_orig_codedoc_meta:n }
           {
+            \@@_boundary_reserve:n { meta }
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \meta
             \DeclareDocumentCommand \meta { m }
               {
@@ -13225,6 +13281,14 @@ Copyright and Licence
 % \begin{macro}[int]{\UL@word,\xeCJK_ulem_word:nw}
 % 修改 \tn{UL@word}，目的是取得分组中的 \tn{UL@leadtype}，以便加入 \cs{xeCJK_ulem_right_skip:}。
 %    \begin{macrocode}
+\clist_map_inline:nn
+  {
+    UL@word , ULon , UL@on , UL@onin ,
+    uline , uuline , uwave , sout , xout , dashuline , dotuline ,
+    xeCJKfntefon , CJKunderline , CJKunderwave , CJKunderdblline ,
+    CJKsout , CJKxout , CJKunderanyline , CJKunderanysymbol , CJKunderdot
+  }
+  { \@@_boundary_reserve:n {#1} }
 \cs_new_protected:Npn \xeCJK_ulem_word:nw #1 ~
   {
     \@@_ulem_start:w #1 ~
@@ -15173,6 +15237,8 @@ Copyright and Licence
 % \tn{aftergroup} 安排单 token 结束函数。分隔符、活动字符、花括号与
 % short-inline 路径都调用 \tn{lst@DeInit}，因此共用同一结束适配点。
 %    \begin{macrocode}
+\clist_map_inline:nn { lstinline , lstinline@ , lst@InlineG , lst@DeInit }
+  { \@@_boundary_reserve:n {#1} }
 \bool_new:N \l_@@_listings_boundary_bool
 \cs_new_protected:Npn \@@_listings_boundary_stream_end:
   { \@@_boundary_inline_stream_end:n { auto } }

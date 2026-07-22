@@ -3,7 +3,9 @@
 \documentclass{article}
 
 \usepackage{xeCJK}
+\usepackage{url}
 \setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
 \xeCJKsetup{CJKecglue={\hskip 10pt}}
 
 \ExplSyntaxOn
@@ -40,6 +42,20 @@
     experiment/boundary-register =
       { command=\mbox, strategy=stream }
   }
+
+% Dedicated adapters are reserved even though they do not use generic hooks.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\verb, strategy=stream }
+  }
+\makeatletter
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\Url@z, strategy=stream }
+  }
+\makeatother
 
 % Invalid records must not enter the pending property list.
 \xeCJKsetup
@@ -106,11 +122,28 @@
   \g__xeCJK_boundary_user_registered_prop { mbox }
   { \TYPE{FAIL:~built-in~conflict~entered~the~user~property~list} }
   { \TYPE{PASS:~built-in~conflict~was~rejected} }
+\bool_lazy_or:nnTF
+  {
+    \prop_if_in_p:Nn
+      \g__xeCJK_boundary_user_registered_prop { verb }
+  }
+  {
+    \prop_if_in_p:Nn
+      \g__xeCJK_boundary_user_registered_prop { Url@z }
+  }
+  { \TYPE{FAIL:~a~dedicated~adapter~entered~the~user~property~list} }
+  { \TYPE{PASS:~dedicated~adapter~conflicts~were~rejected} }
 \prop_if_in:NnTF
   \g__xeCJK_boundary_user_registered_prop { InvalidBoxMode }
   { \TYPE{FAIL:~invalid~box~mode~was~stored} }
   { \TYPE{PASS:~invalid~records~were~rejected} }
 \ExplSyntaxOff
+
+% Rejected user registration must leave the dedicated verb scanner usable.
+\OMIT
+\setbox4=\hbox{中\verb|Alpha|中}
+\TIMO
+\TYPE{PASS: dedicated verb adapter remained usable}
 
 % A command first defined in the document body must remain unregistered.
 \newcommand\UndefinedBoundaryCommand[1]{\hbox{#1}}
