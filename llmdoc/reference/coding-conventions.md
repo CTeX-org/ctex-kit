@@ -81,6 +81,17 @@
 
 存量一次性修复由 `scripts/fix-test-tilde.py` 完成：它以 `.tlg` 作 oracle（LaTeX 已求过 catcode，`.tlg` 字面是 ground truth），定位 `.tlg` 中 `text~text` 形态的 `~` 再回改对应 `.lvt`。#893 首轮修了 45 个 `.lvt`、约 280 处，影响 `ctex` 与 `xeCJK`，并同步刷新 `.tlg` baseline。
 
+### `\ExplSyntaxOn` 宏定义中嵌入 Lua
+
+在 `\ExplSyntaxOn` 下扫描宏定义时，源码中的普通空格已经按 expl3 类别码规则被
+忽略。等到宏执行时再在 `\lua_now:n` 等入口内修改空格类别码，无法恢复定义阶段
+已经丢失的空格。
+
+因此，在这类定义中嵌入 Lua 时，应使用 `~` 明确生成 Lua 语法所需的空格，并用
+分号或其他明确分隔符隔开相邻语句和关键字。不要依赖源码排版中的普通空格，也不要
+假定换行一定能阻止 TeX 扫描后的 Lua 记号粘连。`fontset-macnew01.lvt` 的 LuaTeX
+字体节点探针是这一规则的现有实例。
+
 ## `.choices:nn` 中优先使用 `#1` 而非 `\l_keys_choice_str`
 
 l3keys 的 `<key>.choices:nn = {<choice 列表>}{<code>}` 在 `<code>` 中既可以读 `\l_keys_choice_str`（被选中分支名的字符串变量），也可以直接读 `#1`。**优先使用 `#1`**：

@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-本文只记录 `ctex/ctex.dtx` 中 `fontset` 尤其是 `fontset=mac` / `macnew` / `macold` 的稳定行为、分层边界与跨引擎差异。若问题表现为 XeTeX 专属的标点、字符分类或第三方包 hook，应转到 `llmdoc/architecture/package-architecture.md` 中的 `xeCJK` 架构部分。
+本文只记录 `ctex/ctex-fontset.dtx` 中 `fontset` 尤其是 `fontset=mac` / `macnew` / `macold` 的稳定行为、分层边界与跨引擎差异。若问题表现为 XeTeX 专属的标点、字符分类或第三方包 hook，应转到 `llmdoc/architecture/package-architecture.md` 中的 `xeCJK` 架构部分。
 
 ## fontset 层的职责边界
 
@@ -140,6 +140,39 @@ LuaTeX 分支不能依赖 `\fontspec_font_if_exist:nTF { PingFang SC }` 判断 d
 `Songti.ttc` 索引、zhmap/upLaTeX 映射和 `maczhsong` 标点数据，避免各引擎实际使用的
 字形或标点度量不一致。
 
+更换正文常规字形时，应把以下项目当作一份不可拆开的同步清单：
+
+- XeTeX 与 LuaTeX 使用的具名字体；
+- LaTeX+DVI 与 upLaTeX 使用的 TTC index；
+- `ctex-zhmap-mac.tex` 中的 zhmap 映射；
+- `ctex-spa-make.tex` 中的 SPA 生成源；
+- `ctexpunct.spa` 中由目标字形实际测得的跟踪数据；
+- 用户手册、变更记录和专项回归测试。
+
+只改其中一项会造成不同后端选择不同字形，或者让标点压缩继续使用旧字形的度量。
+
+## `macnew` 平台专属回归的证据分层
+
+`ctex/test/testfiles/fontset-macnew01.lvt` 把配置检查与字体运行时检查分开，二者不能
+互相替代：
+
+1. 所有平台都检查解包后的 `ctex-fontset-macnew.def`、`ctex-zhmap-mac.tex` 和
+   `ctex-spa-make.tex`，确认具名字体、TTC index、zhmap 与 SPA 生成源已经同步。
+   这些断言只检查生成配置，不会加载 Apple 字体。
+2. macOS XeTeX 分支直接加载 `Songti SC Regular`，逐个取得标点的字形编号和
+   字形边界，现场生成 `maczhsong` 数据，再与仓库跟踪的 `ctexpunct.spa`
+   比较。字体缺失、字形映射变化或边界数据不同都会使测试失败。
+3. macOS LuaTeX 分支先设置该字体，再实际排出中文字形；探针递归进入 `hlist` 和
+   `vlist`，从字形（glyph）节点取得字体对象，并核对 `fullname` 或 PostScript 字体名为
+   `Songti SC Regular` 或 `SongtiSC-Regular`。只让字体族声明不报错不足以证明
+   按需加载的字体已经用于排版。
+
+Linux 服务器没有 `Songti SC` 等 Apple 字体时，同一测试仍可通过生成配置检查，
+但 macOS 条件分支不会执行。因此，本地绿色结果不能表述为“Apple 字体实际加载
+通过”，必须注明运行了哪一层检查。LaTeX+DVI 与 upLaTeX 当前也只检查 TTC index
+和 zhmap 配置，尚未覆盖从文档排版到 `dvipdfmx` 加载字体的完整流程，不能把这部分
+说成端到端字体回归。
+
 ## `\pingfang` / `\yahei` 的稳定回退语义
 
 `macnew` 下仍保留与旧用户接口兼容的字体命令，但其语义已变为“尽量使用苹方，否则退回黑体”：
@@ -162,6 +195,6 @@ LuaTeX 分支不能依赖 `\fontspec_font_if_exist:nTF { PingFang SC }` 判断 d
 
 ## 相关源码入口
 
-- `ctex/ctex.dtx` 中 `%<*mac>`：`fontset=mac` 的 `macnew` / `macold` 自动判定。
-- `ctex/ctex.dtx` 中 `%<*macnew>`：`macnew` 在 XeTeX / LuaTeX / upLaTeX 路径下的字体设定。
+- `ctex/ctex-fontset.dtx` 中 `%<*mac>`：`fontset=mac` 的 `macnew` / `macold` 自动判定。
+- `ctex/ctex-fontset.dtx` 中 `%<*macnew>`：`macnew` 在 XeTeX / LuaTeX / upLaTeX 路径下的字体设定。
 - `ctex/ctex.dtx` 中 `fontset` 用户文档区：`macnew`、`\pingfang`、`\yahei` 的用户可见说明。
