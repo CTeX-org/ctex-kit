@@ -1,0 +1,138 @@
+\input{regression-test}
+
+\documentclass[fontset=none]{ctexart}
+
+\ExplSyntaxOn
+\bool_new:N \g__ctex_test_macos_xetex_bool
+% XeTeX 和 LuaTeX 会在输入字体集定义时立即解析字体名。因此，仅在
+% macOS runner 的这两个引擎上实际输入 macnew；字体不存在或字形名无效
+% 都会使测试在进入正文前失败。其他平台只做后面的生成文件检查。
+\ctex_if_platform_macos:TF
+  {
+    \sys_if_engine_xetex:TF
+      {
+        \bool_gset_true:N \g__ctex_test_macos_xetex_bool
+        \ctex_file_input:n { ctex-fontset-macnew.def }
+        % 用 macOS 上的真实字体重新测量标点边界；正文中会把结果与
+        % 仓库跟踪的 ctexpunct.spa 比较。
+        \ctex_file_input:n { ctex-spa-macro.tex }
+        \ExplSyntaxOn
+        \ctex_make_spa:nn { fontset-macnew01.spa }
+          { { maczhsong } { Songti~SC~Regular } }
+      }
+      {
+        \sys_if_engine_luatex:T
+          { \ctex_file_input:n { ctex-fontset-macnew.def } }
+      }
+  }
+  { }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\AUTHOR{Liam Huang}
+
+\ExplSyntaxOn
+
+\ior_new:N \l__ctex_test_fontset_ior
+\int_new:N \l__ctex_test_fontset_count_int
+\tl_new:N \l__ctex_test_fontset_line_tl
+\tl_new:N \l__ctex_test_spa_tracked_tl
+\tl_new:N \l__ctex_test_spa_measured_tl
+\cs_generate_variant:Nn \str_if_in:nnT { Vn }
+
+\cs_new_protected:Npn \__ctex_test_count:nn #1#2
+  {
+    \int_zero:N \l__ctex_test_fontset_count_int
+    \ior_open:Nn \l__ctex_test_fontset_ior {#1}
+    \ior_str_map_inline:Nn \l__ctex_test_fontset_ior
+      {
+        \tl_set:Nn \l__ctex_test_fontset_line_tl {##1}
+        \regex_replace_all:nnN { [^A-Za-z0-9]+ } { - }
+          \l__ctex_test_fontset_line_tl
+        \str_if_in:VnT \l__ctex_test_fontset_line_tl {#2}
+          { \int_incr:N \l__ctex_test_fontset_count_int }
+      }
+    \ior_close:N \l__ctex_test_fontset_ior
+    \TYPE { #1~|~#2:~\int_use:N \l__ctex_test_fontset_count_int }
+  }
+
+\cs_new_protected:Npn \__ctex_test_read_spa_line:nN #1#2
+  {
+    \tl_clear:N #2
+    \ior_open:Nn \l__ctex_test_fontset_ior {#1}
+    \ior_str_map_inline:Nn \l__ctex_test_fontset_ior
+      {
+        \str_if_in:nnT {##1} { maczhsong }
+          {
+            \tl_set:Nn #2 {##1}
+            \ior_map_break:
+          }
+      }
+    \ior_close:N \l__ctex_test_fontset_ior
+  }
+
+\TEST{macnew~can~be~loaded~by~XeTeX~and~LuaTeX~on~macOS}
+  {
+    % 非 macOS 不会输入字体集；macOS XeTeX/LuaTeX 若能走到这里，
+    % 就说明前导区中的实际字体解析已经成功。
+    \TYPE { macnew~runtime~smoke:~passed }
+  }
+
+\TEST{macnew~uses~the~Regular~named~face}
+  {
+    \__ctex_test_count:nn
+      { ctex-fontset-macnew.def } { Songti-SC-Regular }
+    \__ctex_test_count:nn
+      { ctex-fontset-macnew.def } { Songti-SC-Light }
+  }
+
+\TEST{macnew~uses~the~Regular~TTC~index}
+  {
+    \__ctex_test_count:nn
+      { ctex-fontset-macnew.def } { 6-Songti-ttc }
+    \__ctex_test_count:nn
+      { ctex-fontset-macnew.def } { 3-Songti-ttc }
+    \__ctex_test_count:nn
+      { ctex-zhmap-mac.tex } { 6-Songti-ttc }
+    \__ctex_test_count:nn
+      { ctex-zhmap-mac.tex } { 3-Songti-ttc }
+  }
+
+\TEST{macnew~SPA~source~uses~the~Regular~face}
+  {
+    \__ctex_test_count:nn
+      { ctex-spa-make.tex } { maczhsong-Songti-SC-Regular }
+    \__ctex_test_count:nn
+      { ctex-spa-make.tex } { maczhsong-Songti-SC-Light }
+  }
+
+\TEST{macnew~SPA~data~matches~Songti~SC~Regular~on~macOS}
+  {
+    \bool_set_true:N \l_tmpa_bool
+    \bool_if:NT \g__ctex_test_macos_xetex_bool
+      {
+        \__ctex_test_read_spa_line:nN
+          { ../../ctexpunct.spa } \l__ctex_test_spa_tracked_tl
+        \__ctex_test_read_spa_line:nN
+          { fontset-macnew01.spa } \l__ctex_test_spa_measured_tl
+        \str_if_eq:VVF
+          \l__ctex_test_spa_tracked_tl \l__ctex_test_spa_measured_tl
+          {
+            \bool_set_false:N \l_tmpa_bool
+            \TYPE { tracked:~\l__ctex_test_spa_tracked_tl }
+            \TYPE { measured:~\l__ctex_test_spa_measured_tl }
+          }
+      }
+    \bool_if:NTF \l_tmpa_bool
+      { \TYPE { macnew~SPA~metrics:~passed } }
+      { \TYPE { macnew~SPA~metrics:~failed } }
+  }
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
