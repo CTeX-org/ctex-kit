@@ -1,0 +1,127 @@
+% Shared source for boundary-register-mybox-before.tex and
+% boundary-register-mybox-after.tex.  The driver defines
+% \MyBoxRegistration to 0 or 1 before loading this file.
+\documentclass[a4paper,landscape]{article}
+\usepackage[margin=10mm]{geometry}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+\setlength{\parindent}{0pt}
+\setlength{\fboxsep}{2pt}
+\renewcommand\arraystretch{1.35}
+\pagestyle{empty}
+
+\newcommand\MyBox[1]{\hbox{#1}}
+
+\xeCJKsetup
+  {
+    CJKecglue = {\hskip 5pt},
+    CJKglue   = {\hskip 1pt},
+    xCJKecglue = false
+  }
+
+\ifnum\MyBoxRegistration=1
+  \xeCJKsetup
+    {
+      experiment/boundary-register =
+        { command = \MyBox, strategy = box }
+    }
+  \newcommand\EvidenceLabel{注册后}
+  \newcommand\EvidenceNote
+    {\texttt{\string\MyBox} 已使用 \texttt{box} 策略注册。}
+\else
+  \newcommand\EvidenceLabel{注册前}
+  \newcommand\EvidenceNote
+    {\texttt{\string\MyBox} 尚未注册。}
+\fi
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+\newdimen\MatrixAbsDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\ExplSyntaxOff
+
+\newcommand\MatrixVariant[3]
+  {
+    \MatrixReset\global\setbox\MatrixCandidateContext=\hbox{#2}
+    \MatrixReset\global\setbox\MatrixOracleContext=\hbox{#3}
+    \global\MatrixDelta=\dimexpr
+      \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+      \MatrixIntrinsicDelta\relax
+    \global\MatrixAbsDelta=\MatrixDelta
+    \ifdim\MatrixAbsDelta<0pt
+      \global\MatrixAbsDelta=-\MatrixAbsDelta
+    \fi
+    \texttt{#1} &
+    \fbox{\copy\MatrixOracleContext} &
+    \fbox{\copy\MatrixCandidateContext} &
+    \ifdim\MatrixAbsDelta<0.01pt
+      \textcolor{teal!70!black}{same}
+    \else
+      \textcolor{red!80!black}{\the\MatrixDelta}
+    \fi
+    \tabularnewline
+  }
+
+% #1 group heading, #2 pre, #3 candidate, #4 oracle, #5 post.
+\newcommand\Matrix[5]
+  {
+    \multicolumn{4}{@{}l}
+      {
+        \MatrixReset\global\setbox\MatrixCandidate=\hbox{#3}
+        \MatrixReset\global\setbox\MatrixOracle=\hbox{#4}
+        \global\MatrixIntrinsicDelta=\dimexpr
+          \wd\MatrixCandidate-\wd\MatrixOracle\relax
+        \rule{0pt}{14pt}\bfseries #1
+      }
+    \tabularnewline
+    \MatrixVariant{00}{#2#3#5}{#2#4#5}
+    \MatrixVariant{10}{#2 #3#5}{#2 #4#5}
+    \MatrixVariant{01}{#2#3 #5}{#2#4 #5}
+    \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}
+  }
+
+\newcolumntype{D}{>{\centering\arraybackslash}p{10mm}}
+\newcolumntype{O}{>{\centering\arraybackslash}p{54mm}}
+\newcolumntype{Q}{>{\centering\arraybackslash}p{20mm}}
+
+\begin{document}
+
+{\Large\bfseries \texttt{\string\MyBox} 命令边界：\EvidenceLabel}\par
+\smallskip
+\EvidenceNote
+每行用完全相同的可见内容比较直接输入和命令包装；红色数值是扣除命令自身宽度
+差以后，候选相对 oracle 多出的外围间距。这里取
+\texttt{CJKecglue=5pt}、\texttt{CJKglue=1pt}，使差异不会被默认宽度掩盖。
+
+\medskip
+\begin{tabular}{@{}D O O Q@{}}
+  \bfseries 空格 &
+  \bfseries 直接输入 oracle &
+  \bfseries 命令候选 &
+  \bfseries 差值 \\
+  \hline
+  \Matrix{西文输出：中\string\MyBox\{Alpha\}文}
+    {中}{\MyBox{Alpha}}{Alpha}{文}
+  \Matrix{中文输出：A\string\MyBox\{中文\}B}
+    {A}{\MyBox{中文}}{中文}{B}
+  \Matrix{中西输出：A\string\MyBox\{中A\}B}
+    {A}{\MyBox{中A}}{中A}{B}
+  \Matrix{西中输出：A\string\MyBox\{A中\}B}
+    {A}{\MyBox{A中}}{A中}{B}
+\end{tabular}
+
+\end{document}
