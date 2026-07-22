@@ -68,17 +68,25 @@
     \lua_now:e
       {
         local~b=tex.box[\int_value:w \l__ctex_test_font_box];
-        local~found=false;
-        for~n~in~node.traverse_id(node.id("glyph"),b.head)~do~
-          local~f=font.getfont(n.font);
-          if(f~and~
-            (f.fullname=="Songti~SC~Regular"~or~
-             f.psname=="SongtiSC-Regular"))then~
-            found=true;
-            break;
+        local~glyph=node.id("glyph");
+        local~hlist=node.id("hlist");
+        local~vlist=node.id("vlist");
+        local~function~has_regular(head)
+          for~n~in~node.traverse(head)~do~
+            if(n.id==glyph)then~
+              local~f=font.getfont(n.font);
+              if(f~and~
+                (f.fullname=="Songti~SC~Regular"~or~
+                 f.psname=="SongtiSC-Regular"))then~
+                return~true;
+              end;
+            elseif((n.id==hlist~or~n.id==vlist)~and~n.head)then~
+              if(has_regular(n.head))then~return~true;end;
+            end;
           end;
+          return~false;
         end;
-        if(not~found)then~
+        if(not~has_regular(b.head))then~
           tex.error(
             "fontset-macnew01:~Songti~SC~Regular~glyph~font~not~found"
           );
