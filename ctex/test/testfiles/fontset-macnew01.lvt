@@ -4,6 +4,61 @@
 
 \ExplSyntaxOn
 \bool_new:N \g__ctex_test_macos_xetex_bool
+\iow_new:N \g__ctex_test_spa_iow
+\clist_new:N \l__ctex_test_punct_bounds_clist
+\seq_const_from_clist:Nn \c__ctex_test_punct_seq
+  {
+    "2018 , "201C , "300C , "300E , "3014 , "FF08 , "FF3B , "FF5B ,
+    "3008 , "300A , "3016 , "3010 ,
+    "2014 , "2026 , "3001 , "3002 , "FF0C , "FF0E , "FF1A , "FF1B ,
+    "FF01 , "FF1F , "FF05 , "3015 , "FF09 , "FF3D , "FF5D , "3009 ,
+    "300B , "3017 , "3011 , "2019 , "201D , "300D , "300F
+  }
+
+\cs_new:Npn \__ctex_test_calc_bound:nn #1#2
+  {
+    \fp_eval:n
+      {
+        round
+          (
+            \dim_to_decimal_in_unit:nn
+              { 100 \tex_XeTeXglyphbounds:D #1 ~ #2 }
+              { 1 em }
+          )
+      }
+  }
+
+\cs_new_protected:Npn \__ctex_test_save_bounds:n #1
+  {
+    \clist_put_right:Ne \l__ctex_test_punct_bounds_clist
+      {
+        \__ctex_test_calc_bound:nn { 1 } {#1} ,
+        \__ctex_test_calc_bound:nn { 3 } {#1}
+      }
+  }
+
+\cs_new_protected:Npn \__ctex_test_measure_spa:
+  {
+    \group_begin:
+      \tex_font:D \l__ctex_test_punct_font =
+        "Songti~SC~Regular" ~ at ~ 100 pt \scan_stop:
+      \l__ctex_test_punct_font
+      \clist_clear:N \l__ctex_test_punct_bounds_clist
+      \seq_map_inline:Nn \c__ctex_test_punct_seq
+        {
+          \exp_args:No \__ctex_test_save_bounds:n
+            { \int_use:N \tex_XeTeXcharglyph:D ##1 }
+        }
+      \iow_open:Nn \g__ctex_test_spa_iow { fontset-macnew01.spa }
+      \iow_now:Ne \g__ctex_test_spa_iow
+        {
+          \token_to_str:N \ctexspadef { maczhsong }
+            { \l__ctex_test_punct_bounds_clist , , , }
+        }
+      \iow_close:N \g__ctex_test_spa_iow
+    \group_end:
+  }
+
 % macnew 的可选字体探测与本项改动无关，且可能访问 downloadable 字体。
 % 因此，macOS runner 只实际加载本次改动涉及的 Songti SC Regular；
 % 后面的生成文件检查负责确认 macnew 确实引用了这个字形。
@@ -15,10 +70,7 @@
         \setCJKmainfont { Songti~SC~Regular }
         % 用 macOS 上的真实字体重新测量标点边界；正文中会把结果与
         % 仓库跟踪的 ctexpunct.spa 比较。
-        \ctex_file_input:n { ctex-spa-macro.tex }
-        \ExplSyntaxOn
-        \ctex_make_spa:nn { fontset-macnew01.spa }
-          { { maczhsong } { Songti~SC~Regular } }
+        \__ctex_test_measure_spa:
       }
       {
         \sys_if_engine_luatex:T
