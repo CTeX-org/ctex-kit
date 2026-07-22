@@ -64,10 +64,15 @@ XeTeX 路径用 expl3 文件读取完成同一工作：
 
 以下角色被视为核心能力，优先保证可加载：
 
-- 正文字体：`Songti SC Light` / `Songti SC Bold`
+- 正文字体：`Songti SC Regular`（字重 400）/ `Songti SC Bold`
 - 黑体基础：`Heiti SC Light` / `Heiti SC Medium`
 
 其中宋体与黑体仍作为 `zhsong`、`zhhei` 等主字体族的稳定底座；这保证即使 downloadable 字体缺席，`macnew` 仍能形成可用的主字体配置，而不是整体失效。
+
+Issue #994 把宋体的常规直立字形从 `Songti SC Light`（字重 300）改为
+`Songti SC Regular`（字重 400）。选择时以 `fontset=ubuntu` 使用的
+Noto Serif CJK SC 常规字重为参照；`Songti SC Regular` 与该参照更接近。
+这项变化不影响粗体、黑体、圆体等其他多字重配置。
 
 ### 2. 可选字体按可用性启用
 
@@ -85,7 +90,8 @@ XeTeX 路径用 expl3 文件读取完成同一工作：
 
 XeTeX 分支依赖 `fontspec` 的运行时名字解析能力，使用 `\fontspec_font_if_exist:nTF` 检查字体名是否可见。稳定行为如下：
 
-- `Songti SC` / `Heiti SC` 直接按名字加载；
+- 正文宋体的常规直立字形直接按具名字体 `Songti SC Regular` 加载，粗体为
+  `Songti SC Bold`；黑体仍按 `Heiti SC Light` / `Heiti SC Medium` 加载；
 - `PingFang SC` 可见时，将无衬线主字体设为 `PingFang SC`，并定义 `zhpf`；
 - `PingFang SC` 不可见时，将 `\setCJKsansfont` 回退为 `Heiti SC Light` / `Heiti SC Medium`；
 - `Kaiti SC`、`STFangsong`、`Baoli SC`、`Yuanti SC Light` 都按“检测到才定义相应 family”的方式处理。
@@ -112,11 +118,27 @@ LuaTeX 分支不能依赖 `\fontspec_font_if_exist:nTF { PingFang SC }` 判断 d
 
 其中：
 
-- 核心字体 `Songti SC`、`Heiti SC` 仍按名字加载，因为 `luaotfload` 能直接看到它们；
+- 核心字体仍按名字加载，因为 `luaotfload` 能直接看到它们；正文宋体明确使用
+  具名字体 `Songti SC Regular`，粗体使用 `Songti SC Bold`；
 - downloadable 字体则必须通过路径加索引显式指定；
 - 若某个可选字体未找到，对应 family 不定义或回退，不报错。
 
 这是 PR #782 改造后最关键的 LuaTeX 设计点：LuaTeX 路径对 macOS 15+ downloadable 字体的支持依赖文件系统发现，不依赖名字存在性探针。
+
+## 宋体字形的跨引擎映射与标点数据
+
+`macnew` 的各引擎路径必须指向同一个简体中文 Regular 字形：
+
+- XeTeX 与 LuaTeX 使用具名字体 `Songti SC Regular`；
+- LaTeX+DVI 与 upLaTeX 使用 `Songti.ttc` 的 index 6；这是简体中文
+  Regular 字形，旧的 Light 字形位于 index 3；
+- `ctex-zhmap-mac.tex` 中的宋体映射同样使用 index 6。
+
+字体映射变化还会影响标点压缩所依赖的边界数据。`ctexpunct.spa` 中
+`maczhsong` 的数据已在 macOS 上用 XeTeX 加载 `Songti SC Regular` 后重新测量，
+不再沿用 Light 字形的度量。以后若调整 `macnew` 的正文宋体，应同时核对具名字体、
+`Songti.ttc` 索引、zhmap/upLaTeX 映射和 `maczhsong` 标点数据，避免各引擎实际使用的
+字形或标点度量不一致。
 
 ## `\pingfang` / `\yahei` 的稳定回退语义
 
