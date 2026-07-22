@@ -1,3 +1,7 @@
+## [ctex-v2.6.4](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.4)
+
+- `macnew` 的宋体常规直立字形改用 Songti SC Regular（#994）。
+
 ## [ctex-v2.6.3](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.3)
 
 - 禁止在 LuaTeX 后端载入不兼容的 `CJKfntef`，并推荐使用 `lua-ul`（#381）。
