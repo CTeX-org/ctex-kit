@@ -72,8 +72,8 @@ Issue #722 / PR #782 处理的是 `fontset=mac` 在 macOS 15+ 上的失效问题
 
 ## 影响范围
 
-- `ctex/ctex.dtx` 中 `%<*mac>`：自动选择 `macnew` / `macold` 的逻辑。
-- `ctex/ctex.dtx` 中 `%<*macnew>`：XeTeX 与 LuaTeX 的字体加载策略。
+- `ctex/ctex-fontset.dtx` 中 `%<*mac>`：自动选择 `macnew` / `macold` 的逻辑。
+- `ctex/ctex-fontset.dtx` 中 `%<*macnew>`：XeTeX 与 LuaTeX 的字体加载策略。
 - `ctex/ctex.dtx` 的用户文档：`fontset=mac`、`macnew`、`\pingfang` 的说明。
 
 ## 对后续维护的约束

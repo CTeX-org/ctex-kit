@@ -16,9 +16,9 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 184 个主回归测试，以及 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界；#1010 的 `boundary-register-api01/02` 另以 288 项行为比较和诊断回归固定公开注册入口，xeCJK 标准测试当前为 111／111。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、版本检查和本地 TeX Live usertree 同步。
-- `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
-- `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 185 个主回归测试，以及 #994 `fontset-macnew01` 对生成配置、macOS 实际字形和 SPA 度量的分层验证；还含 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界；#1010 的 `boundary-register-api01/02` 另以 288 项行为比较和诊断回归固定公开注册入口，xeCJK 标准测试当前为 111／111。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、版本检查和本地 TeX Live usertree 同步。
+- `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、`.lvt` 空格规则及 `\ExplSyntaxOn` 宏定义中嵌入 Lua 时的空格与语句分隔、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
+- `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义，以及 #994 更换正文常规字形时各后端映射和 SPA 数据的同步清单、平台专属回归的证据边界。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
 
 ## guides
@@ -28,7 +28,7 @@
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含正式审查的新会话、受限输入和报告留痕门禁、生成物门禁、按风险收缩验证、节点/视觉证据、源码候选须由实际输出确认、弹性 glue 的三项参数与实际断行、命令边界输出等价矩阵、绿色单元与失败基线分离、机制抽象与支持边界、说明层隔离、字体预热、PR 预览与主线事实分层，以及 feature request 和 git 测试规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含正式审查的新会话、受限输入和报告留痕门禁、生成物门禁、按风险收缩验证、平台条件测试的陈述边界、字体选择／映射／度量同步、节点/视觉证据、源码候选须由实际输出确认、弹性 glue 的三项参数与实际断行、命令边界输出等价矩阵、绿色单元与失败基线分离、机制抽象与支持边界、说明层隔离、字体预热、PR 预览与主线事实分层，以及 feature request 和 git 测试规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题；无需代码改动的 bot finding 用维护者证据回复确认，避免空提交触发无限 review 循环，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/275-heading-query-interfaces.md` — 决策: 为 Beamer 等下游提供可展开、按层级查询裸编号、完整本地化标签和 `numbering` 状态的公共接口；不新增 Beamer insert 命令，也不公开样式私有宏。
@@ -75,6 +75,7 @@
 - `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md` — 反思：PR #1005 修复 #1003 时，类别 marker 正确但右边界仍缺少外层 `spacefactor` 和 `marker + glue` 的物理相邻关系；记录有界 post-transparent 节点移动、0pt glue 节点契约、1664 个矩阵断言、节点级验证、changelog 门禁、并行 LuaTeX 临时日志缺失，以及合并后从 16 个驱动复验并更新 #992 活表的收尾过程。
 - `llmdoc/memory/reflections/1002-inline-math-boundary.md` — 反思：PR #1009 将 #1002 纳入 capture/register 框架时，源码公式语法只能产生候选，须由实际节点确认；记录 `math-space`／`math-space-frozen`、弹性间距与实际断行、不可见节点使 marker 过期、左右边界独立验证、PR 图示，以及从独立子代理审查收紧到可审计上下文隔离门禁的过程。
 - `llmdoc/memory/reflections/1010-boundary-register-public-api.md` — 反思：#1010 开放实验性注册入口时，真正困难的是策略语义和生命周期，而不是 l3keys；记录专用适配器保留表、保存／应用双阶段冲突检查、公式参数限制、左右边界独立测试、公共诊断日志和本地上下文隔离审查闭环。
+- `llmdoc/memory/reflections/994-macnew-songti-regular.md` — 反思：#994 把 `macnew` 正文宋体从 Light 调整为 Regular 时，同步具名字体、TTC index、zhmap 和 SPA 度量；记录 Linux 配置检查与 macOS 字体运行时证据的区别、XeTeX 现场重测、LuaTeX-ja 嵌套字形节点探针，以及 `\ExplSyntaxOn` 宏定义中嵌入 Lua 的空格规则。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
 - `llmdoc/memory/reflections/671-cjkpunct-rglue-nobreak.md` — 反思: CJKpunct #671 修复中的节点级调试技术与 `\unhbox` 测试模式。

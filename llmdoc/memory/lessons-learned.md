@@ -34,6 +34,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #381 在 ctex 2.6.2 发布两天后落地，首版仍误记为 v2.6.2，合并后才纠正为 v2.6.3。
 **Source**: `llmdoc/memory/archive/2026-07-13/381-cjkfntef-backend-boundary.md`
 
+### 测试结论不能超出实际执行的平台分支
+**Rule**: 平台条件测试通过后，只陈述该次运行实际执行的分支；配置检查、字体声明、实际字形和度量比较是不同层次的证据，不能互相替代。
+**Why**: #994 的 Linux 四引擎回归能检查 `macnew` 生成配置，却没有 Apple 字体，也不会执行 macOS 条件分支；只有 macOS XeTeX/LuaTeX 的运行时探针实际加载并核对了 Regular 字形。
+**Source**: `llmdoc/memory/reflections/994-macnew-songti-regular.md`
+
+### 字体字形变化必须同步选择、映射和度量
+**Rule**: 更换字体集中的正文常规字形时，同时核对各引擎的具名字体、TTC index、zhmap、度量生成源和跟踪数据，并用拥有目标字体的平台验证实际字形与度量。
+**Why**: #994 若只把 `Songti SC Light` 改名为 Regular，LaTeX+DVI/upLaTeX 仍会使用旧 index，标点压缩也会继续读取 Light 的 SPA 数据。
+**Source**: `llmdoc/memory/reflections/994-macnew-songti-regular.md`
+
 ### 本地审查报告是独立的完成门禁输入
 **Rule**: 运行过本地 code-review 时，在完成或 merge 前用忽略规则外的文件盘点读取全部 `.code-review` 报告，并把每条发现映射到当前树核实。
 **Why**: PR #976 只审计 GitHub 活动，漏掉被 `.gitignore` 隐藏的报告中两个有效小问题，合并后不得不用 #978 补修。
