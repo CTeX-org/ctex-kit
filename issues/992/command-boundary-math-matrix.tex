@@ -1,0 +1,116 @@
+% Issue #992：命令包裹行内公式时的完整间距测试。
+% 每项都与直接输入 $x$ 比较，并同时检查四种周边文字组合、
+% 四种源码空格组合、xCJKecglue 的两个值以及两套间距设置。
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+\usepackage{hyperref}
+\setCJKmainfont[BoldFont=FandolHei-Regular.otf,
+  ItalicFont=FandolFang-Regular.otf]{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+\pagestyle{empty}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+\newdimen\MatrixAbsDelta
+\newcount\MatrixPass
+\newcount\MatrixFail
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_if_exist:NT \g__xeCJK_reset_color_pending_bool
+      { \bool_gset_false:N \g__xeCJK_reset_color_pending_bool }
+  }
+\ExplSyntaxOff
+
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset\setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset\setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \MatrixAbsDelta=\MatrixDelta
+  \ifdim\MatrixAbsDelta<0pt \MatrixAbsDelta=-\MatrixAbsDelta\fi
+  \ifdim\MatrixAbsDelta<0.01pt
+    \global\advance\MatrixPass by 1
+    \typeout{INLINE|\MatrixMode|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \global\advance\MatrixFail by 1
+    \typeout{INLINE|\MatrixMode|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+% #1 标签，#2 左侧文字，#3 命令包裹后的内容，#4 直接输入，#5 右侧文字。
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset\setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset\setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+% 每个命令都检查中文—公式—中文、中文—公式—西文、
+% 西文—公式—西文和西文—公式—中文。
+\newcommand\CommandMatrix[2]{%
+  \Matrix{#1/CMC}{中}{#2}{$x$}{文}%
+  \Matrix{#1/CMW}{中}{#2}{$x$}{B}%
+  \Matrix{#1/WMW}{A}{#2}{$x$}{B}%
+  \Matrix{#1/WMC}{A}{#2}{$x$}{文}%
+}
+
+\newcommand\InlineMathWrapper[1]{#1}
+
+\makeatletter
+\AtBeginDocument{%
+  \expandafter\gdef\csname r@inline-math-target\endcsname
+    {{1}{1}{title}{inline.math.target}{}}%
+}
+\makeatother
+
+\newcommand\RunMode[2]{%
+  \begingroup
+    \def\MatrixMode{#1}%
+    \xeCJKsetup{#2}%
+    \CommandMatrix{paren}{\(x\)}%
+    \CommandMatrix{ensuremath}{\ensuremath{x}}%
+    \CommandMatrix{macro}{\InlineMathWrapper{$x$}}%
+    \CommandMatrix{group}{{$x$}}%
+    \CommandMatrix{textbf}{\textbf{$x$}}%
+    \CommandMatrix{textit}{\textit{$x$}}%
+    \CommandMatrix{texttt}{\texttt{$x$}}%
+    \CommandMatrix{textcolor}{\textcolor{red}{$x$}}%
+    \CommandMatrix{mbox}{\mbox{$x$}}%
+    \CommandMatrix{makebox}{\makebox{$x$}}%
+    \CommandMatrix{fbox}{\fbox{$x$}}%
+    \CommandMatrix{colorbox}{\colorbox{yellow}{$x$}}%
+    \CommandMatrix{CJKunderline}{\CJKunderline{$x$}}%
+    \CommandMatrix{CJKunderdot}{\CJKunderdot{$x$}}%
+    \CommandMatrix{CJKsout}{\CJKsout{$x$}}%
+    \CommandMatrix{hyperref}{\hyperref[inline-math-target]{$x$}}%
+    \CommandMatrix{href}{\href{https://example.com}{$x$}}%
+  \endgroup
+}
+
+\begin{document}
+
+\providecommand\InlineMatrixRun{%
+  \RunMode{false-default}{xCJKecglue=false}}
+\InlineMatrixRun
+
+\typeout{INLINE-SUMMARY|PASS=\the\MatrixPass|FAIL=\the\MatrixFail}
+
+matrix done, see log
+
+\end{document}

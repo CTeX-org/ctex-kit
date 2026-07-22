@@ -14,7 +14,8 @@ Assets for [CTeX-org/ctex-kit#992](https://github.com/CTeX-org/ctex-kit/issues/9
   312／320 通过；PR #1005 合并后，两种设置均为 320／320 通过。
 
 精确失败单元见 [`xecglue-matrix-summary.txt`](./xecglue-matrix-summary.txt)。
-行内公式改用 #1002 决定的直接公式基准，不计入上述普通命令矩阵。
+行内公式改用 #1002 决定的直接公式基准，不计入上述普通命令矩阵；
+PR #1009 合并后，公式矩阵已迁入本目录并纳入 #992 活表。
 The initial audit was prepared against master commit
 4628cb443978d5507de61eaa70e520e31f926707 on 2026-07-18.
 
@@ -99,6 +100,31 @@ regressions should use node-level assertions in xeCJK/testfiles/.
   cell passes only if it passed under BOTH default and distinguishing glue
   values when compiled with xeCJK unpacked from master
   4628cb443978d5507de61eaa70e520e31f926707.
+
+## 行内公式矩阵（PR #1009 合并后）
+
+以下四个文件都是可以直接编译的入口，不以目录或 README 代替 MWE：
+
+- `command-boundary-math-matrix.tex`：`xCJKecglue=false`、默认间距；
+- `command-boundary-math-false-custom.tex`：`xCJKecglue=false`、
+  `CJKecglue=5pt` / `CJKglue=1pt`；
+- `command-boundary-math-true-default.tex`：`xCJKecglue=true`、默认间距；
+- `command-boundary-math-true-custom.tex`：`xCJKecglue=true`、
+  `CJKecglue=5pt` / `CJKglue=1pt`。
+
+每个入口覆盖 17 种候选、四种周边文字和四种源码空格，共 272 个单元。
+2026-07-22 从 PR #1009 合并后的 `master` `1b77613b` 重新解包 xeCJK 并
+分别编译四个入口，结果均为 272／272 通过。
+
+`showcase-math.tex` 和 `showcase-math-true.tex` 是两种 `xCJKecglue`
+设置下的具体 show-case 源文件；`showcase/*-math.png` 将同一候选的两页
+上下合并，展示四种周边文字和 `00`、`10`、`01`、`11`。这些图片也从
+`1b77613b` 重新生成，全部单元均与直接 `$x$` 相同。
+
+#992 原编号 28 的 `\mbox{$x$}` 已并入编号 7 的四个公式列。编号 28
+不再复用，以免旧讨论中的行号指向另一个场景。`\(x\)` 和
+`\ensuremath{x}` 保留为独立候选行，因为它们没有可以填写普通内容三列的
+对应项。
 
 ## Driver updates (2026-07-20, digit contexts)
 
