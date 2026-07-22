@@ -23,12 +23,12 @@
 
 ## guides
 
-- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告；正式本地审查必须由上下文隔离的子代理在固定 base/head 范围内完成，代码变化后补做隔离增量审查；另含无需改代码的 bot finding 确认、按增量风险选择验证强度、复杂排版 PR 的前后图片与流程图、新分支首次 PR 补跑，以及最终 llmdoc 收尾。
+- `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告；正式本地审查必须启动不继承主对话的新子代理，只提供仓库规则、公开目标、完整 base/head SHA、范围和必要公开证据，并在报告中记录隔离方式与允许输入；另含隔离增量审查、bot finding 确认、按风险验证、复杂排版 PR 图示、新分支首次 PR 补跑及 llmdoc 收尾。
 - `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961)。
 
 ## memory
 
-- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含隔离正式审查与生成物门禁、按风险收缩验证、节点/视觉证据、源码候选须由实际输出确认、弹性 glue 的三项参数与实际断行、命令边界输出等价矩阵、绿色单元与失败基线分离、先穷举机制再抽象原语、不可判源时公开支持边界、说明层隔离、lazy family 预热、PR 原型预览与已合并 issue 活表分层，以及 feature request 和 git 测试规则。
+- `llmdoc/memory/lessons-learned.md` — 从已归档反思提炼的跨任务规则；当前含正式审查的新会话、受限输入和报告留痕门禁、生成物门禁、按风险收缩验证、节点/视觉证据、源码候选须由实际输出确认、弹性 glue 的三项参数与实际断行、命令边界输出等价矩阵、绿色单元与失败基线分离、机制抽象与支持边界、说明层隔离、字体预热、PR 预览与主线事实分层，以及 feature request 和 git 测试规则。
 
 - `llmdoc/memory/decisions/repo-push-hook-discipline.md` — 决策: 常规 push 必须以无管道命令完整运行 self-wrapping pre-push，按内层 push、CI 和 review 活动输出闭环修复全部问题；无需代码改动的 bot finding 用维护者证据回复确认，避免空提交触发无限 review 循环，并以 llmdoc 更新收尾。
 - `llmdoc/memory/decisions/275-heading-query-interfaces.md` — 决策: 为 Beamer 等下游提供可展开、按层级查询裸编号、完整本地化标签和 `numbering` 状态的公共接口；不新增 Beamer insert 命令，也不公开样式私有宏。
@@ -72,7 +72,7 @@
 - `llmdoc/memory/doc-gaps.md` — 已知文档与实现缺口追踪。
 - `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md` — 反思: #999 先用完整矩阵把 edge case 收敛为有限节点形状，再建立 capture/register；记录运行时首尾类别、嵌套与 `\sbox`、宽度/节点/可视三层证据、说明层隔离、lazy font 预热、同构 glue 支持边界，以及 PR 预览与 #992 活表的合并状态分层。
 - `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md` — 反思：PR #1005 修复 #1003 时，类别 marker 正确但右边界仍缺少外层 `spacefactor` 和 `marker + glue` 的物理相邻关系；记录有界 post-transparent 节点移动、0pt glue 节点契约、1664 个矩阵断言、节点级验证、changelog 门禁、并行 LuaTeX 临时日志缺失，以及合并后从 16 个驱动复验并更新 #992 活表的收尾过程。
-- `llmdoc/memory/reflections/1002-inline-math-boundary.md` — 反思：PR #1009 将 #1002 纳入 capture/register 框架时，源码公式语法只能产生候选，须由实际节点确认；记录 `math-space`／`math-space-frozen`、弹性间距与实际断行、不可见节点使 marker 过期、左右边界独立验证、PR 图示和上下文隔离审查。
+- `llmdoc/memory/reflections/1002-inline-math-boundary.md` — 反思：PR #1009 将 #1002 纳入 capture/register 框架时，源码公式语法只能产生候选，须由实际节点确认；记录 `math-space`／`math-space-frozen`、弹性间距与实际断行、不可见节点使 marker 过期、左右边界独立验证、PR 图示，以及从独立子代理审查收紧到可审计上下文隔离门禁的过程。
 - `llmdoc/memory/reflections/717-experiment-cjkecglue.md` — 反思: #717 用 `ctex / experiment` 子路径统一暴露实验性 `CJKecglue` 接口，并记录 xeCJK 参数桥接、xkanjiskip 缓存同步与四引擎基线策略。
 - `llmdoc/memory/reflections/715-hyperref-driverfallback.md` — 反思: TYPE 展开陷阱、l3build 命令拦截测试技巧。
 - `llmdoc/memory/reflections/671-cjkpunct-rglue-nobreak.md` — 反思: CJKpunct #671 修复中的节点级调试技术与 `\unhbox` 测试模式。

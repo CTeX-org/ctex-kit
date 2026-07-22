@@ -40,8 +40,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-13/976-978-ignored-local-code-review.md`
 
 ### 正式审查必须与实现上下文隔离
-**Rule**: 主代理的实现检查只算自检；正式 code review 必须由上下文隔离的子代理在固定 base/head 范围内完成。审查后若代码有变化，再由隔离的子代理审查相应增量。
-**Why**: PR #1009 的主代理同时参与设计与实现，重复阅读仍会继承原有假设；最终隔离审查固定 `bb14d1a3..2092edad`，才形成独立的正式结论。
+**Rule**: 主代理的实现检查只算自检。正式 code review 必须启动不继承主代理设计与实现对话的新子代理，只提供仓库规则、公开目标、完整 base/head SHA、范围和必要公开证据；报告须记录隔离方式、允许输入和固定范围。增量审查可读取上一份正式报告取得截止点，但不能继承主对话。
+**Why**: PR #1009 的 `bb14d1a3..2092edad` 审查虽由独立子代理完成，报告却没有记录上下文隔离方式，不能证明审查者未继承实现假设；后续 llmdoc 增量审查因此把“新会话、受限输入、报告留痕”补成可审计门禁。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
 
 ### APPROVE 总评不覆盖详情中的 finding
