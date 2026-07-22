@@ -39,6 +39,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: PR #976 只审计 GitHub 活动，漏掉被 `.gitignore` 隐藏的报告中两个有效小问题，合并后不得不用 #978 补修。
 **Source**: `llmdoc/memory/archive/2026-07-13/976-978-ignored-local-code-review.md`
 
+### 正式审查必须与实现上下文隔离
+**Rule**: 主代理的实现检查只算自检；正式 code review 必须由上下文隔离的子代理在固定 base/head 范围内完成。审查后若代码有变化，再由隔离的子代理审查相应增量。
+**Why**: PR #1009 的主代理同时参与设计与实现，重复阅读仍会继承原有假设；最终隔离审查固定 `bb14d1a3..2092edad`，才形成独立的正式结论。
+**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
+
 ### APPROVE 总评不覆盖详情中的 finding
 **Rule**: 任务要求处理全部审查问题时，按阻塞、重要和小问题的逐项计数闭环；总评为 APPROVE 或建议标为 optional 都不能自动视为已处理。
 **Why**: PR #983 第一轮自动审查虽为 APPROVE，仍列出 1 个实现注释小问题；初次收尾跳过后，最终 completion audit 才补上并经增量审查确认 0/0/0。
@@ -76,10 +81,20 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #972 的测量、截图和组合用例暴露了普通 `default` 原型缺陷；#999 又证明默认 glue 等宽会让宽度或截图假通过，必须由节点测试区分来源。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
+### 弹性间距必须验证伸缩量和实际断行
+**Rule**: 测试可伸缩间距时，分别核对 natural、stretch 和 shrink，并在有限容差下实际排段检查断行；盒子自然宽度只能作为第一层证据。
+**Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。
+**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
+
 ### 命令边界修复必须覆盖输出等价矩阵
 **Rule**: 验证命令边界间距时，以相同可见内容的直接输入为 oracle，按实际输出首尾类别、`00/10/01/11` 和会改变边界语义的选项值记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。公式必须与直接公式比较，候选与 oracle 必须使用相同的 `xCJKecglue` 设置。
 **Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 最初只覆盖 `xCJKecglue=false`，补测 `true` 后又在嵌套盒子和 `\null` 边界发现 #1003；#1002 还证明把 `$x$` 换成字母 `x` 会改变比较问题本身。单点或单一选项通过都不能推出整类已修复。
 **Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
+
+### 源码语法只产生候选，实际输出决定语义
+**Rule**: 当宏可能消费参数末尾的分组或分隔记号时，源码扫描只能登记候选；必须在可见内容排完后检查实际节点，再发布首尾类别等输出语义。
+**Why**: #1002 中未知宏可能消费末尾 `{$x$}`、`$` 或 `\)`，只凭源码形状会把没有排出公式的命令误记为 math。采用“语法候选＋实际节点确认”后，公式边界才能与直接输入保持一致。
+**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
 
 ### 状态表中的绿色单元才进入通过基线
 **Rule**: 矩阵出现部分失败时，为已经通过的精确单元增加回归测试；失败单元留在跟踪 issue 中，既不写成 `.tlg` 通过基线，也不通过跳过整个场景丢失邻近的绿色单元。
