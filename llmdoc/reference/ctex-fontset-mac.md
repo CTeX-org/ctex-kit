@@ -30,7 +30,7 @@ PR #782 对 `fontset=mac` 的改造属于后一类：保留 `macnew` / `macold` 
 - 主版本号 `< 15` 时，加载 `ctex-fontset-macold.def`。
 - 若版本号检测失败，则发出 `macos-version-detect-failed` warning，并回退到 `macold`。
 
-这意味着当前设计把“苹方字体是否仍在传统路径”从唯一判定条件降级为快速路径；当 macOS 15+ 把 CJK 字体改为 downloadable、导致传统路径失效时，系统版本检测成为必要后备。对应实现位于 `ctex/ctex.dtx` 的 `%<*mac>` 区段。
+这意味着当前设计把“苹方字体是否仍在传统路径”从唯一判定条件降级为快速路径；当 macOS 15+ 把 CJK 字体改为 downloadable、导致传统路径失效时，系统版本检测成为必要后备。对应实现位于 `ctex/ctex-fontset.dtx` 的 `%<*mac>` 区段。
 
 ## 版本号检测的跨引擎实现
 
