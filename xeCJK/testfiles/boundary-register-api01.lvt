@@ -1,0 +1,200 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\newbox\BoundaryCandidate
+\newbox\BoundaryOracle
+\newbox\BoundaryCandidateContext
+\newbox\BoundaryOracleContext
+\newdimen\BoundaryIntrinsicDelta
+\newdimen\BoundaryDelta
+\newcount\BoundaryChecks
+\newcount\BoundaryFailures
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \BoundaryReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \BoundaryCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\cs_new:Npn \BoundaryCaptureStackCount
+  { \int_eval:n { \seq_count:N \g__xeCJK_boundary_active_seq } }
+\cs_new:Npn \BoundaryCaptureSuspendDepth
+  { \int_use:N \g__xeCJK_boundary_suspend_depth_int }
+\ExplSyntaxOff
+
+\newcommand\BoundaryAssertIdle[2]{%
+  \ifnum\BoundaryCaptureDepth=0\relax
+    \ifnum\BoundaryCaptureStackCount=0\relax
+    \else
+      \global\advance\BoundaryFailures by 1
+      \TYPE{FAIL: #1/#2 left a nonempty capture stack}%
+    \fi
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture depth}%
+  \fi
+  \ifnum\BoundaryCaptureSuspendDepth=0\relax
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 left a nonzero capture suspension depth}%
+  \fi
+}
+
+\newcommand\BoundaryVariant[4]{%
+  \global\advance\BoundaryChecks by 1
+  \BoundaryReset
+  \setbox\BoundaryCandidateContext=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{#2}%
+  \BoundaryReset
+  \setbox\BoundaryOracleContext=\hbox{#4}%
+  \BoundaryDelta=\dimexpr
+    \wd\BoundaryCandidateContext-\wd\BoundaryOracleContext-
+    \BoundaryIntrinsicDelta\relax
+  \ifdim\BoundaryDelta<0pt \BoundaryDelta=-\BoundaryDelta\fi
+  \ifdim\BoundaryDelta<0.01pt
+  \else
+    \global\advance\BoundaryFailures by 1
+    \TYPE{FAIL: #1/#2 boundary delta is \the\BoundaryDelta}%
+  \fi
+}
+
+\newcommand\BoundaryMatrix[5]{%
+  \BoundaryReset
+  \setbox\BoundaryCandidate=\hbox{#3}%
+  \BoundaryAssertIdle{#1}{standalone}%
+  \BoundaryReset
+  \setbox\BoundaryOracle=\hbox{#4}%
+  \BoundaryIntrinsicDelta=\dimexpr
+    \wd\BoundaryCandidate-\wd\BoundaryOracle\relax
+  \BoundaryVariant{#1}{00}{#2#3#5}{#2#4#5}%
+  \BoundaryVariant{#1}{10}{#2 #3#5}{#2 #4#5}%
+  \BoundaryVariant{#1}{01}{#2#3 #5}{#2#4 #5}%
+  \BoundaryVariant{#1}{11}{#2 #3 #5}{#2 #4 #5}%
+  \BoundaryVariant{#1}{left-0}{#2#3}{#2#4}%
+  \BoundaryVariant{#1}{left-1}{#2 #3}{#2 #4}%
+  \BoundaryVariant{#1}{right-0}{#3#5}{#4#5}%
+  \BoundaryVariant{#1}{right-1}{#3 #5}{#4 #5}%
+}
+
+\newcommand\UserBox[1]{\hbox{#1}}
+\newcommand\UserBoxDefault[1]{\hbox{$#1$}}
+\newcommand\UserWrapped[1]{\kern0pt #1\kern0pt}
+\newcommand\UserWrappedDefault[1]{\kern0pt $#1$\kern0pt}
+\newcommand\UserStream[1]{\special{user-stream}#1}
+\newcommand\UserDefault[1]{$#1$}
+\newcommand\UserFirstDefault[1]{\special{user-first}A#1}
+\newcommand\UserTransparent{\special{user-transparent}}
+\newcommand\UserPostTransparent{\hbox{}}
+\newcommand\UserGroupedBox[1]{\hbox{#1}}
+
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\UserBox, strategy=box },
+    experiment/boundary-register =
+      { command=\UserBoxDefault, strategy=box, mode=default },
+    experiment/boundary-register =
+      { command=\UserWrapped, strategy=wrapped-box },
+    experiment/boundary-register =
+      { command=\UserWrappedDefault, strategy=wrapped-box, mode=default },
+    experiment/boundary-register =
+      { command=\UserStream, strategy=stream },
+    experiment/boundary-register =
+      { command=\UserDefault, strategy=stream, mode=default },
+    experiment/boundary-register =
+      { command=\UserFirstDefault, strategy=stream, mode=first-default },
+    experiment/boundary-register =
+      { command=\UserTransparent, strategy=transparent },
+    experiment/boundary-register =
+      { command=\UserPostTransparent, strategy=post-transparent },
+    experiment/boundary-register =
+      { command=\UserLateBox, strategy=box }
+  }
+
+% Boundary declarations are global even when xeCJKsetup is called in a group.
+{\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\UserGroupedBox, strategy=box }
+  }}
+
+\makeatletter
+\newcommand\user@api@box[1]{\hbox{#1}}
+\newcommand\UserAtBox[1]{\user@api@box{#1}}
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\user@api@box, strategy=box }
+  }
+\makeatother
+
+\ExplSyntaxOn
+\cs_new:Npn \user_api_box:n #1 { \hbox:n {#1} }
+\cs_new:Npn \UserLThreeBox #1 { \user_api_box:n {#1} }
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\user_api_box:n, strategy=box, mode=auto }
+  }
+\ExplSyntaxOff
+
+\AtBeginDocument{\newcommand\UserLateBox[1]{\hbox{#1}}}
+
+\newcommand\RunBoundaryMatrices{%
+  \BoundaryMatrix{box-auto-W}{中}{\UserBox{Alpha}}{Alpha}{文}%
+  \BoundaryMatrix{box-auto-C}{A}{\UserBox{中文}}{中文}{B}%
+  \BoundaryMatrix{box-auto-CD}{中}{\UserBox{中A}}{中A}{文}%
+  \BoundaryMatrix{box-auto-DC}{中}{\UserBox{A中}}{A中}{文}%
+  \BoundaryMatrix{box-default}{中}{\UserBoxDefault{x}}{X}{文}%
+  \BoundaryMatrix{wrapped-auto-W}{中}{\UserWrapped{Alpha}}{Alpha}{文}%
+  \BoundaryMatrix{wrapped-auto-C}{A}{\UserWrapped{中文}}{中文}{B}%
+  \BoundaryMatrix{wrapped-default}{中}
+    {\UserWrappedDefault{x}}{X}{文}%
+  \BoundaryMatrix{stream-auto-W}{中}{\UserStream{Alpha}}{Alpha}{文}%
+  \BoundaryMatrix{stream-auto-C}{A}{\UserStream{中文}}{中文}{B}%
+  \BoundaryMatrix{stream-default}{中}{\UserDefault{x}}{X}{文}%
+  \BoundaryMatrix{stream-first-default}{中}
+    {\UserFirstDefault{中文}}{A中文}{B}%
+  \BoundaryMatrix{transparent}{中}
+    {\UserTransparent Alpha}{Alpha}{文}%
+  \BoundaryMatrix{post-transparent}{中}
+    {中文\UserPostTransparent}{中文}{文}%
+  \BoundaryMatrix{grouped-declaration}{中}
+    {\UserGroupedBox{Alpha}}{Alpha}{文}%
+  \BoundaryMatrix{at-letter-command}{中}{\UserAtBox{Alpha}}{Alpha}{文}%
+  \BoundaryMatrix{latex3-command}{A}{\UserLThreeBox{中文}}{中文}{B}%
+  \BoundaryMatrix{at-begin-document-command}{中}
+    {\UserLateBox{Alpha}}{Alpha}{文}%
+}
+
+\begin{document}
+
+\START
+
+\TEST{xCJKecglue=false user boundary registrations}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \RunBoundaryMatrices
+  \endgroup
+}
+
+\TEST{xCJKecglue=true user boundary registrations}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \RunBoundaryMatrices
+  \endgroup
+}
+
+\TYPE{BOUNDARY REGISTER CHECKS: \the\BoundaryChecks}
+\TYPE{BOUNDARY REGISTER FAILURES: \the\BoundaryFailures}
+
+\END
+
+\end{document}
