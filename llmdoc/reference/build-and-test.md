@@ -148,7 +148,35 @@
 
 同一测试还锁定 `math-space` 的物理相邻边界。transparent 颜色命令和 post-transparent `\null` 分别在真实参数空格与 marker 之间留下 9 型 special 和 1 型零尺寸 hbox；此时 marker 应当过期。`null-explicit` 再检查 `\textnormal{$x$ }\hskip7pt\null`：探测 marker 时暂存的 7pt glue 必须恢复到 `\null` 之前，保留“真实空格、显式 glue、零尺寸盒子”的直接 oracle 顺序。三项末节点类型分别为 9／1／1；候选与含同一不可见节点的直接公式 oracle 宽度差均为 0，在段宽 10pt、容差 100 下排段，段落高度差也均为 0。这证明框架既没有把补偿 glue 单独放到不可见节点之后，也没有把显式 glue 错移到盒子之后。
 
-`loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。xeCJK 标准测试共有 109 项，当前 109／109 通过。
+`loading01.tlg` 现在固定两种 marker 常量，以及补偿计算使用的四个 skip 和四个尺寸（dim）寄存器，防止加载期分配基线无意漂移。
+
+### 实验性命令边界注册接口（#1010）
+
+`boundary-register-api01.lvt` 固定公开入口的可观察行为。测试为 `box`、
+`wrapped-box`、`stream`、`transparent`、`post-transparent` 五种策略选择合适
+的最小命令，并覆盖 `auto`、`default`、`first-default` 三种允许的模式。每个
+矩阵除了 `00/10/01/11` 四种源码空格，还分别运行 `left-0`、`left-1`、
+`right-0`、`right-1`，防止左右两侧的误差在总宽度中抵消；整组再分别设置
+`xCJKecglue=false` 和 `xCJKecglue=true`。18 组矩阵共执行 288 项比较，失败数
+为 0，每项还检查 capture depth、active stack 和 suspend depth 均已归零。
+
+同一测试还固定以下生命周期和控制序列语法：分组内的声明仍全局生效；带 `@` 的
+命令由 `\makeatletter` 管理类别码；带 `_`、`:` 的 LaTeX3 命令由
+`\ExplSyntaxOn` 管理；普通 `\AtBeginDocument` 中才定义的命令也能在正文开始时
+取得 hook。这里测试的是通用策略能观察到的 CJK／Default 边界，不把 #1002 的
+参数公式适配算作 `auto` 的一般能力。
+
+`boundary-register-api02.lvt` 固定公共诊断和拒绝路径：非控制序列、非法策略或
+模式、策略与模式的非法组合、缺少必填项、重复用户声明、通用内建冲突、专用
+适配器冲突、未定义目标和正文期声明。测试把 begin-document 的存在性检查在
+`\START` 后再执行一次，确保用户实际看到的 `boundary-register-undefined` 消息
+进入 `.tlg`，而不只是内部属性表状态正确；初始化输出则用 `\OMIT`／`\TIMO`
+隔开。`\verb` 和 `\Url@z` 证明专用适配器保留表也参与冲突判断；拒绝重复注册
+`\verb` 后还实际调用其扫描器，确认通用 hook 没有破坏原参数读取。正文中才
+定义的目标保持未注册，正文期再次声明也不会改变待应用记录数。
+
+这两个测试使 xeCJK 标准测试总数增加到 111 项，当前为 111／111 通过。完整接口
+契约见 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
