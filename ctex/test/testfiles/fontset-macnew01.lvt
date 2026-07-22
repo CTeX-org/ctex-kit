@@ -4,6 +4,7 @@
 
 \ExplSyntaxOn
 \bool_new:N \g__ctex_test_macos_xetex_bool
+\box_new:N \l__ctex_test_font_box
 \iow_new:N \g__ctex_test_spa_iow
 \clist_new:N \l__ctex_test_punct_bounds_clist
 \seq_const_from_clist:Nn \c__ctex_test_punct_seq
@@ -56,6 +57,35 @@
             { \l__ctex_test_punct_bounds_clist , , , }
         }
       \iow_close:N \g__ctex_test_spa_iow
+    \group_end:
+  }
+
+\cs_new_protected:Npn \__ctex_test_assert_luatex_regular:
+  {
+    % 只有 macOS LuaTeX 分支会调用本函数。实际排出一个中文字形，再从
+    % glyph 节点读取字体元数据；这样不只检查字体族声明是否成功。
+    \hbox_set:Nn \l__ctex_test_font_box { 字 }
+    \group_begin:
+      \char_set_catcode_space:n { 32 }
+      \lua_now:e
+        {
+          local b = tex.box[\int_value:w \l__ctex_test_font_box]
+          local found = false
+          for n in node.traverse_id(node.id("glyph"), b.head) do
+            local f = font.getfont(n.font)
+            if f and
+              (f.fullname == "Songti SC Regular" or
+               f.psname == "SongtiSC-Regular") then
+              found = true
+              break
+            end
+          end
+          if not found then
+            tex.error(
+              "fontset-macnew01: Songti SC Regular glyph font not found"
+            )
+          end
+        }
     \group_end:
   }
 
@@ -129,7 +159,14 @@
 \TEST{Songti~SC~Regular~can~be~loaded~by~XeTeX~and~LuaTeX~on~macOS}
   {
     % 统一基线只说明检查在哪些平台执行，不把其他平台的跳过写成通过。
-    % macOS XeTeX/LuaTeX 若能走到这里，就说明前导区中的加载已经成功。
+    % XeTeX 已在前导区加载字形并重测 SPA；LuaTeX 在这里实际排出字形，
+    % 并检查 glyph 节点对应的 fullname 或 PostScript name。
+    \ctex_if_platform_macos:TF
+      {
+        \sys_if_engine_luatex:T
+          { \__ctex_test_assert_luatex_regular: }
+      }
+      { }
     \TYPE { Songti~SC~Regular~runtime~smoke:~macOS~only }
   }
 
