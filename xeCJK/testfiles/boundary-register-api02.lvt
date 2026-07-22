@@ -1,0 +1,143 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\xeCJKsetup{CJKecglue={\hskip 10pt}}
+
+\ExplSyntaxOn
+\clist_map_inline:nn
+  {
+    boundary-register-command,
+    boundary-register-choice,
+    boundary-register-missing,
+    boundary-register-mode,
+    boundary-register-duplicate,
+    boundary-register-conflict,
+    boundary-register-late,
+    boundary-register-undefined
+  }
+  { \msg_redirect_name:nnn { xeCJK } {#1} { warning } }
+\ExplSyntaxOff
+
+\START
+
+\newcommand\DiagnosticBox[1]{\hbox{#1}}
+
+% One valid declaration followed by an ignored duplicate.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\DiagnosticBox, strategy=box },
+    experiment/boundary-register =
+      { command=\DiagnosticBox, strategy=stream }
+  }
+
+% An existing built-in registration cannot be overridden.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\mbox, strategy=stream }
+  }
+
+% Invalid records must not enter the pending property list.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=not-a-control-sequence, strategy=box },
+    experiment/boundary-register =
+      { command=\InvalidStrategy, strategy=unknown },
+    experiment/boundary-register =
+      { command=\InvalidBoxMode, strategy=box, mode=first-default },
+    experiment/boundary-register =
+      { command=\InvalidTransparentMode, strategy=transparent, mode=auto },
+    experiment/boundary-register =
+      { command=\InvalidPostMode, strategy=post-transparent, mode=default },
+    experiment/boundary-register =
+      { command=\InvalidModeChoice, strategy=stream, mode=unknown },
+    experiment/boundary-register =
+      { strategy=box },
+    experiment/boundary-register =
+      { command=\MissingStrategy }
+  }
+
+% This record is valid when declared, but its target never becomes defined.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\UndefinedBoundaryCommand, strategy=box }
+  }
+
+\OMIT
+\begin{document}
+\TIMO
+
+% Repeat the beginning-of-document check while logging is enabled so that
+% the public diagnostic remains part of the regression baseline.
+\ExplSyntaxOn
+\__xeCJK_boundary_user_register_check:
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+\TYPE
+  {
+    USER~PENDING~COUNT:
+    \int_eval:n { \prop_count:N \g__xeCJK_boundary_user_registered_prop }
+  }
+\TYPE
+  {
+    USER~APPLIED~COUNT:
+    \int_eval:n { \seq_count:N \g__xeCJK_boundary_user_applied_seq }
+  }
+\TYPE
+  {
+    DIAGNOSTIC~VALUE:
+    \prop_item:Nn
+      \g__xeCJK_boundary_user_registered_prop { DiagnosticBox }
+  }
+\TYPE
+  {
+    UNDEFINED~VALUE:
+    \prop_item:Nn
+      \g__xeCJK_boundary_user_registered_prop { UndefinedBoundaryCommand }
+  }
+\prop_if_in:NnTF
+  \g__xeCJK_boundary_user_registered_prop { mbox }
+  { \TYPE{FAIL:~built-in~conflict~entered~the~user~property~list} }
+  { \TYPE{PASS:~built-in~conflict~was~rejected} }
+\prop_if_in:NnTF
+  \g__xeCJK_boundary_user_registered_prop { InvalidBoxMode }
+  { \TYPE{FAIL:~invalid~box~mode~was~stored} }
+  { \TYPE{PASS:~invalid~records~were~rejected} }
+\ExplSyntaxOff
+
+% A command first defined in the document body must remain unregistered.
+\newcommand\UndefinedBoundaryCommand[1]{\hbox{#1}}
+\setbox0=\hbox{中\UndefinedBoundaryCommand{A}中}
+\setbox2=\hbox{中A中}
+\ifdim\wd0=\wd2
+  \TYPE{FAIL: body-defined command unexpectedly received boundary hooks}
+\else
+  \TYPE{PASS: body-defined command remained unregistered}
+\fi
+
+% The declaration window is now closed; this call must not change the list.
+\xeCJKsetup
+  {
+    experiment/boundary-register =
+      { command=\LateBoundaryCommand, strategy=stream }
+  }
+
+\ExplSyntaxOn
+\TYPE
+  {
+    USER~PENDING~COUNT~AFTER~LATE~CALL:
+    \int_eval:n { \prop_count:N \g__xeCJK_boundary_user_registered_prop }
+  }
+\ExplSyntaxOff
+
+\END
+
+
+\end{document}

@@ -14,6 +14,7 @@
 - box/wrapped-box 捕获在盒子直接排出了可见内容（宽度非零、高度或深度非零，且末节点为 char/rule/math/kern）而未观察到任何字符类别时，按 Default 首尾重建边界；math 与 `\vrule` 等不触发 interchar 转换的可见内容不再被误判为“无可见输出”。已经排好再放入的盒子与只用于留白的盒子仍按无可见输出处理（#998）。
 - 重放 Default marker 时按外层列表同步 `\spacefactor`；post-transparent 同时搬移 marker 与其后的候选 glue，修复 `xCJKecglue` 启用后盒内末尾大写字母和 `\null` 遮住边界后缀时的右边界间距（#1003）。
 - 新增独立的行内公式边界类别，分别处理公式末尾与公式后已有参数内源码空格，使注册命令能按直接公式的源码空格语义恢复左右边界；另行区分仍参与外层断行的 stream 空格与已冻结在盒子中的空格，正确保留弹性间距的伸缩量；不可见节点将普通 stream 的真实空格与 marker 隔开时按直接公式语义让 marker 过期，并保留中间 glue 与节点的原有次序（#1002）。
+- 新增实验性 `experiment/boundary-register` 接口，允许专家用户把自定义命令注册到统一命令边界框架（#1010）。
 - 包装内核私有 `\@imakebox` 与 `\@iframebox` 的 `[#1][#2]#3` 签名以注册 `\makebox` / `\framebox`；内核若调整该签名须同步此 wrapper（#992）。
 - 把链接 annotation 的入口保存和末尾定点重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界（#992）。
 - 将 `\set@color` 与 `\reset@color` 注册为 transparent capture，删除颜色 push/pop 的专用 marker save/replay 分支（#992）。

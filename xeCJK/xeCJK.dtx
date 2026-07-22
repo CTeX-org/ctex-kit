@@ -62,6 +62,7 @@ Copyright and Licence
                                        xeCJK-example-fallback.tex,
                                        xeCJK-example-subCJKblock.tex,
                                        xeCJK-example-CJKecglue.tex,
+                                       xeCJK-example-boundary-register.tex,
                                        xeCJK-example-checksingle.tex,
                                        xeCJK-example-CJKfntef.tex,
                                        xeCJK-example-punctstyle.tex,
@@ -134,6 +135,7 @@ Copyright and Licence
                                        xeCJK-example-fallback.tex,
                                        xeCJK-example-subCJKblock.tex,
                                        xeCJK-example-CJKecglue.tex,
+                                       xeCJK-example-boundary-register.tex,
                                        xeCJK-example-checksingle.tex,
                                        xeCJK-example-CJKfntef.tex,
                                        xeCJK-example-punctstyle.tex,
@@ -175,6 +177,8 @@ Copyright and Licence
     \file{xeCJK-example-fallback.tex}     {\from{\jobname.dtx}{ex-fallback}}
     \file{xeCJK-example-subCJKblock.tex}  {\from{\jobname.dtx}{ex-block}}
     \file{xeCJK-example-CJKecglue.tex}    {\from{\jobname.dtx}{ex-ecglue}}
+    \file{xeCJK-example-boundary-register.tex}
+                                               {\from{\jobname.dtx}{ex-boundary-register}}
     \file{xeCJK-example-checksingle.tex}  {\from{\jobname.dtx}{ex-single}}
     \file{xeCJK-example-CJKfntef.tex}     {\from{\jobname.dtx}{ex-fntef}}
     \file{xeCJK-example-punctstyle.tex}   {\from{\jobname.dtx}{ex-punctstyle}}
@@ -804,6 +808,86 @@ Copyright and Licence
 %   \begin{verbatim}
 %   \xeCJKsetup{experiment/punct-measure-fix}
 %   \end{verbatim}
+% \end{function}
+%
+% \begin{function}[added=2026-07-22]{experiment/boundary-register}
+%   \begin{syntax}
+%     experiment/boundary-register =
+%       \{ command = \meta{control sequence},
+%          strategy = \meta{strategy}, mode = \meta{mode} \}
+%   \end{syntax}
+%   这是一个面向熟悉 \TeX{} 节点和命令实现的用户的实验性接口。它把
+%   \pkg{xeCJK} 尚未处理的命令接入命令边界框架，使命令包装前后的可见内容
+%   尽量具有相同的中西文间距。一个键值只注册一个命令；需要注册多个命令时，
+%   可以重复使用本选项。
+%
+%   |command| 必须是一个控制序列。命令名含有 |@| 时，用户应在声明外使用
+%   \tn{makeatletter} 和 \tn{makeatother}；注册公开的 \LaTeX3 命令时，
+%   应使用 \tn{ExplSyntaxOn} 和 \tn{ExplSyntaxOff} 让 |_| 和 |:| 成为命令名
+%   的一部分。这个接口不接受不带反斜线的命令名字符串。
+%
+%   |strategy| 可以取以下值：
+%   \begin{description}
+%     \item[\texttt{box}]
+%       命令结束时在当前列表末尾留下一个水平盒子。
+%     \item[\texttt{wrapped-box}]
+%       命令会直接写出多个节点，并且能够在 \pkg{xeCJK} 打开的水平盒子中
+%       完整执行。
+%     \item[\texttt{stream}]
+%       命令的可见内容直接写入当前列表。
+%     \item[\texttt{transparent}]
+%       命令没有可见输出，只留下 PDF 锚点等特殊节点。
+%     \item[\texttt{post-transparent}]
+%       命令结束时留下零尺寸水平盒子，只能在命令执行后恢复边界状态。
+%   \end{description}
+%   下面的五个命令分别给出每种策略最简单的典型形式。实际命令只有在节点
+%   结构与相应示例一致时，才应采用同一种策略。
+%   \begin{verbatim}
+%   \newcommand\mybox[1]{\hbox{#1}}
+%   \newcommand\mywrapped[1]{\kern0pt #1\kern0pt}
+%   \newcommand\mystream[1]{\special{my-stream}#1}
+%   \newcommand\myanchor{\special{my-anchor}}
+%   \newcommand\myzero{\hbox{}}
+%   \xeCJKsetup
+%     {
+%       experiment/boundary-register = { command = \mybox,
+%         strategy = box },
+%       experiment/boundary-register = { command = \mywrapped,
+%         strategy = wrapped-box },
+%       experiment/boundary-register = { command = \mystream,
+%         strategy = stream },
+%       experiment/boundary-register = { command = \myanchor,
+%         strategy = transparent },
+%       experiment/boundary-register = { command = \myzero,
+%         strategy = post-transparent }
+%     }
+%   \end{verbatim}
+%
+%   |box|、|wrapped-box| 和 |stream| 可以使用 |mode|。省略时默认为
+%   |auto|，即采用运行时观察到的实际首、尾类别。|default| 把两端固定视为
+%   Default；|first-default| 只把左端固定视为 Default，并且只适用于
+%   |stream|。|transparent| 和 |post-transparent| 不接受 |mode|。
+%
+%   用户声明在导言区收集，到导言区末尾统一注册；即使声明写在分组内，也会
+%   对整篇文档生效。目标命令可以在普通的 \tn{AtBeginDocument} 中定义；
+%   如果它到正文开始以后才定义，注册不会生效并会给出错误。已经由
+%   \pkg{xeCJK} 处理的命令和重复声明也会报错，本接口不提供反注册或覆盖
+%   内建注册的功能。命令 hook 安装完成后，如果其他代码重新定义了目标命令，
+%   新定义可能不再包含这里登记的处理。
+%
+%   并非所有命令都适合通用注册。\tn{verb}、\tn{url} 等使用特殊参数读取
+%   方式的命令可能需要专用适配；公开命令如果只负责读取参数，应当注册真正
+%   排版内容的内部命令。能够作为 |command| 读入的控制序列，也不一定能由
+%   \LaTeX{} 通用命令 hook 完整包住。通用注册不会分析命令参数；如果行内
+%   公式位于可见内容的开头或结尾，|auto| 未必能观察到公式边界。
+%   \tn{mbox} 等现有命令另有参数适配代码，用户注册不会自动取得这部分能力。
+%
+%   注册后应当把命令与“去掉命令包装后的相同可见内容”比较，并分别检查左右
+%   边界、四种源码空格以及 \opt{xCJKecglue} 的两个取值。随包提供的
+%   \pkg{xeCJK-example-boundary-register.tex} 用明显不同的
+%   \tn{CJKecglue} 和 \tn{CJKglue} 展示了这种检查方法。其中公式行还会
+%   显示上述参数适配限制；方框不等宽时，说明不能只靠所选通用策略处理该
+%   命令。
 % \end{function}
 %
 % \begin{function}[updated=2013-11-16]{Verb}
@@ -4303,6 +4387,15 @@ Copyright and Licence
 %   \@@_boundary_register_transparent:n,
 %   \@@_boundary_register_post_transparent:n,
 %   \@@_boundary_register_stream:nn,
+%   \@@_boundary_user_register:n,
+%   \@@_boundary_user_register_command:n,
+%   \@@_boundary_user_register_strategy:n,
+%   \@@_boundary_user_register_mode:n,
+%   \@@_boundary_user_register_validate:,
+%   \@@_boundary_user_register_store:,
+%   \@@_boundary_user_register_apply:,
+%   \@@_boundary_user_register_apply:nn,
+%   \@@_boundary_user_register_check:,
 %   \@@_boundary_prepare_onearg_box:N,
 %   \@@_boundary_prepare_onearg_box:NN,
 %   \@@_boundary_wrap_transparent_noarg:NN,
@@ -4352,6 +4445,9 @@ Copyright and Licence
 %   空格，正确保留弹性间距的伸缩量；不可见节点将普通 stream 的真实空格
 %   与 marker 隔开时按直接公式语义让 marker 过期，并保留中间 glue 与节点
 %   的原有次序（\#1002）。}
+% \changes{v3.10.4}{2026/07/22}{新增实验性
+%   \opt{experiment/boundary-register} 接口，允许专家用户把自定义命令注册到
+%   统一命令边界框架（\#1010）。}
 %
 % 命令边界框架提供五类注册策略。|box| 策略在注册命令执行前保存并移除前一
 % 可见字符留下的 marker 和可选源码空格，命令结束后取出其末尾 hbox，重建
@@ -4429,11 +4525,28 @@ Copyright and Licence
 % 求值与写入。当前不把 flag 序列化单独抽成 helper：它仍需接收动态 depth
 % 和不同字段名，只会把可见的状态初始化拆散；若以后继续增加每层字段，再把
 % allocate、initialize、restore 一并评估为 record/helper 抽象。
+%
+% 实验性用户注册接口先把控制序列名、策略和类别模式写入独立属性表，不立即
+% 修改命令。导言区末尾关闭声明窗口，先拒绝与内建注册冲突的项目，再调用同一
+% 组五种注册函数；LaTeX 随后在普通 \tn{AtBeginDocument} 代码执行完以后安装
+% 命令 hook。用户接口因此不复制恢复算法，也不改变内建注册的优先级。正文
+% 开始前再检查成功登记的控制序列是否存在，避免 LaTeX 对未定义命令的延迟
+% hook 静默失效。
 %    \begin{macrocode}
 \int_new:N \g_@@_boundary_capture_depth_int
 \int_new:N \g_@@_boundary_suspend_depth_int
 \seq_new:N \g_@@_boundary_active_seq
 \prop_new:N \g_@@_boundary_registered_prop
+\prop_new:N \g_@@_boundary_user_registered_prop
+\seq_new:N \g_@@_boundary_user_applied_seq
+\bool_new:N \g_@@_boundary_user_register_closed_bool
+\bool_new:N \l_@@_boundary_user_invalid_bool
+\bool_new:N \l_@@_boundary_user_mode_given_bool
+\tl_new:N \l_@@_boundary_user_name_tl
+\tl_new:N \l_@@_boundary_user_strategy_tl
+\tl_new:N \l_@@_boundary_user_mode_tl
+\tl_new:N \l_@@_boundary_user_value_tl
+\seq_new:N \l_@@_boundary_user_value_seq
 \box_new:c { g_@@_boundary_capture_1_box }
 \box_new:c { g_@@_boundary_capture_2_box }
 \box_new:c { g_@@_boundary_capture_3_box }
@@ -5949,6 +6062,244 @@ Copyright and Licence
       }
   }
 
+\@@_msg_new:nn { boundary-register-command }
+  {
+    The~value~of~`command'~in~`experiment/boundary-register'~must~be~
+    exactly~one~control~sequence.
+  }
+\@@_msg_new:nn { boundary-register-choice }
+  { Invalid~boundary~registration~choice:~#1. }
+\@@_msg_new:nn { boundary-register-missing }
+  { The~`#1'~entry~is~required~in~`experiment/boundary-register'. }
+\@@_msg_new:nn { boundary-register-mode }
+  { The~boundary~registration~strategy~and~mode~cannot~be~combined:~#1. }
+\@@_msg_new:nn { boundary-register-duplicate }
+  { The~command~`#1'~has~already~been~declared~for~boundary~registration. }
+\@@_msg_new:nn { boundary-register-conflict }
+  { The~command~`#1'~already~has~an~xeCJK~boundary~registration. }
+\@@_msg_new:nn { boundary-register-late }
+  {
+    The~`experiment/boundary-register'~option~can~only~be~used~before~
+    the~end~of~the~preamble.
+  }
+\@@_msg_new:nn { boundary-register-undefined }
+  { The~registered~boundary~command~`#1'~is~still~undefined. }
+
+\cs_new_protected:Npn \@@_boundary_user_register:n #1
+  {
+    \bool_if:NTF \g_@@_boundary_user_register_closed_bool
+      { \@@_error:n { boundary-register-late } }
+      {
+        \bool_set_false:N \l_@@_boundary_user_invalid_bool
+        \bool_set_false:N \l_@@_boundary_user_mode_given_bool
+        \tl_clear:N \l_@@_boundary_user_name_tl
+        \tl_clear:N \l_@@_boundary_user_strategy_tl
+        \tl_set:Nn \l_@@_boundary_user_mode_tl { auto }
+        \keys_set:nn { xeCJK / boundary-register } {#1}
+        \tl_if_empty:NT \l_@@_boundary_user_name_tl
+          {
+            \@@_error:ne { boundary-register-missing } { command }
+            \bool_set_true:N \l_@@_boundary_user_invalid_bool
+          }
+        \tl_if_empty:NT \l_@@_boundary_user_strategy_tl
+          {
+            \@@_error:ne { boundary-register-missing } { strategy }
+            \bool_set_true:N \l_@@_boundary_user_invalid_bool
+          }
+        \bool_if:NF \l_@@_boundary_user_invalid_bool
+          { \@@_boundary_user_register_validate: }
+        \bool_if:NF \l_@@_boundary_user_invalid_bool
+          { \@@_boundary_user_register_store: }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_command:n #1
+  {
+    \tl_if_single_token:nTF {#1}
+      {
+        \token_if_cs:NTF #1
+          { \tl_set:Ne \l_@@_boundary_user_name_tl { \cs_to_str:N #1 } }
+          {
+            \@@_error:n { boundary-register-command }
+            \tl_set:Nn \l_@@_boundary_user_name_tl { invalid }
+            \bool_set_true:N \l_@@_boundary_user_invalid_bool
+          }
+      }
+      {
+        \@@_error:n { boundary-register-command }
+        \tl_set:Nn \l_@@_boundary_user_name_tl { invalid }
+        \bool_set_true:N \l_@@_boundary_user_invalid_bool
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_strategy:n #1
+  {
+    \str_case:nnF {#1}
+      {
+        { box }              { \tl_set:Nn \l_@@_boundary_user_strategy_tl {#1} }
+        { wrapped-box }      { \tl_set:Nn \l_@@_boundary_user_strategy_tl {#1} }
+        { stream }           { \tl_set:Nn \l_@@_boundary_user_strategy_tl {#1} }
+        { transparent }      { \tl_set:Nn \l_@@_boundary_user_strategy_tl {#1} }
+        { post-transparent } { \tl_set:Nn \l_@@_boundary_user_strategy_tl {#1} }
+      }
+      {
+        \@@_error:ne { boundary-register-choice }
+          { strategy~=~\tl_to_str:n {#1} }
+        \tl_set:Nn \l_@@_boundary_user_strategy_tl { invalid }
+        \bool_set_true:N \l_@@_boundary_user_invalid_bool
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_mode:n #1
+  {
+    \bool_set_true:N \l_@@_boundary_user_mode_given_bool
+    \str_case:nnF {#1}
+      {
+        { auto }          { \tl_set:Nn \l_@@_boundary_user_mode_tl {#1} }
+        { default }       { \tl_set:Nn \l_@@_boundary_user_mode_tl {#1} }
+        { first-default } { \tl_set:Nn \l_@@_boundary_user_mode_tl {#1} }
+      }
+      {
+        \@@_error:ne { boundary-register-choice }
+          { mode~=~\tl_to_str:n {#1} }
+        \bool_set_true:N \l_@@_boundary_user_invalid_bool
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_validate:
+  {
+    \str_case:Vn \l_@@_boundary_user_strategy_tl
+      {
+        { box }
+          {
+            \tl_if_eq:NnT \l_@@_boundary_user_mode_tl { first-default }
+              {
+                \@@_error:ne { boundary-register-mode } { box/first-default }
+                \bool_set_true:N \l_@@_boundary_user_invalid_bool
+              }
+          }
+        { wrapped-box }
+          {
+            \tl_if_eq:NnT \l_@@_boundary_user_mode_tl { first-default }
+              {
+                \@@_error:ne { boundary-register-mode }
+                  { wrapped-box/first-default }
+                \bool_set_true:N \l_@@_boundary_user_invalid_bool
+              }
+          }
+        { stream } { }
+        { transparent }
+          {
+            \bool_if:NT \l_@@_boundary_user_mode_given_bool
+              {
+                \@@_error:ne { boundary-register-mode }
+                  { transparent/\l_@@_boundary_user_mode_tl }
+                \bool_set_true:N \l_@@_boundary_user_invalid_bool
+              }
+            \tl_set:Nn \l_@@_boundary_user_mode_tl { none }
+          }
+        { post-transparent }
+          {
+            \bool_if:NT \l_@@_boundary_user_mode_given_bool
+              {
+                \@@_error:ne { boundary-register-mode }
+                  { post-transparent/\l_@@_boundary_user_mode_tl }
+                \bool_set_true:N \l_@@_boundary_user_invalid_bool
+              }
+            \tl_set:Nn \l_@@_boundary_user_mode_tl { none }
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_store:
+  {
+    \exp_args:NNV \prop_if_in:NnTF
+      \g_@@_boundary_registered_prop \l_@@_boundary_user_name_tl
+      {
+        \@@_error:ne { boundary-register-conflict }
+          { \c_backslash_str \l_@@_boundary_user_name_tl }
+      }
+      {
+        \exp_args:NNV \prop_if_in:NnTF
+          \g_@@_boundary_user_registered_prop \l_@@_boundary_user_name_tl
+          {
+            \@@_error:ne { boundary-register-duplicate }
+              { \c_backslash_str \l_@@_boundary_user_name_tl }
+          }
+          {
+            \tl_set:Ne \l_@@_boundary_user_value_tl
+              {
+                \l_@@_boundary_user_strategy_tl
+                / \l_@@_boundary_user_mode_tl
+              }
+            \exp_args:NNVV \prop_gput:Nnn
+              \g_@@_boundary_user_registered_prop
+              \l_@@_boundary_user_name_tl
+              \l_@@_boundary_user_value_tl
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_apply:
+  {
+    \bool_gset_true:N \g_@@_boundary_user_register_closed_bool
+    \prop_map_inline:Nn \g_@@_boundary_user_registered_prop
+      {
+        \prop_if_in:NnTF \g_@@_boundary_registered_prop {##1}
+          {
+            \@@_error:ne { boundary-register-conflict }
+              { \c_backslash_str ##1 }
+          }
+          {
+            \@@_boundary_user_register_apply:nn {##1} {##2}
+            \seq_gput_right:Nn \g_@@_boundary_user_applied_seq {##1}
+          }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_apply:nn #1#2
+  {
+    \seq_set_split:Nnn \l_@@_boundary_user_value_seq { / } {#2}
+    \seq_pop_left:NN
+      \l_@@_boundary_user_value_seq \l_@@_boundary_user_strategy_tl
+    \seq_pop_left:NN
+      \l_@@_boundary_user_value_seq \l_@@_boundary_user_mode_tl
+    \str_case:Vn \l_@@_boundary_user_strategy_tl
+      {
+        { box }
+          {
+            \exp_args:NnV \@@_boundary_register_box:nn
+              {#1} \l_@@_boundary_user_mode_tl
+          }
+        { wrapped-box }
+          {
+            \exp_args:NnV \@@_boundary_register_wrapped_box:nn
+              {#1} \l_@@_boundary_user_mode_tl
+          }
+        { stream }
+          {
+            \exp_args:NnV \@@_boundary_register_stream:nn
+              {#1} \l_@@_boundary_user_mode_tl
+          }
+        { transparent }
+          { \@@_boundary_register_transparent:n {#1} }
+        { post-transparent }
+          { \@@_boundary_register_post_transparent:n {#1} }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_user_register_check:
+  {
+    \seq_map_inline:Nn \g_@@_boundary_user_applied_seq
+      {
+        \cs_if_exist:cF {##1}
+          {
+            \@@_error:ne { boundary-register-undefined }
+              { \c_backslash_str ##1 }
+          }
+      }
+  }
+
 % \tn{mbox} 和 \tn{fbox} 的公开命令是 robust wrapper；实际单参数正文由带
 % 尾随空格的内部控制序列接收。必须先包装这层，再安装公开命令的 before
 % hook：这样 hook 先启动 box capture，正文适配器随后才能报告开头和结尾
@@ -7415,8 +7766,21 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{experiment/halfright-prebreakpenalty, experiment/punct-measure-fix}
+% \begin{macro}{experiment/halfright-prebreakpenalty, experiment/punct-measure-fix,
+%   experiment/boundary-register}
 %    \begin{macrocode}
+\keys_define:nn { xeCJK / boundary-register }
+  {
+    command .code:n =
+      { \@@_boundary_user_register_command:n {#1} } ,
+    command .value_required:n = true ,
+    strategy .code:n =
+      { \@@_boundary_user_register_strategy:n {#1} } ,
+    strategy .value_required:n = true ,
+    mode .code:n =
+      { \@@_boundary_user_register_mode:n {#1} } ,
+    mode .value_required:n = true
+  }
 \keys_define:nn { xeCJK / options / experiment }
   {
     halfright-prebreakpenalty .bool_set:N = \l_@@_halfright_nobreak_bool ,
@@ -7424,7 +7788,10 @@ Copyright and Licence
     halfright-prebreakpenalty .initial:n  = false ,
     punct-measure-fix .bool_gset:N = \g_@@_punct_measure_fix_bool ,
     punct-measure-fix .default:n   = true ,
-    punct-measure-fix .initial:n   = false
+    punct-measure-fix .initial:n   = false ,
+    boundary-register .code:n =
+      { \@@_boundary_user_register:n {#1} } ,
+    boundary-register .value_required:n = true
   }
 %    \end{macrocode}
 % \end{macro}
@@ -12664,6 +13031,11 @@ Copyright and Licence
       { \@@_boundary_register_transparent:n { blx@pagetracker } }
   }
 \@@_at_end_preamble:n { \@@_boundary_register_biblatex_pagetracker: }
+% 用户声明在全部内建 preamble 末注册之后应用；普通命令 hook 仍由 LaTeX
+% 延迟到 \tn{AtBeginDocument} 代码执行完再安装。随后检查目标命令是否存在，
+% 避免不存在的控制序列被 LaTeX 静默跳过。
+\@@_at_end_preamble:n { \@@_boundary_user_register_apply: }
+\@@_after_end_preamble:n { \@@_boundary_user_register_check: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -17561,6 +17933,98 @@ This is an example. 这是一个例子}
 %
 %    \begin{macrocode}
 %</ex-ecglue>
+%    \end{macrocode}
+%
+% \subsection{\pkg{xeCJK-example-boundary-register.tex}}
+%
+%    \begin{macrocode}
+%<*ex-boundary-register>
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+\documentclass{article}
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+\setlength{\fboxsep}{2pt}
+\setlength{\fboxrule}{0.4pt}
+\setlength{\parindent}{0pt}
+
+\newcommand\MyBox[1]{\hbox{#1}}
+\newcommand\MyWrapped[1]{\kern0pt #1\kern0pt}
+\newcommand\MyStream[1]{\special{xeCJK-boundary-example}#1}
+\newcommand\MyTransparent{\special{xeCJK-boundary-example}}
+\newcommand\MyPostTransparent{\hbox{}}
+
+\xeCJKsetup
+  {
+    CJKecglue = {\hskip 10pt},
+    CJKglue   = {\hskip 2pt},
+    experiment/boundary-register =
+      { command = \MyBox, strategy = box },
+    experiment/boundary-register =
+      { command = \MyWrapped, strategy = wrapped-box },
+    experiment/boundary-register =
+      { command = \MyStream, strategy = stream },
+    experiment/boundary-register =
+      { command = \MyTransparent, strategy = transparent },
+    experiment/boundary-register =
+      { command = \MyPostTransparent, strategy = post-transparent }
+  }
+
+\newcommand\BoundaryCell[2]
+  {
+    \begin{tabular}[c]{@{}c@{}}
+      \fbox{\hbox{#1}} \\
+      \fbox{\hbox{#2}}
+    \end{tabular}
+  }
+
+\newcommand\BoundaryRow[4]
+  {
+    \texttt{#1}
+      & \BoundaryCell{#2#3#4}{#2\MyStream{#3}#4}
+      & \BoundaryCell{#2 #3#4}{#2 \MyStream{#3}#4}
+      & \BoundaryCell{#2#3 #4}{#2\MyStream{#3} #4}
+      & \BoundaryCell{#2 #3 #4}{#2 \MyStream{#3} #4} \\[2pt]
+  }
+
+\newcommand\TestBoundaryMatrix[1]
+  {
+    \subsection*{\texttt{xCJKecglue=#1}}
+    \xeCJKsetup{xCJKecglue=#1}
+    \begin{tabular}{@{}lcccc@{}}
+      & \texttt{00} & \texttt{10} & \texttt{01} & \texttt{11} \\
+      \BoundaryRow{西文}{中}{A}{中}
+      \BoundaryRow{中文}{A}{中文}{B}
+      \BoundaryRow{中西}{A}{中A}{B}
+      \BoundaryRow{西中}{A}{A中}{B}
+      \BoundaryRow{公式}{中}{$x$}{中}
+    \end{tabular}
+  }
+
+\begin{document}
+
+\section*{\normalfont 用户命令的边界间距检查}
+每格上方是直接输入，下方是采用 \texttt{stream} 策略注册的命令；
+两只方框等宽表示这一格与直接输入一致。中西、西中两行分别只在左边界和
+右边界产生中西文间距，用于排除两侧误差互相抵消的情况。公式行故意展示
+通用注册不分析命令参数的限制：公式位于命令边界时，还需要专用参数适配，
+不能把不等宽的结果当作正确行为。
+
+\begingroup
+  \small
+  \setlength\tabcolsep{2pt}
+  \TestBoundaryMatrix{false}
+  \TestBoundaryMatrix{true}
+\endgroup
+
+\end{document}
+%    \end{macrocode}
+%
+%    \begin{macrocode}
+%</ex-boundary-register>
 %    \end{macrocode}
 %
 % \subsection{\pkg{xeCJK-example-checksingle.tex}}
