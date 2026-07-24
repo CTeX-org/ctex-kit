@@ -373,7 +373,8 @@ Copyright and Licence
 %   \end{frameverb}
 % \end{function}
 %
-% \begin{function}[added=2014/01/12]{footnote}
+% \begin{function}[added = 2014-01-12]
+%   {footnote}
 %   \begin{syntax}
 %     footnote = <\TFF>
 %   \end{syntax}
@@ -381,9 +382,14 @@ Copyright and Licence
 %   更一般的情况，请使用 \tn{disablepinyin}。
 % \end{function}
 %
-% \begin{function}[added=2014/01/12]{\disablepinyin,\enablepinyin}
-%   \tn{disablepinyin} 用于在拼音环境（\env{pinyinscope}）中临时取消对汉字的注音，而
-%   \tn{enablepinyin} 用于其后的恢复。
+% \changes{v3.2}{2026/07/13}{为 \tn{disablepinyin} 增加 star 版本：
+%   用于将其作用域覆盖到 \tn{xpinyin} 自身。（\#265）}
+%
+% \begin{function}[added = 2014-01-12, updated = 2026-07-13]
+%   {\disablepinyin, \enablepinyin}
+%   \tn{disablepinyin} 和 \tn{enablepinyin} 分别用于在拼音环境（\env{pinyinscope}）
+%   中临时取消和恢复对汉字的注音。
+%   \tn{disablepinyin} 还额外提供带星号的形式，可将禁用范围扩展到 \tn{xpinyin} 宏自身。
 % \end{function}
 %
 % \end{documentation}
@@ -662,28 +668,34 @@ Copyright and Licence
 \NewDocumentCommand \xpinyin { s O { } m }
   {
     \mode_leave_vertical:
-    \IfBooleanTF {#1}
+    \bool_if:NTF \l_@@_enable_all_bool
       {
-        \group_begin:
-          \keys_set:nn { xpinyin } {#2}
-          \enablepinyin
-          #3
-        \group_end:
+        \IfBooleanTF {#1}
+          {
+            \group_begin:
+              \keys_set:nn { xpinyin } {#2}
+              \enablepinyin
+              #3
+            \group_end:
+          }
+          {
+            \group_begin:
+              \keys_set:nn { xpinyin } {#2}
+              \bool_if:NF \l_@@_enable_bool
+                { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
+              \@@_single_aux:nn {#3}
+          }
       }
-      {
-        \group_begin:
-          \keys_set:nn { xpinyin } {#2}
-          \bool_if:NF \l_@@_enable_bool
-            { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
-          \@@_single_aux:nn {#3}
-      }
+      { \IfBooleanTF {#1} {#3} { \use_i:nn {#3} } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}{\l_@@_enable_bool}
+% \begin{variable}{\l_@@_enable_bool, \l_@@_enable_all_bool}
 %    \begin{macrocode}
 \bool_new:N \l_@@_enable_bool
+\bool_new:N \l_@@_enable_all_bool
+\bool_set_true:N \l_@@_enable_all_bool
 %    \end{macrocode}
 % \end{variable}
 %
@@ -698,6 +710,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \NewDocumentCommand \enablepinyin { }
   {
+    \bool_if:NF \l_@@_enable_all_bool
+      { \bool_set_true:N \l_@@_enable_all_bool }
     \bool_if:NF \l_@@_enable_bool
       {
         \tl_if_empty:NF \l_@@_hsep_tl
@@ -716,8 +730,10 @@ Copyright and Licence
 %
 % \begin{macro}{\disablepinyin}
 %    \begin{macrocode}
-\NewDocumentCommand \disablepinyin { }
+\NewDocumentCommand \disablepinyin { s }
   {
+    \bool_if:NT #1
+      { \bool_set_false:N \l_@@_enable_all_bool }
     \bool_if:NT \l_@@_enable_bool
       {
         \cs_if_eq:NNT \CJKglue \@@_CJKglue:

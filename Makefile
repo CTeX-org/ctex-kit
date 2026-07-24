@@ -24,9 +24,9 @@ L3BUILD_PKGS := xeCJK ctex CJKpunct xCJK2uni xpinyin zhlineskip \
 
 # 有 \changes 条目、维护 CHANGELOG.md 的包. 此列表是单一事实源:
 # check-changelog.yml 的生成 step 直接跑 make changelog, 新包接入只改这里.
-# 其余包的 .dtx 没写 \changes (CJKpunct / jiazhu / xCJK2uni / xpinyin),
+# 其余包的 .dtx 没写 \changes (CJKpunct / jiazhu / xCJK2uni),
 # 补写后加进来即可.
-CHANGELOG_PKGS := ctex xeCJK zhlineskip zhmetrics zhnumber
+CHANGELOG_PKGS := ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber
 
 VERBS := doc unpack ctan check clean
 
