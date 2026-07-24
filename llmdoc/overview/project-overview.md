@@ -47,6 +47,6 @@
 - `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml`。
 - 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/` 与 `zhlineskip/` 的 `l3build check`。这表明仓库的测试维护已从“核心包主导、卫星包间接覆盖”进一步演进为“核心包 + 多个关键卫星包独立回归”。
 - 仓库现已新增 `.github/workflows/release.yml`，可对全部 9 个 CTAN 发布单元的 tag 自动执行打包、release notes 生成、测试门控和 GitHub prerelease 创建，实现了完整的自动化发布覆盖。
-- 仓库还新增了三个 agentic 自动化工作流：PR 自动审查（`agentic-pr-review.yml`）、llmdoc 文档自动更新（`agentic-llmdoc-updater.yml`）和定期巡查（`agentic-patrol.yml`），形成了从代码审查到文档维护到仓库健康监控的自动化闭环。
+- 仓库维护三条 agentic 自动化入口：PR 自动审查（`agentic-pr-review.yml`）、新 Issue 分派（`agentic-issue-dispatch.yml`）和 llmdoc 文档自动更新（`agentic-llmdoc-updater.yml`）。三个本地文件都是薄调用层，实际任务复用 `Lightspeed-Intelligence/agentic-workflow-template` 的 reusable workflow；Issue 分派只响应新打开的 Issue，不再执行定时 CI／积压 Issue 巡检。
 - CI 与文档构建现在明确依赖一组可在流水线中安装的 CJK / 符号字体，而不再隐含依赖 Windows 自带字体；这反映出项目维护已把“跨平台字体可达性”上升为稳定基础设施约束。
 - 仍然不是每个卫星包都在 CI 中独立跑一遍；修改未接入测试框架的历史包时，仍要额外关注其本地构建与验证可达性。

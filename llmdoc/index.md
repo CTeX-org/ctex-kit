@@ -2,7 +2,7 @@
 
 ## overview
 
-- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态。
+- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含 PR Review、Issue 分派和 llmdoc 更新复用远端 Agent workflow 模板的职责划分。
 
 ## architecture
 
@@ -16,7 +16,7 @@
 
 ## reference
 
-- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 185 个主回归测试，以及 #994 `fontset-macnew01` 对生成配置、macOS 实际字形和 SPA 度量的分层验证；还含 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界；#1010 的 `boundary-register-api01/02` 另以 288 项行为比较和诊断回归固定公开注册入口，xeCJK 标准测试当前为 111／111。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、版本检查和本地 TeX Live usertree 同步。
+- `llmdoc/reference/build-and-test.md` — `l3build`、共享构建配置、根 `Makefile` 本地任务入口（#888，含 `make changelog` #961）、`ctex` 185 个主回归测试，以及 #994 `fontset-macnew01` 对生成配置、macOS 实际字形和 SPA 度量的分层验证；还含 xeCJK #992/#1002 命令边界测试：直接输入 oracle、`00/10/01/11`、`xCJKecglue=false/true`、默认/可区分间距与状态归零断言；`command-boundary01` 当前执行 1668 个绿色单元，`command-boundary-math01` 执行 5504 次公式比较，`command-boundary-math05` 固定尾随空格的伸缩量和不可见节点边界；#1010 的 `boundary-register-api01/02` 另以 288 项行为比较和诊断回归固定公开注册入口，xeCJK 标准测试当前为 111／111。文档还记录节点测试、显式 glue 的来源限制、`\kern0pt` 处理方法、字体预热、多引擎基线、CI/CD、Agent reusable workflow caller 合同、版本检查和本地 TeX Live usertree 同步。
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、`.lvt` 空格规则及 `\ExplSyntaxOn` 宏定义中嵌入 Lua 时的空格与语句分隔、docstrip 标签、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口门禁与 #963 长函数名压缩边界。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义，以及 #994 更换正文常规字形时各后端映射和 SPA 数据的同步清单、平台专属回归的证据边界。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
@@ -102,6 +102,7 @@
 - `llmdoc/memory/reflections/878-xunicode-symbols-multilevel-fallback.md` — 反思: xeCJK #878 `xunicode-symbols.tex` 驱动从“整段单字体 if-else”升级为 `FreeSerif → Noto Sans Symbols 2 → Symbola → Segoe UI Symbol → DejaVu Sans` 五级逐字符 `\iffontchar` + `\cs_if_exist_use:N` 链；只适用于演示性符号目录驱动文件，不应推广到正文 / CJK 字体路径。
 - `llmdoc/memory/reflections/456-longpunct-kinsoku-both-sides.md` — 反思: xeCJK #456 长标点断点两侧禁则修复中"标点属性判断"函数族参数形态不同（`\@@_punct_if_right:N` 吃字符记号需 `\exp_after:wN` 展开 tl，`\@@_punct_if_long:N` 直接吃 tl）、`punct.tlg` 大文件基线联动 diff 用"变化位置共同特征 + 节点变化统一模式"两条证据判定预期变化、以及标点对矩阵 + `\showbox` 节点判定的系统性禁则调试法。
 - `llmdoc/memory/reflections/874-876-agentic-fork-shielding-cron.md` — 反思: #875 / #874 `agentic-*.yml` 同时存在两条边界约束——job 级 `if: github.repository == ...` 把 fork 调度挡在 runner 分配之前，`schedule` 频率回退到每天一次北京时间 08:00；未来新增 agentic 工作流时这两条都应作为默认。
+- `llmdoc/memory/reflections/agentic-template-reuse.md` — 反思：复用 `agentic-workflow-template` 的 Issue 分派与 llmdoc 更新，用事件驱动分派取代定时巡检，并记录薄 caller、远端 `@main` 信任、直接写入权限和离线合同测试的边界。
 - `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
 - `llmdoc/memory/reflections/961-changelog-freshness-gate.md` — 反思: #961 CHANGELOG.md 生成物新鲜度校验（check-changelog.yml）流程分歧收敛过程、跨平台字节一致性必须由脚本自控 encoding/newline 的新坑、用改造前脚本输出当字节级 oracle 验证回归的方法、门禁 fail 时按校验对象大小设计可操作性（整文件需三通道贴期望内容）、以及「生成物新鲜度校验」作为跨 #937/#961 的通用架构模式的提炼建议。
 - `llmdoc/memory/reflections/1001-boundary-capture-gap-fixes.md` — 反思：PR #1001 修复 #996、#998、#1000 时，管道掩盖了六项测试失败；盒子是否直接排出可见内容需要同时检查尺寸和末节点类型；嵌套盒子结束时，外层盒子必须读取节点列表末尾的 marker，不能无条件覆盖所有外层 `last_tl`。文档还记录了两项错误旧基线和 gh-assets 测试驱动引用已删除内部变量的问题。

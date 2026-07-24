@@ -319,15 +319,18 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
-- `.github/workflows/agentic-pr-review.yml`：PR 自动审查工作流，由 `pull_request_target` 事件触发，使用 Claude Code 执行代码审查并发表评论；含并发控制，同一 PR 仅保留最新 run
-- `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 文档自动更新工作流，每天北京时间 5:00 定时触发或手动触发；会先关闭已有的过期 llmdoc PR 并扩展时间范围
-- `.github/workflows/agentic-patrol.yml`：仓库巡查工作流，每天北京时间 08:00 (UTC 0:00) 触发一次，监控 CI 状态、扫描未处理 Issue 并自动分发处理
+- `.github/workflows/agentic-pr-review.yml`：PR 自动审查 caller，由 `pull_request_target` 事件触发，调用 `agentic-workflow-template` 的 `pr-review.yml@main`；Codex `gpt-5.6-sol` 是主链路，Claude Code `fable-5` 是独立兜底
+- `.github/workflows/agentic-issue-dispatch.yml`：新 Issue 分派 caller，只监听 `issues.opened`，调用模板的 `issue-dispatch.yml@main`，按 Issue 内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
+- `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 更新 caller，每天北京时间 05:00 定时触发或手动触发，直接调用模板的 `update-llmdoc.yml@main`，本地只保留时间范围、目标分支、权限和 secret 映射
+- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent caller 的触发、远端入口、主仓库门控、权限和 secret 映射
 
-#### agentic 工作流的来源与频率约束
+#### agentic 工作流的复用与触发约束
 
-所有 `agentic-*.yml` 在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 把 fork 仓库的定时 / `workflow_dispatch` 调度直接挡在 runner 分配之前（#875 / PR #876）。这是 job 级 if，不是 step 级——只有 job 级才能避免 fork 主消耗 Actions 配额并避免误向真实仓库写入 issue/comment。
+三个 Agent caller 都复用 `Lightspeed-Intelligence/agentic-workflow-template` 的 `@main`，本仓库不复制 Agent 实现。模板的 `.github/workflows/ci.yml` 只作为事件路由参考；ctex-kit 没有整体启用其中的 `implement` 和 `question`，以免扩大自动写入范围或重复触发已有 PR Review。远端 `@main` 是运行时依赖，本地合同测试只能固定调用方配置，不能固定模板此后的内容。
 
-`agentic-patrol.yml` 的 `schedule` 频率在 #874 中从“每 4 小时一次”调整为“每天一次北京时间 08:00”。新增 agentic 工作流时，频率默认值应取“每天一次”而非更高频；除非有不能等一天的工程动机，否则不要回到 4 小时级或更密。详见反思 [[874-876-agentic-fork-shielding-cron]]。
+Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 限制主仓库执行（#875 / PR #876）。这是 job 级 `if`，能在分配 runner 前挡住 fork 上的定时、手动或 Issue 事件。llmdoc 仍保持每天一次；原 `agentic-patrol.yml` 已由 `issues.opened` 驱动的分派取代，因此不再有巡检频率。历史原因见 [[874-876-agentic-fork-shielding-cron]]，本轮取舍见 [[agentic-template-reuse]]。
+
+Issue 分派与 llmdoc 更新沿用模板的直接写入模型，Agent 可以评论、推送或创建 PR；PR Review 则把只读 Agent 与确定性评论发布分开。调用方必须按各 reusable workflow 的声明分别授予权限，不能因三者都来自同一模板就把权限模型视为相同。`scripts/test-agentic-workflow-contract.py` 固定本地触发与参数合同；修改 caller 后运行该脚本和 `actionlint`。
 
 ### 测试工作流：`.github/workflows/test.yml`
 
