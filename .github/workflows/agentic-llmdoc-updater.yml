@@ -2,53 +2,28 @@ name: Agentic llmdoc Updater
 
 on:
   schedule:
-    # 每天北京时间 5:00 (UTC 21:00) 自动更新 llmdoc 文档
+    # 每天北京时间 05:00（UTC 21:00）自动更新 llmdoc 文档。
     - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       since_period:
-        description: '检查变更的时间范围（默认24小时）'
+        description: 检查变更的时间范围
         required: false
         type: string
-        default: '24 hours ago'
+        default: 24 hours ago
+
+concurrency:
+  group: agentic-llmdoc-updater-${{ github.repository }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
-  issues: write
   pull-requests: write
   id-token: write
 
 jobs:
-  prepare-llmdoc:
-    if: github.repository == 'CTeX-org/ctex-kit'
-    runs-on: ubuntu-latest
-    outputs:
-      since_period: ${{ steps.check.outputs.since_period }}
-    steps:
-      - name: Close stale llmdoc PRs and extend time range
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          EXISTING=$(gh pr list --state open --json number,headRefName,createdAt \
-            --jq '[.[] | select(.headRefName | startswith("docs/llmdoc-update-"))]')
-          COUNT=$(echo "$EXISTING" | jq 'length')
-          DEFAULT="${{ github.event.inputs.since_period || '24 hours ago' }}"
-
-          if [ "$COUNT" -gt 0 ]; then
-            OLDEST=$(echo "$EXISTING" | jq -r 'sort_by(.createdAt) | .[0].createdAt')
-            echo "Closing $COUNT stale llmdoc PR(s), extending range to $OLDEST"
-            echo "$EXISTING" | jq -r '.[].number' | while read num; do
-              gh pr close "$num" --delete-branch 2>/dev/null || true
-            done
-            echo "since_period=$OLDEST" >> "$GITHUB_OUTPUT"
-          else
-            echo "since_period=$DEFAULT" >> "$GITHUB_OUTPUT"
-          fi
-
   update-llmdoc:
-    needs: prepare-llmdoc
+    if: github.repository == 'CTeX-org/ctex-kit'
     uses: Lightspeed-Intelligence/agentic-workflow-template/.github/workflows/update-llmdoc.yml@main
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -57,5 +32,5 @@ jobs:
       FEISHU_WEBHOOK_TOKEN: ${{ secrets.FEISHU_LLMDOC_WEBHOOK_TOKEN }}
     with:
       use_feishu_notify: true
-      since_period: ${{ needs.prepare-llmdoc.outputs.since_period }}
+      since_period: ${{ inputs.since_period || '24 hours ago' }}
       target_branch: master
