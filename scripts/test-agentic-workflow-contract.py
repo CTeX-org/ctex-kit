@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """离线检查 ctex-kit 的 Agent reusable workflow caller 契约。"""
 
+import re
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 TEMPLATE = "Lightspeed-Intelligence/agentic-workflow-template/.github/workflows"
+TEMPLATE_REF = "00a5244ea6150ef6a4c43b680d15d73dafabd343"
 
 
 def read(name: str) -> str:
@@ -19,6 +21,8 @@ def require_all(source: str, fragments: tuple[str, ...], label: str) -> None:
 
 
 def main() -> None:
+    assert re.fullmatch(r"[0-9a-f]{40}", TEMPLATE_REF), "模板引用必须是完整提交 SHA"
+
     issue = read("agentic-issue-dispatch.yml")
     llmdoc = read("agentic-llmdoc-updater.yml")
     review = read("agentic-pr-review.yml")
@@ -35,7 +39,7 @@ def main() -> None:
             "cancel-in-progress: false",
             "issues: write",
             "if: github.repository == 'CTeX-org/ctex-kit'",
-            f"uses: {TEMPLATE}/issue-dispatch.yml@main",
+            f"uses: {TEMPLATE}/issue-dispatch.yml@{TEMPLATE_REF}",
             "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}",
             "ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}",
             "PAT_TOKEN: ${{ secrets.PAT_TOKEN }}",
@@ -56,7 +60,7 @@ def main() -> None:
             "group: agentic-llmdoc-updater-${{ github.repository }}",
             "cancel-in-progress: false",
             "if: github.repository == 'CTeX-org/ctex-kit'",
-            f"uses: {TEMPLATE}/update-llmdoc.yml@main",
+            f"uses: {TEMPLATE}/update-llmdoc.yml@{TEMPLATE_REF}",
             "ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}",
             "ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}",
             "PAT_TOKEN: ${{ secrets.PAT_TOKEN }}",
@@ -74,7 +78,7 @@ def main() -> None:
         review,
         (
             "pull_request_target:",
-            f"uses: {TEMPLATE}/pr-review.yml@main",
+            f"uses: {TEMPLATE}/pr-review.yml@{TEMPLATE_REF}",
         ),
         "PR Review caller",
     )
