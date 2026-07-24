@@ -102,7 +102,7 @@
 - `llmdoc/memory/reflections/878-xunicode-symbols-multilevel-fallback.md` — 反思: xeCJK #878 `xunicode-symbols.tex` 驱动从“整段单字体 if-else”升级为 `FreeSerif → Noto Sans Symbols 2 → Symbola → Segoe UI Symbol → DejaVu Sans` 五级逐字符 `\iffontchar` + `\cs_if_exist_use:N` 链；只适用于演示性符号目录驱动文件，不应推广到正文 / CJK 字体路径。
 - `llmdoc/memory/reflections/456-longpunct-kinsoku-both-sides.md` — 反思: xeCJK #456 长标点断点两侧禁则修复中"标点属性判断"函数族参数形态不同（`\@@_punct_if_right:N` 吃字符记号需 `\exp_after:wN` 展开 tl，`\@@_punct_if_long:N` 直接吃 tl）、`punct.tlg` 大文件基线联动 diff 用"变化位置共同特征 + 节点变化统一模式"两条证据判定预期变化、以及标点对矩阵 + `\showbox` 节点判定的系统性禁则调试法。
 - `llmdoc/memory/reflections/874-876-agentic-fork-shielding-cron.md` — 反思: #875 / #874 `agentic-*.yml` 同时存在两条边界约束——job 级 `if: github.repository == ...` 把 fork 调度挡在 runner 分配之前，`schedule` 频率回退到每天一次北京时间 08:00；未来新增 agentic 工作流时这两条都应作为默认。
-- `llmdoc/memory/reflections/agentic-template-reuse.md` — 反思：复用 `agentic-workflow-template` 的 Issue 分派与 llmdoc 更新，用事件驱动分派取代定时巡检，并记录薄 caller、远端 `@main` 信任、直接写入权限和离线合同测试的边界。
+- `llmdoc/memory/reflections/agentic-template-reuse.md` — 反思：复用 `agentic-workflow-template` 的 Issue 分派与 llmdoc 更新，用事件驱动分派取代定时巡检，并记录薄 caller、固定提交引用、直接写入权限和离线合同测试的边界。
 - `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
 - `llmdoc/memory/reflections/961-changelog-freshness-gate.md` — 反思: #961 CHANGELOG.md 生成物新鲜度校验（check-changelog.yml）流程分歧收敛过程、跨平台字节一致性必须由脚本自控 encoding/newline 的新坑、用改造前脚本输出当字节级 oracle 验证回归的方法、门禁 fail 时按校验对象大小设计可操作性（整文件需三通道贴期望内容）、以及「生成物新鲜度校验」作为跨 #937/#961 的通用架构模式的提炼建议。
 - `llmdoc/memory/reflections/1001-boundary-capture-gap-fixes.md` — 反思：PR #1001 修复 #996、#998、#1000 时，管道掩盖了六项测试失败；盒子是否直接排出可见内容需要同时检查尺寸和末节点类型；嵌套盒子结束时，外层盒子必须读取节点列表末尾的 marker，不能无条件覆盖所有外层 `last_tl`。文档还记录了两项错误旧基线和 gh-assets 测试驱动引用已删除内部变量的问题。
