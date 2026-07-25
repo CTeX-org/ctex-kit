@@ -199,7 +199,8 @@
 `\verb` 后还实际调用其扫描器，确认通用 hook 没有破坏原参数读取。正文中才
 定义的目标保持未注册，正文期再次声明也不会改变待应用记录数。
 
-这两个测试使 xeCJK 标准测试总数增加到 111 项，当前为 111／111 通过。完整接口
+这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
+`fntef-actualtext01` 后，当前为 112／112 通过。完整接口
 契约见 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
@@ -307,6 +308,14 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 因此，修改 `xeCJK` 与 `zhnumber` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
 
 xeCJKfntef 的线条类问题还要区分“节点尺寸”和“shipout 相位”。`\leaders`、`\cleaders` 与 `\xleaders` 可以拥有完全相同的 glue、盒宽和总命令宽度，却因重复盒的对齐或余量分配方式不同而画在不同横坐标；所以宽度比较不能单独作为 #531/#967 一类回归的 oracle。稳定测试至少应在非零水平起点下用节点日志断言 leader 类型，并用 XDV/PDF 坐标或高分辨率栅格图确认线条首尾相对正文对齐；`subtract` 要单独确认两端等量缩短，周期图案还要检查相邻 CJK 片段接缝。`xeCJK/testfiles/fntef-underline-offset.lvt` 探测 `\CJKunderline` 的非零起点节点，并断言其余五个线型命令普通/`subtract` 路径选择 8 次 `\cleaders` 与 2 次 `\xleaders`；另以多汉字普通/`subtract` 节点链约束 `\CJKunderwave` 在 CJK→CJK 分片间保持 `\xleaders`。既有 `fntef-underline01`、`fntef-linebreak01` 基线继续约束标点和换行节点结构。
+
+### xeCJKfntef 的 PDF 文本语义（#1017）
+
+`fntef-actualtext01.lvt` 覆盖下划线、双下划线、波浪线、删除线、交叉删除线、自定义线条、着重号和自定义符号八类入口，检查每个装饰盒都使用空 `ActualText`，并在 tagged PDF 下成对暂停、恢复 tagging。这个回归固定的是实现机制；它不能单独证明实际阅读器或提取工具得到的文本正确。
+
+涉及字符型装饰时，应把 PDF 文本语义与页面视觉分开验收：普通 PDF 和启用 `\DocumentMetadata{tagging=on}` 的 tagged PDF 都要实际运行文本提取，确认只保留正文；再对修复前后页面做同条件的高分辨率栅格或坐标比对，确认装饰位置和形状没有改变。#1017 的独立验证中，两种 PDF 的 `pdftotext -layout`／`-raw` 都排除了 `:`、`/`、`.`、`*` 等装饰字符，300 dpi 栅格的 `magick compare -metric AE` 为 `0 (0)`。文本提取通过不能证明页面视觉不变，像素相同也不能证明复制、搜索结果正确。
+
+这类测试还会扩大精简 CI 的依赖面。#1017 为 `xeCJKfntef` 增加运行时依赖 `accsupp`，tagged PDF 回归另需要 `latex-lab`、`pdfmanagement` 和 `tagpdf`；四项都必须同步写入 `.github/tl_packages`。凡新增 `\RequirePackage` 或启用 `\DocumentMetadata` 的测试，都应同时反查包级依赖声明和 CI 白名单，不能用本地完整 TeX Live 的通过结果代替这项检查。
 
 ## CI/CD 配置
 
