@@ -326,7 +326,7 @@ GitHub Actions 工作流当前包含以下主线：
 
 #### agentic 工作流的复用与触发约束
 
-三个 Agent caller 都复用 `Lightspeed-Intelligence/agentic-workflow-template`，本仓库不复制 Agent 实现。调用点固定到经过审查的完整提交 `00a5244ea6150ef6a4c43b680d15d73dafabd343`，不能使用分支或标签等可变引用；升级模板时应通过单独的 PR 审查新提交及其权限边界。模板的 `.github/workflows/ci.yml` 只作为事件路由参考；ctex-kit 没有整体启用其中的 `implement` 和 `question`，以免扩大自动写入范围或重复触发已有 PR Review。本地合同测试同时固定触发、参数和模板提交，防止维护时无意退回可变引用。
+三个 Agent caller 都复用 `Lightspeed-Intelligence/agentic-workflow-template`，本仓库不复制 Agent 实现。调用点固定到经过审查的完整提交 `2a0bb28e6583d869645e0a0522568df4a5d4d921`，不能使用分支或标签等可变引用；升级模板时应通过单独的 PR 审查新提交及其权限边界。模板的 `.github/workflows/ci.yml` 只作为事件路由参考；ctex-kit 没有整体启用其中的 `implement` 和 `question`，以免扩大自动写入范围或重复触发已有 PR Review。本地合同测试同时固定触发、参数和模板提交，防止维护时无意退回可变引用。
 
 Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 限制主仓库执行（#875 / PR #876）。这是 job 级 `if`，能在分配 runner 前挡住 fork 上的定时、手动或 Issue 事件。llmdoc 仍保持每天一次；原 `agentic-patrol.yml` 已由 `issues.opened` 驱动的分派取代，因此不再有巡检频率。历史原因见 [[874-876-agentic-fork-shielding-cron]]，本轮取舍见 [[agentic-template-reuse]]。
 
