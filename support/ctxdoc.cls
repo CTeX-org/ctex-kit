@@ -1002,6 +1002,7 @@
   \ExplSyntaxOff
   \MakePercentIgnore}{}
 \def\ctexkit{\href{https://github.com/CTeX-org/ctex-kit/}{\texttt{ctex-kit}}}
+\def\ctexkitbuilddate{\number\year/\two@digits\month/\two@digits\day}
 \def\ctexkitrev#1{%
   \href{https://github.com/CTeX-org/ctex-kit/commit/#1}{\texttt{ctex-kit} rev. #1}}
 \appto\GlossaryParms{%
