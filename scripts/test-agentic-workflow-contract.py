@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 TEMPLATE = "Lightspeed-Intelligence/agentic-workflow-template/.github/workflows"
-TEMPLATE_REF = "00a5244ea6150ef6a4c43b680d15d73dafabd343"
+TEMPLATE_REF = "2a0bb28e6583d869645e0a0522568df4a5d4d921"
 
 
 def read(name: str) -> str:
