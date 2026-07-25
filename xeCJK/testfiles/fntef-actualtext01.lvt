@@ -1,0 +1,67 @@
+\DocumentMetadata{tagging=on}
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJKfntef}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newcount\ActualTextBeginCount
+\newcount\ActualTextEndCount
+\makeatletter
+\let\OriginalBeginAccSupp\BeginAccSupp
+\let\OriginalEndAccSupp\EndAccSupp
+\renewcommand*\BeginAccSupp[1]{%
+  \global\advance\ActualTextBeginCount\@ne
+  \gdef\ActualTextOptions{#1}%
+  \OriginalBeginAccSupp{#1}}
+\renewcommand*\EndAccSupp[1]{%
+  \global\advance\ActualTextEndCount\@ne
+  \OriginalEndAccSupp{#1}}
+\makeatother
+
+\ExplSyntaxOn
+\int_new:N \g__xeCJK_test_tag_suspend_int
+\int_new:N \g__xeCJK_test_tag_resume_int
+\cs_new_eq:NN \__xeCJK_test_tag_suspend:n \tag_suspend:n
+\cs_new_eq:NN \__xeCJK_test_tag_resume:n \tag_resume:n
+\cs_set_protected:Npn \tag_suspend:n #1
+  {
+    \int_gincr:N \g__xeCJK_test_tag_suspend_int
+    \__xeCJK_test_tag_suspend:n {#1}
+  }
+\cs_set_protected:Npn \tag_resume:n #1
+  {
+    \int_gincr:N \g__xeCJK_test_tag_resume_int
+    \__xeCJK_test_tag_resume:n {#1}
+  }
+\cs_new_protected:Npn \xeCJKTestShowTagCounts
+  {
+    \TYPE{Tag~suspend~calls:~\int_use:N \g__xeCJK_test_tag_suspend_int}
+    \TYPE{Tag~resume~calls:~\int_use:N \g__xeCJK_test_tag_resume_int}
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\TEST{fntef decorations use empty ActualText and suspend tagging}{
+  \setbox0=\hbox{%
+    \CJKunderline{国}%
+    \CJKunderdblline{国}%
+    \CJKunderwave{国}%
+    \CJKsout{国}%
+    \CJKxout{国}%
+    \CJKunderanyline{.2em}{\rule{.2em}{.4pt}}{国}%
+    \CJKunderdot{国}%
+    \CJKunderanysymbol{.2em}{*}{国}}
+  \TYPE{ActualText options: \ActualTextOptions}
+  \TYPE{ActualText begin calls: \the\ActualTextBeginCount}
+  \TYPE{ActualText end calls: \the\ActualTextEndCount}
+  \xeCJKTestShowTagCounts
+}
+
+\END
+
+\end{document}

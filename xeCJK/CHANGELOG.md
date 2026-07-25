@@ -1,3 +1,7 @@
+## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
+
+- 用空的 `ActualText` 标记装饰内容，并在构造装饰盒时暂停 LaTeX tagging，避免波浪下划线和斜删除线使用的字形进入 PDF 文本提取结果（#1017）。
+
 ## [xeCJK-v3.10.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.4)
 
 - 提升版本号至 v3.10.4。
