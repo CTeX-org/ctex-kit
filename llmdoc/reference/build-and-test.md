@@ -488,7 +488,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - 包头使用 `\ExplFileDate`、`\ExplFileVersion`
 - 变更历史使用 `\changes{版本号}{日期}{说明}`
 
-调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，这些信息会进入最终文档输出。
+调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，版本与变更信息会进入最终文档输出；`ctex.pdf` 与 `xeCJK.pdf` 的标题日期则统一使用 `\today`，表示 GitHub Actions 生成正式 PDF 的日期，不再借用某个 `.sty` 的源文件 stamp 日期。
 
 ## 版本单一事实源与 l3build tag（zhlineskip / ctex）
 
@@ -499,6 +499,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 - 本地手跑 `cd <pkg> && l3build tag`，包级重写的 `update_tag`（`ctex/build.lua` / `zhlineskip/build.lua`）把 version 回写进 stamp。**ctex 的 update_tag 带幂等守卫**：stamp 版本已等于 version 时原样保留（不动 date/sha），否则"回写产生新 commit → 新 sha → 又要回写"永不收敛。
 - 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
 - ctex 的 `update_tag` 在处理主 `ctex.dtx` 时还会额外固化手册首页页脚的 shorthash：取 `git log -1 --format='%h' *.dtx` 回写进 `ctex.dtx` 里的 `\GetFileId[<hash>]{ctex.sty}`（消费方是 `support/ctxdoc.cls` 的 `\GetFileId { O{} m }`，可选参数即固化 hash）。运行时**不**依赖 `\sys_get_shell` / `--shell-escape` 现取 git 信息——曾经的运行时方案已被否决，详见决策 [[937-version-single-source-l3build-tag]] 「手册页脚 shorthash」小节。
+- `\GetFileId` 仍为标题页提供版本号和 revision hash，但不再提供标题日期。`ctex` 拆分后，`ctex.sty` 的 `\filedate` 只反映 `ctex-kernel.dtx` 的 stamp，可能早于手册和其他拆分源文件；因此 `ctex` 与 `xeCJK` 的标题日期统一改用 `\today`。正式 PDF 由 GitHub Actions 集中构建，版本号负责标识内容，日期只表示该 PDF 的构建日。
 
 ### 发版 SOP（ctex 拆分后）
 
