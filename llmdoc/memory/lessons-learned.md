@@ -91,6 +91,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #972 的测量、截图和组合用例暴露了普通 `default` 原型缺陷；#999 又证明默认 glue 等宽会让宽度或截图假通过，必须由节点测试区分来源。
 **Source**: `llmdoc/memory/archive/2026-07-13/972-hyperref-end-annot-trusted-marker.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
+### 字符型装饰要分别验证 PDF 文本与页面视觉
+**Rule**: 只用于绘图的字符或数学内容应以空 `ActualText` 排除文本语义；tagged PDF 还要检查内层标记，必要时在最小范围暂停 tagging。验收时分别检查普通／tagged PDF 的文本提取和修复前后页面渲染，不能让其中一项代替另一项。
+**Why**: #1017 中波浪线、斜删除线和用户符号虽位于装饰盒与 leaders 中，仍会以 `:`、`/`、`.`、`*` 混入复制结果；单用 Artifact 或外层 `ActualText` 都不能稳定约束 tagged PDF 的内层数学标记。空 `ActualText` 加最小范围 tagging 暂停清除了提取污染，而 300 dpi 的 `AE=0` 独立证明页面外观没有变化。
+**Source**: `llmdoc/memory/reflections/1017-fntef-actualtext.md`
+
 ### 弹性间距必须验证伸缩量和实际断行
 **Rule**: 测试可伸缩间距时，分别核对 natural、stretch 和 shrink，并在有限容差下实际排段检查断行；盒子自然宽度只能作为第一层证据。
 **Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。

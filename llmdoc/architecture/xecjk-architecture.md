@@ -504,6 +504,8 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 **边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 
+**PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符或数学内容组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍会进入 PDF 内容流，污染复制、搜索和文本提取。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：tagged PDF 为数学内容建立的内层标记可能穿过外层 `ActualText`，重新暴露装饰字符。这里的 PDF 语义隔离与上一段的 boundary capture 暂停／恢复并行存在：前者决定提取工具看到什么文字，后者只保护 xeCJK 的边界状态，二者不能互相替代。本修复不改变 leader、盒子尺寸或装饰位置，因此也不处理 #1012 的线条重叠和阅读器渲染问题。
+
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
 ### xeCJK-listings
