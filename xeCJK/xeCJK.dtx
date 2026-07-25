@@ -13205,6 +13205,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \RequirePackage { xeCJK }
 \RequirePackage { ulem }
+\RequirePackage { accsupp }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -14449,15 +14450,34 @@ Copyright and Licence
 %   多余的 \texttt{CJKecglue}。}
 % \changes{v3.10.4}{2026/07/20}{改用 framework 的可嵌套暂停区隔离
 %   测量装饰符号时构造的盒子，同时保存、恢复 marker 与 pending 状态（\#992）。}
+% \changes{v3.10.5}{2026/07/25}{用空的 \texttt{ActualText} 标记装饰内容，
+%   并在构造装饰盒时暂停 LaTeX tagging，避免波浪下划线和斜删除线使用的
+%   字形进入 PDF 文本提取结果（\#1017）。}
 % 与 \cs{hcoffin_set:Nn} 和 \LaTeXe{} 的 \tn{sbox} 功能类似，确保颜色的正确。
 % 虽然 \texttt{coffin} 可以更方便的操作盒子，但速度要慢一点。并且，我们的需求
 % 也比较简单，就不用它了。
+%
+% 装饰盒可能包含波浪线字符、数学斜线或者用户自定义的装饰符号，随后还会被
+% \pkg{ulem} 的 leaders 反复复制。用空的 \texttt{ActualText} 包住整个装饰盒，
+% 可以保留页面上的绘制结果，同时让 PDF 阅读器在复制和搜索时只看到正文。
+% tagged PDF 会给盒子里的数学字符增加内层标记；若不暂停 tagging，内层标记仍会
+% 使斜删除线的字符进入文本提取结果。普通文档没有 \cs{tag_suspend:n}，因此这里只
+% 在 LaTeX tagging 接口存在时暂停，并在装饰内容结束后立即恢复。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_fntef_sbox:n #1
   {
     \@@_boundary_capture_suspend:
     \hbox_set:Nn \l_@@_fntef_box
-      { \color_ensure_current: #1 }
+      {
+        \color_ensure_current:
+        \BeginAccSupp { ActualText = { } }
+        \cs_if_exist:NT \tag_suspend:n
+          { \tag_suspend:n { xeCJKfntef } }
+        #1
+        \cs_if_exist:NT \tag_resume:n
+          { \tag_resume:n { xeCJKfntef } }
+        \EndAccSupp { }
+      }
     \@@_boundary_capture_resume:
   }
 %    \end{macrocode}
