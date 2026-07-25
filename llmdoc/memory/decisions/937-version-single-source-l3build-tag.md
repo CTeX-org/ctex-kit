@@ -83,7 +83,7 @@ stamp 均写 base version。校验与 release-notes 提取用同款 sed 剥后�
 - `support/ctxdoc.cls`：`\GetFileId` 签名从 `{ m }` 改为 `{ O{} m }`，
   可选参数接收固化的 hash：`\tl_set:Nn \filehash {#1}` 再
   `\GetFileInfo {#2}`。版本仍走 `\GetFileInfo` 路径；标题日期后来改用
-  `\today`，不再取 `\filedate`，见下方补充。
+  `\ctexkitbuilddate`，不再取 `\filedate`，见下方补充。
 - `ctex/ctex.dtx` 手册导言区写死 `\GetFileId[097bc3d5]{ctex.sty}`，
   hash 直接固化在 dtx 源码里，不在编译时求值。
 - `ctex/build.lua` 的 `update_tag`：只在处理 module 主 dtx（`ctex.dtx`）
@@ -120,8 +120,9 @@ CTAN 解压场景才能发现。这与本决策 `update_tag` 版本 stamp"打包
 `ctex` 拆分后，标题页从 `ctex.sty` 取得的 `\filedate` 实际只对应
 `ctex-kernel.dtx` 的 stamp，不能代表整份手册或所有拆分源文件的更新日期。
 正式 PDF 已统一由 GitHub Actions 构建，且标题另列版本号，因此 `ctex` 与
-`xeCJK` 的标题日期统一改用 `\today`：版本号标识内容，日期只表示 PDF 的构建日。
-revision hash 仍按本决策在 `l3build tag` 阶段固化，不受此调整影响。
+`xeCJK` 的标题日期统一改用 `\ctexkitbuilddate`，按 `YYYY/MM/DD` 格式排印
+构建当天日期：版本号标识内容，日期只表示 PDF 的构建日。revision hash 仍按
+本决策在 `l3build tag` 阶段固化，不受此调整影响。
 
 ## 适用范围
 
