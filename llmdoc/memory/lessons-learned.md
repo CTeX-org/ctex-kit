@@ -66,10 +66,30 @@ Curated cross-task rules distilled from archived memory.
 
 ## TeX 节点与输出几何
 
-### leader 相位问题不能只测盒宽
-**Rule**: 调查 leader 线条偏移时，在非零水平起点下同时检查 leader 类型、实际输出坐标和 mark 的跨片段连续性，不能只比较命令盒宽；规则型与周期型 mark 应分别选择原语。
-**Why**: #531/#967 中 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以完全相同，但前者端点随外层相位漂移，`\cleaders` 又会使周期波浪线在 CJK 分片间产生双峰；只有分开验证端点和接缝才能选出正确方案。
-**Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`
+### 周期装饰先保护既有几何，再按接点分工
+**Rule**: 修复重复装饰的局部异常前，先列出当前正确的装饰总长度、居中、端点和相邻命令连接语义；不要把 `ulem` 的 `\UL@pixel` 从整套几何中单独清零。若正文片段、伸缩胶水和命令端点承担不同的几何作用，就分别实现和验证，不能只更换 leader 类型或缩短图案周期。
+**Why**: #531/#967 说明 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以相同而相位不同；#1012 又证明统一 leader 仍不能同时处理三类接点。当前实现用随字号缩放的 `1em/4` 图案和 `\cleaders` 排列正文，波浪与斜线分别处理 `CJKglue`，普通形式另画对称半单元端点，带 `-` 形式停在正文边界。
+**Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`, `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
+
+### 手册中的局部视觉问题先提取精确 MWE
+**Rule**: 手册中只有局部示例出现视觉问题时，提取一页 MWE，保留原来的文档字体、数学字体、字号和示例内容，用它做日常调试和修复前后截图；整本手册只做最终集成构建。
+**Why**: #1012 的单页 MWE 约一秒即可稳定复现波浪双峰和斜删除线聚集；反复编译 240 页 `xeCJK.pdf` 成本高，而且“PDF 成功生成”本身不会判断局部线条是否连续。机制仍由 `.lvt/.tlg` 固定，视觉结果由同条件高分辨率图确认。
+**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
+
+### 从源码树验证时必须核对实际加载文件
+**Rule**: 使用临时 MWE 验证工作树生成的 TeX 宏包时，把日志中的实际文件路径列为证据；文件名、输出目录名和运行命令都不能证明加载的是当前实现。
+**Why**: #1012 的一次实验实际加载了 TeX Live 中的旧版 `xeCJKfntef.sty`，却把图片标成修复后结果。核对日志确认加载 `xeCJK/build/unpacked/xeCJKfntef.sty` 后，视觉证据才与固定提交对应。
+**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
+
+### PDF 绘图回归要分开固定尺寸、节点、坐标和外观
+**Rule**: 绘图命令会展开大量 PDF special 时，用真实图形固定关键尺寸，用同尺寸轻量盒子固定 leaders、节点和断行，用 XDV 生成不压缩内容流的 PDF 后读取实际坐标来固定相位、节距和端点，再用精确视觉 MWE 检查曲线、连接与密度；整本文档构建只检查集成路径。
+**Why**: #1012 若把完整 `l3draw` 路径写入每项 `.tlg`，基线会增加数千行脆弱输出；若全部改用规则盒子，又无法证明页面坐标和真实图形正确。`fntef-phase01` 的 Lua 后处理能在节点宽度相同的情况下发现周期盒子的断口、重叠或端点偏移。
+**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
+
+### 稳定文档必须随实现演进重新核对
+**Rule**: 中间方案被后续提交替换时，重新逐项核对 architecture、reference、decision、lessons 和 index；已否决的路线只能作为历史记录，不能继续写成当前合同。
+**Why**: #1012 的 `1em/3 + \xleaders/\cleaders` 中间方案曾被写入多份稳定文档；实现已经改为 `1em/4 + 默认 \cleaders + 接点分离` 后，固定提交的独立审查仍发现文档会误导后续实现和测试。代码通过回归不能抵消稳定知识与实现不一致。
+**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 字符分类修改必须检查节点结构和旧类消费者
 **Rule**: 调整或新增 interchar 字符类时，用 `\showbox` 同时验证 glyph、glue、kern、penalty 等节点，并反向审计所有直接判断或枚举旧类的消费者，不能只比较视觉效果或总盒宽。
