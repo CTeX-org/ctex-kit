@@ -200,7 +200,7 @@
 定义的目标保持未注册，正文期再次声明也不会改变待应用记录数。
 
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
-`fntef-actualtext01` 后，当前为 112／112 通过。完整接口
+`fntef-actualtext01`、#1012 新增 `fntef-phase01` 后，当前为 113／113 通过。完整接口
 契约见 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
@@ -307,13 +307,32 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 
 因此，修改 `xeCJK` 与 `zhnumber` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
 
-xeCJKfntef 的线条类问题还要区分“节点尺寸”和“shipout 相位”。`\leaders`、`\cleaders` 与 `\xleaders` 可以拥有完全相同的 glue、盒宽和总命令宽度，却因重复盒的对齐或余量分配方式不同而画在不同横坐标；所以宽度比较不能单独作为 #531/#967 一类回归的 oracle。稳定测试至少应在非零水平起点下用节点日志断言 leader 类型，并用 XDV/PDF 坐标或高分辨率栅格图确认线条首尾相对正文对齐；`subtract` 要单独确认两端等量缩短，周期图案还要检查相邻 CJK 片段接缝。`xeCJK/testfiles/fntef-underline-offset.lvt` 探测 `\CJKunderline` 的非零起点节点，并断言其余五个线型命令普通/`subtract` 路径选择 8 次 `\cleaders` 与 2 次 `\xleaders`；另以多汉字普通/`subtract` 节点链约束 `\CJKunderwave` 在 CJK→CJK 分片间保持 `\xleaders`。既有 `fntef-underline01`、`fntef-linebreak01` 基线继续约束标点和换行节点结构。
+### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
+
+xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰盒、`ulem` 怎样决定片段和端点几何，以及最终页面怎样渲染。`\leaders`、`\cleaders` 与 `\xleaders` 可以拥有完全相同的 glue、盒宽和命令总宽，却把重复盒画在不同横坐标；节点宽度相同不能证明相位相同。
+
+#1012 把正文片段、`CJKglue` 和命令外端点分别处理。默认波浪和斜线都由 `l3draw` 按 `1em/4` 绘制，常规全角字符约容纳四个单元；两个默认图案都使用 `\cleaders`，并把 `\UL@pixel` 减半，使整数周期正文片段的图案落在正文边界。普通形式左右各有半个单元端点，保留既有装饰总长度和对称居中；带 `-` 形式没有外端点，恰好停在正文边界。波浪在 `CJKglue` 中以同线宽水平波峰连接，斜线只保留实际胶水宽度；两者都不在胶水中新增周期盒子。普通 `\quad` 和显式 `\hskip` 仍按 `ulem` 原路径装饰。自定义 `underwave/symbol` 保留历史 `\xleaders` 路径。
+
+含 PDF 绘图路径的可见问题用四类专项证据验证，再做一次整本文档集成构建。不要把完整绘图 special 全部写入节点基线，也不要为每次局部调整反复编译整本手册：
+
+1. `fntef-underline-offset.lvt` 直接构造真正的 `l3draw` 波浪和斜线盒子，固定 8pt、10.53937pt、15pt 下的宽、高、深。这一层证明实际绘图单元确实是 `1em/4` 且随字号缩放。
+2. 节点和换行回归把波浪、斜线与半单元端点临时换成同尺寸的轻量规则盒子，检查默认 `\cleaders`、自定义波浪的 `\xleaders`、装饰区间、普通与带 `-` 形式、相邻命令、标点、换行、实际伸缩的 `CJKglue`，以及普通 `\quad` 仍被装饰。规则盒子避免 `.tlg` 被数千行 PDF 绘图 special 淹没，但不能证明页面上的实际坐标。
+3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记和图案盒子的实际横坐标。该门禁固定波浪和斜线在外层 `0pt/1pt/3pt/5pt` 水平偏移下相位不变，普通形式左右各外伸半个单元，带 `-` 形式落在正文边界，两种形式命令宽度一致；它还检查固定与伸缩 `CJKglue` 不新增周期盒子、胶水两侧节距等于“一个周期加实际胶水宽度”、相邻带 `-` 命令保持一个周期节距，以及普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
+4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
+
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。固定提交 `f247128198a70b844c594e866570710b175151da` 的独立审查中，xeCJK 标准测试为 113／113，通过文档构建生成 244 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+
+从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
+
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 113 项。
 
 ### xeCJKfntef 的 PDF 文本语义（#1017）
 
 `fntef-actualtext01.lvt` 覆盖下划线、双下划线、波浪线、删除线、交叉删除线、自定义线条、着重号和自定义符号八类入口，检查每个装饰盒都使用空 `ActualText`，并在 tagged PDF 下成对暂停、恢复 tagging。这个回归固定的是实现机制；它不能单独证明实际阅读器或提取工具得到的文本正确。
 
 涉及字符型装饰时，应把 PDF 文本语义与页面视觉分开验收：普通 PDF 和启用 `\DocumentMetadata{tagging=on}` 的 tagged PDF 都要实际运行文本提取，确认只保留正文；再对修复前后页面做同条件的高分辨率栅格或坐标比对，确认装饰位置和形状没有改变。#1017 的独立验证中，两种 PDF 的 `pdftotext -layout`／`-raw` 都排除了 `:`、`/`、`.`、`*` 等装饰字符，300 dpi 栅格的 `magick compare -metric AE` 为 `0 (0)`。文本提取通过不能证明页面视觉不变，像素相同也不能证明复制、搜索结果正确。
+
+#1012 固定提交 `f2471281` 的独立审查又用同一最小样例覆盖默认波浪、默认斜删除线、自定义 `underwave/symbol` 和 `\CJKunderanysymbol`。普通 PDF 与启用 tagging 的 PDF 在 `pdftotext -raw` 和 `-layout` 下都只得到正文，没有装饰字符，说明周期几何修改没有使 #1017 的文本语义退化。
 
 这类测试还会扩大精简 CI 的依赖面。#1017 为 `xeCJKfntef` 增加运行时依赖 `accsupp`，tagged PDF 回归另需要 `latex-lab`、`pdfmanagement` 和 `tagpdf`；四项都必须同步写入 `.github/tl_packages`。凡新增 `\RequirePackage` 或启用 `\DocumentMetadata` 的测试，都应同时反查包级依赖声明和 CI 白名单，不能用本地完整 TeX Live 的通过结果代替这项检查。
 

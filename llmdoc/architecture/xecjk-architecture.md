@@ -500,11 +500,17 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 提供 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 等中文文字效果命令。基于 `ulem` 机制重实现，处理 CJK 字符的下划线位置和连续性。
 
-**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout`、`\CJKxout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量；普通模式的端点相对正文对称，`subtract` 模式两端等量缩短。周期图案 `\CJKunderwave` 则使用 `\xleaders`：它同样不继承外层 `\leaders` 相位，又把余量均匀分配到重复盒间距，避免 `\cleaders` 使逐个 CJK 片段独立居中而在字间接缝形成双峰。leader 原语必须按 mark 的连续性要求选择，不能把规则型线条的方案机械推广到周期图案。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
+**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量。#1012 后，默认 `\CJKunderwave` 与 `\CJKxout` 也使用 `\cleaders`，但另有周期图案的正文、字间距和端点专用处理，不能再只按 leader 类型解释其几何。只有用户通过 `underwave/symbol` 指定的自定义波浪符号保留 `\xleaders`。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
+
+**周期和斜向装饰的几何（#1012）**：默认波浪与斜删除线均由 `l3draw` 绘制宽 `1em/4` 的图案，振幅、高度和线宽随当前 `em` 缩放；常规全角字符每字约容纳四个单元，斜删除线不再依赖数学字体。两个默认图案都用 `\cleaders` 排列正文片段，使相位不受外层水平偏移影响。周期路径把 `\UL@pixel` 减半，让整数周期的正文片段实际落在正文边界。
+
+正文片段、中文字间距和命令外端点各有独立职责。普通形式在正文左右各画半个单元，保留修复前已经正确的装饰总长度和对称居中；带 `-` 形式不画外端点，图案恰好落在正文边界。`CJKglue` 中不再重复排列周期盒子：波浪在两侧波峰之间画同线宽水平连接，斜删除线则只保留实际胶水宽度。普通 `\quad` 和显式 `\hskip` 仍由 `ulem` 原路径绘制装饰；标点与 `CJKecglue` 也不进入 `CJKglue` 专用分支。`underwave/symbol` 只有保持默认值时才进入上述周期路径；用户自定义符号继续使用历史 `\xleaders` 行为。
+
+`1em/3` 加原 leaders 选择，以及 `1em/4` 加普通 `\leaders`，都是已经被当前分工替换的中间路线。前者不能消除每段重新分配余量带来的接点差异，后者也无法用一种排列方式同时表达正文、伸缩胶水和两种端点语义。当前合同由 `fntef-phase01` 的页面坐标门禁与节点、视觉回归共同保护。
 
 **边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 
-**PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符或数学内容组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍会进入 PDF 内容流，污染复制、搜索和文本提取。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：tagged PDF 为数学内容建立的内层标记可能穿过外层 `ActualText`，重新暴露装饰字符。这里的 PDF 语义隔离与上一段的 boundary capture 暂停／恢复并行存在：前者决定提取工具看到什么文字，后者只保护 xeCJK 的边界状态，二者不能互相替代。本修复不改变 leader、盒子尺寸或装饰位置，因此也不处理 #1012 的线条重叠和阅读器渲染问题。
+**PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符、数学内容或绘图组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍需明确排除 PDF 文本语义。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：字符或数学装饰产生的内层标记可能穿过外层 `ActualText`，重新暴露装饰内容。这里的 PDF 语义隔离、boundary capture 暂停／恢复和 #1012 的默认图案几何分别解决文本提取、命令边界状态和装饰外观，三者不能互相替代。
 
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
