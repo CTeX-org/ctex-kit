@@ -10,6 +10,7 @@
 
 \newcount\centeredleaderscount
 \newcount\expandedleaderscount
+\newcount\alignedleaderscount
 \makeatletter
 \let\originalmarkoverwith\markoverwith
 \def\markoverwith#1{%
@@ -19,8 +20,63 @@
   \ifx\ULleaders\xleaders
     \global\advance\expandedleaderscount\@ne
   \fi
+  \ifx\ULleaders\leaders
+    \global\advance\alignedleaderscount\@ne
+  \fi
   \originalmarkoverwith{#1}}
 \makeatother
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \test_fntef_pattern_size:nn #1#2
+  {
+    \group_begin:
+      #1 \selectfont
+      \hbox_set:Nn \l_tmpa_box { \__xeCJK_fntef_wave_symbol: }
+      \TYPE
+        {
+          Wave~unit~at~#2pt:
+          ~wd=\dim_eval:n { \box_wd:N \l_tmpa_box },
+          ~ht=\dim_eval:n { \box_ht:N \l_tmpa_box },
+          ~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }
+        }
+      \hbox_set:Nn \l_tmpa_box { \__xeCJK_fntef_xout_symbol: }
+      \TYPE
+        {
+          Xout~unit~at~#2pt:
+          ~wd=\dim_eval:n { \box_wd:N \l_tmpa_box },
+          ~ht=\dim_eval:n { \box_ht:N \l_tmpa_box },
+          ~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }
+        }
+    \group_end:
+  }
+\NewDocumentCommand \TestFntefPatternSize { m m }
+  { \test_fntef_pattern_size:nn {#1} {#2} }
+\NewDocumentCommand \TestUseFntefRulePatterns { }
+  {
+    \cs_set_protected:Npn \__xeCJK_fntef_wave_symbol:
+      {
+        \tex_vrule:D
+          width  \dim_eval:n { 1 em / 4 }
+          height .15 em
+          depth  0 pt
+      }
+    \cs_set_protected:Npn \__xeCJK_fntef_xout_symbol:
+      {
+        \tex_vrule:D
+          width  \dim_eval:n { 1 em / 4 }
+          height .80 em
+          depth  0 pt
+      }
+    \cs_set_protected:Npn \__xeCJK_fntef_wave_left_endpoint_symbol:
+      { \tex_vrule:D width \dim_eval:n { 1 em / 8 } height .15 em depth 0 pt }
+    \cs_set_eq:NN \__xeCJK_fntef_wave_right_endpoint_symbol:
+      \__xeCJK_fntef_wave_left_endpoint_symbol:
+    \cs_set_protected:Npn \__xeCJK_fntef_xout_left_endpoint_symbol:
+      { \tex_vrule:D width \dim_eval:n { 1 em / 8 } height .40 em depth 0 pt }
+    \cs_set_eq:NN \__xeCJK_fntef_xout_right_endpoint_symbol:
+      \__xeCJK_fntef_xout_left_endpoint_symbol:
+  }
+\ExplSyntaxOff
 
 \begin{document}
 
@@ -44,9 +100,10 @@
   \clearpage
 }
 
-\TEST{other line commands select aligned leaders}{
+\TEST{line commands select the intended leaders}{
   \global\centeredleaderscount=0
   \global\expandedleaderscount=0
+  \global\alignedleaderscount=0
   \setbox4=\hbox{%
     \CJKunderdblline{国}\CJKunderdblline-{国}%
     \CJKunderwave{国国}\CJKunderwave-{国国}%
@@ -56,13 +113,59 @@
     \CJKunderanyline-{.2em}{\rule{.2em}{.4pt}}{国}}
   \TYPE{Centered leader calls: \the\centeredleaderscount}
   \TYPE{Expanded leader calls: \the\expandedleaderscount}
+  \TYPE{Aligned leader calls: \the\alignedleaderscount}
 }
 
-\TEST{CJKunderwave keeps expanded leaders across CJK boundaries}{
+\TEST{fntef patterns scale to one quarter em}{
+  \TestFntefPatternSize{\fontsize{8}{10}}{8}
+  \TestFntefPatternSize{\fontsize{10.53937}{13}}{10.53937}
+  \TestFntefPatternSize{\fontsize{15}{18}}{15}
+}
+
+\TestUseFntefRulePatterns
+
+\TEST{CJKunderwave aligns fragments, glue, and outer endpoints}{
   \setbox4=\hbox{\hskip3pt
     \CJKunderwave{国国}\quad
-    \CJKunderwave-{国国}\CJKunderwave-{国国}}
+    \CJKunderwave{国，国}\quad
+    \CJKunderwave-{国国}\CJKunderwave-{国国}\quad
+    {\fontsize{10.95}{13.6}\selectfont
+      \CJKunderwave{国国}\quad
+      \CJKunderwave-{国国}\CJKunderwave-{国国}}}
   \box4
+  \clearpage
+}
+
+\TEST{CJKxout aligns fragments, glue, and outer endpoints}{
+  \setbox4=\hbox{\hskip3pt
+    \CJKxout{国国}\quad
+    \CJKxout{国，国}\quad
+    \CJKxout-{国国}\CJKxout-{国国}\quad
+    {\fontsize{10.95}{13.6}\selectfont
+      \CJKxout{国国}\quad
+      \CJKxout-{国国}\CJKxout-{国国}}}
+  \box4
+  \clearpage
+}
+
+\TEST{custom underwave symbol remains supported}{
+  \begingroup
+    \global\expandedleaderscount=0
+    \xeCJKsetup{underwave/symbol=\rule{.5em}{.4pt}}
+    \setbox4=\hbox{\CJKunderwave{国国}}
+    \TYPE{Custom underwave text width: \the\wd4}
+    \TYPE{Custom underwave expanded leader calls: \the\expandedleaderscount}
+    \box4
+    \clearpage
+  \endgroup
+}
+
+\TEST{periodic decorations survive repeated saved-box use}{
+  \setbox4=\hbox{\CJKunderwave{国国}\quad\CJKxout{国国}}
+  \setbox6=\hbox{\copy4\copy4}
+  \TYPE{Saved decoration width: \the\wd4}
+  \TYPE{Repeated decoration width: \the\wd6}
+  \box6
   \clearpage
 }
 
