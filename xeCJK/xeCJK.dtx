@@ -1606,8 +1606,11 @@ Copyright and Licence
 %   设置 \tn{CJKunderwave} 或 \tn{CJKunderdot} 的符号。
 % \end{function}
 %
-% 例如，波浪线 \tn{CJKunderwave} 的符号不会随字号而变化，在小字号下不好看。我们可以
-% 将它改为随字号而变化大小：
+% 默认波浪线由 \pkg{l3draw} 绘制，每个全角字符约容纳四个完整周期，符号的宽度、
+% 振幅和粗细都会随字号缩放。默认斜删除线也使用相同比例的矢量图案，不再依赖
+% 数学字体。中文字间距伸长时，波浪线在波峰处连接，斜删除线则相应增大相邻斜线
+% 的距离，不会在字间重复绘制图案。也可以用本选项换成其他波浪符号。例如，下面
+% 改用 \texttt{lasy} 字体中的波浪符号：
 %
 % \begin{SideBySideExample}[frame=single,numbers=left,xrightmargin=.35\linewidth,gobble=4]
 %   % \usepackage{fix-cm}
@@ -13205,6 +13208,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \RequirePackage { xeCJK }
 \RequirePackage { ulem }
+\RequirePackage { l3draw }
 \RequirePackage { accsupp }
 %    \end{macrocode}
 %
@@ -13232,11 +13236,27 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_ulem_hook:
   {
     \@@_ulem_initial:
-    \bool_if:NT \l_@@_ulem_subtract_bool
+    \bool_if:NTF \l_@@_ulem_periodic_bool
       {
-        \xeCJK_swap_cs:NN \UL@leaders \xeCJK_ulem_leaders:
-        \cs_set_eq:NN \@@_ulem_var_leaders: \xeCJK_ulem_var_leaders:
-        \cs_set_eq:NN \xeCJK_ulem_right_skip: \@@_ulem_right_skip:
+        \dim_set_eq:NN \l_@@_ulem_periodic_endpoint_dim \UL@pixel
+        \dim_set:Nn \UL@pixel { \UL@pixel / 2 }
+        \xeCJK_swap_cs:NN
+          \UL@leaders \xeCJK_ulem_periodic_leaders:
+        \cs_set_eq:NN \@@_ulem_periodic_var_leaders:
+          \xeCJK_ulem_periodic_var_leaders:
+        \bool_if:NF \l_@@_ulem_subtract_bool
+          {
+            \cs_set_eq:NN \xeCJK_ulem_right_skip:
+              \@@_ulem_periodic_right_endpoint:
+          }
+      }
+      {
+        \bool_if:NT \l_@@_ulem_subtract_bool
+          {
+            \xeCJK_swap_cs:NN \UL@leaders \xeCJK_ulem_leaders:
+            \cs_set_eq:NN \@@_ulem_var_leaders: \xeCJK_ulem_var_leaders:
+            \cs_set_eq:NN \xeCJK_ulem_right_skip: \@@_ulem_right_skip:
+          }
       }
     \bool_if:NT \l_@@_ulem_hidden_bool
       { \cs_set_eq:NN \UL@putbox \@@_ulem_hidden_box: }
@@ -13454,6 +13474,50 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{
+%   \xeCJK_ulem_periodic_leaders:,
+%   \xeCJK_ulem_periodic_var_leaders:}
+% \pkg{ulem} 原来把每个装饰片段向左右各扩展半个装饰单元。这里把
+% \tn{UL@pixel} 减为四分之一单元：当正文片段正好包含整数个周期时，
+% \tn{cleaders} 会把扩展区间两端各留下四分之一单元，再由外层负间距
+% 抵消，实际图案恰好落在正文边界。普通形式在整段左右另画半个周期，
+% 保留原来的外伸长度；带减号形式不画这两个端点。
+%
+% 这里只改变 \cs{@@_ulem_ccglue:} 处理的中文字符间距。正文中的 \tn{quad}
+% 和一般显式 \tn{hskip} 仍由 \pkg{ulem} 的原有路径排出并绘制装饰，标点和
+% 中西文间距也不经过这个专用分支。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xeCJK_ulem_periodic_leaders:
+  { \@@_ulem_periodic_var_leaders: }
+\cs_new_protected:Npn \xeCJK_ulem_periodic_var_leaders:
+  {
+    \scan_stop:
+    \skip_if_eq:nnF { \UL@skip } { \c_zero_skip }
+      {
+        \bool_if:NF \l_@@_ulem_subtract_bool
+          { \@@_ulem_periodic_left_endpoint: }
+        \xeCJK_ulem_periodic_leaders:
+        \cs_gset_eq:NN \@@_ulem_periodic_var_leaders:
+          \xeCJK_ulem_periodic_leaders:
+      }
+  }
+\cs_new_eq:NN \@@_ulem_periodic_var_leaders:
+  \xeCJK_ulem_periodic_var_leaders:
+\cs_new_protected:Npn \@@_ulem_periodic_glue:n #1
+  { \skip_horizontal:n {#1} }
+\cs_new_protected:Npn \@@_ulem_periodic_left_endpoint:
+  {
+    \skip_horizontal:n { - \l_@@_ulem_periodic_endpoint_dim }
+    \box_use:N \l_@@_fntef_left_endpoint_box
+  }
+\cs_new_protected:Npn \@@_ulem_periodic_right_endpoint:
+  {
+    \box_use:N \l_@@_fntef_right_endpoint_box
+    \skip_horizontal:n { - \l_@@_ulem_periodic_endpoint_dim }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\xeCJK_ulem_right_skip:}
 % 在下划线完全画好之后，我们检测最后的情况。用 \tn{unskip} 去掉最后一个下划线，再
 % 重新画一个减少 \tn{UL@pixel} 的。
@@ -13504,6 +13568,8 @@ Copyright and Licence
       { \@@_ulem_right_skip_hbox: }
     \tex_penalty:D \l_@@_tmp_int
   }
+\bool_new:N \l_@@_ulem_periodic_bool
+\dim_new:N \l_@@_ulem_periodic_endpoint_dim
 %    \end{macrocode}
 % \end{macro}
 %
@@ -14074,7 +14140,11 @@ Copyright and Licence
     L \int_use:N \tex_currentgrouplevel:D
   }
 \cs_new_protected:Npn \@@_ulem_ccglue:
-  { { \skip_set_eq:NN \UL@skip \l_@@_ccglue_skip \UL@leaders } }
+  {
+    \bool_if:NTF \l_@@_ulem_periodic_bool
+      { \@@_ulem_periodic_glue:n { \l_@@_ccglue_skip } }
+      { { \skip_set_eq:NN \UL@skip \l_@@_ccglue_skip \UL@leaders } }
+  }
 \cs_new_protected:Npn \@@_ulem_punct_ccglue:
   { \@@_punct_hskip:n { \l_@@_ccglue_skip } }
 %    \end{macrocode}
@@ -14228,6 +14298,236 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}[int]{\@@_fntef_wave_symbol:,\@@_fntef_xout_symbol:}
+% \begin{variable}{\l_@@_fntef_pattern_dim}
+% \changes{v3.10.5}{2026/07/27}{波浪线和斜删除线改用随字号缩放的
+%   四分之一字宽绘图单元；正文片段、字间胶水和命令端点分别处理，
+%   避免周期图案在片段接点重复或断开（\#1012）。}
+% 默认波浪符号来自固定的 \texttt{lasy6} 字号，斜删除线来自当前数学字体；
+% 两者的宽度与正文的字号和全角字宽没有稳定比例。\pkg{ulem} 又会在每个正文
+% 片段中重新排列装饰盒子，因此固定宽度会让余量随字号、内容和伸缩间距改变。
+%
+% 这里用 \pkg{l3draw} 生成宽度为 \texttt{1em/4} 的完整波浪周期和斜线，
+% 常规全角字符片段每字约容纳四个单元。两个默认符号使用 \tn{cleaders}，
+% 使图案相对每个正文片段居中，不受外层水平位置影响。波浪从波峰开始并
+% 在下一个波峰结束；字间 \tn{CJKglue} 伸长时，用同一线宽的水平线连接
+% 两侧波峰。斜删除线不在胶水中重复画斜线，图案间距直接增加实际胶水宽度。
+% 这样既保留断行和胶水伸缩，也不会在短胶水中挤入额外周期。
+%
+% 对通常的一字宽中文正文，普通形式左右两端各另画半个单元，保留
+% \pkg{ulem} 原来的装饰长度和相对正文的居中；带减号形式不画外端点，图案
+% 恰好落在正文边界。一般显式水平跳距仍按 \pkg{ulem} 原有语义绘制装饰，只有
+% \tn{CJKglue} 使用上述专用处理。绘图尺寸全部相对当前 \texttt{em} 计算，
+% 因而会随字号缩放；斜删除线也不再依赖数学字体。用户通过
+% \opt{underwave/symbol} 指定的符号继续走原有 \tn{xleaders} 路径，不受这里
+% 的默认图案处理影响。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_fntef_wave_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , .055 em }
+          \draw_path_curveto:nnn
+            { \l_@@_fntef_pattern_dim * 3 / 16 ,  .055 em }
+            { \l_@@_fntef_pattern_dim * 5 / 16 , -.055 em }
+            { \l_@@_fntef_pattern_dim / 2 , -.055 em }
+          \draw_path_curveto:nnn
+            { \l_@@_fntef_pattern_dim * 11 / 16 , -.055 em }
+            { \l_@@_fntef_pattern_dim * 13 / 16 ,  .055 em }
+            { \l_@@_fntef_pattern_dim , .055 em }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_xout_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , -.38 em }
+          \draw_path_lineto:n
+            { \l_@@_fntef_pattern_dim , .38 em }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_wave_glue:n #1
+  {
+    \group_begin:
+      \l_@@_uwave_format_tl
+      \dim_set:Nn \l_@@_tmp_dim
+        {
+          \box_dp:N \ULC@box
+          - \box_ht:N \l_@@_fntef_box
+          + .02 em
+        }
+      \tex_leaders:D \tex_hrule:D
+        height \dim_eval:n { - \l_@@_tmp_dim + .02 em }
+        depth  \dim_eval:n {   \l_@@_tmp_dim + .02 em }
+        \skip_horizontal:n {#1}
+    \group_end:
+  }
+\cs_new_protected:Npn \@@_fntef_xout_glue:n #1
+  { \skip_horizontal:n {#1} }
+\cs_new_protected:Npn \@@_fntef_wave_left_endpoint_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim / 2 }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , -.055 em }
+          \draw_path_curveto:nnn
+            { \l_@@_fntef_pattern_dim * 3 / 16 , -.055 em }
+            { \l_@@_fntef_pattern_dim * 5 / 16 ,  .055 em }
+            { \l_@@_fntef_pattern_dim / 2 ,  .055 em }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_wave_right_endpoint_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim / 2 }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , .055 em }
+          \draw_path_curveto:nnn
+            { \l_@@_fntef_pattern_dim * 3 / 16 ,  .055 em }
+            { \l_@@_fntef_pattern_dim * 5 / 16 , -.055 em }
+            { \l_@@_fntef_pattern_dim / 2 , -.055 em }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_xout_left_endpoint_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim / 2 }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , 0 pt }
+          \draw_path_lineto:n
+            { \l_@@_fntef_pattern_dim / 2 , .38 em }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_xout_right_endpoint_symbol:
+  {
+    \dim_set:Nn \l_@@_fntef_pattern_dim { 1 em / 4 }
+    \hbox_to_wd:nn { \l_@@_fntef_pattern_dim / 2 }
+      {
+        \hss
+        \draw_begin:
+          \draw_set_linewidth:n { .04 em }
+          \draw_set_cap_butt:
+          \draw_path_moveto:n { 0 pt , -.38 em }
+          \draw_path_lineto:n
+            { \l_@@_fntef_pattern_dim / 2 , 0 pt }
+          \draw_path_use_clear:n { draw }
+        \draw_end:
+        \hss
+      }
+  }
+\cs_new_protected:Npn \@@_fntef_endpoint_raise_to_full:N #1
+  {
+    \box_set_eq:NN \l_@@_tmp_box #1
+    \hbox_set:Nn #1
+      {
+        \box_move_up:nn
+          { \box_ht:N \l_@@_fntef_box - \box_ht:N \l_@@_tmp_box }
+          { \box_use_drop:N \l_@@_tmp_box }
+      }
+    \box_set_ht:Nn #1 { \box_ht:N \l_@@_fntef_box }
+    \box_set_dp:Nn #1 { \box_dp:N \l_@@_fntef_box }
+  }
+\cs_new_protected:Npn \@@_fntef_endpoint_set_full_height:N #1
+  {
+    \box_set_ht:Nn #1 { \box_ht:N \l_@@_fntef_box }
+    \box_set_dp:Nn #1 { \box_dp:N \l_@@_fntef_box }
+  }
+\cs_new_protected:Npn \@@_fntef_endpoint_move_down:Nn #1#2
+  {
+    \box_set_eq:NN \l_@@_tmp_box #1
+    \hbox_set:Nn #1
+      { \box_move_down:nn {#2} { \box_use_drop:N \l_@@_tmp_box } }
+  }
+\cs_new_protected:Npn \@@_fntef_endpoint_move_up:Nn #1#2
+  {
+    \box_set_eq:NN \l_@@_tmp_box #1
+    \hbox_set:Nn #1
+      { \box_move_up:nn {#2} { \box_use_drop:N \l_@@_tmp_box } }
+  }
+\cs_new_protected:Npn \@@_fntef_endpoint_sbox:Nn #1#2
+  {
+    \@@_boundary_capture_suspend:
+    \hbox_set:Nn #1
+      {
+        \color_ensure_current:
+        #2
+      }
+    \@@_boundary_capture_resume:
+  }
+\cs_new_protected:Npn \@@_fntef_wave_endpoints:
+  {
+    \@@_fntef_endpoint_sbox:Nn \l_@@_fntef_left_endpoint_box
+      { \l_@@_uwave_format_tl \@@_fntef_wave_left_endpoint_symbol: }
+    \@@_fntef_endpoint_sbox:Nn \l_@@_fntef_right_endpoint_box
+      { \l_@@_uwave_format_tl \@@_fntef_wave_right_endpoint_symbol: }
+    \@@_fntef_endpoint_set_full_height:N
+      \l_@@_fntef_left_endpoint_box
+    \@@_fntef_endpoint_raise_to_full:N
+      \l_@@_fntef_right_endpoint_box
+    \@@_fntef_endpoint_move_down:Nn \l_@@_fntef_left_endpoint_box
+      { \l_@@_fntef_dim }
+    \@@_fntef_endpoint_move_down:Nn \l_@@_fntef_right_endpoint_box
+      { \l_@@_fntef_dim }
+  }
+\cs_new_protected:Npn \@@_fntef_xout_endpoints:
+  {
+    \@@_fntef_endpoint_sbox:Nn \l_@@_fntef_left_endpoint_box
+      { \l_@@_xout_format_tl \@@_fntef_xout_left_endpoint_symbol: }
+    \@@_fntef_endpoint_sbox:Nn \l_@@_fntef_right_endpoint_box
+      { \l_@@_xout_format_tl \@@_fntef_xout_right_endpoint_symbol: }
+    \@@_fntef_endpoint_raise_to_full:N
+      \l_@@_fntef_left_endpoint_box
+    \@@_fntef_endpoint_set_full_height:N
+      \l_@@_fntef_right_endpoint_box
+    \@@_fntef_endpoint_move_up:Nn \l_@@_fntef_left_endpoint_box
+      { \box_dp:N \l_@@_fntef_box / 2 }
+    \@@_fntef_endpoint_move_up:Nn \l_@@_fntef_right_endpoint_box
+      { \box_dp:N \l_@@_fntef_box / 2 }
+  }
+\dim_new:N \l_@@_fntef_pattern_dim
+\box_new:N \l_@@_fntef_left_endpoint_box
+\box_new:N \l_@@_fntef_right_endpoint_box
+%    \end{macrocode}
+% \end{variable}
+% \end{macro}
+%
 % \begin{macro}{\CJKunderwave}
 % \changes{v3.10.3}{2026/07/12}{使用 \tn{xleaders} 使波浪线相对正文对齐，
 %   同时保持字间连接连续（\#967）。}
@@ -14237,10 +14537,21 @@ Copyright and Licence
     \xeCJK_ulem_group_begin:
       \xeCJK_fntef_boot:nnNNNn { underwave } { uwave } #1#2#3 {#4}
       \cs_set_eq:NN \ULleaders \tex_xleaders:D
+      \tl_if_eq:NnT \l_@@_uwave_symbol_tl { \@@_fntef_wave_symbol: }
+        {
+          \cs_set_eq:NN \ULleaders \tex_cleaders:D
+          \bool_set_true:N \l_@@_ulem_periodic_bool
+        }
       \xeCJK_fntef_initial:nnn
         { \l_@@_uwave_depth_tl }
         { \l_@@_uwave_sep_tl }
         { \l_@@_uwave_format_tl \l_@@_uwave_symbol_tl }
+      \bool_if:NT \l_@@_ulem_periodic_bool
+        {
+          \cs_set_eq:NN \@@_ulem_periodic_glue:n
+            \@@_fntef_wave_glue:n
+          \@@_fntef_wave_endpoints:
+        }
       \xeCJK_ulem_on:n
   }
 %    \end{macrocode}
@@ -14317,14 +14628,16 @@ Copyright and Licence
       \xeCJK_fntef_initial:nn
         {
           \l_@@_xout_format_tl
-          \tex_kern:D -.1 em $/$
-          \tex_kern:D -.1 em
+          \@@_fntef_xout_symbol:
         }
         {
           \box_move_up:nn
             { \box_dp:N \l_@@_fntef_box / 2 }
             { \box_use:N \l_@@_fntef_box }
         }
+      \@@_fntef_xout_endpoints:
+      \bool_set_true:N \l_@@_ulem_periodic_bool
+      \cs_set_eq:NN \@@_ulem_periodic_glue:n \@@_fntef_xout_glue:n
       \xeCJK_ulem_on:n
   }
 %    \end{macrocode}
@@ -14563,7 +14876,7 @@ Copyright and Licence
     underdblline / sep       = 0.17 em ,
     underdblline / gap       = 1.1 pt ,
     underwave / skip         = true ,
-    underwave / symbol       = \sixly \tex_char:D 58 \exp_stop_f: ,
+    underwave / symbol       = \@@_fntef_wave_symbol: ,
     underwave / depth        = 0.20 em ,
     underwave / sep          = 0.00 em ,
     sout / skip              = true ,

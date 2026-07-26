@@ -175,6 +175,16 @@ function unpack_posthook()
   end
 end
 
+function runtest_tasks(name, run)
+  if name == "fntef-phase01" then
+    return 'xdvipdfmx -q -z 0 -o "' .. name .. '.pdf" "'
+      .. name .. '.xdv"' .. os_concat
+      .. 'texlua fntef-phase-check.lua "' .. name .. '.pdf" "'
+      .. name .. '.log"'
+  end
+  return ""
+end
+
 dofile("../support/build-config.lua")
 
 -- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
