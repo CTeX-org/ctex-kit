@@ -10,6 +10,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -119,6 +121,80 @@ def test_action_metadata() -> None:
         bad_step.write_text(source.replace("      shell: bash", "      sheel: bash", 1), encoding="utf-8")
         result = run(["python3", str(validator), str(bad_step)], check=False)
         assert result.returncode != 0, "拼错的 composite step 字段必须被门禁拒绝"
+
+
+def test_font_cache_staging() -> None:
+    action_path = ACTIONS / "setup-agent-tools" / "action.yml"
+    document = yaml.safe_load(read(action_path))
+    steps = document["runs"]["steps"]
+    step_by_name = {step["name"]: step for step in steps}
+
+    prepare_name = "Prepare clean font cache staging directories"
+    cjk_restore_name = "Restore shared CJK font cache"
+    xecjk_restore_name = "Restore xeCJK document font cache"
+    names = [step["name"] for step in steps]
+    assert names.index(prepare_name) < names.index(cjk_restore_name)
+    assert names.index(prepare_name) < names.index(xecjk_restore_name)
+
+    with tempfile.TemporaryDirectory(prefix="ctex-font-cache-staging-") as tmp_name:
+        tmp = Path(tmp_name)
+        workspace = tmp / "workspace"
+        external = tmp / "external-xecjk-cache"
+        workspace.mkdir()
+        external.mkdir()
+
+        cjk_cache = workspace / ".font-cache"
+        cjk_cache.mkdir()
+        (cjk_cache / ".done").touch()
+        (cjk_cache / "Injected.ttc").write_bytes(b"untrusted")
+
+        (external / ".done").touch()
+        (external / "Injected.ttf").write_bytes(b"untrusted")
+        (workspace / ".xecjk-font-cache").symlink_to(external, target_is_directory=True)
+
+        env = os.environ | {"GITHUB_WORKSPACE": str(workspace)}
+        run(
+            ["bash", "-euo", "pipefail", "-c", step_by_name[prepare_name]["run"]],
+            env=env,
+        )
+
+        for path in (workspace / ".font-cache", workspace / ".xecjk-font-cache"):
+            assert path.is_dir() and not path.is_symlink(), "restore 目标必须重建为普通目录"
+            assert not any(path.iterdir()), "PR 预置的字体 cache 内容必须在 restore 前清空"
+        assert (external / "Injected.ttf").exists(), "清理 staging symlink 不得遍历到链接目标"
+
+        cjk_validator = step_by_name["Validate restored CJK font cache"]["run"]
+        cjk_cache = workspace / ".font-cache"
+        (cjk_cache / ".done").touch()
+        (cjk_cache / "Injected.ttc").write_bytes(b"untrusted")
+        rejected = run(
+            ["bash", "-euo", "pipefail", "-c", cjk_validator],
+            env=env,
+            check=False,
+        )
+        assert rejected.returncode != 0, "恢复后的 CJK cache 必须拒绝额外字体"
+        shutil.rmtree(cjk_cache)
+        cjk_cache.mkdir()
+        (cjk_cache / ".done").touch()
+        (cjk_cache / "NotoSansCJK-Regular.ttc").write_bytes(b"trusted-cache")
+        run(["bash", "-euo", "pipefail", "-c", cjk_validator], env=env)
+
+        xecjk_validator = step_by_name["Validate restored xeCJK document font cache"]["run"]
+        xecjk_cache = workspace / ".xecjk-font-cache"
+        (xecjk_cache / ".done").touch()
+        (xecjk_cache / "Injected.ttf").write_bytes(b"untrusted")
+        rejected = run(
+            ["bash", "-euo", "pipefail", "-c", xecjk_validator],
+            env=env,
+            check=False,
+        )
+        assert rejected.returncode != 0, "恢复后的 xeCJK cache 必须拒绝额外字体"
+        shutil.rmtree(xecjk_cache)
+        xecjk_cache.mkdir()
+        (xecjk_cache / ".done").touch()
+        (xecjk_cache / "HanaMinB.ttf").write_bytes(b"trusted-cache")
+        (xecjk_cache / "NotoSansSymbols2-Regular.ttf").write_bytes(b"trusted-cache")
+        run(["bash", "-euo", "pipefail", "-c", xecjk_validator], env=env)
 
 
 def test_model_proxy_contract() -> None:
@@ -379,6 +455,7 @@ def main() -> None:
     setup = read(ACTIONS / "setup-agent-tools" / "action.yml")
 
     test_action_metadata()
+    test_font_cache_staging()
     test_embedded_shell(
         tuple(WORKFLOWS / name for name in AGENTIC_WORKFLOWS)
         + (WORKFLOWS / "check-agentic-workflows.yml",)
