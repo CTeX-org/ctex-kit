@@ -51,6 +51,24 @@
   }
 \NewDocumentCommand \TestFntefPatternSize { m m }
   { \test_fntef_pattern_size:nn {#1} {#2} }
+\cs_new_protected:Npn \test_fntef_same_width:nn #1#2
+  {
+    \hbox_set:Nn \l_tmpa_box { 字 }
+    \hbox_set:Nn \l_tmpb_box {#2}
+    \dim_compare:nNnTF
+      { \box_wd:N \l_tmpa_box } = { \box_wd:N \l_tmpb_box }
+      { \TYPE{#1:~PASS} }
+      {
+        \TYPE
+          {
+            #1:~FAIL~
+            direct=\dim_eval:n { \box_wd:N \l_tmpa_box },~
+            decorated=\dim_eval:n { \box_wd:N \l_tmpb_box }
+          }
+      }
+  }
+\NewDocumentCommand \TestFntefSameWidth { m m }
+  { \test_fntef_same_width:nn {#1} {#2} }
 \NewDocumentCommand \TestUseFntefRulePatterns { }
   {
     \cs_set_protected:Npn \__xeCJK_fntef_wave_symbol:
@@ -64,17 +82,9 @@
       {
         \tex_vrule:D
           width  \dim_eval:n { 1 em / 4 }
-          height .80 em
+          height .93 em
           depth  0 pt
       }
-    \cs_set_protected:Npn \__xeCJK_fntef_wave_left_endpoint_symbol:
-      { \tex_vrule:D width \dim_eval:n { 1 em / 8 } height .15 em depth 0 pt }
-    \cs_set_eq:NN \__xeCJK_fntef_wave_right_endpoint_symbol:
-      \__xeCJK_fntef_wave_left_endpoint_symbol:
-    \cs_set_protected:Npn \__xeCJK_fntef_xout_left_endpoint_symbol:
-      { \tex_vrule:D width \dim_eval:n { 1 em / 8 } height .40 em depth 0 pt }
-    \cs_set_eq:NN \__xeCJK_fntef_xout_right_endpoint_symbol:
-      \__xeCJK_fntef_xout_left_endpoint_symbol:
   }
 \ExplSyntaxOff
 
@@ -122,9 +132,16 @@
   \TestFntefPatternSize{\fontsize{15}{18}}{15}
 }
 
+\TEST{single-character periodic decorations preserve text width}{
+  \TestFntefSameWidth{CJKunderwave}{\CJKunderwave{字}}
+  \TestFntefSameWidth{CJKunderwave subtract}{\CJKunderwave-{字}}
+  \TestFntefSameWidth{CJKxout}{\CJKxout{字}}
+  \TestFntefSameWidth{CJKxout subtract}{\CJKxout-{字}}
+}
+
 \TestUseFntefRulePatterns
 
-\TEST{CJKunderwave aligns fragments, glue, and outer endpoints}{
+\TEST{CJKunderwave shares an aligned grid and subtracts its endpoints}{
   \setbox4=\hbox{\hskip3pt
     \CJKunderwave{国国}\quad
     \CJKunderwave{国，国}\quad
@@ -136,7 +153,7 @@
   \clearpage
 }
 
-\TEST{CJKxout aligns fragments, glue, and outer endpoints}{
+\TEST{CJKxout shares an aligned grid and subtracts its endpoints}{
   \setbox4=\hbox{\hskip3pt
     \CJKxout{国国}\quad
     \CJKxout{国，国}\quad
