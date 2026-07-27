@@ -106,8 +106,10 @@ type: reflection
 - 带 `-` 形式首段后的第一个 `CJKglue` 在断点两侧各放一个净宽为零的半周期连接。
   不换行时两半拼成连续周期；换行时分别止于上一行末尾和下一行开头。裁切内部的
   leaders 前放置 penalty 10000，避免 `gsave`／`grestore` 被拆到两行。
-- `ulem` 会追加随后删除的结尾语法空格；实现用 `\UL@spfactor` 哨兵区分它与真实后续
-  片段，避免把单片段命令误判成需要另行重画末段。
+- `ulem` 会追加随后删除的结尾语法空格；实现用 `\UL@spfactor` 哨兵区分正文中的真实
+  空格与该结尾空格，并在首个片段比较 `\UL@skip` 和正文盒子宽度。空参数、`\relax`
+  与空分组因此不会把结尾空格改造成不可由 `\unskip` 删除的裁切结构，真正的源码
+  空格仍保留原有宽度和装饰。
 - `underwave/symbol` 只有在值仍是默认 `\@@_fntef_wave_symbol:` 时才进入上述周期路径。
   用户自定义波浪符号继续使用历史 `\xleaders` 行为，其宽度、相位和视觉结果仍由用户
   负责检查。
@@ -156,7 +158,8 @@ type: reflection
 
 这层覆盖普通形式、带 `-` 形式、相邻命令、连续 CJK、标点、多个字号、换行和实际
 伸缩的 `CJKglue`。它还确认默认波浪和斜线选择普通 `\leaders`，自定义
-`underwave/symbol` 保持 `\xleaders`，重复使用保存的装饰盒子不会改变宽度。规则
+`underwave/symbol` 保持 `\xleaders`，空参数和不产生节点的正文保持零尺寸，重复使用
+保存的装饰盒子不会改变宽度。规则
 盒子替身只能固定结构，不能证明波浪曲线或斜线本身画得正确，仍须与真实绘图和视觉
 证据合用。
 
@@ -270,7 +273,8 @@ Lua 检查把五项 PASS 写回 `.log`，再由 `.tlg` 固定结果。负向实�
   `67388c2290c068085794223f0cb4fcc76a4d0dea`、
   `bd3edb54cc85259619802b6f6aed645109186ad4`。
 - 实现：`xeCJK/xeCJK.dtx` 中的 `\xeCJK_ulem_periodic_leaders:`、
-  `\xeCJK_ulem_periodic_var_leaders:`、`\@@_ulem_periodic_later_leaders:`、
+  `\xeCJK_ulem_periodic_var_leaders:`、`\@@_ulem_periodic_first_leaders:`、
+  `\@@_ulem_periodic_later_leaders:`、
   `\@@_ulem_periodic_clipped_leaders:nnn`、`\@@_ulem_periodic_right_skip:`、
   `\@@_fntef_wave_symbol:`、`\@@_fntef_xout_symbol:`、`\CJKunderwave` 和
   `\CJKxout`。
