@@ -5,6 +5,7 @@ import json
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -246,6 +247,81 @@ def test_runtime_scripts() -> None:
         )
         assert json.loads(normalized.read_text(encoding="utf-8"))["reviewer"] == "codex"
 
+        # F-005 反例：普通 git status 看不到 assume-unchanged 的脚本改写。
+        # 运行 Agent 前保存的副本不受这次改写影响。
+        answer_repo = tmp / "answer-repo"
+        answer_script = answer_repo / ".github" / "scripts" / "agentic" / normalizer.name
+        answer_script.parent.mkdir(parents=True)
+        shutil.copy2(normalizer, answer_script)
+        run(["git", "init", "-q"], cwd=answer_repo)
+        git(answer_repo, "config", "user.name", "Agent contract test")
+        git(answer_repo, "config", "user.email", "contract@example.invalid")
+        git(answer_repo, "add", ".")
+        git(answer_repo, "commit", "-q", "-m", "trusted normalizer")
+        trusted_normalizer = tmp / "trusted-normalizer.sh"
+        shutil.copy2(answer_script, trusted_normalizer)
+        hidden_marker = tmp / "hidden-normalizer-ran"
+        answer_script.write_text(
+            f"#!/usr/bin/env bash\nprintf owned > {hidden_marker}\n",
+            encoding="utf-8",
+        )
+        git(answer_repo, "update-index", "--assume-unchanged", str(answer_script.relative_to(answer_repo)))
+        assert git(answer_repo, "status", "--porcelain") == ""
+        trusted_output = tmp / "trusted-normalized.json"
+        run(
+            [
+                "bash",
+                str(trusted_normalizer),
+                str(raw_answer),
+                str(trusted_output),
+                "codex",
+                "gpt-5.6-sol",
+                "issue-dispatch",
+            ]
+        )
+        assert not hidden_marker.exists(), "runner 不得执行 Agent 隐藏改写后的 consumer 脚本"
+        assert json.loads(trusted_output.read_text(encoding="utf-8"))["reviewer"] == "codex"
+
+        # F-006 反例：Agent 控制的 .git/config 可以让 git status 执行 fsmonitor。
+        # 只导入 llmdoc/ 到固定 base 的新 checkout 后，打包不再读取该配置。
+        trusted_base = tmp / "trusted-base"
+        trusted_base_sha = init_fixture_repo(trusted_base)
+        agent_repo = tmp / "agent-repo"
+        safe_repo = tmp / "safe-package-base"
+        run(["git", "clone", "-q", "--local", str(trusted_base), str(agent_repo)])
+        run(["git", "clone", "-q", "--local", str(trusted_base), str(safe_repo)])
+        (agent_repo / "llmdoc" / "index.md").write_text("base\nagent change\n", encoding="utf-8")
+        fsmonitor_marker = tmp / "agent-fsmonitor-ran"
+        fsmonitor = agent_repo / "agent-fsmonitor.sh"
+        fsmonitor.write_text(
+            f"#!/usr/bin/env bash\nprintf triggered > {fsmonitor_marker}\nexit 0\n",
+            encoding="utf-8",
+        )
+        fsmonitor.chmod(0o755)
+        git(agent_repo, "config", "core.fsmonitor", str(fsmonitor))
+        run(["git", "status", "--porcelain"], cwd=agent_repo, check=False)
+        assert fsmonitor_marker.exists(), "反例必须证明 Agent 的 fsmonitor 会被 Git 解释"
+        fsmonitor_marker.unlink()
+
+        shutil.rmtree(safe_repo / "llmdoc")
+        shutil.copytree(agent_repo / "llmdoc", safe_repo / "llmdoc", symlinks=True)
+        safe_result = tmp / "safe-candidate.json"
+        safe_result.write_text(json.dumps(candidate_result()), encoding="utf-8")
+        run(
+            [
+                "bash",
+                str(package),
+                str(safe_result),
+                str(safe_repo),
+                str(tmp / "safe-artifact"),
+                trusted_base_sha,
+                "codex",
+                "gpt-5.6-sol",
+                "update-llmdoc",
+            ]
+        )
+        assert not fsmonitor_marker.exists(), "可信 package-base 不得解释 Agent 的 .git/config"
+
         repo = tmp / "repo"
         runner_temp = tmp / "runner"
         runner_temp.mkdir()
@@ -402,10 +478,17 @@ def main() -> None:
                 "token: ${{ github.token }}",
                 "uses: ./consumer/.github/actions/setup-agent-tools",
                 "uses: ./consumer/.github/actions/run-agent",
-                "test -z \"$(git -C consumer status --porcelain --untracked-files=all)\"",
+                "consumer/.github/scripts/agentic/normalize-answer-result.sh",
+                "TRUSTED_ANSWER_NORMALIZER",
+                'bash "$TRUSTED_ANSWER_NORMALIZER"',
             ),
             f"Issue Agent {name}",
         )
+        post_agent = source.split("uses: ./consumer/.github/actions/run-agent", 1)[1]
+        assert "git -C consumer" not in post_agent, f"Issue Agent {name} 返回后不得对 Agent 仓库执行 Git"
+        assert (
+            "bash consumer/.github/scripts/agentic/normalize-answer-result.sh" not in post_agent
+        ), f"Issue Agent {name} 返回后不得执行 consumer 中的脚本"
         assert_no_write_permission(source, f"Issue Agent {name}")
         assert "secrets.PAT_TOKEN" not in source, f"Issue Agent {name} 不得接触可写 PAT"
     dispatch = job(issue, "dispatch")
@@ -457,10 +540,20 @@ def main() -> None:
                 "uses: ./runtime/.github/actions/setup-agent-tools",
                 "uses: ./runtime/.github/actions/run-agent",
                 "runtime/.github/scripts/agentic/package-change-result.sh",
+                "path: package-base",
+                "Import Agent llmdoc content into fresh packaging base",
+                "test ! -L consumer/llmdoc",
+                "cp -R --no-preserve=mode,ownership,timestamps",
+                '"$GITHUB_WORKSPACE/package-base"',
                 "runtime/.claude/skills/update-llmdoc/SKILL.md",
             ),
             f"llmdoc Agent {name}",
         )
+        post_agent = source.split("uses: ./runtime/.github/actions/run-agent", 1)[1]
+        assert "git -C consumer" not in post_agent, f"llmdoc Agent {name} 返回后不得对 Agent 仓库执行 Git"
+        assert (
+            '"$GITHUB_WORKSPACE/consumer"' not in post_agent
+        ), f"llmdoc Agent {name} 打包不得使用 Agent 控制的 Git 仓库"
         assert_no_write_permission(source, f"llmdoc Agent {name}")
         assert "secrets.PAT_TOKEN" not in source, f"llmdoc Agent {name} 不得接触可写 PAT"
     for name in ("validate_codex", "validate_claude"):
