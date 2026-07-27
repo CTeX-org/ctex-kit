@@ -1,0 +1,224 @@
+name: Setup ctex-kit Agent tools
+description: 恢复或安装 TeX Live、CJK 字体、PDF 图像工具和工作流检查工具
+
+inputs:
+  tl-version:
+    description: TeX Live 年度版本
+    required: false
+    default: '2026'
+  tl-package-file:
+    description: TeX Live 包清单；PR 审查应传入 base commit 中的可信副本
+    required: false
+    default: .github/tl_packages
+  font-url-file:
+    description: 字体下载清单；PR 审查应传入 base commit 中的可信副本
+    required: false
+    default: .github/font-urls.txt
+
+runs:
+  using: composite
+  steps:
+    - name: Install PDF, image and workflow tools
+      shell: bash
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y --no-install-recommends \
+          fonts-freefont-ttf \
+          fontconfig \
+          ghostscript \
+          imagemagick \
+          poppler-utils \
+          shellcheck \
+          unzip
+
+    - name: Compute weekly TeX Live cache key
+      id: tl-cache-key
+      shell: bash
+      run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+    # Agent 随后会执行仓库代码，三类共享缓存都只能读取，不能在 post job 回写。
+    # TeX Live 的可信写入者仍是 test.yml 的 warmup-tl。
+    - name: Restore shared TeX Live cache
+      id: tl-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
+        key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ steps.tl-cache-key.outputs.week }}-${{ hashFiles(inputs.tl-package-file) }}
+
+    - name: Export TeX Live PATH from cache
+      id: tl-cache-path
+      if: steps.tl-cache.outputs.cache-hit == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        tl_bin="${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}/bin/x86_64-linux"
+        echo "$tl_bin" >> "$GITHUB_PATH"
+        "$tl_bin/tlmgr" version
+
+    - name: Install TeX Live from automatic mirror
+      id: tl-install-primary
+      if: steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure'
+      continue-on-error: true
+      timeout-minutes: 15
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        version: ${{ inputs.tl-version }}
+        package-file: ${{ inputs.tl-package-file }}
+        repository: https://mirror.ctan.org/systems/texlive/tlnet
+        update-all-packages: true
+        cache: false
+
+    - name: Install TeX Live from Illinois mirror
+      id: tl-install-fallback
+      if: (steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure') && steps.tl-install-primary.outcome == 'failure'
+      timeout-minutes: 15
+      uses: TeX-Live/setup-texlive-action@v4
+      with:
+        version: ${{ inputs.tl-version }}
+        package-file: ${{ inputs.tl-package-file }}
+        repository: https://ctan.math.illinois.edu/systems/texlive/tlnet
+        update-all-packages: true
+        cache: false
+
+    - name: Verify TeX Live mirror on cache miss
+      if: (steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure') && (steps.tl-install-primary.outcome == 'success' || steps.tl-install-fallback.outcome == 'success')
+      shell: bash
+      run: |
+        out=$(tlmgr update --self --list 2>&1) || true
+        echo "$out"
+        if grep -qiE 'Unable to download|not verified' <<< "$out"; then
+          echo '::error::TeX Live mirror 不可达，tlmgr 使用了本地旧数据库。'
+          exit 1
+        fi
+
+    - name: Restore shared CJK font cache
+      id: font-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/.font-cache
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
+
+    - name: Install CJK fonts
+      shell: bash
+      run: |
+        sudo mkdir -p /usr/share/fonts/truetype
+        font_cache="$GITHUB_WORKSPACE/.font-cache"
+        font_url_file="${{ inputs.font-url-file }}"
+        if [[ "$font_url_file" != /* ]]; then
+          font_url_file="$GITHUB_WORKSPACE/$font_url_file"
+        fi
+        mkdir -p "$font_cache"
+        if [[ ! -f "$font_cache/.done" ]]; then
+          cd "$font_cache"
+          while IFS= read -r url || [[ -n "$url" ]]; do
+            url=${url%$'\r'}
+            case "$url" in ''|'#'*) continue ;; esac
+            curl --fail --location --remote-name "$url"
+          done < "$font_url_file"
+          for archive in *OTC.zip; do
+            unzip -ojd . "$archive" '*.ttc'
+          done
+          rm -f -- *.zip
+          touch .done
+        fi
+        sudo cp "$font_cache"/*.ttc /usr/share/fonts/truetype/
+        fc-cache -f
+
+    - name: Restore xeCJK document font cache
+      id: xecjk-font-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ github.workspace }}/.xecjk-font-cache
+        key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
+    - name: Install xeCJK document fonts
+      shell: bash
+      run: |
+        sudo mkdir -p /usr/share/fonts/truetype
+        font_cache="$GITHUB_WORKSPACE/.xecjk-font-cache"
+        mkdir -p "$font_cache"
+        if [[ ! -f "$font_cache/.done" ]]; then
+          cd "$font_cache"
+          curl --fail --location --output HanaMinB.ttf \
+            'https://github.com/googlefonts/chinese/raw/gh-pages/fonts/HanaMin/HanaMinB.ttf'
+          curl --fail --location --remote-name \
+            'https://github.com/notofonts/symbols/releases/download/NotoSansSymbols2-v2.008/NotoSansSymbols2-v2.008.zip'
+          for archive in NotoSansSymbols2-*.zip; do
+            unzip -ojd . "$archive" '*.ttf'
+          done
+          rm -f -- *.zip
+          touch .done
+        fi
+        sudo cp "$font_cache"/*.ttf /usr/share/fonts/truetype/
+        fc-cache -f
+
+    - name: Register TeX Live fonts with fontconfig
+      shell: bash
+      run: |
+        tl_root=$(tlmgr conf | awk -F= '/TEXMFDIST/{gsub(/^[ \t]+|[ \t]+$/,"",$2);print $2;exit}')
+        if [[ -z "$tl_root" || ! -d "$tl_root/fonts/opentype" ]]; then
+          echo "::warning::TeX Live 字体目录不存在：$tl_root/fonts/opentype"
+          exit 0
+        fi
+        sudo mkdir -p /etc/fonts/conf.d
+        sudo tee /etc/fonts/conf.d/09-texlive-opentype.conf >/dev/null <<FONTCONFIG_EOF
+        <?xml version="1.0"?>
+        <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+        <fontconfig>
+          <dir>${tl_root}/fonts/opentype</dir>
+          <dir>${tl_root}/fonts/truetype</dir>
+        </fontconfig>
+        FONTCONFIG_EOF
+        fc-cache -f
+
+    - name: Install actionlint
+      shell: bash
+      run: |
+        install_dir="${{ runner.temp }}/ctex-kit-agent-tools/actionlint-1.7.7"
+        mkdir -p "$install_dir"
+        GOBIN="$install_dir" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+    - name: Export Agent tool PATH and ImageMagick compatibility entry
+      shell: bash
+      run: |
+        install_dir="${{ runner.temp }}/ctex-kit-agent-tools/actionlint-1.7.7"
+        compat_dir="${{ runner.temp }}/ctex-kit-agent-tools/compat-bin"
+        mkdir -p "$compat_dir"
+        if ! command -v magick >/dev/null 2>&1; then
+          cat > "$compat_dir/magick" <<'MAGICK_EOF'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "${1:-}" in
+          compare|composite|identify|mogrify|montage)
+            command=$1
+            shift
+            exec "$command" "$@"
+            ;;
+          *)
+            exec convert "$@"
+            ;;
+        esac
+        MAGICK_EOF
+          chmod +x "$compat_dir/magick"
+        fi
+        echo "$install_dir" >> "$GITHUB_PATH"
+        echo "$compat_dir" >> "$GITHUB_PATH"
+
+    - name: Record toolchain versions
+      shell: bash
+      run: |
+        for tool in \
+          actionlint fc-match gs kpsewhich l3build magick pdfcrop \
+          pdffonts pdfimages pdfinfo pdftoppm pdftotext sha256sum \
+          shellcheck texlua xdvipdfmx xelatex; do
+          command -v "$tool"
+        done
+        xelatex --version | head -n 1
+        l3build --version
+        pdftoppm -v 2>&1 | head -n 1
+        magick -version | head -n 1
+        actionlint -version
+
+    - name: Remove workspace font staging directories
+      shell: bash
+      run: rm -rf -- "$GITHUB_WORKSPACE/.font-cache" "$GITHUB_WORKSPACE/.xecjk-font-cache"

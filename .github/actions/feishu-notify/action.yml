@@ -1,0 +1,93 @@
+# 飞书通知 Composite Action
+# 统一的通知格式：Title + Description + Link
+
+name: 'Feishu Notify'
+description: '发送统一格式的飞书通知'
+
+inputs:
+  webhook_token:
+    description: '飞书 Webhook Token'
+    required: true
+  title:
+    description: '通知标题'
+    required: true
+  description:
+    description: '通知描述 (支持飞书 Markdown)'
+    required: true
+  link_text:
+    description: '链接显示文本'
+    required: true
+  link_url:
+    description: '链接 URL'
+    required: true
+  status:
+    description: '状态类型：success, warning, error, info'
+    required: false
+    default: 'info'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Feishu Notification
+      shell: bash
+      env:
+        INPUT_WEBHOOK_TOKEN: ${{ inputs.webhook_token }}
+        INPUT_TITLE: ${{ inputs.title }}
+        INPUT_DESCRIPTION: ${{ inputs.description }}
+        INPUT_LINK_TEXT: ${{ inputs.link_text }}
+        INPUT_LINK_URL: ${{ inputs.link_url }}
+        INPUT_STATUS: ${{ inputs.status }}
+      run: |
+        # 根据状态设置样式
+        case "$INPUT_STATUS" in
+          "success") EMOJI="✅"; TEMPLATE="green" ;;
+          "warning") EMOJI="⚠️"; TEMPLATE="orange" ;;
+          "error")   EMOJI="❌"; TEMPLATE="red" ;;
+          *)         EMOJI="ℹ️"; TEMPLATE="blue" ;;
+        esac
+
+        # 使用 jq 构建完整 JSON，自动处理转义
+        PAYLOAD=$(jq -n \
+          --arg title "${EMOJI} $INPUT_TITLE" \
+          --arg template "$TEMPLATE" \
+          --arg desc "$INPUT_DESCRIPTION" \
+          --arg link_text "$INPUT_LINK_TEXT" \
+          --arg link_url "$INPUT_LINK_URL" \
+          '{
+            msg_type: "interactive",
+            card: {
+              header: {
+                title: {tag: "plain_text", content: $title},
+                template: $template
+              },
+              elements: [
+                {tag: "div", text: {tag: "lark_md", content: $desc}},
+                {tag: "action", actions: [{tag: "button", text: {tag: "plain_text", content: $link_text}, type: "primary", url: $link_url}]}
+              ]
+            }
+          }')
+
+        # 飞书业务层失败也返回 HTTP 200（错误码在响应体 code 字段），
+        # 必须解析响应才能发现限流/token 失效等问题，不能只看 curl 退出码。
+        # 11232 = 频控限流（100 条/分钟），瞬时问题，退避后重试；网络错误同样重试；
+        # 其他业务错误码（token 失效、消息格式错误等）重试无意义，直接失败。
+        MAX_ATTEMPTS=4
+        DELAYS=(0 5 15 30)
+        RESP=""
+        for i in $(seq 1 "$MAX_ATTEMPTS"); do
+          sleep "${DELAYS[$((i-1))]}"
+          RESP=$(curl -sS --max-time 15 -X POST "https://open.feishu.cn/open-apis/bot/v2/hook/${INPUT_WEBHOOK_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" || true)
+          CODE=$(jq -r '.code // empty' <<<"$RESP" 2>/dev/null || true)
+          if [ "$CODE" = "0" ]; then
+            echo "飞书通知发送成功 (第 ${i}/${MAX_ATTEMPTS} 次尝试)"
+            exit 0
+          fi
+          echo "::warning::飞书通知第 ${i}/${MAX_ATTEMPTS} 次发送失败: ${RESP:-网络错误/无响应}"
+          if [ -n "$CODE" ] && [ "$CODE" != "11232" ]; then
+            break
+          fi
+        done
+        echo "::error::飞书通知发送失败: ${RESP:-网络错误/无响应}"
+        exit 1

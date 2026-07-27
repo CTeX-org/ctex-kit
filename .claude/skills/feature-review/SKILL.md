@@ -9,6 +9,9 @@ description: 评审需求(PRD), 从业务价值和技术可行性角度回答问
 
 > 遵循 `github-comment` 规范。
 
+只做需求分析。不得编辑文件、调用 `gh` 或创建 PR；将完整待发布 Markdown 放入结构化
+输出的 `comment_body`。
+
 ## 成本估算标准
 
 | 级别 | 工时 | 典型特征 |

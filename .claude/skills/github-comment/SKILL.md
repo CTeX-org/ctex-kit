@@ -13,7 +13,8 @@ description: 定义 GitHub 评论的格式规范, 强调使用折叠 `<details>`
 2. **单条评论**: 在无头 (headless) 环境运行，所有输出合并为一条评论。
 3. **折叠长内容**: 使用 `<details>` 折叠代码、日志、技术细节。`<details>` 前后需空行。
 4. **先读 llmdoc**: 操作前必须阅读项目的 `llmdoc/` 文档。
-5. **不重复评论**: 执行前检查是否已评论过 (`gh pr view --comments` / `gh issue view --comments`)，避免重复。
+5. **只生成正文**: Agent 不查询、发表、编辑或删除 GitHub 评论。完整正文通过结构化输出交给独立 publisher 代发。
+6. **不重复评论**: publisher 使用 workflow 定义的稳定 marker 更新已有评论，Agent 不负责幂等控制。
 
 ## 链接格式
 

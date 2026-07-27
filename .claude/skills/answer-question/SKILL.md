@@ -9,6 +9,9 @@ description: 通用问答, 回答用户咨询、技术探讨等非错误、非�
 
 > 遵循 `github-comment` 规范。
 
+只分析本地仓库与 workflow 准备的 Issue 输入。不得调用 `gh`、push 或直接访问 GitHub；
+将完整待发布 Markdown 放入结构化输出的 `comment_body`。
+
 ## 回答原则
 
 **优先**：
