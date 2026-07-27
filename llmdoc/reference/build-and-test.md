@@ -364,7 +364,9 @@ PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚
 
 三条 workflow 都把 Agent 与外部写入分开：PR Agent 只读，publisher 独占 `pull-requests: write`；Issue Agent 固定事件 `github.sha` 且只读，dispatch job 独占 `issues: write`；llmdoc prepare 固定 master SHA，Agent 只打包 `llmdoc/` 候选，独立 validator 从同一 SHA 验证，publisher 才取得 `contents: write` 和 `pull-requests: write`。固定提交与 publisher 隔离分别约束“运行哪版代码”和“谁能写入”，不能互相替代。
 
-`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、只读缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using` 和拼错的 composite step 字段会失败。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
+Agent 返回后，runner 不能执行 Agent 可写路径中的脚本，也不能把该工作区的 `git status` 当作内容认证。Agent 可以用 `assume-unchanged`、本地提交或 `.git/config` 隐藏、转移改动；Git 命令本身还可能通过 `core.fsmonitor` 等配置执行程序。Issue Dispatch 因此在 Agent 启动前把结果整理脚本复制到 runner 的私有临时目录，返回后只用这份副本解析结果文件，不再执行 `consumer` 中的脚本或对它运行 Git。llmdoc Updater 则重新把固定 master 提交检出到 `package-base`，只复制 `consumer/llmdoc/` 文件树；比较、暂存和补丁生成全部在这个新仓库中完成，不读取 Agent 控制的 `.git`。恢复目录所有权不能恢复文件和仓库元数据的可信度，后处理仍须保持代码与数据分离。
+
+`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、只读缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、由 `assume-unchanged` 隐藏的脚本改写，以及恶意 `core.fsmonitor` 会被 Git 执行。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
 
 ### 测试工作流：`.github/workflows/test.yml`
 
