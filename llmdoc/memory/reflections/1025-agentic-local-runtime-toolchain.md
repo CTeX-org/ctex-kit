@@ -69,6 +69,26 @@ Review 仍把长期模型 API key 放在执行不可信 PR 代码的 Agent 进�
 runner 自己的临时目录并限制权限，再把工作区所有权交给 Agent；root 代理也通过 `env -i` 用最小
 环境启动。可信控制程序与不可信工作区必须在文件所有权上分开，不能只在 Git 提交来源上分开。
 
+## Agent 返回后仍要保持信任边界
+
+完整范围审查又发现了两个同类问题。Issue Dispatch 虽然从固定事件提交取得了结果整理脚本，却在
+Agent 返回后从 Agent 可写的 `consumer` 工作区执行它。Agent 可以直接改写脚本，还可以用
+`git update-index --assume-unchanged` 或本地提交让普通 `git status` 看起来没有变化。因此，“检出时
+来自可信提交”和“Git 显示工作树干净”都不能证明随后执行的文件仍然可信。
+
+修正后，Issue Dispatch 在 Agent 启动前便把结果整理脚本复制到 runner 的私有临时目录；Agent 返回
+后只把结果文件作为不可信数据交给这份副本处理，不再执行 `consumer` 中的脚本，也不再对该工作区
+运行 Git 来判断文件是否可信。
+
+llmdoc Updater 原先也会在 Agent 控制的仓库中以 runner 身份执行 Git。即使只打包 `llmdoc/`，Agent
+仍可修改 `.git/config`，例如设置 `core.fsmonitor`，让后续 `git status` 间接执行任意程序。修正后的
+打包阶段重新把固定 master 提交检出到 `package-base`，只从 Agent 工作区复制 `llmdoc/` 文件树；
+所有 Git 比较和补丁生成都在这个新仓库中完成，不读取 Agent 控制的 `.git`。
+
+这两个问题共同说明：结束 Agent 进程并恢复目录所有权，只能阻止它继续写入，不能使它已经控制过的
+脚本、Git 配置或索引状态重新可信。后处理必须从 Agent 启动前保存的可信程序和 Agent 返回后新建的
+可信仓库开始，只把 Agent 产物当作待校验的数据。
+
 ## 事件提交和发布权限必须分别固定
 
 - PR Review 从 PR base SHA 稀疏检出审查规范、安装 Action、Agent 启动脚本和历史准备脚本；PR head
@@ -97,6 +117,10 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
   都不能替代进程级凭据隔离。
 - runner 后续还会执行的控制脚本必须放在 Agent 无法写入的目录；“脚本来自可信 base SHA”只证明
   初始内容可信，不能防止运行期间被重新取得工作区所有权的 Agent 改写。
+- Agent 返回后，不能执行它可写路径中的脚本，也不能用该仓库的 Git 状态证明内容没有被修改；
+  `assume-unchanged`、本地提交和 Git 配置都可能破坏这种判断。
+- 需要对 Agent 候选执行 Git 比较或打包时，应重新检出固定基线，只复制允许的文件树，并在新仓库中
+  完成所有 Git 操作。
 - 与可信 CI 共用 cache key 时，Agent 应只恢复；可信 CI 才能成为共享缓存写入者。
 - 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
@@ -105,6 +129,7 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
 ## 验证
 
 - `python3 scripts/test-agentic-workflow-contract.py`
+  - 包含 `assume-unchanged` 隐藏脚本改写和恶意 `core.fsmonitor` 被 Git 执行的反例；
 - `python3 scripts/validate-action-metadata.py .github/actions/*/action.yml`
 - actionlint 检查四条相关 workflow
 - ShellCheck 检查 Agent runtime 和历史准备脚本
