@@ -77,4 +77,17 @@ runs:
         RESULT_FILE: ${{ inputs.result_file }}
         IGNORE_REPOSITORY_RULES: ${{ inputs.ignore_repository_rules }}
       run: |
-        bash "$GITHUB_ACTION_PATH/../../scripts/agentic/run-agent-with-proxy.sh"
+        set -euo pipefail
+        trusted_runtime=$(mktemp -d "$RUNNER_TEMP/ctex-agent-trusted-runtime.XXXXXX")
+        cleanup_runtime() {
+          rm -rf -- "$trusted_runtime"
+        }
+        trap cleanup_runtime EXIT
+        install -m 700 \
+          "$GITHUB_ACTION_PATH/../../scripts/agentic/run-agent-with-proxy.sh" \
+          "$trusted_runtime/run-agent-with-proxy.sh"
+        install -m 600 \
+          "$GITHUB_ACTION_PATH/../../scripts/agentic/model-api-proxy.py" \
+          "$trusted_runtime/model-api-proxy.py"
+        MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py" \
+          bash "$trusted_runtime/run-agent-with-proxy.sh"
