@@ -78,6 +78,10 @@ def assert_local_runtime(source: str, label: str) -> None:
         assert forbidden not in source, f"{label} 不得继续依赖 {forbidden}"
 
 
+def assert_setup_before_agent(source: str, setup_ref: str, agent_ref: str, label: str) -> None:
+    assert source.index(setup_ref) < source.index(agent_ref), f"{label} 必须在可信工具安装和缓存保存后才启动 Agent"
+
+
 def embedded_run_blocks(source: str) -> list[str]:
     """取出 YAML 中的 literal run block，供 bash 做离线语法检查。"""
     lines = source.splitlines()
@@ -130,12 +134,38 @@ def test_font_cache_staging() -> None:
     steps = document["runs"]["steps"]
     step_by_name = {step["name"]: step for step in steps}
 
+    tl_restore_name = "Restore shared TeX Live cache"
+    tl_verify_name = "Verify TeX Live installation and mirror on cache miss"
+    tl_save_name = "Save trusted TeX Live cache before Agent"
     prepare_name = "Prepare clean font cache staging directories"
     cjk_restore_name = "Restore shared CJK font cache"
     xecjk_restore_name = "Restore xeCJK document font cache"
+    cjk_prepare_name = "Prepare CJK font cache"
+    cjk_install_name = "Install CJK fonts"
+    cjk_validate_name = "Validate prepared CJK font cache before save"
+    cjk_save_name = "Save trusted CJK font cache before Agent"
+    xecjk_prepare_name = "Prepare xeCJK document font cache"
+    xecjk_install_name = "Install xeCJK document fonts"
+    xecjk_validate_name = "Validate prepared xeCJK document font cache before save"
+    xecjk_save_name = "Save trusted xeCJK document font cache before Agent"
+    cleanup_name = "Remove workspace font staging directories"
     names = [step["name"] for step in steps]
+    assert names.index(tl_restore_name) < names.index(tl_verify_name) < names.index(tl_save_name)
+    assert names.index(tl_save_name) < names.index(prepare_name)
     assert names.index(prepare_name) < names.index(cjk_restore_name)
     assert names.index(prepare_name) < names.index(xecjk_restore_name)
+    assert names.index(cjk_restore_name) < names.index(cjk_prepare_name) < names.index(cjk_validate_name)
+    assert names.index(cjk_validate_name) < names.index(cjk_save_name) < names.index(cjk_install_name)
+    assert names.index(cjk_install_name) < names.index(cleanup_name)
+    assert names.index(xecjk_restore_name) < names.index(xecjk_prepare_name) < names.index(xecjk_validate_name)
+    assert names.index(xecjk_validate_name) < names.index(xecjk_save_name) < names.index(xecjk_install_name)
+    assert names.index(xecjk_install_name) < names.index(cleanup_name)
+    assert step_by_name[tl_save_name]["uses"] == "actions/cache/save@v6"
+    assert step_by_name[cjk_save_name]["uses"] == "actions/cache/save@v6"
+    assert step_by_name[xecjk_save_name]["uses"] == "actions/cache/save@v6"
+    assert "steps.tl-cache.outputs.cache-hit != 'true'" in step_by_name[tl_save_name]["if"]
+    assert step_by_name[cjk_save_name]["if"] == "steps.font-cache.outputs.cache-hit != 'true'"
+    assert step_by_name[xecjk_save_name]["if"] == "steps.xecjk-font-cache.outputs.cache-hit != 'true'"
 
     with tempfile.TemporaryDirectory(prefix="ctex-font-cache-staging-") as tmp_name:
         tmp = Path(tmp_name)
@@ -164,7 +194,7 @@ def test_font_cache_staging() -> None:
             assert not any(path.iterdir()), "PR 预置的字体 cache 内容必须在 restore 前清空"
         assert (external / "Injected.ttf").exists(), "清理 staging symlink 不得遍历到链接目标"
 
-        cjk_validator = step_by_name["Validate restored CJK font cache"]["run"]
+        cjk_validator = step_by_name[cjk_validate_name]["run"]
         cjk_cache = workspace / ".font-cache"
         (cjk_cache / ".done").touch()
         (cjk_cache / "Injected.ttc").write_bytes(b"untrusted")
@@ -180,7 +210,7 @@ def test_font_cache_staging() -> None:
         (cjk_cache / "NotoSansCJK-Regular.ttc").write_bytes(b"trusted-cache")
         run(["bash", "-euo", "pipefail", "-c", cjk_validator], env=env)
 
-        xecjk_validator = step_by_name["Validate restored xeCJK document font cache"]["run"]
+        xecjk_validator = step_by_name[xecjk_validate_name]["run"]
         xecjk_cache = workspace / ".xecjk-font-cache"
         (xecjk_cache / ".done").touch()
         (xecjk_cache / "Injected.ttf").write_bytes(b"untrusted")
@@ -695,6 +725,12 @@ def main() -> None:
         )
         assert_no_write_permission(source, f"PR Review {name}")
         assert "secrets.PAT_TOKEN" not in source, f"PR Review {name} 不得接触可写 PAT"
+        assert_setup_before_agent(
+            source,
+            "uses: ./.trusted-base/.github/actions/setup-agent-tools",
+            "uses: ./.trusted-base/.github/actions/run-agent",
+            f"PR Review {name}",
+        )
 
     publisher = job(review, "publish")
     require_all(publisher, ("pull-requests: write", "actions/download-artifact@"), "PR publisher")
@@ -762,6 +798,12 @@ def main() -> None:
         ), f"Issue Agent {name} 返回后不得执行 consumer 中的脚本"
         assert_no_write_permission(source, f"Issue Agent {name}")
         assert "secrets.PAT_TOKEN" not in source, f"Issue Agent {name} 不得接触可写 PAT"
+        assert_setup_before_agent(
+            source,
+            "uses: ./consumer/.github/actions/setup-agent-tools",
+            "uses: ./consumer/.github/actions/run-agent",
+            f"Issue Agent {name}",
+        )
     dispatch = job(issue, "dispatch")
     require_all(
         dispatch,
@@ -827,6 +869,12 @@ def main() -> None:
         ), f"llmdoc Agent {name} 打包不得使用 Agent 控制的 Git 仓库"
         assert_no_write_permission(source, f"llmdoc Agent {name}")
         assert "secrets.PAT_TOKEN" not in source, f"llmdoc Agent {name} 不得接触可写 PAT"
+        assert_setup_before_agent(
+            source,
+            "uses: ./runtime/.github/actions/setup-agent-tools",
+            "uses: ./runtime/.github/actions/run-agent",
+            f"llmdoc Agent {name}",
+        )
     for name in ("validate_codex", "validate_claude"):
         source = job(llmdoc, name)
         require_all(
@@ -904,10 +952,11 @@ def main() -> None:
         assert leaked not in runner + secure_runner, f"Agent 子进程不得直接继承模型密钥: {leaked}"
     assert "GITHUB_ACTION_PATH" not in secure_runner, "安全启动脚本不得在交出工作区后继续依赖工作区路径"
 
-    # 安装 Action 与现有 CI 共享 key，但 Agent 只能 restore，不能回写共享缓存。
+    # 三类缓存都在 Agent 启动前恢复；未命中时由可信安装阶段显式保存。
+    # 不能改用会在 Agent 返回后运行 post step 的合并式 actions/cache。
     assert setup.count("uses: actions/cache/restore@v6") == 3
-    for forbidden in ("uses: actions/cache@", "actions/cache/save"):
-        assert forbidden not in setup, f"Agent 工具缓存必须只读: {forbidden}"
+    assert setup.count("uses: actions/cache/save@v6") == 3
+    assert "uses: actions/cache@" not in setup, "Agent job 不得注册 post-job cache save"
     require_all(
         setup,
         (
@@ -915,6 +964,9 @@ def main() -> None:
             "ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1",
             "xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1",
             "cache: false",
+            "Save trusted TeX Live cache before Agent",
+            "Save trusted CJK font cache before Agent",
+            "Save trusted xeCJK document font cache before Agent",
             "procps",
             "python3-yaml",
             "rm -rf -- \"$GITHUB_WORKSPACE/.font-cache\" \"$GITHUB_WORKSPACE/.xecjk-font-cache\"",
