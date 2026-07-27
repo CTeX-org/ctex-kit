@@ -28,8 +28,11 @@
 - 带 `-` 形式首段后的第一个 `CJKglue` 在断点两侧各放一个净宽为零的半周期连接。
   不换行时两半拼成连续周期；换行时分别止于上一行末尾和下一行开头。裁切内部的
   leaders 前使用 penalty 10000，保证 PDF 的 `gsave`／`grestore` 不会被拆到两行。
-- `ulem` 在命令末尾会追加随后删除的语法空格。实现以 `\UL@spfactor` 哨兵辨认真正
-  的后续片段，单片段命令只由首段裁切一次；末段重画只在确有后续片段时发生。
+- `ulem` 在命令末尾会追加随后删除的语法空格。实现以 `\UL@spfactor` 哨兵区分正文
+  中的真实空格与结尾语法空格；首个片段另比较 `\UL@skip` 和正文盒子宽度。空参数、
+  `\relax` 与空分组等不产生节点的正文因此保留 `ulem` 原来的可删除 glue 结构并保持
+  零尺寸，真正的源码空格仍被装饰。单片段命令只由首段裁切一次；末段重画只在确有
+  后续片段时发生。
 - 正文中的 `\quad`、一般显式 `\hskip` 和 `CJKglue` 都继续走普通 leaders 路径；
   不再为胶水另画水平线，也不让波浪与斜删除线采用不同的接点规则。
 - `underwave/symbol` 只有保持默认值时才进入上述周期路径。用户自定义波浪符号继续
@@ -43,7 +46,8 @@
 测试按职责分层：
 
 1. `fntef-underline-offset` 使用真正的 `l3draw` 装饰盒，固定 8pt、10.53937pt 和
-   15pt 下的宽、高、深，证明周期宽度确为 `1em/4`、斜线约高 `.93em`，并随字号缩放。
+   15pt 下的宽、高、深，证明周期宽度确为 `1em/4`、斜线约高 `.93em`，并随字号缩放；
+   同时固定普通／带 `-` 形式的空参数与不产生节点的正文保持零尺寸。
 2. 节点和换行回归把完整绘图换成同尺寸的轻量规则盒子，固定默认与自定义 leader
    类型、裁切结构、两种端点形式、相邻命令、标点、换行、实际伸缩的 `CJKglue` 和
    显式 `\quad`；另检查断行前后 PDF 图形状态分别闭合，正文节点、行宽、断点和
@@ -77,7 +81,8 @@ boundary capture 的暂停／恢复负责 xeCJK 命令边界状态。三条路�
   `67388c2290c068085794223f0cb4fcc76a4d0dea`、
   `bd3edb54cc85259619802b6f6aed645109186ad4`。
 - 实现：`xeCJK/xeCJK.dtx` 中的 `\xeCJK_ulem_periodic_leaders:`、
-  `\xeCJK_ulem_periodic_var_leaders:`、`\@@_ulem_periodic_later_leaders:`、
+  `\xeCJK_ulem_periodic_var_leaders:`、`\@@_ulem_periodic_first_leaders:`、
+  `\@@_ulem_periodic_later_leaders:`、
   `\@@_ulem_periodic_clipped_leaders:nnn`、`\@@_ulem_periodic_right_skip:`、
   `\@@_fntef_wave_symbol:`、`\@@_fntef_xout_symbol:`、`\CJKunderwave` 与
   `\CJKxout`。

@@ -13479,6 +13479,7 @@ Copyright and Licence
 % \begin{macro}[int]{
 %   \xeCJK_ulem_periodic_leaders:,
 %   \xeCJK_ulem_periodic_var_leaders:,
+%   \@@_ulem_periodic_first_leaders:,
 %   \@@_ulem_periodic_later_leaders:,
 %   \@@_ulem_periodic_clipped_leaders:nnn}
 % 普通 \tn{leaders} 只放置完整的装饰盒。它能让同一行中的各个片段共享
@@ -13496,6 +13497,11 @@ Copyright and Licence
 % 右端仍内缩半个周期。首段之后的第一个中文字间距在断点两侧各放一个
 % 净宽为零的半周期连接片段；不换行时两半相接，换行时则分别止于上一行
 % 末尾和下一行开头。单片段命令只使用首段裁切。
+% 若正文没有产生节点，第一次调用 leaders 的内容其实只是 \pkg{ulem} 追加的
+% 结尾语法空格。此时保留原来的三段 glue 结构，让 \pkg{ulem} 随后用三次
+% \tn{unskip} 删除，不能把这枚空格改造成含 PDF special 和 kern 的裁切结构。
+% 正文中的真实空格出现在 \tn{UL@spfactor} 哨兵更新之前，不会被误认为结尾
+% 语法空格。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_ulem_periodic_leaders:
   { \@@_ulem_periodic_var_leaders: }
@@ -13504,18 +13510,28 @@ Copyright and Licence
     \scan_stop:
     \skip_if_eq:nnF { \UL@skip } { \c_zero_skip }
       {
-        \bool_if:NTF \l_@@_ulem_subtract_bool
+        \cs_if_eq:NNTF \UL@spfactor \@@_ulem_spfactor_pending:
+          { \@@_ulem_periodic_first_leaders: }
           {
-            \@@_ulem_periodic_clipped_leaders:nnn
-              { \UL@skip } { \UL@pixel } { \UL@pixel }
+            \skip_if_eq:nnTF { \UL@skip } { \box_wd:N \UL@box }
+              { \@@_ulem_periodic_first_leaders: }
+              { \xeCJK_ulem_periodic_leaders: }
           }
-          {
-            \@@_ulem_periodic_clipped_leaders:nnn
-              { \UL@skip } { - \UL@pixel } { - \UL@pixel }
-          }
-        \cs_gset_eq:NN \@@_ulem_periodic_var_leaders:
-          \@@_ulem_periodic_later_leaders:
       }
+  }
+\cs_new_protected:Npn \@@_ulem_periodic_first_leaders:
+  {
+    \bool_if:NTF \l_@@_ulem_subtract_bool
+      {
+        \@@_ulem_periodic_clipped_leaders:nnn
+          { \UL@skip } { \UL@pixel } { \UL@pixel }
+      }
+      {
+        \@@_ulem_periodic_clipped_leaders:nnn
+          { \UL@skip } { - \UL@pixel } { - \UL@pixel }
+      }
+    \cs_gset_eq:NN \@@_ulem_periodic_var_leaders:
+      \@@_ulem_periodic_later_leaders:
   }
 \cs_new_eq:NN \@@_ulem_periodic_var_leaders:
   \xeCJK_ulem_periodic_var_leaders:
