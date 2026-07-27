@@ -47,6 +47,6 @@
 - `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml`。
 - 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/` 与 `zhlineskip/` 的 `l3build check`。这表明仓库的测试维护已从“核心包主导、卫星包间接覆盖”进一步演进为“核心包 + 多个关键卫星包独立回归”。
 - 仓库现已新增 `.github/workflows/release.yml`，可对全部 9 个 CTAN 发布单元的 tag 自动执行打包、release notes 生成、测试门控和 GitHub prerelease 创建，实现了完整的自动化发布覆盖。
-- 仓库本地维护三条 agentic 自动化入口及其运行时：PR 自动审查（`agentic-pr-review.yml`）、新 Issue 分派（`agentic-issue-dispatch.yml`）和 llmdoc 文档自动更新（`agentic-llmdoc-updater.yml`）。三条 workflow 不再调用远端 reusable workflow；六个 Codex／Claude Agent job 共用本地复合 Action，安装 TeX Live、CJK 字体、PDF 和图像检查工具。可信安装阶段复用现有 CI 的缓存 key，在 Agent 启动前检查并显式保存未命中的缓存；Agent 启动后不再保存共享缓存，并与持有外部写权限的发布 job（publisher）分离。PR Review 还通过无 sudo 的专用用户和以 root 身份运行的本地模型代理隔离长期模型密钥。`agentic-workflow-template` 的固定提交只作为最初展开的来源基线。
+- 仓库本地维护三条 agentic 自动化入口及其运行时：PR 自动审查（`agentic-pr-review.yml`）、新 Issue 分派（`agentic-issue-dispatch.yml`）和 llmdoc 文档自动更新（`agentic-llmdoc-updater.yml`）。三条 workflow 不再调用远端 reusable workflow；六个 Codex／Claude Agent job 共用本地复合 Action，安装 TeX Live、CJK 字体、PDF、图像和命令沙箱工具。可信安装阶段复用现有 CI 的缓存 key，在 Agent 启动前检查并显式保存未命中的缓存；Agent 启动后不再保存共享缓存，并与持有外部写权限的发布 job（publisher）分离。PR Review 还通过无 sudo 的专用用户、以 root 身份运行的本地模型代理、只允许写 consumer 工作区的命令沙箱，以及位于 `/run` 的独立结果控制目录，分别隔离长期模型密钥和最终审查结果。`agentic-workflow-template` 的固定提交只作为最初展开的来源基线。
 - CI 与文档构建现在明确依赖一组可在流水线中安装的 CJK / 符号字体，而不再隐含依赖 Windows 自带字体；这反映出项目维护已把“跨平台字体可达性”上升为稳定基础设施约束。
 - 仍然不是每个卫星包都在 CI 中独立跑一遍；修改未接入测试框架的历史包时，仍要额外关注其本地构建与验证可达性。

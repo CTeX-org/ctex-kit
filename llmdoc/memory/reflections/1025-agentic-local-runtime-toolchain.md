@@ -27,7 +27,8 @@ PR Review、Issue Dispatch 和 llmdoc Updater 原先只是远端 reusable workfl
 
 - TeX Live 2026、XeLaTeX、`l3build`、`xdvipdfmx`、`pdfcrop`；
 - Noto CJK、HanaMinB、Noto Sans Symbols 2，并把 TeX Live 字体目录注册给 fontconfig；
-- Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint。
+- Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint；
+- Bubblewrap、socat 和 C 编译器，用于 Agent 命令沙箱及其控制进程保护。
 
 工具必须在 Agent 所在 runner 内可用。由另一个前置 job 编译固定 MWE 或上传固定证据，只能覆盖
 预先知道的检查，不能替代 Agent 根据 diff 自主选择 MWE、字体、字号和 PDF 检查方式。
@@ -83,6 +84,28 @@ Review 仍把长期模型 API key 放在执行不可信 PR 代码的 Agent 进�
 runner 自己的临时目录并限制权限，再把工作区所有权交给 Agent；root 代理也通过 `env -i` 用最小
 环境启动。可信控制程序与不可信工作区必须在文件所有权上分开，不能只在 Git 提交来源上分开。
 
+## 最终结果通道也不能与仓库代码共用写权限
+
+后续完整盲审发现，杀死后台进程仍不足以保护 PR Review 的结论。Agent CLI 和它执行的 PR 测试原先
+使用同一个 UID、同一个 HOME 和固定结果文件；恶意测试可以留下后台进程，在 CLI 结束后、清理 trap
+运行前，把结构合法的 `APPROVE` 写进结果文件。把 `pkill` 提前只能缩短竞态窗口，不能证明最后一次
+写入来自 CLI。
+
+修正后的结果通道同时使用三层边界：
+
+1. Codex 使用 `workspace-write` 且不允许请求额外权限；Claude 启用文件系统沙箱、禁止 unsandboxed
+   command，并在沙箱不可用时直接失败。模型生成的命令只能写 consumer 工作区，不能写控制目录。
+2. CLI 把最终结果写到 `/run/ctex-agent-session.*/control/`，不再写 Agent HOME 或 `/tmp`。可信启动
+   Action 编译一个很小的预加载库；CLI 每次 `exec` 后都设置 `PR_SET_DUMPABLE=0` 和
+   `PR_SET_NO_NEW_PRIVS=1`，同 UID 子进程不能通过 `/proc/<pid>/fd` 或 ptrace 绕过路径沙箱。
+3. CLI 返回后，可信脚本反复结束该 UID 的全部残留进程，确认没有进程存活以后才读取控制结果；
+   session 目录最后由 `sudo rm -rf` 删除，不能依赖 runner 删除 Agent 所有的非空目录。
+
+合同测试一方面用 Bubblewrap 把 consumer 设为唯一可写目录，让恶意脚本连续改写控制文件并确认内容
+不变；另一方面实际编译预加载库，让同 UID 子进程尝试打开父进程的 `/proc/<pid>/fd`，确认访问被拒绝。
+静态断言还固定两个 CLI 都不能恢复 bypass 选项。结果文件的 JSON Schema 校验仍然需要，但它只能
+检查数据形式，不能替代来源隔离。
+
 ## Agent 返回后仍要保持信任边界
 
 完整范围审查又发现了两个同类问题。Issue Dispatch 虽然从固定事件提交取得了结果整理脚本，却在
@@ -110,6 +133,15 @@ llmdoc Updater 原先也会在 Agent 控制的仓库中以 runner 身份执行 G
 - Issue Dispatch 固定到事件 `github.sha`。两个分析 Agent 只读，独立发布 job 才能发表评论。
 - llmdoc Updater 在准备 job 解析 master SHA；Agent 只生成候选，独立校验 job 从同一 SHA
   重建仓库并验证候选，publisher 才持有 `contents: write` 和 `pull-requests: write`。
+
+这个规则也覆盖只负责通知的 Action。`workflow_dispatch` 可以从非 master ref 发起；若通知 job 用
+`github.sha` 检出本地 Action，就会把长期 webhook secret 交给 dispatch ref 中的代码。通知现在优先
+使用 prepare 解析的 master SHA；prepare 失败时明确回退到 `master`，不能回退到触发 ref。
+
+准备 job 与 Agent 之间的数据通道也要给出实际路径。llmdoc 的 `task.json` 保存 `since_period`，
+`recent-commits.txt` 保存精确提交集合；Agent 通过 `env -i` 启动后看到的 `RUNNER_TEMP` 已经改变，
+提示词不能只写裸文件名。两个候选 prompt 现在都在生成时展开下载目录的绝对路径，并明确要求先读取
+这两个文件。
 
 固定提交解决“运行哪一版可信代码”，独立 publisher 解决“谁能产生外部写入”；两者不能互相替代。
 
@@ -147,6 +179,8 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
   要修改 reusable workflow 本身，或者把实现本地化。
 - 执行不可信代码的 Agent 不能继承长期模型密钥。提示词、只读 GitHub token 和独立 publisher
   都不能替代进程级凭据隔离。
+- Agent CLI 的最终结果不能放在仓库命令可写的 HOME 或临时目录。命令沙箱、沙箱外控制目录、
+  不可转储的 CLI 进程和读取前进程清理共同保护结果来源；JSON 结构校验本身不能认证写入者。
 - runner 后续还会执行的控制脚本必须放在 Agent 无法写入的目录；“脚本来自可信 base SHA”只证明
   初始内容可信，不能防止运行期间被重新取得工作区所有权的 Agent 改写。
 - Agent 返回后，不能执行它可写路径中的脚本，也不能用该仓库的 Git 状态证明内容没有被修改；
@@ -160,6 +194,8 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 - 审查评论以 PR head 为幂等键：同 head 更新，不同 head 新建；维护者回复以 Bot 评论最后一次
   `updated_at` 为时间边界，并且审计必须覆盖全部 Issue 评论页。
 - 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
+- workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
+  辅助 Action 也必须固定到可信提交，不能因为它“只负责通知”而使用触发 ref。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
   本仓库的权限、事件提交和缓存边界。
 
@@ -167,7 +203,8 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 
 - `python3 scripts/test-agentic-workflow-contract.py`
   - 包含 `assume-unchanged` 隐藏脚本改写、恶意 `core.fsmonitor` 被 Git 执行、字体暂存内容不完整、
-    同／异 head 评论发布、第二页 Bot 评论，以及维护者回复早于 Bot `updated_at` 的反例；
+    同／异 head 评论发布、第二页 Bot 评论、维护者回复早于 Bot `updated_at`、工作区进程持续改写
+    控制结果，以及同 UID 子进程访问父 CLI `/proc/<pid>/fd` 的反例；
 - `python3 scripts/validate-action-metadata.py .github/actions/*/action.yml`
 - actionlint 检查四条相关 workflow
 - ShellCheck 检查 Agent runtime 和历史准备脚本
