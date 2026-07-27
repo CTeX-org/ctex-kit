@@ -147,10 +147,11 @@ fi
 # 用 REST API 拿 user.type, 过滤所有 Bot 作者 (不硬编码具体 login —
 # 兼容 Dependabot / 自定义 GitHub App / 未来其它 bot).
 #
-# agentic-pr-review 在每次 synchronize 都会新增评论. 若维护者已逐项核实并在
-# 该 bot 评论之后回复依据, 再要求一个 follow-up commit 会触发下一轮相同评论,
-# 形成无法终止的 push 循环. 因此 OWNER/MEMBER/COLLABORATOR 的后续 issue
-# comment 视为已确认; hook 只报告其后仍没有维护者回复的 bot 评论. 成立问题
+# agentic-pr-review 为每个 head 保留独立评论，同一 head 重跑则更新该评论。若维护者
+# 已逐项核实并在该 bot 评论最后更新之后回复依据，再要求一个 follow-up commit
+# 会触发下一轮相同评论，形成无法终止的 push 循环。因此 OWNER/MEMBER/
+# COLLABORATOR 在 `updated_at` 之后的回复视为已确认；hook 只报告其后仍没有
+# 维护者回复的 bot 评论。成立问题
 # 仍应先修复并 push; 无需改代码时可回复证据后手动跑 make check-pr-ci 收尾.
 #
 # 同 (1): gh api --jq 不支持 --arg, 用 pipe 走 jq -r --arg.
@@ -160,11 +161,13 @@ if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
     "repos/${repo_owner}/${repo_name}/issues/${pr_number}/comments?per_page=100" \
     2>/dev/null \
     | jq -r --arg t "$head_committed_at" '
+        # BEGIN BOT_COMMENT_AUDIT_JQ
         . as $comments
         | $comments[]?
         | select(.user.type == "Bot")
         | select((.created_at // "") > $t)
         | . as $bot
+        | ($bot.updated_at // $bot.created_at // "") as $bot_time
         | select(
             [
               $comments[]?
@@ -174,11 +177,12 @@ if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
                   or .author_association == "MEMBER"
                   or .author_association == "COLLABORATOR"
                 )
-              | select((.created_at // "") > ($bot.created_at // ""))
+              | select((.created_at // "") > $bot_time)
             ]
             | length == 0
           )
-        | "\(.user.login)\tCOMMENT\t\(.created_at)\t\(.html_url)"
+        | "\(.user.login)\tCOMMENT\t\($bot_time)\t\(.html_url)"
+        # END BOT_COMMENT_AUDIT_JQ
       ' 2>/dev/null || true)"
 fi
 
