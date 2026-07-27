@@ -1,13 +1,21 @@
 ---
 name: implement
-description: 根据 Issue 的讨论和方案, 实现功能或修复 Bug, 并创建 PR。
+description: 根据 Issue 的讨论和方案，在本地工作树实现功能或修复 Bug并输出候选变更元数据。
 ---
 
 # implement
 
-用户确认后 (如 "ok", "/impl")，根据 Issue 实现代码并创建 PR。
+用户确认后 (如 "ok", "/impl")，根据 Issue 在本地工作树实现代码。独立 publisher 会在
+候选变更通过校验后创建或更新 PR。
 
 > 遵循 `github-comment` 规范。
+
+## 权限边界
+
+- 可以读取、编辑本地工作树并运行本地测试。
+- 不得提交、push、调用 `gh`、访问 GitHub API、创建 PR 或发表评论。
+- 不得修改 workflow 提供的可信策略和输入目录。
+- 最终只输出 workflow JSON Schema 要求的对象；完整评论写入 `comment_body`。
 
 ## 代码质量底线
 
@@ -25,16 +33,17 @@ description: 根据 Issue 的讨论和方案, 实现功能或修复 Bug, 并创�
 
 1. **识别**: 改动是否只影响 submodule
 2. **定位**: 进入 submodule 目录，读取其 `llmdoc/`
-3. **提交**:
-   - 只影响单个 submodule → 只在该 submodule 内提交和创建 PR
-   - 影响多个 submodule → 每个 submodule 独立 PR，主仓库更新引用
-4. **汇总**: 评论中列出所有创建的 PR 链接
+3. **停止**: 当前自动发布链路不支持跨仓库 submodule 提交，将结果标记为 `BLOCKED`
+4. **说明**: 在 `comment_body` 中列出需要人工处理的仓库和原因
 
 ## 特殊规则
 
-- 功能分支: `feat/vast-github-bot/{short-description}`
-- 修复分支: `fix/vast-github-bot/{short-description}`
-- PR body 必须包含 `Closes #${issue_number}`
+- 不创建或切换分支；publisher 使用由 Issue 编号确定的稳定分支名。
+- `pr_body` 不要包含 `Closes #${issue_number}`；publisher 会统一追加一次关闭语句。
+- 已完整实现且存在本地变更时输出 `READY`。
+- 任务已满足且无需变更时输出 `NO_CHANGES`。
+- 缺少业务决策、权限或遇到 submodule 跨仓库变更时输出 `BLOCKED`。
+- 核心输入不可访问或无法完成有意义的实现尝试时输出 `INCOMPLETE`。
 
 ## 模板
 
@@ -44,12 +53,10 @@ description: 根据 Issue 的讨论和方案, 实现功能或修复 Bug, 并创�
 | 项目 | 结果 |
 |------|------|
 | **状态** | ✅ 成功 / ❌ 失败 / ⏸️ 阻塞 |
-| **PR** | #{pr_number} |
+| **PR** | 通过校验后由 workflow 创建或更新 |
 
 <details>
 <summary><h3>📝 变更摘要</h3></summary>
-
-**分支**: `{branch_name}`
 
 **修改文件**:
 - `path/to/file1` - {改动说明}
@@ -59,11 +66,6 @@ description: 根据 Issue 的讨论和方案, 实现功能或修复 Bug, 并创�
 
 </details>
 
-{如有多个 submodule PR}
----
-**关联 PR**:
-- submodule-a: #{pr_number}
-- submodule-b: #{pr_number}
 ```
 
 失败/阻塞时：
