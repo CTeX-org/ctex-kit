@@ -465,6 +465,7 @@ jobs:
           REVIEW_FILE: .review-input/review.json
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           jq -e '
             (type == "object") and
@@ -494,7 +495,7 @@ jobs:
             FOOTER="本次审查由 Claude Code fallback 链路 (claude-opus-5) 完成；Codex 主链路执行失败，详情见 workflow run。"
           fi
           STATE_B64=$(jq -c \
-            --arg head "${{ github.event.pull_request.head.sha }}" \
+            --arg head "$REVIEW_HEAD" \
             '{
               version: 1,
               head: $head,
@@ -513,15 +514,29 @@ jobs:
           } >> "$RUNNER_TEMP/review-comment.md"
 
           # BEGIN REVIEW_COMMENT_UPSERT
-          REVIEW_MARKER_REGEX='(?m)^<!-- pr-review-state:v1:[A-Za-z0-9+/=]+ -->$'
-          EXISTING_COMMENT_ID=$(gh api --paginate \
+          REVIEW_MARKER_REGEX='(?m)^<!-- pr-review-state:v1:([A-Za-z0-9+/=]+) -->$'
+          COMMENTS_PAGES="$RUNNER_TEMP/review-comments-pages.json"
+          gh api --paginate --slurp \
             "repos/$REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" \
-            --jq ".[] | select(
-              .user.login == \"github-actions[bot]\" and
-              .user.type == \"Bot\" and
-              .performed_via_github_app.slug == \"github-actions\" and
-              (.body | test(\"$REVIEW_MARKER_REGEX\"))
-            ) | .id" | tail -n 1)
+            > "$COMMENTS_PAGES"
+          EXISTING_COMMENT_ID=$(jq -r \
+            --arg marker_regex "$REVIEW_MARKER_REGEX" \
+            --arg head "$REVIEW_HEAD" '
+              [
+                .[][]
+                | select(
+                    .user.login == "github-actions[bot]" and
+                    .user.type == "Bot" and
+                    .performed_via_github_app.slug == "github-actions"
+                  )
+                | ([.body | scan($marker_regex)] | last // null) as $marker
+                | select($marker != null)
+                | (try ($marker[0] | @base64d | fromjson) catch null) as $state
+                | select(($state | type) == "object" and $state.head == $head)
+                | .id
+              ]
+              | last // empty
+            ' "$COMMENTS_PAGES")
           if [[ -n "$EXISTING_COMMENT_ID" ]]; then
             jq -n --rawfile body "$RUNNER_TEMP/review-comment.md" \
               '{body: $body}' > "$RUNNER_TEMP/review-comment-payload.json"

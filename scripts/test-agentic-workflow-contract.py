@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """离线检查 ctex-kit 本地 Agent workflow 的编排与安全合同。"""
 
+import base64
 import json
 import importlib.util
 import os
@@ -309,7 +310,8 @@ def test_review_comment_upsert(review_source: str) -> None:
     assert match, "找不到 PR review 评论幂等发布片段"
     script = textwrap.dedent(match.group(1))
     assert "REVIEW_MARKER_REGEX='(?m)^<!-- pr-review-state:v1:" in script
-    assert '(.body | test(\\"$REVIEW_MARKER_REGEX\\"))' in script
+    assert '--arg head "$REVIEW_HEAD"' in script
+    assert "$state.head == $head" in script
 
     with tempfile.TemporaryDirectory(prefix="ctex-review-comment-") as tmp_name:
         tmp = Path(tmp_name)
@@ -332,15 +334,8 @@ state_path = Path(os.environ["FAKE_GH_STATE"])
 state = json.loads(state_path.read_text(encoding="utf-8"))
 args = sys.argv[1:]
 
-if args[:2] == ["api", "--paginate"]:
-    for comment in state["comments"]:
-        if (
-            comment["user"]["login"] == "github-actions[bot]"
-            and comment["user"]["type"] == "Bot"
-            and comment["performed_via_github_app"]["slug"] == "github-actions"
-            and "<!-- pr-review-state:v1:" in comment["body"]
-        ):
-            print(comment["id"])
+if args[:3] == ["api", "--paginate", "--slurp"]:
+    print(json.dumps([state["comments"]]))
 elif args[:3] == ["api", "--method", "PATCH"]:
     comment_id = int(args[3].rsplit("/", 1)[1])
     payload = json.loads(Path(args[args.index("--input") + 1]).read_text(encoding="utf-8"))
@@ -351,7 +346,7 @@ elif args[:2] == ["pr", "comment"]:
     body = Path(args[args.index("--body-file") + 1]).read_text(encoding="utf-8")
     state["comments"].append(
         {
-            "id": 101,
+            "id": 100 + state["create_calls"] + 1,
             "body": body,
             "user": {"login": "github-actions[bot]", "type": "Bot"},
             "performed_via_github_app": {"slug": "github-actions"},
@@ -377,18 +372,104 @@ state_path.write_text(json.dumps(state), encoding="utf-8")
             "REPOSITORY": "example/repo",
             "PR_NUMBER": "42",
         }
-        for body in (
-            "first\n<!-- pr-review-state:v1:first -->\n",
-            "second\n<!-- pr-review-state:v1:second -->\n",
+
+        def review_body(label: str, head: str) -> str:
+            marker = base64.b64encode(json.dumps({"head": head}).encode()).decode()
+            return f"{label}\n<!-- pr-review-state:v1:{marker} -->\n"
+
+        head_1 = "1" * 40
+        head_2 = "2" * 40
+        untrusted_body = review_body("untrusted", head_1)
+        state_path.write_text(
+            json.dumps(
+                {
+                    "comments": [
+                        {
+                            "id": 1,
+                            "body": untrusted_body,
+                            "user": {"login": "attacker[bot]", "type": "Bot"},
+                            "performed_via_github_app": {"slug": "github-actions"},
+                        },
+                        {
+                            "id": 2,
+                            "body": untrusted_body,
+                            "user": {"login": "github-actions[bot]", "type": "Bot"},
+                            "performed_via_github_app": {"slug": "other-app"},
+                        },
+                    ],
+                    "create_calls": 0,
+                    "patch_calls": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        for label, head in (
+            ("head 1 first", head_1),
+            ("head 1 rerun", head_1),
+            ("head 2 first", head_2),
+            ("head 2 rerun", head_2),
         ):
+            env["REVIEW_HEAD"] = head
+            body = review_body(label, head)
             comment_file.write_text(body, encoding="utf-8")
             run(["bash", "-euo", "pipefail", "-c", script], env=env)
 
         state = json.loads(state_path.read_text(encoding="utf-8"))
-        assert len(state["comments"]) == 1, "连续发布必须只保留一条受控 PR review 评论"
-        assert state["create_calls"] == 1
-        assert state["patch_calls"] == 1
-        assert state["comments"][0]["body"].startswith("second\n")
+        controlled = [
+            comment
+            for comment in state["comments"]
+            if comment["user"]["login"] == "github-actions[bot]"
+            and comment["performed_via_github_app"]["slug"] == "github-actions"
+        ]
+        assert len(controlled) == 2, "每个 PR head 必须保留一条独立审查评论"
+        assert state["create_calls"] == 2
+        assert state["patch_calls"] == 2
+        assert controlled[0]["body"].startswith("head 1 rerun\n")
+        assert controlled[1]["body"].startswith("head 2 rerun\n")
+
+
+def test_pre_push_bot_comment_audit() -> None:
+    hook = read(ROOT / ".githooks" / "check-pr-ci.sh")
+    match = re.search(
+        r"(?ms)^\s*# BEGIN BOT_COMMENT_AUDIT_JQ\n(.*?)^\s*# END BOT_COMMENT_AUDIT_JQ",
+        hook,
+    )
+    assert match, "找不到 pre-push Bot 评论审计过滤器"
+    jq_filter = textwrap.dedent(match.group(1))
+    head_time = "2026-07-27T12:00:00Z"
+    comments = [
+        {
+            "user": {"login": "github-actions[bot]", "type": "Bot"},
+            "created_at": "2026-07-27T12:01:00Z",
+            "updated_at": "2026-07-27T12:03:00Z",
+            "html_url": "https://example.invalid/bot",
+        },
+        {
+            "user": {"login": "maintainer", "type": "User"},
+            "author_association": "OWNER",
+            "created_at": "2026-07-27T12:02:00Z",
+            "html_url": "https://example.invalid/stale-reply",
+        },
+    ]
+    stale_reply = run(
+        ["jq", "-r", "--arg", "t", head_time, jq_filter],
+        input_text=json.dumps(comments),
+    )
+    assert "github-actions[bot]\tCOMMENT\t2026-07-27T12:03:00Z" in stale_reply.stdout
+
+    comments.append(
+        {
+            "user": {"login": "maintainer", "type": "User"},
+            "author_association": "OWNER",
+            "created_at": "2026-07-27T12:04:00Z",
+            "html_url": "https://example.invalid/fresh-reply",
+        }
+    )
+    fresh_reply = run(
+        ["jq", "-r", "--arg", "t", head_time, jq_filter],
+        input_text=json.dumps(comments),
+    )
+    assert fresh_reply.stdout == "", "只有 Bot 评论最后更新之后的维护者回复才能关闭审计"
 
 
 def git(repo: Path, *args: str) -> str:
@@ -699,6 +780,7 @@ def main() -> None:
     test_model_proxy_contract()
     test_review_result_semantics(review)
     test_review_comment_upsert(review)
+    test_pre_push_bot_comment_audit()
     test_runtime_scripts()
     test_publish_preserves_unmerged_llmdoc_candidate()
 
