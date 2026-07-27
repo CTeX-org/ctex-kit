@@ -136,6 +136,11 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 正文。finding 不成立时，维护者应在最新正文后回复证据，再运行 `make check-pr-ci`，不必用空提交
 触发又一轮相同审查。
 
+按 head 保留评论后，长 PR 的 Issue 评论会持续累积。只请求 `per_page=100` 的第一页，可能漏掉
+当前 head 新建在后续页的审查评论。pre-push 因而必须使用 `gh api --paginate --slurp` 取得全部页，
+展平成一个评论集合后再同时查找 Bot 评论和维护者回复；合同测试把当前 head 的 Bot 评论放在第二页，
+固定这一取数边界。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -153,7 +158,7 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 - cache 恢复到不可信 checkout 内的路径时，必须先删除并重建目标，再验证恢复内容；restore 本身
   不能自动清除工作区原有文件。
 - 审查评论以 PR head 为幂等键：同 head 更新，不同 head 新建；维护者回复以 Bot 评论最后一次
-  `updated_at` 为时间边界。
+  `updated_at` 为时间边界，并且审计必须覆盖全部 Issue 评论页。
 - 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
   本仓库的权限、事件提交和缓存边界。
@@ -162,7 +167,7 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 
 - `python3 scripts/test-agentic-workflow-contract.py`
   - 包含 `assume-unchanged` 隐藏脚本改写、恶意 `core.fsmonitor` 被 Git 执行、字体暂存内容不完整、
-    同／异 head 评论发布，以及维护者回复早于 Bot `updated_at` 的反例；
+    同／异 head 评论发布、第二页 Bot 评论，以及维护者回复早于 Bot `updated_at` 的反例；
 - `python3 scripts/validate-action-metadata.py .github/actions/*/action.yml`
 - actionlint 检查四条相关 workflow
 - ShellCheck 检查 Agent runtime 和历史准备脚本

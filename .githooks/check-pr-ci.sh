@@ -154,15 +154,16 @@ fi
 # 维护者回复的 bot 评论。成立问题
 # 仍应先修复并 push; 无需改代码时可回复证据后手动跑 make check-pr-ci 收尾.
 #
-# 同 (1): gh api --jq 不支持 --arg, 用 pipe 走 jq -r --arg.
+# Issue 评论可能跨页；必须完整分页后展平。同 (1): gh api --jq 不支持
+# --arg, 用 pipe 走 jq -r --arg.
 new_bot_comment_after_push=""
 if [ -n "$head_committed_at" ] && [ -n "$repo_owner" ]; then
-  new_bot_comment_after_push="$(gh api \
+  new_bot_comment_after_push="$(gh api --paginate --slurp \
     "repos/${repo_owner}/${repo_name}/issues/${pr_number}/comments?per_page=100" \
     2>/dev/null \
     | jq -r --arg t "$head_committed_at" '
         # BEGIN BOT_COMMENT_AUDIT_JQ
-        . as $comments
+        [ .[][] ] as $comments
         | $comments[]?
         | select(.user.type == "Bot")
         | select((.created_at // "") > $t)
