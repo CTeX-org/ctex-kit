@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 from pathlib import Path
 
 import yaml
@@ -257,6 +258,96 @@ def test_review_result_semantics(review_source: str) -> None:
         assert accepted.returncode == 0, "含小问题的 COMMENT 应被实际 jq 校验接受"
 
 
+def test_review_comment_upsert(review_source: str) -> None:
+    match = re.search(
+        r"(?ms)^\s*# BEGIN REVIEW_COMMENT_UPSERT\n(.*?)^\s*# END REVIEW_COMMENT_UPSERT",
+        review_source,
+    )
+    assert match, "找不到 PR review 评论幂等发布片段"
+    script = textwrap.dedent(match.group(1))
+    assert "REVIEW_MARKER_REGEX='(?m)^<!-- pr-review-state:v1:" in script
+    assert '(.body | test(\\"$REVIEW_MARKER_REGEX\\"))' in script
+
+    with tempfile.TemporaryDirectory(prefix="ctex-review-comment-") as tmp_name:
+        tmp = Path(tmp_name)
+        fake_bin = tmp / "bin"
+        fake_bin.mkdir()
+        state_path = tmp / "state.json"
+        state_path.write_text(
+            json.dumps({"comments": [], "create_calls": 0, "patch_calls": 0}),
+            encoding="utf-8",
+        )
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            """#!/usr/bin/env python3
+import json
+import os
+import sys
+from pathlib import Path
+
+state_path = Path(os.environ["FAKE_GH_STATE"])
+state = json.loads(state_path.read_text(encoding="utf-8"))
+args = sys.argv[1:]
+
+if args[:2] == ["api", "--paginate"]:
+    for comment in state["comments"]:
+        if (
+            comment["user"]["login"] == "github-actions[bot]"
+            and comment["user"]["type"] == "Bot"
+            and comment["performed_via_github_app"]["slug"] == "github-actions"
+            and "<!-- pr-review-state:v1:" in comment["body"]
+        ):
+            print(comment["id"])
+elif args[:3] == ["api", "--method", "PATCH"]:
+    comment_id = int(args[3].rsplit("/", 1)[1])
+    payload = json.loads(Path(args[args.index("--input") + 1]).read_text(encoding="utf-8"))
+    comment = next(item for item in state["comments"] if item["id"] == comment_id)
+    comment["body"] = payload["body"]
+    state["patch_calls"] += 1
+elif args[:2] == ["pr", "comment"]:
+    body = Path(args[args.index("--body-file") + 1]).read_text(encoding="utf-8")
+    state["comments"].append(
+        {
+            "id": 101,
+            "body": body,
+            "user": {"login": "github-actions[bot]", "type": "Bot"},
+            "performed_via_github_app": {"slug": "github-actions"},
+        }
+    )
+    state["create_calls"] += 1
+else:
+    raise SystemExit(f"unexpected gh arguments: {args!r}")
+
+state_path.write_text(json.dumps(state), encoding="utf-8")
+""",
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+
+        runner_temp = tmp / "runner"
+        runner_temp.mkdir()
+        comment_file = runner_temp / "review-comment.md"
+        env = os.environ | {
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FAKE_GH_STATE": str(state_path),
+            "RUNNER_TEMP": str(runner_temp),
+            "REPOSITORY": "example/repo",
+            "PR_NUMBER": "42",
+        }
+        for body in (
+            "first\n<!-- pr-review-state:v1:first -->\n",
+            "second\n<!-- pr-review-state:v1:second -->\n",
+        ):
+            comment_file.write_text(body, encoding="utf-8")
+            run(["bash", "-euo", "pipefail", "-c", script], env=env)
+
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert len(state["comments"]) == 1, "连续发布必须只保留一条受控 PR review 评论"
+        assert state["create_calls"] == 1
+        assert state["patch_calls"] == 1
+        assert state["comments"][0]["body"].startswith("second\n")
+
+
 def git(repo: Path, *args: str) -> str:
     return run(["git", *args], cwd=repo).stdout.strip()
 
@@ -447,6 +538,107 @@ def test_runtime_scripts() -> None:
         assert rejected.returncode != 0, "llmdoc 候选不得修改 llmdoc/ 之外的路径"
 
 
+def test_publish_preserves_unmerged_llmdoc_candidate() -> None:
+    scripts = ROOT / ".github" / "scripts" / "agentic"
+    package = scripts / "package-change-result.sh"
+    publish = scripts / "publish-change.sh"
+
+    with tempfile.TemporaryDirectory(prefix="ctex-llmdoc-publish-") as tmp_name:
+        tmp = Path(tmp_name)
+        base_repo = tmp / "base"
+        base_sha = init_fixture_repo(base_repo)
+        remote = tmp / "server" / "example" / "repo.git"
+        remote.parent.mkdir(parents=True)
+        run(["git", "init", "--bare", "-q", str(remote)])
+        git(base_repo, "remote", "add", "origin", str(remote))
+        git(base_repo, "push", "-q", "origin", "HEAD:refs/heads/master")
+
+        old_repo = tmp / "old-candidate"
+        run(["git", "clone", "-q", "--local", str(base_repo), str(old_repo)])
+        git(old_repo, "config", "user.name", "Agent contract test")
+        git(old_repo, "config", "user.email", "contract@example.invalid")
+        git(old_repo, "config", "commit.gpgsign", "false")
+        (old_repo / "llmdoc" / "index.md").write_text("base\nold candidate\n", encoding="utf-8")
+        git(old_repo, "add", "llmdoc/index.md")
+        git(old_repo, "commit", "-q", "-m", "old llmdoc candidate")
+        old_sha = git(old_repo, "rev-parse", "HEAD")
+        branch = "agentic/update-llmdoc-master"
+        git(old_repo, "push", "-q", str(remote), f"HEAD:refs/heads/{branch}")
+
+        candidate_repo = tmp / "new-candidate"
+        run(["git", "clone", "-q", "--local", str(base_repo), str(candidate_repo)])
+        git(candidate_repo, "config", "commit.gpgsign", "false")
+        (candidate_repo / "llmdoc" / "index.md").write_text(
+            "base\nnew candidate\n", encoding="utf-8"
+        )
+        result = tmp / "candidate.json"
+        result.write_text(json.dumps(candidate_result()), encoding="utf-8")
+        artifact = tmp / "artifact"
+        run(
+            [
+                "bash",
+                str(package),
+                str(result),
+                str(candidate_repo),
+                str(artifact),
+                base_sha,
+                "codex",
+                "gpt-5.6-sol",
+                "update-llmdoc",
+            ]
+        )
+
+        fake_bin = tmp / "bin"
+        fake_bin.mkdir()
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            """#!/usr/bin/env python3
+import sys
+
+args = sys.argv[1:]
+if args == ["auth", "setup-git"]:
+    raise SystemExit(0)
+if args[:2] == ["pr", "list"]:
+    print('[{"number": 7, "url": "https://example.invalid/pr/7", '
+          '"body": "<!-- agentic-update-llmdoc:master -->"}]')
+    raise SystemExit(0)
+raise SystemExit(f"unexpected gh arguments: {args!r}")
+""",
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+        runner_temp = tmp / "runner"
+        runner_temp.mkdir()
+        env = os.environ | {
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "GH_TOKEN": "test-token",
+            "RUNNER_TEMP": str(runner_temp),
+            "GITHUB_SERVER_URL": f"file://{tmp / 'server'}",
+        }
+        rejected = run(
+            [
+                "bash",
+                str(publish),
+                str(artifact),
+                "example/repo",
+                "master",
+                branch,
+                "update-llmdoc",
+                str(tmp / "public-result.json"),
+            ],
+            env=env,
+            check=False,
+        )
+        assert rejected.returncode != 0
+        assert "Refusing to replace unmerged llmdoc candidate" in rejected.stdout, (
+            f"unexpected publisher failure\nstdout:\n{rejected.stdout}\nstderr:\n{rejected.stderr}"
+        )
+        remote_sha = run(
+            ["git", "ls-remote", "--heads", str(remote), f"refs/heads/{branch}"]
+        ).stdout.split()[0]
+        assert remote_sha == old_sha, "发布失败后必须保留旧 llmdoc 候选 head"
+
+
 def main() -> None:
     review = workflow("agentic-pr-review.yml")
     issue = workflow("agentic-issue-dispatch.yml")
@@ -463,7 +655,9 @@ def main() -> None:
     )
     test_model_proxy_contract()
     test_review_result_semantics(review)
+    test_review_comment_upsert(review)
     test_runtime_scripts()
+    test_publish_preserves_unmerged_llmdoc_candidate()
 
     assert not (WORKFLOWS / "agentic-patrol.yml").exists(), "定时 patrol 不应恢复"
     for name, source in zip(AGENTIC_WORKFLOWS, (review, issue, llmdoc), strict=True):
