@@ -358,7 +358,7 @@ GitHub Actions 工作流当前包含以下主线：
 
 Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 限制主仓库执行（#875 / PR #876）。这是 job 级 `if`，能在分配 runner 前挡住 fork 上的定时、手动或 Issue 事件。llmdoc 仍保持每天一次；原 `agentic-patrol.yml` 已由 `issues.opened` 驱动的分派取代，因此不再有巡检频率。历史原因见 [[874-876-agentic-fork-shielding-cron]]，本轮取舍见 [[agentic-template-reuse]]。
 
-六个实际运行 Agent 的 job（每条 workflow 各一条 Codex 和 Claude 链路）都调用 `setup-agent-tools`，恢复或安装 TeX Live 2026、Noto CJK、HanaMinB、Noto Sans Symbols 2、Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint。TeX Live 使用与可信 CI 相同的 `tl-bypass-<os>-2026-<ISO week>-<tl_packages hash>` key；两组字体也复用既有 key。三类缓存都只用 `actions/cache/restore`，Agent 不执行 save。缓存未命中时本次 job 可以安装，但共享缓存只能由可信 CI 预热；否则 Agent 运行过仓库代码后可能污染新的 weekly key 或依赖变更后的 key。
+六个实际运行 Agent 的 job（每条 workflow 各一条 Codex 和 Claude 链路）都调用 `setup-agent-tools`，恢复或安装 TeX Live 2026、Noto CJK、HanaMinB、Noto Sans Symbols 2、Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint。TeX Live 使用与可信 CI 相同的 `tl-bypass-<os>-2026-<ISO week>-<tl_packages hash>` key；两组字体也复用既有 key。三类缓存都只用 `actions/cache/restore`，Agent 不执行 save。缓存未命中时本次 job 可以安装，但共享缓存只能由可信 CI 预热；否则 Agent 运行过仓库代码后可能污染新的 weekly key 或依赖变更后的 key。两组字体为了保持与现有 CI 相同的 cache version，仍恢复到 workspace 路径；Action 必须在 restore 前删除并重建这两个目录，再拒绝恢复内容中的符号链接、子目录和未允许文件，避免 PR head 预置 `.done` 或字体混入系统字体集合。
 
 PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚本、审查规范和历史准备脚本必须从 PR base SHA 取得。复合 Action 在移交工作区所有权前，还要把启动脚本和代理复制到 runner 自己的临时目录；仅确认脚本最初来自可信提交，不能防止 Agent 在运行中改写工作区里的后续命令。模型密钥只由以 root 身份运行、通过 `env -i` 清空继承环境的本地固定上游代理读取；Agent CLI 以无 sudo 的 `ctex-agent` 用户和 `env -i` 启动，只持有本地代理占位凭据。Agent 结束后清理同一用户 ID（UID）的后台进程、代理和临时密钥，再恢复工作区所有权。这一边界防止仓库子进程读取长期模型密钥，但不限制它使用代理消耗模型调用额度。
 
@@ -366,7 +366,7 @@ PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚
 
 Agent 返回后，runner 不能执行 Agent 可写路径中的脚本，也不能把该工作区的 `git status` 当作内容认证。Agent 可以用 `assume-unchanged`、本地提交或 `.git/config` 隐藏、转移改动；Git 命令本身还可能通过 `core.fsmonitor` 等配置执行程序。Issue Dispatch 因此在 Agent 启动前把结果整理脚本复制到 runner 的私有临时目录，返回后只用这份副本解析结果文件，不再执行 `consumer` 中的脚本或对它运行 Git。llmdoc Updater 则重新把固定 master 提交检出到 `package-base`，只复制 `consumer/llmdoc/` 文件树；比较、暂存和补丁生成全部在这个新仓库中完成，不读取 Agent 控制的 `.git`。恢复目录所有权不能恢复文件和仓库元数据的可信度，后处理仍须保持代码与数据分离。
 
-`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、只读缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、由 `assume-unchanged` 隐藏的脚本改写，以及恶意 `core.fsmonitor` 会被 Git 执行。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
+`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、只读缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、由 `assume-unchanged` 隐藏的脚本改写、恶意 `core.fsmonitor` 会被 Git 执行，以及字体 staging 中预置的 `.done`、额外字体和目录符号链接会被清除或拒绝。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
 
 ### 测试工作流：`.github/workflows/test.yml`
 

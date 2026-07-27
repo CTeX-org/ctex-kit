@@ -93,12 +93,47 @@ runs:
           exit 1
         fi
 
+    # 字体 cache 为了复用现有 CI 的 cache version，仍使用 workspace 路径。
+    # PR head 可以预置这些路径，所以必须在 restore 前删除，不能让 cache 解包覆盖在其上。
+    - name: Prepare clean font cache staging directories
+      shell: bash
+      run: |
+        for font_cache in \
+          "$GITHUB_WORKSPACE/.font-cache" \
+          "$GITHUB_WORKSPACE/.xecjk-font-cache"; do
+          rm -rf -- "$font_cache"
+          mkdir -p -- "$font_cache"
+          if [[ -L "$font_cache" || ! -d "$font_cache" ]]; then
+            echo "::error::字体 cache 暂存路径不是普通目录：$font_cache"
+            exit 1
+          fi
+        done
+
     - name: Restore shared CJK font cache
       id: font-cache
       uses: actions/cache/restore@v6
       with:
         path: ${{ github.workspace }}/.font-cache
         key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
+
+    - name: Validate restored CJK font cache
+      shell: bash
+      run: |
+        font_cache="$GITHUB_WORKSPACE/.font-cache"
+        while IFS= read -r -d '' path; do
+          name=${path##*/}
+          if [[ -L "$path" || ! -f "$path" ]]; then
+            echo "::error::CJK 字体 cache 含有非普通文件：$name"
+            exit 1
+          fi
+          case "$name" in
+            .done|NotoSansCJK-*.ttc|NotoSerifCJK-*.ttc) ;;
+            *)
+              echo "::error::CJK 字体 cache 含有未允许的文件：$name"
+              exit 1
+              ;;
+          esac
+        done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
 
     - name: Install CJK fonts
       shell: bash
@@ -123,7 +158,13 @@ runs:
           rm -f -- *.zip
           touch .done
         fi
-        sudo cp "$font_cache"/*.ttc /usr/share/fonts/truetype/
+        shopt -s nullglob
+        fonts=("$font_cache"/*.ttc)
+        if (( ${#fonts[@]} == 0 )); then
+          echo '::error::CJK 字体 cache 中没有 TTC 字体。'
+          exit 1
+        fi
+        sudo cp -- "${fonts[@]}" /usr/share/fonts/truetype/
         fc-cache -f
 
     - name: Restore xeCJK document font cache
@@ -132,6 +173,25 @@ runs:
       with:
         path: ${{ github.workspace }}/.xecjk-font-cache
         key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
+    - name: Validate restored xeCJK document font cache
+      shell: bash
+      run: |
+        font_cache="$GITHUB_WORKSPACE/.xecjk-font-cache"
+        while IFS= read -r -d '' path; do
+          name=${path##*/}
+          if [[ -L "$path" || ! -f "$path" ]]; then
+            echo "::error::xeCJK 字体 cache 含有非普通文件：$name"
+            exit 1
+          fi
+          case "$name" in
+            .done|HanaMinB.ttf|NotoSansSymbols2-Regular.ttf) ;;
+            *)
+              echo "::error::xeCJK 字体 cache 含有未允许的文件：$name"
+              exit 1
+              ;;
+          esac
+        done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
 
     - name: Install xeCJK document fonts
       shell: bash
@@ -151,7 +211,13 @@ runs:
           rm -f -- *.zip
           touch .done
         fi
-        sudo cp "$font_cache"/*.ttf /usr/share/fonts/truetype/
+        shopt -s nullglob
+        fonts=("$font_cache"/*.ttf)
+        if (( ${#fonts[@]} == 0 )); then
+          echo '::error::xeCJK 字体 cache 中没有 TTF 字体。'
+          exit 1
+        fi
+        sudo cp -- "${fonts[@]}" /usr/share/fonts/truetype/
         fc-cache -f
 
     - name: Register TeX Live fonts with fontconfig
