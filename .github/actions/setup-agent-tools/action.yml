@@ -38,8 +38,8 @@ runs:
       shell: bash
       run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
 
-    # Agent 随后会执行仓库代码，三类共享缓存都只能读取，不能在 post job 回写。
-    # TeX Live 的可信写入者仍是 test.yml 的 warmup-tl。
+    # 普通 actions/cache 会在 post job 保存，届时 Agent 已经运行过仓库代码。
+    # 因此先只恢复；缓存未命中时，由本可信 Action 在 Agent 启动前显式保存。
     - name: Restore shared TeX Live cache
       id: tl-cache
       uses: actions/cache/restore@v6
@@ -82,16 +82,26 @@ runs:
         update-all-packages: true
         cache: false
 
-    - name: Verify TeX Live mirror on cache miss
+    - name: Verify TeX Live installation and mirror on cache miss
       if: (steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure') && (steps.tl-install-primary.outcome == 'success' || steps.tl-install-fallback.outcome == 'success')
       shell: bash
       run: |
+        command -v l3build
+        command -v xelatex
+        tlmgr version
         out=$(tlmgr update --self --list 2>&1) || true
         echo "$out"
         if grep -qiE 'Unable to download|not verified' <<< "$out"; then
           echo '::error::TeX Live mirror 不可达，tlmgr 使用了本地旧数据库。'
           exit 1
         fi
+
+    - name: Save trusted TeX Live cache before Agent
+      if: steps.tl-cache.outputs.cache-hit != 'true' && (steps.tl-install-primary.outcome == 'success' || steps.tl-install-fallback.outcome == 'success')
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ runner.temp }}/setup-texlive-action/${{ inputs.tl-version }}
+        key: tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ steps.tl-cache-key.outputs.week }}-${{ hashFiles(inputs.tl-package-file) }}
 
     # 字体 cache 为了复用现有 CI 的 cache version，仍使用 workspace 路径。
     # PR head 可以预置这些路径，所以必须在 restore 前删除，不能让 cache 解包覆盖在其上。
@@ -116,29 +126,9 @@ runs:
         path: ${{ github.workspace }}/.font-cache
         key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
 
-    - name: Validate restored CJK font cache
+    - name: Prepare CJK font cache
       shell: bash
       run: |
-        font_cache="$GITHUB_WORKSPACE/.font-cache"
-        while IFS= read -r -d '' path; do
-          name=${path##*/}
-          if [[ -L "$path" || ! -f "$path" ]]; then
-            echo "::error::CJK 字体 cache 含有非普通文件：$name"
-            exit 1
-          fi
-          case "$name" in
-            .done|NotoSansCJK-*.ttc|NotoSerifCJK-*.ttc) ;;
-            *)
-              echo "::error::CJK 字体 cache 含有未允许的文件：$name"
-              exit 1
-              ;;
-          esac
-        done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
-
-    - name: Install CJK fonts
-      shell: bash
-      run: |
-        sudo mkdir -p /usr/share/fonts/truetype
         font_cache="$GITHUB_WORKSPACE/.font-cache"
         font_url_file="${{ inputs.font-url-file }}"
         if [[ "$font_url_file" != /* ]]; then
@@ -158,6 +148,38 @@ runs:
           rm -f -- *.zip
           touch .done
         fi
+
+    - name: Validate prepared CJK font cache before save
+      shell: bash
+      run: |
+        font_cache="$GITHUB_WORKSPACE/.font-cache"
+        while IFS= read -r -d '' path; do
+          name=${path##*/}
+          if [[ -L "$path" || ! -f "$path" ]]; then
+            echo "::error::CJK 字体 cache 含有非普通文件：$name"
+            exit 1
+          fi
+          case "$name" in
+            .done|NotoSansCJK-*.ttc|NotoSerifCJK-*.ttc) ;;
+            *)
+              echo "::error::CJK 字体 cache 含有未允许的文件：$name"
+              exit 1
+              ;;
+          esac
+        done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
+
+    - name: Save trusted CJK font cache before Agent
+      if: steps.font-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/.font-cache
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
+
+    - name: Install CJK fonts
+      shell: bash
+      run: |
+        sudo mkdir -p /usr/share/fonts/truetype
+        font_cache="$GITHUB_WORKSPACE/.font-cache"
         shopt -s nullglob
         fonts=("$font_cache"/*.ttc)
         if (( ${#fonts[@]} == 0 )); then
@@ -174,7 +196,25 @@ runs:
         path: ${{ github.workspace }}/.xecjk-font-cache
         key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
 
-    - name: Validate restored xeCJK document font cache
+    - name: Prepare xeCJK document font cache
+      shell: bash
+      run: |
+        font_cache="$GITHUB_WORKSPACE/.xecjk-font-cache"
+        mkdir -p "$font_cache"
+        if [[ ! -f "$font_cache/.done" ]]; then
+          cd "$font_cache"
+          curl --fail --location --output HanaMinB.ttf \
+            'https://github.com/googlefonts/chinese/raw/gh-pages/fonts/HanaMin/HanaMinB.ttf'
+          curl --fail --location --remote-name \
+            'https://github.com/notofonts/symbols/releases/download/NotoSansSymbols2-v2.008/NotoSansSymbols2-v2.008.zip'
+          for archive in NotoSansSymbols2-*.zip; do
+            unzip -ojd . "$archive" '*.ttf'
+          done
+          rm -f -- *.zip
+          touch .done
+        fi
+
+    - name: Validate prepared xeCJK document font cache before save
       shell: bash
       run: |
         font_cache="$GITHUB_WORKSPACE/.xecjk-font-cache"
@@ -193,24 +233,18 @@ runs:
           esac
         done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
 
+    - name: Save trusted xeCJK document font cache before Agent
+      if: steps.xecjk-font-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/.xecjk-font-cache
+        key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
     - name: Install xeCJK document fonts
       shell: bash
       run: |
         sudo mkdir -p /usr/share/fonts/truetype
         font_cache="$GITHUB_WORKSPACE/.xecjk-font-cache"
-        mkdir -p "$font_cache"
-        if [[ ! -f "$font_cache/.done" ]]; then
-          cd "$font_cache"
-          curl --fail --location --output HanaMinB.ttf \
-            'https://github.com/googlefonts/chinese/raw/gh-pages/fonts/HanaMin/HanaMinB.ttf'
-          curl --fail --location --remote-name \
-            'https://github.com/notofonts/symbols/releases/download/NotoSansSymbols2-v2.008/NotoSansSymbols2-v2.008.zip'
-          for archive in NotoSansSymbols2-*.zip; do
-            unzip -ojd . "$archive" '*.ttf'
-          done
-          rm -f -- *.zip
-          touch .done
-        fi
         shopt -s nullglob
         fonts=("$font_cache"/*.ttf)
         if (( ${#fonts[@]} == 0 )); then
