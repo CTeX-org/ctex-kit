@@ -8,7 +8,7 @@ set -euo pipefail
 : "${PROMPT_FILE:?}"
 : "${SCHEMA_FILE:?}"
 : "${RESULT_FILE:?}"
-: "${GITHUB_ACTION_PATH:?}"
+: "${MODEL_PROXY_SCRIPT:?}"
 
 case "$PROVIDER" in
   codex|claude) ;;
@@ -19,7 +19,7 @@ test -s "$PROMPT_FILE"
 test -s "$SCHEMA_FILE"
 command -v pkill >/dev/null
 
-proxy_script="$GITHUB_ACTION_PATH/../../scripts/agentic/model-api-proxy.py"
+proxy_script=$MODEL_PROXY_SCRIPT
 test -f "$proxy_script"
 agent_user=ctex-agent
 session_dir=$(mktemp -d /tmp/ctex-agent-session.XXXXXX)
@@ -76,7 +76,8 @@ if [[ "$PROVIDER" == codex && "$upstream" != */v1 ]]; then
 fi
 # 日志文件由 runner shell 有意创建，不含凭据。
 # shellcheck disable=SC2024
-sudo --non-interactive python3 "$proxy_script" \
+sudo --non-interactive env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+  python3 "$proxy_script" \
   --provider "$PROVIDER" \
   --upstream "$upstream" \
   --secret-file "$secret_file" \

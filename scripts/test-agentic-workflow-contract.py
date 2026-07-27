@@ -508,7 +508,11 @@ def main() -> None:
         (
             "Run pinned agent CLI behind root credential proxy",
             "MODEL_API_KEY: ${{ inputs.api_key }}",
-            "run-agent-with-proxy.sh",
+            "ctex-agent-trusted-runtime.XXXXXX",
+            "install -m 700",
+            "install -m 600",
+            'MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py"',
+            'bash "$trusted_runtime/run-agent-with-proxy.sh"',
         ),
         "Agent credential runner",
     )
@@ -516,6 +520,8 @@ def main() -> None:
         secure_runner,
         (
             "useradd --system --create-home --user-group",
+            ': "${MODEL_PROXY_SCRIPT:?}"',
+            "sudo --non-interactive env -i PATH=/usr/bin:/bin LANG=C.UTF-8",
             "sudo --non-interactive -u \"$agent_user\"",
             "env -i",
             "OPENAI_API_KEY=ctex-local-proxy",
@@ -532,6 +538,7 @@ def main() -> None:
         'Authorization: Bearer $API_KEY',
     ):
         assert leaked not in runner + secure_runner, f"Agent 子进程不得直接继承模型密钥: {leaked}"
+    assert "GITHUB_ACTION_PATH" not in secure_runner, "安全启动脚本不得在交出工作区后继续依赖工作区路径"
 
     # 安装 Action 与现有 CI 共享 key，但 Agent 只能 restore，不能回写共享缓存。
     assert setup.count("uses: actions/cache/restore@v6") == 3
@@ -545,6 +552,7 @@ def main() -> None:
             "xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1",
             "cache: false",
             "procps",
+            "python3-yaml",
             "rm -rf -- \"$GITHUB_WORKSPACE/.font-cache\" \"$GITHUB_WORKSPACE/.xecjk-font-cache\"",
         ),
         "Agent tool cache",

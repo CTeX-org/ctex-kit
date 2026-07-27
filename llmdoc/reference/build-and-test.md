@@ -360,7 +360,7 @@ Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CT
 
 六个实际运行 Agent 的 job（每条 workflow 各一条 Codex 和 Claude 链路）都调用 `setup-agent-tools`，恢复或安装 TeX Live 2026、Noto CJK、HanaMinB、Noto Sans Symbols 2、Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint。TeX Live 使用与可信 CI 相同的 `tl-bypass-<os>-2026-<ISO week>-<tl_packages hash>` key；两组字体也复用既有 key。三类缓存都只用 `actions/cache/restore`，Agent 不执行 save。缓存未命中时本次 job 可以安装，但共享缓存只能由可信 CI 预热；否则 Agent 运行过仓库代码后可能污染新的 weekly key 或依赖变更后的 key。
 
-PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚本、审查规范和历史准备脚本必须从 PR base SHA 取得。模型密钥只由以 root 身份运行的本地固定上游代理读取；Agent CLI 以无 sudo 的 `ctex-agent` 用户和 `env -i` 启动，只持有本地代理占位凭据。Agent 结束后清理同一用户 ID（UID）的后台进程、代理和临时密钥，再恢复工作区所有权。这一边界防止仓库子进程读取长期模型密钥，但不限制它使用代理消耗模型调用额度。
+PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚本、审查规范和历史准备脚本必须从 PR base SHA 取得。复合 Action 在移交工作区所有权前，还要把启动脚本和代理复制到 runner 自己的临时目录；仅确认脚本最初来自可信提交，不能防止 Agent 在运行中改写工作区里的后续命令。模型密钥只由以 root 身份运行、通过 `env -i` 清空继承环境的本地固定上游代理读取；Agent CLI 以无 sudo 的 `ctex-agent` 用户和 `env -i` 启动，只持有本地代理占位凭据。Agent 结束后清理同一用户 ID（UID）的后台进程、代理和临时密钥，再恢复工作区所有权。这一边界防止仓库子进程读取长期模型密钥，但不限制它使用代理消耗模型调用额度。
 
 三条 workflow 都把 Agent 与外部写入分开：PR Agent 只读，publisher 独占 `pull-requests: write`；Issue Agent 固定事件 `github.sha` 且只读，dispatch job 独占 `issues: write`；llmdoc prepare 固定 master SHA，Agent 只打包 `llmdoc/` 候选，独立 validator 从同一 SHA 验证，publisher 才取得 `contents: write` 和 `pull-requests: write`。固定提交与 publisher 隔离分别约束“运行哪版代码”和“谁能写入”，不能互相替代。
 
