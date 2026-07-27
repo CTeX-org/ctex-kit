@@ -83,6 +83,38 @@ def assert_setup_before_agent(source: str, setup_ref: str, agent_ref: str, label
     assert source.index(setup_ref) < source.index(agent_ref), f"{label} 必须在可信工具安装和缓存保存后才启动 Agent"
 
 
+def assert_pr_review_runtime_dependency_closure(source: str) -> None:
+    """PR Review 的可信 sparse checkout 必须包含 run-agent 的本地运行时依赖。"""
+    action_path = ACTIONS / "run-agent" / "action.yml"
+    dependencies: set[str] = set()
+    for relative in re.findall(
+        r'\$GITHUB_ACTION_PATH/((?:\.\./)+[^"\s\\]+)',
+        read(action_path),
+    ):
+        resolved = (action_path.parent / relative).resolve()
+        try:
+            dependencies.add(resolved.relative_to(ROOT).as_posix())
+        except ValueError as error:
+            raise AssertionError(f"run-agent 引用了仓库外路径: {relative}") from error
+
+    assert dependencies, "没有从 run-agent Action 提取到本地运行时依赖"
+    document = yaml.safe_load(source)
+    for job_name in ("codex_review", "claude_review"):
+        steps = document["jobs"][job_name]["steps"]
+        checkout = next(
+            step
+            for step in steps
+            if step.get("name") == "Checkout trusted review runtime from base commit"
+        )
+        sparse_paths = {
+            line.strip()
+            for line in checkout["with"]["sparse-checkout"].splitlines()
+            if line.strip()
+        }
+        missing = sorted(dependencies - sparse_paths)
+        assert not missing, f"PR Review {job_name} 的可信 sparse checkout 缺少 run-agent 依赖: {missing}"
+
+
 def embedded_run_blocks(source: str) -> list[str]:
     """取出 YAML 中的 literal run block，供 bash 做离线语法检查。"""
     lines = source.splitlines()
@@ -958,6 +990,19 @@ def main() -> None:
             "uses: ./.trusted-base/.github/actions/run-agent",
             f"PR Review {name}",
         )
+
+    assert_pr_review_runtime_dependency_closure(review)
+    broken_review = review.replace(
+        "            .github/scripts/agentic/agent-control-hardening.c\n",
+        "",
+        1,
+    )
+    try:
+        assert_pr_review_runtime_dependency_closure(broken_review)
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("可信 sparse checkout 缺少 run-agent 运行时依赖的反例必须失败")
 
     publisher = job(review, "publish")
     require_all(publisher, ("pull-requests: write", "actions/download-artifact@"), "PR publisher")
