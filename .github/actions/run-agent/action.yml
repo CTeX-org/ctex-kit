@@ -27,6 +27,10 @@ inputs:
   result_file:
     description: Absolute normalized result file path
     required: true
+  ignore_repository_rules:
+    description: Ignore repository-provided Agent instructions for untrusted review checkouts
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -39,14 +43,14 @@ runs:
         set -euo pipefail
         case "$PROVIDER" in
           codex)
-            install_dir="$RUNNER_TEMP/codex-0.145.0"
+            install_dir="/tmp/ctex-agent-cli/codex-0.145.0"
             npm install --ignore-scripts --no-audit --no-fund \
               --prefix "$install_dir" @openai/codex@0.145.0
             codex_path="$install_dir/node_modules/.bin/codex"
             "$codex_path" --version
             ;;
           claude)
-            install_dir="$RUNNER_TEMP/claude-code-2.1.148"
+            install_dir="/tmp/ctex-agent-cli/claude-code-2.1.148"
             npm install --ignore-scripts --no-audit --no-fund \
               --prefix "$install_dir" @anthropic-ai/claude-code@2.1.148
             wrapper="$install_dir/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
@@ -58,95 +62,19 @@ runs:
             exit 1
             ;;
         esac
+        chmod -R a+rX /tmp/ctex-agent-cli
 
-    - name: Run pinned agent CLI
+    - name: Run pinned agent CLI behind root credential proxy
       shell: bash
       env:
         PROVIDER: ${{ inputs.provider }}
         MODEL: ${{ inputs.model }}
-        API_KEY: ${{ inputs.api_key }}
-        BASE_URL: ${{ inputs.base_url }}
+        MODEL_API_KEY: ${{ inputs.api_key }}
+        MODEL_BASE_URL: ${{ inputs.base_url }}
         CONSUMER_WORKSPACE: ${{ inputs.workspace }}
         PROMPT_FILE: ${{ inputs.prompt_file }}
         SCHEMA_FILE: ${{ inputs.schema_file }}
         RESULT_FILE: ${{ inputs.result_file }}
+        IGNORE_REPOSITORY_RULES: ${{ inputs.ignore_repository_rules }}
       run: |
-        set -euo pipefail
-        test -n "$API_KEY"
-        test -d "$CONSUMER_WORKSPACE"
-        test -s "$PROMPT_FILE"
-        test -s "$SCHEMA_FILE"
-        mkdir -p "$(dirname "$RESULT_FILE")"
-
-        case "$PROVIDER" in
-          codex)
-            codex_path="$RUNNER_TEMP/codex-0.145.0/node_modules/.bin/codex"
-            test -x "$codex_path"
-            export OPENAI_API_KEY="$API_KEY"
-            export CODEX_HOME="$RUNNER_TEMP/codex-home"
-            mkdir -p "$CODEX_HOME"
-            endpoint="${BASE_URL:-https://llm.fantacy.live}"
-            endpoint="${endpoint%/}"
-            case "$endpoint" in
-              */v1) ;;
-              *) endpoint="$endpoint/v1" ;;
-            esac
-            cat > "$CODEX_HOME/config.toml" <<EOF
-        model = "$MODEL"
-        model_provider = "gateway"
-
-        [model_providers.gateway]
-        name = "gateway"
-        base_url = "$endpoint"
-        env_key = "OPENAI_API_KEY"
-        wire_api = "responses"
-        EOF
-
-            "$codex_path" exec \
-              --cd "$CONSUMER_WORKSPACE" \
-              --skip-git-repo-check \
-              --ephemeral \
-              --dangerously-bypass-approvals-and-sandbox \
-              --output-schema "$SCHEMA_FILE" \
-              --output-last-message "$RESULT_FILE" \
-              - < "$PROMPT_FILE"
-            ;;
-          claude)
-            wrapper="$RUNNER_TEMP/claude-code-2.1.148/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
-            test -f "$wrapper"
-
-            export ANTHROPIC_API_KEY="$API_KEY"
-            export ANTHROPIC_AUTH_TOKEN="$API_KEY"
-            export ANTHROPIC_BASE_URL="${BASE_URL:-https://llm.fantacy.live}"
-            export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL%/}"
-            export ANTHROPIC_CUSTOM_HEADERS="Authorization: Bearer $API_KEY"
-            export DISABLE_AUTOUPDATER=1
-            schema="$(jq -c . "$SCHEMA_FILE")"
-            raw_result="$RUNNER_TEMP/claude-result.json"
-            (
-              cd "$CONSUMER_WORKSPACE"
-              node "$wrapper" -p \
-                --bare \
-                --no-session-persistence \
-                --model "$MODEL" \
-                --dangerously-skip-permissions \
-                --output-format json \
-                --json-schema "$schema" \
-                < "$PROMPT_FILE" > "$raw_result"
-            )
-            jq -e '(.is_error? // false) == false' "$raw_result" > /dev/null
-            jq -c '
-              if (.structured_output? | type) == "object" then .structured_output
-              elif type == "object" then .
-              else error("Claude did not return a structured object")
-              end
-            ' "$raw_result" > "$RESULT_FILE"
-            ;;
-          *)
-            echo "::error::Unsupported provider: $PROVIDER"
-            exit 1
-            ;;
-        esac
-
-        test -s "$RESULT_FILE"
-        jq -e 'type == "object"' "$RESULT_FILE" > /dev/null
+        bash "$GITHUB_ACTION_PATH/../../scripts/agentic/run-agent-with-proxy.sh"

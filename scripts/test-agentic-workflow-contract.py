@@ -2,6 +2,7 @@
 """离线检查 ctex-kit 本地 Agent workflow 的编排与安全合同。"""
 
 import json
+import importlib.util
 import os
 import re
 import subprocess
@@ -99,6 +100,84 @@ def test_embedded_shell(paths: tuple[Path, ...]) -> None:
             assert result.returncode == 0, f"{path} 的 run block 语法错误: {result.stderr}"
     for path in (ROOT / ".github" / "scripts").rglob("*.sh"):
         run(["bash", "-n", str(path)])
+
+
+def test_action_metadata() -> None:
+    validator = ROOT / "scripts" / "validate-action-metadata.py"
+    action_paths = tuple(ACTIONS.glob("*/action.yml"))
+    run(["python3", str(validator), *(str(path) for path in action_paths)])
+
+    with tempfile.TemporaryDirectory(prefix="ctex-action-metadata-") as tmp_name:
+        source = read(ACTIONS / "run-agent" / "action.yml")
+        bad_using = Path(tmp_name) / "bad-using.yml"
+        bad_using.write_text(source.replace("using: composite", "using: composit", 1), encoding="utf-8")
+        result = run(["python3", str(validator), str(bad_using)], check=False)
+        assert result.returncode != 0, "损坏的 runs.using 必须被 Action metadata 门禁拒绝"
+
+        bad_step = Path(tmp_name) / "bad-step.yml"
+        bad_step.write_text(source.replace("      shell: bash", "      sheel: bash", 1), encoding="utf-8")
+        result = run(["python3", str(validator), str(bad_step)], check=False)
+        assert result.returncode != 0, "拼错的 composite step 字段必须被门禁拒绝"
+
+
+def test_model_proxy_contract() -> None:
+    proxy_path = ROOT / ".github" / "scripts" / "agentic" / "model-api-proxy.py"
+    spec = importlib.util.spec_from_file_location("ctex_model_api_proxy", proxy_path)
+    assert spec and spec.loader
+    proxy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(proxy)
+
+    codex_upstream = proxy.parse_upstream("https://example.invalid/v1")
+    assert proxy.upstream_target(codex_upstream, "/responses") == "/v1/responses"
+    assert proxy.request_is_allowed("codex", "POST", "/responses")
+    assert not proxy.request_is_allowed("codex", "POST", "/v1/messages")
+    assert proxy.request_is_allowed("claude", "POST", "/v1/messages")
+    assert not proxy.request_is_allowed("claude", "CONNECT", "/v1/messages")
+
+    headers = proxy.upstream_headers(
+        (
+            ("Authorization", "Bearer attacker-controlled"),
+            ("x-api-key", "attacker-controlled"),
+            ("Content-Type", "application/json"),
+            ("X-Forwarded-Host", "attacker.invalid"),
+        ),
+        "claude",
+        "real-secret",
+        2,
+    )
+    assert headers["Authorization"] == "Bearer real-secret"
+    assert headers["x-api-key"] == "real-secret"
+    assert headers["Content-Length"] == "2"
+    assert "X-Forwarded-Host" not in headers
+
+
+def test_review_result_semantics(review_source: str) -> None:
+    filters = [
+        match.group(1)
+        for match in re.finditer(r"(?ms)jq -e '(.*?)' (?:review-output|\"\$GITHUB_WORKSPACE|\"\$REVIEW_FILE)", review_source)
+        if ".suggestion_count" in match.group(1) and ".conclusion" in match.group(1)
+    ]
+    assert len(filters) == 3, "Codex、Claude 和 publisher 必须各有一份结果语义校验"
+    base = {
+        "description": "审查完成",
+        "review_status": "COMPLETE",
+        "conclusion": "COMMENT",
+        "critical_count": 0,
+        "important_count": 0,
+        "suggestion_count": 0,
+        "comment_body": "正文",
+        "reviewer": "codex",
+        "model": "gpt-5.6-sol",
+    }
+    for jq_filter in filters:
+        rejected = run(["jq", "-e", jq_filter], input_text=json.dumps(base), check=False)
+        assert rejected.returncode != 0, "零问题 COMMENT 必须被实际 jq 校验拒绝"
+        accepted = run(
+            ["jq", "-e", jq_filter],
+            input_text=json.dumps(base | {"suggestion_count": 1}),
+            check=False,
+        )
+        assert accepted.returncode == 0, "含小问题的 COMMENT 应被实际 jq 校验接受"
 
 
 def git(repo: Path, *args: str) -> str:
@@ -223,11 +302,14 @@ def main() -> None:
     contract = workflow("check-agentic-workflows.yml")
     setup = read(ACTIONS / "setup-agent-tools" / "action.yml")
 
+    test_action_metadata()
     test_embedded_shell(
         tuple(WORKFLOWS / name for name in AGENTIC_WORKFLOWS)
         + (WORKFLOWS / "check-agentic-workflows.yml",)
         + tuple(ACTIONS.glob("*/action.yml"))
     )
+    test_model_proxy_contract()
+    test_review_result_semantics(review)
     test_runtime_scripts()
 
     assert not (WORKFLOWS / "agentic-patrol.yml").exists(), "定时 patrol 不应恢复"
@@ -258,6 +340,7 @@ def main() -> None:
                 "token: ${{ github.token }}",
                 "ref: ${{ github.event.pull_request.base.sha }}",
                 "uses: ./.trusted-base/.github/actions/setup-agent-tools",
+                "uses: ./.trusted-base/.github/actions/run-agent",
                 ".trusted-base/.claude/skills/pr-review/SKILL.md",
                 ".trusted-base/.github/scripts/pr-review/prepare-review-history.sh",
             ),
@@ -277,6 +360,17 @@ def main() -> None:
         assert forbidden not in publisher, f"PR publisher 不得包含 {forbidden}"
     assert review.count("pull-requests: write") == 1, "只有 PR publisher 可以写 PR"
     assert review.count("uses: ./.trusted-base/.github/actions/setup-agent-tools") == 2
+    assert review.count("uses: ./.trusted-base/.github/actions/run-agent") == 2
+    require_all(
+        review,
+        (
+            ".github/scripts/agentic/model-api-proxy.py",
+            ".github/scripts/agentic/run-agent-with-proxy.sh",
+            "ignore_repository_rules: 'true'",
+            ".suggestion_count > 0",
+        ),
+        "PR Review credential and result boundary",
+    )
 
     # Issue Dispatch：只分析 opened 事件；Agent 无写权限，独立 job 发布评论。
     require_all(
@@ -407,6 +501,38 @@ def main() -> None:
         "llmdoc notify",
     )
 
+    runner = read(ACTIONS / "run-agent" / "action.yml")
+    secure_runner = read(ROOT / ".github" / "scripts" / "agentic" / "run-agent-with-proxy.sh")
+    require_all(
+        runner,
+        (
+            "Run pinned agent CLI behind root credential proxy",
+            "MODEL_API_KEY: ${{ inputs.api_key }}",
+            "run-agent-with-proxy.sh",
+        ),
+        "Agent credential runner",
+    )
+    require_all(
+        secure_runner,
+        (
+            "useradd --system --create-home --user-group",
+            "sudo --non-interactive -u \"$agent_user\"",
+            "env -i",
+            "OPENAI_API_KEY=ctex-local-proxy",
+            "ANTHROPIC_API_KEY=ctex-local-proxy",
+            "test -r \"/proc/$proxy_pid/environ\"",
+            "pkill -KILL -u \"$agent_user\"",
+            "rm -f -- \"$secret_file\"",
+        ),
+        "Agent process isolation",
+    )
+    for leaked in (
+        'export OPENAI_API_KEY="$API_KEY"',
+        'export ANTHROPIC_API_KEY="$API_KEY"',
+        'Authorization: Bearer $API_KEY',
+    ):
+        assert leaked not in runner + secure_runner, f"Agent 子进程不得直接继承模型密钥: {leaked}"
+
     # 安装 Action 与现有 CI 共享 key，但 Agent 只能 restore，不能回写共享缓存。
     assert setup.count("uses: actions/cache/restore@v6") == 3
     for forbidden in ("uses: actions/cache@", "actions/cache/save"):
@@ -418,6 +544,7 @@ def main() -> None:
             "ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1",
             "xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1",
             "cache: false",
+            "procps",
             "rm -rf -- \"$GITHUB_WORKSPACE/.font-cache\" \"$GITHUB_WORKSPACE/.xecjk-font-cache\"",
         ),
         "Agent tool cache",
@@ -456,6 +583,7 @@ def main() -> None:
             "'.claude/skills/**'",
             "'.github/tl_packages'",
             "'.github/font-urls.txt'",
+            "'scripts/validate-action-metadata.py'",
             "actionlint@v1.7.7",
         ),
         "Agent workflow contract gate",
