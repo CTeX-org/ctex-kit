@@ -155,11 +155,11 @@ def test_font_cache_staging() -> None:
     assert names.index(prepare_name) < names.index(cjk_restore_name)
     assert names.index(prepare_name) < names.index(xecjk_restore_name)
     assert names.index(cjk_restore_name) < names.index(cjk_prepare_name) < names.index(cjk_validate_name)
-    assert names.index(cjk_validate_name) < names.index(cjk_save_name) < names.index(cjk_install_name)
-    assert names.index(cjk_install_name) < names.index(cleanup_name)
+    assert names.index(cjk_validate_name) < names.index(cjk_install_name) < names.index(cjk_save_name)
+    assert names.index(cjk_save_name) < names.index(cleanup_name)
     assert names.index(xecjk_restore_name) < names.index(xecjk_prepare_name) < names.index(xecjk_validate_name)
-    assert names.index(xecjk_validate_name) < names.index(xecjk_save_name) < names.index(xecjk_install_name)
-    assert names.index(xecjk_install_name) < names.index(cleanup_name)
+    assert names.index(xecjk_validate_name) < names.index(xecjk_install_name) < names.index(xecjk_save_name)
+    assert names.index(xecjk_save_name) < names.index(cleanup_name)
     assert step_by_name[tl_save_name]["uses"] == "actions/cache/save@v6"
     assert step_by_name[cjk_save_name]["uses"] == "actions/cache/save@v6"
     assert step_by_name[xecjk_save_name]["uses"] == "actions/cache/save@v6"
@@ -208,6 +208,13 @@ def test_font_cache_staging() -> None:
         cjk_cache.mkdir()
         (cjk_cache / ".done").touch()
         (cjk_cache / "NotoSansCJK-Regular.ttc").write_bytes(b"trusted-cache")
+        incomplete = run(
+            ["bash", "-euo", "pipefail", "-c", cjk_validator],
+            env=env,
+            check=False,
+        )
+        assert incomplete.returncode != 0, "CJK cache 必须同时包含黑体和宋体"
+        (cjk_cache / "NotoSerifCJK-Regular.ttc").write_bytes(b"trusted-cache")
         run(["bash", "-euo", "pipefail", "-c", cjk_validator], env=env)
 
         xecjk_validator = step_by_name[xecjk_validate_name]["run"]
@@ -224,6 +231,12 @@ def test_font_cache_staging() -> None:
         xecjk_cache.mkdir()
         (xecjk_cache / ".done").touch()
         (xecjk_cache / "HanaMinB.ttf").write_bytes(b"trusted-cache")
+        incomplete = run(
+            ["bash", "-euo", "pipefail", "-c", xecjk_validator],
+            env=env,
+            check=False,
+        )
+        assert incomplete.returncode != 0, "xeCJK 文档 cache 必须同时包含两个指定字体"
         (xecjk_cache / "NotoSansSymbols2-Regular.ttf").write_bytes(b"trusted-cache")
         run(["bash", "-euo", "pipefail", "-c", xecjk_validator], env=env)
 
@@ -693,6 +706,8 @@ def main() -> None:
     for name, source in zip(AGENTIC_WORKFLOWS, (review, issue, llmdoc), strict=True):
         assert_local_runtime(source, name)
         require_all(source, ("permissions: {}", "runs-on: ubuntu-latest"), name)
+        for forbidden in ("uses: actions/cache@", "uses: actions/cache/restore@", "uses: actions/cache/save@"):
+            assert forbidden not in source, f"{name} 不得在 Agent job 内直接注册 cache action: {forbidden}"
 
     # PR Review：base SHA 提供可信规范、脚本和安装 Action；PR head 只作为审查对象。
     require_all(
