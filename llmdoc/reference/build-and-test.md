@@ -347,18 +347,24 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
-- `.github/workflows/agentic-pr-review.yml`：PR 自动审查 caller，由 `pull_request_target` 事件触发，调用 `agentic-workflow-template` 的 `pr-review.yml`；Codex `gpt-5.6-sol` 是主链路，Claude Code `fable-5` 是独立兜底
-- `.github/workflows/agentic-issue-dispatch.yml`：新 Issue 分派 caller，只监听 `issues.opened`，调用模板的 `issue-dispatch.yml`，按 Issue 内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
-- `.github/workflows/agentic-llmdoc-updater.yml`：llmdoc 更新 caller，每天北京时间 05:00 定时触发或手动触发，直接调用模板的 `update-llmdoc.yml`，本地只保留时间范围、目标分支、权限和 secret 映射
-- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent caller 的触发、远端入口、主仓库门控、权限和 secret 映射
+- `.github/workflows/agentic-pr-review.yml`：本地 PR 自动审查实现，由 `pull_request_target` 触发；Codex `gpt-5.6-sol` 是主链路，Claude Code `claude-opus-5` 是独立 runner 上的兜底，不运行 Agent 的发布 job（publisher）代发评论
+- `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
+- `.github/workflows/agentic-llmdoc-updater.yml`：本地 llmdoc 更新实现，每天北京时间 05:00 或手动触发，Agent 只生成候选，独立的校验 job（validator）和 publisher 验证并创建／更新 PR
+- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本
 
-#### agentic 工作流的复用与触发约束
+#### agentic 工作流的本地运行时与触发约束
 
-三个 Agent caller 都复用 `Lightspeed-Intelligence/agentic-workflow-template`，本仓库不复制 Agent 实现。调用点固定到经过审查的完整提交 `2a0bb28e6583d869645e0a0522568df4a5d4d921`，不能使用分支或标签等可变引用；升级模板时应通过单独的 PR 审查新提交及其权限边界。模板的 `.github/workflows/ci.yml` 只作为事件路由参考；ctex-kit 没有整体启用其中的 `implement` 和 `question`，以免扩大自动写入范围或重复触发已有 PR Review。本地合同测试同时固定触发、参数和模板提交，防止维护时无意退回可变引用。
+三条 workflow、`.github/actions/` 下的复合 Action、`.github/scripts/agentic/` 和 `.claude/skills/` 都由本仓库维护，运行时不检出或调用远端模板。最初展开自 `Lightspeed-Intelligence/agentic-workflow-template` 的提交 `2a0bb28e6583d869645e0a0522568df4a5d4d921`；这个 SHA 是来源基线，不是调用点。吸收上游变化时，应比较该基线和新提交，选择性搬运，再按本仓库的权限、事件提交和缓存规则审查，不能整体覆盖。
 
 Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CTeX-org/ctex-kit' }}` 限制主仓库执行（#875 / PR #876）。这是 job 级 `if`，能在分配 runner 前挡住 fork 上的定时、手动或 Issue 事件。llmdoc 仍保持每天一次；原 `agentic-patrol.yml` 已由 `issues.opened` 驱动的分派取代，因此不再有巡检频率。历史原因见 [[874-876-agentic-fork-shielding-cron]]，本轮取舍见 [[agentic-template-reuse]]。
 
-Issue 分派与 llmdoc 更新沿用模板的直接写入模型，Agent 可以评论、推送或创建 PR；PR Review 则把只读 Agent 与确定性评论发布分开。调用方必须按各 reusable workflow 的声明分别授予权限，不能因三者都来自同一模板就把权限模型视为相同。`scripts/test-agentic-workflow-contract.py` 固定本地触发与参数合同；修改 caller 后运行该脚本和 `actionlint`。
+六个实际运行 Agent 的 job（每条 workflow 各一条 Codex 和 Claude 链路）都调用 `setup-agent-tools`，恢复或安装 TeX Live 2026、Noto CJK、HanaMinB、Noto Sans Symbols 2、Poppler、ImageMagick、Ghostscript、ShellCheck 和 actionlint。TeX Live 使用与可信 CI 相同的 `tl-bypass-<os>-2026-<ISO week>-<tl_packages hash>` key；两组字体也复用既有 key。三类缓存都只用 `actions/cache/restore`，Agent 不执行 save。缓存未命中时本次 job 可以安装，但共享缓存只能由可信 CI 预热；否则 Agent 运行过仓库代码后可能污染新的 weekly key 或依赖变更后的 key。
+
+PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚本、审查规范和历史准备脚本必须从 PR base SHA 取得。模型密钥只由以 root 身份运行的本地固定上游代理读取；Agent CLI 以无 sudo 的 `ctex-agent` 用户和 `env -i` 启动，只持有本地代理占位凭据。Agent 结束后清理同一用户 ID（UID）的后台进程、代理和临时密钥，再恢复工作区所有权。这一边界防止仓库子进程读取长期模型密钥，但不限制它使用代理消耗模型调用额度。
+
+三条 workflow 都把 Agent 与外部写入分开：PR Agent 只读，publisher 独占 `pull-requests: write`；Issue Agent 固定事件 `github.sha` 且只读，dispatch job 独占 `issues: write`；llmdoc prepare 固定 master SHA，Agent 只打包 `llmdoc/` 候选，独立 validator 从同一 SHA 验证，publisher 才取得 `contents: write` 和 `pull-requests: write`。固定提交与 publisher 隔离分别约束“运行哪版代码”和“谁能写入”，不能互相替代。
+
+`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、只读缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using` 和拼错的 composite step 字段会失败。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
 
 ### 测试工作流：`.github/workflows/test.yml`
 

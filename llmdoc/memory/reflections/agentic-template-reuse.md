@@ -7,6 +7,10 @@ metadata:
 
 # 反思：复用 Agent 工作流模板
 
+> 历史状态：本文记录 #1025 以前的远端 reusable workflow 方案。#1025 已把三条 Agent
+> workflow 展开到本仓库，远端提交只保留为来源基线，不再是运行时依赖。当前结构见
+> [[1025-agentic-local-runtime-toolchain]] 和 [[build-and-test]]。
+
 ## 任务
 
 `ctex-kit` 已经通过 `.github/workflows/agentic-pr-review.yml` 调用
