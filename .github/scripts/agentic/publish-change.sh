@@ -97,6 +97,24 @@ if [[ "$outcome" == READY ]]; then
     jq -e --arg marker "$pr_marker" '.[0].body | contains($marker)' <<< "$existing_pr" > /dev/null
   fi
 
+  # llmdoc 的定时任务每轮都从固定 base 产生一个单提交候选。已有候选尚未进入
+  # base 时，新候选与它是兄弟提交；直接 force push 会把旧 PR 中未合并的文档
+  # 修改从 diff 中删除。先固定并读取远端 head，只允许覆盖已经进入本轮 base 的
+  # 旧候选。implement 分支按 Issue 独立命名，仍保留原有的重跑更新语义。
+  if [[ "$mode" == update-llmdoc && -n "$existing_remote_sha" ]]; then
+    git -C "$publish_repo" fetch --no-tags origin \
+      "refs/heads/$branch:refs/heads/existing-workflow-head"
+    fetched_existing_sha=$(git -C "$publish_repo" rev-parse refs/heads/existing-workflow-head)
+    if [[ "$fetched_existing_sha" != "$existing_remote_sha" ]]; then
+      echo "::error::Workflow branch changed while validating the existing llmdoc candidate"
+      exit 1
+    fi
+    if ! git -C "$publish_repo" merge-base --is-ancestor "$existing_remote_sha" "$base_sha"; then
+      echo "::error::Refusing to replace unmerged llmdoc candidate $existing_remote_sha on $branch"
+      exit 1
+    fi
+  fi
+
   if [[ -n "$existing_remote_sha" ]]; then
     git -C "$publish_repo" push origin \
       --force-with-lease="refs/heads/$branch:$existing_remote_sha" \

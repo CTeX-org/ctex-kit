@@ -463,6 +463,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REVIEW_FILE: .review-input/review.json
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           jq -e '
             (type == "object") and
@@ -510,9 +512,27 @@ jobs:
             echo "<!-- pr-review-state:v1:${STATE_B64} -->"
           } >> "$RUNNER_TEMP/review-comment.md"
 
-          gh pr comment "${{ github.event.pull_request.number }}" \
-            --repo "${{ github.repository }}" \
-            --body-file "$RUNNER_TEMP/review-comment.md"
+          # BEGIN REVIEW_COMMENT_UPSERT
+          REVIEW_MARKER_REGEX='(?m)^<!-- pr-review-state:v1:[A-Za-z0-9+/=]+ -->$'
+          EXISTING_COMMENT_ID=$(gh api --paginate \
+            "repos/$REPOSITORY/issues/$PR_NUMBER/comments?per_page=100" \
+            --jq ".[] | select(
+              .user.login == \"github-actions[bot]\" and
+              .user.type == \"Bot\" and
+              .performed_via_github_app.slug == \"github-actions\" and
+              (.body | test(\"$REVIEW_MARKER_REGEX\"))
+            ) | .id" | tail -n 1)
+          if [[ -n "$EXISTING_COMMENT_ID" ]]; then
+            jq -n --rawfile body "$RUNNER_TEMP/review-comment.md" \
+              '{body: $body}' > "$RUNNER_TEMP/review-comment-payload.json"
+            gh api --method PATCH \
+              "repos/$REPOSITORY/issues/comments/$EXISTING_COMMENT_ID" \
+              --input "$RUNNER_TEMP/review-comment-payload.json" > /dev/null
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPOSITORY" \
+              --body-file "$RUNNER_TEMP/review-comment.md"
+          fi
+          # END REVIEW_COMMENT_UPSERT
 
           STRUCTURED_OUTPUT=$(jq -c 'del(.comment_body)' "$REVIEW_FILE")
           {
