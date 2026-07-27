@@ -575,6 +575,7 @@ def test_runtime_scripts() -> None:
         run(["git", "init", "-q"], cwd=answer_repo)
         git(answer_repo, "config", "user.name", "Agent contract test")
         git(answer_repo, "config", "user.email", "contract@example.invalid")
+        git(answer_repo, "config", "commit.gpgsign", "false")
         git(answer_repo, "add", ".")
         git(answer_repo, "commit", "-q", "-m", "trusted normalizer")
         trusted_normalizer = tmp / "trusted-normalizer.sh"
@@ -791,6 +792,105 @@ raise SystemExit(f"unexpected gh arguments: {args!r}")
         assert remote_sha == old_sha, "发布失败后必须保留旧 llmdoc 候选 head"
 
 
+def test_agent_result_channel_sandbox() -> None:
+    """仓库进程持续改写时，工作区沙箱外的控制结果必须保持不变。"""
+    bwrap = shutil.which("bwrap")
+    assert bwrap, "合同门禁需要 bubblewrap 验证 Agent 结果通道的文件系统边界"
+
+    with tempfile.TemporaryDirectory(prefix="ctex-agent-result-channel-") as tmp_name:
+        tmp = Path(tmp_name)
+        workspace = tmp / "consumer"
+        control = tmp / "control"
+        workspace.mkdir()
+        control.mkdir()
+        result = control / "raw-result.json"
+        result.write_text('{"source":"model"}\n', encoding="utf-8")
+        attack = workspace / "attack.sh"
+        attack.write_text(
+            textwrap.dedent(
+                """\
+                #!/usr/bin/env bash
+                for _ in {1..100}; do
+                  printf '%s\\n' '{"source":"forged"}' > "$1" 2>/dev/null || true
+                done
+                """
+            ),
+            encoding="utf-8",
+        )
+        attack.chmod(0o755)
+
+        attempted = run(
+            [
+                bwrap,
+                "--die-with-parent",
+                "--new-session",
+                "--ro-bind",
+                "/",
+                "/",
+                "--dev",
+                "/dev",
+                "--proc",
+                "/proc",
+                "--bind",
+                str(workspace),
+                str(workspace),
+                "--chdir",
+                str(workspace),
+                "bash",
+                "./attack.sh",
+                str(result),
+            ],
+            check=False,
+        )
+        assert attempted.returncode == 0, attempted.stderr
+        assert json.loads(result.read_text(encoding="utf-8")) == {"source": "model"}, (
+            "工作区内的恶意后台进程不得改写沙箱外的 Agent 结果通道"
+        )
+
+
+def test_agent_control_process_hardening() -> None:
+    """同 UID 子进程不能通过父 CLI 的 /proc fd 绕过文件系统沙箱。"""
+    source = ROOT / ".github" / "scripts" / "agentic" / "agent-control-hardening.c"
+    with tempfile.TemporaryDirectory(prefix="ctex-agent-control-hardening-") as tmp_name:
+        tmp = Path(tmp_name)
+        library = tmp / "agent-control-hardening.so"
+        result = tmp / "raw-result.json"
+        result.write_text('{"source":"model"}\n', encoding="utf-8")
+        run(
+            [
+                "cc",
+                "-shared",
+                "-fPIC",
+                "-O2",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                str(source),
+                "-o",
+                str(library),
+            ]
+        )
+        target = textwrap.dedent(
+            """
+            import ctypes
+            import os
+            import subprocess
+            import sys
+
+            result = sys.argv[1]
+            descriptor = os.open(result, os.O_RDWR)
+            parent_fd = f"/proc/{os.getpid()}/fd/{descriptor}"
+            attacker = "import os,sys; fd=os.open(sys.argv[1],os.O_WRONLY); os.write(fd,b'forged')"
+            probe = subprocess.run([sys.executable, "-c", attacker, parent_fd], capture_output=True)
+            dumpable = ctypes.CDLL(None).prctl(3, 0, 0, 0, 0)
+            raise SystemExit(0 if dumpable == 0 and probe.returncode != 0 else 1)
+            """
+        )
+        env = os.environ | {"LD_PRELOAD": str(library)}
+        run(["python3", "-c", target, str(result)], env=env)
+        assert json.loads(result.read_text(encoding="utf-8")) == {"source": "model"}
+
+
 def main() -> None:
     review = workflow("agentic-pr-review.yml")
     issue = workflow("agentic-issue-dispatch.yml")
@@ -811,6 +911,8 @@ def main() -> None:
     test_pre_push_bot_comment_audit()
     test_runtime_scripts()
     test_publish_preserves_unmerged_llmdoc_candidate()
+    test_agent_result_channel_sandbox()
+    test_agent_control_process_hardening()
 
     assert not (WORKFLOWS / "agentic-patrol.yml").exists(), "定时 patrol 不应恢复"
     for name, source in zip(AGENTIC_WORKFLOWS, (review, issue, llmdoc), strict=True):
@@ -984,6 +1086,8 @@ def main() -> None:
                 "cp -R --no-preserve=mode,ownership,timestamps",
                 '"$GITHUB_WORKSPACE/package-base"',
                 "runtime/.claude/skills/update-llmdoc/SKILL.md",
+                "$RUNNER_TEMP/agent-input/task.json",
+                "$RUNNER_TEMP/agent-input/recent-commits.txt",
             ),
             f"llmdoc Agent {name}",
         )
@@ -1032,6 +1136,8 @@ def main() -> None:
         job(llmdoc, "notify"),
         (
             "if: always() && github.repository == 'CTeX-org/ctex-kit'",
+            "needs: [prepare, update]",
+            "ref: ${{ needs.prepare.outputs.base_sha || 'master' }}",
             "uses: ./.github/actions/feishu-notify",
             "secrets.FEISHU_LLMDOC_WEBHOOK_TOKEN",
         ),
@@ -1048,7 +1154,11 @@ def main() -> None:
             "ctex-agent-trusted-runtime.XXXXXX",
             "install -m 700",
             "install -m 600",
+            "agent-control-hardening.c",
+            "agent-control-hardening.so",
+            "cc -shared -fPIC -O2 -Wall -Wextra -Werror",
             'MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py"',
+            'CONTROL_HARDENING_LIBRARY="$trusted_runtime/agent-control-hardening.so"',
             'bash "$trusted_runtime/run-agent-with-proxy.sh"',
         ),
         "Agent credential runner",
@@ -1058,13 +1168,25 @@ def main() -> None:
         (
             "useradd --system --create-home --user-group",
             ': "${MODEL_PROXY_SCRIPT:?}"',
+            ': "${CONTROL_HARDENING_LIBRARY:?}"',
             "sudo --non-interactive env -i PATH=/usr/bin:/bin LANG=C.UTF-8",
             "sudo --non-interactive -u \"$agent_user\"",
             "env -i",
             "OPENAI_API_KEY=ctex-local-proxy",
             "ANTHROPIC_API_KEY=ctex-local-proxy",
             "test -r \"/proc/$proxy_pid/environ\"",
+            "stop_agent_processes",
             "pkill -KILL -u \"$agent_user\"",
+            "/run/ctex-agent-session.XXXXXX",
+            "--sandbox workspace-write",
+            "--ask-for-approval never",
+            '"enabled": true',
+            '"failIfUnavailable": true',
+            '"autoAllowBashIfSandboxed": true',
+            '"allowUnsandboxedCommands": false',
+            "--permission-mode dontAsk",
+            '"LD_PRELOAD=$control_hardening_library"',
+            'sudo --non-interactive rm -rf -- "$session_dir"',
             "rm -f -- \"$secret_file\"",
         ),
         "Agent process isolation",
@@ -1076,6 +1198,9 @@ def main() -> None:
     ):
         assert leaked not in runner + secure_runner, f"Agent 子进程不得直接继承模型密钥: {leaked}"
     assert "GITHUB_ACTION_PATH" not in secure_runner, "安全启动脚本不得在交出工作区后继续依赖工作区路径"
+    assert "$agent_home/raw-result.json" not in secure_runner
+    assert "--dangerously-bypass-approvals-and-sandbox" not in secure_runner
+    assert "--dangerously-skip-permissions" not in secure_runner
 
     # 三类缓存都在 Agent 启动前恢复；未命中时由可信安装阶段显式保存。
     # 不能改用会在 Agent 返回后运行 post step 的合并式 actions/cache。
@@ -1094,6 +1219,9 @@ def main() -> None:
             "Save trusted xeCJK document font cache before Agent",
             "procps",
             "python3-yaml",
+            "bubblewrap",
+            "gcc",
+            "socat",
             "rm -rf -- \"$GITHUB_WORKSPACE/.font-cache\" \"$GITHUB_WORKSPACE/.xecjk-font-cache\"",
         ),
         "Agent tool cache",

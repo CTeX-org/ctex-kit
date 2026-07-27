@@ -83,11 +83,21 @@ runs:
           rm -rf -- "$trusted_runtime"
         }
         trap cleanup_runtime EXIT
+        chmod 711 "$trusted_runtime"
         install -m 700 \
           "$GITHUB_ACTION_PATH/../../scripts/agentic/run-agent-with-proxy.sh" \
           "$trusted_runtime/run-agent-with-proxy.sh"
         install -m 600 \
           "$GITHUB_ACTION_PATH/../../scripts/agentic/model-api-proxy.py" \
           "$trusted_runtime/model-api-proxy.py"
+        install -m 600 \
+          "$GITHUB_ACTION_PATH/../../scripts/agentic/agent-control-hardening.c" \
+          "$trusted_runtime/agent-control-hardening.c"
+        command -v cc
+        cc -shared -fPIC -O2 -Wall -Wextra -Werror \
+          "$trusted_runtime/agent-control-hardening.c" \
+          -o "$trusted_runtime/agent-control-hardening.so"
+        chmod 755 "$trusted_runtime/agent-control-hardening.so"
         MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py" \
+          CONTROL_HARDENING_LIBRARY="$trusted_runtime/agent-control-hardening.so" \
           bash "$trusted_runtime/run-agent-with-proxy.sh"
