@@ -430,6 +430,11 @@ state_path.write_text(json.dumps(state), encoding="utf-8")
 
 def test_pre_push_bot_comment_audit() -> None:
     hook = read(ROOT / ".githooks" / "check-pr-ci.sh")
+    audit_start = hook.index('new_bot_comment_after_push="$(gh api')
+    audit_end = hook.index("| jq -r", audit_start)
+    audit_fetch = hook[audit_start:audit_end]
+    assert "gh api --paginate --slurp" in audit_fetch
+    assert "comments?per_page=100" in audit_fetch
     match = re.search(
         r"(?ms)^\s*# BEGIN BOT_COMMENT_AUDIT_JQ\n(.*?)^\s*# END BOT_COMMENT_AUDIT_JQ",
         hook,
@@ -453,7 +458,7 @@ def test_pre_push_bot_comment_audit() -> None:
     ]
     stale_reply = run(
         ["jq", "-r", "--arg", "t", head_time, jq_filter],
-        input_text=json.dumps(comments),
+        input_text=json.dumps([comments]),
     )
     assert "github-actions[bot]\tCOMMENT\t2026-07-27T12:03:00Z" in stale_reply.stdout
 
@@ -467,9 +472,32 @@ def test_pre_push_bot_comment_audit() -> None:
     )
     fresh_reply = run(
         ["jq", "-r", "--arg", "t", head_time, jq_filter],
-        input_text=json.dumps(comments),
+        input_text=json.dumps([comments]),
     )
     assert fresh_reply.stdout == "", "只有 Bot 评论最后更新之后的维护者回复才能关闭审计"
+
+    old_page = [
+        {
+            "user": {"login": f"user-{index}", "type": "User"},
+            "author_association": "NONE",
+            "created_at": "2026-07-27T11:00:00Z",
+            "html_url": f"https://example.invalid/old-{index}",
+        }
+        for index in range(100)
+    ]
+    second_page_bot = {
+        "user": {"login": "github-actions[bot]", "type": "Bot"},
+        "created_at": "2026-07-27T12:05:00Z",
+        "updated_at": "2026-07-27T12:06:00Z",
+        "html_url": "https://example.invalid/second-page-bot",
+    }
+    second_page_reply = run(
+        ["jq", "-r", "--arg", "t", head_time, jq_filter],
+        input_text=json.dumps([old_page, [second_page_bot]]),
+    )
+    assert "second-page-bot" in second_page_reply.stdout, (
+        "当前 head 的 Bot 评论位于第二页时也必须被审计"
+    )
 
 
 def git(repo: Path, *args: str) -> str:
