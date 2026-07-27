@@ -13239,7 +13239,7 @@ Copyright and Licence
     \@@_ulem_initial:
     \bool_if:NTF \l_@@_ulem_periodic_bool
       {
-        \bool_gset_false:N \g_@@_ulem_periodic_later_bool
+        \seq_gput_right:Nn \g_@@_ulem_periodic_later_seq { 0 }
         \cs_set_eq:NN \UL@spfactor \@@_ulem_spfactor_pending:
         \xeCJK_swap_cs:NN
           \UL@leaders \xeCJK_ulem_periodic_leaders:
@@ -13542,10 +13542,14 @@ Copyright and Licence
       {
         \cs_if_eq:NNTF \UL@spfactor \@@_ulem_spfactor_pending:
           {
-            \bool_if:NTF \g_@@_ulem_periodic_later_bool
+            \seq_get_right:NN
+              \g_@@_ulem_periodic_later_seq \l_@@_tmp_tl
+            \tl_if_eq:NnTF \l_@@_tmp_tl { 1 }
               { \xeCJK_ulem_periodic_leaders: }
               {
-                \bool_gset_true:N \g_@@_ulem_periodic_later_bool
+                \seq_gpop_right:NN
+                  \g_@@_ulem_periodic_later_seq \l_@@_tmp_tl
+                \seq_gput_right:Nn \g_@@_ulem_periodic_later_seq { 1 }
                 \bool_if:NTF \l_@@_ulem_subtract_bool
                   {
                     \@@_ulem_periodic_clipped_leaders:nnn
@@ -13588,7 +13592,7 @@ Copyright and Licence
       { \skip_horizontal:n {#1} }
   }
 \bool_new:N \l_@@_ulem_periodic_bool
-\bool_new:N \g_@@_ulem_periodic_later_bool
+\seq_new:N \g_@@_ulem_periodic_later_seq
 \cs_new_eq:NN \@@_ulem_spfactor_pending: \scan_stop:
 %    \end{macrocode}
 % \end{macro}
@@ -13652,13 +13656,19 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\@@_ulem_periodic_right_skip:}
+% \changes{v3.10.5}{2026/07/27}{周期装饰按嵌套层保存末段状态，
+%   避免内层命令改写外层右端（\#1012）。}
 % 若命令只有一个装饰片段，首段函数已经同时裁定左右边界；出现后续片段时，
 % 末段仍是 \pkg{ulem} 原来的负间距、leaders、负间距结构。这里取回末段
 % 正文宽度，并用同一裁切函数重画，使命令右边界不再依赖完整图案盒的取整。
+% 每个周期装饰在开始时向全局序列压入自己的状态，结束时再弹出。这里不能
+% 共用一个全局布尔值：内层周期装饰会在外层完成之前改写它，导致外层末段
+% 根据内层的状态决定是否重画。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_ulem_periodic_right_skip:
   {
-    \bool_if:NTF \g_@@_ulem_periodic_later_bool
+    \seq_gpop_right:NN \g_@@_ulem_periodic_later_seq \l_@@_tmp_tl
+    \tl_if_eq:NnTF \l_@@_tmp_tl { 1 }
       { \@@_ulem_periodic_right_skip_aux: }
       { \prg_do_nothing: }
   }

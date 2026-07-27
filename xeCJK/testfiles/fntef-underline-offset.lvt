@@ -101,6 +101,33 @@
   }
 \NewDocumentCommand \TestFntefEmpty { m m }
   { \test_fntef_empty:nn {#1} {#2} }
+\int_new:N \g__fntef_test_nested_right_int
+\cs_new_protected:Npn \test_fntef_nested_right:nn #1#2
+  {
+    \group_begin:
+      \int_gzero:N \g__fntef_test_nested_right_int
+      \cs_set_eq:NN \__fntef_test_periodic_right_skip_aux:
+        \__xeCJK_ulem_periodic_right_skip_aux:
+      \cs_set_protected:Npn \__xeCJK_ulem_periodic_right_skip_aux:
+        {
+          \int_gincr:N \g__fntef_test_nested_right_int
+          \__fntef_test_periodic_right_skip_aux:
+        }
+      \msg_redirect_name:nnn { xeCJK } { fntef-nesting } { none }
+      \hbox_set:Nn \l_tmpa_box {#2}
+      \int_compare:nNnTF { \g__fntef_test_nested_right_int } = { 1 }
+        { \TYPE{#1:~PASS} }
+        {
+          \TYPE
+            {
+              #1:~FAIL~right-segments=
+              \int_use:N \g__fntef_test_nested_right_int
+            }
+        }
+    \group_end:
+  }
+\NewDocumentCommand \TestFntefNestedRight { m m }
+  { \test_fntef_nested_right:nn {#1} {#2} }
 \NewDocumentCommand \TestUseFntefRulePatterns { }
   {
     \cs_set_protected:Npn \__xeCJK_fntef_wave_symbol:
@@ -227,6 +254,17 @@
   \TYPE{Repeated decoration width: \the\wd6}
   \box6
   \clearpage
+}
+
+\TEST{nested periodic decorations keep the outer right-end state}{
+  \TestFntefNestedRight{wave in wave}
+    {\CJKunderwave{字字\CJKunderwave{字}}}
+  \TestFntefNestedRight{xout subtract in wave subtract}
+    {\CJKunderwave-{字字\CJKxout-{字}}}
+  \TestFntefNestedRight{wave in xout}
+    {\CJKxout{字字\CJKunderwave{字}}}
+  \TestFntefNestedRight{xout subtract in xout subtract}
+    {\CJKxout-{字字\CJKxout-{字}}}
 }
 
 \END
