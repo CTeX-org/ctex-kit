@@ -68,7 +68,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 周期装饰先保护既有几何，再按接点分工
 **Rule**: 修复重复装饰的局部异常前，先列出当前正确的装饰总长度、居中、端点和相邻命令连接语义；不要把 `ulem` 的 `\UL@pixel` 从整套几何中单独清零。若正文片段、伸缩胶水和命令端点承担不同的几何作用，就分别实现和验证，不能只更换 leader 类型或缩短图案周期。
-**Why**: #531/#967 说明 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以相同而相位不同；#1012 又证明统一 leader 仍不能同时处理三类接点。当前实现用随字号缩放的 `1em/4` 图案和 `\cleaders` 排列正文，波浪与斜线分别处理 `CJKglue`，普通形式另画对称半单元端点，带 `-` 形式停在正文边界。
+**Why**: #531/#967 说明 `\leaders`、`\cleaders`、`\xleaders` 的总宽可以相同而相位不同；#1012 又证明 leader 原语不能独自同时处理相位、精确端点和可断行接点。当前实现用随字号缩放的 `1em/4` 图案和普通 `\leaders` 让正文片段、`CJKglue` 与换行后的片段共享相位，再用首末局部裁切控制普通／带 `-` 形式的对称可见范围，并在断点两侧各放半周期连接。
 **Source**: `llmdoc/memory/archive/2026-07-12/531-underline-leader-phase.md`, `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 手册中的局部视觉问题先提取精确 MWE
@@ -88,7 +88,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 稳定文档必须随实现演进重新核对
 **Rule**: 中间方案被后续提交替换时，重新逐项核对 architecture、reference、decision、lessons 和 index；已否决的路线只能作为历史记录，不能继续写成当前合同。
-**Why**: #1012 的 `1em/3 + \xleaders/\cleaders` 中间方案曾被写入多份稳定文档；实现已经改为 `1em/4 + 默认 \cleaders + 接点分离` 后，固定提交的独立审查仍发现文档会误导后续实现和测试。代码通过回归不能抵消稳定知识与实现不一致。
+**Why**: #1012 的 `1em/3 + \xleaders/\cleaders` 和 `1em/4 + 默认 \cleaders + 胶水专用图形` 两个中间方案都曾被写入稳定文档；当前合同已经改为“普通 `\leaders` 共享相位＋首末局部裁切＋断点两侧半周期连接”，固定提交的独立审查仍发现旧说明会误导后续实现和测试。代码通过回归不能抵消稳定知识与实现不一致。
 **Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 字符分类修改必须检查节点结构和旧类消费者

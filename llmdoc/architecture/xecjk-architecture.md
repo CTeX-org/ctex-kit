@@ -500,13 +500,17 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 提供 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 等中文文字效果命令。基于 `ulem` 机制重实现，处理 CJK 字符的下划线位置和连续性。
 
-**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量。#1012 后，默认 `\CJKunderwave` 与 `\CJKxout` 也使用 `\cleaders`，但另有周期图案的正文、字间距和端点专用处理，不能再只按 leader 类型解释其几何。只有用户通过 `underwave/symbol` 指定的自定义波浪符号保留 `\xleaders`。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
+**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量。#1012 后，默认 `\CJKunderwave` 与 `\CJKxout` 则刻意使用普通 `\leaders`，让正文片段、`CJKglue` 和换行后的片段共享同一个相位网格；首尾是否对称由局部裁切另行保证。只有用户通过 `underwave/symbol` 指定的自定义波浪符号保留 `\xleaders`。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
 
-**周期和斜向装饰的几何（#1012）**：默认波浪与斜删除线均由 `l3draw` 绘制宽 `1em/4` 的图案，振幅、高度和线宽随当前 `em` 缩放；常规全角字符每字约容纳四个单元，斜删除线不再依赖数学字体。两个默认图案都用 `\cleaders` 排列正文片段，使相位不受外层水平偏移影响。周期路径把 `\UL@pixel` 减半，让整数周期的正文片段实际落在正文边界。
+**周期和斜向装饰的几何（#1012）**：默认波浪与斜删除线均由 `l3draw` 绘制宽 `1em/4` 的图案，尺寸和线宽随当前 `em` 缩放；常规全角字符每字约容纳四个单元，斜删除线不再依赖数学字体。两个默认图案都用普通 `\leaders`，把同一行的所有内部片段固定在一个相位网格上。
 
-正文片段、中文字间距和命令外端点各有独立职责。普通形式在正文左右各画半个单元，保留修复前已经正确的装饰总长度和对称居中；带 `-` 形式不画外端点，图案恰好落在正文边界。`CJKglue` 中不再重复排列周期盒子：波浪在两侧波峰之间画同线宽水平连接，斜删除线则只保留实际胶水宽度。普通 `\quad` 和显式 `\hskip` 仍由 `ulem` 原路径绘制装饰；标点与 `CJKecglue` 也不进入 `CJKglue` 专用分支。`underwave/symbol` 只有保持默认值时才进入上述周期路径；用户自定义符号继续使用历史 `\xleaders` 行为。
+普通 `\leaders` 只放置完整装饰盒，不能独自精确命中任意端点。首段和真正的末段因此把底层 leaders 区间向两侧各扩展一个周期，再用局部 PDF 裁切限制可见范围：普通形式相对正文左右各外伸半周期，带 `-` 形式左右各内缩半周期；两种形式都保持命令宽度不变，相邻带 `-` 命令之间留下一个完整周期的断口。带 `-` 形式首段后的第一个 `CJKglue` 在可断点两侧各放一个净宽为零的半周期连接；不换行时两半拼合，换行时各自在本行闭合。裁切内部的 leaders 前有 penalty 10000，避免 PDF `gsave`／`grestore` 跨行。
 
-`1em/3` 加原 leaders 选择，以及 `1em/4` 加普通 `\leaders`，都是已经被当前分工替换的中间路线。前者不能消除每段重新分配余量带来的接点差异，后者也无法用一种排列方式同时表达正文、伸缩胶水和两种端点语义。当前合同由 `fntef-phase01` 的页面坐标门禁与节点、视觉回归共同保护。
+`CJKglue`、普通 `\quad` 和显式 `\hskip` 都继续走 `ulem` 的普通 leaders 路径，不再为波浪另画水平线或为斜线留空。`\UL@spfactor` 哨兵用来区分真正后续片段和 `ulem` 追加后又删除的结尾语法空格，保证单片段命令只裁切一次。`underwave/symbol` 只有保持默认值时才进入上述周期路径；用户自定义符号继续使用历史 `\xleaders` 行为。
+
+`l3draw` 会把负纵坐标归一化成盒子高度，所以斜线绘图盒本身的 depth 为零。默认斜线约高 `.93em`，使用时整体下移 `.09em`，实际覆盖约为基线下 `.09em` 至基线上 `.84em`；这与常见全角汉字的深度和高度相符，避免斜线只覆盖基线以上。
+
+`1em/3` 加原 leaders、没有裁切的朴素普通 `\leaders`，以及 `\cleaders` 加胶水专用图形，都是已经被当前分工替换的中间路线。当前方案保留普通 `\leaders` 的共享相位优势，再把可见端点和断行接点交给独立机制。合同由 `fntef-phase01` 的页面坐标门禁与节点、视觉回归共同保护。
 
 **边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 

@@ -311,16 +311,16 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 
 xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰盒、`ulem` 怎样决定片段和端点几何，以及最终页面怎样渲染。`\leaders`、`\cleaders` 与 `\xleaders` 可以拥有完全相同的 glue、盒宽和命令总宽，却把重复盒画在不同横坐标；节点宽度相同不能证明相位相同。
 
-#1012 把正文片段、`CJKglue` 和命令外端点分别处理。默认波浪和斜线都由 `l3draw` 按 `1em/4` 绘制，常规全角字符约容纳四个单元；两个默认图案都使用 `\cleaders`，并把 `\UL@pixel` 减半，使整数周期正文片段的图案落在正文边界。普通形式左右各有半个单元端点，保留既有装饰总长度和对称居中；带 `-` 形式没有外端点，恰好停在正文边界。波浪在 `CJKglue` 中以同线宽水平波峰连接，斜线只保留实际胶水宽度；两者都不在胶水中新增周期盒子。普通 `\quad` 和显式 `\hskip` 仍按 `ulem` 原路径装饰。自定义 `underwave/symbol` 保留历史 `\xleaders` 路径。
+#1012 用普通 `\leaders` 统一默认波浪和斜线的相位，再分别处理可见端点和断行接点。两个图案都由 `l3draw` 按 `1em/4` 绘制，常规全角字符约容纳四个单元；正文片段、固定或伸缩后的 `CJKglue` 和换行后的片段共享同一个 leader 网格。首段和真正的末段通过局部 PDF 裁切精确限定可见范围：普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期。相邻带 `-` 命令之间因而恰有一个周期断口；首段后的可断 `CJKglue` 用断点两侧各一个净宽为零的半周期连接。普通 `\quad` 和显式 `\hskip` 仍按 `ulem` 原路径装饰，自定义 `underwave/symbol` 保留历史 `\xleaders` 路径。默认斜线约高 `.93em`，使用时下移 `.09em`，使图案同时覆盖常见汉字的 height 和 depth。
 
 含 PDF 绘图路径的可见问题用四类专项证据验证，再做一次整本文档集成构建。不要把完整绘图 special 全部写入节点基线，也不要为每次局部调整反复编译整本手册：
 
-1. `fntef-underline-offset.lvt` 直接构造真正的 `l3draw` 波浪和斜线盒子，固定 8pt、10.53937pt、15pt 下的宽、高、深。这一层证明实际绘图单元确实是 `1em/4` 且随字号缩放。
-2. 节点和换行回归把波浪、斜线与半单元端点临时换成同尺寸的轻量规则盒子，检查默认 `\cleaders`、自定义波浪的 `\xleaders`、装饰区间、普通与带 `-` 形式、相邻命令、标点、换行、实际伸缩的 `CJKglue`，以及普通 `\quad` 仍被装饰。规则盒子避免 `.tlg` 被数千行 PDF 绘图 special 淹没，但不能证明页面上的实际坐标。
-3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记和图案盒子的实际横坐标。该门禁固定波浪和斜线在外层 `0pt/1pt/3pt/5pt` 水平偏移下相位不变，普通形式左右各外伸半个单元，带 `-` 形式落在正文边界，两种形式命令宽度一致；它还检查固定与伸缩 `CJKglue` 不新增周期盒子、胶水两侧节距等于“一个周期加实际胶水宽度”、相邻带 `-` 命令保持一个周期节距，以及普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
+1. `fntef-underline-offset.lvt` 直接构造真正的 `l3draw` 波浪和斜线盒子，固定 8pt、10.53937pt、15pt 下的宽、高、深。这一层证明实际周期宽度确实是 `1em/4`、斜线约高 `.93em`，并随字号缩放。
+2. 节点和换行回归把波浪和斜线临时换成同尺寸的轻量规则盒子，检查默认普通 `\leaders`、自定义波浪的 `\xleaders`、裁切结构、普通与带 `-` 形式、相邻命令、标点、换行、实际伸缩的 `CJKglue`，以及普通 `\quad` 仍被装饰。换行测试还比较正文字符和盒子、断点、行宽、glue set 及 PDF 图形状态在断点两侧分别闭合。规则盒子避免 `.tlg` 被数千行 PDF 绘图 special 淹没，但不能证明页面上的实际坐标。
+3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行门禁固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。固定提交 `f247128198a70b844c594e866570710b175151da` 的独立审查中，xeCJK 标准测试为 113／113，通过文档构建生成 244 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 113／113，文档构建生成 243 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
@@ -332,7 +332,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 涉及字符型装饰时，应把 PDF 文本语义与页面视觉分开验收：普通 PDF 和启用 `\DocumentMetadata{tagging=on}` 的 tagged PDF 都要实际运行文本提取，确认只保留正文；再对修复前后页面做同条件的高分辨率栅格或坐标比对，确认装饰位置和形状没有改变。#1017 的独立验证中，两种 PDF 的 `pdftotext -layout`／`-raw` 都排除了 `:`、`/`、`.`、`*` 等装饰字符，300 dpi 栅格的 `magick compare -metric AE` 为 `0 (0)`。文本提取通过不能证明页面视觉不变，像素相同也不能证明复制、搜索结果正确。
 
-#1012 固定提交 `f2471281` 的独立审查又用同一最小样例覆盖默认波浪、默认斜删除线、自定义 `underwave/symbol` 和 `\CJKunderanysymbol`。普通 PDF 与启用 tagging 的 PDF 在 `pdftotext -raw` 和 `-layout` 下都只得到正文，没有装饰字符，说明周期几何修改没有使 #1017 的文本语义退化。
+#1012 的同一最小样例覆盖默认波浪、默认斜删除线、自定义 `underwave/symbol` 和 `\CJKunderanysymbol`。普通 PDF 与启用 tagging 的 PDF 在 `pdftotext -raw` 和 `-layout` 下都只得到正文，没有装饰字符，说明周期几何修改没有使 #1017 的文本语义退化。
 
 这类测试还会扩大精简 CI 的依赖面。#1017 为 `xeCJKfntef` 增加运行时依赖 `accsupp`，tagged PDF 回归另需要 `latex-lab`、`pdfmanagement` 和 `tagpdf`；四项都必须同步写入 `.github/tl_packages`。凡新增 `\RequirePackage` 或启用 `\DocumentMetadata` 的测试，都应同时反查包级依赖声明和 CI 白名单，不能用本地完整 TeX Live 的通过结果代替这项检查。
 
