@@ -155,6 +155,16 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
 提取 Codex、Claude 和 publisher 的实际 jq 过滤器，确认零 finding 的 `COMMENT` 被拒绝、至少有
 一个小问题的 `COMMENT` 才能通过。
 
+后续独立审查还发现，`run-agent` Action 新增 `agent-control-hardening.c` 后，PR Review 两处固定到
+base 提交的 sparse checkout 没有同步取出这个文件。Action metadata 和 C 源码本身都能通过检查，
+但 job 会在安装 Action 时因文件不存在而失败。只在 workflow 中搜索某几个已知脚本名，不能证明
+可信 checkout 已包含 Action 的完整运行时依赖。
+
+修正后的合同测试直接读取 `run-agent/action.yml`，从 `$GITHUB_ACTION_PATH` 引用推导仓库内文件
+依赖，再逐一比对 Codex 和 Claude 的 sparse checkout 清单；测试还删除其中一条 C 文件路径，确认
+门禁会拒绝缺失依赖。以后本地 Action 新增脚本、二进制源码或其他运行时文件时，应把“更新所有固定
+提交 checkout”视为同一项修改，而不是等 job 启动失败后再补文件。
+
 ## 审查评论需要同时保留历史和重跑幂等性
 
 PR Review publisher 不能每次运行都新建评论，否则同一个 head 重跑会产生重复噪音；也不能用一条
@@ -194,6 +204,8 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 - 审查评论以 PR head 为幂等键：同 head 更新，不同 head 新建；维护者回复以 Bot 评论最后一次
   `updated_at` 为时间边界，并且审计必须覆盖全部 Issue 评论页。
 - 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
+- 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
+  的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
   辅助 Action 也必须固定到可信提交，不能因为它“只负责通知”而使用触发 ref。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
