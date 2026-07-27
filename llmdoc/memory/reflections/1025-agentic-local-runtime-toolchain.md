@@ -32,17 +32,17 @@ PR Review、Issue Dispatch 和 llmdoc Updater 原先只是远端 reusable workfl
 工具必须在 Agent 所在 runner 内可用。由另一个前置 job 编译固定 MWE 或上传固定证据，只能覆盖
 预先知道的检查，不能替代 Agent 根据 diff 自主选择 MWE、字体、字号和 PDF 检查方式。
 
-## 共享缓存需要区分读取者和写入者
+## 共享缓存需要按运行阶段划分写入权限
 
-Agent 安装 Action 与可信 CI 使用相同的 TeX Live weekly key 和两组字体 key，但只调用
-`actions/cache/restore`。缓存未命中时，Agent 可以临时安装本次运行所需内容，却不能在 job 结束
-时保存。
+最初的实现只调用 `actions/cache/restore`，并把安全规则概括成“Agent job 不能回写共享缓存”。这个
+说法混淆了可信安装阶段和随后的 Agent 进程。真正的风险来自普通 `actions/cache` 注册的 post step：
+它到整个 job 结束时才保存目录，此时 Agent 或它运行的仓库代码已经有机会修改缓存来源。
 
-这里的“不能回写”是安全策略，不是 GitHub Actions 的技术限制。Agent 会运行仓库代码；普通
-`actions/cache` 的 post step 若在 Agent 之后保存目录，新的 weekly key、依赖清单变化或缓存清理
-后都可能让 Agent 成为第一个共享缓存写入者。可信 `test.yml` 等 CI 负责预热，Agent 只读取，才能
-避免不可信测试或构建污染后续可信任务。字体暂存目录在安装完成后还要从工作区删除，避免 Agent
-修改恢复内容。
+修正后的安装 Action 继续复用可信 CI 的 TeX Live weekly key 和两组字体 key，但把 restore 和 save
+分开。缓存未命中时，来自 PR base 或固定事件提交的可信 Action 先安装并检查内容，再在 Agent 启动
+前用 `actions/cache/save` 立即保存。保存完成、字体暂存目录清理以后，workflow 才启动 Agent；此后
+不再注册或执行任何缓存保存动作。也就是说，限制针对的是保存时机和保存前的写入者，不是“包含
+Agent 的 job 一律没有缓存写权限”。
 
 完整范围审查还发现，“只恢复”并不等于恢复目标天然可信。字体 cache 为了与现有 CI 保持相同的
 cache version，仍恢复到 `$GITHUB_WORKSPACE/.font-cache` 和 `.xecjk-font-cache`；PR head 可以在
@@ -50,8 +50,13 @@ Action 运行前预置这两个路径。如果直接恢复并信任 `.done`，PR
 复制到系统目录。修正后的 Action 在两次 restore 之前先删除并重建两个普通目录，再检查恢复内容只含
 规定名称的普通字体文件和 `.done`，拒绝符号链接、子目录和其他文件。安装结束后仍删除暂存目录。
 
-这说明 cache 的读写权限与 restore 目标的文件所有权是两条独立边界：只读 cache 防止 Agent 污染
-共享条目；restore 前清理工作区则防止 PR 文件混入可信缓存内容。两者缺一不可。
+完整性检查还必须发生在系统安装和显式保存之前。CJK 缓存必须同时包含 Noto Sans CJK 和
+Noto Serif CJK；xeCJK 文档字体缓存必须包含 HanaMinB、Noto Sans Symbols 2 和 `.done`。符号链接、
+子目录和额外文件一律拒绝。完整顺序是“清理暂存目录 → restore 或可信下载 → 白名单和完整性检查
+→ 安装进系统 → cache miss 时显式 save → 再次清理暂存目录 → 启动 Agent”。
+
+这说明缓存写入时机与 restore 目标的文件所有权是两条独立边界：Agent 启动前完成显式保存，防止
+不可信进程污染共享条目；restore 前清理工作区，防止 PR 文件混入可信缓存内容。两者缺一不可。
 
 ## 只隔离 GitHub token 仍然不够
 
@@ -118,6 +123,19 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
 提取 Codex、Claude 和 publisher 的实际 jq 过滤器，确认零 finding 的 `COMMENT` 被拒绝、至少有
 一个小问题的 `COMMENT` 才能通过。
 
+## 审查评论需要同时保留历史和重跑幂等性
+
+PR Review publisher 不能每次运行都新建评论，否则同一个 head 重跑会产生重复噪音；也不能用一条
+PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_at`，不同 head 的独立审查记录也会
+消失。当前 marker 绑定具体 head：同一 head 重跑时更新原评论，不同 head 则新建评论。合同测试连续
+发布两个 head，并让每个 head 各重跑一次，固定“创建两次、更新两次”的行为。
+
+同一 head 的评论还可能在维护者回复以后再次更新。若 pre-push 只比较 Bot 评论的 `created_at`，旧
+回复会被误认为已经确认了更新后的 finding。hook 因而以 `updated_at` 为准，缺失时才回退
+`created_at`；只有 OWNER、MEMBER 或 COLLABORATOR 在 Bot 最后更新之后的回复，才算确认了当前
+正文。finding 不成立时，维护者应在最新正文后回复证据，再运行 `make check-pr-ci`，不必用空提交
+触发又一轮相同审查。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -130,9 +148,12 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
   `assume-unchanged`、本地提交和 Git 配置都可能破坏这种判断。
 - 需要对 Agent 候选执行 Git 比较或打包时，应重新检出固定基线，只复制允许的文件树，并在新仓库中
   完成所有 Git 操作。
-- 与可信 CI 共用 cache key 时，Agent 应只恢复；可信 CI 才能成为共享缓存写入者。
-- cache 恢复到不可信 checkout 内的路径时，必须先删除并重建目标，再验证恢复内容；只读 cache
+- 与可信 CI 共用 cache key 时，可信安装阶段可以在 Agent 启动前显式保存已经检查的内容；Agent
+  启动后不得再由 post step 保存共享缓存。
+- cache 恢复到不可信 checkout 内的路径时，必须先删除并重建目标，再验证恢复内容；restore 本身
   不能自动清除工作区原有文件。
+- 审查评论以 PR head 为幂等键：同 head 更新，不同 head 新建；维护者回复以 Bot 评论最后一次
+  `updated_at` 为时间边界。
 - 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
   本仓库的权限、事件提交和缓存边界。
@@ -140,7 +161,8 @@ PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不
 ## 验证
 
 - `python3 scripts/test-agentic-workflow-contract.py`
-  - 包含 `assume-unchanged` 隐藏脚本改写和恶意 `core.fsmonitor` 被 Git 执行的反例；
+  - 包含 `assume-unchanged` 隐藏脚本改写、恶意 `core.fsmonitor` 被 Git 执行、字体暂存内容不完整、
+    同／异 head 评论发布，以及维护者回复早于 Bot `updated_at` 的反例；
 - `python3 scripts/validate-action-metadata.py .github/actions/*/action.yml`
 - actionlint 检查四条相关 workflow
 - ShellCheck 检查 Agent runtime 和历史准备脚本
