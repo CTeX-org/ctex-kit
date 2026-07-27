@@ -1,6 +1,6 @@
 ## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
 
-- 波浪线和斜删除线改用随字号缩放的四分之一字宽绘图单元；正文片段、字间胶水和命令端点分别处理，避免周期图案在片段接点重复或断开（#1012）。
+- 波浪线和斜删除线改用随字号缩放的四分之一字宽绘图单元和普通 `\leaders`；带减号形式在首尾各内缩半个周期，避免相邻命令连在一起（#1012）。
 - 用空的 `ActualText` 标记装饰内容，并在构造装饰盒时暂停 LaTeX tagging，避免波浪下划线和斜删除线使用的字形进入 PDF 文本提取结果（#1017）。
 
 ## [xeCJK-v3.10.4](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.4)
