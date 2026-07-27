@@ -157,10 +157,35 @@ jobs:
           schema_file: ${{ runner.temp }}/result-schema.json
           result_file: ${{ runner.temp }}/raw-result.json
 
+      - name: Checkout event-pinned packaging base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          path: package-base
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+          token: ${{ github.token }}
+
+      - name: Import Agent llmdoc content into fresh packaging base
+        run: |
+          test -d consumer/llmdoc
+          test ! -L consumer/llmdoc
+          invalid_path=$(find consumer/llmdoc -mindepth 1 \
+            ! -type f ! -type d ! -type l -print -quit)
+          if [[ -n "$invalid_path" ]]; then
+            echo "::error::llmdoc 候选含不支持的文件类型：$invalid_path"
+            exit 1
+          fi
+          rm -rf -- package-base/llmdoc
+          mkdir -p package-base/llmdoc
+          cp -R --no-preserve=mode,ownership,timestamps \
+            consumer/llmdoc/. package-base/llmdoc/
+
       - name: Package Codex candidate
         run: |
           bash runtime/.github/scripts/agentic/package-change-result.sh \
-            "$RUNNER_TEMP/raw-result.json" "$GITHUB_WORKSPACE/consumer" \
+            "$RUNNER_TEMP/raw-result.json" "$GITHUB_WORKSPACE/package-base" \
             "$RUNNER_TEMP/candidate" "${{ needs.prepare.outputs.base_sha }}" \
             codex gpt-5.6-sol update-llmdoc
 
@@ -313,10 +338,35 @@ jobs:
           schema_file: ${{ runner.temp }}/result-schema.json
           result_file: ${{ runner.temp }}/raw-result.json
 
+      - name: Checkout event-pinned packaging base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.base_sha }}
+          path: package-base
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+          token: ${{ github.token }}
+
+      - name: Import Agent llmdoc content into fresh packaging base
+        run: |
+          test -d consumer/llmdoc
+          test ! -L consumer/llmdoc
+          invalid_path=$(find consumer/llmdoc -mindepth 1 \
+            ! -type f ! -type d ! -type l -print -quit)
+          if [[ -n "$invalid_path" ]]; then
+            echo "::error::llmdoc 候选含不支持的文件类型：$invalid_path"
+            exit 1
+          fi
+          rm -rf -- package-base/llmdoc
+          mkdir -p package-base/llmdoc
+          cp -R --no-preserve=mode,ownership,timestamps \
+            consumer/llmdoc/. package-base/llmdoc/
+
       - name: Package Claude candidate
         run: |
           bash runtime/.github/scripts/agentic/package-change-result.sh \
-            "$RUNNER_TEMP/raw-result.json" "$GITHUB_WORKSPACE/consumer" \
+            "$RUNNER_TEMP/raw-result.json" "$GITHUB_WORKSPACE/package-base" \
             "$RUNNER_TEMP/candidate" "${{ needs.prepare.outputs.base_sha }}" \
             claude claude-opus-5 update-llmdoc
 

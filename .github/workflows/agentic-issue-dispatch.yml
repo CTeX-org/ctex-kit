@@ -110,6 +110,16 @@ jobs:
           最终只输出符合 JSON Schema 的对象。核心输入不可访问时输出 INCOMPLETE；否则输出 COMPLETE。
           PROMPT
 
+      - name: Preserve trusted result normalizer
+        run: |
+          trusted_dir=$(mktemp -d "$RUNNER_TEMP/issue-normalizer.XXXXXX")
+          chmod 700 "$trusted_dir"
+          install -m 700 \
+            consumer/.github/scripts/agentic/normalize-answer-result.sh \
+            "$trusted_dir/normalize-answer-result.sh"
+          echo "TRUSTED_ANSWER_NORMALIZER=$trusted_dir/normalize-answer-result.sh" \
+            >> "$GITHUB_ENV"
+
       - name: Analyze with Codex
         uses: ./consumer/.github/actions/run-agent
         with:
@@ -124,9 +134,9 @@ jobs:
 
       - name: Normalize Codex result
         run: |
-          test -z "$(git -C consumer status --porcelain --untracked-files=all)"
+          test -x "$TRUSTED_ANSWER_NORMALIZER"
           mkdir -p "$RUNNER_TEMP/agent-result"
-          bash consumer/.github/scripts/agentic/normalize-answer-result.sh \
+          bash "$TRUSTED_ANSWER_NORMALIZER" \
             "$RUNNER_TEMP/raw-result.json" "$RUNNER_TEMP/agent-result/result.json" \
             codex gpt-5.6-sol issue-dispatch
 
@@ -201,6 +211,16 @@ jobs:
           最终只输出符合 JSON Schema 的对象。核心输入不可访问时输出 INCOMPLETE；否则输出 COMPLETE。
           PROMPT
 
+      - name: Preserve trusted result normalizer
+        run: |
+          trusted_dir=$(mktemp -d "$RUNNER_TEMP/issue-normalizer.XXXXXX")
+          chmod 700 "$trusted_dir"
+          install -m 700 \
+            consumer/.github/scripts/agentic/normalize-answer-result.sh \
+            "$trusted_dir/normalize-answer-result.sh"
+          echo "TRUSTED_ANSWER_NORMALIZER=$trusted_dir/normalize-answer-result.sh" \
+            >> "$GITHUB_ENV"
+
       - name: Analyze with Claude Code
         uses: ./consumer/.github/actions/run-agent
         with:
@@ -215,9 +235,9 @@ jobs:
 
       - name: Normalize Claude result
         run: |
-          test -z "$(git -C consumer status --porcelain --untracked-files=all)"
+          test -x "$TRUSTED_ANSWER_NORMALIZER"
           mkdir -p "$RUNNER_TEMP/agent-result"
-          bash consumer/.github/scripts/agentic/normalize-answer-result.sh \
+          bash "$TRUSTED_ANSWER_NORMALIZER" \
             "$RUNNER_TEMP/raw-result.json" "$RUNNER_TEMP/agent-result/result.json" \
             claude claude-opus-5 issue-dispatch
 
