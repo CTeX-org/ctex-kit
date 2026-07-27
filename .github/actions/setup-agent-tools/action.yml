@@ -167,13 +167,13 @@ runs:
               ;;
           esac
         done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
-
-    - name: Save trusted CJK font cache before Agent
-      if: steps.font-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: ${{ github.workspace }}/.font-cache
-        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
+        shopt -s nullglob
+        sans_fonts=("$font_cache"/NotoSansCJK-*.ttc)
+        serif_fonts=("$font_cache"/NotoSerifCJK-*.ttc)
+        if [[ ! -f "$font_cache/.done" ]] || (( ${#sans_fonts[@]} == 0 || ${#serif_fonts[@]} == 0 )); then
+          echo '::error::CJK 字体 cache 不完整。'
+          exit 1
+        fi
 
     - name: Install CJK fonts
       shell: bash
@@ -188,6 +188,13 @@ runs:
         fi
         sudo cp -- "${fonts[@]}" /usr/share/fonts/truetype/
         fc-cache -f
+
+    - name: Save trusted CJK font cache before Agent
+      if: steps.font-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/.font-cache
+        key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1
 
     - name: Restore xeCJK document font cache
       id: xecjk-font-cache
@@ -232,13 +239,12 @@ runs:
               ;;
           esac
         done < <(find "$font_cache" -mindepth 1 -maxdepth 1 -print0)
-
-    - name: Save trusted xeCJK document font cache before Agent
-      if: steps.xecjk-font-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: ${{ github.workspace }}/.xecjk-font-cache
-        key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+        for required in .done HanaMinB.ttf NotoSansSymbols2-Regular.ttf; do
+          if [[ ! -f "$font_cache/$required" ]]; then
+            echo "::error::xeCJK 字体 cache 缺少文件：$required"
+            exit 1
+          fi
+        done
 
     - name: Install xeCJK document fonts
       shell: bash
@@ -253,6 +259,13 @@ runs:
         fi
         sudo cp -- "${fonts[@]}" /usr/share/fonts/truetype/
         fc-cache -f
+
+    - name: Save trusted xeCJK document font cache before Agent
+      if: steps.xecjk-font-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ github.workspace }}/.xecjk-font-cache
+        key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
 
     - name: Register TeX Live fonts with fontconfig
       shell: bash
