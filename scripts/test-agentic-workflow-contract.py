@@ -6,6 +6,7 @@ import json
 import importlib.util
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -61,22 +62,37 @@ def job(source: str, name: str) -> str:
     return match.group(0)
 
 
-def top_level_block(source: str, name: str) -> str:
-    match = re.search(
-        rf"(?ms)^{re.escape(name)}:\n.*?(?=^[A-Za-z0-9_-]+:\n|\Z)",
-        source,
-    )
-    assert match, f"找不到顶层字段: {name}"
-    return match.group(0)
+def parse_workflow(source: str) -> dict:
+    """按 YAML 解析 workflow，并避免 YAML 1.1 把顶层 `on` 当作布尔值。"""
+    document = yaml.safe_load(re.sub(r"(?m)^on:", '"on":', source, count=1))
+    assert isinstance(document, dict), "workflow 顶层必须是 mapping"
+    return document
 
 
-def named_step(source: str, name: str) -> str:
-    match = re.search(
-        rf"(?ms)^      - name: {re.escape(name)}\n.*?(?=^      - name: |\Z)",
-        source,
+def assert_contract_hook_coverage(source: str) -> None:
+    document = parse_workflow(source)
+    trigger_paths = document["on"]["pull_request"]["paths"]
+    assert isinstance(trigger_paths, list), "合同 workflow 的 pull_request.paths 必须是列表"
+
+    steps = document["jobs"]["contract"]["steps"]
+    lint_step = next(
+        (step for step in steps if step.get("name") == "Lint Agent shell scripts"),
+        None,
     )
-    assert match, f"找不到 step: {name}"
-    return match.group(0)
+    assert lint_step is not None, "找不到 step: Lint Agent shell scripts"
+    shellcheck_args = shlex.split(lint_step["run"], comments=True, posix=True)
+
+    hook_paths = (".githooks/pre-push", ".githooks/check-pr-ci.sh")
+    shellcheck_inputs = (
+        "shellcheck",
+        *hook_paths,
+        ".github/scripts/agentic/*.sh",
+        ".github/scripts/pr-review/prepare-review-history.sh",
+    )
+    missing_triggers = [path for path in hook_paths if path not in trigger_paths]
+    missing_shellcheck = [path for path in shellcheck_inputs if path not in shellcheck_args]
+    assert not missing_triggers, f"Agent workflow 触发路径缺少 hook: {missing_triggers}"
+    assert not missing_shellcheck, f"Agent workflow ShellCheck 参数缺少 hook: {missing_shellcheck}"
 
 
 def require_all(source: str, fragments: tuple[str, ...], label: str) -> None:
@@ -1338,27 +1354,31 @@ def main() -> None:
         ),
         "Agent workflow contract gate",
     )
-    trigger = top_level_block(contract, "on")
-    require_all(
-        trigger,
+    assert_contract_hook_coverage(contract)
+    for broken_contract, label in (
         (
-            "- '.githooks/pre-push'",
-            "- '.githooks/check-pr-ci.sh'",
+            contract.replace(
+                "      - '.githooks/pre-push'\n",
+                "      # - '.githooks/pre-push'\n",
+                1,
+            ),
+            "注释 trigger path",
         ),
-        "Agent workflow contract trigger paths",
-    )
-    shellcheck_step = named_step(contract, "Lint Agent shell scripts")
-    require_all(
-        shellcheck_step,
         (
-            "shellcheck",
-            ".githooks/pre-push",
-            ".githooks/check-pr-ci.sh",
-            ".github/scripts/agentic/*.sh",
-            ".github/scripts/pr-review/prepare-review-history.sh",
+            contract.replace(
+                "            .githooks/pre-push \\\n",
+                "            # .githooks/pre-push \\\n",
+                1,
+            ),
+            "注释 ShellCheck 参数",
         ),
-        "Agent workflow ShellCheck inputs",
-    )
+    ):
+        try:
+            assert_contract_hook_coverage(broken_contract)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{label}的反例必须失败")
 
     provenance = read(ROOT / ".github" / "agentic-runtime.md")
     require_all(
