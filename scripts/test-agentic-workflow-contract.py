@@ -97,61 +97,6 @@ def parse_single_continued_command(script: str, label: str) -> list[str]:
     return argv
 
 
-def strip_shell_comment(line: str) -> str:
-    """去掉简单 shell 行中实际生效的注释，同时保留引号内的井号。"""
-    single_quoted = False
-    double_quoted = False
-    escaped = False
-    for index, char in enumerate(line):
-        if escaped:
-            escaped = False
-            continue
-        if char == "\\" and not single_quoted:
-            escaped = True
-            continue
-        if char == "'" and not double_quoted:
-            single_quoted = not single_quoted
-            continue
-        if char == '"' and not single_quoted:
-            double_quoted = not double_quoted
-            continue
-        if (
-            char == "#"
-            and not single_quoted
-            and not double_quoted
-            and (index == 0 or line[index - 1].isspace())
-        ):
-            return line[:index]
-    return line
-
-
-def parse_effective_shell_commands(script: str, label: str) -> list[list[str]]:
-    """合并反斜线续行并返回去除注释后实际存在的简单命令。"""
-    logical_lines: list[str] = []
-    pending = ""
-    for raw_line in script.splitlines():
-        line = strip_shell_comment(raw_line).strip()
-        if not line:
-            continue
-        current = f"{pending} {line}".strip() if pending else line
-        if current.endswith("\\"):
-            pending = current[:-1].rstrip()
-            continue
-        logical_lines.append(current)
-        pending = ""
-    assert not pending, f"{label} 的最后一条命令不得以反斜线续行结束"
-
-    commands: list[list[str]] = []
-    for line in logical_lines:
-        try:
-            argv = shlex.split(line, comments=True, posix=True)
-        except ValueError as error:
-            raise AssertionError(f"{label} 包含无法解析的 shell 命令: {line}") from error
-        if argv:
-            commands.append(argv)
-    return commands
-
-
 def assert_pr_review_draft_contract(source: str) -> None:
     document = parse_workflow(source)
     assert document["on"]["pull_request_target"]["types"] == [
@@ -262,6 +207,17 @@ def assert_bubblewrap_runner_setup(setup_source: str, contract_source: str) -> N
         contract_document["jobs"]["contract"]["steps"],
         "Agent 合同 workflow",
     )
+    expected_script = (
+        "set -euo pipefail\n"
+        "if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then\n"
+        "  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\n"
+        "fi\n"
+        "if [[ -e /proc/sys/kernel/unprivileged_userns_clone ]]; then\n"
+        "  sudo sysctl -w kernel.unprivileged_userns_clone=1\n"
+        "fi\n"
+        "bwrap --unshare-net --die-with-parent --new-session \\\n"
+        "  --ro-bind / / --dev /dev --proc /proc /usr/bin/true\n"
+    )
 
     for label, steps in (
         ("Agent 工具 Action", setup_steps),
@@ -270,48 +226,7 @@ def assert_bubblewrap_runner_setup(setup_source: str, contract_source: str) -> N
         step = steps.get("Enable and verify Bubblewrap sandbox")
         assert step is not None, f"{label} 缺少 Bubblewrap runner 准备步骤"
         script = step.get("run", "")
-        commands = parse_effective_shell_commands(
-            script,
-            f"{label} Bubblewrap runner 准备",
-        )
-        expected = (
-            (
-                "/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
-                ["sudo", "sysctl", "-w", "kernel.apparmor_restrict_unprivileged_userns=0"],
-            ),
-            (
-                "/proc/sys/kernel/unprivileged_userns_clone",
-                ["sudo", "sysctl", "-w", "kernel.unprivileged_userns_clone=1"],
-            ),
-        )
-        bwrap = [
-            "bwrap",
-            "--unshare-net",
-            "--die-with-parent",
-            "--new-session",
-            "--ro-bind",
-            "/",
-            "/",
-            "--dev",
-            "/dev",
-            "--proc",
-            "/proc",
-            "/usr/bin/true",
-        ]
-        assert bwrap in commands, f"{label} 缺少完整的 Bubblewrap 探针命令"
-        bwrap_index = commands.index(bwrap)
-        for probe_path, sysctl in expected:
-            assert sysctl in commands, f"{label} 缺少实际执行的命令: {' '.join(sysctl)}"
-            sysctl_index = commands.index(sysctl)
-            probe_indexes = [
-                index
-                for index, argv in enumerate(commands)
-                if argv and argv[0] == "if" and "-e" in argv and probe_path in argv
-            ]
-            assert probe_indexes, f"{label} 缺少 sysctl 存在性检查: {probe_path}"
-            assert probe_indexes[0] < sysctl_index < bwrap_index, (
-                f"{label} 必须先检查并调整 {probe_path}，再运行 Bubblewrap 探针"
-            )
+        assert script == expected_script, f"{label} 必须逐字使用受控的 Bubblewrap runner 准备脚本"
 
 
 def assert_no_write_permission(source: str, label: str) -> None:
@@ -1289,6 +1204,15 @@ def main() -> None:
                 1,
             ),
             "合同 workflow 把 Bubblewrap 探针主命令改成注释",
+        ),
+        (
+            setup.replace(
+                "bwrap --unshare-net --die-with-parent --new-session \\",
+                "bwrap --unshare-net --die-with-parent --new-session \\ # 探针续行失效",
+                1,
+            ),
+            contract,
+            "Agent 工具 Action 用转义空格破坏 Bubblewrap 探针续行",
         ),
     ):
         try:
