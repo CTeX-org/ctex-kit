@@ -156,6 +156,16 @@ Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 暂时移除末�
 
 post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检查 glue 的情况，例如 `\textnormal{$x$ }\hskip7pt\null`。探测过程会暂时取下 7pt glue 才看到 `math-space`；marker 过期时必须先把这枚 glue 放回，再放回 `\null`，保留直接 oracle 的“真实空格、显式 glue、零尺寸盒子”顺序。其他 marker 不受这一例外影响，仍沿用 #1003 的“盒子、marker、glue”后移顺序。
 
+### ulem 集成层的正文必须以字面记号留在替换文本里（#1026）
+
+`\UL@on` / `\UL@onin` 把正文交给 `ulem` 之前，正文的展开方式本身是一条独立于上面 `math-space` 逻辑的约束：`ulem` 自己扫描正文，按源码空格把它切成固定宽度的装饰片段盒（每个片段各自一个盒子）。正文只要经过宏参数间接展开，西文词右侧由边界恢复链补出的 `\CJKecglue` 就会落在片段盒**内部**，其收缩量被盒子固化，无法参与外层段落的断行决策；行尾因此可能溢出右边距。
+
+因此 `\UL@on` / `\UL@onin` 先用 `\@@_boundary_if_ulem_math_reorder:nTF` 判断正文语法：只有当正文以“公式尾＋尾随源码空格”结尾时（即 #1002 需要重排空格才能让确认代码看到公式节点的那一种情况），才用 `\@@_boundary_ulem_math_tail_space:n` 重排正文；其余全部情况都保持 `\xeCJK_ulem_left: #1` 的字面展开，把原样的 `#1` 直接留在 `\UL@on` 的替换文本里。原先统一处理两种情况的 `\@@_boundary_ulem_math_body:n` 已被这两个函数取代。
+
+两者的分工边界：#1002 的 `math-space`／`math-space-frozen` 解决的是“确认末尾公式候选时空格暂时遮住公式节点”这一种局部重排需求；本节的字面记号约束是更基础的默认规则——`ulem`／`xeCJKfntef` 等自行扫描正文并切片装盒的机制，只应对正文使用字面记号，确需重排某种特殊语法时应该用条件判断只让该语法走重排路径，不能为了少数情况把全部正文都改成参数间接展开。
+
+已接受的既有限制（不在 #1026 修复范围）：调用处把正文写成宏再传入，例如 `\CJKunderline{\BODY}`，收缩量同样进不了外层——宏体在 `ulem` 扫描期间才展开，触发的是同一条“正文经间接展开→收缩量固化在片段盒内”的机制，但成因是用户写法而不是替换文本本身。实测发布版本（系统 TeX Live）对这种写法同样得到修复前的溢出宽度，说明它是发布版就有的既有限制而非本次回归，不在修复范围内。
+
 ### capture/register 框架（#992 / PR #999）
 
 `\@@_boundary_capture_begin:` 在已注册命令入口执行四件事：
@@ -521,6 +531,8 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 **PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符、数学内容或绘图组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍需明确排除 PDF 文本语义。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：字符或数学装饰产生的内层标记可能穿过外层 `ActualText`，重新暴露装饰内容。这里的 PDF 语义隔离、boundary capture 暂停／恢复和 #1012 的默认图案几何分别解决文本提取、命令边界状态和装饰外观，三者不能互相替代。
 
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
+
+**正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:n` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
 
 ### xeCJK-listings
 

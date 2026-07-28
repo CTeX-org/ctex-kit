@@ -1,0 +1,55 @@
+% #1026：xeCJKfntef 命令的正文必须以字面记号留在 ulem 的替换文本里。
+%
+% ulem 自己扫描正文并按源码空格把它切成固定宽度的装饰片段盒。若正文经由宏
+% 参数间接展开，西文词右侧由边界恢复链补出的 \CJKecglue 会落在片段盒内部，
+% 收缩量被盒子固化而无法参与断行；行尾因此溢出右边距，装饰随之参差。
+%
+% 三点必须注意，否则测试量不出这个缺陷：
+%   1. 只有真正的段落断行才显现。把同一内容装进单个 \hbox 或 \vbox 都测不出，
+%      因为那里的 glue set 会把内外层收缩一并用掉。
+%   2. 正文必须在调用处写成字面记号。写成 \CJKunderline{\BODY} 时，\BODY 在
+%      ulem 扫描期间才展开，收缩量同样进不了外层——这是发布版本就有的既有限制，
+%      不在本次修复范围内，因此这里不用宏承载正文。
+%   3. 只固定行盒尺寸与 glue set；不比对装饰图形。
+%
+% 缺陷存在时首行溢出 18.08pt，正确时为 3.64pt。
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK,xeCJKfntef}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+\showboxbreadth=1 \showboxdepth=0
+
+\TEST{underline keeps outer shrink across linebreak}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  虚室生白，吉祥止止\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 }虚室生白，吉祥止止
+  \par
+}
+
+\TEST{underwave keeps outer shrink across linebreak}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  虚室生白，吉祥止止\CJKunderwave{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 }虚室生白，吉祥止止
+  \par
+}
+
+\TEST{subtract form keeps outer shrink across linebreak}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  虚室生白，吉祥止止\CJKunderline-{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 }虚室生白，吉祥止止
+  \par
+}
+
+% 正文以“公式＋尾随源码空格”结尾时仍走重排路径（#1002）；确认它没被本次
+% 改动关掉，尾随空格仍被装饰。
+\TEST{math tail with trailing space still reordered}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  虚室生白，吉祥止止\CJKunderline{中文 $x$ }虚室生白，吉祥止止
+  \par
+}
+
+\END
