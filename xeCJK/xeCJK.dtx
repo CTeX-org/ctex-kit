@@ -14307,7 +14307,8 @@ Copyright and Licence
 %
 % \begin{macro}[int]{
 %   \@@_ulem_stream_begin:,
-%   \@@_boundary_ulem_math_body:n,
+%   \@@_boundary_ulem_math_tail_space:n,
+%   \@@_boundary_if_ulem_math_reorder:n,
 %   \xeCJK_ulem_group_begin:,
 %   \xeCJK_ulem_group_end:,
 %   \xeCJK_ulem_on:n}
@@ -14315,6 +14316,9 @@ Copyright and Licence
 %   \pkg{ulem} 入口（如 \tn{uline}）、\tn{xeCJKfntefon} 与独立符号命令
 %   接入 stream capture，并让内部 pending 通过 framework 的统一辅助函数
 %   发布；删除 fntef 专用末状态恢复和 pending 设置（\#992）。}
+% \changes{v3.10.5}{2026/07/28}{正文只在“公式加尾随源码空格”时才重排；
+%   其余情况保持字面记号，避免西文词右侧的 \tn{CJKecglue} 被关进
+%   固定宽度装饰片段盒而丢失收缩量（\#1026）。}
 % \changes{v3.10.4}{2026/07/20}{让嵌套的 \pkg{ulem}/xeCJKfntef
 %   线型命令只由最外层启动 stream capture，修复 capture 栈逐次累积的
 %   状态泄漏（\#992）。}
@@ -14377,39 +14381,61 @@ Copyright and Licence
 % 去掉尾随空格的正文，在公式节点仍可见时确认公式末尾，随后把一枚空格
 % 交还 ulem 排版；capture 结束时会将它标记为冻结空格。未知宏若消费公式，
 % 实际末节点检查仍会失败。
-\cs_new_protected:Npn \@@_boundary_ulem_math_body:n #1
+%
+% 只有这一种语法才需要重排正文。其余情况必须让正文以字面记号留在
+% \tn{UL@on} 的替换文本里，不能经由宏参数间接展开：\pkg{ulem} 自己扫描正文并
+% 按源码空格切分片段，正文一旦作为参数传递，西文词右侧由边界恢复链
+% 补出的 \tn{CJKecglue} 会落在固定宽度的装饰片段盒内部，其收缩量被盒子
+% 固化而无法参与断行，整段可收缩量因此按西文词数减少（\#1026）。
+\cs_new_protected:Npn \@@_boundary_ulem_math_tail_space:n #1
+  {
+    \tl_set:Ne \l_@@_boundary_math_tl
+      { \tl_trim_right_spaces:n {#1} }
+    \tl_use:N \l_@@_boundary_math_tl
+    \@@_boundary_if_last_math_node:T
+      { \@@_boundary_math_end_confirm_space_visible: }
+    \c_space_tl
+  }
+\prg_new_protected_conditional:Npnn \@@_boundary_if_ulem_math_reorder:n #1
+  { T , F , TF }
   {
     \@@_boundary_if_math_tail:nTF {#1}
       {
         \@@_boundary_if_math_tail_space:nTF {#1}
-          {
-            \tl_set:Ne \l_@@_boundary_math_tl
-              { \tl_trim_right_spaces:n {#1} }
-            \tl_use:N \l_@@_boundary_math_tl
-            \@@_boundary_if_last_math_node:T
-              { \@@_boundary_math_end_confirm_space_visible: }
-            \c_space_tl
-          }
-          { #1 \@@_boundary_math_end:n {#1} }
+          { \prg_return_true: }
+          { \prg_return_false: }
       }
-      {#1}
+      { \prg_return_false: }
   }
 \cs_new_eq:NN \@@_ulem_on:n \UL@on
 \cs_set_protected:Npn \UL@on #1
   {
     \@@_boundary_math_begin:n {#1}
-    \@@_ulem_on:n
+    \@@_boundary_if_ulem_math_reorder:nTF {#1}
       {
-        \xeCJK_ulem_left:
-        \@@_boundary_ulem_math_body:n {#1}
-        \xeCJK_ulem_right:
+        \@@_ulem_on:n
+          {
+            \xeCJK_ulem_left:
+            \@@_boundary_ulem_math_tail_space:n {#1}
+            \xeCJK_ulem_right:
+          }
+      }
+      {
+        \@@_ulem_on:n
+          {
+            \xeCJK_ulem_left: #1
+            \@@_boundary_math_end:n {#1}
+            \xeCJK_ulem_right:
+          }
       }
   }
 \cs_new_eq:NN \@@_orig_ulem_onin:n \UL@onin
 \cs_set_protected:Npn \UL@onin #1
   {
     \@@_boundary_math_begin:n {#1}
-    \@@_orig_ulem_onin:n { \@@_boundary_ulem_math_body:n {#1} }
+    \@@_boundary_if_ulem_math_reorder:nTF {#1}
+      { \@@_orig_ulem_onin:n { \@@_boundary_ulem_math_tail_space:n {#1} } }
+      { \@@_orig_ulem_onin:n { #1 \@@_boundary_math_end:n {#1} } }
   }
 %    \end{macrocode}
 % \end{macro}

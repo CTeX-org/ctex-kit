@@ -117,9 +117,14 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1017-fntef-actualtext.md`
 
 ### 弹性间距必须验证伸缩量和实际断行
-**Rule**: 测试可伸缩间距时，分别核对 natural、stretch 和 shrink，并在有限容差下实际排段检查断行；盒子自然宽度只能作为第一层证据。
-**Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。
-**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
+**Rule**: 测试可伸缩间距时，分别核对 natural、stretch 和 shrink，并在有限容差下实际排段检查断行；盒子自然宽度只能作为第一层证据。单个 `\hbox` 或 `\vbox` 不能替代真正断行：其内部的 glue set 会把内外层的可伸缩量一并用掉，两种实现即使内外层收缩量分配不同也会得到相同的宽度或高度，必须把内容放进 document 主垂直列表、让 `\par` 真正决定断行，才能看出内外层区分。
+**Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。#1026 中前三版测试分别把正文装进 `\hbox`、`\vbox`，或用 `\def\BODY` 承载正文，均显示缺陷版与修复版数字相同；只有改成“主垂直列表里真正断行，且调用处写字面正文”才第一次测出差异。
+**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
+### 回归测试必须用重新引入缺陷的方式确认会失败
+**Rule**: 新增或改写回归测试后，故意还原到修复前的实现，确认测试会失败；测试全部显示“通过”不构成“这项测试确实能检测该缺陷”的证据，只能证明测试当前不会误报。
+**Why**: #1026 中连续三版测试草案都显示通过，但都是因为选错了能观察内外层区分的载体（`\hbox`／`\vbox` 抹平差异，宏承载正文触发了另一条既有限制），如果没有主动倒回旧实现验证，很可能把假绿当作“修复已验证”上报。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### 命令边界修复必须覆盖输出等价矩阵
 **Rule**: 验证命令边界间距时，以相同可见内容的直接输入为 oracle，按实际输出首尾类别、`00/10/01/11` 和会改变边界语义的选项值记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。公式必须与直接公式比较，候选与 oracle 必须使用相同的 `xCJKecglue` 设置。
