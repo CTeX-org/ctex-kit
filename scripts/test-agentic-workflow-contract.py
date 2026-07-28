@@ -1654,6 +1654,8 @@ def main() -> None:
         "texlua",
         "xdvipdfmx",
         "xelatex",
+        # ctex 手册的索引依赖它；缺失时 l3build doc 会在生成 PDF 之后才失败。
+        "zhmakeindex",
     )
     require_all(setup, tools, "Agent toolchain")
 
