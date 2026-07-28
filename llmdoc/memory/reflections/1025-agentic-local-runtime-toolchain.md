@@ -113,7 +113,9 @@ AppArmor 限制未特权 user namespace，Bubblewrap 会在写 UID map 时直接
 `apparmor_restrict_unprivileged_userns` 并打开 `unprivileged_userns_clone`，随后立即运行带
 `--unshare-net` 的 Bubblewrap 探针。独立合同 job 在执行 Python 夹具以前使用同样的准备和探针。
 调整发生在一次性 runner、Agent 启动以前；探针失败则 job 直接停止，不能等 Agent fallback 才发现
-沙箱不可用。合同测试还固定两处准备步骤，并用移除 sysctl 或探针的反例防止回退。
+沙箱不可用。合同测试还固定两处准备步骤：先按 shell 的注释和反斜线续行规则还原实际命令，再精确
+核对两条 sysctl 命令、完整 Bubblewrap 探针及其先后顺序；把 sysctl 或探针主命令改成注释的反例
+必须失败。只在原始 `run:` 文本中搜索片段，会把注释误当作仍然生效的命令。
 
 ## Agent 返回后仍要保持信任边界
 
