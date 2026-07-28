@@ -148,13 +148,27 @@ GOBIN="$actionlint_dir" go install github.com/rhysd/actionlint/cmd/actionlint@v1
 echo "$actionlint_dir" >> "$GITHUB_PATH"
 export PATH="$actionlint_dir:$PATH"
 
+# ctex 手册的索引由 zhmakeindex 生成，缺它时 l3build doc 会在生成 PDF 之后失败。
+# 安装方式与 _check-doc-package.yml、release.yml 保持一致。
+zhmk_version=$(curl -fsSL \
+  'https://api.github.com/repos/Liam0205/zhmakeindex/releases/latest' \
+  | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+if [[ -z "$zhmk_version" ]]; then
+  echo '::error::无法取得 zhmakeindex 的最新版本号。'
+  exit 1
+fi
+zhmk_url="https://github.com/Liam0205/zhmakeindex/releases/download/${zhmk_version}/zhmakeindex_${zhmk_version#v}_linux_amd64.tar.gz"
+curl -fsSL "$zhmk_url" | sudo tar xz -C /usr/local/bin zhmakeindex
+
 for tool in \
   actionlint fc-match gs kpsewhich l3build magick pdfcrop \
   pdffonts pdfimages pdfinfo pdftoppm pdftotext sha256sum \
-  shellcheck texlua xdvipdfmx xelatex; do
+  shellcheck texlua xdvipdfmx xelatex zhmakeindex; do
   command -v "$tool"
 done
 xelatex --version | head -n 1
 l3build --version
 magick -version | head -n 1
 actionlint -version
+# zhmakeindex 无参数运行时以非零码退出并打印用法，这里只确认它可执行。
+zhmakeindex 2>&1 | head -n 1 || true
