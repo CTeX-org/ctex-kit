@@ -350,7 +350,7 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/agentic-pr-review.yml`：本地 PR 自动审查实现，由 `pull_request_target` 触发；Codex `gpt-5.6-sol` 是主链路，Claude Code `claude-opus-5` 是独立 runner 上的兜底，不运行 Agent 的发布 job（publisher）代发评论
 - `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
 - `.github/workflows/agentic-llmdoc-updater.yml`：本地 llmdoc 更新实现，每天北京时间 05:00 或手动触发，Agent 只生成候选，独立的校验 job（validator）和 publisher 验证并创建／更新 PR
-- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本
+- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本；它还明确对 pre-push hook、Agent shell 脚本和 PR history 脚本运行 ShellCheck
 
 #### agentic 工作流的本地运行时与触发约束
 
@@ -374,7 +374,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 
 Agent 返回后，runner 不能执行 Agent 可写路径中的脚本，也不能把该工作区的 `git status` 当作内容认证。Agent 可以用 `assume-unchanged`、本地提交或 `.git/config` 隐藏、转移改动；Git 命令本身还可能通过 `core.fsmonitor` 等配置执行程序。Issue Dispatch 因此在 Agent 启动前把结果整理脚本复制到 runner 的私有临时目录，返回后只用这份副本解析结果文件，不再执行 `consumer` 中的脚本或对它运行 Git。llmdoc Updater 则重新把固定 master 提交检出到 `package-base`，只复制 `consumer/llmdoc/` 文件树；比较、暂存和补丁生成全部在这个新仓库中完成，不读取 Agent 控制的 `.git`。恢复目录所有权不能恢复文件和仓库元数据的可信度，后处理仍须保持代码与数据分离。
 
-`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、restore/save 分离、可信的 Agent 启动前显式保存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、由 `assume-unchanged` 隐藏的脚本改写、恶意 `core.fsmonitor` 会被 Git 执行、字体 staging 中预置或不完整的内容、同／异 head 评论发布、第二页 Bot 评论、维护者回复早于 Bot `updated_at`、工作区进程持续改写沙箱外控制结果，以及同 UID 子进程访问父 CLI `/proc/<pid>/fd` 的情况。PR Review 的可信 sparse checkout 还要覆盖 `run-agent` Action 的全部仓库内运行时依赖；合同测试从 Action 中的 `$GITHUB_ACTION_PATH` 引用推导文件闭包，分别检查 Codex 与 Claude 的清单，并用删除 C 源文件路径的反例确认门禁会失败。新增或移动本地 Action 的运行时文件时，必须同时更新所有固定提交 checkout，不能只修改 Action 本身。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
+`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装、restore/save 分离、可信的 Agent 启动前显式保存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、由 `assume-unchanged` 隐藏的脚本改写、恶意 `core.fsmonitor` 会被 Git 执行、字体 staging 中预置或不完整的内容、同／异 head 评论发布、第二页 Bot 评论、维护者回复早于 Bot `updated_at`、工作区进程持续改写沙箱外控制结果，以及同 UID 子进程访问父 CLI `/proc/<pid>/fd` 的情况。PR Review 的可信 sparse checkout 还要覆盖 `run-agent` Action 的全部仓库内运行时依赖；合同测试从 Action 中的 `$GITHUB_ACTION_PATH` 引用推导文件闭包，分别检查 Codex 与 Claude 的清单，并用删除 C 源文件路径的反例确认门禁会失败。新增或移动本地 Action 的运行时文件时，必须同时更新所有固定提交 checkout，不能只修改 Action 本身。`scripts/validate-action-metadata.py` 专门校验 `action.yml`，因为 actionlint 只负责 workflow。合同 workflow 的 `pull_request.paths` 必须覆盖合同测试读取或执行的全部仓库文件；例如测试直接读取 `.githooks/check-pr-ci.sh`，该 hook 就必须能触发门禁。独立 shell 文件还要由明确的 ShellCheck 命令检查，不能把 actionlint 对 workflow 内嵌 `run:` 的检查当作替代。修改本地 Agent runtime 后运行这两个脚本、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]。
 
 ### 测试工作流：`.github/workflows/test.yml`
 
