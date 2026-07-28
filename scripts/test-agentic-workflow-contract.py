@@ -247,6 +247,79 @@ def assert_pr_review_runtime_dependency_closure(source: str) -> None:
         assert not missing, f"PR Review {job_name} 的可信 sparse checkout 缺少 run-agent 依赖: {missing}"
 
 
+def assert_pr_instruction_isolation(
+    review_source: str,
+    action_source: str,
+    runner_source: str,
+) -> None:
+    """PR head 只能作为显式审查目录，不能提供 CLI 项目指令或改写可信规范。"""
+    document = parse_workflow(review_source)
+    for job_name in ("codex_review", "claude_review"):
+        steps = unique_steps_by_name(document["jobs"][job_name]["steps"], f"PR Review {job_name}")
+        prompt = steps["Prepare trusted review inputs"].get("run", "")
+        require_all(
+            prompt,
+            (
+                "@@TRUSTED_INSTRUCTION_DIR@@/pr-review.md",
+                "@@TRUSTED_INSTRUCTION_DIR@@/github-comment.md",
+            ),
+            f"PR Review {job_name} prompt",
+        )
+        assert "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/" not in prompt, (
+            f"PR Review {job_name} prompt 不得在 Agent 运行时读取已移交所有权的 base checkout"
+        )
+        agent_step = next(step for step in steps.values() if step.get("uses", "").endswith("/run-agent"))
+        inputs = agent_step.get("with", {})
+        assert inputs.get("ignore_repository_rules") == "true"
+        assert inputs.get("trusted_review_skill_file") == (
+            "${{ github.workspace }}/.trusted-base/.claude/skills/pr-review/SKILL.md"
+        )
+        assert inputs.get("trusted_comment_skill_file") == (
+            "${{ github.workspace }}/.trusted-base/.claude/skills/github-comment/SKILL.md"
+        )
+
+    require_all(
+        action_source,
+        (
+            "trusted_review_skill_file:",
+            "trusted_comment_skill_file:",
+            'test -f "$TRUSTED_REVIEW_SKILL_FILE" && test ! -L "$TRUSTED_REVIEW_SKILL_FILE"',
+            'test -f "$TRUSTED_COMMENT_SKILL_FILE" && test ! -L "$TRUSTED_COMMENT_SKILL_FILE"',
+            'trusted_instruction_dir="$trusted_runtime/review-instructions"',
+            'TRUSTED_INSTRUCTION_DIR="$trusted_instruction_dir"',
+        ),
+        "run-agent 可信规范副本",
+    )
+    assert action_source.count('install -m 444 "$TRUSTED_') == 2, "两份可信规范都必须复制为只读文件"
+    require_all(
+        runner_source,
+        (
+            'agent_root="$session_dir/work-root"',
+            'test -w "$trusted_path"',
+            'test -w "$TRUSTED_INSTRUCTION_DIR"',
+            's|@@TRUSTED_INSTRUCTION_DIR@@|$TRUSTED_INSTRUCTION_DIR|g',
+            'codex_args+=(--cd "$agent_root" --add-dir "$CONSUMER_WORKSPACE" --ignore-rules)',
+            "--bare",
+        ),
+        "Agent 仓库指令隔离",
+    )
+
+
+def assert_llmdoc_blocked_notification(source: str) -> None:
+    document = parse_workflow(source)
+    update = document["jobs"]["update"]
+    assert update["outputs"].get("status") == "${{ steps.publish.outputs.status }}"
+    update_steps = unique_steps_by_name(update["steps"], "llmdoc publisher")
+    publish_run = update_steps["Validate and publish llmdoc update"].get("run", "")
+    assert 'echo "status=$(jq -r \'.status\' "$RUNNER_TEMP/public-result.json")"' in publish_run
+    notify_steps = unique_steps_by_name(document["jobs"]["notify"]["steps"], "llmdoc notify")
+    notify = notify_steps["Notify Feishu"]
+    assert notify["with"].get("status") == (
+        "${{ needs.update.result == 'success' && needs.update.outputs.status == 'success' "
+        "&& 'success' || 'warning' }}"
+    ), "llmdoc BLOCKED 和 job 失败都必须发送 warning 通知"
+
+
 def embedded_run_blocks(source: str) -> list[str]:
     """取出 YAML 中的 literal run block，供 bash 做离线语法检查。"""
     lines = source.splitlines()
@@ -1442,6 +1515,62 @@ def main() -> None:
 
     runner = read(ACTIONS / "run-agent" / "action.yml")
     secure_runner = read(ROOT / ".github" / "scripts" / "agentic" / "run-agent-with-proxy.sh")
+    assert_pr_instruction_isolation(review, runner, secure_runner)
+    for broken_review, broken_action, broken_runner, label in (
+        (
+            review,
+            runner,
+            secure_runner.replace(
+                'codex_args+=(--cd "$agent_root" --add-dir "$CONSUMER_WORKSPACE" --ignore-rules)',
+                'codex_args+=(--cd "$CONSUMER_WORKSPACE" --ignore-rules)',
+                1,
+            ),
+            "Codex 回到不可信 PR 根目录",
+        ),
+        (
+            review,
+            runner.replace("install -m 444", "install -m 644"),
+            secure_runner,
+            "可信审查规范变为可写",
+        ),
+        (
+            review.replace(
+                "@@TRUSTED_INSTRUCTION_DIR@@/pr-review.md",
+                "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/pr-review/SKILL.md",
+                1,
+            ),
+            runner,
+            secure_runner,
+            "prompt 重新读取 Agent 可写的 base checkout",
+        ),
+    ):
+        try:
+            assert_pr_instruction_isolation(broken_review, broken_action, broken_runner)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{label}的反例必须失败")
+    assert_llmdoc_blocked_notification(llmdoc)
+    for broken_llmdoc, label in (
+        (
+            llmdoc.replace("      status: ${{ steps.publish.outputs.status }}\n", "", 1),
+            "llmdoc publisher 不再导出公开状态",
+        ),
+        (
+            llmdoc.replace(
+                "status: ${{ needs.update.result == 'success' && needs.update.outputs.status == 'success' && 'success' || 'warning' }}",
+                "status: ${{ needs.update.result == 'success' && 'success' || 'warning' }}",
+                1,
+            ),
+            "BLOCKED 重新显示为成功通知",
+        ),
+    ):
+        try:
+            assert_llmdoc_blocked_notification(broken_llmdoc)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{label}的反例必须失败")
     require_all(
         runner,
         (

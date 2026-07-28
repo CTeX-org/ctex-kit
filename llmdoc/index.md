@@ -2,7 +2,7 @@
 
 ## overview
 
-- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 的共享排版与命令沙箱工具链、Agent 启动前可信缓存填充，以及 Agent 无外部写权限／独立 publisher／模型凭据代理／独立结果控制目录的职责划分。
+- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 的共享排版与命令沙箱工具链、Agent 启动前可信缓存填充，以及 Agent 无外部写权限／独立 publisher／Codex 空指令根与 Claude `--bare`／只读可信规范／模型凭据代理／独立结果控制目录的职责划分。
 
 ## architecture
 
@@ -105,7 +105,7 @@
 - `llmdoc/memory/reflections/456-longpunct-kinsoku-both-sides.md` — 反思: xeCJK #456 长标点断点两侧禁则修复中"标点属性判断"函数族参数形态不同（`\@@_punct_if_right:N` 吃字符记号需 `\exp_after:wN` 展开 tl，`\@@_punct_if_long:N` 直接吃 tl）、`punct.tlg` 大文件基线联动 diff 用"变化位置共同特征 + 节点变化统一模式"两条证据判定预期变化、以及标点对矩阵 + `\showbox` 节点判定的系统性禁则调试法。
 - `llmdoc/memory/reflections/874-876-agentic-fork-shielding-cron.md` — 反思: #875 / #874 `agentic-*.yml` 同时存在两条边界约束——job 级 `if: github.repository == ...` 把 fork 调度挡在 runner 分配之前，`schedule` 频率回退到每天一次北京时间 08:00；未来新增 agentic 工作流时这两条都应作为默认。
 - `llmdoc/memory/reflections/agentic-template-reuse.md` — 历史反思：复用 `agentic-workflow-template` 的 Issue 分派与 llmdoc 更新，用事件驱动分派取代定时巡检，并记录当时的薄调用层、固定提交引用、直接写入权限和离线合同测试边界；该运行方式已被 #1025 替代。
-- `llmdoc/memory/reflections/1025-agentic-local-runtime-toolchain.md` — 反思：将三条远端 reusable Agent workflow 展开到本仓库，为六个 Agent job 安装排版与命令沙箱工具链；记录从“缓存绝对只读”修正为 Agent 启动前可信显式保存，并以字体完整性检查、专用用户、模型代理、沙箱外结果控制目录、不可转储 CLI、固定事件提交、独立 publisher、按 head 的评论幂等性、完整分页和 `updated_at` 回复边界收紧运行合同。
+- `llmdoc/memory/reflections/1025-agentic-local-runtime-toolchain.md` — 反思：将三条远端 reusable Agent workflow 展开到本仓库，为六个 Agent job 安装排版与命令沙箱工具链；记录从“缓存绝对只读”修正为 Agent 启动前可信显式保存，并以字体完整性检查、专用用户、模型代理、Codex 空指令根与 Claude `--bare`、Agent 不可写的 base 固定规范、沙箱外结果控制目录、不可转储 CLI、固定事件提交、独立 publisher、按 head 的评论幂等性、完整分页和 `updated_at` 回复边界收紧运行合同。
 - `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
 - `llmdoc/memory/reflections/961-changelog-freshness-gate.md` — 反思: #961 CHANGELOG.md 生成物新鲜度校验（check-changelog.yml）流程分歧收敛过程、跨平台字节一致性必须由脚本自控 encoding/newline 的新坑、用改造前脚本输出当字节级 oracle 验证回归的方法、门禁 fail 时按校验对象大小设计可操作性（整文件需三通道贴期望内容）、以及「生成物新鲜度校验」作为跨 #937/#961 的通用架构模式的提炼建议。
 - `llmdoc/memory/reflections/1001-boundary-capture-gap-fixes.md` — 反思：PR #1001 修复 #996、#998、#1000 时，管道掩盖了六项测试失败；盒子是否直接排出可见内容需要同时检查尺寸和末节点类型；嵌套盒子结束时，外层盒子必须读取节点列表末尾的 marker，不能无条件覆盖所有外层 `last_tl`。文档还记录了两项错误旧基线和 gh-assets 测试驱动引用已删除内部变量的问题。
