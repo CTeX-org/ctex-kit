@@ -24,8 +24,11 @@
 
 \START
 
-\showboxbreadth=1 \showboxdepth=0
+% \loggingoutput 会把 \showboxbreadth／\showboxdepth 覆盖成 \maxdimen，因此必须
+% 先调用它、再设回本文件需要的深度；顺序写反会让前四项也倒出完整节点列表（含
+% 大量 PDF 绘图 special），与「只固定行盒尺寸与 glue set」的设计相矛盾。
 \loggingoutput
+\showboxbreadth=1 \showboxdepth=0
 
 \TEST{underline keeps outer shrink across linebreak}{
   \hsize=200pt \linewidth=200pt \parindent=0pt
@@ -50,8 +53,9 @@
 % 必须同时含西文词，才能真正量到外层收缩量；只写 \CJKunderline{中文 $x$ } 的
 % 用例分辨不出重排分支是否把正文关进了片段盒。
 %
-% 注意本文件不负责固定“重排是否发生”：把重排条件恒置为假时，本文件全部用例仍
-% 通过，真正拦住它的是 command-boundary-math05 的 stream-ulem 末状态。
+% “重排是否发生”由下一项的节点列表一并固定：把重排条件恒置为假时该项基线会失败
+% （实测 rc 1）。command-boundary-math05 的 stream-ulem 末状态同样会失败，两者
+% 互为交叉验证。
 \TEST{math tail with trailing space keeps outer shrink}{
   \hsize=200pt \linewidth=200pt \parindent=0pt
   虚室生白，吉祥止止\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止 $x$ }虚室生白，吉祥止止
@@ -63,12 +67,7 @@
 % 缩到 7.71524pt。片段数不变（前后都是 5 段），变化只在末段的宽度。
 %
 % 这一项不能依赖 overfull 报告作观察通道——内容短、不触发溢出，基线会是空的，
-% 等于什么都没固定。也不能用 \showbox：checkopts 带 -halt-on-error，而 \showbox
-% 会抛 "! OK." 使编译当场终止，之后的用例全部静默不执行而 check 仍报绿（同一个
-% 坑已记在 verb-ecglue02.lvt 的注释里）。因此改用 \loggingoutput 加 \box 输出，
-% 并把深度放到能看见装饰片段的层级：只固定总宽度分辨不出“空格被装饰”与“空格
-% 只是等宽占位”，必须让末段 \cleaders 本身进入基线。
-% 观察通道分两层：
+% 等于什么都没固定。因此观察通道分两层：
 %   1. 成对宽度差。同一正文在“有／无尾随源码空格”下的装饰盒宽度之差，就是尾随
 %      空格所占的那一段；漏交还空格时差值从 3.33pt 压到 0pt。
 %   2. 节点列表。宽度差单独不足以证明那一段“被装饰”——把空格换成等宽 kern 时
@@ -84,6 +83,10 @@
   \TYPE{with-trailing-space=\the\wd1}
   \dimen0=\wd1 \advance\dimen0 by -\wd0
   \TYPE{trailing-space-span=\the\dimen0}
+  % 先 \clearpage 排空前序用例的页面，否则本项基线会夹带上千行前序页面转写。
+  \clearpage
+  % 基线里最深的条目是片段盒内的 \special，相对 \box1 是第 3 层；取 8 留出余量，
+  % 便于将来装饰结构加深一两层时仍能完整记录，同时不至于倒出整页内容。
   \showboxbreadth=100 \showboxdepth=8
   \box1
   \clearpage
