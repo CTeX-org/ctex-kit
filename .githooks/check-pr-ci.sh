@@ -190,6 +190,8 @@ fi
 # 2) 未解决的 review thread (复用上面拿到的 owner+name)
 unresolved_threads=""
 if [ -n "$repo_owner" ]; then
+  # GraphQL 的 $owner、$repo 和 $pr 是查询变量，不应由 shell 展开。
+  # shellcheck disable=SC2016
   unresolved_threads="$(gh api graphql -f query='
     query($owner:String!, $repo:String!, $pr:Int!) {
       repository(owner:$owner, name:$repo) {
