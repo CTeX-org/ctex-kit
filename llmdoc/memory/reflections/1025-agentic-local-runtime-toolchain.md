@@ -206,6 +206,11 @@ refspec、执行 inner push，再调用 `.githooks/check-pr-ci.sh` 等待远端�
 shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结果中取值，shell 参数应按忽略注释的词法
 规则解析，并用注释掉单个条目的负向夹具证明门禁会失败。
 
+解析成 YAML 或 shell token 仍不等于已经检查了行为。job 的 `if` 必须核对完整表达式，否则在预期
+条件后追加恒假表达式仍会通过子串检查；`run:` 中出现 `shellcheck` 和某个路径，也不能证明该路径
+属于 ShellCheck 的参数。当前合同要求 lint step 只包含一条反斜线续行的 `shellcheck` 命令，再检查
+这条命令自己的参数；同时用三个 job 恒定跳过和“路径只交给 `echo`”的负向夹具固定命令边界。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -233,6 +238,8 @@ shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结�
   必须分别覆盖二者。
 - 检查 workflow 配置时，应断言解析后实际生效的 YAML 字段和 shell 参数；原始文本中的注释不能
   作为配置存在的证据。
+- 对 job 条件要比较完整的生效表达式；对 shell step 要先确定命令边界，再检查目标命令自己的参数，
+  不能用整个脚本中的 token 集合代替调用关系。
 - 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
   的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的

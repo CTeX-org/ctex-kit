@@ -69,6 +69,42 @@ def parse_workflow(source: str) -> dict:
     return document
 
 
+def parse_single_continued_command(script: str, label: str) -> list[str]:
+    """解析由反斜线续行的一条简单命令，拒绝额外命令或复合 shell 语法。"""
+    lines = [line.strip() for line in script.splitlines() if line.strip()]
+    assert lines, f"{label} 不得为空"
+    assert not any(line.startswith("#") for line in lines), f"{label} 不得用注释打断续行命令"
+
+    argv: list[str] = []
+    for index, line in enumerate(lines):
+        continued = line.endswith("\\")
+        if index < len(lines) - 1:
+            assert continued, f"{label} 只能包含一条反斜线续行命令"
+        else:
+            assert not continued, f"{label} 最后一行不得继续到空命令"
+        fragment = line[:-1].rstrip() if continued else line
+        tokens = shlex.split(fragment, comments=True, posix=True)
+        assert len(tokens) == 1, f"{label} 每行必须只提供一个命令名或参数"
+        argv.extend(tokens)
+    return argv
+
+
+def assert_pr_review_draft_contract(source: str) -> None:
+    document = parse_workflow(source)
+    assert document["on"]["pull_request_target"]["types"] == [
+        "opened",
+        "synchronize",
+        "reopened",
+    ], "PR Review 必须在 Draft PR 打开、同步或重新打开时触发"
+
+    jobs = document["jobs"]
+    assert "if" not in jobs["codex_review"], "Codex 主审不得按 Draft 状态或其他条件恒定跳过"
+    assert jobs["claude_review"].get("if") == "always() && needs.codex_review.result != 'success'", (
+        "Claude 兜底条件必须只取决于 Codex 是否成功"
+    )
+    assert jobs["publish"].get("if") == "always()", "PR publisher 必须在两条审查链结束后运行"
+
+
 def assert_contract_hook_coverage(source: str) -> None:
     document = parse_workflow(source)
     trigger_paths = document["on"]["pull_request"]["paths"]
@@ -80,7 +116,11 @@ def assert_contract_hook_coverage(source: str) -> None:
         None,
     )
     assert lint_step is not None, "找不到 step: Lint Agent shell scripts"
-    shellcheck_args = shlex.split(lint_step["run"], comments=True, posix=True)
+    shellcheck_args = parse_single_continued_command(
+        lint_step["run"],
+        "Lint Agent shell scripts",
+    )
+    assert shellcheck_args[0] == "shellcheck", "Lint step 必须直接运行一条 ShellCheck 命令"
 
     hook_paths = (".githooks/pre-push", ".githooks/check-pr-ci.sh")
     shellcheck_inputs = (
@@ -998,7 +1038,39 @@ def main() -> None:
         ),
         "PR Review trigger",
     )
-    assert "github.event.pull_request.draft" not in review, "Draft PR 不得被 Agentic PR Review 跳过"
+    assert_pr_review_draft_contract(review)
+    for broken_review, label in (
+        (
+            review.replace(
+                "    name: Review with Codex (primary)\n    runs-on:",
+                "    name: Review with Codex (primary)\n    if: 0 == 1\n    runs-on:",
+                1,
+            ),
+            "Codex 主审恒假条件",
+        ),
+        (
+            review.replace(
+                "    if: always() && needs.codex_review.result != 'success'\n",
+                "    if: always() && needs.codex_review.result != 'success' && 0 == 1\n",
+                1,
+            ),
+            "Claude 兜底恒假条件",
+        ),
+        (
+            review.replace(
+                "    if: always()\n",
+                "    if: always() && 0 == 1\n",
+                1,
+            ),
+            "publisher 恒假条件",
+        ),
+    ):
+        try:
+            assert_pr_review_draft_contract(broken_review)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{label}的反例必须失败")
     for name in ("codex_review", "claude_review"):
         source = job(review, name)
         require_all(
@@ -1040,16 +1112,7 @@ def main() -> None:
         raise AssertionError("可信 sparse checkout 缺少 run-agent 运行时依赖的反例必须失败")
 
     publisher = job(review, "publish")
-    require_all(
-        publisher,
-        ("if: always()", "pull-requests: write", "actions/download-artifact@"),
-        "PR publisher",
-    )
-    require_all(
-        job(review, "claude_review"),
-        ("if: always() && needs.codex_review.result != 'success'",),
-        "PR fallback condition",
-    )
+    require_all(publisher, ("pull-requests: write", "actions/download-artifact@"), "PR publisher")
     for forbidden in (
         "actions/checkout@",
         "setup-agent-tools",
@@ -1371,6 +1434,14 @@ def main() -> None:
                 1,
             ),
             "注释 ShellCheck 参数",
+        ),
+        (
+            contract.replace(
+                "          shellcheck \\\n            .githooks/pre-push \\\n",
+                "          echo .githooks/pre-push\n          shellcheck \\\n",
+                1,
+            ),
+            "hook 只作为 echo 参数",
         ),
     ):
         try:
