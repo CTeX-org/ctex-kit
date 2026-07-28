@@ -201,6 +201,11 @@ refspec、执行 inner push，再调用 `.githooks/check-pr-ci.sh` 等待远端�
 包含二者。不能因为辅助脚本承载了主要审计逻辑，就把真正决定调用时机和退出状态的 hook 排除在门禁
 之外。
 
+合同测试本身也要区分“原始文件里出现过某段文字”和“这段配置实际生效”。直接在 YAML 文本中搜索
+路径，会把注释掉的 `pull_request.paths` 条目当成有效触发条件；直接搜索 `run: |` 的正文，也会把
+shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结果中取值，shell 参数应按忽略注释的词法
+规则解析，并用注释掉单个条目的负向夹具证明门禁会失败。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -226,6 +231,8 @@ refspec、执行 inner push，再调用 `.githooks/check-pr-ci.sh` 等待远端�
   明确命令和文件集合，不能把“工具已安装”当成“检查已执行”。
 - self-wrapper hook 与它调用的审计辅助脚本是两个独立的门禁输入；触发路径和 ShellCheck 文件集合
   必须分别覆盖二者。
+- 检查 workflow 配置时，应断言解析后实际生效的 YAML 字段和 shell 参数；原始文本中的注释不能
+  作为配置存在的证据。
 - 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
   的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
