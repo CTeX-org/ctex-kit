@@ -982,6 +982,7 @@ def main() -> None:
         ),
         "PR Review trigger",
     )
+    assert "github.event.pull_request.draft" not in review, "Draft PR 不得被 Agentic PR Review 跳过"
     for name in ("codex_review", "claude_review"):
         source = job(review, name)
         require_all(
@@ -1023,7 +1024,16 @@ def main() -> None:
         raise AssertionError("可信 sparse checkout 缺少 run-agent 运行时依赖的反例必须失败")
 
     publisher = job(review, "publish")
-    require_all(publisher, ("pull-requests: write", "actions/download-artifact@"), "PR publisher")
+    require_all(
+        publisher,
+        ("if: always()", "pull-requests: write", "actions/download-artifact@"),
+        "PR publisher",
+    )
+    require_all(
+        job(review, "claude_review"),
+        ("if: always() && needs.codex_review.result != 'success'",),
+        "PR fallback condition",
+    )
     for forbidden in (
         "actions/checkout@",
         "setup-agent-tools",
