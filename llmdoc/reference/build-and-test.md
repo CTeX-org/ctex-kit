@@ -379,6 +379,13 @@ PR Review 不能让 Codex 把 head checkout 当作项目指令根。Codex 0.145.
 
 三条 workflow 都把 Agent 与外部写入分开：PR Agent 只读，publisher 独占 `pull-requests: write`；Issue Agent 固定事件 `github.sha` 且只读，dispatch job 独占 `issues: write`；llmdoc prepare 固定 master SHA，Agent 只打包 `llmdoc/` 候选，独立 validator 从同一 SHA 验证，publisher 才取得 `contents: write` 和 `pull-requests: write`。固定提交与 publisher 隔离分别约束“运行哪版代码”和“谁能写入”，不能互相替代。llmdoc 通知 Action 持有长期 webhook secret，因此也必须使用 prepare 固定的 master SHA；prepare 失败时明确回退到 `master`，不能执行 `workflow_dispatch` 选择的其他 ref。
 
+llmdoc publisher 的“推送候选分支”和“创建 PR”是两次独立外部写入。若分支已推送而建 PR 暂时失败，
+同一 artifact 重跑时，远端 head 与经过校验的 `candidate_sha` 完全相同，publisher 会保留该 head 并
+继续补建 PR；若旧 head 已经成为当前 `base_sha` 的祖先，则视为上一轮候选已经合入但分支未删除，
+允许通过精确 lease 更新。远端 head 与当前候选不同、尚未合入 base、又没有带认证 marker 的 open PR
+时，publisher 必须拒绝覆盖。这样既允许从可认证的部分发布状态恢复，也不会把来源不明的同名分支
+误当成自己的候选。
+
 llmdoc prepare 生成的 `task.json` 包含 `since_period`，`recent-commits.txt` 包含精确候选提交。Agent 使用 `env -i` 后，进程内的 `RUNNER_TEMP` 不再指向 artifact 下载目录；两个候选 prompt 必须在生成时展开这两个文件的实际绝对路径，并要求先读取，不能只写裸文件名后让 Agent 猜测范围。
 
 PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 重跑时更新原评论，不同 head 则新建评论，既避免同一提交的重复评论，也保留不同提交的审查记录。pre-push 必须用 `gh api --paginate --slurp` 读取并展平全部 Issue 评论页；检查维护者是否确认 Bot 评论时，以评论的 `updated_at` 为时间边界，缺失时才回退 `created_at`。只有 OWNER、MEMBER 或 COLLABORATOR 在 Bot 最后更新之后的回复，才算确认当前正文。这样，后续页的审查评论不会被漏掉，维护者在旧正文后的回复也不会掩盖同一 head 重跑产生的新 finding。
