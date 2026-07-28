@@ -27,6 +27,7 @@ test -f "$control_hardening_library"
 agent_user=ctex-agent
 session_dir=$(sudo --non-interactive mktemp -d /run/ctex-agent-session.XXXXXX)
 agent_home="$session_dir/home"
+agent_root="$session_dir/work-root"
 control_dir="$session_dir/control"
 control_result="$control_dir/raw-result.json"
 proxy_ready="$session_dir/proxy-url"
@@ -78,15 +79,40 @@ fi
 
 sudo --non-interactive install -d -o root -g root -m 711 "$session_dir"
 sudo --non-interactive install -d -o "$agent_user" -g "$agent_user" -m 700 \
-  "$agent_home" "$control_dir"
+  "$agent_home" "$agent_root" "$control_dir"
 sudo --non-interactive install -o "$workspace_uid" -g "$workspace_gid" -m 600 \
   /dev/null "$proxy_log"
-sudo --non-interactive install -o "$agent_user" -g "$agent_user" -m 600 \
+sudo --non-interactive install -o root -g root -m 600 \
   "$PROMPT_FILE" "$agent_home/prompt.txt"
 sudo --non-interactive install -o "$agent_user" -g "$agent_user" -m 600 \
   "$SCHEMA_FILE" "$agent_home/schema.json"
 sudo --non-interactive install -o "$agent_user" -g "$agent_user" -m 600 \
   /dev/null "$control_result"
+
+if [[ ${IGNORE_REPOSITORY_RULES:-false} == true ]]; then
+  : "${TRUSTED_INSTRUCTION_DIR:?}"
+  for trusted_instruction in pr-review.md github-comment.md; do
+    trusted_path="$TRUSTED_INSTRUCTION_DIR/$trusted_instruction"
+    test -f "$trusted_path" && test ! -L "$trusted_path"
+    if sudo --non-interactive -u "$agent_user" test -w "$trusted_path"; then
+      echo "::error::Agent 用户不得修改可信审查规范 $trusted_path"
+      exit 1
+    fi
+  done
+  if sudo --non-interactive -u "$agent_user" test -w "$TRUSTED_INSTRUCTION_DIR"; then
+    echo "::error::Agent 用户不得修改可信审查规范目录"
+    exit 1
+  fi
+  sudo --non-interactive sed -i \
+    "s|@@TRUSTED_INSTRUCTION_DIR@@|$TRUSTED_INSTRUCTION_DIR|g" \
+    "$agent_home/prompt.txt"
+  if sudo --non-interactive grep -Fq '@@TRUSTED_INSTRUCTION_DIR@@' \
+    "$agent_home/prompt.txt"; then
+    echo "::error::可信审查规范路径占位符未完全替换"
+    exit 1
+  fi
+fi
+sudo --non-interactive chown "$agent_user:$agent_user" "$agent_home/prompt.txt"
 
 # 模型密钥只写入 root 可读文件。代理就绪后立即删除该文件；密钥只留在
 # root 代理进程内存中，Agent 进程只会看到下面的无意义占位值。
@@ -161,14 +187,17 @@ EOF
       --ask-for-approval never
       --sandbox workspace-write
       exec
-      --cd "$CONSUMER_WORKSPACE"
       --skip-git-repo-check
       --ephemeral
       --output-schema "$agent_home/schema.json"
       --output-last-message "$control_result"
     )
     if [[ ${IGNORE_REPOSITORY_RULES:-false} == true ]]; then
-      codex_args+=(--ignore-rules)
+      # Codex 只从主工作根发现 AGENTS.md；不可信 checkout 仅作为显式附加目录。
+      # --ignore-rules 另外禁用 checkout 或用户提供的 execpolicy .rules 文件。
+      codex_args+=(--cd "$agent_root" --add-dir "$CONSUMER_WORKSPACE" --ignore-rules)
+    else
+      codex_args+=(--cd "$CONSUMER_WORKSPACE")
     fi
     sudo --non-interactive -u "$agent_user" -- \
       "${common_env[@]}" \

@@ -145,6 +145,31 @@ llmdoc Updater 原先也会在 Agent 控制的仓库中以 runner 身份执行 G
 
 固定提交解决“运行哪一版可信代码”，独立 publisher 解决“谁能产生外部写入”；两者不能互相替代。
 
+## 可信指令还必须在 Agent 消费时保持不可写
+
+完整范围盲审进一步发现，PR base 固定只证明审查规范最初来自哪里，并不证明 Agent 读取时内容没有
+变化。PR Review 原先把两份规范留在工作区的 `.trusted-base/`，随后通用启动脚本把整个工作区递归
+交给 `ctex-agent`。模型命令或 PR 测试因而能在同一次审查中改写规范。修正后，复合 Action 在移交
+工作区以前把两份规范复制到自己的私有运行目录，文件只读、父目录也不允许 Agent 写入；启动脚本
+实际以 Agent UID 检查这两层权限，再把受保护目录的绝对路径写入提示词。
+
+同一轮审查还纠正了对 Codex `--ignore-rules` 的误解。固定版本中，这个选项只禁用 execpolicy
+`.rules` 文件，不会阻止 CLI 从工作根发现 `AGENTS.md`。因此不能把不可信 PR checkout 继续作为
+`--cd`，再指望提示词或该选项把仓库文字降为普通数据。Codex 现在从 session 中的空目录启动，把 PR
+checkout 仅作为显式附加目录；提示词给出待审仓库的绝对路径。对 Codex 0.145.0 的断网文件访问跟踪
+只观察到它探测空工作根中的 `AGENTS.md`，没有访问附加 PR 目录中的恶意同名文件。Claude Code
+2.1.148 则继续使用 `--bare`；该版本的帮助明确说明它禁用 `CLAUDE.md` 自动发现。不能为了形式统一
+再给 `--bare` 增加 `--add-dir`，因为后者正是显式提供 `CLAUDE.md` 目录的入口。
+
+这两项修复共同给出更完整的可信输入条件：来源提交固定、存放路径在消费时不可由 Agent 修改、CLI
+不会把不可信审查对象自动提升为项目指令，三者缺一不可。合同测试同时固定 Codex 的空工作根和附加
+目录、Claude 的 `--bare`、只读规范副本和 Agent UID 写权限检查，并用恢复 PR 根目录、把规范改为
+可写等反例确认门禁会失败。
+
+llmdoc publisher 的公开结果还区分 `success` 与 `blocked`。job 成功退出只表示结果已经校验和发布，
+不表示 Agent 的业务结论一定成功；通知必须读取公开 `status`，把 `blocked` 显示为 warning，不能只
+根据 job 的 `success` 结果显示绿色。
+
 ## 合同测试必须检查失败反例
 
 actionlint 只校验 workflow，不能把 `action.yml` 当作复合 Action metadata 校验。#1025 增加专用
@@ -254,6 +279,11 @@ step 即使条件正确，也可能取错 artifact；双失败 step 即使条件
   会沿预期依赖链到达发布或失败出口。
 - 关键 step 的名称必须唯一，条件还要与实际 Action 输入或 shell 行为绑定；必要时直接执行安全的
   失败出口，不能把“名称和条件还在”当成动作仍然有效。
+- 固定 base 只证明可信输入的来源；Agent 实际读取时，文件及其父目录仍须不可写。Codex 还必须从
+  与不可信 checkout 分离的空工作根启动，不能把 `--ignore-rules` 误当成禁用 `AGENTS.md`；Claude
+  必须保留明确禁用 `CLAUDE.md` 自动发现的 `--bare`。
+- workflow job 成功与业务结果成功是两件事；通知颜色应读取经过校验的公开结果状态，不能只看
+  `needs.<job>.result`。
 - 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
   的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的

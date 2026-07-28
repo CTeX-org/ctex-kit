@@ -28,9 +28,17 @@ inputs:
     description: Absolute normalized result file path
     required: true
   ignore_repository_rules:
-    description: Ignore repository-provided Agent instructions for untrusted review checkouts
+    description: Run from a clean instruction root and ignore repository execpolicy for untrusted review checkouts
     required: false
     default: 'false'
+  trusted_review_skill_file:
+    description: Base-pinned PR review skill copied outside the Agent-writable checkout
+    required: false
+    default: ""
+  trusted_comment_skill_file:
+    description: Base-pinned GitHub comment skill copied outside the Agent-writable checkout
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -76,6 +84,8 @@ runs:
         SCHEMA_FILE: ${{ inputs.schema_file }}
         RESULT_FILE: ${{ inputs.result_file }}
         IGNORE_REPOSITORY_RULES: ${{ inputs.ignore_repository_rules }}
+        TRUSTED_REVIEW_SKILL_FILE: ${{ inputs.trusted_review_skill_file }}
+        TRUSTED_COMMENT_SKILL_FILE: ${{ inputs.trusted_comment_skill_file }}
       run: |
         set -euo pipefail
         trusted_runtime=$(mktemp -d "$RUNNER_TEMP/ctex-agent-trusted-runtime.XXXXXX")
@@ -98,6 +108,20 @@ runs:
           "$trusted_runtime/agent-control-hardening.c" \
           -o "$trusted_runtime/agent-control-hardening.so"
         chmod 755 "$trusted_runtime/agent-control-hardening.so"
+        trusted_instruction_dir=
+        if [[ -n "$TRUSTED_REVIEW_SKILL_FILE" || -n "$TRUSTED_COMMENT_SKILL_FILE" ]]; then
+          test -n "$TRUSTED_REVIEW_SKILL_FILE"
+          test -n "$TRUSTED_COMMENT_SKILL_FILE"
+          test -f "$TRUSTED_REVIEW_SKILL_FILE" && test ! -L "$TRUSTED_REVIEW_SKILL_FILE"
+          test -f "$TRUSTED_COMMENT_SKILL_FILE" && test ! -L "$TRUSTED_COMMENT_SKILL_FILE"
+          trusted_instruction_dir="$trusted_runtime/review-instructions"
+          install -d -m 755 "$trusted_instruction_dir"
+          install -m 444 "$TRUSTED_REVIEW_SKILL_FILE" \
+            "$trusted_instruction_dir/pr-review.md"
+          install -m 444 "$TRUSTED_COMMENT_SKILL_FILE" \
+            "$trusted_instruction_dir/github-comment.md"
+        fi
         MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py" \
           CONTROL_HARDENING_LIBRARY="$trusted_runtime/agent-control-hardening.so" \
+          TRUSTED_INSTRUCTION_DIR="$trusted_instruction_dir" \
           bash "$trusted_runtime/run-agent-with-proxy.sh"
