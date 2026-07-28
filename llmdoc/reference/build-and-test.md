@@ -366,6 +366,8 @@ GitHub `ubuntu-latest` 使用 Ubuntu 24.04 时，AppArmor 可能禁止未特权 
 `kernel.unprivileged_userns_clone`；随后立即用 `--unshare-net` 运行最小 Bubblewrap 探针，失败则
 停止 job。这个调整只作用于一次性 runner，但它仍属于可信安装职责，不能交给 Agent 或仅在 fallback
 路径处理。独立合同 workflow 也必须在运行含 Bubblewrap 的 Python 夹具以前执行同样准备和探针。
+合同测试按 shell 的注释和反斜线续行规则解析这两个准备 step，精确核对两条 sysctl 命令、完整探针
+参数及其顺序；原始 YAML 中仅保留被注释的命令文字不能通过。
 
 两组字体为了保持与现有 CI 相同的 cache version，仍恢复到 workspace 路径。Action 必须依次完成“删除并重建暂存目录 → restore 或可信下载 → 白名单和完整性检查 → 安装到系统字体目录 → cache miss 时显式 save → 删除暂存目录 → 启动 Agent”。CJK 缓存必须同时包含 Noto Sans CJK 和 Noto Serif CJK；xeCJK 文档字体缓存必须包含 HanaMinB、Noto Sans Symbols 2 和 `.done`。符号链接、子目录、额外文件或缺少必需字体的缓存一律拒绝，避免 PR head 预置文件混入系统字体或共享缓存。
 
