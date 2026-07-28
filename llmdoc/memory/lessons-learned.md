@@ -121,6 +121,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。#1026 中前三版测试分别把正文装进 `\hbox`、`\vbox`，或用 `\def\BODY` 承载正文，均显示缺陷版与修复版数字相同；只有改成“主垂直列表里真正断行，且调用处写字面正文”才第一次测出差异。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### l3build 测试里不能用 \showbox，它会静默截断其后所有用例
+**Rule**: `support/build-config.lua` 把 `checkopts` 设为 `-halt-on-error`，而 `\showbox` 会抛出 `! OK.`，编译因此当场终止：该行之后的 `\TEST` 全部不执行，`.tlg` 也只记到那一行，但 `l3build check` 仍然报绿。需要把盒子内容写进基线时，用 `\loggingoutput` 配合 `\box` 加 `\clearpage`（见 `command-boundary-math02.lvt`、`verb-ecglue02.lvt`），并在文件层设好 `\showboxbreadth`／`\showboxdepth`。
+**Why**: #1026 有一版 `fntef-shrink01` 用 `\showbox` 打印装饰盒，之后新增的用例从未运行过而 check 一直全绿；在 `\END` 前插一个探针 `\TEST` 并确认它没有进入日志，才暴露出这一点。`verb-ecglue02.lvt` 早已把这条坑写成注释，说明它会反复出现。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
+### 断言强度要匹配所声称的行为，宽度相等不等于结构相同
+**Rule**: 用尺寸做 oracle 时，先问“有没有一种实现能让尺寸不变而所声称的行为已经错了”。若有，就必须把结构本身（节点列表、片段宽度）纳入基线，或把注释与文档里的职责表述降级到尺寸真能证明的范围。
+**Why**: #1026 中只固定装饰盒总宽度的用例，命名与注释都称“尾随空格仍被装饰”，但把空格换成等宽 `kern`（宽度完全相同、装饰实际消失）时它照常通过；把末段 `\cleaders` 纳入基线后才真正拦住。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
 ### 确认根因后要枚举全部满足该根因的代码路径
 **Rule**: 定位到根因后，把它当作判据去检查所有满足它的路径，而不是只修触发当前复现样例的那一条。同一函数里往往还留着条件更窄的同类路径。
 **Why**: #1026 的根因是“正文经宏参数间接展开会让 `\CJKecglue` 固化在装饰片段盒内”。第一版修复把非重排路径改回字面展开就收工，却漏掉被保留的重排分支——它同样走参数间接展开，只是触发条件更窄（正文需同时含西文词并以公式加空格结尾），实测溢出量与修复前完全相同。这一残留是独立审查发现的，不是自检发现的。

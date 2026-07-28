@@ -25,6 +25,7 @@
 \START
 
 \showboxbreadth=1 \showboxdepth=0
+\loggingoutput
 
 \TEST{underline keeps outer shrink across linebreak}{
   \hsize=200pt \linewidth=200pt \parindent=0pt
@@ -57,15 +58,35 @@
   \par
 }
 
-% 尾随空格必须仍被装饰：重排把空格从正文里剥离后要交还 ulem 排版，漏掉这一步
-% 时末尾整段装饰片段会消失。这一项不能依赖 overfull 报告作观察通道——内容短、
-% 不触发溢出，基线会是空的，等于什么都没固定。所以直接打印装饰盒的宽度与
-% 片段数：漏交还空格时宽度和片段数都会变小。
+% 尾随空格必须仍被装饰：重排把空格从正文里剥离后要交还 ulem 排版。漏掉这一步
+% 时装饰盒总宽从 32.37527pt 降到 29.04527pt，末段装饰片段宽度同步从 11.04524pt
+% 缩到 7.71524pt。片段数不变（前后都是 5 段），变化只在末段的宽度。
+%
+% 这一项不能依赖 overfull 报告作观察通道——内容短、不触发溢出，基线会是空的，
+% 等于什么都没固定。也不能用 \showbox：checkopts 带 -halt-on-error，而 \showbox
+% 会抛 "! OK." 使编译当场终止，之后的用例全部静默不执行而 check 仍报绿（同一个
+% 坑已记在 verb-ecglue02.lvt 的注释里）。因此改用 \loggingoutput 加 \box 输出，
+% 并把深度放到能看见装饰片段的层级：只固定总宽度分辨不出“空格被装饰”与“空格
+% 只是等宽占位”，必须让末段 \cleaders 本身进入基线。
+% 观察通道分两层：
+%   1. 成对宽度差。同一正文在“有／无尾随源码空格”下的装饰盒宽度之差，就是尾随
+%      空格所占的那一段；漏交还空格时差值从 3.33pt 压到 0pt。
+%   2. 节点列表。宽度差单独不足以证明那一段“被装饰”——把空格换成等宽 kern 时
+%      宽度完全相同。因此把盒子按 command-boundary-math02 的既定做法交给
+%      \loggingoutput 输出，让末段 \cleaders 及其中的图案盒本身进入基线。
+%      注意不能用 \showbox：checkopts 带 -halt-on-error，\showbox 抛出的
+%      "! OK." 会当场终止编译，之后的用例静默不执行而 check 仍报绿（同一个坑已
+%      记在 verb-ecglue02.lvt 的注释里）。
 \TEST{math tail trailing space is decorated}{
-  \setbox0=\hbox{\CJKunderline{中文 $x$ }}
-  \TYPE{decorated-width=\the\wd0}
-  \showboxbreadth=100 \showboxdepth=0
-  \showbox0
+  \setbox0=\hbox{\CJKunderline{中文 $x$}}%   无尾随空格
+  \setbox1=\hbox{\CJKunderline{中文 $x$ }}%  有尾随空格
+  \TYPE{without-trailing-space=\the\wd0}
+  \TYPE{with-trailing-space=\the\wd1}
+  \dimen0=\wd1 \advance\dimen0 by -\wd0
+  \TYPE{trailing-space-span=\the\dimen0}
+  \showboxbreadth=100 \showboxdepth=8
+  \box1
+  \clearpage
   \showboxbreadth=1 \showboxdepth=0
 }
 
