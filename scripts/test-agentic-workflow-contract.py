@@ -198,6 +198,41 @@ def require_all(source: str, fragments: tuple[str, ...], label: str) -> None:
     assert not missing, f"{label} 缺少合同片段: {missing}"
 
 
+def assert_bubblewrap_runner_setup(setup_source: str, contract_source: str) -> None:
+    """Agent job 和独立合同 job 都必须先打开并实测未特权 user namespace。"""
+    setup_document = yaml.safe_load(setup_source)
+    setup_steps = unique_steps_by_name(setup_document["runs"]["steps"], "Agent 工具 Action")
+    contract_document = parse_workflow(contract_source)
+    contract_steps = unique_steps_by_name(
+        contract_document["jobs"]["contract"]["steps"],
+        "Agent 合同 workflow",
+    )
+
+    for label, steps in (
+        ("Agent 工具 Action", setup_steps),
+        ("Agent 合同 workflow", contract_steps),
+    ):
+        step = steps.get("Enable and verify Bubblewrap sandbox")
+        assert step is not None, f"{label} 缺少 Bubblewrap runner 准备步骤"
+        script = step.get("run", "")
+        require_all(
+            script,
+            (
+                "/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                "sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0",
+                "/proc/sys/kernel/unprivileged_userns_clone",
+                "sudo sysctl -w kernel.unprivileged_userns_clone=1",
+                "bwrap --unshare-net --die-with-parent --new-session",
+                "--ro-bind / / --dev /dev --proc /proc /usr/bin/true",
+            ),
+            f"{label} Bubblewrap runner 准备",
+        )
+        apparmor = "sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0"
+        assert script.index(apparmor) < script.index("bwrap --unshare-net"), (
+            f"{label} 必须先调整 AppArmor user namespace 限制，再运行 Bubblewrap 探针"
+        )
+
+
 def assert_no_write_permission(source: str, label: str) -> None:
     for permission in ("contents: write", "issues: write", "pull-requests: write"):
         assert permission not in source, f"{label} 不得取得 {permission}"
@@ -1154,6 +1189,33 @@ def main() -> None:
     test_publish_preserves_unmerged_llmdoc_candidate()
     test_agent_result_channel_sandbox()
     test_agent_control_process_hardening()
+    assert_bubblewrap_runner_setup(setup, contract)
+    for broken_setup, broken_contract, label in (
+        (
+            setup.replace(
+                "sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0",
+                "true # AppArmor user namespace 未启用",
+                1,
+            ),
+            contract,
+            "Agent 工具 Action 不再启用 AppArmor user namespace",
+        ),
+        (
+            setup,
+            contract.replace(
+                "bwrap --unshare-net --die-with-parent --new-session",
+                "/usr/bin/true # Bubblewrap 探针被移除",
+                1,
+            ),
+            "合同 workflow 不再运行 Bubblewrap 探针",
+        ),
+    ):
+        try:
+            assert_bubblewrap_runner_setup(broken_setup, broken_contract)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{label}的反例必须失败")
 
     assert not (WORKFLOWS / "agentic-patrol.yml").exists(), "定时 patrol 不应恢复"
     for name, source in zip(AGENTIC_WORKFLOWS, (review, issue, llmdoc), strict=True):
