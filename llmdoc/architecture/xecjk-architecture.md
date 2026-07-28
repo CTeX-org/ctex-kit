@@ -534,7 +534,7 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
-**正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:n` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
+**正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
 
 ### xeCJK-listings
 

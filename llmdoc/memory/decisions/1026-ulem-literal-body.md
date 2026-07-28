@@ -37,6 +37,12 @@
 
 这条约束比 #1002 的公式候选确认更基础，属于 ulem 集成层的通用规则：**`ulem`／`xeCJKfntef` 等自行扫描正文并切片装盒的机制，只应对正文使用字面记号；确需重排某种特殊语法时，重排本身也必须把正文以字面记号送进参数位置，不能为了少数情况把这部分正文改成间接展开。**
 
+## `\UL@onin` 分支没有回归保护
+
+`\UL@onin` 的重排分支按同一约束做了一致性修改，但没有测试能拦住它的回归。这是结构性的：`ulem` 的 `\UL@onin` 用 `\setbox\UL@box\hbox{{#1}}` 把内容整体装进一个 hbox，内层收缩量出不了这个盒子，因此“收缩量丢失”在嵌套路径上不产生可观察差异。实测在该分支重新引入 `\tl_use:N` 间接展开、乃至删掉整段重排分支，xeCJK 全套 114 项都全绿，嵌套 `\uline` 盒子的宽高深也逐位相同。探针确认该分支会被执行，不是死代码。
+
+因此这条分支的正确性依赖代码审查而非门禁。修改它时不能以“测试通过”作为验证依据；若将来找到可观察量，应补上用例并更新本节与 `build-and-test.md`。
+
 ## 已接受的既有限制
 
 调用处把正文写成宏再传入，例如 `\CJKunderline{\BODY}`，收缩量同样进不了外层：宏体在 `ulem` 扫描期间才展开，触发的是同一条“正文经间接展开→收缩量固化在片段盒内”的机制，只是成因是用户写法而不是 `\UL@on` 的替换文本本身。
@@ -52,7 +58,7 @@
 ## 相关资料
 
 - Issue：#1026；引入提交：`494d5a72`（属于 #1002 系列）；受影响版本：`xeCJK-v3.10.5-rc1`（未发布的 rc）。
-- 实现：`xeCJK/xeCJK.dtx` 中的 `\UL@on`、`\UL@onin`、`\@@_boundary_if_ulem_math_reorder:nTF`、`\@@_boundary_ulem_math_tail_space:n`；`\changes` 记入 v3.10.5。
+- 实现：`xeCJK/xeCJK.dtx` 中的 `\UL@on`、`\UL@onin`、`\@@_boundary_if_ulem_math_reorder:nTF`、`\@@_boundary_ulem_math_tail_space:nnn`；`\changes` 记入 v3.10.5。
 - 测试：`xeCJK/testfiles/fntef-shrink01.lvt/.tlg`。
 - 架构：[[../../architecture/xecjk-architecture]] 「ulem 集成层的正文必须以字面记号留在替换文本里」一节。
 - 相关决策与反思：[[1002-inline-math-boundary-oracle]]、[[../reflections/1026-ulem-literal-body-outer-shrink]]、[[1012-fntef-decoration-overlap]]（本次最初被误判为引入点的相关工作）。
