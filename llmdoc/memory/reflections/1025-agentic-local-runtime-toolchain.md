@@ -5,6 +5,11 @@ metadata:
   type: feedback
 ---
 
+> **状态说明（#1032）**：本文记录的三层进程隔离（`ctex-agent` 专用用户、模型 API 代理、
+> `agent-control-hardening.c` 加固、沙箱外结果控制目录）已被 #1032 删除，改回上游模板的
+> runner 默认用户执行形态。工具安装的复合 Action `setup-agent-tools` 也已改为单个脚本。
+> 见决策 [[1032-agent-runtime-simplification]]。以下正文保留原过程记录，不代表当前实现。
+
 # 反思：本地维护 Agent runtime 与工具链
 
 ## 任务
