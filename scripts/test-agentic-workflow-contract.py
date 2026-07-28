@@ -99,10 +99,29 @@ def assert_pr_review_draft_contract(source: str) -> None:
 
     jobs = document["jobs"]
     assert "if" not in jobs["codex_review"], "Codex 主审不得按 Draft 状态或其他条件恒定跳过"
+    assert jobs["claude_review"].get("needs") == "codex_review", "Claude 兜底必须等待 Codex 主审"
     assert jobs["claude_review"].get("if") == "always() && needs.codex_review.result != 'success'", (
         "Claude 兜底条件必须只取决于 Codex 是否成功"
     )
+    assert jobs["publish"].get("needs") == ["codex_review", "claude_review"], (
+        "PR publisher 必须等待两条审查链"
+    )
     assert jobs["publish"].get("if") == "always()", "PR publisher 必须在两条审查链结束后运行"
+
+    publish_steps = {step.get("name"): step for step in jobs["publish"]["steps"]}
+    expected_conditions = {
+        "Download Codex review result": "needs.codex_review.result == 'success'",
+        "Download Claude review result": "needs.claude_review.result == 'success'",
+        "Validate and publish review comment": (
+            "needs.codex_review.result == 'success' || needs.claude_review.result == 'success'"
+        ),
+        "Fail when no reviewer succeeded": (
+            "always() && needs.codex_review.result != 'success' && needs.claude_review.result != 'success'"
+        ),
+    }
+    for name, expected in expected_conditions.items():
+        assert name in publish_steps, f"PR publisher 缺少 step: {name}"
+        assert publish_steps[name].get("if") == expected, f"PR publisher step 条件不正确: {name}"
 
 
 def assert_contract_hook_coverage(source: str) -> None:
@@ -1063,6 +1082,46 @@ def main() -> None:
                 1,
             ),
             "publisher 恒假条件",
+        ),
+        (
+            review.replace("    needs: codex_review\n", "", 1),
+            "Claude 兜底缺少 Codex 依赖",
+        ),
+        (
+            review.replace("    needs: [codex_review, claude_review]\n", "", 1),
+            "publisher 缺少审查链依赖",
+        ),
+        (
+            review.replace(
+                "        if: needs.codex_review.result == 'success'\n",
+                "        if: 0 == 1\n",
+                1,
+            ),
+            "Codex artifact 下载被禁用",
+        ),
+        (
+            review.replace(
+                "        if: needs.claude_review.result == 'success'\n",
+                "        if: 0 == 1\n",
+                1,
+            ),
+            "Claude artifact 下载被禁用",
+        ),
+        (
+            review.replace(
+                "        if: needs.codex_review.result == 'success' || needs.claude_review.result == 'success'\n",
+                "        if: 0 == 1\n",
+                1,
+            ),
+            "实际发布 step 被禁用",
+        ),
+        (
+            review.replace(
+                "        if: always() && needs.codex_review.result != 'success' && needs.claude_review.result != 'success'\n",
+                "        if: 0 == 1\n",
+                1,
+            ),
+            "双失败终止 step 被禁用",
         ),
     ):
         try:

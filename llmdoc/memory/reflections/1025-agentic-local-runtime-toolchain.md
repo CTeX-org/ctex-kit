@@ -211,6 +211,11 @@ shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结�
 属于 ShellCheck 的参数。当前合同要求 lint step 只包含一条反斜线续行的 `shellcheck` 命令，再检查
 这条命令自己的参数；同时用三个 job 恒定跳过和“路径只交给 `echo`”的负向夹具固定命令边界。
 
+workflow 的完整控制流不只由 job 的 `if` 决定。fallback 是否等待主链、publisher 是否等待两条审查链，
+由 `needs` 决定；publisher 真正下载哪个 artifact、何时发表评论、两条链都失败时是否让门禁失败，则由
+内部 step 的 `if` 决定。因此，Draft PR 合同还要按解析后的 job 和 step 名精确检查两处依赖与四个
+条件，并用删除依赖、逐项禁用 step 的反例证明整条审查结果一定能到达发布或失败出口。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -240,6 +245,8 @@ shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结�
   作为配置存在的证据。
 - 对 job 条件要比较完整的生效表达式；对 shell step 要先确定命令边界，再检查目标命令自己的参数，
   不能用整个脚本中的 token 集合代替调用关系。
+- 检查多 job workflow 时，要同时固定 `needs` 和关键 step 的条件；只检查 job 级 `if` 不能证明结果
+  会沿预期依赖链到达发布或失败出口。
 - 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
   的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
