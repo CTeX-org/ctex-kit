@@ -61,6 +61,24 @@ def job(source: str, name: str) -> str:
     return match.group(0)
 
 
+def top_level_block(source: str, name: str) -> str:
+    match = re.search(
+        rf"(?ms)^{re.escape(name)}:\n.*?(?=^[A-Za-z0-9_-]+:\n|\Z)",
+        source,
+    )
+    assert match, f"找不到顶层字段: {name}"
+    return match.group(0)
+
+
+def named_step(source: str, name: str) -> str:
+    match = re.search(
+        rf"(?ms)^      - name: {re.escape(name)}\n.*?(?=^      - name: |\Z)",
+        source,
+    )
+    assert match, f"找不到 step: {name}"
+    return match.group(0)
+
+
 def require_all(source: str, fragments: tuple[str, ...], label: str) -> None:
     missing = [fragment for fragment in fragments if fragment not in source]
     assert not missing, f"{label} 缺少合同片段: {missing}"
@@ -1292,7 +1310,7 @@ def main() -> None:
     )
     require_all(setup, tools, "Agent toolchain")
 
-    # 合同 workflow 本身必须随所有本地 runtime 输入变化而运行，并执行 actionlint。
+    # 合同 workflow 本身必须随所有本地 runtime 输入变化而运行，并执行静态检查。
     require_all(
         contract,
         (
@@ -1305,14 +1323,31 @@ def main() -> None:
             "'.claude/skills/**'",
             "'.github/tl_packages'",
             "'.github/font-urls.txt'",
-            "'.githooks/check-pr-ci.sh'",
             "'scripts/validate-action-metadata.py'",
-            "shellcheck",
-            ".github/scripts/agentic/*.sh",
-            ".github/scripts/pr-review/prepare-review-history.sh",
             "actionlint@v1.7.7",
         ),
         "Agent workflow contract gate",
+    )
+    trigger = top_level_block(contract, "on")
+    require_all(
+        trigger,
+        (
+            "- '.githooks/pre-push'",
+            "- '.githooks/check-pr-ci.sh'",
+        ),
+        "Agent workflow contract trigger paths",
+    )
+    shellcheck_step = named_step(contract, "Lint Agent shell scripts")
+    require_all(
+        shellcheck_step,
+        (
+            "shellcheck",
+            ".githooks/pre-push",
+            ".githooks/check-pr-ci.sh",
+            ".github/scripts/agentic/*.sh",
+            ".github/scripts/pr-review/prepare-review-history.sh",
+        ),
+        "Agent workflow ShellCheck inputs",
     )
 
     provenance = read(ROOT / ".github" / "agentic-runtime.md")
