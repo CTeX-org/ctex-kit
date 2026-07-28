@@ -106,6 +106,15 @@ runner 自己的临时目录并限制权限，再把工作区所有权交给 Age
 静态断言还固定两个 CLI 都不能恢复 bypass 选项。结果文件的 JSON Schema 校验仍然需要，但它只能
 检查数据形式，不能替代来源隔离。
 
+PR #1028 首次远端合同运行还暴露了 GitHub `ubuntu-latest` 的平台差异：Ubuntu 24.04 默认通过
+AppArmor 限制未特权 user namespace，Bubblewrap 会在写 UID map 时直接报 `Permission denied`。
+本机合同通过不能证明托管 runner 上的命令沙箱可启动；而且这不只是测试夹具失败，Claude 的命令
+沙箱同样依赖该能力。可信工具安装 Action 现在只在相应 sysctl 存在时，对临时 runner 关闭
+`apparmor_restrict_unprivileged_userns` 并打开 `unprivileged_userns_clone`，随后立即运行带
+`--unshare-net` 的 Bubblewrap 探针。独立合同 job 在执行 Python 夹具以前使用同样的准备和探针。
+调整发生在一次性 runner、Agent 启动以前；探针失败则 job 直接停止，不能等 Agent fallback 才发现
+沙箱不可用。合同测试还固定两处准备步骤，并用移除 sysctl 或探针的反例防止回退。
+
 ## Agent 返回后仍要保持信任边界
 
 完整范围审查又发现了两个同类问题。Issue Dispatch 虽然从固定事件提交取得了结果整理脚本，却在

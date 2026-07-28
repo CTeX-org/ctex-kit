@@ -360,6 +360,13 @@ Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CT
 
 六个实际运行 Agent 的 job（每条 workflow 各一条 Codex 和 Claude 链路）都调用 `setup-agent-tools`，恢复或安装 TeX Live 2026、Noto CJK、HanaMinB、Noto Sans Symbols 2、Poppler、ImageMagick、Ghostscript、ShellCheck、actionlint，以及 Agent 命令沙箱所需的 Bubblewrap、socat 和 C 编译器。TeX Live 使用与可信 CI 相同的 `tl-bypass-<os>-2026-<ISO week>-<tl_packages hash>` key；两组字体也复用既有 key。三类缓存都把 `actions/cache/restore` 与 `actions/cache/save` 分开：缓存未命中时，来自 PR base 或固定事件提交的可信安装 Action 先安装、检查，再在 Agent 启动前显式保存；workflow 不使用会在 job 结束时执行 post-save 的普通 `actions/cache`，Agent 启动后也不再保存共享缓存。
 
+GitHub `ubuntu-latest` 使用 Ubuntu 24.04 时，AppArmor 可能禁止未特权 user namespace，使 Bubblewrap
+在写 UID map 时返回 `Permission denied`。`setup-agent-tools` 在 Agent 启动以前检查对应 sysctl：
+存在时关闭 `kernel.apparmor_restrict_unprivileged_userns`，并打开
+`kernel.unprivileged_userns_clone`；随后立即用 `--unshare-net` 运行最小 Bubblewrap 探针，失败则
+停止 job。这个调整只作用于一次性 runner，但它仍属于可信安装职责，不能交给 Agent 或仅在 fallback
+路径处理。独立合同 workflow 也必须在运行含 Bubblewrap 的 Python 夹具以前执行同样准备和探针。
+
 两组字体为了保持与现有 CI 相同的 cache version，仍恢复到 workspace 路径。Action 必须依次完成“删除并重建暂存目录 → restore 或可信下载 → 白名单和完整性检查 → 安装到系统字体目录 → cache miss 时显式 save → 删除暂存目录 → 启动 Agent”。CJK 缓存必须同时包含 Noto Sans CJK 和 Noto Serif CJK；xeCJK 文档字体缓存必须包含 HanaMinB、Noto Sans Symbols 2 和 `.done`。符号链接、子目录、额外文件或缺少必需字体的缓存一律拒绝，避免 PR head 预置文件混入系统字体或共享缓存。
 
 PR Review 的 head checkout 是不可信对象，安装 Action、Agent 启动脚本、审查规范和历史准备脚本必须从 PR base SHA 取得。复合 Action 在移交工作区所有权前，还要把启动脚本、代理、控制进程保护源码和两份审查规范复制到 runner 自己的私有临时目录。审查规范文件只读，父目录也不允许 Agent UID 写入；启动脚本在运行 CLI 前实际检查这两层权限。仅确认文件最初来自可信提交，不能防止 Agent 在运行中改写仍位于工作区的内容。模型密钥只由以 root 身份运行、通过 `env -i` 清空继承环境的本地固定上游代理读取；Agent CLI 以无 sudo 的 `ctex-agent` 用户和 `env -i` 启动，只持有本地代理占位凭据。这一边界防止仓库子进程读取长期模型密钥，但不限制它使用代理消耗模型调用额度。

@@ -36,6 +36,21 @@ runs:
           shellcheck \
           unzip
 
+    # Ubuntu 24.04 的 AppArmor 默认限制未特权 user namespace。Bubblewrap 因而会在
+    # 写 UID map 时失败；Claude 的命令沙箱和下面的合同反例都无法运行。
+    - name: Enable and verify Bubblewrap sandbox
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi
+        if [[ -e /proc/sys/kernel/unprivileged_userns_clone ]]; then
+          sudo sysctl -w kernel.unprivileged_userns_clone=1
+        fi
+        bwrap --unshare-net --die-with-parent --new-session \
+          --ro-bind / / --dev /dev --proc /proc /usr/bin/true
+
     - name: Compute weekly TeX Live cache key
       id: tl-cache-key
       shell: bash
