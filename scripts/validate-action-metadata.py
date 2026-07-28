@@ -15,6 +15,9 @@ TOP_LEVEL_KEYS = {"name", "author", "description", "inputs", "outputs", "runs", 
 INPUT_KEYS = {"description", "required", "default", "deprecationMessage"}
 OUTPUT_KEYS = {"description", "value"}
 RUNS_KEYS = {"using", "steps"}
+# GitHub 只在复合 Action 的 step 上支持这些字段。多写字段（例如 job step 才有的
+# timeout-minutes）会让 runner 在加载 action.yml 时报 TemplateValidationException，
+# 整个调用步骤直接失败，所以这里必须是精确白名单。
 STEP_KEYS = {
     "id",
     "if",
@@ -26,8 +29,9 @@ STEP_KEYS = {
     "env",
     "working-directory",
     "continue-on-error",
-    "timeout-minutes",
 }
+# 这些字段在 job step 合法、在复合 Action step 非法，容易被顺手抄进来。
+JOB_ONLY_STEP_KEYS = {"timeout-minutes"}
 BRANDING_KEYS = {"color", "icon"}
 
 
@@ -110,7 +114,13 @@ def validate_action(path: Path) -> list[str]:
     for index, raw_step in enumerate(steps):
         location = f"{path}.runs.steps[{index}]"
         step = mapping(raw_step, location, errors)
-        reject_unknown_keys(step, STEP_KEYS, location, errors)
+        job_only = sorted(str(key) for key in step if key in JOB_ONLY_STEP_KEYS)
+        if job_only:
+            errors.append(
+                f"{location} 含仅 job step 支持的字段，复合 Action 会被 runner 拒绝："
+                f"{', '.join(job_only)}"
+            )
+        reject_unknown_keys(step, STEP_KEYS | JOB_ONLY_STEP_KEYS, location, errors)
         has_run = "run" in step
         has_uses = "uses" in step
         if has_run == has_uses:
@@ -129,8 +139,6 @@ def validate_action(path: Path) -> list[str]:
         for key in ("env", "with"):
             if key in step:
                 mapping(step[key], f"{location}.{key}", errors)
-        if "timeout-minutes" in step and not scalar(step["timeout-minutes"]):
-            errors.append(f"{location}.timeout-minutes 必须是标量")
 
     if "branding" in action:
         branding = mapping(action["branding"], f"{path}.branding", errors)

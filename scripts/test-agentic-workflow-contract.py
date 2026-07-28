@@ -396,6 +396,16 @@ def test_action_metadata() -> None:
         result = run(["python3", str(validator), str(bad_step)], check=False)
         assert result.returncode != 0, "拼错的 composite step 字段必须被门禁拒绝"
 
+        # GitHub 只在 job step 上支持 timeout-minutes。复合 Action 写上它会让 runner
+        # 在加载 action.yml 时抛 TemplateValidationException，调用步骤整体失败。
+        job_only_step = Path(tmp_name) / "job-only-step.yml"
+        job_only_step.write_text(
+            source.replace("      shell: bash", "      timeout-minutes: 15\n      shell: bash", 1),
+            encoding="utf-8",
+        )
+        result = run(["python3", str(validator), str(job_only_step)], check=False)
+        assert result.returncode != 0, "复合 Action step 的 timeout-minutes 必须被门禁拒绝"
+
 
 def test_font_cache_staging() -> None:
     action_path = ACTIONS / "setup-agent-tools" / "action.yml"
