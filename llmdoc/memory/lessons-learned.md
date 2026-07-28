@@ -121,6 +121,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。#1026 中前三版测试分别把正文装进 `\hbox`、`\vbox`，或用 `\def\BODY` 承载正文，均显示缺陷版与修复版数字相同；只有改成“主垂直列表里真正断行，且调用处写字面正文”才第一次测出差异。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 顺手做的一致性修改要单独确认有无门禁
+**Rule**: 同一约束改到多处时，逐处确认哪些有回归覆盖。若某处的症状在结构上无法观察（例如被包进 hbox 后内层弹性不外露），就在文档里如实写明它依赖代码审查而非门禁，不要让它蹭进另一处的覆盖声明。
+**Why**: #1026 中 `\UL@onin` 的重排分支按同一约束改了，但 `ulem` 用 `\setbox\UL@box\hbox{{#1}}` 包住内容，收缩量丢失在嵌套路径上不显现；重新引入缺陷乃至删掉整段分支，全套 114 项仍全绿。文档原先的措辞读起来像 `\UL@on` 与 `\UL@onin` 都已覆盖。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
 ### 引入会改全局状态的测试原语前先读它的定义，生成基线后复查体积
 **Rule**: 像 `\loggingoutput` 这类原语会覆盖全局参数（它把 `\showboxbreadth`／`\showboxdepth` 设为 `\maxdimen`），必须先调用它、再设回本文件需要的值。生成 `.tlg` 后核对行数与内容是否正是想固定的对象，不要只看 `l3build check` 是否为绿。
 **Why**: #1026 中顺序写反使前四项也倒出完整节点列表，`.tlg` 从预期百余行涨到 3279 行、含 880 处 PDF 绘图 `special`，直接违反同文件声明的“只固定行盒尺寸与 glue set”；补 `\clearpage` 并调换顺序后降到 145 行。
