@@ -69,6 +69,14 @@ def parse_workflow(source: str) -> dict:
     return document
 
 
+def unique_steps_by_name(steps: list[dict], label: str) -> dict[str, dict]:
+    names = [step.get("name") for step in steps]
+    assert all(isinstance(name, str) and name for name in names), f"{label} 的每个 step 都必须有名称"
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    assert not duplicates, f"{label} 存在重名 step: {duplicates}"
+    return dict(zip(names, steps, strict=True))
+
+
 def parse_single_continued_command(script: str, label: str) -> list[str]:
     """解析由反斜线续行的一条简单命令，拒绝额外命令或复合 shell 语法。"""
     lines = [line.strip() for line in script.splitlines() if line.strip()]
@@ -108,7 +116,7 @@ def assert_pr_review_draft_contract(source: str) -> None:
     )
     assert jobs["publish"].get("if") == "always()", "PR publisher 必须在两条审查链结束后运行"
 
-    publish_steps = {step.get("name"): step for step in jobs["publish"]["steps"]}
+    publish_steps = unique_steps_by_name(jobs["publish"]["steps"], "PR publisher")
     expected_conditions = {
         "Download Codex review result": "needs.codex_review.result == 'success'",
         "Download Claude review result": "needs.claude_review.result == 'success'",
@@ -122,6 +130,37 @@ def assert_pr_review_draft_contract(source: str) -> None:
     for name, expected in expected_conditions.items():
         assert name in publish_steps, f"PR publisher 缺少 step: {name}"
         assert publish_steps[name].get("if") == expected, f"PR publisher step 条件不正确: {name}"
+
+    download_contracts = {
+        "Download Codex review result": "review-result-codex",
+        "Download Claude review result": "review-result-claude",
+    }
+    for name, artifact in download_contracts.items():
+        step = publish_steps[name]
+        assert step.get("uses") == "actions/download-artifact@v8", f"{name} 必须使用固定下载 Action"
+        assert step.get("with") == {"name": artifact, "path": ".review-input"}, f"{name} 输入不正确"
+
+    publish_step = publish_steps["Validate and publish review comment"]
+    assert publish_step.get("id") == "result", "实际发布 step 必须提供 publisher outputs 使用的 result id"
+    require_all(
+        publish_step.get("run", ""),
+        (
+            "# BEGIN REVIEW_COMMENT_UPSERT",
+            "gh api --paginate --slurp",
+            "gh api --method PATCH",
+            "gh pr comment",
+            '>> "$GITHUB_OUTPUT"',
+            "# END REVIEW_COMMENT_UPSERT",
+        ),
+        "PR 实际发布 step",
+    )
+
+    failure_step = publish_steps["Fail when no reviewer succeeded"]
+    failure_result = run(
+        ["bash", "-euo", "pipefail", "-c", failure_step.get("run", "")],
+        check=False,
+    )
+    assert failure_result.returncode != 0, "两条审查链都失败时，publisher 必须以非零状态结束"
 
 
 def assert_contract_hook_coverage(source: str) -> None:
@@ -428,9 +467,13 @@ def test_review_result_semantics(review_source: str) -> None:
 
 
 def test_review_comment_upsert(review_source: str) -> None:
+    document = parse_workflow(review_source)
+    publish_steps = unique_steps_by_name(document["jobs"]["publish"]["steps"], "PR publisher")
+    publish_step = publish_steps.get("Validate and publish review comment")
+    assert publish_step is not None, "找不到实际 PR review 发布 step"
     match = re.search(
         r"(?ms)^\s*# BEGIN REVIEW_COMMENT_UPSERT\n(.*?)^\s*# END REVIEW_COMMENT_UPSERT",
-        review_source,
+        publish_step.get("run", ""),
     )
     assert match, "找不到 PR review 评论幂等发布片段"
     script = textwrap.dedent(match.group(1))
@@ -1058,6 +1101,18 @@ def main() -> None:
         "PR Review trigger",
     )
     assert_pr_review_draft_contract(review)
+    duplicate_codex_download = review.replace(
+        "        if: needs.codex_review.result == 'success'\n",
+        "        if: 0 == 1\n",
+        1,
+    ).replace(
+        "      - name: Download Claude review result\n",
+        "      - name: Download Codex review result\n"
+        "        if: needs.codex_review.result == 'success'\n"
+        "        run: \"true\"\n\n"
+        "      - name: Download Claude review result\n",
+        1,
+    )
     for broken_review, label in (
         (
             review.replace(
@@ -1122,6 +1177,36 @@ def main() -> None:
                 1,
             ),
             "双失败终止 step 被禁用",
+        ),
+        (
+            duplicate_codex_download,
+            "重名空操作掩护被禁用的 Codex 下载",
+        ),
+        (
+            review.replace(
+                "      - name: Download Codex review result\n"
+                "        if: needs.codex_review.result == 'success'\n"
+                "        uses: actions/download-artifact@v8\n"
+                "        with:\n"
+                "          name: review-result-codex\n",
+                "      - name: Download Codex review result\n"
+                "        if: needs.codex_review.result == 'success'\n"
+                "        uses: actions/download-artifact@v8\n"
+                "        with:\n"
+                "          name: review-result-claude\n",
+                1,
+            ),
+            "Codex 下载错误 artifact",
+        ),
+        (
+            review.replace(
+                "        run: |\n"
+                "          echo \"::error::Codex 主链路与 Claude Code fallback 均执行失败\"\n"
+                "          exit 1\n",
+                "        run: \"true\"\n",
+                1,
+            ),
+            "双失败 step 不再失败",
         ),
     ):
         try:

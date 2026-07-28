@@ -216,6 +216,11 @@ workflow 的完整控制流不只由 job 的 `if` 决定。fallback 是否等待
 内部 step 的 `if` 决定。因此，Draft PR 合同还要按解析后的 job 和 step 名精确检查两处依赖与四个
 条件，并用删除依赖、逐项禁用 step 的反例证明整条审查结果一定能到达发布或失败出口。
 
+step 的显示名称和条件也不是完整的动作合同。把多个同名 step 放进字典会静默覆盖其中一项；下载
+step 即使条件正确，也可能取错 artifact；双失败 step 即使条件正确，也可能只执行 `true`。当前合同
+先拒绝重名 step，再把两个下载条件与固定 Action、artifact 名和目标路径绑定；评论幂等行为测试直接
+从实际命名的发布 step 取脚本；双失败 step 则由合同测试直接执行，并要求退出状态非零。
+
 ## 可复用经验
 
 - reusable workflow 的调用方不能向被调用 job 注入新的 step；需要改变 Agent 所在 runner 的工具链时，
@@ -247,6 +252,8 @@ workflow 的完整控制流不只由 job 的 `if` 决定。fallback 是否等待
   不能用整个脚本中的 token 集合代替调用关系。
 - 检查多 job workflow 时，要同时固定 `needs` 和关键 step 的条件；只检查 job 级 `if` 不能证明结果
   会沿预期依赖链到达发布或失败出口。
+- 关键 step 的名称必须唯一，条件还要与实际 Action 输入或 shell 行为绑定；必要时直接执行安全的
+  失败出口，不能把“名称和条件还在”当成动作仍然有效。
 - 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
   的实际引用推导依赖，并用删除依赖的反例验证门禁。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
