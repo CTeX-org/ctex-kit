@@ -288,7 +288,10 @@ runs:
     - name: Register TeX Live fonts with fontconfig
       shell: bash
       run: |
-        tl_root=$(tlmgr conf | awk -F= '/TEXMFDIST/{gsub(/^[ \t]+|[ \t]+$/,"",$2);print $2;exit}')
+        # awk 不能提前 exit：composite step 的默认 shell 带 pipefail，`tlmgr conf`
+        # 写剩余输出时会收到 SIGPIPE，整条管道以 141 失败。读完全部输出再取首个值。
+        tl_root=$(tlmgr conf \
+          | awk -F= '/TEXMFDIST/ && !found {gsub(/^[ \t]+|[ \t]+$/,"",$2);value=$2;found=1} END{print value}')
         if [[ -z "$tl_root" || ! -d "$tl_root/fonts/opentype" ]]; then
           echo "::warning::TeX Live 字体目录不存在：$tl_root/fonts/opentype"
           exit 0

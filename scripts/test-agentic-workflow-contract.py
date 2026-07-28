@@ -379,10 +379,32 @@ def test_embedded_shell(paths: tuple[Path, ...]) -> None:
         run(["bash", "-n", str(path)])
 
 
+def assert_no_early_exit_awk_in_pipe(path: Path) -> None:
+    """复合 Action 的默认 shell 带 pipefail，管道右侧提前 exit 会让左侧收到 SIGPIPE。
+
+    `tlmgr conf | awk '...{print;exit}'` 因此以 141 失败并终止整个安装步骤。
+    禁止在复合 Action 的管道右侧用提前 exit 的 awk；读完全部输出再取值。
+    """
+    document = yaml.safe_load(read(path))
+    for index, step in enumerate(document["runs"]["steps"]):
+        script = step.get("run")
+        if not script:
+            continue
+        for line in script.splitlines():
+            if "| awk" not in line and "|awk" not in line:
+                continue
+            assert not re.search(r"awk\b[^|]*;\s*exit\s*}", line), (
+                f"{path}.runs.steps[{index}] 在管道右侧用提前 exit 的 awk，"
+                f"pipefail 下左侧会因 SIGPIPE 让整步失败：{line.strip()}"
+            )
+
+
 def test_action_metadata() -> None:
     validator = ROOT / "scripts" / "validate-action-metadata.py"
     action_paths = tuple(ACTIONS.glob("*/action.yml"))
     run(["python3", str(validator), *(str(path) for path in action_paths)])
+    for path in action_paths:
+        assert_no_early_exit_awk_in_pipe(path)
 
     with tempfile.TemporaryDirectory(prefix="ctex-action-metadata-") as tmp_name:
         source = read(ACTIONS / "run-agent" / "action.yml")
