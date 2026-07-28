@@ -89,10 +89,6 @@ if [[ "$outcome" == READY ]]; then
   existing_pr_number=$(jq -r '.[0].number // empty' <<< "$existing_pr")
   existing_remote_sha=$(git -C "$publish_repo" ls-remote --heads origin "refs/heads/$branch" | awk '{print $1}')
 
-  if [[ -n "$existing_remote_sha" && -z "$existing_pr_number" ]]; then
-    echo "::error::Refusing to overwrite $branch because it has no workflow-owned open PR"
-    exit 1
-  fi
   if [[ -n "$existing_pr_number" ]]; then
     jq -e --arg marker "$pr_marker" '.[0].body | contains($marker)' <<< "$existing_pr" > /dev/null
   fi
@@ -101,7 +97,9 @@ if [[ "$outcome" == READY ]]; then
   # base 时，新候选与它是兄弟提交；直接 force push 会把旧 PR 中未合并的文档
   # 修改从 diff 中删除。先固定并读取远端 head，只允许覆盖已经进入本轮 base 的
   # 旧候选。implement 分支按 Issue 独立命名，仍保留原有的重跑更新语义。
-  if [[ "$mode" == update-llmdoc && -n "$existing_remote_sha" ]]; then
+  if [[ "$mode" == update-llmdoc &&
+        -n "$existing_remote_sha" &&
+        "$existing_remote_sha" != "$candidate_sha" ]]; then
     git -C "$publish_repo" fetch --no-tags origin \
       "refs/heads/$branch:refs/heads/existing-workflow-head"
     fetched_existing_sha=$(git -C "$publish_repo" rev-parse refs/heads/existing-workflow-head)
@@ -110,9 +108,20 @@ if [[ "$outcome" == READY ]]; then
       exit 1
     fi
     if ! git -C "$publish_repo" merge-base --is-ancestor "$existing_remote_sha" "$base_sha"; then
-      echo "::error::Refusing to replace unmerged llmdoc candidate $existing_remote_sha on $branch"
+      if [[ -n "$existing_pr_number" ]]; then
+        echo "::error::Refusing to replace unmerged llmdoc candidate $existing_remote_sha on $branch"
+      else
+        echo "::error::Refusing to overwrite $branch because it differs from the current candidate and has no workflow-owned open PR"
+      fi
       exit 1
     fi
+  fi
+  if [[ "$mode" == implement &&
+        -n "$existing_remote_sha" &&
+        -z "$existing_pr_number" &&
+        "$existing_remote_sha" != "$candidate_sha" ]]; then
+    echo "::error::Refusing to overwrite $branch because it differs from the current candidate and has no workflow-owned open PR"
+    exit 1
   fi
 
   if [[ -n "$existing_remote_sha" ]]; then
@@ -141,6 +150,9 @@ if [[ "$outcome" == READY ]]; then
     pr_number=$existing_pr_number
     pr_url=$(jq -r '.[0].url' <<< "$existing_pr")
   else
+    # push 已成功而建 PR 暂时失败时，保留精确的 candidate head。重跑同一
+    # publisher 会识别 existing_remote_sha == candidate_sha，并继续补建 PR；
+    # 不同候选仍须通过上面的已合入检查或 fail closed，不能覆盖未知分支。
     pr_url=$(gh pr create --repo "$repository" --base "$base_ref" --head "$branch" \
       --title "$pr_title" --body-file "$RUNNER_TEMP/pr-body.md")
     pr_number=$(gh pr view "$pr_url" --repo "$repository" --json number --jq .number)

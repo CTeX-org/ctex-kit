@@ -800,6 +800,95 @@ def candidate_result(outcome: str = "READY") -> dict[str, str]:
     }
 
 
+def package_llmdoc_fixture(
+    tmp: Path,
+    base_repo: Path,
+    base_sha: str,
+    content: str,
+) -> tuple[Path, str]:
+    candidate_repo = tmp / "candidate"
+    run(["git", "clone", "-q", "--local", str(base_repo), str(candidate_repo)])
+    git(candidate_repo, "config", "user.name", "Agent contract test")
+    git(candidate_repo, "config", "user.email", "contract@example.invalid")
+    git(candidate_repo, "config", "commit.gpgsign", "false")
+    (candidate_repo / "llmdoc" / "index.md").write_text(content, encoding="utf-8")
+    result = tmp / "candidate.json"
+    result.write_text(json.dumps(candidate_result()), encoding="utf-8")
+    artifact = tmp / "artifact"
+    run(
+        [
+            "bash",
+            str(ROOT / ".github" / "scripts" / "agentic" / "package-change-result.sh"),
+            str(result),
+            str(candidate_repo),
+            str(artifact),
+            base_sha,
+            "codex",
+            "gpt-5.6-sol",
+            "update-llmdoc",
+        ]
+    )
+    candidate_sha = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))[
+        "candidate_sha"
+    ]
+    return artifact, candidate_sha
+
+
+def install_fake_publisher_gh(tmp: Path, state: dict) -> tuple[Path, Path]:
+    fake_bin = tmp / "bin"
+    fake_bin.mkdir()
+    state_path = tmp / "fake-gh-state.json"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    fake_gh = fake_bin / "gh"
+    fake_gh.write_text(
+        """#!/usr/bin/env python3
+import json
+import os
+import sys
+from pathlib import Path
+
+state_path = Path(os.environ["FAKE_GH_STATE"])
+state = json.loads(state_path.read_text(encoding="utf-8"))
+args = sys.argv[1:]
+
+def save() -> None:
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+if args == ["auth", "setup-git"]:
+    raise SystemExit(0)
+if args[:2] == ["pr", "list"]:
+    print(json.dumps(state.get("prs", [])))
+    raise SystemExit(0)
+if args[:2] == ["pr", "create"]:
+    state["create_calls"] = state.get("create_calls", 0) + 1
+    if state.get("fail_create_count", 0) > 0:
+        state["fail_create_count"] -= 1
+        save()
+        print("simulated gh pr create failure", file=sys.stderr)
+        raise SystemExit(1)
+    number = state.get("next_number", 7)
+    url = f"https://example.invalid/pr/{number}"
+    body = Path(args[args.index("--body-file") + 1]).read_text(encoding="utf-8")
+    state["prs"] = [{"number": number, "url": url, "body": body}]
+    save()
+    print(url)
+    raise SystemExit(0)
+if args[:2] == ["pr", "view"]:
+    print(state["prs"][0]["number"])
+    raise SystemExit(0)
+if args[:2] == ["pr", "edit"]:
+    body = Path(args[args.index("--body-file") + 1]).read_text(encoding="utf-8")
+    state["prs"][0]["body"] = body
+    save()
+    raise SystemExit(0)
+raise SystemExit(f"unexpected gh arguments: {args!r}")
+""",
+        encoding="utf-8",
+    )
+    fake_gh.chmod(0o755)
+    return fake_bin, state_path
+
+
 def test_runtime_scripts() -> None:
     scripts = ROOT / ".github" / "scripts" / "agentic"
     normalizer = scripts / "normalize-answer-result.sh"
@@ -964,9 +1053,7 @@ def test_runtime_scripts() -> None:
 
 
 def test_publish_preserves_unmerged_llmdoc_candidate() -> None:
-    scripts = ROOT / ".github" / "scripts" / "agentic"
-    package = scripts / "package-change-result.sh"
-    publish = scripts / "publish-change.sh"
+    publish = ROOT / ".github" / "scripts" / "agentic" / "publish-change.sh"
 
     with tempfile.TemporaryDirectory(prefix="ctex-llmdoc-publish-") as tmp_name:
         tmp = Path(tmp_name)
@@ -990,52 +1077,30 @@ def test_publish_preserves_unmerged_llmdoc_candidate() -> None:
         branch = "agentic/update-llmdoc-master"
         git(old_repo, "push", "-q", str(remote), f"HEAD:refs/heads/{branch}")
 
-        candidate_repo = tmp / "new-candidate"
-        run(["git", "clone", "-q", "--local", str(base_repo), str(candidate_repo)])
-        git(candidate_repo, "config", "commit.gpgsign", "false")
-        (candidate_repo / "llmdoc" / "index.md").write_text(
-            "base\nnew candidate\n", encoding="utf-8"
-        )
-        result = tmp / "candidate.json"
-        result.write_text(json.dumps(candidate_result()), encoding="utf-8")
-        artifact = tmp / "artifact"
-        run(
-            [
-                "bash",
-                str(package),
-                str(result),
-                str(candidate_repo),
-                str(artifact),
-                base_sha,
-                "codex",
-                "gpt-5.6-sol",
-                "update-llmdoc",
-            ]
+        artifact, _ = package_llmdoc_fixture(
+            tmp,
+            base_repo,
+            base_sha,
+            "base\nnew candidate\n",
         )
 
-        fake_bin = tmp / "bin"
-        fake_bin.mkdir()
-        fake_gh = fake_bin / "gh"
-        fake_gh.write_text(
-            """#!/usr/bin/env python3
-import sys
-
-args = sys.argv[1:]
-if args == ["auth", "setup-git"]:
-    raise SystemExit(0)
-if args[:2] == ["pr", "list"]:
-    print('[{"number": 7, "url": "https://example.invalid/pr/7", '
-          '"body": "<!-- agentic-update-llmdoc:master -->"}]')
-    raise SystemExit(0)
-raise SystemExit(f"unexpected gh arguments: {args!r}")
-""",
-            encoding="utf-8",
+        fake_bin, state_path = install_fake_publisher_gh(
+            tmp,
+            {
+                "prs": [
+                    {
+                        "number": 7,
+                        "url": "https://example.invalid/pr/7",
+                        "body": "<!-- agentic-update-llmdoc:master -->",
+                    }
+                ]
+            },
         )
-        fake_gh.chmod(0o755)
         runner_temp = tmp / "runner"
         runner_temp.mkdir()
         env = os.environ | {
             "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FAKE_GH_STATE": str(state_path),
             "GH_TOKEN": "test-token",
             "RUNNER_TEMP": str(runner_temp),
             "GITHUB_SERVER_URL": f"file://{tmp / 'server'}",
@@ -1062,6 +1127,163 @@ raise SystemExit(f"unexpected gh arguments: {args!r}")
             ["git", "ls-remote", "--heads", str(remote), f"refs/heads/{branch}"]
         ).stdout.split()[0]
         assert remote_sha == old_sha, "发布失败后必须保留旧 llmdoc 候选 head"
+
+        state_path.write_text(json.dumps({"prs": []}), encoding="utf-8")
+        runner_without_pr = tmp / "runner-without-pr"
+        runner_without_pr.mkdir()
+        unknown = run(
+            [
+                "bash",
+                str(publish),
+                str(artifact),
+                "example/repo",
+                "master",
+                branch,
+                "update-llmdoc",
+                str(tmp / "unknown-result.json"),
+            ],
+            env=env | {"RUNNER_TEMP": str(runner_without_pr)},
+            check=False,
+        )
+        assert unknown.returncode != 0
+        assert "differs from the current candidate and has no workflow-owned open PR" in unknown.stdout
+        remote_sha = run(
+            ["git", "ls-remote", "--heads", str(remote), f"refs/heads/{branch}"]
+        ).stdout.split()[0]
+        assert remote_sha == old_sha, "无法认证归属的分支必须保持不变"
+
+
+def test_publish_recovers_llmdoc_branch_states() -> None:
+    publish = ROOT / ".github" / "scripts" / "agentic" / "publish-change.sh"
+
+    with tempfile.TemporaryDirectory(prefix="ctex-llmdoc-publish-retry-") as tmp_name:
+        tmp = Path(tmp_name)
+        base_repo = tmp / "base"
+        base_sha = init_fixture_repo(base_repo)
+        remote = tmp / "server" / "example" / "repo.git"
+        remote.parent.mkdir(parents=True)
+        run(["git", "init", "--bare", "-q", str(remote)])
+        git(base_repo, "remote", "add", "origin", str(remote))
+        git(base_repo, "push", "-q", "origin", "HEAD:refs/heads/master")
+        branch = "agentic/update-llmdoc-master"
+        artifact, candidate_sha = package_llmdoc_fixture(
+            tmp,
+            base_repo,
+            base_sha,
+            "base\nretry candidate\n",
+        )
+        fake_bin, state_path = install_fake_publisher_gh(
+            tmp,
+            {"prs": [], "fail_create_count": 1, "next_number": 8},
+        )
+        common_env = os.environ | {
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FAKE_GH_STATE": str(state_path),
+            "GH_TOKEN": "test-token",
+            "GITHUB_SERVER_URL": f"file://{tmp / 'server'}",
+        }
+
+        first_runner = tmp / "runner-first"
+        first_runner.mkdir()
+        first = run(
+            [
+                "bash",
+                str(publish),
+                str(artifact),
+                "example/repo",
+                "master",
+                branch,
+                "update-llmdoc",
+                str(tmp / "first-result.json"),
+            ],
+            env=common_env | {"RUNNER_TEMP": str(first_runner)},
+            check=False,
+        )
+        assert first.returncode != 0, "第一次建 PR 的模拟故障必须传递失败状态"
+        remote_sha = run(
+            ["git", "ls-remote", "--heads", str(remote), f"refs/heads/{branch}"]
+        ).stdout.split()[0]
+        assert remote_sha == candidate_sha, "建 PR 失败后必须保留经过校验的精确候选 head"
+
+        retry_runner = tmp / "runner-retry"
+        retry_runner.mkdir()
+        public_result = tmp / "retry-result.json"
+        run(
+            [
+                "bash",
+                str(publish),
+                str(artifact),
+                "example/repo",
+                "master",
+                branch,
+                "update-llmdoc",
+                str(public_result),
+            ],
+            env=common_env | {"RUNNER_TEMP": str(retry_runner)},
+        )
+        published = json.loads(public_result.read_text(encoding="utf-8"))
+        assert published["pr_number"] == 8
+        assert published["pr_url"] == "https://example.invalid/pr/8"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert state["create_calls"] == 2
+
+    with tempfile.TemporaryDirectory(prefix="ctex-llmdoc-publish-merged-") as tmp_name:
+        tmp = Path(tmp_name)
+        original = tmp / "original"
+        init_fixture_repo(original)
+        remote = tmp / "server" / "example" / "repo.git"
+        remote.parent.mkdir(parents=True)
+        run(["git", "init", "--bare", "-q", str(remote)])
+        merged = tmp / "merged"
+        run(["git", "clone", "-q", "--local", str(original), str(merged)])
+        git(merged, "config", "user.name", "Agent contract test")
+        git(merged, "config", "user.email", "contract@example.invalid")
+        git(merged, "config", "commit.gpgsign", "false")
+        (merged / "llmdoc" / "index.md").write_text("base\nmerged candidate\n", encoding="utf-8")
+        git(merged, "add", "llmdoc/index.md")
+        git(merged, "commit", "-q", "-m", "merged llmdoc candidate")
+        merged_sha = git(merged, "rev-parse", "HEAD")
+        branch = "agentic/update-llmdoc-master"
+        git(merged, "push", "-q", str(remote), "HEAD:refs/heads/master")
+        git(merged, "push", "-q", str(remote), f"HEAD:refs/heads/{branch}")
+        artifact, candidate_sha = package_llmdoc_fixture(
+            tmp,
+            merged,
+            merged_sha,
+            "base\nmerged candidate\nnext candidate\n",
+        )
+        fake_bin, state_path = install_fake_publisher_gh(
+            tmp,
+            {"prs": [], "next_number": 9},
+        )
+        runner_temp = tmp / "runner"
+        runner_temp.mkdir()
+        public_result = tmp / "public-result.json"
+        run(
+            [
+                "bash",
+                str(publish),
+                str(artifact),
+                "example/repo",
+                "master",
+                branch,
+                "update-llmdoc",
+                str(public_result),
+            ],
+            env=os.environ
+            | {
+                "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                "FAKE_GH_STATE": str(state_path),
+                "GH_TOKEN": "test-token",
+                "RUNNER_TEMP": str(runner_temp),
+                "GITHUB_SERVER_URL": f"file://{tmp / 'server'}",
+            },
+        )
+        remote_sha = run(
+            ["git", "ls-remote", "--heads", str(remote), f"refs/heads/{branch}"]
+        ).stdout.split()[0]
+        assert remote_sha == candidate_sha, "已合入 base 的保留分支必须能在精确 lease 下更新"
+        assert json.loads(public_result.read_text(encoding="utf-8"))["pr_number"] == 9
 
 
 def test_agent_result_channel_sandbox() -> None:
@@ -1183,6 +1405,7 @@ def main() -> None:
     test_pre_push_bot_comment_audit()
     test_runtime_scripts()
     test_publish_preserves_unmerged_llmdoc_candidate()
+    test_publish_recovers_llmdoc_branch_states()
     test_agent_result_channel_sandbox()
     test_agent_control_process_hardening()
     assert_bubblewrap_runner_setup(setup, contract)
