@@ -67,11 +67,46 @@ jobs:
           persist-credentials: false
           token: ${{ github.token }}
 
-      - name: Setup TeX, PDF and image tools
-        uses: ./consumer/.github/actions/setup-agent-tools
+      - name: Compute weekly TeX Live cache key
+        id: tl-cache-key
+        run: echo "week=$(TZ=UTC date +'%G-W%V')" >> "$GITHUB_OUTPUT"
+
+      # 缓存只恢复不保存：保存发生在 post job 阶段，届时 Agent 已经运行过仓库代码。
+      - name: Restore shared TeX Live cache
+        id: tl-cache
+        uses: actions/cache/restore@v6
         with:
-          tl-package-file: consumer/.github/tl_packages
-          font-url-file: consumer/.github/font-urls.txt
+          path: ${{ runner.temp }}/setup-texlive-action/2026
+          key: tl-bypass-${{ runner.os }}-2026-${{ steps.tl-cache-key.outputs.week }}-${{ hashFiles('consumer/.github/tl_packages') }}
+
+      - name: Install TeX Live on cache miss
+        if: steps.tl-cache.outputs.cache-hit != 'true'
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: '2026'
+          package-file: consumer/.github/tl_packages
+          repository: https://mirror.ctan.org/systems/texlive/tlnet
+          update-all-packages: true
+          cache: false
+
+      - name: Restore shared CJK font cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/.font-cache
+          key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('consumer/.github/font-urls.txt') }}-v1
+
+      - name: Restore xeCJK document font cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/.xecjk-font-cache
+          key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
+      - name: Setup TeX, PDF and image tools
+        env:
+          TL_VERSION: '2026'
+          TL_PACKAGE_FILE: consumer/.github/tl_packages
+          FONT_URL_FILE: consumer/.github/font-urls.txt
+        run: bash consumer/.github/scripts/agentic/setup-agent-tools.sh
 
       - name: Download prepared input
         uses: actions/download-artifact@v8
@@ -168,11 +203,46 @@ jobs:
           persist-credentials: false
           token: ${{ github.token }}
 
-      - name: Setup TeX, PDF and image tools
-        uses: ./consumer/.github/actions/setup-agent-tools
+      - name: Compute weekly TeX Live cache key
+        id: tl-cache-key
+        run: echo "week=$(TZ=UTC date +'%G-W%V')" >> "$GITHUB_OUTPUT"
+
+      # 缓存只恢复不保存：保存发生在 post job 阶段，届时 Agent 已经运行过仓库代码。
+      - name: Restore shared TeX Live cache
+        id: tl-cache
+        uses: actions/cache/restore@v6
         with:
-          tl-package-file: consumer/.github/tl_packages
-          font-url-file: consumer/.github/font-urls.txt
+          path: ${{ runner.temp }}/setup-texlive-action/2026
+          key: tl-bypass-${{ runner.os }}-2026-${{ steps.tl-cache-key.outputs.week }}-${{ hashFiles('consumer/.github/tl_packages') }}
+
+      - name: Install TeX Live on cache miss
+        if: steps.tl-cache.outputs.cache-hit != 'true'
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          version: '2026'
+          package-file: consumer/.github/tl_packages
+          repository: https://mirror.ctan.org/systems/texlive/tlnet
+          update-all-packages: true
+          cache: false
+
+      - name: Restore shared CJK font cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/.font-cache
+          key: ctex-kit-fonts-${{ runner.os }}-${{ hashFiles('consumer/.github/font-urls.txt') }}-v1
+
+      - name: Restore xeCJK document font cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/.xecjk-font-cache
+          key: xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1
+
+      - name: Setup TeX, PDF and image tools
+        env:
+          TL_VERSION: '2026'
+          TL_PACKAGE_FILE: consumer/.github/tl_packages
+          FONT_URL_FILE: consumer/.github/font-urls.txt
+        run: bash consumer/.github/scripts/agentic/setup-agent-tools.sh
 
       - name: Download prepared input
         uses: actions/download-artifact@v8

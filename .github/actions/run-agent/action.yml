@@ -1,5 +1,9 @@
-name: Run isolated agent
+name: Run agent CLI
 description: Run a pinned Codex or Claude Code CLI against a local checkout
+
+# Agent 在一次性 runner 中拥有完整本地执行权限：审查排版 PR 需要它自己跑
+# l3build、编译 MWE 和比对 PDF。GitHub 影响面由调用 job 的只读 token 约束，
+# Agent 步骤本身不接收 GitHub 凭据，外部写入集中在不运行 Agent 的 publisher job。
 
 inputs:
   provider:
@@ -27,23 +31,11 @@ inputs:
   result_file:
     description: Absolute normalized result file path
     required: true
-  ignore_repository_rules:
-    description: Run from a clean instruction root and ignore repository execpolicy for untrusted review checkouts
-    required: false
-    default: 'false'
-  trusted_review_skill_file:
-    description: Base-pinned PR review skill copied outside the Agent-writable checkout
-    required: false
-    default: ""
-  trusted_comment_skill_file:
-    description: Base-pinned GitHub comment skill copied outside the Agent-writable checkout
-    required: false
-    default: ""
 
 runs:
   using: composite
   steps:
-    - name: Install pinned agent CLI without model credentials
+    - name: Install pinned agent CLI
       shell: bash
       env:
         PROVIDER: ${{ inputs.provider }}
@@ -51,14 +43,14 @@ runs:
         set -euo pipefail
         case "$PROVIDER" in
           codex)
-            install_dir="/tmp/ctex-agent-cli/codex-0.145.0"
+            install_dir="$RUNNER_TEMP/codex-0.145.0"
             npm install --ignore-scripts --no-audit --no-fund \
               --prefix "$install_dir" @openai/codex@0.145.0
             codex_path="$install_dir/node_modules/.bin/codex"
             "$codex_path" --version
             ;;
           claude)
-            install_dir="/tmp/ctex-agent-cli/claude-code-2.1.148"
+            install_dir="$RUNNER_TEMP/claude-code-2.1.148"
             npm install --ignore-scripts --no-audit --no-fund \
               --prefix "$install_dir" @anthropic-ai/claude-code@2.1.148
             wrapper="$install_dir/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
@@ -70,58 +62,99 @@ runs:
             exit 1
             ;;
         esac
-        chmod -R a+rX /tmp/ctex-agent-cli
 
-    - name: Run pinned agent CLI behind root credential proxy
+    - name: Run pinned agent CLI
       shell: bash
       env:
         PROVIDER: ${{ inputs.provider }}
         MODEL: ${{ inputs.model }}
-        MODEL_API_KEY: ${{ inputs.api_key }}
-        MODEL_BASE_URL: ${{ inputs.base_url }}
+        API_KEY: ${{ inputs.api_key }}
+        BASE_URL: ${{ inputs.base_url }}
         CONSUMER_WORKSPACE: ${{ inputs.workspace }}
         PROMPT_FILE: ${{ inputs.prompt_file }}
         SCHEMA_FILE: ${{ inputs.schema_file }}
         RESULT_FILE: ${{ inputs.result_file }}
-        IGNORE_REPOSITORY_RULES: ${{ inputs.ignore_repository_rules }}
-        TRUSTED_REVIEW_SKILL_FILE: ${{ inputs.trusted_review_skill_file }}
-        TRUSTED_COMMENT_SKILL_FILE: ${{ inputs.trusted_comment_skill_file }}
       run: |
         set -euo pipefail
-        trusted_runtime=$(mktemp -d "$RUNNER_TEMP/ctex-agent-trusted-runtime.XXXXXX")
-        cleanup_runtime() {
-          rm -rf -- "$trusted_runtime"
-        }
-        trap cleanup_runtime EXIT
-        chmod 711 "$trusted_runtime"
-        install -m 700 \
-          "$GITHUB_ACTION_PATH/../../scripts/agentic/run-agent-with-proxy.sh" \
-          "$trusted_runtime/run-agent-with-proxy.sh"
-        install -m 600 \
-          "$GITHUB_ACTION_PATH/../../scripts/agentic/model-api-proxy.py" \
-          "$trusted_runtime/model-api-proxy.py"
-        install -m 600 \
-          "$GITHUB_ACTION_PATH/../../scripts/agentic/agent-control-hardening.c" \
-          "$trusted_runtime/agent-control-hardening.c"
-        command -v cc
-        cc -shared -fPIC -O2 -Wall -Wextra -Werror \
-          "$trusted_runtime/agent-control-hardening.c" \
-          -o "$trusted_runtime/agent-control-hardening.so"
-        chmod 755 "$trusted_runtime/agent-control-hardening.so"
-        trusted_instruction_dir=
-        if [[ -n "$TRUSTED_REVIEW_SKILL_FILE" || -n "$TRUSTED_COMMENT_SKILL_FILE" ]]; then
-          test -n "$TRUSTED_REVIEW_SKILL_FILE"
-          test -n "$TRUSTED_COMMENT_SKILL_FILE"
-          test -f "$TRUSTED_REVIEW_SKILL_FILE" && test ! -L "$TRUSTED_REVIEW_SKILL_FILE"
-          test -f "$TRUSTED_COMMENT_SKILL_FILE" && test ! -L "$TRUSTED_COMMENT_SKILL_FILE"
-          trusted_instruction_dir="$trusted_runtime/review-instructions"
-          install -d -m 755 "$trusted_instruction_dir"
-          install -m 444 "$TRUSTED_REVIEW_SKILL_FILE" \
-            "$trusted_instruction_dir/pr-review.md"
-          install -m 444 "$TRUSTED_COMMENT_SKILL_FILE" \
-            "$trusted_instruction_dir/github-comment.md"
-        fi
-        MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py" \
-          CONTROL_HARDENING_LIBRARY="$trusted_runtime/agent-control-hardening.so" \
-          TRUSTED_INSTRUCTION_DIR="$trusted_instruction_dir" \
-          bash "$trusted_runtime/run-agent-with-proxy.sh"
+        test -n "$API_KEY"
+        test -d "$CONSUMER_WORKSPACE"
+        test -s "$PROMPT_FILE"
+        test -s "$SCHEMA_FILE"
+        mkdir -p "$(dirname "$RESULT_FILE")"
+
+        case "$PROVIDER" in
+          codex)
+            codex_path="$RUNNER_TEMP/codex-0.145.0/node_modules/.bin/codex"
+            test -x "$codex_path"
+            export OPENAI_API_KEY="$API_KEY"
+            export CODEX_HOME="$RUNNER_TEMP/codex-home"
+            mkdir -p "$CODEX_HOME"
+            endpoint="${BASE_URL:-https://llm.fantacy.live}"
+            endpoint="${endpoint%/}"
+            case "$endpoint" in
+              */v1) ;;
+              *) endpoint="$endpoint/v1" ;;
+            esac
+            cat > "$CODEX_HOME/config.toml" <<EOF
+        model = "$MODEL"
+        model_provider = "gateway"
+
+        [model_providers.gateway]
+        name = "gateway"
+        base_url = "$endpoint"
+        env_key = "OPENAI_API_KEY"
+        wire_api = "responses"
+        EOF
+
+            # 托管 runner 上 Codex 自带的 bubblewrap 会因无法配置 loopback 网络而在
+            # 沙箱初始化阶段失败，因此直接跳过审批与沙箱。
+            "$codex_path" exec \
+              --cd "$CONSUMER_WORKSPACE" \
+              --skip-git-repo-check \
+              --ephemeral \
+              --dangerously-bypass-approvals-and-sandbox \
+              --output-schema "$SCHEMA_FILE" \
+              --output-last-message "$RESULT_FILE" \
+              - < "$PROMPT_FILE"
+            ;;
+          claude)
+            wrapper="$RUNNER_TEMP/claude-code-2.1.148/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
+            test -f "$wrapper"
+
+            export ANTHROPIC_API_KEY="$API_KEY"
+            export ANTHROPIC_AUTH_TOKEN="$API_KEY"
+            ANTHROPIC_BASE_URL="${BASE_URL:-https://llm.fantacy.live}"
+            export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL%/}"
+            export ANTHROPIC_CUSTOM_HEADERS="Authorization: Bearer $API_KEY"
+            export DISABLE_AUTOUPDATER=1
+            schema="$(jq -c . "$SCHEMA_FILE")"
+            raw_result="$RUNNER_TEMP/claude-result.json"
+            # --bare 禁用 CLAUDE.md 自动发现：被审查的 checkout 是不可信输入，
+            # 其中的项目指令不应作为 Agent 指令生效。
+            (
+              cd "$CONSUMER_WORKSPACE"
+              node "$wrapper" -p \
+                --bare \
+                --no-session-persistence \
+                --model "$MODEL" \
+                --dangerously-skip-permissions \
+                --output-format json \
+                --json-schema "$schema" \
+                < "$PROMPT_FILE" > "$raw_result"
+            )
+            jq -e '(.is_error? // false) == false' "$raw_result" > /dev/null
+            jq -c '
+              if (.structured_output? | type) == "object" then .structured_output
+              elif type == "object" then .
+              else error("Claude did not return a structured object")
+              end
+            ' "$raw_result" > "$RESULT_FILE"
+            ;;
+          *)
+            echo "::error::Unsupported provider: $PROVIDER"
+            exit 1
+            ;;
+        esac
+
+        test -s "$RESULT_FILE"
+        jq -e 'type == "object"' "$RESULT_FILE" > /dev/null
