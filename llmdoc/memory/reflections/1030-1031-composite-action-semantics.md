@@ -5,6 +5,13 @@ metadata:
   type: feedback
 ---
 
+> **状态说明（#1032）**：本文诊断的复合 Action `setup-agent-tools` 已被 #1032 删除，工具安装
+> 改为单个脚本，由 job 以普通 step 调用，不再受复合 Action 的字段合法范围与 `pipefail` 默认值
+> 影响。这两处缺陷是促成 #1032 否决三层隔离方案的直接原因，见决策
+> [[1032-agent-runtime-simplification]]。复合 Action 与 job step 的字段/默认值语义差异规则本身
+> 仍然有效，适用于仓库里仍在用复合 Action 的 `run-agent` 与 `feishu-notify`。`pull_request_target`
+> 的 `base.sha` 分叉点语义不受本轮改动影响。以下正文保留原诊断过程，不代表当前工具安装实现。
+
 # 反思：复合 Action 语义误用导致 Agent runtime 加载期连环失败
 
 ## 任务
