@@ -75,11 +75,12 @@ runs:
         echo "$tl_bin" >> "$GITHUB_PATH"
         "$tl_bin/tlmgr" version
 
+    # 复合 Action 的 step 不支持 timeout-minutes，写上会让 runner 直接拒绝整个
+    # action.yml。镜像挂起只能由调用 job 的 timeout-minutes 兜住。
     - name: Install TeX Live from automatic mirror
       id: tl-install-primary
       if: steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure'
       continue-on-error: true
-      timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
         version: ${{ inputs.tl-version }}
@@ -91,7 +92,6 @@ runs:
     - name: Install TeX Live from Illinois mirror
       id: tl-install-fallback
       if: (steps.tl-cache.outputs.cache-hit != 'true' || steps.tl-cache-path.outcome == 'failure') && steps.tl-install-primary.outcome == 'failure'
-      timeout-minutes: 15
       uses: TeX-Live/setup-texlive-action@v4
       with:
         version: ${{ inputs.tl-version }}
