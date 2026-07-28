@@ -198,37 +198,6 @@ def require_all(source: str, fragments: tuple[str, ...], label: str) -> None:
     assert not missing, f"{label} 缺少合同片段: {missing}"
 
 
-def assert_bubblewrap_runner_setup(setup_source: str, contract_source: str) -> None:
-    """Agent job 和独立合同 job 都必须先打开并实测未特权 user namespace。"""
-    setup_document = yaml.safe_load(setup_source)
-    setup_steps = unique_steps_by_name(setup_document["runs"]["steps"], "Agent 工具 Action")
-    contract_document = parse_workflow(contract_source)
-    contract_steps = unique_steps_by_name(
-        contract_document["jobs"]["contract"]["steps"],
-        "Agent 合同 workflow",
-    )
-    expected_script = (
-        "set -euo pipefail\n"
-        "if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then\n"
-        "  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0\n"
-        "fi\n"
-        "if [[ -e /proc/sys/kernel/unprivileged_userns_clone ]]; then\n"
-        "  sudo sysctl -w kernel.unprivileged_userns_clone=1\n"
-        "fi\n"
-        "bwrap --unshare-net --die-with-parent --new-session \\\n"
-        "  --ro-bind / / --dev /dev --proc /proc /usr/bin/true\n"
-    )
-
-    for label, steps in (
-        ("Agent 工具 Action", setup_steps),
-        ("Agent 合同 workflow", contract_steps),
-    ):
-        step = steps.get("Enable and verify Bubblewrap sandbox")
-        assert step is not None, f"{label} 缺少 Bubblewrap runner 准备步骤"
-        script = step.get("run", "")
-        assert script == expected_script, f"{label} 必须逐字使用受控的 Bubblewrap runner 准备脚本"
-
-
 def assert_no_write_permission(source: str, label: str) -> None:
     for permission in ("contents: write", "issues: write", "pull-requests: write"):
         assert permission not in source, f"{label} 不得取得 {permission}"
@@ -247,43 +216,51 @@ def assert_setup_before_agent(source: str, setup_ref: str, agent_ref: str, label
 
 
 def assert_pr_review_runtime_dependency_closure(source: str) -> None:
-    """PR Review 的可信 sparse checkout 必须包含 run-agent 的本地运行时依赖。"""
-    action_path = ACTIONS / "run-agent" / "action.yml"
-    dependencies: set[str] = set()
-    for relative in re.findall(
-        r'\$GITHUB_ACTION_PATH/((?:\.\./)+[^"\s\\]+)',
-        read(action_path),
-    ):
-        resolved = (action_path.parent / relative).resolve()
-        try:
-            dependencies.add(resolved.relative_to(ROOT).as_posix())
-        except ValueError as error:
-            raise AssertionError(f"run-agent 引用了仓库外路径: {relative}") from error
+    """PR Review 从 base 执行的每个文件都必须在可信 sparse checkout 清单里。
 
-    assert dependencies, "没有从 run-agent Action 提取到本地运行时依赖"
+    只改 workflow 里的执行路径、忘记同步 sparse-checkout，会让 job 在找不到文件时
+    才失败；这里从实际的 `.trusted-base/...` 引用反推依赖闭环。
+    """
     document = yaml.safe_load(source)
     for job_name in ("codex_review", "claude_review"):
         steps = document["jobs"][job_name]["steps"]
+        job_text = yaml.safe_dump(steps, allow_unicode=True)
+        dependencies = {
+            match.rstrip(".,;:")
+            for match in re.findall(r"""\.trusted-base/([A-Za-z0-9._/-]+)""", job_text)
+        }
+        assert dependencies, f"PR Review {job_name} 没有引用任何 base 固定文件"
+
         checkout = next(
             step
             for step in steps
             if step.get("name") == "Checkout trusted review runtime from base commit"
         )
-        sparse_paths = {
+        sparse_paths = [
             line.strip()
             for line in checkout["with"]["sparse-checkout"].splitlines()
             if line.strip()
-        }
-        missing = sorted(dependencies - sparse_paths)
-        assert not missing, f"PR Review {job_name} 的可信 sparse checkout 缺少 run-agent 依赖: {missing}"
+        ]
+        # sparse-checkout 允许写目录前缀，逐项检查引用是否被某个条目覆盖。
+        missing = sorted(
+            dependency
+            for dependency in dependencies
+            if not any(
+                dependency == entry or dependency.startswith(f"{entry}/")
+                for entry in sparse_paths
+            )
+        )
+        assert not missing, (
+            f"PR Review {job_name} 的可信 sparse checkout 缺少被引用的文件: {missing}"
+        )
 
 
-def assert_pr_instruction_isolation(
-    review_source: str,
-    action_source: str,
-    runner_source: str,
-) -> None:
-    """PR head 只能作为显式审查目录，不能提供 CLI 项目指令或改写可信规范。"""
+def assert_pr_instruction_isolation(review_source: str, action_source: str) -> None:
+    """审查规范必须来自 base 提交，被审查的 checkout 不得提供 CLI 项目指令。
+
+    Agent 在一次性 runner 中拥有完整本地执行权限，因此这里只固定两件事：提示词
+    指向 base 固定的规范副本，以及 Claude 保留 `--bare` 不自动发现 `CLAUDE.md`。
+    """
     document = parse_workflow(review_source)
     for job_name in ("codex_review", "claude_review"):
         steps = unique_steps_by_name(document["jobs"][job_name]["steps"], f"PR Review {job_name}")
@@ -291,49 +268,15 @@ def assert_pr_instruction_isolation(
         require_all(
             prompt,
             (
-                "@@TRUSTED_INSTRUCTION_DIR@@/pr-review.md",
-                "@@TRUSTED_INSTRUCTION_DIR@@/github-comment.md",
+                "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/pr-review/SKILL.md",
+                "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/github-comment/SKILL.md",
             ),
             f"PR Review {job_name} prompt",
         )
-        assert "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/" not in prompt, (
-            f"PR Review {job_name} prompt 不得在 Agent 运行时读取已移交所有权的 base checkout"
-        )
-        agent_step = next(step for step in steps.values() if step.get("uses", "").endswith("/run-agent"))
-        inputs = agent_step.get("with", {})
-        assert inputs.get("ignore_repository_rules") == "true"
-        assert inputs.get("trusted_review_skill_file") == (
-            "${{ github.workspace }}/.trusted-base/.claude/skills/pr-review/SKILL.md"
-        )
-        assert inputs.get("trusted_comment_skill_file") == (
-            "${{ github.workspace }}/.trusted-base/.claude/skills/github-comment/SKILL.md"
-        )
 
-    require_all(
-        action_source,
-        (
-            "trusted_review_skill_file:",
-            "trusted_comment_skill_file:",
-            'test -f "$TRUSTED_REVIEW_SKILL_FILE" && test ! -L "$TRUSTED_REVIEW_SKILL_FILE"',
-            'test -f "$TRUSTED_COMMENT_SKILL_FILE" && test ! -L "$TRUSTED_COMMENT_SKILL_FILE"',
-            'trusted_instruction_dir="$trusted_runtime/review-instructions"',
-            'TRUSTED_INSTRUCTION_DIR="$trusted_instruction_dir"',
-        ),
-        "run-agent 可信规范副本",
-    )
-    assert action_source.count('install -m 444 "$TRUSTED_') == 2, "两份可信规范都必须复制为只读文件"
-    require_all(
-        runner_source,
-        (
-            'agent_root="$session_dir/work-root"',
-            'test -w "$trusted_path"',
-            'test -w "$TRUSTED_INSTRUCTION_DIR"',
-            's|@@TRUSTED_INSTRUCTION_DIR@@|$TRUSTED_INSTRUCTION_DIR|g',
-            'codex_args+=(--cd "$agent_root" --add-dir "$CONSUMER_WORKSPACE" --ignore-rules)',
-            "--bare",
-        ),
-        "Agent 仓库指令隔离",
-    )
+    # Claude 会自动读取工作目录的 CLAUDE.md；被审查的 checkout 是不可信输入，
+    # 其中的项目指令不得作为 Agent 指令生效。
+    assert "--bare" in action_source, "Claude 必须保留 --bare 以禁用项目指令自动发现"
 
 
 def assert_llmdoc_blocked_notification(source: str) -> None:
@@ -429,148 +372,56 @@ def test_action_metadata() -> None:
         assert result.returncode != 0, "复合 Action step 的 timeout-minutes 必须被门禁拒绝"
 
 
-def test_font_cache_staging() -> None:
-    action_path = ACTIONS / "setup-agent-tools" / "action.yml"
-    document = yaml.safe_load(read(action_path))
-    steps = document["runs"]["steps"]
-    step_by_name = {step["name"]: step for step in steps}
+def test_tool_setup_script(setup_source: str) -> None:
+    """安装脚本必须校验字体完整性，并且不在 Agent 启动前留下未验证的工具链。"""
+    require_all(
+        setup_source,
+        (
+            "set -euo pipefail",
+            "command -v l3build",
+            "command -v xelatex",
+            "::error::CJK 字体缓存不完整。",
+            "::error::xeCJK 字体缓存缺少文件：",
+        ),
+        "Agent 工具安装脚本",
+    )
+    # 缺少 TeX Live 时必须显式失败，不能让 Agent 在没有排版工具的环境里开始审查。
+    assert "::error::TeX Live 不可用" in setup_source, "TeX Live 缺失必须 fail closed"
 
-    tl_restore_name = "Restore shared TeX Live cache"
-    tl_verify_name = "Verify TeX Live installation and mirror on cache miss"
-    tl_save_name = "Save trusted TeX Live cache before Agent"
-    prepare_name = "Prepare clean font cache staging directories"
-    cjk_restore_name = "Restore shared CJK font cache"
-    xecjk_restore_name = "Restore xeCJK document font cache"
-    cjk_prepare_name = "Prepare CJK font cache"
-    cjk_install_name = "Install CJK fonts"
-    cjk_validate_name = "Validate prepared CJK font cache before save"
-    cjk_save_name = "Save trusted CJK font cache before Agent"
-    xecjk_prepare_name = "Prepare xeCJK document font cache"
-    xecjk_install_name = "Install xeCJK document fonts"
-    xecjk_validate_name = "Validate prepared xeCJK document font cache before save"
-    xecjk_save_name = "Save trusted xeCJK document font cache before Agent"
-    cleanup_name = "Remove workspace font staging directories"
-    names = [step["name"] for step in steps]
-    assert names.index(tl_restore_name) < names.index(tl_verify_name) < names.index(tl_save_name)
-    assert names.index(tl_save_name) < names.index(prepare_name)
-    assert names.index(prepare_name) < names.index(cjk_restore_name)
-    assert names.index(prepare_name) < names.index(xecjk_restore_name)
-    assert names.index(cjk_restore_name) < names.index(cjk_prepare_name) < names.index(cjk_validate_name)
-    assert names.index(cjk_validate_name) < names.index(cjk_install_name) < names.index(cjk_save_name)
-    assert names.index(cjk_save_name) < names.index(cleanup_name)
-    assert names.index(xecjk_restore_name) < names.index(xecjk_prepare_name) < names.index(xecjk_validate_name)
-    assert names.index(xecjk_validate_name) < names.index(xecjk_install_name) < names.index(xecjk_save_name)
-    assert names.index(xecjk_save_name) < names.index(cleanup_name)
-    assert step_by_name[tl_save_name]["uses"] == "actions/cache/save@v6"
-    assert step_by_name[cjk_save_name]["uses"] == "actions/cache/save@v6"
-    assert step_by_name[xecjk_save_name]["uses"] == "actions/cache/save@v6"
-    assert "steps.tl-cache.outputs.cache-hit != 'true'" in step_by_name[tl_save_name]["if"]
-    assert step_by_name[cjk_save_name]["if"] == "steps.font-cache.outputs.cache-hit != 'true'"
-    assert step_by_name[xecjk_save_name]["if"] == "steps.xecjk-font-cache.outputs.cache-hit != 'true'"
-
-    with tempfile.TemporaryDirectory(prefix="ctex-font-cache-staging-") as tmp_name:
+    with tempfile.TemporaryDirectory(prefix="ctex-tool-setup-") as tmp_name:
         tmp = Path(tmp_name)
         workspace = tmp / "workspace"
-        external = tmp / "external-xecjk-cache"
         workspace.mkdir()
-        external.mkdir()
-
-        cjk_cache = workspace / ".font-cache"
-        cjk_cache.mkdir()
-        (cjk_cache / ".done").touch()
-        (cjk_cache / "Injected.ttc").write_bytes(b"untrusted")
-
-        (external / ".done").touch()
-        (external / "Injected.ttf").write_bytes(b"untrusted")
-        (workspace / ".xecjk-font-cache").symlink_to(external, target_is_directory=True)
-
-        env = os.environ | {"GITHUB_WORKSPACE": str(workspace)}
-        run(
-            ["bash", "-euo", "pipefail", "-c", step_by_name[prepare_name]["run"]],
-            env=env,
-        )
-
-        for path in (workspace / ".font-cache", workspace / ".xecjk-font-cache"):
-            assert path.is_dir() and not path.is_symlink(), "restore 目标必须重建为普通目录"
-            assert not any(path.iterdir()), "PR 预置的字体 cache 内容必须在 restore 前清空"
-        assert (external / "Injected.ttf").exists(), "清理 staging symlink 不得遍历到链接目标"
-
-        cjk_validator = step_by_name[cjk_validate_name]["run"]
-        cjk_cache = workspace / ".font-cache"
-        (cjk_cache / ".done").touch()
-        (cjk_cache / "Injected.ttc").write_bytes(b"untrusted")
-        rejected = run(
-            ["bash", "-euo", "pipefail", "-c", cjk_validator],
-            env=env,
-            check=False,
-        )
-        assert rejected.returncode != 0, "恢复后的 CJK cache 必须拒绝额外字体"
-        shutil.rmtree(cjk_cache)
-        cjk_cache.mkdir()
-        (cjk_cache / ".done").touch()
-        (cjk_cache / "NotoSansCJK-Regular.ttc").write_bytes(b"trusted-cache")
-        incomplete = run(
-            ["bash", "-euo", "pipefail", "-c", cjk_validator],
-            env=env,
-            check=False,
-        )
-        assert incomplete.returncode != 0, "CJK cache 必须同时包含黑体和宋体"
-        (cjk_cache / "NotoSerifCJK-Regular.ttc").write_bytes(b"trusted-cache")
-        run(["bash", "-euo", "pipefail", "-c", cjk_validator], env=env)
-
-        xecjk_validator = step_by_name[xecjk_validate_name]["run"]
+        font_cache = workspace / ".font-cache"
         xecjk_cache = workspace / ".xecjk-font-cache"
-        (xecjk_cache / ".done").touch()
-        (xecjk_cache / "Injected.ttf").write_bytes(b"untrusted")
-        rejected = run(
-            ["bash", "-euo", "pipefail", "-c", xecjk_validator],
-            env=env,
-            check=False,
-        )
-        assert rejected.returncode != 0, "恢复后的 xeCJK cache 必须拒绝额外字体"
-        shutil.rmtree(xecjk_cache)
-        xecjk_cache.mkdir()
-        (xecjk_cache / ".done").touch()
-        (xecjk_cache / "HanaMinB.ttf").write_bytes(b"trusted-cache")
-        incomplete = run(
-            ["bash", "-euo", "pipefail", "-c", xecjk_validator],
-            env=env,
-            check=False,
-        )
-        assert incomplete.returncode != 0, "xeCJK 文档 cache 必须同时包含两个指定字体"
-        (xecjk_cache / "NotoSansSymbols2-Regular.ttf").write_bytes(b"trusted-cache")
-        run(["bash", "-euo", "pipefail", "-c", xecjk_validator], env=env)
+        for cache in (font_cache, xecjk_cache):
+            cache.mkdir()
+            (cache / ".done").write_text("", encoding="utf-8")
 
+        # 从脚本里取出字体完整性校验片段，用预置的不完整缓存验证它会失败。
+        validator = setup_source[
+            setup_source.index("shopt -s nullglob") : setup_source.index("sudo mkdir -p /usr/share/fonts")
+        ]
+        env = os.environ | {
+            "GITHUB_WORKSPACE": str(workspace),
+            # 片段读取脚本内部变量名，直接以同名环境变量注入。
+            "font_cache": str(font_cache),
+            "xecjk_font_cache": str(xecjk_cache),
+        }
+        empty = run(["bash", "-euo", "pipefail", "-c", validator], env=env, check=False)
+        assert empty.returncode != 0, "空的 CJK 字体缓存必须被拒绝"
 
-def test_model_proxy_contract() -> None:
-    proxy_path = ROOT / ".github" / "scripts" / "agentic" / "model-api-proxy.py"
-    spec = importlib.util.spec_from_file_location("ctex_model_api_proxy", proxy_path)
-    assert spec and spec.loader
-    proxy = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(proxy)
+        (font_cache / "NotoSansCJK-Regular.ttc").write_bytes(b"cache")
+        partial = run(["bash", "-euo", "pipefail", "-c", validator], env=env, check=False)
+        assert partial.returncode != 0, "只有 Sans 的 CJK 字体缓存必须被拒绝"
 
-    codex_upstream = proxy.parse_upstream("https://example.invalid/v1")
-    assert proxy.upstream_target(codex_upstream, "/responses") == "/v1/responses"
-    assert proxy.request_is_allowed("codex", "POST", "/responses")
-    assert not proxy.request_is_allowed("codex", "POST", "/v1/messages")
-    assert proxy.request_is_allowed("claude", "POST", "/v1/messages")
-    assert not proxy.request_is_allowed("claude", "CONNECT", "/v1/messages")
+        (font_cache / "NotoSerifCJK-Regular.ttc").write_bytes(b"cache")
+        missing_xecjk = run(["bash", "-euo", "pipefail", "-c", validator], env=env, check=False)
+        assert missing_xecjk.returncode != 0, "xeCJK 文档字体缺失必须被拒绝"
 
-    headers = proxy.upstream_headers(
-        (
-            ("Authorization", "Bearer attacker-controlled"),
-            ("x-api-key", "attacker-controlled"),
-            ("Content-Type", "application/json"),
-            ("X-Forwarded-Host", "attacker.invalid"),
-        ),
-        "claude",
-        "real-secret",
-        2,
-    )
-    assert headers["Authorization"] == "Bearer real-secret"
-    assert headers["x-api-key"] == "real-secret"
-    assert headers["Content-Length"] == "2"
-    assert "X-Forwarded-Host" not in headers
+        (xecjk_cache / "HanaMinB.ttf").write_bytes(b"cache")
+        (xecjk_cache / "NotoSansSymbols2-Regular.ttf").write_bytes(b"cache")
+        run(["bash", "-euo", "pipefail", "-c", validator], env=env)
 
 
 def test_review_result_semantics(review_source: str) -> None:
@@ -1318,171 +1169,34 @@ def test_publish_recovers_llmdoc_branch_states() -> None:
         assert json.loads(public_result.read_text(encoding="utf-8"))["pr_number"] == 9
 
 
-def test_agent_result_channel_sandbox() -> None:
-    """仓库进程持续改写时，工作区沙箱外的控制结果必须保持不变。"""
-    bwrap = shutil.which("bwrap")
-    assert bwrap, "合同门禁需要 bubblewrap 验证 Agent 结果通道的文件系统边界"
-
-    with tempfile.TemporaryDirectory(prefix="ctex-agent-result-channel-") as tmp_name:
-        tmp = Path(tmp_name)
-        workspace = tmp / "consumer"
-        control = tmp / "control"
-        workspace.mkdir()
-        control.mkdir()
-        result = control / "raw-result.json"
-        result.write_text('{"source":"model"}\n', encoding="utf-8")
-        attack = workspace / "attack.sh"
-        attack.write_text(
-            textwrap.dedent(
-                """\
-                #!/usr/bin/env bash
-                for _ in {1..100}; do
-                  printf '%s\\n' '{"source":"forged"}' > "$1" 2>/dev/null || true
-                done
-                """
-            ),
-            encoding="utf-8",
-        )
-        attack.chmod(0o755)
-
-        attempted = run(
-            [
-                bwrap,
-                "--die-with-parent",
-                "--new-session",
-                "--ro-bind",
-                "/",
-                "/",
-                "--dev",
-                "/dev",
-                "--proc",
-                "/proc",
-                "--bind",
-                str(workspace),
-                str(workspace),
-                "--chdir",
-                str(workspace),
-                "bash",
-                "./attack.sh",
-                str(result),
-            ],
-            check=False,
-        )
-        assert attempted.returncode == 0, attempted.stderr
-        assert json.loads(result.read_text(encoding="utf-8")) == {"source": "model"}, (
-            "工作区内的恶意后台进程不得改写沙箱外的 Agent 结果通道"
-        )
-
-
-def test_agent_control_process_hardening() -> None:
-    """同 UID 子进程不能通过父 CLI 的 /proc fd 绕过文件系统沙箱。"""
-    source = ROOT / ".github" / "scripts" / "agentic" / "agent-control-hardening.c"
-    with tempfile.TemporaryDirectory(prefix="ctex-agent-control-hardening-") as tmp_name:
-        tmp = Path(tmp_name)
-        library = tmp / "agent-control-hardening.so"
-        result = tmp / "raw-result.json"
-        result.write_text('{"source":"model"}\n', encoding="utf-8")
-        run(
-            [
-                "cc",
-                "-shared",
-                "-fPIC",
-                "-O2",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                str(source),
-                "-o",
-                str(library),
-            ]
-        )
-        target = textwrap.dedent(
-            """
-            import ctypes
-            import os
-            import subprocess
-            import sys
-
-            result = sys.argv[1]
-            descriptor = os.open(result, os.O_RDWR)
-            parent_fd = f"/proc/{os.getpid()}/fd/{descriptor}"
-            attacker = "import os,sys; fd=os.open(sys.argv[1],os.O_WRONLY); os.write(fd,b'forged')"
-            probe = subprocess.run([sys.executable, "-c", attacker, parent_fd], capture_output=True)
-            dumpable = ctypes.CDLL(None).prctl(3, 0, 0, 0, 0)
-            raise SystemExit(0 if dumpable == 0 and probe.returncode != 0 else 1)
-            """
-        )
-        env = os.environ | {"LD_PRELOAD": str(library)}
-        run(["python3", "-c", target, str(result)], env=env)
-        assert json.loads(result.read_text(encoding="utf-8")) == {"source": "model"}
-
-
 def main() -> None:
     review = workflow("agentic-pr-review.yml")
     issue = workflow("agentic-issue-dispatch.yml")
     llmdoc = workflow("agentic-llmdoc-updater.yml")
     contract = workflow("check-agentic-workflows.yml")
-    setup = read(ACTIONS / "setup-agent-tools" / "action.yml")
+    setup = read(ROOT / ".github" / "scripts" / "agentic" / "setup-agent-tools.sh")
 
     test_action_metadata()
-    test_font_cache_staging()
+    test_tool_setup_script(setup)
     test_embedded_shell(
         tuple(WORKFLOWS / name for name in AGENTIC_WORKFLOWS)
         + (WORKFLOWS / "check-agentic-workflows.yml",)
         + tuple(ACTIONS.glob("*/action.yml"))
     )
-    test_model_proxy_contract()
     test_review_result_semantics(review)
     test_review_comment_upsert(review)
     test_pre_push_bot_comment_audit()
     test_runtime_scripts()
     test_publish_preserves_unmerged_llmdoc_candidate()
     test_publish_recovers_llmdoc_branch_states()
-    test_agent_result_channel_sandbox()
-    test_agent_control_process_hardening()
-    assert_bubblewrap_runner_setup(setup, contract)
-    for broken_setup, broken_contract, label in (
-        (
-            setup.replace(
-                "sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0",
-                "# sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0",
-                1,
-            ),
-            contract,
-            "Agent 工具 Action 把 AppArmor user namespace 命令改成注释",
-        ),
-        (
-            setup,
-            contract.replace(
-                "bwrap --unshare-net --die-with-parent --new-session",
-                "# bwrap --unshare-net --die-with-parent --new-session",
-                1,
-            ),
-            "合同 workflow 把 Bubblewrap 探针主命令改成注释",
-        ),
-        (
-            setup.replace(
-                "bwrap --unshare-net --die-with-parent --new-session \\",
-                "bwrap --unshare-net --die-with-parent --new-session \\ # 探针续行失效",
-                1,
-            ),
-            contract,
-            "Agent 工具 Action 用转义空格破坏 Bubblewrap 探针续行",
-        ),
-    ):
-        try:
-            assert_bubblewrap_runner_setup(broken_setup, broken_contract)
-        except AssertionError:
-            pass
-        else:
-            raise AssertionError(f"{label}的反例必须失败")
 
     assert not (WORKFLOWS / "agentic-patrol.yml").exists(), "定时 patrol 不应恢复"
     for name, source in zip(AGENTIC_WORKFLOWS, (review, issue, llmdoc), strict=True):
         assert_local_runtime(source, name)
         require_all(source, ("permissions: {}", "runs-on: ubuntu-latest"), name)
-        for forbidden in ("uses: actions/cache@", "uses: actions/cache/restore@", "uses: actions/cache/save@"):
-            assert forbidden not in source, f"{name} 不得在 Agent job 内直接注册 cache action: {forbidden}"
+        # 缓存只恢复不保存：保存发生在 post job，届时 Agent 已经运行过仓库代码。
+        for forbidden in ("uses: actions/cache@", "uses: actions/cache/save@"):
+            assert forbidden not in source, f"{name} 不得在 Agent job 内保存共享缓存: {forbidden}"
 
     # PR Review：base SHA 提供可信规范、脚本和安装 Action；PR head 只作为审查对象。
     require_all(
@@ -1621,7 +1335,7 @@ def main() -> None:
                 "persist-credentials: false",
                 "token: ${{ github.token }}",
                 "ref: ${{ github.event.pull_request.base.sha }}",
-                "uses: ./.trusted-base/.github/actions/setup-agent-tools",
+                "bash .trusted-base/.github/scripts/agentic/setup-agent-tools.sh",
                 "uses: ./.trusted-base/.github/actions/run-agent",
                 ".trusted-base/.claude/skills/pr-review/SKILL.md",
                 ".trusted-base/.github/scripts/pr-review/prepare-review-history.sh",
@@ -1632,14 +1346,14 @@ def main() -> None:
         assert "secrets.PAT_TOKEN" not in source, f"PR Review {name} 不得接触可写 PAT"
         assert_setup_before_agent(
             source,
-            "uses: ./.trusted-base/.github/actions/setup-agent-tools",
+            "bash .trusted-base/.github/scripts/agentic/setup-agent-tools.sh",
             "uses: ./.trusted-base/.github/actions/run-agent",
             f"PR Review {name}",
         )
 
     assert_pr_review_runtime_dependency_closure(review)
     broken_review = review.replace(
-        "            .github/scripts/agentic/agent-control-hardening.c\n",
+        "            .github/scripts/agentic/setup-agent-tools.sh\n",
         "",
         1,
     )
@@ -1648,7 +1362,7 @@ def main() -> None:
     except AssertionError:
         pass
     else:
-        raise AssertionError("可信 sparse checkout 缺少 run-agent 运行时依赖的反例必须失败")
+        raise AssertionError("可信 sparse checkout 缺少被引用文件的反例必须失败")
 
     publisher = job(review, "publish")
     require_all(publisher, ("pull-requests: write", "actions/download-artifact@"), "PR publisher")
@@ -1660,17 +1374,15 @@ def main() -> None:
     ):
         assert forbidden not in publisher, f"PR publisher 不得包含 {forbidden}"
     assert review.count("pull-requests: write") == 1, "只有 PR publisher 可以写 PR"
-    assert review.count("uses: ./.trusted-base/.github/actions/setup-agent-tools") == 2
+    assert review.count("bash .trusted-base/.github/scripts/agentic/setup-agent-tools.sh") == 2
     assert review.count("uses: ./.trusted-base/.github/actions/run-agent") == 2
     require_all(
         review,
         (
-            ".github/scripts/agentic/model-api-proxy.py",
-            ".github/scripts/agentic/run-agent-with-proxy.sh",
-            "ignore_repository_rules: 'true'",
+            ".trusted-base/.claude/skills/github-comment/SKILL.md",
             ".suggestion_count > 0",
         ),
-        "PR Review credential and result boundary",
+        "PR Review result boundary",
     )
 
     # Issue Dispatch：只分析 opened 事件；Agent 无写权限，独立 job 发布评论。
@@ -1701,7 +1413,7 @@ def main() -> None:
                 "ref: ${{ github.sha }}",
                 "persist-credentials: false",
                 "token: ${{ github.token }}",
-                "uses: ./consumer/.github/actions/setup-agent-tools",
+                "bash consumer/.github/scripts/agentic/setup-agent-tools.sh",
                 "uses: ./consumer/.github/actions/run-agent",
                 "consumer/.github/scripts/agentic/normalize-answer-result.sh",
                 "TRUSTED_ANSWER_NORMALIZER",
@@ -1718,7 +1430,7 @@ def main() -> None:
         assert "secrets.PAT_TOKEN" not in source, f"Issue Agent {name} 不得接触可写 PAT"
         assert_setup_before_agent(
             source,
-            "uses: ./consumer/.github/actions/setup-agent-tools",
+            "bash consumer/.github/scripts/agentic/setup-agent-tools.sh",
             "uses: ./consumer/.github/actions/run-agent",
             f"Issue Agent {name}",
         )
@@ -1729,7 +1441,7 @@ def main() -> None:
         "Issue publisher",
     )
     assert issue.count("issues: write") == 1, "只有 Issue publisher 可以写 Issue"
-    assert issue.count("uses: ./consumer/.github/actions/setup-agent-tools") == 2
+    assert issue.count("bash consumer/.github/scripts/agentic/setup-agent-tools.sh") == 2
     require_all(
         job(issue, "notify"),
         ("if: always() && github.repository == 'CTeX-org/ctex-kit'", "uses: ./.github/actions/feishu-notify"),
@@ -1768,7 +1480,7 @@ def main() -> None:
                 "ref: ${{ needs.prepare.outputs.base_sha }}",
                 "persist-credentials: false",
                 "token: ${{ github.token }}",
-                "uses: ./runtime/.github/actions/setup-agent-tools",
+                "bash runtime/.github/scripts/agentic/setup-agent-tools.sh",
                 "uses: ./runtime/.github/actions/run-agent",
                 "runtime/.github/scripts/agentic/package-change-result.sh",
                 "path: package-base",
@@ -1791,7 +1503,7 @@ def main() -> None:
         assert "secrets.PAT_TOKEN" not in source, f"llmdoc Agent {name} 不得接触可写 PAT"
         assert_setup_before_agent(
             source,
-            "uses: ./runtime/.github/actions/setup-agent-tools",
+            "bash runtime/.github/scripts/agentic/setup-agent-tools.sh",
             "uses: ./runtime/.github/actions/run-agent",
             f"llmdoc Agent {name}",
         )
@@ -1822,7 +1534,7 @@ def main() -> None:
     assert "setup-agent-tools" not in llmdoc_publisher
     assert llmdoc.count("contents: write") == 1
     assert llmdoc.count("pull-requests: write") == 1
-    assert llmdoc.count("uses: ./runtime/.github/actions/setup-agent-tools") == 2
+    assert llmdoc.count("bash runtime/.github/scripts/agentic/setup-agent-tools.sh") == 2
     require_all(
         job(llmdoc, "notify"),
         (
@@ -1836,38 +1548,25 @@ def main() -> None:
     )
 
     runner = read(ACTIONS / "run-agent" / "action.yml")
-    secure_runner = read(ROOT / ".github" / "scripts" / "agentic" / "run-agent-with-proxy.sh")
-    assert_pr_instruction_isolation(review, runner, secure_runner)
-    for broken_review, broken_action, broken_runner, label in (
-        (
-            review,
-            runner,
-            secure_runner.replace(
-                'codex_args+=(--cd "$agent_root" --add-dir "$CONSUMER_WORKSPACE" --ignore-rules)',
-                'codex_args+=(--cd "$CONSUMER_WORKSPACE" --ignore-rules)',
-                1,
-            ),
-            "Codex 回到不可信 PR 根目录",
-        ),
-        (
-            review,
-            runner.replace("install -m 444", "install -m 644"),
-            secure_runner,
-            "可信审查规范变为可写",
-        ),
+    assert_pr_instruction_isolation(review, runner)
+    for broken_review, broken_action, label in (
         (
             review.replace(
-                "@@TRUSTED_INSTRUCTION_DIR@@/pr-review.md",
                 "$GITHUB_WORKSPACE/.trusted-base/.claude/skills/pr-review/SKILL.md",
+                ".claude/skills/pr-review/SKILL.md",
                 1,
             ),
             runner,
-            secure_runner,
-            "prompt 重新读取 Agent 可写的 base checkout",
+            "prompt 改读工作树而非 base 固定的审查规范",
+        ),
+        (
+            review,
+            runner.replace("--bare", "--verbose"),
+            "Claude 丢掉 --bare 而自动发现工作树的 CLAUDE.md",
         ),
     ):
         try:
-            assert_pr_instruction_isolation(broken_review, broken_action, broken_runner)
+            assert_pr_instruction_isolation(broken_review, broken_action)
         except AssertionError:
             pass
         else:
@@ -1896,83 +1595,47 @@ def main() -> None:
     require_all(
         runner,
         (
-            "Run pinned agent CLI behind root credential proxy",
-            "MODEL_API_KEY: ${{ inputs.api_key }}",
-            "ctex-agent-trusted-runtime.XXXXXX",
-            "install -m 700",
-            "install -m 600",
-            "agent-control-hardening.c",
-            "agent-control-hardening.so",
-            "cc -shared -fPIC -O2 -Wall -Wextra -Werror",
-            'MODEL_PROXY_SCRIPT="$trusted_runtime/model-api-proxy.py"',
-            'CONTROL_HARDENING_LIBRARY="$trusted_runtime/agent-control-hardening.so"',
-            'bash "$trusted_runtime/run-agent-with-proxy.sh"',
+            "Run pinned agent CLI",
+            "API_KEY: ${{ inputs.api_key }}",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--dangerously-skip-permissions",
+            "--bare",
+            "--no-session-persistence",
+            "--output-schema",
+            "--json-schema",
         ),
-        "Agent credential runner",
+        "Agent CLI runner",
     )
-    require_all(
-        secure_runner,
-        (
-            "useradd --system --create-home --user-group",
-            ': "${MODEL_PROXY_SCRIPT:?}"',
-            ': "${CONTROL_HARDENING_LIBRARY:?}"',
-            "sudo --non-interactive env -i PATH=/usr/bin:/bin LANG=C.UTF-8",
-            "sudo --non-interactive -u \"$agent_user\"",
-            "env -i",
-            "OPENAI_API_KEY=ctex-local-proxy",
-            "ANTHROPIC_API_KEY=ctex-local-proxy",
-            "test -r \"/proc/$proxy_pid/environ\"",
-            "stop_agent_processes",
-            "pkill -KILL -u \"$agent_user\"",
-            "/run/ctex-agent-session.XXXXXX",
-            "--sandbox workspace-write",
-            "--ask-for-approval never",
-            '"enabled": true',
-            '"failIfUnavailable": true',
-            '"autoAllowBashIfSandboxed": true',
-            '"allowUnsandboxedCommands": false',
-            "--permission-mode dontAsk",
-            '"LD_PRELOAD=$control_hardening_library"',
-            'sudo --non-interactive rm -rf -- "$session_dir"',
-            "rm -f -- \"$secret_file\"",
-        ),
-        "Agent process isolation",
-    )
-    for leaked in (
-        'export OPENAI_API_KEY="$API_KEY"',
-        'export ANTHROPIC_API_KEY="$API_KEY"',
-        'Authorization: Bearer $API_KEY',
+    # 结果必须是结构化对象，不能把 CLI 的自由文本直接当成审查结论。
+    assert "jq -e 'type == \"object\"'" in runner, "Agent 结果必须校验为 JSON 对象"
+    for removed_input in (
+        "ignore_repository_rules",
+        "trusted_review_skill_file",
+        "trusted_comment_skill_file",
     ):
-        assert leaked not in runner + secure_runner, f"Agent 子进程不得直接继承模型密钥: {leaked}"
-    assert "GITHUB_ACTION_PATH" not in secure_runner, "安全启动脚本不得在交出工作区后继续依赖工作区路径"
-    assert "$agent_home/raw-result.json" not in secure_runner
-    assert "--dangerously-bypass-approvals-and-sandbox" not in secure_runner
-    assert "--dangerously-skip-permissions" not in secure_runner
+        assert removed_input not in runner, f"已删除的隔离输入不应回归: {removed_input}"
 
-    # 三类缓存都在 Agent 启动前恢复；未命中时由可信安装阶段显式保存。
-    # 不能改用会在 Agent 返回后运行 post step 的合并式 actions/cache。
-    assert setup.count("uses: actions/cache/restore@v6") == 3
-    assert setup.count("uses: actions/cache/save@v6") == 3
-    assert "uses: actions/cache@" not in setup, "Agent job 不得注册 post-job cache save"
-    require_all(
-        setup,
-        (
-            "tl-bypass-${{ runner.os }}-${{ inputs.tl-version }}-${{ steps.tl-cache-key.outputs.week }}-${{ hashFiles(inputs.tl-package-file) }}",
-            "ctex-kit-fonts-${{ runner.os }}-${{ hashFiles(inputs.font-url-file) }}-v1",
-            "xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1",
-            "cache: false",
-            "Save trusted TeX Live cache before Agent",
-            "Save trusted CJK font cache before Agent",
-            "Save trusted xeCJK document font cache before Agent",
-            "procps",
-            "python3-yaml",
-            "bubblewrap",
-            "gcc",
-            "socat",
-            "rm -rf -- \"$GITHUB_WORKSPACE/.font-cache\" \"$GITHUB_WORKSPACE/.xecjk-font-cache\"",
-        ),
-        "Agent tool cache",
-    )
+    # 三类缓存都在 Agent 启动前恢复，未命中时当场安装；Agent 启动后不写回缓存。
+    for source, name, prefix in (
+        (review, "PR Review", ".trusted-base"),
+        (issue, "Issue Dispatch", "consumer"),
+        (llmdoc, "llmdoc Updater", "runtime"),
+    ):
+        assert source.count("uses: actions/cache/restore@v6") == 6, (
+            f"{name} 的两个 Agent job 必须各恢复三类缓存"
+        )
+        require_all(
+            source,
+            (
+                f"tl-bypass-${{{{ runner.os }}}}-2026-${{{{ steps.tl-cache-key.outputs.week }}}}-${{{{ hashFiles('{prefix}/.github/tl_packages') }}}}",
+                f"ctex-kit-fonts-${{{{ runner.os }}}}-${{{{ hashFiles('{prefix}/.github/font-urls.txt') }}}}-v1",
+                "xecjk-fonts-${{ runner.os }}-hanaminB-notoSymbols2-v1",
+                "cache: false",
+                f"bash {prefix}/.github/scripts/agentic/setup-agent-tools.sh",
+            ),
+            f"{name} 工具缓存",
+        )
+
     tools = (
         "actionlint",
         "fc-match",
