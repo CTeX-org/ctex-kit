@@ -121,6 +121,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。#1026 中前三版测试分别把正文装进 `\hbox`、`\vbox`，或用 `\def\BODY` 承载正文，均显示缺陷版与修复版数字相同；只有改成“主垂直列表里真正断行，且调用处写字面正文”才第一次测出差异。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 改动他人 issue 引入的代码时，重放那个 issue 的资产做无回归证明
+**Rule**: 若修复触及某个既有 issue 引入的代码路径，就把该 issue 在 `gh-assets` 留下的 MWE 与视觉资产重新跑一遍，与**本 PR 的父提交**逐像素／逐字节比对，并把结果放进 PR body。基线必须选父提交，不能选早于那个 issue 的发布版——发布版的差异是那个 issue 的预期改进，会掩盖真正的回退。
+**Why**: #1026 改的正是 #1002 引入的代码。重放 `issue1002-mwe.tex` 的 24 行数值 oracle 与 `inline-math-showcase.tex` 的 17 页渲染，确认与父提交逐字节／逐像素相同，才排除了回退。若误用 v3.10.3 作基线，会看到 18 行差异并误判为回归——那些差异其实是 #1002 自己的修复效果。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
+### PR body 要图文并茂地展示修复前后
+**Rule**: 视觉类缺陷（间距、装饰、断行）的 PR body 应放修复前后对照图，并画出判据参考线（如正文右边距），配上可复现的量化数值。图片资产提交到 orphan 分支 `gh-assets` 的 `issues/<号>/` 下，用 `raw.githubusercontent.com` 引用；同目录放 `README.md` 说明各文件与复现命令。操作 `gh-assets` 必须用 `git worktree`，不要在主工作区 `checkout --orphan`。
+**Why**: #1026 的高亮右边界偏移用文字描述很难判断是否修好；一张带红色边距线的上下对照图，加上「722px → 681px、与发布版逐像素一致」的数值，评审可以直接确认。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
 ### 顺手做的一致性修改要单独确认有无门禁
 **Rule**: 同一约束改到多处时，逐处确认哪些有回归覆盖。若某处的症状在结构上无法观察（例如被包进 hbox 后内层弹性不外露），就在文档里如实写明它依赖代码审查而非门禁，不要让它蹭进另一处的覆盖声明。
 **Why**: #1026 中 `\UL@onin` 的重排分支按同一约束改了，但 `ulem` 用 `\setbox\UL@box\hbox{{#1}}` 包住内容，收缩量丢失在嵌套路径上不显现；重新引入缺陷乃至删掉整段分支，全套 114 项仍全绿。文档原先的措辞读起来像 `\UL@on` 与 `\UL@onin` 都已覆盖。
