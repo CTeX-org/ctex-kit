@@ -207,3 +207,15 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 使用基于 `git ls-files` 的隔离测试脚本前，确认新测试已进入索引；否则全量测试数量和结果都不会包含它。
 **Why**: #275 的新测试完全未跟踪时，`make check-ctex` 的四引擎快照仍各运行 183 项，进入索引后才运行 184 项。
 **Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
+
+## CI 与 Agent workflow
+
+### 复合 Action 与 job step 是两套字段与默认值语义
+**Rule**: 复合 Action（`runs.using: composite`）的合法 step 字段和 `run` 默认 shell 都与 job step 不同；不能把 job step 的经验直接套用到复合 Action，也不能反过来套用。自建校验器（如 `scripts/validate-action-metadata.py`）的允许表必须以目标平台（GitHub Actions）实际拒绝行为为准，新增字段前先确认它在当前上下文里到底合不合法；本地测试全绿只证明校验器内部自洽，不证明平台会接受。
+**Why**: PR #1030 中 `timeout-minutes` 只在 job step 合法，写进复合 Action 会被 runner 在加载 `action.yml` 时判 `TemplateValidationException`；本仓库的门禁曾把这个字段误判为复合 Action 合法字段，本地测试却全绿。PR #1031 中复合 Action 的 `run` 默认带 `pipefail`，与不带 `pipefail` 的 job step 相比，同一句管道右侧提前 `exit` 的 awk 会有不同的退出码，字面相同的代码在两种 step 类型里行为不一致。
+**Source**: `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md`
+
+### 加载期失败会遮蔽同一 Action 内的运行期缺陷
+**Rule**: 一处加载期失败（manifest 校验、字段解析）会让同一 Action 内后续所有代码路径都从未真正执行过；修好第一个失败点后，应预期还有第二批此前未被执行到的路径可能出错，不能把“这次能加载了”当作整体验证完成。
+**Why**: PR #1030 修好 `timeout-minutes` 导致的加载期失败后，Action 才走到工具安装阶段，随即在 PR #1031 暴露出此前从未执行过的 awk 管道在 `pipefail` 下会以 SIGPIPE 终止 step 的独立缺陷。
+**Source**: `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md`

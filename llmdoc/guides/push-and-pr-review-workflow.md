@@ -28,6 +28,12 @@ push 输出会给出下一步指示和相关链接，必须完整阅读。PR 评
 
 主代理可以检查自己的实现、整理验证证据和核实审查意见，但这些工作属于自检，不能代替正式审查。若正式审查后代码又有变化，必须由隔离的子代理对新增范围做相应的增量审查，主代理不能自行补签审查结论。
 
+### Agent job 在可信 checkout 或安装阶段失败时的诊断顺序
+
+`pull_request_target` 触发的 Agent job（PR Review）用的是 PR 的分叉点（`base.sha`，即 merge base），不是 base 分支当前 HEAD；这个语义细节见 `llmdoc/reference/build-and-test.md` 的 Agent runtime 段落。诊断 Agent job 失败前，先确认该 PR 分支的分叉点是否已经包含所需修复：若分叉点落后 `master` 且早于最近一次 Agent runtime 改动，Agent 会持续加载旧运行时并反复失败，这是预期现象，不是新缺陷。
+
+正确做法是把该分支 rebase 到 `origin/master`（或合并 `master`），让分叉点前移到修复之后。不要用 close/reopen PR 或单独重跑 job 来验证 master 上的修复是否生效——两者都不改变分叉点，看到的仍是修复前的运行时。`#977` 的 `xpinyin-265` 分支曾落后 `master` 163 个提交，reopen 后仍检出旧提交；rebase 后才加载成功。
+
 审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。成立的问题运行相称验证、commit、再次执行无管道的 `git push 2>&1`，并重新等待 hook。若全部 finding 均无需代码改动，由仓库 OWNER/MEMBER/COLLABORATOR 在 bot 评论之后回复核实依据，再运行 `make check-pr-ci`；hook 将该 bot 评论视为已确认，避免用空 commit 触发下一轮相同 agentic review。循环直到 CI 全绿、push 后无未确认评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
 
 “相称的验证”按当前增量风险判断，不按整个 PR 的累计规模机械重跑。主体改动已经通过
