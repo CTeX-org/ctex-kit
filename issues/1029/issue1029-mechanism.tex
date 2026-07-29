@@ -1,0 +1,19 @@
+% #1029 机制最小复现：不加载 xeCJK，纯 LaTeX 即可触发。
+% 结论：cmd/sbox/before 钩子里只要有赋值，就会吃掉调用方待用的 \global 前缀。
+\documentclass{article}
+\newsavebox\bxA \newsavebox\bxB \newsavebox\bxC
+\newcount\cnt
+\begin{document}
+% (1) 无钩子：\global 正常
+\begingroup \global\sbox\bxA{ABC} \endgroup
+\typeout{NO-HOOK=\the\wd\bxA}
+% (2) 钩子内容不含赋值：\global 仍正常
+\AddToHook{cmd/sbox/before}[probe]{\relax}
+\begingroup \global\sbox\bxB{ABC} \endgroup
+\typeout{HOOK-NO-ASSIGN=\the\wd\bxB}
+\RemoveFromHook{cmd/sbox/before}[probe]
+% (3) 钩子内容含赋值：\global 被吃掉，盒子随分组丢失
+\AddToHook{cmd/sbox/before}[probe2]{\advance\cnt by 1 }
+\begingroup \global\sbox\bxC{ABC} \endgroup
+\typeout{HOOK-WITH-ASSIGN=\the\wd\bxC}
+\end{document}
