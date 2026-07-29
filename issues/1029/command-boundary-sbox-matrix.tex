@@ -1,0 +1,101 @@
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+\setCJKmainfont[BoldFont=FandolHei-Regular.otf,
+  ItalicFont=FandolFang-Regular.otf]{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
+
+\newbox\MatrixCandidate
+\newbox\MatrixOracle
+\newbox\MatrixCandidateContext
+\newbox\MatrixOracleContext
+\newdimen\MatrixIntrinsicDelta
+\newdimen\MatrixDelta
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \MatrixReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_if_exist:NT \g__xeCJK_reset_color_pending_bool
+      { \bool_gset_false:N \g__xeCJK_reset_color_pending_bool }
+  }
+\ExplSyntaxOff
+
+% Compare one command-wrapped expression with its visible-text oracle.
+% The standalone width difference removes the command's intrinsic width;
+% the remaining delta is entirely due to the surrounding boundaries.
+\newcommand\MatrixVariant[3]{%
+  \MatrixReset
+  \setbox\MatrixCandidateContext=\hbox{#2}%
+  \MatrixReset
+  \setbox\MatrixOracleContext=\hbox{#3}%
+  \MatrixDelta=\dimexpr
+    \wd\MatrixCandidateContext-\wd\MatrixOracleContext-
+    \MatrixIntrinsicDelta\relax
+  \ifdim\MatrixDelta<0pt
+    \MatrixDelta=-\MatrixDelta
+  \fi
+  \ifdim\MatrixDelta<0.01pt
+    \typeout{MATRIX|\MatrixLabel|#1|PASS|delta=\the\MatrixDelta}%
+  \else
+    \typeout{MATRIX|\MatrixLabel|#1|FAIL|delta=\the\MatrixDelta}%
+  \fi
+}
+
+% Four literal-source-space combinations: 00, 10, 01, 11.
+\newcommand\Matrix[5]{%
+  \def\MatrixLabel{#1}%
+  \MatrixReset
+  \setbox\MatrixCandidate=\hbox{#3}%
+  \MatrixReset
+  \setbox\MatrixOracle=\hbox{#4}%
+  \MatrixIntrinsicDelta=\dimexpr
+    \wd\MatrixCandidate-\wd\MatrixOracle\relax
+  \MatrixVariant{00}{#2#3#5}{#2#4#5}%
+  \MatrixVariant{10}{#2 #3#5}{#2 #4#5}%
+  \MatrixVariant{01}{#2#3 #5}{#2#4 #5}%
+  \MatrixVariant{11}{#2 #3 #5}{#2 #4 #5}%
+}
+
+\newcommand\Baseline[5]{%
+  \MatrixReset\setbox0=\hbox{#2#3#4}%
+  \MatrixReset\setbox1=\hbox{#2 #3#4}%
+  \MatrixReset\setbox2=\hbox{#2#3 #4}%
+  \MatrixReset\setbox3=\hbox{#2 #3 #4}%
+  \typeout{BASELINE|#1|00=\the\wd0|10=\the\wd1|01=\the\wd2|11=\the\wd3}%
+}
+
+\newcommand\WesternMacro{Alpha}
+
+% #1029 补充：\sbox 的 scratch box 隔离场景。
+% 这两个钩子（cmd/sbox/before/after）是 #992 为隔离离线测量盒子而引入的；
+% #1029 把它们换成专用适配器，必须保持同样的隔离效果。
+%
+% 判据沿用 #992：候选是「命令包装后的可见内容」，oracle 是「去掉包装的相同
+% 可见内容」；扣除固有宽度差后，剩余 delta 应为 0（容差 0.01pt）。
+\newbox\SboxScratch
+
+% scratch box 里藏 CJK，可见正文是西文：若隔离失效，内层末类别会泄漏到外层，
+% 使外层西文两侧被误插 CJKecglue。
+\newcommand\MeasuredWestern{\sbox\SboxScratch{中文}Alpha}
+% 反向：scratch box 里藏西文，可见正文是 CJK。
+\newcommand\MeasuredChinese{\sbox\SboxScratch{Alpha}中文}
+% 嵌套在 \fbox 内（algorithm2e 的实际形状：外层盒子命令内部再做离线测量）。
+\newcommand\MeasuredInFbox{\fbox{\sbox\SboxScratch{中文}Alpha}}
+\newcommand\PlainInFbox{\fbox{Alpha}}
+
+\begin{document}
+
+\Baseline{C-W-C}{中}{Alpha}{文}{unused}
+\Baseline{W-C-W}{A}{中文}{B}{unused}
+
+\Matrix{scratch-hidden-CJK/W/CWC}{中}{\MeasuredWestern}{Alpha}{文}
+\Matrix{scratch-hidden-CJK/W/WWW}{A}{\MeasuredWestern}{Alpha}{B}
+\Matrix{scratch-hidden-W/C/WCW}{A}{\MeasuredChinese}{中文}{B}
+\Matrix{scratch-hidden-W/C/CCC}{中}{\MeasuredChinese}{中文}{文}
+\Matrix{scratch-in-fbox/W/CWC}{中}{\MeasuredInFbox}{\PlainInFbox}{文}
+\Matrix{scratch-in-fbox/W/WWW}{A}{\MeasuredInFbox}{\PlainInFbox}{B}
+
+\end{document}
