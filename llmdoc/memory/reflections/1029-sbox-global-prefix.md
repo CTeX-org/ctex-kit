@@ -44,7 +44,7 @@ Issue #1029：`ctexart` + `algorithm2e[ruled]` 下，`algorithm` 环境里 `\cap
 
 xeCJK 的 `cmd/sbox/before` 钩子内容是 `\@@_boundary_capture_suspend:`，其中做了多个全局赋值，正是这类触发条件。
 
-`\savebox` 的三种形式（无可选参数、`[wd]`、`[wd][pos]`）最终都汇入同一个 `sbox ` 内部入口，因此同样受影响；`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 前面，中间没有钩子代码插入的空间。
+`\savebox` 的四种形式（无可选参数、`[wd]`、`[wd][pos]`，以及 picture 形式 `(x,y)[pos]`）最终都汇入同一个 `sbox ` 内部入口，因此同样受影响；`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 前面，中间没有钩子代码插入的空间。
 
 algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algocf@capbox{...}` 在浮动体分组内保存标题，随后在分组外用 `\box\algocf@capbox` 输出；`\global` 被吃掉后标题盒子随分组一起消失。
 
@@ -78,3 +78,10 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 ## 第二轮审查补充
 
 修好判别力之后又被查出一处数字错误：我在新用例注释与两份 llmdoc 里写「删掉隔离后出现 3.33pt 差值」，但那个数字来自 `command-boundary01` 在**默认胶**下的 `scratch-hidden-CJK`；新用例自设 `CJKecglue=5pt`／`CJKglue=1pt`，实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。成因是从既有测试搬数字时没有重新实测——与前面「描述本身也是待验证的断言」是同一类错误，只是这次错在单位量的来源上。引用差值时应当同时标明它属于哪一组间距设置。
+
+## 后续两轮全范围审查
+
+第三、四处问题都出在「范围描述」而非代码：
+
+- `llmdoc/index.md` 里那句「四种 `\global` 形式跨分组保住内容，判据是 outside 尺寸非 0」在我改对另外三处时漏掉了，而且它的判据正好说反——新测试中 `\global\savebox` 的判据恰恰是 outside 为 0。教训：修正被证伪的说法后要全仓搜同一短语，摘要索引最容易漏。
+- 我一直写 `\savebox` 有「三种形式」汇入 `sbox `，实际还有 picture 形式 `(x,y)[pos]`——内核 `\@isavepicbox` 末尾同样是 `\sbox#1{...}`。适配器的覆盖面比我文档里写的更宽。教训：描述「哪些形式汇入某入口」时应当读内核定义把分支数清全，不要凭常用形式推断。

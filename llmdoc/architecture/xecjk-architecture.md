@@ -227,7 +227,7 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 
 `cmd/<命令>/before`／`after` 这类通用钩子（`\AddToHook`）只适合包装“命令本体不是赋值语句”的场景。`\global`／`\long` 等前缀是 TeX 里“等待下一个赋值”的状态，不是立即生效的操作；钩子代码插在命令本体执行之前运行，只要钩子内容本身包含任意一条赋值（不需要与目标命令相关），这条赋值就会先消耗掉调用方留下的待用前缀，使调用方写的 `\global\sbox` 在真正执行 `\setbox` 时已经没有 `\global`，静默退化为局部赋值，盒子在分组结束时被丢弃——整个过程不产生任何报错或警告。
 
-这是 LaTeX2e `\AddToHook` 机制的通用陷阱，与 xeCJK 或 `\sbox` 本身都无关：最小复现不需要加载 xeCJK，`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 就足以吃掉 `\global\sbox` 的前缀；把钩子内容换成不含赋值的 `\relax` 则不会触发。`\sbox`／`\savebox` 恰好本体就是一条赋值语句——`\savebox` 的三种形式（无可选参数、`[wd]`、`[wd][pos]`）最终都汇入同一个内部入口 `sbox `——而 `\@@_boundary_capture_suspend:` 内部做的是多个 `\int_gincr:N`／`\tl_gset:` 全局赋值，正是会触发这个陷阱的钩子内容。`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置；只有像 `\sbox` 这样“包装宏内部才调用 `\setbox`”的命令，才会把钩子插进前缀和赋值之间。
+这是 LaTeX2e `\AddToHook` 机制的通用陷阱，与 xeCJK 或 `\sbox` 本身都无关：最小复现不需要加载 xeCJK，`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 就足以吃掉 `\global\sbox` 的前缀；把钩子内容换成不含赋值的 `\relax` 则不会触发。`\sbox`／`\savebox` 恰好本体就是一条赋值语句——`\savebox` 的四种形式（无可选参数、`[wd]`、`[wd][pos]`，以及 picture 形式 `(x,y)[pos]`）最终都汇入同一个内部入口 `sbox `——而 `\@@_boundary_capture_suspend:` 内部做的是多个 `\int_gincr:N`／`\tl_gset:` 全局赋值，正是会触发这个陷阱的钩子内容。`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置；只有像 `\sbox` 这样“包装宏内部才调用 `\setbox`”的命令，才会把钩子插进前缀和赋值之间。
 
 修复方式是专用适配器：直接重定义内部入口 `sbox `，把暂停观察移到盒子构造内部执行，使 `\global` 前缀始终紧邻 `\setbox` 本身。这与已有的 `color@b@x`／`@textcolor` 专用适配器（见下文“兼容性补丁子系统”与“旧边界补丁的吸收结果”，均为重定义内部入口而不是挂通用钩子）属于同一套模式：**注册的目标命令本体是赋值语句时，必须用专用适配器包装内部入口，把副作用移进赋值发生的位置内部；不能用通用 `cmd/.../before` 钩子。** `experiment/boundary-register` 面向用户开放的 `command` 策略存在同一类风险——用户若为自己“本体即赋值语句”的命令注册通用 hook，会复现同一坑；已在 `xeCJK.dtx` 用户手册对应段落加入警告。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 

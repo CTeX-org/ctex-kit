@@ -6,9 +6,9 @@ Issue #1029：`ctexart` 加载 `algorithm2e[ruled]` 后，`algorithm` 环境里 
 
 根因：`\global` 在 TeX 里是「等待下一个赋值」的前缀状态，不是立即生效的操作。`cmd/sbox/before` 钩子的代码插在命令本体（`\setbox`）执行之前运行；钩子内容 `\@@_boundary_capture_suspend:` 做了多个 `\int_gincr:N`／`\tl_gset:` 全局赋值，这些赋值先消耗掉调用方留下的待用 `\global` 前缀，于是调用方写的 `\global\sbox` 实际执行时已经没有 `\global`，退化为局部赋值。盒子在分组结束时按局部赋值规则被丢弃，全程不产生任何诊断信息。
 
-`\savebox` 的三种形式（无可选参数、`[wd]`、`[wd][pos]`）最终都汇入同一个内部入口 `sbox `，因此适配器同样覆盖它们的排版路径；`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置。
+`\savebox` 的四种形式（无可选参数、`[wd]`、`[wd][pos]`，以及 picture 形式 `(x,y)[pos]`）最终都汇入同一个内部入口 `sbox `（picture 形式经 `\@isavepicbox` 汇入），因此适配器同样覆盖它们的排版路径；`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置。
 
-但要分清一件事：**`\global\savebox` 跨分组本来就不生效，与本包无关。** `\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，前缀根本到不了 `sbox `。实测未加载本包的原版 LaTeX 中三种形式全为 `0.0pt`（参考宽度分别为 57.85pt、142.26378pt、199.16928pt），加载修复后的本包结果完全相同。直接对内部入口加前缀可以区分两者：`\expandafter\global\csname sbox \endcsname` 成功，`\expandafter\global\csname savebox \endcsname` 仍失败。因此本次修复解决的是 `\global\sbox`（以及内部入口的前缀透明性）；`\global\savebox` 的失效是上游既有限制，不在修复范围内。
+但要分清一件事：**`\global\savebox` 跨分组本来就不生效，与本包无关。** `\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，前缀根本到不了 `sbox `。实测未加载本包的原版 LaTeX 中被测的三种形式（无可选参数、`[wd]`、`[wd][pos]`）全为 `0.0pt`（参考宽度分别为 57.85pt、142.26378pt、199.16928pt），加载修复后的本包结果完全相同。直接对内部入口加前缀可以区分两者：`\expandafter\global\csname sbox \endcsname` 成功，`\expandafter\global\csname savebox \endcsname` 仍失败。因此本次修复解决的是 `\global\sbox`（以及内部入口的前缀透明性）；`\global\savebox` 的失效是上游既有限制，不在修复范围内。
 
 algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algocf@capbox{...}` 在浮动体分组内保存标题，随后在分组外用 `\box\algocf@capbox` 输出；`\global` 被吃掉后标题盒子随分组一起消失。紧接 `\global\sbox` 之后取值是 308.11221pt，到使用点变成 0.0pt；发布版两处都是 308.11221pt。
 
@@ -34,7 +34,7 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 
 ## 受影响命令范围
 
-- `\sbox`、`\savebox`（三种形式）：内部入口 `sbox `，本次直接修复。
+- `\sbox`、`\savebox`（四种形式，含 picture 形式）：内部入口 `sbox `，本次直接修复。
 - 理论上任何「命令本体自身是赋值语句」的命令都会踩同一坑，不限于取盒子相关的命令；但当前 xeCJK 内部注册的命令里，只有 `\sbox`／`\savebox` 属于这一类。
 
 ## 用户接口 `experiment/boundary-register` 的同类风险
@@ -54,7 +54,7 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
   - `\hbox{中\fbox{\sbox\tb{中文}Alpha}文}` 与 `\hbox{中\fbox{Alpha}文}` 同宽（63.19998pt）。scratch box 里必须藏与外层不同的类别（西文正文里藏 CJK）才有判别力；写 `\sbox{english}` 不改变末类别，删掉隔离也照样通过。
 - 三项判别力均以变异实测确认（各自 rc 1）：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（本项自设 `CJKecglue=5pt`／`CJKglue=1pt`，宽度由 63.19998pt 降为 59.19998pt，差 4.0pt）；去掉 `\int_gdecr:N`（深度由 0 变 6）。
 - 原 MWE（algorithm2e ruled 标题）验证恢复。
-- xeCJK 全套 115 项、ctex 四引擎 185 项、`l3build doc`（244 页）通过。
+- xeCJK 全套 115 项、ctex 四引擎 185 项、`l3build doc`（245 页）通过。
 
 ## 相关资料
 
