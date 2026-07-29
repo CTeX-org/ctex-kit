@@ -137,7 +137,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### `.tlg` 基线不要冻结报告文本里的绝对行号
-**Rule**: 当用例的观察量不是警告文本本身时，把警告抑制掉，别让它进基线。`l3build` 只归一化 `on input line %d*` 与 `at lines %d*--%d*`；单数形式的 `detected at line %d`（`\hbox to` 的 Overfull 报告用的就是它）不在其中，进基线就冻结了一个绝对源码行号，任何无关的行数变动都会让该用例失败。抑制 Overfull 要用 `\hfuzz`，不是 `\hbadness`——后者只管 Underfull 警告的阈值。
+**Rule**: 当用例的观察量不是警告文本本身时，把警告抑制掉，别让它进基线。`l3build` 归一化的是 `on line %d*`、`on input line %d*`（`l3build-check.lua:210,211`）、`at lines %d*--%d*`（`:217`）与行首的 `l.%d+ `（`:144`）；单数形式的 `detected at line %d`（`\hbox to` 的 Overfull 报告用的就是它）不在其中，进基线就冻结了一个绝对源码行号，任何无关的行数变动都会让该用例失败。抑制 Overfull 要用 `\hfuzz`，不是 `\hbadness`——后者只管 Underfull 警告的阈值。
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
