@@ -176,9 +176,11 @@ post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检�
 
 注意这条路径不经过 `\CJKecglue`：它直接 `\skip_horizontal:N \l_@@_ecglue_skip`，而 ulem 钩子只重定义 `\CJKecglue`，所以 `\@@_ulem_glue:n` / `\xeCJK_ulem_hskip:n` 一族全部被绕过。没有源码空格时（`虚室hello`）走的才是 `\CJKecglue`，因而本来就落在外层、对称无恙。
 
-修法是把这两处（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）改成经入口 `\@@_use_ecglue_skip:` 输出。该入口在 `xeCJK` 主体里的默认实现就是原来的 `\skip_horizontal:N`，由 `xeCJKfntef` 加载时改写为经 `\@@_ulem_glue:n` 输出——后者先 `\UL@stop` 关盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上；它自带下划线状态与 group tag 守卫，不在装饰中时退化为普通 `\skip_horizontal:n`。
+修法是把这两处（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）改成经入口 `\@@_use_ecglue_skip:` 输出。该入口在 `xeCJK` 主体里的默认实现就是原来的 `\skip_horizontal:N`，由 `xeCJKfntef` 加载时改写为「先判断装饰 stream 是否活动，活动才经 `\@@_ulem_glue:n` 输出」——后者先 `\UL@stop` 关盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上。
 
-两个实现约束：
+三个实现约束：
+
+- **改写必须自己判断是否在装饰中，不能只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`。** 那个守卫的判据只是 `\ ` 的含义是否等于 `ulem` 保存的 `\LA@space`：它能识别 `ulem` 自己造成的变化，却无法区分「不在装饰中」与「在装饰外但 `\ ` 被别的宏包改过定义」。因为 `\@@_check_for_ecglue_aux:` 是所有中西文边界都会走的通用路径，一旦在装饰外取到真分支，就会在没有 `\UL@box` 打开的列表里执行 `\UL@stop`，报 `Too many }'s`；`nath`、`morehype` 等重定义 `\ ` 的宏包会让**不含任何装饰命令**的 `中 abc 文` 直接报错。改写因此先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假，正是「装饰 stream 是否活动」这一事实本身，在装饰外恒为假。这条区别在 `base` 上不成立是因为 `\@@_ulem_glue:n` 原先只挂在装饰内部**局部**重定义的 `\CJKglue`／`\CJKecglue` 上，作用域随分组失效；接到全局有效的通用路径后，弱守卫才变成可触发的缺陷。
 
 - 默认实现必须留在主体、改写放在 `xeCJKfntef`。`\@@_check_for_ecglue_aux:` 是所有 CJK-西文边界都走的通用路径，而 `\@@_ulem_glue:n` 定义在 `xeCJKfntef` 里；在主体直接引用它会让不加载该子包的普通文档报 `Undefined control sequence`。
 - 不能改用 `\@@_boundary_use_ulem_glue:n`。它放的是裸 glue，节点深度上同样把收缩量搬到外层，但不画装饰线，会在西文词前留下可见空隙（300dpi 实测断开 7px）。
@@ -561,7 +563,7 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 **正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
 
-**西文词前的 ecglue 走 `\@@_use_ecglue_skip:`（#1037）**：同一条固化机制在词前还有一处，与正文展开方式无关——源码空格被前视吃掉后，`CJK-space` marker 落在 `\UL@start` 刚打开的片段盒内，`\@@_check_for_ecglue_aux:` 补出的 ecglue 随之固化。该入口在主体里默认为普通 `\skip_horizontal:N`，由 `xeCJKfntef` 改写为经 `\@@_ulem_glue:n` 输出，使收缩量回到外层。详见上文同名小节。
+**西文词前的 ecglue 走 `\@@_use_ecglue_skip:`（#1037）**：同一条固化机制在词前还有一处，与正文展开方式无关——源码空格被前视吃掉后，`CJK-space` marker 落在 `\UL@start` 刚打开的片段盒内，`\@@_check_for_ecglue_aux:` 补出的 ecglue 随之固化。该入口在主体里默认为普通 `\skip_horizontal:N`，由 `xeCJKfntef` 改写为「`\l_@@_ulem_stream_started_bool` 为真才经 `\@@_ulem_glue:n` 输出」，使收缩量回到外层。因为该入口位于所有中西文边界的通用路径上，这个布尔判断不可省——`\xeCJK_if_ulem_patch:TF` 单独不足以证明当前在装饰中。详见上文同名小节。
 
 ### xeCJK-listings
 

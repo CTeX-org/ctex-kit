@@ -18,9 +18,21 @@ master 与发布版对该 MWE 的渲染逐像素相同，说明 #1035 没有引�
 新增入口 `\@@_use_ecglue_skip:`，替换 `\@@_check_for_ecglue_aux:` 中两处 `\skip_horizontal:N \l_@@_ecglue_skip`（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）。
 
 - `xeCJK` 主体的默认实现就是原来的 `\skip_horizontal:N \l_@@_ecglue_skip`，行为不变。
-- `xeCJKfntef` 加载时用 `\cs_gset_protected:Npn` 把它改写为经 `\@@_ulem_glue:n` 输出。
+- `xeCJKfntef` 加载时用 `\cs_gset_protected:Npn` 把它改写为「`\l_@@_ulem_stream_started_bool` 为真才经 `\@@_ulem_glue:n` 输出，否则仍走普通 `\skip_horizontal:N`」。
 
-`\@@_ulem_glue:n` 在下划线状态下先 `\UL@stop` 关闭当前片段盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上；它自带 `\xeCJK_if_ulem_patch:TF` 与 group tag 守卫，不在装饰中时退化为普通 `\skip_horizontal:n`，所以非 ulem 路径不受影响。
+`\@@_ulem_glue:n` 在下划线状态下先 `\UL@stop` 关闭当前片段盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上。
+
+## 改写必须自己判断是否在装饰中
+
+不能只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`。该守卫的判据仅是 `\ ` 的含义是否等于 `ulem` 保存的 `\LA@space`，只能识别 `ulem` 自己造成的变化，无法区分「不在装饰中」与「在装饰外但 `\ ` 被别的宏包改过定义」。
+
+而 `\@@_check_for_ecglue_aux:` 是所有中西文边界都会走的通用路径：一旦在装饰外取到真分支，就会在没有 `\UL@box` 打开的列表里执行 `\UL@stop`，报 `Too many }'s`。实测加载 `xeCJKfntef` 后重定义 `\ `（`nath`、`morehype` 等会这么做），**不含任何装饰命令**的 `中 abc 文` 即报 6 个错误；base 提交零错误。
+
+这个缺陷在 base 上不存在，是因为 `\@@_ulem_glue:n` 原先只挂在装饰内部**局部**重定义的 `\CJKglue`／`\CJKecglue` 上，作用域随分组失效；本次把它接到全局有效、装饰外也会执行的路径上，弱守卫才变成可触发的缺陷。
+
+因此改写先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假，正是「装饰 stream 是否活动」这一事实本身，在装饰外恒为假。实测该布尔在装饰外为 false、装饰内为 true。
+
+这条缺陷由本地独立审查（盲审 run `r1037-...-first2`）作为 blocking finding 发现。
 
 ## 为什么不用 `\@@_boundary_use_ulem_glue:n`
 
@@ -39,6 +51,8 @@ master 与发布版对该 MWE 的渲染逐像素相同，说明 #1035 没有引�
 新增 TEST 6 作正向断言：`\badness` 观察压窄后的可收缩量。**不能用 `\hbox to` 的实际宽度**——它恒等于目标宽度，与收缩量在哪里无关，是结构上恒真的断言。压窄 2pt 落在「只修词后」的 1.11pt 与「两半都修」的 2.22pt 之间，正好分开两种实现；另加 1pt／5pt 对照证明 0 不恒真、1000000 可达。
 
 判别力已实测（rc 1）：把 `\@@_use_ecglue_skip:` 改回 `\skip_horizontal:N` 后，TEST 6 的 2pt badness 由 73 变 1000000，且前四项的 `Overfull` 行全部回到基线。
+
+TEST 7 固定守卫本身：在装饰之外重定义 `\ `，再排普通中西文混排。判别力已实测（rc 1）——去掉布尔守卫后**只有** TEST 7 失败，基线里出现 `\UL@stop ... \egroup \egroup` 的报错行，而前六项全部照常通过，即前六项对这个缺陷没有判别力。
 
 ## 已接受的限制
 
