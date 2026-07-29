@@ -180,4 +180,30 @@
   \endgroup
 }
 
+% #1037 守卫的第二个象限：布尔为真但片段盒已关闭。
+%
+% TEST 7 覆盖的是「布尔为假」（装饰之外）。只测布尔不足够：行内公式里的装饰命令经
+% \UL@onmath／\UL@onin 结束，不走 \@@_ulem_end:，所以同一个公式内装饰命令之后
+% \l_@@_ulem_stream_started_bool 仍为真，而片段盒其实已经关闭。此时再叠加 \ 被重定义，
+% 依然会在没有 \UL@box 打开的列表里执行 \UL@stop。
+%
+% 因此守卫还要确认 \UL@start 已被 \let 成 \@empty（即片段盒确实打开）。实测三点区分：
+% 文档层 bool=f／UL@start-is-@empty=f；装饰内 T／T；公式内装饰命令之后 T／f——只有第三
+% 种会被布尔单独判断漏掉。
+%
+% 判别力已实测 rc 1：把守卫退回只测布尔（去掉 \cs_if_eq_p:NN \UL@start \@empty）后，
+% 本项报 Extra }, or forgotten \endgroup 及两次 Undefined control sequence \UL@leadtype，
+% 而 TESTs 1-7 全部照常通过——即 TEST 7 对这个象限没有判别力，必须有本项。
+% 基线里那条 "Missing character: There is no 中 ... lmroman10-regular" 是预期噪声，不是
+% 本项要观察的东西：公式内的 \mbox 恢复的是数学模式的正文字体，其中没有汉字。该警告在
+% 本改动前后完全一致（base 与 head 各两次），属既有行为。之所以仍保留汉字而不改成纯西文，
+% 是因为必须有中西文边界才会调用 \@@_check_for_ecglue_aux:，而这正是被测入口。
+\TEST{word-front ecglue stays neutral after math-mode decoration}{
+  \begingroup
+  \def\ {\leavevmode\nobreak\ }%
+  \setbox0=\hbox{$\CJKunderline{中}\mbox{中 abc 文}$}%
+  \TYPE{after-math-decoration-width=\the\wd0}
+  \endgroup
+}
+
 \END

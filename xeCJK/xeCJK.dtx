@@ -14378,12 +14378,23 @@ Copyright and Licence
 % \tn{UL@stop}，导致 \texttt{Too many~\}'s}。\pkg{nath}、\pkg{morehype} 等重定义
 % \tn{ }\ 的宏包会让不含任何装饰命令的 \verb|中 abc 文| 直接报错。
 %
-% 该布尔由 \cs{@@_ulem_stream_begin:} 置真、\cs{@@_ulem_end:} 置假，正是「装饰
-% stream 是否活动」这一事实本身，因此在装饰外恒为假，退化为主体的默认实现。
+% 该布尔由 \cs{@@_ulem_stream_begin:} 置真、\cs{@@_ulem_end:} 置假。
+%
+% 但它单独还不够：行内公式里的装饰命令经 \tn{UL@onmath}／\tn{UL@onin} 结束，不走
+% \cs{@@_ulem_end:}，因此同一个公式内装饰命令之后布尔仍为真，而片段盒其实已经
+% 关闭。此时若再叠加 \tn{ }\ 被重定义，仍会在没有 \tn{UL@box} 打开的列表里执行
+% \tn{UL@stop}——例如 \verb|$\CJKunderline{中}\mbox{中 abc 文}$| 配 \pkg{nath}。
+% 因此还要确认片段盒确实打开：\tn{UL@start} 只在 \pkg{ulem} 打开片段盒后才被
+% \tn{let} 成 \tn{@empty}（\pkg{ulem} 的 \tn{UL@start} 定义末尾），关闭后不再是它。
+% 本文件别处（如 \cs{@@_ulem_detect_node:} 一带）已用同一判断表示这件事。
+%
+% 两个条件都成立才走 ulem 通道，否则退化为主体的默认实现。
 %    \begin{macrocode}
 \cs_gset_protected:Npn \@@_use_ecglue_skip:
   {
-    \bool_if:NTF \l_@@_ulem_stream_started_bool
+    \bool_lazy_and:nnTF
+      { \l_@@_ulem_stream_started_bool }
+      { \cs_if_eq_p:NN \UL@start \@empty }
       { \@@_ulem_glue:n { \l_@@_ecglue_skip } }
       { \skip_horizontal:N \l_@@_ecglue_skip }
   }
