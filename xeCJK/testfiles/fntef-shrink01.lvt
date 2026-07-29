@@ -218,8 +218,9 @@
 %
 % 本项用 \color 形态。必须用它而不是 \bfseries：实测 \bfseries 形态在这两处改动前后都是
 % 2.22pt（它根本不走这条路径），拿它做断言会得到一个恒真的测试。\color 形态才是真正的判据
-% ——改动前 1.11pt、改动后 2.22pt（与无装饰 oracle 相同）。段落级也可见：\hsize 收窄时
-% #1037 之前溢出 18.91pt 与 3.91pt，现在不溢出。
+% ——改动前 1.11pt、改动后 2.22pt（与无装饰 oracle 相同）。段落级也可见：#1026 资产 MWE
+% （paperwidth=10cm，非本文件的 \hsize=200pt）在 #1037 之前溢出 18.91pt 与 3.91pt，现在不
+% 溢出；本文件 \hsize=200pt 下的对应数字是 18.08pt 与 3.64pt，两组几何不可混用。
 %
 % 判别力已实测 rc 1：把这两处改回裸 \skip_horizontal:N 后，本项 \color 形态的 badness 由
 % 73 变 1000000。TESTs 1-8 对这两处零判别力（改回后它们的基线无任何变化），必须有本项。
@@ -227,8 +228,11 @@
 % 已接受的限制：正文写成 \CJKunderline{虚室 {hello} 生白} 或 \textbf{hello} 时，显式分组
 % 使 \l_@@_group_tag_tl 与当前分组标记不符（实测 T1L4 vs T1L5），\@@_ulem_glue:n 的 group
 % tag 守卫据此拒绝搬运——这是刻意设计：在用户分组内部执行 \UL@stop 不安全。实测绕过该守卫
-% 会让 fntef-font01 失败。这两种写法的外层可收缩量因此从 0pt 改善到 1.11pt（oracle 为
-% 2.22pt），剩下的 1.11pt 属结构性限制，不在 #1037 范围内。
+% 会让 fntef-font01 失败——也就是说「误改守卫」真正的门禁是 fntef-font01，不是本项的 braced
+% 断言；braced 两行只是把现状记录下来，供后来者判断这是已知限制而非未修的缺陷。
+%
+% 另需注意：这两种写法从 0pt 到 1.11pt 的改善来自 #1026（词后那半），不是 #1037 的功劳；
+% #1037 在这两种写法上没有进一步改善。oracle 为 2.22pt，剩下的 1.11pt 属结构性限制。
 \TEST{grouped western word also frees outer shrink}{
   \setbox0=\hbox{\CJKunderline{虚室 \color{red}hello 生白}}%
   \dimen0=\wd0
@@ -243,6 +247,28 @@
   \TYPE{braced-shrink-by-2pt-badness=\the\badness}
   \setbox8=\hbox to \dimexpr\dimen4-1pt\relax{\CJKunderline{虚室 {hello} 生白}}%
   \TYPE{braced-shrink-by-1pt-badness=\the\badness}
+}
+
+% #1037 的第四条路径：\xeCJK_check_for_glue: 的 \@@_if_last_math: 真分支。公式紧接 CJK
+% （中间无源码空格，如 $x$中文）时走这一处。它在前几轮被误判为「装饰内不可达」——当时的探针
+% 只包装函数入口、没有区分分支，因此没命中；直接在该行插桩才看到它确实执行。
+%
+% 判别力已实测 rc 1：把该处改回裸 \skip_horizontal:N 后本项 badness 由 73 变 1000000，
+% TESTs 1-9 零命中。
+%
+% 另：\@@_check_for_glue_auxi: 的两处（西文词被 \mbox 等隔开、Boundary→CJK 方向）本文件
+% 无覆盖——TEST 9 的正文一次都没进入该函数。本项用 \mbox 形态补上。
+\TEST{math-adjacent and boxed forms also free outer shrink}{
+  \hfuzz=100pt
+  \setbox0=\hbox{\CJKunderline{$x$中文}}%
+  \dimen0=\wd0
+  \TYPE{math-adjacent-natural=\the\dimen0}
+  \setbox2=\hbox to \dimexpr\dimen0-1pt\relax{\CJKunderline{$x$中文}}%
+  \TYPE{math-adjacent-shrink-by-1pt-badness=\the\badness}
+  \setbox4=\hbox{\CJKunderline{\mbox{hi}中文}}%
+  \dimen4=\wd4
+  \setbox6=\hbox to \dimexpr\dimen4-1pt\relax{\CJKunderline{\mbox{hi}中文}}%
+  \TYPE{boxed-shrink-by-1pt-badness=\the\badness}
 }
 
 \END
