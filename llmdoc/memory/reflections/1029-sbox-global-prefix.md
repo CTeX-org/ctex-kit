@@ -64,7 +64,7 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 ## Follow-up
 
 - recorder 同步 `xecjk-architecture.md` 时，补充「命令本身即赋值语句的场景不能用通用 `AddToHook` 钩子，需要专用适配器包装内部入口」这条机制边界，并关联本反思与决策 `992-command-boundary-capture-register`（钩子历史用途）。
-- recorder 补充 `build-and-test.md`，把 `boundary-sbox-global01.lvt/.tlg` 的覆盖范围（四种 `\global` 形式、不带 `\global` 仍局部、嵌套 `\sbox`、暂停观察语义）纳入 xeCJK 测试清单。
+- recorder 补充 `build-and-test.md`，把 `boundary-sbox-global01.lvt/.tlg` 的覆盖范围纳入 xeCJK 测试清单。注意按下文「审查发现的自检缺口」修正后的实际覆盖描述：`\global\sbox`、内部入口加前缀、`\global\savebox` 的上游既有限制、不带 `\global` 仍局部、嵌套 `\sbox` 的显式深度断言、藏 CJK 的 scratch box 隔离——不是最初写的「四种 `\global` 形式」。
 - 若后续要为 `experiment/boundary-register` 的用户手册系统整理「哪些命令模式不适合通用注册」的清单，可以把「命令本身是赋值语句」列为第一条，本次已在手册里补了单段提醒。
 
 ## 相关
