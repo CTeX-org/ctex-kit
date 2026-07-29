@@ -195,11 +195,12 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，三处�
 |---|---|
 | `\@@_check_for_ecglue_aux:` | 源码空格被前视直接吃掉（`虚室 hello`） |
 | `\@@_recover_ecglue_source_space_success:` | 空格先被暂存、随后确认可恢复 |
-| `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支 | 西文词被字体／颜色声明隔开（`虚室 \color{red}hello`） |
+| `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支 | 西文词被字体／颜色声明隔开（`虚室 \color{red}hello`），或被 `\mbox` 等包住 |
+| `\xeCJK_check_for_glue:` 的 `\@@_if_last_math:` 真分支 | 公式紧接 CJK、中间无源码空格（`$x$中文`） |
 
-只改第一处时，`\color`／`\textcolor`／`\mbox` 等形态的外层可收缩量仍是 1.11pt 而非 oracle 的 2.22pt——这是最终全范围盲审提出的 important finding。三处都改后 `\color` 形态回到 2.22pt。
+这四处是用「直接在每个裸调用行插桩、以 31 种装饰形态编译」的方式穷举出来的。**不要用「包装函数入口」的探针**：它不区分分支，会把 `\xeCJK_check_for_glue:` 的 math 分支误判为不可达（本任务正是这样漏掉了它，由第四轮盲审指出）。其余 10 处裸 `\skip_horizontal:N` 在同一实测中一次都没执行，可以保留。
 
-**已接受的限制：正文里用显式分组包住西文词。** `\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计——在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。这两种写法因此从 #1037 之前的 0pt 改善到 1.11pt，剩余 1.11pt 属结构性限制。`fntef-shrink01` 的 TEST 9 把这个现状也固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），以免有人误以为它已修好或误改了守卫。
+**已接受的限制：正文里用显式分组包住西文词。** `\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计——在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。这两种写法的 1.11pt 来自 #1026（词后那半），#1037 在它们上面没有进一步改善；oracle 为 2.22pt，剩余 1.11pt 属结构性限制。`fntef-shrink01` 的 TEST 9 把这个现状也固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），以免有人误以为它已修好或误改了守卫。
 
 ### capture/register 框架（#992 / PR #999）
 

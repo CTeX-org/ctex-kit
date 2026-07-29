@@ -60,12 +60,13 @@ master 与发布版对该 MWE 的渲染逐像素相同，说明 #1035 没有引�
 
 TEST 7、TEST 8 分别固定守卫的两个象限。TEST 7：在装饰之外重定义 `\ `，再排普通中西文混排。判别力已实测（rc 1）——去掉布尔守卫后**只有** TEST 7 失败，基线里出现 `\UL@stop ... \egroup \egroup` 的报错行，而前六项全部照常通过。TEST 8 固定第二个象限（公式内装饰命令之后 `\ ` 被重定义）：把守卫退回只测布尔后，**只有** TEST 8 失败（`Extra }, or forgotten $` 等），TESTs 1-7 零命中，即 TEST 7 对该象限没有判别力。TEST 8 基线里那条 `Missing character ... lmroman10-regular` 是预期噪声——公式内 `\mbox` 恢复的是数学模式正文字体，实测该警告在 head 与 #1037 之前的实现上都是 1 次（属既有行为）、而守卫有缺陷的版本是 0 次（编译提前出错走不到那里），因此不能拿它的有无当判据；保留汉字是因为必须有中西文边界才会调用被测入口。
 
-## 同一根因共三处，必须一起改
+## 同一根因共四处，必须一起改
 
 补词前 ecglue 的地方不止 `\@@_check_for_ecglue_aux:` 一处。最终全范围盲审以 important finding 指出还有两处：
 
 - `\@@_recover_ecglue_source_space_success:`（空格先暂存、随后确认可恢复）
-- `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支（西文词被字体／颜色声明隔开）
+- `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支（西文词被字体／颜色声明隔开，或被 `\mbox` 等包住）
+- `\xeCJK_check_for_glue:` 的 `\@@_if_last_math:` 真分支（公式紧接 CJK、中间无源码空格，如 `$x$中文`）——这一处在第三轮被「包装函数入口」的探针误判为不可达，第四轮盲审指出后改用逐行插桩才发现
 
 只改第一处时，`\color`／`\textcolor`／`\mbox` 形态的外层可收缩量仍是 1.11pt 而非 oracle 的 2.22pt；三处都改后 `\color` 形态回到 2.22pt。这与本决策原先「修复后 0／14」的表述冲突，该表述只对「源码空格被前视吃掉」这一形态成立，已更正。
 
@@ -75,7 +76,7 @@ TEST 9 覆盖这条路径，且**必须用 `\color` 形态**：实测 `\bfseries
 
 `\CJKunderline{虚室 {hello} 生白}`、`\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计：在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。
 
-这两种写法从 #1037 之前的 0pt 改善到 1.11pt，剩余 1.11pt 属结构性限制，不在本次范围内。TEST 9 把该现状一并固定（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），以免后来者误判为已修好或误改守卫。
+这两种写法的 1.11pt 来自 #1026（词后那半），#1037 在它们上面没有进一步改善；oracle 为 2.22pt，剩余 1.11pt 属结构性限制，不在本次范围内。TEST 9 把该现状一并固定（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），供后来者判断这是已知限制而非未修的缺陷。注意「误改守卫」真正的门禁是 `fntef-font01`，不是这两行断言。
 
 ## 已接受的限制
 
