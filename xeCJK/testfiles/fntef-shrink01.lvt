@@ -35,6 +35,7 @@
 \documentclass{article}
 
 \usepackage{xeCJK,xeCJKfntef}
+\usepackage{xcolor}  % TEST 9 需要 \color；其他用例不受影响
 \setCJKmainfont{FandolSong-Regular.otf}
 
 \begin{document}
@@ -120,11 +121,13 @@
 % 不够时为 1000000（并伴随 Overfull 报告）。
 %
 % 做法：把同一正文压窄到自然宽度减 2pt。该正文在外层可用的收缩量，修好后是词前
-% 1.11pt 加词后 1.11pt 共 2.22pt，足以吸收 2pt，\badness=0；只修词后时外层仅
-% 1.11pt，不足 2pt，\badness=1000000。取 2pt 正是为了落在 1.11 与 2.22 之间。
+% 1.11pt 加词后 1.11pt 共 2.22pt，足以吸收 2pt，\badness 为有限值（基线记 73）；
+% 只修词后时外层仅 1.11pt，不足 2pt，\badness=1000000。取 2pt 正是为了落在
+% 1.11 与 2.22 之间。（注意有限值不等于 0：\badness 反映的是收缩比例，用满一部分
+% 收缩量就会大于 0，压窄 1pt 时为 9、2pt 时为 73。）
 %
 % 判别力（已实测 rc 1）：把 \@@_use_ecglue_skip: 改回 \skip_horizontal:N（即撤销
-% #1037）后，本项 badness 由 0 变 1000000，且前四项的 Overfull 行回到基线。
+% #1037）后，本项 badness 由 73 变 1000000，且前四项的 Overfull 行回到基线。
 %
 % 正文必须含「源码空格 + 西文词」；写成 \CJKunderline{中文} 时没有 ecglue 可搬，
 % 这一项就失去判别力。
@@ -207,6 +210,39 @@
   \setbox0=\hbox{$\CJKunderline{中}\mbox{中 abc 文}$}%
   \TYPE{after-math-decoration-width=\the\wd0}
   \endgroup
+}
+
+% #1037 的第三条补 ecglue 的路径：\@@_recover_ecglue_source_space_success: 与
+% \@@_check_for_glue_auxi:。西文词被显式分组或字体／颜色命令包住时走的是这两处，而不是
+% \@@_check_for_ecglue_aux:，因此它们也必须改用 \@@_use_ecglue_skip:。
+%
+% 本项用 \color 形态。必须用它而不是 \bfseries：实测 \bfseries 形态在这两处改动前后都是
+% 2.22pt（它根本不走这条路径），拿它做断言会得到一个恒真的测试。\color 形态才是真正的判据
+% ——改动前 1.11pt、改动后 2.22pt（与无装饰 oracle 相同）。段落级也可见：\hsize 收窄时
+% #1037 之前溢出 18.91pt 与 3.91pt，现在不溢出。
+%
+% 判别力已实测 rc 1：把这两处改回裸 \skip_horizontal:N 后，本项 \color 形态的 badness 由
+% 73 变 1000000。TESTs 1-8 对这两处零判别力（改回后它们的基线无任何变化），必须有本项。
+%
+% 已接受的限制：正文写成 \CJKunderline{虚室 {hello} 生白} 或 \textbf{hello} 时，显式分组
+% 使 \l_@@_group_tag_tl 与当前分组标记不符（实测 T1L4 vs T1L5），\@@_ulem_glue:n 的 group
+% tag 守卫据此拒绝搬运——这是刻意设计：在用户分组内部执行 \UL@stop 不安全。实测绕过该守卫
+% 会让 fntef-font01 失败。这两种写法的外层可收缩量因此从 0pt 改善到 1.11pt（oracle 为
+% 2.22pt），剩下的 1.11pt 属结构性限制，不在 #1037 范围内。
+\TEST{grouped western word also frees outer shrink}{
+  \setbox0=\hbox{\CJKunderline{虚室 \color{red}hello 生白}}%
+  \dimen0=\wd0
+  \TYPE{color-natural=\the\dimen0}
+  \hfuzz=100pt
+  \setbox2=\hbox to \dimexpr\dimen0-2pt\relax{\CJKunderline{虚室 \color{red}hello 生白}}%
+  \TYPE{color-shrink-by-2pt-badness=\the\badness}
+  % 已接受限制的现状固定：显式分组形态只能改善到 1.11pt，压窄 2pt 仍不够
+  \setbox4=\hbox{\CJKunderline{虚室 {hello} 生白}}%
+  \dimen4=\wd4
+  \setbox6=\hbox to \dimexpr\dimen4-2pt\relax{\CJKunderline{虚室 {hello} 生白}}%
+  \TYPE{braced-shrink-by-2pt-badness=\the\badness}
+  \setbox8=\hbox to \dimexpr\dimen4-1pt\relax{\CJKunderline{虚室 {hello} 生白}}%
+  \TYPE{braced-shrink-by-1pt-badness=\the\badness}
 }
 
 \END

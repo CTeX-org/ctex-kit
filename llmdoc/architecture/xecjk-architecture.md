@@ -187,6 +187,20 @@ post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检�
 
 按深度统计同一段落的 1.11pt ecglue（`depth>=3` 为盒内、`depth2` 为行上可用）：#1026 缺陷版 16／0，发布版 v3.10.3 与只修词后时同为 8／6，两半都修好后 0／14。
 
+### 同一根因共三处补 ecglue 的地方（#1037）
+
+Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，三处都必须改用 `\@@_use_ecglue_skip:`：
+
+| 位置 | 何时走这条路 |
+|---|---|
+| `\@@_check_for_ecglue_aux:` | 源码空格被前视直接吃掉（`虚室 hello`） |
+| `\@@_recover_ecglue_source_space_success:` | 空格先被暂存、随后确认可恢复 |
+| `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支 | 西文词被字体／颜色声明隔开（`虚室 \color{red}hello`） |
+
+只改第一处时，`\color`／`\textcolor`／`\mbox` 等形态的外层可收缩量仍是 1.11pt 而非 oracle 的 2.22pt——这是最终全范围盲审提出的 important finding。三处都改后 `\color` 形态回到 2.22pt。
+
+**已接受的限制：正文里用显式分组包住西文词。** `\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计——在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。这两种写法因此从 #1037 之前的 0pt 改善到 1.11pt，剩余 1.11pt 属结构性限制。`fntef-shrink01` 的 TEST 9 把这个现状也固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），以免有人误以为它已修好或误改了守卫。
+
 ### capture/register 框架（#992 / PR #999）
 
 `\@@_boundary_capture_begin:` 在已注册命令入口执行四件事：
