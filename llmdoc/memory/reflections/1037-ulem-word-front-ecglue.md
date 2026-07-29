@@ -78,7 +78,7 @@
 TEST 6 的观察量只有 `\badness`，所以我写了 `\hbadness=10000` 想抑制 Overfull 报告。两处都错：
 
 - `\hbadness` 只管 Underfull 警告的阈值，对 Overfull 报告无效。实测默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 才消掉。也就是说这行赋值从来没起过作用，而我在注释里把它的作用写成了既成事实。
-- 于是那条报告进了基线，其中 `detected at line 149` 是个绝对行号。`l3build` 只归一化 `on input line %d*` 与 `at lines %d*--%d*`（`l3build-check.lua:211,217`），单数形式不在其中——在 `.lvt` 里插入一行无关注释就会让这一项失败。
+- 于是那条报告进了基线，其中 `detected at line 149` 是个绝对行号。`l3build` 归一化的是 `on line %d*`、`on input line %d*`（`l3build-check.lua:210,211`）、`at lines %d*--%d*`（`:217`）与行首的 `l.%d+ `（`:144`），Overfull 的单数形式不在其中——在 `.lvt` 里插入一行无关注释就会让这一项失败。
 
 两个错误互相掩护：因为抑制没生效，报告才进了基线；因为基线看起来正常通过，我没去查抑制到底有没有生效。
 
