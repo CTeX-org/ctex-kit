@@ -131,6 +131,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1026 的高亮右边界偏移用文字描述很难判断是否修好；一张带红色边距线的上下对照图，加上「722px → 681px、与发布版逐像素一致」的数值，评审可以直接确认。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 换掉某段代码的实现方式时，回放它当初为之而生的那个场景
+**Rule**: 若修复保留语义但更换实现（钩子改适配器、重写内部入口等），除了本 issue 的 MWE，还要回放**引入这段代码的那个 issue** 所关心的场景，并与本 PR 父提交逐项比较。若该 issue 没有现成的独立 MWE，按它的矩阵格式补一份。同时加一个「撤销该语义」的对照组——全绿矩阵不加对照，无法说明它能否发现语义丢失。
+**Why**: #1029 换掉的两个 `cmd/sbox` 钩子是 #992 为隔离 `\sbox` 离线测量而引入的。只看 #1029 自己的算法标题 MWE，无法说明隔离是否在换实现时丢了。补的 sbox 矩阵在 base 与修复后同为 96／96，而删掉 `suspend`／`resume` 的对照组为 72／96——有了这个对照，96／96 才是证据而不是空话。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
 ### 说「哪些形式汇入某入口」时读内核定义把分支数清全
 **Rule**: 描述某公开命令有几种形式最终汇入同一内部入口时，打开内核定义把 `\@ifnextchar` 的分支逐条数完，不要凭常用形式推断。
 **Why**: #1029 我在四份文档里写 `\savebox` 有「三种形式」汇入 `sbox `，漏掉了 picture 形式 `(x,y)[pos]`——`latex.ltx` 的 `\@isavepicbox` 末尾同样是 `\sbox#1{...}`。适配器实际覆盖面比文档所述更宽，属于把自己的成果说小了。
