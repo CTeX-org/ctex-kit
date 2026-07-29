@@ -1,0 +1,83 @@
+% #1029：\global\sbox 必须真的做全局赋值。
+%
+% \sbox 不能挂通用 cmd/sbox/before 钩子。钩子代码在 \setbox 之前执行，而调用方
+% 写的 \global 是等待下一个赋值的前缀；钩子里任何赋值都会把它消耗掉，于是
+% \global\sbox 静默退化为局部赋值——盒子在分组结束时丢失，且不报错。
+% algorithm2e 的 ruled 标题正是这样整段消失的（它用 \global\sbox\algocf@capbox
+% 在浮动体的分组里保存标题，随后在分组外 \box 出来）。
+%
+% 这里不比对图形，只查两件事：
+%   1. \global 各种形式跨分组后盒子仍非空（尺寸与组内一致）。
+%   2. 不带 \global 时仍然是局部赋值，跨分组后为空——否则等于把前缀语义改坏了。
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newsavebox\TestBox
+\newsavebox\ScratchBox
+
+\newcommand\ReportBox[1]{\TYPE{#1: w=\the\wd\TestBox, h=\the\ht\TestBox}}
+
+\begin{document}
+
+\START
+
+\TEST{global sbox survives the enclosing group}{
+  \begingroup
+    \global\sbox\TestBox{ABC}
+    \ReportBox{inside}
+  \endgroup
+  \ReportBox{outside}
+}
+
+\TEST{global savebox survives the enclosing group}{
+  \begingroup
+    \global\savebox\TestBox{ABC}
+  \endgroup
+  \ReportBox{outside}
+}
+
+% \savebox 的可选参数形式走 \@isavebox，最终同样汇入 sbox 的内部入口。
+\TEST{global savebox with optional arguments survives}{
+  \begingroup
+    \global\savebox\TestBox[3cm][l]{ABC}
+  \endgroup
+  \ReportBox{outside}
+}
+
+% 前缀语义不能被改坏：不带 \global 时必须仍是局部赋值。
+\TEST{plain sbox stays local}{
+  \sbox\TestBox{XYZWVU}
+  \begingroup
+    \sbox\TestBox{ABC}
+  \endgroup
+  \ReportBox{outside-restored}
+}
+
+% 嵌套：外层 \global\sbox 的内容里再用 \sbox 做测量，外层不应受影响。
+% algorithm2e 的默认（非 ruled）标题就是这个形状。
+\TEST{nested sbox inside global sbox}{
+  \begingroup
+    \global\sbox\TestBox
+      {%
+        \sbox\ScratchBox{measure}%
+        \hbox to 4cm{\hfil\box\ScratchBox\hfil}%
+      }%
+  \endgroup
+  \ReportBox{outside}
+}
+
+% 暂停观察的原意仍需保留：\sbox 里的内容不能影响外层的边界恢复链。
+% 两个盒子的宽度必须相同，否则 scratch box 污染了外层间距。
+\TEST{sbox content does not pollute outer boundary}{
+  \xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+  \setbox0=\hbox{中\sbox\TestBox{english}x}
+  \setbox2=\hbox{中x}
+  \TYPE{with-sbox=\the\wd0}
+  \TYPE{without-sbox=\the\wd2}
+}
+
+\END

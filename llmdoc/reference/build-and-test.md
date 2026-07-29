@@ -201,8 +201,20 @@
 
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
-`fntef-shrink01` 后，当前为 114／114 通过。完整接口
-契约见 [[../memory/decisions/1010-boundary-register-public-api]]。
+`fntef-shrink01`、#1029 新增 `boundary-sbox-global01` 后，当前为
+115／115 通过。完整接口契约见
+[[../memory/decisions/1010-boundary-register-public-api]]。
+
+### `\sbox`／`\savebox` 全局前缀回归（`boundary-sbox-global01`，#1029）
+
+`boundary-sbox-global01.lvt` 固定 `\@@_boundary_sbox:Nn` 把暂停观察移进盒子内部之后，`\global` 前缀必须始终紧邻 `\setbox` 这条约束（机制见 [[../architecture/xecjk-architecture]] 「命令钩子与专用适配器的选择边界（#1029）」一节）。测试覆盖：
+
+- 四种触发 `\global` 前缀的写法：`\global\sbox`、`\global\savebox`（无可选参数）、`\global\savebox[wd]`、`\global\savebox[wd][pos]`；每种都在内层分组中赋值，退出分组后取盒子宽度，确认内容跨分组保住（而不是像缺陷版那样静默丢失）。
+- 不带 `\global` 的普通 `\sbox` 仍是局部赋值：退出分组后盒子应变空，用来确认修复没有意外把局部赋值也提升为全局。
+- 嵌套 `\sbox`：外层命令内部再调用 `\sbox` 离线测量，确认 suspend/resume 的暂停深度可嵌套且成对归零。
+- 暂停观察语义本身不受影响：`\hbox{中\sbox\tb{english}x}` 与 `\hbox{中x}` 宽度相同（20.28pt），证明 `\sbox` 内部的测量过程仍不污染外层可见输出的间距。
+
+验证判据是 outside（分组外、退出局部作用域后）取到的盒子尺寸非 0.0pt；缺陷版会让四种 `\global` 形式的 outside 尺寸从正常值退化为 0.0pt（rc 1）。测试已用重新引入缺陷（还原为 `cmd/sbox/before`／`after` 两个通用钩子）的方式确认会失败。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
@@ -321,11 +333,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行门禁固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 114／114，文档构建生成 244 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 115／115，文档构建生成 244 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 114 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 115 项。
 
 ### ulem 正文外层收缩量回归（`fntef-shrink01`，#1026）
 
