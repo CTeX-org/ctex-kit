@@ -218,9 +218,12 @@
 %
 % 本项用 \color 形态。必须用它而不是 \bfseries：实测 \bfseries 形态在这两处改动前后都是
 % 2.22pt（它根本不走这条路径），拿它做断言会得到一个恒真的测试。\color 形态才是真正的判据
-% ——改动前 1.11pt、改动后 2.22pt（与无装饰 oracle 相同）。段落级也可见：#1026 资产 MWE
-% （paperwidth=10cm，非本文件的 \hsize=200pt）在 #1037 之前溢出 18.91pt 与 3.91pt，现在不
-% 溢出；本文件 \hsize=200pt 下的对应数字是 18.08pt 与 3.64pt，两组几何不可混用。
+% ——改动前 1.11pt、改动后 2.22pt（与无装饰 oracle 相同）。
+%
+% 段落级也可见，但注意三个阶段各自的数值不要混：以 #1026 资产 MWE（paperwidth=10cm）为例，
+% #1026 缺陷版是 18.91pt 与 3.91pt 两行各溢出，#1026 修好而 #1037 未修时只剩 4.47pt 一处，
+% #1037 修好后不溢出。本文件用的是 \hsize=200pt，同样三个阶段对应 18.08pt、3.64pt、无溢出
+% （见文件开头第 14-15 与 29-31 行）。两组几何不可混用，同一组内也不要把不同阶段的数值并列。
 %
 % 判别力已实测 rc 1：把这两处改回裸 \skip_horizontal:N 后，本项 \color 形态的 badness 由
 % 73 变 1000000。TESTs 1-8 对这两处零判别力（改回后它们的基线无任何变化），必须有本项。
@@ -256,8 +259,12 @@
 % 判别力已实测 rc 1：把该处改回裸 \skip_horizontal:N 后本项 badness 由 73 变 1000000，
 % TESTs 1-9 零命中。
 %
-% 另：\@@_check_for_glue_auxi: 的两处（西文词被 \mbox 等隔开、Boundary→CJK 方向）本文件
-% 无覆盖——TEST 9 的正文一次都没进入该函数。本项用 \mbox 形态补上。
+% 另：\@@_check_for_glue_auxi: 的两处本文件无覆盖——TEST 9 的正文一次都没进入该函数。
+% 注意那是两个**独立**的 dim_case 分支，各自需要一条断言：
+%   default 分支：末节点是 Default 类，如 \mbox{hi}中文
+%   math 分支：末节点是 math marker，如 \mbox{$x$}中文
+% 逐分支变异实测：只改回 default 分支时仅 boxed 断言失败；只改回 math 分支时，若没有
+% boxed-math 断言则全套 115 项仍全绿（该分支可达且改动正确，但无门禁）。
 \TEST{math-adjacent and boxed forms also free outer shrink}{
   \hfuzz=100pt
   \setbox0=\hbox{\CJKunderline{$x$中文}}%
@@ -269,6 +276,11 @@
   \dimen4=\wd4
   \setbox6=\hbox to \dimexpr\dimen4-1pt\relax{\CJKunderline{\mbox{hi}中文}}%
   \TYPE{boxed-shrink-by-1pt-badness=\the\badness}
+  % math 分支：盒内是公式，末节点因此是 math marker 而非 Default 类
+  \setbox8=\hbox{\CJKunderline{\mbox{$x$}中文}}%
+  \dimen8=\wd8
+  \setbox10=\hbox to \dimexpr\dimen8-1pt\relax{\CJKunderline{\mbox{$x$}中文}}%
+  \TYPE{boxed-math-shrink-by-1pt-badness=\the\badness}
 }
 
 \END

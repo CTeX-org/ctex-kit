@@ -370,6 +370,8 @@ TEST 6（#1037 新增）是词前 ecglue 的正向断言。前四项以「没有
 
 TEST 7（同样 #1037 新增）固定的是**守卫**而非收缩量：在装饰之外重定义 `\ `（模拟 `nath`／`morehype`），再排普通中西文混排 `中 abc 文`。因为词前 ecglue 的入口位于所有中西文边界都会走的通用路径上，改写若只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`，就会在装饰外的普通正文里执行 `\UL@stop` 而报 `Too many }'s`——与是否使用装饰命令无关。判别力已实测 rc 1：去掉 `\l_@@_ulem_stream_started_bool` 守卫后**只有** TEST 7 失败（基线出现 `\UL@stop ... \egroup \egroup` 报错行），前六项全部照常通过。这是「同一入口的两种失效方式需要各自的用例」的具体例子：TEST 6 管收缩量搬没搬出去，TEST 7 管搬的时机对不对。
 
+TEST 10（#1037 新增）覆盖第四处路径（`\xeCJK_check_for_glue:` 的 math 分支，`$x$中文`）以及 `\@@_check_for_glue_auxi:` 的两个分支。**一个 `dim_case` 里的每个分支各自需要一条断言**：`default`（末节点是 Default 类，`\mbox{hi}中文`）与 `math`（末节点是 math marker，`\mbox{$x$}中文`）是两条独立路径，只写前者时后者可达且实现正确却毫无门禁——逐分支变异实测，只改回 math 分支时全套 115 项仍全绿。三条断言现各自具备判别力（逐分支变异均 rc 1，TESTs 1-9 零命中）。
+
 TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecglue_source_space_success:` 与 `\@@_check_for_glue_auxi:`（西文词被字体／颜色声明隔开时走这两处）。**必须用 `\color` 形态**——实测 `\bfseries` 形态在这两处改动前后都是 2.22pt（根本不走这条路径），拿它做断言会得到恒真的测试；第一版 TEST 9 正是这么写的，撤销修复后仍通过。改用 `\color` 后判别力实测 rc 1（badness 73→1000000），且 TESTs 1-8 零命中。该用例同时把显式分组写法的已接受限制固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`）。
 
 两条与 `.tlg` 基线写法有关的坑，都是在 #1037 的审查中踩到的：
