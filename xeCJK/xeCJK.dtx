@@ -3799,15 +3799,37 @@ Copyright and Licence
       { \@@_recover_ecglue_source_space: }
       { \@@_check_for_ecglue_aux: }
   }
+%    \end{macrocode}
+%
+% \changes{v3.10.5}{2026/07/29}{\tn{CJKecglue} 补在源码空格位置时改用可搬运
+%   通道，避免收缩量固化在 \pkg{ulem} 的定宽片段盒内（\#1037）。}
+% 这条路径补的是「源码空格 + 西文词」处的 \tn{CJKecglue}：源码空格已被前视
+% 吃掉，marker 落在 \pkg{ulem} 刚打开的片段盒内部，此时直接
+% \tn{hskip} 会把收缩量固化在定宽盒里，行断行取不到它，装饰段落因此溢出右
+% 边距（\#1037，与 \#1026 是同一机制的另一半：\#1026 修的是西文词右侧，
+% 这里是词前）。改经 \cs{@@_ulem_glue:n}，它在下划线状态下先
+% \tn{UL@stop} 关闭片段盒、把间距画成外层列表上的 \tn{leaders}、再
+% \tn{UL@start} 开新盒，使收缩量回到行上；不在下划线状态时它退化为普通
+% \tn{hskip}，因此非 \pkg{ulem} 路径的行为不变。
+%
+% 不用 \cs{@@_boundary_use_ulem_glue:n}：它放的是裸 glue，会在词前留下一段
+% 没有装饰线的空隙（实测 300dpi 下断开 7px）。
+%
+% 默认实现是普通 \tn{hskip}；\cs{@@_ulem_glue:n} 定义在 \pkg{xeCJKfntef} 里，
+% 该宏包未加载时不存在，所以由 \pkg{xeCJKfntef} 在加载时改写这个入口，不能在
+% 这里直接引用。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_use_ecglue_skip:
+  { \skip_horizontal:N \l_@@_ecglue_skip }
 \cs_new_protected:Npn \@@_check_for_ecglue_aux:
   {
     \xeCJK_if_last_node:nTF { CJK }
       { \use_i:nn }
       { \xeCJK_if_last_node:nTF { CJK-widow } }
-      { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+      { \xeCJK_remove_node: \@@_use_ecglue_skip: }
       {
         \xeCJK_if_last_node:nTF { CJK-space }
-          { \xeCJK_remove_node: \skip_horizontal:N \l_@@_ecglue_skip }
+          { \xeCJK_remove_node: \@@_use_ecglue_skip: }
           {
             \xeCJK_if_last_node:nTF { math }
               { \xeCJK_remove_node: }
@@ -14339,6 +14361,18 @@ Copyright and Licence
       }
       { \skip_horizontal:n {#1} }
   }
+%    \end{macrocode}
+%
+% \changes{v3.10.5}{2026/07/29}{\tn{CJKecglue} 补在源码空格位置时改用可搬运
+%   通道，避免收缩量固化在 \pkg{ulem} 的定宽片段盒内（\#1037）。}
+% 改写 \cs{@@_use_ecglue_skip:}（默认实现在 \pkg{xeCJK} 主体里是普通
+% \tn{hskip}），让「源码空格 + 西文词」处补的 \tn{CJKecglue} 经
+% \cs{@@_ulem_glue:n} 落到外层列表，收缩量可参与断行（\#1037）。
+% \cs{@@_ulem_glue:n} 自带下划线状态与 group tag 守卫，不在装饰中时退化为普通
+% \tn{hskip}，所以改写后非 \pkg{ulem} 路径的行为不变。
+%    \begin{macrocode}
+\cs_gset_protected:Npn \@@_use_ecglue_skip:
+  { \@@_ulem_glue:n { \l_@@_ecglue_skip } }
 \cs_new_protected:Npn \xeCJK_make_group_tag:
   { \tl_set:Ne \l_@@_group_tag_tl { \c_@@_group_tag_tl } }
 \tl_new:N \l_@@_group_tag_tl
