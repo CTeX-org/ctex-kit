@@ -882,6 +882,13 @@ Copyright and Licence
 %   排版内容的内部命令。能够作为 |command| 读入的控制序列，也不一定能由
 %   \LaTeX{} 通用命令 hook 完整包住。通用注册不会分析命令参数；如果行内
 %   公式位于可见内容的开头或结尾，|auto| 未必能观察到公式边界。
+%
+%   特别地，\emph{命令本身就是一条赋值语句时不能用通用注册}。\tn{global}、
+%   \tn{long} 这类前缀在 \TeX{} 中是“等待下一个赋值”的状态，而 |before|
+%   钩子的代码插在该赋值之前执行；钩子里任何赋值都会把前缀消耗掉，调用方写的
+%   \tn{global} 便静默失效，且不产生任何错误或警告。\tn{sbox}、\tn{savebox}
+%   属于这一类，本包为它们使用专用适配器，把暂停观察移到盒子内部，使前缀始终
+%   紧邻 \tn{setbox}（\#1029）。用户注册自定义的“保存盒子”类命令时应同样处理。
 %   \tn{mbox} 等现有命令另有参数适配代码，用户注册不会自动取得这部分能力。
 %
 %   注册后应当把命令与“去掉命令包装后的相同可见内容”比较，并分别检查左右
@@ -6426,6 +6433,32 @@ Copyright and Licence
       }
   }
 
+% \changes{v3.10.5}{2026/07/29}{\tn{sbox} 改用专用适配器：\tn{global}
+%   等前缀必须紧邻 \tn{setbox}，放进 \texttt{cmd/sbox/before} 钩子的赋值
+%   会把前缀吃掉，使 \tn{global}\tn{sbox} 静默退化为局部赋值（\#1029）。}
+% \tn{sbox} 不能使用通用 \texttt{cmd/.../before} 钩子。钩子代码插在
+% \tn{setbox} 之前执行，而调用方写的 \tn{global} 是等待下一个赋值的前缀：
+% 钩子里任何赋值都会把它消耗掉，于是 \tn{global}\tn{sbox} 退化为局部赋值，
+% 盒子在分组结束时丢失，且不报任何错误（\#1029，\pkg{algorithm2e} 的
+% \tn{caption} 即如此消失）。因此这里直接包装内部入口，把暂停观察移到盒子
+% 内部，使前缀始终紧邻 \tn{setbox}。
+%
+% \tn{savebox} 的三种形式最终都汇入同一个 \cs{sbox~} 入口，一并修复。
+\cs_new_protected:Npn \@@_boundary_sbox:Nn #1#2
+  {
+    \tex_setbox:D #1 \tex_hbox:D
+      {
+        \@@_boundary_capture_suspend:
+        \color@setgroup #2 \color@endgroup
+        \@@_boundary_capture_resume:
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_prepare_sbox:
+  {
+    \cs_if_eq:cNF { sbox~ } \@@_boundary_sbox:Nn
+      { \cs_gset_eq:cN { sbox~ } \@@_boundary_sbox:Nn }
+  }
+
 \@@_boundary_prepare_onearg_box:N \mbox
 \@@_boundary_prepare_onearg_box:N \fbox
 \@@_boundary_register_box:nn { mbox } { auto }
@@ -6433,10 +6466,7 @@ Copyright and Licence
 \@@_boundary_register_makeboxes:
 \@@_boundary_register_post_transparent:n { null }
 \@@_boundary_reserve:n { sbox }
-\AddToHook { cmd / sbox / before } [ xeCJK / boundary ]
-  { \@@_boundary_capture_suspend: }
-\AddToHook { cmd / sbox / after } [ xeCJK / boundary ]
-  { \@@_boundary_capture_resume: }
+\@@_boundary_prepare_sbox:
 %    \end{macrocode}
 % \end{macro}
 % \end{macro}

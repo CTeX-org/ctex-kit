@@ -259,3 +259,20 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 一处加载期失败（manifest 校验、字段解析）会让同一 Action 内后续所有代码路径都从未真正执行过；修好第一个失败点后，应预期还有第二批此前未被执行到的路径可能出错，不能把“这次能加载了”当作整体验证完成。
 **Why**: PR #1030 修好 `timeout-minutes` 导致的加载期失败后，Action 才走到工具安装阶段，随即在 PR #1031 暴露出此前从未执行过的 awk 管道在 `pipefail` 下会以 SIGPIPE 终止 step 的独立缺陷。
 **Source**: `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md`
+
+## LaTeX2e 命令钩子机制
+
+### 通用命令钩子不能包装命令本体即赋值语句的场景
+**Rule**: 用 `cmd/<命令>/before`／`after` 这类 `\AddToHook` 钩子包装某个命令时，先确认该命令本体是否就是一条赋值语句（如 `\setbox`）。若是，钩子代码里的任何赋值都会消耗调用方留在原地待用的 `\global`／`\long` 等前缀，使调用方前缀静默失效——不报错、不警告，只是行为退化为局部/非长命令语义。这类命令必须改用专用适配器：直接重定义其内部入口，把原本挂在钩子里的副作用移到赋值发生的位置内部，让前缀始终紧邻真正的赋值原语。
+**Why**: #1029 中 `cmd/sbox/before` 钩子里的 `\@@_boundary_capture_suspend:` 做了多个全局赋值，吃掉了 `\global\sbox` 的 `\global`，导致 algorithm2e 的 `\global\sbox\algocf@capbox{...}` 在浮动体分组结束时静默丢失整段标题。最小复现不需要加载 xeCJK：`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 单独就会触发同一问题，换成 `\relax`（无赋值）则不触发，证明这是 LaTeX2e 命令钩子机制的通用陷阱，不是任何具体宏包的缺陷。修复用 `\@@_boundary_sbox:Nn` 重定义内部入口 `sbox `，与仓库已有的 `color@b@x`／`@textcolor` 专用适配器同属一类。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`、`llmdoc/memory/decisions/1029-sbox-adapter.md`
+
+### 报告者给出的可用变通不能替代对代码历史用途的核实
+**Rule**: 报告者已定位到具体代码并给出能让当前场景可用的变通（如删除某个钩子）时，先核实这段代码的既有职责，再决定是直接采纳变通，还是保留语义、更换实现方式。变通可用不代表它是正确修复。
+**Why**: #1029 中删除 `cmd/sbox/before`／`after` 两个钩子确实能让 algorithm2e 的标题恢复，但这两个钩子是 #992 系列刻意引入的，用来隔离 `\sbox` 内部 scratch box 的测量过程，防止测量用的盒子与其中的颜色切换污染外层 capture 与恢复链；直接删除会撤销这条隔离，重新引入旧问题。最终改为专用适配器，把暂停观察移到盒子内部，同时保留隔离语义和 `\global` 前缀完整性。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
+### 缩小复现到不含本包的最小样例，才能确认是上游机制的通用陷阱
+**Rule**: 怀疑某个缺陷可能是上游机制的通用性质而非本包特有时，把复现缩到不加载本包的最小 LaTeX/TeX 样例。确认为通用陷阱后，修复形态和文档警告的落点都会随之改变——不能只在具体案例的代码注释里说明，还要在架构文档里记录为独立的机制边界。
+**Why**: #1029 若只盯着 xeCJK 的 `\@@_boundary_capture_suspend:` 内容，容易把注意力放在这条钩子本身该不该做全局赋值上；缩小到不含 xeCJK 的五行纯 LaTeX 后，才确认触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这直接决定了要用专用适配器而不是调整钩子内容，也决定了要在 `experiment/boundary-register` 用户手册里为「命令本体即赋值语句」这类场景加一条通用警告。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`

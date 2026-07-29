@@ -221,7 +221,15 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 
 `\g_@@_boundary_registered_prop` 阻止同一命令重复注册。常用前两层 capture 的 box/tl register 在加载时预先分配，第三层起在第一次达到相应 depth 时创建；`\g_@@_boundary_active_seq` 保证 before/after hook 成对，数学模式与暂停状态只压入 inactive 标记。测试已覆盖 12 层盒子嵌套。
 
-`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。因此 `cmd/sbox/before` / `after` 分别调用 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl` 与 source-space pending，结束后必须归零。
+`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。`\@@_boundary_sbox:Nn` 与 `\@@_boundary_prepare_sbox:` 把内部入口 `sbox ` 直接重定义为 `\tex_setbox:D #1 \tex_hbox:D { suspend … \color@setgroup #2 \color@endgroup … resume }`，在盒子内部执行 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl` 与 source-space pending，结束后必须归零。#1029 之前这里挂的是 `cmd/sbox/before` / `after` 两个通用钩子，已被这个专用适配器取代，原因见下文「命令钩子与专用适配器的选择边界」。
+
+#### 命令钩子与专用适配器的选择边界（#1029）
+
+`cmd/<命令>/before`／`after` 这类通用钩子（`\AddToHook`）只适合包装“命令本体不是赋值语句”的场景。`\global`／`\long` 等前缀是 TeX 里“等待下一个赋值”的状态，不是立即生效的操作；钩子代码插在命令本体执行之前运行，只要钩子内容本身包含任意一条赋值（不需要与目标命令相关），这条赋值就会先消耗掉调用方留下的待用前缀，使调用方写的 `\global\sbox` 在真正执行 `\setbox` 时已经没有 `\global`，静默退化为局部赋值，盒子在分组结束时被丢弃——整个过程不产生任何报错或警告。
+
+这是 LaTeX2e `\AddToHook` 机制的通用陷阱，与 xeCJK 或 `\sbox` 本身都无关：最小复现不需要加载 xeCJK，`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 就足以吃掉 `\global\sbox` 的前缀；把钩子内容换成不含赋值的 `\relax` 则不会触发。`\sbox`／`\savebox` 恰好本体就是一条赋值语句——`\savebox` 的三种形式（无可选参数、`[wd]`、`[wd][pos]`）最终都汇入同一个内部入口 `sbox `——而 `\@@_boundary_capture_suspend:` 内部做的是多个 `\int_gincr:N`／`\tl_gset:` 全局赋值，正是会触发这个陷阱的钩子内容。`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置；只有像 `\sbox` 这样“包装宏内部才调用 `\setbox`”的命令，才会把钩子插进前缀和赋值之间。
+
+修复方式是专用适配器：直接重定义内部入口 `sbox `，把暂停观察移到盒子构造内部执行，使 `\global` 前缀始终紧邻 `\setbox` 本身。这与已有的 `color@b@x`／`@textcolor` 专用适配器（见下文“兼容性补丁子系统”与“旧边界补丁的吸收结果”，均为重定义内部入口而不是挂通用钩子）属于同一套模式：**注册的目标命令本体是赋值语句时，必须用专用适配器包装内部入口，把副作用移进赋值发生的位置内部；不能用通用 `cmd/.../before` 钩子。** `experiment/boundary-register` 面向用户开放的 `command` 策略存在同一类风险——用户若为自己“本体即赋值语句”的命令注册通用 hook，会复现同一坑；已在 `xeCJK.dtx` 用户手册对应段落加入警告。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 
 ulem 把正文拆进固定宽度的盒子。普通 stream 若直接在首次观察处排 glue，会把弹性间距和装饰 leader 一起放进内部盒子。`stream-ulem` 仍由 framework 决定 glue 类型和值，但在 ulem 活跃时通过 `\UL@stop`、普通 `\hskip`、`\UL@start` 把 glue 排到外层且不画线；独立符号命令使用普通 skip。包内线型命令在测量装饰符号前请求启动该 stream，原生 `\uline` 等入口由 `\ULon` 补上。两者都只允许最外层启动，因为嵌套路径会走 `\UL@onin`，没有可与重复 begin 配对的独立 end。所有嵌套线型命令复用最外层 stream，并由同一个结束点关闭。
 
