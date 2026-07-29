@@ -6,9 +6,13 @@
 % algorithm2e 的 ruled 标题正是这样整段消失的（它用 \global\sbox\algocf@capbox
 % 在浮动体的分组里保存标题，随后在分组外 \box 出来）。
 %
-% 这里不比对图形，只查两件事：
-%   1. \global 各种形式跨分组后盒子仍非空（尺寸与组内一致）。
-%   2. 不带 \global 时仍然是局部赋值，跨分组后为空——否则等于把前缀语义改坏了。
+% 注意范围：本文件只固定 \global\sbox。\global\savebox 在未加载本包的原版 LaTeX
+% 中也无法跨分组生效——\savebox 是 robust 命令，前缀在它自己的 \@ifnextchar
+% 前瞻阶段就被消耗，与本包无关，不在修复范围内。这里用 TEST 3 把这条既有行为
+% 一并固定下来，以免日后误以为是本包引入的回归。
+%
+% 每一项使用各自独立的 savebox：共用一个盒子时，前一项留下的全局值会被后一项
+% 读到，测试看上去通过而实际上没有断言任何东西。
 \input{regression-test}
 
 \documentclass{article}
@@ -16,68 +20,94 @@
 \usepackage{xeCJK}
 \setCJKmainfont{FandolSong-Regular.otf}
 
-\newsavebox\TestBox
-\newsavebox\ScratchBox
+\newsavebox\BoxGlobalSbox
+\newsavebox\BoxInnerSbox
+\newsavebox\BoxGlobalSavebox
+\newsavebox\BoxLocalSbox
+\newsavebox\BoxNestedOuter
+\newsavebox\BoxNestedInner
+\newsavebox\BoxScratch
 
-\newcommand\ReportBox[1]{\TYPE{#1: w=\the\wd\TestBox, h=\the\ht\TestBox}}
+\newcommand\ReportBox[2]{\TYPE{#1: w=\the\wd#2, h=\the\ht#2}}
+
+\ExplSyntaxOn
+% 仅用于测试的白盒断言：这个内部计数器不是公开接口。
+\newcommand\ReportSuspendDepth[1]
+  { \TYPE{#1: suspend-depth=\int_use:N \g__xeCJK_boundary_suspend_depth_int} }
+\ExplSyntaxOff
 
 \begin{document}
 
 \START
 
+% 核心断言：\global 前缀必须活到 \setbox，盒子跨分组保住内容。
+% 缺陷版本下 outside 为 0.0pt。
 \TEST{global sbox survives the enclosing group}{
   \begingroup
-    \global\sbox\TestBox{ABC}
-    \ReportBox{inside}
+    \global\sbox\BoxGlobalSbox{ABC}
+    \ReportBox{inside}\BoxGlobalSbox
   \endgroup
-  \ReportBox{outside}
+  \ReportBox{outside}\BoxGlobalSbox
 }
 
-\TEST{global savebox survives the enclosing group}{
+% 直接对内部入口加 \global，绕开 \savebox 的前瞻问题，单独固定适配器本身的
+% 前缀透明性。缺陷版本下同样为 0.0pt。
+\TEST{global on the internal sbox entry survives}{
   \begingroup
-    \global\savebox\TestBox{ABC}
+    \expandafter\global\csname sbox \endcsname\BoxInnerSbox{ABCDEFGH}
   \endgroup
-  \ReportBox{outside}
+  \ReportBox{outside}\BoxInnerSbox
 }
 
-% \savebox 的可选参数形式走 \@isavebox，最终同样汇入 sbox 的内部入口。
-\TEST{global savebox with optional arguments survives}{
+% 既有限制（非本包引入）：\global\savebox 不跨分组生效，原版 LaTeX 亦然。
+% 固定这条行为，避免日后误判为回归；若哪天上游修好了，这一项会提示更新。
+\TEST{global savebox does not survive (pre-existing LaTeX limitation)}{
   \begingroup
-    \global\savebox\TestBox[3cm][l]{ABC}
+    \global\savebox\BoxGlobalSavebox{ABCDEFGH}
   \endgroup
-  \ReportBox{outside}
+  \ReportBox{outside-still-void}\BoxGlobalSavebox
+  % 同一分组内则正常，证明失效只发生在跨分组处。
+  \begingroup
+    \global\savebox\BoxGlobalSavebox{ABCDEFGH}
+    \ReportBox{inside}\BoxGlobalSavebox
+  \endgroup
 }
 
 % 前缀语义不能被改坏：不带 \global 时必须仍是局部赋值。
 \TEST{plain sbox stays local}{
-  \sbox\TestBox{XYZWVU}
+  \sbox\BoxLocalSbox{XYZWVU}
   \begingroup
-    \sbox\TestBox{ABC}
+    \sbox\BoxLocalSbox{ABC}
   \endgroup
-  \ReportBox{outside-restored}
+  \ReportBox{outside-restored}\BoxLocalSbox
 }
 
-% 嵌套：外层 \global\sbox 的内容里再用 \sbox 做测量，外层不应受影响。
-% algorithm2e 的默认（非 ruled）标题就是这个形状。
+% 嵌套：外层 \global\sbox 的内容里再用 \sbox 做测量。algorithm2e 的默认
+% （非 ruled）标题就是这个形状。同时显式断言暂停深度成对归零——只报盒子尺寸
+% 发现不了深度泄漏。
 \TEST{nested sbox inside global sbox}{
+  \ReportSuspendDepth{before}
   \begingroup
-    \global\sbox\TestBox
+    \global\sbox\BoxNestedOuter
       {%
-        \sbox\ScratchBox{measure}%
-        \hbox to 4cm{\hfil\box\ScratchBox\hfil}%
+        \sbox\BoxNestedInner{measure}%
+        \hbox to 4cm{\hfil\box\BoxNestedInner\hfil}%
       }%
   \endgroup
-  \ReportBox{outside}
+  \ReportBox{outside}\BoxNestedOuter
+  \ReportSuspendDepth{after}
 }
 
-% 暂停观察的原意仍需保留：\sbox 里的内容不能影响外层的边界恢复链。
-% 两个盒子的宽度必须相同，否则 scratch box 污染了外层间距。
-\TEST{sbox content does not pollute outer boundary}{
+% 暂停观察语义：\sbox 里藏着 CJK 时，外层西文两侧不应因此被插入 CJKecglue。
+% 只写 \sbox{english} 分辨不出——那种内容不改变末类别；必须让 scratch box 里的
+% 类别与外层不同（此处西文正文里藏 CJK），删掉 suspend/resume 时才会出现
+% 3.33pt 的差值。
+\TEST{hidden CJK in sbox does not leak to outer boundary}{
   \xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
-  \setbox0=\hbox{中\sbox\TestBox{english}x}
-  \setbox2=\hbox{中x}
-  \TYPE{with-sbox=\the\wd0}
-  \TYPE{without-sbox=\the\wd2}
+  \setbox0=\hbox{中\fbox{\sbox\BoxScratch{中文}Alpha}文}
+  \setbox2=\hbox{中\fbox{Alpha}文}
+  \TYPE{with-hidden-cjk=\the\wd0}
+  \TYPE{without-hidden-cjk=\the\wd2}
 }
 
 \END

@@ -886,9 +886,15 @@ Copyright and Licence
 %   特别地，\emph{命令本身就是一条赋值语句时不能用通用注册}。\tn{global}、
 %   \tn{long} 这类前缀在 \TeX{} 中是“等待下一个赋值”的状态，而 |before|
 %   钩子的代码插在该赋值之前执行；钩子里任何赋值都会把前缀消耗掉，调用方写的
-%   \tn{global} 便静默失效，且不产生任何错误或警告。\tn{sbox}、\tn{savebox}
-%   属于这一类，本包为它们使用专用适配器，把暂停观察移到盒子内部，使前缀始终
-%   紧邻 \tn{setbox}（\#1029）。用户注册自定义的“保存盒子”类命令时应同样处理。
+%   \tn{global} 便静默失效，且不产生任何错误或警告。\tn{sbox} 属于这一类，
+%   本包为它使用专用适配器，把暂停观察移到盒子内部，使 \tn{global} 始终紧邻
+%   \tn{setbox}（\#1029）。用户注册自定义的“保存盒子”类命令时应同样处理。
+%
+%   顺带说明一个与本包无关的既有限制：\tn{global}\tn{savebox} 本来就不能跨
+%   分组生效。\tn{savebox} 是 robust 命令，\tn{global} 在它自己的
+%   \tn{@ifnextchar} 前瞻阶段就被消耗，前缀根本到不了内部入口；不加载本包的
+%   原版 \LaTeX{} 亦然。需要全局保存盒子时应使用 \tn{global}\tn{sbox} 或
+%   \tn{global}\tn{setbox}。
 %   \tn{mbox} 等现有命令另有参数适配代码，用户注册不会自动取得这部分能力。
 %
 %   注册后应当把命令与“去掉命令包装后的相同可见内容”比较，并分别检查左右
@@ -6443,7 +6449,18 @@ Copyright and Licence
 % \tn{caption} 即如此消失）。因此这里直接包装内部入口，把暂停观察移到盒子
 % 内部，使前缀始终紧邻 \tn{setbox}。
 %
-% \tn{savebox} 的三种形式最终都汇入同一个 \cs{sbox~} 入口，一并修复。
+% \tn{savebox} 的三种形式最终都汇入同一个 \cs{sbox~} 入口，因此排版路径一并
+% 覆盖；但 \tn{global}\tn{savebox} 跨分组本来就不生效（前缀在 \tn{savebox}
+% 自己的 \tn{@ifnextchar} 前瞻阶段即被消耗，原版 \LaTeX{} 亦然），不在本次
+% 修复范围内。
+%
+% 与 \cs{color@b@x}、\tn{@textcolor} 等适配器不同，这里不保存并委托原定义，而是
+% 整体覆盖 \cs{sbox~}：内核 \cs{sbox~} 本体就是赋值语句，委托写法必须把
+% \tn{setbox} 留在最外层才能保住前缀，代价明显高于收益。代价是若某个包在本包
+% \emph{之前} 也包装了 \cs{sbox~}，它的包装会被丢弃（反序加载正常）。撰写本节时
+% 扫描过完整 \TeX{} Live 树，未发现任何宏包重定义 \cs{sbox~} 或对 \tn{sbox}
+% 安装 \texttt{cmd/sbox} 钩子，故接受这一取舍；\cs{cs_if_eq:cNF} 保证本包自身
+% 不会重复包装。
 \cs_new_protected:Npn \@@_boundary_sbox:Nn #1#2
   {
     \tex_setbox:D #1 \tex_hbox:D

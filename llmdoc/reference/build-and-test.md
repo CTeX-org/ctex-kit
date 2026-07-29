@@ -209,12 +209,16 @@
 
 `boundary-sbox-global01.lvt` 固定 `\@@_boundary_sbox:Nn` 把暂停观察移进盒子内部之后，`\global` 前缀必须始终紧邻 `\setbox` 这条约束（机制见 [[../architecture/xecjk-architecture]] 「命令钩子与专用适配器的选择边界（#1029）」一节）。测试覆盖：
 
-- 四种触发 `\global` 前缀的写法：`\global\sbox`、`\global\savebox`（无可选参数）、`\global\savebox[wd]`、`\global\savebox[wd][pos]`；每种都在内层分组中赋值，退出分组后取盒子宽度，确认内容跨分组保住（而不是像缺陷版那样静默丢失）。
-- 不带 `\global` 的普通 `\sbox` 仍是局部赋值：退出分组后盒子应变空，用来确认修复没有意外把局部赋值也提升为全局。
-- 嵌套 `\sbox`：外层命令内部再调用 `\sbox` 离线测量，确认 suspend/resume 的暂停深度可嵌套且成对归零。
-- 暂停观察语义本身不受影响：`\hbox{中\sbox\tb{english}x}` 与 `\hbox{中x}` 宽度相同（20.28pt），证明 `\sbox` 内部的测量过程仍不污染外层可见输出的间距。
+每一项使用**各自独立的 savebox**。共用一个盒子会让前一项留下的全局值被后一项读到，测试看似通过却没有断言任何东西——这个坑在本次审查中真实发生过。
 
-验证判据是 outside（分组外、退出局部作用域后）取到的盒子尺寸非 0.0pt；缺陷版会让四种 `\global` 形式的 outside 尺寸从正常值退化为 0.0pt（rc 1）。测试已用重新引入缺陷（还原为 `cmd/sbox/before`／`after` 两个通用钩子）的方式确认会失败。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
+- `\global\sbox` 跨分组保住内容（21.8pt）：缺陷版下退化为 0.0pt。
+- 直接对内部入口加前缀：`\expandafter\global\csname sbox \endcsname`（57.85pt），单独固定适配器本身的前缀透明性。
+- `\global\savebox` 跨分组**仍为 0.0pt**。这不是本包的缺陷：`\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，未加载本包的原版 LaTeX 亦然。把这条既有限制一并固定，避免日后误判为回归；上游若修好，该项会提示更新。
+- 不带 `\global` 的普通 `\sbox` 仍是局部赋值：退出分组后应恢复为分组前的内容，确认修复没有把局部赋值意外提升为全局。
+- 嵌套 `\sbox`：外层 `\global\sbox` 内部再离线测量，并**显式打印** `\g_@@_boundary_suspend_depth_int`（前后均为 0）。只报盒子尺寸发现不了深度泄漏。
+- 暂停观察语义：`\hbox{中\fbox{\sbox\tb{中文}Alpha}文}` 与 `\hbox{中\fbox{Alpha}文}` 同宽（63.19998pt）。scratch box 里必须藏**与外层不同的类别**（西文正文中藏 CJK）才有判别力；写 `\sbox{english}` 不改变末类别，删掉隔离也照样通过。
+
+三项判别力均以变异实测确认，各自 rc 1：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（隐藏 CJK 场景出现 3.33pt 差值，同时 `command-boundary01` 的 `scratch-hidden-CJK` 也失败）；去掉 `\int_gdecr:N`（深度由 0 变 6）。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
