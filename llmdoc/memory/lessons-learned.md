@@ -131,6 +131,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1026 的高亮右边界偏移用文字描述很难判断是否修好；一张带红色边距线的上下对照图，加上「722px → 681px、与发布版逐像素一致」的数值，评审可以直接确认。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 说「哪些形式汇入某入口」时读内核定义把分支数清全
+**Rule**: 描述某公开命令有几种形式最终汇入同一内部入口时，打开内核定义把 `\@ifnextchar` 的分支逐条数完，不要凭常用形式推断。
+**Why**: #1029 我在四份文档里写 `\savebox` 有「三种形式」汇入 `sbox `，漏掉了 picture 形式 `(x,y)[pos]`——`latex.ltx` 的 `\@isavepicbox` 末尾同样是 `\sbox#1{...}`。适配器实际覆盖面比文档所述更宽，属于把自己的成果说小了。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
 ### 修正一处错误说法后，全仓搜索同一说法的所有副本
 **Rule**: 改掉一句被证伪的描述时，用关键短语在整个 `llmdoc/` 里搜一遍，把摘要索引（`index.md`）和其他文档里的同一说法一并改掉。索引类文件常常复述正文结论，最容易漏。
 **Why**: #1029 我把「四种 `\global` 形式跨分组保住内容」在三处改对了，却漏掉 `llmdoc/index.md` 里的同一句摘要，由最终全范围审查查出。那句连验证判据都反了——新测试里 `\global\savebox` 的判据恰恰是 outside 为 0。
@@ -153,7 +158,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 断言「上游行为已修复」之前，先在不加载本包的环境里测一遍
 **Rule**: 声称修复了某个上游命令的行为前，先在纯上游环境（不加载本包）里测同一组样例。若上游本来就不工作，那不是本包的回归，也不该写进修复范围；应把它作为既有限制固定下来并注明成因。
-**Why**: #1029 我写了「`\global\savebox` 三种形式跨分组保住内容」，实测纯 LaTeX 下三种全为 0.0pt——`\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，与本包无关。真正修好的只有 `\global\sbox`。
+**Why**: #1029 我写了「`\global\savebox` 三种形式跨分组保住内容」，实测纯 LaTeX 下这三种全为 0.0pt——`\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，与本包无关。真正修好的只有 `\global\sbox`。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
 ### 顺手做的一致性修改要单独确认有无门禁
