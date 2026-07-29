@@ -30,9 +30,15 @@ master 与发布版对该 MWE 的渲染逐像素相同，说明 #1035 没有引�
 
 这个缺陷在 base 上不存在，是因为 `\@@_ulem_glue:n` 原先只挂在装饰内部**局部**重定义的 `\CJKglue`／`\CJKecglue` 上，作用域随分组失效；本次把它接到全局有效、装饰外也会执行的路径上，弱守卫才变成可触发的缺陷。
 
-因此改写先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假，正是「装饰 stream 是否活动」这一事实本身，在装饰外恒为假。实测该布尔在装饰外为 false、装饰内为 true。
+因此改写先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假。
 
-这条缺陷由本地独立审查（盲审 run `r1037-...-first2`）作为 blocking finding 发现。
+**该布尔单独不够，守卫是两个条件的合取。** 行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走 `\@@_ulem_end:`，所以同一个公式内装饰命令之后布尔仍为真、而片段盒已关闭。此时叠加 `\ ` 被重定义仍会执行悬空 `\UL@stop`：`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath` 实测 head 6 个错误、base 零错误。触发面覆盖 `\CJKsout`／`\CJKxout`／`\CJKunderdblline`、`\hbox`／`\parbox` 载体与 `equation` 环境。
+
+第二个条件是 `\UL@start` 已被 `\let` 成 `\@empty`，即片段盒确实打开（`ulem` 在 `\UL@start` 定义末尾这么做，本文件别处已用同一判断）。实测三点区分：文档层 `f/f`、装饰内 `T/T`、公式内装饰命令之后 `T/f`。
+
+这两个象限分别由两轮盲审发现：第一个（布尔为假）由 run `first2` 提出，第二个（布尔为真但盒已关闭）由最终全范围轮 `final2` 提出——后者说明「只测布尔」这一版虽然修好了第一个象限，仍漏掉同一根因的另一个象限。
+
+
 
 ## 为什么不用 `\@@_boundary_use_ulem_glue:n`
 
@@ -52,7 +58,7 @@ master 与发布版对该 MWE 的渲染逐像素相同，说明 #1035 没有引�
 
 判别力已实测（rc 1）：把 `\@@_use_ecglue_skip:` 改回 `\skip_horizontal:N` 后，TEST 6 的 2pt badness 由 73 变 1000000，且前四项的 `Overfull` 行全部回到基线。
 
-TEST 7 固定守卫本身：在装饰之外重定义 `\ `，再排普通中西文混排。判别力已实测（rc 1）——去掉布尔守卫后**只有** TEST 7 失败，基线里出现 `\UL@stop ... \egroup \egroup` 的报错行，而前六项全部照常通过，即前六项对这个缺陷没有判别力。
+TEST 7、TEST 8 分别固定守卫的两个象限。TEST 7：在装饰之外重定义 `\ `，再排普通中西文混排。判别力已实测（rc 1）——去掉布尔守卫后**只有** TEST 7 失败，基线里出现 `\UL@stop ... \egroup \egroup` 的报错行，而前六项全部照常通过。TEST 8 固定第二个象限（公式内装饰命令之后 `\ ` 被重定义）：把守卫退回只测布尔后，**只有** TEST 8 失败（`Extra }, or forgotten $` 等），TESTs 1-7 零命中，即 TEST 7 对该象限没有判别力。TEST 8 基线里那条 `Missing character ... lmroman10-regular` 是预期噪声——公式内 `\mbox` 恢复的是数学模式正文字体，该警告在改动前后完全一致；保留汉字是因为必须有中西文边界才会调用被测入口。
 
 ## 已接受的限制
 
