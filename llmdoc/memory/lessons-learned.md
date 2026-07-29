@@ -131,6 +131,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1026 的高亮右边界偏移用文字描述很难判断是否修好；一张带红色边距线的上下对照图，加上「722px → 681px、与发布版逐像素一致」的数值，评审可以直接确认。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 引用差值时要标明它属于哪一组间距设置
+**Rule**: 记录「删掉某处后出现多少 pt 差值」时，注明该数值来自哪一组 `CJKecglue`／`CJKglue` 设置。同一现象在默认胶与自设胶下的数值不同，直接从别的测试搬数字会写错。
+**Why**: #1029 我把 `command-boundary01` 在默认胶下的 3.33pt 搬到了自设 `CJKecglue=5pt`／`CJKglue=1pt` 的新用例注释里，三处文档同时写错；该场景的实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
 ### 变异要逐项做：整个文件变红不等于每一项都有判别力
 **Rule**: 确认回归判别力时，对每一项各自声称守护的那条行为单独做一次变异，只破坏这一条，看这一项是否变化。整份测试文件 rc 1 可能只是其中一项失败连带压垮了后续各项的读数。
 **Why**: #1029 的第一版回归中，只破坏「暂停深度归零」（去掉 `\int_gdecr:N`）或只撤销隔离，测试都全绿；而还原原缺陷时整个文件变红，让我误以为各项都在守着。逐项变异才暴露出两项完全没有判别力、另两项读的是别人的值。

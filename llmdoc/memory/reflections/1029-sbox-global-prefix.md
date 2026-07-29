@@ -74,3 +74,7 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 - 测试：`xeCJK/testfiles/boundary-sbox-global01.lvt/.tlg`。
 - 架构：`llmdoc/architecture/xecjk-architecture.md` 「边界状态与装饰盒隔离（#826/#830/#992）」一节（`\sbox` 隔离机制的既有记录）。
 - 相关决策：`llmdoc/memory/decisions/992-command-boundary-capture-register.md`（钩子的历史引入原因）、`llmdoc/memory/decisions/1010-boundary-register-public-api.md`（用户可见注册入口的边界）。
+
+## 第二轮审查补充
+
+修好判别力之后又被查出一处数字错误：我在新用例注释与两份 llmdoc 里写「删掉隔离后出现 3.33pt 差值」，但那个数字来自 `command-boundary01` 在**默认胶**下的 `scratch-hidden-CJK`；新用例自设 `CJKecglue=5pt`／`CJKglue=1pt`，实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。成因是从既有测试搬数字时没有重新实测——与前面「描述本身也是待验证的断言」是同一类错误，只是这次错在单位量的来源上。引用差值时应当同时标明它属于哪一组间距设置。

@@ -218,7 +218,7 @@
 - 嵌套 `\sbox`：外层 `\global\sbox` 内部再离线测量，并**显式打印** `\g_@@_boundary_suspend_depth_int`（前后均为 0）。只报盒子尺寸发现不了深度泄漏。
 - 暂停观察语义：`\hbox{中\fbox{\sbox\tb{中文}Alpha}文}` 与 `\hbox{中\fbox{Alpha}文}` 同宽（63.19998pt）。scratch box 里必须藏**与外层不同的类别**（西文正文中藏 CJK）才有判别力；写 `\sbox{english}` 不改变末类别，删掉隔离也照样通过。
 
-三项判别力均以变异实测确认，各自 rc 1：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（隐藏 CJK 场景出现 3.33pt 差值，同时 `command-boundary01` 的 `scratch-hidden-CJK` 也失败）；去掉 `\int_gdecr:N`（深度由 0 变 6）。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
+三项判别力均以变异实测确认，各自 rc 1：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（本项自设 `CJKecglue=5pt`／`CJKglue=1pt`，宽度由 63.19998pt 降为 59.19998pt，差 4.0pt；同时 `command-boundary01` 的 `scratch-hidden-CJK` 也失败，那里默认胶下的差值是 3.33pt，两者不是同一个量）；去掉 `\int_gdecr:N`（深度由 0 变 6）。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 
 `gh-assets:issues/1002/` 的四套外部矩阵每套包含 272 个单元；当前实现下 `false-default`、`false-custom`、`true-default`、`true-custom` 均为 272／272。#992 第 28 行的四个旧跳过已经改为实际断言。不过 #992 的公开活表仍只记录已合并实现：PR 合并后必须从合并提交重新运行矩阵，才能把对应红叉改成绿勾。完整决策见 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 

@@ -52,7 +52,7 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
   - 不带 `\global` 的普通 `\sbox` 仍是局部赋值；
   - 嵌套 `\sbox` 场景显式打印 `\g_@@_boundary_suspend_depth_int`（前后均为 0）；只报盒子尺寸发现不了深度泄漏；
   - `\hbox{中\fbox{\sbox\tb{中文}Alpha}文}` 与 `\hbox{中\fbox{Alpha}文}` 同宽（63.19998pt）。scratch box 里必须藏与外层不同的类别（西文正文里藏 CJK）才有判别力；写 `\sbox{english}` 不改变末类别，删掉隔离也照样通过。
-- 三项判别力均以变异实测确认（各自 rc 1）：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（隐藏 CJK 场景出现 3.33pt 差值）；去掉 `\int_gdecr:N`（深度由 0 变 6）。
+- 三项判别力均以变异实测确认（各自 rc 1）：还原为两个通用钩子（outside 退化为 0.0pt）；删掉 `suspend`／`resume`（本项自设 `CJKecglue=5pt`／`CJKglue=1pt`，宽度由 63.19998pt 降为 59.19998pt，差 4.0pt）；去掉 `\int_gdecr:N`（深度由 0 变 6）。
 - 原 MWE（algorithm2e ruled 标题）验证恢复。
 - xeCJK 全套 115 项、ctex 四引擎 185 项、`l3build doc`（244 页）通过。
 
