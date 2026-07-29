@@ -121,6 +121,36 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1002 中自然宽度相同的 glue 仍可能具有不同的伸长量和收缩量。只有缩短段宽并比较 badness 与段落高度，才能证明 stream 和已装入盒子的冻结空格都保留了正确的外层断行能力。#1026 中前三版测试分别把正文装进 `\hbox`、`\vbox`，或用 `\def\BODY` 承载正文，均显示缺陷版与修复版数字相同；只有改成“主垂直列表里真正断行，且调用处写字面正文”才第一次测出差异。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
+### 判断修复是否到位需要三个对照点，第三个是未受影响的发布版
+**Rule**: 缺陷版、修复版之外，还要测一遍**未受影响的发布版**。只比前两个只能回答「有没有变好」，回答不了「变好到该有的程度了吗」。修复版与发布版数值相同、渲染逐像素一致时，结论是「修回了发布版行为」——这既能排除本次引入新问题，也可能揭示发布版自己就带缺陷。
+**Why**: #1026 修复后原 MWE 溢出 18.91pt → 4.47pt，只看这两点像是修好了。加上发布版 v3.10.3 也是 4.47pt、且与修复版渲染逐像素相同（`ImageChops.difference` bbox 为 `None`），才看出 4.47pt 是发布版本来就有的另一半缺陷（#1037），而非终点。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### PR 合并后要回放报告者的原始 MWE，别只看自己的测试基线
+**Rule**: 修复上线后，用报告者给的原始 MWE 复验，而不是以自己新增的回归全绿为准。自己的基线可能把残留缺陷冻结成预期值；报告者的 MWE 是外部判据。把非零缺陷量写进基线时，必须注明它为什么不是零、零需要什么条件。
+**Why**: #1026 的 `fntef-shrink01` 把「修复后为 3.64pt」写成预期，四个用例各固定一条 3.64pt 的 `Overfull` 行。测试全绿、文档写着预期值，于是同源的另一半缺陷有了一份看起来很正规的门禁替它背书，直到报告者追问「这里的 After 是预期的吗」才暴露。这比没有测试更糟——没测试只是没覆盖，冻结残留缺陷是主动声称这是对的。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### `\hbox to` 的实际宽度恒等于目标宽度，量收缩量要用 `\badness`
+**Rule**: 断言前先问「这个量在缺陷存在时会变吗」。`\hbox to <dim>` 总会取到目标宽度，`\wd` 减目标恒为 0，与收缩量够不够、在内层还是外层完全无关。要判断弹性量是否可用，观察 `\badness`（够时为小值、不够时 1000000），并加「一定够」「一定不够」两个对照证明取值可达、不恒真。
+**Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 通用路径里不能直接引用可选子包的函数
+**Rule**: 在所有用户都会走的通用代码路径上引用某个可选子包定义的函数，等于把该子包变成必需依赖。应在主包里放默认实现、由子包加载时改写该入口，并立刻用「只加载主包」的最小文档验证。
+**Why**: #1037 第一版直接在 `xeCJK` 主体的 `\@@_check_for_ecglue_aux:` 里调用 `xeCJKfntef` 的 `\@@_ulem_glue:n`。这条路径是所有 CJK-西文边界都会走的，不加载 `xeCJKfntef` 的普通文档立刻 `Undefined control sequence`，影响面是全部用户。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 探针没触发时先自证探针有效，再推断调用链
+**Rule**: 加了 trace 却没有输出时，不能直接断定「代码不走这条路」。先确认探针本身有效——名字存在、能被调用、在同等条件下确实会打印——再据此推断。
+**Why**: #1037 中重定义 `\xeCJK_ulem_hskip:n` 与 `\__xeCJK_ulem_hskip_first:n` 加 trace，一次都没打印，一度以为找错了函数族。真实原因是该路径不经 `\CJKecglue`，而是直接 `\skip_horizontal:N \l_@@_ecglue_skip`，而 ulem 钩子只重定义 `\CJKecglue`，整族函数都被绕过。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 改动装饰机制要同时验收节点结构与渲染像素
+**Rule**: 把 glue 从内层盒子搬到外层列表这类改动，`\showbox` 证明的是节点结构，装饰外观必须另外渲染出来比像素。两条通道在节点深度上等效时，画出来可能完全不同。
+**Why**: #1037 中 `\@@_boundary_use_ulem_glue:n` 与 `\@@_ulem_glue:n` 都能把收缩量搬到外层，但前者放裸 glue、不画装饰线，在西文词前留下 300dpi 下 7px 的可见断口。选后者后单行样例与修复前逐像素相同。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
 ### 改动他人 issue 引入的代码时，重放那个 issue 的资产做无回归证明
 **Rule**: 若修复触及某个既有 issue 引入的代码路径，就把该 issue 在 `gh-assets` 留下的 MWE 与视觉资产重新跑一遍，与**本 PR 的父提交**逐像素／逐字节比对，并把结果放进 PR body。基线必须选父提交，不能选早于那个 issue 的发布版——发布版的差异是那个 issue 的预期改进，会掩盖真正的回退。
 **Why**: #1026 改的正是 #1002 引入的代码。重放 `issue1002-mwe.tex` 的 24 行数值 oracle 与 `inline-math-showcase.tex` 的 17 页渲染，确认与父提交逐字节／逐像素相同，才排除了回退。若误用 v3.10.3 作基线，会看到 18 行差异并误判为回归——那些差异其实是 #1002 自己的修复效果。

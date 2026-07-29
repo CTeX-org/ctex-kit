@@ -168,6 +168,23 @@ post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检�
 
 已接受的既有限制（不在 #1026 修复范围）：调用处把正文写成宏再传入，例如 `\CJKunderline{\BODY}`，收缩量同样进不了外层——宏体在 `ulem` 扫描期间才展开，触发的是同一条“正文经间接展开→收缩量固化在片段盒内”的机制，但成因是用户写法而不是替换文本本身。实测发布版本（系统 TeX Live）对这种写法同样得到修复前的溢出宽度，说明它是发布版就有的既有限制而非本次回归，不在修复范围内。
 
+### 西文词前的 ecglue 需要可搬运通道（#1037）
+
+“收缩量固化在片段盒内”这条机制在西文词的**两侧各有一处**，#1026 只修了词后那半，词前那半直到 #1037 才修；两者的成因不同，修法也不同。
+
+词前的路径与正文展开方式无关，即使正文是字面记号也会发生：`\@@_ulem_CJK_and_Boundary:w` 用 `\xeCJK_peek_catcode_ignore_spaces:NTF` 前视时吃掉了源码空格，随后 `\@@_ulem_group_end:n` 依次执行 `\UL@stop`（关闭并输出上一个片段盒）与 `\UL@start`（打开新盒），于是 `CJK-space` marker 落在**新盒内部**。等到西文字符触发 Boundary→Default 转换时，`\@@_check_for_ecglue_aux:` 在该 marker 处补出 ecglue，这枚 glue 也就固化在盒内。
+
+注意这条路径不经过 `\CJKecglue`：它直接 `\skip_horizontal:N \l_@@_ecglue_skip`，而 ulem 钩子只重定义 `\CJKecglue`，所以 `\@@_ulem_glue:n` / `\xeCJK_ulem_hskip:n` 一族全部被绕过。没有源码空格时（`虚室hello`）走的才是 `\CJKecglue`，因而本来就落在外层、对称无恙。
+
+修法是把这两处（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）改成经入口 `\@@_use_ecglue_skip:` 输出。该入口在 `xeCJK` 主体里的默认实现就是原来的 `\skip_horizontal:N`，由 `xeCJKfntef` 加载时改写为经 `\@@_ulem_glue:n` 输出——后者先 `\UL@stop` 关盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上；它自带下划线状态与 group tag 守卫，不在装饰中时退化为普通 `\skip_horizontal:n`。
+
+两个实现约束：
+
+- 默认实现必须留在主体、改写放在 `xeCJKfntef`。`\@@_check_for_ecglue_aux:` 是所有 CJK-西文边界都走的通用路径，而 `\@@_ulem_glue:n` 定义在 `xeCJKfntef` 里；在主体直接引用它会让不加载该子包的普通文档报 `Undefined control sequence`。
+- 不能改用 `\@@_boundary_use_ulem_glue:n`。它放的是裸 glue，节点深度上同样把收缩量搬到外层，但不画装饰线，会在西文词前留下可见空隙（300dpi 实测断开 7px）。
+
+按深度统计同一段落的 1.11pt ecglue（`depth>=3` 为盒内、`depth2` 为行上可用）：#1026 缺陷版 16／0，发布版 v3.10.3 与只修词后时同为 8／6，两半都修好后 0／14。
+
 ### capture/register 框架（#992 / PR #999）
 
 `\@@_boundary_capture_begin:` 在已注册命令入口执行四件事：
@@ -543,6 +560,8 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
 **正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
+
+**西文词前的 ecglue 走 `\@@_use_ecglue_skip:`（#1037）**：同一条固化机制在词前还有一处，与正文展开方式无关——源码空格被前视吃掉后，`CJK-space` marker 落在 `\UL@start` 刚打开的片段盒内，`\@@_check_for_ecglue_aux:` 补出的 ecglue 随之固化。该入口在主体里默认为普通 `\skip_horizontal:N`，由 `xeCJKfntef` 改写为经 `\@@_ulem_glue:n` 输出，使收缩量回到外层。详见上文同名小节。
 
 ### xeCJK-listings
 

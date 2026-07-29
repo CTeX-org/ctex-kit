@@ -1,8 +1,18 @@
-% #1026：xeCJKfntef 命令的正文必须以字面记号留在 ulem 的替换文本里。
+% #1026 + #1037：装饰正文里西文词两侧的 \CJKecglue 收缩量都必须留在外层列表。
 %
-% ulem 自己扫描正文并按源码空格把它切成固定宽度的装饰片段盒。若正文经由宏
-% 参数间接展开，西文词右侧由边界恢复链补出的 \CJKecglue 会落在片段盒内部，
-% 收缩量被盒子固化而无法参与断行；行尾因此溢出右边距，装饰随之参差。
+% ulem 自己扫描正文并按源码空格把它切成固定宽度的装饰片段盒。落在片段盒内部的
+% glue，其收缩量被盒子固化而无法参与断行；行尾因此溢出右边距，装饰随之参差。
+%
+% 这条机制有两半，分别由两个 issue 修掉：
+%   #1026（词后）：正文经宏参数间接展开时，西文词右侧的 \CJKecglue 进了片段盒。
+%     修法是让正文以字面记号留在 ulem 的替换文本里。
+%   #1037（词前）：「源码空格 + 西文词」处，源码空格已被前视吃掉，marker 落在
+%     ulem 刚打开的片段盒内部，随后补出的 \CJKecglue 也就固化在盒内。修法是让
+%     该处经 \@@_ulem_glue:n 输出，即先 \UL@stop 关盒、把间距画成外层 leaders、
+%     再 \UL@start 开新盒。
+%
+% 只修一半时本文件前四项仍报 3.64pt 溢出（#1026 修好前是 18.08pt）；两半都修好
+% 后不再溢出。判据因此是「无 Overfull 记录」，而不是某个具体溢出量。
 %
 % 三点必须注意，否则测试量不出这个缺陷：
 %   1. 只有真正的段落断行才显现。把同一内容装进单个 \hbox 或 \vbox 都测不出，
@@ -16,7 +26,10 @@
 %      必要代价——只有节点列表能
 %      拦住“宽度不变而装饰已消失”的实现。
 %
-% 缺陷存在时首行溢出 18.08pt，正确时为 3.64pt。
+% 溢出量随修复进度变化：#1026 缺陷版 18.08pt，只修词后 3.64pt，两半都修好后无
+% 溢出。前四项的基线里因此不含任何 Overfull 行——这也意味着「溢出消失」不是空
+% 基线的默认结果，而是可以被重新引入缺陷推翻的断言（实测两条变异各自会让
+% Overfull 行回到基线里，见 TEST 6 的注释）。
 \input{regression-test}
 
 \documentclass{article}
@@ -97,6 +110,40 @@
   \box1
   \clearpage
   \showboxbreadth=1 \showboxdepth=0
+}
+
+% #1037 的正向断言。前四项以「没有 Overfull 行」为判据，这是必要的但偏弱：它无法
+% 区分「收缩量回到了外层」和「行恰好因别的原因不溢出」。这一项直接测量可收缩量。
+%
+% 不能用「\hbox to 的实际宽度」作判据：\hbox to 总会取到目标宽度，实际宽度减目标
+% 宽度恒为 0，与收缩量在哪里无关。观察通道必须是 \badness——收缩量够时为 0，
+% 不够时为 1000000（并伴随 Overfull 报告）。
+%
+% 做法：把同一正文压窄到自然宽度减 2pt。该正文在外层可用的收缩量，修好后是词前
+% 1.11pt 加词后 1.11pt 共 2.22pt，足以吸收 2pt，\badness=0；只修词后时外层仅
+% 1.11pt，不足 2pt，\badness=1000000。取 2pt 正是为了落在 1.11 与 2.22 之间。
+%
+% 判别力（已实测 rc 1）：把 \@@_use_ecglue_skip: 改回 \skip_horizontal:N（即撤销
+% #1037）后，本项 badness 由 0 变 1000000，且前四项的 Overfull 行回到基线。
+%
+% 正文必须含「源码空格 + 西文词」；写成 \CJKunderline{中文} 时没有 ecglue 可搬，
+% 这一项就失去判别力。
+\TEST{word-front ecglue shrink is available to the outer list}{
+  \setbox0=\hbox{\CJKunderline{虚室 hello 生白}}%
+  \dimen0=\wd0
+  \TYPE{natural=\the\dimen0}
+  \dimen2=\dimen0 \advance\dimen2 by -2pt
+  % \hbadness=10000 抑制 Overfull 报告，避免把结论藏在报告文本里；本项只看 badness。
+  \hbadness=10000
+  \setbox2=\hbox to \dimen2{\CJKunderline{虚室 hello 生白}}%
+  \TYPE{shrink-by-2pt-badness=\the\badness}
+  % 对照：压窄 1pt 一定在两种实现下都够，用来证明上一行的 0 不是恒真。
+  \setbox4=\hbox to \dimexpr\dimen0-1pt\relax{\CJKunderline{虚室 hello 生白}}%
+  \TYPE{shrink-by-1pt-badness=\the\badness}
+  % 对照：压窄 5pt 一定超出任何实现的收缩量，用来证明 1000000 可达。
+  \setbox6=\hbox to \dimexpr\dimen0-5pt\relax{\CJKunderline{虚室 hello 生白}}%
+  \TYPE{shrink-by-5pt-badness=\the\badness}
+  \hbadness=0
 }
 
 \END
