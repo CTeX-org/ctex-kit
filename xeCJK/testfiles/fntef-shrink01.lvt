@@ -134,6 +134,9 @@
   \TYPE{natural=\the\dimen0}
   \dimen2=\dimen0 \advance\dimen2 by -2pt
   % \hbadness=10000 抑制 Overfull 报告，避免把结论藏在报告文本里；本项只看 badness。
+  % 不需要在末尾还原：\TEST 自带 \begingroup…\endgroup，这条局部赋值随分组失效。
+  % （曾写成 \hbadness=0 「还原」，但 regression-test 下的默认值其实是 1000，
+  %   写死 0 是个错误前提；若日后把这段搬出 \TEST 或改成全局赋值会开始漏警告。）
   \hbadness=10000
   \setbox2=\hbox to \dimen2{\CJKunderline{虚室 hello 生白}}%
   \TYPE{shrink-by-2pt-badness=\the\badness}
@@ -143,7 +146,27 @@
   % 对照：压窄 5pt 一定超出任何实现的收缩量，用来证明 1000000 可达。
   \setbox6=\hbox to \dimexpr\dimen0-5pt\relax{\CJKunderline{虚室 hello 生白}}%
   \TYPE{shrink-by-5pt-badness=\the\badness}
-  \hbadness=0
+}
+
+% #1037 的守卫回归。词前 ecglue 改走 \@@_ulem_glue:n 后，该入口位于所有中西文边界
+% 都会经过的通用路径 \@@_check_for_ecglue_aux:，因此必须先确认「装饰 stream 确实
+% 活动」才能取 ulem 通道。
+%
+% 只依赖 \@@_ulem_glue:n 自带的 \xeCJK_if_ulem_patch:TF 不够：它的判据仅是 \ 的含义
+% 是否等于 ulem 保存的 \LA@space，无法区分「不在装饰中」与「在装饰外但 \ 被别的宏包
+% 改过定义」。后者会在没有 \UL@box 打开的列表里执行 \UL@stop，报 Too many }'s。
+% nath、morehype 等重定义 \ 的宏包会让不含任何装饰命令的「中 abc 文」直接报错。
+%
+% 因此这一项在装饰之外重定义 \ ，再排普通中西文混排：正确实现下 \l_@@_ulem_stream
+% _started_bool 为假，退化为普通 \hskip，宽度正常且无错误。判别力已实测 rc 1：去掉
+% 布尔守卫、只留 \@@_ulem_glue:n 时，本项编译即报 Too many }'s（基线里会多出错误
+% 行），而前六项全部照常通过——即前六项对这个缺陷没有判别力，必须有本项。
+\TEST{word-front ecglue stays neutral outside decoration}{
+  \begingroup
+  \def\ {\leavevmode\nobreak\ }%   模拟 nath/morehype 对 \ 的重定义
+  \setbox0=\hbox{中 abc 文}%
+  \TYPE{outside-decoration-width=\the\wd0}
+  \endgroup
 }
 
 \END

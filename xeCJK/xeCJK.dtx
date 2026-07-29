@@ -14368,11 +14368,25 @@ Copyright and Licence
 % 改写 \cs{@@_use_ecglue_skip:}（默认实现在 \pkg{xeCJK} 主体里是普通
 % \tn{hskip}），让「源码空格 + 西文词」处补的 \tn{CJKecglue} 经
 % \cs{@@_ulem_glue:n} 落到外层列表，收缩量可参与断行（\#1037）。
-% \cs{@@_ulem_glue:n} 自带下划线状态与 group tag 守卫，不在装饰中时退化为普通
-% \tn{hskip}，所以改写后非 \pkg{ulem} 路径的行为不变。
+%
+% 必须先用 \cs{l_@@_ulem_stream_started_bool} 判断当前确实在装饰的 stream 里，
+% 不能只依赖 \cs{@@_ulem_glue:n} 自带的 \cs{xeCJK_if_ulem_patch:TF}。后者的判据
+% 只是 \tn{ }\ 的含义是否等于 \pkg{ulem} 保存的 \tn{LA@space}，它能识别
+% \pkg{ulem} 自己造成的变化，却无法区分「不在装饰中」与「在装饰外但 \tn{ }\ 被
+% 别的宏包改过定义」。\cs{@@_check_for_ecglue_aux:} 是所有中西文边界都会走的
+% 通用路径，一旦在装饰外取到真分支，就会在没有 \tn{UL@box} 打开的列表里执行
+% \tn{UL@stop}，导致 \texttt{Too many~\}'s}。\pkg{nath}、\pkg{morehype} 等重定义
+% \tn{ }\ 的宏包会让不含任何装饰命令的 \verb|中 abc 文| 直接报错。
+%
+% 该布尔由 \cs{@@_ulem_stream_begin:} 置真、\cs{@@_ulem_end:} 置假，正是「装饰
+% stream 是否活动」这一事实本身，因此在装饰外恒为假，退化为主体的默认实现。
 %    \begin{macrocode}
 \cs_gset_protected:Npn \@@_use_ecglue_skip:
-  { \@@_ulem_glue:n { \l_@@_ecglue_skip } }
+  {
+    \bool_if:NTF \l_@@_ulem_stream_started_bool
+      { \@@_ulem_glue:n { \l_@@_ecglue_skip } }
+      { \skip_horizontal:N \l_@@_ecglue_skip }
+  }
 \cs_new_protected:Npn \xeCJK_make_group_tag:
   { \tl_set:Ne \l_@@_group_tag_tl { \c_@@_group_tag_tl } }
 \tl_new:N \l_@@_group_tag_tl

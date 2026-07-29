@@ -136,6 +136,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
+**Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
+**Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 改通用路径时，「加载了子包但不使用该功能」是独立验证象限
+**Rule**: 修改所有用户都会经过的路径时，验证矩阵必须包含「加载了相关子包、但完全不使用被改功能」的文档。这批文档受影响面最大，其作者根本不知道自己用到了这条路径。
+**Why**: #1037 的验证集中在装饰内部（节点深度、收缩量、外观像素），漏掉了这一象限，导致 blocking 缺陷要靠盲审才发现——而那个缺陷的复现根本不含装饰命令。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
 ### 通用路径里不能直接引用可选子包的函数
 **Rule**: 在所有用户都会走的通用代码路径上引用某个可选子包定义的函数，等于把该子包变成必需依赖。应在主包里放默认实现、由子包加载时改写该入口，并立刻用「只加载主包」的最小文档验证。
 **Why**: #1037 第一版直接在 `xeCJK` 主体的 `\@@_check_for_ecglue_aux:` 里调用 `xeCJKfntef` 的 `\@@_ulem_glue:n`。这条路径是所有 CJK-西文边界都会走的，不加载 `xeCJKfntef` 的普通文档立刻 `Undefined control sequence`，影响面是全部用户。
