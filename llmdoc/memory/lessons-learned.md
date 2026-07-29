@@ -136,6 +136,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### `.tlg` 基线不要冻结报告文本里的绝对行号
+**Rule**: 当用例的观察量不是警告文本本身时，把警告抑制掉，别让它进基线。`l3build` 只归一化 `on input line %d*` 与 `at lines %d*--%d*`；单数形式的 `detected at line %d`（`\hbox to` 的 Overfull 报告用的就是它）不在其中，进基线就冻结了一个绝对源码行号，任何无关的行数变动都会让该用例失败。抑制 Overfull 要用 `\hfuzz`，不是 `\hbadness`——后者只管 Underfull 警告的阈值。
+**Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
 **Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。
