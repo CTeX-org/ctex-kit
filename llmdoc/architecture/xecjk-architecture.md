@@ -187,9 +187,9 @@ post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检�
 
 按深度统计同一段落的 1.11pt ecglue（`depth>=3` 为盒内、`depth2` 为行上可用）：#1026 缺陷版 16／0，发布版 v3.10.3 与只修词后时同为 8／6，两半都修好后 0／14。
 
-### 同一根因共三处补 ecglue 的地方（#1037）
+### 同一根因共四处补 ecglue 的地方（#1037）
 
-Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，三处都必须改用 `\@@_use_ecglue_skip:`：
+Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处（共 6 个分支）都必须改用 `\@@_use_ecglue_skip:`：
 
 | 位置 | 何时走这条路 |
 |---|---|
