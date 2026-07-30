@@ -32,6 +32,14 @@ push 输出会给出下一步指示和相关链接，必须完整阅读。PR 评
 
 `pull_request_target` 触发的 Agent job（PR Review）用的是 PR 的分叉点（`base.sha`，即 merge base），不是 base 分支当前 HEAD；这个语义细节见 `llmdoc/reference/build-and-test.md` 的 Agent runtime 段落。诊断 Agent job 失败前，先确认该 PR 分支的分叉点是否已经包含所需修复：若分叉点落后 `master` 且早于最近一次 Agent runtime 改动，Agent 会持续加载旧运行时并反复失败，这是预期现象，不是新缺陷。
 
+Agent job 在安装阶段失败时，先区分「分叉点落后」与「上游瞬时故障」两类，不要一律按前者处理。判据：
+
+- 看失败步骤的**最后一行真实错误**，而不只看步骤名。`Setup TeX, PDF and image tools` 失败可能只是字体下载 `curl: (22) ... error: 403`，属上游瞬时故障。
+- 若同一 run 的 fallback job 通过了**完全相同**的安装步骤，那就是瞬时故障的交叉印证，与分支改动无关。
+- 确认 `base.sha` 是否等于 `origin/master` HEAD 且已含最近的 Agent runtime 改动；两者都成立就排除了落后分叉点这一类。
+
+判定为瞬时故障时用 `gh run rerun <run-id> --failed`，不要改分支或 rebase。#1039 的第一次 attempt 正是 403 导致 Codex 主链路失败、fallback 又触及 60 分钟上限被取消；rerun 后 attempt 2 一次通过并给出 APPROVE。注意 fallback 被取消会让整个 run 判为失败，容易被误读成审查发现了问题——要去看有没有真的产出 review 评论。
+
 正确做法是把该分支 rebase 到 `origin/master`（或合并 `master`），让分叉点前移到修复之后。不要用 close/reopen PR 或单独重跑 job 来验证 master 上的修复是否生效——两者都不改变分叉点，看到的仍是修复前的运行时。`#977` 的 `xpinyin-265` 分支曾落后 `master` 163 个提交，reopen 后仍检出旧提交；rebase 后才加载成功。
 
 审查范围包括代码、测试、文档和 PR 描述等元数据；实现参数变化后，PR 描述仍保留旧值也必须修正。确认存在的问题全部修复，不遗留已知技术债；判定问题不成立时则记录具体不变量、接口文档或最小实验，不能只写“不会发生”。成立的问题运行相称验证、commit、再次执行无管道的 `git push 2>&1`，并重新等待 hook。若全部 finding 均无需代码改动，由仓库 OWNER/MEMBER/COLLABORATOR 在 bot 评论之后回复核实依据，再运行 `make check-pr-ci`；hook 将该 bot 评论视为已确认，避免用空 commit 触发下一轮相同 agentic review。循环直到 CI 全绿、push 后无未确认评论、无未解决 thread，且所有大中小问题均已处理或以证据判定不成立。
