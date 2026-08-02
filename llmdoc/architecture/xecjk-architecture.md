@@ -107,9 +107,33 @@ xeCJK 在导言区结束时比较 XeTeX allocator 与自身已登记类，发现
 
 注意：`\bgroup` / `\egroup`（隐式花括号）**不**触发 Boundary class，因为它们是控制序列而非 catcode 1/2 字符。
 
+但「显式 `{`」这一条要按 XeTeX 的实际前瞻语义理解，不能只看源码里写了什么：**XeTeX 判断字符类时会展开宏，`\protected` 也挡不住**。`\protected` 只对 `\edef` / `\write` 一类的完全展开语境有效；类别前瞻走的是「不断展开直到取得一个不可展开记号」的路径，等价于 `\expandafter` 层面的展开。纯 XeTeX 实测（不加载 LaTeX 与 expl3）：
+
+| 输入 | 触发的类别转换 | 前瞻看到的记号 |
+|---|---|---|
+| `X{q}` | 1→4095 Boundary | `begin-group character {` |
+| `X\PBRACE`（`\protected\def\PBRACE{{q}}`） | 1→4095 Boundary | `begin-group character {` |
+| `X\PLET`（`\protected\def\PLET{aq}`） | **1→0 Default** | `the letter a` |
+| `X\relax` | 1→4095 Boundary | `\relax` |
+
+第三行是判据：`\PLET` 是 `\protected` 的，XeTeX 却按展开后的字母 `a` 归入 Default 类。因此一个宏只要展开后**以显式 `{` 开头**，就会触发 CJK→Boundary，handler 看到的 `\l_peek_token` 是那个 `{` 而不是宏本身。#1038 正是这样发生的：`tabular` 里 `\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号就是显式 `{`。
+
+判断 interchartoks 触发时刻的记号身份必须用裸 `\futurelet` 实测，不能从宏的 `\protected` 属性反推。
+
 handler 在执行时会 peek 下一个 token：
 - 若 peek token 是 catcode 2（`}`）：说明当前正在退出一个 TeX 分组（如 `前{中} 后` 中的 `}`），分组结束后会恢复局部变量（包括 `\l_peek_token`），因此必须在 `\@@_boundary_group_end:n` **之前**设置 `\g_@@_glue_check_pending_bool`，以确保后续的 inter-word glue 被正确识别
 - 若 peek token 是控制序列（如 `\ `）：不设置 boolean，区分于 catcode 2 的情况
+- 若 peek token 是 catcode 1（`{`）：走 `\@@_boundary_group_math:w`，用于识别「花括号包住行内公式」（`中{$x$}`，见 #1002）
+
+### 最小吸收原则（#1038）
+
+interchartoks 注入的代码执行在**别的宏正在执行到一半**的位置：注入点之后的记号可能是某个宏替换文本里尚未被 TeX 读取的语法片段。因此这里的代码只能吸收判断所必需的最少记号，其余原样留在输入流里。
+
+`\@@_boundary_group_math:w` 曾用 `n` 型参数把整个花括号组吞掉、再用隐式 `\c_group_begin_token ... \c_group_end_token` 重新发出，只为看组内首记号是不是 `$`。这在 `tabular` 中出错（#1038）：被吞掉的 `{\ifnum0=`}` 是 LaTeX 平衡花括号技巧的一半，该技巧要求反引号紧跟**显式**字符记号 `}`，重发的隐式 group-end 不满足，报 `Improper alphabetic constant`。
+
+现在改为用 `\afterassignment` + `\let` 只把那一枚左花括号当作赋值右值吸收（实测 `\currentgrouplevel` 不变，不开新分组），再 `\peek_after:Nw` 判断下一个记号，最后补发一枚隐式左花括号恢复分组，由源码原有的 `}` 闭合。
+
+写这一层代码时的选择顺序：能用 `\futurelet` / `\peek_after:Nw` 不消费就不消费；必须吸收时用 `\afterassignment` + `\let` 吸收**单个**记号；不要用 `n` 型参数吞组，也不要预展开任意可展开控制序列（后者是 `\@@_boundary_identity:n` 那条既有约束，#1038 把它从「不展开」推广到「不吞组」）。
 
 ## 边界恢复状态机
 

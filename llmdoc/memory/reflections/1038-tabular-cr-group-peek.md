@@ -1,0 +1,80 @@
+# 反思：#1038 `tabular` 中 CJK 紧邻 `\\` 报 `Improper alphabetic constant`
+
+## 任务
+
+zepinglee 报告：加载 xeCJK v3.10.4 后，`tabular` 里 CJK 后紧接 `\\` 就报错，并指认引入提交 `c8923052`（#1002 的行内公式边界修复）。
+
+## 结论
+
+指认准确。`c8923052` 在 `\xeCJK_CJK_and_Boundary:w` 里新增了一条 group-begin 分支，用来修复 `中{$x$}` 丢失 `\CJKecglue` 的问题。该分支选中的 `\@@_boundary_group_math:w` 用 `n` 型参数把整个花括号组吞掉、再用**隐式**的 `\c_group_begin_token`／`\c_group_end_token` 重新发出。
+
+`tabular` 里 `\\` 已被 `\let` 为 `\@tabularcr`，其替换文本是 `{\ifnum0=`}\fi\@ifstar\@xtabularcr\@xtabularcr`（`latex.ltx:16825`）——LaTeX 用来平衡花括号的经典技巧，要求反引号紧跟**显式**字符记号 `}`。xeCJK 把 `{\ifnum0=`}` 整个吞掉后重发，反引号读到的是隐式 group-end 控制序列，于是 `! Improper alphabetic constant.`。
+
+修法：不再抓参数，改用 `\afterassignment` 加 `\let` 只把那一枚左花括号当作赋值右值吸收（这不开分组），前瞻其后第一个记号判断是否 `$`，再补发一枚隐式左花括号恢复分组。除这一枚花括号外，输入流原样保留，`` `} `` 的相邻关系因此不被破坏。
+
+## 最核心的认知错误：`\protected` 挡不住 XeTeX 的字符类前瞻
+
+我一开始的推理是：`\\` 是 `\protected` 宏，`\protected` 就是为了防止在展开语境里被展开，所以 `\l_peek_token` 应该是宏 `\\` 本身，`\token_if_group_begin:NTF` 该返回假。这个推理错了，而且我花了好几轮探针才接受它错了。
+
+实测（纯 XeTeX、不加载 LaTeX 与 expl3）：
+
+| 输入 | 触发的类别转换 | 前瞻看到的记号 |
+|---|---|---|
+| `X{q}` | 1→4095 (Boundary) | `begin-group character {` |
+| `X\PBRACE`（`\protected\def\PBRACE{{q}}`） | 1→4095 (Boundary) | `begin-group character {` |
+| `X\PLET`（`\protected\def\PLET{aq}`） | **1→0 (Default)** | `the letter a` |
+| `X\relax` | 1→4095 (Boundary) | `\relax` |
+
+第三行是决定性的：`\PLET` 是 `\protected` 的，XeTeX 却触发了 Default 类——要判断出下一个「字符」是字母 `a`，它必须先把 `\PLET` 展开掉。
+
+**`\protected` 只对 `\edef`／`\write` 一类的完全展开语境有效。** XeTeX 判断字符类走的是「不断展开直到取得一个不可展开记号」的路径，等价于 `\expandafter` 层面的展开，`\protected` 在这条路上不起作用。
+
+教训：**「这个宏是 `\protected` 的，所以不会被展开」是一个需要按语境验证的断言，不是通用事实。** 语境有两类——完全展开（`\edef`）与逐步展开（`\expandafter`／类别前瞻）——`\protected` 只管前者。判断某个记号在 interchartoks 触发时刻的身份，必须用裸 `\futurelet` 探针实测，不能从宏的属性反推。
+
+## 探针一再给出误导结论
+
+这次探针踩了三个坑，都值得记：
+
+1. **包装 `\xeCJK_CJK_and_Boundary:w` 自身会扰乱 peek 状态。** 我在它开头插 `\iow_term:e` 打印 `\l_peek_token`，得到 `macro=N gbegin=N`——与真实行为相反。原因是我的插入代码本身消费／重置了 peek 状态。
+2. **包装 `\token_if_group_begin:NTF` 得到的是 `[\l_peek_token]` 这种无信息输出**，因为 `\token_to_str:N` 打印的是变量名而不是它持有的记号。
+3. 真正有效的探针是**裸 `\futurelet` + `\meaning`**，放在被测函数之前、不做任何展开。
+
+教训：**探针的侵入性本身会改变被测语义时，探针结论比没有结论更危险。** 前瞻状态（`\l_peek_token`、`\lastkern`、`\spacefactor`）这类「读一次就可能变」的量，探针必须只读且零展开；拿到反直觉结果时，先怀疑探针，再怀疑代码。
+
+## 在 interchartoks 里抓参数是危险动作
+
+`c8923052` 用 `n` 型参数抓花括号组，本意只是想看「花括号后第一个记号是不是 `$`」。但 interchartoks 的注入点是**别的宏正在执行到一半的位置**——`\@tabularcr` 的替换文本刚吐出第一个 `{`，后面的 `\ifnum0=` 和 `` ` `` 还等着按原样被 TeX 读取。抓参数把这段语法整体搬走再吐回，破坏了记号之间的相邻关系。
+
+`\@@_boundary_group_math:w` 其实只需要**一个记号的信息**，却吞掉了任意长的一整组。
+
+教训：**interchartoks 注入的代码要按「最小吸收」原则写：只吸收判断所必需的那几个记号，其余原样留在输入流里。** 需要看某个记号的身份时，优先用 `\futurelet`／`\peek_after:Nw` 这类不消费的手段；不得不吸收时，用 `\afterassignment` + `\let` 吸收单个记号，而不是用 `n` 型参数吞组。同一条原则也解释了 `\@@_boundary_identity:n` 那条既有注释——「不展开任意可展开控制序列」——本次只是把它从「不展开」推广到「不吞组」。
+
+## 既有测试对本缺陷零判别力，原因在空白
+
+`xeCJK/testfiles/tabular01.lvt` 早就存在，且正是测 `tabular` 里的 CJK。它没能拦住这个缺陷：四行内容每行 `\\` 前都有一个源码空格（`姓名 & 年龄 \\`）。有空格时走的是 CJK→NormalSpace 路径，根本不进 `\@@_boundary_group_math:w`。实测缺陷版下 `tabular01` 全绿。
+
+教训：**测试样例里的空白不是排版细节，它决定了走哪条代码路径。** 写 xeCJK 的用例时，「CJK 紧邻 X」与「CJK 空格 X」是两个必须分别覆盖的象限；同理还有行尾（可能被吃掉的空格）与行内。补用例时我特意把两种写法并列，并在注释里写明既有两项对本缺陷零判别力，避免后来者以为已覆盖。
+
+## 触发面比报告的更窄，也需要实测
+
+报告只给了 `tabular`。我逐个隔离测了 10 种换行/对齐写法（每种单独一个文件——**同一文件里多个用例会因前一个报错而中止，导致后面的假绿**，这一点自己先踩了一次）：
+
+- 失败并被修复：`tabular`、`tabular` 带可选参数 `\\[2pt]`、`tabular` 中 `&` 之后
+- 从未失败：`array`、`align`、`pmatrix`、`tabularx`、`array` 宏包的 `>{...}` 列型、`\halign`、`center`、`minipage`
+
+原因是数学与 `\halign` 路径直接用 `\cr`，不经过 `{\ifnum0=`}\fi` 这个平衡技巧。这条边界写进了决策文档，免得后来者以为所有换行命令都受影响。
+
+## Promotion Candidates
+
+- **`\protected` 不能阻止 XeTeX 字符类前瞻对宏的展开。** 它只对完全展开语境有效。判断 interchartoks 触发时刻的记号身份必须实测。
+- **interchartoks 注入的代码遵循最小吸收原则**：能 `\futurelet` 就不消费，必须吸收时用 `\afterassignment` + `\let` 吸收单个记号，不用 `n` 型参数吞组。
+- **前瞻类状态的探针必须只读零展开**；反直觉结果先怀疑探针。
+- **测试样例的空白决定代码路径**，「紧邻」与「空格分隔」是两个独立覆盖象限。
+- **多个复现用例要分文件跑**，否则前一个的报错会让后面的假绿。
+
+## 相关
+
+- Issue：#1038；引入点 `c8923052`（属 #1002）；受影响版本 v3.10.4。
+- 实现：`xeCJK/xeCJK.dtx` 的 `\@@_boundary_group_math:w`、`\@@_boundary_group_math_peek:`、`\@@_boundary_group_math_branches:`。
+- 测试：`xeCJK/testfiles/tabular01.lvt`（新增 TEST 3／4）。
+- 相关决策：[[../decisions/1038-tabular-cr-group-peek.md]]、[[../decisions/1002-inline-math-boundary-oracle.md]]。

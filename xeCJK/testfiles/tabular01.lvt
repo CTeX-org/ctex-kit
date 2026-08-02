@@ -27,6 +27,37 @@
   \clearpage
 }
 
+% #1038：CJK 字符紧邻 \\（中间没有源码空格）时，XeTeX 的字符类前瞻会展开 \\ ——
+% \protected 挡不住这种展开——于是 \@tabularcr 替换文本里的显式左花括号
+% （{\ifnum0=`}\fi...）被当成 CJK 右边界的 group-begin，触发
+% \@@_boundary_group_math:w。它原先用 n 型参数把整个 {\ifnum0=`} 吞掉再用隐式
+% \c_group_end_token 重新发出，导致反引号读不到显式的 } 字符，报
+% Improper alphabetic constant。
+%
+% 注意上面两项对本缺陷零判别力：它们每行 \\ 前都有一个源码空格，走的是
+% CJK→NormalSpace 路径，根本不进 \@@_boundary_group_math:w。实测缺陷版下
+% tabular01 照样全绿。因此这里必须补「\\ 紧邻 CJK」的写法。
+%
+% 判别力已实测 rc 1：还原 \@@_boundary_group_math:w 的吞参数形式后，本项与下一项
+% 各报 Improper alphabetic constant，而上面两项仍通过。
+\TEST{CJK immediately followed by tabular cr}{
+  \begin{tabular}{l}
+  中文\\
+  \end{tabular}
+  \clearpage
+}
+
+% 同一根因的相邻写法：\\ 带可选参数、位于 & 之后、以及 array 与 \cr 路径。
+% \@arraycr／\@argtabularcr 用的是同一个 {\ifnum0=`}\fi 平衡技巧。
+\TEST{CJK before tabular cr variants}{
+  \begin{tabular}{ll}
+  甲文&乙文\\
+  中文\\[2pt]
+  末行 & 末列\\
+  \end{tabular}
+  \clearpage
+}
+
 \END
 
 \end{document}
