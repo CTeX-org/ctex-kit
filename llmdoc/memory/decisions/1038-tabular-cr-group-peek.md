@@ -79,7 +79,7 @@
 
 ## 附带改善：隐式花括号形态
 
-`中\bgroup $x$\egroup 文` 修复前拿不到 `\CJKecglue`（宽 29.04527pt），修复后与显式花括号形态及无分组 oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次目标，但行为既然变了就补了门禁（`tabular01` TEST 5）。
+`中\bgroup $x$\egroup 文` 修复前拿不到 `\CJKecglue`（宽 29.04527pt），修复后与显式花括号形态及无分组 oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次目标，但行为既然变了就补了门禁（独立文件 `boundary-bgroup01`）。
 
 `\bgroup` / `\egroup` 同样触发 Boundary class——`xecjk-architecture.md` 曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，实测有误，已更正。注意更正后的**原因**也不是「被展开成花括号」：`\bgroup` 是 `\let` 出来的隐式字符记号、本身不可展开；它走 Boundary 是因为 catcode 1 不属于 letter/other 那四个分支。
 
@@ -103,7 +103,7 @@
 
 ## 验证
 
-- xeCJK 116／116（新增 `boundary-bgroup01`）、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度门禁。
+- xeCJK 117／117（新增 `tabular-cr01` 与 `boundary-bgroup01`）、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度门禁。
 - `中 {$x$} 文` 与 `中{$x$}文` 的节点列表和盒宽在修复前后逐项相同，且与 oracle（`中 $x$ 文`、`中$x$文`）一致——即 #1002 的行为未受影响。
 
 ## 相关资料
