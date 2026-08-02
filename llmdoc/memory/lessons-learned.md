@@ -141,6 +141,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 事实性陈述的更正以「全仓所有实例」为单位
+**Rule**: 改一处计数、页数、文件名、函数名或机制解释后，用 `grep` 扫一遍该说法的所有变体再收工；并把「历史记述」（记录当时事实，保留原值）与「当前事实」（必须统一）分开。同时算上本次改动本身会不会让该数字再变一次。
+**Why**: #1038 中「只修一半」连续出现三轮：先只拆被点名的测试而漏掉同类；再更正一句假陈述却只改了两份文档中的一份；最后把测试数从 115 改成 116——而 116 是上一提交的值，本提交又新增一个文件，正确值是 117。每次都是只改了 finding 里出现的那一处。加上收工前的 grep 扫描（计数一遍、指针一遍）后才不再复发。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
 ### 会中止编译的用例必须各自独占文件，否则同文件后续用例是假绿
 **Rule**: 若一个用例在缺陷版下会以错误中止编译（而不是输出错误的数值），那么同一 `.lvt` 里它后面的所有用例在缺陷版下根本不执行——它们在缺陷版和修复版之间没有可观察差异，是看起来正规实际空转的门禁。每个能独立触发该缺陷的用例都要有自己的文件。这不只是排查时的注意事项，而是测试设计约束。
 **Why**: #1038 中我把三组用例写进同一个 `tabular01.lvt`。TEST 3（`中文\\`）在缺陷版下报 `Improper alphabetic constant` 并中止编译，实测缺陷版日志里 `TEST 4` 出现 0 次、TEST 5 也一样。我先只拆了 TEST 5，第二轮盲审指出 TEST 4 仍是同样的空壳，并且我在文档里写的「TEST 3／4 各报错」是假的。最终拆成 `tabular01` / `tabular-cr01` / `boundary-bgroup01` 三个文件，逐个实测缺陷版 rc 1。
