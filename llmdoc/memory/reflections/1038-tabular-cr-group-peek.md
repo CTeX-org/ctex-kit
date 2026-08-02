@@ -120,5 +120,5 @@ zepinglee 报告：加载 xeCJK v3.10.4 后，`tabular` 里 CJK 后紧接 `\\` �
 
 - Issue：#1038；引入点 `c8923052`（属 #1002）；受影响版本 v3.10.4。
 - 实现：`xeCJK/xeCJK.dtx` 的 `\@@_boundary_group_math:w`、`\@@_boundary_group_math_peek:`、`\@@_boundary_group_math_branches:`。
-- 测试：`xeCJK/testfiles/tabular01.lvt`（新增 TEST 3／4）。
+- 测试：`xeCJK/testfiles/tabular01.lvt`（新增 TEST 3）、`tabular-cr01.lvt`、`boundary-bgroup01.lvt`（后两者独立成文件的理由见上文）。
 - 相关决策：[[../decisions/1038-tabular-cr-group-peek.md]]、[[../decisions/1002-inline-math-boundary-oracle.md]]。

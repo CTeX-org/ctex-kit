@@ -201,8 +201,8 @@
 
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
-`fntef-shrink01`、#1029 新增 `boundary-sbox-global01` 后，当前为
-117／117 通过。完整接口契约见
+`fntef-shrink01`、#1029 新增 `boundary-sbox-global01`、#1038 新增
+`tabular-cr01` 与 `boundary-bgroup01` 后，当前为 117／117 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 ### `\sbox`／`\savebox` 全局前缀回归（`boundary-sbox-global01`，#1029）
