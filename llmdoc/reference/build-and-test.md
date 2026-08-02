@@ -339,7 +339,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行门禁固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 115／115，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 116／116，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
@@ -349,7 +349,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 `tabular01.lvt` 的 TEST 1／2 早已存在，却对 #1038 **零判别力**——它们每行 `\\` 前都有一个源码空格（`姓名 & 年龄 \\`），走的是 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下该文件全绿。TEST 3／4（#1038 新增）补上「`\\` 紧邻 CJK」的写法，判别力实测 rc 1：还原抓参数形式后 TEST 3／4 各报 `Improper alphabetic constant`，TEST 1／2 零命中。
 
-TEST 5 固定 #1038 的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1）。顺带更正一条长期记错的事实——`\bgroup` / `\egroup` **同样**触发 Boundary class，因为 XeTeX 前瞻会展开宏。
+`boundary-bgroup01`（#1038 新增）固定同一修复的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1，缺陷版回到 29.04527pt）。
+
+**它必须独立成文件，不能并入 `tabular01`。** 起初就是并进去的（作为 TEST 5），但 `tabular01` 的 TEST 3 在缺陷版下以 `Improper alphabetic constant` 中止编译，其后的用例根本不执行——该项在缺陷版里连输出都没有，判别力无法观察，等于一个看起来正规实际空转的门禁。这是「多个复现用例必须分文件跑」这条规则在测试设计上的直接后果，不只是排查时的注意事项。
+
+顺带更正一条长期记错的事实——`\bgroup` / `\egroup` **同样**触发 Boundary class。原因不是它被展开成花括号（它是隐式字符记号、不可展开），而是 XeTeX 的判据是 `get_x_token` 展开后那个不可展开记号的 catcode：只有 letter / other / `\chardef` / `\char` 用字符自身类别，其余一律 Boundary，catcode 1 不在其中。
 
 **测试样例里的空白决定走哪条代码路径**，不是排版细节。写 xeCJK 用例时「CJK 紧邻 X」与「CJK 空格 X」是两个必须分别覆盖的象限。
 

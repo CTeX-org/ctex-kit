@@ -105,20 +105,26 @@ xeCJK 在导言区结束时比较 XeTeX allocator 与自身已登记类，发现
 - 显式 `{`（catcode 1）和 `}`（catcode 2）
 - `\ `（control space）
 
-注意：`\bgroup` / `\egroup`（隐式花括号）**同样**触发 Boundary class。曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，这条表述是错的——实测（纯 XeTeX）`X\bgroup` 触发 1→4095，且 handler 里 `\l_peek_token` 显示为 `begin-group character {`。原因见下一段：XeTeX 前瞻会展开宏，`\bgroup` 被展开到它 `\let` 的那个隐式 begin-group 记号，前瞻按 begin-group 归类。
+注意：`\bgroup` / `\egroup`（隐式花括号）**同样**触发 Boundary class。曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，这条表述是错的——实测 `X\bgroup` 触发 1→4095。但触发的原因也不是「它被展开成了花括号」：`\bgroup` 是 `\let` 出来的**隐式字符记号**，本身不可展开（`\meaning` 打印 `begin-group character {`）。真正的判据见下。
 
-但「显式 `{`」这一条要按 XeTeX 的实际前瞻语义理解，不能只看源码里写了什么：**XeTeX 判断字符类时会展开宏，`\protected` 也挡不住**。`\protected` 只对 `\edef` / `\write` 一类的完全展开语境有效；类别前瞻走的是「不断展开直到取得一个不可展开记号」的路径，等价于 `\expandafter` 层面的展开。纯 XeTeX 实测（不加载 LaTeX 与 expl3）：
+### 类别是怎么定下来的（实测 + `xetex.web` 对照）
 
-| 输入 | 触发的类别转换 | 前瞻看到的记号 |
-|---|---|---|
-| `X{q}` | 1→4095 Boundary | `begin-group character {` |
-| `X\PBRACE`（`\protected\def\PBRACE{{q}}`） | 1→4095 Boundary | `begin-group character {` |
-| `X\PLET`（`\protected\def\PLET{aq}`） | **1→0 Default** | `the letter a` |
-| `X\relax` | 1→4095 Boundary | `\relax` |
+上面那份清单是现象，规则本身要按引擎实际做法理解。XeTeX **没有**专门的「前瞻」步骤：类别选择发生在 `main_control` 主循环——`big_switch` 处用 `get_x_token` 取下一个记号（这是**普通的完全展开取记号**），只有取到的记号落在 `hmode+letter`、`hmode+other_char`、`hmode+char_given`、`hmode+char_num` 四个分支时才进入 `main_loop` 并调用 `check_for_inter_char_toks`，用该字符的类别作为目标；其余任何 `cur_cmd` 走 `othercases`，调用 `check_for_post_char_toks`，目标被**固定写成** `char_class_boundary`。
 
-第三行是判据：`\PLET` 是 `\protected` 的，XeTeX 却按展开后的字母 `a` 归入 Default 类。因此一个宏只要展开后**以显式 `{` 开头**，就会触发 CJK→Boundary，handler 看到的 `\l_peek_token` 是那个 `{` 而不是宏本身。#1038 正是这样发生的：`tabular` 里 `\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号就是显式 `{`。
+因此规则是：
 
-判断 interchartoks 触发时刻的记号身份必须用裸 `\futurelet` 实测，不能从宏的 `\protected` 属性反推。
+> 按常规规则展开，直到得到一个不可展开的记号。若它是**字符记号**（显式或隐式皆可，catcode 为 letter / other，或由 `\chardef` / `\char` 产生），就用该字符的类别；否则一律用 Boundary（4095）。类别 4096 的字符被完全跳过。
+
+两条推论，都有决定性实验：
+
+- **`\protected` 不阻断这个展开。** `b` 属类别 3、`a` 属类别 2 时，`\protected\def\PB{b}` 与普通 `\def\UB{b}` 在 `X\PB`／`X\UB` 下都给出 1→3，与基线 `Xb` 一致；三层嵌套（protected→普通→protected→`b`）同样 1→3。`\protected` 只对 `\edef` / `\write` 一类的记号列表展开有效，对排版流程里的 `get_x_token` 无效。
+- **判据是 catcode，不是「显式还是隐式」。** `\let\iLetter=a` 得 1→2、`\let\iOther=!` 得 1→2——隐式本身不构成障碍；反过来显式 `$`（cat 3）、`^`（cat 7）、源码空格、显式 `{` 与 `\let\myLbrace={` 全部走 Boundary。`\bgroup` 走 Boundary 是因为它的 catcode 是 1，不在那四个分支里，与它是隐式记号无关。
+
+所以 Boundary class 实际上是「**下一个不可展开记号不是 letter/other 字符**」的统称，触发它的远不止花括号：`\relax`、`\kern`、`\unskip`、`\hbox`、`\penalty`、`\vrule`、`\discretionary`、`$`、`^`、源码空格都会。
+
+#1038 正是这条规则的后果：`tabular` 里 `\` 被 `\let` 为 `\@tabularcr`，`get_x_token` 展开它（`\protected` 无效），得到替换文本首记号——显式 `{`，catcode 1，于是归 Boundary 并注入 CJK→Boundary handler，而 handler 里的 `\l_peek_token` 就是那个 `{`。
+
+**不要用 `\futurelet` 反推「引擎当初看到了什么」。** 引擎命中 toks 前已经 `back_input` 把触发字符退回，所以 toks 内的 `\futurelet` 看到的是那个被退回的记号；宏展开的情形下它看到的是展开**之后**的结果（`X\PLET` 看到 `the letter a`，原始 `\PLET` 已不在）。要确定规则必须直接观测「触发了哪一对 `N M`」。另注：在 toks 主体里用 `\futurelet` 触碰被退回的字符会破坏引擎的重入保护，导致同一转换无限重复触发——写探针时应先关掉 `\XeTeXinterchartokenstate`。
 
 handler 在执行时会 peek 下一个 token：
 - 若 peek token 是 catcode 2（`}`）：说明当前正在退出一个 TeX 分组（如 `前{中} 后` 中的 `}`），分组结束后会恢复局部变量（包括 `\l_peek_token`），因此必须在 `\@@_boundary_group_end:n` **之前**设置 `\g_@@_glue_check_pending_bool`，以确保后续的 inter-word glue 被正确识别

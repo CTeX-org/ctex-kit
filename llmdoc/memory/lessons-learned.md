@@ -141,8 +141,8 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
-### `\protected` 不阻止 XeTeX 字符类前瞻展开宏
-**Rule**: `\protected` 只对 `\edef` / `\write` 一类的完全展开语境有效。XeTeX 判断字符类走的是「不断展开直到取得一个不可展开记号」的路径，`\protected` 宏在这条路上照样被展开。因此一个宏只要展开后以显式 `{` 开头，就会触发 CJK→Boundary，而 handler 看到的 `\l_peek_token` 是那个 `{`，不是宏本身。判断 interchartoks 触发时刻的记号身份必须用裸 `\futurelet` 实测，不能从宏属性反推。
+### XeTeX 的 interchar 类别由「展开后那个不可展开记号的 catcode」决定
+**Rule**: 类别选择发生在 `main_control` 主循环：`get_x_token` 正常完全展开取记号，只有 letter / other / `\chardef` / `\char` 四类才按该字符的类别走 `check_for_inter_char_toks`，其余一律固定为 Boundary（4095）。两条推论：`\protected` **不**阻断这个展开（它只对 `\edef`／`\write` 一类记号列表展开有效）；判据是 **catcode** 而非「显式还是隐式」——`\let\iLetter=a` 按字母类别参与，而 `\bgroup`（catcode 1）、`$`、`^`、源码空格、`\relax`、`\kern` 全走 Boundary。不要用 `\futurelet` 反推引擎当初看到了什么：引擎命中 toks 前已 `back_input`，探针看到的是被退回的、且已展开过的记号；要定规则必须直接观测触发了哪一对 `N M`。（在 toks 主体里 `\futurelet` 触碰被退回的字符还会破坏重入保护，导致同一转换无限重复。）
 **Why**: #1038 中我据「`\\` 是 `\protected` 宏」推断 group-begin 测试不会为真，与实际相反。纯 XeTeX 对照实测：`\protected\def\PLET{aq}` 后 `X\PLET` 触发的是 Default 类（1→0）而非 Boundary，说明 XeTeX 已把它展开到字母 `a`。`tabular` 里 `\\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号是显式 `{`，于是走进花括号分支并把平衡技巧吞掉一半，报 `Improper alphabetic constant`。
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
