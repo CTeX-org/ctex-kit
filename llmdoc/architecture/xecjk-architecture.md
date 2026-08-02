@@ -105,7 +105,7 @@ xeCJK 在导言区结束时比较 XeTeX allocator 与自身已登记类，发现
 - 显式 `{`（catcode 1）和 `}`（catcode 2）
 - `\ `（control space）
 
-注意：`\bgroup` / `\egroup`（隐式花括号）**不**触发 Boundary class，因为它们是控制序列而非 catcode 1/2 字符。
+注意：`\bgroup` / `\egroup`（隐式花括号）**同样**触发 Boundary class。曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，这条表述是错的——实测（纯 XeTeX）`X\bgroup` 触发 1→4095，且 handler 里 `\l_peek_token` 显示为 `begin-group character {`。原因见下一段：XeTeX 前瞻会展开宏，`\bgroup` 被展开到它 `\let` 的那个隐式 begin-group 记号，前瞻按 begin-group 归类。
 
 但「显式 `{`」这一条要按 XeTeX 的实际前瞻语义理解，不能只看源码里写了什么：**XeTeX 判断字符类时会展开宏，`\protected` 也挡不住**。`\protected` 只对 `\edef` / `\write` 一类的完全展开语境有效；类别前瞻走的是「不断展开直到取得一个不可展开记号」的路径，等价于 `\expandafter` 层面的展开。纯 XeTeX 实测（不加载 LaTeX 与 expl3）：
 

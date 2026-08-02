@@ -82,6 +82,12 @@
 
 另一条思路是保留抓参数，但用 catcode 技巧造出真正 catcode 1/2 的字符记号来重发，这样反引号就能读到显式 `}`。不采纳：它仍会提前吞掉 `\ifnum0=` 之后的内容并改变 `\@ifstar` 的前瞻时序，风险面比「只吸收一枚记号」大得多，且没有对应的验证手段能穷举被改变的时序。
 
+## 附带改善：隐式花括号形态
+
+`中\bgroup $x$\egroup 文` 修复前拿不到 `\CJKecglue`（宽 29.04527pt），修复后与显式花括号形态及无分组 oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次目标，但行为既然变了就补了门禁（`tabular01` TEST 5）。
+
+`\bgroup` / `\egroup` 同样触发 Boundary class——`xecjk-architecture.md` 曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，实测有误，已更正：XeTeX 前瞻会展开宏，`\bgroup` 被展开到它 `\let` 的隐式 begin-group 记号，按 begin-group 归类。
+
 ## 触发面
 
 逐个隔离实测（每种写法单独一个文件——同一文件内前一个用例报错会中止编译，使后面的假绿）：
@@ -89,7 +95,7 @@
 - **受影响并已修复**：`tabular`、`tabular` 带可选参数（`\\[2pt]`）、`tabular` 中 `&` 之后。
 - **从未受影响**：`array`、`align`、`pmatrix`、`tabularx`、`array` 宏包的 `>{...}` 列型、`\halign`、`center`、`minipage`。
 
-数学与 `\halign` 路径直接用 `\cr`，不经过 `{\ifnum0=`}\fi` 这个平衡技巧，因此不触发。
+**筛选依据不是「是否用了 `{\ifnum0=`}\fi` 平衡技巧」**——`\@arraycr` 用的正是同一个技巧（`latex.ltx:16818`）。真实依据是**替换文本的首记号**：`\@tabularcr` 为 `{\ifnum0=`}...`，首记号是显式 `{`，触发 CJK→Boundary 并进入花括号分支；`\@arraycr` 为 `${\ifnum0=`}...`，首记号是 `$`，XeTeX 前瞻看到的是 math shift。`\halign` 直接用 `\cr`，无此包装。另外数学模式下 handler 本就不运行（实测 `\mode_if_math:` 为真时 `\xeCJK_CJK_and_Boundary:w` 零次命中），是第二重保险。
 
 ## 测试
 
@@ -101,7 +107,7 @@
 
 ## 验证
 
-- xeCJK 116／116、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度门禁。
+- xeCJK 115／115、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度门禁。
 - `中 {$x$} 文` 与 `中{$x$}文` 的节点列表和盒宽在修复前后逐项相同，且与 oracle（`中 $x$ 文`、`中$x$文`）一致——即 #1002 的行为未受影响。
 
 ## 相关资料
