@@ -1,0 +1,38 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+% 独立成文件，不与 tabular01 合并：tabular01 的 TEST 3 在缺陷版下会以
+% Improper alphabetic constant 中止编译，其后的用例根本不会执行——那样这一项
+% 在缺陷版里连输出都没有，判别力无法观察。多个复现用例必须分文件跑。
+
+% #1038 的附带改善：隐式花括号 \bgroup 形态。
+%
+% \bgroup／\egroup 同样触发 Boundary class（曾长期被记载为「不触发」，实测有误）。
+% 注意原因不是「\bgroup 被展开成花括号」——它是 \let 出来的隐式字符记号、本身不可
+% 展开；它走 Boundary 是因为 catcode 1 不属于 letter/other 那几类。XeTeX 的判据是
+% get_x_token 展开后那个不可展开记号的 catcode（详见 xecjk-architecture.md）。修复前
+% 该形态拿不到 \CJKecglue（宽度 29.04527pt），修复后与显式花括号形态、以及无分组
+% oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次的
+% 目标，但既然行为变了就要有门禁。
+%
+% 判别力已实测 rc 1：还原抓参数形式后本项宽度回到 29.04527pt。
+\TEST{CJK before implicit brace group with math}{
+  \setbox0=\hbox{中\bgroup $x$\egroup 文}%
+  \setbox1=\hbox{中{$x$}文}%
+  \setbox2=\hbox{中$x$文}%
+  \TYPE{implicit-bgroup-width=\the\wd0}
+  \TYPE{explicit-brace-width=\the\wd1}
+  \TYPE{no-group-oracle-width=\the\wd2}
+}
+
+\END
+
+\end{document}
