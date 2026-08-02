@@ -141,6 +141,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 会中止编译的用例必须各自独占文件，否则同文件后续用例是假绿
+**Rule**: 若一个用例在缺陷版下会以错误中止编译（而不是输出错误的数值），那么同一 `.lvt` 里它后面的所有用例在缺陷版下根本不执行——它们在缺陷版和修复版之间没有可观察差异，是看起来正规实际空转的门禁。每个能独立触发该缺陷的用例都要有自己的文件。这不只是排查时的注意事项，而是测试设计约束。
+**Why**: #1038 中我把三组用例写进同一个 `tabular01.lvt`。TEST 3（`中文\\`）在缺陷版下报 `Improper alphabetic constant` 并中止编译，实测缺陷版日志里 `TEST 4` 出现 0 次、TEST 5 也一样。我先只拆了 TEST 5，第二轮盲审指出 TEST 4 仍是同样的空壳，并且我在文档里写的「TEST 3／4 各报错」是假的。最终拆成 `tabular01` / `tabular-cr01` / `boundary-bgroup01` 三个文件，逐个实测缺陷版 rc 1。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
 ### XeTeX 的 interchar 类别由「展开后那个不可展开记号的 catcode」决定
 **Rule**: 类别选择发生在 `main_control` 主循环：`get_x_token` 正常完全展开取记号，只有 letter / other / `\chardef` / `\char` 四类才按该字符的类别走 `check_for_inter_char_toks`，其余一律固定为 Boundary（4095）。两条推论：`\protected` **不**阻断这个展开（它只对 `\edef`／`\write` 一类记号列表展开有效）；判据是 **catcode** 而非「显式还是隐式」——`\let\iLetter=a` 按字母类别参与，而 `\bgroup`（catcode 1）、`$`、`^`、源码空格、`\relax`、`\kern` 全走 Boundary。不要用 `\futurelet` 反推引擎当初看到了什么：引擎命中 toks 前已 `back_input`，探针看到的是被退回的、且已展开过的记号；要定规则必须直接观测触发了哪一对 `N M`。（在 toks 主体里 `\futurelet` 触碰被退回的字符还会破坏重入保护，导致同一转换无限重复。）
 **Why**: #1038 中我据「`\\` 是 `\protected` 宏」推断 group-begin 测试不会为真，与实际相反。纯 XeTeX 对照实测：`\protected\def\PLET{aq}` 后 `X\PLET` 触发的是 Default 类（1→0）而非 Boundary，说明 XeTeX 已把它展开到字母 `a`。`tabular` 里 `\\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号是显式 `{`，于是走进花括号分支并把平衡技巧吞掉一半，报 `Improper alphabetic constant`。

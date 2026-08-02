@@ -202,7 +202,7 @@
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
 `fntef-shrink01`、#1029 新增 `boundary-sbox-global01` 后，当前为
-115／115 通过。完整接口契约见
+116／116 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 ### `\sbox`／`\savebox` 全局前缀回归（`boundary-sbox-global01`，#1029）
@@ -349,9 +349,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 `tabular01.lvt` 的 TEST 1／2 早已存在，却对 #1038 **零判别力**——它们每行 `\\` 前都有一个源码空格（`姓名 & 年龄 \\`），走的是 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下该文件全绿。TEST 3／4（#1038 新增）补上「`\\` 紧邻 CJK」的写法，判别力实测 rc 1：还原抓参数形式后 TEST 3／4 各报 `Improper alphabetic constant`，TEST 1／2 零命中。
 
-`boundary-bgroup01`（#1038 新增）固定同一修复的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1，缺陷版回到 29.04527pt）。
+#1038 共新增两个独立文件。`tabular-cr01` 固定 `\\` 的相邻写法（`&` 之后、`\\[2pt]`、末行）；`boundary-bgroup01` 固定同一修复的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1，缺陷版回到 29.04527pt）。
 
-**它必须独立成文件，不能并入 `tabular01`。** 起初就是并进去的（作为 TEST 5），但 `tabular01` 的 TEST 3 在缺陷版下以 `Improper alphabetic constant` 中止编译，其后的用例根本不执行——该项在缺陷版里连输出都没有，判别力无法观察，等于一个看起来正规实际空转的门禁。这是「多个复现用例必须分文件跑」这条规则在测试设计上的直接后果，不只是排查时的注意事项。
+**两者都必须独立成文件。** 起初它们是 `tabular01` 的 TEST 4／TEST 5，但 `tabular01` 的 TEST 3 在缺陷版下以 `Improper alphabetic constant` 中止编译，同一文件里其后的用例根本不执行——实测缺陷版日志里 `TEST 4` 出现 0 次。那样的用例在缺陷版里连输出都没有，判别力无法观察，是看起来正规实际空转的门禁。
+
+**「多个复现用例必须分文件跑」不只是排查时的注意事项，而是测试设计约束**：每个能独立触发该缺陷的用例都要有自己的文件，否则第一个报错就把其余全部变成假绿。三个文件现各自具备判别力（逐个实测缺陷版 rc 1）。
 
 顺带更正一条长期记错的事实——`\bgroup` / `\egroup` **同样**触发 Boundary class。原因不是它被展开成花括号（它是隐式字符记号、不可展开），而是 XeTeX 的判据是 `get_x_token` 展开后那个不可展开记号的 catcode：只有 letter / other / `\chardef` / `\char` 用字符自身类别，其余一律 Boundary，catcode 1 不在其中。
 

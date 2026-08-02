@@ -99,13 +99,11 @@ xeCJK 在导言区结束时比较 XeTeX allocator 与自身已登记类，发现
 
 ### CJK→Boundary handler（`\xeCJK_CJK_and_Boundary:w`）
 
-`\XeTeXinterchartoks` 中 CJK→Boundary 的处理函数。Boundary class (255/4095) 由以下情况触发：
+`\XeTeXinterchartoks` 中 CJK→Boundary 的处理函数。Boundary class 在新引擎是 **4095**、0.99993 之前的旧引擎是 255（xeCJK 按引擎版本分支，见 `xeCJK.dtx` 的 `{ Boundary } { 4095 }`）；注意 4096 是「忽略」类别而非边界类别，属于它的字符对整个机制完全不可见。
 
-- 源码空格
-- 显式 `{`（catcode 1）和 `}`（catcode 2）
-- `\ `（control space）
+Boundary 不是一份可枚举的字符清单，而是「**下一个不可展开记号不是 letter/other 字符**」的统称——完整规则见下一节。常见触发者包括源码空格、显式 `{` / `}`、`\ `（control space）、`$`、`^`、`\relax`、`\kern`、`\unskip`、`\hbox`、`\penalty`、`\vrule`、`\discretionary`，以及 `\bgroup` / `\egroup`。
 
-注意：`\bgroup` / `\egroup`（隐式花括号）**同样**触发 Boundary class。曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，这条表述是错的——实测 `X\bgroup` 触发 1→4095。但触发的原因也不是「它被展开成了花括号」：`\bgroup` 是 `\let` 出来的**隐式字符记号**，本身不可展开（`\meaning` 打印 `begin-group character {`）。真正的判据见下。
+曾长期记载「`\bgroup` / `\egroup` 是控制序列而非 catcode 1/2 字符，因此**不**触发」——这条是错的，实测 `X\bgroup` 触发 1→4095。但更正后的原因也不是「它被展开成了花括号」：`\bgroup` 是 `\let` 出来的隐式字符记号，本身不可展开（`\meaning` 打印 `begin-group character {`）。它走 Boundary 只是因为 catcode 1 不属于下一节那四个分支。
 
 ### 类别是怎么定下来的（实测 + `xetex.web` 对照）
 

@@ -95,11 +95,11 @@
 
 ## 测试
 
-`xeCJK/testfiles/tabular01.lvt` 新增 TEST 3（`中文\\`）与 TEST 4（`&` 之后、`\\[2pt]`、末行）；附带改善的用例独立为 `xeCJK/testfiles/boundary-bgroup01.lvt`——放在 `tabular01` 里时，TEST 3 在缺陷版下会中止编译使其永不执行，判别力无法观察。
+`xeCJK/testfiles/tabular01.lvt` 新增 TEST 3（`中文\\`）。另外两组各自独立成文件——`tabular-cr01.lvt`（`&` 之后、`\\[2pt]`、末行）与 `boundary-bgroup01.lvt`（附带改善）：放在 `tabular01` 里时 TEST 3 在缺陷版下会中止编译使它们永不执行，判别力无法观察。**每个能独立触发该缺陷的用例都要有自己的文件**，否则第一个报错就把其余变成假绿。
 
 该文件早已存在且正是测 `tabular` 里的 CJK，却对本缺陷**零判别力**：原有四行每行 `\\` 前都有一个源码空格，走 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下 `tabular01` 全绿。注释中写明了这一点。
 
-判别力已实测 rc 1：还原抓参数形式后 TEST 3／4 各报 `Improper alphabetic constant`，TEST 1／2 零命中。
+判别力已实测 rc 1：还原抓参数形式后 `tabular01` TEST 3 报 `Improper alphabetic constant`（TEST 1／2 零命中），`tabular-cr01` 与 `boundary-bgroup01` 各自独立失败。**不能说「TEST 3／4 各报错」**——同一文件里 TEST 3 的错误会中止编译，实测缺陷版日志里 TEST 4 出现 0 次，这正是把它拆出去的原因。
 
 ## 验证
 
