@@ -349,6 +349,8 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 `tabular01.lvt` 的 TEST 1／2 早已存在，却对 #1038 **零判别力**——它们每行 `\\` 前都有一个源码空格（`姓名 & 年龄 \\`），走的是 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下该文件全绿。TEST 3／4（#1038 新增）补上「`\\` 紧邻 CJK」的写法，判别力实测 rc 1：还原抓参数形式后 TEST 3／4 各报 `Improper alphabetic constant`，TEST 1／2 零命中。
 
+TEST 5 固定 #1038 的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1）。顺带更正一条长期记错的事实——`\bgroup` / `\egroup` **同样**触发 Boundary class，因为 XeTeX 前瞻会展开宏。
+
 **测试样例里的空白决定走哪条代码路径**，不是排版细节。写 xeCJK 用例时「CJK 紧邻 X」与「CJK 空格 X」是两个必须分别覆盖的象限。
 
 另有两条与复现方法有关：

@@ -146,6 +146,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1038 中我据「`\\` 是 `\protected` 宏」推断 group-begin 测试不会为真，与实际相反。纯 XeTeX 对照实测：`\protected\def\PLET{aq}` 后 `X\PLET` 触发的是 Default 类（1→0）而非 Boundary，说明 XeTeX 已把它展开到字母 `a`。`tabular` 里 `\\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号是显式 `{`，于是走进花括号分支并把平衡技巧吞掉一半，报 `Improper alphabetic constant`。
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
+### 解释「为什么这个不受影响」要核对那个对象本身，不能从受影响者的特征反面推断
+**Rule**: 给出「A 受影响、B 不受影响」的筛选规则前，直接检查 B，确认它确实缺少你归因于 A 的那个特征。从 A 的特征取反得到的规则，很可能把自己的反例列成安全案例——这比不给解释更危险。
+**Why**: #1038 中我写「`array` 不受影响是因为它不用 `{\ifnum0=`}\fi` 平衡技巧」。盲审核实：`\@arraycr` 用的正是同一个技巧（`latex.ltx:16818`）。真实判据是替换文本的**首记号**——`\@tabularcr` 以显式 `{` 开头，`\@arraycr` 以 `$` 开头。我当时看到 `\@tabularcr` 有技巧、`array` 没坏，就把「有无技巧」当判据，而两者都有技巧。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
 ### interchartoks 注入的代码遵循最小吸收原则
 **Rule**: interchartoks 的代码执行在别的宏正在执行到一半的位置，注入点之后可能是某个替换文本里尚未被 TeX 读取的语法片段。只吸收判断所必需的最少记号：能用 `\futurelet` / `\peek_after:Nw` 不消费就不消费；必须吸收时用 `\afterassignment` + `\let` 吸收单个记号；不要用 `n` 型参数吞整个花括号组，也不要预展开任意可展开控制序列。
 **Why**: #1038 中 `\@@_boundary_group_math:w` 为了看组内首记号是不是 `$`，用 `n` 型参数吞掉整组再用隐式分组记号重发。被吞掉的 `{\ifnum0=`}` 是 LaTeX 平衡花括号技巧的一半，该技巧要求反引号紧跟显式字符 `}`；隐式 group-end 不满足，`tabular` 里 `中文\\` 直接报错。改为只吸收那一枚左花括号后，输入流其余部分原样保留，问题消失且 #1002 的行为不变。

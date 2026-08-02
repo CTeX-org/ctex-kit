@@ -47,8 +47,13 @@
   \clearpage
 }
 
-% 同一根因的相邻写法：\\ 带可选参数、位于 & 之后、以及 array 与 \cr 路径。
-% \@arraycr／\@argtabularcr 用的是同一个 {\ifnum0=`}\fi 平衡技巧。
+% 同一根因的相邻写法：\\ 带可选参数（走 \@argtabularcr）、位于 & 之后、以及末行。
+% 这三种都仍经过 \@tabularcr，即替换文本首记号是显式 { 的那条路径。
+%
+% 不含 array／\halign：它们不受本缺陷影响，原因不是「没用 {\ifnum0=`}\fi 平衡技巧」
+% ——\@arraycr 用的正是同一个技巧（latex.ltx:16818）——而是替换文本首记号不同：
+% \@arraycr 以 $ 开头（math shift），XeTeX 前瞻看到的不是 {；\halign 则直接用 \cr。
+% 数学模式下 handler 本就不运行，是第二重保险。
 \TEST{CJK before tabular cr variants}{
   \begin{tabular}{ll}
   甲文&乙文\\
@@ -56,6 +61,24 @@
   末行 & 末列\\
   \end{tabular}
   \clearpage
+}
+
+% #1038 的附带改善：隐式花括号 \bgroup 形态。
+%
+% \bgroup／\egroup 同样触发 Boundary class（曾长期被记载为「不触发」，实测有误：
+% XeTeX 前瞻会展开宏，\bgroup 被展开到它 \let 的隐式 begin-group 记号）。修复前
+% 该形态拿不到 \CJKecglue（宽度 29.04527pt），修复后与显式花括号形态、以及无分组
+% oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次的
+% 目标，但既然行为变了就要有门禁。
+%
+% 判别力已实测 rc 1：还原抓参数形式后本项宽度回到 29.04527pt。
+\TEST{CJK before implicit brace group with math}{
+  \setbox0=\hbox{中\bgroup $x$\egroup 文}%
+  \setbox1=\hbox{中{$x$}文}%
+  \setbox2=\hbox{中$x$文}%
+  \TYPE{implicit-bgroup-width=\the\wd0}
+  \TYPE{explicit-brace-width=\the\wd1}
+  \TYPE{no-group-oracle-width=\the\wd2}
 }
 
 \END
