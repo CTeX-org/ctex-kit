@@ -6700,24 +6700,46 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_CJK_and_math:
   { \group_align_safe_end: \@@_CJK_and_math: }
-\cs_new_protected:Npn \@@_boundary_group_math:w #1
+%    \end{macrocode}
+%
+% \changes{v3.10.5}{2026/08/02}{只吸收触发转换的那一枚左花括号，不再吞掉整个
+%   分组再重新发出，修复 \pkg{tabular} 中 \texttt{中文\textbackslash\textbackslash}
+%   报 \texttt{Improper alphabetic constant} 的问题（\#1038）。}
+% 这里只需要知道左花括号之后的第一个记号是不是 \tn{\$}，因此不能用 \texttt{n} 型
+% 参数把整个分组吞掉：分组的内容可能是别的宏正在执行的语法，提前吞掉再重新发出会
+% 破坏它。
+%
+% 具体的事故是 \#1038：XeTeX 判断字符类时会展开宏，\emph{包括} \tn{protected} 宏
+% ——\tn{protected} 只对 \tn{edef} 一类的完全展开语境有效，对「不断展开直到取得
+% 一个不可展开记号」的类别前瞻无效。于是 \pkg{tabular} 里 \verb|中文\\| 的 \tn{\\}
+% （已 \tn{let} 为 \tn{@tabularcr}）被展开，其替换文本
+% \verb|{\ifnum0=`}\fi...| 的首个记号是显式左花括号，本函数因此被选中，并把
+% \verb|{\ifnum0=`}| 整个吞掉。重新发出时用的是\emph{隐式}的
+% \cs{c_group_end_token}，而 \pkg{latex} 那个平衡花括号的技巧要求反引号紧跟
+% \emph{显式}字符记号 \verb|}|，于是报 \texttt{Improper alphabetic constant}。
+%
+% 改为用 \tn{afterassignment} 加 \tn{let} 把那一枚左花括号当作赋值的右值吸收——
+% 这不开新分组——再前瞻其后的第一个记号，最后补发一枚隐式左花括号恢复分组。除这
+% 一枚花括号之外，输入流原样保留，因此 \verb|`}| 的相邻关系不被破坏。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_group_math:w
   {
-    \tl_if_empty:nTF {#1}
+    \tex_afterassignment:D \@@_boundary_group_math_peek:
+    \tex_let:D \@@_boundary_group_math_brace:
+  }
+\cs_new_eq:NN \@@_boundary_group_math_brace: \scan_stop:
+\cs_new_protected:Npn \@@_boundary_group_math_peek:
+  { \peek_after:Nw \@@_boundary_group_math_branches: }
+\cs_new_protected:Npn \@@_boundary_group_math_branches:
+  {
+    \token_if_math_toggle:NTF \l_peek_token
+      { \@@_boundary_CJK_and_math: }
       {
         \bool_if:NTF \l_@@_peek_ignore_spaces_bool
           { \@@_boundary_reserve_space: }
           { \@@_boundary_group_end:n { CJK } }
       }
-      {
-        \tl_if_head_eq_meaning:nNTF {#1} $
-          { \@@_boundary_CJK_and_math: }
-          {
-            \bool_if:NTF \l_@@_peek_ignore_spaces_bool
-              { \@@_boundary_reserve_space: }
-              { \@@_boundary_group_end:n { CJK } }
-          }
-      }
-    \c_group_begin_token #1 \c_group_end_token
+    \c_group_begin_token
   }
 % 只展开严格等同于单参数原样输出函数的宏。对任意“可展开”控制序列做
 % 预展开会提前执行条件判断或扫描参数，破坏表格等正在运行的 TeX 语法。

@@ -141,6 +141,21 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### `\protected` 不阻止 XeTeX 字符类前瞻展开宏
+**Rule**: `\protected` 只对 `\edef` / `\write` 一类的完全展开语境有效。XeTeX 判断字符类走的是「不断展开直到取得一个不可展开记号」的路径，`\protected` 宏在这条路上照样被展开。因此一个宏只要展开后以显式 `{` 开头，就会触发 CJK→Boundary，而 handler 看到的 `\l_peek_token` 是那个 `{`，不是宏本身。判断 interchartoks 触发时刻的记号身份必须用裸 `\futurelet` 实测，不能从宏属性反推。
+**Why**: #1038 中我据「`\\` 是 `\protected` 宏」推断 group-begin 测试不会为真，与实际相反。纯 XeTeX 对照实测：`\protected\def\PLET{aq}` 后 `X\PLET` 触发的是 Default 类（1→0）而非 Boundary，说明 XeTeX 已把它展开到字母 `a`。`tabular` 里 `\\` 被 `\let` 为 `\@tabularcr`，替换文本 `{\ifnum0=`}\fi...` 的首记号是显式 `{`，于是走进花括号分支并把平衡技巧吞掉一半，报 `Improper alphabetic constant`。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
+### interchartoks 注入的代码遵循最小吸收原则
+**Rule**: interchartoks 的代码执行在别的宏正在执行到一半的位置，注入点之后可能是某个替换文本里尚未被 TeX 读取的语法片段。只吸收判断所必需的最少记号：能用 `\futurelet` / `\peek_after:Nw` 不消费就不消费；必须吸收时用 `\afterassignment` + `\let` 吸收单个记号；不要用 `n` 型参数吞整个花括号组，也不要预展开任意可展开控制序列。
+**Why**: #1038 中 `\@@_boundary_group_math:w` 为了看组内首记号是不是 `$`，用 `n` 型参数吞掉整组再用隐式分组记号重发。被吞掉的 `{\ifnum0=`}` 是 LaTeX 平衡花括号技巧的一半，该技巧要求反引号紧跟显式字符 `}`；隐式 group-end 不满足，`tabular` 里 `中文\\` 直接报错。改为只吸收那一枚左花括号后，输入流其余部分原样保留，问题消失且 #1002 的行为不变。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
+### 前瞻类状态的探针必须只读且零展开
+**Rule**: `\l_peek_token`、`\lastkern`、`\spacefactor` 这类「读一次就可能变」的量，探针不能消费或重新前瞻。包装被测函数自身往往会扰乱它要观察的状态。拿到反直觉结果时先怀疑探针，再怀疑代码；裸 `\futurelet` + `\meaning` 放在被测函数之前是可靠形式。另注意 `\token_to_str:N \l_peek_token` 打印的是变量名而非它持有的记号。
+**Why**: #1038 中我先包装 `\xeCJK_CJK_and_Boundary:w` 打印 peek 状态，得到 `gbegin=N`，与真实行为相反——我的插入代码本身重置了 peek 状态；再包装 `\token_if_group_begin:NTF` 只得到无信息的 `[\l_peek_token]`。换成裸 `\futurelet` 探针才看到真相：xeCJK 任何代码运行前，输入流里的下一个记号就已经是 `{`。
+**Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
 **Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。
