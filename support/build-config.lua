@@ -149,7 +149,17 @@ function update_tag(file, content, tagname, tagdate)
   -- nil. 直接 `version or tagname` 会取到那个函数, 后面拼接时报
   -- "attempt to index a function value".
   local target = (type(version) == "string") and version or tagname
-  if type(target) ~= "string" then return content end
+  if type(target) ~= "string" then
+    -- 未设 version 的包必须用 `l3build tag <版本>`; 漏掉参数时 tagname 为 nil.
+    -- 改造前这里会以 `attempt to concatenate a nil value` 崩溃 -- 难读, 但至少可见.
+    -- 若改成静默返回, `l3build tag` 会打印 Tagging、退出 0、什么也不改, 使用者以为
+    -- 成功了, 比崩溃更危险. 按本仓「参数被忽略时要显式告警」的规则给出可操作提示.
+    print(("[build-config] %s: 未指定版本号, 未作任何修改. 本包的 build.lua 没有 "
+      .. "`version` 字段, 请用 `l3build tag <版本>`; 或给 build.lua 加 version "
+      .. "字段后跑 `l3build tag` (不带参数).")
+      :format(file))
+    return content
+  end
   -- zhlineskip 风格的 "v1.0h" 前缀在本路径不适用, 但容错剥掉以免写出 "vv1.0".
   target = target:gsub("^v", "")
 

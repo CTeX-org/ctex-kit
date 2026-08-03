@@ -151,6 +151,21 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样门禁的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
+### 校验侧的语法必须与写入侧一致
+**Rule**: 门禁提取某个值时用的模式，不能比写入该值的代码更严格。写入侧不作约束、校验侧却假定固定形状，会让合法输入通过前一道闸却在后一道闸被拒，且报错信息通常指向错误的原因。
+**Why**: #1041 的 release 闸用 `[0-9]+\.[0-9]+\.[0-9a-z]+` 提取版本号（假定三段式），而写入侧 `({\ExplFileDate})%b{}` 对内容零约束。实测两段式 `3.11` 能过 PR 闸，到 release 闸提取为空并报 `stamp=`（既空，又指向 xeCJK 根本没有的 `$Id:$` stamp）。jiazhu 现役版本 `0.0-beta` 同样命中。改用 `[^}]*` 并在提取为空时显式报错。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 把崩溃改成静默返回，往往比崩溃更糟
+**Rule**: 修「函数在某输入下崩溃」时，别直接改成静默返回。崩溃难读但可见；静默成功会让调用者以为操作生效。要给出可操作的提示再返回。
+**Why**: #1041 我把「未设 `version` 的包漏掉 CLI 参数时 `attempt to concatenate a nil value`」改成静默 `return content`，于是 `cd xpinyin && l3build tag` 打印 `Tagging`、退出 0、什么也不改。这正好违反了我在同一个 PR 里提升的「参数被忽略时要显式告警」规则——只给另一条路径加了告警，却漏了这六个包最可能犯的手滑。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 覆盖矩阵要以「入口枚举」为准对账
+**Rule**: 记录「哪些包被门禁覆盖」的表，其行集合必须与实际入口的枚举（如 workflow 里 `case` 能识别的全部 tag 前缀）逐项对账，而不是凭印象列举。漏掉的那一行正是这张表想拦住的静默跳过。
+**Why**: #1041 我新建的覆盖矩阵漏了 `zhmetrics-uptex`——它能触发 `release.yml` 却不在表里，正是矩阵存在的理由。已补齐并写明「行必须覆盖 release.yml 的全部九个 tag 前缀」。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 诊断信息的来源不能是可被污染的环境变量
 **Rule**: 打印路径、目录名一类诊断信息时，用内核态查询（Lua 下 `lfs.currentdir()`）而非 `os.getenv("PWD")`。环境变量可被调用方覆盖，会让「修好的」路径重新变成错的；`PWD` 在 Windows 上还根本不存在。
 **Why**: #1041 我把告警里的包路径从 `module`（小写 `xecjk`，与目录 `xeCJK/` 不符）改成 `os.getenv("PWD")`，盲审实测 `PWD=/somewhere/else l3build tag 3.10.6` 打印出 `else/build.lua`——又一个不存在的路径，与这次修复的目的正好相反。改用 `lfs.currentdir()`（texlua 预置全局表，l3build 自身也用）。
