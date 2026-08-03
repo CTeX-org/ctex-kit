@@ -1,0 +1,56 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+\loggingoutput
+
+% #1043：\colorbox 的参数里含 & 且调用位于 \halign 语境时，boundary 分析炸掉。
+%
+% 机制：\halign 内 TeX 把 & 置为 catcode 4，而 \@@_boundary_if_math_head:n 要把
+% 参数交给 expl3 的 \tl_if_head_eq_meaning:nNTF，后者内部把 token list 包进花括号组
+% 再扫描，对齐符会破坏扫描平衡，报
+%   ! Argument of \__tl_tl_head:w has an extra }.
+% 修复是在 \@@_boundary_math_set:n 里把判断用副本中的 catcode-4 & 换成 \scan_stop:。
+%
+% 缺陷版下本文件会以一连串 extra } / Missing $ 报错收场（实测 26 个 !），
+% 所以三种语境各自独立成 TEST，但同一文件即可——缺陷不中止编译，只是刷错误。
+%
+% 注意：匹配模板必须是 catcode 4 的 &。\ExplSyntaxOn 下 & 是 catcode 0（escape），
+% 若直接写 { & } 作模式，替换静默失效、缺陷依旧——这是本修复最容易写错的一处，
+% 故三个 TEST 都要保留，任一语境失守都能暴露。
+
+\TEST{colorbox with ampersand in eqnarray}{
+  \begin{eqnarray*}
+    A = \colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$} &=& B
+  \end{eqnarray*}
+  \clearpage
+}
+
+\TEST{colorbox with ampersand in tabular}{
+  \begin{tabular}{c}
+    \colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$}\\
+  \end{tabular}
+  \clearpage
+}
+
+% 与 CJK 相邻，确认修复后 ecglue 仍照常插入——本修复动的是 boundary 判断路径，
+% 若替换把参数弄坏，最先失守的就是这里的 CJK-math 间距。
+\TEST{ecglue preserved around colorbox with ampersand}{
+  \begin{tabular}{c}
+    中文\colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$}中文\\
+  \end{tabular}
+  \clearpage
+}
+
+\END
+
+\end{document}

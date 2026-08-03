@@ -1,6 +1,7 @@
 ## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
 
 - `\CJKecglue` 补在源码空格位置时改用可搬运通道，避免收缩量固化在 `ulem` 的定宽片段盒内（#1037）。
+- boundary 判断前把参数副本中 catcode 4 的 `&` 换成 `\scan_stop:`，修复 `\colorbox` 等命令在 `\halign` 语境下参数含 `&` 时编译报错的问题 (#1043)。
 - `\sbox` 改用专用适配器：`\global` 等前缀必须紧邻 `\setbox`，放进 `cmd/sbox/before` 钩子的赋值会把前缀吃掉，使 `\global\sbox` 静默退化为局部赋值（#1029）。
 - 只吸收触发转换的那一枚左花括号，不再吞掉整个分组再重新发出，修复 `tabular` 中 `中文\\` 报 `Improper alphabetic constant` 的问题（#1038）。
 - 周期装饰按嵌套层保存末段状态，避免内层命令改写外层右端（#1012）。

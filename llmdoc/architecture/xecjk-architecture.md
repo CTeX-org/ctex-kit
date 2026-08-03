@@ -285,6 +285,30 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 
 `\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。`\@@_boundary_sbox:Nn` 与 `\@@_boundary_prepare_sbox:` 把内部入口 `sbox ` 直接重定义为 `\tex_setbox:D #1 \tex_hbox:D { suspend … \color@setgroup #2 \color@endgroup … resume }`，在盒子内部执行 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl` 与 source-space pending，结束后必须归零。#1029 之前这里挂的是 `cmd/sbox/before` / `after` 两个通用钩子，已被这个专用适配器取代，原因见下文「命令钩子与专用适配器的选择边界」。
 
+#### 语法判断前必须消解参数里的对齐符（#1043）
+
+`\@@_boundary_color_box:nnn`、`\@@_boundary_textcolor:nnn` 这类适配器把**原始**用户参数
+交给 `\@@_boundary_if_math_head:n` / `_tail:n` 做语法判断，而后者用 expl3 的
+`\tl_if_head_eq_meaning:nNTF` 等条件式实现。这些条件式内部会把 token list 包进花括号组
+再扫描，**catcode 4 的对齐符会破坏扫描平衡**：`\halign` 语境（`eqnarray`／`align`／
+`tabular`）里参数含 `&` 时报 `! Argument of \__tl_tl_head:w has an extra }.`。
+这是 expl3 条件式对 catcode-4 token 的固有限制，不加载 xeCJK 也能用裸
+`\tl_if_head_eq_meaning:nNTF {$a&b$} $` 在 `tabular` 内复现。
+
+因此所有进入语法判断的参数都先经 `\@@_boundary_math_set:n` 存副本，并把其中 catcode-4 的
+`&` 换成 `\scan_stop:`。要点：
+
+- **修在 `_head:n` / `_tail:n` 这一层**，而不是单个适配器里。`\colorbox` 和 `\textcolor`
+  分属不同适配器但共用这两个判断入口，逐个适配器修必然漏。
+- 判断用的是副本，**实际排版仍使用原始参数**，所以替换不影响输出。
+- 用 `\scan_stop:` 占位而非删除，以保住 `&` 的位置语义（否则 `&$x$` 会被误判为首项是公式）。
+- 匹配模板必须是 catcode 4 的 `&`，写法陷阱见
+  `llmdoc/reference/coding-conventions.md`「字面字符当替换模式时必须核对 catcode régime」。
+
+回归门禁 `xeCJK/testfiles/halign-amp-boundary01.lvt` 覆盖 `eqnarray`／`tabular`／
+CJK 相邻三种语境。注意 `\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）
+本身就不是合法 LaTeX，不加载 xeCJK 也报错，不能写进基线。
+
 #### 命令钩子与专用适配器的选择边界（#1029）
 
 `cmd/<命令>/before`／`after` 这类通用钩子（`\AddToHook`）只适合包装“命令本体不是赋值语句”的场景。`\global`／`\long` 等前缀是 TeX 里“等待下一个赋值”的状态，不是立即生效的操作；钩子代码插在命令本体执行之前运行，只要钩子内容本身包含任意一条赋值（不需要与目标命令相关），这条赋值就会先消耗掉调用方留下的待用前缀，使调用方写的 `\global\sbox` 在真正执行 `\setbox` 时已经没有 `\global`，静默退化为局部赋值，盒子在分组结束时被丢弃——整个过程不产生任何报错或警告。
