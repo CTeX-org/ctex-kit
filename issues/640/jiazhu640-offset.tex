@@ -1,0 +1,55 @@
+\documentclass[border=10pt]{standalone}
+\usepackage{amsmath}
+\usepackage{xeCJK}
+\usepackage{jiazhu}
+\usepackage{xcolor}
+\usepackage{tikz}
+\setCJKmainfont{Noto Serif CJK SC}
+% 画出正文基线与夹注首行基线
+\newcommand\bl[3]{% #1=宽 #2=正文基线颜色 #3=内容
+  \begin{tikzpicture}[baseline]
+    \node[anchor=base west,inner sep=0pt] (c) at (0,0) {#3};
+    \draw[#2,line width=.7pt] (0,0) -- (#1 pt,0);
+  \end{tikzpicture}}
+\begin{document}
+\begin{minipage}{500pt}
+{\bfseries jiazhu \#640：\texttt{ratio=1} 偏移量 $=\frac{n-1}{2}\times$\textbf{夹注字号}}\\[2pt]
+{\footnotesize 偏移量取自 `\texttt{\textbackslash l\_\_jiazhu\_box\_offset\_dim}'（即 \texttt{\textbackslash box\_move\_down:nn} 的位移）。灰线为正文基线。}\\[10pt]
+
+{\footnotesize\bfseries（一）\texttt{valign} 的影响（正文 20pt，\texttt{lines=2}，夹注 4 字）}\\[4pt]
+{\fontsize{20pt}{20pt}\selectfont
+\begin{tabular}{@{}l@{\hspace{14pt}}l@{}}
+\bl{150}{black!35}{甲\jiazhu{乙丙丁戊}己} & \bl{150}{black!35}{甲\jiazhu[ratio=1]{乙丙丁戊}己}\\[2pt]
+{\footnotesize A：\texttt{ratio=2/3,middle}（默认）\ offset $=6.67$pt} &
+{\footnotesize\color{red!75!black}B：\texttt{ratio=1,middle}\ offset $=\mathbf{10.0}$pt}\\[10pt]
+\bl{150}{black!35}{甲\jiazhu[ratio=1,valign=bottom]{乙丙丁戊}己} & \bl{150}{black!35}{甲\jiazhu[ratio=1,lines=1]{乙丙丁戊}己}\\[2pt]
+{\footnotesize\color{green!45!black}C：\texttt{ratio=1,\textbf{valign=bottom}}\ offset $=\mathbf{0}$pt} &
+{\footnotesize D：\texttt{ratio=1,lines=1}\ offset $=0$pt}
+\end{tabular}}\\[14pt]
+
+{\footnotesize\bfseries（二）决定性对照：固定字号 20pt，只改文档行距 → 偏移量不变}\\[3pt]
+{\footnotesize 若偏移量 $=(n-1)b/2$ 且 $b$ 为文档行距，三组应为 10／15／20pt。实测三组全是 10.0pt：}\\[4pt]
+{\footnotesize
+\begin{tabular}{@{}lccc@{}}
+\texttt{\textbackslash fontsize} & \texttt{\{20pt\}\{20pt\}} & \texttt{\{20pt\}\{30pt\}} & \texttt{\{20pt\}\{40pt\}}\\
+文档行距 $b$ & 20pt & 30pt & 40pt\\
+实测 offset & 10.0pt & \textbf{10.0pt} & \textbf{10.0pt}\\
+\end{tabular}}\\[8pt]
+
+{\footnotesize\bfseries（三）实际标度：offset $=\frac{n-1}{2}\times$ 夹注字号}\\[3pt]
+{\footnotesize
+\begin{tabular}{@{}ll@{}}
+\texttt{lines} $=1/2/3/4$（20pt，\texttt{ratio=1}） & offset $=0\;/\;10\;/\;20\;/\;30$\,pt\\
+\texttt{ratio} $=1/0.75/0.5/0.25$（正文 20pt） & offset $=10\;/\;7.5\;/\;5\;/\;2.5$\,pt\\
+字号 $=10/20/40$pt（\texttt{ratio=1}） & offset $=5\;/\;10\;/\;20$\,pt（正比）\\
+\end{tabular}}\\[10pt]
+
+{\footnotesize\bfseries 为什么容易测错}：{\footnotesize\texttt{\textbackslash \_\_jiazhu\_boot:n} 里
+\texttt{\textbackslash fontsize\{s\}\{s\}} 加 \texttt{\textbackslash linespread\{1\}}
+把夹注组内的 \texttt{\textbackslash baselineskip} \textbf{钉死等于夹注字号}
+（实测 \texttt{ratio=0.75} 时组内为 15pt，而非文档的 20pt）。
+所以在组内测「半个 \texttt{\textbackslash baselineskip}」与「半个夹注字号」永远同值，
+必须在组外改文档行距才能分离，即（二）的做法。}\\[4pt]
+{\footnotesize\color{green!45!black}\textbf{结论}：C 即报告者要的效果，\texttt{valign=bottom} 下 offset $=0$ 且不随 \texttt{lines} 变化。}
+\end{minipage}
+\end{document}

@@ -1,0 +1,61 @@
+% #714 图示：夹注宽度取整到夹注字宽的整数倍，为奇数时正文错位半个正文字
+% 横排呈现（报告者用整页旋转实现竖排，jiazhu 内部始终在横排坐标系工作），
+% 在正文下方标出 20pt 正文字网格，并画出夹注结束后正文的实际起点。
+\documentclass{standalone}
+\usepackage{xeCJK}
+\usepackage{jiazhu}
+\usepackage{xcolor}
+\usepackage{tikz}
+\setCJKmainfont{Noto Serif CJK SC}
+\setmainfont{DejaVu Sans}
+\parindent=0pt
+
+\jiazhuset{beforeskip=0pt,afterskip=0pt,ratio=0.5}
+
+% 测量「甲乙丙 + 夹注」的宽度，据此画出正文恢复处的位置刻度
+\newlength\jzw
+\newcommand\gridrow[2]{%
+  \settowidth\jzw{\fontsize{20pt}{20pt}\selectfont 甲乙丙\jiazhu{#1}}%
+  \begin{tikzpicture}[baseline=0pt]
+    % 网格线画在内容下方，不被字形遮挡
+    \foreach \i in {0,...,13}
+      \draw[black!22,line width=0.4pt] (\i*20pt,-13pt) -- (\i*20pt,20pt);
+    % 20pt 刻度标签
+    \foreach \i in {0,2,4,6,8,10,12}
+      \node[black!35,font=\tiny,anchor=north] at (\i*20pt,-13pt) {\i};
+    % 内容
+    \node[inner sep=0pt,anchor=south west] at (0,0)
+      {\hbox{\fontsize{20pt}{20pt}\selectfont 甲乙丙\jiazhu{#1}丁戊}};
+    % 夹注结束、正文恢复处的竖标记
+    \draw[#2,line width=1.2pt] (\jzw,-13pt) -- (\jzw,20pt);
+  \end{tikzpicture}}
+
+\begin{document}
+\begin{minipage}{500pt}
+{\large\bfseries jiazhu \#714：夹注宽度只按夹注字宽取整，正文脱离字网格}
+
+\vspace{3pt}
+{\footnotesize 正文 20pt，\texttt{ratio=0.5} 故夹注字宽 10pt。灰线为 20pt 正文字网格（刻度以正文字为单位），
+粗竖线标出夹注结束、正文恢复处。}
+
+\vspace{10pt}
+\gridrow{一二三四}{green!50!black}\\[1pt]
+{\footnotesize\textcolor{black!60}{$n=4$：盒宽 $=2$ 个夹注字宽 $=1$ 个正文字宽}\quad\textcolor{green!45!black}{\textbf{正文恢复于刻度 4，落在网格上}}}
+
+\vspace{9pt}
+\gridrow{一二三四五}{red!75!black}\\[1pt]
+{\footnotesize\textcolor{black!60}{$n=5$：盒宽 $=3$ 个夹注字宽 $=1.5$ 个正文字宽}\quad\textcolor{red!70!black}{\textbf{正文恢复于刻度 4.5，错位半个正文字}}}
+
+\vspace{9pt}
+\gridrow{一二三四五六}{red!75!black}\\[1pt]
+{\footnotesize\textcolor{black!60}{$n=6$：盒宽 $=3$ 个夹注字宽}\quad\textcolor{red!70!black}{\textbf{同样错位半个正文字}}}
+
+\vspace{9pt}
+\gridrow{一二三四五六七八}{green!50!black}\\[1pt]
+{\footnotesize\textcolor{black!60}{$n=8$：盒宽 $=4$ 个夹注字宽 $=2$ 个正文字宽}\quad\textcolor{green!45!black}{\textbf{正文恢复于刻度 5，落在网格上}}}
+
+\vspace{12pt}
+{\footnotesize 规律：盒宽 $=\lceil n/2\rceil$ 个夹注字宽。$\lceil n/2\rceil$ 为奇数（即 $n\bmod 4\in\{1,2\}$）时，
+盒宽是正文字宽的半整数倍，其后所有正文都偏移半个字。}
+\end{minipage}
+\end{document}

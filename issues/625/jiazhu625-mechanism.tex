@@ -1,0 +1,107 @@
+% #625 图示：症状 A（\lineskip 被触发致段间空隙）与症状 B（\@@_fill_newline: 强制换行留白）
+\documentclass{standalone}
+\usepackage{xeCJK}
+\usepackage{jiazhu}
+\usepackage{xcolor}
+\usepackage{tikz}
+\setCJKmainfont{Noto Serif CJK SC}
+\setmainfont{DejaVu Sans}
+\parindent=0pt
+
+% 把一个 vbox 画出来并标注高度
+\newsavebox\tmpbox
+\newcommand\showpara[2]{%
+  % #1 = 该段内容, #2 = 边框色
+  \sbox\tmpbox{\vbox{\hsize=200pt #1}}%
+  \begin{tikzpicture}[baseline=0pt]
+    \node[inner sep=0pt,anchor=north west,draw=#2!45,line width=0.5pt] (b) at (0,0)
+      {\usebox\tmpbox};
+    \node[#2!65!black,font=\tiny,anchor=north west] at (b.south west)
+      {\ vbox 高 \the\ht\tmpbox};
+  \end{tikzpicture}}
+% 同上，但 vbox 宽度由参数给出（用于症状 B，让留白范围可见）
+\newcommand\showparaW[3]{%
+  \sbox\tmpbox{\vbox{\hsize=#1 #2}}%
+  \begin{tikzpicture}[baseline=0pt]
+    \node[inner sep=0pt,anchor=north west,draw=#3!45,line width=0.5pt] (b) at (0,0)
+      {\usebox\tmpbox};
+    \node[#3!65!black,font=\tiny,anchor=north west] at (b.south west)
+      {\ vbox 高 \the\ht\tmpbox\ （框宽 $=$ \texttt{\char92 hsize} $=$ #1）};
+  \end{tikzpicture}}
+
+\begin{document}
+\begin{minipage}{560pt}
+{\large\bfseries jiazhu \#625：夹注引起的两种预料之外的断行}
+
+\vspace{4pt}
+{\footnotesize 均为 \texttt{\char92 parskip=0}、正文 20pt、\texttt{ratio=0.5}、
+\texttt{beforeskip=afterskip=0pt}。\textbf{关键：行距须等于字号}（传统直排的常规设置）——
+LaTeX 默认 1.2 倍行距有 20\% 余量，会把症状 A 掩盖掉。}
+
+\vspace{12pt}
+{\normalsize\bfseries 症状 A：夹注后段间多出空隙（与 \texttt{\char92 parskip} 无关）}
+
+\vspace{6pt}
+\hbox{%
+\begin{minipage}[t]{215pt}
+{\footnotesize\textcolor{green!45!black}{\textbf{无夹注}}：段间基线距 $=20.0$pt（正常）}\\[3pt]
+\showpara{\fontsize{20pt}{20pt}\selectfont\jiazhuset{beforeskip=0pt,afterskip=0pt,ratio=0.5}%
+  \noindent 甲乙丙丁戊己\par\noindent 下一段開始\par}{green!50!black}
+\end{minipage}%
+\hfil
+\begin{minipage}[t]{215pt}
+{\footnotesize\textcolor{red!70!black}{\textbf{有夹注}}：$=22.86$pt（多 $2.86$pt，vbox 高多 $2.40$pt）}\\[3pt]
+\showpara{\fontsize{20pt}{20pt}\selectfont\jiazhuset{beforeskip=0pt,afterskip=0pt,ratio=0.5}%
+  \noindent 甲乙丙\jiazhu{一二三}丁戊己\par\noindent 下一段開始\par}{red!70!black}
+\end{minipage}}
+
+\vspace{4pt}
+{\footnotesize\ttfamily\textcolor{black!65}{%
+无夹注：\ \ \char92 hbox(16.72+1.91998) → \char92 glue(\char92 baselineskip) 1.22002 → \char92 hbox(16.86+…)\\
+有夹注：\ \ \char92 hbox(16.72+\textcolor{red!75!black}{5.0})\ \ \ \ \ → \textcolor{red!75!black}{\char92 glue(\char92 lineskip) 1.0}\ \ \ \ \ \ \ → \char92 hbox(16.86+…)}}
+
+\vspace{3pt}
+{\footnotesize 机制：\texttt{\char92 @@\_put\_box:N} 用 \texttt{\char92 box\_move\_down:nn} 下移夹注盒子，
+下移量计入 depth，使该行 depth 由 1.92pt 涨到 5.0pt。于是
+「depth $+$ 下一行 height」$= 5.0+16.86 = 21.86 >$ \texttt{\char92 baselineskip} $= 20.0$，
+TeX 丢弃 \texttt{\char92 baselineskip} 改插 \texttt{\char92 lineskip}。}
+
+\vspace{16pt}
+{\normalsize\bfseries 症状 B：夹注整体另起一行，前一行留下空白}
+
+\vspace{6pt}
+{\footnotesize 正文「甲乙丙丁戊」+ 夹注 4 字 +「己庚」，只把 \texttt{\char92 hsize} 从 110pt 改到 108pt：}
+
+\vspace{6pt}
+\hbox{%
+\begin{minipage}[t]{215pt}
+{\footnotesize\texttt{\char92 hsize=110pt}\ \textcolor{green!45!black}{\textbf{夹注留在本行}}}\\[3pt]
+\showparaW{110pt}{\fontsize{20pt}{20pt}\selectfont\hsize=110pt\linewidth=110pt
+  \jiazhuset{beforeskip=0pt,afterskip=0pt,ratio=0.5}%
+  \noindent 甲乙丙丁戊\jiazhu{一二三四}己庚\par}{green!50!black}
+\end{minipage}%
+\hfil
+\begin{minipage}[t]{215pt}
+{\footnotesize\texttt{\char92 hsize=108pt}\ \textcolor{red!70!black}{\textbf{夹注整体跳到下一行，首行右侧留白}}}\\[3pt]
+\showparaW{108pt}{\fontsize{20pt}{20pt}\selectfont\hsize=108pt\linewidth=108pt
+  \jiazhuset{beforeskip=0pt,afterskip=0pt,ratio=0.5}%
+  \noindent 甲乙丙丁戊\jiazhu{一二三四}己庚\par}{red!70!black}
+\end{minipage}}
+
+\vspace{4pt}
+{\footnotesize\ttfamily\textcolor{black!65}{%
+110pt：\char92 @@\_fill\_newline: 调用 \textcolor{green!45!black}{0} 次，vbox 高 39.56pt\\
+108pt：\char92 @@\_fill\_newline: 调用 \textcolor{red!75!black}{1} 次，vbox 高 36.72pt
+\ \textcolor{black!50}{（探针计数，非目视）}}}
+
+\vspace{3pt}
+{\footnotesize 机制：剩余宽度不足一个夹注字宽（10pt）时，
+\texttt{\char92 @@\_split\_parshape\_lines\_auxi:} 调 \texttt{\char92 @@\_fill\_newline:} 输出
+\texttt{\char92 penalty 10000 \char92 hfil \char92 penalty -10000} 强制换行，
+节点列表里出现一个高与深皆为 0 的空 \texttt{\char92 hbox}，前一行剩余宽度被 \texttt{\char92 hfil} 撑成留白。}
+
+\vspace{10pt}
+{\footnotesize\textcolor{blue!60!black}{\textbf{注}}：把 \texttt{\char92 @@\_good\_break:} 置空（qinglee 2022 年的建议）后，
+以上两组节点列表\emph{逐行完全不变}；且置空会让溢出行变多（11 组 \texttt{\char92 hsize} 扫描：保留 9 次溢出、置空 10 次）。}
+\end{minipage}
+\end{document}

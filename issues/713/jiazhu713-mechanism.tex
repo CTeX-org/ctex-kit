@@ -1,0 +1,84 @@
+% #713 图示：\l__jiazhu_unit_dim 取名义字号，而 FakeStretch 改变了实际前进宽度，
+% 跨行夹注按错误单位取整，缺口由 glue 拉伸吞掉，表现为字距被拉大。
+\documentclass{standalone}
+\usepackage{xeCJK}
+\usepackage{jiazhu}
+\usepackage{xcolor}
+\usepackage{tikz}
+\setCJKmainfont{Noto Serif CJK SC}
+\setmainfont{DejaVu Sans}
+\newCJKfontfamily\stretched{Noto Serif CJK SC}[FakeStretch=1.6]
+\parindent=0pt
+
+% 上半：单字前进宽度对照
+\newlength\wa \newlength\wb
+\newcommand\advbar[3]{%
+  \begin{tikzpicture}[baseline=0pt]
+    \draw[fill=#3!12,draw=#3!60,line width=0.5pt] (0,0) rectangle (#1,17pt);
+    \node[inner sep=0pt,anchor=south west] at (0,0) {#2};
+    \draw[<->,#3!70!black,line width=0.7pt] (0,-6pt) -- (#1,-6pt);
+    \node[#3!60!black,font=\tiny,anchor=north] at (0.5*#1,-6pt) {\the#1};
+  \end{tikzpicture}}
+
+\begin{document}
+\begin{minipage}{520pt}
+{\large\bfseries jiazhu \#713：\texttt{FakeStretch} 改变前进宽度，跨行夹注按名义字号取整}
+
+\vspace{6pt}
+{\footnotesize\textbf{（一）}\ \texttt{FakeStretch} 只改前进宽度，高与深不变。夹注字号 12.5pt（正文 20pt，\texttt{ratio=0.625}）：}
+
+\vspace{9pt}
+\settowidth\wa{\fontsize{12.5pt}{12.5pt}\selectfont 學}%
+\settowidth\wb{\fontsize{12.5pt}{12.5pt}\selectfont\stretched 學}%
+\hbox{%
+  \advbar{\wa}{\fontsize{12.5pt}{12.5pt}\selectfont 學}{blue}%
+  \kern26pt
+  \advbar{\wb}{\fontsize{12.5pt}{12.5pt}\selectfont\stretched 學}{orange}%
+  \kern26pt
+  \raisebox{4pt}{\footnotesize\begin{tabular}{@{}l@{}}
+    \textcolor{blue!60!black}{无 FakeStretch：12.5pt（= 名义字号）}\\
+    \textcolor{orange!65!black}{\texttt{FakeStretch=1.6}：20.0pt（= 名义字号 $\times$ 1.6）}\\
+    高 10.4875pt、深 0.99998pt 两者相同
+  \end{tabular}}}
+
+\vspace{16pt}
+{\footnotesize\textbf{（二）}\ \texttt{jiazhu} 用名义字号 12.5pt 作宽度单位截断行宽，实际每字占 20pt，每字缺 7.5pt：}
+
+\vspace{10pt}
+\hbox{\kern16pt
+\begin{tikzpicture}[baseline=0pt]
+  % 宽度按 4 倍绘制以便看清：12.5pt→50pt, 20pt→80pt
+  \draw[fill=blue!8,draw=blue!60,line width=0.8pt] (0,0) rectangle (50pt,18pt);
+  \node[blue!55!black,font=\scriptsize] at (25pt,9pt) {$12.5$pt};
+  \node[blue!55!black,font=\scriptsize,anchor=west] at (88pt,9pt)
+    {jiazhu 以为一个字占 $12.5$pt ← \texttt{\char92 @@\_dim\_normalize:N} 按它取整行宽};
+  % 实际占用
+  \draw[fill=orange!10,draw=orange!75,line width=0.8pt] (0,-28pt) rectangle (80pt,-10pt);
+  \node[orange!65!black,font=\scriptsize] at (25pt,-19pt) {$12.5$pt};
+  % 缺口
+  \draw[fill=red!14,draw=red!75,line width=0.8pt,densely dashed]
+    (50pt,-28pt) rectangle (80pt,-10pt);
+  \node[red!70!black,font=\scriptsize] at (65pt,-19pt) {$7.5$};
+  \node[orange!65!black,font=\scriptsize,anchor=west] at (88pt,-19pt)
+    {实际一个字占 $20$pt，\textcolor{red!70!black}{每字缺 $7.5$pt}
+     ← 由 \texttt{\char92 l\_\_jiazhu\_unit\_stretch\_skip} 拉伸吞掉};
+  \node[black!45,font=\tiny,anchor=north west] at (0,-32pt) {（宽度按 4 倍绘制）};
+\end{tikzpicture}}
+
+\vspace{22pt}
+{\footnotesize\textbf{（三）}\ 后果：跨行夹注首行按错误宽度排版，TeX 用 glue 拉伸补差，字距被拉大：}
+
+\vspace{8pt}
+\hbox{\kern12pt\vbox{\hsize=400pt
+  \fontsize{20pt}{30pt}\selectfont
+  \jiazhuset{format=\stretched,ratio=0.625,beforeskip=0pt,afterskip=0pt}
+  智之性矣然其氣質之\jiazhu{稟或不能齊是以不能皆有以知其性之所}有而全之也
+  一有聰明睿智能盡其性者出於其閑則天必命之以爲億兆之君師使之治而教之
+  \par}}
+
+\vspace{10pt}
+{\footnotesize 行内夹注不受影响：它走 \texttt{\char92 @@\_typeset\_remaining:}，靠
+\texttt{\char92 @@\_extract\_max\_width:N} 遍历节点\emph{实测}行宽并迭代收敛；
+跨行夹注走 \texttt{\char92 @@\_split\_parshape\_lines\_auxii:}，直接采用按名义字号截断的值。}
+\end{minipage}
+\end{document}
