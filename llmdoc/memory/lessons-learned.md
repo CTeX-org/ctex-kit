@@ -163,7 +163,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 覆盖矩阵要以「入口枚举」为准对账
 **Rule**: 记录「哪些包被门禁覆盖」的表，其行集合必须与实际入口的枚举（如 workflow 里 `case` 能识别的全部 tag 前缀）逐项对账，而不是凭印象列举。漏掉的那一行正是这张表想拦住的静默跳过。
-**Why**: #1041 我新建的覆盖矩阵漏了 `zhmetrics-uptex`——它能触发 `release.yml` 却不在表里，正是矩阵存在的理由。已补齐并写明「行必须覆盖 release.yml 的全部九个 tag 前缀」。
+**Why**: #1041 我新建的覆盖矩阵漏了 `zhmetrics-uptex`——它能触发 `release.yml` 却不在表里，正是矩阵存在的理由。补它时我用 `grep -oE '[A-Za-z-]+-v\*'` 对账，该模式不含数字，于是**同一次对账又静默漏掉了 `xCJK2uni`**，并把错误的「九个」写进了文档与提交信息。对账脚本自己犯了和被查问题同型的白名单错误。教训延伸：**对账模式要能匹配全部实际取值**（包名含数字与连字符），且对账结果要与独立计数交叉验证。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 诊断信息的来源不能是可被污染的环境变量

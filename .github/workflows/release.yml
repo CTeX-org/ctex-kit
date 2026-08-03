@@ -164,6 +164,12 @@ jobs:
             # 存在的 `$Id:$` stamp 的误导信息.
             STAMP_VERS=$(sed -nE 's/.*\{\\ExplFileDate\}\{([^}]*)\}.*/\1/p' "${DIR}/xeCJK.dtx" \
                          | sort -u)
+            # 区分两种失败: 文件不存在 vs 文件里没有那一行. 只报后者会把
+            # "路径写错/包结构变了" 误导成 "版本行格式不对".
+            if [ ! -f "${DIR}/xeCJK.dtx" ]; then
+              echo "::error::${DIR}/xeCJK.dtx 不存在. 若包结构有变, 请同步更新本 case."
+              exit 1
+            fi
             if [ -z "${STAMP_VERS}" ]; then
               echo "::error::未能从 ${DIR}/xeCJK.dtx 提取 {\\ExplFileDate}{...} 版本号."
               echo "::error::该行形如 '%<!driver>  {\\ExplFileDate}{3.10.5}{\\ExplFileDescription}'."
@@ -185,7 +191,8 @@ jobs:
           echo "::error::源文件 stamp 版本不统一: $(printf '%s ' ${STAMP_VERS})"
           fail=1
         elif [ "${STAMP_VERS}" != "${BASE_VER}" ]; then
-          echo "::error::版本不一致: git tag=${BASE_VER}, 但源文件 \$Id:\$ stamp=${STAMP_VERS}"
+          echo "::error::版本不一致: git tag=${BASE_VER}, 但源文件版本 stamp=${STAMP_VERS}"
+          echo "::error::(ctex/zhlineskip 的 stamp 在 \$Id:\$ 行; xeCJK 在 {\\ExplFileDate}{...})"
           fail=1
         fi
         if [ "${fail}" -ne 0 ]; then

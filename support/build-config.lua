@@ -162,6 +162,12 @@ function update_tag(file, content, tagname, tagdate)
   end
   -- zhlineskip 风格的 "v1.0h" 前缀在本路径不适用, 但容错剥掉以免写出 "vv1.0".
   target = target:gsub("^v", "")
+  -- 空串能绕过上面的 type 守卫 (`""` 是 string), 若放过去会写出
+  -- `{\ExplFileDate}{}` 并破坏幂等. release 闸能兜住, 但没必要先写坏再靠下游拦.
+  if target == "" then
+    print(("[build-config] %s: 版本号为空, 未作任何修改."):format(file))
+    return content
+  end
 
   -- 设了 version 的包里, CLI 传入的 tagname 会被忽略 (version 才是事实源).
   -- 静默忽略会让 `l3build tag 3.10.6` 看起来成功却什么也没改, 所以显式告警.
