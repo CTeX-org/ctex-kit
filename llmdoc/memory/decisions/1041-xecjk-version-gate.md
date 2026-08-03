@@ -100,7 +100,7 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 设了 `version` 的包里 CLI 的 `tagname` 会被忽略。原实现静默丢弃，`l3build tag 3.10.6` 退出码 0、打印 `Tagging`、什么也不做。现在会打印一行提示，指明 `build.lua` 的 `version` 才是事实源。实测：冲突时告警，无参/同版本/未设 `version` 的包传参时均不告警。
 
-两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）——取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`，后者是可被污染的环境变量（实测 `PWD=/somewhere/else l3build tag` 会打印 `else/build.lua`，恰恰又是个不存在的路径），且 Windows 上本就没有 `PWD`；`lfs` 在 texlua 下是预置全局表，l3build 自身也用（`l3build-file-functions.lua:32`）。另外**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 闸把关，不依赖它被看见。
+两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）——取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`，后者是可被污染的环境变量（实测 `PWD=/somewhere/else l3build tag 3.10.6` 会打印 `else/build.lua`，恰恰又是个不存在的路径），且 Windows 上本就没有 `PWD`；`lfs` 在 texlua 下是预置全局表，l3build 自身也用（`l3build-file-functions.lua:32`）。另外**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 闸把关，不依赖它被看见。
 
 ## 验证：复现原事故
 

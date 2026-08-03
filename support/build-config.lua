@@ -160,7 +160,7 @@ function update_tag(file, content, tagname, tagdate)
   --   * 路径用当前目录名而非 `module`: xeCJK 的 module 是小写 "xecjk", 目录却是
   --     `xeCJK/`, 用 module 会打印出不存在的 `xecjk/build.lua`.
   --     取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`: 后者是可被污染的
-  --     环境变量 (实测 `PWD=/somewhere/else l3build tag` 会打印 `else/build.lua`,
+  --     环境变量 (实测 `PWD=/somewhere/else l3build tag 3.10.6` 会打印 `else/build.lua`,
   --     恰恰又是个不存在的路径), 且 Windows 上本就没有 PWD. `lfs` 在 texlua 下是
   --     预置全局表, l3build 自身也用 (l3build-file-functions.lua:32).
   --   * 只告警不中止: update_tag 没有向 l3build 报错的通道 (返回值是新内容, 不是
