@@ -70,6 +70,16 @@ STAMP_VERS=$(grep -hoE '\{\\ExplFileDate\}\{[0-9]+\.[0-9]+\.[0-9a-z]+\}' "${DIR}
 
 case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK`。RC 后缀剥离沿用既有的 `BASE_VER` 逻辑。
 
+### 幂等守卫的观察范围必须覆盖全部写入范围
+
+本函数写两处：`{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]`。守卫最初只看前者就提前 `return`，于是当一个 `.dtx` 两种写法并存、且只有后者失同步时，该行**再也不会被修复**——而改造前的旧代码会修。`xpinyin.dtx` 正是这种文件（`{\ExplFileDate}{3.1}` 与 `[2022/07/14 v3.1 xpinyin database]`），且它不在任何版本门禁内，失同步无人发现。
+
+改为「先算出两处的目标形态，再与现状整体比较」：内容未变即 no-op。`[...]` 行的日期只在版本号确实要改时才刷新，版本已对则连日期一起保留，否则每次 tag 都会把日期改成今天、diff 永不为零。
+
+### CLI 参数被忽略时要显式告警
+
+设了 `version` 的包里 CLI 的 `tagname` 会被忽略。原实现静默丢弃，`l3build tag 3.10.6` 退出码 0、打印 `Tagging`、什么也不做。现在会打印一行提示，指明 `build.lua` 的 `version` 才是事实源。实测：冲突时告警，无参/同版本/未设 `version` 的包传参时均不告警。
+
 ## 验证：复现原事故
 
 不只验证 happy path，而是把 rc2 那次事故复现一遍：

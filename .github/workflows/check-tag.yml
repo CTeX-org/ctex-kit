@@ -136,9 +136,14 @@ jobs:
         working-directory: ./xeCJK
         run: |
           l3build tag
-          # 只看 xeCJK/ : l3build tag 的回写目标只有本目录的 .dtx.
-          # 若把 ../support 也纳入 diff, 任何改 support/build-config.lua 的 PR
-          # 都会被误判为 "stamp 不同步" (那份改动本身就是 diff).
+          # 只看 xeCJK/ : diff 范围应精确等于 `l3build tag` 的写入范围, 而它只
+          # 回写本目录的 .dtx.
+          #
+          # 澄清一个想当然的理由: 写成 `-- . ../support` 在 CI 里其实**不会**误报,
+          # 因为 CI 检出的是已提交的干净树, support 的改动不构成 diff (实测两种写
+          # 法退出码都是 0). 误报只发生在本地有未提交改动时. 限定范围的真实理由是
+          # 语义精确: 把非写入目标纳入 diff 不增加任何检出能力, 只会在将来某个
+          # 生成物意外落进 support/ 时给出误导性的 "stamp 不同步" 报错.
           if ! git diff --exit-code -- .; then
             echo "::error::xeCJK 的 .dtx 版本与 xeCJK/build.lua 的 version 不一致."
             echo "::error::请在本地运行: cd xeCJK && l3build tag, 然后 commit 回写后的 .dtx."

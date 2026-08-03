@@ -141,6 +141,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 幂等守卫的观察范围必须覆盖被守卫函数的全部写入范围
+**Rule**: 给回写型函数加「已同步就跳过」的守卫时，守卫检查的字段必须涵盖该函数会写的**每一处**。只看其中一处就提前 return，会让其余位置在失同步后永远得不到修复——而且这是相对改造前的**功能回归**，容易被当成「本来就不管」而漏掉。
+**Why**: #1041 的共享 `update_tag` 写 `{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]` 两处，守卫只看前者。`xpinyin.dtx` 两种写法并存，实测新代码在 `[...]` 行失同步时不再修复它，基线旧代码会修；该包又不在任何版本门禁内。改为「算出目标形态后整体比较，内容未变即 no-op」。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 参数被有意忽略时要显式告警，不要静默丢弃
+**Rule**: 当实现改为以配置为事实源、从而忽略用户传入的参数时，检测到冲突要打印提示。静默忽略会让命令看起来成功却什么也没做，使用者无从发现自己的参数没生效。
+**Why**: #1041 让 `update_tag` 以 `build.lua` 的 `version` 为准后，`l3build tag 3.10.6` 在 xeCJK 下退出码 0、打印 `Tagging`、实际什么也没改。补了一行告警指明事实源。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 白名单式 CI 门禁默认放行，未覆盖的包无人察觉
 **Rule**: 按包 opt-in 的门禁（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类门禁必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
 **Why**: #1041 之前 xeCJK 从不在版本门禁内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。
