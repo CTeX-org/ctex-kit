@@ -336,7 +336,14 @@ function read_dtx_version(dtx_path)
   -- `0.0-beta` 这类都合法 (release.yml 的 xeCJK case 注释里就明确列了 0.0-beta).
   -- 早先写成 `[%d%.]+` 只收数字和点, 对这些形态返回 nil, 而 uploadconfig.version
   -- 是 `l3build upload` 的必填字段 -- 与 release 闸那个"校验侧比写入侧严格"的问题同型.
-  local v = content:match("{\\ExplFileDate}{([^}]+)}{\\ExplFileDescription}")
+  --
+  -- 但**不能**放宽到 `[^}]+`: 那会匹配上占位宏本身. ctex 的五个拆分 dtx 版本行是
+  -- `{\ExplFileDate}{\ExplFileVersion}{\ExplFileDescription}` (真实版本在
+  -- `\GetIdInfo $Id:$` 行), `[^}]+` 会在第一条就命中并返回字面串
+  -- "\ExplFileVersion", 使下面的回退分支永不可达. 那比返回 nil 更糟: nil 会让
+  -- `l3build upload` 报缺字段, 而一个看起来正常的字符串会被静默投递出去.
+  -- 排除反斜杠即可: 版本号里不会有它, 占位宏一定有.
+  local v = content:match("{\\ExplFileDate}{([^}\\]+)}{\\ExplFileDescription}")
   if v then return v end
   return content:match("\\GetIdInfo%s+%$Id:%s+%S+%s+v?([%w%.]+)%s")
 end
