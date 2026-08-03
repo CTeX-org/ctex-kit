@@ -85,13 +85,22 @@
 防御性写法是在局部组里自行构造模板常量，把模式类别钉死在代码里，与读取时的 régime 解耦：
 
 ```latex
+% —— 加载期执行一次：常量的 catcode 在这里钉死 ——
 \group_begin:
   \char_set_catcode_alignment:N \&
   \tl_const:Nn \c_@@_alignment_tl { & }
 \group_end:
-...
-\tl_replace_all:NVn \l_@@_some_tl \c_@@_alignment_tl { \scan_stop: }
+
+% —— 调用期每次执行：模式取自上面那个常量 ——
+\cs_new_protected:Npn \@@_some_function:n #1
+  {
+    \tl_set:Nn \l_@@_some_tl {#1}
+    \tl_replace_all:NVn \l_@@_some_tl \c_@@_alignment_tl { \scan_stop: }
+  }
 ```
+
+两段分处两个时刻，正是本节的要点：常量在**加载期**建立（其 catcode 随之固定），替换在
+**调用期**执行（此时环境的 `\catcode` 已无关）。
 
 （`\tl_replace_all:NVn` 是 expl3 原生变体，无需自行 `\cs_generate_variant:Nn`。）
 
