@@ -10,13 +10,13 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
 
 ### 上游私有补丁必须硬失败
-**Rule**: 覆盖 l3doc 等上游私有接口时，同时维护最低版本门禁、依赖接口清单、专项回归，并用 critical 错误暴露不兼容。
+**Rule**: 覆盖 l3doc 等上游私有接口时，同时维护最低版本校验、依赖接口清单、专项回归，并用 critical 错误暴露不兼容。
 **Why**: ctxdoc 的补丁健康检查证明普通 error 在 nonstop CI 中可能继续执行，而完整重定义还会放大静默漂移风险。
 **Source**: `llmdoc/memory/archive/2026-07-12/704-ctxdoc-patch-health-test.md`, `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
 
 ### 用接口证据复核自动审查
 **Rule**: 对名称相近的 expl3 控制流或异常分支，必须用 `interface3` 原文、最小实验或失败路径测试验证审查结论。
-**Why**: #964 的自动审查曾反转 `\dim_until_do:nNnn` 的真实语义，版本门禁也先后出现 ExplSyntax catcode 错位和条件丢失；仅跑正常路径不足以发现这些问题。
+**Why**: #964 的自动审查曾反转 `\dim_until_do:nNnn` 的真实语义，版本校验也先后出现 ExplSyntax catcode 错位和条件丢失；仅跑正常路径不足以发现这些问题。
 **Source**: `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
 
 ### 生成物排序不能反向支配源码组织
@@ -26,7 +26,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 跟踪生成物必须走仓库的 canonical target
 **Rule**: 源文件变化影响已跟踪生成物时，先从 Makefile/guide 找唯一生成入口，运行后核对只产生预期 diff；不要手改生成物去追 CI 文本。
-**Why**: #991 手工同步的 xeCJK CHANGELOG 与 `\changes` 提取器漂移，`check-changelog-result` 失败；`make changelog` 确定性重建后只有目标文件变化并通过门禁。
+**Why**: #991 手工同步的 xeCJK CHANGELOG 与 `\changes` 提取器漂移，`check-changelog-result` 失败；`make changelog` 确定性重建后只有目标文件变化并通过校验。
 **Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
 
 ### 已发布版本不能继续接收新变更条目
@@ -44,14 +44,14 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #994 若只把 `Songti SC Light` 改名为 Regular，LaTeX+DVI/upLaTeX 仍会使用旧 index，标点压缩也会继续读取 Light 的 SPA 数据。
 **Source**: `llmdoc/memory/reflections/994-macnew-songti-regular.md`
 
-### 本地审查报告是独立的完成门禁输入
+### 本地审查报告是独立的完成校验输入
 **Rule**: 运行过本地 code-review 时，在完成或 merge 前用忽略规则外的文件盘点读取全部 `.code-review` 报告，并把每条发现映射到当前树核实。
 **Why**: PR #976 只审计 GitHub 活动，漏掉被 `.gitignore` 隐藏的报告中两个有效小问题，合并后不得不用 #978 补修。
 **Source**: `llmdoc/memory/archive/2026-07-13/976-978-ignored-local-code-review.md`
 
 ### 正式审查必须与实现上下文隔离
 **Rule**: 主代理的实现检查只算自检。正式 code review 必须启动不继承主代理设计与实现对话的新子代理，只提供仓库规则、公开目标、完整 base/head SHA、范围和必要公开证据；报告须记录隔离方式、允许输入和固定范围。增量审查可读取上一份正式报告取得截止点，但不能继承主对话。
-**Why**: PR #1009 的 `bb14d1a3..2092edad` 审查虽由独立子代理完成，报告却没有记录上下文隔离方式，不能证明审查者未继承实现假设；后续 llmdoc 增量审查因此把“新会话、受限输入、报告留痕”补成可审计门禁。
+**Why**: PR #1009 的 `bb14d1a3..2092edad` 审查虽由独立子代理完成，报告却没有记录上下文隔离方式，不能证明审查者未继承实现假设；后续 llmdoc 增量审查因此把“新会话、受限输入、报告留痕”补成可审计校验。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
 
 ### APPROVE 总评不覆盖详情中的 finding
@@ -60,7 +60,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-14/275-heading-query-interfaces.md`
 
 ### 验证强度按当前增量风险收缩
-**Rule**: 主体改动已有完整验证后，仅涉及注释或措辞的后续小改使用差异检查、必要的定向实验和强制 CI；只有增量重新触及语义、解析、生成物或基线时才重跑完整本地门禁。
+**Rule**: 主体改动已有完整验证后，仅涉及注释或措辞的后续小改使用差异检查、必要的定向实验和强制 CI；只有增量重新触及语义、解析、生成物或基线时才重跑完整本地校验。
 **Why**: PR #988 在完整 `l3build ctan` 已通过后仍为标题定义名称和一行注释重复全量构建，增加等待且中止时产生局部构建噪声，没有带来相称的新覆盖。
 **Source**: `llmdoc/memory/archive/2026-07-15/986-987-third-party-docs-and-proportional-verification.md`
 
@@ -128,7 +128,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### PR 合并后要回放报告者的原始 MWE，别只看自己的测试基线
 **Rule**: 修复上线后，用报告者给的原始 MWE 复验，而不是以自己新增的回归全绿为准。自己的基线可能把残留缺陷冻结成预期值；报告者的 MWE 是外部判据。把非零缺陷量写进基线时，必须注明它为什么不是零、零需要什么条件。
-**Why**: #1026 的 `fntef-shrink01` 把「修复后为 3.64pt」写成预期，四个用例各固定一条 3.64pt 的 `Overfull` 行。测试全绿、文档写着预期值，于是同源的另一半缺陷有了一份看起来很正规的门禁替它背书，直到报告者追问「这里的 After 是预期的吗」才暴露。这比没有测试更糟——没测试只是没覆盖，冻结残留缺陷是主动声称这是对的。
+**Why**: #1026 的 `fntef-shrink01` 把「修复后为 3.64pt」写成预期，四个用例各固定一条 3.64pt 的 `Overfull` 行。测试全绿、文档写着预期值，于是同源的另一半缺陷有了一份看起来很正规的校验替它背书，直到报告者追问「这里的 After 是预期的吗」才暴露。这比没有测试更糟——没测试只是没覆盖，冻结残留缺陷是主动声称这是对的。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### `\hbox to` 的实际宽度恒等于目标宽度，量收缩量要用 `\badness`
@@ -143,21 +143,26 @@ Curated cross-task rules distilled from archived memory.
 
 ### 幂等守卫的观察范围必须覆盖被守卫函数的全部写入范围
 **Rule**: 给回写型函数加「已同步就跳过」的守卫时，守卫检查的字段必须涵盖该函数会写的**每一处**。只看其中一处就提前 return，会让其余位置在失同步后永远得不到修复——而且这是相对改造前的**功能回归**，容易被当成「本来就不管」而漏掉。
-**Why**: #1041 的共享 `update_tag` 写 `{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]` 两处，守卫只看前者。`xpinyin.dtx` 两种写法并存，实测新代码在 `[...]` 行失同步时不再修复它，基线旧代码会修；该包又不在任何版本门禁内。改为「算出目标形态后整体比较，内容未变即 no-op」。
+**Why**: #1041 的共享 `update_tag` 写 `{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]` 两处，守卫只看前者。`xpinyin.dtx` 两种写法并存，实测新代码在 `[...]` 行失同步时不再修复它，基线旧代码会修；该包又不在任何版本校验内。改为「算出目标写法后整体比较，内容未变即 no-op」。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 修一个「守卫范围不足」时，检查同一处是否还有别的字段
 **Rule**: 把幂等守卫从「只看字段 A」扩到「A 也看」时，要枚举该写入点的**每一个字段**。修好版本号却冻住同一行的日期，是同一缺陷类换了个格子。若某个字段确实决定不再自动修复，那是取舍——必须在代码注释与文档里写明代价，不能让它看起来像纯粹的行为恢复。
-**Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样门禁的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
+**Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样校验的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 校验侧的语法必须与写入侧一致（含前缀剥离等所有规范化步骤）
-**Rule**: 门禁提取某个值时用的模式，不能比写入该值的代码更严格——这包括**写入侧做过的每一步规范化**。写入侧剥了 `v` 前缀、校验侧不剥，等价于两侧对「同一个版本号」的定义不同：合法输入会通过前一道闸却在后一道闸被拒，而给出的修复提示照做不会有任何变化。同一份配置里已有正确写法时（如 `zhlineskip` 那条），照抄另一条更要逐项核对。
-**Why**: #1041 三次踩同一类：(1) release 闸假定三段式数字，两段式 `3.11` 过 PR 闸却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的形态），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 闸放行、release 闸拒绝。
+**Rule**: 校验提取某个值时用的模式，不能比写入该值的代码更严格——这包括**写入侧做过的每一步规范化**。写入侧剥了 `v` 前缀、校验侧不剥，等价于两侧对「同一个版本号」的定义不同：合法输入会通过前一道校验却在后一道校验被拒，而给出的修复提示照做不会有任何变化。同一份配置里已有正确写法时（如 `zhlineskip` 那条），照抄另一条更要逐项核对。
+**Why**: #1041 三次踩同一类：(1) release 校验假定三段式数字，两段式 `3.11` 过 PR 校验却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的写法），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 校验放行、release 校验拒绝。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
-### 放宽模式时要列出该函数全部写入侧的实际形态逐个验证
-**Rule**: 把一个提取模式放宽以接纳更多合法形态时，只验证「原先被误拒的那些现在能过」是不够的——还要把该函数**所有**写入侧的实际形态列出来逐个回归。放宽过度会让模式匹配上占位宏、注释等本不该匹配的内容，返回一个「看起来正常」的错误值，这比返回 nil 更危险：nil 会让下游报缺字段，错误字符串会被静默使用。
+### 项目的语言约定要在动手前读、收尾时按词表自查
+**Rule**: 仓库根目录的 `CLAUDE.md` 列了禁用词（「闸门」「实装」「拍板」「对拍」「形态」等）与风格要求（不用「真……」强行强调、中文句子用全角标点、不把名词压成单字）。这类约定不会被任何测试或 CI 拦住，必须在写之前读、收尾时对着词表逐条 grep 自查。自查时要区分「本次引入」与「既有内容」——逐行与 base 比对，别整仓替换，那会让 diff 失焦。`.yml` / `.lua` 注释与 `llmdoc/` Markdown 的标点惯例不同，改前先核对基线。
+**Why**: #1041 我写了 26 处「闸／闸门」、12 处「形态」和「真回写」，全部违反 `CLAUDE.md` 明确点名的约定，直到用户提醒才发现。说明我把「读 CLAUDE.md」当成了背景信息而非待执行的检查项。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 放宽模式时要列出该函数全部写入侧的实际写法逐个验证
+**Rule**: 把一个提取模式放宽以接纳更多合法写法时，只验证「原先被误拒的那些现在能过」是不够的——还要把该函数**所有**写入侧的实际写法列出来逐个回归。放宽过度会让模式匹配上占位宏、注释等本不该匹配的内容，返回一个「看起来正常」的错误值，这比返回 nil 更危险：nil 会让下游报缺字段，错误字符串会被静默使用。
 **Why**: #1041 我把 `read_dtx_version` 的 `[%d%.]+` 放宽成 `[^}]+`，只验证了 `3.11a`／`0.0-beta` 能过。但 ctex 五个拆分 dtx 的版本行是 `{\ExplFileDate}{\ExplFileVersion}{...}`（真实版本在 `$Id:$` 行），新模式在第一条分支就命中并返回字面串 `\ExplFileVersion`，使回退分支永不可达——而函数自己的 docstring 正把 ctex 列为该分支的代表。改成 `[^}\]+` 后八个包实测全部正确。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
@@ -167,7 +172,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 覆盖矩阵要以「入口枚举」为准对账
-**Rule**: 记录「哪些包被门禁覆盖」的表，其行集合必须与实际入口的枚举（如 workflow 里 `case` 能识别的全部 tag 前缀）逐项对账，而不是凭印象列举。漏掉的那一行正是这张表想拦住的静默跳过。
+**Rule**: 记录「哪些包被校验覆盖」的表，其行集合必须与实际入口的枚举（如 workflow 里 `case` 能识别的全部 tag 前缀）逐项对账，而不是凭印象列举。漏掉的那一行正是这张表想拦住的静默跳过。
 **Why**: #1041 我新建的覆盖矩阵漏了 `zhmetrics-uptex`——它能触发 `release.yml` 却不在表里，正是矩阵存在的理由。补它时我用 `grep -oE '[A-Za-z-]+-v\*'` 对账，该模式不含数字，于是**同一次对账又静默漏掉了 `xCJK2uni`**，并把错误的「九个」写进了文档与提交信息。对账脚本自己犯了和被查问题同型的白名单错误。教训延伸：**对账模式要能匹配全部实际取值**（包名含数字与连字符），且对账结果要与独立计数交叉验证。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
@@ -181,9 +186,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 让 `update_tag` 以 `build.lua` 的 `version` 为准后，`l3build tag 3.10.6` 在 xeCJK 下退出码 0、打印 `Tagging`、实际什么也没改。补了一行告警指明事实源。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
-### 白名单式 CI 门禁默认放行，未覆盖的包无人察觉
-**Rule**: 按包 opt-in 的门禁（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类门禁必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
-**Why**: #1041 之前 xeCJK 从不在版本门禁内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。
+### 白名单式 CI 校验默认放行，未覆盖的包无人察觉
+**Rule**: 按包 opt-in 的校验（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类校验必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
+**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### l3build 的 build.lua 里全局名可能已被框架占用，判空要判类型
@@ -191,14 +196,14 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 的共享 `update_tag` 写 `local target = version or tagname`，本意是「`build.lua` 设了 `version` 就用它」。但 l3build 自己定义了 `function version()` 供 `--version`（`l3build-help.lua:32`），未设 `version` 的六个包里这个名字是函数，`or` 直接取走函数，报 `attempt to index a function value`。改成 `(type(version) == "string") and version or tagname` 才对。同构先例：`ctex_kit_env_or_nil` 因 GH Actions 空 input 注入 `""` 而必须把空串也当未设置。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
-### 「重新生成 + diff」门禁的 diff 范围必须精确等于写入范围
-**Rule**: 这类门禁的 `git diff` 路径参数只能覆盖生成动作**实际写入**的文件，不能顺手扩大到「相关文件」。扩大范围不增加检出能力，只会在将来某个生成物意外落进那个目录时给出误导性报错。验证 no-op 要在干净 worktree（`git worktree add`）里做——主工作区的未提交改动会被 `git diff` 算进来，结论不可信。
+### 「重新生成 + diff」校验的 diff 范围必须精确等于写入范围
+**Rule**: 这类校验的 `git diff` 路径参数只能覆盖生成动作**实际写入**的文件，不能顺手扩大到「相关文件」。扩大范围不增加检出能力，只会在将来某个生成物意外落进那个目录时给出误导性报错。验证 no-op 要在干净 worktree（`git worktree add`）里做——主工作区的未提交改动会被 `git diff` 算进来，结论不可信。
 **Why**: #1041 的 `tag-xecjk` job 起初写 `git diff --exit-code -- . ../support`，理由是共享 `update_tag` 在 `support/` 里，而 `l3build tag` 只回写本包 `.dtx`。**注意我当初给的第二个理由是错的**：我写「纳入 `../support` 会让任何改它的 PR 被误判」，后经实测推翻——CI 检出的是已提交的干净树，那份改动不构成 diff，两种写法退出码均为 0；误报只发生在本地有未提交改动时（我把本地现象当成了 CI 行为）。范围应收窄的真实理由是语义精确。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
-### 新增门禁要用「复现原事故」验证判别力
-**Rule**: 加完一道门禁，不能只验证 happy path 通过；要把促使你加它的那个具体事故复现出来，确认门禁真的拒绝。这与测试的变异验证是同一条原则——门禁的价值完全取决于它对目标缺陷是否有判别力。
-**Why**: #1041 把 rc2 事故复现（`\ExplFileDate` 改回 3.10.4）后实测：PR 门禁 `l3build tag` 真回写 → diff 非零 → 拒绝；release 三方校验报 `✗ tag=3.10.5 但 stamp=3.10.4` → 拒绝。另加两个变体：打错 tag（3.10.6）应拒绝、rc 后缀（3.10.5-rc3）应剥离后通过。
+### 新增校验要用「复现原事故」验证判别力
+**Rule**: 加完一道校验，不能只验证 happy path 通过；要把促使你加它的那个具体事故复现出来，确认校验真的拒绝。这与测试的变异验证是同一条原则——校验的价值完全取决于它对目标缺陷是否有判别力。
+**Why**: #1041 把 rc2 事故复现（`\ExplFileDate` 改回 3.10.4）后实测：PR 校验 `l3build tag` 确实回写 → diff 非零 → 拒绝；release 三方校验报 `✗ tag=3.10.5 但 stamp=3.10.4` → 拒绝。另加两个变体：打错 tag（3.10.6）应拒绝、rc 后缀（3.10.5-rc3）应剥离后通过。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 事实性陈述的更正以「全仓所有实例」为单位
@@ -207,7 +212,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
 ### 会中止编译的用例必须各自独占文件，否则同文件后续用例是假绿
-**Rule**: 若一个用例在缺陷版下会以错误中止编译（而不是输出错误的数值），那么同一 `.lvt` 里它后面的所有用例在缺陷版下根本不执行——它们在缺陷版和修复版之间没有可观察差异，是看起来正规实际空转的门禁。每个能独立触发该缺陷的用例都要有自己的文件。这不只是排查时的注意事项，而是测试设计约束。
+**Rule**: 若一个用例在缺陷版下会以错误中止编译（而不是输出错误的数值），那么同一 `.lvt` 里它后面的所有用例在缺陷版下根本不执行——它们在缺陷版和修复版之间没有可观察差异，是看起来正规实际空转的校验。每个能独立触发该缺陷的用例都要有自己的文件。这不只是排查时的注意事项，而是测试设计约束。
 **Why**: #1038 中我把三组用例写进同一个 `tabular01.lvt`。TEST 3（`中文\\`）在缺陷版下报 `Improper alphabetic constant` 并中止编译，实测缺陷版日志里 `TEST 4` 出现 0 次、TEST 5 也一样。我先只拆了 TEST 5，第二轮盲审指出 TEST 4 仍是同样的空壳，并且我在文档里写的「TEST 3／4 各报错」是假的。最终拆成 `tabular01` / `tabular-cr01` / `boundary-bgroup01` 三个文件，逐个实测缺陷版 rc 1。
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
@@ -247,8 +252,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### 分支级改动需要分支级断言
-**Rule**: 同一 `dim_case`／`if` 链里的每个分支是独立路径。改了 N 个分支就要有 N 条断言，并逐分支做变异验证（只撤销该分支，看是否恰好有对应断言失败）。用一条断言宣称覆盖多个分支，通常意味着其余分支可达、实现正确、但完全没有门禁。
-**Why**: #1037 改了 `\@@_check_for_glue_auxi:` 的 `default` 与 `math` 两个分支，TEST 10 只有 `\mbox{hi}中文` 一条断言（走 `default`）。逐分支变异显示：只撤销 `math` 分支时全套 115 项仍全绿。补上 `\mbox{$x$}中文`（末节点是 math marker）后该分支才有门禁。
+**Rule**: 同一 `dim_case`／`if` 链里的每个分支是独立路径。改了 N 个分支就要有 N 条断言，并逐分支做变异验证（只撤销该分支，看是否恰好有对应断言失败）。用一条断言宣称覆盖多个分支，通常意味着其余分支可达、实现正确、但完全没有校验。
+**Why**: #1037 改了 `\@@_check_for_glue_auxi:` 的 `default` 与 `math` 两个分支，TEST 10 只有 `\mbox{hi}中文` 一条断言（走 `default`）。逐分支变异显示：只撤销 `math` 分支时全套 115 项仍全绿。补上 `\mbox{$x$}中文`（末节点是 math marker）后该分支才有校验。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### 穷举的可信度取决于探针粒度与结论粒度一致
@@ -331,8 +336,8 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1029 我写了「`\global\savebox` 三种形式跨分组保住内容」，实测纯 LaTeX 下这三种全为 0.0pt——`\savebox` 是 robust 命令，`\global` 在它自己的 `\@ifnextchar` 前瞻阶段就被消耗，与本包无关。真正修好的只有 `\global\sbox`。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
-### 顺手做的一致性修改要单独确认有无门禁
-**Rule**: 同一约束改到多处时，逐处确认哪些有回归覆盖。若某处的症状在结构上无法观察（例如被包进 hbox 后内层弹性不外露），就在文档里如实写明它依赖代码审查而非门禁，不要让它蹭进另一处的覆盖声明。
+### 顺手做的一致性修改要单独确认有无校验
+**Rule**: 同一约束改到多处时，逐处确认哪些有回归覆盖。若某处的症状在结构上无法观察（例如被包进 hbox 后内层弹性不外露），就在文档里如实写明它依赖代码审查而非校验，不要让它蹭进另一处的覆盖声明。
 **Why**: #1026 中 `\UL@onin` 的重排分支按同一约束改了，但 `ulem` 用 `\setbox\UL@box\hbox{{#1}}` 包住内容，收缩量丢失在嵌套路径上不显现；重新引入缺陷乃至删掉整段分支，全套 114 项仍全绿。文档原先的措辞读起来像 `\UL@on` 与 `\UL@onin` 都已覆盖。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
@@ -357,7 +362,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### 回归测试必须用重新引入缺陷的方式确认会失败
-**Rule**: 新增或改写回归测试后，故意还原到修复前的实现，确认测试会失败；测试全部显示“通过”不构成“这项测试确实能检测该缺陷”的证据，只能证明测试当前不会误报。同理，声称某测试守护某条行为之前，也要用变异实测确认是它会红——没有任何输出行的 `.tlg` 段落不构成门禁，把守护职责写错到文档里会让后来者误以为已有覆盖。
+**Rule**: 新增或改写回归测试后，故意还原到修复前的实现，确认测试会失败；测试全部显示“通过”不构成“这项测试确实能检测该缺陷”的证据，只能证明测试当前不会误报。同理，声称某测试守护某条行为之前，也要用变异实测确认是它会红——没有任何输出行的 `.tlg` 段落不构成校验，把守护职责写错到文档里会让后来者误以为已有覆盖。
 **Why**: #1026 中连续三版测试草案都显示通过，但都是因为选错了能观察内外层区分的载体（`\hbox`／`\vbox` 抹平差异，宏承载正文触发了另一条既有限制），如果没有主动倒回旧实现验证，很可能把假绿当作“修复已验证”上报。同一 issue 里还出现过一个用例的 `.tlg` 段落其实是空的，却在注释和 llmdoc 里被写成负责固定“重排确实发生、尾随空格仍被装饰”；实测关掉重排、删掉空格交还它都照样通过，真正拦住的是 `command-boundary-math05`。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
@@ -452,7 +457,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 复合 Action 与 job step 是两套字段与默认值语义
 **Rule**: 复合 Action（`runs.using: composite`）的合法 step 字段和 `run` 默认 shell 都与 job step 不同；不能把 job step 的经验直接套用到复合 Action，也不能反过来套用。自建校验器（如 `scripts/validate-action-metadata.py`）的允许表必须以目标平台（GitHub Actions）实际拒绝行为为准，新增字段前先确认它在当前上下文里到底合不合法；本地测试全绿只证明校验器内部自洽，不证明平台会接受。
-**Why**: PR #1030 中 `timeout-minutes` 只在 job step 合法，写进复合 Action 会被 runner 在加载 `action.yml` 时判 `TemplateValidationException`；本仓库的门禁曾把这个字段误判为复合 Action 合法字段，本地测试却全绿。PR #1031 中复合 Action 的 `run` 默认带 `pipefail`，与不带 `pipefail` 的 job step 相比，同一句管道右侧提前 `exit` 的 awk 会有不同的退出码，字面相同的代码在两种 step 类型里行为不一致。
+**Why**: PR #1030 中 `timeout-minutes` 只在 job step 合法，写进复合 Action 会被 runner 在加载 `action.yml` 时判 `TemplateValidationException`；本仓库的校验曾把这个字段误判为复合 Action 合法字段，本地测试却全绿。PR #1031 中复合 Action 的 `run` 默认带 `pipefail`，与不带 `pipefail` 的 job step 相比，同一句管道右侧提前 `exit` 的 awk 会有不同的退出码，字面相同的代码在两种 step 类型里行为不一致。
 **Source**: `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md`
 
 ### 加载期失败会遮蔽同一 Action 内的运行期缺陷

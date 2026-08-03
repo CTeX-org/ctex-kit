@@ -130,14 +130,14 @@ end
 -- 版本事实源的两种模式:
 --
 --   1. build.lua 设了 `version` (xeCJK, #1041 起): 以它为准, 忽略 CLI 传入的
---      tagname. 这样 `l3build tag` 无参可跑, PR 门禁才能用
+--      tagname. 这样 `l3build tag` 无参可跑, PR 校验才能用
 --      「l3build tag 后 git diff 必须为零」来拦 version 与 .dtx 失同步.
 --   2. 未设 `version` (其余六包): 保持原行为, 用 CLI 的 `l3build tag <ver>`.
 --      这些包的 tagname 为 nil 时直接返回原文, 不再像以前那样
 --      `nil .. ""` 抛 "attempt to concatenate a nil value".
 --
--- 幂等性: 目标版本与文件里已有的一致时原样返回, 使门禁的 diff 为零. 这一步是
--- PR 门禁能成立的前提 -- 若每次 tag 都无条件重写, `l3build tag` 后的 diff 永
+-- 幂等性: 目标版本与文件里已有的一致时原样返回, 使校验的 diff 为零. 这一步是
+-- PR 校验能成立的前提 -- 若每次 tag 都无条件重写, `l3build tag` 后的 diff 永
 -- 不为零, check-tag.yml 就会恒失败.
 function update_tag(file, content, tagname, tagdate)
   if not file:match("%.dtx$") then return content end
@@ -163,7 +163,7 @@ function update_tag(file, content, tagname, tagdate)
   -- zhlineskip 风格的 "v1.0h" 前缀在本路径不适用, 但容错剥掉以免写出 "vv1.0".
   target = target:gsub("^v", "")
   -- 空串能绕过上面的 type 守卫 (`""` 是 string), 若放过去会写出
-  -- `{\ExplFileDate}{}` 并破坏幂等. release 闸能兜住, 但没必要先写坏再靠下游拦.
+  -- `{\ExplFileDate}{}` 并破坏幂等. release 校验能兜住, 但没必要先写坏再靠下游拦.
   if target == "" then
     print(("[build-config] %s: 版本号为空, 未作任何修改."):format(file))
     return content
@@ -182,7 +182,7 @@ function update_tag(file, content, tagname, tagdate)
   --   * 只告警不中止: update_tag 没有向 l3build 报错的通道 (返回值是新内容, 不是
   --     errorlevel), 而 `error()` 会让 `l3build tag` 以 Lua 栈回溯收场, 对手滑传参
   --     的人更难读. 因此这里只提示; 版本一致性由 check-tag.yml 与 release.yml 两道
-  --     CI 闸把关, 不依赖本条消息被人看见.
+  --     CI 校验把关, 不依赖本条消息被人看见.
   if type(version) == "string" and type(tagname) == "string" then
     local cli = tagname:gsub("^v", "")
     if cli ~= target then
@@ -207,7 +207,7 @@ function update_tag(file, content, tagname, tagdate)
   --     刷成今天 (zhmetrics/zhmCJK.dtx 是唯一能单独触发该格的文件: 它有 `[...]`
   --     行却没有 `{\ExplFileDate}`).
   --   * 收益: 旧代码在**已同步**的 zhmetrics 上也会把日期刷成今天 -- 每次
-  --     `l3build tag` 都产生 diff. 若保留那个行为, 一旦 zhmetrics 接入 PR 门禁,
+  --     `l3build tag` 都产生 diff. 若保留那个行为, 一旦 zhmetrics 接入 PR 校验,
   --     「tag 后 diff 必须为零」将永远无法满足.
   -- 版本号是发版事实源、日期只是附带信息, 因此优先保证幂等. 需要更新日期时手改,
   -- 或改 version 触发整段重写.
@@ -334,8 +334,8 @@ function read_dtx_version(dtx_path)
   f:close()
   -- 版本号模式要与写入侧一致: update_tag 用 `%b{}` 对内容零约束, 所以 `3.11a`、
   -- `0.0-beta` 这类都合法 (release.yml 的 xeCJK case 注释里就明确列了 0.0-beta).
-  -- 早先写成 `[%d%.]+` 只收数字和点, 对这些形态返回 nil, 而 uploadconfig.version
-  -- 是 `l3build upload` 的必填字段 -- 与 release 闸那个"校验侧比写入侧严格"的问题同型.
+  -- 早先写成 `[%d%.]+` 只收数字和点, 对这些写法返回 nil, 而 uploadconfig.version
+  -- 是 `l3build upload` 的必填字段 -- 与 release 校验那个"校验侧比写入侧严格"的问题同型.
   --
   -- 但**不能**放宽到 `[^}]+`: 那会匹配上占位宏本身. ctex 的五个拆分 dtx 版本行是
   -- `{\ExplFileDate}{\ExplFileVersion}{\ExplFileDescription}` (真实版本在
