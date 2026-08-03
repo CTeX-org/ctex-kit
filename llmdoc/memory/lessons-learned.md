@@ -187,8 +187,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 「重新生成 + diff」门禁的 diff 范围必须精确等于写入范围
-**Rule**: 这类门禁的 `git diff` 路径参数只能覆盖生成动作**实际写入**的文件，不能顺手扩大到「相关文件」。扩大范围不增加检出能力，只会把无关改动误判为不同步。验证 no-op 要在干净 worktree（`git worktree add`）里做——主工作区的未提交改动会被 `git diff` 算进来，结论不可信。
-**Why**: #1041 的 `tag-xecjk` job 起初写 `git diff --exit-code -- . ../support`，理由是共享 `update_tag` 在 `support/` 里。但 `l3build tag` 只回写本包 `.dtx`，纳入 `../support` 会让任何改 `support/build-config.lua` 的 PR 被误判。我是在本地跑验证时发现「干净状态下门禁却报 diff 非零」，一查是自己未提交的 `support/` 改动被算进去了。
+**Rule**: 这类门禁的 `git diff` 路径参数只能覆盖生成动作**实际写入**的文件，不能顺手扩大到「相关文件」。扩大范围不增加检出能力，只会在将来某个生成物意外落进那个目录时给出误导性报错。验证 no-op 要在干净 worktree（`git worktree add`）里做——主工作区的未提交改动会被 `git diff` 算进来，结论不可信。
+**Why**: #1041 的 `tag-xecjk` job 起初写 `git diff --exit-code -- . ../support`，理由是共享 `update_tag` 在 `support/` 里，而 `l3build tag` 只回写本包 `.dtx`。**注意我当初给的第二个理由是错的**：我写「纳入 `../support` 会让任何改它的 PR 被误判」，后经实测推翻——CI 检出的是已提交的干净树，那份改动不构成 diff，两种写法退出码均为 0；误报只发生在本地有未提交改动时（我把本地现象当成了 CI 行为）。范围应收窄的真实理由是语义精确。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 新增门禁要用「复现原事故」验证判别力
