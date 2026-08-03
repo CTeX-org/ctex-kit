@@ -153,7 +153,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 诊断信息的来源不能是可被污染的环境变量
 **Rule**: 打印路径、目录名一类诊断信息时，用内核态查询（Lua 下 `lfs.currentdir()`）而非 `os.getenv("PWD")`。环境变量可被调用方覆盖，会让「修好的」路径重新变成错的；`PWD` 在 Windows 上还根本不存在。
-**Why**: #1041 我把告警里的包路径从 `module`（小写 `xecjk`，与目录 `xeCJK/` 不符）改成 `os.getenv("PWD")`，盲审实测 `PWD=/somewhere/else l3build tag` 打印出 `else/build.lua`——又一个不存在的路径，与这次修复的目的正好相反。改用 `lfs.currentdir()`（texlua 预置全局表，l3build 自身也用）。
+**Why**: #1041 我把告警里的包路径从 `module`（小写 `xecjk`，与目录 `xeCJK/` 不符）改成 `os.getenv("PWD")`，盲审实测 `PWD=/somewhere/else l3build tag 3.10.6` 打印出 `else/build.lua`——又一个不存在的路径，与这次修复的目的正好相反。改用 `lfs.currentdir()`（texlua 预置全局表，l3build 自身也用）。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 参数被有意忽略时要显式告警，不要静默丢弃
