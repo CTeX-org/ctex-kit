@@ -64,7 +64,7 @@ return new_content   -- l3build 自己按值比较, 无需再判一次
 
 - `paths` 与 `changes` filter 增加 `xeCJK/**` 与 `support/build-config.lua`（后者是共享 `update_tag` 所在，改它必须重跑三个包的门禁）。
 - **不需要 `fetch-depth: 0`**：共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 `git log`（ctex 的覆写版本才需要）。
-- **diff 范围只限 `.`**：写成 `git diff --exit-code -- . ../support` 是错的——`l3build tag` 的回写目标只有本包 `.dtx`，把 `../support` 纳入会让任何改 `support/build-config.lua` 的 PR 被误判成 stamp 不同步。
+- **diff 范围只限 `.`**：`l3build tag` 的回写目标只有本包 `.dtx`，diff 范围应精确等于写入范围。早先给的理由是「否则任何改 `support/build-config.lua` 的 PR 都会被误判成 stamp 不同步」，**该理由已被实测推翻**：CI 检出的是已提交的干净树，那份改动不构成 diff，两种写法退出码均为 0；误报只发生在本地有未提交改动时。真实理由是语义精确——纳入非写入目标不增加检出能力，只会在将来某个生成物意外落进 `support/` 时给出误导性报错。
 - 汇总 job `check-tag-result` 的 `needs` 与循环列表同步加 xeCJK。
 
 ### 5. `release.yml` 增加 `xeCJK)` case

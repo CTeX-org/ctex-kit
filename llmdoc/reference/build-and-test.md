@@ -636,10 +636,18 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
 | `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
 | `CJKpunct` / `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 部分有 `\ExplFileDate` | 共享 | ✗ | ✗（走 `*)`） |
-| `zhmetrics-uptex` | 无 | — | 共享（经 `zhmetrics`） | ✗ | ✗（走 `*)`）|
+| `zhmetrics-uptex` | 无 | — | 不适用（无独立 `build.lua`，tag 前缀复用 `zhmetrics` 目录） | ✗ | ✗（走 `*)`）|
 | `zhspacing` | — | — | — | ✗ | ✗ |
 
-**这张表的行必须覆盖 `release.yml` 的 `Parse tag` 能识别的全部 tag 前缀**（当前九个：`CJKpunct`、`ctex`、`xeCJK`、`xpinyin`、`zhlineskip`、`zhmetrics`、`zhmetrics-uptex`、`zhnumber`、`zhspacing`），否则漏掉的那一行正是矩阵想拦住的「静默跳过」。`zhmetrics-uptex` 就是这样漏过一次的——它能触发 `release.yml` 却不在表里。
+**这张表的行必须覆盖 `release.yml` 的 `Parse tag` 能识别的全部 tag 前缀**（当前十个：`CJKpunct`、`ctex`、`xCJK2uni`、`xeCJK`、`xpinyin`、`zhlineskip`、`zhmetrics`、`zhmetrics-uptex`、`zhnumber`、`zhspacing`），否则漏掉的那一行正是矩阵想拦住的「静默跳过」。`zhmetrics-uptex` 就是这样漏过一次的——它能触发 `release.yml` 却不在表里。
+
+对账要用能匹配全部包名的模式：包名含数字（`xCJK2uni`）和连字符（`zhmetrics-uptex`），所以
+
+```sh
+grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | sed 's/-v\*//' | sort
+```
+
+首次补 `zhmetrics-uptex` 时我用的是 `[A-Za-z-]+`（不含数字），于是同一次对账又静默漏掉了 `xCJK2uni`——**对账脚本自己犯了和被查问题同型的白名单错误**。
 
 `zhspacing` 是**有意识**排除（商业字体依赖 + 包自身时序 bug，见 [[935-check-doc-zhspacing-blockers]]）；xeCJK 曾是**无意识**从未接入——`v3.10.5-rc2` 因此发出了一个自报 `v3.10.4` 的包，两道闸门都没拦。加新包或让某个包具备条件时，务必回到这张表和两个 workflow 一起改。
 
