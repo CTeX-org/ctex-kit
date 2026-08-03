@@ -70,10 +70,14 @@
 `\tl_replace_all:Nnn` 这类 token 级替换按 **catcode + charcode 双重相等**匹配，所以模式里
 写的字面字符必须与目标 token 同类别，否则**静默失效**：不报错、测试不挂，只是什么都没替换掉。
 
-具体到 `&`：**expl3 的 `\c_code_cctab` 本就把它设为 alignment（catcode 4）**
-（`expl3-code.tex` 里的 `\char_set_catcode_alignment:n { 38 }`），所以在 `\ExplSyntaxOn`
-区域里直接写 `{ & }` 作模式**已经能匹配** `\halign` 语境的对齐符。防御性写法是在局部组里
-显式构造模板常量，好处是不把正确性寄托在「当前 catcode régime 恰好如此」这一外部前提上：
+具体到 `&`：在 `\ExplSyntaxOn` 区域里直接写 `{ & }` 作模式**能匹配** `\halign` 语境的对齐符，
+但原因是**LaTeX 环境默认把 `&` 设为 catcode 4，而 `\ExplSyntaxOn` 不改 38**（它只动
+9、32、34、58、94、95、124、126）。**不要把这归因于 `\c_code_cctab`**：catcode 表常量只在
+`\cctab_select:N` 选中时才生效，本仓库从不选它（实测：环境设 `\catcode`\&=12` 后再
+`\ExplSyntaxOn`，`&` 仍是 12；只有显式 `\cctab_select:N \c_code_cctab` 才变 4）。
+
+结论是**没有任何机制保证 `&` 是 4**，它随调用方环境漂移：外层做过 `\catcode`\&=12` 就会
+静默失配。所以防御性写法是在局部组里自行构造模板常量，把模式的类别钉死在代码里：
 
 ```latex
 \group_begin:
