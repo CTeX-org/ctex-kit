@@ -159,6 +159,10 @@ function update_tag(file, content, tagname, tagdate)
   -- 两点说明:
   --   * 路径用当前目录名而非 `module`: xeCJK 的 module 是小写 "xecjk", 目录却是
   --     `xeCJK/`, 用 module 会打印出不存在的 `xecjk/build.lua`.
+  --     取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`: 后者是可被污染的
+  --     环境变量 (实测 `PWD=/somewhere/else l3build tag` 会打印 `else/build.lua`,
+  --     恰恰又是个不存在的路径), 且 Windows 上本就没有 PWD. `lfs` 在 texlua 下是
+  --     预置全局表, l3build 自身也用 (l3build-file-functions.lua:32).
   --   * 只告警不中止: update_tag 没有向 l3build 报错的通道 (返回值是新内容, 不是
   --     errorlevel), 而 `error()` 会让 `l3build tag` 以 Lua 栈回溯收场, 对手滑传参
   --     的人更难读. 因此这里只提示; 版本一致性由 check-tag.yml 与 release.yml 两道
@@ -166,7 +170,7 @@ function update_tag(file, content, tagname, tagdate)
   if type(version) == "string" and type(tagname) == "string" then
     local cli = tagname:gsub("^v", "")
     if cli ~= target then
-      local here = (os.getenv("PWD") or ""):match("([^/]+)/?$") or (module or "?")
+      local here = (lfs.currentdir() or ""):match("([^/\\]+)[/\\]?$") or (module or "?")
       print(("[build-config] 忽略命令行版本 %s: %s/build.lua 的 version = %s 才是"
         .. "事实源. 要发新版请改 build.lua 再跑 `l3build tag` (不带参数).")
         :format(tagname, here, target))
@@ -191,7 +195,12 @@ function update_tag(file, content, tagname, tagdate)
   --     「tag 后 diff 必须为零」将永远无法满足.
   -- 版本号是发版事实源、日期只是附带信息, 因此优先保证幂等. 需要更新日期时手改,
   -- 或改 version 触发整段重写.
-  new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v(%S+)",
+  -- 版本号用 `[^%]%s]+` 而非 `%S+`: 后者会把紧跟其后的 `]` 一起吃掉, 于是
+  -- `[2022/07/14 v3.1]` 回写后丢失右括号; 更糟的是版本号已相同时捕获到的是
+  -- "3.1]", `v == target` 守卫失效而落进重写分支, 同时破坏内容与幂等性.
+  -- 现网两处 `[...]` 行的版本号后都跟着描述文字, 碰不到; 但本函数把这个模式从
+  -- "替换的一部分" 提升成了 "幂等守卫的判据", 语义责任更重, 故一并收紧.
+  new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v([^%]%s]+)",
     function (lb, d, v)
       if v == target then return lb .. d .. " v" .. v end
       return lb .. date .. " v" .. target

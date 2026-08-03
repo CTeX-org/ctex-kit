@@ -151,6 +151,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样门禁的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
+### 诊断信息的来源不能是可被污染的环境变量
+**Rule**: 打印路径、目录名一类诊断信息时，用内核态查询（Lua 下 `lfs.currentdir()`）而非 `os.getenv("PWD")`。环境变量可被调用方覆盖，会让「修好的」路径重新变成错的；`PWD` 在 Windows 上还根本不存在。
+**Why**: #1041 我把告警里的包路径从 `module`（小写 `xecjk`，与目录 `xeCJK/` 不符）改成 `os.getenv("PWD")`，盲审实测 `PWD=/somewhere/else l3build tag` 打印出 `else/build.lua`——又一个不存在的路径，与这次修复的目的正好相反。改用 `lfs.currentdir()`（texlua 预置全局表，l3build 自身也用）。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 参数被有意忽略时要显式告警，不要静默丢弃
 **Rule**: 当实现改为以配置为事实源、从而忽略用户传入的参数时，检测到冲突要打印提示。静默忽略会让命令看起来成功却什么也没做，使用者无从发现自己的参数没生效。
 **Why**: #1041 让 `update_tag` 以 `build.lua` 的 `version` 为准后，`l3build tag 3.10.6` 在 xeCJK 下退出码 0、打印 `Tagging`、实际什么也没改。补了一行告警指明事实源。
