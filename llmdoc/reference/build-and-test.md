@@ -153,7 +153,7 @@
 
 每种 `xCJKecglue` 设置都要检查默认间距和可区分间距。后者使用 `CJKecglue={\hskip 5pt}`、`CJKglue={\hskip 1pt}`，避免默认词间空格与 `CJKecglue` 等宽或默认 `CJKglue` 自然宽度为零而产生假通过。`xCJKecglue=<glue>` 等价于 `CJKecglue=<glue>, xCJKecglue=true`，不复制第三张完整矩阵，只用独立回归测试锁定这项等价关系。`CJKspace` 是另一项独立设置，不与 `xCJKecglue` 做全组合。
 
-`xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度门禁：
+`xeCJK/testfiles/command-boundary01.lvt` 是统一框架的宽度校验：
 
 - 当前有 100 组普通 `\BoundaryMatrix`，分别在默认/可区分间距和 `xCJKecglue=false/true` 的四种配置下运行；第 28 行另用直接公式 `$x$` 作为 oracle。矩阵中 1616 个可表达单元现已全部执行宽度比较；再加 `CJKspace` 和分隔符扫描 `\verb` 的 52 个比较，合计 1668 个通过断言。测试先扣除待测命令与直接输入分别排版时固有的宽度差，再只比较外围间距，容差为 0.01pt。
 - 覆盖展开宏、显式分组、字体/颜色、xeCJKfntef 与原生 `\uline`、box/wrapped-box、mixed 首尾、hyperref/URL/reference、hypdoc、`\verb`、transparent/post-transparent、biblatex write，以及 `CJKspace` / `xCJKecglue`。
@@ -287,7 +287,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 
 其中 `config-ctxdoc` 使用 `testfiledir = "./test/testfiles-ctxdoc"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，并通过 `checksuppfiles = {"ctxdoc.cls"}` 把本地 `support/ctxdoc.cls` 复制到 check 目录，确保测试覆盖仓库中的当前实现，而不是系统安装版本。该配置现有两类测试：`patch-health.lvt` 传入 `fontset=fandol` 后加载 ctxdoc，验证 patch 在 nonstop 模式下也能以致命错误暴露失败；`resize-function.lvt` 使用 `\loggingoutput` 固定函数条目的节点结构，覆盖 Added 日期、rEXP、pTF 与长函数名的等差档位/极端自适应水平压缩，防止日期行被连带缩放或可展性标记越过边注宽度。
 
-ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更旧版本上会经 `\ctex_patch_failure:N` 直接终止。l3doc 由 TeX Live 的 `l3kernel` 包提供，遇到该门禁时应更新 `l3kernel`，并按下文 usertree 双步同步流程重建 `xelatex` format，避免新类文件与旧 format 中的 expl3 支持层不匹配。
+ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更旧版本上会经 `\ctex_patch_failure:N` 直接终止。l3doc 由 TeX Live 的 `l3kernel` 包提供，遇到该校验时应更新 `l3kernel`，并按下文 usertree 双步同步流程重建 `xelatex` format，避免新类文件与旧 format 中的 expl3 支持层不匹配。
 
 `config-contrib` 也是 monorepo 中检验跨包模板回归的稳定下游入口。xeCJK 只要修复了可能影响实际排版输出的行为，就应在 `ctex/` 目录补跑 `l3build check -c test/config-contrib -q`；若失败，先检查 diff，通常意味着需要用 `l3build save -c test/config-contrib -e xetex <testname>` 同步更新受影响模板的基线。xeCJK #803 后 `pkuthss` 基线更新已验证这是常见联动，而非无关失败。
 
@@ -336,7 +336,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 1. `fntef-underline-offset.lvt` 直接构造真正的 `l3draw` 波浪和斜线盒子，固定 8pt、10.53937pt、15pt 下的宽、高、深。这一层证明实际周期宽度确实是 `1em/4`、斜线约高 `.93em`，并随字号缩放；还检查普通／带 `-` 形式的空参数和不产生节点的正文保持零宽、零高、零深，避免 `ulem` 的结尾语法空格被裁切结构变成可见装饰。四组波浪／斜线、普通／带 `-` 的嵌套组合把单片段内层命令放在外层末尾；测试拦截 `\@@_ulem_periodic_right_skip_aux:`，要求只有已经产生后续片段的外层命令触发一次末段重画，从而固定嵌套状态的压栈和恢复。
 2. 节点和换行回归把波浪和斜线临时换成同尺寸的轻量规则盒子，检查默认普通 `\leaders`、自定义波浪的 `\xleaders`、裁切结构、普通与带 `-` 形式、相邻命令、标点、换行、实际伸缩的 `CJKglue`，以及普通 `\quad` 仍被装饰。换行测试还比较正文字符和盒子、断点、行宽、glue set 及 PDF 图形状态在断点两侧分别闭合。规则盒子避免 `.tlg` 被数千行 PDF 绘图 special 淹没，但不能证明页面上的实际坐标。
-3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行门禁固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
+3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行校验固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
 专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 117／117，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
@@ -351,7 +351,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 #1038 共新增两个独立文件。`tabular-cr01` 固定 `\\` 的相邻写法（`&` 之后、`\\[2pt]`、末行）；`boundary-bgroup01` 固定同一修复的附带改善：`中\bgroup $x$\egroup 文` 由 29.04527pt 变为 32.37527pt，与显式花括号形态及无分组 oracle 一致（判别力实测 rc 1，缺陷版回到 29.04527pt）。
 
-**两者都必须独立成文件。** 起初它们是 `tabular01` 的 TEST 4／TEST 5，但 `tabular01` 的 TEST 3 在缺陷版下以 `Improper alphabetic constant` 中止编译，同一文件里其后的用例根本不执行——实测缺陷版日志里 `TEST 4` 出现 0 次。那样的用例在缺陷版里连输出都没有，判别力无法观察，是看起来正规实际空转的门禁。
+**两者都必须独立成文件。** 起初它们是 `tabular01` 的 TEST 4／TEST 5，但 `tabular01` 的 TEST 3 在缺陷版下以 `Improper alphabetic constant` 中止编译，同一文件里其后的用例根本不执行——实测缺陷版日志里 `TEST 4` 出现 0 次。那样的用例在缺陷版里连输出都没有，判别力无法观察，是看起来正规实际空转的校验。
 
 **「多个复现用例必须分文件跑」不只是排查时的注意事项，而是测试设计约束**：每个能独立触发该缺陷的用例都要有自己的文件，否则第一个报错就把其余全部变成假绿。三个文件现各自具备判别力（逐个实测缺陷版 rc 1）。
 
@@ -368,7 +368,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 `fntef-shrink01.lvt` 固定 `\UL@on` 把正文交给 `ulem` 前必须保留字面记号这条约束（注意只覆盖 `\UL@on`，`\UL@onin` 见本节末尾）（架构见 [[../architecture/xecjk-architecture]] 「ulem 集成层的正文必须以字面记号留在替换文本里」一节）。测试覆盖 `\CJKunderline`、`\CJKunderwave`、带减号形式，以及重排路径的两个不同侧面；前四组都在 `document` 主垂直列表里让 `\hsize=200pt` 的段落真正断行，只固定行盒尺寸与 glue set，不比对装饰图形。TEST 5 是例外：它用 `\setbox` 加 `\box` 而非段落断行，并固定完整节点列表，因此会对装饰结构与 PDF 标记的改动敏感（实测改 `ActualText` 值只会让 TEST 5 失败，是它独有的敏感面；改装饰线粗细则五项全失败，因为线粗会改变行盒高深，不算 TEST 5 专属）。这是必要代价，只有节点列表能拦住“宽度不变而装饰已消失”的实现。
 
-判据在 #1037 后改为「无 `Overfull` 记录」。溢出量随修复进度有三个取值：#1026 缺陷版 18.08pt、只修词后 3.64pt、词前词后都修好后无溢出。原先的判据写作「修复后为 3.64pt」，把残留缺陷冻结成了预期基线——四个用例各固定一条 3.64pt 的 `Overfull` 行，等于替同源的另一半缺陷（#1037）背书，使它长期看起来「有门禁在管」。**把一个非零的缺陷量写进基线时，必须在注释里说明它为什么不是零、以及零需要什么条件**，否则观测值会被后来者当成规格。
+判据在 #1037 后改为「无 `Overfull` 记录」。溢出量随修复进度有三个取值：#1026 缺陷版 18.08pt、只修词后 3.64pt、词前词后都修好后无溢出。原先的判据写作「修复后为 3.64pt」，把残留缺陷冻结成了预期基线——四个用例各固定一条 3.64pt 的 `Overfull` 行，等于替同源的另一半缺陷（#1037）背书，使它长期看起来「有校验在管」。**把一个非零的缺陷量写进基线时，必须在注释里说明它为什么不是零、以及零需要什么条件**，否则观测值会被后来者当成规格。
 
 重排路径需要两项各自独立的用例，缺一不可：
 
@@ -389,7 +389,7 @@ TEST 6（#1037 新增）是词前 ecglue 的正向断言。前四项以「没有
 
 TEST 7（同样 #1037 新增）固定的是**守卫**而非收缩量：在装饰之外重定义 `\ `（模拟 `nath`／`morehype`），再排普通中西文混排 `中 abc 文`。因为词前 ecglue 的入口位于所有中西文边界都会走的通用路径上，改写若只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`，就会在装饰外的普通正文里执行 `\UL@stop` 而报 `Too many }'s`——与是否使用装饰命令无关。判别力已实测 rc 1：去掉 `\l_@@_ulem_stream_started_bool` 守卫后**只有** TEST 7 失败（基线出现 `\UL@stop ... \egroup \egroup` 报错行），前六项全部照常通过。这是「同一入口的两种失效方式需要各自的用例」的具体例子：TEST 6 管收缩量搬没搬出去，TEST 7 管搬的时机对不对。
 
-TEST 10（#1037 新增）覆盖第四处路径（`\xeCJK_check_for_glue:` 的 math 分支，`$x$中文`）以及 `\@@_check_for_glue_auxi:` 的两个分支。**一个 `dim_case` 里的每个分支各自需要一条断言**：`default`（末节点是 Default 类，`\mbox{hi}中文`）与 `math`（末节点是 math marker，`\mbox{$x$}中文`）是两条独立路径，只写前者时后者可达且实现正确却毫无门禁——逐分支变异实测，只改回 math 分支时全套 115 项仍全绿。三条断言现各自具备判别力（逐分支变异均 rc 1，TESTs 1-9 零命中）。
+TEST 10（#1037 新增）覆盖第四处路径（`\xeCJK_check_for_glue:` 的 math 分支，`$x$中文`）以及 `\@@_check_for_glue_auxi:` 的两个分支。**一个 `dim_case` 里的每个分支各自需要一条断言**：`default`（末节点是 Default 类，`\mbox{hi}中文`）与 `math`（末节点是 math marker，`\mbox{$x$}中文`）是两条独立路径，只写前者时后者可达且实现正确却毫无校验——逐分支变异实测，只改回 math 分支时全套 115 项仍全绿。三条断言现各自具备判别力（逐分支变异均 rc 1，TESTs 1-9 零命中）。
 
 TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecglue_source_space_success:` 与 `\@@_check_for_glue_auxi:`（西文词被字体／颜色声明隔开时走这两处）。**必须用 `\color` 形态**——实测 `\bfseries` 形态在这两处改动前后都是 2.22pt（根本不走这条路径），拿它做断言会得到恒真的测试；第一版 TEST 9 正是这么写的，撤销修复后仍通过。改用 `\color` 后判别力实测 rc 1（badness 73→1000000），且 TESTs 1-8 零命中。该用例同时把显式分组写法的已接受限制固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`）。
 
@@ -400,7 +400,7 @@ TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecgl
 
 重排路径交还的那枚尾随空格仍落在最后一个片段盒内部，外层收缩量因此比发布版少 1.11pt（发布版 9.44pt、回归基线 8.33pt、修复后 8.33pt+2.22pt 中属于西文词的部分已恢复）。改走 `\@@_boundary_use_ulem_glue:n` 外层通道能补上这 1.11pt，但会让该空格对边界机制变得可见而被计算两次，实测 `command-boundary-math01` 报 3.33pt boundary delta 失败、`command-boundary-math05` 的 `stream-ulem` previous 从 0.0pt 变 3.33pt，故不采用。这是已接受的限制，详见决策 [[../memory/decisions/1026-ulem-literal-body]]。#1037 未改变这一点：它只改补 ecglue 的通道，不涉及重排路径剥离／交还源码空格的逻辑，TEST 5 的节点列表与宽度差在 #1037 修复前后逐字节相同，可佐证重排路径未被触及。
 
-`\UL@onin`（嵌套 ulem 命令入口）的重排分支按同一约束做了一致性修改，但**没有回归保护**，这一点必须如实记住，不要以为 `fntef-shrink01` 覆盖了它。原因是结构性的：`ulem` 的 `\UL@onin` 用 `\setbox\UL@box\hbox{{#1}}` 把内容整体装进一个 hbox，内层收缩量本来就出不了这个盒子，因此“收缩量丢失”这一症状在嵌套路径上不显现。实测在该分支重新引入同一缺陷（改回 `\tl_use:N` 间接展开），乃至整段删掉重排分支，xeCJK 全套 114 项都保持全绿；嵌套 `\uline` 盒子的宽高深在修复版与缺陷版下逐位相同。探针确认这条分支确实会被执行（不是死代码），只是其正确性目前依赖代码审查而非门禁。若将来找到可观察量（例如节点列表里的末类别或空格交还位置），应当补上用例并更新此处。
+`\UL@onin`（嵌套 ulem 命令入口）的重排分支按同一约束做了一致性修改，但**没有回归保护**，这一点必须如实记住，不要以为 `fntef-shrink01` 覆盖了它。原因是结构性的：`ulem` 的 `\UL@onin` 用 `\setbox\UL@box\hbox{{#1}}` 把内容整体装进一个 hbox，内层收缩量本来就出不了这个盒子，因此“收缩量丢失”这一症状在嵌套路径上不显现。实测在该分支重新引入同一缺陷（改回 `\tl_use:N` 间接展开），乃至整段删掉重排分支，xeCJK 全套 114 项都保持全绿；嵌套 `\uline` 盒子的宽高深在修复版与缺陷版下逐位相同。探针确认这条分支确实会被执行（不是死代码），只是其正确性目前依赖代码审查而非校验。若将来找到可观察量（例如节点列表里的末类别或空格交还位置），应当补上用例并更新此处。
 
 视觉与跨 issue 无回归资产放在 `gh-assets` 的 `issues/1026/`：`issue1026-before-after.png` 是带正文右边距参考线的修复前后对照（722px → 681px，与 v3.10.3 逐像素一致）；`issue1002-no-regression.png` 与两份 `issue1002-*.txt` 记录重放 #1002 资产的结果——数值 oracle 24 行与本 PR 父提交逐字节相同，`inline-math-showcase.tex` 全部 17 页逐像素相同。重放这类资产时基线要取本 PR 的父提交，不能取早于该 issue 的发布版。
 
@@ -421,16 +421,16 @@ TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecgl
 GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
-- `.github/workflows/check-doc.yml`：PR 门禁 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
-- `.github/workflows/check-tag.yml`：PR 门禁 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041); 与 release.yml 的三方版本校验构成双闸, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
-- `.github/workflows/check-changelog.yml`：PR 门禁 workflow, 校验 5 个包 (ctex/xeCJK/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
+- `.github/workflows/check-doc.yml`：PR 校验 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
+- `.github/workflows/check-tag.yml`：PR 校验 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041); 与 release.yml 的三方版本校验构成两道校验, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
+- `.github/workflows/check-changelog.yml`：PR 校验 workflow, 校验 5 个包 (ctex/xeCJK/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
 - `.github/workflows/agentic-pr-review.yml`：本地 PR 自动审查实现，由 `pull_request_target` 触发；Draft PR 不会被跳过，打开、推送新提交或重新打开时与普通 PR 一样进入审查；Codex `gpt-5.6-sol` 是主链路，Claude Code `claude-opus-5` 是独立 runner 上的兜底，不运行 Agent 的发布 job（publisher）代发评论
 - `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
 - `.github/workflows/agentic-llmdoc-updater.yml`：本地 llmdoc 更新实现，每天北京时间 05:00 或手动触发，Agent 只生成候选，独立的校验 job（validator）和 publisher 验证并创建／更新 PR
-- `.github/workflows/check-agentic-workflows.yml`：PR 门禁，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本；它还明确对 pre-push hook、Agent shell 脚本和 PR history 脚本运行 ShellCheck
+- `.github/workflows/check-agentic-workflows.yml`：PR 校验，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本；它还明确对 pre-push hook、Agent shell 脚本和 PR history 脚本运行 ShellCheck
 
 #### agentic 工作流的本地运行时与触发约束
 
@@ -451,7 +451,7 @@ Issue 分派和 llmdoc 更新在 job 级使用 `if: ${{ github.repository == 'CT
 **保留的边界（不受本轮简化影响）**：
 
 - `pull_request_target` 的可信 checkout 固定在 PR base SHA（分叉点，见下），被审查的 head 只是数据。
-- 结构化 `review_status` 校验（`COMPLETE` / `INCOMPLETE`）：本轮已证明其价值——Agent 环境损坏时返回 `INCOMPLETE` 会被门禁拒收，不会变成假绿。
+- 结构化 `review_status` 校验（`COMPLETE` / `INCOMPLETE`）：本轮已证明其价值——Agent 环境损坏时返回 `INCOMPLETE` 会被校验拒收，不会变成假绿。
 - publisher 权限隔离：三条 workflow 都把 Agent 与外部写入分开。PR Agent 只读，publisher 独占 `pull-requests: write`；Issue Agent 固定事件 `github.sha` 且只读，dispatch job 独占 `issues: write`；llmdoc prepare 固定 master SHA，Agent 只打包 `llmdoc/` 候选，独立 validator 从同一 SHA 验证，publisher 才取得 `contents: write` 和 `pull-requests: write`。
 - Claude 的 `--bare`：禁用 `CLAUDE.md` 自动发现，避免被审查仓库注入 Agent 指令。
 - llmdoc Updater 的 `package-base` 重新检出：仍重新把固定 master 提交检出到 `package-base`，只复制 `consumer/llmdoc/` 文件树，比较和补丁生成都在这个新仓库中完成，不读取 Agent 控制的 `.git`。这一层解决的是“Agent 可能通过 `assume-unchanged`、本地提交或 `.git/config`（如 `core.fsmonitor`）让工作区 Git 状态失真”的问题，与本轮删除的三层隔离无关，未改动。
@@ -460,7 +460,7 @@ llmdoc prepare 生成的 `task.json` 包含 `since_period`，`recent-commits.txt
 
 PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 重跑时更新原评论，不同 head 则新建评论，既避免同一提交的重复评论，也保留不同提交的审查记录。pre-push 必须用 `gh api --paginate --slurp` 读取并展平全部 Issue 评论页；检查维护者是否确认 Bot 评论时，以评论的 `updated_at` 为时间边界，缺失时才回退 `created_at`。只有 OWNER、MEMBER 或 COLLABORATOR 在 Bot 最后更新之后的回复，才算确认当前正文。这样，后续页的审查评论不会被漏掉，维护者在旧正文后的回复也不会掩盖同一 head 重跑产生的新 finding。
 
-`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装脚本调用、restore-only 缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、注入 `timeout-minutes` 的复合 Action step、字体 staging 中预置或不完整的内容、同／异 head 评论发布、第二页 Bot 评论、维护者回复早于 Bot `updated_at`。PR Review 的合同现在只固定两件事：提示词指向 base 固定的规范路径（`$GITHUB_WORKSPACE/.trusted-base/.claude/skills/{pr-review,github-comment}/SKILL.md`），以及 Claude 保留 `--bare`；恢复为读取工作树规范或让 Claude 丢掉 `--bare` 的反例都必须失败。llmdoc 通知也必须区分公开结果中的 `blocked` 与 job 执行成功。PR Review 的可信 sparse checkout 还要覆盖 `run-agent` Action 的全部仓库内运行时依赖；合同测试从实际的 `.trusted-base/...` 引用反推依赖闭环（允许 sparse-checkout 的目录前缀覆盖具体文件），并用删除依赖路径的反例确认门禁会失败。新增或移动本地 Action 的运行时文件时，必须同时更新所有固定提交 checkout，不能只修改 Action 本身。合同 workflow 的 `pull_request.paths` 必须覆盖合同测试读取或执行的全部仓库文件；独立 shell 文件还要由明确的 ShellCheck 命令检查，不能把 actionlint 对 workflow 内嵌 `run:` 的检查当作替代。修改本地 Agent runtime 后运行合同测试、`scripts/validate-action-metadata.py`、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]、[[1030-1031-composite-action-semantics]]、[[1032-agent-runtime-simplification]]。
+`scripts/test-agentic-workflow-contract.py` 固定触发、权限、六处工具安装脚本调用、restore-only 缓存、事件提交、publisher 隔离和结构化结果语义；它还用预期失败的错误样例验证零 finding 的 `COMMENT`、损坏的 `runs.using`、拼错的 composite step 字段、注入 `timeout-minutes` 的复合 Action step、字体 staging 中预置或不完整的内容、同／异 head 评论发布、第二页 Bot 评论、维护者回复早于 Bot `updated_at`。PR Review 的合同现在只固定两件事：提示词指向 base 固定的规范路径（`$GITHUB_WORKSPACE/.trusted-base/.claude/skills/{pr-review,github-comment}/SKILL.md`），以及 Claude 保留 `--bare`；恢复为读取工作树规范或让 Claude 丢掉 `--bare` 的反例都必须失败。llmdoc 通知也必须区分公开结果中的 `blocked` 与 job 执行成功。PR Review 的可信 sparse checkout 还要覆盖 `run-agent` Action 的全部仓库内运行时依赖；合同测试从实际的 `.trusted-base/...` 引用反推依赖闭环（允许 sparse-checkout 的目录前缀覆盖具体文件），并用删除依赖路径的反例确认校验会失败。新增或移动本地 Action 的运行时文件时，必须同时更新所有固定提交 checkout，不能只修改 Action 本身。合同 workflow 的 `pull_request.paths` 必须覆盖合同测试读取或执行的全部仓库文件；独立 shell 文件还要由明确的 ShellCheck 命令检查，不能把 actionlint 对 workflow 内嵌 `run:` 的检查当作替代。修改本地 Agent runtime 后运行合同测试、`scripts/validate-action-metadata.py`、actionlint 和 ShellCheck。设计与教训见 [[1025-agentic-local-runtime-toolchain]]、[[1030-1031-composite-action-semantics]]、[[1032-agent-runtime-simplification]]。
 
 `agentic-pr-review.yml` 由 `pull_request_target` 触发，其工作流定义本身取自 base 分支（`master`）当前状态；但用于可信 checkout 的 `github.event.pull_request.base.sha` 是该 PR 的分叉点（merge base），不是 base 分支当前 HEAD。因此 Agent runtime（本节描述的三条 workflow 与 `.github/scripts/agentic/`）发生改动后，所有分叉点早于该改动的存量 PR 都会持续加载旧运行时，其 Agent job 会在可信 checkout 或工具安装阶段反复失败，直到该分支 rebase 到 `master` 或合并 `master` 为止；close/reopen PR 与单独重跑都不会改变分叉点，因此都不能恢复。这是刻意的安全设计：保证可信运行时的版本与被审查的 diff 有一致基线，代价是运行时改动不会对已存在、分叉点落后的 PR 自动生效。诊断步骤见 `llmdoc/guides/push-and-pr-review-workflow.md`。设计与教训见 [[1030-1031-composite-action-semantics]]。
 
@@ -539,9 +539,9 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 5 �
 
 失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ inputs.pkg }}/build/**/*.diff`, artifact name 含 pkg 名 + OS 区分.
 
-### 文档编译门禁：`.github/workflows/check-doc.yml`
+### 文档编译校验：`.github/workflows/check-doc.yml`
 
-PR 阶段专用门禁 (#935), 补 test.yml 的"文档 dtx→PDF 可编译性"维度. 只在 `pull_request` 触发. 结构:
+PR 阶段专用校验 (#935), 补 test.yml 的"文档 dtx→PDF 可编译性"维度. 只在 `pull_request` 触发. 结构:
 
 - **`changes` job**: 精简版 paths-filter, 9 个 bool (ctex/xeCJK/CJKpunct/zhnumber/xCJK2uni/xpinyin/zhmetrics/zhmetrics-uptex/zhlineskip). **无依赖传递** — `l3build doc` 只 typeset 自身 `typesetfiles`, xeCJK 变动不会跑 ctex 的 doc.
 - **9 个 caller job**: 每包一个 `uses: ./.github/workflows/_check-doc-package.yml`, job 级 if 保证未受影响包不启动 runner (仿 test.yml + _test-package.yml 的 caller-per-pkg 结构, 避开 matrix.pkg 幽灵 cancelled job).
@@ -557,9 +557,9 @@ Verify 层: `scripts/verify-doc-output.sh` 按 `typesetfiles` 逐 PDF 检查 `bu
 
 - **xpinyin**: `xpinyin.dtx:179` `\newfontfamily{TeX Gyre Adventor}` 走 fontconfig friendly name. TL 装了 tex-gyre 但字体不在 fontconfig 索引 → workflow 加 `/etc/fonts/conf.d/09-texlive-opentype.conf` 让 fc-cache 扫 TL opentype/truetype 目录. 无条件执行, 别的包只是索引多几百字体.
 - **zhmetrics**: TL zhmetrics 包只装 gbk/unicode 分片 tfm, **不含**顶层 `zhmCJK.tfm`/`.map` — 这两个是 `zhmCJK.lua map` 在 `copyctan_posthook` 里生成后 CTAN admin 手工上传独立文件, TL 打包时未纳入. `zhmCJK.dtx` typeset 请求 `zhm35b` 走 fontname map 失败. 修法: workflow 加 `pkg==zhmetrics` pre-doc step, 用包内 `zhmCJK.lua` 生成 tfm/map, 装到 `TEXMFHOME` 并 `mktexlsr`. `.github/tl_packages` 补 `fontware` (提供 `pltotf`). build.lua 不变. `zhmCJK-test.pdf` 从 verify expected 移除 — `zhmCJK-test.tex` 硬编码 simsun.ttc/simhei.ttf 文件名 fontconfig alias 救不了, 是包内部字体安装 demo 与文档 CI 目标无关.
-- **zhspacing** (暂不覆盖): 从 caller 里删除. `zhfont.sty`/`zhmath.sty`/`zhspacing.sty` 硬依赖 SimSun/SimHei/KaiTi/FangSong/Sun-Ext*/Times New Roman 商业字体, 且深挖后发现 `zhspacing.sty` 自身有时序 bug (`\@iforloop`/`\@nil` undefined, 之前被 SimSun 早退错误掩盖). 上次 tag `zhspacing-20160514` 后 10 年未维护, `release.yml` 也从未真正验证过它的 typeset 链路. 属于包本身 CI 改造范畴, 不合适塞进"新增 workflow 门禁"这类 infra PR. followup issue 单独跟. 详见 [[935-check-doc-zhspacing-blockers]].
+- **zhspacing** (暂不覆盖): 从 caller 里删除. `zhfont.sty`/`zhmath.sty`/`zhspacing.sty` 硬依赖 SimSun/SimHei/KaiTi/FangSong/Sun-Ext*/Times New Roman 商业字体, 且深挖后发现 `zhspacing.sty` 自身有时序 bug (`\@iforloop`/`\@nil` undefined, 之前被 SimSun 早退错误掩盖). 上次 tag `zhspacing-20160514` 后 10 年未维护, `release.yml` 也从未真正验证过它的 typeset 链路. 属于包本身 CI 改造范畴, 不合适塞进"新增 workflow 校验"这类 infra PR. followup issue 单独跟. 详见 [[935-check-doc-zhspacing-blockers]].
 
-关键约束: **`l3build ctan` 不能作为 PR 门禁的等价替代**, 因为它内部硬编码调 `l3build check` (`l3build-ctan.lua:123`), 整套 regression 会重跑, ctex 单包 20+ min 与 test.yml 完全重复. 用 `l3build doc` 精确对应"文档编译性"维度是取舍后的选择, 见 [[935-check-doc-vs-ctan]].
+关键约束: **`l3build ctan` 不能作为 PR 校验的等价替代**, 因为它内部硬编码调 `l3build check` (`l3build-ctan.lua:123`), 整套 regression 会重跑, ctex 单包 20+ min 与 test.yml 完全重复. 用 `l3build doc` 精确对应"文档编译性"维度是取舍后的选择, 见 [[935-check-doc-vs-ctan]].
 
 #### fontconfig alias 对 XeTeX/fontspec 无效
 
@@ -628,9 +628,9 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 ### 覆盖矩阵
 
-两道闸门都是**白名单**（`check-tag.yml` 用 `paths` filter、`release.yml` 用 `case "${DIR}"`），未列出的包**静默跳过**且不产生 failure——`release.yml` 只打一条 `::notice::...跳过三方校验`。因此这份矩阵必须与两个 workflow 同步维护：
+两道校验都是**白名单**（`check-tag.yml` 用 `paths` filter、`release.yml` 用 `case "${DIR}"`），未列出的包**静默跳过**且不产生 failure——`release.yml` 只打一条 `::notice::...跳过三方校验`。因此这份矩阵必须与两个 workflow 同步维护：
 
-| 包 | `version` 事实源 | dtx 版本位置 | `update_tag` | PR 门禁 | release 三方校验 |
+| 包 | `version` 事实源 | dtx 版本位置 | `update_tag` | PR 校验 | release 三方校验 |
 |---|---|---|---|---|---|
 | `ctex` | `build.lua` `version` | `$Id:$` stamp（6 个拆分 dtx，均含 stamp） | 包级覆写 | ✓ | ✓ |
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
@@ -650,11 +650,11 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
 
 首次补 `zhmetrics-uptex` 时我用的是 `[A-Za-z-]+`（不含数字），于是同一次对账又静默漏掉了 `xCJK2uni`——**对账脚本自己犯了和被查问题同型的白名单错误**。
 
-`zhspacing` 是**有意识**排除（商业字体依赖 + 包自身时序 bug，见 [[935-check-doc-zhspacing-blockers]]）；xeCJK 曾是**无意识**从未接入——`v3.10.5-rc2` 因此发出了一个自报 `v3.10.4` 的包，两道闸门都没拦。加新包或让某个包具备条件时，务必回到这张表和两个 workflow 一起改。
+`zhspacing` 是**有意识**排除（商业字体依赖 + 包自身时序 bug，见 [[935-check-doc-zhspacing-blockers]]）；xeCJK 曾是**无意识**从未接入——`v3.10.5-rc2` 因此发出了一个自报 `v3.10.4` 的包，两道检查都没拦住。加新包或让某个包具备条件时，务必回到这张表和两个 workflow 一起改。
 
 - **`build.lua` 顶部 `version` 字段是唯一手改的版本事实源**（ctex 还有 `date` 等价物走 git 元数据；zhlineskip 是 `version` + `date` 两字段）。`uploadconfig`（CTAN 投递）直接引用它。
 - dtx 源文件的版本行是 `\GetIdInfo $Id: <file> <ver> <date> ...$` stamp，被 `\ProvidesExplPackage{...}{\ExplFileDate}{\ExplFileVersion}{...}` 消费——dtx 里没有第二处硬编码版本。
-- 本地手跑 `cd <pkg> && l3build tag`，`update_tag` 把 version 回写进源文件。ctex / zhlineskip 在各自 `build.lua` 里**包级覆写**该函数（回写 `$Id:$` stamp）；xeCJK 用 `support/build-config.lua` 的**共享**版本（回写 `{\ExplFileDate}{<ver>}`）。**三者都带幂等守卫**：目标版本已一致时原样返回，否则"回写产生新 commit → 新 sha → 又要回写"永不收敛，且 PR 门禁的 diff 检查会恒 fire。
+- 本地手跑 `cd <pkg> && l3build tag`，`update_tag` 把 version 回写进源文件。ctex / zhlineskip 在各自 `build.lua` 里**包级覆写**该函数（回写 `$Id:$` stamp）；xeCJK 用 `support/build-config.lua` 的**共享**版本（回写 `{\ExplFileDate}{<ver>}`）。**三者都带幂等守卫**：目标版本已一致时原样返回，否则"回写产生新 commit → 新 sha → 又要回写"永不收敛，且 PR 校验的 diff 检查会恒 fire。
 - 共享 `update_tag` 的两个坑（#1041）：
   - **`version` 这个全局名可能是函数**。l3build 自己定义了 `function version()` 供 `--version` 用（`l3build-help.lua:32`），所以未设 `version` 的包里它不是 `nil`。写 `version or tagname` 会取到那个函数并报 `attempt to index a function value`，必须 `type(version) == "string"` 判断。
   - **`\ExplFileDate` 装的不是版本号**。`\ProvidesExplPackage` 的参数顺序是 `{name}{date}{version}{desc}`，所以 `{\ExplFileDate}{3.10.5}{\ExplFileDescription}` 里 `\ExplFileDate` 是日期占位宏（由 `\GetIdInfo$Id:$` 从 git stamp 取 commit 日期），大括号里的 `3.10.5` 才是版本。`update_tag` 只改后者；日期随打包时的 `replace_git_id` 自动跟进，硬写会让每次 tag 都产生 diff。
@@ -685,31 +685,31 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
                           （release.yml 三方校验通过才发版）
 ```
 
-第 3 步漏掉的后果就是 `v3.10.5-rc2`：包自报版本落后于 git tag。现在第 5、6 步各有一道闸拦它。
+第 3 步漏掉的后果就是 `v3.10.5-rc2`：包自报版本落后于 git tag。现在第 5、6 步各有一道校验拦住它。
 
-### 双闸 CI
+### 两道 CI 校验
 
-- **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex / xeCJK，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。三个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 不需要（共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 git）。
-  - **`paths` 必须含 `support/build-config.lua`**：共享 `update_tag` 在那里，改它要重跑门禁。
-  - **diff 范围只能是本包目录**（`git diff -- .`），因为「重新生成 + diff」型门禁的 diff 范围应精确等于生成动作的**写入**范围，而 `l3build tag` 只回写本包 `.dtx`。
+- **`check-tag.yml`（PR 校验）**：对 zhlineskip / ctex / xeCJK，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。三个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 不需要（共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 git）。
+  - **`paths` 必须含 `support/build-config.lua`**：共享 `update_tag` 在那里，改它要重跑校验。
+  - **diff 范围只能是本包目录**（`git diff -- .`），因为「重新生成 + diff」型校验的 diff 范围应精确等于生成动作的**写入**范围，而 `l3build tag` 只回写本包 `.dtx`。
     - 澄清：写成 `-- . ../support` 在 CI 里**不会**误报——CI 检出的是已提交的干净树，`support/` 的改动不构成 diff（两种写法实测退出码均为 0）。误报只发生在本地有未提交改动时。限定范围的真实理由是语义精确：纳入非写入目标不增加检出能力，只会在将来某个生成物意外落进 `support/` 时给出误导性的「stamp 不同步」报错。
-  - 本地验证这类门禁要用干净 worktree（`git worktree add`）：主工作区有未提交改动时 `git diff` 会把它们算进来，no-op 结论不可信。
+  - 本地验证这类校验要用干净 worktree（`git worktree add`）：主工作区有未提交改动时 `git diff` 会把它们算进来，no-op 结论不可信。
 - **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。未接入的包（见上方覆盖矩阵）走 `*)` 分支跳过校验并打 `::notice::`——注意那**不是** failure，CI 仍全绿。
 
 ## 生成物新鲜度校验模式（"CI 只校验不回写"）
 
-`check-tag.yml`（#937，版本 stamp）与 `check-changelog.yml`（#961，`CHANGELOG.md`）是同一套仓库级架构模式的两个独立实例，值得作为通用解法记住：**当某个产物必须由脚本/工具从源文件确定性生成、且要求与源文件保持同步时，PR 门禁应"重新生成 + `git diff --exit-code`"，而不是让 CI 直接 commit 回写**。后者需要 write 权限，前者不需要。两个实例的共同结构：
+`check-tag.yml`（#937，版本 stamp）与 `check-changelog.yml`（#961，`CHANGELOG.md`）是同一套仓库级架构模式的两个独立实例，值得作为通用解法记住：**当某个产物必须由脚本/工具从源文件确定性生成、且要求与源文件保持同步时，PR 校验应"重新生成 + `git diff --exit-code`"，而不是让 CI 直接 commit 回写**。后者需要 write 权限，前者不需要。两个实例的共同结构：
 
-- 门禁只在改到相关源文件（dtx / 生成脚本 / 产物自身）时触发，用 `paths` filter 限定。
+- 校验只在改到相关源文件（dtx / 生成脚本 / 产物自身）时触发，用 `paths` filter 限定。
 - 生成 + diff 都是秒级操作，全部涉及包合一个 job 串行跑，不需要按包拆 caller job（区别于 test.yml / check-doc.yml 的 caller-per-pkg 模式，那是因为跨引擎/跨 OS 测试本身耗时）。
 - 汇总 job 名固定风格（`check-tag-result` 无独立汇总因单 job 即汇总；`check-changelog-result`），供 branch protection 单点盯。
 - 本地都有对应的 `make` 入口把生成动作暴露给贡献者（`l3build tag` / `make changelog`）。
 
-差异点在于校验对象的"大小"决定了 fail 时的可操作性设计：`check-tag.yml` 校验单行 stamp，提示"本地跑 `l3build tag`"即可；`check-changelog.yml` 校验整份 Markdown 文件，还需要在 fail 分支把期望的完整文件内容通过三个通道暴露（`::group::` 折叠的 job log、`$GITHUB_STEP_SUMMARY` 的 `<details>` 折叠块、`actions/upload-artifact`），确保没有本地 Python 环境的 contributor 也能直接复制粘贴过闸。
+差异点在于校验对象的"大小"决定了 fail 时的可操作性设计：`check-tag.yml` 校验单行 stamp，提示"本地跑 `l3build tag`"即可；`check-changelog.yml` 校验整份 Markdown 文件，还需要在 fail 分支把期望的完整文件内容通过三个通道暴露（`::group::` 折叠的 job log、`$GITHUB_STEP_SUMMARY` 的 `<details>` 折叠块、`actions/upload-artifact`），确保没有本地 Python 环境的 contributor 也能直接复制粘贴通过校验。
 
-**任何"字节级 diff 做门禁"的生成物，必须由生成脚本自己控制 encoding/newline，不能依赖 shell 重定向**：Windows PowerShell 5 的 `>` 默认产出 UTF-16LE + CRLF，与 Linux/macOS 上 UTF-8 + LF 字节不同，即使内容语义相同也会被 `git diff --exit-code` 判为不同步。`scripts/extract-changes.py` 因此新增 `-o <file>` 参数，脚本自己以 `encoding="utf-8"` + `newline="\n"` 写文件；`l3build tag` 走 Lua io 库不存在这个问题，此前未暴露过这个坑。
+**任何"字节级 diff 做校验"的生成物，必须由生成脚本自己控制 encoding/newline，不能依赖 shell 重定向**：Windows PowerShell 5 的 `>` 默认产出 UTF-16LE + CRLF，与 Linux/macOS 上 UTF-8 + LF 字节不同，即使内容语义相同也会被 `git diff --exit-code` 判为不同步。`scripts/extract-changes.py` 因此新增 `-o <file>` 参数，脚本自己以 `encoding="utf-8"` + `newline="\n"` 写文件；`l3build tag` 走 Lua io 库不存在这个问题，此前未暴露过这个坑。
 
-### `check-changelog.yml` 门禁细节
+### `check-changelog.yml` 校验细节
 
 `.github/workflows/check-changelog.yml` 在 PR 改到以下路径时触发：任意 `**.dtx`（故意放宽到全部包——不参与 CHANGELOG 的包触发后生成 + diff 秒级必 pass，换来新包接入零 workflow 改动）、任意 `**/CHANGELOG.md`、`scripts/extract-changes.py`、`Makefile`、workflow 自身。单 job `check-changelog-result` 直接跑 `make changelog`（包列表以 `Makefile` 的 `CHANGELOG_PKGS` 为单一事实源，等价于对每个包执行）：
 

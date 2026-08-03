@@ -4,18 +4,18 @@
 
 `xeCJK-v3.10.5-rc2` 打 tag 并 push 后 `release.yml` 跑成功、prerelease 正常挂出，但包自报版本是 **v3.10.4**——`xeCJK.dtx` 的 `{\ExplFileDate}{3.10.4}` 从未随 v3.10.5 bump。
 
-两道闸门都没拦，因为 **xeCJK 从来不在覆盖范围内**：
+两道检查都没拦住，因为 **xeCJK 从来不在覆盖范围内**：
 
-| 闸门 | 覆盖方式 | xeCJK 的情况 |
+| 校验 | 覆盖方式 | xeCJK 的情况 |
 |---|---|---|
-| `check-tag.yml`（PR 门禁） | `paths` 白名单 | 只列 `zhlineskip/**`、`ctex/**`，xeCJK 的 PR 不触发 |
+| `check-tag.yml`（PR 校验） | `paths` 白名单 | 只列 `zhlineskip/**`、`ctex/**`，xeCJK 的 PR 不触发 |
 | `release.yml` 三方校验 | `case "${DIR}"` 白名单 | 落进 `*)`，打 `::notice::xeCJK 不使用 l3build tag 版本 stamp 机制, 跳过三方校验` |
 
 `::notice::` 不是 failure，CI 全绿。
 
 ## 决策
 
-把 xeCJK 接入同一套双闸，但**沿用它自己的版本写法**，不改成 ctex/zhlineskip 的 `$Id:$` stamp 形态。
+把 xeCJK 接入同一套两道校验，但**沿用它自己的版本写法**，不改成 ctex/zhlineskip 那种把版本写在 `$Id:$` 行的做法。
 
 ### 1. `xeCJK/build.lua` 新增 `version` 作为事实源
 
@@ -36,7 +36,7 @@ if type(target) ~= "string" then  -- 漏参: 显式告警而非静默返回
   return content
 end
 ...
--- 幂等: 先算出全部写入位置的目标形态, 再整体比较 (不能只看其中一处)
+-- 幂等: 先算出全部写入位置的目标写法, 再整体比较 (不能只看其中一处)
 local new_content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
 new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v([^%]%s]+)", ...)
 return new_content   -- l3build 自己按值比较, 无需再判一次
@@ -46,7 +46,7 @@ return new_content   -- l3build 自己按值比较, 无需再判一次
 
 三点设计：
 
-- **`version` 优先、CLI `tagname` 兜底**：设了 `version` 的包（目前只有 xeCJK）可以无参跑 `l3build tag`，这是 PR 门禁「跑 tag 后 diff 必须为零」得以成立的前提；未设的六包保持原有 `l3build tag <ver>` 行为。
+- **`version` 优先、CLI `tagname` 兜底**：设了 `version` 的包（目前只有 xeCJK）可以无参跑 `l3build tag`，这是 PR 校验「跑 tag 后 diff 必须为零」得以成立的前提；未设的六包保持原有 `l3build tag <ver>` 行为。
 - **必须判类型**：l3build 自己定义了全局 `function version()`（`l3build-help.lua:32`），未设 `version` 的包里这个名字是**函数**不是 `nil`。原来的 `version or tagname` 会取到那个函数并报 `attempt to index a function value`。顺带修掉了这六个包裸跑 `l3build tag` 时既有的 `attempt to concatenate a nil value`（`tagname` 为 nil）。
 - **幂等**：版本已一致时原样返回。没有这个守卫，`l3build tag` 后的 diff 永不为零，`check-tag.yml` 会恒失败（同 #937 的收敛条件）。
 
@@ -62,7 +62,7 @@ return new_content   -- l3build 自己按值比较, 无需再判一次
 
 ### 4. `check-tag.yml` 增加 `tag-xecjk` job
 
-- `paths` 与 `changes` filter 增加 `xeCJK/**` 与 `support/build-config.lua`（后者是共享 `update_tag` 所在，改它必须重跑三个包的门禁）。
+- `paths` 与 `changes` filter 增加 `xeCJK/**` 与 `support/build-config.lua`（后者是共享 `update_tag` 所在，改它必须重跑三个包的校验）。
 - **不需要 `fetch-depth: 0`**：共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 `git log`（ctex 的覆写版本才需要）。
 - **diff 范围只限 `.`**：`l3build tag` 的回写目标只有本包 `.dtx`，diff 范围应精确等于写入范围。早先给的理由是「否则任何改 `support/build-config.lua` 的 PR 都会被误判成 stamp 不同步」，**该理由已被实测推翻**：CI 检出的是已提交的干净树，那份改动不构成 diff，两种写法退出码均为 0；误报只发生在本地有未提交改动时。真实理由是语义精确——纳入非写入目标不增加检出能力，只会在将来某个生成物意外落进 `support/` 时给出误导性报错。
 - 汇总 job `check-tag-result` 的 `needs` 与循环列表同步加 xeCJK。
@@ -79,9 +79,9 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 ### 幂等守卫的观察范围必须覆盖全部写入范围
 
-本函数写两处：`{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]`。守卫最初只看前者就提前 `return`，于是当一个 `.dtx` 两种写法并存、且只有后者失同步时，该行**再也不会被修复**——而改造前的旧代码会修。`xpinyin.dtx` 正是这种文件（`{\ExplFileDate}{3.1}` 与 `[2022/07/14 v3.1 xpinyin database]`），且它不在任何版本门禁内，失同步无人发现。
+本函数写两处：`{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]`。守卫最初只看前者就提前 `return`，于是当一个 `.dtx` 两种写法并存、且只有后者失同步时，该行**再也不会被修复**——而改造前的旧代码会修。`xpinyin.dtx` 正是这种文件（`{\ExplFileDate}{3.1}` 与 `[2022/07/14 v3.1 xpinyin database]`），且它不在任何版本校验内，失同步无人发现。
 
-改为「先算出两处的目标形态，再与现状整体比较」。
+改为「先算出两处的目标写法，再与现状整体比较」。
 
 **放弃自动修复陈旧日期，是有意取舍而非遗漏。** `[<日期> v<版本>]` 行现在只在版本号需要改时才连日期一起重写；版本号已对则整段原样保留，包括陈旧的日期。两侧都实测过（`zhmetrics/zhmCJK.dtx` 是唯一能单独触发该格的文件——有 `[...]` 行却没有 `{\ExplFileDate}`）：
 
@@ -91,11 +91,11 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 | 版本对、日期陈旧 | 修复（刷成今天） | **不修复** |
 | 已同步 | **把日期刷成今天** → 每次 tag 都产生 diff | no-op |
 
-第三行是取舍的理由：保留旧行为的话，一旦 `zhmetrics` 接入 PR 门禁，「tag 后 diff 必须为零」将永远无法满足。版本号是发版事实源、日期只是附带信息，因此优先保证幂等；需要更新日期时手改，或改 `version` 触发整段重写。
+第三行是取舍的理由：保留旧行为的话，一旦 `zhmetrics` 接入 PR 校验，「tag 后 diff 必须为零」将永远无法满足。版本号是发版事实源、日期只是附带信息，因此优先保证幂等；需要更新日期时手改，或改 `version` 触发整段重写。
 
 ### 不需要自己再比较一次内容
 
-函数末尾曾写 `if new_content == content then return content end`。那是**无可观察效果的死代码**：l3build 的 `update_file_tag` 自己按值比较（`l3build-tagging.lua:52` 字面为 `if content == updated_content then`），内容相同时根本不落盘。已删除，并订正原注释里「它是门禁的前提」这一错误说法。
+函数末尾曾写 `if new_content == content then return content end`。那是**无可观察效果的死代码**：l3build 的 `update_file_tag` 自己按值比较（`l3build-tagging.lua:52` 字面为 `if content == updated_content then`），内容相同时根本不落盘。已删除，并订正原注释里「它是校验的前提」这一错误说法。
 
 ### `[...]` 行的版本号模式不能用 `%S+`
 
@@ -107,33 +107,33 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 设了 `version` 的包里 CLI 的 `tagname` 会被忽略。原实现静默丢弃，`l3build tag 3.10.6` 退出码 0、打印 `Tagging`、什么也不做。现在会打印一行提示，指明 `build.lua` 的 `version` 才是事实源。实测：冲突时告警，无参/同版本/未设 `version` 的包传参时均不告警。
 
-两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）——取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`，后者是可被污染的环境变量（实测 `PWD=/somewhere/else l3build tag 3.10.6` 会打印 `else/build.lua`，恰恰又是个不存在的路径），且 Windows 上本就没有 `PWD`；`lfs` 在 texlua 下是预置全局表，l3build 自身也用（`l3build-file-functions.lua:32`）。另外**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 闸把关，不依赖它被看见。
+两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）——取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`，后者是可被污染的环境变量（实测 `PWD=/somewhere/else l3build tag 3.10.6` 会打印 `else/build.lua`，恰恰又是个不存在的路径），且 Windows 上本就没有 `PWD`；`lfs` 在 texlua 下是预置全局表，l3build 自身也用（`l3build-file-functions.lua:32`）。另外**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 校验把关，不依赖它被看见。
 
 ## 验证：复现原事故
 
 不只验证 happy path，而是把 rc2 那次事故复现一遍：
 
-| 场景 | PR 门禁 | release 三方校验 |
+| 场景 | PR 校验 | release 三方校验 |
 |---|---|---|
 | 当前状态（三方均 3.10.5） | `l3build tag` no-op、diff 为零 → pass | `✓ 三方一致: 3.10.5` |
-| **复现事故**：dtx 回到 3.10.4 | `l3build tag` 真回写 → diff 非零 → **拒绝** | `✗ tag=3.10.5 但 stamp=3.10.4` → **拒绝** |
+| **复现事故**：dtx 回到 3.10.4 | `l3build tag` 确实回写 → diff 非零 → **拒绝** | `✗ tag=3.10.5 但 stamp=3.10.4` → **拒绝** |
 | 打错 tag（3.10.6） | — | `✗ tag=3.10.6 但 build.lua=3.10.5` → **拒绝** |
 | rc 后缀（3.10.5-rc3） | — | `✓ 三方一致: 3.10.5`（后缀已剥离） |
 
 九个包逐个实测 `l3build tag`：xeCJK 回写后幂等，其余八包零报错、零改动（此前六包裸跑会抛 `attempt to concatenate a nil value`）。
 
-PR 门禁的 no-op 验证在**干净 worktree**（`git worktree add`）里做——主工作区有未提交改动时 `git diff` 会把它们算进来，结论不可信。
+PR 校验的 no-op 验证在**干净 worktree**（`git worktree add`）里做——主工作区有未提交改动时 `git diff` 会把它们算进来，结论不可信。
 
 包自报版本实测由 `v3.10.4` 变为 `v3.10.5`（编译一份文档读 `\ver@xeCJK.sty`）。
 
 ## 未做的部分
 
-**白名单未覆盖的对账机制没做。** 两处门禁都是白名单，新包或后来才具备条件的包会静默跳过，没有任何提醒——xeCJK 这次就是如此。本次只把 xeCJK 加进去，并在 `build-and-test.md` 补了一份显式覆盖矩阵；自动对账（让门禁枚举「应覆盖未覆盖」的包并 warning）属更大改动，留作后续。
+**白名单未覆盖的对账机制没做。** 两处校验都是白名单，新包或后来才具备条件的包会静默跳过，没有任何提醒——xeCJK 这次就是如此。本次只把 xeCJK 加进去，并在 `build-and-test.md` 补了一份显式覆盖矩阵；自动对账（让校验枚举「应覆盖未覆盖」的包并 warning）属更大改动，留作后续。
 
 与 #935 的 zhspacing 不同：那是**有意识**排除并留了 followup issue，本次是**无意识**从未接入。
 
 ## 相关
 
 - 反思：[[../reflections/1041-xecjk-version-gate]]
-- 前身：[[937-version-single-source-l3build-tag]]（双闸 CI 与幂等守卫的由来）、[[961-changelog-gate-no-write-perm]]（同款「重新生成 + diff」模式）
+- 前身：[[937-version-single-source-l3build-tag]]（两道 CI 校验 与幂等守卫的由来）、[[961-changelog-gate-no-write-perm]]（同款「重新生成 + diff」模式）
 - 实现：`xeCJK/build.lua`、`support/build-config.lua`、`.github/workflows/check-tag.yml`、`.github/workflows/release.yml`
