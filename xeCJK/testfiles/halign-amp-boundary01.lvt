@@ -24,9 +24,16 @@
 % 缺陷版下本文件会以一连串 extra } / Missing $ 报错收场（实测 26 个 !），
 % 所以三种语境各自独立成 TEST，但同一文件即可——缺陷不中止编译，只是刷错误。
 %
-% 注意：匹配模板必须是 catcode 4 的 &。\ExplSyntaxOn 下 & 是 catcode 0（escape），
-% 若直接写 { & } 作模式，替换静默失效、缺陷依旧——这是本修复最容易写错的一处，
-% 故三个 TEST 都要保留，任一语境失守都能暴露。
+% 注意：匹配模板必须是 catcode 4 的 &，否则 \tl_replace_all:Nnn 匹配不上。
+% expl3 的 \c_code_cctab 本就把 & 设为 alignment，故 dtx 里直接写 { & } 也能工作；
+% 实现仍显式构造模板常量，以免正确性依赖当前 catcode régime 这一外部前提。
+%
+% 判别力已实测：把 \@@_boundary_math_set:n 体内的替换整行删除（还原缺陷）后
+% l3build check 退出码为 1，TEST 1 报 extra }。三个 TEST 都保留，任一语境失守都能暴露。
+%
+% 已知覆盖缺口：把替换值从 \scan_stop: 改成 { }（删除）或 { $ } 时本文件仍全绿，
+% 即这里固定的是「不报错」，未固定占位的位置语义。占位理由另见 dtx 注释；
+% 若要给它上门禁，需要一个能断言 &$x$ 首类别判定结果的用例。
 
 \TEST{colorbox with ampersand in eqnarray}{
   \begin{eqnarray*}
