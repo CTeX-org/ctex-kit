@@ -108,7 +108,7 @@ uploadconfig = ctex_kit_uploadconfig {
              .. "for the standard article / book / report classes.",
   ctanPath    = "/language/chinese/ctex",
 }
--- l3build tag 回写 5 个拆分 .dtx 的 `%<+!driver>\GetIdInfo $Id: ...$` 行.
+-- l3build tag 回写 6 个拆分 .dtx 的 `%<+!driver>\GetIdInfo $Id: ...$` 行.
 -- update_tag 由 l3build 逐 tagfile 调用, `file` 即当前文件 basename.
 --
 -- 幂等性设计: stamp 里的版本号已经等于本文件顶部的 `version` 时**原样保留**

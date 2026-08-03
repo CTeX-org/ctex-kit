@@ -155,31 +155,51 @@ function update_tag(file, content, tagname, tagdate)
 
   -- 设了 version 的包里, CLI 传入的 tagname 会被忽略 (version 才是事实源).
   -- 静默忽略会让 `l3build tag 3.10.6` 看起来成功却什么也没改, 所以显式告警.
+  --
+  -- 两点说明:
+  --   * 路径用当前目录名而非 `module`: xeCJK 的 module 是小写 "xecjk", 目录却是
+  --     `xeCJK/`, 用 module 会打印出不存在的 `xecjk/build.lua`.
+  --   * 只告警不中止: update_tag 没有向 l3build 报错的通道 (返回值是新内容, 不是
+  --     errorlevel), 而 `error()` 会让 `l3build tag` 以 Lua 栈回溯收场, 对手滑传参
+  --     的人更难读. 因此这里只提示; 版本一致性由 check-tag.yml 与 release.yml 两道
+  --     CI 闸把关, 不依赖本条消息被人看见.
   if type(version) == "string" and type(tagname) == "string" then
     local cli = tagname:gsub("^v", "")
     if cli ~= target then
+      local here = (os.getenv("PWD") or ""):match("([^/]+)/?$") or (module or "?")
       print(("[build-config] 忽略命令行版本 %s: %s/build.lua 的 version = %s 才是"
         .. "事实源. 要发新版请改 build.lua 再跑 `l3build tag` (不带参数).")
-        :format(tagname, module or "?", target))
+        :format(tagname, here, target))
     end
   end
 
-  -- 先无条件算出两处的目标形态, 再与现状逐处比较: **幂等守卫的观察范围必须覆盖
-  -- 本函数的全部写入范围**. 早期版本只看 `{\ExplFileDate}` 就提前 return, 于是
-  -- 当一个 .dtx 同时有两种写法 (xpinyin.dtx 就是: `{\ExplFileDate}{3.1}` 与
-  -- `[2022/07/14 v3.1 xpinyin database]`) 且只有后者失同步时, 该行再也不会被修
-  -- 复 -- 而改造前的旧代码会修. 这类包不在任何版本门禁内, 失同步无人发现.
+  -- 本函数写两处, **幂等守卫的观察范围必须覆盖全部写入范围**: 早期版本只看
+  -- `{\ExplFileDate}` 就提前 return, 于是一个 .dtx 同时有两种写法 (xpinyin.dtx
+  -- 就是) 且只有后者失同步时, 该行再也不会被修复.
   local date = (tagdate or os.date("%Y-%m-%d")):gsub("%-", "/")
   local new_content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
-  -- `[<日期> v<版本>]` 行: 版本已对则连日期一起保留, 否则整段重写.
+
+  -- `[<日期> v<版本>]` 行: **只在版本号需要改时才连日期一起重写; 版本号已对则整段
+  -- 原样保留, 包括陈旧的日期.**
+  --
+  -- 这是一个有意的取舍, 不是遗漏 -- 代价与收益都实测过:
+  --   * 代价: 「版本对、日期陈旧」这一种状态不再被自动修复. 改造前的旧代码会把它
+  --     刷成今天 (zhmetrics/zhmCJK.dtx 是唯一能单独触发该格的文件: 它有 `[...]`
+  --     行却没有 `{\ExplFileDate}`).
+  --   * 收益: 旧代码在**已同步**的 zhmetrics 上也会把日期刷成今天 -- 每次
+  --     `l3build tag` 都产生 diff. 若保留那个行为, 一旦 zhmetrics 接入 PR 门禁,
+  --     「tag 后 diff 必须为零」将永远无法满足.
+  -- 版本号是发版事实源、日期只是附带信息, 因此优先保证幂等. 需要更新日期时手改,
+  -- 或改 version 触发整段重写.
   new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v(%S+)",
     function (lb, d, v)
       if v == target then return lb .. d .. " v" .. v end
       return lb .. date .. " v" .. target
     end)
 
-  -- 内容未变即为幂等 no-op, 这是 PR 门禁「l3build tag 后 diff 必须为零」的前提.
-  if new_content == content then return content end
+  -- 直接返回即可: l3build 的 update_file_tag 会自己按值比较 (l3build-tagging.lua:52
+  -- `if content == updated_content then return 0`), 内容相同时根本不落盘. 这里不需
+  -- 要再写一次 `if new_content == content` -- 那是无可观察效果的死代码.
   return new_content
 end
 

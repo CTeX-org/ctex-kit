@@ -146,6 +146,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 的共享 `update_tag` 写 `{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]` 两处，守卫只看前者。`xpinyin.dtx` 两种写法并存，实测新代码在 `[...]` 行失同步时不再修复它，基线旧代码会修；该包又不在任何版本门禁内。改为「算出目标形态后整体比较，内容未变即 no-op」。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
+### 修一个「守卫范围不足」时，检查同一处是否还有别的字段
+**Rule**: 把幂等守卫从「只看字段 A」扩到「A 也看」时，要枚举该写入点的**每一个字段**。修好版本号却冻住同一行的日期，是同一缺陷类换了个格子。若某个字段确实决定不再自动修复，那是取舍——必须在代码注释与文档里写明代价，不能让它看起来像纯粹的行为恢复。
+**Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样门禁的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 参数被有意忽略时要显式告警，不要静默丢弃
 **Rule**: 当实现改为以配置为事实源、从而忽略用户传入的参数时，检测到冲突要打印提示。静默忽略会让命令看起来成功却什么也没做，使用者无从发现自己的参数没生效。
 **Why**: #1041 让 `update_tag` 以 `build.lua` 的 `version` 为准后，`l3build tag 3.10.6` 在 xeCJK 下退出码 0、打印 `Tagging`、实际什么也没改。补了一行告警指明事实源。
