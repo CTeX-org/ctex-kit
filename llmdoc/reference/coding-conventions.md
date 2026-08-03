@@ -71,8 +71,9 @@
 写的字面字符必须与目标 token 同类别，否则**静默失效**：不报错、测试不挂，只是什么都没替换掉。
 
 具体到 `&`：在 `\ExplSyntaxOn` 区域里直接写 `{ & }` 作模式**能匹配** `\halign` 语境的对齐符，
-但原因是**LaTeX 环境默认把 `&` 设为 catcode 4，而 `\ExplSyntaxOn` 不改 38**（它只动
-9、32、34、58、94、95、124、126）。**不要把这归因于 `\c_code_cctab`**：catcode 表常量只在
+但原因是**LaTeX 环境默认把 `&` 设为 catcode 4（`latex.ltx` 里的 `\catcode`\&=4`），
+而 `\ExplSyntaxOn` 不改 38**（实测它把 9、32 设为 9，58、95 设为 11，126 设为 10；
+38 前后都是 4）。**不要把这归因于 `\c_code_cctab`**：catcode 表常量只在
 `\cctab_select:N` 选中时才生效，xeCJK 从不选它（实测：环境设 `\catcode`\&=12` 后再
 `\ExplSyntaxOn`，`&` 仍是 12；只有显式 `\cctab_select:N \c_code_cctab` 才变 4）。
 注意本仓库并非完全不用：`ctex/ctex-auxpkg.dtx` 的 `\c__ctex_package_cctab` 就以
