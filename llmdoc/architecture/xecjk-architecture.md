@@ -304,14 +304,15 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 - 用 `\scan_stop:` 占位而非删除，以保住 `&` 的位置语义（否则 `&$x$` 会被误判为首项是公式）。
 - 匹配模板必须是 catcode 4 的 `&`。直接写 `{ & }` 恰好可用，但只因 LaTeX 环境默认把 `&`
   设为 4 且 `\ExplSyntaxOn` 不改 38（与 `\c_code_cctab` 无关，那需要 `\cctab_select:N`
-  才生效，本包不选）。环境若改过 `&` 的类别就会静默失配，故实现自行构造
-  `\c_@@_alignment_tl` 把类别钉死。相关写法约定见
+  才生效，xeCJK 不选）。字面模式的类别在 dtx 被读取时冻结，**风险在加载期而非调用期**：
+  加载后再改 `\catcode` 对两种写法都无影响，但若 `\usepackage` 之前 `&` 已非 4，字面写法
+  此后一律静默失配。故实现自行构造 `\c_@@_alignment_tl` 把类别钉死。相关写法约定见
   `llmdoc/reference/coding-conventions.md`「字面字符当替换模式时必须核对 catcode régime」。
 
 回归门禁 `xeCJK/testfiles/halign-amp-boundary01.lvt` 覆盖 `eqnarray`／`tabular`／
 CJK 相邻三种语境，判别力已实测（缺陷版 `l3build check` EXIT=1，`TEST 1` 报 `extra }`）。
 两点边界：`\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）本身就不是合法
-LaTeX，不加载 xeCJK 也报错（首批为 `Missing } inserted.`），不能写进基线；该门禁固定的是
+LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有一串对齐相关的连带报错），不能写进基线；该门禁固定的是
 「不报错」，把替换值改成 `{ }` 或 `{ $ }` 时仍全绿，**占位语义没有门禁保护**。
 
 #### 命令钩子与专用适配器的选择边界（#1029）

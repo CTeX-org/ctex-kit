@@ -73,11 +73,15 @@
 具体到 `&`：在 `\ExplSyntaxOn` 区域里直接写 `{ & }` 作模式**能匹配** `\halign` 语境的对齐符，
 但原因是**LaTeX 环境默认把 `&` 设为 catcode 4，而 `\ExplSyntaxOn` 不改 38**（它只动
 9、32、34、58、94、95、124、126）。**不要把这归因于 `\c_code_cctab`**：catcode 表常量只在
-`\cctab_select:N` 选中时才生效，本仓库从不选它（实测：环境设 `\catcode`\&=12` 后再
+`\cctab_select:N` 选中时才生效，xeCJK 从不选它（实测：环境设 `\catcode`\&=12` 后再
 `\ExplSyntaxOn`，`&` 仍是 12；只有显式 `\cctab_select:N \c_code_cctab` 才变 4）。
+注意本仓库并非完全不用：`ctex/ctex-auxpkg.dtx` 的 `\c__ctex_package_cctab` 就以
+`\cctab_select:N \c_document_cctab` 派生，但那条路径不覆盖 xeCJK 的加载。
 
-结论是**没有任何机制保证 `&` 是 4**，它随调用方环境漂移：外层做过 `\catcode`\&=12` 就会
-静默失配。所以防御性写法是在局部组里自行构造模板常量，把模式的类别钉死在代码里：
+**风险发生在加载期，不是调用期。** 字面模式的类别在文件被 tokenise 的那一刻冻结：加载后
+再改 `\catcode` 对字面写法和常量写法都没有影响（实测两者结果一致）。真正会失配的是
+「本文件被读取时 `&` 已不是 4」——例如 `\usepackage` 之前做过 `\catcode`\&=12`。所以
+防御性写法是在局部组里自行构造模板常量，把模式类别钉死在代码里，与读取时的 régime 解耦：
 
 ```latex
 \group_begin:
