@@ -4710,12 +4710,16 @@ Copyright and Licence
 % 使 |&$x$| 这类参数仍被正确判定为「首项不是公式」。
 %
 % \cs{tl_replace_all:Nnn} 按 catcode 与 charcode 双重相等匹配，所以模式里的 |&|
-% 必须是 catcode 4 的对齐符。\pkg{expl3} 的 \cs{c_code_cctab} 本就把 |&| 设为
-% alignment（\file{expl3-code.tex} 中 \cs{char_set_catcode_alignment:n} |{ 38 }|），
-% 因此在本文件里直接写 |{ & }| 已经是对齐符、可以正常匹配。这里仍在局部组里显式
-% 构造 \cs{c_@@_alignment_tl}，是不想把正确性寄托在「当前 catcode régime 恰好
-% 把 |&| 设成 4」这一外部前提上：模板由 \cs{char_set_catcode_alignment:N} 亲自
-% 生成，régime 变化时不会静默失配。
+% 必须是 catcode 4 的对齐符。在本文件里直接写 |{ & }| 恰好可用，但原因只是
+% \textbf{\LaTeX{} 环境默认把 |&| 设为 4，而 \cs{ExplSyntaxOn} 不改 38}
+% （它只动 9、32、34、58、94、95、124、126 这几个字符）。注意
+% \cs{c_code_cctab} 之类的 catcode 表\emph{常量}与此无关：它只在被
+% \cs{cctab_select:N} 选中时才生效，本包从不选它。
+%
+% 也就是说没有任何机制保证 |&| 一定是 4，它随调用方环境漂移：外层若做过
+% |\catcode`\&=12|，字面 |{ & }| 就会静默失配、替换什么也不做。因此这里在局部组里
+% 用 \cs{char_set_catcode_alignment:N} 亲自构造 \cs{c_@@_alignment_tl} 作模板，
+% 把模式的类别钉死在代码里，而不是依赖环境。
 \group_begin:
   \char_set_catcode_alignment:N \&
   \tl_const:Nn \c_@@_alignment_tl { & }
