@@ -86,13 +86,21 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 第三行是取舍的理由：保留旧行为的话，一旦 `zhmetrics` 接入 PR 门禁，「tag 后 diff 必须为零」将永远无法满足。版本号是发版事实源、日期只是附带信息，因此优先保证幂等；需要更新日期时手改，或改 `version` 触发整段重写。
 
-另外**不需要**在函数末尾再写一次 `if new_content == content then return content end`——l3build 的 `update_file_tag` 自己按值比较（`l3build-tagging.lua:52`），内容相同时根本不落盘。那是无可观察效果的死代码。
+### 不需要自己再比较一次内容
+
+函数末尾曾写 `if new_content == content then return content end`。那是**无可观察效果的死代码**：l3build 的 `update_file_tag` 自己按值比较（`l3build-tagging.lua:52` 字面为 `if content == updated_content then`），内容相同时根本不落盘。已删除，并订正原注释里「它是门禁的前提」这一错误说法。
+
+### `[...]` 行的版本号模式不能用 `%S+`
+
+`%S+` 会把紧跟版本号的 `]` 一起吃掉：`[2022/07/14 v3.1]` 回写后丢失右括号；更糟的是版本号已相同时捕获到的是 `"3.1]"`，`v == target` 守卫失效而落进重写分支，**同时破坏内容与幂等性**。改用 `[^%]%s]+`。
+
+现网两处 `[...]` 行的版本号后都跟着描述文字（`xpinyin database` / `setup CJK fonts dynamically`），碰不到这个坑；但本次把该模式从「替换的一部分」提升成了「幂等守卫的判据」，语义责任更重，故一并收紧。
 
 ### CLI 参数被忽略时要显式告警
 
 设了 `version` 的包里 CLI 的 `tagname` 会被忽略。原实现静默丢弃，`l3build tag 3.10.6` 退出码 0、打印 `Tagging`、什么也不做。现在会打印一行提示，指明 `build.lua` 的 `version` 才是事实源。实测：冲突时告警，无参/同版本/未设 `version` 的包传参时均不告警。
 
-两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）；**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 闸把关，不依赖它被看见。
+两个细节：路径取**当前目录名**而非 `module`（xeCJK 的 `module` 是小写 `xecjk`，目录却是 `xeCJK/`，用 `module` 会打印出不存在的 `xecjk/build.lua`）——取目录名用 `lfs.currentdir()` 而非 `os.getenv("PWD")`，后者是可被污染的环境变量（实测 `PWD=/somewhere/else l3build tag` 会打印 `else/build.lua`，恰恰又是个不存在的路径），且 Windows 上本就没有 `PWD`；`lfs` 在 texlua 下是预置全局表，l3build 自身也用（`l3build-file-functions.lua:32`）。另外**只告警不中止**——`update_tag` 没有向 l3build 报错的通道（返回值是新内容而非 errorlevel），`error()` 会让命令以 Lua 栈回溯收场、更难读。因此这条消息是便利提示，版本一致性仍由两道 CI 闸把关，不依赖它被看见。
 
 ## 验证：复现原事故
 
