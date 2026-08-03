@@ -4700,11 +4700,17 @@ Copyright and Licence
 %   语境下参数含 |&| 时编译报错的问题（\#1043）。}
 %
 % \cs{@@_boundary_math_set:n} 把待判断的参数存入 \cs{l_@@_boundary_math_tl}，
-% 并把其中 catcode 4 的 |&| 换成 \cs{scan_stop:}。在 \tn{halign} 语境
-% （\env{eqnarray}、\env{align}、\env{tabular}）里，用户参数中的 |&| 带 catcode 4，
-% 而 \cs{tl_if_head_eq_meaning:nNTF} 等 \pkg{expl3} 条件式内部要把 token list
-% 包进花括号组再扫描，对齐符会破坏扫描平衡并报
+% 并把其中 catcode 4 的 |&| 换成 \cs{scan_stop:}。
+%
+% 触发条件要分清两件事：|&| 在 \LaTeX{} 下\emph{默认}就是 catcode 4
+% （\file{latex.ltx}），并非 \tn{halign} 把它设成 4；真正要紧的是\textbf{扫描发生的
+% 位置}——当 \cs{tl_if_head_eq_meaning:nNTF} 等 \pkg{expl3} 条件式在\emph{对齐环境内}
+% （\env{eqnarray}、\env{align}、\env{tabular}）读取参数时，catcode 4 的 |&| 会终止
+% 它正在读的宏参数，报
 % \enquote{Argument of \cs{__tl_tl_head:w} has an extra \}}（\#1043）。
+% 同一个 token list 在对齐环境\emph{之外}走同一条件式实测 0 错误，所以这不是
+% 「\pkg{expl3} 条件式对 catcode-4 记号的固有限制」，而是对齐符在对齐环境里的
+% 参数终止语义。
 % 这里只是为\emph{语法判断}准备副本，实际排版仍使用原始参数，所以替换不影响
 % 输出；换成 \cs{scan_stop:} 而不是直接删除，是为了保住 |&| 的位置，
 % 使 |&$x$| 这类参数仍被正确判定为「首项不是公式」。
@@ -4723,7 +4729,8 @@ Copyright and Licence
 %     \cs{@@_boundary_if_math_head:n} 与 \cs{@@_boundary_if_math_tail:n} 两个入口。
 % \end{itemize}
 %
-% \cs{tl_replace_all:Nnn} 按 catcode 与 charcode 双重相等匹配，所以模式里的 |&|
+% \cs{tl_replace_all:Nnn} 及其变体（这里用的是 \cs{tl_replace_all:NVn}）按 catcode 与
+% charcode 双重相等匹配，所以模式里的 |&|
 % 必须是 catcode 4 的对齐符。在本文件里直接写 |{ & }| 恰好可用，但原因只是
 % \textbf{\LaTeX{} 环境默认把 |&| 设为 4（\file{latex.ltx}：
 % |\catcode`\&=4|），而 \cs{ExplSyntaxOn} 不改 38}（实测它把 9、32 设为 9，

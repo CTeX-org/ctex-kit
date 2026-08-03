@@ -289,10 +289,14 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 
 `\@@_boundary_color_box:nnn`、`\@@_boundary_textcolor:nnn` 这类适配器把**原始**用户参数
 交给 `\@@_boundary_if_math_head:n` / `_tail:n` 做语法判断，而后者用 expl3 的
-`\tl_if_head_eq_meaning:nNTF` 等条件式实现。这些条件式内部会把 token list 包进花括号组
-再扫描，**catcode 4 的对齐符会破坏扫描平衡**：`\halign` 语境（`eqnarray`／`align`／
-`tabular`）里参数含 `&` 时报 `! Argument of \__tl_tl_head:w has an extra }.`。
-这是 expl3 条件式对 catcode-4 token 的固有限制，不加载 xeCJK 也能用裸
+`\tl_if_head_eq_meaning:nNTF` 等条件式实现。
+
+触发条件要分清两件事：`&` 在 LaTeX 下**默认**即为 catcode 4（`latex.ltx`），并非 `\halign`
+把它设成 4；要紧的是**扫描发生的位置**——当这些条件式在**对齐环境内**（`eqnarray`／
+`align`／`tabular`）读取参数时，catcode 4 的 `&` 会终止它正在读的宏参数，报
+`! Argument of \__tl_tl_head:w has an extra }.`。实测同一 token list 在对齐环境**之外**
+走同一条件式 0 错误，所以这不是「expl3 条件式对 catcode-4 token 的固有限制」，而是对齐符
+在对齐环境里的参数终止语义。不加载 xeCJK 也能用裸
 `\tl_if_head_eq_meaning:nNTF {$a&b$} $` 在 `tabular` 内复现。
 
 因此做 head/tail 记号扫描的两个入口（`\@@_boundary_if_math_head:n`、`_tail:n`）都先经
@@ -312,8 +316,10 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
   此后一律静默失配。故实现自行构造 `\c_@@_alignment_tl` 把类别钉死。相关写法约定见
   `llmdoc/reference/coding-conventions.md`「字面字符当替换模式时必须核对 catcode régime」。
 
-回归门禁 `xeCJK/testfiles/halign-amp-boundary01.lvt` 覆盖 `eqnarray`／`tabular`／
-CJK 相邻三种语境，判别力已实测（缺陷版 `l3build check` EXIT=1，`TEST 1` 报 `extra }`）。
+回归门禁是 `xeCJK/testfiles/halign-amp-boundary01/02/03.lvt`，分别覆盖 `eqnarray`／
+`tabular`／CJK 相邻三种语境。**必须分文件**：`checkopts` 带 `-halt-on-error`，合并成一个
+文件时缺陷态下首项报错即中止，其后的 `\TEST` 出现 0 次、判别力为零（首版正是这样写的）。
+判别力已逐个实测（缺陷版三个文件 `l3build check` 均 EXIT=1，01 报 `extra }`；修复版均 0）。
 两点边界：`\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）本身就不是合法
 LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有一串对齐相关的连带报错），不能写进基线；该门禁固定的是
 「不报错」，把替换值改成 `{ }` 或 `{ $ }` 时仍全绿，**占位语义没有门禁保护**。

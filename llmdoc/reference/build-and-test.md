@@ -218,8 +218,9 @@
 
 判别力已逐个实测：删除 `\@@_boundary_math_set:n` 体内的替换（还原缺陷）后，三个文件
 `l3build check` 退出码均为 1（01 报 `! Argument of \__tl_tl_head:w has an extra }.`）；
-修复版三个均为 0。缺陷态报错条数取决于观察条件：门禁自身带 `-halt-on-error` 只看到首条，
-手动 `-interaction=nonstopmode` 下原始日志 78 行 `!`、去重 26 种。
+修复版三个均为 0。缺陷态的报错条数取决于观察条件与文件形态（门禁带 `-halt-on-error` 只看到
+首条；手动 `-interaction=nonstopmode` 则是一长串，且随是否合并、是否走 `regression-test`
+框架而变），所以判据只用「缺陷版 rc 非 0、修复版 rc 0」，不引用具体条数。
 
 两条边界必须记住，否则会误改：
 

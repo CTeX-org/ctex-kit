@@ -15,10 +15,12 @@
 
 % #1043：\colorbox 的参数里含 & 且调用位于 \halign 语境时，boundary 分析炸掉。
 %
-% 机制：\halign 内 TeX 把 & 置为 catcode 4，而 \@@_boundary_if_math_head:n 要把
-% 参数交给 expl3 的 \tl_if_head_eq_meaning:nNTF，后者内部把 token list 包进花括号组
-% 再扫描，对齐符会破坏扫描平衡，报
+% 机制：& 在 LaTeX 下默认即为 catcode 4（latex.ltx），不是 \halign 设的；要紧的是扫描
+% 发生的位置——\@@_boundary_if_math_head:n 把参数交给 expl3 的
+% \tl_if_head_eq_meaning:nNTF，当这一扫描发生在对齐环境内时，catcode 4 的 & 会终止
+% 它正在读取的宏参数，报
 %   ! Argument of \__tl_tl_head:w has an extra }.
+% 同一 token list 在对齐环境之外走同一条件式实测 0 错误。
 % 修复是在 \@@_boundary_math_set:n 里把判断用副本中的 catcode-4 & 换成 \scan_stop:。
 %
 % 本文件只放 eqnarray 一项。tabular 与 CJK 相邻两项各自独立成
@@ -31,9 +33,9 @@
 % 判别力已实测：把 \@@_boundary_math_set:n 体内的替换整行删除（还原缺陷）后
 % l3build check 退出码为 1，本项报 extra }。02／03 两个文件同样逐个实测过 rc 1。
 %
-% 缺陷态的报错条数取决于观察条件，引用时要连条件一起写：门禁自身带
-% -halt-on-error，只看到首条；手动 -interaction=nonstopmode 下原始日志 78 行 `!`，
-% 去重后 26 种。
+% 缺陷态的报错条数取决于观察条件与文件形态，不要引用具体数字：门禁自身带
+% -halt-on-error 只看到首条；手动 -interaction=nonstopmode 下则是一长串。
+% 判据一律用「缺陷版 rc 非 0、修复版 rc 0」这种可复现的弱断言。
 %
 % 注意：匹配模板必须是 catcode 4 的 &，否则 \tl_replace_all:Nnn 匹配不上。
 % dtx 里直接写 { & } 恰好可用，但只因 LaTeX 环境默认把 & 设为 4 且 \ExplSyntaxOn 不改 38
