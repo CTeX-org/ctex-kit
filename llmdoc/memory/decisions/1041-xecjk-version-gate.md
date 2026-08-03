@@ -31,11 +31,18 @@ xeCJK 用 `support/build-config.lua` 的**共享** `update_tag`（与 CJKpunct /
 
 ```lua
 local target = (type(version) == "string") and version or tagname
-if type(target) ~= "string" then return content end
+if type(target) ~= "string" then  -- 漏参: 显式告警而非静默返回
+  print(...)
+  return content
+end
 ...
-local stamped = content:match("{\\ExplFileDate}{([^}]*)}")
-if stamped == target then return content end   -- 幂等
+-- 幂等: 先算出全部写入位置的目标形态, 再整体比较 (不能只看其中一处)
+local new_content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
+new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v([^%]%s]+)", ...)
+return new_content   -- l3build 自己按值比较, 无需再判一次
 ```
+
+（早期版本用 `if stamped == target then return content end` 只观察 `{\ExplFileDate}` 一处，被审查发现会让旧式 `[...]` 行失同步后永不修复，见下「幂等守卫」小节。）
 
 三点设计：
 
