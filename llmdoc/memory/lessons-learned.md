@@ -151,9 +151,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 我把 `[<日期> v<版本>]` 的版本字段修回可修复，却让日期字段在「版本对、日期陈旧」时不再被修复（基线会修）。盲审用 `zhmetrics/zhmCJK.dtx`（唯一只有 `[...]` 行、没有 `{\ExplFileDate}` 的文件）单独隔离出这一格。取舍本身站得住——基线在已同步的 zhmetrics 上也会把日期刷成今天，那样门禁的 diff 永不为零——但我的提交信息把它写成了单纯的行为恢复，没记录代价。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
-### 校验侧的语法必须与写入侧一致
-**Rule**: 门禁提取某个值时用的模式，不能比写入该值的代码更严格。写入侧不作约束、校验侧却假定固定形状，会让合法输入通过前一道闸却在后一道闸被拒，且报错信息通常指向错误的原因。
-**Why**: #1041 的 release 闸用 `[0-9]+\.[0-9]+\.[0-9a-z]+` 提取版本号（假定三段式），而写入侧 `({\ExplFileDate})%b{}` 对内容零约束。实测两段式 `3.11` 能过 PR 闸，到 release 闸提取为空并报 `stamp=`（既空，又指向 xeCJK 根本没有的 `$Id:$` stamp）。jiazhu 现役版本 `0.0-beta` 同样命中。改用 `[^}]*` 并在提取为空时显式报错。
+### 校验侧的语法必须与写入侧一致（含前缀剥离等所有规范化步骤）
+**Rule**: 门禁提取某个值时用的模式，不能比写入该值的代码更严格——这包括**写入侧做过的每一步规范化**。写入侧剥了 `v` 前缀、校验侧不剥，等价于两侧对「同一个版本号」的定义不同：合法输入会通过前一道闸却在后一道闸被拒，而给出的修复提示照做不会有任何变化。同一份配置里已有正确写法时（如 `zhlineskip` 那条），照抄另一条更要逐项核对。
+**Why**: #1041 三次踩同一类：(1) release 闸假定三段式数字，两段式 `3.11` 过 PR 闸却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的形态），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 闸放行、release 闸拒绝。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 把崩溃改成静默返回，往往比崩溃更糟
