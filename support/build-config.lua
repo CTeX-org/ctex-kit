@@ -332,7 +332,11 @@ function read_dtx_version(dtx_path)
   if not f then return nil end
   local content = f:read("*all")
   f:close()
-  local v = content:match("{\\ExplFileDate}{([%d%.]+)}{\\ExplFileDescription}")
+  -- 版本号模式要与写入侧一致: update_tag 用 `%b{}` 对内容零约束, 所以 `3.11a`、
+  -- `0.0-beta` 这类都合法 (release.yml 的 xeCJK case 注释里就明确列了 0.0-beta).
+  -- 早先写成 `[%d%.]+` 只收数字和点, 对这些形态返回 nil, 而 uploadconfig.version
+  -- 是 `l3build upload` 的必填字段 -- 与 release 闸那个"校验侧比写入侧严格"的问题同型.
+  local v = content:match("{\\ExplFileDate}{([^}]+)}{\\ExplFileDescription}")
   if v then return v end
   return content:match("\\GetIdInfo%s+%$Id:%s+%S+%s+v?([%w%.]+)%s")
 end

@@ -196,7 +196,9 @@ end
 dofile("../support/build-config.lua")
 
 -- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
--- 版本号从 xeCJK.dtx 的 `\ExplFileDate` 动态读取, 避免与 .dtx 失同步.
+-- 版本号从 xeCJK.dtx 的 `\ExplFileDate` 动态读取, 保证投递的版本与 .dtx 一致.
+-- 注意方向 (#1041 起): 事实源是本文件顶部的 `version`, `l3build tag` 把它回写进 .dtx;
+-- 这里再从 .dtx 读回来, 是为了让 upload 拿到的就是打包进 zip 的那个版本.
 -- uploader/email 不在此填, 由 workflow 在 `l3build upload` 命令行注入.
 uploadconfig = ctex_kit_uploadconfig {
   pkg         = "xecjk",
