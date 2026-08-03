@@ -156,6 +156,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1041 三次踩同一类：(1) release 闸假定三段式数字，两段式 `3.11` 过 PR 闸却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的形态），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 闸放行、release 闸拒绝。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
+### 放宽模式时要列出该函数全部写入侧的实际形态逐个验证
+**Rule**: 把一个提取模式放宽以接纳更多合法形态时，只验证「原先被误拒的那些现在能过」是不够的——还要把该函数**所有**写入侧的实际形态列出来逐个回归。放宽过度会让模式匹配上占位宏、注释等本不该匹配的内容，返回一个「看起来正常」的错误值，这比返回 nil 更危险：nil 会让下游报缺字段，错误字符串会被静默使用。
+**Why**: #1041 我把 `read_dtx_version` 的 `[%d%.]+` 放宽成 `[^}]+`，只验证了 `3.11a`／`0.0-beta` 能过。但 ctex 五个拆分 dtx 的版本行是 `{\ExplFileDate}{\ExplFileVersion}{...}`（真实版本在 `$Id:$` 行），新模式在第一条分支就命中并返回字面串 `\ExplFileVersion`，使回退分支永不可达——而函数自己的 docstring 正把 ctex 列为该分支的代表。改成 `[^}\]+` 后八个包实测全部正确。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 把崩溃改成静默返回，往往比崩溃更糟
 **Rule**: 修「函数在某输入下崩溃」时，别直接改成静默返回。崩溃难读但可见；静默成功会让调用者以为操作生效。要给出可操作的提示再返回。
 **Why**: #1041 我把「未设 `version` 的包漏掉 CLI 参数时 `attempt to concatenate a nil value`」改成静默 `return content`，于是 `cd xpinyin && l3build tag` 打印 `Tagging`、退出 0、什么也不改。这正好违反了我在同一个 PR 里提升的「参数被忽略时要显式告警」规则——只给另一条路径加了告警，却漏了这六个包最可能犯的手滑。
