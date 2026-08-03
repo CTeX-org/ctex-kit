@@ -222,10 +222,11 @@ ecglue 仍照常插入。
   （删除）或 `{ $ }` 时本文件仍全绿。占位的理由（`&$x$` 的首类别判定）只有直接探针
   能验证，若要上门禁需要新增一个断言首类别结果的用例。
 - **`\colorbox` 参数里放裸 `&`（如 `\colorbox{yellow}{&$x$}`）不能写进基线**：这本身就不是
-  合法 LaTeX，不加载 xeCJK 也报错（实测首批是 `Missing } inserted.`，`tabular` 里随后有
-  `Extra alignment tab has been changed to \cr.`；**不是** `Misplaced alignment tab`——那是
-  裸 `&` 出现在正文而非参数里才有的报错）。首版基线曾误把这串报错固定下来，等于把上游
-  限制冻结成本包预期。
+  合法 LaTeX，不加载 xeCJK 也报错。实测**首条**是 `Missing } inserted.`，其后是一串对齐相关
+  的连带报错（`Missing \cr inserted.`、`Misplaced alignment tab character &.`、`Misplaced \cr.`、
+  `Extra alignment tab has been changed to \cr.` 等，具体序列随语境不同）。写文档时只钉「首条」
+  这种可复现的弱断言，不要声称某个串「不出现」——它们多半作为连带错误在后面出现。
+  首版基线曾误把这串报错固定下来，等于把上游限制冻结成本包预期。
 
 `\textcolor` 走另一个适配器但共用同一判断入口，故不需要单独用例。实测判据只取可复现的
 那一条：**`tabular` 语境下 `\textcolor` 参数含 `&` 时，缺陷版报错、修复版为 0，而不加载
