@@ -4695,11 +4695,41 @@ Copyright and Licence
 \dim_new:N \l_@@_boundary_math_stretch_dim
 \dim_new:N \l_@@_boundary_math_shrink_dim
 
-\prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
-  { T , F , TF }
+% \changes{v3.10.5}{2026/08/03}{boundary 判断前把参数副本中 catcode 4 的
+%   |&| 换成 \cs{scan_stop:}，修复 \tn{colorbox} 等命令在 \tn{halign}
+%   语境下参数含 |&| 时编译报错的问题 (\#1043)。}
+%
+% \cs{@@_boundary_math_set:n} 把待判断的参数存入 \cs{l_@@_boundary_math_tl}，
+% 并把其中 catcode 4 的 |&| 换成 \cs{scan_stop:}。在 \tn{halign} 语境
+% （\env{eqnarray}、\env{align}、\env{tabular}）里，用户参数中的 |&| 带 catcode 4，
+% 而 \cs{tl_if_head_eq_meaning:nNTF} 等 \pkg{expl3} 条件式内部要把 token list
+% 包进花括号组再扫描，对齐符会破坏扫描平衡并报
+% \enquote{Argument of \cs{__tl_tl_head:w} has an extra \}}（\#1043）。
+% 这里只是为\emph{语法判断}准备副本，实际排版仍使用原始参数，所以替换不影响
+% 输出；换成 \cs{scan_stop:} 而不是直接删除，是为了保住 |&| 的位置，
+% 使 |&$x$| 这类参数仍被正确判定为「首项不是公式」。
+%
+% 注意匹配对象必须是 catcode 4 的 |&|：\cs{ExplSyntaxOn} 下 |&| 是 catcode 0
+% （escape），直接写 |{ & }| 匹配不到对齐符，替换会静默失效。所以先在局部组里
+% 把 |&| 设回 catcode 4，构造出 \cs{c_@@_alignment_tl} 作为匹配模板。
+\group_begin:
+  \char_set_catcode_alignment:N \&
+  \tl_const:Nn \c_@@_alignment_tl { & }
+\group_end:
+\cs_generate_variant:Nn \tl_replace_all:Nnn { NVn }
+
+\cs_new_protected:Npn \@@_boundary_math_set:n #1
   {
     \tl_set:Ne \l_@@_boundary_math_tl
       { \tl_trim_spaces:n {#1} }
+    \tl_replace_all:NVn \l_@@_boundary_math_tl
+      \c_@@_alignment_tl { \scan_stop: }
+  }
+
+\prg_new_protected_conditional:Npnn \@@_boundary_if_math_head:n #1
+  { T , F , TF }
+  {
+    \@@_boundary_math_set:n {#1}
     \tl_if_empty:NTF \l_@@_boundary_math_tl
       { \prg_return_false: }
       {
@@ -4733,8 +4763,7 @@ Copyright and Licence
 \prg_new_protected_conditional:Npnn \@@_boundary_if_math_tail:n #1
   { T , F , TF }
   {
-    \tl_set:Ne \l_@@_boundary_math_tl
-      { \tl_trim_spaces:n {#1} }
+    \@@_boundary_math_set:n {#1}
     \tl_reverse:N \l_@@_boundary_math_tl
     \exp_args:NV \@@_boundary_if_math_tail_reversed:nTF
       \l_@@_boundary_math_tl

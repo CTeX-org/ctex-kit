@@ -65,6 +65,38 @@
 
 **反例 / 适用边界（\#879）**：`\regex_replace_all:nnN { \cP . } { \cA \x{23} } ...` 这类写法只在匹配端精确，**替换端 `\x{NN}` 是字面 codepoint**——所有匹配项被一律映射到固定字符码，丢失输入侧 token 的原字符身份。当用户通过 `\catcode\`\&=6` 等方式把其它字符设为 catcode 6 时，该前提被打破。需要保留原 codepoint 的场景应改用 token 级路径：`\tl_map_inline:Nn` + `\token_if_parameter:NTF` + `\char_generate:nn { \int_value:w ``##1 } { 13 }` 逐 token 重建。`\@@_listings_rescan:Nn` 的 \#378 → \#879 演化是典型案例。
 
+## 字面字符当替换模式时必须核对 catcode régime（#1043）
+
+`\tl_replace_all:Nnn` 这类 token 级替换按 **catcode + charcode 双重相等**匹配，所以模式里
+写的字面字符必须与目标 token 同类别，否则**静默失效**：不报错、测试不挂，只是什么都没替换掉。
+
+最容易踩的一例：**`\ExplSyntaxOn` 下 `&` 是 catcode 0（escape），不是 catcode 4**（实测
+`\char_value_catcode:n {`&}` 在 `\ExplSyntaxOn` 段与 document 内均返回 0）。因此想匹配
+`\halign` 语境里的对齐符时，直接写 `{ & }` 作模式是无效的，必须在局部组里构造模板常量：
+
+```latex
+\group_begin:
+  \char_set_catcode_alignment:N \&
+  \tl_const:Nn \c_@@_alignment_tl { & }
+\group_end:
+\cs_generate_variant:Nn \tl_replace_all:Nnn { NVn }
+...
+\tl_replace_all:NVn \l_@@_some_tl \c_@@_alignment_tl { \scan_stop: }
+```
+
+两条配套注意事项：
+
+- **清理输入时用惰性 token 占位，不要直接删除。** 删除会改变位置关系：`&$x$` 删掉 `&`
+  后首项从 `&` 变成 `$`，下游「首项是不是公式」的判断随之误判。换成 `\scan_stop:`
+  才是位置等价的变换（#1043 的 `\@@_boundary_math_set:n`）。
+- **`\tl_replace_all:NVn` 不是原生变体**，需自行 `\cs_generate_variant:Nn`，且声明必须
+  在首次使用之前。xeCJK dtx 里既有的 `{ Nno }` 声明位置很靠后，不能顺带依赖。
+
+因为失败是静默的，这类修复**必须做门禁反向验证**：确认缺陷版 `l3build check` 退出码非 0，
+而不只是确认修复版通过。参见 `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`。
+与 #879 的替换端 `\x{NN}` 丢失原 codepoint 属同类问题：凡拿字面字符做 token 级匹配或替换，
+先问它在当前 catcode régime 下是什么类别。
+
 ## `.lvt` 测试文件中 `~` 的使用约定（#893）
 
 `.lvt` 测试文件里 `~` 的合法性取决于所在的 catcode 段，写测试时必须区分：
