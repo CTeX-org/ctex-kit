@@ -1,12 +1,21 @@
 name: ctex-kit check-tag
 
-# PR 门禁: 校验"支持 l3build tag 的包"(zhlineskip / ctex) 的源文件版本
-# stamp 与 build.lua 的 version 字段一致.
+# PR 门禁: 校验"支持 l3build tag 的包"(zhlineskip / ctex / xeCJK) 的源文件
+# 版本 stamp 与 build.lua 的 version 字段一致.
 #
-# 机制: 这两个包的 build.lua 把 `version` 作为发版事实源, 重写 update_tag
-# 让 `l3build tag` 把 version 回写进 .dtx 的 `\GetIdInfo $Id: ...$` 行
-# (zhlineskip PR #892 首创, ctex PR #937 移植). 该回写是维护者本地手跑的,
-# 忘跑的话 stamp 落后于 version, 发出去的包源文件版本行是 stale 的.
+# 机制: 这些包的 build.lua 把 `version` 作为发版事实源, `l3build tag` 把它
+# 回写进 .dtx 的版本行. 该回写是维护者本地手跑的, 忘跑的话 stamp 落后于
+# version, 发出去的包源文件版本行是 stale 的.
+#
+# 回写目标有两套, 因为 .dtx 的版本写法不同:
+#   * ctex / zhlineskip: `\GetIdInfo $Id: <file> <ver> ...$` 行, 各自在
+#     build.lua 里覆写 update_tag (zhlineskip PR #892 首创, ctex PR #937 移植);
+#   * xeCJK: `{\ExplFileDate}{<ver>}`, 用 support/build-config.lua 的共享
+#     update_tag (#1041 起以 build.lua 的 version 为事实源).
+#
+# xeCJK 是 #1041 补进来的: 此前它不在任何版本门禁内, 发 v3.10.5-rc2 时 .dtx
+# 仍写 3.10.4, 打出的包自报 v3.10.4 而 git tag 是 v3.10.5, 两道闸都没拦住
+# (release.yml 的三方校验当时只覆盖 ctex / zhlineskip, xeCJK 走 `*)` 跳过).
 #
 # 本 workflow 在 PR 上跑 `l3build tag` + `git diff --exit-code`:
 #   - update_tag 有幂等守卫 (stamp 版本 == version 时不回写),
@@ -27,6 +36,8 @@ on:
     paths:
       - 'zhlineskip/**'
       - 'ctex/**'
+      - 'xeCJK/**'
+      - 'support/build-config.lua'
       - '.github/workflows/check-tag.yml'
 
 concurrency:
@@ -39,6 +50,7 @@ jobs:
     outputs:
       ctex:       ${{ steps.filter.outputs.ctex }}
       zhlineskip: ${{ steps.filter.outputs.zhlineskip }}
+      xecjk:      ${{ steps.filter.outputs.xecjk }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -48,12 +60,16 @@ jobs:
           filters: |
             _all: &all
               - '.github/workflows/check-tag.yml'
+              - 'support/build-config.lua'
             ctex:
               - *all
               - 'ctex/**'
             zhlineskip:
               - *all
               - 'zhlineskip/**'
+            xecjk:
+              - *all
+              - 'xeCJK/**'
 
   tag-ctex:
     needs: changes
@@ -104,19 +120,46 @@ jobs:
           fi
           echo "✓ zhlineskip stamp 与 version 一致 (l3build tag 为 no-op)"
 
+  tag-xecjk:
+    needs: changes
+    if: needs.changes.outputs.xecjk == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # 共享 update_tag 只改 `{\ExplFileDate}{...}`, 不读 git log, 所以不像
+      # ctex 那样需要 fetch-depth: 0.
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        working-directory: ./xeCJK
+        run: |
+          l3build tag
+          # 只看 xeCJK/ : l3build tag 的回写目标只有本目录的 .dtx.
+          # 若把 ../support 也纳入 diff, 任何改 support/build-config.lua 的 PR
+          # 都会被误判为 "stamp 不同步" (那份改动本身就是 diff).
+          if ! git diff --exit-code -- .; then
+            echo "::error::xeCJK 的 .dtx 版本与 xeCJK/build.lua 的 version 不一致."
+            echo "::error::请在本地运行: cd xeCJK && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ xeCJK .dtx 版本与 version 一致 (l3build tag 为 no-op)"
+
   # 汇总: 供 branch protection 单点盯 (与 test-result / check-doc-result 同构).
   check-tag-result:
     if: ${{ !cancelled() }}
-    needs: [tag-ctex, tag-zhlineskip]
+    needs: [tag-ctex, tag-zhlineskip, tag-xecjk]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate results
         env:
           R_CTEX:       ${{ needs.tag-ctex.result }}
           R_ZHLINESKIP: ${{ needs.tag-zhlineskip.result }}
+          R_XECJK:      ${{ needs.tag-xecjk.result }}
         run: |
           fail=0
-          for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP"; do
+          for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP" "xeCJK:$R_XECJK"; do
             name="${nv%%:*}"; res="${nv#*:}"
             if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
               echo "✓ ${name}: ${res}"
