@@ -19,28 +19,40 @@ catcode-4 的 `&` 换成 `\scan_stop:`。
 
 ## 教训
 
-### 1. `\ExplSyntaxOn` 下 `&` 是 catcode 0，不是 4
+### 1. 坏探针让我把一条假事实写进四份文档（最严重的错误）
 
-我第一版直接写 `\tl_replace_all:Nnn \l_..._tl { & } { \scan_stop: }`，**逻辑看起来完全
-正确但完全无效**：expl3 catcode régime 下 `&` 是 escape char（catcode 0），拿它当模式
-匹配不到 `\halign` 里的对齐符，替换静默失效、缺陷依旧。实测 `\char_value_catcode:n {`&}`
-在 `\ExplSyntaxOn` 段和 document 内都返回 0。
+我曾断言「`\ExplSyntaxOn` 下 `&` 是 catcode 0（escape），所以直接写 `{ & }` 作模式会
+**静默失效**」，并把它写进 dtx 注释、`.lvt` 注释、`coding-conventions.md`、本反思和
+`index.md` 两处指针。**这条是假的。** 盲审在快照里实测推翻：
 
-正确写法是在局部组里构造模板常量：
+- expl3 的 `\c_code_cctab` 明确设 `\char_set_catcode_alignment:n { 38 }`
+  （`expl3-code.tex:23375`），`&` 在 expl3 régime 下就是 **catcode 4**。
+- 把实现改成我声称会失效的 `\tl_replace_all:Nnn ... { & } ...`，`l3build check`
+  **全绿**——若真会静默失效，门禁必须失败（它在真缺陷下确实 EXIT=1）。
+
+根源是**探针坏了而我没自证**。我原来的写法是
 
 ```latex
-\group_begin:
-  \char_set_catcode_alignment:N \&
-  \tl_const:Nn \c_@@_alignment_tl { & }
-\group_end:
+\iow_term:x { ... \int_use:N \char_value_catcode:n { `& } }   % 错
 ```
 
-这类「替换模式的 catcode 必须与目标 token 一致」的坑与 #879 同源（那次是替换端
-`\x{NN}` 丢失原 codepoint）。**通用规则：凡是拿字面字符当 token 级替换的模式或替换值，
-先问它在当前 catcode régime 下是什么类别。**
+拿已知答案一测就露馅：它把 `{`(123) 读成 0（应为 1）、`$`(36) 读成 0（应为 3）、
+`a`(97) 读成 `01`（应为 11）。**每个读数都是废的**，包括那个「0」。改用
+`\tl_set:Ne ... { \int_eval:n { \char_value_catcode:n {38} } }` 后自证通过
+（92→0、123→1、36→3、97→11），`&` 读到 4。
 
-危险之处在于失败是静默的——不报错、测试不挂，只是缺陷没修好。若我当时只跑
-「修复后不报错」这一项而没跑「缺陷版必须报错」的门禁反向验证，就会交付一个无效补丁。
+讽刺的是「探针静默先自证有效」正是我自己写进 `lessons-learned.md` 的规则（#1037 那轮），
+这次却没执行。**教训升级为：探针给出的任何反直觉读数，先用已知答案验证探针，再据它下结论；
+把结论写进规范文档之前尤其如此。**
+
+保留 `\c_@@_alignment_tl` 常量本身没错（不依赖外部 régime 是合理的防御），但**理由必须
+改成防御性设计，不能是假前提**。规范文档尤其危险：它会让后来者规避一种其实合法的写法。
+
+### 1b. 反向验证必须针对真正的假设
+
+我确实跑了「缺陷版 check 必须失败」，也确实 EXIT=1，于是自认为验证充分。但那次变异是
+**删除整行替换**，它只能证明「替换有用」，**不能证明「模板 catcode 写错会失效」**。
+两个假设不同，需要两次不同的变异。**门禁反向验证的变异点必须与被断言的机制一一对应。**
 
 ### 2. 占位而非删除，保住位置语义
 
@@ -56,14 +68,32 @@ catcode-4 的 `&` 换成 `\scan_stop:`。
 导致后续排版全乱的次生结果。**多症状客诉要逐一验证复现，不要假设它们是并列的独立缺陷；
 否则会为不存在的第二个缺陷设计修复。**
 
-### 4. `\tl_replace_all:NVn` 需自行声明变体，且要在使用点之前
+### 4. 不要凭「没搜到」断定变体不存在
 
-expl3 不原生提供 `NVn`。dtx 里已有的 `\cs_generate_variant:Nn \tl_replace_all:Nnn { Nno }`
-在 10037 行，远在我使用点（4720 行）之后，不能依赖。变体声明必须紧邻首次使用之前。
+我曾写下「expl3 不原生提供 `\tl_replace_all:NVn`，需自行 `\cs_generate_variant`」，据此在
+dtx 里加了一行声明。实测 `\cs_if_exist:NTF \tl_replace_all:NVn` 为**真**——它是原生的
+（`expl3-code.tex:3963` 的 `{ NnV , Nne , NV , ... }` 组加尾部 `n` 补齐），那行声明纯属冗余，
+已删除。我当时只 grep 了字面串 `tl_replace_all:NVn`，没搜到就下了结论，而 expl3 的变体是
+**按组生成**的，字面 grep 必然搜不到。**判定某函数是否存在，要用 `\cs_if_exist:NTF` 在
+引擎里问，而不是 grep 源码。**（对照组 `\tl_replace_all:NnVn` 确实 MISSING，说明这个探针
+本身有判别力。）
+
+### 5. 门禁的判别力边界要写下来
+
+盲审顺手测出：把替换值从 `\scan_stop:` 改成 `{ }`（删除）或 `{ $ }`，本文件的测试**仍然
+全绿**。也就是说这个门禁固定的是「不报错」，并**没有**固定占位的位置语义（教训 2 那条理由）。
+这不是缺陷，但必须在测试注释里写明，否则后人会误以为占位语义有门禁保护。已补进 `.lvt`。
 
 ## 促进候选
 
-- 教训 1 已够通用且会复现，值得进 `reference/coding-conventions.md` 的 catcode 一节，
-  与 #879 并列。
-- 教训 2、4 偏 expl3 手法，同样适合进 coding-conventions。
-- 教训 3 属调研方法而非本仓库知识，留在本反思即可。
+- 教训 1（含 1b）最重要且通用，已进 `reference/coding-conventions.md`：既纠正 `&` 的
+  catcode 事实，也补上「探针先自证」和「反向验证要对准被断言的机制」。
+- 教训 2 已进 coding-conventions。教训 4 的「用 `\cs_if_exist:NTF` 而非 grep 判定存在性」
+  一并收进该节。
+- 教训 3、5 属调研与测试方法，留在本反思和 `.lvt` 注释即可。
+
+## 元教训
+
+本次五个 finding（1 blocking / 2 important / 2 minor）**全部由盲审发现，我的自检一个都没抓到**。
+自检失效的模式很一致：我验证了「改完之后好了」，但没验证「我给出的理由是否为真」。
+修复正确 ≠ 解释正确，而写进规范文档的是解释。

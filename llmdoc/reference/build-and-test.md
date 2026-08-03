@@ -202,8 +202,31 @@
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
 `fntef-shrink01`、#1029 新增 `boundary-sbox-global01`、#1038 新增
-`tabular-cr01` 与 `boundary-bgroup01` 后，当前为 117／117 通过。完整接口契约见
+`tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01` 后，
+当前为 118／118 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
+
+### halign 语境下参数含对齐符（`halign-amp-boundary01`，#1043）
+
+`halign-amp-boundary01.lvt` 固定 boundary 语法判断在 `\halign` 语境下不被 catcode-4 的 `&`
+打断（机制见 [[../architecture/xecjk-architecture]]「语法判断前必须消解参数里的对齐符（#1043）」）。
+三项覆盖：`eqnarray` 内 `\colorbox` 参数含 `&`、`tabular` 内同写法、以及与 CJK 相邻时
+ecglue 仍照常插入。
+
+判别力已实测：把 `\@@_boundary_math_set:n` 体内的替换整行删除（还原缺陷）后
+`l3build check` 退出码为 1，`TEST 1` 报 `! Argument of \__tl_tl_head:w has an extra }.`。
+
+两条边界必须记住，否则会误改：
+
+- **该门禁固定的是「不报错」，没有固定 `\scan_stop:` 的占位语义。** 把替换值改成 `{ }`
+  （删除）或 `{ $ }` 时本文件仍全绿。占位的理由（`&$x$` 的首类别判定）只有直接探针
+  能验证，若要上门禁需要新增一个断言首类别结果的用例。
+- **`\colorbox` 参数里放裸 `&`（如 `\colorbox{yellow}{&$x$}`）不能写进基线**：这本身就不是
+  合法 LaTeX，不加载 xeCJK 也报 `Misplaced alignment tab`。首版基线曾误把这串报错固定
+  下来，等于把上游限制冻结成本包预期。
+
+`\textcolor` 走另一个适配器但共用同一判断入口，base 版下报 50／52 个错误、修复后为 0，
+故不需要单独用例；`\uline` 同场景在不加载 xeCJK 时亦失败，属上游 `ulem` 限制，不在范围内。
 
 ### `\sbox`／`\savebox` 全局前缀回归（`boundary-sbox-global01`，#1029）
 
@@ -339,11 +362,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行校验固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 117／117，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 118／118，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 117 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 118 项。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 

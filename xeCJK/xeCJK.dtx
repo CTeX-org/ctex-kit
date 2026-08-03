@@ -4697,7 +4697,7 @@ Copyright and Licence
 
 % \changes{v3.10.5}{2026/08/03}{boundary 判断前把参数副本中 catcode 4 的
 %   |&| 换成 \cs{scan_stop:}，修复 \tn{colorbox} 等命令在 \tn{halign}
-%   语境下参数含 |&| 时编译报错的问题 (\#1043)。}
+%   语境下参数含 |&| 时编译报错的问题（\#1043）。}
 %
 % \cs{@@_boundary_math_set:n} 把待判断的参数存入 \cs{l_@@_boundary_math_tl}，
 % 并把其中 catcode 4 的 |&| 换成 \cs{scan_stop:}。在 \tn{halign} 语境
@@ -4709,14 +4709,17 @@ Copyright and Licence
 % 输出；换成 \cs{scan_stop:} 而不是直接删除，是为了保住 |&| 的位置，
 % 使 |&$x$| 这类参数仍被正确判定为「首项不是公式」。
 %
-% 注意匹配对象必须是 catcode 4 的 |&|：\cs{ExplSyntaxOn} 下 |&| 是 catcode 0
-% （escape），直接写 |{ & }| 匹配不到对齐符，替换会静默失效。所以先在局部组里
-% 把 |&| 设回 catcode 4，构造出 \cs{c_@@_alignment_tl} 作为匹配模板。
+% \cs{tl_replace_all:Nnn} 按 catcode 与 charcode 双重相等匹配，所以模式里的 |&|
+% 必须是 catcode 4 的对齐符。\pkg{expl3} 的 \cs{c_code_cctab} 本就把 |&| 设为
+% alignment（\file{expl3-code.tex} 中 \cs{char_set_catcode_alignment:n} |{ 38 }|），
+% 因此在本文件里直接写 |{ & }| 已经是对齐符、可以正常匹配。这里仍在局部组里显式
+% 构造 \cs{c_@@_alignment_tl}，是不想把正确性寄托在「当前 catcode régime 恰好
+% 把 |&| 设成 4」这一外部前提上：模板由 \cs{char_set_catcode_alignment:N} 亲自
+% 生成，régime 变化时不会静默失配。
 \group_begin:
   \char_set_catcode_alignment:N \&
   \tl_const:Nn \c_@@_alignment_tl { & }
 \group_end:
-\cs_generate_variant:Nn \tl_replace_all:Nnn { NVn }
 
 \cs_new_protected:Npn \@@_boundary_math_set:n #1
   {

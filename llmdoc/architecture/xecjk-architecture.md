@@ -302,12 +302,16 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
   分属不同适配器但共用这两个判断入口，逐个适配器修必然漏。
 - 判断用的是副本，**实际排版仍使用原始参数**，所以替换不影响输出。
 - 用 `\scan_stop:` 占位而非删除，以保住 `&` 的位置语义（否则 `&$x$` 会被误判为首项是公式）。
-- 匹配模板必须是 catcode 4 的 `&`，写法陷阱见
+- 匹配模板必须是 catcode 4 的 `&`。expl3 的 `\c_code_cctab` 本就把 `&` 设为 alignment，
+  故直接写 `{ & }` 也能匹配；实现仍显式构造 `\c_@@_alignment_tl`，以免正确性依赖
+  当前 catcode régime 这一外部前提。相关写法约定见
   `llmdoc/reference/coding-conventions.md`「字面字符当替换模式时必须核对 catcode régime」。
 
 回归门禁 `xeCJK/testfiles/halign-amp-boundary01.lvt` 覆盖 `eqnarray`／`tabular`／
-CJK 相邻三种语境。注意 `\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）
-本身就不是合法 LaTeX，不加载 xeCJK 也报错，不能写进基线。
+CJK 相邻三种语境，判别力已实测（缺陷版 `l3build check` EXIT=1，`TEST 1` 报 `extra }`）。
+两点边界：`\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）本身就不是合法
+LaTeX，不加载 xeCJK 也报 `Misplaced alignment tab`，不能写进基线；该门禁固定的是
+「不报错」，把替换值改成 `{ }` 或 `{ $ }` 时仍全绿，**占位语义没有门禁保护**。
 
 #### 命令钩子与专用适配器的选择边界（#1029）
 
