@@ -4709,6 +4709,20 @@ Copyright and Licence
 % 输出；换成 \cs{scan_stop:} 而不是直接删除，是为了保住 |&| 的位置，
 % 使 |&$x$| 这类参数仍被正确判定为「首项不是公式」。
 %
+% 两条范围说明，避免后人误以为漏改：
+% \begin{itemize}
+%   \item \cs{tl_replace_all:NVn} 不进入嵌套花括号组，|{ a { x & y } b }| 只得到
+%     |a{x&y}b|。这是够用的：只有\emph{顶层}对齐符会破坏 \pkg{expl3} 条件式的括号组
+%     扫描（实测组内含 catcode-4 |&| 时，裸 \cs{tl_if_head_eq_meaning:nNTF}、
+%     \cs{tl_reverse:N}、\cs{tl_head:n}、\cs{tl_tail:n} 均不报错），而
+%     \cs{@@_boundary_if_math_head:n} 递归进入组时会重新调用自身、再次经过本函数，
+%     下一层的 |&| 到那时才需要消解。
+%   \item \cs{@@_boundary_if_math_tail_space:n} 不走本函数，因为它只做
+%     \cs{tl_trim_right_spaces:n} 与 \cs{tl_if_eq:NNTF}，不做 head/tail 记号扫描，
+%     参数含 catcode-4 |&| 时实测 0 错误。需要消解的只有做扫描的
+%     \cs{@@_boundary_if_math_head:n} 与 \cs{@@_boundary_if_math_tail:n} 两个入口。
+% \end{itemize}
+%
 % \cs{tl_replace_all:Nnn} 按 catcode 与 charcode 双重相等匹配，所以模式里的 |&|
 % 必须是 catcode 4 的对齐符。在本文件里直接写 |{ & }| 恰好可用，但原因只是
 % \textbf{\LaTeX{} 环境默认把 |&| 设为 4（\file{latex.ltx}：

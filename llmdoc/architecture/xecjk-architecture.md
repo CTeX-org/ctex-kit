@@ -295,8 +295,11 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 这是 expl3 条件式对 catcode-4 token 的固有限制，不加载 xeCJK 也能用裸
 `\tl_if_head_eq_meaning:nNTF {$a&b$} $` 在 `tabular` 内复现。
 
-因此所有进入语法判断的参数都先经 `\@@_boundary_math_set:n` 存副本，并把其中 catcode-4 的
-`&` 换成 `\scan_stop:`。要点：
+因此做 head/tail 记号扫描的两个入口（`\@@_boundary_if_math_head:n`、`_tail:n`）都先经
+`\@@_boundary_math_set:n` 存副本，并把其中 catcode-4 的 `&` 换成 `\scan_stop:`。
+（`_tail_space:n` 不需要：它只做 `\tl_trim_right_spaces:n` 与 `\tl_if_eq:NNTF`，不扫描记号，
+含 catcode-4 `&` 时实测 0 错误。替换也只处理顶层对齐符，组内的由递归时的下一次调用消解。）
+要点：
 
 - **修在 `_head:n` / `_tail:n` 这一层**，而不是单个适配器里。`\colorbox` 和 `\textcolor`
   分属不同适配器但共用这两个判断入口，逐个适配器修必然漏。

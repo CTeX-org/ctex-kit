@@ -21,8 +21,19 @@
 %   ! Argument of \__tl_tl_head:w has an extra }.
 % 修复是在 \@@_boundary_math_set:n 里把判断用副本中的 catcode-4 & 换成 \scan_stop:。
 %
-% 缺陷版下本文件会以一连串 extra } / Missing $ 报错收场（实测 26 个 !），
-% 所以三种语境各自独立成 TEST，但同一文件即可——缺陷不中止编译，只是刷错误。
+% 本文件只放 eqnarray 一项。tabular 与 CJK 相邻两项各自独立成
+% halign-amp-boundary02/03.lvt，因为 xeCJK 的 checkopts 带 -halt-on-error
+% （support/build-config.lua），缺陷态下首项一报错就中止，同一文件里其后的 TEST
+% 根本不执行——实测缺陷版日志里 TEST 2／TEST 3 出现 0 次，是看起来正规实际空转的校验。
+% 这条约束见 llmdoc/reference/build-and-test.md「每个能独立触发该缺陷的用例都要有
+% 自己的文件」，#1038 有同样的先例。
+%
+% 判别力已实测：把 \@@_boundary_math_set:n 体内的替换整行删除（还原缺陷）后
+% l3build check 退出码为 1，本项报 extra }。02／03 两个文件同样逐个实测过 rc 1。
+%
+% 缺陷态的报错条数取决于观察条件，引用时要连条件一起写：门禁自身带
+% -halt-on-error，只看到首条；手动 -interaction=nonstopmode 下原始日志 78 行 `!`，
+% 去重后 26 种。
 %
 % 注意：匹配模板必须是 catcode 4 的 &，否则 \tl_replace_all:Nnn 匹配不上。
 % dtx 里直接写 { & } 恰好可用，但只因 LaTeX 环境默认把 & 设为 4 且 \ExplSyntaxOn 不改 38
@@ -31,10 +42,7 @@
 % 两种写法都无影响，但若 \usepackage 之前 & 已非 4，字面写法就一律静默失配。
 % 实现自行构造模板常量把类别钉死，防的正是这一种。
 %
-% 判别力已实测：把 \@@_boundary_math_set:n 体内的替换整行删除（还原缺陷）后
-% l3build check 退出码为 1，TEST 1 报 extra }。三个 TEST 都保留，任一语境失守都能暴露。
-%
-% 已知覆盖缺口：把替换值从 \scan_stop: 改成 { }（删除）或 { $ } 时本文件仍全绿，
+% 已知覆盖缺口：把替换值从 \scan_stop: 改成 { }（删除）或 { $ } 时三个文件仍全绿，
 % 即这里固定的是「不报错」，未固定占位的位置语义。占位理由另见 dtx 注释；
 % 若要给它上门禁，需要一个能断言 &$x$ 首类别判定结果的用例。
 
@@ -42,22 +50,6 @@
   \begin{eqnarray*}
     A = \colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$} &=& B
   \end{eqnarray*}
-  \clearpage
-}
-
-\TEST{colorbox with ampersand in tabular}{
-  \begin{tabular}{c}
-    \colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$}\\
-  \end{tabular}
-  \clearpage
-}
-
-% 与 CJK 相邻，确认修复后 ecglue 仍照常插入——本修复动的是 boundary 判断路径，
-% 若替换把参数弄坏，最先失守的就是这里的 CJK-math 间距。
-\TEST{ecglue preserved around colorbox with ampersand}{
-  \begin{tabular}{c}
-    中文\colorbox{yellow}{$\begin{array}{cc}1 &0\end{array}$}中文\\
-  \end{tabular}
   \clearpage
 }
 
