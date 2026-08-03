@@ -635,8 +635,9 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 | `ctex` | `build.lua` `version` | `$Id:$` stamp（6 个拆分 dtx，均含 stamp） | 包级覆写 | ✓ | ✓ |
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
 | `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
-| `CJKpunct` / `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 部分有 `\ExplFileDate` | 共享 | ✗ | ✗（走 `*)`） |
-| `zhmetrics-uptex` | 无 | — | 不适用（无独立 `build.lua`，tag 前缀复用 `zhmetrics` 目录） | ✗ | ✗（走 `*)`）|
+| `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 有 `\ExplFileDate` 或 `[<日期> v<版本>]` | 共享 | ✗ | ✗（走 `*)`） |
+| `CJKpunct` | 无 | **两种写法都没有** — 共享 `update_tag` 对它恒为空操作 | 共享（不生效） | ✗ | ✗（走 `*)`） |
+| `zhmetrics-uptex` | 无 | 无 `.dtx` | 不适用（有自己的 `build.lua`、`dir=zhmetrics-uptex`，但不 `dofile` 共享配置） | ✗ | ✗（走 `*)`）|
 | `zhspacing` | — | — | — | ✗ | ✗ |
 
 **这张表的行必须覆盖 `release.yml` 的 `Parse tag` 能识别的全部 tag 前缀**（当前十个：`CJKpunct`、`ctex`、`xCJK2uni`、`xeCJK`、`xpinyin`、`zhlineskip`、`zhmetrics`、`zhmetrics-uptex`、`zhnumber`、`zhspacing`），否则漏掉的那一行正是矩阵想拦住的「静默跳过」。`zhmetrics-uptex` 就是这样漏过一次的——它能触发 `release.yml` 却不在表里。
