@@ -148,6 +148,17 @@ jobs:
             STAMP_VERS=$(grep -hoE '\\GetIdInfo \$Id: zhlineskip\.dtx v[0-9]+\.[0-9]+[a-z]? ' "${DIR}/zhlineskip.dtx" \
                          | awk '{print $4}' | sed 's/^v//' | sort -u)
             ;;
+          xeCJK)
+            # #1041: xeCJK 此前走下面的 `*)` 跳过校验, 于是 v3.10.5-rc2 发出了
+            # 一个自报 v3.10.4 的包 -- git tag 是 3.10.5, .dtx 还写 3.10.4.
+            #
+            # 版本不在 `$Id:$` stamp 里 (xeCJK 的那行是未展开的 `\GetIdInfo$Id$`,
+            # 由 replace_git_id 在打包时填 git 信息, 不含版本), 而在
+            # `%<!driver>  {\ExplFileDate}{3.10.5}{\ExplFileDescription}`.
+            LUA_VER=$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "${DIR}/build.lua" | head -1)
+            STAMP_VERS=$(grep -hoE '\{\\ExplFileDate\}\{[0-9]+\.[0-9]+\.[0-9a-z]+\}' "${DIR}/xeCJK.dtx" \
+                         | grep -oE '[0-9]+\.[0-9]+\.[0-9a-z]+' | sort -u)
+            ;;
           *)
             echo "::notice::${DIR} 不使用 l3build tag 版本 stamp 机制, 跳过三方校验"
             exit 0

@@ -141,6 +141,26 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 白名单式 CI 门禁默认放行，未覆盖的包无人察觉
+**Rule**: 按包 opt-in 的门禁（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类门禁必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
+**Why**: #1041 之前 xeCJK 从不在版本门禁内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### l3build 的 build.lua 里全局名可能已被框架占用，判空要判类型
+**Rule**: 在 `build.lua` / `support/*.lua` 里对全局名做「未设置则回退」时，先确认 l3build 没有预定义同名对象。`x or fallback` 只在 `x` 只可能是目标值或 `nil`/`false` 时成立；`x` 可能是别的类型（尤其框架预定义的函数）时必须判类型。
+**Why**: #1041 的共享 `update_tag` 写 `local target = version or tagname`，本意是「`build.lua` 设了 `version` 就用它」。但 l3build 自己定义了 `function version()` 供 `--version`（`l3build-help.lua:32`），未设 `version` 的六个包里这个名字是函数，`or` 直接取走函数，报 `attempt to index a function value`。改成 `(type(version) == "string") and version or tagname` 才对。同构先例：`ctex_kit_env_or_nil` 因 GH Actions 空 input 注入 `""` 而必须把空串也当未设置。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 「重新生成 + diff」门禁的 diff 范围必须精确等于写入范围
+**Rule**: 这类门禁的 `git diff` 路径参数只能覆盖生成动作**实际写入**的文件，不能顺手扩大到「相关文件」。扩大范围不增加检出能力，只会把无关改动误判为不同步。验证 no-op 要在干净 worktree（`git worktree add`）里做——主工作区的未提交改动会被 `git diff` 算进来，结论不可信。
+**Why**: #1041 的 `tag-xecjk` job 起初写 `git diff --exit-code -- . ../support`，理由是共享 `update_tag` 在 `support/` 里。但 `l3build tag` 只回写本包 `.dtx`，纳入 `../support` 会让任何改 `support/build-config.lua` 的 PR 被误判。我是在本地跑验证时发现「干净状态下门禁却报 diff 非零」，一查是自己未提交的 `support/` 改动被算进去了。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 新增门禁要用「复现原事故」验证判别力
+**Rule**: 加完一道门禁，不能只验证 happy path 通过；要把促使你加它的那个具体事故复现出来，确认门禁真的拒绝。这与测试的变异验证是同一条原则——门禁的价值完全取决于它对目标缺陷是否有判别力。
+**Why**: #1041 把 rc2 事故复现（`\ExplFileDate` 改回 3.10.4）后实测：PR 门禁 `l3build tag` 真回写 → diff 非零 → 拒绝；release 三方校验报 `✗ tag=3.10.5 但 stamp=3.10.4` → 拒绝。另加两个变体：打错 tag（3.10.6）应拒绝、rc 后缀（3.10.5-rc3）应剥离后通过。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
 ### 事实性陈述的更正以「全仓所有实例」为单位
 **Rule**: 改一处计数、页数、文件名、函数名或机制解释后，用 `grep` 扫一遍该说法的所有变体再收工；并把「历史记述」（记录当时事实，保留原值）与「当前事实」（必须统一）分开。同时算上本次改动本身会不会让该数字再变一次。
 **Why**: #1038 中「只修一半」连续出现三轮：先只拆被点名的测试而漏掉同类；再更正一句假陈述却只改了两份文档中的一份；最后把测试数从 115 改成 116——而 116 是上一提交的值，本提交又新增一个文件，正确值是 117。每次都是只改了 finding 里出现的那一处。加上收工前的 grep 扫描（计数一遍、指针一遍）后才不再复发。

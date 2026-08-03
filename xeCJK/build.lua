@@ -1,6 +1,14 @@
 
 module = "xecjk"
 
+-- 发版事实源 (#1041). 与 xeCJK.dtx 的 `{\ExplFileDate}{...}` 必须一致:
+--   * 本地发版流程: 改这里 -> `l3build tag` 回写 .dtx -> commit;
+--   * PR 门禁 check-tag.yml 跑 `l3build tag` 后要求 git diff 为零;
+--   * release.yml 打 tag 时校验 git tag / version / .dtx 三方一致.
+-- 引入原因: v3.10.5-rc2 之前 xeCJK 不在任何版本门禁内, 发 rc2 时 .dtx 仍写
+-- 3.10.4, 打出的包自报 v3.10.4 而 tag 是 v3.10.5, 无人拦住.
+version = "3.10.5"
+
 packtdszip = true
 tdsroot = "xelatex"
 

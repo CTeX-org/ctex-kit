@@ -114,12 +114,51 @@ function replace_git_id (path, file)
   end
 end
 
+-- 共享 update_tag: 回写 .dtx 里的包版本号.
+--
+-- 位置说明 (名字容易误读): `\ProvidesExplPackage{\ExplFileName}` 之后那行
+-- `{\ExplFileDate}{3.10.5}{\ExplFileDescription}` 里, `\ExplFileDate` 是
+-- **占位宏**, 由 `\GetIdInfo$Id: ...$` 从 git stamp 取到日期; 大括号里的
+-- `3.10.5` 才是版本号, 也是本函数唯一要改的东西. 日期无需 (也不应) 在这里写,
+-- 它随 replace_git_id 打包时填入的 commit 日期自动跟进.
+--
+-- 另外还顺带兼容 `[YYYY/MM/DD v<版本>]` 这种旧式行 (部分包的注释头里有).
+--
+-- 由 CJKpunct / jiazhu / xCJK2uni / xeCJK / xpinyin / zhmetrics / zhnumber 共用
+-- (ctex 与 zhlineskip 在各自 build.lua 里覆写, 走 `$Id:$` stamp 那套).
+--
+-- 版本事实源的两种模式:
+--
+--   1. build.lua 设了 `version` (xeCJK, #1041 起): 以它为准, 忽略 CLI 传入的
+--      tagname. 这样 `l3build tag` 无参可跑, PR 门禁才能用
+--      「l3build tag 后 git diff 必须为零」来拦 version 与 .dtx 失同步.
+--   2. 未设 `version` (其余六包): 保持原行为, 用 CLI 的 `l3build tag <ver>`.
+--      这些包的 tagname 为 nil 时直接返回原文, 不再像以前那样
+--      `nil .. ""` 抛 "attempt to concatenate a nil value".
+--
+-- 幂等性: 目标版本与文件里已有的一致时原样返回, 使门禁的 diff 为零. 这一步是
+-- PR 门禁能成立的前提 -- 若每次 tag 都无条件重写, `l3build tag` 后的 diff 永
+-- 不为零, check-tag.yml 就会恒失败.
 function update_tag(file, content, tagname, tagdate)
-  local content, date = content, tagdate:gsub("%-", "/")
-  if file:match("%.dtx$") then
-    content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. tagname .."}")
-    content = content:gsub("(%[)%d%d%d%d/%d%d/%d%d v%S+", "%1" .. date .. " v" .. tagname)
-  end
+  if not file:match("%.dtx$") then return content end
+
+  -- build.lua 的 version 优先; 它不存在时才用 CLI 参数.
+  --
+  -- 必须判类型: l3build 自己在全局定义了 `function version()` 供 `--version`
+  -- 用 (l3build-help.lua:32), 所以未设 version 的包里这个名字是**函数**而非
+  -- nil. 直接 `version or tagname` 会取到那个函数, 后面拼接时报
+  -- "attempt to index a function value".
+  local target = (type(version) == "string") and version or tagname
+  if type(target) ~= "string" then return content end
+  -- zhlineskip 风格的 "v1.0h" 前缀在本路径不适用, 但容错剥掉以免写出 "vv1.0".
+  target = target:gsub("^v", "")
+
+  local stamped = content:match("{\\ExplFileDate}{([^}]*)}")
+  if stamped == target then return content end
+
+  local date = (tagdate or os.date("%Y-%m-%d")):gsub("%-", "/")
+  content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
+  content = content:gsub("(%[)%d%d%d%d/%d%d/%d%d v%S+", "%1" .. date .. " v" .. target)
   return content
 end
 

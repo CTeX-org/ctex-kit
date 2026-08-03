@@ -422,7 +422,7 @@ GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/check-doc.yml`：PR 门禁 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
-- `.github/workflows/check-tag.yml`：PR 门禁 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本 stamp 与 build.lua 的 version 同步 (#937); 与 release.yml 的三方版本校验构成双闸, 详见 [[937-version-single-source-l3build-tag]] 与下方"版本管理"章节
+- `.github/workflows/check-tag.yml`：PR 门禁 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041); 与 release.yml 的三方版本校验构成双闸, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
 - `.github/workflows/check-changelog.yml`：PR 门禁 workflow, 校验 5 个包 (ctex/xeCJK/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
@@ -622,13 +622,30 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，版本与变更信息会进入最终文档输出；`ctex.pdf` 与 `xeCJK.pdf` 的标题日期则统一使用 `\ctexkitbuilddate`，以 `YYYY/MM/DD` 格式表示 GitHub Actions 生成正式 PDF 的日期，不再借用某个 `.sty` 的源文件 stamp 日期。
 
-## 版本单一事实源与 l3build tag（zhlineskip / ctex）
+## 版本单一事实源与 l3build tag（zhlineskip / ctex / xeCJK）
 
-完成 DocStrip & L3 重构的包（zhlineskip 自 PR #892，ctex 自 PR #937）采用统一的版本管理模式，详见决策 [[937-version-single-source-l3build-tag]]：
+完成 DocStrip & L3 重构的包（zhlineskip 自 PR #892，ctex 自 PR #937，xeCJK 自 #1041）采用统一的版本管理模式，详见决策 [[937-version-single-source-l3build-tag]] 与 [[1041-xecjk-version-gate]]：
+
+### 覆盖矩阵
+
+两道闸门都是**白名单**（`check-tag.yml` 用 `paths` filter、`release.yml` 用 `case "${DIR}"`），未列出的包**静默跳过**且不产生 failure——`release.yml` 只打一条 `::notice::...跳过三方校验`。因此这份矩阵必须与两个 workflow 同步维护：
+
+| 包 | `version` 事实源 | dtx 版本位置 | `update_tag` | PR 门禁 | release 三方校验 |
+|---|---|---|---|---|---|
+| `ctex` | `build.lua` `version` | `$Id:$` stamp（5 个拆分 dtx） | 包级覆写 | ✓ | ✓ |
+| `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
+| `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
+| `CJKpunct` / `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 部分有 `\ExplFileDate` | 共享 | ✗ | ✗（走 `*)`） |
+| `zhspacing` | — | — | — | ✗ | ✗ |
+
+`zhspacing` 是**有意识**排除（商业字体依赖 + 包自身时序 bug，见 [[935-check-doc-zhspacing-blockers]]）；xeCJK 曾是**无意识**从未接入——`v3.10.5-rc2` 因此发出了一个自报 `v3.10.4` 的包，两道闸门都没拦。加新包或让某个包具备条件时，务必回到这张表和两个 workflow 一起改。
 
 - **`build.lua` 顶部 `version` 字段是唯一手改的版本事实源**（ctex 还有 `date` 等价物走 git 元数据；zhlineskip 是 `version` + `date` 两字段）。`uploadconfig`（CTAN 投递）直接引用它。
 - dtx 源文件的版本行是 `\GetIdInfo $Id: <file> <ver> <date> ...$` stamp，被 `\ProvidesExplPackage{...}{\ExplFileDate}{\ExplFileVersion}{...}` 消费——dtx 里没有第二处硬编码版本。
-- 本地手跑 `cd <pkg> && l3build tag`，包级重写的 `update_tag`（`ctex/build.lua` / `zhlineskip/build.lua`）把 version 回写进 stamp。**ctex 的 update_tag 带幂等守卫**：stamp 版本已等于 version 时原样保留（不动 date/sha），否则"回写产生新 commit → 新 sha → 又要回写"永不收敛。
+- 本地手跑 `cd <pkg> && l3build tag`，`update_tag` 把 version 回写进源文件。ctex / zhlineskip 在各自 `build.lua` 里**包级覆写**该函数（回写 `$Id:$` stamp）；xeCJK 用 `support/build-config.lua` 的**共享**版本（回写 `{\ExplFileDate}{<ver>}`）。**三者都带幂等守卫**：目标版本已一致时原样返回，否则"回写产生新 commit → 新 sha → 又要回写"永不收敛，且 PR 门禁的 diff 检查会恒 fire。
+- 共享 `update_tag` 的两个坑（#1041）：
+  - **`version` 这个全局名可能是函数**。l3build 自己定义了 `function version()` 供 `--version` 用（`l3build-help.lua:32`），所以未设 `version` 的包里它不是 `nil`。写 `version or tagname` 会取到那个函数并报 `attempt to index a function value`，必须 `type(version) == "string"` 判断。
+  - **`\ExplFileDate` 装的不是版本号**。`\ProvidesExplPackage` 的参数顺序是 `{name}{date}{version}{desc}`，所以 `{\ExplFileDate}{3.10.5}{\ExplFileDescription}` 里 `\ExplFileDate` 是日期占位宏（由 `\GetIdInfo$Id:$` 从 git stamp 取 commit 日期），大括号里的 `3.10.5` 才是版本。`update_tag` 只改后者；日期随打包时的 `replace_git_id` 自动跟进，硬写会让每次 tag 都产生 diff。
 - 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
 - ctex 的 `update_tag` 在处理主 `ctex.dtx` 时还会额外固化手册首页页脚的 shorthash：取 `git log -1 --format='%h' *.dtx` 回写进 `ctex.dtx` 里的 `\GetFileId[<hash>]{ctex.sty}`（消费方是 `support/ctxdoc.cls` 的 `\GetFileId { O{} m }`，可选参数即固化 hash）。运行时**不**依赖 `\sys_get_shell` / `--shell-escape` 现取 git 信息——曾经的运行时方案已被否决，详见决策 [[937-version-single-source-l3build-tag]] 「手册页脚 shorthash」小节。
 - `\GetFileId` 仍为标题页提供版本号和 revision hash，但不再提供标题日期。`ctex` 拆分后，`ctex.sty` 的 `\filedate` 只反映 `ctex-kernel.dtx` 的 stamp，可能早于手册和其他拆分源文件；因此 `ctex` 与 `xeCJK` 的标题日期统一改用 `\ctexkitbuilddate`，按 `YYYY/MM/DD` 格式排印构建当天日期。正式 PDF 由 GitHub Actions 集中构建，版本号负责标识内容，日期只表示该 PDF 的构建日。
@@ -644,10 +661,27 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
                           （release.yml 三方校验通过才发版）
 ```
 
+### 发版 SOP（xeCJK，#1041 起）
+
+```
+1. xeCJK/build.lua        version = "X.Y.Z"           （手改，唯一）
+2. xeCJK/xeCJK.dtx        补 \changes{vX.Y.Z}{...}     （随功能 PR）
+3. cd xeCJK && l3build tag 回写 {\ExplFileDate}{X.Y.Z}（自动，幂等）
+4. make changelog-xeCJK   同步 CHANGELOG.md            （check-changelog.yml 验证）
+5. commit + PR            （check-tag.yml 验证版本同步）
+6. merge 后 make tag xeCJK-vX.Y.Z[-rcN] && git push origin <tag>
+                          （release.yml 三方校验通过才发版）
+```
+
+第 3 步漏掉的后果就是 `v3.10.5-rc2`：包自报版本落后于 git tag。现在第 5、6 步各有一道闸拦它。
+
 ### 双闸 CI
 
-- **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`），ctex job 需 `fetch-depth: 0`（update_tag 取 `git log -1`）。
-- **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。非该机制的包（xeCJK 等）跳过校验打 notice。
+- **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex / xeCJK，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。三个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 不需要（共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 git）。
+  - **`paths` 必须含 `support/build-config.lua`**：共享 `update_tag` 在那里，改它要重跑门禁。
+  - **diff 范围只能是本包目录**（`git diff -- .`）。曾写成 `-- . ../support`，那会让任何改 `support/build-config.lua` 的 PR 被误判为 stamp 不同步——那份改动本身就是 diff。「重新生成 + diff」型门禁的 diff 范围必须精确等于生成动作的**写入**范围。
+  - 本地验证这类门禁要用干净 worktree（`git worktree add`）：主工作区有未提交改动时 `git diff` 会把它们算进来，no-op 结论不可信。
+- **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。未接入的包（见上方覆盖矩阵）走 `*)` 分支跳过校验并打 `::notice::`——注意那**不是** failure，CI 仍全绿。
 
 ## 生成物新鲜度校验模式（"CI 只校验不回写"）
 
