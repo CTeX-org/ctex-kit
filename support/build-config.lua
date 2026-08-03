@@ -153,13 +153,34 @@ function update_tag(file, content, tagname, tagdate)
   -- zhlineskip 风格的 "v1.0h" 前缀在本路径不适用, 但容错剥掉以免写出 "vv1.0".
   target = target:gsub("^v", "")
 
-  local stamped = content:match("{\\ExplFileDate}{([^}]*)}")
-  if stamped == target then return content end
+  -- 设了 version 的包里, CLI 传入的 tagname 会被忽略 (version 才是事实源).
+  -- 静默忽略会让 `l3build tag 3.10.6` 看起来成功却什么也没改, 所以显式告警.
+  if type(version) == "string" and type(tagname) == "string" then
+    local cli = tagname:gsub("^v", "")
+    if cli ~= target then
+      print(("[build-config] 忽略命令行版本 %s: %s/build.lua 的 version = %s 才是"
+        .. "事实源. 要发新版请改 build.lua 再跑 `l3build tag` (不带参数).")
+        :format(tagname, module or "?", target))
+    end
+  end
 
+  -- 先无条件算出两处的目标形态, 再与现状逐处比较: **幂等守卫的观察范围必须覆盖
+  -- 本函数的全部写入范围**. 早期版本只看 `{\ExplFileDate}` 就提前 return, 于是
+  -- 当一个 .dtx 同时有两种写法 (xpinyin.dtx 就是: `{\ExplFileDate}{3.1}` 与
+  -- `[2022/07/14 v3.1 xpinyin database]`) 且只有后者失同步时, 该行再也不会被修
+  -- 复 -- 而改造前的旧代码会修. 这类包不在任何版本门禁内, 失同步无人发现.
   local date = (tagdate or os.date("%Y-%m-%d")):gsub("%-", "/")
-  content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
-  content = content:gsub("(%[)%d%d%d%d/%d%d/%d%d v%S+", "%1" .. date .. " v" .. target)
-  return content
+  local new_content = content:gsub("({\\ExplFileDate})%b{}", "%1{" .. target .. "}")
+  -- `[<日期> v<版本>]` 行: 版本已对则连日期一起保留, 否则整段重写.
+  new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v(%S+)",
+    function (lb, d, v)
+      if v == target then return lb .. d .. " v" .. v end
+      return lb .. date .. " v" .. target
+    end)
+
+  -- 内容未变即为幂等 no-op, 这是 PR 门禁「l3build tag 后 diff 必须为零」的前提.
+  if new_content == content then return content end
+  return new_content
 end
 
 null_function = function() return 0 end

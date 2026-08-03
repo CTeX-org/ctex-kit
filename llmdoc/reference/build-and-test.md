@@ -632,7 +632,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 | 包 | `version` 事实源 | dtx 版本位置 | `update_tag` | PR 门禁 | release 三方校验 |
 |---|---|---|---|---|---|
-| `ctex` | `build.lua` `version` | `$Id:$` stamp（5 个拆分 dtx） | 包级覆写 | ✓ | ✓ |
+| `ctex` | `build.lua` `version` | `$Id:$` stamp（6 个拆分 dtx，均含 stamp） | 包级覆写 | ✓ | ✓ |
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
 | `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
 | `CJKpunct` / `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 部分有 `\ExplFileDate` | 共享 | ✗ | ✗（走 `*)`） |
@@ -655,7 +655,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 ```
 1. ctex/build.lua:2       version = "X.Y.Z"           （手改，唯一）
 2. 相应 ctex-*.dtx        补 \changes{vX.Y.Z}{...}     （随功能 PR）
-3. cd ctex && l3build tag 回写 5 个拆分 dtx 的 $Id:$ 行（自动）
+3. cd ctex && l3build tag 回写 6 个拆分 dtx 的 $Id:$ 行（自动）
 4. commit + PR            （check-tag.yml 验证 stamp 同步）
 5. merge 后 make tag ctex-vX.Y.Z[-rcN] && git push origin <tag>
                           （release.yml 三方校验通过才发版）
@@ -679,7 +679,8 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 - **`check-tag.yml`（PR 门禁）**：对 zhlineskip / ctex / xeCJK，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。三个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 不需要（共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 git）。
   - **`paths` 必须含 `support/build-config.lua`**：共享 `update_tag` 在那里，改它要重跑门禁。
-  - **diff 范围只能是本包目录**（`git diff -- .`）。曾写成 `-- . ../support`，那会让任何改 `support/build-config.lua` 的 PR 被误判为 stamp 不同步——那份改动本身就是 diff。「重新生成 + diff」型门禁的 diff 范围必须精确等于生成动作的**写入**范围。
+  - **diff 范围只能是本包目录**（`git diff -- .`），因为「重新生成 + diff」型门禁的 diff 范围应精确等于生成动作的**写入**范围，而 `l3build tag` 只回写本包 `.dtx`。
+    - 澄清：写成 `-- . ../support` 在 CI 里**不会**误报——CI 检出的是已提交的干净树，`support/` 的改动不构成 diff（两种写法实测退出码均为 0）。误报只发生在本地有未提交改动时。限定范围的真实理由是语义精确：纳入非写入目标不增加检出能力，只会在将来某个生成物意外落进 `support/` 时给出误导性的「stamp 不同步」报错。
   - 本地验证这类门禁要用干净 worktree（`git worktree add`）：主工作区有未提交改动时 `git diff` 会把它们算进来，no-op 结论不可信。
 - **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。未接入的包（见上方覆盖矩阵）走 `*)` 分支跳过校验并打 `::notice::`——注意那**不是** failure，CI 仍全绿。
 
