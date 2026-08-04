@@ -61,7 +61,7 @@ tdslocations = {
 -- 与 12 个 xeCJK-example-*.tex; 那些是手册示例, 不影响运行时).
 -- 照抄到 xpinyin 就出错了: 本包是 {"*.sty","*.def","*.ins"}, 而 xeCJK 还装
 -- "*.cfg"; 于是 xeCJK.sty 用的是工作树版本, xeCJK.cfg 却仍命中系统 TeX Live
--- (实测日志两者路径不同, 且系统那份是 v3.10.3、工作树是 v3.10.5,
+-- (实测日志两者路径不同, 且系统那份是 v3.10.4、工作树是 v3.10.5,
 -- `\GetIdInfo` 与版本号行都不一样), 恰好破坏本钩子声称要消除的
 -- 「测的其实是本机装了什么」.
 -- 依赖包的配置由 loadfile 在独立环境里读取 (不是 dofile —— 后者在全局环境执行,
@@ -107,7 +107,18 @@ checkinit_hook = function()
       fail("读到的 installfiles 为空表, 依赖产物一个都不会被复制")
     end
     for _, glob in ipairs(dep_installfiles) do
-      cp(glob, dep_unpackdir, testdir)
+      -- 必须检查 cp 的返回值: l3build 的 cp 在 mkdir 或底层 cp/xcopy 失败时返回
+      -- 非零 errorlevel. 丢掉它的话, 复制失败后 checkinit_hook 仍 `return 0`,
+      -- check 照常往下跑, 然后拿系统 TeX Live 那份去测 —— 又是「测的其实是本机
+      -- 装了什么」. 与另外两个已接受缺口不同, 这条不需要预设依赖包的写法,
+      -- 也不会在正常环境下触发 (本机四类产物均复制成功).
+      -- 注意 glob 零匹配不算失败: cp 对空 tree 返回 nil, 见下面的 `or 0`
+      -- (xeCJK 的 *.map／*.tec 在 check 阶段就是零匹配, 属已接受缺口之二).
+      local cp_err = cp(glob, dep_unpackdir, testdir) or 0
+      if cp_err ~= 0 then
+        fail(("复制 %s 从 %s 到 %s 失败 (errorlevel %s)")
+          :format(glob, dep_unpackdir, testdir, tostring(cp_err)))
+      end
     end
   end
   return 0
