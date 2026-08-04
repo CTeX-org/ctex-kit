@@ -412,9 +412,29 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`
 
 ### 字体度量回归要隔离 shaping 与首次初始化
-**Rule**: 涉及区域字形和 side bearing 时使用独立字体面，并在 `\START` 前预热所有 lazy family，再记录定量基线和渲染证据。
-**Why**: #975 中 `Language=` 不能改变 feature-blind 的 glyphbounds 证据，首次按需加载 Noto TC/JP 会污染 `.tlg`；#999 的 FandolFang 也必须预热才能消除三平台 fontspec 尾随日志差异。
-**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
+**Rule**: 涉及区域字形和 side bearing 时使用独立字体面，并在 `\START` 前预热所有 lazy family，再记录定量基线和渲染证据。预热范围要包括**被测命令自己会切换到的字形**，不只是测试正文显式用到的字体；判断方法是读被测命令的定义体，把它切换的每一种字形都排一遍。
+**Why**: #975 中 `Language=` 不能改变 feature-blind 的 glyphbounds 证据，首次按需加载 Noto TC/JP 会污染 `.tlg`；#999 的 FandolFang 也必须预热才能消除三平台 fontspec 尾随日志差异；#1046 的 `\meta` 用 `\meta@font@select`（`\itshape`）排参数、CJK 斜体还要自动伪斜，不预热时同一段内容实测在 54.4378／76.23781／135.92561pt 之间跳。
+**Source**: `llmdoc/memory/archive/2026-07-13/975-punctuation-policy-and-font-baselines.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
+
+### 既有测试全绿只说明测试覆盖的场景没问题
+**Rule**: 把「既有测试全绿」当作「缺陷不存在」的证据之前，必须先核对那些测试的**构造**是否真的覆盖了报告的场景——尤其当测试用简化替身模拟被测对象时，简化掉的那一层可能正是缺陷所在。核对成本通常很低，就是打开 `.lvt` 看关键条件在不在。
+**Why**: #1046 的自动分析引用 `codedoc-meta-ecglue01` 全绿，把可复现的代码事实（左侧恒 5.25pt、右侧恒 3.33pt）归因成「尖括号与斜体字形造成的视觉差异」；而那个测试自己模拟内层 `\__codedoc_meta:n` 时没有 `\texttt` 外层，`\texttt` 正是缺陷的必要条件。#1038 的既有 `tabular01` 因每行 `\\` 前有空格而零判别力是同一条规则的前一次发作——那次简化掉的是空白，这次是外层字体切换命令。
+**Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`, `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
+
+### 否定性结论要说明搜索了什么模式、为什么能穷尽
+**Rule**: 「未发现相关代码路径」「没有这样的实现」这类结论，必须给出搜索的具体模式以及该模式为何能穷尽目标空间；否则它只是「我没找到」，不能当作「不存在」写进结论。
+**Why**: 把代码事实归因成视觉错觉是这条失效的典型后果（#1046）。同一任务里还有第二个例子：`\hypertarget` 看起来只有一条实现路径，实际按目标是否为空分派到 `\Hy@raisedlink` 与驱动层 `\hyper@anchor` 两个出口，只注册前者时空目标形式仍缺间距——判据是读分派函数的分支，而不是看公开命令名。
+**Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
+
+### 测量类用例一律用具名 box 寄存器
+**Rule**: `.lvt` 里存放宽度测量结果时用 `\newbox` 具名寄存器，不要用 `\setbox0`--`\setbox15`——被测命令用掉哪个 scratch 寄存器不在你的控制范围内。
+**Why**: l3doc 的 `\meta` 内部经 `\ensuremath` 排尖括号会占用 `\box10`、`\box11`，#1046 最初用 `\setbox10`／`\setbox11` 读到 `0.0pt` 与被污染的 `108.87561pt`，一度被误判成实现缺陷——失败表现看起来像被测代码有问题，而不像测试自己有问题。#1029 的「每项测试用独立寄存器」是同一类，但那次是自己的用例之间互相覆盖。
+**Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`, `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
+### 判断测试失败归属要在同一环境跑 master 并逐字节比对
+**Rule**: 判断一批测试失败是否由本次改动引起，方法是在同一环境下跑 master 并逐字节 `diff` 两边的 `.diff` 文件，而不是看 diff 内容像不像自己改的地方。另外 `tlmgr update` 报 `no updates available` 不等于本地各包之间自洽。
+**Why**: #1046／#1047 期间 `l3kernel` 已到 revision 79868 而 `l3backend` 停在 78544，其间 expl3 把后端接口从 `\__color_backend_select_<model>:n` 改成 `:nN`，`\use:c` 找不到目标就把颜色参数当文本排了出来。`\special{pdf:bc [1.0 0.0 0.0]}` 变成可见的 `1.0 0.0 0.0` 文本，看起来很像间距类改动的后果；逐字节比对确认 15 项失败全部与改动无关。
+**Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
 
 ## Feature request 评估
 

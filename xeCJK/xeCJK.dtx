@@ -914,6 +914,15 @@ Copyright and Licence
 % \tn{global}\tn{setbox}。
 % \tn{mbox} 等现有命令另有参数适配代码，用户注册不会自动取得这部分能力。
 %
+% \emph{注册的层级也会影响结果}。框架在进入命令时就把 \tn{CJKecglue}、
+% \tn{CJKglue} 和词间空格排入临时盒并读成数值，缓存的度量因此取决于进入
+% 命令那一刻生效的字体。如果目标命令的定义里包含字体切换，注册就必须包住
+% 最外层的那次切换：注册在切换内侧时，左边界会用切换后的字体度量，而右边界
+% 在命令结束、字体已经恢复之后求值，两侧数值不一致。这种写法在纯西文和
+% 纯中文文档里都看不出问题，只有中西文边界两侧都出现时才暴露。因此，若公开
+% 命令形如 |\newcommand\mycmd[1]{\texttt{...#1...}}|，应当注册这个公开命令，
+% 而不是它内部负责排版参数的辅助命令（\#1046）。
+%
 % 注册后应当把命令与“去掉命令包装后的相同可见内容”比较，并分别检查左右
 % 边界、四种源码空格以及 \opt{xCJKecglue} 的两个取值。随包提供的
 % \pkg{xeCJK-example-boundary-register.tex} 用明显不同的
@@ -12759,6 +12768,36 @@ Copyright and Licence
 %   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
 %   （\#992）。}
 %
+% \changes{v3.10.5}{2026/08/04}{把 \tn{Hy@raisedlink} 注册为 transparent
+%   capture，使 \tn{hypertarget} 等锚点命令不再遮蔽其前后的实际边界
+%   （\#1047）。}
+%
+% \tn{Hy@raisedlink} 是 \pkg{hyperref} 全部行内锚点的公共出口：
+% \tn{hypertarget}、\tn{hyper@anchor} 以及目录、\pkg{threeparttable} 等
+% 处的锚点都经由它排出。它在水平模式下输出 \tn{penalty}\tn{@M} 加一个
+% \tn{smash} 后的 \texttt{hbox(0+0)x0}，用来盛放 \texttt{pdf:dest}
+% special；这段不可见内容隔在 xeCJK 的 marker 与后续字符之间，使
+% Boundary$\to$\{Default,CJK\} 路径的 marker 探测失败，锚点右侧的
+% \tn{CJKecglue} 因此丢失（\#1047）。命令自身没有可见输出，故与
+% \pkg{hypdoc} 的 \tn{HD@target} 一样注册为 transparent。
+%
+% 这里不能用 |post-transparent|：那个 after-only 变体只在命令结束后搬移
+% 末尾零尺寸盒子下方的 marker 与候选 glue，而 \tn{Hy@raisedlink} 在盒子
+% \emph{之前}还排出了 \tn{penalty}，marker 与盒子并不相邻，搬移条件不成立。
+% transparent 在入口就取走 marker 与可选源码空格，锚点节点排出后再原样
+% 恢复，因而两种节点次序都能覆盖。
+%
+% \changes{v3.10.5}{2026/08/04}{把驱动层的 \tn{hyper@anchor} 注册为
+%   transparent capture，使不经 \tn{Hy@raisedlink} 的裸 \tn{hypertarget}
+%   也恢复两侧边界（\#1047）。}
+%
+% 空目标的 \tn{hypertarget} 不走 \tn{Hy@raisedlink}，而是经
+% \tn{hyper@@anchor} 落到驱动层的 \tn{hyper@anchor}，直接排出裸的
+% \texttt{pdf:dest} whatsit。该 whatsit 同样遮蔽 marker，因此也注册为
+% transparent。这个命令由驱动定义，\pkg{hxetex}、\pkg{hluatex}、
+% \pkg{hpdftex} 与 \pkg{hdvipdfm} 使用同一名称；注册前先检查是否存在，
+% 避免在没有该命令的驱动上装出无效 hook。
+%
 % \tn{Hy@BeginAnnot} 在 annotation 起始 whatsit 之前启动 stream capture；
 % 链接文字中的 Default/CJK 转换随后直接记录实际首尾类别。顶层
 % \tn{Hy@EndAnnot} 若看到数学节点，而 capture 尚未由显式公式入口记录
@@ -12823,6 +12862,9 @@ Copyright and Licence
           }
           {##2}
       }
+    \@@_boundary_register_transparent:n { Hy@raisedlink }
+    \cs_if_exist:NT \hyper@anchor
+      { \@@_boundary_register_transparent:n { hyper@anchor } }
   }
 \@@_package_hook:nn { hyperref }
   {
@@ -13145,14 +13187,30 @@ Copyright and Licence
 % Default$\to$CJK 转换不会跨越 hbox 边界触发，从而避免插入多余的
 % \tn{CJKecglue}。
 %
-% 仅用 hbox 包装会让入口的 math 节点遮住左侧 marker。当前适配器因此
-% 同时用固定 Default 首尾的 stream capture 包围完整
-% \cs{__codedoc_meta:n}：framework 负责外侧两端，hbox 只负责尖括号内部
-% 的输出规范化。这样 \tn{meta}、\tn{Arg}、\tn{oarg}、\tn{parg} 等所有
-% 共用内部实现的入口都走同一恢复算法，不再保留专用 drain。
+% 仅用 hbox 包装会让入口的 math 节点遮住左侧 marker。适配器因此还要
+% 用固定 Default 首尾的 stream capture 包围整条命令：framework 负责外侧
+% 两端，hbox 只负责尖括号内部的输出规范化。
 %
-% \cs{__codedoc_meta:n} 同时被 \tn{Arg}、\tn{oarg}、\tn{parg} 等命令
-% 共用，此适配器也覆盖后者的相同问题。
+% \changes{v3.10.5}{2026/08/04}{把 \cls{l3doc} 的 stream capture 从内层
+%   \cs{__codedoc_meta:n} 上移到公开的 \tn{meta}，使左右两侧的
+%   \tn{CJKecglue} 都按命令外的字体度量求值（\#1046）。}
+%
+% \textbf{capture 必须包住 \tn{texttt} 而不只是内层参数排版函数}：
+% \cs{@@_boundary_capture_begin:} 在入口处把 \tn{CJKecglue} 排入临时盒并
+% 读成 skip 数值，缓存的度量因此取决于 capture 开始时生效的字体。
+% \cls{l3doc} 的 \tn{meta} 定义为 \tn{texttt}\verb*-{-\cs{__codedoc_meta:n}
+% \Arg{参数}\verb*-}-，若只包围内层的 \cs{__codedoc_meta:n}，capture
+% 就落在 \tn{texttt} 已经切到等宽字体之后：左边界重放的是等宽字体的
+% \tn{CJKecglue}（\pkg{lm} 下为不可伸缩的 \texttt{5.25pt}），而右边界在
+% capture 结束、字体恢复之后求值，得到正文字体的弹性 \texttt{3.33pt}，
+% 两侧因此不对称（\#1046）。把 capture 上移到公开 \tn{meta} 之后，两端
+% 都在同一字体上下文中求值。
+%
+% \tn{Arg}、\tn{marg}、\tn{oarg}、\tn{parg} 不需要这层 capture：它们在
+% \cs{__codedoc_meta:n} 两侧各自排出等宽的 \verb*-{-、\verb*-[-、\verb*-(-
+% 等实字符，本身就构成正常的 CJK$\to$Default 边界，去掉内层 capture 前后
+% 的节点列表完全相同。这些入口仍写入保留表，防止用户接口把通用 hook 叠加
+% 到共享的内部实现上。
 %
 % 这里选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}，
 % 原因在于 \pkg{l3doc} 是文档类，文档类加载早于 \pkg{xeCJK}，
@@ -13165,17 +13223,14 @@ Copyright and Licence
     \cs_if_exist:NTF \__codedoc_meta:n
       {
         \clist_map_inline:nn
-          { __codedoc_meta:n , meta , Arg , marg , oarg , parg }
+          { __codedoc_meta:n , Arg , marg , oarg , parg }
           { \@@_boundary_reserve:n {##1} }
         \cs_if_exist:NF \@@_orig_codedoc_meta:n
           {
             \cs_set_eq:NN \@@_orig_codedoc_meta:n \__codedoc_meta:n
             \cs_gset_protected:Npn \__codedoc_meta:n ##1
-              {
-                \@@_boundary_inline_stream_begin:n { default }
-                \@@_orig_codedoc_meta:n { \hbox:n {##1} }
-                \@@_boundary_inline_stream_end:n { default }
-              }
+              { \@@_orig_codedoc_meta:n { \hbox:n {##1} } }
+            \@@_boundary_register_stream:nn { meta } { default }
           }
       }
       {
