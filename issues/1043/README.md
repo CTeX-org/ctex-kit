@@ -47,3 +47,23 @@ grep -c '^! ' xecjk1043-mwe.log   # → 28
 
 注意 `\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）本身就不是合法 LaTeX，
 不加载 xeCJK 也报错，不能用来判定本缺陷；本 MWE 里的 `&` 都在 `array` 内部，是合法用法。
+
+## 对齐环境覆盖矩阵
+
+`eqnarray` 只是入口之一。同一修复在 17 个对齐环境下逐个实测（每个环境**独立成文件**，
+避免前一个报错污染后面的计数）：
+
+| 文件 | 说明 |
+|---|---|
+| `xecjk1043-env-matrix.png` | 17 个环境的修复前后并排对照 |
+| `env-tests/*.tex` | 17 个测试档（修复版，改 `.sty` 路径即可跑缺陷版） |
+| `env-tests/RESULTS.md` | 逐环境错误数表 |
+
+结果：**16 个环境从报错变为 0 错误**，`substack` 本就正常（其 `\\` 分行不含 `&`）。
+
+其中 `gathered`、`cases`、`array`、`pmatrix`、`smallmatrix` 五个在缺陷版下更严重——撞到
+TeX 的 100 错误上限直接中止，**完全没有 PDF 输出**，所以对照图左栏用占位框标注。
+
+嵌套式环境（`split` / `aligned` / `alignedat` / `gathered` / `cases`）与顶层环境走的对齐
+机制不同，但都经由同一组 `\@@_boundary_if_math_head:n` / `_tail:n` 入口，所以一处修复即
+全部覆盖——这也反过来印证了「修在共用判断入口而非逐个适配器」这个决定是对的。
