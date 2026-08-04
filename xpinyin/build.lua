@@ -55,30 +55,52 @@ tdslocations = {
 -- 必须像 ctex/build.lua 那样手工把产物复制进本包的测试目录.
 --
 -- 复制清单必须取**依赖包自己的** installfiles, 不能用本包的.
--- ctex/build.lua 里写的是本包 installfiles, 那里能work纯属巧合 —— ctex 自己的
--- installfiles 恰好是各依赖的超集. 照抄到 xpinyin 就出错了: 本包是
--- {"*.sty","*.def","*.ins"}, 而 xeCJK 还装 "*.cfg"; 于是 xeCJK.sty 用的是工作树
--- 版本, xeCJK.cfg 却仍命中系统 TeX Live (实测日志两者路径不同, 且系统那份是
--- v3.10.3、工作树是 v3.10.5, `\GetIdInfo` 与版本号行都不一样),
--- 恰好破坏本钩子声称要消除的「测的其实是本机装了什么」.
--- 依赖包的配置由 dofile 读取, 而不是硬编码一份清单 —— 后者会在依赖包新增产物
--- 类型时再次静默漏掉.
+-- ctex/build.lua 里写的是本包 installfiles, 那里能正常工作纯属巧合 —— ctex 自己
+-- 的 installfiles 恰好覆盖了各依赖的运行时产物类型 (注意并非字面意义的超集:
+-- ctex 只有 ct*.tex／zh*.tex, 接不住 xeCJK 的 *.tex, 因此漏掉 xunicode-symbols.tex
+-- 与 12 个 xeCJK-example-*.tex; 那些是手册示例, 不影响运行时).
+-- 照抄到 xpinyin 就出错了: 本包是 {"*.sty","*.def","*.ins"}, 而 xeCJK 还装
+-- "*.cfg"; 于是 xeCJK.sty 用的是工作树版本, xeCJK.cfg 却仍命中系统 TeX Live
+-- (实测日志两者路径不同, 且系统那份是 v3.10.3、工作树是 v3.10.5,
+-- `\GetIdInfo` 与版本号行都不一样), 恰好破坏本钩子声称要消除的
+-- 「测的其实是本机装了什么」.
+-- 依赖包的配置由 loadfile 在独立环境里读取 (不是 dofile —— 后者在全局环境执行,
+-- 既无法隔离也无法用 pcall 兜住), 而不是硬编码一份清单; 硬编码会在依赖包新增
+-- 产物类型时再次静默漏掉.
 checkinit_hook = function()
   for _, dep in ipairs(checkdeps) do
     local dep_unpackdir = dep .. "/" .. unpackdir
     -- 在独立环境里读依赖包的 build.lua, 取它自己的 installfiles.
+    -- 空 dep_env 里 require／dofile／io／os 全为 nil, 被读的 chunk 无法产生
+    -- 文件系统或全局状态影响.
     local dep_env = { }
-    local chunk = loadfile(dep .. "/build.lua", "t", dep_env)
+    local chunk, load_err = loadfile(dep .. "/build.lua", "t", dep_env)
     local dep_installfiles
     if chunk then
-      -- 依赖包的 build.lua 末尾会 dofile 共享配置, 在这个空环境里跑不通;
-      -- pcall 兜住, 只要 installfiles 已经赋值就够用.
-      pcall(chunk)
+      -- 依赖包的 build.lua 末尾会 dofile 共享配置, 在这个空环境里必然跑不通
+      -- (xeCJK 现在是停在 require("zip")). 这是预期的: installfiles 在那之前
+      -- 就已赋值. 但**必须把错误打出来** —— 若将来失败点前移到 installfiles
+      -- 赋值之前, 或该字段改成分步构造, 沉默的 pcall 会让问题无从发现.
+      local ok, err = pcall(chunk)
+      if not ok then
+        print(("[xpinyin/build.lua] 读取 %s/build.lua 时中断 (预期行为, "
+          .. "只要 installfiles 已赋值即可): %s"):format(dep, tostring(err)))
+      end
       dep_installfiles = dep_env.installfiles
+    else
+      print(("[xpinyin/build.lua] 无法加载 %s/build.lua: %s")
+        :format(dep, tostring(load_err)))
     end
+    -- 三道判据, 缺一即静默漏复制 (实测: 空表与「分步构造、中途出错」两种情形
+    -- 都能通过只判 type 的守卫, 一个文件不复制或只复制一半却毫无提示 ——
+    -- 那与本钩子刚修掉的「只隔离了一半」是同一种症状).
     if type(dep_installfiles) ~= "table" then
-      error("checkinit_hook: 无法从 " .. dep ..
-            "/build.lua 读到 installfiles, 依赖产物会漏复制")
+      error(("checkinit_hook: 未能从 %s/build.lua 读到 installfiles (得到 %s), "
+        .. "依赖产物会漏复制"):format(dep, type(dep_installfiles)))
+    end
+    if #dep_installfiles == 0 then
+      error(("checkinit_hook: 从 %s/build.lua 读到的 installfiles 为空表, "
+        .. "依赖产物一个都不会被复制"):format(dep))
     end
     for _, glob in ipairs(dep_installfiles) do
       cp(glob, dep_unpackdir, testdir)

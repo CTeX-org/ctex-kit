@@ -50,10 +50,14 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`，测的其实是本机装了什么，跨机器不可复现。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。
 
-**复制清单取依赖包自己的 `installfiles`，不照抄 `ctex/build.lua` 的写法。** `ctex` 那份钩子遍历的是本包 `installfiles`，能工作是因为 `ctex` 的清单恰好是各依赖的超集。xpinyin 照抄后漏了 `xeCJK` 的 `"*.cfg"`，产生**只隔离了一半**的状态：`xeCJK.sty` 取自工作树、`xeCJK.cfg` 仍取自系统 TeX Live（v3.10.3 对 v3.10.5），恰好破坏这条决策本身要达到的目的。终审盲审以 blocking 级查出。教训有两层：
+**复制清单取依赖包自己的 `installfiles`，不照抄 `ctex/build.lua` 的写法。** `ctex` 那份钩子遍历的是本包 `installfiles`，能工作是因为 `ctex` 的清单恰好覆盖了各依赖的**运行时**产物类型——按字面并非超集（`ctex` 的 `ct*.tex`／`zh*.tex` 接不住 `xeCJK` 的 `*.tex`，实测漏 13 个手册示例文件），只是漏掉的那些不参与运行时加载。xpinyin 照抄后漏了 `xeCJK` 的 `"*.cfg"`，产生**只隔离了一半**的状态：`xeCJK.sty` 取自工作树、`xeCJK.cfg` 仍取自系统 TeX Live（v3.10.3 对 v3.10.5），恰好破坏这条决策本身要达到的目的。终审盲审以 blocking 级查出。教训有两层：
 
 - **「照抄一个能工作的实现」不等于该实现的前提在新场景下也成立**——`ctex` 的写法依赖一个未被写下来的巧合（超集关系），迁移时那个前提悄悄失效了。
-- **部分隔离比不隔离更难发现**：测试全绿，`.sty` 的路径也确实是工作树的，只有逐个核对每类产物的实际加载路径才看得出来。因此现行实现用 `loadfile` 读依赖包 `build.lua` 的 `installfiles`，且读不到就 `error`，不留静默失败的口子。
+- **部分隔离比不隔离更难发现**：测试全绿，`.sty` 的路径也确实是工作树的，只有逐个核对每类产物的实际加载路径才看得出来。
+
+现行实现用 `loadfile`（不是 `dofile`——后者在全局环境执行，既无法隔离也无法用 `pcall` 兜住）读依赖包 `build.lua` 的 `installfiles`，并设三道判据：读不到或不是表则 `error`，空表则 `error`，`pcall` 的错误对象一律 `print` 出来。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的——`installfiles` 在那之前就已赋值——但该错误必须可见，否则将来失败点前移到赋值之前时问题无从发现。
+
+**仍存在一个已接受的缺口**，如实记下而不假称已完全封闭：若依赖包把 `installfiles` 改成分步构造（先赋一个字面表，中途某句失败，之后再追加若干项），得到的是**残缺表**，它同时通过「是表」与「非空」两道判据，于是只复制一半而不报错——与本节要消灭的症状同型。实测确认了这一点。当前不进一步收紧是因为再严的判据都要预设依赖包的写法，反而更脆；防线是那条被打印出来的 `pcall` 错误，加上「新增依赖或依赖包重构后，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
 ## 决策：xpinyin 接入版本管理双闸校验，沿用 xeCJK 的共享 `update_tag` 路线
 
