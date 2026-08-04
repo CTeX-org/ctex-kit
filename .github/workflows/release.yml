@@ -209,10 +209,21 @@ jobs:
             # 判空恒绿 —— 而「覆盖两处写法」正是本 case 存在的唯一理由.
             # 实测: 删掉真行再追加一句 `% 举例: ... [2019/01/01 v3.1 something else]`,
             # 未锚定的模式提取到 3.1 并通过.
-            # 锚点各取那一行独有的固定串: EXPL_VER 用紧随其后的
-            # `{\ExplFileDescription}`, DEF_VER 用 `xpinyin database]` 描述串.
-            EXPL_VER=$(sed -nE 's/.*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
-            DEF_VER=$(sed -nE 's/.*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2} v([^] ]+) xpinyin database\].*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
+            # 锚点必须绑到**行首的 docstrip 守卫** (`%<package>` / `%<database>`),
+            # 不能只绑描述串: 描述串虽然在当前文件里唯一, 却不是「只可能出现在那一行」
+            # 的串 —— 把版本行原样引进说明文字是本仓已有的习惯 (本 case 下面的报错
+            # 文案自己就逐字写出了那一行). 实测: 删掉真行再追加一句
+            # `% 该行形如 [2022/07/14 v3.1 xpinyin database]`, 只绑描述串的模式仍提取到
+            # 3.1 并通过; 绑了 `^%<database>` 则不会 —— 注释引用带不上这个前缀.
+            # `%` 在 ERE 里不是元字符, 无需转义.
+            #
+            # 分隔空白一律用 `[[:space:]]+` / `[[:space:]]*` 而不是字面单空格:
+            # 描述串前写成两个空格对 LaTeX 与 update_tag 的回写都无害
+            # (后者只重写 `[<日期> v<版本>` 前半段), 但会让字面单空格的模式提取为空,
+            # 于是 fail-closed 挡住一次本该放行的发版. 同 case 上方的 LUA_VER 本就用
+            # `[[:space:]]*`, 这里对齐.
+            EXPL_VER=$(sed -nE 's/^%<package>[[:space:]]*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
+            DEF_VER=$(sed -nE 's/^%<database>[[:space:]]*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2}[[:space:]]+v([^] ]+)[[:space:]]+xpinyin[[:space:]]+database\].*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
             if [ -z "${EXPL_VER}" ]; then
               echo "::error::未能从 ${DIR}/xpinyin.dtx 提取 {\\ExplFileDate}{...} 版本号."
               echo "::error::该行形如 '%<package>  {\\ExplFileDate}{3.1}{\\ExplFileDescription}'."
