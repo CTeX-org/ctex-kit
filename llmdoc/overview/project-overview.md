@@ -45,7 +45,7 @@
 
 - 根级 `README.md` 展示了多个 CTAN 包版本徽章与 GitHub Actions 构建状态，见 `README.md:13-49`。
 - `.github/workflows/test.yml` 配置了 Ubuntu、macOS、Windows 三平台 CI，按 push、pull request、schedule 与手动触发执行，见 `.github/workflows/test.yml`。
-- 当前自动化测试已不再只聚焦 `ctex/`：CI 会在同一 job 中分别运行 `ctex/`、`xeCJK/`、`zhnumber/`、`CJKpunct/` 与 `zhlineskip/` 的 `l3build check`。这表明仓库的测试维护已从“核心包主导、卫星包间接覆盖”进一步演进为“核心包 + 多个关键卫星包独立回归”。
+- 当前自动化测试已不再只聚焦 `ctex/`：CI 会分别运行 `ctex/`、`xeCJK/`、`xpinyin/`、`zhnumber/`、`CJKpunct/` 与 `zhlineskip/` 的 `l3build check`。`xpinyin/` 自 #1041 起接入，覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条互不复用的适配路线，此前该包只靠 `l3build doc` 编得过手册来间接验证。这表明仓库的测试维护已从“核心包主导、卫星包间接覆盖”进一步演进为“核心包 + 多个关键卫星包独立回归”。
 - 仓库现已新增 `.github/workflows/release.yml`，可对全部 9 个 CTAN 发布单元的 tag 自动执行打包、release notes 生成、测试门控和 GitHub prerelease 创建，实现了完整的自动化发布覆盖。
 - 仓库本地维护三条 agentic 自动化入口及其运行时：PR 自动审查（`agentic-pr-review.yml`）、新 Issue 分派（`agentic-issue-dispatch.yml`）和 llmdoc 文档自动更新（`agentic-llmdoc-updater.yml`）。三条 workflow 不再调用远端 reusable workflow。#1032 起，六个 Codex／Claude Agent job 以 runner 默认用户运行、拥有完整本地执行权限（Codex 用 `--dangerously-bypass-approvals-and-sandbox`，Claude 用 `--dangerously-skip-permissions`），与上游模板 `agentic-workflow-template` 一致；工具安装改为单个 shell 脚本 `setup-agent-tools.sh`（不再是复合 Action），由各 job 以普通 step 调用，缓存仍在 workflow 里只恢复不保存。约束 Agent 影响面的是权限边界而非进程沙箱：Agent job 只持有只读 `GITHUB_TOKEN`，外部写入集中在不运行 Agent、也不接收模型 API key 的发布 job（publisher）；PR Review 的可信运行时来自 base SHA，被审查的 head checkout 只作为数据；Claude 保留 `--bare` 避免被审查仓库注入项目指令。已接受的风险是模型 API key 重新暴露给 Agent 进程可执行的仓库代码，判断依据是当前贡献者均为仓库协作者、跨仓库 PR 为零，且此前的三层隔离（专用用户、模型代理、控制进程加固）是三次连环故障的唯一来源；详见决策 [[1032-agent-runtime-simplification]]。`agentic-workflow-template` 的固定提交只作为最初展开的来源基线。
 - CI 与文档构建现在明确依赖一组可在流水线中安装的 CJK / 符号字体，而不再隐含依赖 Windows 自带字体；这反映出项目维护已把“跨平台字体可达性”上升为稳定基础设施约束。

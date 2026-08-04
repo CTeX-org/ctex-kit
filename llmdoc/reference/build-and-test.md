@@ -120,6 +120,7 @@
 - `zhnumber`
 - `CJKpunct`
 - `zhlineskip`
+- `xpinyin`
 
 这意味着这些子包已不再只依赖主包依赖链覆盖，修改它们时可以直接在各自目录运行 `l3build check`。
 
@@ -350,6 +351,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
   标点模型的专门入口是 `xeCJK/testfiles/punctuation-model-975.lvt`：它用独立 TC/JP/SC 字体面覆盖 Kaiming 宽度、居中标点优化、`FullLeft→FullRight` 自然空白、显式 kern 与 global-setting 优先级、nobreak、旧样式和反方向不变量。`\newCJKfontfamily` 的字体实例化应在 `\START` 前预热；否则 `fontspec` 首次按需载入字体族时产生的一次性 Info 会混入规范化日志，形成依赖环境的 `.tlg` 噪声。
 - `zhnumber`：`testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"pdftex", "xetex", "luatex"}`，见 `zhnumber/build.lua`。
 - `CJKpunct`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `CJKpunct/build.lua`。CJKpunct 仅工作在 pdfTeX (CJK 宏包) 路线下。
+- `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
 `zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
@@ -361,8 +363,41 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `ctex`：主干测试最完整，含多个测试配置。
 - `xeCJK`：已有独立 `testfiles/`，专注 XeTeX 行为回归。
 - `zhnumber`：已有独立 `testfiles/`，覆盖多引擎差异。
+- `xpinyin`：已有独立 `testfiles/` 加 `testfiles-cjk/` 两套，分别覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条互不复用的适配路线（#1041）。
 
-因此，修改 `xeCJK` 与 `zhnumber` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
+因此，修改 `xeCJK`、`zhnumber` 与 `xpinyin` 时，应优先运行各自目录下的标准 l3build 回归测试，而不是只依赖 `ctex` 的依赖链间接覆盖。
+
+### xpinyin 的注音回归（#1041）
+
+xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验证是 `check-doc.yml` 里 `l3build doc` 编得过手册——那只能说明 PDF 能生成，不能说明注音行为正确。#1041 补上了独立回归测试目录并接入各条 workflow；宏包代码本身未改动。
+
+**引擎覆盖为什么是 xetex + pdftex，且两者都必须跑。** xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_critical:nn` 上（实测 lualatex 直接以 "Engine `luatex' is not yet supported" 中止），所以只有两条路线。而两条都必须测：包内 `\@@_adjust_xeCJK_hook:` 与 `\@@_adjust_CJK_hook:` 是两套互不复用的适配（字体选择、码位转换、接管 `\CJKsymbol` 的方式都不同），只测 xetex 会让 CJKutf8 那一半零覆盖。
+
+**为什么必须分两个 `testfiledir`。** `l3build check` 把目录下每个 `.lvt` 都拿去跑 `checkengines` 里的每一个引擎，没有按文件指定引擎的机制；两条路线的用例混在一起会互相拿对方的引擎跑，并因缺基线报 "failed to find any reference or expectation file"。因此主目录 `xpinyin/testfiles/` 走 xetex，pdfTeX 那条线单独放进 `xpinyin/test/config-cjk.lua` + `xpinyin/testfiles-cjk/`，仿 `ctex/test/config-cmap.lua` 等既有专项配置的做法（跑法：`l3build check -c test/config-cjk`）。`config-cjk.lua` 把 `checkdeps` 显式清空——CJKutf8 路线不加载 xeCJK，不需要复制它的产物。
+
+四个测试文件按观察通道分工：
+
+- `xpinyin/testfiles/pinyin-tone01.lvt`（31 格）：声调数字到重音命令的映射，oracle 取直接写 `\=`、`\'`、`\v`、`` \` `` 的字面形式，比宽、高、深三个维度。
+- `xpinyin/testfiles/pinyin-tone02.lvt`：用 `\loggingoutput` 固定 shipout 的实际字形，是正面证据，与字体度量是否巧合无关。
+- `xpinyin/testfiles/pinyin-setup01.lvt`：`\xpinyinsetup` 各键的可观察效果，用「改前 vs 改后」的差值而非绝对值。
+- `xpinyin/testfiles/pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表。
+- `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。
+
+**四条判别力教训**（本节最有价值的部分，均由「重新引入缺陷、确认它会变红」实测确认）：
+
+1. **oracle 未切到候选同一字体族会让全部单元恒报 DIFF。** `\pinyin` 内部按 `font` 键选字体，若 oracle 用的裸重音命令沿用文档主字体，两者字体不同时比的就是两种字体的度量差，而不是「数字到重音的映射是否正确」——初版漏了这一步，全部 29 格都报 DIFF。
+2. **拼音字体缺字时会假通过。** 文档默认的 Latin Modern 缺 U+01D6（ǖ，lü 的一声）；候选与 oracle 同时缺同一个字符，尺寸仍然相等，该格看着通过、实际什么都没验证。改用 `DejaVuSerif.ttf` 后实测零 "Missing character"。
+3. **只测带声调数字的 v 会漏掉 `\@@_replace_v:n`。** v 到 ü 的转换由两个各自判断 l/n 的函数分担：`\@@_num_to_tone_v:Nn`（带声调数字时）与 `\@@_replace_v:n`（不带数字时）。只写带数字的用例不够——实测把 `\@@_replace_v:n` 的 l/n 守卫整段删掉，前四组仍全绿。需要补「前面有数字音节、末音节不带数字」的写法（如 `ma1lv`）才能真正触发这条路径。
+4. **`\xpinyin{长}{zhang3}` 要的正是数据库首选值，没有判别力。** 「长」在数据库里的首选读音正是 zhǎng，指定它与不指定读音的对照项输出完全相同，等于什么都没验证。必须挑非首选读音（cháng）才构成真正的对照。
+
+**两条结构性事实**（一并写进注释，避免日后重蹈）：
+
+- **注音汉字的宽度看不出拼音内容。** `\@@_make_pinyin_box:nnn` 把拼音放进 `\hbox_overlap_right:n` 这个零宽盒里，换读音乃至整段关掉注音，整盒宽度都不变（实测 `\xpinyin{长}{chang2}` 与 `\xpinyin{长}{zhang3}` 同为 10pt）。因此「用了哪个读音」「注音有没有生效」这类内容断言一律交给节点列表（`pinyin-scope01.lvt`），宽度维度只能确认「尺寸不受读音影响」这条不变量本身。
+- **CJK 环境必须开在盒子内部。** 写成 `\begin{CJK}` 包住 `\hbox_set:Nn` 时，汉字根本进不了盒子，三项宽高深全为 0pt——而 0pt = 0pt 会让「宽度不变」这条断言照样报 unchanged，看着像通过。CJKutf8 路线的测试因此把 `\begin{CJK}...\end{CJK}` 整体写在 `\hbox_set:Nn` 的参数内部。
+
+**`\showbox`／`\box_log:N` 在 `-halt-on-error` 下会当场中止。** 三者都抛 `! OK.`，而 xpinyin 的 `checkopts` 带 `-halt-on-error`，会当场终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着；xpinyin 的解法同样是一律用 `\loggingoutput` 读取 shipout 的实际节点列表。
+
+**`checkdeps` 单独声明不够，必须配 `checkinit_hook`。** `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`。修法与 `ctex/build.lua` 一致：`checkinit_hook` 手工把依赖包 `installfiles` 复制进本包的测试目录。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
@@ -460,8 +495,8 @@ GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/check-doc.yml`：PR 校验 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
-- `.github/workflows/check-tag.yml`：PR 校验 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041); 与 release.yml 的三方版本校验构成两道校验, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
-- `.github/workflows/check-changelog.yml`：PR 校验 workflow, 校验 5 个包 (ctex/xeCJK/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
+- `.github/workflows/check-tag.yml`：PR 校验 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK / xpinyin) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041, xpinyin 随 #1041 测试接入同批补上); 与 release.yml 的三方版本校验构成两道校验, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
+- `.github/workflows/check-changelog.yml`：PR 校验 workflow, 校验 6 个包 (ctex/xeCJK/xpinyin/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961, xpinyin 随 #1041 测试接入同批补写首条 `\changes` 后加入); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
@@ -510,7 +545,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 - 操作系统矩阵：`ubuntu-latest`、`macos-latest`、`windows-latest`
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
-- 当前 CI 拆为 5 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller
+- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）
 
 见 `.github/workflows/test.yml`。
 
@@ -543,37 +578,40 @@ PR #799 暴露了一个稳定信号：`xeCJK/testfiles/listings-hash01.lvt` 新�
 - 新增测试是否加载了 CI 尚未安装的宏包；
 - `.github/tl_packages` 是否遗漏了相应依赖。
 
+这条约束不仅适用于宏包依赖，测试用到的字体同样要同步这份白名单。#1041 的 xpinyin 测试用 `DejaVuSerif.ttf`（避开 Latin Modern 缺 U+01D6 的问题）和 `FreeSerif.otf`（`pinyin-setup01.lvt` 的 `font` 键对照字体），因此 `.github/tl_packages` 补了 `dejavu` 与 `gnu-freefont`——这两个 TeX Live 包分别提供上述字体文件，新增测试字体前应先核对是哪个包提供。
+
 CI 现在的结构 (PR #899 后):
 
 **阶段 0 — `changes` job (paths filter):**
-PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 5 个 bool (ctex / xeCJK / zhnumber / CJKpunct / zhlineskip). push / schedule / workflow_dispatch 触发时 filter 不影响, 全跑. 同时把 `TL_VERSION` (顶层 env, 如 `'2026'`) 作 `tl-version` output 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
+PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 个 bool (ctex / xeCJK / xpinyin / zhnumber / CJKpunct / zhlineskip). push / schedule / workflow_dispatch 触发时 filter 不影响, 全跑. 同时把 `TL_VERSION` (顶层 env, 如 `'2026'`) 作 `tl-version` output 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
 
-依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 5 个包都跑.
+依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑; xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖 (`checkdeps` + `checkinit_hook`), 所以改 `xeCJK/**` 也会让 xpinyin job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 6 个包都跑.
 
 **阶段 0.5 — `warmup-tl` job (cache 预热):**
-`needs: changes`, `matrix.os = [ubuntu, macos, windows]` 3 job 并行. 每 OS 1 个 job 跑 setup-texlive-action 装 + update, 把 cache 填到当前 TLnet 最新 baseline. 这是**唯一会真装 install-tl** 的地方 — 收敛 mirror 请求, 避免 5 caller × 3 OS = 15 路并发轰炸 mirror 触发 ETIMEDOUT.
+`needs: changes`, `matrix.os = [ubuntu, macos, windows]` 3 job 并行. 每 OS 1 个 job 跑 setup-texlive-action 装 + update, 把 cache 填到当前 TLnet 最新 baseline. 这是**唯一会真装 install-tl** 的地方 — 收敛 mirror 请求, 避免 6 caller × 3 OS = 18 路并发轰炸 mirror 触发 ETIMEDOUT.
 
 3 次 retry 换不同 mirror: try 1 `ctan.math.illinois.edu` (timeout 10min), try 2 `ftp.fau.de` (timeout 10min), try 3 `mirror.ctan.org` 自动重定向 (timeout 30min). try 1/2 短超时让换 mirror 反应快.
 
 历史: 早期尝试 `SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1` 让 warmup 把 update 后的 TL 保到 uniqueKey (= primaryKey + uuid), 让 caller 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在 restoreCache 时按 restoreKeys 数组的 primaryKey 精确匹配优先, caller 命中老的纯 primaryKey entry (无 uuid), 跳过 warmup 的 uniqueKey. 现在 caller 端仍 `update-all-packages: true` 自己跑 update 才能与仓库 `.tlg` baseline 一致. 见 `_test-package.yml` head 注释.
 
-**阶段 1 — 5 个 caller job 并行 (uses reusable workflow):**
-`test-ctex` / `test-xeCJK` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 五个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑.
+**阶段 1 — 6 个 caller job 并行 (uses reusable workflow):**
+`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 六个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑. `test-xpinyin` 另传 `configs: test/config-cjk` 与 `needs-unihan: true` 两个输入, 分别对应 CJKutf8/pdfTeX 那条线和拼音数据库生成 (见下文).
 
 每个 reusable workflow 实例内部 `strategy.matrix.os = [ubuntu-latest, macos-latest, windows-latest]`, 三个 OS 并行. `fail-fast: false` 一个失败不取消其它.
 
-之所以拆 5 caller job 而非用 `matrix.pkg` 维度, 是为了消除 GH Actions 在动态 name (`${{ matrix.pkg }} on ...`) strategy expansion 前注册 placeholder check 用未渲染模板作 name 然后 cancel 的"幽灵 job"行为.
+之所以拆 caller job 而非用 `matrix.pkg` 维度, 是为了消除 GH Actions 在动态 name (`${{ matrix.pkg }} on ...`) strategy expansion 前注册 placeholder check 用未渲染模板作 name 然后 cancel 的"幽灵 job"行为.
 
 每个实例步骤:
 - 装 TL: 2 次 retry 换 mirror (try 1 illinois, try 2 fau.de), 各 timeout 15min. 即便 cache hit, setup-texlive 在 `Updating packages` 阶段仍会联网拉 tlmgr db checksum, 单 mirror 网络抖动时这步可能失败 — PR #899 实测 windows 命中. retry 2 次降低这种 transient failure 让 job 挂的概率.
 - 装字体 (`actions/cache@v6` 缓存 `$GITHUB_WORKSPACE/.font-cache/`, key 含 `_test-package.yml` hash; zip 解完即删只留 ttc)
+- (仅 `needs-unihan: true` 的 caller, 目前只有 xpinyin) 缓存并下载 `support/Unihan.zip`: unpack 阶段的 `texlua xpinyin.lua` 要用它生成拼音数据库, weekly cache key 与 `_check-doc-package.yml`（xeCJK 用）完全一致, 两条 workflow 互相填对方的缓存.
 - 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
-  - 其他 (xeCJK / zhnumber / CJKpunct): `l3build check -q` 直接跑.
+  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前只有 xpinyin 传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
 
 **阶段 2 — `test-result` job (汇总):**
-`needs: [warmup-tl, test-ctex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → 5 caller skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
+`needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → caller 全部 skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
 
 失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ inputs.pkg }}/build/**/*.diff`, artifact name 含 pkg 名 + OS 区分.
 
@@ -660,9 +698,9 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 
 调查在 `ctex/ctex.dtx` 中确认了这套机制。文档排版时，版本与变更信息会进入最终文档输出；`ctex.pdf` 与 `xeCJK.pdf` 的标题日期则统一使用 `\ctexkitbuilddate`，以 `YYYY/MM/DD` 格式表示 GitHub Actions 生成正式 PDF 的日期，不再借用某个 `.sty` 的源文件 stamp 日期。
 
-## 版本单一事实源与 l3build tag（zhlineskip / ctex / xeCJK）
+## 版本单一事实源与 l3build tag（zhlineskip / ctex / xeCJK / xpinyin）
 
-完成 DocStrip & L3 重构的包（zhlineskip 自 PR #892，ctex 自 PR #937，xeCJK 自 #1041）采用统一的版本管理模式，详见决策 [[937-version-single-source-l3build-tag]] 与 [[1041-xecjk-version-gate]]：
+完成 DocStrip & L3 重构或接入共享 `update_tag` 的包（zhlineskip 自 PR #892，ctex 自 PR #937，xeCJK 自 #1041，xpinyin 随 #1041 的测试接入同批补上）采用统一的版本管理模式，详见决策 [[937-version-single-source-l3build-tag]] 与 [[1041-xecjk-version-gate]]：
 
 ### 覆盖矩阵
 
@@ -673,7 +711,8 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 | `ctex` | `build.lua` `version` | `$Id:$` stamp（6 个拆分 dtx，均含 stamp） | 包级覆写 | ✓ | ✓ |
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
 | `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
-| `jiazhu` / `xCJK2uni` / `xpinyin` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 有 `\ExplFileDate` 或 `[<日期> v<版本>]` | 共享 | ✗ | ✗（走 `*)`） |
+| `xpinyin` | `build.lua` `version`（#1041 后续） | 两处：`{\ExplFileDate}{<ver>}`（`\ProvidesExplPackage`）与 `[<日期> v<ver>]`（`xpinyin-database.def` 的 `\ProvidesFile`） | 共享 | ✓ | ✓ |
+| `jiazhu` / `xCJK2uni` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 有 `\ExplFileDate` 或 `[<日期> v<版本>]` | 共享 | ✗ | ✗（走 `*)`） |
 | `CJKpunct` | 无 | **两种写法都没有** — 共享 `update_tag` 对它恒为空操作 | 共享（不生效） | ✗ | ✗（走 `*)`） |
 | `zhmetrics-uptex` | 无 | 无 `.dtx` | 不适用（有自己的 `build.lua`、`dir=zhmetrics-uptex`，但不 `dofile` 共享配置） | ✗ | ✗（走 `*)`）|
 | `zhspacing` | — | — | — | ✗ | ✗ |
@@ -693,9 +732,10 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
 - **`build.lua` 顶部 `version` 字段是唯一手改的版本事实源**（ctex 还有 `date` 等价物走 git 元数据；zhlineskip 是 `version` + `date` 两字段）。`uploadconfig`（CTAN 投递）直接引用它。
 - dtx 源文件的版本行是 `\GetIdInfo $Id: <file> <ver> <date> ...$` stamp，被 `\ProvidesExplPackage{...}{\ExplFileDate}{\ExplFileVersion}{...}` 消费——dtx 里没有第二处硬编码版本。
 - 本地手跑 `cd <pkg> && l3build tag`，`update_tag` 把 version 回写进源文件。ctex / zhlineskip 在各自 `build.lua` 里**包级覆写**该函数（回写 `$Id:$` stamp）；xeCJK 用 `support/build-config.lua` 的**共享**版本（回写 `{\ExplFileDate}{<ver>}`）。**三者都带幂等守卫**：目标版本已一致时原样返回，否则"回写产生新 commit → 新 sha → 又要回写"永不收敛，且 PR 校验的 diff 检查会恒 fire。
-- 共享 `update_tag` 的两个坑（#1041）：
+- 共享 `update_tag` 的三个坑（#1041，第三个在 xpinyin 接入测试时补上）：
   - **`version` 这个全局名可能是函数**。l3build 自己定义了 `function version()` 供 `--version` 用（`l3build-help.lua:32`），所以未设 `version` 的包里它不是 `nil`。写 `version or tagname` 会取到那个函数并报 `attempt to index a function value`，必须 `type(version) == "string"` 判断。
   - **`\ExplFileDate` 装的不是版本号**。`\ProvidesExplPackage` 的参数顺序是 `{name}{date}{version}{desc}`，所以 `{\ExplFileDate}{3.10.5}{\ExplFileDescription}` 里 `\ExplFileDate` 是日期占位宏（由 `\GetIdInfo$Id:$` 从 git stamp 取 commit 日期），大括号里的 `3.10.5` 才是版本。`update_tag` 只改后者；日期随打包时的 `replace_git_id` 自动跟进，硬写会让每次 tag 都产生 diff。
+  - **幂等守卫的观察范围必须覆盖全部写入范围**。`xpinyin.dtx` 同时存在两种版本写法：`\ProvidesExplPackage` 后的 `{\ExplFileDate}{<ver>}`，与 `xpinyin-database.def` 里 `\ProvidesFile` 的 `[<日期> v<ver> xpinyin database]`。早期版本的守卫只看前者，一旦两处失同步而只有后者过期，该行永远不会被修复。修法是先算出两处各自的目标写法，再整体比较；`[<日期> v<ver>]` 这种写法**只在版本号需要改时才连日期一起重写，版本号已对则整段原样保留**（包括陈旧日期），因为持续把已同步文件的日期刷成当天会让 PR 校验的 diff 永不为零。
 - 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
 - ctex 的 `update_tag` 在处理主 `ctex.dtx` 时还会额外固化手册首页页脚的 shorthash：取 `git log -1 --format='%h' *.dtx` 回写进 `ctex.dtx` 里的 `\GetFileId[<hash>]{ctex.sty}`（消费方是 `support/ctxdoc.cls` 的 `\GetFileId { O{} m }`，可选参数即固化 hash）。运行时**不**依赖 `\sys_get_shell` / `--shell-escape` 现取 git 信息——曾经的运行时方案已被否决，详见决策 [[937-version-single-source-l3build-tag]] 「手册页脚 shorthash」小节。
 - `\GetFileId` 仍为标题页提供版本号和 revision hash，但不再提供标题日期。`ctex` 拆分后，`ctex.sty` 的 `\filedate` 只反映 `ctex-kernel.dtx` 的 stamp，可能早于手册和其他拆分源文件；因此 `ctex` 与 `xeCJK` 的标题日期统一改用 `\ctexkitbuilddate`，按 `YYYY/MM/DD` 格式排印构建当天日期。正式 PDF 由 GitHub Actions 集中构建，版本号负责标识内容，日期只表示该 PDF 的构建日。
@@ -725,14 +765,32 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
 
 第 3 步漏掉的后果就是 `v3.10.5-rc2`：包自报版本落后于 git tag。现在第 5、6 步各有一道校验拦住它。
 
+### 发版 SOP（xpinyin，随 #1041 测试接入同批）
+
+```
+1. xpinyin/build.lua      version = "X.Y.Z"           （手改，唯一）
+2. xpinyin/xpinyin.dtx    补 \changes{vX.Y.Z}{...}     （随功能 PR）
+3. cd xpinyin && l3build tag 回写两处版本写法（自动，幂等）：
+                          {\ExplFileDate}{X.Y.Z} 与
+                          [<日期> vX.Y.Z xpinyin database]
+4. make changelog-xpinyin 同步 CHANGELOG.md            （check-changelog.yml 验证）
+5. commit + PR            （check-tag.yml 验证两处版本同步）
+6. merge 后 make tag xpinyin-vX.Y.Z[-rcN] && git push origin <tag>
+                          （release.yml 三方校验通过才发版，两处 dtx 版本都要与
+                           git tag / build.lua 一致）
+```
+
+xpinyin 目前只在测试接入 PR（#1041 后续）里补了一条 `\changes{v3.2}{...}`，尚未真正发过新版本；上面的 SOP 是接入两道校验后的完整流程，供下一次 bump 版本时参照。
+
 ### 两道 CI 校验
 
-- **`check-tag.yml`（PR 校验）**：对 zhlineskip / ctex / xeCJK，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。三个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 不需要（共享 `update_tag` 只改 `{\ExplFileDate}{...}`，不读 git）。
+- **`check-tag.yml`（PR 校验）**：对 zhlineskip / ctex / xeCJK / xpinyin，PR 上跑 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version 没跑 tag，fail 并提示本地补跑。TL 最小安装（`l3build latex-bin`）。四个 job 的差异：ctex 需 `fetch-depth: 0`（其 `update_tag` 取 `git log -1`），xeCJK 与 xpinyin 都不需要（共享 `update_tag` 只改 dtx 内的版本写法，不读 git）。
   - **`paths` 必须含 `support/build-config.lua`**：共享 `update_tag` 在那里，改它要重跑校验。
   - **diff 范围只能是本包目录**（`git diff -- .`），因为「重新生成 + diff」型校验的 diff 范围应精确等于生成动作的**写入**范围，而 `l3build tag` 只回写本包 `.dtx`。
     - 澄清：写成 `-- . ../support` 在 CI 里**不会**误报——CI 检出的是已提交的干净树，`support/` 的改动不构成 diff（两种写法实测退出码均为 0）。误报只发生在本地有未提交改动时。限定范围的真实理由是语义精确：纳入非写入目标不增加检出能力，只会在将来某个生成物意外落进 `support/` 时给出误导性的「stamp 不同步」报错。
   - 本地验证这类校验要用干净 worktree（`git worktree add`）：主工作区有未提交改动时 `git diff` 会把它们算进来，no-op 结论不可信。
 - **`release.yml` 三方一致性校验**：打 release tag 时验证 `strip_rc(git tag) == build.lua version == dtx stamp`，不一致拒绝发版。**RC 后缀（`-rcN`/`-pre`/`-alpha`/`-beta`）只存在于 git tag**，build.lua 与 stamp 均写 base version——发 rc 前 build.lua 必须已 bump 到目标版本并 stamp。未接入的包（见上方覆盖矩阵）走 `*)` 分支跳过校验并打 `::notice::`——注意那**不是** failure，CI 仍全绿。
+  - **xpinyin 的 `xpinyin)` case 要同时校验两处 dtx 版本写法**（`{\ExplFileDate}{<ver>}` 与 `xpinyin-database.def` 的 `[<日期> v<ver> xpinyin database]`），只校验其中一处会漏掉另一处失同步的情况——这正是共享 `update_tag` 幂等守卫早期只看 `{\ExplFileDate}` 时踩过的坑（见上文「共享 `update_tag` 的三个坑」）。两处版本号合并去重后必须唯一，否则报错。两种失败模式（只 bump `build.lua`；两处只同步其一）均已实测能被拦住。
 
 ## 生成物新鲜度校验模式（"CI 只校验不回写"）
 
@@ -757,7 +815,7 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 
 再 `git add -N -- '*/CHANGELOG.md'`（覆盖新包首次生成、CHANGELOG.md 尚未被 git 跟踪的场景，否则 `git diff` 看不到差异）+ `git diff --exit-code -- '*/CHANGELOG.md'`。fail 时按上述三通道贴出期望内容。
 
-`CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK zhlineskip zhmetrics zhnumber`。其余 4 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`/`xpinyin`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
+`CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber`。xpinyin 随 #1041 测试接入补写了首条 `\changes{v3.2}{...}` 后加入这份列表。其余 3 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 
