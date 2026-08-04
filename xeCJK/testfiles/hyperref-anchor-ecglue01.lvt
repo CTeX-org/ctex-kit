@@ -1,8 +1,8 @@
 \input{regression-test}
 
 % #1047: hyperref 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
-% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。出口有多个，按**调用点**区分
-% （不是按锚点内容）。下面两个已注册：
+% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。出口有三个，按**调用点**区分
+% （不是按锚点内容）：
 %
 % 1. 驱动层的 \hyper@anchor：承接经 \hyper@@anchor 进来的锚点，直接排出裸的
 %    pdf:dest whatsit。\hypertarget 的两个分支最终都走这里——\@hyper@@anchor
@@ -23,16 +23,26 @@
 % 那个 after-only 变体要求 marker 与末尾零尺寸盒子相邻，而 \Hy@raisedlink
 % 在盒子之前还排出 \penalty，搬移条件不成立（实测无效）。
 %
-% 出口不止这两个：hyperref 还有 \__hyp_target_raise:n，\phantomsection 与
-% \MakeLinkTarget 走它，尚未覆盖。TEST 7 把这个缺口固定为已知限制，防止将来
-% 有人以为「注册两处就覆盖了全部锚点」。
+% 3. \__hyp_target_raise:n：第三个抬升出口，\phantomsection 与 \MakeLinkTarget
+%    走它，编号标题的锚点也经过它。它不接受通用命令 hook（LaTeX hook 机制拒绝
+%    expl3 私有函数），改用带花括号转发参数的 transparent 包装变体。
 %
-% 判别力（已实测）：去掉 \Hy@raisedlink 注册，TEST 1、TEST 2 由 41.66002
-% 退化为 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4、TEST 4b 各少一枚
-% 3.33pt。两组互不重叠，说明确实是两个独立出口。
+% 判别力（已实测，按断言文字指代，不用块编号）：
+%   - 去掉 \Hy@raisedlink 注册 → `anchored link matches direct math oracle`、
+%     `anchor does not change link spacing`、`bare raisedlink anchor is
+%     transparent` 三条退化（41.66002 → 38.33002）。
+%   - 去掉 \hyper@anchor 注册 → `empty hypertarget is transparent before math`、
+%     `... before Latin word`、`visible-target hypertarget matches direct input`
+%     三条各少一枚 3.33pt。
+%   - 去掉第三处包装 → `phantomsection is transparent before math`、
+%     `MakeLinkTarget is transparent before math`、`phantomsection is
+%     transparent before Latin word` 三条退化。
+%   - 第三处若误用无花括号的 onearg 变体 → 同样三条失败，但读数是 81.16002
+%     一类的暴涨（锚点名被排成可见文本），而不是少一枚 3.33pt。
+% 三组互不重叠，说明确实是三个独立出口。
 %
-% 注意 .tlg 里的 \TEST 块按出现顺序编号，与本文件注释里的「TEST 4b」「TEST 5」
-% 等称法有一位错开（4b 在 .tlg 中是第 5 个块）。对照失败项时以断言文字为准。
+% 注意本文件注释里的「TEST 4b」使 .tlg 的块编号与注释称法不一致（4b 在 .tlg
+% 中是第 5 个块，其后各块顺延）。对照失败项时一律以断言文字为准。
 
 \documentclass{article}
 
@@ -188,29 +198,54 @@
   \fi
 }
 
-% --- TEST 7: 已知限制——第三个抬升出口尚未覆盖 ---
+% --- TEST 7: 第三个抬升出口 \__hyp_target_raise:n ---
 % hyperref 的 \__hyp_target_raise:n 自己排出同构的 \penalty\@M + \smash
 % 抬升盒子，不经过 \Hy@raisedlink。\phantomsection 与 \MakeLinkTarget 走它，
-% 因此右侧仍丢一枚 \CJKecglue。
+% 编号标题的锚点也经过它。
 %
-% 它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），而现成的
-% 一参数透明包装会把 begin 钩子里的赋值卷进它的参数展开——实测会把
-% \spacefactor 赋值写进 pdf:dest 名字、并把锚点名排成可见文本，故不能套用。
-%
-% 这一项断言「缺口仍然存在」，是为了让将来补上注册时测试主动失败，从而必须
-% 回来更新这段说明；否则「注册两处就覆盖全部锚点」的错觉会一直留在文档里。
+% 它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），故用
+% \__xeCJK_boundary_wrap_transparent_onearg_braced:NN 包装。必须用**带花括号**
+% 转发参数的那个变体：该函数会把参数再次交给 \hbox:n，无花括号转发会让紧随
+% 其后的 \Hy@SaveSpaceFactor 被卷进 \hyper@anchorstart 的参数，把 \spacefactor
+% 赋值写进 pdf:dest 名字并把锚点名排成可见文本（实测 81.16002pt 对 41.66002pt；
+% 该故障与 xeCJK 的钩子无关，不挂任何钩子仅做无花括号透传同样复现）。
 
-\TEST{third raise outlet remains uncovered (1047, known limitation)}{
+\TEST{third raise outlet keeps ecglue (1047)}{
   \setbox\BareMathBox=\hbox{带有 \phantomsection$\star$ 标}
   \TYPE{INFO: phantomsection=\the\wd\BareMathBox,
     direct=\the\wd\DirectMathBox}
-  \dimen0=\wd\DirectMathBox \advance\dimen0 by -\wd\BareMathBox
-  % 预期仍缺一枚 \CJKecglue（3.33pt）。若这一项失败，说明第三个出口已被
-  % 覆盖或行为已变，应重新核对本文件与 llmdoc 中的出口清单。
-  \ifdim\dimen0>3pt
-    \TYPE{PASS: gap still present as documented (\the\dimen0)}
+  \dimen0=\wd\BareMathBox \advance\dimen0 by -\wd\DirectMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: phantomsection is transparent before math}
   \else
-    \TYPE{FAIL: gap changed to \the\dimen0 -- revisit the outlet inventory}
+    \TYPE{FAIL: phantomsection at raise outlet differs by \the\dimen0}
+  \fi
+}
+
+% --- TEST 8: \MakeLinkTarget 与西文词也走第三出口 ---
+
+\TEST{MakeLinkTarget and Latin word via raise outlet (1047)}{
+  \setbox\BareMathBox=\hbox{带有 \MakeLinkTarget*{mlt}$\star$ 标}
+  \setbox\BareWordBox=\hbox{带有 \phantomsection word 标}
+  % 本块自己重建西文 oracle：\DirectWordBox 在 TEST 4 里赋过值，但块之间不保证
+  % 寄存器内容仍在（分组与后续赋值都可能改写），逐块重建比跨块复用可靠。
+  \setbox\DirectWordBox=\hbox{带有 word 标}
+  \TYPE{INFO: makelinktarget=\the\wd\BareMathBox,
+    phantom-word=\the\wd\BareWordBox, direct-word=\the\wd\DirectWordBox}
+  \dimen0=\wd\BareMathBox \advance\dimen0 by -\wd\DirectMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: MakeLinkTarget is transparent before math}
+  \else
+    \TYPE{FAIL: MakeLinkTarget differs by \the\dimen0}
+  \fi
+  \dimen2=\wd\BareWordBox \advance\dimen2 by -\wd\DirectWordBox
+  \ifdim\dimen2<0pt \dimen2=-\dimen2 \fi
+  \ifdim\dimen2<0.01pt
+    \TYPE{PASS: phantomsection is transparent before Latin word}
+  \else
+    \TYPE{FAIL: phantomsection before word differs by \the\dimen2}
   \fi
 }
 

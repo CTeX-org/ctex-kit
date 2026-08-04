@@ -6510,6 +6510,36 @@ Copyright and Licence
           }
       }
   }
+%    \end{macrocode}
+%
+% \changes{v3.10.5}{2026/08/04}{新增按花括号转发参数的 transparent 包装变体，
+%   供把参数再次用作 \cs{hbox:n} 内容的目标函数使用（\#1047）。}
+%
+% 上面那个包装以 |#1 ##1| 的形式转发参数，适用于原函数只是顺序执行参数内容
+% 的情形。若原函数会把参数\emph{再次}用作 \cs{hbox:n} 一类的参数，丢失花括号
+% 就会改变分组：参数后面相邻的记号会被吸进参数内部。\pkg{hyperref} 的
+% \cs{__hyp_target_raise:n} 属于后者，它把参数交给 \cs{hbox:n}，无花括号转发
+% 会让紧随其后的 \tn{Hy@SaveSpaceFactor} 被卷进 \tn{hyper@anchorstart} 的参数，
+% 结果把 \tn{spacefactor} 赋值写进 \texttt{pdf:dest} 名字、并把锚点名排成
+% 可见文本。
+%
+% 这与 xeCJK 的钩子无关：不挂任何钩子、仅做无花括号透传也能复现（实测盒宽
+% 81.16002pt 对 oracle 41.66002pt）。因此只需要一个保留花括号的转发变体。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_wrap_transparent_onearg_braced:NN #1#2
+  {
+    \cs_if_exist:NF #1
+      {
+        \@@_boundary_reserve:N #2
+        \cs_set_eq:NN #1#2
+        \cs_gset_protected:Npn #2 ##1
+          {
+            \@@_boundary_hmode_transparent_begin:
+            #1 {##1}
+            \@@_boundary_hmode_transparent_end:
+          }
+      }
+  }
 
 % \changes{v3.10.4}{2026/07/20}{包装内核私有 \tn{@imakebox} 与
 %   \tn{@iframebox} 的 |[\#1][\#2]\#3| 签名以注册 \tn{makebox} /
@@ -12768,8 +12798,9 @@ Copyright and Licence
 %   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
 %   （\#992）。}
 %
-% \changes{v3.10.5}{2026/08/04}{把行内锚点的 \tn{hyper@anchor} 与
-%   \tn{Hy@raisedlink} 两个出口注册为 transparent capture，使 \tn{hypertarget}、
+% \changes{v3.10.5}{2026/08/04}{把行内锚点的三个出口 \tn{hyper@anchor}、
+%   \tn{Hy@raisedlink} 与 \cs{__hyp_target_raise:n} 注册为 transparent
+%   capture，使 \tn{hypertarget}、\tn{phantomsection}、\tn{MakeLinkTarget}、
 %   无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界（\#1047）。}
 %
 % \pkg{hyperref} 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
@@ -12777,7 +12808,7 @@ Copyright and Licence
 % \tn{CJKecglue} 因此丢失（\#1047）。这类命令没有可见输出，故与 \pkg{hypdoc}
 % 的 \tn{HD@target} 一样注册为 transparent。
 %
-% 这里注册\emph{其中两个}出口。区分依据是\emph{调用点}，不是锚点内容：
+% 这里注册全部三个出口。区分依据是\emph{调用点}，不是锚点内容：
 % \begin{itemize}
 %   \item 驱动层的 \tn{hyper@anchor} 承接经 \tn{hyper@@anchor} 进来的锚点。
 %     \tn{hypertarget} 的两个分支最终都走这里——\tn{@hyper@@anchor} 在
@@ -12797,17 +12828,16 @@ Copyright and Licence
 % 间距，只注册 \tn{hyper@anchor} 时 \tn{exptarget} 一类写法与无编号标题锚点
 % 仍缺间距。
 %
-% \pkg{hyperref} 还有第三个抬升出口 \cs{__hyp_target_raise:n}，
-% \tn{phantomsection} 与 \tn{MakeLinkTarget} 走它，编号标题的锚点也经过它。
-% 它自己排出同构的 \tn{penalty}\tn{@M} 加 \tn{smash} 抬升盒子，不经过
-% \tn{Hy@raisedlink}，因此\emph{目前尚未覆盖}：\tn{phantomsection} 右侧仍会
-% 丢失一枚 \tn{CJKecglue}。这个函数不接受通用命令 hook（LaTeX hook 机制拒绝
-% expl3 私有函数），而现成的一参数透明包装会把 \cs{@@_boundary_hmode_transparent_begin:}
-% 里的赋值卷进它的参数展开，实测会把 \tn{spacefactor} 赋值写进 \texttt{pdf:dest}
-% 名字并把锚点名排成可见文本，故不能直接套用；留作独立议题。
+% 第三个出口是 \cs{__hyp_target_raise:n}：\tn{phantomsection} 与
+% \tn{MakeLinkTarget} 走它，编号标题的锚点也经过它。它自己排出同构的
+% \tn{penalty}\tn{@M} 加 \tn{smash} 抬升盒子，不经过 \tn{Hy@raisedlink}。
+% 这个函数不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），因此用
+% \cs{@@_boundary_wrap_transparent_onearg_braced:NN} 包装——必须是\emph{带
+% 花括号}转发参数的那个变体，理由见该函数的说明。
 %
 % 判断这类问题应当读分派函数的分支并用计数器实测，不能按公开命令的参数形态
-% 推测走哪条路，也不能因为「注册两处之后报告的现象消失」就断定出口只有两个。
+% 推测走哪条路，也不能因为「注册若干处之后报告的现象消失」就断定出口的数量：
+% 「按目标是否为空分派」与「只有两个出口」两个说法都是这样推出来的，都错了。
 %
 % \tn{hyper@anchor} 由驱动定义，\pkg{hxetex}、\pkg{hluatex}、\pkg{hpdftex}
 % 与 \pkg{hdvipdfm} 使用同一名称，\pkg{hdvips} 没有这个命令；注册前先检查
@@ -12887,6 +12917,11 @@ Copyright and Licence
     \@@_boundary_register_transparent:n { Hy@raisedlink }
     \cs_if_exist:NT \hyper@anchor
       { \@@_boundary_register_transparent:n { hyper@anchor } }
+    \cs_if_exist:NT \__hyp_target_raise:n
+      {
+        \@@_boundary_wrap_transparent_onearg_braced:NN
+          \@@_orig_hyp_target_raise:n \__hyp_target_raise:n
+      }
   }
 \@@_package_hook:nn { hyperref }
   {

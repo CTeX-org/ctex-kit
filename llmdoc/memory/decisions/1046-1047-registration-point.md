@@ -46,10 +46,9 @@ CJK→Default 边界，去掉内层 capture 前后节点列表逐字节相同。
 表，防止用户接口把通用 hook 叠到共享的内部实现上。`doc` 宏包的 `\meta`
 没有 `\texttt` 外层，本来对称，实现未改。
 
-## 决策二：hyperref 的行内锚点注册其中两个出口为 `transparent`
+## 决策二：hyperref 的行内锚点三个出口全部注册为 `transparent`
 
-hyperref 的行内锚点有多个出口，区分依据是**调用点**而不是锚点内容。本次注册
-其中两个：
+hyperref 的行内锚点有三个出口，区分依据是**调用点**而不是锚点内容：
 
 1. 驱动层 `\hyper@anchor`——承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的
    `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**：
@@ -69,35 +68,47 @@ hyperref 的行内锚点有多个出口，区分依据是**调用点**而不是�
 
 两者都没有可见输出，与 `hypdoc` 的 `\HD@target` 同属一类。
 
-### 已接受：第三个出口暂不覆盖
+### 第三个出口需要带花括号转发的包装变体
 
 `\__hyp_target_raise:n` 是第三个抬升出口，`\phantomsection` 与
 `\MakeLinkTarget` 走它，编号标题的锚点也经过它。它排出同构的 `\penalty\@M`
-加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`，因此 `\phantomsection` 右侧
-仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。
+加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`。
 
-暂不覆盖的理由是两条现成途径都不适用：它不接受通用命令 hook（LaTeX hook
-机制拒绝 expl3 私有函数）；`\@@_boundary_wrap_transparent_onearg:NN` 会把
-begin 钩子里的赋值卷进它的参数展开，实测把 `\spacefactor` 赋值写进了
-`pdf:dest` 名字、并把锚点名 `section*.1` 排成可见文本（盒宽由 41.66002pt 变
-84.49002pt）。需要为它单独设计适配器，作为独立议题跟踪。
-`hyperref-anchor-ecglue01` 的 TEST 7 把这个缺口固定为断言，补上注册时会主动
-失败，强制回来更新出口清单。
+它不接受通用命令 hook（LaTeX hook 机制以
+`Generic hooks cannot be added to ...` 拒绝 expl3 私有函数），因此新增
+`\@@_boundary_wrap_transparent_onearg_braced:NN`：与既有的
+`\@@_boundary_wrap_transparent_onearg:NN` 唯一区别是以 `#1 {##1}` 而非
+`#1 ##1` 转发参数。
 
-### 两次被推翻的机制陈述
+**为什么必须保留花括号**：`\__hyp_target_raise:n` 会把参数再次用作 `\hbox:n`
+的内容。无花括号转发丢掉了分组，紧随其后的 `\Hy@SaveSpaceFactor` 被卷进
+`\hyper@anchorstart` 的参数，结果 `\spacefactor` 赋值被写进 `pdf:dest` 名字、
+锚点名 `section*.1` 被排成可见文本（盒宽 81.16002pt 对 oracle 41.66002pt）。
 
-本决策的机制描述被盲审连续推翻两次，形态相同：
+这个故障**与 xeCJK 的钩子无关**，隔离实验证实：`\@@_boundary_hmode_transparent_begin:`
+的函数体里没有任何 `\spacefactor` 赋值；不挂任何钩子、仅做无花括号透传同样
+复现（81.16002pt）；保留同一对 begin/end 而只把参数改成带花括号，读数即回到
+41.66002pt。
+
+### 三次被推翻的机制陈述
+
+本决策的机制描述被盲审连续推翻三次，失败形态相同——都是从一个真实现象推出了
+未经独立验证的解释：
 
 1. 先写「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。计数器实测：
    四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。
 2. 改对分派依据后又写「行内锚点有两个出口」，并把「两个」写进架构文档与
    lessons-learned。计数器实测：`\phantomsection` 使 `\__hyp_target_raise:n`
    计数 +1 而另两者均为 0。
+3. 承认第三个出口后又写「它不能用现成包装，需要新设计适配器」，把故障归因给
+   begin 钩子里的赋值，并据此把缺口写成已接受限制。隔离实验实测：那个赋值来自
+   hyperref 自己的 `\Hy@SaveSpaceFactor`，换成花括号转发即可修复。
 
-两次都是从「注册这些之后报告的现象消失」推出了更强的断言。**「A 与 B 都必要」
-既不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」**；三者是独立
-命题，各需自己的探针。写「全部」「两个」「只有」这类穷尽性断言前应先问：我用
-什么手段排除了第三种可能？
+**「A 与 B 都必要」既不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间
+分派」；观察到一个故障也不能推出它的成因。** 这些都是独立命题，各需自己的探针。
+写穷尽性断言（「全部」「三个」「只有」）或因果断言（「因为 X 所以坏」）前应先
+问：我用什么手段排除了别的可能？隔离实验——去掉一个因素看故障是否仍在——往往
+一次编译就能定论，成本远低于把错误结论写进多份文档再逐轮更正。
 
 **否决 `post-transparent`**（实测无效）：它是 after-only 变体，只搬移末尾
 零尺寸盒子下方的 marker 与候选 glue，要求 marker 与那个盒子**相邻**；而
@@ -118,13 +129,15 @@ begin 钩子里的赋值卷进它的参数展开，实测把 `\spacefactor` 赋�
   四种源码空格组合均为 55.4378pt，与 oracle `左\texttt{$\langle$name$\rangle$}右`
   相等（修复前 57.3578pt）；左右单边贡献均 13.33pt（修复前左 15.25pt）。
   判别力已实测：把注册点改回内层后 8 项失败。
-- `hyperref-anchor-ecglue01`：9 项断言。手工包裹的 `\TestTarget`（复刻
+- `hyperref-anchor-ecglue01`：11 项断言。手工包裹的 `\TestTarget`（复刻
   ctxdoc `\exptarget` 的 `\Hy@raisedlink{\hypertarget{...}{}}` 写法）加链接
   公式、裸 `\hypertarget{t}{}$\star$` 均由 38.33002pt 恢复为 41.66002pt，
   等于直接输入 `$\star$` 的 oracle；带西文可见内容的
   `\hypertarget{t}{word}$\star$` 由 59.75002pt 恢复为 63.08002pt。两个注册
   的判别力互不重叠（去 `\Hy@raisedlink` 使 TEST 1、2 失败；去
-  `\hyper@anchor` 使 TEST 3、4、4b 失败）。TEST 7 固定第三个出口的已知缺口仍为 3.33pt。
+  `\hyper@anchor` 使 TEST 3、4、4b 失败）。第三处包装的判别力同样实测：去掉它
+  使三条 `phantomsection`／`MakeLinkTarget` 断言各少 3.33pt；误用无花括号变体
+  则同样三条失败但读数暴涨（42.83pt／15.0pt），两种失败形态可区分。
 - xeCJK 标准回归 122／122；ctex 主回归与 `config-contrib` 的失败项已用
   「同一环境跑 master 并逐字节比对 diff」确认全部与改动无关。
 - `ctxdoc` 真实环境（TeX Gyre Pagella）：`\meta` 59.62122pt → 56.72289pt，
