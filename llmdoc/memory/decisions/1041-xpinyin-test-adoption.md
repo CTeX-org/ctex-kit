@@ -16,11 +16,13 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 - `pinyin-tone01.lvt`（31 格）：声调数字到重音命令的映射，oracle 取直接写重音命令的字面形式，比宽高深三个维度——间接证据，判别力依赖字体是否恰好给出不同尺寸。
 - `pinyin-tone02.lvt`：用 `\loggingoutput` 固定 shipout 的实际字形——正面证据，与字体度量是否巧合无关。
-- `pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表——这一类断言（哪些字被注了音、注的是什么）不能用盒子尺寸观察。
-- `pinyin-setup01.lvt`：`\xpinyinsetup` 各键的可观察效果，用「改前 vs 改后」的差值而非绝对值。
+- `pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表——这一类断言（哪些字被注了音、注的是什么）不能用盒子尺寸观察。改格式而不改尺寸的 `multiple`、`footnote` 两个键也归这里。
+- `pinyin-setup01.lvt`：`\xpinyinsetup` 中**能用尺寸观察的六个键**（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。
 - `pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖前两类断言的等价内容。
 
 按观察通道分工是因为同一个功能维度（例如「读音是否正确」）需要不同的证据形式才能获得判别力：尺寸比较拦不住字体恰好同尺寸的情况，节点列表才是正面证据。见下方「四条判别力教训」。
+
+这条分工原则曾被违反一次，值得记下：`multiple` 键最初只出现在 `pinyin-setup01.lvt` 的覆盖清单里，并由 `pinyin-scope01.lvt` 用「格式见 pinyin-setup01」交叉引用指向它，而两个文件都没有它的用例。盲审据此提出重要问题——按注释判断的人会以为该键有回归保护。根因正是没有按观察通道归置：该键改的是颜色，在以宽高比较为手段的 `setup01` 里原本就无法断言。**当一份测试的「覆盖清单」与它实际的观察手段不匹配时，缺的往往不是一个用例，而是它被放错了文件。**
 
 ## 决策：四条判别力教训——均以「重新引入缺陷、确认它会变红」实测确认
 
