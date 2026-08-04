@@ -6,9 +6,10 @@
 ## 缺陷本身
 
 `\@@_boundary_color_box:nnn` 把**原始**第三参数交给 `\@@_boundary_if_math_head:n`，
-后者用 expl3 的 `\tl_if_head_eq_meaning:nNTF` 做语法判断。该条件式内部要把 token
-list 包进花括号组再扫描，而 `\halign` 语境（`eqnarray`/`align`/`tabular`）里用户参数
-中的 `&` 带 catcode 4，会破坏扫描平衡，报
+后者用 expl3 的 `\tl_if_head_eq_meaning:nNTF` 做语法判断。**（以下是当时的认知，机制描述
+已由第 8 条更正为「对齐符在对齐环境里终止宏参数读取」，`\halign` 并没有「置」catcode。）**
+该条件式内部要把 token list 包进花括号组再扫描，而 `\halign` 语境（`eqnarray`/`align`/
+`tabular`）里用户参数中的 `&` 带 catcode 4，会破坏扫描平衡，报
 `! Argument of \__tl_tl_head:w has an extra }.`
 
 回归区间：TeX Live 版 v3.10.3 干净，master v3.10.5 报 26 个错；引入提交是
