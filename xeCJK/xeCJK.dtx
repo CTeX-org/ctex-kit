@@ -12798,17 +12798,19 @@ Copyright and Licence
 %   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
 %   （\#992）。}
 %
-% \changes{v3.10.5}{2026/08/04}{把行内锚点的三个出口 \tn{hyper@anchor}、
-%   \tn{Hy@raisedlink} 与 \cs{__hyp_target_raise:n} 注册为 transparent
+% \changes{v3.10.5}{2026/08/04}{把行内锚点的 \tn{hyper@anchor}、
+%   \tn{Hy@raisedlink} 与 \cs{__hyp_target_raise:n} 三个出口注册为 transparent
 %   capture，使 \tn{hypertarget}、\tn{phantomsection}、\tn{MakeLinkTarget}、
-%   无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界（\#1047）。}
+%   无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界；经
+%   \tn{hyper@anchorstart} 裸调用的路径（如 \tn{pdfbookmark}）尚未覆盖
+%   （\#1047）。}
 %
 % \pkg{hyperref} 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
 % 节点，使 Boundary$\to$\{Default,CJK\} 路径的 marker 探测失败，锚点右侧的
 % \tn{CJKecglue} 因此丢失（\#1047）。这类命令没有可见输出，故与 \pkg{hypdoc}
 % 的 \tn{HD@target} 一样注册为 transparent。
 %
-% 这里注册全部三个出口。区分依据是\emph{调用点}，不是锚点内容：
+% 下面\emph{已覆盖}三个出口。区分依据是\emph{调用点}，不是锚点内容：
 % \begin{itemize}
 %   \item 驱动层的 \tn{hyper@anchor} 承接经 \tn{hyper@@anchor} 进来的锚点。
 %     \tn{hypertarget} 的两个分支最终都走这里——\tn{@hyper@@anchor} 在
@@ -12835,9 +12837,24 @@ Copyright and Licence
 % \cs{@@_boundary_wrap_transparent_onearg_braced:NN} 包装——必须是\emph{带
 % 花括号}转发参数的那个变体，理由见该函数的说明。
 %
+% \emph{已知未覆盖}：\tn{hyper@anchorstart} 的裸调用。\tn{pdfbookmark} 直接写
+% \tn{hyper@anchorstart}\marg{name}\tn{hyper@anchorend}，既不经 \tn{hyper@@anchor}
+% 也不经两个抬升出口（计数器实测三者均为 0），因此右侧仍会丢失一枚
+% \tn{CJKecglue}（实测 38.33002pt 对 oracle 41.66002pt）。同类裸调用在
+% \pkg{hyperref} 与各驱动里还有若干处。
+%
+% 两种就手的补法都已实测不可行：注册 \tn{@pdfm@dest}（\tn{hyper@anchor} 与
+% \tn{hyper@anchorstart} 的共同下游）会让盒宽暴涨并报出十余处错误，因为它的
+% 参数含有待展开内容；注册 \tn{hyper@anchorstart} 本身虽不报错却不生效，还会
+% 把已经修好的两处拖回缺陷状态。这条路径需要单独设计适配器，另立议题跟踪。
+%
 % 判断这类问题应当读分派函数的分支并用计数器实测，不能按公开命令的参数形态
-% 推测走哪条路，也不能因为「注册若干处之后报告的现象消失」就断定出口的数量：
-% 「按目标是否为空分派」与「只有两个出口」两个说法都是这样推出来的，都错了。
+% 推测走哪条路，也不能因为「注册若干处之后报告的现象消失」就断定出口的数量。
+% 本节的机制陈述先后被独立复核推翻四次：「按目标是否为空分派」「只有两个
+% 出口」「包装失败源于 begin 钩子的赋值」「只有三个出口」，每一次都是从
+% 「注册这些之后现象消失」推出更强的断言，每一次都由一支计数器探针或一次
+% 隔离实验推翻。因此本节只列\emph{已覆盖}与\emph{已知未覆盖}两份清单，不再
+% 给出总数。
 %
 % \tn{hyper@anchor} 由驱动定义，\pkg{hxetex}、\pkg{hluatex}、\pkg{hpdftex}
 % 与 \pkg{hdvipdfm} 使用同一名称，\pkg{hdvips} 没有这个命令；注册前先检查
@@ -13266,7 +13283,8 @@ Copyright and Licence
 % \tn{Arg}、\tn{marg}、\tn{oarg}、\tn{parg} 不需要这层 capture：它们在
 % \cs{__codedoc_meta:n} 两侧各自排出等宽的 \verb*-{-、\verb*-[-、\verb*-(-
 % 等实字符，本身就构成正常的 CJK$\to$Default 边界，去掉内层 capture 前后
-% 的节点列表完全相同。这些入口仍写入保留表，防止用户接口把通用 hook 叠加
+% 的节点列表完全相同（\tn{showbox} 逐节点比对，\cls{l3doc} 与 \pkg{doc} 两种
+% 环境下均无差异；另比对了各类上下文的宽度）。这些入口仍写入保留表，防止用户接口把通用 hook 叠加
 % 到共享的内部实现上。
 %
 % 这里选择 \cs{@@_at_end_preamble:n} 而非 \cs{@@_package_hook:nn}，
