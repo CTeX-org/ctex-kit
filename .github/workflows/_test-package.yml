@@ -316,9 +316,30 @@ jobs:
         fi
         echo "::warning::l3kernel ($KERNEL_DATE) 与 l3backend ($BACKEND_DATE) 日期不一致, 从 CTAN 取匹配版本"
         WORK=$(mktemp -d)
-        curl -fsSL --retry 3 --retry-delay 5 \
-          -o "$WORK/l3backend.zip" \
-          "https://mirrors.ctan.org/macros/latex/required/l3backend.zip"
+        # 逐个换 mirror 重试. mirrors.ctan.org 是自动重定向, 偶尔会落到证书链
+        # 不完整的镜像上 —— 实测 test-CJKpunct/ubuntu 与 PR #977 都报
+        # `curl: (60) SSL certificate problem: unable to get local issuer
+        # certificate`, 而同一 run 里其他 20 个 job 用同一份脚本全部成功,
+        # 所以是镜像侧的偶发问题, 不是脚本缺陷. 单点失败不该让整个 job 红,
+        # 因此换用固定 mirror 兜底.
+        DOWNLOADED=
+        for url in \
+          "https://mirrors.ctan.org/macros/latex/required/l3backend.zip" \
+          "https://ctan.math.illinois.edu/macros/latex/required/l3backend.zip" \
+          "https://mirror.ctan.org/macros/latex/required/l3backend.zip" ; do
+          echo "尝试 $url"
+          if curl -fsSL --retry 3 --retry-delay 5 --connect-timeout 30 \
+               -o "$WORK/l3backend.zip" "$url"; then
+            DOWNLOADED=$url
+            break
+          fi
+          echo "::warning::$url 下载失败, 换下一个 mirror"
+        done
+        if [ -z "$DOWNLOADED" ]; then
+          echo "::error::所有 mirror 均无法下载 l3backend; 这是网络/镜像问题, 重跑本 job 即可"
+          exit 1
+        fi
+        echo "下载自 $DOWNLOADED"
         unzip -oq "$WORK/l3backend.zip" -d "$WORK"
         ( cd "$WORK/l3backend" && tex l3backend.ins >/dev/null )
         TEXMFHOME=$(kpsewhich -var-value TEXMFHOME)
