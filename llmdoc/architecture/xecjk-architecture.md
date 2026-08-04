@@ -271,14 +271,21 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 
 #### 同一类节点可能有多个出口，按调用点而非参数形态区分（#1047）
 
-hyperref 的行内锚点有两个出口，都会插入遮蔽 marker 的不可见节点，各需一次 `transparent` 注册：
+hyperref 的行内锚点有多个出口，都会插入遮蔽 marker 的不可见节点。**目前注册了其中两个**，各一次 `transparent`：
 
 - 驱动层的 `\hyper@anchor` 承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的 `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**——`\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，与目标内容是否为空无关。
-- `\Hy@raisedlink` 承接需要抬升的锚点：目录条目、脚注，以及下游手工包裹的写法，例如 ctxdoc 的 `\exptarget` 定义为 `\Hy@raisedlink{\hypertarget{name}{}}`。它在水平模式下排出 `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。
+- `\Hy@raisedlink` 承接需要抬升的锚点：无编号标题（`\section*`、`\chapter*`，以及目录、参考文献等自动生成的无编号标题）、caption、公式编号、脚注、`\bibitem`，以及下游手工包裹的写法，例如 ctxdoc 的 `\exptarget` 定义为 `\Hy@raisedlink{\hypertarget{name}{}}`。它在水平模式下排出 `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。注意目录**条目**不走这条路：`\contentsline` 用 `\hyper@linkstart`／`\hyper@linkend` 做链接，与抬升锚点无关。
 
 `\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 使用同名，`hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，因此包尾钩子里的存在性检查时机正确。
 
-**判据是读分派函数的分支并用计数器实测，不能按公开命令的参数形态推测走哪条路。** 本条曾一度被误写成「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」，看似能解释「注册一个不够」，但用计数器包装两个命令实测后发现：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。两个注册的判别力实测互不重叠仍然成立，但它证明的是「有两个出口」，不能进一步推出「按参数形态分派」——这需要单独的探针。
+**已知未覆盖的第三个出口**：`\__hyp_target_raise:n`。`\phantomsection` 与 `\MakeLinkTarget` 走它，编号标题的锚点也经过它；它自己排出同构的 `\penalty\@M` 加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`，因此 `\phantomsection` 右侧仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），而现成的一参数透明包装会把 begin 钩子里的赋值卷进它的参数展开——实测会把 `\spacefactor` 赋值写进 `pdf:dest` 名字并把锚点名排成可见文本，故不能直接套用。`hyperref-anchor-ecglue01` 的 TEST 7 把这个缺口固定为已知限制，补上注册时该断言会主动失败，强制回来更新出口清单。
+
+**判据是读分派函数的分支并用计数器实测。** 这一节的两句机制陈述都曾被写错并由盲审推翻，值得记住失败形态：
+
+1. 先写成「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。计数器实测：四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。
+2. 改对分派依据后又写成「行内锚点有两个出口」。计数器实测：`\phantomsection` 使 `\__hyp_target_raise:n` 计数 +1 而另两者均为 0。
+
+两次都是从「注册这些之后报告的现象消失」推出了更强的机制断言。**「注册 A 和 B 都必要」不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」**；这三者是彼此独立的命题，各需自己的探针。写穷尽性断言（「全部」「两个」「只有」）前应当先问：我用什么手段排除了第三种可能？
 
 #### 实验性用户注册入口（#1010）
 
@@ -608,7 +615,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | 目标包 | 补丁内容 |
 |--------|----------|
 | `color`/`xcolor` | `\set@color` / `\reset@color` 注册为 `transparent`；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
-| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点的两个出口各注册为 `transparent`——驱动层 `\hyper@anchor` 承接全部 `\hypertarget`，`\Hy@raisedlink` 承接目录、脚注与下游手工包裹的抬升锚点（#1047） |
+| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点注册了两个出口为 `transparent`——驱动层 `\hyper@anchor` 承接全部 `\hypertarget`，`\Hy@raisedlink` 承接无编号标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹的抬升锚点；第三个出口 `\__hyp_target_raise:n`（`\phantomsection`／`\MakeLinkTarget`）尚未覆盖（#1047） |
 | `ulem` | 通过 `stream-ulem` 观察实际首尾；framework 决定外侧 glue，`\UL@stop` / `\UL@start` 保证它位于装饰区间外 |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
 | `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换；`\lstinline` 两类扫描入口使用 `auto` stream |

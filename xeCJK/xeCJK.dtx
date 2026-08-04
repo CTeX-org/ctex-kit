@@ -12768,31 +12768,46 @@ Copyright and Licence
 %   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
 %   （\#992）。}
 %
-% \changes{v3.10.5}{2026/08/04}{把行内锚点的两个出口 \tn{hyper@anchor} 与
-%   \tn{Hy@raisedlink} 都注册为 transparent capture，使 \tn{hypertarget}、
-%   目录锚点等不再遮蔽其前后的实际边界（\#1047）。}
+% \changes{v3.10.5}{2026/08/04}{把行内锚点的 \tn{hyper@anchor} 与
+%   \tn{Hy@raisedlink} 两个出口注册为 transparent capture，使 \tn{hypertarget}、
+%   无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界（\#1047）。}
 %
-% \pkg{hyperref} 的行内锚点有两个出口，都会在 xeCJK 的 marker 与后续字符
-% 之间插入不可见节点，使 Boundary$\to$\{Default,CJK\} 路径的 marker 探测
-% 失败，锚点右侧的 \tn{CJKecglue} 因此丢失（\#1047）。两者都没有可见输出，
-% 故与 \pkg{hypdoc} 的 \tn{HD@target} 一样注册为 transparent。
+% \pkg{hyperref} 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
+% 节点，使 Boundary$\to$\{Default,CJK\} 路径的 marker 探测失败，锚点右侧的
+% \tn{CJKecglue} 因此丢失（\#1047）。这类命令没有可见输出，故与 \pkg{hypdoc}
+% 的 \tn{HD@target} 一样注册为 transparent。
 %
-% 区分两个出口的依据是\emph{调用点}，不是锚点内容：
+% 这里注册\emph{其中两个}出口。区分依据是\emph{调用点}，不是锚点内容：
 % \begin{itemize}
 %   \item 驱动层的 \tn{hyper@anchor} 承接经 \tn{hyper@@anchor} 进来的锚点。
 %     \tn{hypertarget} 的两个分支最终都走这里——\tn{@hyper@@anchor} 在
 %     \tn{ifHy@activeanchor} 为假时统一调用 \tn{hyper@anchor}，与目标内容
 %     是否为空无关。它直接排出裸的 \texttt{pdf:dest} whatsit。
-%   \item \tn{Hy@raisedlink} 承接需要抬升的锚点：目录条目、公式编号、脚注，
-%     以及下游手工包裹的写法，例如 \cls{ctxdoc} 的 \tn{exptarget} 定义为
+%   \item \tn{Hy@raisedlink} 承接需要抬升的锚点：无编号标题
+%     （\tn{section*}、\tn{chapter*} 以及目录、参考文献等自动生成的
+%     无编号标题）、caption、公式编号、脚注、\tn{bibitem}，以及下游手工
+%     包裹的写法，例如 \cls{ctxdoc} 的 \tn{exptarget} 定义为
 %     \tn{Hy@raisedlink}\verb*-{-\tn{hypertarget}\marg{name}\verb*-{}}-。
 %     它在水平模式下输出 \tn{penalty}\tn{@M} 加一个 \tn{smash} 后的
 %     \texttt{hbox(0+0)x0} 来盛放 \texttt{pdf:dest} special。
+%     注意目录\emph{条目}不走这条路：\tn{contentsline} 用
+%     \tn{hyper@linkstart}／\tn{hyper@linkend} 做链接，与抬升锚点无关。
 % \end{itemize}
 % 因此两处都要注册：只注册 \tn{Hy@raisedlink} 时所有 \tn{hypertarget} 仍缺
-% 间距，只注册 \tn{hyper@anchor} 时目录和 \tn{exptarget} 一类写法仍缺间距。
+% 间距，只注册 \tn{hyper@anchor} 时 \tn{exptarget} 一类写法与无编号标题锚点
+% 仍缺间距。
+%
+% \pkg{hyperref} 还有第三个抬升出口 \cs{__hyp_target_raise:n}，
+% \tn{phantomsection} 与 \tn{MakeLinkTarget} 走它，编号标题的锚点也经过它。
+% 它自己排出同构的 \tn{penalty}\tn{@M} 加 \tn{smash} 抬升盒子，不经过
+% \tn{Hy@raisedlink}，因此\emph{目前尚未覆盖}：\tn{phantomsection} 右侧仍会
+% 丢失一枚 \tn{CJKecglue}。这个函数不接受通用命令 hook（LaTeX hook 机制拒绝
+% expl3 私有函数），而现成的一参数透明包装会把 \cs{@@_boundary_hmode_transparent_begin:}
+% 里的赋值卷进它的参数展开，实测会把 \tn{spacefactor} 赋值写进 \texttt{pdf:dest}
+% 名字并把锚点名排成可见文本，故不能直接套用；留作独立议题。
+%
 % 判断这类问题应当读分派函数的分支并用计数器实测，不能按公开命令的参数形态
-% 推测走哪条路。
+% 推测走哪条路，也不能因为「注册两处之后报告的现象消失」就断定出口只有两个。
 %
 % \tn{hyper@anchor} 由驱动定义，\pkg{hxetex}、\pkg{hluatex}、\pkg{hpdftex}
 % 与 \pkg{hdvipdfm} 使用同一名称，\pkg{hdvips} 没有这个命令；注册前先检查

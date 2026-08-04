@@ -46,10 +46,10 @@ CJK→Default 边界，去掉内层 capture 前后节点列表逐字节相同。
 表，防止用户接口把通用 hook 叠到共享的内部实现上。`doc` 宏包的 `\meta`
 没有 `\texttt` 外层，本来对称，实现未改。
 
-## 决策二：hyperref 的行内锚点按两个出口分别注册 `transparent`
+## 决策二：hyperref 的行内锚点注册其中两个出口为 `transparent`
 
-hyperref 的行内锚点有两个出口，区分依据是**调用点**而不是锚点内容，各需一次
-注册：
+hyperref 的行内锚点有多个出口，区分依据是**调用点**而不是锚点内容。本次注册
+其中两个：
 
 1. 驱动层 `\hyper@anchor`——承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的
    `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**：
@@ -58,18 +58,46 @@ hyperref 的行内锚点有两个出口，区分依据是**调用点**而不是�
    `hpdftex.def`、`hdvipdfm.def` 同名，`hdvips.def` 没有），注册前用
    `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，
    包尾钩子里的存在性检查时机正确。
-2. `\Hy@raisedlink`——承接需要抬升的锚点：目录条目、脚注，以及下游手工包裹
+2. `\Hy@raisedlink`——承接需要抬升的锚点，以及下游手工包裹
    的写法，例如 ctxdoc 的 `\exptarget` 定义为
    `\Hy@raisedlink{\hypertarget{expstar}{}}`。它在水平模式下排出
-   `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。
+   `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。承接的具体入口有：
+   无编号标题（`\section*`、`\chapter*`，以及目录、参考文献等自动生成的
+   无编号标题）、caption、公式编号、脚注、`\bibitem`。目录**条目**不走这条
+   路——`\contentsline` 用 `\hyper@linkstart`／`\hyper@linkend`，与抬升锚点
+   无关（实测计数为 0）。
 
 两者都没有可见输出，与 `hypdoc` 的 `\HD@target` 同属一类。
 
-本条曾一度写成「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。
-这个说法看似能解释「为什么注册一个不够」，但用计数器包装两个命令实测后
-发现：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的
-`\Hy@raisedlink` 调用次数**均为 0**。判别力互不重叠只能证明「有两个出口」，
-要判断「按什么分派」必须另做探针。
+### 已接受：第三个出口暂不覆盖
+
+`\__hyp_target_raise:n` 是第三个抬升出口，`\phantomsection` 与
+`\MakeLinkTarget` 走它，编号标题的锚点也经过它。它排出同构的 `\penalty\@M`
+加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`，因此 `\phantomsection` 右侧
+仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。
+
+暂不覆盖的理由是两条现成途径都不适用：它不接受通用命令 hook（LaTeX hook
+机制拒绝 expl3 私有函数）；`\@@_boundary_wrap_transparent_onearg:NN` 会把
+begin 钩子里的赋值卷进它的参数展开，实测把 `\spacefactor` 赋值写进了
+`pdf:dest` 名字、并把锚点名 `section*.1` 排成可见文本（盒宽由 41.66002pt 变
+84.49002pt）。需要为它单独设计适配器，作为独立议题跟踪。
+`hyperref-anchor-ecglue01` 的 TEST 7 把这个缺口固定为断言，补上注册时会主动
+失败，强制回来更新出口清单。
+
+### 两次被推翻的机制陈述
+
+本决策的机制描述被盲审连续推翻两次，形态相同：
+
+1. 先写「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。计数器实测：
+   四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。
+2. 改对分派依据后又写「行内锚点有两个出口」，并把「两个」写进架构文档与
+   lessons-learned。计数器实测：`\phantomsection` 使 `\__hyp_target_raise:n`
+   计数 +1 而另两者均为 0。
+
+两次都是从「注册这些之后报告的现象消失」推出了更强的断言。**「A 与 B 都必要」
+既不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」**；三者是独立
+命题，各需自己的探针。写「全部」「两个」「只有」这类穷尽性断言前应先问：我用
+什么手段排除了第三种可能？
 
 **否决 `post-transparent`**（实测无效）：它是 after-only 变体，只搬移末尾
 零尺寸盒子下方的 marker 与候选 glue，要求 marker 与那个盒子**相邻**；而
@@ -90,13 +118,13 @@ hyperref 的行内锚点有两个出口，区分依据是**调用点**而不是�
   四种源码空格组合均为 55.4378pt，与 oracle `左\texttt{$\langle$name$\rangle$}右`
   相等（修复前 57.3578pt）；左右单边贡献均 13.33pt（修复前左 15.25pt）。
   判别力已实测：把注册点改回内层后 8 项失败。
-- `hyperref-anchor-ecglue01`：8 项断言。手工包裹的 `\TestTarget`（复刻
+- `hyperref-anchor-ecglue01`：9 项断言。手工包裹的 `\TestTarget`（复刻
   ctxdoc `\exptarget` 的 `\Hy@raisedlink{\hypertarget{...}{}}` 写法）加链接
   公式、裸 `\hypertarget{t}{}$\star$` 均由 38.33002pt 恢复为 41.66002pt，
   等于直接输入 `$\star$` 的 oracle；带西文可见内容的
   `\hypertarget{t}{word}$\star$` 由 59.75002pt 恢复为 63.08002pt。两个注册
   的判别力互不重叠（去 `\Hy@raisedlink` 使 TEST 1、2 失败；去
-  `\hyper@anchor` 使 TEST 3、4、4b 失败）。
+  `\hyper@anchor` 使 TEST 3、4、4b 失败）。TEST 7 固定第三个出口的已知缺口仍为 3.33pt。
 - xeCJK 标准回归 122／122；ctex 主回归与 `config-contrib` 的失败项已用
   「同一环境跑 master 并逐字节比对 diff」确认全部与改动无关。
 - `ctxdoc` 真实环境（TeX Gyre Pagella）：`\meta` 59.62122pt → 56.72289pt，
@@ -107,8 +135,8 @@ hyperref 的行内锚点有两个出口，区分依据是**调用点**而不是�
 
 - Issue：#1046、#1047；父 issue #1045
 - 架构：[[../../architecture/xecjk-architecture]]（「注册点的层级与字体
-  上下文」「策略选择要看不可见节点的实际次序」「同一个公开命令可能有多条
-  实现出口」三节）
+  上下文」「策略选择要看不可见节点的实际次序」「同一类节点可能有多个出口，
+  按调用点而非参数形态区分」三节）
 - 内部框架决策：[[992-command-boundary-capture-register]]
 - 用户接口决策：[[1010-boundary-register-public-api]]
 - 通用 hook 与专用适配器的选择边界：[[1029-sbox-adapter]]
