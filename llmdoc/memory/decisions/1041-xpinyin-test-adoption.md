@@ -32,7 +32,7 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 ## 决策：四条判别力教训——均以「重新引入缺陷、确认它会变红」实测确认
 
-1. **oracle 必须显式切到候选同一字体族**，否则全部单元恒报 DIFF（比的是两种字体的度量差，不是数字到重音的映射）。初版漏了这一步，全部 29 格都报 DIFF。
+1. **oracle 必须显式切到候选同一字体族**，否则全部单元恒报 DIFF（比的是两种字体的度量差，不是数字到重音的映射）。初版漏了这一步，当时的全部 24 格都报 DIFF。
 2. **拼音字体缺字时会假通过**。文档默认的 Latin Modern 缺 U+01D6（ǖ）；候选与 oracle 同时缺同一个字符，尺寸仍相等，看着通过、实际什么都没验证。改用 `DejaVuSerif.ttf` 后实测零 "Missing character"。
 3. **只测带声调数字的 v 会漏掉 `\@@_replace_v:n`**。v 到 ü 的转换由两个各自判断 l/n 的函数分担；只写带数字的用例不够——实测把 `\@@_replace_v:n` 的 l/n 守卫整段删掉，前四组仍全绿。需要「前面有数字音节、末音节不带数字」的写法才能触发这条路径。
 4. **`\xpinyin{长}{zhang3}` 要的正是数据库首选值，没有判别力**。必须挑非首选读音（cháng）才构成真正的对照。
@@ -48,7 +48,12 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 ## 决策：`checkdeps` 必须配 `checkinit_hook`
 
-`xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`，测的其实是本机装了什么，跨机器不可复现。修法与 `ctex/build.lua` 一致：`checkinit_hook` 手工把依赖包 `installfiles` 复制进本包的测试目录。
+`xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`，测的其实是本机装了什么，跨机器不可复现。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。
+
+**复制清单取依赖包自己的 `installfiles`，不照抄 `ctex/build.lua` 的写法。** `ctex` 那份钩子遍历的是本包 `installfiles`，能工作是因为 `ctex` 的清单恰好是各依赖的超集。xpinyin 照抄后漏了 `xeCJK` 的 `"*.cfg"`，产生**只隔离了一半**的状态：`xeCJK.sty` 取自工作树、`xeCJK.cfg` 仍取自系统 TeX Live（v3.10.3 对 v3.10.5），恰好破坏这条决策本身要达到的目的。终审盲审以 blocking 级查出。教训有两层：
+
+- **「照抄一个能工作的实现」不等于该实现的前提在新场景下也成立**——`ctex` 的写法依赖一个未被写下来的巧合（超集关系），迁移时那个前提悄悄失效了。
+- **部分隔离比不隔离更难发现**：测试全绿，`.sty` 的路径也确实是工作树的，只有逐个核对每类产物的实际加载路径才看得出来。因此现行实现用 `loadfile` 读依赖包 `build.lua` 的 `installfiles`，且读不到就 `error`，不留静默失败的口子。
 
 ## 决策：xpinyin 接入版本管理双闸校验，沿用 xeCJK 的共享 `update_tag` 路线
 
