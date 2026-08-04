@@ -46,20 +46,30 @@ CJK→Default 边界，去掉内层 capture 前后节点列表逐字节相同。
 表，防止用户接口把通用 hook 叠到共享的内部实现上。`doc` 宏包的 `\meta`
 没有 `\texttt` 外层，本来对称，实现未改。
 
-## 决策二：hyperref 的行内锚点按两条出口分别注册 `transparent`
+## 决策二：hyperref 的行内锚点按两个出口分别注册 `transparent`
 
-`\hypertarget` 在源码里是一个命令，实际排版按目标是否为空分派到两个互不相交
-的内部出口，各需一次注册：
+hyperref 的行内锚点有两个出口，区分依据是**调用点**而不是锚点内容，各需一次
+注册：
 
-1. `\Hy@raisedlink`——非空目标的 `\hypertarget`、目录锚点、
-   `threeparttable` 脚注锚点走这条，排出 `\penalty\@M` 加一个 `\smash` 后的
-   `hbox(0+0)x0`。
-2. 驱动层 `\hyper@anchor`——空目标的 `\hypertarget` 经 `\hyper@@anchor`
-   落到这里，直接排出裸的 `pdf:dest` whatsit。该命令由驱动定义
-   （`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 同名，
-   `hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫。
+1. 驱动层 `\hyper@anchor`——承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的
+   `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**：
+   `\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，
+   与目标内容是否为空无关。该命令由驱动定义（`hxetex.def`、`hluatex.def`、
+   `hpdftex.def`、`hdvipdfm.def` 同名，`hdvips.def` 没有），注册前用
+   `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，
+   包尾钩子里的存在性检查时机正确。
+2. `\Hy@raisedlink`——承接需要抬升的锚点：目录条目、脚注，以及下游手工包裹
+   的写法，例如 ctxdoc 的 `\exptarget` 定义为
+   `\Hy@raisedlink{\hypertarget{expstar}{}}`。它在水平模式下排出
+   `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。
 
 两者都没有可见输出，与 `hypdoc` 的 `\HD@target` 同属一类。
+
+本条曾一度写成「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。
+这个说法看似能解释「为什么注册一个不够」，但用计数器包装两个命令实测后
+发现：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的
+`\Hy@raisedlink` 调用次数**均为 0**。判别力互不重叠只能证明「有两个出口」，
+要判断「按什么分派」必须另做探针。
 
 **否决 `post-transparent`**（实测无效）：它是 after-only 变体，只搬移末尾
 零尺寸盒子下方的 marker 与候选 glue，要求 marker 与那个盒子**相邻**；而
@@ -76,13 +86,17 @@ CJK→Default 边界，去掉内层 capture 前后节点列表逐字节相同。
 
 ## 验证状态
 
-- `codedoc-meta-symmetry01`：13 项断言，用真实 `l3doc` 类。四种源码空格
-  组合均为 55.4378pt，与 oracle `左\texttt{$\langle$name$\rangle$}右` 相等
-  （修复前 57.3578pt）；左右单边贡献均 13.33pt（修复前左 15.25pt）。判别力
-  已实测：把注册点改回内层后 8 项失败。
-- `hyperref-anchor-ecglue01`：7 项断言。`\exptarget\expstar` 与裸
-  `\hypertarget{t}{}$\star$` 均由 38.33002pt 恢复为 41.66002pt，等于直接
-  输入 `$\star$` 的 oracle。两个注册的判别力互不重叠。
+- `codedoc-meta-symmetry01`：9 个 `\TEST` 块共 12 项断言，用真实 `l3doc` 类。
+  四种源码空格组合均为 55.4378pt，与 oracle `左\texttt{$\langle$name$\rangle$}右`
+  相等（修复前 57.3578pt）；左右单边贡献均 13.33pt（修复前左 15.25pt）。
+  判别力已实测：把注册点改回内层后 8 项失败。
+- `hyperref-anchor-ecglue01`：8 项断言。手工包裹的 `\TestTarget`（复刻
+  ctxdoc `\exptarget` 的 `\Hy@raisedlink{\hypertarget{...}{}}` 写法）加链接
+  公式、裸 `\hypertarget{t}{}$\star$` 均由 38.33002pt 恢复为 41.66002pt，
+  等于直接输入 `$\star$` 的 oracle；带西文可见内容的
+  `\hypertarget{t}{word}$\star$` 由 59.75002pt 恢复为 63.08002pt。两个注册
+  的判别力互不重叠（去 `\Hy@raisedlink` 使 TEST 1、2 失败；去
+  `\hyper@anchor` 使 TEST 3、4、4b 失败）。
 - xeCJK 标准回归 122／122；ctex 主回归与 `config-contrib` 的失败项已用
   「同一环境跑 master 并逐字节比对 diff」确认全部与改动无关。
 - `ctxdoc` 真实环境（TeX Gyre Pagella）：`\meta` 59.62122pt → 56.72289pt，

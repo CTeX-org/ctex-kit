@@ -12768,35 +12768,42 @@ Copyright and Licence
 %   重放迁移到统一 stream capture，按链接实际首尾可见类别恢复两侧边界
 %   （\#992）。}
 %
-% \changes{v3.10.5}{2026/08/04}{把 \tn{Hy@raisedlink} 注册为 transparent
-%   capture，使 \tn{hypertarget} 等锚点命令不再遮蔽其前后的实际边界
-%   （\#1047）。}
+% \changes{v3.10.5}{2026/08/04}{把行内锚点的两个出口 \tn{hyper@anchor} 与
+%   \tn{Hy@raisedlink} 都注册为 transparent capture，使 \tn{hypertarget}、
+%   目录锚点等不再遮蔽其前后的实际边界（\#1047）。}
 %
-% \tn{Hy@raisedlink} 是 \pkg{hyperref} 全部行内锚点的公共出口：
-% \tn{hypertarget}、\tn{hyper@anchor} 以及目录、\pkg{threeparttable} 等
-% 处的锚点都经由它排出。它在水平模式下输出 \tn{penalty}\tn{@M} 加一个
-% \tn{smash} 后的 \texttt{hbox(0+0)x0}，用来盛放 \texttt{pdf:dest}
-% special；这段不可见内容隔在 xeCJK 的 marker 与后续字符之间，使
-% Boundary$\to$\{Default,CJK\} 路径的 marker 探测失败，锚点右侧的
-% \tn{CJKecglue} 因此丢失（\#1047）。命令自身没有可见输出，故与
-% \pkg{hypdoc} 的 \tn{HD@target} 一样注册为 transparent。
+% \pkg{hyperref} 的行内锚点有两个出口，都会在 xeCJK 的 marker 与后续字符
+% 之间插入不可见节点，使 Boundary$\to$\{Default,CJK\} 路径的 marker 探测
+% 失败，锚点右侧的 \tn{CJKecglue} 因此丢失（\#1047）。两者都没有可见输出，
+% 故与 \pkg{hypdoc} 的 \tn{HD@target} 一样注册为 transparent。
 %
-% 这里不能用 |post-transparent|：那个 after-only 变体只在命令结束后搬移
-% 末尾零尺寸盒子下方的 marker 与候选 glue，而 \tn{Hy@raisedlink} 在盒子
-% \emph{之前}还排出了 \tn{penalty}，marker 与盒子并不相邻，搬移条件不成立。
-% transparent 在入口就取走 marker 与可选源码空格，锚点节点排出后再原样
-% 恢复，因而两种节点次序都能覆盖。
+% 区分两个出口的依据是\emph{调用点}，不是锚点内容：
+% \begin{itemize}
+%   \item 驱动层的 \tn{hyper@anchor} 承接经 \tn{hyper@@anchor} 进来的锚点。
+%     \tn{hypertarget} 的两个分支最终都走这里——\tn{@hyper@@anchor} 在
+%     \tn{ifHy@activeanchor} 为假时统一调用 \tn{hyper@anchor}，与目标内容
+%     是否为空无关。它直接排出裸的 \texttt{pdf:dest} whatsit。
+%   \item \tn{Hy@raisedlink} 承接需要抬升的锚点：目录条目、公式编号、脚注，
+%     以及下游手工包裹的写法，例如 \cls{ctxdoc} 的 \tn{exptarget} 定义为
+%     \tn{Hy@raisedlink}\verb*-{-\tn{hypertarget}\marg{name}\verb*-{}}-。
+%     它在水平模式下输出 \tn{penalty}\tn{@M} 加一个 \tn{smash} 后的
+%     \texttt{hbox(0+0)x0} 来盛放 \texttt{pdf:dest} special。
+% \end{itemize}
+% 因此两处都要注册：只注册 \tn{Hy@raisedlink} 时所有 \tn{hypertarget} 仍缺
+% 间距，只注册 \tn{hyper@anchor} 时目录和 \tn{exptarget} 一类写法仍缺间距。
+% 判断这类问题应当读分派函数的分支并用计数器实测，不能按公开命令的参数形态
+% 推测走哪条路。
 %
-% \changes{v3.10.5}{2026/08/04}{把驱动层的 \tn{hyper@anchor} 注册为
-%   transparent capture，使不经 \tn{Hy@raisedlink} 的裸 \tn{hypertarget}
-%   也恢复两侧边界（\#1047）。}
+% \tn{hyper@anchor} 由驱动定义，\pkg{hxetex}、\pkg{hluatex}、\pkg{hpdftex}
+% 与 \pkg{hdvipdfm} 使用同一名称，\pkg{hdvips} 没有这个命令；注册前先检查
+% 是否存在，避免装出无效 hook。\pkg{hyperref} 在 \tn{AtEndOfPackage} 阶段
+% 载入驱动，故包尾钩子里的存在性检查时机正确。
 %
-% 空目标的 \tn{hypertarget} 不走 \tn{Hy@raisedlink}，而是经
-% \tn{hyper@@anchor} 落到驱动层的 \tn{hyper@anchor}，直接排出裸的
-% \texttt{pdf:dest} whatsit。该 whatsit 同样遮蔽 marker，因此也注册为
-% transparent。这个命令由驱动定义，\pkg{hxetex}、\pkg{hluatex}、
-% \pkg{hpdftex} 与 \pkg{hdvipdfm} 使用同一名称；注册前先检查是否存在，
-% 避免在没有该命令的驱动上装出无效 hook。
+% \tn{Hy@raisedlink} 这一侧不能用 |post-transparent|：那个 after-only 变体
+% 只在命令结束后搬移末尾零尺寸盒子下方的 marker 与候选 glue，而
+% \tn{Hy@raisedlink} 在盒子\emph{之前}还排出了 \tn{penalty}，marker 与盒子
+% 并不相邻，搬移条件不成立。transparent 在入口就取走 marker 与可选源码空格，
+% 锚点节点排出后再原样恢复，因而两种节点次序都能覆盖。
 %
 % \tn{Hy@BeginAnnot} 在 annotation 起始 whatsit 之前启动 stream capture；
 % 链接文字中的 Default/CJK 转换随后直接记录实际首尾类别。顶层

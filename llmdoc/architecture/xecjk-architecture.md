@@ -269,11 +269,16 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 
 `\Hy@raisedlink` 是这种情形：它在水平模式下先排 `\penalty\@M`，再排 `\smash` 后的 `hbox(0+0)x0`。`penalty` 把 marker 与盒子隔开，`post-transparent` 实测无效；`transparent` 在入口就取走 marker 与可选源码空格、节点排完再原样恢复，因而两种节点次序都能覆盖。选策略前应当先用 `\showbox` 读出命令实际排出的节点序列。
 
-#### 同一个公开命令可能有多条实现出口（#1047）
+#### 同一类节点可能有多个出口，按调用点而非参数形态区分（#1047）
 
-`\hypertarget` 在源码里是一个命令，实际排版按目标是否为空分派到两个互不相交的内部出口：非空目标经 `\Hy@raisedlink`，空目标经 `\hyper@@anchor` 落到驱动层的 `\hyper@anchor`，后者直接排出裸的 `pdf:dest` whatsit。只注册前者时，空目标形式仍然缺少 `\CJKecglue`。
+hyperref 的行内锚点有两个出口，都会插入遮蔽 marker 的不可见节点，各需一次 `transparent` 注册：
 
-判据是**读分派函数的分支**，而不是看公开命令名，也不是假定「这个包的锚点都从同一处出去」。`\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 使用同名，`hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫。两个注册的判别力实测互不重叠，这一点本身就是「确实是两条路径」的证据。
+- 驱动层的 `\hyper@anchor` 承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的 `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**——`\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，与目标内容是否为空无关。
+- `\Hy@raisedlink` 承接需要抬升的锚点：目录条目、脚注，以及下游手工包裹的写法，例如 ctxdoc 的 `\exptarget` 定义为 `\Hy@raisedlink{\hypertarget{name}{}}`。它在水平模式下排出 `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。
+
+`\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 使用同名，`hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，因此包尾钩子里的存在性检查时机正确。
+
+**判据是读分派函数的分支并用计数器实测，不能按公开命令的参数形态推测走哪条路。** 本条曾一度被误写成「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」，看似能解释「注册一个不够」，但用计数器包装两个命令实测后发现：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。两个注册的判别力实测互不重叠仍然成立，但它证明的是「有两个出口」，不能进一步推出「按参数形态分派」——这需要单独的探针。
 
 #### 实验性用户注册入口（#1010）
 
@@ -603,7 +608,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | 目标包 | 补丁内容 |
 |--------|----------|
 | `color`/`xcolor` | `\set@color` / `\reset@color` 注册为 `transparent`；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
-| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点的两条出口 `\Hy@raisedlink` 与驱动层 `\hyper@anchor` 各注册为 `transparent`（#1047） |
+| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点的两个出口各注册为 `transparent`——驱动层 `\hyper@anchor` 承接全部 `\hypertarget`，`\Hy@raisedlink` 承接目录、脚注与下游手工包裹的抬升锚点（#1047） |
 | `ulem` | 通过 `stream-ulem` 观察实际首尾；framework 决定外侧 glue，`\UL@stop` / `\UL@start` 保证它位于装饰区间外 |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
 | `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换；`\lstinline` 两类扫描入口使用 `auto` stream |
