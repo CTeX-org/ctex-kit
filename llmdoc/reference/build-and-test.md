@@ -380,7 +380,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 - `xpinyin/testfiles/pinyin-tone01.lvt`（31 格）：声调数字到重音命令的映射，oracle 取直接写 `\=`、`\'`、`\v`、`` \` `` 的字面形式，比宽、高、深三个维度。
 - `xpinyin/testfiles/pinyin-tone02.lvt`：用 `\loggingoutput` 固定 shipout 的实际字形，是正面证据，与字体度量是否巧合无关。
 - `xpinyin/testfiles/pinyin-setup01.lvt`：`\xpinyinsetup` 中能用尺寸观察的六个键（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。
-- `xpinyin/testfiles/pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表。改变格式而不改变尺寸的两个键也归这里——`multiple`（只给多音字拼音附加格式）与 `footnote`（缺省 `false`，脚注内不注音），因为尺寸比较对它们完全不可见。
+- `xpinyin/testfiles/pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表。改变格式而不改变尺寸的键也归这里——`multiple`（只给多音字拼音附加格式）、`format` 的着色效果（作用于全部拼音）与 `footnote`（缺省 `false`，脚注内不注音），因为尺寸比较对它们完全不可见。`multiple` 与 `format` 互为对照且都必需：只有前者时，把两者的作用范围搞混（例如让 `format` 也只作用于多音字）不会被任何用例发现；基线用不同颜色（红／蓝）区分两者的 `\special{color push}`。
 
 **按键的可观察量分文件，而不是按「键」这个概念聚在一起。** `multiple` 一度只写在 `pinyin-setup01.lvt` 的覆盖清单里、并由 `pinyin-scope01.lvt` 交叉引用指向它，但两个文件都没有它的用例——盲审把这条列为重要问题：读注释的人会以为该键有回归保护。真实原因是它改的是颜色而非尺寸，放在以宽高比较为手段的 `setup01` 里本就无法断言。现在它落在 `scope01`，判据是 `\special{color push rgb 1 0 0}` 进基线，并用三格对照（多音字「重」着色、单音字「文」同样设了键也不着色、不设键的「重」不着色）保证判别力：只写第一格时，把「是否多音字」的判断去掉也照样通过。变异实测两个方向都会红——无条件套用该格式时红色 push 由 1 变 2，完全忽略该键时变 0。
 - `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。
