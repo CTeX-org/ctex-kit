@@ -229,8 +229,9 @@
   能验证，若要上门禁需要新增一个断言首类别结果的用例。
 - **`\colorbox` 参数里放裸 `&`（如 `\colorbox{yellow}{&$x$}`）不能写进基线**：这本身就不是
   合法 LaTeX，不加载 xeCJK 也报错。实测**首条**是 `Missing } inserted.`，其后是一串对齐相关
-  的连带报错（`Missing \cr inserted.`、`Misplaced alignment tab character &.`、`Misplaced \cr.`、
-  `Extra alignment tab has been changed to \cr.` 等，具体序列随语境不同）。写文档时只钉「首条」
+  的连带报错（`Missing \cr inserted.`、`Misplaced \cr.`、
+  `Extra alignment tab has been changed to \cr.` 等，具体序列随语境与列数不同；
+  `Misplaced alignment tab character &.` 只在多列对齐如 `tabular{cc}` 下才出现）。写文档时只钉「首条」
   这种可复现的弱断言，不要声称某个串「不出现」——它们多半作为连带错误在后面出现。
   首版基线曾误把这串报错固定下来，等于把上游限制冻结成本包预期。
 
