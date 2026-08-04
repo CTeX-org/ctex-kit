@@ -201,8 +201,18 @@ jobs:
             # 校验照样绿 —— 而"覆盖两处写法"恰恰是本 case 存在的理由.
             # 实测: 删掉 `[<日期> v<ver> xpinyin database]` 那一行后, 旧写法得到
             # count=1 而通过.
-            EXPL_VER=$(sed -nE 's/.*\{\\ExplFileDate\}\{([^}]*)\}.*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
-            DEF_VER=$(sed -nE 's/.*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2} v([^] ]+).*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
+            # 两条模式都必须锚到它们各自那一行的**标志性内容**, 不能只匹配形状.
+            #
+            # DEF_VER 尤其要锚: `[<日期> v<版本> ...]` 这个形状在说明性注释里并不
+            # 罕见 (support/build-config.lua 的注释里就有), 不锚定的话, 真正的
+            # `%<database>` 行被删除或改动后, 文件里任何一句含该形状的注释都能让这条
+            # 判空恒绿 —— 而「覆盖两处写法」正是本 case 存在的唯一理由.
+            # 实测: 删掉真行再追加一句 `% 举例: ... [2019/01/01 v3.1 something else]`,
+            # 未锚定的模式提取到 3.1 并通过.
+            # 锚点各取那一行独有的固定串: EXPL_VER 用紧随其后的
+            # `{\ExplFileDescription}`, DEF_VER 用 `xpinyin database]` 描述串.
+            EXPL_VER=$(sed -nE 's/.*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
+            DEF_VER=$(sed -nE 's/.*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2} v([^] ]+) xpinyin database\].*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
             if [ -z "${EXPL_VER}" ]; then
               echo "::error::未能从 ${DIR}/xpinyin.dtx 提取 {\\ExplFileDate}{...} 版本号."
               echo "::error::该行形如 '%<package>  {\\ExplFileDate}{3.1}{\\ExplFileDescription}'."
