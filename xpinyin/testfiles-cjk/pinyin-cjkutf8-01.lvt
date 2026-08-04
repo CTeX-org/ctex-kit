@@ -14,6 +14,15 @@
 %% 拼音字体这里不换: T1 编码的 Latin Modern 靠 \accent 现场合成重音, ǖ 一类
 %% 字符不需要字体本身收字 (实测无 "Missing character"), 因此不存在 XeTeX 路线上
 %% 「候选与 oracle 同时缺字而假通过」的问题.
+%%
+%% 但**尺寸断言在这条路线上比 XeTeX 那条弱得多**, 必须说清, 否则容易误以为
+%% 「无缺字」就等于「更可靠」: T1 Latin Modern 下锐音、钝音、caron 的合成结果
+%% 宽高完全相同 (实测 ht 三者均 6.88875pt, wd 均 13.333pt), 只有 macron (一声)
+%% 的 6.29724pt 和「无重音」(五声) 可与其余区分. 因此 TEST 1 的尺寸比较**拦不住
+%% 二声、三声、四声之间的对调** —— 实测把 \@@_num_to_tone:Nn 里的 \' 与 \` 对调,
+%% 本文件仍 All checks passed, 而 XeTeX 那四个文件全红.
+%% 补 TEST 6 用 \loggingoutput 固定实际节点, 作为这条路线的正面证据
+%% (与 pinyin-tone01／tone02 的分工同理).
 
 \documentclass{article}
 \usepackage{CJKutf8}
@@ -150,6 +159,29 @@
 }
 
 \ExplSyntaxOff
+
+%% TEST 6: 这条路线的正面证据 —— 用 \loggingoutput 固定 shipout 的实际节点.
+%%
+%% 上面的尺寸比较区分不了二／三／四声 (T1 Latin Modern 三者宽高全同, 见文件头),
+%% 所以必须让节点本身进基线. T1 下重音有两种实现形态, 基线会一并固定:
+%%   * 一声 macron 与三声 caron 走 \accent, 节点是
+%%     `\kern (for accent)` + 重音字符 + `\kern` + 基字母;
+%%   * 二声、四声在 T1 里有预组合字形, 节点就是单个字符.
+%% 二／四声因此在基线里是两个**不同的**预组合字符, 对调实现即失配.
+%% 不能用 \box_log:N／\box_show:N／\showbox 取节点: 三者都抛 `! OK.`, 而
+%% checkopts 带 -halt-on-error, 会当场终止编译, 其后用例静默不执行却仍可能报绿.
+%% 改用 \loggingoutput 让 shipout 例程把整页节点写进日志.
+%%
+%% 必须放在 \TEST 里: 页面在 \END 之前确实排出 (原始日志有 "Completed box
+%% being shipped out"), 但 l3build 只把 \TEST 区间内的内容归一化进 .tlg,
+%% 写在 \TEST 之外时节点列表进不了基线 —— 那样这一项就等于没有断言.
+%% 写在顶层而不是 \TEST 里 —— 与 pinyin-tone02.lvt 同一写法.
+%% 放进 \TEST 时实测节点列表进不了 .tlg (原始日志有 "Completed box being
+%% shipped out", 但归一化后该段被丢弃), 那样这一项等于没有断言.
+\loggingoutput
+\pinyin{ma1}\par\pinyin{ma2}\par\pinyin{ma3}\par
+\pinyin{ma4}\par\pinyin{ma5}\par
+\newpage
 
 \END
 

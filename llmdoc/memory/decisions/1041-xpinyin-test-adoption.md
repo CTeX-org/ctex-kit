@@ -50,14 +50,14 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`，测的其实是本机装了什么，跨机器不可复现。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。
 
-**复制清单取依赖包自己的 `installfiles`，不照抄 `ctex/build.lua` 的写法。** `ctex` 那份钩子遍历的是本包 `installfiles`，能工作是因为 `ctex` 的清单恰好覆盖了各依赖的**运行时**产物类型——按字面并非超集（`ctex` 的 `ct*.tex`／`zh*.tex` 接不住 `xeCJK` 的 `*.tex`，实测漏 13 个手册示例文件），只是漏掉的那些不参与运行时加载。xpinyin 照抄后漏了 `xeCJK` 的 `"*.cfg"`，产生**只隔离了一半**的状态：`xeCJK.sty` 取自工作树、`xeCJK.cfg` 仍取自系统 TeX Live（v3.10.3 对 v3.10.5），恰好破坏这条决策本身要达到的目的。终审盲审以 blocking 级查出。教训有两层：
+**复制清单取依赖包自己的 `installfiles`，不照抄 `ctex/build.lua` 的写法。** `ctex` 那份钩子遍历的是本包 `installfiles`，能工作是因为 `ctex` 的清单恰好覆盖了各依赖的**运行时**产物类型——按字面并非超集（`ctex` 的 `ct*.tex`／`zh*.tex` 接不住 `xeCJK` 的 `*.tex`，实测漏 13 个 `.tex`（`xunicode-symbols.tex` 加 12 个 `xeCJK-example-*.tex`）），只是漏掉的那些不参与运行时加载。xpinyin 照抄后漏了 `xeCJK` 的 `"*.cfg"`，产生**只隔离了一半**的状态：`xeCJK.sty` 取自工作树、`xeCJK.cfg` 仍取自系统 TeX Live（v3.10.4 对 v3.10.5），恰好破坏这条决策本身要达到的目的。终审盲审以 blocking 级查出。教训有两层：
 
 - **「照抄一个能工作的实现」不等于该实现的前提在新场景下也成立**——`ctex` 的写法依赖一个未被写下来的巧合（超集关系），迁移时那个前提悄悄失效了。
 - **部分隔离比不隔离更难发现**：测试全绿，`.sty` 的路径也确实是工作树的，只有逐个核对每类产物的实际加载路径才看得出来。
 
 现行实现用 `loadfile`（不是 `dofile`——后者在全局环境执行，既无法隔离也无法用 `pcall` 兜住）读依赖包 `build.lua` 的 `installfiles`，并设两道**拒绝**判据：读不到或不是表则 `error`，空表则 `error`。`pcall` 的错误对象不构成判据（它不拒绝任何东西），而是在这两道判据触发时随 `error` 一并报出；正常情况下不打印——每次 `check` 都无条件打一行「预期行为」只会训练读者忽略它。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的——`installfiles` 在那之前就已赋值——但该错误必须可见，否则将来失败点前移到赋值之前时问题无从发现。
 
-**仍存在两个已接受的缺口**，如实记下而不假称已完全封闭。若依赖包把 `installfiles` 改成分步构造（先赋一个字面表，中途某句失败，之后再追加若干项），得到的是**残缺表**，它同时通过「是表」与「非空」两道判据，于是只复制一半而不报错——与本节要消灭的症状同型。实测确认了这一点。当前不进一步收紧是因为再严的判据都要预设依赖包的写法，反而更脆；防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖或依赖包重构后，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
+**仍存在两个已接受的缺口**，如实记下而不假称已完全封闭。若依赖包把 `installfiles` 改成分步构造（先赋一个字面表，中途某句失败，之后再追加若干项），得到的是**残缺表**，它同时通过「是表」与「非空」两道判据，于是只复制一半而不报错——与本节要消灭的症状同型。实测确认了这一点。当前不进一步收紧是因为再严的判据都要预设依赖包的写法，反而更脆；`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖或依赖包重构后，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
 **缺口二（现网即存在）：判据只看 `installfiles` 这张表，不看每条 glob 是否真的匹配到文件。** `xeCJK` 的 `installfiles` 含 `"*.map"` 与 `"*.tec"`，而这两类产物由 `xeCJK/build.lua` 的 `unpack_posthook` 在 `if install_files_bool then` 内经 TECkit 生成，该标志只在 `support/build-config.lua` 的 `install_files` 包装里置真，`check`／`unpack` 路径下始终为 nil。因此实测 `xeCJK/build/unpacked/` 下 `*.map`／`*.tec` 各匹配 0 个文件，`cp` 静默复制零个并返回 0，两道判据全部通过。**今天不触发**：xpinyin 现有测试都不使用 `Mapping=` 一类需要 `.tec` 的写法。但一旦将来加了这种测试，`.tec` 会命中系统 TeX Live 的 `texmf-dist/fonts/misc/xetex/fontmapping/xecjk/`（实测该目录确实有那 8 个文件），又是一次「测的其实是本机装了什么」。不在 `cp` 后加零匹配检查并 `error`，是因为现网就会当场失败；**新增依赖或新增用到 `.map`／`.tec` 的测试时，必须回到这里核对**。
 
