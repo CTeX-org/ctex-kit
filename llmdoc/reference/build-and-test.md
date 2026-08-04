@@ -399,7 +399,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **`\showbox`／`\box_log:N` 在 `-halt-on-error` 下会当场中止。** 三者都抛 `! OK.`，而 xpinyin 的 `checkopts` 带 `-halt-on-error`，会当场终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着；xpinyin 的解法同样是一律用 `\loggingoutput` 读取 shipout 的实际节点列表。
 
-**`checkdeps` 单独声明不够，必须配 `checkinit_hook`。** `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。
+**`checkdeps` 单独声明不够，必须配 `checkinit_hook`。** `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。`checkinit_hook` 与「本地 TeX Live usertree 同步」一节里 `localdir` 注入手段的目标不同，不要混用：这里是永久性的构建配置，让测试稳定使用工作树的依赖包而非系统 TeX Live；`localdir` 注入是临时的对照实验手段，用来一次性判定某个上游漂移的根因。
 
 **复制清单必须取依赖包自己的 `installfiles`，照抄 `ctex/build.lua` 会漏文件。** `ctex/build.lua:72-80` 的钩子遍历的是**本包**的 `installfiles`；那里能工作纯属巧合——`ctex` 自己的 `installfiles` 恰好覆盖了各依赖的**运行时**产物类型。（按字面并不是超集：`ctex` 只有 `ct*.tex`／`zh*.tex`，接不住 `xeCJK` 的 `*.tex`，实测漏掉 `xunicode-symbols.tex` 与 12 个 `xeCJK-example-*.tex`；那些是手册示例，不参与运行时加载，所以 `ctex` 侥幸没被这一点咬到。）xpinyin 照抄后就漏了：本包是 `{"*.sty","*.def","*.ins"}`，而 `xeCJK` 还装 `"*.cfg"`，于是出现只复制了一半的分裂状态——`xeCJK.sty` 用工作树版本（日志显示 `./xeCJK.sty`），`xeCJK.cfg` 却仍命中 `texmf-dist/tex/xelatex/xecjk/xeCJK.cfg`，而那份是 v3.10.4、工作树是 v3.10.5，`\GetIdInfo` 与版本号行都不同。**这恰好破坏了该钩子声称要消除的「测的其实是本机装了什么」**，且症状隐蔽：测试全绿，只有对比日志里两个文件的路径才看得出来。这类缺陷是盲审在终审轮以 blocking 级查出的。现行做法是用 `loadfile` 在独立环境里读依赖包的 `build.lua`、取它自己的 `installfiles`（用 `loadfile` 而非 `dofile`：后者在全局环境执行，既无法隔离也无法用 `pcall` 兜住），并设两道**拒绝**判据——读不到或不是表则 `error`、空表则 `error`；`pcall` 的错误对象不构成判据（它不拒绝任何东西），而是在这两道判据触发时随 `error` 一并报出，作为线索；不硬编码第二份清单，否则依赖包将来新增产物类型时会再次静默漏掉。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的，`installfiles` 在那之前已赋值；但错误必须可见，否则将来失败点前移到赋值之前时无从发现。
 
@@ -587,6 +587,12 @@ PR #799 暴露了一个稳定信号：`xeCJK/testfiles/listings-hash01.lvt` 新�
 这条约束不仅适用于宏包依赖，测试用到的字体同样要同步这份白名单。#1041 的 xpinyin 测试用 `DejaVuSerif.ttf`（避开 Latin Modern 缺 U+01D6 的问题）和 `FreeSerif.otf`（`pinyin-setup01.lvt` 的 `font` 键对照字体），因此 `.github/tl_packages` 补了 `dejavu` 与 `gnu-freefont`——这两个 TeX Live 包分别提供上述字体文件，新增测试字体前应先核对是哪个包提供。
 
 核对要**逐个走一遍**，不能只补自己意识到的那几个。同一批改动里，pdfTeX 那条线新引入的 `CJKutf8`、`lmodern` 和 `gbsn` 字体族当时并未逐个核对归属，事后查明恰好已被既有的 `cjk`（提供 `CJKutf8.sty` 与 `c70gbsn.fd`）、`lm`、`arphic` 覆盖——也就是说那次没出问题是运气，而不是流程起了作用。核对方式是对每个新引入的 `\usepackage`、字体文件名和字体族分别跑 `tlmgr search --file --global`，再用 `grep -qx` 确认包名真在白名单里；漏掉的后果是本地完整 TeX Live 通过而 CI 在精简环境里缺包失败（`.log` 为空、`.tlg` 比对失败，根因不在输出差异）。
+
+**改动 `.github/tl_packages` 本身等价于一次强制 CI 缓存失效。** TL bypass cache key 含 `hashFiles('.github/tl_packages')`（见下方 `warmup-tl` job 一节）；只要这个文件的内容变了，key 就变了。#1050 给 `dejavu`／`gnu-freefont` 加了三行触发的正是这条路径：该 PR 侧的 cache miss、当场全新安装，拿到的是当前上游最新版本；而未改这个文件的 `master` 继续命中改动前写入的旧快照，两侧使用的其实是两个不同时间点的上游环境。
+
+后果：**同一个 commit 在 master 上重跑可能是绿的，在 PR 上却是红的，且 master 的绿不能作为「代码在当前上游下仍然通过」的证据**——它只说明 master 这次跑的是旧快照，没有真正验证当前上游。旧快照最迟会在 cache key 里的 `%G-W%V`（ISO 年-周）翻周时失效，届时 master 自己也会开始暴露同样的漂移。
+
+判读方法是比较两次运行各自命中的缓存 key、`actions/cache` 记录里的缓存创建时间与体积，而不是只看 job 颜色。#1050 的实证：master 侧缓存创建于 08-03 00:44、319MB；PR 侧创建于 08-04 11:59、328MB——不同的创建时间和体积就是两份不同快照的直接证据。
 
 CI 现在的结构 (PR #899 后):
 
@@ -840,6 +846,31 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 - 当用户报告“同一份 dtx 在旧 TeX Live 上失败”时，先看其 `\NeedsTeXFormat` 行——本仓库声明的下限即是 2026-06-01，旧 TeX Live 直接不应被当作支持目标。
 - 升级声明日期（如未来到下一个 LaTeX2e 快照）通常意味着一次成批的 `.tlg` 基线更新；这类基线 PR 不应被当成业务回归处理。
 
+## 上游宏包版本漂移的识别与基线处置
+
+#1048/#1050 排查 CI 红时发现两个独立的上游根因，都不是 LaTeX2e 内核整体升级（上一节覆盖的场景），而是单个宏包相对自己的发布节奏各自漂移：
+
+- **l3backend 落后 l3kernel**：同属 expl3 的两个包本该同步发布，但当时 l3kernel 是 rev 79868／`2026-07-20`，l3backend 是 rev 78544／`2026-02-18`，相差五个月。CTAN 上的 l3backend 已经是 `2026-07-20`（与 l3kernel 同日），而 tlnet（TeX Live 网络仓库，`tlmgr update` 拉取的源）仍停在 rev 78544，所以 `tlmgr update` 拿不到新版本，只能等 tlnet 自己同步。注意 revision 号是 TeX Live 的打包序号，CTAN 侧没有这个号，两边只能靠包内日期戳对齐。
+- **pgf**：`\pgfversiondate` 已是 `2026-08-01`，但 TeX Live 打包的 `cat-version` 元数据仍标 `3.1.11a`。
+
+由此得到一条重要事实：**TeX Live 打包元数据会滞后于实际文件内容**。判断一个宏包的真实版本要看包内的日期戳或版本占位宏（如 `\pgfversiondate`、`\ExplFileDate`），不能只看 `tlmgr info <pkg>` 报的 `cat-version`——后者只是打包时写入的标签，可能已经过期。
+
+pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` 改用整数运算 `(2*bp)*400/803` 并按符号补 1sp，源码注释说明动机是原先的换算「rounded to 0.99627 but that incurs a rounding error」，改为参照 l3kernel 的 `\dim_to_decimal_aux:w` 的做法。产出点是 `pgfsys-dvipdfmx.def:86` 的 `\pgfsys@hboxsynced` 中的 `\special{pdf:btrans matrix ...}`——即最终写进 PDF 的坐标数值。
+
+### 基线处置的分类判据
+
+判断某个上游漂移触发的 `.tlg` 基线 diff 该不该刷，先分类根因：
+
+- **会自愈的漂移不刷基线**。l3backend 这一类是 TL 打包侧暂时没跟上 CTAN，本质是「旧快照」而不是「上游改了行为」；一旦 tlnet 同步，数值会自己变回去。如果现在刷基线，等于把上游当前这个滞后快照里的（相对新版本而言）错误数值固化下来，TL 同步后又要改回来，白做一次。
+- **上游有意修正且不会回退的漂移必须刷**。pgf 的舍入修正属于这一类：源码注释写明了动机，是一次明确的、面向未来的修正，不会被撤销。
+
+这条判据是 `## LaTeX2e 格式依赖声明` 那句「升级声明日期通常意味着一次成批的 `.tlg` 基线更新；这类基线 PR 不应被当成业务回归处理」在「单个宏包独立漂移」场景下的推广——后者针对的是本仓库主动声明的内核版本整体上调，这里针对的是本仓库没有主动做任何声明、纯粹因为上游各宏包各自的发布节奏不同步而出现的局部漂移，判据从「声明变了就该刷」细化为「先分辨会不会自愈」。
+
+### 两条操作细节
+
+- **不能靠正则替换数字更新 `.tlg`，必须让 l3build 重新生成**。实证是 `beamer01` 的 `2000.0` 出现次数从基线 8 次降到 4 次，成对的 push/pop 数量也随之变化——手工改几个数字看起来能让 diff 变小，但改不出正确的节点结构。
+- **关掉断言不是刷基线**。`fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验，而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的。刷基线的前提是让测试在正确环境下重新跑出真实结果，不是让测试不再报告结果。
+
 ## Git 信息注入
 
 发布/打包过程中，`support/build-config.lua` 会借助 git 历史展开 `\GetIdInfo`，把最近提交标识写入相应 `.id` 文件及输出产物。见 `support/build-config.lua:70-115`。
@@ -882,14 +913,50 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 
 ### 本地测试失败的环境指纹检查表
 
-当本地 `l3build check` 失败而最新 master CI 全绿时，先看 `.tlg` diff 的指纹：
+这张表原先隐含的前提是「本地失败、而最新 master CI 全绿」；#1048/#1050 证伪了这条前提本身可能不成立——master 的绿有时只是因为它命中了一份比 PR 更旧的 CI 缓存快照，并不代表当前上游环境下代码仍然通过（详见前面 `.github/tl_packages` 维护约束一节里的 CI 缓存 key 语义）。因此更准确的说法是：**当本地 `l3build check` 失败、且已确认 master 与 PR 两侧 CI 缓存未分叉时**，先看 `.tlg` diff 的指纹：
 
 | 指纹 | 含义 |
 |------|------|
 | 前几行出现 `LaTeX Warning: You have requested release '<日期>' of LaTeX` | 本地 LaTeX2e 内核 < 仓库声明的最低日期（通常即 #883 的 2026-06-01）|
 | diff 出现 `\mathon` / `\mathoff` 节点 或 `$[]$` 风格 Overfull 标记 | 本地 LaTeX / hyperref / graphics 的 `\showbox` 实现旧版 |
 | 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
+| `\cleaders` + `\glue` 几何数值出现差异（如间距、周期宽度对不上） | 疑 l3backend 与 l3kernel 版本不匹配。`fntef` 用 `\cleaders` 铺重复图案，间距经 pt→bp 换算落到网格，对 backend 的舍入实现敏感 |
+| `\special{pdf:btrans matrix ...}` 坐标末位变化（如 `0.3985 w`→`0.39851 w`、`2000.02579`→`2000.0`），或 luatex 下 `\pdfliteral origin` 输出变化 | pgf ≥ 3.1.12 的 `\pgf@sys@bp@correct` 舍入修正生效，这是上游有意变更，**不会回退** |
 
-出现以上任一指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查。
+出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查；出现后两条指纹时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。
 
-详见反思 [[873-880-meta-url-hbox-math-boundary]]。
+详见反思 [[873-880-meta-url-hbox-math-boundary]]、[[1048-1050-upstream-l3backend-pgf-baseline-drift]]。
+
+### 往 check 环境注入替代版本的上游宏包（localdir）
+
+要在不碰系统 TeX Live 安装的前提下，用某个替代版本的上游宏包重跑 `l3build check`（例如验证「上游某个版本是否已经修复某个问题」），必须把替代版本放进 `localdir`（即 `build/local`）。`l3build-check.lua:74-76` 的 `checkinit()` 会在每轮 check 开头把 `localdir` 里的文件复制进 `testdir`；这是唯一的注入点。
+
+两个常见的放错位置都会导致假阴性：
+
+- **直接写 `testdir`（ctex 是 `build/check`，多数包是 `build/test`）不行**：`checkinit()` 在复制 `localdir` 之前先执行 `cleandir(testdir)`（除非带 `--dirty` 选项），每轮开头都会把 `testdir` 清空，写进去的文件立刻被删。
+- **设 `TEXINPUTS` 环境变量也不行**：`l3build-check.lua:850` 在拼编译命令的 preamble 时写死了 `TEXINPUTS=.` 加 `localtexmf()`，会覆盖调用环境里已设置的 `TEXINPUTS`，外部设置不生效。
+
+**生效判据（这是本节的核心，缺了它「放错位置导致的假阴性」与「新版本确实修不好」在结果上完全一样）**：跑完 `l3build check` 后，核对测试目录里对应文件的日期戳或版本占位宏。例如验证 l3backend 时，核对 `build/test/l3backend-xetex.def`（ctex 因 `testdir = "./build/check"` 是 `build/check/l3backend-xetex.def`）里的日期戳，确认它确实变成了替代版本的日期，而不是停留在系统安装版本的日期。没有这一步核对，「注入没生效、测试其实还在用旧版本」与「注入生效了、新版本确实没修好」这两种情况的表现完全相同——都是「仍然报错」。
+
+可复现的最小步骤（以验证某个 l3backend 候选版本为例）：
+
+```bash
+# 1. 从 CTAN 取目标版本的 l3backend 源码
+#    注意路径是 required/ 而不是 contrib/（后者返回 404）
+curl -sSL -o l3backend.zip https://mirrors.ctan.org/macros/latex/required/l3backend.zip
+unzip -oq l3backend.zip
+
+# 2. 解包出各引擎的 .def
+cd l3backend && tex l3backend.ins
+
+# 3. 复制进目标包的 localdir（该目录可能还不存在）
+mkdir -p <pkg>/build/local
+cp l3backend-*.def <pkg>/build/local/
+
+# 4. 跑 check，然后核对日期戳（见上）
+cd <pkg> && l3build check
+# .def 里没有 \GetIdInfo，日期戳是 \ProvidesExplFile 的 {YYYY-MM-DD} 参数：
+grep -m1 -oE "\{[0-9]{4}-[0-9]{2}-[0-9]{2}\}" build/test/l3backend-xetex.def   # ctex 看 build/check/
+```
+
+`checkinit_hook`（见「xpinyin 的注音回归（#1041）」一节）与本节手段目标不同，不要混用：`checkinit_hook` 是永久性的构建配置，让测试稳定使用工作树里的依赖包而不是系统 TeX Live（每次 check 都生效，是仓库长期维护的一部分）；本节的 `localdir` 注入是临时的对照实验手段，用于一次性判定某个上游漂移的根因，验证完成后通常就会移除注入的文件。
