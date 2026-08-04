@@ -1,28 +1,38 @@
 \input{regression-test}
 
 % #1047: hyperref 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
-% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。有两个出口，按**调用点**
-% 区分（不是按锚点内容），各自需要注册：
+% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。出口有多个，按**调用点**区分
+% （不是按锚点内容）。下面两个已注册：
 %
 % 1. 驱动层的 \hyper@anchor：承接经 \hyper@@anchor 进来的锚点，直接排出裸的
 %    pdf:dest whatsit。\hypertarget 的两个分支最终都走这里——\@hyper@@anchor
 %    在 \ifHy@activeanchor 为假时统一调 \hyper@anchor，与目标内容是否为空
 %    无关（已用计数器实测：空目标、CJK 目标、西文目标、数字目标四种形式的
 %    \Hy@raisedlink 调用次数均为 0）。
-% 2. \Hy@raisedlink：承接需要抬升的锚点——目录条目、脚注等——以及下游手工
-%    包裹的写法，例如 ctxdoc 的 \exptarget 定义为
+% 2. \Hy@raisedlink：承接需要抬升的锚点——无编号标题（\section*、\chapter*
+%    以及目录、参考文献等自动生成的无编号标题）、caption、公式编号、脚注、
+%    \bibitem——以及下游手工包裹的写法，例如 ctxdoc 的 \exptarget 定义为
 %    \Hy@raisedlink{\hypertarget{name}{}}。它在水平模式下排出 \penalty\@M
 %    加一个 \smash 后的 hbox(0+0)x0（内含 pdf:dest special）。
 %    本测试的 \TestTarget 就是复刻这种写法。
+%    注意目录**条目**不走这条路：\contentsline 用 \hyper@linkstart /
+%    \hyper@linkend 做链接，与抬升锚点无关（实测计数为 0）。
 %
 % 两者都无可见输出，注册为 transparent（入口取走 marker 与可选源码空格，
 % 锚点节点排出后原样恢复）。\Hy@raisedlink 这一侧不能用 post-transparent：
 % 那个 after-only 变体要求 marker 与末尾零尺寸盒子相邻，而 \Hy@raisedlink
 % 在盒子之前还排出 \penalty，搬移条件不成立（实测无效）。
 %
+% 出口不止这两个：hyperref 还有 \__hyp_target_raise:n，\phantomsection 与
+% \MakeLinkTarget 走它，尚未覆盖。TEST 7 把这个缺口固定为已知限制，防止将来
+% 有人以为「注册两处就覆盖了全部锚点」。
+%
 % 判别力（已实测）：去掉 \Hy@raisedlink 注册，TEST 1、TEST 2 由 41.66002
-% 退化为 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4 各少一枚 3.33pt。
-% 两组互不重叠，说明确实是两个独立出口。
+% 退化为 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4、TEST 4b 各少一枚
+% 3.33pt。两组互不重叠，说明确实是两个独立出口。
+%
+% 注意 .tlg 里的 \TEST 块按出现顺序编号，与本文件注释里的「TEST 4b」「TEST 5」
+% 等称法有一位错开（4b 在 .tlg 中是第 5 个块）。对照失败项时以断言文字为准。
 
 \documentclass{article}
 
@@ -175,6 +185,32 @@
     \TYPE{PASS: hyperref matches plain mbox layout}
   \else
     \TYPE{FAIL: hyperref differs from mbox by \the\dimen0}
+  \fi
+}
+
+% --- TEST 7: 已知限制——第三个抬升出口尚未覆盖 ---
+% hyperref 的 \__hyp_target_raise:n 自己排出同构的 \penalty\@M + \smash
+% 抬升盒子，不经过 \Hy@raisedlink。\phantomsection 与 \MakeLinkTarget 走它，
+% 因此右侧仍丢一枚 \CJKecglue。
+%
+% 它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），而现成的
+% 一参数透明包装会把 begin 钩子里的赋值卷进它的参数展开——实测会把
+% \spacefactor 赋值写进 pdf:dest 名字、并把锚点名排成可见文本，故不能套用。
+%
+% 这一项断言「缺口仍然存在」，是为了让将来补上注册时测试主动失败，从而必须
+% 回来更新这段说明；否则「注册两处就覆盖全部锚点」的错觉会一直留在文档里。
+
+\TEST{third raise outlet remains uncovered (1047, known limitation)}{
+  \setbox\BareMathBox=\hbox{带有 \phantomsection$\star$ 标}
+  \TYPE{INFO: phantomsection=\the\wd\BareMathBox,
+    direct=\the\wd\DirectMathBox}
+  \dimen0=\wd\DirectMathBox \advance\dimen0 by -\wd\BareMathBox
+  % 预期仍缺一枚 \CJKecglue（3.33pt）。若这一项失败，说明第三个出口已被
+  % 覆盖或行为已变，应重新核对本文件与 llmdoc 中的出口清单。
+  \ifdim\dimen0>3pt
+    \TYPE{PASS: gap still present as documented (\the\dimen0)}
+  \else
+    \TYPE{FAIL: gap changed to \the\dimen0 -- revisit the outlet inventory}
   \fi
 }
 
