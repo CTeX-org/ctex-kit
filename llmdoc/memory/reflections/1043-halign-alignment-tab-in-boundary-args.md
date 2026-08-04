@@ -117,8 +117,8 @@ dtx 里加了一行声明。实测 `\cs_if_exist:NTF \tl_replace_all:NVn` 为**�
 
 - 教训 1 与 2 最重要且通用，已进 `reference/coding-conventions.md`：既纠正 `&` 的
   catcode 事实，也补上「探针先自证」和「反向验证要对准被断言的机制」。
-- 教训 3 已进 coding-conventions。教训 5 的「用 `\cs_if_exist:NTF` 而非 grep 判定存在性」
-  一并收进该节。
+- 教训 3 与教训 5（「用 `\cs_if_exist:NTF` 而非 grep 判定存在性」，含对照组要求）都已进
+  `coding-conventions.md`。
 - 教训 4、6 属调研与测试方法，留在本反思和 `.lvt` 注释即可。
 
 ### 7. 门禁「三项覆盖」实为两项空转（终审抓到）
@@ -128,7 +128,7 @@ xeCJK 的 `checkopts` 带 `-halt-on-error`，缺陷态下 TEST 1 一报错就中
 **TEST 2／TEST 3 在日志里出现 0 次**——它们从不参与判别，是看起来正规实际空转的校验。
 
 更难堪的是：这条约束是本仓库 #1038 亲自踩过并写进 `build-and-test.md` 的
-（「每个能独立触发该缺陷的用例都要有自己的文件」），而我在同一轮任务里\emph{读过}那份文档
+（「每个能独立触发该缺陷的用例都要有自己的文件」），而我在同一轮任务里**读过**那份文档
 （还据它改了测试计数），却没把它应用到自己新写的测试上。已拆成
 `halign-amp-boundary01/02/03.lvt`，三个文件逐个实测缺陷版 rc 1。
 
@@ -157,7 +157,8 @@ dtx、架构文档、`.lvt` 三处都写「`\halign` 内 TeX 把 `&` 置为 catc
 
 ## 元教训
 
-七轮独立审查共报 29 个 finding，逐轮分项（与 `.code-review/ledger-1043-final.md` 一致）：
+七轮独立审查共报 29 个 finding，逐轮分项如下（本表即唯一事实源；`.code-review/` 台账是
+本地产物、按设计不入库）：
 
 | 轮次 | blocking | important | minor |
 |---|---|---|---|
