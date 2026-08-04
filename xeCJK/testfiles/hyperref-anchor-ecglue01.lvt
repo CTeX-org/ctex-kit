@@ -1,21 +1,28 @@
 \input{regression-test}
 
 % #1047: hyperref 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
-% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。两条路径各自需要注册：
+% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。有两个出口，按**调用点**
+% 区分（不是按锚点内容），各自需要注册：
 %
-% 1. \Hy@raisedlink：水平模式下排出 \penalty\@M 加一个 \smash 后的
-%    hbox(0+0)x0（内含 pdf:dest special）。\hypertarget 带非空目标、目录
-%    锚点、threeparttable 的脚注锚点都走这条路。
-% 2. 驱动层的 \hyper@anchor：空目标的 \hypertarget 经 \hyper@@anchor 落到
-%    这里，直接排出裸的 pdf:dest whatsit，不经过 \Hy@raisedlink。
+% 1. 驱动层的 \hyper@anchor：承接经 \hyper@@anchor 进来的锚点，直接排出裸的
+%    pdf:dest whatsit。\hypertarget 的两个分支最终都走这里——\@hyper@@anchor
+%    在 \ifHy@activeanchor 为假时统一调 \hyper@anchor，与目标内容是否为空
+%    无关（已用计数器实测：空目标、CJK 目标、西文目标、数字目标四种形式的
+%    \Hy@raisedlink 调用次数均为 0）。
+% 2. \Hy@raisedlink：承接需要抬升的锚点——目录条目、脚注等——以及下游手工
+%    包裹的写法，例如 ctxdoc 的 \exptarget 定义为
+%    \Hy@raisedlink{\hypertarget{name}{}}。它在水平模式下排出 \penalty\@M
+%    加一个 \smash 后的 hbox(0+0)x0（内含 pdf:dest special）。
+%    本测试的 \TestTarget 就是复刻这种写法。
 %
 % 两者都无可见输出，注册为 transparent（入口取走 marker 与可选源码空格，
-% 锚点节点排出后原样恢复）。不能用 post-transparent：那个 after-only 变体
-% 要求 marker 与末尾零尺寸盒子相邻，而 \Hy@raisedlink 在盒子之前还排出
-% \penalty，搬移条件不成立（实测无效）。
+% 锚点节点排出后原样恢复）。\Hy@raisedlink 这一侧不能用 post-transparent：
+% 那个 after-only 变体要求 marker 与末尾零尺寸盒子相邻，而 \Hy@raisedlink
+% 在盒子之前还排出 \penalty，搬移条件不成立（实测无效）。
 %
-% 判别力（已实测）：去掉 \Hy@raisedlink 注册，TEST 1 由 41.66002 退化为
-% 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4 同样各少一枚 3.33pt。
+% 判别力（已实测）：去掉 \Hy@raisedlink 注册，TEST 1、TEST 2 由 41.66002
+% 退化为 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4 各少一枚 3.33pt。
+% 两组互不重叠，说明确实是两个独立出口。
 
 \documentclass{article}
 
@@ -81,8 +88,8 @@
   \fi
 }
 
-% --- TEST 3: 空目标 \hypertarget 走驱动层 \hyper@anchor ---
-% 这条路径不经过 \Hy@raisedlink，需要独立注册。
+% --- TEST 3: 裸 \hypertarget 走驱动层 \hyper@anchor ---
+% \hypertarget 不经过 \Hy@raisedlink（无论目标是否为空），需要独立注册。
 
 \TEST{empty hypertarget before math keeps ecglue (1047)}{
   \setbox\BareMathBox=\hbox{带有 \hypertarget{t3}{}$\star$ 标}
@@ -97,7 +104,7 @@
   \fi
 }
 
-% --- TEST 4: 空目标 \hypertarget 后接西文词 ---
+% --- TEST 4: 裸 \hypertarget 后接西文词 ---
 % 公式与普通西文词走 Boundary->Default 的不同分支，分别断言。
 
 \TEST{empty hypertarget before Latin word keeps ecglue (1047)}{
@@ -114,7 +121,25 @@
   \fi
 }
 
-% --- TEST 5: 非空目标 \hypertarget 的可见内容仍按实际类别处理 ---
+% --- TEST 4b: 带西文可见内容的 \hypertarget 也走 \hyper@anchor ---
+% 这一项固定「区分依据是调用点而非锚点内容」：目标非空时锚点仍经
+% \hyper@anchor 排出，左侧的 \CJKecglue 同样依赖该注册。
+
+\TEST{hypertarget with visible Latin target keeps ecglue (1047)}{
+  \setbox\BareWordBox=\hbox{带有 \hypertarget{t4b}{word}$\star$ 标}
+  \setbox\DirectWordBox=\hbox{带有 word$\star$ 标}
+  \TYPE{INFO: visible-target=\the\wd\BareWordBox,
+    direct=\the\wd\DirectWordBox}
+  \dimen0=\wd\BareWordBox \advance\dimen0 by -\wd\DirectWordBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: visible-target hypertarget matches direct input}
+  \else
+    \TYPE{FAIL: visible-target hypertarget differs by \the\dimen0}
+  \fi
+}
+
+% --- TEST 5: 带 CJK 可见内容的 \hypertarget 仍按实际类别处理 ---
 % 目标内容是 CJK 时，锚点前后应是 CJK-CJK 边界（\CJKglue，默认 0pt
 % plus 0.96002），不能因为注册了 transparent 就补上 \CJKecglue。
 

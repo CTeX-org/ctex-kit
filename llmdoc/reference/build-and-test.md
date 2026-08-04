@@ -210,11 +210,13 @@
 
 ### 注册点的字体上下文与锚点两条出口（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
 
-`codedoc-meta-symmetry01.lvt` 用**真实的 `l3doc` 文档类**（不是自己模拟内层函数）固定 13 项断言：四种源码空格组合各自与 oracle `左\texttt{$\langle$name$\rangle$}右` 等宽、左右两侧单边贡献相等且均为 13.33pt、左边界带 `plus` 分量（用 `\badness` 正向断言，因为 `\hbox to` 的实际宽度恒等于目标宽度、结构上恒真）、CJK 参数仍保持 `\hbox:n` 隔离（#920 不回退）、`\Arg` 与 `\oarg` 外侧贡献一致、纯西文上下文仍保留源码空格语义。判别力已实测：把注册点改回内层 `\__codedoc_meta:n` 后 8 项失败，数值为 1.92pt（等宽字体 5.25pt 减正文字体 3.33pt）、15.25pt 与 badness 10000。
+`codedoc-meta-symmetry01.lvt` 用**真实的 `l3doc` 文档类**（不是自己模拟内层函数）固定 12 项断言（9 个 `\TEST` 块）：四种源码空格组合各自与 oracle `左\texttt{$\langle$name$\rangle$}右` 等宽、左右两侧单边贡献相等且均为 13.33pt、左边界带 `plus` 分量（用 `\badness` 正向断言，因为 `\hbox to` 的实际宽度恒等于目标宽度、结构上恒真）、CJK 参数仍保持 `\hbox:n` 隔离（#920 不回退）、`\Arg` 与 `\oarg` 外侧贡献一致、纯西文上下文仍保留源码空格语义。判别力已实测：把注册点改回内层 `\__codedoc_meta:n` 后 8 项失败，数值为 1.92pt（等宽字体 5.25pt 减正文字体 3.33pt）、15.25pt 与 badness 10000。
 
 **既有的 `codedoc-meta-ecglue01` 对 #1046 零判别力**，不要据它判断该场景已覆盖：它自己用 `\cs_new_protected:Npn \__codedoc_meta:n` 模拟内层函数，**没有 `\texttt` 外层**，而 `\texttt` 正是这个缺陷的必要条件。这与 #1038 中既有 `tabular01` 因每行 `\\` 前有空格而零判别力属同一类：测试用简化替身模拟被测对象时，简化掉的那一层可能正是缺陷所在。
 
-`hyperref-anchor-ecglue01.lvt` 固定 7 项断言，覆盖 `\Hy@raisedlink` 与驱动层 `\hyper@anchor` 两条出口，另含非空 CJK 目标仍按 CJK–CJK 处理、`\hyperref` 链接间距不受影响。两条路径的判别力实测**互不重叠**——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 失败，去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4 失败——这一点本身是「确实是两条独立路径」的证据，分支级改动因此得到分支级断言。
+`hyperref-anchor-ecglue01.lvt` 固定 8 项断言，覆盖 hyperref 行内锚点的两个出口，另含带 CJK 可见内容的目标仍按 CJK–CJK 处理、`\hyperref` 链接间距不受影响。两个出口的判别力实测**互不重叠**——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 失败，去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4、TEST 4b 失败——这一点本身是「确实是两个独立出口」的证据，分支级改动因此得到分支级断言。
+
+但要注意判别力互不重叠**只**能证明「有两个出口」，不能推出「按什么分派」。本测试的注释曾一度写成「非空目标走 `\Hy@raisedlink`、空目标走 `\hyper@anchor`」，经盲审用计数器包装两个命令实测后更正：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**，两个分支都经 `\hyper@@anchor` 落到 `\hyper@anchor`。真正的区分依据是调用点——`\Hy@raisedlink` 承接目录、脚注与下游手工包裹的抬升锚点（ctxdoc 的 `\exptarget` 即属此类，TEST 1、TEST 2 的 `\TestTarget` 就是复刻它）。要判断某个公开命令走哪条内部路径，必须读分派函数的分支并用计数器实测，不能按参数形态推测。
 
 这两个测试还固定了三条测量类用例的设计约束：
 
