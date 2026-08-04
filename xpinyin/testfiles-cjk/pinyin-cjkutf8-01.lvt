@@ -1,0 +1,156 @@
+\input{regression-test}
+
+%% (pdf)LaTeX / CJKutf8 路线的注音回归.
+%%
+%% 为什么必须单独有这个文件: xpinyin 内部是**两套互不复用的适配层** ——
+%% \@@_adjust_xeCJK_hook: 与 \@@_adjust_CJK_hook: (见 xpinyin.dtx). 字体选择、
+%% 码位转换 (\@@_to_unicode_xetex:n vs \@@_UTF_to_unicode:n)、接管 \CJKsymbol
+%% 的方式都不同. 只跑 XeTeX 的话 CJKutf8 那一半是零覆盖.
+%%
+%% 本文件跑在 pdftex 上, 与其余测试的 xetex 基线互不干扰: build.lua 的
+%% checkengines 含 pdftex, stdengine 是 xetex, 所以本文件的基线是
+%% pinyin-cjkutf8-01.pdftex.tlg.
+%%
+%% 拼音字体这里不换: T1 编码的 Latin Modern 靠 \accent 现场合成重音, ǖ 一类
+%% 字符不需要字体本身收字 (实测无 "Missing character"), 因此不存在 XeTeX 路线上
+%% 「候选与 oracle 同时缺字而假通过」的问题.
+
+\documentclass{article}
+\usepackage{CJKutf8}
+\usepackage{xpinyin}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\begin{document}
+
+\START
+
+\ExplSyntaxOn
+
+\box_new:N \g_test_cand_box
+\box_new:N \g_test_oracle_box
+
+\cs_new_protected:Npn \CmpPinyin #1#2#3
+  {
+    \hbox_set:Nn \g_test_cand_box   {#2}
+    \hbox_set:Nn \g_test_oracle_box {#3}
+    \tl_log:x
+      {
+        #1 :~
+        wd = \dim_compare:nNnTF
+               { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_wd:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_wd:N \g_test_oracle_box } } ,~
+        ht = \dim_compare:nNnTF
+               { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_ht:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_ht:N \g_test_oracle_box } } ,~
+        dp = \dim_compare:nNnTF
+               { \box_dp:N \g_test_cand_box } = { \box_dp:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_dp:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_dp:N \g_test_oracle_box } }
+      }
+  }
+
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+
+%% \pinyin 不需要 CJK 环境: 它只排拉丁字母, 与汉字无关.
+\TEST{tone~digits~map~to~accent~commands}{
+  \CmpPinyin { ma1 } { \pinyin{ma1} } { m\=a }
+  \CmpPinyin { ma2 } { \pinyin{ma2} } { m\'a }
+  \CmpPinyin { ma3 } { \pinyin{ma3} } { m\v a }
+  \CmpPinyin { ma4 } { \pinyin{ma4} } { m\`a }
+  \CmpPinyin { ma5 } { \pinyin{ma5} } { ma }
+  \CmpPinyin { mi3 } { \pinyin{mi3} } { m\v{\i} }
+  \CmpPinyin { hu4 } { \pinyin{hu4} } { h\`u }
+}
+
+\TEST{v~is~u-umlaut~after~l~or~n}{
+  \CmpPinyin { lv1 } { \pinyin{lv1} } { l\={\"u} }
+  \CmpPinyin { lv2 } { \pinyin{lv2} } { l\'{\"u} }
+  \CmpPinyin { lv3 } { \pinyin{lv3} } { l\v{\"u} }
+  \CmpPinyin { lv4 } { \pinyin{lv4} } { l\`{\"u} }
+  \CmpPinyin { nv2 } { \pinyin{nv2} } { n\'{\"u} }
+  %% j 不是 l / n, v 仍是 u.
+  \CmpPinyin { jv1 } { \pinyin{jv1} } { j\=u }
+}
+
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+
+%% 注音要在 CJK 环境内. 这里的观察量是「注音后整盒变高、宽度不变」——
+%% 拼音在零宽 overlap 盒里, 所以宽度与不注音时相同, 高度则因拼音抬到汉字上方
+%% 而增加. 这与 XeTeX 路线的结构一致, 说明 CJK 适配层也走同一套装盒逻辑.
+%% CJK 环境必须开在**盒子内部**. 写成 \begin{CJK} 包住 \hbox_set:Nn 时,
+%% 汉字根本进不了盒子, 实测三项宽高全为 0pt —— 而 0pt = 0pt 会让「宽度不变」
+%% 那一半照样报 unchanged, 看着像通过. 初版正是这么写的.
+\TEST{annotation~adds~height~but~not~width}{
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin*{汉语}\end{CJK} }
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}汉语\end{CJK} }
+  \tl_log:x
+    {
+      annotated~ wd = \dim_to_decimal:n { \box_wd:N \g_test_cand_box } ,~
+      ht = \dim_to_decimal:n { \box_ht:N \g_test_cand_box } ;~
+      plain~ wd = \dim_to_decimal:n { \box_wd:N \g_test_oracle_box } ,~
+      ht = \dim_to_decimal:n { \box_ht:N \g_test_oracle_box }
+    }
+  \tl_log:x
+    {
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+            { unchanged } { CHANGED } ,~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } > { \box_ht:N \g_test_oracle_box }
+            { grew } { NOT-GREW }
+    }
+}
+
+%% ratio / vsep 在 CJK 路线上同样生效.
+\TEST{ratio~and~vsep~apply~under~CJKutf8}{
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin*{文}\end{CJK} }
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin*[ratio=.8]{文}\end{CJK} }
+  \tl_log:x
+    {
+      ratio-default-vs-0.8:~
+      a~ ht = \dim_to_decimal:n { \box_ht:N \g_test_cand_box } ,~
+      b~ ht = \dim_to_decimal:n { \box_ht:N \g_test_oracle_box }
+    }
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin*[vsep=2em]{文}\end{CJK} }
+  \tl_log:x
+    {
+      vsep-1em-vs-2em:~ ht~ delta = \dim_to_decimal:n
+        { \box_ht:N \g_test_oracle_box - \box_ht:N \g_test_cand_box }
+    }
+}
+
+%% 指定读音覆盖数据库首选读音. 宽度看不出拼音内容 (零宽 overlap 盒), 所以这里
+%% 用 \pinyin 单独排两个读音串来证明它们本就不同宽 —— 那是本项断言的前提;
+%% 读音是否真的被用上, 由 XeTeX 路线的 pinyin-scope01 以节点列表固定.
+\TEST{explicit~reading~is~accepted~under~CJKutf8}{
+  \CmpPinyin { chang2-vs-zhang3-differ }
+    { \pinyin{chang2} } { \pinyin{zhang3} }
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin{长}{chang2}\end{CJK} }
+  \tl_log:x
+    {
+      explicit-reading~ wd = \dim_to_decimal:n { \box_wd:N \g_test_cand_box } ,~
+      ht = \dim_to_decimal:n { \box_ht:N \g_test_cand_box }
+    }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

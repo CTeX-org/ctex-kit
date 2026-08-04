@@ -1,0 +1,84 @@
+\input{regression-test}
+
+%% 注音的开关与作用域 (XeTeX / xeCJK 路线).
+%%
+%% 本文件断言的是「哪些汉字被注了音、注的是什么」, 这两件事都**不能用盒子尺寸
+%% 观察**: \@@_make_pinyin_box:nnn 把拼音放进 \hbox_overlap_right:n 这个零宽盒子,
+%% 汉字之外不占位置, 所以换读音或整段关掉注音, 宽度都不变 (实测
+%% `\xpinyin{长}{chang2}` 与 `\xpinyin{长}{zhang3}` 同为 10pt, 注音与不注音的
+%% `汉语` 同为 20pt). 尺寸维度见 pinyin-setup01.lvt.
+%%
+%% 所以这里让页面真正输出, 用 \loggingoutput 把 shipout 的节点列表写进日志:
+%% 拼音字形以 3.99994pt (缺省 ratio .4 下的 10pt 正文) 出现, 汉字以 10pt 出现,
+%% 两者在基线里一眼可分.
+%%
+%% 不用 \showbox / \box_log:N —— 它们抛 `! OK.`, 而 checkopts 带 -halt-on-error,
+%% 会当场终止编译, 其后用例静默不执行却仍可能报绿 (实测如此).
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xpinyin}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+\begin{document}
+
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\pinyin{ma1}}\hbox{\xpinyin*{文}}
+\TIMO
+
+\START
+
+\loggingoutput
+
+%% 1. \xpinyin* 给范围内每个汉字注音.
+\xpinyin*{汉语拼音}\par
+
+%% 2. \disablepinyin 之后的汉字不再注音; \enablepinyin 恢复.
+%%    基线里应当只看到「汉」和「文」的拼音, 中间的「语」只有汉字没有拼音.
+\xpinyin*{汉\disablepinyin 语\enablepinyin 文}\par
+
+%% 3./4. \xpinyin 指定读音覆盖数据库首选读音, 与不指定时形成对照.
+%%
+%% 指定的读音**必须与数据库首选不同**, 否则这一对用例恒真.
+%% 「长」在 xpinyin.db 里是 `\XPYU{长}{38271}{zhǎng}`, 首选就是 zhǎng
+%% (多音读音是 `cháng,zhǎng`) —— 初版写 `\xpinyin{长}{zhang3}` 要的正是首选值,
+%% 第 3、4 项输出完全相同, 什么也没验证.
+%% 现在第 3 项显式要 cháng (非首选), 与第 4 项的 zhǎng 构成真正的对照.
+\xpinyin{长}{chang2}\par
+\xpinyin*{长}\par
+
+%% 5. pinyinscope 环境形式, 与 \xpinyin* 等价.
+\begin{pinyinscope}
+汉语
+\end{pinyinscope}\par
+
+%% 6. 环境的可选参数只在环境内生效, 出环境后应当回到缺省 ratio (.4).
+\begin{pinyinscope}[ratio=.8]
+汉
+\end{pinyinscope}\xpinyin*{语}\par
+
+%% 7. 多音字: 数据库里带多个读音的字, multiple 键可以给它们另加格式.
+%%    这里只固定读音本身, 格式见 pinyin-setup01.
+\xpinyin*{重要}\par
+
+%% 8. 嵌套: \xpinyin 出现在 \xpinyin* 内部时, 内层指定的读音优先, 外层其余汉字
+%%    仍走数据库.
+%%    同样要挑非首选读音才有判别力: 「重」的数据库首选是 zhòng
+%%    (`\XPYU{重}{37325}{zhòng}`), 所以这里指定 chóng, 与第 7 项的 zhòng 对照.
+\xpinyin*{\xpinyin{重}{chong2}要}\par
+
+%% 9. footnote 缺省为 false: 脚注里的汉字不注音.
+%%    \l_@@_restore_footnote_tl 靠 \@parboxrestore 在 grouptype 11 时关掉注音,
+%%    所以观察点是脚注文本里的汉字**没有**拼音伴随.
+\begin{pinyinscope}
+汉\footnote{语}
+\end{pinyinscope}\par
+
+\newpage
+
+\END
+
+\end{document}

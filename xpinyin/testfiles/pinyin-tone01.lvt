@@ -1,0 +1,168 @@
+\input{regression-test}
+
+%% \pinyin 的声调标注回归 (XeTeX / xeCJK 路线).
+%%
+%% oracle 取「直接写重音命令」的字面形式. 依据是实现本身: xpinyin 把声调数字
+%% 1..5 映射到 \=、\'、\v、\` 四个重音命令和「无重音」(见 xpinyin.dtx 的
+%% \c_@@_tone_prop 与 \@@_num_to_tone:Nn), 所以候选与 oracle 应当逐位同尺寸.
+%% 这样比对的是「数字到重音的映射是否正确」, 而不是某个字体下的绝对宽度.
+%%
+%% 拼音字体特意换成 DejaVuSerif.ttf, 不用文档默认的 Latin Modern:
+%% lmodern 缺 U+01D6 (ǖ, 即 lü 的一声). 缺字时候选与 oracle 会**同时**缺同一
+%% 个字符, 尺寸依然相等 —— 该格看着通过, 实际什么都没验证. 实测 lmodern 下
+%% `lv1` 一项报 "Missing character: There is no ǖ (U+01D6)" 而断言仍为 same.
+%% 按文件名加载 (而非 friendly name), 免得依赖 fontconfig 索引; dejavu 由
+%% TeX Live 提供, 已加入 .github/tl_packages.
+%%
+%% 二声与四声能不能由尺寸区分, **取决于所选字体**, 不是普遍成立的:
+%% DejaVu Serif 的锐音与钝音高度差 0.00977pt (7.99805 vs 7.98828), 所以本文件
+%% 实测能拦住「二四声对调」(rc 1, ma2／ma4／me2／hu4 报 DIFF); 而 Latin Modern
+%% 下两者高度完全相同 (均 6.98pt), 同一变异就查不出来.
+%% 也就是说这项判别力是本文件选定字体的附带收益, 不能依赖 —— 声调字符本身
+%% 由 pinyin-tone02.lvt 的节点日志正面固定, 那一层与字体度量无关.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xpinyin}
+
+%% 不依赖系统字体: FandolSong 由 TeX Live 自带.
+\setCJKmainfont{FandolSong-Regular.otf}
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+\begin{document}
+
+%% 预热: fontspec 首次实例化字体族时会写一次性 Info 到日志, 落进基线会随
+%% 环境产生伪 diff.
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\pinyin{ma1}}
+\TIMO
+
+\START
+
+\ExplSyntaxOn
+
+\box_new:N \g_test_cand_box
+\box_new:N \g_test_oracle_box
+
+%% #1 标签, #2 候选, #3 oracle.
+%% 三个维度都报: 重音是在字母上方纵向叠加的, 只比宽度会漏掉「重音根本没画出来」
+%% 这种情况 (宽度由基字母决定, 重音只改高度).
+%%
+%% oracle 必须显式切到同一个字体族. \pinyin 内部会按 font 键选字体, 而 oracle
+%% 是裸的重音命令, 沿用的是文档主字体 —— 两者字体不同时**每一格都是 DIFF**,
+%% 比的就不再是「数字到重音的映射」而是两种字体的度量差 (初版漏了这一步,
+%% 全部 29 格都报 DIFF).
+\cs_new_protected:Npn \CmpPinyin #1#2#3
+  {
+    \hbox_set:Nn \g_test_cand_box   {#2}
+    \hbox_set:Nn \g_test_oracle_box { \PinyinTestFont #3 }
+    \tl_log:x
+      {
+        #1 :~
+        wd = \dim_compare:nNnTF
+               { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_wd:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_wd:N \g_test_oracle_box } } ,~
+        ht = \dim_compare:nNnTF
+               { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_ht:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_ht:N \g_test_oracle_box } } ,~
+        dp = \dim_compare:nNnTF
+               { \box_dp:N \g_test_cand_box } = { \box_dp:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_dp:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_dp:N \g_test_oracle_box } }
+      }
+  }
+
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+
+\TEST{tone~digits~map~to~accent~commands}{
+  \CmpPinyin { ma1 } { \pinyin{ma1} } { m\=a }
+  \CmpPinyin { ma2 } { \pinyin{ma2} } { m\'a }
+  \CmpPinyin { ma3 } { \pinyin{ma3} } { m\v a }
+  \CmpPinyin { ma4 } { \pinyin{ma4} } { m\`a }
+  %% 5 = 轻声, 不加重音.
+  \CmpPinyin { ma5 } { \pinyin{ma5} } { ma }
+  \CmpPinyin { mo1 } { \pinyin{mo1} } { m\=o }
+  \CmpPinyin { me2 } { \pinyin{me2} } { m\'e }
+  \CmpPinyin { hu4 } { \pinyin{hu4} } { h\`u }
+}
+
+%% i 的四个声调各由一个预置字符给出 (\@@_num_to_tone_i:Nn 直接写 ī í ǐ ì),
+%% 不走 \@@_num_to_tone:Nn 那条重音命令的路径, 所以要单独一组用例.
+%%
+%% 一处判别力边界必须说清, 否则容易误解本组在管什么: 它固定的是
+%% **声调数字到字符的对应**, 不是「重音落在无点 i 上」. 后者根本无法在这里
+%% 观察 —— LaTeX 的重音机制本就会自己换成无点形式, 实测 `\v i` 与 `\v{\i}`
+%% 排出的字形和宽高深逐位相同 (都是 ǐ), 因此写成哪种 oracle 都一样. 相应地,
+%% 把实现改成 `\@@_num_to_tone:Nn i {#2}` (即交给通用重音路径) 时本组仍全绿,
+%% 那是输出等价的改写而非缺陷.
+%% 真正被守住的是对应关系: 实测把 ī 与 í 两格对调后 mi1／mi2 报 DIFF (rc 1).
+\TEST{i~tone~characters}{
+  \CmpPinyin { mi1 } { \pinyin{mi1} } { m\={\i} }
+  \CmpPinyin { mi2 } { \pinyin{mi2} } { m\'{\i} }
+  \CmpPinyin { mi3 } { \pinyin{mi3} } { m\v{\i} }
+  \CmpPinyin { mi4 } { \pinyin{mi4} } { m\`{\i} }
+  \CmpPinyin { mi5 } { \pinyin{mi5} } { mi }
+}
+
+%% v 是 ü 的键盘输入替代, 但只在 l / n 声母后才当 ü; 其余声母后仍是 u
+%% (见 \@@_replace_v:n 与 \@@_num_to_tone_v:Nn 里对 l / n / L / N 的判断).
+%% 这两组必须都有: 只写 lv/nv 时, 把那个条件恒置为真也照样全绿.
+\TEST{v~is~u-umlaut~after~l~or~n}{
+  \CmpPinyin { lv1 } { \pinyin{lv1} } { l\={\"u} }
+  \CmpPinyin { lv2 } { \pinyin{lv2} } { l\'{\"u} }
+  \CmpPinyin { lv3 } { \pinyin{lv3} } { l\v{\"u} }
+  \CmpPinyin { lv4 } { \pinyin{lv4} } { l\`{\"u} }
+  \CmpPinyin { lv5 } { \pinyin{lv5} } { l\"u }
+  \CmpPinyin { nv3 } { \pinyin{nv3} } { n\v{\"u} }
+}
+
+\TEST{v~stays~plain~u~after~other~initials}{
+  %% j / q / x 不是 l / n, 所以 jv 应排成 ju 而不是 jü.
+  \CmpPinyin { jv1 } { \pinyin{jv1} } { j\=u }
+  \CmpPinyin { qv2 } { \pinyin{qv2} } { q\'u }
+  \CmpPinyin { xv3 } { \pinyin{xv3} } { x\v u }
+  \CmpPinyin { jv4 } { \pinyin{jv4} } { j\`u }
+  \CmpPinyin { jv5 } { \pinyin{jv5} } { ju }
+}
+
+%% v 的转换由**两个各自判断 l / n 的函数**分担, 必须分别覆盖:
+%%   * \@@_num_to_tone_v:Nn —— 带声调数字时产生带调的 ǖǘǚǜ (上面两组);
+%%   * \@@_replace_v:n      —— 产生不带调的 ü, l / n 的判断在这里另写了一遍.
+%% 只写带数字的用例是不够的: 实测把 \@@_replace_v:n 的 l/n 守卫整段删掉
+%% (v 一律当 ü), 前四组 29 格仍然全绿.
+%%
+%% 触发 \@@_replace_v:n 的写法有一处反直觉, 必须按实测写而不能按名字推:
+%% **整个参数里完全没有数字时, \pinyin 原样回显输入**, 不做任何 v→ü 替换 ——
+%% `\pinyin{lv}` 排出的就是字面的 "lv" (见 \@@_pinyin_aux:n 里
+%% \l_@@_first_bool 为真时直接用 \l_@@_save_tl 的那条分支). 未加载本工作树、
+%% 用 TeX Live 发布版 (v3.1) 实测同样是 "lv", 所以这是既有语义而非缺陷,
+%% 一并固定下来防止日后误改.
+%% 因此本组用「前面有数字音节、末音节不带数字」的写法 (`ma1lv`) 才能真正走到
+%% \@@_replace_v:n; 轻声 `lv5` 也不行 —— 5 仍是数字, 走的还是带调那条路径.
+\TEST{digit-free~input~is~echoed~verbatim}{
+  \CmpPinyin { lv } { \pinyin{lv} } { lv }
+  \CmpPinyin { jv } { \pinyin{jv} } { jv }
+  \CmpPinyin { ma } { \pinyin{ma} } { ma }
+}
+
+\TEST{toneless~v~after~a~toned~syllable}{
+  %% 末音节不带数字, 由 \@@_replace_v:n 决定 v 变 ü 还是 u.
+  \CmpPinyin { ma1lv } { \pinyin{ma1lv} } { m\=a~l\"u }
+  \CmpPinyin { ma1nv } { \pinyin{ma1nv} } { m\=a~n\"u }
+  \CmpPinyin { ma1jv } { \pinyin{ma1jv} } { m\=a~ju }
+  \CmpPinyin { ma1qv } { \pinyin{ma1qv} } { m\=a~qu }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

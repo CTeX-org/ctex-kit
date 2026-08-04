@@ -1,0 +1,70 @@
+\input{regression-test}
+
+%% \pinyin 的实际字形回归 (XeTeX / xeCJK 路线).
+%%
+%% 与 pinyin-tone01 分工: 那个文件比盒子尺寸, 属于间接证据 —— 它能证明「重音加
+%% 上了、位置对」, 但拦不拦得住「两个声调对调」要看字体是否恰好给出不同高度
+%% (DejaVu Serif 的锐音与钝音差 0.00977pt, 能拦; Latin Modern 完全相同, 拦不住).
+%% 本文件让页面真正输出, 用 \loggingoutput 把 shipout 的节点列表写进日志, 基线
+%% 固定的是 TeX 实际排出的字符 (mā / má / mǎ / mà). 这是正面证据, 与字体度量
+%% 是否巧合无关, 逐声调必定可分.
+%%
+%% 为什么不用 \showbox / \box_show:N / \box_log:N: 三者都会抛 `! OK.`,
+%% 而 checkopts 带 -halt-on-error, 当场终止编译 —— 其后的用例静默不执行,
+%% check 却可能仍报绿. 实测 \box_log:N 之后的 \tl_log:n 在日志里出现 0 次.
+%% 这个坑在 xeCJK 的 verb-ecglue02.lvt / fntef-shrink01.lvt 注释里也记着.
+%%
+%% 拼音字体用 DejaVuSerif.ttf: Latin Modern 缺 U+01D6 (ǖ), 缺字时日志里是
+%% "Missing character" 而节点列表少一个字符, 基线会把缺字状态固定下来.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xpinyin}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+\begin{document}
+
+%% 预热 lazy 加载的字体族, 免得首次 fontspec Info 混进规范化日志.
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\pinyin{ma1}}\hbox{\xpinyin*{文}}
+\TIMO
+
+\START
+
+\loggingoutput
+
+%% 每个 \par 一行, 让节点列表按行分段, 便于对照.
+%% 四个声调的字形互不相同, 这是本文件的核心断言.
+\pinyin{ma1}\par
+\pinyin{ma2}\par
+\pinyin{ma3}\par
+\pinyin{ma4}\par
+\pinyin{ma5}\par
+
+%% ü 系列: 一声 ǖ 正是 Latin Modern 缺的那个字符.
+\pinyin{lv1}\par
+\pinyin{lv2}\par
+\pinyin{lv3}\par
+\pinyin{lv4}\par
+
+%% 多音节按数字切分, 音节之间由 pysep 分隔 (默认一个空格).
+\pinyin{nv3hai2zi}\par
+
+%% \xpinyin* 给汉字自动注音: 拼音取自数据库, 排在汉字上方的 overlap 盒子里.
+%% 这里同时固定拼音字号 (ratio 缺省 .4, 即 10pt 正文下约 3.99994pt).
+\xpinyin*{汉语}\par
+
+%% \xpinyin 单字指定读音: 用于多音字, 覆盖数据库里的首选读音.
+\xpinyin{长}{chang2}\par
+
+%% 嵌套: \xpinyin 可以出现在 \xpinyin* 内部, 内层指定的读音优先.
+\xpinyin*{\xpinyin{重}{zhong4}要}\par
+
+\newpage
+
+\END
+
+\end{document}
