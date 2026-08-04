@@ -53,10 +53,34 @@ tdslocations = {
 -- `\usepackage{xeCJK}` 照旧命中系统 TeX Live 的版本 (实测: 不加本钩子时
 -- 测试日志里的路径是 texmf-dist/tex/xelatex/xecjk/xeCJK.sty).
 -- 必须像 ctex/build.lua 那样手工把产物复制进本包的测试目录.
+--
+-- 复制清单必须取**依赖包自己的** installfiles, 不能用本包的.
+-- ctex/build.lua 里写的是本包 installfiles, 那里能work纯属巧合 —— ctex 自己的
+-- installfiles 恰好是各依赖的超集. 照抄到 xpinyin 就出错了: 本包是
+-- {"*.sty","*.def","*.ins"}, 而 xeCJK 还装 "*.cfg"; 于是 xeCJK.sty 用的是工作树
+-- 版本, xeCJK.cfg 却仍命中系统 TeX Live (实测日志两者路径不同, 且系统那份是
+-- v3.10.3、工作树是 v3.10.5, `\GetIdInfo` 与版本号行都不一样),
+-- 恰好破坏本钩子声称要消除的「测的其实是本机装了什么」.
+-- 依赖包的配置由 dofile 读取, 而不是硬编码一份清单 —— 后者会在依赖包新增产物
+-- 类型时再次静默漏掉.
 checkinit_hook = function()
   for _, dep in ipairs(checkdeps) do
     local dep_unpackdir = dep .. "/" .. unpackdir
-    for _, glob in ipairs(installfiles) do
+    -- 在独立环境里读依赖包的 build.lua, 取它自己的 installfiles.
+    local dep_env = { }
+    local chunk = loadfile(dep .. "/build.lua", "t", dep_env)
+    local dep_installfiles
+    if chunk then
+      -- 依赖包的 build.lua 末尾会 dofile 共享配置, 在这个空环境里跑不通;
+      -- pcall 兜住, 只要 installfiles 已经赋值就够用.
+      pcall(chunk)
+      dep_installfiles = dep_env.installfiles
+    end
+    if type(dep_installfiles) ~= "table" then
+      error("checkinit_hook: 无法从 " .. dep ..
+            "/build.lua 读到 installfiles, 依赖产物会漏复制")
+    end
+    for _, glob in ipairs(dep_installfiles) do
       cp(glob, dep_unpackdir, testdir)
     end
   end

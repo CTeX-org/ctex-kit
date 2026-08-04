@@ -387,7 +387,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **四条判别力教训**（本节最有价值的部分，均由「重新引入缺陷、确认它会变红」实测确认）：
 
-1. **oracle 未切到候选同一字体族会让全部单元恒报 DIFF。** `\pinyin` 内部按 `font` 键选字体，若 oracle 用的裸重音命令沿用文档主字体，两者字体不同时比的就是两种字体的度量差，而不是「数字到重音的映射是否正确」——初版漏了这一步，全部 29 格都报 DIFF。
+1. **oracle 未切到候选同一字体族会让全部单元恒报 DIFF。** `\pinyin` 内部按 `font` 键选字体，若 oracle 用的裸重音命令沿用文档主字体，两者字体不同时比的就是两种字体的度量差，而不是「数字到重音的映射是否正确」——初版漏了这一步，当时的全部 24 格都报 DIFF。
 2. **拼音字体缺字时会假通过。** 文档默认的 Latin Modern 缺 U+01D6（ǖ，lü 的一声）；候选与 oracle 同时缺同一个字符，尺寸仍然相等，该格看着通过、实际什么都没验证。改用 `DejaVuSerif.ttf` 后实测零 "Missing character"。
 3. **只测带声调数字的 v 会漏掉 `\@@_replace_v:n`。** v 到 ü 的转换由两个各自判断 l/n 的函数分担：`\@@_num_to_tone_v:Nn`（带声调数字时）与 `\@@_replace_v:n`（不带数字时）。只写带数字的用例不够——实测把 `\@@_replace_v:n` 的 l/n 守卫整段删掉，前四组仍全绿。需要补「前面有数字音节、末音节不带数字」的写法（如 `ma1lv`）才能真正触发这条路径。
 4. **`\xpinyin{长}{zhang3}` 要的正是数据库首选值，没有判别力。** 「长」在数据库里的首选读音正是 zhǎng，指定它与不指定读音的对照项输出完全相同，等于什么都没验证。必须挑非首选读音（cháng）才构成真正的对照。
@@ -399,7 +399,9 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **`\showbox`／`\box_log:N` 在 `-halt-on-error` 下会当场中止。** 三者都抛 `! OK.`，而 xpinyin 的 `checkopts` 带 `-halt-on-error`，会当场终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着；xpinyin 的解法同样是一律用 `\loggingoutput` 读取 shipout 的实际节点列表。
 
-**`checkdeps` 单独声明不够，必须配 `checkinit_hook`。** `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`。修法与 `ctex/build.lua` 一致：`checkinit_hook` 手工把依赖包 `installfiles` 复制进本包的测试目录。
+**`checkdeps` 单独声明不够，必须配 `checkinit_hook`。** `xpinyin/build.lua` 的 `checkdeps = {"../xeCJK"}` 只保证依赖包先被 `unpack`，产物留在依赖包自己的 `build/unpacked/` 里，kpse 搜不到——`\usepackage{xeCJK}` 仍会命中系统 TeX Live 的版本。实测不加 `checkinit_hook` 时，测试日志里的路径是 `texmf-dist/tex/xelatex/xecjk/xeCJK.sty`。修法是用 `checkinit_hook` 手工把依赖包产物复制进本包的测试目录。
+
+**复制清单必须取依赖包自己的 `installfiles`，照抄 `ctex/build.lua` 会漏文件。** `ctex/build.lua:72-80` 的钩子遍历的是**本包**的 `installfiles`；那里能工作纯属巧合——`ctex` 自己的 `installfiles` 恰好是各依赖的超集。xpinyin 照抄后就漏了：本包是 `{"*.sty","*.def","*.ins"}`，而 `xeCJK` 还装 `"*.cfg"`，于是出现只复制了一半的分裂状态——`xeCJK.sty` 用工作树版本（日志显示 `./xeCJK.sty`），`xeCJK.cfg` 却仍命中 `texmf-dist/tex/xelatex/xecjk/xeCJK.cfg`，而那份是 v3.10.3、工作树是 v3.10.5，`\GetIdInfo` 与版本号行都不同。**这恰好破坏了该钩子声称要消除的「测的其实是本机装了什么」**，且症状隐蔽：测试全绿，只有对比日志里两个文件的路径才看得出来。这类缺陷是盲审在终审轮以 blocking 级查出的。现行做法是用 `loadfile` 在独立环境里读依赖包的 `build.lua`、取它自己的 `installfiles`，读不到就 `error` 而不是静默继续；不硬编码第二份清单，否则依赖包将来新增产物类型时会再次静默漏掉。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
@@ -581,6 +583,8 @@ PR #799 暴露了一个稳定信号：`xeCJK/testfiles/listings-hash01.lvt` 新�
 - `.github/tl_packages` 是否遗漏了相应依赖。
 
 这条约束不仅适用于宏包依赖，测试用到的字体同样要同步这份白名单。#1041 的 xpinyin 测试用 `DejaVuSerif.ttf`（避开 Latin Modern 缺 U+01D6 的问题）和 `FreeSerif.otf`（`pinyin-setup01.lvt` 的 `font` 键对照字体），因此 `.github/tl_packages` 补了 `dejavu` 与 `gnu-freefont`——这两个 TeX Live 包分别提供上述字体文件，新增测试字体前应先核对是哪个包提供。
+
+核对要**逐个走一遍**，不能只补自己意识到的那几个。同一批改动里，pdfTeX 那条线新引入的 `CJKutf8`、`lmodern` 和 `gbsn` 字体族当时并未逐个核对归属，事后查明恰好已被既有的 `cjk`（提供 `CJKutf8.sty` 与 `c70gbsn.fd`）、`lm`、`arphic` 覆盖——也就是说那次没出问题是运气，而不是流程起了作用。核对方式是对每个新引入的 `\usepackage`、字体文件名和字体族分别跑 `tlmgr search --file --global`，再用 `grep -qx` 确认包名真在白名单里；漏掉的后果是本地完整 TeX Live 通过而 CI 在精简环境里缺包失败（`.log` 为空、`.tlg` 比对失败，根因不在输出差异）。
 
 CI 现在的结构 (PR #899 后):
 
@@ -783,6 +787,8 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
 ```
 
 xpinyin 目前只在测试接入 PR（#1041 后续）里补了一条 `\changes{v3.2}{...}`，尚未真正发过新版本；上面的 SOP 是接入两道校验后的完整流程，供下一次 bump 版本时参照。
+
+**因此现在 `xpinyin/build.lua` 的 `version = "3.1"` 与 `CHANGELOG.md` 首节的 `v3.2` 是不一致的，这是本节上文那条约定要求的正常状态，不是缺陷**：已发布的 tag 是 `xpinyin-v3.1`，所以新 `\changes` 必须写下一个未发布版本 `v3.2`，而 `build.lua` 只在真正发版准备阶段才 bump（见下文「Git 信息注入」小节，以及 #381 把 `\changes` 误记为已发布版本的反例）。两道 PR 校验都不会因此报错，各自的判据是自洽的：`check-tag.yml` 比的是 `build.lua` 与 dtx 两处 stamp（都是 3.1，`l3build tag` 为 no-op），`check-changelog.yml` 比的是 `CHANGELOG.md` 与 `\changes` 条目（都是 v3.2，重新生成后字节一致）。真正会拦住的是发版出口：按 SOP 打 `xpinyin-v3.2` 前若忘了第 1 步，`release.yml` 会以 `LUA_VER(3.1) != BASE_VER(3.2)` 拒绝发版——这正是该校验的设计意图。审查这个包时不要把这条正常状态当成失同步。
 
 ### 两道 CI 校验
 
