@@ -248,10 +248,32 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 | `box` | 命令只留下一个末尾 hbox；取出原盒子、重建左边界、原样放回并重放末类别 | `\mbox`、`\fbox`、`\makebox`、`\framebox` |
 | `wrapped-box` | 命令可能直接写多个节点；用透明 hbox 收集，若无可见输出则解包 | `\colorbox` / `\fcolorbox` 的 `\color@b@x` |
 | `stream` | 内容直接写当前列表；首类别一出现就补左边界，结束时重放末类别 | hyperref annotation、`\@setref` / `\real@setref`、完整 URL、`\verb`、`\eqref`、`\meta`、`\cs`、`\lstinline` |
-| `transparent` | 命令只有锚点、write、颜色 push/pop 等不可见节点；结束后完整恢复入口状态 | `\HD@target`、`\blx@pagetracker`、`\set@color` / `\reset@color`、l3color 后端 |
+| `transparent` | 命令只有锚点、write、颜色 push/pop 等不可见节点；结束后完整恢复入口状态 | `\HD@target`、`\Hy@raisedlink`、驱动层 `\hyper@anchor`、`\blx@pagetracker`、`\set@color` / `\reset@color`、l3color 后端 |
 | `post-transparent` | 只能使用 after hook；末尾盒子的宽、高、深均为零时，以真实 marker 为证据，把 `marker` 或 `marker + 一枚 glue` 的有界后缀移到盒子后面 | 一般 `\null` |
 
 `auto` 使用实际首尾类别；`default` 固定两端为 Default；`first-default` 只固定首端、末端仍取实际输出。`\eqref` 的括号和 `\meta` 的尖括号决定两端为 Default；`\cs` 只有开头反斜线固定为 Default。box 的 `default` 在结束函数同时覆盖首尾，stream 则在开始 hook 固定首端、结束 hook 固定末端，两条路径的公开语义相同。
+
+#### 注册点的层级与字体上下文（#1046）
+
+除了「注册哪个命令、选哪种策略」，还有第三个必须决定的问题：**在命令的哪一层注册**。`\@@_boundary_capture_begin:` 在 capture **入口**处把 `\CJKecglue`、`\CJKglue` 和词间空格分别排入临时盒并读成 skip 数值，缓存的度量因此取决于进入命令那一刻生效的字体。
+
+由此得到一条硬约束：**若目标命令的定义体里包含字体切换，capture 必须包住最外层那次切换。** 注册在切换内侧时，左边界重放切换后字体的 `\CJKecglue`，而右边界在 capture 结束、字体已恢复之后求值，两侧必然取到两套度量。这种写法在纯西文和纯中文文档里都看不出问题，只有中西文边界两侧同时出现时才暴露。
+
+`\meta` 是这条约束的实例。l3doc 把它定义为 `\texttt{ \__codedoc_meta:n {#1} }`，早期适配器把 stream capture 包在内层的 `\__codedoc_meta:n` 上，于是左边界得到等宽字体的 `\CJKecglue`（Latin Modern 10pt 下为不可伸缩的 `5.25pt`），右边界得到正文字体的 `3.33pt plus 1.665 minus 1.11`。#1046 把注册点上移到公开的 `\meta`，改用通用注册 `\@@_boundary_register_stream:nn { meta } { default }` 后两端同源。
+
+同一条约束也适用于用户通过 `experiment/boundary-register` 注册自定义命令，手册中已给出对应提醒。
+
+#### 策略选择要看不可见节点的实际次序（#1047）
+
+`transparent` 与 `post-transparent` 的区别不是「有无可见输出」——两者都没有可见输出——而是**marker 与命令排出的节点之间的位置关系**。`post-transparent` 是 after-only 变体，只在命令结束后搬移末尾零尺寸盒子下方的 marker 与候选 glue，要求 marker 与那个盒子**相邻**。命令若在盒子之前还排出别的节点，相邻条件就不成立。
+
+`\Hy@raisedlink` 是这种情形：它在水平模式下先排 `\penalty\@M`，再排 `\smash` 后的 `hbox(0+0)x0`。`penalty` 把 marker 与盒子隔开，`post-transparent` 实测无效；`transparent` 在入口就取走 marker 与可选源码空格、节点排完再原样恢复，因而两种节点次序都能覆盖。选策略前应当先用 `\showbox` 读出命令实际排出的节点序列。
+
+#### 同一个公开命令可能有多条实现出口（#1047）
+
+`\hypertarget` 在源码里是一个命令，实际排版按目标是否为空分派到两个互不相交的内部出口：非空目标经 `\Hy@raisedlink`，空目标经 `\hyper@@anchor` 落到驱动层的 `\hyper@anchor`，后者直接排出裸的 `pdf:dest` whatsit。只注册前者时，空目标形式仍然缺少 `\CJKecglue`。
+
+判据是**读分派函数的分支**，而不是看公开命令名，也不是假定「这个包的锚点都从同一处出去」。`\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 使用同名，`hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫。两个注册的判别力实测互不重叠，这一点本身就是「确实是两条路径」的证据。
 
 #### 实验性用户注册入口（#1010）
 
@@ -360,7 +382,7 @@ Boundary→Default 与 Boundary→CJK 现在使用相同的检查（#996，PR #1
 - hyperref 从 `\Hy@BeginAnnot` 到顶层 `\Hy@EndAnnot` 使用 `auto` stream；URL 等内部末尾 math 仍按可信 Default 输出处理，显式链接正文两端的行内公式则由参数适配器报告 `math`。入口 save/replay、结束端专用 `hyperref-default` marker 均已删除。
 - URL 在完成花括号/分隔符扫描后的完整 `\Url@z` 外包围 `default` stream；不再按“当前是否已有 capture”分支，也没有 URL drain。
 - `\verb` 使用 `auto` stream；`\@@_flush_language_whatsit:` 只负责让延迟 language whatsit 在 stream 结束前真实进入列表，不判断或恢复边界。`\verb*` 与 shortvrb 共用入口和出口。
-- codedoc/doc 的 meta 保留参数 hbox，只为阻断尖括号与 CJK 参数之间不应有的内部 ecglue；完整外侧由 `default` stream 处理，旧 drain 已删除。
+- codedoc/doc 的 meta 保留参数 hbox，只为阻断尖括号与 CJK 参数之间不应有的内部 ecglue；完整外侧由 `default` stream 处理，旧 drain 已删除。#1046 起 l3doc 分支的 stream 注册点是**公开的 `\meta`**（走通用 `cmd/meta/before|after` hook），不再是内层的 `\__codedoc_meta:n`——`\meta` 定义里的 `\texttt` 必须落在 capture 之内，否则左右边界取到两套字体度量，理由见上文「注册点的层级与字体上下文」。因此 `meta` 也从专用适配器保留表移入通用注册表；`\Arg`、`\marg`、`\oarg`、`\parg` 仍留在保留表，它们在内层两侧各排出等宽的 `{`、`[`、`(` 实字符，本身就构成正常的 CJK→Default 边界，实测不需要这层 capture。`doc` 宏包的 `\meta` 没有 `\texttt` 外层，本来对称，实现未改。
 - color/xcolor 的 `\set@color` / `\reset@color` 与 l3color 后端使用 transparent capture，`\color@b@x` 使用 wrapped-box；颜色专用 saved marker、hlist/whatsit fallback 与 pending 已删除。l3color 包装器只保留原参数签名。
 - biblatex 在 preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 transparent；旧的单向 clear 逻辑已删除。
 - xeCJKfntef、原生 ulem 与独立 under-symbol 入口使用 `stream-ulem` / stream；旧的 saved-last-node、颜色状态隔离和直接 pending 设置由 capture suspend/replay 取代。ulem 外层 glue callback 只解决装饰与断行节点位置。
@@ -581,12 +603,12 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | 目标包 | 补丁内容 |
 |--------|----------|
 | `color`/`xcolor` | `\set@color` / `\reset@color` 注册为 `transparent`；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
-| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992） |
+| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点的两条出口 `\Hy@raisedlink` 与驱动层 `\hyper@anchor` 各注册为 `transparent`（#1047） |
 | `ulem` | 通过 `stream-ulem` 观察实际首尾；framework 决定外侧 glue，`\UL@stop` / `\UL@start` 保证它位于装饰区间外 |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
 | `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换；`\lstinline` 两类扫描入口使用 `auto` stream |
 | `url` | 在完整 `\Url@z` 格式化阶段外包围 `default` stream（#880/#992） |
-| `hypdoc` | `\HD@target` 注册为 `transparent`；`\meta` / `\cs` 按固定首尾语义注册 stream（#873/#992） |
+| `hypdoc` | `\HD@target` 注册为 `transparent`；`\meta` / `\cs` 按固定首尾语义注册 stream（#873/#992）；`\meta` 的注册点自 #1046 起为公开命令而非内层参数排版函数 |
 | `biblatex` | preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 `transparent`（#931/#992） |
 | `siunitx` | `\unit`/`\qty`/`\num` 注册为固定 Default 首尾的 `stream`；v2 旧名 `\si`/`\SI` 先检查命令是否存在，再分别注册；`\ang` 的比较对象尚未确定，暂不注册（#1000/#992） |
 

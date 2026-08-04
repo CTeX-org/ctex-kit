@@ -1,0 +1,223 @@
+\input{regression-test}
+
+% #1046: l3doc 的 \meta 定义为 \texttt{\__codedoc_meta:n{...}}。适配器若只
+% 包围内层的 \__codedoc_meta:n，stream capture 就落在 \texttt 已经切到等宽
+% 字体之后：左边界重放等宽字体的 \CJKecglue（lm 下 5.25pt，不可伸缩），
+% 右边界在 capture 结束、字体恢复后求值，得到正文字体的 3.33pt plus 1.665
+% minus 1.11，两侧因此不对称。capture 上移到公开 \meta 之后两端同源。
+%
+% 判别力（已实测）：把注册点改回内层 \__codedoc_meta:n，TEST 1--4 的宽度
+% 各多出 5.25-3.33=1.92pt（55.4378 变 57.3578），TEST 5 的左右贡献变成
+% 15.25 与 13.33，TEST 6 的伸缩量断言也失败。
+%
+% 测试用具名 \newbox 而非 \setbox0--\setbox15：l3doc 的 \meta 内部经
+% \ensuremath 排版尖括号，会用掉低位 scratch box 寄存器，把先前存进
+% \box10、\box11 的内容清空（实测读到 0.0pt 与被污染的 108.87561pt）。
+
+\documentclass{l3doc}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newbox\OracleBox
+\newbox\MetaA \newbox\MetaB \newbox\MetaC \newbox\MetaD
+\newbox\MetaLeft \newbox\MetaRight \newbox\MetaBare
+\newbox\MetaCJK \newbox\RefCJKBoxed \newbox\RefCJKPlain
+\newbox\ArgBoth \newbox\ArgBare \newbox\OargBoth \newbox\OargBare
+\newbox\LatinTight \newbox\LatinSpaced
+
+\begin{document}
+
+\START
+
+% 字体预热：fontspec 惰性加载字体，首次用到某个字形组合会改变盒子宽度。
+% \meta 的参数用 \meta@font@select（\itshape）排版，CJK 斜体还要经过自动
+% 伪斜；不预热时同一段内容前后两次测量实测可差数十 pt。这里先把后面测试
+% 用到的字体组合都排一遍并丢弃。
+\setbox\OracleBox=\hbox{%
+  左\meta{中文}右\meta{name}\Arg{name}\oarg{name}\parg{name}%
+  \texttt{$\langle$name$\rangle$}}
+
+% oracle：\meta 的可见输出等价于 \texttt{$\langle$name$\rangle$}，两端都是
+% Default 类字符，因此左右都应得到正文字体的 \CJKecglue。用它而不是自己
+% 修复前的基线作比较对象。
+\setbox\OracleBox=\hbox{左\texttt{$\langle$name$\rangle$}右}
+
+% --- TEST 1--4: 四种源码空格组合下左右边界都对齐 oracle ---
+% \meta 两端固定为 Default，四种写法的可见输出应当完全一致。
+
+\setbox\MetaA=\hbox{左\meta{name}右}
+\setbox\MetaB=\hbox{左 \meta{name}右}
+\setbox\MetaC=\hbox{左\meta{name} 右}
+\setbox\MetaD=\hbox{左 \meta{name} 右}
+
+\TEST{meta 00 matches texttt-wrapped oracle (1046)}{
+  \TYPE{INFO: oracle=\the\wd\OracleBox, meta00=\the\wd\MetaA}
+  \dimen0=\wd\MetaA \advance\dimen0 by -\wd\OracleBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: 00 matches oracle}
+  \else
+    \TYPE{FAIL: 00 differs from oracle by \the\dimen0}
+  \fi
+}
+
+\TEST{meta 10 matches texttt-wrapped oracle (1046)}{
+  \TYPE{INFO: oracle=\the\wd\OracleBox, meta10=\the\wd\MetaB}
+  \dimen0=\wd\MetaB \advance\dimen0 by -\wd\OracleBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: 10 matches oracle}
+  \else
+    \TYPE{FAIL: 10 differs from oracle by \the\dimen0}
+  \fi
+}
+
+\TEST{meta 01 matches texttt-wrapped oracle (1046)}{
+  \TYPE{INFO: oracle=\the\wd\OracleBox, meta01=\the\wd\MetaC}
+  \dimen0=\wd\MetaC \advance\dimen0 by -\wd\OracleBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: 01 matches oracle}
+  \else
+    \TYPE{FAIL: 01 differs from oracle by \the\dimen0}
+  \fi
+}
+
+\TEST{meta 11 matches texttt-wrapped oracle (1046)}{
+  \TYPE{INFO: oracle=\the\wd\OracleBox, meta11=\the\wd\MetaD}
+  \dimen0=\wd\MetaD \advance\dimen0 by -\wd\OracleBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: 11 matches oracle}
+  \else
+    \TYPE{FAIL: 11 differs from oracle by \the\dimen0}
+  \fi
+}
+
+% --- TEST 5: 左右两侧各自的贡献相等 ---
+% 只比较整体宽度无法区分“两侧都错但和相等”。这里分别测只有一侧有 CJK 的
+% 盒子，把左右边界拆开断言。每侧贡献 = 一个汉字（10pt）+ 一枚 \CJKecglue。
+
+\setbox\MetaLeft=\hbox{左\meta{name}}
+\setbox\MetaRight=\hbox{\meta{name}右}
+\setbox\MetaBare=\hbox{\meta{name}}
+
+\TEST{left and right boundary contributions equal (1046)}{
+  \dimen0=\wd\MetaLeft \advance\dimen0 by -\wd\MetaBare
+  \dimen2=\wd\MetaRight \advance\dimen2 by -\wd\MetaBare
+  \TYPE{INFO: left=\the\dimen0, right=\the\dimen2}
+  \dimen4=\dimen0 \advance\dimen4 by -\dimen2
+  \ifdim\dimen4<0pt \dimen4=-\dimen4 \fi
+  \ifdim\dimen4<0.01pt
+    \TYPE{PASS: both boundaries contribute the same width}
+  \else
+    \TYPE{FAIL: boundaries differ by \the\dimen4}
+  \fi
+  % 绝对值也要对：10pt 汉字 + 3.33pt 正文字体 \CJKecglue。缺陷时左侧为
+  % 15.25pt（等宽字体的 5.25pt）。
+  \dimen6=\dimen0 \advance\dimen6 by -13.33pt
+  \ifdim\dimen6<0pt \dimen6=-\dimen6 \fi
+  \ifdim\dimen6<0.01pt
+    \TYPE{PASS: left boundary uses body-font ecglue (13.33pt)}
+  \else
+    \TYPE{FAIL: left boundary is \the\dimen0, expected 13.33pt}
+  \fi
+}
+
+% --- TEST 6: 左边界必须可伸缩 ---
+% 等宽字体的 \CJKecglue 在 lm 下是不可伸缩的 5.25pt；正文字体的是
+% 3.33pt plus 1.665 minus 1.11。宽度断言只能发现自然宽度错误，这里用
+% \hbox to 强制拉伸，用 \badness 正向断言左边界确实带 plus 分量。
+% （\hbox to 的实际宽度恒等于目标宽度，不能作为判据。）
+
+\TEST{left boundary glue is stretchable (1046)}{
+  \setbox\MetaA=\hbox to \dimexpr\wd\MetaLeft+1.5pt\relax{左\meta{name}}
+  \TYPE{INFO: badness=\the\badness}
+  % plus 1.665 能吸收 1.5pt，badness 有限；若左边界不可伸缩则为 10000。
+  \ifnum\badness<10000
+    \TYPE{PASS: left boundary absorbed the stretch}
+  \else
+    \TYPE{FAIL: left boundary could not stretch (badness \the\badness)}
+  \fi
+}
+
+% --- TEST 7: CJK 参数仍不得在尖括号内侧产生 CJKecglue（#920 不回退）---
+% 上移 capture 不应影响 \hbox:n 对参数内部的隔离。参数内部若漏了 hbox
+% 包装，$\langle$ 与首个 CJK 字符之间会多出一枚 \CJKecglue。
+
+\setbox\MetaCJK=\hbox{左\meta{中文}右}
+\setbox\RefCJKBoxed=\hbox{左\texttt{$\langle$\hbox{中文}$\rangle$}右}
+\setbox\RefCJKPlain=\hbox{左\texttt{$\langle$中文$\rangle$}右}
+
+\TEST{CJK argument keeps hbox isolation (920 not regressed)}{
+  \TYPE{INFO: meta=\the\wd\MetaCJK, hbox-ref=\the\wd\RefCJKBoxed,
+    no-hbox=\the\wd\RefCJKPlain}
+  % 应与手工装盒的参考等宽。
+  \dimen0=\wd\MetaCJK \advance\dimen0 by -\wd\RefCJKBoxed
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: CJK argument matches hbox-wrapped reference}
+  \else
+    \TYPE{FAIL: CJK argument differs from reference by \the\dimen0}
+  \fi
+  % 且明显窄于未装盒的参考（尖括号内侧多出两枚 \CJKecglue）。
+  \dimen2=\wd\RefCJKPlain \advance\dimen2 by -\wd\MetaCJK
+  \ifdim\dimen2>5pt
+    \TYPE{PASS: inner ecglue suppressed (saved \the\dimen2)}
+  \else
+    \TYPE{FAIL: inner ecglue not suppressed (only \the\dimen2)}
+  \fi
+}
+
+% --- TEST 8: \Arg / \oarg 不受影响 ---
+% 这些入口在 \__codedoc_meta:n 两侧各自排出等宽的 { [ ( 实字符，本身就构成
+% 正常的 CJK->Default 边界；去掉内层 capture 前后节点列表完全相同（实测）。
+% 断言外侧贡献与 \meta 相同：两侧各一个汉字加一枚正文字体 \CJKecglue。
+
+\setbox\ArgBoth=\hbox{左\Arg{name}右}
+\setbox\ArgBare=\hbox{\Arg{name}}
+\setbox\OargBoth=\hbox{左\oarg{name}右}
+\setbox\OargBare=\hbox{\oarg{name}}
+
+\TEST{Arg and oarg keep symmetric boundaries (1046)}{
+  \dimen0=\wd\ArgBoth \advance\dimen0 by -\wd\ArgBare
+  \dimen2=\wd\OargBoth \advance\dimen2 by -\wd\OargBare
+  \TYPE{INFO: Arg outer=\the\dimen0, oarg outer=\the\dimen2}
+  \dimen4=\dimen0 \advance\dimen4 by -\dimen2
+  \ifdim\dimen4<0pt \dimen4=-\dimen4 \fi
+  \ifdim\dimen4<0.01pt
+    \TYPE{PASS: Arg and oarg have identical outer boundaries}
+  \else
+    \TYPE{FAIL: outer boundaries differ by \the\dimen4}
+  \fi
+  % 两侧合计 = 2 x (10pt 汉字 + 3.33pt ecglue) = 26.66pt。
+  \dimen6=\dimen0 \advance\dimen6 by -26.66pt
+  \ifdim\dimen6<0pt \dimen6=-\dimen6 \fi
+  \ifdim\dimen6<0.01pt
+    \TYPE{PASS: Arg outer boundaries use body-font ecglue (26.66pt)}
+  \else
+    \TYPE{FAIL: Arg outer boundaries total \the\dimen0, expected 26.66pt}
+  \fi
+}
+
+% --- TEST 9: 纯西文上下文不应引入 CJKecglue ---
+
+\setbox\LatinTight=\hbox{Left\meta{name}Right}
+\setbox\LatinSpaced=\hbox{Left \meta{name} Right}
+
+\TEST{Latin context keeps source-space semantics (1046)}{
+  % 无源码空格时两侧都不该补 glue；有源码空格时两侧各保留一枚词间空格。
+  \dimen0=\wd\LatinSpaced \advance\dimen0 by -\wd\LatinTight
+  \TYPE{INFO: tight=\the\wd\LatinTight, spaced=\the\wd\LatinSpaced,
+    diff=\the\dimen0}
+  \ifdim\dimen0>3pt
+    \TYPE{PASS: source spaces preserved in Latin context}
+  \else
+    \TYPE{FAIL: source spaces lost in Latin context}
+  \fi
+}
+
+\END
+
+\end{document}

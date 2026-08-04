@@ -203,9 +203,24 @@
 这两个测试曾使 xeCJK 标准测试总数增加到 111 项；#1017 新增
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
 `fntef-shrink01`、#1029 新增 `boundary-sbox-global01`、#1038 新增
-`tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03` 后，
-当前为 120／120 通过。完整接口契约见
+`tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03`、
+#1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01` 后，
+当前为 122／122 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
+
+### 注册点的字体上下文与锚点两条出口（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
+
+`codedoc-meta-symmetry01.lvt` 用**真实的 `l3doc` 文档类**（不是自己模拟内层函数）固定 13 项断言：四种源码空格组合各自与 oracle `左\texttt{$\langle$name$\rangle$}右` 等宽、左右两侧单边贡献相等且均为 13.33pt、左边界带 `plus` 分量（用 `\badness` 正向断言，因为 `\hbox to` 的实际宽度恒等于目标宽度、结构上恒真）、CJK 参数仍保持 `\hbox:n` 隔离（#920 不回退）、`\Arg` 与 `\oarg` 外侧贡献一致、纯西文上下文仍保留源码空格语义。判别力已实测：把注册点改回内层 `\__codedoc_meta:n` 后 8 项失败，数值为 1.92pt（等宽字体 5.25pt 减正文字体 3.33pt）、15.25pt 与 badness 10000。
+
+**既有的 `codedoc-meta-ecglue01` 对 #1046 零判别力**，不要据它判断该场景已覆盖：它自己用 `\cs_new_protected:Npn \__codedoc_meta:n` 模拟内层函数，**没有 `\texttt` 外层**，而 `\texttt` 正是这个缺陷的必要条件。这与 #1038 中既有 `tabular01` 因每行 `\\` 前有空格而零判别力属同一类：测试用简化替身模拟被测对象时，简化掉的那一层可能正是缺陷所在。
+
+`hyperref-anchor-ecglue01.lvt` 固定 7 项断言，覆盖 `\Hy@raisedlink` 与驱动层 `\hyper@anchor` 两条出口，另含非空 CJK 目标仍按 CJK–CJK 处理、`\hyperref` 链接间距不受影响。两条路径的判别力实测**互不重叠**——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 失败，去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4 失败——这一点本身是「确实是两条独立路径」的证据，分支级改动因此得到分支级断言。
+
+这两个测试还固定了三条测量类用例的设计约束：
+
+- **一律用 `\newbox` 具名寄存器，不要用 `\setbox0`--`\setbox15`。** l3doc 的 `\meta` 内部经 `\ensuremath` 排尖括号，会用掉低位 scratch 寄存器；用 `\setbox10`／`\setbox11` 存测量结果会读到 `0.0pt` 与被污染的数值，失败表现看起来像实现缺陷而不像测试问题。
+- **字体预热要覆盖被测命令自己切换到的字形**，不只是测试正文显式用到的字体。`\meta` 的参数用 `\meta@font@select`（`\itshape`）排版，CJK 斜体还要经过自动伪斜；不预热时 `左\meta{中文}右` 实测在 54.4378／76.23781／135.92561 之间跳。判断方法是读被测命令的定义体，把它切换的每一种字形都在 `\START` 前排一遍。
+- **不要用依赖 `.aux` 的量做宽度比较。** `l3build` 只编译一遍，`\ref`／`\pageref`／`\cite`／`\nameref` 取到的是占位符——`\ref` 排出两字符的 `??`，与最终编号差 5.86pt。需要测引用命令周围的间距时，改用不依赖 `.aux` 的等价入口，例如 `\hyperref[...]{显式文字}`。
 
 ### halign 语境下参数含对齐符（`halign-amp-boundary01`，#1043）
 
@@ -418,11 +433,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行校验固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 120／120，文档构建生成 247 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 122／122，文档构建生成 248 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 120 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 122 项。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 
@@ -935,8 +950,9 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 | 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
 | `\cleaders` + `\glue` 几何数值出现差异（如间距、周期宽度对不上） | 疑 l3backend 与 l3kernel 版本不匹配。`fntef` 用 `\cleaders` 铺重复图案，间距经 pt→bp 换算落到网格，对 backend 的舍入实现敏感 |
 | `\special{pdf:btrans matrix ...}` 坐标末位变化（如 `0.3985 w`→`0.39851 w`、`2000.02579`→`2000.0`），或 luatex 下 `\pdfliteral origin` 输出变化 | pgf ≥ 3.1.12 的 `\pgf@sys@bp@correct` 舍入修正生效，这是上游有意变更，**不会回退** |
+| 颜色、图形等后端 special 变成可见文本（如 `\special{pdf:bc [1.0 0.0 0.0]}` 变成排出来的 `1.0 0.0 0.0`） | `l3kernel` 与 `l3backend` 版本错配，后端函数签名不匹配使 `\use:c` 找不到目标 |
 
-出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查；出现后两条指纹时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。
+出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查；出现后三条指纹时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。最后一条（后端 special 变成可见文本）属于本地各包之间不自洽，详见下文。
 
 详见反思 [[873-880-meta-url-hbox-math-boundary]]、[[1048-1050-upstream-l3backend-pgf-baseline-drift]]。
 
@@ -973,3 +989,17 @@ grep -m1 -oE "\{[0-9]{4}-[0-9]{2}-[0-9]{2}\}" build/test/l3backend-xetex.def   #
 ```
 
 `checkinit_hook`（见「xpinyin 的注音回归（#1041）」一节）与本节手段目标不同，不要混用：`checkinit_hook` 是永久性的构建配置，让测试稳定使用工作树里的依赖包而不是系统 TeX Live（每次 check 都生效，是仓库长期维护的一部分）；本节的 `localdir` 注入是临时的对照实验手段，用于一次性判定某个上游漂移的根因，验证完成后通常就会移除注入的文件。
+`tlmgr update` 报 `no updates available` **不等于**本地各包之间自洽：TLnet 上游包之间也可能处于不一致状态。#1046／#1047 期间遇到 `l3kernel` 已到 revision 79868 而 `l3backend` 停在 78544，其间 expl3 把后端接口从 `\__color_backend_select_<model>:n` 改成了 `:nN`，本地 l3backend 只有 `:n` 版本，`\use:c` 找不到就把颜色参数当文本排了出来，连带 11 项既有测试失败。这种情形只能等上游发布配套版本，或改用 `texmf-dist/tex/latex-dev/` 树里的对应文件核对。
+### 判断测试失败是否由本次改动引起
+不要凭 diff 内容像不像自己改的地方来判断——颜色 special 变成可见文本，看起来就很像间距类改动的后果。可靠方法是**在同一环境下跑 master 并逐字节比对 diff 文件**：
+# 1. 保存当前改动下的 diff
+cp build/test/<name>.xetex.diff /tmp/after-<name>.diff
+# 2. 暂存改动，跑同一组测试
+git stash push -- <改动文件>
+l3build check -q <name>
+# 3. 逐字节比对（跳过前两行的文件名与时间戳）
+diff <(tail -n +3 /tmp/after-<name>.diff) <(tail -n +3 build/test/<name>.xetex.diff)
+# 4. 恢复
+git stash pop
+输出为空即证明该失败与本次改动无关。#1046／#1047 用这个方法确认了 xeCJK 侧 11 项、ctex 侧 3 项 beamer、`config-contrib` 的 elegantbook 共 15 项失败全部与改动无关。
+详见反思 [[873-880-meta-url-hbox-math-boundary]] 与 [[../memory/reflections/1046-1047-meta-anchor-font-context]]。

@@ -1,0 +1,158 @@
+\input{regression-test}
+
+% #1047: hyperref 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
+% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。两条路径各自需要注册：
+%
+% 1. \Hy@raisedlink：水平模式下排出 \penalty\@M 加一个 \smash 后的
+%    hbox(0+0)x0（内含 pdf:dest special）。\hypertarget 带非空目标、目录
+%    锚点、threeparttable 的脚注锚点都走这条路。
+% 2. 驱动层的 \hyper@anchor：空目标的 \hypertarget 经 \hyper@@anchor 落到
+%    这里，直接排出裸的 pdf:dest whatsit，不经过 \Hy@raisedlink。
+%
+% 两者都无可见输出，注册为 transparent（入口取走 marker 与可选源码空格，
+% 锚点节点排出后原样恢复）。不能用 post-transparent：那个 after-only 变体
+% 要求 marker 与末尾零尺寸盒子相邻，而 \Hy@raisedlink 在盒子之前还排出
+% \penalty，搬移条件不成立（实测无效）。
+%
+% 判别力（已实测）：去掉 \Hy@raisedlink 注册，TEST 1 由 41.66002 退化为
+% 38.33002；去掉 \hyper@anchor 注册，TEST 3、TEST 4 同样各少一枚 3.33pt。
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\usepackage[hidelinks]{hyperref}
+
+\newbox\RaisedBox \newbox\PlainLinkBox \newbox\DirectMathBox
+\newbox\BareMathBox \newbox\BareWordBox \newbox\DirectWordBox
+\newbox\NonEmptyBox \newbox\RefBox \newbox\SpacedRefBox
+
+\makeatletter
+\newcommand\TestTarget[1]{\Hy@raisedlink{\hypertarget{#1}{}}}
+\makeatother
+
+\begin{document}
+
+\START
+
+% 字体预热：先把后面用到的字体组合排一遍并丢弃。
+\setbox\RaisedBox=\hbox{带有 \TestTarget{warm}$\star$ 标 word}
+
+% --- TEST 1: \Hy@raisedlink 锚点紧接链接公式（Issue 原始 MWE 的结构）---
+% oracle 用不带锚点、不带链接的直接公式：\CJKecglue 应当在两侧都出现。
+
+\setbox\RaisedBox=\hbox{带有 \TestTarget{t1}\hyperlink{t1}{$\star$} 标}
+\setbox\PlainLinkBox=\hbox{带有 \hyperlink{t1}{$\star$} 标}
+\setbox\DirectMathBox=\hbox{带有 $\star$ 标}
+
+\TEST{raisedlink anchor before link keeps ecglue (1047)}{
+  \TYPE{INFO: with-anchor=\the\wd\RaisedBox,
+    link-only=\the\wd\PlainLinkBox, direct=\the\wd\DirectMathBox}
+  % 三者可见输出应完全一致：锚点与链接注释都无可见宽度。
+  \dimen0=\wd\RaisedBox \advance\dimen0 by -\wd\DirectMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: anchored link matches direct math oracle}
+  \else
+    \TYPE{FAIL: anchored link differs from oracle by \the\dimen0}
+  \fi
+  % 加锚点前后也应一致（锚点本身不改变间距）。
+  \dimen2=\wd\RaisedBox \advance\dimen2 by -\wd\PlainLinkBox
+  \ifdim\dimen2<0pt \dimen2=-\dimen2 \fi
+  \ifdim\dimen2<0.01pt
+    \TYPE{PASS: anchor does not change link spacing}
+  \else
+    \TYPE{FAIL: anchor changed link spacing by \the\dimen2}
+  \fi
+}
+
+% --- TEST 2: 单独的 \Hy@raisedlink 锚点（无链接）---
+
+\TEST{raisedlink anchor alone keeps ecglue (1047)}{
+  \setbox\BareMathBox=\hbox{带有 \TestTarget{t2}$\star$ 标}
+  \TYPE{INFO: anchor+math=\the\wd\BareMathBox,
+    direct=\the\wd\DirectMathBox}
+  \dimen0=\wd\BareMathBox \advance\dimen0 by -\wd\DirectMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: bare raisedlink anchor is transparent}
+  \else
+    \TYPE{FAIL: bare raisedlink anchor differs by \the\dimen0}
+  \fi
+}
+
+% --- TEST 3: 空目标 \hypertarget 走驱动层 \hyper@anchor ---
+% 这条路径不经过 \Hy@raisedlink，需要独立注册。
+
+\TEST{empty hypertarget before math keeps ecglue (1047)}{
+  \setbox\BareMathBox=\hbox{带有 \hypertarget{t3}{}$\star$ 标}
+  \TYPE{INFO: hypertarget+math=\the\wd\BareMathBox,
+    direct=\the\wd\DirectMathBox}
+  \dimen0=\wd\BareMathBox \advance\dimen0 by -\wd\DirectMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: empty hypertarget is transparent before math}
+  \else
+    \TYPE{FAIL: empty hypertarget differs by \the\dimen0}
+  \fi
+}
+
+% --- TEST 4: 空目标 \hypertarget 后接西文词 ---
+% 公式与普通西文词走 Boundary->Default 的不同分支，分别断言。
+
+\TEST{empty hypertarget before Latin word keeps ecglue (1047)}{
+  \setbox\BareWordBox=\hbox{带有 \hypertarget{t4}{}word 标}
+  \setbox\DirectWordBox=\hbox{带有 word 标}
+  \TYPE{INFO: hypertarget+word=\the\wd\BareWordBox,
+    direct=\the\wd\DirectWordBox}
+  \dimen0=\wd\BareWordBox \advance\dimen0 by -\wd\DirectWordBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: empty hypertarget is transparent before Latin word}
+  \else
+    \TYPE{FAIL: empty hypertarget differs by \the\dimen0}
+  \fi
+}
+
+% --- TEST 5: 非空目标 \hypertarget 的可见内容仍按实际类别处理 ---
+% 目标内容是 CJK 时，锚点前后应是 CJK-CJK 边界（\CJKglue，默认 0pt
+% plus 0.96002），不能因为注册了 transparent 就补上 \CJKecglue。
+
+\TEST{non-empty CJK hypertarget keeps CJK-CJK boundary (1047)}{
+  \setbox\NonEmptyBox=\hbox{带有 \hypertarget{t5}{锚}$\star$ 标}
+  \setbox\BareMathBox=\hbox{带有 锚$\star$ 标}
+  \TYPE{INFO: cjk-target=\the\wd\NonEmptyBox,
+    direct=\the\wd\BareMathBox}
+  \dimen0=\wd\NonEmptyBox \advance\dimen0 by -\wd\BareMathBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: CJK target content keeps its own boundary classes}
+  \else
+    \TYPE{FAIL: CJK target differs from direct input by \the\dimen0}
+  \fi
+}
+
+% --- TEST 6: \ref 的链接注释不受影响 ---
+% \Hy@raisedlink 也用于 \label 侧的锚点；注册它不应改变 \ref 两侧间距。
+% 不用 \ref 的实际编号做参考：l3build 只编译一遍，首轮 .aux 未就绪时
+% \ref 排出的是两字符的 `??`，宽度与最终编号不同（实测差 5.86pt）。
+% 这里改用 \hyperref 直接给出链接文字，绕开 .aux 依赖。
+
+\section{章节标题}\label{sec:target}
+
+\TEST{hyperref link spacing unaffected (1047)}{
+  \setbox\RefBox=\hbox{参见 \hyperref[sec:target]{1} 节}
+  \setbox\SpacedRefBox=\hbox{参见 \mbox{1} 节}
+  \TYPE{INFO: hyperref=\the\wd\RefBox, mbox=\the\wd\SpacedRefBox}
+  \dimen0=\wd\RefBox \advance\dimen0 by -\wd\SpacedRefBox
+  \ifdim\dimen0<0pt \dimen0=-\dimen0 \fi
+  \ifdim\dimen0<0.01pt
+    \TYPE{PASS: hyperref matches plain mbox layout}
+  \else
+    \TYPE{FAIL: hyperref differs from mbox by \the\dimen0}
+  \fi
+}
+
+\END
+
+\end{document}
