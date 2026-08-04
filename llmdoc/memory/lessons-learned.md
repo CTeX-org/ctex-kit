@@ -465,6 +465,36 @@ Curated cross-task rules distilled from archived memory.
 **Why**: PR #1030 修好 `timeout-minutes` 导致的加载期失败后，Action 才走到工具安装阶段，随即在 PR #1031 暴露出此前从未执行过的 awk 管道在 `pipefail` 下会以 SIGPIPE 终止 step 的独立缺陷。
 **Source**: `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md`
 
+### 本机能复现推不出 CI 会复现，要断言 CI 行为就直接查 CI 侧证据
+**Rule**: 本机环境与 CI 环境是两个独立的软件快照，没有共同的时间基准；本机复现了某个失败，只能说明本机当前环境处于某种状态，推不出 CI（哪怕是同一个 commit）也会给出相同结果。要对 CI 的行为下结论，必须直接查 CI 侧证据——重跑记录、缓存 key、缓存创建时间与体积等，而不是拿本机结果替代任一侧的 CI 结果。
+**Why**: #1050 排查时在本机 worktree 复现了 master 同一 commit 的失败，据此发出了「master 上重跑也会红」的结论；实际查证后，master 在 CI 上重跑（attempt 2）是全绿的——本机的 TL 已经漂移，与 CI 命中的缓存快照完全不是同一个版本。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+### CI 各次运行之间也可能因缓存分叉而不一致，此时某一侧的绿不构成判据
+**Rule**: 「CI 是已知良好基线，本地与 CI 的差异是第一信号」这条既有规则默认 CI 结果在同一时间窗口内是一致的。当 CI 自身的缓存 key 因某个文件改动（例如改了缓存 key 里 `hashFiles` 覆盖的文件）而分叉时，这个前提不成立：master 与 PR 可能分别命中两个不同时间点写入的缓存快照，一侧绿只说明它命中的是旧快照，不能作为「代码在当前上游环境下仍然通过」的证据。这种场景下要先比较两侧的缓存 key、创建时间与体积，确认缓存是否分叉，而不是直接沿用旧规则把绿的那一侧当基准。
+**Why**: #1050 给 `.github/tl_packages` 加了三行依赖，让 TL bypass cache key（含 `hashFiles('.github/tl_packages')`）改变；该 PR 侧 cache miss、拿到当前上游版本，master 继续命中改动前的旧快照。同一个 commit `2dd5af66`，master 绿、PR 红，绿是旧缓存挡住了漂移，不是代码在新 TL 下仍然通过。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+### 刷 `.tlg` 基线前先按上游根因分类：会自愈的不刷，上游不会回退的必须刷
+**Rule**: 面对上游宏包版本漂移导致的 `.tlg` diff，先判断根因属于哪一类，再决定要不要刷基线：TL 打包侧暂时没跟上 CTAN（会随 tlnet 同步自愈）的漂移不刷——刷了等于把上游当前滞后快照里的错误数值固化下来，等 TL 同步后还要改回来；上游有意修正且不会回退的漂移必须刷。这与「状态表中的绿色单元才进入通过基线」是同一族但不同粒度：那条管的是「矩阵内哪些单元可以写进基线」，这条管的是「整批 diff 该不该刷」的前置分类。
+**Why**: #1048/#1050 中 l3backend 的漂移是 tlnet 落后 CTAN 五个月（会自愈），pgf 的舍入修正是上游明确的、不会回退的行为变更；两者的 `.tlg` diff 表现类似，但处置方式相反——一个该等 TL 同步，一个必须刷。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+### 关掉断言不是刷基线
+**Rule**: 刷新一个测试的基线，前提是让测试在正确环境下重新跑出真实结果；把断言本身改弱或删除（例如把具体的 `PASS: ...` 输出换成一个占位字符串），即使 `l3build check` 变绿，也不是刷基线，而是删除了校验本身。判断某次「基线更新」是否合法，要看改动前后测试是否仍然观察同一件事。
+**Why**: #1048/#1050 中 `fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验；而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的，本不需要放弃断言。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+### 注入类实验必须有可核实的生效判据
+**Rule**: 用替代版本的文件（宏包、依赖、配置等）临时覆盖某个路径来做对照实验时，必须有一个独立于实验结论的判据，能核实注入本身确实生效，而不是仅凭实验结果推断。没有这个判据，「注入没生效、测的还是旧版本」与「注入生效了、新版本确实不行」在结果上会完全相同，容易把环境错误误判为结论。
+**Why**: #1048/#1050 中两次尝试用新版 l3backend 替换测试环境都放错了位置（先后误写进会被 `cleandir` 清空的 `testdir`、试图通过 `TEXINPUTS` 覆盖但被 l3build 写死的设置盖过），两次都得到「仍然报错」的结果，若不核实测试目录里实际文件的日期戳，会顺势得出「新版本也修不好」这个错误结论。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+### 排查上游问题前先查本仓库 `llmdoc/` 是否已有根因记录
+**Rule**: 怀疑某个失败源于第三方宏包或上游机制时，先在本仓库 `llmdoc/architecture/` 与相关反思里搜索是否已经记录过同一类问题的根因链，再决定是否需要直接去读上游源码。本仓库对已知的上游问题通常已经做过一次调研并沉淀成文档；跳过这一步直接读上游源码，等于重新做一遍已经做过的工作，还可能在对外沟通中给出「根因未定位」这类不准确的中间结论。
+**Why**: #1048/#1050 排查 `cleveref02/03` 的 4 个 `.tlg` diff 时，第一版评论判定为「根因未定位」，走的是直接读上游 `latex2e-first-aid-for-external-files.ltx` 源码这条路；而 `llmdoc/architecture/cleveref-patch.md` 早就把根因链（LaTeX firstaid 的 `\firstaid@cref@updatelabeldata` 缺 appendix 特判、上游 `latex2e#2049` 明确不修）记录完整，直接查阅即可，不需要重新排查。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
 ## LaTeX2e 命令钩子机制
 
 ### 通用命令钩子不能包装命令本体即赋值语句的场景
