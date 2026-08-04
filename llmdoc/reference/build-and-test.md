@@ -871,6 +871,19 @@ pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` �
 - **不能靠正则替换数字更新 `.tlg`，必须让 l3build 重新生成**。实证是 `beamer01` 的 `2000.0` 出现次数从基线 8 次降到 4 次，成对的 push/pop 数量也随之变化——手工改几个数字看起来能让 diff 变小，但改不出正确的节点结构。
 - **关掉断言不是刷基线**。`fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验，而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的。刷基线的前提是让测试在正确环境下重新跑出真实结果，不是让测试不再报告结果。
 
+### CI 侧的临时 workaround：从 CTAN 取匹配版本的 l3backend
+
+会自愈的漂移既然不刷基线，CI 在上游同步之前就会一直红。这段时间的处置是在 workflow 里临时补齐匹配版本，而不是改基线。
+
+`_test-package.yml` 的 `Workaround l3kernel/l3backend mismatch` 步骤（在 `Test <pkg>` 之前）做三件事：比较 `expl3.sty` 的 `\ExplFileDate` 与 `l3backend-pdftex.def` 的日期戳；不一致时从 CTAN 取 `l3backend.zip`、`tex l3backend.ins` 解包，装进 `TEXMFHOME`；最后核对 `kpsewhich l3backend-pdftex.def` 解析到的确实是新装那份且日期已对齐，不对齐就 `::error::` 退出。
+
+两个设计选择值得说明：
+
+- **装进 `TEXMFHOME` 而不是各包的 `localdir`**。kpse 中 `TEXMFHOME` 优先于 `texmf-dist`，一步覆盖所有包与所有引擎，且不往仓库工作树里落文件。`localdir` 注入（见「往 check 环境注入替代版本的上游宏包」一节）适合本地一次性对照实验，要在 CI 里覆盖六个 caller job 就得每个包都处理一遍。
+- **日期比较作为前置条件，而不是无条件安装**。tlnet 追上以后，这一步自动变成空操作并打一条 `::notice::` 提示可以删除；不需要靠人记得「上游修好了要来撤」。**撤除判据就是这条 notice。**
+
+同类问题若再出现（例如另一对上游包版本错配），照这个形状加一个步骤即可：先比较版本、再补齐、最后核对生效，三步都不能省——少了最后一步，「装错位置」与「装了但没生效」都会静默退化成原状，CI 依旧红而原因指向错误的地方。
+
 ## Git 信息注入
 
 发布/打包过程中，`support/build-config.lua` 会借助 git 历史展开 `\GetIdInfo`，把最近提交标识写入相应 `.id` 文件及输出产物。见 `support/build-config.lua:70-115`。
