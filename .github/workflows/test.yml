@@ -92,10 +92,11 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     outputs:
-      # 五个 bool, 给下游 5 个 caller job 各自 if 用. push / schedule /
+      # 六个 bool, 给下游各 caller job 的 if 用. push / schedule /
       # workflow_dispatch 触发时全部 true; pull_request 时按 path filter 结果.
       ctex:       ${{ steps.compute.outputs.ctex }}
       xeCJK:      ${{ steps.compute.outputs.xeCJK }}
+      xpinyin:    ${{ steps.compute.outputs.xpinyin }}
       zhnumber:   ${{ steps.compute.outputs.zhnumber }}
       CJKpunct:   ${{ steps.compute.outputs.CJKpunct }}
       zhlineskip: ${{ steps.compute.outputs.zhlineskip }}
@@ -133,6 +134,13 @@ jobs:
             xeCJK:
               - *all
               - 'xeCJK/**'
+            xpinyin:
+              - *all
+              - 'xpinyin/**'
+              # xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖
+              # (build.lua 的 checkdeps + checkinit_hook), 所以 xeCJK 改了
+              # 也要跑 xpinyin.
+              - 'xeCJK/**'
             zhnumber:
               - *all
               - 'zhnumber/**'
@@ -148,23 +156,25 @@ jobs:
           IS_PR: ${{ github.event_name == 'pull_request' }}
           FILTER_CTEX:       ${{ steps.filter.outputs.ctex       }}
           FILTER_XECJK:      ${{ steps.filter.outputs.xeCJK      }}
+          FILTER_XPINYIN:    ${{ steps.filter.outputs.xpinyin    }}
           FILTER_ZHNUMBER:   ${{ steps.filter.outputs.zhnumber   }}
           FILTER_CJKPUNCT:   ${{ steps.filter.outputs.CJKpunct   }}
           FILTER_ZHLINESKIP: ${{ steps.filter.outputs.zhlineskip }}
         run: |
           # PR 走 path filter; 其它触发全跑.
           if [ "$IS_PR" != "true" ]; then
-            for p in ctex xeCJK zhnumber CJKpunct zhlineskip; do
+            for p in ctex xeCJK xpinyin zhnumber CJKpunct zhlineskip; do
               echo "${p}=true" >> "$GITHUB_OUTPUT"
             done
             echo "Non-PR trigger: running all packages"
           else
             echo "ctex=${FILTER_CTEX:-false}"             >> "$GITHUB_OUTPUT"
             echo "xeCJK=${FILTER_XECJK:-false}"           >> "$GITHUB_OUTPUT"
+            echo "xpinyin=${FILTER_XPINYIN:-false}"       >> "$GITHUB_OUTPUT"
             echo "zhnumber=${FILTER_ZHNUMBER:-false}"     >> "$GITHUB_OUTPUT"
             echo "CJKpunct=${FILTER_CJKPUNCT:-false}"     >> "$GITHUB_OUTPUT"
             echo "zhlineskip=${FILTER_ZHLINESKIP:-false}" >> "$GITHUB_OUTPUT"
-            echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
+            echo "PR path filter: ctex=${FILTER_CTEX} xeCJK=${FILTER_XECJK} xpinyin=${FILTER_XPINYIN} zhnumber=${FILTER_ZHNUMBER} CJKpunct=${FILTER_CJKPUNCT} zhlineskip=${FILTER_ZHLINESKIP}"
           fi
           # ISO 8601 年-周 (例 "2026-W26"). `%G` 是 ISO 周对应的年份 (与 `%V`
           # 配套), 不是日历年 `%Y` — 跨年那周 (例 2025-12-29 周一) `%V` 报
@@ -206,6 +216,7 @@ jobs:
     if: |
       needs.changes.outputs.ctex == 'true'
       || needs.changes.outputs.xeCJK == 'true'
+      || needs.changes.outputs.xpinyin == 'true'
       || needs.changes.outputs.zhnumber == 'true'
       || needs.changes.outputs.CJKpunct == 'true'
       || needs.changes.outputs.zhlineskip == 'true'
@@ -397,6 +408,21 @@ jobs:
       tl-version: ${{ needs.changes.outputs.tl-version }}
       tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
 
+  test-xpinyin:
+    needs: [changes, warmup-tl]
+    if: needs.changes.outputs.xpinyin == 'true'
+    uses: ./.github/workflows/_test-package.yml
+    with:
+      pkg: xpinyin
+      event-name: ${{ github.event_name }}
+      tl-version: ${{ needs.changes.outputs.tl-version }}
+      tl-cache-week: ${{ needs.changes.outputs.tl-cache-week }}
+      # 主 testfiles/ 走 xetex; CJKutf8 那条线在独立 config 里走 pdftex
+      # (两者引擎需求不同, 不能共用 testfiledir, 见 xpinyin/build.lua 注释).
+      configs: test/config-cjk
+      # unpack 阶段要跑 `texlua xpinyin.lua` 生成拼音数据库, 需要 Unihan.zip.
+      needs-unihan: true
+
   test-zhnumber:
     needs: [changes, warmup-tl]
     if: needs.changes.outputs.zhnumber == 'true'
@@ -434,7 +460,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────
   test-result:
     if: ${{ !cancelled() }}
-    needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all caller jobs (incl. warmup-tl) succeeded or were skipped
@@ -443,6 +469,7 @@ jobs:
           R_CTEX:          ${{ needs.test-ctex.result }}
           R_CTEX_LUATEX:   ${{ needs.test-ctex-luatex.result }}
           R_XECJK:         ${{ needs.test-xeCJK.result }}
+          R_XPINYIN:       ${{ needs.test-xpinyin.result }}
           R_ZHNUMBER:      ${{ needs.test-zhnumber.result }}
           R_CJKPUNCT:      ${{ needs.test-CJKpunct.result }}
           R_ZHLINESKIP:    ${{ needs.test-zhlineskip.result }}
@@ -453,6 +480,7 @@ jobs:
             "ctex:$R_CTEX" \
             "ctex-luatex:$R_CTEX_LUATEX" \
             "xeCJK:$R_XECJK" \
+            "xpinyin:$R_XPINYIN" \
             "zhnumber:$R_ZHNUMBER" \
             "CJKpunct:$R_CJKPUNCT" \
             "zhlineskip:$R_ZHLINESKIP"; do

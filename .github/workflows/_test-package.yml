@@ -54,13 +54,26 @@ on:
         type: number
         default: 1
       configs:
-        # 仅 ctex 用. ctex Phase 2 跑 -c <config> 列表 (config-cmap /
-        # config-contrib / config-ctxdoc). 空 = 不跑 Phase 2. 拆 job 时
+        # ctex: Phase 2 跑 -c <config> 列表 (config-cmap / config-contrib /
+        # config-ctxdoc), 由 check-parallel.sh 消费. 空 = 不跑 Phase 2. 拆 job 时
         # configs 跟 3 engine job (test-ctex) 一起跑, luatex job 不跑 configs.
-        description: '可选 CONFIGS 透传 (空 = 不跑 Phase 2 configs).'
+        #
+        # 其他包: 主 `l3build check` 之后逐个再跑 `l3build check -c <config>`.
+        # xpinyin 用它跑 CJKutf8/pdfTeX 那条线 (test/config-cjk) —— 该路线与主
+        # 目录的引擎需求不同, 必须分 config, 见 xpinyin/build.lua 注释.
+        description: '可选 CONFIGS 透传 (空 = 不跑额外 config).'
         required: false
         type: string
         default: ''
+      needs-unihan:
+        # xpinyin 的 unpack_prehook 会跑 `texlua xpinyin.lua` 生成拼音数据库
+        # (support/xpinyin.db), 数据源是 unicode.org 的 Unihan.zip (~8.5MB).
+        # 不预先放好的话每次 CI 都现场下载, unicode.org 抖动时 job 直接红.
+        # 与 _check-doc-package.yml 的同名输入语义一致 (那边是 xeCJK 用).
+        description: '是否需要 Unihan.zip (xpinyin / xeCJK 的 unpack 依赖它).'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   run:
@@ -248,6 +261,29 @@ jobs:
         cp "$FONT_CACHE"/*.ttc "${{ matrix.font-dir }}/"
         fc-cache -f
 
+    # ────────────────────────────────────────────────────────────────────
+    # Unihan.zip cache (xpinyin). weekly key 与 _check-doc-package.yml 的
+    # 完全一致, 所以两条 workflow 互相填对方的 cache, 多数情况直接命中.
+    # Unihan 官方随 Unicode major 年度发一次, 内容年内不变, 按周翻新只是
+    # 与 TL bypass cache 同频的稳当哨兵. URL 语义变化时手工 bump marker "v1".
+    #
+    # 路径: xpinyin/build.lua dofile "../support/build-config.lua",
+    # supportdir 解析为仓库根的 support/, 所以 Unihan.zip 放这里.
+    # ────────────────────────────────────────────────────────────────────
+    - name: Cache Unihan.zip
+      id: unihan-cache
+      if: inputs.needs-unihan
+      uses: actions/cache@v6
+      with:
+        path: ${{ github.workspace }}/support/Unihan.zip
+        key: unihan-zip-${{ inputs.tl-cache-week }}-v1
+
+    - name: Download Unihan.zip (cache miss)
+      if: inputs.needs-unihan && steps.unihan-cache.outputs.cache-hit != 'true'
+      run: |
+        curl -fsSL -o support/Unihan.zip \
+          "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
+
     - name: Test ${{ inputs.pkg }}
       id: test
       working-directory: ./${{ inputs.pkg }}
@@ -316,12 +352,25 @@ jobs:
             fi
             ;;
           *)
-            # xeCJK / zhnumber / CJKpunct 等小包, 默认串行直接跑.
+            # xeCJK / zhnumber / CJKpunct / xpinyin 等小包, 默认串行直接跑.
             if [ -d testfiles ] || grep -q 'testfiledir' build.lua 2>/dev/null; then
               l3build check -q "$L3BUILD_EXTRA_OPTIONS"
             else
               echo "No test configuration found, skipping"
             fi
+            # 额外 config (xpinyin 的 CJKutf8/pdfTeX 那条线走这里).
+            # 与 ctex 不同: ctex 的 configs 交给 check-parallel.sh 并行跑,
+            # 这些小包直接串行, 秒级到分钟级, 不值得铺并行基础设施.
+            #
+            # 选项写在前面是习惯统一, 不是必需: `-c` 带自己的参数, 尾部 `-q`
+            # 不会被误当测试名 (实测两种顺序退出码均为 0). 真正有这个坑的是
+            # **测试名**在前时 —— `l3build check <name> -q` 会把 -q 当成第二个
+            # 测试名, 见 llmdoc/reference/build-and-test.md.
+            for cfg in ${{ inputs.configs }}; do
+              echo "::group::l3build check -c ${cfg}"
+              l3build check -q "$L3BUILD_EXTRA_OPTIONS" -c "$cfg"
+              echo "::endgroup::"
+            done
             ;;
         esac
 

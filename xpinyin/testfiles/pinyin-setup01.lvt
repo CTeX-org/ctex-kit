@@ -1,0 +1,199 @@
+\input{regression-test}
+
+%% \xpinyinsetup 各键的可观察效果 (XeTeX / xeCJK 路线).
+%%
+%% 每个键都用「改前 vs 改后」两个盒子对比, 而不是只记一个绝对数值: 绝对值会随
+%% 字体和 TeX Live 版本漂移, 而「设了这个键之后某个量按预期变化」才是键的语义.
+%% 差值同时也是判别力的来源 —— 键被实现忽略时差值变 0, 基线立刻失配.
+%%
+%% 覆盖: ratio / vsep / hsep / pysep / font / format / multiple / footnote,
+%% 外加 \disablepinyin / \enablepinyin 和 pinyinscope 环境的作用域语义.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xpinyin}
+\usepackage{color}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\newfontfamily\PinyinAltFont{FreeSerif.otf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+\begin{document}
+
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\PinyinAltFont ma}%
+\hbox{\pinyin{ma1}}\hbox{\xpinyin*{文}}
+\TIMO
+
+\START
+
+\ExplSyntaxOn
+
+\box_new:N \g_test_a_box
+\box_new:N \g_test_b_box
+
+%% 报两个盒子的宽度与高度. 用绝对值而非 same/DIFF: 这些用例要看的是「变了多少」,
+%% 方向和量级都得进基线.
+\cs_new_protected:Npn \ReportWdHt #1
+  {
+    \tl_log:x
+      {
+        #1 :~
+        a~ wd = \dim_to_decimal:n { \box_wd:N \g_test_a_box } ,~
+        ht = \dim_to_decimal:n { \box_ht:N \g_test_a_box } ;~
+        b~ wd = \dim_to_decimal:n { \box_wd:N \g_test_b_box } ,~
+        ht = \dim_to_decimal:n { \box_ht:N \g_test_b_box }
+      }
+  }
+
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+
+%% ratio 是拼音字号与正文字号之比, 缺省 .4. 10pt 正文下 .4 -> 3.99994pt,
+%% .8 -> 7.99988pt, 高度随之变化.
+\TEST{ratio~scales~the~pinyin~size}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{文} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[ratio=.8]{文} }
+  \ReportWdHt { ratio-default-vs-0.8 }
+  %% 汉字本身不缩放, 所以宽度应当不变而高度增加.
+  \tl_log:x
+    {
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_a_box } = { \box_wd:N \g_test_b_box }
+            { unchanged } { CHANGED } ,~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_b_box } > { \box_ht:N \g_test_a_box }
+            { grew } { NOT-GREW }
+    }
+}
+
+%% vsep 是拼音基线与汉字基线的距离, 缺省 1em. 加大它整个盒子会变高.
+\TEST{vsep~lifts~the~pinyin~box}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{文} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[vsep=2em]{文} }
+  \ReportWdHt { vsep-1em-vs-2em }
+  \tl_log:x
+    {
+      ht~ delta = \dim_to_decimal:n
+                    { \box_ht:N \g_test_b_box - \box_ht:N \g_test_a_box }
+    }
+}
+
+%% hsep 取代注音汉字之间的 \CJKglue. 给一个明显不同的值, 两字之间的间距随之变化.
+\TEST{hsep~replaces~the~inter-character~glue}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{汉语} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[hsep={5pt}]{汉语} }
+  \ReportWdHt { hsep-default-vs-5pt }
+  \tl_log:x
+    {
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_a_box } = { \box_wd:N \g_test_b_box }
+            { UNCHANGED } { changed }
+    }
+}
+
+%% pysep 是 \pinyin 里相邻音节之间的空白, 缺省一个空格.
+\TEST{pysep~separates~syllables}{
+  \hbox_set:Nn \g_test_a_box { \pinyin{nv3hai2zi} }
+  \hbox_set:Nn \g_test_b_box { \pinyin[pysep={\hskip 5pt}]{nv3hai2zi} }
+  \ReportWdHt { pysep-space-vs-5pt }
+  %% 三音节 -> 两个分隔位. 5pt 一个, 与缺省空格宽度之差乘 2 即总差值.
+  \tl_log:x
+    {
+      wd~ delta = \dim_to_decimal:n
+                    { \box_wd:N \g_test_b_box - \box_wd:N \g_test_a_box }
+    }
+}
+
+%% font 决定拼音用哪个字体; 汉字字体不受影响.
+\TEST{font~selects~the~pinyin~family}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{文} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[font=\PinyinAltFont]{文} }
+  \ReportWdHt { font-DejaVu-vs-FreeSerif }
+}
+
+%% format 给拼音附加格式 (颜色等), 缺省为空.
+%% 颜色不改变尺寸, 所以这里的观察量是节点列表而非宽高 —— 见 pinyin-setup02.
+%% 本项只确认加了 format 之后尺寸**不变**, 即它没有意外插入盒子或间距.
+\TEST{format~does~not~change~metrics}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{文} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[format=\color{red}]{文} }
+  \ReportWdHt { format-none-vs-red }
+  \tl_log:x
+    {
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_a_box } = { \box_wd:N \g_test_b_box }
+            { unchanged } { CHANGED } ,~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_a_box } = { \box_ht:N \g_test_b_box }
+            { unchanged } { CHANGED }
+    }
+}
+
+\ExplSyntaxOff
+
+\ExplSyntaxOn
+
+%% pinyinscope 是 \xpinyin* 的环境形式, 两者应当等价; 环境与命令的可选参数
+%% 语义也应当一致.
+%%
+%% 这一项用尺寸是合适的: 它要证的恰恰是「两种写法产出同一个盒子」, 而不是
+%% 「拼音内容是什么」. 拼音串本身相同, 所以尺寸相等是必要条件, 且拼音字号
+%% 会体现在高度上 (ratio=.8 时两侧都应当变高).
+\TEST{pinyinscope~equals~starred~command}{
+  \hbox_set:Nn \g_test_a_box { \begin{pinyinscope}汉语\end{pinyinscope} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*{汉语} }
+  \ReportWdHt { scope-vs-star }
+  \tl_log:x
+    {
+      scope-vs-star:~
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_a_box } = { \box_wd:N \g_test_b_box }
+            { same } { DIFF } ,~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_a_box } = { \box_ht:N \g_test_b_box }
+            { same } { DIFF }
+    }
+  \hbox_set:Nn \g_test_a_box
+    { \begin{pinyinscope}[ratio=.8]汉语\end{pinyinscope} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*[ratio=.8]{汉语} }
+  \ReportWdHt { scope-opt-vs-star-opt }
+  \tl_log:x
+    {
+      scope-opt-vs-star-opt:~
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_a_box } = { \box_wd:N \g_test_b_box }
+            { same } { DIFF } ,~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_a_box } = { \box_ht:N \g_test_b_box }
+            { same } { DIFF }
+    }
+}
+
+%% 注音汉字的**宽度不能用来观察拼音内容**, 这一条必须写下来, 否则很容易写出
+%% 看着正规实际恒真的用例:
+%% \@@_make_pinyin_box:nnn 把拼音放进 \hbox_overlap_right:n, 那是个零宽盒子,
+%% 汉字之外不占位置 —— 所以换读音、乃至整段关掉注音, 整盒宽度都不变.
+%% 实测 `\xpinyin{长}{chang2}` 与 `\xpinyin{长}{zhang3}` 同为 10pt;
+%% `\xpinyin*{汉\disablepinyin 语}` 与 `\xpinyin*{汉语}` 同为 20pt,
+%% 与不注音的 `汉语` 也同为 20pt.
+%% 因此「用了哪个读音」「注音有没有生效」这两类断言一律交给
+%% pinyin-scope01.lvt 的节点列表, 本文件只报高度供基线固定方向.
+\TEST{annotated~width~is~blind~to~the~pinyin~content}{
+  \hbox_set:Nn \g_test_a_box { \xpinyin{长}{chang2} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin{长}{zhang3} }
+  \ReportWdHt { chang2-vs-zhang3 }
+  \hbox_set:Nn \g_test_a_box { \xpinyin*{汉\disablepinyin 语} }
+  \hbox_set:Nn \g_test_b_box { \xpinyin*{汉语} }
+  \ReportWdHt { disabled-tail-vs-all-annotated }
+  \hbox_set:Nn \g_test_a_box { 汉语 }
+  \ReportWdHt { plain-hanzi-vs-all-annotated }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

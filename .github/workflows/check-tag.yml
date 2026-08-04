@@ -37,6 +37,7 @@ on:
       - 'zhlineskip/**'
       - 'ctex/**'
       - 'xeCJK/**'
+      - 'xpinyin/**'
       - 'support/build-config.lua'
       - '.github/workflows/check-tag.yml'
 
@@ -51,6 +52,7 @@ jobs:
       ctex:       ${{ steps.filter.outputs.ctex }}
       zhlineskip: ${{ steps.filter.outputs.zhlineskip }}
       xecjk:      ${{ steps.filter.outputs.xecjk }}
+      xpinyin:    ${{ steps.filter.outputs.xpinyin }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -70,6 +72,9 @@ jobs:
             xecjk:
               - *all
               - 'xeCJK/**'
+            xpinyin:
+              - *all
+              - 'xpinyin/**'
 
   tag-ctex:
     needs: changes
@@ -151,10 +156,39 @@ jobs:
           fi
           echo "✓ xeCJK .dtx 版本与 version 一致 (l3build tag 为 no-op)"
 
+  tag-xpinyin:
+    needs: changes
+    if: needs.changes.outputs.xpinyin == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # 与 xeCJK 同理: 共享 update_tag 不读 git log, 不需要 fetch-depth: 0.
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        working-directory: ./xpinyin
+        run: |
+          l3build tag
+          # 只看 xpinyin/ : diff 范围应精确等于 `l3build tag` 的写入范围.
+          #
+          # xpinyin.dtx 有**两处**版本写法, 共享 update_tag 都会改:
+          #   * `\ProvidesExplPackage` 的 `{\ExplFileDate}{<ver>}`;
+          #   * `xpinyin-database.def` 的 `[<日期> v<ver> ...]`.
+          # 后者只在版本号需要改时才连日期一起重写, 版本号已对则整段原样保留,
+          # 所以 stamp 同步时 diff 为零 (幂等), 校验才能成立.
+          if ! git diff --exit-code -- .; then
+            echo "::error::xpinyin 的 .dtx 版本与 xpinyin/build.lua 的 version 不一致."
+            echo "::error::请在本地运行: cd xpinyin && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ xpinyin .dtx 版本与 version 一致 (l3build tag 为 no-op)"
+
   # 汇总: 供 branch protection 单点盯 (与 test-result / check-doc-result 同构).
   check-tag-result:
     if: ${{ !cancelled() }}
-    needs: [tag-ctex, tag-zhlineskip, tag-xecjk]
+    needs: [tag-ctex, tag-zhlineskip, tag-xecjk, tag-xpinyin]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate results
@@ -162,9 +196,11 @@ jobs:
           R_CTEX:       ${{ needs.tag-ctex.result }}
           R_ZHLINESKIP: ${{ needs.tag-zhlineskip.result }}
           R_XECJK:      ${{ needs.tag-xecjk.result }}
+          R_XPINYIN:    ${{ needs.tag-xpinyin.result }}
         run: |
           fail=0
-          for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP" "xeCJK:$R_XECJK"; do
+          for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP" "xeCJK:$R_XECJK" \
+                    "xpinyin:$R_XPINYIN"; do
             name="${nv%%:*}"; res="${nv#*:}"
             if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
               echo "✓ ${name}: ${res}"
