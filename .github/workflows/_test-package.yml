@@ -284,6 +284,58 @@ jobs:
         curl -fsSL -o support/Unihan.zip \
           "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
 
+    # ────────────────────────────────────────────────────────────────────
+    # 临时措施 (#1048/#1050): 从 CTAN 取与 l3kernel 同日期的 l3backend
+    #
+    # tlnet 的 l3kernel (2026-07-20) 与 l3backend (2026-02-18) 差五个月.
+    # l3kernel 的 \__color_select_aux:nnN 调用 \__color_backend_select_rgb:nN,
+    # 而旧 l3backend 只定义 :n 变体; \use:c 拿到未定义控制序列后颜色参数被
+    # 当作普通文字排进水平列表, \special{pdf:bc [...]} 从 .tlg 里消失, 变成
+    # \TU/lmr/m/n/10 1.0 一类字符节点. 12 个测试因此变红 (见 d7457624).
+    #
+    # CTAN 上的 l3backend 已是 2026-07-20, 滞后的只是 TeX Live 打包通道.
+    # 装进 TEXMFHOME 而不是各包的 localdir: kpse 优先于 texmf-dist 命中,
+    # 一步覆盖所有包和所有引擎, 且不往仓库工作树里落文件.
+    #
+    # 撤除条件: tlnet 的 l3backend 追上 l3kernel 后删掉本步骤. 判据是下面
+    # 打印的两个日期一致 —— 一致时本步骤即为空操作, 不影响结果.
+    # ────────────────────────────────────────────────────────────────────
+    - name: Workaround l3kernel/l3backend mismatch (CTAN l3backend)
+      shell: bash
+      run: |
+        set -euo pipefail
+        KERNEL_DATE=$(sed -n 's/.*\\def\\ExplFileDate{\([0-9-]*\)}.*/\1/p' \
+          "$(kpsewhich expl3.sty)" | head -1)
+        BACKEND_DATE=$(sed -n 's/.*{\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)}.*/\1/p' \
+          "$(kpsewhich l3backend-pdftex.def)" | head -1)
+        echo "l3kernel:  $KERNEL_DATE"
+        echo "l3backend: $BACKEND_DATE"
+        if [ "$KERNEL_DATE" = "$BACKEND_DATE" ]; then
+          echo "::notice::l3kernel 与 l3backend 日期一致, 无需 workaround; 本步骤可以删除了"
+          exit 0
+        fi
+        echo "::warning::l3kernel ($KERNEL_DATE) 与 l3backend ($BACKEND_DATE) 日期不一致, 从 CTAN 取匹配版本"
+        WORK=$(mktemp -d)
+        curl -fsSL --retry 3 --retry-delay 5 \
+          -o "$WORK/l3backend.zip" \
+          "https://mirrors.ctan.org/macros/latex/required/l3backend.zip"
+        unzip -oq "$WORK/l3backend.zip" -d "$WORK"
+        ( cd "$WORK/l3backend" && tex l3backend.ins >/dev/null )
+        TEXMFHOME=$(kpsewhich -var-value TEXMFHOME)
+        DEST="$TEXMFHOME/tex/latex/l3backend"
+        mkdir -p "$DEST"
+        cp "$WORK/l3backend"/l3backend-*.def "$DEST/"
+        # 生效判据: 经 kpse 解析到的必须是刚装的那份, 且日期与 l3kernel 一致.
+        # 少了这步核对, 「装错位置」与「装了但没生效」都会静默退化成原状.
+        RESOLVED=$(kpsewhich l3backend-pdftex.def)
+        NEW_DATE=$(sed -n 's/.*{\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)}.*/\1/p' \
+          "$RESOLVED" | head -1)
+        echo "resolved:  $RESOLVED ($NEW_DATE)"
+        if [ "$NEW_DATE" != "$KERNEL_DATE" ]; then
+          echo "::error::l3backend 注入未生效: 解析到 $RESOLVED ($NEW_DATE), 期望 $KERNEL_DATE"
+          exit 1
+        fi
+
     - name: Test ${{ inputs.pkg }}
       id: test
       working-directory: ./${{ inputs.pkg }}
