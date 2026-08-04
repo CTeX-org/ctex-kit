@@ -271,7 +271,7 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 
 #### 同一类节点可能有多个出口，按调用点而非参数形态区分（#1047）
 
-hyperref 的行内锚点有三个出口，都会插入遮蔽 marker 的不可见节点，各注册一次 `transparent`：
+hyperref 的行内锚点会插入遮蔽 marker 的不可见节点。下面按**调用点**列出**已覆盖**的出口，各注册一次 `transparent`——本节不给出出口总数，理由见末尾：
 
 - 驱动层的 `\hyper@anchor` 承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的 `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**——`\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，与目标内容是否为空无关。
 - `\Hy@raisedlink` 承接需要抬升的锚点：无编号标题（`\section*`、`\chapter*`，以及目录、参考文献等自动生成的无编号标题）、caption、公式编号、脚注、`\bibitem`，以及下游手工包裹的写法，例如 ctxdoc 的 `\exptarget` 定义为 `\Hy@raisedlink{\hypertarget{name}{}}`。它在水平模式下排出 `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。注意目录**条目**不走这条路：`\contentsline` 用 `\hyper@linkstart`／`\hyper@linkend` 做链接，与抬升锚点无关。
@@ -282,13 +282,24 @@ hyperref 的行内锚点有三个出口，都会插入遮蔽 marker 的不可见
 
 **包装这类函数要注意参数转发是否保留花括号。** 既有的 `\@@_boundary_wrap_transparent_onearg:NN` 以 `#1 ##1` 转发，适用于原函数只是顺序执行参数内容的情形。`\__hyp_target_raise:n` 会把参数**再次**用作 `\hbox:n` 的内容，丢掉花括号就改变了分组：紧随其后的 `\Hy@SaveSpaceFactor` 被卷进 `\hyper@anchorstart` 的参数，`\spacefactor` 赋值被写进 `pdf:dest` 名字、锚点名 `section*.1` 被排成可见文本（实测盒宽 81.16002pt 对 oracle 41.66002pt）。这与 xeCJK 的钩子无关——不挂任何钩子、仅做无花括号透传同样复现——所以只需要 `#1 {##1}` 的转发变体，不需要新的适配器。
 
-**判据是读分派函数的分支并用计数器实测。** 这一节的机制陈述被盲审连续推翻三次，失败形态相同，都是从「注册这些之后报告的现象消失」推出更强的断言：
+#### 已知未覆盖：`\hyper@anchorstart` 的裸调用
+
+`\pdfbookmark` 直接写 `\hyper@anchorstart{...}\hyper@anchorend`，既不经 `\hyper@@anchor` 也不经两个抬升出口（计数器实测三者均为 0，只有 `\hyper@anchorstart` 计数为 1），因此右侧仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。同类裸调用在 hyperref 与各驱动里还有若干处。这不是 #1047 引入的，base 上同样如此。
+
+两种就手的补法都已实测不可行：注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使盒宽暴涨并报出十余处错误，因为它的参数含待展开内容；注册 `\hyper@anchorstart` 本身虽不报错却不生效，还会把已修好的两处拖回缺陷状态——包内注册与用户接口注册在此产生了尚未查明的冲突。这条路径需要单独设计适配器，另立议题跟踪。`hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动失败，强制回来更新两份清单。
+
+#### 为什么这一节不写出口总数
+
+**判据是读分派函数的分支并用计数器实测。** 这一节的机制陈述被独立复核连续推翻**四次**，失败形态相同——都是从一个真实现象推出未经独立验证的更强断言：
 
 1. 先写「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。计数器实测：四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。
 2. 改对分派依据后又写「行内锚点有两个出口」。计数器实测：`\phantomsection` 使 `\__hyp_target_raise:n` 计数 +1 而另两者均为 0。
-3. 承认第三个出口后又写「它不能用现成包装，需要新设计适配器」，并把故障归因给 begin 钩子里的赋值。隔离实验实测：begin 钩子体内没有任何 `\spacefactor` 赋值，那个赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`；换成花括号转发即可修复，缺口无需保留。
+3. 承认第三个出口后又写「它不能用现成包装，需要新设计适配器」，把故障归因给 begin 钩子里的赋值，据此放弃覆盖。隔离实验实测：begin 钩子体内没有任何 `\spacefactor` 赋值，那个赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`；换成花括号转发即可修复。
+4. 覆盖第三个出口后又写「三个出口全部注册」。同款探针实测：`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用，四个候选函数里只有它计数为 1。
 
-**「注册 A 和 B 都必要」不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」；观察到一个故障也不能推出它的成因。** 这些都是彼此独立的命题，各需自己的探针。写穷尽性断言（「全部」「三个」「只有」）或因果断言（「因为 X 所以坏」）前应当先问：我用什么手段排除了别的可能？隔离实验（去掉一个因素看故障是否仍在）往往一次编译就能定论。
+**「注册 A 和 B 都必要」不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」；观察到一个故障也不能推出它的成因。** 这些是彼此独立的命题，各需自己的探针：控制流用计数器，穷尽性要说明如何排除下一种，成因用隔离实验。
+
+因此本节改为只维护**已覆盖**与**已知未覆盖**两份清单，不再给出总数——总数是一个反复出错的穷尽性断言，而两份清单各自都可被单条探针核查。给上游包的内部出口计数需要穷举式审计（grep 全部 `\hyper@anchorstart`／`\@pdfm@dest` 调用点并逐一实测），不能从修复效果倒推。
 
 #### 实验性用户注册入口（#1010）
 
@@ -618,7 +629,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | 目标包 | 补丁内容 |
 |--------|----------|
 | `color`/`xcolor` | `\set@color` / `\reset@color` 注册为 `transparent`；`\color@b@x` 注册为 `wrapped-box`（#831/#992） |
-| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点的三个出口均注册为 `transparent`——驱动层 `\hyper@anchor` 承接全部 `\hypertarget`，`\Hy@raisedlink` 承接无编号标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹的抬升锚点，`\__hyp_target_raise:n` 承接 `\phantomsection`／`\MakeLinkTarget` 与编号标题锚点（需用带花括号转发的包装变体）（#1047） |
+| `hyperref` | `\Hy@BeginAnnot` 启动 `auto` stream；顶层 `\Hy@EndAnnot` 报告末尾 math 为 Default 后结束 capture（#809/#810/#972/#992）；行内锚点已覆盖三个出口为 `transparent`——驱动层 `\hyper@anchor` 承接全部 `\hypertarget`，`\Hy@raisedlink` 承接无编号标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹的抬升锚点，`\__hyp_target_raise:n` 承接 `\phantomsection`／`\MakeLinkTarget` 与编号标题锚点（需用带花括号转发的包装变体）；已知未覆盖 `\hyper@anchorstart` 的裸调用如 `\pdfbookmark`（#1047） |
 | `ulem` | 通过 `stream-ulem` 观察实际首尾；framework 决定外侧 glue，`\UL@stop` / `\UL@start` 保证它位于装饰区间外 |
 | `pifont` | 输出前先进入水平模式，防止 interchartokenstate 泄漏 |
 | `listings` | 用 `\scantokens` 替代 `\lowercase` 字符转换；`\lstinline` 两类扫描入口使用 `auto` stream |

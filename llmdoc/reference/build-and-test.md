@@ -208,13 +208,13 @@
 当前为 122／122 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
-### 注册点的字体上下文与锚点两条出口（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
+### 注册点的字体上下文与锚点出口的覆盖清单（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
 
 `codedoc-meta-symmetry01.lvt` 用**真实的 `l3doc` 文档类**（不是自己模拟内层函数）固定 12 项断言（9 个 `\TEST` 块）：四种源码空格组合各自与 oracle `左\texttt{$\langle$name$\rangle$}右` 等宽、左右两侧单边贡献相等且均为 13.33pt、左边界带 `plus` 分量（用 `\badness` 正向断言，因为 `\hbox to` 的实际宽度恒等于目标宽度、结构上恒真）、CJK 参数仍保持 `\hbox:n` 隔离（#920 不回退）、`\Arg` 与 `\oarg` 外侧贡献一致、纯西文上下文仍保留源码空格语义。判别力已实测：把注册点改回内层 `\__codedoc_meta:n` 后 8 项失败，数值为 1.92pt（等宽字体 5.25pt 减正文字体 3.33pt）、15.25pt 与 badness 10000。
 
 **既有的 `codedoc-meta-ecglue01` 对 #1046 零判别力**，不要据它判断该场景已覆盖：它自己用 `\cs_new_protected:Npn \__codedoc_meta:n` 模拟内层函数，**没有 `\texttt` 外层**，而 `\texttt` 正是这个缺陷的必要条件。这与 #1038 中既有 `tabular01` 因每行 `\\` 前有空格而零判别力属同一类：测试用简化替身模拟被测对象时，简化掉的那一层可能正是缺陷所在。
 
-`hyperref-anchor-ecglue01.lvt` 固定 11 项断言，覆盖 hyperref 行内锚点的三个出口，另含带 CJK 可见内容的目标仍按 CJK–CJK 处理、`\hyperref` 链接间距不受影响。两个出口的判别力实测**互不重叠**——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 失败，去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4、TEST 4b 失败——这一点本身是「确实是两个独立出口」的证据，分支级改动因此得到分支级断言。
+`hyperref-anchor-ecglue01.lvt` 固定 12 项断言（10 个 `\TEST` 块，编号与 `.tlg` 块序一致），覆盖 hyperref 行内锚点已注册的三个出口，另含带 CJK 可见内容的目标仍按 CJK–CJK 处理、`\hyperref` 链接间距不受影响、以及一项固定已知缺口的断言。三个出口的判别力实测**互不重叠**——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 失败，去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4、TEST 5 失败，去掉第三处包装只有 TEST 8、TEST 9 失败——这一点本身是「这三处是彼此独立的出口」的证据，分支级改动因此得到分支级断言。判别力说明在 `.lvt` 里按断言文字指代，不用块编号。
 
 但要注意判别力互不重叠**只**能证明「这两处都在路径上」，不能推出「按什么分派」，也不能推出「只有这两处」。本测试的注释曾一度写成「非空目标走 `\Hy@raisedlink`、空目标走 `\hyper@anchor`」，经盲审用计数器包装两个命令实测后更正：空目标、CJK 目标、西文目标、数字目标四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**，两个分支都经 `\hyper@@anchor` 落到 `\hyper@anchor`。真正的区分依据是调用点——`\Hy@raisedlink` 承接无编号标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹的抬升锚点（ctxdoc 的 `\exptarget` 即属此类，TEST 1、TEST 2 的 `\TestTarget` 就是复刻它）；目录**条目**不走这条路，`\contentsline` 用 `\hyper@linkstart`／`\hyper@linkend`，与抬升锚点无关。要判断某个公开命令走哪条内部路径，必须读分派函数的分支并用计数器实测，不能按参数形态推测。
 
@@ -223,7 +223,11 @@
 1. 改对分派依据后写成「行内锚点有两个出口」。第二轮盲审用同一手段发现 `\__hyp_target_raise:n`（`\phantomsection`／`\MakeLinkTarget` 走它，编号标题锚点也经过它）是第三个出口。
 2. 承认第三个出口后又写成「它不能用现成包装，需要新设计适配器」，把故障归因给 begin 钩子里的赋值，并据此把缺口写成已接受限制。第三轮盲审的隔离实验推翻了它：`\@@_boundary_hmode_transparent_begin:` 体内没有任何 `\spacefactor` 赋值（那个赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`）；不挂任何钩子、仅做无花括号透传同样复现故障；把参数改成带花括号转发即回到 oracle。于是新增 `\@@_boundary_wrap_transparent_onearg_braced:NN` 关闭了缺口，TEST 7／TEST 8 由「断言缺口仍在」改为正向断言。
 
+第四轮全范围复核又推翻了第三次修正后写下的「三个出口全部注册」：`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用，四个候选函数里只有它计数为 1，`\pdfbookmark` 右侧仍缺 3.33pt。TEST 10 把这个缺口固定为断言，并且**文档从此不再给出出口总数**，只维护「已覆盖」与「已知未覆盖」两份清单——总数是一个连错四次的穷尽性断言，而两份清单各自都能被单条探针核查。
+
 **写穷尽性断言（「全部」「三个」「只有」）或因果断言（「因为 X 所以坏」）之前，先问自己用什么手段排除了别的可能。** 隔离实验——去掉一个因素看故障是否仍在——往往一次编译就能定论。第三处包装的判别力也按这个标准实测了两种失败形态：去掉包装使三条断言各少 3.33pt，误用无花括号变体则同样三条失败但读数暴涨（42.83pt／15.0pt）。
+
+**「实测过」要说清实测的是什么。** 本任务一处写着「去掉内层 capture 前后节点列表完全相同（实测）」，而当时实际做的是**宽度**比对；后来补做 `\showbox` 逐节点比对（`l3doc` 与 `article`+`doc` 两种文档类下 `\Arg` 的节点列表确实无差异）才使这句话名副其实。宽度相同不能推出节点列表相同，这与上面那条是同一类问题。
 
 这两个测试还固定了三条测量类用例的设计约束：
 
@@ -442,7 +446,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行校验固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 122／122，文档构建生成 248 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 122／122，文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 

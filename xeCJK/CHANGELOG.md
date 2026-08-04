@@ -5,7 +5,7 @@
 - 新增按花括号转发参数的 transparent 包装变体，供把参数再次用作 `\hbox:n` 内容的目标函数使用（#1047）。
 - `\sbox` 改用专用适配器：`\global` 等前缀必须紧邻 `\setbox`，放进 `cmd/sbox/before` 钩子的赋值会把前缀吃掉，使 `\global\sbox` 静默退化为局部赋值（#1029）。
 - 只吸收触发转换的那一枚左花括号，不再吞掉整个分组再重新发出，修复 `tabular` 中 `中文\\` 报 `Improper alphabetic constant` 的问题（#1038）。
-- 把行内锚点的三个出口 `\hyper@anchor`、 `\Hy@raisedlink` 与 `\__hyp_target_raise:n` 注册为 transparent capture，使 `\hypertarget`、`\phantomsection`、`\MakeLinkTarget`、无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界（#1047）。
+- 把行内锚点的 `\hyper@anchor`、 `\Hy@raisedlink` 与 `\__hyp_target_raise:n` 三个出口注册为 transparent capture，使 `\hypertarget`、`\phantomsection`、`\MakeLinkTarget`、无编号标题锚点与手工包裹的锚点不再遮蔽其前后的实际边界；经 `\hyper@anchorstart` 裸调用的路径（如 `\pdfbookmark`）尚未覆盖（#1047）。
 - 把 `l3doc` 的 stream capture 从内层 `\__codedoc_meta:n` 上移到公开的 `\meta`，使左右两侧的 `\CJKecglue` 都按命令外的字体度量求值（#1046）。
 - 周期装饰按嵌套层保存末段状态，避免内层命令改写外层右端（#1012）。
 - 正文一律以字面记号进入 `ulem` 的参数：只有“公式加尾随源码空格”才重排，且重排也先拼装再一次展开，避免西文词右侧的 `\CJKecglue` 被关进固定宽度装饰片段盒而丢失收缩量（#1026）。

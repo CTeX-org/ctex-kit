@@ -1,8 +1,11 @@
 \input{regression-test}
 
 % #1047: hyperref 的行内锚点会在 xeCJK 的 marker 与后续字符之间插入不可见
-% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。出口有三个，按**调用点**区分
-% （不是按锚点内容）：
+% 节点，遮蔽边界探测，使锚点右侧的 \CJKecglue 丢失。出口按**调用点**区分（不是按
+% 锚点内容）。本文件只列「已覆盖」与「已知未覆盖」两份清单，不写总数——那个数字
+% 已被独立复核推翻四次。
+%
+% 已覆盖：
 %
 % 1. 驱动层的 \hyper@anchor：承接经 \hyper@@anchor 进来的锚点，直接排出裸的
 %    pdf:dest whatsit。\hypertarget 的两个分支最终都走这里——\@hyper@@anchor
@@ -39,10 +42,12 @@
 %     transparent before Latin word` 三条退化。
 %   - 第三处若误用无花括号的 onearg 变体 → 同样三条失败，但读数是 81.16002
 %     一类的暴涨（锚点名被排成可见文本），而不是少一枚 3.33pt。
-% 三组互不重叠，说明确实是三个独立出口。
+% 三组互不重叠，说明这三处是彼此独立的出口（但不说明出口只有三个）。
 %
-% 注意本文件注释里的「TEST 4b」使 .tlg 的块编号与注释称法不一致（4b 在 .tlg
-% 中是第 5 个块，其后各块顺延）。对照失败项时一律以断言文字为准。
+% 已知未覆盖：\hyper@anchorstart 的裸调用，见文件末尾 TEST 9 的说明。
+%
+% 本文件的 TEST 编号与 .tlg 的块顺序一致。判别力说明按断言文字指代，对照失败项
+% 时以断言文字为准，最不易错。
 
 \documentclass{article}
 
@@ -141,7 +146,7 @@
   \fi
 }
 
-% --- TEST 4b: 带西文可见内容的 \hypertarget 也走 \hyper@anchor ---
+% --- TEST 5: 带西文可见内容的 \hypertarget 也走 \hyper@anchor ---
 % 这一项固定「区分依据是调用点而非锚点内容」：目标非空时锚点仍经
 % \hyper@anchor 排出，左侧的 \CJKecglue 同样依赖该注册。
 
@@ -159,7 +164,7 @@
   \fi
 }
 
-% --- TEST 5: 带 CJK 可见内容的 \hypertarget 仍按实际类别处理 ---
+% --- TEST 6: 带 CJK 可见内容的 \hypertarget 仍按实际类别处理 ---
 % 目标内容是 CJK 时，锚点前后应是 CJK-CJK 边界（\CJKglue，默认 0pt
 % plus 0.96002），不能因为注册了 transparent 就补上 \CJKecglue。
 
@@ -177,7 +182,7 @@
   \fi
 }
 
-% --- TEST 6: \ref 的链接注释不受影响 ---
+% --- TEST 7: \ref 的链接注释不受影响 ---
 % \Hy@raisedlink 也用于 \label 侧的锚点；注册它不应改变 \ref 两侧间距。
 % 不用 \ref 的实际编号做参考：l3build 只编译一遍，首轮 .aux 未就绪时
 % \ref 排出的是两字符的 `??`，宽度与最终编号不同（实测差 5.86pt）。
@@ -198,7 +203,7 @@
   \fi
 }
 
-% --- TEST 7: 第三个抬升出口 \__hyp_target_raise:n ---
+% --- TEST 8: 第三个抬升出口 \__hyp_target_raise:n ---
 % hyperref 的 \__hyp_target_raise:n 自己排出同构的 \penalty\@M + \smash
 % 抬升盒子，不经过 \Hy@raisedlink。\phantomsection 与 \MakeLinkTarget 走它，
 % 编号标题的锚点也经过它。
@@ -223,12 +228,12 @@
   \fi
 }
 
-% --- TEST 8: \MakeLinkTarget 与西文词也走第三出口 ---
+% --- TEST 9: \MakeLinkTarget 与西文词也走第三出口 ---
 
 \TEST{MakeLinkTarget and Latin word via raise outlet (1047)}{
   \setbox\BareMathBox=\hbox{带有 \MakeLinkTarget*{mlt}$\star$ 标}
   \setbox\BareWordBox=\hbox{带有 \phantomsection word 标}
-  % 本块自己重建西文 oracle：\DirectWordBox 在 TEST 4 里赋过值，但块之间不保证
+  % 本块自己重建西文 oracle：\DirectWordBox 在前面的块里赋过值，但块之间不保证
   % 寄存器内容仍在（分组与后续赋值都可能改写），逐块重建比跨块复用可靠。
   \setbox\DirectWordBox=\hbox{带有 word 标}
   \TYPE{INFO: makelinktarget=\the\wd\BareMathBox,
@@ -246,6 +251,33 @@
     \TYPE{PASS: phantomsection is transparent before Latin word}
   \else
     \TYPE{FAIL: phantomsection before word differs by \the\dimen2}
+  \fi
+}
+
+% --- TEST 10: 已知未覆盖——\hyper@anchorstart 的裸调用 ---
+% \pdfbookmark 直接写 \hyper@anchorstart{...}\hyper@anchorend，既不经
+% \hyper@@anchor 也不经两个抬升出口（计数器实测三者均为 0，只有
+% \hyper@anchorstart 计数为 1），因此右侧仍丢一枚 \CJKecglue。
+%
+% 两种就手的补法都已实测不可行：注册 \@pdfm@dest（\hyper@anchor 与
+% \hyper@anchorstart 的共同下游）会让盒宽暴涨并报出十余处错误，因为它的参数
+% 含待展开内容；注册 \hyper@anchorstart 本身虽不报错却不生效，还会把已经修好
+% 的两处拖回缺陷状态。需要单独设计适配器，另立议题跟踪。
+%
+% 这一项断言「缺口仍然存在」：将来补上覆盖时它会主动失败，从而强制回来更新
+% 本文件与 llmdoc 里的已覆盖／已知未覆盖两份清单。这正是本测试不写「共有几个
+% 出口」的原因——该数字已被独立复核推翻四次。
+
+\TEST{anchorstart bare call remains uncovered (1047, known limitation)}{
+  \setbox\BareMathBox=\hbox{带有 \pdfbookmark[1]{书签}{bm1}$\star$ 标}
+  \TYPE{INFO: pdfbookmark=\the\wd\BareMathBox,
+    direct=\the\wd\DirectMathBox}
+  \dimen0=\wd\DirectMathBox \advance\dimen0 by -\wd\BareMathBox
+  % 预期仍缺一枚 \CJKecglue（3.33pt）。
+  \ifdim\dimen0>3pt
+    \TYPE{PASS: gap still present as documented (\the\dimen0)}
+  \else
+    \TYPE{FAIL: gap changed to \the\dimen0}
   \fi
 }
 
