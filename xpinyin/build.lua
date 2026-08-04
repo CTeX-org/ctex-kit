@@ -75,32 +75,36 @@ checkinit_hook = function()
     -- 文件系统或全局状态影响.
     local dep_env = { }
     local chunk, load_err = loadfile(dep .. "/build.lua", "t", dep_env)
-    local dep_installfiles
+    local dep_installfiles, run_err
     if chunk then
       -- 依赖包的 build.lua 末尾会 dofile 共享配置, 在这个空环境里必然跑不通
-      -- (xeCJK 现在是停在 require("zip")). 这是预期的: installfiles 在那之前
-      -- 就已赋值. 但**必须把错误打出来** —— 若将来失败点前移到 installfiles
-      -- 赋值之前, 或该字段改成分步构造, 沉默的 pcall 会让问题无从发现.
+      -- (xeCJK 现在是停在 require("zip")). 这是**预期**的: installfiles 在那之前
+      -- 就已赋值, 所以正常情况下不打印任何东西 —— 每次 check 都无条件打一行
+      -- 「预期行为」只会训练读者忽略它, 真出问题时新错误淹在同一位置.
+      -- 错误对象留到下面的失败分支里一起报, 信息不丢且零噪声.
       local ok, err = pcall(chunk)
-      if not ok then
-        print(("[xpinyin/build.lua] 读取 %s/build.lua 时中断 (预期行为, "
-          .. "只要 installfiles 已赋值即可): %s"):format(dep, tostring(err)))
-      end
+      if not ok then run_err = err end
       dep_installfiles = dep_env.installfiles
     else
-      print(("[xpinyin/build.lua] 无法加载 %s/build.lua: %s")
-        :format(dep, tostring(load_err)))
+      run_err = load_err
     end
-    -- 三道判据, 缺一即静默漏复制 (实测: 空表与「分步构造、中途出错」两种情形
-    -- 都能通过只判 type 的守卫, 一个文件不复制或只复制一半却毫无提示 ——
-    -- 那与本钩子刚修掉的「只隔离了一半」是同一种症状).
+    -- 两道**拒绝**判据 (非表、空表). 上面那个 pcall 错误不是判据 —— 它不拒绝
+    -- 任何东西, 只是在这两道判据触发时提供线索.
+    -- 实测: 空表与「分步构造、中途出错」两种情形都能通过只判 type 的旧守卫,
+    -- 一个文件不复制或只复制一半却毫无提示 —— 那与本钩子刚修掉的
+    -- 「只隔离了一半」是同一种症状. 空表现已拒绝; 残缺表仍会通过 (见文档中
+    -- 「已接受的缺口」).
+    local function fail(reason)
+      error(("checkinit_hook: %s (依赖 %s)%s"):format(
+        reason, dep,
+        run_err and ("; 读取该 build.lua 时的错误: " .. tostring(run_err)) or ""))
+    end
     if type(dep_installfiles) ~= "table" then
-      error(("checkinit_hook: 未能从 %s/build.lua 读到 installfiles (得到 %s), "
-        .. "依赖产物会漏复制"):format(dep, type(dep_installfiles)))
+      fail(("未能读到 installfiles, 得到 %s, 依赖产物会漏复制")
+        :format(type(dep_installfiles)))
     end
     if #dep_installfiles == 0 then
-      error(("checkinit_hook: 从 %s/build.lua 读到的 installfiles 为空表, "
-        .. "依赖产物一个都不会被复制"):format(dep))
+      fail("读到的 installfiles 为空表, 依赖产物一个都不会被复制")
     end
     for _, glob in ipairs(dep_installfiles) do
       cp(glob, dep_unpackdir, testdir)
