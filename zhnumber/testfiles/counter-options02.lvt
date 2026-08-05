@@ -1,0 +1,35 @@
+\input{regression-test}
+
+%% \zhdig 带选项、且计数器不存在时的报错形态 (#1008).
+%%
+%% 为什么单独一个文件, 而不是并进 counter-options01:
+%% \@@_counter_error:n 走 \msg_expandable_error:nnn, 它留下的 \??? 会触发
+%% `Use of \??? doesn't match its definition', 而该错误在 l3build 的 \scrollmode
+%% 下是**致命**的 —— 实测编译就地中止 (`Fatal error occurred'), 其后的 \TEST
+%% 一律不执行. 所以「一个 .lvt 只能断言一次可展开报错」, 而 \zhnum 与 \zhdig
+%% 各有一条独立的守卫 (\@@_counter_with_options:nn 与
+%% \@@_digits_counter_with_options:nn), 两条都要各自被覆盖.
+%%
+%% 实测依据: 把 \@@_digits_counter_with_options:nn 里的 \int_if_exist:cTF 删掉,
+%% counter-options01 全绿零 diff (它的致命错误发生在更早的位置), 只有本文件会红,
+%% 报 `You can't use \relax after \the' —— 那是 \int_use:c 先把 \c@nosuchcounter
+%% 建成 \relax 再 \the 它的结果, 与 zhnumber 想给的诊断完全不同.
+%%
+%% 需要三份基线: luatex 在该错误后打印的 help 行比 xetex/pdftex 少四行.
+
+\documentclass{article}
+\usepackage{zhnumber}
+
+\START
+
+\ExplSyntaxOn
+
+\TEST{zhdig~with~options~on~nonexistent~counter}{
+  \zhdig [ style = Financial ] { nosuchcounter }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
