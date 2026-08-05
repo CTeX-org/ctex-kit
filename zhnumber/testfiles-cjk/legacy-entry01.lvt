@@ -33,8 +33,15 @@
 %% `Missing character' 行. 换成缺 CJK 的字体 (实测 lmroman10-regular.otf) 会让本
 %% 文件变红, 但那不构成「缺字行本身有判别力」的证据 —— 实测缺字行与度量塌陷
 %% (wd=10,ht=7.33 → wd=2.8,ht=0) 是同时出现的, 没有隔离出是哪一个让基线不匹配.
-%% 这里只如实记录: 缺字行会进归一化日志, 因而任何排出预期外字符的改动都会被基线
-%% 拦住, 而具体由哪一项拦住未做隔离实验.
+%% 这里只如实记录: 缺字行会进归一化日志, 因而排出**字体不覆盖**的字符会被基线拦住,
+%% 而具体由哪一项拦住未做隔离实验.
+%%
+%% 度量**不足以**固定排出的是哪个字, 所以下面第 4 项另用 \loggingoutput + \box
+%% 把盒子内容本身写进基线: 实测同一字体里「柒」与「九」的度量完全相同
+%% (都是 wd=10, ht=7.75, 且都不缺字), 而两者都在 zhnumber 自己的数字表里 ——
+%% 只靠度量的话, 一个让 Financial 的 7 排成「九」的改动能通过前三项全部断言.
+%% 用 \loggingoutput 而不是 \showbox: checkopts 含 -halt-on-error, 而 \showbox
+%% 报 `! OK.' 会当场中止编译 (与 xeCJK/testfiles/verb-ecglue02.lvt 同一写法).
 
 \documentclass{article}
 \usepackage{xeCJK}
@@ -83,6 +90,25 @@
 \TEST{new~path~matches~legacy}{
   \TestBox { new~zhnum } { \zhnum [ style = Financial ] { section } }
   \TestBox { new~zhdig } { \zhdig [ style = Financial ] { section } }
+}
+
+%% 4. 排出的**字形**本身进基线, 补上度量看不出的那一维 (见文件开头的说明:
+%%    「柒」与「九」度量相同, 只靠 wd/ht 分辨不出排错了字).
+%%    \box 会把盒子放进输出, \loggingoutput 使输出内容进日志因而进基线;
+%%    归一化后每个汉字表现为它的字符编号, 于是「排的是哪个字」被固定下来.
+\loggingoutput
+
+\TEST{glyph~identity~is~fixed}{
+  \hbox_set:Nn \l_test_box { \zhnumwithoptions { style = Financial } { section } }
+  \box_use:N \l_test_box
+  \hbox_set:Nn \l_test_box { \zhnum [ style = Financial ] { section } }
+  \box_use:N \l_test_box
+  \hbox_set:Nn \l_test_box { \zhnum { section } }
+  \box_use:N \l_test_box
+  \par
+  %% 必须 \clearpage: \loggingoutput 记的是**输出例程送出的页面**, 不 ship out
+  %% 的话 TEST 段落是空的 (实测), 与 xeCJK/testfiles/basic01.lvt 同一写法.
+  \clearpage
 }
 
 \ExplSyntaxOff

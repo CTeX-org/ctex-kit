@@ -109,16 +109,24 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 真正原因是一个更严重的机制问题：`\@@_counter_error:n` 留下的 `\???` 触发的
 `Use of \??? doesn't match its definition` 在本仓库是**致命错误**——成因是
 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build
-的默认行为。这一点用三组隔离实验定下来（同一个含两个 `\TEST` 的文件，第一个触发该报错）：
+的默认行为。这一点用四组隔离实验定下来——两个开关（`-interaction=nonstopmode` 有无、
+`-halt-on-error` 有无）的四种组合，跑同一个含两个 `\TEST` 的文件，第一个 `\TEST` 触发该
+报错。表中「`\scrollmode` 是否生效」指 `regression-test.tex:37` 的
+`\ifnum\interactionmode>1 \scrollmode\fi` 这个条件是否成立（注意本仓库里「守卫」一词更多
+用于 `\int_if_exist:cTF` 那类代码守卫，这里说的是这个条件判断）：
 
-| 设置 | `\scrollmode` 是否生效 | 第二个 `\TEST` 是否执行 |
-|------|------------------------|--------------------------|
-| 不给引擎选项（`\interactionmode` = 3，守卫成立） | 是 | **是** |
-| `-interaction=nonstopmode`（l3build 默认，`\interactionmode` = 1） | 否 | 是 |
-| 加 `-halt-on-error`（本仓库设置） | 是 | **否** |
+| `-interaction=nonstopmode` | `-halt-on-error` | `\interactionmode`（读 `regression-test` 前 → 后） | `\scrollmode` 是否生效 | 第二个 `\TEST` 是否执行 |
+|---|---|---|---|---|
+| 无 | 无 | 3 → 2 | 是 | **是** |
+| 有（l3build 默认） | 无 | 1 → 1 | 否 | 是 |
+| 无 | 有 | 3 → 2 | 是 | **否** |
+| 有 | 有 | 1 → 1 | 否 | **否** |
 
-关键是第一行与第三行的对比：`\scrollmode` 生效时报错照样不中止，所以中止只能归给
-`-halt-on-error`。
+（本仓库 `l3build check` 实际落到第三行：`checkopts` 被 `support/build-config.lua` 覆盖成
+只有 `-halt-on-error`，所以 `\interactionmode` 读作 2、`\scrollmode` 确实切了。）
+
+按列读即可定因：`\scrollmode` 那一列与结果列不相关（第一行生效却不中止），
+`-halt-on-error` 那一列与结果列完全一致。所以中止只能归给 `-halt-on-error`。
 
 **我在这里连错两次，第二次是在更正第一次的时候。** 起初把成因归给 `\scrollmode`（盲审
 实测证伪）；更正时又写下「`\interactionmode` 实测恒为 1，`\scrollmode` 从未生效」——那是
@@ -127,9 +135,11 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 `\scrollmode` 确已切换）。正确结论是「生效但不中止」，而不是「从未生效」。这恰好落在
 本仓库既有规则「成因用隔离实验」的射程内——两次都是只测了一侧就下成因结论。
 
-实测编译就地中止并打印
-`Fatal error occurred, no output PDF file produced!`，
-其后所有 `\TEST` 一律不执行。原先这条断言排在 `counter-options01` 中间（TEST 5），于是
+实测编译就地中止，其后所有 `\TEST` 一律不执行。观察判据是「后面的 `\TEST` 段落有没有
+进基线」，而不是日志里的 `Fatal error occurred, no output PDF file produced!`——那一行
+只有 pdftex/luatex 打印，xetex（这两个测试的 `stdengine`，也是上面那张表的实验引擎）
+并不打印，而且它会被日志归一化删掉、从不进入 `.tlg`。我一度把它当成判据写进三个文件，
+第三轮盲审指出。原先这条断言排在 `counter-options01` 中间（TEST 5），于是
 它后面的 TEST 6（旧版的兼容入口断言）**从未运行过**——基线文件里根本没有 TEST 6 的
 段落，测试却一直显示「全绿」。这正是「删掉守卫零 diff」的真实成因：差异发生在中止点
 之后，看不见，与那条恒真断言的问题是两个独立的坑叠在一起。
@@ -141,7 +151,12 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 `counter-options02.lvt`（专门覆盖 `\zhdig` 那条）。报错文本本身进了基线，代价是多份基线：
 `counter-options01` 三份、`counter-options02` 两份——两者都因 luatex 在该错误后打印的
 help 行比 xetex/pdftex 少四行而需要 `.luatex.tlg`；而 `.pdftex.tlg` 只有
-`counter-options01` 需要（它排 CJK，字节形式与 xetex 不同），`counter-options02` 的
+`counter-options01` 需要——差别在日志**编码**：它的断言里有汉字，pdfTeX 把它们记成
+`^^e4^^b8^^83` 而 xetex 记成 `七`。**不是**因为 pdfTeX 排 CJK 会硬错误：这里的汉字只经
+`\tl_log:x` 进日志、没有真的排版，实测 `l3build check -e pdftex counter-options01` 全绿、
+零 `Unicode character` 命中。（把两件事混起来是我改这段时新引入的错误，第三轮盲审指出；
+`build-and-test.md` 原本的「字节形式」措辞是准确的。真正会因 pdfTeX 排 CJK 硬错误而必须
+分目录的是 `testfiles-cjk/`，见 `test/config-cjk.lua` 的说明。）`counter-options02` 的
 pdftex 输出与 stdengine 逐字节相同，不留冗余基线。
 
 同时记一条更一般的教训：**基线文件的长度/段落数本身就是证据**——如果某个 `\TEST` 的
