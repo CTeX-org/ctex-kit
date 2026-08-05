@@ -237,7 +237,7 @@ jobs:
             fi
             STAMP_VERS=$(printf '%s\n%s\n' "${EXPL_VER}" "${DEF_VER}" | sort -u)
             ;;
-          zhnumber|xCJK2uni)
+          zhnumber|xCJK2uni|zhmetrics)
             # 与 xeCJK / xpinyin 同一套: build.lua 的 version 是事实源, 共享
             # update_tag 把它回写进 `{\ExplFileDate}{<ver>}`.
             #
@@ -269,6 +269,15 @@ jobs:
               xCJK2uni)
                 STAMP_VERS=$(sed -nE 's/^[[:space:]]*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/${DTX}" | sort -u)
                 HINT='  {\ExplFileDate}{1.0}{\ExplFileDescription}'
+                ;;
+              zhmetrics)
+                # 本包用**旧式** `[<日期> v<版本> <描述>]` 写法, 不是
+                # `{\ExplFileDate}{<ver>}`. 锚点绑到描述串 `setup CJK fonts
+                # dynamically` —— 该行没有 docstrip 守卫 (它在 `%<*package>`
+                # 与 `%</package>` 之间, 行首只有缩进), 而 `[<日期> v<版本>]`
+                # 这个形状在注释里并不罕见, 只匹配形状会被说明性文字骗过.
+                STAMP_VERS=$(sed -nE 's/^[[:space:]]*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2}[[:space:]]+v([^][:space:]]+)[[:space:]]+setup[[:space:]]+CJK[[:space:]]+fonts[[:space:]]+dynamically\].*/\1/p' "${DIR}/${DTX}" | sort -u)
+                HINT='    [2022/07/09 v0.9d setup CJK fonts dynamically]'
                 ;;
             esac
             if [ -z "${STAMP_VERS}" ]; then
