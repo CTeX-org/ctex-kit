@@ -1,4 +1,4 @@
--- 需要真正排出汉字的测试单独一个 config.
+-- 需要实际排出汉字的测试单独一个 config.
 --
 -- 为什么不能放进主 testfiles/: `l3build check` 会把 testfiledir 下的每个 .lvt
 -- 拿去跑 checkengines 里的**每一个**引擎, 没有「按文件指定引擎」的机制. 主目录
