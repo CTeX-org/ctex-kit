@@ -469,21 +469,30 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **已接受的残留缺口有两个**，都如实记下：（1）若依赖包改成分步构造 `installfiles`（先赋字面表、中途出错、之后再追加），得到的残缺表会同时通过「是表」与「非空」两道判据，只复制一半而不报错；（2）判据只看这张表，**不看每条 glob 是否真的匹配到文件**——`xeCJK` 的 `"*.map"`／`"*.tec"` 在 `check` 路径下必然零匹配（那两类产物由 `unpack_posthook` 在 `install_files_bool` 为真时才经 TECkit 生成，而该标志只在 `install_files` 里置真），`cp` 静默复制零个文件并返回 0。缺口二今天不触发，因为 xpinyin 现有测试都不用 `Mapping=` 一类需要 `.tec` 的写法；但将来加了就会命中系统 TeX Live 的那份。两者都实测确认。不再收紧的理由：更严的判据要么预设依赖包的写法、反而更脆，要么（对缺口二加零匹配 `error`）现网就会当场失败。`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖、依赖包重构、或新增用到 `.map`／`.tec` 的测试时，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
-### zhnumber 的计数器选项回归（#1008）
+### zhnumber 的计数器选项回归（#1008，测试布局经 da00ad53 更正）
 
 `zhnumber` 的 `\zhnum[opts]{counter}`／`\zhdig[opts]{counter}` 原实现把计数器**名**写进
 `.toc` 一类辅助文件（`\zhnumwithoptions{style=...}{section}`），读回时计数器已归零；
 修法是在 `\zhnum`／`\zhdig` 这一层先把计数器展开为**数值**再交给处理数值的实现。回归分
-两个 `testfiledir`：
+两个 `testfiledir`，主目录下又按「可展开报错必须各占一个文件」拆成两个 `.lvt`：
 
-- `zhnumber/testfiles/counter-options01.lvt`（三引擎）用记号层面断言固定「值有没有被
+- `zhnumber/testfiles/counter-options01.lvt`（三引擎；`.tlg` + `.pdftex.tlg` +
+  `.luatex.tlg`，pdftex 基线因 CJK 字节形式不同而必需）用记号层面断言固定「值有没有被
   冻结」——判据是展开结果里出现 `{7}` 而非 `{section}`，同时覆盖 #1008 排查中发现的
   独立笔误：`\zhdigwithoptions` 原把选项多传了一个 `#1` 给 `\zhnum_digits_counter:n`，
-  带选项的 `\zhdig` 此前直接报错。
+  带选项的 `\zhdig` 此前直接报错。文件**最后一项**断言 `\zhnum` 带选项在计数器不存在时
+  报 zhnumber 自己的错误（见下面「可展开报错是致命错误」）。
+- `zhnumber/testfiles/counter-options02.lvt`（三引擎；只需 `.tlg` + `.luatex.tlg`，
+  pdftex 与 stdengine 逐字节相同故不留冗余基线）专门覆盖 `\zhdig` 那条独立守卫
+  （`\@@_digits_counter_with_options:nn`）在计数器不存在时的同类报错——**必须**单独
+  成文件，理由见下一节。
 - `zhnumber/testfiles-cjk/legacy-entry01.lvt` + `zhnumber/test/config-cjk.lua`（仅
   xetex）覆盖兼容入口 `\zhnumwithoptions`／`\zhdigwithoptions` 本身——这两个命令**不可
   展开**（用 `\NewDocumentCommand` 实现，要用 `\group_begin:`／`\group_end:` 局部改样
-  式），只能让它们真排出汉字再量盒子才能验证内部逻辑。
+  式），只能让它们真排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
+  `\tl_set:Nx` 捕获式断言是恒真的（它们是 `\NewDocumentCommand`、protected，捕获只拿到
+  命令名本身，实测基线里就是 `\zhdigwithoptions {style=Financial}{section}` 原样），
+  已删除；兼容入口的行为完全由本文件量盒子覆盖。
 
 **为什么必须分两个 `testfiledir`**：兼容入口不可展开，观察它们的行为只有「让它执行」
 一条路；而排 CJK 需要中文字体，pdfTeX 下没有 CJK 设置时是硬错误 `Unicode character
@@ -507,17 +516,34 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt，分辨不出内容；改用**高度**
 才有判别力（`ht=7.33` 的「七」vs `ht=7.75` 的「柒」）。
 
-**判别力实测结果**：三个方向的变异都能让相应用例变红——zhnum／zhdig 退回写计数器名会
-让 `counter-options01` 变红；恢复 `\zhdigwithoptions` 的笔误会让 `legacy-entry01` 的
-`legacy zhdig` 度量变化。**第三条曾长期抓不到**，正是上面四条弯路的后果——主目录里无论
-用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字，这正是补 CJK 那一组的真正理由。
+**可展开报错在 l3build 的 `\scrollmode` 下是致命错误，这是本节最重要的约束。**
+`\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
+`\???` 控制序列，触发 `Use of \??? doesn't match its definition`——这条消息在
+`\scrollmode` 下实测**编译就地中止**，打印 `Fatal error occurred, no output PDF file
+produced!`，其后所有 `\TEST` 一律不执行。这条报错文本**必须**固定进基线，因为那是唯一
+可行的判据（曾试过只固定「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那
+一步就已经中止）；代价是需要三份基线——luatex 在该错误后打印的 help 行比 xetex/pdftex
+**少四行**。由此得到两条硬约束：
 
-**如实记录的既有问题（未修）**：`\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，
-它在展开中报错的方式是留下一个 `\???` 控制序列，于是日志里同时出现 `Use of \???
-doesn't match its definition` 和真正的 zhnumber 报错。实测系统安装的 v3.1（未含本次
-改动）对**不带选项**的 `\zhnum{nosuchcounter}` 同样如此，属 expl3 可展开报错的既有形态，
-与 #1008 无关，因此没有把报错文本固定进基线——那会把一个无关的既有粗糙点冻结成预期值；
-测试里只用 `\int_if_exist:cTF` 确认两条路进的是同一个判断分支。
+- **一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末。** `\zhnum` 与
+  `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
+  `\@@_digits_counter_with_options:nn`），两条都要覆盖，所以拆成
+  `counter-options01`（`\zhnum` 那条，断言在文件最末）与
+  `counter-options02`（`\zhdig` 那条，独立成文件）。
+- **验收判据是基线里的 TEST 段落数必须与 `.lvt` 里的 `\TEST` 个数一致。** 段落不存在
+  意味着该项没跑，而不是通过了。原先这条报错断言排在 `counter-options01` 中间，其后
+  的一项（旧版兼容入口断言）从未运行过、基线里没有它的段落，测试却一直全绿——这正是
+  盲审报出「删掉守卫零 diff」的成因。
+
+**判别力实测结果（逐条隔离）**：删 `\@@_counter_with_options:nn` 的守卫
+（`\int_if_exist:cTF`）→ 仅 `counter-options01` 红（三引擎），报 `You can't use \relax
+after \the`；删 `\@@_digits_counter_with_options:nn` 的守卫 → 仅
+`counter-options02` 红（三引擎），`counter-options01` 全绿零 diff（它的致命错误发生在
+更早的位置）；复现 `\zhdigwithoptions` 笔误（多传一个参数）→ 仅
+`testfiles-cjk/legacy-entry01` 红。三份文件的判别力互不重叠，各自只覆盖自己名下的
+代码路径。「兼容入口断言恒真」这个问题**曾长期抓不到**，正是上面四条弯路的后果——主
+目录里无论用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字，这正是补 CJK 那一组的真正
+理由。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
@@ -1032,6 +1058,8 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 再 `git add -N -- '*/CHANGELOG.md'`（覆盖新包首次生成、CHANGELOG.md 尚未被 git 跟踪的场景，否则 `git diff` 看不到差异）+ `git diff --exit-code -- '*/CHANGELOG.md'`。fail 时按上述三通道贴出期望内容。
 
 `CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber`。xpinyin 随 #1041 测试接入补写了首条 `\changes{v3.2}{...}` 后加入这份列表。其余 3 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
+
+**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接落进 `CHANGELOG.md`（已提交的 zhnumber v3.2 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它零判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 

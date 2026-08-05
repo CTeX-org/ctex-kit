@@ -146,6 +146,22 @@ régime 定好——整个测试文件统一在 `\ExplSyntaxOn` 下，需要 `\p
 不带 `@` 的 expl3 别名，断言部分继续用 expl3 语法读取该别名的展开结果（见
 `zhnumber/testfiles/counter-options01.lvt`）。
 
+## 会被写进辅助文件的 expl3 记号，名字里不能含 `_`（#1008）
+
+这是与上面「字面字符当替换模式时必须核对 catcode régime」同一机制族（catcode 在
+tokenise 那一刻决定）的另一个场景：不是对齐环境，而是**辅助文件往返**。
+
+写 `.toc`／`.aux` 一类辅助文件时，`_` 不是 letter（catcode 8）。若传给某个命令的
+记号里含 `_`（如 `\c_false_bool`），这一整串会被原样写进辅助文件，下次编译重新
+tokenise 时名字在**写出那一刻**就断成 `\c _false_bool`，读回即报
+`The key 'zhnum/options/_' is unknown` 之类一串错误。
+
+zhnumber 初版给 `\zhdigitswithoptions` 的星号参数传 `\c_false_bool` 即踩了这一坑：
+第一遍编译正常、第二遍读回 `.toc` 才炸——这类失败的特征是「跨编译才暴露」。应改用
+expl3 为此提供的、名字里没有 `_` 的记号 `{\BooleanFalse}`（`\zhdigits` 的无计数器
+版本本来就这么写）。**判据是跑两遍编译，不是一遍**：只编译一次看不出问题，因为
+辅助文件要到第二遍才被读回。
+
 ## `.lvt` 测试文件中 `~` 的使用约定（#893）
 
 `.lvt` 测试文件里 `~` 的合法性取决于所在的 catcode 段，写测试时必须区分：
