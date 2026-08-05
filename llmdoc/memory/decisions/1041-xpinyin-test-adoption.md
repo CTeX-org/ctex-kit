@@ -40,7 +40,7 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 ## 决策：两条结构性事实必须写进测试注释
 
 - **注音汉字的宽度看不出拼音内容**：拼音在 `\hbox_overlap_right:n` 这个零宽盒里，换读音乃至整段关掉注音，整盒宽度都不变（实测 chang2/zhang3 同为 10pt）。内容类断言一律交给节点列表。
-- **CJK 环境必须开在盒子内部**：`\begin{CJK}` 包住 `\hbox_set:Nn` 时汉字进不了盒子，三项宽高全为 0pt，而 0pt = 0pt 让「宽度不变」照样报 unchanged。
+- **CJK 环境必须开在盒子内部**：`\begin{CJK}` 包住 `\hbox_set:Nn` 时，出环境后三项宽高全为 0pt，而 0pt = 0pt 让「宽度不变」照样报 unchanged。成因是 `\hbox_set:Nn` 的局部赋值被环境分组还原成 void（环境内读它是 12.75551pt，`\hbox_gset:Nn` 则环境外也可读），不是汉字排不进盒子。
 
 ## 决策：观察手段选 `\loggingoutput`，不用 `\showbox`／`\box_log:N`
 
