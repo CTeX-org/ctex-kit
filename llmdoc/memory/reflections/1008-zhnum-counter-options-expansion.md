@@ -109,10 +109,25 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 真正原因是一个更严重的机制问题：`\@@_counter_error:n` 留下的 `\???` 触发的
 `Use of \??? doesn't match its definition` 在本仓库是**致命错误**——成因是
 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build
-的默认行为（l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、
-后面的 `\TEST` 照常执行，实测如此；`regression-test.tex:37` 的 `\scrollmode` 只在
-`\interactionmode > 1` 时才切，实测这里恒为 1，从未生效——我最初把成因归给 `\scrollmode`
-是错的，盲审指出并实测证伪）。实测编译就地中止并打印
+的默认行为。这一点用三组隔离实验定下来（同一个含两个 `\TEST` 的文件，第一个触发该报错）：
+
+| 设置 | `\scrollmode` 是否生效 | 第二个 `\TEST` 是否执行 |
+|------|------------------------|--------------------------|
+| 不给引擎选项（`\interactionmode` = 3，守卫成立） | 是 | **是** |
+| `-interaction=nonstopmode`（l3build 默认，`\interactionmode` = 1） | 否 | 是 |
+| 加 `-halt-on-error`（本仓库设置） | 是 | **否** |
+
+关键是第一行与第三行的对比：`\scrollmode` 生效时报错照样不中止，所以中止只能归给
+`-halt-on-error`。
+
+**我在这里连错两次，第二次是在更正第一次的时候。** 起初把成因归给 `\scrollmode`（盲审
+实测证伪）；更正时又写下「`\interactionmode` 实测恒为 1，`\scrollmode` 从未生效」——那是
+把对照组（`-interaction=nonstopmode` 那侧确实为 1）的读数当成了实验组的读数，第二轮盲审
+再次证伪：`l3build check` 下实测 `\interactionmode` 为 2（`regression-test.tex:37` 的
+`\scrollmode` 确已切换）。正确结论是「生效但不中止」，而不是「从未生效」。这恰好落在
+本仓库既有规则「成因用隔离实验」的射程内——两次都是只测了一侧就下成因结论。
+
+实测编译就地中止并打印
 `Fatal error occurred, no output PDF file produced!`，
 其后所有 `\TEST` 一律不执行。原先这条断言排在 `counter-options01` 中间（TEST 5），于是
 它后面的 TEST 6（旧版的兼容入口断言）**从未运行过**——基线文件里根本没有 TEST 6 的
@@ -123,8 +138,11 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 `\zhnum` 与 `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
 `\@@_digits_counter_with_options:nn`），两条都要覆盖，所以拆成了两个文件：
 `counter-options01`（覆盖 `\zhnum` 那条，断言挪到文件最末）和新增的
-`counter-options02.lvt`（专门覆盖 `\zhdig` 那条）。报错文本本身进了基线，代价是需要
-**三份基线**：luatex 在该错误后打印的 help 行比 xetex/pdftex 少四行。
+`counter-options02.lvt`（专门覆盖 `\zhdig` 那条）。报错文本本身进了基线，代价是多份基线：
+`counter-options01` 三份、`counter-options02` 两份——两者都因 luatex 在该错误后打印的
+help 行比 xetex/pdftex 少四行而需要 `.luatex.tlg`；而 `.pdftex.tlg` 只有
+`counter-options01` 需要（它排 CJK，字节形式与 xetex 不同），`counter-options02` 的
+pdftex 输出与 stdengine 逐字节相同，不留冗余基线。
 
 同时记一条更一般的教训：**基线文件的长度/段落数本身就是证据**——如果某个 `\TEST` 的
 段落在 `.tlg` 里根本不存在，说明它没跑，而不是「它通过了」。写完 `.lvt` 后应核对基线

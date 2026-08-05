@@ -497,7 +497,9 @@ collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt�
 `\showbox` 撞过的同一个机制（见 `lessons-learned.md` 里 `\showbox` 那条），本次是它的
 第二个触发源。这条报错文本**必须**固定进基线，因为那是唯一可行的判据（曾试过只固定
 「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那一步就已经中止）；代价是
-需要多份基线——luatex 在该错误后打印的 help 行比 xetex/pdftex **少四行**。由此得到两条
+`counter-options01` 需三份基线、`counter-options02` 需两份——luatex 在该错误后打印的
+help 行比 xetex/pdftex **少四行**（`counter-options02` 的 pdftex 输出与 stdengine 逐字节
+相同，故不留冗余的 `.pdftex.tlg`；`counter-options01` 因 CJK 字节形式不同而必需）。由此得到两条
 硬约束：
 
 - **一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末。** `\zhnum` 与
