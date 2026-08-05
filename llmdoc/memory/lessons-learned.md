@@ -317,26 +317,14 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 「生成物与源同步」和「生成物本身正确」是两个独立命题
-**Rule**: 「重新生成 + git diff」式的新鲜度校验只能证明前者，对**确定性**缺陷（生成
-脚本本身有 bug，两次生成结果一致但都错）零判别力——两边一致只是两边都错。需要另加一道
-校验产物内容本身是否正确。这与既有的两条同族——一条讲「跑了但什么也没校验」的 job 比
-没有 job 更危险，另一条讲对账／校验脚本本身也要做判别力实测——但那两条管的是校验
+**Rule**: 「重新生成 + git diff」式的新鲜度校验只能证明前者，对**确定性**缺陷（生成脚本本身有 bug，两次生成结果一致但都错）零判别力——两边一致只是两边都错。需要另加一道校验产物内容本身是否正确。这与既有的两条同族——一条讲「跑了但什么也没校验」的 job 比没有 job 更危险，另一条讲对账／校验脚本本身也要做判别力实测——但那两条管的是校验
 **有没有跑起来**，这条管的是新鲜度校验这一**类型**本身结构性地看不见什么。
-**Why**: zhnumber v3.2 的 CHANGELOG 条目里漏出过 `scripts/extract-changes.py` 的原始
-占位符控制字符（`\texttt{... \cs{???} ...}` 这类嵌套里内层占位符被整段收进
-`verbatim_blocks` 后再也扫不到），而 `check-changelog.yml` 的「重新生成 + diff」新鲜度
-job 一直是绿的——两边生成物逐字节相同，只是都错。修法是在新鲜度校验之外，另加一道直接
-检查产物内容（`CHANGELOG.md` 不得含 `\x00`–`\x05` 占位符）的校验。
+**Why**: zhnumber v3.2 的 CHANGELOG 条目里漏出过 `scripts/extract-changes.py` 的原始占位符控制字符（`\texttt{... \cs{???} ...}` 这类嵌套里内层占位符被整段收进`verbatim_blocks` 后再也扫不到），而 `check-changelog.yml` 的「重新生成 + diff」新鲜度job 一直是绿的——两边生成物逐字节相同，只是都错。修法是在新鲜度校验之外，另加一道直接检查产物内容（`CHANGELOG.md` 不得含 `\x00`–`\x05` 占位符）的校验。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 写下一条教训不等于已经把它应用到手头的产物上
-**Rule**: 补完一条教训后要回头扫一遍同一批产物里是否还有同型问题，不能假设写过一次
-就不会再犯。这条比「同一根源的错误会在同一批改动里复发」这层认识更进一步：不仅错误本身会复发，
-写下教训这个动作本身也不构成已经检查过全部受影响代码的证据。
-**Why**: #1008 已经写下「观察不可展开命令的行为，只有「让它执行」一条路」这条教训，却在同一个测试
-文件（`counter-options01.lvt`）里留下了一项用 `\tl_set:Nx` 捕获 protected 命令
-（`\zhnumwithoptions`／`\zhdigwithoptions`）、因而恒真的断言，直到后续盲审才发现并
-删除。
+**Rule**: 补完一条教训后要回头扫一遍同一批产物里是否还有同型问题，不能假设写过一次就不会再犯。这条比「同一根源的错误会在同一批改动里复发」这层认识更进一步：不仅错误本身会复发，写下教训这个动作本身也不构成已经检查过全部受影响代码的证据。
+**Why**: #1008 已经写下「观察不可展开命令的行为，只有「让它执行」一条路」这条教训，却在同一个测试文件（`counter-options01.lvt`）里留下了一项用 `\tl_set:Nx` 捕获 protected 命令（`\zhnumwithoptions`／`\zhdigwithoptions`）、因而恒真的断言，直到后续盲审才发现并删除。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 改动装饰机制要同时验收节点结构与渲染像素
