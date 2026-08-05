@@ -237,6 +237,47 @@ jobs:
             fi
             STAMP_VERS=$(printf '%s\n%s\n' "${EXPL_VER}" "${DEF_VER}" | sort -u)
             ;;
+          zhnumber|xCJK2uni)
+            # 与 xeCJK / xpinyin 同一套: build.lua 的 version 是事实源, 共享
+            # update_tag 把它回写进 `{\ExplFileDate}{<ver>}`.
+            #
+            # 这两个包此前落进下面的 `*)`, 打的是「不使用 l3build tag 版本
+            # stamp 机制, 跳过三方校验」—— 而那句话是错的: 两者的 .dtx 都有
+            # `{\ExplFileDate}{<ver>}`, 实测 `l3build tag 9.9.9` 各回写 1 行.
+            # 与 #1041 的 xeCJK rc2 错版是同一类缺口 (白名单式校验默认放行,
+            # 且用 notice 而非 error, CI 全绿没人读).
+            #
+            # 两包各只有一处版本写法 (不像 xpinyin 有两处), 所以这里只提取一处;
+            # 但仍必须**锚定**, 理由同 xpinyin case: 不锚的话真行被删除/改动后,
+            # 文件里任何一句引用该形状的注释都能让判空恒绿.
+            #   * zhnumber 的版本行带 docstrip 守卫 `%<package|config>`, 锚它;
+            #   * xCJK2uni 的版本行**没有**守卫 (行首只有缩进空白), 只能锚
+            #     `^[[:space:]]*` + 完整形状. 注意该文件另有一处 `\ExplFileDate`
+            #     出现在 `\date{...}` 里 (说明性用法), 完整形状可以排除它 ——
+            #     实测该行不会被匹配.
+            LUA_VER=$(sed -nE 's/^version[[:space:]]*=[[:space:]]*"v?([^"]+)".*/\1/p' "${DIR}/build.lua" | head -1)
+            DTX="${{ steps.parse.outputs.dtx }}"
+            if [ ! -f "${DIR}/${DTX}" ]; then
+              echo "::error::${DIR}/${DTX} 不存在. 若包结构有变, 请同步更新本 case."
+              exit 1
+            fi
+            case "${DIR}" in
+              zhnumber)
+                STAMP_VERS=$(sed -nE 's/^%<package\|config>[[:space:]]*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/${DTX}" | sort -u)
+                HINT='%<package|config>  {\ExplFileDate}{3.1}{\ExplFileDescription}'
+                ;;
+              xCJK2uni)
+                STAMP_VERS=$(sed -nE 's/^[[:space:]]*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/${DTX}" | sort -u)
+                HINT='  {\ExplFileDate}{1.0}{\ExplFileDescription}'
+                ;;
+            esac
+            if [ -z "${STAMP_VERS}" ]; then
+              echo "::error::未能从 ${DIR}/${DTX} 提取 {\\ExplFileDate}{...} 版本号."
+              echo "::error::该行形如 '${HINT}'."
+              echo "::error::提取模式已锚到行首, 真行被删除或改动时会走到这里 (fail-closed)."
+              exit 1
+            fi
+            ;;
           *)
             echo "::notice::${DIR} 不使用 l3build tag 版本 stamp 机制, 跳过三方校验"
             exit 0
