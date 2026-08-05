@@ -55,7 +55,8 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 4. **让它们真的排版，但放在主 `testfiles/` 里也不行**——排 CJK 需要中文字体：XeTeX 下
    只是 `Missing character` 警告，pdfTeX 下是**硬错误** `Unicode character ... not
    set up for use with LaTeX` 并中止编译。同一个 `.lvt` 的两个引擎基线会分化成
-   「报错」与「警告」两种不同结果，且后者让其后用例静默不执行。
+   「报错」与「警告」两种不同结果，而其中的**报错**（pdfTeX 那侧）会让其后用例静默
+   不执行。
 
 最终解法是**按引擎需求分目录**：
 
