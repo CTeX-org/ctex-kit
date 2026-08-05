@@ -701,7 +701,8 @@ Copyright and Licence
 %
 % 修法是在 \tn{zhnum} 这一层先用 \texttt{f} 展开把计数器取成数值，再交给处理\emph{数值}
 % 的 \tn{zhnumberwithoptions}：写进辅助文件的成为
-% \verb|\zhnumberwithoptions{...}{1}|，数值已经固定，样式则留待读回时套用。
+% \verb|\zhnumberwithoptions{...}{7}|（花括号里是写入那一刻的计数器值），数值已经
+% 固定，样式则留待读回时套用。
 % 不改成完全可展开是有意的——样式靠 \tn{tl_set_eq:NN} 一类赋值实现（见
 % \tn{zhnum_reset_style:}），赋值无法在 \tn{edef} 的展开中生效，硬做只会把
 % 「不可展开」换成「静默用错样式」。
@@ -1024,12 +1025,18 @@ Copyright and Licence
 % 星号参数必须写成 \verb|{\BooleanFalse}| 而\emph{不是} \cs{c_false_bool}：
 % 这一整串会被写进辅助文件，再在下次编译时重新 tokenise，而那时 \verb|_| 不是
 % letter（catcode 8），\cs{c_false_bool} 的名字会在写出时就断成
-% \verb|\c _false_bool|，读回即报 \texttt{The key `zhnum/options/\_' is unknown}
-% 之类的一串错误。\tn{zhdigits} 的无计数器版本本来就用 \verb|{\BooleanFalse}|
+% \verb|\c _false_bool|，读回即出错。具体报什么错取决于写法，实测两种：不带花括号
+% 时（初版的 \verb|\exp_args:NNne ... \c_false_bool|）断开的 \verb|_| 被当成键名，
+% 报 \texttt{The key `zhnum/options/\_' is unknown} 之类的一串错误；带花括号时报
+% \texttt{Missing \$ inserted}。两者都是「名字在写出那一刻断开」的后果。
+% \tn{zhdigits} 的无计数器版本本来就用 \verb|{\BooleanFalse}|
 % （它是 \pkg{expl3} 为此提供的、名字里没有 \verb|_| 的记号），这里对齐它。
 %
 % 这一点是盲审查出来的：初版用 \cs{c_false_bool} 时第一遍编译正常，第二遍读回
 % \file{.toc} 才炸——等于把 \#1008 那类「跨编译才暴露」的失败换到了另一个命令上。
+% 没有为它单独记 \tn{changes}：这条路径本身是 v3.2 新增的（v3.1 里
+% \tn{zhdig} 的带选项形式根本不可用，见下面 \tn{zhdigwithoptions} 的笔误），
+% 所以它不构成对已发布行为的修正，并入核心修复那一条即可。
 %    \begin{macrocode}
 \cs_new:Npn \@@_digits_counter_with_options:nn #1#2
   {

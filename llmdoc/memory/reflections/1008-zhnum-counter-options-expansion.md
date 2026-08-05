@@ -107,8 +107,13 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 `\int_if_exist:cTF` 守卫删掉后，两套测试仍然全绿零 diff。
 
 真正原因是一个更严重的机制问题：`\@@_counter_error:n` 留下的 `\???` 触发的
-`Use of \??? doesn't match its definition` 在 l3build 的 `\scrollmode` 下是**致命
-错误**——实测编译就地中止并打印 `Fatal error occurred, no output PDF file produced!`，
+`Use of \??? doesn't match its definition` 在本仓库是**致命错误**——成因是
+`support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build
+的默认行为（l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、
+后面的 `\TEST` 照常执行，实测如此；`regression-test.tex:37` 的 `\scrollmode` 只在
+`\interactionmode > 1` 时才切，实测这里恒为 1，从未生效——我最初把成因归给 `\scrollmode`
+是错的，盲审指出并实测证伪）。实测编译就地中止并打印
+`Fatal error occurred, no output PDF file produced!`，
 其后所有 `\TEST` 一律不执行。原先这条断言排在 `counter-options01` 中间（TEST 5），于是
 它后面的 TEST 6（旧版的兼容入口断言）**从未运行过**——基线文件里根本没有 TEST 6 的
 段落，测试却一直显示「全绿」。这正是「删掉守卫零 diff」的真实成因：差异发生在中止点
@@ -131,7 +136,11 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 
 初版给 `\zhdigitswithoptions` 的星号参数传 `\c_false_bool`。这一整串会被写进 `.toc`，
 再在下次编译时重新 tokenise，而那时 `_` 不是 letter（catcode 8），名字在**写出时**就
-断成 `\c _false_bool`，读回即报 `The key 'zhnum/options/_' is unknown` 之类一串错误。
+断成 `\c _false_bool`，读回即出错。具体报什么错取决于写法，实测两种：初版不带花括号的
+`\exp_args:NNne ... \c_false_bool` 把断开的 `_` 当成键名，报
+`The key 'zhnum/options/_' is unknown` 之类一串错误；带花括号的
+`{ \c_false_bool }` 报 `Missing $ inserted.`。两者都是「名字在写出那一刻断开」的后果，
+但把某一种当成这条约束的唯一表征会让后来者复核时以为机制不成立（盲审指出这一点）。
 第一遍编译正常、第二遍才炸——等于把 #1008 那种「跨编译才暴露」的失败换到了另一个命令上，
 是盲审查出来的。
 
@@ -226,11 +235,13 @@ PR #1055 补的 `check-tag` 拒绝。CHANGELOG 由 `make changelog-zhnumber` 生
    应当同时补一段说明用法边界，而不只是改代码。
 6. **修一个问题时发现的独立 bug（根因二）要单独记 `\changes`、单独设计测试用例**，不要
    混进主问题的叙述和判据里，否则后续想单独复核某个 bug 是否修复时会难以拆分证据。
-7. **可展开报错触发的致命错误会让同文件内后续 `\TEST` 静默不执行**：`\msg_expandable_
-   error:nnn` 留下的 `\???` 在 l3build 的 `\scrollmode` 下是致命错误，编译当场中止；
-   一个 `.lvt` 只能断言一次这类报错，且必须放在文件最末。**基线段落数是判断测试是否真
-   的跑过的证据**——`\TEST` 数量应与 `.tlg` 里的段落数一一对应，只看绿/红不够，需要
-   核对这一点才能确认「全绿」不是「后半没跑」。
+7. **`-halt-on-error` 下任何会抛错的断言都会让同文件内后续 `\TEST` 静默不执行**：
+   本仓库 `support/build-config.lua:9` 设了 `checkopts = "-halt-on-error"`，
+   `\msg_expandable_error:nnn` 留下的 `\???` 因而让编译当场中止；一个 `.lvt` 只能断言
+   一次这类报错，且必须放在文件最末。**基线段落数是判断测试是否真的跑过的证据**——
+   `\TEST` 数量应与 `.tlg` 里的段落数一一对应，只看绿/红不够。注意 #1026 已用 `\showbox`
+   撞过同一机制并记下规则，所以本条应并入那一条、按「任何抛错的断言」记，而不是新立一条
+   按具体命令记的规则；也不要把成因写成 l3build 或 LaTeX 的默认行为。
 8. **写进辅助文件（`.toc`／`.aux` 一类）的 expl3 记号名字不能含 `_`**：`_` 在辅助文件
    被重新 tokenise 时不是 letter（catcode 8），记号名会在写出那一刻就断开，读回后报
    一串 key/undefined 错误，且症状是「第一遍编译正常、第二遍才炸」。判据是跑两遍
