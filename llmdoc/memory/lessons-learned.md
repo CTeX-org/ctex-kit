@@ -308,7 +308,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 观察不可展开命令的行为，只有「让它执行」一条路
 **Rule**: `\typeout`／`\tl_set:Nx`／`\protected@edef` 一类手段面对一个不可展开的宏时，只能拿到它的**控制序列名**本身（因为宏未被展开），看不到宏体内部逐步展开、赋值、报错的中间过程。若测试判据只依赖这些手段，对该命令内部的缺陷完全没有判别力。要观察内部是否正确，必须让宏真正**执行**（例如排版出可见节点），再从执行结果（节点、盒子尺寸）反推内部逻辑是否正确。
-**Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们实际排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
+**Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们实际排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针静默先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 核对基线里的用例数与文件里的用例数
@@ -317,9 +317,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 「生成物与源同步」和「生成物本身正确」是两个独立命题
-**Rule**: 「重新生成 + git diff」式的新鲜度校验只能证明前者，对**确定性**缺陷（生成脚本本身有 bug，两次生成结果一致但都错）零判别力——两边一致只是两边都错。需要另加一道校验产物内容本身是否正确。这与既有的两条同族——一条讲「跑了但什么也没校验」的 job 比没有 job 更危险，另一条讲对账／校验脚本本身也要做判别力实测——但那两条管的是校验
-**有没有跑起来**，这条管的是新鲜度校验这一**类型**本身结构性地看不见什么。
-**Why**: zhnumber v3.2 的 CHANGELOG 条目里漏出过 `scripts/extract-changes.py` 的原始占位符控制字符（`\texttt{... \cs{???} ...}` 这类嵌套里内层占位符被整段收进`verbatim_blocks` 后再也扫不到），而 `check-changelog.yml` 的「重新生成 + diff」新鲜度job 一直是绿的——两边生成物逐字节相同，只是都错。修法是在新鲜度校验之外，另加一道直接检查产物内容（`CHANGELOG.md` 不得含 `\x00`–`\x05` 占位符）的校验。
+**Rule**: 「重新生成 + git diff」式的新鲜度校验只能证明前者，对**确定性**缺陷（生成脚本本身有 bug，两次生成结果一致但都错）零判别力——两边一致只是两边都错。需要另加一道校验产物内容本身是否正确。这与既有的两条同族——一条讲「跑了但什么也没校验」的 job 比没有 job 更危险，另一条讲对账／校验脚本本身也要做判别力实测——但那两条管的是校验**有没有跑起来**，这条管的是新鲜度校验这一**类型**本身结构性地看不见什么。
+**Why**: zhnumber v3.2 的 CHANGELOG 条目里漏出过 `scripts/extract-changes.py` 的原始占位符控制字符（`\texttt{... \cs{???} ...}` 这类嵌套里内层占位符被整段收进 `verbatim_blocks` 后再也扫不到），而 `check-changelog.yml` 的「重新生成 + diff」新鲜度 job 一直是绿的——两边生成物逐字节相同，只是都错。修法是在新鲜度校验之外，另加一道直接检查产物内容（`CHANGELOG.md` 不得含 `\x00`–`\x05` 占位符）的校验。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 写下一条教训不等于已经把它应用到手头的产物上
