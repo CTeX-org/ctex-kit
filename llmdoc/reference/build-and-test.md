@@ -519,8 +519,10 @@ collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt�
 **可展开报错在本仓库的 `checkopts` 下是致命错误，这是本节最重要的约束。**
 `\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
 `\???` 控制序列，触发 `Use of \??? doesn't match its definition`——该错误实测让**编译
-就地中止**，打印 `Fatal error occurred, no output PDF file produced!`，其后所有 `\TEST`
-一律不执行。成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
+就地中止**，其后所有 `\TEST` 一律不执行。判断是否中止要看「后面的 `\TEST` 段落有没有进
+基线」，**不要**用日志里的 `Fatal error occurred, no output PDF file produced!` 那一行：
+它只有 pdftex/luatex 打印，xetex 不打印（而 xetex 正是这两个测试的 `stdengine`），并且
+它会被日志归一化删掉、从不进入 `.tlg`。成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
 **不是** LaTeX 或 l3build 本身的行为：l3build 默认 `-interaction=nonstopmode`，那种设置
 下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。因此下面两条硬约束是**本仓库
 的**约束，往用默认 `checkopts` 的项目推断前要先核对那边的设置。这也是 #1026 用
@@ -529,7 +531,10 @@ collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt�
 「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那一步就已经中止）；代价是
 `counter-options01` 需三份基线、`counter-options02` 需两份——luatex 在该错误后打印的
 help 行比 xetex/pdftex **少四行**（`counter-options02` 的 pdftex 输出与 stdengine 逐字节
-相同，故不留冗余的 `.pdftex.tlg`；`counter-options01` 因 CJK 字节形式不同而必需）。由此得到两条
+相同，故不留冗余的 `.pdftex.tlg`；`counter-options01` 则因日志里汉字的字节形式不同而必需
+——pdfTeX 记成 `^^e4^^b8^^83`、xetex 记成 `七`。注意这只是**日志编码**差异，与「pdfTeX 排
+CJK 是硬错误」无关：`counter-options01` 里的汉字只经 `\tl_log:x` 进日志、没有真的排版，
+实测 `l3build check -e pdftex counter-options01` 全绿）。由此得到两条
 硬约束：
 
 - **一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末。** `\zhnum` 与
