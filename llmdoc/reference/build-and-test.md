@@ -420,7 +420,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
-`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的真排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的实际排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
 
 ## 非典型测试模式
 
@@ -580,7 +580,7 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 
 **`l3build save` 之后要读一遍新基线里自己那几行。** 它不会因为断言结果是 DIFF 而拒绝保存。上面那处正是 save 之后 grep 基线才发现的。
 
-### zhnumber 的计数器选项回归（#1008，测试布局经 da00ad53 更正）
+### zhnumber 的计数器选项回归（#1008）
 
 `zhnumber` 的 `\zhnum[opts]{counter}`／`\zhdig[opts]{counter}` 原实现把计数器**名**写进
 `.toc` 一类辅助文件（`\zhnumwithoptions{style=...}{section}`），读回时计数器已归零；
@@ -600,7 +600,7 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 - `zhnumber/testfiles-cjk/legacy-entry01.lvt` + `zhnumber/test/config-cjk.lua`（仅
   xetex）覆盖兼容入口 `\zhnumwithoptions`／`\zhdigwithoptions` 本身——这两个命令**不可
   展开**（用 `\NewDocumentCommand` 实现，要用 `\group_begin:`／`\group_end:` 局部改样
-  式），只能让它们真排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
+  式），只能让它们实际排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
   `\tl_set:Nx` 捕获式断言是恒真的（它们是 `\NewDocumentCommand`、protected，捕获只拿到
   命令名本身，实测基线里就是 `\zhdigwithoptions {style=Financial}{section}` 原样），
   已删除；兼容入口的行为完全由本文件量盒子覆盖。
