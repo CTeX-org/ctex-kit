@@ -94,16 +94,28 @@
 
 %% 4. 排出的**字形**本身进基线, 补上度量看不出的那一维 (见文件开头的说明:
 %%    「柒」与「九」度量相同, 只靠 wd/ht 分辨不出排错了字).
-%%    \box 会把盒子放进输出, \loggingoutput 使输出内容进日志因而进基线;
-%%    归一化后每个汉字表现为它的字符编号, 于是「排的是哪个字」被固定下来.
+%%    \box_use:N 会把盒子放进输出, \loggingoutput 使输出内容进日志因而进基线;
+%%    汉字在日志里就是它本身 (基线里实际存的是字面 UTF-8 汉字, 不是码位数字 ——
+%%    l3build 的日志归一化不把 CJK 码位转成 `^^' 形式).
+%%
+%%    **必须覆盖上面三项测过的全部六个入口**, 不能只测 \zhnum 那三个: TEST 1-3
+%%    每项都测两个入口 (zhnum 与 zhdig), 若这里只排 \zhnum 的盒子, \zhdig 侧
+%%    就仍然只有度量断言, 本项声称补掉的盲区在那一侧原样保留 (实测: 只测
+%%    \zhnum 时, 一个让 \zhdigwithoptions 排错字且度量恰好相同的变异全绿).
 \loggingoutput
 
 \TEST{glyph~identity~is~fixed}{
+  \hbox_set:Nn \l_test_box { \zhnum { section } }
+  \box_use:N \l_test_box
+  \hbox_set:Nn \l_test_box { \zhdig { section } }
+  \box_use:N \l_test_box
   \hbox_set:Nn \l_test_box { \zhnumwithoptions { style = Financial } { section } }
+  \box_use:N \l_test_box
+  \hbox_set:Nn \l_test_box { \zhdigwithoptions { style = Financial } { section } }
   \box_use:N \l_test_box
   \hbox_set:Nn \l_test_box { \zhnum [ style = Financial ] { section } }
   \box_use:N \l_test_box
-  \hbox_set:Nn \l_test_box { \zhnum { section } }
+  \hbox_set:Nn \l_test_box { \zhdig [ style = Financial ] { section } }
   \box_use:N \l_test_box
   \par
   %% 必须 \clearpage: \loggingoutput 记的是**输出例程送出的页面**, 不 ship out
