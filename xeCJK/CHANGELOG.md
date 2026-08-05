@@ -135,7 +135,7 @@
 - 保存并恢复 `\g_@@_last_node_tl`，避免 hbox 内渲染装饰符号时 interchar toks 污染全局节点标记，修复 `xeCJKfntef` 与 `\textcolor` 组合使用时多余的 `CJKecglue`。
 - 移除 `\ignorespaces`，修复命令后空格丢失（#465）。
 - 在独立模式的末尾设置 `\g_@@_glue_check_pending_bool`，修复 `\CJKunderdot` 等命令右侧空格问题（#826）。
-- 修复在 `\lstinline` 参数中使用非 `#` 的 catcode 6 字符（如 ``\catcode`\&=6``）时输出错字的问题（#879）。
+- 修复在 `\lstinline` 参数中把非 `#` 的字符（如 `&`）用 `\catcode` 设为 catcode 6 时输出错字的问题（#879）。
 - 修复 `\textsbleftarrow` 的定义。
 - 修复拼错的命令名， `\cyreref` $\to$ `\cyrerev` 和 `\textDiamandSolid` $\to$ `\textDiamondSolid`。
 - 修复 `\textnleqslant` 的定义，修复 `\textnbacksim` 和 `\textnlessapprox` 定义里的自引。
