@@ -520,7 +520,11 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 所以 `legacy-entry01` 的 TEST 4 用 `\loggingoutput` + `\box_use:N` + `\clearpage` 把
 盒子内容本身写进基线，汉字在基线里就是字面 UTF-8 汉字（l3build 的日志归一化不把 CJK
 码位转成 `^^` 形式）；度量只作旁证。该项必须覆盖前面测过的**全部**入口——只排 `\zhnum`
-的盒子时，`\zhdig` 侧仍只有度量断言，盲区原样保留（实测）。用 `\loggingoutput` 而非
+的盒子时，`\zhdig` 侧仍只有度量断言，盲区原样保留（实测）。而且必须同时用**多位数**跑
+一遍：计数器为一位数时 `\zhnum` 与 `\zhdig` 的输出恒等（都是单个汉字），把 digits 路径
+接成整数路径这类接线错误看不出来（实测把 `\zhdigwithoptions` 里的
+`\zhnum_digits_counter:n` 换成 `\zhnum_counter:n` 后全绿）；123 下 `\zhdig` 逐位排
+「壹贰叁」而 `\zhnum` 排「壹佰贰拾叁」，位数与字形都不同。用 `\loggingoutput` 而非
 `\showbox`，因为后者报 `! OK.` 会在 `-halt-on-error` 下当场中止；不加 `\clearpage` 则
 页面不 ship out、TEST 段落是空的（两点均实测）。
 
