@@ -430,7 +430,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 **两条结构性事实**（一并写进注释，避免日后重蹈）：
 
 - **注音汉字的宽度看不出拼音内容。** `\@@_make_pinyin_box:nnn` 把拼音放进 `\hbox_overlap_right:n` 这个零宽盒里，换读音乃至整段关掉注音，整盒宽度都不变（实测 `\xpinyin{长}{chang2}` 与 `\xpinyin{长}{zhang3}` 同为 10pt）。因此「用了哪个读音」「注音有没有生效」这类内容断言一律交给节点列表（`pinyin-scope01.lvt`），宽度维度只能确认「尺寸不受读音影响」这条不变量本身。
-- **CJK 环境必须开在盒子内部。** 写成 `\begin{CJK}` 包住 `\hbox_set:Nn` 时，汉字根本进不了盒子，三项宽高深全为 0pt——而 0pt = 0pt 会让「宽度不变」这条断言照样报 unchanged，看着像通过。CJKutf8 路线的测试因此把 `\begin{CJK}...\end{CJK}` 整体写在 `\hbox_set:Nn` 的参数内部。
+- **CJK 环境必须开在盒子内部。** 写成 `\begin{CJK}` 包住 `\hbox_set:Nn` 时，出环境后读到的三项宽高深全为 0pt（成因是 `\hbox_set:Nn` 的局部赋值被环境分组还原成 void——实测环境**内**读同一个盒子是正常的 12.75551pt，改用 `\hbox_gset:Nn` 则环境外也读到该值；不是汉字排不进盒子）——而 0pt = 0pt 会让「宽度不变」这条断言照样报 unchanged，看着像通过。CJKutf8 路线的测试因此把 `\begin{CJK}...\end{CJK}` 整体写在 `\hbox_set:Nn` 的参数内部。
 
 **`\showbox`／`\box_log:N` 在 `-halt-on-error` 下会当场中止。** 三者都抛 `! OK.`，而 xpinyin 的 `checkopts` 带 `-halt-on-error`，会当场终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着；xpinyin 的解法同样是一律用 `\loggingoutput` 读取 shipout 的实际节点列表。
 
