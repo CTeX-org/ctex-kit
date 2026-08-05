@@ -41,6 +41,43 @@
 %%    基线里应当只看到「汉」和「文」的拼音, 中间的「语」只有汉字没有拼音.
 \xpinyin*{汉\disablepinyin 语\enablepinyin 文}\par
 
+%% 2b. 不带星号的 \disablepinyin 只关掉**自动**注音, 显式指定读音仍然生效.
+%%
+%% 这是两个布尔的分工: \disablepinyin 只置 \l_@@_enable_bool 为假, 而
+%% \l_@@_enable_all_bool 仍为真, 所以 \xpinyin 的主分支照常走, 显式读音照排.
+%% 第 2 项只覆盖了「自动注音被关掉」这一半, 单独看它无法区分「只关自动注音」
+%% 与「把 \xpinyin 整个关掉」—— 后者若发生, 第 2 项仍然通过.
+%%
+%% 实测 (纯 xelatex, 不经 l3build): 本行的「语」得到 yǔ, 下一行 \xpinyin* 的
+%% 「文」也得到 wén, 两者都在基线里以 3.99994pt 出现.
+\disablepinyin
+\xpinyin{语}{yu3}\par
+\xpinyin*{文}\par
+\enablepinyin
+
+%% 2c. 带星号的 \disablepinyin* 是总开关: 显式读音与 \xpinyin* 一并失效.
+%%
+%% 与 2b 构成对照, 缺一不可 —— 只有 2b 时, 星号参数根本没被消费 (或消费了却
+%% 不置 \l_@@_enable_all_bool) 都不会被发现; 只有 2c 时, 又无法说明普通形式
+%% 保留了显式注音的能力.
+%%
+%% 判据是这两行**都不出现** 3.99994pt 的拼音字形, 只有 10pt 的汉字.
+%% 实测: \disablepinyin* 之后 yǔ 与 wén 都不出现 (对照 2b 两者都出现).
+\disablepinyin*
+\xpinyin{语}{yu3}\par
+\xpinyin*{文}\par
+\enablepinyin
+
+%% 2d. 两个布尔都是局部赋值, 随 TeX 分组恢复.
+%%
+%% \disablepinyin* 用的是 \bool_set_false:N (局部), 不是 \bool_gset_false:N,
+%% 所以退组后应自动恢复注音, 不需要显式 \enablepinyin. 若哪天误改成全局赋值,
+%% 2b/2c 仍会通过 (它们都在同一层且后面跟了 \enablepinyin), 只有本项会红.
+%%
+%% 判据: 组内的「文」无拼音, 组外的「语」有拼音 (3.99994pt).
+{\disablepinyin* \xpinyin*{文}}\par
+\xpinyin*{语}\par
+
 %% 3./4. \xpinyin 指定读音覆盖数据库首选读音, 与不指定时形成对照.
 %%
 %% 指定的读音**必须与数据库首选不同**, 否则这一对用例恒真.
