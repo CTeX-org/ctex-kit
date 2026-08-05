@@ -110,6 +110,24 @@ fi
 echo "docstrip 产出 ${#defs[@]} 个 .def"
 cp "${defs[@]}" "$DEST/"
 
+# 必须刷新 ls-R, 否则刚拷进去的文件可能对 kpse 不可见.
+#
+# CI 上 setup-texlive-action 让 TEXMFHOME 解析到 texmf-local (实测 doc-ctex
+# 的 resolved 路径就在 texmf-local 下), 而 texmf.cnf 的 TEXMFDBS 里
+# TEXMFLOCAL 带 !! 前缀 —— 语义是"只查 ls-R, 绝不扫磁盘". 实测该树下磁盘上
+# 真实存在的文件, 若无 ls-R 条目, kpsewhich 完全找不到.
+#
+# 其他 doc job 能成功, 靠的是 kpse "ls-R 比目录旧就回退扫盘"的宽容行为;
+# zhmetrics 的 doc job 在本步骤之前跑了 `mktexlsr "$TEXMFHOME"` (为了让 kpse
+# 认识它生成的 zhmCJK.tfm/map), 把 ls-R 刷成最新, 恰好关掉这个回退 —— 索引
+# 是新的却不含随后拷进来的 .def, 于是解析回落到 texmf-dist 的 2026-02-18,
+# 被下面的生效校验拦下. 所以偏偏是"刷过索引"的那个 job 挂掉.
+#
+# 无条件刷新 (而非仅在 ls-R 已存在时): TEXMFHOME 指向 !! 树时, 没有 ls-R
+# 等于什么都找不到, 跳过刷新反而是错的.
+mktexlsr "$TEXMFHOME" >/dev/null
+echo "已刷新 $TEXMFHOME 的 ls-R"
+
 # 生效判据: 经 kpse 解析到的必须是刚装的那份, 且日期与 l3kernel 一致.
 # 少了这步核对, 「装错位置」与「装了但没生效」都会静默退化成原状.
 RESOLVED=$(kpsewhich l3backend-pdftex.def)
