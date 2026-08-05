@@ -168,7 +168,7 @@ oracle 41.66002pt；西文 54.75pt 对 58.08pt）。同类裸调用在 hyperref 
   等于直接输入 `$\star$` 的 oracle；带西文可见内容的
   `\hypertarget{t}{word}$\star$` 由 59.75002pt 恢复为 63.08002pt。两个注册
   的判别力互不重叠（去 `\Hy@raisedlink` 使 TEST 1、2 失败；去
-  `\hyper@anchor` 使 TEST 3、4、4b 失败）。第三处包装的判别力同样实测：去掉它
+  `\hyper@anchor` 使 TEST 3、4、5 失败）。第三处包装的判别力同样实测：去掉它
   使三条 `phantomsection`／`MakeLinkTarget` 断言各少 3.33pt；误用无花括号变体
   则同样三条失败但读数暴涨（42.83pt／15.0pt），两种失败形态可区分。
 - xeCJK 标准回归 122／122；ctex 主回归与 `config-contrib` 的失败项已用
