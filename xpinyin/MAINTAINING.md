@@ -36,9 +36,9 @@ l3build check -c test/config-cjk   # CJKutf8 + pdfTeX
 - `xpinyin-database.def` 的 `\ProvidesFile` 方括号里 `v` 后面的版本号
   （当前是 `[2022/07/14 v3.1 xpinyin database]`）。
 
-回写由 `l3build tag` 完成（`support/build-config.lua` 的共享 `update_tag`：`:200` 用
-`({\ExplFileDate})%b{}` 匹配并替换紧随其后的花括号组，`:219` 处理 `[日期 v版本]` 那种写法），
-`check-tag.yml` 会要求跑完后 `git diff` 为空。
+回写由 `l3build tag` 完成，实现是 `support/build-config.lua` 里共享的 `update_tag`：一条
+`({\ExplFileDate})%b{}` 替换负责上面第一处（`%b{}` 匹配紧随其后的花括号组），另一条
+`[<日期> v<版本>]` 分支负责第二处。`check-tag.yml` 会要求跑完后 `git diff` 为空。
 
 面向用户的变更写进 `xpinyin.dtx` 的 `\changes`，`CHANGELOG.md` 由 `make changelog-xpinyin`
 生成，不要手写。
