@@ -633,7 +633,18 @@ CI 现在的结构 (PR #899 后):
 **阶段 0 — `changes` job (paths filter):**
 PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 个 bool (ctex / xeCJK / xpinyin / zhnumber / CJKpunct / zhlineskip). push / schedule / workflow_dispatch 触发时 filter 不影响, 全跑. 同时把 `TL_VERSION` (顶层 env, 如 `'2026'`) 作 `tl-version` output 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
 
-依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑; xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖 (`checkdeps` + `checkinit_hook`), 所以改 `xeCJK/**` 也会让 xpinyin job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 6 个包都跑.
+依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑; xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖 (`checkdeps` + `checkinit_hook`), 所以改 `xeCJK/**` 也会让 xpinyin job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `.github/font-urls.txt`, `scripts/check-parallel.sh`, `scripts/sync-l3backend.sh`, `support/**`, `Makefile`) 让所有 6 个包都跑.
+
+#### 新增被多个 workflow 共用的脚本时要一起改触发白名单
+
+把逻辑抽成共享脚本时，「哪些文件改动会触发这些路径」是调用点的一部分，必须一起更新，否则改坏脚本时 CI 不会告警。`scripts/sync-l3backend.sh` 在 #1054 被漏掉过，由两个 bot 独立指出；已补三处：`check-doc.yml` 的 `on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter。
+
+**两个 workflow 的失效机制不同，只查一处不够：**
+
+- `check-doc.yml` 用 `on.pull_request.paths` 白名单。文件不在里面，workflow **根本不会触发**，Actions 页面上看不到这个 run。
+- `test.yml` 用 `paths-ignore`。workflow **会触发**，但各包 job 的 `if` 取自 `changes` job 的 `_all` filter，该 filter 不含这个文件时全部为 false，于是每个包的 job 都被 skip，`test-result` 把 skipped 算作 OK，整体呈现为绿。
+
+由此得到一条判读约束：**「看 job 有没有启动」不能作为门禁生效的证据。** 前一种机制下 run 缺席，后一种机制下 run 在但内容为空，两者都可能被误读成「已经跑过了」。要确认，得看 `changes` job 的 filter 输出，或直接读两个 workflow 里的路径清单。
 
 **阶段 0.5 — `warmup-tl` job (cache 预热):**
 `needs: changes`, `matrix.os = [ubuntu, macos, windows]` 3 job 并行. 每 OS 1 个 job 跑 setup-texlive-action 装 + update, 把 cache 填到当前 TLnet 最新 baseline. 这是**唯一会真装 install-tl** 的地方 — 收敛 mirror 请求, 避免 6 caller × 3 OS = 18 路并发轰炸 mirror 触发 ETIMEDOUT.
@@ -667,13 +678,26 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 
 PR 阶段专用校验 (#935), 补 test.yml 的"文档 dtx→PDF 可编译性"维度. 只在 `pull_request` 触发. 结构:
 
-- **`changes` job**: 精简版 paths-filter, 9 个 bool (ctex/xeCJK/CJKpunct/zhnumber/xCJK2uni/xpinyin/zhmetrics/zhmetrics-uptex/zhlineskip). **无依赖传递** — `l3build doc` 只 typeset 自身 `typesetfiles`, xeCJK 变动不会跑 ctex 的 doc.
+- **`on.pull_request.paths` 白名单**: 除 9 个包目录外, 还含公共依赖与基础设施——`support/**`、`scripts/verify-doc-output.sh`、`scripts/sync-l3backend.sh`、`check-doc.yml` 与 `_check-doc-package.yml` 本体、`.github/tl_packages`、`.github/font-urls.txt`. 不在这份清单里的文件改动**不会触发本 workflow**.
+- **`changes` job**: 精简版 paths-filter, 9 个 bool (ctex/xeCJK/CJKpunct/zhnumber/xCJK2uni/xpinyin/zhmetrics/zhmetrics-uptex/zhlineskip). 其 `_all` filter 需与上面的 `on.paths` 保持一致（同样含 `scripts/sync-l3backend.sh`）. **无依赖传递** — `l3build doc` 只 typeset 自身 `typesetfiles`, xeCJK 变动不会跑 ctex 的 doc.
 - **9 个 caller job**: 每包一个 `uses: ./.github/workflows/_check-doc-package.yml`, job 级 if 保证未受影响包不启动 runner (仿 test.yml + _test-package.yml 的 caller-per-pkg 结构, 避开 matrix.pkg 幽灵 cancelled job).
 - **`check-doc-result` 汇总**: 与 test-result 同构, branch protection 单点盯.
 
 TL cache 共享: 用同一个 `tl-bypass-<os>-<ver>-<week>-<hash>` key (与 test.yml warmup-tl / release.yml 完全一致). PR 触发时 test.yml warmup-tl 同 head sha 并行填 cache, 本 workflow 大多数情况 100% cache hit; cache miss 走 setup-texlive-action fallback (单 mirror illinois pin, 抖动时 rerun --failed).
 
 Verify 层: `scripts/verify-doc-output.sh` 按 `typesetfiles` 逐 PDF 检查 `build/doc/*.pdf` 存在 + `%PDF` magic + `>= 1024` 字节最小大小 (防 dvipdfmx fatal 后残留 stub `%PDF` header). `typesetfiles={}` 的包 (zhmetrics-uptex) 期望零 PDF 单独短路通过.
+
+**这三条判据都是容器级的，对「编译成功但正文被污染」零判别力**（`scripts/verify-doc-output.sh:69-88`）。#1054 的实证：l3backend 版本错配下 `l3build doc` exit 0、PDF 页数与体积都正常，三条判据全过，只有版面上散落 `0gray 0` 一类泄漏文本。这是已登记的技术债，见 `memory/doc-gaps.md` 的「`verify-doc-output.sh` 缺内容级哨兵」。
+
+#### 成功时也上传 PDF artifact
+
+`_check-doc-package.yml` 在 `steps.doc.outcome == 'success'` 时上传 `check-doc-<pkg>-pdf`，path 为 `<pkg>/build/doc/**/*.pdf`，`if-no-files-found: ignore`。它与既有的失败版 `check-doc-<pkg>-failed`（同时含 `.log` 与 `.pdf`）条件互斥，不会重复上传。
+
+理由是上面那条盲区：排版类问题（溢出行、字形缺失、颜色 special 泄漏）退出码都是 0，只能看版面，所以要让 PR 编出来的 PDF 可以直接下载做目视检查。
+
+成功路径只传 PDF 不传 log——成功的 log 没有诊断价值，而 `xeCJK.log` 有近百 KB。存储方面：公开仓库的 Actions 存储不计费，保留期取仓库默认 90 天到期自动删除，且与 TL／字体 cache 是两套独立配额，不互相挤占（后者当前已用 9.71 GB，接近 10 GB 上限，这也是不把 PDF 塞进 cache 的原因）。
+
+验收方式可参考 #1054 的做法：下载 artifact 后 `pdftotext` 再检索泄漏模式（`gray 0`、`0gray`、`1.0 0.0`），当时 `xeCJK.pdf`（249 页）与 `xunicode-symbols.pdf` 的计数均为 0。
 
 #### 3 个包的 CI-only 特殊处理
 
@@ -920,18 +944,41 @@ pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` �
 - **不能靠正则替换数字更新 `.tlg`，必须让 l3build 重新生成**。实证是 `beamer01` 的 `2000.0` 出现次数从基线 8 次降到 4 次，成对的 push/pop 数量也随之变化——手工改几个数字看起来能让 diff 变小，但改不出正确的节点结构。
 - **关掉断言不是刷基线**。`fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验，而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的。刷基线的前提是让测试在正确环境下重新跑出真实结果，不是让测试不再报告结果。
 
-### CI 侧的临时 workaround：从 CTAN 取匹配版本的 l3backend
+### CI 侧的临时 workaround：共享脚本 `scripts/sync-l3backend.sh`
 
 会自愈的漂移既然不刷基线，CI 在上游同步之前就会一直红。这段时间的处置是在 workflow 里临时补齐匹配版本，而不是改基线。
 
-`_test-package.yml` 的 `Workaround l3kernel/l3backend mismatch` 步骤（在 `Test <pkg>` 之前）做三件事：比较 `expl3.sty` 的 `\ExplFileDate` 与 `l3backend-pdftex.def` 的日期戳；不一致时从 CTAN 取 `l3backend.zip`、`tex l3backend.ins` 解包，装进 `TEXMFHOME`；最后核对 `kpsewhich l3backend-pdftex.def` 解析到的确实是新装那份且日期已对齐，不对齐就 `::error::` 退出。
+**同一个错配在两类路径上的表现完全不同，这决定了防御必须覆盖到哪些地方。** regression 路径（`l3build check`）上它表现为 `.tlg` 红：`\special{pdf:bc [...]}` 从基线里消失，变成 `\TU/lmr/m/n/10 1.0` 一类字符节点，12 个测试变红（见 `d7457624`）。doc／ctan 路径（`l3build doc`、`l3build ctan` 的 typeset 部分）上它**不产生任何非零退出码**：编译成功，PDF 页数与体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本。所以两类路径都要防御，但**只有前者会自己报警**；后者事后无法从构建状态发现（#1051 就是这样漏到本地产物里的）。
 
-两个设计选择值得说明：
+原先内联在 `_test-package.yml` 的 workaround 已在 #1054 抽成共享脚本 `scripts/sync-l3backend.sh`，三处调用：
 
-- **装进 `TEXMFHOME` 而不是各包的 `localdir`**。kpse 中 `TEXMFHOME` 优先于 `texmf-dist`，一步覆盖所有包与所有引擎，且不往仓库工作树里落文件。`localdir` 注入（见「往 check 环境注入替代版本的上游宏包」一节）适合本地一次性对照实验，要在 CI 里覆盖六个 caller job 就得每个包都处理一遍。
-- **日期比较作为前置条件，而不是无条件安装**。tlnet 追上以后，这一步自动变成空操作并打一条 `::notice::` 提示可以删除；不需要靠人记得「上游修好了要来撤」。**撤除判据就是这条 notice。**
+| 调用点 | 位置 | 保护的产物 |
+|--------|------|------------|
+| `_test-package.yml` | `Test <pkg>` 之前 | `.tlg` 回归基线 |
+| `_check-doc-package.yml` | `l3build doc` 之前 | 手册 PDF 正文 |
+| `release.yml` | `l3build ctan` 之前 | CTAN zip 里的 PDF |
 
-同类问题若再出现（例如另一对上游包版本错配），照这个形状加一个步骤即可：先比较版本、再补齐、最后核对生效，三步都不能省——少了最后一步，「装错位置」与「装了但没生效」都会静默退化成原状，CI 依旧红而原因指向错误的地方。
+步骤名统一为 `Sync l3backend to l3kernel (upstream version skew)`。三处都写成 `bash ./scripts/sync-l3backend.sh` 而不是 `./scripts/sync-l3backend.sh`：`_test-package.yml` 也跑 `windows-latest`，git 在 Windows checkout 上不保证还原 exec 位，直接 `./` 会 permission denied。
+
+`release-ctan-upload.yml` **不接入**：它只把 `release.yml` 已经打好的 zip 原样转发到 CTAN，不重新排版，没有可污染的产物。
+
+脚本本身做五件事（`scripts/sync-l3backend.sh`）：
+
+1. 比较 `expl3.sty` 的 `\ExplFileDate` 与 `l3backend-pdftex.def` 的日期戳，一致就打 `::notice::` 并 exit 0。
+2. 不一致时逐 mirror 下载 `l3backend.zip`，**每个 mirror 下载后就地校验产物**（`-s` 非空 + `unzip -tq`，另加 `--max-time 300`），不合格当作失败换下一个。
+3. `tex l3backend.ins` 解包，输出保留在日志里（不丢 `/dev/null`）；用 `nullglob` + 显式计数替代裸 glob，「一个 `.def` 都没解出来」立刻失败在发生处。
+4. `cp` 进 `TEXMFHOME`，随后**无条件** `mktexlsr "$TEXMFHOME"` 让 kpse 看得见新文件。
+5. 核对 `kpsewhich l3backend-pdftex.def` 解析到的确实是新装那份、日期与 l3kernel 一致，否则 `::error::` 退出。
+
+三个设计选择值得说明：
+
+- **装进 `TEXMFHOME` 而不是各包的 `localdir`**。kpse 中 `TEXMFHOME` 优先于 `texmf-dist`，一步覆盖所有包与所有引擎，且不往仓库工作树里落文件。`localdir` 注入（见「往 check 环境注入替代版本的上游宏包」一节）适合本地一次性对照实验，要在 CI 里覆盖 test 的 6 个 caller、check-doc 的 9 个 doc job 与 release 那一处，就得每个包都处理一遍。
+- **第 4 步不能省，而且不能加条件**。往 `TEXMFHOME` 拷文件之后 kpse 未必看得见——CI 上 `TEXMFHOME` 解析到一棵带 `!!` 前缀的树，语义是只查 ls-R、绝不扫磁盘。完整机制、以及「刷过索引的那个 job 反而失败」这个反直觉后果，见 [[kpse-path-resolution]]。
+- **日期比较作为前置条件，而不是无条件安装**。tlnet 追上以后，这一步自动变成空操作并打一条 `::notice::` 提示可以删除；不需要靠人记得「上游修好了要来撤」。**撤除判据就是这条 notice。** 撤除时要删的东西共三类：脚本本身、三处 `run:` 调用、以及三处触发路径条目（`check-doc.yml` 的 `on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter）。
+
+同类问题若再出现（例如另一对上游包版本错配），照这个形状加一步即可，四点都不能省：**比较版本 → 补齐并就地校验产物 → 让 kpse 看得见 → 核对生效**。
+
+**末尾那次核对不能是唯一防线。** 它确实挡住了坏产物，但它只能报出「注入未生效」这一种结论——网络故障、zip 残缺、索引陈旧全都被归成同一句话，与真实原因无关，会把排查方向带偏。#1054 的实证：`mirrors.ctan.org` 重定向到实际镜像后三次 `curl: (28) Timeout`，curl 最终仍返回 0、`-o` 只写出空文件，脚本一路静默走到末尾才被 kpsewhich 拦下，报的却是「注入未生效」。所以每一步都要在**发生处**校验自己的产物。
 
 ## Git 信息注入
 
@@ -968,6 +1015,8 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 
 仅做第 1 步是常见坑：xelatex 启动加载的是预编译 `xelatex.fmt`，里面 dump 的 `latex.ltx` 是包升级**前**的版本，新 `.ltx` / `.sty` 文件即使已落盘也不会生效。**只 rebuild 部分 engine fmt** 也是常见坑——漏掉的 engine 全部 fail 同一种 `expl3.sty Mismatched LaTeX support files` 错。
 
+本节讲的是「怎么把文件装进 usertree」。装进去之后 **kpse 能不能看见它**是另一件事，取决于那棵树在 `TEXMFDBS` 里有没有 `!!` 前缀，且本地与 CI 的解析结果有结构性差异——见 [[kpse-path-resolution]]。
+
 `tlmgr --usermode` 的边界：
 
 - 不能更新 `tlmgr` 自身、不能更新引擎包（`xetex` / `luaotfload` / `latex-bin` 会显示 `mentioned, but neither new nor forcibly removed`，这是预期行为）。
@@ -984,9 +1033,13 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 | 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
 | `\cleaders` + `\glue` 几何数值出现差异（如间距、周期宽度对不上） | 疑 l3backend 与 l3kernel 版本不匹配。`fntef` 用 `\cleaders` 铺重复图案，间距经 pt→bp 换算落到网格，对 backend 的舍入实现敏感 |
 | `\special{pdf:btrans matrix ...}` 坐标末位变化（如 `0.3985 w`→`0.39851 w`、`2000.02579`→`2000.0`），或 luatex 下 `\pdfliteral origin` 输出变化 | pgf ≥ 3.1.12 的 `\pgf@sys@bp@correct` 舍入修正生效，这是上游有意变更，**不会回退** |
-| 颜色、图形等后端 special 变成可见文本（如 `\special{pdf:bc [1.0 0.0 0.0]}` 变成排出来的 `1.0 0.0 0.0`） | `l3kernel` 与 `l3backend` 版本错配，后端函数签名不匹配使 `\use:c` 找不到目标 |
+| 颜色、图形等后端 special 变成可见文本（如 `\special{pdf:bc [1.0 0.0 0.0]}` 变成排出来的 `1.0 0.0 0.0`） | `l3kernel` 与 `l3backend` 版本错配，后端函数签名不匹配使 `\use:c` 找不到目标。**同一根因在 doc／ctan 路径上不出现任何 `.tlg` diff**：编译 exit 0、PDF 体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本（`xeCJK.pdf` 的 `\meta` 与 fntef 示例最明显），判别方式是 `pdftotext` 后检索 `gray 0`／`0gray`／`1.0 0.0` 并断言计数为 0，而不是看 `.tlg` |
 
-出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查；出现后三条指纹时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。最后一条（后端 special 变成可见文本）属于本地各包之间不自洽，详见下文。
+出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查。
+
+出现第四、第五条（`\cleaders`＋`\glue` 几何、`btrans matrix` 坐标）时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。
+
+最后一条要单独处置：它属于本地各包之间不自洽（详见下文），**并且没有基线可刷**——doc 路径上根本不存在 `.tlg`，而 regression 路径上的 diff 是错配造成的错误输出，刷进基线等于把缺陷固化。唯一的处置是补齐匹配版本的 backend（本地按「往 check 环境注入替代版本的上游宏包」或等 TL 同步，CI 上由 `scripts/sync-l3backend.sh` 负责）。
 
 详见反思 [[873-880-meta-url-hbox-math-boundary]]、[[1048-1050-upstream-l3backend-pgf-baseline-drift]]。
 

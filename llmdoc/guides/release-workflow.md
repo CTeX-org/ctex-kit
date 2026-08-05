@@ -34,11 +34,20 @@ release 流程明确分为两个阶段:
 3. `Install zhmakeindex`：从 `Liam0205/zhmakeindex` 的最新 release 下载 Linux 二进制，供文档索引与 CTAN 打包使用。
 4. `Install CJK fonts`：安装 CI 所需字体并刷新 fontconfig 缓存。
 5. `Download Unihan data (xeCJK)`：仅在 `xeCJK` release 时预先下载 `support/Unihan.zip`，避免 `xeCJK/build.lua` 在构建期再联网拉取 Unicode 数据。
-6. `Build CTAN zip`：在目标子目录运行 `l3build ctan`。
-7. `Prepare release asset`：把 `<module>-ctan.zip` 重命名为 `<module>-v<ver>.zip`，作为 GitHub Release 附件。
-8. `Generate release notes`：优先从对应 `.dtx` 的 `\changes{v<ver>}{...}{...}` 条目提取发布说明，失败时再回退到 git log。
-9. `Wait for test CI to pass`：在真正发布前轮询 `test.yml` 对应 `head_sha` 的最新 run，确认测试工作流成功。
-10. `Create GitHub Release`：若同名 release 已存在则先删除，再创建新的 prerelease。
+6. `Sync l3backend to l3kernel (upstream version skew)`：跑 `bash ./scripts/sync-l3backend.sh`，修正 tlnet 上 l3kernel 与 l3backend 的版本错配。这是临时措施（#1048/#1050/#1051/#1054），撤除判据见下。
+7. `Build CTAN zip`：在目标子目录运行 `l3build ctan`。
+8. `Prepare release asset`：把 `<module>-ctan.zip` 重命名为 `<module>-v<ver>.zip`，作为 GitHub Release 附件。
+9. `Generate release notes`：优先从对应 `.dtx` 的 `\changes{v<ver>}{...}{...}` 条目提取发布说明，失败时再回退到 git log。
+10. `Wait for test CI to pass`：在真正发布前轮询 `test.yml` 对应 `head_sha` 的最新 run，确认测试工作流成功。
+11. `Create GitHub Release`：若同名 release 已存在则先删除，再创建新的 prerelease。
+
+### 第 6 步为什么必须在 `l3build ctan` 之前
+
+`l3build ctan` 内部会调 `l3build check`，所以 l3backend 错配在 `.tlg` 那一侧能被发现、会让 job 变红。但它同时把 typeset 出来的 PDF 一起打进 zip，而 PDF 正文里的 `0gray 0` 一类泄漏**不触发任何退出码**——编译成功、页数与体积正常。缺这一步会把带缺陷的文档送进 CTAN zip，而且发不出任何信号。
+
+`release-ctan-upload.yml` 不接入这一步：它只把 `release.yml` 已经打好的 zip 原样转发，不重新排版，没有可污染的产物（这也是两阶段共享同一 zip 这个设计的直接后果）。
+
+根因、脚本的五步动作与撤除判据（脚本打印的两个日期一致时输出 `::notice::` 并 exit 0，即为空操作）见 `reference/build-and-test.md` 的「CI 侧的临时 workaround」一节。
 
 ## 并行与门控模型
 
