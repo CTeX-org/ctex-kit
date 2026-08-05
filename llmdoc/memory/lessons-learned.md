@@ -322,7 +322,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 核对基线里的用例数与文件里的用例数
-**Rule**: 上面那条 `\showbox` 的规则不只适用于 `\showbox`——`-halt-on-error` 下**任何**会抛错的断言都会截断其后所有用例，而 `l3build check` 仍报绿。因此验收测试文件时要把「基线里出现的用例段落数」与「文件里写的 `\TEST` 个数」对齐，不能只看退出码或绿/红。可展开报错（`\msg_expandable_error:nnn` 留下的 `\???`）是 `\showbox` 之外的第二个已知来源，处置方式相同：把这类断言放到文件最末，一个文件只放一个，需要覆盖多条同类路径时拆成多个文件。
+**Rule**: 「l3build 测试里不能用 \showbox，它会静默截断其后所有用例」那条规则不只适用于 `\showbox`——`-halt-on-error` 下**任何**会抛错的断言都会截断其后所有用例，而 `l3build check` 仍报绿。因此验收测试文件时要把「基线里出现的用例段落数」与「文件里写的 `\TEST` 个数」对齐，不能只看退出码或绿/红。可展开报错（`\msg_expandable_error:nnn` 留下的 `\???`）是 `\showbox` 之外的第二个已知来源，处置方式相同：把这类断言放到文件最末，一个文件只放一个，需要覆盖多条同类路径时拆成多个文件。
 **Why**: #1008 里 `\@@_counter_error:n` 的可展开报错断言原先排在 `counter-options01.lvt` 中间，其后一项（旧版兼容入口断言）从未运行过，基线里根本没有它的段落，测试却一直显示全绿——盲审报出「删掉某个守卫零 diff」的真实原因正是差异发生在中止点之后、看不见。#1026 已经用 `\showbox` 撞过同一个机制并写下上面那条规则，本次是同一机制的第二个触发源，说明值得按「任何抛错的断言」而不是按具体命令来记。注意成因是本仓库 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build 的默认行为：l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。所以「一个 `.lvt` 只能断言一次可展开报错」是**本仓库的**约束，往别处推断前要先看那边的 `checkopts`。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
