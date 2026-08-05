@@ -1,0 +1,77 @@
+\input{regression-test}
+
+%% 兼容入口 \zhnumwithoptions / \zhdigwithoptions 的行为回归 (#1008).
+%%
+%% 为什么单独在这个目录 (XeTeX + 中文字体) 而不是主 testfiles/:
+%% 这两个命令**不可展开**, 所以断言它们的行为只有一条路 —— 让它们真的把汉字排出来,
+%% 再量那个盒子. 而排 CJK 需要中文字体: pdfTeX 下没有 CJK 设置时是硬错误
+%% (`Unicode character ... not set up for use with LaTeX') 并中止编译, XeTeX 下
+%% 只是 `Missing character' 警告. 放在主目录会让同一个 .lvt 的两个引擎基线分化成
+%% 「报错」与「警告」两种形态, 所以按引擎需求分目录, 见 test/config-cjk.lua.
+%%
+%% 主目录的 counter-options01 用记号层面的断言覆盖了带选项 \zhnum/\zhdig 的
+%% **新**路径 (值有没有被固定); 本文件补的是**旧**入口仍然可用这一面 ——
+%% 升级后读回 v3.1 时代写下的 .toc 会命中它们, 删掉或改坏会报 undefined
+%% 或排出乱码.
+%%
+%% 判据是盒子宽度 + 缺字记录:
+%%   * 宽度: 笔误版会把选项串当正文排出来 (原始症状是页面上出现
+%%     `tyle=Financialsection'), 那比一个汉字宽得多, 一定与正确输出不同;
+%%   * 缺字记录: 字体确实覆盖这些字形时不会有 `Missing character', 出现即说明
+%%     排出了预期之外的字符.
+%% 两者合起来才够: 只看宽度时, 若某次改动排出另一个同宽汉字就看不出来.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{zhnumber}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+\ExplSyntaxOn
+
+\box_new:N \l_test_box
+
+\cs_new_protected:Npn \TestBox #1#2
+  {
+    \hbox_set:Nn \l_test_box {#2}
+    \tl_log:x
+      {
+        #1 :~ wd = \dim_to_decimal:n { \box_wd:N \l_test_box } ,~
+        ht = \dim_to_decimal:n { \box_ht:N \l_test_box }
+      }
+  }
+
+\setcounter { section } { 7 }
+
+%% 1. 基准: 不带选项的形式 (可展开, 主目录已覆盖其记号层面), 这里取它的度量作对照,
+%%    使下面几项的宽度有可比对象 —— 单看一个绝对值说明不了什么.
+\TEST{baseline~without~options}{
+  \TestBox { zhnum~plain }        { \zhnum { section } }
+  \TestBox { zhdig~plain }        { \zhdig { section } }
+}
+
+%% 2. 旧入口直接调用: 应与「同样式的新路径」等宽等高.
+%%    Financial 样式下 7 是「柒」, 与 Normal 的「七」不同字形, 所以这一项同时
+%%    说明样式确实被套上了 (若选项被忽略, 会得到与第 1 项相同的度量).
+\TEST{legacy~entry~points~still~work}{
+  \TestBox { legacy~zhnum } { \zhnumwithoptions { style = Financial } { section } }
+  \TestBox { legacy~zhdig } { \zhdigwithoptions { style = Financial } { section } }
+}
+
+%% 3. 新路径的同样式输出, 与第 2 项逐字对照.
+%%    两者必须一致 —— 旧入口是「转发」而非「另一套实现」, 若哪天转发写错,
+%%    这一项与上一项的度量就会分开.
+\TEST{new~path~matches~legacy}{
+  \TestBox { new~zhnum } { \zhnum [ style = Financial ] { section } }
+  \TestBox { new~zhdig } { \zhdig [ style = Financial ] { section } }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
