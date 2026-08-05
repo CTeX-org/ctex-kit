@@ -418,7 +418,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
-`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的真排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的实际排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
 
 ## 非典型测试模式
 
@@ -469,7 +469,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **已接受的残留缺口有两个**，都如实记下：（1）若依赖包改成分步构造 `installfiles`（先赋字面表、中途出错、之后再追加），得到的残缺表会同时通过「是表」与「非空」两道判据，只复制一半而不报错；（2）判据只看这张表，**不看每条 glob 是否真的匹配到文件**——`xeCJK` 的 `"*.map"`／`"*.tec"` 在 `check` 路径下必然零匹配（那两类产物由 `unpack_posthook` 在 `install_files_bool` 为真时才经 TECkit 生成，而该标志只在 `install_files` 里置真），`cp` 静默复制零个文件并返回 0。缺口二今天不触发，因为 xpinyin 现有测试都不用 `Mapping=` 一类需要 `.tec` 的写法；但将来加了就会命中系统 TeX Live 的那份。两者都实测确认。不再收紧的理由：更严的判据要么预设依赖包的写法、反而更脆，要么（对缺口二加零匹配 `error`）现网就会当场失败。`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖、依赖包重构、或新增用到 `.map`／`.tec` 的测试时，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
-### zhnumber 的计数器选项回归（#1008，测试布局经 da00ad53 更正）
+### zhnumber 的计数器选项回归（#1008）
 
 `zhnumber` 的 `\zhnum[opts]{counter}`／`\zhdig[opts]{counter}` 原实现把计数器**名**写进
 `.toc` 一类辅助文件（`\zhnumwithoptions{style=...}{section}`），读回时计数器已归零；
@@ -489,7 +489,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 - `zhnumber/testfiles-cjk/legacy-entry01.lvt` + `zhnumber/test/config-cjk.lua`（仅
   xetex）覆盖兼容入口 `\zhnumwithoptions`／`\zhdigwithoptions` 本身——这两个命令**不可
   展开**（用 `\NewDocumentCommand` 实现，要用 `\group_begin:`／`\group_end:` 局部改样
-  式），只能让它们真排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
+  式），只能让它们实际排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
   `\tl_set:Nx` 捕获式断言是恒真的（它们是 `\NewDocumentCommand`、protected，捕获只拿到
   命令名本身，实测基线里就是 `\zhdigwithoptions {style=Financial}{section}` 原样），
   已删除；兼容入口的行为完全由本文件量盒子覆盖。

@@ -323,7 +323,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 观察不可展开命令的行为，只有「让它执行」一条路
 **Rule**: `\typeout`／`\tl_set:Nx`／`\protected@edef` 一类手段面对一个不可展开的宏时，只能拿到它的**控制序列名**本身（因为宏未被展开），看不到宏体内部逐步展开、赋值、报错的中间过程。若测试判据只依赖这些手段，对该命令内部的缺陷完全没有判别力。要观察内部是否正确，必须让宏真正**执行**（例如排版出可见节点），再从执行结果（节点、盒子尺寸）反推内部逻辑是否正确。
-**Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们真排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
+**Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们实际排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 核对基线里的用例数与文件里的用例数
