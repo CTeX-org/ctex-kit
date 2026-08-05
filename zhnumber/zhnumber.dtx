@@ -692,14 +692,14 @@ Copyright and Licence
 %   数值再交给处理数值的实现，使它们在写入 \file{.toc} 一类辅助文件时固定为当时的
 %   计数器值（\#1008）。}
 %
-% 带选项的形式仍然不可完全展开（它需要一个分组来局部改样式），但**计数器名不应该
-% 被原样写进辅助文件**。原先 \tn{zhnum} 把 \meta{counter} 直接交给
+% 带选项的形式仍然不可完全展开（它需要一个分组来局部改样式），但\emph{计数器名不应该
+% 被原样写进辅助文件}。原先 \tn{zhnum} 把 \meta{counter} 直接交给
 % \tn{zhnumwithoptions}，写进 \file{.toc} 的是 \verb|\zhnumwithoptions{...}{section}|；
 % 该文件在下一次编译的 \tn{tableofcontents} 处被读回，此时计数器已经归零或停在
 % 别的值上，于是目录里的编号与正文不一致（\#1008 实测：正文「一／一.壹」而目录
 % 「零／零.零」）。
 %
-% 修法是在 \tn{zhnum} 这一层先用 \texttt{e} 展开把计数器取成数值，再交给处理**数值**
+% 修法是在 \tn{zhnum} 这一层先用 \texttt{f} 展开把计数器取成数值，再交给处理\emph{数值}
 % 的 \tn{zhnumberwithoptions}：写进辅助文件的成为
 % \verb|\zhnumberwithoptions{...}{1}|，数值已经固定，样式则留待读回时套用。
 % 不改成完全可展开是有意的——样式靠 \tn{tl_set_eq:NN} 一类赋值实现（见
@@ -722,7 +722,10 @@ Copyright and Licence
 \cs_new:Npn \@@_counter_with_options:nn #1#2
   {
     \int_if_exist:cTF { c@#2 }
-      { \exp_args:Nne \zhnumberwithoptions {#1} { \int_use:c { c@#2 } } }
+      {
+        \exp_args:Nnf \zhnumberwithoptions {#1}
+          { \exp_args:Nc \int_use:N { c@#2 } }
+      }
       { \@@_counter_error:n {#2} }
   }
 %    \end{macrocode}
@@ -1017,13 +1020,23 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\@@_digits_counter_with_options:nn}
 % 与 \tn{zhnum} 的同名处理一致，先固定数值再套样式，理由见那里。
+%
+% 星号参数必须写成 \verb|{\BooleanFalse}| 而\emph{不是} \cs{c_false_bool}：
+% 这一整串会被写进辅助文件，再在下次编译时重新 tokenise，而那时 \verb|_| 不是
+% letter（catcode 8），\cs{c_false_bool} 的名字会在写出时就断成
+% \verb|\c _false_bool|，读回即报 \texttt{The key `zhnum/options/\_' is unknown}
+% 之类的一串错误。\tn{zhdigits} 的无计数器版本本来就用 \verb|{\BooleanFalse}|
+% （它是 \pkg{expl3} 为此提供的、名字里没有 \verb|_| 的记号），这里对齐它。
+%
+% 这一点是盲审查出来的：初版用 \cs{c_false_bool} 时第一遍编译正常，第二遍读回
+% \file{.toc} 才炸——等于把 \#1008 那类「跨编译才暴露」的失败换到了另一个命令上。
 %    \begin{macrocode}
 \cs_new:Npn \@@_digits_counter_with_options:nn #1#2
   {
     \int_if_exist:cTF { c@#2 }
       {
-        \exp_args:NNne \zhdigitswithoptions \c_false_bool
-          {#1} { \int_use:c { c@#2 } }
+        \exp_args:Nnnf \zhdigitswithoptions { \BooleanFalse }
+          {#1} { \exp_args:Nc \int_use:N { c@#2 } }
       }
       { \@@_counter_error:n {#2} }
   }
