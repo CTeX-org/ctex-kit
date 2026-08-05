@@ -15,10 +15,14 @@
 当时的计数器值。该文件在下次编译的 `\tableofcontents` 处读回时计数器已归零，实测正文
 「一／一.壹」而目录「零／零.零」。
 
-修法：在 `\zhnum` 这一层先用 `e` 展开把计数器取成数值，再交给处理**数值**的
-`\zhnumberwithoptions`；写进辅助文件的成为 `\zhnumberwithoptions{style=...}{7}`，数值
-已固定，样式留待读回时套用。`\zhdig` 同理（走 `\zhdigitswithoptions`，注意要传
-`\c_false_bool` 作为它的 N 型首参）。
+修法：在 `\zhnum` 这一层先用 `\exp_args:Nnf` + `\exp_args:Nc \int_use:N` 把计数器取成
+数值，再交给处理**数值**的 `\zhnumberwithoptions`；写进辅助文件的成为
+`\zhnumberwithoptions{style=...}{7}`，数值已固定，样式留待读回时套用。`\zhdig` 同理
+（走 `\zhdigitswithoptions`，星号参数传 `{\BooleanFalse}`）。这两处写法都不是初版就对：
+初版用 `\exp_args:Nne` + `\int_use:c`，计数器不存在时会先把 `\c@nosuchcounter` 建成
+`\relax` 再 `\the` 它，报出的是难懂的 `You can't use \relax after \the`，而不是
+zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传的是 `\c_false_bool`
+而不是 `{\BooleanFalse}`，这处笔误后果更隐蔽，见下面「辅助文件往返记号不能含 `_`」。
 
 **没有改成完全可展开，这是有意取舍**：样式靠 `\tl_set_eq:NN` 一类**赋值**实现（见
 `\zhnum_reset_style:`），赋值无法在 `\edef` 的展开中生效，硬做只会把「不可展开」换成
@@ -64,6 +68,12 @@
 值（实测两者都是 2.8pt），分辨不出内容；改用**高度**才区分开（`ht=7.33` 的「七」vs
 `ht=7.75` 的「柒」）。
 
+**这条教训后来在同一份改动里复发过一次**：`counter-options01` 里对
+`\zhnumwithoptions`/`\zhdigwithoptions` 的断言用 `\tl_set:Nx` 捕获结果，而这两个命令
+是 `\NewDocumentCommand`、protected，捕获只拿到命令名本身，断言恒真——即写下上面这条
+教训之后，仍在同一批测试代码里留了一个犯同样错误的断言，直到 da00ad53 才被盲审揪出来
+并删除（详见下面「后续发现的另外两个问题」一节）。
+
 ## Root Cause
 
 上述四条弯路的共同根源是同一件事：**观察不可展开命令的行为，只有「让它执行」一条路**。
@@ -85,25 +95,108 @@
   这条约束（#1038／xpinyin 系列），本次是第三次撞上同一约束、第二次靠分 testfiledir
   解决，说明这条规则已经足够稳定，值得作为通用判据反复引用而不必每次重新论证。
 
-## 另一个如实记录的既有问题（未修）
+## 后续发现的致命错误机制（da00ad53，更正了本文件曾经的一处误判）
 
-`\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
-`\???` 控制序列，于是日志里同时出现 `Use of \??? doesn't match its definition` 和真正
-的 zhnumber 报错。实测系统安装的 v3.1（未含本次改动）对**不带选项**的
-`\zhnum{nosuchcounter}` 同样如此，属 expl3 可展开报错的既有形态，与 #1008 无关。所以
-没把它固定进基线（那会把一个无关的既有粗糙点冻结成预期值），测试里只用
-`\int_if_exist:cTF` 确认两条路进的是同一个判断分支。
+本文件早先在这里写过：`\@@_counter_error:n` 走 `\msg_expandable_error:nnn` 会留下
+`\???` 触发 `Use of \??? doesn't match its definition`，是「与 #1008 无关的既有粗糙
+点」，「所以没把它固定进基线（那会把一个无关的既有粗糙点冻结成预期值），测试里只用
+`\int_if_exist:cTF` 确认两条路进的是同一个判断分支」——**这个断言是恒真的**：它根本
+没调用 zhnumber 的任何代码，只是让 expl3 判断一个不存在的寄存器是否存在，与
+`\@@_counter_error:n` 的行为完全无关。盲审查出这一点，实测把
+`\@@_counter_with_options:nn`／`\@@_digits_counter_with_options:nn` 里的
+`\int_if_exist:cTF` 守卫删掉后，两套测试仍然全绿零 diff。
+
+真正原因是一个更严重的机制问题：`\@@_counter_error:n` 留下的 `\???` 触发的
+`Use of \??? doesn't match its definition` 在 l3build 的 `\scrollmode` 下是**致命
+错误**——实测编译就地中止并打印 `Fatal error occurred, no output PDF file produced!`，
+其后所有 `\TEST` 一律不执行。原先这条断言排在 `counter-options01` 中间（TEST 5），于是
+它后面的 TEST 6（旧版的兼容入口断言）**从未运行过**——基线文件里根本没有 TEST 6 的
+段落，测试却一直显示「全绿」。这正是「删掉守卫零 diff」的真实成因：差异发生在中止点
+之后，看不见，与那条恒真断言的问题是两个独立的坑叠在一起。
+
+由此得到两条硬约束：**一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末**。
+`\zhnum` 与 `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
+`\@@_digits_counter_with_options:nn`），两条都要覆盖，所以拆成了两个文件：
+`counter-options01`（覆盖 `\zhnum` 那条，断言挪到文件最末）和新增的
+`counter-options02.lvt`（专门覆盖 `\zhdig` 那条）。报错文本本身进了基线，代价是需要
+**三份基线**：luatex 在该错误后打印的 help 行比 xetex/pdftex 少四行。
+
+同时记一条更一般的教训：**基线文件的长度/段落数本身就是证据**——如果某个 `\TEST` 的
+段落在 `.tlg` 里根本不存在，说明它没跑，而不是「它通过了」。写完 `.lvt` 后应核对基线
+里的 TEST 段落数与文件里的 `\TEST` 个数是否一致，而不是只看 l3build 报的绿/红。
+
+## 后续发现的另外两个问题（da00ad53）
+
+### 辅助文件往返记号不能含 `_`
+
+初版给 `\zhdigitswithoptions` 的星号参数传 `\c_false_bool`。这一整串会被写进 `.toc`，
+再在下次编译时重新 tokenise，而那时 `_` 不是 letter（catcode 8），名字在**写出时**就
+断成 `\c _false_bool`，读回即报 `The key 'zhnum/options/_' is unknown` 之类一串错误。
+第一遍编译正常、第二遍才炸——等于把 #1008 那种「跨编译才暴露」的失败换到了另一个命令上，
+是盲审查出来的。
+
+修法：改用 `{\BooleanFalse}`（expl3 为此提供的、名字里没有 `_` 的记号），与
+`\zhdigits` 的无计数器版本对齐。
+
+一般化：**凡是会被写进辅助文件的 expl3 记号，都要检查名字里有没有 `_`**；判据是跑两遍
+编译，而不是一遍。这与 #1043、以及本反思已有的 catcode 讨论同属「catcode 在 tokenise
+那一刻决定」这一机制族，但场景是新的（辅助文件往返，不是对齐环境）。
+
+### protected 命令用 `\tl_set:Nx` 捕获恒真（旧教训复发）
+
+`counter-options01` 里原有一项对兼容入口 `\zhnumwithoptions`/`\zhdigwithoptions` 的
+断言用 `\tl_set:Nx` 捕获结果——但它们是 `\NewDocumentCommand`，因而 protected，捕获
+只得到命令名本身（实测基线里就是 `\zhdigwithoptions {style=Financial}{section}`
+原样）。该断言对这两个命令的行为恒真，已删除；这一面由
+`testfiles-cjk/legacy-entry01` 量盒子覆盖。
+
+这与本文件下面 What Went Wrong 里已经记的「死路 1、2」（观察不可展开命令只有让它执行
+一条路）是同一根源，但这次的教训更严重一层：**我在已经写下那条教训之后，仍然在同一
+份改动里留下了一个犯同样错误的断言**。写下一条教训不等于已经把它应用到手头所有代码上——
+补完教训后要回头扫一遍同一批产物里是否还有同型问题。
+
+### `scripts/extract-changes.py` 的占位符漏出（配套发现，非 zhnumber 缺陷本身）
+
+`\texttt{Use of \cs{???} doesn't match its definition}` 这类**嵌套**里，`\cs`/`\tn`
+先被替换成 `\x00..\x01` 占位符，随后整段被 `_save_verbatim` 收进 `verbatim_blocks`，于
+是 `_restore_combined_code` 再也扫不到内层占位符，原始控制字符直接落进
+`CHANGELOG.md`——已提交的 zhnumber v3.2 条目里就是 `Use of ^@???^A`。
+
+关键教训：**这类漏出是确定性的，`check-changelog.yml` 的「重新生成 + git diff」新鲜度
+校验抓不到**——生成物两边一致，只是两边都错。所以另加了一道占位符校验（实测：旧脚本下
+失败退出 1，新脚本下通过）。一般化为：**「生成物与源同步」和「生成物本身正确」是两个
+独立命题**，同步性校验对确定性缺陷零判别力。这与 lessons-learned 里已有的「跑了但什么
+也没校验的 job 比没有 job 更危险」相邻但不同。
+
+另外：修的是**共享**脚本，所以重新生成了所有包的 CHANGELOG 并确认只有 zhnumber 一个
+文件变化，以此界定影响面。
+
+### dtx 注释里的 Markdown 星号（小）
+
+dtx 注释里写 `**...**` 是 Markdown 习惯，在手册里会原样排出星号。已改为 `\emph{}`，并
+用 `pdftotext` 核对成品 PDF 里不再有 `**`。
 
 ## 判别力实测结果
 
-三个方向的变异都能让相应用例变红：
+初版曾在这里写「三个方向的变异都能让相应用例变红」，其中「zhdig 退回写计数器名 →
+`counter-options01` 红」这一条的证据基础不牢——当时判据里混着上面已更正的那条恒真
+断言，看到的红未必来自该断言本身。da00ad53 按修好的测试布局重新做了一遍**逐条隔离**
+的变异测试，结果是：
 
-- zhnum 退回写计数器名 → `counter-options01` 红；
-- zhdig 退回写计数器名 → `counter-options01` 红；
-- 恢复 `\zhdigwithoptions` 的笔误 → `legacy-entry01` 的 `legacy zhdig` 度量变化。
+- 删 `\@@_counter_with_options:nn` 的守卫（`\int_if_exist:cTF`） → 仅
+  `counter-options01` 红（三引擎），报 `You can't use \relax after \the`；
+- 删 `\@@_digits_counter_with_options:nn` 的守卫 → 仅**新增的**
+  `counter-options02` 红（三引擎），`counter-options01` 全绿零 diff（它的致命错误
+  发生在更早的位置，见上面「后续发现的致命错误机制」）；
+- 复现 `\zhdigwithoptions` 笔误（多传一个参数） → `testfiles-cjk/legacy-entry01` 红。
 
-**第三条曾长期抓不到**，正是上面 what-went-wrong 那四条弯路的后果——主目录里无论用
-`\typeout` 还是 `\tl_set:Nx` 都只能记下名字。这是补 CJK 那一组的真正理由。
+每条变异只让对应的那一个测试文件变红，其余文件零 diff——这确认了拆成
+`counter-options01`／`counter-options02`／`legacy-entry01` 三个文件之后，三者的判别
+力互不重叠，各自只覆盖自己名下的那条代码路径。
+
+**`legacy-entry01` 这一条曾长期抓不到**，正是上面 what-went-wrong 那四条弯路的后果——
+主目录里无论用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字。这是补 CJK 那一组的真正
+理由。
 
 ## 版本管理
 
@@ -133,6 +226,22 @@ PR #1055 补的 `check-tag` 拒绝。CHANGELOG 由 `make changelog-zhnumber` 生
    应当同时补一段说明用法边界，而不只是改代码。
 6. **修一个问题时发现的独立 bug（根因二）要单独记 `\changes`、单独设计测试用例**，不要
    混进主问题的叙述和判据里，否则后续想单独复核某个 bug 是否修复时会难以拆分证据。
+7. **可展开报错触发的致命错误会让同文件内后续 `\TEST` 静默不执行**：`\msg_expandable_
+   error:nnn` 留下的 `\???` 在 l3build 的 `\scrollmode` 下是致命错误，编译当场中止；
+   一个 `.lvt` 只能断言一次这类报错，且必须放在文件最末。**基线段落数是判断测试是否真
+   的跑过的证据**——`\TEST` 数量应与 `.tlg` 里的段落数一一对应，只看绿/红不够，需要
+   核对这一点才能确认「全绿」不是「后半没跑」。
+8. **写进辅助文件（`.toc`／`.aux` 一类）的 expl3 记号名字不能含 `_`**：`_` 在辅助文件
+   被重新 tokenise 时不是 letter（catcode 8），记号名会在写出那一刻就断开，读回后报
+   一串 key/undefined 错误，且症状是「第一遍编译正常、第二遍才炸」。判据是跑两遍
+   编译，而不是一遍。
+9. **对 protected 命令（`\NewDocumentCommand` 定义的宏）用 `\tl_set:Nx`／`\tl_set:Nn`
+   一类捕获结果的断言恒真**——只能拿到命令名本身，这与本文件已有的「观察不可展开命令
+   只有让它执行一条路」是同一条规则；本次的额外教训是**这条规律会在同一批改动里复发**：
+   写下一条教训后仍需要回头检查同一批产物是否还有同型问题，不能假设写过一次就不会再犯。
+10. **「生成物与源同步」和「生成物本身正确」是两个独立命题**：`check-changelog.yml` 的
+    「重新生成 + git diff」新鲜度校验只能证明前者，对确定性缺陷（生成脚本本身有 bug，
+    两次生成结果一致但都错）零判别力，需要单独一道校验源内容本身是否正确。
 
 ## Follow-up
 
@@ -143,3 +252,11 @@ PR #1055 补的 `check-tag` 拒绝。CHANGELOG 由 `make changelog-zhnumber` 生
   反复验证的规则。
 - 若后续再有宏包遇到「不可展开命令是否需要真排版才能验证」的场景，可直接引用本反思
   的四条死路，避免重走弯路。
+- recorder 把「可展开报错触发的致命错误使同文件后续 `\TEST` 静默不执行，须核对基线
+  段落数」补进 `build-and-test.md` 或 `coding-conventions.md`，并把「写入辅助文件的
+  记号名字不能含 `_`」补进 `coding-conventions.md`（与 #1043 的 catcode-in-tokenise
+  机制族相邻）。
+- recorder 在 `lessons-learned.md` 补一条「protected 命令捕获恒真」的复发实例，并明确
+  记录「写下教训不等于已应用到当前改动全部代码」这一元教训。
+- recorder 视情况把「生成物同步性校验 ≠ 生成物正确性校验」补进 `lessons-learned.md`，
+  与已有的「跑了但什么也没校验的 job」一条相邻但独立列出。
