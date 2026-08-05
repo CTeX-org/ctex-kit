@@ -56,11 +56,14 @@
 %% (2) **本项之前不能让 \l_@@_enable_bool 为真**, 所以这一段刻意放在所有
 %%     \enablepinyin / \xpinyin* 之前 (后面的 2c、2d 两段都在本段之后
 %%     \enablepinyin, 见那里的说明). 原因: \disablepinyin 的第二个块以
-%%     `\bool_if:NT \l_@@_enable_bool` 为条件 (:741), en 为真时它会连带把 en
-%%     置假, 而 en 的赋值是局部的, 退组时恢复成真; 于是即便 all 泄漏成假,
-%%     再走一次 \enablepinyin 式的恢复路径就把 all 也拉回真了.
-%%     实测: 组前先调 \enablepinyin (en=T) 时, 变异后退组读到 all=F 却仍然
-%%     照常注音, 本项逐字节不变; 组前 en=F 时, 变异后 `3.99994 yīn` 消失.
+%%     `\bool_if:NT \l_@@_enable_bool` 为条件 (:740). en 为真时, 注音会经由
+%%     \@@_replace_CJKsymbol: 装好的 \CJKsymbol 自动钩子产生, 那条路**不查**
+%%     \l_@@_enable_all_bool —— 于是即便 all 泄漏成假, 输出照旧.
+%%     (探针实测: 两种写法下退组后读到的 all **都是** F; 区别不在 all 的值,
+%%      而在 en 为真时多了一条绕过 all 的出口. 初版注释说成「all 被拉回真」,
+%%      与实测不符, 已更正.)
+%%     实测: 组前先调 \enablepinyin (en=T) 时, 变异后本项逐字节不变;
+%%     组前 en=F 时, 变异后 `3.99994 yīn` 消失.
 %%
 %% 一并记下一条方法教训: 变异后**整份文件**确实变红过, 但红的是既有的第
 %% 3/7b/7c/8 项, 与本项无关. 「整文件变红」不足以判定单项判别力, 必须按项
@@ -79,10 +82,9 @@
 %%
 %% 实测 (纯 xelatex, 不经 l3build): 本行的「语」得到 yǔ, 下一行 \xpinyin* 的
 %% 「文」也得到 wén, 两者都在基线里以 3.99994pt 出现.
-\disablepinyin
+{\disablepinyin
 \xpinyin{语}{yu3}\par
-\xpinyin*{文}\par
-\enablepinyin
+\xpinyin*{文}\par}
 
 %% 2d. 带星号的 \disablepinyin* 是总开关: 显式读音与 \xpinyin* 一并失效.
 %%
@@ -92,10 +94,9 @@
 %%
 %% 判据是这两行**都不出现** 3.99994pt 的拼音字形, 只有 10pt 的汉字.
 %% 实测: \disablepinyin* 之后 yǔ 与 wén 都不出现 (对照 2c 两者都出现).
-\disablepinyin*
+{\disablepinyin*
 \xpinyin{语}{yu3}\par
-\xpinyin*{文}\par
-\enablepinyin
+\xpinyin*{文}\par}
 
 %% 2e. pinyinscope 环境内的禁用同样随环境结束恢复.
 %%
@@ -113,10 +114,19 @@
 %%
 %% \enablepinyin 的第一件事就是 \bool_if:NF \l_@@_enable_all_bool
 %% { \bool_set_true:N \l_@@_enable_all_bool } (xpinyin.dtx:716-717).
-%% 这条恢复路径此前没有被任何用例固定. 判据: 这一行应重新出现拼音.
-\disablepinyin*
+%% 这条恢复路径此前没有被任何用例固定.
+%%
+%% 观察点同样必须用**不带星号**的形式, 理由与 2b 的条件 (1) 不同:
+%% \xpinyin* 那条路的注音是由 \CJKsymbol 自动钩子产生的, 不查
+%% \l_@@_enable_all_bool, 所以拿它观察时这一项恒真 —— 实测把 :716 的守卫改成
+%% \bool_if:NF \c_true_bool (即 \enablepinyin 永不置真总开关) 后, 用
+%% \xpinyin*{语} 的写法整份文件仍全绿.
+%% 读音取非首选的 chang2 ("长"数据库首选是 zhǎng), 使这一行与第 4 项的
+%% \xpinyin*{长} 在基线里可区分.
+%% 判据: 这一行应出现 cháng 的拼音; 上述变异下该行消失.
+{\disablepinyin*
 \enablepinyin
-\xpinyin*{语}\par
+\xpinyin{长}{chang2}\par}
 
 %% 3./4. \xpinyin 指定读音覆盖数据库首选读音, 与不指定时形成对照.
 %%
