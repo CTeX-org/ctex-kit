@@ -151,7 +151,10 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 实测编译就地中止，其后所有 `\TEST` 一律不执行。观察判据是「后面的 `\TEST` 段落有没有
 进基线」，而不是日志里的 `Fatal error occurred, no output PDF file produced!`——那一行
 只有 pdftex/luatex 打印，xetex（这两个测试的 `stdengine`，也是上面那张表的实验引擎）
-并不打印，而且它从不进入 `.tlg`——它排在 `Here is how much of ...TeX's memory you used:` 之后，l3build 读日志时读到那一行即 `break`（`l3build-check.lua:339-341`），其后内容一律截掉（不是被归一化规则删掉，措辞上我一度写错）。我一度把它当成判据写进三个文件，
+并不打印，而且它从不进入 `.tlg`——它排在
+`Here is how much of ...TeX's memory you used:` 之后，l3build 读日志时读到那一行即
+`break`（`l3build-check.lua:339-341`），其后内容一律截掉（不是被归一化规则删掉，措辞上
+我一度写错）。我一度把它当成判据写进三个文件，
 第三轮盲审指出。
 
 **关于「删掉守卫零 diff」的成因，我写过一个与提交历史相反的说法，这里更正。** 我曾写成
@@ -171,7 +174,7 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 由此得到两条硬约束：**一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末**。
 `\zhnum` 与 `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
 `\@@_digits_counter_with_options:nn`），两条都要覆盖，所以拆成了两个文件：
-`counter-options01`（覆盖 `\zhnum` 那条，断言挪到文件最末）和新增的
+`counter-options01`（覆盖 `\zhnum` 那条，该断言自加入起就在文件最末）和新增的
 `counter-options02.lvt`（专门覆盖 `\zhdig` 那条）。报错文本本身进了基线，代价是多份基线：
 `counter-options01` 三份、`counter-options02` 两份——两者都因 luatex 在该错误后打印的
 help 行比 xetex/pdftex 少四行而需要 `.luatex.tlg`；而 `.pdftex.tlg` 只有

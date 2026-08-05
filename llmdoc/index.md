@@ -33,8 +33,9 @@ luatex 的 help 行比 xetex/pdftex 少四行），验收
 观察手段（`\typeout`／`\tl_set:Nx` 只拿到命令名，`\TEST` 参数内切 `\ExplSyntaxOn`
 不生效，`\protected@edef` 含 `@` 报错）、盒子度量的两次判别力踩坑（缺字
 时宽度 collapse 到同一值，故改用高度；但高度同样不足以固定字形——「柒」「九」「佰」的
-`ht` 都是 7.75，最终由 `legacy-entry01` 的 TEST 4 用 `\loggingoutput` + `\box_use:N`
-+ `\clearpage` 把六个入口的盒子内容本身写进基线，度量只作旁证），以及主目录里对兼容入口的 `\tl_set:Nx` 断言恒真（因
+`ht` 都是 7.75，最终由 `legacy-entry01` 的 TEST 4 用
+`\loggingoutput` + `\box_use:N` + `\clearpage` 把六个入口在一位数和多位数两种取值下
+的盒子内容本身写进基线，度量只作旁证），以及主目录里对兼容入口的 `\tl_set:Nx` 断言恒真（因
 protected）已删除、完全由 `legacy-entry01` 覆盖；`check-changelog.yml` 一节同步
 补充新增的占位符校验（`CHANGELOG.md` 不得含 `extract-changes.py` 的 `\x00`–`\x05`
 占位符，与既有新鲜度校验互补而非重叠——占位符漏出是确定性的，两边生成物一致只是
