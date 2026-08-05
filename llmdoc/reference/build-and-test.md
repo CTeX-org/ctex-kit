@@ -518,7 +518,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 help 行比 xetex/pdftex **少四行**（`counter-options02` 的 pdftex 输出与 stdengine 逐字节
 相同，故不留冗余的 `.pdftex.tlg`；`counter-options01` 则因日志里汉字的字节形式不同而必需
 ——pdfTeX 记成 `^^e4^^b8^^83`、xetex 记成 `七`。注意这只是**日志编码**差异，与「pdfTeX 排
-CJK 是硬错误」无关：`counter-options01` 里的汉字只经 `\tl_log:x` 进日志、没有真的排版，
+CJK 是硬错误」无关：`counter-options01` 里的汉字只经 `\tl_log:x` 进日志、没有实际排版，
 实测 `l3build check -e pdftex counter-options01` 全绿）。由此得到两条
 硬约束：
 
