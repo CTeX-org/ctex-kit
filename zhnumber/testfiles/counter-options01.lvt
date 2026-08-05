@@ -1,0 +1,129 @@
+\input{regression-test}
+
+%% 带选项的 \zhnum / \zhdig 的两件事 (#1008):
+%%
+%% 1. 写进辅助文件 (.toc 一类) 时必须固定为**当时的计数器值**, 而不是计数器名.
+%%    原实现把 \meta{counter} 原样交给 \zhnumwithoptions, 于是 .toc 里留下
+%%    `\zhnumwithoptions{style=...}{section}`; 该文件在下一次编译的
+%%    \tableofcontents 处读回时计数器已归零, 目录编号与正文不符 ——
+%%    #1008 实测正文「一／一.壹」而目录「零／零.零」.
+%%
+%% 2. \zhdig 的带选项形式此前直接坏掉: \zhdigwithoptions 把选项当额外参数传给
+%%    \zhnum_digits_counter:n (多写了一个 #1), 实测报
+%%    `Use of \??? doesn't match its definition` 并把 `tyle=Financialsection`
+%%    印到页面上.
+%%
+%% 观察手段说明: 这里用 \protected@edef + \tl_log:N 模拟「写进辅助文件」那一步.
+%% \protected@edef 含 `@`, 在 \ExplSyntaxOn 下 `@` 不是 letter, 直接写会报
+%% `You can't use a prefix with the character @` —— 所以展开动作放在
+%% \makeatletter 块里 (与 xeCJK/testfiles/command-boundary-math03.lvt 同一写法),
+%% 断言部分再回到 \ExplSyntaxOn.
+%% LaTeX 的 \addcontentsline 最终走的是 \protected@write, 其展开语义与
+%% \protected@edef 一致 (不可展开的命令被 \protect 住原样留下, 可展开的展开掉).
+%% 直接断言 .toc 文件内容会把测试与 \contentsline/\numberline 的排版细节绑在
+%% 一起, 那些与本问题无关; 固定「展开后的 token 列表」才是本问题的判据.
+%%
+%% 判别力要点: 判据必须是「展开结果里有没有计数器名」, 不能只看最终排版对不对 ——
+%% 若某次改动让它退回写计数器名, 单次编译的排版仍然是对的 (那时计数器值恰好正确),
+%% 只有跨编译读回时才错. 所以这里断言 token 列表本身.
+
+\documentclass{article}
+\usepackage{zhnumber}
+
+\START
+
+%% 展开动作要用 \protected@edef (含 `@'), 而断言要用 expl3 的 \tl_log:N ——
+%% 两者的 catcode 需求冲突, 且在 \TEST 的参数里切 \ExplSyntaxOn 不生效
+%% (参数已被读入, catcode 定死; 实测报 `Undefined control sequence' 指向
+%% \tl_log:N). 解法: 整个文件在 \ExplSyntaxOn 下, 而 \protected@edef 用
+%% \exp_args:Nc 之类拿不到, 所以先用 \cs_set_eq:NN 起一个 expl3 名字的别名.
+\makeatletter
+\ExplSyntaxOn
+\cs_new_eq:NN \zh_protected_edef:Nn \protected@edef
+\ExplSyntaxOff
+\makeatother
+
+\ExplSyntaxOn
+
+\setcounter { section } { 7 }
+\setcounter { subsection } { 3 }
+
+%% 1. 不带选项的形式本来就可展开, 作为对照: 展开结果应是中文数字本身.
+\TEST{plain~forms~expand~to~the~number}{
+  \tl_log:x { zhnum~plain:~\zhnum { section } }
+  \tl_log:x { zhdig~plain:~\zhdig { section } }
+}
+
+%% 2. 带选项的形式: 展开结果里**不能出现计数器名 `section`**, 而应含固定下来的
+%%    数值 7. 命令名本身留在结果里是预期的 (它不可完全展开, 见 dtx 里的说明).
+%%
+%%    这一项是 #1008 的核心判据. 原实现写进 .toc 的是
+%%    `\zhnumwithoptions{style=...}{section}' —— 计数器**名**; 该文件下次编译在
+%%    \tableofcontents 处读回时计数器已归零, 于是目录编号与正文不符
+%%    (实测正文「一／一.壹」而目录「零／零.零」).
+\TEST{option~forms~freeze~the~counter~value}{
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhnum [ style = Financial ] { section } }
+  \tl_log:N \l_tmpa_tl
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhdig [ style = Financial ] { section } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 3. 两个层级用**不同**样式 —— 这正是 #1008 要的混搭. 两者必须可区分,
+%%    否则「样式按各自选项生效」没有被验证.
+\TEST{different~styles~per~level}{
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhnum [ style = Normal ] { section } }
+  \tl_log:N \l_tmpa_tl
+  \zh_protected_edef:Nn \l_tmpb_tl { \zhnum [ style = Financial ] { subsection } }
+  \tl_log:N \l_tmpb_tl
+}
+
+%% 4. 带选项的 \zhdig 不再报错. 这是本次修的第二个 bug: \zhdigwithoptions 原先
+%%    把选项当额外参数传给 \zhnum_digits_counter:n (多写了一个 #1), 实测
+%%    \zhdig[style=Financial]{section} 报 `Use of \??? doesn't match its
+%%    definition' 并把 `tyle=Financialsection' 印到页面上.
+%%    123 三位数使 Normal 与 Financial 的差别在每一位上都可见.
+\TEST{zhdig~with~options~works}{
+  \setcounter { section } { 123 }
+  \tl_log:x { zhdig~plain:~\zhdig { section } }
+  \tl_set:Nx \l_tmpa_tl { \zhdigwithoptions { style = Financial } { section } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 5. 计数器不存在时, 带选项的形式必须走到与不带选项**同一个**报错分支.
+%%
+%% 带选项那条路是本次新加的, 若漏了 \int_if_exist:cTF 判断, \int_use:c 会以
+%% 更难读的低层错误炸掉 (而不是 zhnumber 自己的 `is not a LaTeX counter').
+%%
+%% 这里不把报错文本写进基线: \@@_counter_error:n 用的是
+%% \msg_expandable_error:nnn, 它在展开中报错会留下一个 \??? 控制序列, 日志里
+%% 于是同时出现 `Use of \??? doesn't match its definition' 与真正的 zhnumber
+%% 报错. 那是 expl3 可展开报错的既有形态, 与 #1008 无关 —— 实测系统安装的
+%% v3.1 (未含本次改动) 对**不带选项**的 \zhnum{nosuchcounter} 同样如此.
+%% 把它固定进基线会把一个无关的既有粗糙点冻结成预期值.
+\TEST{nonexistent~counter~takes~the~same~branch}{
+  \tl_log:x
+    { counter~exists:~\int_if_exist:cTF { c@nosuchcounter } { yes } { no } }
+}
+
+%% 6. 兼容性: v3.1 及以前写进辅助文件的 \zhnumwithoptions / \zhdigwithoptions
+%%    仍然可用. 旧 .toc 在升级后被读回时会命中它们, 删掉会报 undefined.
+%%
+%%    判据用 \tl_set:Nx 捕获结果而不是让它们排版: 本测试不载入中文字体,
+%%    XeTeX 下排 CJK 只是 `Missing character' 警告, 而 pdfTeX 下是硬错误
+%%    (`Unicode character ... not set up for use with LaTeX') 并中止编译,
+%%    两个引擎的基线会分化成两种形态. 这两个命令虽不可展开, 但内部用的是可展开的
+%%    \zhnum_counter:n, 所以 \tl_set:Nx 能取到真正的输出 —— 这也使本项能抓住
+%%    上面第 4 项说的那个笔误.
+\TEST{legacy~entry~points~still~work}{
+  \setcounter { section } { 7 }
+  \tl_set:Nx \l_tmpa_tl { \zhnumwithoptions { style = Financial } { section } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Nx \l_tmpa_tl { \zhdigwithoptions { style = Financial } { section } }
+  \tl_log:N \l_tmpa_tl
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
