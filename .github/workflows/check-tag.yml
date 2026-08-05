@@ -38,6 +38,8 @@ on:
       - 'ctex/**'
       - 'xeCJK/**'
       - 'xpinyin/**'
+      - 'zhnumber/**'
+      - 'xCJK2uni/**'
       - 'support/build-config.lua'
       - '.github/workflows/check-tag.yml'
 
@@ -46,6 +48,26 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'master' }}
 
 jobs:
+  # 覆盖率对账: 扫全部包的 .dtx, 凡有 `l3build tag` 会回写的版本槽位、且
+  # release.yml 有对应 tag 触发器的包, 都必须同时出现在本 workflow 与
+  # release.yml 的三方校验里; 否则失败并指出该补哪一处.
+  #
+  # 为什么需要它: 本 workflow 的 paths 与 release.yml 的 case 都是**白名单**,
+  # 没列进去的包静默走过 (release.yml 甚至只打 ::notice::, CI 全绿). 这个失效
+  # 模式已发生两次 —— #1041 的 xeCJK (发出自报 v3.10.4 的 v3.10.5-rc2), 以及
+  # 本次的 zhnumber / xCJK2uni. #1041 的反思当时就写下「白名单式校验应当有一条
+  # 未覆盖清单的对账机制」并留作后续; 同一缺口出现第二次之后补上。
+  #
+  # 不设 paths 过滤 (总是跑): 这个 job 要防的正是「新包/改了版本写法却没更新
+  # 白名单」, 而那种改动未必落在本 workflow 的 paths 里 —— 用 paths 过滤自己
+  # 就会重现同一类漏报。它是秒级纯文本扫描, 无条件跑的代价可以忽略。
+  gate-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Reconcile version-gate coverage
+        run: python3 scripts/check-version-gate-coverage.py
+
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -53,6 +75,8 @@ jobs:
       zhlineskip: ${{ steps.filter.outputs.zhlineskip }}
       xecjk:      ${{ steps.filter.outputs.xecjk }}
       xpinyin:    ${{ steps.filter.outputs.xpinyin }}
+      zhnumber:   ${{ steps.filter.outputs.zhnumber }}
+      xcjk2uni:   ${{ steps.filter.outputs.xcjk2uni }}
     steps:
       - uses: actions/checkout@v7
       - name: Filter paths
@@ -75,6 +99,12 @@ jobs:
             xpinyin:
               - *all
               - 'xpinyin/**'
+            zhnumber:
+              - *all
+              - 'zhnumber/**'
+            xcjk2uni:
+              - *all
+              - 'xCJK2uni/**'
 
   tag-ctex:
     needs: changes
@@ -185,22 +215,95 @@ jobs:
           fi
           echo "✓ xpinyin .dtx 版本与 version 一致 (l3build tag 为 no-op)"
 
+  # zhnumber / xCJK2uni 与 xeCJK、xpinyin 同一套: 共享 update_tag + build.lua
+  # 的 version 作事实源, 所以不需要 fetch-depth: 0 (共享版不读 git log).
+  #
+  # 这两个包本来都**不在任何版本校验内**, 与 #1041 的 xeCJK 是同一类缺口:
+  # release.yml 的 case 里它们落进 `*)`, 打的是
+  # `::notice::<pkg> 不使用 l3build tag 版本 stamp 机制, 跳过三方校验` ——
+  # 而这句话是错的, 两者的 .dtx 都有 `{\ExplFileDate}{<ver>}`, `l3build tag`
+  # 确实会回写 (实测 `l3build tag 9.9.9` 各改写 1 行). notice 不是 failure,
+  # CI 全绿, 于是「从未被校验」这件事一直没人发现.
+  #
+  # 接入时它们都还没有 `version` 字段, 而这个字段是**必需**的, 不能只加 job:
+  # 不设时不带参数的 `l3build tag` 会打印「未指定版本号, 未作任何修改」并以 0
+  # 退出, 于是 job 跑完 diff 天然为零 —— 恒绿, 什么也没校验. 详见两个包
+  # build.lua 里 version 上方的注释.
+  tag-zhnumber:
+    needs: changes
+    if: needs.changes.outputs.zhnumber == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        working-directory: ./zhnumber
+        run: |
+          l3build tag
+          if ! git diff --exit-code -- .; then
+            echo "::error::zhnumber 的 .dtx 版本与 zhnumber/build.lua 的 version 不一致."
+            echo "::error::请在本地运行: cd zhnumber && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ zhnumber .dtx 版本与 version 一致 (l3build tag 为 no-op)"
+
+  tag-xcjk2uni:
+    needs: changes
+    if: needs.changes.outputs.xcjk2uni == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install TeX Live (minimal, l3build only)
+        uses: TeX-Live/setup-texlive-action@v4
+        with:
+          packages: l3build latex-bin
+      - name: l3build tag must be a no-op
+        # 目录是 xCJK2uni/ 而 module 是小写 xcjk2uni, 这里必须用目录名.
+        working-directory: ./xCJK2uni
+        run: |
+          l3build tag
+          if ! git diff --exit-code -- .; then
+            echo "::error::xCJK2uni 的 .dtx 版本与 xCJK2uni/build.lua 的 version 不一致."
+            echo "::error::请在本地运行: cd xCJK2uni && l3build tag, 然后 commit 回写后的 .dtx."
+            exit 1
+          fi
+          echo "✓ xCJK2uni .dtx 版本与 version 一致 (l3build tag 为 no-op)"
+
   # 汇总: 供 branch protection 单点盯 (与 test-result / check-doc-result 同构).
   check-tag-result:
     if: ${{ !cancelled() }}
-    needs: [tag-ctex, tag-zhlineskip, tag-xecjk, tag-xpinyin]
+    needs: [gate-coverage, tag-ctex, tag-zhlineskip, tag-xecjk, tag-xpinyin,
+            tag-zhnumber, tag-xcjk2uni]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate results
         env:
+          R_COVERAGE:   ${{ needs.gate-coverage.result }}
           R_CTEX:       ${{ needs.tag-ctex.result }}
           R_ZHLINESKIP: ${{ needs.tag-zhlineskip.result }}
           R_XECJK:      ${{ needs.tag-xecjk.result }}
           R_XPINYIN:    ${{ needs.tag-xpinyin.result }}
+          R_ZHNUMBER:   ${{ needs.tag-zhnumber.result }}
+          R_XCJK2UNI:   ${{ needs.tag-xcjk2uni.result }}
         run: |
           fail=0
+          # gate-coverage 单独判: 它没有 if: 条件, 正常情况下**不会** skipped,
+          # 所以这里只接受 success. 若把它和下面各包一样放过 skipped, 那么该 job
+          # 因故没跑 (例如被误加了条件、或依赖链变化) 时汇总仍会绿 —— 而它恰恰是
+          # 用来防「白名单漏包」的那道检查, 静默不跑等于缺口重新打开。
+          if [ "$R_COVERAGE" = "success" ]; then
+            echo "✓ gate-coverage: $R_COVERAGE"
+          else
+            echo "✗ gate-coverage: $R_COVERAGE (该 job 应始终运行并成功)"; fail=1
+          fi
+          # 各包的 tag job 带 if: needs.changes.outputs.<pkg>, 未受影响时
+          # skipped 是预期的。
           for nv in "ctex:$R_CTEX" "zhlineskip:$R_ZHLINESKIP" "xeCJK:$R_XECJK" \
-                    "xpinyin:$R_XPINYIN"; do
+                    "xpinyin:$R_XPINYIN" "zhnumber:$R_ZHNUMBER" \
+                    "xCJK2uni:$R_XCJK2UNI"; do
             name="${nv%%:*}"; res="${nv#*:}"
             if [ "$res" = "success" ] || [ "$res" = "skipped" ]; then
               echo "✓ ${name}: ${res}"
