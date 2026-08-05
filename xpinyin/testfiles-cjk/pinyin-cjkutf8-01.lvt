@@ -97,7 +97,9 @@
 %% 拼音在零宽 overlap 盒里, 所以宽度与不注音时相同, 高度则因拼音抬到汉字上方
 %% 而增加. 这与 XeTeX 路线的结构一致, 说明 CJK 适配层也走同一套装盒逻辑.
 %% CJK 环境必须开在**盒子内部**. 写成 \begin{CJK} 包住 \hbox_set:Nn 时,
-%% 汉字根本进不了盒子, 实测三项宽高全为 0pt —— 而 0pt = 0pt 会让「宽度不变」
+%% \hbox_set:Nn 是局部赋值, 会被 CJK 环境的分组还原成 void, 出环境后读到的
+%% 三项宽高全为 0pt (实测: 环境**内**读同一个盒子是正常的 12.75551pt) ——
+%% 而 0pt = 0pt 会让「宽度不变」
 %% 那一半照样报 unchanged, 看着像通过. 初版正是这么写的.
 \TEST{annotation~adds~height~but~not~width}{
   \hbox_set:Nn \g_test_cand_box
@@ -226,7 +228,9 @@
 %%
 %% 坑一 —— \hbox_set:Nn **不能**写在 CJK 环境内部. 与 TEST 3 的记录同源:
 %% 写成 \begin{CJK} ... \hbox_set:Nn \gB { \xpinyin*{语} } ... \end{CJK} 时,
-%% 实测该盒 ht = 0pt (汉字进不了盒子), 与任何基准比都得不出有意义的结论.
+%% 实测出环境后该盒 ht = 0pt, 与任何基准比都得不出有意义的结论 —— 成因是
+%% \hbox_set:Nn 的局部赋值被环境分组还原成 void (环境内读它是 12.75551pt,
+%% 改用 \hbox_gset:Nn 则环境外也读到该值), 不是汉字排不进盒子.
 %% 所以每个盒子都必须自带 \begin{CJK}...\end{CJK}, 禁用用的子分组开在盒内.
 %%
 %% 坑二 —— 不能把「禁用组」和「组后的字」放进同一个盒子再比总高. 初版那么写,
@@ -238,13 +242,19 @@
 %% 另外基准必须取**从未禁用过**的另一个盒子: 若拿变异后的两个值互比, 它们会
 %% 同为 8.39754pt 而仍然相等. 实测正确实现下两者同为 12.75551pt, 全局赋值变异
 %% 下同时掉到 8.39754pt, 与未禁用基准比较即失配.
+%% 坑三 —— 组外的观察点不能用 \xpinyin*. 与 XeTeX 路线第 2d 项同一原因:
+%% \xpinyin* 的星号分支进组后无条件调 \enablepinyin (xpinyin.dtx:680), 而
+%% \enablepinyin 会把总开关重新置真 (:716-717), 于是它自己把泄漏出来的禁用
+%% 状态修好了. 初版两格都用 \xpinyin*, 结果第一格在全部变异下都不变化
+%% (变异 C 下候选与基准同时退化到 8.39754pt, `=` 照报 identical), 判别力全靠
+%% 第二格. 现在候选改用不带星号的显式形式.
 \TEST{disable~is~group-local~under~CJKutf8}{
-  %% 候选: 盒内先在一个子分组里禁用, 组结束后再注音.
+  %% 候选: 盒内先在一个子分组里禁用, 组结束后用**不带星号**的形式注音.
   \hbox_set:Nn \g_test_cand_box
-    { \begin{CJK}{UTF8}{gbsn}{ \disablepinyin* }\xpinyin*{语}\end{CJK} }
-  %% 基准: 从未禁用过的同一个字.
+    { \begin{CJK}{UTF8}{gbsn}{ \disablepinyin* }\xpinyin{音}{yin1}\end{CJK} }
+  %% 基准一: 从未禁用过的同一个字、同样的显式读音.
   \hbox_set:Nn \g_test_oracle_box
-    { \begin{CJK}{UTF8}{gbsn}\xpinyin*{语}\end{CJK} }
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin{音}{yin1}\end{CJK} }
   \tl_log:x
     {
       after~ group~ vs~ never-disabled:~
@@ -255,10 +265,10 @@
             { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
             { identical } { DIFFERENT }
     }
-  %% 再对「未注音」取一次正面证据: 只有上面的等高比较时, 若两边都退化成不注音
-  %% (例如禁用泄漏且基准也被影响) 仍会相等. 与未注音基准比较可排除这种情形.
+  %% 基准二: 完全不注音. 只有基准一时, 若两边同时退化成不注音仍会相等
+  %% (初版正是这样), 所以必须再取一次正面证据.
   \hbox_set:Nn \g_test_oracle_box
-    { \begin{CJK}{UTF8}{gbsn}语\end{CJK} }
+    { \begin{CJK}{UTF8}{gbsn}音\end{CJK} }
   \tl_log:x
     {
       after~ group~ vs~ unannotated:~
@@ -282,12 +292,11 @@
 %% checkopts 带 -halt-on-error, 会当场终止编译, 其后用例静默不执行却仍可能报绿.
 %% 改用 \loggingoutput 让 shipout 例程把整页节点写进日志.
 %%
-%% 必须放在 \TEST 里: 页面在 \END 之前确实排出 (原始日志有 "Completed box
-%% being shipped out"), 但 l3build 只把 \TEST 区间内的内容归一化进 .tlg,
-%% 写在 \TEST 之外时节点列表进不了基线 —— 那样这一项就等于没有断言.
-%% 写在顶层而不是 \TEST 里 —— 与 pinyin-tone02.lvt 同一写法.
-%% 放进 \TEST 时实测节点列表进不了 .tlg (原始日志有 "Completed box being
+%% 必须写在顶层而**不是** \TEST 里 —— 与 pinyin-tone02.lvt 同一写法.
+%% 实测放进 \TEST 时节点列表进不了 .tlg (原始日志有 "Completed box being
 %% shipped out", 但归一化后该段被丢弃), 那样这一项等于没有断言.
+%% (本段原有两句结论互相矛盾, 已按实际写法与基线内容更正: 基线里确实有这
+%% 五行的节点, 而它们是在 \TEST 之外产生的.)
 \loggingoutput
 \pinyin{ma1}\par\pinyin{ma2}\par\pinyin{ma3}\par
 \pinyin{ma4}\par\pinyin{ma5}\par
