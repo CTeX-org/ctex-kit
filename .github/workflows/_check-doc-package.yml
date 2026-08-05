@@ -278,6 +278,21 @@ jobs:
         run: |
           ./scripts/verify-doc-output.sh "${{ inputs.pkg }}"
 
+      # 成功时也上传, 方便直接下载 PR 编出来的 PDF 做目视检查 —— 排版类
+      # 问题 (溢出行、字形缺失、颜色 special 泄漏) 退出码都是 0, 只能看
+      # 版面. 与下面的 failure 版条件互斥, 不会重复上传.
+      #
+      # 只传 PDF 不传 log: 成功路径的 log 没有诊断价值, 而 xeCJK.log 有
+      # 近百 KB. 公开仓库的 Actions 存储不计费, 保留期取仓库默认 90 天,
+      # 到期自动删除; 与 TL / 字体 cache 是两套独立配额, 不互相挤占.
+      - name: Upload built PDFs
+        if: steps.doc.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: check-doc-${{ inputs.pkg }}-pdf
+          path: ${{ inputs.pkg }}/build/doc/**/*.pdf
+          if-no-files-found: ignore
+
       - name: Upload artifacts on failure
         if: ${{ !cancelled() && (steps.doc.outcome == 'failure' || failure()) }}
         uses: actions/upload-artifact@v7
