@@ -136,6 +136,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
+### 聚合度量选哪一维要先验证它真的会随被测行为变化
+**Rule**: 用尺寸类聚合度量（宽、高、深）做判据前，先用两个已知会产生不同内部结果的输入各测一次候选维度，确认它们的读数确实不同，再拿这一维当判据；不要凭直觉选一个维度就直接写断言。缺字时字体常用同一个占位字形顶上，宽度这类维度容易 collapse 成同一个值，看着通过实际什么都没验证。
+**Why**: #1008 的 `legacy-entry01` 一开始想用盒子**宽度**区分「七」（Normal 样式）与「柒」（Financial 样式），实测两者都是 2.8pt——分不出内容；改用**高度**才有判别力（`ht=7.33` vs `ht=7.75`）。与 #1041 的「拼音字体缺字时会假通过」是同一类：候选与 oracle 同时命中占位字形时，某个维度会失去区分能力。
+**Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
+
 ### `.tlg` 基线不要冻结报告文本里的绝对行号
 **Rule**: 当用例的观察量不是警告文本本身时，把警告抑制掉，别让它进基线。`l3build` 归一化的是 `on line %d*`、`on input line %d*`（`l3build-check.lua:210,211`）、`at lines %d*--%d*`（`:217`）与行首的 `l.%d+ `（`:144`）；单数形式的 `detected at line %d`（`\hbox to` 的 Overfull 报告用的就是它）不在其中，进基线就冻结了一个绝对源码行号，任何无关的行数变动都会让该用例失败。抑制 Overfull 要用 `\hfuzz`，不是 `\hbadness`——后者只管 Underfull 警告的阈值。
 **Why**: #1037 的 TEST 6 观察量只有 `\badness`，却把 `Overfull ... detected at line 149` 冻进了基线；在 `.lvt` 里插入一行注释即失败。注释里原本还写着 `\hbadness=10000` 抑制 Overfull，实测无效：默认值与 `\hbadness=10000` 都照样输出，只有 `\hfuzz=100pt` 消掉，且三种设置下 `\badness` 不变。
@@ -295,6 +300,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 加了 trace 却没有输出时，不能直接断定「代码不走这条路」。先确认探针本身有效——名字存在、能被调用、在同等条件下确实会打印——再据此推断。
 **Why**: #1037 中重定义 `\xeCJK_ulem_hskip:n` 与 `\__xeCJK_ulem_hskip_first:n` 加 trace，一次都没打印，一度以为找错了函数族。真实原因是该路径不经 `\CJKecglue`，而是直接 `\skip_horizontal:N \l_@@_ecglue_skip`，而 ulem 钩子只重定义 `\CJKecglue`，整族函数都被绕过。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 观察不可展开命令的行为，只有「让它执行」一条路
+**Rule**: `\typeout`／`\tl_set:Nx`／`\protected@edef` 一类手段面对一个不可展开的宏时，只能拿到它的**控制序列名**本身（因为宏未被展开），看不到宏体内部逐步展开、赋值、报错的中间过程。若测试判据只依赖这些手段，对该命令内部的缺陷完全没有判别力。要观察内部是否正确，必须让宏真正**执行**（例如排版出可见节点），再从执行结果（节点、盒子尺寸）反推内部逻辑是否正确。
+**Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们真排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
+**Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 改动装饰机制要同时验收节点结构与渲染像素
 **Rule**: 把 glue 从内层盒子搬到外层列表这类改动，`\showbox` 证明的是节点结构，装饰外观必须另外渲染出来比像素。两条通道在节点深度上等效时，画出来可能完全不同。
@@ -487,6 +497,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 只补充既有兼容契约时，用手册前后图证明信息缺口已修复，另用 MWE 展示稳定行为；不要虚构运行时“修复前后”。
 **Why**: #402 没有修改 `autoindent` 实现，真正变化是手册新增零缩进例外；同页手册对比与三场景 MWE 分别回答“说明变了什么”和“所述行为是否真实”。
 **Source**: `llmdoc/memory/archive/2026-07-14/402-autoindent-documentation-contract.md`
+
+### 手册措辞会塑造用户对「是不是设计限制」的判断
+**Rule**: 手册里描述某个命令特性的一句话，可能被用户直接读成「这是设计限制，不必再试」，从而放弃一个本可行的用法。修完代码缺陷后要回头检查：促成报告者卡在错误结论上的那句手册措辞是否仍在、是否仍会让同类误读复现；「不可展开」和「不能写进辅助文件」是两件不同的事，若手册没有把这层区分说清楚，就要补一段说明用法边界，不能止于改代码。
+**Why**: #1008 的报告者被 zhnumber 手册原文「带了选项的命令是不可展开的，在某些场合使用时要小心」引导到「这是设计限制」的结论，因而没有尝试把带选项的 `\zhnum` 用在 `\thesection` 之类会写入辅助文件的位置。修完代码缺陷后另补一段「不可展开不妨碍写入辅助文件」，该用法才变得可发现——这是文档缺口而非代码缺口，但直接导致了报告者此前卡住。
+**Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 并行测试快照前先确认新文件已被 git 看见
 **Rule**: 使用基于 `git ls-files` 的隔离测试脚本前，确认新测试已进入索引；否则全量测试数量和结果都不会包含它。
