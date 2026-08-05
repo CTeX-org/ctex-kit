@@ -152,8 +152,8 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### 聚合度量选哪一维要先验证它真的会随被测行为变化
-**Rule**: 用尺寸类聚合度量（宽、高、深）做判据前，先用两个已知会产生不同内部结果的输入各测一次候选维度，确认它们的读数确实不同，再拿这一维当判据；不要凭直觉选一个维度就直接写断言。缺字时字体常用同一个占位字形顶上，宽度这类维度容易 collapse 成同一个值，看着通过实际什么都没验证。
-**Why**: #1008 的 `legacy-entry01` 一开始想用盒子**宽度**区分「七」（Normal 样式）与「柒」（Financial 样式），实测两者都是 2.8pt——分不出内容；改用**高度**才有判别力（`ht=7.33` vs `ht=7.75`）。与 #1041 的「拼音字体缺字时会假通过」是同一类：候选与 oracle 同时命中占位字形时，某个维度会失去区分能力。
+**Rule**: 用尺寸类聚合度量（宽、高、深）做判据前，先用两个已知会产生不同内部结果的输入各测一次候选维度，确认它们的读数确实不同，再拿这一维当判据；不要凭直觉选一个维度就直接写断言。缺字时字体常用同一个占位字形顶上，宽度这类维度容易 collapse 成同一个值，看着通过实际什么都没验证。**更进一步：换一维「能区分手头这两个输入」也不等于这一维能固定输出内容**——同一字体里往往还有第三个字与被测字的该维读数完全相同，于是一个排错字的缺陷仍能全绿。要真正固定「排出的是哪个字」，得让盒子内容本身进基线（`\loggingoutput` + `\box_use:N` + `\clearpage`，见 `legacy-entry01.lvt`），度量只作旁证。
+**Why**: #1008 的 `legacy-entry01` 一开始想用盒子**宽度**区分「七」（Normal 样式）与「柒」（Financial 样式），实测两者都是 2.8pt——分不出内容；改用**高度**才区分开（`ht=7.33` vs `ht=7.75`）。但盲审随后指出高度同样不够：实测 FandolSong 下「柒」「九」「佰」的 `ht` 都是 7.75，于是一个让 Financial 的 7 排成「九」的缺陷能通过全部度量断言（实测零度量 diff）。补上字形进基线的断言后该变异才被抓住。与 #1041 的「拼音字体缺字时会假通过」是同一类：候选与 oracle 同时命中占位字形时，某个维度会失去区分能力。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### `.tlg` 基线不要冻结报告文本里的绝对行号
@@ -323,7 +323,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 核对基线里的用例数与文件里的用例数
 **Rule**: 「l3build 测试里不能用 \showbox，它会静默截断其后所有用例」那条规则不只适用于 `\showbox`——`-halt-on-error` 下**任何**会抛错的断言都会截断其后所有用例，而 `l3build check` 仍报绿。因此验收测试文件时要把「基线里出现的用例段落数」与「文件里写的 `\TEST` 个数」对齐，不能只看退出码或绿/红。可展开报错（`\msg_expandable_error:nnn` 留下的 `\???`）是 `\showbox` 之外的第二个已知来源，处置方式相同：把这类断言放到文件最末，一个文件只放一个，需要覆盖多条同类路径时拆成多个文件。
-**Why**: #1008 里 `\@@_counter_error:n` 的可展开报错断言原先排在 `counter-options01.lvt` 中间，其后一项（旧版兼容入口断言）从未运行过，基线里根本没有它的段落，测试却一直显示全绿——盲审报出「删掉某个守卫零 diff」的真实原因正是差异发生在中止点之后、看不见。#1026 已经用 `\showbox` 撞过同一个机制并写下上面那条规则，本次是同一机制的第二个触发源，说明值得按「任何抛错的断言」而不是按具体命令来记。注意成因是本仓库 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build 的默认行为：l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。所以「一个 `.lvt` 只能断言一次可展开报错」是**本仓库的**约束，往别处推断前要先看那边的 `checkopts`。
+**Why**: #1008 给 `\@@_counter_error:n` 加可展开报错断言后，若把它放在文件中间，其后所有 `\TEST` 都不执行而 check 仍报绿——`counter-options01` 的报错断言因此必须留在末位，`\zhdig` 那条同类守卫只能另开 `counter-options02`。#1026 已经用 `\showbox` 撞过同一个机制并写下上面那条规则，本次是同一机制的第二个触发源，说明值得按「任何抛错的断言」而不是按具体命令来记。（注意别把这条机制回溯成别的故障的成因：#1008 里「删掉守卫零 diff」那次假绿实际由一条恒真断言造成，与中止无关，我一度混为一谈，见该反思的更正段。）注意成因是本仓库 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build 的默认行为：l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。所以「一个 `.lvt` 只能断言一次可展开报错」是**本仓库的**约束，往别处推断前要先看那边的 `checkopts`。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 「生成物与源同步」和「生成物本身正确」是两个独立命题
