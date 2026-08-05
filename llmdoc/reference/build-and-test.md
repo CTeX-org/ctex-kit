@@ -420,7 +420,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
-`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的真排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
 
 ## 非典型测试模式
 
@@ -579,6 +579,56 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 **手拼 oracle 一度把 DIFF 冻进基线。** 多音节那格的 oracle 写成字面重音 `n\v{\"u}h\'aizi`，漏了 `\pinyin` 在音节之间插的 `pysep`（缺省一个空格），宽度必然不等，`l3build save` 把 `wd=DIFF 43.30566 vs 36.94824` 存进了 `.tlg`。该格要断言的本就是「两种写法结果相同」，改为直接对比两条 `\pinyin`——**oracle 需要复刻被测实现的内部细节（这里是 `pysep`）时，通常说明判据选错了**。
 
 **`l3build save` 之后要读一遍新基线里自己那几行。** 它不会因为断言结果是 DIFF 而拒绝保存。上面那处正是 save 之后 grep 基线才发现的。
+
+### zhnumber 的计数器选项回归（#1008）
+
+`zhnumber` 的 `\zhnum[opts]{counter}`／`\zhdig[opts]{counter}` 原实现把计数器**名**写进
+`.toc` 一类辅助文件（`\zhnumwithoptions{style=...}{section}`），读回时计数器已归零；
+修法是在 `\zhnum`／`\zhdig` 这一层先把计数器展开为**数值**再交给处理数值的实现。回归分
+两个 `testfiledir`：
+
+- `zhnumber/testfiles/counter-options01.lvt`（三引擎）用记号层面断言固定「值有没有被
+  冻结」——判据是展开结果里出现 `{7}` 而非 `{section}`，同时覆盖 #1008 排查中发现的
+  独立笔误：`\zhdigwithoptions` 原把选项多传了一个 `#1` 给 `\zhnum_digits_counter:n`，
+  带选项的 `\zhdig` 此前直接报错。
+- `zhnumber/testfiles-cjk/legacy-entry01.lvt` + `zhnumber/test/config-cjk.lua`（仅
+  xetex）覆盖兼容入口 `\zhnumwithoptions`／`\zhdigwithoptions` 本身——这两个命令**不可
+  展开**（用 `\NewDocumentCommand` 实现，要用 `\group_begin:`／`\group_end:` 局部改样
+  式），只能让它们真排出汉字再量盒子才能验证内部逻辑。
+
+**为什么必须分两个 `testfiledir`**：兼容入口不可展开，观察它们的行为只有「让它执行」
+一条路；而排 CJK 需要中文字体，pdfTeX 下没有 CJK 设置时是硬错误 `Unicode character
+... not set up for use with LaTeX` 并中止编译，XeTeX 下只是 `Missing character` 警告
+——同一个 `.lvt` 放两个引擎跑，基线会分化成「报错」与「警告」两种不可共存的形态。做法
+仿 `xpinyin/test/config-cjk.lua`。
+
+**观察不可展开命令的行为，只有「让它执行」一条路。** 排查中试过四种手段，全部只能拿到
+命令的**名字**、看不到内部逐步展开与赋值是否正确：
+
+1. `\typeout{\zhnumwithoptions{...}{...}}`——不可展开的命令只被记下名字，内部坏掉也看
+   不出来；实测恢复 `\zhdigwithoptions` 的笔误后，只用 `\typeout` 的版本仍然全绿。
+2. `\tl_set:Nx`——同样只拿到名字。
+3. 在 `\TEST` 的参数里切 `\ExplSyntaxOn`——不生效，参数已被读入、catcode 已冻结（实测报
+   `Undefined control sequence` 指向 `\tl_log:N`）。
+4. `\protected@edef`——含 `@`，在 `\ExplSyntaxOn` 下直接写会报 `You can't use a prefix
+   with the character @`，须放进 `\makeatletter` 块并用 `\cs_set_eq:NN` 起一个 expl3
+   名字的别名再用。
+
+**盒子度量选哪一维要先验证它真的会变。** 缺字时字体会用同一个占位字形，宽度往往
+collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt，分辨不出内容；改用**高度**
+才有判别力（`ht=7.33` 的「七」vs `ht=7.75` 的「柒」）。
+
+**判别力实测结果**：三个方向的变异都能让相应用例变红——zhnum／zhdig 退回写计数器名会
+让 `counter-options01` 变红；恢复 `\zhdigwithoptions` 的笔误会让 `legacy-entry01` 的
+`legacy zhdig` 度量变化。**第三条曾长期抓不到**，正是上面四条弯路的后果——主目录里无论
+用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字，这正是补 CJK 那一组的真正理由。
+
+**如实记录的既有问题（未修）**：`\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，
+它在展开中报错的方式是留下一个 `\???` 控制序列，于是日志里同时出现 `Use of \???
+doesn't match its definition` 和真正的 zhnumber 报错。实测系统安装的 v3.1（未含本次
+改动）对**不带选项**的 `\zhnum{nosuchcounter}` 同样如此，属 expl3 可展开报错的既有形态，
+与 #1008 无关，因此没有把报错文本固定进基线——那会把一个无关的既有粗糙点冻结成预期值；
+测试里只用 `\int_if_exist:cTF` 确认两条路进的是同一个判断分支。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
