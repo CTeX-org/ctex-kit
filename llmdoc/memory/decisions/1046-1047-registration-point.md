@@ -89,7 +89,9 @@ hyperref 的行内锚点有多个出口，区分依据是**调用点**而不是�
 **为什么必须保留花括号**：`\__hyp_target_raise:n` 会把参数再次用作 `\hbox:n`
 的内容。无花括号转发丢掉了分组，紧随其后的 `\Hy@SaveSpaceFactor` 被卷进
 `\hyper@anchorstart` 的参数，结果 `\spacefactor` 赋值被写进 `pdf:dest` 名字、
-锚点名 `section*.1` 被排成可见文本（盒宽 81.16002pt 对 oracle 41.66002pt）。
+锚点名 `section*.1` 被排成可见文本。两个读数对应两个配置：不挂钩子的纯透传为
+81.16002pt，在包装变体里误用无花括号版为 84.49002pt（回归测试的断言差值即
+42.83pt／15.0pt）；oracle 为 41.66002pt。
 
 这个故障**与 xeCJK 的钩子无关**，隔离实验证实：`\@@_boundary_hmode_transparent_begin:`
 的函数体里没有任何 `\spacefactor` 赋值；不挂任何钩子、仅做无花括号透传同样
@@ -108,9 +110,9 @@ oracle 41.66002pt；西文 54.75pt 对 58.08pt）。同类裸调用在 hyperref 
 
 - 注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使
   盒宽暴涨（166.49002pt 一类）并报出十余处错误，因为它的参数含待展开内容。
-- 注册 `\hyper@anchorstart` 本身虽不报错却不生效（`\pdfbookmark` 仍 38.33002pt），
-  还会把已修好的 `\hypertarget` 与 `\phantomsection` 一起拖回 38.33002pt——包内
-  注册与用户接口注册在此产生了尚未查明的冲突。
+- 注册 `\hyper@anchorstart` 本身不报错，但也不生效：`\pdfbookmark` 仍 38.33002pt，
+  而已覆盖的三处不受影响（包内注册、用户接口注册、两者并存三种配置均如此）。
+  为什么 transparent 在这个入口上无效尚未查明。
 
 `hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动
 失败，强制回来更新两份清单。
