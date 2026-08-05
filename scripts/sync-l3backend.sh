@@ -55,18 +55,27 @@ WORK=$(mktemp -d)
 # certificate`, 而同一 run 里其他 20 个 job 用同一份脚本全部成功,
 # 所以是镜像侧的偶发问题, 不是脚本缺陷. 单点失败不该让整个 job 红,
 # 因此换用固定 mirror 兜底.
+#
+# 不能只信 curl 的退出码. mirrors.ctan.org 是重定向服务, -L 跟到实际镜像
+# 后若连接超时, --retry 耗尽仍可能返回 0 而 -o 只写出空/残缺文件 (实测
+# doc-zhmetrics: 三次 `curl: (28) ... Timeout` 之后照样走进成功分支, 直到
+# 末尾 kpsewhich 校验才拦下). 因此每个 mirror 下载后都验一次 zip 完整性,
+# 用 unzip -t; 不合格就当作失败换下一个.
 DOWNLOADED=
 for url in \
   "https://mirrors.ctan.org/macros/latex/required/l3backend.zip" \
   "https://ctan.math.illinois.edu/macros/latex/required/l3backend.zip" \
   "https://mirror.ctan.org/macros/latex/required/l3backend.zip" ; do
   echo "尝试 $url"
+  rm -f "$WORK/l3backend.zip"
   if curl -fsSL --retry 3 --retry-delay 5 --connect-timeout 30 \
-       -o "$WORK/l3backend.zip" "$url"; then
+       --max-time 300 -o "$WORK/l3backend.zip" "$url" \
+     && [ -s "$WORK/l3backend.zip" ] \
+     && unzip -tq "$WORK/l3backend.zip" >/dev/null 2>&1 ; then
     DOWNLOADED=$url
     break
   fi
-  echo "::warning::$url 下载失败, 换下一个 mirror"
+  echo "::warning::$url 下载失败或产物不是完整 zip, 换下一个 mirror"
 done
 
 if [ -z "$DOWNLOADED" ]; then
@@ -76,14 +85,30 @@ fi
 echo "下载自 $DOWNLOADED"
 
 unzip -oq "$WORK/l3backend.zip" -d "$WORK"
-( cd "$WORK/l3backend" && tex l3backend.ins >/dev/null )
+
+# docstrip 的输出留在日志里. 之前这里重定向到 /dev/null, 配合下面 glob
+# 未匹配时 cp 收到字面量的行为, 「zip 是空的」这类失败会一路静默到末尾
+# 才被 kpsewhich 校验发现, 报出来的却是「注入未生效」, 掩盖真正的原因.
+( cd "$WORK/l3backend" && tex l3backend.ins )
 
 # 装进 TEXMFHOME 而不是各包的 localdir: kpse 优先于 texmf-dist 命中,
 # 一步覆盖所有包和所有引擎, 且不往仓库工作树里落文件.
 TEXMFHOME=$(kpsewhich -var-value TEXMFHOME)
 DEST="$TEXMFHOME/tex/latex/l3backend"
 mkdir -p "$DEST"
-cp "$WORK/l3backend"/l3backend-*.def "$DEST/"
+
+# nullglob + 显式计数: 未匹配时 bash 默认把 `l3backend-*.def` 字面量传给
+# cp, 报错信息又容易被忽略. 这里让「解压出来一个 .def 都没有」立刻失败在
+# 发生处, 而不是退化成末尾那句含义不同的「注入未生效」.
+shopt -s nullglob
+defs=( "$WORK/l3backend"/l3backend-*.def )
+shopt -u nullglob
+if [ "${#defs[@]}" -eq 0 ]; then
+  echo "::error::解压/docstrip 后没有任何 l3backend-*.def; zip 可能不完整"
+  exit 1
+fi
+echo "docstrip 产出 ${#defs[@]} 个 .def"
+cp "${defs[@]}" "$DEST/"
 
 # 生效判据: 经 kpse 解析到的必须是刚装的那份, 且日期与 l3kernel 一致.
 # 少了这步核对, 「装错位置」与「装了但没生效」都会静默退化成原状.
