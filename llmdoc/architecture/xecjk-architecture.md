@@ -280,13 +280,13 @@ hyperref 的行内锚点会插入遮蔽 marker 的不可见节点。下面按**�
 
 - 第三个出口 `\__hyp_target_raise:n`：`\phantomsection` 与 `\MakeLinkTarget` 走它，编号标题的锚点也经过它。它自己排出同构的 `\penalty\@M` 加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`。它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），故用 `\@@_boundary_wrap_transparent_onearg_braced:NN` 包装。
 
-**包装这类函数要注意参数转发是否保留花括号。** 既有的 `\@@_boundary_wrap_transparent_onearg:NN` 以 `#1 ##1` 转发，适用于原函数只是顺序执行参数内容的情形。`\__hyp_target_raise:n` 会把参数**再次**用作 `\hbox:n` 的内容，丢掉花括号就改变了分组：紧随其后的 `\Hy@SaveSpaceFactor` 被卷进 `\hyper@anchorstart` 的参数，`\spacefactor` 赋值被写进 `pdf:dest` 名字、锚点名 `section*.1` 被排成可见文本（实测盒宽 81.16002pt 对 oracle 41.66002pt）。这与 xeCJK 的钩子无关——不挂任何钩子、仅做无花括号透传同样复现——所以只需要 `#1 {##1}` 的转发变体，不需要新的适配器。
+**包装这类函数要注意参数转发是否保留花括号。** 既有的 `\@@_boundary_wrap_transparent_onearg:NN` 以 `#1 ##1` 转发，适用于原函数只是顺序执行参数内容的情形。`\__hyp_target_raise:n` 会把参数**再次**用作 `\hbox:n` 的内容，丢掉花括号就改变了分组：紧随其后的 `\Hy@SaveSpaceFactor` 被卷进 `\hyper@anchorstart` 的参数，`\spacefactor` 赋值被写进 `pdf:dest` 名字、锚点名 `section*.1` 被排成可见文本。两个读数分别对应两个配置：**不挂任何钩子、仅做无花括号透传**为 81.16002pt（这个对照证明故障与 xeCJK 的钩子无关），**在包装变体里误用无花括号版**为 84.49002pt（回归测试报出的断言差值即 42.83pt／15.0pt）；oracle 为 41.66002pt。因此只需要 `#1 {##1}` 的转发变体，不需要新的适配器。
 
 #### 已知未覆盖：`\hyper@anchorstart` 的裸调用
 
 `\pdfbookmark` 直接写 `\hyper@anchorstart{...}\hyper@anchorend`，既不经 `\hyper@@anchor` 也不经两个抬升出口（计数器实测三者均为 0，只有 `\hyper@anchorstart` 计数为 1），因此右侧仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。同类裸调用在 hyperref 与各驱动里还有若干处。这不是 #1047 引入的，base 上同样如此。
 
-两种就手的补法都已实测不可行：注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使盒宽暴涨并报出十余处错误，因为它的参数含待展开内容；注册 `\hyper@anchorstart` 本身虽不报错却不生效，还会把已修好的两处拖回缺陷状态——包内注册与用户接口注册在此产生了尚未查明的冲突。这条路径需要单独设计适配器，另立议题跟踪。`hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动失败，强制回来更新两份清单。
+两种就手的补法都已实测不可行：注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使盒宽暴涨并报出十余处错误，因为它的参数含待展开内容；注册 `\hyper@anchorstart` 本身不报错，但也不生效——`\pdfbookmark` 仍为 38.33002pt，而已覆盖的三处不受影响（包内注册、用户接口注册、两者并存三种配置均如此）。为什么 transparent 在这个入口上无效尚未查明，这条路径需要单独设计适配器，另立议题跟踪。`hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动失败，强制回来更新两份清单。
 
 #### 为什么这一节不写出口总数
 
