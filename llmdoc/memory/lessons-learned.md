@@ -306,14 +306,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1008 中 `\zhnumwithoptions`／`\zhdigwithoptions` 不可展开，最初用 `\typeout{\zhnumwithoptions{...}{...}}` 或 `\tl_set:Nx` 观察，都只记下命令名字；实测恢复 `\zhdigwithoptions` 多传一个参数的笔误后，只用这两种手段的测试版本仍然全绿。改成让它们真排出汉字再量盒子高度后，这个笔误才第一次被测试拦住。这条与 #1043 反思里「探针先自证有效」同属一类——先确认观察手段本身有没有能力看到你要断言的东西。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
-### 可展开报错可能是致命的：断言它必须放在文件末尾，且要核对基线段落数
-**Rule**: 一般化：任何会中止编译的断言之后的用例都不会执行，而测试仍报全绿。验收时要把「基线里出现的用例数」与「文件里写的用例数」对齐，不能只看退出码或绿/红。这与「绿色单元与失败基线分离」相邻但不同：那条管的是矩阵里哪些单元可以进基线，这条管的是同一份基线里段落数量本身是否说明了「跑过」。
-**Why**: #1008 里 `\@@_counter_error:n` 走 `\msg_expandable_error:nnn`，其 `Use of \???
-doesn't match its definition` 在 l3build 的 `\scrollmode` 下是致命错误，会让编译当场
-中止。这条断言原先排在 `counter-options01.lvt` 中间，其后一项（旧版兼容入口断言）
-从未运行过，基线里根本没有它的段落，测试却一直显示全绿——盲审报出「删掉某个守卫零
-diff」的真实原因正是差异发生在中止点之后、看不见。修法是把可展开报错的断言移到文件
-最末，并新增独立文件覆盖另一条同类守卫。
+### 核对基线里的用例数与文件里的用例数
+**Rule**: 上面那条 `\showbox` 的规则不只适用于 `\showbox`——`-halt-on-error` 下**任何**会抛错的断言都会截断其后所有用例，而 `l3build check` 仍报绿。因此验收测试文件时要把「基线里出现的用例段落数」与「文件里写的 `\TEST` 个数」对齐，不能只看退出码或绿/红。可展开报错（`\msg_expandable_error:nnn` 留下的 `\???`）是 `\showbox` 之外的第二个已知来源，处置方式相同：把这类断言放到文件最末，一个文件只放一个，需要覆盖多条同类路径时拆成多个文件。
+**Why**: #1008 里 `\@@_counter_error:n` 的可展开报错断言原先排在 `counter-options01.lvt` 中间，其后一项（旧版兼容入口断言）从未运行过，基线里根本没有它的段落，测试却一直显示全绿——盲审报出「删掉某个守卫零 diff」的真实原因正是差异发生在中止点之后、看不见。#1026 已经用 `\showbox` 撞过同一个机制并写下上面那条规则，本次是同一机制的第二个触发源，说明值得按「任何抛错的断言」而不是按具体命令来记。注意成因是本仓库 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，不是 LaTeX 或 l3build 的默认行为：l3build 默认 `-interaction=nonstopmode`，那种设置下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。所以「一个 `.lvt` 只能断言一次可展开报错」是**本仓库的**约束，往别处推断前要先看那边的 `checkopts`。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
 ### 「生成物与源同步」和「生成物本身正确」是两个独立命题
