@@ -18,8 +18,8 @@ capture/register 框架的**注册点**问题——不是策略选错，而是�
 
 ### #1046：capture 入口的字体决定了缓存的 glue 度量
 
-`\@@_boundary_capture_begin:`（`xeCJK/xeCJK.dtx:5293` 附近）在 capture **入口**处把
-`\CJKecglue` 排入临时盒并读成 skip 数值（`xeCJK.dtx:5322`），缓存的度量因此取决于
+`\@@_boundary_capture_begin:`（`xeCJK/xeCJK.dtx:5303`）在 capture **入口**处把
+`\CJKecglue` 排入临时盒并读成 skip 数值（`xeCJK.dtx:5333`），缓存的度量因此取决于
 capture 开始时生效的字体。
 
 l3doc 的 `\meta` 是 `\texttt{ \__codedoc_meta:n {#1} }`（`l3doc.cls:542-543`）。旧实现把
@@ -55,7 +55,7 @@ hyperref 的行内锚点有多个出口。**已覆盖**三处，各注册一次 
    走它，编号标题的锚点也经过它。它排出同构的 `\penalty\@M` 加 `\smash` 抬升盒子，不经过
    `\Hy@raisedlink`。它不接受通用命令 hook，用带花括号转发参数的 transparent 包装变体覆盖。
 
-**这一节的机制陈述前后写错了两次**，详见下文「两次把『注册这些就够了』推成更强的断言」。
+**这一节的机制陈述前后写错了四次**，详见下文「四次把观察到的现象推成未经验证的机制」。
 
 两处的不可见节点都隔在 xeCJK 的 marker 与后续字符之间，使 Boundary→{Default,CJK} 的
 marker 探测失败，锚点右侧的 `\CJKecglue` 丢失。
@@ -89,9 +89,10 @@ marker 探测失败，锚点右侧的 `\CJKecglue` 丢失。
 
 ### 四次把观察到的现象推成未经验证的机制（本次第二至第五个归因错误）
 
-同一类节点有多个出口，是真的：hyperref 的行内锚点确实要注册两次，只注册一个另一个仍缺
-间距。两个测试的判别力实测互不重叠——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 退化
-（41.66002 → 38.33002），去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4 各少一枚 3.33pt。
+同一类节点有多个出口，是真的：hyperref 的行内锚点要分别注册，只注册一处其余仍缺间距。
+各组判别力实测互不重叠——去掉 `\Hy@raisedlink` 注册只有 TEST 1、TEST 2 退化
+（41.66002 → 38.33002），去掉 `\hyper@anchor` 注册只有 TEST 3、TEST 4、TEST 5 各少一枚
+3.33pt，去掉第三处包装只有 TEST 8、TEST 9 退化。
 
 **但我据此推断出的分派依据是错的。** 我写成「非空目标走 `\Hy@raisedlink`、空目标走
 `\hyper@anchor`」，理由是「Issue 的 MWE 用 `\exptarget`（带 `\Hy@raisedlink`）而我另测的
@@ -325,10 +326,12 @@ IDENTICAL，才排除嫌疑。
   要求 marker 与末尾零尺寸盒子相邻；命令在盒子前还排 `\penalty` 时不成立，须用
   `transparent`。
 - **同一类节点可能有多个出口，判据是读分派函数的分支并用计数器实测。** hyperref 的行内
-  锚点已注册 `\hyper@anchor`（承接全部 `\hypertarget`）与 `\Hy@raisedlink`（承接无编号
-  标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹），第三个出口
-  `\__hyp_target_raise:n` 已知未覆盖。「A 缺了会坏、B 缺了也会坏」只证明两者都在路径上，
-  既不能推出按什么条件分派、也不能推出只有两个——各需单独探针。
+  锚点已覆盖三处：`\hyper@anchor`（承接全部 `\hypertarget`）、`\Hy@raisedlink`（无编号
+  标题、caption、公式编号、脚注、`\bibitem` 与下游手工包裹）、`\__hyp_target_raise:n`
+  （`\phantomsection`、`\MakeLinkTarget`、编号标题）；`\hyper@anchorstart` 的裸调用
+  （`\pdfbookmark`）为已知未覆盖。「A 缺了会坏、B 缺了也会坏」只证明这些处都在路径上，
+  既不能推出按什么条件分派、也不能推出只有这些处——各需单独探针。**反复出错的穷尽性
+  断言应改为维护「已覆盖／已知未覆盖」两份清单，不写总数。**
 
 **应进 `reference/build-and-test.md`（测试设计约束）：**
 
@@ -390,7 +393,7 @@ IDENTICAL，才排除嫌疑。
   `\@@_boundary_register_transparent:n { hyper@anchor }`（后者带 `\cs_if_exist:NT` 守卫，
   因为它由驱动定义）。
 - 上游参考位置：`l3doc.cls:542-543`、`hyperref.sty:2104`、`hyperref.sty:5134`、
-  `hxetex.def:291`；capture 入口求值处 `xeCJK/xeCJK.dtx:5293` 与 `:5322` 附近。
+  `hxetex.def:291`；capture 入口求值处 `xeCJK/xeCJK.dtx:5303` 与 `:5333`。
 - 测试：`xeCJK/testfiles/codedoc-meta-symmetry01.lvt/.tlg`、
   `xeCJK/testfiles/hyperref-anchor-ecglue01.lvt/.tlg`。
 - 相关决策：[[992-command-boundary-capture-register]]、[[1010-boundary-register-public-api]]、
