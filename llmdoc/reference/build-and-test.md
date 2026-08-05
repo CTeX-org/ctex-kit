@@ -482,9 +482,17 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
    with the character @`，须放进 `\makeatletter` 块并用 `\cs_set_eq:NN` 起一个 expl3
    名字的别名再用。
 
-**盒子度量选哪一维要先验证它真的会变。** 缺字时字体会用同一个占位字形，宽度往往
-collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt，分辨不出内容；改用**高度**
-才有判别力（`ht=7.33` 的「七」vs `ht=7.75` 的「柒」）。
+**盒子度量选哪一维要先验证它真的会变，而且度量本身不足以固定排出的是哪个字。**
+缺字时字体会用同一个占位字形，宽度往往 collapse 成同一个值——实测「七」与「柒」的宽度
+都是 2.8pt，分辨不出内容；改用**高度**才区分开这两个字（`ht=7.33` 的「七」vs `ht=7.75`
+的「柒」）。但高度同样不足以固定字形：实测 FandolSong 下「柒」「九」「佰」的 `ht` 都是
+7.75，一个让 Financial 的 7 排成「九」的缺陷能通过全部度量断言（实测零度量 diff）。
+所以 `legacy-entry01` 的 TEST 4 用 `\loggingoutput` + `\box_use:N` + `\clearpage` 把
+盒子内容本身写进基线，汉字在基线里就是字面 UTF-8 汉字（l3build 的日志归一化不把 CJK
+码位转成 `^^` 形式）；度量只作旁证。该项必须覆盖前面测过的**全部**入口——只排 `\zhnum`
+的盒子时，`\zhdig` 侧仍只有度量断言，盲区原样保留（实测）。用 `\loggingoutput` 而非
+`\showbox`，因为后者报 `! OK.` 会在 `-halt-on-error` 下当场中止；不加 `\clearpage` 则
+页面不 ship out、TEST 段落是空的（两点均实测）。
 
 **可展开报错在本仓库的 `checkopts` 下是致命错误，这是本节最重要的约束。**
 `\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
@@ -492,7 +500,10 @@ collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt�
 就地中止**，其后所有 `\TEST` 一律不执行。判断是否中止要看「后面的 `\TEST` 段落有没有进
 基线」，**不要**用日志里的 `Fatal error occurred, no output PDF file produced!` 那一行：
 它只有 pdftex/luatex 打印，xetex 不打印（而 xetex 正是这两个测试的 `stdengine`），并且
-它会被日志归一化删掉、从不进入 `.tlg`。成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
+它从不进入 `.tlg`——它排在
+`Here is how much of ...TeX's memory you used:` 之后，而 l3build 读日志时读到那一行就
+`break`（`l3build-check.lua:339-341`），其后内容一律被截掉。
+成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
 **不是** LaTeX 或 l3build 本身的行为：l3build 默认 `-interaction=nonstopmode`，那种设置
 下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。因此下面两条硬约束是**本仓库
 的**约束，往用默认 `checkopts` 的项目推断前要先核对那边的设置。这也是 #1026 用
@@ -513,9 +524,11 @@ CJK 是硬错误」无关：`counter-options01` 里的汉字只经 `\tl_log:x` �
   `counter-options01`（`\zhnum` 那条，断言在文件最末）与
   `counter-options02`（`\zhdig` 那条，独立成文件）。
 - **验收判据是基线里的 TEST 段落数必须与 `.lvt` 里的 `\TEST` 个数一致。** 段落不存在
-  意味着该项没跑，而不是通过了。原先这条报错断言排在 `counter-options01` 中间，其后
-  的一项（旧版兼容入口断言）从未运行过、基线里没有它的段落，测试却一直全绿——这正是
-  盲审报出「删掉守卫零 diff」的成因。
+  意味着该项没跑，而不是通过了；把报错断言挪到文件中间即可复现（其后用例全部不执行而
+  check 仍报绿）。当前三个文件都对得上：`counter-options01` 5／5、`counter-options02`
+  1／1、`legacy-entry01` 4／4。（另一处假绿——「删掉守卫零 diff」——的成因不是中止，而是
+  一条恒真断言：`\int_if_exist:cTF` 探针根本没调用 zhnumber 的代码。两件事容易混为
+  一谈，见 `1008-...` 反思里的更正段。）
 
 **判别力实测结果（逐条隔离）**：删 `\@@_counter_with_options:nn` 的守卫
 （`\int_if_exist:cTF`）→ 仅 `counter-options01` 红（三引擎），报 `You can't use \relax
