@@ -29,6 +29,16 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #991 手工同步的 xeCJK CHANGELOG 与 `\changes` 提取器漂移，`check-changelog-result` 失败；`make changelog` 确定性重建后只有目标文件变化并通过校验。
 **Source**: `llmdoc/memory/archive/2026-07-18/991-setref-boundary-fix-and-evidence.md`
 
+### `\changes` 条目里的 makeindex 特殊字符要按两个下游同时验收
+**Rule**: `\changes` 条目正文会经 makeindex 处理，`=`（actual）、`!`（quote）、`>`（level）、`|`（encap）在那一层有语法含义。未转义的 `=` 会让条目在该处截断、只剩后半段进 `.gls`，排版时报 `Extra }` 使 `l3build doc` exit 1。但**转义不是好解法**：`!` 会原样漏进 `scripts/extract-changes.py` 生成的 `CHANGELOG.md`，`|&|` 又撞 encap。优先**改写句子绕开这些字符**，判据是同时核对 `.gls` 渲染结果与重新生成的 `CHANGELOG.md`，只看一边会漏。
+**Why**: #1054 中 `\changes` 里的 `\catcode`\&!=6` 一处，去掉 `!` 后 makeindex 把条目截断成 `6}）时…`，排版报 `Extra }`；恢复 `!` 能过 makeindex 但 CHANGELOG 里多出一个字符。字符含义的出处是 `gglo.ist` 的 `actual`／`quote`／`level` 指令与 doc 的 encap 设置。细节见 `reference/coding-conventions.md` 的对应一节。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+
+### 看起来像笔误的转义字符，先查它在工具链里有没有语义
+**Rule**: 遇到读起来不像句子一部分的孤立符号（`!`、`|`、`=`、`@` 等），不要凭「像是误敲的」就删改；先查它在这条处理链的某一个阶段是否有语法含义——读对应的 `.ist`、配置文件或处理脚本，而不是读上下文语感。这条在改**别人已经写好、且自己并未被要求修改**的内容时尤其要守。
+**Why**: #1054 第一次读用户未提交的 diff 时，把 `\changes` 条目里 `\catcode`\&!=6` 的 `!` 判成多余字符删掉，并顺手重新生成了 CHANGELOG；随后 `l3build doc` 报 `Extra }` exit 1。`!` 是 makeindex 的 quote 字符，起实际作用，用户原来的写法是对的。判断依据当时只是「读起来不像句子的一部分」，没有查 `.ist` 里的 quote／actual／level／encap 四个指令。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+
 ### 已发布版本不能继续接收新变更条目
 **Rule**: 写 `\changes` 前核对最新正式 release tag；发布后的新变更使用下一个未发布版本，不从 `build.lua` 当前值或 CHANGELOG 首节反推。
 **Why**: #381 在 ctex 2.6.2 发布两天后落地，首版仍误记为 v2.6.2，合并后才纠正为 v2.6.3。
@@ -528,12 +538,36 @@ Curated cross-task rules distilled from archived memory.
 ### 注入类实验必须有可核实的生效判据
 **Rule**: 用替代版本的文件（宏包、依赖、配置等）临时覆盖某个路径来做对照实验时，必须有一个独立于实验结论的判据，能核实注入本身确实生效，而不是仅凭实验结果推断。没有这个判据，「注入没生效、测的还是旧版本」与「注入生效了、新版本确实不行」在结果上会完全相同，容易把环境错误误判为结论。
 **Why**: #1048/#1050 中两次尝试用新版 l3backend 替换测试环境都放错了位置（先后误写进会被 `cleandir` 清空的 `testdir`、试图通过 `TEXINPUTS` 覆盖但被 l3build 写死的设置盖过），两次都得到「仍然报错」的结果，若不核实测试目录里实际文件的日期戳，会顺势得出「新版本也修不好」这个错误结论。
-**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+**否命题形态：「反证失败」不等于「假设错误」。** 上面那条问的是「实验做成了吗」，这条问的是「这个环境有能力区分两种结论吗」。做反证或对照实验时，若结果是「仍然失败」或「未复现」，先证伪两件事再采纳结论：一是**装置无效**（探针／注入本身没起作用），二是**环境不具备复现前提**（无论假设真假，这个环境都给出同一个结果）。#1054 的实例：第一次就正确判断出 `mktexlsr` 缺失是根因，随后在本地做「去掉 `mktexlsr` 看是否失败」的反证，没能复现，据此撤回了一个**正确的**修复，绕两条弯路后靠 CI 日志才重新确认。真实原因是本地 `TEXMFHOME`（`~/texmf`）不在 `TEXMFDBS` 里、不带 `!!` 前缀，走磁盘搜索，不受 ls-R 约束——这个环境改不改 `mktexlsr` 都不会失败。另一个同族实例是 #1043 的坏探针（见 `reference/coding-conventions.md:118-125`）：`\char_value_catcode:n` 加了 `\the` 前缀读出废数据，「实验有输出」被当成「实验有效」。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`
+
+### 对照实验不要用 `sed`／`perl` 删真实脚本的片段
+**Rule**: 对照实验的前提是只改一个变量。用 `sed`／`perl` 从真实脚本里删掉一段代码，同时也改了脚本的语法完整性与后续步骤的前提，等于一次改了两个变量，得到的结果无效。正确做法是写一个最小独立复现，直接测被怀疑的那个机制本身。
+**Why**: #1054 两次这样做：一次删出语法错误让脚本 exit 2，一次把末尾的生效校验整段删掉（于是「没报错」根本不能说明问题不存在），两次结论都无效。改用最小复现——在 `!!` 树上放一个文件，刷新／不刷新 ls-R 各查一次 `kpsewhich`——一次就拿到干净结果。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+
+### 命令退出码为 0 不等于产物合格，每一步都要在发生处校验
+**Rule**: 下载、解包、代码生成这类会产出文件的步骤，退出码为 0 不构成「产物可用」的判据，必须紧接着校验产物本身（非空、格式完整、数量符合预期）。中间步骤不要把输出丢 `/dev/null`，裸 glob 换成 `nullglob` 加显式计数。否则失败会被推迟到末尾的总校验，而总校验只能报出它自己那一种结论，与真实原因无关，把排查方向带偏。
+**Why**: #1054 中 `curl -fsSL --retry` 在 `mirrors.ctan.org` 重定向到实际镜像后三次 `curl: (28) Timeout`、重试耗尽，仍返回 0 且 `-o` 只写出空文件。脚本因此走进成功分支并 `break`，`unzip -oq` 静音失败，docstrip 在空目录无输出，`cp` 收到未匹配的 glob 字面量——一路静默到末尾被 kpsewhich 生效校验拦下，报出的却是「注入未生效」，真实原因（网络）完全看不见。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+
+### 抽出被多个调用点共用的脚本时，触发白名单与 job filter 属于「调用点」的一部分
+**Rule**: 把逻辑从某个 workflow 抽成共享脚本时，除了改各处 `run:`，还要更新「哪些文件改动会触发这些路径」——触发白名单与各包 job 的 filter。这些地方不改，改坏脚本时 CI 不会告警。而且不同 workflow 的失效机制不同，只查一处不够：`on.paths` 白名单不含该文件时 workflow **根本不触发**；`paths-ignore` 型 workflow **会触发**，但各包 job 的 `if` 取自 `_all` filter，全为 false 导致整体 skip、汇总 job 把 skipped 算作 OK 而呈现为绿。由此还有一条判读约束：**「看 job 有没有启动」不能作为门禁生效的证据**，前者 run 缺席、后者 run 在但内容为空，都可能被误读成「已经跑过了」。
+**Why**: #1054 把 workaround 抽成 `scripts/sync-l3backend.sh` 时更新了三处 `run:`，却漏了触发面，由两个 bot 独立指出；核实成立，已补 `check-doc.yml` 的 `on.paths` 与 `_all` filter、`test.yml` 的 `_all` filter 三处。这与「复合 Action 与 job step 是两套字段与默认值语义」同属 CI 结构类：同一份配置在不同 workflow 机制下语义不同。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+
+### kpse 能不能看见文件取决于那棵树有没有 `!!`，刷索引反而可能关掉回退
+**Rule**: 把文件拷进某棵 texmf 树，不等于 kpse 找得到它。`TEXMFDBS` 里带 `!!` 前缀的树语义是**只查 ls-R、绝不扫磁盘**；不带 `!!` 的树有「ls-R 比目录旧就回退扫盘」的宽容行为。因此往 `!!` 树里拷文件后必须**无条件** `mktexlsr`（该树没有 ls-R 时等于什么都找不到，「仅在已存在时刷新」是错的）。反直觉的一面是：**刷过索引反而会关掉扫盘回退**，所以「刚刷过索引」的环境比「索引陈旧」的更容易找不到随后拷入的文件。另外 `TEXMFHOME` 在本地通常是普通树、在 CI 上（setup-texlive-action）解析到带 `!!` 的 `texmf-local`，所以这类可见性问题**本地默认不具备复现前提**。
+**Why**: #1054 中同批 8 个 doc job 只有 `doc-zhmetrics` 失败，恰恰因为它在拷入 `.def` 之前跑过 `mktexlsr "$TEXMFHOME"`（`_check-doc-package.yml:251`，为它自己生成的 `zhmCJK.tfm/map`），索引是新的却不含随后拷入的文件，回退被关掉，解析回落到 `texmf-dist` 的旧版本；其他 job 靠回退扫盘侥幸成功。完整机制见 `reference/kpse-path-resolution.md`。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ### 排查上游问题前先查本仓库 `llmdoc/` 是否已有根因记录
 **Rule**: 怀疑某个失败源于第三方宏包或上游机制时，先在本仓库 `llmdoc/architecture/` 与相关反思里搜索是否已经记录过同一类问题的根因链，再决定是否需要直接去读上游源码。本仓库对已知的上游问题通常已经做过一次调研并沉淀成文档；跳过这一步直接读上游源码，等于重新做一遍已经做过的工作，还可能在对外沟通中给出「根因未定位」这类不准确的中间结论。
-**Why**: #1048/#1050 排查 `cleveref02/03` 的 4 个 `.tlg` diff 时，第一版评论判定为「根因未定位」，走的是直接读上游 `latex2e-first-aid-for-external-files.ltx` 源码这条路；而 `llmdoc/architecture/cleveref-patch.md` 早就把根因链（LaTeX firstaid 的 `\firstaid@cref@updatelabeldata` 缺 appendix 特判、上游 `latex2e#2049` 明确不修）记录完整，直接查阅即可，不需要重新排查。
-**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
+
+**适用范围不止于「排查」，同样适用于「写文档与写记忆」**：往个人或项目记忆文件（如 `CLAUDE.md`）写入某条规则之前，先查 `llmdoc/` 是否已有该内容，有则对齐而不是重写。否则新写的版本很可能比既有记录弱，还多出一处需要同步的副本。
+**Why**: #1048/#1050 排查 `cleveref02/03` 的 4 个 `.tlg` diff 时，第一版评论判定为「根因未定位」，走的是直接读上游 `latex2e-first-aid-for-external-files.ltx` 源码这条路；而 `llmdoc/architecture/cleveref-patch.md` 早就把根因链（LaTeX firstaid 的 `\firstaid@cref@updatelabeldata` 缺 appendix 特判、上游 `latex2e#2049` 明确不修）记录完整，直接查阅即可。#1054 是同一条规则换了对象的复发：把推送纪律写进 `CLAUDE.md` 时，llmdoc 里已有三份记录（`guides/push-and-pr-review-workflow.md`、`memory/decisions/repo-push-hook-discipline.md`、`reference/repo-git-conventions.md`），而新写的版本缺 `post-push: ✔ push succeeded` 这个明确判据、也缺 rc 75 的语义（CI 已过但存在未确认 review 活动或未解决 thread）。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ## LaTeX2e 命令钩子机制
 

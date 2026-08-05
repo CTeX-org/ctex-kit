@@ -112,3 +112,19 @@ key 随之改变，PR 侧 cache miss、当场全新安装拿到当前上游版�
   而不是只看 job 是否绿。
 - 下次遇到「本地复现了 CI 失败」的场景，先问一句「本地环境与 CI 环境此刻是否已知
   一致」，不一致时先查 CI 侧证据，再决定要不要发结论性评论。
+
+### 后续进展（#1054）
+
+本反思全篇的路径叙述限定在 `.tlg` 与 `l3build check`，那是当时事实的准确记录；#1054
+把范围扩大了：
+
+- 本轮加进 `_test-package.yml` 的内联 workaround 已抽成共享脚本
+  `scripts/sync-l3backend.sh`，并接入 doc 与 release 两条此前完全没有防御的排版路径
+  （`_check-doc-package.yml` 的 `l3build doc` 之前、`release.yml` 的 `l3build ctan`
+  之前）。撤除判据不变，仍是脚本打印的 `::notice::`。
+- **同一根因在 doc 路径不触发任何退出码**：编译 exit 0、PDF 页数与体积正常，只在正文
+  里散落泄漏文本。因此本反思讨论的判别手段（`.tlg` diff、缓存 key 与创建时间对比）在
+  doc 路径上都不适用，那条路径只能靠前置预防加目视检查。两条路径的表现差异与各自的
+  判别方式，见 `reference/build-and-test.md` 的「CI 侧的临时 workaround」一节。
+- 反思 [[1054-l3backend-defense-scope-and-kpse-lsr]] 另记 kpse `!!` 树与 ls-R 的机制，
+  以及本反思「注入类实验必须有可核实的生效判据」的否命题形态（反证失败不等于假设错误）。

@@ -129,7 +129,9 @@
 它不能证明「模板 catcode 写错」这一假设，后者需要单独变异（实测那样写并不失效）。
 参见 `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`。
 与 #879 的替换端 `\x{NN}` 丢失原 codepoint 属同类问题：凡拿字面字符做 token 级匹配或替换，
-先问它在当前 catcode régime 下是什么类别。
+先问它在当前 catcode régime 下是什么类别。同一条线还延伸到 TeX 之外的处理阶段——见下文
+「`\changes` 与索引条目里的 makeindex 特殊字符（#1054）」，那里的特殊含义由 makeindex 的
+`.ist` 指令而非 catcode 决定。
 
 ## `.lvt` 测试文件中 `~` 的使用约定（#893）
 
@@ -255,3 +257,31 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 - **实现文档**（代码实现部分）：使用 `\begin{macro}...\end{macro}` 描述内部机制，排版后出现在手册后半部分。
 
 新增选项或命令时，两处都需要添加说明：`\begin{function}` 面向用户解释用法和效果，`\begin{macro}` 面向开发者说明实现细节。
+
+## `\changes` 与索引条目里的 makeindex 特殊字符（#1054）
+
+`\changes` 条目的正文会经 makeindex 处理，四个字符在那一层有语法含义，不是普通文本：
+
+| 字符 | 含义 | 来源 |
+|------|------|------|
+| `=` | actual，分隔排序键与实际输出 | `gglo.ist` 的 `actual '='` |
+| `!` | quote，转义紧随其后的特殊字符 | `gglo.ist` 的 `quote '!'` |
+| `>` | level，分隔层级 | `gglo.ist` 的 `level '>'` |
+| `\|` | encap，引出格式化命令 | doc 的 encap 设置 |
+
+**未转义的 `=` 会让条目在该处截断**，只有后半段进 `.gls`，排版时报 `Extra }`，`l3build doc` exit 1。#1054 的实测机制：单条目对照，`\&=6` 的 `.gls` 只剩 `6}）时…`，`\&!=6` 完整。
+
+### 优先改写句子，而不是转义
+
+`!` 转义能过 makeindex，但它不是好办法，两个下游会各自出问题：
+
+- **`!` 会漏进 CHANGELOG**。`scripts/extract-changes.py` 从 `.dtx` 直接读 `\changes` 原文生成 `CHANGELOG.md`，makeindex 的转义字符对它没有意义，会原样出现在发布说明里。
+- **`|&|` 撞 encap**。想用竖线包住内容避开 `=`，反而进了 encap 语法。
+
+所以正确解法通常是**改写句子绕开这些字符**。判据是同时核对两个下游：`.gls` 的渲染结果，以及重新生成的 `CHANGELOG.md`（`make changelog-<pkg>`）——只看一边会漏。
+
+### 与 catcode régime 那条线的关系
+
+这与前面「字面字符当替换模式时必须核对 catcode régime（#1043）」及 #879 的替换端 codepoint 局限是同一族问题：**同一个字面字符在处理链的某一个阶段有特殊含义，而在别的阶段是普通文本。** #1043 的阶段是 TeX 的 tokenise，本节的阶段是 makeindex 的条目解析。
+
+由此还有一条判断规则：**看起来像笔误的转义字符，先查它在工具链里有没有语义**，尤其是别人已经写好、自己并未被要求修改的内容。#1054 就是把用户写好的 `\&!=6` 里的 `!` 当成误敲的多余字符删掉，引入了构建失败——查的方法是读 `.ist` 文件里的 `quote`／`actual`／`level` 指令与 doc 的 encap 设置，而不是靠「读起来不像句子的一部分」。
