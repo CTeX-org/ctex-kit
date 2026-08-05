@@ -608,7 +608,7 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 **为什么必须分两个 `testfiledir`**：兼容入口不可展开，观察它们的行为只有「让它执行」
 一条路；而排 CJK 需要中文字体，pdfTeX 下没有 CJK 设置时是硬错误 `Unicode character
 ... not set up for use with LaTeX` 并中止编译，XeTeX 下只是 `Missing character` 警告
-——同一个 `.lvt` 放两个引擎跑，基线会分化成「报错」与「警告」两种不可共存的形态。做法
+——同一个 `.lvt` 放两个引擎跑，基线会分化成「报错」与「警告」两种不可共存的结果。做法
 仿 `xpinyin/test/config-cjk.lua`。
 
 **观察不可展开命令的行为，只有「让它执行」一条路。** 排查中试过四种手段，全部只能拿到
