@@ -150,7 +150,7 @@ Copyright and Licence
 %<config&utf8>\ProvidesExplFile{\ExplFileName-utf8.cfg}
 %<config&big5>\ProvidesExplFile{\ExplFileName-big5.cfg}
 %<config&gbk>\ProvidesExplFile{\ExplFileName-gbk.cfg}
-%<package|config>  {\ExplFileDate}{3.1}{\ExplFileDescription}
+%<package|config>  {\ExplFileDate}{3.2}{\ExplFileDescription}
 %<*driver>
 \documentclass{ctxdoc}
 \setCJKmainfont{Noto Serif CJK SC}[
@@ -670,16 +670,53 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\zhnum,\zhnumberwithoptions}
+% \begin{macro}{\zhnum,\zhnumwithoptions}
 % 用于将 \LaTeX{} 计数器按中文格式输出。
+%
+% \changes{v3.2}{2026/08/05}{带选项的 \tn{zhnum} 与 \tn{zhdig} 先把计数器展开为
+%   数值再交给处理数值的实现，使它们在写入 \file{.toc} 一类辅助文件时固定为当时的
+%   计数器值（\#1008）。}
+%
+% 带选项的形式仍然不可完全展开（它需要一个分组来局部改样式），但**计数器名不应该
+% 被原样写进辅助文件**。原先 \tn{zhnum} 把 \meta{counter} 直接交给
+% \tn{zhnumwithoptions}，写进 \file{.toc} 的是 \verb|\zhnumwithoptions{...}{section}|；
+% 该文件在下一次编译的 \tn{tableofcontents} 处被读回，此时计数器已经归零或停在
+% 别的值上，于是目录里的编号与正文不一致（\#1008 实测：正文「一／一.壹」而目录
+% 「零／零.零」）。
+%
+% 修法是在 \tn{zhnum} 这一层先用 \texttt{e} 展开把计数器取成数值，再交给处理**数值**
+% 的 \tn{zhnumberwithoptions}：写进辅助文件的成为
+% \verb|\zhnumberwithoptions{...}{1}|，数值已经固定，样式则留待读回时套用。
+% 不改成完全可展开是有意的——样式靠 \tn{tl_set_eq:NN} 一类赋值实现（见
+% \tn{zhnum_reset_style:}），赋值无法在 \tn{edef} 的展开中生效，硬做只会把
+% 「不可展开」换成「静默用错样式」。
 %    \begin{macrocode}
 \NewExpandableDocumentCommand \zhnum { +o +m }
   {
     \tl_if_novalue:nTF {#1}
-      { \zhnum_counter:n }
-      { \zhnumwithoptions {#1} }
-    {#2}
+      { \zhnum_counter:n {#2} }
+      { \@@_counter_with_options:nn {#1} {#2} }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_counter_with_options:nn}
+% 先确认计数器存在（不存在时给出与无选项形式一致的报错），再把它展开成数值。
+% \tn{int_use:c} 只在计数器存在时才可用，所以存在性判断必须在展开之前。
+%    \begin{macrocode}
+\cs_new:Npn \@@_counter_with_options:nn #1#2
+  {
+    \int_if_exist:cTF { c@#2 }
+      { \exp_args:Nne \zhnumberwithoptions {#1} { \int_use:c { c@#2 } } }
+      { \@@_counter_error:n {#2} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\zhnumwithoptions}
+% 为兼容而保留：v3.1 及以前写进辅助文件的 \file{.toc} 里可能还留着这个名字，
+% 删掉会让旧文件读回时报 undefined control sequence。它现在只是转发。
+%    \begin{macrocode}
 \NewDocumentCommand \zhnumwithoptions { +m +m }
   {
     \group_begin:
@@ -957,15 +994,45 @@ Copyright and Licence
 \NewExpandableDocumentCommand \zhdig { +o +m }
   {
     \tl_if_novalue:nTF {#1}
-      { \zhnum_digits_counter:n }
-      { \zhdigwithoptions {#1} }
-    {#2}
+      { \zhnum_digits_counter:n {#2} }
+      { \@@_digits_counter_with_options:nn {#1} {#2} }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_digits_counter_with_options:nn}
+% 与 \tn{zhnum} 的同名处理一致，先固定数值再套样式，理由见那里。
+%    \begin{macrocode}
+\cs_new:Npn \@@_digits_counter_with_options:nn #1#2
+  {
+    \int_if_exist:cTF { c@#2 }
+      {
+        \exp_args:NNne \zhdigitswithoptions \c_false_bool
+          {#1} { \int_use:c { c@#2 } }
+      }
+      { \@@_counter_error:n {#2} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\zhdigwithoptions}
+% 为兼容旧辅助文件而保留，只是转发。
+%
+% \changes{v3.2}{2026/08/05}{修正 \tn{zhdigwithoptions} 把选项当作额外参数传给
+%   \cs{zhnum_digits_counter:n} 的笔误——带选项的 \tn{zhdig} 此前直接报
+%   \texttt{Use of \cs{???} doesn't match its definition} 并输出乱码。}
+%
+% 原先这里写的是 \verb|\zhnum_digits_counter:n #1 {#2}|，多传了一个 \verb|#1|
+% （选项本身）。\cs{zhnum_digits_counter:n} 只取一个参数，于是选项被当成计数器名、
+% 真正的计数器名溢出到后面。实测 \verb|\zhdig[style=Financial]{section}| 报
+% \texttt{Use of \cs{???} doesn't match its definition}，并把
+% \texttt{tyle=Financialsection} 印到页面上。
+%    \begin{macrocode}
 \NewDocumentCommand \zhdigwithoptions { +m +m }
   {
     \group_begin:
       \zhnum_set:n {#1}
-      \zhnum_digits_counter:n #1 {#2}
+      \zhnum_digits_counter:n {#2}
     \group_end:
   }
 \cs_new:Npn \zhnum_digits_counter:n #1
