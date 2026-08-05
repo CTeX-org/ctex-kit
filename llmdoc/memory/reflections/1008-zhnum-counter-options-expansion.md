@@ -52,7 +52,7 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 3. **在 `\TEST` 的参数里切 `\ExplSyntaxOn` 不生效**——参数已被读入，catcode 定死了。
    实测报 `Undefined control sequence` 指向 `\tl_log:N`。同理 `\protected@edef` 含
    `@`，在 `\ExplSyntaxOn` 下直接写会报 `You can't use a prefix with the character @`。
-4. **让它们真的排版，但放在主 `testfiles/` 里也不行**——排 CJK 需要中文字体：XeTeX 下
+4. **让它们实际排版，但放在主 `testfiles/` 里也不行**——排 CJK 需要中文字体：XeTeX 下
    只是 `Missing character` 警告，pdfTeX 下是**硬错误** `Unicode character ... not
    set up for use with LaTeX` 并中止编译。同一个 `.lvt` 的两个引擎基线会分化成
    「报错」与「警告」两种不同结果，而其中的**报错**（pdfTeX 那侧）会让其后用例静默
@@ -62,7 +62,7 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 
 - `testfiles/counter-options01`（三引擎）用记号层面的断言固定「值有没有被冻结」——
   判据是展开结果里出现 `{7}` 而非 `{section}`；
-- `testfiles-cjk/legacy-entry01` + `test/config-cjk.lua`（仅 xetex）让兼容入口真的排出
+- `testfiles-cjk/legacy-entry01` + `test/config-cjk.lua`（仅 xetex）让兼容入口实际排出
   汉字再量盒子，做法仿 `xpinyin/test/config-cjk.lua`。
 
 另外盒子度量的判别力踩过**两次**，而且第二次是在我以为已经解决之后。第一次：想用
@@ -181,7 +181,7 @@ zhnumber 自己的 `is not a LaTeX counter` 诊断；`\zhdig` 那一侧初版传
 help 行比 xetex/pdftex 少四行而需要 `.luatex.tlg`；而 `.pdftex.tlg` 只有
 `counter-options01` 需要——差别在日志**编码**：它的断言里有汉字，pdfTeX 把它们记成
 `^^e4^^b8^^83` 而 xetex 记成 `七`。**不是**因为 pdfTeX 排 CJK 会硬错误：这里的汉字只经
-`\tl_log:x` 进日志、没有真的排版，实测 `l3build check -e pdftex counter-options01` 全绿、
+`\tl_log:x` 进日志、没有实际排版，实测 `l3build check -e pdftex counter-options01` 全绿、
 零 `Unicode character` 命中。（把两件事混起来是我改这段时新引入的错误，第三轮盲审指出；
 `build-and-test.md` 原本的「字节形式」措辞是准确的。真正会因 pdfTeX 排 CJK 硬错误而必须
 分目录的是 `testfiles-cjk/`，见 `test/config-cjk.lua` 的说明。）`counter-options02` 的
@@ -333,7 +333,7 @@ PR #1055 补的 `check-tag` 拒绝。CHANGELOG 由 `make changelog-zhnumber` 生
 - recorder 把「引擎需求不同必须分 testfiledir」在 `build-and-test.md` 里补上 zhnumber
   这第三个实例（`counter-options01` 三引擎 / `legacy-entry01` 仅 xetex），巩固这条已
   反复验证的规则。
-- 若后续再有宏包遇到「不可展开命令是否需要真排版才能验证」的场景，可直接引用本反思
+- 若后续再有宏包遇到「不可展开命令是否需要实际排版才能验证」的场景，可直接引用本反思
   的四条死路，避免重走弯路。
 - recorder 把「可展开报错触发的致命错误使同文件后续 `\TEST` 静默不执行，须核对基线
   段落数」补进 `build-and-test.md` 或 `coding-conventions.md`，并把「写入辅助文件的
