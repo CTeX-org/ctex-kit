@@ -29,6 +29,25 @@
 注意判据是「有没有版本槽位」，不是「有没有 release tag」或「有没有 version 字段」：
 后两者都是可以补的，而前者决定了「忘同步会不会发出错版的包」。
 
+已知边界（纯文本对账查不到的）
+------------------------------
+本脚本只核对「该包有没有出现在这几个位置」，不理解 job 的语义。以下情形它**不会**
+报错，别把它当成完备的守卫：
+
+* `tag-<pkg>` job 存在但里面跑的不是 `l3build tag`（例如被改成 `echo skip`）；
+* 该 job 的 `if:` 条件指向了别的包的 output；
+* 汇总 job 的 `needs` 或 `env` 里漏了某个包（那会让它的失败不影响总状态）。
+
+这些属于「job 存在但被掏空」，需要 review 时人眼核对。之所以不进一步做语义检查：
+再往下就要解析 shell 与表达式，脚本本身的脆弱性会超过它防住的问题——而一个会
+静默失效的对账脚本比没有更糟（本脚本已经在这上面栽过两次，见 STAMP_PATTERNS 与
+`release_covered()` 的注释）。
+
+定位假设失效时本脚本**主动报错**而不是漏报：找不到 `jobs:`、找不到
+`Verify version consistency` step、或扫不到任何版本槽位，都会 `sys.exit` 并说明
+「本脚本假设已失效」。这条分界是有意的——把「定位失效」与「包漏覆盖」分开报，
+才不会让一次正常重构静默关掉这道检查。
+
 退出码
 ------
 0 = 覆盖一致；1 = 存在应覆盖而未覆盖的包（或脚本自身的假设已失效）。
@@ -44,10 +63,22 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECK_TAG = ROOT / ".github/workflows/check-tag.yml"
 RELEASE = ROOT / ".github/workflows/release.yml"
 
-# `l3build tag` 会回写的两种版本槽位。
+# `l3build tag` 会回写的**三种**版本槽位。
+#
+# 第三条是盲审补上的, 而漏掉它正是本脚本要防的那类错: zhmetrics 只有旧式
+# `[<日期> v<版本>]` 写法, 而它**有** `zhmetrics-v*` 触发器 (能发版)、两道校验
+# 都放行、初版脚本也扫不到 —— 与 #1041 的 xeCJK 完全同型.
+# 实测: `cd zhmetrics && l3build tag 9.9.9` 确实回写 zhmCJK.dtx 的
+# `[2026/08/05 v9.9.9 setup CJK fonts dynamically]` 一行.
+#
+# 判据要跟着 support/build-config.lua 的 update_tag 实际写入的位置走, 不能凭
+# 印象列举. 那里当前有两条 gsub: `({\ExplFileDate})%b{}` 与
+# `(%[)(%d%d%d%d/%d%d/%d%d) v([^%]%s]+)`; 加上 ctex/zhlineskip 包级覆写版改的
+# `$Id:$` stamp, 一共三种.
 STAMP_PATTERNS = (
     re.compile(r"\{\\ExplFileDate\}\{[^}]*\}"),
     re.compile(r"\$Id:\s*\S+\s+\S+"),
+    re.compile(r"\[\d{4}/\d{2}/\d{2}\s+v[^\]\s]+"),
 )
 
 
@@ -69,11 +100,15 @@ def packages_with_version_stamp() -> dict[str, list[str]]:
 def check_tag_covered() -> set[str]:
     """从 check-tag.yml 读出**完整**接入的包目录名。
 
-    一个包在这个 workflow 里要接三处, 缺任何一处都不成立, 所以取三者交集:
+    一个包在这个 workflow 里要接四处, 缺任何一处都不成立, 所以取四者交集:
 
     1. `on.pull_request.paths` —— 决定 PR 是否触发本 workflow;
-    2. `changes` job 的 `filters` —— 决定该包的 output 是否为 true;
-    3. 一个 `tag-<pkg>` job —— 真正跑 `l3build tag` 的地方。
+    2. `changes` job 的 `outputs:` 映射 —— 决定 filter 结果能否被下游读到;
+    3. `changes` job 的 `filters` —— 决定该包的 output 是否为 true;
+    4. 一个 `tag-<pkg>` job —— 真正跑 `l3build tag` 的地方。
+
+    第 2 条是盲审补上的: 漏掉它时, 删掉 `outputs:` 里某个包的那一行 (于是
+    `needs.changes.outputs.<pkg>` 恒为空、对应 tag job 永不运行) 脚本仍报绿。
 
     只看其中一处会漏报: `<pkg>/**` 在 (1)(2) 两段里都出现, 早期版本只用一条
     正则扫全文, 于是从 `paths` 里删掉某个包之后, `filters` 里的同名条目仍能让
@@ -95,13 +130,19 @@ def check_tag_covered() -> set[str]:
     # (2) filters: 在 jobs: 之后、且缩进更深 (14 空格) 的那些条目。
     in_filters = set(re.findall(r"^\s{14}- '([^/']+)/\*\*'", body, re.MULTILINE))
 
-    # (3) tag-<pkg> job (名字是小写的)。
+    # (2) changes job 的 outputs: 映射 (键是小写的, 与 job 名同一坐标系)。
+    outputs_keys = {
+        m.lower()
+        for m in re.findall(r"^      ([a-z0-9]+):\s*\$\{\{\s*steps\.filter\.outputs\.", body, re.MULTILINE)
+    }
+
+    # (4) tag-<pkg> job (名字是小写的)。
     job_names = {m.lower() for m in re.findall(r"^  tag-([a-z0-9]+):", body, re.MULTILINE)}
 
     return {
         pkg
         for pkg in (in_paths & in_filters)
-        if pkg.lower() in job_names
+        if pkg.lower() in job_names and pkg.lower() in outputs_keys
     }
 
 
@@ -133,9 +174,16 @@ def release_covered() -> set[str]:
             f"::error::{RELEASE.name} 里找不到 '{marker}' 步骤; "
             "本脚本的定位假设已失效, 请同步更新。"
         )
-    section = text[idx:]
+    # 区段必须有**终点**: 只写 text[idx:] 时, verify step 之后任何一处 10 空格
+    # 缩进的 `<name>)` 都会被算作已覆盖. 盲审实测: 在该 step 之后插入一个这样的
+    # 标签、同时删掉真分支, 脚本会静默报绿 —— 对账脚本自己漏报, 比不做对账更糟.
+    # 终点取「下一个同级 step 的 `- name:`」, 找不到就到文件末尾 (最后一个 step).
+    rest = text[idx:]
+    end = re.search(r"^    - name:", rest[len(marker):], re.MULTILINE)
+    section = rest[: len(marker) + end.start()] if end else rest
+
     covered: set[str] = set()
-    # 形如 `          ctex)` 或 `          zhnumber|xCJK2uni)`
+    # 形如 `          ctex)` 或 `          zhnumber|xCJK2uni|zhmetrics)`
     for m in re.finditer(r"^\s{10}([A-Za-z0-9|]+)\)$", section, re.MULTILINE):
         for name in m.group(1).split("|"):
             if name != "*":

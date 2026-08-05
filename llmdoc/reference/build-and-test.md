@@ -763,7 +763,7 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 | `zhnumber` | `build.lua` `version`（本次补） | `{\ExplFileDate}{<ver>}`（带 `%<package|config>` 守卫） | 共享 | ✓ | ✓ |
 | `xCJK2uni` | `build.lua` `version`（本次补） | `{\ExplFileDate}{<ver>}`（**无** docstrip 守卫，行首只有缩进） | 共享 | ✓ | ✓ |
 | `jiazhu` | 无 | `{\ExplFileDate}{0.0-beta}` | 共享 | ✗ | ✗（走 `*)`）——但 `release.yml` **没有** `jiazhu-v*` 触发器，发不出版，属潜在缺口 |
-| `zhmetrics` | 无（CLI `l3build tag <ver>`） | `[<日期> v<版本>]`（`zhmCJK.dtx` 的 `\ProvidesPackage`） | 共享 | ✗ | ✗（走 `*)`） |
+| `zhmetrics` | `build.lua` `version`（本次补） | `[<日期> v<版本> setup CJK fonts dynamically]`（`zhmCJK.dtx`，**旧式**写法，非 `{\ExplFileDate}`） | 共享 | ✓ | ✓ |
 | `CJKpunct` | 无 | **两种写法都没有** — 共享 `update_tag` 对它恒为空操作 | 共享（不生效） | ✗ | ✗（走 `*)`） |
 | `zhmetrics-uptex` | 无 | 无 `.dtx` | 不适用（有自己的 `build.lua`、`dir=zhmetrics-uptex`，但不 `dofile` 共享配置） | ✗ | ✗（走 `*)`）|
 | `zhspacing` | — | — | — | ✗ | ✗ |
@@ -777,6 +777,14 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 按「可发版 / 不可发版」分级：`release.yml` 有对应 `<pkg>-v*` 触发器的包漏校验就硬失败；没有触发器的（当前只有 `jiazhu`）发不出版，只打 `::notice::`。让一个当下无法造成事故的项长期报红，等于把这个检查训练成噪声。
 
 脚本本身的判别力已实测：分别从 `paths`、`filters`、`tag-<pkg>` job 三处各移除一个包，三次都 EXIT=1。**早期版本只用一条正则扫全文，因为 `<pkg>/**` 在 `paths` 与 `filters` 两段都出现，从 `paths` 删掉后仍显示已覆盖**——这个假阴性是实测发现的，现改为取三处交集。
+
+脚本的判据必须跟着 `update_tag` **实际写入的位置**走，不能凭印象列举：初版只列了 `{\ExplFileDate}{...}` 与 `$Id:$` 两种槽位，漏掉旧式 `[<日期> v<版本>]`——而 `zhmetrics` 只有旧式写法，且它**有** `zhmetrics-v*` 触发器（能发版），于是两道校验都放行、对账脚本也扫不到它，是 #1041 的完整重演。盲审实测 `cd zhmetrics && l3build tag 9.9.9` 确实回写 `zhmCJK.dtx` 一行才查出来。现补第三条 pattern 并把 zhmetrics 一并接入。
+
+脚本核对的是**四处**接入点的交集（`paths` / `changes` job 的 `outputs:` 映射 / `filters` / `tag-<pkg>` job），少查任何一处都会漏报：`outputs:` 里删掉一行会让 `needs.changes.outputs.<pkg>` 恒为空、对应 job 永不运行，而前三处看着都在。
+
+**`gate-coverage` job 无 `if:` 条件，但 workflow 级的 `on.pull_request.paths` 仍是白名单**，所以「总是跑」只在 workflow 被触发的前提下成立。给某个包新加 `<pkg>-v*` 触发器（即它从「发不出版、只 notice」变成「能发版、必须校验」的那次跃迁）只改 `release.yml`，而它原先不在 `paths` 里，于是最需要对账的那一刻恰好不触发——又是同型缺口。现已把 `release.yml` 与对账脚本自身加进 `paths`。
+
+**这套对账查不到「job 存在但被掏空」**：`tag-<pkg>` job 里把 `l3build tag` 换成别的命令、`if:` 指向别的包的 output、汇总的 `needs`／`env` 漏包，三者脚本都报绿。不再往下做语义检查是有意取舍——再深就要解析 shell 与表达式，脚本自身的脆弱性会超过它防住的问题，而会静默失效的对账比没有更糟。这部分靠 review 人眼核对，脚本 docstring 里也如实列了这条边界。
 
 这一版之前是手工对账（`grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml`）。首次补 `zhmetrics-uptex` 时那条模式写成 `[A-Za-z-]+`（不含数字），于是同一次对账又静默漏掉了 `xCJK2uni`——**对账手段自己犯了和被查问题同型的白名单错误**。这正是把它换成带判别力实测的脚本的理由。
 
