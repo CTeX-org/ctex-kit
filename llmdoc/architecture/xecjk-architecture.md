@@ -276,7 +276,7 @@ hyperref 的行内锚点会插入遮蔽 marker 的不可见节点。下面按**�
 - 驱动层的 `\hyper@anchor` 承接经 `\hyper@@anchor` 进来的锚点，直接排出裸的 `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**——`\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，与目标内容是否为空无关。
 - `\Hy@raisedlink` 承接需要抬升的锚点：无编号标题（`\section*`、`\chapter*`，以及目录、参考文献等自动生成的无编号标题）、caption、公式编号、脚注、`\bibitem`，以及下游手工包裹的写法，例如 ctxdoc 的 `\exptarget` 定义为 `\Hy@raisedlink{\hypertarget{name}{}}`。它在水平模式下排出 `\penalty\@M` 加一个 `\smash` 后的 `hbox(0+0)x0`。注意目录**条目**不走这条路：`\contentsline` 用 `\hyper@linkstart`／`\hyper@linkend` 做链接，与抬升锚点无关。
 
-`\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 使用同名，`hdvips.def` 没有），注册前用 `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，因此包尾钩子里的存在性检查时机正确。
+`\hyper@anchor` 由驱动定义（`hxetex.def`、`hluatex.def`、`hpdftex.def`、`hdvipdfm.def` 直接定义，`hdvips.def` 经 `\input{pdfmark.def}` 得到同名命令），注册前用 `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，因此包尾钩子里的存在性检查时机正确。
 
 - 第三个出口 `\__hyp_target_raise:n`：`\phantomsection` 与 `\MakeLinkTarget` 走它，编号标题的锚点也经过它。它自己排出同构的 `\penalty\@M` 加 `\smash` 抬升盒子，不经过 `\Hy@raisedlink`。它不接受通用命令 hook（LaTeX hook 机制拒绝 expl3 私有函数），故用 `\@@_boundary_wrap_transparent_onearg_braced:NN` 包装。
 

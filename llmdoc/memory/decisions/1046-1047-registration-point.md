@@ -42,8 +42,9 @@
 
 `\Arg`、`\marg`、`\oarg`、`\parg` 不需要这层 capture：它们在
 `\__codedoc_meta:n` 两侧各排出等宽的 `{`、`[`、`(` 实字符，本身就构成正常的
-CJK→Default 边界，去掉内层 capture 前后节点列表逐字节相同（`\showbox` 逐节点
-比对，`l3doc` 与 `doc` 两种环境下均无差异，不只是宽度相同）。它们仍留在保留
+CJK→Default 边界，去掉内层 capture 前后宽度与可见排版结果完全相同；节点列表上
+少了内层 capture 原本留下的一对零效果 `default` marker kern（±0.0002pt），单变量
+实验（只加回内层 capture）确认那对 kern 正由它产生。它们仍留在保留
 表，防止用户接口把通用 hook 叠到共享的内部实现上。`doc` 宏包的 `\meta`
 没有 `\texttt` 外层，本来对称，实现未改。
 
@@ -58,7 +59,8 @@ hyperref 的行内锚点有多个出口，区分依据是**调用点**而不是�
    `pdf:dest` whatsit。**`\hypertarget` 的两个分支最终都走这里**：
    `\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用 `\hyper@anchor`，
    与目标内容是否为空无关。该命令由驱动定义（`hxetex.def`、`hluatex.def`、
-   `hpdftex.def`、`hdvipdfm.def` 同名，`hdvips.def` 没有），注册前用
+   `hpdftex.def`、`hdvipdfm.def` 直接定义，`hdvips.def` 经 `pdfmark.def` 得到
+   同名命令），注册前用
    `\cs_if_exist:NT` 守卫；hyperref 在 `\AtEndOfPackage` 阶段载入驱动，
    包尾钩子里的存在性检查时机正确。
 2. `\Hy@raisedlink`——承接需要抬升的锚点，以及下游手工包裹
