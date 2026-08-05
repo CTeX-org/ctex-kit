@@ -133,6 +133,19 @@
 「`\changes` 与索引条目里的 makeindex 特殊字符（#1054）」，那里的特殊含义由 makeindex 的
 `.ist` 指令而非 catcode 决定。
 
+**同一条「catcode régime 一次定好」在测试文件里的复现（#1008）**：写 `.lvt` 测试时若
+想在 `\TEST{...}` 的参数**内部**临时切换 `\ExplSyntaxOn`／`\ExplSyntaxOff` 去容纳两种
+写法（例如既要展开一段 `\protected@edef` 又要用 expl3 断言），这**不生效**——参数在
+被 `\TEST` 读入的那一刻，其中每个 token 的 catcode 就已经按当时生效的 régime 冻结，
+之后在参数体内再写 `\ExplSyntaxOn` 只是让引擎多展开一个空操作，不会回头改变已经确定的
+记号性质（实测报 `Undefined control sequence` 指向后续 expl3 命令）。这与上面「字面
+模式的类别在文件被 tokenise 的那一刻冻结」是同一机制在两个不同触发点的表现：一个是
+替换模式的字面字符，一个是整段参数的 catcode 环境。解法同样是在**读入之前**就把
+régime 定好——整个测试文件统一在 `\ExplSyntaxOn` 下，需要 `\protected@edef` 一类带
+`@` 的命令时，用 `\makeatletter` 包一段、再用 `\cs_set_eq:NN`／`\cs_new_eq:NN` 起一个
+不带 `@` 的 expl3 别名，断言部分继续用 expl3 语法读取该别名的展开结果（见
+`zhnumber/testfiles/counter-options01.lvt`）。
+
 ## `.lvt` 测试文件中 `~` 的使用约定（#893）
 
 `.lvt` 测试文件里 `~` 的合法性取决于所在的 catcode 段，写测试时必须区分：
