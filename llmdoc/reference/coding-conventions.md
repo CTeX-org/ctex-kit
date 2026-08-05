@@ -153,8 +153,12 @@ tokenise 那一刻决定）的另一个场景：不是对齐环境，而是**辅
 
 写 `.toc`／`.aux` 一类辅助文件时，`_` 不是 letter（catcode 8）。若传给某个命令的
 记号里含 `_`（如 `\c_false_bool`），这一整串会被原样写进辅助文件，下次编译重新
-tokenise 时名字在**写出那一刻**就断成 `\c _false_bool`，读回即报
-`The key 'zhnum/options/_' is unknown` 之类一串错误。
+tokenise 时名字在**写出那一刻**就断成 `\c _false_bool`，读回即出错。
+
+具体报什么错取决于写法，两种都实测过：不带花括号时（`\exp_args:NNne ... \c_false_bool`）
+断开的 `_` 被当成键名，报 `The key 'zhnum/options/_' is unknown` 之类一串错误；带花括号
+时（`{ \c_false_bool }`）报 `Missing $ inserted.`。**排查时不要把某一种当成这条约束的
+唯一表征**——只认其中一种，换个写法复核就会误判为「机制不成立」。
 
 zhnumber 初版给 `\zhdigitswithoptions` 的星号参数传 `\c_false_bool` 即踩了这一坑：
 第一遍编译正常、第二遍读回 `.toc` 才炸——这类失败的特征是「跨编译才暴露」。应改用

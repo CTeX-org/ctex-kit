@@ -516,14 +516,19 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 collapse 成同一个值——实测「七」与「柒」的宽度都是 2.8pt，分辨不出内容；改用**高度**
 才有判别力（`ht=7.33` 的「七」vs `ht=7.75` 的「柒」）。
 
-**可展开报错在 l3build 的 `\scrollmode` 下是致命错误，这是本节最重要的约束。**
+**可展开报错在本仓库的 `checkopts` 下是致命错误，这是本节最重要的约束。**
 `\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
-`\???` 控制序列，触发 `Use of \??? doesn't match its definition`——这条消息在
-`\scrollmode` 下实测**编译就地中止**，打印 `Fatal error occurred, no output PDF file
-produced!`，其后所有 `\TEST` 一律不执行。这条报错文本**必须**固定进基线，因为那是唯一
-可行的判据（曾试过只固定「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那
-一步就已经中止）；代价是需要三份基线——luatex 在该错误后打印的 help 行比 xetex/pdftex
-**少四行**。由此得到两条硬约束：
+`\???` 控制序列，触发 `Use of \??? doesn't match its definition`——该错误实测让**编译
+就地中止**，打印 `Fatal error occurred, no output PDF file produced!`，其后所有 `\TEST`
+一律不执行。成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
+**不是** LaTeX 或 l3build 本身的行为：l3build 默认 `-interaction=nonstopmode`，那种设置
+下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。因此下面两条硬约束是**本仓库
+的**约束，往用默认 `checkopts` 的项目推断前要先核对那边的设置。这也是 #1026 用
+`\showbox` 撞过的同一个机制（见 `lessons-learned.md` 里 `\showbox` 那条），本次是它的
+第二个触发源。这条报错文本**必须**固定进基线，因为那是唯一可行的判据（曾试过只固定
+「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那一步就已经中止）；代价是
+需要多份基线——luatex 在该错误后打印的 help 行比 xetex/pdftex **少四行**。由此得到两条
+硬约束：
 
 - **一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末。** `\zhnum` 与
   `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
