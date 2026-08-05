@@ -384,6 +384,17 @@ jobs:
       if: steps.parse.outputs.pkg == 'xeCJK'
       run: curl -fsSL -o support/Unihan.zip "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
 
+    # 临时措施 (#1048/#1050/#1051): 修正 tlnet 上 l3kernel 与 l3backend 的
+    # 版本错配. 详细根因、症状与撤除条件见 scripts/sync-l3backend.sh.
+    #
+    # 必须在 l3build ctan 之前. ctan target 内部会 call check, 所以 .tlg
+    # 那侧的红能被发现; 但它同时打包 typeset 出来的 PDF, 而 PDF 里的
+    # "0gray 0" 泄漏不触发任何退出码 —— 缺这一步会把带缺陷的文档送进
+    # CTAN zip, 且 release-ctan-upload.yml 只是原样转发这个 zip.
+    - name: Sync l3backend to l3kernel (upstream version skew)
+      shell: bash
+      run: bash ./scripts/sync-l3backend.sh
+
     - name: Build CTAN zip
       working-directory: ./${{ steps.parse.outputs.dir }}
       run: l3build ctan
