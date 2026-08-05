@@ -152,7 +152,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### 测试输入的取值本身要能区分被测的各条路径
-**Rule**: 选测试输入时要问「在这个取值下，我要区分的两条代码路径的输出真的不同吗」。若某个取值让两条路径的输出恰好恒等，针对其中一条的缺陷就零判别力，而测试看着是覆盖了两条。这是上一条（度量选哪一维）在**输入侧**的对应问题：那条管观察维度，这条管激励取值。
+**Rule**: 选测试输入时要问「在这个取值下，我要区分的两条代码路径的输出真的不同吗」。若某个取值让两条路径的输出恰好恒等，针对其中一条的缺陷就零判别力，而测试看着是覆盖了两条。这是「聚合度量选哪一维要先验证它真的会随被测行为变化」那条在**输入侧**的对应问题：那条管观察维度，这条管激励取值。
 **Why**: #1008 的 `legacy-entry01` 字形断言一开始只用 `\setcounter{section}{7}`，而一位数下 `\zhnum`（整数读法）与 `\zhdig`（逐位读法）的输出恒等，都是单个汉字。实测把 `\zhdigwithoptions` 内部的 `\zhnum_digits_counter:n` 换成 `\zhnum_counter:n`——整条 digits 路径接成整数路径，正是该 issue 根因二那一类接线错误——测试全绿。改用 `123` 后两者分别排「壹贰叁」与「壹佰贰拾叁」，位数与字形都不同，该变异才被抓住。
 **Source**: `llmdoc/memory/reflections/1008-zhnum-counter-options-expansion.md`
 
