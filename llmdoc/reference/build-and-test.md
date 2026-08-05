@@ -535,7 +535,7 @@ GitHub Actions 工作流当前包含以下主线：
 
 - `.github/workflows/test.yml`：跨平台测试工作流
 - `.github/workflows/check-doc.yml`：PR 校验 workflow, 跑 `l3build doc` 抓文档 dtx→PDF 可编译性 (#935); 与 test.yml 分工 (后者只跑 `l3build check`, 不 typeset dtx), 覆盖 9 个包 (zhspacing 因深层依赖问题暂不覆盖, 见下), 单 engine 单 OS. TL bypass cache key 与 test.yml 完全共享; 详见 [[935-check-doc-vs-ctan]]
-- `.github/workflows/check-tag.yml`：PR 校验 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK / xpinyin) 跑 `l3build tag` + `git diff --exit-code`, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041, xpinyin 随 #1041 测试接入同批补上); 与 release.yml 的三方版本校验构成两道校验, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
+- `.github/workflows/check-tag.yml`：PR 校验 workflow, 对支持 l3build tag 的包 (zhlineskip / ctex / xeCJK / xpinyin / zhnumber / xCJK2uni) 跑 `l3build tag` + `git diff --exit-code`, 另有 `gate-coverage` job 跑 `scripts/check-version-gate-coverage.py` 对账白名单, 验证源文件版本与 build.lua 的 version 同步 (#937, xeCJK 自 #1041, xpinyin 随 #1041 测试接入同批补上); 与 release.yml 的三方版本校验构成两道校验, 详见 [[937-version-single-source-l3build-tag]]、[[1041-xecjk-version-gate]] 与下方"版本管理"章节的覆盖矩阵
 - `.github/workflows/check-changelog.yml`：PR 校验 workflow, 校验 6 个包 (ctex/xeCJK/xpinyin/zhlineskip/zhmetrics/zhnumber) 的 `CHANGELOG.md` 与 `.dtx` 的 `\changes` 条目是否同步 (#961, xpinyin 随 #1041 测试接入同批补写首条 `\changes` 后加入); 与 `check-tag.yml` 同一「生成物新鲜度校验」模式, 详见下方"生成物新鲜度校验模式"小节与 [[961-changelog-gate-no-write-perm]]
 - `.github/workflows/lint-test-files.yml`：`.lvt` 测试文件 lint，PR 触发（`paths` 限定 `**/*.lvt` 及检查脚本本身），检查新增行在 `\ExplSyntaxOff` 段的 `\TEST`/`\BEGINTEST`/`\TYPE` 大括号内是否误用 `~`（#893）；与 `.githooks/pre-commit` 共用 `.githooks/check-test-tilde.sh`，约定细节见 `llmdoc/reference/coding-conventions.md`
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
@@ -760,20 +760,25 @@ CTAN 打包现已完全由 `.github/workflows/release.yml` 自动化驱动。原
 | `zhlineskip` | `build.lua` `version` + `date` | `$Id:$` stamp | 包级覆写 | ✓ | ✓ |
 | `xeCJK` | `build.lua` `version`（#1041） | `{\ExplFileDate}{<ver>}` | **共享** | ✓ | ✓ |
 | `xpinyin` | `build.lua` `version`（#1041 后续） | 两处：`{\ExplFileDate}{<ver>}`（`\ProvidesExplPackage`）与 `[<日期> v<ver>]`（`xpinyin-database.def` 的 `\ProvidesFile`） | 共享 | ✓ | ✓ |
-| `jiazhu` / `xCJK2uni` / `zhmetrics` / `zhnumber` | 无（CLI `l3build tag <ver>`） | 有 `\ExplFileDate` 或 `[<日期> v<版本>]` | 共享 | ✗ | ✗（走 `*)`） |
+| `zhnumber` | `build.lua` `version`（本次补） | `{\ExplFileDate}{<ver>}`（带 `%<package|config>` 守卫） | 共享 | ✓ | ✓ |
+| `xCJK2uni` | `build.lua` `version`（本次补） | `{\ExplFileDate}{<ver>}`（**无** docstrip 守卫，行首只有缩进） | 共享 | ✓ | ✓ |
+| `jiazhu` | 无 | `{\ExplFileDate}{0.0-beta}` | 共享 | ✗ | ✗（走 `*)`）——但 `release.yml` **没有** `jiazhu-v*` 触发器，发不出版，属潜在缺口 |
+| `zhmetrics` | 无（CLI `l3build tag <ver>`） | `[<日期> v<版本>]`（`zhmCJK.dtx` 的 `\ProvidesPackage`） | 共享 | ✗ | ✗（走 `*)`） |
 | `CJKpunct` | 无 | **两种写法都没有** — 共享 `update_tag` 对它恒为空操作 | 共享（不生效） | ✗ | ✗（走 `*)`） |
 | `zhmetrics-uptex` | 无 | 无 `.dtx` | 不适用（有自己的 `build.lua`、`dir=zhmetrics-uptex`，但不 `dofile` 共享配置） | ✗ | ✗（走 `*)`）|
 | `zhspacing` | — | — | — | ✗ | ✗ |
 
 **这张表的行必须覆盖 `release.yml` 的 `Parse tag` 能识别的全部 tag 前缀**（当前十个：`CJKpunct`、`ctex`、`xCJK2uni`、`xeCJK`、`xpinyin`、`zhlineskip`、`zhmetrics`、`zhmetrics-uptex`、`zhnumber`、`zhspacing`），否则漏掉的那一行正是矩阵想拦住的「静默跳过」。`zhmetrics-uptex` 就是这样漏过一次的——它能触发 `release.yml` 却不在表里。
 
-对账要用能匹配全部包名的模式：包名含数字（`xCJK2uni`）和连字符（`zhmetrics-uptex`），所以
+**对账现在由 `scripts/check-version-gate-coverage.py` 自动完成**，接在 `check-tag.yml` 的 `gate-coverage` job 上（无 `paths` 过滤，总是跑——用 `paths` 过滤自己就会重现同一类漏报）。它扫全部 `*/build.lua` 同目录的 `.dtx`，凡含 `l3build tag` 会回写的版本槽位（`{\ExplFileDate}{...}` 或 `$Id: <file> <ver>`）就要求该包同时出现在两个 workflow 里，否则失败并指出该补哪一处。
 
-```sh
-grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | sed 's/-v\*//' | sort
-```
+判据刻意选「**有没有版本槽位**」而不是「有没有 release tag」或「有没有 `version` 字段」：后两者都是可以补的，而前者决定了忘同步会不会发出错版的包。
 
-首次补 `zhmetrics-uptex` 时我用的是 `[A-Za-z-]+`（不含数字），于是同一次对账又静默漏掉了 `xCJK2uni`——**对账脚本自己犯了和被查问题同型的白名单错误**。
+按「可发版 / 不可发版」分级：`release.yml` 有对应 `<pkg>-v*` 触发器的包漏校验就硬失败；没有触发器的（当前只有 `jiazhu`）发不出版，只打 `::notice::`。让一个当下无法造成事故的项长期报红，等于把这个检查训练成噪声。
+
+脚本本身的判别力已实测：分别从 `paths`、`filters`、`tag-<pkg>` job 三处各移除一个包，三次都 EXIT=1。**早期版本只用一条正则扫全文，因为 `<pkg>/**` 在 `paths` 与 `filters` 两段都出现，从 `paths` 删掉后仍显示已覆盖**——这个假阴性是实测发现的，现改为取三处交集。
+
+这一版之前是手工对账（`grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml`）。首次补 `zhmetrics-uptex` 时那条模式写成 `[A-Za-z-]+`（不含数字），于是同一次对账又静默漏掉了 `xCJK2uni`——**对账手段自己犯了和被查问题同型的白名单错误**。这正是把它换成带判别力实测的脚本的理由。
 
 `zhspacing` 是**有意识**排除（商业字体依赖 + 包自身时序 bug，见 [[935-check-doc-zhspacing-blockers]]）；xeCJK 曾是**无意识**从未接入——`v3.10.5-rc2` 因此发出了一个自报 `v3.10.4` 的包，两道检查都没拦住。加新包或让某个包具备条件时，务必回到这张表和两个 workflow 一起改。
 
@@ -784,6 +789,8 @@ grep -oE '^ +[A-Za-z0-9-]+-v\*\)' .github/workflows/release.yml | tr -d ' )' | s
   - **`version` 这个全局名可能是函数**。l3build 自己定义了 `function version()` 供 `--version` 用（`l3build-help.lua:32`），所以未设 `version` 的包里它不是 `nil`。写 `version or tagname` 会取到那个函数并报 `attempt to index a function value`，必须 `type(version) == "string"` 判断。
   - **`\ExplFileDate` 装的不是版本号**。`\ProvidesExplPackage` 的参数顺序是 `{name}{date}{version}{desc}`，所以 `{\ExplFileDate}{3.10.5}{\ExplFileDescription}` 里 `\ExplFileDate` 是日期占位宏（由 `\GetIdInfo$Id:$` 从 git stamp 取 commit 日期），大括号里的 `3.10.5` 才是版本。`update_tag` 只改后者；日期随打包时的 `replace_git_id` 自动跟进，硬写会让每次 tag 都产生 diff。
   - **幂等守卫的观察范围必须覆盖全部写入范围**。`xpinyin.dtx` 同时存在两种版本写法：`\ProvidesExplPackage` 后的 `{\ExplFileDate}{<ver>}`，与 `xpinyin-database.def` 里 `\ProvidesFile` 的 `[<日期> v<ver> xpinyin database]`。早期版本的守卫只看前者，一旦两处失同步而只有后者过期，该行永远不会被修复。修法是先算出两处各自的目标写法，再整体比较；`[<日期> v<ver>]` 这种写法**只在版本号需要改时才连日期一起重写，版本号已对则整段原样保留**（包括陈旧日期），因为持续把已同步文件的日期刷成当天会让 PR 校验的 diff 永不为零。
+- **给一个包补 check-tag job 时，必须同时给它加 `build.lua` 的 `version` 字段，否则那个 job 是恒绿的。** 未设 `version` 的包跑不带参数的 `l3build tag` 时，共享 `update_tag` 会打印「未指定版本号, 未作任何修改」并**以 0 退出**；于是 job 跑完 `git diff --exit-code` 天然为零，看着通过，实际什么也没校验。zhnumber / xCJK2uni 接入时实测确认：加字段前 `l3build tag` 不改任何文件，加后回写并保持幂等。这类「跑了但没检查」的 job 比没有 job 更危险——它会让覆盖矩阵显示 ✓。
+- **提取版本号的模式必须锚到行首的结构标记，而不是只匹配形状**；两个包的锚点还不一样：`zhnumber.dtx` 的版本行带 `%<package|config>` docstrip 守卫，锚它即可；`xCJK2uni.dtx` 的版本行**没有**守卫（行首只有缩进空白），只能锚 `^[[:space:]]*` 加完整形状——而该文件另有一处 `\ExplFileDate` 出现在 `\date{...}` 里，完整形状恰好能排除它（实测不会误匹配）。两者的 fail-closed 都实测过：删掉真行、追加一句引用该形状的注释，提取结果均为空。
 - 注意 `make tag <pkg>-vX.Y.Z` 是打 **git tag**（触发 release.yml），与 `l3build tag`（回写源文件 stamp）是两回事。
 - ctex 的 `update_tag` 在处理主 `ctex.dtx` 时还会额外固化手册首页页脚的 shorthash：取 `git log -1 --format='%h' *.dtx` 回写进 `ctex.dtx` 里的 `\GetFileId[<hash>]{ctex.sty}`（消费方是 `support/ctxdoc.cls` 的 `\GetFileId { O{} m }`，可选参数即固化 hash）。运行时**不**依赖 `\sys_get_shell` / `--shell-escape` 现取 git 信息——曾经的运行时方案已被否决，详见决策 [[937-version-single-source-l3build-tag]] 「手册页脚 shorthash」小节。
 - `\GetFileId` 仍为标题页提供版本号和 revision hash，但不再提供标题日期。`ctex` 拆分后，`ctex.sty` 的 `\filedate` 只反映 `ctex-kernel.dtx` 的 stamp，可能早于手册和其他拆分源文件；因此 `ctex` 与 `xeCJK` 的标题日期统一改用 `\ctexkitbuilddate`，按 `YYYY/MM/DD` 格式排印构建当天日期。正式 PDF 由 GitHub Actions 集中构建，版本号负责标识内容，日期只表示该 PDF 的构建日。

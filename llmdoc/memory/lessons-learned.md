@@ -188,8 +188,18 @@ Curated cross-task rules distilled from archived memory.
 
 ### 白名单式 CI 校验默认放行，未覆盖的包无人察觉
 **Rule**: 按包 opt-in 的校验（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类校验必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
-**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。
+**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。**同一缺口后来又出现一次**：zhnumber 与 xCJK2uni 也从未被覆盖，而两者的 `.dtx` 都有 `{\ExplFileDate}{<ver>}`、`l3build tag` 确实会回写——那条「不使用 l3build tag 版本 stamp 机制」的 notice 是**错的**。#1041 的反思当时已写下「应当有一条未覆盖清单的对账机制」并留作后续，正因为没做，第二次才又靠人工翻查才发现。**所以这条规则的落实方式是自动对账脚本，不是「记得同步矩阵」**：现由 `scripts/check-version-gate-coverage.py` 在 `check-tag.yml` 的 `gate-coverage` job 里强制执行；它当场又查出第三个漏掉的包（jiazhu）。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+
+### 「跑了但什么也没校验」的 job 比没有 job 更危险
+**Rule**: 加一道校验后，必须验证它在**被校验对象出错时确实会失败**，而不只是「加上之后 CI 是绿的」。特别当校验形如「跑某个命令 + 比对 diff」时，要确认那个命令在当前配置下真的会产生写入——命令以 0 退出且什么都不改时，diff 天然为零，job 恒绿却会让覆盖矩阵显示 ✓，比缺这道校验更难发现。
+**Why**: 给 zhnumber / xCJK2uni 补 check-tag job 时，两个包都还没有 `build.lua` 的 `version` 字段。未设该字段时不带参数的 `l3build tag` 会打印「未指定版本号, 未作任何修改」并**以 0 退出**，于是照 xpinyin 抄来的 job 跑完 diff 为零、显示通过，实际一无所校。必须同时加 `version` 字段，实测确认「加前不改文件、加后回写且幂等」。
+**Source**: `llmdoc/reference/build-and-test.md`（版本管理一节）
+
+### 对账／校验脚本本身也要做判别力实测，它同样会犯被查的那类错
+**Rule**: 用来查「有没有漏」的脚本，写完后要对每一处它声称覆盖的接入点各做一次移除实验，确认都能检出。这类脚本最容易犯的是与被查问题**同型**的错误——白名单不全、正则漏一类命名、同一标记在多处出现而只查到其中一处。
+**Why**: 两次实例。一是手工对账用 `grep -oE '^ +[A-Za-z-]+-v\*\)'`（不含数字），补 `zhmetrics-uptex` 的同一次对账又静默漏掉了 `xCJK2uni`。二是 `check-version-gate-coverage.py` 初版只用一条正则扫 `check-tag.yml` 全文，而 `<pkg>/**` 在 `paths` 与 `filters` 两段都出现，从 `paths` 里删掉某个包后脚本仍报「已覆盖」；改为取 `paths`／`filters`／`tag-<pkg>` job 三处交集后，三个方向的移除实验才都能检出。
+**Source**: `llmdoc/reference/build-and-test.md`（版本管理一节）
 
 ### l3build 的 build.lua 里全局名可能已被框架占用，判空要判类型
 **Rule**: 在 `build.lua` / `support/*.lua` 里对全局名做「未设置则回退」时，先确认 l3build 没有预定义同名对象。`x or fallback` 只在 `x` 只可能是目标值或 `nil`/`false` 时成立；`x` 可能是别的类型（尤其框架预定义的函数）时必须判类型。
