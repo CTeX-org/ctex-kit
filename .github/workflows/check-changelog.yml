@@ -48,9 +48,13 @@ jobs:
         # 包列表由 Makefile 的 CHANGELOG_PKGS 决定 (单一事实源)
         run: make changelog
       - name: CHANGELOG.md must not contain internal placeholders
-        # extract-changes.py 用 \x00..\x05 做临时占位符. 若某种嵌套 (实测:
-        # \texttt{... \cs{???} ...}, 内层占位符被整段收进 verbatim_blocks
-        # 后再也扫不到) 让占位符没被还原, 它会原样落进 CHANGELOG.md.
+        # extract-changes.py 用 \x00..\x05 六个控制字符做临时占位符, 三对各管一类:
+        # \x00..\x01 包 \cs / \tn 的名字, \x02..\x03 包数学环境, \x04..\x05 包
+        # verbatim / \texttt 片段. 下面把六个全查, 不只查已经出过问题的那一对 ——
+        # 任何一对没被还原都是同一类缺陷.
+        # 已知触发方式 (实测): \texttt{... \cs{???} ...} 这种嵌套里, 内层
+        # \x00..\x01 被整段收进 verbatim_blocks 后再也扫不到, 于是原样落进
+        # CHANGELOG.md.
         # 这类漏出是**确定性**的, 下面的新鲜度 diff 抓不到 —— 生成物两边一致,
         # 只是两边都错. 所以单独校验一次.
         run: |
