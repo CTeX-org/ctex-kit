@@ -50,3 +50,42 @@ marker 与末尾零尺寸盒子相邻，而 `\Hy@raisedlink` 在盒子**之前**
 回归测试 `hyperref-anchor-ecglue01`（7 项断言）。两个注册的判别力互不重叠，
 正好说明是两条独立路径：去掉 `\Hy@raisedlink` 注册使 TEST 1、2 失败；
 去掉 `\hyper@anchor` 注册使 TEST 3、4 失败，各差 3.33pt。
+
+## 出口清单（PR 定稿，2026-08-05）
+
+最终实现覆盖三个出口，另有一个已知未覆盖。区分依据是**调用点**，不是锚点内容
+——最初写的「按目标是否为空分派」经计数器实测为假。
+
+**已覆盖：**
+
+| 出口 | 承接的入口 |
+| --- | --- |
+| 驱动层 `\hyper@anchor` | **全部** `\hypertarget`（空/非空目标皆然，`\@hyper@@anchor` 在 `\ifHy@activeanchor` 为假时统一调用它） |
+| `\Hy@raisedlink` | 无编号标题（`\section*`、`\chapter*`、目录与参考文献标题）、caption、公式编号、脚注、`\bibitem`，以及下游手工包裹（ctxdoc 的 `\exptarget`） |
+| `\__hyp_target_raise:n` | `\phantomsection`、`\MakeLinkTarget`、编号标题锚点 |
+
+第三个出口不接受通用命令 hook（LaTeX hook 拒绝 expl3 私有函数），需用
+**带花括号转发参数**的包装变体：它会把参数再次交给 `\hbox:n`，无花括号转发会
+让紧随其后的 `\Hy@SaveSpaceFactor` 被卷进 `\hyper@anchorstart` 的参数，把
+`\spacefactor` 赋值写进 `pdf:dest` 名字并把锚点名排成可见文本。该故障与 xeCJK
+的钩子无关——不挂任何钩子、仅做无花括号透传同样复现（81.16002pt）。
+
+**已知未覆盖：** `\hyper@anchorstart` 的裸调用。`\pdfbookmark` 直接写
+`\hyper@anchorstart{...}\hyper@anchorend`，绕过上面三处（计数器实测三者均为 0），
+右侧仍缺一枚 `\CJKecglue`。这不是本次引入，base 上同样如此。两种就手补法均实测
+不可行：注册 `\@pdfm@dest` 使盒宽暴涨并报十余处错误；注册 `\hyper@anchorstart`
+不报错但也不生效，已覆盖的三处不受影响，原因尚未查明。已另立议题跟踪，
+`hyperref-anchor-ecglue01` 的 TEST 10 把该缺口固定为断言。
+
+- `issue1047-outlets-mwe.tex` — 五种锚点写法加一行直接输入的参考，全篇同一字号，
+  各行右端画红竖线。
+- `issue1047-outlets-before.png` — 修复前：五种写法全部比参考窄。
+- `issue1047-outlets-after.png` — 修复后：前四种与参考对齐，`\pdfbookmark` 仍窄
+  （已知未覆盖）。
+
+### 文档写法上的教训
+
+「行内锚点有几个出口」这个数字先后写错四次，每次都是从「注册这些之后报告的现象
+消失」推出更强的断言，每次都被一支计数器探针或一次隔离实验推翻。因此定稿改为
+**只维护「已覆盖」与「已知未覆盖」两份清单、不给出总数**：清单的每一条都能被单条
+探针核查，总数只能由穷举审计支撑，而那个审计从未做过。
