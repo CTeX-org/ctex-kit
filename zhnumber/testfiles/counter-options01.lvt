@@ -77,49 +77,40 @@
   \tl_log:N \l_tmpb_tl
 }
 
-%% 4. 带选项的 \zhdig 不再报错. 这是本次修的第二个 bug: \zhdigwithoptions 原先
-%%    把选项当额外参数传给 \zhnum_digits_counter:n (多写了一个 #1), 实测
-%%    \zhdig[style=Financial]{section} 报 `Use of \??? doesn't match its
-%%    definition' 并把 `tyle=Financialsection' 印到页面上.
-%%    123 三位数使 Normal 与 Financial 的差别在每一位上都可见.
+%% 4. 带选项的 \zhdig 走的是固定数值那条路, 123 三位数使每一位都可见.
+%%
+%%    这里只断言**可展开**的 \zhdig. 兼容入口 \zhdigwithoptions 不在本文件覆盖:
+%%    它是 \NewDocumentCommand, 因而是 protected 的, \tl_set:Nx 只能取到命令名
+%%    本身而取不到输出 (实测基线里就是 `\zhdigwithoptions {style=Financial}
+%%    {section}' 原样). 断言它的行为只能让它真的排出汉字再量盒子, 见
+%%    testfiles-cjk/legacy-entry01.lvt.
 \TEST{zhdig~with~options~works}{
   \setcounter { section } { 123 }
   \tl_log:x { zhdig~plain:~\zhdig { section } }
-  \tl_set:Nx \l_tmpa_tl { \zhdigwithoptions { style = Financial } { section } }
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhdig [ style = Financial ] { section } }
   \tl_log:N \l_tmpa_tl
 }
 
-%% 5. 计数器不存在时, 带选项的形式必须走到与不带选项**同一个**报错分支.
+%% 5. 计数器不存在时, 带选项的形式必须报 zhnumber 自己的
+%%    `is not a LaTeX counter', 而不是低层的 \relax 错误.
 %%
-%% 带选项那条路是本次新加的, 若漏了 \int_if_exist:cTF 判断, \int_use:c 会以
-%% 更难读的低层错误炸掉 (而不是 zhnumber 自己的 `is not a LaTeX counter').
+%% 带选项那条路是本次新加的, 若漏了 \int_if_exist:cTF 判断, \int_use:c 会先把
+%% \c@nosuchcounter 建成 \relax, 再 \the 它, 于是报 `You can't use \relax
+%% after \the' —— 与 zhnumber 想给出的诊断完全不同.
 %%
-%% 这里不把报错文本写进基线: \@@_counter_error:n 用的是
-%% \msg_expandable_error:nnn, 它在展开中报错会留下一个 \??? 控制序列, 日志里
-%% 于是同时出现 `Use of \??? doesn't match its definition' 与真正的 zhnumber
-%% 报错. 那是 expl3 可展开报错的既有形态, 与 #1008 无关 —— 实测系统安装的
-%% v3.1 (未含本次改动) 对**不带选项**的 \zhnum{nosuchcounter} 同样如此.
-%% 把它固定进基线会把一个无关的既有粗糙点冻结成预期值.
-\TEST{nonexistent~counter~takes~the~same~branch}{
-  \tl_log:x
-    { counter~exists:~\int_if_exist:cTF { c@nosuchcounter } { yes } { no } }
-}
-
-%% 6. 兼容性: v3.1 及以前写进辅助文件的 \zhnumwithoptions / \zhdigwithoptions
-%%    仍然可用. 旧 .toc 在升级后被读回时会命中它们, 删掉会报 undefined.
+%% **本项必须放在文件最末**: \@@_counter_error:n 用的是
+%% \msg_expandable_error:nnn, 它留下的 \??? 控制序列会触发
+%% `Use of \??? doesn't match its definition', 而这个错误在 l3build 的
+%% \scrollmode 下是**致命**的 —— 实测编译在此中止 (`Fatal error occurred'),
+%% 其后所有 \TEST 一律不执行. 早先的版本把本项排在中间, 于是后面那项从未运行过,
+%% 基线里根本没有它的段落, 却仍然「全绿」.
+%% 这也正是盲审报出「删掉守卫零 diff」的成因: 差异发生在中止点之后.
 %%
-%%    判据用 \tl_set:Nx 捕获结果而不是让它们排版: 本测试不载入中文字体,
-%%    XeTeX 下排 CJK 只是 `Missing character' 警告, 而 pdfTeX 下是硬错误
-%%    (`Unicode character ... not set up for use with LaTeX') 并中止编译,
-%%    两个引擎的基线会分化成两种形态. 这两个命令虽不可展开, 但内部用的是可展开的
-%%    \zhnum_counter:n, 所以 \tl_set:Nx 能取到真正的输出 —— 这也使本项能抓住
-%%    上面第 4 项说的那个笔误.
-\TEST{legacy~entry~points~still~work}{
-  \setcounter { section } { 7 }
-  \tl_set:Nx \l_tmpa_tl { \zhnumwithoptions { style = Financial } { section } }
-  \tl_log:N \l_tmpa_tl
-  \tl_set:Nx \l_tmpa_tl { \zhdigwithoptions { style = Financial } { section } }
-  \tl_log:N \l_tmpa_tl
+%% 报错文本进基线是这里唯一可行的判据, 代价是需要三份基线: luatex 在该错误后
+%% 打印的 help 行比 xetex/pdftex **少四行**. 曾试过只固定「两条路结果是否相同」
+%% 来回避这一点, 但 \tl_set:Nx 在可展开报错处就已中止, 比较根本执行不到.
+\TEST{nonexistent~counter~reports~zhnumber~error}{
+  \zhnum [ style = Financial ] { nosuchcounter }
 }
 
 \ExplSyntaxOff

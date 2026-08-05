@@ -68,6 +68,12 @@ def extract(dtx_path: str, target_ver: str) -> list[tuple[str, str]]:
         content = re.sub(r"\\textbackslash\s*", "\\\\", content)
         # 清理代码块内部因配合 TeX 编译环境而残留的字符转义符（如 \& -> &）
         content = re.sub(r"\\([&%#{}])", r"\1", content)
+        # \cs / \tn 的占位符可能嵌在这里面 (如 \texttt{Use of \cs{???} ...}):
+        # 那一步在前面已经跑过, 而 \x00..\x01 一旦被整段收进 verbatim_blocks,
+        # 后面的 _restore_combined_code 就再也扫不到它, 原始控制字符会直接落进
+        # CHANGELOG.md (实测 zhnumber v3.2 的条目里出现过 `Use of ^@???^A`).
+        # 所以在存起来之前就地还原成反斜杠形式.
+        content = re.sub(r"\x00([^\x01]*)\x01", r"\\\1", content)
         verbatim_blocks.append(content)
         return f"\x04{len(verbatim_blocks) - 1}\x05"
     # 定义 CJK 字符及标点的 Unicode 范围变量
