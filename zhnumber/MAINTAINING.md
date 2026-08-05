@@ -5,7 +5,13 @@ zhnumber 原由 @qinglee 维护。社区自 2022 年起与其断联约四年，�
 
 在维护权归属明确之前，zhnumber 的改动集中在 `zhnumber/maintaining` 分支上集成，而不是逐个
 直接并入 `master`。这样做是为了随时能看清「若接手维护，累积的改动是什么」，也便于在一处
-验证各改动之间的相互影响。做法与 `xpinyin/maintaining` 一致（见 `xpinyin/MAINTAINING.md`）。
+验证各改动之间的相互影响。
+
+xpinyin 用的是同一套做法（分支 `xpinyin/maintaining`，PR
+[#1051](https://github.com/CTeX-org/ctex-kit/pull/1051)）。注意那边的
+`xpinyin/MAINTAINING.md` 只存在于它自己那条维护分支上、不在 `master`，所以在当前分支按
+路径找不到它；要看范例请走
+[这个链接](https://github.com/CTeX-org/ctex-kit/blob/xpinyin/maintaining/xpinyin/MAINTAINING.md)。
 
 当前待处理的主要问题是 #1008：`\zhnum` 在写入 ToC 的那一刻不可展开，且各层计数器共享
 `\zhnumsetup` 的配置，于是「section 用一种中文数字样式、subsection 用另一种」这类混搭
