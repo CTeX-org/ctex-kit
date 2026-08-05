@@ -66,14 +66,42 @@ PR #977（基于提交 `a12c4dda`）通过引入**双层布尔控制链**与**�
 * 所有控制拼音开关命令的作用域现在严格受 TeX 分组（如 `pinyinscope` 环境）约束，退组即失效。若原文档依赖了旧版“跨组泄漏”的副作用，需要调整为在组外重新声明开关状态。
 
 
+## 回归覆盖
+
+初版 PR 没有任何用例调用星号形式，两条 CI 路线仍然全绿——星号解析、两种 `\xpinyin` 形式的禁用分支、`\enablepinyin` 恢复与退组恢复若失效都不会被发现。补测试时按「设 vs 不设」的对照写法（与 `multiple`／`format`／`footnote` 各键一致），两条路线各自覆盖：
+
+| 路线 | 用例 | 固定的语义 |
+| --- | --- | --- |
+| XeTeX / xeCJK | `pinyin-scope01` 第 2b 项 | 普通 `\disablepinyin` 只关自动注音，显式读音仍生效 |
+| XeTeX / xeCJK | 第 2c 项 | `\disablepinyin*` 是总开关，显式读音与 `\xpinyin*` 一并失效 |
+| XeTeX / xeCJK | 第 2d 项 | 两个布尔均为局部赋值，退组自动恢复 |
+| CJKutf8 / pdfTeX | `pinyin-cjkutf8-01` TEST 6 | 同 2b／2c 三格，观察量是盒高而非节点列表 |
+| CJKutf8 / pdfTeX | TEST 7 | 退组恢复，与「从未禁用过」的基准等高 |
+
+CJKutf8 那条必须单独覆盖，不能只测 XeTeX：禁用分支走 `\use_i:nn` 丢弃读音参数，若它在 `\@@_adjust_CJK_hook:` 那一半出错（例如读音参数没被吃掉而漏排成正文），XeTeX 路线看不见。
+
+判别力经变异实测，三个方向都能让相应用例变红：
+
+* 让星号参数不生效（`\bool_if:NT #1` → `\c_false_bool`）→ 2c 与 CJK TEST 6 红：`yǔ`／`wén` 本不该出现却出现，CJK 侧 `not-annotated` 变 `ANNOTATED`；
+* 让普通形式也关总开关（→ `\c_true_bool`）→ 2b 红：显式读音本该保留却消失；
+* 局部赋值改为 `\bool_gset_false:N` → 2d 与 CJK TEST 7 红。
+
+CJK 侧 TEST 7 的初版是恒真断言，两个坑值得记住：
+
+1. **`\hbox_set:Nn` 不能写在 CJK 环境内部**，否则该盒 `ht = 0pt`（汉字进不了盒子），与任何基准比都得不出结论。每个盒子必须自带 `\begin{CJK}...\end{CJK}`，禁用用的子分组开在盒内。这与文件头已记录的 TEST 3 那个坑同源。
+2. **不能把禁用组和组后的字放进同一个盒子再比总高**。全局赋值变异下该盒仍然更高（8.46454pt vs 8.39754pt）——多出的高度来自盒内其他内容而不是拼音，`>` 比较照报 `restored`。改为组后单独装盒，并与「从未禁用过」的基准比对，变异才真的变红。基准也必须取另一个从未禁用过的盒子：拿变异后的两个值互比，它们会同为 `8.39754pt` 而仍然相等。
+
+
 ## 影响范围
 
 * `xpinyin/xpinyin.dtx`（更新了实现、补充了 `\disablepinyin*` 用户文档及 `\changes`）
 * `Makefile`（同步更新了 `CHANGELOG_PKGS` 接入与相关注释）
 * `CHANGELOG.md`
+* `xpinyin/testfiles/pinyin-scope01.lvt`／`.tlg`、`xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`／`.tlg`（补齐上述回归覆盖）
 
 
 ## 关联记录
 
 * PR #977
 * Closes #265
+* 测试设计的通用约定见 `llmdoc/reference/build-and-test.md` 的「xpinyin 的注音回归（#1041）」一节
