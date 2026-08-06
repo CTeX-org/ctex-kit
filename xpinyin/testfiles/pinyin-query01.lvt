@@ -1,0 +1,193 @@
+\input{regression-test}
+
+%% 拼音查询命令 (#550, XeTeX / xeCJK 路线).
+%%
+%% 覆盖 \xpinyinvalue / \xpinyininitial / \xpinyinshengmu / \xpinyinyunmu
+%% 四个命令, 两种 scheme, 四种 tone, 以及可展开性.
+%%
+%% 判据分两种, 因为四种 tone 取值的可展开性不同:
+%%
+%%   * tone=number/none/v 与 \xpinyinshengmu / \xpinyininitial: 结果是纯文本,
+%%     用 \TYPE 写进日志逐字比对.
+%%   * tone=mark: 不可展开. \@@_query_mark:n 转调用 \@@_pinyin:n, 后者是把内容
+%%     **排版出来**而不是返回字符串 (它经 \l_@@_item_tl 等变量逐段拼装输出),
+%%     所以 \TYPE 只会记下 `\__xpinyin_query_mark:n {zhong1}` 这样的未展开形式,
+%%     \tl_set:Nx 同样留不下文本 (实测两者皆如此).
+%%     这类结果改为排进页面, 用 \loggingoutput 让节点列表进日志.
+%%
+%% 都不用盒子尺寸: 查询命令返回的是字符串, 宽高类断言在这里恒真
+%% —— 与 pinyin-setup01/scope01 的手段不同.
+%%
+%% 不用 \showbox / \box_log:N: 它们抛 `! OK.`, 而 checkopts 带 -halt-on-error,
+%% 会当场终止编译 (见 pinyin-scope01.lvt 的同一条说明).
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage[query]{xpinyin}
+
+%% 字体只影响排版, 而本文件的判据全部走 \TYPE, 与字形无关.
+%% 仍然设置一个, 使 xeCJK 正常初始化.
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+%% 1. 四个命令的基本取值 (默认 scheme=literal, tone=mark).
+%%
+%% 选字覆盖三类结构: 有声母且韵母正常 (中), 零声母 (安), 两字母声母 (中/知).
+\TYPE{=== 1. basic (text-form parts) ===}
+\TYPE{initial zhong: \xpinyininitial{中}}
+\TYPE{shengmu zhong: \xpinyinshengmu{中}}
+%% value 与 yunmu 在 tone=mark 下不可展开, 排版到页面上由节点列表固定 (见第 9 项).
+%% 这里先用 number 形式固定其字面值.
+\xpinyinsetup{tone=number}
+\TYPE{value   zhong (number): \xpinyinvalue{中}}
+\TYPE{yunmu   zhong (number): \xpinyinyunmu{中}}
+\xpinyinsetup{tone=mark}
+
+%% 2. 零声母字: 声母应为空, 韵母是整个音节.
+%%
+%% 这一项是必须的 —— 数据库里有 6268 个 (14.1%) 单音字的拼音以 y/w 或元音开头,
+%% 早期原型用的正则要求必须匹配到声母, 对这些字返回空. 详见 #550 的调研评论.
+\TYPE{=== 2. zero initial ===}
+\xpinyinsetup{tone=number}
+\TYPE{an      sm=[\xpinyinshengmu{安}] ym=[\xpinyinyunmu{安}]}
+\TYPE{er      sm=[\xpinyinshengmu{儿}] ym=[\xpinyinyunmu{儿}]}
+\xpinyinsetup{tone=mark}
+
+%% 3. y/w 开头: literal 模式把它们当声母.
+\TYPE{=== 3. y/w literal ===}
+\xpinyinsetup{tone=number}
+\TYPE{wang    sm=[\xpinyinshengmu{王}] ym=[\xpinyinyunmu{王}]}
+\TYPE{yue     sm=[\xpinyinshengmu{月}] ym=[\xpinyinyunmu{月}]}
+\TYPE{yi      sm=[\xpinyinshengmu{衣}] ym=[\xpinyinyunmu{衣}]}
+\TYPE{wu      sm=[\xpinyinshengmu{乌}] ym=[\xpinyinyunmu{乌}]}
+\TYPE{yu      sm=[\xpinyinshengmu{鱼}] ym=[\xpinyinyunmu{鱼}]}
+\xpinyinsetup{tone=mark}
+
+%% 4. official 模式: y/w 视为介音的书写形式, 声母为零, 韵母还原成音位形式.
+%%
+%% 与第 3 项构成对照, 缺一不可: 只有第 3 项时, 把 scheme 选项接错 (两种模式
+%% 用同一张表) 不会被发现.
+%%
+%% 注意 official 模式的韵母**不标声调**: 还原出来的形式可能以 v 开头
+%% (yue -> ve), 而 \pinyin 只在 l/n 之后才把 v 当 ü (见 \@@_replace_v:n),
+%% 开头的 v 会排成 u. 与其静默给出错的字形, 这里输出无调形式.
+\TYPE{=== 4. y/w official ===}
+\xpinyinsetup{scheme=official}
+\TYPE{wang    sm=[\xpinyinshengmu{王}] ym=[\xpinyinyunmu{王}]}
+\TYPE{yue     sm=[\xpinyinshengmu{月}] ym=[\xpinyinyunmu{月}]}
+\TYPE{yi      sm=[\xpinyinshengmu{衣}] ym=[\xpinyinyunmu{衣}]}
+\TYPE{wu      sm=[\xpinyinshengmu{乌}] ym=[\xpinyinyunmu{乌}]}
+\TYPE{yu      sm=[\xpinyinshengmu{鱼}] ym=[\xpinyinyunmu{鱼}]}
+%% official 模式不改变 \xpinyinvalue: 它返回完整读音, 与切分方式无关.
+%% 这一格固定这条边界 —— 实测把判断提到外层时, official 下 \xpinyinvalue{王}
+%% 会返回 uang 而不是 wáng.
+\xpinyinsetup{tone=number}
+\TYPE{value wang official: \xpinyinvalue{王}}
+\xpinyinsetup{tone=mark}
+\xpinyinsetup{scheme=literal}
+
+%% 5. tone 的四种取值.
+%%
+%% ü 是这里的关键: 它在 NFD 下带分音符与声调两个组合符, 生成数据库时按
+%% \pinyin 的输入约定折叠成 v (手册里的 \pinyin{nv3hai2zi}).
+%% number 形式输出 nv3, 可以直接馈回 \pinyin; 若写成 nu3, 馈回会得到「努」.
+\TYPE{=== 5. tone forms ===}
+%% mark 形式见第 9 项 (排版判据).
+\xpinyinsetup{tone=number}
+\TYPE{number zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+\xpinyinsetup{tone=none}
+\TYPE{none   zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+\xpinyinsetup{tone=v}
+\TYPE{v      zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+
+%% 5b. 轻声: 数据库里有 238 个读音没有调号, 声调部分应为空.
+\xpinyinsetup{tone=number}
+\TYPE{qingsheng me=\xpinyinvalue{么}}
+\xpinyinsetup{tone=mark}
+
+%% 5c. 韵母以 v 开头时不标调 (见第 4 项的说明), 「女」正是这种情况.
+\TYPE{yunmu nv (mark): [\xpinyinyunmu{女}]}
+
+%% 6. 首字母不受 tone 影响: 它只是一个拉丁字母.
+%%
+%% 这一格是必须的 —— 若把 initial 也接进 tone 的处理链, 它会随 tone 变化;
+%% 而 #550 的索引用途要的正是一个稳定的分组键.
+\TYPE{=== 6. initial is tone-independent ===}
+\xpinyinsetup{tone=mark}
+\TYPE{initial mark:   \xpinyininitial{中}\xpinyininitial{女}\xpinyininitial{安}}
+\xpinyinsetup{tone=number}
+\TYPE{initial number: \xpinyininitial{中}\xpinyininitial{女}\xpinyininitial{安}}
+\xpinyinsetup{tone=mark}
+
+%% 7. 星号形式取全部读音.
+%%
+%% 「行」有四个读音且跨两个首字母组 (h 与 x). 数据库里 5965 个多音字中
+%% 有 3869 个 (64.9%) 的读音跨不同首字母组, 所以这不是边缘情况.
+%%
+%% 首字母的星号形式去重 (h,x 而非 h,h,h,x); 带调号的 value 不去重 ——
+%% \@@_pinyin:n 是 protected 的, x 类展开留不下文本, 收不进逗号列表.
+%%
+%% 星号形式本身也不可展开: 去重要用逗号列表变量. 所以这里同样用排版判据,
+%% 而不是 \TYPE. 需要写进 \index 排序键的场合应当用不带星号的形式.
+\TYPE{=== 7. star form (typeset, see section 9) ===}
+
+%% 8. 可展开性 —— 这是 #550 的核心诉求.
+%%
+%% 索引用途需要把查询结果写进 \index 的排序键或 bib2gls 的字段, 两者都要求
+%% 参数能展开成字面文本. 因此查询表存的是「字母加声调数字」形式,
+%% 去声调与取首字母在生成数据库时算好, 运行时只做取值与字符串处理.
+%%
+%% tone=mark 依赖 \@@_pinyin:n, 不可展开; 其余三种取值下完全可展开.
+%% 这一项固定后者.
+\TYPE{=== 8. expandability ===}
+\xpinyinsetup{tone=number}
+\edef\QueryA{\xpinyinvalue{中}}
+\TYPE{edef value:   \QueryA}
+\edef\QueryB{\xpinyininitial{中}}
+\TYPE{edef initial: \QueryB}
+\edef\QueryC{\xpinyinshengmu{中}}
+\TYPE{edef shengmu: \QueryC}
+\edef\QueryD{\xpinyinyunmu{中}}
+\TYPE{edef yunmu:   \QueryD}
+%% 用作 \csname 的构造成分.
+\expandafter\def\csname query-key-\xpinyininitial{中}\endcsname{CSNAME-OK}
+\TYPE{csname: \csname query-key-z\endcsname}
+%% 写进 \index 的排序键. 这里只要求不报错; 排序结果由 makeindex 决定,
+%% 不在本文件的判据范围内.
+\index{\xpinyinvalue{中}@中}
+\TYPE{index: no error}
+\xpinyinsetup{tone=mark}
+
+%% 9. tone=mark 的输出: 不可展开, 用排版结果固定.
+%%
+%% \loggingoutput 把 shipout 的节点列表写进日志, 于是带调号的字形逐个进基线.
+%% 这是本文件唯一依赖排版的一节 —— 因为 mark 形式确实只能排版而不能取值.
+%%
+%% 判别力: 若标调规则或 ü 的处理出错, 这里的字形会变.
+%% 例如把生成脚本里 ǚ 的字母部分从 v 写成 u, 「女」会排成 nǔ.
+\TYPE{=== 9. tone=mark via typeset output ===}
+\xpinyinsetup{tone=mark}
+\loggingoutput
+\xpinyinvalue{中} \xpinyinvalue{女} \xpinyinvalue{绿}\par
+\xpinyinyunmu{中} \xpinyinyunmu{安} \xpinyinyunmu{王}\par
+\xpinyinvalue*{重}\par
+%% 星号形式: 「行」四个读音跨 h/x 两组, 首字母应去重成 h,x.
+\xpinyinvalue*{行}\par
+\xpinyininitial*{行}\par
+\xpinyininitial*{重}\par
+%% 单音字的星号形式退回首选读音.
+\xpinyinvalue*{丹}\par
+%% number 形式下星号可读性更好, 一并固定.
+\xpinyinsetup{tone=number}
+\xpinyinvalue*{行}\par
+\xpinyininitial*{行}\par
+\xpinyinsetup{tone=mark}
+
+\newpage
+
+\END
+
+\end{document}
