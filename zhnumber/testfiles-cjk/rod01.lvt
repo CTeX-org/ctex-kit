@@ -13,6 +13,9 @@
 \usepackage{fontspec}
 \usepackage{zhnumber}
 \newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
+%% JuliaMono 是**测试专用**依赖 (只有它同时含算筹字形与 U+20E5, 见下面 TEST 4),
+%% 已加进 .github/tl_packages 让 CI 装上。不写进 DEPENDS.txt —— 那里记的是本包运行时
+%% 需要的宏包 (供 CTAN 用), 而 zhnumber 本身不依赖任何字体, 这是有意的取舍。
 \newfontfamily\JuliaMonoFont{JuliaMono-Regular.ttf}
 \begin{document}
 \START
@@ -115,6 +118,22 @@
   \hbox_set:Nn \l_tmpa_box { \zhrodbox{1.5} }
   \tl_log:e { ensuremath~dot~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
   \zhrodsetup { dot = . }
+}
+
+%% 6. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
+%%    \zhrod 用 \@@_rod_number:e, \zhrodbox 起初用 :n —— 于是 \zhrodbox{\num} 把
+%%    未展开的宏塞进 "1D368 + \num 的算术里, 排出一个越界字形并只报 Missing character
+%%    (\zhrodbox{\arabic{foo}} 更糟: 四条 Missing number 加一串字面文本)。盲审发现。
+%%
+%%    判据是两个盒子宽度相等: 参数没展开时 \zhrodbox 那个盒子的宽度会变 (缺字宽度为 0
+%%    或落到别的字形上), 与 \zhrod 不再相等。
+\TEST{argument~expansion~in~both~commands}{
+  \zhrodsetup { font = \RodFont }
+  \tl_set:Nn \l_tmpa_tl { 123 }
+  \hbox_set:Nn \l_tmpa_box { \RodFont \zhrod { \l_tmpa_tl } }
+  \tl_log:e { zhrod~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox { \l_tmpa_tl } }
+  \tl_log:e { zhrodbox~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
 }
 
 %%    \zhrodbox 必须先用 font= 注入字体, 否则它会在当前 (西文) 字体里排算筹而只报
