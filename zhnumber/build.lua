@@ -25,7 +25,14 @@ typesetsuppfiles = {"ctxdoc.cls"}
 
 testfiledir  = "./testfiles"
 stdengine    = "xetex"
-checkengines = {"pdftex", "xetex", "luatex"}
+-- upTeX 也要测: zhnumber 支持它 (见 dtx 里 \c_@@_unicode_engine_bool 的分支与
+-- gbk/big5 配置), 而算筹 (#366) 的引擎判定必须把它排除在外 —— upTeX 与 pdfTeX 同为
+-- 8-bit 引擎, 不能表示 U+1D360 区. 没有这一支的话, 「误用把 upTeX 算作真的判据」这类
+-- 缺陷不会被任何用例发现 (实测: 把 \c_@@_rod_engine_bool 改成接受 upTeX 后两套 check
+-- 仍全绿). 加入后仅 rod-engine01 需要 .uptex.tlg, 既有五个用例在 upTeX 下原样通过.
+checkengines = {"pdftex", "xetex", "luatex", "uptex"}
+specialformats = {}
+specialformats.latex = { uptex = {binary = "euptex"} }
 
 tdslocations = {
   "source/latex/zhnumber/*.ins",

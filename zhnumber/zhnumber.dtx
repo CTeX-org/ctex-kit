@@ -271,7 +271,7 @@ Copyright and Licence
 %   \end{SideBySideExample}
 %
 %   上例中两行内容相同，上行压紧了字距。实测 \texttt{12345} 未压缩时宽 50.0\,pt，
-%   压缩后 44.4\,pt，正好少四个字距。
+%   压缩后 44.4\,pt——五位筹码之间有四处字距，每处 $-1.4$\,pt。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{\zhrodsetup}
@@ -320,6 +320,10 @@ Copyright and Licence
 %
 %   史料中确有省零的写法，靠上下文和算筹板上的位置定位数量级；排印这类内容时可以用
 %   \texttt{omit}，但要自己保证读者能确定位数。
+%
+%   还有一个更极端的情形：输入本身就是 0 时，\texttt{omit} 不产出\emph{任何}字符
+%   （\verb|\zhrod{0}| 得到空串，\verb|\zhrod{0.0}| 只得到一个小数点）。这不是
+%   「读者需要自己定位数量级」，而是整个数字都没有输出。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{zerochar}
@@ -329,6 +333,15 @@ Copyright and Licence
 %   \texttt{zero=fill} 时占位用的字符，默认是〇。
 % \end{function}
 %
+% \begin{function}[added=2026-08-06]{dot}
+%   \begin{syntax}
+%     dot = <token list>
+%   \end{syntax}
+%   小数点用的字符，默认是半角句点。算筹在史料里不写小数点（小数位靠算筹板上的位置
+%   区分），所以这里\emph{不}沿用 \tn{zhnumsetup} 那套把小数点排成「点」字的做法；
+%   若要排成别的形式，用这个选项。
+% \end{function}
+%
 % \begin{function}[added=2026-08-06]{minus}
 %   \begin{syntax}
 %     minus = <(slash)|overlay>
@@ -336,9 +349,10 @@ Copyright and Licence
 %   负数的记法。默认（\texttt{slash}）在筹码之前排一个独立的＼。
 %
 %   Unicode 建议的记法是 \texttt{overlay}：用组合字符 U+20E5 叠加在最右一位筹码上。
-%   但\textbf{目前没有一款字体同时含算筹字形与 U+20E5}——含算筹字形的几款字体都缺
-%   这个组合字符，实测叠加只会得到一个缺字警告。所以默认不用它。
-%   若你的字体两者都有，再改用 \texttt{overlay}。
+%   它需要字体同时含算筹字形与 U+20E5，而这两者并不总是齐备：上面推荐的几款
+%   \pkg{lxgw-fonts} 字体都\emph{没有} U+20E5，用 \texttt{overlay} 只会得到一个缺字
+%   警告。\TeX\ Live 里 \pkg{juliamono} 的各字重两者都有，可以正常叠加。
+%   默认取 \texttt{slash} 是因为它不依赖组合字符，任何含算筹字形的字体都能用。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{font}
@@ -1341,6 +1355,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.1}{2026/07/09}{支持仅输出年或年月。}
+%
 % \changes{v3.3}{2026/08/06}{新增算筹数字 \tn{zhrod} 与 \tn{zhrodbox}（\#366）。}
 %
 % \begin{macro}{\c_@@_rod_engine_bool}
@@ -1368,9 +1384,11 @@ Copyright and Licence
 %     \l_@@_rod_zero_omit_bool,
 %     \l_@@_rod_minus_overlay_bool,
 %     \l_@@_rod_font_tl,
-%     \l_@@_rod_kern_tl
+%     \l_@@_rod_kern_tl,
+%     \l_@@_rod_zero_tl,
+%     \l_@@_rod_dot_tl
 %   }
-% 算筹的五个配置变量，对应 \tn{zhrodsetup} 的五个键。
+% 算筹的七个配置变量，对应 \tn{zhrodsetup} 的七个键。
 %    \begin{macrocode}
 \bool_new:N \l_@@_rod_units_vertical_bool
 \bool_set_true:N \l_@@_rod_units_vertical_bool
@@ -1482,21 +1500,34 @@ Copyright and Licence
 % 拆负号与小数点，再分派给上面两条循环。负号排在最前：规范说的是叠加在最右一位上，
 % 但那需要 U+20E5，而实测没有字体同时具备算筹字形与该字符，详见用户文档。
 %    \begin{macrocode}
-\cs_new:Npn \@@_rod_minus:
-  {
-    \bool_if:NTF \l_@@_rod_minus_overlay_bool
-      { \char_generate:nn { "20E5 } { 12 } }
-      { \char_generate:nn { "FF3C } { 12 } }
-  }
+\cs_new:Npn \@@_rod_slash:
+  { \char_generate:nn { "FF3C } { 12 } }
+\cs_new:Npn \@@_rod_overlay:
+  { \char_generate:nn { "20E5 } { 12 } }
+%    \end{macrocode}
+% 两种负号的位置\emph{不同}，不能共用一个输出点：
+%
+% \begin{itemize}
+%   \item \texttt{slash} 是独立字符，排在筹码\emph{之前}；
+%   \item \texttt{overlay} 是组合字符（U+20E5），必须紧跟在\emph{最后一位筹码之后}，
+%     才会叠加到那一位上。规范说的正是「叠加在最右一位上」。
+% \end{itemize}
+%
+% 初版两者都排在最前，于是 \texttt{overlay} 叠加到了算筹\emph{前面}那个字符上：
+% \verb|X\zhrod{-1234}Y| 会把斜线叠到 \texttt{X} 上，而单独放进盒子时它不叠任何东西，
+% 负数与正数的盒子宽度完全相同（实测 JuliaMono 下都是 24\,pt），等于负号没排出来。
+% 这个缺陷由本地盲审发现。
+%    \begin{macrocode}
 \cs_new:Npn \@@_rod_number:n #1
-  { \@@_rod_sign:w #1 \q_stop }
+  { \tl_if_empty:nF {#1} { \@@_rod_sign:w #1 \q_stop } }
 \cs_generate_variant:Nn \@@_rod_number:n { e }
 \cs_new:Npn \@@_rod_sign:w #1#2 \q_stop
   {
     \str_if_eq:nnTF {#1} { - }
       {
-        \@@_rod_minus:
+        \bool_if:NF \l_@@_rod_minus_overlay_bool { \@@_rod_slash: }
         \@@_rod_split:www #2 . \q_nil . \q_stop
+        \bool_if:NT \l_@@_rod_minus_overlay_bool { \@@_rod_overlay: }
       }
       { \@@_rod_split:www #1#2 . \q_nil . \q_stop }
   }
@@ -1567,6 +1598,11 @@ Copyright and Licence
 % 把已经展开成字符序列的算筹逐字排出，字符之间插入字距。
 % 先用 \texttt{e} 变体把 \cs{@@_rod_number:n} 展开成纯字符，再逐字处理，
 % 这样字距逻辑不必重复位值判断。
+%
+% 用 \tn{kern} 而\emph{不是} \cs{skip_horizontal:n}：后者排出的是 glue，
+% 而 glue 是合法的断行点，于是一串筹码会被拆到两行去
+% （实测 \verb|\hsize=60pt| 下 \texttt{123456789} 断成三行）。
+% \tn{kern} 不构成断点，整串筹码保持在同一行。这个缺陷由本地盲审发现。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_rod_kerned:n #1
   {
@@ -1574,7 +1610,7 @@ Copyright and Licence
     \tl_map_inline:nn {#1}
       {
         \bool_if:NT \l_@@_rod_first_bool
-          { \skip_horizontal:n { \l_@@_rod_kern_tl } }
+          { \tex_kern:D \dim_eval:n { \l_@@_rod_kern_tl } \scan_stop: }
         ##1
         \bool_set_true:N \l_@@_rod_first_bool
       }
@@ -2604,8 +2640,11 @@ Copyright and Licence
     zerochar           .tl_set:N = \l_@@_rod_zero_tl ,
     dot                .tl_set:N = \l_@@_rod_dot_tl
   }
-\NewDocumentCommand \zhrodsetup { m }
-  { \keys_set:nn { zhnum / rod } {#1} }
+\NewDocumentCommand \zhrodsetup { +m }
+  {
+    \keys_set:nn { zhnum / rod } {#1}
+    \tex_ignorespaces:D
+  }
 %    \end{macrocode}
 %    \begin{macrocode}
 \bool_new:N \l_@@_simp_bool
