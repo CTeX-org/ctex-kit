@@ -502,7 +502,11 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **但只有一部分结果能这样比对。** `tone=mark` 的输出要经过 `\@@_pinyin:n`，它是 `protected` 的，而且把内容**排版出来**而不是返回字符串（经 `\l_@@_item_tl` 等变量逐段拼装输出）。因此 `\TYPE` 只会记下 `\__xpinyin_query_mark:n {zhong1}` 这样的未展开形式，`\tl_set:Ne` 同样留不下文本。带星号的形式也不可展开（去重要用逗号列表变量）。这两类改为排进页面、用 `\loggingoutput` 固定节点列表。
 
-**新增由 `xpinyin.lua` 生成的数据文件时，必须同时改两处**：`.ins` 的 `\file{...}{\from{...}}`，以及 `build.lua` 的 `unpacksuppfiles`。漏掉后者时 `l3build unpack` **不报错**，只是产出一个仅含版权头的 `.def`——#550 实测 `xpinyin-query.def` 只有 1129 字节，而正常应为 1.07 MB。判据是核对生成文件的大小，不要只看 unpack 的退出码。
+**新增由 `xpinyin.lua` 生成的数据文件时，必须同时改两处**：`.ins` 的 `\file{...}{\from{...}}`，以及 `build.lua` 的 `unpacksuppfiles`。漏掉后者时 docstrip 找不到数据文件，产出的 `.def` 只含版权头——#550 实测 `xpinyin-query.def` 只有 1129 字节，而正常应为 1.07 MB。
+
+`l3build unpack` 在 `build/` 干净时会**明确失败**：退出码 1，日志里有 `! Cannot find file xpinyin-query.db.` 与 `! Emergency stop.`。但如果 `build/` 里留着上一次的产物，unpack 可能读到旧文件而看不出问题。所以既要看退出码，也要核对生成文件的大小；排查这类问题时先 `rm -rf build/` 再跑，避免被残留产物误导。
+
+**恒真断言的又一种形态**：第 8 项（可展开性）初版写 `\index{\xpinyinvalue{中}@中}` 后跟一句 `\TYPE{index: no error}`。`\TYPE` 无条件执行，这行无论实现对不对、无论查询表有没有载入都会打出来；而 `\index` 根本不展开参数，所以它对自己声称覆盖的场景零判别力，反而把缺陷冻结成了预期基线。已改为断言 `\edef` 之后的字面值与 `\meaning\XPYkey`，并用「把 `\@@_query_tone_apply:n` 改成 `protected`」这个变异验证会变红。
 
 **变异判别力**（双向实测）：把生成脚本里 `ǚ` 的字母部分从 `v` 写成 `u`，`nv3` 变 `nu3`、排出的字形由 `nǚ` 变 `nǔ`，变红；让 `official` 的声母表也收 `y`／`w`（两种切分模式合一），第 4 项全部变红。
 
