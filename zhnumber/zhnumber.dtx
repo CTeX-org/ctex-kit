@@ -252,6 +252,10 @@ Copyright and Licence
 %
 %   小数部分继续交替：分位与个位异式，厘位与个位同式。负数默认在最前排一个＼，
 %   理由见下文 \texttt{minus} 选项。
+%
+%   \tn{zhrod} 只认数字、一个前导正负号和一个小数点。其余字符原样输出，多余的小数点
+%   之后的部分会被丢掉（\verb|\zhrod{1.2.3}| 得到「一.二」）——它是数字排印命令，
+%   不做输入校验，请自己保证传进来的是数。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{\zhrodbox}
@@ -1446,6 +1450,18 @@ Copyright and Licence
 % 跳过会产生歧义，理由见用户文档。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_glyph:nn #1#2
+  {
+    \zhnum_if_digit:NTF #1
+      { \@@_rod_digit:nn {#1} {#2} }
+      { \exp_not:n {#1} }
+  }
+%    \end{macrocode}
+% 非数字的输入原样输出，不塞进 \cs{int_eval:n} 的算术里。否则
+% \verb|\zhrod{1a}| 会把 \texttt{a} 当成数字参与 \verb|"1D368 + a|，
+% 把 \cs{__int_eval:w} 一类内部记号漏到页面上（实测排出 \verb|𝍠a=0〇|）。
+% \tn{zhdigits} 对同样的输入只输出能识别的部分，这里与它取齐。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_digit:nn #1#2
   {
     \int_compare:nNnTF {#1} = { 0 }
       {
