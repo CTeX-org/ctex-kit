@@ -416,7 +416,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 - `xpinyin/testfiles/pinyin-setup01.lvt`：`\xpinyinsetup` 中能用尺寸观察的六个键（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。
 - `xpinyin/testfiles/pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表。改变格式而不改变尺寸的键也归这里——`multiple`（只给多音字拼音附加格式）、`format` 的着色效果（作用于全部拼音）与 `footnote`，因为尺寸比较对它们完全不可见。三个键都有「设 vs 不设」两格对照，缺了对照那一半就只固定了缺省值下的输出、而非键的语义：`footnote` 起初只写了缺省 `false` 下脚注不注音，终审盲审据此指出「设了 `footnote=true` 后脚注真的会注音」从未被验证，现补 9b 项（脚注拼音 3.19995pt，与正文注音的 3.99994pt 可区分）。`multiple` 与 `format` 互为对照且都必需：只有前者时，把两者的作用范围搞混（例如让 `format` 也只作用于多音字）不会被任何用例发现；基线用不同颜色（红／蓝）区分两者的 `\special{color push}`。
 - `xpinyin/testfiles/pinyin-fallback01.lvt`（3 项，#997）：xeCJK 的 `AutoFallBack` 与注音量宽盒子的交互。主字体故意取没有 CJK 字形的 `lmroman10-regular.otf`，后备字体取 `FandolSong-Regular.otf`，逼出后备字体这条路径。三项分别是：后备字体下的自动注音、显式指定非首选读音（同样经过量宽盒子）、以及「主字体自带 CJK 字形、紧跟在西文之后」的对照项。**判据是 `\loggingoutput` 节点列表里量宽盒子自身的宽度，不是整体宽度**——整体宽度对这个缺陷零判别力，见下文。
-- `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。**这条线的尺寸断言比 XeTeX 那条弱**：T1 Latin Modern 下锐音、钝音、caron 的合成结果宽高全同（实测 ht 均 6.88875pt、wd 均 13.333pt），只有 macron 与「无重音」可区分，因此尺寸比较拦不住二／三／四声之间的对调——实测把 `\'` 与 `` \` `` 对调，该文件仍全绿而 XeTeX 那五个文件全红（含 #997 新增的 `pinyin-fallback01`，它的基线含拼音字形，同一变异同样影响它；这个数字是新增用例后重跑该变异得到的实测值，不是按文件数推算的）。故补 TEST 6 用 `\loggingoutput` 固定实际节点作正面证据（T1 下一声／三声走 `\accent`、二声／四声是预组合字形，两者在基线里形态不同）。另注意该 config 的 `stdengine` 是 `pdftex`，基线文件名就是不带引擎后缀的 `.tlg`；早先误存的 `.pdftex.tlg` 从不参与比对，是个悄无声息的空基线。
+- `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。**这条线的尺寸断言比 XeTeX 那条弱**：T1 Latin Modern 下锐音、钝音、caron 的合成结果宽高全同（实测 ht 均 6.88875pt、wd 均 13.333pt），只有 macron 与「无重音」可区分，因此**尺寸**比较拦不住二／三／四声之间的对调——实测把 `\'` 与 `` \` `` 对调，XeTeX 那五个文件全红，本文件也会红，但红的是下面 TEST 6 的节点证据、尺寸断言本身照旧通过（#1041 原文写成「该文件仍全绿」，是把「尺寸断言拦不住」误记成「整份文件拦不住」，#997 复跑时更正；「五个」含 #997 新增的 `pinyin-fallback01`，它的基线含拼音字形、同一变异同样影响它，该数字是新增用例后重跑所得而非按文件数推算）。故补 TEST 6 用 `\loggingoutput` 固定实际节点作正面证据（T1 下一声／三声走 `\accent`、二声／四声是预组合字形，两者在基线里形态不同）。另注意该 config 的 `stdengine` 是 `pdftex`，基线文件名就是不带引擎后缀的 `.tlg`；早先误存的 `.pdftex.tlg` 从不参与比对，是个悄无声息的空基线。
 
 **按键的可观察量分文件，而不是按「键」这个概念聚在一起。** `multiple` 一度只写在 `pinyin-setup01.lvt` 的覆盖清单里、并由 `pinyin-scope01.lvt` 交叉引用指向它，但两个文件都没有它的用例——盲审把这条列为重要问题：读注释的人会以为该键有回归保护。真实原因是它改的是颜色而非尺寸，放在以宽高比较为手段的 `setup01` 里本就无法断言。现在它落在 `scope01`，判据是 `\special{color push rgb 1 0 0}` 进基线，并用三格对照（多音字「重」着色、单音字「文」同样设了键也不着色、不设键的「重」不着色）保证判别力：只写第一格时，把「是否多音字」的判断去掉也照样通过。变异实测两个方向都会红——无条件套用该格式时红色 push 由 1 变 2，完全忽略该键时变 0。
 
@@ -451,7 +451,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 | 变异 | 实测结果 |
 |---|---|
 | 回退成无条件重选（即原缺陷） | 16 处 `x2.8`，并带 `Missing character`，用例变红 |
-| 把 `\cs_if_eq:NNTF` 的 T／F 分支互换 | 产物与「无条件重选」**逐字节相同**（因为该分支下条件恒成立），不是独立形态 |
+| 把 `\cs_if_eq:NNTF` 的 T／F 分支互换 | 产物与「无条件重选」**逐字节相同**，不是独立形态 |
 | 把重选整个删掉（函数体置空，或 hook 里不再调用） | **5/5 全绿，产物与基线逐字节相同** |
 
 也就是说「**整支重选被跳过**」这一侧没有用例能拦住，是已接受的覆盖缺口。注意这个否定要限定在「整支被跳过」上：第 3 项确实是另一种形态的唯一防线——保持条件结构不动、只让 `\@@_select_CJK_font:` 重选到**错误的 CJK 族**（例如在它开头插一句 `\CJKfamily{\CJKrmdefault}`），实测只有第 3 项变红（`x10.0`→`x2.8`、缩放比 0.81777→0.22898，并新增两条 `Missing character`），第 1、2 项区域逐字节不变。把第 3 项的对照字体换成与后备字体不同的 `FandolKai` 正是它获得这项判别力的前提。原因是进入 `\@@_CJKsymbol_hook:` 时**实际当前字体**（`\fontname\font`）已经是 CJK 字体——xeCJK 的 interchar 进入 CJK 类时就切好了，hook 运行在那之后；只有 NFSS 参数（`\f@family`）还停在西文族 `lmr`，而决定量宽的是前者。已在十余种上下文（紧跟西文／标点／`\emph`／数学／`\textsf`／字号变化／`\mbox`／`\sbox`／`\hbox`／`\vbox`／`tabular`／`minipage`／`\section`／`pinyinscope`／嵌套注音／脚注／切换 CJK 族）逐一探测，`\fontname\font` 无一例外已是 CJK 字体。
