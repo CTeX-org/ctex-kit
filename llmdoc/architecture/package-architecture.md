@@ -291,6 +291,7 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 - 文档共享：`.dtx` 文档排版 -> `support/ctxdoc.cls`
 - ctex 测试依赖：`ctex/build.lua` -> `../xeCJK`, `../zhnumber`
 - XeTeX 运行时：`ctex` -> `xeCJK`
+- XeTeX 运行时：`xpinyin` -> `xeCJK`（依赖若干具体内部接口，不只是加载关系；函数级清单见 `xpinyin/MAINTAINING.md` 的「依赖的 xeCJK 内部接口」一节）
 - pdfTeX 运行时：`ctex` -> `CJK` / `zhmCJK` / `xCJK2uni` 一类传统路径
 - upTeX 运行时：`ctex` -> `zhmetrics-uptex` 一类度量支持
 
