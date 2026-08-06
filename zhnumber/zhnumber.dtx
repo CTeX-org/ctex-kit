@@ -265,6 +265,10 @@ Copyright and Licence
 %   的数字串（\verb|\def\ver{2026}| 而不是 \verb|\def\ver{{2026}}|）。
 %
 %   这一点与 \tn{zhdigits} 不同：后者逐位取字、不需要知道位置，所以分组对它无害。
+%
+%   分组里若还含非数字，除了纵横错开之外还会漏出内部记号
+%   （\verb|\zhrod{1{ab}4}| 实测排出 \verb|ab=0| 与一个〇）。同属上面那条限制，
+%   处置方式一样：不要给它带分组的参数。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{\zhrodbox}
@@ -293,6 +297,10 @@ Copyright and Licence
 %   \end{syntax}
 %   设置算筹相关选项。算筹的选项独立于 \tn{zhnumsetup}：后者管的是「每个数字写成哪个
 %   汉字」（字形与编码），算筹管的是「按位值选哪一式筹码」，两者不通用。
+%
+%   与 \tn{zhnumsetup} 一样，它设置的是\emph{局部}变量，因此受 \TeX{} 分组约束：写在
+%   分组或环境里只在其中有效，写在导言区或分组外则此后一直有效。上面各例都靠这一点
+%   连续切换设置。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{units}
@@ -404,9 +412,10 @@ Copyright and Licence
 %   另外，算筹码位在 \pkg{xeCJK} 眼里不属于汉字（\tn{XeTeXcharclass} 为 0，而〇与一
 %   为 1），所以在 \cls{ctexart} 一类文档里靠 \tn{CJKfamily} 切换取不到筹码字形，
 %   必须像上面那样显式声明字体族。这也意味着筹码与相邻汉字之间会插入
-%   \tn{CJKecglue} 的间距——那是 glue，因而是合法断行点，所以 \tn{zhrodbox} 的字距虽然
-%   用 \tn{kern}，整串筹码在 \pkg{xeCJK} 文档里仍可能断行（占位的〇两侧各有一处）。
-%   要整串不断，把它放进 \tn{mbox}。
+%   \tn{CJKecglue} 的间距——那是 glue，因而是可断点，所以 \tn{zhrodbox} 的字距虽然用
+%   \tn{kern}，整串筹码在 \pkg{xeCJK} 文档里仍可能断行（\texttt{zero=fill} 时每个〇两侧
+%   各有一处，实测确实会断；\texttt{zero=omit} 时没有〇，也就没有这些断点）。
+%   要整串一定不断，把它放进 \tn{mbox}。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{kern}
@@ -1471,7 +1480,9 @@ Copyright and Licence
 % \verb|\zhrod{1a}| 会把 \texttt{a} 当成数字参与 \verb|"1D368 + a|，
 % 把 \cs{__int_eval:w} 一类内部记号漏到页面上（实测在筹码之后多排出 \verb|a=0| 与一个〇；
 % 这里不把筹码字形写进 \tn{verb}，等宽字体没有算筹字形，会多出缺字警告）。
-% \tn{zhdigits} 对同样的输入只输出能识别的部分，这里与它取齐。
+% 注意这与 \tn{zhdigits} 的策略\emph{相反}而不是「取齐」：\tn{zhdigits} 把不认识的字符
+% \emph{丢掉}（\verb|\zhdigits{1a4}| 得到「一四」），\tn{zhrod} 把它\emph{原样留下}
+% （得到筹码、\texttt{a}、筹码）。两者都不报错，但保留原字符更便于发现输入有问题。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_digit:nn #1#2
   {
@@ -1666,11 +1677,17 @@ Copyright and Licence
 % 但这只保证\emph{本命令自己插入的}间距不构成断点，\textbf{并不保证整串筹码一定不断行}：
 % 在 \cls{ctexart} 一类加载了 \pkg{xeCJK} 的文档里，筹码本身不是汉字（\tn{XeTeXcharclass}
 % 为 0），而占位的〇与 \texttt{minus=slash} 的＼都\emph{是}（为 1），\pkg{xeCJK} 会在这
-% 两类字符的交界处插入 \tn{CJKecglue}，那是 glue、因而是断点。所以 \texttt{zero=fill} 时
-% 每个〇两侧各有一处，\texttt{minus=slash} 时负号与首位筹码之间也有一处——即使
-% \texttt{zero=omit} 去掉了所有〇，负数仍有那一处（实测 \texttt{fontset=lxgw} 下
-% \verb|\zhrodbox{10203040}| 会断行）。要整串不断，请自己把它放进 \tn{mbox} 或把
-% \tn{CJKecglue} 设为 \tn{kern}。
+% 两类字符的交界处插入 \tn{CJKecglue}，那是 glue、因而是可断点。所以 \texttt{zero=fill}
+% 时每个〇两侧各有一处，\texttt{minus=slash} 时负号与首位筹码之间也有一处。
+%
+% 这些位置是否\emph{真的}断，取决于断行的代价：实测 \texttt{fontset=lxgw}、
+% \verb|\hsize=60pt| 下，\verb|\zhrodbox{10203040}| 在 \texttt{zero=fill} 时会断开
+% （〇提供了多个可断点），而同一串在 \texttt{zero=omit} 时不断（没有〇，也就没有那些
+% 可断点）；负号那一处虽然是 glue，实测在 20\,pt 与 60\,pt 下都不会真断，因为断在那里
+% 会把＼单独留下、代价过高。
+%
+% 结论是：\tn{kern} 保证的只是\emph{本命令自己插入的}间距不构成断点。要整串筹码一定
+% 不断，请自己把它放进 \tn{mbox}，或把 \tn{CJKecglue} 设为 \tn{kern}。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_kern:
   {
