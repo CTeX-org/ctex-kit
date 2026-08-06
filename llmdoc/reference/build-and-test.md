@@ -462,7 +462,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 第三层是测试写法的上游限制。**`\setCJKmainfont` 是 `\@onlypreamble`**（`xeCJK/xeCJK.dtx:10854`），正文里 `\begingroup \setCJKmainfont{...} \endgroup` 会得到 `LaTeX Error: Can be used only in preamble.`。要在正文里换到另一个 CJK 字体做对照，得在导言区用 `\newCJKfontfamily` 另立一族，再在正文里切过去。
 
-另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx:990`），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
+另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx` 里检索 `\cs_new_eq:NN \@@_CJKsymbol_hook: \prg_do_nothing:`；行号会漂移，早先记的 990 已失效），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
 ### 拼音查询命令的回归（`pinyin-query01`，#550）
 
