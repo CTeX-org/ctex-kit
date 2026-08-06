@@ -162,14 +162,34 @@
 %%    所以这是本功能引入的不一致 (盲审发现)。
 %%
 %%    这类输入很常见: \zhrod{\the\year\space}、或宏定义末尾带空格的 \zhrod{\yr}。
+%%    **必须用 \c_space_tl 而不是源码里的空格**: 本文件在 \ExplSyntaxOn 下, 空格的
+%%    catcode 是 9 (忽略), 所以 `\zhrod{12 }' 里根本没有空格记号 —— 实测那样写时
+%%    \tl_count 为 2、\tl_to_str 就是 `12', 断言恒真 (还原三处守卫后测试仍全绿)。
+%%    这是「看起来在测某件事、实际那件事不在输入里」的一类, 由盲审查出。
 \TEST{trailing~space}{
-  \tl_set:Ne \l_tmpa_tl { \zhrod{12 } }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 12 \c_space_tl } }
   \tl_log:N \l_tmpa_tl
-  \tl_set:Ne \l_tmpa_tl { \zhrod{1.5 } }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 1.5 \c_space_tl } }
+  \tl_log:N \l_tmpa_tl
+  %% 前导 + 的分支也要有覆盖: 删掉它会让 \zhrod{+5} 漏出 `+𝍭' 而测试仍绿 (盲审发现).
+  \tl_set:Ne \l_tmpa_tl { \zhrod{+5} }
   \tl_log:N \l_tmpa_tl
 }
 
-%% 9. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
+%% 9. 分组输入是已知限制, 在此固定当前行为.
+%%    位值用 \tl_count:n 数, 分组算作一位, 于是纵横整体错开: \zhrod{12\ver}
+%%    (\ver 展开为 {2026}) 与 \zhrod{122026} 朝向完全相反, 且不报错 (盲审发现)。
+%%    手册已写明参数不能带分组。这里固定下来, 是为了「哪天真去修它」时能立刻看出行为变了,
+%%    而不是把当前行为当作正确。修法见 dtx 里 \@@_rod_int:n 的说明。
+\TEST{grouped~input~known~limitation}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{122026} }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Nn \l_tmpb_tl { {2026} }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 12 \l_tmpb_tl } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 10. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
 %%    \zhrod 用 \@@_rod_number:e, \zhrodbox 起初用 :n —— 于是 \zhrodbox{\num} 把
 %%    未展开的宏塞进 "1D368 + \num 的算术里, 排出一个越界字形并只报 Missing character
 %%    (\zhrodbox{\arabic{foo}} 更糟: 四条 Missing number 加一串字面文本)。盲审发现。
@@ -185,7 +205,7 @@
   \tl_log:e { zhrodbox~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
 }
 
-%% 10. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
+%% 11. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
 %%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
 %%    所以用 \loggingoutput 把盒子内容本身写进基线.
 %%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.
