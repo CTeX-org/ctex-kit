@@ -38,7 +38,9 @@
 \xpinyinsetup{font=\PinyinTestFont}
 
 %% 第 3 项的对照用: 一个自带 CJK 字形的族, 切过去后不经 AutoFallBack.
-\newCJKfontfamily\CJKdirectfont{FandolSong-Regular.otf}
+%% 刻意选与后备字体不同的字体 (同属 TL 的 fandol 包), 使基线里「走后备字体」与
+%% 「主字体直接命中」两条路径的字体名可以区分.
+\newCJKfontfamily\CJKdirectfont{FandolKai-Regular.otf}
 
 \begin{document}
 
@@ -62,15 +64,22 @@
 
 %% 3. 对照项: 主字体自身就有 CJK 字形时**不**走后备字体, 输出不应受本次改动影响.
 %%
-%% 这一格是必须的 —— 修复方案是"已处于后备字体状态就跳过重选", 若条件判断
-%% 写反 (变成"总是跳过"), 第 1、2 项照旧通过, 而这一项会失败: 调用处当前字体
-%% 是西文时, 跳过重选会让量宽盒子量出西文字体下的宽度.
+%% 这一项固定的是「另一条路径的正常输出」, 属回归价值, **没有变异判别力** ——
+%% 这一点必须如实写明, 否则会把它当成防线:
 %%
-%% 实测 hook 在此处确实是必需的: 进入量宽盒子时当前字体为 \TU/lmr/m/n/10,
-%% 不重选则量错. 所以刻意让本行的注音紧跟在西文之后.
+%% 修复的形态是「已处于后备字体状态就跳过重选, 否则保持原有重选」. 直觉上
+%% 「条件写反成总是跳过」应该由本项拦住, 因为本行的注音紧跟在西文之后.
+%% 实测**不成立**: 把 \@@_reselect_CJK_font: 函数体置空 (等价于总是跳过), 或者
+%% 干脆从 hook 里删掉这次调用, 全部 5 个用例仍然通过, 且本文件产物与基线逐字节
+%% 相同. 原因是进入本 hook 时**实际当前字体** (\fontname\font) 已经是 CJK 字体
+%% ——xeCJK 的 interchar 进入 CJK 类时就切好了, hook 运行在那之后; 只有 NFSS
+%% 参数 (\f@family) 还是 lmr, 而决定量宽的是前者, 不是后者.
 %%
-%% 用 \newCJKfontfamily 另立一个自带 CJK 字形的族 (\setCJKmainfont 只能用在
-%% 导言区), 切过去之后这一行不再经过 AutoFallBack.
+%% 所以「重选被跳过」这一侧目前是已接受的覆盖缺口, 不要在文档里声称本项覆盖它.
+%% 变异判别力实测见 build-and-test.md 的 #997 一节.
+%%
+%% 用 \newCJKfontfamily 另立一族 (\setCJKmainfont 只能用在导言区), 且刻意选一个
+%% 与后备字体**不同**的字体, 使基线里两条路径的字体名可以区分.
 Latin \CJKdirectfont \xpinyin*{中国}\par
 
 \newpage
