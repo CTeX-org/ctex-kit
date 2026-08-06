@@ -447,6 +447,30 @@ XeTeX 虽然规定每个字符只能属于一个 `\XeTeXcharclass`，但字符�
 
 xeCJK 支持为 CJK 字符范围设置后备字体链。当主字体不包含某字符时，按优先级尝试后备字体。实现基于 `\setCJKfallbackfamilyfont` 和内部的 `\xeCJK_fallback_symbol:NN` 检测机制。
 
+#### 「重选 CJK 字体」会清除已切好的后备字体状态
+
+这是对下游可见的一条陷阱，任何要在 CJK 输出路径上插钩子的宏包都会碰到。
+
+`\xeCJK_select_font:` 经内部的 `\@@_select_font:Nn`，而后者的**第一句**就是 `\xeCJK_clear_fallback_font:`（`xeCJK/xeCJK.dtx:10450-10452`）；块级的 `\@@_select_font:Nnn`（`:10541-10543`）同理。也就是说，xeCJK 把「重选 CJK 字体」定义为「放弃当前的后备字体」——这在它自己的逻辑里是自洽的，重选主字体本来就意味着要从头走一遍字形探测。
+
+正常路径不出问题，靠的是次序。Boundary→CJK 的 interchartoks（`:4064-4069`）依次是 `\xeCJK_select_font:` → `\xeCJK_fallback_symbol:NN` → `\CJKsymbol`：先选主字体，再探字形，缺字才切到后备字体。在 `\CJKsymbol` 这一层**之后**再调 `\xeCJK_select_font:`，就是逆着这个次序走，会把刚切好的后备字体清掉。
+
+#### 判断「当前是否处于后备字体状态」
+
+可读的判据是 `\xeCJK_reset_fallback_font:` 是否等于 `\prg_do_nothing:`：
+
+- 未启用后备字体时它本就是 `\prg_do_nothing:`（`:9881`）。
+- `\@@_fallback_symbol_aux:nnNN` 切换到后备字体后，把它重定义为「`\the\font`（恢复该字体）+ `\xeCJK_clear_fallback_font:`（清除标记）」（`:9872-9876`）。
+- `\@@_clear_fallback_font:` 再把它 `\cs_set_eq:NN` 回 `\prg_do_nothing:`（`:9879-9880`）。
+
+所以它既是恢复动作，也是唯一的状态标记。
+
+#### 稳定性与下游指引
+
+`\xeCJK_reset_fallback_font:` 与 `\xeCJK_clear_fallback_font:` 在 dtx 里**没有独立的 `\begin{macro}` 条目**，只夹在 `\xeCJK_fallback_symbol:NN` 那一块里，属于内部量；相比有 `[int]` 条目的 `\xeCJK_select_font:` 更容易在上游重构中改名。目前已知有下游依赖它（xpinyin），因此 xeCJK 侧改名或改语义时要同步通知。
+
+给下游的指引：**CJK 输出路径上的钩子若要重选字体，先判断是否已处于后备字体状态**；已在后备字体里时当前字体正是应该用的那一个，重选反而会退回主字体。实例是 xpinyin 的 `\@@_reselect_CJK_font:`（`xpinyin/xpinyin.dtx:940-953`，#997）——它的量宽盒子原先无条件重选，启用 `AutoFallBack` 时量出的是主字体下缺字形的错误宽度。取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
+
 ### AutoFakeBold / AutoFakeSlant
 
 当 CJK 字体没有对应粗体/斜体变体时，xeCJK 可通过 XeTeX 的 `embolden` / `slant` 特性自动伪造。通过 `AutoFakeBold` 和 `AutoFakeSlant` 选项控制。
