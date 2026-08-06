@@ -9,7 +9,7 @@
 `zhnum / options`。版本 3.2 → 3.3。落地提交 `086da209`（分支
 `fix/366-zhnumber-counting-rod`）。
 
-测试拆两处：`testfiles/rod-engine01.lvt`（三引擎，3 项，只测引擎判定与报错）、
+测试拆两处：`testfiles/rod-engine01.lvt`（四引擎含 upTeX，只测引擎判定与报错）、
 `testfiles-cjk/rod01.lvt` + `test/config-cjk.lua`（仅 xetex，测实际输出）。
 两套 `l3build check` 全绿。
 
