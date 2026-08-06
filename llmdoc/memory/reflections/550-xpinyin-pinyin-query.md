@@ -89,7 +89,7 @@ issue 里有 stone-zeng 五年前给的原型。本轮先做调研（结论发�
 
 
 1. ✅ **已落地** → `llmdoc/reference/coding-conventions.md`「写完全可展开的命令时可用的工具（#550）」：记录实测结论——`\str_if_in:nnTF`、`\str_case:nnF`、`\prg_new_conditional:Npnn` 的 `TF` 形式都不可展开；可展开的替代是 `\int_compare:nNnTF`（比较码位）、`\cs_if_exist_use:cF`（表驱动分派）、`\str_range:nnn`、`\clist_map_function:nN`。并记 `\exp_args:Nnc` 用于给 `map_function` 传具名函数，避免在可展开命令里 `\cs_set:Npn`。
-2. ✅ **已落地** → `llmdoc/reference/build-and-test.md`「拼音查询命令的回归（`pinyin-query01`，#550）」：新增由 `xpinyin.lua` 生成、经 docstrip `\from{}` 并入 `.def` 的数据文件时，必须同时加进 `build.lua` 的 `unpacksuppfiles`；漏掉时 unpack 不报错，只产出仅含版权头的 `.def`（实测 1129 字节），判据是核对生成文件的大小。
+2. ✅ **已落地** → `llmdoc/reference/build-and-test.md`「拼音查询命令的回归（`pinyin-query01`，#550）」：新增由 `xpinyin.lua` 生成、经 docstrip `\from{}` 并入 `.def` 的数据文件时，必须同时加进 `build.lua` 的 `unpacksuppfiles`；漏掉时产出的 `.def` 只含版权头（实测 1129 字节）。（这条当初写成「unpack 不报错」，见下文订正：干净 `build/` 下退出码为 1。）
 3. ✅ **已落地** → `lessons-learned.md`「表驱动的字符转换要用全量数据逐条比对，抽样只能证明主路径」：抽样只能证明主路径。#550 的实例是「呣」的 `m̀`——Unicode 没有 `m` 加钝音符的预组合形式，所以它以裸组合符出现，按整字符查的对照表漏掉了它，而抽样六个字全对。
 4. ✅ **已落地** → `lessons-learned.md`「确认数据的实际形式时，不要经过自己加的正规化步骤」（另补两条：变异实验后先确认变异生效、写可展开命令前先实测候选函数）：#550 调研阶段每次统计都调了 Python 的 `normalize('NFD')`，于是把「正规化之后的样子」当成了数据原本的样子，据此写的 Lua 代码是空操作。判据是直接看码位数或原始字节。
 5. ✅ **已落地** → `xpinyin/MAINTAINING.md`「`\pinyin` 的 `v` 到 `ü` 只在 `l`、`n` 之后生效」：`\@@_replace_v:n` 只在前一个字母是 `l`／`n` 时把 `v` 当作 `ü`（因为 `ju`／`qu`／`xu` 无歧义）。因此以 `v` 开头的片段标不出 `ü`，`\pinyin{v3}` 排出来是 `ǔ`。查询命令的两处韵母不标调正是这个原因。
@@ -175,3 +175,13 @@ issue 里有 stone-zeng 五年前给的原型。本轮先做调研（结论发�
 这已是本任务里第四次同类错误：把自己的观察或推断当成机制本身（NFD 分解形式、`str_case` 不可展开、unpack 不报错、以及这次）。四次的共同点是**没有把「我看到的现象」与「造成现象的原因」分开验证**。
 
 其余：`{中}` 那一格同样因 `-halt-on-error` 从未执行（已拆出 `pinyin-query04.lvt`）；注释里「真正走一遍 `\index`」与十行后「不真的调 `\index`」直接冲突（实现是后者）；一对空 `macrocode` 与一句「报错命令不可展开」的旧说明已与新实现矛盾且印进了手册；同一项有 10／11 两个编号；llmdoc 里用现在时讨论已被删除的 `\@@_query_select:nn`。
+
+## 第六轮盲审：APPROVE，但抓到一处「声称修了却没修」
+
+第六轮（`a6842eb1..6e6d2d7c`）给出 APPROVE，0 阻塞 0 重要 1 小。审查者跑了 13 次变异，本轮五处订正的核心断言全部实测为真，包括字体无关性（三种情形 `.tlg` 同为一个 md5）与那条归因（手工不加 `-halt-on-error` 跑，报错在日志第 290 行而被断言的 `\TYPE` 仍在第 298 行执行）。
+
+唯一的发现值得单独记：**我上一轮的提交信息点名说修掉了 `llmdoc/index.md` 第 19 行的「unpack 不报错」，而 `git diff` 显示该文件本轮只改了另外两行，第 19 行 base 与 HEAD 逐字相同。** 我的 Python 替换命中的是第 89 行的同源文本——同一段话在两处出现，脚本改中了没点名的那处。声称三处、实际两处，漏掉的恰是唯一被点名的那条。
+
+这是本任务里「自述与事实不符」的第五次，但形态是新的：前四次是把观察或推断当成机制，这次是**没有回读确认自己的改动落在了声称的位置**。批量替换加上「同一文本出现在多处」，是这类错误的温床。
+
+审查者还顺手指出一处预存问题（不在本范围内）：`build-and-test.md` 引用的 `xpinyin.dtx:990` 实为 `\disablepinyin` 的定义体，`\@@_adjust_CJK_hook:` 把 hook 设为 `\prg_do_nothing:` 的实际位置是 `dtx:1240`。
