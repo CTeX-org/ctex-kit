@@ -19,7 +19,11 @@ sourcefiles      = {"xpinyin.dtx", "xpinyin.ins"}
 unpackfiles      = {"xpinyin.ins"}
 gitverfiles      = {"xpinyin.dtx"}
 installfiles     = {"*.sty", "*.def", "*.ins"}
-unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "ctxdocstrip.tex"}
+-- `xpinyin-query.db` 是 #550 的查询表, 与 `xpinyin.db` 一样由 `xpinyin.lua`
+-- 从 Unihan 数据库生成, 都要在 unpack 时提供给 docstrip, 否则生成出来的
+-- `.def` 只有版权头而没有数据 (实测: 漏掉时 `xpinyin-query.def` 仅 1129 字节).
+unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "xpinyin-query.db",
+                    "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
 
 -- 回归测试 (#1041 的后续: 该包此前只靠 `l3build doc` 编得过手册来间接验证).
