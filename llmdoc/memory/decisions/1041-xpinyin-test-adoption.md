@@ -20,6 +20,11 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 - `pinyin-setup01.lvt`：`\xpinyinsetup` 中**能用尺寸观察的六个键**（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。其中 `format` 在这里只固定「加了它尺寸不变」这一半，着色本身归 `scope01`。
 - `pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖前两类断言的等价内容。
 
+上面这份清单是 #1041 落地时的状态。#997 之后 `testfiles/` 又追加了 `pinyin-fallback01.lvt`
+（观察通道是 `\loggingoutput` 下量宽盒子**自身**的宽度，见 [[997-xpinyin-fallback-reselect]]），
+因此「四个」只对本决策所述的那个时点成立；当前清单以
+`llmdoc/reference/build-and-test.md` 的「xpinyin 的注音回归（#1041）」一节为准，那里不再冻结总数。
+
 按观察通道分工是因为同一个功能维度（例如「读音是否正确」）需要不同的证据形式才能获得判别力：尺寸比较拦不住字体恰好同尺寸的情况，节点列表才是正面证据。见下方「四条判别力教训」。
 
 这条分工原则曾被违反两次，且是同一个模式的两次发作，值得记下。

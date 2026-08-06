@@ -26,6 +26,39 @@ l3build check -c test/config-cjk   # CJKutf8 + pdfTeX
 测试的设计依据、判别力教训和已接受的覆盖缺口记在
 `llmdoc/reference/build-and-test.md` 的「xpinyin 的注音回归（#1041）」一节。
 
+XeTeX 那条路线依赖 xeCJK 的若干内部函数，改动前请先看下一节。
+
+## 依赖的 xeCJK 内部接口
+
+XeTeX 路线（`\@@_adjust_xeCJK_hook:` 及其相关代码）不只是「加载 xeCJK」，还直接使用
+xeCJK 的内部量。下面这份清单已逐项核对到 `xpinyin/xpinyin.dtx` 的行号：
+
+| 接口 | 用处 |
+|---|---|
+| `\makexeCJKinactive`（913 行） | 进入量宽盒子前关掉 interchar 机制，避免盒内的汉字再触发一遍字符类转换。 |
+| `\xeCJK_select_font:` / `\xeCJK@setfont`（952-953 行） | 把量宽盒子切到 CJK 字体；后者是前者的兼容名，用 `\cs_if_exist_use:NF` 择一。 |
+| `\l_xeCJK_current_font_tl`（895、900 行） | 拼音盒子缓存键的一部分，用来区分不同 CJK 字体下的排版结果。 |
+| `\xeCJK@family`（907 行） | 上一项不存在时的退路，同样用于构造缓存键。 |
+| `\CJKsymbol`（789、806、814 行） | 接管单个 CJK 字符的输出入口，是自动注音的挂载点。 |
+| `\xeCJK_reset_fallback_font:`（942、944 行，#997 新增） | 判断当前是否处于后备字体状态，见下。 |
+
+**`\xeCJK_reset_fallback_font:` 的判据语义。** 它同时是恢复动作和状态标记：未启用后备字体
+时等于 `\prg_do_nothing:`；xeCJK 切换到后备字体后，它被重定义为「恢复该字体 + 清除标记」。
+所以 `\cs_if_eq:NNTF \xeCJK_reset_fallback_font: \prg_do_nothing:` 就是「当前不在后备字体
+状态」。xpinyin 用它决定量宽盒子要不要重选主 CJK 字体——已在后备字体里时当前字体正是该用
+的那一个，重选反而会因为 `\xeCJK_select_font:` 内部先调 `\xeCJK_clear_fallback_font:` 而
+退回主字体、量出缺字形的错误宽度（这就是 #997）。
+
+这一项比 `\xeCJK_select_font:` 更容易在上游重构中改名：后者在 `xeCJK.dtx` 里有独立的
+`[int]` 文档条目，前者只夹在 `\xeCJK_fallback_symbol:NN` 那块代码里，没有独立条目。机制细节
+记在 `llmdoc/architecture/xecjk-architecture.md` 的「后备字体 (Fallback)」一节，那里也留了
+「xeCJK 侧改动需通知下游」的说明。
+
+**xeCJK 升级、或上表任一项改名时**，除了跑上一节那两条测试路线，还要核对
+`testfiles/pinyin-fallback01.lvt` 是否仍有判别力：把 `\@@_reselect_CJK_font:` 的条件取反，
+确认基线真的会变红。这个用例的全部价值都建立在那个条件上，接口一旦改名，条件可能变成恒真
+或恒假而测试照旧全绿。
+
 ## 版本与发布
 
 `xpinyin/build.lua` 的 `version` 是发版事实源，须与 `xpinyin.dtx` 的两处版本号保持一致：
