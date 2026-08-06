@@ -1,0 +1,41 @@
+% issue #1057 的最小复现：xeCJKfntef 命令嵌套使用时的断行边界。
+%
+% 用 xelatex 编译。观察点：
+%   （1）线型套线型 —— 内层整段无法断行，溢出右边界，日志里有 Overfull \hbox。
+%   （2）线型套符号型 —— 正常断行。
+%   （3）按语义分段、每段只用一个线型命令 —— 正常断行。
+%
+% 实测本文件只在第（1）例产生 Overfull \hbox（152.66pt；具体数值随页宽变化，
+% 换用 10cm 页宽时是 276.99pt）。发布版 v3.10.4 与工作树 v3.10.5 的结果一致，
+% 说明这是 ulem 的固有约束，不是某个版本的回归。
+%
+% 根因：ulem 只允许最外层的线型命令启动扫描。内层线型命令会复用外层已经打开的
+% 扫描过程，它的正文被整段放进一个固定宽度的盒子，盒子内部不再留有断点，因此
+% TeX 只能让这一段溢出。
+%
+% 正文一律写成字面记号，不用宏承载。写成 \CJKunderline{\BODY} 会触发另一条已知
+% 限制（宏体在 ulem 扫描期间才展开），两条限制会被混为一谈。
+\documentclass{article}
+\usepackage[LoadFandol]{xeCJK}
+\usepackage{xeCJKfntef}
+\usepackage{xcolor}
+\usepackage[paperwidth=11cm,paperheight=8cm,margin=6mm]{geometry}
+\pagestyle{empty}
+
+\begin{document}
+\setlength\parindent{0pt}\small
+
+\textbf{（1）线型套线型：无法断行，溢出右边界}\par\smallskip
+\CJKunderline{\CJKsout{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}\par
+
+\bigskip
+
+\textbf{（2）线型套符号型：正常断行}\par\smallskip
+\CJKunderline{\CJKunderdot{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}\par
+
+\bigskip
+
+\textbf{（3）分段各用一个线型命令：正常断行}\par\smallskip
+\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止} \CJKsout{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}\par
+
+\end{document}
