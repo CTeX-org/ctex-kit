@@ -593,11 +593,11 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
   相同、该项成为恒真断言。捕获报错路径必须真的执行 `\zhrod`，`\tl_set:Ne` 只会把
   `\zhrod {12}` 原样存进变量而不触发报错，对该路径零判别力。pdfTeX 有独立基线，读数与
   xetex/luatex 不同。
-- `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex，4 项）：测算筹实际输出。前三项用
+- `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex）：测算筹实际输出。开头几项用
   `\zhrod` 的可展开性把字符序列捕获进基线（`\tl_set:Ne` + `\tl_log:N`），逐字固定「排的
   是哪个码位」——判据是字符序列本身而非长度，`units=vertical` 时个位实际取的是 Unicode
   的 `TENS DIGIT` 区（U+1D369 起，纵画），`UNIT DIGIT` 区（U+1D360 起）反而是横画，与
-  区名字面相反。第四项用 `\loggingoutput` 把盒子内容本身写进基线，固定实际
+  区名字面相反。末项用 `\loggingoutput` 把盒子内容本身写进基线，固定实际
   排出的字形与字距（未压缩 50.0pt vs 压缩后 44.4pt）——只有度量不足以固定「排的是哪个
   字」，这与 `legacy-entry01` 已记的教训同源。
 
