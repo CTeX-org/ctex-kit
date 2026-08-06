@@ -1,3 +1,7 @@
+## [zhnumber-v3.3](https://github.com/CTeX-org/ctex-kit/releases/tag/zhnumber-v3.3)
+
+- 新增算筹数字 `\zhrod` 与 `\zhrodbox`（#366）。
+
 ## [zhnumber-v3.2](https://github.com/CTeX-org/ctex-kit/releases/tag/zhnumber-v3.2)
 
 - 说明带选项形式在写入辅助文件时的行为：计数器值在写入时即已固定，样式留待读回时套用（#1008）。
@@ -7,5 +11,4 @@
 ## [zhnumber-v3.1](https://github.com/CTeX-org/ctex-kit/releases/tag/zhnumber-v3.1)
 
 - 提升 LaTeX3 最低版本要求至 2025/10/09。
-- 支持仅输出年或年月。
 - 改用 `\keys_set_exclude_groups:nnnN` 代替已弃用的 `\keys_set_filter:nnnN`，避免 l3kernel 2026-09-09 起在调试模式下报错（#1095）。
