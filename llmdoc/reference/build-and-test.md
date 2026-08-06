@@ -409,15 +409,16 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 **为什么必须分两个 `testfiledir`。** `l3build check` 把目录下每个 `.lvt` 都拿去跑 `checkengines` 里的每一个引擎，没有按文件指定引擎的机制；两条路线的用例混在一起会互相拿对方的引擎跑，并因缺基线报 "failed to find any reference or expectation file"。因此主目录 `xpinyin/testfiles/` 走 xetex，pdfTeX 那条线单独放进 `xpinyin/test/config-cjk.lua` + `xpinyin/testfiles-cjk/`，仿 `ctex/test/config-cmap.lua` 等既有专项配置的做法（跑法：`l3build check -c test/config-cjk`）。`config-cjk.lua` 把 `checkdeps` 显式清空——CJKutf8 路线不加载 xeCJK，不需要复制它的产物。
 
-四个测试文件按观察通道分工：
+测试文件按观察通道分工（新增用例时在此登记，不在文档里冻结总数）：
 
 - `xpinyin/testfiles/pinyin-tone01.lvt`（31 格）：声调数字到重音命令的映射，oracle 取直接写 `\=`、`\'`、`\v`、`` \` `` 的字面形式，比宽、高、深三个维度。
 - `xpinyin/testfiles/pinyin-tone02.lvt`：用 `\loggingoutput` 固定 shipout 的实际字形，是正面证据，与字体度量是否巧合无关。
 - `xpinyin/testfiles/pinyin-setup01.lvt`：`\xpinyinsetup` 中能用尺寸观察的六个键（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。
 - `xpinyin/testfiles/pinyin-scope01.lvt`：注音的开关与作用域，同样用 `\loggingoutput` 固定节点列表。改变格式而不改变尺寸的键也归这里——`multiple`（只给多音字拼音附加格式）、`format` 的着色效果（作用于全部拼音）与 `footnote`，因为尺寸比较对它们完全不可见。三个键都有「设 vs 不设」两格对照，缺了对照那一半就只固定了缺省值下的输出、而非键的语义：`footnote` 起初只写了缺省 `false` 下脚注不注音，终审盲审据此指出「设了 `footnote=true` 后脚注真的会注音」从未被验证，现补 9b 项（脚注拼音 3.19995pt，与正文注音的 3.99994pt 可区分）。`multiple` 与 `format` 互为对照且都必需：只有前者时，把两者的作用范围搞混（例如让 `format` 也只作用于多音字）不会被任何用例发现；基线用不同颜色（红／蓝）区分两者的 `\special{color push}`。
+- `xpinyin/testfiles/pinyin-fallback01.lvt`（3 项，#997）：xeCJK 的 `AutoFallBack` 与注音量宽盒子的交互。主字体故意取没有 CJK 字形的 `lmroman10-regular.otf`，后备字体取 `FandolSong-Regular.otf`，逼出后备字体这条路径。三项分别是：后备字体下的自动注音、显式指定非首选读音（同样经过量宽盒子）、以及「主字体自带 CJK 字形、紧跟在西文之后」的对照项。**判据是 `\loggingoutput` 节点列表里量宽盒子自身的宽度，不是整体宽度**——整体宽度对这个缺陷零判别力，见下文。
+- `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。**这条线的尺寸断言比 XeTeX 那条弱**：T1 Latin Modern 下锐音、钝音、caron 的合成结果宽高全同（实测 ht 均 6.88875pt、wd 均 13.333pt），只有 macron 与「无重音」可区分，因此尺寸比较拦不住二／三／四声之间的对调——实测把 `\'` 与 `` \` `` 对调，该文件仍全绿而 XeTeX 那五个文件全红（含 #997 新增的 `pinyin-fallback01`，它的基线含拼音字形，同一变异同样影响它；这个数字是新增用例后重跑该变异得到的实测值，不是按文件数推算的）。故补 TEST 6 用 `\loggingoutput` 固定实际节点作正面证据（T1 下一声／三声走 `\accent`、二声／四声是预组合字形，两者在基线里形态不同）。另注意该 config 的 `stdengine` 是 `pdftex`，基线文件名就是不带引擎后缀的 `.tlg`；早先误存的 `.pdftex.tlg` 从不参与比对，是个悄无声息的空基线。
 
 **按键的可观察量分文件，而不是按「键」这个概念聚在一起。** `multiple` 一度只写在 `pinyin-setup01.lvt` 的覆盖清单里、并由 `pinyin-scope01.lvt` 交叉引用指向它，但两个文件都没有它的用例——盲审把这条列为重要问题：读注释的人会以为该键有回归保护。真实原因是它改的是颜色而非尺寸，放在以宽高比较为手段的 `setup01` 里本就无法断言。现在它落在 `scope01`，判据是 `\special{color push rgb 1 0 0}` 进基线，并用三格对照（多音字「重」着色、单音字「文」同样设了键也不着色、不设键的「重」不着色）保证判别力：只写第一格时，把「是否多音字」的判断去掉也照样通过。变异实测两个方向都会红——无条件套用该格式时红色 push 由 1 变 2，完全忽略该键时变 0。
-- `xpinyin/testfiles-cjk/pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖上述前两类断言的等价内容。**这条线的尺寸断言比 XeTeX 那条弱**：T1 Latin Modern 下锐音、钝音、caron 的合成结果宽高全同（实测 ht 均 6.88875pt、wd 均 13.333pt），只有 macron 与「无重音」可区分，因此尺寸比较拦不住二／三／四声之间的对调——实测把 `\'` 与 `` \` `` 对调，该文件仍全绿而 XeTeX 四个文件全红。故补 TEST 6 用 `\loggingoutput` 固定实际节点作正面证据（T1 下一声／三声走 `\accent`、二声／四声是预组合字形，两者在基线里形态不同）。另注意该 config 的 `stdengine` 是 `pdftex`，基线文件名就是不带引擎后缀的 `.tlg`；早先误存的 `.pdftex.tlg` 从不参与比对，是个悄无声息的空基线。
 
 **四条判别力教训**（本节最有价值的部分，均由「重新引入缺陷、确认它会变红」实测确认）：
 
@@ -440,6 +441,23 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 **已接受的残留缺口有两个**，都如实记下：（1）若依赖包改成分步构造 `installfiles`（先赋字面表、中途出错、之后再追加），得到的残缺表会同时通过「是表」与「非空」两道判据，只复制一半而不报错；（2）判据只看这张表，**不看每条 glob 是否真的匹配到文件**——`xeCJK` 的 `"*.map"`／`"*.tec"` 在 `check` 路径下必然零匹配（那两类产物由 `unpack_posthook` 在 `install_files_bool` 为真时才经 TECkit 生成，而该标志只在 `install_files` 里置真），`cp` 静默复制零个文件并返回 0。缺口二今天不触发，因为 xpinyin 现有测试都不用 `Mapping=` 一类需要 `.tec` 的写法；但将来加了就会命中系统 TeX Live 的那份。两者都实测确认。不再收紧的理由：更严的判据要么预设依赖包的写法、反而更脆，要么（对缺口二加零匹配 `error`）现网就会当场失败。`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖、依赖包重构、或新增用到 `.map`／`.tec` 的测试时，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
 **盒高比较取「总高」时容易写成恒真断言（#265 / PR #977）。** 给 `\disablepinyin*` 补退组恢复的用例时，初版把「禁用用的子分组」和「组后要观察的那个字」放进同一个盒子，再与单个未注音汉字比总高。实测把 `\bool_set_false:N` 改成 `\bool_gset_false:N`（即禁用泄漏到组外、组后那个字也不再注音）时，该盒**仍然更高**（8.46454pt vs 8.39754pt）——多出的高度来自盒内其他内容而不是拼音，于是 `>` 比较照报 `restored`，这一项等于没有断言。修法是让被观察的字**单独装盒**，并同时对两个方向取证：与「从未禁用过」的盒子比**等高**、与「未注音」的盒子比**更高**。基准也必须取另一个从未禁用过的盒子——拿变异后的两个值互比，它们会同为 8.39754pt 而仍然相等。这与「注音汉字宽度看不出拼音内容」是同一类问题：**观察量必须只随被断言的那一件事变化**，混进无关内容就会被无关内容的贡献掩盖。（另一个坑同源于上文 CJK 环境那条：`\hbox_set:Nn` 写在 CJK 环境内部时该盒 `ht = 0pt`，也会让比较失去意义。）
+
+**`AutoFallBack` 与量宽盒子的交互，判据只能落在量宽盒子自身（#997）。** 这一轮的三条约束按「判据选什么、变异做几个方向、测试写法有什么上游限制」分三层。
+
+第一层是判据。**整体宽度对这类缺陷零判别力**：拼音在 `\hbox_overlap_right:n` 这个零宽盒子里，不占外部宽度，实测缺陷版与修复版的 `\hbox{\xpinyin*{中}}` 同为 10.0pt，任何以外部宽度为判据的断言都恒真。这是上文「注音汉字的宽度看不出拼音内容」那条结构性事实的另一面——它讲的是「换读音看不出来」，这里是「量宽量错了也看不出来」。必须用 `\loggingoutput` 读节点列表里量宽盒子自身的宽度：缺陷版 `x2.8`、修复版 `x10.0`。可见输出的最终证据是 PDF bbox（`pdftotext -bbox`）：缺陷版 `zhōng` 2.79pt、修复版 9.96pt，与汉字「中」的 9.96pt 对齐。
+
+第二层是变异方向。这次的修复形态是「给原有的字体重选加一个条件」，因此**有两种失败形态，各要一组用例**：
+
+| 变异 | 基线读数 |
+|---|---|
+| 回退成无条件重选（即原缺陷） | 16 处 `x2.8`，并带 `Missing character` |
+| 条件写反成总是跳过（过度修复） | `x0.0`（在西文字体下量宽） |
+
+第 3 项对照（主字体自带 CJK 字形、紧跟在西文之后）专门固定后一种形态；缺了它，「总是跳过」这个变异不会被任何用例发现——前两项照旧通过。
+
+第三层是测试写法的上游限制。**`\setCJKmainfont` 是 `\@onlypreamble`**（`xeCJK/xeCJK.dtx:10854`），正文里 `\begingroup \setCJKmainfont{...} \endgroup` 会得到 `LaTeX Error: Can be used only in preamble.`。要在正文里换到另一个 CJK 字体做对照，得在导言区用 `\newCJKfontfamily` 另立一族，再在正文里切过去。
+
+另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx:973` 附近），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
@@ -621,6 +639,8 @@ PR #799 暴露了一个稳定信号：`xeCJK/testfiles/listings-hash01.lvt` 新�
 - `.github/tl_packages` 是否遗漏了相应依赖。
 
 这条约束不仅适用于宏包依赖，测试用到的字体同样要同步这份白名单。#1041 的 xpinyin 测试用 `DejaVuSerif.ttf`（避开 Latin Modern 缺 U+01D6 的问题）和 `FreeSerif.otf`（`pinyin-setup01.lvt` 的 `font` 键对照字体），因此 `.github/tl_packages` 补了 `dejavu` 与 `gnu-freefont`——这两个 TeX Live 包分别提供上述字体文件，新增测试字体前应先核对是哪个包提供。
+
+核对的结论也包括「不需要新增」这一种，同样要留下痕迹。#997 的 `pinyin-fallback01.lvt` 用 `lmroman10-regular.otf`（主字体，故意选没有 CJK 字形的）与 `FandolSong-Regular.otf`（后备字体），逐个核对后确认它们由 `lm` 与 `fandol` 提供，两者已在 `.github/tl_packages`（分别是第 39、24 行），因此这次没有改这个文件——顺带也没有触发下文那条「改动该文件等价于强制 CI 缓存失效」的路径。
 
 核对要**逐个走一遍**，不能只补自己意识到的那几个。同一批改动里，pdfTeX 那条线新引入的 `CJKutf8`、`lmodern` 和 `gbsn` 字体族当时并未逐个核对归属，事后查明恰好已被既有的 `cjk`（提供 `CJKutf8.sty` 与 `c70gbsn.fd`）、`lm`、`arphic` 覆盖——也就是说那次没出问题是运气，而不是流程起了作用。核对方式是对每个新引入的 `\usepackage`、字体文件名和字体族分别跑 `tlmgr search --file --global`，再用 `grep -qx` 确认包名真在白名单里；漏掉的后果是本地完整 TeX Live 通过而 CI 在精简环境里缺包失败（`.log` 为空、`.tlg` 比对失败，根因不在输出差异）。
 
