@@ -652,12 +652,23 @@ Curated cross-task rules distilled from archived memory.
 
 ### 可展开上下文里的报错要用 `\msg_expandable_error:`
 **Rule**: 供 `\edef` 或其他可展开场景使用的命令，其错误分支不能用 `\msg_error:`——后者是 `protected` 的，在 `\edef` 里既不报错也不展开，会把自己整条原样留在结果里，于是错误值被静默写进产物。改用 `\msg_expandable_error:`（本仓库 `zhnumber` 已有用法）。
-**Why**: #550 未加 `query` 选项时，`\edef\x{\xpinyinvalue{汉}}` 得到的是 `\__xpinyin_query_missing:n {汉}`，文档零错误编译并把这串东西当排序键写进 `.idx`。测试上还要注意：可展开的报错会中断当前 `\edef` 与其后的断言，所以每个报错场景要各占一个 `.lvt` 文件，否则相互掩盖判别力。
+**Why**: #550 未加 `query` 选项时，`\edef\x{\xpinyinvalue{汉}}` 得到的是 `\__xpinyin_query_missing:n {汉}`，文档零错误编译并把这串东西当排序键写进 `.idx`。
+**测试上的配套约束（注意归因）**: 断言报错的用例里，报错之后不能再放别的项——但中断来自 `checkopts` 的 `-halt-on-error`，**不是**该命令的语义（实测不加该选项时后续断言照常执行）。#550 一度把它记成「可展开报错必然中断后续」，据此把排版类基线搬到报错之后，那一节从此从未执行，两个变异都变成全绿，覆盖被静默删除。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
 ### 反复重构后要扫一遍死代码，尤其别把教训注释留在死代码上
 **Rule**: 多轮重构收尾时，用哨兵注入或调用点检索确认每个函数都还被调用。删除死代码前先检查它身上有没有承载「为什么必须这样写」的注释——若有，把注释迁到活代码的对应位置。
 **Why**: #550 收尾时留下 7 个从未被调用的函数（含一个中途放弃方案的残留），其中「声母永远不带声调」这条实测得来的教训只作为注释挂在死掉的 `\@@_query_affix_aux:nnn` 上。按那条注释去改代码的人会发现改了没反应、测试也不红。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 移动测试项的位置等于改变它的执行条件，搬完要复核它是否仍然运行
+**Rule**: 把断言从一个 `.lvt` 搬到另一个、或在同一文件里改变顺序时，要复核它在新位置仍然会被执行。判据是搬完后重新生成基线，确认该项的输出还在 `.tlg` 里；再对它所声称覆盖的缺陷注入一次变异，确认仍然变红。
+**Why**: #550 把 `tone=mark` 的排版节点基线搬进了一个报错断言之后的位置，而 `checkopts` 带 `-halt-on-error`，第一处错误即终止编译。那一节从此从未执行，`.tlg` 只剩 12 行止于报错，星号去重与标调两处变异都变成全绿——修一个问题的同时静默删掉了既有覆盖，而 check 一直是绿的。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 写下一条机制规则前，先查仓库里是否已有正确版本
+**Rule**: 要在 llmdoc 或代码注释里断言「某机制会导致某现象」时，先检索仓库是否已记录过同一机制。若已有记录而自己的观察与之不符，优先怀疑自己的归因，而不是另写一条新规则。
+**Why**: #550 把 `-halt-on-error` 造成的中断记成了 `\msg_expandable_error:nnn` 的语义，据此改动测试布局并删掉了覆盖。而仓库里本来就有正确记录——`pinyin-tone02.lvt` 的注释与 `build-and-test.md` 都写明「`\showbox`／`\box_log:N` 抛 `! OK.`，而 checkopts 带 `-halt-on-error`，当场终止编译，其后的用例静默不执行而 check 仍可能报绿」，我甚至在同一批改动的另一个 `.lvt` 注释里引用过它。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
 ### 表驱动的字符转换要用全量数据逐条比对，抽样只能证明主路径
