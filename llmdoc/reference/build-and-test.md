@@ -494,6 +494,20 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx:990`），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
+### 拼音查询命令的回归（`pinyin-query01`，#550）
+
+#550 新增四个查询命令（`\xpinyinvalue`／`\xpinyininitial`／`\xpinyinshengmu`／`\xpinyinyunmu`），测试上有两点与本包其他用例不同。
+
+**判据不能用盒子尺寸。** 查询命令返回字符串、不参与排版，宽高类断言在这里恒真。改为用 `\TYPE` 把结果写进日志逐字比对。
+
+**但只有一部分结果能这样比对。** `tone=mark` 的输出要经过 `\@@_pinyin:n`，它是 `protected` 的，而且把内容**排版出来**而不是返回字符串（经 `\l_@@_item_tl` 等变量逐段拼装输出）。因此 `\TYPE` 只会记下 `\__xpinyin_query_mark:n {zhong1}` 这样的未展开形式，`\tl_set:Ne` 同样留不下文本。带星号的形式也不可展开（去重要用逗号列表变量）。这两类改为排进页面、用 `\loggingoutput` 固定节点列表。
+
+**新增由 `xpinyin.lua` 生成的数据文件时，必须同时改两处**：`.ins` 的 `\file{...}{\from{...}}`，以及 `build.lua` 的 `unpacksuppfiles`。漏掉后者时 `l3build unpack` **不报错**，只是产出一个仅含版权头的 `.def`——#550 实测 `xpinyin-query.def` 只有 1129 字节，而正常应为 1.07 MB。判据是核对生成文件的大小，不要只看 unpack 的退出码。
+
+**变异判别力**（双向实测）：把生成脚本里 `ǚ` 的字母部分从 `v` 写成 `u`，`nv3` 变 `nu3`、排出的字形由 `nǚ` 变 `nǔ`，变红；让 `official` 的声母表也收 `y`／`w`（两种切分模式合一），第 4 项全部变红。
+
+第二个变异第一次跑时是绿的，原因是注入前误用 `cp` 把 `.dtx` 恢复了，变异根本没生效——**做变异实验后要先确认变异真的进了生成产物**（`grep` 一下生成的 `.sty`），再判断绿色的含义。这与「新增测试项后要复查既有项判据」是同一类问题的两个方向。
+
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
 xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰盒、`ulem` 怎样决定片段和端点几何，以及最终页面怎样渲染。`\leaders`、`\cleaders` 与 `\xleaders` 可以拥有完全相同的 glue、盒宽和命令总宽，却把重复盒画在不同横坐标；节点宽度相同不能证明相位相同。
