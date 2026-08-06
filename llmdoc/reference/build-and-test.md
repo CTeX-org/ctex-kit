@@ -455,15 +455,15 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 | 条件写反成总是跳过（过度修复） | 由第 1、2 项变红，读数同上——**不是独立的第二种形态** |
 | 把重选整个删掉（函数体置空，或 hook 里不再调用） | **5/5 全绿，产物与基线逐字节相同** |
 
-也就是说「重选被跳过」这一侧**没有任何用例能拦住**，是已接受的覆盖缺口。原因是进入 `\@@_CJKsymbol_hook:` 时**实际当前字体**（`\fontname\font`）已经是 CJK 字体——xeCJK 的 interchar 进入 CJK 类时就切好了，hook 运行在那之后；只有 NFSS 参数（`\f@family`）还停在西文族 `lmr`，而决定量宽的是前者。已在十余种上下文（紧跟西文／标点／`\emph`／数学／`\textsf`／字号变化／`\mbox`／`\sbox`／`\hbox`／`\vbox`／`tabular`／`minipage`／`\section`／`pinyinscope`／嵌套注音／脚注／切换 CJK 族）逐一探测，`\fontname\font` 无一例外已是 CJK 字体。
+也就是说「**整支重选被跳过**」这一侧没有用例能拦住，是已接受的覆盖缺口。注意这个否定要限定在「整支被跳过」上：第 3 项确实是另一种形态的唯一防线——保持条件结构不动、只让 `\@@_select_CJK_font:` 重选到**错误的 CJK 族**（例如在它开头插一句 `\CJKfamily{\CJKrmdefault}`），实测只有第 3 项变红（`x10.0`→`x2.8`、缩放比 0.81777→0.22898，并新增两条 `Missing character`），第 1、2 项区域逐字节不变。把第 3 项的对照字体换成与后备字体不同的 `FandolKai` 正是它获得这项判别力的前提。原因是进入 `\@@_CJKsymbol_hook:` 时**实际当前字体**（`\fontname\font`）已经是 CJK 字体——xeCJK 的 interchar 进入 CJK 类时就切好了，hook 运行在那之后；只有 NFSS 参数（`\f@family`）还停在西文族 `lmr`，而决定量宽的是前者。已在十余种上下文（紧跟西文／标点／`\emph`／数学／`\textsf`／字号变化／`\mbox`／`\sbox`／`\hbox`／`\vbox`／`tabular`／`minipage`／`\section`／`pinyinscope`／嵌套注音／脚注／切换 CJK 族）逐一探测，`\fontname\font` 无一例外已是 CJK 字体。
 
 **教训是探针取错了量**：本轮初版判断「不重选会量出西文宽度」，依据是探针打印的 `\TU/lmr/m/n/10`——那是 NFSS 状态，不是实际字体。用 `\f@family` 一类 NFSS 参数回答「当前用什么字体排版」会得到系统性错误的结论，必须读 `\fontname\font`。这条错误进而支撑了「重选不能删」以及「第 3 项覆盖第二个方向」两个不成立的说法，两者都由独立审查在变异复跑中推翻。
 
-因此第 3 项对照的定位是**固定另一条路径（主字体直接命中）的正常输出**，属回归价值，不具备变异判别力；`.lvt` 注释里已如实写明，不要再把它当作防线。保留「否则重选」这一支是出于对 xeCJK 内部切换时点变化的保守，而非已观察到它必需。
+因此第 3 项对照的准确定位是：它固定另一条路径（主字体直接命中）的正常输出，**对「整支重选被跳过」没有判别力**，但**是「重选切到错误 CJK 族」的唯一防线**。`.lvt` 注释里按这个界限写明，既不要把它当成前一种形态的防线，也不要因此认为它没有价值。保留「否则重选」这一支是出于对 xeCJK 内部切换时点变化的保守，而非已观察到它必需。
 
 第三层是测试写法的上游限制。**`\setCJKmainfont` 是 `\@onlypreamble`**（`xeCJK/xeCJK.dtx:10854`），正文里 `\begingroup \setCJKmainfont{...} \endgroup` 会得到 `LaTeX Error: Can be used only in preamble.`。要在正文里换到另一个 CJK 字体做对照，得在导言区用 `\newCJKfontfamily` 另立一族，再在正文里切过去。
 
-另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx:973` 附近），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
+另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx:990`），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 

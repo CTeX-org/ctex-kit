@@ -101,9 +101,13 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 | 回退成无条件重选（原缺陷） | 16 处 `x2.8`，带 `Missing character`，变红 |
 | 条件写反成总是跳过 | 由第 1、2 项变红，读数同上——非独立形态 |
 | 重选整个删掉（置空或不调用） | **5/5 全绿，产物与基线逐字节相同** |
+| 重选切到错误的 CJK 族（`\CJKfamily{\CJKrmdefault}`） | 仅第 3 项变红，第 1、2 项逐字节不变 |
 
-所以只有「回退成无条件重选」这一个方向能被测试覆盖；「重选被跳过」是已接受的覆盖缺口。
-第 3 项固定的是主字体直接命中这条路径的正常输出，属回归价值，**不具备变异判别力**。
+所以「**整支重选被跳过**」是已接受的覆盖缺口。第 3 项固定的是主字体直接命中这条路径的
+正常输出：它对「整支被跳过」没有判别力，但**是「重选切到错误 CJK 族」这一形态的唯一防线**
+——保持条件结构不动、只在 `\@@_select_CJK_font:` 开头插 `\CJKfamily{\CJKrmdefault}`，实测
+只有第 3 项变红（`x10.0`→`x2.8`、缩放比 0.81777→0.22898，新增两条 `Missing character`），
+第 1、2 项区域逐字节不变。把对照字体选成与后备字体不同的 `FandolKai` 是这项判别力的前提。
 该项用导言区的 `\newCJKfontfamily` 另立一族，因为 `\setCJKmainfont` 是
 `\@onlypreamble`（`xeCJK/xeCJK.dtx:10854`），正文里用不了。
 
@@ -112,7 +116,7 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 
 `l3build check` 5/5、`l3build check -c test/config-cjk` 1/1 通过。pdfTeX/CJKutf8 路线不受本
 修复影响：`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`
-（`xpinyin/xpinyin.dtx:973` 附近），故 `testfiles-cjk/` 无对应用例。
+（`xpinyin/xpinyin.dtx:990`），故 `testfiles-cjk/` 无对应用例。
 
 ## 相关
 
