@@ -150,7 +150,7 @@ Copyright and Licence
 %<config&utf8>\ProvidesExplFile{\ExplFileName-utf8.cfg}
 %<config&big5>\ProvidesExplFile{\ExplFileName-big5.cfg}
 %<config&gbk>\ProvidesExplFile{\ExplFileName-gbk.cfg}
-%<package|config>  {\ExplFileDate}{3.2}{\ExplFileDescription}
+%<package|config>  {\ExplFileDate}{3.3}{\ExplFileDescription}
 %<*driver>
 \documentclass{ctxdoc}
 \setCJKmainfont{Noto Serif CJK SC}[
@@ -159,6 +159,9 @@ Copyright and Licence
 ]
 \setCJKsansfont{Noto Sans CJK SC}[Language=Chinese Simplified]
 \setCJKmonofont{LXGWZhuqueFangsong-Regular.ttf}[Language=Chinese Simplified]
+%% 手册正文用的 Noto Serif CJK 没有算筹字形, 所以另声明一个字体族给算筹的例子用.
+%% 这也正是手册里推荐给用户的做法 (font= 选项), 见 \zhrodsetup 的 font 一节.
+\newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
 \SideBySideExampleSet{xrightmargin=.6\linewidth}
 \begin{document}
   \DocInput{\jobname.dtx}
@@ -227,6 +230,159 @@ Copyright and Licence
 %     \zhdigits{2012020120}\\
 %     \zhdigits*{2012020120}
 %   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[EXP, added=2026-08-06]{\zhrod}
+%   \begin{syntax}
+%     \tn{zhrod} \Arg{number}
+%   \end{syntax}
+%   将阿拉伯数字转换为\emph{算筹}数字。算筹是中国古代的记数符号，用纵横两式的筹码
+%   交替表示各位数字：个位一式、十位另一式、百位又回到第一式，依此交替。
+%
+%   \tn{zhrod} 只产出字符，不切换字体、不调整字距，因此它是可展开的，可以写进
+%   \file{.toc} 一类辅助文件，也可以进 PDF 书签。需要压紧字距时用
+%   \tn{zhrodbox}（见下）。
+%
+%   下面的例子假定当前字体含算筹字形，做法见下文 \texttt{font} 选项。
+%   \begin{SideBySideExample}
+%     \RodFont
+%     \zhrod{12345}\\
+%     \zhrod{-12030.405}
+%   \end{SideBySideExample}
+%
+%   小数部分继续交替：分位与个位异式，厘位与个位同式。负数默认在最前排一个＼，
+%   理由见下文 \texttt{minus} 选项。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{\zhrodbox}
+%   \begin{syntax}
+%     \tn{zhrodbox} \Arg{number}
+%   \end{syntax}
+%   与 \tn{zhrod} 输出相同的筹码，但会切换到 \texttt{font} 指定的字体，并在相邻筹码
+%   之间压紧字距。
+%
+%   它\emph{不可展开}，因此\textbf{不能}写进辅助文件或 PDF 书签——写进去会在下次编译
+%   读回时留下命令名而不是筹码。要用在标题一类会进目录的位置，请改用 \tn{zhrod}。
+%
+%   \begin{SideBySideExample}
+%     \zhrodsetup{font=\RodFont}
+%     \zhrodbox{12345}\\
+%     {\RodFont\zhrod{12345}}
+%   \end{SideBySideExample}
+%
+%   上例中两行内容相同，上行压紧了字距。实测 \texttt{12345} 未压缩时宽 50.0\,pt，
+%   压缩后 44.4\,pt，正好少四个字距。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{\zhrodsetup}
+%   \begin{syntax}
+%     \tn{zhrodsetup} \Arg{key-value list}
+%   \end{syntax}
+%   设置算筹相关选项。算筹的选项独立于 \tn{zhnumsetup}：后者管的是「每个数字写成哪个
+%   汉字」（字形与编码），算筹管的是「按位值选哪一式筹码」，两者不通用。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{units}
+%   \begin{syntax}
+%     units = <(vertical)|horizontal>
+%   \end{syntax}
+%   指定\emph{个位}用哪一式，其余各位由交替推出。\texttt{vertical} 是个位用纵式
+%   （即传统所说的「一纵十横」，较常见），\texttt{horizontal} 是个位用横式。
+%
+%   \begin{SideBySideExample}
+%     \RodFont
+%     \zhrodsetup{units=vertical}
+%     \zhrod{123456789}\\
+%     \zhrodsetup{units=horizontal}
+%     \zhrod{123456789}
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{zero}
+%   \begin{syntax}
+%     zero = <(fill)|omit>
+%   \end{syntax}
+%   算筹本无零的筹码。默认（\texttt{fill}）在零的位置排一个〇占位；\texttt{omit}
+%   则跳过零，靠纵横交替体现空位。
+%
+%   \begin{SideBySideExample}
+%     \RodFont
+%     \zhrodsetup{zero=fill}
+%     \zhrod{12030}\\
+%     \zhrodsetup{zero=omit}
+%     \zhrod{12030}
+%   \end{SideBySideExample}
+%
+%   \textbf{\texttt{zero=omit} 会产生歧义，不要用在需要还原数值的场合。}
+%   交替只能区分相邻两位，不能表示数量级：省去零之后，\texttt{1}、\texttt{100}、
+%   \texttt{10000} 的筹码写法完全相同（都是单独一个纵式的一）。穷举核对过，
+%   $1$ 到 $99999$ 之间有 990 组数字因此无法区分。
+%
+%   史料中确有省零的写法，靠上下文和算筹板上的位置定位数量级；排印这类内容时可以用
+%   \texttt{omit}，但要自己保证读者能确定位数。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{zerochar}
+%   \begin{syntax}
+%     zerochar = <token list>
+%   \end{syntax}
+%   \texttt{zero=fill} 时占位用的字符，默认是〇。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{minus}
+%   \begin{syntax}
+%     minus = <(slash)|overlay>
+%   \end{syntax}
+%   负数的记法。默认（\texttt{slash}）在筹码之前排一个独立的＼。
+%
+%   Unicode 建议的记法是 \texttt{overlay}：用组合字符 U+20E5 叠加在最右一位筹码上。
+%   但\textbf{目前没有一款字体同时含算筹字形与 U+20E5}——含算筹字形的几款字体都缺
+%   这个组合字符，实测叠加只会得到一个缺字警告。所以默认不用它。
+%   若你的字体两者都有，再改用 \texttt{overlay}。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{font}
+%   \begin{syntax}
+%     font = <font switch>
+%   \end{syntax}
+%   \tn{zhrodbox} 使用的字体切换命令，默认为空（即用当前字体）。
+%
+%   \pkg{zhnumber} 本身不加载任何字体，也不指定用哪一款——含算筹字形的字体会随时间
+%   变化，写死一个名字会过期。请自己声明一个字体族再交给这个选项：
+%   \begin{Verbatim}
+%     \newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
+%     \zhrodsetup{font=\RodFont}
+%   \end{Verbatim}
+%
+%   截至 2026 年 8 月，\TeX\ Live 的 \pkg{lxgw-fonts} 里有五款字体覆盖算筹的全部
+%   码位（U+1D360 至 U+1D371）：\file{LXGWWenKaiGBLite-Regular.ttf}、
+%   \file{LXGWNeoZhiSong.ttf}、\file{LXGWNeoXiHei.ttf} 及后两者的 \texttt{Screen}
+%   变体。用它们的好处是筹码与正文汉字可以出自同一款字体。
+%
+%   注意同一字体包里的 \file{LXGWZhenKaiGB-Regular.ttf}（文楷的粗体）和
+%   \file{LXGWZhuqueFangsong-Regular.ttf} \emph{没有}算筹字形，所以给算筹加粗会丢字。
+%
+%   另外，算筹码位在 \pkg{xeCJK} 眼里不属于汉字（\tn{XeTeXcharclass} 为 0，而〇与一
+%   为 1），所以在 \cls{ctexart} 一类文档里靠 \tn{CJKfamily} 切换取不到筹码字形，
+%   必须像上面那样显式声明字体族。这也意味着筹码与相邻汉字之间会插入
+%   \tn{CJKecglue} 的间距。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{kern}
+%   \begin{syntax}
+%     kern = <dimension expression>
+%   \end{syntax}
+%   \tn{zhrodbox} 在相邻筹码之间插入的字距，默认 \verb|-.14em|。
+%
+%   这个默认值是照排版效果试出来的\emph{临时值}，没有按史料核定过；若你有可靠的样张，
+%   请自行调整。
+% \end{function}
+%
+% \begin{function}[added=2026-08-06]{\zhrod~的引擎要求}
+%   算筹只能在 \XeTeX{} 与 \LuaTeX{} 下使用。\pdfTeX{} 与 \upTeX{} 是 8-bit 引擎，
+%   无法表示算筹所在的码位，在这两个引擎下调用 \tn{zhrod} 或 \tn{zhrodbox} 会报错
+%   而\emph{不会}退化成别的写法——算筹没有 8-bit 的替代记法，静默退化只会让人以为
+%   自己排出了算筹。
 % \end{function}
 %
 % \begin{function}[EXP, updated=2022-07-10]{\zhnum}
@@ -1185,7 +1341,248 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.1}{2026/07/09}{支持仅输出年或年月。}
+% \changes{v3.3}{2026/08/06}{新增算筹数字 \tn{zhrod} 与 \tn{zhrodbox}（\#366）。}
+%
+% \begin{macro}{\c_@@_rod_engine_bool}
+% 算筹码位在 \pdfTeX{} 与 \upTeX{} 下无法表示：这两个引擎是 8-bit 的，
+% 实测 \cs{char_generate:nn} 直接报
+% \texttt{LaTeX Error: Charcode requested out of engine range}。
+% 这是引擎能力缺失，不是缺字体，因此没有退化写法可用。
+%
+% \emph{不能}复用 \cs{c_@@_unicode_engine_bool}：那个布尔量把 \upTeX{} 也算作真
+% （它判的是「是否不必把汉字首字节设为活动字符」），而 \upTeX{} 恰好不能表示算筹。
+% 两者是不同粒度的引擎分类，这里需要单独一个只含 \XeTeX{} 与 \LuaTeX{} 的判据。
+%    \begin{macrocode}
+\bool_const:Nn \c_@@_rod_engine_bool
+  {
+    \bool_lazy_or_p:nn
+      { \sys_if_engine_xetex_p:  }
+      { \sys_if_engine_luatex_p: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}
+%   {
+%     \l_@@_rod_units_vertical_bool,
+%     \l_@@_rod_zero_omit_bool,
+%     \l_@@_rod_minus_overlay_bool,
+%     \l_@@_rod_font_tl,
+%     \l_@@_rod_kern_tl
+%   }
+% 算筹的五个配置变量，对应 \tn{zhrodsetup} 的五个键。
+%    \begin{macrocode}
+\bool_new:N \l_@@_rod_units_vertical_bool
+\bool_set_true:N \l_@@_rod_units_vertical_bool
+\bool_new:N \l_@@_rod_zero_omit_bool
+\bool_new:N \l_@@_rod_minus_overlay_bool
+\tl_new:N \l_@@_rod_font_tl
+\tl_new:N \l_@@_rod_kern_tl
+\tl_set:Nn \l_@@_rod_kern_tl { -.14 em }
+%    \end{macrocode}
+% 零、小数点与负号这三个字符\emph{不}走 \tn{zhnumsetup} 的样式与编码体系：
+% 算筹只在 Unicode 引擎下可用，没有 GBK／Big5 分支要照顾，而它的零是〇、
+% 小数点在史料里也不写汉字「点」。故直接用独立变量，不并入 \cs{zhnum_set_digits_map:nnn}。
+%    \begin{macrocode}
+\tl_new:N \l_@@_rod_zero_tl
+\tl_set:Nn \l_@@_rod_zero_tl { 〇 }
+\tl_new:N \l_@@_rod_dot_tl
+\tl_set:Nn \l_@@_rod_dot_tl { . }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_rod_vertical:n,\@@_rod_horizontal:n}
+% 两个码区各产出一个字符。注意 \emph{区名与字形朝向相反}：
+% Unicode 的 \texttt{COUNTING ROD UNIT DIGIT} 区（U+1D360 起）是\textbf{横}画，
+% \texttt{TENS DIGIT} 区（U+1D369 起）是\textbf{纵}画。
+% 实测 \file{LXGWWenKaiGBLite-Regular.ttf} 下 U+1D360 的 \texttt{wd} 为 10\,pt、
+% \texttt{ht} 为 4.05\,pt（扁），U+1D369 的 \texttt{ht} 为 8.03\,pt（高），
+% 换 \file{NotoSansSymbols2-Regular.ttf} 复核一致，所以这是 Unicode 的编排而非某款
+% 字体的取舍。故\emph{纵}式取 TENS 区、\emph{横}式取 UNIT 区，按区名直译会得到反的结果。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_vertical:n #1
+  { \char_generate:nn { \int_eval:n { "1D368 + #1 } } { 12 } }
+\cs_new:Npn \@@_rod_horizontal:n #1
+  { \char_generate:nn { \int_eval:n { "1D35F + #1 } } { 12 } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_rod_glyph:nn}
+% 取一位数字 |#1| 与它的位值 |#2|，产出对应字符。位值奇偶决定朝向：偶位值
+% （个位、百位、万位……）用 \tn{zhrodsetup} 的 \texttt{units} 所指定的那一式，
+% 奇位值用另一式。
+%
+% 零单独处理：默认排出 \cs{l_@@_rod_zero_tl}（即〇），\texttt{zero=omit} 时跳过。
+% 跳过会产生歧义，理由见用户文档。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_glyph:nn #1#2
+  {
+    \int_compare:nNnTF {#1} = { 0 }
+      {
+        \bool_if:NF \l_@@_rod_zero_omit_bool
+          { \zhnum_exp_not:o \l_@@_rod_zero_tl }
+      }
+      {
+        \int_compare:nNnTF { \int_mod:nn {#2} { 2 } } = { 0 }
+          {
+            \bool_if:NTF \l_@@_rod_units_vertical_bool
+              { \@@_rod_vertical:n   {#1} }
+              { \@@_rod_horizontal:n {#1} }
+          }
+          {
+            \bool_if:NTF \l_@@_rod_units_vertical_bool
+              { \@@_rod_horizontal:n {#1} }
+              { \@@_rod_vertical:n   {#1} }
+          }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]
+%   {\@@_rod_int:n,\@@_rod_int_loop:nn,\@@_rod_int_head:wn}
+% 整数部分逐位走：位值从 \verb|(位数 - 1)| 递减到 0，交给 \cs{@@_rod_glyph:nn}。
+%
+% 现有的两条读法都不能复用。\cs{zhnum_digits:Nn} 那条逐位循环
+% （\cs{@@_read_digits_loop:NN}）\emph{全程不携带「当前是第几位」}：它的布尔参数只是
+% 最初传入的 zero/null 开关，小数点靠字符比较识别、负号在循环前一次性剥离。
+% \cs{zhnum_integer:n} 那条虽然统计了长度，但那是为了按四位一段做万／亿制分组，
+% 不是位值奇偶。所以算筹需要自己一条带位值的循环。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_int:n #1
+  { \@@_rod_int_loop:nn {#1} { \tl_count:n {#1} - 1 } }
+\cs_new:Npn \@@_rod_int_loop:nn #1#2
+  { \tl_if_empty:nF {#1} { \@@_rod_int_head:wn #1 \q_stop {#2} } }
+\cs_new:Npn \@@_rod_int_head:wn #1#2 \q_stop #3
+  {
+    \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
+    \@@_rod_int_loop:nn {#2} { \int_eval:n { #3 - 1 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]
+%   {\@@_rod_frac:n,\@@_rod_frac_loop:nn,\@@_rod_frac_head:wn}
+% 小数部分：位值从 $-1$ 继续递减，交替因此跨小数点自然延续
+% （分位与个位异侧、厘位与个位同侧）。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_frac:n #1
+  { \@@_rod_frac_loop:nn {#1} { -1 } }
+\cs_new:Npn \@@_rod_frac_loop:nn #1#2
+  { \tl_if_empty:nF {#1} { \@@_rod_frac_head:wn #1 \q_stop {#2} } }
+\cs_new:Npn \@@_rod_frac_head:wn #1#2 \q_stop #3
+  {
+    \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
+    \@@_rod_frac_loop:nn {#2} { \int_eval:n { #3 - 1 } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_rod_number:n,\@@_rod_split:www,\@@_rod_sign:w}
+% 拆负号与小数点，再分派给上面两条循环。负号排在最前：规范说的是叠加在最右一位上，
+% 但那需要 U+20E5，而实测没有字体同时具备算筹字形与该字符，详见用户文档。
+%    \begin{macrocode}
+\cs_new:Npn \@@_rod_minus:
+  {
+    \bool_if:NTF \l_@@_rod_minus_overlay_bool
+      { \char_generate:nn { "20E5 } { 12 } }
+      { \char_generate:nn { "FF3C } { 12 } }
+  }
+\cs_new:Npn \@@_rod_number:n #1
+  { \@@_rod_sign:w #1 \q_stop }
+\cs_generate_variant:Nn \@@_rod_number:n { e }
+\cs_new:Npn \@@_rod_sign:w #1#2 \q_stop
+  {
+    \str_if_eq:nnTF {#1} { - }
+      {
+        \@@_rod_minus:
+        \@@_rod_split:www #2 . \q_nil . \q_stop
+      }
+      { \@@_rod_split:www #1#2 . \q_nil . \q_stop }
+  }
+\cs_new:Npn \@@_rod_split:www #1 . #2 . #3 \q_stop
+  {
+    \@@_rod_int:n {#1}
+    \quark_if_nil:nF {#2}
+      {
+        \zhnum_exp_not:o \l_@@_rod_dot_tl
+        \@@_rod_frac:n {#2}
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhrod}
+% 可展开的算筹输出，与 \tn{zhdigits} 同级。它\emph{只}产出字符，不切字体、不加字距，
+% 因此可以进 \file{.toc} 与 PDF 书签：实测这一形式在书签里得到正确的代理对、
+% 零条 \texttt{Token not allowed in a PDF string} 警告，而下面 \tn{zhrodbox}
+% 那种切字体加字距的形式在同一处会退化并报两条警告。
+%
+% \pdfTeX{}／\upTeX{} 下定义成直接报错的版本，不做静默退化：算筹没有 8-bit 的
+% 退化写法，退化只会让使用者以为自己排出了算筹。
+%    \begin{macrocode}
+\msg_new:nnn { zhnumber } { rod-engine-unsupported }
+  {
+    \token_to_str:N \zhrod \c_space_tl requires ~ XeTeX ~ or ~ LuaTeX. \\
+    Counting-rod ~ code ~ points ~ (U+1D360--U+1D371) ~ cannot ~ be ~
+    represented ~ by ~ 8-bit ~ engines.
+  }
+\bool_if:NTF \c_@@_rod_engine_bool
+  {
+    \zhnum_expand_wrap:wn
+    \cs_new:Npn \zhrod #1
+      { \@@_rod_number:e {#1} }
+  }
+  {
+    \cs_new_protected:Npn \zhrod #1
+      { \msg_error:nn { zhnumber } { rod-engine-unsupported } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\zhrodbox}
+% 排版层：切字体并在相邻字符之间压距。它\emph{不可展开}，不能写进辅助文件。
+%
+% 字距默认取 \verb|-.14em|，这是个\emph{临时视觉参数}，尚未按史料核对，
+% 所以做成可调键而不是写死。
+%    \begin{macrocode}
+\bool_if:NTF \c_@@_rod_engine_bool
+  {
+    \cs_new_protected:Npn \zhrodbox #1
+      {
+        \group_begin:
+          \tl_use:N \l_@@_rod_font_tl
+          \@@_rod_kerned:e { \@@_rod_number:e {#1} }
+        \group_end:
+      }
+  }
+  {
+    \cs_new_protected:Npn \zhrodbox #1
+      { \msg_error:nn { zhnumber } { rod-engine-unsupported } }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_rod_kerned:n}
+% 把已经展开成字符序列的算筹逐字排出，字符之间插入字距。
+% 先用 \texttt{e} 变体把 \cs{@@_rod_number:n} 展开成纯字符，再逐字处理，
+% 这样字距逻辑不必重复位值判断。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_rod_kerned:n #1
+  {
+    \bool_set_false:N \l_@@_rod_first_bool
+    \tl_map_inline:nn {#1}
+      {
+        \bool_if:NT \l_@@_rod_first_bool
+          { \skip_horizontal:n { \l_@@_rod_kern_tl } }
+        ##1
+        \bool_set_true:N \l_@@_rod_first_bool
+      }
+  }
+\cs_generate_variant:Nn \@@_rod_kerned:n { e }
+\bool_new:N \l_@@_rod_first_bool
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{\zhdate}
 % 输出中文日期。
@@ -2174,6 +2571,43 @@ Copyright and Licence
     ganzhi-cyclic     .default:n = { true } ,
     arabicsep          .tl_set:N = \l_@@_arabic_sep_tl
   }
+%    \end{macrocode}
+% 算筹的键单独一个模块。它们与 \tn{zhnumsetup} 那批键不同轴：那批管的是「每个数字
+% 换成哪个汉字」（样式与编码），算筹管的是「按位值奇偶选哪个码区」，并且只在
+% Unicode 引擎下有意义。混进同一模块会让 \texttt{style} 一类键在算筹下显得可用而实际无效。
+%
+% \texttt{zero} 与既有的 \texttt{null} 不同轴：\texttt{null} 管「0 映射成零还是〇」
+% （\tn{zhdigits} 默认已用〇），\texttt{zero} 管「写不写」。
+%    \begin{macrocode}
+\keys_define:nn { zhnum / rod }
+  {
+    units .choice: ,
+    units / vertical    .code:n =
+      { \bool_set_true:N  \l_@@_rod_units_vertical_bool } ,
+    units / horizontal  .code:n =
+      { \bool_set_false:N \l_@@_rod_units_vertical_bool } ,
+    units            .default:n = { vertical } ,
+    zero .choice: ,
+    zero / fill         .code:n =
+      { \bool_set_false:N \l_@@_rod_zero_omit_bool } ,
+    zero / omit         .code:n =
+      { \bool_set_true:N  \l_@@_rod_zero_omit_bool } ,
+    zero             .default:n = { fill } ,
+    minus .choice: ,
+    minus / slash       .code:n =
+      { \bool_set_false:N \l_@@_rod_minus_overlay_bool } ,
+    minus / overlay     .code:n =
+      { \bool_set_true:N  \l_@@_rod_minus_overlay_bool } ,
+    minus            .default:n = { slash } ,
+    font               .tl_set:N = \l_@@_rod_font_tl ,
+    kern               .tl_set:N = \l_@@_rod_kern_tl ,
+    zerochar           .tl_set:N = \l_@@_rod_zero_tl ,
+    dot                .tl_set:N = \l_@@_rod_dot_tl
+  }
+\NewDocumentCommand \zhrodsetup { m }
+  { \keys_set:nn { zhnum / rod } {#1} }
+%    \end{macrocode}
+%    \begin{macrocode}
 \bool_new:N \l_@@_simp_bool
 \bool_new:N \l_@@_normal_bool
 \bool_new:N \l_@@_ancient_bool

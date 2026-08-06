@@ -1,0 +1,95 @@
+\input{regression-test}
+%
+%% 算筹数字 \zhrod / \zhrodbox 的输出 (#366).
+%%
+%% 本文件放 testfiles-cjk/ 而不是主 testfiles/, 因为算筹码位在 pdfTeX 与 upTeX 下
+%% 无法表示 (8-bit 引擎, 实测报 `Charcode requested out of engine range'), 而
+%% `l3build check' 会把 testfiledir 下每个 .lvt 拿去跑 checkengines 里的每一个引擎,
+%% 没有按文件指定引擎的机制. 引擎判定与报错另见主目录的 rod-engine01.
+%%
+%% TEST 1-3 只断言字符序列, 不需要字体: \zhrod 是可展开的, 用 \tl_set:Ne 捕获展开
+%% 结果即可. TEST 4 才需要字体 —— 它固定实际排出的字形.
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage{zhnumber}
+\newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
+\begin{document}
+\START
+\ExplSyntaxOn
+
+%% 1. 位值奇偶决定朝向, 且跨小数点延续交替.
+%%    判据是字符序列本身 —— 归一化后基线里就是字面的算筹字符, 所以「排的是哪个码位」
+%%    被逐字固定下来, 不只是「长度对不对」.
+%%
+%%    UNIT 区 (U+1D360 起) 是横画, TENS 区 (U+1D369 起) 是纵画 —— 与区名相反,
+%%    见 zhnumber.dtx 里 \@@_rod_vertical:n 的说明. 故 units=vertical 时个位取 TENS 区.
+\TEST{glyph~selection~by~place~parity}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12030 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 123456789 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod { -12030.405 } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 2. 四个开关各自生效.
+%%    zero=omit 会产生歧义 (省零时 1/100/10000 写法全同, 实测 1..99999 内 990 组碰撞),
+%%    所以默认是 fill; 这里两种都固定下来, 免得日后把默认改反而没人发现.
+\TEST{options}{
+  \zhrodsetup { zero = omit }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12030 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { zero = fill }
+  \zhrodsetup { units = horizontal }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { units = vertical }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = overlay }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { -5 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = slash }
+  \zhrodsetup { zerochar = 零 }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 102 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { zerochar = 〇 }
+}
+
+%% 3. \zhrod 可展开 —— 这是它与 \zhrodbox 的分工所依赖的性质, 也是它能进
+%%    .toc 与 PDF 书签的前提.
+%%
+%%    判据是 \tl_if_in:NnTF 判断展开结果里有没有反斜线: 若哪天实现里混进了不可展开
+%%    的东西 (切字体、加字距), 展开结果里就会留下控制序列, 这一项立刻变化.
+%%    不把判断写进 \tl_log:x 的参数里 —— \tl_if_in:NnTF 是 protected 条件, 在那里
+%%    不展开, 会把判断本身原样印进基线 (实测踩过).
+\TEST{expandability}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 6708 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_if_in:NnTF \l_tmpa_tl { \c_backslash_str }
+    { \tl_log:n { 展开后含控制序列: 是 (不该发生) } }
+    { \tl_log:n { 展开后含控制序列: 否 } }
+}
+
+%% 4. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
+%%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
+%%    所以用 \loggingoutput 把盒子内容本身写进基线.
+%%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.
+%%    必须 \clearpage, 否则页面不 ship out, TEST 段落是空的.
+%%    \zhrodbox 必须先用 font= 注入字体, 否则它会在当前 (西文) 字体里排算筹而只报
+%%    Missing character —— 包本身不声明任何字体, 这是有意的取舍, 见手册.
+%%    这里两个盒子的对照正好固定这一点: 第一个手工切字体, 第二个靠 font= 键.
+\loggingoutput
+\TEST{typeset~output}{
+  \hbox_set:Nn \l_tmpa_box { \RodFont \zhrod { 12030 } }
+  \box_use:N \l_tmpa_box
+  \zhrodsetup { font = \RodFont }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox { 12030 } }
+  \box_use:N \l_tmpa_box
+  \par
+  \clearpage
+}
+
+\ExplSyntaxOff
+\END
+\end{document}

@@ -1,0 +1,56 @@
+\input{regression-test}
+%
+%% \zhrod / \zhrodbox 的引擎判定 (#366).
+%%
+%% 本文件只测「引擎能不能用算筹」这一件事, 因此放在主 testfiles/ 下跑三个引擎;
+%% 算筹的实际输出在 testfiles-cjk/rod01 里测 (那里只跑 xetex).
+%% 为什么必须分两处: 算筹码位在 pdfTeX/upTeX 下无法表示, 而 `l3build check' 没有
+%% 「按文件指定引擎」的机制, 同一个 .lvt 在三个引擎下的基线会分化成不可共存的两种.
+%%
+%% 判定依据是 \c_@@_rod_engine_bool (只含 xetex/luatex), 不是既有的
+%% \c_@@_unicode_engine_bool —— 后者把 upTeX 也算作真, 而 upTeX 恰好不能表示算筹.
+\documentclass{article}
+\usepackage{zhnumber}
+\begin{document}
+\START
+\ExplSyntaxOn
+
+%% 1. 两个命令在当前引擎下都已定义 —— 无论支持与否都该存在, 只是行为不同.
+%%    若哪天加载期分支写错 (比如某一支忘了定义), 这一项会抓住.
+\TEST{both~commands~exist}{
+  \tl_log:x { zhrod~exists:~    \cs_if_exist:NTF \zhrod    { yes } { no } }
+  \tl_log:x { zhrodbox~exists:~ \cs_if_exist:NTF \zhrodbox { yes } { no } }
+}
+
+%% 2. \zhrod 在支持的引擎下是可展开的, 在不支持的引擎下是 protected 的报错版本.
+%%    这一项的读数在三个引擎间不同, 所以 pdftex 需要自己的基线;
+%%    这正是本文件放主目录的目的 —— 让这个差异被固定下来而不是被绕开.
+%%
+%%    判据用 \token_if_protected_long_macro_p:N 而不是 \token_if_expandable_p:N:
+%%    后者对 \protected\long macro 也答 yes (protected 在它眼里仍算「可展开记号」),
+%%    因此拿它做判据时两个引擎读数相同, 这一项就成了恒真断言 —— 实测踩过.
+\TEST{expandability~differs~by~engine}{
+  \tl_log:x { engine:~ \c_sys_engine_str }
+  \tl_log:x
+    { zhrod~is~protected~(ie~the~error~version):~
+      \bool_if:nTF { \token_if_protected_long_macro_p:N \zhrod } { yes } { no } }
+}
+
+%% 3. 支持的引擎下产出算筹字符; 不支持的引擎下报错.
+%%
+%%    必须真的执行 \zhrod, 不能只用 \tl_set:Ne 捕获 —— 不支持的引擎下它是 protected
+%%    的, \tl_set:Ne 只会把 `\zhrod {12}' 原样存进变量而不触发报错, 于是这一项对
+%%    「报错路径有没有接对」零判别力 (实测: 初版基线里 pdftex 那份存的就是
+%%    `\l_tmpa_tl=\zhrod {12}', 而不是报错).
+%%
+%%    本项放在文件最末 —— 本仓库 support/build-config.lua 设了
+%%    `checkopts = "-halt-on-error"', 报错会让其后所有 \TEST 静默不执行而 check 仍
+%%    报绿. 验收判据是基线里的 TEST 段落数与本文件的 \TEST 个数一致 (当前 3/3).
+%%    这条约束是 #1008 记下的, 见 llmdoc/reference/build-and-test.md.
+\TEST{output~or~error}{
+  \zhrod { 12 }
+}
+
+\ExplSyntaxOff
+\END
+\end{document}
