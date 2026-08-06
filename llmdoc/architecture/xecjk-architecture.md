@@ -382,6 +382,8 @@ LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有�
 
 ulem 把正文拆进固定宽度的盒子。普通 stream 若直接在首次观察处排 glue，会把弹性间距和装饰 leader 一起放进内部盒子。`stream-ulem` 仍由 framework 决定 glue 类型和值，但在 ulem 活跃时通过 `\UL@stop`、普通 `\hskip`、`\UL@start` 把 glue 排到外层且不画线；独立符号命令使用普通 skip。包内线型命令在测量装饰符号前请求启动该 stream，原生 `\uline` 等入口由 `\ULon` 补上。两者都只允许最外层启动，因为嵌套路径会走 `\UL@onin`，没有可与重复 begin 配对的独立 end。所有嵌套线型命令复用最外层 stream，并由同一个结束点关闭。
 
+哪些命令占用这条扫描通道由装饰的绘制方式决定：线型命令借 `ulem` 扫描画连续线条（`\CJKunderline`、`\CJKunderdblline`、`\CJKunderwave`、`\CJKsout`、`\CJKxout`、`\CJKunderanyline`），符号型命令逐字放置独立符号、不经 `ulem` 扫描（`\CJKunderdot`、`\CJKunderanysymbol`），因此只有两层都是线型时才会走进 `\UL@onin`。这条分工有一个**用户可见后果**：`\UL@onin` 把内层正文整段装进一个刚性 `\hbox`，盒子内部不再留有断点，两个线型命令相互嵌套时内层正文因此整段无法断行（嵌套顺序不影响结果；原生 `\uline` 嵌本包线型命令同样如此），而任一层为符号型时断行正常。这是 `ulem` 的长期约束、不是本包的回归（发布版 v3.10.4 与工作树行为一致），用户向说明与替代写法见手册 §3.6.1（`\label{subsubsec:fntef-nest-linebreak}`），回归由 `fntef-nest-linebreak01` 双向固定。
+
 `box` 策略通常依靠 interchar transition 报告首尾类别，但公式与 `\vrule` 都不触发这种转换。rule 继续由 `\@@_boundary_if_capture_box_visible:` 根据盒子尺寸和末节点类型按 Default 处理；行内公式使用独立的 `math` 类别。命令参数适配器先检查正文两端的公式语法：开头公式在 math-on 前报告首类别；正文尾部的 `$`、`\)`、`\ensuremath{...}` 或相应外层分组都只产生“可能以公式结束”的候选。任何尾部候选都不能仅凭源码发布 `math`，因为未知宏既可能消费尾部花括号组，也可能把 `$` 或 `\)` 当作分隔参数的终止符。适配器把确认代码放在可见正文参数的末尾，在正文实际排完、外层包装尚未关闭时，只有当前列表末尾仍是真实 math 节点或 xeCJK 的 `math` marker，才确认候选并发布末类别。这样 `中{$x$}` 会得到 `math`；如果未知宏消费 `[q]{$x$}`、末尾 `$` 或末尾 `\)`，实际只排出 CJK“文”，则仍以 CJK 作为末类别。实现不使用全局 `\everymath`，也不展开任意用户宏或扫描任意 hbox 的内部节点。
 
 尾随源码空格会在通用路径中成为遮住公式节点的词间 glue。只有语法候选明确带尾随空格时，确认代码才暂时取下这一枚符合词间空格形状的 glue，检查下方节点后原样放回。ulem 会把它改写为 leaders，故 ulem 适配器在交出尾随空格前确认公式，再把空格交回原装饰流程。两条路径都继续执行实际节点确认，未知宏消费公式后输出 CJK 的反例不会被误判。
@@ -685,7 +687,7 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 `1em/3` 加原 leaders、没有裁切的朴素普通 `\leaders`，以及 `\cleaders` 加胶水专用图形，都是已经被当前分工替换的中间路线。当前方案保留普通 `\leaders` 的共享相位优势，再把可见端点和断行接点交给独立机制。合同由 `fntef-phase01` 的页面坐标门禁与节点、视觉回归共同保护。
 
-**边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
+**边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end（线型／符号型的分类与「内层因此无法断行」这一用户可见后果见上文 `stream-ulem` 小节）。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 
 **PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符、数学内容或绘图组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍需明确排除 PDF 文本语义。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：字符或数学装饰产生的内层标记可能穿过外层 `ActualText`，重新暴露装饰内容。这里的 PDF 语义隔离、boundary capture 暂停／恢复和 #1012 的默认图案几何分别解决文本提取、命令边界状态和装饰外观，三者不能互相替代。
 

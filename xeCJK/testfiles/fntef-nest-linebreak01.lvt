@@ -1,0 +1,102 @@
+% #1057：xeCJKfntef 命令嵌套使用时的断行边界。
+%
+% 本文件固定的是一条**既有限制**，不是回归缺陷。ulem 只允许最外层的线型命令启动
+% 扫描：内层线型命令走 ulem 的 \UL@onin 路径复用外层已经打开的扫描过程，它的正文
+% 被整段放进一个固定宽度的盒子，盒子内部不再留有断点，因此整段无法断行。发布版本
+% （v3.10.4）与工作树的行为完全一致：同一个 10cm 页宽的 MWE 在两版下溢出量同为
+% 276.99pt，这是「长期约束而非本版本回归」的证据。本文件自己用 \hsize=200pt，
+% 因此基线里记的是 276.16pt；引用溢出量时必须连页宽一起说，两个数字不能混用。
+%
+% 把它固定成断言的理由与 boundary-sbox01 固定 \global\savebox 那条上游限制相同：
+% 避免日后有人把它误判为回归，也让将来若真的绕开了这条限制时该项会提示更新。
+%
+% 这也是 \UL@onin（嵌套 ulem 命令入口）第一次获得回归保护。此前 fntef-shrink01
+% 只覆盖 \UL@on：那里用的观察量是「外层收缩量」，而 \UL@onin 用
+% \setbox\UL@box\hbox{{#1}} 把内容整体装进盒子，收缩量本来就出不来，症状不显现。
+% 本文件换用「能否断行」这个可观察量，因此能落在这条路径上。用计数器插桩确认过
+% 分派确实不同：TEST 1 的线型套线型使 \UL@onin 计数为 1，TEST 3 的线型套符号型
+% 计数为 0。
+%
+% 命令按装饰绘制方式分两类，断行能力不同：
+%   线型（借 ulem 扫描画连续线条）：\CJKunderline、\CJKunderdblline、
+%     \CJKunderwave、\CJKsout、\CJKxout、\CJKunderanyline
+%   符号型（逐字放独立符号，不需要 ulem 扫描）：\CJKunderdot、\CJKunderanysymbol
+%
+% 三点必须注意，否则测不出要固定的行为：
+%   1. 只有真正的段落断行才显现。装进单个 \hbox 或 \vbox 都测不出，因为那里的
+%      glue set 会把内外层收缩一并用掉（与 fntef-shrink01 的第 1 条注意事项同源）。
+%   2. 正文必须在调用处写成字面记号。写成 \CJKunderline{\BODY} 时 \BODY 在 ulem
+%      扫描期间才展开，触发的是「调用处写宏」那条另一条既有限制，两条不同的限制
+%      会被混为一谈。实测字面正文与宏承载正文都得到 276.99pt，正因如此才必须用
+%      字面正文，否则无法分辨究竟量到了哪一条。
+%   3. 判据是「Overfull 行在不在基线里」。TEST 1、TEST 2 的基线**含** Overfull
+%      行（限制存在的证据），TEST 3 起的基线**不含** Overfull 行（这些组合确实
+%      能断行）。两个方向都有断言，因此不是空基线的默认结果。
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xeCJK,xeCJKfntef}
+\usepackage{xcolor}  % TEST 2 的 \CJKunderanyline 需要 \color
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+% 线型套线型：内层无法断行，基线里必须留下 Overfull 行。
+% 顺序无关，因此正反两向各测一次。
+\TEST{line type nested in line type cannot break}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \CJKunderline{\CJKsout{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+  \CJKsout{\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+}
+
+% 原生 ulem 命令与本包线型命令相互嵌套时同样如此：内层走 \UL@onin，
+% 不会另行调用本包的 stream 结束函数。
+\TEST{native uline nested with CJKunderline cannot break}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \uline{\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+  \CJKunderanyline*{0.5ex}{\color{magenta}\rule{2pt}{2.5ex}}{\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+}
+
+% 符号型套在线型里、以及线型套在符号型里，都能正常断行：
+% 基线里不应出现 Overfull 行。这一项是上面两项的对照，
+% 说明「嵌套」本身不是原因，只有两层都占用 ulem 扫描通道才是。
+\TEST{symbol type nested with line type still breaks}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \CJKunderline{\CJKunderdot{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+  \CJKunderdot{\CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+}
+
+% 两个符号型命令相互嵌套也能断行：它们逐字放置独立符号，不经 ulem 扫描。
+\TEST{symbol type nested in symbol type still breaks}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \CJKunderdot{\CJKunderanysymbol{0.2em}{\tiny$\triangle$}{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}}
+  \par
+}
+
+% 手册给出的替代写法必须确实可用，否则文档在教用户走不通的路。
+% 按语义分段、每段只用一个线型命令时应当正常断行。
+\TEST{documented workaround splits body and breaks}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止} \CJKsout{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}
+  \par
+}
+
+% 单独使用时六个命令都能断行，作为全部对照项的基准。
+\TEST{single line type command breaks normally}{
+  \hsize=200pt \linewidth=200pt \parindent=0pt
+  \CJKunderline{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}
+  \par
+  \CJKunderwave{虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止 虚室 hello 生白，吉祥 world 止止虚室生白，吉祥止止}
+  \par
+}
+
+\END
