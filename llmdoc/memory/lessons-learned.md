@@ -647,6 +647,12 @@ Curated cross-task rules distilled from archived memory.
 ### 验证一个用途，要检查它的产物，而不是「没报错」
 **Rule**: 声称某个能力可用于某个场景时，必须端到端看该场景的实际产物——写文件的看文件字节，排版的看节点或 PDF，排序的跑一遍排序工具。「编译没报错」只证明没有致命错误，不证明产物正确；命令被原样吞掉时同样不报错。
 **Why**: #550 整个预生成方案是为了让查询命令能写进 `\index` 的排序键，我测过「`\index` 里放查询命令不报错」就认为可用。审查时端到端验证发现：`\index` 先 `\@sanitize` 再原样写进 `.idx`，存进去的是 `\xpinyinvalue{汉}` 这串命令本身，跑 makeindex 得到的顺序既非拼音序也非码位序。同一场景下报错也不出现，因为报错命令是 `protected` 的、命令没展开就不触发——缺少 `query` 选项的文档会零错误编译并静默产出错误索引。
+**Why（其二，同一任务内复发）**: #550 第一轮把这条定为阻塞并据此重写了手册配方，但**新配方本身又没有端到端验证**，于是同一处再犯两次：配方用 `\@tempa` 而正文里 `@` 不是字母，排序键多出一个空格；配方承诺「缺选项时立刻发现问题」，而报错命令是 `protected` 的，在 `\edef` 里不报错也不展开，静默写出坏键——**被判为阻塞的失效方式在「修好」之后依然存在**。修一个「没验证产物」的缺陷时，修法本身尤其要验证产物。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 可展开上下文里的报错要用 `\msg_expandable_error:`
+**Rule**: 供 `\edef` 或其他可展开场景使用的命令，其错误分支不能用 `\msg_error:`——后者是 `protected` 的，在 `\edef` 里既不报错也不展开，会把自己整条原样留在结果里，于是错误值被静默写进产物。改用 `\msg_expandable_error:`（本仓库 `zhnumber` 已有用法）。
+**Why**: #550 未加 `query` 选项时，`\edef\x{\xpinyinvalue{汉}}` 得到的是 `\__xpinyin_query_missing:n {汉}`，文档零错误编译并把这串东西当排序键写进 `.idx`。测试上还要注意：可展开的报错会中断当前 `\edef` 与其后的断言，所以每个报错场景要各占一个 `.lvt` 文件，否则相互掩盖判别力。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
 ### 反复重构后要扫一遍死代码，尤其别把教训注释留在死代码上

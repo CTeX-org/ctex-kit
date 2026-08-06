@@ -578,8 +578,8 @@ Copyright and Licence
 % \newcommand\pyindex[2]{%
 %   \begingroup
 %     \xpinyinsetup{tone=none}%
-%     \edef\@tempa{#1}%
-%     \expandafter\index\expandafter{\@tempa @#2}%
+%     \edef\pyindexkey{#1}%
+%     \expandafter\index\expandafter{\pyindexkey @#2}%
 %   \endgroup}
 % ...
 % 汉字\pyindex{\xpinyinvalue{汉}}{汉字}
@@ -590,10 +590,11 @@ Copyright and Licence
 % 经 \pkg{makeindex} 排序后「安全」「汉字」「中国」按 \texttt{an}、\texttt{han}、
 % \texttt{zhong} 的顺序排列。
 %
-% 还要注意：\tn{index} 不展开参数，也意味着未加载 \opt{query} 选项时，
-% 直接写在 \tn{index} 里的查询命令\emph{不会}触发「查询表未载入」的报错——
-% 那条报错要等到命令真正展开时才发出。因此请按上面的写法先 \tn{edef} 一次，
-% 既拿到正确的排序键，也能在缺少选项时立刻发现问题。
+% 中间变量请用一个普通的名字。若写成 \tn{@tempa} 这类含 |@| 的名字，
+% 正文里 |@| 不是字母，\verb|\edef\@tempa{...}| 定义到的并不是
+% \tn{@tempa}，排序键会多出一个空格（\verb|han @汉字|）；
+% \pkg{makeindex} 按字面比较，这会让它与手写的 \verb|han@汉字| 分成两个条目。
+% 要用这类名字就得把整段放在 \tn{makeatletter} 与 \tn{makeatother} 之间。
 %
 % \subsection{多音字}
 %
@@ -1823,9 +1824,12 @@ Copyright and Licence
 % 参数为空或多于一个字符时会漏出 \TeX{} 底层错误
 % （实测 \verb|\xpinyinvalue{中国}| 先报 \texttt{! Missing \string\endcsname inserted.}，
 % 空参数报 \texttt{! Improper alphabetic constant.}），看不出与本宏包有关。
-% 用 \cs{tl_count:n} 判断可以保持可展开。
+%
+% 这里数的是\emph{字符}而不是记号：\cs{tl_count:n} 把 \verb|{中}|、
+% \verb|\hz| 这类各算一个记号，检查会放它们过去，随后照旧漏出底层错误。
+% \cs{str_count:n} 先把参数变成字符串再数，能一并挡住。两者都可展开。
 %    \begin{macrocode}
-    \int_compare:nNnTF { \tl_count:n {#3} } = { 1 }
+    \int_compare:nNnTF { \str_count:n {#3} } = { 1 }
       {
         \bool_if:nTF {#2}
           { \@@_query_all:nn {#1} {#3} }
@@ -1851,13 +1855,25 @@ Copyright and Licence
 % 两者的处理办法不同，所以报错也要分开。
 % 报错命令不可展开，因此只在出错路径上出现，正常路径仍然完全可展开。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_query_bad_arg:n #1
-  { \msg_error:nnn { xpinyin } { query-bad-argument } {#1} }
-\cs_new_protected:Npn \@@_query_missing:n #1
+%    \end{macrocode}
+% 报错必须走 \cs{msg_expandable_error:nnn} 而不是 \cs{msg_error:nnn}。
+%
+% 查询命令的用途之一是先 \tn{edef} 出字面文字再交给别的命令（例如索引排序键），
+% 而 \cs{msg_error:nnn} 是 \texttt{protected} 的：在 \tn{edef} 里它既不报错也不
+% 展开，会把自己整条原样留在结果里。实测未加 \opt{query} 选项时，
+% \verb|\edef\x{\xpinyinvalue{汉}}| 得到的是
+% \verb|\__xpinyin_query_missing:n {汉}|，文档零错误编译，
+% 错误的排序键被静默写进 \file{.idx}。
+%
+% \cs{msg_expandable_error:nnn} 在可展开的上下文里也会发出错误，且不留下残余。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_bad_arg:n #1
+  { \msg_expandable_error:nnn { xpinyin } { query-bad-argument } {#1} }
+\cs_new:Npn \@@_query_missing:n #1
   {
     \bool_if:NTF \g_@@_query_loaded_bool
-      { \msg_error:nnn { xpinyin } { query-no-reading } {#1} }
-      { \msg_error:nn  { xpinyin } { query-not-loaded } }
+      { \msg_expandable_error:nnn { xpinyin } { query-no-reading } {#1} }
+      { \msg_expandable_error:nn  { xpinyin } { query-not-loaded } }
   }
 \bool_new:N \g_@@_query_loaded_bool
 %    \end{macrocode}
