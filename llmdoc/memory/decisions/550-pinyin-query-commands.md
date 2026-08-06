@@ -26,7 +26,7 @@ Issue #550（2020 年的 wishlist）希望把「查拼音」从「排注音」�
 | 6 | `number` 下的 `ü` | 写作 `v` |
 | 7 | 可展开性 | 预生成数据表，四个命令都可展开 |
 | 8 | 载入策略 | 包选项 `query` 按需载入 |
-| 9 | 引擎覆盖 | 只支持 Unicode 引擎 |
+| 9 | 引擎覆盖 | 只支持 XeTeX |
 
 命名：`\xpinyinvalue`、`\xpinyininitial`、`\xpinyinshengmu`、`\xpinyinyunmu`。统一用 `xpinyin` 前缀；声母／韵母用汉语拼音的说法，避开英文 `initial` 的歧义（它既可指首字母也可指声母，原型里正是用 `Abbr` 与 `Inital` 两个词区分的）。
 
@@ -60,11 +60,23 @@ Issue #550（2020 年的 wishlist）希望把「查拼音」从「排注音」�
 
 若写成 `nu3`，馈回 `\pinyin` 会得到「努」的读音 `nǔ` 而不是「女」的 `nǚ`，属于不可逆且错得隐蔽。
 
-### 只支持 Unicode 引擎（决策 9）
+### 只支持 XeTeX（决策 9）
 
 查询命令要取汉字码位。实测 pdfTeX 加 CJKutf8 路线上：直接用反引号取码位完全失效（输出为空）；改用包内既有的 `\@@_to_unicode:n` 会输出乱码并报 10 个错，因为它依赖 `\CJK@plane`，需要字符级钩子提供的上下文。
 
-要支持 pdfTeX 得另外设计一套取码位路径，而本需求指向的 `glossaries`／`bib2gls` 本身面向现代引擎。因此这组命令只在 Unicode 引擎下提供，加 `query` 选项时若引擎不符则报错。
+要支持 pdfTeX 得另外设计一套取码位路径，而本需求指向的 `glossaries`／`bib2gls` 本身面向现代引擎。因此这组命令只在 XeTeX 下提供，加 `query` 选项时若引擎不符则报错。
+
+**表述订正**：初版写成「只支持 Unicode 引擎（XeTeX 与 LuaTeX）」，审查时被证否——xpinyin 的包级门禁是 `\bool_lazy_or:nnF { xetex } { pdftex }`，**LuaTeX 下宏包整体 `\msg_critical` 中止**，根本走不到查询命令。把包级限制与本功能限制混为一谈，还会把 pdfTeX 用户导向一个同样不可行的引擎。引擎判据也相应从「不是 pdfTeX」改为「必须是 XeTeX」：日后若包级门禁放行别的引擎，正向判断不会把它默认当成可用。
+
+## 审查后修正的两处
+
+**`\index` 不展开参数，原先手册给的核心用法不生效。** 这是整个可展开性设计所服务的场景，却在手册里给错了写法：`\index` 先 `\@sanitize` 再把参数原样写进 `.idx`，所以 `\index{\xpinyinvalue{汉}@汉字}` 存进去的是这串命令本身而不是 `han`。端到端跑 makeindex 得到的顺序既不是拼音序也不是码位序。
+
+更糟的是同一场景下报错也不会出现：`\@@_query_missing:n` 是 `protected` 的，命令没被展开就不会触发它，于是未加 `query` 选项的文档零错误编译、静默产出错误索引——正是本决策想避免的失败方式。
+
+修法是手册改为给出 `\edef` + `\expandafter` 的写法（已端到端验证：`.idx` 里是 `han@汉字`，makeindex 排出 an／han／zhong 的顺序），并明确写出「`\index` 不展开参数」这条前提及其对报错时机的影响。
+
+**参数校验缺失。** `` `#1 `` 只接受单个字符记号，所以 `\xpinyinvalue{中国}` 会先漏出 `! Missing \endcsname inserted.`、空参数漏出 `! Improper alphabetic constant.`，都是看不出与本宏包有关的底层错误。已在 `\@@_query_dispatch:nnn` 里加一道 `\tl_count:n {#3} = 1` 的检查（用 `\int_compare:nNnTF` 保持可展开），不满足时报专用错误。
 
 ## 接受的限制
 
