@@ -2,10 +2,18 @@
 
 %% 拼音查询命令的报错路径 (#550, XeTeX / xeCJK 路线).
 %%
-%% 单独成文件, 因为可展开的报错 (\msg_expandable_error:nnn) 会中断当前
-%% \edef 并让后续断言不再执行 —— 若与其他项同处一个文件, 第一处报错之后的
-%% 项全部读不到, 相互掩盖判别力 (实测: 两项同文件时只有前一项有效).
-%% 每个报错场景各占一段, 用 \showboxbreadth 之外的手段无法绕开这一点.
+%% 单独成文件, 且本文件里报错断言之后不放别的项.
+%%
+%% 原因是 checkopts 带 -halt-on-error (support/build-config.lua): 第一处错误
+%% 就终止编译, 其后的断言静默不执行而 check 仍可能报绿 —— 与 \showbox /
+%% \box_log:N 抛 `! OK.` 的那个坑同源 (见 pinyin-tone02.lvt 的注释).
+%%
+%% 注意这不是 \msg_expandable_error:nnn 的语义: 不加 -halt-on-error 时, 报错
+%% 之后的断言照常执行 (实测). 曾把它记成「可展开报错必然中断后续」, 据此把
+%% tone=mark 的节点基线搬到报错之后, 那一节从此从未执行, 两个变异都变全绿.
+%%
+%% 因此: 查不到读音那条路径另放 pinyin-query03.lvt; 需要与排版类判据共存的项
+%% 放在不含报错断言的 pinyin-query01.lvt.
 
 \documentclass{article}
 \usepackage{xeCJK}
@@ -16,45 +24,20 @@
 
 \START
 
-%% 10. 参数校验数的是字符而不是记号.
+%% 参数校验数的是字符而不是记号.
 %%
 %% \tl_count:n 把 {中}、\hz 这类各算一个记号, 会放它们过去, 随后照旧漏出
 %% 底层 TeX 错误; \str_count:n 先转成字符串再数, 能一并挡住.
 %% 这一项固定「多记号但单字符外观」的输入确实被挡下.
-\TYPE{=== 11. argument check counts characters ===}
+\TYPE{=== argument check counts characters ===}
+%% 只放一格: -halt-on-error 下第一处报错即终止, 第二格不会执行.
+%% 汉字存在宏里 (\XPYhz) 是很自然的写法, 拿它作代表;
+%% 花括号包一层 (`{{中}}`) 属同一机制 —— \tl_count:n 各算一个记号 ——
+%% 由 pinyin-query04.lvt 覆盖.
 \def\XPYhz{中}
 \edef\XPYviaMacro{\xpinyinvalue{\XPYhz}}
 \TYPE{via-macro: [\meaning\XPYviaMacro]}
-\edef\XPYbraced{\xpinyinvalue{{中}}}
-\TYPE{braced: [\meaning\XPYbraced]}
 \xpinyinsetup{tone=mark}
-
-%% 9. tone=mark 的输出: 不可展开, 用排版结果固定.
-%%
-%% \loggingoutput 把 shipout 的节点列表写进日志, 于是带调号的字形逐个进基线.
-%% 这是本文件唯一依赖排版的一节 —— 因为 mark 形式确实只能排版而不能取值.
-%%
-%% 判别力: 若标调规则或 ü 的处理出错, 这里的字形会变.
-%% 例如把生成脚本里 ǚ 的字母部分从 v 写成 u, 「女」会排成 nǔ.
-\TYPE{=== 9. tone=mark via typeset output ===}
-\xpinyinsetup{tone=mark}
-\loggingoutput
-\xpinyinvalue{中} \xpinyinvalue{女} \xpinyinvalue{绿}\par
-\xpinyinyunmu{中} \xpinyinyunmu{安} \xpinyinyunmu{王}\par
-\xpinyinvalue*{重}\par
-%% 星号形式: 「行」四个读音跨 h/x 两组, 首字母应去重成 h,x.
-\xpinyinvalue*{行}\par
-\xpinyininitial*{行}\par
-\xpinyininitial*{重}\par
-%% 单音字的星号形式退回首选读音.
-\xpinyinvalue*{丹}\par
-%% number 形式下星号可读性更好, 一并固定.
-\xpinyinsetup{tone=number}
-\xpinyinvalue*{行}\par
-\xpinyininitial*{行}\par
-\xpinyinsetup{tone=mark}
-
-\newpage
 
 \END
 
