@@ -204,8 +204,9 @@
 `fntef-actualtext01`、#1012 新增 `fntef-phase01`、#1026 新增
 `fntef-shrink01`、#1029 新增 `boundary-sbox-global01`、#1038 新增
 `tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03`、
-#1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01` 后，
-当前为 122／122 通过。完整接口契约见
+#1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01`、
+#1057 新增 `fntef-nest-linebreak01` 后，
+当前为 123／123 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 ### 注册点的字体上下文与锚点出口的覆盖清单（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
@@ -452,11 +453,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒的实际横坐标。32 行校验固定所有周期盒处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 122／122，文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 123／123，文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 122 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 123 项。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 
@@ -513,11 +514,33 @@ TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecgl
 
 重排路径交还的那枚尾随空格仍落在最后一个片段盒内部，外层收缩量因此比发布版少 1.11pt（发布版 9.44pt、回归基线 8.33pt、修复后 8.33pt+2.22pt 中属于西文词的部分已恢复）。改走 `\@@_boundary_use_ulem_glue:n` 外层通道能补上这 1.11pt，但会让该空格对边界机制变得可见而被计算两次，实测 `command-boundary-math01` 报 3.33pt boundary delta 失败、`command-boundary-math05` 的 `stream-ulem` previous 从 0.0pt 变 3.33pt，故不采用。这是已接受的限制，详见决策 [[../memory/decisions/1026-ulem-literal-body]]。#1037 未改变这一点：它只改补 ecglue 的通道，不涉及重排路径剥离／交还源码空格的逻辑，TEST 5 的节点列表与宽度差在 #1037 修复前后逐字节相同，可佐证重排路径未被触及。
 
-`\UL@onin`（嵌套 ulem 命令入口）的重排分支按同一约束做了一致性修改，但**没有回归保护**，这一点必须如实记住，不要以为 `fntef-shrink01` 覆盖了它。原因是结构性的：`ulem` 的 `\UL@onin` 用 `\setbox\UL@box\hbox{{#1}}` 把内容整体装进一个 hbox，内层收缩量本来就出不了这个盒子，因此“收缩量丢失”这一症状在嵌套路径上不显现。实测在该分支重新引入同一缺陷（改回 `\tl_use:N` 间接展开），乃至整段删掉重排分支，xeCJK 全套 114 项都保持全绿；嵌套 `\uline` 盒子的宽高深在修复版与缺陷版下逐位相同。探针确认这条分支确实会被执行（不是死代码），只是其正确性目前依赖代码审查而非校验。若将来找到可观察量（例如节点列表里的末类别或空格交还位置），应当补上用例并更新此处。
+`\UL@on` 与 `\UL@onin` 两条入口现在**各由一个测试覆盖，但用的是不同的可观察量**，不要把两者混为一谈：`fntef-shrink01` 以「外层收缩量」为观察量覆盖 `\UL@on`；`fntef-nest-linebreak01`（#1057，见下一节）以「能否断行」为观察量覆盖 `\UL@onin`。
+
+必须换观察量的理由是结构性的：`ulem` 的 `\UL@onin` 用 `\setbox\UL@box\hbox{{#1}}` 把内容整体装进一个 hbox，内层收缩量本来就出不了这个盒子，因此「收缩量丢失」这一症状在嵌套路径上恒定不显现。实测在该分支重新引入同一缺陷（改回 `\tl_use:N` 间接展开），乃至整段删掉重排分支，xeCJK 全套都保持全绿；嵌套 `\uline` 盒子的宽高深在修复版与缺陷版下逐位相同。同一句 `\setbox\UL@box\hbox{{#1}}` 对收缩量不可见，对断点却是决定性的——`fntef-nest-linebreak01` 正是从这里接上的。
+
+仍未覆盖的部分要如实记住：`\UL@onin` 重排分支**内部的逻辑**（#1026 顺手做的一致性修改）的正确性依然依赖代码审查。新观察量能证明该路径被执行（计数器插桩实测：线型套线型时 `\UL@onin` 计数为 1，线型套符号型时为 0）、能证明正文进了刚性盒子，但不能区分该分支内部重排逻辑的对错。
 
 视觉与跨 issue 无回归资产放在 `gh-assets` 的 `issues/1026/`：`issue1026-before-after.png` 是带正文右边距参考线的修复前后对照（722px → 681px，与 v3.10.3 逐像素一致）；`issue1002-no-regression.png` 与两份 `issue1002-*.txt` 记录重放 #1002 资产的结果——数值 oracle 24 行与本 PR 父提交逐字节相同，`inline-math-showcase.tex` 全部 17 页逐像素相同。重放这类资产时基线要取本 PR 的父提交，不能取早于该 issue 的发布版。
 
 #1037 的资产在 `gh-assets` 的 `issues/1037/`。它给上一段补了一条：父提交是「有没有变好」的基线，但判断「变好到该有的程度了吗」还需要第三个对照点——**未受影响的发布版**。#1026 修复后该 MWE 为 4.47pt，与 TeX Live v3.10.3 逐像素相同；只看父提交（18.91pt）会认为修复到位，加上发布版这一点才看出 4.47pt 是发布版本来就有的缺陷、而非本次修复的终点。
+
+### 装饰命令嵌套时的断行边界（`fntef-nest-linebreak01`，#1057）
+
+`fntef-nest-linebreak01.lvt` 固定的是一条**既有限制**而非回归缺陷：`ulem` 只允许最外层的线型命令启动扫描，内层线型命令走 `\UL@onin` 复用外层已打开的扫描过程，正文被整段装进一个刚性 `\hbox`（探索 MWE 实测 107.22pt，盒子内部没有 discretionary），于是整段无法断行。发布版 v3.10.4（系统 TeX Live）与工作树 v3.10.5 行为完全一致，同一个 10cm 页宽的 MWE 在两版下溢出量同为 276.99pt，这是「长期约束而非本版本回归」的证据（本文件自己用 `\hsize=200pt`，基线里记的是 276.16pt；引用这个数字时要连页宽一起说）。固定它的理由与 `boundary-sbox-global01` 固定 `\global\savebox` 那条上游限制相同：避免日后有人把它误判为回归，而一旦将来确实绕开了这条限制，该项会失败并提示更新文档。用户向说明见 `xeCJK.dtx` 的 §3.6.1（`\label{subsubsec:fntef-nest-linebreak}`）。
+
+判断谁占用扫描通道要按**装饰的绘制方式**分类，这是理解全部对照项的前提：线型命令借 `ulem` 扫描画连续线条（`\CJKunderline`、`\CJKunderdblline`、`\CJKunderwave`、`\CJKsout`、`\CJKxout`、`\CJKunderanyline`），符号型命令逐字放置独立符号、不经 `ulem` 扫描（`\CJKunderdot`、`\CJKunderanysymbol`）。因此 `\CJKunderanyline` 自嵌套失败不是独立现象，而是「它属于线型」的推论。
+
+6 个 `\TEST` 的覆盖如下：TEST 1 线型套线型（`\CJKunderline`／`\CJKsout` 正反两向，顺序不影响结果）；TEST 2 原生 `\uline` 与本包线型命令相互嵌套，以及 `\CJKunderanyline*` 套 `\CJKunderline`；TEST 3 符号型与线型的双向嵌套；TEST 4 两个符号型相互嵌套；TEST 5 手册给出的替代写法（按语义分段、每段只用一个线型命令）确实能断行——文档若在教用户走不通的路，这一项会红；TEST 6 单独使用线型命令的基准。
+
+**判据是双向的**：TEST 1、TEST 2 的基线**含** Overfull 行，作为限制存在的证据；TEST 3 到 TEST 6 的基线**不含** Overfull 行，因为这些组合确实能断行。没有后一组时，前一组只是空基线的默认结果，文档里「符号型可以自由嵌套」那句话也没有任何校验。变异验证针对的正是不触发限制这一侧：把 TEST 3 内层的 `\CJKunderdot` 换成线型 `\CJKunderwave`，基线因多出 Overfull 行而失败（实测 rc 1），说明「不含 Overfull」确实有判别力。另用计数器插桩确认分派机制而非只凭现象推断：TEST 1 的线型套线型使 `\UL@onin` 计数为 1，TEST 3 的线型套符号型计数为 0。
+
+三条测试设计约束写进了文件注释：
+
+- **只有主垂直列表里真正的段落断行才显现。** 装进单个 `\hbox` 或 `\vbox` 都测不出，那里的 glue set 会把内外层收缩一并用掉（与 `fntef-shrink01` 的同名约束同源）。
+- **正文必须在调用处写成字面记号。** 写成 `\CJKunderline{\BODY}` 会触发「调用处用宏承载正文」那条另一条既有限制。这里的复核不可省略：两条限制在同一个探索 MWE 上给出**同一个数字** 276.99pt，不用字面正文重测一遍就分不清量到的是哪一条，也就无法断言该数字由嵌套造成。
+- **判据本身是「Overfull 行在不在基线里」**，因此正文长度与 `\hsize` 都是判据的一部分，改动样例正文需要重新确认两侧仍各自成立。
+
+xeCJK 标准测试因本文件从 122 项增至 123 项，当前为 123／123 通过。
 
 ### xeCJKfntef 的 PDF 文本语义（#1017）
 
