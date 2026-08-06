@@ -867,7 +867,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 - 操作系统矩阵：`ubuntu-latest`、`macos-latest`、`windows-latest`
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
-- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）
+- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）；`test-zhnumber` 也传 `configs: test/config-cjk`（#1008 起，真排汉字量盒子那条线只跑 xetex），但不需要 `needs-unihan`
 - 主仓自家分支的 PR 会同时触发 push 与 pull_request 两次 `test.yml` 运行。pull_request 那次按设计跳过全部包测试（见 `.github/workflows/test.yml:59-86` 的注释），在 PR 页面上显示为成功。判断测试是否通过要看 push 那次运行：用 `gh run list --branch <分支> --workflow test.yml` 查看 event 列。
 
 见 `.github/workflows/test.yml`。
