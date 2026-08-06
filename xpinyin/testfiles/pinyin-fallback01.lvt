@@ -1,0 +1,80 @@
+\input{regression-test}
+
+%% AutoFallBack 与注音量宽盒子的交互 (#997, XeTeX / xeCJK 路线).
+%%
+%% 缺陷: xpinyin 的 \@@_CJKsymbol_hook: 在量宽盒子里无条件调
+%% \xeCJK_select_font:, 而后者的内部实现 \@@_select_font:Nn 第一件事就是
+%% \xeCJK_clear_fallback_font:, 会把 AutoFallBack 刚切好的后备字体丢掉.
+%% 于是主字体缺字形时, 量宽盒子退回主字体、字形缺失, 量出的宽度只剩标点宽,
+%% 拼音随后被 \box_resize_to_wd_and_ht:Nnn 压缩到这个错误宽度.
+%%
+%% 关键: 可见的汉字**本身不受影响** —— 它由量宽盒子之外的
+%% \@@_save_CJKsymbol:n 输出, 那时后备字体仍然有效. 所以这是量宽缺陷,
+%% 不是渲染缺陷; 报告里"汉字变成方框"的印象来自终端的 Missing character
+%% 警告, 实际 PDF 里汉字是正常的.
+%%
+%% 判据的选择 (这里踩过一次坑, 记下来):
+%% 用整体宽度**没有**判别力. 拼音在 \hbox_overlap_right:n 这个零宽盒子里,
+%% 不占外部宽度 —— 实测缺陷版与修复版 \hbox{\xpinyin*{中}} 同为 10.0pt.
+%% 所以必须让节点列表进日志, 看拼音字形自身的排版宽度.
+%%
+%% 实测读数 (主字体 lmroman10 无 CJK 字形, 后备 FandolSong 有):
+%%   缺陷版: 量宽盒子 2.8pt  -> 拼音被压缩, 基线里 DejaVuSerif 字号异常
+%%   修复版: 量宽盒子 10.0pt -> 拼音按 ratio .4 排成 3.99994pt
+%% 两者在基线里一眼可分.
+
+\documentclass{article}
+\usepackage[AutoFallBack]{xeCJK}
+\usepackage{xpinyin}
+
+%% 主字体故意选一个**没有** CJK 字形的西文字体, 逼出 AutoFallBack 这条路径.
+%% 后备字体才是真正提供汉字字形的那个.
+%% 两者都取自 TeX Live (lm / fandol), 不依赖系统 fontconfig, 跨机器可复现.
+\setCJKmainfont{lmroman10-regular.otf}
+\setCJKfallbackfamilyfont{\CJKrmdefault}{FandolSong-Regular.otf}
+
+%% 拼音字体单独指定, 使基线里拼音字形与汉字字形按字体名即可区分.
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+%% 第 3 项的对照用: 一个自带 CJK 字形的族, 切过去后不经 AutoFallBack.
+\newCJKfontfamily\CJKdirectfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\xpinyin*{文}}
+\TIMO
+
+\START
+
+\loggingoutput
+
+%% 1. 后备字体下的自动注音: 拼音应按缺省 ratio (.4) 排成 3.99994pt.
+%%
+%% 这是 #997 的原始场景. 缺陷版下量宽盒子只有 2.8pt, 拼音被压到该宽度,
+%% 基线里 DejaVuSerif 的字号随之改变.
+\xpinyin*{中国}\par
+
+%% 2. 显式指定读音的路径同样经过量宽盒子, 一并固定.
+%%    读音取非首选值, 与第 1 项的数据库首选形成可分辨的对照.
+\xpinyin{中}{zhong4}\par
+
+%% 3. 对照项: 主字体自身就有 CJK 字形时**不**走后备字体, 输出不应受本次改动影响.
+%%
+%% 这一格是必须的 —— 修复方案是"已处于后备字体状态就跳过重选", 若条件判断
+%% 写反 (变成"总是跳过"), 第 1、2 项照旧通过, 而这一项会失败: 调用处当前字体
+%% 是西文时, 跳过重选会让量宽盒子量出西文字体下的宽度.
+%%
+%% 实测 hook 在此处确实是必需的: 进入量宽盒子时当前字体为 \TU/lmr/m/n/10,
+%% 不重选则量错. 所以刻意让本行的注音紧跟在西文之后.
+%%
+%% 用 \newCJKfontfamily 另立一个自带 CJK 字形的族 (\setCJKmainfont 只能用在
+%% 导言区), 切过去之后这一行不再经过 AutoFallBack.
+Latin \CJKdirectfont \xpinyin*{中国}\par
+
+\newpage
+
+\END
+
+\end{document}
