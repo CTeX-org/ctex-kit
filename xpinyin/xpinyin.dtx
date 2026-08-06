@@ -921,27 +921,38 @@ Copyright and Licence
 %   后备字体时，量宽盒子不再重选主字体，修复注音被压缩到错误宽度的问题（\#997）。}
 %
 % \begin{macro}{\@@_reselect_CJK_font:}
-% \cs{@@_CJKsymbol_hook:} 的作用是：量宽盒子里的汉字必须用 CJK 字体排版，而调用处
-% 的当前字体可能是西文字体（例如 |Latin \xpinyin*{中}| 里的 \texttt{lmr}，实测
-% 进入盒子时是 \texttt{lmr}，不重选则量出西文字体下的宽度）。所以这个重选不能删。
+% \cs{@@_CJKsymbol_hook:} 原本无条件调用 \tn{xeCJK@setfont}（或 \pkg{xeCJK} 的
+% \texttt{\textbackslash xeCJK\_select\_font:}）重选 CJK 字体，为量宽盒子里的汉字
+% 准备字体。问题在于后者的内部实现第一件事就是清除后备字体状态，会把
+% \texttt{AutoFallBack} 刚切好的后备字体丢掉。于是启用 \texttt{AutoFallBack} 且当前
+% 字符靠后备字体才有字形时，量宽盒子退回主字体、字形缺失，宽度只剩标点宽
+% （实测 2.8pt，正确值 10.0pt），拼音随后被 \cs{box_resize_to_wd_and_ht:Nnn} 压缩到
+% 这个错误宽度。注意可见的汉字本身不受影响：它由盒子外的
+% \cs{@@_save_CJKsymbol:n} 输出，此时后备字体仍然有效。
 %
-% 但 \cs{xeCJK_select_font:} 的内部实现 \cs{@@_select_font:Nn} 第一件事就是
-% \cs{xeCJK_clear_fallback_font:}，会把 \texttt{AutoFallBack} 刚切好的后备字体丢掉。
-% 于是启用 \texttt{AutoFallBack} 且当前字符靠后备字体才有字形时，量宽盒子退回主字体、
-% 字形缺失，宽度只剩标点宽（实测 2.8pt，正确值 10.0pt），拼音随后被
-% \cs{box_resize_to_wd_and_ht:Nnn} 压缩到这个错误宽度。注意可见的汉字本身不受影响：
-% 它由盒子外的 \cs{@@_save_CJKsymbol:n} 输出，此时后备字体仍然有效。
+% \texttt{\textbackslash xeCJK\_reset\_fallback\_font:} 是 \pkg{xeCJK} 用来标记
+% 「当前处于后备字体状态」的开关：未启用后备字体时它等于 \cs{prg_do_nothing:}，
+% \pkg{xeCJK} 切换到后备字体后它被重定义为「恢复该字体并清除标记」。据此判断：
+% 已经在后备字体里就不重选，当前字体正是应该用来量宽的那一个；否则保持原有行为。
 %
-% \cs{xeCJK_reset_fallback_font:} 是 \pkg{xeCJK} 用来标记「当前处于后备字体状态」的
-% 开关：未启用后备字体时它等于 \cs{prg_do_nothing:}，\pkg{xeCJK} 切换到后备字体后
-% 它被重定义为「恢复该字体并清除标记」。据此判断：已经在后备字体里就不重选，
-% 当前字体正是应该用来量宽的那一个；否则按原逻辑重选主 CJK 字体。
+% 为什么保留「否则重选」这一支，而不是把重选整个删掉：实测在本 hook 运行的时点，
+% 当前字体（\tn{fontname}\tn{font}）已经是 CJK 字体，因为 \pkg{xeCJK} 的
+% interchar 机制进入 CJK 类时已经切好字体，本 hook 运行在那之后。已核对
+% 十余种上下文（紧跟西文单词、标点、\tn{emph}、数学、\tn{textsf}、字号变化、
+% \tn{mbox}／\tn{sbox}／\tn{hbox}／\tn{vbox}、\env{tabular}、\env{minipage}、
+% \tn{section}、\env{pinyinscope}、嵌套注音、脚注、切换 CJK 字体族），
+% \tn{fontname}\tn{font} 无一例外都已是 CJK 字体；把重选删掉时全部回归测试仍然通过。
+% 也就是说这一支在当前的 \pkg{xeCJK} 行为下并无可观察效果，保留它是出于对
+% \pkg{xeCJK} 内部行为变化的保守（\texttt{NFSS} 参数此时确实还是西文族，一旦
+% \pkg{xeCJK} 改变切换时点，重选就重新变得必要），而不是因为已经观察到它必需。
+% 相应地，回归测试无法覆盖「这一支被跳过」这种形态——记为已接受的覆盖缺口，
+% 见 \file{llmdoc/reference/build-and-test.md} 的 \#997 一节。
 %
 % 这个开关在 \pkg{xeCJK} 里没有独立的文档条目，属于内部量，比
-% \cs{xeCJK_select_font:} 更容易在上游重构中改名。本包依赖的 \pkg{xeCJK} 内部接口
-% 清单见 \file{MAINTAINING.md}；\pkg{xeCJK} 侧对「重选字体会清除后备字体状态」这条
-% 机制边界的说明，见仓库内 \file{llmdoc/architecture/xecjk-architecture.md} 的
-% 「后备字体」一节。
+% \texttt{\textbackslash xeCJK\_select\_font:} 更容易在上游重构中改名。本包依赖的
+% \pkg{xeCJK} 内部接口清单见 \file{MAINTAINING.md}；\pkg{xeCJK} 侧对「重选字体会
+% 清除后备字体状态」这条机制边界的说明，见仓库内
+% \file{llmdoc/architecture/xecjk-architecture.md} 的「后备字体 (Fallback)」一节。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_reselect_CJK_font:
   {
