@@ -58,6 +58,16 @@
   \tl_set:Ne \l_tmpa_tl { \zhrod { 102 } }
   \tl_log:N \l_tmpa_tl
   \zhrodsetup { zerochar = 〇 }
+  %% 手册写明的两处限制, 在此固定下来, 免得日后「顺手改好」而没人发现文档也要改:
+  %% (a) zero=omit 下纯零输入什么都不排;
+  %% (b) minus=overlay 末位是 0 时叠在零的位置上, 而不是叠在一个筹码上.
+  \zhrodsetup { zero = omit }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{0} }
+  \tl_log:e { omit~zero~is~empty: \tl_if_empty:NTF \l_tmpa_tl { yes } { no } }
+  \zhrodsetup { zero = fill , minus = overlay }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{-10} }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = slash }
 }
 
 %% 3. \zhrod 可展开 —— 这是它与 \zhrodbox 的分工所依赖的性质, 也是它能进
@@ -145,7 +155,21 @@
   \tl_log:N \l_tmpa_tl
 }
 
-%% 8. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
+%% 8. 尾随空格不能让命令炸掉.
+%%    分隔符扫描器遇到 `12 ' 时会跳过那个空格、找不到 \q_stop, 于是跑过右花括号 ——
+%%    实测 \zhrod{12 } 报四条硬错误。守卫原先用 \tl_if_empty:nF, 而单个空格对它
+%%    「非空」; 改用 \tl_if_blank:nF。\zhdigits{12 } 与 \zhnumber{12 } 本来就能处理,
+%%    所以这是本功能引入的不一致 (盲审发现)。
+%%
+%%    这类输入很常见: \zhrod{\the\year\space}、或宏定义末尾带空格的 \zhrod{\yr}。
+\TEST{trailing~space}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{12 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod{1.5 } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 9. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
 %%    \zhrod 用 \@@_rod_number:e, \zhrodbox 起初用 :n —— 于是 \zhrodbox{\num} 把
 %%    未展开的宏塞进 "1D368 + \num 的算术里, 排出一个越界字形并只报 Missing character
 %%    (\zhrodbox{\arabic{foo}} 更糟: 四条 Missing number 加一串字面文本)。盲审发现。
@@ -161,7 +185,7 @@
   \tl_log:e { zhrodbox~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
 }
 
-%% 9. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
+%% 10. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
 %%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
 %%    所以用 \loggingoutput 把盒子内容本身写进基线.
 %%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.

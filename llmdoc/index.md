@@ -41,7 +41,7 @@ protected）已删除、完全由 `legacy-entry01` 覆盖；`check-changelog.yml
 占位符，与既有新鲜度校验互补而非重叠——占位符漏出是确定性的，两边生成物一致只是
 都错，新鲜度 diff 零判别力）。
 都错，新鲜度 diff 零判别力）。新增「zhnumber 的算筹数字回归（#366）」一节，记录
-`rod-engine01`（三引擎，3 项，只测 `\zhrod`／`\zhrodbox` 的引擎判定与报错，判据用
+`rod-engine01`（四引擎含 upTeX，只测 `\zhrod`／`\zhrodbox` 的引擎判定与报错，判据用
 `\token_if_protected_long_macro_p:N` 而非对 protected macro 恒真的
 `\token_if_expandable_p:N`）与 `testfiles-cjk/rod01`（仅 xetex，前几项用
 `\zhrod` 可展开性逐字固定排的是哪个码位，末项用 `\loggingoutput` 固定实际字形与

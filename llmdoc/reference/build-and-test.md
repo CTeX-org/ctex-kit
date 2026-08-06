@@ -584,7 +584,7 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
 的三引擎基线会分化成不可共存的两种。这与本节已记的 `zhnumber/test/config-cjk.lua`
 （#1008）是同一类约束，此处就近记录，不重开一节。
 
-- `zhnumber/testfiles/rod-engine01.lvt`（三引擎，3 项）：只测引擎判定与报错，不测实际
+- `zhnumber/testfiles/rod-engine01.lvt`（四引擎，含 upTeX）：只测引擎判定与报错，不测实际
   输出。判定依据是新增的 `\c_@@_rod_engine_bool`（只含 xetex/luatex），不是既有的
   `\c_@@_unicode_engine_bool`——后者把 upTeX 也算作真，而 upTeX 恰好不能表示算筹码位。
   报错断言放在文件末位（同「可展开报错是致命错误」一节的约束），并用
