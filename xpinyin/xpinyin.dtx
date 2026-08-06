@@ -911,9 +911,46 @@ Copyright and Licence
     \cs_new_protected:Npx \@@_CJKsymbol_hook:
       {
         \exp_not:N \makexeCJKinactive
-        \cs_if_exist_use:NF \xeCJK_select_font:
-          { \exp_not:N \xeCJK@setfont }
+        \exp_not:N \@@_reselect_CJK_font:
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2}{2026/08/05}{在 \pkg{xeCJK} 的 \texttt{AutoFallBack} 已切换到
+%   后备字体时，量宽盒子不再重选主字体，修复注音被压缩到错误宽度的问题（\#997）。}
+%
+% \begin{macro}{\@@_reselect_CJK_font:}
+% \cs{@@_CJKsymbol_hook:} 的作用是：量宽盒子里的汉字必须用 CJK 字体排版，而调用处
+% 的当前字体可能是西文字体（例如 |Latin \xpinyin*{中}| 里的 \texttt{lmr}，实测
+% 进入盒子时是 \texttt{lmr}，不重选则量出西文字体下的宽度）。所以这个重选不能删。
+%
+% 但 \cs{xeCJK_select_font:} 的内部实现 \cs{@@_select_font:Nn} 第一件事就是
+% \cs{xeCJK_clear_fallback_font:}，会把 \texttt{AutoFallBack} 刚切好的后备字体丢掉。
+% 于是启用 \texttt{AutoFallBack} 且当前字符靠后备字体才有字形时，量宽盒子退回主字体、
+% 字形缺失，宽度只剩标点宽（实测 2.8pt，正确值 10.0pt），拼音随后被
+% \cs{box_resize_to_wd_and_ht:Nnn} 压缩到这个错误宽度。注意可见的汉字本身不受影响：
+% 它由盒子外的 \cs{@@_save_CJKsymbol:n} 输出，此时后备字体仍然有效。
+%
+% \cs{xeCJK_reset_fallback_font:} 是 \pkg{xeCJK} 用来标记「当前处于后备字体状态」的
+% 开关：未启用后备字体时它等于 \cs{prg_do_nothing:}，\pkg{xeCJK} 切换到后备字体后
+% 它被重定义为「恢复该字体并清除标记」。据此判断：已经在后备字体里就不重选，
+% 当前字体正是应该用来量宽的那一个；否则按原逻辑重选主 CJK 字体。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_reselect_CJK_font:
+  {
+    \cs_if_exist:NTF \xeCJK_reset_fallback_font:
+      {
+        \cs_if_eq:NNTF \xeCJK_reset_fallback_font: \prg_do_nothing:
+          { \@@_select_CJK_font: }
+          { }
+      }
+      { \@@_select_CJK_font: }
+  }
+\cs_new_protected:Npn \@@_select_CJK_font:
+  {
+    \cs_if_exist_use:NF \xeCJK_select_font:
+      { \xeCJK@setfont }
   }
 %    \end{macrocode}
 % \end{macro}
