@@ -352,6 +352,12 @@ Copyright and Licence
 %
 %   \textbf{两种记法各自依赖的字符互不重合，需要按字体挑。}
 %   \texttt{slash} 用的是 U+FF3C（全角反斜线），\texttt{overlay} 用的是 U+20E5。
+%   \textbf{已知限制：}末位是 0 时，\texttt{overlay} 会叠到零的位置上，而不是叠在一个
+%   筹码上——\texttt{zero=fill} 时叠在占位的〇上，\texttt{zero=omit} 时叠在末位之前那个
+%   筹码上（实测 \verb|\zhrod{-10}| 在 \texttt{fill} 下得到「筹码 + 〇 + U+20E5」）。
+%   这是「叠在最右一个字符上」这条规则本身带来的：末位没有筹码可叠。此时建议改用
+%   \texttt{slash}。
+%
 %   把 \TeX\ Live 里含全部算筹字形的字体扫一遍（共 19 款），结果是两者\emph{恰好互补}：
 %   \pkg{lxgw-fonts} 的 5 款只有 U+FF3C，\pkg{juliamono} 的 14 款只有 U+20E5，
 %   \textbf{没有一款同时具备}。所以用 \pkg{lxgw-fonts} 时要用 \texttt{slash}（默认），
@@ -1446,6 +1452,7 @@ Copyright and Licence
           { \zhnum_exp_not:o \l_@@_rod_zero_tl }
       }
       {
+        \@@_rod_kern:
         \int_compare:nNnTF { \int_mod:nn {#2} { 2 } } = { 0 }
           {
             \bool_if:NTF \l_@@_rod_units_vertical_bool
@@ -1479,7 +1486,6 @@ Copyright and Licence
 \cs_new:Npn \@@_rod_int_head:wn #1#2 \q_stop #3
   {
     \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
-    \tl_if_empty:nF {#2} { \@@_rod_kern: }
     \@@_rod_int_loop:nn {#2} { \int_eval:n { #3 - 1 } }
   }
 %    \end{macrocode}
@@ -1497,7 +1503,6 @@ Copyright and Licence
 \cs_new:Npn \@@_rod_frac_head:wn #1#2 \q_stop #3
   {
     \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
-    \tl_if_empty:nF {#2} { \@@_rod_kern: }
     \@@_rod_frac_loop:nn {#2} { \int_eval:n { #3 - 1 } }
   }
 %    \end{macrocode}
@@ -1540,7 +1545,11 @@ Copyright and Licence
         \@@_rod_split:www #2 . \q_nil . \q_stop
         \bool_if:NT \l_@@_rod_minus_overlay_bool { \@@_rod_overlay: }
       }
-      { \@@_rod_split:www #1#2 . \q_nil . \q_stop }
+      {
+        \str_if_eq:nnTF {#1} { + }
+          { \@@_rod_split:www #2 . \q_nil . \q_stop }
+          { \@@_rod_split:www #1#2 . \q_nil . \q_stop }
+      }
   }
 \cs_new:Npn \@@_rod_split:www #1 . #2 . #3 \q_stop
   {
@@ -1558,7 +1567,7 @@ Copyright and Licence
 % 可展开的算筹输出，与 \tn{zhdigits} 同级。它\emph{只}产出字符，不切字体、不加字距，
 % 因此可以进 \file{.toc} 与 PDF 书签：实测这一形式在书签里得到正确的代理对、
 % 零条 \texttt{Token not allowed in a PDF string} 警告，而下面 \tn{zhrodbox}
-% 那种切字体加字距的形式在同一处会退化并报两条警告。
+% 那种切字体加字距的形式在同一处会退化并报警告。
 %
 % \pdfTeX{}／\upTeX{} 下定义成直接报错的版本，不做静默退化：算筹没有 8-bit 的
 % 退化写法，退化只会让使用者以为自己排出了算筹。
@@ -1595,6 +1604,7 @@ Copyright and Licence
         \group_begin:
           \tl_use:N \l_@@_rod_font_tl
           \bool_set_true:N \l_@@_rod_kerning_bool
+          \bool_set_false:N \l_@@_rod_kern_seen_bool
           \@@_rod_number:n {#1}
         \group_end:
       }
@@ -1606,7 +1616,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_rod_kerned:n}
+% \begin{macro}[int]{\@@_rod_kern:,\@@_rod_kern_node:}
 % 把已经展开成字符序列的算筹逐字排出，字符之间插入字距。
 % 先用 \texttt{e} 变体把 \cs{@@_rod_number:n} 展开成纯字符，再逐字处理，
 % 这样字距逻辑不必重复位值判断。
@@ -1619,9 +1629,27 @@ Copyright and Licence
 \cs_new:Npn \@@_rod_kern:
   {
     \bool_if:NT \l_@@_rod_kerning_bool
-      { \exp_not:N \tex_kern:D \dim_eval:n { \l_@@_rod_kern_tl } \exp_not:N \scan_stop: }
+      { \exp_not:V \c_@@_rod_kern_node_tl }
   }
 \bool_new:N \l_@@_rod_kerning_bool
+\tl_const:Nn \c_@@_rod_kern_node_tl { \@@_rod_kern_node: }
+%    \end{macrocode}
+% 字距排在每个筹码\emph{之前}，因此第一个筹码前会多出一个。它不能靠「是不是第一位」
+% 来判断——\texttt{zero=omit} 时前导零不排任何东西，「第一位」与「第一个真排出来的
+% 筹码」不是一回事（初版按位置插字距，于是 \verb|\zhrodbox{100}| 在 \texttt{omit} 下
+% 留下两个无主的字距，把后面的内容拉进筹码里，实测宽度 7.2\,pt 而可展开版是 10.0\,pt）。
+%
+% 做法是让 \cs{@@_rod_kern_node:} 在盒子里第一次调用时什么都不排、其后才排字距。
+% 它只在 \tn{zhrodbox} 的分组内使用，所以这个状态随分组自动复位；\tn{zhrod} 不开
+% \cs{l_@@_rod_kerning_bool}，展开结果里连这个记号都不会出现。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_rod_kern_node:
+  {
+    \bool_if:NTF \l_@@_rod_kern_seen_bool
+      { \tex_kern:D \dim_eval:n { \l_@@_rod_kern_tl } \scan_stop: }
+      { \bool_set_true:N \l_@@_rod_kern_seen_bool }
+  }
+\bool_new:N \l_@@_rod_kern_seen_bool
 %    \end{macrocode}
 % \end{macro}
 %
