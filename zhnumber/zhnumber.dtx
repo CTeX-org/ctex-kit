@@ -253,9 +253,9 @@ Copyright and Licence
 %   小数部分继续交替：分位与个位异式，厘位与个位同式。负数默认在最前排一个＼，
 %   理由见下文 \texttt{minus} 选项。
 %
-%   \tn{zhrod} 只认数字、一个前导正负号和一个小数点。其余字符原样输出，多余的小数点
-%   之后的部分会被丢掉（\verb|\zhrod{1.2.3}| 得到「一.二」）——它是数字排印命令，
-%   不做输入校验，请自己保证传进来的是数。
+%   \tn{zhrod} 只认数字、一个前导正负号和一个小数点。其余字符原样输出，第二个小数点
+%   之后的部分会被丢掉（\verb|\zhrod{1.2.3}| 只排出 \texttt{1.2} 那部分）——它是数字
+%   排印命令，不做输入校验，请自己保证传进来的是数。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{\zhrodbox}
@@ -395,7 +395,9 @@ Copyright and Licence
 %   另外，算筹码位在 \pkg{xeCJK} 眼里不属于汉字（\tn{XeTeXcharclass} 为 0，而〇与一
 %   为 1），所以在 \cls{ctexart} 一类文档里靠 \tn{CJKfamily} 切换取不到筹码字形，
 %   必须像上面那样显式声明字体族。这也意味着筹码与相邻汉字之间会插入
-%   \tn{CJKecglue} 的间距。
+%   \tn{CJKecglue} 的间距——那是 glue，因而是合法断行点，所以 \tn{zhrodbox} 的字距虽然
+%   用 \tn{kern}，整串筹码在 \pkg{xeCJK} 文档里仍可能断行（占位的〇两侧各有一处）。
+%   要整串不断，把它放进 \tn{mbox}。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{kern}
@@ -1499,7 +1501,7 @@ Copyright and Licence
 \cs_new:Npn \@@_rod_int:n #1
   { \@@_rod_int_loop:nn {#1} { \tl_count:n {#1} - 1 } }
 \cs_new:Npn \@@_rod_int_loop:nn #1#2
-  { \tl_if_empty:nF {#1} { \@@_rod_int_head:wn #1 \q_stop {#2} } }
+  { \tl_if_blank:nF {#1} { \@@_rod_int_head:wn #1 \q_stop {#2} } }
 \cs_new:Npn \@@_rod_int_head:wn #1#2 \q_stop #3
   {
     \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
@@ -1516,7 +1518,7 @@ Copyright and Licence
 \cs_new:Npn \@@_rod_frac:n #1
   { \@@_rod_frac_loop:nn {#1} { -1 } }
 \cs_new:Npn \@@_rod_frac_loop:nn #1#2
-  { \tl_if_empty:nF {#1} { \@@_rod_frac_head:wn #1 \q_stop {#2} } }
+  { \tl_if_blank:nF {#1} { \@@_rod_frac_head:wn #1 \q_stop {#2} } }
 \cs_new:Npn \@@_rod_frac_head:wn #1#2 \q_stop #3
   {
     \@@_rod_glyph:nn {#1} { \int_eval:n {#3} }
@@ -1552,7 +1554,7 @@ Copyright and Licence
 % 没有一款同时具备。因此这两个选项都必须保留，谁也不能当作另一个的替代。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_number:n #1
-  { \tl_if_empty:nF {#1} { \@@_rod_sign:w #1 \q_stop } }
+  { \tl_if_blank:nF {#1} { \@@_rod_sign:w #1 \q_stop } }
 \cs_generate_variant:Nn \@@_rod_number:n { e }
 \cs_new:Npn \@@_rod_sign:w #1#2 \q_stop
   {
@@ -1641,7 +1643,13 @@ Copyright and Licence
 % 用 \tn{kern} 而\emph{不是} \cs{skip_horizontal:n}：后者排出的是 glue，
 % 而 glue 是合法的断行点，于是一串筹码会被拆到两行去
 % （实测 \verb|\hsize=60pt| 下 \texttt{123456789} 断成三行）。
-% \tn{kern} 不构成断点，整串筹码保持在同一行。这个缺陷由本地盲审发现。
+% \tn{kern} 不构成断点。这个缺陷由本地盲审发现。
+%
+% 但这只保证\emph{本命令自己插入的}间距不构成断点，\textbf{并不保证整串筹码一定不断行}：
+% 在 \cls{ctexart} 一类加载了 \pkg{xeCJK} 的文档里，占位的〇是汉字（\tn{XeTeXcharclass}
+% 为 1）而筹码不是（为 0），\pkg{xeCJK} 会在每个〇的两侧插入 \tn{CJKecglue}，那是 glue、
+% 因而是断点（实测 \texttt{fontset=lxgw} 下 \verb|\zhrodbox{10203040}| 仍会断行）。
+% 要整串不断，请自己把它放进 \tn{mbox} 或把 \tn{CJKecglue} 设为 \tn{kern}。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_kern:
   {
