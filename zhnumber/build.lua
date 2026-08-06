@@ -2,7 +2,7 @@
 module = "zhnumber"
 
 -- 发版事实源. 与 zhnumber.dtx 里紧跟 `{\ExplFileDate}` 之后那个参数必须一致
--- (即 `{\ExplFileDate}{3.1}` 中的 `3.1`; \ExplFileDate 本身是日期槽位,
+-- (即 `{\ExplFileDate}{3.2}` 中的 `3.2`; \ExplFileDate 本身是日期槽位,
 --  \ProvidesExplPackage 的参数顺序是 文件名／日期／版本／说明):
 --   * 本地发版流程: 改这里 -> `l3build tag` 回写 .dtx -> commit;
 --   * PR 校验 check-tag.yml 跑 `l3build tag` 后要求 git diff 为零;
