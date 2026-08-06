@@ -36,7 +36,22 @@
       \bool_if:nTF { \token_if_protected_long_macro_p:N \zhrod } { yes } { no } }
 }
 
-%% 3. 支持的引擎下产出算筹字符; 不支持的引擎下报错.
+%% 3. \zhrodbox 的报错分支也要有覆盖.
+%%    只断言命令存在不够: 把 \zhrodbox 在不支持引擎下的分支换成静默的 { }, 两套 check
+%%    仍然全绿 (实测) —— 因为原先只有 \zhrod 被真的调用过。「不做静默退化」是本功能
+%%    反复论证过的设计决定, 它必须有判别力。盲审发现这处空白。
+%%
+%%    放在 \zhrod 那条报错断言之前: 两条都会在不支持的引擎下抛错, 而 -halt-on-error
+%%    下第一条抛错之后其余用例就不执行了。所以这里只能有一条真正抛错的断言 ——
+%%    本项在支持的引擎下排出筹码 (不抛错), 在不支持的引擎下抛错并终止, 其后的第 4 项
+%%    因此在 pdftex/uptex 基线里不出现。这是有意的: 验收判据改为「支持的引擎下
+%%    TEST 段落数 = \TEST 个数, 不支持的引擎下截断在本项」。
+\TEST{zhrodbox~output~or~error}{
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox { 12 } }
+  \tl_log:e { zhrodbox~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+}
+
+%% 4. 支持的引擎下产出算筹字符; 不支持的引擎下报错.
 %%
 %%    必须真的执行 \zhrod, 不能只用 \tl_set:Ne 捕获 —— 不支持的引擎下它是 protected
 %%    的, \tl_set:Ne 只会把 `\zhrod {12}' 原样存进变量而不触发报错, 于是这一项对

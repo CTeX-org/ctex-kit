@@ -36,7 +36,7 @@
   \tl_log:N \l_tmpa_tl
 }
 
-%% 2. units / zero / minus / zerochar 四个开关各自生效 (kern / dot / font 见 TEST 4-6).
+%% 2. units / zero / minus / zerochar 四个开关各自生效 (kern / dot / font 见 TEST 5-6).
 %%    zero=omit 会产生歧义 (省零时 1/100/10000 写法全同, 实测 1..99999 内 990 组碰撞),
 %%    所以默认是 fill; 这里两种都固定下来, 免得日后把默认改反而没人发现.
 \TEST{options}{
@@ -79,12 +79,7 @@
   \tl_log:e { 字符数 = \str_count:N \l_tmpa_tl }
 }
 
-%% 4. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
-%%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
-%%    所以用 \loggingoutput 把盒子内容本身写进基线.
-%%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.
-%%    必须 \clearpage, 否则页面不 ship out, TEST 段落是空的.
-%% 5. 负号两种记法的位置不同, 且 \zhrodbox 下组合字符必须紧贴最后一位筹码.
+%% 4. 负号两种记法的位置不同, 且 \zhrodbox 下组合字符必须紧贴最后一位筹码.
 %%    slash (U+FF3C) 排在筹码之前; overlay (U+20E5) 是组合字符, 必须紧跟在最后一位
 %%    之后才会叠上去。
 %%
@@ -106,10 +101,14 @@
   \tl_log:N \l_tmpa_tl
 }
 
-%% 6. 多记号的 zerochar / dot 不能被拆坏.
-%%    初版把整串 e 展开后逐记号 map, 于是 zerochar={\Large 〇} 会丢掉分组、
-%%    \Large 泄漏到后面的筹码上, dot=\ensuremath{\cdot} 直接编译失败 (盲审发现)。
-%%    改为在生成筹码时插字距, 用户记号原样通过。
+%% 5. 多记号的 zerochar / dot 不能被拆坏.
+%%    初版把整串 e 展开后逐记号 map, 于是分组被丢掉, dot=\ensuremath{\cdot} 直接编译
+%%    失败 (盲审发现)。改为在生成筹码时插字距, 用户记号原样通过, 这两个取值现在都能用。
+%%
+%%    注意 zerochar={\Large 〇} 里的 \Large 仍会影响后面的筹码 —— 那是 expl3 键把
+%%    取值原样存进 tl 的正常语义 (取值里的字号切换本来就没有分组), 不是本功能的缺陷。
+%%    要局部生效请自己加花括号, 如 zerochar={{\Large 〇}}。下面基线里记的宽度就是
+%%    \Large 生效后的宽度。
 \TEST{multitoken~option~values}{
   \zhrodsetup { font = \RodFont , zerochar = { \Large 〇 } }
   \hbox_set:Nn \l_tmpa_box { \zhrodbox{102} }
@@ -120,7 +119,33 @@
   \zhrodsetup { dot = . }
 }
 
-%% 6. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
+%% 6. kern 键的读取端要有覆盖.
+%%    只固定默认值不够: 把 \l_@@_rod_kern_tl 的读取处硬编码成 -.14em, 或干脆删掉 kern
+%%    键的注册, 两套 check 都仍然全绿 (实测) —— 基线钉住的是「默认值是多少」, 不是
+%%    「这个键还能不能用」。手册明确说这个默认值是临时的、期望用户自己调, 所以读取端
+%%    必须有判别力。盲审发现这是七个键里唯一读取端无覆盖的。
+%%
+%%    判据: 给一个明显不同的字距, 盒子宽度按「筹码数 - 1」倍变化。
+\TEST{kern~key~read~end}{
+  \zhrodsetup { font = \RodFont , kern = 0pt }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{123} }
+  \tl_log:e { kern0~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { kern = -2pt }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{123} }
+  \tl_log:e { kern-2pt~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { kern = -.14em }
+}
+
+%% 7. 非数字输入不能把内部记号漏到页面上.
+%%    初版把每个字符都塞进 "1D368 + #1 的算术里, 于是 \zhrod{1a} 排出 `𝍠a=0〇' ——
+%%    \int_eval 把 a 当成未定义的数并把 \__int_eval:w 一类内部记号漏出来 (盲审发现)。
+%%    现在非数字字符原样输出。\zhdigits 对同样输入只输出能识别的部分, 两者取齐。
+\TEST{non~digit~input}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{1a} }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 8. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
 %%    \zhrod 用 \@@_rod_number:e, \zhrodbox 起初用 :n —— 于是 \zhrodbox{\num} 把
 %%    未展开的宏塞进 "1D368 + \num 的算术里, 排出一个越界字形并只报 Missing character
 %%    (\zhrodbox{\arabic{foo}} 更糟: 四条 Missing number 加一串字面文本)。盲审发现。
@@ -136,6 +161,11 @@
   \tl_log:e { zhrodbox~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
 }
 
+%% 9. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
+%%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
+%%    所以用 \loggingoutput 把盒子内容本身写进基线.
+%%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.
+%%    必须 \clearpage, 否则页面不 ship out, TEST 段落是空的.
 %%    \zhrodbox 必须先用 font= 注入字体, 否则它会在当前 (西文) 字体里排算筹而只报
 %%    Missing character —— 包本身不声明任何字体, 这是有意的取舍, 见手册.
 %%    这里两个盒子的对照正好固定这一点: 第一个手工切字体, 第二个靠 font= 键.
