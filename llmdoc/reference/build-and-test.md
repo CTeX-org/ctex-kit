@@ -554,7 +554,7 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
 的三引擎基线会分化成不可共存的两种。这与本节已记的 `zhnumber/test/config-cjk.lua`
 （#1008）是同一类约束，此处就近记录，不重开一节。
 
-- `zhnumber/testfiles/rod-engine01.lvt`（四引擎，含 upTeX）：只测引擎判定与报错，不测实际
+- `zhnumber/testfiles/rod-engine01.lvt` 与 `rod-engine02.lvt`（四引擎，含 upTeX）：只测引擎判定与报错，不测实际
   输出。判定依据是新增的 `\c_@@_rod_engine_bool`（只含 xetex/luatex），不是既有的
   `\c_@@_unicode_engine_bool`——后者把 upTeX 也算作真，而 upTeX 恰好不能表示算筹码位。
   报错断言放在文件末位（同「可展开报错是致命错误」一节的约束），并用
@@ -563,6 +563,10 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
   相同、该项成为恒真断言。捕获报错路径必须真的执行 `\zhrod`，`\tl_set:Ne` 只会把
   `\zhrod {12}` 原样存进变量而不触发报错，对该路径零判别力。pdfTeX 有独立基线，读数与
   xetex/luatex 不同。
+  拆成两个文件是因为 `checkopts = "-halt-on-error"` 下一个 `.lvt` 只能断言一次抛错：
+  `rod-engine01` 那一次给了 `\zhrodbox`，`\zhrod` 的报错分支只能另开 `rod-engine02`
+  （否则它零覆盖——把该分支改成静默的 `\typeout` 两套 check 仍全绿，实测）。与 #1008 的
+  `counter-options01/02` 拆分同源。
 - `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex）：测算筹实际输出。开头几项用
   `\zhrod` 的可展开性把字符序列捕获进基线（`\tl_set:Ne` + `\tl_log:N`），逐字固定「排的
   是哪个码位」——判据是字符序列本身而非长度，`units=vertical` 时个位实际取的是 Unicode
