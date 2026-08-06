@@ -558,6 +558,26 @@ Curated cross-task rules distilled from archived memory.
 
 ## LaTeX2e 命令钩子机制
 
+### 表驱动的字符转换要用全量数据逐条比对，抽样只能证明主路径
+**Rule**: 把字符按对照表做转换时（去声调、正规化、音译一类），验证要跑完整数据集，并与独立实现逐条比对，不能抽查几个代表字。Unicode 里「恰好缺少某个预组合形式」的字符会以裸组合符出现，按整字符查表就会漏掉，而这类字往往罕见到抽样必然错过。
+**Why**: #550 把拼音转成「字母加声调数字」，用一张 29 项的预组合字符对照表实现。抽查「中女绿安行么」六个字全对；全量校验 50325 条、57493 个读音后发现一个例外——「呣」的读音 `m̀` 是裸的 `m` 加 U+0300，因为 Unicode 有 `ḿ`（U+1E3F）却没有 `m` 加钝音符的预组合形式。修法是在对照表之外单独认出裸组合符。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 确认数据的实际形式时，不要经过自己加的正规化步骤
+**Rule**: 判断外部数据「长什么样」要直接看原始字节或码位数。若统计脚本里先做了正规化、排序、去重一类处理，看到的就是处理后的形态，据此写出的转换代码可能是空操作。
+**Why**: #550 调研阶段每次统计 Unihan 拼音都调了 Python 的 `unicodedata.normalize('NFD', ...)`，于是认为数据是分解形式，据此写了「遇到组合符就取声调」的 Lua 代码。实跑后输出与输入完全一样：`zhōng` 只有 5 个码位，`ō` 是单独的 U+014D，数据本身是预组合形式。`texlua` 也没有正规化函数，最终改用显式对照表。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 变异实验后先确认变异真的进了生成产物，再解读绿色
+**Rule**: 在 `.dtx` 这类需要 unpack／生成的项目里做变异实验，注入之后要先核对生成出来的 `.sty`／`.def` 里确实含有该变异（`grep` 一下），然后才能把「测试仍然全绿」解读为「用例没有判别力」。
+**Why**: #550 验证「两种切分模式合一」这个变异时第一次跑出全绿，据此差点判定用例缺乏判别力。实际是注入前误用 `cp` 把 `.dtx` 恢复了，变异根本没写进文件。重新注入并 `grep` 确认后，用例正常变红。这与「注入类实验必须有可核实的生效判据」是同一条规则在生成式项目上的具体写法。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 写可展开命令前先逐个实测候选函数，不要凭印象判断
+**Rule**: 要让命令能用在 `\edef`、`\index` 排序键或 `bib2gls` 字段里，整条链上不能有不可展开的东西。expl3 里哪些函数可展开不能靠印象——用一个最小 `.tex` 把每个候选放进 `\edef` 试一遍，确认能落成文本再写进实现。
+**Why**: #550 实测 `\str_if_in:nnTF`、`\str_case:nnF`、`\prg_new_conditional` 的 `TF` 形式都不可展开，会把内部命令原样漏进页面；`\char_to_nfd:N` 嵌在 `\edef` 里直接报 100 个错。这个结果决定了整个实现形状：去声调必须在生成数据库时预先算好，运行时只查表。在完整实现里调试这些要反复重跑 unpack 加编译，改用独立最小文件后一轮就能定位。可展开的替代与具体写法记在 `llmdoc/reference/coding-conventions.md`。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
 ### 通用命令钩子不能包装命令本体即赋值语句的场景
 **Rule**: 用 `cmd/<命令>/before`／`after` 这类 `\AddToHook` 钩子包装某个命令时，先确认该命令本体是否就是一条赋值语句（如 `\setbox`）。若是，钩子代码里的任何赋值都会消耗调用方留在原地待用的 `\global`／`\long` 等前缀，使调用方前缀静默失效——不报错、不警告，只是行为退化为局部/非长命令语义。这类命令必须改用专用适配器：直接重定义其内部入口，把原本挂在钩子里的副作用移到赋值发生的位置内部，让前缀始终紧邻真正的赋值原语。
 **Why**: #1029 中 `cmd/sbox/before` 钩子里的 `\@@_boundary_capture_suspend:` 做了多个全局赋值，吃掉了 `\global\sbox` 的 `\global`，导致 algorithm2e 的 `\global\sbox\algocf@capbox{...}` 在浮动体分组结束时静默丢失整段标题。最小复现不需要加载 xeCJK：`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 单独就会触发同一问题，换成 `\relax`（无赋值）则不触发，证明这是 LaTeX2e 命令钩子机制的通用陷阱，不是任何具体宏包的缺陷。修复用 `\@@_boundary_sbox:Nn` 重定义内部入口 `sbox `，与仓库已有的 `color@b@x`／`@textcolor` 专用适配器同属一类。

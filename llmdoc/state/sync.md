@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 1aa872b130ff6a87b67507f24cff6e6dc0d787bc
-- watermark-subject: fix(xpinyin): AutoFallBack 生效时量宽盒子不再重选主字体 (#997)
-- updated-at: 2026-08-06T03:50:52Z
-- updated-by: /llmdoc:update
+- watermark-commit: 429d191caac6bf5a46ee27c511ea71b61465c45a
+- watermark-subject: feat(xpinyin): 新增查询汉字读音的四个命令 (#550)
+- updated-at: 2026-08-06T11:27:27Z
+- updated-by: llmdoc-update skill

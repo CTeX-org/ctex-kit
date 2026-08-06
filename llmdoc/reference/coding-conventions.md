@@ -24,6 +24,34 @@
 
 **`Npx` 定义体的处理**：xeCJK/zhnumber 将 `Npx` 一并转为 `Npe`，体内需要延迟展开的 `\exp_args` 使用 `\exp_not:N` 保护；ctex 则将唯一含 `\exp_args:Nnx` 的 `Npx` 重构为 `Npn`（`\@@_disable_package_aux:nnnn`），从而消除了 `\edef` 体内的展开冲突。当前代码中不存在 `Npx`/`Npe` 体内保留裸 x-type `\exp_args` 的情况。
 
+## 写完全可展开的命令时可用的工具（#550）
+
+要让命令能用在 `\edef`、`\index` 的排序键、`\csname` 的构造式或 `bib2gls` 的字段里，整条调用链上不能出现任何不可展开的东西。expl3 里哪些函数可展开不能凭印象判断，下面是 #550 逐个实测的结果。
+
+**不可展开，写在可展开链里会原样漏出内部命令**：
+
+| 函数 | 症状 |
+|---|---|
+| `\str_if_in:nnTF` | 输出 `\str_if_in:nnTF {1234}{1}{zhong}{zhong1}` |
+| `\str_case:nnF` | 分支不求值，整串原样输出 |
+| `\prg_new_conditional:Npnn` 的 `TF` 形式 | 同上 |
+| `\keys_set:nn` | keyval 解析本身不可展开 |
+| 任何 `\cs_new_protected:Npn` 定义的命令 | `e`／`x` 类展开都留不下文本 |
+
+**可展开的替代**：
+
+| 需求 | 用法 |
+|---|---|
+| 判断末字符是不是数字 | 用 <code>\int_compare:nNnTF</code> 比较反引号取到的码位：数字 `1`–`4` 的码位小于字母 `a`，一次比较即可（见 `xpinyin.dtx` 的 `\@@_query_base:nn`） |
+| 表驱动分派 | 为每个键定义一个控制序列，用 `\cs_if_exist_use:cF` 查表 |
+| 取子串 | `\str_range:nnn` |
+| 遍历逗号列表 | `\clist_map_function:nN` |
+| 给 `map_function` 传具名函数 | `\exp_args:Nnc`；**不要**在可展开命令里 `\cs_set:Npn` 临时造闭包，那会破坏可展开性 |
+
+**How to apply**：写这类命令时，先用一个最小 `.tex` 文件把每个候选函数放进 `\edef` 试一遍，确认能落成文本再写进实现。#550 在完整实现里调试时反复看到 expl3 内部命令被排进页面，改用独立最小文件后一轮就能定位。
+
+**选项不要放进可展开命令的参数**。keyval 解析不可展开，所以带选项的可展开命令做不出来。#550 的四个查询命令因此不接受可选参数，`scheme` 与 `tone` 一律用 `\xpinyinsetup` 设置，随 TeX 分组恢复；读 `tl` 变量本身是可展开的，且尊重分组。
+
 ## `@@` 私有命名空间
 
 本仓库广泛使用 expl3 的私有命名约定 `\@@_...`。其含义不是“全仓库共享私有名”，而是“当前模块在 docstrip/expl3 语义下的私有占位前缀”。
