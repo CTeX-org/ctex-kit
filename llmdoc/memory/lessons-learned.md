@@ -133,8 +133,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### `\hbox to` 的实际宽度恒等于目标宽度，量收缩量要用 `\badness`
 **Rule**: 断言前先问「这个量在缺陷存在时会变吗」。`\hbox to <dim>` 总会取到目标宽度，`\wd` 减目标恒为 0，与收缩量够不够、在内层还是外层完全无关。要判断弹性量是否可用，观察 `\badness`（够时为小值、不够时 1000000），并加「一定够」「一定不够」两个对照证明取值可达、不恒真。
-**Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+**Why**: #1037 的第一版 TEST 6 断言 `\hbox to` 压窄后的 `overshoot` 为 0，生成基线后才发现这个断言结构上恒真，真正的信号在旁边那条 `Overfull ... detected` 里。改用 `\badness` 并把压窄量取在 1.11pt 与 2.22pt 之间后，撤销修复会让它由 73 变 1000000。#366 又以两种新形式触发同一机制：`\token_if_expandable_p:N` 对 `\protected\long macro` 也答 yes，把「这个引擎下 `\zhrod` 是不是报错版本」判成恒真断言，须改用 `\token_if_protected_long_macro_p:N`；`\tl_set:Ne` 捕获 protected 命令时只把命令原样存进变量、并不触发报错，对「报错路径有没有接对」零判别力。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`、`llmdoc/memory/reflections/366-zhnumber-counting-rod.md`
 
 ### 测试输入的取值本身要能区分被测的各条路径
 **Rule**: 选测试输入时要问「在这个取值下，我要区分的两条代码路径的输出真的不同吗」。若某个取值让两条路径的输出恰好恒等，针对其中一条的缺陷就零判别力，而测试看着是覆盖了两条。这是「聚合度量选哪一维要先验证它真的会随被测行为变化」那条在**输入侧**的对应问题：那条管观察维度，这条管激励取值。
@@ -280,6 +280,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
 **Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 复用既有判据前先确认它的名字与实际语义边界是否一致
+**Rule**: 布尔量／判据的名字常比它实际判的事情更宽或更窄。复用前要读它的定义与注释，确认它的分类边界正好是你要的那条；名字像是通用分类的，往往是为某个具体用途写的。这是对「复用带守卫的函数时，重新验证守卫在新调用点的前置条件」的一个变体：那条讲守卫的强度随调用点变化，这条讲名字暗示的边界与代码实际实现的边界不是一回事，即使没有换调用点、是第一次使用该判据也会踩中。
+**Why**: #366 中 `\c_@@_unicode_engine_bool` 名字读起来像「是不是 Unicode 引擎」，实际判的是「是否不必把汉字首字节设为活动字符」，因此把 upTeX（8-bit 但走双字节转义方案）也算作真；而 upTeX 恰好不能表示 U+1D360 起的算筹码位区，实测 `\char_generate:nn` 报 `Charcode requested out of engine range`。直接复用会让 upTeX 被判定为「支持算筹」而走进正常路径，执行时才报引擎级错误。改为新增只含 xetex/luatex 的 `\c_@@_rod_engine_bool`。
+**Source**: `llmdoc/memory/reflections/366-zhnumber-counting-rod.md`
 
 ### 状态布尔为真不等于资源可用；置真点与复位点要成对清点
 **Rule**: 状态布尔记录的是「谁开始过」，不是「现在还开着」。判断能否对某资源动手时，直接测那个资源本身的状态，而不是测某个流程是否启动过。写完这类守卫，列出所有能进入该状态的入口与所有能退出的出口，逐一对照——入口比出口多就是缺陷信号。
@@ -505,6 +510,16 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 判断一批测试失败是否由本次改动引起，方法是在同一环境下跑 master 并逐字节 `diff` 两边的 `.diff` 文件，而不是看 diff 内容像不像自己改的地方。另外 `tlmgr update` 报 `no updates available` 不等于本地各包之间自洽。
 **Why**: #1046／#1047 期间 `l3kernel` 已到 revision 79868 而 `l3backend` 停在 78544，其间 expl3 把后端接口从 `\__color_backend_select_<model>:n` 改成 `:nN`，`\use:c` 找不到目标就把颜色参数当文本排了出来。`\special{pdf:bc [1.0 0.0 0.0]}` 变成可见的 `1.0 0.0 0.0` 文本，看起来很像间距类改动的后果；逐字节比对确认 15 项失败全部与改动无关。
 **Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
+
+### 方向／朝向类的名字可能与实际相反，成对出现时尤其危险
+**Rule**: 涉及方向、朝向、纵横、正反的标识符（标准里的区名、上游建议的接口名、既有键名），不要按字面直译成语义，先实测一个具体取值确认；同一功能里若出现两个这类名字，尤其要各自单独确认——它们可能都是反的，而两次反向会互相掩盖，让代码看起来对。
+**Why**: #366 的 Unicode `COUNTING ROD UNIT DIGIT`（U+1D360 起）实测是**横**画（`LXGWWenKaiGBLite` 下 `ht=4.05pt`，扁）、`TENS DIGIT`（U+1D369 起）实测是**纵**画（`ht=8.03pt`，高），换 `NotoSansSymbols2` 复核一致，是 Unicode 的编排而非字体取舍；按区名直译「个位用纵式所以取 UNIT 区」会取反，issue 调研阶段就是这么写的。同一功能里 issue 原帖建议的接口名 `[hv]`／`[vh]` 字母顺序也与含义相反（原帖写 `\zhrod[hv]{...} % 默认：个位纵、十位横`，`h` 在前却对应「个位纵」），原型代码照抄。原型跑起来看着对，是因为两处取反互相抵消，直到实现阶段按变量语义重新核对才发现两处都错了。最终改为 `units=vertical|horizontal` 直接描述个位取哪一式，不再用需要记住对应关系的缩写。
+**Source**: `llmdoc/memory/reflections/366-zhnumber-counting-rod.md`
+
+### 调研阶段的原型与结论落地前要重新核实，尤其是「看起来能跑通」的原型
+**Rule**: issue 评论、调研笔记里产出的原型代码和结论，落地实现时要当作候选重新核实，不能当作已验证的事实直接照抄。原型运行结果「看起来对」比它直接报错更危险，因为不会主动提示自己有问题；本仓库存在多个「调研 → 间隔数周 → 落地」的任务，落地前应假设调研期结论有效期已过。
+**Why**: #366 的实现阶段（8 月落地，issue 调研评论是 7 月）推翻了两个原型阶段结论：原帖建议的接口字母顺序含义相反、Unicode 区名与字形朝向相反；原型代码本身含有这两处互相抵消的错误，跑起来「看着对」。此外原帖设想的「省零靠交替消歧」在穷举后被证明会在 1..99999 内产生 990 组碰撞（`1`／`100`／`10000` 写法相同），默认行为改为反直觉的「补零」。
+**Source**: `llmdoc/memory/reflections/366-zhnumber-counting-rod.md`
 
 ## Feature request 评估
 

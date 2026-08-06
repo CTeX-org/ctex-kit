@@ -388,7 +388,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
-`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的实际排版行为，见下文「zhnumber 的计数器选项回归（#1008）」。
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），把 `testfiledir` 换成 `./testfiles-cjk`，专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的实际排版行为（见下文「zhnumber 的计数器选项回归（#1008）」）与算筹 `\zhrod`／`\zhrodbox` 的实际输出（见下文「zhnumber 的算筹数字回归（#366）」）。
 
 ## 非典型测试模式
 
@@ -543,6 +543,38 @@ after \the`；删 `\@@_digits_counter_with_options:nn` 的守卫 → 仅
 代码路径。「兼容入口断言恒真」这个问题**曾长期抓不到**，正是上面四条弯路的后果——主
 目录里无论用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字，这正是补 CJK 那一组的真正
 理由。
+
+### zhnumber 的算筹数字回归（#366）
+
+`zhnumber` 新增算筹（中国古代记数符号）`\zhrod`（可展开，只产字符，供 `.toc`／PDF 书签
+使用）与 `\zhrodbox`（不可展开，切字体、压字距，负责排版效果）。回归同样按引擎需求
+分两处，理由与「为什么必须分两个 `testfiledir`」一节相同——算筹码位（U+1D360 起）在
+pdfTeX／upTeX 下无法表示（8-bit 引擎，实测 `\char_generate:nn` 报 `Charcode requested
+out of engine range`），而 `l3build check` 没有按文件指定引擎的机制，同一个 `.lvt`
+的三引擎基线会分化成不可共存的两种。这与本节已记的 `zhnumber/test/config-cjk.lua`
+（#1008）是同一类约束，此处就近记录，不重开一节。
+
+- `zhnumber/testfiles/rod-engine01.lvt`（三引擎，3 项）：只测引擎判定与报错，不测实际
+  输出。判定依据是新增的 `\c_@@_rod_engine_bool`（只含 xetex/luatex），不是既有的
+  `\c_@@_unicode_engine_bool`——后者把 upTeX 也算作真，而 upTeX 恰好不能表示算筹码位。
+  报错断言放在文件末位（同「可展开报错是致命错误」一节的约束），并用
+  `\token_if_protected_long_macro_p:N` 而非 `\token_if_expandable_p:N` 判断
+  `\zhrod` 是否为报错版本——后者对 `\protected\long macro` 也答 yes，会让两个引擎读数
+  相同、该项成为恒真断言。捕获报错路径必须真的执行 `\zhrod`，`\tl_set:Ne` 只会把
+  `\zhrod {12}` 原样存进变量而不触发报错，对该路径零判别力。pdfTeX 有独立基线，读数与
+  xetex/luatex 不同。
+- `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex，4 项）：测算筹实际输出。前三项用
+  `\zhrod` 的可展开性把字符序列捕获进基线（`\tl_set:Ne` + `\tl_log:N`），逐字固定「排的
+  是哪个码位」——判据是字符序列本身而非长度，`units=vertical` 时个位实际取的是 Unicode
+  的 `TENS DIGIT` 区（U+1D369 起，纵画），`UNIT DIGIT` 区（U+1D360 起）反而是横画，与
+  区名字面相反。第四项用 `\loggingoutput` 把盒子内容本身写进基线，固定实际
+  排出的字形与字距（未压缩 50.0pt vs 压缩后 44.4pt）——只有度量不足以固定「排的是哪个
+  字」，这与 `legacy-entry01` 已记的教训同源。
+
+`\zhrod` 与 `\zhrodbox` 的分工基于「可展开性与排版效果互斥」——`\zhrod` 只产字符（不可
+展开的实现会破坏 `.toc`／PDF 书签），`\zhrodbox` 才切字体压字距；这是 #1008 反思里
+「教训确实被下一个任务复用」的一个正例，判据仍是「`.toc` 里是字符还是命令名」加
+「`Token not allowed` 警告数」。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
