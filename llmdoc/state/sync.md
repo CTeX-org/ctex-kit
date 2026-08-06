@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: a18d84f97835b645e7f486cfae626e3514a587d5
-- watermark-subject: docs: 记忆文件补充推送纪律
-- updated-at: 2026-08-05T06:33:03Z
+- watermark-commit: 1aa872b130ff6a87b67507f24cff6e6dc0d787bc
+- watermark-subject: fix(xpinyin): AutoFallBack 生效时量宽盒子不再重选主字体 (#997)
+- updated-at: 2026-08-06T03:50:52Z
 - updated-by: /llmdoc:update
