@@ -2,7 +2,7 @@
 module = "zhnumber"
 
 -- 发版事实源. 与 zhnumber.dtx 里紧跟 `{\ExplFileDate}` 之后那个参数必须一致
--- (即 `{\ExplFileDate}{3.2}` 中的 `3.2`; \ExplFileDate 本身是日期槽位,
+-- (即 `{\ExplFileDate}{3.3}` 中的 `3.3`; \ExplFileDate 本身是日期槽位,
 --  \ProvidesExplPackage 的参数顺序是 文件名／日期／版本／说明):
 --   * 本地发版流程: 改这里 -> `l3build tag` 回写 .dtx -> commit;
 --   * PR 校验 check-tag.yml 跑 `l3build tag` 后要求 git diff 为零;
@@ -13,7 +13,7 @@ module = "zhnumber"
 -- **以 0 退出** (见 support/build-config.lua 的共享 update_tag). 于是仿 xpinyin
 -- 写的 check-tag job 会恒绿 —— 跑了 tag、diff 自然为零、什么也没校验.
 -- 实测确认: 加本字段前 `l3build tag` 不改任何文件, 加后回写并保持幂等.
-version = "3.2"
+version = "3.3"
 
 packtdszip = true
 
