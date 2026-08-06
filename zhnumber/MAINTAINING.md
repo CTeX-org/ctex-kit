@@ -60,7 +60,7 @@ l3build check
 ## 版本与发布
 
 `zhnumber/build.lua` 的 `version` 是发版事实源（随 PR #1055 补上），须与 `zhnumber.dtx`
-里紧跟在 `{\ExplFileDate}` **之后**的那个参数一致（当前是 `{3.1}`）。
+里紧跟在 `{\ExplFileDate}` **之后**的那个参数一致（当前是 `{3.2}`）。
 
 注意 `\ExplFileDate` 本身是**日期**槽位，不要改它——`\ProvidesExplPackage` 的参数顺序是
 文件名、日期、版本、说明。

@@ -825,7 +825,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 历史: 早期尝试 `SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1` 让 warmup 把 update 后的 TL 保到 uniqueKey (= primaryKey + uuid), 让 caller 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在 restoreCache 时按 restoreKeys 数组的 primaryKey 精确匹配优先, caller 命中老的纯 primaryKey entry (无 uuid), 跳过 warmup 的 uniqueKey. 现在 caller 端仍 `update-all-packages: true` 自己跑 update 才能与仓库 `.tlg` baseline 一致. 见 `_test-package.yml` head 注释.
 
 **阶段 1 — 6 个 caller job 并行 (uses reusable workflow):**
-`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 六个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑. `test-xpinyin` 另传 `configs: test/config-cjk` 与 `needs-unihan: true` 两个输入, 分别对应 CJKutf8/pdfTeX 那条线和拼音数据库生成 (见下文).
+`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 六个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑. `test-xpinyin` 另传 `configs: test/config-cjk` 与 `needs-unihan: true` 两个输入, 分别对应 CJKutf8/pdfTeX 那条线和拼音数据库生成 (见下文); `test-zhnumber` 也传 `configs: test/config-cjk` (#1008 起), 但不需要 `needs-unihan`.
 
 每个 reusable workflow 实例内部 `strategy.matrix.os = [ubuntu-latest, macos-latest, windows-latest]`, 三个 OS 并行. `fail-fast: false` 一个失败不取消其它.
 
@@ -838,7 +838,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 - 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
-  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前只有 xpinyin 传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
+  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前 xpinyin 与 zhnumber 各传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
 
 **阶段 2 — `test-result` job (汇总):**
 `needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → caller 全部 skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
