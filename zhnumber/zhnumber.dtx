@@ -256,6 +256,15 @@ Copyright and Licence
 %   \tn{zhrod} 只认数字、一个前导正负号和一个小数点。其余字符原样输出，第二个小数点
 %   之后的部分会被丢掉（\verb|\zhrod{1.2.3}| 只排出 \texttt{1.2} 那部分）——它是数字
 %   排印命令，不做输入校验，请自己保证传进来的是数。
+%
+%   \textbf{参数里不能带分组。}\tn{zhrod} 要按每一位数字距个位有多远来选纵式还是横式，
+%   而一个花括号分组在计数时算作一位，于是各位的纵横会整体错开。传进去的必须是不带
+%   花括号的数字串：\verb|\zhrod{1{23}4}| 会把花括号原样排出来，而
+%   \verb|\zhrod{12\ver}|（其中 \verb|\ver| 展开为 \verb|{2026}|）会得到纵横\emph{全部
+%   相反}的一串筹码，看上去仍像正常的算筹却是错的。若数字来自宏，请让它展开为不带分组
+%   的数字串（\verb|\def\ver{2026}| 而不是 \verb|\def\ver{{2026}}|）。
+%
+%   这一点与 \tn{zhdigits} 不同：后者逐位取字、不需要知道位置，所以分组对它无害。
 % \end{function}
 %
 % \begin{function}[added=2026-08-06]{\zhrodbox}
@@ -1460,7 +1469,8 @@ Copyright and Licence
 %    \end{macrocode}
 % 非数字的输入原样输出，不塞进 \cs{int_eval:n} 的算术里。否则
 % \verb|\zhrod{1a}| 会把 \texttt{a} 当成数字参与 \verb|"1D368 + a|，
-% 把 \cs{__int_eval:w} 一类内部记号漏到页面上（实测排出 \verb|𝍠a=0〇|）。
+% 把 \cs{__int_eval:w} 一类内部记号漏到页面上（实测在筹码之后多排出 \verb|a=0| 与一个〇；
+% 这里不把筹码字形写进 \tn{verb}，等宽字体没有算筹字形，会多出缺字警告）。
 % \tn{zhdigits} 对同样的输入只输出能识别的部分，这里与它取齐。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_digit:nn #1#2
@@ -1500,6 +1510,14 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_int:n #1
   { \@@_rod_int_loop:nn {#1} { \tl_count:n {#1} - 1 } }
+%    \end{macrocode}
+% 位值用 \cs{tl_count:n} 数，因此参数里的\emph{花括号分组会算作一位}，让各位的纵横整体
+% 错开——\verb|\zhrod{12\ver}|（\verb|\ver| 展开为 \verb|{2026}|）与 \verb|\zhrod{122026}|
+% 排出的朝向完全相反，且不报错。这是已知限制，手册里写明了，因为修它要把这两条循环改成
+% \cs{zhnum_digits:Nn} 那种 \cs{exp:w} \cs{exp_end_continue_f:w} \cs{use:n} 的单记号
+% 取参形式（那种形式天然展开一层分组），同时位值计数也要改成先展平再数，改动面比这个
+% 功能本身还大。\tn{zhdigits} 不受影响：它逐位取字、不需要知道位置。
+%    \begin{macrocode}
 \cs_new:Npn \@@_rod_int_loop:nn #1#2
   { \tl_if_blank:nF {#1} { \@@_rod_int_head:wn #1 \q_stop {#2} } }
 \cs_new:Npn \@@_rod_int_head:wn #1#2 \q_stop #3
@@ -1646,10 +1664,13 @@ Copyright and Licence
 % \tn{kern} 不构成断点。这个缺陷由本地盲审发现。
 %
 % 但这只保证\emph{本命令自己插入的}间距不构成断点，\textbf{并不保证整串筹码一定不断行}：
-% 在 \cls{ctexart} 一类加载了 \pkg{xeCJK} 的文档里，占位的〇是汉字（\tn{XeTeXcharclass}
-% 为 1）而筹码不是（为 0），\pkg{xeCJK} 会在每个〇的两侧插入 \tn{CJKecglue}，那是 glue、
-% 因而是断点（实测 \texttt{fontset=lxgw} 下 \verb|\zhrodbox{10203040}| 仍会断行）。
-% 要整串不断，请自己把它放进 \tn{mbox} 或把 \tn{CJKecglue} 设为 \tn{kern}。
+% 在 \cls{ctexart} 一类加载了 \pkg{xeCJK} 的文档里，筹码本身不是汉字（\tn{XeTeXcharclass}
+% 为 0），而占位的〇与 \texttt{minus=slash} 的＼都\emph{是}（为 1），\pkg{xeCJK} 会在这
+% 两类字符的交界处插入 \tn{CJKecglue}，那是 glue、因而是断点。所以 \texttt{zero=fill} 时
+% 每个〇两侧各有一处，\texttt{minus=slash} 时负号与首位筹码之间也有一处——即使
+% \texttt{zero=omit} 去掉了所有〇，负数仍有那一处（实测 \texttt{fontset=lxgw} 下
+% \verb|\zhrodbox{10203040}| 会断行）。要整串不断，请自己把它放进 \tn{mbox} 或把
+% \tn{CJKecglue} 设为 \tn{kern}。
 %    \begin{macrocode}
 \cs_new:Npn \@@_rod_kern:
   {
