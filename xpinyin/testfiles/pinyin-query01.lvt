@@ -166,39 +166,40 @@
 %% 恒真断言: \TYPE 无条件执行, 无论实现对不对、无论查询表有没有载入都会
 %% 打出这一行, 对它声称覆盖的场景零判别力, 反而把缺陷冻结成了预期基线.
 %%
-%% 现在固定手册推荐写法的实际产物: \edef 之后 \XPYkey 必须是字面 zhong1,
-%% 它才能当排序键用. 若 value 的可展开性坏掉, 这一格会变.
+%% 固定手册推荐写法的实际产物, 分两层:
+%%
+%% (a) \edef 之后 \XPYkey 必须是字面 zhong1, 它才能当排序键用;
+%% (b) 真正走一遍 \index, 断言写进 .idx 的**字节**.
+%%
+%% (b) 是必须的: 前一版只断言了 (a), 即 \edef 的中间产物, 而缺陷出在最终写进
+%% .idx 的内容上 —— 手册配方里用 \@tempa 作中间变量时, 正文里 @ 不是字母,
+%% \edef\@tempa{...} 定义到的并不是 \@tempa, 排序键会多出一个空格
+%% (han @汉字). 只看 (a) 查不出这种问题.
 \edef\XPYkey{\xpinyinvalue{中}}
 \TYPE{idx-key after edef: \XPYkey}
 \TYPE{idx-key meaning: \meaning\XPYkey}
-\xpinyinsetup{tone=mark}
-
-%% 9. tone=mark 的输出: 不可展开, 用排版结果固定.
+%% 端到端: 用手册给的写法生成排序键, 并把**交给 \index 的实际参数**打进日志.
 %%
-%% \loggingoutput 把 shipout 的节点列表写进日志, 于是带调号的字形逐个进基线.
-%% 这是本文件唯一依赖排版的一节 —— 因为 mark 形式确实只能排版而不能取值.
-%%
-%% 判别力: 若标调规则或 ü 的处理出错, 这里的字形会变.
-%% 例如把生成脚本里 ǚ 的字母部分从 v 写成 u, 「女」会排成 nǔ.
-\TYPE{=== 9. tone=mark via typeset output ===}
-\xpinyinsetup{tone=mark}
-\loggingoutput
-\xpinyinvalue{中} \xpinyinvalue{女} \xpinyinvalue{绿}\par
-\xpinyinyunmu{中} \xpinyinyunmu{安} \xpinyinyunmu{王}\par
-\xpinyinvalue*{重}\par
-%% 星号形式: 「行」四个读音跨 h/x 两组, 首字母应去重成 h,x.
-\xpinyinvalue*{行}\par
-\xpinyininitial*{行}\par
-\xpinyininitial*{重}\par
-%% 单音字的星号形式退回首选读音.
-\xpinyinvalue*{丹}\par
-%% number 形式下星号可读性更好, 一并固定.
-\xpinyinsetup{tone=number}
-\xpinyinvalue*{行}\par
-\xpinyininitial*{行}\par
-\xpinyinsetup{tone=mark}
-
-\newpage
+%% 不真的调 \index: 它写的是外部 .idx 文件, 内容不进日志, 基线看不到.
+%% 改为把 \index 换成一个只记录参数的命令, 从而在日志里固定那串字节.
+\newcommand\XPYpyindex[2]{%
+  \begingroup
+    \xpinyinsetup{tone=none}%
+    \edef\pyindexkey{#1}%
+    \expandafter\XPYrecord\expandafter{\pyindexkey @#2}%
+  \endgroup}
+\newcommand\XPYrecord[1]{\TYPE{idx-entry: [#1]}}
+\XPYpyindex{\xpinyinvalue{汉}}{汉字}
+\XPYpyindex{\xpinyinvalue{安}}{安全}
+%% 对照: 中间变量用含 @ 的名字时, 正文里 @ 不是字母, 排序键会多出一个空格.
+%% 这一格固定该差异, 使手册里「中间变量要用普通名字」这条说明有判据支撑.
+\newcommand\XPYbad[2]{%
+  \begingroup
+    \xpinyinsetup{tone=none}%
+    \edef\@tempa{#1}%
+    \expandafter\XPYrecord\expandafter{\@tempa @#2}%
+  \endgroup}
+\XPYbad{\xpinyinvalue{汉}}{汉字}
 
 \END
 

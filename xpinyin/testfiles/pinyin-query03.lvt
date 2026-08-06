@@ -1,0 +1,35 @@
+\input{regression-test}
+
+%% 查不到读音时的报错路径 (#550, XeTeX / xeCJK 路线).
+%%
+%% 与 pinyin-query02 分开: 可展开的报错会中断当前 \edef, 同一文件里第一处
+%% 报错之后的断言不再执行, 会相互掩盖判别力 (实测两项同文件时只有前一项有效).
+%% 因此每个报错场景各占一个文件.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage[query]{xpinyin}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+%% 报错必须在可展开的上下文里也发得出来.
+%%
+%% \msg_error:nnn 是 protected 的: 在 \edef 里它既不报错也不展开, 会把自己
+%% 整条原样留在结果里, 于是错误的排序键被静默写出去. 所以报错要走
+%% \msg_expandable_error:nnn.
+%%
+%% 这一项用「查不到读音」这条路径来固定该行为: 数据库里没有的字符 (拉丁字母 Q)
+%% 走 \@@_query_missing:n. 若它退回 protected 形式, \edef 的结果里会出现
+%% \__xpinyin_query_missing:n 而不是空, 这一格随之变化.
+\TYPE{=== 10. error in expandable context ===}
+\edef\XPYmiss{\xpinyinvalue{Q}}
+\TYPE{missing-in-edef: [\meaning\XPYmiss]}
+
+
+
+\END
+
+\end{document}
