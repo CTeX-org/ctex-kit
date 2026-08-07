@@ -90,17 +90,17 @@ TeX 的 `Missing character` 绑定的是**当时正在构造的那个盒子**，
 - `llmdoc/architecture/xecjk-architecture.md` 的「后备字体 (Fallback)」一节只有三句话，只记 `\setCJKfallbackfamilyfont` 与 `\xeCJK_fallback_symbol:NN`，没有记录「`\xeCJK_reset_fallback_font:` 是状态量」「`\xeCJK_select_font:` 会清掉它」这条对下游可见的陷阱。查这个机制全靠读 `xeCJK.dtx`。
 - `llmdoc/reference/build-and-test.md` 的 xpinyin 一节记了「注音宽度看不出拼音内容」，但没记它的推论：以外部宽度为判据的断言在这类缺陷上恒真。写第一版测试时我是重新踩了一遍才想起来。
 - `lessons-learned.md` 里没有「诊断信息可能来自被丢弃的盒子」这一型条目。逐条核对过 109-112（三类证据）、284-287（探针自证）、434-437（测试全绿）、444-447（四个独立命题）、224-227（为什么不受影响），最接近的是 444-447，但它讲的是「不要为观察到的现象编成因」，没有覆盖「观察点本身位于被丢弃的中间产物上」。
-- `lessons-learned.md` 379-382 只要求单方向变异（重新引入缺陷）。340 行提到的「双向」指的是基准比对，不是变异方向。条件式修复的两种失败方式没有对应规则。
+- `lessons-learned.md` 的「回归测试必须用重新引入缺陷的方式确认会失败」一条只要求单方向变异；另一条「观察量必须只随被断言的那件事变化」里提到的「双向」指的是基准比对，不是变异方向。条件式修复的两种失败方式没有对应规则。
 
 ## Promotion Candidates
 
 以下落点已由 investigator 逐条核对既有条目，可直接执行。
 
 1. **`llmdoc/memory/lessons-learned.md`，「TeX 节点与输出几何」一节内新开一条**（建议排在 109 行「可见排版修复需要三类证据」附近）：*诊断警告绑定的是当时正在构造的盒子，不是可见输出*。Rule 要点是判断缺陷性质须看最终产物的几何量（PDF bbox／节点列表），不能按警告出现的位置推断可见输出坏在哪。Why 用 #997 的 `Missing character` 来自 `\l_@@_tmpa_box`、PDF 里汉字正常、bbox 2.79pt vs 9.96pt。
-2. **`llmdoc/memory/lessons-learned.md` 379-382「回归测试必须用重新引入缺陷的方式确认会失败」，扩写；或紧随其后新开一条**：判断某一项用例有没有判别力，必须单独让**那一项**所声称的失败形态发生，不能看整份文件红不红——多项共处一个文件时，红可能全部来自别的项。实例用 #997：条件取反后变红来自第 1、2 项回到原缺陷，而第 3 项声称覆盖的「总是跳过」实测 5/5 全绿、产物与基线逐字节相同。（初版这一条写的是「条件式修复要双向变异」，依据 `x0.0` 读数，该读数无法复现，已作废。）
+2. **`llmdoc/memory/lessons-learned.md` 的「回归测试必须用重新引入缺陷的方式确认会失败」一条，扩写；或紧随其后新开一条**：判断某一项用例有没有判别力，必须单独让**那一项**所声称的失败形态发生，不能看整份文件红不红——多项共处一个文件时，红可能全部来自别的项。实例用 #997：条件取反后变红来自第 1、2 项回到原缺陷，而第 3 项声称覆盖的「总是跳过」实测 5/5 全绿、产物与基线逐字节相同。（初版这一条写的是「条件式修复要双向变异」，依据 `x0.0` 读数，该读数无法复现，已作废。）
 3. **`llmdoc/memory/lessons-learned.md` 新开一条**：回答「当前用什么字体排版」必须读 `\fontname\font`，NFSS 参数（`\f@family` 等）在 CJK 场景下会与实际字体系统性地不一致——#997 初版正是据 `\TU/lmr/m/n/10` 误判「不重选会量错」，进而得出「重选不能删」这个不成立的结论。~~原计划给 550-553 与 304-307 各追加「删掉重选经实测证否」作为实例~~：该实例本身已被推翻（删掉重选实测 5/5 全绿且同样修好 #997），**不可作为那两条的实例**。
-4. **`llmdoc/reference/build-and-test.md:420`，改数字**：「XeTeX 四个文件全红」改为「五个」。本轮已实际重跑该变异（`\@@_tone:nn` 里 `\or:` 分支的 `\'` 与 `` \` `` 对调），5 个 XeTeX 文件全部变红，含新增的 `pinyin-fallback01`（它的基线含拼音字形，同一变异同样影响它）。
-5. **`llmdoc/reference/build-and-test.md:412` 与 `llmdoc/memory/decisions/1041-xpinyin-test-adoption.md:15`、`llmdoc/index.md:70`，改数字并补条目**：「四个测试文件按观察通道分工」的计数已过期（`xpinyin/testfiles/` 现有 5 个 `.lvt`，加 `testfiles-cjk/` 共 6 个）。同时给分工清单加 `pinyin-fallback01.lvt` 一条：观察通道是 `\loggingoutput` 下量宽盒子自身的宽度。
+4. **`llmdoc/reference/build-and-test.md` 的「XeTeX 四个文件全红」一句，改数字**：「XeTeX 四个文件全红」改为「五个」。本轮已实际重跑该变异（`\@@_tone:nn` 里 `\or:` 分支的 `\'` 与 `` \` `` 对调），5 个 XeTeX 文件全部变红，含新增的 `pinyin-fallback01`（它的基线含拼音字形，同一变异同样影响它）。
+5. **`llmdoc/reference/build-and-test.md` 与 `llmdoc/memory/decisions/1041-xpinyin-test-adoption.md`、`llmdoc/index.md` 里「四个测试文件按观察通道分工」的三处表述，改数字并补条目**：「四个测试文件按观察通道分工」的计数已过期（`xpinyin/testfiles/` 现有 5 个 `.lvt`，加 `testfiles-cjk/` 共 6 个）。同时给分工清单加 `pinyin-fallback01.lvt` 一条：观察通道是 `\loggingoutput` 下量宽盒子自身的宽度。
 6. **`llmdoc/reference/build-and-test.md` 的 xpinyin 一节，扩写既有的「注音宽度看不出拼音内容」**：补上推论——以 `\hbox{\xpinyin*{...}}` 外部宽度为判据的断言恒真（缺陷版与修复版同为 10.0pt），须看节点列表里量宽盒子的宽度。同节再补一条测试写法约束：`\setCJKmainfont` 是 `\@onlypreamble`，正文里换 CJK 主字体要用导言区 `\newCJKfontfamily` 另立一族。
 7. **`llmdoc/architecture/xecjk-architecture.md` 的「后备字体 (Fallback)」一节，扩写**：记录 `\xeCJK_reset_fallback_font:` 未启用后备字体时等于 `\prg_do_nothing:`、切换后被重定义为「恢复该字体并清除标记」，因此它同时是状态标记；并记录下游陷阱——在后备字体状态下调 `\xeCJK_select_font:` 会经 `\xeCJK_clear_fallback_font:` 丢掉该状态，需要在后备字体下量宽或排版的下游代码必须先判断这个状态。
 8. **新建 `llmdoc/memory/decisions/997-xpinyin-fallback-measure-box.md`**：记录跨包依赖内部实现的取舍（见下节），以及否决「删掉重选」方案的实测理由。
@@ -120,7 +120,7 @@ TeX 的 `Missing character` 绑定的是**当时正在构造的那个盒子**，
 
 ### 一条方法记录
 
-investigator 指出 `build-and-test.md:420` 的「XeTeX 四个文件全红」在新增第 5 个用例后不可信，并明确说它没有重跑、要我不要凭推断改数。我实际重跑了该变异，得到「五个」。
+investigator 指出 `build-and-test.md` 里「XeTeX 四个文件全红」这句在新增第 5 个用例后不可信，并明确说它没有重跑、要我不要凭推断改数。我实际重跑了该变异，得到「五个」。
 
 这条本身值得记：文档里冻结了具体数量的断言，在新增用例后必须重跑确认，不能推断；也不该因为怕错就改成模糊表述——重跑一次的成本很低。它与 329 行「新增测试项后要复查既有项的关键判据是否还在」相邻但不同：那条讲基线里的判据会消失，这条讲文档里的计数会过期。可作为 329 的补充写入。
 
