@@ -51,7 +51,7 @@ xeCJK 自身状态失步的地方，收益上也不比现方案多。
 
 ## 决策：按后备字体状态跳过重选
 
-`\@@_CJKsymbol_hook:` 改调新增的 `\@@_reselect_CJK_font:`（`xpinyin/xpinyin.dtx:957-970`）：
+`\@@_CJKsymbol_hook:` 改调新增的 `\@@_reselect_CJK_font:`（在 `xpinyin/xpinyin.dtx` 里检索 `\cs_new_protected:Npn \@@_reselect_CJK_font:`）：
 
 - 判据 `\cs_if_eq:NNTF \xeCJK_reset_fallback_font: \prg_do_nothing:`。
 - 已处于后备字体状态（不等于 `\prg_do_nothing:`）→ 跳过重选，当前字体正是应该用来量宽的那一个。
