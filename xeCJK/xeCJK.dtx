@@ -245,6 +245,7 @@ Copyright and Licence
 \box_new:N \l__codedoc_mdcode_tmpa_box
 \box_new:N \l__codedoc_mdcode_tmpb_box
 \fp_new:N  \l__codedoc_mdcode_scale_fp
+\dim_new:N \l__codedoc_mdcode_depth_dim
 \DeclareDocumentCommand \mdcode { s m }
   {
     \hbox_set:Nn \l__codedoc_mdcode_tmpb_box { \menu {} }
@@ -253,13 +254,24 @@ Copyright and Licence
         \dim_to_decimal:n { \ccwd } /
         \dim_to_decimal:n { \box_ht_plus_dp:N \l__codedoc_mdcode_tmpb_box }
       }
+    % \box_scale:Nnn 以基线为轴按比例缩放，menukeys 的盒子深度占比大于汉字，
+    % 缩放后深度仍然偏大，外边框看上去比周围文字低。取汉字的深度作为基准，
+    % 把缩放后的盒子上移两者的差值，边框底边即与汉字底边对齐。
+    \hbox_set:Nn \l__codedoc_mdcode_tmpb_box { 汉 }
+    \dim_set:Nn \l__codedoc_mdcode_depth_dim
+      { \box_dp:N \l__codedoc_mdcode_tmpb_box }
     \clist_map_inline:nn {#2}
       {
         \hbox_set:Nn \l__codedoc_mdcode_tmpa_box
           { \IfBooleanTF {#1} { \menu { \texttt { ##1 } } } { \menu { ##1 } } }
         \box_scale:Nnn \l__codedoc_mdcode_tmpa_box
           { \l__codedoc_mdcode_scale_fp } { \l__codedoc_mdcode_scale_fp }
-        \box_use_drop:N \l__codedoc_mdcode_tmpa_box
+        \box_move_up:nn
+          {
+            \box_dp:N \l__codedoc_mdcode_tmpa_box
+              - \l__codedoc_mdcode_depth_dim
+          }
+          { \box_use_drop:N \l__codedoc_mdcode_tmpa_box }
       }
   }
 \NewDocumentCommand \PrintPunctList { O{7} m m }
