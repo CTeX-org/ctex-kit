@@ -1985,11 +1985,40 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_query_all_aux:nn #1#2
   {
-    \bool_lazy_and:nnTF
-      { \str_if_eq_p:ee { \l_@@_query_tone_tl } { mark } }
-      { ! \str_if_eq_p:nn {#1} { initial } }
-      { \@@_query_all_plain:nn {#1} {#2} }
+    \@@_query_if_plain_output:nTF {#1}
       { \@@_query_all_unique:nn {#1} {#2} }
+      { \@@_query_all_plain:nn {#1} {#2} }
+  }
+%    \end{macrocode}
+% 判据是“这一部分的输出是不是纯文本”，而不是“\opt{tone} 是不是 \opt{mark}”。
+%
+% 只有经过 \cs{@@_query_mark:n} 的那些输出才留不下文本：\tn{xpinyinvalue}
+% 总是经过，\tn{xpinyinyunmu} 只在 \opt{literal} 下经过
+% （\opt{official} 的韵母不标调，见 \cs{@@_query_yunmu_out_aux:nn}）。
+% 首字母与声母\emph{从不}标调，永远是纯文本。
+%
+% 早先的判据是“\opt{tone} 为 \opt{mark} 且不是首字母”，把声母与 \opt{official}
+% 的韵母也排除在去重之外，于是同一个命令在不同 \opt{tone} 下时而去重时而不去重：
+% 缺省设置下 \verb|\xpinyinshengmu*{行}| 排出 |h,h,h,x|，而 \opt{number} 下
+% 排出 |h,x|——声母本不随 \opt{tone} 变化，去重与否却变了。
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_query_if_plain_output:n #1 { TF }
+  {
+    \bool_lazy_or:nnTF
+      { ! \str_if_eq_p:ee { \l_@@_query_tone_tl } { mark } }
+      {
+        \bool_lazy_or_p:nn
+          { \str_if_eq_p:nn {#1} { initial } }
+          { \str_if_eq_p:nn {#1} { shengmu } }
+      }
+      { \prg_return_true: }
+      {
+        \bool_lazy_and:nnTF
+          { \str_if_eq_p:nn {#1} { yunmu } }
+          { \str_if_eq_p:ee { \l_@@_query_scheme_tl } { official } }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
   }
 %    \end{macrocode}
 % 不去重的一支：逐项排出，项间补逗号。
@@ -2225,8 +2254,9 @@ end
 % \file{Unihan} 里的拼音用的是预组合字符，例如 |ō| 是单独一个码位 U+014D，
 % 而不是 |o| 加上长音符两个码位。因此这里用一张显式的对照表，
 % 而不是依赖 Unicode 正规化——\file{texlua} 没有提供正规化函数。
-% 表中列出该数据库实际用到的全部 29 个带附加符号的字符，
-% 每项给出“去掉附加符号后的字母”和“声调数字”。
+% 表中列出 29 个带附加符号的字符，每项给出“去掉附加符号后的字母”
+% 和“声调数字”。其中 28 个是当前数据库实际用到的；|ǖ|（U+01D6）在当前数据里
+% 没有出现，为把 |ü| 的四声补齐而一并列出。
 %
 % |ü| 系需要单独说明。按包内 \tn{pinyin} 的输入约定，|ü| 写作 |v|
 % （手册里的 \verb|\pinyin{nv3hai2zi}|），所以 |ǚ| 的字母部分是 |v| 而不是 |u|：
