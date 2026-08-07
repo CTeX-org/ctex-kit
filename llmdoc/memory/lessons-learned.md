@@ -693,9 +693,14 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #550 把 `-halt-on-error` 造成的中断记成了 `\msg_expandable_error:nnn` 的语义，据此改动测试布局并删掉了覆盖。而仓库里本来就有正确记录——`pinyin-tone02.lvt` 的注释与 `build-and-test.md` 都写明「`\showbox`／`\box_log:N` 抛 `! OK.`，而 checkopts 带 `-halt-on-error`，当场终止编译，其后的用例静默不执行而 check 仍可能报绿」，我甚至在同一批改动的另一个 `.lvt` 注释里引用过它。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
+### 静态判据盖不住运行时才知道的回退，改为「先试一次、失败再退」
+**Rule**: 当「走哪条分支」取决于运行时才确定的事实（某个值有没有某种特征、某个操作在这份数据上是否可行）时，不要用输入的静态属性去推断，直接试一次并检查结果。试探有副作用的话把它装进丢弃的盒子，跨盒传结果用全局变量。
+**Why**: #550 判断星号形式能不能去重，先按「`tone` 是不是 `mark`」判（太粗，把从不标调的声母也排除了），再按「命令加 `scheme`」判（仍漏：整个音节是鼻音时没有可标调的元音、韵母以 `v` 开头时也不标调，这两条回退运行时才知道，5 个字因此仍不去重）。最终改为先跑一次 `\clist_gremove_duplicates:N`、列表变空就退回逐项输出。实现上两个坑：试探不装盒会把内容排到页面上（实测 `,,,,háng,...`）；列表用局部变量则结果被盒子挡住传不出来。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
 ### 判据要贴着真正的原因写，不要用一个更粗的条件代替
 **Rule**: 写「什么情况下走这条分支」时，判据要正好对应造成差异的那个原因。用一个范围更大的条件代替（例如用某个选项的取值代替「输出是不是纯文本」），会把不该受影响的情形一起卷进来，表现为同一命令在无关设置下行为不同。
-**Why**: #550 的星号形式去重原本判「`tone` 是不是 `mark`」，而真正的原因是「这一部分的输出会不会经过标调」。声母从不标调、`official` 的韵母也不标调，却被一并排除在去重之外：缺省设置下 `\xpinyinshengmu*{行}` 排出 `h,h,h,x`，`number` 下排出 `h,x`——声母本不随 `tone` 变化，去重与否却变了。影响 5965 个多音字里的两千多个。
+**Why**: #550 的星号形式去重原本判「`tone` 是不是 `mark`」，而真正的原因是「这一部分的输出会不会经过标调」。声母从不标调、`official` 的韵母也不标调，却被一并排除在去重之外：缺省设置下 `\xpinyinshengmu*{行}` 排出 `h,h,h,x`，`number` 下排出 `h,x`——声母本不随 `tone` 变化，去重与否却变了。影响 5965 个多音字里的两千多个（声母 2526／2641，`official` 韵母 3128）。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
 ### 报错发生在宏包加载阶段时，`.lvt` 的 `\START` 要放在 `\usepackage` 之前
