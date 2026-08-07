@@ -35,6 +35,8 @@
 | `\str_if_in:nnTF` | 原样输出 `\str_if_in:nnTF {1234}{1}{IN}{OUT}` |
 | `\keys_set:nn` | keyval 解析本身不可展开 |
 | `\prg_new_protected_conditional:Npnn` 的 `TF` 形式 | 原样输出 `\pcp:nTF {5}{P}{N}` |
+| `\tl_if_in:nnTF` | 原样输出整条命令 |
+| `\str_remove_all:nn` | 把参数连花括号一起返回（`zhong1` 去掉 `o` 后 `\str_count` 从 6 变 11） |
 | 任何 `\cs_new_protected:Npn` 定义的命令 | `e`／`x` 类展开都留不下文本 |
 
 **这几个是可展开的，不要误判**（#550 初版曾把前两个列为不可展开，是错的）：
@@ -62,6 +64,7 @@
 | 表驱动分派 | 为每个键定义一个控制序列，用 `\cs_if_exist_use:cF` 查表 |
 | 取子串 | `\str_range:nnn` |
 | 遍历逗号列表 | `\clist_map_function:nN` |
+| 判断串里有没有某几个字符 | 用 `\str_range:nnn` 逐字符取出，交给 `\str_case:enF` 比对（见 `\@@_query_markable_aux:nn`）；`\tl_if_in:` 与 `\str_remove_all:` 都不可展开 |
 | 给 `map_function` 传具名函数 | `\exp_args:Nnc`；**不要**在可展开命令里 `\cs_set:Npn` 临时造闭包，那会破坏可展开性 |
 
 **How to apply**：写这类命令时，先用一个最小 `.tex` 文件把每个候选函数放进 `\edef` 试一遍，确认能落成文本再写进实现。#550 在完整实现里调试时反复看到 expl3 内部命令被排进页面，改用独立最小文件后一轮就能定位。**试的时候要把判据也先展开**，否则会像上面那样把自己的展开错误记成函数的限制。
