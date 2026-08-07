@@ -1979,47 +1979,35 @@ Copyright and Licence
 % 收不进逗号列表，去重也就无从进行——强行去重会把每一项都变成空
 % （实测输出 \verb|,,,,|）。
 %
-% 因此 \opt{mark} 下逐项输出、不去重；其余三种取值下去重。
-% 首字母不受 \opt{tone} 影响，总是纯文本，所以“行”的四个读音会正确合成
-% |h,x| 两项。
+% 因此做法是\emph{先试一次去重}：把加工结果收进逗号列表、跑
+% \cs{clist_remove_duplicates:N}，若列表变空，说明这些项含 \texttt{protected}
+% 的命令、去重不可行，改为逐项输出。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_query_all_aux:nn #1#2
   {
-    \@@_query_if_plain_output:nTF {#1}
-      { \@@_query_all_unique:nn {#1} {#2} }
+    \@@_query_collect:nn {#1} {#2}
+    \clist_if_empty:NTF \g_@@_query_join_clist
       { \@@_query_all_plain:nn {#1} {#2} }
+      { \clist_use:Nn \g_@@_query_join_clist { , } }
   }
 %    \end{macrocode}
-% 判据是“这一部分的输出是不是纯文本”，而不是“\opt{tone} 是不是 \opt{mark}”。
+% “先试再退”比按命令与选项静态判断更可靠。会不会经过标调不只取决于查哪一部分，
+% 还取决于这个读音本身：整个音节是鼻音时没有可标调的元音（见
+% \cs{@@_query_mark_if_possible:n}），韵母以 |v| 开头时也不标调（见
+% \cs{@@_query_yunmu_out_aux:nn}）。这两条回退在运行时才知道，静态判据必然漏掉——
+% 实测按静态判据时 \verb|\xpinyinvalue*{嗯}| 在 \opt{mark} 下排出
+% |n,n,n,ng,ng,ng|，而 \opt{number} 下是 |n2,n3,n4,ng2,ng3,ng4|。
 %
-% 只有经过 \cs{@@_query_mark:n} 的那些输出才留不下文本：\tn{xpinyinvalue}
-% 总是经过，\tn{xpinyinyunmu} 只在 \opt{literal} 下经过
-% （\opt{official} 的韵母不标调，见 \cs{@@_query_yunmu_out_aux:nn}）。
-% 首字母与声母\emph{从不}标调，永远是纯文本。
+% 更早的判据是“\opt{tone} 为 \opt{mark} 且不是首字母”，那一版还把声母与
+% \opt{official} 的韵母整类排除在去重之外：缺省设置下
+% \verb|\xpinyinshengmu*{行}| 排出 |h,h,h,x|，而 \opt{number} 下排出 |h,x|
+% ——声母本不随 \opt{tone} 变化，去重与否却变了。
 %
-% 早先的判据是“\opt{tone} 为 \opt{mark} 且不是首字母”，把声母与 \opt{official}
-% 的韵母也排除在去重之外，于是同一个命令在不同 \opt{tone} 下时而去重时而不去重：
-% 缺省设置下 \verb|\xpinyinshengmu*{行}| 排出 |h,h,h,x|，而 \opt{number} 下
-% 排出 |h,x|——声母本不随 \opt{tone} 变化，去重与否却变了。
+% \cs{clist_remove_duplicates:N} 在项含 \texttt{protected} 命令时会把整个列表
+% 清空（实测两项 \verb|\prot:n {a}|、\verb|\prot:n {b}| 去重后项数为 0），
+% 正好可以拿来当“去重可不可行”的判据。
 %    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \@@_query_if_plain_output:n #1 { TF }
-  {
-    \bool_lazy_or:nnTF
-      { ! \str_if_eq_p:ee { \l_@@_query_tone_tl } { mark } }
-      {
-        \bool_lazy_or_p:nn
-          { \str_if_eq_p:nn {#1} { initial } }
-          { \str_if_eq_p:nn {#1} { shengmu } }
-      }
-      { \prg_return_true: }
-      {
-        \bool_lazy_and:nnTF
-          { \str_if_eq_p:nn {#1} { yunmu } }
-          { \str_if_eq_p:ee { \l_@@_query_scheme_tl } { official } }
-          { \prg_return_true: }
-          { \prg_return_false: }
-      }
-  }
+
 %    \end{macrocode}
 % 不去重的一支：逐项排出，项间补逗号。
 %    \begin{macrocode}
@@ -2037,25 +2025,40 @@ Copyright and Licence
 %    \end{macrocode}
 % 去重的一支。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_query_all_unique:nn #1#2
+\cs_new_protected:Npn \@@_query_collect:nn #1#2
   {
-    \clist_clear:N \l_@@_query_join_clist
-    \clist_map_inline:nn {#2}
-      {
-        \clist_put_right:Ne \l_@@_query_join_clist
-          { \@@_query_part:nn {#1} {##1} }
-      }
-    \clist_remove_duplicates:N \l_@@_query_join_clist
-    \clist_use:Nn \l_@@_query_join_clist { , }
-  }
 %    \end{macrocode}
-% 去重用的逗号列表变量。多音字的不同读音常落在同一个首字母上（“行”的四个读音里
-% 三个都是 |h|），逐项列出没有意义。用到局部变量，所以星号形式不可展开——
-% 需要字面文字时用不带星号的形式。
+% 收集要放在一个丢掉的盒子里。\cs{@@_query_mark:n} 经 \cs{@@_pinyin:n} 直接
+% 把内容\emph{排版出来}，所以这一次试探本身会产生输出；不装盒的话，即使随后
+% 改走逐项输出，试探时排出的逗号也已经留在页面上了
+% （实测输出 \verb|,,,,háng,hàng,héng,xíng|）。
 %    \begin{macrocode}
-\clist_new:N \l_@@_query_join_clist
+    \hbox_set:Nn \l_@@_query_probe_box
+      {
+        \clist_gclear:N \g_@@_query_join_clist
+        \clist_map_inline:nn {#2}
+          {
+            \clist_gput_right:Ne \g_@@_query_join_clist
+              { \@@_query_part:nn {#1} {##1} }
+          }
+        \clist_gremove_duplicates:N \g_@@_query_join_clist
+      }
+  }
+\box_new:N \l_@@_query_probe_box
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}{\g_@@_query_join_clist}
+% 去重用的逗号列表。多音字的不同读音常落在同一个首字母上（“行”的四个读音里
+% 三个都是 |h|），逐项列出没有意义。
+%
+% 用全局变量：上面的收集要装在盒子里（\cs{@@_query_mark:n} 会直接排版），
+% 而盒子会把局部赋值限制在盒内，结果传不出来。星号形式因此不可展开——
+% 需要字面文字时用不带星号的形式。
+%    \begin{macrocode}
+\clist_new:N \g_@@_query_join_clist
+%    \end{macrocode}
+% \end{variable}
 %
 %    \begin{macrocode}
 \cs_if_exist:NTF \ProcessKeyOptions
