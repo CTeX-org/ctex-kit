@@ -1,6 +1,6 @@
 ## [zhnumber-v3.3](https://github.com/CTeX-org/ctex-kit/releases/tag/zhnumber-v3.3)
 
-- 新增算筹数字 `\zhrod` 与 `\zhrodbox`（#366）。
+- 新增算筹数字 `\zhrod` 与 `\zhrodbox`，以及配置命令 `\zhrodsetup`（#366）。
 
 ## [zhnumber-v3.2](https://github.com/CTeX-org/ctex-kit/releases/tag/zhnumber-v3.2)
 

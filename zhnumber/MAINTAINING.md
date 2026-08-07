@@ -22,11 +22,13 @@ xpinyin 用的是同一套做法（分支 `xpinyin/maintaining`，PR
 - **#366**（PR #1062，版本 3.3）——新增算筹数字：可展开的 `\zhrod`、负责排版效果的
   `\zhrodbox`，以及配置入口 `\zhrodsetup`（七个键，注册在独立模块 `zhnum / rod`）。
 
-#366 还留下三条文档待办，是审计报告在 PR 合并后才送到的，需要后续处理：手册里
+#366 还留下两条文档待办，是审计报告在 PR 合并后才送到的，需要后续处理：手册里
 「`\zhrod{1{ab}4}` 报八条错误」这个条数有争议（两次独立复现给出 4 与 8 两个读数，需要
-核准计数口径）；driver 区两行新增中文注释用了半角标点；`CHANGELOG.md` 与 `\changes`
-漏记了同样新增的公开命令 `\zhrodsetup`。另外 `build.lua` 里那句「仅 `rod-engine01`
-需要 `.uptex.tlg`」写于 `rod-engine02` 从它拆出之前，现在两个用例各有一份，属注释滞后。
+核准计数口径——引擎、是否计入缺字警告、字体上下文）；driver 区两行新增中文注释用了半角
+标点。另外 `build.lua` 里那句「仅 `rod-engine01` 需要 `.uptex.tlg`」写于 `rod-engine02`
+从它拆出之前，现在两个用例各有一份，属注释滞后。
+
+（原先还有第三条「`\changes` 与 `CHANGELOG.md` 漏记 `\zhrodsetup`」，已在本分支补上。）
 
 ## 提交改动
 
