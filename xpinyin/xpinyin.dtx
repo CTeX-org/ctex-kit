@@ -183,13 +183,28 @@ Copyright and Licence
 %<database>\ProvidesFile{xpinyin-database.def}%
 %<database>  [2022/07/14 v3.1 xpinyin database]
 %<querydb>\ProvidesFile{xpinyin-query.def}%
-%<querydb>  [2022/07/14 v3.1 xpinyin query database]
+%<querydb>  [2026/08/06 v3.1 xpinyin query database]
 %<*driver>
 \documentclass{ctxdoc}
 %% 手册里「查询汉字的读音」一节的示例要用查询命令, 所以这里加 query 选项.
 \usepackage[query]{xpinyin}
 \newfontfamily\PinYinFont{TeX Gyre Adventor}
 \xpinyinsetup{font=\PinYinFont,multiple=\color{red}}
+%% 手册里多处要排带声调的 ü（ǖ ǘ ǚ ǜ, U+01D6/01D8/01DA/01DC）——它们正是
+%% 「ü 的字母部分记作 v」这条约定要说明的对象。ctxdoc 的等宽字体 cmun 没有
+%% 这四个字形, 缺字形时 XeTeX 静默丢掉分音符, 恰好把那几处想展示的区别抹掉
+%% (实测手册里出现十余条 Missing character 警告)。
+%%
+%% 改用一个有这些字形的等宽字体。只在本手册生效, 不影响 ctxdoc 的其他使用者;
+%% 手册里 xelatex 不支持 luaotfload 的 fallback 机制, 所以直接换字体而不是加后备。
+\setmonofont{DejaVuSansMono}[
+  Extension      = .ttf,
+  UprightFont    = *,
+  BoldFont       = *-Bold,
+  ItalicFont     = *-Oblique,
+  BoldItalicFont = *-BoldOblique,
+  Scale          = MatchLowercase,
+  HyphenChar     = None]
 \begin{document}
   \DocInput{\jobname.dtx}
   \IndexLayout
@@ -483,7 +498,7 @@ Copyright and Licence
 %     \hline
 %     取值 & 含义 & 中 & 女 \\
 %     \hline
-%     \opt{mark}   & 调号标在字母上 & \texttt{zhōng}  & \texttt{nǚ}  \\
+%     \opt{mark}   & 调号标在字母上 & zhōng  & nǚ  \\
 %     \opt{number} & 调号写成数字   & \texttt{zhong1} & \texttt{nv3} \\
 %     \opt{none}／\opt{v} & 不带声调  & \texttt{zhong}  & \texttt{nv}  \\
 %     \hline
@@ -659,10 +674,15 @@ Copyright and Licence
   }
 \msg_new:nnn { xpinyin } { query-no-reading }
   { No~pinyin~reading~for~`#1'~in~the~database. }
+%    \end{macrocode}
+% 可展开的报错在终端上只显示到行宽为止（实测 \verb|take exactly...| 之后被截断），
+% 所以关键信息要放在第一行开头、且尽量短。完整说明留给第二行，
+% 它在 \file{.log} 里仍是完整的。
+%    \begin{macrocode}
 \msg_new:nnn { xpinyin } { query-bad-argument }
   {
-    Pinyin~query~commands~take~exactly~one~character,~but~got~`#1'. \\\\
-    Query~one~character~at~a~time.
+    Query~one~character~at~a~time~(got~`#1'). \\\\
+    Pinyin~query~commands~take~exactly~one~character.
   }
 %    \end{macrocode}
 %
@@ -1624,15 +1644,33 @@ Copyright and Licence
   { \cs_new:cpn { @@_query_sm1literal_ #1 : } { #1 } }
 \cs_new:Npn \@@_query_shengmu:nn #1#2
   { \exp_args:Nnf \@@_query_shengmu_aux:nn {#1} { \@@_query_base:n {#2} } }
+%    \end{macrocode}
+% 有几个音节整个就是一个鼻音：|m|、|n|、|ng| 以及 |hm|、|hng|
+% （“嗯”“哼”一类，数据库里共 11 个字）。它们没有声母与韵母之分，
+% 整体作韵母处理，声母为空——否则按字母切分会把“嗯”的 |ng| 切成
+% |n| 加 |g|，而 |g| 不是韵母（实测早先输出 \verb|sm=[n] ym=[g4]|）。
+%
+% 这一步同时消掉了另一个缺陷：这些音节从前被切掉声母后韵母为空串，
+% 与声调数字拼接后只剩一个裸数字（U+5463 的韵母得到 |2|，
+% \opt{tone} 为 \opt{mark} 时页面上排出孤立的“2”）。
+% 整体作韵母之后不再出现空韵母，因此韵母那一侧不必再加判据
+% （核对过全部 57493 个读音，按现在的切分规则无一为空）。
+%    \begin{macrocode}
 \cs_new:Npn \@@_query_shengmu_aux:nn #1#2
   {
-    \cs_if_exist_use:cF { @@_query_sm2_ \str_range:nnn {#2} {1} {2} : }
+    \cs_if_exist:cTF { @@_query_syllabic_ #2 : }
+      { }
       {
-        \cs_if_exist_use:cF
-          { @@_query_sm1 #1 _ \str_range:nnn {#2} {1} {1} : }
-          { }
+        \cs_if_exist_use:cF { @@_query_sm2_ \str_range:nnn {#2} {1} {2} : }
+          {
+            \cs_if_exist_use:cF
+              { @@_query_sm1 #1 _ \str_range:nnn {#2} {1} {1} : }
+              { }
+          }
       }
   }
+\clist_map_inline:nn { m , n , ng , hm , hng }
+  { \cs_new:cpn { @@_query_syllabic_ #1 : } { #1 } }
 %    \end{macrocode}
 % 韵母是去掉声母之后剩下的部分。\opt{official} 模式下若声母为空，
 % 还要把 |y| 或 |w| 的写法还原成介音。
@@ -2167,7 +2205,7 @@ xpinyin.numbertable = {
   ["ǚ"] = {"v", "3"}, ["ǜ"] = {"v", "4"},
   ["ü"] = {"v", "" },
 %    \end{macrocode}
-% |ń|、|ň|、|ǹ| 和 |ḿ| 用在“嗯”“呣”一类字上，声调直接标在鼻音字母上。
+% |ń|、|ň|、|ǹ| 和 |ḿ| 用在“嗯”一类字上，声调直接标在鼻音字母上。
 %    \begin{macrocode}
   ["ń"] = {"n", "2"}, ["ň"] = {"n", "3"}, ["ǹ"] = {"n", "4"},
   ["ḿ"] = {"m", "2"}
@@ -2175,7 +2213,7 @@ xpinyin.numbertable = {
 %    \end{macrocode}
 %
 % 少数组合并没有对应的预组合字符，只能以“字母加组合符”两个码位出现。
-% 本数据库里的实例是“呣”的读音 |m̀|：Unicode 有 |ḿ|（U+1E3F），
+% 本数据库里的实例是 U+5463 的读音 |m̀|：Unicode 有 |ḿ|（U+1E3F），
 % 却没有 |m| 加钝音符的预组合形式。因此除上表之外，还要单独认出裸组合符。
 %    \begin{macrocode}
 xpinyin.combining = {
