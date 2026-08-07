@@ -577,7 +577,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 行号引用会被自己的改动推移；改实现文件时要回查 llmdoc 里的行号引用
 **Rule**: 不要用绝对行号指向源码或日志位置，改用可检索的唯一字符串作锚点。已有的行号引用，在改动该文件后要回查一遍——自己的改动会把它推移到别处，而这种失效是静默的。同一事实若在多份文档里各有一份副本，必须一起改。
-**Why**: #550 一批改动把 xpinyin 里多处代码大幅下移（两处 +249 行、一处 +12 行；按锚点内容在 base 与 HEAD 两侧各定位一次得到，不要拿中途某个提交的行号与最终行号相减），`llmdoc` 里指向这些位置的行号引用随之静默失效。已确认受影响的有三组、共六份副本：`\@@_CJKsymbol_hook:` 的 `\prg_do_nothing:` 赋值、`\@@_reselect_CJK_font:` 的定义、手册 driver 里的 `\newfontfamily\PinYinFont`。
+**Why**: #550 一批改动把 xpinyin 里多处代码大幅下移（受影响的三组锚点：`\@@_CJKsymbol_hook:` 的 `\prg_do_nothing:` 赋值、`\@@_reselect_CJK_font:` 的定义、手册 driver 的 `\newfontfamily\PinYinFont`。位移量不写确数——它随后续提交继续变化，本段落自身就因为写了确数而被推翻过两次；需要时按锚点内容在两端各定位一次现算），`llmdoc` 里指向这些位置的行号引用随之静默失效。已确认受影响的有三组、共六份副本：`\@@_CJKsymbol_hook:` 的 `\prg_do_nothing:` 赋值、`\@@_reselect_CJK_font:` 的定义、手册 driver 里的 `\newfontfamily\PinYinFont`。
 
 逐提交追踪显示这些行号在写下时都是正确的，把它们记成「预存问题」会掩盖真正的教训。（更精确地说：前两组各有 1 行的位移来自 #550 之前的一次文档提交，量级上的失效则由 #550 自己造成。归类结论不变，但「全部由某一个提交推移」这种说法要避免——追踪时要看整条链而不是只看最后一跳。）
 
@@ -627,6 +627,16 @@ Curated cross-task rules distilled from archived memory.
 ### 写下一条机制规则前，先查仓库里是否已有正确版本
 **Rule**: 要在 llmdoc 或代码注释里断言「某机制会导致某现象」时，先检索仓库是否已记录过同一机制。若已有记录而自己的观察与之不符，优先怀疑自己的归因，而不是另写一条新规则。
 **Why**: #550 把 `-halt-on-error` 造成的中断记成了 `\msg_expandable_error:nnn` 的语义，据此改动测试布局并删掉了覆盖。而仓库里本来就有正确记录——`pinyin-tone02.lvt` 的注释与 `build-and-test.md` 都写明「`\showbox`／`\box_log:N` 抛 `! OK.`，而 checkopts 带 `-halt-on-error`，当场终止编译，其后的用例静默不执行而 check 仍可能报绿」，我甚至在同一批改动的另一个 `.lvt` 注释里引用过它。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 判据要贴着真正的原因写，不要用一个更粗的条件代替
+**Rule**: 写「什么情况下走这条分支」时，判据要正好对应造成差异的那个原因。用一个范围更大的条件代替（例如用某个选项的取值代替「输出是不是纯文本」），会把不该受影响的情形一起卷进来，表现为同一命令在无关设置下行为不同。
+**Why**: #550 的星号形式去重原本判「`tone` 是不是 `mark`」，而真正的原因是「这一部分的输出会不会经过标调」。声母从不标调、`official` 的韵母也不标调，却被一并排除在去重之外：缺省设置下 `\xpinyinshengmu*{行}` 排出 `h,h,h,x`，`number` 下排出 `h,x`——声母本不随 `tone` 变化，去重与否却变了。影响 5965 个多音字里的两千多个。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 报错发生在宏包加载阶段时，`.lvt` 的 `\START` 要放在 `\usepackage` 之前
+**Rule**: 用 `.lvt` 固定「加载宏包时就该报的错」时，`\START` 必须在触发报错的 `\usepackage` 之前。放在 `\begin{document}` 之后的话，编译在到达 `\START` 之前就已中止，`l3build save` 会写出一个空基线，而 check 照常报绿。
+**Why**: #550 给 pdfTeX 引擎门禁补用例时正是这样：`\START` 在 `\begin{document}` 之后，`.tlg` 只有两行说明文字，报错内容一个字也没进去。把 `\START` 提到 `\usepackage` 之前后，错误信息正常落入基线，变异实测变红。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
 ### 修一类缺陷时要把对称的另一侧一起查
