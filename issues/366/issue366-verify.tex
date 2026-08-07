@@ -1,0 +1,50 @@
+% 核对手册里的具体数字
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage{zhnumber}
+\newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
+\newfontfamily\JuliaFont{JuliaMono-Regular.ttf}
+\ExplSyntaxOn
+\box_new:N \l_tmpc_box
+\cs_new_protected:Npn \REPORT #1#2
+  { \iow_term:e { CHECK~ #1 ~=~ \dim_to_decimal:n { \box_wd:N #2 } } }
+\cs_new:Npn \__verify_cp:N #1
+  { U+ \int_to_Hex:n { `#1 } ~ }
+\begin{document}
+%% 手册称 12345 未压缩 50.0pt, 压缩后 44.4pt, 四处字距各 -1.4pt
+\zhrodsetup { font = \RodFont }
+\hbox_set:Nn \l_tmpa_box { \RodFont \zhrod{12345} }
+\REPORT { zhrod-12345 } \l_tmpa_box
+\hbox_set:Nn \l_tmpb_box { \zhrodbox{12345} }
+\REPORT { zhrodbox-12345 } \l_tmpb_box
+\iow_term:e { CHECK~ diff~=~
+  \dim_to_decimal:n { \box_wd:N \l_tmpa_box - \box_wd:N \l_tmpb_box } }
+%% 手册称默认 kern 为 -.14em; 四处字距应为 4 x kern
+\iow_term:e { CHECK~ kern-per-gap~=~
+  \dim_to_decimal:n
+    { ( \box_wd:N \l_tmpa_box - \box_wd:N \l_tmpb_box ) / 4 } }
+%% 默认值: units=vertical, zero=fill, minus=slash, dot=.
+\tl_set:Ne \l_tmpa_tl { \zhrod{12030.405} }
+\iow_term:e { CHECK~ default-12030.405~=~ \tl_to_str:N \l_tmpa_tl }
+\tl_set:Ne \l_tmpa_tl { \zhrod{-1} }
+\iow_term:e { CHECK~ default-minus-1-codepoints~=~
+  \tl_map_function:NN \l_tmpa_tl \__verify_cp:N }
+%% 手册称 zero=omit 时 \zhrod{0} 为空, \zhrod{0.0} 只得一个小数点
+\zhrodsetup { zero = omit }
+\tl_set:Ne \l_tmpa_tl { \zhrod{0} }
+\iow_term:e { CHECK~ omit-zero-empty~=~
+  \tl_if_empty:NTF \l_tmpa_tl { yes } { no~[ \tl_to_str:N \l_tmpa_tl ] } }
+\tl_set:Ne \l_tmpa_tl { \zhrod{0.0} }
+\iow_term:e { CHECK~ omit-zero-dot~=~ [ \tl_to_str:N \l_tmpa_tl ]~
+  count= \tl_count:N \l_tmpa_tl }
+\zhrodsetup { zero = fill }
+%% 手册称 \zhrod{1.2.3} 只排出 1.2 那部分
+\tl_set:Ne \l_tmpa_tl { \zhrod{1.2.3} }
+\iow_term:e { CHECK~ two-dots~=~ [ \tl_to_str:N \l_tmpa_tl ] }
+%% 手册称 minus=overlay 末位为 0 时叠在零上: \zhrod{-10} 得筹码+〇+U+20E5
+\zhrodsetup { minus = overlay }
+\tl_set:Ne \l_tmpa_tl { \zhrod{-10} }
+\iow_term:e { CHECK~ overlay-minus-10~=~
+  \tl_map_function:NN \l_tmpa_tl \__verify_cp:N }
+\zhrodsetup { minus = slash }
+\end{document}

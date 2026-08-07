@@ -21,3 +21,21 @@
   同一字体；并列出两个码区的实测朝向。
 - `issue366-charclass-probe.tex` — 探测 `\XeTeXcharclass`：算筹码位为 0（非 CJK），
   而 `〇`、`一` 为 1。这解释了为什么在 `ctexart` 里靠 `\CJKfamily` 切换取不到算筹字形。
+
+## 2026-08 追加：实现完成后的 MWE 与截图
+
+这一组对应实际实现（`\zhrod` 可展开、`\zhrodbox` 负责排版效果，加一组 `\zhrodsetup`
+选项），用的是 PR 分支现场 unpack 出来的 `zhnumber.sty`，引擎为 XeTeX。
+
+- `issue366-mwe.tex` / `issue366-overview.png` — 五组行为的总览：基本用法、`units`
+  的纵横、`zero` 的填与省、`minus` 的独立＼与组合字符叠加、`\zhrodbox` 的字距。
+  `minus=overlay` 那一行换用 JuliaMono，因为两种负号记法所依赖的字符恰好互补：
+  `lxgw-fonts` 的 5 款只有 U+FF3C，`juliamono` 的 14 款只有 U+20E5，没有一款同时具备。
+- `issue366-kern.tex` / `issue366-kern-compare.png` — `\zhrodbox` 的字距效果，两个盒子
+  都加了框便于比较宽度：`\zhrod{12345}` 宽 50.0pt，`\zhrodbox{12345}` 宽 44.4pt，
+  五位筹码之间四处字距，每处 −1.4pt。
+- `issue366-verify.tex` / `issue366-verify-output.txt` — 逐条核对手册里那些具体数字的
+  脚本与它的原始输出。除上面两个宽度外还核了：默认设置下 `\zhrod{12030.405}` 的字符
+  序列、默认负号是 U+FF3C、`zero=omit` 下 `\zhrod{0}` 为空串而 `\zhrod{0.0}` 只剩一个
+  小数点、`\zhrod{1.2.3}` 只排出 `1.2` 那部分、以及 `minus=overlay` 在末位为 0 时
+  组合字符落在 U+3007（〇）上而不是落在一个筹码上。
