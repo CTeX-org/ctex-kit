@@ -330,6 +330,8 @@ Copyright and Licence
 %   \pkg{xpinyin} 宏包的拼音数据（\file{xpinyin-database.def}）来源于 \texttt{Unicode}
 %   的 \texttt{Unihan} 数据库\footnotemark 中的 \file{Unihan_Readings.txt} 文件。对于多
 %   音字，一般来说这个文件选用的是常用读音。可以使用 \tn{setpinyin} 来设置多音字的首选读音。
+%   载入了 \opt{query} 选项时，\tn{setpinyin} 同时更新查询命令用的那份数据，
+%   两边给出的首选读音始终一致。
 % \end{function}
 %
 % \footnotetext{\url{http://www.unicode.org/Public/UNIDATA/Unihan.zip}}
@@ -614,7 +616,11 @@ Copyright and Licence
 % \subsection{多音字}
 %
 % 不带星号的形式取首选读音，与 \tn{xpinyin} 的取值一致；哪个读音算首选，
-% 由 \file{Unihan} 数据库决定，也可以用 \tn{setpinyin} 改写。
+% 由 \file{Unihan} 数据库决定，也可以用 \tn{setpinyin} 改写——
+% \tn{setpinyin} 同时改注音与查询两边，因此“长”经
+% \verb|\setpinyin{长}{chang2}| 之后，\tn{xpinyin} 与 \tn{xpinyinvalue}
+% 给出的都是 |cháng|，据此算出的排序键也落在 |c| 组。
+% 带星号的形式给的是全部读音，不受 \tn{setpinyin} 影响。
 %
 % 需要注意的是，多音字的不同读音常常落在不同的首字母上。
 % 数据库里的五千多个多音字中，约有三分之二属于这种情况。
@@ -1532,6 +1538,21 @@ Copyright and Licence
     \tl_set:cn
       { c_@@_ \@@_char_to_unicode:n {#1} _tl }
       { \@@_pinyin:n {#2} }
+%    \end{macrocode}
+% 查询表要一起改。注音与查询用的是两张表：注音表存的是排好的注音内容，
+% 查询表存“字母加声调数字”的形式，正好就是这里第二个参数的写法。
+% 只改注音表的话，同一个“首选读音”会给出两种结果——实测
+% \verb|\setpinyin{长}{chang2}| 之后 \tn{xpinyin} 排出 |cháng|，
+% 而 \tn{xpinyinvalue} 仍返回 |zhǎng|，据此算出的索引排序键也就落到了错的组。
+%
+% 查询表未载入（没给 \opt{query} 选项）时不必设置：那种情形下查询命令本身
+% 就会报错，多设一个控制序列反而会让“表没载入”的判据失效。
+%    \begin{macrocode}
+    \cs_if_exist:cT { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
+      {
+        \cs_set_nopar:cpn { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
+          {#2}
+      }
   }
 %    \end{macrocode}
 % \end{macro}
