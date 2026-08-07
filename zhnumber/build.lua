@@ -29,7 +29,8 @@ stdengine    = "xetex"
 -- gbk/big5 配置), 而算筹 (#366) 的引擎判定必须把它排除在外 —— upTeX 与 pdfTeX 同为
 -- 8-bit 引擎, 不能表示 U+1D360 区. 没有这一支的话, 「误用把 upTeX 算作真的判据」这类
 -- 缺陷不会被任何用例发现 (实测: 把 \c_@@_rod_engine_bool 改成接受 upTeX 后两套 check
--- 仍全绿). 加入后仅 rod-engine01 需要 .uptex.tlg, 既有五个用例在 upTeX 下原样通过.
+-- 仍全绿). 加入后只有两个算筹引擎用例 (rod-engine01/02) 需要 .uptex.tlg, 既有五个用例
+-- 在 upTeX 下原样通过.
 checkengines = {"pdftex", "xetex", "luatex", "uptex"}
 -- 写法照 ctex/build.lua:33-37 (先 = {} 再赋 .latex): l3build 的 specialformats 默认表
 -- 只含 pdftex/luatex 的 format 映射, 这里要加的是 uptex 的 binary, 两者不冲突。
