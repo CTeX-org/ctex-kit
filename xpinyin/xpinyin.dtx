@@ -498,7 +498,7 @@ Copyright and Licence
 %     \hline
 %     取值 & 含义 & 中 & 女 \\
 %     \hline
-%     \opt{mark}   & 调号标在字母上 & zhōng  & nǚ  \\
+%     \opt{mark}   & 调号标在字母上 & \texttt{zhōng}  & \texttt{nǚ}  \\
 %     \opt{number} & 调号写成数字   & \texttt{zhong1} & \texttt{nv3} \\
 %     \opt{none}／\opt{v} & 不带声调  & \texttt{zhong}  & \texttt{nv}  \\
 %     \hline
@@ -1741,9 +1741,53 @@ Copyright and Licence
       { #1 }
       {
         \str_if_eq:eeTF { \l_@@_query_tone_tl } { mark }
-          { \@@_query_mark:n {#1} }
+          { \@@_query_mark_if_possible:n {#1} }
           { \@@_query_base:n {#1} }
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_mark_if_possible:n,\@@_query_markable:n,
+%   \@@_query_if_markable:nTF}
+% 标调号要有可标的元音字母。整个音节就是一个鼻音时（|m|、|n|、|ng| 一类，
+% 见前面的 \cs{@@_query_syllabic_} 表）没有元音，\cs{@@_pinyin:n} 找不到
+% 落点，会把声调数字原样排出——\verb|\xpinyinvalue{嗯}| 得到 |ng4|，
+% 页面上那个 |4| 就是个裸数字。
+%
+% 这与声母“永远不带声调”是同一件事的另一侧：判据都是“有没有可标调的元音”。
+% 因此这里先检查，没有元音就退回无调形式（|ng| 而不是 |ng4|）。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_mark_if_possible:n #1
+  {
+    \@@_query_if_markable:nTF {#1}
+      { \@@_query_mark:n {#1} }
+      { \@@_query_base:n {#1} }
+  }
+%    \end{macrocode}
+% 逐字符扫一遍看有没有元音字母。这里不能用 \cs{tl_if_in:nnTF} 或
+% \cs{str_remove_all:nn}——两者都不可展开（实测前者在 \tn{edef} 里原样漏出
+% 整条命令，后者把参数连花括号一起返回，长度反而变长），而查询命令必须保持
+% 可展开。可展开的做法是用 \cs{str_range:nnn} 取单个字符，交给
+% \cs{str_case:enF} 比对。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_markable:n #1
+  { \@@_query_markable_aux:nn {#1} { 1 } }
+\cs_new:Npn \@@_query_markable_aux:nn #1#2
+  {
+    \int_compare:nNnTF {#2} > { \str_count:n {#1} }
+      { 0 }
+      {
+        \str_case:enF { \str_range:nnn {#1} {#2} {#2} }
+          { {a}{1} {o}{1} {e}{1} {i}{1} {u}{1} {v}{1} }
+          { \exp_args:Nnf \@@_query_markable_aux:nn {#1}
+              { \int_eval:n { #2 + 1 } } }
+      }
+  }
+\prg_new_conditional:Npnn \@@_query_if_markable:n #1 { TF }
+  {
+    \int_compare:nNnTF { \@@_query_markable:n {#1} } = { 1 }
+      { \prg_return_true: } { \prg_return_false: }
   }
 %    \end{macrocode}
 % \end{macro}
