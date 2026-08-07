@@ -25,7 +25,7 @@
 
 ### xpinyin: TL opentype 未进 fontconfig
 
-`xpinyin.dtx:179` `\newfontfamily\PinYinFont{TeX Gyre Adventor}` 走 fontconfig friendly name。TL 装了 `tex-gyre` 包，但字体只在 `$TEXMFDIST/fonts/opentype/public/tex-gyre/` 里，不在 fontconfig 索引 → xelatex 找不到。
+`xpinyin.dtx` 里的 `\newfontfamily\PinYinFont` `\newfontfamily\PinYinFont{TeX Gyre Adventor}` 走 fontconfig friendly name。TL 装了 `tex-gyre` 包，但字体只在 `$TEXMFDIST/fonts/opentype/public/tex-gyre/` 里，不在 fontconfig 索引 → xelatex 找不到。
 
 修法：workflow 加 `/etc/fonts/conf.d/09-texlive-opentype.conf` 让 fc-cache 扫 TL `opentype/` + `truetype/` 目录。无条件执行，其他包只是索引多几百字体，无副作用。
 

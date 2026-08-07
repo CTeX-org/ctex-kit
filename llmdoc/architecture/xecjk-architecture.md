@@ -492,7 +492,7 @@ xeCJK 支持为 CJK 字符范围设置后备字体链。当主字体不包含某
 
 `\xeCJK_reset_fallback_font:` 与 `\xeCJK_clear_fallback_font:` 在 dtx 里**没有独立的 `\begin{macro}` 条目**，只夹在 `\xeCJK_fallback_symbol:NN` 那一块里，属于内部量；相比有 `[int]` 条目的 `\xeCJK_select_font:` 更容易在上游重构中改名。目前已知有下游依赖它（xpinyin），因此 xeCJK 侧改名或改语义时要同步通知。
 
-给下游的指引：**CJK 输出路径上的钩子若要重选字体，先判断是否已处于后备字体状态**；已在后备字体里时当前字体正是应该用的那一个，重选反而会退回主字体。实例是 xpinyin 的 `\@@_reselect_CJK_font:`（`xpinyin/xpinyin.dtx:957-970`，#997）——它的量宽盒子原先无条件重选，启用 `AutoFallBack` 时量出的是主字体下缺字形的错误宽度。取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
+给下游的指引：**CJK 输出路径上的钩子若要重选字体，先判断是否已处于后备字体状态**；已在后备字体里时当前字体正是应该用的那一个，重选反而会退回主字体。实例是 xpinyin 的 `\@@_reselect_CJK_font:`（`xpinyin/xpinyin.dtx` 里的 `\@@_reselect_CJK_font:`，#997）——它的量宽盒子原先无条件重选，启用 `AutoFallBack` 时量出的是主字体下缺字形的错误宽度。取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
 ### AutoFakeBold / AutoFakeSlant
 
