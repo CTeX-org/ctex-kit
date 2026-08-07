@@ -629,6 +629,21 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #550 把 `-halt-on-error` 造成的中断记成了 `\msg_expandable_error:nnn` 的语义，据此改动测试布局并删掉了覆盖。而仓库里本来就有正确记录——`pinyin-tone02.lvt` 的注释与 `build-and-test.md` 都写明「`\showbox`／`\box_log:N` 抛 `! OK.`，而 checkopts 带 `-halt-on-error`，当场终止编译，其后的用例静默不执行而 check 仍可能报绿」，我甚至在同一批改动的另一个 `.lvt` 注释里引用过它。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
+### 修一类缺陷时要把对称的另一侧一起查
+**Rule**: 修好某个处理路径上的缺陷后，检查数据流上与它对称的那一侧是否有同型问题——取前半与取后半、声母与韵母、左边界与右边界、开与关。同型缺陷往往成对出现，而修好一侧后测试转绿，会掩盖另一侧。
+**Why**: #550 早先发现「声母不该带声调」（「中」的声母排成 `zh1`），在声母侧修好并写了注释，却没查韵母侧。终审发现整体为鼻音的音节（`m`／`ng` 一类，11 个字）韵母为空串，与声调数字拼接后只剩一个裸数字，`tone=mark` 下页面上排出孤立的「2」——与 `zh1` 是同一形态的另一侧。四个回归文件对这一形态零覆盖，十二轮增量审查全绿。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 用等宽字体展示字形差异前，先确认该字体有那些字形
+**Rule**: 在文档里用 `\texttt` 或 `verbatim` 展示带附加符号的字形（声调、分音符、变音）时，先确认所用等宽字体覆盖这些码位。缺字形时 XeTeX 只发 `Missing character` 警告并静默丢弃，恰好抹掉想展示的那个区别，而文档照常编译成功。
+**Why**: #550 的手册用 `\texttt{nǚ}` 说明「`ü` 的字母部分记作 `v`」，而 ctxdoc 的等宽字体 `cmun` 没有 U+01D6/01D8/01DA/01DC 四个带调 `ü`，印出来分音符消失——那一格想说明的区别正好没了。手册里出现十余条 `Missing character` 警告而退出码为 0。判据是编完 `grep -c 'Missing character'` 日志，不要只看退出码。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
+### 可展开的报错在终端上会被截断，关键信息要放在第一行开头
+**Rule**: `\msg_expandable_error:` 的文案在终端上只显示到行宽为止，后面截断成 `...`。把可操作的那句放在第一行开头并尽量短，详细说明放第二行（`.log` 里仍完整）。
+**Why**: #550 的参数校验报错原文是 `Pinyin query commands take exactly one character, but got ...`，终端上截断在 `take exactly...`，恰好把「一次查一个字」这个可操作信息切掉了。改为 `Query one character at a time (got ...)` 后关键信息落在截断之前。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
 ### 表驱动的字符转换要用全量数据逐条比对，抽样只能证明主路径
 **Rule**: 把字符按对照表做转换时（去声调、正规化、音译一类），验证要跑完整数据集，并与独立实现逐条比对，不能抽查几个代表字。Unicode 里「恰好缺少某个预组合形式」的字符会以裸组合符出现，按整字符查表就会漏掉，而这类字往往罕见到抽样必然错过。
 **Why**: #550 把拼音转成「字母加声调数字」，用一张 29 项的预组合字符对照表实现。抽查「中女绿安行么」六个字全对；全量校验 50325 条、57493 个读音后发现一个例外——「呣」的读音 `m̀` 是裸的 `m` 加 U+0300，因为 Unicode 有 `ḿ`（U+1E3F）却没有 `m` 加钝音符的预组合形式。修法是在对照表之外单独认出裸组合符。
