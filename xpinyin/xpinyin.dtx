@@ -620,10 +620,10 @@ Copyright and Licence
 % 数据库里的五千多个多音字中，约有三分之二属于这种情况。
 % 因此按首字母给索引分组时，要留意条目可能应当出现在两处。
 % 带星号的形式给出全部读音，便于自行判断：
-% \begin{SideBySideExample}
-%   行 的全部读音：\xpinyinvalue*{行}\\
-%   涉及的首字母：\xpinyininitial*{行}
-% \end{SideBySideExample}
+%   \begin{SideBySideExample}
+%     行 的全部读音：\xpinyinvalue*{行}\\
+%     涉及的首字母：\xpinyininitial*{行}
+%   \end{SideBySideExample}
 %
 % \end{documentation}
 %
@@ -1626,12 +1626,13 @@ Copyright and Licence
 %
 % \begin{macro}[int]{\@@_query_shengmu:nn,\@@_query_yunmu:nn}
 % 声母与韵母的切分。两个模式的区别只在 |y| 和 |w| 算不算声母，
-% 所以用两张表：\texttt{sm1l} 收 |y|、|w|，\texttt{sm1o} 不收。
+% 所以用两张表：\cs{@@_query_sm1literal_...} 收 |y|、|w|，
+% \cs{@@_query_sm1official_...} 不收。
 % |zh|、|ch|、|sh| 是两个字母的声母，必须先于单字母匹配。
 %
-% 用“控制序列存不存在”来查表，是因为 \cs{cs_if_exist_use:cF} 可展开，
-% \cs{str_case:nnF} 也可展开，这里用控制序列查表是因为两字母声母与单字母声母
-% 要分两级匹配，用“存不存在”表达更直接。
+% 用“控制序列存不存在”来查表：两字母声母与单字母声母要分两级匹配，
+% 用 \cs{cs_if_exist_use:cF} 逐级回退表达得最直接。
+% （\cs{str_case:nnF} 同样可展开，两者在这里都可用。）
 %    \begin{macrocode}
 \clist_map_inline:nn { zh , ch , sh }
   { \cs_new:cpn { @@_query_sm2_ #1 : } { #1 } }
@@ -1986,7 +1987,9 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_query_all_aux:nn #1#2
   {
     \@@_query_collect:nn {#1} {#2}
-    \clist_if_empty:NTF \g_@@_query_join_clist
+    \bool_lazy_and:nnTF
+      { \clist_if_empty_p:N \g_@@_query_join_clist }
+      { \int_compare_p:nNn \g_@@_query_count_int > { 0 } }
       { \@@_query_all_plain:nn {#1} {#2} }
       { \clist_use:Nn \g_@@_query_join_clist { , } }
   }
@@ -2006,9 +2009,7 @@ Copyright and Licence
 % \cs{clist_remove_duplicates:N} 在项含 \texttt{protected} 命令时会把整个列表
 % 清空（实测两项 \verb|\prot:n {a}|、\verb|\prot:n {b}| 去重后项数为 0），
 % 正好可以拿来当“去重可不可行”的判据。
-%    \begin{macrocode}
-
-%    \end{macrocode}
+%
 % 不去重的一支：逐项排出，项间补逗号。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_query_all_plain:nn #1#2
@@ -2041,9 +2042,23 @@ Copyright and Licence
             \clist_gput_right:Ne \g_@@_query_join_clist
               { \@@_query_part:nn {#1} {##1} }
           }
+%    \end{macrocode}
+% 记下去重\emph{之前}的项数，随后靠它区分两种“列表为空”。
+%
+% 逗号列表会自动丢掉空项，所以全部读音的声母都为空时（“啊”“呕”一类零声母字，
+% \opt{official} 下还有 |y|、|w| 起头的）列表在去重前就已经是空的——那是正确
+% 结果。而项含 \texttt{protected} 命令时，\cs{clist_gremove_duplicates:N} 会把
+% \emph{原本非空}的列表清空，那才是去重不可行。
+%
+% 只看“去重后空不空”区分不开这两种情形，实测会让
+% \verb|\xpinyinshengmu*{啊}| 排出 \verb|,,,,|——只剩分隔逗号。
+%    \begin{macrocode}
+        \int_gset:Nn \g_@@_query_count_int
+          { \clist_count:N \g_@@_query_join_clist }
         \clist_gremove_duplicates:N \g_@@_query_join_clist
       }
   }
+\int_new:N \g_@@_query_count_int
 \box_new:N \l_@@_query_probe_box
 %    \end{macrocode}
 % \end{macro}
