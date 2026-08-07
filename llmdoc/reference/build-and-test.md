@@ -465,7 +465,7 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 另外，pdfTeX/CJKutf8 那条线不受本修复影响，`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`（`xpinyin/xpinyin.dtx` 里检索 `\cs_new_eq:NN \@@_CJKsymbol_hook: \prg_do_nothing:`；行号会漂移，早先记的 990 已失效），所以 `testfiles-cjk/` 不需要对应用例。机制侧见 [[../architecture/xecjk-architecture]] 的「后备字体 (Fallback)」一节，取舍见 [[../memory/decisions/997-xpinyin-fallback-reselect]]。
 
-### 拼音查询命令的回归（`pinyin-query01`，#550）
+### 拼音查询命令的回归（`pinyin-query01`～`04` 与 `pinyin-query-cjkutf8-01`，#550）
 
 #550 新增四个查询命令（`\xpinyinvalue`／`\xpinyininitial`／`\xpinyinshengmu`／`\xpinyinyunmu`），测试上有两点与本包其他用例不同。
 
@@ -490,6 +490,10 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 **判据要落在最终产物上，不是中间产物。** 第 8 项一度只断言 `\edef` 之后的字面值，而缺陷出在交给 `\index` 的那串字节上：手册配方用 `\@tempa` 作中间变量时，正文里 `@` 不是字母，`\edef\@tempa{...}` 定义到的并不是 `\@tempa`，排序键会多出一个空格（`han @汉字`），makeindex 按字面比较会把它与手写的 `han@汉字` 分成两个条目。现在改为把 `\index` 换成一个只记录参数的命令（`\index` 写外部 `.idx`，内容不进日志、基线看不到），并保留一格含 `@` 名字的对照，使手册那条说明有判据支撑。
 
 **恒真断言的又一种形态**：第 8 项（可展开性）初版写 `\index{\xpinyinvalue{中}@中}` 后跟一句 `\TYPE{index: no error}`。`\TYPE` 无条件执行，这行无论实现对不对、无论查询表有没有载入都会打出来；而 `\index` 根本不展开参数，所以它对自己声称覆盖的场景零判别力，反而把缺陷冻结成了预期基线。已改为断言 `\edef` 之后的字面值与 `\meaning\XPYkey`，并用「把 `\@@_query_tone_apply:n` 改成 `protected`」这个变异验证会变红。
+
+**pdfTeX 那条线也要有用例。** `query` 选项在 pdfTeX 下必须报错（取码位靠 `` `#1 ``，CJKutf8 路线上一个汉字是多个字节）。这条行为写进了决策与手册，却一度没有任何用例固定——把那句 `\msg_error:nn` 删掉后两条线都全绿。`testfiles-cjk/pinyin-query-cjkutf8-01.lvt` 补上了它。
+
+写这个用例有个坑：**报错发生在宏包加载阶段，`\START` 必须放在 `\usepackage` 之前**。放在 `\begin{document}` 之后的话，编译在到达 `\START` 之前就中止，`l3build save` 写出的基线只有两行说明文字，而 check 照常报绿。
 
 **变异判别力**（双向实测）：把生成脚本里 `ǚ` 的字母部分从 `v` 写成 `u`，`nv3` 变 `nu3`、排出的字形由 `nǚ` 变 `nǔ`，变红；让 `official` 的声母表也收 `y`／`w`（两种切分模式合一），第 4 项全部变红。
 
