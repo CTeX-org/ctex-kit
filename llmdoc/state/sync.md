@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 429d191caac6bf5a46ee27c511ea71b61465c45a
-- watermark-subject: feat(xpinyin): 新增查询汉字读音的四个命令 (#550)
-- updated-at: 2026-08-06T11:27:27Z
-- updated-by: llmdoc-update skill
+- watermark-commit: da3b002f37142d924f61565a024ea015c857c186
+- watermark-subject: docs(llmdoc): 修上一轮清理动作引入的两个缺陷, 补全检索范围 (#550)
+- updated-at: 2026-08-07T01:32:07Z
+- updated-by: llmdoc-update skill (#550 close-local-code-review 第十轮)

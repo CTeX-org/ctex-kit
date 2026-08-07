@@ -88,7 +88,7 @@ catcode/codepoint 桥接）。
   需要保留输入侧字符码身份时，`\regex_replace_all:nnN` 的替换串是字面
   codepoint，整个机制等价于"任意 catcode N → 固定 codepoint K"，会丢失字符
   身份。此时应改走 token 级路径。
-- `architecture/xecjk-architecture.md` xeCJK-listings 段（约 L347-349）目前
+- `architecture/xecjk-architecture.md` xeCJK-listings 段（`### xeCJK-listings` 一节）目前
   只一句"用 `\tl_set_rescan:Nno` 替代 `\lccode`/`\lowercase`"，没记录
   parameter token 处理路径。从 #378 catcode-class regex 到 #879 token 级 map
   的演化值得作为该段的微小补充。
