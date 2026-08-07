@@ -116,7 +116,7 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 
 `l3build check` 5/5、`l3build check -c test/config-cjk` 1/1 通过。pdfTeX/CJKutf8 路线不受本
 修复影响：`\@@_adjust_CJK_hook:` 把 `\@@_CJKsymbol_hook:` 直接设为 `\prg_do_nothing:`
-（`xpinyin/xpinyin.dtx:990`），故 `testfiles-cjk/` 无对应用例。
+（在 `xpinyin/xpinyin.dtx` 里检索 `\cs_new_eq:NN \@@_CJKsymbol_hook: \prg_do_nothing:`），故 `testfiles-cjk/` 无对应用例。
 
 ## 相关
 
