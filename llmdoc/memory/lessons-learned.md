@@ -715,6 +715,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #550 把 `-halt-on-error` 造成的中断记成了 `\msg_expandable_error:nnn` 的语义，据此改动测试布局并删掉了覆盖。而仓库里本来就有正确记录——`pinyin-tone02.lvt` 的注释与 `build-and-test.md` 都写明「`\showbox`／`\box_log:N` 抛 `! OK.`，而 checkopts 带 `-halt-on-error`，当场终止编译，其后的用例静默不执行而 check 仍可能报绿」，我甚至在同一批改动的另一个 `.lvt` 注释里引用过它。
 **Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
 
+### 新功能与既有功能共用一个概念时，要核对两边的契约
+**Rule**: 新增的接口若与既有功能共享某个用户可见的概念（同一个「首选读音」、同一份配置、同一个开关），要专门检查改既有功能的命令是否也影响新接口。这类问题不在新接口自己的行为里，光测新接口测不出来。
+**Why**: #550 新增的查询命令与既有注音功能都有「首选读音」的概念，但用的是两张独立的表。`\setpinyin` 只更新注音表，于是 `\setpinyin{长}{chang2}` 之后 `\xpinyin` 排出 `cháng` 而 `\xpinyinvalue` 仍返回 `zhǎng`，索引排序键落到错的组——而手册明确承诺可以用 `\setpinyin` 改首选读音。本地十九轮盲审都没发现，因为它们都在检验查询命令自己的行为；是 PR 的 bot review 指出的。
+**Source**: `llmdoc/memory/reflections/550-xpinyin-pinyin-query.md`
+
 ### 换判据后要把「所有输入类别」列一遍，逐类算出新判据的结果
 **Rule**: 改动一个分支判据时，先把输入按类别列全（空／单项／全同／全空／含特殊值／正常），逐类推演新判据会得到什么，再写代码。只针对刚发现的那一种情形去改，几乎必然在另一类上出新问题。
 **Why**: #550 的星号去重判据改了四版，每版都只盯着上一轮发现的那种情形：「`tone` 是不是 `mark`」漏了从不标调的声母；「命令加 `scheme`」漏了运行时的标调回退；「去重后列表空不空」漏了**全部项本来就为空**的情形——零声母字（「啊」「呕」，`official` 下还有 `y`／`w` 起头的，共 47／455 字）于是排出 `,,,,`。零声母是最常见的类别之一，却四轮都没进测试。第四版改为比较去重前后的项数才把两种「空」分开。
