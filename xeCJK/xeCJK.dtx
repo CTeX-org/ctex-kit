@@ -213,7 +213,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.10.5}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.10.6}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -1821,6 +1821,59 @@ Copyright and Licence
 % \end{itemize}
 %
 % \medskip
+%
+% 同样出自 \pkg{ulem} 的扫描机制，还有一条与\emph{花括号分组}有关的限制。
+%
+% 线型命令的正文里若用花括号把一段内容括起来，该处中西文间距（\tn{CJKecglue}）或
+% 汉字间距（\tn{CJKglue}）的\emph{可收缩量}会失效。间距的自然宽度不变，因此单独看
+% 一行文字不会有区别；但在需要压缩的场合，这段间距不再能被压窄。例如
+%
+% \begin{Verbatim}
+%   \fbox{\hbox to 63pt{\CJKunderline{虚室 hello 生白}}}
+%   \fbox{\hbox to 63pt{\CJKunderline{虚室 {hello} 生白}}}
+% \end{Verbatim}
+%
+% 两行的自然宽度相同，但第二行少了可收缩的部分，排不进指定的 63\,pt，于是溢出到框
+% 外，看起来像是多出了空格。（这里用 \env{Verbatim} 而不是实时示例，是因为示例本身
+% 就会产生 \texttt{Overfull \tn{hbox}}，混进手册的排版警告里反而不便于查看。）
+%
+% 触发条件是\emph{花括号紧跟在那个源码空格之后}，而不是「用了带参数的命令」：
+%
+% \begin{itemize}
+%   \item 受影响：\verb|虚室 {hello} 生白|、\verb|虚室 \textbf{hello} 生白|、
+%     \verb|虚室 {文字} 生白|——最后一例说明汉字之间的 \tn{CJKglue} 同样受影响，
+%     不限于中西文边界；
+%   \item 不受影响：\verb|虚室 \color{red}hello 生白|。它的花括号属于
+%     \tn{color} 的参数，空格之后紧跟的是命令名而不是花括号，切分照旧。
+% \end{itemize}
+%
+% 原因是 \pkg{ulem} 按\emph{源码空格}把正文切成一系列固定宽度的片段盒，落在片段盒
+% 内部的间距，其可收缩量被盒子的固定宽度吃掉，外面用不到。正常情况下汉字与西文词之
+% 间的那个源码空格正是一处切分点，间距因此落在两个片段盒\emph{之间}；而花括号会让
+% 紧接其前的源码空格不再切分，于是这一段与前面的汉字被并进同一个片段盒，间距连自然
+% 宽度带可收缩量一起进了盒内。
+%
+% 实测可以看出这一点：\verb|\CJKunderline{虚室 hello 生白}| 的五个片段盒宽度依次是
+% 10、10、20.56、10、10（单位 pt），而把 \texttt{hello} 括起来后第三个变成 23.89\,pt
+% ——正好多出 3.33\,pt，即那一处中西文间距的自然宽度。片段盒的\emph{个数没有变}，
+% 变的是间距落在盒内还是盒外。另外，\verb|虚室 {hello}|（有空格）与
+% \verb|虚室{hello}|（无空格）切分完全相同，可见那个空格确实已不起作用。
+%
+% 这是 \pkg{ulem} 的切分机制决定的。需要在这类正文上保留压缩能力时，可以：
+%
+% \begin{itemize}
+%   \item 去掉紧跟在空格后的那对花括号。如果需要的是字体或颜色，可以把花括号留给
+%     命令的参数，让命令名紧跟空格，例如
+%     \verb|\color{red}hello|；
+%   \item 改用符号型命令，例如 \tn{CJKunderdot}。它不经 \pkg{ulem} 扫描，
+%     因此不受此限；
+%   \item 让这段文字走正常的段落排版。段落断行时可用的伸缩量远多于固定宽度的盒子，
+%     实测同一段正文在段落中不会因此溢出。
+% \end{itemize}
+%
+% \changes{v3.10.6}{2026/08/10}{在用户手册说明线型命令正文里花括号紧跟源码空格时，
+%   该处间距的可收缩量会落进 \pkg{ulem} 的片段盒而失效；给出触发条件、片段盒宽度
+%   判据与替代写法，并补上区分「受影响」与「不受影响」两侧的回归测试（\#1067）。}
 %
 % 此外，\pkg{xeCJKfntef} 还提供了可指定宽度，并让汉字两端分散对齐的环境
 % \env{CJKfilltwosides} 和 \env{CJKfilltwosides*}。

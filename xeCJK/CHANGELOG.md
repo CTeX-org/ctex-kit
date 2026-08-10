@@ -1,3 +1,7 @@
+## [xeCJK-v3.10.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.6)
+
+- 在用户手册说明线型命令正文里花括号紧跟源码空格时，该处间距的可收缩量会落进 `ulem` 的片段盒而失效；给出触发条件、片段盒宽度判据与替代写法，并补上区分「受影响」与「不受影响」两侧的回归测试（#1067）。
+
 ## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
 
 - `\CJKecglue` 补在源码空格位置时改用可搬运通道，避免收缩量固化在 `ulem` 的定宽片段盒内（#1037）。

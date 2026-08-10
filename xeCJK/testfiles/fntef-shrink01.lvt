@@ -228,11 +228,25 @@
 % 判别力已实测 rc 1：把这两处改回裸 \skip_horizontal:N 后，本项 \color 形态的 badness 由
 % 73 变 1000000。TESTs 1-8 对这两处零判别力（改回后它们的基线无任何变化），必须有本项。
 %
-% 已接受的限制：正文写成 \CJKunderline{虚室 {hello} 生白} 或 \textbf{hello} 时，显式分组
-% 使 \l_@@_group_tag_tl 与当前分组标记不符（实测 T1L4 vs T1L5），\@@_ulem_glue:n 的 group
-% tag 守卫据此拒绝搬运——这是刻意设计：在用户分组内部执行 \UL@stop 不安全。实测绕过该守卫
-% 会让 fntef-font01 失败——也就是说「误改守卫」真正的门禁是 fntef-font01，不是本项的 braced
-% 断言；braced 两行只是把现状记录下来，供后来者判断这是已知限制而非未修的缺陷。
+% 已接受的限制：正文写成 \CJKunderline{虚室 {hello} 生白} 或 \textbf{hello} 时，压窄 2pt
+% 仍不够（badness 1000000）。braced 两行把现状记录下来，供后来者判断这是已知限制而非未修
+% 的缺陷；成因与门禁见 TEST 11。
+%
+% 【更正】本段原先写的是「显式分组使 \l_@@_group_tag_tl 与当前分组标记不符（T1L4 vs
+% T1L5），\@@_ulem_glue:n 的 group tag 守卫据此拒绝搬运」。那个归因是错的，#1067 查证时
+% 用变异测试推翻了：把 group tag 守卫绕过（两份都改，即 \@@_ulem_glue:n 与
+% \@@_boundary_use_ulem_glue:n），braced 的 badness 仍然是 1000000，读数一个字都没变。
+% 守卫的 MISMATCH 分支确实会被走到，但它不决定这里的结果——「代码路径被执行」不等于
+% 「它决定了结果」。
+%
+% 真正的成因是 ulem 的切词：花括号使紧接其前的源码空格不再成为片段盒的切分点，于是那一处
+% \CJKecglue 连自然宽度带收缩量一起落进片段盒内部。实测五个片段盒的宽度
+% 10/10/20.56/10/10 变成 10/10/23.89/10/10——个数不变，第三个正好多出 3.33pt（即该间距的
+% 自然宽度）。详见 TEST 11 的注释。
+%
+% 另：绕过 group tag 守卫会让 fntef-font01 失败（字体从 FandolKai 退回 FandolSong），
+% 所以守卫本身是必要的——它防的是「在用户分组内执行 \UL@stop 会连带退出用户那层分组」，
+% 只是它防的不是本条限制。
 %
 % 另需注意：这两种写法从 0pt 到 1.11pt 的改善来自 #1026（词后那半），不是 #1037 的功劳；
 % #1037 在这两种写法上没有进一步改善。oracle 为 2.22pt，剩下的 1.11pt 属结构性限制。
@@ -281,6 +295,63 @@
   \dimen8=\wd8
   \setbox10=\hbox to \dimexpr\dimen8-1pt\relax{\CJKunderline{\mbox{$x$}中文}}%
   \TYPE{boxed-math-shrink-by-1pt-badness=\the\badness}
+}
+
+% #1067：花括号分组限制的边界。TEST 9 已经把 \CJKunderline{虚室 {hello} 生白} 的现状
+% 固定下来，但只有那一种写法；用户手册（\CJKunderline 一节）据此写了触发条件与替代写法，
+% 这一项把手册的每条断言各钉一条基线，免得手册与实现各自漂移。
+%
+% 手册说触发条件是「花括号引入了 TeX 分组层级」，而不是「用了命令」。因此这里成对地测：
+%   受影响：\textbf{hello}（命令 + 花括号）、{文字}（CJK 之间，不限中西文边界）
+%   不受影响：\color{red}hello（命令但不开分组）、\CJKunderdot（符号型，不经 ulem 扫描）
+% 前两条与后两条必须都在：只测受影响的那一半，无法区分「限制存在」与「什么都不工作」；
+% 只测不受影响的那一半，则手册推荐的替代写法哪天失效也没人发现。
+%
+% oracle 一并记下：同一正文去掉装饰命令后压窄 2pt 的 badness 是 73，即 2.22pt 收缩量
+% 全部可用。braced 形态的 1000000 与它对照，才能说明丢的是 1.11pt 而不是别的量。
+%
+% 成因（#1067 查证）：ulem 按源码空格把正文切成固定宽度的片段盒，落在盒内的间距其收缩量
+% 被盒宽吃掉。花括号使紧接其前的那个源码空格不再切分，于是该处 \CJKecglue 连自然宽度带
+% 收缩量一起进了盒内。判据是片段盒宽度：plain 为 10/10/20.56/10/10，braced 为
+% 10/10/23.89/10/10——个数不变，第三个多出 3.33pt，正是那处间距的自然宽度。
+% \color 形态不受影响的原因也在这里：空格之后紧跟的是命令名而不是花括号，切分照旧
+% （实测它多出一个 x0.0 的空片段盒，随后仍是 x20.56）。
+%
+% 特别注意：这与 \@@_ulem_glue:n 的 group tag 守卫**无关**。两份守卫都绕过后本项读数
+% 不变（已实测），所以不要照着「守卫拒绝搬运」的旧说法去改守卫——那只会让
+% fntef-font01 失败而本项照旧。TEST 9 的注释里有这条更正的完整记录。
+%
+% 判别力：若哪天真把这个限制修好了（需要让间距落到片段盒之外，例如改变切分时机或改由
+% xeCJK 自己管理片段盒），braced/textbf/cjk-braced 会从 1000000 变成 73，本项失败——
+% 那时应当同步删掉手册里那段限制说明，而不是只刷基线。反过来若 \CJKunderdot 或 \color
+% 形态退化成 1000000，说明手册推荐的替代写法已不成立，同样必须失败。
+%
+% 注意 cjk-braced 的自然宽度与其余几项不同（63.33pt 对 67.22pt），因为正文本身不同；
+% 各项的压窄基准都取自己的自然宽度，不要互相套用。
+\TEST{brace group shrink limitation and its documented workarounds}{
+  \hfuzz=100pt
+  % oracle：无装饰命令时收缩量全部可用
+  \setbox0=\hbox{虚室 {hello} 生白}%
+  \dimen0=\wd0
+  \TYPE{oracle-natural=\the\dimen0}
+  \setbox2=\hbox to \dimexpr\dimen0-2pt\relax{虚室 {hello} 生白}%
+  \TYPE{oracle-shrink-by-2pt-badness=\the\badness}
+  % 受影响：命令带花括号
+  \setbox4=\hbox{\CJKunderline{虚室 \textbf{hello} 生白}}%
+  \dimen4=\wd4
+  \setbox6=\hbox to \dimexpr\dimen4-2pt\relax{\CJKunderline{虚室 \textbf{hello} 生白}}%
+  \TYPE{textbf-shrink-by-2pt-badness=\the\badness}
+  % 受影响：汉字之间的 \CJKglue 同样受影响
+  \setbox8=\hbox{\CJKunderline{虚室 {文字} 生白}}%
+  \dimen8=\wd8
+  \TYPE{cjk-braced-natural=\the\dimen8}
+  \setbox10=\hbox to \dimexpr\dimen8-2pt\relax{\CJKunderline{虚室 {文字} 生白}}%
+  \TYPE{cjk-braced-shrink-by-2pt-badness=\the\badness}
+  % 不受影响：符号型命令不经 ulem 扫描（手册推荐的替代写法之一）
+  \setbox12=\hbox{\CJKunderdot{虚室 {hello} 生白}}%
+  \dimen12=\wd12
+  \setbox14=\hbox to \dimexpr\dimen12-2pt\relax{\CJKunderdot{虚室 {hello} 生白}}%
+  \TYPE{underdot-braced-shrink-by-2pt-badness=\the\badness}
 }
 
 \END
