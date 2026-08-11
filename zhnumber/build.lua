@@ -13,7 +13,7 @@ module = "zhnumber"
 -- **以 0 退出** (见 support/build-config.lua 的共享 update_tag). 于是仿 xpinyin
 -- 写的 check-tag job 会恒绿 —— 跑了 tag、diff 自然为零、什么也没校验.
 -- 实测确认: 加本字段前 `l3build tag` 不改任何文件, 加后回写并保持幂等.
-version = "3.3"
+version = "3.1"
 
 packtdszip = true
 
