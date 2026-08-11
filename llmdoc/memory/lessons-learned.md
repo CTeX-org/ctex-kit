@@ -301,6 +301,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 改 `\setpinyin` 时，heredoc 脚本 assert 通过并打印「已改」，但 `l3build unpack` 出来的 `.sty` 毫无变化：shell 工作目录被重置到仓库根，而根下躺着一份更早跑偏留下的 `xpinyin.dtx` 副本，编辑落在了那份副本上。这也在仓库根留下一个未跟踪的陈旧 `.dtx`，若随手提交就会变成与真实源码不同步的幽灵副本。同一条判据在「变异要确认真的进了产物」里已有先例。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
 
+### 删文件前按「读者」清点内容归属，不要只按标题层级清点
+**Rule**: 删除一份文档前，逐段问「这段是给谁看的」，再按读者决定去向：面向贡献者的流程（PR 投哪个分支、必须跑哪些测试）归 `README`／`CONTRIBUTING`，面向维护者的内部机制归 `llmdoc`。清点时要连**标题之前的引言段**一起数——按 `grep '^## '` 列小节会漏掉 H1 之后、第一个 `##` 之前的内容。
+**Why**: 删 `xpinyin/MAINTAINING.md` 时我按 5 个 `##` 小节清点，判定「4 节冗余、1 节（xeCJK 内部接口清单）需保留」，把清单迁进 llmdoc 后删掉整个文件。漏掉的是文件开头 H1 段：xpinyin 的 PR 以 `xpinyin/maintaining` 为合入目标、维护权变更的时限安排——全仓检索确认那是**唯一**承载点，删掉等于让后续贡献者无从知道该往哪个分支提 PR。而且它面向贡献者，本就不该待在只有维护者会读的文档里。由 PR 上的自动审查作为 REQUEST_CHANGES 提出。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
 ### 变异的报红规模按「哪些断言变红」记，不要写成 diff 行数的确数
 **Rule**: 记录变异实验的结果时，写清哪些断言（标签）变红；不要写 diff 的行数。同一批断言在 context diff 里每格占两行，行数还随呈现方式与工具变化，是最容易失效又最容易被后来者当事实引用的那种数字。清点「应当变红」的断言时，要排除那些按设计不该被这个变异影响的格子。
 **Rule (补)**: 报告变异结果时必须写清**改了哪一行**。同一句「某变异下红 N 项」在变异范围不同的两人手里必然对不上。另外，一段文字里不要同时给出规则和违反该规则的示例——后来者无法判断哪个才是要遵守的。

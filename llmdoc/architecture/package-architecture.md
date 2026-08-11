@@ -306,6 +306,10 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 
 ## xpinyin 依赖的 xeCJK 内部接口
 
+（本节内容原在 `xpinyin/MAINTAINING.md`，该文件已删除。同文件里面向贡献者的部分——xpinyin
+的 PR 以 `xpinyin/maintaining` 为合入目标、维护权安排的时限、两条测试路线都必须跑——迁到了
+`README.md` / `README-en.md` 的「参与贡献」一节，那里才是贡献者会看的地方。）
+
 XeTeX 路线（`\@@_adjust_xeCJK_hook:` 及其相关代码）不只是「加载 xeCJK」，还直接使用 xeCJK 的
 内部量。这些接口在 xeCJK 侧多数**没有独立的文档条目**，属内部量，会在上游重构中改名——所以要
 成清单留着。按接口名检索 `xpinyin/xpinyin.dtx`（不记行号，行号会漂移）：
