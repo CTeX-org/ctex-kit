@@ -114,6 +114,24 @@ CI 在 Ubuntu、macOS 和 Windows 三个平台上针对当前 TeX Live 发行版
 3. 对于 `.dtx` 文件的修改，请在 `\changes` 中记录变更
 4. 修改 `\changes` 后，运行 `make changelog`（或 `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`）重新生成对应包的 `CHANGELOG.md` 并一并提交；本地没有 Python 时，可直接从 CI（check-changelog）失败日志中复制期望内容
 
+### xpinyin 的临时合入目标
+
+**xpinyin 的 PR 请以 `xpinyin/maintaining` 分支为合入目标，而不是 `master`。**
+
+xpinyin 原由 [@qinglee](https://github.com/qinglee) 维护。社区自 2022 年起与其断联约四年，与 CTAN 管理员沟通后的安排是：若 2026 年 9 月底前仍未收到回复，则考虑启动维护者变更流程（详见 [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)）。在维护权归属明确之前，xpinyin 的改动集中到该分支上集成，以便随时看清「若接手维护，累积的改动是什么」，也便于在一处验证各改动之间的相互影响。
+
+该安排是临时的：维护权归属明确后（无论是收到回复还是完成变更流程），这一节即可删除，xpinyin 恢复直接以 `master` 为目标。
+
+另外，xpinyin 的改动前后都要跑**两条**测试路线：
+
+```sh
+cd xpinyin
+l3build check                      # 主套件：XeTeX + xeCJK
+l3build check -c test/config-cjk   # CJKutf8 + pdfTeX
+```
+
+两条都必须跑：xpinyin 内部是 `\@@_adjust_xeCJK_hook:` 与 `\@@_adjust_CJK_hook:` 两套互不复用的适配，字体选择、码位转换与接管 `\CJKsymbol` 的方式都不同，只跑一条会让另一半完全没有覆盖。LuaTeX 被 `\msg_critical:nn` 明确拒绝，不在支持范围内。
+
 ## 相关链接
 
 - [CTeX 社区](http://www.ctex.org)
