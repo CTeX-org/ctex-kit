@@ -45,6 +45,33 @@
 \box_new:N \g_test_cand_box
 \box_new:N \g_test_oracle_box
 
+%% #1 标签, #2 候选, #3 另一条 \pinyin (两侧都已带拼音字体, 不再额外套字体).
+%% 用于「两种输入写法应当给出同一结果」这类断言.
+\cs_new_protected:Npn \CmpPinyinPair #1#2#3
+  {
+    \hbox_set:Nn \g_test_cand_box   {#2}
+    \hbox_set:Nn \g_test_oracle_box {#3}
+    \tl_log:x
+      {
+        #1 :~
+        wd = \dim_compare:nNnTF
+               { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_wd:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_wd:N \g_test_oracle_box } } ,~
+        ht = \dim_compare:nNnTF
+               { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_ht:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_ht:N \g_test_oracle_box } } ,~
+        dp = \dim_compare:nNnTF
+               { \box_dp:N \g_test_cand_box } = { \box_dp:N \g_test_oracle_box }
+               { same }
+               { DIFF~ \dim_to_decimal:n { \box_dp:N \g_test_cand_box } ~vs~
+                       \dim_to_decimal:n { \box_dp:N \g_test_oracle_box } } .
+      }
+  }
+
 %% #1 标签, #2 候选, #3 oracle.
 %% 三个维度都报: 重音是在字母上方纵向叠加的, 只比宽度会漏掉「重音根本没画出来」
 %% 这种情况 (宽度由基字母决定, 重音只改高度).
@@ -122,6 +149,53 @@
   \CmpPinyin { lv4 } { \pinyin{lv4} } { l\`{\"u} }
   \CmpPinyin { lv5 } { \pinyin{lv5} } { l\"u }
   \CmpPinyin { nv3 } { \pinyin{nv3} } { n\v{\"u} }
+}
+
+%% issue 1069: 手册说「为了输入的方便 ü 可以用 v 代替」, 那么直接写 ü 也应当
+%% 能用. 修复前 \pinyin{nü3} 排出**字面的 nü3**: ü 不在声调落点表里
+%% (\c_@@_v_tl 一系只有 ASCII 字母), \@@_pinyin_aux:n 认不出它是元音, 整个
+%% 音节走「原样输出」分支, 声调数字不被吃掉.
+%%
+%% oracle 与上面 lv/nv 那组用的是同一批字面重音形式 —— 这正是判据: 两种写法
+%% 必须给出同一个结果. 判别力实测: 去掉 \@@_pinyin:n 里的折叠后本组 rc 1.
+\TEST{u-umlaut~typed~directly~equals~v~form}{
+  \CmpPinyin { l-umlaut-1 } { \pinyin{lü1} } { l\={\"u} }
+  \CmpPinyin { l-umlaut-2 } { \pinyin{lü2} } { l\'{\"u} }
+  \CmpPinyin { l-umlaut-3 } { \pinyin{lü3} } { l\v{\"u} }
+  \CmpPinyin { l-umlaut-4 } { \pinyin{lü4} } { l\`{\"u} }
+  \CmpPinyin { l-umlaut-5 } { \pinyin{lü5} } { l\"u }
+  \CmpPinyin { n-umlaut-3 } { \pinyin{nü3} } { n\v{\"u} }
+  %% 首字母大写的声母 + 小写 ü.
+  \CmpPinyin { N-umlaut-3 } { \pinyin{Nü3} } { N\v{\"u} }
+  %% 大写 Ü 折成 V (不是 v): 两种写法必须**同样**处理, 而全大写输入本就排不出
+  %% 声调 (基线里 \pinyin{NV3} 就得字面的 NV3, \pinyin{HAN4} 同理 —— 大写元音
+  %% 不在声调落点表里, 属既有限制). 折成小写 v 会让 NÜ3 排出 Nǚ 而 NV3 仍排
+  %% 字面, 两种拼写就此分叉.
+  %% 这一格是「Ü→V 还是 Ü→v」的唯一判据: 上面 Nü3 用的是小写 ü, 碰不到 Ü 那条
+  %% 规则 —— 初版只有 Nü3, 于是把 Ü→v 的变异漏成了全绿.
+  \CmpPinyinPair { NU-umlaut-caps } { \pinyin{NÜ3} } { \pinyin{NV3} }
+  %% 多音节里也要生效. oracle 换成 v 写法的 \pinyin 本身 (而不是拼字面重音):
+  %% \pinyin 会在音节之间插 pysep (缺省一个空格), 手写字面形式漏掉这个空白,
+  %% 宽度必然不等 —— 初版据此把一个 DIFF 冻进了基线 (43.30566 vs 36.94824).
+  %% 这里要断言的本来就是「两种写法结果相同」, 直接对比两条 \pinyin 更贴题.
+  \CmpPinyinPair { multi-umlaut } { \pinyin{nü3hai2zi} } { \pinyin{nv3hai2zi} }
+}
+
+%% ü 在 j/q/x/y 之后仍按规范写作 u (不带分音符), 与 v 形式一致.
+%% 这一组和上一组必须都有: 只写 lü/nü 时, 把折叠做成「无条件当 ü」也照样全绿.
+\TEST{u-umlaut~after~jqxy~follows~the~v~form}{
+  \CmpPinyin { j-umlaut-4 } { \pinyin{jü4} } { j\`u }
+  \CmpPinyin { q-umlaut-1 } { \pinyin{qü1} } { q\=u }
+  \CmpPinyin { x-umlaut-2 } { \pinyin{xü2} } { x\'u }
+  \CmpPinyin { y-umlaut-2 } { \pinyin{yü2} } { y\'u }
+}
+
+%% 整段没有声调数字时原样输出, 折叠不能泄漏到这条回退路径上.
+%% (\@@_pinyin_aux:n 的 recursion-tail 分支用 \l_@@_save_tl, 它必须存折叠**前**
+%% 的输入. 实现折叠时先写成折叠后的值, 于是 \pinyin{nü} 排出 nv —— 一处回归.)
+\TEST{toneless~input~keeps~the~original~spelling}{
+  \CmpPinyin { toneless-umlaut } { \pinyin{nü} } { n\"u }
+  \CmpPinyin { toneless-v }      { \pinyin{nv} } { nv }
 }
 
 \TEST{v~stays~plain~u~after~other~initials}{
