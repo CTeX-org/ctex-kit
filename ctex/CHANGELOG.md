@@ -1,3 +1,7 @@
+## [ctex-v2.6.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.5)
+
+- `\selectfont` 不再重置用户自行设置的汉字间距（#1068）。
+
 ## [ctex-v2.6.4](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.4)
 
 - `macnew` 的宋体常规直立字形改用 Songti SC Regular（#994）。
