@@ -77,7 +77,7 @@ CJK 字体」——冲突只在两者叠加时出现，所以修复落在 xpinyi
 
 代价是要在两侧都留记录，让它们互相可达：
 
-- xpinyin 侧记「依赖了什么」——`xpinyin/MAINTAINING.md` 的「依赖的 xeCJK 内部接口」一节，
+- xpinyin 侧记「依赖了什么」——原为 `xpinyin/MAINTAINING.md` 的「依赖的 xeCJK 内部接口」一节，该文件已删除，清单迁入 `llmdoc/architecture/package-architecture.md` 的同名小节，
   以及 dtx 里 `\@@_reselect_CJK_font:` 的注释。
 - xeCJK 侧记「这个机制有此陷阱」——`llmdoc/architecture/xecjk-architecture.md` 的
   「后备字体 (Fallback)」一节，含「改名或改语义要通知下游」。
@@ -124,6 +124,6 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 - 同类判断（报告链上的代码有自己的历史用途）：[[1029-sbox-adapter]]
 - 测试建设背景：[[1041-xpinyin-test-adoption]]
 - Stable：`llmdoc/architecture/xecjk-architecture.md`「后备字体 (Fallback)」、
-  `llmdoc/reference/build-and-test.md`「xpinyin 的注音回归（#1041）」、`xpinyin/MAINTAINING.md`
+  `llmdoc/reference/build-and-test.md`「xpinyin 的注音回归（#1041）」、`llmdoc/architecture/package-architecture.md`
 - 实现：`xpinyin/xpinyin.dtx`（`\@@_reselect_CJK_font:`、`\@@_select_CJK_font:`）、
   `xpinyin/testfiles/pinyin-fallback01.lvt`、`xpinyin/CHANGELOG.md`
