@@ -562,7 +562,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1048/#1050 中两次尝试用新版 l3backend 替换测试环境都放错了位置（先后误写进会被 `cleandir` 清空的 `testdir`、试图通过 `TEXINPUTS` 覆盖但被 l3build 写死的设置盖过），两次都得到「仍然报错」的结果，若不核实测试目录里实际文件的日期戳，会顺势得出「新版本也修不好」这个错误结论。
 
 **否命题形态：「反证失败」不等于「假设错误」。** 上面那条问的是「实验做成了吗」，这条问的是「这个环境有能力区分两种结论吗」。做反证或对照实验时，若结果是「仍然失败」或「未复现」，先证伪两件事再采纳结论：一是**装置无效**（探针／注入本身没起作用），二是**环境不具备复现前提**（无论假设真假，这个环境都给出同一个结果）。#1054 的实例：第一次就正确判断出 `mktexlsr` 缺失是根因，随后在本地做「去掉 `mktexlsr` 看是否失败」的反证，没能复现，据此撤回了一个**正确的**修复，绕两条弯路后靠 CI 日志才重新确认。真实原因是本地 `TEXMFHOME`（`~/texmf`）不在 `TEXMFDBS` 里、不带 `!!` 前缀，走磁盘搜索，不受 ls-R 约束——这个环境改不改 `mktexlsr` 都不会失败。另一个同族实例是 #1043 的坏探针（见 `reference/coding-conventions.md:118-125`）：`\char_value_catcode:n` 加了 `\the` 前缀读出废数据，「实验有输出」被当成「实验有效」。
-**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`, `llmdoc/memory/reflections/1067-ulem-brace-group-ecglue-shrink.md`
+
+**用于驳回他人 finding 时，举证责任更重（#1067）**: 同一条 blocking 被 bot 审查报了两轮。第一轮我用 `CJKecglue={0pt minus 1pt}` 实测「oracle／plain／braced 三者 badness 都是 37」，据此回复「经实测不成立」——那个写法没真正生效，是上面「装置无效」的又一次发作。第二轮 bot 给出 `CJKecglue={\hskip 0pt minus 1pt}` 才复现（直接输入 18、分组形态 1000000），finding 是对的。**接受一条错的 finding，代价是多改一点无害代码；驳回一条对的 finding，代价是缺陷留在仓库里，而且驳回理由会写进回复与提交信息、变成后来者信赖的「已验证」结论。** 所以实测结果与 finding 相反时，第一反应应当是「我的用例真的复现了对方描述的条件吗」（打印实际取到的值确认选项生效），而不是「对方错了」。
 
 ### 对照实验不要用 `sed`／`perl` 删真实脚本的片段
 **Rule**: 对照实验的前提是只改一个变量。用 `sed`／`perl` 从真实脚本里删掉一段代码，同时也改了脚本的语法完整性与后续步骤的前提，等于一次改了两个变量，得到的结果无效。正确做法是写一个最小独立复现，直接测被怀疑的那个机制本身。
