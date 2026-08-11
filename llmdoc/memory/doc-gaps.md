@@ -1,9 +1,5 @@
 # 文档缺口
 
-## luatex/uptex CJKglue touched 检测缺陷
-
-luatex/uptex 的 `\ctex_if_ccglue_touched:` 检测机制中 `\l_@@_ccglue_skip` 未初始化，导致该分支无法正确判断用户是否已设置 CJKglue。Issue #761 修复仅覆盖 pdftex/xetex，luatex/uptex 需理解 luatexja 等包的初始化时序后另行处理。相关决策见 `llmdoc/memory/decisions/761-ccglue-override.md`。
-
 ## `verify-doc-output.sh` 缺内容级哨兵
 
 `scripts/verify-doc-output.sh:69-88` 的三条判据都是容器级的：PDF 文件存在、前四字节是 `%PDF`、体积 `>= 1024` 字节。它们能抓住「dvipdfmx 中途挂掉留下 stub」这类失败，但对「编译成功、PDF 结构完整、只是正文内容被污染」**零判别力**。
