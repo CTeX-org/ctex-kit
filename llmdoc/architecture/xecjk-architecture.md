@@ -228,7 +228,30 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 
 这四处是用「直接在每个裸调用行插桩、以 31 种装饰形态编译」的方式穷举出来的。**不要用「包装函数入口」的探针**：它不区分分支，会把 `\xeCJK_check_for_glue:` 的 math 分支误判为不可达（本任务正是这样漏掉了它，由第四轮盲审指出）。其余 10 处裸 `\skip_horizontal:N` 在同一实测中一次都没执行，可以保留。
 
-**已接受的限制：正文里用显式分组包住西文词。** `\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计——在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。这两种写法的 1.11pt 来自 #1026（词后那半），#1037 在它们上面没有进一步改善；oracle 为 2.22pt，剩余 1.11pt 属结构性限制。`fntef-shrink01` 的 TEST 9 把这个现状也固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），以免有人误以为它已修好或误改了守卫。
+### 显式分组包住西文词的收缩量（#1067，已修复）
+
+`\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，花括号是在词内容交给
+`\UL@start` 之后、在片段盒**内部**才展开成分组的（实测两种写法切出的片段盒数量相同，
+`ulem` 的切分点不受花括号影响）。边界检测因此在盒内、且在用户分组内触发；`\@@_ulem_glue:n`
+的 group tag 守卫比对保存的 `\l_@@_group_tag_tl`（`T1L4`）与当前的 `\c_@@_group_tag_tl`
+（`T1L5`）不相等，走 else 分支——这一步是直接原因。
+
+绕过守卫（无条件走 `\UL@stop … \UL@start`）也解决不了：实测搬出来的 glue 落进
+`\cleaders` 内部，仍在盒内——`ulem` 开盒时开了两层，用户花括号插在中间，用户分组内的
+`\UL@stop` 关不掉正确层级，`\UL@start` 重开的盒子又把它包了回去；而且绕过守卫会让分组内
+字体设置丢失（`fntef-font01` 失败）。「守卫是直接原因」与「绕过守卫这个具体修法无效」
+两件事同时成立——不能从后者推出守卫与问题无关，这两个命题各自需要独立证据。
+
+修法（`\@@_ulem_defer_glue:n` / `\@@_ulem_flush_pending_shrink:`）不动守卫本身，而是把
+else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住自然宽度（排版位置与盒宽不变），
+伸缩量记进全局 `\g_@@_ulem_pending_shrink_skip`，到 `\@@_ulem_loop:nw` 的词尾搬运处
+（已在片段盒外、用户分组外）再补一个零宽带伸缩的 glue。自然宽度为零的间距（如 `\CJKglue`
+的 `0pt plus 0.96`，只有伸长没有收缩）必须短路直接输出，否则换成 `kern` 会连伸长量丢掉。
+记账是全局量，`\@@_ulem_end:` 在装饰结束时清零，避免串到下一次装饰。
+
+`fntef-shrink01` 的 TEST 11 固定修复后的行为（压窄 2pt badness 由 1000000 变有限值，
+与 oracle 一致），TEST 9 的 braced 两行同步更新为固定修复后的读数。详见反思
+[[../memory/reflections/1067-ulem-brace-group-ecglue-shrink]]。
 
 ### capture/register 框架（#992 / PR #999）
 
