@@ -1124,7 +1124,7 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 
 `CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber`。xpinyin 随 #1041 测试接入补写了首条 `\changes{v3.2}{...}` 后加入这份列表。其余 3 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
 
-**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接落进 `CHANGELOG.md`（已提交的 zhnumber v3.2 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它零判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
+**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接落进 `CHANGELOG.md`（当时提交的 zhnumber 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它零判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 

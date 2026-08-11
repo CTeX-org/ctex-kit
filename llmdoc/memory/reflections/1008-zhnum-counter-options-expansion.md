@@ -230,7 +230,7 @@ pdftex 输出与 stdengine 逐字节相同，不留冗余基线。
 `\texttt{Use of \cs{???} doesn't match its definition}` 这类**嵌套**里，`\cs`/`\tn`
 先被替换成 `\x00..\x01` 占位符，随后整段被 `_save_verbatim` 收进 `verbatim_blocks`，于
 是 `_restore_combined_code` 再也扫不到内层占位符，原始控制字符直接落进
-`CHANGELOG.md`——已提交的 zhnumber v3.2 条目里就是 `Use of ^@???^A`。
+`CHANGELOG.md`——当时提交的 zhnumber 条目里就是 `Use of ^@???^A`（那条后来随 3.1 未发布而并入 v3.1 一节）。
 
 关键教训：**这类漏出是确定性的，`check-changelog.yml` 的「重新生成 + git diff」新鲜度
 校验抓不到**——生成物两边一致，只是两边都错。所以另加了一道占位符校验（实测：旧脚本下
