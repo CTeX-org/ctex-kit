@@ -9,7 +9,7 @@
 
 ## What Went Wrong
 - 最容易踩坑的地方是误把“统一接口”理解成“统一底层语义”。实际上四个引擎里只有三条后端路径存在对应概念，而且 XeTeX 的 `xeCJK` 接口接收的是命令序列，不是纯 skip 值；若直接把用户输入原样塞给 `xeCJKsetup`，接口表面统一了，实质却没有对齐参数契约。
-- 另一个隐蔽点是 LuaTeX/upTeX 不能只改当前原语值。`ctex` 自身已有 `\ctex_update_xkanjiskip:` 在 `\selectfont` 路径中按“缓存值是否匹配当前引擎值”决定是否重算；若新 key 只更新原语，不同步内部 tl/skip 缓存，后续字体切换会把新设置冲掉，形成“设置当下有效、选字体后失效”的伪成功。
+- 另一个隐蔽点是 LuaTeX/upTeX 不能只改当前原语值。`ctex` 自身已有 `\ctex_update_xkanjiskip:` 在 `\selectfont` 路径中按“缓存值是否匹配当前引擎值”决定是否重算；若新 key 只更新原语，不同步内部 tl/skip 缓存，后续字体切换会把新设置覆盖，形成“设置当下有效、选字体后失效”的伪成功。
 - 测试层面也不能只保存一份通用 `.tlg`。四个引擎的日志观察点不同：XeTeX 看到的是 `xeCJK` 路径，LuaTeX 看 `ltjgetparameter`，upTeX 看 `\xkanjiskip`，pdfTeX 则只能验证 warning/跳过行为。若沿用单基线思路，很容易把“引擎输出本来就不同”误判为实现不一致。
 
 ## Root Cause

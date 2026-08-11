@@ -29,7 +29,7 @@ docstrip 守卫限定在 `%<*pdftex|xetex>` 里，LuaTeX 与 upTeX 都没有它�
 
 默认 `linestretch` 是 `\ccwd`（实测 10.53937pt）而非 `\maxdimen`，所以实际走的是后一支
 ——那段被限定引擎的重定义正是给后一支补守卫的地方。LuaTeX 与 upTeX 因缺了它，用户的
-`kanjiskip` 会在每次 `\selectfont` 时被无条件冲掉。
+`kanjiskip` 会在每次 `\selectfont` 时被无条件覆盖。
 
 判据：解包产物里 `\@@_update_stretch_auxii:` 重定义的出现次数。修好前
 `ctex-engine-xetex.def` 有 1 处，`ctex-engine-luatex.def` 与 `ctex-engine-uptex.def`

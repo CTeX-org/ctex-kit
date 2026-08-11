@@ -361,7 +361,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 upTeX 都没有它。`\ctex_update_stretch:` 按 `linestretch` 是否为 `\maxdimen` 二分：
 等于时走 `\@@_update_stretch_auxi:`（自带守卫），默认值 `\ccwd` 下走
 `\@@_update_stretch_auxiii:`（当时无守卫），于是这两个引擎下用户设的
-`kanjiskip`／`\CJKglue` 会被每次 `\selectfont` 冲掉。判据是解包产物里
+`kanjiskip`／`\CJKglue` 会被每次 `\selectfont` 覆盖。判据是解包产物里
 `\@@_update_stretch_auxii:` 重定义的出现次数：修好前 xetex 侧 1 处、luatex／uptex
 侧 0 处；修好后五个引擎（含 aptex）均 1 处。
 
@@ -370,7 +370,7 @@ upTeX 都没有它。`\ctex_update_stretch:` 按 `linestretch` 是否为 `\maxdi
 
 `ccglue03.lvt` 专测 LuaTeX 与 upTeX：默认（未设置）时间距仍随字号更新
 （实测 0.60931 → 2.89365 → 0.60931pt），用户设置后 `\selectfont`／`\zihao` 均不再
-冲掉它，并覆盖 `linestretch` 的两个取值（`\ccwd` 走 `auxiii`、`\maxdimen` 走
+覆盖它；`linestretch` 的两个取值也各有断言（`\ccwd` 走 `auxiii`、`\maxdimen` 走
 `auxi`）。测试用绝对单位写死间距（`10pt plus 1pt minus 1pt`），不用 `em`／`\ccwd`
 一类相对单位——`\linespread` 改字号后相对单位的期望值本身会变，读数无法区分
 「被重置」与「随字号正常缩放」。
