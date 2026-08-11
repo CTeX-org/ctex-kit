@@ -72,11 +72,13 @@ TEST 7、TEST 8 分别固定守卫的两个象限。TEST 7：在装饰之外重�
 
 TEST 9 覆盖这条路径，且**必须用 `\color` 形态**：实测 `\bfseries` 形态在改动前后都是 2.22pt（不走这条路径），拿它做断言会得到恒真的测试——第一版 TEST 9 正是这么写的，撤销修复后仍通过，因此重写。
 
-## 已接受的限制：显式分组包住西文词
+## 显式分组包住西文词（#1037 时为已接受的限制，#1067 已修复）
 
-`\CJKunderline{虚室 {hello} 生白}`、`\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。这是刻意设计：在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。
+`\CJKunderline{虚室 {hello} 生白}`、`\textbf{hello}` 这类写法，显式分组使 `\l_@@_group_tag_tl` 与当前分组标记不符（实测 `T1L4` vs `T1L5`），`\@@_ulem_glue:n` 的 group tag 守卫据此拒绝搬运。#1037 时判定这是刻意设计、不可绕过：在用户分组内部执行 `\UL@stop` 不安全，实测绕过该守卫会让 `fntef-font01` 失败。
 
-这两种写法的 1.11pt 来自 #1026（词后那半），#1037 在它们上面没有进一步改善；oracle 为 2.22pt，剩余 1.11pt 属结构性限制，不在本次范围内。TEST 9 把该现状一并固定（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），供后来者判断这是已知限制而非未修的缺陷。注意「误改守卫」真正的门禁是 `fntef-font01`，不是这两行断言。
+这两种写法的 1.11pt 来自 #1026（词后那半），#1037 在它们上面没有进一步改善；oracle 为 2.22pt，剩余 1.11pt 当时记为结构性限制。TEST 9 把该现状固定为 `braced-shrink-by-2pt-badness=1000000`、`1pt=73`。
+
+**这条限制已被 #1067 修复**：守卫本身不用动（它的判断——用户分组内不能安全执行 `\UL@stop`——本身是对的），修法是把 else 分支的间距拆成两半输出，盒内放不可伸缩 `kern` 占自然宽度、伸缩量记进全局 skip 到词尾（已在盒外、分组外）再补一个零宽带伸缩的 glue，即 `\@@_ulem_defer_glue:n` / `\@@_ulem_flush_pending_shrink:`。TEST 9 的 braced 两行已更新为固定修复后的行为（`=73`），TEST 11 新增覆盖三种花括号写法与 `\CJKglue` 零宽短路。详见决策与反思 [[../reflections/1067-ulem-brace-group-ecglue-shrink]]。
 
 ## 已接受的限制
 

@@ -505,7 +505,17 @@ TEST 7（同样 #1037 新增）固定的是**守卫**而非收缩量：在装饰
 
 TEST 10（#1037 新增）覆盖第四处路径（`\xeCJK_check_for_glue:` 的 math 分支，`$x$中文`）以及 `\@@_check_for_glue_auxi:` 的两个分支。**一个 `dim_case` 里的每个分支各自需要一条断言**：`default`（末节点是 Default 类，`\mbox{hi}中文`）与 `math`（末节点是 math marker，`\mbox{$x$}中文`）是两条独立路径，只写前者时后者可达且实现正确却毫无校验——逐分支变异实测，只改回 math 分支时全套 115 项仍全绿。三条断言现各自具备判别力（逐分支变异均 rc 1，TESTs 1-9 零命中）。
 
-TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecglue_source_space_success:` 与 `\@@_check_for_glue_auxi:`（西文词被字体／颜色声明隔开时走这两处）。**必须用 `\color` 形态**——实测 `\bfseries` 形态在这两处改动前后都是 2.22pt（根本不走这条路径），拿它做断言会得到恒真的测试；第一版 TEST 9 正是这么写的，撤销修复后仍通过。改用 `\color` 后判别力实测 rc 1（badness 73→1000000），且 TESTs 1-8 零命中。该用例同时把显式分组写法的已接受限制固定下来（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`）。
+TEST 9（#1037 新增）覆盖同一根因的第三条路径：`\@@_recover_ecglue_source_space_success:` 与 `\@@_check_for_glue_auxi:`（西文词被字体／颜色声明隔开时走这两处）。**必须用 `\color` 形态**——实测 `\bfseries` 形态在这两处改动前后都是 2.22pt（根本不走这条路径），拿它做断言会得到恒真的测试；第一版 TEST 9 正是这么写的，撤销修复后仍通过。改用 `\color` 后判别力实测 rc 1（badness 73→1000000），且 TESTs 1-8 零命中。该用例的 braced 两行原先固定的是「显式分组包住西文词」这条已接受的限制（`braced-shrink-by-2pt-badness=1000000`、`1pt=73`），#1067 把这条限制修掉后已同步更新为固定修复后的行为（`=73`），成因与门禁见下方 TEST 11。
+
+### 花括号分组内的收缩量回到外层列表（TEST 11，#1067）
+
+`\CJKunderline{虚室 {hello} 生白}` 里，花括号是在词内容传给 `\UL@start` 之后、在片段盒**内部**才展开成分组的（实测两种写法切出的片段盒数量相同，`ulem` 的切分点不受影响），于是 `\@@_ulem_glue:n` 的 group tag 守卫在盒内、用户分组内检测到不匹配，走 else 分支把间距固化在盒内。修法是 `\@@_ulem_defer_glue:n` / `\@@_ulem_flush_pending_shrink:`：盒内放不可伸缩的 `kern` 占自然宽度，伸缩量记进全局 skip，到词尾搬运处（已在盒外、分组外）再补一个零宽带伸缩的 glue；守卫本身未改动。
+
+TEST 11 覆盖 `{hello}`、`\textbf{hello}`、`{{hello}}` 三种写法（压窄 2pt 由 1000000 变有限值，与 oracle 一致，自然宽度不变），并加一条 `\CJKglue`（自然宽度为零、只有伸长没有收缩）的零宽短路断言——漏掉短路会让 `kern` 替换连伸长量一起丢掉，`fntef-font01` 的盒宽随之从 `40.0pt` 变 `39.00002pt`。三个变异（去掉记账、去掉 flush 调用、去掉零宽短路）均实测有判别力。
+
+**必须先确认改的是生效的那份定义**：`\@@_use_ecglue_skip:` 在主体与 `xeCJKfntef` 各有一份定义（后者用 `\cs_gset_protected:Npn` 覆盖前者），装饰状态下生效的是后一份；改错位置会得到虚假的「变异全绿」结果。这与 `\@@_ulem_defer_glue:n`／`\@@_ulem_flush_pending_shrink:` 本身无此问题（只有一份定义），但改动同一区域时应养成核对生效定义的习惯。
+
+`\CJKunderline{虚室 {文字} 生白}`（纯汉字）不在本项范围：它的 oracle 本身就是 1000000（汉字之间只有 `\CJKglue`，没有可收缩间距），与编组、装饰命令都无关。详见反思 [[../memory/reflections/1067-ulem-brace-group-ecglue-shrink]]。
 
 两条与 `.tlg` 基线写法有关的坑，都是在 #1037 的审查中踩到的：
 
