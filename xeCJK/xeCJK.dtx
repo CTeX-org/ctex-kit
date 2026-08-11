@@ -213,7 +213,7 @@ Copyright and Licence
 %<listings>\ProvidesExplPackage{xeCJK-listings}
 %<xunicode>\ProvidesExplPackage{xunicode-addon}
 %<xunextra>\ProvidesExplFile{xunicode-extra.def}
-%<!driver>  {\ExplFileDate}{3.10.5}{\ExplFileDescription}
+%<!driver>  {\ExplFileDate}{3.10.6}{\ExplFileDescription}
 %</package|config|fntef|listings|xunicode|xunextra>
 %<*driver>
 \documentclass{ctxdoc}
@@ -13859,6 +13859,7 @@ Copyright and Licence
     \xeCJK_ulem_right_node:
     \@@_boundary_inline_stream_end:n { auto }
     \bool_set_false:N \l_@@_ulem_stream_started_bool
+    \skip_gzero:N \g_@@_ulem_pending_shrink_skip
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
   }
 \cs_new_protected:Npn \@@_ulem_loop:nw
@@ -13868,6 +13869,7 @@ Copyright and Licence
         \skip_gset_eq:NN \UL@skip \tex_lastskip:D
         \tex_unskip:D
         \UL@stop \UL@leaders
+        \@@_ulem_flush_pending_shrink:
       \fi:
     \fi:
     \xeCJK_ulem_word:nw \prg_do_nothing:
@@ -14815,7 +14817,7 @@ Copyright and Licence
           {
             \str_if_eq:eeTF { \l_@@_group_tag_tl } { \c_@@_group_tag_tl }
               { \UL@stop \@@_ulem_hskip:n {#1} \UL@start }
-              { \skip_horizontal:n {#1} }
+              { \@@_ulem_defer_glue:n {#1} }
           }
       }
       { \skip_horizontal:n {#1} }
@@ -14856,6 +14858,65 @@ Copyright and Licence
       { \cs_if_eq_p:NN \UL@start \@empty }
       { \@@_ulem_glue:n { \l_@@_ecglue_skip } }
       { \skip_horizontal:N \l_@@_ecglue_skip }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.10.6}{2026/08/11}{花括号分组内的 \tn{CJKecglue} 改用「盒内 kern 占位
+%   加词尾补伸缩」的方式输出，使收缩量回到外层列表（\#1067）。}
+%
+% \begin{macro}[int]{\@@_ulem_defer_glue:n, \@@_ulem_flush_pending_shrink:}
+% 这两个函数处理 \#1067：装饰正文里用花括号括住一段内容时，该处间距的可收缩量原先会失效。
+%
+% 成因不在 \pkg{ulem} 的切词——实测两种写法切出的词相同，只差一对花括号。花括号是在词内容
+% 交给 \tn{UL@start} 之后、在\emph{片段盒内部}才展开成分组的，于是边界检测在盒内、且在用户
+% 分组内触发；\cs{@@_ulem_glue:n} 的 group tag 守卫比对保存的 \texttt{T1L4} 与当前的
+% \texttt{T1L5} 不相等，走 else 分支。该分支原先是裸 \cs{skip_horizontal:n}，间距连收缩量
+% 一起固化在定宽片段盒内，外层取不到。
+%
+% 不能改成「照样搬运」：实测强制走 \tn{UL@stop} 之后，搬出来的 glue 落进 \tn{cleaders}
+% 内部、仍在盒内——在用户分组内 \tn{UL@stop} 关不掉正确的层级（\pkg{ulem} 开盒时开了两层，
+% 用户花括号插在中间），\tn{UL@start} 重开的盒子又把它包了回去。而且绕过守卫会让分组内的
+% 字体设置丢失（\file{fntef-font01} 即此，字体从楷体退回宋体）。也就是说「守卫是直接原因」
+% 与「绕过守卫无效」两件事同时成立，修法必须绕开这个结构，而不是拆掉守卫。
+%
+% 因此改为把一处间距拆成两半输出：
+%
+% \begin{itemize}
+%   \item 盒内放一个\emph{不可伸缩}的 \tn{kern}，占住自然宽度，使排版位置与盒子总宽都不变；
+%   \item 把伸缩量记进全局的 \cs{g_@@_ulem_pending_shrink_skip}，等到 \cs{@@_ulem_loop:nw}
+%     的词尾搬运处——那里已经在片段盒外、用户分组外——再补一个零宽而带伸缩的 glue。
+% \end{itemize}
+%
+% 自然宽度为零的间距必须短路，直接原样输出。\tn{CJKglue} 是 \texttt{0pt plus 0.96}，只有
+% 伸长量、没有收缩量；把它换成 \tn{kern} 会连伸长量一起丢掉。实测漏掉这个短路时
+% \file{fntef-font01} 的盒宽从 \texttt{40.0pt} 变成 \texttt{39.00002pt}。
+%
+% 记账是全局量，因此 \cs{@@_ulem_end:} 在装饰结束时把它清零，避免某个词的记账没被兑现就
+% 串到下一次装饰。
+%    \begin{macrocode}
+\skip_new:N \g_@@_ulem_pending_shrink_skip
+\cs_new_protected:Npn \@@_ulem_defer_glue:n #1
+  {
+    \dim_compare:nNnTF { #1 } = \c_zero_dim
+      { \skip_horizontal:n {#1} }
+      {
+        \skip_gadd:Nn \g_@@_ulem_pending_shrink_skip
+          {
+            0pt
+            plus  \tex_gluestretch:D #1
+            minus \tex_glueshrink:D  #1
+          }
+        \tex_kern:D \dim_eval:n {#1} \scan_stop:
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_flush_pending_shrink:
+  {
+    \skip_if_eq:nnF { \g_@@_ulem_pending_shrink_skip } { \c_zero_skip }
+      {
+        \skip_horizontal:N \g_@@_ulem_pending_shrink_skip
+        \skip_gzero:N \g_@@_ulem_pending_shrink_skip
+      }
   }
 \cs_new_protected:Npn \xeCJK_make_group_tag:
   { \tl_set:Ne \l_@@_group_tag_tl { \c_@@_group_tag_tl } }

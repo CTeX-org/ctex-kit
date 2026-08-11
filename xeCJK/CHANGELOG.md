@@ -1,3 +1,7 @@
+## [xeCJK-v3.10.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.6)
+
+- 花括号分组内的 `\CJKecglue` 改用「盒内 kern 占位加词尾补伸缩」的方式输出，使收缩量回到外层列表（#1067）。
+
 ## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
 
 - `\CJKecglue` 补在源码空格位置时改用可搬运通道，避免收缩量固化在 `ulem` 的定宽片段盒内（#1037）。
