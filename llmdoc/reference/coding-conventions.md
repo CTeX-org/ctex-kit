@@ -203,6 +203,12 @@ expl3 的分组层次换行，不能依赖页面自动折行；否则 `macrocode
 `|...|`。较长的选项名也优先改写句子或使用语义宏，避免 shortvrb 内容形成不可断的长行。
 这些约束应以包的完整文档构建验证；只跑代码回归测试无法发现这类错误。
 
+参数记号要转义这一条，适用于**所有 `.dtx` 文档注释**，不只是 `\changes`。在普通实现说明里
+写 `\texttt{#1}` 同样会让 `l3doc` 报 `Illegal parameter number in definition of \reserved@b`
+并中断文档构建（#1067 踩过：说明里引用 `\skip_eval:n { #1 - \dim_eval:n {#1} }` 这个表达式
+时漏了转义）。凡是在注释里引用带参数的代码，`#` 都要写成 `\#`。这类错误只在
+`l3build doc` 里暴露，`l3build check` 全绿也说明不了什么。
+
 ### 引擎标签与 ctex.sty 的陷阱
 
 `ctex.sty` 以 `{style,ctex}` 标签从 `ctex.dtx` 生成，**不含**引擎标签（`pdftex`、`xetex`、`luatex`、`uptex`）。引擎 `.def` 文件分别以 `{pdftex}`、`{xetex}`、`{luatex}`、`{uptex}` 标签生成。

@@ -222,6 +222,42 @@ TEST 11 最初的五条断言也都是这个形态。而这个回归只在「编
 放在开头、中间、结尾各测一遍，不能只测最自然的那一种。二是**这类回归靠作者自查很难发现**，
 因为自查的用例集通常就是当初复现缺陷用的那一组——盲审的价值恰在于它不共享这个起点。
 
+## bot 审查抓到的第三类问题：取 glue 分量会丢掉阶数
+
+`agentic-pr-review` 在 PR #1071 上报了一个 blocking，指出 `\tex_gluestretch:D` 与
+`\tex_glueshrink:D` **只返回数值**，阶数在 `\gluestretchorder`／`\glueshrinkorder` 里；分开取
+再用 `plus`／`minus` 重拼，会把 `1fil` 静默降成普通阶。实测：`3.33pt plus 1fil minus 1.11pt`
+用「整个 skip 减去自然宽度」得 `0.0pt plus 1.0fil minus 1.11pt`（阶数保留），而
+`\tex_gluestretch:D` 只给出 `1.0pt`。
+
+已改为 `\skip_eval:n { #1 - \dim_eval:n {#1} }`。这条值得记成通用规则：**在 TeX 里取 glue 的
+弹性部分，用整个 skip 减去自然宽度，不要分别取 stretch 与 shrink 再拼**——后者丢阶，而且丢得
+无声无息。
+
+两点补充，都关系到怎么对待这类 finding：
+
+**一、诊断正确但在当前路径不可达。** 我在 `\@@_ulem_defer_glue:n` 里插桩确认，装饰状态下传进
+来的自然宽度已经是零（`DEFER in=[0.0pt] order=0`），会走零宽短路，根本走不到取弹性部分那一步；
+即使显式设 `\xeCJKsetup{CJKecglue={3.33pt plus 1fil minus 1.11pt}}`，节点列表里两侧都没有
+`fil`——阶数是在更上游的 `\xeCJK_glue_to_skip:nN` 求值时消失的，与本次记账无关。仍然采纳，
+因为新写法更短且不依赖这个前提；但在回复与提交信息里如实写明「这是防御性修正，不修实际缺陷」，
+而不是含糊地记成「修了一个 bug」。
+
+**二、同一条 finding 里的第二半经实测不成立。** bot 还说零自然宽度短路会让 `0pt minus 1pt`
+这类 glue 的收缩量继续留在盒内。实测否证：用 `CJKecglue={0pt minus 1pt}` 压窄 0.8pt，
+oracle／plain／braced 三者 badness 都是 37，修复前后一致。原因是零自然宽度的间距原地放置时
+收缩量本来就能被外层用到——它不占宽度，无须搬运。反过来这个短路是必需的（`\CJKglue` 是
+`0pt plus 0.96`，换成 `kern` 会连伸长量一起丢，`fntef-font01` 盒宽会从 `40.0pt` 变
+`39.00002pt`）。
+
+也就是说：**一条 finding 的两半可以一半成立一半不成立，要分别验证**，不能因为前半段说对了就
+整条照改，也不能因为后半段不成立就把整条驳回。
+
+顺带又踩了一次已知的坑：补写这段说明时把 `\texttt{#1}` 的参数记号漏了转义，`l3doc` 报
+`Illegal parameter number in definition of \reserved@b`，手册构建失败。`coding-conventions.md`
+里已有「`\changes` 正文中的 `#1` 等参数签名要转义」这条，范围应当理解为**所有 `.dtx` 文档注释**，
+不只是 `\changes`。
+
 ## Promotion Candidates
 
 - **「改掉它无效」不能推出「它不是原因」。** 这条应作为 `lessons-learned.md` 里「现象、
