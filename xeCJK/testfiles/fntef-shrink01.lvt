@@ -344,7 +344,16 @@
   \TYPE{nested-natural=\the\dimen26}
   \setbox27=\hbox to \dimexpr\dimen26-2pt\relax{\CJKunderline{虚室 {{hello}} 生白}}%
   \TYPE{nested-shrink-by-2pt-badness=\the\badness}
-  % 自然宽度为零的 \CJKglue 必须原样保留伸长量：漏掉短路时本行宽度会变窄约 1pt
+  % \CJKglue（0pt plus 0.96，只有伸长量）走记账通道后，宽度必须保持不变。
+  %
+  % 这条断言的含义变过一次。最初短路条件是「自然宽度为零就原样输出」，那时 \CJKglue 不走
+  % 记账，本行守的是「漏掉短路会把伸长量换成 kern 而少 1pt」（实测 40.0pt 变 39.00002pt）。
+  % 现在短路条件改成「整个 skip 全零」（因为零自然宽度但带收缩量的 glue 也必须搬运，见下面
+  % zero-natural 两条），\CJKglue 于是也走记账 —— 它的伸长量回到外层列表，这是有意的改善：
+  % 分组内的伸长量因此也能参与断行（实测 \CJKunderline{文字{\sffamily 文字}} 拉伸 3pt 的
+  % badness 由 3049 降到 381，趋近无装饰形态的 113）。本行现在守的是「这个改动不改变宽度」。
+  %
+  % fntef-font01 的基线随之从原处的 \glue 0.0 plus 0.96002 变成 \kern 0.0，宽度仍是 40.0pt。
   \setbox28=\hbox{\CJKunderline{文字{\sffamily 文字}}}%
   \TYPE{cjkglue-braced-width=\the\wd28}
   % 编组位于参数**结尾**：装饰盒自然宽度必须与 oracle 相同。
@@ -366,20 +375,26 @@
   \TYPE{tail2-oracle-width=\the\wd32}
   \setbox33=\hbox{\CJKunderline{虚室 {hello}}}%
   \TYPE{tail2-braced-width=\the\wd33}
-  % 关于「记账取弹性部分要保留伸缩阶数」这一条（bot 审查提出）：本文件没有给它断言，原因是
-  % 它在当前调用路径上不可达 —— 装饰状态下 \l_@@_ecglue_skip 由 \xeCJK_glue_to_skip:nN 现算,
-  % 传进 \@@_ulem_defer_glue:n 的自然宽度已经是零, 会走零宽短路(实测探针:
-  % DEFER in=[0.0pt] order=0), 根本走不到取弹性部分那一步。
+  % 零自然宽度但**带弹性**的间距: 短路条件必须是「整个 skip 全零」, 不能只看自然宽度。
   %
-  % 实现仍按「整个 skip 减去自然宽度」来写(\skip_eval:n { #1 - \dim_eval:n {#1} }), 而不是
-  % 分别取 \gluestretch 与 \glueshrink 再用 plus/minus 拼 —— 后者只拿到数值, 阶数在
-  % \gluestretchorder/\glueshrinkorder 里, 会把 1fil 静默降成普通阶。已单独实测:
-  % 3.33pt plus 1fil minus 1.11pt 用减法得 0.0pt plus 1.0fil minus 1.11pt(阶数保留),
-  % 而 \gluestretch 只给出 1.0pt。
+  % 这条由 bot 审查提出并给了确切用例, 我起初用 CJKecglue={0pt minus 1pt} 验证得出「三者
+  % 一致、不成立」的结论 —— 那个写法没真正生效, 是一次验证不足。bot 给的
+  % CJKecglue={\hskip 0pt minus 1pt} 才复现: 压窄 1.2pt 时直接输入与无编组装饰都是 18,
+  % 而 \CJKunderline{虚室 {hello} 生白} 是 1000000, 弹性被困在定宽片段盒内。
   %
-  % 之所以不硬造一条断言: 要测它就得绕过装饰路径直接调那个表达式, 那样测的是 expl3 的语义
-  % 而不是本包的行为, 放进 fntef-shrink01 名不副实; 而且试写两次都因 \l_tmpa_skip 等预定义
-  % 暂存变量不能再 \skip_zero_new:N 而失败。日后若间距模板真的改成带无限阶伸缩的形式,
-  % 届时该路径可达, 应当补一条经装饰路径的断言。
+  % 判别力: 把短路条件从 \skip_if_eq:nnTF { #1 } { \c_zero_skip } 改回
+  % \dim_compare:nNnTF { #1 } = \c_zero_dim, 本项 zero-natural-braced 由 18 变 1000000。
+  % 注意 cjkglue-braced-width 那条(只看自然宽度)察觉不到这个缺陷 —— 两条断言各守一半。
+  \begingroup
+  \xeCJKsetup{CJKecglue={\hskip 0pt minus 1pt}}%
+  \setbox34=\hbox{虚室 {hello} 生白}%
+  \dimen34=\wd34
+  \setbox35=\hbox to \dimexpr\dimen34-1.2pt\relax{虚室 {hello} 生白}%
+  \TYPE{zero-natural-oracle=\the\badness}
+  \setbox36=\hbox{\CJKunderline{虚室 {hello} 生白}}%
+  \dimen36=\wd36
+  \setbox37=\hbox to \dimexpr\dimen36-1.2pt\relax{\CJKunderline{虚室 {hello} 生白}}%
+  \TYPE{zero-natural-braced=\the\badness}
+  \endgroup
 }
 \END
