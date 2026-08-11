@@ -109,7 +109,7 @@
 % -----------------------------------------------------------------------
 %
 %<*!driver>
-%<+!driver>\GetIdInfo $Id: ctex-engine.dtx 2.6.4 2026-07-15 00:31:58 +0800 7fbcffa9 Mingyu Hsia <myhsia@outlook.com>$
+%<+!driver>\GetIdInfo $Id: ctex-engine.dtx 2.6.5 2026-07-23 08:03:05 +0800 fa12dd7a Liam <liamhuang0205@gmail.com>$
 %<pdftex>  {(pdf)LaTeX adapter (CTEX)}
 %<pdftex>\ProvidesExplFile{ctex-engine-pdftex.def}
 %<xetex>  {XeLaTeX adapter (CTEX)}
@@ -3082,6 +3082,26 @@
 %
 % \begin{macro}[int,pTF]{\ctex_if_ccglue_touched:}
 % 检查用户是否修改过汉字间距。
+%
+% \changes{v2.6.5}{2026/08/11}{\tn{selectfont} 不再重置用户自行设置的汉字间距
+%   （\#1068）。}
+%
+% 后面重定义 \cs{@@_update_stretch_auxii:} 的那段\emph{必须对所有引擎生效}。
+% \cs{ctex_update_stretch:} 分两支：\opt{linestretch} 设为 \tn{maxdimen} 时走
+% \cs{@@_update_stretch_auxi:}，那一支自带本守卫；否则走
+% \cs{@@_update_stretch_auxiii:}，而它没有守卫、会直接重设间距。默认
+% \opt{linestretch} 是 \tn{ccwd} 而不是 \tn{maxdimen}，所以实际走的是后一支——
+% 这段重定义正是给后一支补上守卫的地方。
+%
+% \#1068 之前这段被 docstrip 守卫限定在 \pdfTeX{} 与 \XeTeX{} 上，于是 \LuaTeX{} 与
+% \upTeX{} 下用户设过的间距会被随后的 \tn{selectfont} 冲掉（报告只提到 \LuaTeX{}，
+% 实测 \upTeX{} 同样如此）。判据是解包产物里 \cs{@@_update_stretch_auxii:} 的重定义
+% 出现次数：修好之前 \file{ctex-engine-xetex.def} 里有一处，
+% \file{ctex-engine-luatex.def} 与 \file{ctex-engine-uptex.def} 里都是零处。
+%
+% 上面这个条件本身各引擎的实现不同（\pdfTeX{} 与 \XeTeX{} 比较 \tn{CJKglue} 是否仍与
+% \cs{@@_ccglue:} 同义，\LuaTeX{} 与 \upTeX{} 比较 \cs{l_@@_ccglue_skip} 与引擎参数
+% 是否相等），但三者都在，不需要另写；缺的只是调用它的那个位置。
 %    \begin{macrocode}
 \prg_new_conditional:Npnn \ctex_if_ccglue_touched: { TF }
   {
@@ -3099,7 +3119,6 @@
 %</uptex|aptex>
   }
 %<pdftex|xetex>\ctex_at_end:n { \cs_new_eq:NN \@@_ccglue: \CJKglue }
-%<*pdftex|xetex>
 \ctex_at_end:n
   {
     \cs_set_protected:Npn \@@_update_stretch_auxii:
@@ -3109,7 +3128,6 @@
           { \@@_update_stretch_auxiii: }
       }
   }
-%</pdftex|xetex>
 %    \end{macrocode}
 % \end{macro}
 %

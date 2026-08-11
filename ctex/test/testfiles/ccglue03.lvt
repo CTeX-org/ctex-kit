@@ -1,0 +1,100 @@
+% #1068: \selectfont 不得重置用户自行设置的汉字间距。
+%
+% 本文件专测 LuaTeX 与 upTeX —— 既有的 ccglue01／ccglue02 对这两个引擎直接跳过
+% （\TYPE{LuaTeX: not tested yet.}），而 #1068 的缺陷恰好只在它们身上：
+% ctex-engine.dtx 里给 \@@_update_stretch_auxii: 补 \ctex_if_ccglue_touched:
+% 守卫的那段，原先被 docstrip 守卫限定在 pdftex|xetex，LuaTeX／upTeX 因此走的是
+% 无守卫的 \@@_update_stretch_auxiii:，用户设过的间距会被随后的 \selectfont 冲掉。
+%
+% pdftex/xetex 侧由 ccglue01／ccglue02 覆盖，本文件不重复。
+%
+% 判别力（已实测）：把那段重定义改回 %<*pdftex|xetex> ... %</pdftex|xetex>，
+% 本文件 user-set-* 三项的读数由 10.0pt plus 1.0pt minus 1.0pt 变成
+% 0.0pt plus 0.60931pt（LuaTeX）／同形（upTeX），本项失败。
+%
+% 注意间距要用绝对单位写死。用 em／\ccwd 一类相对单位时，\linespread 改变字号后
+% 期望值本身也会变，读数无法区分「被重置」与「随字号正常缩放」。
+
+\ExplSyntaxOn
+\bool_lazy_or:nnF
+  { \sys_if_engine_luatex_p: }
+  { \sys_if_engine_uptex_p: }
+  {
+    \ExplSyntaxOff
+    \input { regression-test }
+    \START \TYPE { Only~ for~ LuaTeX~ and~ upTeX. } \END
+    \file_input_stop:
+  }
+\ExplSyntaxOff
+
+\input{regression-test}
+
+\documentclass[fontset=fandol]{ctexart}
+
+\begin{document}
+
+\START
+
+\AUTHOR{Liam Huang}
+
+\ExplSyntaxOn
+
+% 引擎间取值方式不同：LuaTeX 走 luatexja 的参数接口，upTeX 用原语。
+\sys_if_engine_luatex:TF
+  {
+    \cs_new_protected:Npn \CCGLUE_set:
+      { \ltjsetparameter { kanjiskip = { 10pt~plus~1pt~minus~1pt } } }
+    \cs_new_protected:Npn \CCGLUE_log:n #1
+      { \TYPE { #1 = [ \ltjgetparameter { kanjiskip } ] } }
+  }
+  {
+    \cs_new_protected:Npn \CCGLUE_set:
+      { \skip_set:Nn \tex_kanjiskip:D { 10pt~plus~1pt~minus~1pt } }
+    \cs_new_protected:Npn \CCGLUE_log:n #1
+      { \TYPE { #1 = [ \skip_use:N \tex_kanjiskip:D ] } }
+  }
+
+% 未设置时的基准：间距应随字号变化，这是 ctex 的既有行为，守卫不该拦住它。
+\TEST{default~ccglue~follows~font~size}{
+  \CCGLUE_log:n { default-10pt }
+  \group_begin:
+    \zihao{1}
+    \CCGLUE_log:n { default-zihao1 }
+  \group_end:
+  \CCGLUE_log:n { default-restored }
+}
+
+% #1068 的核心：用户设过之后，\selectfont 必须原样保留。
+\TEST{selectfont~preserves~user~ccglue}{
+  \group_begin:
+    \CCGLUE_set:
+    \CCGLUE_log:n { user-set-before }
+    \linespread{2}\selectfont
+    \CCGLUE_log:n { user-set-after-selectfont }
+    \zihao{-4}
+    \CCGLUE_log:n { user-set-after-zihao }
+  \group_end:
+}
+
+% linestretch 的两个取值都要覆盖：\ccwd（默认，走 auxii→auxiii）与
+% \maxdimen（走 auxi）。#1068 之前只有后者是安全的。
+\TEST{linestretch~variants~preserve~user~ccglue}{
+  \group_begin:
+    \CCGLUE_set:
+    \ctexset{linestretch = \ccwd}
+    \linespread{2}\selectfont
+    \CCGLUE_log:n { linestretch-ccwd }
+  \group_end:
+  \group_begin:
+    \CCGLUE_set:
+    \ctexset{linestretch = \maxdimen}
+    \linespread{2}\selectfont
+    \CCGLUE_log:n { linestretch-maxdimen }
+  \group_end:
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
