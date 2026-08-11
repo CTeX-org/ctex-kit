@@ -296,6 +296,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 改 `\setpinyin` 时，heredoc 脚本 assert 通过并打印「已改」，但 `l3build unpack` 出来的 `.sty` 毫无变化：shell 工作目录被重置到仓库根，而根下躺着一份更早跑偏留下的 `xpinyin.dtx` 副本，编辑落在了那份副本上。这也在仓库根留下一个未跟踪的陈旧 `.dtx`，若随手提交就会变成与真实源码不同步的幽灵副本。同一条判据在「变异要确认真的进了产物」里已有先例。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
 
+### 变异的报红规模按「哪些断言变红」记，不要写成 diff 行数的确数
+**Rule**: 记录变异实验的结果时，写清哪些断言（标签）变红；不要写 diff 的行数。同一批断言在 context diff 里每格占两行，行数还随呈现方式与工具变化，是最容易失效又最容易被后来者当事实引用的那种数字。清点「应当变红」的断言时，要排除那些按设计不该被这个变异影响的格子。
+**Why**: #1069 我在 `build-and-test.md` 写「去掉折叠后 `pinyin-tone01` 红 24 行」。独立审查复算成 26 行（13 个断言 × 2），我复算是 24（12 个断言 × 2）——差异来自 `NU-umlaut-caps` 那一格：它断言 `\pinyin{NÜ3}` 与 `\pinyin{NV3}` 相等，而去掉 `ü`→`v` 之后 `Ü`→`V` 仍生效、两侧同为字面 `NV3`，**按设计就不该变红**（它是另一个变异的判据）。两个数都是"对某种口径而言的"，说明这个量本身不适合作为记录对象。这已是本项目多次「因写确数而失效」的又一例。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
 ### oracle 需要复刻被测实现的细节时，说明判据选错了
 **Rule**: 手写 oracle 若必须重现被测命令的内部行为（插入的间距、内部分组、临时盒子），就换判据。若断言的本质是「两种输入应当给出同一结果」，直接对比两条被测命令，比拼字面形式更贴题也更稳。
 **Why**: #1069 多音节那格的 oracle 手拼字面重音 `n\v{\"u}h\'aizi`，漏了 `\pinyin` 在音节间插的 `pysep`（缺省一个空格），宽度必然不等，`l3build save` 把 `wd=DIFF 43.30566 vs 36.94824` 冻进了基线。改为直接对比 `\pinyin{nü3hai2zi}` 与 `\pinyin{nv3hai2zi}`（新增 `\CmpPinyinPair`）后判据既正确又不必复刻 `pysep`。
