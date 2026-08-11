@@ -14863,8 +14863,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \changes{v3.10.6}{2026/08/11}{花括号分组内的 \tn{CJKecglue} 改用「盒内 kern 占位
-%   加词尾补伸缩」的方式输出，使收缩量回到外层列表（\#1067）。}
+% \changes{v3.10.6}{2026/08/11}{花括号分组内的间距改用「盒内 kern 占位加词尾补伸缩」的
+%   方式输出，使 \tn{CJKecglue} 的收缩量与 \tn{CJKglue} 的伸长量都回到外层列表（\#1067）。}
 %
 % \begin{macro}[int]{\@@_ulem_defer_glue:n, \@@_ulem_flush_pending_shrink:}
 % 这两个函数处理 \#1067：装饰正文里用花括号括住一段内容时，该处间距的可收缩量原先会失效。
@@ -14889,10 +14889,19 @@ Copyright and Licence
 %     的词尾搬运处——那里已经在片段盒外、用户分组外——再补一个零宽而带伸缩的 glue。
 % \end{itemize}
 %
-% 自然宽度为零的间距必须短路，直接原样输出。\tn{CJKglue} 是 \texttt{0pt plus 0.96}，只有
-% 伸长量、没有收缩量；把它换成 \tn{kern} 会连伸长量一起丢掉。实测漏掉这个短路时
-% \file{fntef-font01} 的盒宽从 \texttt{40.0pt} 变成 \texttt{39.00002pt}。零自然宽度的间距
-% 原地放置本来就不影响外层取用它的弹性——它不占宽度，无须搬运。
+% 短路条件是\emph{整个 skip 全零}（\cs{skip_if_eq:nnTF} 比对 \cs{c_zero_skip}），不是「自然
+% 宽度为零」。零自然宽度但带弹性的间距仍然要记账搬运——用户可以把间距设成
+% \verb|CJKecglue={\hskip 0pt minus 1pt}|，此时自然宽度是零而收缩量非零，若按自然宽度短路，
+% 这份收缩量就留在定宽片段盒里出不来（实测压窄 \texttt{1.2pt}：直接输入与无编组装饰都是
+% \texttt{18}，而分组形态是 \texttt{1000000}）。
+%
+% 这条短路只用来跳过真正什么都不做的情形，避免为零 glue 白记一笔账。
+%
+% 于是 \tn{CJKglue}（\texttt{0pt plus 0.96}，只有伸长量）也走记账通道，它的伸长量随之回到
+% 外层列表。这是有意的：分组内的伸长量因此同样能参与断行，与不带装饰时的行为更接近。实测
+% \verb|\CJKunderline{文字{\sffamily 文字}}| 拉伸 \texttt{3pt} 的 badness 从 \texttt{3049}
+% 降到 \texttt{381}，向无装饰形态的 \texttt{113} 靠拢，而盒子宽度不变（\texttt{40.0pt}）。
+% \file{fntef-font01} 的基线因此记录 \tn{kern} 而不再是原处的 \tn{glue}。
 %
 % 取弹性部分用整个 skip 减去自然宽度（\cs{skip_eval:n} 里的 \texttt{\#1 - \cs{dim_eval:n}
 % \{\#1\}}），\emph{不要}分别取 \tn{gluestretch} 与 \tn{glueshrink} 再用 \texttt{plus}／
@@ -14923,7 +14932,7 @@ Copyright and Licence
 \skip_new:N \g_@@_ulem_pending_shrink_skip
 \cs_new_protected:Npn \@@_ulem_defer_glue:n #1
   {
-    \dim_compare:nNnTF { #1 } = \c_zero_dim
+    \skip_if_eq:nnTF { #1 } { \c_zero_skip }
       { \skip_horizontal:n {#1} }
       {
         \skip_gadd:Nn \g_@@_ulem_pending_shrink_skip

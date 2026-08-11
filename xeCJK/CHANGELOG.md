@@ -1,6 +1,6 @@
 ## [xeCJK-v3.10.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.6)
 
-- 花括号分组内的 `\CJKecglue` 改用「盒内 kern 占位加词尾补伸缩」的方式输出，使收缩量回到外层列表（#1067）。
+- 花括号分组内的间距改用「盒内 kern 占位加词尾补伸缩」的方式输出，使 `\CJKecglue` 的收缩量与 `\CJKglue` 的伸长量都回到外层列表（#1067）。
 
 ## [xeCJK-v3.10.5](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.5)
 
