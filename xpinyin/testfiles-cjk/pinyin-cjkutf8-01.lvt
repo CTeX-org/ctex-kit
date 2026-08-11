@@ -89,6 +89,30 @@
   \CmpPinyin { jv1 } { \pinyin{jv1} } { j\=u }
 }
 
+%% issue 1069: 直接输入 ü. 这条路线上原先不是「输出不对」而是**编译当场中止** ——
+%% pdfTeX 下 ü 是两个字节, \@@_pinyin_aux:n 逐记号取到的是半个字符, 拿去
+%% \if_int_compare:w 里做 `#1 求值, 报 "Improper alphabetic constant" 并连带
+%% 十几个后续错误 (实测 \pinyin{nü3} rc 1).
+%%
+%% 因此这一组在两条路线上的意义不同: XeTeX 那边固定「输出正确」, 这边同时固定
+%% 「能编译」—— 修复前本文件加上这一组会直接跑不完.
+%%
+%% 折叠 (\@@_pinyin:n 里的 \tl_replace_all:Nnn) 之所以对两条路线都成立, 是因为
+%% \tl_replace_all:Nnn 匹配的是记号序列: pdfTeX 下 ü 是 2 个记号的序列, 替换式
+%% 里的 ü 也是同样的 2 个记号, 照样匹配得上. 实测 pdfTeX 下 nü3 共 4 个记号,
+%% 替换后与 nv3 逐记号相同.
+\TEST{u-umlaut~typed~directly~under~CJKutf8}{
+  \CmpPinyin { lu-umlaut-1 } { \pinyin{lü1} } { l\={\"u} }
+  \CmpPinyin { lu-umlaut-2 } { \pinyin{lü2} } { l\'{\"u} }
+  \CmpPinyin { lu-umlaut-3 } { \pinyin{lü3} } { l\v{\"u} }
+  \CmpPinyin { lu-umlaut-4 } { \pinyin{lü4} } { l\`{\"u} }
+  \CmpPinyin { nu-umlaut-2 } { \pinyin{nü2} } { n\'{\"u} }
+  %% j 之后按规范不带分音符, 与 v 写法一致.
+  \CmpPinyin { ju-umlaut-1 } { \pinyin{jü1} } { j\=u }
+  %% 无声调时原样输出, 折叠不能泄漏到回退路径.
+  \CmpPinyin { toneless-umlaut } { \pinyin{nü} } { n\"u }
+}
+
 \ExplSyntaxOff
 
 \ExplSyntaxOn

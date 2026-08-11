@@ -316,11 +316,27 @@ Copyright and Licence
 %   \begin{syntax}
 %     \tn{pinyin} \oarg{options} \Arg{拼音}
 %   \end{syntax}
-%   用于输出拼音，为了输入的方便 \texttt{\"u} 可以用 |v| 代替。例如，
+%   用于输出拼音。声调用音节末尾的数字 1--5 表示（5 是轻声，不加调号）。
+%   为了输入的方便 \texttt{\"u} 可以用 |v| 代替；两种写法都可以，结果相同。
 %   \begin{SideBySideExample}
 %     \pinyin{lv2zi}\\
-%     \pinyin{nv3hai2zi}
+%     \pinyin{nv3hai2zi}\\
+%     \pinyin{lü2zi}\\
+%     \pinyin{nü3hai2zi}
 %   \end{SideBySideExample}
+%   |v| 只在 |l|、|n| 之后才当作 \texttt{\"u}：|ju|、|qu|、|xu|、|yu| 按
+%   《汉语拼音方案》本就不写分音符，没有歧义。直接写 \texttt{\"u} 时同样按这条
+%   规则处理，所以 \verb|\pinyin{jü4}| 与 \verb|\pinyin{jv4}| 都得到 |jù|。
+%   \begin{SideBySideExample}
+%     \pinyin{jv4}\\
+%     \pinyin{jü4}
+%   \end{SideBySideExample}
+%   整段输入里没有声调数字时原样输出，不做任何替换：
+%   \verb|\pinyin{nü}| 得到 |nü|，\verb|\pinyin{nv}| 得到 |nv|。
+%
+%   全大写的音节排不出调号（\verb|\pinyin{NV3}| 得到字面的 |NV3|），
+%   这是既有限制：声调落点表里只有小写元音。首字母大写不受影响，
+%   \verb|\pinyin{Nü3}| 与 \verb|\pinyin{Nv3}| 都得到 |Nǚ|。
 % \end{function}
 %
 % \begin{function}{\setpinyin}
@@ -1336,17 +1352,55 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2}{2026/08/11}{拼音参数现在可以直接写 |ü|／|Ü|，与既有的
+%   |v|／|V| 写法等价。此前 \XeTeX{} 下 \verb|\pinyin{nü3}| 排出字面的 |nü3|，
+%   pdf\TeX{} 加 \pkg{CJKutf8} 下则直接报错。（\#1069）}
+%
 % \begin{macro}{\@@_pinyin:n}
+% 手册说“为了输入的方便 |ü| 可以用 |v| 代替”，那么直接写 |ü| 也应当能用。
+% 因此先把输入里的 |ü|、|Ü| 折成 |v|、|V|，再走原来的切分循环。
+%
+% 不这样做的话，|ü| 在 \cs{@@_pinyin_aux:n} 眼里不是元音（声调落点表
+% \cs{c_@@_v_tl} 一系只有 ASCII 字母），整个音节走“原样输出”那条分支，
+% 声调数字不被吃掉：\verb|\pinyin{nü3}| 排出字面的 |nü3|（issue 1069）。
+%
+% 折叠而不是给 |ü| 单独建表，是因为要同时照顾两条引擎路线。|ü| 在 \XeTeX{}
+% 下是一个记号，在 pdf\TeX{} 加 \pkg{CJKutf8} 下是两个字节；后者连
+% \verb|\tl_const:Nn \c_@@_ü_tl| 这样的控制序列名都写不出来（宏包加载即报
+% |Invalid UTF-8 byte| 一类错误）。而 \cs{tl_replace_all:Nnn} 在两条路线上都能把
+% |ü| 换成 |v|——实测 pdf\TeX{} 下 |nü3| 是 4 个记号，替换后同样得到 |nv3|。
+% 于是折叠之后，两条路线共用同一套既有逻辑，声调落点、\cs{@@_replace_v:n}
+% 的 |l|／|n| 判断都不必改。
+%
+% |Ü| 折成 |V| 而不是 |v|：\cs{@@_replace_v:n} 与 \cs{@@_num_to_tone_v:Nn}
+% 判断前一个字母时同时收 |l|、|n| 的大小写，折成 |V| 才能让
+% \verb|\pinyin{Nü3}| 与 \verb|\pinyin{Nv3}| 结果一致。
+%
+% \cs{l_@@_save_tl} 存的必须是\emph{折叠前}的原始输入。它是“整段输入里没有
+% 声调数字”时的回退输出（\cs{@@_pinyin_aux:n} 的 \cs{quark_if_recursion_tail_stop_do:nn}
+% 分支），拿折叠后的值去回退会把用户写的 |ü| 换成 |v|：\verb|\pinyin{nü}|
+% 本该原样排出 |nü|，却排出 |nv|。这是实现折叠时踩到的一处回归。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_pinyin:n #1
   {
     \@@_pinyin_init:
     \bool_set_true:N \l_@@_first_bool
     \tl_set:Nn \l_@@_save_tl {#1}
-    \@@_pinyin_aux:n #1 \q_recursion_tail \q_recursion_stop
+    \tl_set:Nn \l_@@_normalized_tl {#1}
+    \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
+    \tl_replace_all:Nnn \l_@@_normalized_tl { Ü } { V }
+    \exp_last_unbraced:NV \@@_pinyin_aux:n \l_@@_normalized_tl
+      \q_recursion_tail \q_recursion_stop
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}{\l_@@_normalized_tl}
+% \cs{@@_pinyin:n} 折叠 |ü| 用的中间变量。
+%    \begin{macrocode}
+\tl_new:N \l_@@_normalized_tl
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{macro}{\@@_pinyin_aux:n}
 %    \begin{macrocode}
@@ -1547,11 +1601,21 @@ Copyright and Licence
 %
 % 查询表未载入（没给 \opt{query} 选项）时不必设置：那种情形下查询命令本身
 % 就会报错，多设一个控制序列反而会让“表没载入”的判据失效。
+%
+% 存进查询表的读音要先把 |ü| 折成 |v|。查询表通篇用 |v| 记 |ü|
+% （\file{xpinyin.lua} 生成时就是这么写的，见 \file{MAINTAINING.md} 里
+% \texttt{numbertable} 那一节），\opt{number} 形式的输出因此可以直接馈回
+% \tn{pinyin}。若把用户写的 |ü| 原样存进去，\verb|\setpinyin{女}{nü3}| 之后
+% \verb|\xpinyinvalue{女}| 在 \opt{number} 下返回 |nü3| 而不是 |nv3|，
+% 同一张表里就出现了两种拼写，馈回 \tn{pinyin} 的保证也随之失效。
 %    \begin{macrocode}
     \cs_if_exist:cT { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
       {
-        \cs_set_nopar:cpn { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
-          {#2}
+        \tl_set:Nn \l_@@_normalized_tl {#2}
+        \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
+        \tl_replace_all:Nnn \l_@@_normalized_tl { Ü } { V }
+        \cs_set_nopar:cpx { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
+          { \exp_not:V \l_@@_normalized_tl }
       }
   }
 %    \end{macrocode}
