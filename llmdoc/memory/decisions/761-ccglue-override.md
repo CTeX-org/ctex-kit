@@ -27,12 +27,15 @@
 
 在 ctex.sty 公共代码中定义默认实现，在引擎 `.def` 中用 `\ctex_at_end:n` 延迟重定义实现引擎特化。这是 docstrip 标签边界约束下的正确引擎条件化方案。
 
-## 未关闭项
+## 未关闭项（已关闭，见下）
 
-luatex/uptex 的 `\ctex_if_ccglue_touched:` 检测机制中 `\l_@@_ccglue_skip` 未初始化，需理解 luatexja 等包的初始化时序后另行处理。
+~~luatex/uptex 的 `\ctex_if_ccglue_touched:` 检测机制中 `\l_@@_ccglue_skip` 未初始化，需理解 luatexja 等包的初始化时序后另行处理。~~
+
+**#1068 关闭**：实际根因不是 `\l_@@_ccglue_skip` 未初始化，而是调用 `\ctex_if_ccglue_touched:TF` 的那段 `\ctex_at_end:n`（重定义 `\@@_update_stretch_auxii:`）被 docstrip 守卫 `%<*pdftex|xetex>` 限定，从未在 luatex/uptex 的引擎 `.def` 里执行过。luatex/uptex 各自的 `\ctex_if_ccglue_touched:` 判断分支（比较 `\l_@@_ccglue_skip` 与 `\ltjgetparameter{kanjiskip}` / `\tex_kanjiskip:D`）本身早已写好且工作正常，只是没有调用点。修法是去掉那两行 docstrip 守卫标记，让重定义对全部引擎生效，未新增判断逻辑。详见反思 [[../reflections/1068-selectfont-resets-ccglue]]。
 
 ## 相关
 
-- PR #771，分支 `fix/761-ccglue-override`
-- 源码 `ctex/ctex.dtx`
-- 回归测试 `ctex/test/testfiles/ccglue01.lvt`
+- PR #771，分支 `fix/761-ccglue-override`（原始修复，限定 pdftex/xetex）
+- Issue #1068，反思 [[../reflections/1068-selectfont-resets-ccglue]]（补齐 luatex/uptex）
+- 源码 `ctex/ctex.dtx`、`ctex/ctex-engine.dtx`
+- 回归测试 `ctex/test/testfiles/ccglue01.lvt`／`ccglue02.lvt`（pdftex/xetex）、`ccglue03.lvt`（luatex/uptex，#1068）

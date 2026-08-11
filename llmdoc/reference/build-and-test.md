@@ -332,7 +332,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 - `scheme-*`：覆盖 `scheme=plain` / `scheme=chinese` 的默认行为差异与标题输出差异，例如 `ctex/test/testfiles/scheme-plain01.lvt`、`ctex/test/testfiles/scheme-compare02.lvt`。
 - 类与文档结构：`ctexrep01.lvt`、`ctexbeamer01.lvt`、`beamer01.lvt`、`beamer02.lvt`、`matter01.lvt`、`sub3section01.lvt`、`ctex-noheading01.lvt` 等覆盖 `ctexrep` / `ctexbook` / `ctexbeamer` 基础行为、`heading=true`、三级节、`frontmatter` / `mainmatter` / `backmatter`。
 - 字体与字号联动：`autoindent01.lvt`、`ccwd-selectfont01.lvt`、`ccwd-zihao01.lvt`、`ziju-scope01.lvt`、`ziju-edge01.lvt`、`ctexsetfont01.lvt`、`zihao-sizes01.lvt`、`zihao-parindent01.lvt`、`fontfamily01.lvt`、`fontfamily02.lvt`、`cjkfamily-default01.lvt`、`cjkfamily-default02.lvt` 等覆盖 `\ccwd`、`\ziju`、`\CTEXsetfont`、`\zihao` 全尺寸、段首缩进与 CJK 字体家族切换；其中 `autoindent01` 以四引擎基线锁定 #402 的零缩进例外：启用非零 `autoindent` 后把 `\parindent` 置零并切换字号，结果仍为 `0pt`。
-- 行距与间距：`linespread01.lvt` 至 `linespread03.lvt`、`linespread-scope01.lvt`、`linestretch-interact01.lvt`、`punct.lvt`、`punct-width01.lvt`、`cjkglue-width01.lvt`、`ccglue01.lvt`、`ccglue02.lvt` 覆盖 `linestretch` / `linespread` 交互、标点宽度与 CJK glue 宽度。
+- 行距与间距：`linespread01.lvt` 至 `linespread03.lvt`、`linespread-scope01.lvt`、`linestretch-interact01.lvt`、`punct.lvt`、`punct-width01.lvt`、`cjkglue-width01.lvt`、`ccglue01.lvt`、`ccglue02.lvt`、`ccglue03.lvt` 覆盖 `linestretch` / `linespread` 交互、标点宽度与 CJK glue 宽度。`ccglue01`／`ccglue02` 对 LuaTeX 与 upTeX early-exit（`not tested yet.`），只覆盖 pdftex/xetex；`ccglue03`（#1068）专测这两个被跳过的引擎，固定 `\selectfont` 不再重置用户已设的 `kanjiskip`（LuaTeX 走 `\ltjsetparameter`、upTeX 走原语 `\kanjiskip`），三个文件不重复覆盖同一引擎组合，见下方「`\selectfont` 重置用户汉字间距（#1068）」一节。
 - 章节外围组件：`caption-names01.lvt`、`caption-names02.lvt`、`footnote01.lvt`、`part-format01.lvt`、`abstract01.lvt`、`toc.lvt`、`toc-book01.lvt`、`lof-lot01.lvt`、`bibliography01.lvt`、`index01.lvt` 覆盖 caption 名称、本地化名称、脚注、part、摘要、目录、图表目录、参考文献与索引标题路径。
 - 版式与接口兼容：`geometry01.lvt`、`numberline01.lvt`、`thesection01.lvt`、`twocolumn01.lvt`、`list01.lvt`、`verbatim01.lvt`、`quote01.lvt`、`minipage01.lvt`、`maketitle01.lvt` 覆盖常见环境、双栏与目录编号接口。
 - 第三方包和交叉引用兼容：`hyperref01.lvt`、`hyperref-driverfallback.lvt`、`hyperref-headings.lvt`、`hyperref-pdfstringdef01.lvt` 至 `03`、`amsmath01.lvt`、`label-ref01.lvt` 等覆盖 `hyperref` / `amsmath`、书签字符串与 `label` / `ref` 兼容。
@@ -350,8 +350,37 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 5. 避免不安全展开的日志写法。新增测试不应使用 `\tl_log:x { \f@family }` 或 `\dim_log:n { \f@size pt }` 这类展开不安全模式；若要记录字体家族或字号相关状态，优先用 `\cs_log:c` 读取稳定控制序列，或用 `\dim_log:n { 1em }`、盒子宽度、`\ccwd` 等可比度量替代。
 6. 新测试进入并行快照前必须先变成 git 已跟踪路径。`scripts/check-parallel.sh` 以 `git ls-files` 构造每个引擎的独立包快照；完全未跟踪的 `.lvt` / `.tlg` 不会进入 `make check-ctex`。运行前应确认 `git ls-files -- <path>` 能列出新文件，或直接用不经过快照的包内 `l3build check` 做定向验证。
 7. `l3build` 选项必须放在测试名之前。定向静默检查应使用 `l3build check -q <testname>`；`l3build check <testname> -q` 会把尾部 `-q` 当成另一个测试名。
+8. 测试文件里的引擎 early-exit（`LuaTeX: not tested yet.` 一类）是覆盖缺口的标记，不是覆盖已完成的证明。`ccglue01`／`ccglue02.lvt` 对 LuaTeX／upTeX 打这行字符串直接跳过整个文件；#1068 的缺陷恰好只在这两个引擎上出现，说明四引擎目标下若某个主题的测试对某些引擎恒为 early-exit，应当反过来问「这些引擎是否真的不需要测」，而不是把 `not tested yet.` 当成暂时性占位默认忽略。
 
 这些模式说明：`ctex` 回归测试不只是“补一些 .lvt 文件”，而是已经沉淀出一套面向多引擎中文排版的可复用测试方法学。
+
+### `\selectfont` 重置用户汉字间距（`ccglue03`，#1068）
+
+`ctex/ctex-engine.dtx` 里给 `\@@_update_stretch_auxii:` 补 `\ctex_if_ccglue_touched:`
+守卫的那段 `\ctex_at_end:n`，原先被 docstrip 守卫限定在 `%<*pdftex|xetex>`，LuaTeX 与
+upTeX 都没有它。`\ctex_update_stretch:` 按 `linestretch` 是否为 `\maxdimen` 二分：
+等于时走 `\@@_update_stretch_auxi:`（自带守卫），默认值 `\ccwd` 下走
+`\@@_update_stretch_auxiii:`（当时无守卫），于是这两个引擎下用户设的
+`kanjiskip`／`\CJKglue` 会被每次 `\selectfont` 冲掉。判据是解包产物里
+`\@@_update_stretch_auxii:` 重定义的出现次数：修好前 xetex 侧 1 处、luatex／uptex
+侧 0 处；修好后五个引擎（含 aptex）均 1 处。
+
+修法是去掉那段的 `%<*pdftex|xetex>` / `%</pdftex|xetex>` 守卫标记，让它对所有引擎
+生效；三套引擎各自的 `\ctex_if_ccglue_touched:` 判断逻辑本身早已存在（未新增代码）。
+
+`ccglue03.lvt` 专测 LuaTeX 与 upTeX：默认（未设置）时间距仍随字号更新
+（实测 0.60931 → 2.89365 → 0.60931pt），用户设置后 `\selectfont`／`\zihao` 均不再
+冲掉它，并覆盖 `linestretch` 的两个取值（`\ccwd` 走 `auxiii`、`\maxdimen` 走
+`auxi`）。测试用绝对单位写死间距（`10pt plus 1pt minus 1pt`），不用 `em`／`\ccwd`
+一类相对单位——`\linespread` 改字号后相对单位的期望值本身会变，读数无法区分
+「被重置」与「随字号正常缩放」。
+
+已确认但本次未处理的既有行为：`\ccwd = kanjiskip + \zw`（`\ctex_update_ccwd:`），
+修好后用户设置生效会连带改变 `\ccwd`／`\parindent` 的数值，这是既有语义，不是本次
+修复的副作用（用 `\ctexset{linestretch=\maxdimen}` 这条早已支持、走 `auxi` 分支的
+配置对照，读数逐字节相同）。`linestretch` 不能作类选项
+（`\documentclass[linestretch=\maxdimen]{ctexart}` 静默失效，`\ctexset{...}` 生效）
+这一点同样未处理，见 `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`。
 
 此外，现在还维护多个专项测试配置：
 

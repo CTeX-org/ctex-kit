@@ -49,6 +49,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #994 的 Linux 四引擎回归能检查 `macnew` 生成配置，却没有 Apple 字体，也不会执行 macOS 条件分支；只有 macOS XeTeX/LuaTeX 的运行时探针实际加载并核对了 Regular 字形。
 **Source**: `llmdoc/memory/reflections/994-macnew-songti-regular.md`
 
+### 缺陷按代码路径分布，不按报告者用的引擎分布（镜面）
+**Rule**: 报告者只在一个引擎下复现，推不出其他引擎不受影响。看到 docstrip 引擎守卫（`%<*engine>`）划出的路径边界时，应把它枚举到的引擎和没枚举到的引擎都实测一遍，而不是只信报告者用的那一个。
+**Why**: #1068 的报告只提到 LuaTeX 下 `\selectfont` 重置用户设的 `kanjiskip`；按四引擎逐个实测后发现 upTeX 同样受影响，pdftex/xetex 正常。根因是一段 `\ctex_at_end:n` 重定义被 docstrip 守卫限定在 `pdftex|xetex`，LuaTeX 与 upTeX 都没有它。这是「测试结论不能超出实际执行的平台分支」（#994）在缺陷侧的镜面：那条管的是「测试通过≠已覆盖未执行的分支」，这条管的是「复现≠未复现的引擎不受影响」。
+**Source**: `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
+
 ### 字体字形变化必须同步选择、映射和度量
 **Rule**: 更换字体集中的正文常规字形时，同时核对各引擎的具名字体、TTC index、zhmap、度量生成源和跟踪数据，并用拥有目标字体的平台验证实际字形与度量。
 **Why**: #994 若只把 `Songti SC Light` 改名为 Regular，LaTeX+DVI/upLaTeX 仍会使用旧 index，标点压缩也会继续读取 Light 的 SPA 数据。
@@ -198,8 +203,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### 白名单式 CI 校验默认放行，未覆盖的包无人察觉
 **Rule**: 按包 opt-in 的校验（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类校验必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
-**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。**同一缺口后来又出现一次**：zhnumber 与 xCJK2uni 也从未被覆盖，而两者的 `.dtx` 都有 `{\ExplFileDate}{<ver>}`、`l3build tag` 确实会回写——那条「不使用 l3build tag 版本 stamp 机制」的 notice 是**错的**。#1041 的反思当时已写下「应当有一条未覆盖清单的对账机制」并留作后续，正因为没做，第二次才又靠人工翻查才发现。**所以这条规则的落实方式是自动对账脚本，不是「记得同步矩阵」**：现由 `scripts/check-version-gate-coverage.py` 在 `check-tag.yml` 的 `gate-coverage` job 里强制执行；它当场又查出第三个漏掉的包（jiazhu）。
-**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
+**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。**同一缺口后来又出现一次**：zhnumber 与 xCJK2uni 也从未被覆盖，而两者的 `.dtx` 都有 `{\ExplFileDate}{<ver>}`、`l3build tag` 确实会回写——那条「不使用 l3build tag 版本 stamp 机制」的 notice 是**错的**。#1041 的反思当时已写下「应当有一条未覆盖清单的对账机制」并留作后续，正因为没做，第二次才又靠人工翻查才发现。**所以这条规则的落实方式是自动对账脚本，不是「记得同步矩阵」**：现由 `scripts/check-version-gate-coverage.py` 在 `check-tag.yml` 的 `gate-coverage` job 里强制执行；它当场又查出第三个漏掉的包（jiazhu）。**同一形态在测试文件层面也发作过**：#1068 里既有的 `ccglue01`／`ccglue02.lvt` 对 LuaTeX 与 upTeX 直接 early-exit 打印 `LuaTeX: not tested yet.`，而 #1068 的缺陷恰好只在这两个引擎上出现——`not tested yet` 与 `::notice::...跳过` 是同一类静默放行，都会让「文件存在」被误读成「覆盖存在」。
+**Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`, `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
 
 ### 「跑了但什么也没校验」的 job 比没有 job 更危险
 **Rule**: 加一道校验后，必须验证它在**被校验对象出错时确实会失败**，而不只是「加上之后 CI 是绿的」。特别当校验形如「跑某个命令 + 比对 diff」时，要确认那个命令在当前配置下真的会产生写入——命令以 0 退出且什么都不改时，diff 天然为零，job 恒绿却会让覆盖矩阵显示 ✓，比缺这道校验更难发现。
@@ -590,8 +595,8 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 怀疑某个失败源于第三方宏包或上游机制时，先在本仓库 `llmdoc/architecture/` 与相关反思里搜索是否已经记录过同一类问题的根因链，再决定是否需要直接去读上游源码。本仓库对已知的上游问题通常已经做过一次调研并沉淀成文档；跳过这一步直接读上游源码，等于重新做一遍已经做过的工作，还可能在对外沟通中给出「根因未定位」这类不准确的中间结论。
 
 **适用范围不止于「排查」，同样适用于「写文档与写记忆」**：往个人或项目记忆文件（如 `CLAUDE.md`）写入某条规则之前，先查 `llmdoc/` 是否已有该内容，有则对齐而不是重写。否则新写的版本很可能比既有记录弱，还多出一处需要同步的副本。
-**Why**: #1048/#1050 排查 `cleveref02/03` 的 4 个 `.tlg` diff 时，第一版评论判定为「根因未定位」，走的是直接读上游 `latex2e-first-aid-for-external-files.ltx` 源码这条路；而 `llmdoc/architecture/cleveref-patch.md` 早就把根因链（LaTeX firstaid 的 `\firstaid@cref@updatelabeldata` 缺 appendix 特判、上游 `latex2e#2049` 明确不修）记录完整，直接查阅即可。#1054 是同一条规则换了对象的复发：把推送纪律写进 `CLAUDE.md` 时，llmdoc 里已有三份记录（`guides/push-and-pr-review-workflow.md`、`memory/decisions/repo-push-hook-discipline.md`、`reference/repo-git-conventions.md`），而新写的版本缺 `post-push: ✔ push succeeded` 这个明确判据、也缺 rc 75 的语义（CI 已过但存在未确认 review 活动或未解决 thread）。
-**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+**Why**: #1048/#1050 排查 `cleveref02/03` 的 4 个 `.tlg` diff 时，第一版评论判定为「根因未定位」，走的是直接读上游 `latex2e-first-aid-for-external-files.ltx` 源码这条路；而 `llmdoc/architecture/cleveref-patch.md` 早就把根因链（LaTeX firstaid 的 `\firstaid@cref@updatelabeldata` 缺 appendix 特判、上游 `latex2e#2049` 明确不修）记录完整，直接查阅即可。#1054 是同一条规则换了对象的复发：把推送纪律写进 `CLAUDE.md` 时，llmdoc 里已有三份记录（`guides/push-and-pr-review-workflow.md`、`memory/decisions/repo-push-hook-discipline.md`、`reference/repo-git-conventions.md`），而新写的版本缺 `post-push: ✔ push succeeded` 这个明确判据、也缺 rc 75 的语义（CI 已过但存在未确认 review 活动或未解决 thread）。**第三个实例把对象从「文档」换成「代码实现」**：#1068 分析 `\selectfont` 重置用户 `kanjiskip` 时，第一版结论是「`auxiii` 分支缺少 `ctex_if_ccglue_touched:` 守卫，应当新写」，据此设计了两套在 kernel 层新增等价逻辑的方案；`grep -n "ctex_if_ccglue_touched"` 全仓一搜就能看到该守卫早已存在于 `ctex-engine.dtx` 的 engine 层（三引擎各有实现），只是被 docstrip 条件 `%<*pdftex|xetex>` 挡在 LuaTeX／upTeX 之外——真实修法是删两行守卫标记，不是新写代码。发现「某处缺少某个检查」时，先在全仓搜索该检查是否已在别处存在，再决定是调用既有实现还是新写一份；否则会得到两份语义重复、日后可能分叉的实现。
+**Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
 
 ## LaTeX2e 命令钩子机制
 

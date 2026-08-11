@@ -274,13 +274,13 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 
 ### 引擎特化覆写
 
-pdftex/xetex 的引擎 `.def` 中通过 `\ctex_at_end:n` 重定义 `\@@_update_stretch_auxii:`，加入 `\ctex_if_ccglue_touched:TF` 检查：用户已设置 CJKglue 时仅更新 `\ccwd`，不覆盖用户的 `\CJKglue` 定义。
+`ctex/ctex-engine.dtx` 中通过 `\ctex_at_end:n` 重定义 `\@@_update_stretch_auxii:`，加入 `\ctex_if_ccglue_touched:TF` 检查：用户已设置 CJKglue/kanjiskip 时仅更新 `\ccwd`，不覆盖用户的设置。
 
-luatex/uptex 保持原始行为（直接调用 `auxiii:`），因为其 `\ctex_if_ccglue_touched:` 检测机制存在预存缺陷（`\l_@@_ccglue_skip` 未初始化），需另行修复。
+这段重定义**对全部引擎生效**（自 #1068 起）：pdftex/xetex 比较 `\CJKglue` 是否仍与 `\@@_ccglue:` 同义，luatex/uptex 比较 `\l_@@_ccglue_skip` 与引擎参数（`\ltjgetparameter{kanjiskip}` / `\tex_kanjiskip:D`）是否相等；三套判断逻辑早已各自存在，只是 #1068 之前调用它的这段重定义被 docstrip 守卫 `%<*pdftex|xetex>` 限定，luatex/uptex 因而走的是无守卫的默认路径，用户设置会被每次 `\selectfont` 冲掉。判据是解包产物里该重定义的出现次数：修好前 xetex 侧 1 处、luatex/uptex 侧 0 处；修好后五个引擎（含 aptex）均 1 处。详见决策 [[761-ccglue-override]]「未关闭项」的更新与反思 [[1068-selectfont-resets-ccglue]]。
 
 ### 涉及源码
 
-`ctex/ctex-kernel.dtx` 中的 linestretch 函数定义（公共区域）和 `ctex/ctex-engine.dtx` 的引擎 `.def` 代码段（pdftex/xetex 特化）。回归测试 `ctex/test/testfiles/ccglue01.lvt`。
+`ctex/ctex-kernel.dtx` 中的 linestretch 函数定义（公共区域）和 `ctex/ctex-engine.dtx` 的引擎 `.def` 代码段（全引擎统一生效）。回归测试 `ctex/test/testfiles/ccglue01.lvt`／`ccglue02.lvt`（pdftex/xetex）、`ccglue03.lvt`（luatex/uptex，#1068）。
 
 ## 包间依赖图
 
