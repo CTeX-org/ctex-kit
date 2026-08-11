@@ -13868,8 +13868,9 @@ Copyright and Licence
       \reverse_if:N \if_dim:w \tex_lastskip:D = \c_zero_dim
         \skip_gset_eq:NN \UL@skip \tex_lastskip:D
         \tex_unskip:D
-        \UL@stop \UL@leaders
+        \UL@stop
         \@@_ulem_flush_pending_shrink:
+        \UL@leaders
       \fi:
     \fi:
     \xeCJK_ulem_word:nw \prg_do_nothing:
@@ -14892,8 +14893,21 @@ Copyright and Licence
 % 伸长量、没有收缩量；把它换成 \tn{kern} 会连伸长量一起丢掉。实测漏掉这个短路时
 % \file{fntef-font01} 的盒宽从 \texttt{40.0pt} 变成 \texttt{39.00002pt}。
 %
-% 记账是全局量，因此 \cs{@@_ulem_end:} 在装饰结束时把它清零，避免某个词的记账没被兑现就
-% 串到下一次装饰。
+% 记账是全局量，因此在两处清零：\cs{@@_ulem_stream_begin:} 进入装饰时清一次，
+% \cs{@@_ulem_end:} 结束时再清一次。两处都要，不是重复——结束处那次覆盖正常路径，而行内
+% 公式里的装饰命令经 \tn{UL@onmath}／\tn{UL@onin} 结束、\emph{不走} \cs{@@_ulem_end:}，
+% 那条路径上的残留只能靠下一次装饰开始时清掉。实测目前四条路径（公式内带编组、公式内
+% \tn{mbox}、\tn{mbox} 内装饰、装饰嵌套）的残留都是 \texttt{0pt}，因为记账在词尾都已兑现；
+% 开始处这道清零是防御性的，用来隔断将来改动公式路径时可能出现的串味。
+%
+% 补出的 glue 必须放在 \tn{UL@stop} 之后、\tn{UL@leaders} \emph{之前}。\tn{UL@leaders} 的
+% 结构是「\texttt{-\tn{UL@pixel}}、加宽两个 pixel 的 leaders、再 \texttt{-\tn{UL@pixel}}」，
+% 末尾那个负值是段与段之间的重叠补偿，要靠紧随其后的内容抵掉。如果把补出的 glue 放在
+% \tn{UL@leaders} 之后，编组位于装饰参数\emph{结尾}时它就会把这个负值推到更后面，使其失去
+% 正向配对，装饰盒因此比实际内容窄一个 pixel（实测 \verb|\CJKunderline{中{x}}| 得
+% \texttt{17.61002pt}，而 \verb|\hbox{中{x}}| 是 \texttt{18.61pt}）。放在 \tn{UL@leaders}
+% 之前，glue 落在两段装饰之间，两种位置都正确。\file{fntef-shrink01} 的 TEST 11 同时固定
+% 「编组在中间」与「编组在结尾」两种位置，正是因为前者察觉不到这个回归。
 %    \begin{macrocode}
 \skip_new:N \g_@@_ulem_pending_shrink_skip
 \cs_new_protected:Npn \@@_ulem_defer_glue:n #1
@@ -14987,6 +15001,7 @@ Copyright and Licence
     \bool_if:NF \l_@@_ulem_stream_started_bool
       {
         \bool_set_true:N \l_@@_ulem_stream_started_bool
+        \skip_gzero:N \g_@@_ulem_pending_shrink_skip
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
       }
   }
