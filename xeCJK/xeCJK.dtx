@@ -14891,7 +14891,18 @@ Copyright and Licence
 %
 % 自然宽度为零的间距必须短路，直接原样输出。\tn{CJKglue} 是 \texttt{0pt plus 0.96}，只有
 % 伸长量、没有收缩量；把它换成 \tn{kern} 会连伸长量一起丢掉。实测漏掉这个短路时
-% \file{fntef-font01} 的盒宽从 \texttt{40.0pt} 变成 \texttt{39.00002pt}。
+% \file{fntef-font01} 的盒宽从 \texttt{40.0pt} 变成 \texttt{39.00002pt}。零自然宽度的间距
+% 原地放置本来就不影响外层取用它的弹性——它不占宽度，无须搬运。
+%
+% 取弹性部分用整个 skip 减去自然宽度（\cs{skip_eval:n} 里的 \texttt{\#1 - \cs{dim_eval:n}
+% \{\#1\}}），\emph{不要}分别取 \tn{gluestretch} 与 \tn{glueshrink} 再用 \texttt{plus}／
+% \texttt{minus} 重新拼：那两个原语只返回数值，阶数在 \tn{gluestretchorder}／
+% \tn{glueshrinkorder} 里，分开取会把 \texttt{1fil} 降成普通阶（实测
+% \texttt{3.33pt plus 1fil minus 1.11pt} 用减法得到 \texttt{0.0pt plus 1.0fil minus 1.11pt}，
+% 阶数保留；而 \tn{gluestretch} 只给出 \texttt{1.0pt}）。就目前的调用路径而言这两种写法
+% 结果相同——装饰状态下 \cs{l_@@_ecglue_skip} 由 \cs{xeCJK_glue_to_skip:nN} 现算，传进来的
+% 自然宽度已是零、会走上面那条短路——但减法写法不依赖这个前提，日后间距模板换成带无限阶
+% 伸缩的形式也不会静默降阶。
 %
 % 记账是全局量，因此在两处清零：\cs{@@_ulem_stream_begin:} 进入装饰时清一次，
 % \cs{@@_ulem_end:} 结束时再清一次。两处都要，不是重复——结束处那次覆盖正常路径，而行内
@@ -14916,11 +14927,7 @@ Copyright and Licence
       { \skip_horizontal:n {#1} }
       {
         \skip_gadd:Nn \g_@@_ulem_pending_shrink_skip
-          {
-            0pt
-            plus  \tex_gluestretch:D #1
-            minus \tex_glueshrink:D  #1
-          }
+          { \skip_eval:n { #1 - \dim_eval:n {#1} } }
         \tex_kern:D \dim_eval:n {#1} \scan_stop:
       }
   }

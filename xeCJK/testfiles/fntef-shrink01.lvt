@@ -366,5 +366,20 @@
   \TYPE{tail2-oracle-width=\the\wd32}
   \setbox33=\hbox{\CJKunderline{虚室 {hello}}}%
   \TYPE{tail2-braced-width=\the\wd33}
+  % 关于「记账取弹性部分要保留伸缩阶数」这一条（bot 审查提出）：本文件没有给它断言，原因是
+  % 它在当前调用路径上不可达 —— 装饰状态下 \l_@@_ecglue_skip 由 \xeCJK_glue_to_skip:nN 现算,
+  % 传进 \@@_ulem_defer_glue:n 的自然宽度已经是零, 会走零宽短路(实测探针:
+  % DEFER in=[0.0pt] order=0), 根本走不到取弹性部分那一步。
+  %
+  % 实现仍按「整个 skip 减去自然宽度」来写(\skip_eval:n { #1 - \dim_eval:n {#1} }), 而不是
+  % 分别取 \gluestretch 与 \glueshrink 再用 plus/minus 拼 —— 后者只拿到数值, 阶数在
+  % \gluestretchorder/\glueshrinkorder 里, 会把 1fil 静默降成普通阶。已单独实测:
+  % 3.33pt plus 1fil minus 1.11pt 用减法得 0.0pt plus 1.0fil minus 1.11pt(阶数保留),
+  % 而 \gluestretch 只给出 1.0pt。
+  %
+  % 之所以不硬造一条断言: 要测它就得绕过装饰路径直接调那个表达式, 那样测的是 expl3 的语义
+  % 而不是本包的行为, 放进 fntef-shrink01 名不副实; 而且试写两次都因 \l_tmpa_skip 等预定义
+  % 暂存变量不能再 \skip_zero_new:N 而失败。日后若间距模板真的改成带无限阶伸缩的形式,
+  % 届时该路径可达, 应当补一条经装饰路径的断言。
 }
 \END
