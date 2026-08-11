@@ -21,7 +21,7 @@
 1. 提取 linestretch 计算逻辑到 `\@@_update_stretch_auxiii:`。
 2. `\@@_update_stretch_auxii:` 在公共区域定义为直接调用 `auxiii:`（所有引擎默认行为）。
 3. pdftex/xetex 引擎 `.def` 中通过 `\ctex_at_end:n`（= `\AtEndOfPackage`）在包加载末尾重定义 `auxii:` 加入守卫。
-4. luatex/uptex 不修改：其 `\ctex_if_ccglue_touched:` 存在预存缺陷（`\l_@@_ccglue_skip` 未初始化），留作后续修复。
+4. luatex/uptex 不修改：**当时**判断其 `\ctex_if_ccglue_touched:` 存在预存缺陷（`\l_@@_ccglue_skip` 未初始化），留作后续修复。（此判断已被 #1068 推翻——那两个引擎的判断分支本身工作正常，缺的只是调用点；见下方「未关闭项」。）
 
 ## 确立的模式
 

@@ -1,5 +1,19 @@
 # 文档缺口
 
+## `linestretch` 无法作类选项且无提示（#1068）
+
+`\documentclass[linestretch=\maxdimen]{ctexart}` 静默失效（实测值仍是默认的 `\ccwd`），
+而 `\ctexset{linestretch=\maxdimen}` 生效。原因是 `linestretch` 用 `\ctex_define:n`
+（键空间 `ctex`，只认 `\ctexset`），类选项走 `\ctex_define_option:n`（键空间
+`ctex/option`）；未知类选项被转发给标准文档类（为了透传 `a4paper` 之类），`article`
+不识别便丢弃，不产生任何警告。用户无法从类选项禁用「按行宽自动伸展汉字间距」这一行为，
+且完全得不到提示。#1068 只修复了 `\selectfont` 重置用户已设间距这一问题，未处理这一点。
+
+可能的补法（**未实施**）：把 `linestretch` 也注册为类选项，或在 `ctex_define_option:n`
+的未知选项转发路径上加一条检测——若某个被转发的选项名同时存在于 `ctex` 键空间，打印
+提示告知用户应改用 `\ctexset`。详见反思
+`llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`。
+
 ## `verify-doc-output.sh` 缺内容级哨兵
 
 `scripts/verify-doc-output.sh:69-88` 的三条判据都是容器级的：PDF 文件存在、前四字节是 `%PDF`、体积 `>= 1024` 字节。它们能抓住「dvipdfmx 中途挂掉留下 stub」这类失败，但对「编译成功、PDF 结构完整、只是正文内容被污染」**零判别力**。

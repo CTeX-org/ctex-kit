@@ -126,7 +126,7 @@ pdfTeX 下 ctex 通过 CJK 宏包处理中文字符。UTF-8 编码的多字节�
 
 `ctex.sty` 以 `{style,ctex}` 标签生成，不含引擎标签。引擎 `.def` 代码段通过 `\ctex_at_end:n`（= `\AtEndOfPackage`）延迟到包加载末尾执行重定义，覆写公共区域的默认实现，实现引擎特化。
 
-这一模式的典型用例：各引擎的 `.def` 覆写 `\@@_update_stretch_auxii:` 以添加 `\ctex_if_ccglue_touched:TF` 守卫——这段重定义自 #1068 起对全部引擎生效，此前被 docstrip 守卫限定在 pdftex/xetex，luatex/uptex 因而缺守卫，用户设置的 CJKglue/kanjiskip 会被 `\selectfont` 冲掉。详见 [[../memory/reflections/1068-selectfont-resets-ccglue]]。
+这一模式的典型用例：各引擎的 `.def` 覆写 `\@@_update_stretch_auxii:` 以添加 `\ctex_if_ccglue_touched:TF` 守卫——这段重定义自 #1068 起对全部引擎生效，此前被 docstrip 守卫限定在 pdftex/xetex，luatex/uptex 因而缺守卫，用户设置的 CJKglue/kanjiskip 会被 `\selectfont` 覆盖。详见 `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`。
 
 ## 字体集系统
 
