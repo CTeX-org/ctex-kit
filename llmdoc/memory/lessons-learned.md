@@ -301,6 +301,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 改 `\setpinyin` 时，heredoc 脚本 assert 通过并打印「已改」，但 `l3build unpack` 出来的 `.sty` 毫无变化：shell 工作目录被重置到仓库根，而根下躺着一份更早跑偏留下的 `xpinyin.dtx` 副本，编辑落在了那份副本上。这也在仓库根留下一个未跟踪的陈旧 `.dtx`，若随手提交就会变成与真实源码不同步的幽灵副本。同一条判据在「变异要确认真的进了产物」里已有先例。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
 
+### rebase 冲突里「双方各自在同一长行追加」要按三方重建，不能靠脚本反复追加
+**Rule**: `llmdoc/index.md` 这类单行极长的索引，rebase 时两侧常各自在同一行末尾追加不同内容。逐轮用脚本「公共前缀 + 对侧尾巴」拼接会在多次 `rebase --continue` 中把同一段追加**累积复制多次**。正确做法是三方重建：取 merge-base 版本、算出各侧相对它的追加、各拼一次。合并后必做两项校验：①对每个条目确认 master 侧内容仍是当前行的前缀；②全行扫重复子串（降到 40 字级）。
+**Why**: #1069 分支 rebase onto master（53 个提交、6 个 llmdoc 文件双侧修改）时我写了个「追加型自动合并」脚本喂给 `rebase --continue` 循环。它对单次冲突正确，但每轮都把我侧尾巴重新接一次——最终 `build-and-test.md` 那行同一段重复 7 次、`lessons-learned.md` 那行重复 16 次（20489 字，是应有长度的 4.5 倍），`package-architecture.md` 那行的 `xpinyin -> xeCJK` 说明重复 3 次且第一份仍指向已删除的 `xpinyin/MAINTAINING.md`。CI 全绿（这些是散文，不进编译），由 PR 上的自动审查作为小问题指出。三方重建后长度回到 8272／4269。**顺带暴露另一类**：我侧追加与 master 追加各自包含同一条「LaTeX2e 命令钩子机制」规则，属真实内容重叠，需要人工判断保留哪一份——这种是脚本无论如何都判不出来的。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
 ### 删文件前按「读者」清点内容归属，不要只按标题层级清点
 **Rule**: 删除一份文档前，逐段问「这段是给谁看的」，再按读者决定去向：面向贡献者的流程（PR 投哪个分支、必须跑哪些测试）归 `README`／`CONTRIBUTING`，面向维护者的内部机制归 `llmdoc`。清点时要连**标题之前的引言段**一起数——按 `grep '^## '` 列小节会漏掉 H1 之后、第一个 `##` 之前的内容。
 **Why**: 删 `xpinyin/MAINTAINING.md` 时我按 5 个 `##` 小节清点，判定「4 节冗余、1 节（xeCJK 内部接口清单）需保留」，把清单迁进 llmdoc 后删掉整个文件。漏掉的是文件开头 H1 段：xpinyin 的 PR 以 `xpinyin/maintaining` 为合入目标、维护权变更的时限安排——全仓检索确认那是**唯一**承载点，删掉等于让后续贡献者无从知道该往哪个分支提 PR。而且它面向贡献者，本就不该待在只有维护者会读的文档里。由 PR 上的自动审查作为 REQUEST_CHANGES 提出。
