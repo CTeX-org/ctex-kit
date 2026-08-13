@@ -23,6 +23,12 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # 主链路失败由 fallback 兜住，整体结论在 publish job 里给出，所以这个 job 本身
+    # 不再以红叉示人：CLI 与校验步骤都带 continue-on-error，成败通过 outputs.status
+    # 传给下游。后续 job 一律判这个 output，不要判 needs.codex_review.result —— 带了
+    # continue-on-error 之后那个值恒为 success。
+    outputs:
+      status: ${{ steps.status.outputs.status }}
     steps:
       - name: Checkout PR head without persisted credentials
         uses: actions/checkout@v7
@@ -215,6 +221,8 @@ jobs:
           PROMPT_EOF
 
       - name: Review with Codex and GPT-5.6-sol
+        id: agent
+        continue-on-error: true
         uses: ./.trusted-base/.github/actions/run-agent
         with:
           provider: codex
@@ -227,6 +235,9 @@ jobs:
           result_file: ${{ runner.temp }}/review-raw.json
 
       - name: Normalize and validate Codex review
+        id: validate
+        if: steps.agent.outcome == 'success'
+        continue-on-error: true
         run: |
           mkdir -p review-output
           jq -c '. + {reviewer: "codex", model: "gpt-5.6-sol"}' \
@@ -250,6 +261,7 @@ jobs:
           jq -e '.review_status == "COMPLETE"' review-output/review.json > /dev/null
 
       - name: Upload Codex review result
+        if: steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: review-result-codex
@@ -258,11 +270,35 @@ jobs:
           overwrite: true
           retention-days: 1
 
+      # 汇总两个带 continue-on-error 的步骤，把成败落到 job output 上。失败时打
+      # ::warning:: 而不是 ::error::，这样 job 保持绿色但异常仍留在 annotation 里可检索；
+      # 真正的红由 publish job 在两条链路都失败时给出。
+      - name: Report Codex chain status
+        id: status
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.agent.outcome }}" != 'success' ]; then
+            reason='CLI 执行失败'
+          elif [ "${{ steps.validate.outcome }}" != 'success' ]; then
+            reason='输出未通过结构校验或 review_status 不是 COMPLETE'
+          else
+            reason=''
+          fi
+          if [ -n "$reason" ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Codex 主链路失败::${reason}；将由 Claude Code fallback 接手，最终结论见 review job"
+            printf '### Codex 主链路失败\n\n%s\n\n将由 Claude Code fallback 接手。\n' \
+              "$reason" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
   # 独立 runner 避免失败的 Codex 进程污染 fallback 的工作树、工具或输入。
   claude_review:
     name: Review with Claude Code (fallback)
     needs: codex_review
-    if: always() && needs.codex_review.result != 'success'
+    if: always() && needs.codex_review.outputs.status != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -510,7 +546,7 @@ jobs:
       structured_output: ${{ steps.result.outputs.structured_output }}
     steps:
       - name: Download Codex review result
-        if: needs.codex_review.result == 'success'
+        if: needs.codex_review.outputs.status == 'success'
         uses: actions/download-artifact@v8
         with:
           name: review-result-codex
@@ -525,7 +561,7 @@ jobs:
 
       - name: Validate and publish review comment
         id: result
-        if: needs.codex_review.result == 'success' || needs.claude_review.result == 'success'
+        if: needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           REVIEW_FILE: .review-input/review.json
@@ -633,7 +669,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when no reviewer succeeded
-        if: always() && needs.codex_review.result != 'success' && needs.claude_review.result != 'success'
+        if: always() && needs.codex_review.outputs.status != 'success' && needs.claude_review.result != 'success'
         run: |
           echo "::error::Codex 主链路与 Claude Code fallback 均执行失败"
           exit 1

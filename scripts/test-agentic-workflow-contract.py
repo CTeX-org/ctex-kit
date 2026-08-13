@@ -108,8 +108,24 @@ def assert_pr_review_draft_contract(source: str) -> None:
     jobs = document["jobs"]
     assert "if" not in jobs["codex_review"], "Codex 主审不得按 Draft 状态或其他条件恒定跳过"
     assert jobs["claude_review"].get("needs") == "codex_review", "Claude 兜底必须等待 Codex 主审"
-    assert jobs["claude_review"].get("if") == "always() && needs.codex_review.result != 'success'", (
-        "Claude 兜底条件必须只取决于 Codex 是否成功"
+    # codex_review 的关键步骤带 continue-on-error（让主链路失败时该 job 不显红），
+    # 因此 needs.codex_review.result 恒为 success，下游必须判 outputs.status。
+    # 这条断言同时守住两件事：兜底只依赖 Codex 成败，且判的是那个仍有判别力的信号。
+    assert jobs["claude_review"].get("if") == "always() && needs.codex_review.outputs.status != 'success'", (
+        "Claude 兜底条件必须只取决于 Codex 是否成功，且须判 outputs.status 而非 result"
+        "（result 在 continue-on-error 下恒为 success）"
+    )
+    assert jobs["codex_review"].get("outputs", {}).get("status"), (
+        "codex_review 必须导出 status output 供下游判断，否则 continue-on-error 会让失败无声通过"
+    )
+    codex_steps = unique_steps_by_name(jobs["codex_review"]["steps"], "Codex 主审")
+    for name in ("Review with Codex and GPT-5.6-sol", "Normalize and validate Codex review"):
+        assert name in codex_steps, f"Codex 主审缺少 step: {name}"
+        assert codex_steps[name].get("continue-on-error") is True, (
+            f"Codex 主审 step 必须带 continue-on-error 才能避免 job 显红: {name}"
+        )
+    assert "Report Codex chain status" in codex_steps, (
+        "Codex 主审必须有汇总 step 把成败写进 outputs.status"
     )
     assert jobs["publish"].get("needs") == ["codex_review", "claude_review"], (
         "PR publisher 必须等待两条审查链"
@@ -118,13 +134,14 @@ def assert_pr_review_draft_contract(source: str) -> None:
 
     publish_steps = unique_steps_by_name(jobs["publish"]["steps"], "PR publisher")
     expected_conditions = {
-        "Download Codex review result": "needs.codex_review.result == 'success'",
+        "Download Codex review result": "needs.codex_review.outputs.status == 'success'",
         "Download Claude review result": "needs.claude_review.result == 'success'",
         "Validate and publish review comment": (
-            "needs.codex_review.result == 'success' || needs.claude_review.result == 'success'"
+            "needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'"
         ),
         "Fail when no reviewer succeeded": (
-            "always() && needs.codex_review.result != 'success' && needs.claude_review.result != 'success'"
+            "always() && needs.codex_review.outputs.status != 'success' "
+            "&& needs.claude_review.result != 'success'"
         ),
     }
     for name, expected in expected_conditions.items():
@@ -1211,13 +1228,13 @@ def main() -> None:
     )
     assert_pr_review_draft_contract(review)
     duplicate_codex_download = review.replace(
-        "        if: needs.codex_review.result == 'success'\n",
+        "        if: needs.codex_review.outputs.status == 'success'\n",
         "        if: 0 == 1\n",
         1,
     ).replace(
         "      - name: Download Claude review result\n",
         "      - name: Download Codex review result\n"
-        "        if: needs.codex_review.result == 'success'\n"
+        "        if: needs.codex_review.outputs.status == 'success'\n"
         "        run: \"true\"\n\n"
         "      - name: Download Claude review result\n",
         1,
@@ -1233,16 +1250,16 @@ def main() -> None:
         ),
         (
             review.replace(
-                "    if: always() && needs.codex_review.result != 'success'\n",
-                "    if: always() && needs.codex_review.result != 'success' && 0 == 1\n",
+                "    if: always() && needs.codex_review.outputs.status != 'success'\n",
+                "    if: always() && needs.codex_review.outputs.status != 'success' && 0 == 1\n",
                 1,
             ),
             "Claude 兜底恒假条件",
         ),
         (
             review.replace(
-                "    if: always()\n",
-                "    if: always() && 0 == 1\n",
+                "    needs: [codex_review, claude_review]\n    if: always()\n",
+                "    needs: [codex_review, claude_review]\n    if: always() && 0 == 1\n",
                 1,
             ),
             "publisher 恒假条件",
@@ -1257,7 +1274,7 @@ def main() -> None:
         ),
         (
             review.replace(
-                "        if: needs.codex_review.result == 'success'\n",
+                "        if: needs.codex_review.outputs.status == 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
@@ -1273,7 +1290,7 @@ def main() -> None:
         ),
         (
             review.replace(
-                "        if: needs.codex_review.result == 'success' || needs.claude_review.result == 'success'\n",
+                "        if: needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
@@ -1281,7 +1298,7 @@ def main() -> None:
         ),
         (
             review.replace(
-                "        if: always() && needs.codex_review.result != 'success' && needs.claude_review.result != 'success'\n",
+                "        if: always() && needs.codex_review.outputs.status != 'success' && needs.claude_review.result != 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
@@ -1294,12 +1311,12 @@ def main() -> None:
         (
             review.replace(
                 "      - name: Download Codex review result\n"
-                "        if: needs.codex_review.result == 'success'\n"
+                "        if: needs.codex_review.outputs.status == 'success'\n"
                 "        uses: actions/download-artifact@v8\n"
                 "        with:\n"
                 "          name: review-result-codex\n",
                 "      - name: Download Codex review result\n"
-                "        if: needs.codex_review.result == 'success'\n"
+                "        if: needs.codex_review.outputs.status == 'success'\n"
                 "        uses: actions/download-artifact@v8\n"
                 "        with:\n"
                 "          name: review-result-claude\n",
