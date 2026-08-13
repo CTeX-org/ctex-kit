@@ -2,7 +2,7 @@
 
 ## overview
 
-- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 以 runner 默认用户运行并拥有完整本地执行权限（#1032 起）、单脚本工具安装、restore-only 缓存，以及只读 `GITHUB_TOKEN`／独立 publisher／Claude `--bare` 的纯权限隔离与已接受风险；「维护状态」现记录 CI 独立回归包已扩展到 `xpinyin/`（#1041 起，覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条路线）。
+- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 以 runner 默认用户运行并拥有完整本地执行权限（#1032 起）、单脚本工具安装、restore-only 缓存，以及只读 `GITHUB_TOKEN`／独立 publisher／Claude `--bare` 的纯权限隔离与已接受风险；「维护状态」现记录 CI 独立回归包已扩展到 `xpinyin/`（#1041 起，覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条路线）。2026-08-13 起三条 workflow 的 Codex 主链路统一使用 `continue-on-error` + `outputs.status` 汇总，失败以 warning 触发 Claude fallback，只有两条链路都失败才让最终 job 显红；Codex 默认 endpoint、`priority` 通道和 `high` 推理强度也已固化，详见 `llmdoc/reference/build-and-test.md`。
 
 ## architecture
 
@@ -129,6 +129,7 @@
 - `llmdoc/memory/reflections/agentic-template-reuse.md` — 历史反思：复用 `agentic-workflow-template` 的 Issue 分派与 llmdoc 更新，用事件驱动分派取代定时巡检，并记录当时的薄调用层、固定提交引用、直接写入权限和离线合同测试边界；该运行方式已被 #1025 替代。
 - `llmdoc/memory/reflections/1025-agentic-local-runtime-toolchain.md` — 反思：将三条远端 reusable Agent workflow 展开到本仓库，为六个 Agent job 安装排版与命令沙箱工具链；记录从“缓存绝对只读”修正为 Agent 启动前可信显式保存，并以字体完整性检查、专用用户、模型代理、Codex 空指令根与 Claude `--bare`、Agent 不可写的 base 固定规范、沙箱外结果控制目录、不可转储 CLI、固定事件提交、独立 publisher、按 head 的评论幂等性、完整分页和 `updated_at` 回复边界收紧运行合同。**其中三层进程隔离已被 #1032 取代**，见决策 [[1032-agent-runtime-simplification]]。
 - `llmdoc/memory/reflections/1030-1031-composite-action-semantics.md` — 反思：PR #1030/#1031 修复 `setup-agent-tools` 复合 Action 的两处独立缺陷——`timeout-minutes` 只在 job step 合法、`run` 默认 shell 带 `pipefail` 使提前 `exit` 的 awk 管道以 141 终止 step；记录复合 Action 与 job step 两套字段/默认值语义、自建校验器允许表须核对平台实际拒绝行为、加载期失败遮蔽运行期缺陷，以及诊断误判 close/reopen 不能替代 rebase 恢复 `pull_request_target` 的 `base.sha`（分叉点）语义。**这两处缺陷是 #1032 否决三层隔离方案、改用单脚本工具安装的直接原因**，见决策 [[1032-agent-runtime-simplification]]；字段/默认值语义规则本身仍适用于 `run-agent`/`feishu-notify` 两个仍在用的复合 Action。
+- `llmdoc/memory/reflections/2026-08-13-agentic-codex-fallback-status.md` — 反思：三条 Agent workflow 以 `continue-on-error` + `outputs.status` 保持 Codex 主链路失败可追踪并触发 Claude fallback；下游不得再判失去判别力的 `.result`，llmdoc 候选生成与校验需分别汇总；同时记录 Codex endpoint、priority 通道和 high 推理强度默认值。
 - `llmdoc/memory/reflections/ctex-architecture-doc.md` — 反思: ctex 架构独立文档的创建过程、源码阅读方法与已知文档缺口。
 - `llmdoc/memory/reflections/961-changelog-freshness-gate.md` — 反思: #961 CHANGELOG.md 生成物新鲜度校验（check-changelog.yml）流程分歧收敛过程、跨平台字节一致性必须由脚本自控 encoding/newline 的新坑、用改造前脚本输出当字节级 oracle 验证回归的方法、校验 fail 时按校验对象大小设计可操作性（整文件需三通道贴期望内容）、以及「生成物新鲜度校验」作为跨 #937/#961 的通用架构模式的提炼建议。
 - `llmdoc/memory/reflections/1001-boundary-capture-gap-fixes.md` — 反思：PR #1001 修复 #996、#998、#1000 时，管道掩盖了六项测试失败；盒子是否直接排出可见内容需要同时检查尺寸和末节点类型；嵌套盒子结束时，外层盒子必须读取节点列表末尾的 marker，不能无条件覆盖所有外层 `last_tl`。文档还记录了两项错误旧基线和 gh-assets 测试驱动引用已删除内部变量的问题。
