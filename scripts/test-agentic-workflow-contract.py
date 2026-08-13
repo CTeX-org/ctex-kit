@@ -180,6 +180,49 @@ def assert_pr_review_draft_contract(source: str) -> None:
     assert failure_result.returncode != 0, "两条审查链都失败时，publisher 必须以非零状态结束"
 
 
+def assert_codex_chain_not_red(source: str, label: str, chain: dict) -> None:
+    """主链路失败不得让 job 显红, 但失败信号必须仍可被下游判别。
+
+    codex 侧的关键步骤带 continue-on-error（这样 fallback 接手时主 job 不挂红叉），
+    代价是 needs.<job>.result 恒为 success。因此每个这样的 job 都必须导出
+    outputs.status，且全仓不得再有任何地方判它的 .result —— 那个值已经没有判别力了。
+
+    chain 形如 {"job 名": ["必须带 continue-on-error 的 step 名", ...]}。
+    """
+    document = parse_workflow(source)
+    jobs = document["jobs"]
+    for job_name, step_names in chain.items():
+        assert job_name in jobs, f"{label} 缺少 job: {job_name}"
+        job = jobs[job_name]
+        assert job.get("outputs", {}).get("status"), (
+            f"{label} 的 {job_name} 必须导出 status output，"
+            "否则 continue-on-error 会让失败无声通过"
+        )
+        steps = unique_steps_by_name(job["steps"], f"{label} {job_name}")
+        for step_name in step_names:
+            assert step_name in steps, f"{label} 的 {job_name} 缺少 step: {step_name}"
+            assert steps[step_name].get("continue-on-error") is True, (
+                f"{label} 的 {job_name} step 必须带 continue-on-error 才能避免 job 显红: "
+                f"{step_name}"
+            )
+        assert any(
+            isinstance(v, str) and v.startswith("${{ steps.")
+            for v in job["outputs"].values()
+        ), f"{label} 的 {job_name} 的 status 必须来自某个汇总 step 的 output"
+
+    # 判别力的关键：改成 continue-on-error 之后 .result 恒为 success，任何残留的
+    # .result 判断都是静默失效的门禁。
+    # 只看有效行：注释里出现这个串是在解释「不要判它」，不算违规。
+    effective = "\n".join(
+        line for line in source.split("\n") if not line.lstrip().startswith("#")
+    )
+    for job_name in chain:
+        assert f"needs.{job_name}.result" not in effective, (
+            f"{label} 仍有地方判 needs.{job_name}.result —— 该值在 continue-on-error 下"
+            "恒为 success，必须改判 outputs.status"
+        )
+
+
 def assert_contract_hook_coverage(source: str) -> None:
     document = parse_workflow(source)
     trigger_paths = document["on"]["pull_request"]["paths"]
@@ -1227,6 +1270,37 @@ def main() -> None:
         "PR Review trigger",
     )
     assert_pr_review_draft_contract(review)
+
+    # 三条 codex -> claude fallback 链路都不得在主链路失败时显红（见
+    # assert_codex_chain_not_red 的说明）。llmdoc 那条把候选生成与校验拆成两个 job，
+    # 所以两个都要检查。
+    assert_codex_chain_not_red(
+        review,
+        "PR Review",
+        {
+            "codex_review": (
+                "Review with Codex and GPT-5.6-sol",
+                "Normalize and validate Codex review",
+            )
+        },
+    )
+    assert_codex_chain_not_red(
+        issue,
+        "Issue Dispatch",
+        {"codex_analyze": ("Analyze with Codex", "Normalize Codex result")},
+    )
+    assert_codex_chain_not_red(
+        llmdoc,
+        "llmdoc Updater",
+        {
+            "codex_candidate": (
+                "Update llmdoc with Codex",
+                "Import Agent llmdoc content into fresh packaging base",
+                "Package Codex candidate",
+            ),
+            "validate_codex": ("Validate Codex candidate",),
+        },
+    )
     duplicate_codex_download = review.replace(
         "        if: needs.codex_review.outputs.status == 'success'\n",
         "        if: 0 == 1\n",

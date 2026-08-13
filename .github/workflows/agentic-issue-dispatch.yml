@@ -54,6 +54,11 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # 主链路失败由 claude fallback 兜住, 整体结论在 dispatch job 给出, 所以这个 job
+    # 不再以红叉示人。成败通过 outputs.status 传给下游 —— 带了 continue-on-error 之后
+    # needs.codex_analyze.result 恒为 success, 下游一律判 outputs.status。
+    outputs:
+      status: ${{ steps.status.outputs.status }}
     permissions:
       contents: read
     steps:
@@ -156,6 +161,8 @@ jobs:
             >> "$GITHUB_ENV"
 
       - name: Analyze with Codex
+        id: agent
+        continue-on-error: true
         uses: ./consumer/.github/actions/run-agent
         with:
           provider: codex
@@ -168,6 +175,9 @@ jobs:
           result_file: ${{ runner.temp }}/raw-result.json
 
       - name: Normalize Codex result
+        id: validate
+        if: steps.agent.outcome == 'success'
+        continue-on-error: true
         run: |
           test -x "$TRUSTED_ANSWER_NORMALIZER"
           mkdir -p "$RUNNER_TEMP/agent-result"
@@ -176,6 +186,7 @@ jobs:
             codex gpt-5.6-sol issue-dispatch
 
       - name: Upload Codex analysis
+        if: steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: issue-dispatch-result-codex
@@ -184,10 +195,34 @@ jobs:
           overwrite: true
           retention-days: 1
 
+      # 汇总两个带 continue-on-error 的步骤。失败时打 ::warning:: 而非 ::error::,
+      # job 保持绿色但异常仍可从 annotation 检索; 真正的红由 dispatch job 在两条链路
+      # 都失败时给出。
+      - name: Report Codex chain status
+        id: status
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.agent.outcome }}" != 'success' ]; then
+            reason='CLI 执行失败'
+          elif [ "${{ steps.validate.outcome }}" != 'success' ]; then
+            reason='输出未通过结果规范化或校验'
+          else
+            reason=''
+          fi
+          if [ -n "$reason" ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Codex 主链路失败::${reason}；将由 Claude Code fallback 接手"
+            printf '### Codex 主链路失败\n\n%s\n\n将由 Claude Code fallback 接手。\n' \
+              "$reason" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
   claude_analyze:
     name: Analyze with Claude Code (fallback)
     needs: [prepare, codex_analyze]
-    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && needs.codex_analyze.result != 'success'
+    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && needs.codex_analyze.outputs.status != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -332,14 +367,14 @@ jobs:
       description: ${{ steps.publish.outputs.description }}
     steps:
       - name: Download Codex analysis
-        if: needs.codex_analyze.result == 'success'
+        if: needs.codex_analyze.outputs.status == 'success'
         uses: actions/download-artifact@v8
         with:
           name: issue-dispatch-result-codex
           path: ${{ runner.temp }}/agent-result
 
       - name: Download Claude analysis
-        if: needs.codex_analyze.result != 'success' && needs.claude_analyze.result == 'success'
+        if: needs.codex_analyze.outputs.status != 'success' && needs.claude_analyze.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: issue-dispatch-result-claude
@@ -347,7 +382,7 @@ jobs:
 
       - name: Validate and publish analysis
         id: publish
-        if: needs.codex_analyze.result == 'success' || needs.claude_analyze.result == 'success'
+        if: needs.codex_analyze.outputs.status == 'success' || needs.claude_analyze.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -406,7 +441,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when no analysis succeeded
-        if: always() && needs.codex_analyze.result != 'success' && needs.claude_analyze.result != 'success'
+        if: always() && needs.codex_analyze.outputs.status != 'success' && needs.claude_analyze.result != 'success'
         run: |
           echo "::error::Codex 主链路与 Claude Code fallback 均执行失败"
           exit 1
