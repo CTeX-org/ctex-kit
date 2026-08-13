@@ -78,6 +78,12 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    # 主链路失败由 claude fallback 兜住, 整体结论在 update job 给出, 所以这个 job 不再
+    # 以红叉示人。下游必须判 outputs.status —— 带了 continue-on-error 之后
+    # needs.codex_candidate.outputs.status 恒为 success。本 job 的 status 只覆盖候选生成,
+    # 校验由独立的 validate_codex job 负责, 下游要同时判两个 status。
+    outputs:
+      status: ${{ steps.status.outputs.status }}
     steps:
       - name: Checkout event-pinned consumer base
         uses: actions/checkout@v7
@@ -181,6 +187,8 @@ jobs:
           PROMPT
 
       - name: Update llmdoc with Codex
+        id: agent
+        continue-on-error: true
         uses: ./runtime/.github/actions/run-agent
         with:
           provider: codex
@@ -203,6 +211,8 @@ jobs:
           token: ${{ github.token }}
 
       - name: Import Agent llmdoc content into fresh packaging base
+        id: import
+        continue-on-error: true
         run: |
           test -d consumer/llmdoc
           test ! -L consumer/llmdoc
@@ -218,6 +228,8 @@ jobs:
             consumer/llmdoc/. package-base/llmdoc/
 
       - name: Package Codex candidate
+        id: package
+        continue-on-error: true
         run: |
           bash runtime/.github/scripts/agentic/package-change-result.sh \
             "$RUNNER_TEMP/raw-result.json" "$GITHUB_WORKSPACE/package-base" \
@@ -225,6 +237,7 @@ jobs:
             codex gpt-5.6-sol update-llmdoc
 
       - name: Upload Codex candidate
+        if: steps.package.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: update-llmdoc-candidate-codex
@@ -233,13 +246,44 @@ jobs:
           overwrite: true
           retention-days: 1
 
+      # 汇总三个带 continue-on-error 的步骤。失败时打 ::warning:: 而非 ::error::,
+      # job 保持绿色但异常仍可从 annotation 检索; 真正的红由 update job 在两条链路都
+      # 失败时给出。注意本 job 的 status 只覆盖候选生成, 校验由独立的 validate_codex
+      # job 负责, 下游要同时判两个 status。
+      - name: Report Codex chain status
+        id: status
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.agent.outcome }}" != 'success' ]; then
+            reason='CLI 执行失败'
+          elif [ "${{ steps.import.outcome }}" != 'success' ]; then
+            reason='导入 llmdoc 内容到打包基线失败'
+          elif [ "${{ steps.package.outcome }}" != 'success' ]; then
+            reason='打包候选失败'
+          else
+            reason=''
+          fi
+          if [ -n "$reason" ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Codex 主链路失败::${reason}；将由 Claude Code fallback 接手"
+            printf '### Codex 主链路失败\n\n%s\n\n将由 Claude Code fallback 接手。\n' \
+              "$reason" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
   validate_codex:
     name: Validate Codex llmdoc update
     needs: [prepare, codex_candidate]
+    # 候选生成失败时无需再校验; 这里显式跳过, 避免下载不存在的 artifact 而红。
+    if: always() && needs.codex_candidate.outputs.status == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      status: ${{ steps.status.outputs.status }}
     steps:
       - name: Checkout event-pinned consumer base
         uses: actions/checkout@v7
@@ -274,11 +318,14 @@ jobs:
           path: ${{ runner.temp }}/candidate
 
       - name: Validate Codex candidate
+        id: validate
+        continue-on-error: true
         run: |
           bash runtime/.github/scripts/agentic/validate-change-artifact.sh \
             "$RUNNER_TEMP/candidate" "$GITHUB_WORKSPACE/consumer" update-llmdoc
 
       - name: Upload validated Codex candidate
+        if: steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: update-llmdoc-validated-codex
@@ -287,10 +334,24 @@ jobs:
           overwrite: true
           retention-days: 1
 
+      - name: Report Codex validation status
+        id: status
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.validate.outcome }}" != 'success' ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Codex 候选未通过校验::将由 Claude Code fallback 接手"
+            printf '### Codex 候选未通过校验\n\n将由 Claude Code fallback 接手。\n' \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
   claude_candidate:
     name: Update llmdoc with Claude Code (fallback)
     needs: [prepare, codex_candidate, validate_codex]
-    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && (needs.codex_candidate.result != 'success' || needs.validate_codex.result != 'success')
+    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && (needs.codex_candidate.outputs.status != 'success' || needs.validate_codex.outputs.status != 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -518,21 +579,21 @@ jobs:
       status: ${{ steps.publish.outputs.status }}
     steps:
       - name: Download validated Codex candidate
-        if: needs.codex_candidate.result == 'success' && needs.validate_codex.result == 'success'
+        if: needs.codex_candidate.outputs.status == 'success' && needs.validate_codex.outputs.status == 'success'
         uses: actions/download-artifact@v8
         with:
           name: update-llmdoc-validated-codex
           path: ${{ runner.temp }}/validated-candidate
 
       - name: Download validated Claude candidate
-        if: (needs.codex_candidate.result != 'success' || needs.validate_codex.result != 'success') && needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success'
+        if: (needs.codex_candidate.outputs.status != 'success' || needs.validate_codex.outputs.status != 'success') && needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: update-llmdoc-validated-claude
           path: ${{ runner.temp }}/validated-candidate
 
       - name: Checkout event-pinned publisher
-        if: (needs.codex_candidate.result == 'success' && needs.validate_codex.result == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success')
+        if: (needs.codex_candidate.outputs.status == 'success' && needs.validate_codex.outputs.status == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success')
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.base_sha }}
@@ -544,7 +605,7 @@ jobs:
 
       - name: Validate and publish llmdoc update
         id: publish
-        if: (needs.codex_candidate.result == 'success' && needs.validate_codex.result == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success')
+        if: (needs.codex_candidate.outputs.status == 'success' && needs.validate_codex.outputs.status == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success')
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -573,7 +634,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when no candidate succeeded
-        if: always() && !((needs.codex_candidate.result == 'success' && needs.validate_codex.result == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success'))
+        if: always() && !((needs.codex_candidate.outputs.status == 'success' && needs.validate_codex.outputs.status == 'success') || (needs.claude_candidate.result == 'success' && needs.validate_claude.result == 'success'))
         run: |
           echo "::error::Codex 与 Claude Code 均未产出通过校验的 llmdoc 候选结果"
           exit 1
