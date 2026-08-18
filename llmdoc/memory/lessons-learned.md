@@ -306,6 +306,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 我给 `\setpinyin` 补查询表同步时用了 `\cs_if_exist:cT { c_@@_query_<码位>_tl }`，理由是「查询表没载入时不该多设控制序列」——这个理由本身成立，但判据选错了：它同时也排除了**数据库未收录的汉字**。实测 `\setpinyin` 对 U+5159 只改注音表，`\xpinyinvalue` 仍报 `No pinyin reading`，与手册「两边给出的首选读音始终一致」直接冲突；而补录生僻字读音恰恰是 `\setpinyin` 最典型的用途。改用 `\g_@@_query_loaded_bool` 作门禁后，「未载入不设置」与「未收录也要创建」两个目标同时满足。由 PR #1051 上的自动审查作为阻塞问题提出。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
 
+### 回写第二张表时，写入值必须服从那张表\emph{自己}的编码约定（逐条核对，不止一条）
+**Rule**: 把数据写进另一张表，要逐条核对该表的编码约定，而不是只核对最显眼的那一条。约定通常散落在生成脚本、读取侧的拆分逻辑和表内容三处——三处都要看，且要以\emph{生成侧实际产出}为准而不是以文档措辞为准。
+**Why**: #1069／PR #1051 同一处 `\setpinyin` 回写查询表的代码连错三次：#550 修「有没有写第二张表」，#1069 修「`ü` 要折成 `v`」，这次修「轻声要去掉末尾 `5`」。第三条的判据来自三份互相印证的证据：`xpinyin.lua` 的 `numbertable` 只产出 `1`--`4`、生成的 `xpinyin-query.def` 里带 `5` 的条目为零、读取侧 `\@@_query_base:nn` 用 `` `#1 < `5 `` 判声调。手册说「声调用 1--5 表示」（面向 `\pinyin` 输入），而查询表的约定是「轻声不写数字」——**两个约定不同，回写时要服从后者**。只核对了 `ü` 这一条就以为规范化完备，是漏掉另外两条的原因。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
 ### 在文档／注释里举例用生僻字，要先确认手册字体有那个字形
 **Rule**: `.dtx` 注释里举汉字例子前，先确认手册用的字体有该字形，否则 `l3build doc` 会多出 `Missing character` 警告。生僻字改用码位（`U+5159`）描述。
 **Why**: #1051 我在 `\setpinyin` 那段注释里直接写了 `兙` 举例，`l3build doc` 的缺字形计数从 0 变成 2（`FandolFang-Regular.otf` 没有 U+5159）。测试文件里用该字没问题（`.tlg` 记的是节点，缺字形不影响比对），但手册是要发布给用户的。
