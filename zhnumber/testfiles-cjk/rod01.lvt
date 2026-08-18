@@ -1,0 +1,245 @@
+\input{regression-test}
+%
+%% 算筹数字 \zhrod / \zhrodbox 的输出 (#366).
+%%
+%% 本文件放 testfiles-cjk/ 而不是主 testfiles/, 因为算筹码位在 pdfTeX 与 upTeX 下
+%% 无法表示 (8-bit 引擎, 实测报 `Charcode requested out of engine range'), 而
+%% `l3build check' 会把 testfiledir 下每个 .lvt 拿去跑 checkengines 里的每一个引擎,
+%% 没有按文件指定引擎的机制. 引擎判定与报错另见主目录的 rod-engine01.
+%%
+%% TEST 1-3 只断言字符序列, 不需要字体: \zhrod 是可展开的, 用 \tl_set:Ne 捕获展开
+%% 结果即可. TEST 4 才需要字体 —— 它固定实际排出的字形.
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage{zhnumber}
+\newfontfamily\RodFont{LXGWWenKaiGBLite-Regular.ttf}
+%% JuliaMono 是**测试专用**依赖 (只有它同时含算筹字形与 U+20E5, 见下面 TEST 4),
+%% 已加进 .github/tl_packages 让 CI 装上。不写进 DEPENDS.txt —— 那里记的是本包运行时
+%% 需要的宏包 (供 CTAN 用), 而 zhnumber 本身不依赖任何字体, 这是有意的取舍。
+\newfontfamily\JuliaMonoFont{JuliaMono-Regular.ttf}
+\begin{document}
+\START
+\ExplSyntaxOn
+
+%% 1. 位值奇偶决定朝向, 且跨小数点延续交替.
+%%    判据是字符序列本身 —— 归一化后基线里就是字面的算筹字符, 所以「排的是哪个码位」
+%%    被逐字固定下来, 不只是「长度对不对」.
+%%
+%%    UNIT 区 (U+1D360 起) 是横画, TENS 区 (U+1D369 起) 是纵画 —— 与区名相反,
+%%    见 zhnumber.dtx 里 \@@_rod_vertical:n 的说明. 故 units=vertical 时个位取 TENS 区.
+\TEST{glyph~selection~by~place~parity}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12030 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 123456789 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod { -12030.405 } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 2. units / zero / minus / zerochar 四个开关各自生效 (kern / dot / font 见 TEST 5-6).
+%%    zero=omit 会产生歧义 (省零时 1/100/10000 写法全同, 实测 1..99999 内 990 组碰撞),
+%%    所以默认是 fill; 这里两种都固定下来, 免得日后把默认改反而没人发现.
+\TEST{options}{
+  \zhrodsetup { zero = omit }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12030 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { zero = fill }
+  \zhrodsetup { units = horizontal }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { units = vertical }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 12 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = overlay }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { -5 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = slash }
+  \zhrodsetup { zerochar = 零 }
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 102 } }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { zerochar = 〇 }
+  %% 三个 .default:n 也要覆盖: 不带值地写键名时取的就是它 (盲审指出把三个默认值全反过来
+  %% 两套 check 仍全绿)。先切到非默认, 再用不带值的写法切回, 读数应回到默认那一档。
+  \zhrodsetup { units = horizontal , zero = omit , minus = overlay }
+  \zhrodsetup { units , zero , minus }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{-102} }
+  \tl_log:N \l_tmpa_tl
+  %% 手册写明的两处限制, 在此固定下来, 免得日后「顺手改好」而没人发现文档也要改:
+  %% (a) zero=omit 下纯零输入什么都不排;
+  %% (b) minus=overlay 末位是 0 时叠在零的位置上, 而不是叠在一个筹码上.
+  \zhrodsetup { zero = omit }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{0} }
+  \tl_log:e { omit~zero~is~empty: \tl_if_empty:NTF \l_tmpa_tl { yes } { no } }
+  \zhrodsetup { zero = fill , minus = overlay }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{-10} }
+  \tl_log:N \l_tmpa_tl
+  \zhrodsetup { minus = slash }
+}
+
+%% 3. \zhrod 可展开 —— 这是它与 \zhrodbox 的分工所依赖的性质, 也是它能进
+%%    .toc 与 PDF 书签的前提.
+%%
+%%    判据用 \tl_count:N 与 \str_count:N: 完全展开成字符后两者相等 (每个记号都是
+%%    单个字符); 若实现里混进不可展开的东西 (切字体、加字距), 展开结果里会留下控制
+%%    序列, \tl_count 与 \str_count 就不再相等 —— 一个控制序列算 1 个记号但字符数
+%%    远大于 1.
+%%
+%%    不用 \tl_if_in:NnTF ... { \c_backslash_str } 作判据: 那个写法是恒假的 ——
+%%    \c_backslash_str 在 :n 参数里不展开, 拿它去匹配永远匹配不上, 对含控制序列的
+%%    记号表也答「否」(实测: 给一个确实含 \fake 的 tl 做同样判断, 结果仍是「否」).
+%%    这类「看起来正规实际零判别力」的断言由本地盲审查出.
+\TEST{expandability}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod { 6708 } }
+  \tl_log:N \l_tmpa_tl
+  \tl_log:e { 记号数 = \tl_count:N \l_tmpa_tl }
+  \tl_log:e { 字符数 = \str_count:N \l_tmpa_tl }
+}
+
+%% 4. 负号两种记法的位置不同, 且 \zhrodbox 下组合字符必须紧贴最后一位筹码.
+%%    slash (U+FF3C) 排在筹码之前; overlay (U+20E5) 是组合字符, 必须紧跟在最后一位
+%%    之后才会叠上去。
+%%
+%%    判据是 \zhrod 与 \zhrodbox 两个盒子的宽度相等: 组合字符不占宽度, 所以只要它还
+%%    黏在筹码上, 加不加字距都不改变总宽 (字距只加在筹码之间)。初版 \zhrodbox 用
+%%    \tl_map_inline:nn 在每两个记号之间插字距, 把组合字符挤离了基字符, 于是
+%%    \zhrodbox{-5} 比 \zhrod{-5} 窄 1.4pt —— 等于负号丢了。两处缺陷都由本地盲审发现。
+%%
+%%    注意 overlay 要用 JuliaMono: TeX Live 里含算筹字形的 19 款字体里, lxgw 那 5 款
+%%    只有 U+FF3C、juliamono 那 14 款只有 U+20E5, 没有一款同时具备 (实测)。
+\TEST{sign~notation~and~combining~mark}{
+  \zhrodsetup { minus = overlay , font = \JuliaMonoFont }
+  \hbox_set:Nn \l_tmpa_box { \JuliaMonoFont \zhrod{-5} }
+  \tl_log:e { overlay~zhrod~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{-5} }
+  \tl_log:e { overlay~zhrodbox~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { minus = slash , font = \RodFont }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{-5} }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 5. 多记号的 zerochar / dot 不能被拆坏.
+%%    初版把整串 e 展开后逐记号 map, 于是分组被丢掉, dot=\ensuremath{\cdot} 直接编译
+%%    失败 (盲审发现)。改为在生成筹码时插字距, 用户记号原样通过, 这两个取值现在都能用。
+%%
+%%    注意 zerochar={\Large 〇} 里的 \Large 仍会影响后面的筹码 —— 那是 expl3 键把
+%%    取值原样存进 tl 的正常语义 (取值里的字号切换本来就没有分组), 不是本功能的缺陷。
+%%    要局部生效请自己加花括号, 如 zerochar={{\Large 〇}}。下面基线里记的宽度就是
+%%    \Large 生效后的宽度。
+\TEST{multitoken~option~values}{
+  \zhrodsetup { font = \RodFont , zerochar = { \Large 〇 } }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{102} }
+  \tl_log:e { large~zerochar~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { zerochar = 〇 , dot = \ensuremath{\cdot} }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{1.5} }
+  \tl_log:e { ensuremath~dot~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { dot = . }
+}
+
+%% 6. kern 键的读取端要有覆盖.
+%%    只固定默认值不够: 把 \l_@@_rod_kern_tl 的读取处硬编码成 -.14em, 或干脆删掉 kern
+%%    键的注册, 两套 check 都仍然全绿 (实测) —— 基线钉住的是「默认值是多少」, 不是
+%%    「这个键还能不能用」。手册明确说这个默认值是临时的、期望用户自己调, 所以读取端
+%%    必须有判别力。盲审发现这是七个键里唯一读取端无覆盖的。
+%%
+%%    判据: 给一个明显不同的字距, 盒子宽度按「筹码数 - 1」倍变化。
+\TEST{kern~key~read~end}{
+  \zhrodsetup { font = \RodFont , kern = 0pt }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{123} }
+  \tl_log:e { kern0~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { kern = -2pt }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox{123} }
+  \tl_log:e { kern-2pt~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { kern = -.14em }
+}
+
+%% 7. 非数字输入不能把内部记号漏到页面上.
+%%    初版把每个字符都塞进 "1D368 + #1 的算术里, 于是 \zhrod{1a} 排出 `𝍠a=0〇' ——
+%%    \int_eval 把 a 当成未定义的数并把 \__int_eval:w 一类内部记号漏出来 (盲审发现)。
+%%    现在非数字字符原样输出。注意这与 \zhdigits 的策略**相反**而不是「取齐」:
+%%    \zhdigits{1a4} 把 a 丢掉得到「一四」, \zhrod{1a} 把它留下得到「筹码 a」。
+%%    保留原字符更便于发现输入有问题。(此处原写「取齐」, 与 dtx 里的说明自相矛盾, 盲审发现。)
+\TEST{non~digit~input}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{1a} }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 8. 尾随空格不能让命令炸掉.
+%%    分隔符扫描器遇到 `12 ' 时会跳过那个空格、找不到 \q_stop, 于是跑过右花括号 ——
+%%    实测 \zhrod{12 } 报四条硬错误。守卫原先用 \tl_if_empty:nF, 而单个空格对它
+%%    「非空」; 改用 \tl_if_blank:nF。\zhdigits{12 } 与 \zhnumber{12 } 本来就能处理,
+%%    所以这是本功能引入的不一致 (盲审发现)。
+%%
+%%    这类输入很常见: \zhrod{\the\year\space}、或宏定义末尾带空格的 \zhrod{\yr}。
+%%    **必须用 \c_space_tl 而不是源码里的空格**: 本文件在 \ExplSyntaxOn 下, 空格的
+%%    catcode 是 9 (忽略), 所以 `\zhrod{12 }' 里根本没有空格记号 —— 实测那样写时
+%%    \tl_count 为 2、\tl_to_str 就是 `12', 断言恒真 (还原三处守卫后测试仍全绿)。
+%%    这是「看起来在测某件事、实际那件事不在输入里」的一类, 由盲审查出。
+\TEST{trailing~space}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 12 \c_space_tl } }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 1.5 \c_space_tl } }
+  \tl_log:N \l_tmpa_tl
+  %% 前导 + 的分支也要有覆盖: 删掉它会让 \zhrod{+5} 漏出 `+𝍭' 而测试仍绿 (盲审发现).
+  \tl_set:Ne \l_tmpa_tl { \zhrod{+5} }
+  \tl_log:N \l_tmpa_tl
+  %% **纯空白输入**要单独测: 上面三个输入在最外层都「非空白」, 所以只覆盖了两条循环里的
+  %% 守卫, 没覆盖 \@@_rod_number:n 顶层那个 —— 还原顶层守卫后测试仍全绿, 而 \zhrod{ }
+  %% 会报两条硬错误 (盲审发现)。三处守卫各自需要一个能触到它的输入。
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ } }
+  \tl_log:e { blank~input~is~empty: \tl_if_empty:NTF \l_tmpa_tl { yes } { no } }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ \c_space_tl } }
+  \tl_log:e { space~only~is~empty: \tl_if_empty:NTF \l_tmpa_tl { yes } { no } }
+}
+
+%% 9. 分组输入是已知限制, 在此固定当前行为.
+%%    位值用 \tl_count:n 数, 分组算作一位, 于是纵横整体错开: \zhrod{12\ver}
+%%    (\ver 展开为 {2026}) 与 \zhrod{122026} 朝向完全相反, 且不报错 (盲审发现)。
+%%    手册已写明参数不能带分组。这里固定下来, 是为了「哪天真去修它」时能立刻看出行为变了,
+%%    而不是把当前行为当作正确。修法见 dtx 里 \@@_rod_int:n 的说明。
+\TEST{grouped~input~known~limitation}{
+  \tl_set:Ne \l_tmpa_tl { \zhrod{122026} }
+  \tl_log:N \l_tmpa_tl
+  \tl_set:Nn \l_tmpb_tl { {2026} }
+  \tl_set:Ne \l_tmpa_tl { \zhrod{ 12 \l_tmpb_tl } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 10. 两个命令都要展开参数, 且对同一输入产出同样的盒子.
+%%    \zhrod 用 \@@_rod_number:e, \zhrodbox 起初用 :n —— 于是 \zhrodbox{\num} 把
+%%    未展开的宏塞进 "1D368 + \num 的算术里, 排出一个越界字形并只报 Missing character
+%%    (\zhrodbox{\arabic{foo}} 更糟: 四条 Missing number 加一串字面文本)。盲审发现。
+%%
+%%    判据是两个宽度各自钉进基线。两者本来就不相等 (\zhrodbox 压了字距, 30 对 27.20001);
+%%    参数没展开时 \zhrodbox 那个盒子的宽度会偏离它的基线值 (缺字宽度为 0 或落到别的
+%%    字形上), 于是本用例变红。
+\TEST{argument~expansion~in~both~commands}{
+  \zhrodsetup { font = \RodFont }
+  \tl_set:Nn \l_tmpa_tl { 123 }
+  \hbox_set:Nn \l_tmpa_box { \RodFont \zhrod { \l_tmpa_tl } }
+  \tl_log:e { zhrod~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox { \l_tmpa_tl } }
+  \tl_log:e { zhrodbox~macro~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+}
+
+%% 11. 实际排出的字形进基线, 补上「序列对但字体没排出来」这一维.
+%%    只有度量 (wd/ht) 不足以固定「排的是哪个字」—— 同一字体里不同算筹字形可能同宽,
+%%    所以用 \loggingoutput 把盒子内容本身写进基线.
+%%    用 \loggingoutput 而非 \showbox: 后者报 `! OK.' 会在 -halt-on-error 下当场中止.
+%%    必须 \clearpage, 否则页面不 ship out, TEST 段落是空的.
+%%    \zhrodbox 必须先用 font= 注入字体, 否则它会在当前 (西文) 字体里排算筹而只报
+%%    Missing character —— 包本身不声明任何字体, 这是有意的取舍, 见手册.
+%%    这里两个盒子的对照正好固定这一点: 第一个手工切字体, 第二个靠 font= 键.
+\loggingoutput
+\TEST{typeset~output}{
+  \hbox_set:Nn \l_tmpa_box { \RodFont \zhrod { 12030 } }
+  \box_use:N \l_tmpa_box
+  \zhrodsetup { font = \RodFont }
+  \hbox_set:Nn \l_tmpa_box { \zhrodbox { 12030 } }
+  \box_use:N \l_tmpa_box
+  \par
+  \clearpage
+}
+
+\ExplSyntaxOff
+\END
+\end{document}

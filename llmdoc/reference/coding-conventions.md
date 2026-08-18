@@ -133,6 +133,39 @@
 「`\changes` 与索引条目里的 makeindex 特殊字符（#1054）」，那里的特殊含义由 makeindex 的
 `.ist` 指令而非 catcode 决定。
 
+**同一条「catcode régime 一次定好」在测试文件里的复现（#1008）**：写 `.lvt` 测试时若
+想在 `\TEST{...}` 的参数**内部**临时切换 `\ExplSyntaxOn`／`\ExplSyntaxOff` 去容纳两种
+写法（例如既要展开一段 `\protected@edef` 又要用 expl3 断言），这**不生效**——参数在
+被 `\TEST` 读入的那一刻，其中每个 token 的 catcode 就已经按当时生效的 régime 冻结，
+之后在参数体内再写 `\ExplSyntaxOn` 只是让引擎多展开一个空操作，不会回头改变已经确定的
+记号性质（实测报 `Undefined control sequence` 指向后续 expl3 命令）。这与上面「字面
+模式的类别在文件被 tokenise 的那一刻冻结」是同一机制在两个不同触发点的表现：一个是
+替换模式的字面字符，一个是整段参数的 catcode 环境。解法同样是在**读入之前**就把
+régime 定好——整个测试文件统一在 `\ExplSyntaxOn` 下，需要 `\protected@edef` 一类带
+`@` 的命令时，用 `\makeatletter` 包一段、再用 `\cs_set_eq:NN`／`\cs_new_eq:NN` 起一个
+不带 `@` 的 expl3 别名，断言部分继续用 expl3 语法读取该别名的展开结果（见
+`zhnumber/testfiles/counter-options01.lvt`）。
+
+## 会被写进辅助文件的 expl3 记号，名字里不能含 `_`（#1008）
+
+这是与上面「字面字符当替换模式时必须核对 catcode régime」同一机制族（catcode 在
+tokenise 那一刻决定）的另一个场景：不是对齐环境，而是**辅助文件往返**。
+
+写 `.toc`／`.aux` 一类辅助文件时，`_` 不是 letter（catcode 8）。若传给某个命令的
+记号里含 `_`（如 `\c_false_bool`），这一整串会被原样写进辅助文件，下次编译重新
+tokenise 时名字在**写出那一刻**就断成 `\c _false_bool`，读回即出错。
+
+具体报什么错取决于写法，两种都实测过：不带花括号时（`\exp_args:NNne ... \c_false_bool`）
+断开的 `_` 被当成键名，报 `The key 'zhnum/options/_' is unknown` 之类一串错误；带花括号
+时（`{ \c_false_bool }`）报 `Missing $ inserted.`。**排查时不要把某一种当成这条约束的
+唯一表征**——只认其中一种，换个写法复核就会误判为「机制不成立」。
+
+zhnumber 初版给 `\zhdigitswithoptions` 的星号参数传 `\c_false_bool` 即踩了这一坑：
+第一遍编译正常、第二遍读回 `.toc` 才炸——这类失败的特征是「跨编译才暴露」。应改用
+expl3 为此提供的、名字里没有 `_` 的记号 `{\BooleanFalse}`（`\zhdigits` 的无计数器
+版本本来就这么写）。**判据是跑两遍编译，不是一遍**：只编译一次看不出问题，因为
+辅助文件要到第二遍才被读回。
+
 ## `.lvt` 测试文件中 `~` 的使用约定（#893）
 
 `.lvt` 测试文件里 `~` 的合法性取决于所在的 catcode 段，写测试时必须区分：

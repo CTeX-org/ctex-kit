@@ -1,0 +1,109 @@
+% #1077: Tn／Dn／GZn 三组键的目标变量必须各自独立。
+%
+% 缺陷形态：Tn 曾抄成 \l_@@_ganzhi_#1_tl（与 GZn 同一个变量），于是设置 T1 改掉的是
+% \zhganzhi{1} 而不是 \zhtiangan{1}。这处笔误单看 Tn 自己那两行看不出来——步数 10
+% 与 groups 里的 tiandi 都是对的，只有变量名错，必须把三组键并排比对才能发现。
+%
+% 判别力（已逐项实测）：把 Tn 的绑定改回 \l_@@_ganzhi_ #1 _tl 后，下列读数翻转 ——
+%
+%   custom-T1-tiangan    我的甲        -> 甲            （T1 不再影响天干）
+%   custom-T1-ganzhi     我的甲子      -> 我的甲        （干支被整个替换，不是组合）
+%   custom-TD-tiangan    我的甲        -> 甲
+%   custom-TD-ganzhi     我的甲我的子  -> 我的甲
+%   custom-all-tiangan   我的甲        -> 甲
+%
+% 不翻转的项也要知道：TEST 1（默认值）、TEST 5（GZ1 独立）、TEST 6 的 custom-all-ganzhi
+% （显式 GZ1 本来就直接写干支变量，与 Tn 绑到哪儿无关）、TEST 7（分组不泄漏）在变异下
+% 保持不变。它们不区分本缺陷，但各自固定了别的行为，不是恒真填充。
+%
+% 本文件不需要 \begin{document}：\zhtiangan 等命令可展开，用 \tl_log:x 记录展开结果即可，
+% 照 style01.lvt 的体例。
+%
+% pdfTeX 需要单独一份基线（tiandi01.pdftex.tlg）：它是 8-bit 引擎，中文在日志里按字节
+% 转义成 ^^e7^^94^^b2 这类形式，而 xetex／luatex／uptex 直接记中文字符。所以 pdftex 那份
+% 基线读起来不直观 —— 对照关系是每三个 ^^xx 一个汉字（UTF-8），例如
+% ^^e7^^94^^b2 = 甲、^^e5^^ad^^90 = 子、^^e6^^88^^91^^e7^^9a^^84 = 我的。
+% 改动本文件后若只有 pdftex 报红、其余三个引擎通过，先怀疑是不是漏刷了那份基线。
+
+\input{regression-test}
+
+\documentclass{article}
+\usepackage{zhnumber}
+
+\START
+
+\ExplSyntaxOn
+
+% 基准：未设置任何自定义映射时的默认输出。后面每项都要与这组对照才能说明「改了什么、
+% 没改什么」。
+\TEST{default~tiangan/dizhi/ganzhi}{
+  \tl_log:x { tiangan-1 = \zhtiangan {1} }
+  \tl_log:x { tiangan-10 = \zhtiangan {10} }
+  \tl_log:x { dizhi-1 = \zhdizhi {1} }
+  \tl_log:x { dizhi-12 = \zhdizhi {12} }
+  \tl_log:x { ganzhi-1 = \zhganzhi {1} }
+  \tl_log:x { ganzhi-60 = \zhganzhi {60} }
+}
+
+% #1077 的核心：设置 Tn 只应影响天干，并连带影响由天干组合出的干支，
+% 但不应「替换」整个干支。
+\TEST{custom~T1~affects~tiangan~and~composed~ganzhi}{
+  \group_begin:
+    \zhnumsetup { T1 = 我的甲 }
+    \tl_log:x { custom-T1-tiangan = \zhtiangan {1} }
+    \tl_log:x { custom-T1-dizhi = \zhdizhi {1} }
+    \tl_log:x { custom-T1-ganzhi = \zhganzhi {1} }
+  \group_end:
+}
+
+% Dn 侧作对照：它一直是对的，这一项用来说明缺陷只在 Tn。
+\TEST{custom~D1~affects~dizhi~and~composed~ganzhi}{
+  \group_begin:
+    \zhnumsetup { D1 = 我的子 }
+    \tl_log:x { custom-D1-tiangan = \zhtiangan {1} }
+    \tl_log:x { custom-D1-dizhi = \zhdizhi {1} }
+    \tl_log:x { custom-D1-ganzhi = \zhganzhi {1} }
+  \group_end:
+}
+
+% 报告者 #1077 的原始组合：同时设 T1 与 D1。
+\TEST{custom~T1~and~D1~compose}{
+  \group_begin:
+    \zhnumsetup { T1 = 我的甲 , D1 = 我的子 }
+    \tl_log:x { custom-TD-tiangan = \zhtiangan {1} }
+    \tl_log:x { custom-TD-dizhi = \zhdizhi {1} }
+    \tl_log:x { custom-TD-ganzhi = \zhganzhi {1} }
+  \group_end:
+}
+
+% GZn 独立于 Tn／Dn：显式设 GZ1 只改 \zhganzhi{1}，天干地支不受影响；
+% 反过来设 T1／D1 也不该改掉 GZn 已有的显式设置之外的语义。
+\TEST{GZ1~is~independent~of~T1~and~D1}{
+  \group_begin:
+    \zhnumsetup { GZ1 = 我的甲子 }
+    \tl_log:x { custom-GZ-tiangan = \zhtiangan {1} }
+    \tl_log:x { custom-GZ-dizhi = \zhdizhi {1} }
+    \tl_log:x { custom-GZ-ganzhi = \zhganzhi {1} }
+  \group_end:
+}
+
+% 三组键同时设置：GZ1 是显式干支，应当优先于由 T1／D1 组合出来的结果。
+\TEST{explicit~GZ1~wins~over~composed~T1D1}{
+  \group_begin:
+    \zhnumsetup { T1 = 我的甲 , D1 = 我的子 , GZ1 = 显式甲子 }
+    \tl_log:x { custom-all-tiangan = \zhtiangan {1} }
+    \tl_log:x { custom-all-dizhi = \zhdizhi {1} }
+    \tl_log:x { custom-all-ganzhi = \zhganzhi {1} }
+  \group_end:
+}
+
+% 作用域：上面每项都包在 \group_begin:／\group_end: 里，这一项确认设置没有泄漏出分组。
+\TEST{settings~do~not~leak~out~of~group}{
+  \tl_log:x { after-groups-tiangan = \zhtiangan {1} }
+  \tl_log:x { after-groups-dizhi = \zhdizhi {1} }
+  \tl_log:x { after-groups-ganzhi = \zhganzhi {1} }
+}
+
+\ExplSyntaxOff
+
+\END

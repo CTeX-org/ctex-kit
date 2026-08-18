@@ -1,0 +1,131 @@
+\input{regression-test}
+
+%% 带选项的 \zhnum / \zhdig 的两件事 (#1008):
+%%
+%% 1. 写进辅助文件 (.toc 一类) 时必须固定为**当时的计数器值**, 而不是计数器名.
+%%    原实现把 \meta{counter} 原样交给 \zhnumwithoptions, 于是 .toc 里留下
+%%    `\zhnumwithoptions{style=...}{section}`; 该文件在下一次编译的
+%%    \tableofcontents 处读回时计数器已归零, 目录编号与正文不符 ——
+%%    #1008 实测正文「一／一.壹」而目录「零／零.零」.
+%%
+%% 2. \zhdig 的带选项形式此前直接坏掉: \zhdigwithoptions 把选项当额外参数传给
+%%    \zhnum_digits_counter:n (多写了一个 #1), 实测报
+%%    `Use of \??? doesn't match its definition` 并把 `tyle=Financialsection`
+%%    印到页面上.
+%%
+%% 观察手段说明: 这里用 \protected@edef + \tl_log:N 模拟「写进辅助文件」那一步.
+%% \protected@edef 含 `@`, 在 \ExplSyntaxOn 下 `@` 不是 letter, 直接写会报
+%% `You can't use a prefix with the character @` —— 所以展开动作放在
+%% \makeatletter 块里 (与 xeCJK/testfiles/command-boundary-math03.lvt 同一写法),
+%% 断言部分再回到 \ExplSyntaxOn.
+%% LaTeX 的 \addcontentsline 最终走的是 \protected@write, 其展开语义与
+%% \protected@edef 一致 (不可展开的命令被 \protect 住原样留下, 可展开的展开掉).
+%% 直接断言 .toc 文件内容会把测试与 \contentsline/\numberline 的排版细节绑在
+%% 一起, 那些与本问题无关; 固定「展开后的 token 列表」才是本问题的判据.
+%%
+%% 判别力要点: 判据必须是「展开结果里有没有计数器名」, 不能只看最终排版对不对 ——
+%% 若某次改动让它退回写计数器名, 单次编译的排版仍然是对的 (那时计数器值恰好正确),
+%% 只有跨编译读回时才错. 所以这里断言 token 列表本身.
+
+\documentclass{article}
+\usepackage{zhnumber}
+
+\START
+
+%% 展开动作要用 \protected@edef (含 `@'), 而断言要用 expl3 的 \tl_log:N ——
+%% 两者的 catcode 需求冲突, 且在 \TEST 的参数里切 \ExplSyntaxOn 不生效
+%% (参数已被读入, catcode 定死; 实测报 `Undefined control sequence' 指向
+%% \tl_log:N). 解法: 整个文件在 \ExplSyntaxOn 下, 而 \protected@edef 用
+%% \exp_args:Nc 之类拿不到, 所以先用 \cs_set_eq:NN 起一个 expl3 名字的别名.
+\makeatletter
+\ExplSyntaxOn
+\cs_new_eq:NN \zh_protected_edef:Nn \protected@edef
+\ExplSyntaxOff
+\makeatother
+
+\ExplSyntaxOn
+
+\setcounter { section } { 7 }
+\setcounter { subsection } { 3 }
+
+%% 1. 不带选项的形式本来就可展开, 作为对照: 展开结果应是中文数字本身.
+\TEST{plain~forms~expand~to~the~number}{
+  \tl_log:x { zhnum~plain:~\zhnum { section } }
+  \tl_log:x { zhdig~plain:~\zhdig { section } }
+}
+
+%% 2. 带选项的形式: 展开结果里**不能出现计数器名 `section`**, 而应含固定下来的
+%%    数值 7. 命令名本身留在结果里是预期的 (它不可完全展开, 见 dtx 里的说明).
+%%
+%%    这一项是 #1008 的核心判据. 原实现写进 .toc 的是
+%%    `\zhnumwithoptions{style=...}{section}' —— 计数器**名**; 该文件下次编译在
+%%    \tableofcontents 处读回时计数器已归零, 于是目录编号与正文不符
+%%    (实测正文「一／一.壹」而目录「零／零.零」).
+\TEST{option~forms~freeze~the~counter~value}{
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhnum [ style = Financial ] { section } }
+  \tl_log:N \l_tmpa_tl
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhdig [ style = Financial ] { section } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 3. 两个层级用**不同**样式 —— 这正是 #1008 要的混搭. 两者必须可区分,
+%%    否则「样式按各自选项生效」没有被验证.
+\TEST{different~styles~per~level}{
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhnum [ style = Normal ] { section } }
+  \tl_log:N \l_tmpa_tl
+  \zh_protected_edef:Nn \l_tmpb_tl { \zhnum [ style = Financial ] { subsection } }
+  \tl_log:N \l_tmpb_tl
+}
+
+%% 4. 带选项的 \zhdig 走的是固定数值那条路, 123 三位数使每一位都可见.
+%%
+%%    这里只断言**可展开**的 \zhdig. 兼容入口 \zhdigwithoptions 不在本文件覆盖:
+%%    它是 \NewDocumentCommand, 因而是 protected 的, \tl_set:Nx 只能取到命令名
+%%    本身而取不到输出 (实测基线里就是 `\zhdigwithoptions {style=Financial}
+%%    {section}' 原样). 断言它的行为只能让它实际排出汉字再量盒子, 见
+%%    testfiles-cjk/legacy-entry01.lvt.
+\TEST{zhdig~with~options~works}{
+  \setcounter { section } { 123 }
+  \tl_log:x { zhdig~plain:~\zhdig { section } }
+  \zh_protected_edef:Nn \l_tmpa_tl { \zhdig [ style = Financial ] { section } }
+  \tl_log:N \l_tmpa_tl
+}
+
+%% 5. 计数器不存在时, 带选项的形式必须报 zhnumber 自己的
+%%    `is not a LaTeX counter', 而不是低层的 \relax 错误.
+%%
+%% 带选项那条路是本次新加的, 若漏了 \int_if_exist:cTF 判断, \int_use:c 会先把
+%% \c@nosuchcounter 建成 \relax, 再 \the 它, 于是报 `You can't use \relax
+%% after \the' —— 与 zhnumber 想给出的诊断完全不同.
+%%
+%% **本项必须放在文件最末**: \@@_counter_error:n 用的是
+%% \msg_expandable_error:nnn, 它留下的 \??? 控制序列会触发
+%% `Use of \??? doesn't match its definition'. 在**本仓库**里这个错误是致命的 ——
+%% 不是 LaTeX 本身的行为, 而是 support/build-config.lua 把 checkopts 设成了
+%% `-halt-on-error' (l3build 的默认值是 `-interaction=nonstopmode', 那种设置下
+%% 同一个错误只是记进日志、后面的 \TEST 照常执行, 实测如此).
+%% 于是实测编译在此中止, 其后所有 \TEST 一律不执行.
+%% (判据是「后面的 \TEST 段落有没有进基线」, 不要用日志里的
+%% `Fatal error occurred' 那一行: 它只有 pdftex/luatex 打印, xetex ——
+%% 本目录的 stdengine —— 不打印; 而且它排在 `Here is how much of ...' 那行之后,
+%% l3build 读日志读到那行就停 (l3build-check.lua:339-341), 因此从不进 .tlg.)
+%% 所以本项必须留在末位: 若把它挪到中间, 其后所有 \TEST 都不会执行, 而且
+%% check 仍然报绿 (实测: 挪到中间后重存基线, TEST 数从 5 变 3 而 check 仍 EXIT=0)
+%% —— 判据是基线里的 TEST 段落数与本文件的 \TEST 个数是否一致.
+%%
+%% 注意别把这条机制当成本测试早期那次「删掉守卫零 diff」的成因: 那次的成因是一条
+%% 恒真断言 (旧版 TEST 5 只用 \int_if_exist:cTF 判断一个不存在的寄存器, 根本没调用
+%% zhnumber 的代码), 与中止无关 —— 可展开报错的断言是后来才加的, 加进来时就在末位.
+%%
+%% 报错文本进基线是这里唯一可行的判据, 代价是需要三份基线: luatex 在该错误后
+%% 打印的 help 行比 xetex/pdftex **少四行**. 曾试过只固定「两条路结果是否相同」
+%% 来回避这一点, 但 \tl_set:Nx 在可展开报错处就已中止, 比较根本执行不到.
+\TEST{nonexistent~counter~reports~zhnumber~error}{
+  \zhnum [ style = Financial ] { nosuchcounter }
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

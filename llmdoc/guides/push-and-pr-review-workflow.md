@@ -59,6 +59,17 @@ hook 等待期间也可能有协作者推进同一分支。若外层输出显示
 
 新分支第一次 push 时通常还没有 PR，hook 会以 rc 2 跳过 CI 与评论检查。创建 PR 后立即执行 `make check-pr-ci 2>&1`，同样不得接管道；按上述规则读取 rc、完整输出、评论和未解决 thread，并进入相同的修复、commit、push 循环。
 
+## 收尾链条：本地独立审计 → 资产归档 → 开 PR → check-pr-ci
+
+一次完整的收尾可以复用为模板（#1008 的实例）：
+
+1. **本地独立审计**：跑 close-local-code-review，在固定 commit 的隔离快照里做正式审查（见前文「正式的本地代码审查」一节的隔离要求）。
+2. **备份复现资产**：把 MWE、修复前后对照图、`.toc` 之类的中间产物存到 `gh-assets` 分支的 `issues/<n>/` 下，PR 正文用 `raw.githubusercontent.com` 裸链引用（不要贴 base64 或本地路径）。
+3. **开 PR**：确认目标分支——不是所有包都合到 `master`，例如 zhnumber 的目标分支是 `zhnumber/maintaining`，开错目标分支会让 CI 跑在错误的基线上。
+4. **`make check-pr-ci`**：进入本文件已述的等待与处理循环。
+
+其中一点容易被忽略：**bot 审查即使是 APPROVE 且 0 个 finding，`check-pr-ci` 仍会以 exit 75 报「Unacknowledged bot comment」**——bot 的 review/comment 本身就是一次「活动」，需要维护者显式确认，与它的结论是否为 APPROVE 无关。此时若核实后确无代码要改，按 hook 提示由 OWNER/MEMBER/COLLABORATOR **回一条带证据的评论**（写明 CI 计数与「为何无需改动」的依据），再重跑 `make check-pr-ci`，它才会转为 exit 0。这不是走过场式的形式确认——回复内容本身是留痕证据，供后续复核。#1008 的实例是 38 项非 skip 检查全 SUCCESS + Codex 主链路 APPROVE 0/0/0，仍需按此流程回复确认才收尾。
+
 ## 文档收尾
 
 代码 CI 全绿且全部审查意见处理完成后，运行 `llmdoc:update`，记录本轮新增的架构事实、工作流教训及落后于代码的文档。文档更新也必须 commit 并通过 `git push 2>&1` 推送，继续遵守同一 CI/评论闭环；只有文档提交的 hook 也给出终止成功报告，任务才算完成。

@@ -418,7 +418,7 @@ ctxdoc 自 #963 起明确要求 l3doc 2026-06-18；本地 `config-ctxdoc` 在更
 - `xpinyin`：主目录 `testfiledir = "./testfiles"`、`stdengine = "xetex"`、`checkengines = {"xetex"}`，见 `xpinyin/build.lua`；另有 `test/config-cjk.lua` 把 `testfiledir` 换成 `./testfiles-cjk`、`stdengine`／`checkengines` 换成 `pdftex`，专门覆盖 CJKutf8/pdfTeX 路线。为什么要拆两套见下方「xpinyin 的注音回归（#1041）」一节。
 - `zhlineskip`：`stdengine = "pdftex"`、`checkengines = {"pdftex"}`，见 `zhlineskip/build.lua`。zhlineskip 已完成 DocStrip & L3 重构（PR #892 / #373），现以 `zhlineskip.dtx` 为单一源：`unpackfiles = {"zhlineskip.dtx"}` 解包出 `.sty`、`installfiles = {".sty", ".ins"}`、`sourcefiles = {".dtx", "*.pdf"}`、`demofiles = {"zhlineskip-test.tex"}`，版本号集中在 `build.lua` 顶部由 `update_tag` 钩子回写 `.dtx` 的 `\GetIdInfo` 行。测试使用 vbox 尺寸捕获策略验证行距行为。
 
-`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。
+`zhnumber` 的 `pdftex` 输出与标准 XeTeX 基线存在差异，因此测试目录中保留了 `.pdftex.tlg` 专属基线，例如 `zhnumber/testfiles/basic01.pdftex.tlg`。`zhnumber` 另有 `test/config-cjk.lua`（仅 xetex），把 `testfiledir` 换成 `./testfiles-cjk`，专门覆盖 `\zhnumwithoptions`／`\zhdigwithoptions` 兼容入口的实际排版行为（见下文「zhnumber 的计数器选项回归（#1008）」）与算筹 `\zhrod`／`\zhrodbox` 的实际输出（见下文「zhnumber 的算筹数字回归（#366）」）。
 
 ## 非典型测试模式
 
@@ -468,6 +468,179 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 **复制清单必须取依赖包自己的 `installfiles`，照抄 `ctex/build.lua` 会漏文件。** `ctex/build.lua:72-80` 的钩子遍历的是**本包**的 `installfiles`；那里能工作纯属巧合——`ctex` 自己的 `installfiles` 恰好覆盖了各依赖的**运行时**产物类型。（按字面并不是超集：`ctex` 只有 `ct*.tex`／`zh*.tex`，接不住 `xeCJK` 的 `*.tex`，实测漏掉 `xunicode-symbols.tex` 与 12 个 `xeCJK-example-*.tex`；那些是手册示例，不参与运行时加载，所以 `ctex` 侥幸没被这一点咬到。）xpinyin 照抄后就漏了：本包是 `{"*.sty","*.def","*.ins"}`，而 `xeCJK` 还装 `"*.cfg"`，于是出现只复制了一半的分裂状态——`xeCJK.sty` 用工作树版本（日志显示 `./xeCJK.sty`），`xeCJK.cfg` 却仍命中 `texmf-dist/tex/xelatex/xecjk/xeCJK.cfg`，而那份是 v3.10.4、工作树是 v3.10.5，`\GetIdInfo` 与版本号行都不同。**这恰好破坏了该钩子声称要消除的「测的其实是本机装了什么」**，且症状隐蔽：测试全绿，只有对比日志里两个文件的路径才看得出来。这类缺陷是盲审在终审轮以 blocking 级查出的。现行做法是用 `loadfile` 在独立环境里读依赖包的 `build.lua`、取它自己的 `installfiles`（用 `loadfile` 而非 `dofile`：后者在全局环境执行，既无法隔离也无法用 `pcall` 兜住），并设两道**拒绝**判据——读不到或不是表则 `error`、空表则 `error`；`pcall` 的错误对象不构成判据（它不拒绝任何东西），而是在这两道判据触发时随 `error` 一并报出，作为线索；不硬编码第二份清单，否则依赖包将来新增产物类型时会再次静默漏掉。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的，`installfiles` 在那之前已赋值；但错误必须可见，否则将来失败点前移到赋值之前时无从发现。
 
 **已接受的残留缺口有两个**，都如实记下：（1）若依赖包改成分步构造 `installfiles`（先赋字面表、中途出错、之后再追加），得到的残缺表会同时通过「是表」与「非空」两道判据，只复制一半而不报错；（2）判据只看这张表，**不看每条 glob 是否真的匹配到文件**——`xeCJK` 的 `"*.map"`／`"*.tec"` 在 `check` 路径下必然零匹配（那两类产物由 `unpack_posthook` 在 `install_files_bool` 为真时才经 TECkit 生成，而该标志只在 `install_files` 里置真），`cp` 静默复制零个文件并返回 0。缺口二今天不触发，因为 xpinyin 现有测试都不用 `Mapping=` 一类需要 `.tec` 的写法；但将来加了就会命中系统 TeX Live 的那份。两者都实测确认。不再收紧的理由：更严的判据要么预设依赖包的写法、反而更脆，要么（对缺口二加零匹配 `error`）现网就会当场失败。`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖、依赖包重构、或新增用到 `.map`／`.tec` 的测试时，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
+
+### zhnumber 的计数器选项回归（#1008）
+
+`zhnumber` 的 `\zhnum[opts]{counter}`／`\zhdig[opts]{counter}` 原实现把计数器**名**写进
+`.toc` 一类辅助文件（`\zhnumwithoptions{style=...}{section}`），读回时计数器已归零；
+修法是在 `\zhnum`／`\zhdig` 这一层先把计数器展开为**数值**再交给处理数值的实现。回归分
+两个 `testfiledir`，主目录下又按「可展开报错必须各占一个文件」拆成两个 `.lvt`：
+
+- `zhnumber/testfiles/counter-options01.lvt`（三引擎；`.tlg` + `.pdftex.tlg` +
+  `.luatex.tlg`，pdftex 基线因 CJK 字节形式不同而必需）用记号层面断言固定「值有没有被
+  冻结」——判据是展开结果里出现 `{7}` 而非 `{section}`，同时覆盖 #1008 排查中发现的
+  独立笔误：`\zhdigwithoptions` 原把选项多传了一个 `#1` 给 `\zhnum_digits_counter:n`，
+  带选项的 `\zhdig` 此前直接报错。文件**最后一项**断言 `\zhnum` 带选项在计数器不存在时
+  报 zhnumber 自己的错误（见下面「可展开报错是致命错误」）。
+- `zhnumber/testfiles/counter-options02.lvt`（三引擎；只需 `.tlg` + `.luatex.tlg`，
+  pdftex 与 stdengine 逐字节相同故不留冗余基线）专门覆盖 `\zhdig` 那条独立守卫
+  （`\@@_digits_counter_with_options:nn`）在计数器不存在时的同类报错——**必须**单独
+  成文件，理由见下一节。
+- `zhnumber/testfiles-cjk/legacy-entry01.lvt` + `zhnumber/test/config-cjk.lua`（仅
+  xetex）覆盖兼容入口 `\zhnumwithoptions`／`\zhdigwithoptions` 本身——这两个命令**不可
+  展开**（用 `\NewDocumentCommand` 实现，要用 `\group_begin:`／`\group_end:` 局部改样
+  式），只能让它们实际排出汉字再量盒子才能验证内部逻辑。主目录里对这两个兼容入口的
+  `\tl_set:Nx` 捕获式断言是恒真的（它们是 `\NewDocumentCommand`、protected，捕获只拿到
+  命令名本身，实测基线里就是 `\zhdigwithoptions {style=Financial}{section}` 原样），
+  已删除；兼容入口的行为完全由本文件量盒子覆盖。
+
+**为什么必须分两个 `testfiledir`**：兼容入口不可展开，观察它们的行为只有「让它执行」
+一条路；而排 CJK 需要中文字体，pdfTeX 下没有 CJK 设置时是硬错误 `Unicode character
+... not set up for use with LaTeX` 并中止编译，XeTeX 下只是 `Missing character` 警告
+——同一个 `.lvt` 放两个引擎跑，基线会分化成「报错」与「警告」两种不可共存的结果。做法
+仿 `xpinyin/test/config-cjk.lua`。
+
+**观察不可展开命令的行为，只有「让它执行」一条路。** 排查中试过四种手段，全部只能拿到
+命令的**名字**、看不到内部逐步展开与赋值是否正确：
+
+1. `\typeout{\zhnumwithoptions{...}{...}}`——不可展开的命令只被记下名字，内部坏掉也看
+   不出来；实测恢复 `\zhdigwithoptions` 的笔误后，只用 `\typeout` 的版本仍然全绿。
+2. `\tl_set:Nx`——同样只拿到名字。
+3. 在 `\TEST` 的参数里切 `\ExplSyntaxOn`——不生效，参数已被读入、catcode 已冻结（实测报
+   `Undefined control sequence` 指向 `\tl_log:N`）。
+4. `\protected@edef`——含 `@`，在 `\ExplSyntaxOn` 下直接写会报 `You can't use a prefix
+   with the character @`，须放进 `\makeatletter` 块并用 `\cs_set_eq:NN` 起一个 expl3
+   名字的别名再用。
+
+**盒子度量选哪一维要先验证它真的会变，而且度量本身不足以固定排出的是哪个字。**
+缺字时字体会用同一个占位字形，宽度往往 collapse 成同一个值——实测「七」与「柒」的宽度
+都是 2.8pt，分辨不出内容；改用**高度**才区分开这两个字（`ht=7.33` 的「七」vs `ht=7.75`
+的「柒」）。但高度同样不足以固定字形：实测 FandolSong 下「柒」「九」「佰」的 `ht` 都是
+7.75，一个让 Financial 的 7 排成「九」的缺陷能通过全部度量断言（实测零度量 diff）。
+所以 `legacy-entry01` 的 TEST 4 用 `\loggingoutput` + `\box_use:N` + `\clearpage` 把
+盒子内容本身写进基线，汉字在基线里就是字面 UTF-8 汉字（l3build 的日志归一化不把 CJK
+码位转成 `^^` 形式）；度量只作旁证。该项必须覆盖前面测过的**全部**入口——只排 `\zhnum`
+的盒子时，`\zhdig` 侧仍只有度量断言，盲区原样保留（实测）。而且必须同时用**多位数**跑
+一遍：计数器为一位数时 `\zhnum` 与 `\zhdig` 的输出恒等（都是单个汉字），把 digits 路径
+接成整数路径这类接线错误看不出来（实测把 `\zhdigwithoptions` 里的
+`\zhnum_digits_counter:n` 换成 `\zhnum_counter:n` 后全绿）；123 下 `\zhdig` 逐位排
+「壹贰叁」而 `\zhnum` 排「壹佰贰拾叁」，位数与字形都不同。用 `\loggingoutput` 而非
+`\showbox`，因为后者报 `! OK.` 会在 `-halt-on-error` 下当场中止；不加 `\clearpage` 则
+页面不 ship out、TEST 段落是空的（两点均实测）。
+
+**可展开报错在本仓库的 `checkopts` 下是致命错误，这是本节最重要的约束。**
+`\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
+`\???` 控制序列，触发 `Use of \??? doesn't match its definition`——该错误实测让**编译
+就地中止**，其后所有 `\TEST` 一律不执行。判断是否中止要看「后面的 `\TEST` 段落有没有进
+基线」，**不要**用日志里的 `Fatal error occurred, no output PDF file produced!` 那一行：
+它只有 pdftex/luatex 打印，xetex 不打印（而 xetex 正是这两个测试的 `stdengine`），并且
+它从不进入 `.tlg`——它排在
+`Here is how much of ...TeX's memory you used:` 之后，而 l3build 读日志时读到那一行就
+`break`（`l3build-check.lua:339-341`），其后内容一律被截掉。
+成因是 `support/build-config.lua:9` 的 `checkopts = "-halt-on-error"`，
+**不是** LaTeX 或 l3build 本身的行为：l3build 默认 `-interaction=nonstopmode`，那种设置
+下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。因此下面两条硬约束是**本仓库
+的**约束，往用默认 `checkopts` 的项目推断前要先核对那边的设置。这也是 #1026 用
+`\showbox` 撞过的同一个机制（见 `lessons-learned.md` 里 `\showbox` 那条），本次是它的
+第二个触发源。这条报错文本**必须**固定进基线，因为那是唯一可行的判据（曾试过只固定
+「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那一步就已经中止）；代价是
+`counter-options01` 需三份基线、`counter-options02` 需两份——luatex 在该错误后打印的
+help 行比 xetex/pdftex **少四行**（`counter-options02` 的 pdftex 输出与 stdengine 逐字节
+相同，故不留冗余的 `.pdftex.tlg`；`counter-options01` 则因日志里汉字的字节形式不同而必需
+——pdfTeX 记成 `^^e4^^b8^^83`、xetex 记成 `七`。注意这只是**日志编码**差异，与「pdfTeX 排
+CJK 是硬错误」无关：`counter-options01` 里的汉字只经 `\tl_log:x` 进日志、没有实际排版，
+实测 `l3build check -e pdftex counter-options01` 全绿）。由此得到两条
+硬约束：
+
+- **一个 `.lvt` 只能断言一次可展开报错，且该断言必须放在文件最末。** `\zhnum` 与
+  `\zhdig` 各有一条独立守卫（`\@@_counter_with_options:nn` 与
+  `\@@_digits_counter_with_options:nn`），两条都要覆盖，所以拆成
+  `counter-options01`（`\zhnum` 那条，断言在文件最末）与
+  `counter-options02`（`\zhdig` 那条，独立成文件）。
+- **验收判据是基线里的 TEST 段落数必须与 `.lvt` 里的 `\TEST` 个数一致。** 段落不存在
+  意味着该项没跑，而不是通过了；把报错断言挪到文件中间即可复现（其后用例全部不执行而
+  check 仍报绿）。当前三个文件都对得上：`counter-options01` 5／5、`counter-options02`
+  1／1、`legacy-entry01` 4／4。（另一处假绿——「删掉守卫零 diff」——的成因不是中止，而是
+  一条恒真断言：`\int_if_exist:cTF` 探针根本没调用 zhnumber 的代码。两件事容易混为
+  一谈，见 `1008-...` 反思里的更正段。）
+
+**判别力实测结果（逐条隔离）**：删 `\@@_counter_with_options:nn` 的守卫
+（`\int_if_exist:cTF`）→ 仅 `counter-options01` 红（三引擎），报 `You can't use \relax
+after \the`；删 `\@@_digits_counter_with_options:nn` 的守卫 → 仅
+`counter-options02` 红（三引擎），`counter-options01` 全绿零 diff（它的致命错误发生在
+更早的位置）；复现 `\zhdigwithoptions` 笔误（多传一个参数）→ 仅
+`testfiles-cjk/legacy-entry01` 红。三份文件的判别力互不重叠，各自只覆盖自己名下的
+代码路径。「兼容入口断言恒真」这个问题**曾长期抓不到**，正是上面四条弯路的后果——主
+目录里无论用 `\typeout` 还是 `\tl_set:Nx` 都只能记下名字，这正是补 CJK 那一组的真正
+理由。
+
+### zhnumber 的算筹数字回归（#366）
+
+`zhnumber` 新增算筹（中国古代记数符号）`\zhrod`（可展开，只产字符，供 `.toc`／PDF 书签
+使用）与 `\zhrodbox`（不可展开，切字体、压字距，负责排版效果）。回归同样按引擎需求
+分两处，理由与「为什么必须分两个 `testfiledir`」一节相同——算筹码位（U+1D360 起）在
+pdfTeX／upTeX 下无法表示（8-bit 引擎，实测 `\char_generate:nn` 报 `Charcode requested
+out of engine range`），而 `l3build check` 没有按文件指定引擎的机制，同一个 `.lvt`
+的三引擎基线会分化成不可共存的两种。这与本节已记的 `zhnumber/test/config-cjk.lua`
+（#1008）是同一类约束，此处就近记录，不重开一节。
+
+- `zhnumber/testfiles/rod-engine01.lvt` 与 `rod-engine02.lvt`（四引擎，含 upTeX）：只测引擎判定与报错，不测实际
+  输出。判定依据是新增的 `\c_@@_rod_engine_bool`（只含 xetex/luatex），不是既有的
+  `\c_@@_unicode_engine_bool`——后者把 upTeX 也算作真，而 upTeX 恰好不能表示算筹码位。
+  报错断言放在文件末位（同「可展开报错是致命错误」一节的约束），并用
+  `\token_if_protected_long_macro_p:N` 而非 `\token_if_expandable_p:N` 判断
+  `\zhrod` 是否为报错版本——后者对 `\protected\long macro` 也答 yes，会让两个引擎读数
+  相同、该项成为恒真断言。捕获报错路径必须真的执行 `\zhrod`，`\tl_set:Ne` 只会把
+  `\zhrod {12}` 原样存进变量而不触发报错，对该路径零判别力。pdfTeX 有独立基线，读数与
+  xetex/luatex 不同。
+  拆成两个文件是因为 `checkopts = "-halt-on-error"` 下一个 `.lvt` 只能断言一次抛错：
+  `rod-engine01` 那一次给了 `\zhrodbox`，`\zhrod` 的报错分支只能另开 `rod-engine02`
+  （否则它零覆盖——把该分支改成静默的 `\typeout` 两套 check 仍全绿，实测）。与 #1008 的
+  `counter-options01/02` 拆分同源。
+- `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex）：测算筹实际输出。开头几项用
+  `\zhrod` 的可展开性把字符序列捕获进基线（`\tl_set:Ne` + `\tl_log:N`），逐字固定「排的
+  是哪个码位」——判据是字符序列本身而非长度，`units=vertical` 时个位实际取的是 Unicode
+  的 `TENS DIGIT` 区（U+1D369 起，纵画），`UNIT DIGIT` 区（U+1D360 起）反而是横画，与
+  区名字面相反。末项用 `\loggingoutput` 把盒子内容本身写进基线，固定实际
+  排出的字形与字距（未压缩 50.0pt vs 压缩后 44.4pt）——只有度量不足以固定「排的是哪个
+  字」，这与 `legacy-entry01` 已记的教训同源。
+
+`\zhrod` 与 `\zhrodbox` 的分工基于「可展开性与排版效果互斥」——`\zhrod` 只产字符（不可
+展开的实现会破坏 `.toc`／PDF 书签），`\zhrodbox` 才切字体压字距；这是 #1008 反思里
+「教训确实被下一个任务复用」的一个正例，判据仍是「`.toc` 里是字符还是命令名」加
+「`Token not allowed` 警告数」。
+
+### zhnumber 的天干地支键绑定回归（#1077）
+
+`zhnumber` 用 `\zhtiangan`（天干）／`\zhdizhi`（地支）／`\zhganzhi`（干支，由天干与
+地支两个变量组合而成）三个命令，配 `Tn`／`Dn`／`GZn` 三组同构的 l3keys 键分别定制
+第 `n` 个天干／地支／干支的输出。修复前 `testfiles/` 对这三个命令与三组键**完全零
+覆盖**；#1077 的笔误——`Tn` 键的 `.tl_set:N` 目标抄成了 `GZn` 的目标（`l_@@_ganzhi_
+#1_tl`），使 `\zhnumsetup{T1=...}` 实际改的是 `\zhganzhi{1}` 而非 `\zhtiangan{1}`——
+因此能一直潜伏到用户报告。
+
+新增 `zhnumber/testfiles/tiandi01.lvt`（7 个 TEST，三引擎 + `.pdftex.tlg`）覆盖：
+默认值、`Tn` 只影响天干并连带影响由天干组合出的干支、`Dn` 侧对照、`Tn`+`Dn` 组合
+（报告者原始用例）、`GZn` 独立于 `Tn`／`Dn`、显式 `GZn` 优先于 `T1`+`D1` 组合出的结果、
+以及设置不泄漏出分组。判别力已实测：把 `Tn` 的绑定改回 `l_@@_ganzhi_ #1 _tl`，
+`custom-T1-tiangan` 由「我的甲」变回「甲」、`custom-T1-ganzhi` 由「我的甲子」变成
+「我的甲」（整个被替换而非组合）。
+
+**该问题不是「代码报错」而是「代码能跑，但接到了错误的目标」，判别方式是组间对照，
+不是组内自查。** `Tn` 那两行单独审查是完全自洽的——`\int_step_inline:nn { 10 }` 的
+步数 10 正好是天干个数，`.groups:n = { user , pre , tiandi } ` 里的分组名 `tiandi`
+也对，只有目标变量名错，而且错的那个值恰好是另一组键（`GZn`）的正确值，看起来完全
+不像笔误。要发现它，必须把 `Tn`／`Dn`／`GZn` 三组键并排放在一起比对，而不是逐组
+检查各自的内部逻辑是否成立。
+
+`tiandi01.pdftex.tlg` 是本文件的第三份专属 pdfTeX 基线（前两份见上文
+`counter-options01`／`rod-engine01/02`）：pdfTeX 是 8-bit 引擎，中文在日志里按字节
+转义（如 `^^e7^^94^^b2`），xetex／luatex／uptex 直接记中文字符。这份基线人眼读不出
+内容，`.lvt` 注释里写明了实测的字节-汉字对照表（甲=`^^e7^^94^^b2`、子=`^^e5^^ad^^90`、
+我的=`^^e6^^88^^91^^e7^^9a^^84`），并提示改动本文件后若只有 pdftex 报红、其余三引擎
+通过，应先怀疑是不是漏刷了这份基线，而不是怀疑实现——与 `counter-options01` 一样，
+这里的汉字只经 `\tl_log:x` 进日志、没有实际排版，与「pdfTeX 排 CJK 是硬错误」无关，
+纯属日志编码差异。
 
 ### xeCJKfntef 的相位、装饰单元与视觉验证（#531/#967/#1012）
 
@@ -651,7 +824,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 - 操作系统矩阵：`ubuntu-latest`、`macos-latest`、`windows-latest`
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
-- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）
+- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）；`test-zhnumber` 也传 `configs: test/config-cjk`（#1008 起，真排汉字量盒子那条线只跑 xetex），但不需要 `needs-unihan`
 
 见 `.github/workflows/test.yml`。
 
@@ -720,7 +893,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 历史: 早期尝试 `SETUP_TEXLIVE_ACTION_FORCE_UPDATE_CACHE=1` 让 warmup 把 update 后的 TL 保到 uniqueKey (= primaryKey + uuid), 让 caller 跳过 update 省 70s/caller. 实测**不生效** — GH actions/cache 在 restoreCache 时按 restoreKeys 数组的 primaryKey 精确匹配优先, caller 命中老的纯 primaryKey entry (无 uuid), 跳过 warmup 的 uniqueKey. 现在 caller 端仍 `update-all-packages: true` 自己跑 update 才能与仓库 `.tlg` baseline 一致. 见 `_test-package.yml` head 注释.
 
 **阶段 1 — 6 个 caller job 并行 (uses reusable workflow):**
-`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 六个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑. `test-xpinyin` 另传 `configs: test/config-cjk` 与 `needs-unihan: true` 两个输入, 分别对应 CJKutf8/pdfTeX 那条线和拼音数据库生成 (见下文).
+`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip` 六个 caller job, 各自 `uses: ./.github/workflows/_test-package.yml`, 传 `pkg` / `event-name` / `tl-version` 输入. 各 caller `needs: [changes, warmup-tl]` + `if: needs.changes.outputs.<pkg> == 'true'` 控是否跑. `test-xpinyin` 另传 `configs: test/config-cjk` 与 `needs-unihan: true` 两个输入, 分别对应 CJKutf8/pdfTeX 那条线和拼音数据库生成 (见下文); `test-zhnumber` 也传 `configs: test/config-cjk` (#1008 起), 但不需要 `needs-unihan`.
 
 每个 reusable workflow 实例内部 `strategy.matrix.os = [ubuntu-latest, macos-latest, windows-latest]`, 三个 OS 并行. `fail-fast: false` 一个失败不取消其它.
 
@@ -733,7 +906,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 - 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
-  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前只有 xpinyin 传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
+  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前 xpinyin 与 zhnumber 各传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
 
 **阶段 2 — `test-result` job (汇总):**
 `needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → caller 全部 skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
@@ -982,6 +1155,8 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 再 `git add -N -- '*/CHANGELOG.md'`（覆盖新包首次生成、CHANGELOG.md 尚未被 git 跟踪的场景，否则 `git diff` 看不到差异）+ `git diff --exit-code -- '*/CHANGELOG.md'`。fail 时按上述三通道贴出期望内容。
 
 `CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber`。xpinyin 随 #1041 测试接入补写了首条 `\changes{v3.2}{...}` 后加入这份列表。其余 3 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
+
+**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接落进 `CHANGELOG.md`（当时提交的 zhnumber 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它零判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 

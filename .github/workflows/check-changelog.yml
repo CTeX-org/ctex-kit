@@ -47,6 +47,35 @@ jobs:
       - name: Regenerate CHANGELOG.md for all packages
         # 包列表由 Makefile 的 CHANGELOG_PKGS 决定 (单一事实源)
         run: make changelog
+      - name: CHANGELOG.md must not contain internal placeholders
+        # extract-changes.py 用 \x00..\x05 六个控制字符做临时占位符, 三对各管一类:
+        # \x00..\x01 包 \cs / \tn 的名字, \x02..\x03 包数学环境, \x04..\x05 包
+        # verbatim / \texttt 片段. 下面把六个全查, 不只查已经出过问题的那一对 ——
+        # 任何一对没被还原都是同一类缺陷.
+        # 已知触发方式 (实测): \texttt{... \cs{???} ...} 这种嵌套里, 内层
+        # \x00..\x01 被整段收进 verbatim_blocks 后再也扫不到, 于是原样落进
+        # CHANGELOG.md.
+        # 这类漏出是**确定性**的, 下面的新鲜度 diff 抓不到 —— 生成物两边一致,
+        # 只是两边都错. 所以单独校验一次.
+        run: |
+          if python3 - <<'PY'
+          import glob, sys
+          bad = []
+          for f in sorted(glob.glob('*/CHANGELOG.md')):
+              data = open(f, 'rb').read()
+              for ch in range(6):
+                  if bytes([ch]) in data:
+                      bad.append(f"{f}: 含未还原的占位符 \\x{ch:02x}")
+          for line in bad:
+              print(f"::error::{line}")
+          sys.exit(1 if bad else 0)
+          PY
+          then
+            echo "✓ 没有未还原的占位符"
+          else
+            echo "::error::CHANGELOG.md 含 extract-changes.py 的内部占位符, 说明清洗逻辑漏了某种嵌套."
+            exit 1
+          fi
       - name: CHANGELOG.md must be up to date
         run: |
           # add -N: 新包首次生成的 CHANGELOG.md 是未跟踪文件, 不加这步
