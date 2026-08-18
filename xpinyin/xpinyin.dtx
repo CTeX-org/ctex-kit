@@ -1588,6 +1588,22 @@ Copyright and Licence
 %
 % \changes{v3.2}{2026/08/18}{\tn{setpinyin} 现在也能为数据库未收录的汉字补充
 %   查询表读音；此前只更新注音表，\tn{xpinyinvalue} 仍报「无读音」。（PR \#1051）}
+% \changes{v3.2}{2026/08/18}{\tn{setpinyin} 存进查询表时去掉表示轻声的末尾
+%   |5|，与查询表「轻声不写数字」的约定一致；此前 \opt{none} 形式会返回
+%   |shi5| 而不是 |shi|。（PR \#1051）}
+%
+% \begin{macro}[int]{\@@_setpinyin_strip_neutral:n}
+% 去掉末尾表示轻声的 |5|，其余情形原样留下。只看\emph{末尾}一个字符：|5| 出现在
+% 别处（如 |qian1| 里没有、但设想的 |a5b| 一类）不是声调标记，不能动。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_setpinyin_strip_neutral:n #1
+  {
+    \str_if_eq:eeTF { \str_range:nnn {#1} {-1} {-1} } { 5 }
+      { \tl_set:Nx \l_@@_normalized_tl { \str_range:nnn {#1} {1} {-2} } }
+      { \tl_set:Nn \l_@@_normalized_tl {#1} }
+  }
+%    \end{macrocode}
+% \end{macro}
 %
 % \begin{macro}{\setpinyin}
 %    \begin{macrocode}
@@ -1620,12 +1636,20 @@ Copyright and Licence
 % \tn{pinyin}。若把用户写的 |ü| 原样存进去，\verb|\setpinyin{女}{nü3}| 之后
 % \verb|\xpinyinvalue{女}| 在 \opt{number} 下返回 |nü3| 而不是 |nv3|，
 % 同一张表里就出现了两种拼写，馈回 \tn{pinyin} 的保证也随之失效。
+%
+% 轻声还要去掉末尾的 |5|。查询表里轻声是\emph{不写数字}的（\file{xpinyin.lua}
+% 的 \texttt{numbertable} 只产出 |1|--|4|，生成的 \file{xpinyin-query.def} 里
+% 带 |5| 的条目为零），拆分逻辑也照这个约定只把 |1|--|4| 当声调
+% （判据是 \verb|`#1 < `5|）。若原样存 |shi5|，\opt{none} 形式会返回 |shi5|
+% 而不是 |shi|，违反「不带声调」的约定。
 %    \begin{macrocode}
     \bool_if:NT \g_@@_query_loaded_bool
       {
         \tl_set:Nn \l_@@_normalized_tl {#2}
         \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
         \tl_replace_all:Nnn \l_@@_normalized_tl { Ü } { V }
+        \exp_args:Nx \@@_setpinyin_strip_neutral:n
+          { \exp_not:V \l_@@_normalized_tl }
         \cs_set_nopar:cpx { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
           { \exp_not:V \l_@@_normalized_tl }
       }
