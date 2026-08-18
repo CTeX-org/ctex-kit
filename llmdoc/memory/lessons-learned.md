@@ -54,6 +54,18 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1068 的报告只提到 LuaTeX 下 `\selectfont` 重置用户设的 `kanjiskip`；按四引擎逐个实测后发现 upTeX 同样受影响，pdftex/xetex 正常。根因是一段 `\ctex_at_end:n` 重定义被 docstrip 守卫限定在 `pdftex|xetex`，LuaTeX 与 upTeX 都没有它。这是「测试结论不能超出实际执行的平台分支」（#994）在缺陷侧的镜面：那条管的是「测试通过≠已覆盖未执行的分支」，这条管的是「复现≠未复现的引擎不受影响」。
 **Source**: `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
 
+### 审查同构成组定义要组间对照，组内自查发现不了跨组抄错目标的笔误
+**Rule**: 一批结构相同的成组定义（一批 l3keys 键、一批钩子、一批引擎分支）里，若某一组的目标被误抄成另一组的目标，逐组检查「这一组自己有没有问题」（参数、循环步数、分组名是否对得上）发现不了它——错的那个值本身是合法值，只是取自别的组，组内看完全自洽。必须把同构的各组并排放在一起，逐字段横向比对，才能看出某组的字段实际指向了别组。
+**Why**: #1077 中 `zhnumber` 的 `Tn`／`Dn`／`GZn` 三组 l3keys 键分别应绑定 `l_@@_tiangan_#1_tl`／`l_@@_dizhi_#1_tl`／`l_@@_ganzhi_#1_tl`，`Tn` 抄成了 `GZn` 的目标。单看 `Tn` 那两行：`\int_step_inline:nn { 10 }` 的步数（天干正好十个）与 `.groups:n` 里的分组名 `tiandi` 都对，只有目标变量名错，而且错的值恰好是合法的 `GZn` 目标，看起来不像笔误。这与 [[1068-selectfont-resets-ccglue]] 的「守卫存在不等于被调用」同属「审查方式选错层次」，但触发条件不同：那次是漏调用（该接的东西没接），这次是接错目标（接上了，接到了另一组的值）。
+同一形态在 #1068 复发过一次：那次 `\ctex_if_ccglue_touched:` 守卫的三套引擎实现各自都对，缺的是把 `%<*pdftex|xetex>` 枚举到的引擎与没枚举到的并排看一眼——同样是「组内自查通不过组间对照」。
+
+**Source**: `llmdoc/memory/reflections/1077-tiangan-key-binding.md`
+
+### 公开接口零覆盖时，笔误可以潜伏任意长的时间
+**Rule**: 判断某块手册记载的公开功能是否有回归保护，应拿手册的公开命令／选项清单逐项去测试目录核对是否存在对应断言，而不是看测试文件数量或规模——数量再多，完全缺失的那一块也不会因此显现。这与「白名单式 CI 校验默认放行」是同一主题的更基础形态：那条讲的是「有检查机制但被过滤器／early-exit 静默跳过」，这条讲的是「压根没有任何检查」，没有 early-exit 之类的中间信号可循。
+**Why**: #1077 中 `zhnumber/testfiles/` 在修复前对 `\zhtiangan`／`\zhdizhi`／`\zhganzhi` 三个命令和 `Tn`／`Dn`／`GZn` 三组键完全零覆盖，是这处笔误能从引入一直潜伏到用户报告的直接原因，不是「测试写得不够细」的问题。
+**Source**: `llmdoc/memory/reflections/1077-tiangan-key-binding.md`
+
 ### 字体字形变化必须同步选择、映射和度量
 **Rule**: 更换字体集中的正文常规字形时，同时核对各引擎的具名字体、TTC index、zhmap、度量生成源和跟踪数据，并用拥有目标字体的平台验证实际字形与度量。
 **Why**: #994 若只把 `Songti SC Light` 改名为 Regular，LaTeX+DVI/upLaTeX 仍会使用旧 index，标点压缩也会继续读取 Light 的 SPA 数据。
