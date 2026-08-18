@@ -389,6 +389,37 @@ jobs:
       run: |
         echo "SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_ENV"
 
+    # 直接把 diff 正文打进日志。只上传 artifact 不够用: 下载要额外一步, 而且
+    # artifact 只在 job 失败时产生, 遇到路径不匹配(见下)就完全没有诊断信息。
+    # 每份截断到 200 行, 避免基线大面积漂移时把日志刷爆。
+    - name: Show test diffs
+      if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
+      # 不用 set -e: 这一步是纯诊断, 任何一环失败都不该盖掉真正的测试失败。
+      # 用列表文件而非进程替换, 避开 Windows msys bash 的差异。
+      run: |
+        list=$(mktemp)
+        find "${{ inputs.pkg }}/build" tmp/parallel-check \
+          -name '*.diff' -type f 2>/dev/null | sort > "$list" || true
+        if [ ! -s "$list" ]; then
+          echo "::warning::未找到任何 .diff —— 失败可能不是基线不匹配"
+        else
+          while IFS= read -r d; do
+            [ -f "$d" ] || continue
+            echo "::group::${d}"
+            head -200 "$d"
+            total=$(grep -c '' "$d" 2>/dev/null || echo 0)
+            if [ "${total:-0}" -gt 200 ] 2>/dev/null; then
+              echo "... (共 ${total} 行, 已截断; 完整内容见 artifact)"
+            fi
+            echo "::endgroup::"
+          done < "$list"
+        fi
+        rm -f "$list"
+
+    # 两条路径都要: 串行 check 写进 <pkg>/build/check/, 而 scripts/check-parallel.sh
+    # 给每个引擎在 tmp/parallel-check/<engine>/<pkg>/ 下各开一份工作区, diff 落在
+    # 那里面。#1080 之前只有前者, 于是并行路径失败时 artifact 恒为空
+    # ("No files were found"), 排查只能靠猜。
     - name: Upload test diffs
       if: ${{ !cancelled() && steps.test.outcome == 'failure' }}
       uses: actions/upload-artifact@v7
@@ -396,3 +427,4 @@ jobs:
         name: ctex-kit-diff-${{ env.SHA_SHORT }}-${{ inputs.pkg }}-${{ runner.os }}
         path: |
           ${{ inputs.pkg }}/build/**/*.diff
+          tmp/parallel-check/**/build/**/*.diff
