@@ -1586,6 +1586,9 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2}{2026/08/18}{\tn{setpinyin} 现在也能为数据库未收录的汉字补充
+%   查询表读音；此前只更新注音表，\tn{xpinyinvalue} 仍报「无读音」。（PR \#1051）}
+%
 % \begin{macro}{\setpinyin}
 %    \begin{macrocode}
 \NewDocumentCommand \setpinyin { m m }
@@ -1600,7 +1603,15 @@ Copyright and Licence
 % \verb|\setpinyin{长}{chang2}| 之后 \tn{xpinyin} 排出 |cháng|，
 % 而 \tn{xpinyinvalue} 仍返回 |zhǎng|，据此算出的索引排序键也就落到了错的组。
 %
-% 查询表未载入（没给 \opt{query} 选项）时不必设置：那种情形下查询命令本身
+% 门禁用 \cs{g_@@_query_loaded_bool}（「查询表载入了吗」）而不是
+% \cs{cs_if_exist:cT}（「这个字已经在查询表里吗」）。用后者会漏掉\emph{数据库
+% 未收录的字}——而那恰恰是用户需要 \tn{setpinyin} 补录读音的场景：实测对
+% 数据库未收录的字（如 U+5159）用 \tn{setpinyin} 只更新注音表，随后
+% \tn{xpinyinvalue} 仍报 |No pinyin reading|，与上面「两边给出的首选读音始终
+% 一致」冲突。所以这里要
+% \emph{创建或覆盖}对应查询项，不能只覆盖已存在的项。
+%
+% 查询表未载入（没给 \opt{query} 选项）时仍然不设置：那种情形下查询命令本身
 % 就会报错，多设一个控制序列反而会让“表没载入”的判据失效。
 %
 % 存进查询表的读音要先把 |ü| 折成 |v|。查询表通篇用 |v| 记 |ü|
@@ -1610,7 +1621,7 @@ Copyright and Licence
 % \verb|\xpinyinvalue{女}| 在 \opt{number} 下返回 |nü3| 而不是 |nv3|，
 % 同一张表里就出现了两种拼写，馈回 \tn{pinyin} 的保证也随之失效。
 %    \begin{macrocode}
-    \cs_if_exist:cT { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
+    \bool_if:NT \g_@@_query_loaded_bool
       {
         \tl_set:Nn \l_@@_normalized_tl {#2}
         \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
