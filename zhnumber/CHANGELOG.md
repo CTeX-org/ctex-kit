@@ -6,3 +6,4 @@
 - 修正 `\zhdigwithoptions` 把选项当作额外参数传给 `\zhnum_digits_counter:n` 的笔误——带选项的 `\zhdig` 此前直接报 `Use of \??? doesn't match its definition` 并输出乱码。
 - 支持仅输出年或年月。
 - 新增算筹数字 `\zhrod` 与 `\zhrodbox`，以及配置命令 `\zhrodsetup`（#366）。
+- 修正 `Tn` 绑定到干支变量而非天干变量的笔误——设置 `Tn` 此前会改掉 `\zhganzhi` 的输出而对 `\zhtiangan` 无效（#1077）。
