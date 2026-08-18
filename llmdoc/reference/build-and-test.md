@@ -738,7 +738,18 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 **阶段 2 — `test-result` job (汇总):**
 `needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → caller 全部 skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
 
-失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ inputs.pkg }}/build/**/*.diff`, artifact name 含 pkg 名 + OS 区分.
+失败时 artifact 上传 (`actions/upload-artifact@v7`): `${{ inputs.pkg }}/build/**/*.diff` 与
+`tmp/parallel-check/**/build/**/*.diff` 两条路径都要传 (#1080), artifact name 含 pkg 名 + OS
+区分. 前者对应串行 `l3build check` 写入的 `<pkg>/build/check/`（或 `build/test/`); 后者对应
+`scripts/check-parallel.sh` 给每个引擎在 `tmp/parallel-check/<engine>/<pkg>/` 下各开的独立
+工作区——ctex 走并行脚本, diff 落在那里面. #1080 之前只有前者, 并行路径失败时 artifact 恒为
+空 (`No files were found`), 排查只能靠猜.
+
+`Test <pkg>` 步骤失败后还先跑一个纯诊断步骤 `Show test diffs`, 把两条路径下找到的 `.diff` 正文
+直接打进 job 日志 (每份截断 200 行并提示总行数): 下载 artifact 要多一步, 而 artifact 只在
+job 失败时才生成, 路径不匹配时 (即上面这个坑) 完全没有诊断信息. 该步骤不设 `set -e`——它是
+纯诊断, 任何一环失败都不该盖掉真正的测试失败; 用临时列表文件而非 `< <(...)` 进程替换收集
+`.diff` 路径, 避开 windows matrix (`C:\msys64\usr\bin\bash.exe -e {0}`) 的 shell 差异.
 
 ### 文档编译校验：`.github/workflows/check-doc.yml`
 
@@ -996,19 +1007,29 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 
 pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` 改用整数运算 `(2*bp)*400/803` 并按符号补 1sp，源码注释说明动机是原先的换算「rounded to 0.99627 but that incurs a rounding error」，改为参照 l3kernel 的 `\dim_to_decimal_aux:w` 的做法。产出点是 `pgfsys-dvipdfmx.def:86` 的 `\pgfsys@hboxsynced` 中的 `\special{pdf:btrans matrix ...}`——即最终写进 PDF 的坐标数值。
 
+**#1080 补两个同类实例，且这次是两个互不相干的根因同时撞在同一批 CI 红上：**
+
+- **`tocloft`**：从 v2.3i（2017/08/31）跳到 v3.0a（2026-08-12），主版本号跳变，是发布方主动的版本升级而非 TL 打包滞后。影响 `ctex/test/testfiles/github472-03.lvt`／`github472-04.lvt`——仓库里唯一两个 `\usepackage{tocloft}` 的用例，四引擎全红。差异是每个页码后多出一对 `\kern -1.0` / `\kern 1.0`（LuaTeX 写作 `\kern-1.0` 无空格，形态相同），净宽度为零、相邻立即抵消，排版结果不变。
+- **`fontspec`**：某版本起不再显式加载 `xparse.sty`（不再依赖它，改为直接使用 `xparse` 提供的能力而不 `\RequirePackage`，或已并入其它加载路径）。影响 `ctex/test/testfiles/files01.lvt`／`files02.lvt`——它们用 `\listfiles` 固定「加载了哪些文件」这份清单，只在 XeTeX／LuaTeX 上红（两者经 `fontspec` 加载字体；pdfTeX／upTeX 不经 `fontspec`，不受影响）。四份 diff 各只少一行 `xparse.sty`。
+
+**两个成因在失败集合上呈现不同的引擎分布**（`github472-*` 四引擎全红，`files0*` 只两个引擎红），这本身就是「不止一个成因」的信号，排查时不能先找到一个成因就把另一组失败也挂在它名下——分布不同大概率是路径不同。详见反思 [[1080-upstream-tocloft-fontspec]]。
+
 ### 基线处置的分类判据
 
 判断某个上游漂移触发的 `.tlg` 基线 diff 该不该刷，先分类根因：
 
 - **会自愈的漂移不刷基线**。l3backend 这一类是 TL 打包侧暂时没跟上 CTAN，本质是「旧快照」而不是「上游改了行为」；一旦 tlnet 同步，数值会自己变回去。如果现在刷基线，等于把上游当前这个滞后快照里的（相对新版本而言）错误数值固化下来，TL 同步后又要改回来，白做一次。
-- **上游有意修正且不会回退的漂移必须刷**。pgf 的舍入修正属于这一类：源码注释写明了动机，是一次明确的、面向未来的修正，不会被撤销。
+- **上游有意修正且不会回退的漂移必须刷**。pgf 的舍入修正、`tocloft` 的主版本升级、`fontspec` 改变依赖加载方式都属于这一类：都是发布方主动的、面向未来的变更，不会被撤销。
 
 这条判据是 `## LaTeX2e 格式依赖声明` 那句「升级声明日期通常意味着一次成批的 `.tlg` 基线更新；这类基线 PR 不应被当成业务回归处理」在「单个宏包独立漂移」场景下的推广——后者针对的是本仓库主动声明的内核版本整体上调，这里针对的是本仓库没有主动做任何声明、纯粹因为上游各宏包各自的发布节奏不同步而出现的局部漂移，判据从「声明变了就该刷」细化为「先分辨会不会自愈」。
+
+**判定「必须刷」之后，还要逐份核对 diff 的内容形态，否则会把上游的新缺陷一起冻结进基线。** #1080 的两个实例都先确认了 diff 的内容性质才敢 save：`tocloft` 侧新增的**只有**净宽为零的 kern 对（8 份 diff 各 4 行新增、0 行删除，无任何非 kern 的新增行）；`fontspec` 侧**只有**文件名行删除（4 份 diff 各少一行，无其它变化）。没有节点丢失、没有数值变化、没有 ctex 补丁失效的迹象。若某份 diff 里除了这类「安全信号」还夹带节点缺失或数值变化，要先查本包对该上游包的补丁在新版下是否仍成立，不能直接 `l3build save`。
 
 ### 两条操作细节
 
 - **不能靠正则替换数字更新 `.tlg`，必须让 l3build 重新生成**。实证是 `beamer01` 的 `2000.0` 出现次数从基线 8 次降到 4 次，成对的 push/pop 数量也随之变化——手工改几个数字看起来能让 diff 变小，但改不出正确的节点结构。
 - **关掉断言不是刷基线**。`fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验，而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的。刷基线的前提是让测试在正确环境下重新跑出真实结果，不是让测试不再报告结果。
+- **同一包目录下 `l3build check` 不能并发跑。** #1080 排查时在跑全套 `check` 的同时另起了单用例 `check`，两者共用 `build/` 目录，先跑的那个报 `./build/check/part-format01.log: No such file or directory` 并 traceback 退出——看起来像测试失败，实际是自己造成的干扰；#1026 反思里记录过同族的坑（并行跑 `l3build save` 与 `l3build check` 互相清掉共享的 `build/test` 目录）。要真正并行，用 `scripts/check-parallel.sh`——它给每个引擎在独立子工作目录里跑，不共享 `build/`。
 
 ### CI 侧的临时 workaround：共享脚本 `scripts/sync-l3backend.sh`
 
