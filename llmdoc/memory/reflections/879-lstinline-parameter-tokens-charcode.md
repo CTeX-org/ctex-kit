@@ -88,11 +88,11 @@ catcode/codepoint 桥接）。
   需要保留输入侧字符码身份时，`\regex_replace_all:nnN` 的替换串是字面
   codepoint，整个机制等价于"任意 catcode N → 固定 codepoint K"，会丢失字符
   身份。此时应改走 token 级路径。
-- `architecture/xecjk-architecture.md` xeCJK-listings 段（约 L347-349）目前
+- `architecture/xecjk-architecture.md` xeCJK-listings 段（`### xeCJK-listings` 一节）目前
   只一句"用 `\tl_set_rescan:Nno` 替代 `\lccode`/`\lowercase`"，没记录
   parameter token 处理路径。从 #378 catcode-class regex 到 #879 token 级 map
   的演化值得作为该段的微小补充。
-- `reference/build-and-test.md` listings-hash01 描述（L155）已经提到
+- `reference/build-and-test.md` 里 `listings-hash01` 的描述已经提到
   "`\lstinline` 在宏参数中的 `#` catcode 保持"，但没单列 Test 6 覆盖的
   `\catcode\`\&=6` 场景；新增一句即可。
 - `memory/reflections/378-lstinline-hash-doubling.md` 的 Follow-up 没有
@@ -111,7 +111,7 @@ catcode/codepoint 桥接）。
   > 逐 token 重建。`\@@_listings_rescan:Nn` 的 #378→#879 演化是典型案例。
 
 适合提升到 **`architecture/xecjk-architecture.md`** xeCJK-listings 段
-（约 L347-349，由 recorder 落地）：
+（`### xeCJK-listings` 一节，由 recorder 落地）：
 
 - 补一句记录 parameter token 处理路径：
   > `\@@_listings_rescan:Nn` 在 rescan 前先用 `\tl_map_inline:Nn` 逐 token
@@ -132,7 +132,7 @@ catcode/codepoint 桥接）。
 适合提升到 **`reference/build-and-test.md`** listings-hash01 描述附近
 （由 recorder 落地）：
 
-- 在 L155 现有描述后补一句：
+- 在 `listings-hash01` 那段现有描述后补一句：
   > 其中 Test 6 覆盖用户通过 `\catcode\`\&=6` 把其它字符设为 parameter token
   > 的场景，验证 `\@@_listings_rescan:Nn` 保留原字符码（#879）。
 

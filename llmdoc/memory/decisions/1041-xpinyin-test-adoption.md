@@ -20,6 +20,11 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 - `pinyin-setup01.lvt`：`\xpinyinsetup` 中**能用尺寸观察的六个键**（`ratio`／`vsep`／`hsep`／`pysep`／`font`／`format`），用「改前 vs 改后」的差值而非绝对值。其中 `format` 在这里只固定「加了它尺寸不变」这一半，着色本身归 `scope01`。
 - `pinyin-cjkutf8-01.lvt`：CJKutf8/pdfTeX 路线，覆盖前两类断言的等价内容。
 
+上面这份清单是 #1041 落地时的状态。#997 之后 `testfiles/` 又追加了 `pinyin-fallback01.lvt`
+（观察通道是 `\loggingoutput` 下量宽盒子**自身**的宽度，见 [[997-xpinyin-fallback-reselect]]），
+因此「四个」只对本决策所述的那个时点成立；当前清单以
+`llmdoc/reference/build-and-test.md` 的「xpinyin 的注音回归（#1041）」一节为准，那里不再冻结总数。
+
 按观察通道分工是因为同一个功能维度（例如「读音是否正确」）需要不同的证据形式才能获得判别力：尺寸比较拦不住字体恰好同尺寸的情况，节点列表才是正面证据。见下方「四条判别力教训」。
 
 这条分工原则曾被违反两次，且是同一个模式的两次发作，值得记下。
@@ -40,7 +45,7 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 ## 决策：两条结构性事实必须写进测试注释
 
 - **注音汉字的宽度看不出拼音内容**：拼音在 `\hbox_overlap_right:n` 这个零宽盒里，换读音乃至整段关掉注音，整盒宽度都不变（实测 chang2/zhang3 同为 10pt）。内容类断言一律交给节点列表。
-- **CJK 环境必须开在盒子内部**：`\begin{CJK}` 包住 `\hbox_set:Nn` 时汉字进不了盒子，三项宽高全为 0pt，而 0pt = 0pt 让「宽度不变」照样报 unchanged。
+- **CJK 环境必须开在盒子内部**：`\begin{CJK}` 包住 `\hbox_set:Nn` 时，出环境后三项宽高全为 0pt，而 0pt = 0pt 让「宽度不变」照样报 unchanged。成因是 `\hbox_set:Nn` 的局部赋值被环境分组还原成 void（环境内读它是 12.75551pt，`\hbox_gset:Nn` 则环境外也可读），不是汉字排不进盒子。
 
 ## 决策：观察手段选 `\loggingoutput`，不用 `\showbox`／`\box_log:N`
 

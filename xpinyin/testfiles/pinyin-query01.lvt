@@ -1,0 +1,370 @@
+\input{regression-test}
+
+%% 拼音查询命令 (#550, XeTeX / xeCJK 路线).
+%%
+%% 覆盖 \xpinyinvalue / \xpinyininitial / \xpinyinshengmu / \xpinyinyunmu
+%% 四个命令, 两种 scheme, 四种 tone, 以及可展开性.
+%%
+%% 判据分两种, 因为四种 tone 取值的可展开性不同:
+%%
+%%   * tone=number/none/v 与 \xpinyinshengmu / \xpinyininitial: 结果是纯文本,
+%%     用 \TYPE 写进日志逐字比对.
+%%   * tone=mark: 不可展开. \@@_query_mark:n 转调用 \@@_pinyin:n, 后者是把内容
+%%     **排版出来**而不是返回字符串 (它经 \l_@@_item_tl 等变量逐段拼装输出),
+%%     所以 \TYPE 只会记下 `\__xpinyin_query_mark:n {zhong1}` 这样的未展开形式,
+%%     \tl_set:Ne 同样留不下文本 (实测两者皆如此).
+%%     这类结果改为排进页面, 用 \loggingoutput 让节点列表进日志.
+%%
+%% 都不用盒子尺寸: 查询命令返回的是字符串, 宽高类断言在这里恒真
+%% —— 与 pinyin-setup01/scope01 的手段不同.
+%%
+%% 不用 \showbox / \box_log:N: 它们抛 `! OK.`, 而 checkopts 带 -halt-on-error,
+%% 会当场终止编译 (见 pinyin-scope01.lvt 的同一条说明).
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage[query]{xpinyin}
+
+%% 这一行只是让 xeCJK 正常初始化 (不设会触发默认字体警告), 与判据无关.
+%%
+%% 基线**不依赖 CJK 字体**: 第 9 节固定的是排版节点, 但排的全是拼音结果,
+%% 即拉丁字母, 节点里唯一的字体是 \TU/lmr; 汉字只出现在 \TYPE 的日志文本行里,
+%% 不是字形节点. 实测把这里换成 FandolKai 或整行注释掉, .tlg 逐字节相同.
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+%% 1. 四个命令的基本取值 (默认 scheme=literal, tone=mark).
+%%
+%% 选字覆盖三类结构: 有声母且韵母正常 (中), 零声母 (安), 两字母声母 (中/知).
+\TYPE{=== 1. basic (text-form parts) ===}
+\TYPE{initial zhong: \xpinyininitial{中}}
+\TYPE{shengmu zhong: \xpinyinshengmu{中}}
+%% value 与 yunmu 在 tone=mark 下不可展开, 排版到页面上由节点列表固定 (见第 9 项).
+%% 这里先用 number 形式固定其字面值.
+\xpinyinsetup{tone=number}
+\TYPE{value   zhong (number): \xpinyinvalue{中}}
+\TYPE{yunmu   zhong (number): \xpinyinyunmu{中}}
+\xpinyinsetup{tone=mark}
+
+%% 2. 零声母字: 声母应为空, 韵母是整个音节.
+%%
+%% 这一项是必须的 —— 数据库里有 6268 个 (14.1%) 单音字的拼音以 y/w 或元音开头,
+%% 早期原型用的正则要求必须匹配到声母, 对这些字返回空. 详见 #550 的调研评论.
+\TYPE{=== 2. zero initial ===}
+\xpinyinsetup{tone=number}
+\TYPE{an      sm=[\xpinyinshengmu{安}] ym=[\xpinyinyunmu{安}]}
+\TYPE{er      sm=[\xpinyinshengmu{儿}] ym=[\xpinyinyunmu{儿}]}
+\xpinyinsetup{tone=mark}
+
+%% 3. y/w 开头: literal 模式把它们当声母.
+\TYPE{=== 3. y/w literal ===}
+\xpinyinsetup{tone=number}
+\TYPE{wang    sm=[\xpinyinshengmu{王}] ym=[\xpinyinyunmu{王}]}
+\TYPE{yue     sm=[\xpinyinshengmu{月}] ym=[\xpinyinyunmu{月}]}
+\TYPE{yi      sm=[\xpinyinshengmu{衣}] ym=[\xpinyinyunmu{衣}]}
+\TYPE{wu      sm=[\xpinyinshengmu{乌}] ym=[\xpinyinyunmu{乌}]}
+\TYPE{yu      sm=[\xpinyinshengmu{鱼}] ym=[\xpinyinyunmu{鱼}]}
+\xpinyinsetup{tone=mark}
+
+%% 4. official 模式: y/w 视为介音的书写形式, 声母为零, 韵母还原成音位形式.
+%%
+%% 与第 3 项构成对照, 缺一不可: 只有第 3 项时, 把 scheme 选项接错 (两种模式
+%% 用同一张表) 不会被发现.
+%%
+%% 注意 official 模式的韵母**不标声调**: 还原出来的形式可能以 v 开头
+%% (yue -> ve), 而 \pinyin 只在 l/n 之后才把 v 当 ü (见 \@@_replace_v:n),
+%% 开头的 v 会排成 u. 与其静默给出错的字形, 这里输出无调形式.
+\TYPE{=== 4. y/w official ===}
+\xpinyinsetup{scheme=official}
+\TYPE{wang    sm=[\xpinyinshengmu{王}] ym=[\xpinyinyunmu{王}]}
+\TYPE{yue     sm=[\xpinyinshengmu{月}] ym=[\xpinyinyunmu{月}]}
+\TYPE{yi      sm=[\xpinyinshengmu{衣}] ym=[\xpinyinyunmu{衣}]}
+\TYPE{wu      sm=[\xpinyinshengmu{乌}] ym=[\xpinyinyunmu{乌}]}
+\TYPE{yu      sm=[\xpinyinshengmu{鱼}] ym=[\xpinyinyunmu{鱼}]}
+%% official 模式不改变 \xpinyinvalue: 它返回完整读音, 与切分方式无关.
+%% 这一格固定这条边界 —— 实测把判断提到外层时, official 下 \xpinyinvalue{王}
+%% 会返回 uang 而不是 wáng.
+\xpinyinsetup{tone=number}
+\TYPE{value wang official: \xpinyinvalue{王}}
+\xpinyinsetup{tone=mark}
+\xpinyinsetup{scheme=literal}
+
+%% 5. tone 的四种取值.
+%%
+%% ü 是这里的关键: 它在 NFD 下带分音符与声调两个组合符, 生成数据库时按
+%% \pinyin 的输入约定折叠成 v (手册里的 \pinyin{nv3hai2zi}).
+%% number 形式输出 nv3, 可以直接馈回 \pinyin; 若写成 nu3, 馈回会得到「努」.
+\TYPE{=== 5. tone forms ===}
+%% mark 形式见第 9 项 (排版判据).
+\xpinyinsetup{tone=number}
+\TYPE{number zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+\xpinyinsetup{tone=none}
+\TYPE{none   zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+\xpinyinsetup{tone=v}
+\TYPE{v      zhong=\xpinyinvalue{中} nv=\xpinyinvalue{女} lv=\xpinyinvalue{绿}}
+
+%% 5b. 轻声: 数据库里有 238 个读音没有调号, 声调部分应为空.
+\xpinyinsetup{tone=number}
+\TYPE{qingsheng me=\xpinyinvalue{么}}
+\xpinyinsetup{tone=mark}
+
+%% 5c. 韵母以 v 开头时不标调 (见第 4 项的说明), 「女」正是这种情况.
+\TYPE{yunmu nv (mark): [\xpinyinyunmu{女}]}
+
+%% 5d. 整个音节就是一个鼻音的字: m / n / ng / hm / hng.
+%%
+%% 「呣」「嗯」「哼」一类。("共 11 个字" 这个数按任何口径都不成立: 单音字表 7 个,
+%% 多音字表按任一读音算 8 个、按首选读音算 5 个, 故不写总数。)它们没有声母与韵母之分,
+%% 整体作韵母处理, 声母为空。
+%%
+%% 这一格固定两件事:
+%%   (a) 声母为空, 而不是按字母切出 n 再留下 g —— 「嗯」的 ng 若被切开,
+%%       韵母会变成 g4, 而 g 不是韵母 (实测早先输出 sm=[n] ym=[g4]);
+%%   (b) 韵母不与声调数字拼接 —— 早先「呣」的韵母是空串, 与声调拼接后
+%%       只剩一个裸数字, tone=mark 下 PDF 里排出孤立的「2」。
+%%
+%% 判别力: 去掉 \@@_query_syllabic_ 表, (a) 变红; 去掉韵母为空的判据, (b) 变红.
+\TYPE{=== 5d. syllabic nasals ===}
+\xpinyinsetup{tone=number}
+\TYPE{m   呣: v=[\xpinyinvalue{呣}] sm=[\xpinyinshengmu{呣}] ym=[\xpinyinyunmu{呣}]}
+\TYPE{ng  嗯: v=[\xpinyinvalue{嗯}] sm=[\xpinyinshengmu{嗯}] ym=[\xpinyinyunmu{嗯}]}
+\TYPE{hng 哼: v=[\xpinyinvalue{哼}] sm=[\xpinyinshengmu{哼}] ym=[\xpinyinyunmu{哼}]}
+%% official 模式下同样整体作韵母.
+\xpinyinsetup{scheme=official}
+\TYPE{ng  嗯 official: sm=[\xpinyinshengmu{嗯}] ym=[\xpinyinyunmu{嗯}]}
+\xpinyinsetup{scheme=literal}
+%% 表里五个条目逐个取到: m / n / ng / hm / hng.
+%% 「哼」的首选读音是 heng1 (不是鼻音), hng 只在多音字列表里, 所以用星号形式取.
+\TYPE{n   㕶: v=[\xpinyinvalue{㕶}] sm=[\xpinyinshengmu{㕶}] ym=[\xpinyinyunmu{㕶}]}
+\TYPE{hm  噷: v=[\xpinyinvalue{噷}] sm=[\xpinyinshengmu{噷}] ym=[\xpinyinyunmu{噷}]}
+%% hng 只在「哼」的多音字列表里 (首选读音是 heng1), 星号形式不可展开,
+%% 所以放到第 9 节用排版结果固定.
+%%
+%% tone=mark 下这些音节必须退回无调形式 —— 它们没有可标调的元音, 否则声调数字
+%% 会原样排出 (实测早先 \xpinyinvalue{嗯} 在 mark 下得到 ng4, 那个 4 是裸数字).
+%% mark 形式同样不可展开, 一并放到第 9 节。
+\xpinyinsetup{tone=mark}
+
+%% 6. 首字母不受 tone 影响: 它只是一个拉丁字母.
+%%
+%% 这一格是必须的 —— 若把 initial 也接进 tone 的处理链, 它会随 tone 变化;
+%% 而 #550 的索引用途要的正是一个稳定的分组键.
+\TYPE{=== 6. initial is tone-independent ===}
+\xpinyinsetup{tone=mark}
+\TYPE{initial mark:   \xpinyininitial{中}\xpinyininitial{女}\xpinyininitial{安}}
+\xpinyinsetup{tone=number}
+\TYPE{initial number: \xpinyininitial{中}\xpinyininitial{女}\xpinyininitial{安}}
+\xpinyinsetup{tone=mark}
+
+%% 7. 星号形式取全部读音.
+%%
+%% 「行」有四个读音且跨两个首字母组 (h 与 x). 数据库里 5965 个多音字中
+%% 有 3869 个 (64.9%) 的读音跨不同首字母组, 所以这不是边缘情况.
+%%
+%% 首字母的星号形式去重 (h,x 而非 h,h,h,x); 带调号的 value 不去重 ——
+%% \@@_pinyin:n 是 protected 的, e 类展开留不下文本, 收不进逗号列表.
+%%
+%% 星号形式本身也不可展开: 去重要用逗号列表变量. 所以这里同样用排版判据,
+%% 而不是 \TYPE. 需要写进 \index 排序键的场合应当用不带星号的形式.
+\TYPE{=== 7. star form (typeset, see section 9) ===}
+
+%% 8. 可展开性 —— 这是 #550 的核心诉求.
+%%
+%% 索引用途需要把查询结果写进 \index 的排序键或 bib2gls 的字段, 两者都要求
+%% 参数能展开成字面文本. 因此查询表存的是「字母加声调数字」形式,
+%% 去声调与取首字母在生成数据库时算好, 运行时只做取值与字符串处理.
+%%
+%% tone=mark 依赖 \@@_pinyin:n, 不可展开; 其余三种取值下完全可展开.
+%% 这一项固定后者.
+\TYPE{=== 8. expandability ===}
+\xpinyinsetup{tone=number}
+\edef\QueryA{\xpinyinvalue{中}}
+\TYPE{edef value:   \QueryA}
+\edef\QueryB{\xpinyininitial{中}}
+\TYPE{edef initial: \QueryB}
+\edef\QueryC{\xpinyinshengmu{中}}
+\TYPE{edef shengmu: \QueryC}
+\edef\QueryD{\xpinyinyunmu{中}}
+\TYPE{edef yunmu:   \QueryD}
+%% 用作 \csname 的构造成分.
+\expandafter\def\csname query-key-\xpinyininitial{中}\endcsname{CSNAME-OK}
+\TYPE{csname: \csname query-key-z\endcsname}
+%% 索引排序键的正确写法.
+%%
+%% \index 本身**不展开**参数 (先 \@sanitize 再原样写进 .idx), 所以
+%% `\index{\xpinyinvalue{中}@中}` 存进去的是这串命令本身而不是 zhong1;
+%% 这是 \index 的既有行为, 与查询命令可不可展开无关. 手册因此要求先 \edef
+%% 一次再交给 \index.
+%%
+%% 早先这里写的是 `\index{...}` 后跟一句 \TYPE{index: no error}. 那是个
+%% 恒真断言: \TYPE 无条件执行, 无论实现对不对、无论查询表有没有载入都会
+%% 打出这一行, 对它声称覆盖的场景零判别力, 反而把缺陷冻结成了预期基线.
+%%
+%% 固定手册推荐写法的实际产物, 分两层:
+%%
+%% (a) \edef 之后 \XPYkey 必须是字面 zhong1, 它才能当排序键用;
+%% (b) 固定**交给 \index 的那串字节**.
+%%
+%% (b) 是必须的: 前一版只断言了 (a), 即 \edef 的中间产物, 而缺陷出在最终写进
+%% .idx 的内容上 —— 手册配方里用 \@tempa 作中间变量时, 正文里 @ 不是字母,
+%% \edef\@tempa{...} 定义到的并不是 \@tempa, 排序键会多出一个空格
+%% (han @汉字). 只看 (a) 查不出这种问题.
+\edef\XPYkey{\xpinyinvalue{中}}
+\TYPE{idx-key after edef: \XPYkey}
+\TYPE{idx-key meaning: \meaning\XPYkey}
+%% 端到端: 用手册给的写法生成排序键, 并把**交给 \index 的实际参数**打进日志.
+%%
+%% 不真的调 \index: 它写的是外部 .idx 文件, 内容不进日志, 基线看不到.
+%% 改为把 \index 换成一个只记录参数的命令, 从而在日志里固定那串字节.
+\newcommand\XPYpyindex[2]{%
+  \begingroup
+    \xpinyinsetup{tone=none}%
+    \edef\pyindexkey{#1}%
+    \expandafter\XPYrecord\expandafter{\pyindexkey @#2}%
+  \endgroup}
+\newcommand\XPYrecord[1]{\TYPE{idx-entry: [#1]}}
+\XPYpyindex{\xpinyinvalue{汉}}{汉字}
+\XPYpyindex{\xpinyinvalue{安}}{安全}
+%% 对照: 中间变量用含 @ 的名字时, 正文里 @ 不是字母, 排序键会多出一个空格.
+%% 这一格固定该差异, 使手册里「中间变量要用普通名字」这条说明有判据支撑.
+\newcommand\XPYbad[2]{%
+  \begingroup
+    \xpinyinsetup{tone=none}%
+    \edef\@tempa{#1}%
+    \expandafter\XPYrecord\expandafter{\@tempa @#2}%
+  \endgroup}
+\XPYbad{\xpinyinvalue{汉}}{汉字}
+
+%% 9. tone=mark 的输出: 不可展开, 用排版结果固定.
+%%
+%% \loggingoutput 把 shipout 的节点列表写进日志, 于是带调号的字形逐个进基线.
+%% 这是本文件唯一依赖排版的一节 —— 因为 mark 形式确实只能排版而不能取值.
+%%
+%% 判别力: 若标调规则或 ü 的处理出错, 这里的字形会变.
+%% 例如把生成脚本里 ǚ 的字母部分从 v 写成 u, 「女」会排成 nǔ.
+\TYPE{=== 9. tone=mark via typeset output ===}
+\xpinyinsetup{tone=mark}
+\loggingoutput
+\xpinyinvalue{中} \xpinyinvalue{女} \xpinyinvalue{绿}\par
+\xpinyinyunmu{中} \xpinyinyunmu{安} \xpinyinyunmu{王}\par
+\xpinyinvalue*{重}\par
+%% 星号形式: 「行」四个读音跨 h/x 两组, 首字母应去重成 h,x.
+\xpinyinvalue*{行}\par
+\xpinyininitial*{行}\par
+\xpinyininitial*{重}\par
+%% 单音字的星号形式退回首选读音.
+\xpinyinvalue*{丹}\par
+%% number 形式下星号可读性更好, 一并固定.
+\xpinyinsetup{tone=number}
+\xpinyinvalue*{行}\par
+\xpinyininitial*{行}\par
+%% 整体为鼻音的音节在 mark 下退回无调形式 (没有可标调的元音);
+%% 对照组是常规字, 照常标调。若这条判据失效, 页面上会出现裸声调数字。
+\xpinyinsetup{tone=mark}
+\xpinyinvalue{嗯} \xpinyinyunmu{嗯} \xpinyinvalue{㕶} \xpinyinvalue{噷}\par
+\xpinyinvalue{中} \xpinyinvalue{女}\par
+%% hng 只在「哼」的多音字列表里, 用星号形式取到。
+\xpinyinvalue*{哼}\par
+\xpinyinyunmu*{哼}\par
+\xpinyinsetup{tone=number}
+%% 去重与否只取决于「这一部分的输出是不是纯文本」, 不取决于 tone 的取值.
+%% 声母从不标调, 所以 mark 下也该去重 (早先输出 h,h,h,x, 而 number 下是 h,x —— 
+%% 同一命令随 tone 变了行为); official 的韵母不标调, 同理.
+\xpinyinsetup{tone=mark}
+\xpinyinshengmu*{行}\par
+\xpinyinsetup{scheme=official}
+\xpinyinyunmu*{行}\par
+\xpinyinsetup{scheme=literal}
+%% 去重与否要看**实际结果**, 不能按「命令 + scheme」静态判断: 会不会经过标调
+%% 还取决于这个读音本身 —— 整个音节是鼻音时没有可标调的元音, 韵母以 v 开头时
+%% 也不标调, 这两条回退运行时才知道。下面四格在 mark 下都该去重
+%% (实测按静态判据时「嗯」排出 n,n,n,ng,ng,ng)。
+\xpinyinvalue*{呣}\par
+\xpinyinvalue*{嗯}\par
+\xpinyinyunmu*{掠}\par
+\xpinyinyunmu*{铝}\par
+%% 全部读音的声母都为空时, 结果应当是空串而不是一串分隔逗号。逗号列表自动丢掉
+%% 空项, 所以这些字在去重前列表就已经是空的 —— 那是正确结果, 与「项含 protected
+%% 命令导致去重把列表清空」必须区分开 (实测混淆时「啊」排出 ,,,, )。
+\xpinyinshengmu*{啊}\par
+\xpinyinshengmu*{呕}\par
+\xpinyinsetup{scheme=official}
+\xpinyinshengmu*{王}\par
+\xpinyinsetup{scheme=literal}
+%% 对照: value 与 literal 的韵母在 mark 下确实经过标调, 不能去重 (强行去重会
+%% 把每项变成空), 所以这两格保留全部读音.
+\xpinyinvalue*{行}\par
+\xpinyinyunmu*{行}\par
+\xpinyinsetup{tone=number}
+%% 手册说四个命令都提供带星号的形式, 声母与韵母那两个也要固定下来.
+\xpinyinshengmu*{行}\par
+\xpinyinyunmu*{行}\par
+\xpinyinshengmu*{重}\par
+\xpinyinyunmu*{重}\par
+%% \setpinyin 改的是「首选读音」, 注音与查询必须给出同一个结果 —— 两者用的是
+%% 两张表 (注音表存排好的注音内容, 查询表存「字母加声调数字」), 只改一张的话
+%% 同一个字会有两种读音, 据此算出的索引排序键也落到错的组
+%% (实测只改注音表时 \xpinyin 排出 cháng 而 \xpinyinvalue 仍返回 zhǎng)。
+\setpinyin{长}{chang2}
+\xpinyinvalue{长}\par
+\xpinyininitial{长}\par
+\xpinyinshengmu{长}\par
+\xpinyinyunmu{长}\par
+%% 星号形式给的是全部读音, 不受 \setpinyin 影响。
+\xpinyinvalue*{长}\par
+%% issue 1069: \setpinyin 的读音写成 ü 时, 存进查询表前要折成 v。
+%% 查询表通篇用 v 记 ü (xpinyin.lua 生成时就这么写), number 形式因此可以直接
+%% 馈回 \pinyin; 把用户写的 ü 原样存进去会让同一张表里出现两种拼写 ——
+%% 实测那样 \setpinyin{妞}{nü3} 后 number 形式返回 nü3 而不是 nv3。
+%% 判据: 两种写法存进去之后 number 形式必须逐字节相同。
+\setpinyin{妞}{nü3}
+\setpinyin{囡}{nv3}
+\xpinyinvalue{妞}\par
+\xpinyinvalue{囡}\par
+\xpinyinsetup{tone=mark}
+\xpinyinvalue{妞}\par
+\xpinyinvalue{囡}\par
+\xpinyinyunmu{妞}\par
+\xpinyinsetup{tone=number}
+\xpinyinsetup{tone=mark}
+%% PR #1051 审查发现: \setpinyin 同步查询表的门禁不能用「该字的查询控制序列
+%% 已存在」, 那会漏掉**数据库未收录的字** —— 而那恰是需要 \setpinyin 补录读音
+%% 的场景。兙 (U+5159) 两张表都没有; 用 cs_if_exist 作门禁时
+%% \setpinyin{兙}{shi2} 只改注音表, \xpinyinvalue{兙} 仍报 No pinyin reading,
+%% 与手册「两边给出的首选读音始终一致」冲突。改用 \g_@@_query_loaded_bool
+%% 后应当**创建**该查询项。
+%% 判据: 下面三行必须排出 shí / shi2 / sh, 而不是报错。
+\setpinyin{兙}{shi2}
+\xpinyinvalue{兙}\par
+\xpinyinshengmu{兙}\par
+\xpinyinsetup{tone=number}
+\xpinyinvalue{兙}\par
+\xpinyinsetup{tone=mark}
+%% PR #1051 审查再发现: \setpinyin 存进查询表前还要去掉表示轻声的末尾 5。
+%% 查询表里轻声**不写数字** (xpinyin.lua 的 numbertable 只产出 1-4, 生成的
+%% xpinyin-query.def 里带 5 的条目为零), 拆分逻辑也照此只把 1-4 当声调
+%% (判据 `#1 < `5)。原样存 shi5 会让 none 形式返回 shi5 而不是 shi。
+%% 判据: 下面 mark/number/none 三种形式必须都排出 shi (无数字), 且
+%% 非轻声 (shi2) 与 ü+轻声 (nü5 -> nv) 两个对照不受影响。
+\setpinyin{兙}{shi5}
+\xpinyinvalue{兙}\par
+\xpinyinsetup{tone=number}
+\xpinyinvalue{兙}\par
+\xpinyinsetup{tone=none}
+\xpinyinvalue{兙}\par
+\xpinyinsetup{tone=mark}
+\setpinyin{囡}{nü5}
+\xpinyinvalue{囡}\par
+\xpinyinsetup{tone=number}
+\xpinyinvalue{囡}\par
+\xpinyinsetup{tone=mark}
+
+\newpage
+
+
+\END
+
+\end{document}

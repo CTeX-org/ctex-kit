@@ -21,7 +21,7 @@
 %% 的 6.29724pt 和「无重音」(五声) 可与其余区分. 因此 TEST 1 的尺寸比较**拦不住
 %% 二声、三声、四声之间的对调** —— 实测把 \@@_num_to_tone:Nn 里的 \' 与 \` 对调,
 %% 本文件仍 All checks passed, 而 XeTeX 那四个文件全红.
-%% 补 TEST 6 用 \loggingoutput 固定实际节点, 作为这条路线的正面证据
+%% 补文件末尾的 \loggingoutput 段固定实际节点, 作为这条路线的正面证据
 %% (与 pinyin-tone01／tone02 的分工同理).
 
 \documentclass{article}
@@ -89,6 +89,30 @@
   \CmpPinyin { jv1 } { \pinyin{jv1} } { j\=u }
 }
 
+%% issue 1069: 直接输入 ü. 这条路线上原先不是「输出不对」而是**编译当场中止** ——
+%% pdfTeX 下 ü 是两个字节, \@@_pinyin_aux:n 逐记号取到的是半个字符, 拿去
+%% \if_int_compare:w 里做 `#1 求值, 报 "Improper alphabetic constant" 并连带
+%% 十几个后续错误 (实测 \pinyin{nü3} rc 1).
+%%
+%% 因此这一组在两条路线上的意义不同: XeTeX 那边固定「输出正确」, 这边同时固定
+%% 「能编译」—— 修复前本文件加上这一组会直接跑不完.
+%%
+%% 折叠 (\@@_pinyin:n 里的 \tl_replace_all:Nnn) 之所以对两条路线都成立, 是因为
+%% \tl_replace_all:Nnn 匹配的是记号序列: pdfTeX 下 ü 是 2 个记号的序列, 替换式
+%% 里的 ü 也是同样的 2 个记号, 照样匹配得上. 实测 pdfTeX 下 nü3 共 4 个记号,
+%% 替换后与 nv3 逐记号相同.
+\TEST{u-umlaut~typed~directly~under~CJKutf8}{
+  \CmpPinyin { lu-umlaut-1 } { \pinyin{lü1} } { l\={\"u} }
+  \CmpPinyin { lu-umlaut-2 } { \pinyin{lü2} } { l\'{\"u} }
+  \CmpPinyin { lu-umlaut-3 } { \pinyin{lü3} } { l\v{\"u} }
+  \CmpPinyin { lu-umlaut-4 } { \pinyin{lü4} } { l\`{\"u} }
+  \CmpPinyin { nu-umlaut-2 } { \pinyin{nü2} } { n\'{\"u} }
+  %% j 之后按规范不带分音符, 与 v 写法一致.
+  \CmpPinyin { ju-umlaut-1 } { \pinyin{jü1} } { j\=u }
+  %% 无声调时原样输出, 折叠不能泄漏到回退路径.
+  \CmpPinyin { toneless-umlaut } { \pinyin{nü} } { n\"u }
+}
+
 \ExplSyntaxOff
 
 \ExplSyntaxOn
@@ -97,7 +121,9 @@
 %% 拼音在零宽 overlap 盒里, 所以宽度与不注音时相同, 高度则因拼音抬到汉字上方
 %% 而增加. 这与 XeTeX 路线的结构一致, 说明 CJK 适配层也走同一套装盒逻辑.
 %% CJK 环境必须开在**盒子内部**. 写成 \begin{CJK} 包住 \hbox_set:Nn 时,
-%% 汉字根本进不了盒子, 实测三项宽高全为 0pt —— 而 0pt = 0pt 会让「宽度不变」
+%% \hbox_set:Nn 是局部赋值, 会被 CJK 环境的分组还原成 void, 出环境后读到的
+%% 三项宽高全为 0pt (实测: 环境**内**读同一个盒子是正常的 12.75551pt) ——
+%% 而 0pt = 0pt 会让「宽度不变」
 %% 那一半照样报 unchanged, 看着像通过. 初版正是这么写的.
 \TEST{annotation~adds~height~but~not~width}{
   \hbox_set:Nn \g_test_cand_box
@@ -158,9 +184,132 @@
     }
 }
 
+\ExplSyntaxOn
+
+%% TEST 6: \disablepinyin 的两种形式在 CJKutf8 路线上的分工 (#265 / PR #977).
+%%
+%% 这条路线必须单独覆盖: 开关本身与适配层无关 (两个布尔在 \xpinyin 里判断),
+%% 但「关掉之后汉字仍能正常排出」要经过 \@@_adjust_CJK_hook: 那一半 ——
+%% \xpinyin 的禁用分支走 \use_i:nn 丢弃读音参数, 若该分支在 CJK 路线上出错
+%% (例如读音参数没被吃掉而漏排成正文), 只测 XeTeX 是发现不了的.
+%%
+%% 观察量是**高度**: 拼音在零宽 overlap 盒里, 注音不改变宽度, 但会把盒子抬高
+%% (TEST 3 已固定这一点). 所以「有没有注音」用 ht 与不注音的基准比较即可,
+%% 不需要节点列表. 三格的判据:
+%%   * 普通 \disablepinyin  + 显式读音 -> 仍注音 -> ht 大于基准;
+%%   * \disablepinyin*      + 显式读音 -> 不注音 -> ht 等于基准;
+%%   * \disablepinyin*      + \xpinyin* -> 不注音 -> ht 等于基准.
+%% 实测 (纯 pdflatex): 普通形式下 yǔ 与 wén 都排出, 星号形式下两者都不排出.
+\TEST{disablepinyin~star~is~a~master~switch~under~CJKutf8}{
+  %% 基准: 完全不注音的「语」.
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}语\end{CJK} }
+  %% 普通形式不影响显式读音.
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\disablepinyin\xpinyin{语}{yu3}\end{CJK} }
+  \tl_log:x
+    {
+      plain~ disablepinyin~ +~ explicit~ reading:~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } > { \box_ht:N \g_test_oracle_box }
+            { annotated } { NOT-ANNOTATED } ,~
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+            { unchanged } { CHANGED }
+    }
+  %% 星号形式连显式读音一起关掉.
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\disablepinyin*\xpinyin{语}{yu3}\end{CJK} }
+  \tl_log:x
+    {
+      star~ disablepinyin~ +~ explicit~ reading:~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+            { not-annotated } { ANNOTATED } ,~
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+            { unchanged } { CHANGED }
+    }
+  %% 星号形式同样关掉自动注音.
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}\disablepinyin*\xpinyin*{语}\end{CJK} }
+  \tl_log:x
+    {
+      star~ disablepinyin~ +~ auto~ annotation:~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+            { not-annotated } { ANNOTATED }
+    }
+}
+
+%% TEST 7: 两个布尔都是局部赋值, 随分组恢复 (CJK 路线).
+%%
+%% 与 XeTeX 路线的第 2d 项同理: \disablepinyin* 用 \bool_set_false:N 而非
+%% \bool_gset_false:N. 这里把禁用限制在一个显式分组里, 组外应自动恢复注音,
+%% 不需要 \enablepinyin. 若误改成全局赋值, TEST 7 仍会通过 (它每格都在独立
+%% 的 \hbox_set:Nn 里且互不依赖顺序), 只有本项会红.
+%% 这一项的写法踩过两个坑, 都会让它变成恒真断言, 记在这里:
+%%
+%% 坑一 —— \hbox_set:Nn **不能**写在 CJK 环境内部. 与 TEST 3 的记录同源:
+%% 写成 \begin{CJK} ... \hbox_set:Nn \gB { \xpinyin*{语} } ... \end{CJK} 时,
+%% 实测出环境后该盒 ht = 0pt, 与任何基准比都得不出有意义的结论 —— 成因是
+%% \hbox_set:Nn 的局部赋值被环境分组还原成 void (环境内读它是 12.75551pt,
+%% 改用 \hbox_gset:Nn 则环境外也读到该值), 不是汉字排不进盒子.
+%% 所以每个盒子都必须自带 \begin{CJK}...\end{CJK}, 禁用用的子分组开在盒内.
+%%
+%% 坑二 —— 不能把「禁用组」和「组后的字」放进同一个盒子再比总高. 初版那么写,
+%% 盒内既有组内的字又有组外的字; 实测把 \bool_set_false:N 改成
+%% \bool_gset_false:N (禁用泄漏到组外) 时, 该盒仍比单个未注音汉字高
+%% (8.46454pt vs 8.39754pt) —— 多出的高度来自盒内其他内容而不是「语」的拼音,
+%% `>` 比较照报 restored. 现在盒内只放组后的那一个字.
+%%
+%% 另外基准必须取**从未禁用过**的另一个盒子: 若拿变异后的两个值互比, 它们会
+%% 同为 8.39754pt 而仍然相等. 实测正确实现下两者同为 12.75551pt, 全局赋值变异
+%% 下同时掉到 8.39754pt, 与未禁用基准比较即失配.
+%% 坑三 —— 组外的观察点不能用 \xpinyin*. 与 XeTeX 路线第 2d 项同一原因:
+%% \xpinyin* 的星号分支进组后无条件调 \enablepinyin (见 \xpinyin 的星号分支), 而
+%% \enablepinyin 会把总开关重新置真 (\enablepinyin 的第一个 \bool_if:NF 块), 于是它自己把泄漏出来的禁用
+%% 状态修好了. 初版两格都用 \xpinyin*, 结果第一格在全部变异下都不变化
+%% (变异 C 下候选与基准同时退化到 8.39754pt, `=` 照报 identical), 判别力全靠
+%% 第二格. 现在候选改用不带星号的显式形式 —— 第一格仍是等值比较、仍无变异
+%% 判别力 (见该格上方说明), 但它固定的性质更强, 两格各有分工.
+\TEST{disable~is~group-local~under~CJKutf8}{
+  %% 候选: 盒内先在一个子分组里禁用, 组结束后用**不带星号**的形式注音.
+  \hbox_set:Nn \g_test_cand_box
+    { \begin{CJK}{UTF8}{gbsn}{ \disablepinyin* }\xpinyin{音}{yin1}\end{CJK} }
+  %% 基准一: 从未禁用过的同一个字、同样的显式读音.
+  %% 注意这一格**本身没有变异判别力**: 它是等值比较, 候选与基准若在同一个
+  %% 变异下同时退化 (两边都不注音), `=` 仍会报 identical. 实测全局赋值变异下
+  %% 这一格确实不变, 判别力全部来自下面的基准二. 保留它是为了固定「恢复到
+  %% 原状」这个更强的性质 (不只是「有注音」, 而是与从未禁用过完全等尺寸).
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}\xpinyin{音}{yin1}\end{CJK} }
+  \tl_log:x
+    {
+      after~ group~ vs~ never-disabled:~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } = { \box_ht:N \g_test_oracle_box }
+            { identical } { DIFFERENT } ,~
+      wd~ \dim_compare:nNnTF
+            { \box_wd:N \g_test_cand_box } = { \box_wd:N \g_test_oracle_box }
+            { identical } { DIFFERENT }
+    }
+  %% 基准二: 完全不注音. 只有基准一时, 若两边同时退化成不注音仍会相等
+  %% (初版正是这样), 所以必须再取一次正面证据.
+  \hbox_set:Nn \g_test_oracle_box
+    { \begin{CJK}{UTF8}{gbsn}音\end{CJK} }
+  \tl_log:x
+    {
+      after~ group~ vs~ unannotated:~
+      ht~ \dim_compare:nNnTF
+            { \box_ht:N \g_test_cand_box } > { \box_ht:N \g_test_oracle_box }
+            { annotated } { NOT-ANNOTATED }
+    }
+}
+
 \ExplSyntaxOff
 
-%% TEST 6: 这条路线的正面证据 —— 用 \loggingoutput 固定 shipout 的实际节点.
+%% TEST 8 (\loggingoutput, 在 \TEST 之外): 这条路线的正面证据 —— 用 \loggingoutput 固定 shipout 的实际节点.
 %%
 %% 上面的尺寸比较区分不了二／三／四声 (T1 Latin Modern 三者宽高全同, 见文件头),
 %% 所以必须让节点本身进基线. T1 下重音有两种实现形态, 基线会一并固定:
@@ -172,12 +321,11 @@
 %% checkopts 带 -halt-on-error, 会当场终止编译, 其后用例静默不执行却仍可能报绿.
 %% 改用 \loggingoutput 让 shipout 例程把整页节点写进日志.
 %%
-%% 必须放在 \TEST 里: 页面在 \END 之前确实排出 (原始日志有 "Completed box
-%% being shipped out"), 但 l3build 只把 \TEST 区间内的内容归一化进 .tlg,
-%% 写在 \TEST 之外时节点列表进不了基线 —— 那样这一项就等于没有断言.
-%% 写在顶层而不是 \TEST 里 —— 与 pinyin-tone02.lvt 同一写法.
-%% 放进 \TEST 时实测节点列表进不了 .tlg (原始日志有 "Completed box being
+%% 必须写在顶层而**不是** \TEST 里 —— 与 pinyin-tone02.lvt 同一写法.
+%% 实测放进 \TEST 时节点列表进不了 .tlg (原始日志有 "Completed box being
 %% shipped out", 但归一化后该段被丢弃), 那样这一项等于没有断言.
+%% (本段原有两句结论互相矛盾, 已按实际写法与基线内容更正: 基线里确实有这
+%% 五行的节点, 而它们是在 \TEST 之外产生的.)
 \loggingoutput
 \pinyin{ma1}\par\pinyin{ma2}\par\pinyin{ma3}\par
 \pinyin{ma4}\par\pinyin{ma5}\par

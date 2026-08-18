@@ -1,0 +1,107 @@
+\input{regression-test}
+
+%% AutoFallBack 与注音量宽盒子的交互 (#997, XeTeX / xeCJK 路线).
+%%
+%% 缺陷: xpinyin 的 \@@_CJKsymbol_hook: 在量宽盒子里无条件调
+%% \xeCJK_select_font:, 而后者的内部实现 \@@_select_font:Nn 第一件事就是
+%% \xeCJK_clear_fallback_font:, 会把 AutoFallBack 刚切好的后备字体丢掉.
+%% 于是主字体缺字形时, 量宽盒子退回主字体、字形缺失, 量出的是该字体的 notdef
+%% 宽度 (2.8pt; 与标点无关 —— 同字体下任何缺字形字符都是 2.8pt, 真句点为 2.78pt),
+%% 拼音随后被 \box_resize_to_wd_and_ht:Nnn 压缩到这个错误宽度.
+%%
+%% 关键: 可见的汉字**本身不受影响** —— 它由量宽盒子之外的
+%% \@@_save_CJKsymbol:n 输出, 那时后备字体仍然有效. 所以这是量宽缺陷,
+%% 不是渲染缺陷; 报告里"汉字变成方框"的印象来自终端的 Missing character
+%% 警告, 实际 PDF 里汉字是正常的.
+%%
+%% 判据的选择 (这里踩过一次坑, 记下来):
+%% 用整体宽度**没有**判别力. 拼音在 \hbox_overlap_right:n 这个零宽盒子里,
+%% 不占外部宽度 —— 实测缺陷版与修复版 \hbox{\xpinyin*{中}} 同为 10.0pt.
+%% 所以必须让节点列表进日志, 看拼音字形自身的排版宽度.
+%%
+%% 实测读数 (主字体 lmroman10 无 CJK 字形, 后备 FandolSong 有):
+%%   缺陷版: 量宽盒子 x2.8   -> 拼音被压缩到该宽度
+%%   修复版: 量宽盒子 x10.0  -> 拼音按 ratio .4 正常排布
+%%
+%% 注意**字号在两版里是相同的** (基线里 9 处 m/n/10 + 7 处 m/n/3.99994, 缺陷版
+%% 逐一相同), 所以不要拿字号做判据 —— 真正变化的是盒子宽度与
+%% \special{x:scale} 系数 (\box_resize_to_wd_and_ht:Nnn 是按比例缩放, 不改字号).
+
+\documentclass{article}
+\usepackage[AutoFallBack]{xeCJK}
+\usepackage{xpinyin}
+
+%% 主字体故意选一个**没有** CJK 字形的西文字体, 逼出 AutoFallBack 这条路径.
+%% 后备字体才是真正提供汉字字形的那个.
+%% 两者都取自 TeX Live (lm / fandol), 不依赖系统 fontconfig, 跨机器可复现.
+\setCJKmainfont{lmroman10-regular.otf}
+\setCJKfallbackfamilyfont{\CJKrmdefault}{FandolSong-Regular.otf}
+
+%% 拼音字体单独指定, 使基线里拼音字形与汉字字形按字体名即可区分.
+\newfontfamily\PinyinTestFont{DejaVuSerif.ttf}
+\xpinyinsetup{font=\PinyinTestFont}
+
+%% 第 3 项的对照用: 一个自带 CJK 字形的族, 切过去后不经 AutoFallBack.
+%% 刻意选与后备字体不同的字体 (同属 TL 的 fandol 包), 使基线里「走后备字体」与
+%% 「主字体直接命中」两条路径的字体名可以区分.
+\newCJKfontfamily\CJKdirectfont{FandolKai-Regular.otf}
+
+\begin{document}
+
+\OMIT
+\hbox{\PinyinTestFont ma}\hbox{\xpinyin*{文}}
+\TIMO
+
+\START
+
+\loggingoutput
+
+%% 1. 后备字体下的自动注音: 拼音应按缺省 ratio (.4) 排成 3.99994pt.
+%%
+%% 这是 #997 的原始场景. 缺陷版下量宽盒子只有 x2.8, 拼音被压到该宽度;
+%% 基线里的可见差异是盒子宽度与 x:scale 系数, 字号不变 (见上).
+\xpinyin*{中国}\par
+
+%% 2. 显式指定读音的路径同样经过量宽盒子, 一并固定.
+%%    读音取非首选值, 与第 1 项的数据库首选形成可分辨的对照.
+\xpinyin{中}{zhong4}\par
+
+%% 3. 对照项: 主字体自身就有 CJK 字形时**不**走后备字体, 输出不应受本次改动影响.
+%%
+%% 本项的判别力有明确边界, 两句话都要读到, 只读一句会得到相反印象:
+%%   * 对「**整支重选被跳过**」没有判别力 (下详);
+%%   * 但是「**重选切到错误的 CJK 族**」这一形态的唯一防线 (再下详).
+%%
+%% 先说没有的那一半. 修复形态是「已处于后备字体状态就跳过重选, 否则保持原有
+%% 重选」. 直觉上「把条件写反」应该由本项拦住, 因为本行的注音紧跟在西文之后.
+%% 实测**不成立**: 把 \@@_reselect_CJK_font: 函数体置空 (即真正的「总是跳过」),
+%% 或干脆从 hook 里删掉这次调用, 全部 5 个用例仍然通过, 且本文件产物与基线逐字节
+%% 相同. 原因是进入本 hook 时**实际当前字体** (\fontname\font) 已经是 CJK 字体
+%% ——xeCJK 的 interchar 进入 CJK 类时就切好了, hook 运行在那之后; 只有 NFSS
+%% 参数 (\f@family) 还是 lmr, 而决定量宽的是前者, 不是后者.
+%%
+%% (顺带一个易错点: 把 \cs_if_eq:NNTF 的 T/F 分支互换**并不是**「总是跳过」——
+%%  实测那样改出来的产物与「无条件重选」逐字节相同. 注意成因不是「条件恒成立」:
+%%  分支计数探针显示互换后两支都会走到 (第 1、2 项走跳过支、第 3 项走重选支),
+%%  产物相同是因为第 3 项那次重选本身就是无操作.)
+%%
+%% 所以「**整支重选被跳过**」这一侧目前是已接受的覆盖缺口, 不要声称本项覆盖它.
+%%
+%% 再说有的那一半: 保持条件结构不动、只让 \@@_select_CJK_font: 重选到
+%% **错误的 CJK 族** (例如在它开头插 \CJKfamily{\CJKrmdefault}) 时, 实测只有本项
+%% 变红 (x10.0 -> x2.8, 缩放比 0.81777 -> 0.22898, 并新增两条 Missing character),
+%% 第 1、2 项区域逐字节不变 —— 本项是这一形态的唯一防线. 这也是下面刻意把对照
+%% 字体选成与后备字体**不同**的 FandolKai 的原因: 同名时两条路径在基线里无法区分,
+%% 这项判别力也就不存在.
+%%
+%% 变异判别力实测见 build-and-test.md 的 #997 一节.
+%%
+%% 用 \newCJKfontfamily 另立一族 (\setCJKmainfont 只能用在导言区), 且刻意选一个
+%% 与后备字体**不同**的字体, 使基线里两条路径的字体名可以区分.
+Latin \CJKdirectfont \xpinyin*{中国}\par
+
+\newpage
+
+\END
+
+\end{document}

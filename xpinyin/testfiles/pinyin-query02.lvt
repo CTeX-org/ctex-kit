@@ -1,0 +1,47 @@
+\input{regression-test}
+
+%% 拼音查询命令的报错路径 (#550, XeTeX / xeCJK 路线).
+%%
+%% 单独成文件, 且本文件里报错断言之后不放别的项.
+%%
+%% 原因是 checkopts 带 -halt-on-error (support/build-config.lua): 第一处错误
+%% 就终止编译, 其后的断言静默不执行而 check 仍可能报绿 —— 与 \showbox /
+%% \box_log:N 抛 `! OK.` 的那个坑同源 (见 pinyin-tone02.lvt 的注释).
+%%
+%% 注意这不是 \msg_expandable_error:nnn 的语义: 不加 -halt-on-error 时, 报错
+%% 之后的断言照常执行 (实测). 曾把它记成「可展开报错必然中断后续」, 据此把
+%% tone=mark 的节点基线搬到报错之后, 那一节从此从未执行, 两个变异都变全绿.
+%%
+%% 因此: 查不到读音那条路径另放 pinyin-query03.lvt; 需要与排版类判据共存的项
+%% 放在不含报错断言的 pinyin-query01.lvt.
+
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage[query]{xpinyin}
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\begin{document}
+
+\START
+
+%% 参数校验数的是字符而不是记号.
+%%
+%% \tl_count:n 把 {中}、\hz 这类各算一个记号, 会放它们过去, 随后照旧漏出
+%% 底层 TeX 错误; \str_count:n 先转成字符串再数, 能一并挡住.
+%% 判据是**报错本身**: -halt-on-error 下第一处错误即终止编译, 所以下面那行
+%% \TYPE 到不了, 所以下面那行已注释掉; 基线里固定的是错误信息与出错位置.
+%% (实测: 它在 .tlg 里从未出现, 注释掉前后基线逐字节相同.)
+%% 若校验被去掉或数错单位, 这里报的就不再是 xpinyin 的错误, 基线随之变化.
+\TYPE{=== argument check counts characters ===}
+%% 只放一格: -halt-on-error 下第一处报错即终止, 第二格不会执行.
+%% 汉字存在宏里 (\XPYhz) 是很自然的写法, 拿它作代表;
+%% 花括号包一层 (`{{中}}`) 属同一机制 —— \tl_count:n 各算一个记号 ——
+%% 由 pinyin-query04.lvt 覆盖.
+\def\XPYhz{中}
+\edef\XPYviaMacro{\xpinyinvalue{\XPYhz}}
+%% 下面这行到不了 (见上), 保留是为了说明当初想断言什么; 真正的判据在报错本身.
+%% \TYPE{via-macro: [\meaning\XPYviaMacro]}
+
+\END
+
+\end{document}

@@ -291,6 +291,7 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 - 文档共享：`.dtx` 文档排版 -> `support/ctxdoc.cls`
 - ctex 测试依赖：`ctex/build.lua` -> `../xeCJK`, `../zhnumber`
 - XeTeX 运行时：`ctex` -> `xeCJK`
+- XeTeX 运行时：`xpinyin` -> `xeCJK`（依赖若干具体内部接口，不只是加载关系；清单见下面「xpinyin 依赖的 xeCJK 内部接口」）
 - pdfTeX 运行时：`ctex` -> `CJK` / `zhmCJK` / `xCJK2uni` 一类传统路径
 - upTeX 运行时：`ctex` -> `zhmetrics-uptex` 一类度量支持
 
@@ -302,3 +303,39 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 4. `support/build-config.lua`
 
 这四处覆盖了绝大多数主干行为与构建入口。
+
+## xpinyin 依赖的 xeCJK 内部接口
+
+（本节内容原在 `xpinyin/MAINTAINING.md`，该文件已删除。同文件里面向贡献者的部分——xpinyin
+的 PR 以 `xpinyin/maintaining` 为合入目标、维护权安排的时限、两条测试路线都必须跑——迁到了
+`README.md` / `README-en.md` 的「参与贡献」一节，那里才是贡献者会看的地方。）
+
+XeTeX 路线（`\@@_adjust_xeCJK_hook:` 及其相关代码）不只是「加载 xeCJK」，还直接使用 xeCJK 的
+内部量。这些接口在 xeCJK 侧多数**没有独立的文档条目**，属内部量，会在上游重构中改名——所以要
+成清单留着。按接口名检索 `xpinyin/xpinyin.dtx`（不记行号，行号会漂移）：
+
+| 接口 | 用处 |
+|---|---|
+| `\makexeCJKinactive` | 进入量宽盒子前关掉 interchar 机制，避免盒内的汉字再触发一遍字符类转换。 |
+| `\xeCJK_select_font:` / `\xeCJK@setfont` | 把量宽盒子切到 CJK 字体；后者是前者的兼容名，用 `\cs_if_exist_use:NF` 择一。 |
+| `\l_xeCJK_current_font_tl` | 拼音盒子缓存键的一部分，用来区分不同 CJK 字体下的排版结果。 |
+| `\xeCJK@family` | 上一项不存在时的退路，同样用于构造缓存键。 |
+| `\CJKsymbol` | 接管单个 CJK 字符的输出入口，是自动注音的挂载点。 |
+| `\xeCJK_reset_fallback_font:` | 判断当前是否处于后备字体状态（#997）。 |
+
+**`\xeCJK_reset_fallback_font:` 的判据语义。** 它同时是恢复动作和状态标记：未启用后备字体时
+等于 `\prg_do_nothing:`；xeCJK 切换到后备字体后，它被重定义为「恢复该字体 + 清除标记」。所以
+`\cs_if_eq:NNTF \xeCJK_reset_fallback_font: \prg_do_nothing:` 就是「当前不在后备字体状态」。
+xpinyin 用它决定量宽盒子要不要重选主 CJK 字体——已在后备字体里时当前字体正是该用的那一个，
+重选反而会因为 `\xeCJK_select_font:` 内部先调 `\xeCJK_clear_fallback_font:` 而退回主字体、量出
+缺字形的错误宽度（这就是 #997）。机制细节见 `llmdoc/architecture/xecjk-architecture.md` 的
+「后备字体 (Fallback)」一节，那里也留了「xeCJK 侧改动需通知下游」的说明。
+
+这一项比 `\xeCJK_select_font:` 更容易被改名：后者在 `xeCJK.dtx` 里有独立的 `[int]` 文档条目，
+前者只夹在 `\xeCJK_fallback_symbol:NN` 那块代码里。
+
+**xeCJK 升级、或上表任一项改名时**，除了跑 xpinyin 的两条测试路线（`l3build check` 与
+`l3build check -c test/config-cjk`），还要核对 `testfiles/pinyin-fallback01.lvt` 是否仍有判别力。
+接口一旦改名，`\cs_if_exist:NTF` 会走 F 分支、退化为无条件重选。该文件的判别力边界（哪一侧
+拦得住、哪一侧是已接受的覆盖缺口）记在 `llmdoc/reference/build-and-test.md`（`pinyin-fallback01`
+相关段落）与 `llmdoc/memory/decisions/997-xpinyin-fallback-reselect.md`。

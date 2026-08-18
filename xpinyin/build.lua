@@ -1,7 +1,9 @@
 
 module = "xpinyin"
 
--- 发版事实源. 与 xpinyin.dtx 的 `{\ExplFileDate}{...}` 必须一致:
+-- 发版事实源. 与 xpinyin.dtx 里紧跟 `{\ExplFileDate}` 之后那个参数必须一致
+-- (即 `{\ExplFileDate}{3.1}` 中的 `3.1`; \ExplFileDate 本身是日期槽位,
+--  \ProvidesExplPackage 的参数顺序是 文件名／日期／版本／说明):
 --   * 本地发版流程: 改这里 -> `l3build tag` 回写 .dtx -> commit;
 --   * PR 校验 check-tag.yml 跑 `l3build tag` 后要求 git diff 为零;
 --   * release.yml 打 tag 时校验 git tag / version / .dtx 三方一致.
@@ -17,7 +19,13 @@ sourcefiles      = {"xpinyin.dtx", "xpinyin.ins"}
 unpackfiles      = {"xpinyin.ins"}
 gitverfiles      = {"xpinyin.dtx"}
 installfiles     = {"*.sty", "*.def", "*.ins"}
-unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "ctxdocstrip.tex"}
+-- `xpinyin-query.db` 是 #550 的查询表, 与 `xpinyin.db` 一样由 `xpinyin.lua`
+-- 从 Unihan 数据库生成, 都要在 unpack 时提供给 docstrip, 否则生成出来的
+-- `.def` 只有版权头而没有数据 (实测: 漏掉时 `xpinyin-query.def` 仅 1129 字节;
+-- `build/` 干净时 unpack 会以退出码 1 与 `! Cannot find file` 明确失败, 但 `build/`
+-- 里有上次产物时可能读到旧文件而看不出问题, 排查时先 `rm -rf build/`).
+unpacksuppfiles  = {"xpinyin.id", "xpinyin.db", "xpinyin-query.db",
+                    "ctxdocstrip.tex"}
 typesetsuppfiles = {"ctxdoc.cls"}
 
 -- 回归测试 (#1041 的后续: 该包此前只靠 `l3build doc` 编得过手册来间接验证).

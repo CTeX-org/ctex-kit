@@ -41,6 +41,93 @@
 %%    基线里应当只看到「汉」和「文」的拼音, 中间的「语」只有汉字没有拼音.
 \xpinyin*{汉\disablepinyin 语\enablepinyin 文}\par
 
+%% 2b. \l_@@_enable_all_bool 是局部赋值, 随 TeX 分组恢复.
+%%
+%% \disablepinyin* 用的是 \bool_set_false:N (局部) 而非 \bool_gset_false:N,
+%% 所以退组后总开关应自动回到真, 不需要显式 \enablepinyin.
+%%
+%% 这一项的写法有两个**必要**条件, 少任何一个都会变成恒真断言, 两者都是实测
+%% 把 \bool_set_false:N 改成 \bool_gset_false:N 后逐项比对得出的:
+%%
+%% (1) 组外的观察点必须用**不带星号**的 \xpinyin. \xpinyin* 的星号分支进组后
+%%     无条件调 \enablepinyin (见 \xpinyin 的星号分支), 而 \enablepinyin 会把总开关
+%%     重新置真 (\enablepinyin 的第一个 \bool_if:NF 块) —— 它自己就把泄漏的禁用状态修好了.
+%%
+%% (2) **本项之前不能让 \l_@@_enable_bool 为真**, 所以这一段刻意放在所有
+%%     \enablepinyin / \xpinyin* 之前 (后面的 2c、2d 两段都在本段之后
+%%     \enablepinyin, 见那里的说明). 原因: \disablepinyin 的第二个块以
+%%     `\bool_if:NT \l_@@_enable_bool` 为条件 (\disablepinyin 的第二个块). en 为真时, 注音会经由
+%%     \@@_replace_CJKsymbol: 装好的 \CJKsymbol 自动钩子产生, 那条路**不查**
+%%     \l_@@_enable_all_bool —— 于是即便 all 泄漏成假, 输出照旧.
+%%     (探针实测: 两种写法下退组后读到的 all **都是** F; 区别不在 all 的值,
+%%      而在 en 为真时多了一条绕过 all 的出口. 初版注释说成「all 被拉回真」,
+%%      与实测不符, 已更正.)
+%%     实测: 组前先调 \enablepinyin (en=T) 时, 变异后本项逐字节不变;
+%%     组前 en=F 时, 变异后 `3.99994 yīn` 消失.
+%%
+%% 一并记下一条方法教训: 变异后**整份文件**确实变红过, 但红的是既有的第
+%% 3/7b/7c/8 项, 与本项无关. 「整文件变红」不足以判定单项判别力, 必须按项
+%% 切分比对 —— 初版正是被这一点误导, 把一条恒真断言当成有效覆盖.
+%%
+%% 判据: 组外的「音」有拼音 (3.99994pt 的 yīn); 变异下该行消失.
+{\disablepinyin*}%
+\xpinyin{音}{yin1}\par
+
+%% 2c. 不带星号的 \disablepinyin 只关掉**自动**注音, 显式指定读音仍然生效.
+%%
+%% 这是两个布尔的分工: \disablepinyin 只置 \l_@@_enable_bool 为假, 而
+%% \l_@@_enable_all_bool 仍为真, 所以 \xpinyin 的主分支照常走, 显式读音照排.
+%% 第 2 项只覆盖了「自动注音被关掉」这一半, 单独看它无法区分「只关自动注音」
+%% 与「把 \xpinyin 整个关掉」—— 后者若发生, 第 2 项仍然通过.
+%%
+%% 实测 (纯 xelatex, 不经 l3build): 本行的「语」得到 yǔ, 下一行 \xpinyin* 的
+%% 「文」也得到 wén, 两者都在基线里以 3.99994pt 出现.
+{\disablepinyin
+\xpinyin{语}{yu3}\par
+\xpinyin*{文}\par}
+
+%% 2d. 带星号的 \disablepinyin* 是总开关: 显式读音与 \xpinyin* 一并失效.
+%%
+%% 与 2c 构成对照, 缺一不可 —— 只有 2c 时, 星号参数根本没被消费 (或消费了却
+%% 不置 \l_@@_enable_all_bool) 都不会被发现; 只有 2d 时, 又无法说明普通形式
+%% 保留了显式注音的能力.
+%%
+%% 判据是这两行**都不出现** 3.99994pt 的拼音字形, 只有 10pt 的汉字.
+%% 实测: \disablepinyin* 之后 yǔ 与 wén 都不出现 (对照 2c 两者都出现).
+{\disablepinyin*
+\xpinyin{语}{yu3}\par
+\xpinyin*{文}\par}
+
+%% 2e. pinyinscope 环境内的禁用同样随环境结束恢复.
+%%
+%% 这才是 #265 报告的原始场景 (报告说的是「在 pinyinscope 环境或 TeX 分组内
+%% 调用 \disablepinyin 时作用域泄漏」), 2b 用的是裸分组, 覆盖不到环境这一路.
+%% 注意 pinyinscope 自己在开头就调 \enablepinyin, 所以按 2b 条件 (2) 的分析,
+%% 这一项对全局赋值变异**没有**判别力 —— 它固定的是环境这条路径的正常输出
+%% (环境内注音、环境外仍注音), 属回归价值而非变异判别力, 如实记在这里.
+\begin{pinyinscope}
+文
+\end{pinyinscope}
+\xpinyin{音}{yin1}\par
+
+%% 2f. \enablepinyin 能把总开关重新置真 (即 \disablepinyin* 之后可恢复).
+%%
+%% \enablepinyin 的第一件事就是 \bool_if:NF \l_@@_enable_all_bool
+%% { \bool_set_true:N \l_@@_enable_all_bool } (它的第一个 \bool_if:NF 块).
+%% 这条恢复路径此前没有被任何用例固定.
+%%
+%% 观察点同样必须用**不带星号**的形式, 理由与 2b 的条件 (1) 不同:
+%% \xpinyin* 那条路的注音是由 \CJKsymbol 自动钩子产生的, 不查
+%% \l_@@_enable_all_bool, 所以拿它观察时这一项恒真 —— 实测把 \enablepinyin 那个守卫改成
+%% \bool_if:NF \c_true_bool (即 \enablepinyin 永不置真总开关) 后, 用
+%% \xpinyin*{语} 的写法整份文件仍全绿.
+%% 读音取非首选的 chang2 ("长"数据库首选是 zhǎng), 使这一行与第 4 项的
+%% \xpinyin*{长} 在基线里可区分.
+%% 判据: 这一行应出现 cháng 的拼音; 上述变异下该行消失.
+{\disablepinyin*
+\enablepinyin
+\xpinyin{长}{chang2}\par}
+
 %% 3./4. \xpinyin 指定读音覆盖数据库首选读音, 与不指定时形成对照.
 %%
 %% 指定的读音**必须与数据库首选不同**, 否则这一对用例恒真.

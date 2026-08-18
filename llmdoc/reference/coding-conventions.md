@@ -24,6 +24,70 @@
 
 **`Npx` 定义体的处理**：xeCJK/zhnumber 将 `Npx` 一并转为 `Npe`，体内需要延迟展开的 `\exp_args` 使用 `\exp_not:N` 保护；ctex 则将唯一含 `\exp_args:Nnx` 的 `Npx` 重构为 `Npn`（`\@@_disable_package_aux:nnnn`），从而消除了 `\edef` 体内的展开冲突。当前代码中不存在 `Npx`/`Npe` 体内保留裸 x-type `\exp_args` 的情况。
 
+## 用户输入的字符不要搬进控制序列名（#1069）
+
+多引擎包里，凡是要用输入字符构造标识符（控制序列名、`\csname`、变量名）的方案，先问这个字符在支持的**每一条**引擎路线上是什么形态。
+
+#1069 要支持拼音参数直接写 `ü`，第一版给它补表项：
+
+```latex
+\tl_const:Nn \c_@@_ü_tl { 1 }
+\cs_new_protected:cpn { @@_num_to_tone_ü:Nn } #1#2 { ... }
+```
+
+XeTeX 下完全正确。pdfTeX 下**宏包加载即失败**：`! LaTeX Error: Invalid UTF-8 byte "BC`，报在 `\tl_const:Nn \c__xpinyin_ü` 那一行——非 ASCII 字符在 pdfTeX 上进不了控制序列名。
+
+**改为在数据层规范化**：入口处用 `\tl_replace_all:Nnn` 把等价写法折成一种（`ü`→`v`、`Ü`→`V`），后续逻辑一处不改地复用。这样做能成立的关键是 `\tl_replace_all:Nnn` 匹配的是**记号序列**而非单个字符：pdfTeX 下 `ü` 是 2 个记号，替换式里的 `ü` 也是同样 2 个记号，照样匹配得上（实测 `nü3` 共 4 个记号，替换后与 `nv3` 逐记号相同）。一处折叠同时修好两条线。
+
+**How to apply**：需要接受某个字符的多种等价写法时，优先考虑「入口折叠 + 复用既有逻辑」，而不是「为每种写法各建一份表项／分支」。前者的代价是要清点折叠值的下游出口（会原样回显输入的出口必须用原始值，见 `lessons-learned.md`），后者的代价是每加一条路线都要重做一遍，且可能在某条路线上根本写不出来。
+
+## 写完全可展开的命令时可用的工具（#550）
+
+要让命令能用在 `\edef`、`\csname` 的构造式或 `bib2gls` 的字段里，整条调用链上不能出现任何不可展开的东西。哪些函数可展开不能凭印象判断，下面是 #550 逐个放进 `\edef` 实测的结果。
+
+**确实不可展开**：
+
+| 函数 | 症状 |
+|---|---|
+| `\str_if_in:nnTF` | 原样输出 `\str_if_in:nnTF {1234}{1}{IN}{OUT}` |
+| `\keys_set:nn` | keyval 解析本身不可展开 |
+| `\prg_new_protected_conditional:Npnn` 的 `TF` 形式 | 原样输出 `\pcp:nTF {5}{P}{N}` |
+| `\tl_if_in:nnTF` | 原样输出整条命令 |
+| `\str_remove_all:nn` | 把参数连花括号一起返回（`zhong1` 去掉 `o` 后 `\str_count` 从 6 变 11） |
+| 任何 `\cs_new_protected:Npn` 定义的命令 | `e`／`x` 类展开都留不下文本 |
+
+**这几个是可展开的，不要误判**（#550 初版曾把前两个列为不可展开，是错的）：
+
+| 函数 | 实测 |
+|---|---|
+| `\str_case:nnF` | `\edef` 下正常求值 |
+| `\prg_new_conditional:Npnn` 的 `TF` 形式（非 `protected`） | `\edef` 下正常求值 |
+| `\str_if_eq:nnTF` | `\edef` 下正常求值 |
+
+**误判的成因值得记**：这类函数会「看起来不可展开」，通常是因为**判据参数里嵌了未展开的函数调用**，而不是函数本身的问题。例如
+
+```
+\cs_new:Npn \bad:n #1 { \str_case:nnF { \last:n {#1} } { {1}{T1} } {NONE} }   % 得到 NONE
+\cs_new:Npn \good:n #1 { \exp_args:Nf \goodaux:n { \last:n {#1} } }           % 得到 T1
+```
+
+`\str_case:nnF` 拿字面 token 比对，`\last:n {#1}` 没先展开就永远匹配不上，于是走 `F` 分支。**先用 `\exp_args:Nf` 把判据展开**，问题就消失了。诊断这类现象时，先怀疑自己没展开判据，再怀疑函数不可展开。
+
+**可展开的替代**：
+
+| 需求 | 用法 |
+|---|---|
+| 判断末字符是不是数字 | 用 <code>\int_compare:nNnTF</code> 比较反引号取到的码位：数字 `1`–`4` 的码位小于字母 `a`，一次比较即可（见 `xpinyin.dtx` 的 `\@@_query_base:nn`） |
+| 表驱动分派 | 为每个键定义一个控制序列，用 `\cs_if_exist_use:cF` 查表 |
+| 取子串 | `\str_range:nnn` |
+| 遍历逗号列表 | `\clist_map_function:nN` |
+| 判断串里有没有某几个字符 | 用 `\str_range:nnn` 逐字符取出，交给 `\str_case:enF` 比对（见 `\@@_query_markable_aux:nn`）；`\tl_if_in:` 与 `\str_remove_all:` 都不可展开 |
+| 给 `map_function` 传具名函数 | `\exp_args:Nnc`；**不要**在可展开命令里 `\cs_set:Npn` 临时造闭包，那会破坏可展开性 |
+
+**How to apply**：写这类命令时，先用一个最小 `.tex` 文件把每个候选函数放进 `\edef` 试一遍，确认能落成文本再写进实现。#550 在完整实现里调试时反复看到 expl3 内部命令被排进页面，改用独立最小文件后一轮就能定位。**试的时候要把判据也先展开**，否则会像上面那样把自己的展开错误记成函数的限制。
+
+**选项不要放进可展开命令的参数**。keyval 解析不可展开，所以带选项的可展开命令做不出来。#550 的四个查询命令因此不接受可选参数，`scheme` 与 `tone` 一律用 `\xpinyinsetup` 设置，随 TeX 分组恢复；读 `tl` 变量本身是可展开的，且尊重分组。
+
 ## `@@` 私有命名空间
 
 本仓库广泛使用 expl3 的私有命名约定 `\@@_...`。其含义不是“全仓库共享私有名”，而是“当前模块在 docstrip/expl3 语义下的私有占位前缀”。

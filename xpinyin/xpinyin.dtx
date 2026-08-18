@@ -49,7 +49,9 @@ Copyright and Licence
                                        xpinyin.ins,
                                        xpinyin.lua,
                                        xpinyin.db,
-                                       xpinyin-database.def and
+                                       xpinyin-query.db,
+                                       xpinyin-database.def,
+                                       xpinyin-query.def and
                                        README.md (this file).
 
 %</readme>
@@ -110,7 +112,9 @@ Copyright and Licence
                                        xpinyin.ins,
                                        xpinyin.lua,
                                        xpinyin.db,
-                                       xpinyin-database.def and
+                                       xpinyin-query.db,
+                                       xpinyin-database.def,
+                                       xpinyin-query.def and
                                        README.md.
 \endpostamble
 
@@ -128,9 +132,20 @@ Copyright and Licence
 
 \let\MetaPrefix\DoubleperCent
 
+%    \end{macrocode}
+% 两个 |.db| 都要在。只判 \file{xpinyin.db} 会让「以前解包过的目录」升级时跳过
+% 生成器，而新增的 \file{xpinyin-query.db} 尚不存在，docstrip 随即以
+% |Cannot find file xpinyin-query.db| 退出（实测 rc 1）。生成器一次产出两者，
+% 所以任一缺失都要重跑。
+%
+% 注意这里\emph{不能}用 Lua 的 |--| 行注释：\tn{directlua} 的实参被 \TeX{}
+% 折成一行后，|--| 会把其后的全部代码吃掉（实测整个 |if| 被注释掉、生成器
+% 静默不执行，症状与没改一样）。说明只能写在 |.dtx| 的注释里。
+%    \begin{macrocode}
 %<install>\directlua
 %<install>  {
-%<install>    if not kpse.find_file("xpinyin.db") then
+%<install>    if not (kpse.find_file("xpinyin.db")
+%<install>            and kpse.find_file("xpinyin-query.db")) then
 %<install>      dofile(kpse.find_file("xpinyin.lua"))
 %<install>    end
 %<install>  }
@@ -142,6 +157,11 @@ Copyright and Licence
 %<install>      {
 %<install>        \from{\jobname.dtx} {database}
 %<install>        \from{xpinyin.db}   {}
+%<install>      }
+%<install>    \file{xpinyin-query.def}
+%<install>      {
+%<install>        \from{\jobname.dtx}      {querydb}
+%<install>        \from{xpinyin-query.db}  {}
 %<install>      }
 %<install>  }
 
@@ -173,11 +193,29 @@ Copyright and Licence
 %<package>  {\ExplFileDate}{3.1}{\ExplFileDescription}
 %<database>\ProvidesFile{xpinyin-database.def}%
 %<database>  [2022/07/14 v3.1 xpinyin database]
+%<querydb>\ProvidesFile{xpinyin-query.def}%
+%<querydb>  [2026/08/06 v3.1 xpinyin query database]
 %<*driver>
 \documentclass{ctxdoc}
-\usepackage{xpinyin}
+%% 手册里「查询汉字的读音」一节的示例要用查询命令, 所以这里加 query 选项.
+\usepackage[query]{xpinyin}
 \newfontfamily\PinYinFont{TeX Gyre Adventor}
 \xpinyinsetup{font=\PinYinFont,multiple=\color{red}}
+%% 手册里多处要排带声调的 ü（ǖ ǘ ǚ ǜ, U+01D6/01D8/01DA/01DC）——它们正是
+%% 「ü 的字母部分记作 v」这条约定要说明的对象。ctxdoc 的等宽字体 cmun 没有
+%% 这四个字形, 缺字形时 XeTeX 静默丢掉分音符, 恰好把那几处想展示的区别抹掉
+%% (实测手册里出现十余条 Missing character 警告)。
+%%
+%% 改用一个有这些字形的等宽字体。只在本手册生效, 不影响 ctxdoc 的其他使用者;
+%% 手册里 xelatex 不支持 luaotfload 的 fallback 机制, 所以直接换字体而不是加后备。
+\setmonofont{DejaVuSansMono}[
+  Extension      = .ttf,
+  UprightFont    = *,
+  BoldFont       = *-Bold,
+  ItalicFont     = *-Oblique,
+  BoldItalicFont = *-BoldOblique,
+  Scale          = MatchLowercase,
+  HyphenChar     = None]
 \begin{document}
   \DocInput{\jobname.dtx}
   \IndexLayout
@@ -289,11 +327,27 @@ Copyright and Licence
 %   \begin{syntax}
 %     \tn{pinyin} \oarg{options} \Arg{拼音}
 %   \end{syntax}
-%   用于输出拼音，为了输入的方便 \texttt{\"u} 可以用 |v| 代替。例如，
+%   用于输出拼音。声调用音节末尾的数字 1--5 表示（5 是轻声，不加调号）。
+%   为了输入的方便 \texttt{\"u} 可以用 |v| 代替；两种写法都可以，结果相同。
 %   \begin{SideBySideExample}
 %     \pinyin{lv2zi}\\
-%     \pinyin{nv3hai2zi}
+%     \pinyin{nv3hai2zi}\\
+%     \pinyin{lü2zi}\\
+%     \pinyin{nü3hai2zi}
 %   \end{SideBySideExample}
+%   |v| 只在 |l|、|n| 之后才当作 \texttt{\"u}：|ju|、|qu|、|xu|、|yu| 按
+%   《汉语拼音方案》本就不写分音符，没有歧义。直接写 \texttt{\"u} 时同样按这条
+%   规则处理，所以 \verb|\pinyin{jü4}| 与 \verb|\pinyin{jv4}| 都得到 |jù|。
+%   \begin{SideBySideExample}
+%     \pinyin{jv4}\\
+%     \pinyin{jü4}
+%   \end{SideBySideExample}
+%   整段输入里没有声调数字时原样输出，不做任何替换：
+%   \verb|\pinyin{nü}| 得到 |nü|，\verb|\pinyin{nv}| 得到 |nv|。
+%
+%   全大写的音节排不出调号（\verb|\pinyin{NV3}| 得到字面的 |NV3|），
+%   这是既有限制：声调落点表里只有小写元音。首字母大写不受影响，
+%   \verb|\pinyin{Nü3}| 与 \verb|\pinyin{Nv3}| 都得到 |Nǚ|。
 % \end{function}
 %
 % \begin{function}{\setpinyin}
@@ -303,6 +357,8 @@ Copyright and Licence
 %   \pkg{xpinyin} 宏包的拼音数据（\file{xpinyin-database.def}）来源于 \texttt{Unicode}
 %   的 \texttt{Unihan} 数据库\footnotemark 中的 \file{Unihan_Readings.txt} 文件。对于多
 %   音字，一般来说这个文件选用的是常用读音。可以使用 \tn{setpinyin} 来设置多音字的首选读音。
+%   载入了 \opt{query} 选项时，\tn{setpinyin} 同时更新查询命令用的那份数据，
+%   两边给出的首选读音始终一致。
 % \end{function}
 %
 % \footnotetext{\url{http://www.unicode.org/Public/UNIDATA/Unihan.zip}}
@@ -373,7 +429,8 @@ Copyright and Licence
 %   \end{frameverb}
 % \end{function}
 %
-% \begin{function}[added=2014/01/12]{footnote}
+% \begin{function}[added = 2014-01-12]
+%   {footnote}
 %   \begin{syntax}
 %     footnote = <\TFF>
 %   \end{syntax}
@@ -381,10 +438,225 @@ Copyright and Licence
 %   更一般的情况，请使用 \tn{disablepinyin}。
 % \end{function}
 %
-% \begin{function}[added=2014/01/12]{\disablepinyin,\enablepinyin}
-%   \tn{disablepinyin} 用于在拼音环境（\env{pinyinscope}）中临时取消对汉字的注音，而
-%   \tn{enablepinyin} 用于其后的恢复。
+% \changes{v3.2}{2026/07/13}{为 \tn{disablepinyin} 增加 star 版本：
+%   用于将其作用域覆盖到 \tn{xpinyin} 自身。（\#265）}
+%
+% \begin{function}[added = 2014-01-12, updated = 2026-07-13]
+%   {\disablepinyin, \enablepinyin}
+%   \tn{disablepinyin} 和 \tn{enablepinyin} 分别用于在拼音环境（\env{pinyinscope}）
+%   中临时取消和恢复对汉字的注音。
+%   \tn{disablepinyin} 还额外提供带星号的形式，可将禁用范围扩展到 \tn{xpinyin} 宏自身。
 % \end{function}
+%
+% \changes{v3.2}{2026/08/06}{新增查询汉字读音的四个命令
+%   \tn{xpinyinvalue}、\tn{xpinyininitial}、\tn{xpinyinshengmu} 与
+%   \tn{xpinyinyunmu}，可用于中文索引的分组与排序；数据表由 \opt{query}
+%   选项按需载入。（\#550）}
+%
+% \section{查询汉字的读音}
+%
+% 上面几节的命令都是把拼音排在汉字上方。如果只想知道某个汉字\emph{读什么}，
+% 而不想排出注音，可以用本节的四个查询命令。它们返回一段文字，不排版任何别的东西，
+% 因此可以写在其他命令的参数里。用于索引排序键时有一点要注意，见“给索引条目加拼音排序键”一节。
+%
+% 这组命令需要一份额外的数据表，加载宏包时用 \opt{query} 选项要求载入：
+% \begin{quote}
+%   \verb|\usepackage[query]{xpinyin}|
+% \end{quote}
+% 不写这个选项时，注音功能照常可用，但调用查询命令会报错。
+% 之所以要分开，是因为这份表有一兆多字节，只用注音功能的文档不必为它付出载入时间。
+%
+% \pkg{xpinyin} 本身支持 \XeTeX{} 与 \pdfTeX{} 两条路线，而查询命令只在 \XeTeX{} 下提供。
+% \pdfTeX{} 加 \pkg{CJKutf8} 的路线上，一个汉字由多个字节组成，
+% 取不到本组命令所需的码位，此时使用 \opt{query} 选项会报错。
+%
+% （\LuaTeX{} 目前不在本宏包的支持范围内，加载时就会中止，与查询命令无关。）
+%
+% \begin{function}[added = 2026-08-06]{\xpinyinvalue}
+%   \begin{syntax}
+%     \tn{xpinyinvalue} \Arg{单个汉字}
+%     \tn{xpinyinvalue*} \Arg{单个汉字}
+%   \end{syntax}
+%   返回这个汉字的拼音。带星号的形式返回全部读音，用逗号分隔。
+%   \begin{SideBySideExample}
+%     中 的读音是 \xpinyinvalue{中}。\\
+%     行 有几个读音：\xpinyinvalue*{行}。
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added = 2026-08-06]{\xpinyininitial}
+%   \begin{syntax}
+%     \tn{xpinyininitial} \Arg{单个汉字}
+%     \tn{xpinyininitial*} \Arg{单个汉字}
+%   \end{syntax}
+%   返回拼音的第一个字母。带星号的形式返回全部读音各自的首字母，
+%   重复的只保留一个。
+%
+%   这个命令适合给索引条目自动加分组前缀：全部汉字的首字母都落在
+%   \texttt{a} 到 \texttt{z} 之内，因此可以据此把中文条目分成若干组。
+%   \begin{SideBySideExample}
+%     汉 归入 \xpinyininitial{汉} 组，\\
+%     安 归入 \xpinyininitial{安} 组。\\
+%     行 跨越 \xpinyininitial*{行} 两组。
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added = 2026-08-06]{\xpinyinshengmu, \xpinyinyunmu}
+%   \begin{syntax}
+%     \tn{xpinyinshengmu} \Arg{单个汉字}
+%     \tn{xpinyinyunmu} \Arg{单个汉字}
+%   \end{syntax}
+%   分别返回声母与韵母，两者都提供带星号的形式。
+%   零声母的字（“安”“儿”一类）声母为空。
+%   \begin{SideBySideExample}
+%     中：声母 \xpinyinshengmu{中}，
+%     韵母 \xpinyinyunmu{中}。\\
+%     安：声母为空，
+%     韵母 \xpinyinyunmu{安}。
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added = 2026-08-06]{tone}
+%   \begin{syntax}
+%     tone = mark|number|none|v
+%   \end{syntax}
+%   声调用什么形式表示，缺省值为 \opt{mark}。四种取值的区别如下：
+%
+%   \begin{center}
+%   \begin{tabular}{llll}
+%     \hline
+%     取值 & 含义 & 中 & 女 \\
+%     \hline
+%     \opt{mark}   & 调号标在字母上 & \texttt{zhōng}  & \texttt{nǚ}  \\
+%     \opt{number} & 调号写成数字   & \texttt{zhong1} & \texttt{nv3} \\
+%     \opt{none}／\opt{v} & 不带声调  & \texttt{zhong}  & \texttt{nv}  \\
+%     \hline
+%   \end{tabular}
+%   \end{center}
+%
+%   \opt{none} 与 \opt{v} 目前结果相同。保留两个名字是因为“不带声调”和
+%   “把 \texttt{ü} 写成 \texttt{v}”本是两件事，只是本宏包内部一律用 \texttt{v}
+%   记录 \texttt{ü}，于是两者一致。
+%
+%   \opt{number} 形式里 \texttt{ü} 写作 \texttt{v}，与 \tn{pinyin} 的输入约定一致，
+%   所以查询结果可以直接交回 \tn{pinyin}：
+%   \begin{SideBySideExample}
+%     \xpinyinsetup{tone=number}
+%     \xpinyinvalue{女} 交回 \tn{pinyin}
+%     得到 \pinyin{nv3}。
+%   \end{SideBySideExample}
+% \end{function}
+%
+% \begin{function}[added = 2026-08-06]{scheme}
+%   \begin{syntax}
+%     scheme = literal|official
+%   \end{syntax}
+%   声母与韵母按什么规则切分，缺省值为 \opt{literal}。这个选项只影响
+%   \tn{xpinyinshengmu} 与 \tn{xpinyinyunmu}，不影响另外两个命令。
+%
+%   两种规则的差别只在 \texttt{y} 和 \texttt{w}。\opt{literal} 把它们当作声母，
+%   切分结果拼回去就是原来的拼音。\opt{official} 依据《汉语拼音方案》，
+%   把 \texttt{y} 和 \texttt{w} 视为介音 \texttt{i}、\texttt{u}、\texttt{ü}
+%   的书写形式，声母为空，并把韵母还原成音位形式。
+%
+%   \begin{center}
+%   \begin{tabular}{lllll}
+%     \hline
+%     & & \multicolumn{2}{c}{\opt{literal}} & \opt{official} \\
+%     汉字 & 拼音 & 声母 & 韵母 & 韵母 \\
+%     \hline
+%     王 & \texttt{wáng} & \texttt{w} & \texttt{áng} & \texttt{uang} \\
+%     月 & \texttt{yuè}  & \texttt{y} & \texttt{uè}  & \texttt{ve}   \\
+%     鱼 & \texttt{yú}   & \texttt{y} & \texttt{ú}   & \texttt{v}    \\
+%     安 & \texttt{ān}   &            & \texttt{ān}  & \texttt{an}   \\
+%     \hline
+%   \end{tabular}
+%   \end{center}
+%
+%   \opt{official} 模式下的韵母\emph{不带声调}。还原出来的形式可能以
+%   \texttt{v} 开头（\texttt{yue} 还原成 \texttt{ve}），而调号只能标在元音上，
+%   \tn{pinyin} 也只在 \texttt{l} 与 \texttt{n} 之后才把 \texttt{v} 当作
+%   \texttt{ü}，所以给这种形式标调会排出错的字形。同样的原因，
+%   \opt{literal} 模式下以 \texttt{v} 开头的韵母（“女”的韵母）也不带声调。
+%
+%   \texttt{yo} 一类音节按“\texttt{y} 后接其他元音则 \texttt{y} 变 \texttt{i}”
+%   这条通则处理成 \texttt{io}。这个音节的实际读法在语言学上有不同意见，
+%   本宏包不对它单独取值。
+% \end{function}
+%
+% \begin{function}[added = 2026-08-06]{query}
+%   \begin{syntax}
+%     query
+%   \end{syntax}
+%   宏包选项，要求载入查询表。只能在 \tn{usepackage} 时给出，
+%   不能中途用 \tn{xpinyinsetup} 打开：数据表在加载宏包时读入一次。
+% \end{function}
+%
+% \subsection{关于可展开性}
+%
+% 查询命令可以放在需要参数展开成字面文字的位置，例如 \pkg{bib2gls} 的字段。
+% 除了下面两种情况，四个命令都是完全可展开的：
+%
+% \begin{itemize}
+%   \item \opt{tone} 取 \opt{mark} 时。带调号的输出要经过 \tn{pinyin} 的标调过程，
+%     它把内容排版出来而不是返回文字。
+%   \item 带星号的形式。它需要去掉重复项，用到内部的列表变量。
+% \end{itemize}
+%
+% 也就是说，需要字面文字时请选 \opt{number}、\opt{none} 或 \opt{v}，
+% 并使用不带星号的形式。
+%
+% \subsection{给索引条目加拼音排序键}
+%
+% \tn{index} \emph{不会}展开参数。它先用 \tn{@sanitize} 把参数变成字符，
+% 再原样写进 \file{.idx}，所以直接写
+% \begin{quote}
+%   \verb|\index{\xpinyinvalue{汉}@汉字}|
+% \end{quote}
+% 得到的是 \verb|\indexentry{\xpinyinvalue{汉}@汉字}{1}|——排序键里是这串命令本身，
+% 而不是 \texttt{han}。这与查询命令可不可展开无关，是 \tn{index} 的既有行为。
+%
+% 要用拼音作排序键，得自己先展开一次再交给 \tn{index}：
+% \begin{quote}
+% \begin{verbatim}
+% \newcommand\pyindex[2]{%
+%   \begingroup
+%     \xpinyinsetup{tone=none}%
+%     \edef\pyindexkey{#1}%
+%     \expandafter\index\expandafter{\pyindexkey @#2}%
+%   \endgroup}
+% ...
+% 汉字\pyindex{\xpinyinvalue{汉}}{汉字}
+% 安全\pyindex{\xpinyinvalue{安}}{安全}
+% \end{verbatim}
+% \end{quote}
+% 这样写进 \file{.idx} 的是 \verb|\indexentry{han@汉字}{1}|，
+% 经 \pkg{makeindex} 排序后「安全」「汉字」「中国」按 \texttt{an}、\texttt{han}、
+% \texttt{zhong} 的顺序排列。
+%
+% 中间变量请用一个普通的名字。若写成 \tn{@tempa} 这类含 |@| 的名字，
+% 正文里 |@| 不是字母，\verb|\edef\@tempa{...}| 定义到的并不是
+% \tn{@tempa}，排序键会多出一个空格（\verb|han @汉字|）；
+% \pkg{makeindex} 按字面比较，这会让它与手写的 \verb|han@汉字| 分成两个条目。
+% 要用这类名字就得把整段放在 \tn{makeatletter} 与 \tn{makeatother} 之间。
+%
+% \subsection{多音字}
+%
+% 不带星号的形式取首选读音，与 \tn{xpinyin} 的取值一致；哪个读音算首选，
+% 由 \file{Unihan} 数据库决定，也可以用 \tn{setpinyin} 改写——
+% \tn{setpinyin} 同时改注音与查询两边，因此“长”经
+% \verb|\setpinyin{长}{chang2}| 之后，\tn{xpinyin} 与 \tn{xpinyinvalue}
+% 给出的都是 |cháng|，据此算出的排序键也落在 |c| 组。
+% 带星号的形式给的是全部读音，不受 \tn{setpinyin} 影响。
+%
+% 需要注意的是，多音字的不同读音常常落在不同的首字母上。
+% 数据库里的五千多个多音字中，约有三分之二属于这种情况。
+% 因此按首字母给索引分组时，要留意条目可能应当出现在两处。
+% 带星号的形式给出全部读音，便于自行判断：
+%   \begin{SideBySideExample}
+%     行 的全部读音：\xpinyinvalue*{行}\\
+%     涉及的首字母：\xpinyininitial*{行}
+%   \end{SideBySideExample}
 %
 % \end{documentation}
 %
@@ -421,6 +693,42 @@ Copyright and Licence
   { \sys_if_engine_xetex_p: }
   { \sys_if_engine_pdftex_p: }
   { \msg_critical:nn { xpinyin } { engine-not-supported } }
+%    \end{macrocode}
+%
+% 查询命令需要额外的数据表，只有加载 \opt{query} 选项时才会读入。
+% 未加载时直接报错，而不是让命令展开成空——后者会让排序键静默变成空串，
+% 出错的地方离原因很远。
+%    \begin{macrocode}
+\msg_new:nnn { xpinyin } { query-not-loaded }
+  {
+    Pinyin~query~table~is~not~loaded. \\\\
+    Load~the~package~with~the~`query'~option:\\\\
+    \iow_char:N \\usepackage[query]{xpinyin}
+  }
+\msg_new:nnn { xpinyin } { query-no-reading }
+  { No~pinyin~reading~for~`#1'~in~the~database. }
+%    \end{macrocode}
+% 可展开的报错在终端上只显示到行宽为止（实测 \verb|take exactly...| 之后被截断），
+% 所以关键信息要放在第一行开头、且尽量短。完整说明留给第二行，
+% 它在 \file{.log} 里仍是完整的。
+%    \begin{macrocode}
+\msg_new:nnn { xpinyin } { query-bad-argument }
+  {
+    Query~one~character~at~a~time~(got~`#1'). \\\\
+    Pinyin~query~commands~take~exactly~one~character.
+  }
+%    \end{macrocode}
+%
+% 查询命令只在 \XeTeX{} 下提供。取汉字码位要用 |`#1|，
+% 而 \pdfTeX{} 加 \pkg{CJKutf8} 的路线上一个汉字是多个字节，
+% 这个写法拿不到码位；包内的 \cs{@@_to_unicode:n} 依赖 \cs{CJK@plane}，
+% 需要字符级钩子提供的上下文，也不能在这里直接调用。
+%    \begin{macrocode}
+\msg_new:nnn { xpinyin } { query-needs-unicode }
+  {
+    Pinyin~query~commands~are~only~available~with~XeTeX. \\\\
+    They~are~not~available~with~pdfTeX.
+  }
 %    \end{macrocode}
 %
 %    \begin{macrocode}
@@ -665,28 +973,34 @@ Copyright and Licence
 \NewDocumentCommand \xpinyin { s O { } m }
   {
     \mode_leave_vertical:
-    \IfBooleanTF {#1}
+    \bool_if:NTF \l_@@_enable_all_bool
       {
-        \group_begin:
-          \keys_set:nn { xpinyin } {#2}
-          \enablepinyin
-          #3
-        \group_end:
+        \IfBooleanTF {#1}
+          {
+            \group_begin:
+              \keys_set:nn { xpinyin } {#2}
+              \enablepinyin
+              #3
+            \group_end:
+          }
+          {
+            \group_begin:
+              \keys_set:nn { xpinyin } {#2}
+              \bool_if:NF \l_@@_enable_bool
+                { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
+              \@@_single_aux:nn {#3}
+          }
       }
-      {
-        \group_begin:
-          \keys_set:nn { xpinyin } {#2}
-          \bool_if:NF \l_@@_enable_bool
-            { \@@_width:Nn \l_@@_CJKglue_dim { \CJKglue } }
-          \@@_single_aux:nn {#3}
-      }
+      { \IfBooleanTF {#1} {#3} { \use_i:nn {#3} } }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{variable}{\l_@@_enable_bool}
+% \begin{variable}{\l_@@_enable_bool, \l_@@_enable_all_bool}
 %    \begin{macrocode}
 \bool_new:N \l_@@_enable_bool
+\bool_new:N \l_@@_enable_all_bool
+\bool_set_true:N \l_@@_enable_all_bool
 %    \end{macrocode}
 % \end{variable}
 %
@@ -701,6 +1015,8 @@ Copyright and Licence
 %    \begin{macrocode}
 \NewDocumentCommand \enablepinyin { }
   {
+    \bool_if:NF \l_@@_enable_all_bool
+      { \bool_set_true:N \l_@@_enable_all_bool }
     \bool_if:NF \l_@@_enable_bool
       {
         \tl_if_empty:NF \l_@@_hsep_tl
@@ -719,8 +1035,10 @@ Copyright and Licence
 %
 % \begin{macro}{\disablepinyin}
 %    \begin{macrocode}
-\NewDocumentCommand \disablepinyin { }
+\NewDocumentCommand \disablepinyin { s }
   {
+    \bool_if:NT #1
+      { \bool_set_false:N \l_@@_enable_all_bool }
     \bool_if:NT \l_@@_enable_bool
       {
         \cs_if_eq:NNT \CJKglue \@@_CJKglue:
@@ -895,9 +1213,65 @@ Copyright and Licence
     \cs_new_protected:Npx \@@_CJKsymbol_hook:
       {
         \exp_not:N \makexeCJKinactive
-        \cs_if_exist_use:NF \xeCJK_select_font:
-          { \exp_not:N \xeCJK@setfont }
+        \exp_not:N \@@_reselect_CJK_font:
       }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2}{2026/08/05}{在 \pkg{xeCJK} 的 \texttt{AutoFallBack} 已切换到
+%   后备字体时，量宽盒子不再重选主字体，修复注音被压缩到错误宽度的问题（\#997）。}
+%
+% \begin{macro}{\@@_reselect_CJK_font:}
+% \cs{@@_CJKsymbol_hook:} 原本无条件调用 \tn{xeCJK@setfont}（或 \pkg{xeCJK} 的
+% \texttt{\textbackslash xeCJK\_select\_font:}）重选 CJK 字体，为量宽盒子里的汉字
+% 准备字体。问题在于后者的内部实现第一件事就是清除后备字体状态，会把
+% \texttt{AutoFallBack} 刚切好的后备字体丢掉。于是启用 \texttt{AutoFallBack} 且当前
+% 字符靠后备字体才有字形时，量宽盒子退回主字体、字形缺失，量出的是该字体的
+% \emph{notdef} 宽度（实测 2.8pt，正确值 10.0pt；这个数值与标点无关——同一字体下
+% 任何缺字形的字符都得 2.8pt，而真正的句点是 2.78pt），拼音随后被 \cs{box_resize_to_wd_and_ht:Nnn} 压缩到
+% 这个错误宽度。注意可见的汉字本身不受影响：它由盒子外的
+% \cs{@@_save_CJKsymbol:n} 输出，此时后备字体仍然有效。
+%
+% \texttt{\textbackslash xeCJK\_reset\_fallback\_font:} 是 \pkg{xeCJK} 用来标记
+% 「当前处于后备字体状态」的开关：未启用后备字体时它等于 \cs{prg_do_nothing:}，
+% \pkg{xeCJK} 切换到后备字体后它被重定义为「恢复该字体并清除标记」。据此判断：
+% 已经在后备字体里就不重选，当前字体正是应该用来量宽的那一个；否则保持原有行为。
+%
+% 为什么保留「否则重选」这一支，而不是把重选整个删掉：实测在本 hook 运行的时点，
+% 当前字体（\tn{fontname}\tn{font}）已经是 CJK 字体，因为 \pkg{xeCJK} 的
+% interchar 机制进入 CJK 类时已经切好字体，本 hook 运行在那之后。已核对
+% 十余种上下文（紧跟西文单词、标点、\tn{emph}、数学、\tn{textsf}、字号变化、
+% \tn{mbox}／\tn{sbox}／\tn{hbox}／\tn{vbox}、\env{tabular}、\env{minipage}、
+% \tn{section}、\env{pinyinscope}、嵌套注音、脚注、切换 CJK 字体族），
+% \tn{fontname}\tn{font} 无一例外都已是 CJK 字体；把重选删掉时全部回归测试仍然通过。
+% 也就是说这一支在当前的 \pkg{xeCJK} 行为下并无可观察效果，保留它是出于对
+% \pkg{xeCJK} 内部行为变化的保守（\texttt{NFSS} 参数此时确实还是西文族，一旦
+% \pkg{xeCJK} 改变切换时点，重选就重新变得必要），而不是因为已经观察到它必需。
+% 相应地，回归测试无法覆盖「这一支被跳过」这种形态——记为已接受的覆盖缺口，
+% 见 \file{llmdoc/reference/build-and-test.md} 的 \#997 一节。
+%
+% 这个开关在 \pkg{xeCJK} 里没有独立的文档条目，属于内部量，比
+% \texttt{\textbackslash xeCJK\_select\_font:} 更容易在上游重构中改名。本包依赖的
+% \pkg{xeCJK} 内部接口清单见仓库内
+% \file{llmdoc/architecture/package-architecture.md}；\pkg{xeCJK} 侧对「重选字体会
+% 清除后备字体状态」这条机制边界的说明，见仓库内
+% \file{llmdoc/architecture/xecjk-architecture.md} 的「后备字体 (Fallback)」一节。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_reselect_CJK_font:
+  {
+    \cs_if_exist:NTF \xeCJK_reset_fallback_font:
+      {
+        \cs_if_eq:NNTF \xeCJK_reset_fallback_font: \prg_do_nothing:
+          { \@@_select_CJK_font: }
+          { }
+      }
+      { \@@_select_CJK_font: }
+  }
+\cs_new_protected:Npn \@@_select_CJK_font:
+  {
+    \cs_if_exist_use:NF \xeCJK_select_font:
+      { \xeCJK@setfont }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -990,17 +1364,55 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v3.2}{2026/08/11}{拼音参数现在可以直接写 |ü|／|Ü|，与既有的
+%   |v|／|V| 写法等价。此前 \XeTeX{} 下 \verb|\pinyin{nü3}| 排出字面的 |nü3|，
+%   pdf\TeX{} 加 \pkg{CJKutf8} 下则直接报错。（\#1069）}
+%
 % \begin{macro}{\@@_pinyin:n}
+% 手册说“为了输入的方便 |ü| 可以用 |v| 代替”，那么直接写 |ü| 也应当能用。
+% 因此先把输入里的 |ü|、|Ü| 折成 |v|、|V|，再走原来的切分循环。
+%
+% 不这样做的话，|ü| 在 \cs{@@_pinyin_aux:n} 眼里不是元音（声调落点表
+% \cs{c_@@_v_tl} 一系只有 ASCII 字母），整个音节走“原样输出”那条分支，
+% 声调数字不被吃掉：\verb|\pinyin{nü3}| 排出字面的 |nü3|（issue 1069）。
+%
+% 折叠而不是给 |ü| 单独建表，是因为要同时照顾两条引擎路线。|ü| 在 \XeTeX{}
+% 下是一个记号，在 pdf\TeX{} 加 \pkg{CJKutf8} 下是两个字节；后者连
+% \verb|\tl_const:Nn \c_@@_ü_tl| 这样的控制序列名都写不出来（宏包加载即报
+% |Invalid UTF-8 byte| 一类错误）。而 \cs{tl_replace_all:Nnn} 在两条路线上都能把
+% |ü| 换成 |v|——实测 pdf\TeX{} 下 |nü3| 是 4 个记号，替换后同样得到 |nv3|。
+% 于是折叠之后，两条路线共用同一套既有逻辑，声调落点、\cs{@@_replace_v:n}
+% 的 |l|／|n| 判断都不必改。
+%
+% |Ü| 折成 |V| 而不是 |v|：\cs{@@_replace_v:n} 与 \cs{@@_num_to_tone_v:Nn}
+% 判断前一个字母时同时收 |l|、|n| 的大小写，折成 |V| 才能让
+% \verb|\pinyin{Nü3}| 与 \verb|\pinyin{Nv3}| 结果一致。
+%
+% \cs{l_@@_save_tl} 存的必须是\emph{折叠前}的原始输入。它是“整段输入里没有
+% 声调数字”时的回退输出（\cs{@@_pinyin_aux:n} 的 \cs{quark_if_recursion_tail_stop_do:nn}
+% 分支），拿折叠后的值去回退会把用户写的 |ü| 换成 |v|：\verb|\pinyin{nü}|
+% 本该原样排出 |nü|，却排出 |nv|。这是实现折叠时踩到的一处回归。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_pinyin:n #1
   {
     \@@_pinyin_init:
     \bool_set_true:N \l_@@_first_bool
     \tl_set:Nn \l_@@_save_tl {#1}
-    \@@_pinyin_aux:n #1 \q_recursion_tail \q_recursion_stop
+    \tl_set:Nn \l_@@_normalized_tl {#1}
+    \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
+    \tl_replace_all:Nnn \l_@@_normalized_tl { Ü } { V }
+    \exp_last_unbraced:NV \@@_pinyin_aux:n \l_@@_normalized_tl
+      \q_recursion_tail \q_recursion_stop
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \begin{variable}{\l_@@_normalized_tl}
+% \cs{@@_pinyin:n} 折叠 |ü| 用的中间变量。
+%    \begin{macrocode}
+\tl_new:N \l_@@_normalized_tl
+%    \end{macrocode}
+% \end{variable}
 %
 % \begin{macro}{\@@_pinyin_aux:n}
 %    \begin{macrocode}
@@ -1149,6 +1561,14 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
+% \begin{macro}{query}
+% 是否载入查询表。这是包选项，不能在文档中途改变：数据表只在加载宏包时读一次。
+%    \begin{macrocode}
+\keys_define:nn { xpinyin }
+  { query .bool_gset:N = \g_@@_query_bool }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}[int]{\xpinyin_customary:nnn,\xpinyin_multiple:nnn}
 %    \begin{macrocode}
 \cs_new_protected:Npn \xpinyin_customary:nnn #1#2
@@ -1166,6 +1586,36 @@ Copyright and Licence
 \group_end:
 %    \end{macrocode}
 %
+% \begin{macro}[int]{\xpinyin_query:nn,\xpinyin_query_multiple:nn}
+% 载入查询表时用的两个入口，与 \cs{xpinyin_customary:nnn} 的作用相同，
+% 只是存的是“字母加声调数字”的形式，且不再需要汉字本身作参数。
+%    \begin{macrocode}
+\cs_new_protected:Npn \xpinyin_query:nn #1
+  { \cs_gset_nopar:cpn { c_@@_query_ #1 _tl } }
+\cs_new_protected:Npn \xpinyin_query_multiple:nn #1
+  { \cs_gset_nopar:cpn { c_@@_query_multiple_ #1 _clist } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v3.2}{2026/08/18}{\tn{setpinyin} 现在也能为数据库未收录的汉字补充
+%   查询表读音；此前只更新注音表，\tn{xpinyinvalue} 仍报「无读音」。（PR \#1051）}
+% \changes{v3.2}{2026/08/18}{\tn{setpinyin} 存进查询表时去掉表示轻声的末尾
+%   |5|，与查询表「轻声不写数字」的约定一致；此前 \opt{none} 形式会返回
+%   |shi5| 而不是 |shi|。（PR \#1051）}
+%
+% \begin{macro}[int]{\@@_setpinyin_strip_neutral:n}
+% 去掉末尾表示轻声的 |5|，其余情形原样留下。只看\emph{末尾}一个字符：|5| 出现在
+% 别处（如 |qian1| 里没有、但设想的 |a5b| 一类）不是声调标记，不能动。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_setpinyin_strip_neutral:n #1
+  {
+    \str_if_eq:eeTF { \str_range:nnn {#1} {-1} {-1} } { 5 }
+      { \tl_set:Nx \l_@@_normalized_tl { \str_range:nnn {#1} {1} {-2} } }
+      { \tl_set:Nn \l_@@_normalized_tl {#1} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
 % \begin{macro}{\setpinyin}
 %    \begin{macrocode}
 \NewDocumentCommand \setpinyin { m m }
@@ -1173,9 +1623,589 @@ Copyright and Licence
     \tl_set:cn
       { c_@@_ \@@_char_to_unicode:n {#1} _tl }
       { \@@_pinyin:n {#2} }
+%    \end{macrocode}
+% 查询表要一起改。注音与查询用的是两张表：注音表存的是排好的注音内容，
+% 查询表存“字母加声调数字”的形式，正好就是这里第二个参数的写法。
+% 只改注音表的话，同一个“首选读音”会给出两种结果——实测
+% \verb|\setpinyin{长}{chang2}| 之后 \tn{xpinyin} 排出 |cháng|，
+% 而 \tn{xpinyinvalue} 仍返回 |zhǎng|，据此算出的索引排序键也就落到了错的组。
+%
+% 门禁用 \cs{g_@@_query_loaded_bool}（「查询表载入了吗」）而不是
+% \cs{cs_if_exist:cT}（「这个字已经在查询表里吗」）。用后者会漏掉\emph{数据库
+% 未收录的字}——而那恰恰是用户需要 \tn{setpinyin} 补录读音的场景：实测对
+% 数据库未收录的字（如 U+5159）用 \tn{setpinyin} 只更新注音表，随后
+% \tn{xpinyinvalue} 仍报 |No pinyin reading|，与上面「两边给出的首选读音始终
+% 一致」冲突。所以这里要
+% \emph{创建或覆盖}对应查询项，不能只覆盖已存在的项。
+%
+% 查询表未载入（没给 \opt{query} 选项）时仍然不设置：那种情形下查询命令本身
+% 就会报错，多设一个控制序列反而会让“表没载入”的判据失效。
+%
+% 存进查询表的读音要先把 |ü| 折成 |v|。查询表通篇用 |v| 记 |ü|
+% （\file{xpinyin.lua} 生成时就是这么写的，见该文件里的
+% \texttt{numbertable}），\opt{number} 形式的输出因此可以直接馈回
+% \tn{pinyin}。若把用户写的 |ü| 原样存进去，\verb|\setpinyin{女}{nü3}| 之后
+% \verb|\xpinyinvalue{女}| 在 \opt{number} 下返回 |nü3| 而不是 |nv3|，
+% 同一张表里就出现了两种拼写，馈回 \tn{pinyin} 的保证也随之失效。
+%
+% 轻声还要去掉末尾的 |5|。查询表里轻声是\emph{不写数字}的（\file{xpinyin.lua}
+% 的 \texttt{numbertable} 只产出 |1|--|4|，生成的 \file{xpinyin-query.def} 里
+% 带 |5| 的条目为零），拆分逻辑也照这个约定只把 |1|--|4| 当声调
+% （判据是 \verb|`#1 < `5|）。若原样存 |shi5|，\opt{none} 形式会返回 |shi5|
+% 而不是 |shi|，违反「不带声调」的约定。
+%    \begin{macrocode}
+    \bool_if:NT \g_@@_query_loaded_bool
+      {
+        \tl_set:Nn \l_@@_normalized_tl {#2}
+        \tl_replace_all:Nnn \l_@@_normalized_tl { ü } { v }
+        \tl_replace_all:Nnn \l_@@_normalized_tl { Ü } { V }
+        \exp_args:Nx \@@_setpinyin_strip_neutral:n
+          { \exp_not:V \l_@@_normalized_tl }
+        \cs_set_nopar:cpx { c_@@_query_ \@@_char_to_unicode:n {#1} _tl }
+          { \exp_not:V \l_@@_normalized_tl }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
+%
+% \subsection{查询命令}
+%
+% 下面四个命令回答“这个汉字读什么”，不排版任何内容。它们\emph{完全可展开}，
+% 因此可以写进 \tn{csname} 的构造式、\tn{edef} 或 \pkg{bib2gls} 的字段——
+% issue 550 提出这组命令，正是为了给中文索引算排序键。
+%
+% 注意 \tn{index} 本身\emph{不}展开参数（它先 \tn{@sanitize} 再原样写进
+% \file{.idx}），所以要用拼音作排序键必须自己先 \tn{edef} 一次；
+% 手册的“给索引条目加拼音排序键”一节给出了可用的写法。
+%
+% 可展开的代价是所有加工都必须在生成数据库时完成：去掉声调要把预组合字符
+% 拆开，而 \pkg{expl3} 里做这件事的 \cs{char_to_nfd:N} 无法在可展开的上下文里
+% 使用（实测嵌套在 \tn{edef} 里会直接出错）。因此查询表存的是
+% “字母加声调数字”的形式（|zhong1|、|nv3|），四种输出都由它派生，
+% 运行时只做取值与字符串处理。
+%
+% \begin{variable}{\l_@@_query_scheme_tl,\l_@@_query_tone_tl}
+% 两个选项的当前值。\opt{scheme} 决定声母与韵母怎么切分，
+% \opt{tone} 决定声调以什么形式出现。
+%    \begin{macrocode}
+\tl_new:N \l_@@_query_scheme_tl
+\tl_new:N \l_@@_query_tone_tl
+\keys_define:nn { xpinyin }
+  {
+%    \end{macrocode}
+% 分支代码里用 |#1| 而不是 \cs{l_keys_choice_tl}：前者在选项解析时就已替换成
+% 字面分支名，不依赖运行时的局部变量（见 \pkg{ctex} 的 \opt{space} 选项踩过的坑）。
+%    \begin{macrocode}
+    scheme .choices:nn =
+      { literal , official }
+      { \tl_set:Nn \l_@@_query_scheme_tl {#1} } ,
+    tone   .choices:nn =
+      { mark , number , none , v }
+      { \tl_set:Nn \l_@@_query_tone_tl {#1} } ,
+  }
+\keys_set:nn { xpinyin } { scheme = literal , tone = mark }
+%    \end{macrocode}
+% \end{variable}
+%
+% \begin{macro}[int]{\@@_query_get:n,\@@_query_get_multiple:n}
+% 取出某个汉字的“字母加声调数字”形式。参数是汉字本身。
+% 查询表未载入时给出提示，而不是静默展开成空。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_get:n #1
+  { \use:c { c_@@_query_ \int_eval:n { `#1 } _tl } }
+\cs_new:Npn \@@_query_get_multiple:n #1
+  { \use:c { c_@@_query_multiple_ \int_eval:n { `#1 } _clist } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_last:n,\@@_query_base:n,\@@_query_base:nn,
+%   \@@_query_tone:n,\@@_query_tone:nn}
+% 把“字母加声调数字”拆成字母部分与声调数字。判断末字符是不是数字时比较码位，
+% 而不是用 \cs{str_if_in:nnTF}——它确实不可展开，会让整条链失去可展开性。
+% 数字 |1| 到 |4| 的码位都小于字母 |a| 的码位，所以一次比较就够。
+% 轻声没有调号，这时字母部分就是全串，声调部分为空。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_last:n #1 { \str_range:nnn {#1} {-1} {-1} }
+\cs_new:Npn \@@_query_base:n #1
+  { \exp_args:Nf \@@_query_base:nn { \@@_query_last:n {#1} } {#1} }
+\cs_new:Npn \@@_query_base:nn #1#2
+  {
+    \int_compare:nNnTF { `#1 } < { `5 }
+      { \str_range:nnn {#2} {1} {-2} } {#2}
+  }
+\cs_new:Npn \@@_query_tone:n #1
+  { \exp_args:Nf \@@_query_tone:nn { \@@_query_last:n {#1} } {#1} }
+\cs_new:Npn \@@_query_tone:nn #1#2
+  { \int_compare:nNnTF { `#1 } < { `5 } {#1} { } }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_mark:n}
+% 把“字母加声调数字”还原成带调号的形式。声调标在哪个字母上有固定规则：
+% |a| 和 |e| 优先，其次是 |ou| 里的 |o|，否则标在最后一个元音上。
+% 这里复用包内已有的 \cs{@@_pinyin:n}，它正是为 \tn{pinyin} 处理同样的输入而写的，
+% 于是标调规则只有一份实现。注意这一支不可展开。
+%
+% \cs{@@_pinyin:n} 期望的是完整音节。\opt{official} 模式切出来的韵母是音位形式，
+% 可能以 |v| 开头（|yue| 还原成 |ve|），而 \tn{pinyin} 把开头的 |v| 当成
+% 声母位置上的字母，排出来是 |uè| 而不是 |üè|。这种组合本身不是合法音节，
+% 所以带调号的输出对它没有意义：\opt{official} 模式下的韵母改用无调形式，
+% 并在手册里说明这一限制。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_query_mark:n #1 { \@@_pinyin:n {#1} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_shengmu:nn,\@@_query_yunmu:nn}
+% 声母与韵母的切分。两个模式的区别只在 |y| 和 |w| 算不算声母，
+% 所以用两张表：\cs{@@_query_sm1literal_...} 收 |y|、|w|，
+% \cs{@@_query_sm1official_...} 不收。
+% |zh|、|ch|、|sh| 是两个字母的声母，必须先于单字母匹配。
+%
+% 用“控制序列存不存在”来查表：两字母声母与单字母声母要分两级匹配，
+% 用 \cs{cs_if_exist_use:cF} 逐级回退表达得最直接。
+% （\cs{str_case:nnF} 同样可展开，两者在这里都可用。）
+%    \begin{macrocode}
+\clist_map_inline:nn { zh , ch , sh }
+  { \cs_new:cpn { @@_query_sm2_ #1 : } { #1 } }
+\clist_map_inline:nn { b,p,m,f,d,t,n,l,g,k,h,j,q,x,r,z,c,s }
+  {
+    \cs_new:cpn { @@_query_sm1literal_ #1 : }  { #1 }
+    \cs_new:cpn { @@_query_sm1official_ #1 : } { #1 }
+  }
+\clist_map_inline:nn { y , w }
+  { \cs_new:cpn { @@_query_sm1literal_ #1 : } { #1 } }
+\cs_new:Npn \@@_query_shengmu:nn #1#2
+  { \exp_args:Nnf \@@_query_shengmu_aux:nn {#1} { \@@_query_base:n {#2} } }
+%    \end{macrocode}
+% 有几个音节整个就是一个鼻音：|m|、|n|、|ng| 以及 |hm|、|hng|
+% （“嗯”“哼”一类）。它们没有声母与韵母之分，
+% 整体作韵母处理，声母为空——否则按字母切分会把“嗯”的 |ng| 切成
+% |n| 加 |g|，而 |g| 不是韵母（实测早先输出 \verb|sm=[n] ym=[g4]|）。
+%
+% 这一步同时消掉了另一个缺陷：这些音节从前被切掉声母后韵母为空串，
+% 与声调数字拼接后只剩一个裸数字（U+5463 的韵母得到 |2|，
+% \opt{tone} 为 \opt{mark} 时页面上排出孤立的“2”）。
+% 整体作韵母之后不再出现空韵母，因此韵母那一侧不必再加判据
+% （核对过全部 57493 个读音，按现在的切分规则无一为空）。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_shengmu_aux:nn #1#2
+  {
+    \cs_if_exist:cTF { @@_query_syllabic_ #2 : }
+      { }
+      {
+        \cs_if_exist_use:cF { @@_query_sm2_ \str_range:nnn {#2} {1} {2} : }
+          {
+            \cs_if_exist_use:cF
+              { @@_query_sm1 #1 _ \str_range:nnn {#2} {1} {1} : }
+              { }
+          }
+      }
+  }
+\clist_map_inline:nn { m , n , ng , hm , hng }
+  { \cs_new:cpn { @@_query_syllabic_ #1 : } { #1 } }
+%    \end{macrocode}
+% 韵母是去掉声母之后剩下的部分。\opt{official} 模式下若声母为空，
+% 还要把 |y| 或 |w| 的写法还原成介音。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_yunmu:nn #1#2
+  {
+    \exp_args:Nnff \@@_query_yunmu_aux:nnn {#1}
+      { \@@_query_shengmu:nn {#1} {#2} } { \@@_query_base:n {#2} }
+  }
+\cs_new:Npn \@@_query_yunmu_aux:nnn #1#2#3
+  {
+    \str_if_eq:eeTF {#1} { official }
+      {
+        \tl_if_empty:nTF {#2}
+          { \@@_query_glide:n {#3} }
+          { \str_range:nnn {#3} { \tl_count:n {#2} + 1 } {-1} }
+      }
+      { \str_range:nnn {#3} { \tl_count:n {#2} + 1 } {-1} }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_glide:n}
+% \opt{official} 模式下把 |y| 与 |w| 的写法还原成介音，依据《汉语拼音方案》：
+% |y| 后接 |i| 时去掉 |y|；|y| 后接 |u| 时该 |u| 实为 |ü|，按包内约定写作 |v|；
+% |y| 后接其他元音时 |y| 变 |i|；|w| 后接 |u| 时去掉 |w|，接其他元音时 |w| 变 |u|。
+% 不以 |y| 或 |w| 开头的（|an|、|er| 一类）原样返回。
+%
+% |yo| 一类按“|y| 后接其他元音”这一条处理成 |io|。这个音节的实际读法在
+% 语言学上有不同意见，本包按上面的通则统一处理，不对它单独取值。
+%    \begin{macrocode}
+\cs_new:cpn { @@_query_glide_y_i: } { i }
+\cs_new:cpn { @@_query_glide_y_u: } { v }
+\cs_new:cpn { @@_query_glide_w_u: } { u }
+\cs_new:cpn { @@_query_medial_y: }  { i }
+\cs_new:cpn { @@_query_medial_w: }  { u }
+\cs_new:Npn \@@_query_glide:n #1
+  {
+    \exp_args:Nff \@@_query_glide_aux:nn
+      { \str_range:nnn {#1} {1} {1} } { \str_range:nnn {#1} {2} {-1} }
+  }
+\cs_new:Npn \@@_query_glide_aux:nn #1#2
+  {
+    \cs_if_exist:cTF { @@_query_medial_ #1 : }
+      {
+        \cs_if_exist:cTF
+          { @@_query_glide_ #1 _ \str_range:nnn {#2} {1} {1} : }
+          {
+            \use:c { @@_query_glide_ #1 _ \str_range:nnn {#2} {1} {1} : }
+            \str_range:nnn {#2} {2} {-1}
+          }
+          { \use:c { @@_query_medial_ #1 : } #2 }
+      }
+      { #1 #2 }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_tone_apply:n}
+% 按 \opt{tone} 的取值决定输出形式。\opt{number} 直接返回查询表里的原值；
+% \opt{none} 去掉声调数字并保留 |v|；\opt{v} 与 \opt{none} 相同，
+% 保留两个名字是因为“无声调”和“把 \texttt{ü} 写成 \texttt{v}”是两件事，
+% 只是在本包的存储形式下结果一致；\opt{mark} 交给 \cs{@@_query_mark:n} 标调。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_tone_apply:n #1
+  {
+    \str_if_eq:eeTF { \l_@@_query_tone_tl } { number }
+      { #1 }
+      {
+        \str_if_eq:eeTF { \l_@@_query_tone_tl } { mark }
+          { \@@_query_mark_if_possible:n {#1} }
+          { \@@_query_base:n {#1} }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_mark_if_possible:n,\@@_query_markable:n,
+%   \@@_query_if_markable:nTF}
+% 标调号要有可标的元音字母。整个音节就是一个鼻音时（|m|、|n|、|ng| 一类，
+% 见前面的 \cs{@@_query_syllabic_} 表）没有元音，\cs{@@_pinyin:n} 找不到
+% 落点，会把声调数字原样排出——\verb|\xpinyinvalue{嗯}| 得到 |ng4|，
+% 页面上那个 |4| 就是个裸数字。
+%
+% 这与声母“永远不带声调”是同一件事的另一侧：判据都是“有没有可标调的元音”。
+% 因此这里先检查，没有元音就退回无调形式（|ng| 而不是 |ng4|）。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_mark_if_possible:n #1
+  {
+    \@@_query_if_markable:nTF {#1}
+      { \@@_query_mark:n {#1} }
+      { \@@_query_base:n {#1} }
+  }
+%    \end{macrocode}
+% 逐字符扫一遍看有没有元音字母。这里不能用 \cs{tl_if_in:nnTF} 或
+% \cs{str_remove_all:nn}——两者都不可展开（实测前者在 \tn{edef} 里原样漏出
+% 整条命令，后者把参数连花括号一起返回，长度反而变长），而查询命令必须保持
+% 可展开。可展开的做法是用 \cs{str_range:nnn} 取单个字符，交给
+% \cs{str_case:enF} 比对。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_markable:n #1
+  { \@@_query_markable_aux:nn {#1} { 1 } }
+\cs_new:Npn \@@_query_markable_aux:nn #1#2
+  {
+    \int_compare:nNnTF {#2} > { \str_count:n {#1} }
+      { 0 }
+      {
+        \str_case:enF { \str_range:nnn {#1} {#2} {#2} }
+          { {a}{1} {o}{1} {e}{1} {i}{1} {u}{1} {v}{1} }
+          { \exp_args:Nnf \@@_query_markable_aux:nn {#1}
+              { \int_eval:n { #2 + 1 } } }
+      }
+  }
+\prg_new_conditional:Npnn \@@_query_if_markable:n #1 { TF }
+  {
+    \int_compare:nNnTF { \@@_query_markable:n {#1} } = { 1 }
+      { \prg_return_true: } { \prg_return_false: }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_part:nn}
+% 按要取的部分（整串、首字母、声母、韵母）加工一个读音。
+% |#1| 是部分的名字，|#2| 是查询表里的“字母加声调数字”。
+%
+% 首字母取的是字母部分的第一个字符，因此不受 \opt{tone} 影响；
+% 其余三个都要经过 \cs{@@_query_tone_apply:n}。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_part:nn #1#2
+  {
+    \str_if_eq:nnTF {#1} { initial }
+      { \exp_args:Nf \@@_query_head:n { \@@_query_base:n {#2} } }
+      {
+%    \end{macrocode}
+% 声母只由辅音组成，标不了调号，所以\emph{永远}不带声调，四种 \opt{tone} 取值下
+% 都一样，这一支不经过 \cs{@@_query_tone_apply:n}。
+%
+% 这一点是实测发现的：早先把声调一律接在切出来的片段后面，结果“中”的声母排成
+% |zh1|——\cs{@@_pinyin:n} 找不到可以标调的元音，就把数字原样输出了。
+%    \begin{macrocode}
+        \str_if_eq:nnTF {#1} { shengmu }
+          { \exp_args:NV \@@_query_shengmu:nn \l_@@_query_scheme_tl {#2} }
+          {
+%    \end{macrocode}
+% \opt{official} 模式的韵母是音位形式，可能以 |v| 开头（|yue| 还原成 |ve|）。
+% \cs{@@_pinyin:n} 只在 |l| 与 |n| 之后才把 |v| 当作 \texttt{ü}
+% （见 \cs{@@_replace_v:n}：|ju|、|qu|、|xu| 没有歧义，所以不必标 \texttt{ü}），
+% 开头的 |v| 会排成 |u|。因此这种形式不做标调，按无调形式输出，
+% 手册里说明这一限制。判断要放在“取韵母”这一支内部，
+% 不能提到外层——否则 \tn{xpinyinvalue} 也会被 \opt{scheme} 影响，
+% 而它返回的是完整读音，与切分方式无关（实测提到外层时
+% \opt{official} 下 \tn{xpinyinvalue} 会返回 |uang| 而不是 |wáng|）。
+%    \begin{macrocode}
+            \str_if_eq:nnTF {#1} { yunmu }
+              { \@@_query_yunmu_out:n {#2} }
+              { \@@_query_tone_apply:n {#2} }
+          }
+      }
+  }
+%    \end{macrocode}
+% 先可展开地取出要的那一段（仍是“字母加声调数字”的形式），
+% 再统一交给 \cs{@@_query_tone_apply:n} 决定输出形式。
+% 这样标调这一步只在最外层出现一次：\cs{@@_query_mark:n} 依赖
+% \cs{@@_pinyin:n}，不可展开，若嵌在 \texttt{f} 类展开里会散架
+% （实测会把 \pkg{expl3} 的内部命令原样排进页面）。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_yunmu_join:nn #1#2 { #1 #2 }
+%    \end{macrocode}
+% 韵母的输出还有一处限制。\cs{@@_pinyin:n} 只在 |l| 与 |n| 之后把 |v| 当作
+% \texttt{ü}（见 \cs{@@_replace_v:n}），所以韵母\emph{以 |v| 开头}时标不出
+% \texttt{ü}：\verb|\pinyin{v3}| 排出来是 |ǔ| 而不是 |ǚ|。
+% “女”的韵母正是这种情况。与其静默给出错的字形，这里改为输出无调形式。
+% \opt{official} 模式的韵母是音位形式（|yue| 还原成 |ve|），同样不标调。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_yunmu_out:n #1
+  {
+    \exp_args:Nf \@@_query_yunmu_out_aux:nn
+      { \exp_args:NV \@@_query_yunmu:nn \l_@@_query_scheme_tl {#1} } {#1}
+  }
+\cs_new:Npn \@@_query_yunmu_out_aux:nn #1#2
+  {
+    \bool_lazy_or:nnTF
+      { \str_if_eq_p:ee { \l_@@_query_scheme_tl } { official } }
+      { \str_if_eq_p:ee { \str_range:nnn {#1} {1} {1} } { v } }
+      { #1 }
+      {
+        \exp_args:Nf \@@_query_tone_apply:n
+          { \exp_args:Nnf \@@_query_yunmu_join:nn {#1}
+              { \@@_query_tone:n {#2} } }
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_head:n}
+% 取字母部分的首字符，供 \tn{xpinyininitial} 使用。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_head:n #1 { \str_range:nnn {#1} {1} {1} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}{\xpinyinvalue,\xpinyininitial,\xpinyinshengmu,\xpinyinyunmu}
+% 四个查询命令。带星号的形式返回全部读音，用逗号分隔；不带星号取首选读音，
+% 与 \tn{xpinyin} 的取值一致。
+%
+% 这些命令\emph{不接受可选参数}。\opt{scheme} 与 \opt{tone} 用 \tn{xpinyinsetup}
+% 设置，与包内其他选项一致，并随 \TeX{} 分组恢复。这样做是因为在可展开的命令里
+% 无法调用 \cs{keys_set:nn}：keyval 解析本身不可展开，若把选项放进参数，
+% 整条链就用不到 \tn{index} 或 \pkg{bib2gls} 的字段里去了。
+%
+% \opt{tone} 取 \opt{mark} 时输出带调号，这一步依赖 \cs{@@_pinyin:n}，不可展开；
+% 其余三种取值下四个命令都是完全可展开的。要拿到字面文字（例如自己 \tn{edef}
+% 出索引排序键）时，用 \opt{number}、\opt{none} 或 \opt{v}。
+%    \begin{macrocode}
+\NewExpandableDocumentCommand \xpinyinvalue { s m }
+  { \@@_query_dispatch:nnn { value } {#1} {#2} }
+\NewExpandableDocumentCommand \xpinyininitial { s m }
+  { \@@_query_dispatch:nnn { initial } {#1} {#2} }
+\NewExpandableDocumentCommand \xpinyinshengmu { s m }
+  { \@@_query_dispatch:nnn { shengmu } {#1} {#2} }
+\NewExpandableDocumentCommand \xpinyinyunmu { s m }
+  { \@@_query_dispatch:nnn { yunmu } {#1} {#2} }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_query_dispatch:nnn}
+% 分派到“取首选读音”或“取全部读音”。|#2| 是星号参数。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_dispatch:nnn #1#2#3
+  {
+%    \end{macrocode}
+% 先检查参数是不是恰好一个字符。取码位用的 |`#1| 只接受单个字符记号，
+% 参数为空或多于一个字符时会漏出 \TeX{} 底层错误
+% （实测 \verb|\xpinyinvalue{中国}| 先报 \texttt{! Missing \string\endcsname inserted.}，
+% 空参数报 \texttt{! Improper alphabetic constant.}），看不出与本宏包有关。
+%
+% 这里数的是\emph{字符}而不是记号：\cs{tl_count:n} 把 \verb|{中}|、
+% \verb|\hz| 这类各算一个记号，检查会放它们过去，随后照旧漏出底层错误。
+% \cs{str_count:n} 先把参数变成字符串再数，能一并挡住。两者都可展开。
+%    \begin{macrocode}
+    \int_compare:nNnTF { \str_count:n {#3} } = { 1 }
+      {
+        \bool_if:nTF {#2}
+          { \@@_query_all:nn {#1} {#3} }
+          { \@@_query_first:nn {#1} {#3} }
+      }
+      { \@@_query_bad_arg:n {#3} }
+  }
+%    \end{macrocode}
+% 首选读音直接查单音字表。查询表没有载入时（未使用 \opt{query} 选项），
+% 对应的控制序列不存在，这里给出明确的报错而不是静默展开成空。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_first:nn #1#2
+  {
+    \cs_if_exist:cTF { c_@@_query_ \int_eval:n { `#2 } _tl }
+      {
+        \exp_args:Nnf \@@_query_part:nn {#1}
+          { \@@_query_get:n {#2} }
+      }
+      { \@@_query_missing:n {#2} }
+  }
+%    \end{macrocode}
+% 取不到值时分两种情况：查询表根本没载入，或者这个字不在数据库里。
+% 两者的处理办法不同，所以报错也要分开。
+%
+% 报错必须走 \cs{msg_expandable_error:nnn} 而不是 \cs{msg_error:nnn}。
+%
+% 查询命令的用途之一是先 \tn{edef} 出字面文字再交给别的命令（例如索引排序键），
+% 而 \cs{msg_error:nnn} 是 \texttt{protected} 的：在 \tn{edef} 里它既不报错也不
+% 展开，会把自己整条原样留在结果里。实测未加 \opt{query} 选项时，
+% \verb|\edef\x{\xpinyinvalue{汉}}| 得到的是
+% \verb|\__xpinyin_query_missing:n {汉}|，文档零错误编译，
+% 错误的排序键被静默写进 \file{.idx}。
+%
+% \cs{msg_expandable_error:nnn} 在可展开的上下文里也会发出错误，且不留下残余。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_bad_arg:n #1
+  { \msg_expandable_error:nnn { xpinyin } { query-bad-argument } {#1} }
+\cs_new:Npn \@@_query_missing:n #1
+  {
+    \bool_if:NTF \g_@@_query_loaded_bool
+      { \msg_expandable_error:nnn { xpinyin } { query-no-reading } {#1} }
+      { \msg_expandable_error:nn  { xpinyin } { query-not-loaded } }
+  }
+\bool_new:N \g_@@_query_loaded_bool
+%    \end{macrocode}
+% 星号形式把多音字的每个读音各加工一遍，再用逗号连接。
+% 没有多音字记录的字（单音字）退回首选读音，
+% 使星号形式对任何汉字都有合理结果。
+%    \begin{macrocode}
+\cs_new:Npn \@@_query_all:nn #1#2
+  {
+    \cs_if_exist:cTF { c_@@_query_multiple_ \int_eval:n { `#2 } _clist }
+      {
+        \exp_args:Nnf \@@_query_all_aux:nn {#1}
+          { \@@_query_get_multiple:n {#2} }
+      }
+      { \@@_query_first:nn {#1} {#2} }
+  }
+%    \end{macrocode}
+% 星号形式把每个读音各加工一遍，再用逗号连接。
+%
+% 只有在结果是纯文本时才去重。\opt{tone} 为 \opt{mark} 的输出里含
+% \cs{@@_pinyin:n}，它是 \texttt{protected} 的，\texttt{e} 类展开留不下文本
+% （实测 \cs{tl_set:Nx} 之后仍是 \verb|\__xpinyin_pinyin:n {zhong1}|），
+% 收不进逗号列表，去重也就无从进行——强行去重会把每一项都变成空
+% （实测输出 \verb|,,,,|）。
+%
+% 因此做法是\emph{先试一次去重}：把加工结果收进逗号列表、跑
+% \cs{clist_remove_duplicates:N}，若列表变空，说明这些项含 \texttt{protected}
+% 的命令、去重不可行，改为逐项输出。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_query_all_aux:nn #1#2
+  {
+    \@@_query_collect:nn {#1} {#2}
+    \bool_lazy_and:nnTF
+      { \clist_if_empty_p:N \g_@@_query_join_clist }
+      { \int_compare_p:nNn \g_@@_query_count_int > { 0 } }
+      { \@@_query_all_plain:nn {#1} {#2} }
+      { \clist_use:Nn \g_@@_query_join_clist { , } }
+  }
+%    \end{macrocode}
+% “先试再退”比按命令与选项静态判断更可靠。会不会经过标调不只取决于查哪一部分，
+% 还取决于这个读音本身：整个音节是鼻音时没有可标调的元音（见
+% \cs{@@_query_mark_if_possible:n}），韵母以 |v| 开头时也不标调（见
+% \cs{@@_query_yunmu_out_aux:nn}）。这两条回退在运行时才知道，静态判据必然漏掉——
+% 实测按静态判据时 \verb|\xpinyinvalue*{嗯}| 在 \opt{mark} 下排出
+% |n,n,n,ng,ng,ng|，而 \opt{number} 下是 |n2,n3,n4,ng2,ng3,ng4|。
+%
+% 更早的判据是“\opt{tone} 为 \opt{mark} 且不是首字母”，那一版还把声母与
+% \opt{official} 的韵母整类排除在去重之外：缺省设置下
+% \verb|\xpinyinshengmu*{行}| 排出 |h,h,h,x|，而 \opt{number} 下排出 |h,x|
+% ——声母本不随 \opt{tone} 变化，去重与否却变了。
+%
+% \cs{clist_remove_duplicates:N} 在项含 \texttt{protected} 命令时会把整个列表
+% 清空（实测两项 \verb|\prot:n {a}|、\verb|\prot:n {b}| 去重后项数为 0），
+% 正好可以拿来当“去重可不可行”的判据。
+%
+% 不去重的一支：逐项排出，项间补逗号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_query_all_plain:nn #1#2
+  {
+    \bool_set_true:N \l_@@_query_first_bool
+    \clist_map_inline:nn {#2}
+      {
+        \bool_if:NTF \l_@@_query_first_bool
+          { \bool_set_false:N \l_@@_query_first_bool } { , }
+        \@@_query_part:nn {#1} {##1}
+      }
+  }
+\bool_new:N \l_@@_query_first_bool
+%    \end{macrocode}
+% 去重的一支。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_query_collect:nn #1#2
+  {
+%    \end{macrocode}
+% 收集要放在一个丢掉的盒子里。\cs{@@_query_mark:n} 经 \cs{@@_pinyin:n} 直接
+% 把内容\emph{排版出来}，所以这一次试探本身会产生输出；不装盒的话，即使随后
+% 改走逐项输出，试探时排出的逗号也已经留在页面上了
+% （实测输出 \verb|,,,,háng,hàng,héng,xíng|）。
+%    \begin{macrocode}
+    \hbox_set:Nn \l_@@_query_probe_box
+      {
+        \clist_gclear:N \g_@@_query_join_clist
+        \clist_map_inline:nn {#2}
+          {
+            \clist_gput_right:Ne \g_@@_query_join_clist
+              { \@@_query_part:nn {#1} {##1} }
+          }
+%    \end{macrocode}
+% 记下去重\emph{之前}的项数，随后靠它区分两种“列表为空”。
+%
+% 逗号列表会自动丢掉空项，所以全部读音的声母都为空时（“啊”“呕”一类零声母字，
+% \opt{official} 下还有 |y|、|w| 起头的）列表在去重前就已经是空的——那是正确
+% 结果。而项含 \texttt{protected} 命令时，\cs{clist_gremove_duplicates:N} 会把
+% \emph{原本非空}的列表清空，那才是去重不可行。
+%
+% 只看“去重后空不空”区分不开这两种情形，实测会让
+% \verb|\xpinyinshengmu*{啊}| 排出 \verb|,,,,|——只剩分隔逗号。
+%    \begin{macrocode}
+        \int_gset:Nn \g_@@_query_count_int
+          { \clist_count:N \g_@@_query_join_clist }
+        \clist_gremove_duplicates:N \g_@@_query_join_clist
+      }
+  }
+\int_new:N \g_@@_query_count_int
+\box_new:N \l_@@_query_probe_box
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{variable}{\g_@@_query_join_clist}
+% 去重用的逗号列表。多音字的不同读音常落在同一个首字母上（“行”的四个读音里
+% 三个都是 |h|），逐项列出没有意义。
+%
+% 用全局变量：上面的收集要装在盒子里（\cs{@@_query_mark:n} 会直接排版），
+% 而盒子会把局部赋值限制在盒内，结果传不出来。星号形式因此不可展开——
+% 需要字面文字时用不带星号的形式。
+%    \begin{macrocode}
+\clist_new:N \g_@@_query_join_clist
+%    \end{macrocode}
+% \end{variable}
 %
 %    \begin{macrocode}
 \cs_if_exist:NTF \ProcessKeyOptions
@@ -1183,6 +2213,28 @@ Copyright and Licence
   {
     \RequirePackage { l3keys2e }
     \ProcessKeysOptions { xpinyin }
+  }
+%    \end{macrocode}
+%
+% 选项处理完毕后再决定要不要载入查询表。放在这里是因为 \opt{query} 的值
+% 到这一步才确定。查询命令只在 Unicode 引擎下可用，所以先检查引擎。
+%    \begin{macrocode}
+\bool_if:NT \g_@@_query_bool
+  {
+%    \end{macrocode}
+% 判据写成“必须是 \XeTeX{}”而不是“不能是 \pdfTeX{}”：包级门禁目前只放行
+% \XeTeX{} 与 \pdfTeX{}，但日后若放行别的引擎，正向判断不会把它默认当成可用。
+%    \begin{macrocode}
+    \sys_if_engine_xetex:TF
+      {
+        \group_begin:
+          \cs_set_eq:NN \XPYUQ  \xpinyin_query:nn
+          \cs_set_eq:NN \XPYUQM \xpinyin_query_multiple:nn
+          \file_input:n { xpinyin-query.def }
+        \group_end:
+        \bool_gset_true:N \g_@@_query_loaded_bool
+      }
+      { \msg_error:nn { xpinyin } { query-needs-unicode } }
   }
 %    \end{macrocode}
 %
@@ -1237,7 +2289,8 @@ xpinyin = {
     file    = "Unihan_Readings.txt",
     date    = "Date: 2014-05-09 18:17:02 GMT [JHJ]",
     version = "Unicode version: 7.0.0",
-    dbfile  = "xpinyin.db"
+    dbfile  = "xpinyin.db",
+    qdbfile = "xpinyin-query.db"
   },
   preamble = [[
 %<<COMMENT
@@ -1344,6 +2397,85 @@ function xpinyin.insert (unicode, prop, value)
 end
 %    \end{macrocode}
 %
+% 把带调号的拼音转成“字母加声调数字”的形式，例如 |zhōng| 转成 |zhong1|、
+% |nǚ| 转成 |nv3|。这一步在生成数据库时做，查询命令运行时只需查表，
+% 于是可以保持完全可展开（见查询命令一节的说明）。
+%
+% \file{Unihan} 里的拼音用的是预组合字符，例如 |ō| 是单独一个码位 U+014D，
+% 而不是 |o| 加上长音符两个码位。因此这里用一张显式的对照表，
+% 而不是依赖 Unicode 正规化——\file{texlua} 没有提供正规化函数。
+% 表中列出 29 个带附加符号的字符，每项给出“去掉附加符号后的字母”
+% 和“声调数字”。其中 28 个是当前数据库实际用到的；|ǖ|（U+01D6）在当前数据里
+% 没有出现，为把 |ü| 的四声补齐而一并列出。
+%
+% |ü| 系需要单独说明。按包内 \tn{pinyin} 的输入约定，|ü| 写作 |v|
+% （手册里的 \verb|\pinyin{nv3hai2zi}|），所以 |ǚ| 的字母部分是 |v| 而不是 |u|：
+% 若写成 |u|，|nǚ| 会变成 |nu3|，馈回 \tn{pinyin} 得到的是“努”而不是“女”。
+%
+% 轻声没有调号，声调数字为空字符串，例如 |de| 仍然是 |de|。
+%    \begin{macrocode}
+xpinyin.numbertable = {
+  ["ā"] = {"a", "1"}, ["á"] = {"a", "2"},
+  ["ǎ"] = {"a", "3"}, ["à"] = {"a", "4"},
+  ["ē"] = {"e", "1"}, ["é"] = {"e", "2"},
+  ["ě"] = {"e", "3"}, ["è"] = {"e", "4"},
+  ["ī"] = {"i", "1"}, ["í"] = {"i", "2"},
+  ["ǐ"] = {"i", "3"}, ["ì"] = {"i", "4"},
+  ["ō"] = {"o", "1"}, ["ó"] = {"o", "2"},
+  ["ǒ"] = {"o", "3"}, ["ò"] = {"o", "4"},
+  ["ū"] = {"u", "1"}, ["ú"] = {"u", "2"},
+  ["ǔ"] = {"u", "3"}, ["ù"] = {"u", "4"},
+  ["ǖ"] = {"v", "1"}, ["ǘ"] = {"v", "2"},
+  ["ǚ"] = {"v", "3"}, ["ǜ"] = {"v", "4"},
+  ["ü"] = {"v", "" },
+%    \end{macrocode}
+% |ń|、|ň|、|ǹ| 和 |ḿ| 用在“嗯”一类字上，声调直接标在鼻音字母上。
+%    \begin{macrocode}
+  ["ń"] = {"n", "2"}, ["ň"] = {"n", "3"}, ["ǹ"] = {"n", "4"},
+  ["ḿ"] = {"m", "2"}
+}
+%    \end{macrocode}
+%
+% 少数组合并没有对应的预组合字符，只能以“字母加组合符”两个码位出现。
+% 本数据库里的实例是 U+5463 的读音 |m̀|：Unicode 有 |ḿ|（U+1E3F），
+% 却没有 |m| 加钝音符的预组合形式。因此除上表之外，还要单独认出裸组合符。
+%    \begin{macrocode}
+xpinyin.combining = {
+  ["\u{0304}"] = "1", ["\u{0301}"] = "2",
+  ["\u{030C}"] = "3", ["\u{0300}"] = "4"
+}
+xpinyin.diaeresis = "\u{0308}"
+function xpinyin.numbered (pinyin)
+  local base, tone = { }, ""
+  for _, ch in ipairs(xpinyin.chars(pinyin)) do
+    local item = xpinyin.numbertable[ch]
+    if item then
+      base[#base + 1] = item[1]
+      if item[2] ~= "" then tone = item[2] end
+    elseif xpinyin.combining[ch] then
+      tone = xpinyin.combining[ch]
+    elseif ch == xpinyin.diaeresis then
+%    \end{macrocode}
+% 裸分音符只会跟在 |u| 后面，同样按 \tn{pinyin} 的约定折叠成 |v|。
+%    \begin{macrocode}
+      if base[#base] == "u" then base[#base] = "v" end
+    else
+      base[#base + 1] = ch
+    end
+  end
+  return table.concat(base) .. tone
+end
+%    \end{macrocode}
+%
+% 把字符串按码位切成单个字符。
+%    \begin{macrocode}
+function xpinyin.chars (s)
+  local t = { }
+  for _, cp in utf8.codes(s) do t[#t + 1] = xpinyin.uchar(cp) end
+  return t
+end
+%    \end{macrocode}
+%
 % 输出需要的格式文件。
 %    \begin{macrocode}
 function xpinyin.output (db)
@@ -1351,18 +2483,34 @@ function xpinyin.output (db)
   local preamble = xpinyin.preamble:gsub("%$(%w+)", xpinyin.database)
   f:write(preamble, "\n")
   local hanzi, pinyin
-  local mt = { }
+  local mt, qt = { }, { }
   for index, pyt in xpinyin.pairsByKeys(xpinyin.readings) do
     pinyin = assert(xpinyin.grep(pyt))
     hanzi = xpinyin.uchar(index)
     f:write("\\XPYU{", hanzi, "}{", index, "}{", pinyin, "}\n")
+%    \end{macrocode}
+% 查询用的“字母加声调数字”形式写进另一个文件。查询表只有用到查询命令的文档
+% 才需要，分开存放使 \opt{query} 选项可以按需载入，不改变现有用户的开销。
+%    \begin{macrocode}
+    qt[#qt + 1] = "\\XPYUQ{" .. index .. "}{"
+                  .. xpinyin.numbered(pinyin) .. "}"
     pinyin = xpinyin.multiple(pyt)
     if pinyin then
       mt[#mt + 1] = "\\XPYUM{" .. hanzi .. "}{" .. index .. "}{" .. pinyin .."}"
+      local nums = { }
+      for _, py in ipairs(pinyin:explode(",")) do
+        nums[#nums + 1] = xpinyin.numbered(py)
+      end
+      qt[#qt + 1] = "\\XPYUQM{" .. index .. "}{"
+                    .. table.concat(nums, ",") .. "}"
     end
   end
   f:write(table.concat(mt, "\n"), "\n")
   f:close()
+  local q = assert(io.open(xpinyin.database.qdbfile, "w"))
+  q:write(preamble, "\n")
+  q:write(table.concat(qt, "\n"), "\n")
+  q:close()
 end
 %    \end{macrocode}
 %

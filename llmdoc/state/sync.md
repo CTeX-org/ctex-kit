@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: a18d84f97835b645e7f486cfae626e3514a587d5
-- watermark-subject: docs: 记忆文件补充推送纪律
-- updated-at: 2026-08-05T06:33:03Z
-- updated-by: /llmdoc:update
+- watermark-commit: e9ee05754ba039fa4c9c226f282a65c831c7b8a6
+- watermark-subject: docs(llmdoc): 订正 +249; 修同一行内的第二处裸行号 (#550)
+- updated-at: 2026-08-07T03:44:54Z
+- updated-by: llmdoc-update skill (#550 终审修复; rebase onto master 后重指向改写后的同一提交)
