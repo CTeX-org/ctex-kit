@@ -528,6 +528,35 @@ xpinyin 接入按 tag 构建发布包的自动化流程后，此前唯一的验�
 
 第二个变异第一次跑时是绿的，原因是注入前误用 `cp` 把 `.dtx` 恢复了，变异根本没生效——**做变异实验后要先确认变异真的进了生成产物**（`grep` 一下生成的 `.sty`），再判断绿色的含义。这与「新增测试项后要复查既有项判据」是同一类问题的两个方向。
 
+### xpinyin 的「升级式解包」是 CI 覆盖不到的一条路径（PR #1051）
+
+`xpinyin` 的 `.ins` 里有一段 `\directlua`，判断是否需要跑 `xpinyin.lua` 重建数据库。#550 新增 `xpinyin-query.db` 之后，这个判断一度仍只检查 `xpinyin.db`：
+
+```latex
+if not kpse.find_file("xpinyin.db") then dofile(...) end
+```
+
+于是**在以前解包过 xpinyin 的目录里升级**时，旧 `xpinyin.db` 让生成器被跳过，而 `xpinyin-query.db` 尚不存在，docstrip 随即以 `! Cannot find file xpinyin-query.db` 退出（实测 rc 1）。改为任一缺失都重建。
+
+**为什么 CI 拦不住它。** `xpinyin/build.lua` 的 `unpack_prehook` 第一句就是 `cleandir(unpackdir)`，所以 `l3build unpack` 永远在干净目录里跑，走不到「旧 db 存在、新 db 不存在」这个状态。这是一处**结构性覆盖缺口**，不是漏写用例——要覆盖它得在 CI 里另建一个「预置旧 db」的目录，代价与收益需要另行权衡。
+
+手工复现步骤（改动那段 `\directlua` 或新增数据库文件时应当跑一遍）：
+
+```sh
+mkdir /tmp/upg && cd /tmp/upg
+cp <repo>/xpinyin/xpinyin.dtx .
+cp <repo>/xpinyin/build/local/xpinyin.ins .      # 由 l3build unpack 生成, 改 .dtx 后要重新生成
+cp <repo>/xpinyin/build/local/xpinyin.id .
+cp <repo>/support/ctxdocstrip.tex .
+cp <repo>/xpinyin/build/local/xpinyin.db .       # 只放旧 db, 不放 xpinyin-query.db
+cp <repo>/support/Unihan.zip .
+luatex xpinyin.ins                                # 修复前 rc 1; 修复后 rc 0
+```
+
+判据是**两个 `.db` 与两个 `.def` 都产出**，且 `xpinyin-query.def` 远大于 1129 字节（1129 是只有版权头的空表）。排查时注意两个陷阱：手工拼 `.ins` 容易漏掉 install 段的第二块（`\endbatchfile` 在那里）与 `\input docstrip`，会岔出与本缺陷无关的失败；`xpinyin.ins` 由 `.dtx` 生成，改完 `.dtx` 必须重跑 `l3build unpack` 再取，否则测的还是旧逻辑。
+
+**`\directlua` 的实参里不能写 Lua 的 `--` 行注释。** \TeX{} 把实参折成一行后，`--` 会吃掉其后的全部代码——实测整个 `if` 被注释掉、生成器静默不执行，症状与没改一样（`xpinyin.db` 的 md5 不变是判断「生成器没跑」的可靠信号）。说明只能写在 `.dtx` 的注释里。
+
 ### 直接输入 `ü` 的回归与「两条路线症状不同」（#1069）
 
 xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写法）。这处缺陷的诊断值得记：**同一根因在两条引擎路线上症状完全不同**，只看一条会低估问题。

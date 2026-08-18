@@ -224,6 +224,9 @@ jobs:
             # `[[:space:]]*`, 这里对齐.
             EXPL_VER=$(sed -nE 's/^%<package>[[:space:]]*\{\\ExplFileDate\}\{([^}]*)\}\{\\ExplFileDescription\}.*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
             DEF_VER=$(sed -nE 's/^%<database>[[:space:]]*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2}[[:space:]]+v([^] ]+)[[:space:]]+xpinyin[[:space:]]+database\].*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
+            # 第三处 (#550 新增的查询表). 与 DEF_VER 同样锚死 `%<querydb>` 前缀与
+            # 描述串, 理由见上: 只绑 `[<日期> v<版本>]` 形状会命中说明性注释.
+            QUERY_VER=$(sed -nE 's/^%<querydb>[[:space:]]*\[[0-9]{4}\/[0-9]{2}\/[0-9]{2}[[:space:]]+v([^] ]+)[[:space:]]+xpinyin[[:space:]]+query[[:space:]]+database\].*/\1/p' "${DIR}/xpinyin.dtx" | sort -u)
             if [ -z "${EXPL_VER}" ]; then
               echo "::error::未能从 ${DIR}/xpinyin.dtx 提取 {\\ExplFileDate}{...} 版本号."
               echo "::error::该行形如 '%<package>  {\\ExplFileDate}{3.1}{\\ExplFileDescription}'."
@@ -232,10 +235,16 @@ jobs:
             if [ -z "${DEF_VER}" ]; then
               echo "::error::未能从 ${DIR}/xpinyin.dtx 提取 '[<日期> v<版本> ...]' 版本号."
               echo "::error::该行形如 '%<database>  [2022/07/14 v3.1 xpinyin database]'."
-              echo "::error::共享 update_tag 会同时回写这两处, 缺一即说明模式或文件结构已变."
+              echo "::error::共享 update_tag 会同时回写这三处, 缺一即说明模式或文件结构已变."
               exit 1
             fi
-            STAMP_VERS=$(printf '%s\n%s\n' "${EXPL_VER}" "${DEF_VER}" | sort -u)
+            if [ -z "${QUERY_VER}" ]; then
+              echo "::error::未能从 ${DIR}/xpinyin.dtx 提取查询表的 '[<日期> v<版本> ...]' 版本号."
+              echo "::error::该行形如 '%<querydb>  [2026/08/06 v3.1 xpinyin query database]'."
+              echo "::error::共享 update_tag 会同时回写这三处, 缺一即说明模式或文件结构已变."
+              exit 1
+            fi
+            STAMP_VERS=$(printf '%s\n%s\n%s\n' "${EXPL_VER}" "${DEF_VER}" "${QUERY_VER}" | sort -u)
             ;;
           zhnumber|xCJK2uni|zhmetrics)
             # 与 xeCJK / xpinyin 同一套: build.lua 的 version 是事实源, 共享

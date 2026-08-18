@@ -306,6 +306,21 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 我给 `\setpinyin` 补查询表同步时用了 `\cs_if_exist:cT { c_@@_query_<码位>_tl }`，理由是「查询表没载入时不该多设控制序列」——这个理由本身成立，但判据选错了：它同时也排除了**数据库未收录的汉字**。实测 `\setpinyin` 对 U+5159 只改注音表，`\xpinyinvalue` 仍报 `No pinyin reading`，与手册「两边给出的首选读音始终一致」直接冲突；而补录生僻字读音恰恰是 `\setpinyin` 最典型的用途。改用 `\g_@@_query_loaded_bool` 作门禁后，「未载入不设置」与「未收录也要创建」两个目标同时满足。由 PR #1051 上的自动审查作为阻塞问题提出。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
 
+### 新增「按需生成」的产物时，跳过条件要覆盖\emph{全部}产物
+**Rule**: 「文件不存在才生成」这类守卫，条件必须覆盖生成器产出的\emph{每一个}文件。生成器一次产出 N 个而条件只判 1 个时，「旧产物在、新产物不在」的升级场景会跳过生成、随后在消费端硬失败。
+**Why**: PR #1051 审查发现 xpinyin 的 `.ins` 里 `if not kpse.find_file("xpinyin.db")` 仍只判一个 db，而 #550 起生成器同时产出 `xpinyin-query.db`。在以前解包过的目录里升级时，docstrip 以 `! Cannot find file xpinyin-query.db` 退出（实测 rc 1）。这条路径 CI 结构性覆盖不到——`unpack_prehook` 首句就 `cleandir`，永远从干净目录开始。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
+### `\directlua` 的实参里不能写 Lua 的 `--` 行注释
+**Rule**: `\directlua{...}` 的内容被 \TeX{} 折成一行后交给 Lua，`--` 会注释掉其后的**全部**代码。要解释这段 Lua 就写在外层（`.dtx` 注释）里。
+**Why**: PR #1051 我给那段 `\directlua` 加了四行 `--` 中文注释说明修复理由，结果整个 `if` 被吃掉、生成器静默不执行，症状与没改完全一样，我一度以为是别处的问题。识别信号是「`xpinyin.db` 的 md5 没变」——即生成器根本没跑，而不是跑了没写全。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
+### 复现依赖生成物时，先确认手上那份生成物是新的
+**Rule**: 复现涉及 `.ins`／`.sty`／`.def` 一类由源码生成的文件时，改完源码要先重新生成再取，否则测的是旧逻辑。手工重造这类文件同样危险——容易漏掉分块（如 docstrip install 段的第二块）而岔出无关失败。
+**Why**: PR #1051 排查升级缺陷时我连续踩了三次：手工用正则截 install 段只取到第一块（漏了含 `\endbatchfile` 的第二块）、缺 `\input docstrip` 引导、以及改完 `.dtx` 后没重跑 `l3build unpack` 就用旧 `xpinyin.ins` 测试，得到「修复无效」的错误结论。真正的判据出现在改用仓库生成的 `.ins` 之后。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+
 ### 回写第二张表时，写入值必须服从那张表\emph{自己}的编码约定（逐条核对，不止一条）
 **Rule**: 把数据写进另一张表，要逐条核对该表的编码约定，而不是只核对最显眼的那一条。约定通常散落在生成脚本、读取侧的拆分逻辑和表内容三处——三处都要看，且要以\emph{生成侧实际产出}为准而不是以文档措辞为准。
 **Why**: #1069／PR #1051 同一处 `\setpinyin` 回写查询表的代码连错三次：#550 修「有没有写第二张表」，#1069 修「`ü` 要折成 `v`」，这次修「轻声要去掉末尾 `5`」。第三条的判据来自三份互相印证的证据：`xpinyin.lua` 的 `numbertable` 只产出 `1`--`4`、生成的 `xpinyin-query.def` 里带 `5` 的条目为零、读取侧 `\@@_query_base:nn` 用 `` `#1 < `5 `` 判声调。手册说「声调用 1--5 表示」（面向 `\pinyin` 输入），而查询表的约定是「轻声不写数字」——**两个约定不同，回写时要服从后者**。只核对了 `ü` 这一条就以为规范化完备，是漏掉另外两条的原因。
