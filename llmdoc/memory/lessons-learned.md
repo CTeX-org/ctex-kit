@@ -596,7 +596,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 抽出被多个调用点共用的脚本时，触发白名单与 job filter 属于「调用点」的一部分
 **Rule**: 把逻辑从某个 workflow 抽成共享脚本时，除了改各处 `run:`，还要更新「哪些文件改动会触发这些路径」——触发白名单与各包 job 的 filter。这些地方不改，改坏脚本时 CI 不会告警。而且不同 workflow 的失效机制不同，只查一处不够：`on.paths` 白名单不含该文件时 workflow **根本不触发**；`paths-ignore` 型 workflow **会触发**，但各包 job 的 `if` 取自 `_all` filter，全为 false 导致整体 skip、汇总 job 把 skipped 算作 OK 而呈现为绿。由此还有一条判读约束：**「看 job 有没有启动」不能作为门禁生效的证据**，前者 run 缺席、后者 run 在但内容为空，都可能被误读成「已经跑过了」。
-**Why**: #1054 把 workaround 抽成 `scripts/sync-l3backend.sh` 时更新了三处 `run:`，却漏了触发面，由两个 bot 独立指出；核实成立，已补 `check-doc.yml` 的 `on.paths` 与 `_all` filter、`test.yml` 的 `_all` filter 三处。这与「复合 Action 与 job step 是两套字段与默认值语义」同属 CI 结构类：同一份配置在不同 workflow 机制下语义不同。
+**Why**: #1054 把 workaround 抽成 `scripts/sync-l3backend.sh` 时更新了三处 `run:`，却漏了触发面，由两个 bot 独立指出；核实成立，已补 `check-doc.yml` 的 `on.paths` 与 `_all` filter、`test.yml` 的 `_all` filter 三处。这与「复合 Action 与 job step 是两套字段与默认值语义」同属 CI 结构类：同一份配置在不同 workflow 机制下语义不同。**撤除共享脚本时对称成立**：#1074 删 `sync-l3backend.sh` 时同样要把那几处触发面条目一并删掉，否则会留下指向不存在文件的白名单。
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ### kpse 能不能看见文件取决于那棵树有没有 `!!`，刷索引反而可能关掉回退
