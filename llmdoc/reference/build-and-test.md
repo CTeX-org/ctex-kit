@@ -1154,7 +1154,7 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 
 出现第四、第五条（`\cleaders`＋`\glue` 几何、`btrans matrix` 坐标）时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。
 
-最后一条要单独处置：它属于本地各包之间不自洽（详见下文），**并且没有基线可刷**——doc 路径上根本不存在 `.tlg`，而 regression 路径上的 diff 是错配造成的错误输出，刷进基线等于把缺陷固化。唯一的处置是补齐匹配版本的 backend（本地按「往 check 环境注入替代版本的上游宏包」或等 TL 同步，CI 上由 `scripts/sync-l3backend.sh` 负责）。
+最后一条要单独处置：它属于本地各包之间不自洽（详见下文），**并且没有基线可刷**——doc 路径上根本不存在 `.tlg`，而 regression 路径上的 diff 是错配造成的错误输出，刷进基线等于把缺陷固化。唯一的处置是补齐匹配版本的 backend（本地按「往 check 环境注入替代版本的上游宏包」或等 TL 同步）。CI 侧曾有 `scripts/sync-l3backend.sh` 负责这件事，已随上游把 l3backend 并入 l3kernel 而在 #1074 撤除；**若将来出现另一对上游包版本错配，照「已撤除」那一节记的四步重建即可**。
 
 详见反思 [[873-880-meta-url-hbox-math-boundary]]、[[1048-1050-upstream-l3backend-pgf-baseline-drift]]。
 

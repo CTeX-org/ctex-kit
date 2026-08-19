@@ -599,6 +599,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1054 把 workaround 抽成 `scripts/sync-l3backend.sh` 时更新了三处 `run:`，却漏了触发面，由两个 bot 独立指出；核实成立，已补 `check-doc.yml` 的 `on.paths` 与 `_all` filter、`test.yml` 的 `_all` filter 三处。这与「复合 Action 与 job step 是两套字段与默认值语义」同属 CI 结构类：同一份配置在不同 workflow 机制下语义不同。**撤除共享脚本时对称成立**：#1074 删 `sync-l3backend.sh` 时同样要把那几处触发面条目一并删掉，否则会留下指向不存在文件的白名单。
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
+### 撤除上游 workaround 的条件要看实际生效路径，不是看旧资源是否已被清理
+**Rule**: 判断一个针对上游问题的 workaround 是否可以撤除，要查「实际被解析/生效的资源是什么版本」，不要停在「造成问题的旧资源是否已经被上游清理干净」。两者在打包过渡期可能长期不一致：旧资源可以在上游长期保留、日期依旧陈旧，但只要新资源的搜索优先级更高，错配就已经不会再发生。判断时至少要覆盖两种时序——仅新版本存在、新旧版本共存的过渡态——只测其中一种可能漏掉过渡期的边界情况。这是「刷 `.tlg` 基线前先按上游根因分类：会自愈的不刷」（Source: #1048/#1050）在生命周期上的下一步：那条判断「现在该不该刷」，这条判断「防御措施现在该不该撤」，两者共享同一个「上游是否已经追平」的事实，但分类判据不同——刷基线看的是数值是否已修正，撤 workaround 看的是查找路径是否已经不再命中旧版本。
+**Why**: #1074 撤除 #1054 引入的 `scripts/sync-l3backend.sh` 时，直觉判据是「tlnet 上的 `l3backend` 包没了就能撤」；实测发现旧包（revision 79958，日期仍 07-20）依然留在 tlnet，`l3kernel` 只是在 `depend` 里去掉了它，形成「同名 `.def` 存在于两个包、日期不同」的过渡态。把两个包同时铺进干净 usertree 后，`kpsewhich l3backend-pdftex.def` 命中的是 `l3kernel` 那份（08-10），与 `l3kernel` 的 `\ExplFileDate` 一致，脚本的日期比较因此走空转分支、判定撤除条件成立；只装新版 `l3kernel` 时同样成立。若停在「旧包在不在」，会在这段过渡期里得出「还不能撤」的错误结论。
+**Source**: `llmdoc/memory/reflections/1074-drop-l3backend-workaround.md`
+
 ### kpse 能不能看见文件取决于那棵树有没有 `!!`，刷索引反而可能关掉回退
 **Rule**: 把文件拷进某棵 texmf 树，不等于 kpse 找得到它。`TEXMFDBS` 里带 `!!` 前缀的树语义是**只查 ls-R、绝不扫磁盘**；不带 `!!` 的树有「ls-R 比目录旧就回退扫盘」的宽容行为。因此往 `!!` 树里拷文件后必须**无条件** `mktexlsr`（该树没有 ls-R 时等于什么都找不到，「仅在已存在时刷新」是错的）。反直觉的一面是：**刷过索引反而会关掉扫盘回退**，所以「刚刷过索引」的环境比「索引陈旧」的更容易找不到随后拷入的文件。另外 `TEXMFHOME` 在本地通常是普通树、在 CI 上（setup-texlive-action）解析到带 `!!` 的 `texmf-local`，所以这类可见性问题**本地默认不具备复现前提**。
 **Why**: #1054 中同批 8 个 doc job 只有 `doc-zhmetrics` 失败，恰恰因为它在拷入 `.def` 之前跑过 `mktexlsr "$TEXMFHOME"`（`_check-doc-package.yml:251`，为它自己生成的 `zhmCJK.tfm/map`），索引是新的却不含随后拷入的文件，回退被关掉，解析回落到 `texmf-dist` 的旧版本；其他 job 靠回退扫盘侥幸成功。完整机制见 `reference/kpse-path-resolution.md`。
