@@ -60,9 +60,10 @@ zhmetrics 的 doc job 为了让 kpse 认识自己生成的 `zhmCJK.tfm`／`.map`
 
 ## 相关
 
-- 具体调用：`scripts/sync-l3backend.sh`（已于 #1074 撤除；往 `TEXMFHOME` 装 l3backend 后刷 ls-R 并核对
-  解析结果）、`.github/workflows/_check-doc-package.yml:251`（zhmetrics 的 tfm/map）。
+- 具体调用：`.github/workflows/_check-doc-package.yml:251`（zhmetrics 的 tfm/map）。另一个实例是
+  已于 #1074 撤除的 `scripts/sync-l3backend.sh`（往 `TEXMFHOME` 装 l3backend 后刷 ls-R 并核对解析
+  结果）——**它只是历史实例，机制本身不随它消失**。
 - 装进 `TEXMFHOME` 与装进 `localdir` 的取舍，见 `reference/build-and-test.md` 的
-  「CI 侧的临时 workaround」与「往 check 环境注入替代版本的上游宏包（localdir）」。
+  「已撤除：`scripts/sync-l3backend.sh`」与「往 check 环境注入替代版本的上游宏包（localdir）」。
 - 反思 [[../memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr]] 记录了这条
   机制的排查过程，以及一次因本地不具备复现前提而撤回正确修复的经过。
