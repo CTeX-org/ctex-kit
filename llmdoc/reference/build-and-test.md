@@ -699,11 +699,11 @@ CI 现在的结构 (PR #899 后):
 **阶段 0 — `changes` job (paths filter):**
 PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 个 bool (ctex / xeCJK / xpinyin / zhnumber / CJKpunct / zhlineskip). push / schedule / workflow_dispatch 触发时 filter 不影响, 全跑. 同时把 `TL_VERSION` (顶层 env, 如 `'2026'`) 作 `tl-version` output 透传给 caller (workflow_call inputs 不能直接引用顶层 env).
 
-依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑; xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖 (`checkdeps` + `checkinit_hook`), 所以改 `xeCJK/**` 也会让 xpinyin job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `.github/font-urls.txt`, `scripts/check-parallel.sh`, `scripts/sync-l3backend.sh`, `support/**`, `Makefile`) 让所有 6 个包都跑.
+依赖反查: ctex 依赖 xeCJK + zhnumber, 所以改 xeCJK 或 zhnumber 同样会让 ctex job 跑; xpinyin 的 XeTeX 路线以工作树里的 xeCJK 为运行时依赖 (`checkdeps` + `checkinit_hook`), 所以改 `xeCJK/**` 也会让 xpinyin job 跑. 公共改动 (`.github/workflows/test.yml`, `.github/workflows/_test-package.yml`, `.github/font-urls.txt`, `scripts/check-parallel.sh`, `support/**`, `Makefile`) 让所有 6 个包都跑.
 
 #### 新增被多个 workflow 共用的脚本时要一起改触发白名单
 
-把逻辑抽成共享脚本时，「哪些文件改动会触发这些路径」是调用点的一部分，必须一起更新，否则改坏脚本时 CI 不会告警。`scripts/sync-l3backend.sh` 在 #1054 被漏掉过，由两个 bot 独立指出；已补三处：`check-doc.yml` 的 `on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter。
+把逻辑抽成共享脚本时，「哪些文件改动会触发这些路径」是调用点的一部分，必须一起更新，否则改坏脚本时 CI 不会告警。`scripts/sync-l3backend.sh`（已于 #1074 随上游合并撤除）在 #1054 被漏掉过，由两个 bot 独立指出；当时补了三处：`check-doc.yml` 的 `on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter。**撤除该脚本时同样要清点这几处**——#1074 删的就是它们。
 
 **两个 workflow 的失效机制不同，只查一处不够：**
 
@@ -755,8 +755,8 @@ job 失败时才生成, 路径不匹配时 (即上面这个坑) 完全没有诊�
 
 PR 阶段专用校验 (#935), 补 test.yml 的"文档 dtx→PDF 可编译性"维度. 只在 `pull_request` 触发. 结构:
 
-- **`on.pull_request.paths` 白名单**: 除 9 个包目录外, 还含公共依赖与基础设施——`support/**`、`scripts/verify-doc-output.sh`、`scripts/sync-l3backend.sh`、`check-doc.yml` 与 `_check-doc-package.yml` 本体、`.github/tl_packages`、`.github/font-urls.txt`. 不在这份清单里的文件改动**不会触发本 workflow**.
-- **`changes` job**: 精简版 paths-filter, 9 个 bool (ctex/xeCJK/CJKpunct/zhnumber/xCJK2uni/xpinyin/zhmetrics/zhmetrics-uptex/zhlineskip). 其 `_all` filter 需与上面的 `on.paths` 保持一致（同样含 `scripts/sync-l3backend.sh`）. **无依赖传递** — `l3build doc` 只 typeset 自身 `typesetfiles`, xeCJK 变动不会跑 ctex 的 doc.
+- **`on.pull_request.paths` 白名单**: 除 9 个包目录外, 还含公共依赖与基础设施——`support/**`、`scripts/verify-doc-output.sh`、`check-doc.yml` 与 `_check-doc-package.yml` 本体、`.github/tl_packages`、`.github/font-urls.txt`. 不在这份清单里的文件改动**不会触发本 workflow**.
+- **`changes` job**: 精简版 paths-filter, 9 个 bool (ctex/xeCJK/CJKpunct/zhnumber/xCJK2uni/xpinyin/zhmetrics/zhmetrics-uptex/zhlineskip). 其 `_all` filter 需与上面的 `on.paths` 保持一致. **无依赖传递** — `l3build doc` 只 typeset 自身 `typesetfiles`, xeCJK 变动不会跑 ctex 的 doc.
 - **9 个 caller job**: 每包一个 `uses: ./.github/workflows/_check-doc-package.yml`, job 级 if 保证未受影响包不启动 runner (仿 test.yml + _test-package.yml 的 caller-per-pkg 结构, 避开 matrix.pkg 幽灵 cancelled job).
 - **`check-doc-result` 汇总**: 与 test-result 同构, branch protection 单点盯.
 
@@ -1031,41 +1031,69 @@ pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` �
 - **关掉断言不是刷基线**。`fntef-phase01` 曾被改成把五条 `PASS: ...` 换成 `PHASE-CHECK-PENDING`，这等于删除了校验，而它在配对版本（backend 与 pgf 都是当时应有的版本）下本来是全绿的。刷基线的前提是让测试在正确环境下重新跑出真实结果，不是让测试不再报告结果。
 - **同一包目录下 `l3build check` 不能并发跑。** #1080 排查时在跑全套 `check` 的同时另起了单用例 `check`，两者共用 `build/` 目录，先跑的那个报 `./build/check/part-format01.log: No such file or directory` 并 traceback 退出——看起来像测试失败，实际是自己造成的干扰；#1026 反思里记录过同族的坑（并行跑 `l3build save` 与 `l3build check` 互相清掉共享的 `build/test` 目录）。要真正并行，用 `scripts/check-parallel.sh`——它给每个引擎在独立子工作目录里跑，不共享 `build/`。
 
-### CI 侧的临时 workaround：共享脚本 `scripts/sync-l3backend.sh`
+### 已撤除：`scripts/sync-l3backend.sh`（#1048/#1050/#1051/#1054 → #1074）
 
-会自愈的漂移既然不刷基线，CI 在上游同步之前就会一直红。这段时间的处置是在 workflow 里临时补齐匹配版本，而不是改基线。
+上游已把 `l3backend` 并入 `l3kernel`（latex3#1948，CTAN 2026-08-10 的 `l3kernel` 起生效），
+错配从此不可能发生，脚本与三处调用已在 #1074 删除。这一小节保留下来，是因为其中几条机制
+与具体上游问题无关、下次遇到同类情形要照用。
 
-**同一个错配在两类路径上的表现完全不同，这决定了防御必须覆盖到哪些地方。** regression 路径（`l3build check`）上它表现为 `.tlg` 红：`\special{pdf:bc [...]}` 从基线里消失，变成 `\TU/lmr/m/n/10 1.0` 一类字符节点，12 个测试变红（见 `d7457624`）。doc／ctan 路径（`l3build doc`、`l3build ctan` 的 typeset 部分）上它**不产生任何非零退出码**：编译成功，PDF 页数与体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本。所以两类路径都要防御，但**只有前者会自己报警**；后者事后无法从构建状态发现（#1051 就是这样漏到本地产物里的）。
+撤除时的实测依据（两种环境都成立）：
 
-原先内联在 `_test-package.yml` 的 workaround 已在 #1054 抽成共享脚本 `scripts/sync-l3backend.sh`，三处调用：
+| 环境 | `kpsewhich l3backend-pdftex.def` 命中 | 两个日期 |
+| --- | --- | --- |
+| 只有新版 `l3kernel` | `tex/latex/l3kernel/` 那份 | 都是 2026-08-10 |
+| 新旧两包共存（TL 尚未撤下旧包时的过渡态） | 仍是 `l3kernel` 那份（优先） | 都是 2026-08-10 |
 
-| 调用点 | 位置 | 保护的产物 |
-|--------|------|------------|
-| `_test-package.yml` | `Test <pkg>` 之前 | `.tlg` 回归基线 |
-| `_check-doc-package.yml` | `l3build doc` 之前 | 手册 PDF 正文 |
-| `release.yml` | `l3build ctan` 之前 | CTAN zip 里的 PDF |
+也就是说无论 TL 有没有撤下旧 `l3backend` 包，脚本都恒空转并打出撤除 `::notice::`。**判断
+撤除条件是否成立，要看 `kpsewhich` 实际命中哪一份，而不是看旧包在不在**——两份同名 `.def`
+可以共存，日期还不一样。
 
-步骤名统一为 `Sync l3backend to l3kernel (upstream version skew)`。三处都写成 `bash ./scripts/sync-l3backend.sh` 而不是 `./scripts/sync-l3backend.sh`：`_test-package.yml` 也跑 `windows-latest`，git 在 Windows checkout 上不保证还原 exec 位，直接 `./` 会 permission denied。
+另外 CTAN 的 `l3kernel.zip` 里只有 `.dtx` 与 `l3backend.ins`，`l3backend-*.def` 是 **TeX Live
+打包时由 `.ins` 生成**的。所以「`.def` 文件名会不会消失」取决于 TL 怎么打包，不取决于 CTAN；
+判断这类问题要看 tlnet 的 TDS 包，不能只看 CTAN 的公告或 zip。
 
-`release-ctan-upload.yml` **不接入**：它只把 `release.yml` 已经打好的 zip 原样转发到 CTAN，不重新排版，没有可污染的产物。
+删除范围共四类（同类措施撤除时照此清点）：脚本本身、三处 `run:` 调用（`_test-package.yml`、
+`_check-doc-package.yml`、`release.yml`）、四处触发路径条目（`check-doc.yml` 的
+`on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter）、以及本文档与
+`guides/release-workflow.md` 的相应记载。
 
-脚本本身做五件事（`scripts/sync-l3backend.sh`）：
+#### 仍然适用的部分
 
-1. 比较 `expl3.sty` 的 `\ExplFileDate` 与 `l3backend-pdftex.def` 的日期戳，一致就打 `::notice::` 并 exit 0。
-2. 不一致时逐 mirror 下载 `l3backend.zip`，**每个 mirror 下载后就地校验产物**（`-s` 非空 + `unzip -tq`，另加 `--max-time 300`），不合格当作失败换下一个。
-3. `tex l3backend.ins` 解包，输出保留在日志里（不丢 `/dev/null`）；用 `nullglob` + 显式计数替代裸 glob，「一个 `.def` 都没解出来」立刻失败在发生处。
-4. `cp` 进 `TEXMFHOME`，随后**无条件** `mktexlsr "$TEXMFHOME"` 让 kpse 看得见新文件。
-5. 核对 `kpsewhich l3backend-pdftex.def` 解析到的确实是新装那份、日期与 l3kernel 一致，否则 `::error::` 退出。
+**同一个上游错配在两类路径上的表现完全不同，这决定了防御必须覆盖到哪些地方。**
+regression 路径（`l3build check`）上它表现为 `.tlg` 红：`\special{pdf:bc [...]}` 从基线里消失，
+变成 `\TU/lmr/m/n/10 1.0` 一类字符节点，12 个测试变红（见 `d7457624`）。doc／ctan 路径
+（`l3build doc`、`l3build ctan` 的 typeset 部分）上它**不产生任何非零退出码**：编译成功，PDF
+页数与体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本。所以两类路径都要防御，但
+**只有前者会自己报警**；后者事后无法从构建状态发现（#1051 就是这样漏到本地产物里的）。
 
-三个设计选择值得说明：
+**同类问题若再出现（例如另一对上游包版本错配），四步都不能省**：
+比较版本 → 补齐并就地校验产物 → 让 kpse 看得见 → 核对生效。
 
-- **装进 `TEXMFHOME` 而不是各包的 `localdir`**。kpse 中 `TEXMFHOME` 优先于 `texmf-dist`，一步覆盖所有包与所有引擎，且不往仓库工作树里落文件。`localdir` 注入（见「往 check 环境注入替代版本的上游宏包」一节）适合本地一次性对照实验，要在 CI 里覆盖 test 的 6 个 caller、check-doc 的 9 个 doc job 与 release 那一处，就得每个包都处理一遍。
-- **第 4 步不能省，而且不能加条件**。往 `TEXMFHOME` 拷文件之后 kpse 未必看得见——CI 上 `TEXMFHOME` 解析到一棵带 `!!` 前缀的树，语义是只查 ls-R、绝不扫磁盘。完整机制、以及「刷过索引的那个 job 反而失败」这个反直觉后果，见 [[kpse-path-resolution]]。
-- **日期比较作为前置条件，而不是无条件安装**。tlnet 追上以后，这一步自动变成空操作并打一条 `::notice::` 提示可以删除；不需要靠人记得「上游修好了要来撤」。**撤除判据就是这条 notice。** 撤除时要删的东西共三类：脚本本身、三处 `run:` 调用、以及三处触发路径条目（`check-doc.yml` 的 `on.pull_request.paths` 与 `_all` filter、`test.yml` 的 `_all` filter）。
+- **注入位置选 `TEXMFHOME` 而不是各包的 `localdir`**。kpse 中 `TEXMFHOME` 优先于
+  `texmf-dist`，一步覆盖所有包与所有引擎，且不往仓库工作树里落文件。`localdir` 注入
+  （见「往 check 环境注入替代版本的上游宏包」一节）适合本地一次性对照实验；要在 CI 里覆盖
+  test 的 6 个 caller、check-doc 的 9 个 doc job 与 release 那一处，就得每个包都处理一遍。
+- **「让 kpse 看得见」这一步不能省，而且不能加条件**。往 `TEXMFHOME` 拷文件之后 kpse 未必
+  看得见——CI 上 `TEXMFHOME` 解析到一棵带 `!!` 前缀的树，语义是只查 ls-R、绝不扫磁盘，所以
+  必须无条件 `mktexlsr "$TEXMFHOME"`。完整机制、以及「刷过索引的那个 job 反而失败」这个
+  反直觉后果，见 [[kpse-path-resolution]]。
+- **把版本比较作为前置条件，而不是无条件安装**。上游追平后这一步自动变成空操作并打一条
+  `::notice::` 提示可以删除，不需要靠人记得「上游修好了要来撤」。**撤除判据就是这条
+  notice** ——这个设计在本次撤除时确实生效了。
 
-同类问题若再出现（例如另一对上游包版本错配），照这个形状加一步即可，四点都不能省：**比较版本 → 补齐并就地校验产物 → 让 kpse 看得见 → 核对生效**。
+**末尾那次核对不能是唯一防线。** 它确实挡住过坏产物，但它只能报出「注入未生效」这一种
+结论——网络故障、zip 残缺、索引陈旧全都被归成同一句话，与真实原因无关，会把排查方向带偏。
+#1054 的实证：`mirrors.ctan.org` 重定向到实际镜像后三次 `curl: (28) Timeout`，curl 最终仍
+返回 0、`-o` 只写出空文件，脚本一路静默走到末尾才被 kpsewhich 拦下，报的却是「注入未生效」。
+所以每一步都要在**发生处**校验自己的产物。
 
-**末尾那次核对不能是唯一防线。** 它确实挡住了坏产物，但它只能报出「注入未生效」这一种结论——网络故障、zip 残缺、索引陈旧全都被归成同一句话，与真实原因无关，会把排查方向带偏。#1054 的实证：`mirrors.ctan.org` 重定向到实际镜像后三次 `curl: (28) Timeout`，curl 最终仍返回 0、`-o` 只写出空文件，脚本一路静默走到末尾才被 kpsewhich 拦下，报的却是「注入未生效」。所以每一步都要在**发生处**校验自己的产物。
+**下载失败要区分「资源已不存在」与「网络故障」。** 这一条是撤除过程中补记的：脚本对下载失败
+一律报「这是网络/镜像问题, 重跑本 job 即可」。#1074 期间 CTAN 已移除 `l3backend`
+（`l3backend.zip` 返回 **HTTP 404**），若那时 tlnet 恰好处于「`l3kernel` 已更新而 `l3backend`
+仍旧」的过渡态，脚本会进入下载分支、三个 mirror 必然全部 404，然后报出那句误导性的「重跑即可」
+——让人反复重跑徒劳的 job，而真相是「包已经不存在了，该删脚本」。实际因为 kpse 优先命中
+`l3kernel` 那份而没撞上，但这个形状对任何「从上游下载单个资源」的步骤都成立：404／410 意味着
+改代码，超时／5xx 才意味着重跑。
 
 ## Git 信息注入
 

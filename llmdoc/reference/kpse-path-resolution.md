@@ -29,7 +29,7 @@ TEXMFDBS = {!!$TEXMFLOCAL,!!$TEXMFSYSCONFIG,!!$TEXMFSYSVAR,!!$TEXMFDIST}
 回退**。所以「刚刷过索引」的环境比「索引陈旧」的环境更容易找不到文件——只要新文件是在
 刷索引之后拷进去的。
 
-`_check-doc-package.yml:251` 与 `scripts/sync-l3backend.sh:113-128` 的组合是一个实例：
+`_check-doc-package.yml:251` 与当时的 `scripts/sync-l3backend.sh:113-128`（该脚本已于 #1074 撤除，机制本身不变）的组合是一个实例：
 zhmetrics 的 doc job 为了让 kpse 认识自己生成的 `zhmCJK.tfm`／`.map`，在 typeset 之前
 跑了 `mktexlsr "$TEXMFHOME"`，把索引刷成最新；随后 `sync-l3backend.sh` 往同一棵树拷进
 `l3backend-*.def`，这些文件不在刚刷的索引里，扫盘回退又已被关掉，于是解析回落到
@@ -60,7 +60,7 @@ zhmetrics 的 doc job 为了让 kpse 认识自己生成的 `zhmCJK.tfm`／`.map`
 
 ## 相关
 
-- 具体调用：`scripts/sync-l3backend.sh`（往 `TEXMFHOME` 装 l3backend 后刷 ls-R 并核对
+- 具体调用：`scripts/sync-l3backend.sh`（已于 #1074 撤除；往 `TEXMFHOME` 装 l3backend 后刷 ls-R 并核对
   解析结果）、`.github/workflows/_check-doc-package.yml:251`（zhmetrics 的 tfm/map）。
 - 装进 `TEXMFHOME` 与装进 `localdir` 的取舍，见 `reference/build-and-test.md` 的
   「CI 侧的临时 workaround」与「往 check 环境注入替代版本的上游宏包（localdir）」。
