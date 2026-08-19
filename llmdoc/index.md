@@ -25,7 +25,7 @@
 ## guides
 
 - `llmdoc/guides/push-and-pr-review-workflow.md` — 安装 self-wrapping pre-push、无管道执行 push、解读内层 push 与 rc、联合审计 GitHub review 和被 git 忽略的本地 `.code-review` 报告；正式本地审查必须启动不继承主对话的新子代理，只提供仓库规则、公开目标、完整 base/head SHA、范围和必要公开证据，并在报告中记录隔离方式与允许输入；另含隔离增量审查、bot finding 确认、按风险验证、复杂排版 PR 图示、新分支首次 PR 补跑及 llmdoc 收尾；现含 Agent job 在可信 checkout 或安装阶段失败时先核对 PR 分叉点、用 rebase 而非 close/reopen 恢复的诊断顺序。
-- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961); 流水线编号步骤现含第 6 步 `Sync l3backend to l3kernel`（#1054，`l3build ctan` 之前必须跑：ctan target 内部会 call check，`.tlg` 侧的红能发现，但它同时打包 typeset 出的 PDF，正文泄漏不触发任何退出码，缺这一步会把带缺陷文档送进 CTAN zip；`release-ctan-upload.yml` 只转发 zip、不重新排版故不接入）。
+- `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961); 流水线为十个编号步骤（`Sync l3backend to l3kernel` 那一步已随上游把 l3backend 并入 l3kernel 而在 #1074 撤除，原第 7–11 步重编号为 6–10）；该节现以「打包路径上的污染不触发任何退出码」记录那条与具体上游无关的洞察：`l3build ctan` 内部会 call check，`.tlg` 侧的红能发现，但它同时打包 typeset 出的 PDF，正文污染不触发任何退出码（#1051 就是这样漏进本地产物的），所以打包路径上「构建绿」不足以说明产物干净；`release-ctan-upload.yml` 只转发 zip、不重新排版故不接入）。
 
 ## memory
 
