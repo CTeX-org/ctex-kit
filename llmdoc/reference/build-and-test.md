@@ -605,7 +605,7 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
 - `.github/workflows/agentic-pr-review.yml`：本地 PR 自动审查实现，由 `pull_request_target` 触发；Draft PR 不会被跳过，打开、推送新提交或重新打开时与普通 PR 一样进入审查；Codex `gpt-5.6-sol` 是主链路，Claude Code `claude-opus-5` 是独立 runner 上的兜底，不运行 Agent 的发布 job（publisher）代发评论
-- `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检
+- `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检；test.yml 的 `file-issue-on-schedule-failure` job 在定时测试失败时开出的 Issue 会自动喂给它做初步分析（见下方测试工作流小节）
 - `.github/workflows/agentic-llmdoc-updater.yml`：本地 llmdoc 更新实现，每天北京时间 05:00 或手动触发，Agent 只生成候选，独立的校验 job（validator）和 publisher 验证并创建／更新 PR
 - `.github/workflows/check-agentic-workflows.yml`：PR 校验，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本；它还明确对 pre-push hook、Agent shell 脚本和 PR history 脚本运行 ShellCheck
 
@@ -752,6 +752,18 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 job 失败时才生成, 路径不匹配时 (即上面这个坑) 完全没有诊断信息. 该步骤不设 `set -e`——它是
 纯诊断, 任何一环失败都不该盖掉真正的测试失败; 用临时列表文件而非 `< <(...)` 进程替换收集
 `.diff` 路径, 避开 windows matrix (`C:\msys64\usr\bin\bash.exe -e {0}`) 的 shell 差异.
+
+#### 定时失败自动开 Issue 哨兵：`file-issue-on-schedule-failure`
+
+test.yml 的 weekly `schedule`（周一 UTC 12:00）触发时若 TL bypass cache miss，会走完整 `setup-texlive`（install + update-all），引入上游最新更新——所以定时任务是上游漂移导致回归时最先撞上的地方（#1080 的 tocloft／fontspec、#1048/#1050 的 l3backend／pgf 都是经定时或缓存路径发现的）。PR／push 触发的失败已经有红叉和 PR 评论提醒维护者，不需要额外开 Issue；只有无人盯着的定时失败才需要主动开 Issue。
+
+`file-issue-on-schedule-failure` job 的三重守卫：`if: always() && github.event_name == 'schedule' && github.repository == 'CTeX-org/ctex-kit' && needs.test-result.result == 'failure'`。`github.event_name == 'schedule'` 把 PR／push 排除在外；`github.repository` 守卫与 #874/#875 的 fork 屏蔽同款——fork 上的 schedule 仍会照常跑测试，只是不会开 Issue（fork 的 Issue 区无人看，也没有本仓的 `upstream` label，agentic 分派也只在主仓运行）。`needs` 列出 `test-result` 以及各包 caller job（`test-ctex`／`test-ctex-luatex`／`test-xeCJK`／`test-xpinyin`／`test-zhnumber`／`test-CJKpunct`／`test-zhlineskip`），用于在 Issue 正文里列出具体是哪些包失败。权限为 `issues: write`（开 Issue／评论）、`actions: read`（`gh run download` 拉本次 run 的 diff artifact）、`contents: read`。
+
+去重按周粒度：标题固定为 `nightly test failure (YYYY-Www) — 疑似上游漂移`（`YYYY-Www` 取自 `date -u +%G-W%V`），命中已有同标题的 open Issue 则追加评论，否则新建；label 用仓库已有的 `upstream`（注意仓库里没有 `ci` 这个 label）。这样连续几天都红只会在同一个 Issue 下累积评论，不会每天新开一个。
+
+Issue／评论正文尽量给够排查起点：失败包清单；`gh run download --pattern 'ctex-kit-diff-*'` 拉本次 run 的 diff artifact，把每个 `.diff` 正文（单文件截断到 120 行、总量上限 40000 字节）贴进 fenced code block——这是判断“上游漂移还是本仓回归”最直接的信号，参见 #1080 的教训；环境指纹检查表和 #1080／#1048／#1074 上游根因反思的排查入口（见上方“上游宏包版本漂移的识别与基线处置”一节）；本地复现命令；以及“刷基线前先按上游根因分类”的提醒。拉不到 diff artifact 时退化为只给这次 run 的链接。
+
+Issue 一旦被创建（`issues.opened`），既有的 `agentic-issue-dispatch.yml` 会自动接手做初步分析，不需要额外改动，与 #1085 走的是同一条路径。
 
 ### 文档编译校验：`.github/workflows/check-doc.yml`
 
