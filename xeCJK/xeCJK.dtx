@@ -5369,6 +5369,11 @@ Copyright and Licence
       }
   }
 %    \end{macrocode}
+% \changes{v3.10.6}{2026/08/20}{post-transparent 搬移「marker + 候选 glue」
+%   后缀前，先用 \cs{skip_if_finite:nTF} 排除 \tn{hfill}/\tn{hfil} 一类
+%   无限阶填充 glue，使它们不再被误搬到零尺寸盒子之后，
+%   修复 CJK 文字紧接源码空格与 \tn{hfill}\tn{null} 时两侧填充不对称
+%   （\#1085）。}
 % 零尺寸盒子前可能不只有 marker，还可能有一枚等待 Boundary 恢复链检查的
 % glue。第一层先处理盒子直接盖住 marker 的情况；未命中时才暂存至多一枚
 % 末尾 glue，再按节点证据检查其下方的 marker。命中后把“marker + glue”整体
@@ -5376,6 +5381,9 @@ Copyright and Licence
 % 时按原顺序还原，不能把任意 glue 搬过 hbox。普通 stream 的 |math-space|
 % 还有一枚真实空格留在 marker 前；零尺寸盒子已经把二者隔开时，应与含同一
 % 盒子的直接公式一样让 marker 过期，不能只把补偿状态搬到盒子后面。
+% 只有有限阶的候选 glue 才可能是被盒子遮住的源码空格或参数内空格；\tn{hfill}
+% 等无限阶（fil/fill）填充 glue 不是候选，保持 marker、glue、盒子的原有次序
+% （\#1085，见 \cs{@@_boundary_post_transparent_relocate_glue:}）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_post_transparent_relocate:
   {
@@ -5403,31 +5411,46 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_post_transparent_relocate_glue:
   {
     \skip_set_eq:NN \l_@@_last_skip \tex_lastskip:D
-    \tex_unskip:D
-    \@@_boundary_pop_node:N \l_@@_boundary_node_tl
-    \tl_if_empty:NTF \l_@@_boundary_node_tl
+    \skip_if_finite:nTF \l_@@_last_skip
       {
-        \skip_horizontal:N \l_@@_last_skip
-        \box_use_drop:N \l_@@_boundary_post_box
-      }
-      {
-        \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+        \tex_unskip:D
+        \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+        \tl_if_empty:NTF \l_@@_boundary_node_tl
           {
+            \skip_horizontal:N \l_@@_last_skip
+            \box_use_drop:N \l_@@_boundary_post_box
+          }
+          {
+            \tl_if_eq:NnTF \l_@@_boundary_node_tl { math-space }
+              {
 %    \end{macrocode}
 % |math-space| 过期时不再移动后缀；先恢复候选 glue，再放回
 % 零尺寸盒子，保持与含同一盒子的直接公式相同的节点顺序。
 %    \begin{macrocode}
-            \skip_horizontal:N \l_@@_last_skip
-            \box_use_drop:N \l_@@_boundary_post_box
-            \@@_boundary_math_space_expire:
-          }
-          {
-            \box_use_drop:N \l_@@_boundary_post_box
-            \exp_args:NV
-              \@@_boundary_replay_node:n \l_@@_boundary_node_tl
-            \skip_horizontal:N \l_@@_last_skip
+                \skip_horizontal:N \l_@@_last_skip
+                \box_use_drop:N \l_@@_boundary_post_box
+                \@@_boundary_math_space_expire:
+              }
+              {
+                \box_use_drop:N \l_@@_boundary_post_box
+                \exp_args:NV
+                  \@@_boundary_replay_node:n \l_@@_boundary_node_tl
+                \skip_horizontal:N \l_@@_last_skip
+              }
           }
       }
+%    \end{macrocode}
+% 只有有限阶（finite）的候选 glue 才可能是被零尺寸盒子遮住的源码空格或
+% 参数内空格（后者宽度不一定等于词间空格、也不一定带 shrink，例如
+% |math-space| 场景里的显式 \tn{hskip}），因此这里只排除
+% \tn{hfill}/\tn{hfil} 一类无限阶（fil/fill）填充 glue，不能收紧成
+% \cs{@@_skip_if_interword:N}（它要求带 shrink 且宽度等于词间空格，会误伤
+% math-space 的显式 glue）。无限阶 glue 不是任何源码空格候选：不移动它，
+% 直接把零尺寸盒子放回末尾，保持 marker、glue、盒子的原有次序。否则会把
+% \tn{null} 前的填充 glue 误搬到盒子之后，令 \tn{null} 不在列表末尾，破坏
+% 两侧 \tn{hfill} 的对称（\#1085）。
+%    \begin{macrocode}
+      { \box_use_drop:N \l_@@_boundary_post_box }
   }
 
 \cs_new_protected:Npn \@@_boundary_capture_begin:
