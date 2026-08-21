@@ -494,3 +494,146 @@ jobs:
             fi
           done
           [ "$fail" -eq 0 ] || exit 1
+
+  # 定时任务(weekly cache fallback 哨兵)失败时自动开 issue。
+  #
+  # 角色与 PR/push 的红叉不同: 定时那次 cache miss 会走完整 setup-texlive
+  # (install + update-all), 因而**引入上游更新**——上游一旦 break 我们的
+  # 回归, 定时任务是第一个撞上的地方(见 #1080 tocloft/fontspec、#1048/#1050
+  # l3backend/pgf)。PR/push 的失败有红叉和 PR 评论, 不需要 issue; 只有无人
+  # 盯着的定时失败才值得开 issue 提醒。
+  #
+  # 三重守卫: 只在 schedule 事件、只在主仓、只在 test-result 失败时触发。
+  # fork 默认不排 schedule; github.repository 守卫是双保险(#874/#875 同款)。
+  # issue 一旦 opened, agentic-issue-dispatch.yml 会自动接手初步分析。
+  file-issue-on-schedule-failure:
+    if: >-
+      always()
+      && github.event_name == 'schedule'
+      && github.repository == 'CTeX-org/ctex-kit'
+      && needs.test-result.result == 'failure'
+    needs: [test-result, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - name: File or update the nightly-failure issue
+        env:
+          GH_TOKEN:        ${{ github.token }}
+          REPO:            ${{ github.repository }}
+          RUN_ID:          ${{ github.run_id }}
+          SERVER:          ${{ github.server_url }}
+          R_CTEX:          ${{ needs.test-ctex.result }}
+          R_CTEX_LUATEX:   ${{ needs.test-ctex-luatex.result }}
+          R_XECJK:         ${{ needs.test-xeCJK.result }}
+          R_XPINYIN:       ${{ needs.test-xpinyin.result }}
+          R_ZHNUMBER:      ${{ needs.test-zhnumber.result }}
+          R_CJKPUNCT:      ${{ needs.test-CJKpunct.result }}
+          R_ZHLINESKIP:    ${{ needs.test-zhlineskip.result }}
+        run: |
+          set -euo pipefail
+
+          RUN_URL="${SERVER}/${REPO}/actions/runs/${RUN_ID}"
+          # 周粒度去重标题(不含 run id): 一次上游漂移会让多个 test job 同时红,
+          # 但只有一个聚合 job 开 issue, 无 wangshu 那种 3-tier 竞态; 周粒度还能
+          # 把"连续几天都红"归并到同一个 issue 上评论, 而不是每天新开。
+          WEEK=$(date -u +%G-W%V)
+          TITLE="nightly test failure (${WEEK}) — 疑似上游漂移"
+
+          # 失败的 job 清单(success/skipped 之外的都算 red)。
+          FAILED=""
+          for nv in \
+            "ctex:$R_CTEX" \
+            "ctex-luatex:$R_CTEX_LUATEX" \
+            "xeCJK:$R_XECJK" \
+            "xpinyin:$R_XPINYIN" \
+            "zhnumber:$R_ZHNUMBER" \
+            "CJKpunct:$R_CJKPUNCT" \
+            "zhlineskip:$R_ZHLINESKIP"; do
+            name="${nv%%:*}"; res="${nv#*:}"
+            case "$res" in
+              success|skipped) ;;
+              *) FAILED="${FAILED}- \`${name}\`: ${res}\n" ;;
+            esac
+          done
+
+          # 拉本次 run 的 diff artifact(各 _test-package.yml 子 job 上传,
+          # 名为 ctex-kit-diff-*), 把 .diff 正文截断后贴进 body——这是判断
+          # "上游漂移 vs 本仓回归"最直接的信号(#1080 的教训: 失败集合的
+          # 分布差异是成因数量的线索)。拉不到就退化为只给链接。
+          DIFF_SECTION=""
+          mkdir -p /tmp/nightly-diffs
+          if gh run download "$RUN_ID" --repo "$REPO" \
+               --pattern 'ctex-kit-diff-*' --dir /tmp/nightly-diffs 2>/dev/null; then
+            DIFF_BODY="$(find /tmp/nightly-diffs -name '*.diff' -type f 2>/dev/null \
+                         | sort | while read -r f; do
+                             # 每个 diff 一个 fenced code block; 用 awk 截断到 120 行
+                             # 内, 末尾无条件补一个换行让闭合围栏独占一行(diff 文件
+                             # 末尾有无换行不定, 直接 echo '```' 可能贴到最后一行尾)。
+                             printf '### %s\n\n```diff\n' "${f#/tmp/nightly-diffs/}"
+                             awk 'NR<=120' "$f"
+                             printf '\n```\n\n'
+                           done | head -c 40000 || true)"
+            if [ -n "$DIFF_BODY" ]; then
+              DIFF_SECTION="$(printf '\n\n## 失败 diff(截断, 完整见 run artifact)\n\n%s' "$DIFF_BODY")"
+            else
+              DIFF_SECTION=$'\n\n## 失败 diff\n\n未找到 `.diff`——失败可能不是基线不匹配(如加载期/环境错误), 见 run 日志。\n'
+            fi
+          else
+            DIFF_SECTION=$'\n\n## 失败 diff\n\n未能下载 diff artifact(可能失败发生在产出 diff 之前), 见 run 日志。\n'
+          fi
+
+          # body 分三段拼接。HEAD/TAIL 是静态文本; YAML 块标量 `run: |` 会把整个
+          # 脚本的公共基准缩进(这里 10 空格)剥掉, 因此下面 heredoc 的内容行必须
+          # 顶着基准缩进写(与结束标记 EOF 同级), 剥基准后正好顶格进入 body, 无需
+          # 再 sed。任何相对基准多出的缩进都会原样留在 body 里(会破坏 markdown),
+          # 所以续行也顶格。DIFF_SECTION 由前面单独构造、原样夹在中间——它含 diff
+          # 正文里的真实缩进(如 \hbox 节点), 绝不能再做任何缩进处理。
+          HEAD="$(cat <<EOF
+          定时回归任务(weekly cache fallback 哨兵)失败。这一次 cache miss 会走完整
+          \`setup-texlive\`(install + update-all), **引入上游更新**, 因此本次红**很可能是
+          上游宏包漂移把回归跑挂**, 也可能是本仓自身问题——判据是失败集合的分布(见下)。
+
+          - **run**: ${RUN_URL}
+          - **失败的包**:
+
+          $(printf '%b' "${FAILED:-（未能从 job 结果判定, 见 run 日志）}")
+          EOF
+          )"
+          TAIL="$(cat <<EOF
+
+          ## 排查入口
+
+          1. 先按 \`llmdoc/reference/build-and-test.md\` 的「本地测试失败的环境指纹检查表」判断是不是上游漂移(\`.tlg\` 红看 diff 形态; doc/ctan 路径看 \`pdftotext\` 泄漏; \`\\cleaders\`/\`\\special{pdf:...}\` 数值 diff 对应 backend/kernel/pgf 版本)。
+          2. 参考既有上游漂移根因记录: \`llmdoc/memory/reflections/1080-upstream-tocloft-fontspec.md\`、\`1048-1050-upstream-l3backend-pgf-baseline-drift.md\`、\`1074-drop-l3backend-workaround.md\`。
+          3. 本地复现(在对应包目录):
+
+          \`\`\`bash
+          gh run download ${RUN_ID} --repo ${REPO} --pattern 'ctex-kit-diff-*'
+          cd <pkg> && l3build check
+          \`\`\`
+
+          4. **刷基线前先按上游根因分类**: 会自愈的(如 tlnet 落后 CTAN)不刷, 上游不会回退的才刷, 且必须用 \`l3build save\` 重新生成(不能正则改数字)。
+
+          ---
+          _由 test.yml 的定时失败哨兵自动创建; 后续分析由 agentic-issue-dispatch 接手。_
+          EOF
+          )"
+          BODY="${HEAD}${DIFF_SECTION}${TAIL}"
+
+          # 去重: 命中已有同标题 open issue 则评论, 否则新建。搜索最终一致,
+          # 但本 workflow 只有这一个 job 开 issue, 无并发竞态。
+          EXISTING="$(gh issue list --repo "$REPO" --state open \
+                        --search "in:title \"$TITLE\"" --json number \
+                        --jq '.[0].number' 2>/dev/null || true)"
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" \
+              --body "再次触发定时失败: ${RUN_URL}"
+            echo "commented on existing issue #${EXISTING}"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" \
+              --label "upstream" --body "$BODY"
+            echo "created new issue: $TITLE"
+          fi
