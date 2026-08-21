@@ -504,8 +504,14 @@ jobs:
   # 盯着的定时失败才值得开 issue 提醒。
   #
   # 三重守卫: 只在 schedule 事件、只在主仓、只在 test-result 失败时触发。
-  # fork 默认不排 schedule; github.repository 守卫是双保险(#874/#875 同款)。
-  # issue 一旦 opened, agentic-issue-dispatch.yml 会自动接手初步分析。
+  # fork 照常跑测试, 只是不开 issue; github.repository 守卫与 #874/#875 同款。
+  #
+  # 注意: issue 用默认 GITHUB_TOKEN 创建, GitHub 刻意不为 GITHUB_TOKEN 产生的
+  # issues.opened 事件再触发 workflow(防递归), 因此**不会**自动触发
+  # agentic-issue-dispatch.yml 的分析。要接入自动分析需给 dispatch 加显式
+  # workflow_dispatch/repository_dispatch 入口并用能产生事件的身份触发, 但那
+  # 会推翻合同测试刻意设立的「issue dispatch 无主动触发入口」约束, 属独立议题,
+  # 不在本哨兵范围。当前只负责开出带诊断的 issue 提醒维护者。
   file-issue-on-schedule-failure:
     if: >-
       always()
@@ -644,7 +650,7 @@ jobs:
           4. **刷基线前先按上游根因分类**: 会自愈的(如 tlnet 落后 CTAN)不刷, 上游不会回退的才刷, 且必须用 \`l3build save\` 重新生成(不能正则改数字)。
 
           ---
-          _由 test.yml 的定时失败哨兵自动创建; 后续分析由 agentic-issue-dispatch 接手。_
+          _由 test.yml 的定时失败哨兵自动创建, 提醒维护者排查; 需人工分析或转交处理。_
           EOF
           )"
           BODY="${HEAD}${DIFF_SECTION}${TAIL}"
