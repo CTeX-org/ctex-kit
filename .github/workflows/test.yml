@@ -548,7 +548,7 @@ jobs:
           # 但只有一个聚合 job 开 issue, 无 wangshu 那种 3-tier 竞态; 周粒度还能
           # 把"连续几天都红"归并到同一个 issue 上评论, 而不是每天新开。
           WEEK=$(date -u +%G-W%V)
-          TITLE="nightly test failure (${WEEK}) — 疑似上游漂移"
+          TITLE="nightly test failure (${WEEK})"
 
           # 失败的 job 清单(success/skipped 之外的都算 red)。warmup-tl 也纳入:
           # test-result 把 TeX Live 预热失败同样计为失败, 此时各包 caller 因
@@ -624,9 +624,14 @@ jobs:
           # 所以续行也顶格。DIFF_SECTION 由前面单独构造、原样夹在中间——它含 diff
           # 正文里的真实缩进(如 \hbox 节点), 绝不能再做任何缩进处理。
           HEAD="$(cat <<EOF
-          定时回归任务(weekly cache fallback 哨兵)失败。这一次 cache miss 会走完整
-          \`setup-texlive\`(install + update-all), **引入上游更新**, 因此本次红**很可能是
-          上游宏包漂移把回归跑挂**, 也可能是本仓自身问题——判据是失败集合的分布(见下)。
+          定时回归任务(weekly cache fallback 哨兵)失败。
+
+          **若**本次 TL bypass cache 未命中(cache miss), 预热会走完整
+          \`setup-texlive\`(install + update-all)引入上游最新更新, 此时上游宏包漂移
+          把回归跑挂的可能性很大(#1080、#1048/#1050 都是这样发现的); **若**命中缓存
+          (周内多数 run 如此), 则未引入上游更新, 更可能是抖动或本仓自身问题。到底属
+          哪种要看下面的失败 diff 与失败集合的分布, 不要仅凭本条提示下结论——本 job
+          不传递实际 cache 命中状态(预热是 3-OS 矩阵, 单一状态有竞态)。
 
           - **run**: ${RUN_URL}
           - **失败的包**:
