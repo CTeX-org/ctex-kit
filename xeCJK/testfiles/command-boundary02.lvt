@@ -140,6 +140,45 @@
   \endgroup
 }
 
+% The post-transparent relocation must not move an infinite fil/fill glue
+% behind the zero-sized box.  A CJK word followed by a source space and a
+% fill-order \hfill leaves an infinite glue on top of the CJK-space marker;
+% the \null must stay after that fill glue (at the list end), so the two
+% \hfill of a centered line keep equal stretch and the run stays centered
+% (#1085).  Before the fix the \null jumped in front of the marker+fill,
+% collapsing one side of the centering.
+\TEST{post-transparent null keeps a trailing fill glue in place}{
+  \setbox0=\hbox to 200pt{\hfill 中文 \hfill\null}%
+  \box0
+  \clearpage
+}
+
+\TEST{post-transparent null keeps a trailing fil glue in place}{
+  \setbox0=\hbox to 200pt{\hfill 中文 \hfil\null}%
+  \box0
+  \clearpage
+}
+
+% Boundary case: a *finite* glue (here a fixed 30pt without shrink) is still
+% relocated behind the \null exactly as before, because only infinite fil/fill
+% glue is excluded by the finiteness guard.  This pins that the fix does NOT
+% widen to a full interword-shape test (which would wrongly drop the math-space
+% \hskip handling); the \null legitimately precedes the fixed glue here and the
+% width is unaffected since a rigid glue does not participate in glue setting.
+\TEST{post-transparent null still relocates a finite non-interword glue}{
+  \setbox0=\hbox{中文 \hskip 30pt\null}%
+  \box0
+  \clearpage
+}
+
+% An explicit-group and a bare CJK run reach the same recovery path; both
+% must center symmetrically like the braced form.
+\TEST{post-transparent null after an explicit group keeps fill symmetric}{
+  \setbox0=\hbox to 200pt{\hfill \begingroup 中文 \endgroup \hfill\null}%
+  \box0
+  \clearpage
+}
+
 \END
 
 \end{document}
