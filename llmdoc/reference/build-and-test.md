@@ -605,7 +605,7 @@ GitHub Actions 工作流当前包含以下主线：
 - `.github/workflows/release.yml`：按发布 tag 构建并创建 GitHub prerelease 的自动化工作流（stage 1）
 - `.github/workflows/release-ctan-upload.yml`：CTAN 正式投递工作流（stage 2），仅 `workflow_dispatch`，按包进 `ctan-release-<module>` environment 门控，详见 `llmdoc/guides/release-workflow.md`
 - `.github/workflows/agentic-pr-review.yml`：本地 PR 自动审查实现，由 `pull_request_target` 触发；Draft PR 不会被跳过，打开、推送新提交或重新打开时与普通 PR 一样进入审查；Codex `gpt-5.6-sol` 是主链路，Claude Code `claude-opus-5` 是独立 runner 上的兜底，不运行 Agent 的发布 job（publisher）代发评论
-- `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检；test.yml 的 `file-issue-on-schedule-failure` job 在定时测试失败时开出的 Issue 会自动喂给它做初步分析（见下方测试工作流小节）
+- `.github/workflows/agentic-issue-dispatch.yml`：本地新 Issue 分派实现，只监听 `issues.opened`，按内容选择 bug 分析、需求评审或问题回答；它不再承担周期 CI 和积压 Issue 巡检。**注意 test.yml 的 `file-issue-on-schedule-failure` 用默认 `GITHUB_TOKEN` 开的 Issue 不会触发本工作流**——GitHub 刻意不为 `GITHUB_TOKEN` 产生的事件再启动 workflow（防递归），所以定时失败开出的 Issue 只作提醒、不会自动进入分析；要接入需给本工作流加 `workflow_dispatch`／`repository_dispatch` 入口并用能产生事件的身份触发，但那会推翻合同测试刻意设立的「issue dispatch 无主动触发入口」约束（见 `scripts/test-agentic-workflow-contract.py` 中 `assert "workflow_dispatch:" not in issue`，与 `schedule` 成对），属独立议题
 - `.github/workflows/agentic-llmdoc-updater.yml`：本地 llmdoc 更新实现，每天北京时间 05:00 或手动触发，Agent 只生成候选，独立的校验 job（validator）和 publisher 验证并创建／更新 PR
 - `.github/workflows/check-agentic-workflows.yml`：PR 校验，离线检查三个 Agent workflow 的触发、job 拓扑、固定事件提交、权限、结果合同、本地 Action 和运行时脚本；它还明确对 pre-push hook、Agent shell 脚本和 PR history 脚本运行 ShellCheck
 
@@ -763,7 +763,7 @@ test.yml 的 weekly `schedule`（周一 UTC 12:00）触发时若 TL bypass cache
 
 Issue／评论正文尽量给够排查起点：失败包清单；`gh run download --pattern 'ctex-kit-diff-*'` 拉本次 run 的 diff artifact，把每个 `.diff` 正文（单文件截断到 120 行、总量上限 40000 字节）贴进 fenced code block——这是判断“上游漂移还是本仓回归”最直接的信号，参见 #1080 的教训；环境指纹检查表和 #1080／#1048／#1074 上游根因反思的排查入口（见上方“上游宏包版本漂移的识别与基线处置”一节）；本地复现命令；以及“刷基线前先按上游根因分类”的提醒。拉不到 diff artifact 时退化为只给这次 run 的链接。
 
-Issue 一旦被创建（`issues.opened`），既有的 `agentic-issue-dispatch.yml` 会自动接手做初步分析，不需要额外改动，与 #1085 走的是同一条路径。
+Issue 用默认 `GITHUB_TOKEN` 创建，因此**不会**自动触发 `agentic-issue-dispatch.yml`：GitHub 刻意不为 `GITHUB_TOKEN` 产生的 `issues.opened` 事件再启动 workflow（防止 workflow 相互递归触发）。定时失败的 Issue 只承担「主动提醒维护者 + 附带诊断」的角色，后续分析需人工进行或另行接入。让它自动进入 agentic 分析需要给 dispatch 工作流加显式触发入口并改用能产生事件的身份，会触及 agentic runtime 的稳定性约束（合同测试刻意断言 issue dispatch 无 `workflow_dispatch`／`schedule` 入口），留作独立议题。这条 `GITHUB_TOKEN` 不触发下游的限制在设计前未被识别，是 PR #1087 review 阶段才由 bot 指出的，教训见反思 [[../memory/reflections/nightly-issue-heredoc-indent]]。
 
 ### 文档编译校验：`.github/workflows/check-doc.yml`
 

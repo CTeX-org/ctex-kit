@@ -188,3 +188,51 @@ job（含 `warmup-tl`），我只枚举了 7 个，漏的那一个恰好是"其�
    `grep -q`）要加 `|| true`，否则上游 SIGPIPE 会杀死整个脚本。
 4. 离线验证 CI／shell 逻辑要主动构造边界输入（空集合、超大输入、单一维度异常），不能只测
    正常路径；尤其要警惕"报警机制在极端输入下自己先失效"这类场景。
+
+## 追加二：PR #1087 review 阶段暴露的一个设计级缺陷——宣称的"自动接入 agentic"从未发生
+
+### 事实（已确认）
+
+给 `test.yml` 加的定时失败哨兵 `file-issue-on-schedule-failure`，一直宣称"issue 开出后
+`agentic-issue-dispatch.yml` 自动接手分析"（比照 #1085 的路径）。bot 在 review 中指出这是
+**错的**：
+
+- issue 用默认 `GITHUB_TOKEN`（`${{ github.token }}`）创建。GitHub 刻意不为 `GITHUB_TOKEN`
+  产生的事件（包括 `issues.opened`）再触发任何 workflow，这是平台级的防递归机制（防止
+  workflow 互相无限触发）。所以 `agentic-issue-dispatch.yml`（监听 `issues.opened`）根本不会
+  被触发——宣称的自动联动从来不会发生。
+- 想补救（给 dispatch 加 `workflow_dispatch`／`repository_dispatch` 入口显式触发）会撞上另一
+  个约束：合同测试 `scripts/test-agentic-workflow-contract.py` 刻意断言
+  `assert "workflow_dispatch:" not in issue`（与 `assert "schedule:" not in issue` 成对），
+  即 agentic 体系有意规定"issue dispatch 只被动响应真实 opened 事件、不给任何主动触发入口"
+  （对比 llmdoc-updater 明确允许 `workflow_dispatch:`，是有意的差别设计）。推翻这条约束触及
+  #874／#1032 反复强调的 agentic runtime 稳定性红线，不该顺手做。
+- 处置：当前 PR 降级——把"自动接入 agentic"从功能和文档里如实拿掉，issue 仍用
+  `GITHUB_TOKEN` 正常开（开 issue 本身完全不受影响），只作"提醒＋诊断"，分析需人工或另行接
+  入；agentic 显式触发留作独立议题（先搞清那条 `workflow_dispatch` 禁令的完整原意再做）。
+
+### 教训（重点）
+
+1. `GITHUB_TOKEN` 产生的事件不会触发下游 workflow，是设计"由 CI 自动创建
+   issue／PR／comment 再联动下一个 workflow"时必须先确认的平台约束。设计阶段把"issue 一开
+   agentic 就接手"当成了理所当然（因为 #1085 是真人开 issue 触发的，那条路径真实存在），
+   没意识到"真人开"和"`GITHUB_TOKEN` 开"在触发下游上有本质区别。要联动必须用 App／PAT 等能
+   产生事件的身份，或显式 dispatch。
+2. 这个假设本可以在设计阶段被证伪：只要查一下"`GITHUB_TOKEN` 创建的 issue 能否触发 issues
+   workflow"就知道。却把它写进了功能卖点、注释、PR 描述和 llmdoc 三处，直到 bot 指出——是
+   "没实测就把结论写具体"在**设计假设**层面的又一次发作（前面几次是注释真伪、输入边界，这次
+   是平台行为假设）。跨 workflow 联动的触发条件属于"必须先验证再写进设计"的一类。
+3. 改一个功能前先看它会不会推翻某条被测试固定的现有约束：`workflow_dispatch not in issue`
+   是合同测试明写的断言，加触发入口前必须先理解这条断言的原意（为什么 issue dispatch 刻意
+   不给主动入口），而不是直接改断言让测试过。测试里成对出现的否定断言（`schedule` 加
+   `workflow_dispatch` 都禁）往往是刻意的安全边界。
+
+### Promotion 候选
+
+1. 设计"CI 自动创建 issue／PR／comment 触发下游 workflow"前，先确认创建身份：默认
+   `GITHUB_TOKEN` 产生的事件不会触发任何 workflow（防递归），要联动需 App／PAT 或显式
+   dispatch。
+2. 跨 workflow 联动的触发条件属于"写进设计前必须先验证"的平台行为，不能想当然（尤其"真人
+   操作触发"与"token 自动操作触发"的区别）。
+3. 改动前先检查是否推翻了某条被测试固定的现有约束；测试里成对的否定断言常是刻意安全边界，
+   要先懂原意再动。
