@@ -94,7 +94,14 @@ Curated cross-task rules distilled from archived memory.
 ### 从源码树验证时必须核对实际加载文件
 **Rule**: 使用临时 MWE 验证工作树生成的 TeX 宏包时，把日志中的实际文件路径列为证据；文件名、输出目录名和运行命令都不能证明加载的是当前实现。这条检查**必须写成每次运行都执行的固定动作**，不能靠「出错会提醒我」兜底：不指定 `TEXINPUTS`、或者它指向的目录不存在时，`xelatex` 既不报错也不警告，而是静默回落到系统安装的同名宏包，编译照样成功、读数照样是一组像样的数字。也就是说这条失效没有任何主动信号，只有主动核对日志里的 `Package:` 行才看得见。
 **Why**: #1012 的一次实验实际加载了 TeX Live 中的旧版 `xeCJKfntef.sty`，却把图片标成修复后结果。核对日志确认加载 `xeCJK/build/unpacked/xeCJKfntef.sty` 后，视觉证据才与固定提交对应。这条教训在 #1026、#1047 之后于 #1057 又一次发作（第一次跑 MWE 加载的是系统 TeX Live 的 v3.10.4 而非工作树的 v3.10.5，是后来 `grep` 日志才发现的），共同点都是「以为自己在测工作树」。#1057 结论未被带偏纯属运气——两版在那条路径上行为恰好相同；若不同，判断方向会完全相反。
-**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`, `llmdoc/memory/reflections/1057-fntef-nest-linebreak.md`
+
+**子情形（#1085）：同一仓库内工作树里 commit 出来的 `.sty` 也会落后于 `.dtx`，不止 TEXINPUTS 指向系统安装宏包这一种形态。** 用工作树里既有的 `xeCJK/xeCJK.sty`（一个旧的构建产物）复现问题，得到过「当前 master 已修复」这个方向相反的结论；真相是那个 `.sty` 落后于当前 `.dtx`。这种情形不能用 `\GetIdInfo$Id:` 版本戳判断——该戳只由 `l3build tag` 回写，不随普通编辑更新，`.sty` 内容与它是否反映当前代码是两件独立的事。用 `.sty` 复现前应先 `l3build unpack` 从当前 `.dtx` 干净解包。
+**Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`, `llmdoc/memory/reflections/1057-fntef-nest-linebreak.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
+
+### 诊断行尾 glue 问题先用 `\hbox to` 隔离 `\par` 的 `\unskip`
+**Rule**: 排查 xeCJK 边界恢复中涉及行尾 glue 的问题时，先用 `\setbox0=\hbox to <宽>{...}` 固定宽度、不经过段落断行算法，隔离掉 `\par`／`\parfillskip`／`\rightskip` 的干扰，再看节点序；确认机制后才把场景放回真实段落复核视觉效果。
+**Why**: #1085 排查 `\hfill CJK文字 \hfill\null\par` 时，段落模式下 LaTeX 的 `\par` 在行尾会自己 `\unskip`，叠加在 xeCJK 行为之上，使节点日志一度看起来像「fill 彻底消失」；只有先隔离 `\par` 才看清真相是「顺序错乱 + `\par` 的 `\unskip` 二次作用」两件事叠加，不是 fill 丢失。
+**Source**: `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### PDF 绘图回归要分开固定尺寸、节点、坐标和外观
 **Rule**: 绘图命令会展开大量 PDF special 时，用真实图形固定关键尺寸，用同尺寸轻量盒子固定 leaders、节点和断行，用 XDV 生成不压缩内容流的 PDF 后读取实际坐标来固定相位、节距和端点，再用精确视觉 MWE 检查曲线、连接与密度；整本文档构建只检查集成路径。
@@ -263,8 +270,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
-**Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+**Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。**#1085 是同一条规则的又一实例**：第一版门控直接复用了同文件 Boundary→Default 方向的 `\@@_skip_if_interword:N`（要求 finite + 带 shrink + 宽度等于词间空格），跑回归立刻发现 `command-boundary-math05` 的 `null-explicit` 场景（`\textnormal{$x$ }\hskip 7pt\null`）height-delta 从 0 变 8.52pt——`\hskip 7pt` 无 shrink，被该判据误拦，破坏了 #1002／#1003 已有的 math-space 恢复。同一个「候选 glue」在不同恢复路径有不同的合法形状集合，门控不能照抄。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### 状态布尔为真不等于资源可用；置真点与复位点要成对清点
 **Rule**: 状态布尔记录的是「谁开始过」，不是「现在还开着」。判断能否对某资源动手时，直接测那个资源本身的状态，而不是测某个流程是否启动过。写完这类守卫，列出所有能进入该状态的入口与所有能退出的出口，逐一对照——入口比出口多就是缺陷信号。
@@ -288,8 +295,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### 写「判别力已实测」之前必须真的跑那次变异
 **Rule**: 注释或文档里声称某断言有判别力时，必须真的执行过「重新引入缺陷 → 看到测试失败」这一步。照抄句式而不复跑，比不写更糟——它会让后来者放弃复核。
-**Why**: #1037 的 TEST 9 第一版用 `\bfseries` 形态断言并写了「判别力已实测」，实际上该形态根本不走被测路径，撤销修复后测试仍通过。同一任务里 TEST 6 第一版用 `\hbox to` 宽度也是恒真断言。两次都是在未验证的情况下认为断言成立。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+**Why**: #1037 的 TEST 9 第一版用 `\bfseries` 形态断言并写了「判别力已实测」，实际上该形态根本不走被测路径，撤销修复后测试仍通过。同一任务里 TEST 6 第一版用 `\hbox to` 宽度也是恒真断言。两次都是在未验证的情况下认为断言成立。**#1085 是同一失效模式在「测试标题/注释」这一具体载体上的又一次发作**：TEST 18（finite `\hskip 30pt`）最初标题写「keeps a finite non-interword glue in place」、注释写「the `\null` must not jump in front of it」，都是先写故事化描述、后被判别力验证证伪——撤掉修复重跑后发现该测试**不在** diff 里，finite glue 在新旧逻辑下都照常搬运，`\null` 确实前移，但 30pt 无伸缩、位置错了也无视觉影响，不是 bug，与最初写的说法方向相反。判别力验证要先区分「这条测试测的是 bug」还是「测的是未变行为」，测试标题与注释必须按实测结果写。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`, `llmdoc/memory/reflections/1057-fntef-nest-linebreak.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### 按根因枚举象限，而不是按复现样例收工
 **Rule**: 确认根因后，把根因写成一句判据，然后枚举所有满足该判据的场景并逐一验证。复现样例消失、全套测试通过、新用例有判别力，都不能证明根因的其他象限已覆盖。同时避免把只在一条路径上验证过的结论写成全局断言。
