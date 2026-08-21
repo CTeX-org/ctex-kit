@@ -578,7 +578,7 @@ jobs:
           mkdir -p /tmp/nightly-diffs
           if gh run download "$RUN_ID" --repo "$REPO" \
                --pattern 'ctex-kit-diff-*' --dir /tmp/nightly-diffs 2>/dev/null; then
-            DIFF_BODY="$(find /tmp/nightly-diffs -name '*.diff' -type f 2>/dev/null \
+            DIFF_RAW="$(find /tmp/nightly-diffs -name '*.diff' -type f 2>/dev/null \
                          | sort | while read -r f; do
                              # 每个 diff 一个 fenced code block; 用 awk 截断到 120 行
                              # 内, 末尾无条件补一个换行让闭合围栏独占一行(diff 文件
@@ -586,7 +586,18 @@ jobs:
                              printf '### %s\n\n```diff\n' "${f#/tmp/nightly-diffs/}"
                              awk 'NR<=120' "$f"
                              printf '\n```\n\n'
-                           done | head -c 40000 || true)"
+                           done || true)"
+            # 总量按字节封顶 40000。若确实超限而截断, 截断点可能落在某个未闭合的
+            # ```diff 围栏中间, 会把后续 `## 排查入口` 吞进代码块; 因此截断后无条件
+            # 补一行闭合围栏和截断提示, 保证正文剩余部分仍能正常渲染(多补一个空
+            # 围栏也无害)。用字节长度比较判断是否发生截断。
+            # head -c 读满就关管道, 上游 printf 收到 SIGPIPE; 在 set -o pipefail
+            # 下该管道返回非零会被 set -e 当成错误终止整个 step, 反而开不出 issue,
+            # 故用 || true 容忍。wc -c 读完整输入不早退, 不受影响。
+            DIFF_BODY="$(printf '%s' "$DIFF_RAW" | head -c 40000 || true)"
+            if [ "$(printf '%s' "$DIFF_RAW" | wc -c)" -gt 40000 ]; then
+              DIFF_BODY="$(printf '%s\n\n```\n\n_（diff 过长已按字节截断, 完整内容见 run artifact）_\n\n' "$DIFF_BODY")"
+            fi
             if [ -n "$DIFF_BODY" ]; then
               DIFF_SECTION="$(printf '\n\n## 失败 diff(截断, 完整见 run artifact)\n\n%s' "$DIFF_BODY")"
             else
