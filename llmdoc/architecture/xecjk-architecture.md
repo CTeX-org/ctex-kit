@@ -184,6 +184,8 @@ Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 暂时移除末�
 
 post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检查 glue 的情况，例如 `\textnormal{$x$ }\hskip7pt\null`。探测过程会暂时取下 7pt glue 才看到 `math-space`；marker 过期时必须先把这枚 glue 放回，再放回 `\null`，保留直接 oracle 的“真实空格、显式 glue、零尺寸盒子”顺序。其他 marker 不受这一例外影响，仍沿用 #1003 的“盒子、marker、glue”后移顺序。
 
+这枚候选 glue 还必须是有限阶：`\@@_boundary_post_transparent_relocate_glue:` 搬运「marker + 候选 glue」后缀前先用 `\skip_if_finite:nTF` 判断，`\hfill`／`\hfil` 这类无限阶（fil/fill）填充 glue 一律排除、不参与搬运，直接把零尺寸盒子放回原位，保持 marker、glue、盒子的原有相邻顺序（#1085）。这与上一段的 math-space 例外是两个独立维度：那一条管 marker 与零尺寸盒子之间“已有 glue”时的相邻关系判断，这一条管候选 glue 本身的伸缩阶数；门控不能收紧成下文「右侧源码空格的机制边界」一节 `\@@_skip_if_interword:N` 那样的 finite+shrink+等宽词间空格判据，否则会误伤本节上面 math-space 场景里无 shrink 的显式 `\hskip`。详见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
+
 ### ulem 集成层的正文必须以字面记号留在替换文本里（#1026）
 
 `\UL@on` / `\UL@onin` 把正文交给 `ulem` 之前，正文的展开方式本身是一条独立于上面 `math-space` 逻辑的约束：`ulem` 自己扫描正文，按源码空格把它切成固定宽度的装饰片段盒（每个片段各自一个盒子）。正文只要经过宏参数间接展开，西文词右侧由边界恢复链补出的 `\CJKecglue` 就会落在片段盒**内部**，其收缩量被盒子固化，无法参与外层段落的断行决策；行尾因此可能溢出右边距。
@@ -272,7 +274,7 @@ else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住�
 | `wrapped-box` | 命令可能直接写多个节点；用透明 hbox 收集，若无可见输出则解包 | `\colorbox` / `\fcolorbox` 的 `\color@b@x` |
 | `stream` | 内容直接写当前列表；首类别一出现就补左边界，结束时重放末类别 | hyperref annotation、`\@setref` / `\real@setref`、完整 URL、`\verb`、`\eqref`、`\meta`、`\cs`、`\lstinline` |
 | `transparent` | 命令只有锚点、write、颜色 push/pop 等不可见节点；结束后完整恢复入口状态 | `\HD@target`、`\Hy@raisedlink`、驱动层 `\hyper@anchor`、`\blx@pagetracker`、`\set@color` / `\reset@color`、l3color 后端 |
-| `post-transparent` | 只能使用 after hook；末尾盒子的宽、高、深均为零时，以真实 marker 为证据，把 `marker` 或 `marker + 一枚 glue` 的有界后缀移到盒子后面 | 一般 `\null` |
+| `post-transparent` | 只能使用 after hook；末尾盒子的宽、高、深均为零时，以真实 marker 为证据，把 `marker` 或 `marker + 一枚有限阶候选 glue` 的有界后缀移到盒子后面；无限阶（fil/fill）glue 不搬运 | 一般 `\null` |
 
 `auto` 使用实际首尾类别；`default` 固定两端为 Default；`first-default` 只固定首端、末端仍取实际输出。`\eqref` 的括号和 `\meta` 的尖括号决定两端为 Default；`\cs` 只有开头反斜线固定为 Default。box 的 `default` 在结束函数同时覆盖首尾，stream 则在开始 hook 固定首端、结束 hook 固定末端，两条路径的公开语义相同。
 
@@ -415,7 +417,7 @@ ulem 把正文拆进固定宽度的盒子。普通 stream 若直接在首次观�
 
 推断出的 Default 通过 `\@@_boundary_capture_report_first:n` 只补上尚未取得的首类别，不直接改写外层已经观察到的末类别。嵌套命令结束时写入的 marker 会留在它实际输出的列表末尾；外层盒子或 stream 结束时读取这个 marker，再更新本层 `last_tl`。因此 `\mbox{中\fbox{中$x$}}` 能逐层得到 `math` 末类别，原语 `\setbox` 中没有输出到当前列表的公式则不会成为外层末类别；`\sbox` 仍由 suspend/resume 隔离。`\mbox{\vrule...}` 按 Default 检查，公式命令以直接公式为 oracle。详见 [[../memory/decisions/992-command-boundary-capture-register]]「机制边界」和 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
-右边界后续恢复所需的状态不只有末类别。盒内末尾大写字母会把全局 `\g_@@_space_factor_int` 留成 999，但外层列表的 `\spacefactor` 仍是 1000；因此 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，以当前外层值同步缓存，避免盒外源码空格与过期规格严格比较。post-transparent 则先确认末尾盒子为零尺寸，再用 `\@@_boundary_pop_node:N` 检查盒子是否直接盖住 marker；未命中时只暂存至多一枚 glue，再检查其下方 marker。除上述 `math-space` 过期例外外，命中后按“盒子、marker、glue”重放；未命中则按原来的“glue、盒子”顺序还原，包括 0pt glue。该路径不扫描第二枚 glue、任意 hbox 或 whatsit。#1003 的根因和节点证据见 [[../memory/reflections/1005-xcjkecglue-right-boundary-recovery]]。
+右边界后续恢复所需的状态不只有末类别。盒内末尾大写字母会把全局 `\g_@@_space_factor_int` 留成 999，但外层列表的 `\spacefactor` 仍是 1000；因此 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，以当前外层值同步缓存，避免盒外源码空格与过期规格严格比较。post-transparent 则先确认末尾盒子为零尺寸，再用 `\@@_boundary_pop_node:N` 检查盒子是否直接盖住 marker；未命中时只暂存至多一枚 glue，再检查其下方 marker。除上述 `math-space` 过期例外外，命中后按“盒子、marker、glue”重放；未命中则按原来的“glue、盒子”顺序还原，包括 0pt glue。`\@@_boundary_post_transparent_relocate_glue:` 在搬运这枚候选 glue 之前还会先 `\skip_if_finite:nTF` 判断阶数：`\hfill`／`\hfil` 等无限阶填充 glue 不搬运，直接把零尺寸盒子放回末尾，保持 marker、glue、盒子原有顺序不变，避免 `\hfill 中 \hfill\null` 这类居中写法里 `\null` 被排到 fill 之前而破坏两侧对称（#1085，见上文 math-space 段落末尾）。该路径不扫描第二枚 glue、任意 hbox 或 whatsit。#1003 的根因和节点证据见 [[../memory/reflections/1005-xcjkecglue-right-boundary-recovery]]；#1085 的根因和节点证据见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
 
 ### 右侧源码空格的机制边界
 

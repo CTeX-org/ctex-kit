@@ -300,6 +300,8 @@ xeCJK 也是 0**——三档齐全才说明是本包修好的，不是「修回�
 
 `xeCJK/testfiles/command-boundary02.lvt` 提供 15 个 paragraph/node oracle，锁定宽度比较看不见的节点语义：段落模式 box、带源码空格的 transparent、CJK link stream、ulem 外层非装饰 CJKglue、普通显式 elastic glue、词间空格同构 glue、`\null` 与赋值型 `\null`、`\cs` 的西文/CJK 末尾，以及 `\kern0pt` 处理方法。新增三项分别确认：盒内末尾大写字母后的源码空格变成 5pt `CJKecglue`；有源码空格时，`\null` 后的恢复链把显式 7pt glue 换成 5pt；没有源码空格时，7pt glue 原样保留。节点测试启用 `\loggingoutput`；FandolFang 等 lazy font family 必须在 `\START` 前预热，否则首次 fontspec Info 会污染规范化日志并在不同平台产生伪 diff。
 
+同一文件新增 TEST 16–19 固定 post-transparent 的 `\@@_boundary_post_transparent_relocate_glue:` 在候选 glue 为无限阶（fil/fill）时不搬运这条门控（#1085）：TEST 16（`\hfill`）与 TEST 17（`\hfil`）直接固定 `\hfill CJK文字 \hfill\null` 类居中写法里节点序须为「marker、glue、盒子」，撤掉修复会红；TEST 19 在 `\begingroup`／`\endgroup` 包住正文时复核同一断言。TEST 18 用 finite 的 `\hskip 30pt` 覆盖门控不收紧成 `\@@_skip_if_interword:N` 那种 finite+shrink+等宽词间空格判据这一条边界，但对 #1085 本身无判别力——finite glue 在新旧逻辑下都照常搬运，撤掉修复重跑该测试不在 diff 里，只作正向锚点。四项均未增删测试文件，`command-boundary02.lvt` 仍是同一个文件，标准测试数不变，仍为 123／123。
+
 TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`，而它的自然宽度和 shrink 与词间空格完全相同，恢复逻辑就无法判断它是源码空格还是显式 glue。需要保留时，可在前面加 `\kern0pt`，也可以改变自然宽度或去掉 shrink。测试必须明确记录这项限制和处理方法；继续向前检查更多节点也无法找回来源信息。
 
 `ref-ecglue01.lvt` 与 `ref-ecglue02.lvt` 继续专门覆盖 #991：无 hyperref 36 次、加载 hyperref 40 次，共 76 个比较，包含数字/西文、CJK、混合末尾、两种外围类别、四种源码空格、starred path、未定义引用和 `CJKspace=true`。每次 oracle/candidate 前只重置当前真实状态：`\g__xeCJK_last_node_tl` 与 `\g__xeCJK_glue_check_pending_bool`；#991 saved-node、颜色 pending 和 hyperref 专用 marker 均已删除。无 hyperref 的 `\@setref` 或 hyperref 的 `\real@setref` 由 auto stream 处理，内核 `\null` 由一般 post-transparent 路径保持透明。
