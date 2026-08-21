@@ -512,7 +512,7 @@ jobs:
       && github.event_name == 'schedule'
       && github.repository == 'CTeX-org/ctex-kit'
       && needs.test-result.result == 'failure'
-    needs: [test-result, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]
+    needs: [test-result, warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -525,6 +525,8 @@ jobs:
           REPO:            ${{ github.repository }}
           RUN_ID:          ${{ github.run_id }}
           SERVER:          ${{ github.server_url }}
+          R_WARMUP:        ${{ needs.warmup-tl.result }}
+          R_RESULT:        ${{ needs.test-result.result }}
           R_CTEX:          ${{ needs.test-ctex.result }}
           R_CTEX_LUATEX:   ${{ needs.test-ctex-luatex.result }}
           R_XECJK:         ${{ needs.test-xeCJK.result }}
@@ -542,9 +544,13 @@ jobs:
           WEEK=$(date -u +%G-W%V)
           TITLE="nightly test failure (${WEEK}) — 疑似上游漂移"
 
-          # 失败的 job 清单(success/skipped 之外的都算 red)。
+          # 失败的 job 清单(success/skipped 之外的都算 red)。warmup-tl 也纳入:
+          # test-result 把 TeX Live 预热失败同样计为失败, 此时各包 caller 因
+          # `needs: warmup-tl` 而全部 skipped, 不列 warmup-tl 就只剩"未能判定",
+          # 指不出真正的失败阶段是预热(常见于 cache miss 时 setup-texlive 装包失败)。
           FAILED=""
           for nv in \
+            "warmup-tl:$R_WARMUP" \
             "ctex:$R_CTEX" \
             "ctex-luatex:$R_CTEX_LUATEX" \
             "xeCJK:$R_XECJK" \
@@ -558,6 +564,11 @@ jobs:
               *) FAILED="${FAILED}- \`${name}\`: ${res}\n" ;;
             esac
           done
+          # 兜底: 上面全 success/skipped 却仍触发本 job(test-result 自身因别的
+          # 原因失败, 或依赖关系异常), 单独标出聚合 job 状态, 不让清单为空。
+          if [ -z "$FAILED" ]; then
+            FAILED="- \`test-result\`(聚合): ${R_RESULT}\n"
+          fi
 
           # 拉本次 run 的 diff artifact(各 _test-package.yml 子 job 上传,
           # 名为 ctex-kit-diff-*), 把 .diff 正文截断后贴进 body——这是判断
