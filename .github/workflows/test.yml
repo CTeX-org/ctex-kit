@@ -525,7 +525,7 @@ jobs:
       issues: write
       actions: read
     steps:
-      - name: File or update the nightly-failure issue
+      - name: File or update the weekly-failure issue
         env:
           GH_TOKEN:        ${{ github.token }}
           REPO:            ${{ github.repository }}
@@ -546,9 +546,10 @@ jobs:
           RUN_URL="${SERVER}/${REPO}/actions/runs/${RUN_ID}"
           # 周粒度去重标题(不含 run id): 一次上游漂移会让多个 test job 同时红,
           # 但只有一个聚合 job 开 issue, 无 wangshu 那种 3-tier 竞态; 周粒度还能
-          # 把"连续几天都红"归并到同一个 issue 上评论, 而不是每天新开。
+          # 把同一周内的多次失败(手动 workflow_dispatch 重触发、重跑等)归并到
+          # 同一个 issue 上评论, 跨周才新开。
           WEEK=$(date -u +%G-W%V)
-          TITLE="nightly test failure (${WEEK})"
+          TITLE="weekly test failure (${WEEK})"
 
           # 失败的 job 清单(success/skipped 之外的都算 red)。warmup-tl 也纳入:
           # test-result 把 TeX Live 预热失败同样计为失败, 此时各包 caller 因
@@ -581,15 +582,15 @@ jobs:
           # "上游漂移 vs 本仓回归"最直接的信号(#1080 的教训: 失败集合的
           # 分布差异是成因数量的线索)。拉不到就退化为只给链接。
           DIFF_SECTION=""
-          mkdir -p /tmp/nightly-diffs
+          mkdir -p /tmp/weekly-diffs
           if gh run download "$RUN_ID" --repo "$REPO" \
-               --pattern 'ctex-kit-diff-*' --dir /tmp/nightly-diffs 2>/dev/null; then
-            DIFF_RAW="$(find /tmp/nightly-diffs -name '*.diff' -type f 2>/dev/null \
+               --pattern 'ctex-kit-diff-*' --dir /tmp/weekly-diffs 2>/dev/null; then
+            DIFF_RAW="$(find /tmp/weekly-diffs -name '*.diff' -type f 2>/dev/null \
                          | sort | while read -r f; do
                              # 每个 diff 一个 fenced code block; 用 awk 截断到 120 行
                              # 内, 末尾无条件补一个换行让闭合围栏独占一行(diff 文件
                              # 末尾有无换行不定, 直接 echo '```' 可能贴到最后一行尾)。
-                             printf '### %s\n\n```diff\n' "${f#/tmp/nightly-diffs/}"
+                             printf '### %s\n\n```diff\n' "${f#/tmp/weekly-diffs/}"
                              awk 'NR<=120' "$f"
                              printf '\n```\n\n'
                            done || true)"
