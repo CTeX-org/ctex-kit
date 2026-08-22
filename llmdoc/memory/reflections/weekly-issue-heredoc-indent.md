@@ -1,5 +1,5 @@
 ---
-name: nightly-issue-heredoc-indent
+name: weekly-issue-heredoc-indent
 description: 记 test.yml 定时失败自动开 issue 时 GitHub Actions run 块 heredoc 的两个缩进坑(YAML 剥基准缩进、sed 会误伤 diff 深缩进)，以及没实测就写反向注释两次
 metadata:
   type: feedback
