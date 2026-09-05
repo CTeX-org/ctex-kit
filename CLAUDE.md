@@ -1,4 +1,11 @@
-默认使用简体中文回复；面向用户和维护者的文档也使用简体中文。
+# 仓库协作规则
+
+本文件是仓库根目录的唯一规则正文。`AGENTS.md` 是指向本文件的符号链接，用于兼容读取 `AGENTS.md` 的工具；不要把两者当作两份需要分别维护的规则。规则按路径生效：本文件适用于整个仓库；更深目录中的 `CLAUDE.md` 或 `AGENTS.md` 若存在，则只对其所在目录及子目录补充或覆盖本文件。若规则之间仍有冲突，应优先采用更具体目录的规则，并在无法判断时停下来说明冲突。
+
+## 默认约定
+
+- 默认使用简体中文回复；面向用户和维护者的文档也使用简体中文。
+- 以下工作流规则约束的是代理在本仓库中的工作方式，不替代用户对任务范围、修改、提交、推送或发布的授权。用户明确授权的操作可以直接执行；缺少会改变结果的重要决定时才询问，不因一般性的“对齐”表述而无故停顿。
 
 ## 语言约定
 
@@ -12,17 +19,14 @@
 
 ## 工作流
 
-Load the `llmdoc` skill before broad code exploration, planning, document updates, or non-trivial code edits.
+- 在广泛探索代码、制定计划、更新文档或进行非平凡代码修改前，先加载 `llmdoc` 技能。如果技能不可用，直接阅读相关的 `llmdoc/` 入口文档，不要因此停下。
+- 在制定非平凡计划或进行非平凡修改前，简要说明预期范围和做法。用户已经授权该范围时直接执行；只有需求、范围、授权或重要取舍确实未确定时才询问。
+- 在适合任务的情况下使用可用的 `llmdoc` 子代理。优先使用 `investigator` 进行背景探索、当前状态调查、陌生子系统研究和可复用的临时报告；使用 `recorder` 更新稳定文档，使用 `worker` 执行范围明确的实现任务，使用 `reflector` 总结过程经验。
+- 非平凡任务结束时，评估持久化知识是否发生了足够变化，以决定是否建议运行 `/llmdoc:update`；不要把这项建议当作完成已获授权的本地任务的前置条件。
 
-The main assistant should align with the user before non-trivial plans or edits.
+- `.llmdoc-tmp/` 仅作为本地临时上下文缓存。重新使用临时报告前先验证其内容；已跟踪的 `llmdoc/` 文档才是项目知识来源。
 
-Use available `llmdoc` subagents when they fit the task. Prefer `investigator` for context exploration, current-state research, unfamiliar subsystems, and reusable scratch reports; use `recorder` for stable doc updates, `worker` for scoped implementation, and `reflector` for process lessons.
-
-At the end of a non-trivial task, the main assistant should evaluate whether to ask the user to run `/llmdoc:update`.
-
-Treat `.llmdoc-tmp/` as a local temporary context cache only. Validate scratch reports before reuse; tracked `llmdoc/` docs are the project knowledge source.
-
-Keep detailed workflow rules, templates, hook behavior, and doc-structure guidance in the `llmdoc` skill.
+- 详细的工作流规则、模板、钩子行为和文档结构约定放在 `llmdoc` 技能中。
 
 ## 推送纪律
 
@@ -31,6 +35,7 @@ Keep detailed workflow rules, templates, hook behavior, and doc-structure guidan
 - hook 用 `make hooks` 安装（实质是 `git config core.hooksPath .githooks`）。开始工作前先确认 `git config core.hooksPath` 有值，否则 push 会绕过全部检查。
 - hook 是自包装的：它在内部自己再 push 一次，因此**外层 `git push` 总是以非零退出码结束**。不要把这个失败当成推送失败。实际是否推上去，要看 hook 输出的中间过程。
 - hook 会找当前分支对应的 PR，检查 CI 状态，以及本次 push 之后评论区是否有新增评论。
+- 只有在用户明确授权提交和推送，或任务本身明确要求完成远端闭环时，才执行 commit、push、创建或更新 PR。仅获本地编辑授权不包含这些操作。
 - `git push` 必须写成 `git push 2>&1` 这类形态，**后面不接任何管道**（不要 `| tail`、`| grep`）。接了管道会丢掉真实退出码和完整输出。
 - push 之后要通读输出，其中包含下一步的指示。特别注意 PR 评论里报告的问题，分为阻塞问题、重要建议、小问题三档。对每一条都要判断问题是否真实存在；确认存在的一律修掉，再 commit + push。目标是不留技术债，不要因为某条被归为"小问题"就跳过。
 - 新分支首次 push 通常因为还没有对应 PR 而无法自动检查 CI 和评论。开完 PR 后应第一时间执行 `make check-pr-ci 2>&1` 接管跟踪，之后同样遵守上面关于读输出、修问题的要求。
