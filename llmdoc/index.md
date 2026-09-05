@@ -20,7 +20,7 @@
 - `llmdoc/reference/coding-conventions.md` — expl3 命名、e-type 优先约定、`@@` 私有空间、`.choices:nn` 用 `#1` 替代 `\l_keys_choice_str`（#806 / #881）、catcode-class regex 的匹配优势与替换端 codepoint 局限（#378 / #879）、字面字符当 token 级替换模式时必须核对 catcode régime（含 `&` 为 catcode 4 的真正原因是 LaTeX 环境默认而非 `\c_code_cctab`／`\ExplSyntaxOn`、惰性 token 占位、探针先用已知答案自证、反向验证须对准被断言的机制，#1043）、作用域语义（含用户可见命令全局/局部选择 #751 + 镜像分组局部原语状态的布尔标志必须同样局部 #431）、`.lvt` 空格规则及 `\ExplSyntaxOn` 宏定义中嵌入 Lua 时的空格与语句分隔、docstrip 标签与 `.dtx` 实现区的 `macrocode`／shortvrb 排版边界、`\CTEX@` 遗留接口，以及 ctxdoc 对 l3doc 2026-06-18 的私有接口校验与 #963 长函数名压缩边界。
 - `llmdoc/reference/kpse-path-resolution.md` — kpse 的文件查找语义（#1054 拆出）：回答「文件拷进某棵 texmf 树之后 kpse 能不能看见」。记录 `TEXMFDBS = {!!$TEXMFLOCAL,!!$TEXMFSYSCONFIG,!!$TEXMFSYSVAR,!!$TEXMFDIST}` 与 `TEXMF` 列表里 `$TEXMFHOME` 无 `!!` 前缀、`!!` 的语义是只查 ls-R 绝不扫磁盘（实测该树下磁盘上真实存在的文件无 ls-R 条目时 `kpsewhich` 完全找不到）、无 `!!` 的树有「ls-R 比目录旧就回退扫盘」的宽容行为、`mktexlsr` 在没有 ls-R 的树上会新建一个；由此得出反直觉后果——刷新 ls-R 会关掉扫盘回退，所以「刷过索引」的那个 job 反而找不到随后拷入的文件（`_check-doc-package.yml:251` 的 zhmetrics tfm/map 与 `scripts/sync-l3backend.sh:113-128` 的组合就是实例，该脚本已于 #1074 撤除、机制不变）；另记本地 `TEXMFHOME` 通常是普通树而 CI 上 setup-texlive-action 让它解析到带 `!!` 的 `texmf-local`，因此涉及 usertree 可见性的问题**本地默认不具备复现前提**，应写最小独立复现直接测机制本身。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义，以及 #994 更换正文常规字形时各后端映射和 SPA 数据的同步清单、平台专属回归的证据边界。
-- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
+- `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：根 `CLAUDE.md` 是唯一规则正文、`AGENTS.md` 为兼容符号链接且本地编辑授权不包含 commit/push/PR；CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
 
 ## guides
 
@@ -28,6 +28,8 @@
 - `llmdoc/guides/release-workflow.md` — 两阶段 release 流程: ① `release.yml` 推 tag 自动打 CTAN zip + 发 GH prerelease(公测); ② `release-ctan-upload.yml` 手动触发, 复用同一 zip + LLM 忠实翻译 `scripts/extract-changes.py` 抽出的 release notes 为英文 announcement 投递 CTAN, 成功后翻 GH Release 为 latest; `announce=false` 可跳过 announcement; 本地 `make tag` 打 release tag; 含 `scripts/extract-changes.py` 参数语义(单版本模式字节兼容承诺 + `all`/`-o` 参数 #961); 流水线为十个编号步骤（`Sync l3backend to l3kernel` 那一步已随上游把 l3backend 并入 l3kernel 而在 #1074 撤除，原第 7–11 步重编号为 6–10）；该节现以「打包路径上的污染不触发任何退出码」记录那条与具体上游无关的洞察：`l3build ctan` 内部会 call check，`.tlg` 侧的红能发现，但它同时打包 typeset 出的 PDF，正文污染不触发任何退出码（#1051 就是这样漏进本地产物的），所以打包路径上「构建绿」不足以说明产物干净；`release-ctan-upload.yml` 只转发 zip、不重新排版故不接入）。
 
 ## memory
+
+- `llmdoc/memory/reflections/2026-09-05-collaboration-rules.md` — 反思：根 `CLAUDE.md` 是协作规则唯一正文、`AGENTS.md` 只是兼容符号链接；本地工作树编辑授权与 commit、push、PR 等外部写入授权必须分开判断。
 
 - `llmdoc/memory/reflections/xecjk-dtx-documentation-boundaries.md` — 反思：`.dtx` 同时是程序源和排版源，docstrip 产物可用不能证明手册结构正确；`support/ctxdoc.cls` 对 `%    \end{macrocode}` 的四空格终止行做逐字匹配，错一格会在远处表现为 quark 错误；`\changes` 中的参数签名和长内容不能机械使用 shortvrb，须按内容选择语义宏并以完整文档构建验证。
 
