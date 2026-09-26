@@ -1,0 +1,152 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\usepackage{xcolor}
+\usepackage{xeCJK}
+\usepackage{xeCJKfntef}
+\setCJKmainfont{FandolSong-Regular.otf}
+\pagestyle{empty}
+
+% #1091：线型装饰命令（借 ulem 扫描的 \CJKunderline 等）的两处边界缺陷。
+%
+% 一、ulem 结束正文时，会在一个随即丢弃的片段盒里排出定界符 |*|。命令边界
+%     capture 曾把它当成正文的首个或末个西文字符：
+%     - 正文没有字符（空参数、只有 \hspace 和盒子的填空线）时，左边界被补到
+%       装饰末尾，结尾的语法空格被画成一段多余的装饰线，右侧又多出一枚间距；
+%     - 正文以全角标点开头（《》「」）时同样没有可观察的首类别，出现同样的
+%       多余装饰；
+%     - 正文以嵌套装饰或标点结尾、末尾没有可读 marker 时，右边界按西文处理，
+%       例如 \CJKunderline{中。}文 在句号后多出一枚 3.33pt 的间距。
+% 二、正文在第一个字符之前先排出有宽度的内容（盒子、规则、显式 glue）时，
+%     命令前的源码空格被放到这些内容之后，甚至装饰之后，填空线因此不居中。
+%
+% 判据分两类：
+%   - TEST 1、2、3 用节点列表固定 glue 与装饰的相对位置：命令前的空格必须
+%     出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）之前。
+%     只比较总宽度分辨不出空格在装饰前还是装饰后。
+%   - TEST 4 到 TEST 7 与直接输入比较宽度，并打印 PASS／FAIL；装饰命令本身不
+%     增加宽度，所以两者必须相等。
+% 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。
+% 每个用例之后都检查 capture 栈、暂停深度和 #1091 的入口状态已经归零。
+
+\newsavebox{\FillBox}
+\sbox{\FillBox}{\rule{8pt}{5pt}}
+\newbox\EntryCandidate
+\newbox\EntryOracle
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \EntryAssertIdle #1
+  {
+    \bool_lazy_all:nF
+      {
+        { \int_compare_p:nNn { \g__xeCJK_boundary_capture_depth_int } = { 0 } }
+        { \int_compare_p:nNn { \seq_count:N \g__xeCJK_boundary_active_seq } = { 0 } }
+        { \int_compare_p:nNn { \g__xeCJK_boundary_suspend_depth_int } = { 0 } }
+        { \int_compare_p:nNn { \g__xeCJK_ulem_entry_depth_int } = { 0 } }
+      }
+      { \TYPE { FAIL:~#1~left~capture~state~behind } }
+  }
+\ExplSyntaxOff
+
+% #1 标签，#2 装饰写法，#3 直接输入 oracle
+\newcommand\EntryWidth[3]{%
+  \setbox\EntryCandidate=\hbox{#2}%
+  \EntryAssertIdle{#1}%
+  \setbox\EntryOracle=\hbox{#3}%
+  \ifdim\wd\EntryCandidate=\wd\EntryOracle
+    \TYPE{PASS: #1 (\the\wd\EntryCandidate)}%
+  \else
+    \TYPE{FAIL: #1 (\the\wd\EntryCandidate\space vs \the\wd\EntryOracle)}%
+  \fi
+}
+
+% #1 标签，#2 内容；输出只含第一层节点的列表
+\newcommand\EntryNodes[2]{%
+  \setbox\EntryCandidate=\hbox{#2}%
+  \EntryAssertIdle{#1}%
+  \TYPE{CASE: #1}%
+  \box\EntryCandidate
+  \clearpage
+}
+
+\showboxbreadth=100
+\showboxdepth=1
+
+% issue 中的写法：宏定义第二行行末的换行也是一枚空格
+\newcommand{\myfillin}{%
+  \sbox{\FillBox}{\rule{0.8em}{0.5em}}
+  \CJKunderline{\hspace*{0.5em plus .5em minus .5em}\usebox{\FillBox}\hspace*{0.5em plus .5em minus .5em}}}
+
+\begin{document}
+
+\START
+
+\loggingoutput
+
+% 普通空格与 ~ 写法下，填空线前后都各有 glue，不再有一枚跑到装饰之后。
+\TEST{issue 1091 fill-in blank keeps the source space in front}{
+  \EntryNodes{space}{普通字符 \myfillin{} 后续文字}
+  \EntryNodes{tie}{普通字符~\myfillin{} 后续文字}
+}
+
+% 正文先排出盒子、带零宽规则的 \hspace*、显式 glue 或 \quad：命令前的空格
+% 排在第一个 ulem 片段之前，正文内部不再补左边界 glue。quad-mbox 的首字符
+% 在 \mbox 里，那里 ulem 已恢复 \ 的原义，左边界走普通 glue 通道；它同样
+% 不能在 \quad 与 x 之间补 \CJKecglue。
+\TEST{source space goes before leading visible content}{
+  \EntryNodes{box}{符 \CJKunderline{\usebox{\FillBox}} 后}
+  \EntryNodes{hspace-star}{符 \CJKunderline{\hspace*{5pt}x} 后}
+  \EntryNodes{hskip}{符 \CJKunderline{\hspace{5pt}x} 后}
+  \EntryNodes{box-then-cjk}{符 \CJKunderline{\usebox{\FillBox}中} 后}
+  \EntryNodes{quad}{符 \CJKunderline{\quad 中} 后}
+  \EntryWidth{quad-mbox}{符\CJKunderline{\quad\mbox{x}}后}{符\quad\mbox{x}后}
+  \EntryNodes{sout}{符 \CJKsout{\usebox{\FillBox}} 后}
+  \EntryNodes{uline}{符 \uline{\usebox{\FillBox}} 后}
+  \EntryNodes{nested}{符 \uline{\CJKsout{\usebox{\FillBox}}} 后}
+}
+
+% 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
+% CJK 与 CJK 之间的源码空格按 CJKspace=false 删去。没有空格、也没有字符时
+% 两侧都不补间距。
+\TEST{invisible leading content keeps the first-character rule}{
+  \EntryNodes{color-cjk}{符 \CJKunderline{\color{red}中} 后}
+  \EntryNodes{color-latin}{符 \CJKunderline{\color{red}x} 后}
+  \EntryNodes{no-space}{符\CJKunderline{\hspace*{5pt}}后}
+}
+
+% 没有字符的正文不产生额外的装饰或间距。
+\TEST{empty body adds no decoration or spacing}{
+  \EntryWidth{underline}{符\CJKunderline{}后}{符后}
+  \EntryWidth{underline-relax}{符\CJKunderline{\relax}后}{符后}
+  \EntryWidth{uline}{符\uline{}后}{符后}
+  \EntryWidth{sout}{符\CJKsout{}后}{符后}
+  \EntryWidth{latin}{x\CJKunderline{}y}{xy}
+}
+
+% 正文末尾没有可读 marker 时，右边界按正文实际的末字符决定。
+\TEST{right boundary follows the real last character}{
+  \EntryWidth{nested-cjk}{\CJKunderline{\CJKsout{中}}文}{中文}
+  \EntryWidth{nested-latin}{\CJKunderline{\CJKsout{中}}x}{中x}
+  \EntryWidth{nested-space-cjk}{\CJKunderline{\CJKsout{中}} 文}{中 文}
+  \EntryWidth{period-cjk}{\CJKunderline{中。}文}{中。文}
+}
+
+% 以全角左标点开头的正文与直接输入等宽；有源码空格时也一样。
+\TEST{leading full-width punctuation}{
+  \EntryWidth{no-space}{书\CJKunderline{《红》}的}{书《红》的}
+  \EntryWidth{space}{书 \CJKunderline{《红》}的}{书 《红》的}
+  \EntryWidth{uline-space}{书 \uline{「红」}的}{书 「红」的}
+}
+
+% 普通 CJK 与西文正文的左边界不受影响。
+\TEST{ordinary first characters are unchanged}{
+  \EntryWidth{cjk-space}{符 \CJKunderline{中} 后}{符 中 后}
+  \EntryWidth{latin-space}{符 \CJKunderline{x} 后}{符 x 后}
+  \EntryWidth{cjk}{符\CJKunderline{中}后}{符中后}
+  \EntryWidth{latin}{符\CJKunderline{x}后}{符x后}
+}
+
+\END
+
+\end{document}
