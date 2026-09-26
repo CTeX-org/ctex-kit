@@ -38,9 +38,9 @@ type: reflection
   - `fntef-space01` 通过宽度比较而不是肉眼 PDF 对比来抓 spacing 回归，这一具体测试命名和案例设计也可先作为记忆沉淀。
 - 值得后续提升到 stable docs 的内容：
   - 可写入 `guides/` 或 `reference/`：在 xeCJK 的 inline 装饰/包装命令里，避免尾部 `\ignorespaces`，因为空格应交给 interchar 机制统一决策；若确有需要，必须先证明不会吞掉用户有意保留的边界 token。
-  - 可写入 `guides/`：定位 xeCJK spacing bug 时，优先看“入口态”而不是只看最终节点。通过在关键入口记录 `\lastkern` / `\lastskip` / 盒宽，能快速判断问题发生在 token 被吃掉、glue 未生成，还是生成后又被收尾逻辑改写。
+  - 可写入 `guides/`：定位 xeCJK spacing bug 时，优先看“入口态”而不是只看最终节点。通过在关键入口记录 `\lastkern` / `\lastskip` / 盒子宽度，能快速判断问题发生在 token 被吃掉、glue 未生成，还是生成后又被收尾逻辑改写。
   - 可写入 `architecture/` 或 `reference/`：凡是 xeCJK interchar 兼容层通过 TeX 分组重建上下文的代码，都应把“需要跨组保存的局部状态”作为显式设计点，至少包括 NFSS series/shape 与 xeCJK family 变量。
-  - 可写入 `reference/build-and-test.md`：对 xeCJK spacing 类问题，盒宽比较通常比视觉检查更稳；对字体状态类问题，`\showbox` 输出是确认真实字体切换是否跨边界保留的可靠信号。
+  - 可写入 `reference/build-and-test.md`：对 xeCJK spacing 类问题，盒子宽度比较通常比视觉检查更稳；对字体状态类问题，`\showbox` 输出是确认真实字体切换是否跨边界保留的可靠信号。
 
 ## Follow-up
 - 后续若再修改 xeCJKfntef / ulem 兼容层，优先做两类回归：

@@ -12,8 +12,8 @@ Issue #746: LaTeX 团队（Frank Mittelbach）通知即将移除 `\@rmfamilyhook
 
 ctex 和 xeCJK 已通过版本检测在 LaTeX >= 2020/10/01 下走新钩子路径，旧代码路径不会被触发：
 
-- **ctex**: `\cs_if_exist:NTF \ctex_gadd_ltxhook:nn` 门控，新路径使用 `\hook_gput_code:nnn`
-- **xeCJK**: `\ctex_if_format_at_least:nTF { 2020/10/01 }` 门控，新路径使用 `\ctex_gadd_ltxhook:nn`
+- **ctex**: 以 `\cs_if_exist:NTF \ctex_gadd_ltxhook:nn` 作条件判断，新路径使用 `\hook_gput_code:nnn`
+- **xeCJK**: 以 `\ctex_if_format_at_least:nTF { 2020/10/01 }` 作条件判断，新路径使用 `\ctex_gadd_ltxhook:nn`
 
 **Why:** 旧代码虽不影响运行，但作为死代码会误导维护者，且随上游变更可能引发困惑。
 

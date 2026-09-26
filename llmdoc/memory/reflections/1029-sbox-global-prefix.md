@@ -25,7 +25,7 @@ Issue #1029：`ctexart` + `algorithm2e[ruled]` 下，`algorithm` 环境里 `\cap
 未发生需要回退或重写的失误；此处记录的是定位过程中的关键转折，供以后遇到类似“钩子相关但报告已给出定位”的 issue 参考。
 
 1. **报告者的定位是对的，但止步于“删钩子能解决”容易被直接采纳为修复。** 若不去核实两个钩子的历史用途，会在不知不觉中撤销 #992 引入的 scratch box 隔离，重新引入旧问题（`\sbox` 内容污染外层间距、颜色切换泄漏）。
-2. **必须把复现缩到不含本包的最小示例，才能确认这是通用陷阱而不是 xeCJK 特有 bug。** 缩小前只知道“xeCJK 的 sbox 钩子导致标题消失”，容易把注意力放在 xeCJK 钩子内容本身；缩小到纯 LaTeX 五行后才看清触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这个认识直接决定了修复形态（专用适配器 vs 调整钩子内容）以及要不要在用户接口文档里加警告。
+2. **必须把复现缩到不含本包的最小示例，才能确认这是通用陷阱而不是 xeCJK 特有 bug。** 缩小前只知道“xeCJK 的 sbox 钩子导致标题消失”，容易把注意力放在 xeCJK 钩子内容本身；缩小到纯 LaTeX 五行后才看清触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这个认识直接决定了修复方式（专用适配器 vs 调整钩子内容）以及要不要在用户接口文档里加警告。
 3. **失败完全静默，容易被误判为下游包自身问题。** 没有报错、没有警告，只是盒子变空；如果没有与发布版逐项对比数值（紧接 `\global\sbox` 之后 vs 使用点，308.11221pt 对比 0.0pt），很容易把这个问题归咎于 algorithm2e 而不是 xeCJK。
 
 ## 审查发现的自检缺口
@@ -72,12 +72,12 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 - Issue：#1029；受影响路径：`ctexart` + `algorithm2e[ruled]` 下的 `\caption`；发现的通用机制：LaTeX2e `\AddToHook` 前缀消耗陷阱。
 - 实现：`xeCJK/xeCJK.dtx` 中的 `\@@_boundary_sbox:Nn`、`\@@_boundary_prepare_sbox:`（取代 `cmd / sbox / before` / `after` 两个 `\AddToHook`）；`\changes` 记入 v3.10.5。
 - 测试：`xeCJK/testfiles/boundary-sbox-global01.lvt/.tlg`。
-- 架构：`llmdoc/architecture/xecjk-architecture.md` 「边界状态与装饰盒隔离（#826/#830/#992）」一节（`\sbox` 隔离机制的既有记录）。
+- 架构：`llmdoc/architecture/xecjk-architecture.md` 「边界状态与装饰盒子隔离（#826/#830/#992）」一节（`\sbox` 隔离机制的既有记录）。
 - 相关决策：`llmdoc/memory/decisions/992-command-boundary-capture-register.md`（钩子的历史引入原因）、`llmdoc/memory/decisions/1010-boundary-register-public-api.md`（用户可见注册入口的边界）。
 
 ## 第二轮审查补充
 
-修好判别力之后又被查出一处数字错误：我在新用例注释与两份 llmdoc 里写「删掉隔离后出现 3.33pt 差值」，但那个数字来自 `command-boundary01` 在**默认胶**下的 `scratch-hidden-CJK`；新用例自设 `CJKecglue=5pt`／`CJKglue=1pt`，实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。成因是从既有测试搬数字时没有重新实测——与前面「描述本身也是待验证的断言」是同一类错误，只是这次错在单位量的来源上。引用差值时应当同时标明它属于哪一组间距设置。
+修好判别力之后又被查出一处数字错误：我在新用例注释与两份 llmdoc 里写「删掉隔离后出现 3.33pt 差值」，但那个数字来自 `command-boundary01` 在**默认 glue 设置**下的 `scratch-hidden-CJK`；新用例自设 `CJKecglue=5pt`／`CJKglue=1pt`，实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。成因是从既有测试搬数字时没有重新实测——与前面「描述本身也是待验证的断言」是同一类错误，只是这次错在单位量的来源上。引用差值时应当同时标明它属于哪一组间距设置。
 
 ## 后续两轮全范围审查
 
@@ -90,4 +90,4 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 
 维护者指出：本次改掉的是 #992 为隔离 `\sbox` 离线测量而引入的钩子，因此还要回放 #992 那个场景，而不能只展示 #1029 自己的算法标题恢复。这一点我漏了——算法标题恢复只证明前缀问题修好了，完全不能说明隔离语义在换实现的过程中有没有丢。
 
-补做时发现 #992 的 `gh-assets` 资产里没有独立的 sbox MWE（该场景以 `scratch-hidden-CJK` 存在于仓库测试内），于是按它的矩阵格式补了一份：base 与修复后同为 96／96。但我意识到单独一个全绿矩阵是空话，又加了「删掉 `suspend`／`resume`」的对照组，得到 72／96——有了这个对照，96／96 才成为证据。教训与前面「变异要逐项做」同源：**任何声称“无回归”的全绿结果，都要同时给出它在语义真被破坏时会变红的证据。**
+补做时发现 #992 的 `gh-assets` 资产里没有独立的 sbox MWE（该场景以 `scratch-hidden-CJK` 存在于仓库测试内），于是按它的矩阵格式补了一份：base 与修复后同为 96／96。但我意识到单独一个全绿矩阵是空话，又加了「删掉 `suspend`／`resume`」的对照组，得到 72／96——有了这个对照，96／96 才成为证据。教训与前面「变异要逐项做」同源：**任何声称“无回归”的全绿结果，都要同时给出它在语义真的被破坏时会变红的证据。**

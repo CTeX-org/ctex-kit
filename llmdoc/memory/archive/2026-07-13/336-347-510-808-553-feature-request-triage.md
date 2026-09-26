@@ -9,14 +9,14 @@ metadata:
 
 ## 任务
 
-连续复核五个长期 issue：URL 外部字符类 API（#336）、逐字符装盒变换（#347）、传统 `ruby.sty` 冲突（#510）、`\texttt` 内混排间距（#808），以及 CJK 字体配合西文间距（#553）。共同目标不是尽量接受 feature request，而是确认原始故障是否仍存在、真实用户任务能否由现有机制完成，以及剩余缺口是否值得进入 xeCJK 的稳定架构。
+连续复核五个长期 issue：URL 外部字符类 API（#336）、逐字符装进盒子的变换（#347）、传统 `ruby.sty` 冲突（#510）、`\texttt` 内混排间距（#808），以及 CJK 字体配合西文间距（#553）。共同目标不是尽量接受 feature request，而是确认原始故障是否仍存在、真实用户任务能否由现有机制完成，以及剩余缺口是否值得进入 xeCJK 的稳定架构。
 
 ## 先核实现有能力和现代生态
 
 旧 issue 的表面 feature 往往是在当年约束下提出的实现方案，不等于今天仍需实现的产品需求。
 
 - #336 真正需要可读 Unicode URL 和可选的 CJK 断行。`urlraw`/编码后 `url` 已解决显示与 target 分离，xeCJK 的 `Others` 层又能从导言区中的 external→Default action 派生 CJK transitions，无需公开通用继承 API。
-- #510 的致命加载冲突已由禁载 `CJK.sty` 解决；一般 ruby 又有 PXrubrica。剩余的传统 kern-marker 语义不应被误包装成“既然能编译就完全兼容”。
+- #510 的致命加载冲突已由禁止载入 `CJK.sty` 解决；一般 ruby 又有 PXrubrica。剩余的传统 kern-marker 语义不应被误包装成“既然能编译就完全兼容”。
 - #808 不是字体族级 glue 配置，而是行内代码布局。现有 `\xeCJKVerbAddon` 已表达代码网格和断行语义，`\texttt` 本身只表达字体。
 - #553 是 range-to-font/composite-font 路由，不是数字类本身。可显式标记时局部字体命令已经满足核心排版结果。
 
@@ -24,19 +24,19 @@ metadata:
 
 ## 不可能性与可行性都要用最小反例验证
 
-#553 先前依据“每个字符只能属于一个 `\XeTeXcharclass`”断言字体与间距不能分离，混淆了 class 编号唯一与 transition 能执行的动作。复制 `Default` transitions、只增加 CJK 字体分组的最小原型立即构成反例。反过来，#347 的 plain XeTeX 原型只证明单个边界可装盒，迁移到完整 class 矩阵后，同类相邻会合盒，后接 `FullRight` 会留下未闭合分组。
+#553 先前依据“每个字符只能属于一个 `\XeTeXcharclass`”断言字体与间距不能分离，混淆了 class 编号唯一与 transition 能执行的动作。复制 `Default` transitions、只增加 CJK 字体分组的最小原型立即构成反例。反过来，#347 的 plain XeTeX 原型只证明单个边界可以装进盒子，迁移到完整 class 矩阵后，同类字符相邻时会合并进同一个盒子，后接 `FullRight` 会留下未闭合分组。
 
 成功 MWE 与失败 MWE 同样重要：成功例证明最小机制存在，失败例负责暴露状态机未闭合的维度。#336 还说明加载顺序属于行为的一部分——同一条 external→Default action 在导言区可传播，到正文期才赋值则为时已晚。
 
 ## 验证必须覆盖用户目标和隐藏副作用
 
-截图适合说明肉眼结果，节点和日志负责证明路径：#553 用字体节点、glue 与盒宽确认真实字体切换；#808 用节点确认内部 glue 消失、外部 glue 保留，再用窄行测试暴露 addon 禁止断行；#510 在“原 MWE 能编译”之外用放大的 `CJKglue` 检查 ruby hbox 外边界，证明传统协议并未兼容；#347 则保留预期失败日志说明哪个 transition 没有闭盒。
+截图适合说明肉眼结果，节点和日志负责证明路径：#553 用字体节点、glue 与盒子宽度确认真实字体切换；#808 用节点确认内部 glue 消失、外部 glue 保留，再用窄行测试暴露 addon 禁止断行；#510 在“原 MWE 能编译”之外用放大的 `CJKglue` 检查 ruby hbox 外边界，证明传统协议并未兼容；#347 则保留预期失败日志说明哪个 transition 没有闭合盒子。
 
 这形成可复用的多维验证：目标视觉、节点结构、加载时序、断行/边界和失败路径缺一不可。只给一张“看起来正确”的截图，容易把兼容层、替代路径或偶然同名宏误认为稳定语义。
 
 ## “能做”与“应做”是两次独立评审
 
-#347 与 #553 的原型都证明局部技术可行，却同时跨越 xeCJK 的基本假设。逐 code point 装盒会切断 shaping cluster 并遮蔽 marker kern；混合字体/间距类在字体维度属于 CJK、在 spacing 维度属于 Default。产品化评估必须反向审计 class 枚举、标点、Boundary、math、listings、fntef、fallback、字体形状、颜色、链接和外部 class，而不能按原型代码行数估计影响面。
+#347 与 #553 的原型都证明局部技术可行，却同时跨越 xeCJK 的基本假设。逐个 code point 装进盒子会切断 shaping cluster 并遮蔽 marker kern；混合字体/间距类在字体维度属于 CJK、在 spacing 维度属于 Default。产品化评估必须反向审计 class 枚举、标点、Boundary、math、listings、fntef、fallback、字体形状、颜色、链接和外部 class，而不能按原型代码行数估计影响面。
 
 `not planned` 也应写清类型：#347 保留为未来整体流水线重构的原型；#553 等待明确的全局作用域和更多需求证据。#336/#808 则是现有公开能力已经覆盖真实任务；#510 是原始 crash completed，但拒绝模拟过时私有协议。精确说明“已解决什么、没有承诺什么”比笼统关闭更能防止未来误读。
 

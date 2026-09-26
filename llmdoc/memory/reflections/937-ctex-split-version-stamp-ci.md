@@ -1,9 +1,9 @@
-# 反思：PR #937 ctex.dtx 拆分 + 版本 stamp 双闸 CI
+# 反思：PR #937 ctex.dtx 拆分 + 版本 stamp 双重 CI 检查
 
 ## 任务脉络
 
 PR #937（myhsia 主导）把 10600+ 行的单体 `ctex.dtx` 拆成 6 个文件；我方
-（Liam0205 侧）在同一分支上补齐配套的版本管理 CI（check-tag.yml PR 门禁 +
+（Liam0205 侧）在同一分支上补齐配套的版本管理 CI（check-tag.yml PR 检查 +
 release.yml 三方校验），并做了 `update_tag` 幂等化。本反思记录拆分结构、
 版本机制设计与协作过程中的教训。
 
@@ -13,7 +13,7 @@ release.yml 三方校验），并做了 `update_tag` 幂等化。本反思记录
   `\DocInput{6 个 dtx}` 合并排版）
 - `ctex-kernel.dtx` — 核心宏包/类/heading 的 `.def`（ctex/ctexsize/
   ctexheading/ctexart/ctexbook/ctexrep/ctexbeamer/c5size/cs4size/heading-*）
-- `ctex-auxpkg.dtx` — 辅助（内部使用）与过时包残尾（ctexcap/ctexhook/
+- `ctex-auxpkg.dtx` — 辅助（内部使用）与过时包的遗留部分（ctexcap/ctexhook/
   ctexpatch）
 - `ctex-engine.dtx` — 引擎配置文件
 - `ctex-scheme.dtx` — `scheme = plain/chinese` 配置 + `name`
@@ -39,7 +39,7 @@ docstrip 段）。
 
 原版 `update_tag` 每次都取 `git log -1` 回写 → stamp commit 自身产生新
 sha → 下次 tag 又想写新 sha → **永不收敛**。这对"CI 跑 `l3build tag` 后
-diff 必须为零"的检查是致命的（永远 fire）。
+diff 必须为零"的检查是致命的（检查每次都会失败）。
 
 修法：stamp 里的版本号已等于 `version` 时**原样保留**（不动 date/sha），
 只有版本不一致（发新版 bump 了 version 还没 stamp）才回写。同时把"每文件
@@ -49,9 +49,9 @@ diff 必须为零"的检查是致命的（永远 fire）。
 验证方法：连跑两遍 `l3build tag` 第二遍 diff 为零（幂等）；临时 bump
 version 至 9.9.9 后 5 个 dtx stamp 全部回写（触发正确）。
 
-## 双闸 CI
+## 双重 CI 检查
 
-### 闸 1：check-tag.yml（PR 门禁）
+### 检查一：check-tag.yml（PR 检查）
 
 对支持 l3build tag 的包（当前 zhlineskip / ctex），PR 上跑
 `l3build tag` + `git diff --exit-code`。diff 非零 = 作者 bump 了 version
@@ -64,15 +64,15 @@ version 至 9.9.9 后 5 个 dtx stamp 全部回写（触发正确）。
   不需要引擎
 - ctex job 要 `fetch-depth: 0`（update_tag 回写路径用 `git log -1`）
 
-### 闸 2：release.yml 三方一致性校验
+### 检查二：release.yml 三方一致性校验
 
 打 release tag 时验证 **strip_rc(git tag) == build.lua version == dtx
 stamp**，不一致拒绝发版。
 
 RC 语义（用户关键问题）：**RC 后缀只存在于 git tag**，build.lua 与 stamp
 均写 base version。校验先 `sed -E 's/-(rc[0-9]+|pre[0-9]*|alpha[0-9]*|beta[0-9]*)$//'`
-剥后缀再比对 —— 与 release.yml 既有 release-notes 提取逻辑同款正则，保持
-心智一致。推论：**发 rc 前 build.lua 就必须已 bump 到目标版本并跑过
+剥后缀再比对 —— 与 release.yml 既有 release-notes 提取逻辑用同样的正则，保持
+思路一致。推论：**发 rc 前 build.lua 就必须已 bump 到目标版本并跑过
 l3build tag**（rc 是"内容已定、公测验证"的 pre-release）。
 
 非 l3build tag 机制的包（xeCJK 等 7 个）跳过校验打 notice —— 未来这些包
@@ -111,14 +111,14 @@ update_tag 天然幂等（version/date 都来自 build.lua 字段，不取 git �
 
 发版顺序：改 build.lua version → `l3build tag`（stamp）→ commit → PR
 merge → `make tag`（git tag）→ push tag 触发 release。此前仓库无任何
-workflow 跑 `l3build tag`，纯靠维护者自觉 —— 双闸 CI 补的就是这个洞。
+workflow 跑 `l3build tag`，纯靠维护者自觉 —— 双重 CI 检查补的就是这个洞。
 
-## 促进候选
+## 可写入稳定文档的内容
 
-- ✅ 已促进：`reference/build-and-test.md` 版本管理章节重写（拆分后 SOP
-  + 双闸机制）
+- ✅ 已写入：`reference/build-and-test.md` 版本管理章节重写（拆分后 SOP
+  + 双重检查机制）
 - 决策文档：[[937-version-single-source-l3build-tag]]
-- ✅ 已促进：PR #937 merge 后，`architecture/ctex-architecture.md` 的
+- ✅ 已写入：PR #937 merge 后，`architecture/ctex-architecture.md` 的
   「源码组织」章节已重写为 6 文件源布局（源文件表 + build.lua
   sourcefiles/unpackfiles 跨文件 docstrip 说明）
 

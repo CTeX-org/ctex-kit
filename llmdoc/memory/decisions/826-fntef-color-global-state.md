@@ -33,7 +33,7 @@
 
 ## 测试覆盖
 
-`xeCJK/testfiles/fntef-color01.lvt`：覆盖所有 6 种 fntef 效果与 `\textcolor` 的组合。Test 8 记录 `color-wraps-fntef`（`\textcolor` 包裹整个 fntef 命令）的当前行为作为基线——underline 类效果因 ulem hbox 宽度差异导致视觉宽度不一致，属于预存已知行为。
+`xeCJK/testfiles/fntef-color01.lvt`：覆盖所有 6 种 fntef 效果与 `\textcolor` 的组合。Test 8 记录 `color-wraps-fntef`（`\textcolor` 包裹整个 fntef 命令）的当前行为作为基线——underline 类效果因 ulem hbox 宽度差异导致视觉宽度不一致，属于修复前就已存在的已知行为。
 
 ## 归属
 

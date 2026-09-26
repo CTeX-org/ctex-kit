@@ -5,7 +5,7 @@ metadata:
   type: feedback
 ---
 
-# 反思: #874 / #876 agentic 定时任务的来源与频率约束
+# 反思：#874 / #876 agentic 定时任务的来源与频率约束
 
 ## 起因
 
@@ -24,7 +24,7 @@ metadata:
 
 ## 修复模式
 
-### 仓库归属门控（#876）
+### 仓库归属检查（#876）
 
 在所有 `agentic-*.yml` 的定时与手动触发 job 顶部加入：
 
@@ -33,7 +33,7 @@ if: ${{ github.repository == 'CTeX-org/ctex-kit' }}
 ```
 
 这条 `if` 必须挂在 **job 级**而不是某一 step 上：fork 启动 workflow runner
-本身就消耗 fork 主用的 Actions 配额，挡在 step 上时 runner 已经被分配。
+本身就消耗 fork 所有者的 Actions 配额，挡在 step 上时 runner 已经被分配。
 挂在 job 级时，GitHub Actions 在调度阶段直接判定为跳过，不分配 runner。
 
 同一模式也适用于 `pull_request_target` 类工作流，但那种触发由 PR 行为驱动，
@@ -50,7 +50,7 @@ schedule:
   - cron: '0 0 * * *'
 ```
 
-选择 08:00 北京时间的考量是：维护者人活动峰值集中在白天，需要尽快发现并人工
+选择 08:00 北京时间的考量是：维护者的活动高峰集中在白天，需要尽快发现并人工
 跟进 patrol 报告时，工作时段开始前刚完成的扫描结果最有用；同时也避开了
 高峰 GitHub Actions 队列时段（通常工作日 UTC 14:00–18:00）。
 
@@ -58,7 +58,7 @@ schedule:
 
 **Why:** 这两个修复看上去独立（“fork 别跑” vs “跑得别那么频繁”），
 但都属于“agentic 自动化的运行边界条件”，未来再加 agentic 工作流时应
-**同时**考虑这两件事：来源是否需要门控、频率是否需要回退。
+**同时**考虑这两件事：来源是否需要限制、频率是否需要回退。
 
 **How to apply:**
 - 任何新增 `agentic-*.yml`：
@@ -67,7 +67,7 @@ schedule:
   2. `schedule` 触发频率默认走“每天一次北京时间白天”，不要默认 4 小时或 1 小时。
      更高频率需要明确的工程动机（如 release notes 实时拼装等不能等一天的场景）。
 - 修改已有 agentic 工作流时，**不要顺手把这两条去掉**：
-  - fork 门控如果出现在 PR diff 里被建议移除，先确认是否真的要让 fork 跑。
+  - fork 限制条件如果出现在 PR diff 里被建议移除，先确认是否真的要让 fork 跑。
   - 频率调高时应该附带说明为什么不能再等一天。
 
 ## 教训
@@ -80,7 +80,7 @@ schedule:
    token 配额、淹没真正有信号的 patrol 输出。每天一次足以覆盖
    ctex-kit 这种以周为节奏的维护节拍。
 3. **`if` 的位置很重要**：job 级 `if` 才能避免 runner 被分配，step 级
-   `if` 只是阻止该 step 执行。在 fork 上分配 runner 也算 fork 主消耗。
+   `if` 只是阻止该 step 执行。在 fork 上分配 runner 也会消耗 fork 所有者的配额。
 
 ## 相关引用
 

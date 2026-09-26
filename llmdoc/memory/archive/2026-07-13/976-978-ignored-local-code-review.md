@@ -4,7 +4,7 @@ description: 反思：PR #976 完成审计漏读被 git 忽略的本地 code-rev
 type: reflection
 ---
 
-# 976/978: 本地审查报告不在 PR 闭环内
+# 976/978：本地审查报告不在 PR 闭环内
 
 ## 失败
 

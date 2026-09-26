@@ -52,12 +52,12 @@ Boundary→Default 新增 `\@@_recover_ecglue_source_space:`。只有 `\g_@@_glu
 
 - `\@@_boundary_emit_left:nnn` 用两份三元素 `\clist_if_in:nnTF` 表达“共享同一动作的语义类别集合”。这里不是逐值分派，改成 `\str_case:nn` 会复制分支或增加中间映射；函数又只在已注册命令的边界重建时执行，不在逐字符主路径，因此固定 O(3) 查找不是性能风险。
 - per-layer csname 保持 `g_@@_boundary_capture_<depth>_<field>` 的显式拼写。相同字段要经过 new、clear、set、use、equality 和 box 等不同操作；当前抽 helper 需要建立多组变体并隐藏具体字段。只有未来继续增加每层状态时，才一起评估 record/helper 抽象。
-- `\@@_boundary_register_makeboxes:` 包装本包最低支持内核 LaTeX2e 2026-06-01 中的内部 `\@imakebox [#1][#2]#3` 与 `\@iframebox [#1][#2]#3`，明确依赖该参数签名。`command-boundary01` 的 optional `\makebox` / `\framebox` 场景是该依赖的漂移门禁；上游若改签名，补丁与测试必须同步。
+- `\@@_boundary_register_makeboxes:` 包装本包最低支持内核 LaTeX2e 2026-06-01 中的内部 `\@imakebox [#1][#2]#3` 与 `\@iframebox [#1][#2]#3`，明确依赖该参数签名。`command-boundary01` 的 optional `\makebox` / `\framebox` 场景是该依赖的漂移检查；上游若改签名，补丁与测试必须同步。
 - capture 入口先用 `\xeCJK_glue_to_skip:nN` 实际执行用户定义的 glue 并读入 skip 变量，随后 `\tl_gset:ce` 只序列化已求值的数值规格，不会 e-type 展开原始 `\CJKglue` / `\CJKecglue` 定义中的不可展开 token。
 - `\@@_recover_ecglue_source_space_success:` 在当前调用关系中只会从 pending=true 的入口到达，但仍保留 `\bool_if:NT` 检查。这样以后增加调用点时，也不会在 pending 已失效后误清状态。命令边界上多做一次布尔检查没有可测的性能影响。
 - `\@@_recover_ecglue_source_space_fallback:` 刻意不转入 `\@@_check_for_ecglue_aux:`。尚未移除候选 glue 时，它仍是末节点；移除后若验证失败，restore 又会把它原样还回。两种情况下，aux 都无法越过这枚 glue 取得下方 marker。未获验证的 glue 本身就是要保留的边界，只有 success 路径可替换为 `\CJKecglue`。
 - source-space 检查在 `\unskip` 前把完整 `\lastskip` 数值快照保存到 skip 变量；restore 重放同一份 natural/stretch/shrink，不按当前 spacefactor 重新计算。TeX 不能恢复的是 glue 的源码来源，而不是它的数值规格。
-- PR #1005 在 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，把 `\g_@@_space_factor_int` 同步为当前外层 `\tex_spacefactor:D`。盒内末尾大写字母留下的 999 不会传播到外层列表，不能继续用于严格比较盒外以 1000 生成的源码空格。
+- PR #1005 在 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，把 `\g_@@_space_factor_int` 同步为当前外层 `\tex_spacefactor:D`。盒子内部末尾大写字母留下的 999 不会传播到外层列表，不能继续用于严格比较盒子外部以 1000 生成的源码空格。
 - `\@@_boundary_post_transparent_relocate:` 先检查零尺寸盒子是否直接盖住 marker；未命中时只暂存至多一枚末尾 glue，再由 `\@@_boundary_pop_node:N` 检查其下方 marker。除 `math-space` 过期例外外，命中后按“盒子、marker、glue”重放；未命中按“glue、盒子”恢复原序。0pt glue 也必须保留，因为删除它会改变末节点类型和后续恢复证据。
 - `\@@_boundary_replay_node:n` 对三种非 CJK marker 使用固定三元素 `\clist_if_in:nnT`。该函数只在已注册命令的 marker 重放处执行，不在逐字符热路径；改成重复的 `\str_case` 分支不会带来可测收益。
 
@@ -77,7 +77,7 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 任意 whatsit 与任意 hbox 仍不能自动成为恢复证据。只有注册命令、已知定点 hook 和实际 marker 可参与恢复，避免重现 #803 的过度恢复。
 
-**#1003 由 PR #1005 修复**：第一类失败中，末类别 marker 已正确识别为 Default，真正过期的是盒内大写字母留下的 `\g_@@_space_factor_int=999`；重放 marker 时同步外层真实 `\spacefactor=1000` 后，盒外源码空格可按直接输入换成 `CJKecglue`。第二类失败的物理节点形状为“`CJK-space` marker + 7pt glue + 零尺寸 hbox”；post-transparent 只在已注册零尺寸盒子和一枚 glue 的范围内移动有 marker 证明的后缀，让既有恢复链自行决定替换或保留 glue。该能力不扫描第二枚 glue、普通 hbox 或 whatsit。
+**#1003 由 PR #1005 修复**：第一类失败中，末类别 marker 已正确识别为 Default，真正过期的是盒子内部大写字母留下的 `\g_@@_space_factor_int=999`；重放 marker 时同步外层真实 `\spacefactor=1000` 后，盒子外部的源码空格可按直接输入换成 `CJKecglue`。第二类失败的物理节点形状为“`CJK-space` marker + 7pt glue + 零尺寸 hbox”；post-transparent 只在已注册零尺寸盒子和一枚 glue 的范围内移动有 marker 证明的后缀，让既有恢复链自行决定替换或保留 glue。该能力不扫描第二枚 glue、普通 hbox 或 whatsit。
 
 **Boundary→CJK 方向已补上相同的检查（#996，PR #1001，commit 085f4f86）**：`\@@_check_for_glue_skip:` 在 Boundary→CJK 方向也调用 `\@@_skip_if_interword:N`。只有待检查的 glue 为 finite、带 shrink，而且自然宽度等于词间空格时，才可能把它当作源码空格；其他显式 glue 不再被替换为 `CJKglue`。新增的 `\@@_glue_check_expire_stale:` 会在最外层恢复逻辑发现节点列表为空时清除过期 pending，因为空列表中不可能有相邻的 xeCJK marker；capture 活跃时不清除，以便 ulem 等 stream 把 pending 从内部盒子带到命令外的实际边界。这两处修改修复了 `\g_@@_glue_check_pending_bool` 越过 `\hbox` 或 `\setbox` 分组、误把下一个盒子中的显式 `\hskip` 当作源码词间空格的问题。回归测试 `boundary-crossbox01.lvt` 覆盖 issue MWE、`\kern0pt` 处理方法、同一盒子与不同盒子中的显式 glue，以及两个方向的源码空格处理。旧基线 `boundary-space02.tlg` 和 `fntef-space02.tlg` 的 20pt、40pt 是 pending 泄漏造成的错误输出；修复后的 23.33pt、43.33pt 才符合“显式 `\ ` 原样保留”的测试说明。如果显式 glue 与词间空格在节点列表中没有区别，TeX 仍无法判断来源；处理方法见下文「右侧源码空格的机制边界」。
 
@@ -102,7 +102,7 @@ post-transparent 的零尺寸盒子前若还有一枚候选或显式 glue，探�
 
 ## 验证与状态
 
-`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 5504 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、整个正文的外层分组、CJK 前缀后接分组公式、参数内尾随源码空格、后接注册命令、显式 glue、嵌套命令和离线 `\setbox`；三类消费尾部分组的宏，以及分别把 `$`、`\)` 当作分隔参数终止符的两类宏，共同确认所有尾部语法候选都必须经过实际输出节点确认，尾随空格版本还在 box 与 ulem 中重复检查消费反例。`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据；`math05` 进一步用带伸缩量的 glue、字体不同、嵌套 stream、嵌套 `\mbox`、ulem 和较窄且不带伸缩量的 glue，固定 `math-space` 与 `math-space-frozen` 的区别；五条 direct/box/wrapped-box/stream/stream-ulem 段落路径在自然宽度缩短 1pt 后 badness 均为 12，确认 2pt 外层收缩量确实参与段落装箱；颜色 special、零尺寸 hbox 和 `math-space + 7pt glue + \null` 三项分别留下 9／1／1 型末节点，候选相对同条件直接 oracle 的宽度差和 10pt 段宽、容差 100 下的段落高度差都为 0。`loading01` 同时跟踪两种 marker 及其 skip 和尺寸（dim）寄存器分配。#1010 新增的 `boundary-register-api01/02` 固定公开入口的行为、生命周期和诊断；#1017 增加 `fntef-actualtext01`，#1012 增加 `fntef-phase01` 后 xeCJK 标准回归为 113／113 通过（本决策落地时的数字；当前总数见 `build-and-test.md`）。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
+`command-boundary01` 当前执行 1668 个绿色单元：100 组普通矩阵和第 28 行的直接公式 oracle 分别运行默认/可区分间距与 `xCJKecglue=false/true`，原先交给 #1002 的四个公式跳过已经改为实际断言；`CJKspace` 和分隔符扫描 `\verb` 保持独立。每个实际执行的候选单元都确认 capture/active/suspend 状态归零。覆盖范围包括五组原生 ulem 与 fntef 线型、符号命令双向嵌套、跨注册策略嵌套、math、数字、rule、空盒子，以及“已观察 CJK 前缀后接公式或 rule 后缀”的嵌套场景。`command-boundary-math01` 另执行 5504 次公式边界比较，并覆盖 box、wrapped-box、stream、stream-ulem、独立符号、整个正文的外层分组、CJK 前缀后接分组公式、参数内尾随源码空格、后接注册命令、显式 glue、嵌套命令和离线 `\setbox`；三类消费尾部分组的宏，以及分别把 `$`、`\)` 当作分隔参数终止符的两类宏，共同确认所有尾部语法候选都必须经过实际输出节点确认，尾随空格版本还在 box 与 ulem 中重复检查消费反例。`math02` 至 `04` 提供节点、加载顺序、移动参数、对齐和标准 `color` 路径证据；`math05` 进一步用带伸缩量的 glue、字体不同、嵌套 stream、嵌套 `\mbox`、ulem 和较窄且不带伸缩量的 glue，固定 `math-space` 与 `math-space-frozen` 的区别；五条 direct/box/wrapped-box/stream/stream-ulem 段落路径在自然宽度缩短 1pt 后 badness 均为 12，确认 2pt 外层收缩量确实参与段落装箱；颜色 special、零尺寸 hbox 和 `math-space + 7pt glue + \null` 三项分别留下 9／1／1 型末节点，候选相对同条件直接 oracle 的宽度差和 10pt 段宽、容差 100 下的段落高度差都为 0。`loading01` 同时跟踪两种 marker 及其 skip 和尺寸（dim）寄存器分配。#1010 新增的 `boundary-register-api01/02` 固定公开入口的行为、生命周期和诊断；#1017 增加 `fntef-actualtext01`，#1012 增加 `fntef-phase01` 后 xeCJK 标准回归为 113／113 通过（本决策写成时的数字；当前总数见 `build-and-test.md`）。`command-boundary02` 用 15 个 paragraph/node 测试覆盖普通命令的节点结构。`listings-color01` 另执行 20 个 braced/delimited direct-input 比较。
 
 #992 的活表只代表已合并实现的状态。PR 未合并时，修复后的矩阵结果只能作为 PR 预览；合并后必须从合并提交复验再把红叉改成绿勾。
 
@@ -117,7 +117,7 @@ post-transparent 的零尺寸盒子前若还有一枚候选或显式 glue，探�
 - **#998 已由 PR #1001（commit 14336c4d）修复**：box/wrapped-box 的可见性后备能识别不触发 interchar 转换的 rule 和 math 节点；rule 继续按 Default 重建，公式的精确类别和源码空格语义随后由 #1002 的 `math` 类别补全。
 - **#1000 已由 PR #1001（commit c8c803bf）修复**：siunitx 的 `\unit`、`\qty` 和 `\num` 在 math 模式排版数字与单位，入口的 `\mathon` 会遮住左侧 CJK marker，情况与修复前的 `\eqref` 相同，因此注册为固定 Default 首尾的 `stream` capture（`\@@_boundary_register_siunitx:`）。v2 旧名 `\si`、`\SI` 是独立的顶层命令；注册前分别用 `\cs_if_exist:cT` 检查命令是否存在。`\ang` 会输出角度符号，目前还没有确定应与哪种直接输入比较，因此暂不注册。回归测试 `siunitx-ecglue01.lvt` 包含 9 组 `\BoundaryMatrix`，每组执行 4 种源码空格组合，共 36 个宽度比较，另检查 math 内嵌使用后的 capture 栈是否归零。
 
-四个问题均已发布确认评论；#996/#998/#1000 的 before/after 视觉对比落在 gh-assets 固定提交 `fcff1eb3`，#995 的 MWE/截图落在 `gh-assets:issues/995/`。#996、#998、#1000 在 #992 issue 活表上的行按既有惯例——PR #1001 未合并前只作预览，合并后须从合并提交复验再更新为已修复状态。PR #999 body 已加 `Closes #995`。
+四个问题均已发布确认评论；#996/#998/#1000 的 before/after 视觉对比存放在 gh-assets 固定提交 `fcff1eb3`，#995 的 MWE/截图存放在 `gh-assets:issues/995/`。#996、#998、#1000 在 #992 issue 活表上的行按既有惯例——PR #1001 未合并前只作预览，合并后须从合并提交复验再更新为已修复状态。PR #999 body 已加 `Closes #995`。
 
 ## 相关
 

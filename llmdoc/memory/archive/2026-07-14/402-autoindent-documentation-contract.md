@@ -35,5 +35,5 @@
 
 ## 审查结果
 
-PR #984 的跨平台 CI、文档、tag 与 CHANGELOG 门禁全部通过。自动审查为 APPROVE，
+PR #984 的跨平台 CI、文档、tag 与 CHANGELOG 检查全部通过。自动审查为 APPROVE，
 阻塞、重要、小问题均为零；formal review 和 review thread 也均为空。

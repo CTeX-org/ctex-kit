@@ -1,7 +1,7 @@
-# 决策: 不在 ctex 侧修复 cleveref appendix 语义问题
+# 决策：不在 ctex 侧修复 cleveref appendix 语义问题
 
-- 日期: 2026-04-24
-- 关联: Issue #725, PR #772, 分支 fix/725-cleveref-patch-toggle
+- 日期：2026-04-24
+- 关联：Issue #725、PR #772、分支 fix/725-cleveref-patch-toggle
 
 ## 上下文
 

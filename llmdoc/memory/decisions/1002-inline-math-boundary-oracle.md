@@ -79,7 +79,7 @@ post-transparent 探测零尺寸盒子时，marker 后还可能有一枚待检�
 - `command-boundary01` 的四个旧跳过已改为实际断言，总数为 1668，失败数为 0；
 - `command-boundary-math01` 在默认/可区分间距和 `xCJKecglue=false/true` 四种配置下执行 5504 次比较，失败数为 0；
 - 测试覆盖 `$x$`、`\(x\)`、`\ensuremath{x}`，以及 box、wrapped-box、stream、stream-ulem、独立符号、外层分组、CJK 前缀加直接或分组公式后缀、嵌套命令和离线 `\setbox`；新增的尾随空格矩阵覆盖盒子、字体、颜色、链接和 ulem，并检查后接 CJK、Default、另一个注册命令和显式 glue；反例还覆盖未知宏消费公式后只留下 CJK 与尾随空格的 box/ulem 路径；
-- `command-boundary-math05` 用带伸缩量的 `CJKecglue` 固定普通 stream 与冻结空格的节点契约，覆盖直接公式、box、wrapped-box、字体不同的 stream、嵌套 stream、嵌套 `\mbox` 和 ulem；另用比普通词间距更窄且不带伸缩量的 glue，确认冻结路径不会生成把后续文字拉进盒子或装饰范围的负间距；段落断言把 direct、box、wrapped-box、stream 和 stream-ulem 的自然宽度各缩短 1pt 后，五条路径的 badness 均为 12，证明 2pt 外层收缩量都可供段落装箱使用；颜色 special、零尺寸 hbox 和 `math-space + 7pt glue + \null` 用例还确认 marker 被隔开后应当过期并保持直接 oracle 的节点顺序，三项末节点类型分别为 9／1／1，宽度差均为 0，段宽 10pt、容差 100 时段落高度差也均为 0；
+- `command-boundary-math05` 用带伸缩量的 `CJKecglue` 固定普通 stream 与冻结空格的节点契约，覆盖直接公式、box、wrapped-box、字体不同的 stream、嵌套 stream、嵌套 `\mbox` 和 ulem；另用比普通词间距更窄且不带伸缩量的 glue，确认冻结路径不会生成把后续文字拉进盒子或装饰范围的负间距；段落断言把 direct、box、wrapped-box、stream 和 stream-ulem 的自然宽度各缩短 1pt 后，五条路径的 badness 均为 12，证明 2pt 外层收缩量都可供段落断行使用；颜色 special、零尺寸 hbox 和 `math-space + 7pt glue + \null` 用例还确认 marker 被隔开后应当过期并保持直接 oracle 的节点顺序，三项末节点类型分别为 9／1／1，宽度差均为 0，段宽 10pt、容差 100 时段落高度差也均为 0；
 - `loading01` 将 `math-space`／`math-space-frozen` marker，以及计算补偿所需的 skip 和尺寸（dim）寄存器纳入分配基线；当前 xeCJK 标准回归测试为 109／109 通过；
 - `gh-assets:issues/1002/` 的 `false-default`、`false-custom`、`true-default`、`true-custom` 四套矩阵均为 272／272；节点测试、宏包加载顺序、移动参数、对齐扫描器和只加载标准 `color` 的路径也通过。
 

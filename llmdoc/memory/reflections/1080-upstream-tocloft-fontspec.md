@@ -20,7 +20,7 @@ master 定时回归从 2026-08-17 起失败，四个用例红：`github472-03`�
 1. **`tocloft` 从 v2.3i（2017/08/31）跳到 v3.0a（2026-08-12）**，主版本号跳变。影响
    `github472-03/04`（仓库里唯一两个 `\usepackage{tocloft}` 的用例）。差异是每个页码后多出
    一对 `\kern -1.0` / `\kern 1.0`——净宽度为零、相邻立即抵消，八份 diff 各 4 行新增、0 行
-   删除，无任何非 kern 的新增行（LuaTeX 写作 `\kern-1.0` 无空格，形态相同）。
+   删除，无任何非 kern 的新增行（LuaTeX 写作 `\kern-1.0` 无空格，内容相同）。
 2. **`fontspec` 起不再显式加载 `xparse.sty`**。影响 `files01/02`——它们用 `\listfiles`
    固定加载文件清单，四份 diff 各只少一行 `xparse.sty`。pdfTeX／upTeX 不经 `fontspec`，所以
    不受影响，这正好解释了引擎分布。
@@ -68,7 +68,7 @@ artifact 恒为空（CI 报 `No files were found`，`gh run download` 得到
 `llmdoc` 里已有「上游宏包版本漂移的识别与基线处置」一节（#1048/#1050），判据是「会自愈的
 不刷、上游不会回退的必须刷」。本次两者都属后者（`tocloft` 是发布方主动的版本跳变、
 `fontspec` 是发布方主动改变依赖加载方式，都不是 TL 打包滞后的临时快照）。但额外做了一步值得
-固化的检查：**逐份核对 diff 的内容形态**——确认 `tocloft` 侧只有净宽为零的 kern 对、
+固化的检查：**逐份核对 diff 的具体内容**——确认 `tocloft` 侧只有净宽为零的 kern 对、
 `fontspec` 侧只有文件名行删除，没有节点丢失、也没有 ctex 的补丁失效迹象，才敢 save。
 
 教训：「上游不会回退」只回答了「要不要刷」，没回答「刷了会不会把上游的新缺陷冻结进基线」。
@@ -89,7 +89,7 @@ artifact 恒为空（CI 报 `No files were found`，`gh run download` 得到
 
 2. **诊断脚本不要用 `set -e` 也不要用进程替换。** 新增的 `Show test diffs` 步骤是纯诊断，
    任何一环失败都不该盖掉真正的测试失败，所以不设 `set -e`；`find` 无匹配时返回非零也用
-   `|| true` 兜住。另外 Windows 那条 matrix 用的是 `C:\msys64\usr\bin\bash.exe -e {0}`，为
+   `|| true` 处理掉。另外 Windows 那条 matrix 用的是 `C:\msys64\usr\bin\bash.exe -e {0}`，为
    避开 shell 差异，改用临时列表文件而不是 `< <(...)` 进程替换。
 
 3. **给用例补了「失败诊断说明」注释。** `files01/02` 与 `github472-03/04` 各加了一段注释，
@@ -108,7 +108,7 @@ artifact 恒为空（CI 报 `No files were found`，`gh run download` 得到
 以下一条建议追加到既有的「刷 `.tlg` 基线前先按上游根因分类」（Source: #1048/#1050）附近，
 作为该判据的补充步骤，不新开条目：
 
-- 判定「上游不会回退，必须刷」之后，还要逐份核对 diff 的内容形态（净宽为零的 kern、纯文件
+- 判定「上游不会回退，必须刷」之后，还要逐份核对 diff 的具体内容（净宽为零的 kern、纯文件
   名行增删是安全信号；节点缺失、数值变化则要先查本包补丁是否仍成立），否则会把上游的新
   缺陷一起冻结进基线。
 

@@ -16,7 +16,7 @@ hyperref 又增加了绑定维度。加载 hyperref 时，starred 引用使用�
 
 ## MWE 的说明层也会被系统修改
 
-第一版视觉 MWE 用 `\texttt{\detokenize{#1}}` 展示候选源码。它看似忠实打印 token，实际排版仍经过 xeCJK；CJK 邻接处的源码空格会被 xeCJK 处理，于是 `00/10/01/11` 四种写法在“源码”列里可能看起来相同。证据图因此无法让读者确认测试输入，哪怕测量盒本身完全正确。
+第一版视觉 MWE 用 `\texttt{\detokenize{#1}}` 展示候选源码。它看似忠实打印 token，实际排版仍经过 xeCJK；CJK 邻接处的源码空格会被 xeCJK 处理，于是 `00/10/01/11` 四种写法在“源码”列里可能看起来相同。证据图因此无法让读者确认测试输入，哪怕用于测量的盒子本身完全正确。
 
 修正后把两件事分开：每行直接标 `00/10/01/11`，候选源码则由 call-site `\verb*` 直接扫描并显示可见空格；真正参与 oracle/candidate 宽度比较的盒子保持原输入。由于 `\verb` 不能进入普通宏参数，harness 拆成 `\Compare` 启动 scanner、`\CompareResult` 在关闭分隔符后续接测量的两阶段调用。这揭示一条更一般的规则：测试报告的标签、源码转录和标尺不能再经过正在被测试的状态机，否则观察装置会抹掉要证明的差异。
 
@@ -38,5 +38,5 @@ v3.10.4 的无 hyperref 内核引用和 hyperref starred 引用矩阵已进入 `
 
 - 决策：`llmdoc/memory/decisions/991-setref-null-marker-replay.md`
 - 前置反思：`llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`
-- 生成物门禁：`llmdoc/memory/reflections/961-changelog-freshness-gate.md`
+- 生成物校验：`llmdoc/memory/reflections/961-changelog-freshness-gate.md`
 - Issues：#991、#992；PR #993

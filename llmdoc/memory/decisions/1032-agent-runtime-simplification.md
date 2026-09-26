@@ -28,7 +28,7 @@
 - **故障成本**：三层隔离在实践中三次让 Agent 完全无法启动，且每次修复都需要引入更复杂的机制（专用用户权限检查、预加载库、`env -i` 环境清空），复杂度本身持续制造新的失败面。
 - **收益边界**：隔离能防的是“模型密钥泄漏给仓库子进程”，不能防“Agent 消耗模型调用额度”或“Agent 被恶意 PR 诱导做出错误审查结论”——这些风险在有隔离和无隔离下都同样存在，隔离只覆盖了威胁面的一小部分。
 
-保留的边界改为纯权限隔离：只读 `GITHUB_TOKEN`、checkout 后移除凭据、publisher job 独占外部写权限、`pull_request_target` 的 base SHA 可信 checkout、Claude 的 `--bare`。这些边界成本低、故障历史干净，且已被本轮验证（Agent 环境损坏时 `review_status: INCOMPLETE` 被门禁正确拒收）。
+保留的边界改为纯权限隔离：只读 `GITHUB_TOKEN`、checkout 后移除凭据、publisher job 独占外部写权限、`pull_request_target` 的 base SHA 可信 checkout、Claude 的 `--bare`。这些边界成本低、故障历史干净，且已被本轮验证（Agent 环境损坏时 `review_status: INCOMPLETE` 被校验正确拒绝）。
 
 ## 已接受的风险
 

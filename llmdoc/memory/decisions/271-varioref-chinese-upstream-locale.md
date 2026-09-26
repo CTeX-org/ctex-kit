@@ -80,4 +80,4 @@ Issue #271 请求 `ctex` 为 `varioref` 宏包提供中文本地化字符串，�
 
 1. 等待 `latex2e#2071` 合并。
 2. 上游合并后，评估 `ctex` 是否需要在加载 `varioref` 时自动激活 `chinese` option。
-3. 若上游方案最终落地，关闭 Issue #271。
+3. 若上游方案最终合入，关闭 Issue #271。

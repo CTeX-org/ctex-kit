@@ -42,7 +42,7 @@ docstrip 守卫限定在 `%<*pdftex|xetex>` 里，LuaTeX 与 upTeX 都没有它�
 `%<pdftex|xetex>\ctex_at_end:n { \cs_new_eq:NN \@@_ccglue: \CJKglue }` 未动——
 `\@@_ccglue:` 只是 pdftex/xetex 那套守卫实现的比较对象，与 LuaTeX/upTeX 的实现无关。
 
-效果：LuaTeX 与 upTeX 下用户设置保住；未设置时仍随字号更新（实测
+效果：LuaTeX 与 upTeX 下用户设置得以保留；未设置时仍随字号更新（实测
 0.60931 → 2.89365 → 0.60931）；xetex/pdftex 行为不变（实测）。
 
 ## 核心教训：报告只提了 LuaTeX，实际 upTeX 也坏

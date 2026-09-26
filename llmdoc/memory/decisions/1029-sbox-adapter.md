@@ -35,19 +35,19 @@ algorithm2e 的触发路径：`\algocf@makecaption@ruled` 用 `\global\sbox\algo
 ## 受影响命令范围
 
 - `\sbox`、`\savebox`（四种形式，含 picture 形式）：内部入口 `sbox `，本次直接修复。
-- 理论上任何「命令本体自身是赋值语句」的命令都会踩同一坑，不限于取盒子相关的命令；但当前 xeCJK 内部注册的命令里，只有 `\sbox`／`\savebox` 属于这一类。
+- 理论上任何「命令本体自身是赋值语句」的命令都会遇到同一个问题，不限于取盒子相关的命令；但当前 xeCJK 内部注册的命令里，只有 `\sbox`／`\savebox` 属于这一类。
 
 ## 用户接口 `experiment/boundary-register` 的同类风险
 
-`experiment/boundary-register` 的 `command` 策略允许用户把任意控制序列交给通用命令钩子注册。如果用户注册的目标命令本体也是赋值语句（例如用户自己包装的另一个取盒子宏），会复现同一坑：钩子里的赋值消耗掉调用方的 `\global`／`\long` 前缀，且不产生任何诊断。
+`experiment/boundary-register` 的 `command` 策略允许用户把任意控制序列交给通用命令钩子注册。如果用户注册的目标命令本体也是赋值语句（例如用户自己包装的另一个取盒子宏），会复现同一个问题：钩子里的赋值消耗掉调用方的 `\global`／`\long` 前缀，且不产生任何诊断。
 
 已在 `xeCJK/xeCJK.dtx` 用户手册 `experiment/boundary-register` 选项说明处补充一段警告，提醒命令本体即赋值语句时不能用通用注册，需要用户自己实现专用适配器。接口本身没有新增检测机制去自动拒绝这类注册——通用钩子无法在注册时判断目标命令是否是赋值语句，也无法探测钩子内容是否含赋值；这是文档层警告而非代码层防护。
 
 ## 验证
 
 - 新增回归 `xeCJK/testfiles/boundary-sbox-global01.lvt/.tlg`（6 项，各项使用独立的 savebox——共用一个盒子时前一项留下的全局值会被后一项读到，测试看似通过却没有断言任何东西）：
-  - `\global\sbox` 跨分组保住内容（21.8pt）；
-  - 直接对内部入口 `\csname sbox \endcsname` 加 `\global` 也保住内容（57.85pt），单独固定适配器的前缀透明性；
+  - `\global\sbox` 跨分组保留内容（21.8pt）；
+  - 直接对内部入口 `\csname sbox \endcsname` 加 `\global` 也保留内容（57.85pt），单独固定适配器的前缀透明性；
   - `\global\savebox` 跨分组**仍为** `0.0pt`，把上游既有限制一并固定，避免日后误判为本包回归；
   - 不带 `\global` 的普通 `\sbox` 仍是局部赋值；
   - 嵌套 `\sbox` 场景显式打印 `\g_@@_boundary_suspend_depth_int`（前后均为 0）；只报盒子尺寸发现不了深度泄漏；

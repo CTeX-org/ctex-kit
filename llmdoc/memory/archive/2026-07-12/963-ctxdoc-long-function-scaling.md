@@ -14,9 +14,9 @@
 
 ## 上游兼容边界
 
-最终实现完整重定义 l3doc 私有函数，因此把依赖收敛到 l3doc 2026-06-18：`\LoadClass` 声明该最低日期，随后用 `\@ifclasslater` 再做硬门禁，失败时复用 `\ctex_patch_failure:N` 的 critical 路径。源码注释同时列出重定义依赖的六个 l3doc 私有接口，供升级时核对。
+最终实现完整重定义 l3doc 私有函数，因此把依赖收敛到 l3doc 2026-06-18：`\LoadClass` 声明该最低日期，随后用 `\@ifclasslater` 再做一次硬性版本检查，失败时复用 `\ctex_patch_failure:N` 的 critical 路径。源码注释同时列出重定义依赖的六个 l3doc 私有接口，供升级时核对。
 
-版本门禁自身也经过两轮审查修正：一次把 expl3 命令放进 `\ExplSyntaxOff` 区域，导致失败分支会按错误 catcode 分词；另一次条件分支在整理时丢失，使 critical 路径无条件触发并令全部文档构建失败。最终顺序固定为先进入 expl3 语法、声明消息并定义 `\ctex_patch_failure:N`，再执行 `\@ifclasslater`，最后退出 expl3 语法。版本门禁必须用旧版本和正常版本两条路径审查，不能只验证 happy path。
+版本检查自身也经过两轮审查修正：一次把 expl3 命令放进 `\ExplSyntaxOff` 区域，导致失败分支会按错误 catcode 分词；另一次条件分支在整理时丢失，使 critical 路径无条件触发并令全部文档构建失败。最终顺序固定为先进入 expl3 语法、声明消息并定义 `\ctex_patch_failure:N`，再执行 `\@ifclasslater`，最后退出 expl3 语法。版本检查必须用旧版本和正常版本两条路径审查，不能只验证 happy path。
 
 ## Review 循环中的语义校验
 
@@ -24,10 +24,10 @@
 
 ## 测试策略
 
-`ctex/test/testfiles-ctxdoc/resize-function.lvt` 在现有 `config-ctxdoc` 专项配置下使用 `\loggingoutput` 比较节点结构，覆盖 Added 日期、rEXP、pTF 与不同长度函数名。它与 `patch-health.lvt` 分工：前者守排版结构，后者守类加载及 patch 硬失败。
+`ctex/test/testfiles-ctxdoc/resize-function.lvt` 在现有 `config-ctxdoc` 专项配置下使用 `\loggingoutput` 比较节点结构，覆盖 Added 日期、rEXP、pTF 与不同长度函数名。它与 `patch-health.lvt` 分工：前者检查排版结构，后者检查类加载及 patch 硬失败。
 
 ## 可复用教训
 
 - 修复复合排版对象时，应先找到最窄的可变子对象；缩放整个父 coffin 容易连带改变日期、标签等稳定元素。
-- 完整覆盖上游私有宏时，源码对标日期、最低版本门禁、依赖接口清单和专项回归必须一起维护。
+- 完整覆盖上游私有宏时，源码对标日期、最低版本检查、依赖接口清单和专项回归必须一起维护。
 - 自动审查对底层接口语义的判断需要用官方接口文档或最小实验复核；连续增量审查也要覆盖失败分支，避免 catcode 和条件丢失只在异常路径暴露。

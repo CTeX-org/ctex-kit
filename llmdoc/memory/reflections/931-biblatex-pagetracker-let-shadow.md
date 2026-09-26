@@ -11,7 +11,7 @@ metadata:
 
 修复 xeCJK issue #931：中文参考文献条目首字符前多出一段空白。zepinglee 提供的 minimal repro（`biblatex` + `authoryear` style + `biber` backend）显示 `张伯伟 2002` 里 `张` 前有多余 `\CJKecglue`，二分定位到 xeCJK 的 `0118358a`（PR #315 全局 whatsit 恢复链）。
 
-修复落地为 `xeCJK.dtx` 中新增 `\@@_patch_biblatex_pagetracker:` 段（补丁点选 `\blx@pagetracker`，hook 时机 `\@@_at_end_preamble:n`），语义为清空 `\g_@@_last_node_tl` 而非补/drain ecglue；新增回归测试 `xeCJK/testfiles/biblatex-ecglue01.lvt`。`xeCJK l3build check` 88/88 全绿。
+最终的修复是在 `xeCJK.dtx` 中新增 `\@@_patch_biblatex_pagetracker:` 段（补丁点选 `\blx@pagetracker`，hook 时机 `\@@_at_end_preamble:n`），语义为清空 `\g_@@_last_node_tl` 而非补/drain ecglue；新增回归测试 `xeCJK/testfiles/biblatex-ecglue01.lvt`。`xeCJK l3build check` 88/88 全绿。
 
 ## Expected vs Actual
 
@@ -21,10 +21,10 @@ metadata:
 
 ## What Went Wrong
 
-1. **误把 `\let` 当符号引用**。直觉上把 `\let\A\B` 看成"以后 `\A` 都跳去 `\B`"，其实 TeX 里是**值传递**——`\A` 冻结到执行 `\let` 那一刻 `\B` 的 meaning，后续再改 `\B` 不影响 `\A`。这是 TeX 补丁最经典的时序陷阱之一，本次踩中的形态是"biblatex 的 pagetracker 用 `\let` 把可选行为绑定成硬拷贝"。同型陷阱在 hyperref / listings 等宏包里也常见（`\let\originalCS\somecommand` 保存旧定义再重定义 `\somecommand`，patch 挂在 `\somecommand` 上就不会生效）。
+1. **误把 `\let` 当符号引用**。直觉上把 `\let\A\B` 看成"以后 `\A` 都跳去 `\B`"，其实 TeX 里是**值传递**——`\A` 冻结到执行 `\let` 那一刻 `\B` 的 meaning，后续再改 `\B` 不影响 `\A`。这是 TeX 补丁最经典的时序陷阱之一，本次踩中的情况是"biblatex 的 pagetracker 用 `\let` 把可选行为绑定成硬拷贝"。同型陷阱在 hyperref / listings 等宏包里也常见（`\let\originalCS\somecommand` 保存旧定义再重定义 `\somecommand`，patch 挂在 `\somecommand` 上就不会生效）。
 2. **hook 时机与包内部延迟展开的耦合没排查**。`\@@_package_hook:nn { biblatex }` 展开为 `\ctex_at_end_package:nn { biblatex }`，即 `package/biblatex/after` LaTeX3 hook——它 fire 时机是**包主 `.sty` 执行完**，但 biblatex 的 style 加载（`\RequireBibliographyStyle{\blx@bbxfile}` at biblatex.sty L16439）**在 `.sty` 内部**发生，也就是 hook fire 之前 `.bbx` 已经加载并跑了 `\ExecuteBibliographyOptions`。事前没想到"包主 sty 加载内部会 require 一系列 style 且立即 exec options"这种嵌套 mount 模型。
 3. **诊断第一步做错了 grep 方向**。看到多余 ecglue 就直接扫源码里 `abx@aux@page`——找到 `\blx@pagetracker@context`（write 的宿主）就当成 hook 点，没进一步查"这个 context 函数是**谁**调用"。正确顺序应该是从 `\blx@bibitem` 逆推：`\blx@bibitem` 调 `\blx@pagetracker` → grep 才发现 `\let\blx@pagetracker\blx@pagetracker@context`。走反了 grep 方向浪费了一次全 build + run 的迭代（xeCJK unpack + biber + xelatex ×3 大约 15s，本次多试一轮）。
-4. **首次 unpack 后没确认 sty 时间戳与 dtx 一致**。改完 dtx 直接 xelatex 跑，看到多余 ecglue 还在时以为 patch 逻辑不对，实际是 `xeCJK.sty` 还是旧的（dtx 10:04、sty 10:02）。这次是靠"文件加载对不对？历史上好几次搞错了版本来着"的人肉纠错才发现。已有 memory 里没记录这条硬约束（`dtx` 改完必须 `l3build unpack` + 显式检查 sty mtime）。
+4. **首次 unpack 后没确认 sty 时间戳与 dtx 一致**。改完 dtx 直接 xelatex 跑，看到多余 ecglue 还在时以为 patch 逻辑不对，实际是 `xeCJK.sty` 还是旧的（dtx 10:04、sty 10:02）。这次是靠"文件加载对不对？历史上好几次搞错了版本来着"的人工纠错才发现。已有 memory 里没记录这条硬约束（`dtx` 改完必须 `l3build unpack` + 显式检查 sty mtime）。
 
 ## Root Cause
 
@@ -34,7 +34,7 @@ metadata:
 
 ## Missing Docs or Signals
 
-- 架构文档 `xecjk-architecture.md` 的"边界恢复修复点选择矩阵"目前只覆盖两个维度：遮蔽节点类型 + 调用方扫描语义。需要追加第三个维度：**目标控制序列的绑定形态**（普通 `\def` vs `\let` 拷贝目标）。
+- 架构文档 `xecjk-architecture.md` 的"边界恢复修复点选择矩阵"目前只覆盖两个维度：遮蔽节点类型 + 调用方扫描语义。需要追加第三个维度：**目标控制序列的绑定方式**（普通 `\def` vs `\let` 拷贝目标）。
 - 缺少 xeCJK hook 三档时机的对照表：（1）fire 时机相对 `\usepackage` 展开的先后；（2）能否捕获"包内部 nested `\Require*Style` 加载"；（3）能否捕获"包内部选项立即 `\let` 绑定"。
 - `dtx` 改完后**必须** `l3build unpack` 才能重跑测试的硬约束，`reference/build-and-test.md` 里没写清楚"改 dtx 后跑测试的强制两步流程"。这条踩过好几次（本次是"改完直接跑"，靠 mtime 对比才自救），值得提升到 reference。
 
@@ -42,9 +42,9 @@ metadata:
 
 适合提升到 `architecture/xecjk-architecture.md`（修复点选择矩阵段的双维度后追加）：
 
-- **补丁点选择的第三维度——目标控制序列的绑定形态**：
+- **补丁点选择的第三维度——目标控制序列的绑定方式**：
 
-  | 绑定形态 | 例子 | 补丁点必须选 | Hook 时机 |
+  | 绑定方式 | 例子 | 补丁点必须选 | Hook 时机 |
   |---|---|---|---|
   | 普通 `\def` / `\protected\def` | `\Url@FormatString` (#880)、`\HD@target` (#873)、`\Hy@BeginAnnot` (#809/#810) | 该 `\def` 本身 | `\@@_package_hook:nn` 或更晚 |
   | `\let` 拷贝目标（选项驱动的行为绑定） | `\blx@pagetracker` (#931) | **\let 目标**（不是 \let 源） | **必须** `\@@_at_end_preamble:n` 或 `\@@_after_preamble:n`，等 \let 执行完 |

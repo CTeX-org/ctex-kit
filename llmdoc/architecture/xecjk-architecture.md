@@ -91,11 +91,11 @@ xeCJK 在导言区结束时比较 XeTeX allocator 与自身已登记类，发现
 
 这是一层兼容机制，不是“任意类继承任意模板”的公开 API。#336 的 URL 场景只需在导言区结束前定义 slash class 与 `slash → Default` 的断行 action，CJK 方向会自动派生；若到正文期才赋 transition，已经错过传播时机。调查既要检查现有能力，也要验证加载顺序：旧 MWE 中手写的五行内部转换不是概念上必需，但在其原始正文期赋值顺序下确实无法被导言区末尾机制看到。决策见 [[../memory/decisions/336-external-interchar-class-others]]。
 
-### 逐字符装盒变换不是局部可加的 class hook（#347）
+### 逐字符装进盒子的变换不是局部可加的 class hook（#347）
 
-#347 的 plain XeTeX 原型证明 interchar transition 可以开盒、捕获字符并交给旋转或基线移动函数；迁移到 xeCJK 后，所有可能离开特殊类的边界都必须闭合盒子，包括同类→同类与特殊类→`FullRight` 等路径。只实现 `CJK`/`Boundary` 两侧会把相邻同类字符合进一个盒子，并在后接全角标点时留下未闭合分组。
+#347 的 plain XeTeX 原型证明 interchar transition 可以打开盒子、捕获字符并交给旋转或基线移动函数；迁移到 xeCJK 后，所有可能离开特殊类的边界都必须闭合盒子，包括同类→同类与特殊类→`FullRight` 等路径。只实现 `CJK`/`Boundary` 两侧会把相邻同类字符合进一个盒子，并在后接全角标点时留下未闭合分组。
 
-更根本的边界是处理单位：逐 code point 装盒会切断 IVS、Hangul Jamo 和其他 OpenType shaping 序列，hbox 还会遮蔽基于 `\lastkern` 的边界标记。该原型不在当前状态机上产品化；若未来整体重构输入、fallback、标点和节点生成，应把“捕获 shaping 后的字形簇并统一变换”作为正式流水线阶段，而不是继续补 class pair。决策见 [[../memory/decisions/347-boxed-glyph-transform-prototype]]。
+更根本的边界是处理单位：逐个 code point 装进盒子会切断 IVS、Hangul Jamo 和其他 OpenType shaping 序列，hbox 还会遮蔽基于 `\lastkern` 的边界标记。该原型不在当前状态机上产品化；若未来整体重构输入、fallback、标点和节点生成，应把“捕获 shaping 后的字形簇并统一变换”作为正式流水线阶段，而不是继续补 class pair。决策见 [[../memory/decisions/347-boxed-glyph-transform-prototype]]。
 
 ### CJK→Boundary handler（`\xeCJK_CJK_and_Boundary:w`）
 
@@ -184,38 +184,38 @@ Boundary→Default 方向由 `\@@_recover_ecglue_source_space:` 暂时移除末�
 
 post-transparent 还要处理 marker 与零尺寸盒子之间已有一枚待检查 glue 的情况，例如 `\textnormal{$x$ }\hskip7pt\null`。探测过程会暂时取下 7pt glue 才看到 `math-space`；marker 过期时必须先把这枚 glue 放回，再放回 `\null`，保留直接 oracle 的“真实空格、显式 glue、零尺寸盒子”顺序。其他 marker 不受这一例外影响，仍沿用 #1003 的“盒子、marker、glue”后移顺序。
 
-这枚候选 glue 还必须是有限阶：`\@@_boundary_post_transparent_relocate_glue:` 搬运「marker + 候选 glue」后缀前先用 `\skip_if_finite:nTF` 判断，`\hfill`／`\hfil` 这类无限阶（fil/fill）填充 glue 一律排除、不参与搬运，直接把零尺寸盒子放回原位，保持 marker、glue、盒子的原有相邻顺序（#1085）。这与上一段的 math-space 例外是两个独立维度：那一条管 marker 与零尺寸盒子之间“已有 glue”时的相邻关系判断，这一条管候选 glue 本身的伸缩阶数；门控不能收紧成下文「右侧源码空格的机制边界」一节 `\@@_skip_if_interword:N` 那样的 finite+shrink+等宽词间空格判据，否则会误伤本节上面 math-space 场景里无 shrink 的显式 `\hskip`。详见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
+这枚候选 glue 还必须是有限阶：`\@@_boundary_post_transparent_relocate_glue:` 搬运「marker + 候选 glue」后缀前先用 `\skip_if_finite:nTF` 判断，`\hfill`／`\hfil` 这类无限阶（fil/fill）填充 glue 一律排除、不参与搬运，直接把零尺寸盒子放回原位，保持 marker、glue、盒子的原有相邻顺序（#1085）。这与上一段的 math-space 例外是两个独立维度：那一条管 marker 与零尺寸盒子之间“已有 glue”时的相邻关系判断，这一条管候选 glue 本身的伸缩阶数；这项判断不能收紧成下文「右侧源码空格的机制边界」一节 `\@@_skip_if_interword:N` 那样的 finite+shrink+等宽词间空格判据，否则会误伤本节上面 math-space 场景里无 shrink 的显式 `\hskip`。详见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
 
 ### ulem 集成层的正文必须以字面记号留在替换文本里（#1026）
 
-`\UL@on` / `\UL@onin` 把正文交给 `ulem` 之前，正文的展开方式本身是一条独立于上面 `math-space` 逻辑的约束：`ulem` 自己扫描正文，按源码空格把它切成固定宽度的装饰片段盒（每个片段各自一个盒子）。正文只要经过宏参数间接展开，西文词右侧由边界恢复链补出的 `\CJKecglue` 就会落在片段盒**内部**，其收缩量被盒子固化，无法参与外层段落的断行决策；行尾因此可能溢出右边距。
+`\UL@on` / `\UL@onin` 把正文交给 `ulem` 之前，正文的展开方式本身是一条独立于上面 `math-space` 逻辑的约束：`ulem` 自己扫描正文，按源码空格把它切成固定宽度的装饰片段盒子（每个片段各自一个盒子）。正文只要经过宏参数间接展开，西文词右侧由边界恢复链补出的 `\CJKecglue` 就会落在片段盒子**内部**，其收缩量被盒子固化，无法参与外层段落的断行决策；行尾因此可能溢出右边距。
 
 因此 `\UL@on` / `\UL@onin` 先用 `\@@_boundary_if_ulem_math_reorder:nTF` 判断正文语法：只有当正文以“公式尾＋尾随源码空格”结尾时（即 #1002 需要重排空格才能让确认代码看到公式节点的那一种情况），才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排正文；其余全部情况都保持 `\xeCJK_ulem_left: #1` 的字面展开，把原样的 `#1` 直接留在 `\UL@on` 的替换文本里。原先统一处理两种情况的 `\@@_boundary_ulem_math_body:n` 已被这两个函数取代。
 
 重排路径本身也受同一条约束。它起初仍把正文交给辅助宏的参数，于是在这条路径上完整保留了同一个缺陷：正文只要既含西文词、又以“公式＋尾随空格”结尾，实测溢出量与修复前相同。现在改为先把去掉尾随空格的正文与两端固定记号拼进 `\l_@@_ulem_body_tl`，再用 `\exp_args:NV` 一次展开到 `ulem` 的参数位置，使记号与直接书写 `#1` 等价；`\tl_use:N` 会让正文晚一层展开，不能替代。两端的 `\xeCJK_ulem_left:`／`\xeCJK_ulem_right:` 只有 `\UL@on` 需要，因此由拼装函数作为前后缀参数接收。
 
-两者的分工边界：#1002 的 `math-space`／`math-space-frozen` 解决的是“确认末尾公式候选时空格暂时遮住公式节点”这一种局部重排需求；本节的字面记号约束是更基础的默认规则——`ulem`／`xeCJKfntef` 等自行扫描正文并切片装盒的机制，只应对正文使用字面记号，确需重排某种特殊语法时，重排本身也必须把正文以字面记号送进参数位置。
+两者的分工边界：#1002 的 `math-space`／`math-space-frozen` 解决的是“确认末尾公式候选时空格暂时遮住公式节点”这一种局部重排需求；本节的字面记号约束是更基础的默认规则——`ulem`／`xeCJKfntef` 等自行扫描正文、切片并装进盒子的机制，只应对正文使用字面记号，确需重排某种特殊语法时，重排本身也必须把正文以字面记号送进参数位置。
 
-已接受的既有限制（不在 #1026 修复范围）：调用处把正文写成宏再传入，例如 `\CJKunderline{\BODY}`，收缩量同样进不了外层——宏体在 `ulem` 扫描期间才展开，触发的是同一条“正文经间接展开→收缩量固化在片段盒内”的机制，但成因是用户写法而不是替换文本本身。实测发布版本（系统 TeX Live）对这种写法同样得到修复前的溢出宽度，说明它是发布版就有的既有限制而非本次回归，不在修复范围内。
+已接受的既有限制（不在 #1026 修复范围）：调用处把正文写成宏再传入，例如 `\CJKunderline{\BODY}`，收缩量同样进不了外层——宏体在 `ulem` 扫描期间才展开，触发的是同一条“正文经间接展开→收缩量固化在片段盒子内部”的机制，但成因是用户写法而不是替换文本本身。实测发布版本（系统 TeX Live）对这种写法同样得到修复前的溢出宽度，说明它是发布版就有的既有限制而非本次回归，不在修复范围内。
 
 ### 西文词前的 ecglue 需要可搬运通道（#1037）
 
-“收缩量固化在片段盒内”这条机制在西文词的**两侧各有一处**，#1026 只修了词后那半，词前那半直到 #1037 才修；两者的成因不同，修法也不同。
+“收缩量固化在片段盒子内部”这条机制在西文词的**两侧各有一处**，#1026 只修了词后那半，词前那半直到 #1037 才修；两者的成因不同，修法也不同。
 
-词前的路径与正文展开方式无关，即使正文是字面记号也会发生：`\@@_ulem_CJK_and_Boundary:w` 用 `\xeCJK_peek_catcode_ignore_spaces:NTF` 前视时吃掉了源码空格，随后 `\@@_ulem_group_end:n` 依次执行 `\UL@stop`（关闭并输出上一个片段盒）与 `\UL@start`（打开新盒），于是 `CJK-space` marker 落在**新盒内部**。等到西文字符触发 Boundary→Default 转换时，`\@@_check_for_ecglue_aux:` 在该 marker 处补出 ecglue，这枚 glue 也就固化在盒内。
+词前的路径与正文展开方式无关，即使正文是字面记号也会发生：`\@@_ulem_CJK_and_Boundary:w` 用 `\xeCJK_peek_catcode_ignore_spaces:NTF` 前视时吃掉了源码空格，随后 `\@@_ulem_group_end:n` 依次执行 `\UL@stop`（关闭并输出上一个片段盒子）与 `\UL@start`（新开一个盒子），于是 `CJK-space` marker 落在**新盒子内部**。等到西文字符触发 Boundary→Default 转换时，`\@@_check_for_ecglue_aux:` 在该 marker 处补出 ecglue，这枚 glue 也就固化在盒子内部。
 
 注意这条路径不经过 `\CJKecglue`：它直接 `\skip_horizontal:N \l_@@_ecglue_skip`，而 ulem 钩子只重定义 `\CJKecglue`，所以 `\@@_ulem_glue:n` / `\xeCJK_ulem_hskip:n` 一族全部被绕过。没有源码空格时（`虚室hello`）走的才是 `\CJKecglue`，因而本来就落在外层、对称无恙。
 
-修法是把这两处（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）改成经入口 `\@@_use_ecglue_skip:` 输出。该入口在 `xeCJK` 主体里的默认实现就是原来的 `\skip_horizontal:N`，由 `xeCJKfntef` 加载时改写为「先判断装饰 stream 是否活动，活动才经 `\@@_ulem_glue:n` 输出」——后者先 `\UL@stop` 关盒、把间距画成外层列表上的 `\leaders`、再 `\UL@start` 开新盒，收缩量因此回到行上。
+修法是把这两处（`CJK`/`CJK-widow` 分支与 `CJK-space` 分支）改成经入口 `\@@_use_ecglue_skip:` 输出。该入口在 `xeCJK` 主体里的默认实现就是原来的 `\skip_horizontal:N`，由 `xeCJKfntef` 加载时改写为「先判断装饰 stream 是否活动，活动才经 `\@@_ulem_glue:n` 输出」——后者先用 `\UL@stop` 关闭盒子、把间距画成外层列表上的 `\leaders`、再用 `\UL@start` 新开一个盒子，收缩量因此回到行上。
 
 三个实现约束：
 
-- **改写必须自己判断是否在装饰中，不能只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`。** 那个守卫的判据只是 `\ ` 的含义是否等于 `ulem` 保存的 `\LA@space`：它能识别 `ulem` 自己造成的变化，却无法区分「不在装饰中」与「在装饰外但 `\ ` 被别的宏包改过定义」。因为 `\@@_check_for_ecglue_aux:` 是所有中西文边界都会走的通用路径，一旦在装饰外取到真分支，就会在没有 `\UL@box` 打开的列表里执行 `\UL@stop`，报 `Too many }'s`；`nath`、`morehype` 等重定义 `\ ` 的宏包会让**不含任何装饰命令**的 `中 abc 文` 直接报错。改写因此先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假。**但该布尔单独还不够**：行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走 `\@@_ulem_end:`，所以同一个公式内装饰命令之后布尔仍为真、而片段盒其实已经关闭；此时再叠加 `\ ` 被重定义，仍会执行悬空的 `\UL@stop`（`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath`）。因此守卫是两个条件的合取：布尔为真**且** `\UL@start` 已被 `\let` 成 `\@empty`（后者表示片段盒确实打开；`\@@_ulem_exp_stop:w` 已用同一判断）。实测三点区分：文档层 `f/f`、装饰内 `T/T`、公式内装饰命令之后 `T/f`——只有第三种会被布尔单独判断漏掉。这条区别在 `base` 上不成立是因为 `\@@_ulem_glue:n` 原先只挂在装饰内部**局部**重定义的 `\CJKglue`／`\CJKecglue` 上，作用域随分组失效；接到全局有效的通用路径后，弱守卫才变成可触发的缺陷。
+- **改写必须自己判断是否在装饰中，不能只依赖 `\@@_ulem_glue:n` 自带的 `\xeCJK_if_ulem_patch:TF`。** 那个守卫的判据只是 `\ ` 的含义是否等于 `ulem` 保存的 `\LA@space`：它能识别 `ulem` 自己造成的变化，却无法区分「不在装饰中」与「在装饰外但 `\ ` 被别的宏包改过定义」。因为 `\@@_check_for_ecglue_aux:` 是所有中西文边界都会走的通用路径，一旦在装饰外取到真分支，就会在没有 `\UL@box` 打开的列表里执行 `\UL@stop`，报 `Too many }'s`；`nath`、`morehype` 等重定义 `\ ` 的宏包会让**不含任何装饰命令**的 `中 abc 文` 直接报错。改写因此先测 `\l_@@_ulem_stream_started_bool`——它由 `\@@_ulem_stream_begin:` 置真、`\@@_ulem_end:` 置假。**但该布尔单独还不够**：行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走 `\@@_ulem_end:`，所以同一个公式内装饰命令之后布尔仍为真、而片段盒子其实已经关闭；此时再叠加 `\ ` 被重定义，仍会执行悬空的 `\UL@stop`（`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath`）。因此守卫是两个条件的合取：布尔为真**且** `\UL@start` 已被 `\let` 成 `\@empty`（后者表示片段盒子确实处于打开状态；`\@@_ulem_exp_stop:w` 已用同一判断）。实测三点区分：文档层 `f/f`、装饰内 `T/T`、公式内装饰命令之后 `T/f`——只有第三种会被布尔单独判断漏掉。这条区别在 `base` 上不成立是因为 `\@@_ulem_glue:n` 原先只挂在装饰内部**局部**重定义的 `\CJKglue`／`\CJKecglue` 上，作用域随分组失效；接到全局有效的通用路径后，弱守卫才变成可触发的缺陷。
 
 - 默认实现必须留在主体、改写放在 `xeCJKfntef`。`\@@_check_for_ecglue_aux:` 是所有 CJK-西文边界都走的通用路径，而 `\@@_ulem_glue:n` 定义在 `xeCJKfntef` 里；在主体直接引用它会让不加载该子包的普通文档报 `Undefined control sequence`。
 - 不能改用 `\@@_boundary_use_ulem_glue:n`。它放的是裸 glue，节点深度上同样把收缩量搬到外层，但不画装饰线，会在西文词前留下可见空隙（300dpi 实测断开 7px）。
 
-按深度统计同一段落的 1.11pt ecglue（`depth>=3` 为盒内、`depth2` 为行上可用）：#1026 缺陷版 16／0，发布版 v3.10.3 与只修词后时同为 8／6，两半都修好后 0／14。
+按深度统计同一段落的 1.11pt ecglue（`depth>=3` 为盒子内部、`depth2` 为行上可用）：#1026 缺陷版 16／0，发布版 v3.10.3 与只修词后时同为 8／6，两半都修好后 0／14。
 
 ### 同一根因共四处补 ecglue 的地方（#1037）
 
@@ -228,26 +228,26 @@ Boundary→Default 恢复链上补词前 ecglue 的地方不止一处，四处�
 | `\@@_check_for_glue_auxi:` 的 `default`／`math` 分支 | 西文词被字体／颜色声明隔开（`虚室 \color{red}hello`），或被 `\mbox` 等包住 |
 | `\xeCJK_check_for_glue:` 的 `\@@_if_last_math:` 真分支 | 公式紧接 CJK、中间无源码空格（`$x$中文`） |
 
-这四处是用「直接在每个裸调用行插桩、以 31 种装饰形态编译」的方式穷举出来的。**不要用「包装函数入口」的探针**：它不区分分支，会把 `\xeCJK_check_for_glue:` 的 math 分支误判为不可达（本任务正是这样漏掉了它，由第四轮盲审指出）。其余 10 处裸 `\skip_horizontal:N` 在同一实测中一次都没执行，可以保留。
+这四处是用「直接在每个裸调用行插桩、以 31 种装饰写法编译」的方式穷举出来的。**不要用「包装函数入口」的探针**：它不区分分支，会把 `\xeCJK_check_for_glue:` 的 math 分支误判为不可达（本任务正是这样漏掉了它，由第四轮盲审指出）。其余 10 处裸 `\skip_horizontal:N` 在同一实测中一次都没执行，可以保留。
 
 ### 显式分组包住西文词的收缩量（#1067，已修复）
 
 `\CJKunderline{虚室 {hello} 生白}` 与 `\textbf{hello}` 这类写法，花括号是在词内容交给
-`\UL@start` 之后、在片段盒**内部**才展开成分组的（实测两种写法切出的片段盒数量相同，
-`ulem` 的切分点不受花括号影响）。边界检测因此在盒内、且在用户分组内触发；`\@@_ulem_glue:n`
+`\UL@start` 之后、在片段盒子**内部**才展开成分组的（实测两种写法切出的片段盒子数量相同，
+`ulem` 的切分点不受花括号影响）。边界检测因此在盒子内部、且在用户分组内触发；`\@@_ulem_glue:n`
 的 group tag 守卫比对保存的 `\l_@@_group_tag_tl`（`T1L4`）与当前的 `\c_@@_group_tag_tl`
 （`T1L5`）不相等，走 else 分支——这一步是直接原因。
 
 绕过守卫（无条件走 `\UL@stop … \UL@start`）也解决不了：实测搬出来的 glue 落进
-`\cleaders` 内部，仍在盒内——`ulem` 开盒时开了两层，用户花括号插在中间，用户分组内的
+`\cleaders` 内部，仍在盒子内部——`ulem` 打开盒子时开了两层，用户花括号插在中间，用户分组内的
 `\UL@stop` 关不掉正确层级，`\UL@start` 重开的盒子又把它包了回去；而且绕过守卫会让分组内
 字体设置丢失（`fntef-font01` 失败）。「守卫是直接原因」与「绕过守卫这个具体修法无效」
 两件事同时成立——不能从后者推出守卫与问题无关，这两个命题各自需要独立证据。
 
 修法（`\@@_ulem_defer_glue:n` / `\@@_ulem_flush_pending_shrink:`）不动守卫本身，而是把
-else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住自然宽度（排版位置与盒宽不变），
+else 分支的间距拆成两半输出：盒子内部放不可伸缩的 `kern` 占住自然宽度（排版位置与盒子宽度不变），
 伸缩量记进全局 `\g_@@_ulem_pending_shrink_skip`，到 `\@@_ulem_loop:nw` 的词尾搬运处
-（已在片段盒外、用户分组外）再补一个零宽带伸缩的 glue。自然宽度为零的间距（如 `\CJKglue`
+（已在片段盒子外、用户分组外）再补一个零宽带伸缩的 glue。自然宽度为零的间距（如 `\CJKglue`
 的 `0pt plus 0.96`，只有伸长没有收缩）必须短路直接输出，否则换成 `kern` 会连伸长量丢掉。
 记账是全局量，`\@@_ulem_end:` 在装饰结束时清零，避免串到下一次装饰。
 
@@ -264,7 +264,7 @@ else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住�
 3. 启动一层 capture；Boundary↔CJK 的 interchar transition 会通过 `\@@_boundary_capture_class:n` 把实际 `CJK` / `default` 类别写入所有未暂停的活跃层。
 4. 首次观察记录首类别，随后更新末类别；外层 capture 因而也能观察内层命令，混合输出自然得到不同的首尾类别。
 
-结束路径根据入口前类别、实际首类别和左侧是否有源码空格重建左边界，排回盒子或保留原节点流，再把实际末类别写成 marker，让正常 Boundary→CJK/Default 恢复过程决定右边界。重放 Default 类 marker 时还要把源码空格检查使用的缓存同步为外层列表当前的 `\spacefactor`；盒内字符设置的值不会传播到外层。未观察到可见字符时，入口 marker 与源码空格原样恢复。
+结束路径根据入口前类别、实际首类别和左侧是否有源码空格重建左边界，排回盒子或保留原节点流，再把实际末类别写成 marker，让正常 Boundary→CJK/Default 恢复过程决定右边界。重放 Default 类 marker 时还要把源码空格检查使用的缓存同步为外层列表当前的 `\spacefactor`；盒子内部字符设置的值不会传播到外层。未观察到可见字符时，入口 marker 与源码空格原样恢复。
 
 注册层把命令形状与恢复算法分开：
 
@@ -280,7 +280,7 @@ else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住�
 
 #### 注册点的层级与字体上下文（#1046）
 
-除了「注册哪个命令、选哪种策略」，还有第三个必须决定的问题：**在命令的哪一层注册**。`\@@_boundary_capture_begin:` 在 capture **入口**处把 `\CJKecglue`、`\CJKglue` 和词间空格分别排入临时盒并读成 skip 数值，缓存的度量因此取决于进入命令那一刻生效的字体。
+除了「注册哪个命令、选哪种策略」，还有第三个必须决定的问题：**在命令的哪一层注册**。`\@@_boundary_capture_begin:` 在 capture **入口**处把 `\CJKecglue`、`\CJKglue` 和词间空格分别排入临时盒子并读成 skip 数值，缓存的度量因此取决于进入命令那一刻生效的字体。
 
 由此得到一条硬约束：**若目标命令的定义体里包含字体切换，capture 必须包住最外层那次切换。** 注册在切换内侧时，左边界重放切换后字体的 `\CJKecglue`，而右边界在 capture 结束、字体已恢复之后求值，两侧必然取到两套度量。这种写法在纯西文和纯中文文档里都看不出问题，只有中西文边界两侧同时出现时才暴露。
 
@@ -294,7 +294,7 @@ else 分支的间距拆成两半输出：盒内放不可伸缩的 `kern` 占住�
 
 `\Hy@raisedlink` 是这种情形：它在水平模式下先排 `\penalty\@M`，再排 `\smash` 后的 `hbox(0+0)x0`。`penalty` 把 marker 与盒子隔开，`post-transparent` 实测无效；`transparent` 在入口就取走 marker 与可选源码空格、节点排完再原样恢复，因而两种节点次序都能覆盖。选策略前应当先用 `\showbox` 读出命令实际排出的节点序列。
 
-#### 同一类节点可能有多个出口，按调用点而非参数形态区分（#1047）
+#### 同一类节点可能有多个出口，按调用点而非参数形式区分（#1047）
 
 hyperref 的行内锚点会插入遮蔽 marker 的不可见节点。下面按**调用点**列出**已覆盖**的出口，各注册一次 `transparent`——本节不给出出口总数，理由见末尾：
 
@@ -311,16 +311,16 @@ hyperref 的行内锚点会插入遮蔽 marker 的不可见节点。下面按**�
 
 `\pdfbookmark` 直接写 `\hyper@anchorstart{...}\hyper@anchorend`，既不经 `\hyper@@anchor` 也不经两个抬升出口（计数器实测三者均为 0，只有 `\hyper@anchorstart` 计数为 1），因此右侧仍丢失一枚 `\CJKecglue`（38.33002pt 对 oracle 41.66002pt）。同类裸调用在 hyperref 与各驱动里还有若干处。这不是 #1047 引入的，base 上同样如此。
 
-两种就手的补法都已实测不可行：注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使盒宽暴涨并报出十余处错误，因为它的参数含待展开内容；注册 `\hyper@anchorstart` 本身不报错，但也不生效——`\pdfbookmark` 仍为 38.33002pt，而已覆盖的三处不受影响（包内注册、用户接口注册、两者并存三种配置均如此）。为什么 transparent 在这个入口上无效尚未查明，这条路径需要单独设计适配器，另立议题跟踪。`hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动失败，强制回来更新两份清单。
+两种最直接的补法都已实测不可行：注册 `\@pdfm@dest`（`\hyper@anchor` 与 `\hyper@anchorstart` 的共同下游）使盒子宽度暴涨并报出十余处错误，因为它的参数含待展开内容；注册 `\hyper@anchorstart` 本身不报错，但也不生效——`\pdfbookmark` 仍为 38.33002pt，而已覆盖的三处不受影响（包内注册、用户接口注册、两者并存三种配置均如此）。为什么 transparent 在这个入口上无效尚未查明，这条路径需要单独设计适配器，另立议题跟踪。`hyperref-anchor-ecglue01` 的 TEST 10 把这个缺口固定为断言，补上覆盖时会主动失败，强制回来更新两份清单。
 
 #### 为什么这一节不写出口总数
 
-**判据是读分派函数的分支并用计数器实测。** 这一节的机制陈述被独立复核连续推翻**四次**，失败形态相同——都是从一个真实现象推出未经独立验证的更强断言：
+**判据是读分派函数的分支并用计数器实测。** 这一节的机制陈述被独立复核连续推翻**四次**，失败方式相同——都是从一个真实现象推出未经独立验证的更强断言：
 
 1. 先写「非空目标经 `\Hy@raisedlink`、空目标经 `\hyper@anchor`」。计数器实测：四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数**均为 0**。
 2. 改对分派依据后又写「行内锚点有两个出口」。计数器实测：`\phantomsection` 使 `\__hyp_target_raise:n` 计数 +1 而另两者均为 0。
 3. 承认第三个出口后又写「它不能用现成包装，需要新设计适配器」，把故障归因给 begin 钩子里的赋值，据此放弃覆盖。隔离实验实测：begin 钩子体内没有任何 `\spacefactor` 赋值，那个赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`；换成花括号转发即可修复。
-4. 覆盖第三个出口后又写「三个出口全部注册」。同款探针实测：`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用，四个候选函数里只有它计数为 1。
+4. 覆盖第三个出口后又写「三个出口全部注册」。同样的探针实测：`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用，四个候选函数里只有它计数为 1。
 
 **「注册 A 和 B 都必要」不能推出「只有 A 和 B」，也不能推出「按某条件在 A、B 间分派」；观察到一个故障也不能推出它的成因。** 这些是彼此独立的命题，各需自己的探针：控制流用计数器，穷尽性要说明如何排除下一种，成因用隔离实验。
 
@@ -386,16 +386,16 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
   设为 4（`latex.ltx`）且 `\ExplSyntaxOn` 不改 38（与 `\c_code_cctab` 无关，那需要 `\cctab_select:N`
   才生效，xeCJK 不选）。字面模式的类别在 dtx 被读取时冻结，**风险在加载期而非调用期**：
   加载后再改 `\catcode` 对两种写法都无影响，但若 `\usepackage` 之前 `&` 已非 4，字面写法
-  此后一律静默失配。故实现自行构造 `\c_@@_alignment_tl` 把类别钉死。相关写法约定见
+  此后一律静默失配。故实现自行构造 `\c_@@_alignment_tl` 把类别固定下来。相关写法约定见
   `llmdoc/reference/coding-conventions.md`「字面字符当替换模式时必须核对 catcode régime」。
 
-回归门禁是 `xeCJK/testfiles/halign-amp-boundary01/02/03.lvt`，分别覆盖 `eqnarray`／
+回归测试是 `xeCJK/testfiles/halign-amp-boundary01/02/03.lvt`，分别覆盖 `eqnarray`／
 `tabular`／CJK 相邻三种语境。**必须分文件**：`checkopts` 带 `-halt-on-error`，合并成一个
 文件时缺陷态下首项报错即中止，其后的 `\TEST` 出现 0 次、判别力为零（首版正是这样写的）。
 判别力已逐个实测（缺陷版三个文件 `l3build check` 均 EXIT=1，01 报 `extra }`；修复版均 0）。
 两点边界：`\colorbox` 参数里放**裸** `&`（如 `\colorbox{yellow}{&$x$}`）本身就不是合法
-LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有一串对齐相关的连带报错），不能写进基线；该门禁固定的是
-「不报错」，把替换值改成 `{ }` 或 `{ $ }` 时仍全绿，**占位语义没有门禁保护**。
+LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有一串对齐相关的连带报错），不能写进基线；这组测试固定的是
+「不报错」，把替换值改成 `{ }` 或 `{ $ }` 时仍全绿，**占位语义没有测试保护**。
 
 #### 命令钩子与专用适配器的选择边界（#1029）
 
@@ -403,7 +403,7 @@ LaTeX，不加载 xeCJK 也报错（首条为 `Missing } inserted.`，其后有�
 
 这是 LaTeX2e `\AddToHook` 机制的通用陷阱，与 xeCJK 或 `\sbox` 本身都无关：最小复现不需要加载 xeCJK，`\AddToHook{cmd/sbox/before}[probe]{\advance\cnt by 1}` 就足以吃掉 `\global\sbox` 的前缀；把钩子内容换成不含赋值的 `\relax` 则不会触发。`\sbox`／`\savebox` 恰好本体就是一条赋值语句——`\savebox` 的四种形式（无可选参数、`[wd]`、`[wd][pos]`，以及 picture 形式 `(x,y)[pos]`）最终都汇入同一个内部入口 `sbox `——而 `\@@_boundary_capture_suspend:` 内部做的是多个 `\int_gincr:N`／`\tl_gset:` 全局赋值，正是会触发这个陷阱的钩子内容。`\global\setbox` 不受影响，因为 `\global` 直接贴在 `\setbox` 原语前面，中间没有钩子代码可以插入的位置；只有像 `\sbox` 这样“包装宏内部才调用 `\setbox`”的命令，才会把钩子插进前缀和赋值之间。
 
-修复方式是专用适配器：直接重定义内部入口 `sbox `，把暂停观察移到盒子构造内部执行，使 `\global` 前缀始终紧邻 `\setbox` 本身。这与已有的 `color@b@x`／`@textcolor` 专用适配器（见下文“兼容性补丁子系统”与“旧边界补丁的吸收结果”，均为重定义内部入口而不是挂通用钩子）属于同一套模式：**注册的目标命令本体是赋值语句时，必须用专用适配器包装内部入口，把副作用移进赋值发生的位置内部；不能用通用 `cmd/.../before` 钩子。** `experiment/boundary-register` 面向用户开放的 `command` 策略存在同一类风险——用户若为自己“本体即赋值语句”的命令注册通用 hook，会复现同一坑；已在 `xeCJK.dtx` 用户手册对应段落加入警告。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
+修复方式是专用适配器：直接重定义内部入口 `sbox `，把暂停观察移到盒子构造内部执行，使 `\global` 前缀始终紧邻 `\setbox` 本身。这与已有的 `color@b@x`／`@textcolor` 专用适配器（见下文“兼容性补丁子系统”与“旧边界补丁的吸收结果”，均为重定义内部入口而不是挂通用钩子）属于同一套模式：**注册的目标命令本体是赋值语句时，必须用专用适配器包装内部入口，把副作用移进赋值发生的位置内部；不能用通用 `cmd/.../before` 钩子。** `experiment/boundary-register` 面向用户开放的 `command` 策略存在同一类风险——用户若为自己“本体即赋值语句”的命令注册通用 hook，会踩到同一个坑；已在 `xeCJK.dtx` 用户手册对应段落加入警告。完整决策见 [[../memory/decisions/1029-sbox-adapter]]。
 
 ulem 把正文拆进固定宽度的盒子。普通 stream 若直接在首次观察处排 glue，会把弹性间距和装饰 leader 一起放进内部盒子。`stream-ulem` 仍由 framework 决定 glue 类型和值，但在 ulem 活跃时通过 `\UL@stop`、普通 `\hskip`、`\UL@start` 把 glue 排到外层且不画线；独立符号命令使用普通 skip。包内线型命令在测量装饰符号前请求启动该 stream，原生 `\uline` 等入口由 `\ULon` 补上。两者都只允许最外层启动，因为嵌套路径会走 `\UL@onin`，没有可与重复 begin 配对的独立 end。所有嵌套线型命令复用最外层 stream，并由同一个结束点关闭。
 
@@ -417,7 +417,7 @@ ulem 把正文拆进固定宽度的盒子。普通 stream 若直接在首次观�
 
 推断出的 Default 通过 `\@@_boundary_capture_report_first:n` 只补上尚未取得的首类别，不直接改写外层已经观察到的末类别。嵌套命令结束时写入的 marker 会留在它实际输出的列表末尾；外层盒子或 stream 结束时读取这个 marker，再更新本层 `last_tl`。因此 `\mbox{中\fbox{中$x$}}` 能逐层得到 `math` 末类别，原语 `\setbox` 中没有输出到当前列表的公式则不会成为外层末类别；`\sbox` 仍由 suspend/resume 隔离。`\mbox{\vrule...}` 按 Default 检查，公式命令以直接公式为 oracle。详见 [[../memory/decisions/992-command-boundary-capture-register]]「机制边界」和 [[../memory/decisions/1002-inline-math-boundary-oracle]]。
 
-右边界后续恢复所需的状态不只有末类别。盒内末尾大写字母会把全局 `\g_@@_space_factor_int` 留成 999，但外层列表的 `\spacefactor` 仍是 1000；因此 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，以当前外层值同步缓存，避免盒外源码空格与过期规格严格比较。post-transparent 则先确认末尾盒子为零尺寸，再用 `\@@_boundary_pop_node:N` 检查盒子是否直接盖住 marker；未命中时只暂存至多一枚 glue，再检查其下方 marker。除上述 `math-space` 过期例外外，命中后按“盒子、marker、glue”重放；未命中则按原来的“glue、盒子”顺序还原，包括 0pt glue。`\@@_boundary_post_transparent_relocate_glue:` 在搬运这枚候选 glue 之前还会先 `\skip_if_finite:nTF` 判断阶数：`\hfill`／`\hfil` 等无限阶填充 glue 不搬运，直接把零尺寸盒子放回末尾，保持 marker、glue、盒子原有顺序不变，避免 `\hfill 中 \hfill\null` 这类居中写法里 `\null` 被排到 fill 之前而破坏两侧对称（#1085，见上文 math-space 段落末尾）。该路径不扫描第二枚 glue、任意 hbox 或 whatsit。#1003 的根因和节点证据见 [[../memory/reflections/1005-xcjkecglue-right-boundary-recovery]]；#1085 的根因和节点证据见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
+右边界后续恢复所需的状态不只有末类别。盒子内部末尾的大写字母会把全局 `\g_@@_space_factor_int` 留成 999，但外层列表的 `\spacefactor` 仍是 1000；因此 `\@@_boundary_replay_node:n` 重放 `default`、`default-space` 或 `normalspace` 时，以当前外层值同步缓存，避免盒子外的源码空格与过期规格严格比较。post-transparent 则先确认末尾盒子为零尺寸，再用 `\@@_boundary_pop_node:N` 检查盒子是否直接盖住 marker；未命中时只暂存至多一枚 glue，再检查其下方 marker。除上述 `math-space` 过期例外外，命中后按“盒子、marker、glue”重放；未命中则按原来的“glue、盒子”顺序还原，包括 0pt glue。`\@@_boundary_post_transparent_relocate_glue:` 在搬运这枚候选 glue 之前还会先 `\skip_if_finite:nTF` 判断阶数：`\hfill`／`\hfil` 等无限阶填充 glue 不搬运，直接把零尺寸盒子放回末尾，保持 marker、glue、盒子原有顺序不变，避免 `\hfill 中 \hfill\null` 这类居中写法里 `\null` 被排到 fill 之前而破坏两侧对称（#1085，见上文 math-space 段落末尾）。该路径不扫描第二枚 glue、任意 hbox 或 whatsit。#1003 的根因和节点证据见 [[../memory/reflections/1005-xcjkecglue-right-boundary-recovery]]；#1085 的根因和节点证据见 [[../memory/reflections/1085-hfill-post-transparent-relocate]]。
 
 ### 右侧源码空格的机制边界
 
@@ -501,7 +501,7 @@ xeCJK 预定义了多种标点样式：
 
 相邻标点的压缩量通过 `\xeCJKsetkern` 手动设置或由样式规则自动计算。内部通过 `g_@@_punct/kern/<char1>/<char2>/tl` 属性表存储。
 
-标点函数的结果按 `(标点字体, PunctStyle 风格, 字符)` 三元组缓存（`\@@_punct_csname:n` 生成的属性表键名）。这意味着任何对压缩公式本身的修改，一旦落地即对全部非 `plain` 风格（`quanjiao`/`banjiao`/`kaiming`/`hangmobanjiao`/`CCT`）自动生效，无需分别适配。
+标点函数的结果按 `(标点字体, PunctStyle 风格, 字符)` 三元组缓存（`\@@_punct_csname:n` 生成的属性表键名）。这意味着任何对压缩公式本身的修改，一经合入即对全部非 `plain` 风格（`quanjiao`/`banjiao`/`kaiming`/`hangmobanjiao`/`CCT`）自动生效，无需分别适配。
 
 ### 破折号（U+2014）宽度算法（#382）
 
@@ -608,7 +608,7 @@ v3.6.0（2018/01/23）起，长标点（`LongPunct`，如 U+2014 破折号、U+2
 
 工程坑位：
 
-- **两类条件函数的参数形态不同**：`\@@_punct_if_right:N`（`prg_new_conditional`，内部用 `\xeCJKtoken_value_class:N` 查询 `\XeTeXcharclass`）要求参数是**字符记号**；而 `\@@_punct_if_long:N`（special punct clist 机制生成，内部 `\if_cs_exist:w` 判断缓存 csname 是否存在）可以直接吃 **tl 变量**作为 `#`-参数。`\@@_punct_kern_break:NN` 的 `#1` 来自 `\g_@@_last_punct_tl`（tl 类型），参与 `\@@_punct_if_right:NTF` 前必须先 `\exp_after:wN` 展开成字符记号，而参与 `\@@_punct_if_long_p:N` 判断时可以直接传 tl，不需要展开。混用这两类条件时必须先确认各自的参数形态要求。
+- **两类条件函数的参数形式不同**：`\@@_punct_if_right:N`（`prg_new_conditional`，内部用 `\xeCJKtoken_value_class:N` 查询 `\XeTeXcharclass`）要求参数是**字符记号**；而 `\@@_punct_if_long:N`（special punct clist 机制生成，内部 `\if_cs_exist:w` 判断缓存 csname 是否存在）可以直接吃 **tl 变量**作为 `#`-参数。`\@@_punct_kern_break:NN` 的 `#1` 来自 `\g_@@_last_punct_tl`（tl 类型），参与 `\@@_punct_if_right:NTF` 前必须先 `\exp_after:wN` 展开成字符记号，而参与 `\@@_punct_if_long_p:N` 判断时可以直接传 tl，不需要展开。混用这两类条件时必须先确认各自的参数形式要求。
 - **`\@@_punct_kern_break:NN` 延续"选函数再喂参数"的既有模式**：函数体只做条件判断、留下 `\@@_punct_breakable_kern:NN` 或 `\@@_punct_nobreak_kern:NN` 这个函数名，真正的 `#1 #2` 参数由外层 `\@@_punct_kern:NN` 尾部统一喂给最终留下的函数——与原 `\@@_punct_kern:NN` 的既有结构一致，未引入新模式。
 
 基线联动：ctex `punct.tlg`（180+ 测试的大文件）中 `……」` 组合从 `\rule(0pt) + \glue`（可断）变为 `\penalty 10000 + \glue`（禁则保护）——这正是本修复的目标行为，属预期变化，直接 `l3build save punct` 更新基线。
@@ -696,11 +696,11 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 
 提供 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 等中文文字效果命令。基于 `ulem` 机制重实现，处理 CJK 字符的下划线位置和连续性。
 
-**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复盒对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的非完整盒，使装饰相对正文等长平移；总盒宽保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量。#1012 后，默认 `\CJKunderwave` 与 `\CJKxout` 则刻意使用普通 `\leaders`，让正文片段、`CJKglue` 和换行后的片段共享同一个相位网格；首尾是否对称由局部裁切另行保证。只有用户通过 `underwave/symbol` 指定的自定义波浪符号保留 `\xleaders`。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
+**线型命令的 leader 相位（#531/#967）**：`ulem` 的 `\leaders` 会把重复的盒子对齐到外层水平列表的相位，而不是当前装饰文字的起点。段首缩进或前置水平位移因而会改变首尾丢弃的不完整盒子，使装饰相对正文等长平移；盒子总宽度保持不变，仅比较 `\wd` 无法捕获。规则型的 `\CJKunderline`、`\CJKunderdblline`、`\CJKsout` 和 `\CJKunderanyline` 在各自 ulem 局部分组内把 `\ULleaders` 设为 `\cleaders`，让每个 leader 区域独立均分余量。#1012 后，默认 `\CJKunderwave` 与 `\CJKxout` 则刻意使用普通 `\leaders`，让正文片段、`CJKglue` 和换行后的片段共享同一个相位网格；首尾是否对称由局部裁切另行保证。只有用户通过 `underwave/symbol` 指定的自定义波浪符号保留 `\xleaders`。逐字放置的 `\CJKunderdot`、`\CJKunderanysymbol` 不走该 leader 路径，`\xeCJKfntefon` 和 ulem 全局状态也不修改。
 
 **周期和斜向装饰的几何（#1012）**：默认波浪与斜删除线均由 `l3draw` 绘制宽 `1em/4` 的图案，尺寸和线宽随当前 `em` 缩放；常规全角字符每字约容纳四个单元，斜删除线不再依赖数学字体。两个默认图案都用普通 `\leaders`，把同一行的所有内部片段固定在一个相位网格上。
 
-普通 `\leaders` 只放置完整装饰盒，不能独自精确命中任意端点。首段和真正的末段因此把底层 leaders 区间向两侧各扩展一个周期，再用局部 PDF 裁切限制可见范围：普通形式相对正文左右各外伸半周期，带 `-` 形式左右各内缩半周期；两种形式都保持命令宽度不变，相邻带 `-` 命令之间留下一个完整周期的断口。带 `-` 形式首段后的第一个 `CJKglue` 在可断点两侧各放一个净宽为零的半周期连接；不换行时两半拼合，换行时各自在本行闭合。裁切内部的 leaders 前有 penalty 10000，避免 PDF `gsave`／`grestore` 跨行。
+普通 `\leaders` 只放置完整的装饰盒子，不能独自精确命中任意端点。首段和真正的末段因此把底层 leaders 区间向两侧各扩展一个周期，再用局部 PDF 裁切限制可见范围：普通形式相对正文左右各外伸半周期，带 `-` 形式左右各内缩半周期；两种形式都保持命令宽度不变，相邻带 `-` 命令之间留下一个完整周期的断口。带 `-` 形式首段后的第一个 `CJKglue` 在可断点两侧各放一个净宽为零的半周期连接；不换行时两半拼合，换行时各自在本行闭合。裁切内部的 leaders 前有 penalty 10000，避免 PDF `gsave`／`grestore` 跨行。
 
 `CJKglue`、普通 `\quad` 和显式 `\hskip` 都继续走 `ulem` 的普通 leaders 路径，不再为波浪另画水平线或为斜线留空。`\UL@spfactor` 哨兵用来区分正文中的真实空格和 `ulem` 追加后又删除的结尾语法空格；首个片段还比较 `\UL@skip` 与正文盒子宽度，避免空参数、`\relax` 或空分组把结尾语法空格改造成不可由 `\unskip` 删除的裁切结构。这样单片段命令只裁切一次，不产生节点的正文仍保持零尺寸，真正的源码空格仍按一个词间空格装饰。`underwave/symbol` 只有保持默认值时才进入上述周期路径；用户自定义符号继续使用历史 `\xleaders` 行为。
 
@@ -708,19 +708,19 @@ XeTeX 的 interchar 机制工作在 token 层，无法区分字符来自 Unicode
 弹出全局序列；内层命令只修改自己的栈顶，结束时不会覆盖外层状态。共享全局布尔在
 “外层已有后续片段、末尾嵌入单片段周期装饰”时会让外层漏画末段，不能用于这里。
 
-`l3draw` 会把负纵坐标归一化成盒子高度，所以斜线绘图盒本身的 depth 为零。默认斜线约高 `.93em`，使用时整体下移 `.09em`，实际覆盖约为基线下 `.09em` 至基线上 `.84em`；这与常见全角汉字的深度和高度相符，避免斜线只覆盖基线以上。
+`l3draw` 会把负纵坐标归一化成盒子高度，所以斜线绘图盒子本身的 depth 为零。默认斜线约高 `.93em`，使用时整体下移 `.09em`，实际覆盖约为基线下 `.09em` 至基线上 `.84em`；这与常见全角汉字的深度和高度相符，避免斜线只覆盖基线以上。
 
-`1em/3` 加原 leaders、没有裁切的朴素普通 `\leaders`，以及 `\cleaders` 加胶水专用图形，都是已经被当前分工替换的中间路线。当前方案保留普通 `\leaders` 的共享相位优势，再把可见端点和断行接点交给独立机制。合同由 `fntef-phase01` 的页面坐标门禁与节点、视觉回归共同保护。
+`1em/3` 加原 leaders、没有裁切的朴素普通 `\leaders`，以及 `\cleaders` 加胶水专用图形，都是已经被当前分工替换的中间路线。当前方案保留普通 `\leaders` 的共享相位优势，再把可见端点和断行接点交给独立机制。这一约定由 `fntef-phase01` 的页面坐标检查与节点、视觉回归测试共同保护。
 
-**边界状态与装饰盒隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end（线型／符号型的分类与「内层因此无法断行」这一用户可见后果见上文 `stream-ulem` 小节）。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
+**边界状态与装饰盒子隔离（#826/#830/#992）**：`\xeCJK_fntef_sbox:n` 渲染装饰符号时调用可嵌套的 capture suspend/resume，按层保存并恢复 `\g_@@_last_node_tl` 与 source-space pending，同时阻止 scratch glyph 被外层 stream 当作正文。原生 ulem 与 xeCJKfntef 线型命令相互嵌套时，只有最外层拥有 `stream-ulem`；内层复用该层，不能重复 begin，因为 `\UL@onin` 路径没有独立 end（线型／符号型的分类与「内层因此无法断行」这一用户可见后果见上文 `stream-ulem` 小节）。ulem 结束时把内部真实末尾 marker 移到外层列表，由唯一的 stream end 以列表证据校正不可见定界字符产生的观察值；旧的 fntef saved-last-node 与颜色方向专用 save/restore 均已删除。
 
-**PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符、数学内容或绘图组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍需明确排除 PDF 文本语义。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：字符或数学装饰产生的内层标记可能穿过外层 `ActualText`，重新暴露装饰内容。这里的 PDF 语义隔离、boundary capture 暂停／恢复和 #1012 的默认图案几何分别解决文本提取、命令边界状态和装饰外观，三者不能互相替代。
+**PDF 文本语义隔离（#1017）**：波浪线、斜删除线、着重号和用户自定义符号可能由真实字符、数学内容或绘图组成，再由 `ulem` 的 leaders 重复排出。它们虽然只承担视觉装饰作用，仍需明确排除 PDF 文本语义。`\xeCJK_fntef_sbox:n` 因此用空的 `ActualText` 包住装饰盒子；在 LaTeX tagging 接口存在时，还在构造盒子的最小范围内调用 `\tag_suspend:n` 和 `\tag_resume:n`。后一步不可省略：字符或数学装饰产生的内层标记可能穿过外层 `ActualText`，重新暴露装饰内容。这里的 PDF 语义隔离、boundary capture 暂停／恢复和 #1012 的默认图案几何分别解决文本提取、命令边界状态和装饰外观，三者不能互相替代。
 
 **外侧 glue 不参与装饰**：首次可见类别出现时，`stream-ulem` 让 framework 统一选择 `CJKglue`、`CJKecglue` 或源码空格的数值；若此时处于 ulem 扫描状态，就先 `\UL@stop`，排普通 elastic skip，再 `\UL@start`。这样 glue 保留伸缩与断行位置，不变成 underline 的 `\leaders`。`command-boundary01` 覆盖 `\CJKunderline`、`\CJKunderdot`、`\CJKsout` 与原生 `\uline` 的四种源码空格，并覆盖原生 ulem 与 fntef 线型/符号命令的双向嵌套；逐格 idle-stack 断言要求 capture depth、active stack 与 suspend depth 全部归零。`command-boundary02` 以节点日志确认 `\uline` 左右的 1pt CJKglue 位于装饰区间外；`fntef-color01` 的 12 项继续覆盖 fntef(color) 与 color(fntef) 两个方向。
 
-**正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
+**正文传给 ulem 前必须是字面记号（#1026）**：`\UL@on` / `\UL@onin` 只在正文是“公式尾＋尾随源码空格”时才用 `\@@_boundary_ulem_math_tail_space:nnn` 重排，其余情况保持字面 `#1` 展开；否则西文词右侧补出的 `\CJKecglue` 会被固定宽度的装饰片段盒子固化收缩量，无法参与外层断行。详见上文“边界恢复状态机”一节的同名小节。
 
-**西文词前的 ecglue 走 `\@@_use_ecglue_skip:`（#1037）**：同一条固化机制在词前还有一处，与正文展开方式无关——源码空格被前视吃掉后，`CJK-space` marker 落在 `\UL@start` 刚打开的片段盒内，`\@@_check_for_ecglue_aux:` 补出的 ecglue 随之固化。该入口在主体里默认为普通 `\skip_horizontal:N`，由 `xeCJKfntef` 改写为「装饰 stream 活动**且** `\UL@start` 为 `\@empty` 时才经 `\@@_ulem_glue:n` 输出」，使收缩量回到外层。因为该入口位于所有中西文边界的通用路径上，这个布尔判断不可省——`\xeCJK_if_ulem_patch:TF` 单独不足以证明当前在装饰中。详见上文同名小节。
+**西文词前的 ecglue 走 `\@@_use_ecglue_skip:`（#1037）**：同一条固化机制在词前还有一处，与正文展开方式无关——源码空格被前视吃掉后，`CJK-space` marker 落在 `\UL@start` 刚打开的片段盒子内部，`\@@_check_for_ecglue_aux:` 补出的 ecglue 随之固化。该入口在主体里默认为普通 `\skip_horizontal:N`，由 `xeCJKfntef` 改写为「装饰 stream 活动**且** `\UL@start` 为 `\@empty` 时才经 `\@@_ulem_glue:n` 输出」，使收缩量回到外层。因为该入口位于所有中西文边界的通用路径上，这个布尔判断不可省——`\xeCJK_if_ulem_patch:TF` 单独不足以证明当前在装饰中。详见上文同名小节。
 
 ### xeCJK-listings
 
@@ -748,4 +748,4 @@ PR #886（fix #878）将驱动改为“逐字符多级字体回退链”：
 
 ## TECkit 映射
 
-xeCJK 在构建时通过 `xeCJK/build.lua` 中的 `make_teckit_mapping()` 从 Unicode Unihan 数据生成 `.map`/`.tec` 字体映射文件，用于繁简转换和句号形态映射。这部分功能数据在构建阶段动态生成，不完全静态存储。
+xeCJK 在构建时通过 `xeCJK/build.lua` 中的 `make_teckit_mapping()` 从 Unicode Unihan 数据生成 `.map`/`.tec` 字体映射文件，用于繁简转换和句号形式映射。这部分功能数据在构建阶段动态生成，不完全静态存储。

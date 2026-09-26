@@ -1,6 +1,6 @@
 ---
 name: "873-880-fixed-point-vs-default-narrowing"
-description: "决策: #873 / #880 选 input-side fixed-point patch（save/replay 与 drain），不选收窄 \\@@_recover_glue_whatsit: default 分支——修复位置由被遮蔽的节点类型决定，与 marker 类型无关"
+description: "决策：#873 / #880 选 input-side fixed-point patch（save/replay 与 drain），不选收窄 \\@@_recover_glue_whatsit: default 分支——修复位置由被遮蔽的节点类型决定，与 marker 类型无关"
 metadata:
   type: decision
 ---
@@ -23,7 +23,7 @@ metadata:
 - #873 → save/replay `\g_@@_last_node_tl`
 - #880 → drain marker + 直接补 ecglue
 
-**方案 B（未采纳）**：仿 PR #831 给 `\@@_recover_glue_whatsit:` 的 default 兜底分支加 pending boolean gate，只在已知调用方（`\set@color` / `\HD@target` / `\Url@FormatString`）显式置位时才允许 default 分支吐 ecglue。
+**方案 B（未采纳）**：仿 PR #831 给 `\@@_recover_glue_whatsit:` 作为后备的 default 分支加 pending boolean gate，只在已知调用方（`\set@color` / `\HD@target` / `\Url@FormatString`）显式置位时才允许 default 分支输出 ecglue。
 
 ## 决策
 
@@ -38,9 +38,9 @@ metadata:
 
 ## 后续
 
-若未来要落“收窄 `\@@_recover_glue_whatsit:` default 分支”的独立 PR，动机应是“防御任意 whatsit 误触发”而非“修 #873 / #880 副作用”——两个目标完全不同。
+若未来要做“收窄 `\@@_recover_glue_whatsit:` default 分支”的独立 PR，动机应是“防御任意 whatsit 误触发”而非“修 #873 / #880 副作用”——两个目标完全不同。
 
-## 落地引用
+## 实现与测试引用
 
 - 实现：`xeCJK/xeCJK.dtx` `\@@_patch_hd_target:` / `\@@_patch_url_format:`（commit `7c3a2c2e`）。
 - 回归测试：`xeCJK/testfiles/hypdoc-ecglue01.lvt` / `url-ecglue01.lvt`。
