@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: b432ed1819b1b840bc2036574e1a07ab7336247f
-- watermark-subject: docs(llmdoc): 反思里用提交标题代替失效的提交号
-- updated-at: 2026-09-27T18:00:00Z
-- updated-by: llmdoc-update skill（补记 #366 `overlay` 负号基字符守卫，并核对近期提交）
+- watermark-commit: ad8dc88bac106e4c478e3567965ae1f99cc39408
+- watermark-subject: fix(xeCJK): 线型装饰命令不再把 ulem 结束符当作正文字符 (#1091)
+- updated-at: 2026-09-26T15:30:00Z
+- updated-by: recorder（#1091 稳定文档同步）

@@ -28,3 +28,12 @@
 可能的补法（**未实施**）：在 verify 阶段对每个 PDF 跑 `pdftotext`，按已知泄漏模式（`gray 0`、`0gray`、`1.0 0.0` 等）检索并断言计数为 0。代价有两条：要维护一份模式清单，且只覆盖已知的泄漏形式——新的上游错配可能产生完全不同的泄漏文本。实现前还需先确认这些模式不会与正常正文冲突（手册里讨论颜色模型时可能正常出现 `gray`）。
 
 详见反思 `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md` 与 `llmdoc/reference/build-and-test.md` 的「文档编译校验」一节。
+
+## 普通 stream 与符号命令在正文无类别但有可见输出时入口空格位置错（#1091 遗留）
+
+#1091 只为 `stream-ulem`（借 `ulem` 扫描的线型命令）修好了入口空格的位置：正文在第一个字符之前先排出盒子、规则或显式 glue 时，命令前的源码空格原样留在这些内容之前。其他 capture 没有同样的处理：
+
+- 普通 stream（如 `符 \href{..}{\usebox\tri} 后`）与独立符号命令（`符 \CJKunderdot{\usebox\tri} 后`）的正文没有字符类别、但有可见输出时，入口 marker 与空格仍在结束时由 `\@@_boundary_replay_before:` 重放，空格落到命令之后。原因是它们没有 `ulem` 的 `\UL@stop`／`\UL@reskip` 这类“内容即将排到外层”的拦截点，`entry` 字段对它们始终为空。
+- 非 ulem 路径的 Boundary→FullLeft／FullRight 不向 capture 报告类别；#1091 只在 ulem 分支的 FullLeft 补了 `CJK` 报告。以全角右标点开头的装饰正文也未处理。
+
+目前没有用户报告这两类写法。可能的补法（**未实施**）：为普通 stream 找到一个在正文首个可见输出之前运行的钩子，复用 `entry` 的 armed／resolved 语义；或在 `\@@_boundary_inline_stream_end:n` 检查本层是否已排出有宽度的内容，再决定入口空格放在哪里（推断，未实测：后者要到结束时才判断，那时内容已在列表里，除非先把已排出的节点取下，否则空格放不到内容之前）。全角标点方向可以在 Boundary→FullLeft／FullRight 的通用转换里报告 `CJK`，但要先确认不会改变非装饰路径的边界结果。接手时先读 `llmdoc/architecture/xecjk-architecture.md` 的「ulem 结束符与入口空格（#1091）」与反思 `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`。
