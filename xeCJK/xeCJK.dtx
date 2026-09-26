@@ -1822,6 +1822,38 @@ Copyright and Licence
 %
 % \medskip
 %
+% \subsubsection{用线型命令排填空线}
+% \label{subsubsec:fntef-fill-in}
+%
+% 试卷和练习中的填空线，通常用线型命令包住一段空白来排：用 \tn{hspace*} 给出线
+% 的长度，也可以在空白中间放一个盒子或规则，标出题号或占位符号。这类正文在
+% 第一个字符之前就排出了空白或盒子，命令前后的源码空格因此按普通空格处理：
+% 命令两侧各写一个空格，线的两侧就各留一个词间空格；两侧都不写空格，线就紧贴
+% 前后的文字。填空线因此左右对称，间距与把命令前的空格换成~|~| 时相同。
+%
+% \begin{Example}[frame=single,numbers=left,gobble=4]
+%   今天是 \CJKunderline{\hspace*{3em}} 年 \CJKunderline{\hspace*{2em}} 月\\
+%   今天是\CJKunderline{\hspace*{3em}}年\CJKunderline{\hspace*{2em}}月\\
+%   第 \CJKunderline{\hspace*{1em}\rule{.8em}{.5em}\hspace*{1em}} 题
+% \end{Example}
+%
+% \smallskip
+% 使用时注意以下几点：
+% \begin{itemize}
+%   \item 线的长度宜用 \tn{hspace*} 而不是 \tn{hspace} 给出。后者在行首或行尾
+%     会像普通空格一样被丢弃，填空线可能因此变短甚至消失。
+%   \item 只有正文先排出空白、盒子或规则时，命令前的源码空格才原样保留在线的
+%     前面。正文以汉字或中文标点开头时，这枚空格仍按 CJK 文字间距的规则处理，
+%     效果与直接书写 |汉字 文字| 相同，例如 |书名 \CJKunderline{红楼梦} 作者|
+%     中的两个空格都不会出现。
+%   \item 正文开头只有颜色切换等不产生宽度的命令时，它们不算“先排出的内容”，
+%     命令前的空格仍由后面的第一个字符决定。
+%   \item 符号型命令 \tn{CJKunderdot} 和 \tn{CJKunderanysymbol} 只给字符加符号，
+%     不画连续的线，不适合用来排填空线。
+% \end{itemize}
+%
+% \medskip
+%
 % 此外，\pkg{xeCJKfntef} 还提供了可指定宽度，并让汉字两端分散对齐的环境
 % \env{CJKfilltwosides} 和 \env{CJKfilltwosides*}。
 %
@@ -1967,6 +1999,9 @@ Copyright and Licence
 % 本节只讨论 CJK 间距，不涉及断行。\pkg{xeCJKfntef} 的线型命令相互嵌套时，
 % 间距仍然正确，但被嵌套的那一段无法断行，
 % 详见 \ref{subsubsec:fntef-nest-linebreak}~节。
+%
+% 线型命令的正文若在第一个字符之前先排出空白、盒子或规则（例如填空线），
+% 命令前的源码空格保留在装饰线的前面，详见 \ref{subsubsec:fntef-fill-in}~节。
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -3903,7 +3938,7 @@ Copyright and Licence
 % \tn{UL@start} 开新盒，使收缩量回到行上；不在下划线状态时它退化为普通
 % \tn{hskip}，因此非 \pkg{ulem} 路径的行为不变。
 %
-% 不用 \cs{@@_boundary_use_ulem_glue:n}：它放的是裸 glue，会在词前留下一段
+% 不用 \cs{@@_boundary_use_ulem_glue:nn}：它放的是裸 glue，会在词前留下一段
 % 没有装饰线的空隙（实测 300dpi 下断开 7px）。
 %
 % 默认实现是普通 \tn{hskip}；\cs{@@_ulem_glue:n} 定义在 \pkg{xeCJKfntef} 里，
@@ -4715,6 +4750,7 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_space_flag_tl }
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_space_skip_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_entry_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -5098,13 +5134,24 @@ Copyright and Licence
           }
       }
   }
-
+%    \end{macrocode}
+% 每层的 |entry| 字段只由 \pkg{xeCJKfntef} 的 |stream-ulem| 使用，记录入口处
+% 被取下的源码空格是否已经排回外层列表：|armed| 表示还在等待，|resolved|
+% 表示装饰正文在出现第一个可观察的字符类别之前，就已经向外层列表排出了有宽度
+% 的内容（盒子、规则、显式 glue 等），入口空格已排在这些内容之前（\#1091）。
+% 这种情况下，首类别出现时不再补左边界：正文开头这些内容才是与入口相邻的
+% 对象，正文内部的第一个字符不是。其他 capture 该字段始终为空，行为不变。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_capture_emit_left:nn #1#2
   {
-    \tl_set:Ne \l_@@_boundary_node_tl
-      { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
-    \@@_boundary_emit_left:nVn
-      {#1} \l_@@_boundary_node_tl {#2}
+    \tl_if_eq:cnF { g_@@_boundary_capture_#1_entry_tl } { resolved }
+      {
+        \tl_set:Ne \l_@@_boundary_node_tl
+          { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+        \@@_boundary_emit_left:nVn
+          {#1} \l_@@_boundary_node_tl {#2}
+      }
+    \tl_gclear:c { g_@@_boundary_capture_#1_entry_tl }
     \tl_gset:cn
       { g_@@_boundary_capture_#1_space_flag_tl } { false }
   }
@@ -5292,9 +5339,20 @@ Copyright and Licence
           { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
         \tl_gclear:N \g_@@_last_node_tl
         \bool_gset_false:N \g_@@_glue_check_pending_bool
+%    \end{macrocode}
+% 没有观察到任何类别时，通常按“无可见输出”把入口 marker 与源码空格原样
+% 放回。若 |entry| 已是 |resolved|，入口空格已经排在正文可见内容之前，
+% 正文右端也不是 marker 能代表的字符，就不再重放（\#1091）。
+%    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
-            \@@_boundary_replay_before:
+            \tl_if_eq:cnF
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _entry_tl
+              }
+              { resolved }
+              { \@@_boundary_replay_before: }
           }
           {
             \tl_if_empty:NT \l_@@_boundary_last_tl
@@ -5486,6 +5544,11 @@ Copyright and Licence
       {
         g_@@_boundary_capture_\int_use:N
         \g_@@_boundary_capture_depth_int _kind_tl
+      }
+    \tl_gclear:c
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _entry_tl
       }
 %    \end{macrocode}
     % 先把用户定义的 glue 实际排入临时盒并读取为 skip；后面的 e-type 只把
@@ -6234,7 +6297,7 @@ Copyright and Licence
   {
     \tl_if_eq:cnTF
       { g_@@_boundary_capture_#1_kind_tl } { stream-ulem }
-      { \use:c { @@_boundary_use_ulem_glue:n } {#2} }
+      { \use:c { @@_boundary_use_ulem_glue:nn } {#1} {#2} }
       { \skip_horizontal:n {#2} }
   }
 
@@ -13854,8 +13917,27 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\UL@word,\xeCJK_ulem_word:nw}
+% \begin{macro}[int]{\UL@word,\xeCJK_ulem_word:nw,\UL@end,\@@_ulem_end:}
+% \changes{v3.10.7}{2026/09/26}{\pkg{ulem} 结束正文时在一个随即丢弃的片段盒
+%   里排出的 |*| 不再被命令边界 capture 当作正文中的西文字符。此前正文没有
+%   字符（例如只有 \tn{hspace} 和盒子的填空线、空参数）或以全角标点开头时，
+%   左侧间距会被补到装饰末尾，结尾的语法空格被画成一段多余的装饰线；正文以
+%   嵌套装饰或全角标点结尾时，右侧会按西文多补一枚间距，例如
+%   |\CJKunderline{中。}文|（\#1091）。}
 % 修改 \tn{UL@word}，目的是取得分组中的 \tn{UL@leadtype}，以便加入 \cs{xeCJK_ulem_right_skip:}。
+%
+% \pkg{ulem} 用 |\UL@end *| 标记正文结束。最后一个“词”先由 \tn{UL@start}
+% 打开一个片段盒，\tn{UL@end} 在其中吃掉定界符 |*|；随后的比较
+% |\if_meaning:w \UL@end #1| 又把参数里的第二个 |*| 留在真分支开头，
+% 于是这个 |*| 作为普通字符排进片段盒，再随片段盒一起被 \cs{@@_ulem_end:}
+% 丢弃。它不会出现在页面上，但会触发 Boundary 到 Default 的 interchar
+% 转换。正文里若没有任何字符，命令边界 capture 就会把它当成首个可见字符，
+% 在装饰末尾补左边界，并借 \tn{UL@stop} 把结尾的语法空格和这个空片段盒
+% 画成装饰（\#1091）。因此 \tn{UL@end} 在吃掉定界符时暂停 capture 观察，
+% \cs{@@_ulem_end:} 关闭这个片段盒之后立即恢复。暂停可以嵌套，并按层保存、
+% 恢复 \cs{g_@@_last_node_tl} 与 source-space pending，所以 |*| 在丢弃的
+% 盒子里留下的状态也一并撤销。\tn{UL@end} 只在这条结束路径中执行，
+% \tn{UL@onin} 与 \tn{UL@onmath} 都不经过它，暂停与恢复总是成对出现。
 %    \begin{macrocode}
 \clist_map_inline:nn
   {
@@ -13878,11 +13960,13 @@ Copyright and Licence
   {
         \c_group_end_token
       \c_group_end_token
+      \@@_boundary_capture_resume:
       \tex_unskip:D \tex_unskip:D \tex_unskip:D
       \xeCJK_ulem_right_skip:
     \xeCJK_ulem_group_end:
     \xeCJK_ulem_right_node:
     \@@_boundary_inline_stream_end:n { auto }
+    \int_gzero:N \g_@@_ulem_entry_depth_int
     \bool_set_false:N \l_@@_ulem_stream_started_bool
     \skip_gzero:N \g_@@_ulem_pending_shrink_skip
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
@@ -13903,6 +13987,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_ulem_start:w
   { \exp_after:wN \UL@start }
 \cs_set_eq:NN \UL@word \xeCJK_ulem_word:nw
+\cs_set_protected:Npn \UL@end * { \@@_boundary_capture_suspend: }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -14572,11 +14657,20 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}{\@@_ulem_Boundary_and_FullLeft_glue:N}
+% \changes{v3.10.7}{2026/09/26}{装饰正文以全角左标点开头时，把它作为正文的
+%   首个 CJK 字符报告给命令边界 capture，使命令前的边界间距排在标点的左侧
+%   空白之前（\#1091）。}
+% Boundary 到全角左标点的转换不经过报告 CJK 类别的 Boundary 到 CJK 转换。
+% 正文若以 |《|、|「| 等开头，capture 在标点处看不到首类别，入口空格就会
+% 被当成“正文先排出可见内容”而排到标点的左侧空白之后（\#1091）。这里在
+% 关闭片段盒、排出标点左侧空白之前先报告 |CJK|，让左边界与直接输入
+% |书《红》| 一样位于标点左侧空白之前。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_ulem_Boundary_and_FullLeft_glue:N #1
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \@@_boundary_capture_class:n { CJK }
         \UL@stop
         \@@_ulem_skip_punct_begin:
         \@@_punct_glue:NN \c_@@_left_tl #1
@@ -14990,6 +15084,8 @@ Copyright and Licence
 %
 % \begin{macro}[int]{
 %   \@@_ulem_stream_begin:,
+%   \@@_boundary_use_ulem_glue:nn,
+%   \@@_boundary_use_ulem_glue_outer:nn,
 %   \@@_boundary_ulem_math_tail_space:nnn,
 %   \@@_boundary_if_ulem_math_reorder:n,
 %   \xeCJK_ulem_group_begin:,
@@ -15010,7 +15106,7 @@ Copyright and Licence
 %   状态泄漏（\#992）。}
 % 线型命令的正文参数由 ulem 自己扫描，不能使用普通 cmd after hook。
 % ulem 会把正文拆进固定宽度盒子；framework 算出的左侧 glue 因此通过
-% \cs{@@_boundary_use_ulem_glue:n} 转交 ulem 的 \tn{UL@stop}/\tn{UL@start}
+% \cs{@@_boundary_use_ulem_glue:nn} 转交 ulem 的 \tn{UL@stop}/\tn{UL@start}
 % 外层通道，保留弹性和断行位置且不把间距画上线。本包的线型命令在
 % 装饰符号测量前启动 stream；原生 \tn{uline} 等命令和
 % \tn{xeCJKfntefon} 则由共有的 \tn{ULon} 补上同一入口。局部布尔避免
@@ -15022,20 +15118,32 @@ Copyright and Licence
 % \tn{UL@on}/\tn{UL@onin} 在把正文交给 ulem 扫描前检查其单参数正文是否以
 % 字面数学切换符开始；独立符号命令在
 % \cs{@@_under_symbol_auxii:nnnnnn} 的对应两端使用同一 begin/end 和公式入口。
+%
+% \cs{@@_boundary_use_ulem_glue:nn} 的第一个参数是 capture 层号。关闭片段盒
+% 的 \tn{UL@stop} 可能正好把一段有宽度的正文开头排到外层，并据此把入口空格
+% 排在它前面（见下文 \cs{@@_ulem_entry_resolve:}）；这时第一个字符和外层
+% 之间隔着这段内容，不能再补左边界 glue（\#1091）。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_boundary_use_ulem_glue:n #1
+\cs_new_protected:Npn \@@_boundary_use_ulem_glue:nn #1#2
   {
     \xeCJK_if_ulem_patch:TF
       {
         \tl_if_empty:NTF \l_@@_group_tag_tl
-          { \UL@stop \skip_horizontal:n {#1} \UL@start }
+          { \@@_boundary_use_ulem_glue_outer:nn {#1} {#2} }
           {
             \str_if_eq:eeTF { \l_@@_group_tag_tl } { \c_@@_group_tag_tl }
-              { \UL@stop \skip_horizontal:n {#1} \UL@start }
-              { \skip_horizontal:n {#1} }
+              { \@@_boundary_use_ulem_glue_outer:nn {#1} {#2} }
+              { \skip_horizontal:n {#2} }
           }
       }
-      { \skip_horizontal:n {#1} }
+      { \skip_horizontal:n {#2} }
+  }
+\cs_new_protected:Npn \@@_boundary_use_ulem_glue_outer:nn #1#2
+  {
+    \UL@stop
+    \tl_if_eq:cnF { g_@@_boundary_capture_#1_entry_tl } { resolved }
+      { \skip_horizontal:n {#2} }
+    \UL@start
   }
 \cs_new_protected:Npn \@@_ulem_stream_begin:
   {
@@ -15044,6 +15152,7 @@ Copyright and Licence
         \bool_set_true:N \l_@@_ulem_stream_started_bool
         \skip_gzero:N \g_@@_ulem_pending_shrink_skip
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
+        \@@_ulem_entry_arm:
       }
   }
 \cs_new_protected:Npn \xeCJK_ulem_group_begin:
@@ -15139,6 +15248,153 @@ Copyright and Licence
       }
       { \@@_orig_ulem_onin:n { #1 \@@_boundary_math_end:n {#1} } }
   }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{
+%   \@@_ulem_entry_arm:,
+%   \@@_ulem_if_entry_armed:,
+%   \@@_ulem_entry_resolve:,
+%   \@@_ulem_entry_resolve:n,
+%   \@@_ulem_entry_box:,
+%   \@@_ulem_entry_skip:,
+%   \UL@stop,
+%   \UL@reskip}
+% \changes{v3.10.7}{2026/09/26}{线型命令的正文在第一个字符之前就排出有宽度
+%   的内容（盒子、规则、显式 glue 等）时，命令前的源码空格排在装饰之前，
+%   不再移到装饰之后；这时也不再在这段内容与第一个字符之间补左边界
+%   间距（\#1091）。}
+% capture 入口会先取下命令前的源码空格，等看到正文的首个字符类别再决定
+% 左边界放什么 glue。直接输入 |符 x| 或 |符 中| 时这样做是对的：首类别决定
+% 这枚空格保留、换成 \tn{CJKecglue} 还是删去。但填空线一类的正文常常先排
+% \tn{hspace}、盒子或规则，再排字符，甚至根本没有字符。等首类别出现时，
+% \pkg{ulem} 已经把这些内容排到外层列表，此时补出的 glue 只能落在它们
+% 后面；没有字符时更要到结束时才把空格放回，于是命令前的空格跑到了装饰
+% 之后（\#1091）。
+%
+% 因此在 \pkg{ulem} 向外层列表排出第一段有宽度的内容之前，先把入口空格
+% 原样排出，并把本层标记为 |resolved|。框架随后不再为首类别补左边界，
+% 结束时也不再重放入口状态。在两处判断是否已到这一刻：
+% \begin{itemize}
+%   \item \tn{UL@stop} 关闭片段盒、准备调用 \tn{UL@putbox} 时。片段盒宽度
+%     不为零，或末节点是规则（\tn{hspace*} 用零宽 \tn{vrule} 保住自己的
+%     间距），就算有宽度的内容；只含颜色 special、锚点等不可见节点的片段
+%     不算，这样首个字符前只有颜色切换时仍按原来的规则补左边界。
+%   \item \tn{UL@reskip} 把正文里的显式 glue 画成 leaders 之前，glue 不为零时。
+% \end{itemize}
+% 两处都已位于片段盒之外，所以直接排普通 glue。\pkg{ulem} 在词与词之间的
+% 语法空格不在这里判断：正文末尾那个空格会在结束时被 \tn{unskip} 删去，
+% 不能据此认定正文有可见内容。
+%
+% 只有最外层、实际启动的 |stream-ulem| 会进入 |armed| 状态；首类别出现后
+% \cs{@@_boundary_capture_emit_left:nn} 清除该状态，此后的输出不再检查。
+% 恢复空格时沿用 \cs{@@_boundary_replay_before:} 的规则：入口是
+% |math-space|/|math-space-frozen| 时，真实空格本来就留在列表中，命令后的
+% 空格按连续空格处理，因此不再补一枚。
+%
+% \tn{UL@stop} 除插入这一判断外，与 \pkg{ulem}（2019/11/18）的定义相同。
+%    \begin{macrocode}
+\int_new:N \g_@@_ulem_entry_depth_int
+\tl_new:N \l_@@_ulem_entry_node_tl
+\cs_new_protected:Npn \@@_ulem_entry_arm:
+  {
+    \seq_get:NN \g_@@_boundary_active_seq \l_@@_boundary_active_tl
+    \tl_if_eq:NnTF \l_@@_boundary_active_tl { true }
+      {
+        \int_gset_eq:NN \g_@@_ulem_entry_depth_int
+          \g_@@_boundary_capture_depth_int
+        \tl_gset:cn
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _entry_tl
+          }
+          { armed }
+      }
+      { \int_gzero:N \g_@@_ulem_entry_depth_int }
+  }
+\prg_new_conditional:Npnn \@@_ulem_if_entry_armed: { T }
+  {
+    \int_compare:nNnTF { \g_@@_ulem_entry_depth_int } > \c_zero_int
+      {
+        \tl_if_eq:cnTF
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_ulem_entry_depth_int _entry_tl
+          }
+          { armed }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_ulem_entry_resolve:
+  {
+    \exp_args:Ne \@@_ulem_entry_resolve:n
+      { \int_use:N \g_@@_ulem_entry_depth_int }
+  }
+\cs_new_protected:Npn \@@_ulem_entry_resolve:n #1
+  {
+    \tl_gset:cn { g_@@_boundary_capture_#1_entry_tl } { resolved }
+    \tl_set:Ne \l_@@_ulem_entry_node_tl
+      { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+    \clist_if_in:nVF { math-space , math-space-frozen }
+      \l_@@_ulem_entry_node_tl
+      {
+        \tl_if_eq:cnT { g_@@_boundary_capture_#1_space_flag_tl } { true }
+          {
+            \skip_horizontal:n
+              { \tl_use:c { g_@@_boundary_capture_#1_space_skip_tl } }
+          }
+      }
+    \tl_gset:cn { g_@@_boundary_capture_#1_space_flag_tl } { false }
+  }
+\cs_new_protected:Npn \@@_ulem_entry_box:
+  {
+    \@@_ulem_if_entry_armed:T
+      {
+        \dim_compare:nNnTF { \box_wd:N \UL@box } = \c_zero_dim
+          {
+            \hbox_set:Nn \l_@@_boundary_probe_box
+              {
+                \hbox_unpack:N \UL@box
+                \int_gset:Nn \g_@@_boundary_probe_type_int
+                  { \tex_lastnodetype:D }
+              }
+            \box_clear:N \l_@@_boundary_probe_box
+            \int_compare:nNnT { \g_@@_boundary_probe_type_int } = { 3 }
+              { \@@_ulem_entry_resolve: }
+          }
+          { \@@_ulem_entry_resolve: }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_entry_skip:
+  {
+    \@@_ulem_if_entry_armed:T
+      {
+        \skip_if_eq:nnF { \UL@skip } { \c_zero_skip }
+          { \@@_ulem_entry_resolve: }
+      }
+  }
+\cs_set_protected:Npn \UL@stop
+  {
+    \tex_global:D \UL@pe \tex_lastpenalty:D
+    \tex_unpenalty:D
+    \int_compare:nNnTF { \tex_lastkern:D } = { 3 }
+      {
+        \c_group_end_token \c_group_end_token
+        \dim_compare:nNnF { \box_wd:N \UL@box } = \c_zero_dim
+          { \@@_ulem_entry_box: \UL@putbox }
+      }
+      {
+        \c_group_end_token \c_group_end_token
+        \@@_ulem_entry_box: \UL@putbox
+      }
+    \int_compare:nNnF { \UL@pe } = \c_zero_int
+      { \LA@penalty \UL@pe }
+    \UL@unegroup
+  }
+\cs_set_protected:Npn \UL@reskip
+  { \UL@stop \@@_ulem_entry_skip: \UL@leaders \UL@start }
 %    \end{macrocode}
 % \end{macro}
 %
