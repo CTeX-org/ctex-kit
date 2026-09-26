@@ -205,8 +205,8 @@
 `fntef-shrink01`、#1029 新增 `boundary-sbox-global01`、#1038 新增
 `tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03`、
 #1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01`、
-#1057 新增 `fntef-nest-linebreak01` 后，
-当前为 123／123 通过。完整接口契约见
+#1057 新增 `fntef-nest-linebreak01`、#1091 新增 `fntef-entry-space01` 后，
+当前为 124／124 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 ### 注册点的字体上下文与锚点出口的覆盖清单（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
@@ -769,11 +769,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒子的实际横坐标。32 行校验固定所有周期盒子处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 123／123，文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 124／124（#1091 后），文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 123 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 124 项。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 
@@ -838,7 +838,7 @@ TEST 11 覆盖 `{hello}`、`\textbf{hello}`、`{{hello}}` 三种写法（压窄 
 - **`l3build` 不归一化单数形式的 `detected at line %d`。** `l3build` 归一化的是 `on line %d*`、`on input line %d*`（`l3build-check.lua:210,211`）、`at lines %d*--%d*`（`:217`）与行首的 `l.%d+ `（`:144`），Overfull 的单数形式不在其中。`\hbox to` 触发的 Overfull 报告用的正是单数形式，一旦进基线就冻结了一个绝对源码行号——在 `.lvt` 里插入一行无关注释即失败。因此凡是观察量不是报告文本本身的用例，都应当把报告抑制掉，不要让它进基线。
 - **抑制 Overfull 报告要用 `\hfuzz`，不是 `\hbadness`。** `\hbadness` 只管 Underfull 警告的阈值；实测默认值与 `\hbadness=10000` 都照样输出 Overfull，`\hfuzz=100pt` 才消掉，而三种设置下 `\badness` 都不变（即观察量不受影响）。
 
-重排路径交还的那枚尾随空格仍落在最后一个片段盒子内部，外层收缩量因此比发布版少 1.11pt（发布版 9.44pt、回归基线 8.33pt、修复后 8.33pt+2.22pt 中属于西文词的部分已恢复）。改走 `\@@_boundary_use_ulem_glue:n` 外层通道能补上这 1.11pt，但会让该空格对边界机制变得可见而被计算两次，实测 `command-boundary-math01` 报 3.33pt boundary delta 失败、`command-boundary-math05` 的 `stream-ulem` previous 从 0.0pt 变 3.33pt，故不采用。这是已接受的限制，详见决策 [[../memory/decisions/1026-ulem-literal-body]]。#1037 未改变这一点：它只改补 ecglue 的通道，不涉及重排路径剥离／交还源码空格的逻辑，TEST 5 的节点列表与宽度差在 #1037 修复前后逐字节相同，可佐证重排路径未被触及。
+重排路径交还的那枚尾随空格仍落在最后一个片段盒子内部，外层收缩量因此比发布版少 1.11pt（发布版 9.44pt、回归基线 8.33pt、修复后 8.33pt+2.22pt 中属于西文词的部分已恢复）。改走 `\@@_boundary_use_ulem_glue:nn`（#1091 前签名为 `:n`）外层通道能补上这 1.11pt，但会让该空格对边界机制变得可见而被计算两次，实测 `command-boundary-math01` 报 3.33pt boundary delta 失败、`command-boundary-math05` 的 `stream-ulem` previous 从 0.0pt 变 3.33pt，故不采用。这是已接受的限制，详见决策 [[../memory/decisions/1026-ulem-literal-body]]。#1037 未改变这一点：它只改补 ecglue 的通道，不涉及重排路径剥离／交还源码空格的逻辑，TEST 5 的节点列表与宽度差在 #1037 修复前后逐字节相同，可佐证重排路径未被触及。
 
 `\UL@on` 与 `\UL@onin` 两条入口现在**各由一个测试覆盖，但用的是不同的可观察量**，不要把两者混为一谈：`fntef-shrink01` 以「外层收缩量」为观察量覆盖 `\UL@on`；`fntef-nest-linebreak01`（#1057，见下一节）以「能否断行」为观察量覆盖 `\UL@onin`。
 
@@ -866,7 +866,23 @@ TEST 11 覆盖 `{hello}`、`\textbf{hello}`、`{{hello}}` 三种写法（压窄 
 - **正文必须在调用处写成字面记号。** 写成 `\CJKunderline{\BODY}` 会触发「调用处用宏承载正文」那条另一条既有限制。这里的复核不可省略：两条限制在同一个探索 MWE 上给出**同一个数字** 276.99pt，不用字面正文重测一遍就分不清量到的是哪一条，也就无法断言该数字由嵌套造成。
 - **判据本身是「Overfull 行在不在基线里」**，因此正文长度与 `\hsize` 都是判据的一部分，改动样例正文需要重新确认两侧仍各自成立。
 
-xeCJK 标准测试因本文件从 122 项增至 123 项，当前为 123／123 通过。
+xeCJK 标准测试因本文件从 122 项增至 123 项；#1091 新增 `fntef-entry-space01` 后为 124／124。
+
+#1091 更新了本文件基线中的段末 marker：TEST 1、TEST 2 共四个段落末尾的 `\kern -0.0002`／`\kern 0.0002`（default，13sp）更正为 `\kern -0.00017`／`\kern 0.00017`（CJK，11sp）。旧值是缺陷值：正文以嵌套线型命令结尾时外层列表末尾没有可读 marker，末类别取自 ulem 结束定界符 `*` 被观察到的 default；修复后末类别来自正文实际的末字符“止”。`fntef-linebreak01` 的 TEST 2（`\CJKsout*[...]{虚室生白，吉祥止止。}`，以全角句号结尾）同样更正一处，成因相同。更新前已逐项确认差异都来自这一根因（见下文 `fntef-entry-space01` 一节）。
+
+### 线型命令的结束符与入口空格（`fntef-entry-space01`，#1091）
+
+`fntef-entry-space01.lvt` 固定 #1091 的两层修复：ulem 结束定界符 `*` 不再被 capture 观察，以及正文先排出可见内容时入口源码空格留在装饰之前（机制见 [[../architecture/xecjk-architecture]] xeCJKfntef 的「ulem 结束符与入口空格（#1091）」）。7 个 `\TEST` 分两类判据：
+
+- **TEST 1–3 用节点列表判位置。** 只比总宽分不出空格在装饰前还是后——只修第一层时 issue 的 MWE 宽度已经与 oracle 相等，但空格仍在装饰之后。因此以 `\showboxdepth=1` 输出第一层节点，固定 glue 位于第一个 `\rule(*+*)x0.0 \penalty 10000 \cleaders`（ulem 片段）之前。每个节点用例独占一页并先 `\TYPE` 一行 `CASE:`，`\pagestyle{empty}` 去掉页码噪声。覆盖 issue 原写法与 `~` 写法、盒子、`\hspace*`、`\hspace`、盒子后接汉字、`\quad`、`\CJKsout`、原生 `\uline` 与嵌套，以及开头只有颜色 special（仍按首字符规则）和无空格的对照。
+- **TEST 4–7 与直接输入比较宽度**，打印 PASS／FAIL：空正文（含 `\relax`、`\uline`、`\CJKsout`、西文两侧）不增加宽度；嵌套装饰结尾与全角句号结尾的右边界跟随真实末字符；全角左标点开头（含源码空格、`\uline`）与直接输入等宽；普通 CJK／西文首字符不受影响。
+- 每个用例后都断言 capture depth、active seq、suspend depth 与 `\g_@@_ulem_entry_depth_int` 归零，防止暂停／恢复或 entry 状态泄漏到后续用例。
+
+**变异验证**：M1–M9 各只破坏一处，全部使本文件失败（rc=1）——M1 去掉 `\UL@end` 暂停与恢复、M2 不 arm、M3 去掉全角左标点的 CJK 类别报告、M4 去掉 `use_ulem_glue_outer` 的 resolved 判断、M5 去掉 stream end 的 resolved 判断、M6 去掉“末节点为规则”判据、M7 把不可见片段也当可见、M8 去掉 `capture_emit_left` 的 resolved 判断、M9 去掉 `\UL@reskip` 判断。
+
+**M8 需要 `符\CJKunderline{\quad\mbox{x}}后` 才有判别力。** 起初 M8 全绿，原因是两层兜底：resolve 已把 space_flag 置假，CJK-空格场景下“补左边界”只是重放一枚已不存在的空格，是空操作；片段级分支又被 `use_ulem_glue_outer` 的 resolved 判断拦住。这条用例绕开两者：首字符在 `\mbox` 里，ulem 在 `\everyhbox` 中恢复了 `\ ` 的原义，`\xeCJK_if_ulem_patch:TF` 为假，左边界走普通 glue 通道；入口又没有空格，于是 `\quad` 与 `x` 之间是否多出 `\CJKecglue` 只取决于 `emit_left` 的判断。M2、M9 也在这条上失败。变异无判别力时应先找出是哪条兜底路径让被变异的代码成了空操作，不要据此认定该判断冗余。
+
+起初写过的 `\CJKunderline{中。} x` 对 `中。 x` 一项已删去：两者差 3.33pt，但修复前后相同，是全角标点后空格处理的另一既有差异，不属于 #1091。本文件使 xeCJK 标准测试增至 124 项（124／124 通过）；ctex `l3build check -e xetex` 186／186 通过。
 
 ### xeCJKfntef 的 PDF 文本语义（#1017）
 
