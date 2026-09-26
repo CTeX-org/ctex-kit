@@ -21,6 +21,7 @@
 - `llmdoc/reference/kpse-path-resolution.md` — kpse 的文件查找语义（#1054 拆出）：回答「文件拷进某棵 texmf 树之后 kpse 能不能看见」。记录 `TEXMFDBS = {!!$TEXMFLOCAL,!!$TEXMFSYSCONFIG,!!$TEXMFSYSVAR,!!$TEXMFDIST}` 与 `TEXMF` 列表里 `$TEXMFHOME` 无 `!!` 前缀、`!!` 的语义是只查 ls-R 绝不扫磁盘（实测该树下磁盘上真实存在的文件无 ls-R 条目时 `kpsewhich` 完全找不到）、无 `!!` 的树有「ls-R 比目录旧就回退扫盘」的宽容行为、`mktexlsr` 在没有 ls-R 的树上会新建一个；由此得出反直觉后果——刷新 ls-R 会关掉扫盘回退，所以「刷过索引」的那个 job 反而找不到随后拷入的文件（`_check-doc-package.yml:251` 的 zhmetrics tfm/map 与 `scripts/sync-l3backend.sh:113-128` 的组合就是实例，该脚本已于 #1074 撤除、机制不变）；另记本地 `TEXMFHOME` 通常是普通树而 CI 上 setup-texlive-action 让它解析到带 `!!` 的 `texmf-local`，因此涉及 usertree 可见性的问题**本地默认不具备复现前提**，应写最小独立复现直接测机制本身。
 - `llmdoc/reference/ctex-fontset-mac.md` — `ctex` 中 `fontset=mac` / `macnew` / `macold` 的选择逻辑、macOS 15+ 检测后备、XeTeX/LuaTeX 字体探测差异与回退语义，以及 #994 更换正文常规字形时各后端映射和 SPA 数据的同步清单、平台专属回归的证据边界。
 - `llmdoc/reference/repo-git-conventions.md` — 仓库级 git 约定：根 `CLAUDE.md` 是唯一规则正文、`AGENTS.md` 为兼容符号链接且本地编辑授权不包含 commit/push/PR；CODEOWNERS 默认与 zhlineskip 专属审查归属、pre-push self-wrapper 的真实 push/CI/review 状态判定、bot 评论由维护者证据回复确认后的无空提交终止路径，以及长期 orphan 分支 `gh-assets` 的资产组织、安全写入和迁移收尾（现含 #275/#402、#995/#996/#998 等 MWE 与对比图）。
+- `llmdoc/reference/doc-terminology.md` — llmdoc 用词约定（#1093）：`CLAUDE.md` 语言约定之外已定下来的替换决定（契约、PR 检查／条件判断、盒子、没有判别力、「可写入稳定文档的内容」小节名），以及纯措辞修改的不变量检查方法。
 
 ## guides
 
@@ -143,3 +144,4 @@
 - `llmdoc/memory/reflections/1017-fntef-actualtext.md` — 反思：#1017 从字符型装饰污染 PDF 文本提取，收敛到空 `ActualText` 加最小范围 tagging 暂停；记录普通／tagged PDF 文本与 300 dpi 视觉的独立证据、CI 依赖漏项，以及 workflow 固定 SHA 的契约同步和隔离增量审查。
 - `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md` — 反思：#1026 修复 ulem 装饰右边界断行不对齐时，子系统标签指向 #1012 但真正引入点是更早的 #1002 提交 `494d5a72`；记录三次回归测试写错却都“通过”的假绿——单 `\hbox`/`\vbox` 的 glue set 会抹平内外层收缩区分，宏承载正文又触发另一条已接受的既有限制——以及必须用重新引入缺陷的方式确认测试会失败、`\showthe` 在 `\TEST` 中会中断执行并把残留节点列表固化进基线、并行 `save`/`check` 争用共享 `build/test` 目录、对比实验中再次核对实际加载路径的教训。
 - `llmdoc/memory/reflections/1029-sbox-global-prefix.md` — 反思：#1029 中 `\global\sbox` 在 `cmd/sbox/before` 钩子内的赋值消耗前缀后静默丢失盒子内容，报告者已定位到两个钩子并给出删钩子变通；记录报告者定位止步于变通容易被直接采纳为修复、必须先核实两个钩子是 #992 系列刻意引入的 scratch box 隔离、缩小复现到不含 xeCJK 的五行纯 LaTeX 才确认是 `\AddToHook` 机制的通用陷阱而非本包特有，以及失败完全静默时唯一可靠证据是紧接赋值后与实际使用点的数值对比。
+- `llmdoc/memory/reflections/1093-llmdoc-wording-cleanup.md` — 反思：#1093 用 6 个并行子代理全库修订措辞时，指南没有给跨文件高频边界词（门禁、合同、促进候选等）定下统一写法，各分片为保持一致都保守不改，最后需要集中收尾；另记用行内代码与链接集合前后不变来验证纯措辞 diff。
