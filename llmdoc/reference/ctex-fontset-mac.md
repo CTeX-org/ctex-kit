@@ -10,7 +10,7 @@
 
 1. `ctex.sty` 建立统一选项与运行期变量；
 2. `ctex-engine-*.def` 选择引擎后端；
-3. `ctex-fontset-*.def` 把字体角色落到平台字体；
+3. `ctex-fontset-*.def` 把字体角色映射到平台字体；
 4. `ctex-scheme-*.def` / `ctex-heading-*.def` 再叠加中文样式与标题行为。
 
 因此，`fontset` 相关问题首先要判断是：
@@ -160,7 +160,7 @@ LuaTeX 分支不能依赖 `\fontspec_font_if_exist:nTF { PingFang SC }` 判断 d
    `ctex-spa-make.tex`，确认具名字体、TTC index、zhmap 与 SPA 生成源已经同步。
    这些断言只检查生成配置，不会加载 Apple 字体。
 2. macOS XeTeX 分支直接加载 `Songti SC Regular`，逐个取得标点的字形编号和
-   字形边界，现场生成 `maczhsong` 数据，再与仓库跟踪的 `ctexpunct.spa`
+   字形边界，在测试运行时生成 `maczhsong` 数据，再与仓库跟踪的 `ctexpunct.spa`
    比较。字体缺失、字形映射变化或边界数据不同都会使测试失败。
 3. macOS LuaTeX 分支先设置该字体，再实际排出中文字形；探针递归进入 `hlist` 和
    `vlist`，从字形（glyph）节点取得字体对象，并核对 `fullname` 或 PostScript 字体名为

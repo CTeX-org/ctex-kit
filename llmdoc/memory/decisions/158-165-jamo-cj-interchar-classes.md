@@ -17,7 +17,7 @@ metadata:
 
 CJ 字符继续默认按普通 `CJK` 处理，避免恢复历史上的标点压缩问题。新增 `CJLineBreak=normal|strict`；strict 才把 Unicode 17 `Line_Break=CJ` 集合归入 `CJStarter`，复制普通 CJK 字距，并在进入该类前插入 penalty 10000。
 
-`FullRight→CJStarter` 必须把 penalty 放在标点胶之前。该转移使用命名 helper，并在 xeCJKfntef 的 ulem 交换表中提供专用实现，确保下划线环境仍按 fntef 路径处理 glue 与标点。
+`FullRight→CJStarter` 必须把 penalty 放在标点 glue 之前。该转移使用命名 helper，并在 xeCJKfntef 的 ulem 交换表中提供专用实现，确保下划线环境仍按 fntef 路径处理 glue 与标点。
 
 ## 验证
 

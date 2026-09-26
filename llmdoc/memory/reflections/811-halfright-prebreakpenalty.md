@@ -25,7 +25,7 @@
 
 ## Missing Docs or Signals
 - 现有架构文档已经较好说明了 xeCJK 依赖 interchar class 与边界 toks，但还缺一条更具体的实现信号：当问题与“某段 interchartoks 内部已经包含 glue/penalty 次序”有关时，应先确认断行发生在什么节点，再决定是“追加”还是“完整替换”。
-- 对 experiment 子路径的文档也缺一个 xeCJK 侧实例。`ctex / experiment` 的决策文档存在，但尚未明确提醒：xeCJK 若通过 `\xeCJKsetup` 暴露实验 key，路径应落在 `xeCJK / options / experiment` 下。
+- 对 experiment 子路径的文档也缺一个 xeCJK 侧实例。`ctex / experiment` 的决策文档存在，但尚未明确提醒：xeCJK 若通过 `\xeCJKsetup` 暴露实验 key，路径应放在 `xeCJK / options / experiment` 下。
 - `HalfRight` 类的语义边界以前没有被单独总结。此次实现确认其 13 个成员整体都是右侧/收尾型标点，适合作为一个整体施加禁则，而不是再细分子类。
 
 ## Promotion Candidates

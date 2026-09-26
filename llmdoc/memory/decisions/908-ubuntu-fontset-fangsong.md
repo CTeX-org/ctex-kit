@@ -10,10 +10,10 @@
 
 | | FandolFang | 朱雀仿宋（`LXGWZhuqueFangsong-Regular.ttf`） |
 |---|---|---|
-| 来源 | TeX Live `fandol` 包，`hard` 依赖，`fontset=fandol` 现役 | CTAN 包 [lxgw-fonts](https://ctan.org/pkg/lxgw-fonts)（collection-langchinese，维护者 myhsia），含完整 `ctex-fontset-lxgw.def` |
+| 来源 | TeX Live `fandol` 包，`hard` 依赖，`fontset=fandol` 当前使用 | CTAN 包 [lxgw-fonts](https://ctan.org/pkg/lxgw-fonts)（collection-langchinese，维护者 myhsia），含完整 `ctex-fontset-lxgw.def` |
 | 成熟度 | 长期稳定 | beta（family 名带 "(technical preview)"，上游约一年未更新） |
 | 字形品质 | 中规中矩 | 民国活字风格，专业设计，与 Noto 更协调（见下） |
-| 体积 | 已随 ctex 必装 | lxgw-fonts 约 76MB（常规 TL 中文安装同样在场） |
+| 体积 | 已随 ctex 必装 | lxgw-fonts 约 76MB（常规 TL 中文安装同样会装上） |
 
 ### 基线定量是决定性证据
 
@@ -21,13 +21,13 @@
 
 | 字体 | ht | dp |
 |---|---|---|
-| Noto Serif（ubuntu 现役宋体，基准） | 8.34pt | 0.76pt |
+| Noto Serif（ubuntu 当前使用的宋体，基准） | 8.34pt | 0.76pt |
 | 朱雀仿宋 | 7.91pt | 1.21pt |
 | FandolFang | 7.93pt | **1.75pt**（基准 2.3 倍） |
 
 FandolFang 的基线在与 Noto 混排时明显"掉下来"；朱雀仿宋与 Noto 的垂直协调性显著更好。这一点在 `fontset=fandol`（全家都是 Fandol，彼此一致）中不成问题，但在 ubuntu fontset（正文底色是 Noto，仿宋只是穿插字体）中会产生可见的行内跳动。
 
-### 基线抬升 hack 验证有效但判定为有毒性
+### 基线抬升 hack 验证有效但判定为副作用过大
 
 用 xeCJK 的 `\CJKsymbol` / `\CJKpunctsymbol` 输出钩子重定义为 `\raisebox` 包裹，可以把两个候选的 dp 精确抬升对齐 Noto 基准（FandolFang 需 0.099em、朱雀需 0.045em，`\box_dp` 复测零偏差）。但该方案有三类工程代价，**决定不采用**：
 
@@ -35,9 +35,9 @@ FandolFang 的基线在与 Noto 混排时明显"掉下来"；朱雀仿宋与 Not
 2. 破坏 `\lastkern` 边界恢复链等按裸 glyph 假设工作的机制（与本仓库 #873/#880/#910 系列 hbox 遮蔽问题同族）；
 3. 逐字符一个 `\raisebox` 分组的性能开销。
 
-这把"基线失谐"从否决项降级为"可缓解项"，但缓解手段本身有毒性——结论仍是选基线本来协调的字体，而不是选一个需要 hack 补救的字体。
+这把"基线失谐"从否决项降级为"可缓解项"，但缓解手段本身副作用过大——结论仍是选基线本来协调的字体，而不是选一个需要 hack 补救的字体。
 
-## 决策（用户拍板）
+## 决策（由用户决定）
 
 ### 1. ctex 不提供 baseline 调整功能
 

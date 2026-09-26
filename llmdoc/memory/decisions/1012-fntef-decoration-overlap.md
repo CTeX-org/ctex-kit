@@ -40,7 +40,7 @@
   不再为胶水另画水平线，也不让波浪与斜删除线采用不同的接点规则。
 - `underwave/symbol` 只有保持默认值时才进入上述周期路径。用户自定义波浪符号继续
   使用历史 `\xleaders` 路径，其尺寸、相位和视觉结果由使用者检查。
-- `l3draw` 会把负纵坐标归一化为盒子高度，绘图盒本身的 depth 因而是零。默认斜线
+- `l3draw` 会把负纵坐标归一化为盒子高度，绘图盒子本身的 depth 因而是零。默认斜线
   绘制成约 `.93em` 高，再整体下移 `.09em`，使可见范围约为基线下 `.09em` 至基线
   上 `.84em`，覆盖常见全角汉字的深度和高度。
 
@@ -48,7 +48,7 @@
 
 测试按职责分层：
 
-1. `fntef-underline-offset` 使用真正的 `l3draw` 装饰盒，固定 8pt、10.53937pt 和
+1. `fntef-underline-offset` 使用真正的 `l3draw` 装饰盒子，固定 8pt、10.53937pt 和
    15pt 下的宽、高、深，证明周期宽度确为 `1em/4`、斜线约高 `.93em`，并随字号缩放；
    同时固定普通／带 `-` 形式的空参数与不产生节点的正文保持零尺寸。四组波浪／斜线、
    普通／带 `-` 的嵌套回归把单片段内层命令放在已有后续片段的外层命令末尾，并拦截
@@ -58,8 +58,8 @@
    显式 `\quad`；另检查断行前后 PDF 图形状态分别闭合，正文节点、行宽、断点和
    glue set 不变。
 3. `fntef-phase01` 先从 XDV 生成不压缩内容流的 PDF，再由
-   `testfiles/support/fntef-phase-check.lua` 读取标记与图案盒的实际横坐标。它固定
-   所有周期盒处在同一个普通 leaders 网格、普通与带 `-` 形式分别对称外伸／内缩
+   `testfiles/support/fntef-phase-check.lua` 读取标记与图案盒子的实际横坐标。它固定
+   所有周期盒子处在同一个普通 leaders 网格、普通与带 `-` 形式分别对称外伸／内缩
    半周期、每个普通命令只有一段连续覆盖、固定和伸缩 `CJKglue` 连续、相邻带 `-`
    命令恰有一个周期断口，以及普通显式跳距仍被装饰。
 4. 从手册提取的单页 MWE 检查实际字体、字号、示例文字和伸缩胶水下的波浪形状、
@@ -70,7 +70,7 @@
 
 ## 与 #1017 的职责边界
 
-本决定只处理默认装饰图案的几何和随字号缩放。#1017 在共享装饰盒中使用空
+本决定只处理默认装饰图案的几何和随字号缩放。#1017 在共享装饰盒子中使用空
 `ActualText`，并在最小范围暂停 tagging，负责 PDF 的复制、搜索和文本提取语义；
 boundary capture 的暂停／恢复负责 xeCJK 命令边界状态。三条路径解决不同问题，
 都要保留各自的回归。
@@ -91,7 +91,7 @@ boundary capture 的暂停／恢复负责 xeCJK 命令边界状态。三条路�
   `\@@_ulem_periodic_clipped_leaders:nnn`、`\@@_ulem_periodic_right_skip:`、
   `\@@_fntef_wave_symbol:`、`\@@_fntef_xout_symbol:`、`\CJKunderwave` 与
   `\CJKxout`。
-- 坐标门禁：`xeCJK/testfiles/fntef-phase01.lvt/.tlg`、
+- 坐标校验：`xeCJK/testfiles/fntef-phase01.lvt/.tlg`、
   `xeCJK/testfiles/support/fntef-phase-check.lua` 和 `xeCJK/build.lua` 的
   `runtest_tasks`。
 - 反思：[[../reflections/1012-fntef-decoration-overlap.md]]。

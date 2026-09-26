@@ -17,11 +17,11 @@ type: reflection
 
 1. **第一轮（已提交 e5cc6ef7）：`\reset@color` hlist 路径直接插入 kern 对**。当 `\lastnodetype` 为 hlist 且 `\g_@@_last_node_tl` 为 CJK 类型时，在 `\@@_orig_reset_color:` 之后直接执行 `\xeCJK_make_node:n` + `\bool_gset_true:N \g_@@_ulem_pending_bool`。问题：hlist 检查过于宽泛——任何 hlist（包括 beamer frame title、thuthesis header 中的布局 hbox）只要前方有 CJK 字符就触发，导致大量零和 kern 对出现在与 colorbox 无关的布局结构中，pkuthss/thuthesis 基线全面偏移。
 
-2. **第二轮（未提交）：whatsit 回退不带门控**。把 hlist 回退逻辑从 `\reset@color` 移到 `\@@_check_for_glue_skip:` 的非 kern 非 hlist 分支，在该分支中无条件检查 whatsit。问题：CJK->Boundary 的 catcode 2 路径也会使 `\g_@@_ulem_pending_bool` 为真，且后续 glue 的 `\unskip` 后 `\lastnodetype` 可能恰好为 whatsit（例如 `\typeout` 产生的 whatsit），导致非 colorbox 场景误入 whatsit 恢复路径。具体表现为 pkuthss 中 "2021~年" 的 `~` 从 XITS interword space 变为 CJKglue。
+2. **第二轮（未提交）：whatsit 回退不加条件限制**。把 hlist 回退逻辑从 `\reset@color` 移到 `\@@_check_for_glue_skip:` 的非 kern 非 hlist 分支，在该分支中无条件检查 whatsit。问题：CJK->Boundary 的 catcode 2 路径也会使 `\g_@@_ulem_pending_bool` 为真，且后续 glue 的 `\unskip` 后 `\lastnodetype` 可能恰好为 whatsit（例如 `\typeout` 产生的 whatsit），导致非 colorbox 场景误入 whatsit 恢复路径。具体表现为 pkuthss 中 "2021~年" 的 `~` 从 XITS interword space 变为 CJKglue。
 
-3. **第三轮（未提交）：用 `\g_@@_ulem_pending_bool` 门控 whatsit 回退**。想法是只在 `\g_@@_ulem_pending_bool` 为真时才进入 whatsit 路径。问题：`\g_@@_ulem_pending_bool` 有三个 set 点（fntef ulem group / underdot 独立模式 / CJK->Boundary catcode 2），其中 catcode 2 set 点在 `}` 触发时设置，但此后可能紧跟 `~` 等非 colorbox 场景。该 boolean 不具备区分"来自 `\reset@color`"与"来自 `}`"的能力，"2021~年" 回归依旧。
+3. **第三轮（未提交）：用 `\g_@@_ulem_pending_bool` 控制是否进入 whatsit 回退**。想法是只在 `\g_@@_ulem_pending_bool` 为真时才进入 whatsit 路径。问题：`\g_@@_ulem_pending_bool` 有三个 set 点（fntef ulem group / underdot 独立模式 / CJK->Boundary catcode 2），其中 catcode 2 set 点在 `}` 触发时设置，但此后可能紧跟 `~` 等非 colorbox 场景。该 boolean 不具备区分"来自 `\reset@color`"与"来自 `}`"的能力，"2021~年" 回归依旧。
 
-4. **第四轮（已提交 fc40526f）：`\g_@@_reset_color_pending_bool` 专用布尔**。在 `\reset@color` 的 hlist 路径中仅设置此专用布尔（不插入 kern 对），在 `\@@_check_for_glue_skip:` 的非 kern 非 hlist 分支中用此布尔门控 whatsit 检查。该布尔仅由 `\reset@color` 设置，仅在 `\@@_check_for_glue_skip:` 中消费，完全隔离于其他 pending boolean 的生产端。
+4. **第四轮（已提交 fc40526f）：`\g_@@_reset_color_pending_bool` 专用布尔**。在 `\reset@color` 的 hlist 路径中仅设置此专用布尔（不插入 kern 对），在 `\@@_check_for_glue_skip:` 的非 kern 非 hlist 分支中用此布尔控制是否做 whatsit 检查。该布尔仅由 `\reset@color` 设置，仅在 `\@@_check_for_glue_skip:` 中消费，完全隔离于其他 pending boolean 的生产端。
 
 ## Root Cause
 

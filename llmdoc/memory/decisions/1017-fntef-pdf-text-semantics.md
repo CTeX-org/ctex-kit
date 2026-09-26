@@ -6,7 +6,7 @@ xeCJKfntef 的波浪线、删除线、着重号和自定义装饰可以由真实
 
 ## 决定
 
-在所有线条和符号装饰共用的 `\xeCJK_fntef_sbox:n` 中，用空的 `ActualText` 包住装饰盒。若 LaTeX 提供 tagging 接口，则只在构造装饰盒期间调用 `\tag_suspend:n` 和 `\tag_resume:n`，避免盒内数学内容生成的内层标记穿过外层 `ActualText`。
+在所有线条和符号装饰共用的 `\xeCJK_fntef_sbox:n` 中，用空的 `ActualText` 包住装饰盒子。若 LaTeX 提供 tagging 接口，则只在构造装饰盒子期间调用 `\tag_suspend:n` 和 `\tag_resume:n`，避免盒子内部数学内容生成的内层标记穿过外层 `ActualText`。
 
 这套处理与既有的 boundary capture 暂停／恢复同时保留。空 `ActualText` 和 tagging 暂停负责 PDF 文本语义；capture 暂停／恢复负责 xeCJK 命令边界状态。两套机制解决不同问题。
 
@@ -20,7 +20,7 @@ xeCJKfntef 的波浪线、删除线、着重号和自定义装饰可以由真实
 
 `xeCJK/testfiles/fntef-actualtext01.lvt` 覆盖八类装饰入口，并固定空 `ActualText` 与 tagging 暂停／恢复的调用。普通 PDF 和 tagged PDF 都要实际检查文本提取；页面视觉另用同条件高分辨率栅格或坐标证据验证。#1017 的结果是两种 PDF 都只提取正文，修复前后 300 dpi 栅格差为 `AE=0`。
 
-本决策只解决 #1017 的复制、搜索和文本提取问题。它不改变装饰盒尺寸、leader 类型或绘制位置，也不解决 #1012 所讨论的线条重叠、波浪相位和阅读器抗锯齿现象。
+本决策只解决 #1017 的复制、搜索和文本提取问题。它不改变装饰盒子尺寸、leader 类型或绘制位置，也不解决 #1012 所讨论的线条重叠、波浪相位和阅读器抗锯齿现象。
 
 运行时依赖 `accsupp` 与 tagged PDF 测试依赖 `latex-lab`、`pdfmanagement`、`tagpdf` 必须同时进入包级依赖声明和 `.github/tl_packages`。本变更登记在尚未发布的 xeCJK `v3.10.5`。
 

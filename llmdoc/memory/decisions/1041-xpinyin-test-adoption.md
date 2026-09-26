@@ -22,7 +22,7 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 按观察通道分工是因为同一个功能维度（例如「读音是否正确」）需要不同的证据形式才能获得判别力：尺寸比较拦不住字体恰好同尺寸的情况，节点列表才是正面证据。见下方「四条判别力教训」。
 
-这条分工原则曾被违反两次，且是同一个模式的两次发作，值得记下。
+这条分工原则曾被违反两次，且是同一个模式的两次出现，值得记下。
 
 第一次：`multiple` 键最初只出现在 `pinyin-setup01.lvt` 的覆盖清单里，并由 `pinyin-scope01.lvt` 用「格式见 pinyin-setup01」交叉引用指向它，而两个文件都没有它的用例。盲审据此提出重要问题——按注释判断的人会以为该键有回归保护。
 
@@ -39,12 +39,12 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 
 ## 决策：两条结构性事实必须写进测试注释
 
-- **注音汉字的宽度看不出拼音内容**：拼音在 `\hbox_overlap_right:n` 这个零宽盒里，换读音乃至整段关掉注音，整盒宽度都不变（实测 chang2/zhang3 同为 10pt）。内容类断言一律交给节点列表。
+- **注音汉字的宽度看不出拼音内容**：拼音在 `\hbox_overlap_right:n` 这个零宽盒子里，换读音乃至整段关掉注音，整个盒子的宽度都不变（实测 chang2/zhang3 同为 10pt）。内容类断言一律交给节点列表。
 - **CJK 环境必须开在盒子内部**：`\begin{CJK}` 包住 `\hbox_set:Nn` 时汉字进不了盒子，三项宽高全为 0pt，而 0pt = 0pt 让「宽度不变」照样报 unchanged。
 
 ## 决策：观察手段选 `\loggingoutput`，不用 `\showbox`／`\box_log:N`
 
-三者都会抛 `! OK.`；xpinyin 的 `checkopts` 带 `-halt-on-error`，会当场终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着，属于跨包可复用的教训。
+三者都会抛 `! OK.`；xpinyin 的 `checkopts` 带 `-halt-on-error`，会立刻终止编译，其后用例静默不执行而 `check` 仍可能报绿。这个坑在 xeCJK 的 `verb-ecglue02.lvt`／`fntef-shrink01.lvt` 注释里也记着，属于跨包可复用的教训。
 
 ## 决策：`checkdeps` 必须配 `checkinit_hook`
 
@@ -55,17 +55,17 @@ xpinyin 用 `bool_lazy_or:nnF { xetex } { pdftex }` 把 luatex 挡在 `\msg_crit
 - **「照抄一个能工作的实现」不等于该实现的前提在新场景下也成立**——`ctex` 的写法依赖一个未被写下来的巧合（超集关系），迁移时那个前提悄悄失效了。
 - **部分隔离比不隔离更难发现**：测试全绿，`.sty` 的路径也确实是工作树的，只有逐个核对每类产物的实际加载路径才看得出来。
 
-现行实现用 `loadfile`（不是 `dofile`——后者在全局环境执行，既无法隔离也无法用 `pcall` 兜住）读依赖包 `build.lua` 的 `installfiles`，并设两道**拒绝**判据：读不到或不是表则 `error`，空表则 `error`。`pcall` 的错误对象不构成判据（它不拒绝任何东西），而是在这两道判据触发时随 `error` 一并报出；正常情况下不打印——每次 `check` 都无条件打一行「预期行为」只会训练读者忽略它。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的——`installfiles` 在那之前就已赋值——但该错误必须可见，否则将来失败点前移到赋值之前时问题无从发现。
+现行实现用 `loadfile`（不是 `dofile`——后者在全局环境执行，既无法隔离也无法用 `pcall` 接住）读依赖包 `build.lua` 的 `installfiles`，并设两道**拒绝**判据：读不到或不是表则 `error`，空表则 `error`。`pcall` 的错误对象不构成判据（它不拒绝任何东西），而是在这两道判据触发时随 `error` 一并报出；正常情况下不打印——每次 `check` 都无条件打一行「预期行为」只会训练读者忽略它。`xeCJK` 现在必然在 `require("zip")` 处中断（空环境里 `require` 为 nil），这是预期的——`installfiles` 在那之前就已赋值——但该错误必须可见，否则将来失败点前移到赋值之前时问题无从发现。
 
-**仍存在两个已接受的缺口**，如实记下而不假称已完全封闭。若依赖包把 `installfiles` 改成分步构造（先赋一个字面表，中途某句失败，之后再追加若干项），得到的是**残缺表**，它同时通过「是表」与「非空」两道判据，于是只复制一半而不报错——与本节要消灭的症状同型。实测确认了这一点。当前不进一步收紧是因为再严的判据都要预设依赖包的写法，反而更脆；`cp` 的 errorlevel 现已检查（复制真失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖或依赖包重构后，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
+**仍存在两个已接受的缺口**，如实记下而不假称已完全封闭。若依赖包把 `installfiles` 改成分步构造（先赋一个字面表，中途某句失败，之后再追加若干项），得到的是**残缺表**，它同时通过「是表」与「非空」两道判据，于是只复制一半而不报错——与本节要消灭的症状同型。实测确认了这一点。当前不进一步收紧是因为再严的判据都要预设依赖包的写法，反而更脆；`cp` 的 errorlevel 现已检查（复制确实失败即 `error`，而非静默继续拿系统那份去测）。防线是失败时随 `error` 一并报出的 `pcall` 错误，加上「新增依赖或依赖包重构后，逐个核对测试目录里每类产物的实际加载路径」这条人工步骤。
 
-**缺口二（现网即存在）：判据只看 `installfiles` 这张表，不看每条 glob 是否真的匹配到文件。** `xeCJK` 的 `installfiles` 含 `"*.map"` 与 `"*.tec"`，而这两类产物由 `xeCJK/build.lua` 的 `unpack_posthook` 在 `if install_files_bool then` 内经 TECkit 生成，该标志只在 `support/build-config.lua` 的 `install_files` 包装里置真，`check`／`unpack` 路径下始终为 nil。因此实测 `xeCJK/build/unpacked/` 下 `*.map`／`*.tec` 各匹配 0 个文件，`cp` 静默复制零个并返回 0，两道判据全部通过。**今天不触发**：xpinyin 现有测试都不使用 `Mapping=` 一类需要 `.tec` 的写法。但一旦将来加了这种测试，`.tec` 会命中系统 TeX Live 的 `texmf-dist/fonts/misc/xetex/fontmapping/xecjk/`（实测该目录确实有那 8 个文件），又是一次「测的其实是本机装了什么」。不在 `cp` 后加零匹配检查并 `error`，是因为现网就会当场失败；**新增依赖或新增用到 `.map`／`.tec` 的测试时，必须回到这里核对**。
+**缺口二（当前就存在）：判据只看 `installfiles` 这张表，不看每条 glob 是否真的匹配到文件。** `xeCJK` 的 `installfiles` 含 `"*.map"` 与 `"*.tec"`，而这两类产物由 `xeCJK/build.lua` 的 `unpack_posthook` 在 `if install_files_bool then` 内经 TECkit 生成，该标志只在 `support/build-config.lua` 的 `install_files` 包装里置真，`check`／`unpack` 路径下始终为 nil。因此实测 `xeCJK/build/unpacked/` 下 `*.map`／`*.tec` 各匹配 0 个文件，`cp` 静默复制零个并返回 0，两道判据全部通过。**今天不触发**：xpinyin 现有测试都不使用 `Mapping=` 一类需要 `.tec` 的写法。但一旦将来加了这种测试，`.tec` 会命中系统 TeX Live 的 `texmf-dist/fonts/misc/xetex/fontmapping/xecjk/`（实测该目录确实有那 8 个文件），又是一次「测的其实是本机装了什么」。不在 `cp` 后加零匹配检查并 `error`，是因为按当前配置就会立刻失败；**新增依赖或新增用到 `.map`／`.tec` 的测试时，必须回到这里核对**。
 
-## 决策：xpinyin 接入版本管理双闸校验，沿用 xeCJK 的共享 `update_tag` 路线
+## 决策：xpinyin 接入版本管理的两道校验，沿用 xeCJK 的共享 `update_tag` 路线
 
 `xpinyin/build.lua` 新增 `version` 字段作事实源；共享 `update_tag`（`support/build-config.lua`）已支持 `xpinyin.dtx` 的两处版本写法（`\ProvidesExplPackage` 的 `{\ExplFileDate}{<ver>}` 与 `xpinyin-database.def` 的 `\ProvidesFile` `[<日期> v<ver> xpinyin database]`），无需改 Lua——实测 `l3build tag` 为 no-op。
 
-`check-tag.yml` 新增 `tag-xpinyin` job；`release.yml` 补 `xpinyin)` case，校验 git tag / build.lua / **两处** dtx 版本一致。此前它走 `*)` 静默跳过，正是 #1041（xeCJK 版本闸）记录的白名单默认放行模式在 xpinyin 上的复现。两种失败模式（只 bump build.lua；两处只同步其一）都已实测能拦住。详见 [[1041-xecjk-version-gate]]。
+`check-tag.yml` 新增 `tag-xpinyin` job；`release.yml` 补 `xpinyin)` case，校验 git tag / build.lua / **两处** dtx 版本一致。此前它走 `*)` 静默跳过，正是 #1041（xeCJK 版本校验）记录的白名单默认放行模式在 xpinyin 上的复现。两种失败模式（只 bump build.lua；两处只同步其一）都已实测能拦住。详见 [[1041-xecjk-version-gate]]。
 
 ## CI 接入细节
 

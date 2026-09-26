@@ -2,9 +2,9 @@
 
 ## Task
 
-PR #1050 给 xpinyin 补独立回归测试，CI 出现 10 个红，全部落在 `test-ctex` 与
+PR #1050 给 xpinyin 补独立回归测试，CI 出现 10 项失败，全部落在 `test-ctex` 与
 `test-xeCJK`，与本 PR 改动的文件（`xpinyin/`、workflow、`llmdoc/`）无路径交集。
-PR #1048（xeCJK 文档订正）为解决同一批失败改了 27 个 `.tlg`。本轮任务是对这批红做
+PR #1048（xeCJK 文档订正）为解决同一批失败改了 27 个 `.tlg`。本轮任务是对这批失败做
 一次根因排查，并判断 #1048 那 27 个 `.tlg` 各自该刷还是该撤回。
 
 ## Expected vs Actual
@@ -28,7 +28,7 @@ CI 缓存也已经漂移。实际查证后，master 同一 commit 在 CI 上重�
 
 发出错误评论后，靠对比缓存创建时间与体积才定位到真正原因：CI 的 TL bypass cache key
 含 `hashFiles('.github/tl_packages')`；#1050 给 `dejavu`／`gnu-freefont` 加了三行，
-key 随之改变，PR 侧 cache miss、当场全新安装拿到当前上游版本；master 命中的是一天前
+key 随之改变，PR 侧 cache miss、直接全新安装拿到当前上游版本；master 命中的是一天前
 写入的旧快照。同一个 commit `2dd5af66`，master 绿、PR 红，绿是旧缓存挡住了漂移，不是
 代码在新 TL 下仍然通过。旧快照最迟在本周 key 按 `%G-W%V` 轮换时失效，届时 master 自己
 也会红。
@@ -41,8 +41,8 @@ key 随之改变，PR 侧 cache miss、当场全新安装拿到当前上游版�
 `l3build-check.lua:850` 写死 `TEXINPUTS=.` 加 localtexmf 覆盖掉。前两次都放错了位置，
 两次都得到「仍然红」的结果——如果不核实注入是否真的生效，就会顺势得出「新 backend 也
 修不好」这个错误结论。生效判据是跑完之后 `build/test/l3backend-xetex.def`（ctex 是
-`build/check/`）里的日期戳仍为 `{2026-07-20}`；没有这个判据，两次假阴性无法与真结论
-区分。
+`build/check/`）里的日期戳仍为 `{2026-07-20}`；没有这个判据，两次假阴性无法与真正的
+结论区分。
 
 ### 3. CLEVEREF 归因先跳过了本仓库已有文档
 
@@ -127,4 +127,4 @@ key 随之改变，PR 侧 cache miss、当场全新安装拿到当前上游版�
   doc 路径上都不适用，那条路径只能靠前置预防加目视检查。两条路径的表现差异与各自的
   判别方式，见 `reference/build-and-test.md` 的「CI 侧的临时 workaround」一节。
 - 反思 [[1054-l3backend-defense-scope-and-kpse-lsr]] 另记 kpse `!!` 树与 ls-R 的机制，
-  以及本反思「注入类实验必须有可核实的生效判据」的否命题形态（反证失败不等于假设错误）。
+  以及本反思「注入类实验必须有可核实的生效判据」的否命题形式（反证失败不等于假设错误）。

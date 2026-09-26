@@ -19,7 +19,7 @@ zhnumber）的 `CHANGELOG.md`。核心问题：如何保证这批生成的 `CHAN
 
 CI 在**每个 PR**上重新跑生成脚本 + `git diff --exit-code`，只校验、不
 回写，因此不需要 write 权限。与 #937 `check-tag.yml`（版本 stamp 校验）
-**同一架构模式**——「CI 不宜给 write 权限」约束下的标准解法。落地为
+**同一架构模式**——「CI 不宜给 write 权限」约束下的标准解法。实现为
 `.github/workflows/check-changelog.yml`：
 
 - 触发路径限定为相关 dtx / `**/CHANGELOG.md` / 脚本自身。
@@ -28,12 +28,12 @@ CI 在**每个 PR**上重新跑生成脚本 + `git diff --exit-code`，只校验
   按包拆 caller job）。
 - fail 时通过三通道（job log `::group::` / step summary `<details>` /
   `actions/upload-artifact`）贴出期望的完整 `CHANGELOG.md` 内容，保证没有
-  本地 Python 环境的 contributor 也能直接复制粘贴过闸。
+  本地 Python 环境的 contributor 也能直接复制粘贴并通过检查。
 - 本地入口 `make changelog` / `make changelog-<pkg>`。
 
-配套修法：`scripts/extract-changes.py` 新增 `-o <file>` 参数，脚本自己以
+配套修改：`scripts/extract-changes.py` 新增 `-o <file>` 参数，脚本自己以
 UTF-8 + LF 写文件，不依赖 shell 重定向（Windows PowerShell 5 `>` 默认
-UTF-16LE + CRLF，会让字节级 diff 门禁必然失败）。生成 `CHANGELOG.md`
+UTF-16LE + CRLF，会让字节级 diff 检查必然失败）。生成 `CHANGELOG.md`
 必须用 `-o` 而非 shell 重定向。单版本模式（供 `release.yml` /
 `release-ctan-upload.yml` 消费）输出字节保持与升级前完全一致，无回归。
 
@@ -59,7 +59,7 @@ UTF-16LE + CRLF，会让字节级 diff 门禁必然失败）。生成 `CHANGELOG
 ## 未深入的分歧（留痕）
 
 Liam 曾质疑"单纯罗列 `\changes` 是否是恰当的 CHANGELOG 形态"（vs AI 整理
-成人类可读叙述文本），讨论未深入，最终接受了罗列形态。这是产品形态问题
+成人类可读叙述文本），讨论未深入，最终接受了罗列形式。这是产品设计问题
 而非工程问题，未来若重提可从这里接着讨论。
 
 ## 相关

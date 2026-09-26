@@ -1,11 +1,11 @@
 ---
 name: weekly-issue-heredoc-indent
-description: 记 test.yml 定时失败自动开 issue 时 GitHub Actions run 块 heredoc 的两个缩进坑(YAML 剥基准缩进、sed 会误伤 diff 深缩进)，以及没实测就写反向注释两次
+description: 记 test.yml 定时失败自动开 issue 时 GitHub Actions run 块 heredoc 的两个缩进坑（YAML 剥基准缩进、sed 会误伤 diff 深缩进），以及没实测就写反向注释两次
 metadata:
   type: feedback
 ---
 
-# 反思：给 test.yml 加定时失败自动开 issue 时的 heredoc 缩进两坑
+# 反思：给 test.yml 加定时失败自动开 issue 时的两个 heredoc 缩进坑
 
 ## 任务
 
@@ -74,7 +74,7 @@ body 的 `.diff` 正文里，LaTeX 节点 diff 行（如 `.....\special{pdf:...}
 
 `llmdoc/reference/build-and-test.md` 与仓库里其他 CI 相关文档此前没有记录「YAML 块标量剥
 基准缩进」这条通用行为——此前的 workflow 改动大多是纯 shell 逻辑或简单字符串拼接，没有涉及
-多行 heredoc，所以这条坑第一次在本仓的 CI 编写里现身。验证 workflow shell 逻辑此前的通用方法
+多行 heredoc，所以这个坑第一次在本仓的 CI 编写里出现。验证 workflow shell 逻辑此前的通用方法
 （本仓已有：提取 `run:` 文本喂 bash 实跑）没有专门强调「YAML 解析」这一步对缩进语义的必要性，
 容易被简化成「跑一下看报错」而漏掉缩进这种不报错、只在渲染时才显现的问题。
 
@@ -95,14 +95,14 @@ body 的 `.diff` 正文里，LaTeX 节点 diff 行（如 `.....\special{pdf:...}
    未使用不存在的 `ci` label）。
 
 这与 [[1043-halign-alignment-tab-in-boundary-args]]、[[1057-fntef-nest-linebreak]] 记录过的
-「没实测就把注释/结论写具体」是同一失效模式在 CI/shell 载体上的又一次发作：先写看起来合理的
+「没实测就把注释/结论写具体」是同一失效模式在 CI/shell 载体上的又一次出现：先写看起来合理的
 结论，实测才发现方向相反。
 
 ## 后续
 
 - 若之后还有 workflow 需要用 heredoc 拼多行 markdown/文本，先检查是否已引用本反思或
   `build-and-test.md` 里对应小节，避免重犯同一模型错误。
-- 若 recorder 采纳促升，把第 1、2 条写进 `llmdoc/reference/build-and-test.md` 的 CI/CD 小节
+- 若 recorder 采纳这些提升建议，把第 1、2 条写进 `llmdoc/reference/build-and-test.md` 的 CI/CD 小节
   （紧邻 `file-issue-on-schedule-failure` 已有记载处），第 3、4 条可并入既有的「验证 workflow
   shell 逻辑」相关表述里，避免与已有内容重复表达。
 
@@ -202,7 +202,7 @@ job（含 `warmup-tl`），我只枚举了 7 个，漏的那一个恰好是"其�
   workflow 互相无限触发）。所以 `agentic-issue-dispatch.yml`（监听 `issues.opened`）根本不会
   被触发——宣称的自动联动从来不会发生。
 - 想补救（给 dispatch 加 `workflow_dispatch`／`repository_dispatch` 入口显式触发）会撞上另一
-  个约束：合同测试 `scripts/test-agentic-workflow-contract.py` 刻意断言
+  个约束：契约测试 `scripts/test-agentic-workflow-contract.py` 刻意断言
   `assert "workflow_dispatch:" not in issue`（与 `assert "schedule:" not in issue` 成对），
   即 agentic 体系有意规定"issue dispatch 只被动响应真实 opened 事件、不给任何主动触发入口"
   （对比 llmdoc-updater 明确允许 `workflow_dispatch:`，是有意的差别设计）。推翻这条约束触及
@@ -220,10 +220,10 @@ job（含 `warmup-tl`），我只枚举了 7 个，漏的那一个恰好是"其�
    产生事件的身份，或显式 dispatch。
 2. 这个假设本可以在设计阶段被证伪：只要查一下"`GITHUB_TOKEN` 创建的 issue 能否触发 issues
    workflow"就知道。却把它写进了功能卖点、注释、PR 描述和 llmdoc 三处，直到 bot 指出——是
-   "没实测就把结论写具体"在**设计假设**层面的又一次发作（前面几次是注释真伪、输入边界，这次
+   "没实测就把结论写具体"在**设计假设**层面的又一次出现（前面几次是注释真伪、输入边界，这次
    是平台行为假设）。跨 workflow 联动的触发条件属于"必须先验证再写进设计"的一类。
 3. 改一个功能前先看它会不会推翻某条被测试固定的现有约束：`workflow_dispatch not in issue`
-   是合同测试明写的断言，加触发入口前必须先理解这条断言的原意（为什么 issue dispatch 刻意
+   是契约测试明写的断言，加触发入口前必须先理解这条断言的原意（为什么 issue dispatch 刻意
    不给主动入口），而不是直接改断言让测试过。测试里成对出现的否定断言（`schedule` 加
    `workflow_dispatch` 都禁）往往是刻意的安全边界。
 

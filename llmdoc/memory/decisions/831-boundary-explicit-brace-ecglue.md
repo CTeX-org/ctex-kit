@@ -51,17 +51,17 @@ xeCJK 原来只补丁了 `\set@color`（颜色推入），未补丁 `\reset@colo
 
 在 `\@@_check_for_glue_skip:` 的非 kern 路径中，将原来的 hlist 单分支重构为三分支：
 
-1. **hlist 分支（无门控）**：`\lastnodetype = 1`（hbox）且 `\g_@@_last_node_tl` 非空 → 直接路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\mbox{中}` 场景——`\mbox` 不设置任何 boolean，但 hlist + `\g_@@_last_node_tl` 的组合本身足够安全。
-2. **whatsit 分支（`\g_@@_reset_color_pending_bool` 门控）**：hlist 检查失败后，若 `\g_@@_reset_color_pending_bool` 为真且 `\lastnodetype` 为 whatsit → 路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\textcolor{red}{中}后` 场景——color-pop whatsit 在 CJK kern pair 标记之后插入。
+1. **hlist 分支（不受 boolean 控制）**：`\lastnodetype = 1`（hbox）且 `\g_@@_last_node_tl` 非空 → 直接路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\mbox{中}` 场景——`\mbox` 不设置任何 boolean，但 hlist + `\g_@@_last_node_tl` 的组合本身足够安全。
+2. **whatsit 分支（由 `\g_@@_reset_color_pending_bool` 控制）**：hlist 检查失败后，若 `\g_@@_reset_color_pending_bool` 为真且 `\lastnodetype` 为 whatsit → 路由到 `\@@_check_for_glue_skip_hlist_aux:`。覆盖 `\textcolor{red}{中}后` 场景——color-pop whatsit 在 CJK kern pair 标记之后插入。
 3. **fallback**：上述检查均失败 → 回退到 `\@@_check_for_glue_auxii:`。
 
-关键设计：hlist 分支不依赖任何 boolean 门控，限定 hlist 类型避免了 whatsit（如 `\write`，lastnodetype = 4）的干扰。whatsit 分支由专用 `\g_@@_reset_color_pending_bool` 门控，不依赖 `\g_@@_ulem_pending_bool`。
+关键设计：hlist 分支不依赖任何 boolean 条件，限定 hlist 类型避免了 whatsit（如 `\write`，lastnodetype = 4）的干扰。whatsit 分支由专用的 `\g_@@_reset_color_pending_bool` 控制是否执行，不依赖 `\g_@@_ulem_pending_bool`。
 
 ### `\@@_check_for_glue_skip:` 重构
 
-将 finite/shrink 检查提到 boolean 门控之前，形成 kern 路径和非 kern 三分支路径：
-- **kern 路径**：由 `\g_@@_ulem_pending_bool` 门控，保护 `space=true` 模式
-- **非 kern 路径**：hlist（无门控）/ whatsit（`\g_@@_reset_color_pending_bool` 门控）/ fallback
+将 finite/shrink 检查提到 boolean 条件判断之前，形成 kern 路径和非 kern 三分支路径：
+- **kern 路径**：由 `\g_@@_ulem_pending_bool` 控制是否执行，保护 `space=true` 模式
+- **非 kern 路径**：hlist（不受 boolean 控制）/ whatsit（由 `\g_@@_reset_color_pending_bool` 控制）/ fallback
 
 ## 复用 `\@@_check_for_glue_skip:` 消费端
 

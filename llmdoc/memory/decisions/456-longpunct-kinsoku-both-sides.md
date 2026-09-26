@@ -1,11 +1,11 @@
 ---
 name: "456-longpunct-kinsoku-both-sides"
-description: "决策: #456 长标点与其他标点相邻断点改为两侧禁则联合判断，而非只检查一侧或新增 penalty 类机制; 决策树落在既有 \\@@_punct_kern:NN 内新增辅助函数 \\@@_punct_kern_break:NN, 不引入新的字符类/special punct 属性"
+description: "决策：#456 长标点与其他标点相邻断点改为两侧禁则联合判断，而非只检查一侧或新增 penalty 类机制；决策树放在既有 \\@@_punct_kern:NN 内新增辅助函数 \\@@_punct_kern_break:NN，不引入新的字符类/special punct 属性"
 metadata:
   type: decision
 ---
 
-# 决策：#456 长标点断点改为两侧禁则联合判断，落在既有 `\@@_punct_kern:NN` 内
+# 决策：#456 长标点断点改为两侧禁则联合判断，放在既有 `\@@_punct_kern:NN` 内
 
 ## 背景
 
@@ -24,7 +24,7 @@ v3.6.0（2018/01/23）起，`\@@_punct_kern:NN` 对"长标点（`LongPunct`）�
 
 - 本问题的本质是"断点函数已知一侧信息，但没有检查另一侧"，是决策树的逻辑缺口，不是缺少一个新的标点属性。`NoBreakLongPunct`（#681）之所以新增正交属性，是因为它要表达一个新的字符级语义（"这个长标点不能在其前断行"）；而 #456 要表达的是"断点判断必须联合两侧已有信息"，这是控制流问题，加属性无法解决。
 - `\@@_punct_kern:NN` 已经同时持有 `#1`、`#2` 两个参数，两侧信息本来就在函数作用域内，联合判断是最小改动路径。
-- 参照 #811 决策：penalty 类机制适合"某个字符类整体需要禁则"（如 `HalfRight` 类），但本问题不是某个类整体需要 penalty，而是"长标点参与的断点，两侧各自需要按已有类型（`FullLeft`/`FullRight`/`NoBreakLongPunct`）做门控"，属于 `\@@_punct_kern:NN` 既有的 kern-vs-nobreak 决策语义，不需要新的 interchar penalty 通道。
+- 参照 #811 决策：penalty 类机制适合"某个字符类整体需要禁则"（如 `HalfRight` 类），但本问题不是某个类整体需要 penalty，而是"长标点参与的断点，两侧各自需要按已有类型（`FullLeft`/`FullRight`/`NoBreakLongPunct`）做检查"，属于 `\@@_punct_kern:NN` 既有的 kern-vs-nobreak 决策语义，不需要新的 interchar penalty 通道。
 
 ## 决策 2：`\@@_punct_kern_break:NN` 延续"选函数再喂参数"模式，不在内部直接展开 kern
 
@@ -38,7 +38,7 @@ v3.6.0（2018/01/23）起，`\@@_punct_kern:NN` 对"长标点（`LongPunct`）�
 
 **采纳方案**：调用 `\@@_punct_if_right:NTF #1` 前显式加 `\exp_after:wN` 展开 `#1` 为字符记号；调用 `\@@_punct_if_long_p:N` 时不做额外展开，直接传参。
 
-**理由**：两类条件函数的参数形态要求不同是既有事实（详见反思 [[456-longpunct-kinsoku-both-sides]]），不是本次引入的新约束；`\exp_after:wN` 是 xeCJK 处理 tl-vs-char-token 混用场景的既有惯用法，无需新增中间变量或额外的类型转换封装。
+**理由**：两类条件函数的参数形式要求不同是既有事实（详见反思 [[456-longpunct-kinsoku-both-sides]]），不是本次引入的新约束；`\exp_after:wN` 是 xeCJK 处理 tl-vs-char-token 混用场景的既有惯用法，无需新增中间变量或额外的类型转换封装。
 
 ## 合法断点清单（回归覆盖）
 

@@ -15,7 +15,7 @@ PR #988 第一轮建议不要覆盖 biblatex 内置的 `bibintoc`，改用独立
 意图更清楚；第二轮建议把默认 locale 为 `english` 的原因直接写入代码注释，也能帮助
 只复制 MWE 的读者。这两项虽然标为非阻塞，仍有实际价值。
 
-最后一轮关于 `[\bibname]` 的提醒则不成立为缺陷：biblatex 自带的 book 类 heading
+最后一轮关于 `[\bibname]` 的提醒则不构成缺陷：biblatex 自带的 book 类 heading
 正是以 `\bibname` 为默认标题，而且语言切换时会把它重新绑定到当前
 `bibliography` locale string。`\chinese` 来源的注释也不会改善 CTeX 用户的用法。
 审查闭环应当处理有效问题，并用上游定义或最小实验否决不成立的建议，而不是为了消除
@@ -29,9 +29,9 @@ PR #988 第一轮建议不要覆盖 biblatex 内置的 `bibintoc`，改用独立
 
 更稳妥的规则是按本轮增量重新评估风险。已经有完整基线后，纯注释或措辞调整使用
 `git diff --check`、必要的定向 MWE，并交给强制 CI 完成跨平台验证；只有改动触及运行时、
-文档解析边界、示例语义、生成物或测试基线时，才再次升级到完整本地门禁。
+文档解析边界、示例语义、生成物或测试基线时，才再次升级到完整本地检查。
 
 ## 结果
 
-PR #988 的文档、CHANGELOG、tag 和全平台测试门禁均通过，自动审查为 APPROVE，且无
+PR #988 的文档、CHANGELOG、tag 和全平台测试检查均通过，自动审查为 APPROVE，且无
 formal review 或未解决 thread。最终没有把不成立的两条可选建议继续转化为代码改动。

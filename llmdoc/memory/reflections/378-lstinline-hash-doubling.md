@@ -17,7 +17,7 @@
 
 ## Root Cause
 - 对 `\scantokens` / `\tl_set_rescan:Nno` 的语义约束认识不够细：它不是 listings 原生那种逐字符映射，而是先字符串化再重新 token 化；只要输入里含有参数传递保留下来的 catcode 6 `#`，就会在写入阶段按 TeX 规则翻倍。
-- 对 listings 原生实现的关键不变量认识不足。`\lst@MakeActive@` 使用 `\lccode` + `\lowercase` 逐字符转换，本质上一次只映射一个 token，不经过 stringification→retokenization，因此不会引入 `#` 翻倍问题；修复必须尽量回到与这条路径兼容的 token 形态。
+- 对 listings 原生实现的关键不变量认识不足。`\lst@MakeActive@` 使用 `\lccode` + `\lowercase` 逐字符转换，本质上一次只映射一个 token，不经过 stringification→retokenization，因此不会引入 `#` 翻倍问题；修复必须尽量回到与这条路径兼容的 token 形式。
 - 对“能显示出字符”和“能走对输出流水线”这两件事区分不够。对 listings 而言，替换目标不仅要避免双写，还必须让字符继续通过 `\lsthk@OutputBox` 等正常输出机制；因此 catcode 12 不是正确目标，必须转成 active `#`（catcode 13）。
 
 ## Missing Docs or Signals

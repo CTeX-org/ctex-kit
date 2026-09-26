@@ -5,7 +5,7 @@
 PR #961（myhsia 主导）给 `scripts/extract-changes.py` 加 `all` 版本参数，
 支持一次性抽取 dtx 全部版本的 `\changes` 并按语义化版本分组，同时提交了
 5 个包（ctex/xeCJK/zhlineskip/zhmetrics/zhnumber）手工生成的
-`CHANGELOG.md`。我方（Liam 侧）在同一分支追加 CI 门禁，确保这批
+`CHANGELOG.md`。我方（Liam 侧）在同一分支追加 CI 检查，确保这批
 CHANGELOG.md 不会在后续 PR 中与 `\changes` 脱节。本反思记录流程分歧的
 收敛过程、新增的跨平台坑，以及与 #937 版本 stamp CI 复用的架构模式。
 
@@ -19,7 +19,7 @@ myhsia 先后提出两个方案，都被拒绝：
    master 打，但改动内容（生成 CHANGELOG.md）必须走分支 + PR，两者对不
    上（`make tag` 是打 git tag 不能顺带改文件，见 #937 反思）。
 
-最终方案（Liam 拍板，与 #937 `check-tag.yml` **同一架构模式**）：CI 在
+最终方案（Liam 决定，与 #937 `check-tag.yml` **同一架构模式**）：CI 在
 每个 PR 上重新跑生成脚本 + `git diff --exit-code`，只校验、不回写，因此
 不需要 write 权限。这是「CI 不宜给 write 权限」约束下的标准解法，值得
 在遇到"生成物需要保持与源同步"的新场景时首先想到复用，而不是重新讨论
@@ -46,9 +46,9 @@ diff 非零——即使内容语义完全相同。
 
 修法：脚本新增 `-o <file>` 参数，脚本自己用 `encoding="utf-8"` +
 `newline="\n"` 显式写文件，不依赖 shell 重定向的默认行为。**任何"字节
-级 diff 做门禁"的生成物，只要还可能被 contributor 在 Windows 上手跑，
+级 diff 做校验"的生成物，只要还可能被 contributor 在 Windows 上手跑，
 就不能依赖 shell 重定向，必须让生成脚本自己控制 encoding/newline。**
-这是本仓库第一次在 CI 门禁设计中显式踩到这个坑（#937 check-tag.yml 的
+这是本仓库第一次在 CI 检查设计中显式踩到这个坑（#937 check-tag.yml 的
 `l3build tag` 走的是 Lua io 库不存在这个问题，没有暴露过）。
 
 ## 回归验证方法：旧版脚本输出当字节级 oracle
@@ -66,11 +66,11 @@ diff 非零——即使内容语义完全相同。
 者的共享脚本/宏时，用改造前的版本输出做 oracle 回归，比读代码推理更
 可靠。**
 
-## 门禁 fail 时的可操作性设计
+## 检查 fail 时的可操作性设计
 
 `check-tag.yml` 校验的是单行 stamp，fail 提示"本地跑 `l3build tag`"即
 可。CHANGELOG.md 是整份文件，fail 时必须让**没有 Python 环境的
-contributor** 也能过闸——因此把期望内容通过三个通道暴露：`::group::`
+contributor** 也能通过检查——因此把期望内容通过三个通道暴露：`::group::`
 折叠的 job log、`$GITHUB_STEP_SUMMARY` 的 `<details>` 折叠块、
 `actions/upload-artifact`。三选一，contributor 复制粘贴覆盖本地文件即
 可提交，不强制要求本地装 Python。**校验对象越"大"（整文件 vs 单行），
@@ -78,9 +78,9 @@ contributor** 也能过闸——因此把期望内容通过三个通道暴露：
 
 ## 未深入的分歧（留痕，非本次解决）
 
-Liam 曾质疑"单纯罗列 `\changes` 是否是恰当的 CHANGELOG 形态"（vs AI 整
-理成人类可读叙述文本），讨论未深入，最终接受了罗列形态。这是一个产品
-形态问题而非工程问题，未来如果有人重提"CHANGELOG 该不该经 AI 转写"，
+Liam 曾质疑"单纯罗列 `\changes` 是否是恰当的 CHANGELOG 形式"（vs AI 整
+理成人类可读叙述文本），讨论未深入，最终接受了罗列的形式。这是关于产品
+呈现形式的问题，而非工程问题，未来如果有人重提"CHANGELOG 该不该经 AI 转写"，
 可以从这里接着讨论，不必视为新问题。
 
 ## 已知接受的缺憾（非本次修复范围）
@@ -103,17 +103,17 @@ Liam 曾质疑"单纯罗列 `\changes` 是否是恰当的 CHANGELOG 形态"（vs
 workflow 生成 step 直接跑 `make changelog`、paths 放宽到全部 `**.dtx`，
 Makefile 成为单一事实源）。
 
-## 促进候选
+## 可写入稳定文档的内容
 
 - **「生成物新鲜度校验」应作为通用架构模式提炼**：#937（版本 stamp）与
   #961（CHANGELOG.md）是同一模式两个独立实例，`reference/build-and-test.md`
-  的 CI/CD 章节目前分别记录，尚未有一处统一说明"CI 不宜给 write 权限时,
-  生成物同步用「重新生成 + diff 校验」门禁"这一仓库级约定。下次再出现
+  的 CI/CD 章节目前分别记录，尚未有一处统一说明"CI 不宜给 write 权限时，
+  生成物同步用「重新生成 + diff 校验」的 CI 检查"这一仓库级约定。下次再出现
   第三个实例时，应把这条模式抽到独立小节或 `guides/` 下，而不是继续在
   各自 workflow 段落重复解释。
 - **跨平台字节一致性约束**：可以补一条到 `reference/coding-conventions.md`
-  或 `build-and-test.md`——"任何进 git 且被字节级 diff 校验的生成物,
-  必须由生成脚本自己控制 encoding/newline, 不能依赖 shell 重定向"。目前
+  或 `build-and-test.md`——"任何进 git 且被字节级 diff 校验的生成物，
+  必须由生成脚本自己控制 encoding/newline，不能依赖 shell 重定向"。目前
   只在本反思和 commit message 里，尚未进入 stable 文档。
 - llmdoc 的 `reference/build-and-test.md` CI/CD 一节需要在下次
   `/update-doc` 时补入 `check-changelog.yml` 的条目（参照

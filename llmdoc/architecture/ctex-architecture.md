@@ -28,7 +28,7 @@ ctex 不是引擎级实现，而是代理层——它把底层排版能力委托
 |--------|----------|
 | `ctex.dtx` | `.ins`（`\generate` 段）、README、用户手册（driver 用 `\DocInput` 合并其余 dtx 排版） |
 | `ctex-kernel.dtx` | 核心宏包/类/heading 的 `.def`（ctex / ctexsize / ctexheading / ctexart / ctexbook / ctexrep / ctexbeamer / c5size / cs4size / heading-*） |
-| `ctex-auxpkg.dtx` | 辅助（内部使用）与过时包残尾（ctexcap / ctexhook / ctexpatch） |
+| `ctex-auxpkg.dtx` | 辅助（内部使用）与过时包的遗留部分（ctexcap / ctexhook / ctexpatch） |
 | `ctex-engine.dtx` | 引擎配置文件（`ctex-engine-*.def`） |
 | `ctex-scheme.dtx` | `scheme = plain/chinese` 配置 + `name` 中文名称 |
 | `ctex-fontset.dtx` | 字库、`zhmap`、pTeX 下的 `.fd` 文件 |
@@ -340,4 +340,4 @@ ctex 使用 `experiment/` 命名空间暴露尚未在所有引擎间拥有完全
 
 ### 设计哲学
 
-功能若不能在全部引擎下提供等价观测面，则保持在 `experiment/` 命名空间中，不提前承诺为正式主接口。这允许 ctex 渐进扩展能力而不破坏跨引擎接口契约。
+功能若不能在全部引擎下提供等价的可观察行为，则保持在 `experiment/` 命名空间中，不提前承诺为正式主接口。这允许 ctex 渐进扩展能力而不破坏跨引擎接口契约。

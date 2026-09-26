@@ -42,7 +42,7 @@ metadata:
 
 同一回归文件必须同时保留 #809/#810 的欠恢复/过恢复用例，并覆盖 #972 的链接与非链接 URL 等宽、左右对称、源码空格吸收、通用 math-ending link、后续颜色切换和后续 annotation。宽度比较证明几何结果，组合用例证明可信状态能跨 wrapper 且普通陈旧状态仍被拒绝。
 
-## 落地引用
+## 实现引用
 
 - 实现：`xeCJK/xeCJK.dtx`（`\@@_patch_hyperref_annot:`、`hyperref-default` marker 及三条恢复路径），commit `20b3bce7`。
 - 回归：`xeCJK/testfiles/hyperref-ecglue01.lvt` / `.tlg`、`loading01.tlg`。

@@ -45,6 +45,6 @@ metadata:
 ## 归属与关联
 
 - 实现：`xeCJK/xeCJK.dtx`（`LatinPunct` 选项、`\l_@@_latin_punct_bool`、`\l_@@_pozhehao_ligature_bool`、`\xeCJKResetPunctClass`），commit `d4125106`，分支 `issue-431-shared-quotes`。
-- 回归测试：`xeCJK/testfiles/latinpunct01.lvt`（6 组：默认全角类断言、切换后类断言+盒宽实测、分组局部性、`\xeCJKResetPunctClass` 保持、关闭恢复、破折号不受影响）。xeCJK 92/92、ctex 181/181 全量通过。
+- 回归测试：`xeCJK/testfiles/latinpunct01.lvt`（6 组：默认全角类断言、切换后类断言+盒子宽度实测、分组局部性、`\xeCJKResetPunctClass` 保持、关闭恢复、破折号不受影响）。xeCJK 92/92、ctex 181/181 全量通过。
 - 架构文档：`llmdoc/architecture/xecjk-architecture.md` 标点压缩系统一节新增 "LatinPunct 选项" 小节（含影子布尔作用域一致性教训）；字符分类体系表补充动态成员说明。
 - 关联决策：[[382-dash-width-and-ligature-opt-in]]（`PoZheHaoLigature` 正交关系与零注入字符类模式先例）、[[811-halfright-prebreakpenalty]]（`HalfRight` 类历史基线已随本决策更新）。

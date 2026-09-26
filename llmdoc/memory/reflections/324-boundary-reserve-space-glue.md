@@ -15,7 +15,7 @@ type: reflection
   - 期望 CJK 字符后的源码换行空格在“下一 token 是宏命令”的场景下，与“下一 token 是普通字符”的场景保持一致：只保留用于后续恢复判定的 `CJK-space` 标记 kern，不立即产出可见空格 glue。
   - 期望后续 `Boundary -> CJK` 或 `Boundary -> Default` 恢复路径仍能通过 `\lastkern` 识别前一个边界类型，按既有状态机正确决定是否恢复 glue。
 - Actual outcome.
-  - 实际上，宏路径中的 `\@@_boundary_reserve_space:` 在 `\@@_boundary_group_end:n { CJK-space }` 之后又立即执行 `\xeCJK_space_or_xecglue:`，当场输出了一段空格 glue。
+  - 实际上，宏路径中的 `\@@_boundary_reserve_space:` 在 `\@@_boundary_group_end:n { CJK-space }` 之后又立即执行 `\xeCJK_space_or_xecglue:`，直接输出了一段空格 glue。
   - 这段 glue 把刚插入的 `CJK-space` 标记 kern 遮蔽掉，导致后续恢复路径基于 `\lastkern` 的判定失效，于是本应被 xeCJK 吃掉的源码行尾空格残留为实际输出空白。
   - 修复后不仅 #324 的 `\autoref` 场景恢复正常，ctex 侧 xetex 回归中 heading/basic/beamer 等多组测试里原本潜伏的多余 glue 也一并消失，说明影响面明显超出原 issue 描述。
 

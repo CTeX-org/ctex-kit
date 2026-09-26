@@ -1,6 +1,6 @@
 ---
 name: "382-dash-width-and-ligature-opt-in"
-description: "决策: #382 破折号宽度修正分两阶段落地——公式修正（三路取大 kern + margin 全份补偿）默认生效, OpenType 合字支持通过 PoZheHao 字符类 opt-in; margin 选择不除以 2 而非改变目标宽度基准; 合字选择用户显式开关而非自动探测字体特性"
+description: "决策：#382 破折号宽度修正分两阶段实现——公式修正（三路取大 kern + margin 全份补偿）默认生效，OpenType 合字支持通过 PoZheHao 字符类 opt-in；margin 选择不除以 2 而非改变目标宽度基准；合字选择用户显式开关而非自动探测字体特性"
 metadata:
   type: decision
 ---

@@ -14,7 +14,7 @@ capture 让 interchar transition 把实际 `CJK` / `default` 写入所有活跃�
 
 ## 嵌套和测量必须成为一等状态
 
-单个 scratch register 会被内层盒命令覆盖。最终实现为每层保存 box、入口 marker、首尾类别、三类 glue 和选项状态；前两层预分配，深层惰性创建，并用 active stack 配对 hook。12 层嵌套用例证明深度不是静态上限。
+单个 scratch register 会被内层的盒子命令覆盖。最终实现为每层保存 box、入口 marker、首尾类别、三类 glue 和选项状态；前两层预分配，深层惰性创建，并用 active stack 配对 hook。12 层嵌套用例证明深度不是静态上限。
 
 `\sbox` 的内容是离线测量，不是外层命令的可见输出。如果不暂停 capture，scratch 中的 CJK 会错误改写外层首尾类别。suspend depth 必须支持嵌套，测试也必须在每个矩阵单元后断言 depth、stack 和 suspension 全部归零。
 
@@ -32,7 +32,7 @@ capture 让 interchar transition 把实际 `CJK` / `default` 写入所有活跃�
 
 同样，lazy font family 的首次创建必须发生在 `\START` 前。`command-boundary02` 若在记录区第一次切换 FandolFang，不同平台的 fontspec Info 会形成与实现无关的基线噪声；预热不是排版修复，而是测试隔离。
 
-## 无法判源时应公开边界
+## 无法判断来源时应公开边界
 
 TeX glue 节点不携带“源码空格”或“显式 `\hskip`”来源。两者参数完全相同时，任何节点级算法都不可能可靠区分。只在 pending 已设置且下方有可信 marker 时暂时移除候选 glue，已经是可证明的最大安全范围；继续向前检查更多节点只会扩大误伤。
 
@@ -46,7 +46,7 @@ PR #999 的固定提交和 gh-assets 固定提交可以先产生拟更新表，�
 
 ## 替换框架必须审计所有真实入口
 
-只把包内 `\CJKunderline` 接入 stream 仍不足以替代旧 ulem 边界逻辑：原生 `\uline` 与声明式 `\xeCJKfntefon` 经过 `\ULon`，不会经过包内命令的分组入口。把 begin 直接下移到 `\UL@hook` 又太晚，此时已经进入内部字盒，会导致分组失配。最终保留包内命令的早期入口，并在 `\ULon` 用局部布尔补齐未启动的原生路径；两处必须共用“仅最外层启动”协议，因为原生 ulem 外嵌 fntef 时内层走 `\UL@onin`，不会产生第二个公共 end。若内层仍重复 begin，每次调用都会永久遗留一层 capture。五组双向嵌套矩阵及逐格 idle-stack 断言锁定该不变量。
+只把包内 `\CJKunderline` 接入 stream 仍不足以替代旧 ulem 边界逻辑：原生 `\uline` 与声明式 `\xeCJKfntefon` 经过 `\ULon`，不会经过包内命令的分组入口。把 begin 直接下移到 `\UL@hook` 又太晚，此时已经进入内部的单字盒子，会导致分组失配。最终保留包内命令的早期入口，并在 `\ULon` 用局部布尔补齐未启动的原生路径；两处必须共用“仅最外层启动”协议，因为原生 ulem 外嵌 fntef 时内层走 `\UL@onin`，不会产生第二个公共 end。若内层仍重复 begin，每次调用都会永久遗留一层 capture。五组双向嵌套矩阵及逐格 idle-stack 断言锁定该不变量。
 
 这条审计同样发现 `\lstinline{...}` 绕过分隔符路径的 `\lstinline@`，直接进入 `\lst@InlineG`。因此“旧 helper 已删除”不是替换完成的充分条件；还要从每个公共入口追到真实扫描分支，并用每条入口的矩阵与 idle-stack 断言证明共享状态机确实覆盖。
 

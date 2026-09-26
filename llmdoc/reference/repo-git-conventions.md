@@ -15,7 +15,7 @@
 
 仓库通过 `make hooks` 安装 `.githooks/`，其中 pre-push 是 self-wrapper：外层 push 负责进入 hook，hook 发起内层 push 真正更新远端，再等待当前分支 PR 的 CI，并检查 push 后尚无维护者回复确认的 bot 评论与未解决 review thread。外层 push 随后会报告失败，因此远端更新以 hook 中间输出的内层结果为准。
 
-自动化或人工调用 push 时必须使用独立的 `git push 2>&1` 形态，不得附加管道；完整 stderr 包含内层 push verdict、CI 失败项、评论链接和下一步指示。rc 75 表示 CI 已通过但仍有未确认 review 活动或未解决 thread，必须继续处理，不能当成功退出。
+自动化或人工调用 push 时必须使用独立的 `git push 2>&1` 写法，不得附加管道；完整 stderr 包含内层 push verdict、CI 失败项、评论链接和下一步指示。rc 75 表示 CI 已通过但仍有未确认 review 活动或未解决 thread，必须继续处理，不能当成功退出。
 
 共享分支必须先 fetch 并整合远端。pre-push 对非快进默认拒绝，只有 `CTEX_PREPUSH_ALLOW_FORCE=1 git push --force-with-lease 2>&1` 才允许内层 exact-lease force；这避免普通 push 在协作者同时提交时被错误升级为强推。
 
@@ -27,7 +27,7 @@
 
 `gh-assets` 是远端 `origin/gh-assets` 上的一个 **orphan 分支**——无 parent commit，与 `master` 及各包代码历史完全隔离。分支根目录有 `README.md` 说明用法。
 
-用途：长期存放 issue / PR 讨论中引用的静态资源（对比截图、示意图、MWE `.tex` 等）。GitHub issue/PR 评论中若以仓库分支的 raw URL 引用图片，分支一旦被删除引用就会失效；因此这类资源必须落在一个**不会被删**的长期分支，而不是随事件建立、随手清理的临时分支。
+用途：长期存放 issue / PR 讨论中引用的静态资源（对比截图、示意图、MWE `.tex` 等）。GitHub issue/PR 评论中若以仓库分支的 raw URL 引用图片，分支一旦被删除引用就会失效；因此这类资源必须存放在一个**不会被删**的长期分支，而不是随事件建立、随手清理的临时分支。
 
 ### 目录组织与引用格式
 

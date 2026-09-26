@@ -36,7 +36,7 @@ manifest 阶段直接抛 `TemplateValidationException: Unexpected value 'timeout
 step 失败，Agent 从未启动。同一 step 的 `continue-on-error` 未被拒绝，说明字段合法性是按具体
 字段名判断的，不是"复合 Action 拒绝任何 job 字段"这种笼统规则。
 
-更值得记录的是：本仓库自建的门禁本身复现了同一个错误认知。`scripts/validate-action-metadata.py`
+更值得记录的是：本仓库自建的检查本身复现了同一个错误认知。`scripts/validate-action-metadata.py`
 把 `timeout-minutes` 列进了复合 Action step 的白名单 `STEP_KEYS`，还专门为它写了标量类型检查。
 本地 `test-agentic-workflow-contract.py` 因此全绿，却放过了 GitHub 平台一定会拒绝的字段——校验器
 的字段表是从 job step 的既有认知推断出来的，从未与复合 Action 的实际支持范围核对过。
@@ -67,7 +67,7 @@ step 失败，Agent 从未启动。同一 step 的 `continue-on-error` 未被拒
 
 - 复合 Action（`runs.using: composite`）和 job step 是 GitHub Actions 里两套独立的字段与默认值
   语义。前者只有一小部分 job step 字段合法，`run` 步骤的默认 shell 也不同（`bash -e -o pipefail`
-  vs 无 pipefail）。把 job step 的经验直接套用到复合 Action，会同时在实现代码和自建门禁里写错。
+  vs 无 pipefail）。把 job step 的经验直接套用到复合 Action，会同时在实现代码和自建检查里写错。
 - 自建校验器的允许表是靠人工推断平台行为写出来的，没有针对目标平台的实际拒绝行为做过验证；
   本地测试全绿只证明校验器内部自洽，不证明 GitHub 会接受。
 - `pull_request_target` 用分叉点而不是分支 HEAD 做可信 checkout 的基准，是刻意的安全设计（保证
@@ -81,7 +81,7 @@ step 失败，Agent 从未启动。同一 step 的 `continue-on-error` 未被拒
   本轮修复才补上。
 - `scripts/validate-action-metadata.py` 补写字段表时没有交叉核对 GitHub Actions 官方文档中
   `runs.steps` 在 composite 与 job 两种上下文里的实际支持范围，这是流程缺口，不只是笔误。
-- 没有文档说明 `pull_request_target` 的 `base.sha` 是分叉点、其含义和续发影响；诊断时完全靠
+- 没有文档说明 `pull_request_target` 的 `base.sha` 是分叉点、其含义和后续影响；诊断时完全靠
   临场重新推导，浪费了一次 close/reopen 的验证成本。
 
 ## 可能晋升的经验
@@ -110,7 +110,7 @@ step 失败，Agent 从未启动。同一 step 的 `continue-on-error` 未被拒
   是否已经把上述三条复合 Action 语义规则写全（当前读取结果显示已经写入，待与实现方最终 diff
   核对是否有遗漏）。
 - PR #1031 仍为 OPEN 状态，需要等 CI 通过、合并后再确认其余分叉点落后的存量 Agent 相关 PR
-  （如是否还有其他长期分支需要 rebase 才能吃到本轮修复）。
-- 文档缺口：目前没有一处专门写"`pull_request_target` 的 `base.sha` 语义与续发影响"，建议下次
+  （如是否还有其他长期分支需要 rebase 才能用上本轮修复）。
+- 文档缺口：目前没有一处专门写"`pull_request_target` 的 `base.sha` 语义与后续影响"，建议下次
   遇到类似 Agent workflow 触发异常时，把这条也补进 build-and-test.md 或专门的 troubleshooting
   记录，避免重复走一次 close/reopen 的验证弯路。

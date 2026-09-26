@@ -20,9 +20,9 @@ type: reflection
 
 通过对比 ctex 路径与纯 luatexja 路径下 `\verb` 附近盒子节点列表的 `\showbox` dump，关键差异不是字体 hook，而是 `\verb` 内部用于起始定位的那个空盒子。
 
-纯 luatexja 路径会在 `lltjcore.sty` 中把 `\verb` 里的 `\null`（本质是空 `\hbox{}`）替换为 `\vadjust{}`。这样既保留原始宏流程所需的结构，又不会在水平列表里插入一个真正的空盒节点。
+纯 luatexja 路径会在 `lltjcore.sty` 中把 `\verb` 里的 `\null`（本质是空 `\hbox{}`）替换为 `\vadjust{}`。这样既保留原始宏流程所需的结构，又不会在水平列表里插入一个真正的空盒子节点。
 
-而空 `\hbox{}` 一旦进入水平列表，就会打断 luatexja 对前后字符边界的连续观察，导致本应自动插入的 xkanjiskip 不再生成。因此，真正阻断 xkanjiskip 的不是 autoxspacing 开关，而是这个空盒节点。
+而空 `\hbox{}` 一旦进入水平列表，就会打断 luatexja 对前后字符边界的连续观察，导致本应自动插入的 xkanjiskip 不再生成。因此，真正阻断 xkanjiskip 的不是 autoxspacing 开关，而是这个空盒子节点。
 
 ## 认知修正
 
@@ -53,5 +53,5 @@ type: reflection
 ## 可复用教训
 
 - LuaTeX-ja 相关问题若只看选项开关，很容易把“表面配置差异”误判为根因；应尽快下沉到节点级别比对。
-- `\showbox` 对 `\verb`、活跃字符和自动插胶问题尤其有价值，因为日志里能直接看到空盒、glue、penalty 等是否真的进入列表。
+- `\showbox` 对 `\verb`、活跃字符和自动插入 glue 的问题尤其有价值，因为日志里能直接看到空盒子、glue、penalty 等是否真的进入列表。
 - 当 ctex 有意屏蔽某个上游 luatexja 包时，要同时审查该包是否还承担了“非表面依赖”的补丁职责；禁用入口包并不等于这些副作用可以安全丢弃。

@@ -58,7 +58,7 @@
 
 #### 3. 字体集层
 
-`ctex-fontset-{windows,mac,macnew,macold,ubuntu,fandol,adobe,founder,hanyi}.def` 提供默认字体族映射，负责把“中文主字体/无衬线/等宽”等高层概念落到具体发行版或操作系统字体名。
+`ctex-fontset-{windows,mac,macnew,macold,ubuntu,fandol,adobe,founder,hanyi}.def` 提供默认字体族映射，负责把“中文主字体/无衬线/等宽”等高层概念对应到具体发行版或操作系统字体名。
 
 `fontset=mac` 仍是自动入口，而不是独立字体集；它会在运行时于 `macnew` 和 `macold` 之间分流。自 PR #782 起，这个分流不再只依赖 `/System/Library/Fonts/PingFang.ttc` 是否存在，而是保留该路径检测作为快速路径，并在其失效时读取 `/System/Library/CoreServices/SystemVersion.plist` 的主版本号作为后备：版本号 `>= 15` 仍进入 `macnew`，`< 15` 进入 `macold`，检测失败则 warning 后回退 `macold`。
 
@@ -131,9 +131,9 @@ xeCJK 当前采取的最终路线是“三层策略”而不是重定义 `\char`
 
 注册策略按节点形式分为五类：`box` 取出命令留下的末尾 hbox；`wrapped-box` 收集会写出多个节点的盒子命令；`stream` 直接观察当前列表；`transparent` 完整恢复不可见命令的入口状态；`post-transparent` 处理只能在 after hook 观察到的零尺寸末尾盒子，并以真实 marker 为证据移动 `marker` 或 `marker + 一枚 glue`。`auto`、`default`、`first-default` 再声明首尾类别是实际观察还是由可见包装固定。
 
-每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界，并把末类别写成 marker 交给普通恢复逻辑。重放 Default 类 marker 时还要把源码空格检查使用的缓存同步为外层列表当前的 `spacefactor`；盒内字符设置的值不会传播到外层。嵌套的 box 如果以只能推断为 Default 的内容结束，该命令写入的 marker 会留在外层盒子的节点列表末尾；外层盒子结束时读取它，便能逐层更新末类别，而不必直接改写所有外层 capture。前两层 register 预先分配，更深层按需创建；`\sbox` 暂停观察并保存、恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒子、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef、原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
+每层 capture 保存入口 marker、源码空格、`\CJKglue` / `\CJKecglue` 和相关选项，在结束时重建左边界，并把末类别写成 marker 交给普通恢复逻辑。重放 Default 类 marker 时还要把源码空格检查使用的缓存同步为外层列表当前的 `spacefactor`；盒子内部字符设置的值不会传播到外层。嵌套的 box 如果以只能推断为 Default 的内容结束，该命令写入的 marker 会留在外层盒子的节点列表末尾；外层盒子结束时读取它，便能逐层更新末类别，而不必直接改写所有外层 capture。前两层 register 预先分配，更深层按需创建；`\sbox` 暂停观察并保存、恢复基础 marker 与 pending 状态，避免离线测量污染外层命令。该模型覆盖普通盒子、12 层嵌套、混合输出、hyperref、verb、URL、引用、codedoc/doc、color/l3color、biblatex、listings、xeCJKfntef、原生 ulem 与一般 `\null`，细节集中在 `llmdoc/architecture/xecjk-architecture.md`。
 
-#999 已删除这一问题族中生效的逐命令 save/replay/drain/pending 算法：`\@setref` / `\real@setref`、完整 `\Url@z`、hyperref annotation、`\verb`、codedoc/doc meta、color/l3color、biblatex、fntef/ulem 与 `\lstinline` 都进入共享 capture。仍保留的代码只解决控制序列签名、分隔符扫描、加载时序或命令内部排版语义，例如 meta 参数的 hbox 规范化、`\verb` 的 language whatsit 主动落盘、ulem 的外层非装饰 glue 通道；它们不再各自实现边界恢复状态机。#873/#880/#910/#931/#972 与 #991 的旧方案仅作为演进历史保留。
+#999 已删除这一问题族中生效的逐命令 save/replay/drain/pending 算法：`\@setref` / `\real@setref`、完整 `\Url@z`、hyperref annotation、`\verb`、codedoc/doc meta、color/l3color、biblatex、fntef/ulem 与 `\lstinline` 都进入共享 capture。仍保留的代码只解决控制序列签名、分隔符扫描、加载时序或命令内部排版语义，例如 meta 参数的 hbox 规范化、`\verb` 的 language whatsit 主动输出、ulem 的外层非装饰 glue 通道；它们不再各自实现边界恢复状态机。#873/#880/#910/#931/#972 与 #991 的旧方案仅作为演进历史保留。
 
 TeX 节点不记录 glue 的来源。显式 `\hskip` 如果与普通词间空格具有相同的自然宽度和 shrink，恢复逻辑就无法判断它是源码空格还是用户写出的 glue。若必须保留这种 glue，可在前面加 `\kern0pt`，也可以改变自然宽度或去掉 shrink。继续向前检查更多节点仍无法补回来源信息，因此不应靠猜测处理。
 
@@ -173,7 +173,7 @@ xeCJK 在 `xeCJK.dtx` 中通过 `\@@_package_hook:nn` 为多个第三方包（�
 这说明 `xeCJK` 的一部分“功能数据”并不完全静态存放在仓库中，而是在构建阶段生成：
 
 - 繁简转换映射
-- 句号形态映射
+- 句号形式映射
 - TECkit 编译产物 `.tec`
 
 修改这部分功能时，要同时考虑源 Lua 逻辑、上游 Unicode 数据格式以及本地 `teckit_compile` 可用性。
@@ -242,17 +242,17 @@ Issue #717 的 `experiment/CJKecglue` 进一步把这条策略具体化为一个
 
 ### LuaTeX 路线的特殊点：ctex 会主动屏蔽 `ltj-latex`
 
-LuaTeX 路线并不是”原样加载 LuaTeX-ja 全家桶”，而是由 `ctex` 在自己的引擎适配层中接管一部分接口，并通过 `\@namedef{ver@ltj-latex.sty}{}` 主动阻止 `ltj-latex` 再次进入标准加载链。这样做的直接目的，是避免 `ctex` 与 LuaTeX-ja 在 LaTeX 层包装上重复接管同一批接口。
+LuaTeX 路线并不是“原样加载 LuaTeX-ja 全家桶”，而是由 `ctex` 在自己的引擎适配层中接管一部分接口，并通过 `\@namedef{ver@ltj-latex.sty}{}` 主动阻止 `ltj-latex` 再次进入标准加载链。这样做的直接目的，是避免 `ctex` 与 LuaTeX-ja 在 LaTeX 层包装上重复接管同一批接口。
 
-但这个设计有一个重要副作用：`ltj-latex` 被屏蔽时，依赖它进入加载链的 `lltjcore.sty` 也会一起缺席。后者不只是”普通底层文件”，还携带若干对 LaTeX 原生命令的兼容补丁，因此在排查 LuaLaTeX 专属异常时，不能只看 `ctex-engine-luatex.def` 是否设置了某个参数，还要检查 ctex 是否因此漏接了原本由 `lltjcore` 提供的行为修正。
+但这个设计有一个重要副作用：`ltj-latex` 被屏蔽时，依赖它进入加载链的 `lltjcore.sty` 也会一起缺席。后者不只是“普通底层文件”，还携带若干对 LaTeX 原生命令的兼容补丁，因此在排查 LuaLaTeX 专属异常时，不能只看 `ctex-engine-luatex.def` 是否设置了某个参数，还要检查 ctex 是否因此漏接了原本由 `lltjcore` 提供的行为修正。
 
 ### v2.5.12 补回 `lltjcore` 的 `\verb`/`\do@noligs` 补丁
 
 Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xkanjiskip 被吞掉，并不是因为 `autoxspacing` 选项被关闭，而是因为 `ctex` 禁用 `ltj-latex` 后，连带漏掉了 `lltjcore.sty` 对 `\verb` 和 `\do@noligs` 的关键补丁。
 
-`lltjcore` 的核心修正是把 `\verb` 流程里的 `\null`（空 `\hbox{}`）替换为 `\vadjust{}`。对 luatexja 而言，空 `\hbox{}` 会插入一个真实盒节点，打断相邻字符边界的观察，从而阻断 xkanjiskip 自动插入；改成 `\vadjust{}` 后则不会在水平列表里留下这个阻断点。
+`lltjcore` 的核心修正是把 `\verb` 流程里的 `\null`（空 `\hbox{}`）替换为 `\vadjust{}`。对 luatexja 而言，空 `\hbox{}` 会插入一个真实的盒子节点，打断相邻字符边界的观察，从而阻断 xkanjiskip 自动插入；改成 `\vadjust{}` 后则不会在水平列表里留下这个阻断点。
 
-因此，自 v2.5.12 / PR #792 起，`ctex/ctex-engine.dtx` 的 LuaTeX 引擎适配中显式移植了 `lltjcore` 对 `\verb` 与 `\do@noligs` 的相关补丁。这个案例说明：LuaTeX 适配层不仅负责”选择后端”，还要补齐因屏蔽上游入口包而丢失的细粒度兼容行为。
+因此，自 v2.5.12 / PR #792 起，`ctex/ctex-engine.dtx` 的 LuaTeX 引擎适配中显式移植了 `lltjcore` 对 `\verb` 与 `\do@noligs` 的相关补丁。这个案例说明：LuaTeX 适配层不仅负责“选择后端”，还要补齐因屏蔽上游入口包而丢失的细粒度兼容行为。
 
 ### 引擎条件代码的延迟重定义模式
 

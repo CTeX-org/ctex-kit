@@ -42,11 +42,11 @@ new_content = new_content:gsub("(%[)(%d%d%d%d/%d%d/%d%d) v([^%]%s]+)", ...)
 return new_content   -- l3build 自己按值比较, 无需再判一次
 ```
 
-（早期版本用 `if stamped == target then return content end` 只观察 `{\ExplFileDate}` 一处，被审查发现会让旧式 `[...]` 行失同步后永不修复，见下「幂等守卫」小节。）
+（早期版本用 `if stamped == target then return content end` 只观察 `{\ExplFileDate}` 一处，被审查发现会让旧式 `[...]` 行不同步后永不修复，见下「幂等守卫」小节。）
 
 三点设计：
 
-- **`version` 优先、CLI `tagname` 兜底**：设了 `version` 的包（目前只有 xeCJK）可以无参跑 `l3build tag`，这是 PR 校验「跑 tag 后 diff 必须为零」得以成立的前提；未设的六包保持原有 `l3build tag <ver>` 行为。
+- **`version` 优先、CLI `tagname` 作为后备**：设了 `version` 的包（目前只有 xeCJK）可以无参跑 `l3build tag`，这是 PR 校验「跑 tag 后 diff 必须为零」得以成立的前提；未设的六包保持原有 `l3build tag <ver>` 行为。
 - **必须判类型**：l3build 自己定义了全局 `function version()`（`l3build-help.lua:32`），未设 `version` 的包里这个名字是**函数**不是 `nil`。原来的 `version or tagname` 会取到那个函数并报 `attempt to index a function value`。顺带修掉了这六个包裸跑 `l3build tag` 时既有的 `attempt to concatenate a nil value`（`tagname` 为 nil）。
 - **幂等**：版本已一致时原样返回。没有这个守卫，`l3build tag` 后的 diff 永不为零，`check-tag.yml` 会恒失败（同 #937 的收敛条件）。
 
@@ -79,11 +79,11 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 ### 幂等守卫的观察范围必须覆盖全部写入范围
 
-本函数写两处：`{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]`。守卫最初只看前者就提前 `return`，于是当一个 `.dtx` 两种写法并存、且只有后者失同步时，该行**再也不会被修复**——而改造前的旧代码会修。`xpinyin.dtx` 正是这种文件（`{\ExplFileDate}{3.1}` 与 `[2022/07/14 v3.1 xpinyin database]`），且它不在任何版本校验内，失同步无人发现。
+本函数写两处：`{\ExplFileDate}{<ver>}` 与旧式 `[YYYY/MM/DD v<ver>]`。守卫最初只看前者就提前 `return`，于是当一个 `.dtx` 两种写法并存、且只有后者不同步时，该行**再也不会被修复**——而改造前的旧代码会修。`xpinyin.dtx` 正是这种文件（`{\ExplFileDate}{3.1}` 与 `[2022/07/14 v3.1 xpinyin database]`），且它不在任何版本校验内，不同步也无人发现。
 
 改为「先算出两处的目标写法，再与现状整体比较」。
 
-**放弃自动修复陈旧日期，是有意取舍而非遗漏。** `[<日期> v<版本>]` 行现在只在版本号需要改时才连日期一起重写；版本号已对则整段原样保留，包括陈旧的日期。两侧都实测过（`zhmetrics/zhmCJK.dtx` 是唯一能单独触发该格的文件——有 `[...]` 行却没有 `{\ExplFileDate}`）：
+**放弃自动修复陈旧日期，是有意取舍而非遗漏。** `[<日期> v<版本>]` 行现在只在版本号需要改时才连日期一起重写；版本号已对则整段原样保留，包括陈旧的日期。两侧都实测过（`zhmetrics/zhmCJK.dtx` 是唯一能单独触发这种情况的文件——有 `[...]` 行却没有 `{\ExplFileDate}`）：
 
 | 状态 | 改造前旧代码 | 现在 |
 |---|---|---|
@@ -101,7 +101,7 @@ case 标签用 `xeCJK`（大写 CJK）以匹配 `parse tag` 输出的 `dir=xeCJK
 
 `%S+` 会把紧跟版本号的 `]` 一起吃掉：`[2022/07/14 v3.1]` 回写后丢失右括号；更糟的是版本号已相同时捕获到的是 `"3.1]"`，`v == target` 守卫失效而落进重写分支，**同时破坏内容与幂等性**。改用 `[^%]%s]+`。
 
-现网两处 `[...]` 行的版本号后都跟着描述文字（`xpinyin database` / `setup CJK fonts dynamically`），碰不到这个坑；但本次把该模式从「替换的一部分」提升成了「幂等守卫的判据」，语义责任更重，故一并收紧。
+当前代码里的两处 `[...]` 行的版本号后都跟着描述文字（`xpinyin database` / `setup CJK fonts dynamically`），碰不到这个坑；但本次把该模式从「替换的一部分」提升成了「幂等守卫的判据」，语义责任更重，故一并收紧。
 
 ### CLI 参数被忽略时要显式告警
 
@@ -135,5 +135,5 @@ PR 校验的 no-op 验证在**干净 worktree**（`git worktree add`）里做—
 ## 相关
 
 - 反思：[[../reflections/1041-xecjk-version-gate]]
-- 前身：[[937-version-single-source-l3build-tag]]（两道 CI 校验 与幂等守卫的由来）、[[961-changelog-gate-no-write-perm]]（同款「重新生成 + diff」模式）
+- 前身：[[937-version-single-source-l3build-tag]]（两道 CI 校验与幂等守卫的由来）、[[961-changelog-gate-no-write-perm]]（同一种「重新生成 + diff」模式）
 - 实现：`xeCJK/build.lua`、`support/build-config.lua`、`.github/workflows/check-tag.yml`、`.github/workflows/release.yml`

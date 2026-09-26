@@ -25,13 +25,13 @@ Windows 11 下 `Segoe UI Symbol` 虽然存在，但其字符覆盖范围与 `xun
 
 1. 在 CI 的 Linux runner 上预装更全的字体，让发布产物自带完整 PDF。
    这只解决“CI 出 PDF”，不解决“用户 `l3build install --full` 在本地缺字”。
-2. 把 `Segoe UI Symbol` 换成另一只单字体（例如直接换 `Symbola`）。
+2. 把 `Segoe UI Symbol` 换成另一款单一字体（例如直接换 `Symbola`）。
    这只是换一个角度的整段绑定，没有处理“没有任何单一字体覆盖全部目标字符”这一事实。
 
 ## 真正的根因
 
 `xunicode-addon` 列出的符号集合是跨多个 Unicode 区段的“拼盘”，
-不存在一只在主流 Windows / Linux / macOS 上都默认装且覆盖完整的字体。
+不存在一款在主流 Windows / Linux / macOS 上都默认装且覆盖完整的字体。
 所以驱动必须放弃“整段单字体”模型，转向**逐字符**回退：对每个字符，
 依次询问候选字体是否含有该字符的 glyph，直到命中或耗尽链。
 
@@ -90,7 +90,7 @@ Windows 11 下 `Segoe UI Symbol` 虽然存在，但其字符覆盖范围与 `xun
    用户安装时只能依赖目标系统字体清单；CI 端策略最多让发布资产里的 PDF 完整，
    但 `l3build install --full` 在用户机上仍会触发 driver 重新排版。
 2. **当某个字符集合“没有任一字体能完全覆盖”时，整段单字体策略必然漏字符**，
-   再换一只单字体只是把漏掉的字符换一批。结构上必须切到 codepoint 级回退。
+   再换一款单一字体只是把漏掉的字符换一批。结构上必须切到 codepoint 级回退。
 3. **`\IfFontExistsTF` + `\cs_if_exist_use:N` 是 XeTeX 安全多级链的最小组合**：
    前者决定“是否定义这个家族”，后者决定“运行时遇到未定义家族时跳过”，
    两者缺一会导致 `! Undefined control sequence`（缺前者）

@@ -8,8 +8,8 @@ metadata:
 # 决策：#910 `\verb` 修复使用专用 drain 函数
 
 > **状态：已由 #992 / PR #999 替代。** `\verb`、`\verb*` 与 shortvrb
-> 当前共用 auto stream，旧 drain helper 已删除。#919 引入的 language
-> whatsit 主动落盘仍保留，但只负责让真实节点在 stream 结束前进入列表。
+> 当前共用 auto stream，旧 drain helper 已删除。#919 引入的主动输出 language
+> whatsit 的处理仍保留，但只负责让真实节点在 stream 结束前进入列表。
 
 ## 背景
 
@@ -69,7 +69,7 @@ xeCJK issue #910 修复 CJK 文字与 `\verb` / shortvrb 之间 `\CJKecglue` 丢
 - 若新调用方在 ctex 模式下走特殊字体路径（如 `\verbatim@font` hook 切换字体），仍需用 `_verb` 版本保留 tl。
 - 进一步推广可考虑统一抽象成 `\@@_drain_ecglue:` 接 boolean 参数控制 else 行为，但当前只两个变体不值得抽象。
 
-## 落地引用
+## 实现引用
 
 - 实现：`xeCJK/xeCJK.dtx` `\@@_drain_ecglue_verb:` / `\@@_patch_verb:`（commits `d6e28be1` 主修复 + `d0cf09a1` v3.10.1 + `32553705` 专用 drain）。
 - 回归测试：`xeCJK/testfiles/verb-ecglue01.lvt` / `.tlg`。

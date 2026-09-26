@@ -5,7 +5,7 @@ Curated cross-task rules distilled from archived memory.
 ## 共享文档基础设施
 
 ### 缩放最窄的可变排版对象
-**Rule**: 修复复合 coffin 或 table 的溢出时，只缩放实际越界的子盒，保持日期、状态标记和相邻栏不变。
+**Rule**: 修复复合 coffin 或 table 的溢出时，只缩放实际越界的内部盒子，保持日期、状态标记和相邻栏不变。
 **Why**: Issue #963 首版缩放整个 functions coffin，连带压缩 Added/Updated；改为只处理函数名与 TF 后缀后才稳定。
 **Source**: `llmdoc/memory/archive/2026-07-12/963-ctxdoc-long-function-scaling.md`
 
@@ -35,13 +35,13 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ### 看起来像笔误的转义字符，先查它在工具链里有没有语义
-**Rule**: 遇到读起来不像句子一部分的孤立符号（`!`、`|`、`=`、`@` 等），不要凭「像是误敲的」就删改；先查它在这条处理链的某一个阶段是否有语法含义——读对应的 `.ist`、配置文件或处理脚本，而不是读上下文语感。这条在改**别人已经写好、且自己并未被要求修改**的内容时尤其要守。
+**Rule**: 遇到读起来不像句子一部分的孤立符号（`!`、`|`、`=`、`@` 等），不要凭「像是误敲的」就删改；先查它在这条处理链的某一个阶段是否有语法含义——读对应的 `.ist`、配置文件或处理脚本，而不是读上下文语感。这条在改**别人已经写好、且自己并未被要求修改**的内容时尤其要遵守。
 **Why**: #1054 第一次读用户未提交的 diff 时，把 `\changes` 条目里 `\catcode`\&!=6` 的 `!` 判成多余字符删掉，并顺手重新生成了 CHANGELOG；随后 `l3build doc` 报 `Extra }` exit 1。`!` 是 makeindex 的 quote 字符，起实际作用，用户原来的写法是对的。判断依据当时只是「读起来不像句子的一部分」，没有查 `.ist` 里的 quote／actual／level／encap 四个指令。
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ### 已发布版本不能继续接收新变更条目
 **Rule**: 写 `\changes` 前核对最新正式 release tag；发布后的新变更使用下一个未发布版本，不从 `build.lua` 当前值或 CHANGELOG 首节反推。
-**Why**: #381 在 ctex 2.6.2 发布两天后落地，首版仍误记为 v2.6.2，合并后才纠正为 v2.6.3。
+**Why**: #381 在 ctex 2.6.2 发布两天后合入，首版仍误记为 v2.6.2，合并后才纠正为 v2.6.3。
 **Source**: `llmdoc/memory/archive/2026-07-13/381-cjkfntef-backend-boundary.md`
 
 ### 测试结论不能超出实际执行的平台分支
@@ -49,9 +49,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #994 的 Linux 四引擎回归能检查 `macnew` 生成配置，却没有 Apple 字体，也不会执行 macOS 条件分支；只有 macOS XeTeX/LuaTeX 的运行时探针实际加载并核对了 Regular 字形。
 **Source**: `llmdoc/memory/reflections/994-macnew-songti-regular.md`
 
-### 缺陷按代码路径分布，不按报告者用的引擎分布（镜面）
+### 缺陷按代码路径分布，不按报告者用的引擎分布（#994 的对称情形）
 **Rule**: 报告者只在一个引擎下复现，推不出其他引擎不受影响。看到 docstrip 引擎守卫（`%<*engine>`）划出的路径边界时，应把它枚举到的引擎和没枚举到的引擎都实测一遍，而不是只信报告者用的那一个。
-**Why**: #1068 的报告只提到 LuaTeX 下 `\selectfont` 重置用户设的 `kanjiskip`；按四引擎逐个实测后发现 upTeX 同样受影响，pdftex/xetex 正常。根因是一段 `\ctex_at_end:n` 重定义被 docstrip 守卫限定在 `pdftex|xetex`，LuaTeX 与 upTeX 都没有它。这是「测试结论不能超出实际执行的平台分支」（#994）在缺陷侧的镜面：那条管的是「测试通过≠已覆盖未执行的分支」，这条管的是「复现≠未复现的引擎不受影响」。
+**Why**: #1068 的报告只提到 LuaTeX 下 `\selectfont` 重置用户设的 `kanjiskip`；按四引擎逐个实测后发现 upTeX 同样受影响，pdftex/xetex 正常。根因是一段 `\ctex_at_end:n` 重定义被 docstrip 守卫限定在 `pdftex|xetex`，LuaTeX 与 upTeX 都没有它。这是「测试结论不能超出实际执行的平台分支」（#994）在缺陷侧的对称情形：那条管的是「测试通过≠已覆盖未执行的分支」，这条管的是「复现≠未复现的引擎不受影响」。
 **Source**: `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
 
 ### 字体字形变化必须同步选择、映射和度量
@@ -92,10 +92,10 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 从源码树验证时必须核对实际加载文件
-**Rule**: 使用临时 MWE 验证工作树生成的 TeX 宏包时，把日志中的实际文件路径列为证据；文件名、输出目录名和运行命令都不能证明加载的是当前实现。这条检查**必须写成每次运行都执行的固定动作**，不能靠「出错会提醒我」兜底：不指定 `TEXINPUTS`、或者它指向的目录不存在时，`xelatex` 既不报错也不警告，而是静默回落到系统安装的同名宏包，编译照样成功、读数照样是一组像样的数字。也就是说这条失效没有任何主动信号，只有主动核对日志里的 `Package:` 行才看得见。
-**Why**: #1012 的一次实验实际加载了 TeX Live 中的旧版 `xeCJKfntef.sty`，却把图片标成修复后结果。核对日志确认加载 `xeCJK/build/unpacked/xeCJKfntef.sty` 后，视觉证据才与固定提交对应。这条教训在 #1026、#1047 之后于 #1057 又一次发作（第一次跑 MWE 加载的是系统 TeX Live 的 v3.10.4 而非工作树的 v3.10.5，是后来 `grep` 日志才发现的），共同点都是「以为自己在测工作树」。#1057 结论未被带偏纯属运气——两版在那条路径上行为恰好相同；若不同，判断方向会完全相反。
+**Rule**: 使用临时 MWE 验证工作树生成的 TeX 宏包时，把日志中的实际文件路径列为证据；文件名、输出目录名和运行命令都不能证明加载的是当前实现。这条检查**必须写成每次运行都执行的固定动作**，不能指望「出错会提醒我」：不指定 `TEXINPUTS`、或者它指向的目录不存在时，`xelatex` 既不报错也不警告，而是静默回落到系统安装的同名宏包，编译照样成功、读数照样是一组像样的数字。也就是说这条失效没有任何主动信号，只有主动核对日志里的 `Package:` 行才看得见。
+**Why**: #1012 的一次实验实际加载了 TeX Live 中的旧版 `xeCJKfntef.sty`，却把图片标成修复后结果。核对日志确认加载 `xeCJK/build/unpacked/xeCJKfntef.sty` 后，视觉证据才与固定提交对应。这条教训在 #1026、#1047 之后于 #1057 又一次出现（第一次跑 MWE 加载的是系统 TeX Live 的 v3.10.4 而非工作树的 v3.10.5，是后来 `grep` 日志才发现的），共同点都是「以为自己在测工作树」。#1057 结论未被带偏纯属运气——两版在那条路径上行为恰好相同；若不同，判断方向会完全相反。
 
-**子情形（#1085）：同一仓库内工作树里 commit 出来的 `.sty` 也会落后于 `.dtx`，不止 TEXINPUTS 指向系统安装宏包这一种形态。** 用工作树里既有的 `xeCJK/xeCJK.sty`（一个旧的构建产物）复现问题，得到过「当前 master 已修复」这个方向相反的结论；真相是那个 `.sty` 落后于当前 `.dtx`。这种情形不能用 `\GetIdInfo$Id:` 版本戳判断——该戳只由 `l3build tag` 回写，不随普通编辑更新，`.sty` 内容与它是否反映当前代码是两件独立的事。用 `.sty` 复现前应先 `l3build unpack` 从当前 `.dtx` 干净解包。
+**子情形（#1085）：同一仓库内工作树里 commit 出来的 `.sty` 也会落后于 `.dtx`，不止 TEXINPUTS 指向系统安装宏包这一种情况。** 用工作树里既有的 `xeCJK/xeCJK.sty`（一个旧的构建产物）复现问题，得到过「当前 master 已修复」这个方向相反的结论；真相是那个 `.sty` 落后于当前 `.dtx`。这种情形不能用 `\GetIdInfo$Id:` 版本戳判断——该戳只由 `l3build tag` 回写，不随普通编辑更新，`.sty` 内容与它是否反映当前代码是两件独立的事。用 `.sty` 复现前应先 `l3build unpack` 从当前 `.dtx` 干净解包。
 **Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`, `llmdoc/memory/reflections/1057-fntef-nest-linebreak.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### 诊断行尾 glue 问题先用 `\hbox to` 隔离 `\par` 的 `\unskip`
@@ -109,12 +109,12 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 稳定文档必须随实现演进重新核对
-**Rule**: 中间方案被后续提交替换时，重新逐项核对 architecture、reference、decision、lessons 和 index；已否决的路线只能作为历史记录，不能继续写成当前合同。
-**Why**: #1012 的 `1em/3 + \xleaders/\cleaders` 和 `1em/4 + 默认 \cleaders + 胶水专用图形` 两个中间方案都曾被写入稳定文档；当前合同已经改为“普通 `\leaders` 共享相位＋首末局部裁切＋断点两侧半周期连接”，固定提交的独立审查仍发现旧说明会误导后续实现和测试。代码通过回归不能抵消稳定知识与实现不一致。
+**Rule**: 中间方案被后续提交替换时，重新逐项核对 architecture、reference、decision、lessons 和 index；已否决的路线只能作为历史记录，不能继续写成当前契约。
+**Why**: #1012 的 `1em/3 + \xleaders/\cleaders` 和 `1em/4 + 默认 \cleaders + 胶水专用图形` 两个中间方案都曾被写入稳定文档；当前契约已经改为“普通 `\leaders` 共享相位＋首末局部裁切＋断点两侧半周期连接”，固定提交的独立审查仍发现旧说明会误导后续实现和测试。代码通过回归不能抵消稳定知识与实现不一致。
 **Source**: `llmdoc/memory/reflections/1012-fntef-decoration-overlap.md`
 
 ### 字符分类修改必须检查节点结构和旧类消费者
-**Rule**: 调整或新增 interchar 字符类时，用 `\showbox` 同时验证 glyph、glue、kern、penalty 等节点，并反向审计所有直接判断或枚举旧类的消费者，不能只比较视觉效果或总盒宽。
+**Rule**: 调整或新增 interchar 字符类时，用 `\showbox` 同时验证 glyph、glue、kern、penalty 等节点，并反向审计所有直接判断或枚举旧类的消费者，不能只比较视觉效果或盒子总宽度。
 **Why**: #284 中总宽抵消掩盖了多余标点节点，#382 新增 `PoZheHao` 又因遗漏 `FullRight` 的直接判断重现历史错误；分类标签正确不代表所有下游语义自动正确。
 **Source**: `llmdoc/memory/archive/2026-07-13/284-fullwidth-tilde-longpunct.md`, `llmdoc/memory/archive/2026-07-13/382-dash-width-punct-if-right-and-cmap-metrics.md`
 
@@ -125,7 +125,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 边界出口必须恢复后续判断所需的完整状态
 **Rule**: 状态机在命令或子列表出口不能只重放最终分类；还要列出下一次恢复会读取的引擎状态、pending 标志和物理相邻节点，并逐项恢复。跨节点移动必须同时受注册范围、尺寸条件和真实 marker 证据约束。
-**Why**: #1003 中盒子的末类别和 `\null` 前的 marker 都正确，但盒内过期的 `spacefactor` 仍让源码空格比较失败，零尺寸 hbox 也会截断“marker + glue”的相邻关系。PR #1005 同步外层 `spacefactor`，并只跨已注册零尺寸盒子移动由 marker 证明的至多一枚 glue；没有证据时按原节点顺序还原。
+**Why**: #1003 中盒子的末类别和 `\null` 前的 marker 都正确，但盒子内部过期的 `spacefactor` 仍让源码空格比较失败，零尺寸 hbox 也会截断“marker + glue”的相邻关系。PR #1005 同步外层 `spacefactor`，并只跨已注册零尺寸盒子移动由 marker 证明的至多一枚 glue；没有证据时按原节点顺序还原。
 **Source**: `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
 
 ### 可见排版修复需要三类证据
@@ -135,7 +135,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 字符型装饰要分别验证 PDF 文本与页面视觉
 **Rule**: 只用于绘图的字符或数学内容应以空 `ActualText` 排除文本语义；tagged PDF 还要检查内层标记，必要时在最小范围暂停 tagging。验收时分别检查普通／tagged PDF 的文本提取和修复前后页面渲染，不能让其中一项代替另一项。
-**Why**: #1017 中波浪线、斜删除线和用户符号虽位于装饰盒与 leaders 中，仍会以 `:`、`/`、`.`、`*` 混入复制结果；单用 Artifact 或外层 `ActualText` 都不能稳定约束 tagged PDF 的内层数学标记。空 `ActualText` 加最小范围 tagging 暂停清除了提取污染，而 300 dpi 的 `AE=0` 独立证明页面外观没有变化。
+**Why**: #1017 中波浪线、斜删除线和用户符号虽位于装饰盒子与 leaders 中，仍会以 `:`、`/`、`.`、`*` 混入复制结果；单用 Artifact 或外层 `ActualText` 都不能稳定约束 tagged PDF 的内层数学标记。空 `ActualText` 加最小范围 tagging 暂停清除了提取污染，而 300 dpi 的 `AE=0` 独立证明页面外观没有变化。
 **Source**: `llmdoc/memory/reflections/1017-fntef-actualtext.md`
 
 ### 弹性间距必须验证伸缩量和实际断行
@@ -175,7 +175,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 校验侧的语法必须与写入侧一致（含前缀剥离等所有规范化步骤）
 **Rule**: 校验提取某个值时用的模式，不能比写入该值的代码更严格——这包括**写入侧做过的每一步规范化**。写入侧剥了 `v` 前缀、校验侧不剥，等价于两侧对「同一个版本号」的定义不同：合法输入会通过前一道校验却在后一道校验被拒，而给出的修复提示照做不会有任何变化。同一份配置里已有正确写法时（如 `zhlineskip` 那条），照抄另一条更要逐项核对。
-**Why**: #1041 三次踩同一类：(1) release 校验假定三段式数字，两段式 `3.11` 过 PR 校验却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的写法），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 校验放行、release 校验拒绝。
+**Why**: #1041 三次踩到同一类坑：(1) release 校验假定三段式数字，两段式 `3.11` 过 PR 校验却在 release 报空 stamp；(2) `read_dtx_version` 的 `[%d%.]+` 拒绝 `3.11a` / `0.0-beta`（后者是 release.yml 注释自己列为合法的写法），而 `uploadconfig.version` 是 `l3build upload` 的必填字段；(3) xeCJK case 的 `LUA_VER` 不剥 `v` 前缀，而写入侧 `update_tag` 有 `target:gsub("^v","")`——`version = "v3.10.5"` 时 PR 校验放行、release 校验拒绝。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`
 
 ### 项目的语言约定要在动手前读、收尾时按词表自查
@@ -210,7 +210,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 白名单式 CI 校验默认放行，未覆盖的包无人察觉
 **Rule**: 按包 opt-in 的校验（`paths` filter、`case "${PKG}"` 分支）对未列出的包**静默跳过**，且 `::notice::` 不是 failure、CI 仍全绿。这类校验必须配一份显式覆盖矩阵（或自动对账），并在加新包／某包后来具备条件时同步更新。区分「有意识排除并留 followup」与「无意识从未接入」——后者是缺陷。
-**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。**同一缺口后来又出现一次**：zhnumber 与 xCJK2uni 也从未被覆盖，而两者的 `.dtx` 都有 `{\ExplFileDate}{<ver>}`、`l3build tag` 确实会回写——那条「不使用 l3build tag 版本 stamp 机制」的 notice 是**错的**。#1041 的反思当时已写下「应当有一条未覆盖清单的对账机制」并留作后续，正因为没做，第二次才又靠人工翻查才发现。**所以这条规则的落实方式是自动对账脚本，不是「记得同步矩阵」**：现由 `scripts/check-version-gate-coverage.py` 在 `check-tag.yml` 的 `gate-coverage` job 里强制执行；它当场又查出第三个漏掉的包（jiazhu）。**同一形态在测试文件层面也发作过**：#1068 里既有的 `ccglue01`／`ccglue02.lvt` 对 LuaTeX 与 upTeX 直接 early-exit 打印 `LuaTeX: not tested yet.`，而 #1068 的缺陷恰好只在这两个引擎上出现——`not tested yet` 与 `::notice::...跳过` 是同一类静默放行，都会让「文件存在」被误读成「覆盖存在」。
+**Why**: #1041 之前 xeCJK 从不在版本校验内：`check-tag.yml` 的 `paths` 只列 ctex/zhlineskip，`release.yml` 的三方校验里 xeCJK 落进 `*)` 并打 `::notice::...跳过三方校验`。于是 `xeCJK-v3.10.5-rc2` 发出了一个自报 `v3.10.4` 的包，release workflow 全程绿灯。对照 #935 的 zhspacing：那是有意识排除且留了 followup issue。**同一缺口后来又出现一次**：zhnumber 与 xCJK2uni 也从未被覆盖，而两者的 `.dtx` 都有 `{\ExplFileDate}{<ver>}`、`l3build tag` 确实会回写——那条「不使用 l3build tag 版本 stamp 机制」的 notice 是**错的**。#1041 的反思当时已写下「应当有一条未覆盖清单的对账机制」并留作后续，正因为没做，第二次才又靠人工翻查才发现。**所以这条规则的落实方式是自动对账脚本，不是「记得同步矩阵」**：现由 `scripts/check-version-gate-coverage.py` 在 `check-tag.yml` 的 `gate-coverage` job 里强制执行；它一运行就又查出第三个漏掉的包（jiazhu）。**同一类问题在测试文件层面也出现过**：#1068 里既有的 `ccglue01`／`ccglue02.lvt` 对 LuaTeX 与 upTeX 直接 early-exit 打印 `LuaTeX: not tested yet.`，而 #1068 的缺陷恰好只在这两个引擎上出现——`not tested yet` 与 `::notice::...跳过` 是同一类静默放行，都会让「文件存在」被误读成「覆盖存在」。
 **Source**: `llmdoc/memory/reflections/1041-xecjk-version-gate.md`, `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`
 
 ### 「跑了但什么也没校验」的 job 比没有 job 更危险
@@ -270,12 +270,12 @@ Curated cross-task rules distilled from archived memory.
 
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
-**Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。**#1085 是同一条规则的又一实例**：第一版门控直接复用了同文件 Boundary→Default 方向的 `\@@_skip_if_interword:N`（要求 finite + 带 shrink + 宽度等于词间空格），跑回归立刻发现 `command-boundary-math05` 的 `null-explicit` 场景（`\textnormal{$x$ }\hskip 7pt\null`）height-delta 从 0 变 8.52pt——`\hskip 7pt` 无 shrink，被该判据误拦，破坏了 #1002／#1003 已有的 math-space 恢复。同一个「候选 glue」在不同恢复路径有不同的合法形状集合，门控不能照抄。
+**Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。**#1085 是同一条规则的又一实例**：第一版的检查条件直接复用了同文件 Boundary→Default 方向的 `\@@_skip_if_interword:N`（要求 finite + 带 shrink + 宽度等于词间空格），跑回归立刻发现 `command-boundary-math05` 的 `null-explicit` 场景（`\textnormal{$x$ }\hskip 7pt\null`）height-delta 从 0 变 8.52pt——`\hskip 7pt` 无 shrink，被该判据误拦，破坏了 #1002／#1003 已有的 math-space 恢复。同一个「候选 glue」在不同恢复路径有不同的合法形状集合，检查条件不能照抄。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### 状态布尔为真不等于资源可用；置真点与复位点要成对清点
 **Rule**: 状态布尔记录的是「谁开始过」，不是「现在还开着」。判断能否对某资源动手时，直接测那个资源本身的状态，而不是测某个流程是否启动过。写完这类守卫，列出所有能进入该状态的入口与所有能退出的出口，逐一对照——入口比出口多就是缺陷信号。
-**Why**: #1037 的守卫先只测 `\l_@@_ulem_stream_started_bool`。该布尔在 `\@@_ulem_stream_begin:` 置真、只在 `\@@_ulem_end:` 置假；而行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走复位点。于是公式内装饰命令之后布尔仍为真、片段盒已关闭，`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath` 报 6 个错误。最终守卫改为「布尔为真且 `\UL@start` 为 `\@empty`（片段盒确实打开）」的合取。
+**Why**: #1037 的守卫先只测 `\l_@@_ulem_stream_started_bool`。该布尔在 `\@@_ulem_stream_begin:` 置真、只在 `\@@_ulem_end:` 置假；而行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走复位点。于是公式内装饰命令之后布尔仍为真、片段盒子已关闭，`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath` 报 6 个错误。最终守卫改为「布尔为真且 `\UL@start` 为 `\@empty`（片段盒子确实打开）」的合取。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
 
 ### 根因是代码事实，把它写成可 grep 的模式并穷举全部出现位置
@@ -295,7 +295,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 写「判别力已实测」之前必须真的跑那次变异
 **Rule**: 注释或文档里声称某断言有判别力时，必须真的执行过「重新引入缺陷 → 看到测试失败」这一步。照抄句式而不复跑，比不写更糟——它会让后来者放弃复核。
-**Why**: #1037 的 TEST 9 第一版用 `\bfseries` 形态断言并写了「判别力已实测」，实际上该形态根本不走被测路径，撤销修复后测试仍通过。同一任务里 TEST 6 第一版用 `\hbox to` 宽度也是恒真断言。两次都是在未验证的情况下认为断言成立。**#1085 是同一失效模式在「测试标题/注释」这一具体载体上的又一次发作**：TEST 18（finite `\hskip 30pt`）最初标题写「keeps a finite non-interword glue in place」、注释写「the `\null` must not jump in front of it」，都是先写故事化描述、后被判别力验证证伪——撤掉修复重跑后发现该测试**不在** diff 里，finite glue 在新旧逻辑下都照常搬运，`\null` 确实前移，但 30pt 无伸缩、位置错了也无视觉影响，不是 bug，与最初写的说法方向相反。判别力验证要先区分「这条测试测的是 bug」还是「测的是未变行为」，测试标题与注释必须按实测结果写。
+**Why**: #1037 的 TEST 9 第一版用 `\bfseries` 的写法断言并写了「判别力已实测」，实际上这种写法根本不走被测路径，撤销修复后测试仍通过。同一任务里 TEST 6 第一版用 `\hbox to` 宽度也是恒真断言。两次都是在未验证的情况下认为断言成立。**#1085 是同一失效模式在「测试标题/注释」这一具体载体上的又一次出现**：TEST 18（finite `\hskip 30pt`）最初标题写「keeps a finite non-interword glue in place」、注释写「the `\null` must not jump in front of it」，都是先写故事化描述、后被判别力验证证伪——撤掉修复重跑后发现该测试**不在** diff 里，finite glue 在新旧逻辑下都照常搬运，`\null` 确实前移，但 30pt 无伸缩、位置错了也无视觉影响，不是 bug，与最初写的说法方向相反。判别力验证要先区分「这条测试测的是 bug」还是「测的是未变行为」，测试标题与注释必须按实测结果写。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`, `llmdoc/memory/reflections/1057-fntef-nest-linebreak.md`, `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
 
 ### 按根因枚举象限，而不是按复现样例收工
@@ -349,13 +349,13 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
 ### 引用差值时要标明它属于哪一组间距设置
-**Rule**: 记录「删掉某处后出现多少 pt 差值」时，注明该数值来自哪一组 `CJKecglue`／`CJKglue` 设置。同一现象在默认胶与自设胶下的数值不同，直接从别的测试搬数字会写错。
-**Why**: #1029 我把 `command-boundary01` 在默认胶下的 3.33pt 搬到了自设 `CJKecglue=5pt`／`CJKglue=1pt` 的新用例注释里，三处文档同时写错；该场景的实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。
+**Rule**: 记录「删掉某处后出现多少 pt 差值」时，注明该数值来自哪一组 `CJKecglue`／`CJKglue` 设置。同一现象在默认胶水与自设胶水下的数值不同，直接从别的测试搬数字会写错。
+**Why**: #1029 我把 `command-boundary01` 在默认胶水下的 3.33pt 搬到了自设 `CJKecglue=5pt`／`CJKglue=1pt` 的新用例注释里，三处文档同时写错；该场景的实测差值是 4.0pt（63.19998pt 降为 59.19998pt）。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
 ### 变异要逐项做：整个文件变红不等于每一项都有判别力
 **Rule**: 确认回归判别力时，对每一项各自声称守护的那条行为单独做一次变异，只破坏这一条，看这一项是否变化。整份测试文件 rc 1 可能只是其中一项失败连带压垮了后续各项的读数。
-**Why**: #1029 的第一版回归中，只破坏「暂停深度归零」（去掉 `\int_gdecr:N`）或只撤销隔离，测试都全绿；而还原原缺陷时整个文件变红，让我误以为各项都在守着。逐项变异才暴露出两项完全没有判别力、另两项读的是别人的值。
+**Why**: #1029 的第一版回归中，只破坏「暂停深度归零」（去掉 `\int_gdecr:N`）或只撤销隔离，测试都全绿；而还原原缺陷时整个文件变红，让我误以为每一项都有判别力。逐项变异才暴露出两项完全没有判别力、另两项读的是别人的值。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
 ### 每项测试用独立的盒子／寄存器，否则读到的是上一项的遗留值
@@ -407,18 +407,18 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### l3build 测试里不能用 \showbox，它会静默截断其后所有用例
-**Rule**: `support/build-config.lua` 把 `checkopts` 设为 `-halt-on-error`，而 `\showbox` 会抛出 `! OK.`，编译因此当场终止：该行之后的 `\TEST` 全部不执行，`.tlg` 也只记到那一行，但 `l3build check` 仍然报绿。需要把盒子内容写进基线时，用 `\loggingoutput` 配合 `\box` 加 `\clearpage`（见 `command-boundary-math02.lvt`、`verb-ecglue02.lvt`），并在文件层设好 `\showboxbreadth`／`\showboxdepth`。
-**Why**: #1026 有一版 `fntef-shrink01` 用 `\showbox` 打印装饰盒，之后新增的用例从未运行过而 check 一直全绿；在 `\END` 前插一个探针 `\TEST` 并确认它没有进入日志，才暴露出这一点。`verb-ecglue02.lvt` 早已把这条坑写成注释，说明它会反复出现。
+**Rule**: `support/build-config.lua` 把 `checkopts` 设为 `-halt-on-error`，而 `\showbox` 会抛出 `! OK.`，编译因此立刻终止：该行之后的 `\TEST` 全部不执行，`.tlg` 也只记到那一行，但 `l3build check` 仍然报绿。需要把盒子内容写进基线时，用 `\loggingoutput` 配合 `\box` 加 `\clearpage`（见 `command-boundary-math02.lvt`、`verb-ecglue02.lvt`），并在文件层设好 `\showboxbreadth`／`\showboxdepth`。
+**Why**: #1026 有一版 `fntef-shrink01` 用 `\showbox` 打印装饰盒子，之后新增的用例从未运行过而 check 一直全绿；在 `\END` 前插一个探针 `\TEST` 并确认它没有进入日志，才暴露出这一点。`verb-ecglue02.lvt` 早已把这个坑写成注释，说明它会反复出现。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### 断言强度要匹配所声称的行为，宽度相等不等于结构相同
-**Rule**: 用尺寸做 oracle 时，先问“有没有一种实现能让尺寸不变而所声称的行为已经错了”。若有，就必须把结构本身（节点列表、片段宽度）纳入基线，或把注释与文档里的职责表述降级到尺寸真能证明的范围。
-**Why**: #1026 中只固定装饰盒总宽度的用例，命名与注释都称“尾随空格仍被装饰”，但把空格换成等宽 `kern`（宽度完全相同、装饰实际消失）时它照常通过；把末段 `\cleaders` 纳入基线后才真正拦住。
+**Rule**: 用尺寸做 oracle 时，先问“有没有一种实现能让尺寸不变而所声称的行为已经错了”。若有，就必须把结构本身（节点列表、片段宽度）纳入基线，或把注释与文档里的职责表述降级到尺寸确实能证明的范围。
+**Why**: #1026 中只固定装饰盒子总宽度的用例，命名与注释都称“尾随空格仍被装饰”，但把空格换成等宽 `kern`（宽度完全相同、装饰实际消失）时它照常通过；把末段 `\cleaders` 纳入基线后才真正拦住。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### 确认根因后要枚举全部满足该根因的代码路径
 **Rule**: 定位到根因后，把它当作判据去检查所有满足它的路径，而不是只修触发当前复现样例的那一条。同一函数里往往还留着条件更窄的同类路径。
-**Why**: #1026 的根因是“正文经宏参数间接展开会让 `\CJKecglue` 固化在装饰片段盒内”。第一版修复把非重排路径改回字面展开就收工，却漏掉被保留的重排分支——它同样走参数间接展开，只是触发条件更窄（正文需同时含西文词并以公式加空格结尾），实测溢出量与修复前完全相同。这一残留是独立审查发现的，不是自检发现的。
+**Why**: #1026 的根因是“正文经宏参数间接展开会让 `\CJKecglue` 固化在装饰片段盒子内部”。第一版修复把非重排路径改回字面展开就收工，却漏掉被保留的重排分支——它同样走参数间接展开，只是触发条件更窄（正文需同时含西文词并以公式加空格结尾），实测溢出量与修复前完全相同。这一残留是独立审查发现的，不是自检发现的。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
 
 ### 回归测试必须用重新引入缺陷的方式确认会失败
@@ -478,20 +478,20 @@ Curated cross-task rules distilled from archived memory.
 
 ### 既有测试全绿只说明测试覆盖的场景没问题
 **Rule**: 把「既有测试全绿」当作「缺陷不存在」的证据之前，必须先核对那些测试的**构造**是否真的覆盖了报告的场景——尤其当测试用简化替身模拟被测对象时，简化掉的那一层可能正是缺陷所在。核对成本通常很低，就是打开 `.lvt` 看关键条件在不在。
-**Why**: #1046 的自动分析引用 `codedoc-meta-ecglue01` 全绿，把可复现的代码事实（左侧恒 5.25pt、右侧恒 3.33pt）归因成「尖括号与斜体字形造成的视觉差异」；而那个测试自己模拟内层 `\__codedoc_meta:n` 时没有 `\texttt` 外层，`\texttt` 正是缺陷的必要条件。#1038 的既有 `tabular01` 因每行 `\\` 前有空格而零判别力是同一条规则的前一次发作——那次简化掉的是空白，这次是外层字体切换命令。
+**Why**: #1046 的自动分析引用 `codedoc-meta-ecglue01` 全绿，把可复现的代码事实（左侧恒 5.25pt、右侧恒 3.33pt）归因成「尖括号与斜体字形造成的视觉差异」；而那个测试自己模拟内层 `\__codedoc_meta:n` 时没有 `\texttt` 外层，`\texttt` 正是缺陷的必要条件。#1038 的既有 `tabular01` 因每行 `\\` 前有空格而没有判别力是同一条规则的前一个实例——那次简化掉的是空白，这次是外层字体切换命令。
 **Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`, `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
 ### 否定性结论要说明搜索了什么模式、为什么能穷尽
 **Rule**: 「未发现相关代码路径」「没有这样的实现」这类结论，必须给出搜索的具体模式以及该模式为何能穷尽目标空间；否则它只是「我没找到」，不能当作「不存在」写进结论。
-**Why**: 把代码事实归因成视觉错觉是这条失效的典型后果（#1046）。同一任务里还有第二个例子，而且它自己就栽在这条规则上：hyperref 的行内锚点出口数我先后写错了四次——先误写按「目标是否为空」在 `\hyper@anchor` 与 `\Hy@raisedlink` 之间分派（计数器实测四种 `\hypertarget` 形式的 `\Hy@raisedlink` 均为 0），改对后误写「只有两个出口」（同一手段随即找出 `\__hyp_target_raise:n`），承认第三个出口后又为「它套不上现成包装」编了一个隔离实验一测就倒的成因，覆盖第三个出口后再误写「三个出口全部注册」（`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用绕过全部三处）。「若干处注册的判别力互不重叠」只证明这些处都在路径上，既不证明按什么分派、也不证明只有这些处，更不能替你解释故障成因。反复出错的穷尽性断言应当换成「已覆盖／已知未覆盖」两份清单。
+**Why**: 把代码事实归因成视觉错觉是这条失效的典型后果（#1046）。同一任务里还有第二个例子，而且它自己就栽在这条规则上：hyperref 的行内锚点出口数我先后写错了四次——先误写按「目标是否为空」在 `\hyper@anchor` 与 `\Hy@raisedlink` 之间分派（计数器实测四种 `\hypertarget` 形式的 `\Hy@raisedlink` 均为 0），改对后误写「只有两个出口」（同一手段随即找出 `\__hyp_target_raise:n`），承认第三个出口后又为「它套不上现成包装」编了一个经隔离实验一测就被推翻的成因，覆盖第三个出口后再误写「三个出口全部注册」（`\pdfbookmark` 经 `\hyper@anchorstart` 裸调用绕过全部三处）。「若干处注册的判别力互不重叠」只证明这些处都在路径上，既不证明按什么分派、也不证明只有这些处，更不能替你解释故障成因。反复出错的穷尽性断言应当换成「已覆盖／已知未覆盖」两份清单。
 **Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
 
 ### 现象、联系、穷尽性、成因是四个独立命题
 **Rule**: 「A 缺了会坏、B 缺了也会坏」只证明 A 与 B 都在路径上。它**既不**证明「按某个条件在 A 与 B 之间分派」，**也不**证明「只有 A 和 B」；而观察到一个故障也**不**证明你对它成因的解释。这些是彼此独立的命题，各需自己的探针：控制流用计数器（给候选函数各加 `\newcount` 跑一次），穷尽性要能说明用什么手段排除了下一种可能，成因用隔离实验（去掉你认定的那个因素，看故障是否仍在）。若某个穷尽性断言反复出错，**改为维护「已覆盖」与「已知未覆盖」两份清单，不写总数**——清单的每一条都能被单条探针核查，总数不能。同理，「实测过」要说清实测的是什么（宽度相同不能推出节点列表相同），并检查探针本身够不够用——节点级比对时，预热行与「同一容器只放一个入口」都可能掩盖差异，需在同一 `\hbox` 里放两个以上同类入口。准备把机制陈述提升为跨任务判据时尤其要先补实测；写下「全部」「只有」「因为 X 所以坏」之前先自问一遍。
-**Why**: #1047 的机制陈述被独立复核连续推翻四次，形态相同——都是从一个真实现象推出未经独立验证的解释。第一次：两个 transparent 注册确实都必要、判别力也确实互不重叠，但据此推断的「非空目标走 `\Hy@raisedlink`、空目标走 `\hyper@anchor`」是错的，计数器实测显示四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数均为 0。第二次：改对分派依据后又写成「行内锚点有两个出口」并把「两个」写进架构文档与本文件，同一手段随即发现第三个出口 `\__hyp_target_raise:n`。第三次：承认第三个出口后，把「现成包装套不上去」归因给 xeCJK 的 begin 钩子把赋值卷进了参数展开，并据此把缺口写成已接受限制——隔离实验推翻了它，那个钩子体内根本没有 `\spacefactor` 赋值（赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`），不挂任何钩子仅做无花括号透传同样复现，把参数改成带花括号转发即回到 oracle，缺口本可直接关闭。第四次：覆盖第三个出口后又写成「三个出口全部注册」，同款探针发现 `\pdfbookmark` 经 `\hyper@anchorstart` 裸调用绕过全部三处——于是文档改为只维护「已覆盖」与「已知未覆盖」两份清单，不再给出总数。四次错误各传播进四到六份文档，而推翻各只需一次编译。这与 #1043 的「事实、原因、后果各自都要验证」同源，本次多出三层：事实之间的联系、事实的穷尽性、以及你为故障编的成因，都要各自验证。
+**Why**: #1047 的机制陈述被独立复核连续推翻四次，错误方式相同——都是从一个真实现象推出未经独立验证的解释。第一次：两个 transparent 注册确实都必要、判别力也确实互不重叠，但据此推断的「非空目标走 `\Hy@raisedlink`、空目标走 `\hyper@anchor`」是错的，计数器实测显示四种 `\hypertarget` 形式的 `\Hy@raisedlink` 调用次数均为 0。第二次：改对分派依据后又写成「行内锚点有两个出口」并把「两个」写进架构文档与本文件，同一手段随即发现第三个出口 `\__hyp_target_raise:n`。第三次：承认第三个出口后，把「现成包装套不上去」归因给 xeCJK 的 begin 钩子把赋值卷进了参数展开，并据此把缺口写成已接受限制——隔离实验推翻了它，那个钩子体内根本没有 `\spacefactor` 赋值（赋值来自 hyperref 自己的 `\Hy@SaveSpaceFactor`），不挂任何钩子仅做无花括号透传同样复现，把参数改成带花括号转发即回到 oracle，缺口本可直接关闭。第四次：覆盖第三个出口后又写成「三个出口全部注册」，同样的探针发现 `\pdfbookmark` 经 `\hyper@anchorstart` 裸调用绕过全部三处——于是文档改为只维护「已覆盖」与「已知未覆盖」两份清单，不再给出总数。四次错误各传播进四到六份文档，而推翻各只需一次编译。这与 #1043 的「事实、原因、后果各自都要验证」同源，本次多出三层：事实之间的联系、事实的穷尽性、以及你为故障编的成因，都要各自验证。
 **Source**: `llmdoc/memory/reflections/1046-1047-meta-anchor-font-context.md`
-**Source（镜面发作）**: `llmdoc/memory/reflections/1067-ulem-brace-group-ecglue-shrink.md`
-**Why（镜面发作）**: #1067 中同一条规则以相反方向发作——不是把「可达」误当成因，而是把「改掉某个环节、现象没变」误当成「这个环节不是原因」。变异测试显示绕过 group tag 守卫后 braced 形态的 badness 仍是 1000000，据此判定「守卫与本问题无关」，但真实情况是守卫确实是直接原因，只是「绕过它」这个具体修法本身在用户分组内做不到（搬出来的 glue 仍落进 `\cleaders` 内部）。「A 是直接原因」与「绕开 A 这个动作失败」是独立命题，可以同时成立；本次因为跳过了对后者单独验证，把「修法失败」直接读成了「解释错误」，导致过早判定不可修复并开出一个后来被关闭的纯文档 PR。
+**Source（反向实例）**: `llmdoc/memory/reflections/1067-ulem-brace-group-ecglue-shrink.md`
+**Why（反向实例）**: #1067 中同一条规则以相反方向出现——不是把「可达」误当成因，而是把「改掉某个环节、现象没变」误当成「这个环节不是原因」。变异测试显示绕过 group tag 守卫后 braced 写法的 badness 仍是 1000000，据此判定「守卫与本问题无关」，但真实情况是守卫确实是直接原因，只是「绕过它」这个具体修法本身在用户分组内做不到（搬出来的 glue 仍落进 `\cleaders` 内部）。「A 是直接原因」与「绕开 A 这个动作失败」是独立命题，可以同时成立；本次因为跳过了对后者单独验证，把「修法失败」直接读成了「解释错误」，导致过早判定不可修复并开出一个后来被关闭的纯文档 PR。
 
 ### 手写 MWE 要先确认 `TEXINPUTS` 指向的包真的是当前版本
 **Rule**: 用 `TEXINPUTS=<builddir>:` 跑手写 MWE 前，先确认该目录存在且内容是当前改动——例如 `grep` 一个只在本次改动里出现的函数名。目录不存在时 `xelatex` 不报错，而是静默回落到系统安装的旧版宏包。
@@ -517,7 +517,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 把技术可行性与产品化决策分开
 **Rule**: 先把 feature request 重述为真实需求并用最小原型验证可能性，再独立审计作用域、架构假设、兼容面和低风险替代方案；原型成功不等于应增加稳定接口。
-**Why**: #553 的混合类原型推翻了“XeTeX 无法分离字体与间距”的判断，#347 的装盒原型也证明局部机制可行；两者一旦接入完整 class/shaping/Boundary 状态机都会跨越多个子系统，因此仍应 `not planned`。
+**Why**: #553 的混合类原型推翻了“XeTeX 无法分离字体与间距”的判断，#347 把内容装进盒子的原型也证明局部机制可行；两者一旦接入完整 class/shaping/Boundary 状态机都会跨越多个子系统，因此仍应 `not planned`。
 **Source**: `llmdoc/memory/archive/2026-07-13/336-347-510-808-553-feature-request-triage.md`
 
 ### 同名依赖必须核对实际解析与协议
@@ -568,7 +568,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`
 
 ### 刷 `.tlg` 基线前先按上游根因分类：会自愈的不刷，上游不会回退的必须刷
-**Rule**: 面对上游宏包版本漂移导致的 `.tlg` diff，先判断根因属于哪一类，再决定要不要刷基线：TL 打包侧暂时没跟上 CTAN（会随 tlnet 同步自愈）的漂移不刷——刷了等于把上游当前滞后快照里的错误数值固化下来，等 TL 同步后还要改回来；上游有意修正且不会回退的漂移必须刷。这与「状态表中的绿色单元才进入通过基线」是同一族但不同粒度：那条管的是「矩阵内哪些单元可以写进基线」，这条管的是「整批 diff 该不该刷」的前置分类。**判定「必须刷」之后还要再逐份核对 diff 的内容形态**（净宽为零的 kern、纯文件名行增删是安全信号；节点缺失、数值变化则必须先查本包补丁是否仍成立），否则「刷基线」会把上游同时引入的新缺陷一起冻结进去——分类判据只回答「要不要刷」，不回答「刷了会不会带进新问题」。
+**Rule**: 面对上游宏包版本漂移导致的 `.tlg` diff，先判断根因属于哪一类，再决定要不要刷基线：TL 打包侧暂时没跟上 CTAN（会随 tlnet 同步自愈）的漂移不刷——刷了等于把上游当前滞后快照里的错误数值固化下来，等 TL 同步后还要改回来；上游有意修正且不会回退的漂移必须刷。这与「状态表中的绿色单元才进入通过基线」是同一族但不同粒度：那条管的是「矩阵内哪些单元可以写进基线」，这条管的是「整批 diff 该不该刷」的前置分类。**判定「必须刷」之后还要再逐份核对 diff 的具体内容**（净宽为零的 kern、纯文件名行增删是安全信号；节点缺失、数值变化则必须先查本包补丁是否仍成立），否则「刷基线」会把上游同时引入的新缺陷一起冻结进去——分类判据只回答「要不要刷」，不回答「刷了会不会带进新问题」。
 **Why**: #1048/#1050 中 l3backend 的漂移是 tlnet 落后 CTAN 五个月（会自愈），pgf 的舍入修正是上游明确的、不会回退的行为变更；两者的 `.tlg` diff 表现类似，但处置方式相反——一个该等 TL 同步，一个必须刷。#1080 补两个「必须刷」的实例：`tocloft` v2.3i→v3.0a 新增的 kern 对净宽为零、`fontspec` 不再显式加载 `xparse` 只是文件清单变化，两者都先核对了 diff 只含这类安全信号才敢 save。
 **Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1080-upstream-tocloft-fontspec.md`
 
@@ -586,10 +586,10 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 用替代版本的文件（宏包、依赖、配置等）临时覆盖某个路径来做对照实验时，必须有一个独立于实验结论的判据，能核实注入本身确实生效，而不是仅凭实验结果推断。没有这个判据，「注入没生效、测的还是旧版本」与「注入生效了、新版本确实不行」在结果上会完全相同，容易把环境错误误判为结论。
 **Why**: #1048/#1050 中两次尝试用新版 l3backend 替换测试环境都放错了位置（先后误写进会被 `cleandir` 清空的 `testdir`、试图通过 `TEXINPUTS` 覆盖但被 l3build 写死的设置盖过），两次都得到「仍然报错」的结果，若不核实测试目录里实际文件的日期戳，会顺势得出「新版本也修不好」这个错误结论。
 
-**否命题形态：「反证失败」不等于「假设错误」。** 上面那条问的是「实验做成了吗」，这条问的是「这个环境有能力区分两种结论吗」。做反证或对照实验时，若结果是「仍然失败」或「未复现」，先证伪两件事再采纳结论：一是**装置无效**（探针／注入本身没起作用），二是**环境不具备复现前提**（无论假设真假，这个环境都给出同一个结果）。#1054 的实例：第一次就正确判断出 `mktexlsr` 缺失是根因，随后在本地做「去掉 `mktexlsr` 看是否失败」的反证，没能复现，据此撤回了一个**正确的**修复，绕两条弯路后靠 CI 日志才重新确认。真实原因是本地 `TEXMFHOME`（`~/texmf`）不在 `TEXMFDBS` 里、不带 `!!` 前缀，走磁盘搜索，不受 ls-R 约束——这个环境改不改 `mktexlsr` 都不会失败。另一个同族实例是 #1043 的坏探针（见 `reference/coding-conventions.md:118-125`）：`\char_value_catcode:n` 加了 `\the` 前缀读出废数据，「实验有输出」被当成「实验有效」。
+**否命题情形：「反证失败」不等于「假设错误」。** 上面那条问的是「实验做成了吗」，这条问的是「这个环境有能力区分两种结论吗」。做反证或对照实验时，若结果是「仍然失败」或「未复现」，先证伪两件事再采纳结论：一是**装置无效**（探针／注入本身没起作用），二是**环境不具备复现前提**（无论假设真假，这个环境都给出同一个结果）。#1054 的实例：第一次就正确判断出 `mktexlsr` 缺失是根因，随后在本地做「去掉 `mktexlsr` 看是否失败」的反证，没能复现，据此撤回了一个**正确的**修复，绕两条弯路后靠 CI 日志才重新确认。真实原因是本地 `TEXMFHOME`（`~/texmf`）不在 `TEXMFDBS` 里、不带 `!!` 前缀，走磁盘搜索，不受 ls-R 约束——这个环境改不改 `mktexlsr` 都不会失败。另一个同族实例是 #1043 的坏探针（见 `reference/coding-conventions.md:118-125`）：`\char_value_catcode:n` 加了 `\the` 前缀读出废数据，「实验有输出」被当成「实验有效」。
 **Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1043-halign-alignment-tab-in-boundary-args.md`, `llmdoc/memory/reflections/1067-ulem-brace-group-ecglue-shrink.md`
 
-**用于驳回他人 finding 时，举证责任更重（#1067）**: 同一条 blocking 被 bot 审查报了两轮。第一轮我用 `CJKecglue={0pt minus 1pt}` 实测「oracle／plain／braced 三者 badness 都是 37」，据此回复「经实测不成立」——那个写法没真正生效，是上面「装置无效」的又一次发作。第二轮 bot 给出 `CJKecglue={\hskip 0pt minus 1pt}` 才复现（直接输入 18、分组形态 1000000），finding 是对的。**接受一条错的 finding，代价是多改一点无害代码；驳回一条对的 finding，代价是缺陷留在仓库里，而且驳回理由会写进回复与提交信息、变成后来者信赖的「已验证」结论。** 所以实测结果与 finding 相反时，第一反应应当是「我的用例真的复现了对方描述的条件吗」（打印实际取到的值确认选项生效），而不是「对方错了」。
+**用于驳回他人 finding 时，举证责任更重（#1067）**: 同一条 blocking 被 bot 审查报了两轮。第一轮我用 `CJKecglue={0pt minus 1pt}` 实测「oracle／plain／braced 三者 badness 都是 37」，据此回复「经实测不成立」——那个写法没真正生效，是上面「装置无效」的又一个实例。第二轮 bot 给出 `CJKecglue={\hskip 0pt minus 1pt}` 才复现（直接输入 18、分组写法 1000000），finding 是对的。**接受一条错的 finding，代价是多改一点无害代码；驳回一条对的 finding，代价是缺陷留在仓库里，而且驳回理由会写进回复与提交信息、变成后来者信赖的「已验证」结论。** 所以实测结果与 finding 相反时，第一反应应当是「我的用例真的复现了对方描述的条件吗」（打印实际取到的值确认选项生效），而不是「对方错了」。
 
 ### 对照实验不要用 `sed`／`perl` 删真实脚本的片段
 **Rule**: 对照实验的前提是只改一个变量。用 `sed`／`perl` 从真实脚本里删掉一段代码，同时也改了脚本的语法完整性与后续步骤的前提，等于一次改了两个变量，得到的结果无效。正确做法是写一个最小独立复现，直接测被怀疑的那个机制本身。
@@ -602,7 +602,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
 ### 抽出被多个调用点共用的脚本时，触发白名单与 job filter 属于「调用点」的一部分
-**Rule**: 把逻辑从某个 workflow 抽成共享脚本时，除了改各处 `run:`，还要更新「哪些文件改动会触发这些路径」——触发白名单与各包 job 的 filter。这些地方不改，改坏脚本时 CI 不会告警。而且不同 workflow 的失效机制不同，只查一处不够：`on.paths` 白名单不含该文件时 workflow **根本不触发**；`paths-ignore` 型 workflow **会触发**，但各包 job 的 `if` 取自 `_all` filter，全为 false 导致整体 skip、汇总 job 把 skipped 算作 OK 而呈现为绿。由此还有一条判读约束：**「看 job 有没有启动」不能作为门禁生效的证据**，前者 run 缺席、后者 run 在但内容为空，都可能被误读成「已经跑过了」。
+**Rule**: 把逻辑从某个 workflow 抽成共享脚本时，除了改各处 `run:`，还要更新「哪些文件改动会触发这些路径」——触发白名单与各包 job 的 filter。这些地方不改，改坏脚本时 CI 不会告警。而且不同 workflow 的失效机制不同，只查一处不够：`on.paths` 白名单不含该文件时 workflow **根本不触发**；`paths-ignore` 型 workflow **会触发**，但各包 job 的 `if` 取自 `_all` filter，全为 false 导致整体 skip、汇总 job 把 skipped 算作 OK 而呈现为绿。由此还有一条判读约束：**「看 job 有没有启动」不能作为校验生效的证据**，前者 run 缺席、后者 run 在但内容为空，都可能被误读成「已经跑过了」。
 **Why**: #1054 把 workaround 抽成 `scripts/sync-l3backend.sh` 时更新了三处 `run:`，却漏了触发面，由两个 bot 独立指出；核实成立，已补 `check-doc.yml` 的 `on.paths` 与 `_all` filter、`test.yml` 的 `_all` filter 三处。这与「复合 Action 与 job step 是两套字段与默认值语义」同属 CI 结构类：同一份配置在不同 workflow 机制下语义不同。**撤除共享脚本时对称成立**：#1074 删 `sync-l3backend.sh` 时同样要把那几处触发面条目一并删掉，否则会留下指向不存在文件的白名单。
 **Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
 
@@ -636,6 +636,6 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
 
 ### 缩小复现到不含本包的最小样例，才能确认是上游机制的通用陷阱
-**Rule**: 怀疑某个缺陷可能是上游机制的通用性质而非本包特有时，把复现缩到不加载本包的最小 LaTeX/TeX 样例。确认为通用陷阱后，修复形态和文档警告的落点都会随之改变——不能只在具体案例的代码注释里说明，还要在架构文档里记录为独立的机制边界。
+**Rule**: 怀疑某个缺陷可能是上游机制的通用性质而非本包特有时，把复现缩到不加载本包的最小 LaTeX/TeX 样例。确认为通用陷阱后，修复方式和文档警告的位置都会随之改变——不能只在具体案例的代码注释里说明，还要在架构文档里记录为独立的机制边界。
 **Why**: #1029 若只盯着 xeCJK 的 `\@@_boundary_capture_suspend:` 内容，容易把注意力放在这条钩子本身该不该做全局赋值上；缩小到不含 xeCJK 的五行纯 LaTeX 后，才确认触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这直接决定了要用专用适配器而不是调整钩子内容，也决定了要在 `experiment/boundary-register` 用户手册里为「命令本体即赋值语句」这类场景加一条通用警告。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`

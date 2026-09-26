@@ -69,7 +69,7 @@
 实测把两个分支退回 `c8923052` 之前的形状后，**恰好两项**失败：
 
 - `command-boundary-math01`（`.lvt:160`，`\MathBoundaryCommandMatrix{group}{{$x$}}`）：32 条 `group/CMC`、`group/CMW` 的 00/10/01/11 变体报 boundary delta 3.33pt／5.0pt；其余走 `\@@_boundary_identity:n` 或 box 适配器的用例仍通过。
-- `command-boundary-math02`（`.lvt:70`，`\setbox0=\hbox{中 {$x$} 文}`）：期望的 `\glue 5.0` 变成两枚互相抵消的 kern，盒宽由 35.71527pt 降到 30.71527pt。
+- `command-boundary-math02`（`.lvt:70`，`\setbox0=\hbox{中 {$x$} 文}`）：期望的 `\glue 5.0` 变成两枚互相抵消的 kern，盒子宽度由 35.71527pt 降到 30.71527pt。
 
 即该分支专门服务「CJK 后紧跟显式花括号、组内首记号是 `$`」这一情形，必须收窄而非删除。
 
@@ -77,15 +77,15 @@
 
 另一条思路是保留抓参数，但用 catcode 技巧造出真正 catcode 1/2 的字符记号来重发，这样反引号就能读到显式 `}`。不采纳：它仍会提前吞掉 `\ifnum0=` 之后的内容并改变 `\@ifstar` 的前瞻时序，风险面比「只吸收一枚记号」大得多，且没有对应的验证手段能穷举被改变的时序。
 
-## 附带改善：隐式花括号形态
+## 附带改善：隐式花括号写法
 
-`中\bgroup $x$\egroup 文` 修复前拿不到 `\CJKecglue`（宽 29.04527pt），修复后与显式花括号形态及无分组 oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次目标，但行为既然变了就补了门禁（独立文件 `boundary-bgroup01`）。
+`中\bgroup $x$\egroup 文` 修复前拿不到 `\CJKecglue`（宽 29.04527pt），修复后与显式花括号写法及无分组 oracle 一致（32.37527pt）。这是「只吸收一枚记号」带来的附带正确性，不是本次目标，但行为既然变了就补了回归测试（独立文件 `boundary-bgroup01`）。
 
 `\bgroup` / `\egroup` 同样触发 Boundary class——`xecjk-architecture.md` 曾长期记载「它们是控制序列而非 catcode 1/2 字符，因此不触发」，实测有误，已更正。注意更正后的**原因**也不是「被展开成花括号」：`\bgroup` 是 `\let` 出来的隐式字符记号、本身不可展开；它走 Boundary 是因为 catcode 1 不属于 letter/other 那四个分支。
 
 ## 触发面
 
-逐个隔离实测（每种写法单独一个文件——同一文件内前一个用例报错会中止编译，使后面的假绿）：
+逐个隔离实测（每种写法单独一个文件——同一文件内前一个用例报错会中止编译，使后面的用例假绿）：
 
 - **受影响并已修复**：`tabular`、`tabular` 带可选参数（`\\[2pt]`）、`tabular` 中 `&` 之后。
 - **从未受影响**：`array`、`align`、`pmatrix`、`array` 宏包的 `>{...}` 列型、`\halign`、`center`、`minipage`。
@@ -97,14 +97,14 @@
 
 `xeCJK/testfiles/tabular01.lvt` 新增 TEST 3（`中文\\`）。另外两组各自独立成文件——`tabular-cr01.lvt`（`&` 之后、`\\[2pt]`、末行）与 `boundary-bgroup01.lvt`（附带改善）：放在 `tabular01` 里时 TEST 3 在缺陷版下会中止编译使它们永不执行，判别力无法观察。**每个能独立触发该缺陷的用例都要有自己的文件**，否则第一个报错就把其余变成假绿。
 
-该文件早已存在且正是测 `tabular` 里的 CJK，却对本缺陷**零判别力**：原有四行每行 `\\` 前都有一个源码空格，走 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下 `tabular01` 全绿。注释中写明了这一点。
+该文件早已存在且正是测 `tabular` 里的 CJK，却对本缺陷**没有判别力**：原有四行每行 `\\` 前都有一个源码空格，走 CJK→NormalSpace 路径，不进 `\@@_boundary_group_math:w`；实测缺陷版下 `tabular01` 全绿。注释中写明了这一点。
 
 判别力已实测 rc 1：还原抓参数形式后 `tabular01` TEST 3 报 `Improper alphabetic constant`（TEST 1／2 零命中），`tabular-cr01` 与 `boundary-bgroup01` 各自独立失败。**不能说「TEST 3／4 各报错」**——同一文件里 TEST 3 的错误会中止编译，实测缺陷版日志里 TEST 4 出现 0 次，这正是把它拆出去的原因。
 
 ## 验证
 
-- xeCJK 117／117（新增 `tabular-cr01` 与 `boundary-bgroup01`）、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度门禁。
-- `中 {$x$} 文` 与 `中{$x$}文` 的节点列表和盒宽在修复前后逐项相同，且与 oracle（`中 $x$ 文`、`中$x$文`）一致——即 #1002 的行为未受影响。
+- xeCJK 117／117（新增 `tabular-cr01` 与 `boundary-bgroup01`）、ctex 四引擎 185／185、`l3build doc`、CHANGELOG 新鲜度检查。
+- `中 {$x$} 文` 与 `中{$x$}文` 的节点列表和盒子宽度在修复前后逐项相同，且与 oracle（`中 $x$ 文`、`中$x$文`）一致——即 #1002 的行为未受影响。
 
 ## 相关资料
 

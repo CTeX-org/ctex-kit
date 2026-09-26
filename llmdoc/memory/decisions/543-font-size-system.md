@@ -1,7 +1,7 @@
-# 决策: 将字号系统切换保持为实验性编译期选择
+# 决策：将字号系统切换保持为实验性编译期选择
 
-- 日期: 2026-05-04
-- 关联: Issue #543
+- 日期：2026-05-04
+- 关联：Issue #543
 
 ## 上下文
 
@@ -33,6 +33,6 @@
 
 ## 相关
 
-- 源码: `ctex/ctex.dtx`
-- 测试: `ctex/test/testfiles/fontsize-system01.lvt`
-- 关联决策: `llmdoc/memory/decisions/717-experiment-cjkecglue.md`
+- 源码：`ctex/ctex.dtx`
+- 测试：`ctex/test/testfiles/fontsize-system01.lvt`
+- 关联决策：`llmdoc/memory/decisions/717-experiment-cjkecglue.md`

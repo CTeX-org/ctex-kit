@@ -29,7 +29,7 @@ metadata:
    ecglue，不需要区分 marker 类型。
 
 两处都通过 `\@@_package_hook:nn` 在对应包加载后 patch。新增两个回归测试
-`xeCJK/testfiles/hypdoc-ecglue01.lvt`、`url-ecglue01.lvt`，已落到
+`xeCJK/testfiles/hypdoc-ecglue01.lvt`、`url-ecglue01.lvt`，已提交到
 commit `7c3a2c2e`。
 
 ## Expected vs Actual
@@ -37,8 +37,8 @@ commit `7c3a2c2e`。
 - 预期：修复完应当直接通过本地 `l3build check`，因为补丁面收得很窄、新增测试也都通过。
 - 实际：本地多出 7 个看似无关的失败——xeCJK 的 `environ01` / `loading01` /
   `punct-measure-fix01` / `tabular01`，以及 ctex contrib 的 `elegantbook` /
-  `pkuthss` / `thuthesis`。我**最初草率判定**为"预存问题、与本次 patch 无关"，
-  被用户当场反驳："线上最新 action 是没问题的，要分析清楚再解决"。
+  `pkuthss` / `thuthesis`。我**最初草率判定**为“预存问题、与本次 patch 无关”，
+  被用户立刻反驳：“线上最新 action 是没问题的，要分析清楚再解决”。
   反驳之后才查清楚根因并修通。
 
 ## What Went Wrong
@@ -64,7 +64,7 @@ commit `7c3a2c2e`。
   graphics 改了 `\showbox` 输出格式（开始打印 `\mathon` / `\mathoff` 节点和
   `$[]$` 风格 Overfull 标记），与本地老内核不一致。
 - **思维定式（人）**：本地失败"看起来跟 patch 无关"就归为环境问题——这是一种
-  懒分析。正确做法是看 diff 内容找根因（release warning 字样、mathon/mathoff
+  偷懒的分析。正确做法是看 diff 内容找根因（release warning 字样、mathon/mathoff
   节点、`\showbox` 输出差异都是清晰的环境指纹），不是看用例名是否落在改动文件附近。
 - **诊断 checklist 缺位**：项目缺少一份"本地 TL usermode 维护与 CI 漂移检测"
   小流程，导致即使遇到典型症状也得每次手动重推一遍。
@@ -88,7 +88,7 @@ commit `7c3a2c2e`。
 
 ## Promotion Candidates
 
-适合提升到 **`architecture/xecjk-architecture.md`**（由 recorder 落地）：
+适合提升到 **`architecture/xecjk-architecture.md`**（由 recorder 写入）：
 
 - **边界恢复修复点矩阵**——按"marker 被什么遮蔽"分类，给出对应修复模式：
 
@@ -104,7 +104,7 @@ commit `7c3a2c2e`。
   （hbox 走 else 分支，math 直接吃 marker），所以与 PR #831 的 "default 分支
   boolean gate" 思路是正交的。
 
-适合提升到 **`reference/build-and-test.md`**（由 recorder 落地）：
+适合提升到 **`reference/build-and-test.md`**（由 recorder 写入）：
 
 - 新增"本地 TL usertree 同步"小节，记录双步流程：
 
@@ -118,7 +118,7 @@ commit `7c3a2c2e`。
   以及"本地失败 diff 指纹检查表"——release warning / mathon-mathoff / 引擎
   banner 的判读规则。
 
-适合放到 **`memory/decisions/`** 一条新决策（由 recorder 落地）：
+适合放到 **`memory/decisions/`** 一条新决策（由 recorder 写入）：
 
 - **#873 / #880：选 input-side fixed-point patch 而非"收窄 default 分支"的理由**。
   备选方案曾考虑仿 PR #831 给 `\@@_recover_glue_whatsit:` 的 default 分支加
@@ -140,10 +140,10 @@ commit `7c3a2c2e`。
 
 - 下次主助手起手就该**先 check 本地 fmt 时间戳与仓库声明的最低 LaTeX2e
   日期**，把 TL 漂移挡在分析前面，而不是出现一堆 `.tlg` diff 才去排查。
-- 等用户确认后，由 recorder 把上面三处 Promotion Candidates 落到稳定文档
+- 等用户确认后，由 recorder 把上面三处 Promotion Candidates 写入稳定文档
   （architecture/reference/decisions），本反思保持不变。
-- 如果未来真要落"收窄 `\@@_recover_glue_whatsit:` default 分支"的独立 PR，
-  应明确动机是"防御任意 whatsit 误触发"，而不是"修 #873 / #880 的副作用"——
+- 如果未来确实要做“收窄 `\@@_recover_glue_whatsit:` default 分支”的独立 PR，
+  应明确动机是“防御任意 whatsit 误触发”，而不是“修 #873 / #880 的副作用”——
   两者目标完全不同。
 
 ## 相关引用

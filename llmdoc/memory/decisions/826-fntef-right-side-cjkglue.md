@@ -13,7 +13,7 @@
 
 xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox 关闭后（`}` 后），XeTeX 的 interchar class 不再是 CJK，源码空格产生 finite inter-word glue。该 glue 叠在 xeCJK 先前写下的 CJK kern pair 标记（`CJK` / `CJK-space` / `CJK-widow`）上方。
 
-`\xeCJK_check_for_glue:` 的 glue 分支原来没有"揭开 glue 查看下方标记"的探测逻辑。
+`\xeCJK_check_for_glue:` 的 glue 分支原来没有“揭开 glue 查看下方标记”的探测逻辑。
 
 ## 方案
 
@@ -21,7 +21,7 @@ xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox
 
 ### 处理流程（三层过滤）
 
-1. `\g_@@_ulem_pending_bool` 门控（最外层）：
+1. `\g_@@_ulem_pending_bool` 检查（最外层）：
    - 该 boolean 由 fntef 模块的 `\@@_ulem_group_end:n` 在 ulem hbox 关闭时全局置真
    - 若为假：直接跳过整个 glue 分支，进入 `\@@_check_for_glue_auxii:`
    - 若为真：进入 skip 检查，同时在此分支内保存 `\lastskip` 到 `\l_@@_last_skip`
@@ -36,7 +36,7 @@ xeCJKfntef 的内容在 ulem 的 hbox 中排版，不在主 hlist 上。当 hbox
 
 ### 关键设计决策
 
-- **boolean flag 门控 `\l_@@_last_skip` 赋值**：`\g_@@_ulem_pending_bool` 确保只有已知会产生多余 inter-word glue 的场景才保存 `\lastskip`，防止对 `\l_@@_last_skip` 的状态污染影响后续正常 glue 路径
+- **用 boolean flag 控制 `\l_@@_last_skip` 赋值**：`\g_@@_ulem_pending_bool` 确保只有已知会产生多余 inter-word glue 的场景才保存 `\lastskip`，防止对 `\l_@@_last_skip` 的状态污染影响后续正常 glue 路径
 - **`\g_@@_ulem_pending_bool` 的三个 set 点**：
   1. `\@@_ulem_group_end:n`：fntef 的 ulem hbox 关闭时全局置真（覆盖 `\CJKsout`、`\CJKunderline` 等）
   2. `\@@_under_symbol_auxii:nnnnnn`：着重号独立模式（`\CJKunderdot`、`\CJKunderdbldot`）不走 ulem group，末尾单独设置（commit `61242df8`）

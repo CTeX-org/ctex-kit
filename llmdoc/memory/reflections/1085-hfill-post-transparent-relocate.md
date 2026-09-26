@@ -32,7 +32,7 @@ TEST 16–19。
 1. **用陈旧构建产物 `xeCJK.sty` 复现，得到方向相反的结论。** 任务开始时直接用工作树里
    既有的 `xeCJK/xeCJK.sty`（一个旧的构建产物）复现问题，得出「当前 master 已修复此
    bug」的**完全相反**结论，险些据此关闭 issue。真相是那个 sty 落后于当前 `.dtx`。
-2. **第一版门控复用了不匹配前置条件的守卫函数。** 直接复用同文件 Boundary→Default 方向
+2. **第一版的判断条件复用了不匹配前置条件的守卫函数。** 直接复用同文件 Boundary→Default 方向
    的 `\@@_skip_if_interword:N`（要求 finite + 带 shrink + 宽度等于词间空格）。跑回归
    立刻发现 `command-boundary-math05` 的 `null-explicit` 场景（`\textnormal{$x$ }\hskip
    7pt\null`）height-delta 从 0 变 8.52pt——`\hskip 7pt` 无 shrink，被 interword 判据
@@ -49,7 +49,7 @@ TEST 16–19。
    移除末尾 glue 后 fallback 没恢复」——方向对，但它指向 Boundary→CJK 的
    `\@@_check_for_glue_skip_consume_and_fallback:`，实际发生在 post-transparent 的
    `\@@_boundary_post_transparent_relocate_glue:`。自动分析的「症状描述」可作线索，但
-   「代码定位」仍需用节点实测 + 读码独立确认，不能直接采信。
+   「代码定位」仍需用节点实测 + 阅读代码独立确认，不能直接采信。
 
 ## Root Cause
 
@@ -64,22 +64,22 @@ TEST 16–19。
   「真实空格」「显式 glue」两类物理形状，未提及需要排除无限阶填充 glue；本次改动后应补充
   这一条件。
 - 判别力验证的做法（撤掉修复重跑，比对哪些测试变红）在既有 lessons-learned 里已有原则，
-  但本次是「新增测试先写故事化标题、后被判别力验证证伪」的又一次具体发作，说明该原则仍
+  但本次是「新增测试先写故事化标题、后被判别力验证证伪」的又一次具体表现，说明该原则仍
   需要在写测试注释这一步反复提醒。
 
 ## Promotion Candidates
 
 - **在同一仓库内新旧构建产物之间也会出现「加载了非当前实现」的失效，不止 TEXINPUTS 指向
-  系统版这一种形态。** 已有 lessons-learned 条目「从源码树验证时必须核对实际加载文件」
+  系统版这一种情况。** 已有 lessons-learned 条目「从源码树验证时必须核对实际加载文件」
   只覆盖了 TEXINPUTS 指向系统安装宏包的情形；本次是工作树里 commit 出来的 `.sty` 落后于
   `.dtx` 源码的新变体，判据也不同：`\GetIdInfo$Id:` 版本戳只由 `l3build tag` 回写，不
   随普通编辑更新，不能用它判断 sty 内容是否反映当前代码。建议在该条目下补一条子情形，
   或在 `build-and-test.md` 里提醒「用 sty 复现前先 `l3build unpack` 从当前 dtx 干净解包」。
 - **复用带守卫函数必须重验其在新调用点的前置条件，这条已在 lessons-learned 里，本次是
-  被回归测试当场抓住的实例，可以作为该条目的 Source 补充。** 教训要点：同一个「候选
+  被回归测试立刻抓住的实例，可以作为该条目的 Source 补充。** 教训要点：同一个「候选
   glue」在不同恢复路径有不同的合法形状集合——Boundary→Default 的候选一定是源码空格
   （interword 形状），post-transparent 的候选还包括 math-space 参数内的显式 glue（可能
-  无 shrink、宽度任意），门控不能照抄。
+  无 shrink、宽度任意），判断条件不能照抄。
 - **诊断 xeCJK 边界恢复时，凡涉及行尾 glue 的问题，先用 `\setbox0=\hbox to <宽>{...}`
   固定宽度、不经段落算法，隔离掉 `\par`／`\parfillskip`／`\rightskip` 的干扰，再看节点
   序。** 这条尚未见于 lessons-learned，值得单独收录：`\par` 的 `\unskip` 是本仓库反复
@@ -87,7 +87,7 @@ TEST 16–19。
 - **判别力验证要区分「这条测试测的是 bug」还是「测的是未变行为」，测试标题与注释要按
   实测结果写，不能先写故事化描述再验证。** 已有「没实测就写具体」类教训（参见
   `1043-halign-alignment-tab-in-boundary-args.md`、`1057-fntef-nest-linebreak.md`），
-  本次是同一失效模式在「测试标题/注释」这一具体载体上的又一次发作，Source 可以追加
+  本次是同一失效模式在「测试标题/注释」这一具体载体上的又一次出现，Source 可以追加
   本反思。
 
 ## Follow-up
@@ -109,7 +109,7 @@ TEST 16–19。
 - 相关反思：[[1005-xcjkecglue-right-boundary-recovery]]（post-transparent 恢复机制的
   原始确立与「有限节点移动必须同时有注册范围、尺寸条件和物理 marker 证据」）、
   [[1054-l3backend-defense-scope-and-kpse-lsr]]（「从源码树验证时必须核对实际加载文件」
-  的另一种发作，那次是 TEXINPUTS 指向系统版，本次是仓库内构建产物陈旧）、
+  的另一种表现，那次是 TEXINPUTS 指向系统版，本次是仓库内构建产物陈旧）、
   [[1043-halign-alignment-tab-in-boundary-args]]（「没实测就把测试注释写具体」的同型
   教训）、[[1057-fntef-nest-linebreak]]（「判别力验证要区分测的是 bug 还是未变行为」的
   同型教训）。

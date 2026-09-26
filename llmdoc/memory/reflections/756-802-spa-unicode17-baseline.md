@@ -31,7 +31,7 @@
   - 遇到 XeTeX/fontspec 字体加载问题时，先区分“名字查找”与“文件查找”；凡是 `kpsewhich` 已经命中的字体，优先考虑 `"[... ]"` 语法，不要先补扩展名。
   - 修改 `.dtx` 中的条件代码前，先确认目标输出文件实际带哪些 docstrip tag；否则即使语义正确，产物里也可能完全没有这段代码。
   - xeCJK 改动只要可能影响真实模板输出，就应立即补跑 `ctex/l3build check -c test/config-contrib -q`，把失败先视作下游基线更新候选。
-  - Unicode 新版本支持优先复用“对比前后 Blocks.txt -> 筛选东亚相关新区块 -> 参照上次提交模式落地”的流程。
+  - Unicode 新版本支持优先复用“对比前后 Blocks.txt -> 筛选东亚相关新区块 -> 参照上次提交的模式实现”的流程。
 - promotion candidates:
   - `reference/` 可补充 XeTeX/fontspec 字体查找事实：引号语法与方括号语法分别对应 fontconfig 名称查找和 kpathsea 文件查找，后者无需显式扩展名。
   - `reference/` 或 `guides/` 可补充 xeCJK Unicode 版本同步流程，明确“只纳入东亚排版相关新区块”的筛选标准与操作步骤。

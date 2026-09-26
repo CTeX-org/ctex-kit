@@ -1,4 +1,4 @@
-# 决策：#937 build.lua 单一事实源 + l3build tag 回写（版本 stamp 双闸 CI + 手册页脚 hash 固化）
+# 决策：#937 build.lua 单一事实源 + l3build tag 回写（版本 stamp 双重 CI 检查 + 手册页脚 hash 固化）
 
 ## 决策
 
@@ -8,8 +8,8 @@
 1. **`build.lua` 顶部 `version` 字段是唯一手改的版本事实源**
 2. dtx 源文件的版本行统一为 `\GetIdInfo $Id: <file> <ver> <date> ...$`
    stamp，由本地手跑 `l3build tag` 通过包级重写的 `update_tag` 回写
-3. **双闸 CI** 保证 stamp 不 stale：
-   - `check-tag.yml`（PR 门禁）：PR 上跑 `l3build tag` + `git diff
+3. **双重 CI 检查** 保证 stamp 不 stale：
+   - `check-tag.yml`（PR 检查）：PR 上跑 `l3build tag` + `git diff
      --exit-code`，diff 非零即 fail
    - `release.yml` 三方校验：strip_rc(git tag) == build.lua version ==
      dtx stamp，不一致拒绝发版
@@ -24,12 +24,12 @@
 
 "回写 git 元数据到源文件"有自指问题：回写产生新 commit → 新 sha → 下次
 tag 又想回写。收敛条件：**stamp 版本号 == version 时原样保留**，只有
-bump 后未 stamp 才真回写。没有这个守卫，check-tag 的 diff 检查永远 fire。
+bump 后未 stamp 才实际回写。没有这个守卫，check-tag 的 diff 检查每次都会失败。
 
 ### RC 版本只存在于 git tag
 
 `-rcN` / `-pre` / `-alpha` / `-beta` 后缀只出现在 git tag；build.lua 与
-stamp 均写 base version。校验与 release-notes 提取用同款 sed 剥后缀。
+stamp 均写 base version。校验与 release-notes 提取用同样的 sed 剥后缀。
 推论：发 rc 前 build.lua 必须已 bump 到目标版本并完成 stamp。
 
 ### 发版操作顺序（ctex 拆分后 SOP）

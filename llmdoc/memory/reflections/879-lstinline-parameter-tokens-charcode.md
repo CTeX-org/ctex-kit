@@ -51,7 +51,7 @@ muzimuzhi 在 #799 评论中给出。两个 commit：
   字符身份必须依赖 token 级 API，不是 regex 字符类。
 - **思维定式（人）**：#378 的方案在当时输入空间下是正确的，但 promotion 阶段
   把"catcode-class regex 优于 str 替换"作为通用经验时，**只描述了好处，没描述
-  适用边界**。这是反思上推稳定文档时常见的过度泛化。
+  适用边界**。这是把反思提升到稳定文档时常见的过度泛化。
 
 正确的 token 级写法：
 
@@ -78,7 +78,7 @@ muzimuzhi 在 #799 评论中给出。两个 commit：
 原字符码"场景的标准写法。
 
 investigator 已确认 `xeCJK.dtx` L11849-11878 是仓内**唯一**"匹配 catcode class
-但硬编码 codepoint"位点；`ctex/ctex.dtx` L11331 的 regex 不同型（不涉及
+但硬编码 codepoint"的位置；`ctex/ctex.dtx` L11331 的 regex 类型不同（不涉及
 catcode/codepoint 桥接）。
 
 ## Missing Docs or Signals
@@ -101,7 +101,7 @@ catcode/codepoint 桥接）。
 
 ## Promotion Candidates
 
-适合提升到 **`reference/coding-conventions.md`**（由 recorder 落地）：
+适合提升到 **`reference/coding-conventions.md`**（由 recorder 写入）：
 
 - 在现有"expl3 正则里的 catcode class 记法"条目下增补一段**反例**：
   > **何时不要用**：当替换端需要保留输入侧 token 的字符码身份时，
@@ -111,7 +111,7 @@ catcode/codepoint 桥接）。
   > 逐 token 重建。`\@@_listings_rescan:Nn` 的 #378→#879 演化是典型案例。
 
 适合提升到 **`architecture/xecjk-architecture.md`** xeCJK-listings 段
-（约 L347-349，由 recorder 落地）：
+（约 L347-349，由 recorder 写入）：
 
 - 补一句记录 parameter token 处理路径：
   > `\@@_listings_rescan:Nn` 在 rescan 前先用 `\tl_map_inline:Nn` 逐 token
@@ -121,7 +121,7 @@ catcode/codepoint 桥接）。
   > 自定义的 parameter token 字符身份（#378 → #879）。
 
 适合在 **`memory/reflections/378-lstinline-hash-doubling.md`** Follow-up
-段尾追加一行回链（由 recorder 落地）：
+段尾追加一行回链（由 recorder 写入）：
 
 - 该反思 Follow-up 加一句：
   > **2026-06 更新**：#879 暴露了 #378 catcode-class regex 方案的隐含前提
@@ -130,13 +130,13 @@ catcode/codepoint 桥接）。
   > [[879-lstinline-parameter-tokens-charcode]]。
 
 适合提升到 **`reference/build-and-test.md`** listings-hash01 描述附近
-（由 recorder 落地）：
+（由 recorder 写入）：
 
 - 在 L155 现有描述后补一句：
   > 其中 Test 6 覆盖用户通过 `\catcode\`\&=6` 把其它字符设为 parameter token
   > 的场景，验证 `\@@_listings_rescan:Nn` 保留原字符码（#879）。
 
-仅保留在本反思（不上推）：
+仅保留在本反思（不提升到稳定文档）：
 
 - e5aa9937 的 `\@@_drain_ecglue:` 注释补充本质是顺手补 #880 的 drain 实现意图，
   与 #879 主修复无关，归到 reflection 范畴。
@@ -145,7 +145,7 @@ catcode/codepoint 桥接）。
 
 ## Follow-up
 
-- 等用户确认后，由 recorder 把上述四处 promotion 落到稳定文档
+- 等用户确认后，由 recorder 把上述四处 promotion 写入稳定文档
   （`reference/coding-conventions.md` / `architecture/xecjk-architecture.md` /
   `reference/build-and-test.md` / `378-lstinline-hash-doubling.md` Follow-up）。
 - 下次再写 promotion 时显式问一遍："这条经验是否依赖某个未写下的输入空间

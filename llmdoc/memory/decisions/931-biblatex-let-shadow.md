@@ -53,7 +53,7 @@ xeCJK issue #931：中文参考文献条目首字符前多出一段空白。根�
 
 若未来第 4 例、第 5 例…… 第三方 `\write` whatsit 误触发 default 分支的场景继续积累，达到"补丁点分散不可维护"的阈值时，再评估 [[873-880-fixed-point-vs-default-narrowing]] 预留的 default 分支收窄独立 PR 方向。
 
-## 落地引用
+## 实现引用
 
 - 实现：`xeCJK/xeCJK.dtx` `\@@_patch_biblatex_pagetracker:` 段（挂在 `\@@_at_end_preamble:n`）。
 - 回归测试：`xeCJK/testfiles/biblatex-ecglue01.lvt` / `.tlg`。

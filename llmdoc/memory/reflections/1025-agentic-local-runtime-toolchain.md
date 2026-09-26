@@ -7,7 +7,7 @@ metadata:
 
 > **状态说明（#1032）**：本文记录的三层进程隔离（`ctex-agent` 专用用户、模型 API 代理、
 > `agent-control-hardening.c` 加固、沙箱外结果控制目录）已被 #1032 删除，改回上游模板的
-> runner 默认用户执行形态。工具安装的复合 Action `setup-agent-tools` 也已改为单个脚本。
+> 做法，即以 runner 默认用户执行。工具安装的复合 Action `setup-agent-tools` 也已改为单个脚本。
 > 见决策 [[1032-agent-runtime-simplification]]。以下正文保留原过程记录，不代表当前实现。
 
 # 反思：本地维护 Agent runtime 与工具链
@@ -106,19 +106,19 @@ runner 自己的临时目录并限制权限，再把工作区所有权交给 Age
 3. CLI 返回后，可信脚本反复结束该 UID 的全部残留进程，确认没有进程存活以后才读取控制结果；
    session 目录最后由 `sudo rm -rf` 删除，不能依赖 runner 删除 Agent 所有的非空目录。
 
-合同测试一方面用 Bubblewrap 把 consumer 设为唯一可写目录，让恶意脚本连续改写控制文件并确认内容
+契约测试一方面用 Bubblewrap 把 consumer 设为唯一可写目录，让恶意脚本连续改写控制文件并确认内容
 不变；另一方面实际编译预加载库，让同 UID 子进程尝试打开父进程的 `/proc/<pid>/fd`，确认访问被拒绝。
 静态断言还固定两个 CLI 都不能恢复 bypass 选项。结果文件的 JSON Schema 校验仍然需要，但它只能
 检查数据形式，不能替代来源隔离。
 
-PR #1028 首次远端合同运行还暴露了 GitHub `ubuntu-latest` 的平台差异：Ubuntu 24.04 默认通过
+PR #1028 首次远端契约运行还暴露了 GitHub `ubuntu-latest` 的平台差异：Ubuntu 24.04 默认通过
 AppArmor 限制未特权 user namespace，Bubblewrap 会在写 UID map 时直接报 `Permission denied`。
-本机合同通过不能证明托管 runner 上的命令沙箱可启动；而且这不只是测试夹具失败，Claude 的命令
+本机契约通过不能证明托管 runner 上的命令沙箱可启动；而且这不只是测试夹具失败，Claude 的命令
 沙箱同样依赖该能力。可信工具安装 Action 现在只在相应 sysctl 存在时，对临时 runner 关闭
 `apparmor_restrict_unprivileged_userns` 并打开 `unprivileged_userns_clone`，随后立即运行带
-`--unshare-net` 的 Bubblewrap 探针。独立合同 job 在执行 Python 夹具以前使用同样的准备和探针。
+`--unshare-net` 的 Bubblewrap 探针。独立契约 job 在执行 Python 夹具以前使用同样的准备和探针。
 调整发生在一次性 runner、Agent 启动以前；探针失败则 job 直接停止，不能等 Agent fallback 才发现
-沙箱不可用。合同测试还固定两处准备步骤，并要求它们逐行使用同一份受控脚本；把 sysctl 或探针
+沙箱不可用。契约测试还固定两处准备步骤，并要求它们逐行使用同一份受控脚本；把 sysctl 或探针
 主命令改成注释，以及在续行反斜线后加入转义空格的反例都必须失败。这里只允许一种简单脚本，逐行
 精确匹配比自行实现不完整的 shell 注释和转义解析更可靠；只搜索原始 `run:` 片段又会把注释误当作
 仍然生效的命令。
@@ -179,21 +179,21 @@ checkout 仅作为显式附加目录；提示词给出待审仓库的绝对路�
 再给 `--bare` 增加 `--add-dir`，因为后者正是显式提供 `CLAUDE.md` 目录的入口。
 
 这两项修复共同给出更完整的可信输入条件：来源提交固定、存放路径在消费时不可由 Agent 修改、CLI
-不会把不可信审查对象自动提升为项目指令，三者缺一不可。合同测试同时固定 Codex 的空工作根和附加
+不会把不可信审查对象自动提升为项目指令，三者缺一不可。契约测试同时固定 Codex 的空工作根和附加
 目录、Claude 的 `--bare`、只读规范副本和 Agent UID 写权限检查，并用恢复 PR 根目录、把规范改为
-可写等反例确认门禁会失败。
+可写等反例确认契约测试会失败。
 
 llmdoc publisher 的公开结果还区分 `success` 与 `blocked`。job 成功退出只表示结果已经校验和发布，
 不表示 Agent 的业务结论一定成功；通知必须读取公开 `status`，把 `blocked` 显示为 warning，不能只
 根据 job 的 `success` 结果显示绿色。
 
-## 合同测试必须检查失败反例
+## 契约测试必须检查失败反例
 
 actionlint 只校验 workflow，不能把 `action.yml` 当作复合 Action metadata 校验。#1025 增加专用
 Python 校验器，检查顶层字段、inputs、outputs、`runs.using` 和 composite step，并用预期失败的
-错误样例（负向夹具）证明门禁会失败。
+错误样例（负向夹具）证明校验器确实会失败。
 
-PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不足以证明三处语义一致；合同测试现在
+PR Review 的结构化结果也需要负向夹具。仅检查存在 jq 片段不足以证明三处语义一致；契约测试现在
 提取 Codex、Claude 和 publisher 的实际 jq 过滤器，确认零 finding 的 `COMMENT` 被拒绝、至少有
 一个小问题的 `COMMENT` 才能通过。
 
@@ -202,16 +202,16 @@ base 提交的 sparse checkout 没有同步取出这个文件。Action metadata 
 但 job 会在安装 Action 时因文件不存在而失败。只在 workflow 中搜索某几个已知脚本名，不能证明
 可信 checkout 已包含 Action 的完整运行时依赖。
 
-修正后的合同测试直接读取 `run-agent/action.yml`，从 `$GITHUB_ACTION_PATH` 引用推导仓库内文件
+修正后的契约测试直接读取 `run-agent/action.yml`，从 `$GITHUB_ACTION_PATH` 引用推导仓库内文件
 依赖，再逐一比对 Codex 和 Claude 的 sparse checkout 清单；测试还删除其中一条 C 文件路径，确认
-门禁会拒绝缺失依赖。以后本地 Action 新增脚本、二进制源码或其他运行时文件时，应把“更新所有固定
+它会拒绝缺失依赖。以后本地 Action 新增脚本、二进制源码或其他运行时文件时，应把“更新所有固定
 提交 checkout”视为同一项修改，而不是等 job 启动失败后再补文件。
 
 ## 审查评论需要同时保留历史和重跑幂等性
 
 PR Review publisher 不能每次运行都新建评论，否则同一个 head 重跑会产生重复噪音；也不能用一条
 PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_at`，不同 head 的独立审查记录也会
-消失。当前 marker 绑定具体 head：同一 head 重跑时更新原评论，不同 head 则新建评论。合同测试连续
+消失。当前 marker 绑定具体 head：同一 head 重跑时更新原评论，不同 head 则新建评论。契约测试连续
 发布两个 head，并让每个 head 各重跑一次，固定“创建两次、更新两次”的行为。
 
 同一 head 的评论还可能在维护者回复以后再次更新。若 pre-push 只比较 Bot 评论的 `created_at`，旧
@@ -222,46 +222,46 @@ PR 级评论覆盖所有运行，否则新 head 会继承旧评论的 `created_a
 
 按 head 保留评论后，长 PR 的 Issue 评论会持续累积。只请求 `per_page=100` 的第一页，可能漏掉
 当前 head 新建在后续页的审查评论。pre-push 因而必须使用 `gh api --paginate --slurp` 取得全部页，
-展平成一个评论集合后再同时查找 Bot 评论和维护者回复；合同测试把当前 head 的 Bot 评论放在第二页，
+展平成一个评论集合后再同时查找 Bot 评论和维护者回复；契约测试把当前 head 的 Bot 评论放在第二页，
 固定这一取数边界。
 
-## 门禁的触发文件与实际检查必须相互覆盖
+## CI 检查的触发文件与实际检查内容必须相互覆盖
 
-最终完整范围审查发现，合同测试已经直接读取 `.githooks/check-pr-ci.sh`，但合同 workflow 的
+最终完整范围审查发现，契约测试已经直接读取 `.githooks/check-pr-ci.sh`，但契约 workflow 的
 `pull_request.paths` 没有包含该文件。这样只修改评论分页或回复时间判断时，恰好用于保护这些行为的
-合同测试不会运行。门禁读取或执行的每个仓库文件都必须能触发门禁；新增测试输入时，应同时更新
-workflow 的触发路径，并让合同测试反过来固定这项依赖。
+契约测试不会运行。CI 检查读取或执行的每个仓库文件都必须能触发这项检查；新增测试输入时，应同时更新
+workflow 的触发路径，并让契约测试反过来固定这项依赖。
 
-同一轮审查还发现，“Agent job 安装 ShellCheck”不等于“合同门禁检查独立 shell 文件”。actionlint
+同一轮审查还发现，“Agent job 安装 ShellCheck”不等于“契约测试检查独立 shell 文件”。actionlint
 只把 ShellCheck 用于 workflow 内嵌的 `run:` 代码，不会自动读取 `.github/scripts/agentic/*.sh` 或
-历史准备脚本。文档声称远端执行某项检查时，workflow 必须有明确的安装和调用步骤，合同测试还要
+历史准备脚本。文档声称远端执行某项检查时，workflow 必须有明确的安装和调用步骤，契约测试还要
 固定实际文件集合；不能用工具出现在另一类 job 的环境中代替执行证据。
 
 这里还有一层容易漏掉的关系：`.githooks/pre-push` 是 Git 实际调用的 self-wrapper，负责镜像原始
 refspec、执行 inner push，再调用 `.githooks/check-pr-ci.sh` 等待远端结果；后者只是完成 CI 与评论
-审计的辅助脚本。合同测试会直接或间接依赖两个文件，因此触发路径和 ShellCheck 文件集合都必须同时
-包含二者。不能因为辅助脚本承载了主要审计逻辑，就把真正决定调用时机和退出状态的 hook 排除在门禁
+审计的辅助脚本。契约测试会直接或间接依赖两个文件，因此触发路径和 ShellCheck 文件集合都必须同时
+包含二者。不能因为辅助脚本承载了主要审计逻辑，就把真正决定调用时机和退出状态的 hook 排除在检查范围
 之外。
 
-合同测试本身也要区分“原始文件里出现过某段文字”和“这段配置实际生效”。直接在 YAML 文本中搜索
+契约测试本身也要区分“原始文件里出现过某段文字”和“这段配置实际生效”。直接在 YAML 文本中搜索
 路径，会把注释掉的 `pull_request.paths` 条目当成有效触发条件；直接搜索 `run: |` 的正文，也会把
 shell 注释中的参数当成实际命令。触发路径应从 YAML 解析结果中取值，shell 参数应按忽略注释的词法
-规则解析，并用注释掉单个条目的负向夹具证明门禁会失败。
+规则解析，并用注释掉单个条目的负向夹具证明契约测试会失败。
 
 解析成 YAML 或 shell token 仍不等于已经检查了行为。job 的 `if` 必须核对完整表达式，否则在预期
 条件后追加恒假表达式仍会通过子串检查；`run:` 中出现 `shellcheck` 和某个路径，也不能证明该路径
-属于 ShellCheck 的参数。当前合同要求 lint step 只包含一条反斜线续行的 `shellcheck` 命令，再检查
+属于 ShellCheck 的参数。当前契约要求 lint step 只包含一条反斜线续行的 `shellcheck` 命令，再检查
 这条命令自己的参数；同时用三个 job 恒定跳过和“路径只交给 `echo`”的负向夹具固定命令边界。
 
 workflow 的完整控制流不只由 job 的 `if` 决定。fallback 是否等待主链、publisher 是否等待两条审查链，
-由 `needs` 决定；publisher 真正下载哪个 artifact、何时发表评论、两条链都失败时是否让门禁失败，则由
-内部 step 的 `if` 决定。因此，Draft PR 合同还要按解析后的 job 和 step 名精确检查两处依赖与四个
+由 `needs` 决定；publisher 真正下载哪个 artifact、何时发表评论、两条链都失败时是否让 CI 检查失败，则由
+内部 step 的 `if` 决定。因此，Draft PR 契约还要按解析后的 job 和 step 名精确检查两处依赖与四个
 条件，并用删除依赖、逐项禁用 step 的反例证明整条审查结果一定能到达发布或失败出口。
 
-step 的显示名称和条件也不是完整的动作合同。把多个同名 step 放进字典会静默覆盖其中一项；下载
-step 即使条件正确，也可能取错 artifact；双失败 step 即使条件正确，也可能只执行 `true`。当前合同
+step 的显示名称和条件也不是完整的动作契约。把多个同名 step 放进字典会静默覆盖其中一项；下载
+step 即使条件正确，也可能取错 artifact；双失败 step 即使条件正确，也可能只执行 `true`。当前契约
 先拒绝重名 step，再把两个下载条件与固定 Action、artifact 名和目标路径绑定；评论幂等行为测试直接
-从实际命名的发布 step 取脚本；双失败 step 则由合同测试直接执行，并要求退出状态非零。
+从实际命名的发布 step 取脚本；双失败 step 则由契约测试直接执行，并要求退出状态非零。
 
 ## 外部发布分成多步时，重跑必须能识别已经完成的状态
 
@@ -275,7 +275,7 @@ llmdoc publisher 先推送候选分支，再调用 GitHub API 创建 PR。这两
 workflow-owned open PR 时，仍然拒绝覆盖。若 `gh pr create` 实际已在服务端成功、但客户端收到错误，
 下一次重跑会先找到同一分支上的 open PR，转而更新该 PR，也能恢复。
 
-这项修复不能只测试顺利发布。合同夹具应让第一次 `gh pr create` 明确失败，确认候选分支仍保持精确
+这项修复不能只测试顺利发布。契约夹具应让第一次 `gh pr create` 明确失败，确认候选分支仍保持精确
 head，再用同一 artifact 重跑并补建 PR；还要分别固定“已合并但未删分支可以更新”和“不同且未合并
 的未知分支不能覆盖”。外部写入只完成一部分不是异常数据，而是任何多步 publisher 都必须显式建模的
 正常重试状态。
@@ -300,10 +300,10 @@ head，再用同一 artifact 重跑并补建 PR；还要分别固定“已合并
   不能自动清除工作区原有文件。
 - 审查评论以 PR head 为幂等键：同 head 更新，不同 head 新建；维护者回复以 Bot 评论最后一次
   `updated_at` 为时间边界，并且审计必须覆盖全部 Issue 评论页。
-- 静态合同既要检查目标片段存在，也要用错误输入证明门禁确实拒绝错误状态。
-- 合同门禁的触发路径必须覆盖测试读取和执行的全部仓库文件；文档列出的远端检查必须在门禁中有
+- 静态契约既要检查目标片段存在，也要用错误输入证明检查确实拒绝错误状态。
+- 契约检查的触发路径必须覆盖测试读取和执行的全部仓库文件；文档列出的远端检查必须在契约检查中有
   明确命令和文件集合，不能把“工具已安装”当成“检查已执行”。
-- self-wrapper hook 与它调用的审计辅助脚本是两个独立的门禁输入；触发路径和 ShellCheck 文件集合
+- self-wrapper hook 与它调用的审计辅助脚本是两个独立的检查输入；触发路径和 ShellCheck 文件集合
   必须分别覆盖二者。
 - 检查 workflow 配置时，应断言解析后实际生效的 YAML 字段和 shell 参数；原始文本中的注释不能
   作为配置存在的证据。
@@ -318,11 +318,11 @@ head，再用同一 artifact 重跑并补建 PR；还要分别固定“已合并
   必须保留明确禁用 `CLAUDE.md` 自动发现的 `--bare`。
 - workflow job 成功与业务结果成功是两件事；通知颜色应读取经过校验的公开结果状态，不能只看
   `needs.<job>.result`。
-- 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；合同测试应从 Action
-  的实际引用推导依赖，并用删除依赖的反例验证门禁。
+- 固定提交的 sparse checkout 必须覆盖本地 Action 的完整运行时文件闭包；契约测试应从 Action
+  的实际引用推导依赖，并用删除依赖的反例验证契约测试。
 - workflow 准备的 artifact 必须通过实际绝对路径交给 `env -i` 启动的 Agent；持有长期 secret 的
   辅助 Action 也必须固定到可信提交，不能因为它“只负责通知”而使用触发 ref。
-- 多步 publisher 必须把每一步成功后的外部状态纳入重试合同；相同的已校验候选可以续做，已经合入
+- 多步 publisher 必须把每一步成功后的外部状态纳入重试契约；相同的已校验候选可以续做，已经合入
   base 的保留分支可以在精确 lease 下更新，来源不明且未合入的分支仍应拒绝覆盖。
 - 上游来源提交属于可追溯的初始基线，不再是运行时依赖；吸收上游变化时必须选择性搬运并重新审查
   本仓库的权限、事件提交和缓存边界。
