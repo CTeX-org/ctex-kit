@@ -389,6 +389,34 @@ jobs:
         cp HanaMinB.ttf /usr/share/fonts/truetype/
         fc-cache -f
 
+    # TL 的 opentype / truetype 目录纳入 fontconfig, 与 _check-doc-package.yml 的
+    # 同名 step 一致. xpinyin.dtx 的手册用 `\newfontfamily{TeX Gyre Adventor}`
+    # 按字体名查找, fontspec 走 fontconfig; TL 装了 tex-gyre, 但字体不在 fontconfig
+    # 的索引里. 缺这一步时 xpinyin-v3.2-rc1 的 `l3build ctan` 在排版手册时报
+    # "The font "TeX Gyre Adventor" cannot be found" 而失败 (PR 阶段的 doc-xpinyin
+    # 有这一步, 所以没有暴露). 无条件执行, 对其他包没有影响.
+    - name: Register TL opentype fonts with fontconfig
+      run: |
+        TL_ROOT="$(tlmgr conf | awk -F= '/TEXMFDIST/{gsub(/^[ \t]+|[ \t]+$/,"",$2);print $2;exit}')"
+        if [ -z "$TL_ROOT" ] || [ ! -d "$TL_ROOT/fonts/opentype" ]; then
+          echo "::warning::TL opentype dir not found ($TL_ROOT/fonts/opentype), skipping"
+          exit 0
+        fi
+        sudo mkdir -p /etc/fonts/conf.d
+        sudo tee /etc/fonts/conf.d/09-texlive-opentype.conf >/dev/null <<CONF
+        <?xml version="1.0"?>
+        <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+        <fontconfig>
+          <dir>${TL_ROOT}/fonts/opentype</dir>
+          <dir>${TL_ROOT}/fonts/truetype</dir>
+        </fontconfig>
+        CONF
+        sudo fc-cache -f
+        if ! fc-list | grep -q "TeX Gyre Adventor"; then
+          echo "::warning::TeX Gyre Adventor still not in fontconfig after cache rebuild"
+          fc-list | grep -i gyre | head -5 || true
+        fi
+
     - name: Download Unihan data (xeCJK)
       if: steps.parse.outputs.pkg == 'xeCJK'
       run: curl -fsSL -o support/Unihan.zip "https://www.unicode.org/Public/UNIDATA/Unihan.zip"
