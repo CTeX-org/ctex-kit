@@ -32,7 +32,8 @@ Curated cross-task rules distilled from archived memory.
 ### `\changes` 条目里的 makeindex 特殊字符要按两个下游同时验收
 **Rule**: `\changes` 条目正文会经 makeindex 处理，`=`（actual）、`!`（quote）、`>`（level）、`|`（encap）在那一层有语法含义。未转义的 `=` 会让条目在该处截断、只剩后半段进 `.gls`，排版时报 `Extra }` 使 `l3build doc` exit 1。但**转义不是好解法**：`!` 会原样漏进 `scripts/extract-changes.py` 生成的 `CHANGELOG.md`，`|&|` 又撞 encap。优先**改写句子绕开这些字符**，判据是同时核对 `.gls` 渲染结果与重新生成的 `CHANGELOG.md`，只看一边会漏。
 **Why**: #1054 中 `\changes` 里的 `\catcode`\&!=6` 一处，去掉 `!` 后 makeindex 把条目截断成 `6}）时…`，排版报 `Extra }`；恢复 `!` 能过 makeindex 但 CHANGELOG 里多出一个字符。字符含义的出处是 `gglo.ist` 的 `actual`／`quote`／`level` 指令与 doc 的 encap 设置。细节见 `reference/coding-conventions.md` 的对应一节。
-**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`
+**补充（#1091）**: `|...|` 短抄录在 `\changes` 里同样撞 encap，不报错也不代表排版正确：以反斜杠开头的 `|\CJKunderline{...}|` 能过 `l3build doc`，更改历史里却泄漏出 `hdclindex…`／`dex…` 文字。改用 `\texttt`、`\cs`、`\tn`，并对 PDF 运行 `pdftotext` 检索 `hdclindex` 与 `dex[0-9]`。
+**Source**: `llmdoc/memory/reflections/1054-l3backend-defense-scope-and-kpse-lsr.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 看起来像笔误的转义字符，先查它在工具链里有没有语义
 **Rule**: 遇到读起来不像句子一部分的孤立符号（`!`、`|`、`=`、`@` 等），不要凭「像是误敲的」就删改；先查它在这条处理链的某一个阶段是否有语法含义——读对应的 `.ist`、配置文件或处理脚本，而不是读上下文语感。这条在改**别人已经写好、且自己并未被要求修改**的内容时尤其要遵守。
@@ -165,7 +166,8 @@ Curated cross-task rules distilled from archived memory.
 ### 判断修复是否到位需要三个对照点，第三个是未受影响的发布版
 **Rule**: 缺陷版、修复版之外，还要测一遍**未受影响的发布版**。只比前两个只能回答「有没有变好」，回答不了「变好到该有的程度了吗」。修复版与发布版数值相同、渲染逐像素一致时，结论是「修回了发布版行为」——这既能排除本次引入新问题，也可能揭示发布版自己就带缺陷。
 **Why**: #1026 修复后原 MWE 溢出 18.91pt → 4.47pt，只看这两点像是修好了。加上发布版 v3.10.3 也是 4.47pt、且与修复版渲染逐像素相同（`ImageChops.difference` bbox 为 `None`），才看出 4.47pt 是发布版本来就有的另一半缺陷（#1037），而非终点。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+**补充（#1091）**: 把某项差异记为“修复前后相同、属既有限制”之前，要在发布版上把有无空格、后接汉字／西文各写法都测一遍。#1091 的 R2 只测了有空格的 `\CJKunderline{\CJKsout{中。}} x` 就这样记录，无空格后接西文的写法实际是本次引入的回退（v3.10.6 与直接输入一致），CHANGELOG 也因此错误收窄。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### PR 合并后要回放报告者的原始 MWE，别只看自己的测试基线
 **Rule**: 修复上线后，用报告者给的原始 MWE 复验，而不是以自己新增的回归全绿为准。自己的基线可能把残留缺陷冻结成预期值；报告者的 MWE 是外部判据。把非零缺陷量写进基线时，必须注明它为什么不是零、零需要什么条件。
@@ -437,7 +439,8 @@ Curated cross-task rules distilled from archived memory.
 ### 按根因枚举象限，而不是按复现样例收工
 **Rule**: 确认根因后，把根因写成一句判据，然后枚举所有满足该判据的场景并逐一验证。复现样例消失、全套测试通过、新用例有判别力，都不能证明根因的其他象限已覆盖。同时避免把只在一条路径上验证过的结论写成全局断言。
 **Why**: #1037 第一轮修好「布尔为假」象限后，复现消失且新增用例有判别力，但同一根因（在没有 `\UL@box` 打开的列表里执行 `\UL@stop`）的第二个象限——公式路径不复位布尔——仍在，由最终全范围盲审作为第二个 blocking 提出。代码注释与架构文档里「在装饰外恒为假」的断言只对普通文本路径成立。#1026 的反思已记过同类教训，仍复发，说明原则需要配一个可操作动作（清点入口/出口）。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+**补充（#1091）**: 在别处模仿一个原语的行为时，先查清它的完整停止条件，再用直接对应该条件的判据，不要按审查报出的现象逐个补情况。#1091 的 R2 只把 `\ignorespaces` 的“分组结束”当作停止条件补了分组层级规则，R3 又报出 `\relax`、`{}`、包装宏等记号；实际条件是“第一个非空格记号”，改为在正文末尾放扫描标记、标点后紧接标记才吃空格，一次覆盖全部情况。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 改通用路径时，「加载了子包但不使用该功能」是独立验证象限
 **Rule**: 修改所有用户都会经过的路径时，验证矩阵必须包含「加载了相关子包、但完全不使用被改功能」的文档。这批文档受影响面最大，其作者根本不知道自己用到了这条路径。

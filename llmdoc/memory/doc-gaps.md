@@ -35,6 +35,12 @@
 
 - 普通 stream（如 `符 \href{..}{\usebox\tri} 后`）与独立符号命令（`符 \CJKunderdot{\usebox\tri} 后`）的正文没有字符类别、但有可见输出时，入口 marker 与空格仍在结束时由 `\@@_boundary_replay_before:` 重放，空格落到命令之后。原因是它们没有 `ulem` 的 `\UL@stop`／`\UL@reskip` 这类“内容即将排到外层”的拦截点，`entry` 字段对它们始终为空。
 - 非 ulem 路径的 Boundary→FullLeft／FullRight 不向 capture 报告类别；#1091 只在 ulem 分支的 FullLeft 补了 `CJK` 报告。本地审查 R1 后，ulem 分支以全角右标点**结尾**的正文已经与直接输入一致（`tail` 置 `punct`），但以全角右标点**开头**的装饰正文仍未处理。
-- 线型命令右边界还有三项修复前后相同的既有差异未覆盖：正文以 `\textit{x}` 结尾时与直接输入差 0.54pt（斜体校正）；`\CJKunderline{中 }`、`\CJKunderline{\CJKsout{中} }` 这类“字符后接正文末尾空格”与带花括号的直接输入差 3.33pt；正文以嵌套线型命令结尾、内层又以全角右标点结尾时（`\CJKunderline{\CJKsout{中。}} x`），命令后的空格与西文前的间距与直接输入 `中。 x` 不同（本地审查 R2-M2）。最后一项的原因是 `\UL@onin` 下内层正文不经 ulem 扫描，其中的标点不走 `\@@_ulem_FullRight_and_Boundary:`，外层 `tail` 不会置 `punct`；dtx 的实现说明已记下，CHANGELOG 与 `\changes` 写明“嵌套线型命令内层的标点尚未处理”。可能的补法（**未实施**，推断未实测）：在 `\@@_ulem_nest_mark:` 补 `ulem-nest` marker 的位置，把“内层正文以全角右标点结尾”的信息传给外层 `tail`，并按 R2 的分组层级规则判断命令后的空格是否应被吃掉；先要确认内层结束时能否可靠读到这一信息。
+- 线型命令右边界还有四项修复前后相同的既有差异未覆盖：正文以 `\textit{x}` 结尾时与直接输入差 0.54pt（斜体校正）；`\CJKunderline{中 }`、`\CJKunderline{\CJKsout{中} }` 这类“字符后接正文末尾空格”与带花括号的直接输入差 3.33pt；符号型命令以全角右标点结尾（`\CJKunderdot{中。} x`、`\CJKunderline{\CJKunderdot{中。}} x`），原因是符号型命令不经 ulem，正文末尾没有扫描标记 `\s_@@_ulem_body`，标点处也不调用 `\@@_ulem_punct_peek:`；公式加尾随空格（`\CJKunderline{中$x$ } y`）与带花括号的直接输入差 3.33pt。此前列在这里的“嵌套线型命令内层以全角右标点结尾”（本地审查 R2-M2）已在 R3 修好：`\UL@onin` 的正文开头置 `\l_@@_ulem_onin_bool`，原生 FullRight 分支据此调用 peek，`\@@_ulem_nest_mark:` 再在外层 peek 一次。符号型命令可能的补法（**未实施**，推断未实测）：给符号型命令的正文末尾也放一个扫描标记，并让其中的全角右标点调用同样的 peek；先要确认符号型命令的 capture 层与 `tail` 字段在结束时能被读到。
 
 目前没有用户报告这几类写法。可能的补法（**未实施**）：为普通 stream 找到一个在正文首个可见输出之前运行的钩子，复用 `entry` 的 armed／resolved 语义；或在 `\@@_boundary_inline_stream_end:n` 检查本层是否已排出有宽度的内容，再决定入口空格放在哪里（推断，未实测：后者要到结束时才判断，那时内容已在列表里，除非先把已排出的节点取下，否则空格放不到内容之前）。全角标点方向可以在 Boundary→FullLeft／FullRight 的通用转换里报告 `CJK`，但要先确认不会改变非装饰路径的边界结果。接手时先读 `llmdoc/architecture/xecjk-architecture.md` 的「ulem 结束符与入口空格（#1091）」与反思 `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`。
+
+## 更改历史中旧 `\changes` 条目的 `|` 短抄录泄漏（#1091 R3 发现，未处理）
+
+`\changes` 说明文字进入 `.glo` 后，makeindex 把第一个 `|` 当作 encap 符，后面的文字被当作页码格式命令执行，更改历史里因此出现文字泄漏。#1091 R3 把本次新增条目改为 `\texttt`、`\tn` 和文字描述后，`pdftotext` 检索中本次条目的 `dex10432191`、`dex9189170` 已消失；但仍有三处 `hdclindex8526159`、`hdclindex163`、`hdclindex193354` 来自此前版本的旧条目，其中之一是 `xeCJK/xeCJK.dtx` 约 536 行 v3.10.4 条目里的 `|CJKglue|`。它们不在 #1091 的范围内，未处理。
+
+可能的补法（**未实施**）：逐条把旧 `\changes` 里的 `|...|` 改为 `\texttt{...}`、`\cs{...}` 或 `\tn{...}`，运行 `make changelog` 重新生成 CHANGELOG，并按 `llmdoc/reference/build-and-test.md`「文档排版循环」一节的方法用 `pdftotext` 检索 `hdclindex` 与 `dex[0-9]`，确认计数为 0。已发布版本的条目改动只涉及排版，但要确认重新生成的 CHANGELOG 只有预期的文字变化。
