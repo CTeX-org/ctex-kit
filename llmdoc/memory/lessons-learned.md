@@ -743,7 +743,9 @@ Curated cross-task rules distilled from archived memory.
 ### 引入会改全局状态的测试原语前先读它的定义，生成基线后复查体积
 **Rule**: 像 `\loggingoutput` 这类原语会覆盖全局参数（它把 `\showboxbreadth`／`\showboxdepth` 设为 `\maxdimen`），必须先调用它、再设回本文件需要的值。生成 `.tlg` 后核对行数与内容是否正是想固定的对象，不要只看 `l3build check` 是否为绿。
 **Why**: #1026 中顺序写反使前四项也倒出完整节点列表，`.tlg` 从预期百余行涨到 3279 行、含 880 处 PDF 绘图 `special`，直接违反同文件声明的“只固定行盒尺寸与 glue set”；补 `\clearpage` 并调换顺序后降到 145 行。
-**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
+**补充（#1091）**: 同一顺序问题在 `fntef-entry-space01` 再次出现：lvt 在 `\loggingoutput` 之前设 `\showboxdepth=1`，被覆盖；注释与 llmdoc 照意图写成“只输出第一层”，而后来新增的节点用例恰好依赖完整深度。测试注释和文档里关于日志内容的说法，要对照 `.tlg` 实际内容再写。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### l3build 测试里不能用 \showbox，它会静默截断其后所有用例
 **Rule**: `support/build-config.lua` 把 `checkopts` 设为 `-halt-on-error`，而 `\showbox` 会抛出 `! OK.`，编译因此立刻终止：该行之后的 `\TEST` 全部不执行，`.tlg` 也只记到那一行，但 `l3build check` 仍然报绿。需要把盒子内容写进基线时，用 `\loggingoutput` 配合 `\box` 加 `\clearpage`（见 `command-boundary-math02.lvt`、`verb-ecglue02.lvt`），并在文件层设好 `\showboxbreadth`／`\showboxdepth`。
@@ -761,6 +763,11 @@ Curated cross-task rules distilled from archived memory.
 
 **补充（#1091）**: 修回退时也要从根因出发列举路径，而不是从复现样例出发。#1091 R6 只在“全角标点→Default”两个转换里补报类别，同根因的“全角标点→CJK”三个转换没有补，`中\uline{\sout{中（A）中}}吗` 等写法反而被改坏（R7-B1）；补报条件用的 onin 布尔也比根因窄，`\mbox` 里的变体不补报（R7-I2）。列出全部转换后，要逐项与上一次正确的提交、发布版和直接输入比对，再说“已修好”。
 **Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
+
+### 补上一处缺失的状态后，要检查与它配对的状态在同一路径上是否也缺失
+**Rule**: 在某条路径上补写一个原来缺失的状态字段时，列出与它一起被读取的其他字段，确认它们在这条路径上也有人维护。原来的错误值可能恰好掩盖了另一处缺口，补好一处后另一处就会显现；回归比对要包含“这条路径上的其他维度”，不只包含本次补的那一维。
+**Why**: #1091 R7 为嵌套内层补报末类别并写 `tail=char`。内层正文不经过片段盒子的拦截点，最后一个字符之后的 glue、盒子不会把 `tail` 置为 `content`；以前结束符 `*` 被当作西文，末类别碰巧正确，这个缺口看不出来。补报之后，`\uline{\sout{中（A）中\hspace*{1em}}}` 这类“最后一个字符之后还有内容”的写法相对发布版回退（R8-I1）。同一轮还看到盒子里线型命令左右两侧的错误原来相互抵消，右侧修好后总宽度反而变差。
+**Source**: `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 回归测试必须用重新引入缺陷的方式确认会失败
 **Rule**: 新增或改写回归测试后，故意还原到修复前的实现，确认测试会失败；测试全部显示“通过”不构成“这项测试确实能检测该缺陷”的证据，只能证明测试当前不会误报。同理，声称某测试守护某条行为之前，也要用变异实测确认是它会红——没有任何输出行的 `.tlg` 段落不构成校验，把守护职责写错到文档里会让后来者误以为已有覆盖。
