@@ -1106,6 +1106,53 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   例外，插桩确认不可达后删去（R11 已记）；用 capture 层号间接表示进入命令时的选项，在 capture 暂停时失效；R12 的审查项
   编号与 run 名。
 
+## 本地增量审查 R13 后的补修
+
+### 审查发现
+
+- 对 R12 补修（范围 `50452dbc..1fbda2f1`）的本地增量盲审（R13，run `20260927T230900Z-r13-incr`）报告阻塞问题 0 项、
+  重要建议 1 项、小问题 2 项；历史补充确认 R12-I1～R12-M5 已修复或按原建议关闭，R10-I2 可关闭，R11-I3 与 R13-I1 合并跟踪。
+  - R13-I1：“入口之后排出过透明命令”的布尔量在每层内层正文开头清零，外层正文里的颜色也不设置它；颜色与后面的 `~`
+    不在同一层时入口空格少一枚，`符 \uline{\color{red}\sout{~中}} 后` 为 33.33pt，直接输入与 v3.10.6 为 36.66pt。
+  - R13-M1：end 钩子每次放一个 `ulem-transparent` marker，第一个字符出现时只删一个，连续颜色、颜色后接更深一层装饰、
+    正文只有颜色时 marker 留在盒子里，与文档写的“不留在盒子里”不符。R13-M2：lvt 注释“现存”用词不当。
+
+### 修法要点
+
+- 布尔量改由 `\@@_ulem_entry_arm:` 清零；end 钩子在入口为 `armed` 时总是设置它，只在嵌套链上放 marker。
+- begin 钩子先删去上一个 marker；新增 `\@@_ulem_transparent_node_remove:`，在 `\@@_ulem_onin_lead_get:n` 读外层末尾之前、
+  `\@@_ulem_onin_tail_check:` 末尾调用。
+
+### What Went Wrong（R13）
+
+1. **状态量的生命周期与它服务的状态不一致。** R12 把“是否排出过透明命令”做成按内层正文清零的状态，而它服务的入口状态
+   `armed` 属于整条嵌套链。R12 的用例都把颜色与 `~` 写在同一层，跨层写法没有测试。
+2. **文档写的不变量没有测试。** marker 每次放一个、只删一个；“不留在盒子里”只由单个颜色的节点用例覆盖，多次出现与
+   没有字符的情形都没测。marker 宽度为零，宽度用例看不出来。
+
+### Root Cause（R13）
+
+- 代码层：新增状态量时没有写明它跟随哪一层的生命周期；marker 的放下与删除不成对。
+- 过程层：测试只覆盖“同一层里”的写法；不变量只对最简单的一种出现方式做了断言。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 15 新增 5 项宽度用例、TEST 11 新增 3 项节点列表用例，全文件 265 项 PASS、0 FAIL；
+  新增项在 `1fbda2f1` 上 5 项宽度失败、3 项节点列表留有 marker。
+- 逐项变异 40 项全部被发现，其中六项由节点列表发现。探测矩阵含新增的 r13m（80 项）、r13rest（7 项），相对 `1fbda2f1`
+  没有回退。xeCJK `l3build check`、`l3build doc`、ctex `l3build check -e xetex` 全部通过。
+
+### 仍未覆盖（R13 修复后）
+
+- 外层正文里 `\special` 之后接嵌套命令、前一个兄弟装饰只有 `~`（都自 `ad8dc88b`），以及 R13 盲审的范围外观察，都登记在
+  `doc-gaps.md`。
+
+### Promotion Candidates（R13）
+
+- **仅留在 memory**（已有条目覆盖，这次只是实例）：新增状态量要写明它跟随哪一层的生命周期，并测试跨层写法（R4 的
+  “给状态标志加作用域时要把‘进入’‘新盒子清除’‘再次进入’组合起来测”）；文档里“不留在盒子里”这类不变量要有节点列表用例，覆盖
+  多次出现与没有字符的情形（「声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败」）。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1120,7 +1167,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\@@_ulem_onin_if_lead_space:n`（R11 删去）；R11 起还有核心的 `\@@_boundary_emit_left_hook:n` 与
   `\@@_ulem_orig_space_glue:`；R12 起还有核心的 `\@@_boundary_transparent_begin_hook:`、
   `\@@_boundary_transparent_end_hook:`，以及 `\@@_ulem_onin_entry_check_space:n`、`\@@_ulem_onin_entry_check:n`、
-  `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`。
+  `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`；R13 起还有
+  `\@@_ulem_transparent_node_remove:`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
