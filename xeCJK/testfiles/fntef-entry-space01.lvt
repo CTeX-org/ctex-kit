@@ -344,12 +344,17 @@
 % 西文之间插入左边界间距。三层嵌套时，中间层盒子末尾为识别最内层盒子临时补的
 % marker 要在盒子关闭前删去，不能留在盒子里；中间层正文以字符结尾时，字符自己
 % 的 marker 不能被当成这个临时 marker 删掉。内层正文以颜色命令开头时，为标记
-% 颜色 whatsit 放下的 marker 在第一个字符出现时删去，不留在盒子里。
+% 颜色 whatsit 放下的 marker 不留在盒子里：连续的颜色命令只保留最后一个，第一个
+% 字符出现时删去；颜色之后接更深一层装饰或正文没有字符时，在进入下一层或内层
+% 正文结束时删去。
 \TEST{no boundary glue inside a nested decoration}{
   \EntryNodes{nested-leftquote-latin}{他说\CJKunderline{\CJKsout{“OK”}}吗}
   \EntryNodes{three-level-no-marker}{符 \uline{\sout{\xout{中}}} 后}
   \EntryNodes{three-level-keep-char-marker}{符 \uline{\sout{\xout{中}中}} 后}
   \EntryNodes{nested-color-no-marker}{x\uline{\sout{\textcolor{red}{中}}}x}
+  \EntryNodes{nested-two-color-no-marker}{x\uline{\sout{\color{red}\color{blue}中}}x}
+  \EntryNodes{nested-color-deeper-no-marker}{x\uline{\sout{\color{red}\xout{中}}}x}
+  \EntryNodes{nested-color-only-no-marker}{x\uline{\sout{\textcolor{red}{}}}x}
 }
 
 % 嵌套线型命令之后若又排出别的盒子，这个盒子不能被误认成嵌套装饰，也不能在
@@ -399,9 +404,10 @@
 % 直接输入一样处理（包括 \space、多层分组、xCJKecglue 与 CJKspace 的情形）；
 % 内层正文在第一个字符之前先排出 ~、\hspace、\kern、\nobreak、\strut、\special
 % 等内容时，外层左边界不再补在这些内容与字符之间；颜色命令对边界透明，与直接
-% 输入一样不算内容。内层正文以公式加空格结尾时、\sbox 里同样如此。
+% 输入一样不算内容，颜色写在外层正文、中间层或前一个兄弟装饰里时也是如此。
+% 内层正文以公式加空格结尾时、\sbox 里同样如此。
 % \sbox 用例的 oracle 是导言区预先存好的 |\sbox{中{ 中}}|：前一个写法留下的
-% 源码空格检查状态会进入 \sbox，在用例里现存的结果随用例顺序变化，这是核心的
+% 源码空格检查状态会进入 \sbox，在用例里现场排出的结果随用例顺序变化，这是核心的
 % 既有问题。
 \TEST{trailing full-width left punctuation and nested boxes}{
   \EntryWidth{left-latin}{符 \uline{中（}x}{符 中（x}
@@ -513,6 +519,16 @@
     {符 \uline{\sout{\color{red}~中}} 后}{符 {\color{red}~中} 后}
   \EntryWidth{nested-color-switch-hspace-cjk-spaced}
     {符 \uline{\sout{\color{red}\hspace{1em}中}} 后}{符 {\color{red}\hspace{1em}中} 后}
+  \EntryWidth{outer-color-then-nested-tie-cjk-spaced}
+    {符 \uline{\color{red}\sout{~中}} 后}{符 {\color{red}{~中}} 后}
+  \EntryWidth{outer-textcolor-nested-tie-cjk-spaced}
+    {符 \uline{\textcolor{red}{\sout{~中}}} 后}{符 {\textcolor{red}{~中}} 后}
+  \EntryWidth{mid-color-then-deeper-tie-cjk-spaced}
+    {符 \uline{\sout{\color{red}\xout{~中}}} 后}{符 {\color{red}~中} 后}
+  \EntryWidth{mid-color-then-deeper-hspace-cjk-spaced}
+    {符 \uline{\sout{\color{red}\xout{\hspace{1em}中}}} 后}{符 {\color{red}\hspace{1em}中} 后}
+  \EntryWidth{sibling-color-then-nested-tie-cjk-spaced}
+    {符 \uline{\sout{\color{red}}\sout{~中}} 后}{符 {\color{red}}{~中} 后}
   \EntryWidth{latin-then-nested-nobreak-cjk}{x\uline{\sout{\nobreak 中}}x}{x{\nobreak 中}x}
   \EntryWidth{latin-then-nested-strut-cjk}{x\uline{\sout{\strut 中}}x}{x{\strut 中}x}
   \EntryWidth{latin-then-nested-vbox-cjk}{x\uline{\sout{\vbox{}中}}x}{x{\vbox{}中}x}
