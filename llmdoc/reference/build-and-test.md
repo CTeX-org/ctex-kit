@@ -592,7 +592,7 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
   冻结」——判据是展开结果里出现 `{7}` 而非 `{section}`，同时覆盖 #1008 排查中发现的
   独立笔误：`\zhdigwithoptions` 原把选项多传了一个 `#1` 给 `\zhnum_digits_counter:n`，
   带选项的 `\zhdig` 此前直接报错。文件**最后一项**断言 `\zhnum` 带选项在计数器不存在时
-  报 zhnumber 自己的错误（见下面「可展开报错是致命错误」）。
+  报 zhnumber 自己的错误（见下面「可展开报错在本仓库的 `checkopts` 下是致命错误」）。
 - `zhnumber/testfiles/counter-options02.lvt`（三引擎；只需 `.tlg` + `.luatex.tlg`，
   pdftex 与 stdengine 逐字节相同故不留冗余基线）专门覆盖 `\zhdig` 那条独立守卫
   （`\@@_digits_counter_with_options:nn`）在计数器不存在时的同类报错——**必须**单独
@@ -617,17 +617,17 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 1. `\typeout{\zhnumwithoptions{...}{...}}`——不可展开的命令只被记下名字，内部坏掉也看
    不出来；实测恢复 `\zhdigwithoptions` 的笔误后，只用 `\typeout` 的版本仍然全绿。
 2. `\tl_set:Nx`——同样只拿到名字。
-3. 在 `\TEST` 的参数里切 `\ExplSyntaxOn`——不生效，参数已被读入、catcode 已冻结（实测报
+3. 在 `\TEST` 的参数里切换 `\ExplSyntaxOn`——不生效，参数已被读入、catcode 已冻结（实测报
    `Undefined control sequence` 指向 `\tl_log:N`）。
 4. `\protected@edef`——含 `@`，在 `\ExplSyntaxOn` 下直接写会报 `You can't use a prefix
    with the character @`，须放进 `\makeatletter` 块并用 `\cs_set_eq:NN` 起一个 expl3
    名字的别名再用。
 
 **盒子度量选哪一维要先验证它真的会变，而且度量本身不足以固定排出的是哪个字。**
-缺字时字体会用同一个占位字形，宽度往往 collapse 成同一个值——实测「七」与「柒」的宽度
+缺字时字体会用同一个占位字形，宽度往往变成同一个值——实测「七」与「柒」的宽度
 都是 2.8pt，分辨不出内容；改用**高度**才区分开这两个字（`ht=7.33` 的「七」vs `ht=7.75`
 的「柒」）。但高度同样不足以固定字形：实测 FandolSong 下「柒」「九」「佰」的 `ht` 都是
-7.75，一个让 Financial 的 7 排成「九」的缺陷能通过全部度量断言（实测零度量 diff）。
+7.75，一个让 Financial 的 7 排成「九」的缺陷能通过全部度量断言（实测度量没有任何 diff）。
 所以 `legacy-entry01` 的 TEST 4 用 `\loggingoutput` + `\box_use:N` + `\clearpage` 把
 盒子内容本身写进基线，汉字在基线里就是字面 UTF-8 汉字（l3build 的日志归一化不把 CJK
 码位转成 `^^` 形式）；度量只作旁证。该项必须覆盖前面测过的**全部**入口——只排 `\zhnum`
@@ -636,13 +636,13 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 接成整数路径这类接线错误看不出来（实测把 `\zhdigwithoptions` 里的
 `\zhnum_digits_counter:n` 换成 `\zhnum_counter:n` 后全绿）；123 下 `\zhdig` 逐位排
 「壹贰叁」而 `\zhnum` 排「壹佰贰拾叁」，位数与字形都不同。用 `\loggingoutput` 而非
-`\showbox`，因为后者报 `! OK.` 会在 `-halt-on-error` 下当场中止；不加 `\clearpage` 则
+`\showbox`，因为后者报 `! OK.` 会在 `-halt-on-error` 下立即中止；不加 `\clearpage` 则
 页面不 ship out、TEST 段落是空的（两点均实测）。
 
 **可展开报错在本仓库的 `checkopts` 下是致命错误，这是本节最重要的约束。**
 `\@@_counter_error:n` 用 `\msg_expandable_error:nnn`，它在展开中报错的方式是留下一个
 `\???` 控制序列，触发 `Use of \??? doesn't match its definition`——该错误实测让**编译
-就地中止**，其后所有 `\TEST` 一律不执行。判断是否中止要看「后面的 `\TEST` 段落有没有进
+立即中止**，其后所有 `\TEST` 一律不执行。判断是否中止要看「后面的 `\TEST` 段落有没有进
 基线」，**不要**用日志里的 `Fatal error occurred, no output PDF file produced!` 那一行：
 它只有 pdftex/luatex 打印，xetex 不打印（而 xetex 正是这两个测试的 `stdengine`），并且
 它从不进入 `.tlg`——它排在
@@ -652,7 +652,7 @@ xpinyin 支持把拼音里的 `ü` 直接写出来（等价于既有的 `v` 写�
 **不是** LaTeX 或 l3build 本身的行为：l3build 默认 `-interaction=nonstopmode`，那种设置
 下同一个错误只记进日志、后面的 `\TEST` 照常执行（实测）。因此下面两条硬约束是**本仓库
 的**约束，往用默认 `checkopts` 的项目推断前要先核对那边的设置。这也是 #1026 用
-`\showbox` 撞过的同一个机制（见 `lessons-learned.md` 里 `\showbox` 那条），本次是它的
+`\showbox` 碰到过的同一个机制（见 `lessons-learned.md` 里 `\showbox` 那条），本次是它的
 第二个触发源。这条报错文本**必须**固定进基线，因为那是唯一可行的判据（曾试过只固定
 「两条路是否进同一判断分支」来回避报错文本，但断言执行不到那一步就已经中止）；代价是
 `counter-options01` 需三份基线、`counter-options02` 需两份——luatex 在该错误后打印的
@@ -687,8 +687,8 @@ after \the`；删 `\@@_digits_counter_with_options:nn` 的守卫 → 仅
 
 ### zhnumber 的算筹数字回归（#366）
 
-`zhnumber` 新增算筹（中国古代记数符号）`\zhrod`（可展开，只产字符，供 `.toc`／PDF 书签
-使用）与 `\zhrodbox`（不可展开，切字体、压字距，负责排版效果）。回归同样按引擎需求
+`zhnumber` 新增算筹（中国古代记数符号）`\zhrod`（可展开，只输出字符，供 `.toc`／PDF 书签
+使用）与 `\zhrodbox`（不可展开，切换字体、收紧字距，负责排版效果）。回归同样按引擎需求
 分两处，理由与「为什么必须分两个 `testfiledir`」一节相同——算筹码位（U+1D360 起）在
 pdfTeX／upTeX 下无法表示（8-bit 引擎，实测 `\char_generate:nn` 报 `Charcode requested
 out of engine range`），而 `l3build check` 没有按文件指定引擎的机制，同一个 `.lvt`
@@ -698,16 +698,16 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
 - `zhnumber/testfiles/rod-engine01.lvt` 与 `rod-engine02.lvt`（四引擎，含 upTeX）：只测引擎判定与报错，不测实际
   输出。判定依据是新增的 `\c_@@_rod_engine_bool`（只含 xetex/luatex），不是既有的
   `\c_@@_unicode_engine_bool`——后者把 upTeX 也算作真，而 upTeX 恰好不能表示算筹码位。
-  报错断言放在文件末位（同「可展开报错是致命错误」一节的约束），并用
-  `\token_if_protected_long_macro_p:N` 而非 `\token_if_expandable_p:N` 判断
-  `\zhrod` 是否为报错版本——后者对 `\protected\long macro` 也答 yes，会让两个引擎读数
+  报错断言放在文件末位（同「可展开报错在本仓库的 `checkopts` 下是致命错误」那段的
+  约束），并用 `\token_if_protected_long_macro_p:N` 而非 `\token_if_expandable_p:N` 判断
+  `\zhrod` 是否为报错版本——后者对 `\protected\long macro` 也返回 yes，会让两个引擎读数
   相同、该项成为恒真断言。捕获报错路径必须真的执行 `\zhrod`，`\tl_set:Ne` 只会把
-  `\zhrod {12}` 原样存进变量而不触发报错，对该路径零判别力。pdfTeX 有独立基线，读数与
+  `\zhrod {12}` 原样存进变量而不触发报错，对该路径没有判别力。pdfTeX 有独立基线，读数与
   xetex/luatex 不同。
   拆成两个文件是因为 `checkopts = "-halt-on-error"` 下一个 `.lvt` 只能断言一次抛错：
   `rod-engine01` 那一次给了 `\zhrodbox`，`\zhrod` 的报错分支只能另开 `rod-engine02`
-  （否则它零覆盖——把该分支改成静默的 `\typeout` 两套 check 仍全绿，实测）。与 #1008 的
-  `counter-options01/02` 拆分同源。
+  （否则它完全没有测试覆盖——把该分支改成静默的 `\typeout` 两套 check 仍全绿，
+  实测）。与 #1008 的 `counter-options01/02` 拆分同源。
 - `zhnumber/testfiles-cjk/rod01.lvt`（仅 xetex）：测算筹实际输出。开头几项用
   `\zhrod` 的可展开性把字符序列捕获进基线（`\tl_set:Ne` + `\tl_log:N`），逐字固定「排的
   是哪个码位」——判据是字符序列本身而非长度，`units=vertical` 时个位实际取的是 Unicode
@@ -716,8 +716,8 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
   排出的字形与字距（未压缩 50.0pt vs 压缩后 44.4pt）——只有度量不足以固定「排的是哪个
   字」，这与 `legacy-entry01` 已记的教训同源。
 
-`\zhrod` 与 `\zhrodbox` 的分工基于「可展开性与排版效果互斥」——`\zhrod` 只产字符（不可
-展开的实现会破坏 `.toc`／PDF 书签），`\zhrodbox` 才切字体压字距；这是 #1008 反思里
+`\zhrod` 与 `\zhrodbox` 的分工基于「可展开性与排版效果互斥」——`\zhrod` 只输出字符（不可
+展开的实现会破坏 `.toc`／PDF 书签），`\zhrodbox` 才切换字体、收紧字距；这是 #1008 反思里
 「教训确实被下一个任务复用」的一个正例，判据仍是「`.toc` 里是字符还是命令名」加
 「`Token not allowed` 警告数」。
 
@@ -749,7 +749,7 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
 转义（如 `^^e7^^94^^b2`），xetex／luatex／uptex 直接记中文字符。这份基线人眼读不出
 内容，`.lvt` 注释里写明了实测的字节-汉字对照表（甲=`^^e7^^94^^b2`、子=`^^e5^^ad^^90`、
 我的=`^^e6^^88^^91^^e7^^9a^^84`），并提示改动本文件后若只有 pdftex 报红、其余三引擎
-通过，应先怀疑是不是漏刷了这份基线，而不是怀疑实现——与 `counter-options01` 一样，
+通过，应先怀疑是不是忘了重新生成这份基线，而不是怀疑实现——与 `counter-options01` 一样，
 这里的汉字只经 `\tl_log:x` 进日志、没有实际排版，与「pdfTeX 排 CJK 是硬错误」无关，
 纯属日志编码差异。
 
@@ -935,7 +935,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 - 操作系统矩阵：`ubuntu-latest`、`macos-latest`、`windows-latest`
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
-- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）；`test-zhnumber` 也传 `configs: test/config-cjk`（#1008 起，真排汉字量盒子那条线只跑 xetex），但不需要 `needs-unihan`
+- 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）；`test-zhnumber` 也传 `configs: test/config-cjk`（#1008 起，实际排出汉字再量盒子的那条线只跑 xetex），但不需要 `needs-unihan`
 - 主仓自家分支的 PR 会同时触发 push 与 pull_request 两次 `test.yml` 运行。pull_request 那次按设计跳过全部包测试（见 `.github/workflows/test.yml:59-86` 的注释），在 PR 页面上显示为成功。判断测试是否通过要看 push 那次运行：用 `gh run list --branch <分支> --workflow test.yml` 查看 event 列。
 
 见 `.github/workflows/test.yml`。
@@ -1283,7 +1283,7 @@ cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md
 
 `CHANGELOG_PKGS`（单一事实源：`Makefile` 的 `CHANGELOG_PKGS` 变量，workflow 经 `make changelog` 间接消费，无需同步第二处）：`ctex xeCJK xpinyin zhlineskip zhmetrics zhnumber`。xpinyin 随 #1041 测试接入补写了首条 `\changes{v3.2}{...}` 后加入这份列表。其余 3 个含 `.dtx` 的包（`CJKpunct`/`jiazhu`/`xCJK2uni`）目前没有写任何 `\changes` 条目，暂不参与；补写 `\changes` 后只需把包名加入 `Makefile` 的 `CHANGELOG_PKGS` 一行。
 
-**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接落进 `CHANGELOG.md`（当时提交的 zhnumber 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它零判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
+**占位符校验与新鲜度校验互补而非重叠（da00ad53）**：`check-changelog.yml` 在「重新生成 + diff」这道新鲜度校验之前，另加一道「`CHANGELOG.md` 不得含 `extract-changes.py` 的内部占位符（`\x00`–`\x05`）」校验。两者不是同一件事：`\texttt{... \cs{???} ...}` 这类嵌套里，内层 `\x00..\x01` 占位符被整段收进 `verbatim_blocks` 后再也扫不到，原始控制字符会直接写进 `CHANGELOG.md`（当时提交的 zhnumber 条目里就是 `Use of ^@???^A`）。这类漏出是**确定性**的——新鲜度 diff 对它没有判别力，因为两边生成物一致、只是两边都错。占位符校验实测：旧脚本下退出 1（含占位符），修好 `extract-changes.py` 后通过。
 
 本地重新生成入口：`make changelog`（全部包）或 `make changelog-<pkg>`（单包，如 `make changelog-xeCJK`）。
 
