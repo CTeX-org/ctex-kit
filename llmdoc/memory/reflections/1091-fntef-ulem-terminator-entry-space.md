@@ -1,6 +1,6 @@
 ---
 name: 1091-fntef-ulem-terminator-entry-space
-description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致
+description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致；本地增量审查 R5 后补上 `CheckFullRight=true` 时标点自己先删去空格、peek 看不到这枚空格的情况（`\g_@@_FullRight_space_bool` 记下是否删过空格），教训是模仿一个原语时还要检查用户选项会不会在它之前改变输入，测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个维度，记录变异时要写实际做的改动而不是意图
 metadata:
   type: feedback
 ---
@@ -420,7 +420,7 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   就停下，所以内层末尾空格同样由 peek 看到。
 - I2：`\@@_ulem_nest_mark:` 的非 patch 分支中，若 onin 布尔为真（仍在嵌套链上）且 `tail` 为 `punct`，
   也调用 peek。
-- M1：dtx 说明改为分别描述三种情况（标记、空格、其他记号）。M3：`\s_@@_ulem_body` 移到名字列表首位。
+- M1：dtx 说明改为分别描述三种情况（标记、空格、其他记号）。M3：`\s_@@_ulem_body` 移到名字列表首位（末位于是变成辅助函数，R5-M3 再次调整，见下文）。
 
 ### What Went Wrong（R4）
 
@@ -446,8 +446,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - `fntef-entry-space01` TEST 10 新增 7 项（`\mbox`／`\fbox` 里的嵌套装饰、嵌套内层“标点＋末尾空格”
   后接西文与汉字、三层嵌套加 `\relax`、三层嵌套标点结尾后接西文），全文件 97 项 PASS；这 7 项在
   `f66ee63d` 上有 6 项失败。
-- 逐项变异 3 项全部被捕获：进入 onin 时不看 patch 状态（3 项失败）、空格时不置 `content`（2 项）、
-  中间层不 peek（1 项）。
+- 逐项变异 3 项全部被捕获：进入 onin 时不看 patch 状态（3 项失败）、peek 遇到空格时改为置 `punct`
+  （2 项）、中间层不 peek（1 项）。（R5 前这里写成“空格时不置 `content`”，那是意图描述；按字面只删去
+  置 `content` 一步只有 1 项失败，见下文 R5 一节。）
 
 ### Promotion Candidates（R4）
 
@@ -458,12 +459,73 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   recorder 完成）。
 - **仅留在 memory**：三处修改的具体位置，稳定部分已写进架构文档。
 
+## 本地增量审查 R5 后的补修
+
+### 审查发现
+
+- 对 R4 补修（`822e8427`）的本地增量盲审（R5）报告重要建议 1 项、小问题 4 项。
+  - R5-I1（重要）：打开 `CheckFullRight=true` 时，全角右标点字符本身的
+    `\xeCJK_check_FullRight_symbol:Nw` 先用 `\peek_remove_spaces:n` 删去其后的空格再查看下一个记号，
+    `\@@_ulem_punct_peek:` 看不到这枚空格、直接看到扫描标记，于是 `\CJKunderline{中。 } x`、
+    `\uline{\sout{中。 }} x` 与三层嵌套的“标点＋正文末尾空格”都吃掉了命令后的空格。v3.10.6 与直接
+    输入一致；单层自 `6b197547`、嵌套自 `07a27a93` 起失败。
+  - R5-M1：dtx 与架构文档把 ulem 分词后在词与词之间补回的空格写成“词中空格”，应为“词间空格”。
+  - R5-M2：dtx 说明文字折行不当（已在代码侧修正）。
+  - R5-M3：R4 把 `\s_@@_ulem_body` 移到名字列表首位后，末位变成辅助函数 `\@@_ulem_punct_peek_aux:N`，
+    `\changes` 标签仍没有落在右边界判断的函数名下。
+  - R5-M4：llmdoc 把 R4 的一项变异记成“peek 遇到空格时不置 `content`，2 项失败”；按字面做只有 1 项
+    失败，实际做的变异是“遇到空格时改为置 `punct`”。
+
+### 修法要点
+
+- I1：`\xeCJK_check_FullRight_symbol:Nw` 改为先 `\peek_charcode_remove:NTF \c_space_token`：删去了空格
+  就把新布尔 `\g_@@_FullRight_space_bool` 置真，再照旧 `\peek_remove_spaces:n`；没有空格就置假。
+  `\@@_ulem_punct_peek:` 见到它为真就按 `content` 处理，否则进入拆出来的
+  `\@@_ulem_punct_peek_space:` 走原来的判断。`CheckFullRight=false` 时复位该布尔。
+- M1：“词中空格”改为“词间空格”。M3：名字列表改为以 `\@@_ulem_tail_check:` 结尾。M4：改正
+  `build-and-test.md` 与本文 R4 一节的变异描述。
+
+### What Went Wrong（R5）
+
+1. **模仿原语时只看了原语本身，没看在它之前运行的用户选项。** R3、R4 让 peek 模仿 `\ignorespaces`
+   的停止条件，并让两条路径对空格的处理一致，但都默认“peek 运行时标点后面的空格还在”。
+   `CheckFullRight` 让标点字符在 peek 之前就删去了空格，这个前提不成立。
+2. **测试矩阵没有把会改变记号流的选项作为维度。** 前四轮的用例都在默认选项下运行；
+   `CheckFullRight` 恰好在全角右标点上改变了输入，却从未打开测过。
+3. **变异按意图记录，没有按实际改动记录。** R4 的记录写成“不置 `content`”，实际做的是“改为置
+   `punct`”；两者失败项数不同，后来者照记录复做会得到不一致的结果。
+
+### Root Cause（R5）
+
+- 代码层：peek 判断“标点后有没有空格”只看当前记号流，而 `CheckFullRight` 已经删去了空格、又没有
+  留下任何记录。
+- 过程层：确认模仿对象的行为时，没有清点有哪些用户选项会在它之前改变输入；变异记录是事后按意图
+  补写的。
+
+### 验证
+
+- `fntef-entry-space01` 新增 TEST 12「trailing full-width right punctuation with CheckFullRight」（14 项，
+  原 TEST 12 段末自然宽度改为 TEST 13），全文件 111 项 PASS；新增项在 `822e8427` 上有 5 项失败。
+- 逐项变异 4 项全部被捕获：删去空格时不置布尔（5 项失败）、peek 不读布尔（5 项）、关闭选项时不复位
+  （1 项）、没有空格时不置假（2 项）。R4 的“遇到空格时改为置 `punct`”重做一次，现使 4 项失败（新增的
+  `CheckFullRight` 用例也覆盖到它）。
+
+### Promotion Candidates（R5）
+
+- **lessons-learned（补充「按根因枚举象限」与「命令边界修复必须覆盖输出等价矩阵」）**：模仿原语时还要
+  检查用户选项会不会在它之前改变输入；测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个
+  维度。
+- **reference（`build-and-test.md`）**：变异记录写实际做的改动；`\changes` 名字列表的最后一个名字
+  是 `\@@_ulem_tail_check:`（已由 recorder 完成）。
+- **仅留在 memory**：R5 的审查项编号与失败项数。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
 - 实现：`xeCJK/xeCJK.dtx` 中 `\@@_boundary_capture_emit_left:nn`、`\@@_boundary_inline_stream_end:n`、
   `\UL@end`、`\@@_ulem_end:`、`\UL@stop`、`\UL@reskip`、`\@@_ulem_entry_*`、
-  `\@@_boundary_use_ulem_glue_outer:nn`、`\@@_ulem_Boundary_and_FullLeft_glue:N`。
+  `\@@_boundary_use_ulem_glue_outer:nn`、`\@@_ulem_Boundary_and_FullLeft_glue:N`；R5 起还有
+  `\xeCJK_check_FullRight_symbol:Nw`（`\g_@@_FullRight_space_bool`）与 `\@@_ulem_punct_peek_space:`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
