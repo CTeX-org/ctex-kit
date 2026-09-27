@@ -37,9 +37,15 @@ pull_request 运行显示成功，但主仓自家分支的 pull_request 运行�
 `\cs_generate_variant:Nn \keys_set_filter:nnnN { nno }`（l3keys 已提供
 `\keys_set_exclude_groups:nnoN`）。旧名只是新名的别名，行为不变；新名分别自 2022-06、
 2024-01 起可用，早于两包的最低版本要求（xeCJK 要求 LaTeX2e 2026/06/01，zhnumber 要求
-L3 2025/10/09），因此没有写 `\changes`，也没有提升版本号。新内核下 zhnumber、xeCJK
+L3 2025/10/09），所以直接换名即可。新内核下 zhnumber、xeCJK
 123/123、ctex 四引擎加三个附加配置全部通过；旧内核下 zhnumber、xeCJK 全部通过。PR CI
 39 项通过、24 项跳过，Bot 审查 APPROVE，没有审查意见。
+
+我起初认为换名对用户没有可见影响，没有写 `\changes`。用户指出这也要发版：下游宏包若在
+开启调试检查的测试里加载 ctex／xeCJK／zhnumber，会与本仓库 CI 一样失败，而问题出在本
+仓库的包里，下游自己修不了；上游将来删除旧名后，普通编译也会报错。于是补了
+`\changes`：xeCJK 记在 v3.10.7（`build.lua` 3.10.6 → 3.10.7），zhnumber 记在尚未发布的
+v3.1，随 3.1 一起发布。
 
 用户决定另开 issue 并向 master 提 PR，而不是在 #1056 分支上修：master 同样受影响，
 #1056 也不该混入 xeCJK 改动。合入后 #1056 再 rebase。同一轮 CI 里 `doc-zhlineskip` 的
@@ -106,7 +112,8 @@ L3 2025/10/09），因此没有写 `\changes`，也没有提升版本号。新�
 - 大面积失败时先读编译日志里的第一个 `!` 错误，再提出环境假设。目前只出现一次；若再次
   出现，可以提升到 `lessons-learned.md`，并与 #1048／#1050 的“注入类实验必须有可核实的
   生效判据”放在同一主题下。
-- 换名对用户没有可见影响时，不写 `\changes`、不提版本号；本次只有这一个实例，暂不写成规则。
+- 判断“对用户有没有影响”时，要把开启调试检查的下游测试也算作用户；已写入 build-and-test.md
+  「上游激活弃用（#1095）」一节的处置部分。
 - `ctex/test/support/cleveref-body.tex` 仍用 `\seq_set_map_x:NNn`，这是已启用的旧名，
   但目前不触发失败，本次未处理。
 
