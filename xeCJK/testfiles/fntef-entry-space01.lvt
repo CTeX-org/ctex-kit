@@ -38,12 +38,20 @@
 %     PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
 %   - 段末自然宽度（TEST 13）：把装饰放在段末，比较行内容的自然宽度与同一
 %     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
-% 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。
+% 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。各 TEST 的
+% 标签互不相同（TEST 12 以 cfr- 开头），看 PASS／FAIL 行即可知道出处。
 % 每个用例之后都检查 capture 栈、暂停深度和 #1091 的入口状态已经归零。
 
 \newsavebox{\FillBox}
 \sbox{\FillBox}{\rule{8pt}{5pt}}
 \newcommand\EntryAns[1]{#1\relax}
+% 字符码为 32 的活动字符（\verb、\obeyspaces 下的空格就是这样的记号）。它不是
+% 空格记号，标点之后遇到它时不能当作空格删去。
+\begingroup
+\lccode`\~=32
+\lowercase{\endgroup
+  \def~{z}%
+  \newcommand\EntryActiveSpaceCase{中。~a}}
 \newsavebox{\NestSameBox}
 \sbox{\NestSameBox}{\CJKsout{中}}
 \newbox\EntryCandidate
@@ -154,9 +162,9 @@
 \TEST{empty body adds no decoration or spacing}{
   \EntryWidth{underline}{符\CJKunderline{}后}{符后}
   \EntryWidth{underline-relax}{符\CJKunderline{\relax}后}{符后}
-  \EntryWidth{uline}{符\uline{}后}{符后}
+  \EntryWidth{empty-uline}{符\uline{}后}{符后}
   \EntryWidth{sout}{符\CJKsout{}后}{符后}
-  \EntryWidth{latin}{x\CJKunderline{}y}{xy}
+  \EntryWidth{empty-latin}{x\CJKunderline{}y}{xy}
 }
 
 % 正文末尾没有可读 marker 时，右边界按正文实际的末字符决定。
@@ -178,8 +186,8 @@
 \TEST{ordinary first characters are unchanged}{
   \EntryWidth{cjk-space}{符 \CJKunderline{中} 后}{符 中 后}
   \EntryWidth{latin-space}{符 \CJKunderline{x} 后}{符 x 后}
-  \EntryWidth{cjk}{符\CJKunderline{中}后}{符中后}
-  \EntryWidth{latin}{符\CJKunderline{x}后}{符x后}
+  \EntryWidth{first-cjk}{符\CJKunderline{中}后}{符中后}
+  \EntryWidth{first-latin}{符\CJKunderline{x}后}{符x后}
 }
 
 % 正文开头的语法空格画成装饰线，入口空格排在这段线之前。正文随后以字符开始时
@@ -203,7 +211,7 @@
   \EntryWidth{hspace}{符 \CJKunderline{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
   \EntryWidth{name}{姓名 \CJKunderline{张三\hspace*{4em}} 学号}{姓名 张三\hspace*{4em} 学号}
   \EntryWidth{fillbox}{符 \CJKunderline{中\usebox{\FillBox}} 后}{符 中\usebox{\FillBox}{} 后}
-  \EntryWidth{uline}{符 \uline{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
+  \EntryWidth{tail-uline}{符 \uline{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
   \EntryWidth{wave}{符 \CJKunderwave{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
   \EntryWidth{sout-box}{符 \CJKsout{中\usebox{\FillBox}} 后}{符 中\usebox{\FillBox}{} 后}
   \EntryWidth{star}{符 \CJKunderline*{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
@@ -241,7 +249,7 @@
 % 正文以全角右标点结尾时，命令后的空格不出现，西文前也不补间距，与直接输入相同。
 \TEST{trailing full-width right punctuation}{
   \EntryWidth{period-space-cjk}{符 \CJKunderline{中。} 后}{符 中。 后}
-  \EntryWidth{period-cjk}{符 \CJKunderline{中。}后}{符 中。后}
+  \EntryWidth{tail-period-cjk}{符 \CJKunderline{中。}后}{符 中。后}
   \EntryWidth{period-space-latin}{符 \CJKunderline{中。} x}{符 中。 x}
   \EntryWidth{period-latin}{符 \CJKunderline{中。}x}{符 中。x}
   \EntryWidth{quote-latin}{符 \CJKunderline{中”}x}{符 中”x}
@@ -279,6 +287,9 @@
   \EntryWidth{nested-period-trailing-latin}{符 \uline{\sout{中。 }} x}{符 {中。 } x}
   \EntryWidth{nested-period-trailing-cjk}{符 \CJKunderline{\CJKsout{中。 }} 后}{符 {中。 } 后}
   \EntryWidth{three-level-relax-space-latin}{符 \uline{\sout{\xout{中。}\relax}} x}{符 中。\relax{} x}
+  \EntryWidth{nested-period-latin-letter-cjk}{符 \uline{\sout{中。z}} 后}{符 中。z 后}
+  \EntryWidth{nested-left-quote-latin-letter-cjk}{符 \uline{\sout{中“z}} 后}{符 中“z 后}
+  \EntryWidth{nested-period-latin-letter-latin}{符 \CJKunderline{\CJKsout{中。z}}x}{符 中。zx}
   \EntryWidth{three-level-period-latin}{符 \CJKunderline{\CJKsout{\CJKxout{中。}}}x}{符 中。x}
   \EntryWidth{period-fill}{符 \CJKunderline{中。\hspace*{1em}} 后}{符 中。\hspace*{1em} 后}
 }
@@ -295,28 +306,30 @@
 % 正文末尾的空格仍要按普通内容处理，结果与不打开选项时相同。
 \TEST{trailing full-width right punctuation with CheckFullRight}{
   \xeCJKsetup{CheckFullRight=true}
-  \EntryWidth{trailing-space-latin}{符 \CJKunderline{中。 } x}{符 {中。 } x}
-  \EntryWidth{trailing-space-cjk}{符 \CJKunderline{中。 } 后}{符 {中。 } 后}
-  \EntryWidth{inner-spaces-cjk}{答 \CJKunderline{ 中。 } 后}{答 { 中。 } 后}
-  \EntryWidth{nested-trailing-space-latin}{符 \uline{\sout{中。 }} x}{符 {中。 } x}
-  \EntryWidth{three-level-trailing-space-latin}{符 \uline{\sout{\xout{中。 }}} x}{符 {中。 } x}
-  \EntryWidth{period-space-latin}{符 \CJKunderline{中。} x}{符 中。 x}
-  \EntryWidth{period-latin}{符 \CJKunderline{中。}x}{符 中。x}
-  \EntryWidth{period-space-cjk}{符 \CJKunderline{中。} 后}{符 中。 后}
-  \EntryWidth{relax-space-latin}{符 \CJKunderline{中。\relax} x}{符 中。\relax{} x}
-  \EntryWidth{nested-period-space-latin}{符 \CJKunderline{\CJKsout{中。}} x}{符 中。 x}
-  \EntryWidth{mid-space}{符 \CJKunderline{中。 中} x}{符 中。 中 x}
-  \EntryWidth{space-then-no-space}{符 \CJKunderline{中。 {}中。} x}{符 中。 {}中。 x}
-  \EntryWidth{nested-space-then-no-space}{符 \CJKunderline{\CJKsout{中。 中。}} x}{符 中。 中。 x}
+  \EntryWidth{cfr-trailing-space-latin}{符 \CJKunderline{中。 } x}{符 {中。 } x}
+  \EntryWidth{cfr-trailing-space-cjk}{符 \CJKunderline{中。 } 后}{符 {中。 } 后}
+  \EntryWidth{cfr-inner-spaces-cjk}{答 \CJKunderline{ 中。 } 后}{答 { 中。 } 后}
+  \EntryWidth{cfr-nested-trailing-space-latin}{符 \uline{\sout{中。 }} x}{符 {中。 } x}
+  \EntryWidth{cfr-three-level-trailing-space-latin}{符 \uline{\sout{\xout{中。 }}} x}{符 {中。 } x}
+  \EntryWidth{cfr-period-space-latin}{符 \CJKunderline{中。} x}{符 中。 x}
+  \EntryWidth{cfr-period-latin}{符 \CJKunderline{中。}x}{符 中。x}
+  \EntryWidth{cfr-period-space-cjk}{符 \CJKunderline{中。} 后}{符 中。 后}
+  \EntryWidth{cfr-relax-space-latin}{符 \CJKunderline{中。\relax} x}{符 中。\relax{} x}
+  \EntryWidth{cfr-nested-period-space-latin}{符 \CJKunderline{\CJKsout{中。}} x}{符 中。 x}
+  \EntryWidth{cfr-mid-space}{符 \CJKunderline{中。 中} x}{符 中。 中 x}
+  \EntryWidth{cfr-space-then-no-space}{符 \CJKunderline{中。 {}中。} x}{符 中。 {}中。 x}
+  \EntryWidth{cfr-active-space}{\EntryActiveSpaceCase}{中。za}
+  \EntryWidth{cfr-nested-space-then-no-space}{符 \CJKunderline{\CJKsout{中。 中。}} x}{符 中。 中。 x}
   \xeCJKsetup{CheckFullRight=false}
-  \EntryWidth{off-period-space-latin}{符 \CJKunderline{中。} x}{符 中。 x}
+  \EntryWidth{cfr-off-period-space-latin}{符 \CJKunderline{中。} x}{符 中。 x}
+  \EntryWidth{cfr-off-active-space}{符 \CJKunderline{\EntryActiveSpaceCase} x}{符 \EntryActiveSpaceCase{} x}
 }
 
 % 装饰位于段末时，段末删除行尾 glue 不能删掉装饰末尾的像素补偿 glue。
 \TEST{trailing content at paragraph end}{
   \EntryParEnd{fill}{符 \CJKunderline{中\hspace*{2em}}}
   \EntryParEnd{period}{符 \CJKunderline{中。}}
-  \EntryParEnd{cjk}{符 \CJKunderline{中}}
+  \EntryParEnd{parend-cjk}{符 \CJKunderline{中}}
 }
 
 \END

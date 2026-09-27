@@ -8442,16 +8442,16 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_check_FullRight_symbol:Nw}
-% \changes{v3.10.7}{2026/09/27}{\opt{CheckFullRight} 删去全角右标点之后的空格时
-%   记下这一点，供 \pkg{xeCJKfntef} 判断线型命令的正文是否以标点结尾（\#1091）。}
-% 为了看到标点之后的记号，这里先删去标点之后的空格。删去的空格原本就不会排出，
+% 为了看到标点之后的记号，这里先删去标点之后的空格（按含义比较，与原来的
+% \cs{peek_remove_spaces:n} 相同，只删显式或隐式的空格记号，不删字符码为 32 的
+% 活动字符，例如 \tn{verb} 与 \tn{obeyspaces} 下的空格）。删去的空格原本就不会排出，
 % 但它说明标点并不紧接其后的记号：\pkg{xeCJKfntef} 用
 % \cs{g_@@_FullRight_space_bool} 区分线型命令正文里的 |中。 | 与 |中。|
 % （\#1091）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_check_FullRight_symbol:Nw #1
   {
-    \peek_charcode_remove:NTF \c_space_token
+    \peek_meaning_remove:NTF \c_space_token
       {
         \bool_gset_true:N \g_@@_FullRight_space_bool
         \peek_remove_spaces:n { \@@_save_FullRight_symbol:N #1 }
@@ -14847,7 +14847,10 @@ Copyright and Licence
         \xeCJK_no_break:
         \UL@start
       }
-      { \@@_ulem_FullLeft_and_Default: }
+      {
+        \@@_ulem_FullLeft_and_Default:
+        \@@_ulem_onin_report_default:
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -14906,7 +14909,29 @@ Copyright and Licence
         \@@_ulem_skip_punct_end:
         \UL@start
       }
-      { \@@_ulem_FullRight_and_Default: }
+      {
+        \@@_ulem_FullRight_and_Default:
+        \@@_ulem_onin_report_default:
+      }
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\@@_ulem_onin_report_default:}
+% \changes{v3.10.7}{2026/09/27}{嵌套线型命令的内层正文里，全角标点之后紧接西文
+%   字符时，把西文字符的类别报告给命令边界 capture，使外层命令右侧与直接输入
+%   一样按西文处理（\#1091）。}
+% 全角标点到 Default 的转换不向 capture 报告类别。单层装饰和普通文字里，这个
+% 西文字符之后另有 marker 或 \pkg{ulem} 片段可以说明末类别；嵌套线型命令的内层
+% 正文却整段装在 \tn{UL@onin} 的盒子里，capture 只能看到标点之前的汉字。以前
+% \pkg{ulem} 的结束符 |*| 被当成西文字符，恰好盖住了这个缺口；不再观察 |*| 之后，
+% |\uline{\sout{中。z}} 后| 的命令后空格就被按 CJK 规则删去（\#1091）。因此在嵌套
+% 链上（\cs{l_@@_ulem_onin_bool} 为真）补报 |default|。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_ulem_onin_report_default:
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      { \@@_boundary_capture_class:n { default } }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -15594,7 +15619,7 @@ Copyright and Licence
 %   例如预填姓名、后接 \tn{hspace*} 的填空线；正文（包括嵌套线型命令的内层）
 %   以全角右标点结尾时，命令后的空格和随后西文前的间距与直接输入一样不再
 %   出现，标点之后还有分组结束、\tn{relax} 等记号时则与直接输入一样保留
-%   命令后的空格（\#1091）。}
+%   命令后的空格；打开 \opt{CheckFullRight} 时同样如此（\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15708,7 +15733,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_ulem_punct_peek_space:
   {
-    \peek_charcode_remove:NTF \c_space_token
+    \peek_meaning_remove:NTF \c_space_token
       {
         \@@_ulem_tail_content:
         \tex_ignorespaces:D
