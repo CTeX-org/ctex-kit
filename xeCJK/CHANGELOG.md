@@ -1,3 +1,7 @@
+## [xeCJK-v3.10.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.7)
+
+- 改用 `\cs_parameter_spec:N` 代替已弃用的 `\cs_argument_spec:N`，避免 l3kernel 2026-09-09 起在调试模式下报错（#1095）。
+
 ## [xeCJK-v3.10.6](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.6)
 
 - post-transparent 搬移「marker + 候选 glue」后缀前，先用 `\skip_if_finite:nTF` 排除 `\hfill`/`\hfil` 一类无限阶填充 glue，使它们不再被误搬到零尺寸盒子之后，修复 CJK 文字紧接源码空格与 `\hfill\null` 时两侧填充不对称（#1085）。
