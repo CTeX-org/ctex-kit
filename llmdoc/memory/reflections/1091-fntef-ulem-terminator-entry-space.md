@@ -1,6 +1,6 @@
 ---
 name: 1091-fntef-ulem-terminator-entry-space
-description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致；本地增量审查 R5 后补上 `CheckFullRight=true` 时标点自己先删去空格、peek 看不到这枚空格的情况（`\g_@@_FullRight_space_bool` 记下是否删过空格），教训是模仿一个原语时还要检查用户选项会不会在它之前改变输入，测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个维度，记录变异时要写实际做的改动而不是意图
+description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致；本地增量审查 R5 后补上 `CheckFullRight=true` 时标点自己先删去空格、peek 看不到这枚空格的情况（`\g_@@_FullRight_space_bool` 记下是否删过空格），教训是模仿一个原语时还要检查用户选项会不会在它之前改变输入，测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个维度，记录变异时要写实际做的改动而不是意图；本地增量审查 R6 后把 `CheckFullRight` 的空格判断从 `\peek_charcode_remove:NTF` 改为 `\peek_meaning_remove:NTF`（字符码比较会删去 `\verb`、`\obeyspaces` 下字符码为 32 的活动字符），修复过程中又逐提交二分发现并修好嵌套内层全角标点接西文的同根因回退，教训是替换 l3 peek 函数时要确认比较方式（charcode／catcode／meaning）与被替换的函数一致、活动字符这类“看起来像空格”的记号是必测维度，每轮修复后都要把嵌套、盒子、选项等维度与发布版横向比对，而不只比对直接输入
 metadata:
   type: feedback
 ---
@@ -414,7 +414,7 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - B1：`\UL@onin` 进入时先算新增的 `\l_@@_ulem_onin_enter_bool`：`\xeCJK_if_ulem_patch:TF` 为真
   （直接从外层片段盒子进入）就置真，否则继承当前的 `\l_@@_ulem_onin_bool`；内层正文开头用它设置
   onin 布尔。盒子里的嵌套链继承已被 `\UL@hrest` 清除的状态，不再重新置真。
-- I1：`\@@_ulem_punct_peek:` 先用 `\peek_charcode_remove:NTF \c_space_token` 判断空格：下一个记号是
+- I1：`\@@_ulem_punct_peek:` 先用 `\peek_charcode_remove:NTF \c_space_token`（R6 改为按含义比较）判断空格：下一个记号是
   空格就置 `content` 并 `\ignorespaces`；否则按原来的 N 型／标记判断。原生
   `\xeCJK_FullRight_and_Boundary:` 末尾的 `\ignorespaces` 遇到紧随的受保护函数 `\@@_ulem_punct_peek:`
   就停下，所以内层末尾空格同样由 peek 看到。
@@ -478,7 +478,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 
 ### 修法要点
 
-- I1：`\xeCJK_check_FullRight_symbol:Nw` 改为先 `\peek_charcode_remove:NTF \c_space_token`：删去了空格
+- I1：`\xeCJK_check_FullRight_symbol:Nw` 改为先 `\peek_charcode_remove:NTF \c_space_token`（R6 改为
+  `\peek_meaning_remove:NTF`，见下文 R6 一节）：删去了空格
   就把新布尔 `\g_@@_FullRight_space_bool` 置真，再照旧 `\peek_remove_spaces:n`；没有空格就置假。
   `\@@_ulem_punct_peek:` 见到它为真就按 `content` 处理，否则进入拆出来的
   `\@@_ulem_punct_peek_space:` 走原来的判断。`CheckFullRight=false` 时复位该布尔。
@@ -507,8 +508,11 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - `fntef-entry-space01` 新增 TEST 12「trailing full-width right punctuation with CheckFullRight」（14 项，
   原 TEST 12 段末自然宽度改为 TEST 13），全文件 111 项 PASS；新增项在 `822e8427` 上有 5 项失败。
 - 逐项变异 4 项全部被捕获：删去空格时不置布尔（5 项失败）、peek 不读布尔（5 项）、关闭选项时不复位
-  （1 项）、没有空格时不置假（2 项）。R4 的“遇到空格时改为置 `punct`”重做一次，现使 4 项失败（新增的
-  `CheckFullRight` 用例也覆盖到它）。
+  （1 项）、没有空格时不置假（2 项）。R4 的“遇到空格时改为置 `punct`”重做一次，现使 4 项失败，全在
+  TEST 10（`inner-spaces-cjk`、`trailing-space-cjk`、`nested-period-trailing-latin`、
+  `nested-period-trailing-cjk`）。R5 时这里写的是“新增的 `CheckFullRight` 用例也覆盖到它”，R6 补充报告
+  实测 TEST 12 一项都没有失败（打开该选项时空格由 `\g_@@_FullRight_space_bool` 处理，不经过这条分支），
+  这个归因不正确；与 R4 记录的 2 项相差的原因未确认。
 
 ### Promotion Candidates（R5）
 
@@ -519,13 +523,98 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   是 `\@@_ulem_tail_check:`（已由 recorder 完成）。
 - **仅留在 memory**：R5 的审查项编号与失败项数。
 
+## 本地增量审查 R6 后的补修
+
+### 审查发现
+
+- 对 R5 补修（`ae603ca7`／`b9c023b1`）的本地增量盲审（R6）报告阻塞问题 1 项、小问题 1 项。
+  - R6-B1（阻塞）：R5 把 `\xeCJK_check_FullRight_symbol:Nw` 改用 `\peek_charcode_remove:NTF \c_space_token`，
+    它只比较字符码。打开 `CheckFullRight` 后，全角右标点之后字符码为 32 的活动字符（`\verb`、`\verb*`、
+    `\obeyspaces` 下的空格）也被删掉：`\verb|中。 a|` 由 30.5pt 变为 25.25pt。v3.10.6 与 `822e8427` 都正确。
+  - R6-M1（小）：CHANGELOG 为 `CheckFullRight` 新增的条目写的是内部实现（“删去空格时记下这一点”），
+    而它所修的问题只存在于未发布的中间提交，用户看不到。
+- R6 补充报告还确认 R5-M4 没有完全解决：R4 那项变异（peek 遇到空格时改为置 `punct`）在 R5 后使 4 项
+  失败，R5 记录把它归因于新增的 `CheckFullRight` 用例；实测 4 项全在 TEST 10，TEST 12 一项都没有失败。
+
+### 协调者在 R6 修复过程中发现
+
+- 这一项不是审查报出的。修 B1 时逐版本二分，顺带发现嵌套线型命令的内层正文里全角标点之后紧接西文字符
+  （`\uline{\sout{中。z}} 后`、`\uline{\sout{中“z}} 后`、`\CJKunderline{\CJKsout{中。z}}x`）时，外层命令后的
+  空格或间距按 CJK 处理，与直接输入和 v3.10.6 不一致。逐提交二分：`ad8dc88b`、`6b197547`、`f565e649`、
+  `7f9e968f`、`07a27a93`、`ee341329`、`ae603ca7`、`b9c023b1` 都失败，v3.10.6 与 `ef49ca4e` 正确，即从
+  `ad8dc88b` 起就存在。
+- 原因：全角标点到 Default 的转换不向 capture 报告类别。单层装饰与普通文字里，西文字符之后另有 marker
+  或 ulem 片段说明末类别；嵌套内层整段装在 `\UL@onin` 的盒子里，capture 只看到标点之前的汉字。以前 ulem
+  结束符 `*` 被当成西文字符，恰好盖住了这个缺口，`ad8dc88b` 不再观察 `*` 后缺口就露出来了。与第一轮的
+  根因相同：`*` 曾替多条路径“报告”过类别，去掉它之后每条依赖它的路径都要补上自己的报告。
+
+### 修法要点
+
+- B1：`\xeCJK_check_FullRight_symbol:Nw` 改用 `\peek_meaning_remove:NTF \c_space_token`，与被替换的
+  `\peek_remove_spaces:n` 一样按含义比较，只删显式或隐式的空格记号。xeCJKfntef 的
+  `\@@_ulem_punct_peek_space:` 同样改为按含义比较；那一处在测试里没有判别力，属一致性修改。
+- M1：删去 `CheckFullRight` 那条 `\changes`，把“打开 `CheckFullRight` 时同样如此”并入右边界那条 `\changes`。
+- 嵌套内层：新增 `\@@_ulem_onin_report_default:`，在 `\@@_ulem_FullLeft_and_Default:` 与
+  `\@@_ulem_FullRight_and_Default:` 的非 patch 分支（原生转换之后）于 `\l_@@_ulem_onin_bool` 为真时执行
+  `\@@_boundary_capture_class:n { default }`；并为它新增一条 `\changes`。
+- R5-M4：`build-and-test.md` 与本文 R5 一节改为“现使 4 项失败，全在 TEST 10”，删去错误归因。
+- TEST 12 的标签全部加 `cfr-` 前缀，避免与 TEST 10 的同名用例（如 `trailing-space-cjk`、
+  `inner-spaces-cjk`）混淆；同名时只看 PASS／FAIL 行分不清失败项出自哪个 TEST。
+
+### What Went Wrong（R6）
+
+1. **替换 l3 peek 函数时没有核对比较方式。** R5 需要“删去空格并知道是否删过”，就把
+   `\peek_remove_spaces:n` 换成 `\peek_charcode_remove:NTF`，只看了“能不能删”，没看它按字符码比较、原函数
+   按含义比较。l3 的 peek 函数按 charcode、catcode、meaning 三种方式成组提供，换函数时比较方式也要一并对上。
+2. **测试没有覆盖“看起来像空格、其实不是空格记号”的输入。** 活动字符、`\verb` 里的空格从未进入矩阵，
+   所以 R5 的改动在全绿的测试下引入了回退。
+3. **同根因回退从第一轮修复一直潜伏到 R5。** 前几轮的比对都以直接输入为 oracle，只在单层装饰上测过“标点接西文”；嵌套
+   内层的同类写法没有和 v3.10.6 比对过，直到 R6 修复中逐版本二分才顺带发现。
+4. **失败数的归因没有逐项核对。** R5 按“新增了 `CheckFullRight` 用例”解释失败数增加，没有逐项核对失败行
+   来自哪个 TEST；TEST 10 与 TEST 12 当时有同名用例，只看 PASS／FAIL 行也分不清出处。
+
+### Root Cause（R6）
+
+- 代码层：R5 选用的 peek 函数比较方式与被替换的函数不同；全角标点到 Default 的原生转换从不报告类别，
+  嵌套内层过去依赖 `*` 的误报。
+- 过程层：替换实现时只核对了功能，没有核对等价性；每轮只沿审查报出的维度扩展比对，没有定期把嵌套、
+  盒子、选项等维度与发布版整体比一遍；测试标签没有按 TEST 区分。
+
+### 验证
+
+- `fntef-entry-space01` 新增 5 项：TEST 10 增加 `nested-period-latin-letter-cjk`、
+  `nested-left-quote-latin-letter-cjk`、`nested-period-latin-letter-latin`；TEST 12 增加 `cfr-active-space`
+  （用 ``\lccode`\~=32`` 构造的活动字符 `~`，定义为 `z`，`中。~a` 与 `中。za` 比较）与关闭选项后的
+  `cfr-off-active-space`。全文件 116 项 PASS。新增项在 `b9c023b1` 上有 4 项失败（3 项嵌套与
+  `cfr-active-space`）。
+- 逐项变异 2 项全部被捕获：`\xeCJK_check_FullRight_symbol:Nw` 改回按字符码比较（1 项失败）；去掉 onin
+  补报 `default`（3 项失败）。
+
+### 仍未覆盖（修复前后都不一致）
+
+- 正文以全角标点开头、紧接西文：`\href{x}{。z} 后`、`\textcolor{red}{。z} 后`、`\uline{。z} 后`，普通 stream
+  与 ulem 都有；`\uline{。z} 后` 在 v3.10.6 差 6.66pt，现在差 3.33pt。`\href{x}{中。z} 后` 在 v3.10.6 与现在
+  都差 3.33pt。它们属于 `doc-gaps.md` 已登记的“非 ulem 路径的 Boundary→FullLeft／FullRight 不向 capture
+  报告类别”一类，已补进该节。
+
+### Promotion Candidates（R6）
+
+- **lessons-learned（补充「换掉某段代码的实现方式时，回放它当初为之而生的那个场景」）**：替换 l3 peek
+  函数时确认比较方式与被替换的函数一致；活动字符、`\verb` 这类“看起来是空格”的记号是必测维度。
+- **lessons-learned（补充「判断修复是否到位需要三个对照点」）**：每轮修复后都把嵌套、盒子、选项等维度
+  与发布版横向比对一次，不只比对直接输入。
+- **reference（`build-and-test.md`）**：TEST 12 的标签以 `cfr-` 开头；R4 那项变异的失败项全在 TEST 10
+  （已由 recorder 完成）。
+- **仅留在 memory**：逐提交二分的提交清单与 R6 的审查项编号。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
 - 实现：`xeCJK/xeCJK.dtx` 中 `\@@_boundary_capture_emit_left:nn`、`\@@_boundary_inline_stream_end:n`、
   `\UL@end`、`\@@_ulem_end:`、`\UL@stop`、`\UL@reskip`、`\@@_ulem_entry_*`、
   `\@@_boundary_use_ulem_glue_outer:nn`、`\@@_ulem_Boundary_and_FullLeft_glue:N`；R5 起还有
-  `\xeCJK_check_FullRight_symbol:Nw`（`\g_@@_FullRight_space_bool`）与 `\@@_ulem_punct_peek_space:`。
+  `\xeCJK_check_FullRight_symbol:Nw`（`\g_@@_FullRight_space_bool`）与 `\@@_ulem_punct_peek_space:`；R6 起还有
+  `\@@_ulem_onin_report_default:`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、

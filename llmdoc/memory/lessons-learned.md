@@ -353,7 +353,7 @@ Curated cross-task rules distilled from archived memory.
 ### 判断修复是否到位需要三个对照点，第三个是未受影响的发布版
 **Rule**: 缺陷版、修复版之外，还要测一遍**未受影响的发布版**。只比前两个只能回答「有没有变好」，回答不了「变好到该有的程度了吗」。修复版与发布版数值相同、渲染逐像素一致时，结论是「修回了发布版行为」——这既能排除本次引入新问题，也可能揭示发布版自己就带缺陷。
 **Why**: #1026 修复后原 MWE 溢出 18.91pt → 4.47pt，只看这两点像是修好了。加上发布版 v3.10.3 也是 4.47pt、且与修复版渲染逐像素相同（`ImageChops.difference` bbox 为 `None`），才看出 4.47pt 是发布版本来就有的另一半缺陷（#1037），而非终点。
-**补充（#1091）**: 把某项差异记为“修复前后相同、属既有限制”之前，要在发布版上把有无空格、后接汉字／西文各写法都测一遍。#1091 的 R2 只测了有空格的 `\CJKunderline{\CJKsout{中。}} x` 就这样记录，无空格后接西文的写法实际是本次引入的回退（v3.10.6 与直接输入一致），CHANGELOG 也因此错误收窄。
+**补充（#1091）**: 把某项差异记为“修复前后相同、属既有限制”之前，要在发布版上把有无空格、后接汉字／西文各写法都测一遍。#1091 的 R2 只测了有空格的 `\CJKunderline{\CJKsout{中。}} x` 就这样记录，无空格后接西文的写法实际是本次引入的回退（v3.10.6 与直接输入一致），CHANGELOG 也因此错误收窄。另外，多轮修复中每一轮结束后都要把嵌套、盒子、选项等维度整体与发布版比对一次，不能只沿审查报出的维度扩展、只以直接输入为 oracle。#1091 嵌套内层“全角标点接西文”的回退从第一轮修复起就存在，R1 至 R6 的审查都没有报出，直到 R6 修复中逐提交二分时才顺带发现。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### PR 合并后要回放报告者的原始 MWE，别只看自己的测试基线
@@ -652,16 +652,17 @@ Curated cross-task rules distilled from archived memory.
 ### 换掉某段代码的实现方式时，回放它当初为之而生的那个场景
 **Rule**: 若修复保留语义但更换实现（钩子改适配器、重写内部入口等），除了本 issue 的 MWE，还要回放**引入这段代码的那个 issue** 所关心的场景，并与本 PR 父提交逐项比较。若该 issue 没有现成的独立 MWE，按它的矩阵格式补一份。同时加一个「撤销该语义」的对照组——全绿矩阵不加对照，无法说明它能否发现语义丢失。
 **Why**: #1029 换掉的两个 `cmd/sbox` 钩子是 #992 为隔离 `\sbox` 离线测量而引入的。只看 #1029 自己的算法标题 MWE，无法说明隔离是否在换实现时丢了。补的 sbox 矩阵在 base 与修复后同为 96／96，而删掉 `suspend`／`resume` 的对照组为 72／96——有了这个对照，96／96 才是证据而不是空话。（#997 曾被列为第二个实例：以为「回放了 hook 当初为之而生的场景」并据此判定不能删。但那次回放读的是 NFSS 参数而非 `\fontname\font`，场景本身没有成立——实测该 hook 运行时当前字体已是 CJK 字体。这说明「回放旧场景」本身也要选对观察量，否则回放的是一个不存在的场景；实例已撤回。）
+**补充（#1091）**: 替换 l3 的 peek 函数时，要确认新函数的比较方式（charcode、catcode、meaning）与被替换的函数一致。#1091 R5 为了知道是否删过空格，把按含义比较的 `\peek_remove_spaces:n` 换成按字符码比较的 `\peek_charcode_remove:NTF`，字符码为 32 的活动字符（`\verb`、`\obeyspaces` 下的空格）因此也被删去，测试全绿未能发现；R6 改为 `\peek_meaning_remove:NTF`。活动字符、`\verb` 里的空格这类“看起来是空格、其实不是空格记号”的输入是必测维度。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 说「哪些形式汇入某入口」时读内核定义把分支数清全
 **Rule**: 描述某公开命令有几种形式最终汇入同一内部入口时，打开内核定义把 `\@ifnextchar` 的分支逐条数完，不要凭常用形式推断。
 **Why**: #1029 我在四份文档里写 `\savebox` 有「三种形式」汇入 `sbox `，漏掉了 picture 形式 `(x,y)[pos]`——`latex.ltx` 的 `\@isavepicbox` 末尾同样是 `\sbox#1{...}`。适配器实际覆盖面比文档所述更宽，属于把自己的成果说小了。
-**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`、`llmdoc/memory/reflections/997-xpinyin-fallback-measure-box.md`
 
 ### 修正一处错误说法后，全仓搜索同一说法的所有副本
 **Rule**: 改掉一句被证伪的描述时，用关键短语在整个 `llmdoc/` 里搜一遍，把摘要索引（`index.md`）和其他文档里的同一说法一并改掉。索引类文件常常复述正文结论，最容易漏。
 **Why**: #1029 我把「四种 `\global` 形式跨分组保住内容」在三处改对了，却漏掉 `llmdoc/index.md` 里的同一句摘要，由最终全范围审查查出。那句连验证判据都反了——新测试里 `\global\savebox` 的判据恰恰是 outside 为 0。
-**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`、`llmdoc/memory/reflections/997-xpinyin-fallback-measure-box.md`
 
 ### 引用差值时要标明它属于哪一组间距设置
 **Rule**: 记录「删掉某处后出现多少 pt 差值」时，注明该数值来自哪一组 `CJKecglue`／`CJKglue` 设置。同一现象在默认胶水与自设胶水下的数值不同，直接从别的测试搬数字会写错。
