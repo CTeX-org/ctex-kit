@@ -15470,7 +15470,8 @@ Copyright and Licence
       {
         \@@_ulem_if_entry_armed:T
           {
-            \xeCJK_if_last_node:nF { ulem-transparent }
+            \xeCJK_if_last_node:nTF { ulem-transparent }
+              { \tex_unkern:D \tex_unkern:D }
               {
                 \exp_args:NV \@@_ulem_onin_entry_check_space:n
                   \g_@@_ulem_entry_depth_int
@@ -15480,18 +15481,23 @@ Copyright and Licence
   }
 \cs_gset_protected:Npn \@@_boundary_transparent_end_hook:
   {
-    \bool_if:NT \l_@@_ulem_onin_bool
+    \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
       {
-        \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
+        \@@_ulem_if_entry_armed:T
           {
-            \@@_ulem_if_entry_armed:T
+            \bool_gset_true:N \g_@@_ulem_onin_transparent_bool
+            \bool_if:NT \l_@@_ulem_onin_bool
               {
                 \exp_args:Nc \@@_make_node:N
                   { c_@@_ulem-transparent_node_dim }
-                \bool_gset_true:N \g_@@_ulem_onin_transparent_bool
               }
           }
       }
+  }
+\cs_new_protected:Npn \@@_ulem_transparent_node_remove:
+  {
+    \xeCJK_if_last_node:nT { ulem-transparent }
+      { \tex_unkern:D \tex_unkern:D }
   }
 \xeCJK_declare_node:n { ulem-transparent }
 \bool_new:N \g_@@_ulem_onin_transparent_bool
@@ -15520,6 +15526,7 @@ Copyright and Licence
 \tl_new:N \l_@@_ulem_onin_lead_tl
 \cs_new_protected:Npn \@@_ulem_onin_lead_get:n #1
   {
+    \@@_ulem_transparent_node_remove:
     \tl_clear:N \l_@@_ulem_onin_lead_tl
     \clist_map_inline:nn { CJK , CJK-space , default }
       {
@@ -15532,7 +15539,6 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
-    \bool_gset_false:N \g_@@_ulem_onin_transparent_bool
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
       {
         \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
@@ -15606,6 +15612,7 @@ Copyright and Licence
             \g_@@_boundary_capture_depth_int _entry_tl
           }
           { armed }
+        \bool_gset_false:N \g_@@_ulem_onin_transparent_bool
       }
       { \int_gzero:N \g_@@_ulem_entry_depth_int }
   }
@@ -15791,6 +15798,7 @@ Copyright and Licence
 %   \@@_ulem_onin_tail_glue:,
 %   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_onin_entry_check_space:n,
+%   \@@_ulem_transparent_node_remove:,
 %   \@@_ulem_onin_entry_check:n,
 %   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
@@ -15898,11 +15906,18 @@ Copyright and Licence
 % 间距，而 \tn{special}、\tn{label} 排出的 whatsit 不透明。核心在 transparent
 % 命令前后调用 \cs{@@_boundary_transparent_begin_hook:} 与
 % \cs{@@_boundary_transparent_end_hook:}。前者先检查此前排出的内容，与第一个字符
-% 出现时的检查相同，使 |\special{x}\textcolor{red}{中}| 仍按内容处理；后者在命令
-% 排出 whatsit 之后放一个 |ulem-transparent| marker，第一个字符出现时钩子看到这个
-% marker 就删去它，不改动入口。入口有源码空格、正文先排出颜色命令再排出 |~| 等
-% 内容时（|符 \uline{\sout{\color{red}~中}} 后|），直接输入的入口空格先遇到的是
-% 透明命令，后面的内容仍算正文开头的内容，所以这种情况下也做末节点检查。
+% 出现时的检查相同，使 |\special{x}\textcolor{red}{中}| 仍按内容处理；后者在嵌套链
+% 上、命令排出 whatsit 之后放一个 |ulem-transparent| marker，第一个字符出现时钩子
+% 看到这个 marker 就删去它，不改动入口。marker 不留在盒子里：下一个透明命令开始前
+% 先删去上一个，\tn{UL@onin} 读外层末尾之前、内层正文结束检查末尾时也删去。
+%
+% 入口有源码空格、正文先排出颜色命令再排出 |~| 等内容时
+% （|符 \uline{\sout{\color{red}~中}} 后|），直接输入的入口空格先遇到的是透明命令，
+% 后面的内容仍算正文开头的内容，所以这种情况下也做末节点检查。
+% \cs{g_@@_ulem_onin_transparent_bool} 记录入口之后是否排出过透明命令，跟随入口
+% 的生命周期：\cs{@@_ulem_entry_arm:} 清零，外层正文、中间层与前一个兄弟装饰里的
+% 颜色命令都会设置它，|符 \uline{\color{red}\sout{~中}} 后| 与
+% |符 \uline{\sout{\color{red}}\sout{~中}} 后| 因此同样与直接输入一致。
 %
 % 内层盒子里 \cs{xeCJK_space_glue:} 按当前字体排出词间空格，而不用进入命令时
 % 缓存的 \cs{l_@@_space_skip}：\pkg{ulem} 片段盒子之外的这份缓存用于外层 glue
@@ -16250,6 +16265,7 @@ Copyright and Licence
                 \exp_args:NV \xeCJK_if_last_node:nT \l_@@_ulem_nest_node_tl
                   { \@@_ulem_nest_node_remove: }
               }
+            \@@_ulem_transparent_node_remove:
           }
       }
   }
