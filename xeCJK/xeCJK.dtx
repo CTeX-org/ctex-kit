@@ -4550,6 +4550,8 @@ Copyright and Licence
 %   \@@_boundary_inline_stream_end:n,
 %   \@@_boundary_hmode_transparent_begin:,
 %   \@@_boundary_hmode_transparent_end:,
+%   \@@_boundary_transparent_begin_hook:,
+%   \@@_boundary_transparent_end_hook:,
 %   \@@_boundary_post_transparent:,
 %   \@@_boundary_post_transparent_relocate:,
 %   \@@_boundary_post_transparent_relocate_glue:,
@@ -5415,7 +5417,11 @@ Copyright and Licence
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
   }
-
+%    \end{macrocode}
+% \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
+% 在水平模式的 transparent 命令前后调用，默认什么都不做；\pkg{xeCJKfntef} 用它们在
+% 嵌套装饰里区分颜色等透明命令排出的 whatsit（\#1091）。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_begin:
   {
     \int_compare:nNnTF
@@ -5424,6 +5430,7 @@ Copyright and Licence
       {
         \mode_if_horizontal:TF
           {
+            \@@_boundary_transparent_begin_hook:
             \seq_gpush:Nn \g_@@_boundary_active_seq { true }
             \@@_boundary_capture_begin:
             \tl_gset:cn
@@ -5446,8 +5453,11 @@ Copyright and Licence
       {
         \@@_boundary_replay_before:
         \int_gdecr:N \g_@@_boundary_capture_depth_int
+        \@@_boundary_transparent_end_hook:
       }
   }
+\cs_new_eq:NN \@@_boundary_transparent_begin_hook: \prg_do_nothing:
+\cs_new_eq:NN \@@_boundary_transparent_end_hook: \prg_do_nothing:
 
 \cs_new_protected:Npn \@@_boundary_post_transparent:
   {
@@ -13924,6 +13934,7 @@ Copyright and Licence
     \bool_if:NF \l_@@_ulem_hook_used_bool
       {
         \bool_set_true:N \l_@@_ulem_hook_used_bool
+        \bool_set_eq:NN \l_@@_ulem_xecglue_bool \l_@@_xecglue_bool
         \@@_ulem_hook:
       }
     \xeCJK_ulem_begin_node:
@@ -13995,6 +14006,7 @@ Copyright and Licence
   }
 \skip_new:N \l_@@_space_skip
 \bool_new:N \l_@@_ulem_hook_used_bool
+\bool_new:N \l_@@_ulem_xecglue_bool
 %    \end{macrocode}
 % \end{macro}
 %
@@ -15410,19 +15422,24 @@ Copyright and Licence
   {
     \@@_boundary_math_begin:n {#1}
     \@@_ulem_onin_lead_get:n {#1}
+    \xeCJK_if_ulem_patch:TF
+      { \bool_set_true:N \l_@@_ulem_onin_enter_bool }
+      {
+        \bool_set_eq:NN \l_@@_ulem_onin_enter_bool
+          \l_@@_ulem_onin_bool
+      }
     \@@_boundary_if_ulem_math_reorder:nTF {#1}
       {
         \@@_boundary_ulem_math_tail_space:nnn {#1}
-          { \@@_ulem_onin_lead_put: } { }
+          {
+            \bool_set_eq:NN \l_@@_ulem_onin_bool
+              \l_@@_ulem_onin_enter_bool
+            \@@_ulem_onin_lead_put:
+          }
+          { }
         \exp_args:NV \@@_orig_ulem_onin:n \l_@@_ulem_body_tl
       }
       {
-        \xeCJK_if_ulem_patch:TF
-          { \bool_set_true:N \l_@@_ulem_onin_enter_bool }
-          {
-            \bool_set_eq:NN \l_@@_ulem_onin_enter_bool
-              \l_@@_ulem_onin_bool
-          }
         \@@_orig_ulem_onin:n
           {
             \bool_set_eq:NN \l_@@_ulem_onin_bool
@@ -15441,48 +15458,86 @@ Copyright and Licence
       {
         \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
           {
-            \tl_if_eq:cnF { g_@@_boundary_capture_#1_space_flag_tl } { true }
+            \xeCJK_if_last_node:nTF { ulem-transparent }
+              { \tex_unkern:D \tex_unkern:D }
+              { \@@_ulem_onin_entry_check_space:n {#1} }
+          }
+      }
+  }
+\cs_gset_protected:Npn \@@_boundary_transparent_begin_hook:
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      {
+        \@@_ulem_if_entry_armed:T
+          {
+            \xeCJK_if_last_node:nF { ulem-transparent }
               {
-                \int_case:nnT { \tex_lastnodetype:D }
-                  {
-                    {  2 } { }
-                    {  3 } { }
-                    {  9 } { }
-                    { 11 } { }
-                    { 12 } { }
-                    { 13 } { }
-                  }
-                  { \@@_ulem_entry_resolve:n {#1} }
+                \exp_args:NV \@@_ulem_onin_entry_check_space:n
+                  \g_@@_ulem_entry_depth_int
               }
           }
       }
+  }
+\cs_gset_protected:Npn \@@_boundary_transparent_end_hook:
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      {
+        \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
+          {
+            \@@_ulem_if_entry_armed:T
+              {
+                \exp_args:Nc \@@_make_node:N
+                  { c_@@_ulem-transparent_node_dim }
+                \bool_gset_true:N \g_@@_ulem_onin_transparent_bool
+              }
+          }
+      }
+  }
+\xeCJK_declare_node:n { ulem-transparent }
+\bool_new:N \g_@@_ulem_onin_transparent_bool
+\cs_new_protected:Npn \@@_ulem_onin_entry_check_space:n #1
+  {
+    \tl_if_eq:cnTF { g_@@_boundary_capture_#1_space_flag_tl } { true }
+      {
+        \bool_if:NT \g_@@_ulem_onin_transparent_bool
+          { \@@_ulem_onin_entry_check:n {#1} }
+      }
+      { \@@_ulem_onin_entry_check:n {#1} }
+  }
+\cs_new_protected:Npn \@@_ulem_onin_entry_check:n #1
+  {
+    \int_case:nnT { \tex_lastnodetype:D }
+      {
+        {  2 } { }
+        {  3 } { }
+        {  9 } { }
+        { 11 } { }
+        { 12 } { }
+        { 13 } { }
+      }
+      { \@@_ulem_entry_resolve:n {#1} }
   }
 \tl_new:N \l_@@_ulem_onin_lead_tl
 \cs_new_protected:Npn \@@_ulem_onin_lead_get:n #1
   {
     \tl_clear:N \l_@@_ulem_onin_lead_tl
-    \xeCJK_if_last_node:nTF { CJK }
-      { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
+    \clist_map_inline:nn { CJK , CJK-space , default }
       {
-        \xeCJK_if_last_node:nT { default }
-          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
+        \xeCJK_if_last_node:nT {##1}
+          {
+            \tl_set:Nn \l_@@_ulem_onin_lead_tl {##1}
+            \clist_map_break:
+          }
       }
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
+    \bool_gset_false:N \g_@@_ulem_onin_transparent_bool
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
       {
         \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
-        \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
-          {
-            \tl_if_eq:cnF
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_ulem_entry_depth_int _xecglue_flag_tl
-              }
-              { true }
-              { \bool_gset_false:N \g_@@_glue_check_pending_bool }
-          }
+        \bool_if:NF \l_@@_ulem_xecglue_bool
+          { \bool_gset_false:N \g_@@_glue_check_pending_bool }
       }
   }
 %    \end{macrocode}
@@ -15735,6 +15790,8 @@ Copyright and Licence
 %   \@@_ulem_nest_node_remove:,
 %   \@@_ulem_onin_tail_glue:,
 %   \@@_ulem_onin_tail_check:,
+%   \@@_ulem_onin_entry_check_space:n,
+%   \@@_ulem_onin_entry_check:n,
 %   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
 %   规则等内容时，命令后的源码空格按普通空格保留，右侧也不再补边界间距，
@@ -15745,7 +15802,9 @@ Copyright and Licence
 % \changes{v3.10.7}{2026/09/28}{线型命令的正文以全角左标点结尾、标点不在正文内的
 %   分组里时，命令后的空格与直接输入一样在汉字前删去，西文前也不再多补间距；
 %   嵌套线型命令的内容与它前后相邻的汉字或西文之间，与直接输入一样补上间距，
-%   内层正文开头的空格、不断行空格等内容也按直接输入处理（\#1091）。}
+%   内层正文开头的空格、不断行空格等内容也按直接输入处理；打开 \opt{CJKspace}
+%   时，线型命令里 \tn{mbox} 等盒子和嵌套装饰中的词间空格按当前字体排出
+%   （\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15800,11 +15859,12 @@ Copyright and Licence
 % |\uline{\sout{\xout{x}中}} 后| 碰巧与直接输入一致（\#1091）。
 %
 % 左侧同理。内层命令前面若是外层正文的字符，外层列表末尾有这个字符的
-% |CJK| 或 |default| marker，但 \tn{UL@onin} 把内层正文排进新盒子，盒子里看不到它，
-% 内层第一个字符前就不补 \tn{CJKecglue}。因此 \tn{UL@onin} 进入前先读当前列表
-% 末尾的 marker，在内层正文开头重放一次，|\uline{x\sout{中}}| 的 x 与“中”之间
-% 于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}| 同样如此，
-% 内层正文以公式加空格结尾、走重排分支时也在开头重放。正文第一个字符的类别
+% |CJK|、|CJK-space| 或 |default| marker（汉字后接源码空格时是 |CJK-space|，
+% 例如 |\uline{中 \sout{中}}|），但 \tn{UL@onin} 把内层正文排进新盒子，盒子里
+% 看不到它，内层第一个字符前就不补 \tn{CJKecglue}。因此 \tn{UL@onin} 进入前先读
+% 当前列表末尾的 marker，在内层正文开头重放一次，|\uline{x\sout{中}}| 的 x 与
+% “中”之间于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}|
+% 同样如此，内层正文以公式加空格结尾、走重排分支时也在开头重放。正文第一个字符的类别
 % 转换会取走这个 marker；正文为空，或第一个字符之前先排出了规则、盒子、glue、
 % kern 等节点时，这个零宽 marker 留在内层盒子里。
 %
@@ -15812,21 +15872,37 @@ Copyright and Licence
 % \opt{xCJKecglue} 为假时按普通空格保留，为真时换成 \tn{CJKecglue}。重放的 marker
 % 若开启源码空格检查（\cs{g_@@_glue_check_pending_bool}），后面字符的类别转换会把
 % 这枚空格按 CJK 规则删去，与前一种情形不符；若不重放，又与后一种情形不符。因此
-% 重放 marker 后，按入口处缓存的 \opt{xCJKecglue} 状态决定是否保留这次检查：
-% \pkg{ulem} 正文里 \opt{xCJKecglue} 固定为假，所以要读入口 capture 层的
-% |xecglue_flag| 字段。这样不论空格写成空格、|\ |、\tn{space} 还是多层分组里的
-% 空格，都走与直接输入相同的检查路径。
+% 重放 marker 后，按进入装饰命令时的 \opt{xCJKecglue} 状态决定是否保留这次检查：
+% \pkg{ulem} 正文里 \opt{xCJKecglue} 固定为假，所以 \cs{xeCJK_hook_for_ulem:} 在
+% 改写选项之前把原值存入 \cs{l_@@_ulem_xecglue_bool}。这个值不依赖 capture 层，
+% \tn{sbox} 等暂停 capture 的环境里同样可用。这样不论空格写成空格、|\ |、
+% \tn{space} 还是多层分组里的空格，都走与直接输入相同的检查路径。
+% 例外是内层命令前的字符在分组里（|\uline{{中}\sout{ 中}}|）：直接输入
+% |{中}{ 中}| 时分组结束开启检查，空格被删去；这里无法区分检查是分组结束
+% 还是外层命令开启的，仍按普通空格保留，与 v3.10.6 相同。
 %
 % 左边界同理。嵌套装饰的内层正文由 \tn{UL@onin} 排进盒子，不经过 \tn{UL@stop} 与
 % \tn{UL@reskip}，正文开头的 |~|、\tn{hspace}、\tn{kern}、规则等在第一个字符之前
 % 排出时，外层的入口仍处于 |armed|，第一个字符出现时就在这些内容之后补左边界，
 % 比直接输入 |x{~中}x| 多出一枚间距。以前右侧恰好少一枚间距，两处抵消；右侧补好
-% 以后这一处就显露出来（\#1091）。因此 \cs{@@_boundary_emit_left_hook:n} 在嵌套链上、
-% 入口仍为 |armed| 且入口没有源码空格时，看内层盒子的末节点：是 glue、kern、penalty、
-% 规则或 special，就按“正文先排出可见内容”把入口改为 |resolved|，不再补左边界。
-% 重放的外层 marker 使第一个字符按字符间的类别转换处理，不经过这里。
-% 入口有源码空格时不这样做，那枚空格已由
+% 以后这一处就显露出来（\#1091）。因此 \cs{@@_boundary_emit_left_hook:n} 在嵌套链上
+% （\cs{l_@@_ulem_onin_bool} 为真，重排分支同样设置）、入口仍为 |armed| 且入口没有
+% 源码空格时，由 \cs{@@_ulem_onin_entry_check:n} 看内层盒子的末节点：是 glue、kern、
+% penalty、规则、竖直盒子（如 |\vbox{}|）或 whatsit，就按“正文先排出可见内容”把入口
+% 改为 |resolved|，不再补左边界。重放的外层 marker 使第一个字符按字符间的类别转换
+% 处理，不经过这里。入口有源码空格时不这样做，那枚空格已由
 % \cs{@@_ulem_entry_resolve:n} 以外的路径处理，与 |x {~中}x| 一致。
+%
+% whatsit 中只有 transparent 命令（颜色的 \tn{set@color} 与 \tn{reset@color} 等）
+% 排出的不算内容：直接输入时它们对边界透明，|x{\textcolor{red}{中}}x| 两侧都有
+% 间距，而 \tn{special}、\tn{label} 排出的 whatsit 不透明。核心在 transparent
+% 命令前后调用 \cs{@@_boundary_transparent_begin_hook:} 与
+% \cs{@@_boundary_transparent_end_hook:}。前者先检查此前排出的内容，与第一个字符
+% 出现时的检查相同，使 |\special{x}\textcolor{red}{中}| 仍按内容处理；后者在命令
+% 排出 whatsit 之后放一个 |ulem-transparent| marker，第一个字符出现时钩子看到这个
+% marker 就删去它，不改动入口。入口有源码空格、正文先排出颜色命令再排出 |~| 等
+% 内容时（|符 \uline{\sout{\color{red}~中}} 后|），直接输入的入口空格先遇到的是
+% 透明命令，后面的内容仍算正文开头的内容，所以这种情况下也做末节点检查。
 %
 % 内层盒子里 \cs{xeCJK_space_glue:} 按当前字体排出词间空格，而不用进入命令时
 % 缓存的 \cs{l_@@_space_skip}：\pkg{ulem} 片段盒子之外的这份缓存用于外层 glue
