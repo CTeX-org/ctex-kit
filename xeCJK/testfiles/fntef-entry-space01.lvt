@@ -8,7 +8,7 @@
 \setCJKmainfont{FandolSong-Regular.otf}
 \pagestyle{empty}
 
-% #1091：线型装饰命令（借 ulem 扫描的 \CJKunderline 等）的两处边界缺陷。
+% #1091：线型装饰命令（借 ulem 扫描的 \CJKunderline 等）的以下几类边界缺陷。
 %
 % 一、ulem 结束正文时，会在一个随即丢弃的片段盒子里排出定界符 |*|。命令边界
 %     capture 曾把它当成正文的首个或末个西文字符：
@@ -22,27 +22,28 @@
 %     命令前的源码空格被放到这些内容之后，甚至装饰之后，填空线因此不居中。
 % 三、正文在最后一个字符之后还有 glue、盒子、规则等内容时，命令后的源码空格
 %     仍按这个字符处理，例如 |姓名 \CJKunderline{张三\hspace*{4em}} 学号| 中
-%     的空格被删去；直接输入时这枚空格前面是 glue，会原样保留。正文以全角右
-%     标点结尾时，命令后的空格和西文前的间距都应与直接输入一样不出现。
+%     的空格被删去；直接输入时这枚空格前面是 glue，会原样保留。正文直接以全角
+%     右标点结尾时，命令后的空格和西文前的间距都应与直接输入一样不出现；标点
+%     在正文内层的分组里时，分组之后的空格与直接输入一样保留。
 % 四、正文以语法空格开头时，这段空格先被画成装饰线，入口空格排在它之后，
 %     装饰线在两者之间断开。
 %
-% 判据分两类：
-%   - TEST 1、2、3 用节点列表固定 glue 与装饰的相对位置：命令前的空格必须
-%     出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）之前。
-%     只比较总宽度分辨不出空格在装饰前还是装饰后。
-%   - TEST 4 到 TEST 7、TEST 9、TEST 10 与直接输入比较宽度，并打印
+% 判据分三类：
+%   - 节点列表（TEST 1、2、3、8、11）：固定 glue 与装饰的相对位置。命令前的
+%     空格必须出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）
+%     之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
+%     的盒子保留 \raise 位移。只比较总宽度分辨不出这些位置。
+%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10），打印
 %     PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
-%   - TEST 8 用节点列表固定正文开头语法空格的位置：入口空格在它画成的
-%     \cleaders 之前。
-%   - TEST 11 用节点列表确认嵌套装饰之后的 \raisebox 保留位移。
-%   - TEST 12 把装饰放在段末，比较行内容的自然宽度与同一内容的 \hbox，
-%     确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
+%   - 段末自然宽度（TEST 12）：把装饰放在段末，比较行内容的自然宽度与同一
+%     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
 % 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。
 % 每个用例之后都检查 capture 栈、暂停深度和 #1091 的入口状态已经归零。
 
 \newsavebox{\FillBox}
 \sbox{\FillBox}{\rule{8pt}{5pt}}
+\newsavebox{\NestSameBox}
+\sbox{\NestSameBox}{\CJKsout{中}}
 \newbox\EntryCandidate
 \newbox\EntryOracle
 
@@ -189,6 +190,8 @@
   \EntryNodes{lead-latin}{符 \CJKunderline{ x} 后}
   \EntryNodes{only-space}{符 \CJKunderline{ } 后}
   \EntryNodes{lead-uline}{符 \uline{ \hspace*{2em}} 后}
+  \EntryNodes{lead-fullleft}{符 \CJKunderline{ 《中》} 后}
+  \EntryNodes{lead-fullleft-latin}{x \CJKunderline{ 《中》} z}
 }
 
 % 正文最后一个字符之后还有别的内容时，命令后的空格与直接输入一样保留，后面的
@@ -215,6 +218,7 @@
   \EntryWidth{nested-fill}{符 \CJKunderline{\CJKsout{中}\hspace*{1em}} 后}{符 中\hspace*{1em} 后}
   \EntryWidth{nested-box}{符 \CJKunderline{\CJKsout{中}\hbox to 5pt{}} 后}{符 中\hbox to 5pt{} 后}
   \EntryWidth{nested-then-hbox}{符 \CJKunderline{\CJKsout{中}\hbox{中}} 后}{符 中\hbox{中} 后}
+  \EntryWidth{nested-then-copy}{符 \CJKunderline{\CJKsout{中}\usebox{\NestSameBox}} 后}{符 中\usebox{\NestSameBox}{} 后}
   \EntryWidth{nested-fillbox}{符 \CJKunderline{\CJKsout{中}\usebox{\FillBox}} 后}{符 中\usebox{\FillBox}{} 后}
   \EntryWidth{space-then-fill}{符 \CJKunderline{中 \hspace*{1em}} 后}{符 中 \hspace*{1em} 后}
   \EntryWidth{box-then-space}{符 \CJKunderline{中\usebox{\FillBox} } 后}{符 {中\usebox{\FillBox} } 后}
@@ -241,13 +245,22 @@
   \EntryWidth{quote-latin}{符 \CJKunderline{中”}x}{符 中”x}
   \EntryWidth{uline-period-latin}{符 \uline{中。}x}{符 中。x}
   \EntryWidth{middot-latin}{符 \CJKunderline{中·}x}{符 中·x}
+  \EntryWidth{group-period-space-latin}{符 \CJKunderline{{中。}} x}{符 {中。} x}
+  \EntryWidth{color-period-space-latin}{符 \CJKunderline{\textcolor{red}{中。}} x}{符 \textcolor{red}{中。} x}
+  \EntryWidth{color-switch-period-space-latin}{符 \CJKunderline{{\color{red}中。}} x}{符 {\color{red}中。} x}
+  \EntryWidth{group-period-space-cjk}{符 \CJKunderline{{中。}} 后}{符 {中。} 后}
+  \EntryWidth{group-period-latin}{符 \CJKunderline{{中。}}x}{符 {中。}x}
+  \EntryWidth{color-period-latin}{符 \CJKunderline{\textcolor{red}{中。}}x}{符 \textcolor{red}{中。}x}
+  \EntryWidth{group-period-cjk}{符 \CJKunderline{{中。}}后}{符 {中。}后}
   \EntryWidth{period-fill}{符 \CJKunderline{中。\hspace*{1em}} 后}{符 中。\hspace*{1em} 后}
 }
 
 % 嵌套线型命令之后若又排出别的盒子，这个盒子不能被误认成嵌套装饰，也不能在
-% 检查时丢掉 \raise 的位移。
+% 检查时丢掉 \raise 的位移。\raise\copy 不新建盒子，最容易暴露这两点；命令
+% 后的空格应与直接输入一样保留。
 \TEST{box after a nested decoration}{
-  \EntryNodes{nested-raise}{符 \CJKunderline{\CJKsout{中}\raisebox{1pt}{x}} 后}
+  \EntryNodes{nested-raisebox}{符 \CJKunderline{\CJKsout{中}\raisebox{1pt}{x}} 后}
+  \EntryNodes{nested-raise-copy}{符 \CJKunderline{\CJKsout{中}\raise2pt\copy\FillBox} 后}
 }
 
 % 装饰位于段末时，段末删除行尾 glue 不能删掉装饰末尾的像素补偿 glue。

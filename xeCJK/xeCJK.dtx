@@ -1836,7 +1836,8 @@ Copyright and Licence
 % \begin{Example}[frame=single,numbers=left,gobble=4]
 %   今天是 \CJKunderline{\hspace*{3em}} 年 \CJKunderline{\hspace*{2em}} 月\\
 %   今天是\CJKunderline{\hspace*{3em}}年\CJKunderline{\hspace*{2em}}月\\
-%   第 \CJKunderline{\hspace*{1em}\rule{.8em}{.5em}\hspace*{1em}} 题
+%   第 \CJKunderline{\hspace*{1em}\rule{.8em}{.5em}\hspace*{1em}} 题\\
+%   第 \CJKunderline{ \hspace*{2em}} 题
 % \end{Example}
 %
 % 已经填好内容的填空线常常以文字开头、以空白结尾。这时命令前的空格按汉字之间的
@@ -1857,9 +1858,8 @@ Copyright and Licence
 %     这样。例如 |书名 \CJKunderline{红楼梦} 作者| 中的两个空格都不会出现。
 %   \item 正文开头或结尾只有颜色切换等不产生宽度的命令时，它们不算空白或盒子，
 %     命令两侧的空格仍由相邻的字符决定。
-%   \item 花括号内部开头的空格属于正文，会画成线的一部分，例如
-%     |\CJKunderline{ \hspace*{2em}}| 开头的空格。命令前的空格仍排在整条线的
-%     前面，线不会从中间断开。
+%   \item 花括号内部开头的空格属于正文，会画成线的一部分，例如上面第一个示例的
+%     第~4 行。命令前的空格仍排在整条线的前面，线不会从中间断开。
 %   \item 符号型命令 \tn{CJKunderdot} 和 \tn{CJKunderanysymbol} 只给字符加符号，
 %     不画连续的线，不适合用来排填空线。
 % \end{itemize}
@@ -14023,7 +14023,6 @@ Copyright and Licence
     \@@_boundary_inline_stream_end:n { auto }
     \int_gzero:N \g_@@_ulem_entry_depth_int
     \bool_gset_false:N \g_@@_ulem_body_end_bool
-    \tl_gclear:N \g_@@_ulem_nest_box_tl
     \bool_set_false:N \l_@@_ulem_stream_started_bool
     \skip_gzero:N \g_@@_ulem_pending_shrink_skip
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
@@ -14731,6 +14730,7 @@ Copyright and Licence
       {
         \@@_boundary_capture_class:n { CJK }
         \UL@stop
+        \@@_ulem_lead_draw:
         \@@_ulem_skip_punct_begin:
         \@@_punct_glue:NN \c_@@_left_tl #1
         \UL@start
@@ -14905,7 +14905,7 @@ Copyright and Licence
         \@@_punct_glue:NN \c_@@_right_tl \g_@@_last_punct_tl
         \@@_ulem_skip_punct_end:
         \UL@start
-        \@@_ulem_tail_set:n { punct }
+        \@@_ulem_tail_punct:
         \tex_ignorespaces:D
       }
       { \@@_ulem_FullRight_and_Boundary: }
@@ -15214,7 +15214,6 @@ Copyright and Licence
         \skip_gzero:N \g_@@_ulem_pending_shrink_skip
         \skip_gzero:N \g_@@_ulem_lead_skip
         \bool_gset_false:N \g_@@_ulem_body_end_bool
-        \tl_gclear:N \g_@@_ulem_nest_box_tl
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
         \@@_ulem_entry_arm:
       }
@@ -15462,7 +15461,6 @@ Copyright and Licence
         \c_group_end_token \c_group_end_token
         \@@_ulem_entry_box: \@@_ulem_lead_draw: \UL@putbox
       }
-    \tl_gclear:N \g_@@_ulem_nest_box_tl
     \int_compare:nNnF { \UL@pe } = \c_zero_int
       { \LA@penalty \UL@pe }
     \UL@unegroup
@@ -15551,15 +15549,15 @@ Copyright and Licence
 %   \@@_ulem_tail_punct_end:,
 %   \@@_ulem_tail_check:,
 %   \@@_ulem_tail_check_kern:,
-%   \@@_ulem_tail_check_box:,
 %   \@@_ulem_body_end:,
 %   \@@_ulem_nest_mark:,
-%   \@@_ulem_box_signature:N}
+%   \@@_ulem_tail_punct:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
 %   规则等内容时，命令后的源码空格按普通空格保留，右侧也不再补边界间距，
-%   例如 |\CJKunderline{张三\hspace*{4em}} 学号|；正文以全角右标点结尾时，
+%   例如 |\CJKunderline{张三\hspace*{4em}} 学号|；正文直接以全角右标点结尾时，
 %   命令后的空格和随后西文前的间距与直接输入一样不再出现，例如
-%   |\CJKunderline{中。}x|（\#1091）。}
+%   |\CJKunderline{中。}x|，标点在正文内层分组里时则与直接输入一样保留分组
+%   之后的空格（嵌套线型命令内层的标点尚未处理，\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15585,10 +15583,18 @@ Copyright and Licence
 %
 % 嵌套的线型命令是例外。\tn{UL@onin} 把内层正文整段排进一个盒子，外层片段盒子
 % 的末节点因此是这个盒子，但它的内容是文字。\cs{@@_ulem_nest_mark:} 在内层命令
-% 结束后记下这个盒子的宽、高、深，检查到末节点是尺寸相同的盒子时仍按字符处理。
-% 这份记录在 \tn{UL@stop} 关闭片段盒子时清除，片段盒子里之后又新建盒子时
-% （\tn{UL@hrest} 在每个新盒子开头执行）也清除，所以只有内层命令排出的那个
-% 盒子仍在末尾时才会匹配。
+% 排出的盒子后面补一个 |ulem-nest| marker，末节点检查把它当作 marker，按字符
+% 处理；之后若又排出别的盒子（包括 \tn{usebox}、\tn{raise}\tn{copy} 这类不新建
+% 盒子的写法），末节点就不再是这个 marker，按 |content| 处理。检查只读末节点，
+% 不取下盒子：\tn{lastbox} 会把盒子的 \tn{raise} 位移清零。这个 marker 只在
+% 外层片段盒子这一层补（\cs{xeCJK_if_ulem_patch:TF} 为真时），\tn{mbox} 等
+% 盒子内部不补；正文末尾若正是它，\cs{@@_ulem_body_end:} 检查后把它删去，
+% 右边界仍像以前一样取 capture 观察到的末类别。
+%
+% 内层命令的正文不经 \pkg{ulem} 扫描，其中的全角右标点也不走下文的
+% \cs{@@_ulem_FullRight_and_Boundary:}。因此正文以嵌套线型命令结尾、内层又以全角
+% 右标点结尾时（|\CJKunderline{\CJKsout{中。}} x|），命令后的空格与西文前的
+% 间距仍与直接输入 |中。 x| 不同；修复前后相同，尚未处理。
 %
 % 全角右标点结尾是另一种情况。直接输入时，标点与后面的边界之间由
 % \cs{xeCJK_FullRight_and_Boundary:} 排出标点的补偿 glue，再用 \tn{ignorespaces}
@@ -15602,13 +15608,19 @@ Copyright and Licence
 % 吃掉命令后的空格。正文在标点之后若还有字符或其他内容，|tail| 会被随后的
 % 判断改写，不受影响。
 %
+% 直接输入时，\tn{ignorespaces} 只能吃掉与标点处于同一分组的空格：
+% |{中。} x| 在 |}| 之后的空格会保留。所以 \cs{@@_ulem_tail_punct:} 同时记下
+% 标点所在的分组层级 \cs{g_@@_ulem_punct_level_int}；\cs{@@_ulem_tail_check:}
+% 发现当前层级比它浅，说明标点所在的分组（如 \tn{textcolor}、花括号）已经
+% 关闭，就把 |tail| 改为 |content|：命令后的空格保留，西文前也不补间距，与
+% 直接输入 |{中。} x| 一致。
+%
 % 正文结束以后，\pkg{ulem} 还会补一枚语法空格并排出结束符，这些都不是正文。
 % \cs{@@_ulem_body_end:} 检查完正文末尾后设置 \cs{g_@@_ulem_body_end_bool}，
 % 此后不再修改 |tail|。
 %    \begin{macrocode}
 \bool_new:N \g_@@_ulem_body_end_bool
-\tl_new:N \g_@@_ulem_nest_box_tl
-\box_new:N \l_@@_ulem_tail_box
+\int_new:N \g_@@_ulem_punct_level_int
 \cs_new_protected:Npn \@@_ulem_tail_content:
   { \@@_ulem_tail_set:n { content } }
 \cs_new_protected:Npn \@@_ulem_tail_set:n #1
@@ -15625,6 +15637,11 @@ Copyright and Licence
               {#1}
           }
       }
+  }
+\cs_new_protected:Npn \@@_ulem_tail_punct:
+  {
+    \@@_ulem_tail_set:n { punct }
+    \int_gset:Nn \g_@@_ulem_punct_level_int { \tex_currentgrouplevel:D }
   }
 \cs_new_protected:Npn \@@_ulem_tail_punct_end:
   {
@@ -15656,6 +15673,17 @@ Copyright and Licence
       {
         \bool_if:NF \g_@@_ulem_body_end_bool
           {
+            \tl_if_eq:cnT
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _tail_tl
+              }
+              { punct }
+              {
+                \int_compare:nNnT { \tex_currentgrouplevel:D }
+                  < { \g_@@_ulem_punct_level_int }
+                  { \@@_ulem_tail_content: }
+              }
             \int_case:nnF { \tex_lastnodetype:D }
               {
                 { -1 } { }
@@ -15664,7 +15692,6 @@ Copyright and Licence
                 { 10 } { }
                 { 11 } { }
                 { 12 } { \@@_ulem_tail_check_kern: }
-                {  1 } { \@@_ulem_tail_check_box: }
               }
               { \@@_ulem_tail_content: }
           }
@@ -15685,43 +15712,26 @@ Copyright and Licence
           }
       }
   }
-\cs_new_protected:Npn \@@_ulem_tail_check_box:
-  {
-    \tl_if_empty:NTF \g_@@_ulem_nest_box_tl
-      { \@@_ulem_tail_content: }
-      {
-        \box_set_to_last:N \l_@@_ulem_tail_box
-        \str_if_eq:eeF { \g_@@_ulem_nest_box_tl }
-          { \@@_ulem_box_signature:N \l_@@_ulem_tail_box }
-          { \@@_ulem_tail_content: }
-        \box_use_drop:N \l_@@_ulem_tail_box
-      }
-  }
 \cs_new_protected:Npn \@@_ulem_body_end:
   {
     \@@_ulem_tail_check:
+    \xeCJK_if_last_node:nT { ulem-nest }
+      { \tex_unkern:D \tex_unkern:D }
     \bool_gset_true:N \g_@@_ulem_body_end_bool
   }
 \cs_new_protected:Npn \@@_ulem_nest_mark:
   {
     \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
       {
-        \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
+        \xeCJK_if_ulem_patch:TF
           {
-            \box_set_to_last:N \l_@@_ulem_tail_box
-            \tl_gset:Ne \g_@@_ulem_nest_box_tl
-              { \@@_ulem_box_signature:N \l_@@_ulem_tail_box }
-            \box_use_drop:N \l_@@_ulem_tail_box
+            \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
+              { \exp_args:Nc \@@_make_node:N { c_@@_ulem-nest_node_dim } }
           }
+          { }
       }
   }
-\cs_new:Npn \@@_ulem_box_signature:N #1
-  {
-    \dim_use:N \box_wd:N #1 ,
-    \dim_use:N \box_ht:N #1 ,
-    \dim_use:N \box_dp:N #1
-  }
-\tl_put_right:Nn \UL@hrest { \tl_gclear:N \g_@@_ulem_nest_box_tl }
+\xeCJK_declare_node:n { ulem-nest }
 %    \end{macrocode}
 % \end{macro}
 %
