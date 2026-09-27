@@ -2,7 +2,7 @@
 module = "xpinyin"
 
 -- 发版事实源. 与 xpinyin.dtx 里紧跟 `{\ExplFileDate}` 之后那个参数必须一致
--- (即 `{\ExplFileDate}{3.1}` 中的 `3.1`; \ExplFileDate 本身占的是日期参数的位置,
+-- (即 `{\ExplFileDate}{3.2}` 中的 `3.2`; \ExplFileDate 本身占的是日期参数的位置,
 --  \ProvidesExplPackage 的参数顺序是 文件名／日期／版本／说明):
 --   * 本地发版流程: 改这里 -> `l3build tag` 回写 .dtx -> commit;
 --   * PR 校验 check-tag.yml 跑 `l3build tag` 后要求 git diff 为零;
@@ -11,7 +11,7 @@ module = "xpinyin"
 -- 见 #1041); 它同时覆盖 `{\ExplFileDate}{<ver>}` 与
 -- `[<日期> v<ver> ...]` 两种写法 — xpinyin.dtx 两处都有
 -- (`\ProvidesExplPackage` 与 `xpinyin-database.def` 的 `\ProvidesFile`).
-version = "3.1"
+version = "3.2"
 
 packtdszip = true
 
