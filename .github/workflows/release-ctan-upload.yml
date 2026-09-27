@@ -452,7 +452,18 @@ jobs:
           # input 留空时 GH Actions 会注入空串 "", build-config.lua 的
           # ctex_kit_env_or_nil() 把空串当成 nil, 不会写入空 note 字段.
           CTAN_NOTE: ${{ inputs.note }}
+          # 本 job 故意 checkout 默认分支 (见上方 checkout 注释), 所以 build.lua 里
+          # uploadconfig.version 读到的是 master 当前 .dtx 的版本, 不一定是本次要投递
+          # 的 tag 的版本: 打 tag 与手动投递之间 master 若已升到下一版, CTAN 表单会
+          # 填上新版本号而 zip 仍是旧 tag 的内容. 所以显式把从 tag 解析出的版本作为
+          # l3build upload 的位置参数传入 (l3build-upload.lua 用 tagnames[1] 覆盖
+          # uploadconfig.version), 使表单版本与下载的 zip 一致.
+          TAG_VER: ${{ needs.prepare-announcement.outputs.ver }}
         run: |
+          if [ -z "$TAG_VER" ]; then
+            echo "::error::未能从 tag 解析出版本号, 拒绝投递 (避免退回到 master 的版本)." >&2
+            exit 1
+          fi
           # 不分支: --file 总是传 announcement.md (上方 step 保证文件存在).
           # announce=false 时文件为空 → l3build file_contents 读到空串 →
           # trim 后 == "" → 走 L319 "Empty announcement: No ctan announcement
@@ -467,7 +478,7 @@ jobs:
             ANSWER=y
             echo "::warning::LIVE mode: 正在投递到 CTAN."
           fi
-          echo "l3build upload ${ARGS[*]}"
+          echo "l3build upload ${ARGS[*]} -- ${TAG_VER}"
           # l3build 在 validate 成功后总会问 "Do you want to upload? [y/n]" —
           # 即便带 --dry-run. 这是 l3build (TL 2026) 的设计 bug:
           # l3build-upload.lua 顶层 `if options["dry-run"] then ctanupload = false end`
@@ -476,7 +487,7 @@ jobs:
           # "ask" — 没区分 nil 与 false. 结果 --dry-run 仍会等 stdin.
           # 我们用 stdin 喂答案: dry-run 喂 n (走到 validate 后停止);
           # live 模式喂 y (validate + 真上传).
-          printf '%s\n' "$ANSWER" | l3build upload "${ARGS[@]}"
+          printf '%s\n' "$ANSWER" | l3build upload "${ARGS[@]}" -- "$TAG_VER"
 
       - name: Mark GH Release as latest (live mode only)
         if: inputs.dry_run == false
