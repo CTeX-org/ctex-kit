@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: ae603ca74ec9bcc41ba816483686092fc74697d4
-- watermark-subject: fix(xeCJK): CheckFullRight 下全角右标点后的正文末尾空格不再吃掉命令后的空格 (#1091)
-- updated-at: 2026-09-27T15:19:52Z
-- updated-by: recorder（#1091 本地增量审查 R5 补修的稳定文档同步）
+- watermark-commit: 27613fedbaf27881a0d01930775ea1abce874a90
+- watermark-subject: fix(xeCJK): 按含义删去全角右标点后的空格，并补报嵌套内层标点后的西文类别 (#1091)
+- updated-at: 2026-09-27T15:51:40Z
+- updated-by: recorder（#1091 本地增量审查 R6 补修的稳定文档同步）
