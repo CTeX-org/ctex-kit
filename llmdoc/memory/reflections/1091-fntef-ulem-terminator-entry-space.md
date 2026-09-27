@@ -1,6 +1,6 @@
 ---
 name: 1091-fntef-ulem-terminator-entry-space
-description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue
+description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿
 metadata:
   type: feedback
 ---
@@ -231,6 +231,83 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **仅留在 memory**：半成品补丁的接力过程、expl3 变体误用、`tail` 各置位点的具体位置。后者的
   稳定部分应由 recorder 写进 `llmdoc/architecture/xecjk-architecture.md` 的 stream-ulem 一节，
   与上文 Follow-up 一并处理。
+
+## 本地增量审查 R2 后的补修
+
+### 审查发现
+
+- 对 R1 补修的本地增量盲审（R2）报告阻塞问题 1 项、重要建议 1 项、小问题 5 项。
+  - R2-B1（阻塞）：正文以分组内的全角右标点结尾时（`\CJKunderline{\textcolor{red}{中。}} x`、
+    `\CJKunderline{{中。}} x`、`\CJKunderline{{\color{red}中。}} x`），`\@@_ulem_end:` 末尾的
+    `\ignorespaces` 吃掉命令后的空格；直接输入 `{中。} x` 会保留这枚空格，因为 `\ignorespaces`
+    只作用在标点所在的分组里，`}` 之后的空格不受影响。
+  - R2-I1（重要）：R1 的 `\@@_ulem_tail_check_box:` 用 `\lastbox` 取下末尾盒子，按宽、高、深比对后
+    再放回；`\lastbox` 会把 `\raise` 位移清零（`\CJKsout{中}\raise2pt\copy\FillBox`）。R1 的
+    TEST 11 用 `\raisebox`，它新建盒子，没有走到这条路径；llmdoc 与测试注释写的“`\raise` 位移不丢”
+    不成立。
+  - R2-M1：正文以语法空格加全角左标点开头时，补画的线排到标点左侧空白之后。
+  - R2-M2：正文以嵌套线型命令结尾、内层以全角右标点结尾（`\CJKunderline{\CJKsout{中。}} x`），
+    仍与直接输入 `中。 x` 不同；修复前后相同。
+  - R2-M3：尺寸相同的 `\usebox` 被误认为嵌套装饰（R1 按尺寸识别的直接后果）。
+  - R2-M4：手册 §3.6.2 一条的短抄录造成 Overfull。
+  - R2-M5：lvt 文件头仍写“两处边界缺陷”“判据分两类”，与实际内容不符。
+
+### 修法要点
+
+- B1：新增 `\@@_ulem_tail_punct:`，置 `punct` 时把当前分组层级记入 `\g_@@_ulem_punct_level_int`；
+  `\@@_ulem_tail_check:` 发现当前层级比它浅，说明标点所在的分组已关闭，就把 `tail` 改为 `content`
+  （命令后的空格保留，西文前不补间距）。
+- I1 与 M3：删去按尺寸识别与 `\UL@hrest` 钩子。`\@@_ulem_nest_mark:` 改为在内层命令排出的盒子之后补
+  一个新声明的 `ulem-nest` marker（`\xeCJK_declare_node:n { ulem-nest }`），只在
+  `\xeCJK_if_ulem_patch:TF` 为真、即外层片段盒子这一层补。末节点检查把它当 marker，按字符处理；
+  之后再排出的任何盒子（含 `\usebox`、`\raise\copy`）都按 `content`。检查不再取下盒子。
+  `\@@_ulem_body_end:` 检查后若末尾正是这个 marker 就删去，右边界与以前一样取 capture 观察值，
+  `fntef-nest-linebreak01` 基线因此不变。
+- M1：`\@@_ulem_Boundary_and_FullLeft_glue:N` 的 ulem 分支在 `\UL@stop` 之后调用
+  `\@@_ulem_lead_draw:`，线排在标点左侧空白之前。
+- M2：未修。dtx 的实现说明记下这一限制，CHANGELOG 与 `\changes` 收窄为“正文直接以全角右标点
+  结尾……标点在正文内层分组里时保留分组之后的空格（嵌套线型命令内层的标点尚未处理）”。
+- M4：改写该条手册说明，先用文字说清楚，再把短抄录 `第 \CJKunderline{ \hspace*{2em}} 题` 放在
+  句末。M5：lvt 文件头改为“以下几类边界缺陷”“判据分三类”。
+
+### What Went Wrong（R2）
+
+1. **把没有验证过的性质当作事实写进文档和测试注释。** R1 补修时认为“取下再放回末尾盒子不丢
+   位移”，并写了 TEST 11 作为保护；但 `\raisebox` 会新建盒子，末尾盒子检查从未取下它，这条
+   用例对该性质没有判别力。R2 盲审用“删掉放回步骤”的变异证明了这一点；`\raise2pt\copy\FillBox` 这种不新建盒子的写法
+   才会真正经过取下再放回，而它的位移确实被清零。R1 的 14 项变异里有“嵌套尺寸判断”，却没有一项只破坏“放回后位移不变”。
+2. **模仿直接输入时只模仿了 `\ignorespaces`，没有模仿它的作用范围。** 直接输入的
+   `\ignorespaces` 受分组约束，装饰内的等价处理挪到了 `\@@_ulem_end:` 末尾、已在所有内层分组之外，
+   于是把本应保留的空格也吃掉了。R1 的 TEST 10 没有分组内的标点用例。
+3. **按尺寸识别本身就是启发式。** 用宽、高、深当盒子身份，相同尺寸的无关盒子必然误判；改成
+   在确切位置放 marker 后，识别不再依赖巧合，也不再需要取下节点。
+
+### Root Cause（R2）
+
+- 代码层：R1 用“末尾盒子尺寸与内层装饰相同”近似“末尾盒子就是内层装饰”，并为比对取下节点；
+  全角右标点的 `\ignorespaces` 语义被移到装饰结束处，丢掉了分组层级这一维。
+- 过程层：测试的覆盖声明没有经过变异确认——注释说保护什么，就要有一个只破坏这一点的变异让它失败。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 8 新增 `lead-fullleft`、`lead-fullleft-latin`；TEST 9 新增
+  `nested-then-copy`；TEST 10 新增七个分组内全角句号结尾的写法（花括号 `{中。}` 与空格＋西文、空格＋汉字、
+  无空格西文、无空格汉字各一项，`\textcolor` 与空格＋西文、无空格西文各一项，分组内 `\color`
+  与空格＋西文一项）；TEST 11 改为
+  `nested-raisebox` 与 `nested-raise-copy`，后者真正经过末尾盒子检查，节点列表固定
+  `shifted -2.0` 与命令后的 `\glue 3.33`。
+- 变异 4 项全部被捕获：去掉分组层级规则（TEST 10 四项失败）、去掉 FullLeft 补画
+  （`lead-fullleft-latin` 节点改变）、去掉 `ulem-nest` marker（四项失败）、去掉正文末尾删 marker
+  （节点改变）。
+
+### Promotion Candidates（R2）
+
+- **lessons-learned（补充「变异要逐项做」）**：声称测试保护某性质时，要用一个只破坏该性质的变异
+  确认测试会失败；否则测试可能根本没有经过那条路径（本次 `\raisebox` 新建盒子）。
+- **lessons-learned**：`\ignorespaces` 的作用范围受分组约束；在别处模仿直接输入的行为时，要连同
+  分组层级一起模仿。
+- **仅留在 memory**：`\lastbox` 清零 `\raise` 位移是 TeX 的已知行为，稳定部分已写进架构文档
+  「ulem 结束符与入口空格（#1091）」的嵌套装饰一条。
 
 ## 相关
 
