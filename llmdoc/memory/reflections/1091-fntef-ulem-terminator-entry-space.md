@@ -891,6 +891,93 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   R9-M1 至 R9-M5 的更正、未覆盖清单（已由 recorder 完成）。
 - **仅留在 memory**：R9 的审查项编号与 run 名。
 
+## 本地增量审查 R10 后的补修
+
+### 审查发现
+
+- 对 R9 补修（范围 `35ab5fe7..c1b1411c`）的本地增量盲审（R10，run `20260927T190226Z-r10-incr`）报告阻塞问题 0 项、
+  重要建议 2 项、小问题 4 项。历史补充：R9-I1 至 R9-M5 七项都已修复（R9-I1 的修法判断过宽另记为 R10-I1；R9-I2 左侧
+  重放的副作用另记为 R10-I2、R10-M4），没有发现消失的早先问题。
+  - R10-I1（重要，本范围引入）：R9 的 `\@@_ulem_onin_tail_glue:` 只看“glue 前是 `\penalty10000`、再前面不是 glue”。
+    全角左标点之后若先有盒子、kern、规则、special、`\label`，再有用户写的 `~` 或 `\nobreak\hspace`，用户的这对节点
+    被误认成标点自己的，`符 \uline{\sout{中（\mbox{}~}} 后` 为 43.33pt，直接输入 46.66pt（`35ab5fe7` 与 v3.10.6 正确）。
+  - R10-I2（重要，本范围引入）：`\UL@onin` 在内层开头重放 CJK marker 后，内层正文开头的空格被按 CJK 规则删去，
+    `\uline{中\sout{ 中}}` 为 20.0pt，直接输入 23.33pt（审查基线、v3.10.6、v3.9.1 都正确）。
+  - R10-M1：CHANGELOG、`\changes` 与 lvt 注释把“分组结束”也算进全角左标点结尾已处理的情况，实际
+    `\uline{{中（}} 后`、`\uline{\textbf{中（}} 后` 仍差 3.33pt（审查基线相同）。
+  - R10-M2：“重放的 marker 在类别转换时被取走，不留在盒子里”说得过满：正文为空或以规则、盒子开头时 marker 留在
+    内层盒子里。
+  - R10-M3：左侧重放只加在 `\UL@onin` 的非重排分支，内层以公式加空格结尾时仍缺间距。
+  - R10-M4：左侧补出的 `\CJKecglue` 排在内层盒子里，会被内层装饰画上、不能在此断行，与右侧不对称，文档没有说明。
+- 范围外观察（都与审查基线相同，登记到 doc-gaps）：`CJKspace=true` 时 `符 \uline{（}x`（28.61 对 25.28，审查基线与
+  v3.10.6 为 31.94，差距已缩小）；两层 `\uline{\sout{中} 中}` 等四种写法（23.33 对 20.0，v3.10.x 都如此，此前只登记了
+  三层版本）；`\uline{中{ 中}}`（20.0 对 23.33，v3.9.1 正确）。
+
+### 修法要点
+
+- **用本包自己的 marker 认出标点的节点（R10-I1）。** 新增 `\@@_ulem_left_punct_mark:`：嵌套链上的全角左标点刚排出
+  `\penalty10000 \glue0pt` 时，取下这两个节点，在 penalty 之前补一个 `ulem-left` marker，再放回。
+  `\@@_ulem_onin_tail_glue:` 只在 penalty 之前正是这个 marker 时才认作标点自己的节点，否则置 `content`。
+- **内层正文以空格开头时不重放（R10-I2）。** 左侧读取拆为 `\@@_ulem_onin_lead_get:n` 与 `\@@_ulem_onin_lead_put:`；
+  `\@@_ulem_onin_if_lead_space:n` 判断内层正文是否以空格记号、控制空格 `\ ` 或分组里的空格开头，是则不记录 marker。
+- **重排分支同样重放（R10-M3）。** `\@@_ulem_onin_lead_get:n` 移到重排判断之前，重排分支把
+  `\@@_ulem_onin_lead_put:` 作为前缀传给 `\@@_boundary_ulem_math_tail_space:nnn`。
+- **说法更正（R10-M1、R10-M2、R10-M4）。** CHANGELOG 与 `\changes` 改为“正文以全角左标点结尾、标点不在正文内的分组
+  里时……”；lvt 注释删去“分组结束”并注明分组情形尚未处理；dtx 补写分组情形的原因（直接输入 `{中（} 后` 里标点处的
+  `\ignorespaces` 在分组结束处停下，分组之后的空格仍被边界处理删去），把 marker 的去向改为“正文第一个字符的类别转换
+  会取走它；正文为空或以规则、盒子开头时，零宽 marker 留在内层盒子里”，并写明左侧补出的 `\CJKecglue` 位于内层盒子里、
+  会被内层装饰画上、不能断行，与命令左边界原有机制（`x\uline{\sout{中}}`）的位置相同。
+
+### What Went Wrong（R10）
+
+1. **用排除法认“本包自己排出的节点”。** R9 为了区分 `中（\nobreak\hspace{0pt}`，规定“penalty 再前面不是 glue”
+   就算标点的节点。这条规则只排除了测过的那一种用户写法；标点和用户的 `~` 之间只要隔着一个非 glue 节点（盒子、
+   kern、规则、special、`\label`），用户的节点就被认成标点的。R9 的矩阵里，标点之后的用户内容都紧接标点（`\nobreak\hspace{0pt}`、`\hspace*`、`\kern`），
+   没有在标点与用户的 `~` 之间插入其他节点。
+2. **补 marker 时只看了它对后面字符的影响，没有看对后面空格的影响。** R9 在内层开头重放 CJK marker，是为了让内层
+   第一个字符补上 `\CJKecglue`；但 marker 也决定了紧随其后的源码空格按什么规则处理，内层以空格开头时这枚空格被按
+   CJK 规则删去。R9 的左侧用例全部是“外层字符后直接接内层字符”，没有包含内层以空格开头的写法。
+3. **只改了一个分支。** `\UL@onin` 有重排与非重排两个分支，R9 只在非重排分支加了重放；#1026 已经记下重排分支
+   是“条件更窄的同类路径”，这次又漏了一次。
+4. **写 CHANGELOG 时把“下一个记号不是扫描标记”的所有情况当成同一类。** `left` 覆盖了 `\relax`、`\hspace` 和分组
+   结束，但分组结束时直接输入的结果不同（分组之后的空格仍被删去），R9 没有为分组情形单独比对，就写进了用户可见的
+   说明。
+
+### Root Cause（R10）
+
+- 代码层：标点节点的识别依赖节点类型的排除，而不是本包自己放下的标记；左侧重放没有考虑 marker 对后续空格处理
+  的作用；重放只接在一个分支上。
+- 过程层：判定规则按“已知的反例”收窄，而不是按“这个节点是谁排出的”来确认；新增 marker 时只列出了想要的效果，
+  没有列出这个 marker 在后续转换中还会影响哪些判断；写用户可见说明时没有把其中列举的每种情形都与直接输入比对。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 15 新增 13 项（以 git diff 核对；标点之后先有盒子、kern、规则、special 再有 `~` 或
+  `\nobreak\hspace` 的四项与三层一项、`nested-left-tie`，内层以空格、`\ `、分组里的空格开头的五项，内层以公式加空格
+  结尾的两项），全文件 214 项 PASS、0 FAIL；新增的 13 项在 `c1b1411c` 上有 12 项失败（`nested-left-tie` 通过），新 lvt 在 `35ab5fe7` 上共 36 项失败。
+- 逐项变异在 R9 的 14 项之外新增：不检查开头空格 5 项；不识别分组内开头空格 1 项；不识别 `\ ` 1 项；重排分支不重放
+  2 项；不插 `ulem-left` marker 2 项；glue 前任意节点都认作标点 7 项，全部被捕获；R9 的 14 项仍全部被捕获。
+- 约 500 项合并矩阵：相对 `c1b1411c`、`35ab5fe7`、`b4f7a25d` 无回退；相对 v3.10.6 仍是 `\uline{\sout{中 }}`、
+  `\uline{\sout{中\relax}}` 两项既有差异（`ad8dc88b` 起）与 `符 x\mbox{\uline{\sout{中}}} 后`（v3.10.6 碰巧一致）。
+- R10 后重跑：xeCJK 124／124、ctex `l3build check -e xetex` 186／186、`l3build doc` 成功。
+
+### 仍未覆盖（R10 修复后）
+
+- 分组里的全角左标点（`符 \uline{{中（}} 后`、`符 \uline{\textbf{中（}} 后`，原因已分析，未修）。
+- `符 \CJKunderline{\CJKsout{中$a$ }} 后`：公式加尾随空格后接空格，所有版本都差 3.33pt，属既有“公式加尾随空格”一类。
+- 上面的范围外观察，以及 R9 修复后仍未覆盖的各项。
+- 以上都已登记在 `doc-gaps.md`。
+
+### Promotion Candidates（R10）
+
+- **lessons-learned（补充「把一类节点一律当成“用户内容”之前……」）**：识别本包自己排出的节点，要用本包自己在
+  那里放下的标记，而不是用“前面不是某类节点”这类排除法；排除法只挡住测过的反例。
+- **lessons-learned（补充「补上一处缺失的状态后……」）**：在一侧补 marker 时，要检查它对紧随其后的空格处理的影响，
+  测试矩阵要包含“补 marker 的位置后面紧接空格”的写法；改动 `\UL@onin` 这类有多个分支的入口时逐个分支确认。
+- **architecture／build-and-test／doc-gaps**：`ulem-left` marker、左侧空格例外、重排分支、左侧间距的位置与断行、
+  TEST 15 新增项与变异、未覆盖清单（已由 recorder 完成）。
+- **仅留在 memory**：R10 的审查项编号与 run 名。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -900,7 +987,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\xeCJK_check_FullRight_symbol:Nw`（`\g_@@_FullRight_space_bool`）与 `\@@_ulem_punct_peek_space:`；R6 起还有
   `\@@_ulem_onin_report_default:`（R7 删去，改为 `\@@_ulem_report_last:n`）；R8 起还有 `\@@_ulem_onin_tail_check:`；
   R9 起还有 `\@@_ulem_left_punct_peek:`、`\@@_ulem_tail_left_content:`、`\@@_ulem_onin_tail_glue:`、
-  `\@@_ulem_nest_node:`、`\@@_ulem_nest_node_remove:` 与 `\l_@@_ulem_onin_lead_tl`。
+  `\@@_ulem_nest_node:`、`\@@_ulem_nest_node_remove:` 与 `\l_@@_ulem_onin_lead_tl`；R10 起还有
+  `\@@_ulem_left_punct_mark:`（`ulem-left` marker）、`\@@_ulem_onin_lead_get:n`、`\@@_ulem_onin_lead_put:` 与
+  `\@@_ulem_onin_if_lead_space:n`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
