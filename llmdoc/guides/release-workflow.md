@@ -33,12 +33,13 @@ release 流程明确分为两个阶段:
 2. `Install TeX Live`：通过 `TeX-Live/setup-texlive-action@v4` 按 `.github/tl_packages` 安装最小可用环境。
 3. `Install zhmakeindex`：从 `Liam0205/zhmakeindex` 的最新 release 下载 Linux 二进制，供文档索引与 CTAN 打包使用。
 4. `Install CJK fonts`：安装 CI 所需字体并刷新 fontconfig 缓存。
-5. `Download Unihan data (xeCJK)`：仅在 `xeCJK` release 时预先下载 `support/Unihan.zip`，避免 `xeCJK/build.lua` 在构建期再联网拉取 Unicode 数据。xpinyin release 不经过这一步：unpack 时 `xpinyin.lua` 找不到 `Unihan.zip` 会自己下载，拼音数据库因此总是用打包当时最新的 Unihan 生成。
-6. `Build CTAN zip`：在目标子目录运行 `l3build ctan`。
-7. `Prepare release asset`：把 `<module>-ctan.zip` 重命名为 `<module>-v<ver>.zip`，作为 GitHub Release 附件。
-8. `Generate release notes`：优先从对应 `.dtx` 的 `\changes{v<ver>}{...}{...}` 条目提取发布说明，失败时再回退到 git log。
-9. `Wait for test CI to pass`：在真正发布前轮询 `test.yml` 对应 `head_sha` 的最新 run，确认测试工作流成功。
-10. `Create GitHub Release`：若同名 release 已存在则先删除，再创建新的 prerelease。
+5. `Register TL opentype fonts with fontconfig`：把 TeX Live 的 `fonts/opentype`、`fonts/truetype` 目录加进 fontconfig 并重建缓存，与 `_check-doc-package.yml` 的同名步骤一致。手册按字体名加载 TL 自带字体时（如 `xpinyin.dtx` 的 `\newfontfamily{TeX Gyre Adventor}`）依赖这一步；release.yml 原先缺少它，`xpinyin-v3.2-rc1` 因此在 `l3build ctan` 排版手册时失败。PR 阶段的 doc 检查有这一步，不能发现 release.yml 缺少它；两个工作流的构建环境要同步维护。
+6. `Download Unihan data (xeCJK)`：仅在 `xeCJK` release 时预先下载 `support/Unihan.zip`，避免 `xeCJK/build.lua` 在构建期再联网拉取 Unicode 数据。xpinyin release 不经过这一步：unpack 时 `xpinyin.lua` 找不到 `Unihan.zip` 会自己下载，拼音数据库因此总是用打包当时最新的 Unihan 生成。
+7. `Build CTAN zip`：在目标子目录运行 `l3build ctan`。
+8. `Prepare release asset`：把 `<module>-ctan.zip` 重命名为 `<module>-v<ver>.zip`，作为 GitHub Release 附件。
+9. `Generate release notes`：优先从对应 `.dtx` 的 `\changes{v<ver>}{...}{...}` 条目提取发布说明，失败时再回退到 git log。
+10. `Wait for test CI to pass`：在真正发布前轮询 `test.yml` 对应 `head_sha` 的最新 run，确认测试工作流成功。
+11. `Create GitHub Release`：若同名 release 已存在则先删除，再创建新的 prerelease。
 
 ### 打包路径上的污染不触发任何退出码
 
