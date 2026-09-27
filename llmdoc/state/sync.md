@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 07a27a938e54babf456270e55500a0712171d68b
-- watermark-subject: fix(xeCJK): 全角右标点结尾只在标点紧接正文末尾时吃掉命令后的空格 (#1091)
-- updated-at: 2026-09-27
-- updated-by: recorder（#1091 本地增量审查 R3 补修的稳定文档同步）
+- watermark-commit: ee341329c98a66f937644824885071a99565ba44
+- watermark-subject: fix(xeCJK): 嵌套装饰内层全角右标点的判断不再越出所在盒子 (#1091)
+- updated-at: 2026-09-27T14:37:49Z
+- updated-by: recorder（#1091 本地增量审查 R4 补修的稳定文档同步）
