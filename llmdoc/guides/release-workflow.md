@@ -144,10 +144,11 @@ release 自动化并不绕过包内 `l3build` 逻辑。真正的打包仍在目�
 
 | environment | 适用包 | required reviewers |
 |---|---|---|
-| `ctan-release-xecjk` | xeCJK | (由 admin 配置) |
-| `ctan-release-ctex`  | ctex   | (由 admin 配置) |
-| `ctan-release-zhlineskip` | zhlineskip | RuixiZhang42 only |
-| `ctan-release-xpinyin` | xpinyin | (由 admin 配置) |
+| `ctan-release-xecjk` | xeCJK | Liam0205、leo-liu、qinglee |
+| `ctan-release-ctex`  | ctex   | Liam0205、leo-liu、qinglee、stone-zeng |
+| `ctan-release-zhlineskip` | zhlineskip | RuixiZhang42、myhsia |
+| `ctan-release-xpinyin` | xpinyin | Liam0205、qinglee |
+| `ctan-release-zhnumber` | zhnumber | Liam0205、qinglee（按 xpinyin 的配置建立） |
 
 推荐 **wait timer 5 分钟** —— approve 后等 5 分钟才能启动，防止一时手快立即批准。其他包接入时按 `ctan-release-<lowercase-module>` 命名添加。
 
@@ -156,7 +157,7 @@ release 自动化并不绕过包内 `l3build` 逻辑。真正的打包仍在目�
 **Job `prepare-announcement`** —— 生成英文 announcement:
 
 1. Checkout to `inputs.tag` (历史 ref,保证抓到正确版本的 `.dtx`)。
-2. Parse tag —— 复用 `release.yml` 中同样的 case 表（目前 `ctex` / `xeCJK` / `zhlineskip` / `xpinyin`）。
+2. Parse tag —— 复用 `release.yml` 中同样的 case 表（目前 `ctex` / `xeCJK` / `zhlineskip` / `xpinyin` / `zhnumber`）。
 3. Fetch CTAN path —— `curl https://ctan.org/json/2.0/pkg/<module>` 拿 `.ctan.path`,这样 CTAN 重组结构时不必改 `build.lua`。
 4. Extract `\changes{v<ver>}` block —— 复用 `scripts/extract-changes.py`(与 `release.yml` 生成 GH Release body **共用同一脚本**)从 `.dtx` 抽出已清洗的 markdown bullet 列表,写 `release-notes.md`。提取前先 `sed` 剥离 `-rc<N>` / `-pre` / `-alpha` / `-beta` 后缀,让 RC tag 共享 base 版本的 `\changes` 条目。**两个 workflow 共用提取 + 命令清洗脚本是为了保证 CTAN announcement 与 GH Release body 的事实层字面一致**——曾出现 LLM 直接读 `\changes` 原文时凭空编造出 dtx 里不存在的条目的事故 (zhlineskip-v1.0f, PR #928)。
 5. Fetch prev CTAN announcement —— 从 CTAN API 拿上一版 announcement (若有) 作为**风格 / 措辞参考**,不是事实源。
@@ -177,7 +178,7 @@ release 自动化并不绕过包内 `l3build` 逻辑。真正的打包仍在目�
 
 ### 配置约束
 
-- 各包 `build.lua` 须有 `uploadconfig = ctex_kit_uploadconfig{...}` (目前 `xeCJK` / `ctex` / `zhlineskip` / `xpinyin`)。xpinyin 的 `topic` 显式列出 `chinese` 与 CTAN 已登记的 `tagged-pdf-incompatible`, 与 CTAN 现有条目一致。
+- 各包 `build.lua` 须有 `uploadconfig = ctex_kit_uploadconfig{...}` (目前 `xeCJK` / `ctex` / `zhlineskip` / `xpinyin` / `zhnumber`)。xpinyin 的 `topic` 显式列出 `chinese` 与 CTAN 已登记的 `tagged-pdf-incompatible`，zhnumber 的 `topic` 显式列出 CTAN 已登记的 `numbers`、`tagged-pdf` 与 `chinese`，都与 CTAN 现有条目一致。
 - 仓库 Secrets 须有 `ANTHROPIC_API_KEY`(已配); 可选 `ANTHROPIC_BASE_URL`、`PAT_TOKEN`。
 - `uploader`/`email` 不写入 git —— workflow input 走 env，build.lua 通过 `os.getenv("CTAN_UPLOADER")` 读。
 - 第一次发新包前,记得在 CTAN 网页填一次表(`update=false`)。本仓库当前 `uploadconfig.update=true`,即仅用于已存在的包发新版本。

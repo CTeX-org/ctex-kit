@@ -42,3 +42,23 @@ tdslocations = {
 }
 
 dofile("../support/build-config.lua")
+
+-- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
+-- 与 xeCJK/build.lua、xpinyin/build.lua 同一套: 版本号从 zhnumber.dtx 读回 (事实源仍是
+-- 本文件顶部的 `version`, `l3build tag` 把它回写进 .dtx), 保证投递的版本与打进 zip 的一致.
+-- uploader/email/note 不在此填, 由 workflow 通过 env 注入.
+-- summary、description、topic 取自 CTAN 上现有的条目 (ctan.org/json/2.0/pkg/zhnumber),
+-- description 另补 v3.1 新增的算筹数字. topic 与 CTAN 现有条目保持一致, 除默认的
+-- chinese 外还列出 CTAN 已登记的 numbers 与 tagged-pdf, 不因上传而改动它.
+uploadconfig = ctex_kit_uploadconfig {
+  pkg         = "zhnumber",
+  version     = read_dtx_version("zhnumber.dtx"),
+  author      = "Qing Lee; Liam Huang",
+  summary     = "Typeset Chinese representations of numbers",
+  description = "The package provides commands to typeset Chinese representations "
+             .. "of numbers. The main difference between this package and CJKnumb "
+             .. "is that the commands provided are expandable in the 'proper' way. "
+             .. "It also provides counting-rod numerals.",
+  topic       = { "numbers", "tagged-pdf", "chinese" },
+  ctanPath    = "/macros/latex/contrib/zhnumber",
+}
