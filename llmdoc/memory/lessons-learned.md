@@ -113,7 +113,9 @@ Curated cross-task rules distilled from archived memory.
 ### 诊断行尾 glue 问题先用 `\hbox to` 隔离 `\par` 的 `\unskip`
 **Rule**: 排查 xeCJK 边界恢复中涉及行尾 glue 的问题时，先用 `\setbox0=\hbox to <宽>{...}` 固定宽度、不经过段落断行算法，隔离掉 `\par`／`\parfillskip`／`\rightskip` 的干扰，再看节点序；确认机制后才把场景放回真实段落复核视觉效果。
 **Why**: #1085 排查 `\hfill CJK文字 \hfill\null\par` 时，段落模式下 LaTeX 的 `\par` 在行尾会自己 `\unskip`，叠加在 xeCJK 行为之上，使节点日志一度看起来像「fill 彻底消失」；只有先隔离 `\par` 才看清真相是「顺序错乱 + `\par` 的 `\unskip` 二次作用」两件事叠加，不是 fill 丢失。
-**Source**: `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`
+
+**反过来也要检查（#1091）**: 改动命令末尾要不要重放 marker 这类右边界处理时，要专门把命令放在段末验证。ulem 每段装饰线后面都跟一个负的像素补偿 glue，它能留下来依赖后面还有非 glue 节点；#1091 R1 起初在正文以内容结尾时干脆不重放 marker，段末的 `\par` 就把这个 glue 当行尾 glue 删掉，线多出一个像素。最终改排一个零宽 kern 代替 marker，并用段末自然宽度与 `\hbox` 的比对（`fntef-entry-space01` TEST 12）固定下来。
+**Source**: `llmdoc/memory/reflections/1085-hfill-post-transparent-relocate.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### PDF 绘图回归要分开固定尺寸、节点、坐标和外观
 **Rule**: 绘图命令会展开大量 PDF special 时，用真实图形固定关键尺寸，用同尺寸轻量盒子固定 leaders、节点和断行，用 XDV 生成不压缩内容流的 PDF 后读取实际坐标来固定相位、节距和端点，再用精确视觉 MWE 检查曲线、连接与密度；整本文档构建只检查集成路径。
@@ -609,7 +611,9 @@ Curated cross-task rules distilled from archived memory.
 ### 命令边界修复必须覆盖输出等价矩阵
 **Rule**: 验证命令边界间距时，以相同可见内容的直接输入为 oracle，按实际输出首尾类别、`00/10/01/11` 和会改变边界语义的选项值记录精确单元，并用可区分 glue 与节点证据排除默认宽度假通过。公式必须与直接公式比较，候选与 oracle 必须使用相同的 `xCJKecglue` 设置。
 **Why**: #491 按命令各抽一个场景，未暴露同一命令更换输出类别或源码空格后的异常；#992 最初只覆盖 `xCJKecglue=false`，补测 `true` 后又在嵌套盒子和 `\null` 边界发现 #1003；#1002 还证明把 `$x$` 换成字母 `x` 会改变比较问题本身。单点或单一选项通过都不能推出整类已修复。
-**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
+
+**补充（#1091）**: 装饰命令的矩阵还要按“正文开头、结尾各是哪类非字符内容（空白、盒子、kern、penalty、全角标点、嵌套装饰）× 命令两侧有无源码空格 × 后面接汉字还是西文”组合。#1091 的本地审查 R1 只报出“以字符开头、以空白结尾”一类，实现者按这个组合补比对时，又找到一处上一提交自己引入的回归（`\CJKunderline{中。}x` 在 x 前多出一枚间距）。另外，oracle 那一侧的源码空格要确认真的存在：`\usebox\FillBox }`、`\kern5pt }` 里的空格会被控制词、尺寸读取吃掉，要写成 `\usebox{\FillBox} }`、`\kern5pt\relax{} }`。
+**Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 源码语法只产生候选，实际输出决定语义
 **Rule**: 当宏可能消费参数末尾的分组或分隔记号时，源码扫描只能登记候选；必须在可见内容排完后检查实际节点，再发布首尾类别等输出语义。

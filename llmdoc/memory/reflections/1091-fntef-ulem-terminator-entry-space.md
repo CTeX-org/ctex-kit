@@ -1,6 +1,6 @@
 ---
 name: 1091-fntef-ulem-terminator-entry-space
-description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值
+description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格真的存在，改右边界重放要检查段末的像素补偿 glue
 metadata:
   type: feedback
 ---
@@ -136,6 +136,101 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - recorder：`llmdoc/reference/build-and-test.md` 登记 `fntef-entry-space01` 的覆盖范围，并注明
   `fntef-linebreak01`／`fntef-nest-linebreak01` 段末 marker 从 default 更正为 CJK 的原因。
 - 如后续有人报告 `\href`／`\CJKunderdot` 包住盒子时空格落在命令之后，从本反思“已知未覆盖”接手。
+
+## 本地独立审查 R1 后的补修（提交 6b197547）
+
+### 审查结果与自查发现
+
+- 首轮本地盲审（run `20260927T021602Z-r1-first`）报告阻塞问题 1 项、重要建议 1 项、小问题 4 项。
+  - 阻塞：正文以字符开头、以 `\hspace*`、盒子、kern、penalty、special 等结尾时，命令后的源码
+    空格被按 CJK 规则删去。例：`姓名 \CJKunderline{张三\hspace*{4em}} 学号` 为 100pt，直接输入
+    为 103.33pt。这是 `ad8dc88b` 引入的回归：`*` 不再覆盖末类别后，stream end 只看正文最后
+    一个字符，没有看它后面还排出了别的内容。
+  - 重要：正文以语法空格开头时，入口空格排在已画线的语法空格之后，装饰线从中间断开。
+  - 小问题：“片段盒”用词；`build-and-test.md` 中的页数过时；测试注释称“issue 中的写法”，
+    实际与 issue 不同；手册“命令前后的源码空格”说得太宽。
+- 实现者用 40 多项“装饰写法与直接输入”的宽度比对（`tmp/i1091/fix2/right.tex`）另外发现一处
+  盲审没报的回归：`ad8dc88b` 让 `\CJKunderline{中。}x` 在 x 前多出 3.33pt，修复前它与直接输入
+  一致（都是 35.28pt）。原因：直接输入时 `\xeCJK_FullRight_and_Boundary:` 排出标点补偿 glue 后
+  用 `\ignorespaces` 吃掉空格，列表末尾没有 CJK marker；装饰内同样的处理只作用在正文内部，
+  stream end 却按观察到的 CJK 重放 marker。
+
+### 修法要点
+
+- 每层 capture 新增 `tail` 字段（`char`／`content`／`punct`），报告类别时置 `char`。xeCJKfntef
+  在以下位置置 `content`：`\UL@reskip` 画非零显式 glue；`\UL@stop` 取到非零 penalty；正文结束处
+  （`\@@_ulem_body_end:`，位于 `\UL@on` 正文末、`\xeCJK_ulem_right:` 之前）和每个语法空格之前
+  由 `\@@_ulem_tail_check:` 检查片段盒子末节点。末节点是 marker、字符、连字、公式、glue 或
+  片段为空时不改；是盒子、规则、kern、special 等时置 `content`。
+- 嵌套线型命令（`\UL@onin` 把内层正文装进一个盒子）由 `\@@_ulem_nest_mark:` 记下盒子的宽、高、
+  深，末节点尺寸相同时仍算字符；记录在 `\UL@stop` 和 `\UL@hrest`（每个新盒子开头）清除。
+- 全角右标点结尾由 `\@@_ulem_FullRight_and_Boundary:` 置 `punct`，结束时换成 `content`，并在
+  `\@@_ulem_end:` 末尾执行 `\ignorespaces`，与直接输入一样吃掉命令后的空格。
+- stream end 见 `content` 时不重放 marker，改排一个零宽 kern（原因见下文第 2 条坑）。
+- 开头语法空格：入口处于 armed 时，`\@@_ulem_syntax_space:` 把宽度记进 `\g_@@_ulem_lead_skip`，
+  不画。以下三种时机再补画：首类别排出左边界 glue 时（`use_ulem_glue_outer`）；入口解除后、
+  `\UL@stop` 送出片段盒子或 `\UL@reskip` 画 glue 之前；正文结束时（`\@@_ulem_lead_end:` 先解除
+  入口、排出入口空格，再补画）。入口空格因此总在这段线之前。
+
+### What Went Wrong（补修过程）
+
+1. **把“片段盒子末尾是 glue”也当成 `content`。** `command-boundary-math01`（96 项 3.33pt 差值
+   失败）与 `command-boundary-math05` 失败。原因：公式加尾随空格的重排路径会在片段盒子里留下
+   公式后的源码空格 glue，它是边界机制自己补的，不是正文内容。改为 glue 不改 `tail`。
+2. **`content` 时起初什么都不排。** `fntef-linebreak01` 中段末以句号结尾的一行宽了一个像素。
+   ulem 每段装饰线后跟一枚负的像素补偿 glue，段末 `\par` 会删去行尾 glue；原先重放的 marker
+   正好挡住了它。改为排零宽 kern，并加 TEST 12 用段末自然宽度与 `\hbox` 比对来固定。
+3. **首轮比对 oracle 有两项无效。** `\usebox\FillBox }` 与 `\kern5pt }` 里的空格被控制词和尺寸
+   吃掉，根本不存在“正文末尾空格”。改用 `\usebox{\FillBox} }`、`\kern5pt\relax{} }`，并用
+   花括号包住 oracle。
+4. **手册 `\changes` 中的短抄录以汉字开头时报错。** `|姓名 ...|` 使 `l3build doc` 报
+   Undefined control sequence：changes 索引把 `|` 当作 makeindex 的 encap 符。以反斜杠开头的
+   `|\CJKunderline{...}|` 没有问题。
+5. **接力时面对半成品补丁。** 上一轮会话只写了一半补丁（引用了未定义的 `\@@_ulem_lead_draw:`
+   等）就中断；接手后先读盲审报告和补丁残片，再重新设计，没有在残片上直接续写。
+6. **expl3 变体用错。** 条件函数只声明了 T、F 变体却调用了 TF，嵌套用例报 Undefined control
+   sequence；`\tl_if_eq:NeF` 不存在，改用 `\str_if_eq:eeF`。
+
+### Root Cause（补修）
+
+- 代码层：`ad8dc88b` 修正了 `*` 对末类别的覆盖，但 stream end 仍只根据“最后报告的类别”决定是否
+  重放 marker，没有“最后一个字符之后还有没有别的内容”的信号；`*` 原先恰好掩盖了这一缺口。
+  全角右标点结尾的 `\ignorespaces` 语义也没有传到装饰外。
+- 过程层：上一轮的比对用例只覆盖了正文开头的非字符内容，没有覆盖正文结尾的非字符内容，也没有
+  系统地组合“命令两侧有无空格”和“后面是汉字还是西文”。盲审只报出其中一类，实现者自己的
+  组合比对又多找到一处回归。
+
+### 验证
+
+- `fntef-entry-space01` 新增 TEST 8–12：开头语法空格的节点顺序、末尾内容与全角右标点的宽度比对、
+  嵌套装饰后的盒子、段末。
+- 逐项变异 14 项（reskip、penalty、正文末检查、语法空格前检查、嵌套尺寸判断、`\UL@hrest` 清除、
+  punct、`\ignorespaces`、开头空格记账、结束时解除入口、stream end 读 `tail`、kern 标记判断、
+  零宽 kern、glue 不改）：13 项使该测试失败，“glue 不改”一项由 `command-boundary-math05` 捕获。
+- xeCJK 124／124、ctex `l3build check -e xetex` 186／186、`l3build doc` 通过（xeCJK.pdf 261 页）。
+
+### 仍未覆盖（修复前后相同）
+
+- `符 \CJKunderline{\textit{x}}后` 差 0.54pt（斜体校正）。
+- `\CJKunderline{中 }` 这类 CJK 后接正文末尾空格的写法，与带花括号的直接输入差 3.33pt；
+  `\CJKunderline{\CJKsout{中} } 后` 属于同类。
+- 更正：上文“测试设计与变异验证”和“已知未覆盖”中记为既有差异的 `\CJKunderline{中。} x`，
+  已随 `punct` 处理修好，不再是限制。
+
+### Promotion Candidates（补修）
+
+- **lessons-learned（新条目或补充「可见排版修复需要三类证据」）**：比对测试要覆盖“正文开头与
+  结尾各放一种非字符内容 × 命令两侧有无空格 × 后面是汉字还是西文”的组合。本次盲审只报出其中
+  一类，组合比对又多找到一处回归。
+- **lessons-learned**：写 oracle 时要确认源码空格真的存在；控制词和尺寸后面的空格会被吃掉，
+  这样的 oracle 与被测写法比较没有意义。
+- **lessons-learned**：ulem 装饰末尾的像素补偿 glue 依赖后面有非 glue 节点；改动右边界重放时要
+  检查段末的行宽。
+- **reference（`build-and-test.md`）**：`\changes` 中的短抄录不能以汉字开头（`|` 被 changes 索引
+  当作 encap 符），可作为 dtx 文档编写注意事项登记。
+- **仅留在 memory**：半成品补丁的接力过程、expl3 变体误用、`tail` 各置位点的具体位置。后者的
+  稳定部分应由 recorder 写进 `llmdoc/architecture/xecjk-architecture.md` 的 stream-ulem 一节，
+  与上文 Follow-up 一并处理。
 
 ## 相关
 
