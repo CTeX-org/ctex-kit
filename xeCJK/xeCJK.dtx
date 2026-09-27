@@ -14882,7 +14882,10 @@ Copyright and Licence
       {
         \@@_ulem_FullLeft_and_Boundary:
         \bool_if:NT \l_@@_ulem_onin_bool
-          { \@@_ulem_left_punct_peek: }
+          {
+            \@@_ulem_left_punct_mark:
+            \@@_ulem_left_punct_peek:
+          }
       }
   }
 %    \end{macrocode}
@@ -15396,9 +15399,11 @@ Copyright and Licence
 \cs_set_protected:Npn \UL@onin #1
   {
     \@@_boundary_math_begin:n {#1}
+    \@@_ulem_onin_lead_get:n {#1}
     \@@_boundary_if_ulem_math_reorder:nTF {#1}
       {
-        \@@_boundary_ulem_math_tail_space:nnn {#1} { } { }
+        \@@_boundary_ulem_math_tail_space:nnn {#1}
+          { \@@_ulem_onin_lead_put: } { }
         \exp_args:NV \@@_orig_ulem_onin:n \l_@@_ulem_body_tl
       }
       {
@@ -15408,19 +15413,11 @@ Copyright and Licence
             \bool_set_eq:NN \l_@@_ulem_onin_enter_bool
               \l_@@_ulem_onin_bool
           }
-        \tl_clear:N \l_@@_ulem_onin_lead_tl
-        \xeCJK_if_last_node:nTF { CJK }
-          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
-          {
-            \xeCJK_if_last_node:nT { default }
-              { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
-          }
         \@@_orig_ulem_onin:n
           {
             \bool_set_eq:NN \l_@@_ulem_onin_bool
               \l_@@_ulem_onin_enter_bool
-            \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
-              { \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl }
+            \@@_ulem_onin_lead_put:
             #1 \s_@@_ulem_body \@@_boundary_math_end:n {#1}
             \@@_ulem_onin_tail_check:
           }
@@ -15429,6 +15426,42 @@ Copyright and Licence
   }
 \bool_new:N \l_@@_ulem_onin_enter_bool
 \tl_new:N \l_@@_ulem_onin_lead_tl
+\cs_new_protected:Npn \@@_ulem_onin_lead_get:n #1
+  {
+    \tl_clear:N \l_@@_ulem_onin_lead_tl
+    \@@_ulem_onin_if_lead_space:nF {#1}
+      {
+        \xeCJK_if_last_node:nTF { CJK }
+          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
+          {
+            \xeCJK_if_last_node:nT { default }
+              { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
+          }
+      }
+  }
+\prg_new_conditional:Npnn \@@_ulem_onin_if_lead_space:n #1 { F }
+  {
+    \tl_if_head_is_space:nTF {#1}
+      { \prg_return_true: }
+      {
+        \tl_if_head_is_group:nTF {#1}
+          { \exp_args:No \@@_ulem_onin_if_lead_space_aux:n { \use:n #1 } }
+          {
+            \tl_if_head_eq_meaning:nNTF {#1} \ %
+              { \prg_return_true: } { \prg_return_false: }
+          }
+      }
+  }
+\cs_new:Npn \@@_ulem_onin_if_lead_space_aux:n #1
+  {
+    \tl_if_head_is_space:nTF {#1}
+      { \prg_return_true: } { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_ulem_onin_lead_put:
+  {
+    \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
+      { \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -15672,6 +15705,7 @@ Copyright and Licence
 %   \@@_ulem_punct_peek_aux:N,
 %   \@@_ulem_left_punct_peek:,
 %   \@@_ulem_left_punct_peek_aux:N,
+%   \@@_ulem_left_punct_mark:,
 %   \@@_ulem_tail_left_content:,
 %   \@@_ulem_nest_mark:,
 %   \@@_ulem_nest_node:,
@@ -15685,9 +15719,10 @@ Copyright and Licence
 %   以全角右标点结尾时，命令后的空格和随后西文前的间距与直接输入一样不再
 %   出现，标点之后还有分组结束、\tn{relax} 等记号时则与直接输入一样保留
 %   命令后的空格；打开 \opt{CheckFullRight} 时同样如此（\#1091）。}
-% \changes{v3.10.7}{2026/09/28}{线型命令的正文以全角左标点结尾时，命令后的空格
-%   与直接输入一样在汉字前删去，西文前也不再多补间距；嵌套线型命令的内容与它
-%   前后相邻的汉字或西文之间，与直接输入一样补上间距（\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{线型命令的正文以全角左标点结尾、标点不在正文内的
+%   分组里时，命令后的空格与直接输入一样在汉字前删去，西文前也不再多补间距；
+%   嵌套线型命令的内容与它前后相邻的汉字或西文之间，与直接输入一样补上间距
+%   （\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15745,8 +15780,15 @@ Copyright and Licence
 % |CJK| 或 |default| marker，但 \tn{UL@onin} 把内层正文排进新盒子，盒子里看不到它，
 % 内层第一个字符前就不补 \tn{CJKecglue}。因此 \tn{UL@onin} 进入前先读当前列表
 % 末尾的 marker，在内层正文开头重放一次，|\uline{x\sout{中}}| 的 x 与“中”之间
-% 于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}| 同样如此。
-% 这个 marker 在类别转换时被取走，不留在盒子里。
+% 于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}| 同样如此，
+% 内层正文以公式加空格结尾、走重排分支时也在开头重放。正文第一个字符的类别
+% 转换会取走这个 marker；正文为空或以规则、盒子开头时，这个零宽 marker 留在
+% 内层盒子里。内层正文以空格开头（包括 |\ | 和分组里的空格）时不重放：直接输入
+% |中{ 中}| 这枚空格按普通空格保留，重放 marker 会让它按 CJK 规则删去。
+%
+% 与右侧不同，这样补出的 \tn{CJKecglue} 排在内层盒子里，会被内层装饰画上，也不能
+% 在这里断行；右侧的间距排在外层，只画外层装饰。命令左边界原有的机制
+% （|x\uline{\sout{中}}|）同样把间距放进最内层盒子，这里沿用同样的位置。
 %
 % 全角左标点结尾与全角右标点类似。直接输入时，Boundary 前的全角左标点排出
 % |\penalty10000 \glue0pt| 并 \tn{ignorespaces}，后面的空格被吃掉，列表末尾也没有
@@ -15757,8 +15799,18 @@ Copyright and Licence
 % |content|。结束时 \cs{@@_ulem_tail_punct_end:} 把 |left| 换成 |content|，
 % \cs{@@_ulem_end:} 再在外层重放标点 marker 和 |\penalty10000 \glue0pt|，
 % 与直接输入 |中（\relax{} 后| 一样，后面的空格按标点之后的空格处理。嵌套链上的
-% 内层正文里，标点之后的这两个节点也留在内层盒子里，\cs{@@_ulem_onin_tail_glue:}
-% 在 |tail| 为 |left| 时认出这一对节点，不把这枚 glue 当作正文末尾的内容。
+% 内层正文里，标点之后的这两个节点也留在内层盒子里。\cs{@@_ulem_left_punct_mark:}
+% 在标点刚排出 |\penalty10000 \glue0pt| 时，在标点与这一对节点之间插入一个
+% |ulem-left| marker；\cs{@@_ulem_onin_tail_glue:} 在 |tail| 为 |left| 且 penalty
+% 之前正是这个 marker 时，才认作标点自己的节点，不把这枚 glue 当作正文末尾的
+% 内容。标点之后若先有
+% 盒子、kern 等，再有用户写的 |~| 或 |\nobreak\hspace|，penalty 之前不是这个
+% marker，按 |content| 处理，与直接输入 |中（\mbox{}~ 后| 一致。
+%
+% 标点位于正文内的分组里（|\uline{{中（}} 后|、|\uline{\textbf{中（}} 后|）时，
+% 下一个记号是分组结束，置为 |left|，结束时按 |中（\relax{} 后| 处理；但直接输入
+% |{中（} 后| 里标点处的 \tn{ignorespaces} 在分组结束处停下，分组之后的空格仍被
+% 边界处理删去，两者差一枚空格。这一类写法目前未处理。
 % 以前 \pkg{ulem} 的结束符 |*| 被当成西文字符，这类写法碰巧按西文结尾处理，
 % 与直接输入一致；不再观察 |*| 之后，全角标点之后补报的类别会让
 % |\uline{\sout{中（A）中\hspace*{1em}}} 吗| 的命令后空格被按 CJK 规则删去
@@ -16078,6 +16130,27 @@ Copyright and Licence
           }
       }
   }
+\xeCJK_declare_node:n { ulem-left }
+\cs_new_protected:Npn \@@_ulem_left_punct_mark:
+  {
+    \int_compare:nNnT { \tex_lastnodetype:D } = { 11 }
+      {
+        \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
+        \tex_unskip:D
+        \bool_lazy_and:nnT
+          { \int_compare_p:nNn { \tex_lastnodetype:D } = { 13 } }
+          {
+            \int_compare_p:nNn
+              { \tex_lastpenalty:D } = { \c_@@_nobreak_penalty_int }
+          }
+          {
+            \tex_unpenalty:D
+            \exp_args:Nc \@@_make_node:N { c_@@_ulem-left_node_dim }
+            \tex_penalty:D \c_@@_nobreak_penalty_int
+          }
+        \skip_horizontal:N \l_@@_tmp_skip
+      }
+  }
 \cs_new_protected:Npn \@@_ulem_onin_tail_glue:
   {
     \tl_if_eq:cnTF
@@ -16097,7 +16170,7 @@ Copyright and Licence
           }
           {
             \tex_unpenalty:D
-            \int_compare:nNnT { \tex_lastnodetype:D } = { 11 }
+            \xeCJK_if_last_node:nF { ulem-left }
               { \@@_ulem_tail_content: }
             \tex_penalty:D \c_@@_nobreak_penalty_int
           }
