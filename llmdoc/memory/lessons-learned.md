@@ -335,6 +335,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1003 中盒子的末类别和 `\null` 前的 marker 都正确，但盒子内部过期的 `spacefactor` 仍让源码空格比较失败，零尺寸 hbox 也会截断“marker + glue”的相邻关系。PR #1005 同步外层 `spacefactor`，并只跨已注册零尺寸盒子移动由 marker 证明的至多一枚 glue；没有证据时按原节点顺序还原。
 **Source**: `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`
 
+### 补报状态时只写需要的字段，不借用带副作用的通用入口
+**Rule**: 在新调用点向状态机补报一项信息（如末类别）时，先列出现成入口函数的全部副作用（设首类别、补 glue、改其他层），再判断哪些在新位置是错的；只需要其中一部分时，写一个只改这些字段的专用函数，并把作用范围限制在确实缺这项信息的那一层。
+**Why**: #1091 R6 为嵌套内层补报末类别时调用了 `\@@_boundary_capture_class:n`，它在首类别为空时还会设首类别并补左边界 glue，于是 `\CJKsout{“OK”}` 的内层盒子里多出 3.33pt glue（R7-I1）。R7 改用只写 `stream-ulem` 层 `last` 与 `tail` 的 `\@@_ulem_report_last:n`；若也写 `\mbox` 的 capture 层，盒子结束时读取的末类别又会出错。
+**Source**: `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
+
 ### 可见排版修复需要三类证据
 **Rule**: 对间距、字形或线条等可见排版缺陷，同时维护定量宽度、节点结构和同条件渲染三层 oracle；再用会插入节点的 wrapper 组合回归证明状态能传递。
 **Why**: #972 的测量、截图和组合用例暴露了普通 `default` 原型缺陷；#999 又证明默认 glue 等宽会让宽度或截图假通过，必须由节点测试区分来源。
@@ -753,7 +758,9 @@ Curated cross-task rules distilled from archived memory.
 ### 确认根因后要枚举全部满足该根因的代码路径
 **Rule**: 定位到根因后，把它当作判据去检查所有满足它的路径，而不是只修触发当前复现样例的那一条。同一函数里往往还留着条件更窄的同类路径。
 **Why**: #1026 的根因是“正文经宏参数间接展开会让 `\CJKecglue` 固化在装饰片段盒子内部”。第一版修复把非重排路径改回字面展开就收工，却漏掉被保留的重排分支——它同样走参数间接展开，只是触发条件更窄（正文需同时含西文词并以公式加空格结尾），实测溢出量与修复前完全相同。这一残留是独立审查发现的，不是自检发现的。
-**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`
+
+**补充（#1091）**: 修回退时也要从根因出发列举路径，而不是从复现样例出发。#1091 R6 只在“全角标点→Default”两个转换里补报类别，同根因的“全角标点→CJK”三个转换没有补，`中\uline{\sout{中（A）中}}吗` 等写法反而被改坏（R7-B1）；补报条件用的 onin 布尔也比根因窄，`\mbox` 里的变体不补报（R7-I2）。列出全部转换后，要逐项与上一次正确的提交、发布版和直接输入比对，再说“已修好”。
+**Source**: `llmdoc/memory/reflections/1026-ulem-literal-body-outer-shrink.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 回归测试必须用重新引入缺陷的方式确认会失败
 **Rule**: 新增或改写回归测试后，故意还原到修复前的实现，确认测试会失败；测试全部显示“通过”不构成“这项测试确实能检测该缺陷”的证据，只能证明测试当前不会误报。同理，声称某测试守护某条行为之前，也要用变异实测确认是它会红——没有任何输出行的 `.tlg` 段落不构成校验，把守护职责写错到文档里会让后来者误以为已有覆盖。

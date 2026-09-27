@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 27613fedbaf27881a0d01930775ea1abce874a90
-- watermark-subject: fix(xeCJK): 按含义删去全角右标点后的空格，并补报嵌套内层标点后的西文类别 (#1091)
-- updated-at: 2026-09-27T15:51:40Z
-- updated-by: recorder（#1091 本地增量审查 R6 补修的稳定文档同步）
+- watermark-commit: d0539362b20609ca0cb5e1cf084a33cae2598e5c
+- watermark-subject: fix(xeCJK): 嵌套线型命令内层全角标点之后按实际字符补报末类别 (#1091)
+- updated-at: 2026-09-27T16:36:43Z
+- updated-by: recorder（#1091 本地增量审查 R7 补修的稳定文档同步）
