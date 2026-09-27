@@ -83,7 +83,7 @@
   \fi
 }
 
-% #1 标签，#2 内容；输出只含第一层节点的列表
+% #1 标签，#2 内容；\loggingoutput 输出完整深度的节点列表，嵌套盒子里的节点也在内
 \newcommand\EntryNodes[2]{%
   \setbox\EntryCandidate=\hbox{#2}%
   \EntryAssertIdle{#1}%
@@ -91,9 +91,6 @@
   \box\EntryCandidate
   \clearpage
 }
-
-\showboxbreadth=100
-\showboxdepth=1
 
 % 仿 issue 的写法：issue 用 \CJKunderline* 包住西文 xxxx，这里换成
 % \CJKunderline 与规则盒子；宏定义第二行行末的换行也是一枚空格
@@ -206,7 +203,7 @@
 
 % 正文最后一个字符之后还有别的内容时，命令后的空格与直接输入一样保留，后面的
 % 字符也不补边界间距。正文以字符、颜色切换、\mbox 或嵌套线型命令结尾时仍按
-% 这个字符处理。
+% 这个字符处理。嵌套线型命令的内层正文以这些内容结尾时同样如此。
 \TEST{trailing content after the last character}{
   \EntryWidth{hspace}{符 \CJKunderline{中\hspace*{2em}} 后}{符 中\hspace*{2em} 后}
   \EntryWidth{name}{姓名 \CJKunderline{张三\hspace*{4em}} 学号}{姓名 张三\hspace*{4em} 学号}
@@ -244,6 +241,31 @@
   \EntryWidth{last-color-switch}{符 \CJKunderline{中\color{red}} 后}{符 {中\color{red}} 后}
   \EntryWidth{last-mbox}{符 \CJKunderline{中\mbox{文}} 后}{符 中\mbox{文} 后}
   \EntryWidth{last-underdot}{符 \CJKunderline{\CJKunderdot{中}} 后}{符 中 后}
+  \EntryWidth{inner-fill}{中 \uline{\sout{中\hspace*{1em}}} 吗}{中 中\hspace*{1em} 吗}
+  \EntryWidth{inner-fill-latin}{中\uline{\sout{中\hspace*{1em}}}x}{中中\hspace*{1em}x}
+  \EntryWidth{inner-hspace}{中 \uline{\sout{中\hspace{1em}}} 吗}{中 中\hspace{1em} 吗}
+  \EntryWidth{inner-quad}{中 \uline{\sout{中\quad}} 吗}{中 中\quad{} 吗}
+  \EntryWidth{inner-fillbox}{中 \uline{\sout{中\usebox{\FillBox}}} 吗}{中 中\usebox{\FillBox}{} 吗}
+  \EntryWidth{inner-fillbox-latin}{中\uline{\sout{中\usebox{\FillBox}}}x}{中中\usebox{\FillBox}{}x}
+  \EntryWidth{inner-kern}{中 \uline{\sout{中\kern2pt}} 吗}{中 中\kern2pt{} 吗}
+  \EntryWidth{inner-penalty}{中 \uline{\sout{中\penalty0}} 吗}{中 中\penalty0{} 吗}
+  \EntryWidth{inner-special}{中 \uline{\sout{中\special{x}}} 吗}{中 中\special{x} 吗}
+  \EntryWidth{inner-latin-fill}{中\uline{\sout{x\hspace*{1em}}}中}{中x\hspace*{1em}中}
+  \EntryWidth{inner-period-cjk-fill}{中 \uline{\sout{中。中\hspace*{1em}}} 吗}{中 中。中\hspace*{1em} 吗}
+  \EntryWidth{inner-paren-fill}{中 \uline{\sout{中（A）中\hspace*{1em}}} 吗}{中 中（A）中\hspace*{1em} 吗}
+  \EntryWidth{inner-paren-fill-latin}{中\uline{\sout{中（A）中\hspace*{1em}}}x}{中中（A）中\hspace*{1em}x}
+  \EntryWidth{inner-paren-quad}{中 \uline{\sout{中（A）中\quad}} 吗}{中 中（A）中\quad{} 吗}
+  \EntryWidth{inner-paren-rule}{中 \uline{\sout{中（A）中\rule{2pt}{2pt}}} 吗}{中 中（A）中\rule{2pt}{2pt} 吗}
+  \EntryWidth{inner-leftquote-fill-latin}{x\uline{\sout{x“中\hspace*{1em}}}x}{xx“中\hspace*{1em}x}
+  \EntryWidth{inner-cjkul-paren-fill}{中 \CJKunderline{\CJKsout{中（A）中\hspace*{1em}}} 吗}{中 中（A）中\hspace*{1em} 吗}
+  \EntryWidth{inner-wave-fill}{中 \uline{\uwave{中\hspace*{1em}}} 吗}{中 中\hspace*{1em} 吗}
+  \EntryWidth{three-level-inner-fill}{符 \uline{\sout{\xout{中}\hspace*{1em}}} 后}{符 中\hspace*{1em} 后}
+  \EntryWidth{three-level-innermost-fill}{符 \uline{\sout{\xout{中\hspace*{1em}}}} 后}{符 中\hspace*{1em} 后}
+  \EntryWidth{three-level-last-cjk}{符 \uline{\sout{\xout{中}}} 后}{符 中 后}
+  \EntryWidth{three-level-last-latin}{符 \uline{\sout{\xout{中}}}x}{符 中x}
+  \EntryWidth{inner-last-color}{符 \uline{\sout{中\textcolor{red}{中}}}x}{符 中\textcolor{red}{中}x}
+  \EntryWidth{inner-last-mbox}{符 \uline{\sout{中\mbox{中}}} 后}{符 中\mbox{中} 后}
+  \EntryWidth{inner-mbox-then-fill}{中 \uline{\sout{中\mbox{中}\hspace*{1em}}} 吗}{中 中\mbox{中}\hspace*{1em} 吗}
 }
 
 % 正文以全角右标点结尾时，命令后的空格不出现，西文前也不补间距，与直接输入相同。
@@ -312,9 +334,11 @@
 }
 
 % 嵌套线型命令的内层正文以全角左标点开头时，补报类别不能在内层盒子里的标点与
-% 西文之间插入左边界间距。
+% 西文之间插入左边界间距。三层嵌套时，中间层盒子末尾为识别最内层盒子临时补的
+% marker 要在盒子关闭前删去，不能留在盒子里。
 \TEST{no boundary glue inside a nested decoration}{
   \EntryNodes{nested-leftquote-latin}{他说\CJKunderline{\CJKsout{“OK”}}吗}
+  \EntryNodes{three-level-no-marker}{符 \uline{\sout{\xout{中}}} 后}
 }
 
 % 嵌套线型命令之后若又排出别的盒子，这个盒子不能被误认成嵌套装饰，也不能在
