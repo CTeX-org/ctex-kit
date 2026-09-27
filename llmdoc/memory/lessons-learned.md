@@ -790,10 +790,16 @@ Curated cross-task rules distilled from archived memory.
 **补充（#1091）**: 装饰命令的矩阵还要按“正文开头、结尾各是哪类非字符内容（空白、盒子、kern、penalty、全角标点、嵌套装饰）× 命令两侧有无源码空格 × 后面接汉字还是西文”组合。#1091 的本地审查 R1 只报出“以字符开头、以空白结尾”一类，实现者按这个组合补比对时，又找到一处上一提交自己引入的回归（`\CJKunderline{中。}x` 在 x 前多出一枚间距）。另外，oracle 那一侧的源码空格要确认真的存在：`\usebox\FillBox }`、`\kern5pt }` 里的空格会被控制词、尺寸读取吃掉，要写成 `\usebox{\FillBox} }`、`\kern5pt\relax{} }`。会改变记号流的用户选项（如 `CheckFullRight`，它让全角右标点先删去其后的空格）也要作为矩阵的一个维度：#1091 前四轮的用例都只在默认选项下运行，R5 才发现打开该选项后的回退。
 **Source**: `llmdoc/memory/archive/2026-07-18/992-command-boundary-oracle-matrix.md`, `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`, `llmdoc/memory/reflections/1005-xcjkecglue-right-boundary-recovery.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
+### 差异结论要写明所用矩阵与规模
+**Rule**: 写“相对某版本只剩 N 项差异”“没有回退”“没有新差异”时，同一句里写明是在哪个矩阵（文件名、项数、选项组）上得到的，并写成“在这个矩阵里……”；换了更大的矩阵或新的选项组，结论要重新测，不能沿用。没有复核过的矩阵不能写进结论。
+**Why**: #1091 R10 在 llmdoc 三处写“相对 v3.10.6 只剩三项差异”“约 500 项合并矩阵没有发现新的差异”；R11 盲审用 4104 项矩阵找到 135 项相对 v3.10.6 的差异，其中 68 项自 R9 起出现。代码本身在那一轮没有回退，出错的是把某个矩阵上的结论写成了全称结论。
+**Source**: `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
+
 ### 源码语法只产生候选，实际输出决定语义
 **Rule**: 当宏可能消费参数末尾的分组或分隔记号时，源码扫描只能登记候选；必须在可见内容排完后检查实际节点，再发布首尾类别等输出语义。
 **Why**: #1002 中未知宏可能消费末尾 `{$x$}`、`$` 或 `\)`，只凭源码形状会把没有排出公式的命令误记为 math。采用“语法候选＋实际节点确认”后，公式边界才能与直接输入保持一致。
-**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`
+**补充（#1091 R11）**: 空格同样不能按记号形式判断。R10 用“首记号是空格、`\ ` 或一层分组里的空格”决定是否重放 marker，漏掉了 `\space`、多层分组，也没有考虑 `xCJKecglue=true` 下直接输入本身会删去这枚空格；R11 改为照常重放 marker，由后面字符的类别转换按选项处理，所有写法走同一条路径。
+**Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 状态表中的绿色单元才进入通过基线
 **Rule**: 矩阵出现部分失败时，为已经通过的精确单元增加回归测试；失败单元留在跟踪 issue 中，既不写成 `.tlg` 通过基线，也不通过跳过整个场景丢失邻近的绿色单元。

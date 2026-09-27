@@ -920,12 +920,14 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\@@_ulem_onin_tail_glue:` 只在 penalty 之前正是这个 marker 时才认作标点自己的节点，否则置 `content`。
 - **内层正文以空格开头时不重放（R10-I2）。** 左侧读取拆为 `\@@_ulem_onin_lead_get:n` 与 `\@@_ulem_onin_lead_put:`；
   `\@@_ulem_onin_if_lead_space:n` 判断内层正文是否以空格记号、控制空格 `\ ` 或分组里的空格开头，是则不记录 marker。
+  （R11 删去了这个判断，见下文 R11 一节。）
 - **重排分支同样重放（R10-M3）。** `\@@_ulem_onin_lead_get:n` 移到重排判断之前，重排分支把
   `\@@_ulem_onin_lead_put:` 作为前缀传给 `\@@_boundary_ulem_math_tail_space:nnn`。
 - **说法更正（R10-M1、R10-M2、R10-M4）。** CHANGELOG 与 `\changes` 改为“正文以全角左标点结尾、标点不在正文内的分组
   里时……”；lvt 注释删去“分组结束”并注明分组情形尚未处理；dtx 补写分组情形的原因（直接输入 `{中（} 后` 里标点处的
   `\ignorespaces` 在分组结束处停下，分组之后的空格仍被边界处理删去），把 marker 的去向改为“正文第一个字符的类别转换
-  会取走它；正文为空或以规则、盒子开头时，零宽 marker 留在内层盒子里”，并写明左侧补出的 `\CJKecglue` 位于内层盒子里、
+  会取走它；正文为空，或第一个字符之前先排出了规则、盒子、glue、kern 等节点时，零宽 marker 留在内层盒子里”
+  （R11-M1 补上 glue、kern 开头的情形），并写明左侧补出的 `\CJKecglue` 位于内层盒子里、
   会被内层装饰画上、不能断行，与命令左边界原有机制（`x\uline{\sout{中}}`）的位置相同。
 
 ### What Went Wrong（R10）
@@ -957,8 +959,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   结尾的两项），全文件 214 项 PASS、0 FAIL；新增的 13 项在 `c1b1411c` 上有 12 项失败（`nested-left-tie` 通过），新 lvt 在 `35ab5fe7` 上共 36 项失败。
 - 逐项变异在 R9 的 14 项之外新增：不检查开头空格 5 项；不识别分组内开头空格 1 项；不识别 `\ ` 1 项；重排分支不重放
   2 项；不插 `ulem-left` marker 2 项；glue 前任意节点都认作标点 7 项，全部被捕获；R9 的 14 项仍全部被捕获。
-- 约 500 项合并矩阵：相对 `c1b1411c`、`35ab5fe7`、`b4f7a25d` 无回退；相对 v3.10.6 仍是 `\uline{\sout{中 }}`、
-  `\uline{\sout{中\relax}}` 两项既有差异（`ad8dc88b` 起）与 `符 x\mbox{\uline{\sout{中}}} 后`（v3.10.6 碰巧一致）。
+- 约 500 项合并矩阵：相对 `c1b1411c`、`35ab5fe7`、`b4f7a25d` 无回退。R10 时这里还写“相对 v3.10.6 仍是三项既有
+  差异”，这只是该矩阵上的结果；R11 盲审用 4104 项矩阵找到 135 项相对 v3.10.6 的差异（R11-I3，见下文 R11 一节）。
 - R10 后重跑：xeCJK 124／124、ctex `l3build check -e xetex` 186／186、`l3build doc` 成功。
 
 ### 仍未覆盖（R10 修复后）
@@ -978,6 +980,68 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   TEST 15 新增项与变异、未覆盖清单（已由 recorder 完成）。
 - **仅留在 memory**：R10 的审查项编号与 run 名。
 
+## 本地增量审查 R11 后的补修
+
+### 审查发现
+
+- 对 R10 补修（范围 `c1b1411c..9c6bd737`）的本地增量盲审（R11，run `20260927T194907Z-r11-incr`）报告阻塞问题 0 项、
+  重要建议 3 项、小问题 2 项；历史补充确认 R10-I1、R10-M1、R10-M3、R10-M4 已修复，R10-I2、R10-M2 并入 R11 跟踪。
+  - R11-I1：R10 按记号形式判断内层开头是否为空格，漏掉 `\space` 与多层分组，`\uline{中\sout{\space 中}}`、
+    `\uline{中\sout{{{ 中}}}}` 为 20.0pt，直接输入 23.33pt（`35ab5fe7`、v3.10.6、v3.9.1 都正确）；`CJKspace=true` 时
+    `\uline{中\sout{\textbf{ 中}}}` 的空格按进入命令时的字体排出。
+  - R11-I2：`xCJKecglue=true` 时直接输入 `中{ 中}` 本身删去这枚空格，R10 不重放后反而与直接输入不一致（`c1b1411c` 一致）。
+  - R11-I3：llmdoc 三处写“相对 v3.10.6 只剩三项差异”“约 500 项合并矩阵没有新差异”；盲审的 4104 项矩阵找到 135 项，
+    其中 68 项自 R9 起出现，另 67 项更早。
+  - R11-M1：“marker 留在内层盒子里”的说法漏列 glue、kern 开头；R11-M2：dtx 一段注释断行不规则。
+
+### 修法要点
+
+- **总是重放，空格交给类别转换（R11-I1、R11-I2）。** `\@@_ulem_onin_lead_put:` 总是重放外层 marker；入口层缓存的
+  `xecglue_flag` 不是 `true` 时清除 `\g_@@_glue_check_pending_bool`，空格按普通空格保留，否则由后面字符的类别转换换成
+  `\CJKecglue`。内层盒子里 `\xeCJK_space_glue:` 改为按当前字体排出。
+- **左边界钩子。** 修好右侧以后，外层左边界补在内层开头的 `~`、`\hspace`、`\kern` 等内容之后这一处多出的间距显露出来
+  （以前两侧一多一少，恰好抵消）。核心新增 `\@@_boundary_emit_left_hook:n`，xeCJKfntef 在嵌套链上、入口为 `armed`
+  且没有源码空格、内层盒子末节点是 glue、kern、penalty、规则、vlist 或 special 时把入口改为 `resolved`。
+- **说法更正（R11-I3、R11-M1、R11-M2）。** 差异结论改为限定在所用矩阵（647 项 r9big）的说法；marker 的去向改为
+  “正文为空，或第一个字符之前先排出了规则、盒子、glue、kern 等节点时”；注释重新断行。
+
+### What Went Wrong（R11）
+
+1. **按记号形式猜测排版结果。** 空格可以写成空格记号、`\ `、`\space`、任意层分组，也可以藏在 `\textbf{ 中}` 里；
+   逐一列举形式总会漏掉一种。R10 还把“直接输入会保留这枚空格”当成不随选项变化的事实，没有在 `xCJKecglue=true`
+   下比对。改为让 marker 照常起作用、由类别转换按选项处理后，所有写法走同一条路径。
+2. **一侧修好后另一侧的错误显露出来。** R9 补上右侧间距时没有同时检查左侧；左侧多补的一枚间距以前被右侧少的一枚
+   抵消，直到 R11 盲审的矩阵才发现。
+3. **变异测不出的分支。** 原型里“末节点是重放 marker 时不改 `entry`”的例外，变异后没有任何用例失败。插桩确认这个
+   分支在所有用例里从不触发，于是删去，而不是为它硬造测试。教训是变异测不出时，先插桩看分支是否可达，再决定删去
+   还是补测试。
+4. **把某个矩阵的结论写成全称结论。** “只剩三项差异”只在 R10 的约 500 项矩阵上成立，文档没有写明矩阵与规模。
+
+### Root Cause（R11）
+
+- 代码层：在排版之前按源码形状推断排版结果，而不是看类别转换时的实际状态。
+- 过程层：差异结论没有标明所用矩阵；变异测不出时没有先区分“测试缺判别力”与“分支不可达”。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 15 新增 21 项，全文件 235 项 PASS、0 FAIL；新增项在 `bebac723` 上 16 项失败。
+- 逐项变异 22 项（`tmp/i1091/fix2/mutate14.py`）全部使本文件失败，`nest-remove-fixed`、`nest-no-box-check` 由节点列表捕获。
+- 647 项 r9big 矩阵：相对 `bebac723` 33 项由不一致变为一致、无回退；相对 r9base、r8base 无回退；当前代码与直接输入
+  不一致而 v3.10.6 一致的 4 项见 `doc-gaps.md`。这一结论只对 r9big 矩阵成立，没有在 4104 项矩阵上逐项复核。
+- xeCJK `l3build check`、`l3build doc`、ctex `l3build check -e xetex` 全部通过。
+
+### 仍未覆盖（R11 修复后）
+
+- 嵌套内层以未注册的盒子开头（原始 `\hbox`、`\rule`、`\phantom`、`\raisebox`）时多补一枚左边界间距，自 `ad8dc88b`
+  起就存在；钩子只凭节点无法把它与透明的 `\mbox{}` 区分。已登记在 `doc-gaps.md`，附探测文件与可能的补法。
+
+### Promotion Candidates（R11）
+
+- **lessons-learned（新条目）**：差异结论要写明所用矩阵与规模。
+- **lessons-learned（补充「源码语法只产生候选，实际输出决定语义」）**：不要按记号形式推断空格等排版结果。
+- **仅留在 memory**：变异测不出时先插桩确认分支是否可达，再决定删去还是补测试（与「症状不显现不等于路径不可测」
+  互为反向，暂不单列）；R11 的审查项编号与 run 名。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -989,7 +1053,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   R9 起还有 `\@@_ulem_left_punct_peek:`、`\@@_ulem_tail_left_content:`、`\@@_ulem_onin_tail_glue:`、
   `\@@_ulem_nest_node:`、`\@@_ulem_nest_node_remove:` 与 `\l_@@_ulem_onin_lead_tl`；R10 起还有
   `\@@_ulem_left_punct_mark:`（`ulem-left` marker）、`\@@_ulem_onin_lead_get:n`、`\@@_ulem_onin_lead_put:` 与
-  `\@@_ulem_onin_if_lead_space:n`。
+  `\@@_ulem_onin_if_lead_space:n`（R11 删去）；R11 起还有核心的 `\@@_boundary_emit_left_hook:n` 与
+  `\@@_ulem_orig_space_glue:`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
