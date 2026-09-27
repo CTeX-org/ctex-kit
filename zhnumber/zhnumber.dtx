@@ -396,7 +396,8 @@ Copyright and Licence
 %   筹码上——\texttt{zero=fill} 时叠在占位的〇上，\texttt{zero=omit} 时叠在末位之前那个
 %   筹码上（实测 \verb|\zhrod{-10}| 在 \texttt{fill} 下得到「筹码 + 〇 + U+20E5」）。
 %   这是「叠在最右一个字符上」这条规则本身带来的：末位没有筹码可叠。此时建议改用
-%   \texttt{slash}。
+%   \texttt{slash}。\texttt{zero=omit} 下整串全是 0 的负数（如 \verb|-0|、\verb|-0.0|）
+%   没有任何筹码可叠，\texttt{overlay} 不输出负号，结果与相应的正数相同。
 %
 %   把 \TeX\ Live 里含全部算筹字形的字体逐一检查（共 19 款），结果是两者\emph{恰好互补}：
 %   \pkg{lxgw-fonts} 的 5 款只有 U+FF3C，\pkg{juliamono} 的 14 款只有 U+20E5，
@@ -1576,7 +1577,8 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_rod_number:n,\@@_rod_split:www,\@@_rod_sign:w}
+% \begin{macro}[int]{\@@_rod_number:n,\@@_rod_split:www,\@@_rod_sign:w,
+%   \@@_rod_overlay_if_base:n,\@@_rod_base_mark:n}
 % 拆负号与小数点，再分派给上面两条循环。负号排在哪里取决于 \texttt{minus} 的取值，
 % 见下文。
 %    \begin{macrocode}
@@ -1598,6 +1600,14 @@ Copyright and Licence
 % 负数与正数的盒子宽度完全相同（实测 JuliaMono 下都是 24\,pt），等于负号没排出来。
 % 这个缺陷由本地盲审发现。
 %
+% \texttt{overlay} 还要求确实有一个基字符可叠：\texttt{zero=omit} 时整串全是 0 的输入
+% （\verb|-0|、\verb|-0.0|）不排出任何筹码，若照样追加 U+20E5，它会叠到小数点或算筹前面
+% 的正文上。\cs{@@_rod_overlay_if_base:n} 在这种情况下不追加组合字符：数值本身就是
+% 零，负零按零处理，输出与 \verb|0|、\verb|0.0| 相同。判断依据是输入里有没有 0 与小数点
+% 之外的记号——非零数字会排出筹码，其余字符原样输出，都可以作基字符。
+% \texttt{zero=fill} 时总有占位的〇可叠，不受影响；\texttt{slash} 的＼是独立字符，不会叠到
+% 别的字符上，也保持原样。这个缺陷由 PR 审查发现。
+%
 % 两种记法依赖的字符在现有字体里\emph{恰好互补}：逐一检查 \TeX\ Live 里含全部算筹字形的
 % 19 款字体，\pkg{lxgw-fonts} 的 5 款只有 U+FF3C、\pkg{juliamono} 的 14 款只有 U+20E5，
 % 没有一款同时具备。因此这两个选项都必须保留，谁也不能当作另一个的替代。
@@ -1611,7 +1621,8 @@ Copyright and Licence
       {
         \bool_if:NF \l_@@_rod_minus_overlay_bool { \@@_rod_slash: }
         \@@_rod_split:www #2 . \q_nil . \q_stop
-        \bool_if:NT \l_@@_rod_minus_overlay_bool { \@@_rod_overlay: }
+        \bool_if:NT \l_@@_rod_minus_overlay_bool
+          { \@@_rod_overlay_if_base:n {#2} }
       }
       {
         \str_if_eq:nnTF {#1} { + }
@@ -1619,6 +1630,17 @@ Copyright and Licence
           { \@@_rod_split:www #1#2 . \q_nil . \q_stop }
       }
   }
+\cs_new:Npn \@@_rod_overlay_if_base:n #1
+  {
+    \bool_if:NTF \l_@@_rod_zero_omit_bool
+      {
+        \tl_if_blank:eF { \tl_map_function:nN {#1} \@@_rod_base_mark:n }
+          { \@@_rod_overlay: }
+      }
+      { \@@_rod_overlay: }
+  }
+\cs_new:Npn \@@_rod_base_mark:n #1
+  { \str_if_eq:nnF {#1} { 0 } { \str_if_eq:nnF {#1} { . } { * } } }
 \cs_new:Npn \@@_rod_split:www #1 . #2 . #3 \q_stop
   {
     \@@_rod_int:n {#1}
