@@ -170,7 +170,8 @@ release 自动化并不绕过包内 `l3build` 逻辑。真正的打包仍在目�
 2. Download `announcement` artifact。
 3. `gh release download <tag> --pattern '*.zip'` 拿 GH Release zip,改名为 `<dir>/<module>-ctan.zip` (l3build upload 期待的位置/名字)。
 4. `Validate note length` —— 若提供了 `note`,用 `wc -c` 按 **byte** 数校验 ≤4096(bash `${#NOTE}` 在 `LANG=C.UTF-8` 下数的是字符数,中文会让校验偏宽,故必须按 byte 算);超限直接 fail。note 经 env 传入而非 `${{ }}` 字符串插值,防 shell 元字符注入。
-5. `cd <dir> && l3build upload --file ../announcement.md --email <email> [--dry-run]`。
+5. `cd <dir> && l3build upload --file ../announcement.md --email <email> [--dry-run] -- <ver>`。
+   - `<ver>` 是 prepare-announcement 从 tag 解析出的版本号，作为位置参数覆盖 `uploadconfig.version`（`l3build-upload.lua` 用 `tagnames[1]`）。本 job 检出的是默认分支而不是 tag，`build.lua` 里 `read_dtx_version()` 读到的是 master 当前的版本；打 tag 与手动投递之间 master 若已升版，不显式传入就会把新版本号填进旧 tag 的投递表单（#1056 审查发现）。解析结果为空时直接失败。
    - `CTAN_UPLOADER` / `CTAN_EMAIL` / `CTAN_NOTE` 通过 env 注入,`support/build-config.lua` 的 `ctex_kit_uploadconfig()` 在 build.lua 加载时从 env 读。
    - `note` 走 `ctex_kit_env_or_nil("CTAN_NOTE")`:input 留空时 GH Actions 注入空串 `""`,该工具函数把 `nil` 和 `""` 一并视为未设置,从而跳过 `note` 字段(避免给 CTAN 提交空 note)。l3build CLI 不暴露 `--note`,仅认 `uploadconfig.note` / `note_file`,故只能走 env。
 6. 非 dry-run + 上传成功 ⟹ `gh release edit <tag> --prerelease=false --latest` 改为正式版。
