@@ -118,9 +118,9 @@ Before submitting code, please ensure:
 
 **Please target the `xpinyin/maintaining` branch for xpinyin pull requests, not `master`.**
 
-xpinyin was maintained by [@qinglee](https://github.com/qinglee). The community has been unable to reach them for about four years since 2022; after consulting the CTAN admins, the plan is to consider starting the maintainer-change procedure if there is still no reply by the end of September 2026 (see [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)). Until maintainership is settled, xpinyin changes are integrated on that branch, so that the accumulated delta is visible in one place should someone take over, and so interactions between changes can be validated together.
+xpinyin was originally maintained by [@qinglee](https://github.com/qinglee). The community had been unable to reach them for more than four years since 2022; after consulting the CTAN admins, the community decided to take over maintenance, and Liam Huang has maintained the package since June 2026 (see [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)). Changes made since the takeover are integrated on that branch ([#1051](https://github.com/CTeX-org/ctex-kit/pull/1051)), so that the accumulated delta is visible in one place and interactions between changes can be validated together.
 
-This arrangement is temporary: once maintainership is settled (whether by a reply or by completing the change procedure), this subsection can be removed and xpinyin can target `master` directly.
+This arrangement is temporary: once #1051 is merged into `master`, this subsection can be removed and xpinyin can target `master` directly.
 
 Also note that xpinyin changes must be validated on **both** test routes:
 
