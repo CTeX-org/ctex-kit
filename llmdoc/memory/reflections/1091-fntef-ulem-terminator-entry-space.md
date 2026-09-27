@@ -1,6 +1,6 @@
 ---
 name: 1091-fntef-ulem-terminator-entry-space
-description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格确实存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致；本地增量审查 R5 后补上 `CheckFullRight=true` 时标点自己先删去空格、peek 看不到这枚空格的情况（`\g_@@_FullRight_space_bool` 记下是否删过空格），教训是模仿一个原语时还要检查用户选项会不会在它之前改变输入，测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个维度，记录变异时要写实际做的改动而不是意图；本地增量审查 R6 后把 `CheckFullRight` 的空格判断从 `\peek_charcode_remove:NTF` 改为 `\peek_meaning_remove:NTF`（字符码比较会删去 `\verb`、`\obeyspaces` 下字符码为 32 的活动字符），修复过程中又逐提交二分发现嵌套内层全角标点接西文的同根因回退（R6 只修好直接写在内层的三种写法），教训是替换 l3 peek 函数时要确认比较方式（charcode／catcode／meaning）与被替换的函数一致、活动字符这类“看起来像空格”的记号是必测维度，每轮修复后都要把嵌套、盒子、选项等维度与发布版横向比对，而不只比对直接输入；本地增量审查 R7 发现 R6 的补报漏掉全角标点后接汉字与 `\mbox` 变体，还在内层盒子里插入左边界 glue，改用 `\@@_ulem_report_last:n` 在五个全角标点转换的非 ulem 分支只补报 `stream-ulem` 层的末类别，教训是补报类别时要区分“末类别”与“首类别＋左边界”两种副作用，修回退时要把同根因的所有转换一起列出、逐项与 `b9c023b1`、v3.10.6、直接输入比对，声称“已修好”前要把盒子路径等变体也测一遍；本地增量审查 R8 发现 R7 补报的 `tail=char` 暴露了嵌套内层正文不经过片段盒子拦截点的旧缺口（内层最后一个字符之后的 `\hspace*` 等内容不置 `content`），改由 `\@@_ulem_onin_tail_check:` 在内层盒子关闭前检查末节点，教训是新补报的状态会暴露原来被错误值掩盖的缺口，“最后一个字符之后的内容”这一维度要在嵌套内层也测，测试注释里关于日志深度的说法要以 `.tlg` 实际内容为准
+description: 记录 #1091 修复线型装饰命令把 ulem 结束符 `*` 当作正文字符、以及 stream-ulem 入口空格被排到装饰之后的两层问题；核心教训是只修一层会得到“宽度对、位置错”的中间态，验证必须看节点顺序；新增拦截点要用全角标点开头的正文复核；变异无判别力时要找出是哪条兜底路径掩盖了它；旧基线可能冻结了缺陷值；R1 补修（6b197547）的教训是比对要组合正文首尾的非字符内容、命令两侧空格与后续字符类别，oracle 要确认源码空格确实存在，改右边界重放要检查段末的像素补偿 glue；本地增量审查 R2 后的教训是声称测试保护某性质时，要用只破坏该性质的变异确认测试会失败（R1 用 `\raisebox` 测 `\raise` 位移，根本没走到取下再放回的路径），模仿直接输入的 `\ignorespaces` 要连同分组层级一起模仿；本地增量审查 R3 后改用正文末尾的扫描标记加 peek 判断全角右标点，并修好嵌套内层标点，教训是模仿一个原语前先确认它的完整停止条件（`\ignorespaces` 在第一个非空格记号处停），用直接对应该条件的判据而不是逐个补情况，声称“修复前后相同”前要把有无空格、后接汉字／西文各测一遍；本地增量审查 R4 后补上盒子里的嵌套装饰、嵌套内层“标点＋末尾空格”与三层嵌套中间层，教训是给状态标志加作用域时要把“进入”“新盒子清除”“再次进入”组合起来测、嵌套至少测到三层，新增的 peek 路径要与原有 ulem 分支对空格的处理一致；本地增量审查 R5 后补上 `CheckFullRight=true` 时标点自己先删去空格、peek 看不到这枚空格的情况（`\g_@@_FullRight_space_bool` 记下是否删过空格），教训是模仿一个原语时还要检查用户选项会不会在它之前改变输入，测试矩阵要把 `CheckFullRight` 这类会改变记号流的选项作为一个维度，记录变异时要写实际做的改动而不是意图；本地增量审查 R6 后把 `CheckFullRight` 的空格判断从 `\peek_charcode_remove:NTF` 改为 `\peek_meaning_remove:NTF`（字符码比较会删去 `\verb`、`\obeyspaces` 下字符码为 32 的活动字符），修复过程中又逐提交二分发现嵌套内层全角标点接西文的同根因回退（R6 只修好直接写在内层的三种写法），教训是替换 l3 peek 函数时要确认比较方式（charcode／catcode／meaning）与被替换的函数一致、活动字符这类“看起来像空格”的记号是必测维度，每轮修复后都要把嵌套、盒子、选项等维度与发布版横向比对，而不只比对直接输入；本地增量审查 R7 发现 R6 的补报漏掉全角标点后接汉字与 `\mbox` 变体，还在内层盒子里插入左边界 glue，改用 `\@@_ulem_report_last:n` 在五个全角标点转换的非 ulem 分支只补报 `stream-ulem` 层的末类别，教训是补报类别时要区分“末类别”与“首类别＋左边界”两种副作用，修回退时要把同根因的所有转换一起列出、逐项与 `b9c023b1`、v3.10.6、直接输入比对，声称“已修好”前要把盒子路径等变体也测一遍；本地增量审查 R8 发现 R7 补报的 `tail=char` 暴露了嵌套内层正文不经过片段盒子拦截点的旧缺口（内层最后一个字符之后的 `\hspace*` 等内容不置 `content`），改由 `\@@_ulem_onin_tail_check:` 在内层盒子关闭前检查末节点，教训是新补报的状态会暴露原来被错误值掩盖的缺口，“最后一个字符之后的内容”这一维度要在嵌套内层也测，测试注释里关于日志深度的说法要以 `.tlg` 实际内容为准；本地增量审查 R9 发现 R8 把内层盒子末尾全角左标点自己排出的 `\penalty10000 \glue0pt` 当成正文内容，以及嵌套线型命令的内容与相邻字符之间缺少 `\CJKecglue`，改为以 `tail=left` 处理全角左标点结尾、由 `\@@_ulem_nest_node:` 选择嵌套盒子后的 marker 并在内层开头重放外层末尾的 marker，教训是把一类节点一律当成内容之前要先列出 xeCJK 自己会在同一位置排出的节点，修一侧的连接要同时检查另一侧，发布版总宽度一致也可能是两处错误抵消，写“其余在发布版就正确”前要逐项比对
 metadata:
   type: feedback
 ---
@@ -725,13 +725,18 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   否则末节点是 glue 就置 `content`（内层盒子里的显式 glue 没被 `\UL@reskip` 移出，这是与 `\@@_ulem_tail_check:`
   唯一的区别），其余按 `\@@_ulem_tail_check:` 的规则判断。最后若末节点是 `ulem-nest` marker 就删去（R8-I1）。
 - `\@@_ulem_nest_mark:` 的非 patch 分支（嵌套链上的中间层）在末节点是盒子时也补 `ulem-nest` marker，让中间层的
-  检查把最内层命令排出的盒子当作字符；marker 由检查删去，不留在中间层盒子里。
+  检查把最内层命令排出的盒子当作字符；marker 由检查删去，不留在中间层盒子里。（R9-M2 更正：只有末节点正是这个
+  marker 时才删去；后面还有别的内容时，零宽 marker 留在中间层盒子里。）
 - dtx 注释改为“栈中所有 `stream-ulem` 层，也就是所有外层线型命令（包括隔着 `\mbox` 的外层）”（R8-M3），tail 机制
   说明里新增内层正文末尾检查一段。
 - lvt 删去无效的 `\showboxbreadth=100`、`\showboxdepth=1`，`\EntryNodes` 注释改为完整深度（R8-M2）；
   `build-and-test.md` 的通过数写到 R8（R8-M1）。
 - 不新增 CHANGELOG 条目：新增用例中在 v3.10.6 失败的五项都来自结束符 `*` 被当作西文，已由现有条目覆盖，其余在
-  v3.10.6 就正确，R8 修的是未发布中间提交里的回退。
+  v3.10.6 就正确，R8 修的是未发布中间提交里的回退。（R9 审查更正两处：R9-M3，五项中只有四项来自 `*`，
+  `inner-latin-fill` 失败是因为“最后一个字符之后还有内容时右侧仍补边界间距”，属于 CHANGELOG 已有的“最后一个字符
+  之后还有空白、盒子、规则等内容”一条；R9-M5，“其余在 v3.10.6 就正确”没有逐项比对，R8 也改变了“内层以西文加
+  末尾空格结尾”的发布版行为，`中\uline{\sout{x }}中` 由 35.27pt 变为 31.94pt（等于直接输入），
+  `符 \uline{\sout{中（}}x` 的结果也变了，两项当时都没有测试固定。）
 
 ### What Went Wrong（R8）
 
@@ -755,14 +760,14 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - `fntef-entry-space01`：TEST 9 新增 25 项宽度用例（内层末尾接 glue、盒子、kern、penalty、special，标点之后再接
   汉字与末尾内容，`\CJKunderline{\CJKsout{…}}`、`\uwave` 变体，三层嵌套，内层以颜色或 `\mbox` 结尾），TEST 11 新增
   节点用例 `three-level-no-marker`；全文件 156 项 PASS、0 FAIL。在 `b4f7a25d` 上新用例有 21 项失败；`ef49ca4e` 与
-  v3.10.6 上只有与 `*` 有关的五项失败。
+  v3.10.6 上只有与 `*` 有关的五项失败（R9-M3 更正：其中 `inner-latin-fill` 与 `*` 无关，见上文修法要点末条）。
 - 逐项变异 6 项全部被捕获：不调用检查 21 项失败；glue 不置 `content` 15 项；`punct` 时也检查 3 项；中间层不补
   marker 2 项；不删 marker 时宽度全过，但 `three-level-no-marker` 的节点列表多出 marker kern；不检查 onin 布尔 1 项。
 - R8 后重跑，xeCJK 124／124、ctex `l3build check -e xetex` 全部通过。
 
 ### 仍未覆盖（所有版本都不对，或 v3.10.6 碰巧一致）
 
-- `符 \uline{\sout{\xout{中}x}} 后`（38.61pt 对 41.94pt，v3.9.1 正确）、`符 \uline{\sout{\hspace*{1em}}} 后`（36.66 对
+- `符 \uline{\sout{\xout{中}x}} 后`（38.61pt 对 41.94pt，v3.9.1 正确；R9 已修好）、`符 \uline{\sout{\hspace*{1em}}} 后`（36.66 对
   33.33）、嵌套版 issue 写法 `普通字符 \uline{\sout{\hspace*{0.5em}xxxx\hspace*{0.5em}}} 后续`（97.78 对 94.45，
   v3.9.1 两者都是 97.78）、`符 \uline{\sout{中$x$ }} 后`。
 - `符 \uline{\sout{中 }} 后`、`符 \uline{\sout{中\relax}} 后`（30.0 对 33.33）从 `ad8dc88b` 起与直接输入不同，
@@ -779,6 +784,113 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   与变异结果、doc-gaps 肯定句的更正与新增未覆盖清单（已由 recorder 完成）。
 - **仅留在 memory**：R8 的审查项编号与 run 名。
 
+## 本地增量审查 R9 后的补修
+
+### 审查发现
+
+- 对 R8 补修（范围 `b4f7a25d..35ab5fe7`）的本地增量盲审（R9，run `20260927T172127Z-r9-incr`）报告阻塞问题 0 项、
+  重要建议 2 项、小问题 5 项。历史补充：R8-I1、R8-M1、R8-M2、R8-M3 已修复（R8-I1 的修法引入的回退另记为 R9-I1），
+  没有发现消失的早先问题。
+  - R9-I1（重要，本范围引入）：R8 的 `\@@_ulem_onin_tail_check:` 把内层盒子末尾全角左标点之后 xeCJK 自己排出的
+    `\penalty10000 \glue0pt` 当成正文内容，`符 \uline{\sout{中（}} 后` 为 43.33pt（直接输入与 `b4f7a25d` 都是
+    40.0pt）；`\CJKunderline{\CJKsout{中《}}`、三层嵌套、`\uwave{中“}` 同样如此。
+  - R9-I2（重要，`ad8dc88b` 引入）：嵌套线型命令的内容与相邻字符之间的 `\CJKecglue` 丢失，
+    `符 \uline{\sout{\xout{x}中}} 后` 为 38.61pt 对 41.94pt。`ef49ca4e` 与 v3.10.6 正确，但 v3.10.6 是碰巧：结束符 `*`
+    多出的间距抵消了缺少的间距。两层写法 `符 \uline{\xout{x}中} 后`、`符 \uline{中\xout{x}中} 后` 在 v3.10.6 上也不对，
+    v3.9.1 正确。
+  - R9-M1：dtx 与 architecture 仍写“中间层不补 marker”（R8 起中间层也补）。
+  - R9-M2：“marker 检查后删去、不留在中间层盒子里”说得过满：只有末节点正是它时才删；后面还有内容时零宽 marker
+    留在中间层盒子里。
+  - R9-M3：R8 记述里 `inner-latin-fill`（`中\uline{\sout{x\hspace*{1em}}}中`）在 `ef49ca4e`／v3.10.6 上失败的原因
+    不是结束符 `*`，而是“最后一个字符之后还有内容时右侧仍补边界间距”（CHANGELOG 已有条目覆盖）。
+  - R9-M4：R8 使 TEST 1 的 `nested`（`符 \uline{\CJKsout{\usebox{\FillBox}}} 后`）基线新增一行 `\kern 0.0`（内层以
+    盒子结尾按 `content` 处理，stream end 排零宽 kern），宽度不变，文档没有记。
+  - R9-M5：`中\uline{\sout{x }}中`（`b4f7a25d` 与 v3.10.6 为 35.27pt，R8 后 31.94pt，等于直接输入）与
+    `符 \uline{\sout{中（}}x` 的变化没有测试固定；R8 反思说“其余在 v3.10.6 就正确”不对。
+- 范围外观察（登记到 doc-gaps）：`符 \uline{\sout{\xout{中} 中}} 后`（43.33 对 40.0）中间层里嵌套命令与汉字之间的
+  空格没有按 CJK 规则删去，所有版本都不对，仍未修。审查时列出的 `符 \uline{\sout{中（}} x` 在 R9 修复后已正确。
+
+### 修法要点
+
+- **全角左标点结尾（R9-I1）。** `\@@_ulem_FullLeft_and_Boundary:` 的 ulem 分支把 `\tex_ignorespaces:D` 换成
+  `\@@_ulem_left_punct_peek:`，非 ulem 分支在嵌套链上也调用它。下一个记号是扫描标记 `\s_@@_ulem_body` 时置 `punct`
+  （并复位 `\g_@@_FullRight_space_bool`），命令后的空格被吃掉；否则置新值 `left`，空格照常吃掉。`left` 之后再报告
+  字符类别改回 `char`；`\UL@reskip` 画零宽显式 glue 时由 `\@@_ulem_tail_left_content:` 改为 `content`；结束时
+  `\@@_ulem_tail_punct_end:` 把 `left` 换成 `content`，`\@@_ulem_end:` 在外层重放标点 marker 与
+  `\penalty10000 \glue0pt`，与直接输入 `中（\relax{} 后` 一致。内层盒子里末节点是 glue 时由新函数
+  `\@@_ulem_onin_tail_glue:` 判断：`tail` 为 `left`、glue 前是 `\penalty10000`、再前面不是 glue，就认作标点自己排出
+  的一对节点，不置 `content`。
+- **嵌套命令与相邻字符的连接（R9-I2）。** 右侧：`\@@_ulem_nest_mark:` 补的 marker 由 `\@@_ulem_nest_node:` 选择，
+  `tail` 为 `char` 且末类别是 CJK 或 default 时用这个类别的 marker，外层后面的字符按普通类别转换补 `\CJKecglue`，
+  否则仍用 `ulem-nest`；`\l_@@_ulem_nest_node_tl` 记下用了哪一种，`\@@_ulem_onin_tail_check:` 只在末节点正是它时由
+  `\@@_ulem_nest_node_remove:` 删去，删去后末节点若不是盒子就放回（说明挡住的是前面字符自己的 marker）。左侧：
+  `\UL@onin` 进入前读当前列表末尾的 CJK／default marker（`\l_@@_ulem_onin_lead_tl`），在内层正文开头重放。
+- dtx 注释改正“中间层不补 marker”（R9-M1）与“删去”的说法（R9-M2），新增全角左标点结尾与左右连接的说明；
+  build-and-test 更正 R8 变异记述的归因（R9-M3）并补记基线变化（R9-M4）。
+- **新增 CHANGELOG 条目**：“线型命令的正文以全角左标点结尾时，命令后的空格与直接输入一样在汉字前删去，西文前也
+  不再多补间距；嵌套线型命令的内容与它前后相邻的汉字或西文之间，与直接输入一样补上间距（#1091）。”这是相对
+  v3.10.6 的用户可见变化：TEST 15 有 27 项在 v3.10.6 上失败。
+
+### What Went Wrong（R9）
+
+1. **把一类节点一律当成“内容”之前，没有列出 xeCJK 自己会在同一位置排出的节点。** R8 规定内层盒子末尾的 glue
+   都算正文内容，理由是内层盒子里的显式 glue 没有被 `\UL@reskip` 移出；但全角左标点在 Boundary 前也排出
+   `\penalty10000 \glue0pt`，它不是用户写的内容。R8 的矩阵只按“最后一个字符之后接什么”展开，没有包含“以全角左
+   标点结尾”这一行。
+2. **只修了一侧的连接。** R2 起用 `ulem-nest` marker 识别嵌套装饰，只关心“外层能否认出这是字符”，没有检查外层
+   后面的字符能否与它按类别转换补间距；左侧（内层第一个字符能否看到外层前一个字符的 marker）也从未检查。三层写法在 v3.10.6 上碰巧正确，两层写法在 v3.10.6 上本来就错、没有被当作回退报出，两侧的缺口因此一直没有显出来。
+3. **R8 的反思说“其余在 v3.10.6 就正确”，没有逐项比对。** 写这句话时只核对了失败的五项，没有把新增用例以外、
+   但被本次修改影响的写法（内层以西文加末尾空格结尾、以全角左标点结尾后接西文）与发布版比对；五项的归因也有一项
+   写错。
+4. **盒子两侧的错误可能抵消。** `符 x\mbox{\uline{\sout{中}}} 后` 起初被当成相对发布版的回退；节点比对才看出
+   v3.10.6 上左侧同样缺少 `\CJKecglue`，只是 `\mbox` 后面多补了一枚西文间距，两处抵消。总宽度一致不能说明两侧都对。
+
+### Root Cause（R9）
+
+- 代码层：`tail` 的 `content` 判断按节点类型下结论，没有区分用户内容与标点转换自己排出的节点；嵌套装饰排出的
+  盒子两侧都没有参与普通的类别转换。
+- 过程层：设计判定规则时从“用户可能写什么”出发，没有从“这个位置上可能出现哪些节点、分别由谁排出”出发；
+  修一侧的连接时没有同时检查另一侧；回归比对只针对失败项，没有覆盖被修改影响的全部写法。
+
+### 验证
+
+- `fntef-entry-space01`：新增 TEST 15（45 项宽度用例：单层与嵌套的全角左标点结尾，后接汉字、西文、空格、
+  `\relax`、`\hspace{0pt}`、`\nobreak\hspace{0pt}`、`\hspace*`、`\kern`、内层末尾空格、两个左标点、
+  `CheckFullRight`；`中\uline{\sout{x }}中`；嵌套命令的左右连接，含两层、三层、并列、`\mbox` 内与 `\relax` 之后），
+  TEST 11 新增节点用例 `three-level-keep-char-marker`；全文件 201 项 PASS、0 FAIL。在 `35ab5fe7` 上 32 项失败
+  （新节点用例的输出也不同），在 `b4f7a25d` 上 35 项失败，在 v3.10.6 上 TEST 15 有 27 项失败。
+- 逐项变异 14 项，全部被本文件捕获：ulem 分支不 peek 9 项；嵌套链不 peek 10 项；非扫描标记不置 `left` 3 项；空格
+  不置 `left` 1 项；`\UL@reskip` 零宽 glue 不改 `content` 1 项；结束时不处理 `left` 3 项；不重放标点节点 3 项；
+  glue 一律 `content` 2 项；不看 penalty 之前 1 项；nest marker 一律用 `ulem-nest` 11 项；只重放 CJK 不重放
+  default 4 项；不复位 `\g_@@_FullRight_space_bool` 1 项；删除时固定按 `ulem-nest` 查找与删除后不检查盒子，宽度全过
+  但节点列表不同（前者由 `three-level-no-marker`、后者由 `three-level-keep-char-marker` 捕获）。
+- R9 后重跑：xeCJK 124／124、ctex `l3build check -e xetex` 186／186、`l3build doc` 成功。
+
+### 仍未覆盖（R9 修复后）
+
+- 分组里的全角左标点 `符 \uline{{中（}} 后`（43.33 对 40.0，所有版本都不对，v3.9.1 更差）。
+- `符 \uline{\sout{\xout{中} 中}} 后`（43.33 对 40.0）。
+- 三层并列的连接：`符 \uline{\sout{\xout{x}}\sout{中}} 后` 等三种（38.61 对 41.94，v3.10.6 对其中一种）。
+- 公式后接嵌套命令 `符 \uline{$x$\sout{中}} 后`。
+- `符 x\mbox{\uline{\sout{中}}} 后`：`ad8dc88b` 起 38.61 对 41.94。不是相对发布版的回退：v3.10.6 上总宽度碰巧一致，
+  节点层面两侧都不对（左侧缺 `\CJKecglue`，`\mbox` 后多一枚西文间距）；单层 `符 x\mbox{\uline{中}} 后` 在 v3.10.6
+  上就是 38.61 对 41.94。现在右侧已经正确，左侧仍缺间距，与 R8 范围外观察“盒子里的线型命令左边界本来就错”属于
+  同一既有缺口。
+- 既有的 `\uline{\sout{中 }}`、`\uline{\sout{中\relax}}` 嵌套版（`ad8dc88b` 起），以及 R7 记下的首类别为空的写法。
+- 以上都已登记在 `doc-gaps.md`。
+
+### Promotion Candidates（R9）
+
+- **lessons-learned（新条目）**：把某类节点一律当成“用户内容”之前，先列出 xeCJK 自己会在同一位置排出的节点
+  （标点转换的 penalty 与 glue、marker、像素补偿 glue 等），逐个决定归属。
+- **lessons-learned（补充「补上一处缺失的状态后……」）**：修一侧的连接时同时检查另一侧；盒子两侧的错误可能相互
+  抵消，发布版总宽度一致时也要比对节点。
+- **lessons-learned（补充「三个对照点」）**：写“其余在发布版就正确”之前，要把被修改影响的写法逐项与发布版比对，
+  不只核对失败项。
+- **architecture／build-and-test／doc-gaps**：全角左标点结尾与嵌套命令左右连接的机制、TEST 11／15 与变异结果、
+  R9-M1 至 R9-M5 的更正、未覆盖清单（已由 recorder 完成）。
+- **仅留在 memory**：R9 的审查项编号与 run 名。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -786,7 +898,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\UL@end`、`\@@_ulem_end:`、`\UL@stop`、`\UL@reskip`、`\@@_ulem_entry_*`、
   `\@@_boundary_use_ulem_glue_outer:nn`、`\@@_ulem_Boundary_and_FullLeft_glue:N`；R5 起还有
   `\xeCJK_check_FullRight_symbol:Nw`（`\g_@@_FullRight_space_bool`）与 `\@@_ulem_punct_peek_space:`；R6 起还有
-  `\@@_ulem_onin_report_default:`（R7 删去，改为 `\@@_ulem_report_last:n`）；R8 起还有 `\@@_ulem_onin_tail_check:`。
+  `\@@_ulem_onin_report_default:`（R7 删去，改为 `\@@_ulem_report_last:n`）；R8 起还有 `\@@_ulem_onin_tail_check:`；
+  R9 起还有 `\@@_ulem_left_punct_peek:`、`\@@_ulem_tail_left_content:`、`\@@_ulem_onin_tail_glue:`、
+  `\@@_ulem_nest_node:`、`\@@_ulem_nest_node_remove:` 与 `\l_@@_ulem_onin_lead_tl`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
