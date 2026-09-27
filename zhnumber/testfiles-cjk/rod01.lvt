@@ -105,6 +105,12 @@
 %%    \tl_map_inline:nn 在每两个记号之间插字距, 把组合字符挤离了基字符, 于是
 %%    \zhrodbox{-5} 比 \zhrod{-5} 窄 1.4pt —— 等于负号丢了。两处缺陷都由本地盲审发现。
 %%
+%%    zero=omit 下整串全是 0 的负数 (-0, -0.0) 没有筹码可叠, 此时不能追加 U+20E5,
+%%    否则它会叠到小数点或算筹前面的正文上 (PR 审查发现)。判据是方括号内的字符序列:
+%%    -0 为空、-0.0 只有小数点; -10 与 -0.5 有基字符, U+20E5 仍跟在最后一个字符之后。
+%%    实测去掉 \@@_rod_overlay_if_base:n 的判断后, -0 与 -0.0 两行各多出一个 U+20E5。
+%%    \zhrodbox 与 \zhrod 走同一条 \@@_rod_number:e 路径, 这里只断言 \zhrod。
+%%
 %%    注意 overlay 要用 JuliaMono: TeX Live 里含算筹字形的 19 款字体里, lxgw 那 5 款
 %%    只有 U+FF3C、juliamono 那 14 款只有 U+20E5, 没有一款同时具备 (实测)。
 \TEST{sign~notation~and~combining~mark}{
@@ -113,6 +119,10 @@
   \tl_log:e { overlay~zhrod~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
   \hbox_set:Nn \l_tmpa_box { \zhrodbox{-5} }
   \tl_log:e { overlay~zhrodbox~wd = \dim_to_decimal:n { \box_wd:N \l_tmpa_box } }
+  \zhrodsetup { zero = omit }
+  \clist_map_inline:nn { -0 , -0.0 , -10 , -0.5 }
+    { \tl_log:e { overlay~omit~#1~=>~[ \zhrod {#1} ] } }
+  \zhrodsetup { zero = fill }
   \zhrodsetup { minus = slash , font = \RodFont }
   \tl_set:Ne \l_tmpa_tl { \zhrod{-5} }
   \tl_log:N \l_tmpa_tl
