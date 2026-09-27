@@ -6,7 +6,7 @@
 `.toc`/PDF 书签等辅助文件使用）、不可展开的 `\zhrodbox`（切换字体、收紧字距，负责
 排版效果）、以及配置入口 `\zhrodsetup`（七个键：`units`/`zero`/`zerochar`/
 `minus`/`font`/`kern`/`dot`）。键注册在独立模块 `zhnum / rod`，不混进既有的
-`zhnum / options`。版本 3.2 → 3.3（后来在 `ecc8adb3` 中与 #1008 一起并回尚未发布的 3.1）。实现提交 `086da209`（分支
+`zhnum / options`。版本 3.2 → 3.3（后来与 #1008 一起并回尚未发布的 3.1，见提交「chore(zhnumber): 把 #1008 与 #366 的改动并回未发布的 3.1」）。实现提交 `086da209`（分支
 `fix/366-zhnumber-counting-rod`）。
 
 测试分为两处：`testfiles/rod-engine01.lvt` 与 `rod-engine02.lvt`（四引擎含 upTeX，只测引擎判定与报错）、

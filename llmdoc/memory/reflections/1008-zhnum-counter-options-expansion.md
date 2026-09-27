@@ -272,8 +272,8 @@ dtx 注释里写 `**...**` 是 Markdown 习惯，在手册里会原样排出星�
 
 ## 版本管理
 
-加了 `\changes` 条目就必须提升 `build.lua` 的 `version`（当时是 3.1 → 3.2；3.1 其实尚未发布，后来在
-`ecc8adb3` 中并回 3.1），否则会被
+加了 `\changes` 条目就必须提升 `build.lua` 的 `version`（当时是 3.1 → 3.2；3.1 其实尚未发布，后来并回 3.1，见提交
+「chore(zhnumber): 把 #1008 与 #366 的改动并回未发布的 3.1」），否则会被
 PR #1055 加入的 `check-tag` 拒绝。CHANGELOG 由 `make changelog-zhnumber` 生成。
 
 ## Promotion Candidates
