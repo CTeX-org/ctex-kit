@@ -14938,7 +14938,8 @@ Copyright and Licence
 % 并会在那里补左边界 glue；在盒子内部补报首类别会把这枚 glue 排进盒子里
 % （例如 |\CJKsout{“OK”}| 的 “ 与 OK 之间）。
 %
-% 只更新线型命令自己的 capture 层（|kind| 为 |stream-ulem|）。\tn{mbox} 等盒子
+% 只更新栈中 |kind| 为 |stream-ulem| 的各层，也就是所有外层线型命令（包括隔着
+% \tn{mbox} 的外层），跳过盒子等其他类型的层。\tn{mbox} 等盒子
 % 的 capture 层在盒子结束时读取节点列表末尾的 marker 来决定末类别；若把盒子里
 % 标点之后字符的类别也写进这一层，|\mbox{中（A）}中| 会把盒子的末类别当成
 % 西文，在盒子与后面的汉字之间多出一枚西文间距。
@@ -15403,6 +15404,7 @@ Copyright and Licence
             \bool_set_eq:NN \l_@@_ulem_onin_bool
               \l_@@_ulem_onin_enter_bool
             #1 \s_@@_ulem_body \@@_boundary_math_end:n {#1}
+            \@@_ulem_onin_tail_check:
           }
       }
     \@@_ulem_nest_mark:
@@ -15649,6 +15651,7 @@ Copyright and Licence
 %   \@@_ulem_punct_peek_space:,
 %   \@@_ulem_punct_peek_aux:N,
 %   \@@_ulem_nest_mark:,
+%   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
 %   规则等内容时，命令后的源码空格按普通空格保留，右侧也不再补边界间距，
@@ -15688,6 +15691,20 @@ Copyright and Licence
 % 外层片段盒子这一层补（\cs{xeCJK_if_ulem_patch:TF} 为真时），\tn{mbox} 等
 % 盒子内部不补；正文末尾若正是它，\cs{@@_ulem_body_end:} 检查后把它删去，
 % 右边界仍像以前一样取 capture 观察到的末类别。
+%
+% 内层正文不经过 \tn{UL@reskip} 与 \tn{UL@stop}，最后一个字符之后的
+% \tn{hspace*}、\tn{quad}、规则等内容都直接留在内层盒子里，上面三处都看不到。
+% 因此在嵌套链上（\cs{l_@@_ulem_onin_bool} 为真），\cs{@@_ulem_onin_tail_check:}
+% 在内层正文结束、盒子关闭之前检查盒子的末节点：是 glue 时置为 |content|
+% （内层盒子里的显式 glue 没有被移出，与片段盒子不同），其余节点按
+% \cs{@@_ulem_tail_check:} 的规则判断。|tail| 已是 |punct| 时不检查，标点后的补偿
+% glue 由 \cs{@@_ulem_punct_peek:} 处理。嵌套链上更深一层的线型命令排出的盒子，
+% 同样由 \cs{@@_ulem_nest_mark:} 在它后面补 |ulem-nest| marker，按字符处理，
+% 检查完再删去，所以 |\uline{\sout{\xout{中}}} 后| 仍按汉字结尾处理。
+% 以前 \pkg{ulem} 的结束符 |*| 被当成西文字符，这类写法碰巧按西文结尾处理，
+% 与直接输入一致；不再观察 |*| 之后，全角标点之后补报的类别会让
+% |\uline{\sout{中（A）中\hspace*{1em}}} 吗| 的命令后空格被按 CJK 规则删去
+% （\#1091）。
 %
 % 内层命令的正文由 \tn{UL@onin} 排进盒子，其中的全角右标点走原来的
 % \cs{xeCJK_FullRight_and_Boundary:}。内层正文开头设置
@@ -15876,6 +15893,11 @@ Copyright and Licence
           {
             \bool_if:NT \l_@@_ulem_onin_bool
               {
+                \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
+                  {
+                    \exp_args:Nc \@@_make_node:N
+                      { c_@@_ulem-nest_node_dim }
+                  }
                 \tl_if_eq:cnT
                   {
                     g_@@_boundary_capture_\int_use:N
@@ -15890,6 +15912,28 @@ Copyright and Licence
   }
 \bool_new:N \l_@@_ulem_nest_punct_bool
 \xeCJK_declare_node:n { ulem-nest }
+\cs_new_protected:Npn \@@_ulem_onin_tail_check:
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      {
+        \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
+          {
+            \tl_if_eq:cnF
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _tail_tl
+              }
+              { punct }
+              {
+                \int_compare:nNnTF { \tex_lastnodetype:D } = { 11 }
+                  { \@@_ulem_tail_content: }
+                  { \@@_ulem_tail_check: }
+              }
+            \xeCJK_if_last_node:nT { ulem-nest }
+              { \tex_unkern:D \tex_unkern:D }
+          }
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
