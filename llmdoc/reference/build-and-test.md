@@ -763,6 +763,7 @@ PR Review publisher 用认证 marker 中的 head SHA 区分评论：同一 head 
 - TeX Live 安装：`TeX-Live/setup-texlive-action@v4`
 - 依赖包清单：`.github/tl_packages`
 - 当前 CI 拆为 6 个独立 caller job（`test-ctex` / `test-xeCJK` / `test-xpinyin` / `test-zhnumber` / `test-CJKpunct` / `test-zhlineskip`；`test-ctex-luatex` 是 ctex 的 luatex 专属子 job，另计），各自 `uses: ./.github/workflows/_test-package.yml` 在 3 个 OS 上并行测试；`changes` 阶段用 paths-filter 决定 PR 上跑哪些 caller。`test-xpinyin` 额外传两个输入：`configs: test/config-cjk`（串行加跑 CJKutf8/pdfTeX 那条线）与 `needs-unihan: true`（unpack 阶段要生成拼音数据库）
+- 主仓自家分支的 PR 会同时触发 push 与 pull_request 两次 `test.yml` 运行。pull_request 那次按设计跳过全部包测试（见 `.github/workflows/test.yml:59-86` 的注释），在 PR 页面上显示为成功。判断测试是否通过要看 push 那次运行：用 `gh run list --branch <分支> --workflow test.yml` 查看 event 列。
 
 见 `.github/workflows/test.yml`。
 
@@ -1151,6 +1152,24 @@ pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` �
 
 **判定「必须刷」之后，还要逐份核对 diff 的具体内容，否则会把上游的新缺陷一起冻结进基线。** #1080 的两个实例都先确认了 diff 的内容性质才敢 save：`tocloft` 侧新增的**只有**净宽为零的 kern 对（8 份 diff 各 4 行新增、0 行删除，无任何非 kern 的新增行）；`fontspec` 侧**只有**文件名行删除（4 份 diff 各少一行，无其它变化）。没有节点丢失、没有数值变化、没有 ctex 补丁失效的迹象。若某份 diff 里除了这类「安全信号」还夹带节点缺失或数值变化，要先查本包对该上游包的补丁在新版下是否仍成立，不能直接 `l3build save`。
 
+### 上游激活弃用（#1095）
+
+l3kernel 2026-09-09（上游提交 `03b50f7e`、`17c031ed`）激活了两组早已宣布的弃用：`\cs_argument_spec:N` → `\cs_parameter_spec:N`，`\keys_set_filter:*` → `\keys_set_exclude_groups:*`。激活后，开启 `\debug_on:n { deprecation }` 或 `{ all }` 的测试一用到旧名就立即报错：xeCJK 的 `loading01` 用 `{ all }`，zhnumber 的 `deprecation01` 用 `{ deprecation }`。ctex 经 `checkdeps`（`ctex/build.lua:31`）加载仓库里的 zhnumber，因此 ctex 也跟着红。
+
+识别方法：
+
+- **不要只看 l3kernel CHANGELOG 的 Deprecated 条目。** 2026-09-09 条目里列出的 `\exp_after:wN` 在 `l3deprecation.dtx` 里的 patch 是注释掉的，调用它并不报错；只看 CHANGELOG 会把它误当成根因。
+- **以已发布标签的 `l3deprecation.dtx` 为准。** 找出其中未被注释的 `\__kernel_patch_deprecation:nnNNpn` 行，按这些行里的旧名在全仓 `git grep`。#1095 这样查了 65 个旧名，只命中两处真正的问题，以及 `ctex/test/support/cleveref-body.tex` 里的 `\seq_set_map_x:NNn`，后者不会导致测试失败。
+
+处置：
+
+- 这类漂移不属于上一节判据里的两类：激活弃用是上游有意的变更，不是 TL 打包滞后，所以不会自愈；diff 的内容是报错而不是新的正确输出，所以也不该刷基线。正确做法是改用新名。
+- 旧名只是新名的别名，改名不改变行为。
+- 改之前核对新名的引入日期早于包声明的最低版本，否则在最低版本的环境里新名未定义。
+- 修在 `master` 上：所有分支都受影响，不要只在某个功能分支里顺手改。
+
+本地复现需要新版 l3kernel 的格式文件，做法见「往 check 环境注入替代版本的上游宏包（localdir）」一节末尾。详见反思 [[1095-l3kernel-activated-deprecations]]。
+
 ### 两条操作细节
 
 - **不能靠正则替换数字更新 `.tlg`，必须让 l3build 重新生成**。实证是 `beamer01` 的 `2000.0` 出现次数从基线 8 次降到 4 次，成对的 push/pop 数量也随之变化——手工改几个数字看起来能让 diff 变小，但改不出正确的节点结构。
@@ -1274,6 +1293,7 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 | 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
 | `\cleaders` + `\glue` 几何数值出现差异（如间距、周期宽度对不上） | 疑 l3backend 与 l3kernel 版本不匹配。`fntef` 用 `\cleaders` 铺重复图案，间距经 pt→bp 换算落到网格，对 backend 的舍入实现敏感 |
 | `\special{pdf:btrans matrix ...}` 坐标末位变化（如 `0.3985 w`→`0.39851 w`、`2000.02579`→`2000.0`），或 luatex 下 `\pdfliteral origin` 输出变化 | pgf ≥ 3.1.12 的 `\pgf@sys@bp@correct` 舍入修正生效，这是上游有意变更，**不会回退** |
+| `.tlg` diff 显示整份 `.log` 为空（`index ...e69de29`，所有行都是删除） | 编译在 `\START` 之前就出错，l3build 不保留 `\START` 之前的输出，diff 里看不到错误。先读 build 目录（ctex 是 `build/check/`，多数包是 `build/test/`）里对应的完整 `.log`，找第一个 `!`。测试若开了 `\debug_on:n`，优先怀疑上游激活了弃用（见「上游激活弃用（#1095）」一节） |
 | 颜色、图形等后端 special 变成可见文本（如 `\special{pdf:bc [1.0 0.0 0.0]}` 变成排出来的 `1.0 0.0 0.0`） | `l3kernel` 与 `l3backend` 版本错配，后端函数签名不匹配使 `\use:c` 找不到目标。**同一根因在 doc／ctan 路径上不出现任何 `.tlg` diff**：编译 exit 0、PDF 体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本（`xeCJK.pdf` 的 `\meta` 与 fntef 示例最明显），判别方式是 `pdftotext` 后检索 `gray 0`／`0gray`／`1.0 0.0` 并断言计数为 0，而不是看 `.tlg` |
 
 出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查。
@@ -1318,6 +1338,20 @@ grep -m1 -oE "\{[0-9]{4}-[0-9]{2}-[0-9]{2}\}" build/test/l3backend-xetex.def   #
 
 `checkinit_hook`（见「xpinyin 的注音回归（#1041）」一节）与本节手段目标不同，不要混用：`checkinit_hook` 是永久性的构建配置，让测试稳定使用工作树里的依赖包而不是系统 TeX Live（每次 check 都生效，是仓库长期维护的一部分）；本节的 `localdir` 注入是临时的对照实验手段，用于一次性判定某个上游漂移的根因，验证完成后通常就会移除注入的文件。
 `tlmgr update` 报 `no updates available` **不等于**本地各包之间自洽：TLnet 上游包之间也可能处于不一致状态。#1046／#1047 期间遇到 `l3kernel` 已到 revision 79868 而 `l3backend` 停在 78544，其间 expl3 把后端接口从 `\__color_backend_select_<model>:n` 改成了 `:nN`，本地 l3backend 只有 `:n` 版本，`\use:c` 找不到就把颜色参数当文本排了出来，连带 11 项既有测试失败。这种情形只能等上游发布配套版本，或改用 `texmf-dist/tex/latex-dev/` 树里的对应文件核对。
+
+**`localdir` 注入只对运行时才加载的文件有效**（如 l3backend 的 `.def`）。l3kernel（expl3）预载在格式文件里，放进 `localdir` 不会生效。要在本地用新版 l3kernel 复现（#1095），做法是从 CTAN 下载 l3kernel 的 TDS 包解到临时目录，把 `TEXMFHOME`、`TEXMFVAR`、`TEXMFCONFIG` 指向临时目录后用 `fmtutil-user` 重建格式，再在同样的环境变量下跑 `l3build check`。格式和缓存都写进临时目录，不改本机安装。要重建的格式与「本地 TeX Live usertree 同步」一节列的相同（latex、xelatex、lualatex、uplatex）；zhnumber 的 pdftex 还需要 pdflatex。`ctex/build.lua` 给 pdftex 指定 `format = "latex"`，漏编 latex 会让 ctex 的 pdftex 用例几乎全部报 `Mismatched LaTeX support files`。
+
+```bash
+tmp=$(mktemp -d); mkdir -p "$tmp/texmf" "$tmp/var"
+curl -sSL -o "$tmp/l3kernel.tds.zip" https://mirrors.ctan.org/install/macros/latex/required/l3kernel.tds.zip
+unzip -oq "$tmp/l3kernel.tds.zip" -d "$tmp/texmf"
+export TEXMFHOME="$tmp/texmf" TEXMFVAR="$tmp/var" TEXMFCONFIG="$tmp/var"
+for f in latex xelatex lualatex uplatex; do fmtutil-user --byfmt "$f"; done  # zhnumber 另加 pdflatex
+cd <pkg> && l3build check   # 必须在同一个设了上述变量的 shell 里跑
+```
+
+验证顺序：先在未修改的代码上复现出与 CI 相同的失败，证明新格式确实生效，再验证修复。跳过第一步时，「环境没生效所以一直绿」与「修复有效」无法区分。
+
 ### 判断测试失败是否由本次改动引起
 不要凭 diff 内容像不像自己改的地方来判断——颜色 special 变成可见文本，看起来就很像间距类改动的后果。可靠方法是**在同一环境下跑 master 并逐字节比对 diff 文件**：
 # 1. 保存当前改动下的 diff
