@@ -1025,7 +1025,7 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 ### 验证
 
 - `fntef-entry-space01`：TEST 15 新增 21 项，全文件 235 项 PASS、0 FAIL；新增项在 `bebac723` 上 16 项失败。
-- 逐项变异 22 项（`tmp/i1091/fix2/mutate14.py`）全部使本文件失败，`nest-remove-fixed`、`nest-no-box-check` 由节点列表捕获。
+- 逐项变异 23 项（R11 提交说明误写为 22 项）（`tmp/i1091/fix2/mutate14.py`）全部使本文件失败，`nest-remove-fixed`、`nest-no-box-check` 由节点列表捕获。
 - 647 项 r9big 矩阵：相对 `bebac723` 33 项由不一致变为一致、无回退；相对 r9base、r8base 无回退；当前代码与直接输入
   不一致而 v3.10.6 一致的 4 项见 `doc-gaps.md`。这一结论只对 r9big 矩阵成立，没有在 4104 项矩阵上逐项复核。
 - xeCJK `l3build check`、`l3build doc`、ctex `l3build check -e xetex` 全部通过。
@@ -1042,6 +1042,70 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **仅留在 memory**：变异测不出时先插桩确认分支是否可达，再决定删去还是补测试（与「症状不显现不等于路径不可测」
   互为反向，暂不单列）；R11 的审查项编号与 run 名。
 
+## 本地增量审查 R12 后的补修
+
+### 审查发现
+
+- 对 R11 补修（范围 `9c6bd737..50452dbc`）的本地增量盲审（R12，run `20260927T212204Z-r12-incr`）报告阻塞问题 0 项、
+  重要建议 2 项、小问题 5 项；历史补充确认 R11-I1、R11-I2、R11-M1、R11-M2、R10-M2 已修复，R11-I3、R10-I2 仍 open。
+  - R12-I1：左边界钩子把颜色 whatsit 当作正文先排出的内容，`x\uline{\sout{\textcolor{red}{中}}}x` 为 23.89pt，
+    直接输入 27.22pt，相对 R10 的代码回退，部分写法相对 v3.10.6 也回退。
+  - R12-I2：`\sbox` 里入口层号为 0，重放 marker 后没有清除 pending，`\sbox\SB{\uline{中\sout{ 中}}}` 为 20.0pt，
+    直接输入与 v3.10.6 都是 23.33pt。
+  - R12-M1：`\uline{{中}\sout{ 中}}` 与直接输入 `{中}{ 中}` 不一致；R12-M2：重排分支不设 onin 布尔量，钩子不起作用；
+    R12-M3：钩子的 penalty、规则、vlist 分支没有测试；R12-M4：dtx 列出的节点类型与代码不一致；
+    R12-M5：`CJKspace=true` 下 `\mbox` 里词间空格宽度的变化没有写进 CHANGELOG。
+
+### 修法要点
+
+- **颜色 whatsit（R12-I1）。** 核心在 transparent 命令前后新增两个默认为空的钩子；xeCJKfntef 用前者先检查此前排出的
+  内容，用后者在颜色 whatsit 之后放 `ulem-transparent` marker，第一个字符出现时删去 marker、不改入口。
+- **`xCJKecglue` 另存（R12-I2）。** `\xeCJK_hook_for_ulem:` 在改写选项之前存入 `\l_@@_ulem_xecglue_bool`，
+  `\@@_ulem_onin_lead_put:` 不再读 capture 层。
+- **其余。** 重排分支设置 onin 布尔量（M2）；左侧重放加上 `CJK-space`，顺带修好盲审范围外观察中的两类写法；
+  `{中}` 前缀保持 v3.10.6 的结果并在 dtx 写明（M1）；补测试、改注释、补 CHANGELOG（M3–M5）。
+
+### What Went Wrong（R12）
+
+1. **把一类节点一律当作内容时，漏了核心对这类节点的既有约定。** R11 的钩子把所有 whatsit 都当作内容，但核心早已把
+   颜色命令注册为 transparent，直接输入时它们对边界透明。这与 R8、R10 的教训同型，只是这次“本包自己的约定”在核心，
+   不在 xeCJKfntef。
+2. **依赖 capture 层号的状态在 capture 暂停时失效。** R11 按入口层的 `xecglue_flag` 决定是否清除 pending，`\sbox`
+   等暂停 capture 的环境里层号为 0，这一步不执行。
+3. **测试没有进入被改的分支。** R11 的测试用例都带入口空格，lvt 里唯一的颜色用例也带入口空格，按设计不进入钩子的
+   末节点检查；vlist、规则、penalty 三个分支逐项删去后本文件仍全过。
+4. **oracle 本身受前一用例影响。** 在用例里现场排的 `\sbox{中{ 中}}` 会读到前一个写法留下的源码空格检查状态，宽度随
+   用例顺序变化；矩阵 r12m 的 `i2-sp` 因此显示为变差，单独运行时一致。
+
+### Root Cause（R12）
+
+- 代码层：新判据没有与核心已有的节点分类（transparent）对齐；用 capture 层号间接表示“进入命令时的选项”。
+- 过程层：新增分支没有各自让它生效的用例；比对结果不一致时没有先单独运行，确认 oracle 未受状态影响。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 15 新增 25 项宽度用例、TEST 11 新增节点列表用例 `nested-color-no-marker`，全文件
+  260 项 PASS、0 FAIL；新增项在 `50452dbc` 上 14 项失败。
+- 逐项变异 35 项全部使本文件失败，三项由节点列表捕获。原型中 transparent begin 钩子对重放的 lead marker 的例外，
+  变异测不出，插桩确认不可达后删去。
+- 探测矩阵 r9big 646、r12box2 56、r12m 202、r12u 180、r12t 260、r12v 84、r12oos 7 项，相对 `50452dbc` 没有回退；
+  当前代码与直接输入不一致而 v3.10.6 一致的写法见 `doc-gaps.md`，结论只对这些矩阵成立。
+- xeCJK `l3build check`、`l3build doc`、ctex `l3build check -e xetex` 全部通过。
+
+### 仍未覆盖（R12 修复后）
+
+- `符 \uline{\sout{ x}中} 后`（自 `0387c937`）、外层以分组或公式结束后接嵌套命令、单层 `\fbox{}`／`\mbox{\hspace{1em}}`
+  开头（自 `ad8dc88b`）、`{中}` 前缀、`\sbox` 里的状态泄漏（核心既有），都登记在 `doc-gaps.md`。
+
+### Promotion Candidates（R12）
+
+- **lessons-learned（已补充到「每项测试用独立的盒子／寄存器」）**：宽度 oracle 若用 `\sbox`，先确认它不受前一用例状态
+  影响；比对不一致时先单独运行。
+- **仅留在 memory**（已有条目覆盖，这次只是实例）：新增的每个分支至少有一项让它生效的用例（「分支级改动需要分支级断言」）；
+  把一类节点当作内容前先查核心已有的分类，如 transparent（「把一类节点一律当成“用户内容”之前……」）；原型里变异测不出的
+  例外，插桩确认不可达后删去（R11 已记）；用 capture 层号间接表示进入命令时的选项，在 capture 暂停时失效；R12 的审查项
+  编号与 run 名。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1054,7 +1118,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\@@_ulem_nest_node:`、`\@@_ulem_nest_node_remove:` 与 `\l_@@_ulem_onin_lead_tl`；R10 起还有
   `\@@_ulem_left_punct_mark:`（`ulem-left` marker）、`\@@_ulem_onin_lead_get:n`、`\@@_ulem_onin_lead_put:` 与
   `\@@_ulem_onin_if_lead_space:n`（R11 删去）；R11 起还有核心的 `\@@_boundary_emit_left_hook:n` 与
-  `\@@_ulem_orig_space_glue:`。
+  `\@@_ulem_orig_space_glue:`；R12 起还有核心的 `\@@_boundary_transparent_begin_hook:`、
+  `\@@_boundary_transparent_end_hook:`，以及 `\@@_ulem_onin_entry_check_space:n`、`\@@_ulem_onin_entry_check:n`、
+  `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、

@@ -701,7 +701,8 @@ Curated cross-task rules distilled from archived memory.
 ### 每项测试用独立的盒子／寄存器，否则读到的是上一项的遗留值
 **Rule**: 断言全局赋值是否生效时，每一项必须使用各自独立的盒子或寄存器。共用一个全局对象时，前一项留下的值会被后一项读到，测试看似通过却什么都没断言。写完后应改变该项的内容重新生成基线，确认读数随之变化。
 **Why**: #1029 的第一版回归让三项共用同一个 savebox，其中两项读到的是第一项留下的 21.8pt——把内容换成明显更宽的字符串，读数纹丝不动；`[3cm][l]` 那项的期望值本应是 85.35826pt，却记成了裸文本的 21.8pt。缺陷版下这两项出现 0.0pt 也只是第一项失败的连带结果。
-**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+**补充（#1091 R12）**: oracle 一侧同样会读到前一项留下的状态。宽度 oracle 若在用例里现场用 `\sbox` 排出，先确认它不受前一个写法影响：xeCJK 前一个写法留下的源码空格检查状态（`\g_@@_glue_check_pending_bool`）会进入随后的 `\sbox`，`\sbox{中{ 中}}` 的宽度随用例顺序变化。#1091 R12 的矩阵里一项看似回退的结果就是 oracle 受了影响，单独运行时两边一致；`fntef-entry-space01` 因此把这类 oracle 放在导言区预先存好。比对出现不一致时，先把这一项单独运行，确认候选与 oracle 都不受前面用例的影响，再下结论。
+**Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
 
 ### 断言「上游行为已修复」之前，先在不加载本包的环境里测一遍
 **Rule**: 声称修复了某个上游命令的行为前，先在纯上游环境（不加载本包）里测同一组样例。若上游本来就不工作，那不是本包的回归，也不该写进修复范围；应把它作为既有限制固定下来并注明成因。
