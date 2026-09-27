@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: ad8dc88bac106e4c478e3567965ae1f99cc39408
-- watermark-subject: fix(xeCJK): 线型装饰命令不再把 ulem 结束符当作正文字符 (#1091)
-- updated-at: 2026-09-26T15:30:00Z
-- updated-by: recorder（#1091 稳定文档同步）
+- watermark-commit: 6b1975478d5b43ff7f4abc9d4c65323c38c1e735
+- watermark-subject: fix(xeCJK): 线型命令正文首尾的空白不再打乱命令两侧的源码空格 (#1091)
+- updated-at: 2026-09-27T09:50:00Z
+- updated-by: recorder（#1091 本地审查 R1 补修的稳定文档同步）

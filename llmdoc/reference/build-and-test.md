@@ -51,6 +51,8 @@
 
 自定义 `typeset()` 会在多轮 TeX / biber / bibtex / makeindex 之间循环，直到 `.aux`、`.bbl`、`.glo`、`.idx`、`.hd` 的 MD5 不再变化，避免文档尚未收敛就停止。见 `support/build-config.lua:27-57`。
 
+`\changes` 说明文字里的短抄录会进入 changes 索引，经 makeindex 处理，`|` 在那一层是 encap 符。#1091 R1 实测：以汉字开头的短抄录（如 `|姓名 \CJKunderline{...}|`）会让 `l3build doc` 报 `Undefined control sequence`，以反斜杠开头的 `|\CJKunderline{...}|` 没有问题。遇到时把片段改写成以反斜杠开头。其他 makeindex 特殊字符见 `llmdoc/reference/coding-conventions.md` 的「`\changes` 与索引条目里的 makeindex 特殊字符（#1054）」。
+
 ### 3. Git 版本展开
 
 `extract_git_version()`、`expand_git_version()`、`replace_git_id()` 会抽取最近一次 git 提交信息，替换源文件中的 `\GetIdInfo` 区段，并把生成后的 `.id` 信息用于打包。见 `support/build-config.lua:70-115`。
@@ -769,7 +771,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒子的实际横坐标。32 行校验固定所有周期盒子处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 124／124（#1091 后），文档构建生成 249 页 `xeCJK.pdf` 和 51 页 `xunicode-symbols.pdf`（页数随 `\changes` 条目增长，属预期漂移）。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 124／124（#1091 后），文档构建生成 `xeCJK.pdf` 和 `xunicode-symbols.pdf`；#1091 本地审查 R1 后实测分别为 261 页和 51 页。页数随 `\changes` 条目和手册示例增长，属预期漂移，核对时以当次构建为准，不要把某次的页数当成判据。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
@@ -868,21 +870,26 @@ TEST 11 覆盖 `{hello}`、`\textbf{hello}`、`{{hello}}` 三种写法（压窄 
 
 xeCJK 标准测试因本文件从 122 项增至 123 项；#1091 新增 `fntef-entry-space01` 后为 124／124。
 
-#1091 更新了本文件基线中的段末 marker：TEST 1、TEST 2 共四个段落末尾的 `\kern -0.0002`／`\kern 0.0002`（default，13sp）更正为 `\kern -0.00017`／`\kern 0.00017`（CJK，11sp）。旧值是缺陷值：正文以嵌套线型命令结尾时外层列表末尾没有可读 marker，末类别取自 ulem 结束定界符 `*` 被观察到的 default；修复后末类别来自正文实际的末字符“止”。`fntef-linebreak01` 的 TEST 2（`\CJKsout*[...]{虚室生白，吉祥止止。}`，以全角句号结尾）同样更正一处，成因相同。更新前已逐项确认差异都来自这一根因（见下文 `fntef-entry-space01` 一节）。
+#1091 更新了本文件基线中的段末 marker：TEST 1、TEST 2 共四个段落末尾的 `\kern -0.0002`／`\kern 0.0002`（default，13sp）更正为 `\kern -0.00017`／`\kern 0.00017`（CJK，11sp）。旧值是缺陷值：正文以嵌套线型命令结尾时外层列表末尾没有可读 marker，末类别取自 ulem 结束定界符 `*` 被观察到的 default；修复后末类别来自正文实际的末字符“止”。`fntef-linebreak01` 的 TEST 2（`\CJKsout*[...]{虚室生白，吉祥止止。}`，以全角句号结尾）同样更正一处，成因相同。更新前已逐项确认差异都来自这一根因（见下文 `fntef-entry-space01` 一节）。本地审查 R1 后，全角右标点结尾改由 `tail` 字段置 `punct`、结束时不重放 marker，`fntef-linebreak01` 这一处由一对 marker kern 变为一个 `\kern 0.0`（零宽 kern 代替 marker，防止 `\par` 删掉装饰末尾的像素补偿 glue），几何不变。
 
 ### 线型命令的结束符与入口空格（`fntef-entry-space01`，#1091）
 
-`fntef-entry-space01.lvt` 固定 #1091 的两层修复：ulem 结束定界符 `*` 不再被 capture 观察，以及正文先排出可见内容时入口源码空格留在装饰之前（机制见 [[../architecture/xecjk-architecture]] xeCJKfntef 的「ulem 结束符与入口空格（#1091）」）。7 个 `\TEST` 分两类判据：
+`fntef-entry-space01.lvt` 固定 #1091 的修复：ulem 结束定界符 `*` 不再被 capture 观察；正文先排出可见内容时入口源码空格留在装饰之前；本地审查 R1 后补修的右边界（正文末尾是空白、盒子等内容或全角右标点时命令后的空格与直接输入一致）与开头语法空格（入口空格排在它画成的线之前）。机制见 [[../architecture/xecjk-architecture]] xeCJKfntef 的「ulem 结束符与入口空格（#1091）」。共 12 个 `\TEST`，按判据分三类：
 
-- **TEST 1–3 用节点列表判位置。** 只比总宽分不出空格在装饰前还是后——只修第一层时 issue 的 MWE 宽度已经与 oracle 相等，但空格仍在装饰之后。因此以 `\showboxdepth=1` 输出第一层节点，固定 glue 位于第一个 `\rule(*+*)x0.0 \penalty 10000 \cleaders`（ulem 片段）之前。每个节点用例独占一页并先 `\TYPE` 一行 `CASE:`，`\pagestyle{empty}` 去掉页码噪声。覆盖 issue 原写法与 `~` 写法、盒子、`\hspace*`、`\hspace`、盒子后接汉字、`\quad`、`\CJKsout`、原生 `\uline` 与嵌套，以及开头只有颜色 special（仍按首字符规则）和无空格的对照。
-- **TEST 4–7 与直接输入比较宽度**，打印 PASS／FAIL：空正文（含 `\relax`、`\uline`、`\CJKsout`、西文两侧）不增加宽度；嵌套装饰结尾与全角句号结尾的右边界跟随真实末字符；全角左标点开头（含源码空格、`\uline`）与直接输入等宽；普通 CJK／西文首字符不受影响。
+- **TEST 1–3、8、11 用节点列表判位置。** 只比总宽分不出空格在装饰前还是后——只修第一层时 issue 的 MWE 宽度已经与 oracle 相等，但空格仍在装饰之后。因此以 `\showboxdepth=1` 输出第一层节点，固定 glue 位于第一个 `\rule(*+*)x0.0 \penalty 10000 \cleaders`（ulem 片段）之前。每个节点用例独占一页并先 `\TYPE` 一行 `CASE:`，`\pagestyle{empty}` 去掉页码噪声。覆盖仿 issue 的写法（`\myfillin`，用 `\CJKunderline` 与规则盒子）、issue 的原样写法（`\issuefillin`，`\CJKunderline*` 包住西文 `xxxx`）及二者的 `~` 写法、盒子、`\hspace*`、`\hspace`、盒子后接汉字、`\quad`、`\CJKsout`、原生 `\uline` 与嵌套，以及开头只有颜色 special（仍按首字符规则）和无空格的对照。TEST 8 同样用节点列表，固定正文开头的语法空格画成的 `\cleaders` 位于入口空格之后（盒子、`\hspace*`、汉字、西文开头，只有空格的正文，原生 `\uline`）；TEST 11 固定嵌套装饰之后的 `\raisebox` 保留位移（检查末尾盒子是否为嵌套装饰时取下再放回，不能丢掉 `\raise`）。
+- **TEST 4–7、9、10 与直接输入比较宽度**，打印 PASS／FAIL：空正文（含 `\relax`、`\uline`、`\CJKsout`、西文两侧）不增加宽度；嵌套装饰结尾与全角句号结尾的右边界跟随真实末字符；全角左标点开头（含源码空格、`\uline`）与直接输入等宽；普通 CJK／西文首字符不受影响。TEST 9 是末尾内容的宽度比对（35 项）：`\hspace*`、盒子、`\phantom`、`\kern`、`\penalty`、`\special`、`\hbox`、`\rule`、`\quad`、控制空格、公式后接空白、嵌套线型命令后接空白或盒子、正文末尾空格前的盒子与 kern、两侧无空格且后接汉字或西文，以及仍按末字符处理的对照（字符、颜色、`\mbox`、嵌套装饰、`\CJKunderdot`）。TEST 10 是全角右标点结尾（句号、右引号、间隔号，后接汉字或西文、有无空格，`\uline`，标点后再接空白）。
+- **TEST 12 比较段末自然宽度**：把装饰放在段末排版，取出最后一行，比较行内容的自然宽度与同一内容的 `\hbox`，确认 `\par` 删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue（stream end 改排零宽 kern 的理由）。
 - 每个用例后都断言 capture depth、active seq、suspend depth 与 `\g_@@_ulem_entry_depth_int` 归零，防止暂停／恢复或 entry 状态泄漏到后续用例。
 
-**变异验证**：M1–M9 各只破坏一处，全部使本文件失败（rc=1）——M1 去掉 `\UL@end` 暂停与恢复、M2 不 arm、M3 去掉全角左标点的 CJK 类别报告、M4 去掉 `use_ulem_glue_outer` 的 resolved 判断、M5 去掉 stream end 的 resolved 判断、M6 去掉“末节点为规则”判据、M7 把不可见片段也当可见、M8 去掉 `capture_emit_left` 的 resolved 判断、M9 去掉 `\UL@reskip` 判断。
+**变异验证**：第一轮 M1–M9 各只破坏一处，全部使本文件失败（rc=1）——M1 去掉 `\UL@end` 暂停与恢复、M2 不 arm、M3 去掉全角左标点的 CJK 类别报告、M4 去掉 `use_ulem_glue_outer` 的 resolved 判断、M5 去掉 stream end 的 resolved 判断、M6 去掉“末节点为规则”判据、M7 把不可见片段也当可见、M8 去掉 `capture_emit_left` 的 resolved 判断、M9 去掉 `\UL@reskip` 判断。
 
 **M8 需要 `符\CJKunderline{\quad\mbox{x}}后` 才有判别力。** 起初 M8 全绿，原因是两层兜底：resolve 已把 space_flag 置假，CJK-空格场景下“补左边界”只是重放一枚已不存在的空格，是空操作；片段级分支又被 `use_ulem_glue_outer` 的 resolved 判断拦住。这条用例绕开两者：首字符在 `\mbox` 里，ulem 在 `\everyhbox` 中恢复了 `\ ` 的原义，`\xeCJK_if_ulem_patch:TF` 为假，左边界走普通 glue 通道；入口又没有空格，于是 `\quad` 与 `x` 之间是否多出 `\CJKecglue` 只取决于 `emit_left` 的判断。M2、M9 也在这条上失败。变异无判别力时应先找出是哪条兜底路径让被变异的代码成了空操作，不要据此认定该判断冗余。
 
-起初写过的 `\CJKunderline{中。} x` 对 `中。 x` 一项已删去：两者差 3.33pt，但修复前后相同，是全角标点后空格处理的另一既有差异，不属于 #1091。本文件使 xeCJK 标准测试增至 124 项（124／124 通过）；ctex `l3build check -e xetex` 186／186 通过。
+R1 后的补修逐项变异 14 项，其中 13 项使本文件失败；余下的“片段盒子末节点是 glue 时不改 `tail`”由 `command-boundary-math05` 捕获：去掉这一条后公式加尾随空格重排路径被误判为 `content`，`stream-ulem` 的 correction 变 0、badness 变 1000000。
+
+**oracle 里的源码空格要确认真的存在。** `\usebox\FillBox }`、`\kern5pt }` 中的空格会被控制词或尺寸读取吃掉，直接输入那一侧根本没有这枚空格，比对就失去意义。要写成 `\usebox{\FillBox} }`、`\kern5pt\relax{} }`；空格位于内容末尾时还要给 oracle 加花括号（`符 {中\usebox{\FillBox} } 后`），与装饰正文的分组对应。
+
+第一轮写过的 `\CJKunderline{中。} x` 对 `中。 x` 一项当时因“修复前后相同、属既有差异”删去；R1 的全角右标点处理已把它修好，现由 TEST 10 的 `period-space-latin` 覆盖。仍未覆盖、修复前后相同的两项是正文以 `\textit{x}` 结尾时差 0.54pt（斜体校正），以及 `\CJKunderline{中 }`、`\CJKunderline{\CJKsout{中} }` 这类“字符后接正文末尾空格”与带花括号的直接输入差 3.33pt。本文件使 xeCJK 标准测试增至 124 项；R1 后仍为 124／124 通过，ctex `l3build check -e xetex` 186／186 通过。
 
 ### xeCJKfntef 的 PDF 文本语义（#1017）
 
@@ -1093,7 +1100,7 @@ Verify 层: `scripts/verify-doc-output.sh` 按 `typesetfiles` 逐 PDF 检查 `bu
 
 成功路径只传 PDF 不传 log——成功的 log 没有诊断价值，而 `xeCJK.log` 有近百 KB。存储方面：公开仓库的 Actions 存储不计费，保留期取仓库默认 90 天到期自动删除，且与 TL／字体 cache 是两套独立配额，不互相挤占（后者当前已用 9.71 GB，接近 10 GB 上限，这也是不把 PDF 塞进 cache 的原因）。
 
-验收方式可参考 #1054 的做法：下载 artifact 后 `pdftotext` 再检索泄漏模式（`gray 0`、`0gray`、`1.0 0.0`），当时 `xeCJK.pdf`（249 页）与 `xunicode-symbols.pdf` 的计数均为 0。
+验收方式可参考 #1054 的做法：下载 artifact 后 `pdftotext` 再检索泄漏模式（`gray 0`、`0gray`、`1.0 0.0`），当时 `xeCJK.pdf`（249 页，是 #1054 时的页数）与 `xunicode-symbols.pdf` 的计数均为 0。
 
 #### 3 个包的 CI-only 特殊处理
 
