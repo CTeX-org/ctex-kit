@@ -343,6 +343,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1069 分支 rebase onto master（53 个提交、6 个 llmdoc 文件双侧修改）时我写了个「追加型自动合并」脚本喂给 `rebase --continue` 循环。它对单次冲突正确，但每轮都把我这一侧的追加内容重新接一次——最终 `build-and-test.md` 那行同一段重复 7 次、`lessons-learned.md` 那行重复 16 次（20489 字，是应有长度的 4.5 倍），`package-architecture.md` 那行的 `xpinyin -> xeCJK` 说明重复 3 次且第一份仍指向已删除的 `xpinyin/MAINTAINING.md`。CI 全绿（这些是散文，不进编译），由 PR 上的自动审查作为小问题指出。三方重建后长度回到 8272／4269。**顺带暴露另一类**：我这一侧的追加与 master 的追加各自包含同一条「LaTeX2e 命令钩子机制」规则，属真实内容重叠，需要人工判断保留哪一份——这种是脚本无论如何都判不出来的。PR #1051 再次 rebase 时，两侧不只追加：master 还改了同一行的措辞（#1093），于是改为按词切分后交给 `git merge-file` 三方合并，并按词核对原提交新增的片段都在结果里。另外，修补文档里的残缺文字前，先对照 rebase 前的版本确认残缺是不是这次引入的（这次 `index.md` 的 4 段残文在 rebase 前就已存在）。
 **Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`, `llmdoc/memory/reflections/xpinyin-maintaining-rebase-wording-unihan18.md`
 
+### PR 以 rebase 方式合入时，分支里写的 sync watermark 会失效
+**Rule**: `llmdoc/state/sync.md` 的 `watermark-commit` 只指向**已经在 master 上**的提交。在 PR 分支里把它指向分支自己的提交，PR 以 rebase（或 squash）方式合入后，这些提交的哈希都会被改写，watermark 随即指向一个不在 master 上的提交，下一次 `/llmdoc:update` 找不到起点。分支 rebase 之后同理，要把 watermark 重指向改写后的同一提交。
+**Why**: #1051 两次遇到：分支 rebase 到 master 后 watermark 指向的 `e9ee0575` 已被改写；以 `gh pr merge --rebase` 合入后，分支里刚写的 `4700bdfe` 又不在 master 上，只好在 PR #1097 里重指向 master 上对应的 `b9f67773`。PR #1097 自己的 llmdoc 更新因此不再推进 watermark，保持指向 master 上已有的提交。
+**Source**: `llmdoc/memory/reflections/xpinyin-maintaining-rebase-wording-unihan18.md`
+
 ### 删文件前按「读者」清点内容归属，不要只按标题层级清点
 **Rule**: 删除一份文档前，逐段问「这段是给谁看的」，再按读者决定去向：面向贡献者的流程（PR 投哪个分支、必须跑哪些测试）归 `README`／`CONTRIBUTING`，面向维护者的内部机制归 `llmdoc`。清点时要连**标题之前的引言段**一起数——按 `grep '^## '` 列小节会漏掉 H1 之后、第一个 `##` 之前的内容。
 **Why**: 删 `xpinyin/MAINTAINING.md` 时我按 5 个 `##` 小节清点，判定「4 节冗余、1 节（xeCJK 内部接口清单）需保留」，把清单迁进 llmdoc 后删掉整个文件。漏掉的是文件开头 H1 段：xpinyin 的 PR 以 `xpinyin/maintaining` 为合入目标、维护权变更的时限安排——全仓检索确认那是**唯一**承载点，删掉等于让后续贡献者无从知道该往哪个分支提 PR。而且它面向贡献者，本就不该待在只有维护者会读的文档里。由 PR 上的自动审查作为 REQUEST_CHANGES 提出。

@@ -84,3 +84,7 @@ metadata:
 - 分支新增的 `997-xpinyin-fallback-measure-box.md` 中仍有 2 处“证否”（“实测证否”“删掉重选经实测证否”）。两处都在删除线内，是作者撤回的原话，按替换表后的说明保持原样，不需要修改。
 - 把按反引号串长度配对的检查脚本和 `/tmp/wmerge.py` 整理后放进 `scripts/`；否则下次还要重写。
 - 检查 xpinyin 的其他测试是否也用具体汉字的数据库读音来承载与具体汉字无关的规则（例如查询表的 m、n、ng 条目）。如果有，同样考虑用 `\setpinyin` 固定输入。
+
+## 补记：合入 master 后 watermark 再次失效
+
+PR #1051 以 `gh pr merge --rebase` 合入 master 后，本轮 llmdoc 更新写进 `sync.md` 的 watermark `4700bdfe` 被改写，不在 master 上；master 上对应的提交是 `b9f67773`。这与本轮开头 rebase 后 `e9ee0575` 失效是同一原因：watermark 指向的是分支自己的提交，而分支提交的哈希在 rebase 或 rebase 方式合入时都会改变。PR #1097 已把它重指向 `b9f67773`，规则写入 `lessons-learned.md`「PR 以 rebase 方式合入时，分支里写的 sync watermark 会失效」。
