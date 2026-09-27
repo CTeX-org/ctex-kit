@@ -34,7 +34,7 @@
 %     空格必须出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）
 %     之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
 %     的盒子保留 \raise 位移。只比较总宽度分辨不出这些位置。
-%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13），打印
+%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13、TEST 15），打印
 %     PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
 %   - 段末自然宽度（TEST 14）：把装饰放在段末，比较行内容的自然宽度与同一
 %     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
@@ -335,10 +335,12 @@
 
 % 嵌套线型命令的内层正文以全角左标点开头时，补报类别不能在内层盒子里的标点与
 % 西文之间插入左边界间距。三层嵌套时，中间层盒子末尾为识别最内层盒子临时补的
-% marker 要在盒子关闭前删去，不能留在盒子里。
+% marker 要在盒子关闭前删去，不能留在盒子里；中间层正文以字符结尾时，字符自己
+% 的 marker 不能被当成这个临时 marker 删掉。
 \TEST{no boundary glue inside a nested decoration}{
   \EntryNodes{nested-leftquote-latin}{他说\CJKunderline{\CJKsout{“OK”}}吗}
   \EntryNodes{three-level-no-marker}{符 \uline{\sout{\xout{中}}} 后}
+  \EntryNodes{three-level-keep-char-marker}{符 \uline{\sout{\xout{中}中}} 后}
 }
 
 % 嵌套线型命令之后若又排出别的盒子，这个盒子不能被误认成嵌套装饰，也不能在
@@ -377,6 +379,61 @@
   \EntryParEnd{fill}{符 \CJKunderline{中\hspace*{2em}}}
   \EntryParEnd{period}{符 \CJKunderline{中。}}
   \EntryParEnd{parend-cjk}{符 \CJKunderline{中}}
+}
+
+% 正文以全角左标点结尾时，与直接输入一样：命令后的空格在汉字前删去、在西文前
+% 保留为词间空格，西文前不补间距。标点紧接正文末尾时才这样处理；标点之后还有
+% \relax、\hspace 或分组结束等记号时，按直接输入 |中（\relax{} 后| 处理。嵌套
+% 线型命令里，全角左标点之后 xeCJK 自己排出的 glue 不算正文末尾的内容；更深一层
+% 的线型命令排出的盒子，按它的第一个与最后一个字符与前后的字符连接。
+\TEST{trailing full-width left punctuation and nested boxes}{
+  \EntryWidth{left-latin}{符 \uline{中（}x}{符 中（x}
+  \EntryWidth{left-space-latin}{符 \uline{中（} x}{符 中（ x}
+  \EntryWidth{left-space-cjk}{符 \uline{中（} 后}{符 中（ 后}
+  \EntryWidth{left-cjkul-latin}{符 \CJKunderline{中《}x}{符 中《x}
+  \EntryWidth{left-only-latin}{符 \uline{（}x}{符 （x}
+  \EntryWidth{left-after-right-space-latin}{符 \uline{中。（} x}{符 中。（ x}
+  \EntryWidth{left-left-space-latin}{符 \uline{中（（} x}{符 中（（ x}
+  \EntryWidth{left-relax-space-cjk}{符 \uline{中（\relax} 后}{符 中（\relax{} 后}
+  \EntryWidth{left-relax-latin}{符 \uline{中（\relax}x}{符 中（\relax{}x}
+  \EntryWidth{left-hspace0-space-cjk}{符 \uline{中（\hspace{0pt}} 后}{符 中（\hspace{0pt} 后}
+  \EntryWidth{nested-left-space-cjk}{符 \uline{\sout{中（}} 后}{符 中（ 后}
+  \EntryWidth{nested-left-latin}{符 \uline{\sout{中（}}x}{符 中（x}
+  \EntryWidth{nested-left-space-latin}{符 \uline{\sout{中（}} x}{符 中（ x}
+  \EntryWidth{nested-left-cjkul-space-cjk}{符 \CJKunderline{\CJKsout{中《}} 后}{符 中《 后}
+  \EntryWidth{nested-left-quote-wave}{符 \uline{\uwave{中“}} 后}{符 中“ 后}
+  \EntryWidth{three-level-left-space-cjk}{符 \uline{\sout{\xout{中（}}} 后}{符 中（ 后}
+  \EntryWidth{three-level-left-latin}{符 \uline{\sout{\xout{中（}}}x}{符 中（x}
+  \EntryWidth{nested-left-relax-space-cjk}{符 \uline{\sout{中（\relax}} 后}{符 中（\relax{} 后}
+  \EntryWidth{nested-left-relax-latin}{符 \uline{\sout{中（\relax}}x}{符 中（\relax{}x}
+  \EntryWidth{nested-left-inner-space-cjk}{符 \uline{\sout{中（ }} 后}{符 {中（ } 后}
+  \EntryWidth{nested-left-nobreak-hspace0}{符 \uline{\sout{中（\nobreak\hspace{0pt}}} 后}{符 中（\nobreak\hspace{0pt} 后}
+  \EntryWidth{nested-left-fill}{符 \uline{\sout{中（\hspace*{1em}}} 后}{符 中（\hspace*{1em} 后}
+  \EntryWidth{nested-left-kern}{符 \uline{\sout{中（\kern1pt}} 后}{符 中（\kern1pt{} 后}
+  \EntryWidth{nested-two-left}{符 \uline{\sout{中（x（}} 后}{符 中（x（ 后}
+  \EntryWidth{nested-latin-left}{符 \uline{\sout{x（}} 后}{符 x（ 后}
+  \EntryWidth{nested-latin-space-cjk}{中\uline{\sout{x }}中}{中{x }中}
+  \xeCJKsetup{CheckFullRight=true}
+  \EntryWidth{cfr-left-space-latin}{符 \uline{中（} x}{符 中（ x}
+  \EntryWidth{cfr-nested-right-left-space-latin}{符 \uline{\sout{中。 中（}} x}{符 中。 中（ x}
+  \xeCJKsetup{CheckFullRight=false}
+  \EntryWidth{three-level-latin-then-cjk}{符 \uline{\sout{\xout{x}中}} 后}{符 x中 后}
+  \EntryWidth{three-level-latin-then-cjk-nospace}{符\uline{\sout{\xout{x}中}}后}{符x中后}
+  \EntryWidth{three-level-cjkul-latin-then-cjk}{符 \CJKunderline{\CJKsout{\CJKxout{x}中}} 后}{符 x中 后}
+  \EntryWidth{nested-latin-then-cjk}{符 \uline{\xout{x}中} 后}{符 x中 后}
+  \EntryWidth{nested-cjk-then-latin}{符 \uline{\xout{中}x} 后}{符 中x 后}
+  \EntryWidth{three-level-cjk-then-latin}{符 \uline{\sout{\xout{中}x}} 后}{符 中x 后}
+  \EntryWidth{nested-cjk-then-cjk}{符 \uline{\xout{中}中} 后}{符 中中 后}
+  \EntryWidth{nested-latin-then-latin}{符 \uline{\xout{x}x} 后}{符 xx 后}
+  \EntryWidth{latin-then-nested-cjk}{符 \uline{x\sout{中}} 后}{符 x中 后}
+  \EntryWidth{cjk-then-nested-latin}{符 \uline{\sout{中\xout{x}}} 后}{符 中x 后}
+  \EntryWidth{nested-cjk-mid-latin}{符 \uline{中\xout{x}中} 后}{符 中x中 后}
+  \EntryWidth{three-level-cjk-mid-latin}{符 \uline{\sout{中\xout{x}中}} 后}{符 中x中 后}
+  \EntryWidth{sibling-latin-cjk}{符 \uline{\sout{x}\sout{中}} 后}{符 x中 后}
+  \EntryWidth{sibling-cjk-latin}{符 \uline{\sout{中}\sout{x}} 后}{符 中x 后}
+  \EntryWidth{three-level-sibling-cjk-latin}{符 \uline{\sout{\xout{中}}\sout{x}}中}{符 中x中}
+  \EntryWidth{mbox-latin-then-nested-cjk}{符 \uline{x\mbox{x\sout{中}}} 后}{符 x\mbox{x中} 后}
+  \EntryWidth{latin-relax-then-nested-cjk}{符 \uline{x\relax\sout{中}} 后}{符 x\relax 中 后}
 }
 
 \END

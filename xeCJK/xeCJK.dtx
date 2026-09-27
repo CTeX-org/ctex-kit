@@ -14044,6 +14044,11 @@ Copyright and Licence
     \bool_set_false:N \l_@@_ulem_stream_started_bool
     \skip_gzero:N \g_@@_ulem_pending_shrink_skip
     \int_set:Nn \tex_spacefactor:D { \UL@spfactor }
+    \bool_if:NT \l_@@_ulem_tail_left_bool
+      {
+        \exp_after:wN \xeCJK_punct_node:N \g_@@_last_punct_tl
+        \@@_nobreak_zero_glue:
+      }
     \bool_if:NT \l_@@_ulem_tail_punct_bool { \tex_ignorespaces:D }
   }
 \cs_new_protected:Npn \@@_ulem_loop:nw
@@ -14872,9 +14877,13 @@ Copyright and Licence
         \@@_ulem_skip_punct_end:
         \xeCJK_no_break:
         \UL@start
-        \tex_ignorespaces:D
+        \@@_ulem_left_punct_peek:
       }
-      { \@@_ulem_FullLeft_and_Boundary: }
+      {
+        \@@_ulem_FullLeft_and_Boundary:
+        \bool_if:NT \l_@@_ulem_onin_bool
+          { \@@_ulem_left_punct_peek: }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -15399,10 +15408,19 @@ Copyright and Licence
             \bool_set_eq:NN \l_@@_ulem_onin_enter_bool
               \l_@@_ulem_onin_bool
           }
+        \tl_clear:N \l_@@_ulem_onin_lead_tl
+        \xeCJK_if_last_node:nTF { CJK }
+          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
+          {
+            \xeCJK_if_last_node:nT { default }
+              { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
+          }
         \@@_orig_ulem_onin:n
           {
             \bool_set_eq:NN \l_@@_ulem_onin_bool
               \l_@@_ulem_onin_enter_bool
+            \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
+              { \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl }
             #1 \s_@@_ulem_body \@@_boundary_math_end:n {#1}
             \@@_ulem_onin_tail_check:
           }
@@ -15410,6 +15428,7 @@ Copyright and Licence
     \@@_ulem_nest_mark:
   }
 \bool_new:N \l_@@_ulem_onin_enter_bool
+\tl_new:N \l_@@_ulem_onin_lead_tl
 %    \end{macrocode}
 % \end{macro}
 %
@@ -15565,7 +15584,8 @@ Copyright and Licence
 \cs_set_protected:Npn \UL@reskip
   {
     \UL@stop
-    \skip_if_eq:nnF { \UL@skip } { \c_zero_skip }
+    \skip_if_eq:nnTF { \UL@skip } { \c_zero_skip }
+      { \@@_ulem_tail_left_content: }
       { \@@_ulem_tail_content: }
     \@@_ulem_entry_skip:
     \@@_ulem_lead_draw:
@@ -15650,7 +15670,13 @@ Copyright and Licence
 %   \@@_ulem_punct_peek:,
 %   \@@_ulem_punct_peek_space:,
 %   \@@_ulem_punct_peek_aux:N,
+%   \@@_ulem_left_punct_peek:,
+%   \@@_ulem_left_punct_peek_aux:N,
+%   \@@_ulem_tail_left_content:,
 %   \@@_ulem_nest_mark:,
+%   \@@_ulem_nest_node:,
+%   \@@_ulem_nest_node_remove:,
+%   \@@_ulem_onin_tail_glue:,
 %   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
@@ -15659,6 +15685,9 @@ Copyright and Licence
 %   以全角右标点结尾时，命令后的空格和随后西文前的间距与直接输入一样不再
 %   出现，标点之后还有分组结束、\tn{relax} 等记号时则与直接输入一样保留
 %   命令后的空格；打开 \opt{CheckFullRight} 时同样如此（\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{线型命令的正文以全角左标点结尾时，命令后的空格
+%   与直接输入一样在汉字前删去，西文前也不再多补间距；嵌套线型命令的内容与它
+%   前后相邻的汉字或西文之间，与直接输入一样补上间距（\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15699,8 +15728,37 @@ Copyright and Licence
 % （内层盒子里的显式 glue 没有被移出，与片段盒子不同），其余节点按
 % \cs{@@_ulem_tail_check:} 的规则判断。|tail| 已是 |punct| 时不检查，标点后的补偿
 % glue 由 \cs{@@_ulem_punct_peek:} 处理。嵌套链上更深一层的线型命令排出的盒子，
-% 同样由 \cs{@@_ulem_nest_mark:} 在它后面补 |ulem-nest| marker，按字符处理，
-% 检查完再删去，所以 |\uline{\sout{\xout{中}}} 后| 仍按汉字结尾处理。
+% 同样由 \cs{@@_ulem_nest_mark:} 在它后面补 marker，按字符处理；末节点正是
+% 这个 marker 时，\cs{@@_ulem_onin_tail_check:} 检查完就删去它（删去后末节点若
+% 不是盒子，说明它挡住的是前面字符自己的 marker，就把它放回），所以
+% |\uline{\sout{\xout{中}}} 后| 仍按汉字结尾处理；后面还有别的内容时，这个零宽
+% marker 留在中间层盒子里。
+%
+% 这个 marker 由 \cs{@@_ulem_nest_node:} 选择：内层正文以字符结尾（|tail| 为
+% |char|）且末类别是 |CJK| 或 |default| 时，就用这个类别的 marker，外层后面的
+% 字符按普通的类别转换与它连接，例如 |\uline{\xout{x}中}| 的 x 与“中”之间补
+% \tn{CJKecglue}，与直接输入一致；其余情况仍用 |ulem-nest|。以前结束符 |*| 被当成
+% 西文字符，三层嵌套时多出的一枚间距恰好抵消了这里缺少的一枚，
+% |\uline{\sout{\xout{x}中}} 后| 碰巧与直接输入一致（\#1091）。
+%
+% 左侧同理。内层命令前面若是外层正文的字符，外层列表末尾有这个字符的
+% |CJK| 或 |default| marker，但 \tn{UL@onin} 把内层正文排进新盒子，盒子里看不到它，
+% 内层第一个字符前就不补 \tn{CJKecglue}。因此 \tn{UL@onin} 进入前先读当前列表
+% 末尾的 marker，在内层正文开头重放一次，|\uline{x\sout{中}}| 的 x 与“中”之间
+% 于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}| 同样如此。
+% 这个 marker 在类别转换时被取走，不留在盒子里。
+%
+% 全角左标点结尾与全角右标点类似。直接输入时，Boundary 前的全角左标点排出
+% |\penalty10000 \glue0pt| 并 \tn{ignorespaces}，后面的空格被吃掉，列表末尾也没有
+% 类别 marker。装饰正文里标点之后由 \cs{@@_ulem_left_punct_peek:} 看下一个记号：
+% 是扫描标记，就同样把 |tail| 置为 |punct|，命令后的空格被吃掉；否则置为 |left|，
+% 表示最后排出的是这个标点。|left| 之后若再排出字符，报告类别时改回 |char|；
+% 排出零宽的显式 glue（\tn{hspace}\marg{0pt}）时，\tn{UL@reskip} 把它改为
+% |content|。结束时 \cs{@@_ulem_tail_punct_end:} 把 |left| 换成 |content|，
+% \cs{@@_ulem_end:} 再在外层重放标点 marker 和 |\penalty10000 \glue0pt|，
+% 与直接输入 |中（\relax{} 后| 一样，后面的空格按标点之后的空格处理。嵌套链上的
+% 内层正文里，标点之后的这两个节点也留在内层盒子里，\cs{@@_ulem_onin_tail_glue:}
+% 在 |tail| 为 |left| 时认出这一对节点，不把这枚 glue 当作正文末尾的内容。
 % 以前 \pkg{ulem} 的结束符 |*| 被当成西文字符，这类写法碰巧按西文结尾处理，
 % 与直接输入一致；不再观察 |*| 之后，全角标点之后补报的类别会让
 % |\uline{\sout{中（A）中\hspace*{1em}}} 吗| 的命令后空格被按 CJK 规则删去
@@ -15715,10 +15773,10 @@ Copyright and Licence
 % 不会重新置真，所以 |\uline{中\mbox{\sout{文。}}} x| 仍按普通内容处理。
 % |tail| 为 |punct| 说明标点紧接内层正文末尾，\cs{@@_ulem_nest_mark:} 补 marker
 % 后见到它，就在外层再看一次后面的记号，所以 |\CJKunderline{\CJKsout{中。}}x|
-% 与直接输入 |中。x| 一致。三层以上嵌套时，
-% 中间层的 \cs{@@_ulem_nest_mark:} 不补 marker（它所在的盒子里
-% \cs{xeCJK_if_ulem_patch:TF} 为假），但只要仍在嵌套链上（布尔为真）且 |tail|
-% 为 |punct|，同样再看一次后面的记号，所以中间层标点之后的 \tn{relax} 等记号
+% 与直接输入 |中。x| 一致。三层以上嵌套时，中间层的 \cs{@@_ulem_nest_mark:}
+% 所在的盒子里 \cs{xeCJK_if_ulem_patch:TF} 为假，只要仍在嵌套链上（布尔为真），
+% 它同样在更深一层命令排出的盒子后补 marker（见上文的末尾检查），并在 |tail|
+% 为 |punct| 时再看一次后面的记号，所以中间层标点之后的 \tn{relax} 等记号
 % 也能把 |tail| 改为 |content|。
 %
 % 全角右标点结尾是另一种情况。直接输入时，标点与后面的边界之间由
@@ -15806,11 +15864,63 @@ Copyright and Licence
   }
 \bool_new:N \l_@@_ulem_onin_bool
 \tl_put_right:Nn \UL@hrest { \bool_set_false:N \l_@@_ulem_onin_bool }
+\cs_new_protected:Npn \@@_ulem_left_punct_peek:
+  {
+    \peek_meaning_remove:NTF \c_space_token
+      {
+        \@@_ulem_tail_set:n { left }
+        \tex_ignorespaces:D
+      }
+      {
+        \peek_N_type:TF
+          { \@@_ulem_left_punct_peek_aux:N }
+          { \@@_ulem_tail_set:n { left } }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_left_punct_peek_aux:N #1
+  {
+    \str_if_eq:eeTF { \token_to_str:N #1 } { \token_to_str:N \s_@@_ulem_body }
+      {
+        \bool_gset_false:N \g_@@_FullRight_space_bool
+        \@@_ulem_tail_set:n { punct }
+      }
+      { \@@_ulem_tail_set:n { left } }
+    #1
+  }
+\cs_new_protected:Npn \@@_ulem_tail_left_content:
+  {
+    \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
+      {
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_ulem_entry_depth_int _tail_tl
+          }
+          { left }
+          { \@@_ulem_tail_content: }
+      }
+  }
 \cs_new_protected:Npn \@@_ulem_tail_punct_end:
   {
     \bool_set_false:N \l_@@_ulem_tail_punct_bool
+    \bool_set_false:N \l_@@_ulem_tail_left_bool
     \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
       {
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_ulem_entry_depth_int _tail_tl
+          }
+          { left }
+          {
+            \bool_set_true:N \l_@@_ulem_tail_left_bool
+            \tl_gset:cn
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _tail_tl
+              }
+              { content }
+          }
         \tl_if_eq:cnT
           {
             g_@@_boundary_capture_\int_use:N
@@ -15829,6 +15939,7 @@ Copyright and Licence
       }
   }
 \bool_new:N \l_@@_ulem_tail_punct_bool
+\bool_new:N \l_@@_ulem_tail_left_bool
 \cs_new_protected:Npn \@@_ulem_tail_check:
   {
     \scan_stop:
@@ -15880,7 +15991,7 @@ Copyright and Licence
           {
             \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
               {
-                \exp_args:Nc \@@_make_node:N { c_@@_ulem-nest_node_dim }
+                \@@_ulem_nest_node:
                 \tl_if_eq:cnT
                   {
                     g_@@_boundary_capture_\int_use:N
@@ -15894,10 +16005,7 @@ Copyright and Licence
             \bool_if:NT \l_@@_ulem_onin_bool
               {
                 \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
-                  {
-                    \exp_args:Nc \@@_make_node:N
-                      { c_@@_ulem-nest_node_dim }
-                  }
+                  { \@@_ulem_nest_node: }
                 \tl_if_eq:cnT
                   {
                     g_@@_boundary_capture_\int_use:N
@@ -15912,6 +16020,39 @@ Copyright and Licence
   }
 \bool_new:N \l_@@_ulem_nest_punct_bool
 \xeCJK_declare_node:n { ulem-nest }
+\cs_new_protected:Npn \@@_ulem_nest_node:
+  {
+    \tl_set:Nn \l_@@_tmp_tl { ulem-nest }
+    \tl_if_eq:cnT
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_ulem_entry_depth_int _tail_tl
+      }
+      { char }
+      {
+        \tl_set:Ne \l_@@_tmp_tl
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _last_tl
+              }
+          }
+        \clist_if_in:nVF { CJK , default } \l_@@_tmp_tl
+          { \tl_set:Nn \l_@@_tmp_tl { ulem-nest } }
+      }
+    \tl_set_eq:NN \l_@@_ulem_nest_node_tl \l_@@_tmp_tl
+    \exp_args:Nc \@@_make_node:N { c_@@_ \l_@@_tmp_tl _node_dim }
+  }
+\tl_new:N \l_@@_ulem_nest_node_tl
+\cs_new_protected:Npn \@@_ulem_nest_node_remove:
+  {
+    \dim_set_eq:NN \l_@@_tmp_dim \tex_lastkern:D
+    \tex_unkern:D \tex_unkern:D
+    \int_compare:nNnF { \tex_lastnodetype:D } = { 1 }
+      { \@@_make_node:N \l_@@_tmp_dim }
+  }
+
 \cs_new_protected:Npn \@@_ulem_onin_tail_check:
   {
     \bool_if:NT \l_@@_ulem_onin_bool
@@ -15926,13 +16067,44 @@ Copyright and Licence
               { punct }
               {
                 \int_compare:nNnTF { \tex_lastnodetype:D } = { 11 }
-                  { \@@_ulem_tail_content: }
+                  { \@@_ulem_onin_tail_glue: }
                   { \@@_ulem_tail_check: }
               }
-            \xeCJK_if_last_node:nT { ulem-nest }
-              { \tex_unkern:D \tex_unkern:D }
+            \tl_if_empty:NF \l_@@_ulem_nest_node_tl
+              {
+                \exp_args:NV \xeCJK_if_last_node:nT \l_@@_ulem_nest_node_tl
+                  { \@@_ulem_nest_node_remove: }
+              }
           }
       }
+  }
+\cs_new_protected:Npn \@@_ulem_onin_tail_glue:
+  {
+    \tl_if_eq:cnTF
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_ulem_entry_depth_int _tail_tl
+      }
+      { left }
+      {
+        \skip_set_eq:NN \l_@@_tmp_skip \tex_lastskip:D
+        \tex_unskip:D
+        \bool_lazy_and:nnTF
+          { \int_compare_p:nNn { \tex_lastnodetype:D } = { 13 } }
+          {
+            \int_compare_p:nNn
+              { \tex_lastpenalty:D } = { \c_@@_nobreak_penalty_int }
+          }
+          {
+            \tex_unpenalty:D
+            \int_compare:nNnT { \tex_lastnodetype:D } = { 11 }
+              { \@@_ulem_tail_content: }
+            \tex_penalty:D \c_@@_nobreak_penalty_int
+          }
+          { \@@_ulem_tail_content: }
+        \skip_horizontal:N \l_@@_tmp_skip
+      }
+      { \@@_ulem_tail_content: }
   }
 %    \end{macrocode}
 % \end{macro}
