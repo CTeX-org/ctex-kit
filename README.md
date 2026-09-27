@@ -118,7 +118,7 @@ CI 在 Ubuntu、macOS 和 Windows 三个平台上针对当前 TeX Live 发行版
 
 **xpinyin 的 PR 请以 `xpinyin/maintaining` 分支为合入目标，而不是 `master`。**
 
-xpinyin 原由 [@qinglee](https://github.com/qinglee) 维护。社区自 2022 年起与其断联约四年，与 CTAN 管理员沟通后的安排是：若 2026 年 9 月底前仍未收到回复，则考虑启动维护者变更流程（详见 [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)）。在维护权归属明确之前，xpinyin 的改动集中到该分支上集成，以便随时看清「若接手维护，累积的改动是什么」，也便于在一处验证各改动之间的相互影响。
+xpinyin 原由 [@qinglee](https://github.com/qinglee) 维护。社区自 2022 年起与其失去联系约四年，与 CTAN 管理员沟通后的安排是：若 2026 年 9 月底前仍未收到回复，则考虑启动维护者变更流程（详见 [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)）。在维护权归属明确之前，xpinyin 的改动集中到该分支上集成，以便随时看清「若接手维护，累积的改动是什么」，也便于在一处验证各改动之间的相互影响。
 
 该安排是临时的：维护权归属明确后（无论是收到回复还是完成变更流程），这一节即可删除，xpinyin 恢复直接以 `master` 为目标。
 

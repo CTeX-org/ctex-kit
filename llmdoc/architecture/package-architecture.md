@@ -312,11 +312,11 @@ Issue #556 暴露了这个副作用的具体实例：LuaLaTeX 下 `\verb` 前 xk
 
 XeTeX 路线（`\@@_adjust_xeCJK_hook:` 及其相关代码）不只是「加载 xeCJK」，还直接使用 xeCJK 的
 内部量。这些接口在 xeCJK 侧多数**没有独立的文档条目**，属内部量，会在上游重构中改名——所以要
-成清单留着。按接口名检索 `xpinyin/xpinyin.dtx`（不记行号，行号会漂移）：
+列成清单留着。按接口名检索 `xpinyin/xpinyin.dtx`（不记行号，行号会漂移）：
 
 | 接口 | 用处 |
 |---|---|
-| `\makexeCJKinactive` | 进入量宽盒子前关掉 interchar 机制，避免盒内的汉字再触发一遍字符类转换。 |
+| `\makexeCJKinactive` | 进入量宽盒子前关掉 interchar 机制，避免盒子里的汉字再触发一遍字符类转换。 |
 | `\xeCJK_select_font:` / `\xeCJK@setfont` | 把量宽盒子切到 CJK 字体；后者是前者的兼容名，用 `\cs_if_exist_use:NF` 择一。 |
 | `\l_xeCJK_current_font_tl` | 拼音盒子缓存键的一部分，用来区分不同 CJK 字体下的排版结果。 |
 | `\xeCJK@family` | 上一项不存在时的退路，同样用于构造缓存键。 |

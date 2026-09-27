@@ -482,7 +482,7 @@ xeCJK 支持为 CJK 字符范围设置后备字体链。当主字体不包含某
 
 #### 判断「当前是否处于后备字体状态」
 
-可读的判据是 `\xeCJK_reset_fallback_font:` 是否等于 `\prg_do_nothing:`：
+可以直接读取的判据是 `\xeCJK_reset_fallback_font:` 是否等于 `\prg_do_nothing:`：
 
 - 未启用后备字体时它本就是 `\prg_do_nothing:`（`:9881`）。
 - `\@@_fallback_symbol_aux:nnNN` 切换到后备字体后，把它重定义为「`\the\font`（恢复该字体）+ `\xeCJK_clear_fallback_font:`（清除标记）」（`:9872-9876`）。

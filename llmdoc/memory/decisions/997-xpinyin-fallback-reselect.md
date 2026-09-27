@@ -4,26 +4,26 @@
 
 xpinyin 与 xeCJK 的 `AutoFallBack` 同时使用时，拼音被压缩重叠。
 
-缺陷链：xpinyin 的 `\@@_CJKsymbol_hook:` 在量宽盒子里调 `\xeCJK_select_font:` → 后者经内部
+缺陷的调用链：xpinyin 的 `\@@_CJKsymbol_hook:` 在量宽盒子里调 `\xeCJK_select_font:` → 后者经内部
 `\@@_select_font:Nn`，而它的第一句就是 `\xeCJK_clear_fallback_font:`（`xeCJK/xeCJK.dtx:10450-10452`）
 → `AutoFallBack` 刚切好的后备字体状态被清掉 → 量宽盒子在主字体下排版、字形缺失、量出的宽度
 只剩 2.8pt（正确值 10.0pt）→ 拼音随后被 `\box_resize_to_wd_and_ht:Nnn` 压缩到这个错误宽度。
 
-需要先纠正一个表象：**可见的汉字不受影响**。它由量宽盒子之外的 `\@@_save_CJKsymbol:n` 输出，
+需要先纠正一个错误印象：**可见的汉字不受影响**。它由量宽盒子之外的 `\@@_save_CJKsymbol:n` 输出，
 那时后备字体仍然有效。issue 里的 `Missing character` 警告与「汉字变方框」的印象都来自
 `\l_@@_tmpa_box` 这个只取尺寸、从不进入页面的临时盒子。`pdftotext -bbox` 实测缺陷版 `zhōng`
 2.79pt、修复版 9.96pt，与汉字「中」的 9.96pt 对齐。
 
 ## 未采用（但并非因为它错）：直接删掉 hook 里的字体重选
 
-第一直觉是「量宽 hook 本来就不该重选字体，删掉即可」。本决策**初版声称实测证否，那个判断是
+第一直觉是「量宽 hook 本来就不该重选字体，删掉即可」。本决策**初版声称实测排除了这个方案，那个判断是
 错的**，已由独立审查推翻，这里保留更正后的事实。
 
 初版的依据是：`Latin \xpinyin*{中}` 进入量宽盒子时探针打印 `\TU/lmr/m/n/10`，据此认为当前字体
 是西文、不重选会量错。**探针取错了量**——`\TU/lmr/m/n/10` 是 NFSS 状态（`\f@family` 等），而
 决定字符实际用什么字体排版、进而决定量出的宽度的是 `\fontname\font`。在同一位置读
-`\fontname\font`，得到的已经是 CJK 字体：xeCJK 的 interchar 进入 CJK 类时就切好了字体，本 hook
-运行在那之后。已在十余种上下文逐一探测，`\fontname\font` 无一例外已是 CJK 字体。
+`\fontname\font`，得到的已经是 CJK 字体：xeCJK 的 interchar 机制（XeTeX 按相邻字符的类别插入代码）进入 CJK 类时就已经切换好了
+字体，本 hook 运行在那之后。已在十余种上下文逐一探测，`\fontname\font` 无一例外已是 CJK 字体。
 
 实测更正后的读数：
 
@@ -38,16 +38,16 @@ xpinyin 与 xeCJK 的 `AutoFallBack` 同时使用时，拼音被压缩重叠。
 
 所以「删掉」是一个同样正确、且更简单的修复。仍然保留条件式实现，理由是**保守而非必需**：NFSS
 参数此时确实还停在西文族，一旦 xeCJK 改变字体切换的时点，那次重选就重新变得必要；保留它在当前
-行为下无可观察代价（两种写法产物逐字节相同）。这个理由比「它是必需的」弱得多，如实记下。
+行为下没有可观察到的代价（两种写法产物逐字节相同）。这个理由比「它是必需的」弱得多，如实记下。
 
 代价是：「重选被跳过」这一侧没有任何用例能拦住，记为已接受的覆盖缺口（见
 [[../../reference/build-and-test]] 的 #997 一节与 `pinyin-fallback01.lvt` 第 3 项注释）。
 
 ## 否决：进入量宽盒子前保存、之后恢复当前字体
 
-issue 评论提到的另一个方向。它能工作，但要引入一套新的状态保存机制（在 xpinyin 侧记下进盒前
-的字体、出盒后还原），而 xeCJK 已经有现成的状态量表达同一件事。多一套并行状态就多一处可能与
-xeCJK 自身状态失步的地方，收益上也不比现方案多。
+issue 评论提到的另一个方向。它能工作，但要引入一套新的状态保存机制（在 xpinyin 侧记下进入盒子
+前的字体、离开盒子后还原），而 xeCJK 已经有现成的状态量表达同一件事。多一套并行状态就多一处可能与
+xeCJK 自身状态不同步的地方，收益上也不比现方案多。
 
 ## 决策：按后备字体状态跳过重选
 
@@ -86,7 +86,7 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 判别力。可用的检查是**回退成无条件重选**（把 `\@@_reselect_CJK_font:` 的函数体换成
 `\@@_select_CJK_font:`），确认基线变红。注意「把条件取反」不是一个独立的检查：取反后变红来自
 第 1、2 项，与回退同源；而「恒为跳过」这一侧没有用例能拦住（见上文覆盖缺口）。接口一旦改名，
-`\cs_if_exist:NTF` 会走 F 分支、退化为无条件重选，这种情形能被第 1、2 项抓到。
+`\cs_if_exist:NTF` 会走 F 分支、退化为无条件重选，这种情形能被第 1、2 项发现。
 
 ## 测试
 
@@ -99,16 +99,16 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 | 变异 | 实测结果 |
 |---|---|
 | 回退成无条件重选（原缺陷） | 16 处 `x2.8`，带 `Missing character`，变红 |
-| T／F 分支互换 | 产物与「无条件重选」逐字节相同，非独立形态 |
+| T／F 分支互换 | 产物与「无条件重选」逐字节相同，不是独立的失败形式 |
 | 重选整个删掉（置空或不调用） | **5/5 全绿，产物与基线逐字节相同** |
 | 重选切到错误的 CJK 族（`\CJKfamily{\CJKrmdefault}`） | 仅第 3 项变红，第 1、2 项逐字节不变 |
 
-所以「**整支重选被跳过**」是已接受的覆盖缺口。第 3 项固定的是主字体直接命中这条路径的
-正常输出：它对「整支被跳过」没有判别力，但**是「重选切到错误 CJK 族」这一形态的唯一防线**
+所以「**重选总是被跳过**」是已接受的覆盖缺口。第 3 项固定的是主字体直接命中这条路径的
+正常输出：它对「整支被跳过」没有判别力，但**是唯一能发现「重选切到错误 CJK 族」这种失败的用例**
 ——保持条件结构不动、只在 `\@@_select_CJK_font:` 开头插 `\CJKfamily{\CJKrmdefault}`，实测
 只有第 3 项变红（`x10.0`→`x2.8`、缩放比 0.81777→0.22898，新增两条 `Missing character`），
 第 1、2 项区域逐字节不变。把对照字体选成与后备字体不同的 `FandolKai` 是这项判别力的前提。
-该项用导言区的 `\newCJKfontfamily` 另立一族，因为 `\setCJKmainfont` 是
+该项在导言区用 `\newCJKfontfamily` 另外定义一个字体族，因为 `\setCJKmainfont` 是
 `\@onlypreamble`（`xeCJK/xeCJK.dtx:10854`），正文里用不了。
 
 字体取 `lmroman10-regular.otf`（`lm`）与 `FandolSong-Regular.otf`（`fandol`），两者已在
@@ -123,7 +123,7 @@ xeCJK 升级或上述任一接口改名时，除了跑两条测试路线，还�
 - 反思：[[../reflections/997-xpinyin-fallback-measure-box]]
 - 同类判断（报告链上的代码有自己的历史用途）：[[1029-sbox-adapter]]
 - 测试建设背景：[[1041-xpinyin-test-adoption]]
-- Stable：`llmdoc/architecture/xecjk-architecture.md`「后备字体 (Fallback)」、
+- 稳定文档：`llmdoc/architecture/xecjk-architecture.md`「后备字体 (Fallback)」、
   `llmdoc/reference/build-and-test.md`「xpinyin 的注音回归（#1041）」、`llmdoc/architecture/package-architecture.md`
 - 实现：`xpinyin/xpinyin.dtx`（`\@@_reselect_CJK_font:`、`\@@_select_CJK_font:`）、
   `xpinyin/testfiles/pinyin-fallback01.lvt`、`xpinyin/CHANGELOG.md`
