@@ -14849,7 +14849,7 @@ Copyright and Licence
       }
       {
         \@@_ulem_FullLeft_and_Default:
-        \@@_ulem_onin_report_default:
+        \@@_ulem_report_last:n { default }
       }
   }
 %    \end{macrocode}
@@ -14891,7 +14891,10 @@ Copyright and Licence
         \@@_ulem_class_group_begin:
         \xeCJK_select_font:
       }
-      { \@@_ulem_FullLeft_and_CJK: }
+      {
+        \@@_ulem_FullLeft_and_CJK:
+        \@@_ulem_report_last:n { CJK }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -14911,27 +14914,54 @@ Copyright and Licence
       }
       {
         \@@_ulem_FullRight_and_Default:
-        \@@_ulem_onin_report_default:
+        \@@_ulem_report_last:n { default }
       }
   }
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}[int]{\@@_ulem_onin_report_default:}
-% \changes{v3.10.7}{2026/09/27}{嵌套线型命令的内层正文里，全角标点之后紧接西文
-%   字符时，把西文字符的类别报告给命令边界 capture，使外层命令右侧与直接输入
-%   一样按西文处理（\#1091）。}
-% 全角标点到 Default 的转换不向 capture 报告类别。单层装饰和普通文字里，这个
-% 西文字符之后另有 marker 或 \pkg{ulem} 片段可以说明末类别；嵌套线型命令的内层
-% 正文却整段装在 \tn{UL@onin} 的盒子里，capture 只能看到标点之前的汉字。以前
-% \pkg{ulem} 的结束符 |*| 被当成西文字符，恰好盖住了这个缺口；不再观察 |*| 之后，
-% |\uline{\sout{中。z}} 后| 的命令后空格就被按 CJK 规则删去（\#1091）。因此在嵌套
-% 链上（\cs{l_@@_ulem_onin_bool} 为真）补报 |default|。
+% \begin{macro}[int]{\@@_ulem_report_last:n}
+% \changes{v3.10.7}{2026/09/28}{嵌套线型命令的内层正文里，全角标点之后还有汉字或
+%   西文时（例如在 \tn{uline} 里用 \tn{sout} 排“中（A）中”），外层命令右侧按正文
+%   实际的最后一个字符决定间距，不再多补或少补一枚间距（\#1091）。}
+% 全角标点与后面字符之间的转换（全角标点到 Default、到 CJK）不向 capture 报告
+% 类别。外层片段盒子里，\pkg{ulem} 片段和末尾 marker 会补上这一信息；嵌套线型
+% 命令的内层正文和 \tn{mbox} 等盒子里却没有，capture 只能看到标点之前的字符。
+% 以前 \pkg{ulem} 的结束符 |*| 被当成西文字符，恰好把末类别写成 default，
+% 这个缺口在一部分写法下被掩盖、在另一部分写法下出错；不再观察 |*| 之后，
+% |\uline{\sout{中。z}} 后| 与 |\uline{\sout{中（A）中}}吗| 都要靠实际类别
+% 判断（\#1091）。
+%
+% 因此这些转换在非 \pkg{ulem} 分支里（\cs{xeCJK_if_ulem_patch:TF} 为假，也就是
+% 嵌套内层与盒子里）补报后面字符的类别。只更新 capture 的末类别和 |tail|，
+% 不设置首类别：首类别由 \cs{@@_boundary_capture_class:n} 在第一个报告点设置，
+% 并会在那里补左边界 glue；在盒子内部补报首类别会把这枚 glue 排进盒子里
+% （例如 |\CJKsout{“OK”}| 的 “ 与 OK 之间）。
+%
+% 只更新线型命令自己的 capture 层（|kind| 为 |stream-ulem|）。\tn{mbox} 等盒子
+% 的 capture 层在盒子结束时读取节点列表末尾的 marker 来决定末类别；若把盒子里
+% 标点之后字符的类别也写进这一层，|\mbox{中（A）}中| 会把盒子的末类别当成
+% 西文，在盒子与后面的汉字之间多出一枚西文间距。
 %    \begin{macrocode}
-\cs_new_protected:Npn \@@_ulem_onin_report_default:
+\cs_new_protected:Npn \@@_ulem_report_last:n #1
   {
-    \bool_if:NT \l_@@_ulem_onin_bool
-      { \@@_boundary_capture_class:n { default } }
+    \int_compare:nNnT
+      { \g_@@_boundary_capture_depth_int } > \c_zero_int
+      {
+        \int_compare:nNnT
+          { \g_@@_boundary_suspend_depth_int } = \c_zero_int
+          {
+            \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+              {
+                \tl_if_eq:cnT
+                  { g_@@_boundary_capture_##1_kind_tl } { stream-ulem }
+                  {
+                    \tl_gset:cn { g_@@_boundary_capture_##1_last_tl } {#1}
+                    \tl_gset:cn { g_@@_boundary_capture_##1_tail_tl } { char }
+                  }
+              }
+          }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -14974,7 +15004,10 @@ Copyright and Licence
         \@@_ulem_class_group_begin:
         \xeCJK_select_font:
       }
-      { \@@_ulem_FullRight_and_CJK: }
+      {
+        \@@_ulem_FullRight_and_CJK:
+        \@@_ulem_report_last:n { CJK }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -14998,7 +15031,10 @@ Copyright and Licence
         \@@_ulem_class_group_begin:
         \xeCJK_select_font:
       }
-      { \@@_ulem_FullRight_and_CJStarter: }
+      {
+        \@@_ulem_FullRight_and_CJStarter:
+        \@@_ulem_report_last:n { CJK }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
