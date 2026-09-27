@@ -5167,9 +5167,14 @@ Copyright and Licence
 % 置为 |char|；\pkg{xeCJKfntef} 发现最后一个字符之后又排出了 glue、盒子、
 % 规则、kern、penalty 等内容时置为 |content|。stream end 据此决定末类别，
 % 见 \cs{@@_boundary_inline_stream_end:n}。其他 capture 不会出现 |content|。
+%
+% \cs{@@_boundary_emit_left_hook:n} 在补左边界之前调用，参数是 capture 层号；
+% 默认什么都不做，\pkg{xeCJKfntef} 用它在嵌套装饰里改写 |entry|（\#1091）。
 %    \begin{macrocode}
+\cs_new_eq:NN \@@_boundary_emit_left_hook:n \use_none:n
 \cs_new_protected:Npn \@@_boundary_capture_emit_left:nn #1#2
   {
+    \@@_boundary_emit_left_hook:n {#1}
     \tl_if_eq:cnF { g_@@_boundary_capture_#1_entry_tl } { resolved }
       {
         \tl_set:Ne \l_@@_boundary_node_tl
@@ -13976,8 +13981,13 @@ Copyright and Licence
       { \@@_ulem_glue:n \l_@@_ccglue_skip }
     \cs_set_protected:Npn \CJKecglue
       { \@@_ulem_glue:n \l_@@_ecglue_skip }
+    \cs_set_eq:NN \@@_ulem_orig_space_glue: \xeCJK_space_glue:
     \cs_set_protected:Npn \xeCJK_space_glue:
-      { \@@_ulem_glue:n \l_@@_space_skip }
+      {
+        \xeCJK_if_ulem_patch:TF
+          { \@@_ulem_glue:n \l_@@_space_skip }
+          { \@@_ulem_orig_space_glue: }
+      }
     \cs_set_eq:NN \xeCJK_punct_node:N \use_none:n
     \cs_set_eq:NN \xeCJK_if_last_punct:TF \use_ii:nn
     \keys_set:nn { xeCJK / options }
@@ -15425,42 +15435,55 @@ Copyright and Licence
     \@@_ulem_nest_mark:
   }
 \bool_new:N \l_@@_ulem_onin_enter_bool
+\cs_gset_protected:Npn \@@_boundary_emit_left_hook:n #1
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      {
+        \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
+          {
+            \tl_if_eq:cnF { g_@@_boundary_capture_#1_space_flag_tl } { true }
+              {
+                \int_case:nnT { \tex_lastnodetype:D }
+                  {
+                    {  2 } { }
+                    {  3 } { }
+                    {  9 } { }
+                    { 11 } { }
+                    { 12 } { }
+                    { 13 } { }
+                  }
+                  { \@@_ulem_entry_resolve:n {#1} }
+              }
+          }
+      }
+  }
 \tl_new:N \l_@@_ulem_onin_lead_tl
 \cs_new_protected:Npn \@@_ulem_onin_lead_get:n #1
   {
     \tl_clear:N \l_@@_ulem_onin_lead_tl
-    \@@_ulem_onin_if_lead_space:nF {#1}
+    \xeCJK_if_last_node:nTF { CJK }
+      { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
       {
-        \xeCJK_if_last_node:nTF { CJK }
-          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { CJK } }
-          {
-            \xeCJK_if_last_node:nT { default }
-              { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
-          }
+        \xeCJK_if_last_node:nT { default }
+          { \tl_set:Nn \l_@@_ulem_onin_lead_tl { default } }
       }
-  }
-\prg_new_conditional:Npnn \@@_ulem_onin_if_lead_space:n #1 { F }
-  {
-    \tl_if_head_is_space:nTF {#1}
-      { \prg_return_true: }
-      {
-        \tl_if_head_is_group:nTF {#1}
-          { \exp_args:No \@@_ulem_onin_if_lead_space_aux:n { \use:n #1 } }
-          {
-            \tl_if_head_eq_meaning:nNTF {#1} \ %
-              { \prg_return_true: } { \prg_return_false: }
-          }
-      }
-  }
-\cs_new:Npn \@@_ulem_onin_if_lead_space_aux:n #1
-  {
-    \tl_if_head_is_space:nTF {#1}
-      { \prg_return_true: } { \prg_return_false: }
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
-      { \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl }
+      {
+        \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
+        \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
+          {
+            \tl_if_eq:cnF
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _xecglue_flag_tl
+              }
+              { true }
+              { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+          }
+      }
   }
 %    \end{macrocode}
 % \end{macro}
@@ -15721,8 +15744,8 @@ Copyright and Licence
 %   命令后的空格；打开 \opt{CheckFullRight} 时同样如此（\#1091）。}
 % \changes{v3.10.7}{2026/09/28}{线型命令的正文以全角左标点结尾、标点不在正文内的
 %   分组里时，命令后的空格与直接输入一样在汉字前删去，西文前也不再多补间距；
-%   嵌套线型命令的内容与它前后相邻的汉字或西文之间，与直接输入一样补上间距
-%   （\#1091）。}
+%   嵌套线型命令的内容与它前后相邻的汉字或西文之间，与直接输入一样补上间距，
+%   内层正文开头的空格、不断行空格等内容也按直接输入处理（\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -15782,9 +15805,33 @@ Copyright and Licence
 % 末尾的 marker，在内层正文开头重放一次，|\uline{x\sout{中}}| 的 x 与“中”之间
 % 于是与直接输入一样有间距；\tn{mbox} 里的 |\uline{x\mbox{x\sout{中}}}| 同样如此，
 % 内层正文以公式加空格结尾、走重排分支时也在开头重放。正文第一个字符的类别
-% 转换会取走这个 marker；正文为空或以规则、盒子开头时，这个零宽 marker 留在
-% 内层盒子里。内层正文以空格开头（包括 |\ | 和分组里的空格）时不重放：直接输入
-% |中{ 中}| 这枚空格按普通空格保留，重放 marker 会让它按 CJK 规则删去。
+% 转换会取走这个 marker；正文为空，或第一个字符之前先排出了规则、盒子、glue、
+% kern 等节点时，这个零宽 marker 留在内层盒子里。
+%
+% 内层正文以空格开头时，这枚空格也要与直接输入 |中{ 中}| 一样处理：
+% \opt{xCJKecglue} 为假时按普通空格保留，为真时换成 \tn{CJKecglue}。重放的 marker
+% 若开启源码空格检查（\cs{g_@@_glue_check_pending_bool}），后面字符的类别转换会把
+% 这枚空格按 CJK 规则删去，与前一种情形不符；若不重放，又与后一种情形不符。因此
+% 重放 marker 后，按入口处缓存的 \opt{xCJKecglue} 状态决定是否保留这次检查：
+% \pkg{ulem} 正文里 \opt{xCJKecglue} 固定为假，所以要读入口 capture 层的
+% |xecglue_flag| 字段。这样不论空格写成空格、|\ |、\tn{space} 还是多层分组里的
+% 空格，都走与直接输入相同的检查路径。
+%
+% 左边界同理。嵌套装饰的内层正文由 \tn{UL@onin} 排进盒子，不经过 \tn{UL@stop} 与
+% \tn{UL@reskip}，正文开头的 |~|、\tn{hspace}、\tn{kern}、规则等在第一个字符之前
+% 排出时，外层的入口仍处于 |armed|，第一个字符出现时就在这些内容之后补左边界，
+% 比直接输入 |x{~中}x| 多出一枚间距。以前右侧恰好少一枚间距，两处抵消；右侧补好
+% 以后这一处就显露出来（\#1091）。因此 \cs{@@_boundary_emit_left_hook:n} 在嵌套链上、
+% 入口仍为 |armed| 且入口没有源码空格时，看内层盒子的末节点：是 glue、kern、penalty、
+% 规则或 special，就按“正文先排出可见内容”把入口改为 |resolved|，不再补左边界。
+% 重放的外层 marker 使第一个字符按字符间的类别转换处理，不经过这里。
+% 入口有源码空格时不这样做，那枚空格已由
+% \cs{@@_ulem_entry_resolve:n} 以外的路径处理，与 |x {~中}x| 一致。
+%
+% 内层盒子里 \cs{xeCJK_space_glue:} 按当前字体排出词间空格，而不用进入命令时
+% 缓存的 \cs{l_@@_space_skip}：\pkg{ulem} 片段盒子之外的这份缓存用于外层 glue
+% 通道，内层正文里的空格应与直接输入一样随字体变化，例如 \opt{CJKspace} 为真时
+% |\uline{中\sout{\textbf{ 中}}}| 的空格按粗体的宽度排出。
 %
 % 与右侧不同，这样补出的 \tn{CJKecglue} 排在内层盒子里，会被内层装饰画上，也不能
 % 在这里断行；右侧的间距排在外层，只画外层装饰。命令左边界原有的机制
@@ -15803,9 +15850,9 @@ Copyright and Licence
 % 在标点刚排出 |\penalty10000 \glue0pt| 时，在标点与这一对节点之间插入一个
 % |ulem-left| marker；\cs{@@_ulem_onin_tail_glue:} 在 |tail| 为 |left| 且 penalty
 % 之前正是这个 marker 时，才认作标点自己的节点，不把这枚 glue 当作正文末尾的
-% 内容。标点之后若先有
-% 盒子、kern 等，再有用户写的 |~| 或 |\nobreak\hspace|，penalty 之前不是这个
-% marker，按 |content| 处理，与直接输入 |中（\mbox{}~ 后| 一致。
+% 内容。标点之后若先有盒子、kern 等，再有用户写的 |~| 或 |\nobreak\hspace|，
+% penalty 之前不是这个 marker，按 |content| 处理，与直接输入 |中（\mbox{}~ 后|
+% 一致。
 %
 % 标点位于正文内的分组里（|\uline{{中（}} 后|、|\uline{\textbf{中（}} 后|）时，
 % 下一个记号是分组结束，置为 |left|，结束时按 |中（\relax{} 后| 处理；但直接输入
