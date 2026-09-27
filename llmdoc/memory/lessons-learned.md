@@ -340,8 +340,8 @@ Curated cross-task rules distilled from archived memory.
 
 ### rebase 冲突里「双方各自在同一长行追加」要按三方重建，不能靠脚本反复追加
 **Rule**: `llmdoc/index.md` 这类单行极长的索引，rebase 时两侧常各自在同一行末尾追加不同内容。逐轮用脚本「公共前缀 + 对侧尾巴」拼接会在多次 `rebase --continue` 中把同一段追加**累积复制多次**。正确做法是三方重建：取 merge-base 版本、算出各侧相对它的追加、各拼一次。合并后必做两项校验：①对每个条目确认 master 侧内容仍是当前行的前缀；②对整行检查重复子串（最短查到 40 个字）。
-**Why**: #1069 分支 rebase onto master（53 个提交、6 个 llmdoc 文件双侧修改）时我写了个「追加型自动合并」脚本喂给 `rebase --continue` 循环。它对单次冲突正确，但每轮都把我这一侧的追加内容重新接一次——最终 `build-and-test.md` 那行同一段重复 7 次、`lessons-learned.md` 那行重复 16 次（20489 字，是应有长度的 4.5 倍），`package-architecture.md` 那行的 `xpinyin -> xeCJK` 说明重复 3 次且第一份仍指向已删除的 `xpinyin/MAINTAINING.md`。CI 全绿（这些是散文，不进编译），由 PR 上的自动审查作为小问题指出。三方重建后长度回到 8272／4269。**顺带暴露另一类**：我这一侧的追加与 master 的追加各自包含同一条「LaTeX2e 命令钩子机制」规则，属真实内容重叠，需要人工判断保留哪一份——这种是脚本无论如何都判不出来的。
-**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`
+**Why**: #1069 分支 rebase onto master（53 个提交、6 个 llmdoc 文件双侧修改）时我写了个「追加型自动合并」脚本喂给 `rebase --continue` 循环。它对单次冲突正确，但每轮都把我这一侧的追加内容重新接一次——最终 `build-and-test.md` 那行同一段重复 7 次、`lessons-learned.md` 那行重复 16 次（20489 字，是应有长度的 4.5 倍），`package-architecture.md` 那行的 `xpinyin -> xeCJK` 说明重复 3 次且第一份仍指向已删除的 `xpinyin/MAINTAINING.md`。CI 全绿（这些是散文，不进编译），由 PR 上的自动审查作为小问题指出。三方重建后长度回到 8272／4269。**顺带暴露另一类**：我这一侧的追加与 master 的追加各自包含同一条「LaTeX2e 命令钩子机制」规则，属真实内容重叠，需要人工判断保留哪一份——这种是脚本无论如何都判不出来的。PR #1051 再次 rebase 时，两侧不只追加：master 还改了同一行的措辞（#1093），于是改为按词切分后交给 `git merge-file` 三方合并，并按词核对原提交新增的片段都在结果里。另外，修补文档里的残缺文字前，先对照 rebase 前的版本确认残缺是不是这次引入的（这次 `index.md` 的 4 段残文在 rebase 前就已存在）。
+**Source**: `llmdoc/memory/reflections/1069-pinyin-u-umlaut-input.md`, `llmdoc/memory/reflections/xpinyin-maintaining-rebase-wording-unihan18.md`
 
 ### 删文件前按「读者」清点内容归属，不要只按标题层级清点
 **Rule**: 删除一份文档前，逐段问「这段是给谁看的」，再按读者决定去向：面向贡献者的流程（PR 投哪个分支、必须跑哪些测试）归 `README`／`CONTRIBUTING`，面向维护者的内部机制归 `llmdoc`。清点时要连**标题之前的引言段**一起数——按 `grep '^## '` 列小节会漏掉 H1 之后、第一个 `##` 之前的内容。
@@ -679,6 +679,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 面对上游宏包版本漂移导致的 `.tlg` diff，先判断根因属于哪一类，再决定要不要刷基线：TL 打包侧暂时没跟上 CTAN（会随 tlnet 同步自愈）的漂移不刷——刷了等于把上游当前滞后快照里的错误数值固化下来，等 TL 同步后还要改回来；上游有意修正且不会回退的漂移必须刷。这与「状态表中的绿色单元才进入通过基线」是同一族但不同粒度：那条管的是「矩阵内哪些单元可以写进基线」，这条管的是「整批 diff 该不该刷」的前置分类。**判定「必须刷」之后还要再逐份核对 diff 的具体内容**（净宽为零的 kern、纯文件名行增删是安全信号；节点缺失、数值变化则必须先查本包补丁是否仍成立），否则「刷基线」会把上游同时引入的新缺陷一起冻结进去——分类判据只回答「要不要刷」，不回答「刷了会不会带进新问题」。
 **Why**: #1048/#1050 中 l3backend 的漂移是 tlnet 落后 CTAN 五个月（会自愈），pgf 的舍入修正是上游明确的、不会回退的行为变更；两者的 `.tlg` diff 表现类似，但处置方式相反——一个该等 TL 同步，一个必须刷。#1080 补两个「必须刷」的实例：`tocloft` v2.3i→v3.0a 新增的 kern 对净宽为零、`fontspec` 不再显式加载 `xparse` 只是文件清单变化，两者都先核对了 diff 只含这类安全信号才敢 save。
 **Source**: `llmdoc/memory/reflections/1048-1050-upstream-l3backend-pgf-baseline-drift.md`, `llmdoc/memory/reflections/1080-upstream-tocloft-fontspec.md`
+
+### 上游数据变化让被测规则失去数据载体时，用受控输入固定被测值
+**Rule**: 上游数据更新后，新数据里可能已经没有能体现被测规则的输入（被测规则失去了数据载体）。这时既不刷基线，也不等上游恢复，而是在测试里用受控输入固定被测值，让测试继续覆盖原来的规则。改完后用新旧两版数据各跑一次，并检查生成物，确认两次用的确实是不同的数据。这是上一条「刷 `.tlg` 基线前先按上游根因分类」之外的第三种处理：那一条回答“刷不刷”，这里的情况是刷新后测试就不再覆盖原来的规则。注释里关于数据来源的说法也要对照当时版本的数据核实，不能凭推断写。
+**Why**: `pinyin-query01` 第 5d 项用「噷」覆盖查询表的 hm 条目（整体鼻音，hm 整体作韵母）。数据库按 kMandarin > kXHC1983 > kHanyuPinyin 的顺序取首选读音；「噷」的 kMandarin 在 Unicode 17.0 是 hm，18.0 改为 xīn，首选读音随之变成 xin1。18.0 里已经没有首选读音为 hm 或 hng 的字，刷基线会让“hm 整体作韵母”失去覆盖。改为 `\setpinyin{噷}{hm5}` 后 `.tlg` 不变；17.0 与 18.0 下 `l3build check` 都是 9/9，生成的 `xpinyin-query.db` 里 U+5677 分别是 hm 与 xin1。注释初版误写“hm 来自 kXHC1983”，拿到 17.0 数据后才发现 17.0 的 kMandarin 本来就是 hm。
+**Source**: `llmdoc/memory/reflections/xpinyin-maintaining-rebase-wording-unihan18.md`
 
 ### 失败集合的分布差异是成因数量的线索
 **Rule**: 同一批 CI 红（或同一批测试失败）若在不同引擎、不同用例上呈现不同的受影响范围，应当把这当成「不止一个成因」的信号，分别排查；不要把第一个找到的成因，套到分布不同的另一组失败观察上。判据很直接：同一个成因通常在同一维度（引擎、平台、用例类型）上产生同一种分布；出现两种分布，大概率是两条独立路径。

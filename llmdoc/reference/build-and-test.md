@@ -843,6 +843,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 - 装 TL: 2 次 retry 换 mirror (try 1 illinois, try 2 fau.de), 各 timeout 15min. 即便 cache hit, setup-texlive 在 `Updating packages` 阶段仍会联网拉 tlmgr db checksum, 单 mirror 网络抖动时这步可能失败 — PR #899 实测 windows 命中. retry 2 次降低这种 transient failure 让 job 挂的概率.
 - 装字体 (`actions/cache@v6` 缓存 `$GITHUB_WORKSPACE/.font-cache/`, key 含 `_test-package.yml` hash; zip 解完即删只留 ttc)
 - (仅 `needs-unihan: true` 的 caller, 目前只有 xpinyin) 缓存并下载 `support/Unihan.zip`: unpack 阶段的 `texlua xpinyin.lua` 要用它生成拼音数据库, weekly cache key 与 `_check-doc-package.yml`（xeCJK 用）完全一致, 两条 workflow 互相填对方的缓存.
+  - `Unihan.zip` 不固定版本: CI 每周下载最新版, 本地构建也会重新下载, 所以断言具体汉字数据库读音的用例会随上游数据变化 (例如 Unihan 18.0 把「噷」的首选读音从 hm 改成 xin1). 要测的是规则本身而不是某个字的收录读音时, 用 `\setpinyin` 固定输入 (实例见 `xpinyin/testfiles/pinyin-query01.lvt` 第 5d 项的注释, 以及 `llmdoc/memory/lessons-learned.md` 的「上游数据变化让被测规则失去数据载体时，用受控输入固定被测值」).
 - 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
