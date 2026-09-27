@@ -114,24 +114,6 @@ Before submitting code, please ensure:
 3. Changes to `.dtx` files include `\changes` entries
 4. After editing `\changes`, regenerate the package's `CHANGELOG.md` with `make changelog` (or `cd <pkg> && python3 ../scripts/extract-changes.py "*.dtx" all -o CHANGELOG.md`) and commit it together; without a local Python, copy the expected content from the failed check-changelog CI log
 
-### Temporary merge target for xpinyin
-
-**Please target the `xpinyin/maintaining` branch for xpinyin pull requests, not `master`.**
-
-xpinyin was originally maintained by [@qinglee](https://github.com/qinglee). The community had been unable to reach them for more than four years since 2022; after consulting the CTAN admins, the community decided to take over maintenance, and Liam Huang has maintained the package since June 2026 (see [#1041](https://github.com/CTeX-org/ctex-kit/issues/1041)). Changes made since the takeover are integrated on that branch ([#1051](https://github.com/CTeX-org/ctex-kit/pull/1051)), so that the accumulated delta is visible in one place and interactions between changes can be validated together.
-
-This arrangement is temporary: once #1051 is merged into `master`, this subsection can be removed and xpinyin can target `master` directly.
-
-Also note that xpinyin changes must be validated on **both** test routes:
-
-```sh
-cd xpinyin
-l3build check                      # main suite: XeTeX + xeCJK
-l3build check -c test/config-cjk   # CJKutf8 + pdfTeX
-```
-
-Both are required: xpinyin contains two non-shared adaptation layers, `\@@_adjust_xeCJK_hook:` and `\@@_adjust_CJK_hook:`, which differ in font selection, code-point conversion and how they take over `\CJKsymbol`. Running only one leaves the other half entirely uncovered. LuaTeX is explicitly rejected via `\msg_critical:nn` and is out of scope.
-
 ## Related Links
 
 - [CTeX Community](http://www.ctex.org)
