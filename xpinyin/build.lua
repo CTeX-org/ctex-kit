@@ -148,3 +148,23 @@ function unpack_posthook()
 end
 
 dofile("../support/build-config.lua")
+
+-- ── CTAN upload (用 release-ctan-upload.yml workflow 触发) ────────────────
+-- 与 xeCJK/build.lua 同一套: 版本号从 xpinyin.dtx 读回 (事实源仍是本文件顶部的
+-- `version`, `l3build tag` 把它回写进 .dtx), 保证投递的版本与打进 zip 的一致.
+-- uploader/email/note 不在此填, 由 workflow 通过 env 注入.
+-- summary、description、topic 取自 CTAN 上现有的条目 (ctan.org/json/2.0/pkg/xpinyin),
+-- description 另补 v3.2 新增的读音查询. topic 与 CTAN 现有条目保持一致, 除默认的
+-- chinese 外还列出 CTAN 已登记的 tagged-pdf-incompatible, 不因上传而改动它.
+uploadconfig = ctex_kit_uploadconfig {
+  pkg         = "xpinyin",
+  version     = read_dtx_version("xpinyin.dtx"),
+  author      = "Qing Lee; Liam Huang",
+  summary     = "Automatically add pinyin to Chinese characters",
+  description = "The package is written to simplify the input of Hanyu Pinyin. "
+             .. "Macros are provided that automatically add pinyin to Chinese "
+             .. "characters, and that look up the pinyin reading of a "
+             .. "character, for example to build sort keys for Chinese indexes.",
+  topic       = { "chinese", "tagged-pdf-incompatible" },
+  ctanPath    = "/macros/latex/contrib/xpinyin",
+}
