@@ -366,6 +366,15 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 
 所以正确解法通常是**改写句子绕开这些字符**。判据是同时核对两个下游：`.gls` 的渲染结果，以及重新生成的 `CHANGELOG.md`（`make changelog-<pkg>`）——只看一边会漏。
 
+### `\changes` 跨行时的断行位置
+
+`scripts/extract-changes.py` 把 `\changes` 的续行拼成一行，再用 `CJK_RANGE` 去掉「两侧都是 CJK 字符」的换行空格。`CJK_RANGE` 覆盖汉字、CJK 符号与全角字符，**不含中文弯引号**（U+201C／U+201D 属于 General Punctuation）。所以下面两种断行都会在 CHANGELOG 和 release notes 里多出一个空格：
+
+- 行尾或下一行开头是弯引号，例如在「“哇”」与「保留」之间断行，生成「“哇” 保留」（PR #1097 实测）；
+- 行尾是全角标点、下一行以 ASCII 开头，例如「，」后接 `pdfTeX`，生成「， pdfTeX」（PR #1051 措辞修订时在 #1069 的条目里实测）。
+
+写 `\changes` 时让换行两侧都是汉字或全角标点；改完运行 `python3 scripts/extract-changes.py <pkg>/<pkg>.dtx v<版本>` 检查单版本输出，再 `make changelog-<pkg>`。扩大 `CJK_RANGE` 会改变其他包已提交的 CHANGELOG，要连同 check-changelog 一起处理，不适合顺手改。
+
 ### 与 catcode régime 那条线的关系
 
 这与前面「字面字符当替换模式时必须核对 catcode régime（#1043）」及 #879 的替换端 codepoint 局限是同一族问题：**同一个字面字符在处理链的某一个阶段有特殊含义，而在别的阶段是普通文本。** #1043 的阶段是 TeX 的 tokenise，本节的阶段是 makeindex 的条目解析。
