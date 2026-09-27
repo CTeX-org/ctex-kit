@@ -63,12 +63,12 @@ hook 等待期间也可能有协作者推进同一分支。若外层输出显示
 
 一次完整的收尾可以复用为模板（#1008 的实例）：
 
-1. **本地独立审计**：跑 close-local-code-review，在固定 commit 的隔离快照里做正式审查（见前文「正式的本地代码审查」一节的隔离要求）。
-2. **备份复现资产**：把 MWE、修复前后对照图、`.toc` 之类的中间产物存到 `gh-assets` 分支的 `issues/<n>/` 下，PR 正文用 `raw.githubusercontent.com` 裸链引用（不要贴 base64 或本地路径）。
+1. **本地独立审计**：运行 close-local-code-review，在固定 commit 的隔离快照里做正式审查（见前文「正式的本地代码审查」一节的隔离要求）。
+2. **备份复现资产**：把 MWE、修复前后对照图、`.toc` 之类的中间产物存到 `gh-assets` 分支的 `issues/<n>/` 下，PR 正文用 `raw.githubusercontent.com` 的原始文件链接引用（不要贴 base64 或本地路径）。
 3. **开 PR**：确认目标分支——不是所有包都合到 `master`，例如 zhnumber 的目标分支是 `zhnumber/maintaining`，开错目标分支会让 CI 跑在错误的基线上。
 4. **`make check-pr-ci`**：进入本文件已述的等待与处理循环。
 
-其中一点容易被忽略：**bot 审查即使是 APPROVE 且 0 个 finding，`check-pr-ci` 仍会以 exit 75 报「Unacknowledged bot comment」**——bot 的 review/comment 本身就是一次「活动」，需要维护者显式确认，与它的结论是否为 APPROVE 无关。此时若核实后确无代码要改，按 hook 提示由 OWNER/MEMBER/COLLABORATOR **回一条带证据的评论**（写明 CI 计数与「为何无需改动」的依据），再重跑 `make check-pr-ci`，它才会转为 exit 0。这不是走过场式的形式确认——回复内容本身是留痕证据，供后续复核。#1008 的实例是 38 项非 skip 检查全 SUCCESS + Codex 主链路 APPROVE 0/0/0，仍需按此流程回复确认才收尾。
+其中一点容易被忽略：**bot 审查即使是 APPROVE 且 0 条审查意见，`check-pr-ci` 仍会以 exit 75 报「Unacknowledged bot comment」**——bot 的 review/comment 本身就是一次「活动」，需要维护者显式确认，与它的结论是否为 APPROVE 无关。此时若核实后确无代码要改，按 hook 提示由 OWNER/MEMBER/COLLABORATOR **回一条带证据的评论**（写明 CI 计数与「为何无需改动」的依据），再重跑 `make check-pr-ci`，它才会转为 exit 0。这不是走过场式的形式确认——回复内容本身就是记录在案的证据，供后续复核。#1008 的实例是 38 项非 skip 检查全 SUCCESS + Codex 主审查流程 APPROVE 0/0/0，仍需按此流程回复确认才收尾。
 
 ## 文档收尾
 

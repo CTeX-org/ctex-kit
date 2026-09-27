@@ -10,8 +10,8 @@
 %% 「报错」与「警告」两种不同结果, 所以按引擎需求分目录, 见 test/config-cjk.lua.
 %%
 %% 主目录的 counter-options01 用记号层面的断言覆盖了带选项 \zhnum/\zhdig 的
-%% **新**路径 (值有没有被固定); 本文件补的是**旧**入口仍然可用这一面 ——
-%% 升级后读回 v3.1 时代写下的 .toc 会命中它们, 删掉或改坏会报 undefined
+%% **新**路径 (值有没有被固定); 本文件补的是**旧**入口仍然可用这一点 ——
+%% 升级后读回 v3.0 时代写下的 .toc 会调用它们, 删掉或改坏会报 undefined
 %% 或排出乱码.
 %%
 %% 旧入口的断言只能放在这里, 主目录做不到: 它们是 \NewDocumentCommand, 因而
@@ -22,16 +22,16 @@
 %% 判据是盒子**高度**, 不是宽度: 字体覆盖这些字形时汉字宽度恒为 1em (本文件三组
 %% 读数都是 wd=10), 对「排出的是哪个字」没有判别力; 区分「七」(ht=7.33) 与
 %% 「柒」(ht=7.75) 的是高度. 基线里仍然记下 wd, 只作为「盒子确实排出了一个汉字」
-%% 的旁证 —— 字体缺这些字形时 wd 会塌到 2.8 (见下面关于换字体的说明), 所以
+%% 的旁证 —— 字体缺这些字形时 wd 会降到 2.8 (见下面关于换字体的说明), 所以
 %% 「wd=10」本身也是「字体正常」的旁证, 但它区分不了排出的是哪个汉字.
 %%
-%% 笔误版的失败表现不止是度量变化: 它会把选项串当计数器名, 于是命中
+%% 有笔误的版本, 失败表现不止是度量变化: 它会把选项串当计数器名, 于是调用
 %% \@@_counter_error:n 报 `is not a LaTeX counter' (实测 `s' is not a LaTeX
 %% counter), 那行报错直接进基线, 与正确输出的度量行必然不同.
 %%
 %% 缺字不需要单独断言: 本文件用的 FandolSong 覆盖这些字形, 基线里没有
 %% `Missing character' 行. 换成缺 CJK 的字体 (实测 lmroman10-regular.otf) 会让本
-%% 文件变红, 但那不构成「缺字行本身有判别力」的证据 —— 实测缺字行与度量塌陷
+%% 文件变红, 但那不构成「缺字行本身有判别力」的证据 —— 实测缺字行与度量骤降
 %% (wd=10,ht=7.33 → wd=2.8,ht=0) 是同时出现的, 没有隔离出是哪一个让基线不匹配.
 %% 这里只如实记录: 缺字行会进归一化日志, 因而排出**字体不覆盖**的字符会被基线拦住,
 %% 而具体由哪一项拦住未做隔离实验.
@@ -41,7 +41,7 @@
 %% (都是 wd=10, ht=7.75, 且都不缺字), 而两者都在 zhnumber 自己的数字表里 ——
 %% 只靠度量的话, 一个让 Financial 的 7 排成「九」的改动能通过前三项全部断言.
 %% 用 \loggingoutput 而不是 \showbox: checkopts 含 -halt-on-error, 而 \showbox
-%% 报 `! OK.' 会当场中止编译 (与 xeCJK/testfiles/verb-ecglue02.lvt 同一写法).
+%% 报 `! OK.' 会立即中止编译 (与 xeCJK/testfiles/verb-ecglue02.lvt 同一写法).
 
 \documentclass{article}
 \usepackage{xeCJK}
@@ -78,7 +78,7 @@
 
 %% 2. 旧入口直接调用: 应与「同样式的新路径」等宽等高.
 %%    Financial 样式下 7 是「柒」, 与 Normal 的「七」不同字形, 所以这一项同时
-%%    说明样式确实被套上了 (若选项被忽略, 会得到与第 1 项相同的度量).
+%%    说明样式确实生效了 (若选项被忽略, 会得到与第 1 项相同的度量).
 \TEST{legacy~entry~points~still~work}{
   \TestBox { legacy~zhnum } { \zhnumwithoptions { style = Financial } { section } }
   \TestBox { legacy~zhdig } { \zhdigwithoptions { style = Financial } { section } }
@@ -86,13 +86,13 @@
 
 %% 3. 新路径的同样式输出, 与第 2 项逐字对照.
 %%    两者必须一致 —— 旧入口是「转发」而非「另一套实现」, 若哪天转发写错,
-%%    这一项与上一项的度量就会分开.
+%%    这一项与上一项的度量就会不同.
 \TEST{new~path~matches~legacy}{
   \TestBox { new~zhnum } { \zhnum [ style = Financial ] { section } }
   \TestBox { new~zhdig } { \zhdig [ style = Financial ] { section } }
 }
 
-%% 4. 排出的**字形**本身进基线, 补上度量看不出的那一维 (见文件开头的说明:
+%% 4. 排出的**字形**本身进基线, 补上度量看不出的差别 (见文件开头的说明:
 %%    「柒」与「九」度量相同, 只靠 wd/ht 分辨不出排错了字).
 %%    \box_use:N 会把盒子放进输出, \loggingoutput 使输出内容进日志因而进基线;
 %%    汉字在日志里就是它本身 (基线里实际存的是字面 UTF-8 汉字, 不是码位数字 ——
@@ -100,8 +100,8 @@
 %%
 %%    **必须覆盖上面三项测过的全部六个入口**, 不能只测 \zhnum 那三个: TEST 1-3
 %%    每项都测两个入口 (zhnum 与 zhdig), 若这里只排 \zhnum 的盒子, \zhdig 侧
-%%    就仍然只有度量断言, 本项声称补掉的盲区在那一侧原样保留 (实测: 只测
-%%    \zhnum 时, 一个让 \zhdigwithoptions 排错字且度量恰好相同的变异全绿).
+%%    就仍然只有度量断言, 本项要补上的盲区在那一侧仍然存在 (实测: 只测
+%%    \zhnum 时, 一个让 \zhdigwithoptions 排错字且度量恰好相同的变异下测试仍全绿).
 \loggingoutput
 
 \TEST{glyph~identity~is~fixed}{
@@ -118,12 +118,12 @@
   \hbox_set:Nn \l_test_box { \zhdig [ style = Financial ] { section } }
   \box_use:N \l_test_box
   %% 再用**多位数**跑一遍: 上面用的 7 是一位数, 此时 \zhnum 与 \zhdig 的输出恒等
-  %% (都是单个「柒」), 于是「把 digits 路径接成整数路径」这类接线错误看不出来 ——
+  %% (都是单个「柒」), 于是「把 digits 路径错接到整数路径上」这类错误看不出来 ——
   %% 实测把 \zhdigwithoptions 里的 \zhnum_digits_counter:n 换成 \zhnum_counter:n
   %% 后本文件全绿. 123 下两者截然不同: \zhdig 逐位排「壹贰叁」, \zhnum 排
   %% 「壹佰贰拾叁」, 位数与字形都不同. 主目录的 counter-options01 同样用 123.
   %%
-  %% 该变异现在被抓住的**具体表现**是盒子宽度: 3 个字的 x30.0 变成 5 个字的 x50.0
+  %% 该变异现在被测出的**具体表现**是盒子宽度: 3 个字的 x30.0 变成 5 个字的 x50.0
   %% (5a3c5619 的提交说明写成「12 个字形行 diff」是错的 —— 12 是含未变上下文的
   %% \TU 行总数, 实际标记出的差异是宽度行. 结论不变, 但计数与机制的表述以此处为准).
   \setcounter { section } { 123 }
