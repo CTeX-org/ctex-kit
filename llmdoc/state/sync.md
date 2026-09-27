@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: cd4aa3c2d1d8071c52b5aedef81dc393ebbedac8
-- watermark-subject: fix(xeCJK): 嵌套线型命令内层正文末尾的空白与盒子也按内容处理 (#1091)
-- updated-at: 2026-09-27T17:21:20Z
-- updated-by: recorder（#1091 本地增量审查 R8 补修的稳定文档同步）
+- watermark-commit: 0387c93709cb03fca831a88219c4eb42255fb726
+- watermark-subject: fix(xeCJK): 线型命令以全角左标点结尾与嵌套装饰两侧的间距与直接输入一致 (#1091)
+- updated-at: 2026-09-27T19:02:26Z
+- updated-by: recorder（#1091 本地增量审查 R9 补修的稳定文档同步）
