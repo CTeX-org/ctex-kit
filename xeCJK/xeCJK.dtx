@@ -8343,6 +8343,7 @@ Copyright and Licence
 % \changes{v3.1.1}{2012/12/02}{处理全角右标点之后的断行问题。}
 % 选项设置。
 %    \begin{macrocode}
+\bool_new:N \g_@@_FullRight_space_bool
 \keys_define:nn { xeCJK / options }
   {
     CheckFullRight .choice: ,
@@ -8369,6 +8370,7 @@ Copyright and Licence
             \cs_set_eq:NN \xeCJK_FullRight_symbol:N
                           \@@_save_FullRight_symbol:N
           }
+        \bool_gset_false:N \g_@@_FullRight_space_bool
       } ,
     CheckFullRight      .default:n = { true }
   }
@@ -8440,9 +8442,25 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\xeCJK_check_FullRight_symbol:Nw}
+% \changes{v3.10.7}{2026/09/27}{\opt{CheckFullRight} 删去全角右标点之后的空格时
+%   记下这一点，供 \pkg{xeCJKfntef} 判断线型命令的正文是否以标点结尾（\#1091）。}
+% 为了看到标点之后的记号，这里先删去标点之后的空格。删去的空格原本就不会排出，
+% 但它说明标点并不紧接其后的记号：\pkg{xeCJKfntef} 用
+% \cs{g_@@_FullRight_space_bool} 区分线型命令正文里的 |中。 | 与 |中。|
+% （\#1091）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \xeCJK_check_FullRight_symbol:Nw #1
-  { \peek_remove_spaces:n { \@@_save_FullRight_symbol:N #1 } }
+  {
+    \peek_charcode_remove:NTF \c_space_token
+      {
+        \bool_gset_true:N \g_@@_FullRight_space_bool
+        \peek_remove_spaces:n { \@@_save_FullRight_symbol:N #1 }
+      }
+      {
+        \bool_gset_false:N \g_@@_FullRight_space_bool
+        \@@_save_FullRight_symbol:N #1
+      }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
@@ -15564,12 +15582,13 @@ Copyright and Licence
 %   \@@_ulem_tail_content:,
 %   \@@_ulem_tail_set:n,
 %   \@@_ulem_tail_punct_end:,
-%   \@@_ulem_tail_check:,
 %   \@@_ulem_tail_check_kern:,
 %   \@@_ulem_body_end:,
-%   \@@_ulem_nest_mark:,
 %   \@@_ulem_punct_peek:,
-%   \@@_ulem_punct_peek_aux:N}
+%   \@@_ulem_punct_peek_space:,
+%   \@@_ulem_punct_peek_aux:N,
+%   \@@_ulem_nest_mark:,
+%   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
 %   规则等内容时，命令后的源码空格按普通空格保留，右侧也不再补边界间距，
 %   例如预填姓名、后接 \tn{hspace*} 的填空线；正文（包括嵌套线型命令的内层）
@@ -15615,9 +15634,10 @@ Copyright and Licence
 % 看下一个记号；正文里再新建的盒子（\tn{mbox} 等）由 \tn{UL@hrest} 清除这个
 % 布尔，其中的标点不受影响。这样的盒子里若又有线型命令，它的 \tn{UL@onin}
 % 只继承进入时的布尔（此时 \cs{xeCJK_if_ulem_patch:TF} 为假，布尔已被清除），
-% 不会重新置真，所以 |\uline{中\mbox{\sout{文。}}} x| 仍按普通内容处理。|tail| 为 |punct| 说明标点紧接内层正文末尾，
-% \cs{@@_ulem_nest_mark:} 补 marker 后见到它，就在外层再看一次后面的记号，所以
-% |\CJKunderline{\CJKsout{中。}}x| 与直接输入 |中。x| 一致。三层以上嵌套时，
+% 不会重新置真，所以 |\uline{中\mbox{\sout{文。}}} x| 仍按普通内容处理。
+% |tail| 为 |punct| 说明标点紧接内层正文末尾，\cs{@@_ulem_nest_mark:} 补 marker
+% 后见到它，就在外层再看一次后面的记号，所以 |\CJKunderline{\CJKsout{中。}}x|
+% 与直接输入 |中。x| 一致。三层以上嵌套时，
 % 中间层的 \cs{@@_ulem_nest_mark:} 不补 marker（它所在的盒子里
 % \cs{xeCJK_if_ulem_patch:TF} 为假），但只要仍在嵌套链上（布尔为真）且 |tail|
 % 为 |punct|，同样再看一次后面的记号，所以中间层标点之后的 \tn{relax} 等记号
@@ -15635,16 +15655,24 @@ Copyright and Licence
 % |{}| 或包装宏里的其他记号时，命令后的空格保留。为此 \pkg{ulem} 正文在末尾
 % 多带一个扫描标记 \cs{s_@@_ulem_body}（它是 \tn{relax}，排版时不起作用）。
 % \pkg{ulem} 分支里标点处原来的 \tn{ignorespaces} 由 \cs{@@_ulem_punct_peek:}
-% 代替：下一个记号是这个标记就把 |tail| 置为 |punct|；是空格（正文末尾空格或
-% 词中空格）就置为 |content| 并照常 \tn{ignorespaces}；是其他记号也置为
-% |content|。\tn{UL@onin} 的内层正文不按空格分词，其中的标点走原生
-% \cs{xeCJK_FullRight_and_Boundary:}，它末尾的 \tn{ignorespaces} 遇到紧随其后的
-% 受保护函数 \cs{@@_ulem_punct_peek:} 就停下，所以内层正文末尾的空格同样由
-% \cs{@@_ulem_punct_peek:} 看到，按 |content| 处理后再吃掉，与单层写法
-% |\CJKunderline{中。 } 后| 一致。|tail| 为 |punct| 时，结束处 \cs{@@_ulem_tail_punct_end:}
-% 把它换成 |content|，让 stream end 不重放 marker，并在 \cs{@@_ulem_end:} 的最后
-% 执行 \tn{ignorespaces}，吃掉命令后的空格；为 |content| 时，命令后的空格保留、
-% 西文前也不补间距，与直接输入 |中。\relax{} x| 一致。
+% 代替：下一个记号是这个标记就把 |tail| 置为 |punct|；是空格（正文末尾的空格，
+% 或 \pkg{ulem} 分词后在词与词之间补回的空格）就置为 |content| 并照常
+% \tn{ignorespaces}；是其他记号也置为 |content|。\tn{UL@onin} 的内层正文不按
+% 空格分词，其中的标点走原生 \cs{xeCJK_FullRight_and_Boundary:}，它末尾的
+% \tn{ignorespaces} 遇到紧随其后的受保护函数 \cs{@@_ulem_punct_peek:} 就停下，
+% 所以内层正文末尾的空格同样由 \cs{@@_ulem_punct_peek:} 看到，按 |content|
+% 处理后再吃掉，与单层写法 |\CJKunderline{中。 } 后| 一致。
+%
+% 打开 \opt{CheckFullRight} 时，标点字符本身就先删去其后的空格，再查看下一个
+% 记号（\cs{xeCJK_check_FullRight_symbol:Nw}），\cs{@@_ulem_punct_peek:} 于是
+% 看不到这枚空格。因此前者每处理一个全角右标点都按有没有删去空格设置
+% \cs{g_@@_FullRight_space_bool}，后者见到它为真就按 |content| 处理，与不打开
+% 选项时的结果相同。关闭选项时把它复位，以免残留的值影响之后的标点。
+%
+% |tail| 为 |punct| 时，结束处 \cs{@@_ulem_tail_punct_end:} 把它换成 |content|，
+% 让 stream end 不重放 marker，并在 \cs{@@_ulem_end:} 的最后执行 \tn{ignorespaces}，
+% 吃掉命令后的空格；为 |content| 时，命令后的空格保留、西文前也不补间距，与
+% 直接输入 |中。\relax{} x| 一致。
 %
 % 标点在内层分组里时，下一个记号是 |}|，不是扫描标记，同样按 |content| 处理，
 % 与直接输入 |{中。} x| 一致。
@@ -15673,6 +15701,12 @@ Copyright and Licence
   }
 \scan_new:N \s_@@_ulem_body
 \cs_new_protected:Npn \@@_ulem_punct_peek:
+  {
+    \bool_if:NTF \g_@@_FullRight_space_bool
+      { \@@_ulem_tail_content: }
+      { \@@_ulem_punct_peek_space: }
+  }
+\cs_new_protected:Npn \@@_ulem_punct_peek_space:
   {
     \peek_charcode_remove:NTF \c_space_token
       {
