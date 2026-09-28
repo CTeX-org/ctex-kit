@@ -714,7 +714,10 @@ out of engine range`），而 `l3build check` 没有按文件指定引擎的机�
   的 `TENS DIGIT` 区（U+1D369 起，纵画），`UNIT DIGIT` 区（U+1D360 起）反而是横画，与
   区名字面相反。末项用 `\loggingoutput` 把盒子内容本身写进基线，固定实际
   排出的字形与字距（未压缩 50.0pt vs 压缩后 44.4pt）——只有度量不足以固定「排的是哪个
-  字」，这与 `legacy-entry01` 已记的教训同源。
+  字」，这与 `legacy-entry01` 已记的教训同源。负号 `overlay` 的回归还覆盖默认
+  `zero=fill` 下的单独 `-` 与 `zerochar={}` 下的 `-0`：只有确有可叠字符时才追加
+  U+20E5，避免输出孤立组合字符；把守卫退回只检查 `zero=omit` 的旧实现时，这两项各自
+  变红。
 
 `\zhrod` 与 `\zhrodbox` 的分工基于「可展开性与排版效果互斥」——`\zhrod` 只输出字符（不可
 展开的实现会破坏 `.toc`／PDF 书签），`\zhrodbox` 才切换字体、收紧字距；这是 #1008 反思里
