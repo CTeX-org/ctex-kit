@@ -156,11 +156,13 @@
 
 % 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
 % CJK 与 CJK 之间的源码空格按 CJKspace=false 删去。没有空格、也没有字符时
-% 两侧都不补间距。
+% 两侧都不补间距。正文以零宽的 \hspace 开头、命令前有空格时同样按首个字符处理，
+% 左边界 glue 排在第一个 ulem 片段之前，零宽的 glue 不画成装饰线。
 \TEST{invisible leading content keeps the first-character rule}{
   \EntryNodes{color-cjk}{符 \CJKunderline{\color{red}中} 后}
   \EntryNodes{color-latin}{符 \CJKunderline{\color{red}x} 后}
   \EntryNodes{no-space}{符\CJKunderline{\hspace*{5pt}}后}
+  \EntryNodes{hspace0-spaced}{前 \uline{\hspace{0pt}中} 后}
 }
 
 % 没有字符的正文不产生额外的装饰或间距。
@@ -587,14 +589,17 @@
 % 不补左边界；公式与前面的汉字之间仍有间距。嵌套命令之前的外层正文、兄弟装饰和
 % 内层正文都按这些规则处理，内层正文以公式加空格结尾、走重排分支时也是如此；单层
 % 正文只覆盖透明盒子、\nobreak、零宽的 \hspace、第一个字符排在原始盒子里与公式
-% 这几种情形（单层正文以零宽的
-% \hbox{}、\special 开头、前面是西文时仍多一枚间距，v3.10.6 同样如此）。线型命令
-% 在 \mbox 里量装饰线深度时排出的 (j 不能成为盒子的首类别。命令前是西文时，透明
-% 盒子之后以全角左标点开头、透明盒子之前已有 \kern 等内容、正文以语法空格开头或
-% 正文直接以全角左标点开头，都按直接输入不补 \CJKecglue（命令前是汉字、正文以语法
-% 空格开头的写法尚未处理，不在这里测试）。\mbox 里有颜色命令、分组结束时的
-% \reset@color 排在盒子之后时，盒子仍对边界透明。正文里的 \fbox、\mbox 等盒子内部
-% 的内容只影响这个盒子，不解除外层命令的入口。命令前是汉字加空格、
+% 这几种情形（单层正文以零宽的 \hbox{}、\special 开头、前面是西文时仍多一枚
+% 间距，v3.10.6 同样如此）。线型命令在 \mbox 里量装饰线深度时排出的 (j 不能成为
+% 盒子的首类别。命令前是西文时，透明盒子之后以全角左标点开头、透明盒子之前已有
+% \kern 等内容、正文以语法空格开头或正文直接以全角左标点开头，都按直接输入不补
+% \CJKecglue（命令前是汉字、正文以语法空格开头的写法尚未处理，不在这里测试）。
+% \mbox 里有颜色命令、分组结束时的 \reset@color 排在盒子之后时，盒子仍对边界
+% 透明；这时盒子之前的 \kern、\special、规则在盒子开始时检查，同样不补间距
+% （kern-then-mbox-color 至 nested-kern-then-mbox-color）。正文先排出颜色命令、
+% 盒子、\kern 等再写公式、后接汉字时，公式与汉字之间补 \CJKecglue，后接全角左
+% 标点时不补（color-then-math-cjk 至 nested-kern-then-math-cjk）。正文里的 \fbox、
+% \mbox 等盒子内部的内容只影响这个盒子，不解除外层命令的入口。命令前是汉字加空格、
 % 嵌套装饰的内层正文先排出 \hspace* 等内容时，入口空格按 TEST 2 保留，填空线与
 % ~ 写法等宽（以 -tie 结尾的用例以 ~ 写法为 oracle）。
 \TEST{leading boxes, penalties and math before the first character}{
@@ -614,6 +619,15 @@
   \EntryWidth{syntax-space-then-fbox}{x\uline{ \fbox{}中}x}{x{ \fbox{}中}x}
   \EntryWidth{fbox-then-fbox}{x\uline{\fbox{}\fbox{}中}x}{x{\fbox{}\fbox{}中}x}
   \EntryWidth{mbox-color-fbox-then-cjk}{x\uline{\mbox{\color{red}\fbox{}}中}x}{x{\mbox{\color{red}\fbox{}}中}x}
+  \EntryWidth{kern-then-mbox-color}{x\uline{\kern1pt\mbox{\color{red}}中}x}{x{\kern1pt\mbox{\color{red}}中}x}
+  \EntryWidth{special-then-mbox-color-fbox}
+    {x\uline{\special{x}\mbox{\color{red}\fbox{}}中}x}{x{\special{x}\mbox{\color{red}\fbox{}}中}x}
+  \EntryWidth{rule-then-mbox-color}
+    {x\uline{\rule{1pt}{1pt}\mbox{\color{red}}中}x}{x{\rule{1pt}{1pt}\mbox{\color{red}}中}x}
+  \EntryWidth{kern-then-makebox-color-latin}
+    {中\uline{\kern1pt\makebox{\color{red}\fbox{}}x}中}{中{\kern1pt\makebox{\color{red}\fbox{}}x}中}
+  \EntryWidth{nested-kern-then-mbox-color}
+    {x\uline{\sout{\kern1pt\mbox{\color{red}\fbox{}}中}}x}{x{{\kern1pt\mbox{\color{red}\fbox{}}中}}x}
   \EntryWidth{hbox-then-cjk}{中\uline{\hbox{a}中}中}{中{\hbox{a}中}中}
   \EntryWidth{phantom-then-latin}{中\uline{\phantom{a}x}中}{中{\phantom{a}x}中}
   \EntryWidth{raisebox-then-cjk}{中\uline{\raisebox{1pt}{a}中}中}{中{\raisebox{1pt}{a}中}中}
@@ -626,9 +640,13 @@
   \EntryWidth{hspace0-then-fbox}{x\uline{\hspace{0pt}\fbox{}中}x}{x{\hspace{0pt}\fbox{}中}x}
   \EntryWidth{hspace0-then-latin}{中\uline{\hspace{0pt}x}中}{中{\hspace{0pt}x}中}
   \EntryWidth{hspace0-then-nested}{x\uline{\hspace{0pt}\sout{中}}x}{x{\hspace{0pt}中}x}
-  \EntryWidth{hspace0-then-cjk-spaced}{前 \uline{\hspace{0pt}中} 后}{前 {\hspace{0pt}中} 后}
   \EntryWidth{math-then-cjk}{中\uline{$a$中}中}{中{$a$中}中}
   \EntryWidth{math-only}{中\uline{$a$}中}{中{$a$}中}
+  \EntryWidth{color-then-math-cjk}{x\uline{\color{red}$a$中}x}{x{\color{red}$a$中}x}
+  \EntryWidth{fbox-then-math-cjk}{x\uline{\fbox{}$a$中}x}{x{\fbox{}$a$中}x}
+  \EntryWidth{kern-then-math-cjk}{中\uline{\kern1pt$a$中}中}{中{\kern1pt$a$中}中}
+  \EntryWidth{kern-then-math-leftparen}{中\uline{\kern1pt$a$（中}中}{中{\kern1pt$a$（中}中}
+  \EntryWidth{nested-kern-then-math-cjk}{中\uline{\sout{\kern1pt$a$中}}中}{中{{\kern1pt$a$中}}中}
   \EntryWidth{outer-special-then-nested}{x\uline{\special{x}\sout{中}}x}{x{\special{x}中}x}
   \EntryWidth{outer-kern-then-nested}{中\uline{\kern1pt \sout{x}}中}{中{\kern1pt x}中}
   \EntryWidth{outer-color-special-then-nested}
@@ -694,6 +712,7 @@
   \EntryNodes{hbox-mbox-no-marker}{x\uline{\hbox{\mbox{}}中}x}
   \EntryNodes{hbox-color-no-marker}{x\uline{\hbox{\color{red}\hspace{1em}}中}x}
   \EntryNodes{fbox-leftparen-no-marker}{x\uline{\fbox{}（中}x}
+  \EntryNodes{fbox-mbox-color-no-marker}{x\uline{\fbox{}\mbox{\color{red}\fbox{}}中}x}
   \EntryNodes{cjk-then-leftparen}{中\uline{（中}中}
   \EntryNodes{cjk-then-fbox-leftparen}{中\uline{\fbox{}（中}中}
   \EntryNodes{latin-ctrl-space-then-leftparen}{x\ \uline{（中}x}
