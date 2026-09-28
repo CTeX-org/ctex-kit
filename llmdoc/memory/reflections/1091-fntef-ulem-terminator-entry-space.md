@@ -1164,6 +1164,64 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - 教训：写“某节点不会留下”这类性质前，先列出放下它之后可能接的所有节点类别，逐类用节点列表确认；R9-M2、R10-M2、R11-M1、
   R14-M1 同一类说法已经四次过满（R14-M1 所指的说法是 R13 的补修写下的）。
 
+## R16 前：与 v3.10.6 比对的回退修复
+
+### 起因与修法
+
+- R15 之后，协调者把 `tmp/i1091/fix2/` 下的探测矩阵同时在当前代码与 v3.10.6 上运行，逐项找“当前与直接输入不一致而
+  v3.10.6 一致”的写法，而不是只和上一提交比。找到的几类（单层以 `\fbox{}`、`\mbox{\hspace{1em}}` 开头，外层正文先排出
+  原始盒子、`\nobreak`、`\special` 或只有 `~` 的兄弟装饰再接嵌套命令，外层正文以公式结束后接嵌套命令，`\mbox` 里的线型
+  命令）连同同一原因、v3.10.6 本来就不对的写法，一起由 `c95027c5` 修好。
+- 修法要点：核心新增 `\@@_boundary_transparent_box_hook:`，让透明盒子后面也有 `ulem-transparent` marker；
+  `\@@_ulem_level_check:` 等检查不再限于嵌套链；`\@@_ulem_if_last_content:` 把 hlist 算作内容；`\@@_ulem_raw_box_check:n`
+  处理第一个字符在原始盒子里的情形；`\UL@stop` 排出 penalty 后解除入口；`\UL@onin` 前末尾是公式时重放 math marker；
+  `\UL@setULdepth` 测量期间暂停 capture。机制见 architecture 的「正文先排出盒子、penalty、公式」一条。
+
+### 经验
+
+1. **同时比对 HEAD 与 v3.10.6，才能区分回退与“两处错误抵消”。** 只和上一提交比，只能看出本轮有没有改坏；和发布版比，
+   才能看出哪些写法是这个分支引入的差异。但发布版一致不等于发布版正确：`符 \uline{\sout{ x}中} 后`、
+   `符 \uline{\sout{中 }} 后` 与 sym 矩阵的 `前 \uline{\sout{\hbox{a}中}} 后` 在 v3.10.6 上等宽，都是碰巧：前一例与第三例是一侧多补、
+   另一侧少补，第二例是结束符 `*` 被当作西文字符。判断是否回退前，要把两侧拆开各测一次（去掉命令前或命令后的空格），再看节点。
+2. **消融实验确认每处改动都有必要。** 原型通过后，逐项撤回其中一处改动（`tmp/i1091/fix2/abl1.txt`、`abl2.txt` 的 a01–a20），
+   同时跑 lvt 与全部矩阵。多数撤回在当时的 lvt 上全过、只在矩阵上失败，说明 lvt 对这些分支没有判别力；据此把矩阵里能区分
+   的写法补进 TEST 16／17，最终 69 项变异全部被发现。撤回后仍然全过的改动，要么删去，要么补出能让它生效的用例。
+3. **隐藏的测量盒子也会污染 capture。** ulem 的 `\UL@setULdepth` 在一个原始 `\hbox` 里排出 `(j` 量深度，这个盒子不进入
+   输出，但 `(` 触发的 interchar 转换照样报告类别，外层 capture 把它记为首类别。R9 曾把 `x\mbox{\uline{中}}` 的缺口推断为
+   “盒子里读不到外层 marker”，没有实测，方向错了。排查首类别来源时，要把宏包内部为测量而排的盒子也列进去；这类盒子
+   与 `\UL@end` 的定界符一样，应在排出期间暂停 capture。
+4. **“与直接输入等宽”与“填空线对称”冲突时，以维护者的决定为准。** 修复过程中试过让嵌套内层按直接输入删去入口空格，
+   `符 \uline{\sout{ x}中} 后` 因此与直接输入等宽，但嵌套的 issue 填空线 `普通字符 \uline{\sout{\hspace*{0.5em}xxxx\hspace*{0.5em}}} 后续`
+   变成 94.45pt，`~` 写法为 97.78pt，两侧不再对称，已撤回。两个判据都合理时，不能由代理自己挑一个；应列出两种结果，
+   交维护者决定，并在 dtx、doc-gaps 与测试 oracle 里写明采用哪一个。本例的决定是保留入口空格，TEST 16 的 `-tie` 用例
+   以 `~` 写法为 oracle。
+5. **marker 残留的节点列表用例要覆盖所有结束路径。** 宽度用例看不出零宽 marker。这次加 marker 放置点后，残留出现在三条
+   宽度用例碰不到的路径上：片段盒子以 penalty 结尾（`\UL@stop` 要先取下 penalty 再删 marker）、正文只有颜色或只有
+   `\fbox{}`、前一个兄弟装饰只有颜色（内层盒子关闭前的 `\reset@color` 会再放一个）。TEST 17 的 9 项节点列表逐一覆盖；
+   消融记录里有两项撤回（`\UL@stop` 不删 marker、不因 penalty 解除入口）在当时的 lvt 上全过；后一项有 4 项矩阵宽度用例
+   失败，前一项所有矩阵都没有发现，只有节点列表能发现。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 16 新增 41 项宽度用例、TEST 17 新增 9 项节点列表、TEST 2 新增一项节点列表，全文件 315 项
+  PASS；新增宽度用例在上一提交 `25dfa351` 上 24 项失败。逐项变异 69 项全部被发现（13 项由节点列表）。
+- 14 个矩阵（rg、r9big、r12box2、r12m、r12u、r12t、r12v、r12oos、r13m、r13rest、r15mid、r15exp、r16math、sym，共 3293 项）
+  相对 `25dfa351` 没有回退。相对 v3.10.6 仍不同的写法列在 doc-gaps 的「与 v3.10.6 比对后的回退修复」一条。
+
+### 仍未覆盖（`c95027c5` 后）
+
+- 相对 v3.10.6 有差异、仍未修：`符 \uline{\sout{中 }} 后`、`符 \uline{\sout{中\relax}} 后`（30.0pt 对 33.33pt），
+  `x\uline{{中}\sout{$a$中}}x`（49.17pt 对 45.84pt）；按维护者决定不改的单层／嵌套入口空格差异。
+- v3.10.6 同样不对：单层正文以零宽内容开头、前面是西文（`x\uline{\hbox{}中}x`、`x\uline{\special{x}中}x`，27.22pt 对
+  23.89pt）。`c95027c5` 的 CHANGELOG 条目曾把原始 `\hbox`、`\special` 写成已处理，对这几种单层写法说得过宽，随后的提交已改正；写 CHANGELOG 时应按探测矩阵逐类核对“单层／嵌套”两种结构，不要从嵌套结构的结果推出单层也成立。
+
+### Promotion Candidates（R16 前）
+
+- **lessons-learned 候选**：判断“是否回退”时，比对基准要同时包括上一提交与发布版；发布版一致的写法也要拆开两侧确认不是
+  错误抵消（第 1 条）。宏包为测量而排、不进入输出的盒子也会触发 interchar 转换，排查类别来源时要列入（第 3 条）。
+- **仅留在 memory**（已有条目覆盖，这次只是实例）：消融确认每处改动有判别力（「声称测试保护某性质时，要用只破坏该性质的
+  变异确认测试会失败」）；marker 残留要用节点列表覆盖各结束路径（R13、R14 的同类教训）；两个合理判据冲突时交维护者决定。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1179,7 +1237,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\@@_ulem_orig_space_glue:`；R12 起还有核心的 `\@@_boundary_transparent_begin_hook:`、
   `\@@_boundary_transparent_end_hook:`，以及 `\@@_ulem_onin_entry_check_space:n`、`\@@_ulem_onin_entry_check:n`、
   `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`；R13 起还有
-  `\@@_ulem_transparent_node_remove:`。
+  `\@@_ulem_transparent_node_remove:`；`c95027c5` 起还有核心的 `\@@_boundary_transparent_box_hook:`，以及
+  `\@@_ulem_transparent_mark:`、`\@@_ulem_level_check:`、`\@@_ulem_raw_box_check:n`、`\@@_ulem_if_last_content:`、
+  `\g_@@_ulem_transparent_tail_bool` 与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
