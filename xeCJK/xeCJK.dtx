@@ -15380,14 +15380,11 @@ Copyright and Licence
 %   之后写公式、再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；
 %   嵌套线型命令的内层在命令前有源码空格、公式之前没有颜色命令或透明盒子时，
 %   公式之后接西文或以公式结尾的写法，命令前的空格也与直接输入一样处理（\#1091）。}
-% \changes{v3.10.7}{2026/09/28}{嵌套线型命令前的源码空格不是紧跟在汉字之后
-%   （前面是分组结束、盒子、控制空格或西文），内层正文先排出 \tn{kern}、
-%   \tn{hspace*}、规则等内容时，这枚空格与直接输入一样原样保留；控制空格或空分组
-%   之后的空格在内层直接写汉字时也是如此。以前 \tn{CJKecglue} 与空格不等宽时，
-%   这枚空格会换成 \tn{CJKecglue}。这类写法里公式之后接汉字时，公式与汉字之间
-%   与直接输入一样补上 \tn{CJKecglue}。线型命令的正文先排出 \tn{kern}、\tn{fbox} 等
-%   内容、以公式结尾、命令后紧接汉字时，公式与汉字之间的间距与直接输入一致
-%   （\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{嵌套线型命令前的源码空格前面是分组结束、盒子
+%   或控制空格（不是紧跟在汉字之后），内层正文先排出 \tn{kern} 等内容、写公式、
+%   再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；以公式结尾、
+%   命令后紧接汉字时也是如此。\tn{CJKecglue} 与空格不等宽时，控制空格之后的
+%   这枚空格在内层接西文时按普通空格保留（\#1091）。}
 % \changes{v3.10.5}{2026/07/28}{正文一律以字面记号进入 \pkg{ulem} 的参数：
 %   只有“公式加尾随源码空格”才重排，且重排也先拼装再一次展开，避免西文词
 %   右侧的 \tn{CJKecglue} 被关进固定宽度装饰片段盒而丢失收缩量（\#1026）。}
@@ -15776,7 +15773,9 @@ Copyright and Licence
             \@@_if_last_math:TF
               { \@@_ulem_onin_entry_math:nn {#1} {#2} }
               {
-                \bool_if:NT \l_@@_ulem_onin_bool
+                \bool_lazy_or:nnT
+                  { \l_@@_ulem_onin_bool }
+                  { \l_@@_ulem_onin_lead_bool }
                   { \@@_ulem_onin_entry_keep:nn {#1} {#2} }
               }
           }
@@ -15793,10 +15792,14 @@ Copyright and Licence
       }
       {
         \@@_ulem_entry_resolve:n {#1}
-        \str_if_eq:nnT {#2} { CJK }
+        \bool_if:NTF \l_@@_ulem_onin_tail_bool
+          { \xeCJK_make_node:n { math } }
           {
-            \skip_horizontal:n
-              { \tl_use:c { g_@@_boundary_capture_#1_ecglue_skip_tl } }
+            \str_if_eq:nnT {#2} { CJK }
+              {
+                \skip_horizontal:n
+                  { \tl_use:c { g_@@_boundary_capture_#1_ecglue_skip_tl } }
+              }
           }
       }
   }
@@ -15827,6 +15830,7 @@ Copyright and Licence
       }
   }
 \tl_const:Nn \c_@@_ulem_cjk_tl { CJK }
+\bool_new:N \l_@@_ulem_onin_tail_bool
 \cs_new_protected:Npn \@@_ulem_onin_entry_check:n #1
   {
     \@@_ulem_if_last_content:T
@@ -15868,7 +15872,15 @@ Copyright and Licence
       }
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_check:
-  { \@@_ulem_if_entry_armed:T { \@@_ulem_level_check: } }
+  {
+    \@@_ulem_if_entry_armed:T
+      {
+        \bool_set_true:N \l_@@_ulem_onin_lead_bool
+        \@@_ulem_level_check:
+        \bool_set_false:N \l_@@_ulem_onin_lead_bool
+      }
+  }
+\bool_new:N \l_@@_ulem_onin_lead_bool
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
@@ -16329,10 +16341,13 @@ Copyright and Licence
 % 颜色命令等透明内容时（|前\ \uline{\textcolor{red}{\sout{中}}} 后|），第一个字符
 % 看到的是 |ulem-transparent| marker，也不走这里。
 %
-% 这两条只在嵌套链上（\cs{l_@@_ulem_onin_bool} 为真）判断。单层写法经
-% \cs{@@_ulem_level_check_aux:} 也会走到这里，但单层正文的片段盒子由
-% \tn{UL@stop} 送出，这时排出的空格会落在装饰线下；单层的入口空格按上文的规则
-% 处理，不在这里改。
+% 这两条只在嵌套链上判断：内层正文里（\cs{l_@@_ulem_onin_bool} 为真），或者外层
+% 正文先排出内容、随后进入嵌套命令时（\cs{@@_ulem_onin_lead_check:} 置
+% \cs{l_@@_ulem_onin_lead_bool}，|\mbox{中} \uline{\kern1pt\sout{中}} 后|）。后一种
+% 情形入口在外层片段盒子送出之前解除，空格排在 \tn{kern} 之后、外层装饰线之下，
+% 总宽度与直接输入相同。单层写法经 \cs{@@_ulem_level_check_aux:} 也会走到这里，
+% 但单层正文的片段盒子由 \tn{UL@stop} 送出，这时排出的空格同样会落在装饰线下；
+% 单层的入口空格按上文的规则处理，不在这里改。
 %
 % 末节点是公式时（\cs{@@_ulem_onin_entry_math:nn}），按首类别处理会把入口空格
 % 换成间距排在公式之后、第一个字符之前，公式与汉字之间就没有 \tn{CJKecglue}：
@@ -16342,7 +16357,10 @@ Copyright and Licence
 % \tn{CJKecglue}。入口前是其他类别时，直接输入保留这枚空格，由
 % \cs{@@_ulem_entry_resolve:n} 排在公式之后；公式后面于是先有 glue，核心不再补
 % \tn{CJKecglue}，所以第一个字符是汉字时再补一枚
-% （|\mbox{x} \uline{\sout{\kern1pt$a$中}} 后|）。入口之后先有颜色命令、
+% （|\mbox{x} \uline{\sout{\kern1pt$a$中}} 后|）。内层正文以公式结尾时
+% （\cs{@@_ulem_onin_tail_check:} 置 \cs{l_@@_ulem_onin_tail_bool}，
+% |{中} \uline{\sout{\kern1pt$a$}}后|），还不知道后面是什么，就在空格之后补一个
+% |math| marker，由内层盒子之后的字符按公式后的类别转换处理。入口之后先有颜色命令、
 % 透明盒子放下的 marker 时（\cs{g_@@_ulem_onin_transparent_bool} 为真）仍走上面的
 % 检查，|前 \uline{\sout{\color{red}$a$中}} 后| 一类尚未处理。
 %
@@ -16807,7 +16825,11 @@ Copyright and Licence
         \@@_ulem_if_entry_armed:T
           {
             \xeCJK_if_last_node:nF { ulem-transparent }
-              { \@@_ulem_level_check: }
+              {
+                \bool_set_true:N \l_@@_ulem_onin_tail_bool
+                \@@_ulem_level_check:
+                \bool_set_false:N \l_@@_ulem_onin_tail_bool
+              }
           }
         \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
           {
