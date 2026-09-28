@@ -1222,6 +1222,62 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **仅留在 memory**（已有条目覆盖，这次只是实例）：消融确认每处改动有判别力（「声称测试保护某性质时，要用只破坏该性质的
   变异确认测试会失败」）；marker 残留要用节点列表覆盖各结束路径（R13、R14 的同类教训）；两个合理判据冲突时交维护者决定。
 
+## R16：透明盒子与正文里的盒子
+
+### 起因与修法
+
+- 本地独立审查 R16（对 `c95027c5` 与其后更正提交）指出三类问题，都与 `c95027c5` 新加的“透明盒子”分类和不限嵌套链的检查有关：
+  透明盒子之后以全角左标点开头时多一枚 `\CJKecglue`（`x\uline{\fbox{}（中）}x` 为 50.69pt，直接输入 47.36pt，相对 v3.10.6 与
+  `ffe628f7` 回退；没有盒子的 `x\uline{（中）}x` 自分支早期起就多这一枚）；透明盒子之前已有 `\kern`、`\hbox{}`、`\special`、
+  `\rule` 或正文以语法空格开头时，看到 marker 仍清除入口（`x\uline{\kern1pt\fbox{}中}x`、`x\uline{ \fbox{}中}x`）；
+  `\@@_ulem_level_check:` 不看 capture 层号，正文里 `\fbox`、`\mbox` 内部的内容也会解除外层入口（`x\uline{\fbox{\sout{中}}}x`
+  为 30.69pt，直接输入 34.02pt）。另有注释与更改记录的措辞问题。
+- `fc73ba5e` 的修法：核心新增 `\@@_boundary_transparent_box_begin_hook:`，与颜色命令的 begin 钩子共用
+  `\@@_ulem_transparent_begin:n`；`\@@_ulem_transparent_clear:n` 在 `\g_@@_ulem_lead_skip` 非零时也不清除入口；
+  `\l_@@_ulem_fullleft_bool` 与 `\@@_ulem_fullleft_check:n` 处理“西文后接全角左标点”；`\@@_ulem_if_outside_box:nT`
+  让正文里另起的盒子内部既不检查也不放 marker。机制见 architecture「正文先排出盒子、penalty、公式」下的「`fc73ba5e` 的补修」。
+
+### 经验
+
+1. **把一种盒子加入“透明”分类时，要同时检查它之前与之后。** `c95027c5` 只在透明盒子之后放 marker，没有像颜色命令那样
+   在排出之前检查此前已排出的内容，于是 `\kern1pt\fbox{}` 里的 `\kern` 被 marker 掩盖。盒子之后也不只有汉字与西文：全角左标点
+   在 ulem 分支里被报告成 `CJK`，“西文后接汉字”的 `\CJKecglue` 就补了出来。新增一种透明对象时，应列出它前面可能已有的内容
+   （kern、原始盒子、special、规则、开头语法空格）和后面首字符的各种类型（汉字、西文、全角左标点、左引号），与已有的颜色命令
+   逐项对称地比对。
+2. **放宽检查范围时，要限定它作用在哪一层列表上。** `c95027c5` 让 `\@@_ulem_level_check:` 不再只在嵌套链上工作，却没有限定
+   列表层级，正文里另起的 `\fbox`、`\mbox` 内部的 kern 也会解除外层入口。同一提交里 `\@@_ulem_raw_box_check:n` 有“当前层等于
+   入口层”的限制，`\@@_ulem_level_check:` 没有；同类检查一个有层号限制、一个没有，就是应当复查的信号。
+3. **变异里不可达的检查，要插桩确认后删去。** 原型在嵌套链上的左边界钩子里也加了 `\@@_ulem_if_outside_box:nT`，撤回它时
+   全部用例仍通过。插桩在 r16x、rg、r9big 上确认这个分支在盒子里从不触发：`\UL@hrest` 在盒子开头清除 onin 布尔。确认
+   不可达后删去它，而不是为保留它另造用例；判断依据写进 dtx 说明。
+4. **“同宽不同位置”只有节点列表能区分。** `CJKglue` 是 0pt 可伸长的 glue，宽度用例看不出它在不在；入口空格排在片段盒子里
+   还是外面、左边界 glue 排在正文里的盒子内还是外，总宽也一样。这次 83 项变异里有 17 项只由节点列表发现。另外，
+   `x \uline` 与 `x\ \uline` 的入口状态不同。在 `\@@_ulem_fullleft_check:n` 插桩（`tmp/i1091/fix2/fc73-before.tex`）实测：
+   `x \uline{（中}x` 到达检查时 `space_flag` 为 `false`、`before` 为空；`x\ \uline{（中}x` 是 `space_flag` 为 `true`、`before`
+   为 `default`；只有 `x\uline{（中}x`（`space_flag` 为 `false`、`before` 为 `default`）解除入口。前两者都不解除入口，但走的是
+   不同的条件。选测试写法前要实测入口状态，不能凭写法相近推定走同一条路径（`latin-ctrl-space-then-leftparen` 就是为此选的）。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 16 新增 19 项宽度用例、TEST 17 新增 4 项节点列表，全文件 334 项 PASS；新增项在 `21b6293d` 的
+  代码上 17 项宽度失败、1 项节点列表留有 marker。逐项变异 83 项（`tmp/i1091/fix2/mutate17.py`，含两项核心变异）全部被发现，
+  17 项只由节点列表发现。提交说明写 TEST 16 新增 20 项，按 lvt 与 `.tlg` 逐行核对是 19 项（315 + 19 = 334）。
+- 15 个矩阵约 4900 项（新增 r16x 1632 项）相对 `21b6293d` 只有 `前 \uline{\fbox{\sout{\mbox{}（中}}} 后` 与左引号版本两项由一致
+  变为不一致；它们在 `ffe628f7` 与 v3.10.6 上同样不一致，`21b6293d` 上的一致是碰巧。
+
+### 仍未覆盖（`fc73ba5e` 后）
+
+- 见 doc-gaps「与 v3.10.6 比对后的回退修复」一条下的「`fc73ba5e` 后新记下、仍未修的写法」：正文里的盒子让左边界 glue 排在
+  盒子里（同宽不同位置）；`前 \uline{\mbox{\color{red}\kern1pt\color{blue}中}} 后` 的入口空格按 CJK 规则删去；核心既有的
+  `x\mbox{\kern1pt\color{red}中}x` 两侧间距消失。`x \uline{（中）} x` 右侧的差异按既定设计，不算缺陷。
+
+### Promotion Candidates（R16）
+
+- **lessons-learned 候选**：新增“透明”对象时前后两侧都要与已有透明对象对称地检查（第 1 条）；放宽检查范围时限定列表层级，
+  同类检查的限制条件不对称是复查信号（第 2 条）。
+- **仅留在 memory**：不可达分支插桩确认后删去（与 R11 删去“末节点是重放 marker”例外的做法相同）；节点列表区分同宽不同位置
+  （R1 以来的同类教训）。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1239,7 +1295,10 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`；R13 起还有
   `\@@_ulem_transparent_node_remove:`；`c95027c5` 起还有核心的 `\@@_boundary_transparent_box_hook:`，以及
   `\@@_ulem_transparent_mark:`、`\@@_ulem_level_check:`、`\@@_ulem_raw_box_check:n`、`\@@_ulem_if_last_content:`、
-  `\g_@@_ulem_transparent_tail_bool` 与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）。
+  `\g_@@_ulem_transparent_tail_bool` 与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）；`fc73ba5e` 起还有核心的
+  `\@@_boundary_transparent_box_begin_hook:`，以及 `\@@_ulem_transparent_begin:n`、`\@@_ulem_transparent_mark:n`（取代
+  `\@@_ulem_transparent_mark:`）、`\@@_ulem_transparent_clear:n`、`\@@_ulem_fullleft_check:n`、`\l_@@_ulem_fullleft_bool`、
+  `\@@_ulem_if_outside_box:nT` 与 `\@@_ulem_level_check_aux:`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
