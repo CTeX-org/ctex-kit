@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: fc73ba5eba6320ec38974746565b2a2942db40dd
-- watermark-subject: fix(xeCJK): 透明盒子与正文里的盒子不再误改线型命令的入口 (#1091)
-- updated-at: 2026-09-28T05:12:50Z
-- updated-by: recorder（#1091 本地独立审查 R16 后的补修）
+- watermark-commit: a0c39098bb5876f5718a7fc091bd6ed3dea3ba0e
+- watermark-subject: fix(xeCJK): 线型命令的正文以零宽 \hspace 开头时不再补左边界 (#1091)
+- updated-at: 2026-09-28T06:48:36Z
+- updated-by: recorder 与协调者（#1091 本地增量审查 R17 后的补修与 a0c39098）
