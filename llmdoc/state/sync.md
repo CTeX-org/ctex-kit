@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 25dfa3519f5d2125489f6de1cc2af315b9d4b0ca
-- watermark-subject: fix(xeCJK): 三层嵌套时中间层先排出的内容也不再多补左边界 (#1091)
-- updated-at: 2026-09-28T00:45:58Z
-- updated-by: coordinator（#1091 本地增量审查 R15 的补修与说法修正）
+- watermark-commit: 273602ed4f2017c19439f30fda4f28e002767ce6
+- watermark-subject: fix(xeCJK): 线型命令正文先排出盒子、penalty、公式时左侧间距按直接输入处理 (#1091)
+- updated-at: 2026-09-28T12:30:00Z
+- updated-by: recorder（#1091 R16 前与 v3.10.6 比对后的回退修复）
