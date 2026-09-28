@@ -30,12 +30,12 @@
 %     装饰线在两者之间断开。
 %
 % 判据分三类：
-%   - 节点列表（TEST 1、2、3、8、11、12）：固定 glue 与装饰的相对位置。命令前的
+%   - 节点列表（TEST 1、2、3、8、11、12、17）：固定 glue 与装饰的相对位置。命令前的
 %     空格必须出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）
 %     之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
 %     的盒子保留 \raise 位移。只比较总宽度分辨不出这些位置。
-%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13、TEST 15），打印
-%     PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
+%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13、TEST 15、
+%     TEST 16），打印 PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
 %   - 段末自然宽度（TEST 14）：把装饰放在段末，比较行内容的自然宽度与同一
 %     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
 % 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。各 TEST 的
@@ -151,6 +151,7 @@
   \EntryNodes{sout}{符 \CJKsout{\usebox{\FillBox}} 后}
   \EntryNodes{uline}{符 \uline{\usebox{\FillBox}} 后}
   \EntryNodes{nested}{符 \uline{\CJKsout{\usebox{\FillBox}}} 后}
+  \EntryNodes{fbox-spaced}{前 \uline{\fbox{}中} 后}
 }
 
 % 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
@@ -578,6 +579,81 @@
   \EntryWidth{cjkspace-cjk-then-nested-large-space}
     {\uline{中\sout{\large 中 中}}}{中{\large 中 中}}
   \xeCJKsetup{CJKspace=false}
+}
+
+% 正文在第一个字符之前先排出的内容。注册的盒子命令里没有字符时（\fbox{}、
+% \mbox{\hspace{1em}}）对边界透明，与直接输入一样在盒子之后补左边界；原始 \hbox、
+% \phantom、\raisebox、\vbox 与 \nobreak、\special 挡住类别转换，不补左边界；公式
+% 与前面的汉字之间仍有间距。这些规则对单层正文、嵌套命令之前的外层正文、兄弟
+% 装饰和内层正文都成立，内层正文以公式加空格结尾、走重排分支时也是如此。线型命令
+% 在 \mbox 里量装饰线深度时排出的 (j 不能成为盒子的首类别。命令前是汉字加空格、
+% 嵌套装饰的内层正文先排出 \hspace* 等内容时，入口空格按 TEST 2 保留，填空线与
+% ~ 写法等宽（以 -tie 结尾的用例以 ~ 写法为 oracle）。
+\TEST{leading boxes, penalties and math before the first character}{
+  \EntryWidth{fbox-then-cjk}{x\uline{\fbox{}中}x}{x{\fbox{}中}x}
+  \EntryWidth{fbox-then-latin}{中\uline{\fbox{}x}中}{中{\fbox{}x}中}
+  \EntryWidth{mbox-hspace-then-cjk}{x\uline{\mbox{\hspace{1em}}中}x}{x{\mbox{\hspace{1em}}中}x}
+  \EntryWidth{hbox-then-cjk}{中\uline{\hbox{a}中}中}{中{\hbox{a}中}中}
+  \EntryWidth{phantom-then-latin}{中\uline{\phantom{a}x}中}{中{\phantom{a}x}中}
+  \EntryWidth{raisebox-then-cjk}{中\uline{\raisebox{1pt}{a}中}中}{中{\raisebox{1pt}{a}中}中}
+  \EntryWidth{vbox-then-cjk}{中\uline{\vbox{\hbox{a}}中}中}{中{\vbox{\hbox{a}}中}中}
+  \EntryWidth{mbox-hbox-then-cjk}{中\uline{\mbox{\hbox{a}}中}中}{中{\mbox{\hbox{a}}中}中}
+  \EntryWidth{mbox-hbox-latin}{中\uline{\mbox{\hbox{a}x}}中}{中{\mbox{\hbox{a}x}}中}
+  \EntryWidth{nobreak-then-cjk}{x\uline{\nobreak 中}x}{x{\nobreak 中}x}
+  \EntryWidth{nobreak-then-cjk-spaced}{前 \uline{\nobreak 中} 后}{前 {\nobreak 中} 后}
+  \EntryWidth{math-then-cjk}{中\uline{$a$中}中}{中{$a$中}中}
+  \EntryWidth{math-only}{中\uline{$a$}中}{中{$a$}中}
+  \EntryWidth{outer-special-then-nested}{x\uline{\special{x}\sout{中}}x}{x{\special{x}中}x}
+  \EntryWidth{outer-kern-then-nested}{中\uline{\kern1pt \sout{x}}中}{中{\kern1pt x}中}
+  \EntryWidth{outer-color-special-then-nested}
+    {x\uline{\color{red}\special{x}\sout{中}}x}{x{\color{red}\special{x}中}x}
+  \EntryWidth{outer-fbox-then-nested}{x\uline{\fbox{}\sout{中}}x}{x{\fbox{}中}x}
+  \EntryWidth{outer-hbox-then-nested}{中\uline{\hbox{a}\sout{中}}中}{中{\hbox{a}中}中}
+  \EntryWidth{outer-nobreak-then-nested}{x\uline{\nobreak \sout{中}}x}{x{\nobreak 中}x}
+  \EntryWidth{outer-math-then-nested}{中\uline{$a$\sout{中}}中}{中$a${中}中}
+  \EntryWidth{outer-math-then-nested-spaced}{前 \uline{$a$\sout{中}} 后}{前 $a${中} 后}
+  \EntryWidth{sibling-tie-then-nested}{x\uline{\sout{~}\sout{中}}x}{x{~}{中}x}
+  \EntryWidth{sibling-hbox-then-nested}{中\uline{\sout{\hbox{a}}\sout{中}}中}{中{\hbox{a}}{中}中}
+  \EntryWidth{sibling-fbox-then-nested}{x\uline{\sout{\fbox{}}\sout{中}}x}{x{\fbox{}}{中}x}
+  \EntryWidth{sibling-color-then-nested}{x\uline{\sout{\color{red}}\sout{中}}x}{x{\color{red}}{中}x}
+  \EntryWidth{nested-hbox-then-cjk}{x\uline{\sout{\hbox{}中}}x}{x{\hbox{}中}x}
+  \EntryWidth{nested-rule-then-cjk}{x\uline{\sout{\rule{1pt}{1pt}中}}x}{x{\rule{1pt}{1pt}中}x}
+  \EntryWidth{nested-hbox-text-then-cjk}{中\uline{\sout{\hbox{a}中}}中}{中{\hbox{a}中}中}
+  \EntryWidth{nested-fbox-then-cjk}{x\uline{\sout{\fbox{}中}}x}{x{\fbox{}中}x}
+  \EntryWidth{mid-hbox-then-deeper}{中\uline{\sout{\hbox{a}\xout{中}}}中}{中{\hbox{a}中}中}
+  \EntryWidth{ctrl-space-then-nested-tie-cjk}{x\ \uline{\sout{~中}}x}{x\ {~中}x}
+  \EntryWidth{nested-color-tie-math-space-cjk-spaced}
+    {前 \uline{\sout{\color{red}~中$a$ }中} 后}{前 {\color{red}~中$a$ }中 后}
+  \EntryWidth{nested-color-hspace-math-space-cjk}
+    {前 \uline{\sout{\color{red}\hspace{1em}中$a$ }中}后}{前 {\color{red}\hspace{1em}中$a$ }中后}
+  \EntryWidth{nested-issue-fill-tie}
+    {普通字符 \uline{\sout{\hspace*{0.5em}xxxx\hspace*{0.5em}}} 后续}
+    {普通字符~\uline{\sout{\hspace*{0.5em}xxxx\hspace*{0.5em}}}~后续}
+  \EntryWidth{nested-fill-only-tie}{前 \uline{\sout{\hspace*{1em}}} 后}{前~\uline{\sout{\hspace*{1em}}}~后}
+  \EntryWidth{nested-box-only-tie}{前 \uline{\sout{\fbox{}}} 后}{前~\uline{\sout{\fbox{}}}~后}
+  \EntryWidth{three-level-issue-fill-tie}
+    {前 \uline{\sout{\xout{\hspace*{1em}xxxx\hspace*{1em}}}} 后}
+    {前~\uline{\sout{\xout{\hspace*{1em}xxxx\hspace*{1em}}}}~后}
+  \EntryWidth{mbox-uline-cjk}{x\mbox{\uline{中}}}{x\mbox{中}}
+  \EntryWidth{mbox-cjkul-cjk}{x\mbox{\CJKunderline{中}}}{x\mbox{中}}
+  \EntryWidth{fbox-uline-cjk}{x\fbox{\uline{中}}}{x\fbox{中}}
+  \EntryWidth{mbox-nested-cjk-spaced}{前 x\mbox{\uline{\sout{中}}} 后}{前 x\mbox{中} 后}
+}
+
+% 为标记颜色 whatsit 与透明盒子放下的零宽 marker，在第一个字符出现、片段盒子关闭
+% （包括盒子末尾是 penalty 时）或正文结束时删去；第一个字符出现之后（例如片段盒子
+% 关闭时执行的 \reset@color）不再放。兄弟装饰只有颜色时，内层分组结束时的
+% \reset@color 也不在内层盒子里留下 marker。
+\TEST{no transparent marker left in a decoration}{
+  \EntryNodes{single-color-no-marker}{x\uline{\color{red}中}x}
+  \EntryNodes{single-color-spaced-no-marker}{前 \uline{\color{red}中} 后}
+  \EntryNodes{single-color-space-no-marker}{x\uline{\color{red} 中}x}
+  \EntryNodes{single-color-nobreak-no-marker}{x\uline{\color{red}\nobreak 中}x}
+  \EntryNodes{single-fbox-no-marker}{x\uline{\fbox{}中}x}
+  \EntryNodes{single-fbox-space-no-marker}{x\uline{\fbox{} 中}x}
+  \EntryNodes{single-color-only-no-marker}{x\uline{\color{red}}x}
+  \EntryNodes{single-fbox-only-no-marker}{x\uline{\fbox{}}x}
+  \EntryNodes{sibling-color-only-no-marker}{x\uline{\sout{\color{red}}\sout{中}}x}
 }
 
 \END
