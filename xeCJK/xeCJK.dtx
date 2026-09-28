@@ -5980,8 +5980,9 @@ Copyright and Licence
 % 以 last 方式捕获的盒子结束时，末节点是盒子就取回，按一般盒子处理；否则盒子
 % 已经留在列表里（\tn{mbox} 里的颜色命令在分组结束时把 \tn{reset@color} 排在
 % 盒子之后），只重放入口状态。这时本层若没有观察到字符类别，同样调用
-% \cs{@@_boundary_transparent_box_hook:}；盒子之前的内容已在盒子开始时由
-% \cs{@@_boundary_last_box_begin_hook:} 检查过，见下文
+% \cs{@@_boundary_transparent_box_hook:}，但不调用
+% \cs{@@_boundary_transparent_box_begin_hook:}：盒子之前的内容只能在盒子开始时由
+% \cs{@@_boundary_last_box_begin_hook:} 检查，见下文
 % \cs{@@_boundary_box_end_transparent:n}。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_last_box_end:n #1
@@ -6183,21 +6184,21 @@ Copyright and Licence
     \int_gdecr:N \g_@@_boundary_capture_depth_int
   }
 %    \end{macrocode}
-% 盒子里没有观察到字符类别、按透明盒子排出时，排出盒子之后调用
-% \cs{@@_boundary_transparent_box_hook:}。包装方式捕获的盒子在排出之前还调用
-% \cs{@@_boundary_transparent_box_begin_hook:}，这时列表末尾是盒子之前的内容。
-% 以 last 方式捕获的盒子（\tn{mbox} 等）结束时可能取不回盒子，只能在盒子开始之前
-% 检查，所以 \cs{@@_boundary_inline_last_box_begin:} 进入本层后调用
-% \cs{@@_boundary_last_box_begin_hook:}，这里不再调用 begin 钩子。三个钩子默认都
-% 什么都不做。\pkg{xeCJKfntef} 用两个 begin 钩子检查盒子之前已排出的内容，用
-% \cs{@@_boundary_transparent_box_hook:} 在线型命令的正文里标记这个盒子对边界
-% 透明，与未注册的 \tn{hbox} 区分（\#1091）。
+% 盒子里没有观察到字符类别、按透明盒子排出时，排出盒子之前调用
+% \cs{@@_boundary_transparent_box_begin_hook:}，之后调用
+% \cs{@@_boundary_transparent_box_hook:}；这时盒子已从列表中取出，列表末尾是盒子
+% 之前的内容。以 last 方式捕获的盒子（\tn{mbox} 等）结束时可能取不回盒子，不走这里，
+% 因此 \cs{@@_boundary_inline_last_box_begin:} 进入本层后另外调用
+% \cs{@@_boundary_last_box_begin_hook:}，在盒子开始排版之前给一次检查的机会。三个
+% 钩子默认都什么都不做。\pkg{xeCJKfntef} 用两个 begin 钩子检查盒子之前已排出的
+% 内容，用 \cs{@@_boundary_transparent_box_hook:} 在线型命令的正文里标记这个盒子对
+% 边界透明，与未注册的 \tn{hbox} 区分（\#1091）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_box_end_transparent:n #1
   {
+    \@@_boundary_transparent_box_begin_hook:
     \str_if_eq:nnTF {#1} { wrapped }
       {
-        \@@_boundary_transparent_box_begin_hook:
         \hbox_unpack_drop:c
           {
             g_@@_boundary_capture_\int_use:N
@@ -14814,7 +14815,12 @@ Copyright and Licence
 %    \end{macrocode}
 % \end{macro}
 %
-% \begin{macro}{\@@_ulem_Boundary_and_FullLeft_glue:N}
+% \begin{macro}{
+%   \@@_ulem_Boundary_and_FullLeft_glue:N,
+%   \@@_ulem_cjk_last_remove:,
+%   \g_@@_ulem_cjk_last_bool}
+% \changes{v3.10.7}{2026/09/28}{线型命令的正文里，\tn{mbox}、\tn{fbox} 等以汉字结尾
+%   的盒子之后紧接全角左标点时，与直接输入一样补上 \tn{CJKglue}（\#1091）。}
 % \changes{v3.10.7}{2026/09/26}{装饰正文以全角左标点开头时，把它作为正文的
 %   首个 CJK 字符报告给命令边界 capture，使命令前的边界间距排在标点的左侧
 %   空白之前（\#1091）。}
@@ -14823,7 +14829,21 @@ Copyright and Licence
 % 被当成“正文先排出可见内容”而排到标点的左侧空白之后（\#1091）。这里在
 % 关闭片段盒子、排出标点左侧空白之前先报告 |CJK|，让左边界与直接输入
 % |书《红》| 一样位于标点左侧空白之前。
+%
+% 前面紧接着的是 \tn{mbox}、\tn{fbox} 等盒子、盒子里最后是汉字时，核心在盒子之后
+% 重放 |CJK| marker，直接输入 |中{\mbox{中}（中}中| 在盒子与“（”之间补
+% \tn{CJKglue}（核心的 \cs{@@_bound_type_12_glue:Nn}）。这里的转换同样是 Boundary
+% 到全角左标点，原来却不看这个 marker，\tn{CJKglue} 就丢了。因此关闭片段盒子之前
+% 先看末节点是不是 |CJK| 或 |CJK-space| marker，是就删去它并记在
+% \cs{g_@@_ulem_cjk_last_bool} 里（\tn{UL@stop} 会结束分组），之后与汉字到全角左标点
+% 的转换一样把 \tn{CJKglue} 画成一段装饰线（\#1091）。
 %    \begin{macrocode}
+\bool_new:N \g_@@_ulem_cjk_last_bool
+\cs_new_protected:Npn \@@_ulem_cjk_last_remove:
+  {
+    \xeCJK_remove_node:
+    \bool_gset_true:N \g_@@_ulem_cjk_last_bool
+  }
 \cs_new_protected:Npn \@@_ulem_Boundary_and_FullLeft_glue:N #1
   {
     \xeCJK_if_ulem_patch:TF
@@ -14831,9 +14851,18 @@ Copyright and Licence
         \bool_set_true:N \l_@@_ulem_fullleft_bool
         \@@_boundary_capture_class:n { CJK }
         \bool_set_false:N \l_@@_ulem_fullleft_bool
+        \bool_gset_false:N \g_@@_ulem_cjk_last_bool
+        \xeCJK_if_last_node:nTF { CJK }
+          { \@@_ulem_cjk_last_remove: }
+          {
+            \xeCJK_if_last_node:nT { CJK-space }
+              { \@@_ulem_cjk_last_remove: }
+          }
         \UL@stop
         \@@_ulem_lead_draw:
         \@@_ulem_skip_punct_begin:
+        \bool_if:NT \g_@@_ulem_cjk_last_bool
+          { \@@_ulem_punct_ccglue: }
         \@@_punct_glue:NN \c_@@_left_tl #1
         \UL@start
       }
@@ -15325,9 +15354,10 @@ Copyright and Licence
 %   \xeCJK_ulem_group_begin:,
 %   \xeCJK_ulem_group_end:,
 %   \xeCJK_ulem_on:n}
-% \changes{v3.10.7}{2026/09/28}{线型命令的正文（包括嵌套线型命令的内层）在颜色
-%   命令、\tn{fbox}、\tn{kern} 等之后写公式、再接汉字时，公式与汉字之间与直接
-%   输入一样补上 \tn{CJKecglue}（\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{线型命令的正文在颜色命令、\tn{fbox}、\tn{kern} 等
+%   之后写公式、再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；
+%   嵌套线型命令的内层在命令前有源码空格时，只有公式之前是 \tn{kern} 等不透明
+%   内容时如此（\#1091）。}
 % \changes{v3.10.5}{2026/07/28}{正文一律以字面记号进入 \pkg{ulem} 的参数：
 %   只有“公式加尾随源码空格”才重排，且重排也先拼装再一次展开，避免西文词
 %   右侧的 \tn{CJKecglue} 被关进固定宽度装饰片段盒而丢失收缩量（\#1026）。}
@@ -15602,8 +15632,17 @@ Copyright and Licence
   { \@@_ulem_transparent_begin:n { 0 } }
 \cs_gset_protected:Npn \@@_boundary_transparent_box_begin_hook:
   { \@@_ulem_transparent_begin:n { 1 } }
-\cs_gset_eq:NN \@@_boundary_last_box_begin_hook:
-  \@@_boundary_transparent_box_begin_hook:
+\cs_gset_protected:Npn \@@_boundary_last_box_begin_hook:
+  {
+    \@@_ulem_if_entry_armed:T
+      {
+        \@@_ulem_if_outside_box:nT { 1 }
+          {
+            \xeCJK_if_last_node:nF { ulem-transparent }
+              { \@@_ulem_level_check_aux: }
+          }
+      }
+  }
 \cs_new_protected:Npn \@@_ulem_transparent_begin:n #1
   {
     \@@_ulem_if_entry_armed:T
@@ -15699,10 +15738,20 @@ Copyright and Licence
   {
     \tl_if_eq:cnTF { g_@@_boundary_capture_#1_space_flag_tl } { true }
       {
-        \bool_if:NT \g_@@_ulem_onin_transparent_bool
+        \bool_if:NTF \g_@@_ulem_onin_transparent_bool
           { \@@_ulem_onin_entry_check:n {#1} }
+          { \@@_if_last_math:T { \@@_ulem_onin_entry_math:n {#1} } }
       }
       { \@@_ulem_onin_entry_check:n {#1} }
+  }
+\cs_new_protected:Npn \@@_ulem_onin_entry_math:n #1
+  {
+    \tl_set:Ne \l_@@_ulem_entry_node_tl
+      { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+    \clist_if_in:nVT { CJK , CJK-space , CJK-widow }
+      \l_@@_ulem_entry_node_tl
+      { \tl_gset:cn { g_@@_boundary_capture_#1_space_flag_tl } { false } }
+    \@@_ulem_entry_resolve:n {#1}
   }
 \cs_new_protected:Npn \@@_ulem_onin_entry_check:n #1
   {
@@ -16043,6 +16092,7 @@ Copyright and Licence
 %   \@@_ulem_onin_tail_glue:,
 %   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_onin_entry_check_space:n,
+%   \@@_ulem_onin_entry_math:n,
 %   \@@_ulem_transparent_mark:n,
 %   \@@_ulem_transparent_begin:n,
 %   \@@_ulem_transparent_clear:n,
@@ -16056,6 +16106,9 @@ Copyright and Licence
 %   \@@_ulem_onin_entry_check:n,
 %   \@@_ulem_if_last_content:,
 %   \@@_ulem_tail_check:}
+% \changes{v3.10.7}{2026/09/28}{嵌套线型命令的内层以第一个字符是全角左标点的
+%   \tn{mbox} 等盒子（如盒子里只有“（中”）结尾时，外层命令右侧与直接输入一样按
+%   盒子处理，不再多补一枚间距（\#1091）。}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
 %   规则等内容时，命令后的源码空格按普通空格保留，右侧也不再补边界间距，
 %   例如预填姓名、后接 \tn{hspace*} 的填空线；正文（包括嵌套线型命令的内层）
@@ -16123,6 +16176,12 @@ Copyright and Licence
 % |\uline{\sout{\xout{中}}} 后| 仍按汉字结尾处理；后面还有别的内容时，这个零宽
 % marker 留在中间层盒子里。
 %
+% 末节点是 |default| marker 时，先把各外层线型命令的末类别改为 |default|。这枚
+% marker 由核心在“有可见内容、没有观察到类别”的盒子之后重放：
+% |x\uline{\sout{中\mbox{（中}}}x| 里外层先从“中”取得末类别 |CJK|，盒子
+% |\mbox{（中}| 本身按 |default| 结束，直接输入在盒子与 x 之间不补间距；不改写末类别，
+% 外层右侧就多一枚 \tn{CJKecglue}（\#1091）。
+%
 % 这个 marker 由 \cs{@@_ulem_nest_node:} 选择：内层正文以字符结尾（|tail| 为
 % |char|）且末类别是 |CJK| 或 |default| 时，就用这个类别的 marker，外层后面的
 % 字符按普通的类别转换与它连接，例如 |\uline{\xout{x}中}| 的 x 与“中”之间补
@@ -16177,6 +16236,16 @@ Copyright and Licence
 % 写法不对称，也与 v3.9.1 不同。因此 |符 \uline{\sout{ x}中} 后| 比直接输入多一枚
 % 间距，与单层写法和 v3.9.1 相同；v3.10.6 右侧少补一枚间距，两处抵消，总宽度碰巧与
 % 直接输入一致。
+%
+% 末节点是公式时例外（\cs{@@_ulem_onin_entry_math:n}）。按首类别处理会把入口空格
+% 换成间距排在公式之后、第一个字符之前，公式与汉字之间就没有 \tn{CJKecglue}：
+% |前 \uline{\sout{\kern1pt$a$中}} 后| 比直接输入与 v3.10.6 少 3.33pt。这时解除入口，
+% 核心随后在公式与汉字之间照常补 \tn{CJKecglue}。入口前记为汉字类别（|CJK|、
+% |CJK-space|、|CJK-widow|）时，直接输入删去这枚空格（汉字之后的空格后面是
+% \tn{kern} 等内容），所以先把 |space_flag| 置为假；其余情形空格仍由
+% \cs{@@_ulem_entry_resolve:n} 排出。入口之后先有颜色命令、
+% 透明盒子放下的 marker 时（\cs{g_@@_ulem_onin_transparent_bool} 为真）仍走上面的
+% 检查，|前 \uline{\sout{\color{red}$a$中}} 后| 一类尚未处理。
 %
 % 三层以上嵌套时，中间层也可能在更深一层装饰之前先排出这些内容
 % （|x\uline{\sout{\hspace{1em}\xout{中}}}x|）。第一个字符出现时只能看到最内层
@@ -16236,11 +16305,15 @@ Copyright and Licence
 % 不取回盒子的分支。这个分支同样表示盒子里没有观察到字符类别，所以也调用
 % \cs{@@_boundary_transparent_box_hook:}，否则 |x\uline{\mbox{\color{red}\fbox{}}中}x|
 % 会丢掉 x 与“中”之间的 \tn{CJKecglue}。盒子已经留在列表里，结束时无法再检查盒子
-% 之前的内容，所以核心在这类盒子开始时调用 \cs{@@_boundary_last_box_begin_hook:}，
-% 这里与 \cs{@@_boundary_transparent_box_begin_hook:} 相同：
-% |x\uline{\kern1pt\mbox{\color{red}}中}x| 在盒子开始时就因 \tn{kern} 解除入口，
-% 前一个透明盒子留下的 marker（|\fbox{}\mbox{\color{red}\fbox{}}|）也在这时删去，
-% 不会压在 \tn{mbox} 之下。
+% 之前的内容，所以核心在这类盒子开始时调用 \cs{@@_boundary_last_box_begin_hook:}：
+% 列表末尾不是 |ulem-transparent| marker 时，与颜色命令的 begin 钩子一样检查此前
+% 排出的内容，|x\uline{\kern1pt\mbox{\color{red}}中}x| 因此在盒子开始时就因
+% \tn{kern} 解除入口。末尾是 marker 时什么都不做，marker 留给盒子结束时的钩子：
+% 这时还不知道盒子里有没有字符，若在这里删去 marker，盒子里第一个字符是全角左标点
+% （不向 capture 报告类别）时，嵌套内层后面就找不到这个标记，
+% |中\uline{\sout{\color{red}\mbox{（中}x}}中| 会丢掉盒子之前的 \tn{CJKecglue}。
+% 代价是前一个透明内容的 marker 在不取回盒子的分支里压在 \tn{mbox} 之下
+% （|x\uline{\fbox{}\mbox{\color{red}\fbox{}}中}x|），零宽，只在节点列表里看得出。
 %
 % whatsit 中只有 transparent 命令（颜色的 \tn{set@color} 与 \tn{reset@color} 等）
 % 排出的不算内容：直接输入时它们对边界透明，|x{\textcolor{red}{中}}x| 两侧都有
@@ -16639,6 +16712,8 @@ Copyright and Licence
           }
         \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
           {
+            \xeCJK_if_last_node:nT { default }
+              { \@@_ulem_report_last:n { default } }
             \tl_if_eq:cnF
               {
                 g_@@_boundary_capture_\int_use:N
