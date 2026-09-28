@@ -15526,7 +15526,9 @@ Copyright and Licence
 \tl_new:N \l_@@_ulem_onin_lead_tl
 \cs_new_protected:Npn \@@_ulem_onin_lead_get:n #1
   {
-    \@@_ulem_transparent_node_remove:
+    \xeCJK_if_last_node:nTF { ulem-transparent }
+      { \tex_unkern:D \tex_unkern:D }
+      { \@@_ulem_onin_lead_check: }
     \tl_clear:N \l_@@_ulem_onin_lead_tl
     \clist_map_inline:nn { CJK , CJK-space , default }
       {
@@ -15534,6 +15536,17 @@ Copyright and Licence
           {
             \tl_set:Nn \l_@@_ulem_onin_lead_tl {##1}
             \clist_map_break:
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_onin_lead_check:
+  {
+    \bool_if:NT \l_@@_ulem_onin_bool
+      {
+        \@@_ulem_if_entry_armed:T
+          {
+            \exp_args:NV \@@_ulem_onin_entry_check_space:n
+              \g_@@_ulem_entry_depth_int
           }
       }
   }
@@ -15799,6 +15812,7 @@ Copyright and Licence
 %   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_onin_entry_check_space:n,
 %   \@@_ulem_transparent_node_remove:,
+%   \@@_ulem_onin_lead_check:,
 %   \@@_ulem_onin_entry_check:n,
 %   \@@_ulem_tail_check:}
 % \changes{v3.10.7}{2026/09/27}{线型命令的正文在最后一个字符之后还有空白、盒子、
@@ -15900,6 +15914,13 @@ Copyright and Licence
 % 改为 |resolved|，不再补左边界。重放的外层 marker 使第一个字符按字符间的类别转换
 % 处理，不经过这里。入口有源码空格时不这样做，那枚空格已由
 % \cs{@@_ulem_entry_resolve:n} 以外的路径处理，与 |x {~中}x| 一致。
+%
+% 三层以上嵌套时，中间层也可能在更深一层装饰之前先排出这些内容
+% （|x\uline{\sout{\hspace{1em}\xout{中}}}x|）。第一个字符出现时只能看到最内层
+% 盒子，中间层末尾的内容已不在当前列表里。因此 \cs{@@_ulem_onin_lead_get:n} 在嵌套链
+% 上进入更深一层之前，由 \cs{@@_ulem_onin_lead_check:} 用同样的规则检查中间层的末
+% 节点。入口仍为 |armed| 说明整条嵌套链还没有排出字符，中间层末尾不会是字符留下的
+% marker，所以这里不必另外排除。
 %
 % whatsit 中只有 transparent 命令（颜色的 \tn{set@color} 与 \tn{reset@color} 等）
 % 排出的不算内容：直接输入时它们对边界透明，|x{\textcolor{red}{中}}x| 两侧都有
