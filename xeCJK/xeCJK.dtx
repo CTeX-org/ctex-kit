@@ -5989,6 +5989,12 @@ Copyright and Licence
       {
         \tl_gclear:N \g_@@_last_node_tl
         \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \tl_if_empty:cT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _first_tl
+          }
+          { \@@_boundary_transparent_box_hook: }
         \@@_boundary_replay_before:
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
@@ -15493,8 +15499,9 @@ Copyright and Licence
   {
     \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
       {
-        \bool_if:NTF \l_@@_ulem_fullleft_bool
+        \bool_if:NT \l_@@_ulem_fullleft_bool
           { \@@_ulem_fullleft_check:n {#1} }
+        \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
           {
             \xeCJK_if_last_node:nTF { ulem-transparent }
               {
@@ -15561,20 +15568,14 @@ Copyright and Licence
           {
             \xeCJK_if_last_node:nTF { ulem-transparent }
               { \tex_unkern:D \tex_unkern:D }
-              {
-                \bool_if:NF \g_@@_ulem_transparent_tail_bool
-                  { \@@_ulem_level_check_aux: }
-              }
+              { \@@_ulem_level_check_aux: }
           }
       }
   }
 \cs_gset_protected:Npn \@@_boundary_transparent_end_hook:
   {
     \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
-      {
-        \bool_if:NF \g_@@_ulem_transparent_tail_bool
-          { \@@_ulem_transparent_mark:n { 0 } }
-      }
+      { \@@_ulem_transparent_mark:n { 0 } }
   }
 \cs_gset_protected:Npn \@@_boundary_transparent_box_hook:
   { \@@_ulem_transparent_mark:n { 1 } }
@@ -15604,11 +15605,15 @@ Copyright and Licence
   }
 \xeCJK_declare_node:n { ulem-transparent }
 \bool_new:N \g_@@_ulem_onin_transparent_bool
-\bool_new:N \g_@@_ulem_transparent_tail_bool
 \bool_new:N \l_@@_ulem_outside_box_bool
 \prg_new_protected_conditional:Npnn \@@_ulem_if_outside_box:n #1 { T }
   {
     \bool_set_true:N \l_@@_ulem_outside_box_bool
+    \xeCJK_if_ulem_patch:TF { }
+      {
+        \bool_if:NF \l_@@_ulem_onin_bool
+          { \bool_set_false:N \l_@@_ulem_outside_box_bool }
+      }
     \int_step_inline:nnn
       { \g_@@_ulem_entry_depth_int + 1 }
       { \g_@@_boundary_capture_depth_int - #1 }
@@ -16139,10 +16144,23 @@ Copyright and Licence
 % 入口，外层西文与盒子之间的 \tn{CJKecglue} 就会丢失。因此
 % \cs{@@_ulem_if_outside_box:nT} 检查入口层与当前层之间是否有 |box| 类的 capture 层，
 % 有则 \cs{@@_ulem_level_check:} 与透明命令的钩子都不检查，也不放 |ulem-transparent|
-% marker。嵌套链上的左边界钩子不需要这一检查：\tn{mbox}、\tn{fbox} 等盒子开头的
-% \tn{UL@hrest} 清除 \cs{l_@@_ulem_onin_bool}，盒子里的内层命令也不会再把它置真。参数是要跳过的层数：透明盒子的两个钩子在盒子
-% capture 结束、层号减一之前调用，跳过正在结束的这一层。这时左边界 glue 仍按以前的
-% 方式排在盒子里第一个字符之前，宽度与直接输入相同，位置在盒子里而不在盒子外。
+% marker。它的参数是要跳过的层数：透明盒子的两个钩子在盒子 capture 结束、层号减一
+% 之前调用，跳过正在结束的这一层。正文里的原始 \tn{hbox}、\tn{raisebox}、\tn{vbox}
+% 不建 capture 层，但 \pkg{ulem} 在这些盒子开头执行 \tn{UL@hrest}：
+% \cs{xeCJK_if_ulem_patch:TF} 为假、\cs{l_@@_ulem_onin_bool} 也为假。两者都为假时
+% 同样不检查、不放 marker，|x\uline{\hbox{\mbox{}}中}x| 因此不会在 \tn{hbox} 里留下
+% marker。
+%
+% 嵌套链上的左边界钩子不需要这一检查：\tn{mbox}、\tn{fbox} 等盒子开头的
+% \tn{UL@hrest} 清除 \cs{l_@@_ulem_onin_bool}，盒子里的内层命令也不会再把它置真。
+% 正文里写 |\fbox{\sout{中}}| 时，左边界 glue 仍按以前的方式排在盒子里第一个字符
+% 之前，宽度与直接输入相同，位置在盒子里而不在盒子外。
+%
+% \tn{mbox} 等以 last 方式捕获的盒子里有颜色命令时（|\mbox{\color{red}\fbox{}}|），
+% 分组结束时的 \tn{reset@color} 排在盒子之后，捕获结束时末节点不是这个盒子，核心走
+% 不取回盒子的分支。这个分支同样表示盒子里没有观察到字符类别，所以也调用
+% \cs{@@_boundary_transparent_box_hook:}，否则 |x\uline{\mbox{\color{red}\fbox{}}中}x|
+% 会丢掉 x 与“中”之间的 \tn{CJKecglue}。
 %
 % whatsit 中只有 transparent 命令（颜色的 \tn{set@color} 与 \tn{reset@color} 等）
 % 排出的不算内容：直接输入时它们对边界透明，|x{\textcolor{red}{中}}x| 两侧都有
@@ -16164,8 +16182,12 @@ Copyright and Licence
 % 盒子里的这个盒子会被当作有宽度的内容解除入口，glue 就不排了。入口有源码空格时
 % 不清除，\tn{UL@stop} 把入口空格排在盒子之前，与 |符 \uline{\hspace*{1em}中} 后|
 % 一样。正文以语法空格开头时（|x\uline{ \fbox{}中}x|）也不清除：这段空格已经记在
-% \cs{g_@@_ulem_lead_skip} 里，要画成装饰线，直接输入里它挡在 x 与盒子之间，不补
-% \tn{CJKecglue}；\tn{UL@stop} 解除入口后补画这段线，glue 也就不排了。
+% \cs{g_@@_ulem_lead_skip} 里，要画成装饰线，\tn{UL@stop} 解除入口后补画这段线，
+% glue 也就不排了。入口前是西文时，这与直接输入一致：空格挡在 x 与盒子之间，不补
+% \tn{CJKecglue}。入口前是汉字时并不一致：直接输入 |中{ \fbox{}x}中| 删去这枚空格，
+% 在盒子与 x 之间补 \tn{CJKecglue}，这里则把空格画成线、排在“中”与盒子之间，默认
+% 选项下两者碰巧等宽（\tn{CJKecglue} 就是一个词间空格）。这一类写法尚未处理，
+% 修改前的清除入口也不对（多排一枚 \tn{CJKecglue}）。
 %
 % 正文的首个字符是全角左标点时（|x\uline{（中）}x|、|x\uline{\fbox{}（中）}x|），
 % \cs{@@_ulem_Boundary_and_FullLeft_glue:N} 把它作为 |CJK| 报告给 capture，框架于是
@@ -16173,19 +16195,23 @@ Copyright and Licence
 % 标点的左侧空白另由标点规则决定。因此报告期间置 \cs{l_@@_ulem_fullleft_bool}，
 % 入口没有源码空格、入口前是西文（|default| 或 |default-space| marker）时，
 % \cs{@@_ulem_fullleft_check:n} 解除入口，不补左边界。入口前是汉字或有源码空格时
-% 不改动，仍按首类别处理。透明盒子留下的 marker 由随后的 \tn{UL@stop} 删去。
+% 不改动，仍按首类别处理，与没有全角左标点时一样检查末尾的 |ulem-transparent|
+% marker：|中\uline{\fbox{}（中）}中| 的汉字与盒子之间仍补 \tn{CJKglue}。
 %
 % marker 仍在列表末尾时，下一个透明命令开始前先删去上一个，\tn{UL@onin} 读外层
 % 末尾之前、\tn{UL@stop} 关闭片段盒子之前（先取下末尾的 penalty）、正文结束检查
 % 末尾之前、内层正文结束检查末尾时也删去；
-% 颜色命令之后、第一个字符之前先排出 |~|、\tn{hspace}、\tn{special} 等其他内容时，
-% 这个零宽 marker 被压在这些内容之下，留在盒子里，不影响宽度与断行。首类别出现后
+% 颜色命令或透明盒子之后、第一个字符之前先排出 |~|、\tn{hspace}、\tn{special} 等
+% 其他内容时，这个零宽 marker 被压在这些内容之下，留在盒子里，不影响宽度与断行。
+% 嵌套装饰的内层正文以全角左标点开头时（|\sout{\color{red}（中}|）同样如此：内层的
+% 全角左标点不向 capture 报告类别，钩子不会运行，marker 留在标点之前。首类别出现后
 % 不再放 marker：框架为排左边界 glue 调用 \tn{UL@stop} 时执行的 \tn{reset@color}
 % 不能在片段盒子里留下它。内层正文以这个 marker 结尾（|\sout{\color{red}}|）时，
-% 删去它后设置 \cs{g_@@_ulem_transparent_tail_bool}：内层盒子关闭之前还会执行颜色
-% 命令留下的 \tn{reset@color}，这时末节点是颜色 whatsit，既不能按内容检查，也不再
-% 放 marker，否则 marker 会留在内层盒子里。\cs{@@_ulem_nest_mark:} 在内层盒子关闭
-% 之后清除这个布尔量。
+% \cs{@@_ulem_onin_tail_check:} 删去它。内层盒子关闭之前还会执行颜色命令经
+% \tn{aftergroup} 留下的 \tn{reset@color}，这时内层正文的分组已经结束，其中对
+% \cs{l_@@_ulem_onin_bool} 的局部设置也随之失效，\cs{xeCJK_if_ulem_patch:TF} 同样
+% 为假，\cs{@@_ulem_if_outside_box:nT} 因此不检查、不放 marker，marker 不会留在内层
+% 盒子里，这段颜色 whatsit 也不会被当作内容解除入口。
 %
 % 入口有源码空格、正文先排出颜色命令再排出 |~| 等内容时
 % （|符 \uline{\sout{\color{red}~中}} 后|），直接输入的入口空格先遇到的是透明命令，
@@ -16452,7 +16478,6 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_ulem_nest_mark:
   {
-    \bool_gset_false:N \g_@@_ulem_transparent_tail_bool
     \bool_set_false:N \l_@@_ulem_nest_punct_bool
     \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
       {
@@ -16549,11 +16574,7 @@ Copyright and Licence
                 \exp_args:NV \xeCJK_if_last_node:nT \l_@@_ulem_nest_node_tl
                   { \@@_ulem_nest_node_remove: }
               }
-            \xeCJK_if_last_node:nT { ulem-transparent }
-              {
-                \tex_unkern:D \tex_unkern:D
-                \bool_gset_true:N \g_@@_ulem_transparent_tail_bool
-              }
+            \@@_ulem_transparent_node_remove:
           }
       }
   }
