@@ -15381,11 +15381,15 @@ Copyright and Licence
 %   之后写公式、再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；
 %   嵌套线型命令的内层在命令前有源码空格、公式之前没有颜色命令或透明盒子时，
 %   公式之后接西文或以公式结尾的写法，命令前的空格也与直接输入一样处理（\#1091）。}
+% \changes{v3.10.7}{2026/09/29}{线型命令的正文写公式、再接嵌套命令，内层先有颜色
+%   命令、没有字符的 \tn{mbox} 等或更深一层的嵌套命令、再接全角左标点时，标点的
+%   左侧空白与直接输入一样保留（\#1091）。}
 % \changes{v3.10.7}{2026/09/28}{线型命令前的源码空格前面是分组结束、盒子或控制
 %   空格（不是紧跟在汉字之后）时：正文先排出 \tn{kern}、\tn{nobreak} 等内容再接
 %   汉字、\tn{mbox}、颜色命令、嵌套命令、用户分组或 \tn{textbf} 等字体命令，或
 %   第一个字符在 \tn{hbox}、\tn{raisebox} 等原始盒子里时，这枚空格与直接输入一样
-%   原样保留，排在装饰之前，正文里的 \tn{hspace*} 写在用户分组里时也是如此；外层
+%   原样保留，排在装饰之前，正文里的 \tn{hspace*} 写在用户分组里、或用户分组里只有
+%   \tn{nobreak} 而随后是语法空格或 \tn{hspace*} 时也是如此；外层
 %   正文先排出 \tn{kern} 等内容、写公式、再接嵌套命令或用户分组，或嵌套内层先排出
 %   \tn{kern} 等内容、写公式、再接汉字或以公式结尾、命令后紧接汉字时，公式与汉字
 %   之间与直接输入一样补上 \tn{CJKecglue}，公式与汉字之间隔着颜色命令或 \tn{mbox}
@@ -15477,6 +15481,8 @@ Copyright and Licence
         \bool_set_true:N \l_@@_ulem_stream_started_bool
         \skip_gzero:N \g_@@_ulem_pending_shrink_skip
         \skip_gzero:N \g_@@_ulem_lead_skip
+        \tl_gclear:N \g_@@_ulem_lead_box_tl
+        \tl_gclear:N \g_@@_ulem_lead_drop_tl
         \bool_gset_false:N \g_@@_ulem_space_defer_bool
         \bool_gset_false:N \g_@@_ulem_body_end_bool
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
@@ -15608,7 +15614,11 @@ Copyright and Licence
       {
         \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool
         \xeCJK_if_last_node:nT { math }
-          { \tex_unkern:D \tex_unkern:D }
+          {
+            \tex_unkern:D \tex_unkern:D
+            \tl_gset:Ne \g_@@_ulem_lead_drop_tl
+              { \int_use:N \g_@@_boundary_capture_depth_int }
+          }
       }
   }
 \cs_gset_protected:Npn \@@_boundary_emit_left_hook:nn #1#2
@@ -15703,6 +15713,12 @@ Copyright and Licence
   { \@@_ulem_transparent_begin:n { 1 } }
 \cs_gset_protected:Npn \@@_boundary_last_box_begin_hook:
   {
+    \tl_if_empty:NF \g_@@_ulem_lead_box_tl
+      {
+        \int_compare:nNnF
+          { \g_@@_ulem_lead_box_tl } < { \g_@@_boundary_capture_depth_int }
+          { \tl_gclear:N \g_@@_ulem_lead_box_tl }
+      }
     \bool_if:NT \l_@@_ulem_onin_lead_marker_bool
       {
         \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool
@@ -15718,6 +15734,8 @@ Copyright and Licence
                 g_@@_boundary_capture_\int_use:N
                 \g_@@_boundary_capture_depth_int _before_tl
               }
+            \tl_gset:Ne \g_@@_ulem_lead_box_tl
+              { \int_use:N \g_@@_boundary_capture_depth_int }
           }
       }
     \@@_ulem_if_entry_armed:T
@@ -15746,8 +15764,20 @@ Copyright and Licence
     \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
       { \@@_ulem_transparent_mark:n { 0 } }
   }
+\tl_new:N \g_@@_ulem_lead_box_tl
+\tl_new:N \g_@@_ulem_lead_drop_tl
 \cs_gset_protected:Npn \@@_boundary_transparent_box_hook:
-  { \@@_ulem_transparent_mark:n { 1 } }
+  {
+    \str_if_eq:eeT
+      { \g_@@_ulem_lead_box_tl }
+      { \int_use:N \g_@@_boundary_capture_depth_int }
+      {
+        \tex_kern:D \c_zero_dim
+        \tl_gset:Ne \g_@@_ulem_lead_drop_tl
+          { \int_eval:n { \g_@@_boundary_capture_depth_int - 1 } }
+      }
+    \@@_ulem_transparent_mark:n { 1 }
+  }
 \cs_new_protected:Npn \@@_ulem_transparent_mark:n #1
   {
     \@@_ulem_if_entry_armed:T
@@ -15956,6 +15986,20 @@ Copyright and Licence
               }
           }
       }
+    \tl_if_empty:NF \g_@@_ulem_lead_drop_tl
+      {
+        \int_compare:nNnT
+          { \g_@@_ulem_lead_drop_tl } = { \g_@@_boundary_capture_depth_int }
+          {
+            \tl_if_empty:NT \l_@@_ulem_onin_lead_tl
+              {
+                \int_case:nnT { \tex_lastnodetype:D }
+                  { { 1 } { } { 9 } { } { 12 } { } }
+                  { \tl_set:Nn \l_@@_ulem_onin_lead_tl { kern } }
+              }
+            \tl_gclear:N \g_@@_ulem_lead_drop_tl
+          }
+      }
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_check:
   {
@@ -15972,11 +16016,19 @@ Copyright and Licence
     \str_if_eq:VnTF \l_@@_ulem_onin_lead_tl { math }
       { \bool_set_true:N \l_@@_ulem_onin_lead_marker_bool }
       { \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool }
-    \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
+    \str_if_eq:VnTF \l_@@_ulem_onin_lead_tl { kern }
       {
-        \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
-        \bool_if:NF \l_@@_ulem_xecglue_bool
-          { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+        \tex_kern:D \c_zero_dim
+        \tl_gset:Ne \g_@@_ulem_lead_drop_tl
+          { \int_use:N \g_@@_boundary_capture_depth_int }
+      }
+      {
+        \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
+          {
+            \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
+            \bool_if:NF \l_@@_ulem_xecglue_bool
+              { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+          }
       }
   }
 %    \end{macrocode}
@@ -16015,11 +16067,16 @@ Copyright and Licence
 %   \item \tn{UL@reskip} 把正文里的显式 glue 画成 leaders 之前，glue 不为零时；
 %     glue 为零（\tn{hspace}\marg{0pt}）而入口没有源码空格时也解除入口。零宽的
 %     glue 不可见，但直接输入 |x{\hspace{0pt}中}x| 时它挡住 x 与“中”之间的类别
-%     转换，不补 \tn{CJKecglue}。入口有源码空格时，这枚空格与正文以 \tn{nobreak}
-%     开头时一样按首类别处理；这时 \cs{l_@@_ulem_skip_plain_bool} 为真，零宽的
-%     glue 不画成 leaders，直接排普通 glue。否则首类别出现时补的左边界 glue 排在
-%     已画线的 glue 之后，自己没有装饰线，\tn{CJKglue} 有宽度或被拉伸时装饰线在
-%     那里断开（|前 \uline{\hspace{0pt}中} 后|）。
+%     转换，不补 \tn{CJKecglue}。入口有源码空格时，\cs{l_@@_ulem_skip_plain_bool}
+%     为真，零宽的 glue 不画成 leaders，直接排普通 glue。空格紧跟汉字或公式
+%     （入口前是 |CJK-space|、|CJK-widow|、|math-space| 类）时，这枚空格与正文以
+%     \tn{nobreak} 开头时一样按首类别处理；零宽 glue 若画成 leaders，首类别出现时
+%     补的左边界 glue 就排在已画线的 glue 之后，自己没有装饰线，\tn{CJKglue} 有宽度
+%     或被拉伸时装饰线在那里断开（|前 \uline{\hspace{0pt}中} 后|）。空格前面是分组
+%     结束、盒子或控制空格时，直接输入的零宽 glue 挡住源码空格检查，空格保留，这里
+%     也解除入口：零宽 glue 在用户分组里时记下空格，稍后排在装饰之前
+%     （|{中} \uline{{\hspace{0pt}中}} 后|），否则当场排出（见下文
+%     \cs{@@_ulem_entry_resolve_here:}）。
 % \end{itemize}
 % 两处都已位于片段盒子之外，所以直接排普通 glue。\pkg{ulem} 在词与词之间的
 % 语法空格不在这里判断：正文开头的语法空格若随后跟着字符，入口空格仍要按
@@ -16192,7 +16249,11 @@ Copyright and Licence
     \int_compare:nNnTF { \tex_lastkern:D } = { 3 }
       {
         \c_group_end_token \c_group_end_token
-        \dim_compare:nNnF { \box_wd:N \UL@box } = \c_zero_dim
+        \dim_compare:nNnTF { \box_wd:N \UL@box } = \c_zero_dim
+          {
+            \cs_if_eq:NNF \UL@start \@empty
+              { \@@_ulem_space_defer_flush: }
+          }
           { \@@_ulem_entry_box: \@@_ulem_lead_draw: \UL@putbox }
       }
       {
@@ -16509,9 +16570,14 @@ Copyright and Licence
 % 以及 \tn{UL@reskip} 在这类分组里画显式 glue 时
 % （|前 \CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后|），同样只记下空格
 % （\cs{@@_ulem_entry_resolve_here:}）。片段盒子本层的 \tn{UL@stop} 在片段盒子为空时
-% 不调用 \cs{@@_ulem_entry_box:}，正文最后一个片段又常常是空的
-% （|{中} \uline{{\nobreak}} 后|），所以 \cs{@@_ulem_end:} 关闭最后一个片段盒子之后
-% 再排出一次仍记着的空格。
+% 不调用 \cs{@@_ulem_entry_box:}，所以在这里（\tn{UL@start} 不是 \tn{@empty}，即确实
+% 关闭了片段盒子时）同样排出仍记着的空格。否则正文中间先有一段空片段时，下一段先画
+% 出的语法空格或 \tn{hspace*} 的装饰线会排在空格之前，空格落在两段装饰线之间
+% （|{中} \uline{{\nobreak} 中} 后|、|{中} \CJKunderline{{\nobreak} \hspace*{2em}} 后|）。
+% 正文最后一个片段常常是空的（|{中} \uline{{\nobreak}} 后|），这时也由这里排出。
+% \cs{@@_ulem_end:} 关闭最后一个片段盒子之后再排出一次，作为兜底：目前的写法里
+% 空格到这时都已排出，测试文件在每个用例之后断言 \cs{g_@@_ulem_space_defer_bool}
+% 为假。
 %
 % 末节点是公式时（\cs{@@_ulem_onin_entry_math:nn}），按首类别处理会把入口空格
 % 换成间距排在公式之后、第一个字符之前，公式与汉字之间就没有 \tn{CJKecglue}：
@@ -16535,10 +16601,39 @@ Copyright and Licence
 % 等盒子，就不补这枚间距（|x$a$\textcolor{red}{中}x|）；所以带进内层的这个 marker
 % 只管紧跟着的第一个字符：内层先遇到颜色命令时，颜色命令开始的钩子删去它；先遇到
 % 以 last 方式捕获的盒子时，盒子开始的钩子把盒子 capture 记下的 |math| 类别清空
-% （\cs{l_@@_ulem_onin_lead_marker_bool}，|{中} \uline{\kern1pt$a$\sout{\mbox{中}}} 后|）。
-% 入口之后先有颜色命令、
-% 透明盒子放下的 marker 时（\cs{g_@@_ulem_onin_transparent_bool} 为真）仍走上面的
-% 检查，|前 \uline{\sout{\color{red}$a$中}} 后| 一类尚未处理。
+% （\cs{l_@@_ulem_onin_lead_marker_bool}，|{中} \uline{\kern1pt$a$\sout{\mbox{中}}} 后|），
+% 并在 \cs{g_@@_ulem_lead_box_tl} 里记下这个盒子的 capture 层号。
+%
+% 删去 marker 或清空类别之后，公式留下的信息就没有了，而全角左标点的左侧空白还要
+% 看它前面有没有内容：\cs{@@_Boundary_and_FullLeft_glue:N} 在列表开头，或列表里
+% 只有零宽盒子时（按段首缩进盒子处理）压缩左侧空白。直接输入
+% |x$a$\mbox{}（中x|、|x$a${\color{red}（中}x| 时标点前面是公式，左侧空白保留；
+% 装饰里公式却在外层片段盒子里，标点所在的片段盒子开头是空的，或者只有这个空盒子，
+% 标点就被当成排在列表开头
+% （|x\uline{$a$\sout{\mbox{}（中}}x|、|x\uline{$a$\sout{\color{red}\xout{（中}}}x|
+% 各少 6.34pt）。因此：
+% \begin{itemize}
+%   \item 盒子里没有字符、按透明盒子排出时，\cs{@@_boundary_transparent_box_hook:}
+%     在层号与记录相同时先排一个零宽 \tn{kern}。重放的 |before| 仍是空值，盒子之后
+%     的汉字不补 \tn{CJKecglue}，与直接输入 |x$a$\mbox{}中x| 一致；标点看到这个
+%     \tn{kern}，按前面已有内容处理。内层盒子结束时层号不同，不会用掉外层盒子的
+%     记录（|\mbox{\mbox{}}（中|）；记录的层号不小于新盒子的层号时，说明是同层或更
+%     深一层已经结束的盒子留下的（例如盒子里有公式，没有按透明盒子排出），新盒子
+%     开始时清除它，免得后面另一个空盒子误用（|\sout{\mbox{$b$}}\hbox{\mbox{}（中}|）。
+%   \item 删去 marker 或排出这个 \tn{kern} 后，在 \cs{g_@@_ulem_lead_drop_tl} 里记下
+%     当前层号。\cs{@@_ulem_onin_lead_get:n} 在同一层进入更深一层装饰时，若末节点是
+%     盒子、whatsit 或 kern（没有别的 marker 可带），就改带一个零宽 \tn{kern} 进内层，
+%     并把记录改为内层的层号，三层以上嵌套时逐层传下去
+%     （|\sout{\color{red}\xout{\uwave{（中}}}|）。中间先有 glue、penalty 等内容时
+%     末节点不是这几类，不带，标点按这些节点处理，与直接输入相同
+%     （|\sout{\color{red}\hfill\xout{（中}}|）。
+% \end{itemize}
+% 两个记录都在 \pkg{ulem} 命令开始时清除。第一个字符出现后记录可能还在，这时若再
+% 改带零宽 \tn{kern} 进内层，标点前面本来就有这个字符，结果与直接输入相同。
+%
+% 入口之后先有颜色命令、透明盒子放下的 marker 时
+% （\cs{g_@@_ulem_onin_transparent_bool} 为真）仍走上面的检查，
+% |前 \uline{\sout{\color{red}$a$中}} 后| 一类尚未处理。
 %
 % 三层以上嵌套时，中间层也可能在更深一层装饰之前先排出这些内容
 % （|x\uline{\sout{\hspace{1em}\xout{中}}}x|）。第一个字符出现时只能看到最内层

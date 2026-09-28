@@ -73,6 +73,7 @@
         { \int_compare_p:nNn { \seq_count:N \g__xeCJK_boundary_active_seq } = { 0 } }
         { \int_compare_p:nNn { \g__xeCJK_boundary_suspend_depth_int } = { 0 } }
         { \int_compare_p:nNn { \g__xeCJK_ulem_entry_depth_int } = { 0 } }
+        { ! \g__xeCJK_ulem_space_defer_bool }
       }
       { \TYPE { FAIL:~#1~left~capture~state~behind } }
   }
@@ -146,6 +147,8 @@
 % （group-space-kern-then-textcolor 等）；正文先有颜色命令、再排出 \kern 时同样只记下
 % 空格（mbox-space-color-kern-then-nested、mbox-space-textcolor-kern-then-cjk）；
 % \hspace* 写在用户分组里时也是如此，以 ~ 写法为位置对照（group-fill、group-fill-tie）。
+% 用户分组里只有 \nobreak、随后是语法空格或 \hspace* 时，空片段之后下一段装饰线
+% 之前就排出记下的空格，不落在两段装饰线之间（empty-group-then-*）。
 % quad-mbox 的首字符在 \mbox 里，那里 ulem 已恢复 \ 的原义，左边界走普通 glue
 % 通道；它同样不能在 \quad 与 x 之间补 \CJKecglue。
 \TEST{source space goes before leading visible content}{
@@ -173,6 +176,10 @@
   \EntryNodes{mbox-space-textcolor-kern-then-cjk}{\mbox{中} \uline{\textcolor{red}{\kern1pt}中} 后}
   \EntryNodes{group-fill}{前 \CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后}
   \EntryNodes{group-fill-tie}{前~\CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后}
+  \EntryNodes{empty-group-then-space}{{中} \uline{{\nobreak} 中} 后}
+  \EntryNodes{empty-group-then-space-tie}{{中}~\uline{{\nobreak} 中} 后}
+  \EntryNodes{empty-group-then-fill}{{中} \CJKunderline{{\nobreak} \hspace*{2em}} 后}
+  \EntryNodes{empty-group-then-fill-tie}{{中}~\CJKunderline{{\nobreak} \hspace*{2em}} 后}
 }
 
 % 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
@@ -795,8 +802,19 @@
 % （*-math-then-*），公式与内层第一个字符之间隔着颜色命令或 \mbox、\fbox 时
 % 与直接输入一样不补（outer-*-math-then-nested-color 等）。用户分组里只有
 % \nobreak、\penalty0，或 \hspace{0pt} 写在用户分组里时，记下的空格同样排出
-% （group-*-penalty-only、group-*-hspace0-then-cjk）；不写分组时零宽 \hspace 之前的
-% 空格也保留（group-space-hspace0-ungrouped）。
+% （*-penalty-only、group-*-hspace0-then-cjk）；不写分组时零宽 \hspace 之前的
+% 空格也保留（group-space-hspace0-ungrouped）。公式之后、内层先有空的 \mbox、
+% \makebox 时，盒子之后的全角左标点与直接输入一样保留左侧空白，汉字与直接输入一样
+% 不补 \CJKecglue（*-math-then-nested-empty-*）；内层先有颜色命令或空盒子、再接更深
+% 一层嵌套命令时也保留左侧空白，中间先有 \hfill 等 glue 时与直接输入一样压缩
+% （*-nested-leftparen、three-level-leftparen、nested-color-glue-nested-leftparen）；
+% known-* 两项是已登记的差异（见 llmdoc/memory/doc-gaps.md），用节点列表固定当前
+% 行为：用户分组之后在正文内部接空格加汉字时多一枚空格；公式之后的嵌套内层以全角
+% 左标点开头、命令后有空格时，命令后的空格没有在汉字前删去。
+% 装饰结束后或原始盒子里的空盒子不受影响（empty-mbox-after-decoration、
+% math-mbox-then-hbox-empty-mbox），隔着 glue 的兄弟装饰也不受影响
+% （nested-glue-empty-nested-leftparen）；前一个装饰留下的记录不影响下一个装饰
+% （latin-math-color-then-next-decoration-in-hbox）。
 \TEST{entry space not right after a CJK character, and math at the end}{
   \EntryWidth{nested-mbox-space-then-kern}{\mbox{中} \uline{\sout{\kern1pt中}} 后}{\mbox{中} {{\kern1pt中}} 后}
   \EntryWidth{nested-group-space-then-hspace}
@@ -890,6 +908,38 @@
   \EntryWidth{single-group-space-kern-math-then-textcolor}
     {{中} \uline{\kern1pt$a$\textcolor{red}{中}} 后}{{中} {\kern1pt$a$\textcolor{red}{中}} 后}
   \EntryWidth{outer-mbox-space-kern-math-then-nested-latin}{\mbox{中} \uline{\kern1pt$a$\sout{中}}x}{\mbox{中} {\kern1pt$a${中}}x}
+  \EntryNodes{known-group-space-kern-group-then-space-cjk}{{中} \uline{\kern1pt{中} 中} 后}
+  \EntryNodes{known-group-space-kern-math-then-nested-leftparen-spaced}
+    {{中} \uline{\kern1pt$a$\sout{（中}} 后}
+  \EntryWidth{outer-latin-math-then-nested-empty-mbox-leftparen}
+    {x\uline{$a$\sout{\mbox{}（中}}x}{x{$a${\mbox{}（中}}x}
+  \EntryWidth{outer-group-space-math-then-nested-empty-mbox-leftparen}
+    {{中} \uline{$a$\sout{\mbox{}（中}} 后}{{中} {$a${\mbox{}（中}} 后}
+  \EntryWidth{outer-group-space-kern-math-then-nested-empty-makebox-leftparen}
+    {{中} \uline{\kern1pt$a$\sout{\makebox{}（中}}后}{{中} {\kern1pt$a${\makebox{}（中}}后}
+  \EntryWidth{outer-latin-math-then-nested-empty-mbox-quote}
+    {x\uline{$a$\sout{\mbox{}“中”}}x}{x{$a${\mbox{}“中”}}x}
+  \EntryWidth{outer-latin-math-then-nested-empty-nested-mbox-leftparen}
+    {x\uline{$a$\sout{\mbox{\mbox{}}（中}}x}{x{$a${\mbox{\mbox{}}（中}}x}
+  \EntryWidth{outer-latin-math-then-nested-empty-mbox-cjk}
+    {x\uline{$a$\sout{\mbox{}中}}x}{x{$a${\mbox{}中}}x}
+  \EntryWidth{outer-latin-math-then-nested-color-nested-leftparen}
+    {x\uline{$a$\sout{\color{red}\xout{（中}}}x}{x{$a${\color{red}{（中}}}x}
+  \EntryWidth{outer-latin-math-then-nested-empty-mbox-nested-leftparen}
+    {x\uline{$a$\sout{\mbox{}\xout{（中}}}x}{x{$a${\mbox{}{（中}}}x}
+  \EntryWidth{outer-latin-math-then-three-level-leftparen}
+    {x\uline{$a$\sout{\color{red}\xout{\uwave{（中}}}}x}{x{$a${\color{red}{{（中}}}}x}
+  \EntryWidth{outer-latin-math-then-nested-color-glue-nested-leftparen}
+    {x\uline{$a$\sout{\color{red}\hfill\xout{（中}}}x}{x{$a${\color{red}\hfill{（中}}}x}
+  \EntryWidth{outer-latin-math-then-empty-mbox-after-decoration}
+    {x\uline{$a$\sout{\mbox{$b$}}}x\mbox{\mbox{}（中}}{x{$a${\mbox{$b$}}}x\mbox{\mbox{}（中}}
+  \EntryWidth{outer-latin-math-then-math-mbox-then-hbox-empty-mbox}
+    {x\uline{$a$\sout{\mbox{$b$}}\hbox{\mbox{}（中}}x}{x{$a${\mbox{$b$}}\hbox{\mbox{}（中}}x}
+  \EntryWidth{outer-latin-math-then-nested-glue-empty-nested-leftparen}
+    {x\uline{$a$\sout{\color{red}\hfill\xout{}\xout{（中}}}x}{x{$a${\color{red}\hfill{}{（中}}}x}
+  \EntryWidth{latin-math-color-then-next-decoration-in-hbox}
+    {x\uline{$a$\sout{\color{red}}}\hbox{\uline{\mbox{}\sout{（中}}}x}
+    {x{$a${\color{red}}}\hbox{{\mbox{}{（中}}}x}
   \begingroup
   \xeCJKsetup{CJKecglue={\hskip 5pt}}
   \EntryWidth{ecglue-nested-group-space-then-math-end-cjk}
