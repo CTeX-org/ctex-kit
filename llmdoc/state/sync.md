@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 2b63466c380e20309e2f9929b34438541e90b8d2
-- watermark-subject: fix(xeCJK): 嵌套内层保留入口空格时以公式结尾补 \CJKecglue，外层先有内容再接嵌套命令时保留入口空格 (#1091)
-- updated-at: 2026-09-28T16:01:31Z
-- updated-by: 协调者（#1091 本地增量审查 R21 的修复 2b63466c）
+- watermark-commit: 0e4d3a1b7f708b43227daec5933bdbb1ee79d3f2
+- watermark-subject: fix(xeCJK): 外层正文里保留的入口空格排在装饰之前，隔着颜色命令或 penalty 时同样保留 (#1091)
+- updated-at: 2026-09-28T16:59:21Z
+- updated-by: 协调者（#1091 本地增量审查 R22 的修复 0e4d3a1b）
