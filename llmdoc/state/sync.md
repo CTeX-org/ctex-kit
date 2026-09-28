@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: ffe24c5e0b2676e08262f9163b37022063b16bd8
-- watermark-subject: fix(xeCJK): 带进内层的 math marker 遇到颜色命令或盒子即失效，用户分组里的 \UL@reskip 与只有 penalty 的分组同样只记下入口空格 (#1091)
-- updated-at: 2026-09-28T21:07:19Z
-- updated-by: 协调者（#1091 本地增量审查 R24 的修复 ffe24c5e）
+- watermark-commit: 9982eef0f46f7b093f81600b9e2542483c0b0d3a
+- watermark-subject: fix(xeCJK): 公式之后的空盒子与颜色命令不再让全角左标点丢掉左侧空白，空片段里记下的入口空格及时排出 (#1091)
+- updated-at: 2026-09-28T23:57:50Z
+- updated-by: 协调者（#1091 本地增量审查 R25 的修复 9982eef0）
