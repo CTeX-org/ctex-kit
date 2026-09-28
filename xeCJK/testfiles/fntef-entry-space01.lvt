@@ -140,7 +140,12 @@
 % 正文先排出盒子、带零宽规则的 \hspace*、显式 glue 或 \quad：命令前的空格
 % 排在第一个 ulem 片段之前，正文内部不再补左边界 glue。命令前是分组结束或
 % 盒子加空格、正文先排出 \kern 再接嵌套命令或 \mbox 时同样如此
-% （group-space-kern-then-nested、mbox-space-kern-then-mbox）。quad-mbox 的首字符
+% （group-space-kern-then-nested、mbox-space-kern-then-mbox），再接 \textcolor、
+% 用户分组里的汉字或原始 \hbox 时也是如此：记下的空格要等关闭片段盒子本层的
+% \UL@stop 才排出，不能由用户分组里的 \UL@stop 排进片段盒子
+% （group-space-kern-then-textcolor 等）；正文先有颜色命令、再排出 \kern 时同样只记下
+% 空格（mbox-space-color-kern-then-nested、mbox-space-textcolor-kern-then-cjk）。
+% quad-mbox 的首字符
 % 在 \mbox 里，那里 ulem 已恢复 \ 的原义，左边界走普通 glue 通道；它同样
 % 不能在 \quad 与 x 之间补 \CJKecglue。
 \TEST{source space goes before leading visible content}{
@@ -156,17 +161,29 @@
   \EntryNodes{fbox-spaced}{前 \uline{\fbox{}中} 后}
   \EntryNodes{group-space-kern-then-nested}{{中} \CJKunderline{\kern1em\CJKsout{中中}\kern1em} 后}
   \EntryNodes{mbox-space-kern-then-mbox}{\mbox{中} \uline{\kern1pt\mbox{中}} 后}
+  \EntryNodes{group-space-kern-then-textcolor}
+    {{中} \CJKunderline{\kern1em\textcolor{red}{中中}\kern1em} 后}
+  \EntryNodes{ctrl-space-kern-then-textcolor}{前\ \uline{\kern1pt\textcolor{red}{中}} 后}
+  \EntryNodes{mbox-space-kern-then-color-group}{\mbox{中} \uline{\kern1pt{\color{red}中}} 后}
+  \EntryNodes{mbox-space-group-nobreak}{\mbox{中} \uline{{\nobreak 中}} 后}
+  \EntryNodes{group-space-kern-then-hbox}{{中} \uline{\kern1pt\hbox{中}}后}
+  \EntryNodes{mbox-space-kern-then-group}{\mbox{中} \uline{\kern1pt{中}} 后}
+  \EntryNodes{group-space-kern-math-then-nested}{{中} \uline{\kern1pt$a$\sout{中}} 后}
+  \EntryNodes{mbox-space-color-kern-then-nested}{\mbox{中} \uline{\color{red}\kern1pt\sout{中}} 后}
+  \EntryNodes{mbox-space-textcolor-kern-then-cjk}{\mbox{中} \uline{\textcolor{red}{\kern1pt}中} 后}
 }
 
 % 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
 % CJK 与 CJK 之间的源码空格按 CJKspace=false 删去。没有空格、也没有字符时
 % 两侧都不补间距。正文以零宽的 \hspace 开头、命令前有空格时同样按首个字符处理，
-% 左边界 glue 排在第一个 ulem 片段之前，零宽的 glue 不画成装饰线。
+% 左边界 glue 排在第一个 ulem 片段之前，零宽的 glue 不画成装饰线。其后是公式时，
+% 入口在公式片段处解除，空格保留在装饰之前，与 ~ 写法等宽（hspace0-math-spaced）。
 \TEST{invisible leading content keeps the first-character rule}{
   \EntryNodes{color-cjk}{符 \CJKunderline{\color{red}中} 后}
   \EntryNodes{color-latin}{符 \CJKunderline{\color{red}x} 后}
   \EntryNodes{no-space}{符\CJKunderline{\hspace*{5pt}}后}
   \EntryNodes{hspace0-spaced}{前 \uline{\hspace{0pt}中} 后}
+  \EntryWidth{hspace0-math-spaced}{前 \uline{\hspace{0pt}$a$中} 后}{前~{\hspace{0pt}$a$中} 后}
 }
 
 % 没有字符的正文不产生额外的装饰或间距。
@@ -769,6 +786,11 @@
 % 命令时也是如此（outer-*-then-nested、outer-*-then-two-nested）；单层正文先排出
 % \nobreak、\kern 再接 \mbox、\textcolor 时也保留（single-*）。入口前是汉字加空格
 % 时，\nobreak 之后的空格与直接输入一样删去（single-cjk-space-nobreak）。
+% 第一个字符在正文里的原始盒子（\hbox、\raisebox）或用户分组（{…}、\textbf）里时，
+% 入口空格同样保留（single-*-then-hbox、single-*-then-group 等）；分组之前没有先排出
+% 内容时，汉字前的空格与直接输入一样删去（single-mbox-space-then-group）。外层正文先排出
+% 内容、写公式、再接嵌套命令、分组或 \textcolor 时，公式与汉字之间照常补 \CJKecglue
+% （*-math-then-*）。
 \TEST{entry space not right after a CJK character, and math at the end}{
   \EntryWidth{nested-mbox-space-then-kern}{\mbox{中} \uline{\sout{\kern1pt中}} 后}{\mbox{中} {{\kern1pt中}} 后}
   \EntryWidth{nested-group-space-then-hspace}
@@ -827,12 +849,34 @@
   \EntryWidth{single-ctrl-space-kern-then-textcolor}
     {前\ \uline{\kern1pt\textcolor{red}{中}} 后}{前\ {\kern1pt\textcolor{red}{中}} 后}
   \EntryWidth{single-cjk-space-nobreak}{前 \uline{\nobreak\sout{中}} 后}{前 {\nobreak{中}} 后}
+  \EntryWidth{single-group-space-kern-then-textcolor-nested}
+    {{中} \uline{\kern1pt\textcolor{red}{中\sout{中}}} 后}{{中} {\kern1pt\textcolor{red}{中{中}}} 后}
+  \EntryWidth{single-group-space-kern-then-hbox}{{中} \uline{\kern1pt\hbox{中}}后}{{中} {\kern1pt\hbox{中}}后}
+  \EntryWidth{single-group-space-then-hbox}{{中} \uline{\hbox{中}}后}{{中} {\hbox{中}}后}
+  \EntryWidth{single-ctrl-space-then-hbox}{前\ \uline{\hbox{中}}后}{前\ {\hbox{中}}后}
+  \EntryWidth{single-mbox-space-kern-then-raisebox}
+    {\mbox{中} \uline{\kern1pt\raisebox{1pt}{中}}后}{\mbox{中} {\kern1pt\raisebox{1pt}{中}}后}
+  \EntryWidth{nested-group-space-kern-then-hbox}{{中} \uline{\sout{\kern1pt\hbox{中}}}后}{{中} {{\kern1pt\hbox{中}}}后}
+  \EntryWidth{single-mbox-space-kern-then-group}{\mbox{中} \uline{\kern1pt{中}} 后}{\mbox{中} {\kern1pt{中}} 后}
+  \EntryWidth{single-mbox-space-then-group}{\mbox{中} \uline{{中}} 后}{\mbox{中} {{中}} 后}
+  \EntryWidth{single-mbox-space-kern-then-textbf}{\mbox{中} \uline{\kern1pt\textbf{中}} 后}{\mbox{中} {\kern1pt\textbf{中}} 后}
+  \EntryWidth{single-ctrl-space-special-then-group}{前\ \uline{\special{x}{中}} 后}{前\ {\special{x}{中}} 后}
+  \EntryWidth{single-latin-kern-then-group}{x\uline{\kern1pt{中}}x}{x{\kern1pt{中}}x}
+  \EntryWidth{single-group-space-kern-math-then-group}{{中} \uline{\kern1pt{$a$中}} 后}{{中} {\kern1pt{$a$中}} 后}
+  \EntryWidth{outer-group-space-kern-math-then-nested}{{中} \uline{\kern1pt$a$\sout{中}} 后}{{中} {\kern1pt$a${中}} 后}
+  \EntryWidth{single-group-space-kern-math-then-textcolor}
+    {{中} \uline{\kern1pt$a$\textcolor{red}{中}} 后}{{中} {\kern1pt$a$\textcolor{red}{中}} 后}
+  \EntryWidth{outer-mbox-space-kern-math-then-nested-latin}{\mbox{中} \uline{\kern1pt$a$\sout{中}}x}{\mbox{中} {\kern1pt$a${中}}x}
   \begingroup
   \xeCJKsetup{CJKecglue={\hskip 5pt}}
   \EntryWidth{ecglue-nested-group-space-then-math-end-cjk}
     {{中} \uline{\sout{\kern1pt$a$}}后}{{中} {{\kern1pt$a$}}后}
   \EntryWidth{ecglue-outer-mbox-space-kern-then-nested}
     {\mbox{中} \uline{\kern1pt\sout{中}} 后}{\mbox{中} {\kern1pt{中}} 后}
+  \EntryWidth{ecglue-single-mbox-space-kern-then-latin-group}
+    {\mbox{中} \uline{\kern1pt{x}} 后}{\mbox{中} {\kern1pt{x}} 后}
+  \EntryWidth{ecglue-single-group-space-kern-then-hbox-latin}
+    {{中} \uline{\kern1pt\hbox{中}}x}{{中} {\kern1pt\hbox{中}}x}
   \endgroup
 }
 
