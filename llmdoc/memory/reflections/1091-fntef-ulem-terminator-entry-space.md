@@ -1278,6 +1278,69 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **仅留在 memory**：不可达分支插桩确认后删去（与 R11 删去“末节点是重放 marker”例外的做法相同）；节点列表区分同宽不同位置
   （R1 以来的同类教训）。
 
+## R17：全角左标点分支与原始盒子
+
+### 起因与修法
+
+- 本地独立审查 R17（对 `fc73ba5e` 与其后的文档提交）指出：`fc73ba5e` 在 `\@@_boundary_emit_left_hook:n` 里把全角左标点检查与
+  原有的 marker 检查写成二选一，入口前是汉字时 `\@@_ulem_fullleft_check:n` 什么也不做，marker 仍在、入口仍为 `armed`，随后
+  `\UL@stop` 把透明盒子当作内容解除入口，`中\uline{\fbox{}（中）}中` 的汉字与盒子之间丢掉 `\CJKglue`；`syntax-space-then-fbox-latin`
+  （`中\uline{ \fbox{}x}中`）只在默认 `CJKecglue` 下碰巧与直接输入等宽；doc-gaps 对 `前 \uline{\fbox{\sout{\mbox{}（中}}} 后`
+  只写“与 v3.10.6 同样不一致”，没有写出当前偏差更大（R17-M2）。R16 补充核对指出 R16-M5 只修好了注册盒子，正文里的原始
+  `\hbox`、`\raisebox`、`\vbox` 内部仍留下 marker。范围外观察：`x\uline{\mbox{\color{red}\fbox{}}中}x` 丢掉 `\CJKecglue`。
+- `cd3df6ae` 的修法：钩子先做全角左标点检查，入口仍为 `armed` 时照常检查 marker；核心 `\@@_boundary_last_box_end:n` 不取回
+  盒子的分支在本层没有观察到字符类别时也调用 `\@@_boundary_transparent_box_hook:`；`\@@_ulem_if_outside_box:nT` 在
+  `\xeCJK_if_ulem_patch:TF` 与 `\l_@@_ulem_onin_bool` 都为假时也返回假；`\g_@@_ulem_transparent_tail_bool` 因此删去；删去
+  `syntax-space-then-fbox-latin` 并写明语法空格一条只在入口前是西文时成立。机制见 architecture「正文先排出盒子、penalty、公式」
+  下的「`cd3df6ae` 的补修」。
+
+### 经验
+
+1. **给钩子加新的早退分支时，要确认原有分支里对共享状态的清理不会被跳过。** `fc73ba5e` 的全角左标点分支只处理“入口前是西文”
+   这一种情形，却用 `\bool_if:NTF` 把原有分支整个挡在外面；原有分支里删去 `ulem-transparent` marker、经
+   `\@@_ulem_transparent_clear:n` 清除入口这两步，在新分支的其余情形里都没有执行。新分支只改变部分情形时，应写成“先做新检查，
+   共享状态（这里是入口与 marker）没有变化时继续原有检查”，并对新分支不处理的每种情形确认原有清理仍然发生。
+2. **宽度用例在默认 glue 下可能碰巧通过。** 默认 `\CJKglue` 的自然宽度为 0，丢掉它只少伸长量：`中\uline{\fbox{}（中）}中` 在默认
+   选项下与直接输入等宽，`CJKglue={\hskip 1pt}` 时才看出差 1pt。默认 `\CJKecglue` 等于一个词间空格，“把空格画成装饰线”与
+   “删去空格再补一枚 `\CJKecglue`”总宽相同：`syntax-space-then-fbox-latin` 在默认选项下通过，`CJKecglue={\hskip 0.5em}` 下不等。
+   关键用例要用节点列表固定，或把 glue 设成可见、且不等于词间空格的宽度再比较。R16 经验 4 讲的是 0pt 可伸长 glue，本轮又一个
+   实例，并扩展到“两种 glue 默认宽度相等”这一种碰巧。
+3. **用状态条件取代专门的布尔量后，原来为特例设的布尔量成了冗余，变异测试能发现这一点。** 给 `\@@_ulem_if_outside_box:nT`
+   加上“patch 与 onin 布尔都为假”之后，内层正文分组结束后经 `\aftergroup` 执行的 `\reset@color` 已落在这个条件里，
+   `\g_@@_ulem_transparent_tail_bool` 要处理的情形不再出现。删去之前的变异结果（`tmp/i1091/fix2/mut18b.txt`）里，与它相关的
+   `tbegin-no-tail`、`tend-no-tail`、`tail-no-bool` 三项都不再被发现。一组相关变异同时不被发现时，先检查它们保护的代码是否已被
+   新代码覆盖；若是，应删去这段代码，而不是为保留它另造用例。删去后再用矩阵确认结果不变（11 个矩阵中留有 marker 的用例集合相同）。
+4. **等价变异要写明为什么等价。** `fullleft-flag-stuck`（不复位 `\l_@@_ulem_fullleft_bool`）没有被发现，理由是这个布尔量只在
+   `\@@_boundary_emit_left_hook:n` 里读取，而钩子只在入口为 `armed` 时起作用，第一次补左边界之后入口已不再是 `armed`。写出
+   理由所依赖的不变量，以后这个不变量改变时（例如钩子在入口 resolved 之后也要工作），就知道这项变异需要重新检查。
+5. **“各版本都不对”一类说法要列出实测过的版本。** 记录本轮缺口时，按 `tmp/i1091/fix2/r17rec.tex` 在六个版本上实测：
+   `x\uline{\hspace{0pt}\fbox{}中}x` 在 `ffe628f7` 与 `25dfa351` 上与直接输入一致，`c95027c5` 起才回到 v3.10.6 的值，不是“各版本
+   都不对”（`a0c39098` 进一步查明：没有盒子的 `x\uline{\hspace{0pt}中}x` 在所有版本上都不对，带 `\fbox` 的写法在
+   `ffe628f7` 上一致只是被 `\UL@stop` 掩盖，已修好）；`中\uline{（中）}中` 在 `CJKglue={\hskip 1pt}` 下的 51.0pt 对 52.0pt 只在分支提交上成立，v3.10.6 为 59.99pt。
+   提交说明里“17 项只由节点列表发现”按最后一次运行结果 `mut18c.txt` 核对是 16 项（R16 也有一次 20 项对 19 项）。数字与全称
+   说法都要回到最后一次运行的原始结果核对。
+
+### 验证
+
+- `fntef-entry-space01`：TEST 16 删去一项、新增 `mbox-color-fbox-then-cjk`，TEST 17 新增节点用例 `cjk-then-fbox-leftparen`、
+  `hbox-mbox-no-marker`、`hbox-color-no-marker`，全文件 334 项 PASS。逐项变异 82 项（`tmp/i1091/fix2/mutate18.py`，含三项核心
+  变异）中 81 项被发现，16 项只由节点列表发现（提交说明写 17 项，见上面第 5 条），`fullleft-flag-stuck` 为等价变异。
+- 提交说明记录：15 个探测矩阵在默认选项下相对 `fc73ba5e` 没有变化；rg 与 r16x 在 `CJKglue={\hskip 1pt}`、
+  `CJKecglue={\hskip 5pt}` 下相对 `21b6293d` 只有已登记的两项 `\fbox{\sout{\mbox{}（中}}` 写法不同。
+
+### 仍未覆盖（`cd3df6ae` 后）
+
+- 见 doc-gaps「与 v3.10.6 比对后的回退修复」一条下的「`cd3df6ae` 后新记下、仍未修的写法」：入口前是汉字、正文以语法空格开头再接
+  透明盒子；正文以语法空格开头的 `x\uline{ 中}x` 一类；`x\uline{\hspace{0pt}\fbox{}中}x`（`c95027c5` 起的回退，`a0c39098` 已修）；嵌套内层正文以
+  全角左标点开头时 marker 留在标点之前。
+
+### 可写入稳定文档的内容（R17）
+
+- **lessons-learned 候选**：新增早退分支时确认原有分支的共享状态清理不被跳过（第 1 条）；宽度用例要避开“默认 glue 为 0 或
+  两种 glue 默认等宽”造成的碰巧通过（第 2 条）；一组相关变异同时不被发现时先检查代码是否已冗余（第 3 条）。
+- **仅留在 memory**：等价变异写明理由与所依赖的不变量（第 4 条）；数字与全称说法回到原始结果核对（第 5 条，R16 同类实例）。
+- 已写入：architecture「`cd3df6ae` 的补修」、doc-gaps、build-and-test 的 `fntef-entry-space01` 一节。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1295,7 +1358,7 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `ulem-transparent` marker、`\g_@@_ulem_onin_transparent_bool` 与 `\l_@@_ulem_xecglue_bool`；R13 起还有
   `\@@_ulem_transparent_node_remove:`；`c95027c5` 起还有核心的 `\@@_boundary_transparent_box_hook:`，以及
   `\@@_ulem_transparent_mark:`、`\@@_ulem_level_check:`、`\@@_ulem_raw_box_check:n`、`\@@_ulem_if_last_content:`、
-  `\g_@@_ulem_transparent_tail_bool` 与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）；`fc73ba5e` 起还有核心的
+  `\g_@@_ulem_transparent_tail_bool`（`cd3df6ae` 删去）与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）；`fc73ba5e` 起还有核心的
   `\@@_boundary_transparent_box_begin_hook:`，以及 `\@@_ulem_transparent_begin:n`、`\@@_ulem_transparent_mark:n`（取代
   `\@@_ulem_transparent_mark:`）、`\@@_ulem_transparent_clear:n`、`\@@_ulem_fullleft_check:n`、`\l_@@_ulem_fullleft_bool`、
   `\@@_ulem_if_outside_box:nT` 与 `\@@_ulem_level_check_aux:`。
