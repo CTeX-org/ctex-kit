@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: b9f677731a5c9be367f8af8278c2f4e221fa5524
-- watermark-subject: docs: 删除 README 中 xpinyin 集成分支的临时说明
-- updated-at: 2026-09-27T05:11:54Z
-- updated-by: llmdoc-update skill (PR #1051 rebase、措辞修订与 Unihan 18.0 测试修复)
+- watermark-commit: b432ed1819b1b840bc2036574e1a07ab7336247f
+- watermark-subject: docs(llmdoc): 反思里用提交标题代替失效的提交号
+- updated-at: 2026-09-27T18:00:00Z
+- updated-by: llmdoc-update skill（补记 #366 `overlay` 负号基字符守卫，并核对近期提交）
