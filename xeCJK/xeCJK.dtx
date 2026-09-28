@@ -15742,7 +15742,10 @@ Copyright and Licence
 %     不为零，或末节点是规则（\tn{hspace*} 用零宽 \tn{vrule} 保住自己的
 %     间距），就算有宽度的内容；只含颜色 special、锚点等不可见节点的片段
 %     不算，这样首个字符前只有颜色切换时仍按原来的规则补左边界。
-%   \item \tn{UL@reskip} 把正文里的显式 glue 画成 leaders 之前，glue 不为零时。
+%   \item \tn{UL@reskip} 把正文里的显式 glue 画成 leaders 之前，glue 不为零时；
+%     glue 为零（\tn{hspace}\marg{0pt}）而入口没有源码空格时也解除入口。零宽的
+%     glue 不可见，但直接输入 |x{\hspace{0pt}中}x| 时它挡住 x 与“中”之间的类别
+%     转换，不补 \tn{CJKecglue}；入口有源码空格时这枚空格仍按首类别处理。
 % \end{itemize}
 % 两处都已位于片段盒子之外，所以直接排普通 glue。\pkg{ulem} 在词与词之间的
 % 语法空格不在这里判断：正文开头的语法空格若随后跟着字符，入口空格仍要按
@@ -15840,7 +15843,16 @@ Copyright and Licence
   {
     \@@_ulem_if_entry_armed:T
       {
-        \skip_if_eq:nnF { \UL@skip } { \c_zero_skip }
+        \skip_if_eq:nnTF { \UL@skip } { \c_zero_skip }
+          {
+            \tl_if_eq:cnF
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _space_flag_tl
+              }
+              { true }
+              { \@@_ulem_entry_resolve: }
+          }
           { \@@_ulem_entry_resolve: }
       }
   }
@@ -16002,7 +16014,7 @@ Copyright and Licence
 %   时，线型命令里 \tn{mbox} 等盒子和嵌套装饰中的词间空格按当前字体排出
 %   （\#1091）。}
 % \changes{v3.10.7}{2026/09/28}{命令前没有源码空格时，线型命令的正文以 \tn{fbox}、
-%   没有字符的 \tn{mbox} 或 \tn{nobreak} 开头，或第一个字符排在
+%   没有字符的 \tn{mbox}、\tn{nobreak} 或零宽的 \tn{hspace} 开头，或第一个字符排在
 %   \tn{phantom}、\tn{raisebox} 等原始盒子里时；嵌套命令之前的外层正文、兄弟装饰或内层正文先排出
 %   原始盒子、规则、\tn{special}、\tn{kern} 等内容时；外层正文以公式结束、后接嵌套
 %   命令时，左侧间距与直接输入一致（\#1091）。}
