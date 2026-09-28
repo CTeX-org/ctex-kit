@@ -35,7 +35,7 @@
 %     之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
 %     的盒子保留 \raise 位移。只比较总宽度分辨不出这些位置。
 %   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13、TEST 15、
-%     TEST 16），打印 PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
+%     TEST 16、TEST 18），打印 PASS／FAIL；装饰命令本身不增加宽度，所以两者必须相等。
 %   - 段末自然宽度（TEST 14）：把装饰放在段末，比较行内容的自然宽度与同一
 %     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
 % 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。各 TEST 的
@@ -746,6 +746,54 @@
   \EntryNodes{cjk-then-leftparen}{中\uline{（中}中}
   \EntryNodes{cjk-then-fbox-leftparen}{中\uline{\fbox{}（中}中}
   \EntryNodes{latin-ctrl-space-then-leftparen}{x\ \uline{（中}x}
+}
+
+% 命令前的源码空格不是紧跟在汉字之后（|\mbox{中} |、|{中} |、|前\ |、
+% |前{} |、|\mbox{x} |）时，直接输入在 \kern、\hspace*、~、规则等内容之前保留
+% 这枚空格；嵌套线型命令的内层正文先排出这些内容时同样保留（nested-*-then-kern
+% 至 nested-mbox-space-then-rule）。|前\ |、|前{} | 之后的空格直接输入在汉字之前
+% 也保留，|{中} |、|\mbox{中} | 之后的删去（nested-ctrl-space-then-cjk 至
+% nested-mbox-space-then-cjk）；汉字之前先有颜色命令或 \mbox 时，直接输入由它们
+% 开启检查，这枚空格同样删去（nested-ctrl-space-then-color-cjk、
+% nested-ctrl-space-then-mbox-cjk）；xCJKecglue 为真时直接输入两者都删去
+% （xecglue-nested-ctrl-space-then-cjk）。\CJKecglue 与空格不等宽时，保留的是空格
+% 本身（ecglue-* 两项）。入口保留空格、内层先有内容再写公式、
+% 后接汉字时，公式与汉字之间仍补 \CJKecglue（nested-*-then-math-cjk）。
+% 正文先排出内容、以公式结尾、命令后紧接汉字时，公式与汉字之间补 \CJKecglue
+% （*-then-math-end-cjk）。
+\TEST{entry space not right after a CJK character, and math at the end}{
+  \EntryWidth{nested-mbox-space-then-kern}{\mbox{中} \uline{\sout{\kern1pt中}} 后}{\mbox{中} {{\kern1pt中}} 后}
+  \EntryWidth{nested-group-space-then-hspace}
+    {{中} \uline{\sout{\hspace*{1em}中}} 后}{{中} {{\hspace*{1em}中}} 后}
+  \EntryWidth{nested-ctrl-space-then-kern}{前\ \uline{\sout{\kern1pt中}} 后}{前\ {{\kern1pt中}} 后}
+  \EntryWidth{nested-empty-group-space-then-tie}{前{} \uline{\sout{~中}} 后}{前{} {{~中}} 后}
+  \EntryWidth{nested-mbox-space-then-rule}
+    {\mbox{中} \CJKunderline{\CJKsout{\rule{1pt}{1pt}中}} 后}{\mbox{中} {{\rule{1pt}{1pt}中}} 后}
+  \EntryWidth{nested-ctrl-space-then-cjk}{前\ \uline{\sout{中}} 后}{前\ {{中}} 后}
+  \EntryWidth{nested-empty-group-space-then-cjk}{前{} \uline{\sout{中}} 后}{前{} {{中}} 后}
+  \EntryWidth{nested-mbox-space-then-cjk}{\mbox{中} \uline{\sout{中}} 后}{\mbox{中} {{中}} 后}
+  \EntryWidth{nested-ctrl-space-then-color-cjk}
+    {前\ \uline{\sout{\color{red}中}} 后}{前\ {{\color{red}中}} 后}
+  \EntryWidth{nested-ctrl-space-then-mbox-cjk}{前\ \uline{\sout{\mbox{中}中}} 后}{前\ {{\mbox{中}中}} 后}
+  \begingroup
+  \xeCJKsetup{xCJKecglue=true}
+  \EntryWidth{xecglue-nested-ctrl-space-then-cjk}{前\ \uline{\sout{中}} 后}{前\ {{中}} 后}
+  \endgroup
+  \begingroup
+  \xeCJKsetup{CJKecglue={\hskip 5pt}}
+  \EntryWidth{ecglue-nested-ctrl-space-then-latin}{前\ \uline{\sout{x}} 后}{前\ {{x}} 后}
+  \EntryWidth{ecglue-nested-mbox-space-then-kern}
+    {\mbox{中} \uline{\sout{\kern1pt中}} 后}{\mbox{中} {{\kern1pt中}} 后}
+  \endgroup
+  \EntryWidth{nested-mbox-latin-space-then-math-cjk}
+    {\mbox{x} \uline{\sout{\kern1pt$a$中}} 后}{\mbox{x} {{\kern1pt$a$中}} 后}
+  \EntryWidth{nested-group-space-then-math-cjk}
+    {{中} \uline{\sout{\kern1pt$a$中}} 后}{{中} {{\kern1pt$a$中}} 后}
+  \EntryWidth{kern-then-math-end-cjk}{x\uline{\kern1pt$a$}后}{x{\kern1pt$a$}后}
+  \EntryWidth{fbox-then-math-end-cjk}{x\uline{\fbox{}$a$}后}{x{\fbox{}$a$}后}
+  \EntryWidth{hspace-then-math-end-cjk}{中\CJKunderline{\hspace{1em}$a$}后}{中{\hspace{1em}$a$}后}
+  \EntryWidth{nested-kern-then-math-end-cjk}{x\uline{\sout{\kern1pt$a$}}后}{x{{\kern1pt$a$}}后}
+  \EntryWidth{kern-then-math-end-latin}{x\uline{\kern1pt$a$}x}{x{\kern1pt$a$}x}
 }
 
 \END
