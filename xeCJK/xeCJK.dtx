@@ -15380,11 +15380,14 @@ Copyright and Licence
 %   之后写公式、再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；
 %   嵌套线型命令的内层在命令前有源码空格、公式之前没有颜色命令或透明盒子时，
 %   公式之后接西文或以公式结尾的写法，命令前的空格也与直接输入一样处理（\#1091）。}
-% \changes{v3.10.7}{2026/09/28}{嵌套线型命令前的源码空格前面是分组结束、盒子
-%   或控制空格（不是紧跟在汉字之后），内层正文先排出 \tn{kern} 等内容、写公式、
-%   再接汉字时，公式与汉字之间与直接输入一样补上 \tn{CJKecglue}；以公式结尾、
-%   命令后紧接汉字时也是如此。\tn{CJKecglue} 与空格不等宽时，控制空格之后的
-%   这枚空格在内层接西文时按普通空格保留（\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{线型命令前的源码空格前面是分组结束、盒子或控制
+%   空格（不是紧跟在汉字之后）时：正文先排出 \tn{kern}、\tn{nobreak} 等内容再接
+%   汉字、\tn{mbox} 或颜色命令时，这枚空格与直接输入一样原样保留，排在装饰之前；
+%   正文先排出 \tn{kern} 等内容、再接嵌套命令且嵌套命令之后还有内容时，命令右侧
+%   的间距与直接输入一致；嵌套内层先排出 \tn{kern} 等内容、写公式、再接汉字，或
+%   以公式结尾、命令后紧接汉字时，公式与汉字之间与直接输入一样补上
+%   \tn{CJKecglue}；\tn{CJKecglue} 与空格不等宽时，控制空格之后的这枚空格在嵌套
+%   内层接西文时按普通空格保留（\#1091）。}
 % \changes{v3.10.5}{2026/07/28}{正文一律以字面记号进入 \pkg{ulem} 的参数：
 %   只有“公式加尾随源码空格”才重排，且重排也先拼装再一次展开，避免西文词
 %   右侧的 \tn{CJKecglue} 被关进固定宽度装饰片段盒而丢失收缩量（\#1026）。}
@@ -15471,6 +15474,7 @@ Copyright and Licence
         \bool_set_true:N \l_@@_ulem_stream_started_bool
         \skip_gzero:N \g_@@_ulem_pending_shrink_skip
         \skip_gzero:N \g_@@_ulem_lead_skip
+        \bool_gset_false:N \g_@@_ulem_space_defer_bool
         \bool_gset_false:N \g_@@_ulem_body_end_bool
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
         \@@_ulem_entry_arm:
@@ -15772,12 +15776,7 @@ Copyright and Licence
               { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
             \@@_if_last_math:TF
               { \@@_ulem_onin_entry_math:nn {#1} {#2} }
-              {
-                \bool_lazy_or:nnT
-                  { \l_@@_ulem_onin_bool }
-                  { \l_@@_ulem_onin_lead_bool }
-                  { \@@_ulem_onin_entry_keep:nn {#1} {#2} }
-              }
+              { \@@_ulem_onin_entry_keep:nn {#1} {#2} }
           }
       }
       { \@@_ulem_onin_entry_check:n {#1} }
@@ -15809,7 +15808,11 @@ Copyright and Licence
       \l_@@_ulem_entry_node_tl
       {
         \@@_ulem_if_last_content:TF
-          { \@@_ulem_entry_resolve:n {#1} }
+          {
+            \bool_if:NTF \l_@@_ulem_onin_bool
+              { \@@_ulem_entry_resolve:n {#1} }
+              { \@@_ulem_entry_defer:n {#1} }
+          }
           {
             \bool_lazy_all:nT
               {
@@ -15830,6 +15833,23 @@ Copyright and Licence
       }
   }
 \tl_const:Nn \c_@@_ulem_cjk_tl { CJK }
+\bool_new:N \g_@@_ulem_space_defer_bool
+\skip_new:N \g_@@_ulem_space_defer_skip
+\cs_new_protected:Npn \@@_ulem_entry_defer:n #1
+  {
+    \tl_gset:cn { g_@@_boundary_capture_#1_entry_tl } { resolved }
+    \bool_gset_true:N \g_@@_ulem_space_defer_bool
+    \skip_gset:Nn \g_@@_ulem_space_defer_skip
+      { \tl_use:c { g_@@_boundary_capture_#1_space_skip_tl } }
+  }
+\cs_new_protected:Npn \@@_ulem_space_defer_flush:
+  {
+    \bool_if:NT \g_@@_ulem_space_defer_bool
+      {
+        \bool_gset_false:N \g_@@_ulem_space_defer_bool
+        \skip_horizontal:N \g_@@_ulem_space_defer_skip
+      }
+  }
 \bool_new:N \l_@@_ulem_onin_tail_bool
 \cs_new_protected:Npn \@@_ulem_onin_entry_check:n #1
   {
@@ -15872,15 +15892,7 @@ Copyright and Licence
       }
   }
 \cs_new_protected:Npn \@@_ulem_onin_lead_check:
-  {
-    \@@_ulem_if_entry_armed:T
-      {
-        \bool_set_true:N \l_@@_ulem_onin_lead_bool
-        \@@_ulem_level_check:
-        \bool_set_false:N \l_@@_ulem_onin_lead_bool
-      }
-  }
-\bool_new:N \l_@@_ulem_onin_lead_bool
+  { \@@_ulem_if_entry_armed:T { \@@_ulem_level_check: } }
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
@@ -16007,6 +16019,7 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_ulem_entry_box:
   {
+    \@@_ulem_space_defer_flush:
     \@@_ulem_if_entry_armed:T
       {
         \dim_compare:nNnTF { \box_wd:N \UL@box } = \c_zero_dim
@@ -16063,17 +16076,30 @@ Copyright and Licence
       }
     \int_compare:nNnF { \UL@pe } = \c_zero_int
       {
-        \LA@penalty \UL@pe
         \@@_ulem_if_entry_armed:T
           {
-            \tl_if_eq:cnF
+            \tl_if_eq:cnTF
               {
                 g_@@_boundary_capture_\int_use:N
                 \g_@@_ulem_entry_depth_int _space_flag_tl
               }
               { true }
+              {
+                \tl_set:Ne \l_@@_ulem_entry_node_tl
+                  {
+                    \tl_use:c
+                      {
+                        g_@@_boundary_capture_\int_use:N
+                        \g_@@_ulem_entry_depth_int _before_tl
+                      }
+                  }
+                \clist_if_in:nVF { CJK-space , CJK-widow }
+                  \l_@@_ulem_entry_node_tl
+                  { \@@_ulem_entry_resolve: }
+              }
               { \@@_ulem_entry_resolve: }
           }
+        \LA@penalty \UL@pe
       }
     \UL@unegroup
   }
@@ -16329,25 +16355,27 @@ Copyright and Licence
 % 入口前是其他类别时（\cs{@@_ulem_onin_entry_keep:nn}），空格前面是分组结束、盒子、
 % 控制空格或西文（|{中} |、|\mbox{中} |、|前\ |、|\mbox{x} |）。直接输入在 \tn{kern}、
 % |~|、\tn{hspace*}、规则等内容之前原样保留这枚空格，所以末节点是这些内容时同样
-% 解除入口，由 \cs{@@_ulem_entry_resolve:n} 排出空格；否则第一个汉字按首类别把它
+% 解除入口、保留空格；否则第一个汉字按首类别把它
 % 换成 \tn{CJKglue}，|\mbox{中} \uline{\sout{\kern1pt中}} 后| 比直接输入少 3.33pt。
-% 空格排在这些内容之后、内层盒子里，位置与直接输入不同，总宽度相同。没有这些
+% 嵌套内层里空格排在这些内容之后、内层盒子里，位置与直接输入不同，总宽度相同。没有这些
 % 内容、第一个字符直接出现时，直接输入是否保留要看下一个字符会不会检查这枚空格：
 % 核心的 |space_check_flag| 为假（|前\ |、|前{} |）且 \opt{xCJKecglue} 为假时保留，
-% 这里同样解除入口，后接西文时也不换成 \tn{CJKecglue}；|{中} |、|\mbox{中} | 之后的
-% 空格由分组结束或盒子开启检查，仍按首类别处理。这一条只在第一个字符的钩子里
+% 这里同样解除入口（第一个字符正要排出，空格就排在它之前），后接西文时也不换成
+% \tn{CJKecglue}；|{中} |、|\mbox{中} | 之后的空格由分组结束或盒子开启检查，仍按
+% 首类别处理。这一条只在第一个字符的钩子里
 % 判断（首类别非空）：\cs{@@_ulem_level_check_aux:} 在颜色命令、\tn{mbox} 等开始时
 % 也会调用，这时直接输入由它们开启检查，汉字之前的空格同样删去。入口之后先有
 % 颜色命令等透明内容时（|前\ \uline{\textcolor{red}{\sout{中}}} 后|），第一个字符
 % 看到的是 |ulem-transparent| marker，也不走这里。
 %
-% 这两条只在嵌套链上判断：内层正文里（\cs{l_@@_ulem_onin_bool} 为真），或者外层
-% 正文先排出内容、随后进入嵌套命令时（\cs{@@_ulem_onin_lead_check:} 置
-% \cs{l_@@_ulem_onin_lead_bool}，|\mbox{中} \uline{\kern1pt\sout{中}} 后|）。后一种
-% 情形入口在外层片段盒子送出之前解除，空格排在 \tn{kern} 之后、外层装饰线之下，
-% 总宽度与直接输入相同。单层写法经 \cs{@@_ulem_level_check_aux:} 也会走到这里，
-% 但单层正文的片段盒子由 \tn{UL@stop} 送出，这时排出的空格同样会落在装饰线下；
-% 单层的入口空格按上文的规则处理，不在这里改。
+% 内层正文里（\cs{l_@@_ulem_onin_bool} 为真）末节点是内容时直接解除入口、排出
+% 空格，空格排在内层盒子里。外层正文里（单层正文，或外层正文先排出内容、再接
+% 嵌套命令、颜色命令或 \tn{mbox}：|\mbox{中} \uline{\kern1pt\sout{中}} 后|）这时
+% 还在片段盒子里，当场排出空格会落在装饰线之下；所以由 \cs{@@_ulem_entry_defer:n} 只把入口
+% 改为 |resolved|、记下空格，由 \cs{@@_ulem_entry_box:} 在 \tn{UL@stop} 送出这个片段
+% 盒子之前排出（\cs{@@_ulem_space_defer_flush:}），与正文以 \tn{hspace*} 开头时
+% 一样排在装饰之前。正文结束时 ulem 也经 \tn{UL@stop} 送出最后一个片段盒子，所以
+% 记下的空格总会在这里排出。
 %
 % 末节点是公式时（\cs{@@_ulem_onin_entry_math:nn}），按首类别处理会把入口空格
 % 换成间距排在公式之后、第一个字符之前，公式与汉字之间就没有 \tn{CJKecglue}：
@@ -16382,7 +16410,11 @@ Copyright and Licence
 %     |ulem-nest| marker（前一个兄弟装饰已在它的内层盒子里检查过）时不检查。
 %   \item 正文里的 penalty 在片段盒子末尾由 \tn{UL@stop} 取出、排到外层
 %     （|x\uline{\nobreak 中}x|）。入口没有源码空格时，\tn{UL@stop} 排出 penalty
-%     后就解除入口；有源码空格时仍按首类别处理，因为 penalty 不可见。
+%     后就解除入口；有源码空格、空格紧跟在汉字之后（|CJK-space|、|CJK-widow|）时
+%     仍按首类别处理，因为 penalty 不可见，直接输入 |前 {\nobreak 中}| 也删去这枚
+%     空格。空格前面是分组结束、盒子或控制空格时（|\mbox{中} \uline{\nobreak 中} 后|），
+%     直接输入的 \tn{nobreak} 挡住了源码空格检查，空格保留，这里也在排出 penalty
+%     之前解除入口，空格排在 penalty 之前。
 %   \item 第一个字符排在正文里的原始盒子中（|中\uline{\hbox{a}中}中|，以及
 %     \tn{phantom}、\tn{raisebox}、\tn{vbox}；嵌套装饰的内层正文里也是如此，
 %     \tn{UL@hrest} 在这些盒子里清除 \cs{l_@@_ulem_onin_bool}）。这时
