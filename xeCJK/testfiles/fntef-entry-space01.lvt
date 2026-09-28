@@ -144,10 +144,10 @@
 % 用户分组里的汉字或原始 \hbox 时也是如此：记下的空格要等关闭片段盒子本层的
 % \UL@stop 才排出，不能由用户分组里的 \UL@stop 排进片段盒子
 % （group-space-kern-then-textcolor 等）；正文先有颜色命令、再排出 \kern 时同样只记下
-% 空格（mbox-space-color-kern-then-nested、mbox-space-textcolor-kern-then-cjk）。
-% quad-mbox 的首字符
-% 在 \mbox 里，那里 ulem 已恢复 \ 的原义，左边界走普通 glue 通道；它同样
-% 不能在 \quad 与 x 之间补 \CJKecglue。
+% 空格（mbox-space-color-kern-then-nested、mbox-space-textcolor-kern-then-cjk）；
+% \hspace* 写在用户分组里时也是如此，以 ~ 写法为位置对照（group-fill、group-fill-tie）。
+% quad-mbox 的首字符在 \mbox 里，那里 ulem 已恢复 \ 的原义，左边界走普通 glue
+% 通道；它同样不能在 \quad 与 x 之间补 \CJKecglue。
 \TEST{source space goes before leading visible content}{
   \EntryNodes{box}{符 \CJKunderline{\usebox{\FillBox}} 后}
   \EntryNodes{hspace-star}{符 \CJKunderline{\hspace*{5pt}x} 后}
@@ -171,6 +171,8 @@
   \EntryNodes{group-space-kern-math-then-nested}{{中} \uline{\kern1pt$a$\sout{中}} 后}
   \EntryNodes{mbox-space-color-kern-then-nested}{\mbox{中} \uline{\color{red}\kern1pt\sout{中}} 后}
   \EntryNodes{mbox-space-textcolor-kern-then-cjk}{\mbox{中} \uline{\textcolor{red}{\kern1pt}中} 后}
+  \EntryNodes{group-fill}{前 \CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后}
+  \EntryNodes{group-fill-tie}{前~\CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后}
 }
 
 % 正文开头只有颜色 special 这类不可见节点时，首个字符仍按原规则决定左边界：
@@ -790,7 +792,11 @@
 % 入口空格同样保留（single-*-then-hbox、single-*-then-group 等）；分组之前没有先排出
 % 内容时，汉字前的空格与直接输入一样删去（single-mbox-space-then-group）。外层正文先排出
 % 内容、写公式、再接嵌套命令、分组或 \textcolor 时，公式与汉字之间照常补 \CJKecglue
-% （*-math-then-*）。
+% （*-math-then-*），公式与内层第一个字符之间隔着颜色命令或 \mbox、\fbox 时
+% 与直接输入一样不补（outer-*-math-then-nested-color 等）。用户分组里只有
+% \nobreak、\penalty0，或 \hspace{0pt} 写在用户分组里时，记下的空格同样排出
+% （group-*-penalty-only、group-*-hspace0-then-cjk）；不写分组时零宽 \hspace 之前的
+% 空格也保留（group-space-hspace0-ungrouped）。
 \TEST{entry space not right after a CJK character, and math at the end}{
   \EntryWidth{nested-mbox-space-then-kern}{\mbox{中} \uline{\sout{\kern1pt中}} 后}{\mbox{中} {{\kern1pt中}} 后}
   \EntryWidth{nested-group-space-then-hspace}
@@ -864,6 +870,23 @@
   \EntryWidth{single-latin-kern-then-group}{x\uline{\kern1pt{中}}x}{x{\kern1pt{中}}x}
   \EntryWidth{single-group-space-kern-math-then-group}{{中} \uline{\kern1pt{$a$中}} 后}{{中} {\kern1pt{$a$中}} 后}
   \EntryWidth{outer-group-space-kern-math-then-nested}{{中} \uline{\kern1pt$a$\sout{中}} 后}{{中} {\kern1pt$a${中}} 后}
+  \EntryWidth{outer-group-space-kern-math-then-nested-color}
+    {{中} \uline{\kern1pt$a$\sout{\color{red}中}} 后}{{中} {\kern1pt$a${\color{red}中}} 后}
+  \EntryWidth{outer-group-space-kern-math-then-nested-textcolor}
+    {{中} \uline{\kern1pt$a$\sout{\textcolor{red}{中}}} 后}{{中} {\kern1pt$a${\textcolor{red}{中}}} 后}
+  \EntryWidth{outer-mbox-space-kern-math-then-nested-mbox}
+    {\mbox{中} \uline{\kern1pt$a$\sout{\mbox{中}}} 后}{\mbox{中} {\kern1pt$a${\mbox{中}}} 后}
+  \EntryWidth{outer-group-space-kern-math-then-nested-fbox}
+    {{中} \uline{\kern1pt$a$\sout{\fbox{中}}} 后}{{中} {\kern1pt$a${\fbox{中}}} 后}
+  \EntryWidth{outer-latin-math-then-nested-color}{x\uline{$a$\sout{\color{red}中}}x}{x{$a${\color{red}中}}x}
+  \EntryWidth{outer-latin-math-then-nested-mbox}{x\uline{$a$\sout{\mbox{中}}}x}{x{$a${\mbox{中}}}x}
+  \EntryWidth{outer-group-space-kern-math-then-nested-leftparen}
+    {{中} \uline{\kern1pt$a$\sout{（中}}后}{{中} {\kern1pt$a${（中}}后}
+  \EntryWidth{group-nobreak-penalty-only}{{中} \uline{{\nobreak}} 后}{{中} {{\nobreak}} 后}
+  \EntryWidth{group-penalty0-penalty-only}{{中} \uline{{\penalty0}} 后}{{中} {{\penalty0}} 后}
+  \EntryWidth{mbox-group-nobreak-penalty-only}{\mbox{中} \uline{{\nobreak}}后}{\mbox{中} {{\nobreak}}后}
+  \EntryWidth{group-space-hspace0-then-cjk}{{中} \uline{{\hspace{0pt}中}} 后}{{中} {{\hspace{0pt}中}} 后}
+  \EntryWidth{group-space-hspace0-ungrouped}{{中} \uline{\hspace{0pt}中} 后}{{中} {\hspace{0pt}中} 后}
   \EntryWidth{single-group-space-kern-math-then-textcolor}
     {{中} \uline{\kern1pt$a$\textcolor{red}{中}} 后}{{中} {\kern1pt$a$\textcolor{red}{中}} 后}
   \EntryWidth{outer-mbox-space-kern-math-then-nested-latin}{\mbox{中} \uline{\kern1pt$a$\sout{中}}x}{\mbox{中} {\kern1pt$a${中}}x}

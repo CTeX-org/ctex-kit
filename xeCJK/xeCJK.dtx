@@ -14110,6 +14110,7 @@ Copyright and Licence
       \c_group_end_token
       \@@_boundary_capture_resume:
       \tex_unskip:D \tex_unskip:D \tex_unskip:D
+      \@@_ulem_space_defer_flush:
       \@@_ulem_lead_end:
       \xeCJK_ulem_right_skip:
     \xeCJK_ulem_group_end:
@@ -15384,12 +15385,12 @@ Copyright and Licence
 %   空格（不是紧跟在汉字之后）时：正文先排出 \tn{kern}、\tn{nobreak} 等内容再接
 %   汉字、\tn{mbox}、颜色命令、嵌套命令、用户分组或 \tn{textbf} 等字体命令，或
 %   第一个字符在 \tn{hbox}、\tn{raisebox} 等原始盒子里时，这枚空格与直接输入一样
-%   原样保留，排在装饰之前；正文先排出
-%   \tn{kern} 等内容、写公式、再接嵌套命令或用户分组时，公式与汉字之间与直接输入
-%   一样补上 \tn{CJKecglue}；嵌套内层先排出 \tn{kern} 等内容、写公式、再接汉字，或
-%   以公式结尾、命令后紧接汉字时，公式与汉字之间与直接输入一样补上
-%   \tn{CJKecglue}；\tn{CJKecglue} 与空格不等宽时，控制空格之后的这枚空格在嵌套
-%   内层接西文时按普通空格保留（\#1091）。}
+%   原样保留，排在装饰之前，正文里的 \tn{hspace*} 写在用户分组里时也是如此；外层
+%   正文先排出 \tn{kern} 等内容、写公式、再接嵌套命令或用户分组，或嵌套内层先排出
+%   \tn{kern} 等内容、写公式、再接汉字或以公式结尾、命令后紧接汉字时，公式与汉字
+%   之间与直接输入一样补上 \tn{CJKecglue}，公式与汉字之间隔着颜色命令或 \tn{mbox}
+%   等盒子时不补；\tn{CJKecglue} 与空格不等宽时，控制空格之后的这枚空格在嵌套内层
+%   接西文时按普通空格保留（\#1091）。}
 % \changes{v3.10.5}{2026/07/28}{正文一律以字面记号进入 \pkg{ulem} 的参数：
 %   只有“公式加尾随源码空格”才重排，且重排也先拼装再一次展开，避免西文词
 %   右侧的 \tn{CJKecglue} 被关进固定宽度装饰片段盒而丢失收缩量（\#1026）。}
@@ -15600,8 +15601,19 @@ Copyright and Licence
     \@@_ulem_nest_mark:
   }
 \bool_new:N \l_@@_ulem_onin_enter_bool
+\bool_new:N \l_@@_ulem_onin_lead_marker_bool
+\cs_new_protected:Npn \@@_ulem_lead_marker_drop:
+  {
+    \bool_if:NT \l_@@_ulem_onin_lead_marker_bool
+      {
+        \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool
+        \xeCJK_if_last_node:nT { math }
+          { \tex_unkern:D \tex_unkern:D }
+      }
+  }
 \cs_gset_protected:Npn \@@_boundary_emit_left_hook:nn #1#2
   {
+    \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool
     \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
       {
         \bool_if:NT \l_@@_ulem_fullleft_bool
@@ -15683,11 +15695,31 @@ Copyright and Licence
       }
   }
 \cs_gset_protected:Npn \@@_boundary_transparent_begin_hook:
-  { \@@_ulem_transparent_begin:n { 0 } }
+  {
+    \@@_ulem_lead_marker_drop:
+    \@@_ulem_transparent_begin:n { 0 }
+  }
 \cs_gset_protected:Npn \@@_boundary_transparent_box_begin_hook:
   { \@@_ulem_transparent_begin:n { 1 } }
 \cs_gset_protected:Npn \@@_boundary_last_box_begin_hook:
   {
+    \bool_if:NT \l_@@_ulem_onin_lead_marker_bool
+      {
+        \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _before_tl
+          }
+          { math }
+          {
+            \tl_gclear:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _before_tl
+              }
+          }
+      }
     \@@_ulem_if_entry_armed:T
       {
         \@@_ulem_if_outside_box:nT { 1 }
@@ -15937,6 +15969,9 @@ Copyright and Licence
 \bool_new:N \l_@@_ulem_onin_lead_bool
 \cs_new_protected:Npn \@@_ulem_onin_lead_put:
   {
+    \str_if_eq:VnTF \l_@@_ulem_onin_lead_tl { math }
+      { \bool_set_true:N \l_@@_ulem_onin_lead_marker_bool }
+      { \bool_set_false:N \l_@@_ulem_onin_lead_marker_bool }
     \tl_if_empty:NF \l_@@_ulem_onin_lead_tl
       {
         \exp_args:NV \xeCJK_make_node:n \l_@@_ulem_onin_lead_tl
@@ -16083,6 +16118,37 @@ Copyright and Licence
       }
   }
 \bool_new:N \l_@@_ulem_skip_plain_bool
+\cs_new_protected:Npn \@@_ulem_entry_resolve_here:
+  {
+    \cs_if_eq:NNTF \UL@start \@empty
+      {
+        \tl_set:Ne \l_@@_ulem_entry_node_tl
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _before_tl
+              }
+          }
+        \tl_if_eq:cnTF
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_ulem_entry_depth_int _space_flag_tl
+          }
+          { true }
+          {
+            \clist_if_in:nVTF { math-space , math-space-frozen }
+              \l_@@_ulem_entry_node_tl
+              { \@@_ulem_entry_resolve: }
+              {
+                \exp_args:NV \@@_ulem_entry_defer:n
+                  \g_@@_ulem_entry_depth_int
+              }
+          }
+          { \@@_ulem_entry_resolve: }
+      }
+      { \@@_ulem_entry_resolve: }
+  }
 \cs_new_protected:Npn \@@_ulem_entry_skip:
   {
     \bool_set_false:N \l_@@_ulem_skip_plain_bool
@@ -16096,10 +16162,24 @@ Copyright and Licence
                 \g_@@_ulem_entry_depth_int _space_flag_tl
               }
               { true }
-              { \bool_set_true:N \l_@@_ulem_skip_plain_bool }
+              {
+                \bool_set_true:N \l_@@_ulem_skip_plain_bool
+                \tl_set:Ne \l_@@_ulem_entry_node_tl
+                  {
+                    \tl_use:c
+                      {
+                        g_@@_boundary_capture_\int_use:N
+                        \g_@@_ulem_entry_depth_int _before_tl
+                      }
+                  }
+                \clist_if_in:nVF
+                  { CJK-space , CJK-widow , math-space , math-space-frozen }
+                  \l_@@_ulem_entry_node_tl
+                  { \@@_ulem_entry_resolve_here: }
+              }
               { \@@_ulem_entry_resolve: }
           }
-          { \@@_ulem_entry_resolve: }
+          { \@@_ulem_entry_resolve_here: }
       }
   }
 \cs_set_protected:Npn \UL@stop
@@ -16140,14 +16220,7 @@ Copyright and Licence
                   }
                 \clist_if_in:nVF { CJK-space , CJK-widow }
                   \l_@@_ulem_entry_node_tl
-                  {
-                    \cs_if_eq:NNTF \UL@start \@empty
-                      {
-                        \exp_args:NV \@@_ulem_entry_defer:n
-                          \g_@@_ulem_entry_depth_int
-                      }
-                      { \@@_ulem_entry_resolve: }
-                  }
+                  { \@@_ulem_entry_resolve_here: }
               }
               { \@@_ulem_entry_resolve: }
           }
@@ -16432,9 +16505,13 @@ Copyright and Licence
 % \cs{@@_ulem_entry_box:} 据此什么都不做，空格留给片段盒子本层的 \tn{UL@stop}；
 % 若在这里排出，空格就落进片段盒子、两个汉字之间
 % （|{中} \CJKunderline{\kern1em\textcolor{red}{中中}\kern1em} 后|）。
-% \tn{UL@stop} 从这类分组的片段末尾取出 penalty 时同样只记下空格
-% （|\mbox{中} \uline{{\nobreak 中}} 后|）。正文结束时 ulem 也经 \tn{UL@stop} 送出
-% 最后一个片段盒子，所以记下的空格总会在片段盒子本层排出。
+% \tn{UL@stop} 从这类分组的片段末尾取出 penalty（|\mbox{中} \uline{{\nobreak 中}} 后|），
+% 以及 \tn{UL@reskip} 在这类分组里画显式 glue 时
+% （|前 \CJKunderline{\textbf{\hspace*{1em}xx\hspace*{1em}}} 后|），同样只记下空格
+% （\cs{@@_ulem_entry_resolve_here:}）。片段盒子本层的 \tn{UL@stop} 在片段盒子为空时
+% 不调用 \cs{@@_ulem_entry_box:}，正文最后一个片段又常常是空的
+% （|{中} \uline{{\nobreak}} 后|），所以 \cs{@@_ulem_end:} 关闭最后一个片段盒子之后
+% 再排出一次仍记着的空格。
 %
 % 末节点是公式时（\cs{@@_ulem_onin_entry_math:nn}），按首类别处理会把入口空格
 % 换成间距排在公式之后、第一个字符之前，公式与汉字之间就没有 \tn{CJKecglue}：
@@ -16447,15 +16524,19 @@ Copyright and Licence
 % （|\mbox{x} \uline{\sout{\kern1pt$a$中}} 后|）。外层正文里（单层正文先排出内容、
 % 写公式，再接用户分组、嵌套命令等：|{中} \uline{\kern1pt$a$\sout{中}} 后|）同样
 % 记下空格、排在装饰之前，第一个字符是汉字时补的这一枚间距仍排在公式之后。
-% 内层正文以公式结尾时
-% （\cs{@@_ulem_onin_tail_check:} 置 \cs{l_@@_ulem_onin_tail_bool}，
-% |{中} \uline{\sout{\kern1pt$a$}}后|），还不知道后面是什么，就在空格之后补一个
-% |math| marker，由内层盒子之后的字符按公式后的类别转换处理。外层正文先排出内容、
-% 写公式、再接嵌套命令时（\cs{@@_ulem_onin_lead_check:} 置
-% \cs{l_@@_ulem_onin_lead_bool}）也是如此：这时还没有进入内层，直接补
-% \tn{CJKecglue} 会排在外层，内层第一个字符的左边界又补一枚；改为放 |math| marker，
-% 由 \cs{@@_ulem_onin_lead_get:n} 带进内层，内层第一个字符按公式之后的类别转换
-% 补 \tn{CJKecglue}。入口之后先有颜色命令、
+% 内层正文以公式结尾时（\cs{@@_ulem_onin_tail_check:} 置
+% \cs{l_@@_ulem_onin_tail_bool}，|{中} \uline{\sout{\kern1pt$a$}}后|），还不知道后面是
+% 什么，就在空格之后补一个 |math| marker，由内层盒子之后的字符按公式后的类别转换
+% 处理。外层正文先排出内容、写公式、再接嵌套命令时（\cs{@@_ulem_onin_lead_check:} 置
+% \cs{l_@@_ulem_onin_lead_bool}）也是如此：这时还没有进入内层，直接补 \tn{CJKecglue}
+% 会排在外层，内层第一个字符的左边界又补一枚；改为放 |math| marker，由
+% \cs{@@_ulem_onin_lead_get:n} 带进内层，内层第一个字符按公式之后的类别转换补
+% \tn{CJKecglue}。直接输入时公式与汉字之间若先有颜色命令或 \tn{mbox}、\tn{fbox}
+% 等盒子，就不补这枚间距（|x$a$\textcolor{red}{中}x|）；所以带进内层的这个 marker
+% 只管紧跟着的第一个字符：内层先遇到颜色命令时，颜色命令开始的钩子删去它；先遇到
+% 以 last 方式捕获的盒子时，盒子开始的钩子把盒子 capture 记下的 |math| 类别清空
+% （\cs{l_@@_ulem_onin_lead_marker_bool}，|{中} \uline{\kern1pt$a$\sout{\mbox{中}}} 后|）。
+% 入口之后先有颜色命令、
 % 透明盒子放下的 marker 时（\cs{g_@@_ulem_onin_transparent_bool} 为真）仍走上面的
 % 检查，|前 \uline{\sout{\color{red}$a$中}} 后| 一类尚未处理。
 %
@@ -16497,9 +16578,8 @@ Copyright and Licence
 %     空格前面不是紧跟汉字（|{中} \uline{\kern1pt\hbox{中}}后|、
 %     |前\ \uline{\hbox{中}}后|）时，直接输入的原始盒子同样挡住源码空格检查，空格
 %     保留，这里也记下空格，排在装饰之前；空格紧跟在汉字之后时仍按首类别处理。
-%     首类别是公式时
-%     不这样做：\pkg{ulem} 排公式时 \cs{xeCJK_if_ulem_patch:TF} 同样为假，但直接输入
-%     时汉字与公式之间有 \tn{CJKecglue}（|中\uline{$a$中}中|）。
+%     首类别是公式时不这样做：\pkg{ulem} 排公式时 \cs{xeCJK_if_ulem_patch:TF} 同样
+%     为假，但直接输入时汉字与公式之间有 \tn{CJKecglue}（|中\uline{$a$中}中|）。
 % \end{itemize}
 % 这几处都只检查一次：入口层已经有首类别时，\cs{@@_ulem_level_check:} 不再检查。
 % 首类别出现、框架为排左边界 glue 调用 \tn{UL@stop} 时，关闭片段盒子会执行颜色命令
