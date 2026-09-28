@@ -588,13 +588,29 @@
 % 规则处理，内层正文以公式加空格结尾、走重排分支时也是如此；单层正文只覆盖透明
 % 盒子、\nobreak、第一个字符排在原始盒子里与公式这几种情形（单层正文以零宽的
 % \hbox{}、\special 开头、前面是西文时仍多一枚间距，v3.10.6 同样如此）。线型命令
-% 在 \mbox 里量装饰线深度时排出的 (j 不能成为盒子的首类别。命令前是汉字加空格、
+% 在 \mbox 里量装饰线深度时排出的 (j 不能成为盒子的首类别。透明盒子之后以全角左
+% 标点开头、透明盒子之前已有 \kern 等内容或开头语法空格时，按直接输入不补
+% \CJKecglue；命令前是西文、正文以全角左标点开头时也是如此。正文里的 \fbox、\mbox
+% 等盒子内部的内容只影响这个盒子，不解除外层命令的入口。命令前是汉字加空格、
 % 嵌套装饰的内层正文先排出 \hspace* 等内容时，入口空格按 TEST 2 保留，填空线与
 % ~ 写法等宽（以 -tie 结尾的用例以 ~ 写法为 oracle）。
 \TEST{leading boxes, penalties and math before the first character}{
   \EntryWidth{fbox-then-cjk}{x\uline{\fbox{}中}x}{x{\fbox{}中}x}
   \EntryWidth{fbox-then-latin}{中\uline{\fbox{}x}中}{中{\fbox{}x}中}
   \EntryWidth{mbox-hspace-then-cjk}{x\uline{\mbox{\hspace{1em}}中}x}{x{\mbox{\hspace{1em}}中}x}
+  \EntryWidth{fbox-then-leftparen}{x\uline{\fbox{}（中}x}{x{\fbox{}（中}x}
+  \EntryWidth{fbox-then-leftquote}{x\uline{\fbox{}“x”}x}{x{\fbox{}“x”}x}
+  \EntryWidth{cjkul-fbox-then-leftparen}{x\CJKunderline{\fbox{}（中}x}{x{\fbox{}（中}x}
+  \EntryWidth{latin-then-leftparen}{x\uline{（中}x}{x{（中}x}
+  \EntryWidth{latin-then-color-leftparen}{x\uline{\color{red}（中}x}{x{\color{red}（中}x}
+  \EntryWidth{latin-ctrl-space-then-leftparen}{x\ \uline{（中}x}{x\ {（中}x}
+  \EntryWidth{kern-then-fbox}{x\uline{\kern1pt\fbox{}中}x}{x{\kern1pt\fbox{}中}x}
+  \EntryWidth{hbox-then-fbox}{x\uline{\hbox{}\fbox{}中}x}{x{\hbox{}\fbox{}中}x}
+  \EntryWidth{special-then-fbox}{x\uline{\special{x}\fbox{}中}x}{x{\special{x}\fbox{}中}x}
+  \EntryWidth{kern-then-mbox}{x\uline{\kern1pt\mbox{}中}x}{x{\kern1pt\mbox{}中}x}
+  \EntryWidth{syntax-space-then-fbox}{x\uline{ \fbox{}中}x}{x{ \fbox{}中}x}
+  \EntryWidth{syntax-space-then-fbox-latin}{中\uline{ \fbox{}x}中}{中{ \fbox{}x}中}
+  \EntryWidth{fbox-then-fbox}{x\uline{\fbox{}\fbox{}中}x}{x{\fbox{}\fbox{}中}x}
   \EntryWidth{hbox-then-cjk}{中\uline{\hbox{a}中}中}{中{\hbox{a}中}中}
   \EntryWidth{phantom-then-latin}{中\uline{\phantom{a}x}中}{中{\phantom{a}x}中}
   \EntryWidth{raisebox-then-cjk}{中\uline{\raisebox{1pt}{a}中}中}{中{\raisebox{1pt}{a}中}中}
@@ -640,12 +656,20 @@
   \EntryWidth{mbox-cjkul-cjk}{x\mbox{\CJKunderline{中}}}{x\mbox{中}}
   \EntryWidth{fbox-uline-cjk}{x\fbox{\uline{中}}}{x\fbox{中}}
   \EntryWidth{mbox-nested-cjk-spaced}{前 x\mbox{\uline{\sout{中}}} 后}{前 x\mbox{中} 后}
+  \EntryWidth{fbox-nested-in-body}{x\uline{\fbox{\sout{中}}}x}{x{\fbox{中}}x}
+  \EntryWidth{fbox-nested-in-body-latin}{中\uline{\fbox{\sout{x}}}中}{中{\fbox{x}}中}
+  \EntryWidth{mbox-kern-nested-in-body}{x\uline{\mbox{\kern1pt\sout{中}}}x}{x{\mbox{\kern1pt 中}}x}
+  \EntryWidth{mbox-tie-nested-in-body}{x\uline{\mbox{~\sout{中}}}x}{x{\mbox{~中}}x}
+  \EntryWidth{mbox-special-nested-in-body}{x\uline{\mbox{\special{x}\sout{中}}}x}{x{\mbox{\special{x}中}}x}
+  \EntryWidth{fbox-kern-color-in-body}{x\uline{\fbox{\kern1pt\textcolor{red}{中}}}x}{x{\fbox{\kern1pt\textcolor{red}{中}}}x}
 }
 
 % 为标记颜色 whatsit 与透明盒子放下的零宽 marker，在第一个字符出现、片段盒子关闭
-% （包括盒子末尾是 penalty 时）或正文结束时删去；第一个字符出现之后（例如片段盒子
-% 关闭时执行的 \reset@color）不再放。兄弟装饰只有颜色时，内层分组结束时的
-% \reset@color 也不在内层盒子里留下 marker。
+% （包括盒子末尾是 penalty 时）或正文结束时删去；正文里的 \mbox 等盒子内部不放；
+% 第一个字符出现之后（例如片段盒子关闭时执行的 \reset@color）不再放。兄弟装饰只有
+% 颜色时，内层分组结束时的 \reset@color 也不在内层盒子里留下 marker。正文以全角左
+% 标点开头时，透明盒子留下的 marker 同样删去；汉字与标点之间的 \CJKglue、命令前的
+% 源码空格保留在原处（后两项用节点列表固定 \CJKglue 与空格的位置）。
 \TEST{no transparent marker left in a decoration}{
   \EntryNodes{single-color-no-marker}{x\uline{\color{red}中}x}
   \EntryNodes{single-color-spaced-no-marker}{前 \uline{\color{red}中} 后}
@@ -656,6 +680,10 @@
   \EntryNodes{single-color-only-no-marker}{x\uline{\color{red}}x}
   \EntryNodes{single-fbox-only-no-marker}{x\uline{\fbox{}}x}
   \EntryNodes{sibling-color-only-no-marker}{x\uline{\sout{\color{red}}\sout{中}}x}
+  \EntryNodes{mbox-color-no-marker}{x\uline{\mbox{\color{red}\hspace{1em}中}}x}
+  \EntryNodes{fbox-leftparen-no-marker}{x\uline{\fbox{}（中}x}
+  \EntryNodes{cjk-then-leftparen}{中\uline{（中}中}
+  \EntryNodes{latin-ctrl-space-then-leftparen}{x\ \uline{（中}x}
 }
 
 \END

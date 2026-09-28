@@ -4591,6 +4591,7 @@ Copyright and Licence
 %   \@@_boundary_capture_emit_left:nn,
 %   \@@_boundary_pop_node:N,
 %   \@@_boundary_box_end_transparent:n,
+%   \@@_boundary_transparent_box_begin_hook:,
 %   \@@_boundary_transparent_box_hook:,
 %   \@@_boundary_emit_left:nn,
 %   \@@_boundary_emit_left:nnn,
@@ -5172,7 +5173,7 @@ Copyright and Licence
 % 见 \cs{@@_boundary_inline_stream_end:n}。其他 capture 不会出现 |content|。
 %
 % \cs{@@_boundary_emit_left_hook:n} 在补左边界之前调用，参数是 capture 层号；
-% 默认什么都不做，\pkg{xeCJKfntef} 用它在嵌套装饰里改写 |entry|（\#1091）。
+% 默认什么都不做，\pkg{xeCJKfntef} 用它在线型命令的正文里改写 |entry|（\#1091）。
 %    \begin{macrocode}
 \cs_new_eq:NN \@@_boundary_emit_left_hook:n \use_none:n
 \cs_new_protected:Npn \@@_boundary_capture_emit_left:nn #1#2
@@ -5421,7 +5422,7 @@ Copyright and Licence
 %    \end{macrocode}
 % \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
 % 在水平模式的 transparent 命令前后调用，默认什么都不做；\pkg{xeCJKfntef} 用它们在
-% 嵌套装饰里区分颜色等透明命令排出的 whatsit（\#1091）。
+% 线型命令的正文里区分颜色等透明命令排出的 whatsit（\#1091）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_begin:
   {
@@ -6167,12 +6168,15 @@ Copyright and Licence
     \int_gdecr:N \g_@@_boundary_capture_depth_int
   }
 %    \end{macrocode}
-% 盒子里没有观察到字符类别、按透明盒子排出时，排出盒子后调用
-% \cs{@@_boundary_transparent_box_hook:}，默认什么都不做。\pkg{xeCJKfntef} 用它在
-% 线型命令的正文里标记这个盒子对边界透明，与未注册的 \tn{hbox} 区分（\#1091）。
+% 盒子里没有观察到字符类别、按透明盒子排出时，排出盒子之前调用
+% \cs{@@_boundary_transparent_box_begin_hook:}，之后调用
+% \cs{@@_boundary_transparent_box_hook:}，默认都什么都不做。\pkg{xeCJKfntef} 用前者
+% 检查盒子之前已排出的内容，用后者在线型命令的正文里标记这个盒子对边界透明，与
+% 未注册的 \tn{hbox} 区分（\#1091）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_box_end_transparent:n #1
   {
+    \@@_boundary_transparent_box_begin_hook:
     \str_if_eq:nnTF {#1} { wrapped }
       {
         \hbox_unpack_drop:c
@@ -6191,6 +6195,7 @@ Copyright and Licence
     \@@_boundary_transparent_box_hook:
     \@@_boundary_replay_before:
   }
+\cs_new_eq:NN \@@_boundary_transparent_box_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_box_hook: \prg_do_nothing:
 
 \cs_new_protected:Npn \@@_boundary_replay_before:
@@ -14803,7 +14808,9 @@ Copyright and Licence
   {
     \xeCJK_if_ulem_patch:TF
       {
+        \bool_set_true:N \l_@@_ulem_fullleft_bool
         \@@_boundary_capture_class:n { CJK }
+        \bool_set_false:N \l_@@_ulem_fullleft_bool
         \UL@stop
         \@@_ulem_lead_draw:
         \@@_ulem_skip_punct_begin:
@@ -15486,24 +15493,44 @@ Copyright and Licence
   {
     \tl_if_eq:cnT { g_@@_boundary_capture_#1_entry_tl } { armed }
       {
-        \xeCJK_if_last_node:nTF { ulem-transparent }
+        \bool_if:NTF \l_@@_ulem_fullleft_bool
+          { \@@_ulem_fullleft_check:n {#1} }
           {
-            \tex_unkern:D \tex_unkern:D
-            \bool_if:NF \l_@@_ulem_onin_bool
+            \xeCJK_if_last_node:nTF { ulem-transparent }
               {
-                \tl_if_eq:cnF
-                  { g_@@_boundary_capture_#1_space_flag_tl } { true }
-                  { \tl_gclear:c { g_@@_boundary_capture_#1_entry_tl } }
+                \tex_unkern:D \tex_unkern:D
+                \bool_if:NF \l_@@_ulem_onin_bool
+                  { \@@_ulem_transparent_clear:n {#1} }
+              }
+              {
+                \bool_if:NTF \l_@@_ulem_onin_bool
+                  { \@@_ulem_onin_entry_check_space:n {#1} }
+                  {
+                    \xeCJK_if_ulem_patch:TF { }
+                      { \@@_ulem_raw_box_check:n {#1} }
+                  }
               }
           }
-          {
-            \bool_if:NTF \l_@@_ulem_onin_bool
-              { \@@_ulem_onin_entry_check_space:n {#1} }
-              {
-                \xeCJK_if_ulem_patch:TF { }
-                  { \@@_ulem_raw_box_check:n {#1} }
-              }
-          }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_transparent_clear:n #1
+  {
+    \tl_if_eq:cnF { g_@@_boundary_capture_#1_space_flag_tl } { true }
+      {
+        \skip_if_eq:nnT { \g_@@_ulem_lead_skip } { \c_zero_skip }
+          { \tl_gclear:c { g_@@_boundary_capture_#1_entry_tl } }
+      }
+  }
+\bool_new:N \l_@@_ulem_fullleft_bool
+\cs_new_protected:Npn \@@_ulem_fullleft_check:n #1
+  {
+    \tl_if_eq:cnF { g_@@_boundary_capture_#1_space_flag_tl } { true }
+      {
+        \tl_set:Ne \l_@@_ulem_entry_node_tl
+          { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+        \clist_if_in:nVT { default , default-space }
+          \l_@@_ulem_entry_node_tl
+          { \@@_ulem_entry_resolve:n {#1} }
       }
   }
 \cs_new_protected:Npn \@@_ulem_raw_box_check:n #1
@@ -15523,14 +15550,21 @@ Copyright and Licence
       }
   }
 \cs_gset_protected:Npn \@@_boundary_transparent_begin_hook:
+  { \@@_ulem_transparent_begin:n { 0 } }
+\cs_gset_protected:Npn \@@_boundary_transparent_box_begin_hook:
+  { \@@_ulem_transparent_begin:n { 1 } }
+\cs_new_protected:Npn \@@_ulem_transparent_begin:n #1
   {
     \@@_ulem_if_entry_armed:T
       {
-        \xeCJK_if_last_node:nTF { ulem-transparent }
-          { \tex_unkern:D \tex_unkern:D }
+        \@@_ulem_if_outside_box:nT {#1}
           {
-            \bool_if:NF \g_@@_ulem_transparent_tail_bool
-              { \@@_ulem_level_check: }
+            \xeCJK_if_last_node:nTF { ulem-transparent }
+              { \tex_unkern:D \tex_unkern:D }
+              {
+                \bool_if:NF \g_@@_ulem_transparent_tail_bool
+                  { \@@_ulem_level_check_aux: }
+              }
           }
       }
   }
@@ -15539,26 +15573,30 @@ Copyright and Licence
     \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
       {
         \bool_if:NF \g_@@_ulem_transparent_tail_bool
-          { \@@_ulem_transparent_mark: }
+          { \@@_ulem_transparent_mark:n { 0 } }
       }
   }
-\cs_new_protected:Npn \@@_ulem_transparent_mark:
+\cs_gset_protected:Npn \@@_boundary_transparent_box_hook:
+  { \@@_ulem_transparent_mark:n { 1 } }
+\cs_new_protected:Npn \@@_ulem_transparent_mark:n #1
   {
     \@@_ulem_if_entry_armed:T
       {
-        \tl_if_empty:cT
+        \@@_ulem_if_outside_box:nT {#1}
           {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_ulem_entry_depth_int _first_tl
-          }
-          {
-            \bool_gset_true:N \g_@@_ulem_onin_transparent_bool
-            \exp_args:Nc \@@_make_node:N
-              { c_@@_ulem-transparent_node_dim }
+            \tl_if_empty:cT
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_ulem_entry_depth_int _first_tl
+              }
+              {
+                \bool_gset_true:N \g_@@_ulem_onin_transparent_bool
+                \exp_args:Nc \@@_make_node:N
+                  { c_@@_ulem-transparent_node_dim }
+              }
           }
       }
   }
-\cs_gset_eq:NN \@@_boundary_transparent_box_hook: \@@_ulem_transparent_mark:
 \cs_new_protected:Npn \@@_ulem_transparent_node_remove:
   {
     \xeCJK_if_last_node:nT { ulem-transparent }
@@ -15567,7 +15605,24 @@ Copyright and Licence
 \xeCJK_declare_node:n { ulem-transparent }
 \bool_new:N \g_@@_ulem_onin_transparent_bool
 \bool_new:N \g_@@_ulem_transparent_tail_bool
+\bool_new:N \l_@@_ulem_outside_box_bool
+\prg_new_protected_conditional:Npnn \@@_ulem_if_outside_box:n #1 { T }
+  {
+    \bool_set_true:N \l_@@_ulem_outside_box_bool
+    \int_step_inline:nnn
+      { \g_@@_ulem_entry_depth_int + 1 }
+      { \g_@@_boundary_capture_depth_int - #1 }
+      {
+        \tl_if_eq:cnT { g_@@_boundary_capture_##1_kind_tl } { box }
+          { \bool_set_false:N \l_@@_ulem_outside_box_bool }
+      }
+    \bool_if:NTF \l_@@_ulem_outside_box_bool
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
 \cs_new_protected:Npn \@@_ulem_level_check:
+  { \@@_ulem_if_outside_box:nT { 0 } { \@@_ulem_level_check_aux: } }
+\cs_new_protected:Npn \@@_ulem_level_check_aux:
   {
     \tl_if_empty:cT
       {
@@ -15916,7 +15971,12 @@ Copyright and Licence
 %   \@@_ulem_onin_tail_glue:,
 %   \@@_ulem_onin_tail_check:,
 %   \@@_ulem_onin_entry_check_space:n,
-%   \@@_ulem_transparent_mark:,
+%   \@@_ulem_transparent_mark:n,
+%   \@@_ulem_transparent_begin:n,
+%   \@@_ulem_transparent_clear:n,
+%   \@@_ulem_fullleft_check:n,
+%   \@@_ulem_if_outside_box:n,
+%   \@@_ulem_level_check_aux:,
 %   \@@_ulem_transparent_node_remove:,
 %   \@@_ulem_onin_lead_check:,
 %   \@@_ulem_level_check:,
@@ -15936,11 +15996,11 @@ Copyright and Licence
 %   内层正文开头的空格、不断行空格等内容也按直接输入处理；打开 \opt{CJKspace}
 %   时，线型命令里 \tn{mbox} 等盒子和嵌套装饰中的词间空格按当前字体排出
 %   （\#1091）。}
-% \changes{v3.10.7}{2026/09/28}{线型命令的正文以 \tn{fbox}、没有字符的 \tn{mbox}
-%   或 \tn{nobreak} 开头，或第一个字符排在 \tn{phantom}、\tn{raisebox} 等原始盒子里时；
-%   嵌套命令之前的外层正文、兄弟装饰或内层正文先排出原始盒子、规则、\tn{special}、\tn{kern}
-%   等内容时；外层正文以公式结束、后接嵌套命令时，左侧间距与直接输入一致
-%   （\#1091）。}
+% \changes{v3.10.7}{2026/09/28}{命令前没有源码空格时，线型命令的正文以 \tn{fbox}、
+%   没有字符的 \tn{mbox} 或 \tn{nobreak} 开头，或第一个字符排在
+%   \tn{phantom}、\tn{raisebox} 等原始盒子里时；嵌套命令之前的外层正文、兄弟装饰或内层正文先排出
+%   原始盒子、规则、\tn{special}、\tn{kern} 等内容时；外层正文以公式结束、后接嵌套
+%   命令时，左侧间距与直接输入一致（\#1091）。}
 % 右边界通常由正文末尾的 marker 决定：\cs{xeCJK_ulem_right:} 把它移到外层
 % 列表，stream end 读出末类别。正文最后一个字符之后若还有别的内容，末尾就
 % 没有 marker，stream end 只能退回 capture 观察到的最后一个字符类别，于是按
@@ -16072,21 +16132,48 @@ Copyright and Licence
 % 留下的 \tn{reset@color}，这时入口还没有清除，但不能再按末节点解除入口
 % （|符 \uline{\color{red}中} 后|）。
 %
+% 这些检查只看入口层所在的列表：外层片段盒子、嵌套链上的内层盒子，以及颜色等透明
+% 命令的分组。正文里写 |\fbox{\sout{中}}|、|\mbox{\kern1pt\sout{中}}| 时，
+% \cs{@@_ulem_onin_lead_get:n} 在 \tn{fbox}、\tn{mbox} 的盒子 capture 里执行，末节点是
+% 这个盒子里的 \tn{fboxsep} kern 或 \tn{kern}，它们只影响盒子本身；若据此解除外层
+% 入口，外层西文与盒子之间的 \tn{CJKecglue} 就会丢失。因此
+% \cs{@@_ulem_if_outside_box:nT} 检查入口层与当前层之间是否有 |box| 类的 capture 层，
+% 有则 \cs{@@_ulem_level_check:} 与透明命令的钩子都不检查，也不放 |ulem-transparent|
+% marker。嵌套链上的左边界钩子不需要这一检查：\tn{mbox}、\tn{fbox} 等盒子开头的
+% \tn{UL@hrest} 清除 \cs{l_@@_ulem_onin_bool}，盒子里的内层命令也不会再把它置真。参数是要跳过的层数：透明盒子的两个钩子在盒子
+% capture 结束、层号减一之前调用，跳过正在结束的这一层。这时左边界 glue 仍按以前的
+% 方式排在盒子里第一个字符之前，宽度与直接输入相同，位置在盒子里而不在盒子外。
+%
 % whatsit 中只有 transparent 命令（颜色的 \tn{set@color} 与 \tn{reset@color} 等）
 % 排出的不算内容：直接输入时它们对边界透明，|x{\textcolor{red}{中}}x| 两侧都有
 % 间距，而 \tn{special}、\tn{label} 排出的 whatsit 不透明。核心在 transparent
 % 命令前后调用 \cs{@@_boundary_transparent_begin_hook:} 与
 % \cs{@@_boundary_transparent_end_hook:}。前者先检查此前排出的内容，与第一个字符
 % 出现时的检查相同，使 |\special{x}\textcolor{red}{中}| 仍按内容处理；后者在入口仍为
-% |armed| 时、命令排出 whatsit 之后由 \cs{@@_ulem_transparent_mark:} 放一个
+% |armed| 时、命令排出 whatsit 之后由 \cs{@@_ulem_transparent_mark:n} 放一个
 % |ulem-transparent| marker，第一个字符出现时钩子看到这个 marker 就删去它，不再检查
 % 末节点。注册的盒子命令里没有观察到字符类别时（|\fbox{}|、|\mbox{\hspace{1em}}|），
 % 核心排出盒子后调用 \cs{@@_boundary_transparent_box_hook:}，同样放这个 marker：
 % 直接输入 |x{\fbox{}中}x| 时盒子透明，x 与“中”之间仍补 \tn{CJKecglue}，排在盒子
-% 之后。单层装饰里第一个字符看到这个 marker 时，入口没有源码空格就同时清除入口状态：
-% 框架随后为排左边界 glue 调用 \tn{UL@stop}，入口若仍为 |armed|，片段盒子里的这个
-% 盒子会被当作有宽度的内容解除入口，glue 就不排了。入口有源码空格时不清除，
-% \tn{UL@stop} 把入口空格排在盒子之前，与 |符 \uline{\hspace*{1em}中} 后| 一样。
+% 之后。排出盒子之前，核心调用 \cs{@@_boundary_transparent_box_begin_hook:}，与颜色
+% 命令的 begin 钩子一样先检查此前排出的内容，|x\uline{\kern1pt\fbox{}中}x| 因此在
+% \tn{kern} 处就解除入口，不再放 marker。
+%
+% 单层装饰里第一个字符看到这个 marker 时，由 \cs{@@_ulem_transparent_clear:n} 同时
+% 清除入口状态：框架随后为排左边界 glue 调用 \tn{UL@stop}，入口若仍为 |armed|，片段
+% 盒子里的这个盒子会被当作有宽度的内容解除入口，glue 就不排了。入口有源码空格时
+% 不清除，\tn{UL@stop} 把入口空格排在盒子之前，与 |符 \uline{\hspace*{1em}中} 后|
+% 一样。正文以语法空格开头时（|x\uline{ \fbox{}中}x|）也不清除：这段空格已经记在
+% \cs{g_@@_ulem_lead_skip} 里，要画成装饰线，直接输入里它挡在 x 与盒子之间，不补
+% \tn{CJKecglue}；\tn{UL@stop} 解除入口后补画这段线，glue 也就不排了。
+%
+% 正文的首个字符是全角左标点时（|x\uline{（中）}x|、|x\uline{\fbox{}（中）}x|），
+% \cs{@@_ulem_Boundary_and_FullLeft_glue:N} 把它作为 |CJK| 报告给 capture，框架于是
+% 按“西文后接汉字”补 \tn{CJKecglue}。直接输入时西文与全角左标点之间没有这枚间距，
+% 标点的左侧空白另由标点规则决定。因此报告期间置 \cs{l_@@_ulem_fullleft_bool}，
+% 入口没有源码空格、入口前是西文（|default| 或 |default-space| marker）时，
+% \cs{@@_ulem_fullleft_check:n} 解除入口，不补左边界。入口前是汉字或有源码空格时
+% 不改动，仍按首类别处理。透明盒子留下的 marker 由随后的 \tn{UL@stop} 删去。
 %
 % marker 仍在列表末尾时，下一个透明命令开始前先删去上一个，\tn{UL@onin} 读外层
 % 末尾之前、\tn{UL@stop} 关闭片段盒子之前（先取下末尾的 penalty）、正文结束检查
@@ -16102,8 +16189,8 @@ Copyright and Licence
 %
 % 入口有源码空格、正文先排出颜色命令再排出 |~| 等内容时
 % （|符 \uline{\sout{\color{red}~中}} 后|），直接输入的入口空格先遇到的是透明命令，
-% 后面的内容仍算正文开头的内容，所以这种情况下按 \cs{@@_ulem_onin_entry_check:n}
-% 检查，不按上文删去入口空格。
+% 后面的内容仍算正文开头的内容，所以这种情况下也按 \cs{@@_ulem_onin_entry_check:n}
+% 检查。
 % \cs{g_@@_ulem_onin_transparent_bool} 记录入口之后是否排出过透明命令，跟随入口
 % 的生命周期：\cs{@@_ulem_entry_arm:} 清零，外层正文、中间层与前一个兄弟装饰里的
 % 颜色命令都会设置它，|符 \uline{\color{red}\sout{~中}} 后| 与
