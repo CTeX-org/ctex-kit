@@ -1829,9 +1829,12 @@ Copyright and Licence
 % 的长度，也可以在空白中间放一个盒子或规则，标出题号或占位符号。命令前的源码空格
 % 看正文怎样开头，命令后的源码空格看正文怎样结尾：正文以空白、规则、\tn{usebox}
 % 等原始盒子或没有字符的盒子开头，命令前的空格就按普通空格保留在线的前面；正文以
-% 它们结尾，命令后的空格也按普通空格保留在线的后面。只有空白的填空线两端都属于这种情况，所以命令两侧各写一个
-% 空格，线的两侧就各留一个词间空格；两侧都不写空格，线就紧贴前后的文字。填空线
-% 因此左右对称，间距与把命令前的空格换成~|~| 时相同。
+% 它们结尾，命令后的空格也按普通空格保留在线的后面。只有空白的填空线两端都属于
+% 这种情况，所以命令两侧各写一个空格，线的两侧就各留一个词间空格；两侧都不写
+% 空格，线就紧贴前后的文字。填空线因此左右对称，间距与把命令前的空格换成~|~|
+% 时相同。正文只有 \tn{makebox}、\tn{fbox} 等没有字符的盒子、两侧都不写空格时，
+% 这些盒子与直接输入一样不挡住两侧文字之间的间距：前后一边是西文、一边是汉字时，
+% 线的后面仍补一枚 \tn{CJKecglue}，例如 |x\CJKunderline{\makebox[3em]{}}后|。
 %
 % \begin{Example}[frame=single,numbers=left,gobble=4]
 %   今天是 \CJKunderline{\hspace*{3em}} 年 \CJKunderline{\hspace*{2em}} 月\\
@@ -1859,13 +1862,19 @@ Copyright and Licence
 %   \item 正文开头或结尾只有颜色切换等不产生宽度的命令时，它们不算空白或盒子，
 %     命令两侧的空格仍由相邻的字符决定。
 %   \item \tn{mbox}、\tn{fbox}、\tn{makebox} 等盒子里有字符时，按其中的字符处理，
-%     与直接输入相同：|第 \CJKunderline{\makebox[4em]{答案}} 题| 的两个空格与直接
-%     输入 |第 {\makebox[4em]{答案}} 题| 一样都不出现。定宽盒子里是西文时
-%     （|\makebox[4em]{3}|），命令前补的间距会排进盒子、被盒子的伸缩空白吸收，线的
-%     左侧因此比右侧少一个空格。需要对称时，用 \tn{hspace*} 包住题号（如上面第一个
-%     示例的第~3 行），或把命令前的空格写成~|~|。
-%   \item 线型命令相互嵌套、内层正文先有空白再有汉字时，例如
-%     |前 \uline{\sout{\hspace*{2em}中}} 后|，命令前的空格仍按汉字之间的规则删去。
+%     与直接输入相同。下面第一行的两个空格与直接输入（第二行）一样都不出现：
+%     \begin{verbatim}
+%     第 \CJKunderline{\makebox[4em]{答案}} 题
+%     第 {\makebox[4em]{答案}} 题
+%     \end{verbatim}
+%     定宽盒子里是西文时（|\makebox[4em]{3}|），命令前补的间距会排进盒子、被盒子的
+%     伸缩空白吸收，线的左侧因此比右侧少一个空格。需要对称时，用 \tn{hspace*} 包住
+%     题号（如上面第一个示例的第~3 行），或把命令前的空格写成~|~|。
+%   \item 线型命令相互嵌套、内层正文先有空白再有汉字时，命令前的空格仍按汉字之间
+%     的规则删去，例如
+%     \begin{verbatim}
+%     前 \uline{\sout{\hspace*{2em}中}} 后
+%     \end{verbatim}
 %     需要对称时，改用单层命令或把命令前的空格写成~|~|。
 %   \item 花括号内部开头的空格属于正文，会画成线的一部分，例如上面第一个示例的
 %     第~4 行。命令前的空格仍排在整条线的前面，线不会从中间断开。
@@ -4561,6 +4570,7 @@ Copyright and Licence
 %   \@@_boundary_hmode_transparent_end:,
 %   \@@_boundary_transparent_begin_hook:,
 %   \@@_boundary_transparent_end_hook:,
+%   \@@_boundary_resolved_end_hook:,
 %   \@@_boundary_post_transparent:,
 %   \@@_boundary_post_transparent_relocate:,
 %   \@@_boundary_post_transparent_relocate_glue:,
@@ -5422,7 +5432,9 @@ Copyright and Licence
 % 就不再重放入口 marker（\#1091）。这时正文右端若是公式（|x\uline{\kern1pt$a$}后|：
 % 公式不在正文开头，没有报告首类别，结尾时确认了末类别 |math|），仍重放
 % |math| marker，后面的汉字与直接输入一样补 \tn{CJKecglue}；其他情形正文右端
-% 不是 marker 能代表的字符，不重放。
+% 不是 marker 能代表的字符，不重放，只调用 \cs{@@_boundary_resolved_end_hook:}。
+% 这个钩子默认什么都不做；\pkg{xeCJKfntef} 在线型命令的正文只有注册盒子时用它
+% 重放入口 marker（\#1091）。
 %    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
@@ -5433,8 +5445,9 @@ Copyright and Licence
               }
               { resolved }
               {
-                \str_if_eq:VnT \l_@@_boundary_last_tl { math }
+                \str_if_eq:VnTF \l_@@_boundary_last_tl { math }
                   { \@@_boundary_replay_node:n { math } }
+                  { \@@_boundary_resolved_end_hook: }
               }
               { \@@_boundary_replay_before: }
           }
@@ -5487,6 +5500,7 @@ Copyright and Licence
   }
 \cs_new_eq:NN \@@_boundary_transparent_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_end_hook: \prg_do_nothing:
+\cs_new_eq:NN \@@_boundary_resolved_end_hook: \prg_do_nothing:
 
 \cs_new_protected:Npn \@@_boundary_post_transparent:
   {
@@ -14130,6 +14144,8 @@ Copyright and Licence
     \xeCJK_ulem_right_node:
     \@@_ulem_tail_punct_end:
     \@@_boundary_inline_stream_end:n { auto }
+    \tl_gclear:N \g_@@_ulem_box_entry_tl
+    \bool_gset_false:N \g_@@_ulem_box_only_bool
     \int_gzero:N \g_@@_ulem_entry_depth_int
     \bool_gset_false:N \g_@@_ulem_body_end_bool
     \bool_set_false:N \l_@@_ulem_stream_started_bool
@@ -15552,6 +15568,8 @@ Copyright and Licence
         \skip_gzero:N \g_@@_ulem_lead_skip
         \tl_gclear:N \g_@@_ulem_lead_box_tl
         \tl_gclear:N \g_@@_ulem_lead_drop_tl
+        \tl_gclear:N \g_@@_ulem_box_entry_tl
+        \bool_gset_false:N \g_@@_ulem_box_only_bool
         \bool_gset_false:N \g_@@_ulem_space_defer_bool
         \bool_gset_false:N \g_@@_ulem_body_end_bool
         \@@_boundary_inline_stream_begin:nn { auto } { stream-ulem }
@@ -15831,7 +15849,11 @@ Copyright and Licence
 \cs_gset_protected:Npn \@@_boundary_transparent_end_hook:
   {
     \int_compare:nNnT { \tex_lastnodetype:D } = { 9 }
-      { \@@_ulem_transparent_mark:n { 0 } }
+      {
+        \bool_if:NT \g_@@_ulem_box_only_bool
+          { \tl_gclear:N \g_@@_ulem_box_only_tl }
+        \@@_ulem_transparent_mark:n { 0 }
+      }
   }
 \tl_new:N \g_@@_ulem_lead_box_tl
 \tl_new:N \g_@@_ulem_lead_drop_tl
@@ -15845,6 +15867,7 @@ Copyright and Licence
         \tl_gset:Ne \g_@@_ulem_lead_drop_tl
           { \int_eval:n { \g_@@_boundary_capture_depth_int - 1 } }
       }
+    \@@_ulem_box_only_note:
     \@@_ulem_transparent_mark:n { 1 }
   }
 \cs_new_protected:Npn \@@_ulem_transparent_mark:n #1
@@ -16111,12 +16134,25 @@ Copyright and Licence
 %   \@@_ulem_entry_box:,
 %   \@@_ulem_entry_skip:,
 %   \l_@@_ulem_skip_plain_bool,
+%   \g_@@_ulem_box_entry_tl,
+%   \g_@@_ulem_box_only_bool,
+%   \g_@@_ulem_box_only_tl,
+%   \l_@@_ulem_box_only_box,
+%   \@@_ulem_box_dims:N,
+%   \@@_ulem_box_only_record:,
+%   \@@_ulem_box_only_note:,
+%   \@@_ulem_box_only_nest:,
+%   \@@_ulem_box_only_stop:,
+%   \@@_ulem_box_entry_set:,
 %   \UL@stop,
 %   \UL@reskip}
 % \changes{v3.10.7}{2026/09/26}{线型命令的正文在第一个字符之前就排出有宽度
 %   的内容（盒子、规则、显式 glue 等）时，命令前的源码空格排在装饰之前，
 %   不再移到装饰之后；这时也不再在这段内容与第一个字符之间补左边界
 %   间距（\#1091）。}
+% \changes{v3.10.7}{2026/09/29}{线型命令的正文只有 \tn{fbox}、\tn{makebox} 等
+%   没有字符的盒子、命令两侧都不写空格时，命令两侧的西文与汉字之间与直接输入一样
+%   补 \tn{CJKecglue}（\#1091）。}
 % capture 入口会先取下命令前的源码空格，等看到正文的首个字符类别再决定
 % 左边界放什么 glue。直接输入 |符 x| 或 |符 中| 时这样做是对的：首类别决定
 % 这枚空格保留、换成 \tn{CJKecglue} 还是删去。但填空线一类的正文常常先排
@@ -16160,6 +16196,29 @@ Copyright and Licence
 %
 % \cs{g_@@_ulem_entry_depth_int} 记录这个 |stream-ulem| 所在的 capture 层号，
 % 由 \cs{@@_ulem_end:} 清零；下文的末尾判断也用它找到本层。
+%
+% 正文只有注册的盒子、没有字符时（|x\CJKunderline{\makebox[3em]{}}后|，嵌套命令
+% 的内层只有这类盒子时也一样），直接输入 |x{\makebox[3em]{}}后| 里盒子对边界透明，
+% x 与“后”之间补 \tn{CJKecglue}。线型命令里，这个盒子有宽度，\tn{UL@stop} 送出
+% 片段时解除入口；正文没有字符，首类别一直为空，结束时入口已是 |resolved|，框架
+% 不再重放入口 marker，后面的“后”看不到 x，少补一枚 \tn{CJKecglue}（\#1091）。
+% 以前结束符 |*| 被当成西文字符，才碰巧补上。
+%
+% 因此首类别为空、入口仍为 |armed| 时，透明盒子的钩子调用
+% \cs{@@_ulem_box_only_note:}，在 \cs{g_@@_ulem_box_only_tl} 记下刚排出的盒子的
+% 宽度、高度和深度；嵌套命令的内层盒子排进外层片段后，\cs{@@_ulem_box_only_nest:}
+% 改记这个内层盒子。\tn{UL@stop} 关闭片段时，\cs{@@_ulem_box_only_stop:} 检查
+% 片段的末节点：它是记下的那个盒子，或是颜色命令在盒子之后留下的 whatsit，而且
+% 入口没有源码空格、正文开头也没有语法空格，就在 \cs{g_@@_ulem_box_entry_tl} 记下
+% 本层层号。只比较尺寸是为了排除 \tn{rule} 这类不经注册、同样排出一个盒子的命令
+% （|x\uline{\fbox{}\rule{1em}{1pt}}后|），尺寸碰巧相同时仍会误判。末节点是 whatsit
+% 时，只接受盒子命令自己（\tn{colorbox}）或包住盒子的颜色命令（\tn{textcolor}）
+% 结束时留下的：前者的钩子看到的末节点就不是盒子，没有记下尺寸；后者由透明命令
+% 结束的钩子清空记下的尺寸。盒子之后用户自己写的 \tn{special} 则不接受
+% （|x\uline{\fbox{}\special{x}}后|）。之后正文里再有
+% glue、语法空格或别的有宽度的片段，就清除这个层号。结束时框架调用
+% \cs{@@_boundary_resolved_end_hook:}，层号相同就重放入口 marker。未注册的
+% \tn{hbox}、\tn{usebox} 在直接输入里不透明，不走这里。
 %
 % \tn{UL@stop} 除插入这些判断、补画开头语法空格的装饰线，以及下文的删去
 % |ulem-transparent| marker、排出 penalty 后解除入口外，与 \pkg{ulem}
@@ -16241,7 +16300,99 @@ Copyright and Licence
               }
               { \@@_ulem_entry_resolve: }
           }
+        \dim_compare:nNnF { \box_wd:N \UL@box } = \c_zero_dim
+          {
+            \bool_if:NF \g_@@_ulem_box_only_bool
+              { \tl_gclear:N \g_@@_ulem_box_entry_tl }
+          }
       }
+  }
+\tl_new:N \g_@@_ulem_box_entry_tl
+\bool_new:N \g_@@_ulem_box_only_bool
+\tl_new:N \g_@@_ulem_box_only_tl
+\box_new:N \l_@@_ulem_box_only_box
+\cs_new:Npn \@@_ulem_box_dims:N #1
+  { \dim_use:N \box_wd:N #1 , \dim_use:N \box_ht:N #1 , \dim_use:N \box_dp:N #1 }
+\cs_new_protected:Npn \@@_ulem_box_only_record:
+  {
+    \box_set_to_last:N \l_@@_ulem_box_only_box
+    \tl_gset:Ne \g_@@_ulem_box_only_tl
+      { \@@_ulem_box_dims:N \l_@@_ulem_box_only_box }
+    \box_use_drop:N \l_@@_ulem_box_only_box
+  }
+\cs_new_protected:Npn \@@_ulem_box_only_note:
+  {
+    \@@_ulem_if_entry_armed:T
+      {
+        \tl_if_empty:cT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_ulem_entry_depth_int _first_tl
+          }
+          {
+            \bool_gset_true:N \g_@@_ulem_box_only_bool
+            \int_compare:nNnTF { \tex_lastnodetype:D } = { 1 }
+              { \@@_ulem_box_only_record: }
+              { \tl_gclear:N \g_@@_ulem_box_only_tl }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_box_only_nest:
+  {
+    \bool_if:NT \g_@@_ulem_box_only_bool
+      {
+        \int_compare:nNnT { \tex_lastnodetype:D } = { 1 }
+          { \@@_ulem_box_only_record: }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_box_only_stop:
+  {
+    \bool_if:NT \g_@@_ulem_box_only_bool
+      {
+        \int_case:nnF { \tex_lastnodetype:D }
+          {
+            { 1 }
+              {
+                \box_set_to_last:N \l_@@_ulem_box_only_box
+                \str_if_eq:eeF
+                  { \@@_ulem_box_dims:N \l_@@_ulem_box_only_box }
+                  { \g_@@_ulem_box_only_tl }
+                  { \bool_gset_false:N \g_@@_ulem_box_only_bool }
+                \box_use_drop:N \l_@@_ulem_box_only_box
+              }
+            { 9 }
+              {
+                \tl_if_empty:NF \g_@@_ulem_box_only_tl
+                  { \bool_gset_false:N \g_@@_ulem_box_only_bool }
+              }
+          }
+          { \bool_gset_false:N \g_@@_ulem_box_only_bool }
+        \bool_if:NT \g_@@_ulem_box_only_bool
+          { \@@_ulem_if_entry_armed:T { \@@_ulem_box_entry_set: } }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_box_entry_set:
+  {
+    \tl_if_eq:cnF
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_ulem_entry_depth_int _space_flag_tl
+      }
+      { true }
+      {
+        \skip_if_eq:nnT { \g_@@_ulem_lead_skip } { \c_zero_skip }
+          {
+            \tl_gset:Ne \g_@@_ulem_box_entry_tl
+              { \int_use:N \g_@@_ulem_entry_depth_int }
+          }
+      }
+  }
+\cs_gset_protected:Npn \@@_boundary_resolved_end_hook:
+  {
+    \str_if_eq:eeT
+      { \g_@@_ulem_box_entry_tl }
+      { \int_use:N \g_@@_boundary_capture_depth_int }
+      { \@@_boundary_replay_before: }
   }
 \bool_new:N \l_@@_ulem_skip_plain_bool
 \cs_new_protected:Npn \@@_ulem_entry_resolve_here:
@@ -16313,6 +16464,7 @@ Copyright and Licence
     \tex_global:D \UL@pe \tex_lastpenalty:D
     \tex_unpenalty:D
     \@@_ulem_transparent_node_remove:
+    \@@_ulem_box_only_stop:
     \int_compare:nNnF { \UL@pe } = \c_zero_int
       { \@@_ulem_tail_content: }
     \int_compare:nNnTF { \tex_lastkern:D } = { 3 }
@@ -16356,11 +16508,13 @@ Copyright and Licence
           }
         \LA@penalty \UL@pe
       }
+    \bool_gset_false:N \g_@@_ulem_box_only_bool
     \UL@unegroup
   }
 \cs_set_protected:Npn \UL@reskip
   {
     \UL@stop
+    \tl_gclear:N \g_@@_ulem_box_entry_tl
     \skip_if_eq:nnTF { \UL@skip } { \c_zero_skip }
       { \@@_ulem_tail_left_content: }
       { \@@_ulem_tail_content: }
@@ -16410,6 +16564,7 @@ Copyright and Licence
     \bool_if:NTF \g_@@_ulem_body_end_bool
       { \UL@leaders }
       {
+        \tl_gclear:N \g_@@_ulem_box_entry_tl
         \@@_ulem_if_entry_armed:TF
           { \skip_gadd:Nn \g_@@_ulem_lead_skip { \UL@skip } }
           { \@@_ulem_lead_flush: \UL@leaders }
@@ -17109,6 +17264,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_ulem_nest_mark:
   {
     \bool_set_false:N \l_@@_ulem_nest_punct_bool
+    \@@_ulem_box_only_nest:
     \int_compare:nNnT { \g_@@_ulem_entry_depth_int } > \c_zero_int
       {
         \xeCJK_if_ulem_patch:TF

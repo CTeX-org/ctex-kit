@@ -30,17 +30,20 @@
 %     装饰线在两者之间断开。
 %
 % 判据分三类：
-%   - 节点列表（TEST 1、2、3、8、11、12、17）：固定 glue 与装饰的相对位置。命令前的
-%     空格必须出现在第一个 \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）
-%     之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
+%   - 节点列表（TEST 1、2、3、8、11、12、17，以及 TEST 18、19 里的 \EntryNodes
+%     用例）：固定 glue 与装饰的相对位置。命令前的空格必须出现在第一个
+%     \rule(*+*)x0.0 \penalty 10000 \cleaders（ulem 片段）之前；正文开头的语法空格画成的 \cleaders 在入口空格之后；嵌套装饰之后
 %     的盒子保留 \raise 位移。只比较总宽度分辨不出这些位置。
-%   - 与直接输入比较宽度（TEST 4 到 TEST 7、TEST 9、TEST 10、TEST 13、TEST 15、
-%     TEST 16、TEST 18、TEST 19），打印 PASS／FAIL；装饰命令本身不增加宽度，所以两者
-%     必须相等。
+%   - 与直接输入比较宽度（TEST 2、TEST 3 各一项，TEST 4 到 TEST 7、TEST 9、TEST 10、
+%     TEST 13、TEST 15、TEST 16、TEST 18 到 TEST 20），打印 PASS／FAIL；装饰命令本身不
+%     增加宽度，所以两者必须相等。TEST 16 的 nested-issue-fill-tie、
+%     nested-fill-only-tie、nested-box-only-tie、three-level-issue-fill-tie 例外：
+%     它们以命令两侧写 ~ 的装饰形式为 oracle，因为命令前空格保留是既定设计，与
+%     直接输入不等宽。
 %   - 段末自然宽度（TEST 14）：把装饰放在段末，比较行内容的自然宽度与同一
 %     内容的 \hbox，确认段末删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue。
-% 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。各 TEST 的
-% 标签互不相同（TEST 13 以 cfr- 开头），看 PASS／FAIL 行即可知道出处。
+% 节点列表的每个用例单独输出一页，页前的 CASE 行标明它是哪一个。全文件的
+% 标签互不相同（TEST 13 以 cfr- 开头），看 PASS／FAIL 或 CASE 行即可知道出处。
 % 每个用例之后都检查 capture 栈、暂停深度和 #1091 的入口状态已经归零。
 
 \newsavebox{\FillBox}
@@ -752,12 +755,15 @@
 % 兄弟装饰只有颜色时，内层分组结束时的 \reset@color 也不在内层盒子里留下 marker。
 % 正文以全角左标点开头时，透明盒子留下的 marker 同样删去；汉字与标点之间的
 % \CJKglue、命令前的源码空格保留在原处（cjk-then-leftparen、
-% cjk-then-fbox-leftparen、latin-ctrl-space-then-leftparen 用节点列表固定
-% \CJKglue 与空格的位置）。
+% cjk-then-fbox-leftparen、latin-ctrl-space-then-leftparen-nodes 用节点列表
+% 固定 \CJKglue 与空格的位置）。
 % 前一个透明盒子的 marker 由后一个盒子结束时的钩子删去（fbox-fbox-no-marker）；
 % \mbox 里有颜色命令、不取回盒子时删不到，零宽的 marker 压在盒子之下。以汉字结尾
 % 的盒子后接全角左标点时，盒子之后的 CJK marker 删去，\CJKglue 画在标点之前
 % （mbox-cjk-leftparen-no-marker）。
+% single-fbox-only-no-marker 的装饰之后有一个 default marker：它是命令前 x 的
+% marker，正文只有盒子时在结束时重放，与直接输入 x{\fbox{}}x 相同，不是透明
+% marker（见 TEST 20）。
 \TEST{no transparent marker left in a decoration}{
   \EntryNodes{single-color-no-marker}{x\uline{\color{red}中}x}
   \EntryNodes{single-color-spaced-no-marker}{前 \uline{\color{red}中} 后}
@@ -776,7 +782,7 @@
   \EntryNodes{mbox-cjk-leftparen-no-marker}{中\uline{\mbox{中}（中}中}
   \EntryNodes{cjk-then-leftparen}{中\uline{（中}中}
   \EntryNodes{cjk-then-fbox-leftparen}{中\uline{\fbox{}（中}中}
-  \EntryNodes{latin-ctrl-space-then-leftparen}{x\ \uline{（中}x}
+  \EntryNodes{latin-ctrl-space-then-leftparen-nodes}{x\ \uline{（中}x}
 }
 
 % 命令前的源码空格不是紧跟在汉字之后（|\mbox{中} |、|{中} |、|前\ |、
@@ -996,6 +1002,34 @@
   \EntryWidth{trailing-nested-then-space-cjk}{前\CJKunderline{\CJKsout{中} } 后}{前{{中} } 后}
   \EntryWidth{trailing-nested-then-space-latin}{前\CJKunderline{\CJKsout{中} }x}{前{{中} }x}
   \EntryNodes{known-makebox-width-then-latin}{第 \CJKunderline{\makebox[4em]{3}} 题}
+}
+
+% 正文只有注册的盒子、没有字符，命令两侧都不写空格时，盒子对边界透明，命令两侧的
+% 字符之间与直接输入一样补 \CJKecglue。box-then-* 与 *-space-* 是对照：盒子之后
+% 还有 glue、kern、规则、\special、penalty 或正文末尾空格，或正文以语法空格开头时，
+% 直接输入不补，这里也不补。
+\TEST{decorations whose body is only boxes}{
+  \EntryWidth{box-only-makebox-latin-cjk}{x\CJKunderline{\makebox[3em]{}}后}{x{\makebox[3em]{}}后}
+  \EntryWidth{box-only-makebox-cjk-latin}{中\CJKunderline{\makebox[3em]{}}x}{中{\makebox[3em]{}}x}
+  \EntryWidth{box-only-fbox-latin-cjk}{x\uline{\fbox{}}后}{x{\fbox{}}后}
+  \EntryWidth{box-only-two-boxes-latin-cjk}
+    {x\uline{\makebox[2em]{}\makebox[1em]{}}后}{x{\makebox[2em]{}\makebox[1em]{}}后}
+  \EntryWidth{box-only-colorbox-latin-cjk}
+    {x\uline{\colorbox{yellow}{\hspace*{2em}}}后}{x{\colorbox{yellow}{\hspace*{2em}}}后}
+  \EntryWidth{box-only-color-fbox-latin-cjk}{x\uline{\color{red}\fbox{}}后}{x{\color{red}\fbox{}}后}
+  \EntryWidth{box-only-textcolor-fbox-latin-cjk}
+    {x\uline{\textcolor{red}{\fbox{}}}后}{x{\textcolor{red}{\fbox{}}}后}
+  \EntryWidth{box-only-nested-latin-cjk}{x\uline{\sout{\fbox{}}}后}{x{{\fbox{}}}后}
+  \EntryWidth{box-only-nested-two-boxes-latin-cjk}
+    {x\uline{\sout{\makebox[2em]{}\makebox[1em]{}}}后}{x{{\makebox[2em]{}\makebox[1em]{}}}后}
+  \EntryWidth{box-then-hspace-latin-cjk}{x\uline{\fbox{}\hspace*{1em}}后}{x{\fbox{}\hspace*{1em}}后}
+  \EntryWidth{box-then-kern-latin-cjk}{x\uline{\fbox{}\kern1pt}后}{x{\fbox{}\kern1pt}后}
+  \EntryWidth{box-then-rule-latin-cjk}{x\uline{\fbox{}\rule{1em}{1pt}}后}{x{\fbox{}\rule{1em}{1pt}}后}
+  \EntryWidth{space-then-box-cjk-latin}{中\uline{ \fbox{}}x}{中{ \fbox{}}x}
+  \EntryWidth{box-then-glue-latin-cjk}{x\uline{\fbox{}\hspace{1em}}后}{x{\fbox{}\hspace{1em}}后}
+  \EntryWidth{box-then-special-latin-cjk}{x\uline{\fbox{}\special{x}}后}{x{\fbox{}\special{x}}后}
+  \EntryWidth{box-nobreak-box-latin-cjk}{x\uline{\fbox{}\nobreak\fbox{}}后}{x{\fbox{}\nobreak\fbox{}}后}
+  \EntryWidth{box-then-space-cjk-latin}{中\uline{\fbox{} }x}{中{\fbox{} }x}
 }
 \END
 
