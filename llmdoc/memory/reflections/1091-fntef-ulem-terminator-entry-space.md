@@ -214,7 +214,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 
 - `符 \CJKunderline{\textit{x}}后` 差 0.54pt（斜体校正）。
 - `\CJKunderline{中 }` 这类 CJK 后接正文末尾空格的写法，与带花括号的直接输入差 3.33pt；
-  `\CJKunderline{\CJKsout{中} } 后` 属于同类。
+  `\CJKunderline{\CJKsout{中} } 后` 属于同类。（最终全范围审查 M1 更正：后者在 `ef49ca4e` 与 v3.10.6 上与直接输入一致，
+  自 `ad8dc88b` 起才不一致，是回退，不是同类；最终审查后已修好。）
 - 更正：上文“测试设计与变异验证”和“已知未覆盖”中记为既有差异的 `\CJKunderline{中。} x`，
   已随 `punct` 处理修好，不再是限制。
 
@@ -1675,6 +1676,16 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **经验 2**：最终审查的审查包要写明范围（计入问题的类别、只作观察的类别），范围是任务定义的一部分，写进审查包不违反盲审规则。
 - 处理：doc-gaps 写全 30 项的范围并注明维护者决定；加 `known-space-fbox-math-then-nested-color-leftparen-latin` 节点用例；两处注释改正。
 
+## 最终全范围审查：写明范围以后，找到的是常见写法
+
+- 维护者同意跳过 R27 之后的增量审查，直接做最终全范围审查（`ef49ca4e..3c7c4a43`），审查包写明收窄后的范围。结果 0 项阻塞、3 项重要建议、3 项小问题；范围外的写法只作观察，不计入。
+- I1、I2 都是相对 v3.10.6 的回退，写法都很常见：`第 \mbox{\CJKunderline{\hspace*{1em}（1）\hspace*{1em}}} 题`（填空线放进 `\mbox` 防止断行，正文是带括号的题号）、`姓名 \CJKunderline{\textcolor{blue}{张三} } 学号`（正文末尾多一个空格）。I3 是定宽 `\makebox` 的既有限制（v3.10.6 相同），写进手册与 doc-gaps。小问题是 doc-gaps 把一项回退写成既有差异、手册把 `\mbox` 与原始盒子混在一起、嵌套命令入口空格的例外没有写进手册。
+- 修法：I1 在全角左标点报告 `CJK` 前后保存、恢复外层 `box` 层的 `first`、`last`、`tail`；I2 在正文末尾空格之前末节点仍是 `CJK`／`default` marker 时把 `tail` 记为 `content`。
+- **经验 1**：R1–R27 的审查包没有写范围，审查者在“与直接输入等宽”这个判据下自然会去构造越来越深的组合；写明范围以后，同一个判据找到的是填空线里最常见的写法。范围应当从第一轮就写进审查包，而不是问题数不收敛以后再补。
+- **经验 2**：一个函数写“所有层”时，要对照同类函数确认它是否应当跳过某类层。`\@@_ulem_report_last:n` 从 R7 起就只写 `stream-ulem` 层（architecture 里写了原因），`\@@_boundary_capture_class:n` 写所有层；`ad8dc88b` 在 FullLeft 分支调用后者，R7 写前者时没有回头比较两者，盒子层被改写这件事留到了最终审查。
+- **经验 3**：修法让一项已经不一致的写法离直接输入更远（`\mbox{\CJKunderline{（中}}中`，30.00pt→33.33pt，直接输入 26.99pt）时，按 R25 经验 2 如实写进说明，不因为“修改前也不对”就不提。r35 矩阵上逐项比较离直接输入的远近：p135→p138 有差别的不一致用例在四组选项下都更近（12、172、12、12 项），这一项不在矩阵里，是手工用例测到的。
+- 验证：lvt 452 项 PASS；r24–r34 与原有矩阵相对 p135 逐项不变；r35 修好 380 项，8 项由一致变为不一致、都与 `~` 写法一致；逐项变异 4 项中 2 项被发现，另两项（`tail` 只认 `CJK` marker、只恢复 `first`）区分不出，在说明里注明是防御性写法。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1695,7 +1706,8 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\g_@@_ulem_transparent_tail_bool`（`cd3df6ae` 删去）与包装后的 `\UL@setULdepth`（`\@@_ulem_orig_set_depth:`）；`fc73ba5e` 起还有核心的
   `\@@_boundary_transparent_box_begin_hook:`，以及 `\@@_ulem_transparent_begin:n`、`\@@_ulem_transparent_mark:n`（取代
   `\@@_ulem_transparent_mark:`）、`\@@_ulem_transparent_clear:n`、`\@@_ulem_fullleft_check:n`、`\l_@@_ulem_fullleft_bool`、
-  `\@@_ulem_if_outside_box:nT` 与 `\@@_ulem_level_check_aux:`。
+  `\@@_ulem_if_outside_box:nT` 与 `\@@_ulem_level_check_aux:`；最终全范围审查后还有 `\@@_ulem_box_layers_save:`、
+  `\@@_ulem_box_layers_restore:`、`\@@_ulem_box_layer_restore:nnnn` 与 `\c_@@_ulem_tail_box_nodes_clist`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、

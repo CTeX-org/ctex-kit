@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 574d6737fa654f4a9e84d5fe043c5043676539a6
-- watermark-subject: test(xeCJK): 固定命令前是普通空格的全角左标点回退一例，改正两处注释 (#1091)
-- updated-at: 2026-09-29T01:22:07Z
-- updated-by: 协调者（#1091 本地增量审查 R27 的处理；维护者决定收窄范围）
+- watermark-commit: 3a728f975fabaaffe4308822056d628b3372f878
+- watermark-subject: fix(xeCJK): 盒子里的全角左标点与正文末尾空格不再改变线型命令两侧的间距 (#1091)
+- updated-at: 2026-09-29T06:05:48Z
+- updated-by: 协调者（#1091 最终全范围审查的处理）
