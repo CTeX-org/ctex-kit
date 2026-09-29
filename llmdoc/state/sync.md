@@ -1,6 +1,6 @@
 # llmdoc Sync State
 
-- watermark-commit: 9982eef0f46f7b093f81600b9e2542483c0b0d3a
-- watermark-subject: fix(xeCJK): 公式之后的空盒子与颜色命令不再让全角左标点丢掉左侧空白，空片段里记下的入口空格及时排出 (#1091)
-- updated-at: 2026-09-28T23:57:50Z
-- updated-by: 协调者（#1091 本地增量审查 R25 的修复 9982eef0）
+- watermark-commit: facb4236ad36499b425e8e837d5a048b2d550f4a
+- watermark-subject: fix(xeCJK): 线型命令结束时清除全角左标点的两个记录，改正注释里隔着 glue 的说法 (#1091)
+- updated-at: 2026-09-29T00:50:37Z
+- updated-by: 协调者（#1091 本地增量审查 R26 的修复 facb4236）
