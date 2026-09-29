@@ -1827,9 +1827,9 @@ Copyright and Licence
 %
 % 试卷和练习中的填空线，通常用线型命令包住一段空白来排：用 \tn{hspace*} 给出线
 % 的长度，也可以在空白中间放一个盒子或规则，标出题号或占位符号。命令前的源码空格
-% 看正文怎样开头，命令后的源码空格看正文怎样结尾：正文以空白、盒子或规则开头，
-% 命令前的空格就按普通空格保留在线的前面；正文以它们结尾，命令后的空格也按普通
-% 空格保留在线的后面。只有空白的填空线两端都属于这种情况，所以命令两侧各写一个
+% 看正文怎样开头，命令后的源码空格看正文怎样结尾：正文以空白、规则、\tn{usebox}
+% 等原始盒子或没有字符的盒子开头，命令前的空格就按普通空格保留在线的前面；正文以
+% 它们结尾，命令后的空格也按普通空格保留在线的后面。只有空白的填空线两端都属于这种情况，所以命令两侧各写一个
 % 空格，线的两侧就各留一个词间空格；两侧都不写空格，线就紧贴前后的文字。填空线
 % 因此左右对称，间距与把命令前的空格换成~|~| 时相同。
 %
@@ -1858,6 +1858,15 @@ Copyright and Licence
 %     这样。例如 |书名 \CJKunderline{红楼梦} 作者| 中的两个空格都不会出现。
 %   \item 正文开头或结尾只有颜色切换等不产生宽度的命令时，它们不算空白或盒子，
 %     命令两侧的空格仍由相邻的字符决定。
+%   \item \tn{mbox}、\tn{fbox}、\tn{makebox} 等盒子里有字符时，按其中的字符处理，
+%     与直接输入相同：|第 \CJKunderline{\makebox[4em]{答案}} 题| 的两个空格与直接
+%     输入 |第 {\makebox[4em]{答案}} 题| 一样都不出现。定宽盒子里是西文时
+%     （|\makebox[4em]{3}|），命令前补的间距会排进盒子、被盒子的伸缩空白吸收，线的
+%     左侧因此比右侧少一个空格。需要对称时，用 \tn{hspace*} 包住题号（如上面第一个
+%     示例的第~3 行），或把命令前的空格写成~|~|。
+%   \item 线型命令相互嵌套、内层正文先有空白再有汉字时，例如
+%     |前 \uline{\sout{\hspace*{2em}中}} 后|，命令前的空格仍按汉字之间的规则删去。
+%     需要对称时，改用单层命令或把命令前的空格写成~|~|。
 %   \item 花括号内部开头的空格属于正文，会画成线的一部分，例如上面第一个示例的
 %     第~4 行。命令前的空格仍排在整条线的前面，线不会从中间断开。
 %   \item 符号型命令 \tn{CJKunderdot} 和 \tn{CJKunderanysymbol} 只给字符加符号，
@@ -2012,7 +2021,7 @@ Copyright and Licence
 % 间距仍然正确，但被嵌套的那一段无法断行，
 % 详见 \ref{subsubsec:fntef-nest-linebreak}~节。
 %
-% 线型命令的正文若在第一个字符之前先排出空白、盒子或规则（例如填空线），
+% 线型命令的正文若在第一个字符之前先排出空白、规则或原始盒子（例如填空线），
 % 命令前的源码空格保留在装饰线的前面；正文在最后一个字符之后还有这类内容时，
 % 命令后的源码空格也保留在装饰线的后面，详见 \ref{subsubsec:fntef-fill-in}~节。
 %
@@ -14066,6 +14075,8 @@ Copyright and Licence
 % \end{macro}
 %
 % \begin{macro}[int]{\UL@word,\xeCJK_ulem_word:nw,\UL@end,\@@_ulem_end:}
+% \changes{v3.10.7}{2026/09/29}{线型命令的正文以 \tn{mbox}、\tn{textcolor} 或嵌套
+%   线型命令结尾、花括号前还有空格时，命令后的空格与间距与直接输入一致（\#1091）。}
 % \changes{v3.10.7}{2026/09/26}{\pkg{ulem} 结束正文时在一个随即丢弃的片段盒子
 %   里排出的 \texttt{*} 不再被命令边界 capture 当作正文中的西文字符。此前正文
 %   没有字符（例如只有 \tn{hspace} 和盒子的填空线、空参数）或以全角标点开头时，
@@ -14131,6 +14142,18 @@ Copyright and Licence
       }
     \bool_if:NT \l_@@_ulem_tail_punct_bool { \tex_ignorespaces:D }
   }
+%    \end{macrocode}
+% 正文里的语法空格之前，\cs{@@_ulem_tail_check:} 检查这段空格前面是不是字符。
+% 汉字或西文字符之后的空格使末节点变成 |CJK-space|、|default-space| 类，而
+% \tn{mbox}、\tn{fbox} 等盒子、\tn{textcolor} 这类 stream 与嵌套线型命令结束时，
+% 核心在它们之后重放的是 |CJK| 或 |default| marker，后面的空格不改变它。
+% 直接输入 |前{\mbox{中} } 后| 里这枚空格跟在盒子之后，保留下来；装饰里若它就是
+% 正文末尾的空格，stream 结束时却按“正文以汉字结尾”重放 |CJK|，命令后的空格被
+% 删去（|姓名 \CJKunderline{\textcolor{blue}{张三} } 学号| 少 3.33pt），西文前多补
+% \tn{CJKecglue}。因此末节点仍是这两种 marker 时也把 |tail| 记为 |content|，
+% 与盒子、\tn{kern} 之后接正文末尾空格的写法相同（\#1091）。
+%    \begin{macrocode}
+\clist_const:Nn \c_@@_ulem_tail_box_nodes_clist { CJK , default }
 \cs_new_protected:Npn \@@_ulem_loop:nw
   {
     \reverse_if:N \if_mode_math:
@@ -14138,6 +14161,8 @@ Copyright and Licence
         \skip_gset_eq:NN \UL@skip \tex_lastskip:D
         \tex_unskip:D
         \@@_ulem_tail_check:
+        \clist_if_in:NVT \c_@@_ulem_tail_box_nodes_clist \g_@@_last_node_tl
+          { \@@_ulem_tail_content: }
         \UL@stop
         \@@_ulem_flush_pending_shrink:
         \@@_ulem_syntax_space:
@@ -14843,7 +14868,13 @@ Copyright and Licence
 % \begin{macro}{
 %   \@@_ulem_Boundary_and_FullLeft_glue:N,
 %   \@@_ulem_cjk_last_remove:,
-%   \g_@@_ulem_cjk_last_bool}
+%   \g_@@_ulem_cjk_last_bool,
+%   \@@_ulem_box_layers_save:,
+%   \@@_ulem_box_layers_restore:,
+%   \@@_ulem_box_layer_restore:nnnn}
+% \changes{v3.10.7}{2026/09/29}{线型命令写在 \tn{mbox}、\tn{fbox} 里、正文含全角
+%   左标点时，盒子两侧的空格与间距与直接输入一致，不再删去盒子前后的空格或多补
+%   \tn{CJKecglue}（\#1091）。}
 % \changes{v3.10.7}{2026/09/28}{线型命令的正文里，\tn{mbox}、\tn{fbox} 等以汉字结尾
 %   的盒子之后紧接全角左标点时，与直接输入一样补上 \tn{CJKglue}（\#1091）。}
 % \changes{v3.10.7}{2026/09/26}{装饰正文以全角左标点开头时，把它作为正文的
@@ -14862,6 +14893,14 @@ Copyright and Licence
 % 先看末节点是不是 |CJK| 或 |CJK-space| marker，是就删去它并记在
 % \cs{g_@@_ulem_cjk_last_bool} 里（\tn{UL@stop} 会结束分组），之后与汉字到全角左标点
 % 的转换一样把 \tn{CJKglue} 画成一段装饰线（\#1091）。
+%
+% 报告 |CJK| 时，\cs{@@_boundary_capture_class:n} 会写栈中的每一层，也包括线型命令
+% 外面的 \tn{mbox}、\tn{fbox} 的 capture 层（|kind| 为 |box|）。直接输入时
+% Boundary 到全角左标点的转换不报告类别，盒子对边界没有类别；若把这个 |CJK| 写进
+% 盒子层，盒子前后的源码空格会按汉字规则删去，或多补 \tn{CJKecglue}
+% （|第 \mbox{\CJKunderline{\hspace*{1em}（1）\hspace*{1em}}} 题| 两侧的空格都丢了）。
+% 因此报告前由 \cs{@@_ulem_box_layers_save:} 记下各个 |box| 层的 |first|、|last| 与
+% |tail|，报告后恢复，与 \cs{@@_ulem_report_last:n} 跳过盒子层的做法一致。
 %    \begin{macrocode}
 \bool_new:N \g_@@_ulem_cjk_last_bool
 \cs_new_protected:Npn \@@_ulem_cjk_last_remove:
@@ -14869,12 +14908,40 @@ Copyright and Licence
     \xeCJK_remove_node:
     \bool_gset_true:N \g_@@_ulem_cjk_last_bool
   }
+\tl_new:N \l_@@_ulem_box_layers_tl
+\cs_new_protected:Npn \@@_ulem_box_layers_save:
+  {
+    \tl_clear:N \l_@@_ulem_box_layers_tl
+    \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+      {
+        \tl_if_eq:cnT { g_@@_boundary_capture_##1_kind_tl } { box }
+          {
+            \tl_put_right:Ne \l_@@_ulem_box_layers_tl
+              {
+                \exp_not:N \@@_ulem_box_layer_restore:nnnn {##1}
+                  { \exp_not:v { g_@@_boundary_capture_##1_first_tl } }
+                  { \exp_not:v { g_@@_boundary_capture_##1_last_tl } }
+                  { \exp_not:v { g_@@_boundary_capture_##1_tail_tl } }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_ulem_box_layers_restore:
+  { \tl_use:N \l_@@_ulem_box_layers_tl }
+\cs_new_protected:Npn \@@_ulem_box_layer_restore:nnnn #1#2#3#4
+  {
+    \tl_gset:cn { g_@@_boundary_capture_#1_first_tl } {#2}
+    \tl_gset:cn { g_@@_boundary_capture_#1_last_tl } {#3}
+    \tl_gset:cn { g_@@_boundary_capture_#1_tail_tl } {#4}
+  }
 \cs_new_protected:Npn \@@_ulem_Boundary_and_FullLeft_glue:N #1
   {
     \xeCJK_if_ulem_patch:TF
       {
         \bool_set_true:N \l_@@_ulem_fullleft_bool
+        \@@_ulem_box_layers_save:
         \@@_boundary_capture_class:n { CJK }
+        \@@_ulem_box_layers_restore:
         \bool_set_false:N \l_@@_ulem_fullleft_bool
         \bool_gset_false:N \g_@@_ulem_cjk_last_bool
         \xeCJK_if_last_node:nTF { CJK }
