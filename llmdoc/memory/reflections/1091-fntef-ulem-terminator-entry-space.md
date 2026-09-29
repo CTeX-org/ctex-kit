@@ -1686,6 +1686,15 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
 - **经验 3**：修法让一项已经不一致的写法离直接输入更远（`\mbox{\CJKunderline{（中}}中`，30.00pt→33.33pt，直接输入 26.99pt）时，按 R25 经验 2 如实写进说明，不因为“修改前也不对”就不提。r35 矩阵上逐项比较离直接输入的远近：p135→p138 有差别的不一致用例在四组选项下都更近（12、172、12、12 项），这一项不在矩阵里，是手工用例测到的。
 - 验证：lvt 452 项 PASS；r24–r34 与原有矩阵相对 p135 逐项不变；r35 修好 380 项，8 项由一致变为不一致、都与 `~` 写法一致；逐项变异 4 项中 2 项被发现，另两项（`tail` 只认 `CJK` marker、只恢复 `first`）区分不出，在说明里注明是防御性写法。
 
+## 替换的最终审查：判据只看结构时要找出“长得一样”的反例
+
+- 替换的最终全范围审查（`ef49ca4e..27945c22`）0 项阻塞、1 项重要建议、4 项小问题。I1 是相对 v3.10.6 的回退：正文只有注册盒子（`x\CJKunderline{\makebox[3em]{}}后`）时少 `\CJKecglue`。小问题是两层写法里靠误差抵消才一致的三组用例未登记、手册两处 Overfull、lvt 文件头的重名标签与不全的 TEST 清单、index 停在 R22。
+- 修法：结束时入口已解除、首类别为空的分支新增核心钩子，xeCJKfntef 记下“片段里只有注册盒子”时重放入口 marker。
+- **经验 1**：第一版判据用“片段末节点是盒子”，`\rule` 也排出盒子，r36 矩阵上立刻多出 20 项由一致变为不一致（`\fbox{}\rule` 与正文以语法空格开头的 ` \fbox{}` 两类）；第二版加上钩子记下的盒子尺寸，又漏掉嵌套命令的内层盒子（外层片段的末节点是 `\UL@onin` 的盒子）和 whatsit 结尾的 `\colorbox`；第三版接受任何 whatsit，又让 `\fbox{}\special{x}` 回退。每一版都是矩阵或手工反例先发现的。判据按节点类型设计时，要为每种类型列出“同类型但含义不同”的写法（盒子：注册盒子、`\rule`、`\hbox`、嵌套命令的盒子；whatsit：颜色、`\special`），先写进矩阵再改代码。
+- **经验 2**：第一版变异 10 项里有 4 项没被发现，补的对照用例（`\hspace`、`\nobreak` 再接盒子、正文末尾空格、`\textcolor`）都是只用宽度就能区分的普通写法；lvt 当时只放了“修好的写法”，没有放“不该改变的邻近写法”。新增修法时，对照用例与修好的用例一起写。
+- **经验 3**：doc-gaps 里写“两者 v3.10.6 上同样多补”之前实测了一次，其中一项（颜色命令里盒子之后还有规则）其实与直接输入一致，推断是错的。登记遗留差异时每一项都要有实测数值。
+- 验证：lvt 469 项 PASS；r24–r35 与原有矩阵逐项不变；r36 默认选项修好 135 项，没有由一致变为不一致；逐项变异 12 项全部被发现。
+
 ## 相关
 
 - Issue：#1091。关联：#992（capture 框架）、#324（入口空格语义）、#998（box 策略）。
@@ -1707,7 +1716,9 @@ v3.10.4（#992 capture 框架）起，左侧空格跑到装饰末尾，还多出
   `\@@_boundary_transparent_box_begin_hook:`，以及 `\@@_ulem_transparent_begin:n`、`\@@_ulem_transparent_mark:n`（取代
   `\@@_ulem_transparent_mark:`）、`\@@_ulem_transparent_clear:n`、`\@@_ulem_fullleft_check:n`、`\l_@@_ulem_fullleft_bool`、
   `\@@_ulem_if_outside_box:nT` 与 `\@@_ulem_level_check_aux:`；最终全范围审查后还有 `\@@_ulem_box_layers_save:`、
-  `\@@_ulem_box_layers_restore:`、`\@@_ulem_box_layer_restore:nnnn` 与 `\c_@@_ulem_tail_box_nodes_clist`。
+  `\@@_ulem_box_layers_restore:`、`\@@_ulem_box_layer_restore:nnnn` 与 `\c_@@_ulem_tail_box_nodes_clist`；替换的最终审查后
+  还有核心的 `\@@_boundary_resolved_end_hook:`，以及 `\@@_ulem_box_only_note:`、`\@@_ulem_box_only_nest:`、
+  `\@@_ulem_box_only_stop:`、`\@@_ulem_box_entry_set:`、`\g_@@_ulem_box_only_bool` 与 `\g_@@_ulem_box_entry_tl`。
 - 过程材料（本地）：`.llmdoc-tmp/investigations/1091-fntef-entry-space.md`、`tmp/i1091/`。
 - 相关反思：[[1067-ulem-brace-group-ecglue-shrink]]（同一 ulem 片段盒子结构上的另一类问题）、
   [[1029-sbox-global-prefix]]（逐项变异的原始教训）、[[324-boundary-reserve-space-glue]]（入口空格语义）、
