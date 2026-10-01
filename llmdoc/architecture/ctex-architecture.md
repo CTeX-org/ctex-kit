@@ -282,6 +282,42 @@ pdfTeX 下 ctex 通过 CJK 宏包处理中文字符。UTF-8 编码的多字节�
 SJTUBeamer 等下游对 `\CTEX@...` 私有变量的直接访问，而不让 ctex 接管 Beamer
 模板层。
 
+### fixskip 与紧跟标题的浮动体（#1100）
+
+`fixskip=true` 时，`ctex/ctex-kernel.dtx`（`\CTEX@fixheadingskip`）在 beforeskip／afterskip
+处执行 `\par`，把 `\prevdepth` 设为 -1000pt（TeX 的 `ignore_depth`，下一个盒子前不加行间胶），
+并从间距中减去 `\parskip`。-1000pt 本应只作用于标题后的第一行，但 LaTeX 的 `\end@float` 在
+竖直模式下保存并恢复 `\prevdepth`，就地放置时输出例程也不改主竖直列表的 `\prevdepth`。于是紧跟
+标题、就地放置的 `[h]` 浮动体之后的第一行仍不加行间胶，与浮动体的距离比 `fixskip=false` 少一段行间胶。
+
+v2.6.6 的修法（`1ab213e4`）：
+
+- `\CTEX@fixheadingskip` 记下当时的 `\prevdepth` 和 `\@afterheading` 的执行次数，并置全局标记；
+  `\CTEX@setheadingskip` 清除标记。
+- 导言区结束时（`\ctex_at_end_preamble:n`，以免被之后载入的宏包覆盖）用 ctexpatch 加三个钩子：
+  - `\CTEX@fixskip@afterheading@hook`（`\@afterheading` 开头）：执行次数加一。
+  - `\CTEX@fixskip@float@begin@hook`（`\@xfloat` 开头）：全局标记为真、外部竖直模式、
+    `\prevdepth` 为 -1000pt、`\lastnodetype` 不为 3（最后节点不是标尺，排除标题后的
+    `\hrule`／`\titlerule`），并且满足“`@nobreak` 为真且次数差为 1”或“`@noskipsec` 为真且次数差
+    小于 2”之一时，才认为 -1000pt 是 ctex 刚留下的。后一条对应 runin 标题：它执行
+    `\@nobreakfalse`；差为 0 是它自己的 beforeskip 留下的，差为 1 是沿用前一个标题的。
+  - `\CTEX@fixskip@float@end@hook`（`\end@float` 末尾）：`\@currbox` 已空时恢复记下的深度。
+    只有就地放置时，`\@addtocurcol` 才用 `\box` 取空 `\@currbox`；浮动体被推到页顶、页底或后面的
+    页面时不作改动。
+- 恢复后的 `\prevdepth` 等于同一写法在 `fixskip=false` 时的值，测试也以此为判据。
+
+为什么要靠旁证：-1000pt 是 TeX 与 LaTeX 共用的哨兵值，`\hrule`、`\nointerlineskip` 也会留下这个值，
+而且都不清 `@nobreak`。`titlesec` 接管的标题不经过 `\CTEX@setheadingskip`，不会清除标记。LaTeX 的
+`\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`，所以也不能换成 ctex 私有的值。ctex 标题先
+调用 `\CTEX@fixheadingskip`，再调用 `\@afterheading`，因此紧跟 ctex 标题时次数差为 1，中间隔着别的
+标题时大于 1。只凭全局标记、`@nobreak` 和 -1000pt 判断的第一版（`5c35e236`）在 `ctexbook` +
+`titlesec` 下相对 v2.6.5 回退。
+
+已知限制见 `llmdoc/memory/doc-gaps.md`“fixskip”两节：标题后直接 `\nointerlineskip`，或 `\hrule`
+后接 `\vspace`，仍会恢复深度；标题与就地放置的浮动体之间少一个 `\parskip` 是既有行为，#1100 未处理。
+测试见 `ctex/test/testfiles/heading-fixskip02.lvt`、`heading-fixskip03.lvt`，过程见
+`llmdoc/memory/reflections/1100-fixskip-float-prevdepth.md`。
+
 ## 命令补丁子系统 (ctexpatch)
 
 ### 核心接口
@@ -297,6 +333,11 @@ SJTUBeamer 等下游对 `\CTEX@...` 私有变量的直接访问，而不让 ctex
 ### 工作原理
 
 将命令体字符串化 → 文本搜索替换 → 重新 rescan 定义。能处理 `\DeclareRobustCommand`、`\newcommand` 含可选参数等情形。
+
+`\ctex_preto_cmd:NnnTF`／`\ctex_appto_cmd:NnnTF`（`ctex/ctex-auxpkg.dtx`，`\@@_hookto_cmd:Nnnnw`）按宏有无参数走两条路径：
+
+- 无参数宏走 `\@@_hookto_cmd_parameterless:Nnnnw`，用 `\tex_edef:D` 直接拼接，原定义和钩子都不重新读入。
+- 带参数宏走 `\@@_hookto_cmd_parameter:Nnnnw`，把钩子作为字符串接到替换文本上，再按调用者给出的 catcode 设置（第二个参数，例如 `\ExplSyntaxOff` 加 `@` 为字母）用 `\scantokens` 重建整个定义。所以钩子代码在这个设置下也必须读得出来：给 `\@xfloat` 这类带参数的宏加钩子时，钩子名要写成 `\CTEX@...@hook` 形式，不能含 `_` 和 `:`（#1100）。
 
 ## 第三方包兼容
 

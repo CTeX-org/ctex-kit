@@ -173,3 +173,34 @@
 `\changes` 说明文字进入 `.glo` 后，makeindex 把第一个 `|` 当作 encap 符，后面的文字被当作页码格式命令执行，更改历史里因此出现文字泄漏。#1091 R3 把本次新增条目改为 `\texttt`、`\tn` 和文字描述后，`pdftotext` 检索中本次条目的 `dex10432191`、`dex9189170` 已消失；但仍有三处 `hdclindex8526159`、`hdclindex163`、`hdclindex193354` 来自此前版本的旧条目，其中之一是 `xeCJK/xeCJK.dtx` 约 536 行 v3.10.4 条目里的 `|CJKglue|`。它们不在 #1091 的范围内，未处理。
 
 可能的补法（**未实施**）：逐条把旧 `\changes` 里的 `|...|` 改为 `\texttt{...}`、`\cs{...}` 或 `\tn{...}`，运行 `make changelog` 重新生成 CHANGELOG，并按 `llmdoc/reference/build-and-test.md`「文档排版循环」一节的方法用 `pdftotext` 检索 `hdclindex` 与 `dex[0-9]`，确认计数为 0。已发布版本的条目改动只涉及排版，但要确认重新生成的 CHANGELOG 只有预期的文字变化。
+
+## fixskip 认不出的两种 -1000pt 写法（#1100 已知限制）
+
+#1100 在 `\@xfloat` 开头靠旁证（`\@afterheading` 次数差、`\lastnodetype` 不是标尺）认出 ctex 标题留下的 -1000pt，
+再在就地放置的 `[h]` 浮动体之后恢复 `\prevdepth`。有两种写法与 ctex 留下的值无法区分，仍会恢复深度：
+
+- 标题后直接写 `\nointerlineskip`：它把 `\prevdepth` 设为 -1000pt，但不加节点，旁证与紧跟标题时完全相同。
+- 标题后先写 `\hrule`，再写 `\vspace`：最后一个节点变成 glue，`\lastnodetype` 判据失效。
+
+这两种写法在 `fixskip=false` 时浮动体之后的下一行不加行间胶；`fixskip=true` 时却会加上。源码注释
+（`ctex/ctex-kernel.dtx`，`\CTEX@fixskip@float@begin@hook` 的说明）写明了这一点，`heading-fixskip02/03`
+没有固定这两种写法的结果。
+
+可能的补法（**未实施**）：现有节点和状态里没有能区分来源的信息；-1000pt 也不能换成 ctex 私有的值，因为
+LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见 `llmdoc/architecture/ctex-architecture.md`
+「fixskip 与紧跟标题的浮动体」，过程见 `llmdoc/memory/reflections/1100-fixskip-float-prevdepth.md`。
+
+## fixskip 时标题与就地放置的浮动体之间少一个 `\parskip`（既有行为，#1100 未处理）
+
+`\CTEX@fixheadingskip` 从 afterskip 中减去 `\parskip`，预期由标题后第一段开头的 `\parskip` 补回。标题后
+紧跟就地放置的浮动体时，`\@addtocurcol` 在浮动体之后执行 `\vskip -\parskip`，抵消的是下一段开头的
+`\parskip`；标题与浮动体之间没有任何东西补回被减去的那一段。实测（`ctexart`，`\parskip=10pt`，
+`\section` 后接 `[h]` 浮动体，XeLaTeX，`69da27e2` 解包产物）：标题与浮动体之间的胶在 `fixskip=true` 时为 0.44768pt，
+`fixskip=false` 时为 10.44768pt；浮动体之后两种情况都是 `\glue -10.0` 接 `\parskip` 10pt。标准文档类
+默认 `\parskip` 的自然长度为 0pt，这时只少了伸展量。
+
+这一差异在 #1100 之前就存在，与 #1100 修复的“浮动体与后文之间少一段行间胶”无关，没有测试固定。
+
+可能的补法（**未实施**，也未评估）：被减去的间距要补在标题与浮动体之间，而浮动体是否就地放置由输出例程里的
+`\@addtocurcol` 决定，`\end@float` 末尾的钩子只能在浮动体之后补。需要另行设计，并检查对 `t`／`b`／被推迟
+浮动体的影响。
