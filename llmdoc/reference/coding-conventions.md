@@ -88,6 +88,16 @@ XeTeX 下完全正确。pdfTeX 下**宏包加载即失败**：`! LaTeX Error: In
 
 **选项不要放进可展开命令的参数**。keyval 解析不可展开，所以带选项的可展开命令做不出来。#550 的四个查询命令因此不接受可选参数，`scheme` 与 `tone` 一律用 `\xpinyinsetup` 设置，随 TeX 分组恢复；读 `tl` 变量本身是可展开的，且尊重分组。
 
+**在 `e` 型展开里拼状态时的三个陷阱（#1103）**：
+
+| 写法 | 问题 | 改用 |
+|---|---|---|
+| `\tl_if_eq:cnTF`、`\tl_if_eq:nnTF`、`\clist_if_in:nnTF` | 都是 protected 条件，放进 `\tl_gset:Ne` 等 `e` 型展开里不会求值，记下来的是未展开的代码 | 在展开之外先判断，或改用可展开的 `\str_if_eq:eeTF` |
+| `\clist_if_in_p:nn`、`\tl_if_eq_p:Nn`／`:nn`／`:cn` | 不存在（`\tl_if_eq_p:NN` 存在，但比较的是两个变量的内容）；放进 `\bool_lazy_and:nnTF` 等判断里会报未定义 | `\str_if_eq_p:ee`、`\str_if_eq_p:Vn` |
+| `\str_range:nnn { \cs_to_str:N #1 } ...` | 参数里的记号被直接转成字符串，不会先展开 `\cs_to_str:N`，取到的是 `\cs_to_str:N` 这串字符 | 先 `\exp_args:Ne` 求出名字再交给它（见 `xeCJK.dtx` 的 `\@@_boundary_after_space_hook:N`） |
+
+用到不熟悉的函数名时，先用 `\cs_if_exist:NTF` 确认它存在（与 #1043 判定函数是否存在的做法相同），不要凭命名规律推出 `_p` 形式或某个变体。
+
 ## `@@` 私有命名空间
 
 本仓库广泛使用 expl3 的私有命名约定 `\@@_...`。其含义不是“全仓库共享私有名”，而是“当前模块在 docstrip/expl3 语义下的私有占位前缀”。

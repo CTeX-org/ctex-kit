@@ -13,8 +13,8 @@ metadata:
 
 根因与 #1000 相同：siunitx 在宏内部进入数学模式。源码直接写 `中$30$` 时，xeCJK 在 CJK→Boundary 处向后查看到 `$`，在 `\mathon` 之前补 `\CJKecglue`；汉字后面是宏时，只留下一对 kern 标记，随后宏内部的 `\mathon` 盖住了这对标记。每个 siunitx 排版命令都是独立的顶层入口，不经过 `\qty` 等命令的 cmd hook，所以要逐个注册。
 
-- 第一版 `ee4d5112`：把 17 个命令都注册为固定 Default 首尾的 `stream`。
-- 第二版 `f83102bc`（审查方给出原型，已采纳；另有 `a3d2dc61` 只调整 `\changes` 的断行）：17 个命令改为 `auto` stream，并包装 siunitx 公开函数 `\siunitx_print_math:n`：不在数学模式时，先调用 `\@@_boundary_capture_class:n { default }`，再调用原函数。数学段不触发 interchar 转换，需要补报 Default；文本段由 interchar 转换报告实际类别。siunitx v2（`[=v2]`）没有这个函数，用 `\cs_if_exist:NT` 跳过；v2 直接写 `$...$`，由公式边界处理报告类别，实测结果正确。
+- 第一版 `9c9400e3`：把 17 个命令都注册为固定 Default 首尾的 `stream`。
+- 第二版 `4b360ae9`（审查方给出原型，已采纳；另有 `c5ec78d3` 只调整 `\changes` 的断行）：17 个命令改为 `auto` stream，并包装 siunitx 公开函数 `\siunitx_print_math:n`：不在数学模式时，先调用 `\@@_boundary_capture_class:n { default }`，再调用原函数。数学段不触发 interchar 转换，需要补报 Default；文本段由 interchar 转换报告实际类别。siunitx v2（`[=v2]`）没有这个函数，用 `\cs_if_exist:NT` 跳过；v2 直接写 `$...$`，由公式边界处理报告类别，实测结果正确。
 
 ## Expected vs Actual
 
@@ -69,3 +69,7 @@ metadata:
 - 实现：`xeCJK/xeCJK.dtx` 中的 `\@@_boundary_register_siunitx:` 与对 `\siunitx_print_math:n` 的包装。
 - 测试：`xeCJK/testfiles/siunitx-ecglue01.lvt/.tlg`。
 - 前序：[[1001-boundary-capture-gap-fixes]]（#1000 的首次注册）、[[../decisions/992-command-boundary-capture-register.md]]、[[../../architecture/xecjk-architecture.md]]。
+
+## 更正（#1103 之后追加）
+
+上文“Missing Docs or Signals”与“Promotion Candidates”把空输出（`\numlist{}`、`\ang{;;}`、`\unit{}`）两侧都有源码空格时多出两枚 `\CJKecglue` 记为已知遗留，`memory/doc-gaps.md` 当时也写明维护者决定本 PR 不改框架、另开 #1103。维护者后来改为要求彻底修复，#1103 已在同一 PR（#1102）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句随之删去。修复机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 [[1103-empty-output-after-space]]。本节之外的正文保持原样，作为当时的记录。

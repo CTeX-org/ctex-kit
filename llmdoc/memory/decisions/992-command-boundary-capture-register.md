@@ -81,6 +81,8 @@ TeX 节点不记录 glue 的来源。已注册命令右侧如果有一枚显式 
 
 **Boundary→CJK 方向已补上相同的检查（#996，PR #1001，commit 085f4f86）**：`\@@_check_for_glue_skip:` 在 Boundary→CJK 方向也调用 `\@@_skip_if_interword:N`。只有待检查的 glue 为 finite、带 shrink，而且自然宽度等于词间空格时，才可能把它当作源码空格；其他显式 glue 不再被替换为 `CJKglue`。新增的 `\@@_glue_check_expire_stale:` 会在最外层恢复逻辑发现节点列表为空时清除过期 pending，因为空列表中不可能有相邻的 xeCJK marker；capture 活跃时不清除，以便 ulem 等 stream 把 pending 从内部盒子带到命令外的实际边界。这两处修改修复了 `\g_@@_glue_check_pending_bool` 越过 `\hbox` 或 `\setbox` 分组、误把下一个盒子中的显式 `\hskip` 当作源码词间空格的问题。回归测试 `boundary-crossbox01.lvt` 覆盖 issue MWE、`\kern0pt` 处理方法、同一盒子与不同盒子中的显式 glue，以及两个方向的源码空格处理。旧基线 `boundary-space02.tlg` 和 `fntef-space02.tlg` 的 20pt、40pt 是 pending 泄漏造成的错误输出；修复后的 23.33pt、43.33pt 才符合“显式 `\ ` 原样保留”的测试说明。如果显式 glue 与词间空格在节点列表中没有区别，TeX 仍无法判断来源；处理方法见下文「右侧源码空格的机制边界」。
 
+**“无可见输出时完整恢复入口状态”由 #1103（PR #1102）细化**：#1103 同样以删去命令后的直接输入为 oracle。命令删去后两侧的源码空格相邻，TeX 把它们读成一个空格记号，所以无可见输出时只保留一处空格：入口前是 `CJK-space` 且没有取下 glue 时只重放 marker，命令结束后再删去紧跟的源码空格。以前完整恢复入口空格、命令之后又排出一枚，`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`。
+
 **rule 按 Default、行内公式按独立 `math` 类别重建边界（#998/#1002）**：rule 和公式都不触发 XeTeX interchar class 转换，但两者的源码空格语义不同。`\vrule` 继续由 `\@@_boundary_if_capture_box_visible:` 根据盒子尺寸和末节点类型按 Default 处理；行内公式则以直接 `$x$` 为 oracle，不能再降为普通西文字母。
 
 公式适配器不展开任意宏。开头公式在 math-on 前报告首类别；正文尾部识别出的 `$`、`\)`、`\ensuremath{...}` 或相应外层分组一律只是语法候选。可见正文实际排完、包装尚未关闭时，适配器再检查当前列表末尾：只有真实 math 节点或 xeCJK 的 `math` marker 才能确认候选并发布 `math`。这项实际输出确认不能省略，因为未知宏不仅可能在可选参数、普通双参数或分隔参数之后消费最后的公式分组，还可能直接把 `$` 或 `\)` 当作分隔参数的终止符；这些记号没有进入实际输出时，宏仍可能只排出 CJK 内容。box/stream 结束时使用已经确认的正文末类别覆盖内部旧 marker；任意内部 math 节点本身不能证明可见正文以公式结束。内层 capture 重放的 marker 留在它实际输出的列表中，外层 capture 再逐层读取；因此 `\mbox{中\fbox{中$x$}}` 能取得正确末类别，而原语 `\setbox` 中没有输出到当前列表的公式不会直接污染外层。这里不使用全局 `\everymath`，也不扫描任意 hbox 的内部节点。
@@ -116,7 +118,7 @@ post-transparent 的零尺寸盒子前若还有一枚候选或显式 glue，探�
 - **#996 已由 PR #1001（commit 085f4f86）修复**：见上文“机制边界”一节 Boundary→CJK 方向对称校验。
 - **#998 已由 PR #1001（commit 14336c4d）修复**：box/wrapped-box 的可见性后备能识别不触发 interchar 转换的 rule 和 math 节点；rule 继续按 Default 重建，公式的精确类别和源码空格语义随后由 #1002 的 `math` 类别补全。
 - **#1000 已由 PR #1001（commit c8c803bf）修复**：siunitx 的 `\unit`、`\qty` 和 `\num` 在 math 模式排版数字与单位，入口的 `\mathon` 会遮住左侧 CJK marker，情况与修复前的 `\eqref` 相同，因此注册为固定 Default 首尾的 `stream` capture（`\@@_boundary_register_siunitx:`）。v2 旧名 `\si`、`\SI` 是独立的顶层命令；注册前分别用 `\cs_if_exist:cT` 检查命令是否存在。`\ang` 会输出角度符号，目前还没有确定应与哪种直接输入比较，因此暂不注册。回归测试 `siunitx-ecglue01.lvt` 包含 9 组 `\BoundaryMatrix`，每组执行 4 种源码空格组合，共 36 个宽度比较，另检查 math 内嵌使用后的 capture 栈是否归零。
-  - **#1092 更正（`f83102bc`，上一条保留为 #1000 时的历史记录）**：“注册为固定 Default 首尾”与“`\ang` 暂不注册”两处已不是当前实现。#1092 把同族 12 个命令（区间、列表、乘积、复数、`\duration`、`\ang`、`\SIrange`、`\SIlist`）也逐个注册，17 个命令全部改为 `auto` stream，并包装 `\siunitx_print_math:n`，在不处于数学模式时先报告 Default；v2 没有该函数则不包装。`\ang` 以首尾字符相同的文本（`30°`）为 oracle。改为 `auto` 的原因是输出首尾可配置成汉字，固定 Default 会在汉字一侧多补 `\CJKecglue`（第一版 `ee4d5112` 因此被审查推翻）。当前设计见 `llmdoc/architecture/xecjk-architecture.md` 兼容补丁表，测试组成见 `llmdoc/reference/build-and-test.md`，过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
+  - **#1092 更正（`4b360ae9`，上一条保留为 #1000 时的历史记录）**：“注册为固定 Default 首尾”与“`\ang` 暂不注册”两处已不是当前实现。#1092 把同族 12 个命令（区间、列表、乘积、复数、`\duration`、`\ang`、`\SIrange`、`\SIlist`）也逐个注册，17 个命令全部改为 `auto` stream，并包装 `\siunitx_print_math:n`，在不处于数学模式时先报告 Default；v2 没有该函数则不包装。`\ang` 以首尾字符相同的文本（`30°`）为 oracle。改为 `auto` 的原因是输出首尾可配置成汉字，固定 Default 会在汉字一侧多补 `\CJKecglue`（第一版 `9c9400e3` 因此被审查推翻）。当前设计见 `llmdoc/architecture/xecjk-architecture.md` 兼容补丁表，测试组成见 `llmdoc/reference/build-and-test.md`，过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
 
 四个问题均已发布确认评论；#996/#998/#1000 的 before/after 视觉对比存放在 gh-assets 固定提交 `fcff1eb3`，#995 的 MWE/截图存放在 `gh-assets:issues/995/`。#996、#998、#1000 在 #992 issue 活表上的行按既有惯例——PR #1001 未合并前只作预览，合并后须从合并提交复验再更新为已修复状态。PR #999 body 已加 `Closes #995`。
 
@@ -126,4 +128,4 @@ post-transparent 的零尺寸盒子前若还有一枚候选或显式 glue，探�
 - 测试：`llmdoc/reference/build-and-test.md`「xeCJK 命令边界矩阵」
 - 被替代的前置决策：`llmdoc/memory/decisions/991-setref-null-marker-replay.md`
 - 历史决策：`873-880-fixed-point-vs-default-narrowing.md`、`910-verb-drain-vs-drain-verb.md`、`931-biblatex-let-shadow.md`、`972-hyperref-end-annot-trusted-marker.md`
-- Issues：#491、#991、#992、#995、#996、#998、#1000、#1003、#1092；PR #999、PR #1001、PR #1005
+- Issues：#491、#991、#992、#995、#996、#998、#1000、#1003、#1092、#1103；PR #999、PR #1001、PR #1005、PR #1102

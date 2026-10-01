@@ -1,0 +1,78 @@
+---
+name: 1103-empty-output-after-space
+description: 记录 #1103 修复没有可见输出的已注册命令两侧都有源码空格时多出一枚空格的过程：重放点不能处理命令后的源码空格、命令钩子之后是 \__hook 宏、外层命令代码在内层钩子之后，以及 expl3 函数与测试矩阵构造的几处问题
+metadata:
+  type: feedback
+---
+
+# [Task Reflection]
+
+## Task
+
+#1103（合入 PR #1102，分支 `fix-1092-siunitx-range`）：已注册命令执行后没有可见输出，且两侧都有源码空格时，结果比直接输入多一枚空格；两侧都是汉字时多出两枚间距的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入为 20.0pt）。#1092 时这被登记为已知回退（见 `memory/doc-gaps.md` 中“siunitx 空输出两侧都有源码空格时多出两枚 `\CJKecglue`”一节），之后维护者改为要求彻底修复。
+
+最终做法（`xeCJK/xeCJK.dtx`）：
+
+- 新增 `\__xeCJK_boundary_replay_before_empty:`，由 stream end（首类别为空、entry 未 resolved）、`\__xeCJK_boundary_hmode_transparent_end:`、宽高深都为零的透明盒子调用；last_box 非 hlist 路径与非零尺寸透明盒子仍用原 replay_before。
+- capture 新增两个字段：`space_glue` 记录 capture_space 刚取下 glue 时的 space_flag（之后入口前是 CJK-space 时 space_flag 会被改为真，不能再用它区分）；`after_space` 记录 capture 开始时内层记录是否仍有效，供 `\textcolor{red}{}` 这类嵌套空命令把记录传给外层。
+- 入口前是 CJK-space 且没有 glue 时只重放 marker 并清 pending；否则照常重放 marker 与 glue。
+- `\__xeCJK_boundary_after_space_arm:`／`rearm:` 记录 depth-1 与列表末尾状态，另有 `drop`（CJK-space 无 glue）与 `unchecked`（`中{} `、`中\ ` 的入口）两个标志。`\__xeCJK_boundary_after_space_check:` 在各类结束点调用（inline box／last_box／stream end、hmode_transparent_end、xeCJKfntef 的 `\__xeCJK_ulem_end:` 与 under_symbol_auxii、`\textcolor` 非公式分支、hyperref 的 phantomsection／MakeLinkTarget after 钩子、第二参数为空时的 `\hypertarget`），用 peek 看下一个记号：空格删去（drop 时先 unskip、清 pending，紧跟 `$` 时补 `\xeCJK_space_or_xecglue:`）；名字以 `__hook` 开头的宏展开一层再看；其他控制序列与花括号保留记录给外层；其他字符作废记录。
+- xeCJKfntef `\__xeCJK_ulem_onin_entry_check_space:nn` 的透明内容分支：入口前是 CJK-space／CJK-widow 时不解除入口。`fntef-entry-space01` 有 9 项 oracle 随直接输入改变（`符 {\color{red}~中} 后` 由 36.66 变 33.33，与去掉颜色的 `符 {~中} 后` 一致），`.tlg` 已更新。
+- 新测试 `xeCJK/testfiles/boundary-empty-space01.lvt`（2305 项）：新代码 0 失败，PR 原 head 1008 项失败，master 1070 项失败。
+
+## Expected vs Actual
+
+- 预期：在重放入口空格的地方判断命令有没有输出，没有输出就不重放，改动集中在一处。
+- 实际：重放发生在命令的 after 钩子里，命令自身的代码还没执行完，后面的源码空格在这一时刻处理不了。最终拆成“结束时只重放 marker”和“结束后用 peek 检查下一个记号”两部分，检查点分布在十处左右的结束路径上，并要穿过 `\__hook` 宏和外层命令的后续代码。
+- 结果：外部矩阵 `tmp/i1103/gen`（9 左 × 9 右 × 10 命令 × 4 空格组合 × 4 间距设置），以“删去命令后的直接输入”为 oracle，相对 PR head 修好约 800 项、0 回退。相对 master 仍有少量单元 master 对而新代码错，全部是 `\numlist{}`／`\unit{}` 在 `中{}`、`中\ `、`中…$` 入口的 00／01／10 组合，值与 master 上的 `\mbox{}` 相同，来自 #1092 的注册，与其他已注册命令规则一致，不是本修复引入。修复前后相同、仍不一致的写法：左侧全角标点后有空格；左侧汉字、右侧无空格、命令后是盒子／规则／标点（`中\cmd\hbox{x}`）；左侧 `中{}`、`中\ ` 且命令后紧接汉字；左侧公式右侧汉字（`xCJKecglue=true` 且使用可区分间距时，transparent、box 一类命令为 19.05pt，直接输入 20.72pt）；`\phantomsection` 不带 `{}` 时命令名后的空格被 TeX 吞掉。siunitx 3.5.5 与 3.6.3 下 `siunitx-ecglue01` 均 576／576，xeCJK 标准测试 125／125，`l3build doc` 通过、索引 0 拒绝。
+
+## What Went Wrong
+
+1. **在重放点和结束后之间反复。** 第一版原型“入口前是 CJK-space 时不 restore_space”只修好 11 组合，却改坏 10 组合。之后几次在“重放时就删空格”与“命令结束后再删”之间来回改。
+2. **`\peek_remove_spaces:n`、`\tex_ignorespaces:D` 放在 cmd after 钩子里不起作用。** 钩子之后紧跟的是 `\__hook_next cmd/<name>/after` 之类的宏，下一个记号不是空格。
+3. **没有预料到外层命令的代码排在内层钩子之后。** `\hypertarget` 之后还有 `\hyper@anchor`，`\MakeLinkTarget` 有自己的分组，`\textcolor` 之后有 `\set@color`。检查遇到这些控制序列或花括号时如果直接作废记录，外层结束时就没有记录可用。
+4. **一度用不变量代替 oracle。** 曾用“11 组合应等于 10 或 01”辅助判断，最后改回以删去命令后的直接输入为准。
+5. **expl3 函数用错。** `\tl_if_eq:cnTF` 不能在 e 型展开中使用，导致记录下来的是未展开的代码；`\clist_if_in_p` 与 `\tl_if_eq_p` 不存在（改用 `\str_if_eq_p:ee`）；`\str_range:nnn` 不展开参数，要先 `\exp_args:Ne`。
+6. **测试矩阵构造出错，产生假失败。** 用宏参数拼 oracle 时，两个空格记号不会合并成一个，控制空格后的空格也不会被跳过，oracle 里的空格要单独给出；矩阵每项排版前没有重置 `\g__xeCJK_glue_check_pending_bool` 与 `\g__xeCJK_last_node_tl`，前一项的状态带进下一项。
+7. **外部矩阵全对，全量测试仍有回退。** 中途一次 `l3build check` 发现 `fntef-entry-space01`、`hyperref-anchor-ecglue01` 失败：给 `\hypertarget` 加了 cmd after 钩子，非空的 `\hypertarget{t5}{锚}` 后的间距也被删去。改为只在第二参数为空时检查。
+8. 期间 master 合入两个 agentic CI 提交，已 rebase 到 `origin/master`，没有冲突带来的问题。
+
+## Root Cause
+
+- 第 1 至 3 条同出一源：没有先弄清“命令结束”在记号流里实际是哪个位置。after 钩子不是命令的最后一个记号，钩子之后有 `\__hook` 系列宏，再往外还有外层命令自己的代码。重放点只能决定 marker 与 glue，源码空格只能在所有这些代码都执行完之后由 peek 处理；peek 必须能穿过 `\__hook` 宏，并且在遇到不认识的控制序列时把记录交给外层，而不是作废。
+- 第 4 条：辅助不变量本身没有经过直接输入的验证。lessons-learned 已有“oracle 需要复刻被测实现的细节时，说明判据选错了”，这次是相反方向的同类问题：用一个推出来的关系代替实际排版结果。
+- 第 5 条：与 #550“写可展开命令前先逐个实测候选函数”同类，这次的新情况是函数名本身不存在或参数不展开，不只是可展开性。
+- 第 6 条：与 #1091 R12“oracle 不一致时先单独运行，确认没有受前一用例状态影响”是同一类问题在外部矩阵上的再次出现；矩阵只对单项结果负责，全局状态必须逐项清零。
+- 第 7 条：外部矩阵只覆盖设计时想到的命令与写法，不能代替既有回归测试；钩子挂得比需要的范围宽，只有既有测试里的非空用例能发现。
+
+## Missing Docs or Signals
+
+- 没有文档说明 LaTeX 命令钩子展开后的记号次序：`cmd/<name>/after` 之后紧跟 `\__hook_next…` 一类宏，钩子里的 peek 看不到源码的下一个记号。
+- 没有文档说明在已注册命令内部做“结束后检查”时，外层命令（`\hypertarget`、`\MakeLinkTarget`、`\textcolor`）的代码还在后面，需要把记录交给外层。
+- `space_flag` 在入口前是 CJK-space 时会被改写，这一点只在代码里，没有写进架构文档；本次因此另加了 `space_glue` 字段。
+- 测试构造注意事项里没有写“宏参数拼接时空格记号不合并、控制空格后的空格不跳过”，也没有写外部矩阵每项要重置的全局量。
+
+## Promotion Candidates
+
+由 recorder 决定是否提升：
+
+- `memory/lessons-learned.md` 的“LaTeX2e 命令钩子机制”一组（第 2、3 条）：
+  - “在 cmd after 钩子里 peek 下一个记号，看到的是 `\__hook` 宏而不是源码”：需要识别名字以 `__hook` 开头的宏并展开一层再看。
+  - “钩子之后外层命令的代码可能还没执行”：遇到不认识的控制序列或花括号时，把待处理状态保留给外层结束时检查，不要作废。
+- `reference/coding-conventions.md` 的 expl3 一节（第 5 条）：`\tl_if_eq:cnTF` 不能用于 e 型展开，`\clist_if_in_p`、`\tl_if_eq_p` 不存在（用 `\str_if_eq_p:ee`），`\str_range:nnn` 不展开参数（先 `\exp_args:Ne`）。可并入 #550 那组“可展开的替代”，并提醒新函数名先用 `\cs_if_exist:NTF` 确认存在（与 #1043 同一做法）。
+- `reference/build-and-test.md` 的命令边界矩阵一节（第 6、7 条）：用宏参数拼 oracle 时空格的两条规则；矩阵每项排版前重置 `\g__xeCJK_glue_check_pending_bool` 与 `\g__xeCJK_last_node_tl`；外部矩阵通过后仍要跑全量 `l3build check`。另补 `boundary-empty-space01`（2305 项）的说明。
+- `architecture/xecjk-architecture.md`（不属于本反思的改动范围，列出供 recorder 处理）：`replay_before_empty` 的调用条件、`space_glue`／`after_space` 字段、after_space 检查的调用点与 peek 规则、xeCJKfntef 透明内容分支的变化。
+- `memory/doc-gaps.md`：#1092 那一节改写为“已由 #1103 修复”，并登记上文列出的修复前后相同、仍不一致的五类写法，以及 `\numlist{}`／`\unit{}` 在 `中{}`、`中\ `、`中…$` 入口与 master 不同的原因。
+- 只留在 memory、不提升：第 1 条的反复过程本身与第 4 条（已有相近规则，作为实例即可）；第 8 条 rebase。
+
+## Follow-up
+
+- 由 recorder 按上面的候选更新 `xecjk-architecture.md`、`build-and-test.md`、`coding-conventions.md`、`doc-gaps.md`，并在 `llmdoc/index.md` 的反思列表中加入本文件。
+- 以后在命令钩子里处理“命令之后的源码”前，先用 `\tracingmacros` 或打印下一个记号的方式确认钩子之后的实际记号次序，再决定检查放在哪里。
+- 外部矩阵每次重构后，先单独运行几个失败单元确认不是状态泄漏，再跑全量 `l3build check`。
+
+## 相关引用
+
+- 实现：`xeCJK/xeCJK.dtx` 中的 `\__xeCJK_boundary_replay_before_empty:`、`\__xeCJK_boundary_after_space_arm:`、`\__xeCJK_boundary_after_space_check:`、`\__xeCJK_ulem_onin_entry_check_space:nn`。
+- 测试：`xeCJK/testfiles/boundary-empty-space01.lvt/.tlg`、`xeCJK/testfiles/fntef-entry-space01.tlg`；外部矩阵 `tmp/i1103/gen`（本地，未跟踪）。
+- 前序：[[1092-siunitx-range-auto-stream]]、[[1091-fntef-ulem-terminator-entry-space]]、[[../decisions/992-command-boundary-capture-register.md]]。

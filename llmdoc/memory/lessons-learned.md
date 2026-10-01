@@ -1031,3 +1031,18 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 怀疑某个缺陷可能是上游机制的通用性质而非本包特有时，把复现缩到不加载本包的最小 LaTeX/TeX 样例。确认为通用陷阱后，修复方式和文档警告的位置都会随之改变——不能只在具体案例的代码注释里说明，还要在架构文档里记录为独立的机制边界。
 **Why**: #1029 若只盯着 xeCJK 的 `\@@_boundary_capture_suspend:` 内容，容易把注意力放在这条钩子本身该不该做全局赋值上；缩小到不含 xeCJK 的五行纯 LaTeX 后，才确认触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这直接决定了要用专用适配器而不是调整钩子内容，也决定了要在 `experiment/boundary-register` 用户手册里为「命令本体即赋值语句」这类场景加一条通用警告。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
+### 命令的 after 钩子里 peek 到的下一个记号不是源码
+**Rule**: 在 `cmd/<命令>/after` 钩子里想处理“命令之后的源码”（删空格、看下一个字符）时，先用 `\tracingmacros` 或打印下一个记号确认钩子之后的实际记号次序。LaTeX 命令钩子在 after 钩子之后紧跟 `\__hook_next …` 一类宏，钩子里直接用 `\peek_remove_spaces:n`、`\tex_ignorespaces:D` 不起作用；需要识别名字以 `__hook` 开头的宏，展开一层再看。
+**Why**: #1103 要删去没有可见输出的命令之后紧跟的源码空格，第一版把 `\peek_remove_spaces:n` 放在 after 钩子里，看到的下一个记号是 `\__hook_next` 而不是空格，没有效果。最终 `\@@_boundary_after_space_hook:nN` 取控制序列名前 6 个字符与 `__hook` 比较，命中时 `\exp_after:wN` 展开一层再 peek。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
+
+### 内层命令的钩子结束时，外层命令的代码可能还没执行
+**Rule**: 被注册的命令常常是另一个命令内部调用的（`\hypertarget` 里的 `\hyper@anchor`、`\MakeLinkTarget` 自己的分组、`\textcolor` 里的 `\set@color`／`\reset@color`）。内层钩子之后的记号属于外层命令，不是源码。“命令结束后再检查”的状态遇到不认识的控制序列或花括号时，应保留下来交给外层命令结束时再检查，不要直接作废；外层命令结束处也要调用同一个检查。
+**Why**: #1103 的检查起初在下一个记号是控制序列时作废记录，外层 `\hypertarget`、`\textcolor` 结束时就没有记录可用，命令之后的空格仍然多出。改为“其他控制序列与花括号保留记录”，并在 `\hypertarget` 包装、`\textcolor` 非公式分支、`\phantomsection`／`\MakeLinkTarget` 的 after 钩子里再调用一次检查。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`
+
+### 给命令挂钩子或包装时要限定条件，范围不能比需要的宽
+**Rule**: 为某一类写法（例如“没有可见输出”）给命令挂钩子或包装时，先确认该命令的其他用法不会走进同一段代码；需要时按参数等条件限定。验证不能只看为这类写法构造的外部矩阵，还要跑全量回归，因为非目标用法只在既有测试里出现。
+**Why**: #1103 给 `\hypertarget` 无条件加了命令之后的空格检查，外部矩阵全部与直接输入一致，全量 `l3build check` 却发现非空的 `\hypertarget{t5}{锚}` 之后的间距也被删去（`hyperref-anchor-ecglue01` 失败；同一次检查里 `fntef-entry-space01` 也失败）。改为只在第二个参数为空时检查。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`

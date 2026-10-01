@@ -210,8 +210,22 @@
 `tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03`、
 #1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01`、
 #1057 新增 `fntef-nest-linebreak01`、#1091 新增 `fntef-entry-space01`、
-#1104 新增 `microtype-slot01` 后，当前为 125／125 通过。完整接口契约见
+#1104 新增 `microtype-slot01`、#1103 新增 `boundary-empty-space01` 后，当前为 126／126 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
+
+### 没有可见输出的命令两侧的源码空格（`boundary-empty-space01`，#1103）
+
+`boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 2305 项宽度比较，失败数为 0；每个候选之后还断言 capture depth 归零。
+
+- **oracle 是删去命令后的直接输入**，不是推出来的关系。曾用“11 组合应等于 10 或 01”辅助判断，最后改回以实际排版的直接输入为准。
+- **命令**：用户注册的空 `stream`、`transparent`、`box` 命令，`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`、`\uline{}`、`\numlist{}`、`\unit{}`，共 9 个。
+- **组成**：TEST 1–4 为默认间距／可区分间距 × `xCJKecglue=false/true`，每个 TEST 576 项：16 组左右文字只比较两侧都有空格的写法（9 × 16 = 144），12 组比较 `00/10/01/11` 四种写法（9 × 12 × 4 = 432）。TEST 5 单独比较 `A \phantomsection{} 文` 与 `A {} 文`（不带 `{}` 时命令名后的空格在读取控制序列名时就被跳过）。修复前后都与直接输入不一致的组合不列入，见 [[../memory/doc-gaps]]。
+- **oracle 的空格单独给出。** 用宏参数拼写法时，作为参数传入的两个空格记号不会像源码那样合并成一个，所以 oracle 的空格由第七个参数单独提供，两侧都有空格时只放一个。左侧以控制空格 `\ ` 结尾时，源码里紧跟的空格会被跳过，用记号拼出的写法却保留它，这类左侧因此只比较两侧都有空格的写法。
+- **每次排版前重置全局状态。** 候选与 oracle 排版前都清空 `\g__xeCJK_last_node_tl`、把 `\g__xeCJK_glue_check_pending_bool` 置假，否则前一项留下的状态会带进下一项，产生假失败；构造外部矩阵（本地 `tmp/i1103/gen`）时曾因此出现假失败。外部矩阵重构后，先单独运行几个失败单元确认不是状态泄漏。
+- **判别力**：PR 原 head 上 1008 项失败，master 上 1070 项失败。
+- **外部矩阵全对不能代替全量 `l3build check`。** 外部矩阵（9 左 × 9 右 × 10 命令 × 4 空格组合 × 4 间距设置）全部与直接输入一致时，全量检查仍发现 `hyperref-anchor-ecglue01` 与 `fntef-entry-space01` 失败；前者是给 `\hypertarget` 挂的检查删去了非空 `\hypertarget{t5}{锚}` 之后的间距，改为只在第二参数为空时检查。外部矩阵只覆盖设计时想到的命令与写法。
+
+`fntef-entry-space01` 有 9 项期望值随直接输入改变：oracle 里的颜色命令本身是已注册的透明命令，#1103 后 `符 {\color{red}~中} 后` 由 36.66pt 变为 33.33pt，与 `符 {~中} 后` 一致（同组还有 `\hspace{1em}` 版 43.33→40.0、公式加尾随空格的两项各少 3.33pt）；另有一处节点列表在颜色 push 之后多出一对 marker kern。
 
 ### 注册点的字体上下文与锚点出口的覆盖清单（`codedoc-meta-symmetry01`、`hyperref-anchor-ecglue01`，#1046／#1047）
 
@@ -323,7 +337,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 - #1092 的 6 组输出以汉字开头或结尾的矩阵：`range-open-phrase=从`、汉字单位（`\qty`、`\qtyrange`、`mode=text` 下的 `\qtylist`）、汉字 `duration-unit-*`、`angle-symbol-degree=度`。汉字单位用 `mode=text` 或 `\text{元}` 包住；直接在数学模式里排汉字时数学字体没有该字形，日志报 `Missing character`，宽度比较没有意义。
 - #1092 的 5 组单侧比较（`\BoundarySides`）：以 `\text{元}` 开头、以数学字母结尾的单位（`\qty{5}{\TextYuan\per\kilogram}` 等）只在公式前报告 Default 时，右侧少补 `\CJKecglue`。`\BoundaryMatrix` 只比较“中 命令 文”的总宽度，一侧多一枚、另一侧少一枚会互相抵消，所以这类写法要分开比较两侧。
 
-oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=false` 且两侧有源码空格时，注册命令两端报告 Default，源码空格变成 `\CJKecglue`，与公式边界的结果不同。变异结果：改回固定 Default 首尾时，6 组汉字边缘矩阵各失败 16 次；去掉 `\siunitx_print_math:n` 的补报时，所有输出数学内容的命令都失败；注册列表退回 #1000 时，14 组中文上下文矩阵各失败 16 次（`ee4d5112` 时的结果）；去掉公式之后的补报时，3 组 `\text{元}` 加数学单位的右侧各失败 8 次，把“末项是 `\text`”判断恒置为假时，汉字单位结尾的矩阵失败。
+oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=false` 且两侧有源码空格时，注册命令两端报告 Default，源码空格变成 `\CJKecglue`，与公式边界的结果不同。变异结果：改回固定 Default 首尾时，6 组汉字边缘矩阵各失败 16 次；去掉 `\siunitx_print_math:n` 的补报时，所有输出数学内容的命令都失败；注册列表退回 #1000 时，14 组中文上下文矩阵各失败 16 次（`9c9400e3` 时的结果）；去掉公式之后的补报时，3 组 `\text{元}` 加数学单位的右侧各失败 8 次，把“末项是 `\text`”判断恒置为假时，汉字单位结尾的矩阵失败。
 
 本地 TeX Live 的 siunitx 可能比 CI 旧（#1092 时本地 3.5.5，CI 3.6.3）。l3build 不读外部 `TEXINPUTS`；要用另一版本的 siunitx 复现，先跑一次 `l3build check` 生成 `build/test/`，再把该版本的 `.sty`/`.cfg` 复制进去，在该目录直接 `xelatex` 编译 `.lvt`，用完删除复制的文件。预热段（`\OMIT`/`\TIMO`）先消化 siunitx 数学字体加载与旧名 deprecation 消息，避免污染规范化日志。
 
@@ -795,11 +809,11 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 3. `fntef-phase01.lvt` 先生成 XDV；`xeCJK/build.lua` 的 `runtest_tasks` 再调用 `xdvipdfmx -z 0` 生成不压缩内容流的 PDF，随后由 `testfiles/support/fntef-phase-check.lua` 读取标记、裁切边界和图案盒子的实际横坐标。32 行校验固定所有周期盒子处在同一个普通 leaders 网格；普通形式左右各外伸半周期，带 `-` 形式左右各内缩半周期，两种形式命令宽度一致；每个普通命令只有一段连续覆盖；固定和伸缩 `CJKglue` 连续；相邻带 `-` 命令之间恰有一个周期断口；普通显式跳距仍被装饰。Lua 检查将五项 PASS 写回日志，由 `.tlg` 固定结果。
 4. 从手册示例提取精确单页 MWE，保留 Noto Serif CJK SC Regular、TeX Gyre Pagella、约 10.53937pt 正文字号及原示例内容；再用字体、字重、8pt／10.53937pt／15pt 和实际伸缩胶水的补充矩阵检查装饰长度、居中、连接和视觉密度。高分辨率图是这一层的主要证据。
 
-专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 125／125（#1104 后），文档构建生成 `xeCJK.pdf` 和 `xunicode-symbols.pdf`；#1091 本地审查 R1 后实测分别为 261 页和 51 页。页数随 `\changes` 条目和手册示例增长，属预期漂移，核对时以当次构建为准，不要把某次的页数当成判据。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
+专项验证通过后再运行一次 `l3build doc`，确认修改没有破坏整本文档的集成构建。当前实现的 xeCJK 标准测试为 126／126（#1104、#1103 后），文档构建生成 `xeCJK.pdf` 和 `xunicode-symbols.pdf`；#1091 本地审查 R1 后实测分别为 261 页和 51 页。页数随 `\changes` 条目和手册示例增长，属预期漂移，核对时以当次构建为准，不要把某次的页数当成判据。整本文档构建只能证明 PDF 能生成，不能自动判断局部装饰是否连续。
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 124 项。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 125 项（#1103 后）。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 
@@ -892,7 +906,7 @@ TEST 11 覆盖 `{hello}`、`\textbf{hello}`、`{{hello}}` 三种写法（压窄 
 - **正文必须在调用处写成字面记号。** 写成 `\CJKunderline{\BODY}` 会触发「调用处用宏承载正文」那条另一条既有限制。这里的复核不可省略：两条限制在同一个探索 MWE 上给出**同一个数字** 276.99pt，不用字面正文重测一遍就分不清量到的是哪一条，也就无法断言该数字由嵌套造成。
 - **判据本身是「Overfull 行在不在基线里」**，因此正文长度与 `\hsize` 都是判据的一部分，改动样例正文需要重新确认两侧仍各自成立。
 
-xeCJK 标准测试因本文件从 122 项增至 123 项；#1091 新增 `fntef-entry-space01` 后为 124／124；#1104 新增 `microtype-slot01` 后为 125／125。
+xeCJK 标准测试因本文件从 122 项增至 123 项；#1091 新增 `fntef-entry-space01` 后为 124／124；#1104 新增 `microtype-slot01` 后为 125／125；#1103 新增 `boundary-empty-space01` 后为 126／126。
 
 #1091 更新了本文件基线中的段末 marker：TEST 1、TEST 2 共四个段落末尾的 `\kern -0.0002`／`\kern 0.0002`（default，13sp）更正为 `\kern -0.00017`／`\kern 0.00017`（CJK，11sp）。旧值是缺陷值：正文以嵌套线型命令结尾时外层列表末尾没有可读 marker，末类别取自 ulem 结束定界符 `*` 被观察到的 default；修复后末类别来自正文实际的末字符“止”。`fntef-linebreak01` 的 TEST 2（`\CJKsout*[...]{虚室生白，吉祥止止。}`，以全角句号结尾）同样更正一处，成因相同。更新前已逐项确认差异都来自这一根因（见下文 `fntef-entry-space01` 一节）。本地审查 R1 后，全角右标点结尾改由 `tail` 字段置 `punct`、结束时不重放 marker，`fntef-linebreak01` 这一处由一对 marker kern 变为一个 `\kern 0.0`（零宽 kern 代替 marker，防止 `\par` 删掉装饰末尾的像素补偿 glue），几何不变。
 
@@ -928,6 +942,7 @@ xeCJK 标准测试因本文件从 122 项增至 123 项；#1091 新增 `fntef-en
 - **R25 的补充（TEST 2、18）**：TEST 2 增 `empty-group-then-space`、`empty-group-then-space-tie`、`empty-group-then-fill`、`empty-group-then-fill-tie` 四项节点用例；TEST 18 增 14 项宽度用例与 `known-*` 两项节点用例（见 architecture「R25 后的补修」）。`\EntryAssertIdle` 改为同时断言 `\g__xeCJK_ulem_space_defer_bool` 为假。全文件 442 项 PASS。逐项变异 13 项（`tmp/i1091/fix2/mut32.list`，以 p122 为基准）中 11 项被发现；`q1-stream-reset`（ulem 命令开始时不清除两个记录）由后加的 `latin-math-color-then-next-decoration-in-hbox` 发现；`q15-empty-flush-nogate`（片段为空时排出不检查 `\UL@start`）区分不出：插桩显示这一分支在用户分组里走到时从没有记着的空格。新矩阵 r32（`gen32.py`）、r33（`gen33.py`）、r34（`gen34.py`）。R26 后 TEST 18 再增 `known-group-space-kern-math-then-nested-color-leftparen-latin`、`records-cleared-after-decoration` 两项节点用例，全文件 442 项 PASS；去掉装饰结束时的记录清除，后者的节点列表不同。
 - **最终全范围审查后的补充（TEST 19）**：新增 TEST 19（放在文件末尾，不改动已有 TEST 编号），10 项宽度用例固定外层 `\mbox`、`\fbox` 里线型命令正文含全角左标点时盒子两侧的空格与间距（`box-uline-leftparen-mbox-spaced`、`box-uline-leftparen-fbox-spaced`、`box-uline-leftquote-mbox-spaced`、`box-uline-leftparen-fbox-cjk`、`box-uline-leftparen-fbox-latin`），以及正文以 `\textcolor`、`\mbox` 或嵌套线型命令结尾、花括号前还有空格时命令后的空格与间距（`trailing-textcolor-then-space-cjk`、`trailing-mbox-then-space-cjk`、`trailing-mbox-then-space-latin`、`trailing-nested-then-space-cjk`、`trailing-nested-then-space-latin`）；节点用例 `known-makebox-width-then-latin` 固定定宽 `\makebox` 的既有限制（见 architecture「最终审查后的补修」）。全文件 452 项 PASS。逐项变异 4 项中 2 项被发现，另两项是防御性写法。
 - **替换的最终审查后的补充（TEST 17、20）**：新增 TEST 20（17 项宽度用例）：9 项正文只有注册盒子（`box-only-*`：`\makebox`、`\fbox`、两个盒子、`\colorbox`、`\color` 或 `\textcolor` 包住的盒子、嵌套命令里的盒子），8 项对照（`box-then-*`：盒子之后有 `\hspace*`、`\hspace`、`\kern`、`\rule`、`\special`、`\nobreak` 再接盒子、正文末尾空格；`space-then-box-cjk-latin`：正文以语法空格开头）。TEST 17 的 `latin-ctrl-space-then-leftparen` 节点用例改名为 `latin-ctrl-space-then-leftparen-nodes`，`single-fbox-only-no-marker` 的节点列表在装饰之后多出与直接输入相同的 `default` marker。文件头的判据清单补全 TEST 编号，注明 TEST 16 以 `~` 写法为 oracle 的四项。全文件 469 项 PASS，没有重名标签。逐项变异 12 项（`tmp/i1091/fix2/mut36.py`）全部被发现。新矩阵 r36（`gen36.py`）。
+- **#1103 后的期望值变化（TEST 15 等）**：用例数不变，9 项宽度期望值随直接输入改变（`nested-color-switch-tie-cjk-spaced` 等 `*-cjk-spaced` 由 36.66pt 变为 33.33pt，`\hspace{1em}` 版由 43.33pt 变为 40.0pt，`nested-color-tie-math-space-cjk-spaced`、`nested-color-hspace-math-space-cjk` 各少 3.33pt），另有一处节点列表在颜色 push 之后多出一对 marker kern。原因是 oracle 里的颜色命令本身没有可见输出，见上文「没有可见输出的命令两侧的源码空格」一节。
 - **段末自然宽度（TEST 14）**：把装饰放在段末排版，取出最后一行，比较行内容的自然宽度与同一内容的 `\hbox`，确认 `\par` 删除行尾 glue 时没有删掉装饰末尾的像素补偿 glue（stream end 改排零宽 kern 的理由）。
 - 每个用例后都断言 capture depth、active seq、suspend depth 与 `\g_@@_ulem_entry_depth_int` 归零，防止暂停／恢复或 entry 状态泄漏到后续用例。
 
