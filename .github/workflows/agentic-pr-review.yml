@@ -1,6 +1,6 @@
-# 自动审查 PR：Codex (gpt-5.6-sol) 为主链路，失败时由 Claude Code
-# (claude-opus-5) fallback。两个 Agent 都以无 sudo 的专用用户运行并通过 root
-# 本地代理访问模型，不接触模型密钥或 GitHub 凭据；评论由隔离的发布 job 代发。
+# 自动审查 PR：Claude Code (claude-opus-5-5) 为主链路，失败时由 Codex
+# (gpt-6.1-sol) fallback。两个 Agent 都拥有完整的本地执行权限，但所在 job 的
+# GitHub token 只有只读权限且不注入 Agent 进程；评论由隔离的发布 job 代发。
 name: Agentic PR Review
 
 on:
@@ -16,8 +16,8 @@ permissions: {}
 jobs:
   # Agent job 只持有只读 GITHUB_TOKEN。checkout 临时使用该 token 后立即移除
   # Git 凭据；Agent 步骤本身仅收到模型 API key，不收到 GitHub token 或 PAT。
-  codex_review:
-    name: Review with Codex (primary)
+  claude_review:
+    name: Review with Claude Code (primary)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -25,7 +25,7 @@ jobs:
       pull-requests: read
     # 主链路失败由 fallback 兜住，整体结论在 publish job 里给出，所以这个 job 本身
     # 不再以红叉示人：CLI 与校验步骤都带 continue-on-error，成败通过 outputs.status
-    # 传给下游。后续 job 一律判这个 output，不要判 needs.codex_review.result —— 带了
+    # 传给下游。后续 job 一律判这个 output，不要判 needs.claude_review.result —— 带了
     # continue-on-error 之后那个值恒为 success。
     outputs:
       status: ${{ steps.status.outputs.status }}
@@ -220,27 +220,27 @@ jobs:
           - 代码链接必须使用完整 head commit SHA，不得使用分支名
           PROMPT_EOF
 
-      - name: Review with Codex and GPT-5.6-sol
+      - name: Review with Claude Code and Claude Opus 5.5
         id: agent
         continue-on-error: true
         uses: ./.trusted-base/.github/actions/run-agent
         with:
-          provider: codex
-          model: gpt-5.6-sol
-          api_key: ${{ secrets.OPENAI_API_KEY || secrets.ANTHROPIC_API_KEY }}
-          base_url: ${{ secrets.OPENAI_BASE_URL || secrets.ANTHROPIC_BASE_URL }}
+          provider: claude
+          model: claude-opus-5-5
+          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
           workspace: ${{ github.workspace }}
           prompt_file: ${{ runner.temp }}/review-prompt.txt
           schema_file: ${{ runner.temp }}/review-schema.json
           result_file: ${{ runner.temp }}/review-raw.json
 
-      - name: Normalize and validate Codex review
+      - name: Normalize and validate Claude review
         id: validate
         if: steps.agent.outcome == 'success'
         continue-on-error: true
         run: |
           mkdir -p review-output
-          jq -c '. + {reviewer: "codex", model: "gpt-5.6-sol"}' \
+          jq -c '. + {reviewer: "claude", model: "claude-opus-5-5"}' \
             "$RUNNER_TEMP/review-raw.json" > review-output/review.json
           jq -e '
             (.description | type == "string" and length > 0 and length <= 500 and (test("[\\r\\n]") | not)) and
@@ -260,11 +260,11 @@ jobs:
           # 结构化状态避免对自由文本做易误报、易漏报的自然语言分类。
           jq -e '.review_status == "COMPLETE"' review-output/review.json > /dev/null
 
-      - name: Upload Codex review result
+      - name: Upload Claude review result
         if: steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: review-result-codex
+          name: review-result-claude
           path: review-output/review.json
           if-no-files-found: error
           overwrite: true
@@ -273,7 +273,7 @@ jobs:
       # 汇总两个带 continue-on-error 的步骤，把成败落到 job output 上。失败时打
       # ::warning:: 而不是 ::error::，这样 job 保持绿色但异常仍留在 annotation 里可检索；
       # 真正的红由 publish job 在两条链路都失败时给出。
-      - name: Report Codex chain status
+      - name: Report Claude chain status
         id: status
         if: always()
         run: |
@@ -287,18 +287,18 @@ jobs:
           fi
           if [ -n "$reason" ]; then
             echo "status=failure" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Codex 主链路失败::${reason}；将由 Claude Code fallback 接手，最终结论见 review job"
-            printf '### Codex 主链路失败\n\n%s\n\n将由 Claude Code fallback 接手。\n' \
+            echo "::warning title=Claude Code 主链路失败::${reason}；将由 Codex fallback 接手，最终结论见 review job"
+            printf '### Claude Code 主链路失败\n\n%s\n\n将由 Codex fallback 接手。\n' \
               "$reason" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-  # 独立 runner 避免失败的 Codex 进程污染 fallback 的工作树、工具或输入。
-  claude_review:
-    name: Review with Claude Code (fallback)
-    needs: codex_review
-    if: always() && needs.codex_review.outputs.status != 'success'
+  # 独立 runner 避免失败的 Claude Code 进程污染 fallback 的工作树、工具或输入。
+  codex_review:
+    name: Review with Codex (fallback)
+    needs: claude_review
+    if: always() && needs.claude_review.outputs.status != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -458,7 +458,7 @@ jobs:
           仓库: ${{ github.repository }}
           仓库 URL: https://github.com/${{ github.repository }}
 
-          Codex 主链路失败。请作为 fallback 审查 PR #${{ github.event.pull_request.number }}。
+          Claude Code 主链路失败。请作为 fallback 审查 PR #${{ github.event.pull_request.number }}。
 
           审查材料已在本地准备好:
           - 可信审查规范（来自 PR base commit）:
@@ -492,22 +492,22 @@ jobs:
           - 代码链接必须使用完整 head commit SHA，不得使用分支名
           PROMPT_EOF
 
-      - name: Review with Claude Code and Claude Opus 5
+      - name: Review with Codex and GPT-6.1-sol
         uses: ./.trusted-base/.github/actions/run-agent
         with:
-          provider: claude
-          model: claude-opus-5
-          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
+          provider: codex
+          model: gpt-6.1-sol
+          api_key: ${{ secrets.OPENAI_API_KEY || secrets.ANTHROPIC_API_KEY }}
+          base_url: ${{ secrets.OPENAI_BASE_URL || secrets.ANTHROPIC_BASE_URL }}
           workspace: ${{ github.workspace }}
           prompt_file: ${{ runner.temp }}/review-prompt.txt
           schema_file: ${{ runner.temp }}/review-schema.json
           result_file: ${{ runner.temp }}/review-raw.json
 
-      - name: Normalize and validate Claude review
+      - name: Normalize and validate Codex review
         run: |
           mkdir -p "$GITHUB_WORKSPACE/review-output"
-          jq -c '. + {reviewer: "claude", model: "claude-opus-5"}' \
+          jq -c '. + {reviewer: "codex", model: "gpt-6.1-sol"}' \
             "$RUNNER_TEMP/review-raw.json" > "$GITHUB_WORKSPACE/review-output/review.json"
           jq -e '
             (.description | type == "string" and length > 0 and length <= 500 and (test("[\\r\\n]") | not)) and
@@ -524,10 +524,10 @@ jobs:
             )
           ' "$GITHUB_WORKSPACE/review-output/review.json" > /dev/null
 
-      - name: Upload Claude review result
+      - name: Upload Codex review result
         uses: actions/upload-artifact@v7
         with:
-          name: review-result-claude
+          name: review-result-codex
           path: review-output/review.json
           if-no-files-found: error
           overwrite: true
@@ -536,7 +536,7 @@ jobs:
   # 唯一拥有 PR 写权限的 job。它不运行 Agent，也不接收模型 API key。
   publish:
     name: review
-    needs: [codex_review, claude_review]
+    needs: [claude_review, codex_review]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -545,23 +545,23 @@ jobs:
     outputs:
       structured_output: ${{ steps.result.outputs.structured_output }}
     steps:
-      - name: Download Codex review result
-        if: needs.codex_review.outputs.status == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: review-result-codex
-          path: .review-input
-
       - name: Download Claude review result
-        if: needs.claude_review.result == 'success'
+        if: needs.claude_review.outputs.status == 'success'
         uses: actions/download-artifact@v8
         with:
           name: review-result-claude
           path: .review-input
 
+      - name: Download Codex review result
+        if: needs.codex_review.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: review-result-codex
+          path: .review-input
+
       - name: Validate and publish review comment
         id: result
-        if: needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'
+        if: needs.claude_review.outputs.status == 'success' || needs.codex_review.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           REVIEW_FILE: .review-input/review.json
@@ -584,17 +584,17 @@ jobs:
             ) and
             (.comment_body | type == "string" and length > 0 and length <= 60000) and
             (
-              (.reviewer == "codex" and .model == "gpt-5.6-sol") or
-              (.reviewer == "claude" and .model == "claude-opus-5")
+              (.reviewer == "claude" and .model == "claude-opus-5-5") or
+              (.reviewer == "codex" and .model == "gpt-6.1-sol")
             )
           ' "$REVIEW_FILE" > /dev/null
 
           jq -r '.comment_body' "$REVIEW_FILE" > "$RUNNER_TEMP/review-comment.md"
           REVIEWER=$(jq -r '.reviewer' "$REVIEW_FILE")
-          if [ "$REVIEWER" = "codex" ]; then
-            FOOTER="本次审查由 Codex 主链路 (gpt-5.6-sol) 完成。"
+          if [ "$REVIEWER" = "claude" ]; then
+            FOOTER="本次审查由 Claude Code 主链路 (claude-opus-5-5) 完成。"
           else
-            FOOTER="本次审查由 Claude Code fallback 链路 (claude-opus-5) 完成；Codex 主链路执行失败，详情见 workflow run。"
+            FOOTER="本次审查由 Codex fallback 链路 (gpt-6.1-sol) 完成；Claude Code 主链路执行失败，详情见 workflow run。"
           fi
           STATE_B64=$(jq -c \
             --arg head "$REVIEW_HEAD" \
@@ -669,7 +669,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when no reviewer succeeded
-        if: always() && needs.codex_review.outputs.status != 'success' && needs.claude_review.result != 'success'
+        if: always() && needs.claude_review.outputs.status != 'success' && needs.codex_review.result != 'success'
         run: |
-          echo "::error::Codex 主链路与 Claude Code fallback 均执行失败"
+          echo "::error::Claude Code 主链路与 Codex fallback 均执行失败"
           exit 1

@@ -106,42 +106,42 @@ def assert_pr_review_draft_contract(source: str) -> None:
     ], "PR Review 必须在 Draft PR 打开、同步或重新打开时触发"
 
     jobs = document["jobs"]
-    assert "if" not in jobs["codex_review"], "Codex 主审不得按 Draft 状态或其他条件恒定跳过"
-    assert jobs["claude_review"].get("needs") == "codex_review", "Claude 兜底必须等待 Codex 主审"
-    # codex_review 的关键步骤带 continue-on-error（让主链路失败时该 job 不显红），
-    # 因此 needs.codex_review.result 恒为 success，下游必须判 outputs.status。
-    # 这条断言同时守住两件事：兜底只依赖 Codex 成败，且判的是那个仍有判别力的信号。
-    assert jobs["claude_review"].get("if") == "always() && needs.codex_review.outputs.status != 'success'", (
-        "Claude 兜底条件必须只取决于 Codex 是否成功，且须判 outputs.status 而非 result"
+    assert "if" not in jobs["claude_review"], "Claude Code 主审不得按 Draft 状态或其他条件恒定跳过"
+    assert jobs["codex_review"].get("needs") == "claude_review", "Codex 兜底必须等待 Claude Code 主审"
+    # claude_review 的关键步骤带 continue-on-error（让主链路失败时该 job 不显红），
+    # 因此 needs.claude_review.result 恒为 success，下游必须判 outputs.status。
+    # 这条断言同时守住两件事：兜底只依赖 Claude Code 成败，且判的是那个仍有判别力的信号。
+    assert jobs["codex_review"].get("if") == "always() && needs.claude_review.outputs.status != 'success'", (
+        "Codex 兜底条件必须只取决于 Claude Code 是否成功，且须判 outputs.status 而非 result"
         "（result 在 continue-on-error 下恒为 success）"
     )
-    assert jobs["codex_review"].get("outputs", {}).get("status"), (
-        "codex_review 必须导出 status output 供下游判断，否则 continue-on-error 会让失败无声通过"
+    assert jobs["claude_review"].get("outputs", {}).get("status"), (
+        "claude_review 必须导出 status output 供下游判断，否则 continue-on-error 会让失败无声通过"
     )
-    codex_steps = unique_steps_by_name(jobs["codex_review"]["steps"], "Codex 主审")
-    for name in ("Review with Codex and GPT-5.6-sol", "Normalize and validate Codex review"):
-        assert name in codex_steps, f"Codex 主审缺少 step: {name}"
-        assert codex_steps[name].get("continue-on-error") is True, (
-            f"Codex 主审 step 必须带 continue-on-error 才能避免 job 显红: {name}"
+    claude_steps = unique_steps_by_name(jobs["claude_review"]["steps"], "Claude Code 主审")
+    for name in ("Review with Claude Code and Claude Opus 5.5", "Normalize and validate Claude review"):
+        assert name in claude_steps, f"Claude Code 主审缺少 step: {name}"
+        assert claude_steps[name].get("continue-on-error") is True, (
+            f"Claude Code 主审 step 必须带 continue-on-error 才能避免 job 显红: {name}"
         )
-    assert "Report Codex chain status" in codex_steps, (
-        "Codex 主审必须有汇总 step 把成败写进 outputs.status"
+    assert "Report Claude chain status" in claude_steps, (
+        "Claude Code 主审必须有汇总 step 把成败写进 outputs.status"
     )
-    assert jobs["publish"].get("needs") == ["codex_review", "claude_review"], (
+    assert jobs["publish"].get("needs") == ["claude_review", "codex_review"], (
         "PR publisher 必须等待两条审查链"
     )
     assert jobs["publish"].get("if") == "always()", "PR publisher 必须在两条审查链结束后运行"
 
     publish_steps = unique_steps_by_name(jobs["publish"]["steps"], "PR publisher")
     expected_conditions = {
-        "Download Codex review result": "needs.codex_review.outputs.status == 'success'",
-        "Download Claude review result": "needs.claude_review.result == 'success'",
+        "Download Claude review result": "needs.claude_review.outputs.status == 'success'",
+        "Download Codex review result": "needs.codex_review.result == 'success'",
         "Validate and publish review comment": (
-            "needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'"
+            "needs.claude_review.outputs.status == 'success' || needs.codex_review.result == 'success'"
         ),
         "Fail when no reviewer succeeded": (
-            "always() && needs.codex_review.outputs.status != 'success' "
-            "&& needs.claude_review.result != 'success'"
+            "always() && needs.claude_review.outputs.status != 'success' "
+            "&& needs.codex_review.result != 'success'"
         ),
     }
     for name, expected in expected_conditions.items():
@@ -149,8 +149,8 @@ def assert_pr_review_draft_contract(source: str) -> None:
         assert publish_steps[name].get("if") == expected, f"PR publisher step 条件不正确: {name}"
 
     download_contracts = {
-        "Download Codex review result": "review-result-codex",
         "Download Claude review result": "review-result-claude",
+        "Download Codex review result": "review-result-codex",
     }
     for name, artifact in download_contracts.items():
         step = publish_steps[name]
@@ -180,10 +180,10 @@ def assert_pr_review_draft_contract(source: str) -> None:
     assert failure_result.returncode != 0, "两条审查链都失败时，publisher 必须以非零状态结束"
 
 
-def assert_codex_chain_not_red(source: str, label: str, chain: dict) -> None:
+def assert_claude_chain_not_red(source: str, label: str, chain: dict) -> None:
     """主链路失败不得让 job 显红, 但失败信号必须仍可被下游判别。
 
-    codex 侧的关键步骤带 continue-on-error（这样 fallback 接手时主 job 不挂红叉），
+    claude 侧的关键步骤带 continue-on-error（这样 fallback 接手时主 job 不挂红叉），
     代价是 needs.<job>.result 恒为 success。因此每个这样的 job 都必须导出
     outputs.status，且全仓不得再有任何地方判它的 .result —— 那个值已经没有判别力了。
 
@@ -500,7 +500,7 @@ def test_review_result_semantics(review_source: str) -> None:
         "suggestion_count": 0,
         "comment_body": "正文",
         "reviewer": "codex",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6.1-sol",
     }
     for jq_filter in filters:
         rejected = run(["jq", "-e", jq_filter], input_text=json.dumps(base), check=False)
@@ -511,6 +511,104 @@ def test_review_result_semantics(review_source: str) -> None:
             check=False,
         )
         assert accepted.returncode == 0, "含小问题的 COMMENT 应被实际 jq 校验接受"
+
+
+def extract_dedented(text: str, start: str, end: str) -> str:
+    begin = text.index(start)
+    block = text[begin:text.index(end, begin)]
+    lines = block.splitlines()
+    indent = min(len(line) - len(line.lstrip()) for line in lines if line.strip())
+    return "\n".join(line[indent:] for line in lines)
+
+
+def test_claude_failure_diagnostics(action_source: str) -> None:
+    # CLI 失败原因（如网关的渠道限制）只在 stdout JSON 的 result 里，stderr 为空。run-agent 必须
+    # 把它打印成恰好一行 workflow 命令：result 可能含不可信文本，未转义的 CR/LF 会另起一行伪造命令。
+    snippet = extract_dedented(action_source, "            set +e\n", "            jq -c '\n")
+    gateway_error = "API Error: 400 专用渠道限制: 接口仅可用于CC官方客户端"
+    cases = {
+        "gateway": (
+            1,
+            json.dumps({"is_error": True, "api_error_status": 400, "result": gateway_error}),
+            [gateway_error, "api_error_status=400"],
+        ),
+        "injection": (
+            1,
+            json.dumps({"is_error": True, "result": "a 100%\n::warning::x\r\n::add-mask::y"}),
+            ["a 100%25%0A::warning::x%0D%0A::add-mask::y"],
+        ),
+        "not-json": (1, "boom\n::error::x", ["CLI 输出不是 JSON：boom%0A::error::x"]),
+        "empty": (1, "", ["CLI 未输出结果"]),
+        "exit-zero-is-error": (
+            0,
+            json.dumps({"is_error": True, "result": "soft"}),
+            ["（退出码 0）", "result=soft"],
+        ),
+        "success": (0, json.dumps({"is_error": False}), None),
+    }
+    for case, (code, output, expected) in cases.items():
+        with tempfile.TemporaryDirectory() as temp:
+            tmp = Path(temp)
+            (tmp / "output").write_text(output, encoding="utf-8")
+            (tmp / "prompt.txt").write_text("prompt", encoding="utf-8")
+            fake = tmp / "node"
+            fake.write_text(
+                f"#!/usr/bin/env bash\ncat > /dev/null\ncat '{tmp}/output'\nexit {code}\n",
+                encoding="utf-8",
+            )
+            fake.chmod(0o755)
+            script = (
+                "set -euo pipefail\nwrapper=x schema=s MODEL=m\n"
+                f"PROMPT_FILE='{tmp}/prompt.txt' CONSUMER_WORKSPACE='{tmp}'\n"
+                f"raw_result='{tmp}/raw.json'\n{snippet}\necho SUCCESS-PATH\n"
+            )
+            result = run(["bash", "-c", script], env={"PATH": f"{tmp}:/usr/bin:/bin"}, check=False)
+        lines = result.stdout.splitlines()
+        if expected is None:
+            assert result.returncode == 0 and lines == ["SUCCESS-PATH"], (case, result)
+            continue
+        assert result.returncode == 1, (case, result)
+        assert len(lines) == 1 and lines[0].startswith("::error::Claude Code 调用失败"), (case, lines)
+        for fragment in expected:
+            assert fragment in lines[0], (case, fragment, lines[0])
+
+
+def test_model_ids_are_consistent(action_source: str) -> None:
+    # 模型 ID 同时写在 workflow 输入、normalize/package 参数、发布端白名单和运行时脚本里。
+    # 只封一个具体的旧字面量挡不住下一次换模型时漏改一处，所以从 workflow 的 run-agent 输入推出
+    # 唯一的 Codex/Claude 模型，再要求每个来源里出现的模型 ID 都与之相等。
+    workflows = {name: workflow(name) for name in AGENTIC_WORKFLOWS}
+    sources = {
+        **workflows,
+        **{
+            path.name: read(path)
+            for path in sorted((ROOT / ".github" / "scripts" / "agentic").glob("*.sh"))
+        },
+        "run-agent/action.yml": action_source,
+    }
+    joined = "".join(workflows.values())
+    codex_models = set(re.findall(r"^          model: (gpt-\S+)$", joined, re.M))
+    claude_models = set(re.findall(r"^          model: (claude-\S+)$", joined, re.M))
+    assert len(codex_models) == 1 and len(claude_models) == 1, (codex_models, claude_models)
+    codex_model, claude_model = codex_models.pop(), claude_models.pop()
+    for name, text in sources.items():
+        # 不区分大小写：页脚与 step 名用 GPT-6.1-sol 这种展示写法，同样必须指向唯一的模型。
+        for found in re.findall(r"gpt-[0-9][0-9A-Za-z.-]*", text, re.I):
+            assert found.lower() == codex_model, (name, found, codex_model)
+        for found in re.findall(r"claude-(?:opus|sonnet|haiku)-[0-9A-Za-z.-]*", text, re.I):
+            assert found.lower() == claude_model, (name, found, claude_model)
+    # 白名单若混入不像 gpt-/claude- 的 ID（例如 o5-sol），上面的扫描看不到它，
+    # 所以对每个 IN(...) 模型列表做集合相等断言。
+    for name in ("publish-change.sh", "validate-change-artifact.sh"):
+        lists = re.findall(r"\(\.model \| IN\(([^)]*)\)\)", sources[name])
+        assert lists, name
+        for listed in lists:
+            assert set(re.findall(r'"([^"]+)"', listed)) == {codex_model, claude_model}, (name, listed)
+        pairs = re.findall(r'\.reviewer == "(\w+)" and \.model == "([^"]+)"', sources[name])
+        assert all(pair in {("codex", codex_model), ("claude", claude_model)} for pair in pairs), (
+            name,
+            pairs,
+        )
 
 
 def test_review_comment_upsert(review_source: str) -> None:
@@ -767,7 +865,7 @@ def package_llmdoc_fixture(
             str(artifact),
             base_sha,
             "codex",
-            "gpt-5.6-sol",
+            "gpt-6.1-sol",
             "update-llmdoc",
         ]
     )
@@ -864,7 +962,7 @@ def test_runtime_scripts() -> None:
                 str(raw_answer),
                 str(normalized),
                 "codex",
-                "gpt-5.6-sol",
+                "gpt-6.1-sol",
                 "issue-dispatch",
             ]
         )
@@ -899,7 +997,7 @@ def test_runtime_scripts() -> None:
                 str(raw_answer),
                 str(trusted_output),
                 "codex",
-                "gpt-5.6-sol",
+                "gpt-6.1-sol",
                 "issue-dispatch",
             ]
         )
@@ -940,7 +1038,7 @@ def test_runtime_scripts() -> None:
                 str(tmp / "safe-artifact"),
                 trusted_base_sha,
                 "codex",
-                "gpt-5.6-sol",
+                "gpt-6.1-sol",
                 "update-llmdoc",
             ]
         )
@@ -963,7 +1061,7 @@ def test_runtime_scripts() -> None:
                 str(artifact),
                 base,
                 "codex",
-                "gpt-5.6-sol",
+                "gpt-6.1-sol",
                 "update-llmdoc",
             ]
         )
@@ -987,7 +1085,7 @@ def test_runtime_scripts() -> None:
                 str(tmp / "rejected-artifact"),
                 rejected_base,
                 "codex",
-                "gpt-5.6-sol",
+                "gpt-6.1-sol",
                 "update-llmdoc",
             ],
             check=False,
@@ -1245,6 +1343,9 @@ def main() -> None:
     )
     test_review_result_semantics(review)
     test_review_comment_upsert(review)
+    action = read(ACTIONS / "run-agent" / "action.yml")
+    test_claude_failure_diagnostics(action)
+    test_model_ids_are_consistent(action)
     test_pre_push_bot_comment_audit()
     test_runtime_scripts()
     test_publish_preserves_unmerged_llmdoc_candidate()
@@ -1271,84 +1372,92 @@ def main() -> None:
     )
     assert_pr_review_draft_contract(review)
 
-    # 三条 codex -> claude fallback 链路都不得在主链路失败时显红（见
-    # assert_codex_chain_not_red 的说明）。llmdoc 那条把候选生成与校验拆成两个 job，
+    # 三条 claude -> codex fallback 链路都不得在主链路失败时显红（见
+    # assert_claude_chain_not_red 的说明）。llmdoc 那条把候选生成与校验拆成两个 job，
     # 所以两个都要检查。
-    assert_codex_chain_not_red(
+    assert_claude_chain_not_red(
         review,
         "PR Review",
         {
-            "codex_review": (
-                "Review with Codex and GPT-5.6-sol",
-                "Normalize and validate Codex review",
+            "claude_review": (
+                "Review with Claude Code and Claude Opus 5.5",
+                "Normalize and validate Claude review",
             )
         },
     )
-    assert_codex_chain_not_red(
+    assert_claude_chain_not_red(
         issue,
         "Issue Dispatch",
-        {"codex_analyze": ("Analyze with Codex", "Normalize Codex result")},
+        {"claude_analyze": ("Analyze with Claude Code", "Normalize Claude result")},
     )
-    assert_codex_chain_not_red(
+    assert_claude_chain_not_red(
         llmdoc,
         "llmdoc Updater",
         {
-            "codex_candidate": (
-                "Update llmdoc with Codex",
+            "claude_candidate": (
+                "Update llmdoc with Claude Code",
                 "Import Agent llmdoc content into fresh packaging base",
-                "Package Codex candidate",
+                "Package Claude candidate",
             ),
-            "validate_codex": ("Validate Codex candidate",),
+            "validate_claude": ("Validate Claude candidate",),
         },
     )
-    duplicate_codex_download = review.replace(
-        "        if: needs.codex_review.outputs.status == 'success'\n",
+    duplicate_claude_download = review.replace(
+        "        if: needs.claude_review.outputs.status == 'success'\n",
         "        if: 0 == 1\n",
         1,
     ).replace(
-        "      - name: Download Claude review result\n",
-        "      - name: Download Codex review result\n"
-        "        if: needs.codex_review.outputs.status == 'success'\n"
+        "      - name: Download Codex review result\n",
+        "      - name: Download Claude review result\n"
+        "        if: needs.claude_review.outputs.status == 'success'\n"
         "        run: \"true\"\n\n"
-        "      - name: Download Claude review result\n",
+        "      - name: Download Codex review result\n",
         1,
     )
     for broken_review, label in (
         (
             review.replace(
-                "    name: Review with Codex (primary)\n    runs-on:",
-                "    name: Review with Codex (primary)\n    if: 0 == 1\n    runs-on:",
+                "    name: Review with Claude Code (primary)\n    runs-on:",
+                "    name: Review with Claude Code (primary)\n    if: 0 == 1\n    runs-on:",
                 1,
             ),
-            "Codex 主审恒假条件",
+            "Claude Code 主审恒假条件",
         ),
         (
             review.replace(
-                "    if: always() && needs.codex_review.outputs.status != 'success'\n",
-                "    if: always() && needs.codex_review.outputs.status != 'success' && 0 == 1\n",
+                "    if: always() && needs.claude_review.outputs.status != 'success'\n",
+                "    if: always() && needs.claude_review.outputs.status != 'success' && 0 == 1\n",
                 1,
             ),
-            "Claude 兜底恒假条件",
+            "Codex 兜底恒假条件",
         ),
         (
             review.replace(
-                "    needs: [codex_review, claude_review]\n    if: always()\n",
-                "    needs: [codex_review, claude_review]\n    if: always() && 0 == 1\n",
+                "    needs: [claude_review, codex_review]\n    if: always()\n",
+                "    needs: [claude_review, codex_review]\n    if: always() && 0 == 1\n",
                 1,
             ),
             "publisher 恒假条件",
         ),
         (
-            review.replace("    needs: codex_review\n", "", 1),
-            "Claude 兜底缺少 Codex 依赖",
+            review.replace("    needs: claude_review\n", "", 1),
+            "Codex 兜底缺少 Claude Code 依赖",
         ),
         (
-            review.replace("    needs: [codex_review, claude_review]\n", "", 1),
+            review.replace("    needs: [claude_review, codex_review]\n", "", 1),
             "publisher 缺少审查链依赖",
         ),
         (
             review.replace(
-                "        if: needs.codex_review.outputs.status == 'success'\n",
+                "        if: needs.claude_review.outputs.status == 'success'\n",
+                "        if: 0 == 1\n",
+                1,
+            ),
+            "Claude Code artifact 下载被禁用",
+        ),
+        (
+            review.replace(
+                "        if: needs.codex_review.result == 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
@@ -1356,15 +1465,7 @@ def main() -> None:
         ),
         (
             review.replace(
-                "        if: needs.claude_review.result == 'success'\n",
-                "        if: 0 == 1\n",
-                1,
-            ),
-            "Claude artifact 下载被禁用",
-        ),
-        (
-            review.replace(
-                "        if: needs.codex_review.outputs.status == 'success' || needs.claude_review.result == 'success'\n",
+                "        if: needs.claude_review.outputs.status == 'success' || needs.codex_review.result == 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
@@ -1372,36 +1473,36 @@ def main() -> None:
         ),
         (
             review.replace(
-                "        if: always() && needs.codex_review.outputs.status != 'success' && needs.claude_review.result != 'success'\n",
+                "        if: always() && needs.claude_review.outputs.status != 'success' && needs.codex_review.result != 'success'\n",
                 "        if: 0 == 1\n",
                 1,
             ),
             "双失败终止 step 被禁用",
         ),
         (
-            duplicate_codex_download,
-            "重名空操作掩护被禁用的 Codex 下载",
+            duplicate_claude_download,
+            "重名空操作掩护被禁用的 Claude Code 下载",
         ),
         (
             review.replace(
-                "      - name: Download Codex review result\n"
-                "        if: needs.codex_review.outputs.status == 'success'\n"
-                "        uses: actions/download-artifact@v8\n"
-                "        with:\n"
-                "          name: review-result-codex\n",
-                "      - name: Download Codex review result\n"
-                "        if: needs.codex_review.outputs.status == 'success'\n"
+                "      - name: Download Claude review result\n"
+                "        if: needs.claude_review.outputs.status == 'success'\n"
                 "        uses: actions/download-artifact@v8\n"
                 "        with:\n"
                 "          name: review-result-claude\n",
+                "      - name: Download Claude review result\n"
+                "        if: needs.claude_review.outputs.status == 'success'\n"
+                "        uses: actions/download-artifact@v8\n"
+                "        with:\n"
+                "          name: review-result-codex\n",
                 1,
             ),
-            "Codex 下载错误 artifact",
+            "Claude Code 下载错误 artifact",
         ),
         (
             review.replace(
                 "        run: |\n"
-                "          echo \"::error::Codex 主链路与 Claude Code fallback 均执行失败\"\n"
+                "          echo \"::error::Claude Code 主链路与 Codex fallback 均执行失败\"\n"
                 "          exit 1\n",
                 "        run: \"true\"\n",
                 1,

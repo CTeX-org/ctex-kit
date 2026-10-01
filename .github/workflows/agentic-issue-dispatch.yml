@@ -49,14 +49,14 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  codex_analyze:
-    name: Analyze with Codex (primary)
+  claude_analyze:
+    name: Analyze with Claude Code (primary)
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # 主链路失败由 claude fallback 兜住, 整体结论在 dispatch job 给出, 所以这个 job
+    # 主链路失败由 codex fallback 兜住, 整体结论在 dispatch job 给出, 所以这个 job
     # 不再以红叉示人。成败通过 outputs.status 传给下游 —— 带了 continue-on-error 之后
-    # needs.codex_analyze.result 恒为 success, 下游一律判 outputs.status。
+    # needs.claude_analyze.result 恒为 success, 下游一律判 outputs.status。
     outputs:
       status: ${{ steps.status.outputs.status }}
     permissions:
@@ -160,21 +160,21 @@ jobs:
           echo "TRUSTED_ANSWER_NORMALIZER=$trusted_dir/normalize-answer-result.sh" \
             >> "$GITHUB_ENV"
 
-      - name: Analyze with Codex
+      - name: Analyze with Claude Code
         id: agent
         continue-on-error: true
         uses: ./consumer/.github/actions/run-agent
         with:
-          provider: codex
-          model: gpt-5.6-sol
-          api_key: ${{ secrets.OPENAI_API_KEY || secrets.ANTHROPIC_API_KEY }}
-          base_url: ${{ secrets.OPENAI_BASE_URL || secrets.ANTHROPIC_BASE_URL }}
+          provider: claude
+          model: claude-opus-5-5
+          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
           workspace: ${{ github.workspace }}/consumer
           prompt_file: ${{ runner.temp }}/prompt.txt
           schema_file: ${{ runner.temp }}/result-schema.json
           result_file: ${{ runner.temp }}/raw-result.json
 
-      - name: Normalize Codex result
+      - name: Normalize Claude result
         id: validate
         if: steps.agent.outcome == 'success'
         continue-on-error: true
@@ -183,13 +183,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/agent-result"
           bash "$TRUSTED_ANSWER_NORMALIZER" \
             "$RUNNER_TEMP/raw-result.json" "$RUNNER_TEMP/agent-result/result.json" \
-            codex gpt-5.6-sol issue-dispatch
+            claude claude-opus-5-5 issue-dispatch
 
-      - name: Upload Codex analysis
+      - name: Upload Claude analysis
         if: steps.validate.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
-          name: issue-dispatch-result-codex
+          name: issue-dispatch-result-claude
           path: ${{ runner.temp }}/agent-result/result.json
           if-no-files-found: error
           overwrite: true
@@ -198,7 +198,7 @@ jobs:
       # 汇总两个带 continue-on-error 的步骤。失败时打 ::warning:: 而非 ::error::,
       # job 保持绿色但异常仍可从 annotation 检索; 真正的红由 dispatch job 在两条链路
       # 都失败时给出。
-      - name: Report Codex chain status
+      - name: Report Claude chain status
         id: status
         if: always()
         run: |
@@ -212,17 +212,17 @@ jobs:
           fi
           if [ -n "$reason" ]; then
             echo "status=failure" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Codex 主链路失败::${reason}；将由 Claude Code fallback 接手"
-            printf '### Codex 主链路失败\n\n%s\n\n将由 Claude Code fallback 接手。\n' \
+            echo "::warning title=Claude Code 主链路失败::${reason}；将由 Codex fallback 接手"
+            printf '### Claude Code 主链路失败\n\n%s\n\n将由 Codex fallback 接手。\n' \
               "$reason" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-  claude_analyze:
-    name: Analyze with Claude Code (fallback)
-    needs: [prepare, codex_analyze]
-    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && needs.codex_analyze.outputs.status != 'success'
+  codex_analyze:
+    name: Analyze with Codex (fallback)
+    needs: [prepare, claude_analyze]
+    if: always() && github.repository == 'CTeX-org/ctex-kit' && needs.prepare.result == 'success' && needs.claude_analyze.outputs.status != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -304,7 +304,7 @@ jobs:
           }
           SCHEMA
           cat > "$RUNNER_TEMP/prompt.txt" <<PROMPT
-          Codex 主链路失败。阅读以下可信规范，并根据 $RUNNER_TEMP/agent-input/task.json 选择正确的分析规范：
+          Claude Code 主链路失败。阅读以下可信规范，并根据 $RUNNER_TEMP/agent-input/task.json 选择正确的分析规范：
           - $GITHUB_WORKSPACE/consumer/.claude/skills/bug-analyze/SKILL.md
           - $GITHUB_WORKSPACE/consumer/.claude/skills/feature-review/SKILL.md
           - $GITHUB_WORKSPACE/consumer/.claude/skills/answer-question/SKILL.md
@@ -326,30 +326,30 @@ jobs:
           echo "TRUSTED_ANSWER_NORMALIZER=$trusted_dir/normalize-answer-result.sh" \
             >> "$GITHUB_ENV"
 
-      - name: Analyze with Claude Code
+      - name: Analyze with Codex
         uses: ./consumer/.github/actions/run-agent
         with:
-          provider: claude
-          model: claude-opus-5
-          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
+          provider: codex
+          model: gpt-6.1-sol
+          api_key: ${{ secrets.OPENAI_API_KEY || secrets.ANTHROPIC_API_KEY }}
+          base_url: ${{ secrets.OPENAI_BASE_URL || secrets.ANTHROPIC_BASE_URL }}
           workspace: ${{ github.workspace }}/consumer
           prompt_file: ${{ runner.temp }}/prompt.txt
           schema_file: ${{ runner.temp }}/result-schema.json
           result_file: ${{ runner.temp }}/raw-result.json
 
-      - name: Normalize Claude result
+      - name: Normalize Codex result
         run: |
           test -x "$TRUSTED_ANSWER_NORMALIZER"
           mkdir -p "$RUNNER_TEMP/agent-result"
           bash "$TRUSTED_ANSWER_NORMALIZER" \
             "$RUNNER_TEMP/raw-result.json" "$RUNNER_TEMP/agent-result/result.json" \
-            claude claude-opus-5 issue-dispatch
+            codex gpt-6.1-sol issue-dispatch
 
-      - name: Upload Claude analysis
+      - name: Upload Codex analysis
         uses: actions/upload-artifact@v7
         with:
-          name: issue-dispatch-result-claude
+          name: issue-dispatch-result-codex
           path: ${{ runner.temp }}/agent-result/result.json
           if-no-files-found: error
           overwrite: true
@@ -357,7 +357,7 @@ jobs:
 
   dispatch:
     name: dispatch
-    needs: [prepare, codex_analyze, claude_analyze]
+    needs: [prepare, claude_analyze, codex_analyze]
     if: always() && github.repository == 'CTeX-org/ctex-kit'
     runs-on: ubuntu-latest
     permissions:
@@ -366,23 +366,23 @@ jobs:
       structured_output: ${{ steps.publish.outputs.structured_output }}
       description: ${{ steps.publish.outputs.description }}
     steps:
-      - name: Download Codex analysis
-        if: needs.codex_analyze.outputs.status == 'success'
-        uses: actions/download-artifact@v8
-        with:
-          name: issue-dispatch-result-codex
-          path: ${{ runner.temp }}/agent-result
-
       - name: Download Claude analysis
-        if: needs.codex_analyze.outputs.status != 'success' && needs.claude_analyze.result == 'success'
+        if: needs.claude_analyze.outputs.status == 'success'
         uses: actions/download-artifact@v8
         with:
           name: issue-dispatch-result-claude
           path: ${{ runner.temp }}/agent-result
 
+      - name: Download Codex analysis
+        if: needs.claude_analyze.outputs.status != 'success' && needs.codex_analyze.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: issue-dispatch-result-codex
+          path: ${{ runner.temp }}/agent-result
+
       - name: Validate and publish analysis
         id: publish
-        if: needs.codex_analyze.outputs.status == 'success' || needs.claude_analyze.result == 'success'
+        if: needs.claude_analyze.outputs.status == 'success' || needs.codex_analyze.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -400,8 +400,8 @@ jobs:
             (.cost | IN("small", "medium", "large", "extra-large", "n/a")) and
             (.auto_fix_eligible | type == "boolean") and
             (.comment_body | type == "string" and length > 0 and length <= 60000) and
-            ((.reviewer == "codex" and .model == "gpt-5.6-sol") or
-             (.reviewer == "claude" and .model == "claude-opus-5"))
+            ((.reviewer == "claude" and .model == "claude-opus-5-5") or
+             (.reviewer == "codex" and .model == "gpt-6.1-sol"))
           ' "$RESULT_FILE" > /dev/null
 
           reviewer=$(jq -r '.reviewer' "$RESULT_FILE")
@@ -441,9 +441,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when no analysis succeeded
-        if: always() && needs.codex_analyze.outputs.status != 'success' && needs.claude_analyze.result != 'success'
+        if: always() && needs.claude_analyze.outputs.status != 'success' && needs.codex_analyze.result != 'success'
         run: |
-          echo "::error::Codex 主链路与 Claude Code fallback 均执行失败"
+          echo "::error::Claude Code 主链路与 Codex fallback 均执行失败"
           exit 1
 
   notify:

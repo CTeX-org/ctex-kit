@@ -26,7 +26,7 @@ jq -e '
   (.outcome | IN("READY", "NO_CHANGES", "BLOCKED")) and
   (.base_sha | type == "string" and test("^[0-9a-f]{40}$")) and
   (.reviewer | IN("codex", "claude")) and
-  (.model | IN("gpt-5.6-sol", "claude-opus-5"))
+  (.model | IN("gpt-6.1-sol", "claude-opus-5-5"))
 ' "$manifest" > /dev/null
 jq -e '
   (type == "object") and
@@ -35,8 +35,8 @@ jq -e '
   (.comment_body | type == "string" and length > 0 and length <= 60000) and
   (.pr_title | type == "string" and length > 0 and length <= 256 and (test("[\\r\\n]") | not)) and
   (.pr_body | type == "string" and length > 0 and length <= 60000) and
-  ((.reviewer == "codex" and .model == "gpt-5.6-sol") or
-   (.reviewer == "claude" and .model == "claude-opus-5"))
+  ((.reviewer == "codex" and .model == "gpt-6.1-sol") or
+   (.reviewer == "claude" and .model == "claude-opus-5-5"))
 ' "$result" > /dev/null
 
 outcome=$(jq -r '.outcome' "$manifest")
