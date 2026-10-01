@@ -1,0 +1,108 @@
+\input{regression-test}
+
+\documentclass[fontset=fandol]{ctexart}
+
+\usepackage{caption,subcaption}
+\captionsetup[figure]{belowskip=-12pt}
+
+% #1100：判据与 heading-fixskip02 相同，这里覆盖 caption 宏包。issue 中的模板
+% 加载 caption 并设 belowskip=-12pt。caption 在 \begin{document} 时把 \@xfloat
+% 存为 \caption@ORI@xfloat，再用自己的定义包住它；ctex 在这之前给 \@xfloat
+% 加钩子，所以 caption 保存的版本里已经有 ctex 的钩子。将来 caption 改变替换
+% \@xfloat 的方式、绕过 ctex 的钩子时，这里的用例会变成 ignore-depth。
+
+\ExplSyntaxOn
+\dim_new:N \l_test_ref_dim
+\cs_new_protected:Npn \test_figure:
+  {
+    \begin{figure}[h]
+      \centering \rule{3cm}{1cm}
+      \caption{图名}
+    \end{figure}
+  }
+\cs_new_protected:Npn \test_table:
+  {
+    \begin{table}[h]
+      \centering
+      \caption{表名}
+      \rule{3cm}{1cm}
+    \end{table}
+  }
+\cs_new_protected:Npn \test_subfigure:
+  {
+    \begin{figure}[h]
+      \centering
+      \begin{subfigure}{0.4\linewidth}
+        \centering \rule{2cm}{1cm}
+        \caption{子图}
+      \end{subfigure}
+      \begin{subfigure}{0.4\linewidth}
+        \centering \rule{2cm}{1cm}
+        \caption{子图}
+      \end{subfigure}
+      \caption{图名}
+    \end{figure}
+  }
+% 记下 fixskip=false 时同一写法在浮动体之后的 \prevdepth。
+\cs_new_protected:Npn \test_reference:n #1
+  {
+    \clearpage
+    \ctexset { section / fixskip = false }
+    \section{标题}
+    #1
+    \dim_set:Nn \l_test_ref_dim { \tex_prevdepth:D }
+    \clearpage
+  }
+\cs_new_protected:Npn \test_case:nn #1#2
+  {
+    \test_reference:n {#2}
+    \ctexset { section / fixskip = true }
+    \section{标题}
+    #2
+    \test_log:n {#1}
+    \clearpage
+  }
+\seq_new:N \g_test_result_seq
+\cs_new_protected:Npn \test_log:n #1
+  {
+    \seq_gput_right:Ne \g_test_result_seq
+      {
+        #1 :~
+        \dim_compare:nNnTF \tex_prevdepth:D = \l_test_ref_dim
+          { same-as-nofixskip }
+          {
+            \dim_compare:nNnTF \tex_prevdepth:D = { -1000pt }
+              { ignore-depth } { other }
+          }
+      }
+  }
+\cs_new_protected:Npn \test_report:
+  {
+    \TIMO
+    \seq_map_inline:Nn \g_test_result_seq { \TYPE {##1} }
+    \seq_gclear:N \g_test_result_seq
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\AUTHOR{Liam Huang}
+
+\ExplSyntaxOn
+
+\TEST{h~float~with~caption~package}{
+  \OMIT
+  \test_case:nn { figure-h } { \test_figure: }
+  \test_case:nn { table-caption-above-h } { \test_table: }
+  \test_case:nn { subfigure-h } { \test_subfigure: }
+  \test_case:nn { figure-then-table-h } { \test_figure: \test_table: }
+  \test_report:
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

@@ -315,7 +315,9 @@ v2.6.6 的修法（`1ab213e4`）：
 
 已知限制见 `llmdoc/memory/doc-gaps.md`“fixskip”两节：标题后直接 `\nointerlineskip`，或 `\hrule`
 后接 `\vspace`，仍会恢复深度；标题与就地放置的浮动体之间少一个 `\parskip` 是既有行为，#1100 未处理。
-测试见 `ctex/test/testfiles/heading-fixskip02.lvt`、`heading-fixskip03.lvt`，过程见
+`caption` 宏包在 `\begin{document}` 时把 `\@xfloat` 存为 `\caption@ORI@xfloat` 再包一层，ctex 的钩子在这之前加入，
+所以仍在 caption 保存的定义里；`heading-fixskip04` 固定这一点。
+测试见 `ctex/test/testfiles/heading-fixskip02.lvt`、`heading-fixskip03.lvt`、`heading-fixskip04.lvt`，过程见
 `llmdoc/memory/reflections/1100-fixskip-float-prevdepth.md`。
 
 ## 命令补丁子系统 (ctexpatch)
