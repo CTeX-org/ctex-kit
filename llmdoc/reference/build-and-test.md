@@ -334,7 +334,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 
 - `ctexset-*`：覆盖分组作用域、导言区设置、meta key、非法输入、空值重置、多键组合与覆盖顺序，例如 `ctex/test/testfiles/ctexset-scope01.lvt`、`ctex/test/testfiles/ctexset-preamble01.lvt`、`ctex/test/testfiles/ctexset-invalid01.lvt`。
 - `cjkfntef-luatex01/02`：分别覆盖 LuaTeX 下后续 `CJKfntef` 请求被禁止载入且字体仍可配置，以及包先载入时触发 critical 的分支。fatal-path 测试截获目标 `\msg_critical:nnn` 后立即结束，避免继续进入已污染状态产生无关的 LuaTeX-ja 二次错误。
-- `heading-*`：集中覆盖 heading key 簇，包括 `break`、`afterskip`、`beforeskip`、`hang`、`runin`、`afterindent`、`numbering`、`fixskip`、`pagestyle`、`aftertitle`、`titleformat`、`tocline`、`starred`、`longtitle`、`defaults`、`name`、`format/+` 追加语法与 `indent` 等；`heading-query01` 另以 `ctexbeamer` 覆盖 part/section/subsection 的编号、完整标签、编号开关、局部动态设置与分组恢复，已从“章节标题可用”扩展到“标题系统各键及公开查询接口的契约级回归”。
+- `heading-*`：集中覆盖 heading key 簇，包括 `break`、`afterskip`、`beforeskip`、`hang`、`runin`、`afterindent`、`numbering`、`fixskip`、`pagestyle`、`aftertitle`、`titleformat`、`tocline`、`starred`、`longtitle`、`defaults`、`name`、`format/+` 追加语法与 `indent` 等；`heading-query01` 另以 `ctexbeamer` 覆盖 part/section/subsection 的编号、完整标签、编号开关、局部动态设置与分组恢复，已从“章节标题可用”扩展到“标题系统各键及公开查询接口的契约级回归”。`heading-fixskip02`（`ctexbook`）与 `heading-fixskip03`（`ctexart` + `titlesec`）覆盖 #1100：紧跟 fixskip 标题、就地放置的 `[h]` 浮动体之后 `\prevdepth` 等于 `fixskip=false` 时的值；`t`／`b`／被推迟的浮动体、标题后先有盒子／段落／`\hrule`、中间隔着不开启 fixskip 的标题时保持 -1000pt 或原值；另覆盖 runin 标题、`\part`、`titlesec` 接管的 `\section`（带 `\titlerule`）及其后接 runin 标题。机制见 `llmdoc/architecture/ctex-architecture.md`「fixskip 与紧跟标题的浮动体」。
 - `scheme-*`：覆盖 `scheme=plain` / `scheme=chinese` 的默认行为差异与标题输出差异，例如 `ctex/test/testfiles/scheme-plain01.lvt`、`ctex/test/testfiles/scheme-compare02.lvt`。
 - 类与文档结构：`ctexrep01.lvt`、`ctexbeamer01.lvt`、`beamer01.lvt`、`beamer02.lvt`、`matter01.lvt`、`sub3section01.lvt`、`ctex-noheading01.lvt` 等覆盖 `ctexrep` / `ctexbook` / `ctexbeamer` 基础行为、`heading=true`、三级节、`frontmatter` / `mainmatter` / `backmatter`。
 - 字体与字号联动：`autoindent01.lvt`、`ccwd-selectfont01.lvt`、`ccwd-zihao01.lvt`、`ziju-scope01.lvt`、`ziju-edge01.lvt`、`ctexsetfont01.lvt`、`zihao-sizes01.lvt`、`zihao-parindent01.lvt`、`fontfamily01.lvt`、`fontfamily02.lvt`、`cjkfamily-default01.lvt`、`cjkfamily-default02.lvt` 等覆盖 `\ccwd`、`\ziju`、`\CTEXsetfont`、`\zihao` 全尺寸、段首缩进与 CJK 字体家族切换；其中 `autoindent01` 以四引擎基线锁定 #402 的零缩进例外：启用非零 `autoindent` 后把 `\parindent` 置零并切换字号，结果仍为 `0pt`。
@@ -357,6 +357,8 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 6. 新测试进入并行快照前必须先变成 git 已跟踪路径。`scripts/check-parallel.sh` 以 `git ls-files` 构造每个引擎的独立包快照；完全未跟踪的 `.lvt` / `.tlg` 不会进入 `make check-ctex`。运行前应确认 `git ls-files -- <path>` 能列出新文件，或直接用不经过快照的包内 `l3build check` 做定向验证。
 7. `l3build` 选项必须放在测试名之前。定向静默检查应使用 `l3build check -q <testname>`；`l3build check <testname> -q` 会把尾部 `-q` 当成另一个测试名。
 8. 测试文件里的引擎 early-exit（`LuaTeX: not tested yet.` 一类）是覆盖缺口的标记，不是覆盖已完成的证明。`ccglue01`／`ccglue02.lvt` 对 LuaTeX／upTeX 打这行字符串直接跳过整个文件；#1068 的缺陷恰好只在这两个引擎上出现，说明四引擎目标下若某个主题的测试对某些引擎恒为 early-exit，应当反过来问「这些引擎是否真的不需要测」，而不是把 `not tested yet.` 当成暂时性占位默认忽略。
+9. 排版过程的日志随引擎变化时，用 `\OMIT`／`\TIMO` 包住排版，把判据结果（写成 `same-as-nofixskip` 这类分类字符串，而不是具体尺寸）先存进序列，在 `\TIMO` 之后统一 `\TYPE` 输出，这样一份 `.tlg` 就能通过四个引擎。例子见 `heading-fixskip02.lvt`（`\test_log:n`、`\test_report:`，#1100）。
+10. 用例之间不要共享状态。参照用例不要放进分组：标题设置的 `\everypar` 是局部的，会随分组结束丢失，而 `\if@nobreak`／`\if@noskipsec` 是全局的，会留下来污染后面的用例。多个用例用 `\ctexset` 切换同一选项时，每个用例都要显式设定这个选项，不依赖前一个用例留下的值。#1100 中参照用例设了 `fixskip=false`，后面的用例没有设回 `true`，“去掉次数判断”这一变异起初因此没有被检出。
 
 这些模式说明：`ctex` 回归测试不只是“补一些 .lvt 文件”，而是已经沉淀出一套面向多引擎中文排版的可复用测试方法学。
 

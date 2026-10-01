@@ -822,6 +822,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: 已注册命令右侧的源码空格与同参数显式 `\hskip` 没有来源标签；#999 只在 pending 已设置且下方有可信 marker 时暂时移除候选 glue，并用 `\kern0pt` 提供可测试的保护方法。
 **Source**: `llmdoc/memory/archive/2026-07-20/999-command-boundary-capture-framework.md`
 
+### 判断某个状态值是不是本包留下的，先列出能产生同一值的全部来源
+**Rule**: 把“看到某个值”当作“本包刚设下这个值”之前，先列出能产生同一值的所有来源，包括 TeX 原语、内核宏，以及不经过本包代码的外部宏包路径。然后找一条能区分来源的旁证，例如本包自己维护的计数或最后一个节点的类型。共用的哨兵值往往不能换成私有值，因为别的代码在直接比较它。找不到旁证的来源，按上一条声明为机制边界。这条与“先列出本包自己会在同一位置排出的节点”方向相反：那条防止把本包的东西当成用户的，这条防止把别人的东西当成本包的。
+**Why**: #1100 的第一版看到 `\prevdepth` 为 -1000pt 且 `@nobreak` 为真，就认定它是 ctex 的 fixskip 留下的。但 -1000pt 是 TeX 的 `ignore_depth`，`\hrule`（含 `titlesec` 的 `\titlerule`）和 `\nointerlineskip` 也会留下；`titlesec` 接管的标题又不清 ctex 的标记，于是 `ctexbook` + `titlesec` 相对 v2.6.5 回退。第二版改用 `\@afterheading` 的执行次数差和 `\lastnodetype`，剩下的 `\nointerlineskip`、`\hrule` 后接 `\vspace` 两种写法登记为已知限制。
+**Source**: `llmdoc/memory/reflections/1100-fixskip-float-prevdepth.md`
+
 ### 证据说明层不能再经过被测状态机
 **Rule**: 可视 MWE 的输入标签、源码转录和标尺应在被测排版路径之外生成；若无法隔离，就显式编码状态并把差异字符可视化。
 **Why**: #991 的第一版 MWE 用 `\texttt{\detokenize{...}}` 展示源码，但该文本仍被 xeCJK 处理，四种源码空格组合看起来相同；显式 `00/10/01/11` 与 call-site `\verb*` 直接扫描才恢复可审计性。
