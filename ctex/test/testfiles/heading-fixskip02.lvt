@@ -1,0 +1,166 @@
+\input{regression-test}
+
+\documentclass[fontset=fandol]{ctexbook}
+
+% #1100：fixskip 把标题后的 \prevdepth 设为 -1000pt，让标题后的第一行不加行间胶。
+% 紧跟标题的 h 浮动体就地放下后，\end@float 恢复的仍是 -1000pt，
+% 浮动体之后的第一行因此少了行间胶。修复后，就地放下的浮动体之后，
+% \prevdepth 与不开启 fixskip 时相同；浮动体没有就地放下，或者浮动体
+% 不是紧跟开启 fixskip 的标题时，\prevdepth 保持原值。
+%
+% 判据只看 \prevdepth，不看具体尺寸，各引擎的结果相同：
+%   same-as-nofixskip  就地放下后，\prevdepth 等于同一写法在 fixskip=false 时的值；
+%   ignore-depth       \prevdepth 仍是 -1000pt；
+%   other              其他值，说明恢复了不该恢复的深度。
+% 不需要与 fixskip=false 比较的用例把参照值设为 \c_max_dim。
+
+\ExplSyntaxOn
+\dim_new:N \l_test_ref_dim
+\cs_new_protected:Npn \test_figure:n #1
+  {
+    \begin{figure}[#1]
+      \centering \rule{3cm}{1cm}
+      \caption{图名}
+    \end{figure}
+  }
+\cs_new_protected:Npn \test_big_figure:
+  {
+    \begin{figure}[h]
+      \centering \rule{3cm}{0.9\textheight}
+      \caption{图名}
+    \end{figure}
+  }
+% 记下 fixskip=false 时同一写法在浮动体之后的 \prevdepth。
+\cs_new_protected:Npn \test_reference:nn #1#2
+  {
+    \clearpage
+    \group_begin:
+      \ctexset { #1 / fixskip = false }
+      #2
+      \dim_gset:Nn \g_tmpa_dim { \tex_prevdepth:D }
+    \group_end:
+    \dim_set_eq:NN \l_test_ref_dim \g_tmpa_dim
+    \clearpage
+  }
+% 分页输出与字体信息随引擎不同，所以排版放在 \OMIT 与 \TIMO 之间，
+% 结果先存起来，\test_report: 在 \TIMO 之后统一输出。
+\seq_new:N \g_test_result_seq
+\cs_new_protected:Npn \test_log:n #1
+  {
+    \seq_gput_right:Ne \g_test_result_seq
+      {
+        #1 :~
+        \dim_compare:nNnTF \tex_prevdepth:D = \l_test_ref_dim
+          { same-as-nofixskip }
+          {
+            \dim_compare:nNnTF \tex_prevdepth:D = { -1000pt }
+              { ignore-depth } { other }
+          }
+      }
+  }
+\cs_new_protected:Npn \test_report:
+  {
+    \TIMO
+    \seq_map_inline:Nn \g_test_result_seq { \TYPE {##1} }
+    \seq_gclear:N \g_test_result_seq
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\AUTHOR{Liam Huang}
+
+\ExplSyntaxOn
+
+\TEST{h~float~right~after~fixskip~heading}{
+  \OMIT
+  \test_reference:nn { section } { \section{标题} \test_figure:n { h } }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \test_figure:n { h }
+  \test_log:n { section-h }
+  \clearpage
+  \test_reference:nn { chapter } { \chapter{标题} \test_figure:n { h } }
+  \ctexset { chapter / fixskip = true }
+  \chapter{标题}
+  \test_figure:n { h }
+  \test_log:n { chapter-h }
+  \clearpage
+  \test_reference:nn { section }
+    { \section{标题} \vspace*{0pt} \test_figure:n { h } }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \vspace*{0pt}
+  \test_figure:n { h }
+  \test_log:n { section-vspace-star-h }
+  \clearpage
+  \test_reference:nn { section }
+    { \section{标题} \test_figure:n { h } \test_figure:n { h } }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \test_figure:n { h }
+  \test_figure:n { h }
+  \test_log:n { section-two-h }
+  \clearpage
+  \test_report:
+}
+
+\TEST{float~not~placed~here~keeps~fixskip}{
+  \OMIT
+  \dim_set:Nn \l_test_ref_dim { \c_max_dim }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \test_figure:n { t }
+  \test_log:n { section-t }
+  \clearpage
+  \section{标题}
+  \test_figure:n { b }
+  \test_log:n { section-b }
+  \clearpage
+  \section{标题}
+  \test_big_figure:
+  \test_log:n { section-h-deferred }
+  \clearpage
+  \test_report:
+}
+
+\TEST{float~not~right~after~fixskip~heading}{
+  \OMIT
+  \test_reference:nn { section }
+    { \section{标题} \hbox{\rule[-3pt]{1pt}{4pt}} \test_figure:n { h } }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \hbox{\rule[-3pt]{1pt}{4pt}}
+  \test_figure:n { h }
+  \test_log:n { box-then-h }
+  \clearpage
+  \dim_set:Nn \l_test_ref_dim { \c_max_dim }
+  \section{标题}
+  正文 \par
+  \nointerlineskip
+  \test_figure:n { h }
+  \test_log:n { paragraph-nointerlineskip-h }
+  \clearpage
+  \section{标题}
+  正文
+  \group_begin:
+    \ctexset
+      {
+        subsection / fixskip = false ,
+        subsection / aftertitle = { \par \hrule }
+      }
+    \subsection{小标题}
+  \group_end:
+  \test_figure:n { h }
+  \test_log:n { nofixskip-heading-rule-h }
+  \clearpage
+  \test_report:
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
