@@ -183,7 +183,7 @@
 - 标题后先写 `\hrule`，再写 `\vspace`：最后一个节点变成 glue，`\lastnodetype` 判据失效。
 
 这两种写法在 `fixskip=false` 时浮动体之后的下一行不加行间胶；`fixskip=true` 时却会加上。源码注释
-（`ctex/ctex-kernel.dtx`，`\CTEX@fixskip@float@begin@hook` 的说明）写明了这一点，`heading-fixskip02/03`
+（`ctex/ctex-kernel.dtx`，`\CTEX@fixskip@float@begin@hook` 的说明）写明了这一点，`heading-fixskip02/03/04`
 没有固定这两种写法的结果。
 
 可能的补法（**未实施**）：现有节点和状态里没有能区分来源的信息；-1000pt 也不能换成 ctex 私有的值，因为
