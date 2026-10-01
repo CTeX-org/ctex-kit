@@ -13614,29 +13614,60 @@ Copyright and Licence
 % \changes{v3.10.4}{2026/07/20}{新增 \pkg{siunitx} 兼容：\tn{unit}、\tn{qty}、\tn{num}
 %   与 v2 旧名 \tn{si}、\tn{SI} 注册为固定 Default 首尾的 stream
 %   capture，修复 CJK 上下文中单位命令边界的空格丢失（\#1000）。}
+% \changes{v3.10.7}{2026/10/01}{\pkg{siunitx} 的区间、列表、乘积、复数、
+%   时长与角度命令左侧紧接汉字时，与直接输入一样补上 \tn{CJKecglue}（\#1092）。
+%   此前用 \opt{experiment/boundary-register} 自行注册这些命令的文档需要删去
+%   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 %
 % \pkg{siunitx} 用 math 模式排版数字与单位。math 不触发 interchar
 % 转换，入口的 \tn{mathon} 又盖住左侧 marker，情况与修复前的 \tn{eqref}
 % 相同；数字与单位输出必然以西文或数字开始、结束，因此也注册为固定
-% Default 首尾的 stream capture。v2 旧名 \tn{si}、
-% \tn{SI} 是独立顶层命令，不经由 \tn{unit}、\tn{qty} 的 cmd hook，需
-% 单独注册。注册前先检查命令是否存在，以兼容未来移除旧名的
-% \pkg{siunitx} 版本。若其他宏包恰好定义了同名 \tn{si}/\tn{SI}，
+% Default 首尾的 stream capture。
+%
+% 每个排版命令都是独立的顶层入口，不经由其他命令的 cmd hook，需要逐个
+% 注册：只注册 \tn{qty}、\tn{num} 时，\tn{qtyrange}、\tn{numlist} 等
+% 命令左侧仍然缺少 \tn{CJKecglue}（\#1092）。注册的命令分三组：
+% \begin{itemize}
+%   \item 单值：\tn{unit}、\tn{qty}、\tn{num}；
+%   \item 区间、列表、乘积与复数：\tn{qtyrange}、\tn{numrange}、
+%     \tn{qtylist}、\tn{numlist}、\tn{qtyproduct}、\tn{numproduct}、
+%     \tn{complexnum}、\tn{complexqty}；
+%   \item 时长与角度：\tn{duration}、\tn{ang}。
+% \end{itemize}
+% 区间、列表与乘积的连接词（|range-phrase| 等）即使设为汉字，也排在命令
+% 内部，不改变两端的类别。\tn{complexqty} 与 |range-units=bracket| 以
+% 左括号开头，直接输入的左括号同样是 Default。\tn{ang} 输出的度、分、秒
+% 符号也是 Default：文本 |中30°文| 与公式 |中$30^{\circ}$文| 两侧都有
+% \tn{CJKecglue}。\tn{tablenum} 用于表格单元格对齐，输出带 fill glue 的
+% 盒子，不是行内数字，不注册。
+%
+% v2 旧名 \tn{si}、\tn{SI}、\tn{SIrange}、\tn{SIlist} 同样是独立顶层
+% 命令。所有命令注册前都先检查是否存在，以兼容未来移除旧名的
+% \pkg{siunitx} 版本，以及用 |\usepackage{siunitx}[=v2]| 回退到 v2、
+% 没有 \tn{qtyrange} 等新命令的文档。若其他宏包恰好定义了同名命令，
 % 这项检查也会把它们一并注册——
 % 误注册只是多包一层 Default stream，不改变无 CJK 邻接时的排版，记录
 % 为已知限制。数学模式内使用（如 |$x=\unit{kg}$|）时，capture 只压入
-% inactive 标记，不改变排版。\tn{ang} 输出角度符号，目前还没有确定
-% 应与哪种直接输入比较，因此暂不注册。
+% inactive 标记，不改变排版。
+%
+% 单位名本身是汉字时（例如用 \tn{DeclareSIUnit} 定义的 |\yuan{元}|），
+% 输出以汉字结尾，固定 Default 末类别会在右侧多补一个 \tn{CJKecglue}。
+% 这在 \#1000 注册的 \tn{qty} 上已经如此，本次注册的命令沿用同一行为，
+% 记录为已知限制。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_register_siunitx:
   {
-    \@@_boundary_register_stream:nn { unit } { default }
-    \@@_boundary_register_stream:nn { qty } { default }
-    \@@_boundary_register_stream:nn { num } { default }
-    \cs_if_exist:NT \si
-      { \@@_boundary_register_stream:nn { si } { default } }
-    \cs_if_exist:NT \SI
-      { \@@_boundary_register_stream:nn { SI } { default } }
+    \clist_map_inline:nn
+      {
+        unit , qty , num ,
+        qtyrange , numrange , qtylist , numlist , qtyproduct , numproduct ,
+        complexnum , complexqty , duration , ang ,
+        si , SI , SIrange , SIlist
+      }
+      {
+        \cs_if_exist:cT {##1}
+          { \@@_boundary_register_stream:nn {##1} { default } }
+      }
   }
 \@@_package_hook:nn { siunitx }
   { \@@_boundary_register_siunitx: }
