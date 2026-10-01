@@ -17,3 +17,8 @@
 | `caption` + `belowskip=-12pt` | 18.86，19.70 | 12.87，19.70 |
 
 pdfLaTeX、LuaLaTeX 与 `ctexbook` 的 `\chapter` 结果相同。
+
+## 修复分支对比（2026-10-01）
+
+- `issue1100-before-after.png` — 左：`fixskip=false` 参照；中：`fixskip=true`，系统 TeX Live 的 ctex v2.6.5；右：`fixskip=true`，修复分支 `fix-1100-fixskip-float`（`69da27e2`）。“图紧跟标题”的题注到后文距离由 12.87pt 变为 18.86pt，与参照相同；“图紧跟正文”三者都是 19.77pt。
+- `issue1100-before-after.tex` — 对比图源文件，`xelatex "\def\FIX{true}\def\LABEL{修复后}\input{issue1100-before-after}"`，编译三遍。
