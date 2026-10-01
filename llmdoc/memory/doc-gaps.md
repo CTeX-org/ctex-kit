@@ -204,3 +204,9 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 可能的补法（**未实施**，也未评估）：被减去的间距要补在标题与浮动体之间，而浮动体是否就地放置由输出例程里的
 `\@addtocurcol` 决定，`\end@float` 末尾的钩子只能在浮动体之后补。需要另行设计，并检查对 `t`／`b`／被推迟
 浮动体的影响。
+
+## 行尾的 Default marker kern 挡住 microtype 的右侧突出（#1104 制图时发现，未处理）
+
+西文字符之后紧接 `\linebreak`、`\break`、`\penalty` 或段落结束时，xeCJK 留下一对零效果的 Default marker kern（`\kern -0.0002pt`、`\kern 0.0002pt`）。这一行若在这里结束，最后一个节点是 kern 而不是字符，microtype 不插入 `\kern... (right margin)`，行尾的逗号、破折号等不再突出。只加载 fontspec 时没有这对 kern，突出正常。在行尾的空格处自然断行时，kern 不出现，突出正常；正文大多数行属于这种情况。
+
+实测（TeX Gyre Termes，`\hsize=5cm`）：`Front, middle and back,\linebreak front` 的第一行以 `back,`、两个 kern、`\penalty -10000` 结尾，没有 right margin kern；`back, \hbox to\hsize{}` 在空格处断行，第一行有 `\kern-1.25 (right margin)`。影响范围是手工断行和 `\parfillskip=0pt` 的满行段尾，未确认是否有用户报告，也未评估去掉这对 kern 对命令边界恢复的影响。制图时的处理见 `llmdoc/reference/build-and-test.md`「microtype 突出量回归」一节。
