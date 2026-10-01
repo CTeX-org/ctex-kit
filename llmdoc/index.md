@@ -1,7 +1,7 @@
 # llmdoc 索引
 ## overview
 
-- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 以 runner 默认用户运行并拥有完整本地执行权限（#1032 起）、单脚本工具安装、restore-only 缓存，以及只读 `GITHUB_TOKEN`／独立 publisher／Claude `--bare` 的纯权限隔离与已接受风险；「维护状态」现记录 CI 独立回归包已扩展到 `xpinyin/`（#1041 起，覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条路线）。2026-08-13 起三条 workflow 的 Codex 主链路统一使用 `continue-on-error` + `outputs.status` 汇总，失败以 warning 触发 Claude fallback，只有两条链路都失败才让最终 job 显红；Codex 默认 endpoint、`priority` 通道和 `high` 推理强度也已固化，详见 `llmdoc/reference/build-and-test.md`。
+- `llmdoc/overview/project-overview.md` — 项目范围、仓库组织、核心/卫星包分类、技术栈与维护状态；现含三条本地 Agent workflow、六个 Agent job 以 runner 默认用户运行并拥有完整本地执行权限（#1032 起）、单脚本工具安装、restore-only 缓存，以及只读 `GITHUB_TOKEN`／独立 publisher／Claude `--bare` 的纯权限隔离与已接受风险；「维护状态」现记录 CI 独立回归包已扩展到 `xpinyin/`（#1041 起，覆盖 XeTeX/xeCJK 与 CJKutf8/pdfTeX 两条路线）。2026-08-13 起三条 workflow 的主链路统一使用 `continue-on-error` + `outputs.status` 汇总，失败以 warning 触发 fallback，只有两条链路都失败才让最终 job 显红；2026-10 起主链路改为 Claude Code `claude-opus-5-5`、fallback 为 Codex `gpt-6.1-sol`，Codex 默认 endpoint、`priority` 通道和 `high` 推理强度保持不变，详见 `llmdoc/reference/build-and-test.md`。
 
 ## architecture
 
