@@ -13229,9 +13229,18 @@ Copyright and Licence
 % \end{macro}
 %
 % \changes{v3.8.5}{2020/06/25}{进一步兼容 \pkg{microtype}。}
+% \changes{v3.10.7}{2026/10/01}{为 \pkg{microtype} 找回歧义字符的槽位时同时设置
+% \tn{MT@char@}。此前它仍是 \texttt{-1}，\pkg{microtype} 因而测量 1 号字形的宽度：
+% 回退到 \texttt{TS1/cmr} 等 TFM 字体时报 \texttt{Cannot use XeTeXglyph} 错误，
+% 在 OpenType 字体里则把破折号、引号等字符的突出量算错（\#1104）。}
 %
 % \begin{macro}{\@@_patch_microtype_get_slot:}
-% 兼容 \pkg{microtype}。
+% 兼容 \pkg{microtype}。xeCJK 把歧义字符重定义为受保护的宏之后，\pkg{microtype} 不能再从
+% 字符命令解析出槽位，\tn{MT@get@slot} 留下的 \tn{MT@char} 与 \tn{MT@char@} 都是 $-1$。
+% 我们在 \tn{MT@get@slot@} 之前按编码查回记录的槽位。两个变量都要设置：
+% \pkg{microtype} 在 XeTeX 下测量字符宽度时依据的是 \tn{MT@char@}，它为负值时，
+% \pkg{microtype} 把它的相反数当作字形序号，测量 \tn{XeTeXglyph}|-|\tn{MT@char@} 的宽度；
+% 只设置 \tn{MT@char} 时测量的就是 1 号字形。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_patch_microtype_get_slot:
   {
@@ -13249,7 +13258,10 @@ Copyright and Licence
   {
     \prop_get:NeNT \g_@@_ambiguous_slot_prop
       { \MT@encoding - \tex_the:D \MT@toks } \l_@@_tmp_tl
-      { \cs_set_eq:NN \MT@char \l_@@_tmp_tl }
+      {
+        \cs_set_eq:NN \MT@char  \l_@@_tmp_tl
+        \cs_set_eq:NN \MT@char@ \l_@@_tmp_tl
+      }
   }
 \cs_new_protected:Npn \xeCJK@microtype@restore@pickupfont
   { \@@_gadd_font_initial_hook:n { \MT@ltx@pickupfont } }
