@@ -13617,7 +13617,8 @@ Copyright and Licence
 % \changes{v3.10.7}{2026/10/01}{\pkg{siunitx} 的区间、列表、乘积、复数、
 %   时长与角度命令左侧紧接汉字时，与直接输入一样补上
 %   \tn{CJKecglue}；\tn{unit}、\tn{qty} 等命令的输出以汉字开头或结尾时（例如汉字单位、
-%   设为汉字的连接词），汉字一侧不再多补 \tn{CJKecglue}（\#1092）。
+%   设为汉字的连接词），汉字一侧不再多补 \tn{CJKecglue}。同时适配 \pkg{siunitx}
+%   3.6.0 起把整个量放进一个公式的输出方式（\#1092）。
 %   此前用 \opt{experiment/boundary-register} 自行注册这些命令的文档需要删去
 %   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 %
@@ -13643,9 +13644,21 @@ Copyright and Licence
 % 下的 |\DeclareSIUnit\yuan{元}|、|\text{元}| 单位、设为汉字的
 % |duration-unit-hour| 或 |angle-symbol-degree| 都会让输出以汉字开头或
 % 结尾。所以注册为 |auto| stream，而不是固定 Default 首尾：文本段里的汉字
-% 与西文照常由 interchar 转换报告实际类别；数学段不触发 interchar，由
-% \pkg{siunitx} 的公开函数 \cs{siunitx_print_math:n} 在进入数学模式之前
-% 补报 Default。已在数学模式中时不补报，与直接输入的公式一致。
+% 与西文照常由 interchar 转换报告实际类别；数学段不触发 interchar，需要
+% 在进入数学模式之前补报 Default。\pkg{siunitx} 有两个进入数学模式的入口：
+% \begin{itemize}
+%   \item 公开函数 \cs{siunitx_print_math:n}，3.5 版的数字与单位都经过它；
+%   \item \tn{ensuremath}。3.6.0 版（2026-09-15）起，\tn{qty}、\tn{SI}、
+%     \tn{ang}、\tn{duration}、\tn{complexqty} 等把整个量放进一个公式，
+%     由内部函数调用 \tn{ensuremath} 进入数学模式，不再经过
+%     \cs{siunitx_print_math:n}。
+% \end{itemize}
+% 两处都在文本模式时补报 Default，已在数学模式中时不补报，与直接输入的公式
+% 一致。\tn{ensuremath} 也用在 \pkg{siunitx} 之外，所以只在已注册的
+% \pkg{siunitx} 命令执行期间补报：命令钩子维护
+% \cs{g_@@_siunitx_depth_int}，计数为正时才补报。没有补报时，命令入口的
+% capture 已经取走汉字之后的 marker，\tn{ensuremath} 原有的边界处理找不到
+% marker，左侧的 \tn{CJKecglue} 就会丢失。
 % 若固定为 Default，这些写法会在汉字一侧多补一个 \tn{CJKecglue}。
 % \pkg{siunitx} v2（|\usepackage{siunitx}[=v2]|）没有
 % \cs{siunitx_print_math:n}，不作包装；v2 的数字与单位直接写 |$...$|，
@@ -13668,7 +13681,13 @@ Copyright and Licence
       }
       {
         \cs_if_exist:cT {##1}
-          { \@@_boundary_register_stream:nn {##1} { auto } }
+          {
+            \@@_boundary_register_stream:nn {##1} { auto }
+            \AddToHook { cmd / ##1 / before } [ xeCJK / siunitx ]
+              { \int_gincr:N \g_@@_siunitx_depth_int }
+            \AddToHook { cmd / ##1 / after } [ xeCJK / siunitx ]
+              { \int_gdecr:N \g_@@_siunitx_depth_int }
+          }
       }
     \cs_if_exist:NT \siunitx_print_math:n
       {
@@ -13679,7 +13698,15 @@ Copyright and Licence
             \@@_orig_siunitx_print_math:n {##1}
           }
       }
+    \cs_gset_eq:NN \@@_siunitx_orig_ensuremath: \ensuremath
+    \cs_gset_protected:Npn \ensuremath
+      {
+        \int_compare:nNnT { \g_@@_siunitx_depth_int } > \c_zero_int
+          { \mode_if_math:F { \@@_boundary_capture_class:n { default } } }
+        \@@_siunitx_orig_ensuremath:
+      }
   }
+\int_new:N \g_@@_siunitx_depth_int
 \@@_package_hook:nn { siunitx }
   { \@@_boundary_register_siunitx: }
 %    \end{macrocode}
