@@ -5,8 +5,18 @@
 `2a0bb28e6583d869645e0a0522568df4a5d4d921`。相关 workflow、复合 Action、脚本和
 `.claude/skills/` 此后都由本仓库自行维护；运行时不再检出或调用该上游仓库。
 
-需要吸收上游更新时，应以这个提交为旧基线，明确选择要搬入的变化，并按本仓库的权限隔离和
-事件固定提交规则重新审查，不能直接把本地文件替换为新的上游版本。
+需要吸收上游更新时，应以最近一次吸收的上游提交为旧基线，明确选择要搬入的变化，并按本仓库的
+权限隔离和事件固定提交规则重新审查，不能直接把本地文件替换为新的上游版本。
+
+## 已吸收的上游变化
+
+- 2026-10，上游 `4f9cc66127bb48fdfd9495d40a5fab08bd6d2cfc`：搬入主备对调（Claude Code
+  `claude-opus-5-5` 为主链路，Codex `gpt-6.1-sol` 为 fallback）、CLI 版本（Claude Code
+  2.1.282、Codex 0.159.3）、Claude 调用失败时打印一行转义后的错误原因，以及模型 ID 一致性和
+  失败诊断两项契约测试。保留本仓库自己的做法：主链路 `continue-on-error` 加 `outputs.status`
+  汇总、Codex 的 `priority` 通道与 `high` 推理强度（上游锁为 `medium`）、TeX 工具链与缓存。
+  未搬入上游的环境准备脚本扩展点（`setup_script` / `run-setup-hook.sh`），本仓库由
+  `setup-agent-tools.sh` 完成同样的准备。
 
 ## Agent 的执行权限
 
