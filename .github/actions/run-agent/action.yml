@@ -43,16 +43,16 @@ runs:
         set -euo pipefail
         case "$PROVIDER" in
           codex)
-            install_dir="$RUNNER_TEMP/codex-0.145.0"
+            install_dir="$RUNNER_TEMP/codex-0.159.3"
             npm install --ignore-scripts --no-audit --no-fund \
-              --prefix "$install_dir" @openai/codex@0.145.0
+              --prefix "$install_dir" @openai/codex@0.159.3
             codex_path="$install_dir/node_modules/.bin/codex"
             "$codex_path" --version
             ;;
           claude)
-            install_dir="$RUNNER_TEMP/claude-code-2.1.148"
+            install_dir="$RUNNER_TEMP/claude-code-2.1.282"
             npm install --ignore-scripts --no-audit --no-fund \
-              --prefix "$install_dir" @anthropic-ai/claude-code@2.1.148
+              --prefix "$install_dir" @anthropic-ai/claude-code@2.1.282
             wrapper="$install_dir/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
             test -f "$wrapper"
             node "$wrapper" --version
@@ -84,7 +84,7 @@ runs:
 
         case "$PROVIDER" in
           codex)
-            codex_path="$RUNNER_TEMP/codex-0.145.0/node_modules/.bin/codex"
+            codex_path="$RUNNER_TEMP/codex-0.159.3/node_modules/.bin/codex"
             test -x "$codex_path"
             export OPENAI_API_KEY="$API_KEY"
             export CODEX_HOME="$RUNNER_TEMP/codex-home"
@@ -120,7 +120,7 @@ runs:
               - < "$PROMPT_FILE"
             ;;
           claude)
-            wrapper="$RUNNER_TEMP/claude-code-2.1.148/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
+            wrapper="$RUNNER_TEMP/claude-code-2.1.282/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
             test -f "$wrapper"
 
             export ANTHROPIC_API_KEY="$API_KEY"
@@ -131,6 +131,7 @@ runs:
             export DISABLE_AUTOUPDATER=1
             schema="$(jq -c . "$SCHEMA_FILE")"
             raw_result="$RUNNER_TEMP/claude-result.json"
+            set +e
             # --bare 禁用 CLAUDE.md 自动发现：被审查的 checkout 是不可信输入，
             # 其中的项目指令不应作为 Agent 指令生效。
             (
@@ -144,7 +145,24 @@ runs:
                 --json-schema "$schema" \
                 < "$PROMPT_FILE" > "$raw_result"
             )
-            jq -e '(.is_error? // false) == false' "$raw_result" > /dev/null
+            claude_rc=$?
+            set -e
+
+            # 失败时 CLI 的错误原因只在 stdout JSON 的 result 字段里，stderr 为空。把诊断字段
+            # 压成一行 ::error:: 注释：result 可能含 Issue/PR 派生文本，转义 %/CR/LF 后无法另起
+            # 一行伪造 workflow 命令；secret 仍由 Actions 日志遮蔽。
+            if [[ "$claude_rc" -ne 0 ]] || ! jq -e '(.is_error? // false) == false' "$raw_result" > /dev/null 2>&1; then
+              if [[ ! -s "$raw_result" ]]; then
+                detail="CLI 未输出结果"
+              elif ! detail=$(jq -r '"is_error=\(.is_error // "null") api_error_status=\(.api_error_status // "null") subtype=\(.subtype // "null") result=\((.result // "") | tostring | .[0:2000])"' "$raw_result" 2> /dev/null); then
+                detail="CLI 输出不是 JSON：$(head -c 2000 "$raw_result")"
+              fi
+              detail=${detail//'%'/'%25'}
+              detail=${detail//$'\r'/'%0D'}
+              detail=${detail//$'\n'/'%0A'}
+              echo "::error::Claude Code 调用失败（退出码 ${claude_rc}）：${detail}"
+              exit 1
+            fi
             jq -c '
               if (.structured_output? | type) == "object" then .structured_output
               elif type == "object" then .
