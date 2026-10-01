@@ -1,3 +1,7 @@
+## [ctex-v2.6.6](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.6)
+
+- 开启 `fixskip` 时，紧跟标题并就地放置的浮动体与其后正文的间距不再变小，与不开启 `fixskip` 时相同（#1100）。
+
 ## [ctex-v2.6.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.5)
 
 - `\selectfont` 不再重置用户自行设置的汉字间距（#1068）。

@@ -1658,17 +1658,90 @@
 % 如果接下来的内容不会进入水平模式（例如在 \opt{format} 选项中使用 \tn{hrule} 或者 \tn{hbox}），
 % \TeX{} 就不会加上 \tn{parskip}。这时候就需要用户把 \tn{parskip} 加到 \opt{beforeskip}
 % 或者 \opt{afterskip} 作为修正。
+%
+% 把 \tn{prevdepth} 设为 |-1000pt| 之前，先在 \cs{g_@@_heading_prevdepth_dim}
+% 里记下标题末行的深度，并置 \cs{g_@@_heading_fixskip_bool} 为真，供紧跟标题的浮动体
+% 恢复 \tn{prevdepth}。\tn{CTEX@setheadingskip} 在每个标题计算间距时先清除这个标记，
+% 所以只有最近一个标题开启了 \opt{fixskip} 时，标记才为真。
 %    \begin{macrocode}
 \cs_new_protected:Npn \CTEX@fixheadingskip
   {
     \par
+    \dim_gset:Nn \g_@@_heading_prevdepth_dim { \tex_prevdepth:D }
+    \bool_gset_true:N \g_@@_heading_fixskip_bool
     \dim_set:Nn \tex_prevdepth:D { -1000pt }
     \skip_sub:Nn \l_@@_heading_skip { \tex_parskip:D }
   }
 \skip_new:N \l_@@_heading_skip
+\dim_new:N \g_@@_heading_prevdepth_dim
+\bool_new:N \g_@@_heading_fixskip_bool
 \cs_new_protected:Npn \CTEX@setheadingskip
-  { \skip_set:Nn \l_@@_heading_skip }
+  {
+    \bool_gset_false:N \g_@@_heading_fixskip_bool
+    \skip_set:Nn \l_@@_heading_skip
+  }
 \cs_new_eq:NN \CTEX@headingskip \l_@@_heading_skip
+%    \end{macrocode}
+% \end{macro}
+%
+% \changes{v2.6.6}{2026/10/01}{开启 \opt{fixskip} 时，紧跟标题并就地放置的浮动体
+%   与其后正文的间距不再变小，与不开启 \opt{fixskip} 时相同（\#1100）。}
+%
+% \begin{macro}[int]{\CTEX@fixskip@float@begin@hook,\CTEX@fixskip@float@end@hook}
+% \tn{CTEX@fixheadingskip} 留下的 |-1000pt| 只应作用于标题后的第一行。但浮动体在竖直模式
+% 结束时，\tn{end@float} 会保存并恢复 \tn{prevdepth}，就地放置浮动体的输出例程也不改变
+% 主竖直列表的 \tn{prevdepth}。所以紧跟标题的 |h| 浮动体被就地放下后，其后的第一行
+% 仍然不加行间胶，与浮动体的距离比不开启 \opt{fixskip} 时少一段行间胶。
+%
+% \tn{CTEX@fixskip@float@begin@hook} 在 \tn{@xfloat} 开头检查浮动体是否紧跟开启了
+% \opt{fixskip} 的标题：处于外部竖直模式，\tn{if@nobreak} 为真（标题之后还没有段落），
+% \tn{prevdepth} 仍是 |-1000pt|。\tn{CTEX@fixskip@float@end@hook} 在 \tn{end@float}
+% 末尾运行，此时输出例程已经决定了浮动体的位置。只有就地放置时，\tn{@addtocurcol}
+% 才用 \tn{box} 取出浮动体，使 \tn{@currbox} 变空；这时把 \tn{prevdepth} 恢复为标题
+% 末行的深度。浮动体被推到页顶、页底或以后的页面时，标题与正文仍然紧接，不作改动。
+% 两个钩子都在导言区结束时加入，以免被之后载入的宏包覆盖。\pkg{ctexpatch} 会用
+% \tn{scantokens} 重建补丁后的宏，所以钩子使用 |@| 为字母时可以读出的名字。
+%    \begin{macrocode}
+\bool_new:N \l_@@_heading_float_bool
+\cs_new_protected:Npn \CTEX@fixskip@float@begin@hook
+  {
+    \bool_set_false:N \l_@@_heading_float_bool
+    \bool_if:NT \g_@@_heading_fixskip_bool
+      {
+        \mode_if_vertical:T
+          {
+            \mode_if_inner:F
+              {
+                \legacy_if:nT { @nobreak }
+                  {
+                    \dim_compare:nNnT \tex_prevdepth:D = { -1000pt }
+                      { \bool_set_true:N \l_@@_heading_float_bool }
+                  }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \CTEX@fixskip@float@end@hook
+  {
+    \bool_if:NT \l_@@_heading_float_bool
+      {
+        \if_box_empty:N \@currbox
+          \dim_set_eq:NN \tex_prevdepth:D \g_@@_heading_prevdepth_dim
+          \bool_gset_false:N \g_@@_heading_fixskip_bool
+        \fi:
+      }
+  }
+\ctex_at_end_preamble:n
+  {
+    \ctex_preto_cmd:NnnTF \@xfloat
+      { \ExplSyntaxOff \char_set_catcode_letter:n { 64 } }
+      { \CTEX@fixskip@float@begin@hook }
+      { } { \ctex_patch_failure:N \@xfloat }
+    \ctex_appto_cmd:NnnTF \end@float
+      { \ExplSyntaxOff \char_set_catcode_letter:n { 64 } }
+      { \CTEX@fixskip@float@end@hook }
+      { } { \ctex_patch_failure:N \end@float }
+  }
 %    \end{macrocode}
 % \end{macro}
 %
