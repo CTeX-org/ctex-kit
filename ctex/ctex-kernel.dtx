@@ -112,7 +112,7 @@
 %<class|style>\NeedsTeXFormat{LaTeX2e}[2026/06/01]
 %<class>\input{ctexbackend.cfg}
 %<class|style>\RequirePackage{expl3}
-%<+!driver>\GetIdInfo $Id: ctex-kernel.dtx 2.6.5 2026-08-11 16:50:29 +0800 79898321 Liam <liamhuang0205@gmail.com>$
+%<+!driver>\GetIdInfo $Id: ctex-kernel.dtx 2.6.6 2026-10-01 11:20:36 +0800 5c35e236 Liam <liamhuang0205@gmail.com>$
 %<ctex>  {Chinese adapter in LaTeX (CTEX)}
 %<ctex>\ProvidesExplPackage{ctex}
 %<ctexsize>  {Chinese font size definition (CTEX)}
@@ -1660,20 +1660,25 @@
 % 或者 \opt{afterskip} 作为修正。
 %
 % 把 \tn{prevdepth} 设为 |-1000pt| 之前，先在 \cs{g_@@_heading_prevdepth_dim}
-% 里记下标题末行的深度，并置 \cs{g_@@_heading_fixskip_bool} 为真，供紧跟标题的浮动体
-% 恢复 \tn{prevdepth}。\tn{CTEX@setheadingskip} 在每个标题计算间距时先清除这个标记，
-% 所以只有最近一个标题开启了 \opt{fixskip} 时，标记才为真。
+% 里记下当前的 \tn{prevdepth}（在 \opt{afterskip} 处是标题末行的深度，在 \opt{beforeskip}
+% 处是前一段末行的深度），在 \cs{g_@@_heading_fixskip_int} 里记下当时
+% \tn{@afterheading} 的执行次数，并置 \cs{g_@@_heading_fixskip_bool} 为真，供紧跟标题的
+% 浮动体恢复 \tn{prevdepth}。\tn{CTEX@setheadingskip} 在 ctex 的标题计算间距时先清除
+% 这个标记；不经过 \tn{CTEX@setheadingskip} 的标题（例如 \pkg{titlesec} 接管的标题）
+% 不清除标记，由执行次数排除，见下文。
 %    \begin{macrocode}
 \cs_new_protected:Npn \CTEX@fixheadingskip
   {
     \par
     \dim_gset:Nn \g_@@_heading_prevdepth_dim { \tex_prevdepth:D }
+    \int_gset_eq:NN \g_@@_heading_fixskip_int \g_@@_afterheading_int
     \bool_gset_true:N \g_@@_heading_fixskip_bool
     \dim_set:Nn \tex_prevdepth:D { -1000pt }
     \skip_sub:Nn \l_@@_heading_skip { \tex_parskip:D }
   }
 \skip_new:N \l_@@_heading_skip
 \dim_new:N \g_@@_heading_prevdepth_dim
+\int_new:N \g_@@_heading_fixskip_int
 \bool_new:N \g_@@_heading_fixskip_bool
 \cs_new_protected:Npn \CTEX@setheadingskip
   {
@@ -1687,39 +1692,75 @@
 % \changes{v2.6.6}{2026/10/01}{开启 \opt{fixskip} 时，紧跟标题并就地放置的浮动体
 %   与其后正文的间距不再变小，与不开启 \opt{fixskip} 时相同（\#1100）。}
 %
-% \begin{macro}[int]{\CTEX@fixskip@float@begin@hook,\CTEX@fixskip@float@end@hook}
+% \begin{macro}[int]{\CTEX@fixskip@afterheading@hook,
+%   \CTEX@fixskip@float@begin@hook,\CTEX@fixskip@float@end@hook}
 % \tn{CTEX@fixheadingskip} 留下的 |-1000pt| 只应作用于标题后的第一行。但浮动体在竖直模式
 % 结束时，\tn{end@float} 会保存并恢复 \tn{prevdepth}，就地放置浮动体的输出例程也不改变
-% 主竖直列表的 \tn{prevdepth}。所以紧跟标题的 |h| 浮动体被就地放下后，其后的第一行
-% 仍然不加行间胶，与浮动体的距离比不开启 \opt{fixskip} 时少一段行间胶。
+% 主竖直列表的 \tn{prevdepth}。所以位置参数含 |h| 的浮动体紧跟标题并被就地放置后，
+% 其后的第一行仍然不加行间胶，与浮动体的距离比不开启 \opt{fixskip} 时少一段行间胶。
 %
-% \tn{CTEX@fixskip@float@begin@hook} 在 \tn{@xfloat} 开头检查浮动体是否紧跟开启了
-% \opt{fixskip} 的标题：处于外部竖直模式，\tn{if@nobreak} 为真（标题之后还没有段落），
-% \tn{prevdepth} 仍是 |-1000pt|。\tn{CTEX@fixskip@float@end@hook} 在 \tn{end@float}
-% 末尾运行，此时输出例程已经决定了浮动体的位置。只有就地放置时，\tn{@addtocurcol}
-% 才用 \tn{box} 取出浮动体，使 \tn{@currbox} 变空；这时把 \tn{prevdepth} 恢复为标题
-% 末行的深度。浮动体被推到页顶、页底或以后的页面时，标题与正文仍然紧接，不作改动。
-% 两个钩子都在导言区结束时加入，以免被之后载入的宏包覆盖。\pkg{ctexpatch} 会用
-% \tn{scantokens} 重建补丁后的宏，所以钩子使用 |@| 为字母时可以读出的名字。
+% \tn{CTEX@fixskip@afterheading@hook} 加在 \tn{@afterheading} 开头，统计它的执行次数。
+% ctex 的标题先调用 \tn{CTEX@fixheadingskip}，再调用 \tn{@afterheading}，所以紧跟
+% 开启 \opt{fixskip} 的标题时，执行次数比记下的值多一；其间若有其他标题（例如
+% \pkg{titlesec} 接管的标题），差值就大于一。
+%
+% \tn{CTEX@fixskip@float@begin@hook} 在 \tn{@xfloat} 开头检查 |-1000pt| 是否就是
+% \tn{CTEX@fixheadingskip} 留下的：处于外部竖直模式，\tn{prevdepth} 仍是 |-1000pt|，
+% 最后一个节点不是规则（排除标题后的 \tn{hrule}），并且满足下面两种情形之一：
+% \begin{itemize}
+%   \item \tn{if@nobreak} 为真（标题之后还没有段落），执行次数之差为一；
+%   \item \tn{if@noskipsec} 为真（runin 标题还在等待所在的段落），执行次数之差不超过一。
+%     runin 标题自己的 \opt{beforeskip} 留下 |-1000pt| 时差为零，此时记下的是前一段末行
+%     的深度；它紧接在前一个标题之后、沿用该标题的 |-1000pt| 时差为一。
+% \end{itemize}
+% \tn{CTEX@fixskip@float@end@hook} 在 \tn{end@float} 末尾运行，此时输出例程已经决定了
+% 浮动体的位置。只有就地放置时，\tn{@addtocurcol} 才用 \tn{box} 取出浮动体，使
+% \tn{@currbox} 变空；这时把 \tn{prevdepth} 恢复为记下的深度，结果与不开启
+% \opt{fixskip} 时相同。浮动体被推到页顶、页底或以后的页面时，标题与正文仍然紧接，
+% 不作改动。
+%
+% 标题之后直接用 \tn{nointerlineskip} 时，最后一个节点不变，无法与 ctex 留下的
+% |-1000pt| 区分，仍会恢复深度。
+%
+% 三个钩子都在导言区结束时加入，以免被之后载入的宏包覆盖。\pkg{ctexpatch} 给带参数的
+% \tn{@xfloat} 打补丁时，会用 \tn{scantokens} 按 |@| 为字母的设置重新读入它的定义，
+% 所以钩子取不含 |_| 和 |:| 的名字。
 %    \begin{macrocode}
+\int_new:N \g_@@_afterheading_int
 \bool_new:N \l_@@_heading_float_bool
+\cs_new_protected:Npn \CTEX@fixskip@afterheading@hook
+  { \int_gincr:N \g_@@_afterheading_int }
 \cs_new_protected:Npn \CTEX@fixskip@float@begin@hook
   {
     \bool_set_false:N \l_@@_heading_float_bool
-    \bool_if:NT \g_@@_heading_fixskip_bool
+    \bool_lazy_all:nT
       {
-        \mode_if_vertical:T
-          {
-            \mode_if_inner:F
-              {
-                \legacy_if:nT { @nobreak }
-                  {
-                    \dim_compare:nNnT \tex_prevdepth:D = { -1000pt }
-                      { \bool_set_true:N \l_@@_heading_float_bool }
-                  }
-              }
-          }
+        { \g_@@_heading_fixskip_bool }
+        { \mode_if_vertical_p: }
+        { ! \mode_if_inner_p: }
+        { \dim_compare_p:nNn \tex_prevdepth:D = { -1000pt } }
+        { \int_compare_p:n { \tex_lastnodetype:D != 3 } }
+        {
+          \bool_lazy_or_p:nn
+            {
+              \bool_lazy_and_p:nn
+                { \legacy_if_p:n { @nobreak } }
+                {
+                  \int_compare_p:nNn
+                    { \g_@@_afterheading_int - \g_@@_heading_fixskip_int } = { 1 }
+                }
+            }
+            {
+              \bool_lazy_and_p:nn
+                { \legacy_if_p:n { @noskipsec } }
+                {
+                  \int_compare_p:nNn
+                    { \g_@@_afterheading_int - \g_@@_heading_fixskip_int } < { 2 }
+                }
+            }
+        }
       }
+      { \bool_set_true:N \l_@@_heading_float_bool }
   }
 \cs_new_protected:Npn \CTEX@fixskip@float@end@hook
   {
@@ -1733,6 +1774,10 @@
   }
 \ctex_at_end_preamble:n
   {
+    \ctex_preto_cmd:NnnTF \@afterheading
+      { \ExplSyntaxOff \char_set_catcode_letter:n { 64 } }
+      { \CTEX@fixskip@afterheading@hook }
+      { } { \ctex_patch_failure:N \@afterheading }
     \ctex_preto_cmd:NnnTF \@xfloat
       { \ExplSyntaxOff \char_set_catcode_letter:n { 64 } }
       { \CTEX@fixskip@float@begin@hook }

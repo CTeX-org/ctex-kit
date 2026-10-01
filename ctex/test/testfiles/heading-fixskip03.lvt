@@ -1,0 +1,92 @@
+\input{regression-test}
+
+\documentclass[fontset=fandol]{ctexart}
+
+\usepackage{titlesec}
+\titleformat{\section}{\bfseries}{\thesection}{1em}{}[\titlerule]
+
+% #1100：判据与 heading-fixskip02 相同，这里覆盖 ctexart 的 \part，以及
+% titlesec 接管的标题。titlesec 的 \section 不经过 \CTEX@setheadingskip，
+% 不清除 ctex 标题留下的标记，标题下的 \titlerule 又把 \prevdepth 设为 -1000pt；
+% 修复靠 \@afterheading 的执行次数认出中间隔着另一个标题，不恢复深度；
+% 其后再接 runin 标题时也一样。
+
+\ExplSyntaxOn
+\dim_new:N \l_test_ref_dim
+\cs_new_protected:Npn \test_figure:
+  {
+    \begin{figure}[h]
+      \centering \rule{3cm}{1cm}
+      \caption{图名}
+    \end{figure}
+  }
+\cs_new_protected:Npn \test_reference:n #1
+  {
+    \clearpage
+    \ctexset { part / fixskip = false }
+    #1
+    \dim_set:Nn \l_test_ref_dim { \tex_prevdepth:D }
+    \clearpage
+  }
+\seq_new:N \g_test_result_seq
+\cs_new_protected:Npn \test_log:n #1
+  {
+    \seq_gput_right:Ne \g_test_result_seq
+      {
+        #1 :~
+        \dim_compare:nNnTF \tex_prevdepth:D = \l_test_ref_dim
+          { same-as-nofixskip }
+          {
+            \dim_compare:nNnTF \tex_prevdepth:D = { -1000pt }
+              { ignore-depth } { other }
+          }
+      }
+  }
+\cs_new_protected:Npn \test_report:
+  {
+    \TIMO
+    \seq_map_inline:Nn \g_test_result_seq { \TYPE {##1} }
+    \seq_gclear:N \g_test_result_seq
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\AUTHOR{Liam Huang}
+
+\ExplSyntaxOn
+
+\TEST{part~and~titlesec~section}{
+  \OMIT
+  \test_reference:n { \part{部} \test_figure: }
+  \ctexset { part / fixskip = true }
+  \part{部}
+  \test_figure:
+  \test_log:n { part-h }
+  \clearpage
+  \test_reference:n { \part{部} \section{标题} \test_figure: }
+  \ctexset { part / fixskip = true }
+  \part{部}
+  \section{标题}
+  \test_figure:
+  \test_log:n { part-titlesec-section-h }
+  \clearpage
+  \test_reference:n
+    { \part{部} \section{标题} \paragraph{段} \test_figure: }
+  \ctexset { part / fixskip = true }
+  \part{部}
+  \section{标题}
+  \paragraph{段}
+  \test_figure:
+  \test_log:n { part-titlesec-section-runin-h }
+  \clearpage
+  \test_report:
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}

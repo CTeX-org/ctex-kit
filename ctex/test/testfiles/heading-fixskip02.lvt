@@ -3,13 +3,15 @@
 \documentclass[fontset=fandol]{ctexbook}
 
 % #1100：fixskip 把标题后的 \prevdepth 设为 -1000pt，让标题后的第一行不加行间胶。
-% 紧跟标题的 h 浮动体就地放下后，\end@float 恢复的仍是 -1000pt，
-% 浮动体之后的第一行因此少了行间胶。修复后，就地放下的浮动体之后，
-% \prevdepth 与不开启 fixskip 时相同；浮动体没有就地放下，或者浮动体
-% 不是紧跟开启 fixskip 的标题时，\prevdepth 保持原值。
+% 位置参数为 h 的浮动体紧跟标题并被就地放置后，\end@float 恢复的仍是 -1000pt，
+% 浮动体之后的第一行因此少了行间胶。修复后，就地放置的浮动体之后，
+% \prevdepth 与不开启 fixskip 时相同；浮动体没有就地放置，或者 -1000pt
+% 不是开启 fixskip 的标题留下的（标题后先有盒子、段落、\hrule，或者中间隔着
+% 不开启 fixskip 的标题）时，\prevdepth 保持原值。runin 标题等待所在段落时，
+% 就地放置的浮动体同样恢复（TEST 4）。titlesec 接管的标题见 heading-fixskip03。
 %
 % 判据只看 \prevdepth，不看具体尺寸，各引擎的结果相同：
-%   same-as-nofixskip  就地放下后，\prevdepth 等于同一写法在 fixskip=false 时的值；
+%   same-as-nofixskip  就地放置后，\prevdepth 等于同一写法在 fixskip=false 时的值；
 %   ignore-depth       \prevdepth 仍是 -1000pt；
 %   other              其他值，说明恢复了不该恢复的深度。
 % 不需要与 fixskip=false 比较的用例把参照值设为 \c_max_dim。
@@ -30,16 +32,13 @@
       \caption{图名}
     \end{figure}
   }
-% 记下 fixskip=false 时同一写法在浮动体之后的 \prevdepth。
+% 记下 fixskip=false 时同一写法在浮动体之后的 \prevdepth。#1 是要关闭 fixskip 的层级。
 \cs_new_protected:Npn \test_reference:nn #1#2
   {
     \clearpage
-    \group_begin:
-      \ctexset { #1 / fixskip = false }
-      #2
-      \dim_gset:Nn \g_tmpa_dim { \tex_prevdepth:D }
-    \group_end:
-    \dim_set_eq:NN \l_test_ref_dim \g_tmpa_dim
+    \clist_map_inline:nn {#1} { \ctexset { ##1 / fixskip = false } }
+    #2
+    \dim_set:Nn \l_test_ref_dim { \tex_prevdepth:D }
     \clearpage
   }
 % 分页输出与字体信息随引擎不同，所以排版放在 \OMIT 与 \TIMO 之间，
@@ -145,16 +144,51 @@
   \clearpage
   \section{标题}
   正文
-  \group_begin:
-    \ctexset
-      {
-        subsection / fixskip = false ,
-        subsection / aftertitle = { \par \hrule }
-      }
-    \subsection{小标题}
-  \group_end:
+  \ctexset
+    {
+      subsection / fixskip = false ,
+      subsection / aftertitle = { \par \hrule }
+    }
+  \subsection{小标题}
   \test_figure:n { h }
   \test_log:n { nofixskip-heading-rule-h }
+  \clearpage
+  \section{标题}
+  正文 \par
+  \hrule \vspace{1pt}
+  \ctexset { paragraph / fixskip = false }
+  \paragraph{段}
+  \test_figure:n { h }
+  \test_log:n { nofixskip-runin-after-rule-h }
+  \clearpage
+  \test_report:
+}
+
+\TEST{runin~heading~and~rule~after~heading}{
+  \OMIT
+  \test_reference:nn { paragraph }
+    { 正文 \par \paragraph{段} \test_figure:n { h } }
+  \ctexset { paragraph / fixskip = true }
+  正文 \par
+  \paragraph{段}
+  \test_figure:n { h }
+  \test_log:n { runin-h }
+  \clearpage
+  \test_reference:nn { section , paragraph }
+    { \section{标题} \paragraph{段} \test_figure:n { h } }
+  \ctexset { section / fixskip = true , paragraph / fixskip = true }
+  \section{标题}
+  \paragraph{段}
+  \test_figure:n { h }
+  \test_log:n { section-runin-h }
+  \clearpage
+  \test_reference:nn { section }
+    { \section{标题} \hrule \test_figure:n { h } }
+  \ctexset { section / fixskip = true }
+  \section{标题}
+  \hrule
+  \test_figure:n { h }
+  \test_log:n { section-hrule-h }
   \clearpage
   \test_report:
 }
