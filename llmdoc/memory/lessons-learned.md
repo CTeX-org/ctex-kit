@@ -360,7 +360,8 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1026 修复后原 MWE 溢出 18.91pt → 4.47pt，只看这两点像是修好了。加上发布版 v3.10.3 也是 4.47pt、且与修复版渲染逐像素相同（`ImageChops.difference` bbox 为 `None`），才看出 4.47pt 是发布版本来就有的另一半缺陷（#1037），而非终点。
 **补充（#1091）**: 把某项差异记为“修复前后相同、属既有限制”之前，要在发布版上把有无空格、后接汉字／西文各写法都测一遍。#1091 的 R2 只测了有空格的 `\CJKunderline{\CJKsout{中。}} x` 就这样记录，无空格后接西文的写法实际是本次引入的回退（v3.10.6 与直接输入一致），CHANGELOG 也因此错误收窄。另外，多轮修复中每一轮结束后都要把嵌套、盒子、选项等维度整体与发布版比对一次，不能只沿审查报出的维度扩展、只以直接输入为 oracle。#1091 嵌套内层“全角标点接西文”的回退从第一轮修复起就存在，R1 至 R6 的审查都没有报出，直到 R6 修复中逐提交二分时才顺带发现。
 **补充（#1091 R9）**: 写“其余在发布版就正确”之前，要把被本次修改影响的写法逐项与发布版比对，不只核对失败项；发布版总宽度一致时也要看节点。#1091 R8 只核对了失败的五项就这样写，漏掉了它改变的另外两种发布版行为（R9-M5），五项的归因也有一项写错（R9-M3）；`符 x\mbox{\uline{\sout{中}}} 后` 在 v3.10.6 上总宽度与直接输入一致，节点比对才看出左侧缺间距、右侧多一枚间距，两处抵消，不是回退。
-**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
+**补充（#1092）**: 比较修复前后时，先保存 master 上每个用例的通过与失败状态，再与修复后逐项求差，列出“master 通过、修复后失败”的集合；通过总数增加不能证明 master 上通过的用例仍然通过。#1092 第一版的通过总数增加了，但输出以汉字开头或结尾的写法相对 master 回退，是对抗式审查指出的。
+**Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`, `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`
 
 ### PR 合并后要回放报告者的原始 MWE，别只看自己的测试基线
 **Rule**: 修复上线后，用报告者给的原始 MWE 复验，而不是以自己新增的回归全绿为准。自己的基线可能把残留缺陷冻结成预期值；报告者的 MWE 是外部判据。把非零缺陷量写进基线时，必须注明它为什么不是零、零需要什么条件。
@@ -801,6 +802,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1002 中未知宏可能消费末尾 `{$x$}`、`$` 或 `\)`，只凭源码形状会把没有排出公式的命令误记为 math。采用“语法候选＋实际节点确认”后，公式边界才能与直接输入保持一致。
 **补充（#1091 R11）**: 空格同样不能按记号形式判断。R10 用“首记号是空格、`\ ` 或一层分组里的空格”决定是否重放 marker，漏掉了 `\space`、多层分组，也没有考虑 `xCJKecglue=true` 下直接输入本身会删去这枚空格；R11 改为照常重放 marker，由后面字符的类别转换按选项处理，所有写法走同一条路径。
 **Source**: `llmdoc/memory/reflections/1002-inline-math-boundary.md`, `llmdoc/memory/reflections/1091-fntef-ulem-terminator-entry-space.md`
+
+### 给输出可配置的命令固定首尾类别之前，先列出能改变首尾字符的选项
+**Rule**: 把命令注册为固定首尾类别之前，先列出能改变输出首尾字符的全部选项（连接词、单位、符号、文本或数学模式等）并逐个实测；只有确认首尾不可配置时才用固定模式，否则用 `auto`，在不触发 interchar 的段落（如数学段）之前补报类别。这是“判据要贴着真正的原因写”在注册方式上的应用：原因是“这一端是什么字符”，不是“命令属于哪个宏包”。
+**Why**: #1092 第一版把 siunitx 的 17 个命令注册为固定 Default 首尾，依据是没有验证过的“输出必然以西文开始和结束”。`range-open-phrase=从`、`mode=text` 下的汉字单位、`angle-symbol-degree=度` 等写法让输出以汉字开头或结尾，固定 Default 在汉字一侧多补 `\CJKecglue`，而这些命令在 master 上未注册时那一侧本来正确。
+**Source**: `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`
 
 ### 状态表中的绿色单元才进入通过基线
 **Rule**: 矩阵出现部分失败时，为已经通过的精确单元增加回归测试；失败单元留在跟踪 issue 中，既不写成 `.tlg` 通过基线，也不通过跳过整个场景丢失邻近的绿色单元。

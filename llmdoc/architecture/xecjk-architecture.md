@@ -689,7 +689,7 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | `url` | 在完整 `\Url@z` 格式化阶段外包围 `default` stream（#880/#992） |
 | `hypdoc` | `\HD@target` 注册为 `transparent`；`\meta` / `\cs` 按固定首尾语义注册 stream（#873/#992）；`\meta` 的注册点自 #1046 起为公开命令而非内层参数排版函数 |
 | `biblatex` | preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 `transparent`（#931/#992） |
-| `siunitx` | `\unit`/`\qty`/`\num` 注册为固定 Default 首尾的 `stream`；v2 旧名 `\si`/`\SI` 先检查命令是否存在，再分别注册；`\ang` 的比较对象尚未确定，暂不注册（#1000/#992） |
+| `siunitx` | 17 个排版命令（`\unit`、`\qty`、`\num`、区间、列表、乘积、复数、`\duration`、`\ang` 与 v2 旧名 `\si`/`\SI`/`\SIrange`/`\SIlist`）逐个经 `\cs_if_exist:cT` 检查后注册为 `auto` stream：每个命令都是独立的顶层入口，不经过其他命令的 cmd hook。输出首尾可由 `range-open-phrase`、`mode=text` 单位、`\text{...}` 单位、`duration-unit-*`、`angle-symbol-degree` 改成汉字，所以不固定 Default；文本段由 interchar 报告实际类别，数学段由包装后的公开函数 `\siunitx_print_math:n` 在不处于数学模式时先报告 Default。v2 没有该函数，不包装，由公式边界处理。`\tablenum` 输出带 fill glue 的对齐盒子，不注册（#1000/#1092/#992；入口 `\@@_boundary_register_siunitx:`） |
 | `microtype` | 包装 `\MT@get@slot@`，为被重定义为受保护宏的歧义字符查回槽位，`\MT@char` 与 `\MT@char@` 同时设置（#1104）；microtype 完成设置时把 `\MT@ltx@pickupfont` 加入 xeCJK 的字体初始钩子 |
 
 ### 与 microtype 的兼容（#1104）

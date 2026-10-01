@@ -316,7 +316,13 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 
 `boundary-crossbox01.lvt` 检查 #996：`\@@_glue_check_expire_stale:` 在最外层恢复逻辑发现节点列表为空时清除过期的 `\g_@@_glue_check_pending_bool`，阻止它越过 `\hbox` 或 `\setbox` 分组。测试还覆盖同一盒子与不同盒子中的显式 glue、`\kern0pt` 处理方法、两个方向的源码空格处理，以及 `xCJKecglue=true` 下 #996 的两个相同盒子，共 9 个断言（8 个宽度断言和 1 个 pending 状态断言）。与 `command-boundary01` 的 `\BoundaryReset` 一样，这个测试直接读写 `\g__xeCJK_last_node_tl`、`\g__xeCJK_glue_check_pending_bool` 两个内部变量，以隔离各测试并检查变量的生命周期；它们不是公开 API，内部重命名时必须同步修改这些 `.lvt` 文件。
 
-`siunitx-ecglue01.lvt` 锁定 #1000：`\unit`/`\qty`/`\num`/`\si`/`\SI` 五个命令、中文/西文上下文、`\unit` 可选参数变体与 `00/10/01/11` 四种源码空格组成 36 个单元，再分别运行默认/可区分间距和 `xCJKecglue=false/true`，合计 144 次宽度比较；math 内嵌用法另检查 capture 栈归零。预热段（`\OMIT`/`\TIMO`）先消化 siunitx 数学字体加载与旧名 deprecation 消息，避免污染规范化日志。
+`siunitx-ecglue01.lvt` 锁定 #1000 与 #1092：31 组 `\BoundaryMatrix`，每组比较 `00/10/01/11` 四种源码空格，再分别运行默认／可区分间距和 `xCJKecglue=false/true`，合计 496 次宽度比较；math 内嵌的 `\unit`、`\qtyrange` 另检查 capture 栈归零。31 组的组成如下：
+
+- #1000 的 9 组：`\unit`/`\qty`/`\num`/`\si`/`\SI`、中文与西文上下文、`\unit` 可选参数变体。
+- #1092 的 16 组：区间、列表、乘积、复数、时长、角度与 `\SIrange`/`\SIlist` 的中文上下文（区间另有西文上下文），以及中文 `range-phrase=至` 与 `range-units=bracket` 两种写法。
+- #1092 的 6 组输出以汉字开头或结尾的矩阵：`range-open-phrase=从`、汉字单位（`\qty`、`\qtyrange`、`mode=text` 下的 `\qtylist`）、汉字 `duration-unit-*`、`angle-symbol-degree=度`。汉字单位用 `mode=text` 或 `\text{元}` 包住；直接在数学模式里排汉字时数学字体没有该字形，日志报 `Missing character`，宽度比较没有意义。
+
+oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=false` 且两侧有源码空格时，注册命令两端报告 Default，源码空格变成 `\CJKecglue`，与公式边界的结果不同。变异结果：改回固定 Default 首尾时，6 组汉字边缘矩阵各失败 16 次；去掉 `\siunitx_print_math:n` 的补报时，所有输出数学内容的命令都失败；注册列表退回 #1000 时，14 组中文上下文矩阵各失败 16 次（`ee4d5112` 时的结果）。预热段（`\OMIT`/`\TIMO`）先消化 siunitx 数学字体加载与旧名 deprecation 消息，避免污染规范化日志。
 
 `xecglue01.lvt` 除了检查 `false/true` 的基本行为，还锁定 `xCJKecglue=<glue>` 与 `CJKecglue=<glue>, xCJKecglue=true` 的等价关系。这个小型断言保护简写入口，不重复整张命令边界矩阵。
 
