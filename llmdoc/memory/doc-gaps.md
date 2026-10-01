@@ -204,3 +204,18 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 可能的补法（**未实施**，也未评估）：被减去的间距要补在标题与浮动体之间，而浮动体是否就地放置由输出例程里的
 `\@addtocurcol` 决定，`\end@float` 末尾的钩子只能在浮动体之后补。需要另行设计，并检查对 `t`／`b`／被推迟
 浮动体的影响。
+
+## siunitx 空输出两侧都有源码空格时多出两枚 `\CJKecglue`（#1092 已知限制，未处理）
+
+`\unit{}`、`\numlist{}`、`\ang{;;}` 这类不排出任何字符的写法，只有“汉字 空格 命令 空格 汉字”（源码空格组合 11）这一种出错：多出两枚 `\CJKecglue`（默认间距下共 6.66pt），而直接输入是两个汉字直接相接。“四种间距设置”指默认与可区分间距各配 `xCJKecglue=false/true`。
+
+与 master 对比，三个命令的变化方向不同：
+
+- `\unit{}`：master 上四种空格组合、四种间距设置都错；现在只剩 11，是改进。
+- `\numlist{}`、`\ang{;;}`：master 上只在 `xCJKecglue=false` 时的 01、11 组合差一枚（3.33pt）；现在 01 一致，但 11 在四种间距设置下都多两枚，是变差。
+
+反思中的分析是命令内部没有字符，入口和出口各补了一次间距。`siunitx-ecglue01` 不含空输出用例。登记为已知限制，#1092 未处理；补法**未评估**。过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
+
+## 用户自行注册 siunitx 命令的规避写法升级后报错（#1092 维护者决定：保持报错）
+
+#1092 的 issue 中给出的规避写法用 `experiment/boundary-register` 自行注册 `\SIrange` 等命令。#1092 之后 xeCJK 已注册这些命令，同一命令再注册会报 `boundary-register-conflict` 错误。维护者决定保持报错，不改为静默跳过或警告；只在 `\changes` 和由它生成的 `xeCJK/CHANGELOG.md` 条目中写明需要删去这些注册。
