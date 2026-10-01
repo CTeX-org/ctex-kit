@@ -16,7 +16,7 @@
 | 不加载 `caption` | 27.77，28.61       | 21.78，28.61       |
 | `caption` + `belowskip=-12pt` | 18.86，19.70 | 12.87，19.70 |
 
-pdfLaTeX、LuaLaTeX 与 `ctexbook` 的 `\chapter` 结果相同。
+pdfLaTeX、LuaLaTeX 与 `ctexbook` 的 `\chapter` 同样能复现，具体数值见 issue 中的确认评论。
 
 ## 修复分支对比（2026-10-01）
 
