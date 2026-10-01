@@ -13615,14 +13615,15 @@ Copyright and Licence
 %   与 v2 旧名 \tn{si}、\tn{SI} 注册为固定 Default 首尾的 stream
 %   capture，修复 CJK 上下文中单位命令边界的空格丢失（\#1000）。}
 % \changes{v3.10.7}{2026/10/01}{\pkg{siunitx} 的区间、列表、乘积、复数、
-%   时长与角度命令左侧紧接汉字时，与直接输入一样补上 \tn{CJKecglue}（\#1092）。
+%   时长与角度命令左侧紧接汉字时，与直接输入一样补上 \tn{CJKecglue}；
+%   \tn{unit}、\tn{qty} 等命令的输出以汉字开头或结尾时（例如汉字单位、
+%   设为汉字的连接词），汉字一侧不再多补 \tn{CJKecglue}（\#1092）。
 %   此前用 \opt{experiment/boundary-register} 自行注册这些命令的文档需要删去
 %   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 %
 % \pkg{siunitx} 用 math 模式排版数字与单位。math 不触发 interchar
 % 转换，入口的 \tn{mathon} 又盖住左侧 marker，情况与修复前的 \tn{eqref}
-% 相同；数字与单位输出必然以西文或数字开始、结束，因此也注册为固定
-% Default 首尾的 stream capture。
+% 相同。
 %
 % 每个排版命令都是独立的顶层入口，不经由其他命令的 cmd hook，需要逐个
 % 注册：只注册 \tn{qty}、\tn{num} 时，\tn{qtyrange}、\tn{numlist} 等
@@ -13634,26 +13635,27 @@ Copyright and Licence
 %     \tn{complexnum}、\tn{complexqty}；
 %   \item 时长与角度：\tn{duration}、\tn{ang}。
 % \end{itemize}
-% 区间、列表与乘积的连接词（|range-phrase| 等）即使设为汉字，也排在命令
-% 内部，不改变两端的类别。\tn{complexqty} 与 |range-units=bracket| 以
-% 左括号开头，直接输入的左括号同样是 Default。\tn{ang} 输出的度、分、秒
-% 符号也是 Default：文本 |中30°文| 与公式 |中$30^{\circ}$文| 两侧都有
-% \tn{CJKecglue}。\tn{tablenum} 用于表格单元格对齐，输出带 fill glue 的
-% 盒子，不是行内数字，不注册。
+% v2 旧名 \tn{si}、\tn{SI}、\tn{SIrange}、\tn{SIlist} 同样是独立顶层命令。
+% \tn{tablenum} 用于表格单元格对齐，输出带 fill glue 的盒子，不是行内
+% 数字，不注册。
 %
-% v2 旧名 \tn{si}、\tn{SI}、\tn{SIrange}、\tn{SIlist} 同样是独立顶层
-% 命令。所有命令注册前都先检查是否存在，以兼容未来移除旧名的
-% \pkg{siunitx} 版本，以及用 |\usepackage{siunitx}[=v2]| 回退到 v2、
-% 没有 \tn{qtyrange} 等新命令的文档。若其他宏包恰好定义了同名命令，
-% 这项检查也会把它们一并注册——
-% 误注册只是多包一层 Default stream，不改变无 CJK 邻接时的排版，记录
-% 为已知限制。数学模式内使用（如 |$x=\unit{kg}$|）时，capture 只压入
-% inactive 标记，不改变排版。
+% 这些命令的输出两端不一定是西文：|range-open-phrase=从|、|mode=text|
+% 下的 |\DeclareSIUnit\yuan{元}|、|\text{元}| 单位、设为汉字的
+% |duration-unit-hour| 或 |angle-symbol-degree| 都会让输出以汉字开头或
+% 结尾。所以注册为 |auto| stream，而不是固定 Default 首尾：文本段里的汉字
+% 与西文照常由 interchar 转换报告实际类别；数学段不触发 interchar，由
+% \pkg{siunitx} 的公开函数 \cs{siunitx_print_math:n} 在进入数学模式之前
+% 补报 Default。已在数学模式中时不补报，与直接输入的公式一致。
+% 若固定为 Default，这些写法会在汉字一侧多补一个 \tn{CJKecglue}。
+% \pkg{siunitx} v2（|\usepackage{siunitx}[=v2]|）没有
+% \cs{siunitx_print_math:n}，不作包装；v2 的数字与单位直接写 |$...$|，
+% 由公式边界处理报告类别。
 %
-% 单位名本身是汉字时（例如用 \tn{DeclareSIUnit} 定义的 |\yuan{元}|），
-% 输出以汉字结尾，固定 Default 末类别会在右侧多补一个 \tn{CJKecglue}。
-% 这在 \#1000 注册的 \tn{qty} 上已经如此，本次注册的命令沿用同一行为，
-% 记录为已知限制。
+% 所有命令注册前都先检查是否存在，以兼容未来移除旧名的 \pkg{siunitx}
+% 版本，以及回退到 v2、没有 \tn{qtyrange} 等新命令的文档。若其他宏包
+% 恰好定义了同名命令，这项检查也会把它们一并注册——误注册只是多包一层
+% |auto| stream，不改变无 CJK 邻接时的排版，记录为已知限制。数学模式内
+% 使用（如 |$x=\unit{kg}$|）时，capture 只压入 inactive 标记，不改变排版。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_register_siunitx:
   {
@@ -13666,7 +13668,16 @@ Copyright and Licence
       }
       {
         \cs_if_exist:cT {##1}
-          { \@@_boundary_register_stream:nn {##1} { default } }
+          { \@@_boundary_register_stream:nn {##1} { auto } }
+      }
+    \cs_if_exist:NT \siunitx_print_math:n
+      {
+        \cs_gset_eq:NN \@@_orig_siunitx_print_math:n \siunitx_print_math:n
+        \cs_gset_protected:Npn \siunitx_print_math:n ##1
+          {
+            \mode_if_math:F { \@@_boundary_capture_class:n { default } }
+            \@@_orig_siunitx_print_math:n {##1}
+          }
       }
   }
 \@@_package_hook:nn { siunitx }
