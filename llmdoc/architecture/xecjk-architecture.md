@@ -690,6 +690,15 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | `hypdoc` | `\HD@target` 注册为 `transparent`；`\meta` / `\cs` 按固定首尾语义注册 stream（#873/#992）；`\meta` 的注册点自 #1046 起为公开命令而非内层参数排版函数 |
 | `biblatex` | preamble 结束后把最终 `\let` 目标 `\blx@pagetracker` 注册为 `transparent`（#931/#992） |
 | `siunitx` | `\unit`/`\qty`/`\num` 注册为固定 Default 首尾的 `stream`；v2 旧名 `\si`/`\SI` 先检查命令是否存在，再分别注册；`\ang` 的比较对象尚未确定，暂不注册（#1000/#992） |
+| `microtype` | 包装 `\MT@get@slot@`，为被重定义为受保护宏的歧义字符查回槽位，`\MT@char` 与 `\MT@char@` 同时设置（#1104）；microtype 完成设置时把 `\MT@ltx@pickupfont` 加入 xeCJK 的字体初始钩子 |
+
+### microtype 的歧义字符槽位（#1104）
+
+xeCJK 在导言区结束时把 `\TS1\textperiodcentered`、`\TU\textendash`、`\TU\textquoteleft` 等歧义字符重定义为受保护的宏，交给西文字体排版，并在 `\g_@@_ambiguous_slot_prop` 里按 `<编码>-<命令>` 记下槽位。microtype 读 `\SetProtrusion` 等配置时不能再从这些宏解析出槽位，`\MT@get@slot` 留下 `\MT@char@ = -1` 并复制给 `\MT@char`。`\xeCJK@microtype@get@slot` 在调用原来的 `\MT@get@slot@` 之前，用 `\@@_get_ambiguous_slot:` 查回记录的槽位。
+
+查回的槽位必须**同时**写进 `\MT@char` 和 `\MT@char@`。microtype 在 XeTeX 下测量字符宽度的 `\MT@get@charwd`（`microtype-xetex.def`）依据 `\MT@char@` 分支：负值表示字形序号，测量 `\XeTeXglyph-\MT@char@`。#1104 之前只设置 `\MT@char`，于是测量的是 1 号字形：TFM 字体（如 NFSS 回退到的 `TS1/cmr`）不允许 `\XeTeXglyph`，报 `Cannot use XeTeXglyph`；microtype 对 TFM 字体的检查写在 `\MT@get@slot@` 里、依据的是 `\MT@char`，此时它已是有效槽位，检查不起作用。OpenType 字体则按 1 号字形的宽度算出错误的突出量，不报错。xunicode-addon 的 `\xunadd@microtype@is@charx` 设置的是 `\MT@char@`，再由 microtype 复制给 `\MT@char`，两者一致。
+
+只有在 microtype 按字符宽度计算的配置下才看得出数值差别。Latin Modern 等有专用配置的字体，`\lpcode`/`\rpcode` 修复前后可能相同；回归测试 `microtype-slot01` 因此用没有专用配置的 TeX Gyre Termes（见 [[../reference/build-and-test]]「microtype 突出量回归」一节）。
 
 传统 `CJK.sty` 与 xeCJK 不可同时加载。xeCJK 通过 `\ctex_disable_package:n` 拦截 `CJK` 等冲突包，因此 #510 中旧 `ruby.sty` 的 `\RequirePackage{CJK}` 现在只产生预期 warning，不再触发 `\CJKglue already defined`。这只是阻止加载冲突，不代表 xeCJK 实现了旧 CJK 的私有 kern-marker 协议；简单 MWE 能编译也不能据此声称完整语义兼容。XeLaTeX 的一般 ruby 推荐加载 PXrubrica，只有出现具体可复现的边界问题时才增加定点兼容，不在 xeCJK 中模拟整套旧协议。决策见 [[../memory/decisions/510-ruby-compatibility-boundary]]。
 
