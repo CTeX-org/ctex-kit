@@ -205,7 +205,7 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 `\@addtocurcol` 决定，`\end@float` 末尾的钩子只能在浮动体之后补。需要另行设计，并检查对 `t`／`b`／被推迟
 浮动体的影响。
 
-## siunitx 空输出两侧都有源码空格时多出两枚 `\CJKecglue`（#1092 已知限制，未处理）
+## siunitx 空输出两侧都有源码空格时多出两枚 `\CJKecglue`（#1092 已知回退，另由 #1103 追踪）
 
 `\unit{}`、`\numlist{}`、`\ang{;;}` 这类不排出任何字符的写法，只有“汉字 空格 命令 空格 汉字”（源码空格组合 11）这一种出错：多出两枚 `\CJKecglue`（默认间距下共 6.66pt），而直接输入是两个汉字直接相接。“四种间距设置”指默认与可区分间距各配 `xCJKecglue=false/true`。
 
@@ -214,7 +214,7 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - `\unit{}`：master 上四种空格组合、四种间距设置都错；现在只剩 11，是改进。
 - `\numlist{}`、`\ang{;;}`：master 上只在 `xCJKecglue=false` 时的 01、11 组合差一枚（3.33pt）；现在 01 一致，但 11 在四种间距设置下都多两枚，是变差。
 
-反思中的分析是命令内部没有字符，入口和出口各补了一次间距。`siunitx-ecglue01` 不含空输出用例。登记为已知限制，#1092 未处理；补法**未评估**。过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
+根因不在 siunitx 适配，而在命令边界框架：任何已注册、执行后什么都不排出的命令，在这种写法下都会多两枚。master 上的 `\mbox{}`、`\hypertarget{a}{}`、`\phantomsection{}` 已经是 26.66pt（直接输入 20.0pt），`xCJKecglue` 两个取值相同；用户注册的空 `stream`、`transparent` 命令也一样。bot 审查把 `\numlist{}`、`\ang{;;}` 报为本 PR 的回退（`xCJKecglue=true` 下 master 是 20.0pt），属实。维护者决定：本 PR 不改框架，在 `\changes` 与 CHANGELOG 写明这是已知回退，框架层的修复另开 #1103。`siunitx-ecglue01` 不含空输出用例。过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
 
 ## 用户自行注册 siunitx 命令的规避写法升级后报错（#1092 维护者决定：保持报错）
 
