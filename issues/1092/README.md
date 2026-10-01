@@ -10,3 +10,8 @@ xeCJK 只给 siunitx 的 `\unit`、`\qty`、`\num`、`\si`、`\SI` 注册了命�
 - `issue1092-nodes.tex` — 节点列表：`中$30$` 在 `\mathon` 前有 `\glue 3.33`；`中\numrange{30}{70}` 在 `\mathon` 前只有一对 `\kern -0.00017`／`\kern 0.00017` 标记。
 
 测试环境：XeLaTeX，TeX Live 2026，siunitx 2026-05-15 v3.5.5；xeCJK 为仓库 master（v3.10.7 开发版）与 TeX Live 安装的 v3.10.1，结果相同。
+
+## 修复分支对比（2026-10-01）
+
+- `issue1092-before-after.png` — 左：master `4a6e1334`；右：修复分支 `fix-1092-siunitx-range`（`a3d2dc61`）。数值为汉字与 siunitx 输出之间的间距，绿色表示与直接输入一致，红色表示缺少或多出。修复后 12 个命令的左侧都补上 3.33pt；最后三行的输出以汉字开头或结尾（`range-open-phrase=从`、`mode=text` 下的汉字单位“元”、`angle-symbol-degree=度`），汉字一侧与直接输入一样是 0pt。
+- `issue1092-before-after.tex` — 对比图源文件，`xelatex "\def\LABEL{...}\input{issue1092-before-after}"`。

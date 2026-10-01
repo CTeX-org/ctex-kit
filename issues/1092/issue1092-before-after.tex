@@ -1,0 +1,80 @@
+\documentclass{article}
+\usepackage[paperwidth=15.5cm,paperheight=18.4cm,margin=5mm]{geometry}
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\usepackage{siunitx,tikz,xcolor}
+\DeclareSIUnit\yuan{元}
+\sisetup{range-phrase={--},range-units=single}
+\providecommand\LABEL{}
+
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\newbox\Pre \newbox\Left \newbox\Both \newbox\Alone \newbox\Post
+\newlength\Glue \newlength\GapL \newlength\GapR
+\newif\ifLexp \newif\ifRexp \Lexptrue \Rexptrue
+\newif\ifok
+% 左间距 = 宽(前文+命令) - 宽(前文) - 宽(命令单独)；右间距同理
+\newcommand\row[2]{%
+  \setbox\Pre=\hbox{长度约为}%
+  \setbox\Alone=\hbox{#2}%
+  \setbox\Left=\hbox{长度约为#2}%
+  \setbox\Both=\hbox{长度约为#2后接中文}%
+  \setbox\Post=\hbox{后接中文}%
+  \setlength\GapL{\dimexpr\wd\Left-\wd\Pre-\wd\Alone\relax}%
+  \setlength\GapR{\dimexpr\wd\Both-\wd\Left-\wd\Post\relax}%
+  \begin{tikzpicture}[baseline=0pt,x=1pt,y=1pt]
+    \node[anchor=base west,inner sep=0pt] at (0,0) {\copy\Both};
+    \ifdim\GapL<0.01pt \ifLexp\okfalse\else\oktrue\fi \else \ifLexp\oktrue\else\okfalse\fi \fi
+    \edef\Lc{\ifok green!40!black\else red\fi}%
+    \ifdim\GapL<0.01pt
+      \ifok\else
+        \fill[red,opacity=.85] (\wd\Pre-0.6,-3) rectangle ++(1.2,13);
+        \node[red,anchor=north,font=\tiny\bfseries] at (\wd\Pre,-3) {缺};
+      \fi
+    \else
+      \fill[\ifok green!60!black\else red\fi,opacity=.4] (\wd\Pre,-3) rectangle ++(\GapL,13);
+      \ifok\else\node[red,anchor=north,font=\tiny\bfseries] at (\wd\Pre+\GapL/2,-3) {多};\fi
+    \fi
+    \ifdim\GapR<0.01pt \ifRexp\okfalse\else\oktrue\fi \else \ifRexp\oktrue\else\okfalse\fi \fi
+    \edef\Rc{\ifok green!40!black\else red\fi}%
+    \ifdim\GapR<0.01pt
+      \ifok\else
+        \fill[red,opacity=.85] (\wd\Left-0.6,-3) rectangle ++(1.2,13);
+      \fi
+    \else
+      \fill[\ifok green!60!black\else red\fi,opacity=.4] (\wd\Left,-3) rectangle ++(\GapR,13);
+      \ifok\else\node[red,anchor=north,font=\tiny\bfseries] at (\wd\Left+\GapR/2,-3) {多};\fi
+    \fi
+    \node[anchor=west,font=\scriptsize] at (\wd\Both+6,3)
+      {左 \textcolor{\Lc}{\the\GapL}\quad 右 \textcolor{\Rc}{\the\GapR}};
+    \node[anchor=east,font=\scriptsize\ttfamily,text=gray] at (-4,3) {#1};
+  \end{tikzpicture}\par\smallskip}
+\begin{document}
+\setbox0=\hbox{\SI{1}{m}\SIrange{1}{2}{m}\qtyrange{1}{2}{m}\numrange{1}{2}\SIlist{1;2}{m}\qtylist{1;2}{m}\numlist{1;2}\qtyproduct{1x2}{m}\numproduct{1x2}\complexnum{1+2i}\complexqty{1+2i}{m}\duration{1;2;3}\ang{1}\qtyrange[mode=text]{1}{2}{\yuan}$x$}
+\colorbox{yellow!40}{\small xeCJK \LABEL}\par\smallskip
+{\scriptsize 数值为汉字与 siunitx 输出之间的间距。绿色：与直接输入一致；红色：缺少（“缺”）或多出（“多”）。}\par\medskip
+\hspace*{2.3cm}\begin{minipage}{12.2cm}
+\row{\textbackslash SI}{\SI{30}{\metre}}
+\row{\textbackslash qty}{\qty{30}{\metre}}
+\row{\textbackslash SIrange}{\SIrange{30}{70}{\metre}}
+\row{\textbackslash qtyrange}{\qtyrange{30}{70}{\metre}}
+\row{\textbackslash numrange}{\numrange{30}{70}}
+\row{\textbackslash SIlist}{\SIlist{30;70}{\metre}}
+\row{\textbackslash qtylist}{\qtylist{30;70}{\metre}}
+\row{\textbackslash numlist}{\numlist{30;70}}
+\row{\textbackslash qtyproduct}{\qtyproduct{30x70}{\metre}}
+\row{\textbackslash numproduct}{\numproduct{30x70}}
+\row{\textbackslash complexnum}{\complexnum{1+2i}}
+\row{\textbackslash complexqty}{\complexqty{1+2i}{\metre}}
+\row{\textbackslash duration}{\duration{1;30;0}}
+\row{\textbackslash ang}{\ang{30}}
+\medskip{\scriptsize 输出以汉字开头或结尾：汉字一侧应与直接输入一样不加间距（0pt）}\par\smallskip
+\Lexpfalse
+\row{range-open-phrase}{\numrange[range-open-phrase=从,range-phrase=到]{30}{70}}
+\Lexptrue\Rexpfalse
+\row{mode=text, 元}{\qtyrange[mode=text]{30}{70}{\yuan}}
+\row{度}{\ang[mode=text,angle-symbol-degree=度]{30}}
+\Rexptrue
+\end{minipage}
+\end{document}
