@@ -1,0 +1,200 @@
+\input{regression-test}
+
+% #1103：没有可见输出的已注册命令两侧都有源码空格时，以前多出一枚空格
+% （两侧是汉字时多出两枚空格的宽度，|中 \mbox{} 文| 为 26.66pt，直接输入
+% 20.0pt）。比较基准是把命令从源码中删去后的直接输入：|中 \cmd 文| 对应
+% |中  文|，TeX 把相邻的两个空格读成一个空格记号。
+%
+% 每个矩阵对一个命令、一组左右文字比较四种写法（00 两侧都没有空格、10 只有
+% 左侧、01 只有右侧、11 两侧都有），在默认间距与可区分间距、xCJKecglue 两种
+% 取值下各执行一遍。命令包括用户注册的 stream、transparent、box 三种空命令，
+% 核心已注册的 \mbox{}、\textcolor{red}{}，hyperref 的 \hypertarget{a}{}，
+% xeCJKfntef 的 \uline{}，siunitx 的 \numlist{}、\unit{}。
+%
+% 只列出与直接输入一致的组合。下列写法与直接输入仍不一致，与本修复无关，没有
+% 列出（见 llmdoc/memory/doc-gaps.md）：
+%   - 左侧是全角标点、右侧有空格（|，\cmd 文|），以前就如此；
+%   - 左侧是汉字、右侧没有空格、命令之后是盒子、规则、标点等不检查 marker
+%     的内容（|中\cmd\hbox{x}|），直接输入的汉字 marker 被盒子挡住，命令则
+%     把它重放在盒子之前；
+%   - 左侧是 |中{}|、|中\ |、命令之后紧接汉字（|中{} \cmd文|），直接输入保留
+%     空格，命令的入口按汉字之后的空格处理；
+%   - 左侧是公式、右侧是汉字。
+% 这些组合在修复前后相同，或修复前也与直接输入不一致。
+
+\documentclass{article}
+
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{xeCJKfntef}
+\usepackage{siunitx}
+\usepackage{hyperref}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newcommand\RegStream[1]{\leavevmode}
+\newcommand\RegTrans[1]{\special{t}}
+\newcommand\RegBox[1]{\hbox{}}
+\xeCJKsetup{
+  experiment/boundary-register={command=\RegStream,strategy=stream},
+  experiment/boundary-register={command=\RegTrans,strategy=transparent},
+  experiment/boundary-register={command=\RegBox,strategy=box}}
+
+\newbox\EmptyCandidate
+\newbox\EmptyOracle
+\newcount\EmptyChecks
+\newcount\EmptyFailures
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \EmptyReset
+  {
+    \tl_gclear:N \g__xeCJK_last_node_tl
+    \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+  }
+\cs_new:Npn \EmptyCaptureDepth
+  { \int_use:N \g__xeCJK_boundary_capture_depth_int }
+\ExplSyntaxOff
+
+% #1 名称  #2 左侧  #3 命令  #4 右侧  #5 左空格  #6 右空格  #7 删去命令后的空格
+% 作为参数传入的两个空格记号不会像源码里那样合并，所以 oracle 的空格单独给出：
+% 两侧都有空格时只放一个，与源码 |中  文| 读出的记号相同。左侧以控制空格 |\ |
+% 结尾时，源码里紧跟的空格会被跳过，用记号拼出的 oracle 却保留它，所以这类左侧
+% 只比较两侧都有空格的写法。
+\newcommand\EmptyVariant[7]{%
+  \global\advance\EmptyChecks by 1
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{#2#5#3#6#4}%
+  \ifnum\EmptyCaptureDepth=0 \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 left a nonzero capture depth}%
+  \fi
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{#2#7#4}%
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+% \EmptyMatrix{名称}{左侧}{命令}{右侧}：四种空格写法。
+\newcommand\EmptyMatrix[4]{%
+  \EmptyVariant{#1/00}{#2}{#3}{#4}{}{}{}%
+  \EmptyVariant{#1/10}{#2}{#3}{#4}{ }{}{ }%
+  \EmptyVariant{#1/01}{#2}{#3}{#4}{}{ }{ }%
+  \EmptyVariant{#1/11}{#2}{#3}{#4}{ }{ }{ }%
+}
+% \EmptyBoth{名称}{左侧}{命令}{右侧}：只比较两侧都有空格的写法。
+\newcommand\EmptyBoth[4]{%
+  \EmptyVariant{#1/11}{#2}{#3}{#4}{ }{ }{ }%
+}
+
+\newcommand\EmptyForCommands[3]{% #1 名称前缀 #2 左侧 #3 右侧
+  \EmptyMatrix{#1/stream}{#2}{\RegStream{}}{#3}%
+  \EmptyMatrix{#1/transparent}{#2}{\RegTrans{}}{#3}%
+  \EmptyMatrix{#1/box}{#2}{\RegBox{}}{#3}%
+  \EmptyMatrix{#1/mbox}{#2}{\mbox{}}{#3}%
+  \EmptyMatrix{#1/textcolor}{#2}{\textcolor{red}{}}{#3}%
+  \EmptyMatrix{#1/hypertarget}{#2}{\hypertarget{a}{}}{#3}%
+  \EmptyMatrix{#1/uline}{#2}{\uline{}}{#3}%
+  \EmptyMatrix{#1/numlist}{#2}{\numlist{}}{#3}%
+  \EmptyMatrix{#1/unit}{#2}{\unit{}}{#3}%
+}
+\newcommand\EmptyBothForCommands[3]{%
+  \EmptyBoth{#1/stream}{#2}{\RegStream{}}{#3}%
+  \EmptyBoth{#1/transparent}{#2}{\RegTrans{}}{#3}%
+  \EmptyBoth{#1/box}{#2}{\RegBox{}}{#3}%
+  \EmptyBoth{#1/mbox}{#2}{\mbox{}}{#3}%
+  \EmptyBoth{#1/textcolor}{#2}{\textcolor{red}{}}{#3}%
+  \EmptyBoth{#1/hypertarget}{#2}{\hypertarget{a}{}}{#3}%
+  \EmptyBoth{#1/uline}{#2}{\uline{}}{#3}%
+  \EmptyBoth{#1/numlist}{#2}{\numlist{}}{#3}%
+  \EmptyBoth{#1/unit}{#2}{\unit{}}{#3}%
+}
+
+\newcommand\EmptyRunAll{%
+  % 两侧都有空格：入口前是什么都只保留一枚空格。
+  \EmptyBothForCommands{C-C}{中}{文}%
+  \EmptyBothForCommands{C-L}{中}{B}%
+  \EmptyBothForCommands{C-math}{中}{$y$}%
+  \EmptyBothForCommands{C-hbox}{中}{\hbox{x}}%
+  \EmptyBothForCommands{C-punct}{中}{，}%
+  \EmptyBothForCommands{C-leftparen}{中}{（文}%
+  \EmptyBothForCommands{C-kern}{中}{\kern1pt 文}%
+  \EmptyBothForCommands{C-tie}{中}{~文}%
+  \EmptyBothForCommands{C-textbf}{中}{\textbf{文}}%
+  \EmptyBothForCommands{L-C}{A}{文}%
+  \EmptyBothForCommands{L-hbox}{A}{\hbox{x}}%
+  \EmptyBothForCommands{math-L}{$x$}{B}%
+  \EmptyBothForCommands{math-hbox}{$x$}{\hbox{x}}%
+  \EmptyBothForCommands{group-C}{中{}}{文}%
+  \EmptyBothForCommands{ctrl-C}{中\ }{文}%
+  \EmptyBothForCommands{ctrl-kern}{中\ }{\kern1pt 文}%
+  % 四种写法都与直接输入一致的组合。
+  \EmptyForCommands{groupC-C}{{中}}{文}%
+  \EmptyForCommands{groupC-L}{{中}}{B}%
+  \EmptyForCommands{groupC-math}{{中}}{$y$}%
+  \EmptyForCommands{groupC-punct}{{中}}{，}%
+  \EmptyForCommands{mboxC-C}{\mbox{中}}{文}%
+  \EmptyForCommands{mboxC-hbox}{\mbox{中}}{\hbox{x}}%
+  \EmptyForCommands{mboxL-C}{\mbox{A}}{文}%
+  \EmptyForCommands{mboxL-L}{\mbox{A}}{B}%
+  \EmptyForCommands{L-L}{A}{B}%
+  \EmptyForCommands{L-math}{A}{$y$}%
+  \EmptyForCommands{L-punct}{A}{，}%
+  \EmptyForCommands{group-hbox}{中{}}{\hbox{x}}%
+}
+
+\begin{document}
+
+\START
+
+% 字体预热。
+\setbox0=\hbox{中文AB$x$\uline{中}\numlist{1;2}\unit{kg}\textcolor{red}{中}}
+
+\TEST{package-default glue, xCJKecglue=false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \EmptyRunAll
+  \endgroup
+}
+
+\TEST{package-default glue, xCJKecglue=true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \EmptyRunAll
+  \endgroup
+}
+
+\xeCJKsetup{CJKecglue={\hskip 5pt},CJKglue={\hskip 1pt}}
+
+\TEST{distinguishing glue, xCJKecglue=false}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=false}
+    \EmptyRunAll
+  \endgroup
+}
+
+\TEST{distinguishing glue, xCJKecglue=true}{
+  \begingroup
+    \xeCJKsetup{xCJKecglue=true}
+    \EmptyRunAll
+  \endgroup
+}
+
+% \phantomsection 不带参数，命令名之后的源码空格在读取控制序列名时就被跳过；
+% 这里写成 \phantomsection{}，删去命令后的直接输入是 |A {} 文|。
+\TEST{phantomsection followed by an empty group}{
+  \setbox\EmptyCandidate=\hbox{A \phantomsection{} 文}%
+  \setbox\EmptyOracle=\hbox{A {} 文}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: phantomsection (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+
+\TYPE{empty-output checks: \the\EmptyChecks}
+\TYPE{empty-output failures: \the\EmptyFailures}
+
+\END
+
+\end{document}

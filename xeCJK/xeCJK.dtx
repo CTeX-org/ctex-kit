@@ -4666,7 +4666,18 @@ Copyright and Licence
 %   \@@_boundary_enable_source_space:n,
 %   \@@_boundary_replay_node:n,
 %   \@@_boundary_replay_before_math_space:,
-%   \@@_boundary_replay_before:}
+%   \@@_boundary_replay_before:,
+%   \@@_boundary_replay_before_empty:,
+%   \@@_boundary_after_space_if_armed:,
+%   \@@_boundary_after_space_arm:,
+%   \@@_boundary_after_space_rearm:,
+%   \@@_boundary_after_space_state:,
+%   \@@_boundary_after_space_check:,
+%   \@@_boundary_after_space_peek:,
+%   \@@_boundary_after_space_test:,
+%   \@@_boundary_after_space_math:,
+%   \@@_boundary_after_space_hook:N,
+%   \@@_boundary_after_space_hook:nN}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
 % \changes{v3.10.4}{2026/07/20}{box/wrapped-box 捕获在盒子直接排出了
@@ -4821,6 +4832,8 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_space_skip_tl }
         \tl_new:c { g_@@_boundary_capture_#1_entry_tl }
         \tl_new:c { g_@@_boundary_capture_#1_tail_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_space_glue_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_after_space_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -5219,6 +5232,10 @@ Copyright and Licence
 % 这种情况下，首类别出现时不再补左边界：正文开头这些内容才是与入口相邻的
 % 对象，正文内部的第一个字符不是。其他 capture 该字段始终为空，行为不变。
 %
+% |space_glue| 字段记录入口是否取下了一枚真实的词间 glue，|after_space| 字段
+% 记录 capture 开始时是否还有内层命令留下的“命令之后的空格待删去”记录，两者都
+% 用于没有可见输出的命令，见 \cs{@@_boundary_replay_before_empty:}（\#1103）。
+%
 % |tail| 字段记录正文的末尾是不是字符：每次报告类别（包括确认公式结尾）时
 % 置为 |char|；\pkg{xeCJKfntef} 发现最后一个字符之后又排出了 glue、盒子、
 % 规则、kern、penalty 等内容时置为 |content|。stream end 据此决定末类别，
@@ -5329,6 +5346,7 @@ Copyright and Licence
       \l_@@_boundary_active_tl
     \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
       { \@@_boundary_box_end:n {#1} }
+    \@@_boundary_after_space_check:
   }
 
 \cs_new_protected:Npn \@@_boundary_inline_last_box_begin:
@@ -5361,6 +5379,7 @@ Copyright and Licence
       \l_@@_boundary_active_tl
     \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
       { \@@_boundary_last_box_end:n {#1} }
+    \@@_boundary_after_space_check:
   }
 
 \cs_new_protected:Npn \@@_boundary_inline_stream_begin:n #1
@@ -5480,7 +5499,7 @@ Copyright and Licence
                   { \@@_boundary_replay_node:n { math } }
                   { \@@_boundary_resolved_end_hook: }
               }
-              { \@@_boundary_replay_before: }
+              { \@@_boundary_replay_before_empty: }
           }
           {
             \tl_if_empty:NT \l_@@_boundary_last_tl
@@ -5489,6 +5508,7 @@ Copyright and Licence
           }
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
+    \@@_boundary_after_space_check:
   }
 %    \end{macrocode}
 % \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
@@ -5524,10 +5544,11 @@ Copyright and Licence
       \l_@@_boundary_active_tl
     \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
       {
-        \@@_boundary_replay_before:
+        \@@_boundary_replay_before_empty:
         \int_gdecr:N \g_@@_boundary_capture_depth_int
         \@@_boundary_transparent_end_hook:
       }
+    \@@_boundary_after_space_check:
   }
 \cs_new_eq:NN \@@_boundary_transparent_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_end_hook: \prg_do_nothing:
@@ -5650,6 +5671,9 @@ Copyright and Licence
 
 \cs_new_protected:Npn \@@_boundary_capture_begin:
   {
+    \@@_boundary_after_space_if_armed:TF
+      { \tl_set:Nn \l_@@_boundary_after_space_tl { true } }
+      { \tl_set:Nn \l_@@_boundary_after_space_tl { false } }
     \int_gincr:N \g_@@_boundary_capture_depth_int
     \int_compare:nNnT
       { \g_@@_boundary_capture_depth_int } > { 2 }
@@ -5755,6 +5779,18 @@ Copyright and Licence
         \g_@@_boundary_capture_depth_int _math_tail_space_skip_tl
       }
     \@@_boundary_capture_space:
+    \tl_gset:ce
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _space_glue_tl
+      }
+      {
+        \tl_use:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _space_flag_tl
+          }
+      }
     \scan_stop:
     \@@_boundary_pop_node:N \l_@@_boundary_node_tl
     \tl_if_eq:NnT \l_@@_boundary_node_tl { math-space }
@@ -5812,6 +5848,12 @@ Copyright and Licence
         \g_@@_boundary_capture_depth_int _before_tl
       }
       \l_@@_boundary_node_tl
+    \exp_args:Nc \tl_gset_eq:NN
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _after_space_tl
+      }
+      \l_@@_boundary_after_space_tl
     \tl_gset:ce
       {
         g_@@_boundary_capture_\int_use:N
@@ -5820,6 +5862,7 @@ Copyright and Licence
       { \bool_if:NTF \g_@@_glue_check_pending_bool { true } { false } }
     \tl_gclear:N \g_@@_last_node_tl
     \bool_gset_false:N \g_@@_glue_check_pending_bool
+    \bool_gset_false:N \g_@@_boundary_after_space_bool
   }
 
 \cs_new_protected:Npn \@@_boundary_box_begin:
@@ -6272,6 +6315,27 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_box_end_transparent:n #1
   {
+    \dim_compare:nNnTF
+      {
+        \box_wd:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _box
+          }
+        + \box_ht:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _box
+          }
+        + \box_dp:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _box
+          }
+      }
+      = \c_zero_dim
+      { \bool_set_true:N \l_@@_boundary_box_empty_bool }
+      { \bool_set_false:N \l_@@_boundary_box_empty_bool }
     \@@_boundary_transparent_box_begin_hook:
     \str_if_eq:nnTF {#1} { wrapped }
       {
@@ -6289,8 +6353,11 @@ Copyright and Licence
           }
       }
     \@@_boundary_transparent_box_hook:
-    \@@_boundary_replay_before:
+    \bool_if:NTF \l_@@_boundary_box_empty_bool
+      { \@@_boundary_replay_before_empty: }
+      { \@@_boundary_replay_before: }
   }
+\bool_new:N \l_@@_boundary_box_empty_bool
 \cs_new_eq:NN \@@_boundary_transparent_box_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_box_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_last_box_begin_hook: \prg_do_nothing:
@@ -6317,6 +6384,276 @@ Copyright and Licence
         \@@_boundary_restore_space:
       }
   }
+%    \end{macrocode}
+% \changes{v3.10.7}{2026/10/02}{没有可见输出的已注册命令两侧都有源码空格时，
+%   与删去命令后的直接输入一样只保留一枚空格；以前多出一枚空格，两侧都是汉字时
+%   多出两枚空格的宽度（\#1103）。}
+% capture 没有观察到任何类别、按“无可见输出”结束时（stream、transparent，
+% 以及宽、高、深都为零的透明盒子），调用 \cs{@@_boundary_replay_before_empty:}
+% 代替 \cs{@@_boundary_replay_before:}，并在命令结束后由
+% \cs{@@_boundary_after_space_check:} 处理紧跟的源码空格（\#1103）。
+%
+% 比较基准是把命令从源码中删去后的直接输入。|中 \cmd 文| 删去命令后是
+% |中  文|，\TeX{} 把相邻的两个空格读成一个空格记号。以前的做法把入口空格放回，
+% 命令之后的空格又排出一枚，两枚空格都留在两个汉字之间（|中 \mbox{} 文| 为
+% 26.66pt，直接输入 20.0pt）。入口前不是汉字时同样多一枚空格（|A \cmd B|、
+% |$x$ \cmd 文|）。
+%
+% 入口确实取下了空格时才需要处理，分两种：
+% \begin{itemize}
+%   \item 入口前是 |CJK-space| marker，入口没有取下 glue（|中 \cmd|）：汉字后的
+%     源码空格已被前视吃掉，列表里只有 marker。直接输入 |中 X| 也只留 marker，
+%     由后面的内容决定间距，所以这里只重放 marker，不再排出空格 glue。命令之后
+%     若紧跟空格，删去它，与直接输入只读出一个空格一致。
+%   \item 入口取下了一枚真实的词间 glue（|space_glue| 字段为真，如 |{中} \cmd|、
+%     |A \cmd|）：照常放回 marker 与这枚 glue，命令之后的空格删去。
+% \end{itemize}
+% 两种情形都由 \cs{@@_boundary_after_space_arm:} 记下。|space_glue| 是
+% \cs{@@_boundary_capture_space:} 刚取下 glue 时 |space_flag| 字段的值；
+% |space_flag| 随后会因入口前是 |CJK-space| 而改为真，不能用来区分这两种情形。
+%
+% 内层命令已经记下的入口空格可能属于外层命令（|\textcolor{red}{}| 里的颜色
+% 命令）：外层 capture 开始时 \cs{@@_boundary_after_space_if_armed:} 发现记录仍然
+% 有效，就把它存进 |after_space| 字段；外层也没有输出、自己没有取下空格时，
+% 结束时用 \cs{@@_boundary_after_space_rearm:} 把记录交给更外一层。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_replay_before_empty:
+  {
+    \tl_set:Ne \l_@@_boundary_node_tl
+      {
+        \tl_use:c
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _before_tl
+          }
+      }
+    \bool_lazy_or:nnTF
+      {
+        \str_if_eq_p:ee
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _space_glue_tl
+              }
+          }
+          { true }
+      }
+      { \str_if_eq_p:Vn \l_@@_boundary_node_tl { CJK-space } }
+      {
+        \str_if_eq:eeTF
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _space_glue_tl
+              }
+          }
+          { true }
+          { \@@_boundary_replay_before: }
+          {
+            \@@_boundary_replay_node:n { CJK-space }
+            \bool_gset_false:N \g_@@_glue_check_pending_bool
+          }
+        \@@_boundary_after_space_arm:
+      }
+      {
+        \@@_boundary_replay_before:
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
+          }
+          { true }
+          { \@@_boundary_after_space_rearm: }
+      }
+  }
+\tl_new:N \l_@@_boundary_after_space_tl
+\prg_new_protected_conditional:Npnn \@@_boundary_after_space_if_armed: { TF }
+  {
+    \bool_if:NTF \g_@@_boundary_after_space_bool
+      {
+        \str_if_eq:eeTF
+          { \g_@@_boundary_after_space_tl }
+          {
+            \int_use:N \g_@@_boundary_capture_depth_int ;
+            \@@_boundary_after_space_state:
+          }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_rearm:
+  {
+    \bool_gset_true:N \g_@@_boundary_after_space_bool
+    \tl_gset:Ne \g_@@_boundary_after_space_tl
+      {
+        \int_eval:n { \g_@@_boundary_capture_depth_int - 1 } ;
+        \@@_boundary_after_space_state:
+      }
+  }
+%    \end{macrocode}
+% \cs{@@_boundary_after_space_arm:} 记下重放之后列表末尾的状态与外层的层号，
+% 并决定删去空格时还要做什么：
+% \begin{itemize}
+%   \item 只重放了 |CJK-space| marker 时（|drop| 为真）：\cs{@@_boundary_replay_node:n}
+%     开启了源码空格检查，直接输入 |中  X| 并不开启，删去空格时关掉它。命令之后
+%     （删去空格之后）紧跟 |$| 时，直接输入 |中 $x$| 在公式之前补
+%     \cs{xeCJK_space_or_xecglue:}，这里同样补上（\cs{@@_boundary_after_space_math:}）。
+%   \item 放回了真实 glue、入口前是 |CJK| 或 |CJK-space| marker、capture 开始时
+%     \cs{g_@@_glue_check_pending_bool} 为假时（|中{} \cmd|、|中\ \cmd|）：直接输入
+%     不检查这枚空格，后面的汉字保留它；删去命令之后的空格时同样关掉检查。
+%     命令之后没有空格时不改动，与以前相同。
+% \end{itemize}
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_after_space_arm:
+  {
+    \@@_boundary_after_space_rearm:
+    \bool_lazy_and:nnTF
+      { \str_if_eq_p:Vn \l_@@_boundary_node_tl { CJK-space } }
+      {
+        ! \str_if_eq_p:ee
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _space_glue_tl
+              }
+          }
+          { true }
+      }
+      { \bool_gset_true:N \g_@@_boundary_after_space_drop_bool }
+      {
+        \bool_gset_false:N \g_@@_boundary_after_space_drop_bool
+        \tl_if_eq:cnF
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
+          }
+          { true }
+          { \bool_gset_false:N \g_@@_boundary_after_space_unchecked_bool }
+        \clist_if_in:nVT { CJK , CJK-space } \l_@@_boundary_node_tl
+          {
+            \tl_if_eq:cnT
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int
+                _space_check_flag_tl
+              }
+              { false }
+              { \bool_gset_true:N \g_@@_boundary_after_space_unchecked_bool }
+          }
+      }
+  }
+%    \end{macrocode}
+% \cs{@@_boundary_after_space_check:} 在命令的最后调用：通用命令钩子注册的命令
+% 在 |after| 钩子末尾（\cs{@@_boundary_inline_stream_end:n} 等函数的末尾），包装
+% 函数在包装的末尾。重放发生在命令结束的钩子里，命令自己的代码这时可能还没有
+% 执行完，所以不能在重放时直接删去空格。它只在列表末尾与重放之后相同、capture
+% 层数回到记录时的外层时动作；否则命令在重放之后又排出了内容，后面的空格不再与
+% 入口空格相邻，记录作废。下一个 capture 开始时也清除记录。
+%
+% 检查用 \cs{peek_after:Nw} 看下一个记号，不展开它，只有两种例外：
+% \begin{itemize}
+%   \item 名字以 |__hook| 开头的宏（LaTeX 命令钩子在 |after| 钩子之后调用的
+%     |\__hook_next ...|）展开一层再看。
+%   \item 下一个记号是其他控制序列或花括号时保留记录，留给外层命令结束时再检查。
+%     \tn{hyper@anchor} 在 \tn{hypertarget} 里面调用，\tn{MakeLinkTarget} 的
+%     锚点在分组里排出，\tn{set@color} 在 \tn{textcolor} 里面调用，它们的钩子
+%     之后都还有外层命令自己的代码；这几个外层命令结束时也调用本函数（见
+%     \pkg{hyperref} 与颜色命令的适配）。
+% \end{itemize}
+% 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
+% 上文检查紧跟的 |$|。
+%    \begin{macrocode}
+\cs_new:Npn \@@_boundary_after_space_state:
+  {
+    \int_use:N \tex_lastnodetype:D ,
+    \dim_use:N \tex_lastkern:D ,
+    \skip_use:N \tex_lastskip:D
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_check:
+  {
+    \bool_if:NT \g_@@_boundary_after_space_bool
+      {
+        \str_if_eq:eeTF
+          { \g_@@_boundary_after_space_tl }
+          {
+            \int_use:N \g_@@_boundary_capture_depth_int ;
+            \@@_boundary_after_space_state:
+          }
+          { \@@_boundary_after_space_peek: }
+          { \bool_gset_false:N \g_@@_boundary_after_space_bool }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_peek:
+  {
+    \group_align_safe_begin:
+    \peek_after:Nw \@@_boundary_after_space_test:
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_test:
+  {
+    \group_align_safe_end:
+    \token_if_eq_meaning:NNTF \l_peek_token \c_space_token
+      {
+        \bool_gset_false:N \g_@@_boundary_after_space_bool
+        \bool_if:NTF \g_@@_boundary_after_space_drop_bool
+          {
+            \@@_if_last_glue:T { \tex_unskip:D }
+            \bool_gset_false:N \g_@@_glue_check_pending_bool
+            \peek_remove_spaces:n { \@@_boundary_after_space_math: }
+          }
+          {
+            \bool_if:NT \g_@@_boundary_after_space_unchecked_bool
+              { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+            \peek_remove_spaces:n { }
+          }
+      }
+      {
+        \token_if_cs:NTF \l_peek_token
+          { \@@_boundary_after_space_hook:N }
+          {
+            \bool_lazy_or:nnF
+              { \token_if_group_begin_p:N \l_peek_token }
+              { \token_if_group_end_p:N \l_peek_token }
+              {
+                \bool_gset_false:N \g_@@_boundary_after_space_bool
+                \bool_if:NT \g_@@_boundary_after_space_drop_bool
+                  { \@@_boundary_after_space_math: }
+              }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_math:
+  {
+    \token_if_math_toggle:NT \l_peek_token
+      {
+        \xeCJK_if_last_node:nT { CJK-space }
+          {
+            \xeCJK_remove_node:
+            \bool_gset_false:N \g_@@_glue_check_pending_bool
+            \xeCJK_space_or_xecglue:
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_hook:N #1
+  {
+    \exp_args:Ne \@@_boundary_after_space_hook:nN
+      { \cs_to_str:N #1 } #1
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_hook:nN #1#2
+  {
+    \str_if_eq:eeTF
+      { \str_range:nnn {#1} { 1 } { 6 } }
+      { \tl_to_str:n { __hook } }
+      { \exp_after:wN \@@_boundary_after_space_peek: #2 }
+      {#2}
+  }
+\bool_new:N \g_@@_boundary_after_space_bool
+\tl_new:N \g_@@_boundary_after_space_tl
+\bool_new:N \g_@@_boundary_after_space_drop_bool
+\bool_new:N \g_@@_boundary_after_space_unchecked_bool
 %    \end{macrocode}
 % 普通 stream 的 |math-space| 只在真实参数空格仍紧邻列表末尾时重放。
 % transparent 命令若已经在二者之间写入 special、零尺寸盒子等节点，直接
@@ -13462,6 +13799,35 @@ Copyright and Licence
         \@@_boundary_wrap_transparent_onearg_braced:NN
           \@@_orig_hyp_target_raise:n \__hyp_target_raise:n
       }
+%    \end{macrocode}
+% \tn{hyper@anchor}、\cs{__hyp_target_raise:n} 的结束钩子之后还有外层命令的
+% 代码，看不到命令之后的源码空格（\#1103）。\tn{phantomsection} 与
+% \tn{MakeLinkTarget} 在 |after| 钩子里、\tn{hypertarget} 在包装的末尾再调用一次
+% \cs{@@_boundary_after_space_check:}。\tn{hypertarget} 的第二个参数不为空时
+% 排出可见内容，由字符一侧的检查处理，不调用。
+%    \begin{macrocode}
+    \clist_map_inline:nn { phantomsection , MakeLinkTarget }
+      {
+        \cs_if_exist:cT {##1}
+          {
+            \AddToHook { cmd / ##1 / after } [ xeCJK / boundary ]
+              { \@@_boundary_after_space_check: }
+          }
+      }
+    \cs_if_exist:NT \hypertarget
+      {
+        \@@_boundary_reserve:n { hypertarget }
+        \cs_gset_eq:NN \@@_orig_hypertarget:nn \hypertarget
+        \cs_gset:Npn \hypertarget ##1##2
+          {
+            \tl_if_empty:nTF {##2}
+              {
+                \@@_orig_hypertarget:nn {##1} {##2}
+                \@@_boundary_after_space_check:
+              }
+              { \@@_orig_hypertarget:nn {##1} {##2} }
+          }
+      }
   }
 \@@_package_hook:nn { hyperref }
   {
@@ -13529,6 +13895,12 @@ Copyright and Licence
         \cs_gset_eq:NN \color@b@x \@@_boundary_color_box:nnn
       }
   }
+%    \end{macrocode}
+% 正文两端都不是公式时，\tn{textcolor} 不启动 capture，只由里面的 \tn{set@color}、
+% \tn{reset@color} 两个 transparent 命令处理边界。正文为空时，入口空格由内层的
+% capture 记下，\tn{reset@color} 的钩子之后还有 \tn{textcolor} 自己的结束分组，
+% 所以在这里再调用一次 \cs{@@_boundary_after_space_check:}（\#1103）。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_textcolor:nnn #1#2#3
   {
     \@@_boundary_if_math_edge:nTF {#3}
@@ -13539,7 +13911,10 @@ Copyright and Licence
           { #3 \@@_boundary_math_end:n {#3} }
         \@@_boundary_inline_stream_end:n { auto }
       }
-      { \@@_orig_textcolor:nnn {#1} {#2} {#3} }
+      {
+        \@@_orig_textcolor:nnn {#1} {#2} {#3}
+        \@@_boundary_after_space_check:
+      }
   }
 \cs_new_protected:Npn \@@_boundary_register_textcolor:
   {
@@ -13619,9 +13994,6 @@ Copyright and Licence
 %   \tn{CJKecglue}；\tn{unit}、\tn{qty} 等命令的输出以汉字开头或结尾时（例如汉字单位、
 %   设为汉字的连接词），汉字一侧不再多补 \tn{CJKecglue}。同时适配 \pkg{siunitx}
 %   3.6.0 起把整个量放进一个公式的输出方式（\#1092）。
-%   已知回退：\tn{numlist}、\tn{ang} 的参数为空、没有输出时，命令两侧都有源码
-%   空格并紧接汉字的写法多出两个 \tn{CJKecglue}，与其他已注册命令没有输出时
-%   相同。
 %   此前用 \opt{experiment/boundary-register} 自行注册这些命令的文档需要删去
 %   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 %
@@ -14321,6 +14693,7 @@ Copyright and Licence
         \@@_nobreak_zero_glue:
       }
     \bool_if:NT \l_@@_ulem_tail_punct_bool { \tex_ignorespaces:D }
+    \@@_boundary_after_space_check:
   }
 %    \end{macrocode}
 % 正文里的语法空格之前，\cs{@@_ulem_tail_check:} 检查这段空格前面是不是字符。
@@ -16106,17 +16479,30 @@ Copyright and Licence
           }
       }
   }
+%    \end{macrocode}
+% 入口有源码空格、正文先有颜色命令等透明内容时，入口前是 |CJK-space| 或
+% |CJK-widow|（空格紧跟在汉字之后）就不在这里解除入口，与没有透明内容时的
+% \cs{@@_ulem_onin_entry_keep:nn} 一致：直接输入 |符 {\color{red}~中} 后| 里，
+% 颜色命令没有可见输出，按 \cs{@@_boundary_replay_before_empty:} 只放回 marker，
+% 汉字后的空格与 |~| 合为一处，和去掉颜色命令的 |符 {~中} 后| 相同（\#1103）。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_ulem_onin_entry_check_space:nn #1#2
   {
     \tl_if_eq:cnTF { g_@@_boundary_capture_#1_space_flag_tl } { true }
       {
         \bool_if:NTF \g_@@_ulem_onin_transparent_bool
           {
-            \@@_ulem_if_last_content:T
+            \tl_set:Ne \l_@@_ulem_entry_node_tl
+              { \tl_use:c { g_@@_boundary_capture_#1_before_tl } }
+            \clist_if_in:nVF { CJK-space , CJK-widow }
+              \l_@@_ulem_entry_node_tl
               {
-                \bool_if:NTF \l_@@_ulem_onin_bool
-                  { \@@_ulem_entry_resolve:n {#1} }
-                  { \@@_ulem_entry_defer:n {#1} }
+                \@@_ulem_if_last_content:T
+                  {
+                    \bool_if:NTF \l_@@_ulem_onin_bool
+                      { \@@_ulem_entry_resolve:n {#1} }
+                      { \@@_ulem_entry_defer:n {#1} }
+                  }
               }
           }
           {
@@ -18109,6 +18495,7 @@ Copyright and Licence
     \group_end:
     \xeCJK_ulem_right_node:
     \@@_boundary_inline_stream_end:n { auto }
+    \@@_boundary_after_space_check:
   }
 \cs_new_protected:Npn \xeCJK_under_symbol_initial:nnnnn #1#2#3#4#5
   {
