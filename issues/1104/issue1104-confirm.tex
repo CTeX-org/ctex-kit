@@ -1,0 +1,50 @@
+% #1104 对比图：microtype 给破折号、引号设置的突出量。
+% 编译（xeCJK 的版本由 TEXINPUTS 决定）：
+%   xelatex "\def\LABEL{xeCJK master}\input{issue1104-confirm}"
+%   xelatex "\def\NOXECJK{}\def\LABEL{fontspec only}\input{issue1104-confirm}"
+% 小字一行是当前字体的 \lpcode/\rpcode：绿色与只加载 fontspec 时一致，
+% 红色不同，括号里是参照值。
+\documentclass{article}
+\ifdefined\NOXECJK
+  \usepackage{fontspec}
+  \newcommand\CJK[1]{{\fontspec{FandolSong-Regular.otf}#1}}
+\else
+  \usepackage{xeCJK}
+  \setCJKmainfont{FandolSong-Regular.otf}
+  \newcommand\CJK[1]{#1}
+\fi
+\providecommand\LABEL{}
+\newcommand\LabelLine{\textbf{\LABEL} + microtype}
+\setmainfont{texgyretermes-regular.otf}
+\usepackage{microtype}
+\usepackage{xcolor}
+\pagestyle{empty}
+\usepackage[paperwidth=10.6cm,paperheight=8.4cm,left=0.8cm,right=0.8cm,top=0.6cm,bottom=0.2cm]{geometry}
+\setlength\parindent{0pt}
+% #1 码位，#2/#3 只加载 fontspec 时的 lp/rp（参照值）。
+% 与参照值不同时用红色粗体标出，并写出参照值。
+\newcommand\PR[3]{%
+  \ifnum\lpcode\font U"#1=#2 \ifnum\rpcode\font U"#1=#3 \PRok{#1}\else\PRbad{#1}{#2}{#3}\fi
+  \else\PRbad{#1}{#2}{#3}\fi}
+\newcommand\PRval[1]{U+#1 lp=\the\lpcode\font U"#1, rp=\the\rpcode\font U"#1}
+\newcommand\PRok[1]{{\color{green!45!black}\PRval{#1} {\fontspec{DejaVuSans.ttf}✓}}}
+\newcommand\PRbad[3]{{\color{red}\bfseries\PRval{#1} \CJK{（应为} #2/#3\CJK{）}}}
+\newcommand\Edge{\color{red}\vrule width .8pt height 1.2em depth .5em}
+% 每行之后接一个与版心等宽的空盒子，使段落在行尾的空格处自然断行，
+% 行首、行尾字符贴到版心边界（\linebreak 前 xeCJK 会留下 kern，挡住突出）；
+% 红色竖线是版心的左右边界，突出的字符越过红线。
+% 行首、行尾不能有颜色命令，否则 whatsit 会阻止突出。
+% 直接输入的 — 等歧义字符在 xeCJK 中按 CJK 字符排版，这里用 \textemdash 等
+% 文本命令，xeCJK 把它们交给西文字体，microtype 也正是经这条路径取槽位。
+\newcommand\Row[2]{%
+  \hbox to\linewidth{\rlap{\Edge}\hfil\llap{\Edge}}%
+  \vspace{-\baselineskip}\vspace{-\parskip}%
+  {\tolerance=10000 \hbadness=10000 #1 \hbox to\linewidth{}\par}\vspace{-\baselineskip}%
+  {\fontsize{9}{11}\sffamily#2\par}\bigskip}
+\begin{document}
+{\small\LabelLine\par}\medskip
+\fontsize{24}{30}\selectfont
+\Row{\textquotedblleft Front middle back\textemdash}{\PR{201C}{146}{146}\par\PR{2014}{154}{154}}
+\Row{\textquoteleft Front middle back\textendash}{\PR{2018}{86}{114}\par\PR{2013}{103}{103}}
+\Row{Front, middle and back,}{\PR{002C}{0}{143}}
+\end{document}
