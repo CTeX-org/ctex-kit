@@ -13619,6 +13619,9 @@ Copyright and Licence
 %   \tn{CJKecglue}；\tn{unit}、\tn{qty} 等命令的输出以汉字开头或结尾时（例如汉字单位、
 %   设为汉字的连接词），汉字一侧不再多补 \tn{CJKecglue}。同时适配 \pkg{siunitx}
 %   3.6.0 起把整个量放进一个公式的输出方式（\#1092）。
+%   已知回退：\tn{numlist}、\tn{ang} 的参数为空、没有输出时，命令两侧都有源码
+%   空格并紧接汉字的写法多出两个 \tn{CJKecglue}，与其他已注册命令没有输出时
+%   相同。
 %   此前用 \opt{experiment/boundary-register} 自行注册这些命令的文档需要删去
 %   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 %
@@ -13694,19 +13697,68 @@ Copyright and Licence
         \cs_gset_eq:NN \@@_orig_siunitx_print_math:n \siunitx_print_math:n
         \cs_gset_protected:Npn \siunitx_print_math:n ##1
           {
-            \mode_if_math:F { \@@_boundary_capture_class:n { default } }
-            \@@_orig_siunitx_print_math:n {##1}
+            \mode_if_math:TF
+              { \@@_orig_siunitx_print_math:n {##1} }
+              {
+                \@@_siunitx_math:Nn
+                  \@@_orig_siunitx_print_math:n {##1}
+              }
           }
       }
     \cs_gset_eq:NN \@@_siunitx_orig_ensuremath: \ensuremath
     \cs_gset_protected:Npn \ensuremath
       {
-        \int_compare:nNnT { \g_@@_siunitx_depth_int } > \c_zero_int
-          { \mode_if_math:F { \@@_boundary_capture_class:n { default } } }
-        \@@_siunitx_orig_ensuremath:
+        \bool_lazy_and:nnTF
+          { \int_compare_p:nNn { \g_@@_siunitx_depth_int } > \c_zero_int }
+          { ! \mode_if_math_p: }
+          { \@@_siunitx_math:Nn \@@_siunitx_orig_ensuremath: }
+          { \@@_siunitx_orig_ensuremath: }
       }
   }
 \int_new:N \g_@@_siunitx_depth_int
+%    \end{macrocode}
+% \cs{@@_siunitx_math:Nn} 在公式前报告 Default。公式以 |\text{...}|
+% 结尾时（例如单位 |\DeclareSIUnit\yuan{\text{元}}|），其中的汉字已经由
+% interchar 报告了 CJK，末类别正确；否则公式之后再报告一次 Default。
+% |\text{元}\per\kilogram| 这类单位以 |\text{元}| 开头、以数学字母结尾，
+% 只在公式前报告时，末类别会停在 \tn{text} 里的汉字上，右侧少补
+% \tn{CJKecglue}。参数由 \pkg{siunitx} 生成，末项为花括号组时（例如
+% |\mathrm{\text{元}}|）进入组内继续检查。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_siunitx_math:Nn #1#2
+  {
+    \@@_boundary_capture_class:n { default }
+    #1 {#2}
+    \@@_siunitx_if_text_tail:nF {#2}
+      { \@@_boundary_capture_class:n { default } }
+  }
+\prg_new_protected_conditional:Npnn \@@_siunitx_if_text_tail:n #1 { F , TF }
+  {
+    \@@_boundary_math_set:n {#1}
+    \tl_reverse:N \l_@@_boundary_math_tl
+    \exp_args:NV \@@_siunitx_if_text_tail_reversed:nTF
+      \l_@@_boundary_math_tl
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\prg_new_protected_conditional:Npnn
+  \@@_siunitx_if_text_tail_reversed:n #1 { TF }
+  {
+    \tl_if_head_is_group:nTF {#1}
+      {
+        \tl_set:Ne \l_@@_boundary_math_tl
+          { \tl_trim_left_spaces:e { \tl_tail:n {#1} } }
+        \exp_args:NV \tl_if_head_eq_meaning:nNTF
+          \l_@@_boundary_math_tl \text
+          { \prg_return_true: }
+          {
+            \exp_args:Ne \@@_siunitx_if_text_tail:nTF { \tl_head:n {#1} }
+              { \prg_return_true: }
+              { \prg_return_false: }
+          }
+      }
+      { \prg_return_false: }
+  }
 \@@_package_hook:nn { siunitx }
   { \@@_boundary_register_siunitx: }
 %    \end{macrocode}
