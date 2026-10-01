@@ -1,0 +1,56 @@
+\input{regression-test}
+
+\documentclass{article}
+
+% #1104: xeCJK 把歧义字符重定义为受保护的宏，microtype 读不出槽位，
+% 由 xeCJK 按编码查回。查回时只设置 \MT@char、不设置 \MT@char@，
+% microtype 在 XeTeX 下会按 \MT@char@ = -1 测量 1 号字形的宽度：
+% TFM 字体报 Cannot use XeTeXglyph，OpenType 字体的突出量算错。
+% TeX Gyre Termes 没有专用的 microtype 配置，突出量按字符宽度计算，
+% 下面的数值与只加载 fontspec 时一致。
+\usepackage{xeCJK}
+\setCJKmainfont{FandolSong-Regular.otf}
+\setmainfont{texgyretermes-regular.otf}
+\usepackage{microtype}
+
+% XeTeX 按字形序号保存 OpenType 字体的 \lpcode/\rpcode，在码位前加 U 才按
+% Unicode 码位查询；TFM 字体只能直接写槽位。
+\ExplSyntaxOn
+\cs_new_protected:Npn \SHOWPR #1#2
+  {
+    \TYPE
+      {
+        #1#2 :~ lp = \int_use:N \tex_lpcode:D \tex_font:D #1#2 ,~
+        rp = \int_use:N \tex_rpcode:D \tex_font:D #1#2
+      }
+  }
+\ExplSyntaxOff
+
+\begin{document}
+
+\START
+
+\TEST{TU OpenType: ambiguous dashes and quotes}{
+  \SHOWPR{U}{"2013}%
+  \SHOWPR{U}{"2014}%
+  \SHOWPR{U}{"2018}%
+  \SHOWPR{U}{"2019}%
+  \SHOWPR{U}{"201C}%
+  \SHOWPR{U}{"201D}%
+}
+
+\TEST{TU OpenType: ordinary comma as control}{
+  \SHOWPR{U}{"002C}%
+}
+
+% l3build 遇到第一个错误就停止编译，TFM 字体的用例放在最后，
+% 使前面的突出量在修复前也能输出。
+\TEST{TS1/cmr fallback (TFM font): periodcentered}{
+  \usefont{TS1}{cmr}{m}{n}%
+  \setbox0=\hbox{\textperiodcentered}%
+  \SHOWPR{}{183}%
+}
+
+\END
+
+\end{document}

@@ -1,6 +1,7 @@
 ## [xeCJK-v3.10.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.7)
 
 - 改用 `\cs_parameter_spec:N` 代替已弃用的 `\cs_argument_spec:N`，避免 l3kernel 2026-09-09 起在调试模式下报错（#1095）。
+- 为 `microtype` 找回歧义字符的槽位时同时设置 `\MT@char@`。此前它仍是 `-1`，`microtype` 因而测量 1 号字形的宽度：回退到 `TS1/cmr` 等 TFM 字体时报 `Cannot use XeTeXglyph` 错误，在 OpenType 字体里则把破折号、引号等字符的突出量算错（#1104）。
 - 线型命令的正文以 `\mbox`、`\textcolor` 或嵌套线型命令结尾、花括号前还有空格时，命令后的空格与间距与直接输入一致（#1091）。
 - `ulem` 结束正文时在一个随即丢弃的片段盒子里排出的 `*` 不再被命令边界 capture 当作正文中的西文字符。此前正文没有字符（例如只有 `\hspace` 和盒子的填空线、空参数）或以全角标点开头时，左侧间距会被补到装饰末尾，结尾的语法空格被画成一段多余的装饰线；正文以嵌套装饰或全角标点结尾时，右侧会按西文多补一枚间距，例如 `\CJKunderline` 包住以句号结尾的正文、后面紧接汉字时（#1091）。
 - `\mbox`、`\fbox` 等盒子里的线型命令以汉字开头时，盒子与前面的西文之间与直接输入一样补上 `\CJKecglue`（#1091）。
