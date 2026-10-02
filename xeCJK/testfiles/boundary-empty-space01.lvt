@@ -281,40 +281,36 @@
   \fi
 }
 
-% plain \halign：命令之后紧跟 \cr、\crcr、\span 时，不能在 align-safe 分组之外
-% 把它当作宏参数读取，以前报 |Forbidden control sequence|。
 % 左侧是西文的 tabular 单元格：命令之后的空格被删去，下一个记号是 |&| 或
-% |\\|。以前报 Extra alignment tab has been changed to \cr。比较对象是命令之后
-% 不写空格的同一行：|l| 列模板末尾的 \unskip 只删去单元格末尾的空格，命令留下
-% 的盒子等节点挡住它，删去命令的直接输入 |A  & B| 因此比任何带命令的写法窄，
-% 修复前也是如此。
-\TEST{empty command after a latin letter at the end of a tabular cell}{
-  \EmptyReset
-  \setbox\EmptyCandidate=\hbox{%
-    \begin{tabular}{ll}
-      A \mbox{} & B \\
-      A \textcolor{red}{} & B \\
-      A \hypertarget{t2}{} & B \\
-      A \uline{} & B \\
-      A \unit{} & B \\
-      A \RegStream{} \\
-    \end{tabular}}%
-  \EmptyReset
-  \setbox\EmptyOracle=\hbox{%
-    \begin{tabular}{ll}
-      A \mbox{}& B \\
-      A \textcolor{red}{}& B \\
-      A \hypertarget{t3}{}& B \\
-      A \uline{}& B \\
-      A \unit{}& B \\
-      A \RegStream{}\\
-    \end{tabular}}%
+% |\\|。以前报 Extra alignment tab has been changed to \cr。每个命令单独排一张
+% 表，宽度不受其他行影响。|l| 列模板末尾的 \unskip 只删去单元格末尾的空格；
+% \mbox{}、\textcolor{red}{}、transparent、box 命令留下的节点挡住它，比较对象是
+% 命令之后不写空格的同一行；其他命令不留节点，比较对象是删去命令的直接输入。
+\newcommand\EmptyTabCell[3]{% #1 名称 #2 候选的一行 #3 比较对象的一行
   \global\advance\EmptyChecks by 1
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{\begin{tabular}{ll}#2\end{tabular}}%
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{\begin{tabular}{ll}#3\end{tabular}}%
   \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
     \global\advance\EmptyFailures by 1
-    \TYPE{FAIL: tabular-latin (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
   \fi
 }
+\TEST{empty command after a latin letter at the end of a tabular cell}{
+  \EmptyTabCell{tab-latin-mbox}{A \mbox{} & B \\}{A \mbox{}& B \\}%
+  \EmptyTabCell{tab-latin-textcolor}{A \textcolor{red}{} & B \\}{A \textcolor{red}{}& B \\}%
+  \EmptyTabCell{tab-latin-trans}{A \RegTrans{} & B \\}{A \RegTrans{}& B \\}%
+  \EmptyTabCell{tab-latin-box}{A \RegBox{} & B \\}{A \RegBox{}& B \\}%
+  \EmptyTabCell{tab-latin-hypertarget}{A \hypertarget{t2}{} & B \\}{A  & B \\}%
+  \EmptyTabCell{tab-latin-uline}{A \uline{} & B \\}{A  & B \\}%
+  \EmptyTabCell{tab-latin-unit}{A \unit{} & B \\}{A  & B \\}%
+  \EmptyTabCell{tab-latin-numlist}{A \numlist{} & B \\}{A  & B \\}%
+  \EmptyTabCell{tab-latin-stream}{A \RegStream{} \\}{A  \\}%
+}
+
+% plain \halign：命令之后紧跟 \cr、\crcr、\span 时，不能在 align-safe 分组之外
+% 把它当作宏参数读取，以前报 |Forbidden control sequence|。
 \newcommand\EmptyAlign[3]{% #1 名称 #2 候选 #3 删去命令后的直接输入
   \global\advance\EmptyChecks by 1
   \EmptyReset

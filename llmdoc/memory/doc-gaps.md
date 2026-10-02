@@ -223,9 +223,9 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - 两个空命令之间有空格：`\mbox{} \mbox{}` 一类写法在 `xCJKecglue=true` 且可区分间距、右侧空格写法为 `01` 时与直接输入不一致（本地审查第一轮后登记）。修复前同样不一致，方向相反。
 - `\uwave{}`、`\CJKunderdot{}` 在左侧是西文或 `{中}`、两侧都有空格时仍与直接输入不一致；修复前同样不一致（最终全范围审查第四轮的观察，未计入问题）。
 - 左侧是 `A{}`、两侧都有空格：可区分间距、`xCJKecglue=true` 时 `A{} \mbox{} 文` 修复前 24.16pt，现在 20.83pt，直接输入 22.5pt。偏差方向变了，修复前也不一致，与上面 `$x$ \cmd 文` 同类（第四轮的观察，未计入问题）。
-- 颜色正文以“汉字 + 空格 + 空命令”结尾：`\textcolor{red}{中 \mbox{}} 文` 修复前与现在都是 26.66pt；直接输入 `{中 } 文` 在 `xCJKecglue=false` 时为 23.33pt（本地审查第五轮登记），在 `xCJKecglue=true` 时为 20.0pt（第七轮补记）。第五轮的配对规则（见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」）不改变它的结果，原因未分析。`boundary-empty-space01` 的 TEST 10 只比较左侧是西文的 `\textcolor{red}{A \mbox{}} B`。
+- 颜色正文以“汉字 + 空格 + 空命令”结尾：`\textcolor{red}{中 \mbox{}} 文` 修复前与现在都是 26.66pt；直接输入 `{中 } 文` 在 `xCJKecglue=false` 时为 23.33pt（本地审查第五轮登记），在 `xCJKecglue=true` 时为 20.0pt（第七轮补记）。第五轮的配对规则（见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」）不改变它的结果，原因未分析。`boundary-empty-space01` 的“color body ending with a space”一组只比较左侧是西文的 `\textcolor{red}{A \mbox{}} B`。
 - l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾：修复前与现在都是 17.91pt，直接输入 21.24pt（第五轮审查者报告）。原因未分析，可能的补法未评估。
-- 空命令之后紧跟 `\outer` 宏时的直接输入：`中 \EmptyOuterA`（`\EmptyOuterA` 用 `\outer\def` 定义）在 xeCJK 汉字之后的前视（CJK 到 Boundary 的前视）里报 `Forbidden control sequence`，修复前 `e641743e` 就如此，与 #1103 无关，与下文「plain `\halign` 列模板里 `#` 之后有空格」一节是同一条代码路径。`boundary-empty-space01` 的 TEST 9 因此把 oracle 写成宽度相同的 `中 `（宏之后还有文字的 `outer-text-C` 写成 `中 \relax 文`）。命令之后的检查现在不报错：`\outer` 宏以 `}` 结尾（`中 \mbox{}\EmptyOuterA`，第四轮至第六轮修好）与宏后面还有文字（`A \mbox{}\EmptyOuterA B`、`中 \mbox{}\EmptyOuterC 文`、`A \mbox{} \EmptyOuterD B`，第八轮修好；以前的修复只测了以 `}` 结尾的写法）两种情况都不报错。直接输入 `中 \OA 文` 仍报错，与修复前相同。
+- 空命令之后紧跟 `\outer` 宏时的直接输入：`中 \EmptyOuterA`（`\EmptyOuterA` 用 `\outer\def` 定义）在 xeCJK 汉字之后的前视（CJK 到 Boundary 的前视）里报 `Forbidden control sequence`，修复前 `e641743e` 就如此，与 #1103 无关，与下文「plain `\halign` 列模板里 `#` 之后有空格」一节是同一条代码路径。`boundary-empty-space01` 的“empty command followed by an outer macro”一组因此把 oracle 写成宽度相同的 `中 `（宏之后还有文字的 `outer-text-C` 写成 `中 \relax 文`）。命令之后的检查现在不报错：`\outer` 宏以 `}` 结尾（`中 \mbox{}\EmptyOuterA`，第四轮至第六轮修好）与宏后面还有文字（`A \mbox{}\EmptyOuterA B`、`中 \mbox{}\EmptyOuterC 文`、`A \mbox{} \EmptyOuterD B`，第八轮修好；以前的修复只测了以 `}` 结尾的写法）两种情况都不报错。直接输入 `中 \OA 文` 仍报错，与修复前相同。
 
 **与 master 不同、但不是本修复引入的组合**：`\numlist{}`、`\unit{}` 在入口前是 `中{}`、`中\ ` 或 `中…$`（公式之前是汉字）时，部分 00／01／10 组合的结果与 master 不同。这些值与 `\mbox{}` 在 master 上的值相同：#1092 把这两个命令注册之后，它们与其他已注册命令按同一规则处理，差异来自注册本身。
 
@@ -246,7 +246,7 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 **外部矩阵上的剩余差异**：第一轮审查者的 110448 组矩阵上，相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法），矩阵的 oracle 写成 `中 $y$`；`\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。这个矩阵的左侧没有 `X{ }` 这类写在花括号里的空格，所以没有暴露上面那一类回退，“只剩 3 项且都是 oracle 写错”只对这个矩阵的输入空间成立。第二轮审查者的矩阵左侧包含 `{ }`，才发现上面每种间距设置下的 126 项。
 
-可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}`、`\uwave{}`／`\CJKunderdot{}`、`A{} \cmd 文` 几项，以及第七轮登记的 `A \sbox0{x}\mbox{} B` 一类（写在用户手册与 TEST 12 的注释里）外，上面这些写法（含已接受的 `中{ }\cmd 文`）在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
+可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}`、`\uwave{}`／`\CJKunderdot{}`、`A{} \cmd 文` 几项，以及第七轮登记的 `A \sbox0{x}\mbox{} B` 一类（写在用户手册与“sbox between empty commands”一组的注释里）外，上面这些写法（含已接受的 `中{ }\cmd 文`）在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
 
 ## plain `\halign` 列模板里 `#` 之后有空格时报 `Forbidden control sequence`（既有问题）
 
