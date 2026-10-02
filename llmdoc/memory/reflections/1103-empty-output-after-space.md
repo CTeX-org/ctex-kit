@@ -102,7 +102,7 @@ metadata:
 第一轮修复提交为 `3e2eb5e2`。本地审查第二轮报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
 
 1. **阻塞：plain `\halign` 中命令之后紧跟 `\cr`、`\crcr`、`\span` 时报错。** `中 \mbox{}\cr` 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，修复前的 `25a33aef` 不报错。第一轮只把对 `\l_peek_token` 的判断移进了 align-safe 分组，控制序列分支仍先结束分组，再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；读参数时碰到对齐记号，TeX 同样插入列模板。现在 `\__xeCJK_boundary_after_space_test:` 把空格以外的分派拆到 `\__xeCJK_boundary_after_space_test_other:`，先在分组内用新增的 `\__xeCJK_boundary_if_peek_align:TF` 排除含义为 `\cr`、`\crcr`、`\span` 的记号，作废记录，再处理其他控制序列。
-2. **重要：空盒子探测无限递归。** `A \mbox{\discretionary{}{}{\kern0pt}} B` 报 `TeX capacity exceeded`：列表末尾的节点属于 `\discretionary` 的不断行文本，`\unkern` 删不掉它，`\__xeCJK_boundary_box_empty_probe:` 反复看到同一个节点。新增 `\__xeCJK_boundary_box_empty_probe_remove:N`，比较删除前后的 `\lastnodetype`、`\lastkern`、`\lastskip`、`\lastpenalty`，没有变化就停下，按有可见输出处理；`\box_set_to_last:N` 取到空盒子或不是 hbox 时也停下，取到非零尺寸的盒子时放回。
+2. **重要：空盒子探测无限递归。** `A \mbox{\discretionary{}{}{\kern0pt}} B` 报 `TeX capacity exceeded`：列表末尾的节点属于 `\discretionary` 的不断行文本，`\unkern` 删不掉它，`\__xeCJK_boundary_box_empty_probe:` 反复看到同一个节点。新增 `\__xeCJK_boundary_box_empty_probe_remove:N`，限制删除次数（第 64 次起不再删除），超过就停下，按有可见输出处理（最初比较删除前后的末尾状态，因 `\makebox[0pt]{}` 误判而改掉，见下文教训）；`\box_set_to_last:N` 取到空盒子或不是 hbox 时也停下，取到非零尺寸的盒子时放回。
 3. **小问题：`unchecked` 标志的 dtx 注释与实现不符。** 实现只在入口前是 `CJK` marker 时设置，注释仍写“`CJK` 或 `CJK-space` marker”，已更正。
 4. **小问题：无输出透明盒子判据的 dtx 注释过时。** 注释仍写“宽、高、深都为零的透明盒子”，改为引用 `\__xeCJK_boundary_if_capture_box_empty:TF`。
 
