@@ -42,6 +42,10 @@
 % 空格与命令之间只有不排出内容的命令或空分组时（|A \sbox0{x}\mbox{} B|、
 % |A {}\mbox{} B|），命令之前的节点列表与 |A \mbox{} B| 相同，按后者处理，比
 % 直接输入少一枚空格。这同样写在用户手册里，这里不比较。
+%
+% 命令之后、下一个空命令之前还有未注册的命令时（|A \mbox{}\small\mbox{} B|），
+% 无法预先知道它会不会排出内容，按排出内容处理，与修复前一样比直接输入多一枚
+% 空格。这也写在用户手册里，这里只比较 \rule、\special 等确实排出内容的情形。
 
 \documentclass{article}
 
@@ -71,6 +75,7 @@
   {
     \tl_gclear:N \g__xeCJK_last_node_tl
     \bool_gset_false:N \g__xeCJK_glue_check_pending_bool
+    \bool_gset_false:N \g__xeCJK_boundary_after_space_bool
   }
 \cs_new:Npn \EmptyCaptureDepth
   { \int_use:N \g__xeCJK_boundary_capture_depth_int }
@@ -514,8 +519,8 @@
   \begingroup \xeCJKsetup{xCJKecglue=true} \EmptyColorTailAll \endgroup
 }
 
-% 替换文本以 |\outer...| 开头的普通宏不是 \outer 宏，命令之后照常检查：保留
-% 记录，交给外层的颜色命令。误判为 \outer 宏时记录作废，颜色命令之后多一枚
+% 替换文本以 |\outer...| 开头的普通宏不是 \outer 宏，命令之后照常检查：展开
+% 它，记录交给外层的颜色命令。误判为 \outer 宏时记录作废，颜色命令之后多一枚
 % 空格。
 \def\EmptyNotOuter{\outerEmpty}
 \def\outerEmpty{}
@@ -536,6 +541,54 @@
   \EmptyColorTail{mbox-sbox-tc}{A \mbox{}\sbox0{x}\textcolor{red}{} B}{A \sbox0{x} B}%
   \EmptyColorTail{mbox-savebox-mbox}{A \mbox{}\savebox\EmptySaveBox{x}\mbox{} B}{A \savebox\EmptySaveBox{x} B}%
   \EmptyColorTail{mbox-sbox-uline}{A \mbox{}\sbox0{}\uline{} B}{A \sbox0{} B}%
+}
+
+% 空命令之后紧跟 \rule、\special 等可能排出内容的命令时，记录不能留给后面
+% 左侧没有源码空格的空命令：\rule 排出的盒子与 \mbox{} 的空盒子让列表末尾的
+% 状态相同。记录也不能越过盒子与段落（#2 先排出、丢弃，再排 #3）。已注册命令、
+% 展开后为空的宏之间仍然交接。
+\newcommand\EmptyStale[4]{% #1 名称 #2 先排出的内容 #3 候选 #4 直接输入
+  \global\advance\EmptyChecks by 1
+  \EmptyReset
+  \setbox\EmptyCandidate=\vbox{#2}%
+  \setbox\EmptyCandidate=\hbox{#3}%
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{#4}%
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+\def\EmptyNop{}
+\newcommand\EmptyStaleAll{%
+  \EmptyColorTail{rule-mbox}{A \mbox{}\rule{2pt}{1pt}\mbox{} B}{A \rule{2pt}{1pt} B}%
+  \EmptyColorTail{rule-tc}{A \mbox{}\rule{2pt}{1pt}\textcolor{red}{} B}{A \rule{2pt}{1pt} B}%
+  \EmptyColorTail{rule-ht}{A \mbox{}\rule{2pt}{1pt}\hypertarget{s}{} B}{A \rule{2pt}{1pt} B}%
+  \EmptyColorTail{rule-uline}{A \mbox{}\rule{2pt}{1pt}\uline{} B}{A \rule{2pt}{1pt} B}%
+  \EmptyColorTail{rule-makebox}{A \makebox[0pt]{}\rule{2pt}{1pt}\makebox[0pt]{} B}{A \rule{2pt}{1pt} B}%
+  \EmptyColorTail{rule-rule}{A \mbox{}\rule{1em}{1ex}\rule{1em}{1ex}\mbox{} B}{A \rule{1em}{1ex}\rule{1em}{1ex} B}%
+  \EmptyColorTail{special-tc}{A \textcolor{red}{}\special{x}\textcolor{blue}{} B}{A \special{x} B}%
+  \EmptyColorTail{special-mbox}{A \textcolor{red}{}\special{x}\mbox{} B}{A \special{x} B}%
+  \EmptyColorTail{brace-rule}{A \mbox{}{\rule{2pt}{1pt}}\mbox{} B}{A {\rule{2pt}{1pt}} B}%
+  \EmptyColorTail{group-rule}{A {\mbox{}}\rule{2pt}{1pt}\mbox{} B}{A {}\rule{2pt}{1pt} B}%
+  \EmptyColorTail{textbf-rule}{A \mbox{}\textbf{\rule{2pt}{1pt}}\mbox{} B}{A \textbf{\rule{2pt}{1pt}} B}%
+  \EmptyColorTail{tc-rule-C}{中 \textcolor{red}{\mbox{}\rule{1pt}{1pt}} 文}{中 \textcolor{red}{\rule{1pt}{1pt}} 文}%
+  \EmptyColorTail{tc-special-C}{中 \textcolor{red}{\special{x}\mbox{}} 文}{中 \textcolor{red}{\special{x}} 文}%
+  \EmptyStale{hbox-hbox}{\hbox{A \mbox{}\rule{1pt}{1pt}}}{\rule{1pt}{1pt}\mbox{} B}{\rule{1pt}{1pt} B}%
+  \EmptyStale{par-hbox}{\noindent A \mbox{}\rule{1pt}{1pt}\par}{\rule{1pt}{1pt}\mbox{} B}{\rule{1pt}{1pt} B}%
+  \EmptyColorTail{mbox-mbox-L}{A \mbox{}\mbox{} B}{A  B}%
+  \EmptyColorTail{mbox-mbox-mbox-C}{中 \mbox{}\mbox{}\mbox{} 文}{中  文}%
+  \EmptyColorTail{mbox-tc-L}{A \mbox{}\textcolor{red}{} B}{A  B}%
+  \EmptyColorTail{tc-mbox-L}{A \textcolor{red}{}\mbox{} B}{A  B}%
+  \EmptyColorTail{tc-tc-seq-C}{中 \textcolor{red}{}\textcolor{blue}{} 文}{中  文}%
+  \EmptyColorTail{tc-mbox-mbox-C}{中 \textcolor{red}{\mbox{}\mbox{}} 文}{中  文}%
+  \EmptyColorTail{nop-C}{中 \mbox{}\EmptyNop\mbox{} 文}{中  文}%
+  \EmptyColorTail{nop-L}{A \mbox{}\EmptyNop\mbox{} B}{A  B}%
+  \EmptyColorTail{tc-nop-C}{中 \textcolor{red}{\mbox{}\EmptyNop} 文}{中  文}%
+}
+\TEST{stale record after an empty command}{
+  \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyStaleAll \endgroup
+  \begingroup \xeCJKsetup{xCJKecglue=true} \EmptyStaleAll \endgroup
 }
 
 % 宽、高、深都为零的盒子里可能有重叠排出的内容，这时按有可见输出处理。
