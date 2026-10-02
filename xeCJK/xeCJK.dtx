@@ -2071,10 +2071,20 @@ Copyright and Licence
 % \verb*|A \Id{\mbox{}} B| 与 \verb*|A \mbox{} B| 相同，比
 % \verb*|A \Id{} B| 少一枚空格。
 %
+% 名字里有 |@| 或 |_| 的命令是宏包的内部命令。宏包在已注册命令的代码之后还会
+% 执行这类命令，它们通常不排出内容，所以 \pkg{xeCJK} 也按不排出内容处理。在
+% \tn{makeatletter} 之后的文档代码里，把排出内容的内部命令直接写在两个没有可见
+% 输出的命令之间时，后一个命令之后的空格会被删去：
+% \begin{frameverb}
+%   A \mbox{}\hb@xt@1pt{}\mbox{} B   % 比“A \hb@xt@1pt{} B”少一枚空格
+% \end{frameverb}
+% 需要保留空格时，可以把内部命令写在花括号里（\verb*|A \mbox{}{\hb@xt@1pt{}}\mbox{} B|）。
+%
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
 %   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
 %   \{\}\textbackslash mbox\{\} B} 这类无法区分的写法；空命令之后、下一个空命令
-%   之前还有未注册的命令时，按排出内容处理（\#1103）。}
+%   之前还有未注册的命令时，按排出内容处理；名字里有 \texttt{@} 或 \texttt{\_}
+%   的内部命令按不排出内容处理（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -4745,11 +4755,13 @@ Copyright and Licence
 %   \@@_boundary_after_space_brace_test:,
 %   \@@_boundary_after_space_hook:N,
 %   \@@_boundary_after_space_hook:nN,
+%   \@@_boundary_after_space_cs_name:N,
 %   \@@_boundary_after_space_ignore_test:,
 %   \@@_boundary_after_space_remove:,
 %   \@@_boundary_after_space_ignore_cs:N,
 %   \@@_boundary_after_space_ignore_peek:,
 %   \@@_boundary_after_space_known_cs:nN,
+%   \@@_boundary_after_space_known_name:nN,
 %   \@@_boundary_if_internal_name:n,
 %   \@@_boundary_after_space_mark_expanded:N,
 %   \@@_boundary_after_space_unknown_cs:N,
@@ -7035,6 +7047,10 @@ Copyright and Licence
 % 展开后得到的任何不可展开的控制序列）、左花括号和其他右花括号都把 clean 标志
 % 改为假：TeX 无法预先知道它们会不会排出内容，按排出处理，与以前一样保留两侧
 % 空格。
+% 活动字符（\tn{obeyspaces} 之下的空格、|~| 等）没有可以查表的名字，
+% \cs{cs_to_str:N} 遇到活动空格还会读走后面的记号，所以不取名字，直接按上面三类
+% 规则判断（\cs{@@_boundary_after_space_cs_name:N}）。\tn{obeyspaces} 之下的活动
+% 空格等同于 \tn{space}，展开一层得到空格，按展开所得的空格保留。
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
@@ -7301,8 +7317,10 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_after_space_hook:N #1
   {
     \exp_args:Ne \@@_boundary_after_space_hook:nN
-      { \cs_to_str:N #1 } #1
+      { \@@_boundary_after_space_cs_name:N #1 } #1
   }
+\cs_new:Npn \@@_boundary_after_space_cs_name:N #1
+  { \token_if_active:NF #1 { \cs_to_str:N #1 } }
 \cs_new_protected:Npn \@@_boundary_after_space_hook:nN #1#2
   {
     \str_if_eq:eeTF
@@ -7375,7 +7393,7 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_after_space_ignore_cs:N #1
   {
     \exp_args:Ne \@@_boundary_after_space_known_cs:nNTF
-      { \cs_to_str:N #1 } #1
+      { \@@_boundary_after_space_cs_name:N #1 } #1
       { \tex_ignorespaces:D #1 }
       {
         \@@_boundary_after_space_mark_expanded:N #1
@@ -7389,6 +7407,12 @@ Copyright and Licence
   }
 \prg_new_protected_conditional:Npnn \@@_boundary_after_space_known_cs:nN #1#2
   { TF }
+  {
+    \token_if_active:NTF #2
+      { \@@_boundary_after_space_unknown_cs:N #2 }
+      { \@@_boundary_after_space_known_name:nN {#1} #2 }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_known_name:nN #1#2
   {
     \@@_boundary_if_internal_name:nTF {#1}
       {

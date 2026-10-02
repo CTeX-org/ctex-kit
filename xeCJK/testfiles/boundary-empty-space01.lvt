@@ -572,6 +572,15 @@
 \newcommand\EmptyIfMbox[1]{\ifhmode\mbox{}\fi}
 \NewDocumentCommand\EmptyNDNop{}{}
 \makeatletter\def\EmptyAtEmpty{\@empty}\makeatother
+\makeatletter\def\EmptyHbxt{\hb@xt@1pt{}}\makeatother
+% \obeyspaces 之下的空格是活动字符，等同于 \space。取活动空格的名字会读走后面的
+% 记号，所以先定义好宏，再在比较里使用。
+\begingroup\obeyspaces%
+\gdef\EmptyObeyMbox{A \mbox{} B}\gdef\EmptyObeyMboxC{中 \mbox{} 文}%
+\gdef\EmptyObeyTc{中 \textcolor{red}{} 文}\gdef\EmptyObeyMboxMbox{A \mbox{}\mbox{} B}%
+\gdef\EmptyObeyColor{A \color{red} B}\gdef\EmptyObeyColorD{A \ignorespaces B}%
+\gdef\EmptyObeyL{A  B}\gdef\EmptyObeyC{中  文}%
+\endgroup
 \newcommand\EmptyStaleAll{%
   \EmptyColorTail{rule-mbox}{A \mbox{}\rule{2pt}{1pt}\mbox{} B}{A \rule{2pt}{1pt} B}%
   \EmptyColorTail{rule-tc}{A \mbox{}\rule{2pt}{1pt}\textcolor{red}{} B}{A \rule{2pt}{1pt} B}%
@@ -655,6 +664,15 @@
   % 条件原语本身不排出空格：宏的替换文本以 \fi 结尾时，其后的源码空格照常删去。
   \EmptyColorTail{macro-fi-L}{A \EmptyIfMbox{x} B}{A  B}%
   \EmptyColorTail{macro-fi-C}{中 \EmptyIfMbox{x} 文}{中  文}%
+  % \obeyspaces 之下的活动空格展开为空格，与直接输入的活动空格相同。
+  \EmptyColorTail{obey-mbox-L}{\EmptyObeyMbox}{\EmptyObeyL}%
+  \EmptyColorTail{obey-mbox-C}{\EmptyObeyMboxC}{\EmptyObeyC}%
+  \EmptyColorTail{obey-tc-C}{\EmptyObeyTc}{\EmptyObeyC}%
+  \EmptyColorTail{obey-mbox-mbox-L}{\EmptyObeyMboxMbox}{\EmptyObeyL}%
+  \EmptyColorTail{obey-color-L}{\EmptyObeyColor}{\EmptyObeyColorD}%
+  % 名字里有 @ 的内部命令按不排出内容处理；写在花括号里时按排出内容处理，
+  % 两侧空格保留。
+  \EmptyColorTail{brace-internal-L}{A \mbox{}{\EmptyHbxt}\mbox{} B}{A {\EmptyHbxt} B}%
 }
 \TEST{stale record after an empty command}{
   \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyStaleAll \endgroup
