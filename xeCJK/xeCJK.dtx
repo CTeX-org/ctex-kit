@@ -4758,6 +4758,8 @@ Copyright and Licence
 %   \g_@@_boundary_after_space_expanded_bool,
 %   \g_@@_boundary_after_space_identity_bool,
 %   \g_@@_boundary_after_space_math_block_bool,
+%   \g_@@_boundary_after_space_keep_space_bool,
+%   \@@_boundary_if_conditional:N,
 %   \l_@@_boundary_after_space_kind_tl,
 %   \@@_boundary_if_capture_box_empty:,
 %   \@@_boundary_if_box_zero:N,
@@ -6735,7 +6737,10 @@ Copyright and Licence
 %    \end{macrocode}
 % \changes{v3.10.7}{2026/10/02}{没有可见输出的已注册命令两侧都有源码空格时，
 %   与删去命令后的直接输入一样只保留一枚空格；以前多出一枚空格，两侧都是汉字时
-%   多出两枚空格的宽度（\#1103）。}
+%   多出两枚空格的宽度（\#1103）。\tn{phantomsection}、\tn{MakeLinkTarget}、
+%   \tn{hypertarget} 与 \pkg{l3color} 的 \cs{__color_backend_reset:} 现在由 \pkg{xeCJK}
+%   专门处理，此前用 \opt{experiment/boundary-register} 自行注册它们的文档需要删去
+%   这些注册，否则会报告命令已由 \pkg{xeCJK} 处理的错误。}
 % capture 没有观察到任何类别、按“无可见输出”结束时（stream、transparent，
 % 以及按 \cs{@@_boundary_if_capture_box_empty:TF} 判断没有可见输出的透明盒子），
 % 调用 \cs{@@_boundary_replay_before_empty:}
@@ -7010,7 +7015,11 @@ Copyright and Licence
 %     记号加的“不展开”标记，在 \cs{peek_after:Nw} 读走记号之后就丢失了。
 % \end{itemize}
 % 展开用户宏之后（\cs{g_@@_boundary_after_space_expanded_bool}）即使看到空格也
-% 不删去：展开得到的空格不在源码里紧跟命令；之后遇到名字里有 |@|、|_| 的记号
+% 不删去：展开得到的空格不在源码里紧跟命令。展开 \tn{the}、\tn{expandafter} 一类
+% 可展开原语之后同样不删去（\cs{g_@@_boundary_after_space_keep_space_bool}，
+% |A \mbox{}\the\toks B|）；条件原语 \tn{if...}、\tn{fi}、\tn{else}、\tn{or}、\tn{unless}
+% 例外（\cs{@@_boundary_if_conditional:NF}），它们本身不排出空格，
+% |A \iftrue\mbox{}\fi B| 的 \tn{fi} 之后是源码空格，照常删去；之后遇到名字里有 |@|、|_| 的记号
 % 也不再当作宏包代码，而按这三类规则判断（展开得到的 \tn{@empty} 照常展开，
 % \tn{@gobble} 带参数，停下）。是否在 |$| 之前补间距另由
 % \cs{g_@@_boundary_after_space_math_block_bool} 决定，与直接输入时 xeCJK 的前视
@@ -7052,6 +7061,7 @@ Copyright and Licence
             \bool_gset_false:N \g_@@_boundary_after_space_expanded_bool
             \bool_gset_false:N \g_@@_boundary_after_space_identity_bool
             \bool_gset_false:N \g_@@_boundary_after_space_math_block_bool
+            \bool_gset_false:N \g_@@_boundary_after_space_keep_space_bool
             \@@_boundary_after_space_peek:
           }
           { \bool_gset_false:N \g_@@_boundary_after_space_bool }
@@ -7077,7 +7087,9 @@ Copyright and Licence
       {
         \group_align_safe_end:
         \bool_gset_false:N \g_@@_boundary_after_space_bool
-        \bool_if:NF \g_@@_boundary_after_space_expanded_bool
+        \bool_lazy_or:nnF
+          { \g_@@_boundary_after_space_expanded_bool }
+          { \g_@@_boundary_after_space_keep_space_bool }
           { \@@_boundary_after_space_remove: }
       }
       { \@@_boundary_after_space_test_other: }
@@ -7347,7 +7359,9 @@ Copyright and Licence
           { \group_align_safe_end: \@@_boundary_after_space_ignore_cs:N }
       }
       {
-        \bool_if:NTF \g_@@_boundary_after_space_expanded_bool
+        \bool_lazy_or:nnTF
+          { \g_@@_boundary_after_space_expanded_bool }
+          { \g_@@_boundary_after_space_keep_space_bool }
           {
             \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
             \group_align_safe_end:
@@ -7430,8 +7444,30 @@ Copyright and Licence
           {
             \bool_if:NF \g_@@_boundary_after_space_identity_bool
               { \bool_gset_true:N \g_@@_boundary_after_space_math_block_bool }
+            \@@_boundary_if_conditional:NF #1
+              { \bool_gset_true:N \g_@@_boundary_after_space_keep_space_bool }
           }
       }
+  }
+\prg_new_protected_conditional:Npnn \@@_boundary_if_conditional:N #1 { F }
+  {
+    \bool_lazy_any:nTF
+      {
+        { \token_if_eq_meaning_p:NN #1 \tex_fi:D }
+        { \token_if_eq_meaning_p:NN #1 \tex_else:D }
+        { \token_if_eq_meaning_p:NN #1 \tex_or:D }
+        { \token_if_eq_meaning_p:NN #1 \tex_unless:D }
+        {
+          \str_if_eq_p:ee
+            {
+              \exp_args:Ne \str_range:nnn
+                { \token_to_meaning:N #1 } { 1 } { 3 }
+            }
+            { \c_backslash_str if }
+        }
+      }
+      { \prg_return_true: }
+      { \prg_return_false: }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_unknown_cs:N #1
   {
@@ -7486,6 +7522,7 @@ Copyright and Licence
 \bool_new:N \g_@@_boundary_after_space_expanded_bool
 \bool_new:N \g_@@_boundary_after_space_identity_bool
 \bool_new:N \g_@@_boundary_after_space_math_block_bool
+\bool_new:N \g_@@_boundary_after_space_keep_space_bool
 \bool_new:N \g_@@_boundary_after_space_bool
 \tl_new:N \g_@@_boundary_after_space_tl
 \bool_new:N \g_@@_boundary_after_space_drop_bool
