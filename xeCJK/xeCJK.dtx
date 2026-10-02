@@ -4754,6 +4754,7 @@ Copyright and Licence
 %   \@@_boundary_after_space_if_color_body_end:,
 %   \g_@@_boundary_after_space_clean_bool,
 %   \g_@@_boundary_after_space_expanded_bool,
+%   \g_@@_boundary_after_space_identity_bool,
 %   \l_@@_boundary_after_space_kind_tl,
 %   \@@_boundary_if_capture_box_empty:,
 %   \@@_boundary_if_box_zero:N,
@@ -5608,6 +5609,12 @@ Copyright and Licence
 % 不是 marker 能代表的字符，不重放，只调用 \cs{@@_boundary_resolved_end_hook:}。
 % 这个钩子默认什么都不做；\pkg{xeCJKfntef} 在线型命令的正文只有注册盒子时用它
 % 重放入口 marker（\#1091）。
+%
+% |entry| 不是 |resolved|、首类别为空而末类别是 |math| 时，命令其实排出了公式：
+% \tn{textcolor} 的正文以用户宏开头、以公式结尾（|A \textcolor{red}{\Nop $x$} B|），
+% 公式开头不是正文的第一个记号，没有报告首类别，结尾时却确认了末类别。这时
+% 照常调用 \cs{@@_boundary_replay_before:} 放回入口空格，不按“无可见输出”处理，
+% 命令之后的空格保留（\#1103）。
 %    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
@@ -5622,7 +5629,11 @@ Copyright and Licence
                   { \@@_boundary_replay_node:n { math } }
                   { \@@_boundary_resolved_end_hook: }
               }
-              { \@@_boundary_replay_before_empty: }
+              {
+                \str_if_eq:VnTF \l_@@_boundary_last_tl { math }
+                  { \@@_boundary_replay_before: }
+                  { \@@_boundary_replay_before_empty: }
+              }
           }
           {
             \tl_if_empty:NT \l_@@_boundary_last_tl
@@ -6943,8 +6954,9 @@ Copyright and Licence
 %   \item 名字以 |__hook| 开头的宏（LaTeX 命令钩子在 |after| 钩子之后调用的
 %     |\__hook_next ...|）展开一层再看；等同于 \tn{relax} 的记号执行后继续看；
 %     \tn{ignorespaces} 见 \cs{@@_boundary_after_space_ignore_test:}。
-%   \item 用户自己定义的宏（名字里没有 |@|、|_|，不以 |UseHook|、
-%     |UseOneTimeHook| 开头，也不是已注册命令，如 |\def\Nop{}|）展开一层再看。
+%   \item 用户自己定义的宏（名字里没有 |@|、|_|，不是 \tn{UseHookWithArguments}，
+%     也不是已注册命令，如 |\def\Nop{}|）与 \tn{csname}、\tn{ifnum}、\tn{fi} 一类
+%     可展开原语展开一层再看。
 %   \item 下一个记号是其他控制序列、右花括号，或 |drop| 为假时的左花括号，保留
 %     记录，留给外层命令结束时再检查。
 %     \tn{hyper@anchor} 在 \tn{hypertarget} 里面调用，\tn{MakeLinkTarget} 的
@@ -6964,11 +6976,17 @@ Copyright and Licence
 % \tn{phantomsection}、\tn{MakeLinkTarget} 也写入保留表），宏包内部代码，即名字里
 % 有 |@| 或 |_| 的控制序列（\tn{textcolor} 包装末尾的 \cs{int_set:Nn}、
 % \pkg{xeCJKfntef} 的 \tn{UL@...}）与 LaTeX 命令钩子在 |after| 钩子之后调用的
-% \tn{UseHookWithArguments} 一类，\tn{fi} 一类可展开原语，以及结束 \tn{textcolor}
-% 正文的右花括号（\cs{@@_boundary_after_space_if_color_body_end:F}）。
-% \pkg{hyperref} 的 \tn{hypertarget}、\tn{phantomsection} 在内层出口之后还有
+% \tn{UseHookWithArguments}，以及结束 \tn{textcolor} 正文的右花括号
+% （\cs{@@_boundary_after_space_if_color_body_end:F}）。\pkg{hyperref} 的
+% \tn{hypertarget}、\tn{phantomsection} 在内层出口之后还有
 % |\fi\expandafter\put@me@back|、|\UseHookWithArguments| 这样的代码，它们若被当作
-% 用户宏展开，就会一路展开到 \tn{let}、\tn{global} 把标志改为假。其余控制序列
+% 用户宏展开，就会一路展开到 \tn{let}、\tn{global} 把标志改为假。\tn{fi}、
+% \tn{expandafter} 这类可展开原语照常展开一层，但不设下文的 expanded 标志：
+% \tn{fi} 展开后消失，\tn{expandafter} 展开后露出的 \tn{put@me@back} 名字里有
+% |@|，仍按宏包代码处理；用户直接写的 \tn{csname}、\tn{ifnum} 展开后若排出
+% \tn{rule}、\tn{special}，同样把标志改为假。只有在 \tn{UseHookWithArguments}
+% 这一个名字上按宏包代码处理：\tn{UseHook} 等由用户直接写出时，照常当作可能
+% 排出内容的命令。其余控制序列
 % （\tn{rule}、\tn{special}、\tn{par}、\tn{textbf} 等文字命令，以及用户宏展开后
 % 得到的任何不可展开的控制序列）、左花括号和其他右花括号都把它改为假：TeX 无法
 % 预先知道它们会不会排出内容，按排出处理，与以前一样保留两侧空格。展开用户的
@@ -6976,7 +6994,9 @@ Copyright and Licence
 % 看到 |$| 也不补间距：展开得到的空格与 |$| 不在源码里紧跟命令。只有一个例外：
 % 含义与 \cs{@@_boundary_identity:n} 相同的宏（|\newcommand\Id[1]{#1}|）不设这个
 % 标志。直接输入 |中 \Id{$x$}| 时 xeCJK 的前视也越过这种宏看 |$|，补公式前的
-% 间距，删去命令之后照样补。
+% 间距，删去命令之后照样补。直接输入 |中 \Id{\Nop $x$}| 时前视停在 \tn{Nop}，
+% 不补间距；所以展开过这种宏之后（\cs{g_@@_boundary_after_space_identity_bool}），
+% 再遇到其他用户宏时仍设 expanded 标志。
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
@@ -7003,6 +7023,7 @@ Copyright and Licence
           }
           {
             \bool_gset_false:N \g_@@_boundary_after_space_expanded_bool
+            \bool_gset_false:N \g_@@_boundary_after_space_identity_bool
             \@@_boundary_after_space_peek:
           }
           { \bool_gset_false:N \g_@@_boundary_after_space_bool }
@@ -7361,15 +7382,7 @@ Copyright and Licence
         \str_if_in:nnTF {#1} { _ }
           { \prg_return_true: }
           {
-            \bool_lazy_or:nnTF
-              {
-                \str_if_eq_p:ee
-                  { \str_range:nnn {#1} { 1 } { 7 } } { UseHook }
-              }
-              {
-                \str_if_eq_p:ee
-                  { \str_range:nnn {#1} { 1 } { 14 } } { UseOneTimeHook }
-              }
+            \str_if_eq:nnTF {#1} { UseHookWithArguments }
               { \prg_return_true: }
               { \prg_return_false: }
           }
@@ -7377,19 +7390,19 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_after_space_mark_expanded:N #1
   {
-    \token_if_eq_meaning:NNF #1 \@@_boundary_identity:n
-      { \bool_gset_true:N \g_@@_boundary_after_space_expanded_bool }
+    \token_if_eq_meaning:NNTF #1 \@@_boundary_identity:n
+      { \bool_gset_true:N \g_@@_boundary_after_space_identity_bool }
+      {
+        \bool_lazy_and:nnT
+          { \token_if_macro_p:N #1 }
+          { ! \g_@@_boundary_after_space_identity_bool }
+          { \bool_gset_true:N \g_@@_boundary_after_space_expanded_bool }
+      }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_unknown_cs:N #1
   {
     \token_if_expandable:NTF #1
-      {
-        \bool_lazy_or:nnTF
-          { \token_if_macro_p:N #1 }
-          { \g_@@_boundary_after_space_expanded_bool }
-          { \prg_return_false: }
-          { \prg_return_true: }
-      }
+      { \prg_return_false: }
       {
         \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
         \prg_return_true:
@@ -7421,6 +7434,7 @@ Copyright and Licence
   }
 \bool_new:N \g_@@_boundary_after_space_clean_bool
 \bool_new:N \g_@@_boundary_after_space_expanded_bool
+\bool_new:N \g_@@_boundary_after_space_identity_bool
 \bool_new:N \g_@@_boundary_after_space_bool
 \tl_new:N \g_@@_boundary_after_space_tl
 \bool_new:N \g_@@_boundary_after_space_drop_bool

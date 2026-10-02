@@ -50,6 +50,8 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 - `space_glue` 为真（`{中} \cmd`、`A \cmd`）：照常调用 `\@@_boundary_replay_before:` 放回 marker 与 glue。
 - 以上两种都转到 `\@@_boundary_replay_before_empty_arm:`，由它调用 `\@@_boundary_after_space_arm:` 记下状态（颜色弹出命令例外，见下一小节）。其余情形照常重放；若本层 `after_space` 为真（从内层接过记录），调用 `\@@_boundary_after_space_rearm:` 把记录交给更外一层。
 
+stream 结束时首类别为空、末类别却是 `math` 的情形不按“无可见输出”处理（`\@@_boundary_inline_stream_end:n` 里 `entry` 不是 `resolved` 的分支）：`A \textcolor{red}{\Nop $x$} B` 的正文以用户宏开头、以公式结尾，公式开头不是正文第一个记号，`\@@_boundary_math_begin:n` 没有报告首类别，结尾时 `\@@_boundary_math_end:n` 却确认了末类别。以前走 `\@@_boundary_replay_before_empty:`，`\textcolor` 之后的空格被删去（23.63pt，修复前与直接输入 26.96pt；`79222a0d` 起就是这样，第二十五轮的盲审报告作为范围外观察提出），现在照常调用 `\@@_boundary_replay_before:`。
+
 ### 颜色弹出命令只转交配对的推入命令留下的记录
 
 `\reset@color` 与 l3color 的 `\__color_backend_reset:` 由 `\aftergroup` 在分组结束之后执行。它们的入口取下的 glue 是分组里正文末尾的空格，不是命令左侧的源码空格：`\textcolor{red}{A } B` 删去颜色命令后是 `{A } B`，两枚空格都保留（21.24pt）。第四轮以前这枚 glue 被当作命令左侧的源码空格，` B` 前的空格被删去（17.91pt），相对修复前 `e641743e` 是回退（最终全范围审查第四轮的阻塞问题；`{\color{red}red } text` 同理）。
@@ -118,14 +120,16 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 由 `\@@_boundary_after_space_known_cs:nNTF` 判断控制序列：
 
-- **不改动 clean，也不展开**：已注册命令（`\g_@@_boundary_registered_prop` 里除 `post-transparent` 之外的类别）与保留表里的专用适配器，它们自己的 capture 会处理边界；`\phantomsection`、`\MakeLinkTarget` 也写入保留表。宏包内部代码，即名字里有 `@` 或 `_` 的控制序列（`\textcolor` 包装末尾的 `\int_set:Nn`、xeCJKfntef 的 `\UL@...`）与名字以 `UseHook`、`UseOneTimeHook` 开头的钩子命令（`\@@_boundary_if_internal_name:nTF`）。`\fi`、`\expandafter` 一类可展开原语（`\token_if_macro_p:N` 为假）。这几类的条件都是不处在展开用户宏之后（见下）。
-- **展开一层再看**：用户自己定义的宏（`\def\Nop{}`），即不属于上一条的宏。展开后由 `\@@_boundary_after_space_mark_expanded:N` 置 `\g_@@_boundary_after_space_expanded_bool`，之后即使看到空格也不删去、看到 `$` 也不补间距：展开得到的空格与 `$` 不在源码里紧跟命令。展开之后，内部名字与可展开原语也一律展开，不可展开的按未知处理。例外是含义与 `\@@_boundary_identity:n` 相同的宏（`\newcommand\Id[1]{#1}`）：不置这个标志，因为直接输入 `中 \Id{$x$}` 时 xeCJK 的前视（`\xeCJK_CJK_and_Boundary:w`）也越过它看 `$`，补公式前的间距（19.05pt）。
+- **不改动 clean，也不展开**：已注册命令（`\g_@@_boundary_registered_prop` 里除 `post-transparent` 之外的类别）与保留表里的专用适配器，它们自己的 capture 会处理边界；`\phantomsection`、`\MakeLinkTarget` 也写入保留表。宏包内部代码，即名字里有 `@` 或 `_` 的控制序列（`\textcolor` 包装末尾的 `\int_set:Nn`、xeCJKfntef 的 `\UL@...`）与 LaTeX 命令钩子在 after 钩子之后调用的 `\UseHookWithArguments`（`\@@_boundary_if_internal_name:nTF`；只认这一个名字，用户直接写的 `\UseHook` 照常按可能排出内容处理）。条件是不处在展开用户宏之后（见下）。
+- **展开一层再看**：用户自己定义的宏（`\def\Nop{}`），即不属于上一条的宏，以及 `\fi`、`\csname`、`\ifnum`、`\expandafter` 一类可展开原语。原语展开后不置 expanded 标志：hyperref 的 `\fi` 展开后消失，`\expandafter` 露出的 `\put@me@back` 名字有 `@`，仍按宏包代码处理；用户直接写的 `\csname rule\endcsname` 展开后是 `\rule`，把 clean 标志改为假。用户宏展开后由 `\@@_boundary_after_space_mark_expanded:N` 置 `\g_@@_boundary_after_space_expanded_bool`，之后即使看到空格也不删去、看到 `$` 也不补间距：展开得到的空格与 `$` 不在源码里紧跟命令。展开之后，内部名字与可展开原语也一律展开，不可展开的按未知处理。例外是含义与 `\@@_boundary_identity:n` 相同的宏（`\newcommand\Id[1]{#1}`）：不置这个标志，因为直接输入 `中 \Id{$x$}` 时 xeCJK 的前视（`\xeCJK_CJK_and_Boundary:w`）也越过它看 `$`，补公式前的间距（19.05pt）。前视只越过一层，`中 \Id{\Nop $x$}` 停在 `\Nop`、不补间距（15.72pt）；所以展开过恒等宏之后（`\g_@@_boundary_after_space_identity_bool`），再遇到其他用户宏时仍置 expanded 标志。
 - **设为假**：其他不可展开的控制序列（`\rule`、`\special`、`\par`、`\small`），以及 `\textbf` 等文字命令。文字命令在保留表里取值 `text`（`\@@_boundary_register_text_command:NN`），因为它们的普通正文不经过 capture，没有代码检查记录是否还紧邻列表末尾。
 - 左花括号、`\cr` 一类对齐记号、不是 `\textcolor` 正文结尾的右花括号也设为假。`\textcolor` 正文结尾的右花括号由 `\@@_boundary_after_space_if_color_body_end:F` 认出：上一层的 `\g_@@_boundary_color_origin_<层数>_tl` 等于当前记录的来源编号。
 
 `\ignorespaces` 之后是控制序列时（`\@@_boundary_after_space_ignore_cs:N`）同样按上面的规则判断；用户宏展开一层（同样置 expanded 标志）后回到 `\@@_boundary_after_space_ignore_test:`，否则放回 `\ignorespaces`。展开之后看到的不是控制序列时，空格照常删去（`\ignorespaces` 本来就会跳过它），其他记号作废记录、放回 `\ignorespaces`，不补公式前的间距。`\textcolor{red}{\mbox{}}` 的 `\mbox` 因此仍能接过 `\set@color` 的记录；最初的版本在这里不展开用户宏，`\textcolor{red}{\csname uline\endcsname{}}` 一类用例多一枚空格，被 `tmp/i1103/r4/t6.tex` 的探针发现。
 
 第一版（`6a5e4dd7`）把“名字里没有 `@`、`_` 的可展开记号”都当作用户宏，展开之后连内部名字也按未知处理。hyperref 的 `\hypertarget` 在内层出口 `\hyper@anchor` 之后还有 `\fi\expandafter\put@me@back`，`\phantomsection` 的 after 钩子之后是 `\UseHookWithArguments`；检查把它们当作用户宏一路展开，直到 `\let`、`\global` 把 clean 标志改为假，`中 \textcolor{red}{\hypertarget{x}{}} 文`、`A \phantomsection\mbox{} B` 等回到修复前的结果（本地审查第二十四轮的重要问题 R24-I1）。同一轮的小问题 R24-M1：`\ignorespaces` 路径展开用户宏后没有置 expanded 标志，`中 \color{red}\Nop $x$` 又补了公式前的间距（19.05pt，直接输入 15.72pt）。
+
+第二版（`6cfeee80`）为了跳过 hyperref 的 `\fi`，把所有不是宏的可展开原语都按宏包代码处理：既不展开、也不改 clean 标志。用户直接写的 `\csname rule\endcsname`、`\ifhmode\special{x}\fi` 于是又让记录越过排出的内容：`A \mbox{}\csname rule\endcsname{2pt}{1pt}\mbox{} B` 为 19.91pt，修复前与直接输入 23.24pt（本地审查第二十五轮的重要问题 R25-I1）。同时把名字以 `UseHook` 开头的命令都当作宏包代码，`A \mbox{}\UseHook{foo}\mbox{} B` 少一枚空格；现在只认 `\UseHookWithArguments`。
 
 代价：空命令之后、下一个空命令之前若是未注册的命令，即使它实际不排出内容，也按排出内容处理，两侧的空格都保留，与修复前一样多一枚空格（`A \mbox{}\small\mbox{} B` 为 20.47pt，直接输入 `A \small B` 17.38pt；`\bgroup\egroup`、`\null` 同样）。用户手册「CJK 文字与命令交互时的间距」一节写明了这一限制。另一方面，第七轮记录的 `A \mbox{}\def\x{}\mbox{} B`（修复前与直接输入都是 21.24pt，`79222a0d` 为 17.91pt）因此回到 21.24pt。
 
