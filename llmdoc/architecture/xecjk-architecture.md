@@ -358,7 +358,7 @@ capture 可观察的类别；#1002 的参数公式处理还需要在可见正文
 
 `\g_@@_boundary_registered_prop` 阻止同一命令重复注册。常用前两层 capture 的 box/tl register 在加载时预先分配，第三层起在第一次达到相应 depth 时创建；`\g_@@_boundary_active_seq` 保证 before/after hook 成对，数学模式与暂停状态只压入 inactive 标记。测试已覆盖 12 层盒子嵌套。
 
-`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。`\@@_boundary_sbox:Nn` 与 `\@@_boundary_prepare_sbox:` 把内部入口 `sbox ` 直接重定义为 `\tex_setbox:D #1 \tex_hbox:D { suspend … \color@setgroup #2 \color@endgroup … resume }`，在盒子内部执行 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl`、source-space pending 与 `\g_@@_boundary_after_space_bool`（见 `llmdoc/architecture/xecjk-empty-output-space.md`「暂停 capture 观察期间排出的 marker」），结束后必须归零。#1029 之前这里挂的是 `cmd/sbox/before` / `after` 两个通用钩子，已被这个专用适配器取代，原因见下文「命令钩子与专用适配器的选择边界」。
+`\sbox` 只构造离线 scratch box，不应把测量内容报告成外层命令的可见输出。`\@@_boundary_sbox:Nn` 与 `\@@_boundary_prepare_sbox:` 把内部入口 `sbox ` 直接重定义为 `\tex_setbox:D #1 \tex_hbox:D { suspend … \color@setgroup #2 \color@endgroup … resume }`，在盒子内部执行 `\@@_boundary_capture_suspend:` / `resume:`；暂停深度可嵌套，并按层保存/恢复 `\g_@@_last_node_tl`、source-space pending 与 `\g_@@_boundary_after_space_bool`（见 `llmdoc/architecture/xecjk-empty-output-space.md`「暂停 capture 观察期间排出的 marker」），结束后必须归零。盒子赋值之后，适配器另外清除 `\g_@@_boundary_after_space_bool`：resume 恢复的是 `\sbox` 之前那个命令留下的记录，而 `\sbox` 之后的源码空格已经不与那个命令相邻（#1103 本地审查第七轮）。#1029 之前这里挂的是 `cmd/sbox/before` / `after` 两个通用钩子，已被这个专用适配器取代，原因见下文「命令钩子与专用适配器的选择边界」。
 
 #### 语法判断前必须消解参数里的对齐符（#1043）
 

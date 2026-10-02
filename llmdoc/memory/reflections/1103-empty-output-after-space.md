@@ -183,3 +183,33 @@ xeCJK 全部 126 个测试通过（保存 `.tlg` 之后重跑受影响的 `bound
 - **暂停机制只保存了设计它时关心的状态。** 第一轮让 marker 排出时清除记录，没有同步把这条记录加进暂停机制；第五轮的来源编号修复让内层记录的转交更依赖这条记录，问题才显现。新增一项“marker 排出时会改动”的全局状态时，要同时检查所有暂停、恢复全局状态的地方。修补时不要用分组层数限制全局记录的清除，那会让过期记录存活。已提升到 `memory/lessons-learned.md`。
 - **修好一处之后，前几轮写下的“仍不一致”要重新实测。** 嵌套空颜色命令的登记是第五轮写下的，`aed1f9d2` 上实际已与直接输入一致，却在 doc-gaps、测试注释、architecture 与本反思里留了一轮。登记“仍不一致”的写法时要写明实测所在的提交；下一轮修改相关机制后，把这些登记逐条重新跑一次。
 - **生成比较串的函数本身也要验证。** `\tl_to_str:n` 在控制词后补空格，这与 `\meaning` 的打印格式不同。用于逐字比较的常量，写好后先与一个真实记号的 `\meaning` 比较一次。已提升到 `memory/lessons-learned.md`。
+
+## 本地审查第七轮
+
+第六轮修复提交为 `61c313bd`。本地审查第七轮（增量，`aed1f9d2..61c313bd`，run `r7-incr-060233`）报告 1 项阻塞问题、1 项重要问题、1 项小问题，补充报告另指出 R6-M2 只修了一部分，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」「暂停 capture 观察期间排出的 marker」「仍不一致的写法」）：
+
+1. **阻塞（R7-B1）：分组层数 0 的 `\color` 报 `Erroneous variable`。** `\begin{document}` 之后直接写 `\color{blue}`，或段落里的 `中 \color{red} 文`，`\__xeCJK_boundary_hmode_transparent_push_end:` 读取从未创建的 `\g__xeCJK_boundary_color_origin_-1_tl`（color 与 xcolor 都如此）。原因：不在 `\textcolor` 里时 `\l__xeCJK_boundary_textcolor_level_int` 为 -1，分组层数 0 时“层数等于包装层数加一”成立；第六轮新加的“存下的值仍是 `?`”比较用 `\tl_use:c` 读变量，读之前没有检查它是否存在。`aed1f9d2` 与修复前 `e641743e` 都不报错；以前测试里的颜色用例都在 `\hbox` 或 `\TEST` 的分组里，层数不为 0，所以没有发现。修复：push_end 的条件改为 `\bool_lazy_all:nT`，在层数比较与 `?` 比较之间加 `\tl_if_exist_p:c`（变量由 `\textcolor` 包装创建，不在包装里时不存在）。
+2. **重要（R7-I1）：`\sbox` 夹在两个空命令之间时，第一个命令之后的空格被删去。** `A \mbox{}\sbox0{x}\mbox{} B` 为 17.91pt，直接输入 `A \sbox0{x} B` 与 `e641743e`、`aed1f9d2` 都是 21.24pt（`xCJKecglue=false`）；`\sbox0{}`、`\savebox`，或第二个命令换成 `\textcolor{red}{}`、`\uline{}` 同样。原因：第六轮让 `\__xeCJK_boundary_capture_suspend:`／`resume:` 保存、恢复 `\g__xeCJK_boundary_after_space_bool`，`\sbox` 的适配器 `\__xeCJK_boundary_sbox:Nn` 也走暂停与恢复。`\sbox` 里的内容排出 marker，清除了第一个 `\mbox{}` 的记录（以前就是这样，所以第二个命令不会删空格）；现在 resume 又把记录恢复，第二个命令之后的检查就删去了第一个命令之后的空格。修复：`\__xeCJK_boundary_sbox:Nn` 在盒子赋值之后执行 `\bool_gset_false:N \g__xeCJK_boundary_after_space_bool`，理由是 `\sbox` 之后的源码空格已经不与之前的命令相邻。线型命令内部的暂停（`\UL@end`、`\UL@setULdepth`、`\markoverwith`、`\xeCJK_fntef_sbox:n`）仍保留记录：它们在命令内部，命令结束时要把记录交给外层。
+3. **小问题（R7-M1）：第六轮新增的 TEST 11 没有判别力。** 它在 `aed1f9d2`（子串查找版本）上也通过：`中 \mbox{}\EmptyNotOuter 文` 的记录不论作废与否，宏展开之后排出的汉字都会清除它，所以抓不到要防止的误判。改为把宏放在颜色命令正文末尾，让记录必须交给外层：`not-outer-C`（`中 \textcolor{red}{\mbox{}\EmptyNotOuter} 文`，比较 `中  文`）、`not-outer-L`（`A \textcolor{red}{\mbox{}\EmptyNotOuter} B`，比较 `A  B`）、`not-outer-tail`（`中 \textcolor{red}{\mbox{}\EmptyNotOuter}`，比较 `中 `）。在 `aed1f9d2` 上这 3 项都失败（TEST 11 只在默认设置下执行一次）。
+4. **补充：R6-M2 只修了一部分。** `\textcolor{red}{中 \mbox{}} 文` 的已知差异只写了 `xCJKecglue=false` 时直接输入 `{中 } 文` 为 23.33pt；`xCJKecglue=true` 时直接输入为 20.0pt，现在与修复前都是 26.66pt。已在 `doc-gaps.md` 与 architecture 补上 `true` 时的数值。
+
+### 被放弃的做法
+
+修 R7-I1 时先试过：命令之后的检查遇到未注册的宏就展开一层继续看，遇到未注册的原语就作废记录。这样 `A \def\x{}\mbox{} B`、`\setlength` 一类能修好，但 `\sbox` 之后的记录仍然被 resume 恢复，而且会改变以前所有“控制序列保留记录、交给外层”的行为，风险大，放弃。最终只在 `\sbox` 的适配器里清除记录。
+
+### 新登记的已知限制
+
+调查 R7-I1 时发现一类修复前不存在、现在无法区分的写法：空格与空命令之间只有不排出内容的命令或空分组（`A \sbox0{x}\mbox{} B`、`A \def\x{}\mbox{} B`、`A {}\mbox{} B`、`A \stepcounter{foo}\mbox{} B`）。命令之前的节点列表与 `A \mbox{} B` 相同，只能按后者处理，命令后的空格被删去（17.91pt，修复前与直接输入 21.24pt；两侧都是汉字时与直接输入一致）。`aed1f9d2` 上已经如此（更早的提交没有逐一核对），与 `前{ }\mbox{} 后` 同属一类。已写入用户手册“CJK 文字与命令交互时的间距”一节的已知限制段落（例子 `A \sbox0{x}\mbox{} B`、`A {}\mbox{} B`），`\changes` 条目相应扩写，CHANGELOG 重新生成；登记在 `doc-gaps.md`。`xCJKecglue=true` 时第一个 `\mbox{}` 在列表里不留节点，`A \mbox{}\sbox0{x}\mbox{} B` 也落入这一类，所以新的 TEST 12 只在 `xCJKecglue=false` 下比较。
+
+### 测试与验证
+
+测试 `boundary-empty-space01` 由 3898 项增至 3903 项、13 个 TEST：`\START` 之后、所有 `\TEST` 之外写 `\color{red}\normalcolor`（`\TEST` 自己开一个分组，层数不为 0），不计入项数；TEST 11 改为上面的 3 项；新 TEST 12 “sbox between empty commands”（`xCJKecglue=false`，4 项：`mbox-sbox-mbox`、`mbox-sbox-tc`、`mbox-savebox-mbox`、`mbox-sbox-uline`），原零尺寸盒子一组顺延为 TEST 13。判别力：`61c313bd` 上分组层数 0 的 `\color` 报错；注释掉那一行后 TEST 12 的 4 项失败；`aed1f9d2` 上 TEST 11 的 3 项都失败（TEST 11 只在默认设置下执行一次）。
+
+xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4613 项、拒绝 0 项；siunitx 3.6.3 下 `siunitx-ecglue01` 为 576／576；外部矩阵 `tmp/i1103/r1probe/big.tex` 的结果与第六轮 head 完全相同，相对 `e641743e` 只有 3 项 `C-phantom-M/10` 不同（oracle 本身的问题，与以前一样）；xeCJKfntef 13 个线型命令的探针都与直接输入一致；第六轮的颜色探针除已登记的 `\textcolor{red}{中 \mbox{}} 文` 外都一致。
+
+### 教训
+
+- **哨兵值加一等于真实的分组层数 0。** 第六轮写“层数等于包装层数加一”时只想了 `\textcolor` 里面的情形，没有把不在包装里时的 -1 代入算一遍；读按层数拼出名字的变量之前也没有检查它是否存在。所有测试用例都包在 `\TEST` 或 `\hbox` 的分组里，分组层数 0 这个最常见的位置反而没有被执行过。凡是条件依赖分组层数的代码，至少要有一个用例写在所有分组之外。已提升到 `memory/lessons-learned.md`。
+- **恢复全局状态之前，要问状态是否已经过期。** 第六轮的教训是暂停机制要保存、恢复所有被改动的全局状态，这对命令内部的测量盒子成立；`\sbox` 也用同一套机制，但它是源码里独立的命令，命令结束之后，之前的记录已经与后面的源码空格不相邻。把一项状态加进共用机制时，要逐个检查所有调用者，区分“命令内部的暂停”与“独立命令的暂停”。已并入 `memory/lessons-learned.md`「暂停观察的机制要保存、恢复所有会被改动的全局状态」。
+- **新测试要在被替换的版本上运行一次。** TEST 11 是为防止“子串查找误判 `\outer...` 宏”而加的，却没有在子串查找版本 `aed1f9d2` 上运行确认会失败；记录被后面的汉字清除，误判不影响结果。这是“回归测试须以重新引入缺陷的方式确认会失败”的又一次实例：用例要让被测的判断直接决定可观察的结果，这里是把宏放在颜色命令正文末尾，让记录必须交给外层。
+- **修一处时发现的“无法区分”要与已有的同类限制放在一起登记。** `A \sbox0{x}\mbox{} B` 一类与 `X{ }\cmd Y` 原因相同，都是命令之前的节点列表相同；登记时并入用户手册同一段，而不是另开说明。

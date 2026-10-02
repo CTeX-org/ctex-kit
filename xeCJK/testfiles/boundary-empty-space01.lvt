@@ -33,7 +33,12 @@
 % \tn{span}，以及列模板以命令结尾（命令之后是 \tn{endtemplate}）；零尺寸但有
 % 可见内容的盒子；\tn{discretionary} 的不断行文本；颜色正文以空格结尾；
 % 正文里另有 \tn{color}、\tn{normalcolor} 的颜色命令；嵌套在颜色命令里的
-% 空命令；替换文本以 |\outer...| 开头的普通宏。
+% 空命令；替换文本以 |\outer...| 开头的普通宏；分组层数 0 的 \tn{color}；
+% \tn{sbox} 夹在两个空命令之间。
+%
+% 空格与命令之间只有不排出内容的命令或空分组时（|A \sbox0{x}\mbox{} B|、
+% |A {}\mbox{} B|），命令之前的节点列表与 |A \mbox{} B| 相同，按后者处理，比
+% 直接输入少一枚空格。这同样写在用户手册里，这里不比较。
 
 \documentclass{article}
 
@@ -197,6 +202,11 @@
 \begin{document}
 
 \START
+
+% 分组层数 0 的颜色命令：不在 \textcolor 里时，颜色推入命令不读写来源编号的
+% 存放变量（以前读取未定义的 \g__xeCJK_boundary_color_origin_-1_tl，报
+% Erroneous variable）。\TEST 自己开一个分组，所以写在外面。
+\color{red}\normalcolor
 
 % 字体预热。
 \setbox0=\hbox{中文AB$x$\uline{中}\numlist{1;2}\unit{kg}\textcolor{red}{中}}
@@ -427,12 +437,28 @@
   \begingroup \xeCJKsetup{xCJKecglue=true} \EmptyColorTailAll \endgroup
 }
 
-% 替换文本以 |\outer...| 开头的普通宏不是 \outer 宏，命令之后照常检查。
+% 替换文本以 |\outer...| 开头的普通宏不是 \outer 宏，命令之后照常检查：保留
+% 记录，交给外层的颜色命令。误判为 \outer 宏时记录作废，颜色命令之后多一枚
+% 空格。
 \def\EmptyNotOuter{\outerEmpty}
 \def\outerEmpty{}
 \TEST{empty command followed by a macro whose text starts with outer}{
-  \EmptyColorTail{not-outer-C}{中 \mbox{}\EmptyNotOuter 文}{中 \EmptyNotOuter 文}%
-  \EmptyColorTail{not-outer-space}{中 \mbox{} \EmptyNotOuter 文}{中  \EmptyNotOuter 文}%
+  \EmptyColorTail{not-outer-C}{中 \textcolor{red}{\mbox{}\EmptyNotOuter} 文}{中  文}%
+  \EmptyColorTail{not-outer-L}{A \textcolor{red}{\mbox{}\EmptyNotOuter} B}{A  B}%
+  \EmptyColorTail{not-outer-tail}{中 \textcolor{red}{\mbox{}\EmptyNotOuter}}{中 }%
+}
+
+% \sbox 夹在两个空命令之间：\sbox 结束时恢复了暂停之前的记录，第二个命令之后
+% 不能再删去第一个命令之后的空格。xCJKecglue=true 时第一个 \mbox{} 不在列表里
+% 留下节点，第二个命令之前的列表与 |A \sbox0{x}\mbox{} B| 相同，属于用户手册
+% 说明的无法区分的写法，这里只比较 xCJKecglue=false。
+\newsavebox\EmptySaveBox
+\TEST{sbox between empty commands}{
+  \xeCJKsetup{xCJKecglue=false}%
+  \EmptyColorTail{mbox-sbox-mbox}{A \mbox{}\sbox0{x}\mbox{} B}{A \sbox0{x} B}%
+  \EmptyColorTail{mbox-sbox-tc}{A \mbox{}\sbox0{x}\textcolor{red}{} B}{A \sbox0{x} B}%
+  \EmptyColorTail{mbox-savebox-mbox}{A \mbox{}\savebox\EmptySaveBox{x}\mbox{} B}{A \savebox\EmptySaveBox{x} B}%
+  \EmptyColorTail{mbox-sbox-uline}{A \mbox{}\sbox0{}\uline{} B}{A \sbox0{} B}%
 }
 
 % 宽、高、深都为零的盒子里可能有重叠排出的内容，这时按有可见输出处理。

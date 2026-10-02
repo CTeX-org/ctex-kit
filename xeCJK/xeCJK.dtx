@@ -2046,12 +2046,18 @@ Copyright and Licence
 %   前{ }\mbox{} 后     % 比“前{ } 后”少一枚空格
 % \end{frameverb}
 % 它与 \verb*|前{} \mbox{} 后| 在命令之前的节点列表相同，按后者处理，命令后的
-% 空格被删去。这类写法在正常的源码里几乎不会出现，目前接受这一限制；确实需要
-% 保留空格时，可以把空格写在命令之后的花括号里，或者改用 |~|。
+% 空格被删去。同样，空格与命令之间若只有不排出内容的命令或空分组，例如
+% \begin{frameverb}
+%   A \sbox0{x}\mbox{} B   % 比“A \sbox0{x} B”少一枚空格
+%   A {}\mbox{} B          % 比“A {} B”少一枚空格
+% \end{frameverb}
+% 命令之前的节点列表与 \verb*|A \mbox{} B| 相同，也按后者处理。这类写法在正常的
+% 源码里很少出现，目前接受这一限制；确实需要保留空格时，可以把空格写在命令
+% 之后的花括号里，或者改用 |~|。
 %
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
-%   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后} 这类无法区分的写法
-%   （\#1103）。}
+%   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
+%   \{\}\textbackslash mbox\{\} B} 这类无法区分的写法（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -5622,6 +5628,8 @@ Copyright and Licence
 % 包装在调用原命令之前把这一层的变量设为 |?|，只有第一个颜色推入命令（即
 % \tn{textcolor} 自己的 \tn{set@color}）存下编号；正文里的 \tn{color}、
 % \tn{normalcolor} 在同一层结束时不再覆盖它（|\textcolor{red}{A \color{blue}} B|）。
+% 不在 \tn{textcolor} 里时层数变量为 $-1$，分组层数 0 的 \tn{color} 也满足“深一层”，
+% 但这一层的变量没有创建，所以先检查变量是否存在。
 % 弹出命令在分组结束之后、层数等于包装记下的层数时执行，只在当前记录的编号
 % 等于这一层存下的编号时转交；不配对时把本层的 |after_space| 字段改为假。
 % 不经过 \tn{textcolor} 包装的 \tn{color} 与 \pkg{l3color} 不转交。
@@ -5671,13 +5679,21 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_push_end:
   {
     \@@_boundary_hmode_transparent_finish:
-    \bool_lazy_and:nnT
+    \bool_lazy_all:nT
       {
-        \int_compare_p:nNn { \tex_currentgrouplevel:D }
-          = { \l_@@_boundary_textcolor_level_int + 1 }
-      }
-      {
-        \str_if_eq_p:ee
+        {
+          \int_compare_p:nNn { \tex_currentgrouplevel:D }
+            = { \l_@@_boundary_textcolor_level_int + 1 }
+        }
+        {
+          \tl_if_exist_p:c
+            {
+              g_@@_boundary_color_origin_
+              \int_eval:n { \tex_currentgrouplevel:D - 1 } _tl
+            }
+        }
+        {
+          \str_if_eq_p:ee
           {
             \tl_use:c
               {
@@ -5686,6 +5702,7 @@ Copyright and Licence
               }
           }
           { ? }
+        }
       }
       {
         \tl_gset:ce
@@ -7933,6 +7950,10 @@ Copyright and Licence
 % 扫描过完整 \TeX{} Live 树，未发现任何宏包重定义 \cs{sbox~} 或对 \tn{sbox}
 % 安装 \texttt{cmd/sbox} 钩子，故接受这一取舍；\cs{cs_if_eq:cNF} 保证本包自身
 % 不会重复包装。
+%
+% 盒子之后清除“命令之后的空格待删去”的记录：\cs{@@_boundary_capture_resume:}
+% 恢复了暂停之前的记录，但 \tn{sbox} 之后的源码空格已经不与之前的命令相邻
+% （|A \mbox{}\sbox0{x}\mbox{} B| 与直接输入 |A \sbox0{x} B| 一样保留两枚空格）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_sbox:Nn #1#2
   {
@@ -7942,6 +7963,7 @@ Copyright and Licence
         \color@setgroup #2 \color@endgroup
         \@@_boundary_capture_resume:
       }
+    \bool_gset_false:N \g_@@_boundary_after_space_bool
   }
 \cs_new_protected:Npn \@@_boundary_prepare_sbox:
   {
