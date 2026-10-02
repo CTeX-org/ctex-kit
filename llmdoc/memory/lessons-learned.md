@@ -626,7 +626,7 @@ Curated cross-task rules distilled from archived memory.
 
 ### 生成与 `\meaning` 比较的字符串时用 `\c_backslash_str` 拼，不用 `\tl_to_str:n`
 **Rule**: `\tl_to_str:n`（以及 `\detokenize`）在每个控制词之后补一个空格，`\tl_to_str:n { \protected \long \outer }` 得到 `\protected \long \outer `；`\meaning` 打印前缀时控制词之间没有空格（`\protected\long\outer macro:`）。所以要与 `\meaning`、`\token_to_meaning:N` 的输出比较的字符串，用 `\c_backslash_str` 加名字拼出（如 `\str_const:Ne \c_..._str { \c_backslash_str protected \c_backslash_str long \c_backslash_str outer \c_space_tl }`），只在确实需要的位置加 `\c_space_tl`。写好后用一个真实定义的记号取 `\meaning`，与常量逐字比较一次再使用。
-**Why**: #1103 本地审查第六轮把 `\outer` 检查改为与四个前缀精确比较，第一版用 `\tl_to_str:n` 生成比较串，多了控制词之间的空格，`\protected\long\outer` 宏于是漏检，命令之后的检查又报 `Forbidden control sequence`。`boundary-empty-space01` 的 TEST 9 因此新增 `outer-D`（`\protected\long\outer\def`）固定这种前缀。
+**Why**: #1103 本地审查第六轮把 `\outer` 检查改为与四个前缀精确比较，第一版用 `\tl_to_str:n` 生成比较串，多了控制词之间的空格，`\protected\long\outer` 宏于是漏检，命令之后的检查又报 `Forbidden control sequence`。`boundary-empty-space01` 的“empty command followed by an outer macro”一组因此新增 `outer-D`（`\protected\long\outer\def`）固定这种前缀。
 **Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
 
 ### 暂停观察的机制要保存、恢复所有会被改动的全局状态，不要用分组层数限制全局记录的清除
