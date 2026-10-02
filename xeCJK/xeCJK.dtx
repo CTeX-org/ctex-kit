@@ -2062,8 +2062,9 @@ Copyright and Licence
 %   A \mbox{}\small\mbox{} B   % 比“A \small B”多一枚空格
 % \end{frameverb}
 % 已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、
-% \tn{phantomsection}、线型命令等）不受这一限制。用户自己定义的宏先展开再判断，
-% 展开后什么也没有的宏（如 |\def\Nop{}|）同样不受限制。另一方面，
+% \tn{phantomsection}、线型命令等）不受这一限制。不带参数的用户宏先展开再判断，
+% 展开后什么也没有的宏（如 |\def\Nop{}|）同样不受限制；带参数的宏（如
+% \tn{UseHook}\verb|{...}|）不展开，按排出内容处理。另一方面，
 % \pkg{xeCJK} 是按展开后的记号判断的，宏的参数里写着没有可见输出的命令时，
 % 同样按直接写出处理：定义 |\newcommand\Id[1]{#1}| 之后，
 % \verb*|A \Id{\mbox{}} B| 与 \verb*|A \mbox{} B| 相同，比
@@ -4755,6 +4756,7 @@ Copyright and Licence
 %   \g_@@_boundary_after_space_clean_bool,
 %   \g_@@_boundary_after_space_expanded_bool,
 %   \g_@@_boundary_after_space_identity_bool,
+%   \g_@@_boundary_after_space_math_block_bool,
 %   \l_@@_boundary_after_space_kind_tl,
 %   \@@_boundary_if_capture_box_empty:,
 %   \@@_boundary_if_box_zero:N,
@@ -5610,11 +5612,12 @@ Copyright and Licence
 % 这个钩子默认什么都不做；\pkg{xeCJKfntef} 在线型命令的正文只有注册盒子时用它
 % 重放入口 marker（\#1091）。
 %
-% |entry| 不是 |resolved|、首类别为空而末类别是 |math| 时，命令其实排出了公式：
-% \tn{textcolor} 的正文以用户宏开头、以公式结尾（|A \textcolor{red}{\Nop $x$} B|），
-% 公式开头不是正文的第一个记号，没有报告首类别，结尾时却确认了末类别。这时
-% 照常调用 \cs{@@_boundary_replay_before:} 放回入口空格，不按“无可见输出”处理，
-% 命令之后的空格保留（\#1103）。
+% |entry| 不是 |resolved|、首类别为空而末类别是 |math|、|math-space| 或
+% |math-space-frozen| 时，命令其实排出了公式：\tn{textcolor} 的正文以用户宏开头、
+% 以公式结尾（|A \textcolor{red}{\Nop $x$} B|，或公式之后还有空格的
+% |A \textcolor{red}{\Nop $x$ } B|），公式开头不是正文的第一个记号，没有报告首
+% 类别，结尾时却确认了末类别。这时照常调用 \cs{@@_boundary_replay_before:}
+% 放回入口空格，不按“无可见输出”处理，命令之后的空格保留（\#1103）。
 %    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
@@ -5630,8 +5633,12 @@ Copyright and Licence
                   { \@@_boundary_resolved_end_hook: }
               }
               {
-                \str_if_eq:VnTF \l_@@_boundary_last_tl { math }
-                  { \@@_boundary_replay_before: }
+                \str_case:VnF \l_@@_boundary_last_tl
+                  {
+                    { math } { \@@_boundary_replay_before: }
+                    { math-space } { \@@_boundary_replay_before: }
+                    { math-space-frozen } { \@@_boundary_replay_before: }
+                  }
                   { \@@_boundary_replay_before_empty: }
               }
           }
@@ -6980,23 +6987,38 @@ Copyright and Licence
 % （\cs{@@_boundary_after_space_if_color_body_end:F}）。\pkg{hyperref} 的
 % \tn{hypertarget}、\tn{phantomsection} 在内层出口之后还有
 % |\fi\expandafter\put@me@back|、|\UseHookWithArguments| 这样的代码，它们若被当作
-% 用户宏展开，就会一路展开到 \tn{let}、\tn{global} 把标志改为假。\tn{fi}、
-% \tn{expandafter} 这类可展开原语照常展开一层，但不设下文的 expanded 标志：
-% \tn{fi} 展开后消失，\tn{expandafter} 展开后露出的 \tn{put@me@back} 名字里有
-% |@|，仍按宏包代码处理；用户直接写的 \tn{csname}、\tn{ifnum} 展开后若排出
-% \tn{rule}、\tn{special}，同样把标志改为假。只有在 \tn{UseHookWithArguments}
-% 这一个名字上按宏包代码处理：\tn{UseHook} 等由用户直接写出时，照常当作可能
-% 排出内容的命令。其余控制序列
-% （\tn{rule}、\tn{special}、\tn{par}、\tn{textbf} 等文字命令，以及用户宏展开后
-% 得到的任何不可展开的控制序列）、左花括号和其他右花括号都把它改为假：TeX 无法
-% 预先知道它们会不会排出内容，按排出处理，与以前一样保留两侧空格。展开用户的
-% 宏之后（\cs{g_@@_boundary_after_space_expanded_bool}），即使看到空格也不删去，
-% 看到 |$| 也不补间距：展开得到的空格与 |$| 不在源码里紧跟命令。只有一个例外：
-% 含义与 \cs{@@_boundary_identity:n} 相同的宏（|\newcommand\Id[1]{#1}|）不设这个
-% 标志。直接输入 |中 \Id{$x$}| 时 xeCJK 的前视也越过这种宏看 |$|，补公式前的
-% 间距，删去命令之后照样补。直接输入 |中 \Id{\Nop $x$}| 时前视停在 \tn{Nop}，
-% 不补间距；所以展开过这种宏之后（\cs{g_@@_boundary_after_space_identity_bool}），
-% 再遇到其他用户宏时仍设 expanded 标志。
+% 用户宏展开，就会一路展开到 \tn{let}、\tn{global} 把标志改为假。
+%
+% 可展开的记号分三类处理（\cs{@@_boundary_after_space_unknown_cs:N}）：
+% \begin{itemize}
+%   \item 不带参数的用户宏（|\def\Nop{}|、|\def\Sp{ }|）与 \tn{fi}、\tn{csname}、
+%     \tn{ifnum}、\tn{expandafter} 一类可展开原语展开一层再看。\tn{fi} 展开后消失，
+%     \tn{expandafter} 展开后露出的 \tn{put@me@back} 名字里有 |@|，hyperref 的
+%     代码因此不改动标志；用户直接写的 \tn{csname}、\tn{ifnum} 展开后若排出
+%     \tn{rule}、\tn{special}，把标志改为假。
+%   \item 带参数的用户宏（\tn{UseHook}、|\newcommand\Gobble[1]{}|，以及
+%     \cs{NewDocumentCommand} 定义的命令）不展开，按可能排出内容处理。展开它们
+%     会连参数一起吃掉，看不出参数原来在源码里的位置；直接输入
+%     |A \Gobble{x} B| 保留两枚空格，所以这里也保留。含义与
+%     \cs{@@_boundary_identity:n} 相同的宏（|\newcommand\Id[1]{#1}|）例外，照常
+%     展开：它展开后参数原样留在原处。
+%   \item \tn{noexpand}、\tn{primitive} 不展开，按可能排出内容处理。它们给下一个
+%     记号加的“不展开”标记，在 \cs{peek_after:Nw} 读走记号之后就丢失了。
+% \end{itemize}
+% 展开用户宏之后（\cs{g_@@_boundary_after_space_expanded_bool}）即使看到空格也
+% 不删去：展开得到的空格不在源码里紧跟命令；之后遇到名字里有 |@|、|_| 的记号
+% 也不再当作宏包代码，把标志改为假。是否在 |$| 之前补间距另由
+% \cs{g_@@_boundary_after_space_math_block_bool} 决定，与直接输入时 xeCJK 的前视
+% 一致：前视只越过含义为 \cs{@@_boundary_identity:n} 的宏看 |$|，所以展开过其他
+% 用户宏或可展开原语之后不补（|中 \mbox{}\ifhmode $x$\fi| 与直接输入
+% |中 \ifhmode $x$\fi| 相同，15.72pt）。前视越过恒等宏之后，参数里的
+% |\Nop $x$| 由 \tn{Nop} 自己的边界处理，直接输入 |中 \Id{\Nop $x$}| 补间距
+% （19.05pt）；所以展开过恒等宏之后（\cs{g_@@_boundary_after_space_identity_bool}）
+% 再展开用户宏时只设 expanded 标志，不设这个标志。
+% 其余控制序列（\tn{rule}、\tn{special}、\tn{par}、\tn{textbf} 等文字命令，以及
+% 展开后得到的任何不可展开的控制序列）、左花括号和其他右花括号都把 clean 标志
+% 改为假：TeX 无法预先知道它们会不会排出内容，按排出处理，与以前一样保留两侧
+% 空格。
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
@@ -7024,6 +7046,7 @@ Copyright and Licence
           {
             \bool_gset_false:N \g_@@_boundary_after_space_expanded_bool
             \bool_gset_false:N \g_@@_boundary_after_space_identity_bool
+            \bool_gset_false:N \g_@@_boundary_after_space_math_block_bool
             \@@_boundary_after_space_peek:
           }
           { \bool_gset_false:N \g_@@_boundary_after_space_bool }
@@ -7094,7 +7117,7 @@ Copyright and Licence
                 \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
                 \bool_lazy_and:nnT
                   { \g_@@_boundary_after_space_drop_bool }
-                  { ! \g_@@_boundary_after_space_expanded_bool }
+                  { ! \g_@@_boundary_after_space_math_block_bool }
                   { \@@_boundary_after_space_brace:w }
               }
               {
@@ -7111,7 +7134,7 @@ Copyright and Licence
                     \bool_gset_false:N \g_@@_boundary_after_space_bool
                     \bool_lazy_and:nnTF
                       { \g_@@_boundary_after_space_drop_bool }
-                      { ! \g_@@_boundary_after_space_expanded_bool }
+                      { ! \g_@@_boundary_after_space_math_block_bool }
                       { \@@_boundary_after_space_math_test: }
                       { \group_align_safe_end: }
                   }
@@ -7348,9 +7371,9 @@ Copyright and Licence
   {
     \@@_boundary_if_internal_name:nTF {#1}
       {
-        \bool_if:NTF \g_@@_boundary_after_space_expanded_bool
-          { \@@_boundary_after_space_unknown_cs:N #2 }
-          { \prg_return_true: }
+        \bool_if:NT \g_@@_boundary_after_space_expanded_bool
+          { \bool_gset_false:N \g_@@_boundary_after_space_clean_bool }
+        \prg_return_true:
       }
       {
         \prop_get:NnNTF \g_@@_boundary_registered_prop {#1}
@@ -7393,20 +7416,39 @@ Copyright and Licence
     \token_if_eq_meaning:NNTF #1 \@@_boundary_identity:n
       { \bool_gset_true:N \g_@@_boundary_after_space_identity_bool }
       {
-        \bool_lazy_and:nnT
-          { \token_if_macro_p:N #1 }
-          { ! \g_@@_boundary_after_space_identity_bool }
-          { \bool_gset_true:N \g_@@_boundary_after_space_expanded_bool }
+        \token_if_macro:NTF #1
+          {
+            \bool_gset_true:N \g_@@_boundary_after_space_expanded_bool
+            \bool_if:NF \g_@@_boundary_after_space_identity_bool
+              { \bool_gset_true:N \g_@@_boundary_after_space_math_block_bool }
+          }
+          { \bool_gset_true:N \g_@@_boundary_after_space_math_block_bool }
       }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_unknown_cs:N #1
   {
-    \token_if_expandable:NTF #1
-      { \prg_return_false: }
+    \bool_lazy_any:nTF
+      {
+        { ! \token_if_expandable_p:N #1 }
+        { \token_if_eq_meaning_p:NN #1 \tex_noexpand:D }
+        { \token_if_eq_meaning_p:NN #1 \tex_primitive:D }
+        {
+          \bool_lazy_and_p:nn
+            { \token_if_macro_p:N #1 }
+            {
+              \bool_lazy_and_p:nn
+                { ! \token_if_eq_meaning_p:NN #1 \@@_boundary_identity:n }
+                {
+                  ! \str_if_eq_p:ee { \cs_parameter_spec:N #1 } { }
+                }
+            }
+        }
+      }
       {
         \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
         \prg_return_true:
       }
+      { \prg_return_false: }
   }
 \tl_new:N \l_@@_boundary_after_space_kind_tl
 \prg_new_protected_conditional:Npnn
@@ -7435,6 +7477,7 @@ Copyright and Licence
 \bool_new:N \g_@@_boundary_after_space_clean_bool
 \bool_new:N \g_@@_boundary_after_space_expanded_bool
 \bool_new:N \g_@@_boundary_after_space_identity_bool
+\bool_new:N \g_@@_boundary_after_space_math_block_bool
 \bool_new:N \g_@@_boundary_after_space_bool
 \tl_new:N \g_@@_boundary_after_space_tl
 \bool_new:N \g_@@_boundary_after_space_drop_bool

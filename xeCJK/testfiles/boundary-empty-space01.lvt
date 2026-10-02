@@ -535,12 +535,17 @@
 % 留下节点，第二个命令之前的列表与 |A \sbox0{x}\mbox{} B| 相同，属于用户手册
 % 说明的无法区分的写法，这里只比较 xCJKecglue=false。
 \newsavebox\EmptySaveBox
+\newcommand\EmptyGobble[1]{}
 \TEST{sbox between empty commands}{
   \xeCJKsetup{xCJKecglue=false}%
   \EmptyColorTail{mbox-sbox-mbox}{A \mbox{}\sbox0{x}\mbox{} B}{A \sbox0{x} B}%
   \EmptyColorTail{mbox-sbox-tc}{A \mbox{}\sbox0{x}\textcolor{red}{} B}{A \sbox0{x} B}%
   \EmptyColorTail{mbox-savebox-mbox}{A \mbox{}\savebox\EmptySaveBox{x}\mbox{} B}{A \savebox\EmptySaveBox{x} B}%
   \EmptyColorTail{mbox-sbox-uline}{A \mbox{}\sbox0{}\uline{} B}{A \sbox0{} B}%
+  % 带参数的用户宏展开时连参数一起吃掉，按可能排出内容处理，第二个命令之后的
+  % 空格保留。xCJKecglue=true 时同样属于上面说的无法区分的写法。
+  \EmptyColorTail{mbox-usehook-mbox}{A \mbox{}\UseHook{empty/hook}\mbox{} B}{A \UseHook{empty/hook} B}%
+  \EmptyColorTail{mbox-gobble-mbox}{A \mbox{}\EmptyGobble{x}\mbox{} B}{A \EmptyGobble{x} B}%
 }
 
 % 空命令之后紧跟 \rule、\special 等可能排出内容的命令时，记录不能留给后面
@@ -561,6 +566,8 @@
 }
 \def\EmptyNop{}
 \newcommand\EmptyId[1]{#1}
+\def\EmptySp{ }
+\def\EmptyFoo{X}
 \newcommand\EmptyStaleAll{%
   \EmptyColorTail{rule-mbox}{A \mbox{}\rule{2pt}{1pt}\mbox{} B}{A \rule{2pt}{1pt} B}%
   \EmptyColorTail{rule-tc}{A \mbox{}\rule{2pt}{1pt}\textcolor{red}{} B}{A \rule{2pt}{1pt} B}%
@@ -616,6 +623,19 @@
   \EmptyColorTail{tc-nop-math-L}{A \textcolor{red}{\EmptyNop $x$} B}{A {\EmptyNop $x$} B}%
   \EmptyColorTail{tc-nop-display-L}{A \textcolor{red}{\EmptyNop $$} B}{A {\EmptyNop $$} B}%
   \EmptyColorTail{id-nop-math}{中 \mbox{}\EmptyId{\EmptyNop $x$}}{中 \EmptyId{\EmptyNop $x$}}%
+  % 恒等宏的参数里另有用户宏：展开得到的空格、展开为空之后紧跟的源码空格都
+  % 不删去。
+  \EmptyColorTail{id-nop-L}{A \mbox{}\EmptyId{\EmptyNop} B}{A \EmptyId{\EmptyNop} B}%
+  \EmptyColorTail{id-sp-L}{A \mbox{}\EmptyId{\EmptySp}B}{A \EmptyId{\EmptySp}B}%
+  % \noexpand 不能展开：展开之后记号丢掉“不展开”的标记，会被当作宏再展开。
+  \EmptyColorTail{noexpand-L}{A \mbox{}\noexpand\EmptyFoo B}{A \noexpand\EmptyFoo B}%
+  \EmptyColorTail{tc-noexpand-L}{A \textcolor{red}{\noexpand\EmptyFoo} B}{A {\noexpand\EmptyFoo} B}%
+  % 颜色正文以用户宏开头、以公式加空格结尾。
+  \EmptyColorTail{tc-nop-math-space-L}{A \textcolor{red}{\EmptyNop $x$ } B}{A {\EmptyNop $x$ } B}%
+  \EmptyColorTail{tc-relax-math-space-L}{A \textcolor{red}{\relax $x$ } B}{A {\relax $x$ } B}%
+  % \ifhmode、\csname 展开之后紧跟 $：直接输入的前视不越过它们，不补间距。
+  \EmptyColorTail{ifhmode-math}{中 \mbox{}\ifhmode $x$\fi}{中 \ifhmode $x$\fi}%
+  \EmptyColorTail{csname-math}{中 \mbox{}\csname relax\endcsname $x$}{中 \csname relax\endcsname $x$}%
 }
 \TEST{stale record after an empty command}{
   \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyStaleAll \endgroup
