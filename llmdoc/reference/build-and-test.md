@@ -215,22 +215,24 @@
 
 ### 没有可见输出的命令两侧的源码空格（`boundary-empty-space01`，#1103）
 
-`boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 3824 项比较（本地审查第一轮前为 2305 项，第一轮后为 3803 项，第二轮后为 3824 项），失败数为 0；每个候选之后还断言 capture depth 归零。
+`boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 3848 项比较（本地审查第一轮前为 2305 项，第一轮后为 3803 项，第二轮后为 3824 项，最终全范围审查第四轮后为 3848 项），失败数为 0；每个候选之后还断言 capture depth 归零。
 
 - **oracle 是删去命令后的直接输入**，不是推出来的关系。曾用“11 组合应等于 10 或 01”辅助判断，最后改回以实际排版的直接输入为准。
 - **命令**：用户注册的空 `stream`、`transparent`、`box` 命令，`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`、`\uline{}`、`\numlist{}`、`\unit{}`，共 9 个；`\EmptyLeftForCommands` 另加 `\color{red}`，共 10 个。
-- **组成**：8 个 TEST。
+- **组成**：10 个 TEST。
   - TEST 1–4 为默认间距／可区分间距 × `xCJKecglue=false/true`，每个 TEST 952 项（第二轮后 950 + 2）：16 组左右文字只比较两侧都有空格的写法（`\EmptyBothForCommands`，9 × 16 = 144）；21 组比较 `00/10/01/11` 四种写法（`\EmptyForCommands`，9 × 21 × 4 = 756），其中第一轮审查后新增的 9 组是左侧紧贴 `~`、`\nobreakspace{}` 的 `tie-C`、`tie-L`、`tie-math`、`tie-hbox`、`Ltie-L`、`nbsp-C`，以及命令之后是花括号或颜色命令的 `C-groupC`、`C-colorC`、`groupC-colorC`；`C-groupmath`（`中` 与 `{$y$}`）、`C-colormath`（`中` 与 `\color{red}$y$`）只比较左侧有空格的 `10/11`（`\EmptyLeftForCommands`，10 × 2 × 2 = 40）；`\color{red}` 本身另有 `C-C/color`、`C-groupC/color` 两组四种写法与 `groupC-math/color` 的 `10/11`（10 项）；`color-math-direct` 的 `10/11` 把 `中 \color{red}$y$` 与不含颜色命令的 `中 $y$` 比较（2 项，第二轮后新增：`C-colormath` 的 oracle 也含 `\color`，`\color` 本身在公式之前丢失间距时两边一起出错，捕获不到）。
   - TEST 5 单独比较 `A \phantomsection{} 文` 与 `A {} 文`（不带 `{}` 时命令名后的空格在读取控制序列名时就被跳过）。
   - TEST 6 在 `tabular` 单元格末尾放 `\mbox{}`、`\textcolor{red}{}`、`\hypertarget{t}{}`、`\uline{}`、`\unit{}`（`中 \mbox{} & 文`），与删去命令的表格比较整表宽度，1 项；以前报 `Extra alignment tab`。
   - TEST 7（本地审查第二轮后新增）在 plain `\halign{#&#\cr ...}` 里比较命令之后紧跟 `\cr`、`\crcr`、`\span` 的写法，与删去命令的对齐比较整个 `\vbox` 的宽度，10 项：`\cr` 之前分别放 `\mbox{}`、`\RegStream{}`、`\RegTrans{}`、`\textcolor{red}{}`、`\unit{}`、`\hypertarget{a}{}`（左侧 `中 `）与左侧 `A ` 的 `\mbox{}`，另有 `\crcr`、`\span` 各一项与 `中 \mbox{} \cr`（命令与 `\cr` 之间有空格）一项。
-  - TEST 8 比较零尺寸盒子，4 项：有可见内容的 `A \mbox{\smash{\rlap{\rule{2pt}{1pt}}}} B`；第二轮后新增的 `disc/11`，即 `A \mbox{\discretionary{}{}{\kern0pt}} B`（末尾节点属于 `\discretionary` 的不断行文本，删不掉）；以及只有两枚相同 fil glue、没有输出的 `\makebox[0pt]{}`（`makebox0/11`、`makebox0-L/11`）。后两项来自同一处修改：空盒子探测最初用“删除前后末尾状态相同”判断删不掉，`\makebox[0pt]{}` 删去一枚 fil glue 后末尾状态也不变，被误判为有输出，审查者矩阵上 858 项回到修复前的结果；改为限制删除次数。
+  - TEST 8（第四轮后新增）比较列模板以命令结尾的 plain `\halign`，6 项：命令经宏 `\EmptyTemplateCmd` 放在模板末尾（`\halign{#\EmptyTemplateCmd\cr 中 \cr}`），使命令之后紧接 TeX 插入的 `\endtemplate`，与 `\halign{#\cr 中 \cr}` 比较整个 `\vbox` 的宽度；命令为 `\mbox{}`、`\RegStream{}`、`\textcolor{red}{}`、`\unit{}`、`\hypertarget{z}{}`、`\uline{}`。
+  - TEST 9（第四轮后新增）比较颜色正文以空格结尾的写法，9 项 × `xCJKecglue=false/true` = 18 项，oracle 是删去颜色命令、保留分组的直接输入：`\textcolor{red}{A } B`、`{\color{red}red } text`、`{\color{red}A } 中`、`\textcolor{red}{A\ } B`、`\textcolor{red}{A } $y$`、`\textcolor{red}{A } ~B`、`\uline{\textcolor{red}{A } B}`；另有 `中 \textcolor{red}{} 文`、`A \textcolor{red}{} B` 两项，确认 `\set@color` 留下的记录仍由 `\reset@color` 转交。
+  - TEST 10 比较零尺寸盒子（第四轮前为 TEST 8），4 项：有可见内容的 `A \mbox{\smash{\rlap{\rule{2pt}{1pt}}}} B`；第二轮后新增的 `disc/11`，即 `A \mbox{\discretionary{}{}{\kern0pt}} B`（末尾节点属于 `\discretionary` 的不断行文本，删不掉）；以及只有两枚相同 fil glue、没有输出的 `\makebox[0pt]{}`（`makebox0/11`、`makebox0-L/11`）。后两项来自同一处修改：空盒子探测最初用“删除前后末尾状态相同”判断删不掉，`\makebox[0pt]{}` 删去一枚 fil glue 后末尾状态也不变，被误判为有输出，审查者矩阵上 858 项回到修复前的结果；改为限制删除次数。
   - 修复前后相同、或修复前也与直接输入不一致的组合不列入；已接受的回退 `中{ }\cmd 文`（维护者决定，见 [[../memory/decisions/1103-group-space-before-empty-command]]）也不列入。两者都登记在 [[../memory/doc-gaps]]。
-- **判别力**：第一轮审查前的 head 上，tie 类 216 项失败，`C-groupmath` 80 项失败（`C-colormath` 0 项，原因见上），TEST 6 报错。第二轮新增的用例在上一提交 `3e2eb5e2` 上报错：TEST 7 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，`disc/11` 报 `TeX capacity exceeded`（空盒子探测无限递归）。修复 #1103 之前（PR 原 head 1008 项、master 1070 项失败）的数字是对 2305 项的旧版测试计算的。
+- **判别力**：第一轮审查前的 head 上，tie 类 216 项失败，`C-groupmath` 80 项失败（`C-colormath` 0 项，原因见上），TEST 6 报错。第二轮新增的用例在上一提交 `52217645` 上报错：TEST 7 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，`disc/11` 报 `TeX capacity exceeded`（空盒子探测无限递归）。第四轮新增的用例在上一 head `410f365d` 上：TEST 9 失败 14 项，TEST 8 报 `Forbidden control sequence`。修复 #1103 之前（PR 原 head 1008 项、master 1070 项失败）的数字是对 2305 项的旧版测试计算的。
 - **oracle 的空格单独给出。** 用宏参数拼写法时，作为参数传入的两个空格记号不会像源码那样合并成一个，所以 oracle 的空格由第七个参数单独提供，两侧都有空格时只放一个。左侧以控制空格 `\ ` 结尾时，源码里紧跟的空格会被跳过，用记号拼出的写法却保留它，这类左侧因此只比较两侧都有空格的写法。
 - **每次排版前重置全局状态。** 候选与 oracle 排版前都清空 `\g__xeCJK_last_node_tl`、把 `\g__xeCJK_glue_check_pending_bool` 置假，否则前一项留下的状态会带进下一项，产生假失败；构造外部矩阵（本地 `tmp/i1103/gen`）时曾因此出现假失败。外部矩阵重构后，先单独运行几个失败单元确认不是状态泄漏。
 - **外部矩阵全对不能代替全量 `l3build check`。** 外部矩阵（9 左 × 9 右 × 10 命令 × 4 空格组合 × 4 间距设置）全部与直接输入一致时，全量检查仍发现 `hyperref-anchor-ecglue01` 与 `fntef-entry-space01` 失败；前者是给 `\hypertarget` 挂的检查删去了非空 `\hypertarget{t5}{锚}` 之后的间距，改为只在第二参数为空时检查。外部矩阵只覆盖设计时想到的命令与写法。
-- **审查者的独立矩阵更宽。** 本地审查第一轮的审查者用 110448 组的外部矩阵比对，发现了本文件当时没有覆盖的表格单元格末尾、左侧 `~`、`\color` 后接公式等写法。修复后这个矩阵上相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法）：矩阵的 oracle 写成 `中 $y$`，但 `\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。用宏拼 oracle 时，删去不读参数的命令要保留它后面的 `{}`。这个矩阵的左侧没有 `{ }` 这类写在花括号里的空格，所以没有暴露 `X{ }\cmd Y` 的回退；第二轮审查者的矩阵包含它，在每种间距设置下各有 126 项（9 个命令 × 14 种右侧，`01` 写法），维护者决定接受，见 [[../memory/doc-gaps]]。第二轮审查还发现了 plain `\halign` 与 `\discretionary` 两类问题，即上面的 TEST 7 与 `disc/11`。
+- **审查者的独立矩阵更宽。** 本地审查第一轮的审查者用 110448 组的外部矩阵比对，发现了本文件当时没有覆盖的表格单元格末尾、左侧 `~`、`\color` 后接公式等写法。修复后这个矩阵上相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法）：矩阵的 oracle 写成 `中 $y$`，但 `\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。用宏拼 oracle 时，删去不读参数的命令要保留它后面的 `{}`。这个矩阵的左侧没有 `{ }` 这类写在花括号里的空格，所以没有暴露 `X{ }\cmd Y` 的回退；第二轮审查者的矩阵包含它，在每种间距设置下各有 126 项（9 个命令 × 14 种右侧，`01` 写法），维护者决定接受，见 [[../memory/doc-gaps]]。第二轮审查还发现了 plain `\halign` 与 `\discretionary` 两类问题，即上面的 TEST 7 与 `disc/11`。各轮矩阵（含审查者的）都只把颜色命令当作被删去的命令本身来测，没有“颜色正文末尾有空格”这种由颜色命令隐式插入 `\reset@color` 的写法，也没有列模板以命令结尾的 `\halign`；最终全范围审查第四轮发现这两类，即上面的 TEST 9 与 TEST 8。
 
 `fntef-entry-space01` 有 9 项期望值随直接输入改变：oracle 里的颜色命令本身是已注册的透明命令，#1103 后 `符 {\color{red}~中} 后` 由 36.66pt 变为 33.33pt，与 `符 {~中} 后` 一致（同组还有 `\hspace{1em}` 版 43.33→40.0、公式加尾随空格的两项各少 3.33pt）；另有一处节点列表在颜色 push 之后多出一对 marker kern。
 
@@ -344,7 +346,7 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 - #1092 的 6 组输出以汉字开头或结尾的矩阵：`range-open-phrase=从`、汉字单位（`\qty`、`\qtyrange`、`mode=text` 下的 `\qtylist`）、汉字 `duration-unit-*`、`angle-symbol-degree=度`。汉字单位用 `mode=text` 或 `\text{元}` 包住；直接在数学模式里排汉字时数学字体没有该字形，日志报 `Missing character`，宽度比较没有意义。
 - #1092 的 5 组单侧比较（`\BoundarySides`）：以 `\text{元}` 开头、以数学字母结尾的单位（`\qty{5}{\TextYuan\per\kilogram}` 等）只在公式前报告 Default 时，右侧少补 `\CJKecglue`。`\BoundaryMatrix` 只比较“中 命令 文”的总宽度，一侧多一枚、另一侧少一枚会互相抵消，所以这类写法要分开比较两侧。
 
-oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=false` 且两侧有源码空格时，注册命令两端报告 Default，源码空格变成 `\CJKecglue`，与公式边界的结果不同。变异结果：改回固定 Default 首尾时，6 组汉字边缘矩阵各失败 16 次；去掉 `\siunitx_print_math:n` 的补报时，所有输出数学内容的命令都失败；注册列表退回 #1000 时，14 组中文上下文矩阵各失败 16 次（`9c9400e3` 时的结果）；去掉公式之后的补报时，3 组 `\text{元}` 加数学单位的右侧各失败 8 次，把“末项是 `\text`”判断恒置为假时，汉字单位结尾的矩阵失败。
+oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=false` 且两侧有源码空格时，注册命令两端报告 Default，源码空格变成 `\CJKecglue`，与公式边界的结果不同。变异结果：改回固定 Default 首尾时，6 组汉字边缘矩阵各失败 16 次；去掉 `\siunitx_print_math:n` 的补报时，所有输出数学内容的命令都失败；注册列表退回 #1000 时，14 组中文上下文矩阵各失败 16 次（`d78b1bbf` 时的结果）；去掉公式之后的补报时，3 组 `\text{元}` 加数学单位的右侧各失败 8 次，把“末项是 `\text`”判断恒置为假时，汉字单位结尾的矩阵失败。
 
 本地 TeX Live 的 siunitx 可能比 CI 旧（#1092 时本地 3.5.5，CI 3.6.3）。l3build 不读外部 `TEXINPUTS`；要用另一版本的 siunitx 复现，先跑一次 `l3build check` 生成 `build/test/`，再把该版本的 `.sty`/`.cfg` 复制进去，在该目录直接 `xelatex` 编译 `.lvt`，用完删除复制的文件。预热段（`\OMIT`/`\TIMO`）先消化 siunitx 数学字体加载与旧名 deprecation 消息，避免污染规范化日志。
 
@@ -820,7 +822,7 @@ xeCJKfntef 的线条问题要区分三件事：leader 原语怎样排列装饰�
 
 从源码树编译 MWE 时，必须检查日志实际加载的 `xeCJKfntef.sty` 路径，确认它来自当前工作树的生成目录，而不是系统 TeX Live 中的旧版同名文件。输出目录名和运行命令不能替代这项检查。
 
-常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 125 项（#1103 后）。
+常见全角 CJK 字体和字重在同字号下通常不改变一 em 字宽及 leaders 几何，主要影响异常是否醒目；字号、非一 em 字宽、标点、特殊盒子和实际伸缩胶水则会改变片段宽度或余数。因此，自动回归不必复制完整字体矩阵，但必须覆盖真实字号、单元比例和实际使用伸缩量的断行；视觉抽样再加入 Serif／Sans、Regular／Black 等少量对照。xeCJK 标准测试当前为 126 项（#1104、#1103 后）。
 
 ### tabular 中的 CJK 与换行命令（`tabular01`，#1038）
 

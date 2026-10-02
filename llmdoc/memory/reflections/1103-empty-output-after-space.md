@@ -99,19 +99,37 @@ metadata:
 
 ## 本地审查第二轮
 
-第一轮修复提交为 `3e2eb5e2`。本地审查第二轮报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
+第一轮修复提交为 `52217645`。本地审查第二轮报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
 
-1. **阻塞：plain `\halign` 中命令之后紧跟 `\cr`、`\crcr`、`\span` 时报错。** `中 \mbox{}\cr` 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，修复前的 `25a33aef` 不报错。第一轮只把对 `\l_peek_token` 的判断移进了 align-safe 分组，控制序列分支仍先结束分组，再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；读参数时碰到对齐记号，TeX 同样插入列模板。现在 `\__xeCJK_boundary_after_space_test:` 把空格以外的分派拆到 `\__xeCJK_boundary_after_space_test_other:`，先在分组内用新增的 `\__xeCJK_boundary_if_peek_align:TF` 排除含义为 `\cr`、`\crcr`、`\span` 的记号，作废记录，再处理其他控制序列。
+1. **阻塞：plain `\halign` 中命令之后紧跟 `\cr`、`\crcr`、`\span` 时报错。** `中 \mbox{}\cr` 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，修复前的 `e641743e` 不报错。第一轮只把对 `\l_peek_token` 的判断移进了 align-safe 分组，控制序列分支仍先结束分组，再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；读参数时碰到对齐记号，TeX 同样插入列模板。现在 `\__xeCJK_boundary_after_space_test:` 把空格以外的分派拆到 `\__xeCJK_boundary_after_space_test_other:`，先在分组内用新增的 `\__xeCJK_boundary_if_peek_align:TF` 排除含义为 `\cr`、`\crcr`、`\span` 的记号，作废记录，再处理其他控制序列。
 2. **重要：空盒子探测无限递归。** `A \mbox{\discretionary{}{}{\kern0pt}} B` 报 `TeX capacity exceeded`：列表末尾的节点属于 `\discretionary` 的不断行文本，`\unkern` 删不掉它，`\__xeCJK_boundary_box_empty_probe:` 反复看到同一个节点。新增 `\__xeCJK_boundary_box_empty_probe_remove:N`，限制删除次数（第 64 次起不再删除），超过就停下，按有可见输出处理（最初比较删除前后的末尾状态，因 `\makebox[0pt]{}` 误判而改掉，见下文教训）；`\box_set_to_last:N` 取到空盒子或不是 hbox 时也停下，取到非零尺寸的盒子时放回。
 3. **小问题：`unchecked` 标志的 dtx 注释与实现不符。** 实现只在入口前是 `CJK` marker 时设置，注释仍写“`CJK` 或 `CJK-space` marker”，已更正。
 4. **小问题：无输出透明盒子判据的 dtx 注释过时。** 注释仍写“宽、高、深都为零的透明盒子”，改为引用 `\__xeCJK_boundary_if_capture_box_empty:TF`。
 
 另外，第二轮审查者的矩阵左侧包含 `{ }`，暴露了第一轮登记有误的 `中{ }\cmd 文`。第一轮把它登记为“修复前后相同，或修复前也与直接输入不一致”；实测修复前与直接输入一致，现在少一枚空格（`中{ }\mbox{} 文` 修复前 26.66pt、现在 23.33pt、直接输入 26.66pt；`A{ }\mbox{} B` 为 21.24／17.91／21.24pt），是回退。它在命令之前的节点列表与 `X{} \cmd Y`、`X\ \cmd Y`、`X\space\cmd Y` 相同，后三者修复前多一枚空格、现在正确。审查者的矩阵在每种间距设置下各有 126 项这类回退（9 个命令 × 14 种右侧，`01` 写法）。维护者决定保留当前修复，作为已知限制写入用户手册（`xeCJK/xeCJK.dtx`「CJK 文字与命令交互时的间距」一节）并给出替代写法，见 `llmdoc/memory/decisions/1103-group-space-before-empty-command.md`。第一轮写下的“相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 oracle 写错”只对第一轮审查者的矩阵成立，那个矩阵左侧没有 `{ }`，`doc-gaps.md` 与 `build-and-test.md` 已补充说明。
 
-测试 `boundary-empty-space01` 由 3803 项增至 3824 项：新增 TEST 7（plain `\halign` 的 `\cr`、`\crcr`、`\span`，10 项），零尺寸盒子一组（现为 TEST 8）增加 `disc/11` 与两项 `\makebox[0pt]{}`，TEST 1–4 各增加两项 `color-math-direct`。这些新用例在 `3e2eb5e2` 上分别报 `Forbidden control sequence` 与 `TeX capacity exceeded`。
+测试 `boundary-empty-space01` 由 3803 项增至 3824 项：新增 TEST 7（plain `\halign` 的 `\cr`、`\crcr`、`\span`，10 项），零尺寸盒子一组（现为 TEST 8）增加 `disc/11` 与两项 `\makebox[0pt]{}`，TEST 1–4 各增加两项 `color-math-direct`。这些新用例在 `52217645` 上分别报 `Forbidden control sequence` 与 `TeX capacity exceeded`。
 
 ### 教训
 
 - **align-safe 规则要覆盖“读成参数”。** 第一轮的教训写成“读取 `\l_peek_token` 时必须仍在 align-safe 分组内”，只管住了判断，没有管住把下一个记号当作宏参数读入。读参数与判断一样会让 TeX 看到对齐记号。修复第一轮时只测了 LaTeX `tabular` 的 `&`，没有测 plain `\halign` 的 `\cr`、`\crcr`、`\span`；按第一轮“左侧、右侧与上下文各自列出可能的记号种类”的教训，表格上下文的右侧应列出全部对齐记号。`memory/lessons-learned.md` 中的对应条目已改写。
 - **“无法区分”时先比较修复前的行为，再决定登记方式。** 判断某个写法“无法区分”只说明新代码对它与另一写法给出同样的结果，不说明这个结果相对修复前是改进还是回退。第一轮没有实测修复前的 `中{ }\mbox{} 文`，就把它写成“修复前也不一致”，结论是推出来的。应当先在修复前的版本上测出数值，与直接输入比较：修复前就不一致的登记为未修写法；修复前一致、现在不一致的是回退，要报给维护者决定，并在用户手册里写明。
 - **探测循环要保证会停下。** 从列表末尾逐个删去节点的循环，遇到删不掉的节点（`\discretionary` 的不断行文本、无法取下的盒子）就会无限递归。第一次修正用“删除前后末尾状态相同就停下”判断，却把两枚相同 glue 中删去一枚的情形（`\makebox[0pt]{}`）也当成删不掉，858 项回到修复前的结果；协调者重跑上一轮审查者的矩阵、与上一提交逐项比较才发现。最后改为限制删除次数。教训：用“状态没变”推断“没有进展”，要先确认相同状态不会由不同节点产生。
+
+## 最终全范围审查（第四轮）
+
+第二轮修复提交为 `682d6e08`。本地审查第三轮只报告一项文档小问题（索引与反思仍按已放弃的“比较删除前后的末尾状态”描述空盒子探测），由 `410f365d` 修正。最终全范围审查（第四轮）在 `410f365d` 上报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
+
+1. **阻塞：颜色正文以空格结尾时，颜色命令之后的空格被删去。** `\textcolor{red}{A } B`、`{\color{red}red } text` 为 17.91pt，修复前 `e641743e` 与直接输入 `{A } B` 都是 21.24pt，是回退。`\reset@color` 由 `\aftergroup` 在分组结束之后执行，它的 transparent capture 入口取下的是分组里正文末尾的空格，被当作命令左侧的源码空格。现在 `\reset@color` 改用新增的 `\__xeCJK_boundary_register_transparent_pop:n` 注册，l3color 的 `\__color_backend_reset:` 也改用新增的 `\__xeCJK_boundary_hmode_transparent_pop_begin:`，capture 的 `kind` 记为 `transparent-pop`；`\__xeCJK_boundary_replay_before_empty_arm:` 在 `kind` 为 `transparent-pop` 且 `after_space` 不为真时只调用 `\__xeCJK_boundary_replay_before:`，不记下记录。`after_space` 为真时（`\textcolor{red}{}` 里 `\set@color` 留下的记录）照常转交。
+2. **重要：列模板以空的已注册命令结尾时报错。** `\halign{#\mbox{}\cr 中 \cr}` 里命令之后的下一个记号是 TeX 插入的 `\endtemplate`（`\outer` 记号），把 `\l_peek_token` 交给 `\token_if_eq_meaning:NNTF` 时报 `Forbidden control sequence`，接着 Emergency stop。新增 `\__xeCJK_boundary_if_peek_outer:TF`：用原语 `\tex_meaning:D` 展开 `\l_peek_token` 的含义，前 6 个字符是 `\outer` 时作废记录并结束 align-safe 分组。`after_space_test`、`brace_test`、`math_test`、`ignore_test` 都先经过这一检查，原判断移入各自的 `_aux` 函数。
+3. **小问题：llmdoc 里仍是 rebase 前的提交号。** 已改为历史中的对应提交（如原基准 `25a33aef` 对应 `e641743e`，`3e2eb5e2` 对应 `52217645`），对应关系由提交说明一致性核对。
+4. **小问题：`build-and-test.md` 里 xeCJK 标准测试仍写 125 项。** 已改为 126 项。
+
+另一个报告中的写法 `\halign{# &#\cr 中&文\cr}`（模板里 `#` 之后有空格、不含命令）在修复前与现在都报 `Forbidden control sequence`，来自 xeCJK 在汉字之后的前视，与本修复无关，登记在 `llmdoc/memory/doc-gaps.md`。审查“未计入问题的观察”（`\uwave{}`、`\CJKunderdot{}` 左侧是西文或 `{中}`；可区分间距、`xCJKecglue=true` 时的 `A{} \mbox{} 文`）修复前也与直接输入不一致，补进 `doc-gaps.md` 的对应列举。
+
+测试 `boundary-empty-space01` 由 3824 项增至 3848 项、10 个 TEST：新增 TEST 8（列模板以命令结尾，6 项）与 TEST 9（颜色正文以空格结尾，9 项 × `xCJKecglue=false/true` = 18 项），原零尺寸盒子一组改为 TEST 10。在 `410f365d` 上 TEST 9 失败 14 项，TEST 8 报 `Forbidden control sequence`。
+
+### 教训
+
+- **矩阵只把颜色命令当作命令本身来测。** 自己的矩阵与前几轮审查者的矩阵都把 `\textcolor{red}{}`、`\color{red}` 作为“被删去的命令”放在两段文字之间，没有测“颜色正文末尾有空格”这种由颜色命令隐式插入 `\reset@color` 的写法。`\aftergroup` 执行的命令看到的列表末尾属于已经结束的分组，入口推断出的“左侧空格”并不存在。列举被测命令时，除了命令本身，还要列出它会隐式插入、在别的位置执行的命令。已提升到 `memory/lessons-learned.md`。
+- **列举对齐记号只想到源码里能写出的那些。** 第二轮按“表格上下文的右侧要列出全部对齐记号”的教训排除了 `\cr`、`\crcr`、`\span`，没有想到 TeX 在列模板末尾自己插入的 `\endtemplate`，它还是 `\outer` 记号，连作为参数比较都不行。列举下一个记号的种类时，要把 TeX 自己插入的记号与 `\outer` 记号也算进去。比较 `\meaning` 的输出时注意它以反斜杠开头、字符 catcode 为 12，`\str_if_eq:nn` 不展开 `\c_backslash_str`，要用 `:ee`。已提升到 `memory/lessons-learned.md`。

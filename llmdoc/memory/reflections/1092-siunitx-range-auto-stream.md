@@ -13,8 +13,8 @@ metadata:
 
 根因与 #1000 相同：siunitx 在宏内部进入数学模式。源码直接写 `中$30$` 时，xeCJK 在 CJK→Boundary 处向后查看到 `$`，在 `\mathon` 之前补 `\CJKecglue`；汉字后面是宏时，只留下一对 kern 标记，随后宏内部的 `\mathon` 盖住了这对标记。每个 siunitx 排版命令都是独立的顶层入口，不经过 `\qty` 等命令的 cmd hook，所以要逐个注册。
 
-- 第一版 `9c9400e3`：把 17 个命令都注册为固定 Default 首尾的 `stream`。
-- 第二版 `4b360ae9`（审查方给出原型，已采纳；另有 `c5ec78d3` 只调整 `\changes` 的断行）：17 个命令改为 `auto` stream，并包装 siunitx 公开函数 `\siunitx_print_math:n`：不在数学模式时，先调用 `\@@_boundary_capture_class:n { default }`，再调用原函数。数学段不触发 interchar 转换，需要补报 Default；文本段由 interchar 转换报告实际类别。siunitx v2（`[=v2]`）没有这个函数，用 `\cs_if_exist:NT` 跳过；v2 直接写 `$...$`，由公式边界处理报告类别，实测结果正确。
+- 第一版 `d78b1bbf`：把 17 个命令都注册为固定 Default 首尾的 `stream`。
+- 第二版 `b01824a8`（审查方给出原型，已采纳；另有 `bebff647` 只调整 `\changes` 的断行）：17 个命令改为 `auto` stream，并包装 siunitx 公开函数 `\siunitx_print_math:n`：不在数学模式时，先调用 `\@@_boundary_capture_class:n { default }`，再调用原函数。数学段不触发 interchar 转换，需要补报 Default；文本段由 interchar 转换报告实际类别。siunitx v2（`[=v2]`）没有这个函数，用 `\cs_if_exist:NT` 跳过；v2 直接写 `$...$`，由公式边界处理报告类别，实测结果正确。
 
 ## Expected vs Actual
 

@@ -4695,7 +4695,16 @@ Copyright and Licence
 %   \@@_boundary_after_space_check:,
 %   \@@_boundary_after_space_peek:,
 %   \@@_boundary_after_space_test:,
+%   \@@_boundary_after_space_test_aux:,
 %   \@@_boundary_after_space_test_other:,
+%   \@@_boundary_if_peek_outer:,
+%   \@@_boundary_if_peek_outer:w,
+%   \@@_boundary_after_space_brace_test_aux:,
+%   \@@_boundary_after_space_math_test_aux:,
+%   \@@_boundary_after_space_ignore_test_aux:,
+%   \@@_boundary_replay_before_empty_arm:,
+%   \@@_boundary_hmode_transparent_pop_begin:,
+%   \@@_boundary_register_transparent_pop:n,
 %   \@@_boundary_after_space_math:,
 %   \@@_boundary_after_space_math_test:,
 %   \@@_boundary_after_space_brace:w,
@@ -5565,6 +5574,21 @@ Copyright and Licence
               { transparent }
           }
           { \seq_gpush:Nn \g_@@_boundary_active_seq { false } }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_pop_begin:
+  {
+    \@@_boundary_hmode_transparent_begin:
+    \seq_get:NN \g_@@_boundary_active_seq \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      {
+        \tl_gset:cn
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _kind_tl
+          }
+          { transparent-pop }
       }
   }
 
@@ -6548,6 +6572,51 @@ Copyright and Licence
           { true }
       }
       { \str_if_eq_p:Vn \l_@@_boundary_node_tl { CJK-space } }
+      { \@@_boundary_replay_before_empty_arm: }
+      {
+        \@@_boundary_replay_before:
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_
+            \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
+          }
+          { true }
+          { \@@_boundary_after_space_rearm: }
+      }
+  }
+%    \end{macrocode}
+% 颜色弹出命令（\tn{reset@color}、\cs{__color_backend_reset:}）由 \tn{aftergroup}
+% 在分组结束之后执行。它的入口取下的 glue 是分组里正文末尾的空格，不是命令
+% 左侧的源码空格：|\textcolor{red}{A } B| 删去颜色命令后是 |{A } B|，两枚空格
+% 都保留。所以这类命令自己不记下“命令之后的空格待删去”，只转交内层命令留下的
+% 记录（|\textcolor{red}{}| 里 \tn{set@color} 记下的入口空格）。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_replay_before_empty_arm:
+  {
+    \bool_lazy_and:nnTF
+      {
+        \str_if_eq_p:ee
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _kind_tl
+              }
+          }
+          { transparent-pop }
+      }
+      {
+        ! \str_if_eq_p:ee
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_
+                \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
+              }
+          }
+          { true }
+      }
+      { \@@_boundary_replay_before: }
       {
         \str_if_eq:eeTF
           {
@@ -6564,16 +6633,6 @@ Copyright and Licence
             \bool_gset_false:N \g_@@_glue_check_pending_bool
           }
         \@@_boundary_after_space_arm:
-      }
-      {
-        \@@_boundary_replay_before:
-        \tl_if_eq:cnT
-          {
-            g_@@_boundary_capture_
-            \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
-          }
-          { true }
-          { \@@_boundary_after_space_rearm: }
       }
   }
 \tl_new:N \l_@@_boundary_after_space_tl
@@ -6707,6 +6766,15 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_after_space_test:
   {
+    \@@_boundary_if_peek_outer:TF
+      {
+        \bool_gset_false:N \g_@@_boundary_after_space_bool
+        \group_align_safe_end:
+      }
+      { \@@_boundary_after_space_test_aux: }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_test_aux:
+  {
     \token_if_eq_meaning:NNTF \l_peek_token \c_space_token
       {
         \group_align_safe_end:
@@ -6772,7 +6840,26 @@ Copyright and Licence
 % \cs{xeCJK_space_or_xecglue:}。|drop| 为真时这里用与
 % \cs{@@_boundary_group_math:w} 相同的办法只吸收这一枚左花括号，看它后面的
 % 记号，再补发隐式左花括号。
+%
+% 列模板以命令结尾时，下一个记号是 \TeX{} 插入的 \tn{endtemplate}。它是
+% \tn{outer} 记号，\cs{l_peek_token} 等同于它时也是 \tn{outer}，不能出现在任何
+% 宏参数里（报 |Forbidden control sequence|），\cs{token_if_eq_meaning:NNTF}、
+% \cs{token_to_meaning:N} 都不能用。所以先用原语 \tn{meaning} 展开它的含义，
+% 以 |\outer| 开头时不再判断，作废记录。
 %    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_boundary_if_peek_outer: { TF }
+  {
+    \exp_after:wN \@@_boundary_if_peek_outer:w
+      \tex_meaning:D \l_peek_token \q_stop
+  }
+\cs_new:Npn \@@_boundary_if_peek_outer:w #1 \q_stop
+  {
+    \str_if_eq:eeTF
+      { \str_range:nnn {#1} { 1 } { 6 } }
+      { \c_backslash_str outer }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
 \prg_new_conditional:Npnn \@@_boundary_if_peek_align: { TF }
   {
     \bool_lazy_any:nTF
@@ -6794,12 +6881,24 @@ Copyright and Licence
   { \peek_after:Nw \@@_boundary_after_space_brace_test: }
 \cs_new_protected:Npn \@@_boundary_after_space_brace_test:
   {
+    \@@_boundary_if_peek_outer:TF
+      { \group_align_safe_end: }
+      { \@@_boundary_after_space_brace_test_aux: }
+    \c_group_begin_token
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_brace_test_aux:
+  {
     \token_if_math_toggle:NTF \l_peek_token
       { \group_align_safe_end: \@@_boundary_after_space_math: }
       { \group_align_safe_end: }
-    \c_group_begin_token
   }
 \cs_new_protected:Npn \@@_boundary_after_space_math_test:
+  {
+    \@@_boundary_if_peek_outer:TF
+      { \group_align_safe_end: }
+      { \@@_boundary_after_space_math_test_aux: }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_math_test_aux:
   {
     \token_if_math_toggle:NTF \l_peek_token
       { \group_align_safe_end: \@@_boundary_after_space_math: }
@@ -6850,6 +6949,12 @@ Copyright and Licence
 % 之后是控制序列时放回 \tn{ignorespaces}，保留记录。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_after_space_ignore_test:
+  {
+    \@@_boundary_if_peek_outer:TF
+      { \group_align_safe_end: \tex_ignorespaces:D }
+      { \@@_boundary_after_space_ignore_test_aux: }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_ignore_test_aux:
   {
     \token_if_cs:NTF \l_peek_token
       { \group_align_safe_end: \tex_ignorespaces:D }
@@ -7183,6 +7288,19 @@ Copyright and Licence
           \g_@@_boundary_registered_prop {#1} { transparent }
         \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
           { \@@_boundary_hmode_transparent_begin: }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_end: }
+      }
+  }
+
+\cs_new_protected:Npn \@@_boundary_register_transparent_pop:n #1
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn
+          \g_@@_boundary_registered_prop {#1} { transparent }
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_pop_begin: }
         \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
           { \@@_boundary_hmode_transparent_end: }
       }
@@ -14137,7 +14255,7 @@ Copyright and Licence
     \@@_boundary_reserve:n { colorbox }
     \@@_boundary_reserve:n { fcolorbox }
     \@@_boundary_register_transparent:n { set@color }
-    \@@_boundary_register_transparent:n { reset@color }
+    \@@_boundary_register_transparent_pop:n { reset@color }
     \@@_boundary_prepare_color_box:
     \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
     \@@_boundary_register_textcolor:
@@ -14166,8 +14284,17 @@ Copyright and Licence
   {
     \@@_boundary_wrap_transparent_onearg:NN
       \@@_orig_color_select:N \__color_select:N
-    \@@_boundary_wrap_transparent_noarg:NN
-      \@@_orig_color_backend_reset: \__color_backend_reset:
+    \cs_if_exist:NF \@@_orig_color_backend_reset:
+      {
+        \@@_boundary_reserve:N \__color_backend_reset:
+        \cs_set_eq:NN \@@_orig_color_backend_reset: \__color_backend_reset:
+        \cs_gset_protected:Npn \__color_backend_reset:
+          {
+            \@@_boundary_hmode_transparent_pop_begin:
+            \@@_orig_color_backend_reset:
+            \@@_boundary_hmode_transparent_end:
+          }
+      }
   }
 \@@_boundary_register_l3color:
 %    \end{macrocode}

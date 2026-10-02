@@ -207,7 +207,9 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 ## 没有可见输出的命令两侧都有源码空格（#1092 登记的回退，已由 #1103 修复；`X{ }\cmd Y` 为已接受的回退）
 
-**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节；第二轮发现的 plain `\halign` 中命令之后紧跟 `\cr`／`\crcr`／`\span` 报 `Forbidden control sequence`、`\discretionary` 不断行文本里的节点让空盒子探测无限递归两项也已修好，见反思的「本地审查第二轮」一节。
+**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节；第二轮发现的 plain `\halign` 中命令之后紧跟 `\cr`／`\crcr`／`\span` 报 `Forbidden control sequence`、`\discretionary` 不断行文本里的节点让空盒子探测无限递归两项也已修好，见反思的「本地审查第二轮」一节。最终全范围审查第四轮发现的颜色正文以空格结尾时命令之后的空格被删去（`\textcolor{red}{A } B`，相对修复前是回退）、列模板以空命令结尾时 `\endtemplate` 让命令之后的检查报 `Forbidden control sequence` 两项也已修好，见反思的「最终全范围审查（第四轮）」一节。
+
+文中“修复前”均指 `e641743e`：它是原基准 `25a33aef` rebase 到含 #1104 的 master 后的对应提交。
 
 原问题：任何已注册、执行后什么都不排出的命令（`\mbox{}`、`\hypertarget{a}{}`、`\textcolor{red}{}`、用户注册的空 `stream`／`transparent`／`box` 命令，以及 siunitx 的 `\unit{}`、`\numlist{}`、`\ang{;;}`），两侧都有源码空格时比直接输入多一枚空格；两侧都是汉字时多出两枚空格的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt）。#1092 注册 `\numlist`、`\ang` 后，这两个命令在 `xCJKecglue=true` 下也出现这一问题，bot 审查报为回退；维护者当时决定不在 #1092 改框架、另开 #1103，之后改为要求在同一 PR 彻底修复。
 
@@ -219,12 +221,14 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - 左侧是公式、右侧是汉字：修复前后的数值都与直接输入有偏差，方向可能不同。`xCJKecglue=true` 且 `CJKecglue={\hskip 5pt}` 时，transparent、box 一类命令（用户注册的空 `transparent`／`box` 命令、`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`）写成 `$x$ \cmd 文`，修复前 base 为 22.37527pt，新代码为 19.04527pt，直接输入为 20.71527pt；默认间距下 base 为 22.37527pt，新代码与直接输入都是 19.04527pt。stream 一类命令（用户注册的空 `stream` 命令、`\uline{}`、`\numlist{}`、`\unit{}`）与直接输入一致。
 - `\phantomsection` 不带 `{}` 时，命令名之后的空格在 TeX 读取控制序列名时就被跳过，命令之后的检查看不到它；测试里写成 `\phantomsection{}`，对应的直接输入是 `A {} 文`。
 - 两个空命令之间有空格：`\mbox{} \mbox{}` 一类写法在 `xCJKecglue=true` 且可区分间距、右侧空格写法为 `01` 时与直接输入不一致（本地审查第一轮后登记）。修复前同样不一致，方向相反。
+- `\uwave{}`、`\CJKunderdot{}` 在左侧是西文或 `{中}`、两侧都有空格时仍与直接输入不一致；修复前同样不一致（最终全范围审查第四轮的观察，未计入问题）。
+- 左侧是 `A{}`、两侧都有空格：可区分间距、`xCJKecglue=true` 时 `A{} \mbox{} 文` 修复前 24.16pt，现在 20.83pt，直接输入 22.5pt。偏差方向变了，修复前也不一致，与上面 `$x$ \cmd 文` 同类（第四轮的观察，未计入问题）。
 
 **与 master 不同、但不是本修复引入的组合**：`\numlist{}`、`\unit{}` 在入口前是 `中{}`、`中\ ` 或 `中…$`（公式之前是汉字）时，部分 00／01／10 组合的结果与 master 不同。这些值与 `\mbox{}` 在 master 上的值相同：#1092 把这两个命令注册之后，它们与其他已注册命令按同一规则处理，差异来自注册本身。
 
-**已接受的回退（维护者决定）：左侧以写在花括号里的空格结尾，`X{ }\cmd Y`。** 修复前（`25a33aef`）与直接输入一致，现在少一枚空格：
+**已接受的回退（维护者决定）：左侧以写在花括号里的空格结尾，`X{ }\cmd Y`。** 修复前（`e641743e`）与直接输入一致，现在少一枚空格：
 
-| 写法 | 修复前 `25a33aef` | 现在 | 直接输入（删去命令） |
+| 写法 | 修复前 `e641743e` | 现在 | 直接输入（删去命令） |
 |---|---|---|---|
 | `中{ }\mbox{} 文` | 26.66pt | 23.33pt | 26.66pt（`中{ } 文`） |
 | `A{ }\mbox{} B` | 21.24pt | 17.91pt | 21.24pt（`A{ } B`） |
@@ -237,7 +241,13 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 **外部矩阵上的剩余差异**：第一轮审查者的 110448 组矩阵上，相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法），矩阵的 oracle 写成 `中 $y$`；`\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。这个矩阵的左侧没有 `X{ }` 这类写在花括号里的空格，所以没有暴露上面那一类回退，“只剩 3 项且都是 oracle 写错”只对这个矩阵的输入空间成立。第二轮审查者的矩阵左侧包含 `{ }`，才发现上面每种间距设置下的 126 项。
 
-可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}` 一项外，上面这些写法（含已接受的 `中{ }\cmd 文`）在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
+可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}`、`\uwave{}`／`\CJKunderdot{}`、`A{} \cmd 文` 几项外，上面这些写法（含已接受的 `中{ }\cmd 文`）在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
+
+## plain `\halign` 列模板里 `#` 之后有空格时报 `Forbidden control sequence`（既有问题）
+
+`\halign{# &#\cr 中&文\cr}`（模板里 `#` 之后有空格，不含任何命令）报 `Forbidden control sequence`。列模板 `#` 之后的空格排在单元格内容之后，再往后是 TeX 插入的 `\endtemplate`（`\outer` 记号）；报错来自 xeCJK 在汉字之后看下一个记号的代码（CJK 到 Boundary 的前视），不经过 #1103 的命令之后检查。修复前 `e641743e` 与现在都报错，与 #1103 无关；未在 v3.10.6 上实测。
+
+#1103 最终全范围审查第四轮发现。`\@@_boundary_if_peek_outer:TF`（见 `llmdoc/architecture/xecjk-empty-output-space.md`「align-safe 分组」）只保护命令之后的检查，不覆盖这条路径。可能的补法：**未实施，也未评估**；做法上可参考同一函数，先用原语 `\meaning` 排除 `\outer` 记号，再做别的判断。
 
 ## 命令与空格、表格、颜色交互时与直接输入不一致的既有写法（#1103 调查中发现）
 

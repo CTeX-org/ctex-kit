@@ -590,7 +590,7 @@ Curated cross-task rules distilled from archived memory.
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
 ### 判断下一个记号和把它读成参数，都必须在 align-safe 分组内完成
-**Rule**: peek 之后对 `\l_peek_token` 做的每一个判断（`\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_if_group_begin:NTF` 等），都要放在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间，判断完再结束分组。把下一个记号读成宏参数（如先 `\group_align_safe_end:` 再接一个 `:N` 函数去读它）同样会让 TeX 看到它，也会触发列模板；要在分组外读参数，必须先在分组内排除含义为 `&`、`\cr`、`\crcr`、`\span` 的记号。`\peek_remove_spaces:n`、`\peek_meaning:NTF` 一类函数的回调在它们自己的 align-safe 分组结束之后才执行，回调里要再看下一个记号，必须重新 `\group_align_safe_begin:` 并再 peek 一次。LaTeX `tabular` 与 plain `\halign`（`\cr`、`\crcr`、`\span`）都是必测的上下文。
+**Rule**: peek 之后对 `\l_peek_token` 做的每一个判断（`\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_if_group_begin:NTF` 等），都要放在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间，判断完再结束分组。把下一个记号读成宏参数（如先 `\group_align_safe_end:` 再接一个 `:N` 函数去读它）同样会让 TeX 看到它，也会触发列模板；要在分组外读参数，必须先在分组内排除含义为 `&`、`\cr`、`\crcr`、`\span` 的记号。`\peek_remove_spaces:n`、`\peek_meaning:NTF` 一类函数的回调在它们自己的 align-safe 分组结束之后才执行，回调里要再看下一个记号，必须重新 `\group_align_safe_begin:` 并再 peek 一次。LaTeX `tabular` 与 plain `\halign`（`\cr`、`\crcr`、`\span`）都是必测的上下文；列模板以命令结尾时下一个记号是 `\outer` 的 `\endtemplate`，判断之前还要先排除 `\outer` 记号，见下文「`\l_peek_token` 可能是 `\outer` 记号」。
 **Why**: #1103 的 `\__xeCJK_boundary_after_space_test:` 第一版一开始就结束了 align-safe 分组，表格单元格末尾的 `中 \mbox{} & 文` 里下一个记号是 `&`，在分组之外读取等同于它的 `\l_peek_token`，TeX 插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`。删去空格之后判断 `$` 的代码原来直接写在 `\peek_remove_spaces:n` 的回调里，也在分组之外。本地审查第一轮作为阻塞问题报出，自己的验证矩阵没有表格上下文。第一轮的修复只把对 `\l_peek_token` 的判断移进分组，控制序列分支仍先结束分组、再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；plain `\halign` 中 `中 \mbox{}\cr` 因此报 `Forbidden control sequence`（修复前不报错），第二轮作为阻塞问题报出。现在由 `\__xeCJK_boundary_if_peek_align:TF` 在分组内先排除 `\cr`、`\crcr`、`\span`。
 **Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
 
@@ -607,6 +607,16 @@ Curated cross-task rules distilled from archived memory.
 ### 跨命令保留的旁路记录，要在新内容排出时清除
 **Rule**: 为“命令结束之后再处理”而保留在全局变量里的记录（不在节点列表里，只靠层号、`\lastnodetype` 之类的状态核对是否仍有效），除了在下一个使用点清除，还要在会让记录失去意义的事件处清除，最常见的是新的字符 marker 排出。只靠“下一个 capture 开始时清除”，中间排出的内容不会让记录失效，后面不相关的命令开始时可能恰好核对通过，把它接过来。清点这类记录时，列出所有写入点和所有使它失去意义的事件，逐一确认有清除。
 **Why**: #1103 的“命令之后的空格”记录在检查遇到控制序列时保留给外层命令。`中~ \RegStream{}\hbox{x}` 之后命令已经结束，记录却一直保留到下一个 capture 开始，影响了下一段的命令。本地审查第一轮后，在 `\xeCJK_make_node:n` 与 `\__xeCJK_make_space_node:` 排出新 marker 时清除记录。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
+
+### `\l_peek_token` 可能是 `\outer` 记号，交给任何函数之前先用原语 `\meaning` 排除
+**Rule**: `\outer` 记号不能出现在任何宏参数里；`\l_peek_token` 等同于 `\outer` 记号时自己也是 `\outer`，所以 `\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_to_meaning:N` 等以它为参数的函数都会报 `Forbidden control sequence`。peek 之后可能遇到 `\outer` 记号的地方（最常见的是 TeX 在 `\halign` 列模板末尾插入的 `\endtemplate`），先 `\exp_after:wN` 加原语 `\tex_meaning:D` 展开 `\l_peek_token` 的含义，再比较前 6 个字符是否为 `\outer`。比较 `\meaning` 的输出要注意它以反斜杠开头、字符 catcode 为 12：比较对象写成 `\c_backslash_str outer`，必须用 `\str_if_eq:ee`，`\str_if_eq:nn` 不展开 `\c_backslash_str`，比较结果总是不相等。列举对齐上下文的右侧记号时，除了源码里能写出的 `&`、`\cr`、`\crcr`、`\span`，还要列出 TeX 自己插入的 `\endtemplate`。
+**Why**: #1103 最终全范围审查第四轮：`\halign{#\mbox{}\cr 中 \cr}` 里命令之后的下一个记号是 `\endtemplate`，命令之后的检查把 `\l_peek_token` 交给 `\token_if_eq_meaning:NNTF`，报 `Forbidden control sequence` 后 Emergency stop。第二轮已经按“列出全部对齐记号”的教训排除了 `\cr`、`\crcr`、`\span`，但只想到源码里能写出的记号。现在由 `\__xeCJK_boundary_if_peek_outer:TF` 在四个 peek 之后的判断函数开头先检查。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
+
+### 由 `\aftergroup` 执行的命令看到的列表末尾属于已经结束的分组
+**Rule**: `\aftergroup` 插入的命令（如颜色命令留下的 `\reset@color`）在分组结束之后才执行，它看到的节点列表末尾是分组里最后排出的内容，不是这个命令左侧的源码。根据列表末尾推断“命令左侧有什么”（例如取下末尾 glue 当作命令左侧的源码空格）的代码，遇到这类命令要单独处理。构造测试矩阵时，除了把命令本身作为被测对象，还要列出命令隐式插入别的命令的写法（颜色正文末尾有空格：`\textcolor{red}{A } B`、`{\color{red}red } text`）。
+**Why**: #1103 最终全范围审查第四轮：`\reset@color` 的入口取下的是分组里正文末尾的空格，被当作命令左侧的源码空格，命令之后的空格因此被删去，`\textcolor{red}{A } B` 为 17.91pt，修复前与直接输入 `{A } B` 都是 21.24pt，是回退。自己与前几轮审查的矩阵都只把颜色命令当作命令本身来测。现在 `\reset@color` 与 `\__color_backend_reset:` 的 capture 记为 `transparent-pop`，不记下“命令之后的空格待删去”，只转交内层留下的记录。
 **Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
 
 ### 根因是代码事实，把它写成可 grep 的模式并穷举全部出现位置

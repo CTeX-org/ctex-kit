@@ -6,7 +6,7 @@
 
 oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[[../memory/decisions/992-command-boundary-capture-register]]）。没有可见输出时，删去命令会让两侧的源码空格相邻，TeX 把它们读成**一个**空格记号：`中 \cmd 文` 对应 `中  文`，即只有一处空格。
 
-#1103 之前，capture 结束时 `\@@_boundary_replay_before:` 把入口取下的空格放回，命令之后的空格又排出一枚，两枚都留在列表里。两侧都是汉字时多出两枚空格的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt）；入口前不是汉字时多一枚（`A \cmd B`、`$x$ \cmd 文`）。
+#1103 之前，capture 结束时 `\@@_boundary_replay_before:` 把入口取下的空格放回，命令之后的空格又排出一枚，两枚都留在列表里。两侧都是汉字时多出两枚空格的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt）；入口前不是汉字时多一枚（`A \cmd B`、`$x$ \cmd 文`）。下文的“修复前”指 `e641743e`：它是原基准 `25a33aef` rebase 到含 #1104 的 master 后的对应提交。
 
 修法拆成两部分，原因是重放发生在命令的结束钩子里，命令自己的代码这时可能还没执行完，后面的源码空格在这一刻还处理不了：
 
@@ -36,7 +36,19 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 - 入口前是 `CJK-space` marker、没有取下 glue（`中 \cmd`）：汉字后的源码空格已被前视吃掉，列表里只有 marker。直接输入 `中 X` 也只留 marker，所以只重放 `CJK-space` marker、清除 `\g_@@_glue_check_pending_bool`，不排出空格 glue。
 - `space_glue` 为真（`{中} \cmd`、`A \cmd`）：照常调用 `\@@_boundary_replay_before:` 放回 marker 与 glue。
-- 以上两种都调用 `\@@_boundary_after_space_arm:` 记下状态。其余情形照常重放；若本层 `after_space` 为真（从内层接过记录），调用 `\@@_boundary_after_space_rearm:` 把记录交给更外一层。
+- 以上两种都转到 `\@@_boundary_replay_before_empty_arm:`，由它调用 `\@@_boundary_after_space_arm:` 记下状态（颜色弹出命令例外，见下一小节）。其余情形照常重放；若本层 `after_space` 为真（从内层接过记录），调用 `\@@_boundary_after_space_rearm:` 把记录交给更外一层。
+
+### 颜色弹出命令不记下记录
+
+`\reset@color` 与 l3color 的 `\__color_backend_reset:` 由 `\aftergroup` 在分组结束之后执行。它们的入口取下的 glue 是分组里正文末尾的空格，不是命令左侧的源码空格：`\textcolor{red}{A } B` 删去颜色命令后是 `{A } B`，两枚空格都保留（21.24pt）。以前这枚 glue 被当作命令左侧的源码空格，命令之后的 ` B` 前的空格被删去（17.91pt），相对修复前 `e641743e` 是回退（最终全范围审查第四轮的阻塞问题；`{\color{red}red } text` 同理，`\color` 在分组末尾经 `\aftergroup` 插入 `\reset@color`）。
+
+做法：
+
+- `\reset@color` 改用 `\@@_boundary_register_transparent_pop:n` 注册，before 钩子是 `\@@_boundary_hmode_transparent_pop_begin:`；`\__color_backend_reset:` 的包装也改用它。这个 begin 在普通的 transparent begin 之后，若本层 capture 处于活动状态，把 `kind` 字段记为 `transparent-pop`。其他代码只把 `kind` 与 `stream`、`stream-ulem`、`box` 比较，不受新值影响。
+- `\@@_boundary_replay_before_empty_arm:` 在 `kind` 为 `transparent-pop` 且本层 `after_space` 不为真时只调用 `\@@_boundary_replay_before:`，不记下“命令之后的空格待删去”。
+- 本层 `after_space` 为真时照常转交：`\textcolor{red}{}` 里 `\set@color` 记下的是真正的入口空格，`\reset@color` 开始时接过它，`中 \textcolor{red}{} 文` 仍只保留一处空格。
+
+规则：**由 `\aftergroup` 执行的命令看到的列表末尾属于已经结束的分组**，入口取下的 glue 不能当作命令左侧的源码空格。
 
 ### 透明盒子“没有可见输出”的判据
 
@@ -76,6 +88,7 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 `\@@_boundary_after_space_peek:` 用 `\peek_after:Nw` 看下一个记号，不展开它，由 `\@@_boundary_after_space_test:` 分派（空格以外的情形由 `\@@_boundary_after_space_test_other:` 继续分派）：
 
+- **`\outer` 记号**（`\@@_boundary_if_peek_outer:TF`）：最先判断，作废记录并结束 align-safe 分组，不再做别的处理。`\@@_boundary_after_space_test:`、`\@@_boundary_after_space_brace_test:`、`\@@_boundary_after_space_math_test:`、`\@@_boundary_after_space_ignore_test:` 这四个 peek 之后的判断函数都先经过这一检查，原来的判断移入各自的 `_aux` 函数。原因见下文「align-safe 分组」。
 - **空格**：作废记录并删去连续的空格（`\peek_remove_spaces:n`）。`drop` 为真时先 `\unskip` 末尾 glue、清 pending，删去空格之后再 peek 一次（`\@@_boundary_after_space_math_test:`），看下一个记号是不是 `$` 或左花括号；`unchecked` 为真时清 pending。
 - **名字以 `__hook` 开头的控制序列**（`\@@_boundary_after_space_hook:nN`）：展开一层再 peek。LaTeX 命令钩子在 `after` 钩子之后紧跟 `\__hook_next …` 一类宏，钩子里看到的不是源码的下一个记号。判断用 `\str_range:nnn` 取名字前 6 个字符，名字先经 `\exp_args:Ne` 求出。
 - **等同于 `\relax` 的控制序列**：照常执行，再 peek。xcolor 的 `\color` 在 `\set@color` 之后是 `\XC@ecolor\ignorespaces`，`\XC@ecolor` 通常等同于 `\relax`。
@@ -91,7 +104,14 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 上面所有对 `\l_peek_token` 的判断都在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间进行，每个分支先判断、再结束 align-safe 分组。表格单元格末尾的下一个记号可能是 `&` 或 `\cr`，`\l_peek_token` 这时等同于这个记号；在 align-safe 分组之外读取它，TeX 会插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`（`中 \mbox{} & 文`，本地审查第一轮的阻塞问题；以前 `\@@_boundary_after_space_test:` 一开始就结束了 align-safe 分组）。
 
-把下一个记号读成宏参数同样会让 TeX 看到它。控制序列分支原来先结束 align-safe 分组，再把下一个记号作为 `\@@_boundary_after_space_hook:N` 的参数读入，判断它的名字是否以 `__hook` 开头；plain `\halign` 里命令之后紧跟 `\cr`、`\crcr` 或 `\span` 时，读参数就在分组之外碰到了对齐记号，TeX 插入列模板，报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`（`中 \mbox{}\cr`，本地审查第二轮的阻塞问题；修复前的 `25a33aef` 没有这项检查，不报错）。所以 `\@@_boundary_after_space_test_other:` 先在分组内用 `\@@_boundary_if_peek_align:TF` 比较 `\l_peek_token` 的含义，排除 `\cr`、`\crcr`、`\span`，再结束分组、读参数。规则是：**判断 `\l_peek_token` 和把下一个记号读成参数都必须在 align-safe 分组内完成，或者先在分组内排除对齐记号**。`&` 不是控制序列，不会进入读参数的分支。
+把下一个记号读成宏参数同样会让 TeX 看到它。控制序列分支原来先结束 align-safe 分组，再把下一个记号作为 `\@@_boundary_after_space_hook:N` 的参数读入，判断它的名字是否以 `__hook` 开头；plain `\halign` 里命令之后紧跟 `\cr`、`\crcr` 或 `\span` 时，读参数就在分组之外碰到了对齐记号，TeX 插入列模板，报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`（`中 \mbox{}\cr`，本地审查第二轮的阻塞问题；修复前的 `e641743e` 没有这项检查，不报错）。所以 `\@@_boundary_after_space_test_other:` 先在分组内用 `\@@_boundary_if_peek_align:TF` 比较 `\l_peek_token` 的含义，排除 `\cr`、`\crcr`、`\span`，再结束分组、读参数。规则是：**判断 `\l_peek_token` 和把下一个记号读成参数都必须在 align-safe 分组内完成，或者先在分组内排除对齐记号**。`&` 不是控制序列，不会进入读参数的分支。
+
+上面排除 `\cr` 一类记号的比较本身也要读 `\l_peek_token`。plain `\halign` 的列模板以空的已注册命令结尾、命令左侧有空格时（`\halign{#\mbox{}\cr 中 \cr}`），命令之后的下一个记号是 TeX 在列模板末尾插入的 `\endtemplate`。它是 `\outer` 记号，`\l_peek_token` 等同于它时也是 `\outer`；把 `\l_peek_token` 交给 `\token_if_eq_meaning:NNTF` 就是把它放进宏参数，报 `Forbidden control sequence`，接着 Emergency stop（最终全范围审查第四轮的重要问题；第二轮只排除了 `\cr`／`\crcr`／`\span`）。所以 `\@@_boundary_if_peek_outer:TF` 在所有判断之前，用原语 `\tex_meaning:D` 展开 `\l_peek_token` 的含义，取前 6 个字符与 `\outer` 比较：
+
+- 不能用 `\token_to_meaning:N`，它同样把 `\l_peek_token` 作为参数读入。
+- `\meaning` 的输出以反斜杠开头、字符 catcode 为 12；比较对象写成 `\c_backslash_str outer`，要用 `\str_if_eq:ee`，`\str_if_eq:nn` 不展开 `\c_backslash_str`。
+
+规则补充：**`\l_peek_token` 可能是 `\outer` 记号，在交给任何以它为参数的函数之前，先用原语 `\meaning` 排除。**
 
 `\peek_remove_spaces:n` 的回调在它自己的 align-safe 分组结束之后执行，回调里不能直接读 `\l_peek_token`；所以删去空格之后的判断要重新 `\group_align_safe_begin:` 再 peek 一次。`\@@_boundary_after_space_brace:w` 与 `\@@_boundary_after_space_ignore_test:` 前的 peek 同样包在 align-safe 分组里。
 
@@ -101,7 +121,7 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 ## 仍不一致的写法
 
-修复前后相同、或修复前也与直接输入不一致的写法，已接受的回退，以及 `\numlist{}`／`\unit{}` 部分组合与 master 不同的原因，登记在 [[../memory/doc-gaps]]「没有可见输出的命令两侧都有源码空格」一节。其中两项与上文机制直接相关：
+修复前后相同、或修复前也与直接输入不一致的写法，已接受的回退，plain `\halign` 模板里 `#` 之后有空格时的既有报错，以及 `\numlist{}`／`\unit{}` 部分组合与 master 不同的原因，登记在 [[../memory/doc-gaps]]「没有可见输出的命令两侧都有源码空格」一节。其中两项与上文机制直接相关：
 
 - `X{ }\cmd Y`（空格写在花括号里）：**相对修复前是回退**，维护者决定接受（[[../memory/decisions/1103-group-space-before-empty-command]]）。它在命令之前留下的节点列表与 `X{} \cmd Y`、`X\ \cmd Y`、`X\space\cmd Y` 相同（左侧是汉字时，列表末尾都是 `CJK` marker 加一枚词间 glue），`space_glue` 无法区分，按后者处理，删去命令之后的空格：`中{ }\mbox{} 文` 修复前与直接输入都是 26.66pt，现在 23.33pt。后三者修复前多一枚空格，现在正确。用户手册「CJK 文字与命令交互时的间距」一节写明了这一限制与替代写法（把空格写在命令之后的花括号里，或改用 `~`）。
 - `\mbox{} \mbox{}` 这类两个空命令之间有空格的写法，在 `xCJKecglue=true` 且可区分间距、右侧空格写法 01 时与直接输入不一致。
