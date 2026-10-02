@@ -19,8 +19,14 @@
 %     把它重放在盒子之前；
 %   - 左侧是 |中{}|、|中\ |、命令之后紧接汉字（|中{} \cmd文|），直接输入保留
 %     空格，命令的入口按汉字之后的空格处理；
-%   - 左侧是公式、右侧是汉字。
+%   - 左侧是公式、右侧是汉字；
+%   - 左侧以 |{ }| 这类写在分组里的空格结尾（|中{ }\cmd 文|），列表与
+%     |中{} \cmd 文| 相同，无法区分。
 % 这些组合在修复前后相同，或修复前也与直接输入不一致。
+%
+% 另外比较 #1103 审查中发现的写法：命令左侧紧贴 |~|、|\nobreakspace{}|（不是
+% 源码空格，命令之后的空格不能删）；命令之后是 |{$y$}| 或 |\color{red}$y$|；
+% \tn{color}；表格单元格末尾；零尺寸但有可见内容的盒子。
 
 \documentclass{article}
 
@@ -98,6 +104,23 @@
   \EmptyMatrix{#1/numlist}{#2}{\numlist{}}{#3}%
   \EmptyMatrix{#1/unit}{#2}{\unit{}}{#3}%
 }
+% \EmptyLeftForCommands：只比较左侧有空格的两种写法（10、11）。
+\newcommand\EmptyLeft[4]{%
+  \EmptyVariant{#1/10}{#2}{#3}{#4}{ }{}{ }%
+  \EmptyVariant{#1/11}{#2}{#3}{#4}{ }{ }{ }%
+}
+\newcommand\EmptyLeftForCommands[3]{%
+  \EmptyLeft{#1/stream}{#2}{\RegStream{}}{#3}%
+  \EmptyLeft{#1/transparent}{#2}{\RegTrans{}}{#3}%
+  \EmptyLeft{#1/box}{#2}{\RegBox{}}{#3}%
+  \EmptyLeft{#1/mbox}{#2}{\mbox{}}{#3}%
+  \EmptyLeft{#1/textcolor}{#2}{\textcolor{red}{}}{#3}%
+  \EmptyLeft{#1/hypertarget}{#2}{\hypertarget{a}{}}{#3}%
+  \EmptyLeft{#1/uline}{#2}{\uline{}}{#3}%
+  \EmptyLeft{#1/numlist}{#2}{\numlist{}}{#3}%
+  \EmptyLeft{#1/unit}{#2}{\unit{}}{#3}%
+  \EmptyLeft{#1/color}{#2}{\color{red}}{#3}%
+}
 \newcommand\EmptyBothForCommands[3]{%
   \EmptyBoth{#1/stream}{#2}{\RegStream{}}{#3}%
   \EmptyBoth{#1/transparent}{#2}{\RegTrans{}}{#3}%
@@ -141,6 +164,23 @@
   \EmptyForCommands{L-math}{A}{$y$}%
   \EmptyForCommands{L-punct}{A}{，}%
   \EmptyForCommands{group-hbox}{中{}}{\hbox{x}}%
+  % 左侧紧贴 ~、\nobreakspace{}：命令之前的 glue 不是源码空格。
+  \EmptyForCommands{tie-C}{中~}{文}%
+  \EmptyForCommands{tie-L}{中~}{B}%
+  \EmptyForCommands{tie-math}{中~}{$y$}%
+  \EmptyForCommands{tie-hbox}{中~}{\hbox{x}}%
+  \EmptyForCommands{Ltie-L}{A~}{B}%
+  \EmptyForCommands{nbsp-C}{中\nobreakspace{}}{文}%
+  % 命令之后是花括号或颜色命令。
+  \EmptyForCommands{C-groupC}{中}{{文}}%
+  \EmptyForCommands{C-colorC}{中}{\color{red}文}%
+  \EmptyForCommands{groupC-colorC}{{中}}{\color{red}文}%
+  \EmptyLeftForCommands{C-groupmath}{中}{{$y$}}%
+  \EmptyLeftForCommands{C-colormath}{中}{\color{red}$y$}%
+  % \color 本身：没有可见输出，不是盒子。
+  \EmptyMatrix{C-C/color}{中}{\color{red}}{文}%
+  \EmptyMatrix{C-groupC/color}{中}{\color{red}}{{文}}%
+  \EmptyLeft{groupC-math/color}{{中}}{\color{red}}{$y$}%
 }
 
 \begin{document}
@@ -190,6 +230,40 @@
     \global\advance\EmptyFailures by 1
     \TYPE{FAIL: phantomsection (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
   \fi
+}
+
+% 表格单元格末尾：命令之后删去空格时不能越过 & 与 \\，以前报
+% |Extra alignment tab|。
+\TEST{empty command at the end of a tabular cell}{
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{%
+    \begin{tabular}{ll}
+      中 \mbox{} & 文 \\
+      中 \textcolor{red}{} & 文 \\
+      中 \hypertarget{t}{} & 文 \\
+      中 \uline{} & 文 \\
+      中 \unit{} \\
+    \end{tabular}}%
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{%
+    \begin{tabular}{ll}
+      中  & 文 \\
+      中  & 文 \\
+      中  & 文 \\
+      中  & 文 \\
+      中  \\
+    \end{tabular}}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: tabular (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+
+% 宽、高、深都为零的盒子里可能有重叠排出的内容，这时按有可见输出处理。
+\TEST{zero-sized box with visible content}{
+  \EmptyVariant{smash/11}{A}{\mbox{\smash{\rlap{\rule{2pt}{1pt}}}}}{B}{ }{ }
+    { \smash{\rlap{\rule{2pt}{1pt}}} }%
 }
 
 \TYPE{empty-output checks: \the\EmptyChecks}

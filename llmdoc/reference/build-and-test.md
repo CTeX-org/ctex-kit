@@ -215,15 +215,21 @@
 
 ### 没有可见输出的命令两侧的源码空格（`boundary-empty-space01`，#1103）
 
-`boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 2305 项宽度比较，失败数为 0；每个候选之后还断言 capture depth 归零。
+`boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 3803 项比较（本地审查第一轮前为 2305 项），失败数为 0；每个候选之后还断言 capture depth 归零。
 
 - **oracle 是删去命令后的直接输入**，不是推出来的关系。曾用“11 组合应等于 10 或 01”辅助判断，最后改回以实际排版的直接输入为准。
-- **命令**：用户注册的空 `stream`、`transparent`、`box` 命令，`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`、`\uline{}`、`\numlist{}`、`\unit{}`，共 9 个。
-- **组成**：TEST 1–4 为默认间距／可区分间距 × `xCJKecglue=false/true`，每个 TEST 576 项：16 组左右文字只比较两侧都有空格的写法（9 × 16 = 144），12 组比较 `00/10/01/11` 四种写法（9 × 12 × 4 = 432）。TEST 5 单独比较 `A \phantomsection{} 文` 与 `A {} 文`（不带 `{}` 时命令名后的空格在读取控制序列名时就被跳过）。修复前后都与直接输入不一致的组合不列入，见 [[../memory/doc-gaps]]。
+- **命令**：用户注册的空 `stream`、`transparent`、`box` 命令，`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`、`\uline{}`、`\numlist{}`、`\unit{}`，共 9 个；`\EmptyLeftForCommands` 另加 `\color{red}`，共 10 个。
+- **组成**：7 个 TEST。
+  - TEST 1–4 为默认间距／可区分间距 × `xCJKecglue=false/true`，每个 TEST 950 项：16 组左右文字只比较两侧都有空格的写法（`\EmptyBothForCommands`，9 × 16 = 144）；21 组比较 `00/10/01/11` 四种写法（`\EmptyForCommands`，9 × 21 × 4 = 756），其中第一轮审查后新增的 9 组是左侧紧贴 `~`、`\nobreakspace{}` 的 `tie-C`、`tie-L`、`tie-math`、`tie-hbox`、`Ltie-L`、`nbsp-C`，以及命令之后是花括号或颜色命令的 `C-groupC`、`C-colorC`、`groupC-colorC`；`C-groupmath`（`中` 与 `{$y$}`）、`C-colormath`（`中` 与 `\color{red}$y$`）只比较左侧有空格的 `10/11`（`\EmptyLeftForCommands`，10 × 2 × 2 = 40）；`\color{red}` 本身另有 `C-C/color`、`C-groupC/color` 两组四种写法与 `groupC-math/color` 的 `10/11`（10 项）。
+  - TEST 5 单独比较 `A \phantomsection{} 文` 与 `A {} 文`（不带 `{}` 时命令名后的空格在读取控制序列名时就被跳过）。
+  - TEST 6 在 `tabular` 单元格末尾放 `\mbox{}`、`\textcolor{red}{}`、`\hypertarget{t}{}`、`\uline{}`、`\unit{}`（`中 \mbox{} & 文`），与删去命令的表格比较整表宽度，1 项；以前报 `Extra alignment tab`。
+  - TEST 7 比较零尺寸但有可见内容的盒子 `A \mbox{\smash{\rlap{\rule{2pt}{1pt}}}} B`，1 项。
+  - 修复前后相同、或修复前也与直接输入不一致的组合不列入，见 [[../memory/doc-gaps]]。
+- **判别力**：第一轮审查前的 head 上，tie 类 216 项失败，`C-groupmath`／`C-colormath` 80 项失败，TEST 6 报错。修复 #1103 之前（PR 原 head 1008 项、master 1070 项失败）的数字是对 2305 项的旧版测试计算的。
 - **oracle 的空格单独给出。** 用宏参数拼写法时，作为参数传入的两个空格记号不会像源码那样合并成一个，所以 oracle 的空格由第七个参数单独提供，两侧都有空格时只放一个。左侧以控制空格 `\ ` 结尾时，源码里紧跟的空格会被跳过，用记号拼出的写法却保留它，这类左侧因此只比较两侧都有空格的写法。
 - **每次排版前重置全局状态。** 候选与 oracle 排版前都清空 `\g__xeCJK_last_node_tl`、把 `\g__xeCJK_glue_check_pending_bool` 置假，否则前一项留下的状态会带进下一项，产生假失败；构造外部矩阵（本地 `tmp/i1103/gen`）时曾因此出现假失败。外部矩阵重构后，先单独运行几个失败单元确认不是状态泄漏。
-- **判别力**：PR 原 head 上 1008 项失败，master 上 1070 项失败。
 - **外部矩阵全对不能代替全量 `l3build check`。** 外部矩阵（9 左 × 9 右 × 10 命令 × 4 空格组合 × 4 间距设置）全部与直接输入一致时，全量检查仍发现 `hyperref-anchor-ecglue01` 与 `fntef-entry-space01` 失败；前者是给 `\hypertarget` 挂的检查删去了非空 `\hypertarget{t5}{锚}` 之后的间距，改为只在第二参数为空时检查。外部矩阵只覆盖设计时想到的命令与写法。
+- **审查者的独立矩阵更宽。** 本地审查第一轮的审查者用 110448 组的外部矩阵比对，发现了本文件当时没有覆盖的表格单元格末尾、左侧 `~`、`\color` 后接公式等写法。修复后相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法）：矩阵的 oracle 写成 `中 $y$`，但 `\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。用宏拼 oracle 时，删去不读参数的命令要保留它后面的 `{}`。
 
 `fntef-entry-space01` 有 9 项期望值随直接输入改变：oracle 里的颜色命令本身是已注册的透明命令，#1103 后 `符 {\color{red}~中} 后` 由 36.66pt 变为 33.33pt，与 `符 {~中} 后` 一致（同组还有 `\hspace{1em}` 版 43.33→40.0、公式加尾随空格的两项各少 3.33pt）；另有一处节点列表在颜色 push 之后多出一对 marker kern。
 

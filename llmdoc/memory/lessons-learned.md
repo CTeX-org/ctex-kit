@@ -589,6 +589,11 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1038 中我先包装 `\xeCJK_CJK_and_Boundary:w` 打印 peek 状态，得到 `gbegin=N`，与真实行为相反——我的插入代码本身重置了 peek 状态；再包装 `\token_if_group_begin:NTF` 只得到无信息的 `[\l_peek_token]`。换成裸 `\futurelet` 探针才看到真相：xeCJK 任何代码运行前，输入流里的下一个记号就已经是 `{`。
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
+### 读取 `\l_peek_token` 时必须仍在 align-safe 分组内
+**Rule**: peek 之后对 `\l_peek_token` 做的每一个判断（`\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_if_group_begin:NTF` 等），都要放在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间，判断完再结束分组。`\peek_remove_spaces:n`、`\peek_meaning:NTF` 一类函数的回调在它们自己的 align-safe 分组结束之后才执行，回调里要再看下一个记号，必须重新 `\group_align_safe_begin:` 并再 peek 一次。表格单元格是必测的上下文。
+**Why**: #1103 的 `\__xeCJK_boundary_after_space_test:` 第一版一开始就结束了 align-safe 分组，表格单元格末尾的 `中 \mbox{} & 文` 里下一个记号是 `&`，在分组之外读取等同于它的 `\l_peek_token`，TeX 插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`。删去空格之后判断 `$` 的代码原来直接写在 `\peek_remove_spaces:n` 的回调里，也在分组之外。本地审查第一轮作为阻塞问题报出，自己的验证矩阵没有表格上下文。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
+
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件
 **Rule**: 守卫的强度是相对它原来的调用位置而言的。把函数接到更通用、作用域更长的路径上，等于给它换了一套前置条件——原先到不了它面前的情况现在会到。改动后要问「这个守卫依赖的事实在新位置还成立吗」，并优先改用直接表达目标事实的判据（如状态布尔），而不是从副作用反推的近似判据。凡是「某条件不会发生」的判断，都要主动构造反例编译一次，不能读完代码就归档。
 **Why**: #1037 复用 `\@@_ulem_glue:n` 时沿用了「它自带守卫，不在装饰中会退化」的结论。该守卫只比较 `\ ` 的含义是否等于 ulem 保存的 `\LA@space`；它原先只挂在装饰内部局部重定义的 `\CJKglue` 上，作用域随分组失效，所以「`\ ` 被别的宏包改过」根本到不了它面前。接到所有中西文边界都走的全局路径后，加载 `xeCJKfntef` 且重定义 `\ `（`nath`、`morehype`）的文档里，不含任何装饰命令的 `中 abc 文` 直接报 `Too many }'s`。改用 `\l_@@_ulem_stream_started_bool`（「装饰 stream 是否活动」这一事实本身）才正确。该缺陷由本地盲审作为 blocking finding 发现。**#1085 是同一条规则的又一实例**：第一版的检查条件直接复用了同文件 Boundary→Default 方向的 `\@@_skip_if_interword:N`（要求 finite + 带 shrink + 宽度等于词间空格），跑回归立刻发现 `command-boundary-math05` 的 `null-explicit` 场景（`\textnormal{$x$ }\hskip 7pt\null`）height-delta 从 0 变 8.52pt——`\hskip 7pt` 无 shrink，被该判据误拦，破坏了 #1002／#1003 已有的 math-space 恢复。同一个「候选 glue」在不同恢复路径有不同的合法形状集合，检查条件不能照抄。
@@ -598,6 +603,11 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 状态布尔记录的是「谁开始过」，不是「现在还开着」。判断能否对某资源动手时，直接测那个资源本身的状态，而不是测某个流程是否启动过。写完这类守卫，列出所有能进入该状态的入口与所有能退出的出口，逐一对照——入口比出口多就是缺陷信号。
 **Why**: #1037 的守卫先只测 `\l_@@_ulem_stream_started_bool`。该布尔在 `\@@_ulem_stream_begin:` 置真、只在 `\@@_ulem_end:` 置假；而行内公式里的装饰命令经 `\UL@onmath`／`\UL@onin` 结束，不走复位点。于是公式内装饰命令之后布尔仍为真、片段盒子已关闭，`$\CJKunderline{中}\mbox{中 abc 文}$` 配 `nath` 报 6 个错误。最终守卫改为「布尔为真且 `\UL@start` 为 `\@empty`（片段盒子确实打开）」的合取。
 **Source**: `llmdoc/memory/reflections/1037-ulem-word-front-ecglue.md`
+
+### 跨命令保留的旁路记录，要在新内容排出时清除
+**Rule**: 为“命令结束之后再处理”而保留在全局变量里的记录（不在节点列表里，只靠层号、`\lastnodetype` 之类的状态核对是否仍有效），除了在下一个使用点清除，还要在会让记录失去意义的事件处清除，最常见的是新的字符 marker 排出。只靠“下一个 capture 开始时清除”，中间排出的内容不会让记录失效，后面不相关的命令开始时可能恰好核对通过，把它接过来。清点这类记录时，列出所有写入点和所有使它失去意义的事件，逐一确认有清除。
+**Why**: #1103 的“命令之后的空格”记录在检查遇到控制序列时保留给外层命令。`中~ \RegStream{}\hbox{x}` 之后命令已经结束，记录却一直保留到下一个 capture 开始，影响了下一段的命令。本地审查第一轮后，在 `\xeCJK_make_node:n` 与 `\__xeCJK_make_space_node:` 排出新 marker 时清除记录。
+**Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
 
 ### 根因是代码事实，把它写成可 grep 的模式并穷举全部出现位置
 **Rule**: 确认根因后，第一件事是把它写成一个可搜索的代码模式（如 `\skip_horizontal:N \l_@@_ecglue_skip`），grep 出全部出现位置形成候选清单，再逐一判断每处是否需要改、不改的理由是什么。不要从复现样例出发反推场景清单——场景枚举永远可能漏，代码位置枚举可以穷尽。

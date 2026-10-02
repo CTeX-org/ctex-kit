@@ -17,10 +17,10 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 每层 capture 在 `\@@_boundary_capture_allocate:n` 时新建：
 
-- `g_@@_boundary_capture_<n>_space_glue_tl`：`\@@_boundary_capture_space:` 刚取下入口 glue 时 `space_flag` 字段的值，表示入口是否取下了一枚真实的词间 glue。不能直接用 `space_flag`：入口前是 `CJK-space` marker 时，`space_flag` 随后会被改为真，两种情形就分不开了。
+- `g_@@_boundary_capture_<n>_space_glue_tl`：`\@@_boundary_capture_space:` 刚取下入口 glue 时 `space_flag` 字段的值，表示入口是否取下了一枚真实的词间 glue。不能直接用 `space_flag`：入口前是 `CJK-space` marker 时，`space_flag` 随后会被改为真，两种情形就分不开了。取下 glue 之后列表末尾是 penalty（`\lastnodetype` 为 13）时记为 `false`：这枚 glue 来自 `~`、`\nobreakspace{}`，不是命令左侧的源码空格，命令之后的空格要照常保留（`中~ \mbox{} 文`，本地审查第一轮以前误删）。
 - `g_@@_boundary_capture_<n>_after_space_tl`：capture 开始时内层留下的记录是否仍然有效（`\@@_boundary_after_space_if_armed:TF`）。用于 `\textcolor{red}{}` 这类嵌套空命令：入口空格由内层的颜色命令记下，实际属于外层命令，外层要能把记录接过来。
 
-`\@@_boundary_capture_begin:` 先读取上述有效性，再清除全局记录 `\g_@@_boundary_after_space_bool`，所以下一个 capture 开始时旧记录总会失效。
+`\@@_boundary_capture_begin:` 先读取上述有效性，再清除全局记录 `\g_@@_boundary_after_space_bool`，所以下一个 capture 开始时旧记录总会失效。新的 marker 排出时（`\xeCJK_make_node:n`、`\@@_make_space_node:`）也清除这条记录：命令之后又排出了字符，后面的空格属于这个字符。以前检查遇到控制序列时把记录留给外层，命令之后接着排出别的内容时，记录仍保留到下一个 capture 开始，可能被后面的命令误当作内层留下的记录接过来（如 `中~ \RegStream{}\hbox{x}` 之后的下一段，本地审查第一轮发现）。
 
 ## 结束时的重放：`\@@_boundary_replay_before_empty:`
 
@@ -28,9 +28,9 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 - `\@@_boundary_inline_stream_end:n`：首类别为空、`entry` 字段不是 `resolved` 时（`resolved` 时仍按 #1091 的规则只重放 `math` 或调用 `\@@_boundary_resolved_end_hook:`）。
 - `\@@_boundary_hmode_transparent_end:`。
-- `\@@_boundary_box_end_transparent:n`：取出的盒子宽、高、深之和为零时（`\l_@@_boundary_box_empty_bool`）。
+- `\@@_boundary_box_end_transparent:n`：`\@@_boundary_if_capture_box_empty:TF` 为真时（`\l_@@_boundary_box_empty_bool`，判据见下文「透明盒子“没有可见输出”的判据」）。
 
-不调用、仍用原来的 `\@@_boundary_replay_before:` 的路径：`\@@_boundary_last_box_end:n` 末节点不是 hlist 的分支，以及尺寸非零的透明盒子。这些情形里命令确实排出了东西，入口空格与命令之后的空格不相邻。
+不调用、仍用原来的 `\@@_boundary_replay_before:` 的路径：`\@@_boundary_last_box_end:n` 末节点不是 hlist 的分支，以及有可见输出的透明盒子。这些情形里命令确实排出了东西，入口空格与命令之后的空格不相邻。
 
 做法分三种：
 
@@ -38,12 +38,21 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 - `space_glue` 为真（`{中} \cmd`、`A \cmd`）：照常调用 `\@@_boundary_replay_before:` 放回 marker 与 glue。
 - 以上两种都调用 `\@@_boundary_after_space_arm:` 记下状态。其余情形照常重放；若本层 `after_space` 为真（从内层接过记录），调用 `\@@_boundary_after_space_rearm:` 把记录交给更外一层。
 
+### 透明盒子“没有可见输出”的判据
+
+`\@@_boundary_if_capture_box_empty:TF` 要求两个条件：
+
+1. 盒子的宽、高、深**分别**为零（`\@@_boundary_if_box_zero:NTF`）。以前比较三者之和，正负值相互抵消时会误判。
+2. 在探测盒子 `\l_@@_boundary_probe_box` 里拆开盒子的副本，由 `\@@_boundary_box_empty_probe:` 从末尾向前检查：glue、kern、penalty 删去后继续；零尺寸的 hbox 用 `\box_set_to_last:N` 取到 `\l_@@_boundary_probe_inner_box` 再拆开，继续检查；列表变空时（`\g_@@_boundary_probe_type_int` 为 -1）才算没有可见输出。字符、规则、公式、非零尺寸的盒子、vbox，以及无法从列表中删去的 whatsit 都按有可见输出处理，与以前相同。
+
+第 2 条的原因：`\smash`、`\rlap` 得到的零尺寸盒子里仍可能有重叠排出的内容。`\mbox{\smash{\rlap{\rule{2pt}{1pt}}}}` 以前被当成空盒子，命令之后的空格被删去。新增的寄存器 `\l__xeCJK_boundary_probe_inner_box` 让 `loading01.tlg` 多一行。
+
 ## 记录：arm、rearm 与两个标志
 
 记录是一个全局布尔量加一个 token list：`\g_@@_boundary_after_space_tl` 的内容为“外层层号（当前层号减一）；`\lastnodetype`、`\lastkern`、`\lastskip`”，由 `\@@_boundary_after_space_rearm:` 写入，状态部分由可展开的 `\@@_boundary_after_space_state:` 生成。`\@@_boundary_after_space_arm:` 先调用 rearm，再设置两个标志：
 
 - `\g_@@_boundary_after_space_drop_bool`：只重放了 `CJK-space` marker（没有 glue）时为真。删去空格时还要把列表末尾的 glue `\unskip` 掉并关掉源码空格检查，因为直接输入 `中  X` 不开启这项检查。
-- `\g_@@_boundary_after_space_unchecked_bool`：放回了真实 glue、入口前是 `CJK` 或 `CJK-space` marker、capture 开始时 pending 为假（`中{} \cmd`、`中\ \cmd`）时为真。直接输入不检查这枚空格、后面的汉字保留它，所以删去命令之后的空格时同样关掉检查。本层 `after_space` 为真（记录来自内层）时保留内层设置的值。
+- `\g_@@_boundary_after_space_unchecked_bool`：放回了真实 glue、入口前是 `CJK` marker、capture 开始时 pending 为假（`中{} \cmd`、`中\ \cmd`）时为真。直接输入不检查这枚空格、后面的汉字保留它，所以删去命令之后的空格时同样关掉检查。本层 `after_space` 为真（记录来自内层）时保留内层设置的值。入口前是 `CJK-space` marker 时不设置：以前也设置，`\textbf{中} \color{red} 文` 因此多出一枚空格（本地审查第一轮修正）。
 
 ## 检查：`\@@_boundary_after_space_check:`
 
@@ -60,14 +69,23 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 ## peek 规则
 
-`\@@_boundary_after_space_peek:` 在 `\group_align_safe_begin:`／`end:` 之间用 `\peek_after:Nw` 看下一个记号，不展开它，由 `\@@_boundary_after_space_test:` 分派：
+`\@@_boundary_after_space_peek:` 用 `\peek_after:Nw` 看下一个记号，不展开它，由 `\@@_boundary_after_space_test:` 分派：
 
-- **空格**：作废记录并删去连续的空格（`\peek_remove_spaces:n`）。`drop` 为真时先 `\unskip` 末尾 glue、清 pending；`unchecked` 为真时清 pending。
+- **空格**：作废记录并删去连续的空格（`\peek_remove_spaces:n`）。`drop` 为真时先 `\unskip` 末尾 glue、清 pending，删去空格之后再 peek 一次（`\@@_boundary_after_space_math_test:`），看下一个记号是不是 `$` 或左花括号；`unchecked` 为真时清 pending。
 - **名字以 `__hook` 开头的控制序列**（`\@@_boundary_after_space_hook:nN`）：展开一层再 peek。LaTeX 命令钩子在 `after` 钩子之后紧跟 `\__hook_next …` 一类宏，钩子里看到的不是源码的下一个记号。判断用 `\str_range:nnn` 取名字前 6 个字符，名字先经 `\exp_args:Ne` 求出。
-- **其他控制序列与花括号**：保留记录，不作废，留给外层命令结束时再检查。
-- **其他记号**：作废记录。
+- **等同于 `\relax` 的控制序列**：照常执行，再 peek。xcolor 的 `\color` 在 `\set@color` 之后是 `\XC@ecolor\ignorespaces`，`\XC@ecolor` 通常等同于 `\relax`。
+- **`\ignorespaces`**（`\@@_boundary_after_space_ignore_test:`）：再看一个记号。是控制序列时放回 `\ignorespaces`、保留记录；否则按本列表的规则处理下一个记号（空格本来就会被 `\ignorespaces` 跳过，`$` 等字符也不受它影响）。color 包的 `\color` 直接以 `\ignorespaces` 结尾。
+- **左花括号**：`drop` 为假时保留记录；`drop` 为真时由 `\@@_boundary_after_space_brace:w` 看花括号之后是否 `$`（见下文）。
+- **其他控制序列与右花括号**：保留记录，不作废，留给外层命令结束时再检查。
+- **其他记号**：作废记录；`drop` 为真时检查它是不是 `$`。
 
-`drop` 为真时，删去空格之后或“其他记号”分支里，若下一个记号是 `$`，`\@@_boundary_after_space_math:` 删去末尾的 `CJK-space` marker、清 pending 并补 `\xeCJK_space_or_xecglue:`，与直接输入 `中 $x$` 在公式之前补的间距一致。
+`drop` 为真、下一个记号（删去空格之后，或“其他记号”分支里）是 `$` 时，`\@@_boundary_after_space_math:` 删去末尾的 `CJK-space` marker、清 pending 并补 `\xeCJK_space_or_xecglue:`，与直接输入 `中 $x$` 在公式之前补的间距一致。直接输入 `中 {$x$}` 在左花括号之后看到 `$` 时也补这枚间距，所以下一个记号是左花括号时，`\@@_boundary_after_space_brace:w` 用与 `\@@_boundary_group_math:w` 相同的办法（`\afterassignment` 加 `\let`）只吸收这一枚左花括号，看它后面的记号，再补发隐式左花括号 `\c_group_begin_token`。不吸收整个花括号组的原因见 [[../memory/decisions/1038-tabular-cr-group-peek]]。本地审查第一轮之前，`中 \color{red}$y$`、`中 \mbox{}{$y$}` 都丢失这枚公式前间距。
+
+### align-safe 分组
+
+上面所有对 `\l_peek_token` 的判断都在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间进行，每个分支先判断、再结束 align-safe 分组。表格单元格末尾的下一个记号可能是 `&` 或 `\cr`，`\l_peek_token` 这时等同于这个记号；在 align-safe 分组之外读取它，TeX 会插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`（`中 \mbox{} & 文`，本地审查第一轮的阻塞问题；以前 `\@@_boundary_after_space_test:` 一开始就结束了 align-safe 分组）。
+
+`\peek_remove_spaces:n` 的回调在它自己的 align-safe 分组结束之后执行，回调里不能直接读 `\l_peek_token`；所以删去空格之后的判断要重新 `\group_align_safe_begin:` 再 peek 一次。`\@@_boundary_after_space_brace:w` 与 `\@@_boundary_after_space_ignore_test:` 前的 peek 同样包在 align-safe 分组里。
 
 ## xeCJKfntef 的透明内容分支
 
@@ -75,4 +93,9 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 ## 仍不一致的写法
 
-修复前后相同、仍与直接输入不一致的写法，以及 `\numlist{}`／`\unit{}` 部分组合与 master 不同的原因，登记在 [[../memory/doc-gaps]]「没有可见输出的命令两侧都有源码空格」一节。测试见 `xeCJK/testfiles/boundary-empty-space01.lvt`。
+修复前后相同、或修复前也与直接输入不一致的写法，以及 `\numlist{}`／`\unit{}` 部分组合与 master 不同的原因，登记在 [[../memory/doc-gaps]]「没有可见输出的命令两侧都有源码空格」一节。其中两项与上文机制直接相关：
+
+- `中{ }\cmd 文`：分组里的空格与 `中{} \cmd 文` 留下的列表相同（列表末尾都是 `CJK` marker 加一枚词间 glue），`space_glue` 无法区分，按后者处理。
+- `\mbox{} \mbox{}` 这类两个空命令之间有空格的写法，在 `xCJKecglue=true` 且可区分间距、右侧空格写法 01 时与直接输入不一致。
+
+测试见 `xeCJK/testfiles/boundary-empty-space01.lvt`，组成见 [[../reference/build-and-test]]。

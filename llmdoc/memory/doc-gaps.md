@@ -207,21 +207,25 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 ## 没有可见输出的命令两侧都有源码空格（#1092 登记的回退，已由 #1103 修复）
 
-**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。
+**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节。
 
 原问题：任何已注册、执行后什么都不排出的命令（`\mbox{}`、`\hypertarget{a}{}`、`\textcolor{red}{}`、用户注册的空 `stream`／`transparent`／`box` 命令，以及 siunitx 的 `\unit{}`、`\numlist{}`、`\ang{;;}`），两侧都有源码空格时比直接输入多一枚空格；两侧都是汉字时多出两枚空格的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt）。#1092 注册 `\numlist`、`\ang` 后，这两个命令在 `xCJKecglue=true` 下也出现这一问题，bot 审查报为回退；维护者当时决定不在 #1092 改框架、另开 #1103，之后改为要求在同一 PR 彻底修复。
 
-**修复前后相同、仍与直接输入不一致的写法**（`boundary-empty-space01` 不比较这些组合）：
+**修复前后相同，或修复前也与直接输入不一致的写法**（与 `boundary-empty-space01.lvt` 头注释的说法一致；该测试不比较这些组合）：
 
 - 左侧是全角标点、命令后有空格：`，\cmd 文`。
 - 左侧是汉字、右侧没有空格、命令之后是盒子、规则、标点等不检查 marker 的内容：`中\cmd\hbox{x}`。直接输入的汉字 marker 被盒子挡住，命令则把 marker 重放在盒子之前。
 - 左侧是 `中{}` 或 `中\ `、命令之后紧接汉字：`中{} \cmd文`。直接输入保留这枚空格，命令的入口却按汉字之后的空格处理。
-- 左侧是公式、右侧是汉字：`xCJKecglue=true` 且 `CJKecglue={\hskip 5pt}` 时，transparent、box 一类命令（用户注册的空 `transparent`／`box` 命令、`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`）写成 `$x$ \cmd 文` 为 19.05pt，直接输入为 20.72pt；stream 一类命令（用户注册的空 `stream` 命令、`\uline{}`、`\numlist{}`、`\unit{}`）与直接输入一致。默认间距下两者都是 19.05pt，看不出差异。
+- 左侧是公式、右侧是汉字：修复前后的数值都与直接输入有偏差，方向可能不同。`xCJKecglue=true` 且 `CJKecglue={\hskip 5pt}` 时，transparent、box 一类命令（用户注册的空 `transparent`／`box` 命令、`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`）写成 `$x$ \cmd 文`，修复前 base 为 22.37527pt，新代码为 19.04527pt，直接输入为 20.71527pt；默认间距下 base 为 22.37527pt，新代码与直接输入都是 19.04527pt。stream 一类命令（用户注册的空 `stream` 命令、`\uline{}`、`\numlist{}`、`\unit{}`）与直接输入一致。
 - `\phantomsection` 不带 `{}` 时，命令名之后的空格在 TeX 读取控制序列名时就被跳过，命令之后的检查看不到它；测试里写成 `\phantomsection{}`，对应的直接输入是 `A {} 文`。
+- 左侧以写在分组里的空格结尾：`中{ }\cmd 文`（本地审查第一轮后登记）。`~`、`\nobreakspace{}` 在列表末尾留下 penalty 加 glue，现在据此保留命令之后的空格；`中{ }` 与 `中{} ` 留下的列表相同，入口无法区分，按后者处理，删去命令之后的空格。
+- 两个空命令之间有空格：`\mbox{} \mbox{}` 一类写法在 `xCJKecglue=true` 且可区分间距、右侧空格写法为 `01` 时与直接输入不一致（本地审查第一轮后登记）。修复前同样不一致，方向相反。
 
 **与 master 不同、但不是本修复引入的组合**：`\numlist{}`、`\unit{}` 在入口前是 `中{}`、`中\ ` 或 `中…$`（公式之前是汉字）时，部分 00／01／10 组合的结果与 master 不同。这些值与 `\mbox{}` 在 master 上的值相同：#1092 把这两个命令注册之后，它们与其他已注册命令按同一规则处理，差异来自注册本身。
 
-可能的补法：**未实施，也未评估**。这几类写法在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
+**外部矩阵上的剩余差异（本地审查第一轮后）**：审查者的 110448 组矩阵上，相对修复前 base 的回退由 298 项降为 3 项。剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法），矩阵的 oracle 写成 `中 $y$`；`\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。
+
+可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}` 一项外，上面这些写法在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
 
 ## 命令与空格、表格、颜色交互时与直接输入不一致的既有写法（#1103 调查中发现）
 

@@ -4528,6 +4528,7 @@ Copyright and Licence
   {
     \exp_args:Nc \@@_make_node:N { c_@@_#1_node_dim }
     \tl_gset:Nn \g_@@_last_node_tl {#1}
+    \bool_gset_false:N \g_@@_boundary_after_space_bool
   }
 \cs_new:Npn \@@_node:n #1
   { \use:c { c_@@_#1_node_dim } }
@@ -4676,8 +4677,14 @@ Copyright and Licence
 %   \@@_boundary_after_space_peek:,
 %   \@@_boundary_after_space_test:,
 %   \@@_boundary_after_space_math:,
+%   \@@_boundary_after_space_math_test:,
+%   \@@_boundary_after_space_brace:w,
+%   \@@_boundary_after_space_brace_peek:,
+%   \@@_boundary_after_space_brace_test:,
 %   \@@_boundary_after_space_hook:N,
-%   \@@_boundary_after_space_hook:nN}
+%   \@@_boundary_after_space_hook:nN,
+%   \@@_boundary_after_space_ignore_test:,
+%   \@@_boundary_if_capture_box_empty:}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
 % \changes{v3.10.4}{2026/07/20}{box/wrapped-box 捕获在盒子直接排出了
@@ -5785,10 +5792,14 @@ Copyright and Licence
         \g_@@_boundary_capture_depth_int _space_glue_tl
       }
       {
-        \tl_use:c
+        \int_compare:nNnTF { \tex_lastnodetype:D } = { 13 }
+          { false }
           {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _space_flag_tl
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _space_flag_tl
+              }
           }
       }
     \scan_stop:
@@ -6315,25 +6326,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_box_end_transparent:n #1
   {
-    \dim_compare:nNnTF
-      {
-        \box_wd:c
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _box
-          }
-        + \box_ht:c
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _box
-          }
-        + \box_dp:c
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _box
-          }
-      }
-      = \c_zero_dim
+    \@@_boundary_if_capture_box_empty:TF
       { \bool_set_true:N \l_@@_boundary_box_empty_bool }
       { \bool_set_false:N \l_@@_boundary_box_empty_bool }
     \@@_boundary_transparent_box_begin_hook:
@@ -6358,6 +6351,72 @@ Copyright and Licence
       { \@@_boundary_replay_before: }
   }
 \bool_new:N \l_@@_boundary_box_empty_bool
+%    \end{macrocode}
+% 宽、高、深分别为零，并且盒子里找不到可见内容时，才把透明盒子当作没有可见
+% 输出（\#1103）。\tn{smash}、\tn{rlap} 得到的零尺寸盒子里仍可能有重叠排出的
+% 内容，所以在盒子的副本里从末尾向前检查：glue、kern、penalty 删去后继续；
+% 零尺寸的 hbox 取出拆开后继续；列表变空时按没有可见输出处理。其余节点（字符、
+% 规则、公式、非零尺寸的盒子、vbox，以及无法从列表中删去、因而看不到它前面
+% 内容的 whatsit）都按有可见输出处理，与以前相同。
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_boundary_if_capture_box_empty:
+  { TF }
+  {
+    \tl_set:Ne \l_@@_boundary_probe_name_tl
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int _box
+      }
+    \@@_boundary_if_box_zero:cTF { \l_@@_boundary_probe_name_tl }
+      {
+        \hbox_set:Nn \l_@@_boundary_probe_box
+          {
+            \hbox_unpack:c { \l_@@_boundary_probe_name_tl }
+            \@@_boundary_box_empty_probe:
+          }
+        \box_clear:N \l_@@_boundary_probe_box
+        \int_compare:nNnTF { \g_@@_boundary_probe_type_int } = { -1 }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\prg_new_conditional:Npnn \@@_boundary_if_box_zero:N #1 { T , TF }
+  {
+    \bool_lazy_all:nTF
+      {
+        { \dim_compare_p:nNn { \box_wd:N #1 } = \c_zero_dim }
+        { \dim_compare_p:nNn { \box_ht:N #1 } = \c_zero_dim }
+        { \dim_compare_p:nNn { \box_dp:N #1 } = \c_zero_dim }
+      }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\prg_generate_conditional_variant:Nnn \@@_boundary_if_box_zero:N { c } { TF }
+%    \end{macrocode}
+% 在探测盒子里执行：列表变空时把 \cs{g_@@_boundary_probe_type_int} 设为 $-1$，
+% 否则留下挡住检查的节点类型。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_box_empty_probe:
+  {
+    \int_gset:Nn \g_@@_boundary_probe_type_int { \tex_lastnodetype:D }
+    \int_case:nn { \g_@@_boundary_probe_type_int }
+      {
+        { 1 }
+          {
+            \box_set_to_last:N \l_@@_boundary_probe_inner_box
+            \@@_boundary_if_box_zero:NT \l_@@_boundary_probe_inner_box
+              {
+                \hbox_unpack_drop:N \l_@@_boundary_probe_inner_box
+                \@@_boundary_box_empty_probe:
+              }
+          }
+        { 11 } { \tex_unskip:D \@@_boundary_box_empty_probe: }
+        { 12 } { \tex_unkern:D \@@_boundary_box_empty_probe: }
+        { 13 } { \tex_unpenalty:D \@@_boundary_box_empty_probe: }
+      }
+  }
+\box_new:N \l_@@_boundary_probe_inner_box
 \cs_new_eq:NN \@@_boundary_transparent_box_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_box_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_last_box_begin_hook: \prg_do_nothing:
@@ -6411,6 +6470,10 @@ Copyright and Licence
 % 两种情形都由 \cs{@@_boundary_after_space_arm:} 记下。|space_glue| 是
 % \cs{@@_boundary_capture_space:} 刚取下 glue 时 |space_flag| 字段的值；
 % |space_flag| 随后会因入口前是 |CJK-space| 而改为真，不能用来区分这两种情形。
+% 取下 glue 之后列表末尾是 penalty 时，这枚 glue 来自 |~|、\tn{nobreakspace}，
+% 不是命令左侧的源码空格，|space_glue| 记为假，命令之后的空格照常保留。
+% |中{ }\cmd| 这类写在分组里的空格与 |中{} \cmd| 留下的列表相同，无法区分，
+% 按后者处理。
 %
 % 内层命令已经记下的入口空格可能属于外层命令（|\textcolor{red}{}| 里的颜色
 % 命令）：外层 capture 开始时 \cs{@@_boundary_after_space_if_armed:} 发现记录仍然
@@ -6533,7 +6596,7 @@ Copyright and Licence
           }
           { true }
           { \bool_gset_false:N \g_@@_boundary_after_space_unchecked_bool }
-        \clist_if_in:nVT { CJK , CJK-space } \l_@@_boundary_node_tl
+        \tl_if_eq:NnT \l_@@_boundary_node_tl { CJK }
           {
             \tl_if_eq:cnT
               {
@@ -6557,15 +6620,20 @@ Copyright and Licence
 % 检查用 \cs{peek_after:Nw} 看下一个记号，不展开它，只有两种例外：
 % \begin{itemize}
 %   \item 名字以 |__hook| 开头的宏（LaTeX 命令钩子在 |after| 钩子之后调用的
-%     |\__hook_next ...|）展开一层再看。
-%   \item 下一个记号是其他控制序列或花括号时保留记录，留给外层命令结束时再检查。
+%     |\__hook_next ...|）展开一层再看；等同于 \tn{relax} 的记号执行后继续看；
+%     \tn{ignorespaces} 见 \cs{@@_boundary_after_space_ignore_test:}。
+%   \item 下一个记号是其他控制序列、右花括号，或 |drop| 为假时的左花括号，保留
+%     记录，留给外层命令结束时再检查。
 %     \tn{hyper@anchor} 在 \tn{hypertarget} 里面调用，\tn{MakeLinkTarget} 的
 %     锚点在分组里排出，\tn{set@color} 在 \tn{textcolor} 里面调用，它们的钩子
 %     之后都还有外层命令自己的代码；这几个外层命令结束时也调用本函数（见
 %     \pkg{hyperref} 与颜色命令的适配）。
 % \end{itemize}
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
-% 上文检查紧跟的 |$|。
+% 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
+% \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
+% 新的 marker 排出时（\cs{xeCJK_make_node:n}、\cs{@@_make_space_node:}）也清除
+% 记录：命令之后又排出了字符，后面的空格属于这个字符。
 %    \begin{macrocode}
 \cs_new:Npn \@@_boundary_after_space_state:
   {
@@ -6594,15 +6662,19 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_after_space_test:
   {
-    \group_align_safe_end:
     \token_if_eq_meaning:NNTF \l_peek_token \c_space_token
       {
+        \group_align_safe_end:
         \bool_gset_false:N \g_@@_boundary_after_space_bool
         \bool_if:NTF \g_@@_boundary_after_space_drop_bool
           {
             \@@_if_last_glue:T { \tex_unskip:D }
             \bool_gset_false:N \g_@@_glue_check_pending_bool
-            \peek_remove_spaces:n { \@@_boundary_after_space_math: }
+            \peek_remove_spaces:n
+              {
+                \group_align_safe_begin:
+                \peek_after:Nw \@@_boundary_after_space_math_test:
+              }
           }
           {
             \bool_if:NT \g_@@_boundary_after_space_unchecked_bool
@@ -6612,29 +6684,71 @@ Copyright and Licence
       }
       {
         \token_if_cs:NTF \l_peek_token
-          { \@@_boundary_after_space_hook:N }
+          { \group_align_safe_end: \@@_boundary_after_space_hook:N }
           {
-            \bool_lazy_or:nnF
-              { \token_if_group_begin_p:N \l_peek_token }
-              { \token_if_group_end_p:N \l_peek_token }
+            \token_if_group_begin:NTF \l_peek_token
               {
-                \bool_gset_false:N \g_@@_boundary_after_space_bool
+                \group_align_safe_end:
                 \bool_if:NT \g_@@_boundary_after_space_drop_bool
-                  { \@@_boundary_after_space_math: }
+                  { \@@_boundary_after_space_brace:w }
+              }
+              {
+                \token_if_group_end:NTF \l_peek_token
+                  { \group_align_safe_end: }
+                  {
+                    \bool_gset_false:N \g_@@_boundary_after_space_bool
+                    \bool_if:NTF \g_@@_boundary_after_space_drop_bool
+                      { \@@_boundary_after_space_math_test: }
+                      { \group_align_safe_end: }
+                  }
               }
           }
       }
   }
+%    \end{macrocode}
+% 上面对 \cs{l_peek_token} 的判断都在 \cs{group_align_safe_begin:} 与
+% \cs{group_align_safe_end:} 之间进行。表格单元格里下一个记号可能是 |&| 或
+% \tn{cr}，\cs{l_peek_token} 这时等同于这个记号；在 align-safe 分组之外读取它，
+% \TeX{} 就插入列模板的结尾，单元格提前结束，报 |Extra alignment tab|。删去空格
+% 之后要判断下一个记号是不是 |$|，所以再 peek 一次。
+%
+% 直接输入 |中 {$x$}| 在左花括号之后看到 |$|，同样补
+% \cs{xeCJK_space_or_xecglue:}。|drop| 为真时这里用与
+% \cs{@@_boundary_group_math:w} 相同的办法只吸收这一枚左花括号，看它后面的
+% 记号，再补发隐式左花括号。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_after_space_brace:w
+  {
+    \group_align_safe_begin:
+    \tex_afterassignment:D \@@_boundary_after_space_brace_peek:
+    \tex_let:D \@@_boundary_group_math_brace:
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_brace_peek:
+  { \peek_after:Nw \@@_boundary_after_space_brace_test: }
+\cs_new_protected:Npn \@@_boundary_after_space_brace_test:
+  {
+    \token_if_math_toggle:NTF \l_peek_token
+      { \group_align_safe_end: \@@_boundary_after_space_math: }
+      { \group_align_safe_end: }
+    \c_group_begin_token
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_math_test:
+  {
+    \token_if_math_toggle:NTF \l_peek_token
+      { \group_align_safe_end: \@@_boundary_after_space_math: }
+      {
+        \token_if_group_begin:NTF \l_peek_token
+          { \group_align_safe_end: \@@_boundary_after_space_brace:w }
+          { \group_align_safe_end: }
+      }
+  }
 \cs_new_protected:Npn \@@_boundary_after_space_math:
   {
-    \token_if_math_toggle:NT \l_peek_token
+    \xeCJK_if_last_node:nT { CJK-space }
       {
-        \xeCJK_if_last_node:nT { CJK-space }
-          {
-            \xeCJK_remove_node:
-            \bool_gset_false:N \g_@@_glue_check_pending_bool
-            \xeCJK_space_or_xecglue:
-          }
+        \xeCJK_remove_node:
+        \bool_gset_false:N \g_@@_glue_check_pending_bool
+        \xeCJK_space_or_xecglue:
       }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_hook:N #1
@@ -6648,7 +6762,31 @@ Copyright and Licence
       { \str_range:nnn {#1} { 1 } { 6 } }
       { \tl_to_str:n { __hook } }
       { \exp_after:wN \@@_boundary_after_space_peek: #2 }
-      {#2}
+      {
+        \token_if_eq_meaning:NNTF #2 \tex_ignorespaces:D
+          {
+            \group_align_safe_begin:
+            \peek_after:Nw \@@_boundary_after_space_ignore_test:
+          }
+          {
+            \token_if_eq_meaning:NNTF #2 \scan_stop:
+              { #2 \@@_boundary_after_space_peek: }
+              {#2}
+          }
+      }
+  }
+%    \end{macrocode}
+% \pkg{xcolor} 的 \tn{color} 在 \tn{set@color} 之后是 |\XC@ecolor\ignorespaces|，
+% \pkg{color} 的是 \tn{ignorespaces}；\tn{XC@ecolor} 通常等同于 \tn{relax}。等同于
+% \tn{relax} 的记号照常执行后继续看下一个记号。\tn{ignorespaces} 之后的空格或
+% |$| 照常处理：空格本来就会被 \tn{ignorespaces} 跳过，|$| 等字符也不受它影响。
+% 之后是控制序列时放回 \tn{ignorespaces}，保留记录。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_after_space_ignore_test:
+  {
+    \token_if_cs:NTF \l_peek_token
+      { \group_align_safe_end: \tex_ignorespaces:D }
+      { \@@_boundary_after_space_test: }
   }
 \bool_new:N \g_@@_boundary_after_space_bool
 \tl_new:N \g_@@_boundary_after_space_tl
@@ -7459,6 +7597,7 @@ Copyright and Licence
   {
     \tex_hskip:D - \@@_glue_node:n { default-space }
     \tex_hskip:D   \@@_glue_node:n { default-space }
+    \bool_gset_false:N \exp_not:N \g_@@_boundary_after_space_bool
   }
 %    \end{macrocode}
 % \end{macro}

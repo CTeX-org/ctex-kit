@@ -76,3 +76,23 @@ metadata:
 - 实现：`xeCJK/xeCJK.dtx` 中的 `\__xeCJK_boundary_replay_before_empty:`、`\__xeCJK_boundary_after_space_arm:`、`\__xeCJK_boundary_after_space_check:`、`\__xeCJK_ulem_onin_entry_check_space:nn`。
 - 测试：`xeCJK/testfiles/boundary-empty-space01.lvt/.tlg`、`xeCJK/testfiles/fntef-entry-space01.tlg`；外部矩阵 `tmp/i1103/gen`（本地，未跟踪）。
 - 前序：[[1092-siunitx-range-auto-stream]]、[[1091-fntef-ulem-terminator-entry-space]]、[[../decisions/992-command-boundary-capture-register.md]]。
+
+## 本地审查第一轮
+
+上文是第一版提交时的记录。本地审查第一轮报告 2 项阻塞问题、1 项重要建议、2 项小问题，修复如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
+
+1. **表格单元格末尾报错。** `中 \mbox{} & 文` 报 `Extra alignment tab`：`\__xeCJK_boundary_after_space_test:` 一开始就结束了 align-safe 分组，之后读取等同于 `&` 的 `\l_peek_token`，TeX 插入列模板的结尾。现在所有判断都在 `\group_align_safe_begin:`／`end:` 之间；`\peek_remove_spaces:n` 的回调在 align-safe 分组之外执行，删去空格之后由 `\__xeCJK_boundary_after_space_math_test:` 重新进入分组再 peek 一次。
+2. **公式前间距丢失。** `中 \color{red}$y$`、`中 \mbox{}{$y$}` 以前丢失 `\xeCJK_space_or_xecglue:`。等同于 `\relax` 的记号（xcolor 的 `\XC@ecolor`）执行后继续看，`\ignorespaces` 之后再看一个记号（`\__xeCJK_boundary_after_space_ignore_test:`）；`drop` 为真时，左花括号由 `\__xeCJK_boundary_after_space_brace:w` 只吸收一枚、看其后是否 `$`，删去空格之后遇到左花括号也这样处理。
+3. **左侧紧贴 `~`、`\nobreakspace{}` 时误删命令之后的空格。** `space_glue` 在取下 glue 后列表末尾是 penalty 时记为假。`中{ }\cmd 文` 与 `中{} \cmd 文` 列表相同、无法区分，按后者处理，登记为已知限制。
+4. **`unchecked` 标志范围过宽。** 以前入口前是 `CJK-space` marker 时也设置，`\textbf{中} \color{red} 文` 多出空格；现在只在 `CJK` marker 时设置。
+5. **记录泄漏。** 新 marker 排出时（`\xeCJK_make_node:n`、`\__xeCJK_make_space_node:`）清除“命令之后的空格”记录，避免它被后面的命令接过来（如 `中~ \RegStream{}\hbox{x}` 之后的下一段）。
+6. **透明盒子的空判据。** 以前用宽、高、深之和，正负抵消，且 `\mbox{\smash{\rlap{\rule{2pt}{1pt}}}}` 被当成空盒子。现在由 `\__xeCJK_boundary_if_capture_box_empty:TF` 判断：三者分别为零，并在盒子副本里从末尾向前删去 glue、kern、penalty，拆开零尺寸 hbox，列表变空才算没有可见输出。新增寄存器 `\l__xeCJK_boundary_probe_inner_box`，`loading01.tlg` 随之多一行。
+
+测试 `boundary-empty-space01` 由 2305 项增至 3803 项（7 个 TEST，组成见 `llmdoc/reference/build-and-test.md`）。旧 head 上 tie 类 216 项失败，`C-groupmath`／`C-colormath` 80 项失败，表格用例报错。审查者的 110448 组外部矩阵上，相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项是矩阵 oracle 写错（`中 \phantomsection{}$y$` 删去命令后应是 `中 {}$y$`）。另一已知限制 `\mbox{} \mbox{}`（`xCJKecglue=true`、可区分间距、`01` 写法）修复前后都与直接输入不一致，登记在 `llmdoc/memory/doc-gaps.md`；左侧是公式、右侧是汉字一项也补记了修复前后的数值。
+
+### 教训
+
+- **自己的验证矩阵只列出与直接输入一致的组合。** `boundary-empty-space01` 只收入与直接输入一致的组合，外部矩阵 `tmp/i1103/gen` 也只覆盖设计时想到的 9 种左侧与 9 种右侧；表格单元格、命令左侧的 `~`、`\color` 或花括号后接公式这类写法从一开始就不在里面，所以“0 失败”说明不了它们。审查者从更宽的输入空间独立构造矩阵（110448 组），一次就找到这几类。以后构造矩阵时，左侧、右侧与上下文（表格、分组、颜色声明）各自列出可能的记号种类，再决定哪些移出，移出的组合要登记理由。
+- **peek 之后读取 `\l_peek_token` 前必须仍在 align-safe 分组内。** 下一个记号可能是 `&`，在分组之外判断它会让 TeX 提前结束单元格。`\peek_remove_spaces:n` 的回调已经在它自己的 align-safe 分组之外，回调里要读下一个记号就得重新 peek。已提升到 `memory/lessons-learned.md`。
+- **记录类的旁路状态要在新内容排出时清除。** 只在“下一个 capture 开始”时清除，中间排出的字符不会让记录失效，记录可能被不相关的命令接过来。已提升到 `memory/lessons-learned.md`。
+- **零尺寸不等于没有输出。** `\smash`、`\rlap` 之类会造出尺寸为零、内容可见的盒子；“没有可见输出”要看列表里的节点，而不只看盒子尺寸。
