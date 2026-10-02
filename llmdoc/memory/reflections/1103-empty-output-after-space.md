@@ -7,6 +7,8 @@ metadata:
 
 # [Task Reflection]
 
+> 各轮小节里的 `boundary-empty-space01` TEST 编号是写下时的编号；第九轮插入 TEST 7 之后，原 TEST 7–13 变为 TEST 8–14。当前编号见 `llmdoc/reference/build-and-test.md`。
+
 ## Task
 
 #1103（合入 PR #1102，分支 `fix-1092-siunitx-range`）：已注册命令执行后没有可见输出，且两侧都有源码空格时，结果比直接输入多一枚空格；两侧都是汉字时多出两枚间距的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入为 20.0pt）。#1092 时这被登记为已知回退（见 `memory/doc-gaps.md` 中“siunitx 空输出两侧都有源码空格时多出两枚 `\CJKecglue`”一节），之后维护者改为要求彻底修复。
@@ -278,3 +280,7 @@ xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4686 项�
 ## 本地审查第十二轮
 
 第十一轮修复提交为 `d0cbe149`。本地审查第十二轮（增量，`5878160a..d0cbe149`，run `r12-incr-093620`）结论 COMMENT，阻塞 0、重要 0、小问题 2，都是剩余的旧编号：`build-and-test.md`「判别力」一段的“当时的 TEST 9（现 TEST 10）”应为现 TEST 11，零尺寸盒子一条缺“第九轮前为 TEST 13”，`\halign` 一条末尾的注记重复；`lessons-learned.md` 一处仍写 TEST 9。已改正，`lessons-learned.md` 改用 TEST 名称。第十一轮写下“改名前先 grep 全部文档”，自己仍没有 grep 到 `lessons-learned.md`：grep 时要用测试文件名与测试名两个关键词，而不是只看审查者提到的文件。
+
+## 本地审查第十三轮
+
+第十二轮修复提交为 `2ddac91b`。本地审查第十三轮（增量，`d0cbe149..2ddac91b`，run `r13-incr-095037`）结论 COMMENT，阻塞 0、重要 0、小问题 1：`build-and-test.md`「审查者的独立矩阵更宽」一段仍用旧编号（“上面的 TEST 7”“上面的 TEST 10 与 TEST 8”等），且没有注明。已按当前 `.tlg` 改正并注明；本反思开头加一行说明各轮小节用写下时的编号。
