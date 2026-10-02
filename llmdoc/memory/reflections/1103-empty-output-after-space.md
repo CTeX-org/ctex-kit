@@ -7,7 +7,7 @@ metadata:
 
 # [Task Reflection]
 
-> 各轮小节里的 `boundary-empty-space01` TEST 编号是写下时的编号；第九轮插入 TEST 7 之后，原 TEST 7–13 变为 TEST 8–14。当前编号见 `llmdoc/reference/build-and-test.md`。
+> 各轮小节里的 `boundary-empty-space01` TEST 编号是写下时的编号。第四、五、六、七、九轮都插入过 TEST，不能用一条换算对应到当前编号；按 TEST 名称找当前编号，名称与各组的旧编号见 `llmdoc/reference/build-and-test.md`「组成」一节（每条括号里列出各轮之前的编号）。
 
 ## Task
 
@@ -284,3 +284,7 @@ xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4686 项�
 ## 本地审查第十三轮
 
 第十二轮修复提交为 `2ddac91b`。本地审查第十三轮（增量，`d0cbe149..2ddac91b`，run `r13-incr-095037`）结论 COMMENT，阻塞 0、重要 0、小问题 1：`build-and-test.md`「审查者的独立矩阵更宽」一段仍用旧编号（“上面的 TEST 7”“上面的 TEST 10 与 TEST 8”等），且没有注明。已按当前 `.tlg` 改正并注明；本反思开头加一行说明各轮小节用写下时的编号。
+
+## 本地审查第十四轮
+
+第十三轮修复提交为 `5ed3672c`。本地审查第十四轮（增量，`2ddac91b..5ed3672c`，run `r14-incr-100734`）结论 COMMENT，阻塞 0、重要 0、小问题 1：反思开头新加的说明只给了第九轮的一条换算，对第二、四、五、六轮小节里的编号不成立。已改为说明各轮都插入过 TEST，按名称查 build-and-test 的旧编号注记。
