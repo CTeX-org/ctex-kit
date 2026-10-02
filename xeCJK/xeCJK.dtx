@@ -4699,6 +4699,11 @@ Copyright and Licence
 %   \@@_boundary_after_space_test_other:,
 %   \@@_boundary_if_peek_outer:,
 %   \@@_boundary_if_peek_outer:w,
+%   \@@_boundary_if_prefix:nN,
+%   \c_@@_boundary_outer_str,
+%   \c_@@_boundary_long_outer_str,
+%   \c_@@_boundary_protected_outer_str,
+%   \c_@@_boundary_protected_long_outer_str,
 %   \@@_boundary_after_space_brace_test_aux:,
 %   \@@_boundary_after_space_math_test_aux:,
 %   \@@_boundary_after_space_ignore_test_aux:,
@@ -5331,6 +5336,11 @@ Copyright and Licence
             g_@@_boundary_suspend_\int_use:N
             \g_@@_boundary_suspend_depth_int _pending_tl
           }
+        \tl_new:c
+          {
+            g_@@_boundary_suspend_\int_use:N
+            \g_@@_boundary_suspend_depth_int _after_space_tl
+          }
       }
     \exp_args:Nc \tl_gset_eq:NN
       {
@@ -5344,6 +5354,12 @@ Copyright and Licence
         \g_@@_boundary_suspend_depth_int _pending_tl
       }
       { \bool_if:NTF \g_@@_glue_check_pending_bool { true } { false } }
+    \tl_gset:ce
+      {
+        g_@@_boundary_suspend_\int_use:N
+        \g_@@_boundary_suspend_depth_int _after_space_tl
+      }
+      { \bool_if:NTF \g_@@_boundary_after_space_bool { true } { false } }
   }
 
 \cs_new_protected:Npn \@@_boundary_capture_resume:
@@ -5364,6 +5380,14 @@ Copyright and Licence
       { true }
       { \bool_gset_true:N \g_@@_glue_check_pending_bool }
       { \bool_gset_false:N \g_@@_glue_check_pending_bool }
+    \tl_if_eq:cnTF
+      {
+        g_@@_boundary_suspend_\int_use:N
+        \g_@@_boundary_suspend_depth_int _after_space_tl
+      }
+      { true }
+      { \bool_gset_true:N \g_@@_boundary_after_space_bool }
+      { \bool_gset_false:N \g_@@_boundary_after_space_bool }
     \int_gdecr:N \g_@@_boundary_suspend_depth_int
   }
 
@@ -5595,6 +5619,9 @@ Copyright and Licence
 % 例如 |\textcolor{red}{\mbox{}}| 里的 \tn{mbox}），编号不变，转交时也不变。\tn{textcolor} 包装记下自己所在的分组层数
 % \cs{l_@@_boundary_textcolor_level_int}；分组里的颜色推入命令结束时，若层数
 % 正好深一层，就把当前记录的编号存进按层数区分的全局变量（没有记录时存空）。
+% 包装在调用原命令之前把这一层的变量设为 |?|，只有第一个颜色推入命令（即
+% \tn{textcolor} 自己的 \tn{set@color}）存下编号；正文里的 \tn{color}、
+% \tn{normalcolor} 在同一层结束时不再覆盖它（|\textcolor{red}{A \color{blue}} B|）。
 % 弹出命令在分组结束之后、层数等于包装记下的层数时执行，只在当前记录的编号
 % 等于这一层存下的编号时转交；不配对时把本层的 |after_space| 字段改为假。
 % 不经过 \tn{textcolor} 包装的 \tn{color} 与 \pkg{l3color} 不转交。
@@ -5644,8 +5671,22 @@ Copyright and Licence
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_push_end:
   {
     \@@_boundary_hmode_transparent_finish:
-    \int_compare:nNnT { \tex_currentgrouplevel:D }
-      = { \l_@@_boundary_textcolor_level_int + 1 }
+    \bool_lazy_and:nnT
+      {
+        \int_compare_p:nNn { \tex_currentgrouplevel:D }
+          = { \l_@@_boundary_textcolor_level_int + 1 }
+      }
+      {
+        \str_if_eq_p:ee
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_color_origin_
+                \int_eval:n { \tex_currentgrouplevel:D - 1 } _tl
+              }
+          }
+          { ? }
+      }
       {
         \tl_gset:ce
           {
@@ -6840,7 +6881,9 @@ Copyright and Licence
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
 % 新的 marker 排出时（\cs{xeCJK_make_node:n}、\cs{@@_make_space_node:}）也清除
-% 记录：命令之后又排出了字符，后面的空格属于这个字符。
+% 记录：命令之后又排出了字符，后面的空格属于这个字符。暂停 capture 观察期间
+% （\cs{@@_boundary_capture_suspend:}）排出的 marker 在随即丢弃或只用来测量的
+% 盒子里，恢复时连同这条记录一起恢复原值。
 %    \begin{macrocode}
 \cs_new:Npn \@@_boundary_after_space_state:
   {
@@ -6948,12 +6991,13 @@ Copyright and Licence
 % \tn{outer} 记号，\cs{l_peek_token} 等同于它时也是 \tn{outer}，不能出现在任何
 % 宏参数里（报 |Forbidden control sequence|），\cs{token_if_eq_meaning:NNTF}、
 % \cs{token_to_meaning:N} 都不能用。所以先用原语 \tn{meaning} 展开它的含义，
-% 前缀部分（|\outer endtemplate:|、|\long\outer macro:|、
-% |\protected\long\outer macro:|，最长 22 个字符）含有 |\outer| 时不再判断，作废
-% 记录。\TeX{} 打印前缀的顺序是 \tn{protected}、\tn{long}、\tn{outer}，所以不能
-% 只看开头。其他记号的含义在前 22 个字符里不会出现 |\outer|：字符记号的含义
-% 是“the letter”等固定文字，原语的含义就是它自己的名字（\tn{outer} 原语的含义
-% |\outer| 本身不是 \tn{outer} 记号，这时按 \tn{outer} 处理只是作废记录，无害）。
+% 以 |\outer|、|\long\outer|、|\protected\outer| 或 |\protected\long\outer| 加
+% 一个空格开头（|\outer endtemplate:|、|\long\outer macro:->| 等）时不再判断，作废
+% 记录。\TeX{} 打印前缀的顺序是 \tn{protected}、\tn{long}、\tn{outer}，所以要
+% 逐一比较这四种前缀。前缀字符串用 \cs{c_backslash_str} 拼成，控制词之间没有
+% 空格；\cs{tl_to_str:n} 会在每个控制词后补一个空格，不能用来生成它们。不能在
+% 含义里随便查找 |\outer|，否则替换文本以 |\outer...| 开头的普通宏
+% （|\def\Foo{\outerX}|，含义 |macro:->\outerX|）也会被误认。
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_boundary_if_peek_outer: { TF }
   {
@@ -6962,11 +7006,37 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_if_peek_outer:w #1 \q_stop
   {
-    \exp_args:Nee \str_if_in:nnTF
-      { \str_range:nnn {#1} { 1 } { 22 } }
-      { \c_backslash_str outer }
+    \bool_lazy_any:nTF
+      {
+        { \@@_boundary_if_prefix_p:nN {#1} \c_@@_boundary_outer_str }
+        { \@@_boundary_if_prefix_p:nN {#1} \c_@@_boundary_long_outer_str }
+        { \@@_boundary_if_prefix_p:nN {#1} \c_@@_boundary_protected_outer_str }
+        {
+          \@@_boundary_if_prefix_p:nN {#1}
+            \c_@@_boundary_protected_long_outer_str
+        }
+      }
       { \prg_return_true: }
       { \prg_return_false: }
+  }
+\prg_new_conditional:Npnn \@@_boundary_if_prefix:nN #1#2 { p }
+  {
+    \str_if_eq:eeTF
+      { \str_range:nnn {#1} { 1 } { \str_count:N #2 } }
+      {#2}
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\str_const:Ne \c_@@_boundary_outer_str
+  { \c_backslash_str outer \c_space_tl }
+\str_const:Ne \c_@@_boundary_long_outer_str
+  { \c_backslash_str long \c_backslash_str outer \c_space_tl }
+\str_const:Ne \c_@@_boundary_protected_outer_str
+  { \c_backslash_str protected \c_backslash_str outer \c_space_tl }
+\str_const:Ne \c_@@_boundary_protected_long_outer_str
+  {
+    \c_backslash_str protected \c_backslash_str long
+    \c_backslash_str outer \c_space_tl
   }
 \prg_new_conditional:Npnn \@@_boundary_if_peek_align: { TF }
   {
@@ -14358,6 +14428,24 @@ Copyright and Licence
       {
         \int_set:Nn \l_@@_boundary_textcolor_level_int
           { \tex_currentgrouplevel:D }
+        \tl_if_exist:cF
+          {
+            g_@@_boundary_color_origin_
+            \int_use:N \tex_currentgrouplevel:D _tl
+          }
+          {
+            \tl_new:c
+              {
+                g_@@_boundary_color_origin_
+                \int_use:N \tex_currentgrouplevel:D _tl
+              }
+          }
+        \tl_gset:cn
+          {
+            g_@@_boundary_color_origin_
+            \int_use:N \tex_currentgrouplevel:D _tl
+          }
+          { ? }
         \@@_orig_textcolor:nnn {#1} {#2} {#3}
         \int_set:Nn \l_@@_boundary_textcolor_level_int { -1 }
         \@@_boundary_after_space_check:
@@ -15100,9 +15188,10 @@ Copyright and Licence
 % 在装饰末尾补左边界，并借 \tn{UL@stop} 把结尾的语法空格和这个空片段盒子
 % 画成装饰（\#1091）。因此 \tn{UL@end} 在吃掉定界符时暂停 capture 观察，
 % \cs{@@_ulem_end:} 关闭这个片段盒子之后立即恢复。暂停可以嵌套，并按层保存、
-% 恢复 \cs{g_@@_last_node_tl} 与 source-space pending，所以 |*| 在丢弃的
-% 盒子里留下的状态也一并撤销。\tn{UL@end} 只在这条结束路径中执行，
-% \tn{UL@onin} 与 \tn{UL@onmath} 都不经过它，暂停与恢复总是成对出现。
+% 恢复 \cs{g_@@_last_node_tl}、source-space pending 与“命令之后的空格待删去”的
+% 记录，所以 |*| 在丢弃的盒子里留下的状态也一并撤销。\tn{UL@end} 只在这条
+% 结束路径中执行，\tn{UL@onin} 与 \tn{UL@onmath} 都不经过它，暂停与恢复总是
+% 成对出现。
 %    \begin{macrocode}
 \clist_map_inline:nn
   {
@@ -15204,6 +15293,26 @@ Copyright and Licence
   {
     \@@_boundary_capture_suspend:
     \@@_ulem_orig_set_depth:
+    \@@_boundary_capture_resume:
+  }
+%    \end{macrocode}
+% \end{macro}
+%
+% \begin{macro}[int]{\markoverwith, \@@_ulem_orig_markoverwith:n}
+% \tn{markoverwith} 把装饰符号排进原始的 \tn{hbox} 量宽度（\tn{uwave} 的 |\char58|、
+% \tn{xout} 的 |/|、\tn{dotuline} 的 |.|）。这些字符触发 interchar 转换，排出
+% |default| 等 marker；\cs{xeCJK_make_node:n} 排出 marker 时清除“命令之后的
+% 空格待删去”的记录，内层空命令交给外层的记录就丢了：
+% |中 \textcolor{red}{\xout{}} 文| 多一枚空格（26.66pt，直接输入 20.0pt），
+% \tn{uline} 不经过 \tn{markoverwith}，没有这个问题。因此与 \tn{UL@setULdepth} 一样
+% 在测量期间暂停 capture 观察；\cs{@@_boundary_capture_suspend:} 同时保存、恢复
+% 这条记录。
+%    \begin{macrocode}
+\cs_new_eq:NN \@@_ulem_orig_markoverwith:n \markoverwith
+\cs_set_protected:Npn \markoverwith #1
+  {
+    \@@_boundary_capture_suspend:
+    \@@_ulem_orig_markoverwith:n {#1}
     \@@_boundary_capture_resume:
   }
 %    \end{macrocode}

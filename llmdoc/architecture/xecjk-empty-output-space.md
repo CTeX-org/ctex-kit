@@ -22,6 +22,14 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 `\@@_boundary_capture_begin:` 先读取上述有效性，再清除全局记录 `\g_@@_boundary_after_space_bool`，所以下一个 capture 开始时旧记录总会失效。新的 marker 排出时（`\xeCJK_make_node:n`、`\@@_make_space_node:`）也清除这条记录：命令之后又排出了字符，后面的空格属于这个字符。以前检查遇到控制序列时把记录留给外层，命令之后接着排出别的内容时，记录仍保留到下一个 capture 开始，可能被后面的命令误当作内层留下的记录接过来（如 `中~ \RegStream{}\hbox{x}` 之后的下一段，本地审查第一轮发现）。
 
+### 暂停 capture 观察期间排出的 marker
+
+有些代码把字符排进只用来测量或随即丢弃的盒子：ulem 的 `\UL@end` 吃掉定界符后留下的 `*`、`\UL@setULdepth` 量深度用的 `(j`、`\markoverwith` 量装饰符号宽度用的字符（`\uwave` 的 `\char58`、`\xout` 的 `/`、`\dotuline` 的 `.`）、`\sbox` 与 `\xeCJK_fntef_sbox:n` 里的内容。这些字符同样触发 interchar 转换，`\xeCJK_make_node:n` 排出 marker 时会清除上面的记录；它们不在最终的列表里，记录却丢了。`中 \textcolor{red}{\uline{}} 文` 里内层 `\uline{}` 记下、应交给外层的记录因此丢失，结果为 26.66pt，直接输入 20.0pt（本地审查第六轮的重要问题，第五轮来源编号修复的副作用；`\uuline`、`\uwave`、`\xout`、`\dashuline`、`\dotuline` 同样）。
+
+这些位置都由 `\@@_boundary_capture_suspend:`／`\@@_boundary_capture_resume:` 包住。暂停可以嵌套，按暂停层数保存、恢复三项全局状态：`\g_@@_last_node_tl`、source-space pending（`\g_@@_glue_check_pending_bool`），以及 `\g_@@_boundary_after_space_bool`（保存在 `g_@@_boundary_suspend_<n>_after_space_tl`，第六轮新增）。xeCJKfntef 还包装了 `\markoverwith`（原定义存为 `\@@_ulem_orig_markoverwith:n`），在测量期间暂停观察，做法与 `\UL@setULdepth` 的包装相同。`\uline` 不经过 `\markoverwith`，它的问题只来自 `*` 与 `(j`，由第一项改动解决。
+
+第六轮曾试过另一种做法并放弃：让 `\xeCJK_make_node:n`、`\@@_make_space_node:` 只在当前分组层数不深于记录所在层数时清除记录。这样上一次排版留下的过期记录会在更浅的分组里存活，`boundary-empty-space01` 的 `tie-hbox/*/01`（`中~\cmd{} \hbox{x}`）20 项失败（18.61pt，应为 21.94pt）。规则：**这条记录是全局的，不能按分组层数决定是否清除；在丢弃或测量用的盒子里排出的 marker，由暂停机制保存、恢复它会改动的全部全局状态来处理。**
+
 ## 结束时的重放：`\@@_boundary_replay_before_empty:`
 
 调用点（都是“capture 没有观察到任何类别”的情形）：
@@ -47,8 +55,9 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 现在按“来源编号 + 分组层数”配对：
 
 - **来源编号**：`\@@_boundary_after_space_arm:` 在本层 `after_space` 不为真时（记下的是本层入口取下的新空格）递增 `\g_@@_boundary_after_space_id_int` 并写入 `\g_@@_boundary_after_space_origin_int`；本层 `after_space` 为真时，入口空格来自内层已经记下的那一条（`\textcolor{red}{\mbox{}}` 里的 `\mbox`、配对成功的弹出命令），编号不变。`\@@_boundary_after_space_rearm:` 也不改编号。最初 arm 总是分配新编号，`中 \textcolor{red}{\mbox{}} 文` 因此在弹出时配对失败、多一枚空格（审查者矩阵上 612 项），本地验证时发现后改正。
-- **推入命令**：`\set@color` 改用 `\@@_boundary_register_transparent_push:n` 注册，before 钩子是 `\@@_boundary_hmode_transparent_kind_begin:n { transparent-push }`（`kind` 记为 `transparent-push`，其余代码只特殊处理 `transparent-pop`，这个值走普通路径），after 钩子是 `\@@_boundary_hmode_transparent_push_end:`。push_end 先做 finish（重放与 arm），若当前分组层数等于 `\l_@@_boundary_textcolor_level_int` 加一，把当前记录的来源编号（没有有效记录时为空）存进 `\g_@@_boundary_color_origin_<包装层数>_tl`，最后做 after_space_check。
-- **包装层数**：`\@@_boundary_textcolor:nnn` 的非公式分支在调用原 `\textcolor` 之前把 `\l_@@_boundary_textcolor_level_int` 设为当前分组层数，之后设回 -1（初值 -1）。它是局部变量：嵌套的内层 `\textcolor` 在外层的分组里设置和设回，外层分组结束、外层的 `\reset@color` 执行时，TeX 已恢复外层记下的值。`\set@color` 在 `\textcolor` 自己的分组里执行，所以层数正好深一层；`\reset@color` 在分组结束后执行，层数等于包装层数。
+- **推入命令**：`\set@color` 改用 `\@@_boundary_register_transparent_push:n` 注册，before 钩子是 `\@@_boundary_hmode_transparent_kind_begin:n { transparent-push }`（`kind` 记为 `transparent-push`，其余代码只特殊处理 `transparent-pop`，这个值走普通路径），after 钩子是 `\@@_boundary_hmode_transparent_push_end:`。push_end 先做 finish（重放与 arm），若当前分组层数等于 `\l_@@_boundary_textcolor_level_int` 加一、**且** `\g_@@_boundary_color_origin_<包装层数>_tl` 仍是 `?`，把当前记录的来源编号（没有有效记录时为空）存进这个变量，最后做 after_space_check。
+- **只有第一个推入命令存编号**：正文里的 `\color`、`\normalcolor` 也调用 `\set@color`，层数同样是包装层数加一。第五轮的 push_end 只比较层数，正文里最后一个推入命令会覆盖 `\textcolor` 自己存下的编号，`\reset@color` 配对失败：`\textcolor{red}{A \color{blue}} B`、`\textcolor{red}{A \color{blue}\mbox{}} B`、`\textcolor{red}{A \normalcolor} B` 为 17.91pt，修复前与直接输入 `{A } B` 都是 21.24pt（本地审查第六轮的阻塞问题）。现在包装在调用原 `\textcolor` 之前把本层的变量设为 `?`（不存在时先 `\tl_new:c`），push_end 只在值仍是 `?` 时存编号，所以只有 `\textcolor` 自己的 `\set@color`（第一个推入命令）存下编号。
+- **包装层数**：`\@@_boundary_textcolor:nnn` 的非公式分支在调用原 `\textcolor` 之前把 `\l_@@_boundary_textcolor_level_int` 设为当前分组层数（并把上面的变量设为 `?`），之后设回 -1（初值 -1）。它是局部变量：嵌套的内层 `\textcolor` 在外层的分组里设置和设回，外层分组结束、外层的 `\reset@color` 执行时，TeX 已恢复外层记下的值。`\set@color` 在 `\textcolor` 自己的分组里执行，所以层数正好深一层；`\reset@color` 在分组结束后执行，层数等于包装层数。
 - **弹出命令**：`\reset@color` 用 `\@@_boundary_register_transparent_pop:n` 注册，before 钩子是 `\@@_boundary_hmode_transparent_pop_begin:`；`\__color_backend_reset:` 的包装也用它。它在 `\@@_boundary_hmode_transparent_kind_begin:n { transparent-pop }` 开始 capture（capture 开始时会清除全局记录）**之前**先判断是否配对：记录有效、当前层数等于包装层数、且当前记录的来源编号等于 `\g_@@_boundary_color_origin_<当前层数>_tl`。不配对且本层 capture 处于活动状态时，把本层 `after_space` 字段改为 `false`，这样 `\@@_boundary_replay_before_empty:` 不 rearm。
 - **重放**：`\@@_boundary_replay_before_empty_arm:` 在 `kind` 为 `transparent-pop` 且本层 `after_space` 不为 `true` 时只调用 `\@@_boundary_replay_before:`，不记下记录；其余情形（包括配对成功、`after_space` 为真的弹出命令）走原有路径：`space_glue` 为真时调用 `\@@_boundary_replay_before:`，否则只重放 `CJK-space` marker 并清 pending，然后调用 `\@@_boundary_after_space_arm:`。
 
@@ -112,12 +121,13 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 把下一个记号读成宏参数同样会让 TeX 看到它。控制序列分支原来先结束 align-safe 分组，再把下一个记号作为 `\@@_boundary_after_space_hook:N` 的参数读入，判断它的名字是否以 `__hook` 开头；plain `\halign` 里命令之后紧跟 `\cr`、`\crcr` 或 `\span` 时，读参数就在分组之外碰到了对齐记号，TeX 插入列模板，报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`（`中 \mbox{}\cr`，本地审查第二轮的阻塞问题；修复前的 `e641743e` 没有这项检查，不报错）。所以 `\@@_boundary_after_space_test_other:` 先在分组内用 `\@@_boundary_if_peek_align:TF` 比较 `\l_peek_token` 的含义，排除 `\cr`、`\crcr`、`\span`，再结束分组、读参数。规则是：**判断 `\l_peek_token` 和把下一个记号读成参数都必须在 align-safe 分组内完成，或者先在分组内排除对齐记号**。`&` 不是控制序列，不会进入读参数的分支。
 
-上面排除 `\cr` 一类记号的比较本身也要读 `\l_peek_token`。plain `\halign` 的列模板以空的已注册命令结尾、命令左侧有空格时（`\halign{#\mbox{}\cr 中 \cr}`），命令之后的下一个记号是 TeX 在列模板末尾插入的 `\endtemplate`。它是 `\outer` 记号，`\l_peek_token` 等同于它时也是 `\outer`；把 `\l_peek_token` 交给 `\token_if_eq_meaning:NNTF` 就是把它放进宏参数，报 `Forbidden control sequence`，接着 Emergency stop（最终全范围审查第四轮的重要问题；第二轮只排除了 `\cr`／`\crcr`／`\span`）。所以 `\@@_boundary_if_peek_outer:TF` 在所有判断之前，用原语 `\tex_meaning:D` 展开 `\l_peek_token` 的含义，在前 22 个字符里查找 `\outer`：
+上面排除 `\cr` 一类记号的比较本身也要读 `\l_peek_token`。plain `\halign` 的列模板以空的已注册命令结尾、命令左侧有空格时（`\halign{#\mbox{}\cr 中 \cr}`），命令之后的下一个记号是 TeX 在列模板末尾插入的 `\endtemplate`。它是 `\outer` 记号，`\l_peek_token` 等同于它时也是 `\outer`；把 `\l_peek_token` 交给 `\token_if_eq_meaning:NNTF` 就是把它放进宏参数，报 `Forbidden control sequence`，接着 Emergency stop（最终全范围审查第四轮的重要问题；第二轮只排除了 `\cr`／`\crcr`／`\span`）。所以 `\@@_boundary_if_peek_outer:TF` 在所有判断之前，用原语 `\tex_meaning:D` 展开 `\l_peek_token` 的含义，再由 `\@@_boundary_if_peek_outer:w` 把含义的开头与四个前缀逐一精确比较：`\outer `、`\long\outer `、`\protected\outer `、`\protected\long\outer `（各带一个空格，对应 `\outer endtemplate:`、`\long\outer macro:` 等）。
 
 - 不能用 `\token_to_meaning:N`，它同样把 `\l_peek_token` 作为参数读入。
-- 不能只比较开头。TeX 打印宏前缀的顺序是 `\protected`、`\long`、`\outer`，`\long\outer`、`\protected\outer` 宏的含义分别以 `\long\outer macro:`、`\protected\outer macro:` 开头。第四轮的做法是比较前 6 个字符，漏掉这两类，`中 \mbox{}\EmptyOuterB`（`\long\outer\def`）仍报 `Forbidden control sequence`（本地审查第五轮的重要问题）。22 是最长前缀 `\protected\long\outer` 加一个字符的长度。
-- 其他记号的含义在前 22 个字符里不会出现 `\outer`：字符记号的含义是 `the letter` 等固定文字，原语的含义是它自己的名字。`\outer` 原语本身会被当作 `\outer` 记号，只是作废记录，无害。
-- 写法是 `\exp_args:Nee \str_if_in:nnTF { \str_range:nnn {#1} { 1 } { 22 } } { \c_backslash_str outer }`。`\meaning` 的输出以反斜杠开头、字符 catcode 为 12；比较对象 `\c_backslash_str outer` 必须先展开（`:nn` 形式不展开 `\c_backslash_str`），所以用 `\exp_args:Nee`。`\str_if_in:nnTF` 不可展开，`\@@_boundary_if_peek_outer:w` 因此改为 protected。
+- 不能只比较 `\outer` 一种开头。TeX 打印宏前缀的顺序是 `\protected`、`\long`、`\outer`，`\long\outer`、`\protected\outer` 宏的含义分别以 `\long\outer macro:`、`\protected\outer macro:` 开头。第四轮只比较前 6 个字符，`中 \mbox{}\EmptyOuterB`（`\long\outer\def`）仍报 `Forbidden control sequence`（本地审查第五轮的重要问题）。
+- 也不能在含义里随便查找 `\outer`。第五轮改为在前 22 个字符里查找，替换文本以 `\outer...` 开头的普通宏（`\def\Foo{\outerX}`，含义 `macro:->\outerX`）因此被误判为 `\outer` 记号，记录被作废（本地审查第六轮的小问题）。四个前缀都以空格结尾，所以 `\outerX` 这类名字不会匹配。`\outer` 原语本身的含义是 `\outer`，后面没有空格，不匹配，照常走其他分支（它是普通原语，不是 `\outer` 记号）。
+- 比较由 `\@@_boundary_if_prefix:nN` 完成：取含义的前 `\str_count:N` 个字符，与前缀用 `\str_if_eq:eeTF` 比较；四个调用由 `\bool_lazy_any:nTF` 组合。
+- 前缀常量 `\c_@@_boundary_outer_str`、`\c_@@_boundary_long_outer_str`、`\c_@@_boundary_protected_outer_str`、`\c_@@_boundary_protected_long_outer_str` 用 `\c_backslash_str` 拼成（`\str_const:Ne`），末尾接 `\c_space_tl`。`\meaning` 的输出以反斜杠开头、字符 catcode 为 12，控制词之间没有空格。不能用 `\tl_to_str:n { \protected \long \outer }` 生成：它在每个控制词后补一个空格，得到 `\protected \long \outer `，与 `\meaning` 打印的 `\protected\long\outer macro:` 不同，`\protected\long\outer` 宏于是漏检（第六轮修复的第一版就因此报 `Forbidden control sequence`）。
 
 规则补充：**`\l_peek_token` 可能是 `\outer` 记号，在交给任何以它为参数的函数之前，先用原语 `\meaning` 排除。**
 
@@ -133,6 +143,6 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 - `X{ }\cmd Y`（空格写在花括号里）：**相对修复前是回退**，维护者决定接受（[[../memory/decisions/1103-group-space-before-empty-command]]）。它在命令之前留下的节点列表与 `X{} \cmd Y`、`X\ \cmd Y`、`X\space\cmd Y` 相同（左侧是汉字时，列表末尾都是 `CJK` marker 加一枚词间 glue），`space_glue` 无法区分，按后者处理，删去命令之后的空格：`中{ }\mbox{} 文` 修复前与直接输入都是 26.66pt，现在 23.33pt。后三者修复前多一枚空格，现在正确。用户手册「CJK 文字与命令交互时的间距」一节写明了这一限制与替代写法（把空格写在命令之后的花括号里，或改用 `~`）。
 - `\mbox{} \mbox{}` 这类两个空命令之间有空格的写法，在 `xCJKecglue=true` 且可区分间距、右侧空格写法 01 时与直接输入不一致。
-- 颜色正文以“汉字 + 空格 + 空命令”结尾（`\textcolor{red}{中 \mbox{}} 文`）与嵌套的空颜色命令（`中 \textcolor{red}{\textcolor{blue}{}} 文`）：修复前与现在都多一枚空格，上文的配对规则不改变它们的结果。l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾时，修复前与现在都删去命令之后的空格。
+- 颜色正文以“汉字 + 空格 + 空命令”结尾（`\textcolor{red}{中 \mbox{}} 文`）：修复前与现在都多一枚空格（26.66pt，直接输入 `{中 } 文` 23.33pt），上文的配对规则不改变它的结果。嵌套的空颜色命令 `中 \textcolor{red}{\textcolor{blue}{}} 文` 与直接输入一致（20.0pt），由 TEST 10 的 `tc-tc-C` 固定；第五轮曾误记为仍多一枚空格。l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾时，修复前与现在都删去命令之后的空格。
 
 测试见 `xeCJK/testfiles/boundary-empty-space01.lvt`，组成见 [[../reference/build-and-test]]。

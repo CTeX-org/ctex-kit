@@ -144,7 +144,7 @@ metadata:
 
 测试 `boundary-empty-space01` 由 3848 项增至 3871 项、11 个 TEST：新增 TEST 9（空命令之后紧跟 `\outer` 宏，4 项，用 `\BEGINTEST`／`\ENDTEST`，因为 `\outer` 宏不能出现在宏参数里），颜色正文一组改为 TEST 10、每种设置增加 9 项，零尺寸盒子一组改为 TEST 11，TEST 8 增加 1 项。TEST 9 的 oracle 写成宽度相同的 `中 `：直接输入 `中 \EmptyOuterA` 在 xeCJK 汉字之后的前视里也报 `Forbidden control sequence`，修复前 `e641743e` 就如此，登记在 `llmdoc/memory/doc-gaps.md`。在 `be7e530c` 上 TEST 9 报 `Forbidden control sequence`；去掉该 TEST 后 TEST 10 的新用例失败 18 项。
 
-修复前后都与直接输入不一致、不在测试里比较的写法登记在 `doc-gaps.md`：`\textcolor{red}{中 \mbox{}} 文`（修复前与现在都是 26.66pt，直接输入 `{中 } 文` 23.33pt）、嵌套的空颜色命令 `中 \textcolor{red}{\textcolor{blue}{}} 文`（都是 26.66pt，直接输入 20.0pt）、l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾（都是 17.91pt，直接输入 21.24pt，审查者报告）。
+修复前后都与直接输入不一致、不在测试里比较的写法登记在 `doc-gaps.md`：`\textcolor{red}{中 \mbox{}} 文`（修复前与现在都是 26.66pt，直接输入 `{中 } 文` 23.33pt）、l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾（都是 17.91pt，直接输入 21.24pt，审查者报告）。本轮当时还登记了嵌套的空颜色命令 `中 \textcolor{red}{\textcolor{blue}{}} 文`（写作“都是 26.66pt，直接输入 20.0pt”），第六轮实测 `aed1f9d2` 上它与直接输入一致（20.0pt），这条登记有误，已从 `doc-gaps.md` 删去，改为 TEST 10 的正向用例 `tc-tc-C`，见下文「本地审查第六轮」。
 
 ### 教训
 
@@ -153,3 +153,33 @@ metadata:
 - **为第四轮修复补的测试只覆盖了修复想要保住的那一种写法。** TEST 9（现 TEST 10）的 `tc-empty-C`／`tc-empty-L` 确认 `\set@color` 的记录仍被转交，但没有一项让正文里别的命令留下记录，所以“转交条件过宽”没有被测到。给一个条件加测试时，除了它应当成立的情形，也要列出“条件同样成立、但不该动作”的写法。
 
 本轮修复的第一版让 `\@@_boundary_after_space_arm:` 每次都分配新编号，`中 \textcolor{red}{\mbox{}} 文` 里 `\mbox` 接过 `\set@color` 的记录后编号变了，`\reset@color` 配对失败；协调者重跑审查者矩阵、与上一 head 逐行比较时发现 612 项变差，改为本层 `after_space` 为真时保留原编号。同一次全量检查还发现 `fntef-entry-space01` 的 `sibling-color-then-nested-tie-cjk-spaced` 失败：它的 oracle `符 {\color{red}}{~中} 后` 本身含用户分组里的空颜色命令，上一 head 上这个 oracle 碰巧与候选一致，现在恢复为修复前的 36.66pt（多一枚空格，已登记 doc-gaps），比较对象改为删去颜色命令的 `符 {}{~中} 后`（33.33pt，候选与之相同）。
+
+## 本地审查第六轮
+
+第五轮修复提交为 `aed1f9d2`。本地审查第六轮（增量，`be7e530c..aed1f9d2`，run `r6-incr-050819`）报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」「暂停 capture 观察期间排出的 marker」「align-safe 分组」）：
+
+1. **阻塞（R6-B1）：正文里另有 `\color`／`\normalcolor` 时，颜色命令之后的空格被删去。** `\textcolor{red}{A \color{blue}} B`、`\textcolor{red}{A \color{blue}\mbox{}} B`、`\textcolor{red}{A \normalcolor} B` 在 `aed1f9d2` 上为 17.91pt，修复前 `e641743e` 与直接输入 `{A } B` 都是 21.24pt，是第五轮的修复引入的回退。原因：正文里的 `\color`、`\normalcolor` 也调用 `\set@color`，所在分组层数同样是包装层数加一，`\__xeCJK_boundary_hmode_transparent_push_end:` 结束时又存一次来源编号，覆盖了 `\textcolor` 自己的推入命令存下的编号，`\reset@color` 配对失败。修复：`\__xeCJK_boundary_textcolor:nnn` 在调用原 `\textcolor` 之前把本层的 `\g__xeCJK_boundary_color_origin_<level>_tl` 设为 `?`（不存在时先创建）；push_end 只在层数等于包装层数加一、且存下的值仍是 `?` 时才存编号，所以只有第一个推入命令（`\textcolor` 自己的 `\set@color`）存下编号。
+2. **重要（R6-I1）：颜色命令里嵌套空线型命令时多一枚空格。** `中 \textcolor{red}{\uline{}} 文`（以及 `\uuline`、`\uwave`、`\xout`、`\dashuline`、`\dotuline`）在 `aed1f9d2` 上为 26.66pt，直接输入 20.0pt，相对 `be7e530c` 是回退，是第五轮来源编号修复的副作用。原因：线型命令内部有几处在暂停 capture 观察期间把字符排进只用来测量或随即丢弃的盒子：`\UL@end` 吃掉定界符后留下的 `*`、`\UL@setULdepth` 的 `(j`、`\markoverwith` 量装饰符号宽度用的字符（`\uwave` 的 `\char58`、`\xout` 的 `/`、`\dotuline` 的 `.`）。这些字符触发 interchar 转换，`\xeCJK_make_node:n` 排出 marker 时清除“命令之后的空格待删去”的记录，内层空命令交给外层的记录就丢了。暂停机制当时只保存、恢复 `\g__xeCJK_last_node_tl` 与 source-space pending。修复两处：(a) `\__xeCJK_boundary_capture_suspend:`／`\__xeCJK_boundary_capture_resume:` 按暂停层数另外保存、恢复 `\g__xeCJK_boundary_after_space_bool`（新变量 `g__xeCJK_boundary_suspend_<n>_after_space_tl`）；(b) 新包装 `\markoverwith`（原定义存为 `\__xeCJK_ulem_orig_markoverwith:n`），与 `\UL@setULdepth` 一样在测量期间暂停 capture 观察。这两处属于同一 PR 内 #1103 修复的一部分，`\changes` 没有单独加条目。
+3. **小问题（R6-M1）：`\outer` 检查误判替换文本以 `\outer...` 开头的普通宏。** 第五轮在 `\meaning` 的前 22 个字符里查找 `\outer`，`\def\Foo{\outerX}`（含义 `macro:->\outerX`）被当作 `\outer` 记号，记录被作废。修复：改为与四个前缀逐一精确比较开头：`\outer `、`\long\outer `、`\protected\outer `、`\protected\long\outer `（各带一个空格；TeX 打印前缀的顺序是 protected、long、outer）。新增 `\__xeCJK_boundary_if_prefix:nN` 与常量 `\c__xeCJK_boundary_outer_str`、`\c__xeCJK_boundary_long_outer_str`、`\c__xeCJK_boundary_protected_outer_str`、`\c__xeCJK_boundary_protected_long_outer_str`，用 `\c_backslash_str` 拼成。
+4. **小问题（R6-M2）：嵌套空颜色命令的过时说法。** doc-gaps、测试注释、architecture 与本反思都说 `中 \textcolor{red}{\textcolor{blue}{}} 文` 仍多一枚空格；实测 `aed1f9d2` 与现在都与直接输入一致（20.0pt）。已删去这些说法，改为 TEST 10 的正向用例 `tc-tc-C`。
+
+### 被放弃的做法
+
+修 R6-I1 时先试过让 `\xeCJK_make_node:n`／`\__xeCJK_make_space_node:` 只在当前分组层数不深于记录所在层数时清除记录，想让排进嵌套盒子的 marker 不影响外层的记录。这样上一次排版留下的过期记录会在更浅的分组里存活，`boundary-empty-space01` 的 `tie-hbox/*/01`（`中~\cmd{} \hbox{x}`）20 项失败（18.61pt，应为 21.94pt）。结论：这条记录是全局的，不能按分组层数决定是否清除；在丢弃或测量用的盒子里排出的 marker，应由暂停机制保存、恢复它改动的状态来处理。
+
+修 R6-M1 的第一版用 `\tl_to_str:n { \protected \long \outer }` 生成比较串。`\tl_to_str:n` 在每个控制词之后补一个空格，得到 `\protected \long \outer `，与 `\meaning` 打印的 `\protected\long\outer macro:` 不同，`\protected\long\outer` 宏于是漏检，报 `Forbidden control sequence`。改为用 `\c_backslash_str` 拼出常量，并在 TEST 9 增加 `outer-D` 固定这一前缀。
+
+### 测试与验证
+
+测试 `boundary-empty-space01` 由 3871 项增至 3898 项、12 个 TEST：TEST 9 新增 `outer-D`（`\protected\long\outer` 宏）；新 TEST 11 “empty command followed by a macro whose text starts with outer”（`not-outer-C`、`not-outer-space`），原零尺寸盒子一组顺延为 TEST 12；TEST 10 每种 `xCJKecglue` 设置新增 12 项：`tc-tc-C`、`tc-uline-C`、`tc-xout-C`、`tc-uwave-C`、`tc-uuline-C`、`tc-dashuline-C`、`tc-dotuline-C`、`tc-uline-empty-L`、`tc-xout-L`、`tc-color-L`、`tc-color-mbox-L`、`tc-normal-L`。在 `aed1f9d2` 上运行新测试，`tc-color-L`、`tc-color-mbox-L`、`tc-normal-L`、`tc-uline-C`、`tc-xout-C`、`tc-uwave-C`、`tc-uuline-C`、`tc-dashuline-C`、`tc-uline-empty-L` 失败，各 2 次，共 18 次（当时还没有加 `tc-dotuline-C` 与 `tc-xout-L`）。
+
+xeCJK 全部 126 个测试通过（保存 `.tlg` 之后重跑受影响的 `boundary-empty-space01`、`loading01`、`fntef-entry-space01` 均通过）；`l3build doc` 通过，索引接受 4621 项、拒绝 0 项；siunitx 3.6.3 下 `siunitx-ecglue01` 为 576／576；外部矩阵 `tmp/i1103/r1probe/big.tex` 的结果与第五轮 head `aed1f9d2` 完全相同，相对修复前 `e641743e` 只有 3 项 `C-phantom-M/10` 不同（来自 oracle 本身，与以前一样）。另外 xeCJKfntef 的 13 个线型命令 × 4 种写法 × 2 种设置的探针都与直接输入一致。
+
+仍未解决、与修复前相同：`\textcolor{red}{中 \mbox{}} 文` 修复前与现在都是 26.66pt，直接输入 `{中 } 文` 23.33pt（第五轮已登记，保留）。
+
+### 教训
+
+- **配对时只清点了“谁会读”，没有清点“谁会写”。** 第五轮的教训是转交记录前要确认记录的来源，于是给 `\set@color` 加了“按层数存编号”的写入点，但没有列出同一层里所有会调用 `\set@color` 的命令；正文里的 `\color`、`\normalcolor` 满足同样的层数条件，覆盖了编号。给一个存放处加写入点时，要列出所有能在同样条件下到达这个写入点的调用者，并决定以哪一个为准（这里是第一个）。已并入 `memory/lessons-learned.md`「转交或接过记录之前，确认记录是谁记下的」。
+- **暂停机制只保存了设计它时关心的状态。** 第一轮让 marker 排出时清除记录，没有同步把这条记录加进暂停机制；第五轮的来源编号修复让内层记录的转交更依赖这条记录，问题才显现。新增一项“marker 排出时会改动”的全局状态时，要同时检查所有暂停、恢复全局状态的地方。修补时不要用分组层数限制全局记录的清除，那会让过期记录存活。已提升到 `memory/lessons-learned.md`。
+- **修好一处之后，前几轮写下的“仍不一致”要重新实测。** 嵌套空颜色命令的登记是第五轮写下的，`aed1f9d2` 上实际已与直接输入一致，却在 doc-gaps、测试注释、architecture 与本反思里留了一轮。登记“仍不一致”的写法时要写明实测所在的提交；下一轮修改相关机制后，把这些登记逐条重新跑一次。
+- **生成比较串的函数本身也要验证。** `\tl_to_str:n` 在控制词后补空格，这与 `\meaning` 的打印格式不同。用于逐字比较的常量，写好后先与一个真实记号的 `\meaning` 比较一次。已提升到 `memory/lessons-learned.md`。

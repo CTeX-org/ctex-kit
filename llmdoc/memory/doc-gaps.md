@@ -207,7 +207,7 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 ## 没有可见输出的命令两侧都有源码空格（#1092 登记的回退，已由 #1103 修复；`X{ }\cmd Y` 为已接受的回退）
 
-**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节；第二轮发现的 plain `\halign` 中命令之后紧跟 `\cr`／`\crcr`／`\span` 报 `Forbidden control sequence`、`\discretionary` 不断行文本里的节点让空盒子探测无限递归两项也已修好，见反思的「本地审查第二轮」一节。最终全范围审查第四轮发现的颜色正文以空格结尾时命令之后的空格被删去（`\textcolor{red}{A } B`，相对修复前是回退）、列模板以空命令结尾时 `\endtemplate` 让命令之后的检查报 `Forbidden control sequence` 两项也已修好，见反思的「最终全范围审查（第四轮）」一节。本地审查第五轮发现的颜色正文以“空格 + 空命令”结尾时颜色命令之后的空格被删去（`\textcolor{red}{A \mbox{}} B`，第四轮的修复引入，相对修复前是回退）、`\long\outer`／`\protected\outer` 宏让 `\outer` 检查漏判两项也已修好，见反思的「本地审查第五轮」一节。
+**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节；第二轮发现的 plain `\halign` 中命令之后紧跟 `\cr`／`\crcr`／`\span` 报 `Forbidden control sequence`、`\discretionary` 不断行文本里的节点让空盒子探测无限递归两项也已修好，见反思的「本地审查第二轮」一节。最终全范围审查第四轮发现的颜色正文以空格结尾时命令之后的空格被删去（`\textcolor{red}{A } B`，相对修复前是回退）、列模板以空命令结尾时 `\endtemplate` 让命令之后的检查报 `Forbidden control sequence` 两项也已修好，见反思的「最终全范围审查（第四轮）」一节。本地审查第五轮发现的颜色正文以“空格 + 空命令”结尾时颜色命令之后的空格被删去（`\textcolor{red}{A \mbox{}} B`，第四轮的修复引入，相对修复前是回退）、`\long\outer`／`\protected\outer` 宏让 `\outer` 检查漏判两项也已修好，见反思的「本地审查第五轮」一节。本地审查第六轮发现的正文里另有 `\color`／`\normalcolor` 时颜色命令之后的空格被删去（`\textcolor{red}{A \color{blue}} B`，第五轮的修复引入，相对修复前是回退）、颜色命令里嵌套空线型命令时多一枚空格（`中 \textcolor{red}{\uline{}} 文`，以及 `\uuline`、`\uwave`、`\xout`、`\dashuline`、`\dotuline`，相对第五轮之前是回退）、替换文本以 `\outer...` 开头的普通宏被 `\outer` 检查误判三项也已修好，见反思的「本地审查第六轮」一节。
 
 文中“修复前”均指 `e641743e`：它是原基准 `25a33aef` rebase 到含 #1104 的 master 后的对应提交。
 
@@ -224,7 +224,6 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - `\uwave{}`、`\CJKunderdot{}` 在左侧是西文或 `{中}`、两侧都有空格时仍与直接输入不一致；修复前同样不一致（最终全范围审查第四轮的观察，未计入问题）。
 - 左侧是 `A{}`、两侧都有空格：可区分间距、`xCJKecglue=true` 时 `A{} \mbox{} 文` 修复前 24.16pt，现在 20.83pt，直接输入 22.5pt。偏差方向变了，修复前也不一致，与上面 `$x$ \cmd 文` 同类（第四轮的观察，未计入问题）。
 - 颜色正文以“汉字 + 空格 + 空命令”结尾：`\textcolor{red}{中 \mbox{}} 文` 修复前与现在都是 26.66pt，直接输入 `{中 } 文` 为 23.33pt（本地审查第五轮登记）。第五轮的配对规则（见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」）不改变它的结果，原因未分析。`boundary-empty-space01` 的 TEST 10 只比较左侧是西文的 `\textcolor{red}{A \mbox{}} B`。
-- 嵌套的空颜色命令：`中 \textcolor{red}{\textcolor{blue}{}} 文` 修复前与现在都是 26.66pt，直接输入 `中  文` 为 20.0pt（第五轮登记）。原因未分析；第五轮的配对规则不改变它的结果。
 - l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾：修复前与现在都是 17.91pt，直接输入 21.24pt（第五轮审查者报告）。原因未分析，可能的补法未评估。
 - 空命令之后紧跟 `\outer` 宏时的直接输入：`中 \EmptyOuterA`（`\EmptyOuterA` 用 `\outer\def` 定义）在 xeCJK 汉字之后的前视（CJK 到 Boundary 的前视）里报 `Forbidden control sequence`，修复前 `e641743e` 就如此，与 #1103 无关，与下文「plain `\halign` 列模板里 `#` 之后有空格」一节是同一条代码路径。`boundary-empty-space01` 的 TEST 9 因此把 oracle 写成宽度相同的 `中 `。命令之后的检查（`中 \mbox{}\EmptyOuterA`）现在不报错。
 

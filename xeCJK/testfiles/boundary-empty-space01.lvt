@@ -31,7 +31,9 @@
 % 源码空格，命令之后的空格不能删）；命令之后是 |{$y$}| 或 |\color{red}$y$|；
 % \tn{color}；表格单元格末尾与 plain \tn{halign} 的 \tn{cr}、\tn{crcr}、
 % \tn{span}，以及列模板以命令结尾（命令之后是 \tn{endtemplate}）；零尺寸但有
-% 可见内容的盒子；\tn{discretionary} 的不断行文本；颜色正文以空格结尾。
+% 可见内容的盒子；\tn{discretionary} 的不断行文本；颜色正文以空格结尾；
+% 正文里另有 \tn{color}、\tn{normalcolor} 的颜色命令；嵌套在颜色命令里的
+% 空命令；替换文本以 |\outer...| 开头的普通宏。
 
 \documentclass{article}
 
@@ -319,13 +321,14 @@
   \EmptyTemplate{tmpl-mbox-space}{\mbox{} }%
 }
 
-% \outer 宏：\long\outer、\protected\outer 的含义以 \long、\protected 开头，
-% 只看开头会漏掉，以前报 |Forbidden control sequence|。直接输入 |中 \EmptyOuterA|
+% \outer 宏：\long\outer、\protected\outer、\protected\long\outer 的含义以
+% \long、\protected 开头，只看开头会漏掉，以前报 |Forbidden control sequence|。直接输入 |中 \EmptyOuterA|
 % 在 xeCJK 汉字之后的前视里同样报错（修复前就如此，见 doc-gaps），所以比较对象
 % 写成宽度相同的 |中 |。\outer 宏不能出现在宏参数里，所以用 \BEGINTEST/\ENDTEST。
 \outer\def\EmptyOuterA{}
 \long\outer\def\EmptyOuterB{}
 \protected\outer\def\EmptyOuterC{}
+\protected\long\outer\def\EmptyOuterD{}
 \BEGINTEST{empty command followed by an outer macro}
   \EmptyReset
   \setbox\EmptyCandidate=\hbox{中 \mbox{}\EmptyOuterA}%
@@ -349,6 +352,13 @@
   \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
     \global\advance\EmptyFailures by 1
     \TYPE{FAIL: outer-C}%
+  \fi
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{中 \mbox{}\EmptyOuterD}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: outer-D}%
   \fi
   \EmptyReset
   \setbox\EmptyCandidate=\hbox{中 \color{red}\EmptyOuterB}%
@@ -383,10 +393,19 @@
   \EmptyColorTail{tc-tail-uline}{\uline{\textcolor{red}{A } B}}{\uline{{A } B}}%
   \EmptyColorTail{tc-empty-C}{中 \textcolor{red}{} 文}{中  文}%
   \EmptyColorTail{tc-empty-L}{A \textcolor{red}{} B}{A  B}%
+  % 正文为空的颜色命令里嵌套空命令：内层命令的记录交给颜色命令，再交给外层。
+  \EmptyColorTail{tc-tc-C}{中 \textcolor{red}{\textcolor{blue}{}} 文}{中  文}%
+  \EmptyColorTail{tc-uline-C}{中 \textcolor{red}{\uline{}} 文}{中  文}%
+  \EmptyColorTail{tc-xout-C}{中 \textcolor{red}{\xout{}} 文}{中  文}%
+  \EmptyColorTail{tc-uwave-C}{中 \textcolor{red}{\uwave{}} 文}{中  文}%
+  \EmptyColorTail{tc-uuline-C}{中 \textcolor{red}{\uuline{}} 文}{中  文}%
+  \EmptyColorTail{tc-dashuline-C}{中 \textcolor{red}{\dashuline{}} 文}{中  文}%
+  \EmptyColorTail{tc-dotuline-C}{中 \textcolor{red}{\dotuline{}} 文}{中  文}%
+  \EmptyColorTail{tc-xout-L}{A \textcolor{red}{\xout{}} B}{A  B}%
+  \EmptyColorTail{tc-uline-empty-L}{A \textcolor{red}{\uline{}} B}{A  B}%
   % 颜色正文以“空格 + 空命令”结尾：内层命令记下的入口空格在正文里，颜色弹出
-  % 命令不能把它交给外层。|\textcolor{red}{中 \mbox{}} 文| 与嵌套的空颜色命令
-  % |中 \textcolor{red}{\textcolor{blue}{}} 文| 修复前后都多一枚空格，不在这里比较
-  % （见 doc-gaps）。
+  % 命令不能把它交给外层。|\textcolor{red}{中 \mbox{}} 文| 修复前后都多一枚
+  % 空格，不在这里比较（见 doc-gaps）。
   \EmptyColorTail{tc-mbox-L}{\textcolor{red}{A \mbox{}} B}{{A } B}%
   \EmptyColorTail{color-mbox-L}{{\color{red}A \mbox{}} B}{{A } B}%
   \EmptyColorTail{tc-tc-L}{\textcolor{red}{A \textcolor{blue}{}} B}{{A } B}%
@@ -395,12 +414,25 @@
   \EmptyColorTail{tc-unit-L}{\textcolor{red}{A \unit{}} B}{{A } B}%
   \EmptyColorTail{tc-uline-L}{\textcolor{red}{A \uline{}} B}{{A } B}%
   \EmptyColorTail{ul-tc-mbox-L}{\uline{\textcolor{red}{A \mbox{}} B}}{\uline{{A } B}}%
+  % 正文里另有颜色命令：颜色弹出命令只转交与 \textcolor 自己的推入命令配对的
+  % 记录，正文里的 \color、\normalcolor 不能替换它。
+  \EmptyColorTail{tc-color-L}{\textcolor{red}{A \color{blue}} B}{{A } B}%
+  \EmptyColorTail{tc-color-mbox-L}{\textcolor{red}{A \color{blue}\mbox{}} B}{{A } B}%
+  \EmptyColorTail{tc-normal-L}{\textcolor{red}{A \normalcolor} B}{{A } B}%
   % 用户自己写的分组：删去颜色命令后分组还在，两枚空格都保留。
   \EmptyColorTail{group-color-L}{A {\color{red}} B}{A {} B}%
 }
 \TEST{color body ending with a space}{
   \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyColorTailAll \endgroup
   \begingroup \xeCJKsetup{xCJKecglue=true} \EmptyColorTailAll \endgroup
+}
+
+% 替换文本以 |\outer...| 开头的普通宏不是 \outer 宏，命令之后照常检查。
+\def\EmptyNotOuter{\outerEmpty}
+\def\outerEmpty{}
+\TEST{empty command followed by a macro whose text starts with outer}{
+  \EmptyColorTail{not-outer-C}{中 \mbox{}\EmptyNotOuter 文}{中 \EmptyNotOuter 文}%
+  \EmptyColorTail{not-outer-space}{中 \mbox{} \EmptyNotOuter 文}{中  \EmptyNotOuter 文}%
 }
 
 % 宽、高、深都为零的盒子里可能有重叠排出的内容，这时按有可见输出处理。
