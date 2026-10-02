@@ -1,5 +1,6 @@
 ## [xeCJK-v3.10.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.7)
 
+- 在用户手册说明已知缺陷：西文字符之后强制断行或结束段落时，行尾不再有 `microtype` 的字符突出，并给出 `\linebreak` 前加空格的绕过办法（#1104）。
 - 改用 `\cs_parameter_spec:N` 代替已弃用的 `\cs_argument_spec:N`，避免 l3kernel 2026-09-09 起在调试模式下报错（#1095）。
 - 为 `microtype` 找回歧义字符的槽位时同时设置 `\MT@char@`。此前它仍是 `-1`，`microtype` 因而测量 1 号字形的宽度：回退到 `TS1/cmr` 等 TFM 字体时报 `Cannot use XeTeXglyph` 错误，在 OpenType 字体里则把破折号、引号等字符的突出量算错（#1104）。
 - 线型命令的正文以 `\mbox`、`\textcolor` 或嵌套线型命令结尾、花括号前还有空格时，命令后的空格与间距与直接输入一致（#1091）。
