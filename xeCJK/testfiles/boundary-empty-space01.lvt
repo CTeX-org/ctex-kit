@@ -283,6 +283,38 @@
 
 % plain \halign：命令之后紧跟 \cr、\crcr、\span 时，不能在 align-safe 分组之外
 % 把它当作宏参数读取，以前报 |Forbidden control sequence|。
+% 左侧是西文的 tabular 单元格：命令之后的空格被删去，下一个记号是 |&| 或
+% |\\|。以前报 Extra alignment tab has been changed to \cr。比较对象是命令之后
+% 不写空格的同一行：|l| 列模板末尾的 \unskip 只删去单元格末尾的空格，命令留下
+% 的盒子等节点挡住它，删去命令的直接输入 |A  & B| 因此比任何带命令的写法窄，
+% 修复前也是如此。
+\TEST{empty command after a latin letter at the end of a tabular cell}{
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{%
+    \begin{tabular}{ll}
+      A \mbox{} & B \\
+      A \textcolor{red}{} & B \\
+      A \hypertarget{t2}{} & B \\
+      A \uline{} & B \\
+      A \unit{} & B \\
+      A \RegStream{} \\
+    \end{tabular}}%
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{%
+    \begin{tabular}{ll}
+      A \mbox{}& B \\
+      A \textcolor{red}{}& B \\
+      A \hypertarget{t3}{}& B \\
+      A \uline{}& B \\
+      A \unit{}& B \\
+      A \RegStream{}\\
+    \end{tabular}}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: tabular-latin (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
 \newcommand\EmptyAlign[3]{% #1 名称 #2 候选 #3 删去命令后的直接输入
   \global\advance\EmptyChecks by 1
   \EmptyReset
@@ -305,6 +337,15 @@
   \EmptyAlign{crcr-mbox}{中 \mbox{}\crcr}{中 \crcr}%
   \EmptyAlign{span-mbox}{中 \mbox{}\span 文\cr}{中 \span 文\cr}%
   \EmptyAlign{cr-space-mbox}{中 \mbox{} \cr}{中  \cr}%
+  % 左侧是西文、命令之后有空格：删去空格之后清除 \l_peek_token 时，下一个
+  % 记号是对齐记号，清除也必须在 align-safe 分组之内，否则 TeX 插入列模板的
+  % 结尾，报 Missing control sequence inserted。
+  \EmptyAlign{amp-space-latin}{A \mbox{} &C\cr}{A  &C\cr}%
+  \EmptyAlign{cr-space-latin}{A \mbox{} \cr}{A  \cr}%
+  \EmptyAlign{crcr-space-latin}{A \mbox{} \crcr}{A  \crcr}%
+  \EmptyAlign{span-space-latin}{A \mbox{} \span C\cr}{A  \span C\cr}%
+  \EmptyAlign{amp-space-textcolor}{A \textcolor{red}{} &C\cr}{A  &C\cr}%
+  \EmptyAlign{amp-space-uline}{A \uline{} &C\cr}{A  &C\cr}%
 }
 % 列模板以命令结尾时，命令之后是 TeX 插入的 \endtemplate（\outer 记号），以前报
 % |Forbidden control sequence|。直接输入 |中 | 之后的空格由单元格结尾删去。

@@ -235,3 +235,18 @@ xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4686 项�
 - **`\l_peek_token` 是共用的变量，不只属于自己的代码。** 前几轮的规则只要求“自己的判断不把它交给以它为参数的函数”，没有考虑别的模块（xeCJK 的 interchar 代码）也会在参数里写它。修改共用变量的含义（或者让它保留一个危险的含义）时，要考虑之后所有读它的代码，最简单的办法是用完之后改回无害的值。
 - **范围外的新观察也要处理。** R8S-I1 不在本轮增量范围内，也不是第七轮引入的，但它是 #1103 引入、修复前不存在的报错。补充报告里的观察要和正式问题一样判断真假，确认存在就修。
 - **登记“现在不报错”时要写明覆盖了哪些写法。** `doc-gaps.md` 的说法只对以 `}` 结尾的写法成立，却写成了一般的结论。这与第六轮“登记仍不一致的写法时要写明实测所在的提交”是同一类问题：登记结论时连同实测的输入范围一起写下。R8-M1 也是同类：只在一种设置下实测，就写成了两种设置都成立的结论。
+
+## 本地审查第九轮
+
+第八轮修复提交为 `45e4a2f7`。本地审查第九轮（增量，`870661c8..45e4a2f7`，run `r9-incr-081016`）报告 1 项阻塞问题，补充报告确认 R8-M1、R8S-I1 已修复、其余 25 项仍成立。
+
+1. **阻塞（R9-B1）：删去空格之后在 align-safe 分组之外清除 `\l_peek_token`。** 第八轮把 `drop` 为假的分支改为 `\peek_remove_spaces:n { \__xeCJK_boundary_peek_token_clear: }`。这个回调在 `\peek_remove_spaces:n` 结束 align-safe 分组之后执行；左侧是西文、命令之后有空格、接着是 `&`、`\cr`、`\span` 时，`\l_peek_token` 等同于这个对齐记号，`\tex_let:D` 读到它，TeX 插入列模板的结尾。tabular 里 `A \mbox{} & B`（以及 `\textcolor{red}{}`、`\hypertarget{a}{}`、`\uline{}`、`\unit{}`、用户注册的命令）报 `Extra alignment tab has been changed to \cr`；plain `\halign` 的 `A \mbox{} &C\cr`、`A \mbox{} \cr`、`A \mbox{} \span C\cr` 报 `Missing control sequence inserted`。修复前 `e641743e` 与 `870661c8` 都不报错。修复：回调改为 `\group_align_safe_begin: \__xeCJK_boundary_peek_token_clear: \group_align_safe_end:`。左侧是汉字时 `drop` 为真、不走这个分支，以前的 tabular 用例（TEST 6）与 `\halign` 用例（TEST 7）左侧都是汉字或命令之后没有空格，所以没有覆盖。
+
+### 测试与验证
+
+`boundary-empty-space01` 由 3907 项增至 3914 项、14 个 TEST：新增“empty command after a latin letter at the end of a tabular cell”（左侧是西文的 tabular 单元格，比较对象是命令之后不写空格的同一行；`l` 列模板末尾的 `\unskip` 被命令留下的节点挡住，删去命令的直接输入总是更窄，修复前也如此），原 `\halign` TEST 新增 6 项西文、命令之后有空格的写法。`45e4a2f7` 上新 TEST 报 `Extra alignment tab`。xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4683 项、拒绝 0 项；siunitx 3.6.3 下 `siunitx-ecglue01` 为 576／576；外部矩阵与 `45e4a2f7` 完全相同；第八轮的 `\outer` 探针除修复前就报错的直接输入 `中 \OA 文` 外都不报错。
+
+### 教训
+
+- **给 `\l_peek_token` 赋值也是读取它。** 第八轮的教训是“认出 `\outer` 记号之后清除 `\l_peek_token`”，写清除代码时只想到它不经过参数扫描，没有想到 `\let` 本身读取右侧的记号，等同于对齐记号时同样触发列模板的结尾。这与第一、二轮的 R1-B1、R2-B1 根因相同：在 align-safe 分组之外读 `\l_peek_token`。修补一个“读 `\l_peek_token`”的问题时，新写的代码要用同一条规则检查一遍。
+- **每个分支都要配一组表格用例。** 第一轮起的表格用例左侧都是汉字，走 `drop` 为真的分支；`drop` 为假的分支（左侧是西文、`{中}`、`A{}` 等）在表格里没有用例。新增或修改一个分支时，表格、`\halign`、`\outer` 宏这几类“下一个记号特殊”的用例要按分支各配一组。
