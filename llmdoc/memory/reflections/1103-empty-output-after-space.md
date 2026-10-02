@@ -199,7 +199,7 @@ xeCJK 全部 126 个测试通过（保存 `.tlg` 之后重跑受影响的 `bound
 
 ### 新登记的已知限制
 
-调查 R7-I1 时发现一类修复前不存在、现在无法区分的写法：空格与空命令之间只有不排出内容的命令或空分组（`A \sbox0{x}\mbox{} B`、`A \def\x{}\mbox{} B`、`A {}\mbox{} B`、`A \stepcounter{foo}\mbox{} B`）。命令之前的节点列表与 `A \mbox{} B` 相同，只能按后者处理，命令后的空格被删去（17.91pt，修复前与直接输入 21.24pt；两侧都是汉字时与直接输入一致）。`aed1f9d2` 上已经如此（更早的提交没有逐一核对），与 `前{ }\mbox{} 后` 同属一类。已写入用户手册“CJK 文字与命令交互时的间距”一节的已知限制段落（例子 `A \sbox0{x}\mbox{} B`、`A {}\mbox{} B`），`\changes` 条目相应扩写，CHANGELOG 重新生成；登记在 `doc-gaps.md`。`xCJKecglue=true` 时第一个 `\mbox{}` 在列表里不留节点，`A \mbox{}\sbox0{x}\mbox{} B` 也落入这一类，所以新的 TEST 12 只在 `xCJKecglue=false` 下比较。
+调查 R7-I1 时发现一类修复前不存在、现在无法区分的写法：空格与空命令之间只有不排出内容的命令或空分组（`A \sbox0{x}\mbox{} B`、`A \def\x{}\mbox{} B`、`A {}\mbox{} B`、`A \stepcounter{foo}\mbox{} B`）。命令之前的节点列表与 `A \mbox{} B` 相同，只能按后者处理，命令后的空格被删去（17.91pt，修复前与直接输入 21.24pt；两侧都是汉字时，`xCJKecglue=true` 下与直接输入一致；`xCJKecglue=false` 下同样少一枚空格（`中 \sbox0{x}\mbox{} 文`、`中 {}\mbox{} 文` 为 20.0pt，直接输入 23.33pt），但修复前多一枚（26.66pt），不算回退）。`aed1f9d2` 上已经如此（更早的提交没有逐一核对），与 `前{ }\mbox{} 后` 同属一类。已写入用户手册“CJK 文字与命令交互时的间距”一节的已知限制段落（例子 `A \sbox0{x}\mbox{} B`、`A {}\mbox{} B`），`\changes` 条目相应扩写，CHANGELOG 重新生成；登记在 `doc-gaps.md`。`xCJKecglue=true` 时第一个 `\mbox{}` 在列表里不留节点，`A \mbox{}\sbox0{x}\mbox{} B` 也落入这一类，所以新的 TEST 12 只在 `xCJKecglue=false` 下比较。
 
 ### 测试与验证
 
@@ -213,3 +213,25 @@ xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4613 项�
 - **恢复全局状态之前，要问状态是否已经过期。** 第六轮的教训是暂停机制要保存、恢复所有被改动的全局状态，这对命令内部的测量盒子成立；`\sbox` 也用同一套机制，但它是源码里独立的命令，命令结束之后，之前的记录已经与后面的源码空格不相邻。把一项状态加进共用机制时，要逐个检查所有调用者，区分“命令内部的暂停”与“独立命令的暂停”。已并入 `memory/lessons-learned.md`「暂停观察的机制要保存、恢复所有会被改动的全局状态」。
 - **新测试要在被替换的版本上运行一次。** TEST 11 是为防止“子串查找误判 `\outer...` 宏”而加的，却没有在子串查找版本 `aed1f9d2` 上运行确认会失败；记录被后面的汉字清除，误判不影响结果。这是“回归测试须以重新引入缺陷的方式确认会失败”的又一次实例：用例要让被测的判断直接决定可观察的结果，这里是把宏放在颜色命令正文末尾，让记录必须交给外层。
 - **修一处时发现的“无法区分”要与已有的同类限制放在一起登记。** `A \sbox0{x}\mbox{} B` 一类与 `X{ }\cmd Y` 原因相同，都是命令之前的节点列表相同；登记时并入用户手册同一段，而不是另开说明。
+
+## 本地审查第八轮
+
+第七轮修复提交为 `870661c8`。本地审查第八轮（增量，`61c313bd..870661c8`，run `r8-incr-073140`）结论 COMMENT，阻塞 0、重要 0、小问题 1；补充报告另报一项范围外的新观察，按重要问题处理（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`「align-safe 分组」「仍不一致的写法」）：
+
+1. **小问题（R8-M1）：第七轮登记的无法区分写法，把两侧都是汉字时的结果写错了。** architecture「仍不一致的写法」、`doc-gaps.md` 与本反思第七轮一节都写“两侧都是汉字时与直接输入一致”。实测只在 `xCJKecglue=true` 时成立；`xCJKecglue=false` 下 `中 \sbox0{x}\mbox{} 文`、`中 {}\mbox{} 文` 为 20.0pt，直接输入 23.33pt，同样少一枚空格，但修复前是 26.66pt（多一枚），不算回退。三处已改为按设置分别描述。
+2. **范围外的新观察（R8S-I1，按重要问题处理）：空命令之后紧跟 `\outer` 宏、宏后面还有文字时报 `Forbidden control sequence`。** `A \mbox{}\OA B`（`\OA` 用 `\outer\def` 定义为空）报错；修复前 `e641743e` 与直接输入 `A \OA B` 都不报错。问题从 #1103 第一个提交 `e2c2695f` 起就存在；TEST 9 的写法都以 `}` 结尾，所以没有发现，`doc-gaps.md` 也因此写成命令之后的检查“现在不报错”。原因：命令之后的检查用 `\peek_after:Nw`（`\futurelet`）看下一个记号，`\l_peek_token` 等同于这个 `\outer` 记号，自己也成了 `\outer`。`\__xeCJK_boundary_if_peek_outer:TF` 认出它、作废记录后，`\l_peek_token` 仍是 `\outer`；`\OA` 展开为空，下一个字符 `B` 触发 Boundary 到 Default 的 interchar 代码 `\peek_meaning_remove:NTF \tex_italiccorrection:D {...}{\token_if_space:NTF \l_peek_token ...}`，扫描这段参数时碰到 `\l_peek_token`，报错。删去命令之后的空格时（`A \mbox{} \OA B`），`\peek_remove_spaces:n` 也把 `\l_peek_token` 留成下一个非空格记号，同样报错。修复：新增 `\__xeCJK_boundary_peek_token_clear:`（`\tex_let:D \l_peek_token \scan_stop:`）；`\__xeCJK_boundary_if_peek_outer:w` 的真分支先调用它再 `\prg_return_true:`；`drop` 为假、删去空格之后不再看下一个记号的分支由 `\peek_remove_spaces:n { }` 改为 `\peek_remove_spaces:n { \__xeCJK_boundary_peek_token_clear: }`。清除写在单独的宏里，宏体照常执行，不经过参数扫描。
+
+仍报错、与修复前相同（不是本修复引入）：直接输入 `中 \OA 文`，报错来自 xeCJK 汉字之后的前视，`doc-gaps.md` 已登记。
+
+### 测试与验证
+
+`boundary-empty-space01` 由 3903 项增至 3907 项，仍为 13 个 TEST，0 失败。TEST 9 由 5 项增至 9 项，新增：`outer-text-L`（`A \mbox{}\EmptyOuterA B`，比较 `A \EmptyOuterA B`）、`outer-space-L`（`A \mbox{} \EmptyOuterD B`）、`outer-text-tc`（`A \textcolor{red}{}\EmptyOuterB B`），后两项也比较 `A \EmptyOuterA B`；`outer-text-C`（`中 \mbox{}\EmptyOuterC 文`）比较宽度相同的 `中 \relax 文`，因为直接输入 `中 \EmptyOuterC 文` 在汉字之后的前视里报错。判别力：`61c313bd` 上新用例报 `Forbidden control sequence`。
+
+xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4686 项、拒绝 0 项；siunitx 3.6.3 下 `siunitx-ecglue01` 为 576／576；外部矩阵 `tmp/i1103/r1probe/big.tex` 的结果与第七轮 head `870661c8` 完全相同，相对修复前 `e641743e` 只有 3 项 `C-phantom-M/10` 不同（oracle 本身的问题）；xeCJKfntef 线型命令探针全部与直接输入一致，颜色探针除已登记的 tc-mboxC 外都一致；第七轮的 `\sbox`、空分组等探针结果与第七轮相同（只剩已写入用户手册的无法区分写法）。
+
+### 教训
+
+- **第四轮修 `\outer` 时只测了以 `}` 结尾的写法。** 第四轮的 `\endtemplate`、第五轮和第六轮的 TEST 9 都让 `\outer` 记号出现在盒子或单元格末尾，后面没有字符，所以从来没有执行到“认出之后还有代码读 `\l_peek_token`”这一步。检查认出一个危险记号之后，要问它留下的状态（这里是共用变量 `\l_peek_token`）还会被谁读到，并让测试覆盖“危险记号之后还有内容”的写法。已并入 `memory/lessons-learned.md`「`\l_peek_token` 可能是 `\outer` 记号」。
+- **`\l_peek_token` 是共用的变量，不只属于自己的代码。** 前几轮的规则只要求“自己的判断不把它交给以它为参数的函数”，没有考虑别的模块（xeCJK 的 interchar 代码）也会在参数里写它。修改共用变量的含义（或者让它保留一个危险的含义）时，要考虑之后所有读它的代码，最简单的办法是用完之后改回无害的值。
+- **范围外的新观察也要处理。** R8S-I1 不在本轮增量范围内，也不是第七轮引入的，但它是 #1103 引入、修复前不存在的报错。补充报告里的观察要和正式问题一样判断真假，确认存在就修。
+- **登记“现在不报错”时要写明覆盖了哪些写法。** `doc-gaps.md` 的说法只对以 `}` 结尾的写法成立，却写成了一般的结论。这与第六轮“登记仍不一致的写法时要写明实测所在的提交”是同一类问题：登记结论时连同实测的输入范围一起写下。R8-M1 也是同类：只在一种设置下实测，就写成了两种设置都成立的结论。

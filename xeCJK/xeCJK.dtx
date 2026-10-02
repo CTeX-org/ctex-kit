@@ -4706,6 +4706,7 @@ Copyright and Licence
 %   \@@_boundary_if_peek_outer:,
 %   \@@_boundary_if_peek_outer:w,
 %   \@@_boundary_if_prefix:nN,
+%   \@@_boundary_peek_token_clear:,
 %   \c_@@_boundary_outer_str,
 %   \c_@@_boundary_long_outer_str,
 %   \c_@@_boundary_protected_outer_str,
@@ -6955,7 +6956,7 @@ Copyright and Licence
           {
             \bool_if:NT \g_@@_boundary_after_space_unchecked_bool
               { \bool_gset_false:N \g_@@_glue_check_pending_bool }
-            \peek_remove_spaces:n { }
+            \peek_remove_spaces:n { \@@_boundary_peek_token_clear: }
           }
       }
       { \@@_boundary_after_space_test_other: }
@@ -7015,6 +7016,16 @@ Copyright and Licence
 % 空格；\cs{tl_to_str:n} 会在每个控制词后补一个空格，不能用来生成它们。不能在
 % 含义里随便查找 |\outer|，否则替换文本以 |\outer...| 开头的普通宏
 % （|\def\Foo{\outerX}|，含义 |macro:->\outerX|）也会被误认。
+%
+% \tn{futurelet} 之后 \cs{l_peek_token} 等同于这个 \tn{outer} 记号，自己也成了
+% \tn{outer}。之后任何宏参数里只要写着 \cs{l_peek_token} 这个记号就会报错，
+% 例如后面字符触发的 interchar 代码在 \cs{peek_meaning_remove:NTF} 的参数里
+% 写着 |\token_if_space:NTF \l_peek_token|（|A \mbox{}\OA B|，\tn{OA} 为
+% \tn{outer} 宏）。所以认出 \tn{outer} 记号之后
+% 用 \cs{@@_boundary_peek_token_clear:} 把它改回 \tn{relax}；这一步写在单独的
+% 宏里，宏体照常执行，不经过参数扫描。删去空格但不必再看下一个记号时，
+% \cs{peek_remove_spaces:n} 同样把 \cs{l_peek_token} 留成下一个非空格记号
+% （|A \mbox{} \OA B|），这里也清除它；之后没有代码读取这个值。
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_boundary_if_peek_outer: { TF }
   {
@@ -7033,9 +7044,11 @@ Copyright and Licence
             \c_@@_boundary_protected_long_outer_str
         }
       }
-      { \prg_return_true: }
+      { \@@_boundary_peek_token_clear: \prg_return_true: }
       { \prg_return_false: }
   }
+\cs_new_protected:Npn \@@_boundary_peek_token_clear:
+  { \tex_let:D \l_peek_token \scan_stop: }
 \prg_new_conditional:Npnn \@@_boundary_if_prefix:nN #1#2 { p }
   {
     \str_if_eq:eeTF

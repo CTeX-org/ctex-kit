@@ -108,8 +108,8 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 
 `\@@_boundary_after_space_peek:` 用 `\peek_after:Nw` 看下一个记号，不展开它，由 `\@@_boundary_after_space_test:` 分派（空格以外的情形由 `\@@_boundary_after_space_test_other:` 继续分派）：
 
-- **`\outer` 记号**（`\@@_boundary_if_peek_outer:TF`）：最先判断，作废记录并结束 align-safe 分组，不再做别的处理。`\@@_boundary_after_space_test:`、`\@@_boundary_after_space_brace_test:`、`\@@_boundary_after_space_math_test:`、`\@@_boundary_after_space_ignore_test:` 这四个 peek 之后的判断函数都先经过这一检查，原来的判断移入各自的 `_aux` 函数。原因见下文「align-safe 分组」。
-- **空格**：作废记录并删去连续的空格（`\peek_remove_spaces:n`）。`drop` 为真时先 `\unskip` 末尾 glue、清 pending，删去空格之后再 peek 一次（`\@@_boundary_after_space_math_test:`），看下一个记号是不是 `$` 或左花括号；`unchecked` 为真时清 pending。
+- **`\outer` 记号**（`\@@_boundary_if_peek_outer:TF`）：最先判断，清除 `\l_peek_token`、作废记录并结束 align-safe 分组，不再做别的处理。`\@@_boundary_after_space_test:`、`\@@_boundary_after_space_brace_test:`、`\@@_boundary_after_space_math_test:`、`\@@_boundary_after_space_ignore_test:` 这四个 peek 之后的判断函数都先经过这一检查，原来的判断移入各自的 `_aux` 函数。原因见下文「align-safe 分组」。
+- **空格**：作废记录并删去连续的空格（`\peek_remove_spaces:n`）。`drop` 为真时先 `\unskip` 末尾 glue、清 pending，删去空格之后再 peek 一次（`\@@_boundary_after_space_math_test:`），看下一个记号是不是 `$` 或左花括号；`unchecked` 为真时清 pending，删去空格之后清除 `\l_peek_token`（原因见下文「align-safe 分组」）。
 - **名字以 `__hook` 开头的控制序列**（`\@@_boundary_after_space_hook:nN`）：展开一层再 peek。LaTeX 命令钩子在 `after` 钩子之后紧跟 `\__hook_next …` 一类宏，钩子里看到的不是源码的下一个记号。判断用 `\str_range:nnn` 取名字前 6 个字符，名字先经 `\exp_args:Ne` 求出。
 - **等同于 `\relax` 的控制序列**：照常执行，再 peek。xcolor 的 `\color` 在 `\set@color` 之后是 `\XC@ecolor\ignorespaces`，`\XC@ecolor` 通常等同于 `\relax`。
 - **`\ignorespaces`**（`\@@_boundary_after_space_ignore_test:`）：再看一个记号。是控制序列时放回 `\ignorespaces`、保留记录；否则按本列表的规则处理下一个记号（空格本来就会被 `\ignorespaces` 跳过，`$` 等字符也不受它影响）。color 包的 `\color` 直接以 `\ignorespaces` 结尾。
@@ -134,7 +134,13 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 - 比较由 `\@@_boundary_if_prefix:nN` 完成：取含义的前 `\str_count:N` 个字符，与前缀用 `\str_if_eq:eeTF` 比较；四个调用由 `\bool_lazy_any:nTF` 组合。
 - 前缀常量 `\c_@@_boundary_outer_str`、`\c_@@_boundary_long_outer_str`、`\c_@@_boundary_protected_outer_str`、`\c_@@_boundary_protected_long_outer_str` 用 `\c_backslash_str` 拼成（`\str_const:Ne`），末尾接 `\c_space_tl`。`\meaning` 的输出以反斜杠开头、字符 catcode 为 12，控制词之间没有空格。不能用 `\tl_to_str:n { \protected \long \outer }` 生成：它在每个控制词后补一个空格，得到 `\protected \long \outer `，与 `\meaning` 打印的 `\protected\long\outer macro:` 不同，`\protected\long\outer` 宏于是漏检（第六轮修复的第一版就因此报 `Forbidden control sequence`）。
 
-规则补充：**`\l_peek_token` 可能是 `\outer` 记号，在交给任何以它为参数的函数之前，先用原语 `\meaning` 排除。**
+**认出 `\outer` 记号之后清除 `\l_peek_token`**（本地审查第八轮补充报告的问题）。`\peek_after:Nw`（即 `\futurelet`）让 `\l_peek_token` 等同于这个 `\outer` 记号，它自己也成了 `\outer`；`\@@_boundary_if_peek_outer:TF` 认出它、作废记录之后，`\l_peek_token` 仍是这个含义。之后任何代码只要在宏参数里写着 `\l_peek_token` 这个记号，扫描参数时就报 `Forbidden control sequence`。`A \mbox{}\OA B`（`\OA` 用 `\outer\def` 定义为空）里，`\OA` 展开为空，下一个字符 `B` 触发 Boundary 到 Default 的 interchar 代码 `\peek_meaning_remove:NTF \tex_italiccorrection:D {...}{\token_if_space:NTF \l_peek_token ...}`，它的参数里就写着 `\l_peek_token`。修复前 `e641743e` 与直接输入 `A \OA B` 都不报错。这个问题从 #1103 的第一个提交 `e2c2695f` 起就存在；第四轮以后的用例里 `\outer` 记号之后都是 `}`（列模板末尾的 `\endtemplate`、TEST 9 原有的 `中 \mbox{}\EmptyOuterA` 等），后面没有字符，所以没有发现。
+
+- 现在 `\@@_boundary_if_peek_outer:w` 的真分支先调用 `\@@_boundary_peek_token_clear:`（`\tex_let:D \l_peek_token \scan_stop:`），再 `\prg_return_true:`。清除写在单独的宏里，宏体照常执行，不经过参数扫描，所以清除本身不会报错。
+- 删去命令之后的空格时也有同样的问题：`\peek_remove_spaces:n` 删完空格后把 `\l_peek_token` 留成下一个非空格记号（`A \mbox{} \OA B` 里是 `\OA`）。`drop` 为假的分支删去空格之后不再看下一个记号，原来写成 `\peek_remove_spaces:n { }`，现在改为 `\peek_remove_spaces:n { \@@_boundary_peek_token_clear: }`；之后没有代码读取这个值。`drop` 为真的分支删去空格之后再 peek 一次（`\@@_boundary_after_space_math_test:`），那次的判断函数开头仍先经过上面的 `\outer` 检查。
+- 直接输入 `中 \OA 文` 仍报错，与修复前相同：报错来自 xeCJK 汉字之后的前视，不经过命令之后的检查（见 [[../memory/doc-gaps]]）。
+
+规则补充：**`\l_peek_token` 可能是 `\outer` 记号，在交给任何以它为参数的函数之前，先用原语 `\meaning` 排除；认出之后还要把 `\l_peek_token` 改回无害的值，因为后续代码（包括其他模块的 interchar 代码）可能在宏参数里写着它。**
 
 `\peek_remove_spaces:n` 的回调在它自己的 align-safe 分组结束之后执行，回调里不能直接读 `\l_peek_token`；所以删去空格之后的判断要重新 `\group_align_safe_begin:` 再 peek 一次。`\@@_boundary_after_space_brace:w` 与 `\@@_boundary_after_space_ignore_test:` 前的 peek 同样包在 align-safe 分组里。
 
@@ -147,7 +153,7 @@ oracle 仍是 #992 的直接输入：把命令从源码中删去后的写法（[
 修复前后相同、或修复前也与直接输入不一致的写法，已接受的回退，plain `\halign` 模板里 `#` 之后有空格时的既有报错，以及 `\numlist{}`／`\unit{}` 部分组合与 master 不同的原因，登记在 [[../memory/doc-gaps]]「没有可见输出的命令两侧都有源码空格」一节。其中以下几项与上文机制直接相关：
 
 - `X{ }\cmd Y`（空格写在花括号里）：**相对修复前是回退**，维护者决定接受（[[../memory/decisions/1103-group-space-before-empty-command]]）。它在命令之前留下的节点列表与 `X{} \cmd Y`、`X\ \cmd Y`、`X\space\cmd Y` 相同（左侧是汉字时，列表末尾都是 `CJK` marker 加一枚词间 glue），`space_glue` 无法区分，按后者处理，删去命令之后的空格：`中{ }\mbox{} 文` 修复前与直接输入都是 26.66pt，现在 23.33pt。后三者修复前多一枚空格，现在正确。用户手册「CJK 文字与命令交互时的间距」一节写明了这一限制与替代写法（把空格写在命令之后的花括号里，或改用 `~`）。
-- 空格与空命令之间只有不排出内容的命令或空分组（`A \sbox0{x}\mbox{} B`、`A \def\x{}\mbox{} B`、`A {}\mbox{} B`、`A \stepcounter{foo}\mbox{} B`）：命令之前的节点列表与 `A \mbox{} B` 相同，只能按后者处理，命令后的空格被删去（`xCJKecglue=false` 时 17.91pt，修复前与直接输入 21.24pt；两侧都是汉字时与直接输入一致）。与上一条同属“无法区分”一类，相对修复前也是回退，第六轮的 head `aed1f9d2` 上已是这样（更早的提交没有逐一核对），第七轮登记。用户手册「CJK 文字与命令交互时的间距」一节的已知限制段落写明了这一类（例子 `A \sbox0{x}\mbox{} B`、`A {}\mbox{} B`）。`xCJKecglue=true` 时第一个 `\mbox{}` 在列表里不留节点，`A \mbox{}\sbox0{x}\mbox{} B` 也落入这一类，所以上文 `\sbox` 一段的数值只对 `xCJKecglue=false` 成立。
+- 空格与空命令之间只有不排出内容的命令或空分组（`A \sbox0{x}\mbox{} B`、`A \def\x{}\mbox{} B`、`A {}\mbox{} B`、`A \stepcounter{foo}\mbox{} B`）：命令之前的节点列表与 `A \mbox{} B` 相同，只能按后者处理，命令后的空格被删去（`xCJKecglue=false` 时 17.91pt，修复前与直接输入 21.24pt；两侧都是汉字时，`xCJKecglue=true` 下与直接输入一致；`xCJKecglue=false` 下同样少一枚空格（`中 \sbox0{x}\mbox{} 文`、`中 {}\mbox{} 文` 为 20.0pt，直接输入 23.33pt），但修复前多一枚（26.66pt），不算回退）。与上一条同属“无法区分”一类，相对修复前也是回退，第六轮的 head `aed1f9d2` 上已是这样（更早的提交没有逐一核对），第七轮登记。用户手册「CJK 文字与命令交互时的间距」一节的已知限制段落写明了这一类（例子 `A \sbox0{x}\mbox{} B`、`A {}\mbox{} B`）。`xCJKecglue=true` 时第一个 `\mbox{}` 在列表里不留节点，`A \mbox{}\sbox0{x}\mbox{} B` 也落入这一类，所以上文 `\sbox` 一段的数值只对 `xCJKecglue=false` 成立。
 - `\mbox{} \mbox{}` 这类两个空命令之间有空格的写法，在 `xCJKecglue=true` 且可区分间距、右侧空格写法 01 时与直接输入不一致。
 - 颜色正文以“汉字 + 空格 + 空命令”结尾（`\textcolor{red}{中 \mbox{}} 文`）：修复前与现在都多一枚空格，上文的配对规则不改变它的结果。`xCJKecglue=false` 时为 26.66pt，直接输入 `{中 } 文` 23.33pt；`xCJKecglue=true` 时同为 26.66pt，直接输入 20.0pt。嵌套的空颜色命令 `中 \textcolor{red}{\textcolor{blue}{}} 文` 与直接输入一致（20.0pt），由 TEST 10 的 `tc-tc-C` 固定；第五轮曾误记为仍多一枚空格。l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾时，修复前与现在都删去命令之后的空格。
 
