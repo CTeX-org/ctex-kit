@@ -223,6 +223,7 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - `\phantomsection` 不带 `{}` 时，命令名之后的空格在 TeX 读取控制序列名时就被跳过，命令之后的检查看不到它；测试里写成 `\phantomsection{}`，对应的直接输入是 `A {} 文`。
 - 两个空命令之间有空格、左侧也有空格：`xCJKecglue=false` 时，`A \mbox{} \mbox{} B` 为 21.24pt、`A \mbox{} \mbox{} 中` 为 24.16pt，直接输入分别是 17.91pt、20.83pt，默认间距与可区分间距下相同（本地审查第一轮后登记，最终全范围审查 `final-full-110923` 按实测改正：以前写成只在 `xCJKecglue=true` 下不一致）。左侧是汉字、`xCJKecglue=true`，或只有一处空格时与直接输入一致。修复前多两枚空格（24.57pt、27.49pt），不算回退。
 - 空命令之后、下一个空命令之前是未注册的命令（`A \mbox{}\small\mbox{} B`、`\bgroup\egroup`、`\null`）：按可能排出内容处理，与修复前一样多一枚空格（`final-full-110923` 的阻塞问题修复后，`79222a0d` 上与直接输入一致的这几种写法回到修复前的结果）。写进了用户手册。
+- 宏的参数里写着空命令：定义 `\newcommand\Id[1]{#1}` 之后，`A \Id{\mbox{}} B` 与 `A \mbox{}\Id{\mbox{}} B` 为 17.91pt，修复前与直接输入 `A \Id{} B` 都是 21.24pt。宏展开之后的记号与 `A \mbox{} B` 相同，属于“无法区分”一类，相对修复前是回退；`79222a0d` 上已是这样，本地审查第二十四轮的盲审报告作为范围外观察提出，补充报告把它归入维护者已接受的同类限制。用户手册的已知限制段落写明了这个例子。
 - `\uwave{}`、`\CJKunderdot{}` 在左侧是西文或 `{中}`、两侧都有空格时仍与直接输入不一致；修复前同样不一致（最终全范围审查第四轮的观察，未计入问题）。
 - 左侧是 `A{}`、两侧都有空格：可区分间距、`xCJKecglue=true` 时 `A{} \mbox{} 文` 修复前 24.16pt，现在 20.83pt，直接输入 22.5pt。偏差方向变了，修复前也不一致，与上面 `$x$ \cmd 文` 同类（第四轮的观察，未计入问题）。
 - 颜色正文以“汉字 + 空格 + 空命令”结尾：`\textcolor{red}{中 \mbox{}} 文` 修复前与现在都是 26.66pt；直接输入 `{中 } 文` 在 `xCJKecglue=false` 时为 23.33pt（本地审查第五轮登记），在 `xCJKecglue=true` 时为 20.0pt（第七轮补记）。第五轮的配对规则（见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」）不改变它的结果，原因未分析。`boundary-empty-space01` 的“color body ending with a space”一组只比较左侧是西文的 `\textcolor{red}{A \mbox{}} B`。

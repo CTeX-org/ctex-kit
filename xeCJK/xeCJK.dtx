@@ -2061,9 +2061,13 @@ Copyright and Licence
 % \begin{frameverb}
 %   A \mbox{}\small\mbox{} B   % 比“A \small B”多一枚空格
 % \end{frameverb}
-% 已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、线型命令等）不受
-% 这一限制。用户自己定义的宏先展开再判断，展开后什么也没有的宏（如
-% |\def\Nop{}|）同样不受限制。
+% 已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、
+% \tn{phantomsection}、线型命令等）不受这一限制。用户自己定义的宏先展开再判断，
+% 展开后什么也没有的宏（如 |\def\Nop{}|）同样不受限制。另一方面，
+% \pkg{xeCJK} 是按展开后的记号判断的，宏的参数里写着没有可见输出的命令时，
+% 同样按直接写出处理：定义 |\newcommand\Id[1]{#1}| 之后，
+% \verb*|A \Id{\mbox{}} B| 与 \verb*|A \mbox{} B| 相同，比
+% \verb*|A \Id{} B| 少一枚空格。
 %
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
 %   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
@@ -4745,6 +4749,7 @@ Copyright and Licence
 %   \@@_boundary_after_space_ignore_peek:,
 %   \@@_boundary_after_space_known_cs:nN,
 %   \@@_boundary_if_internal_name:n,
+%   \@@_boundary_after_space_mark_expanded:N,
 %   \@@_boundary_after_space_unknown_cs:N,
 %   \@@_boundary_after_space_if_color_body_end:,
 %   \g_@@_boundary_after_space_clean_bool,
@@ -6938,8 +6943,8 @@ Copyright and Licence
 %   \item 名字以 |__hook| 开头的宏（LaTeX 命令钩子在 |after| 钩子之后调用的
 %     |\__hook_next ...|）展开一层再看；等同于 \tn{relax} 的记号执行后继续看；
 %     \tn{ignorespaces} 见 \cs{@@_boundary_after_space_ignore_test:}。
-%   \item 名字里没有 |@|、|_|，也不是已注册命令的可展开宏（用户自己定义的宏，
-%     如 |\def\Nop{}|）展开一层再看。
+%   \item 用户自己定义的宏（名字里没有 |@|、|_|，不以 |UseHook|、
+%     |UseOneTimeHook| 开头，也不是已注册命令，如 |\def\Nop{}|）展开一层再看。
 %   \item 下一个记号是其他控制序列、右花括号，或 |drop| 为假时的左花括号，保留
 %     记录，留给外层命令结束时再检查。
 %     \tn{hyper@anchor} 在 \tn{hypertarget} 里面调用，\tn{MakeLinkTarget} 的
@@ -6955,15 +6960,23 @@ Copyright and Licence
 % 相同（|A \mbox{}\rule{2pt}{1pt}\mbox{} B| 里 \tn{rule} 排出的盒子），所以另用
 % \cs{g_@@_boundary_after_space_clean_bool} 记下保留之后有没有看到可能排出
 % 内容的记号。只有它为真时，capture 开始和颜色弹出命令才接过记录。下列记号
-% 不改动它：已注册命令与专用适配器（它们自己的 capture 会处理边界），名字里
-% 有 |@| 或 |_| 的宏包内部代码（\tn{textcolor} 包装末尾的 \cs{int_set:Nn}、
-% \pkg{xeCJKfntef} 的 \tn{UL@...}），以及结束 \tn{textcolor} 正文的右花括号
-% （\cs{@@_boundary_after_space_if_color_body_end:F}）。其余控制序列（\tn{rule}、
-% \tn{special}、\tn{par}、\tn{textbf} 等文字命令，以及展开后得到的任何控制
-% 序列）、左花括号和其他右花括号都把它改为假：TeX 无法预先知道它们会不会排出
-% 内容，按排出处理，与以前一样保留两侧空格。展开用户的宏之后
-% （\cs{g_@@_boundary_after_space_expanded_bool}），即使看到空格也不删去，
-% 看到 |$| 也不补间距：展开得到的空格与 |$| 不在源码里紧跟命令。
+% 不改动它，也不展开：已注册命令与专用适配器（它们自己的 capture 会处理边界，
+% \tn{phantomsection}、\tn{MakeLinkTarget} 也写入保留表），宏包内部代码，即名字里
+% 有 |@| 或 |_| 的控制序列（\tn{textcolor} 包装末尾的 \cs{int_set:Nn}、
+% \pkg{xeCJKfntef} 的 \tn{UL@...}）与 LaTeX 命令钩子在 |after| 钩子之后调用的
+% \tn{UseHookWithArguments} 一类，\tn{fi} 一类可展开原语，以及结束 \tn{textcolor}
+% 正文的右花括号（\cs{@@_boundary_after_space_if_color_body_end:F}）。
+% \pkg{hyperref} 的 \tn{hypertarget}、\tn{phantomsection} 在内层出口之后还有
+% |\fi\expandafter\put@me@back|、|\UseHookWithArguments| 这样的代码，它们若被当作
+% 用户宏展开，就会一路展开到 \tn{let}、\tn{global} 把标志改为假。其余控制序列
+% （\tn{rule}、\tn{special}、\tn{par}、\tn{textbf} 等文字命令，以及用户宏展开后
+% 得到的任何不可展开的控制序列）、左花括号和其他右花括号都把它改为假：TeX 无法
+% 预先知道它们会不会排出内容，按排出处理，与以前一样保留两侧空格。展开用户的
+% 宏之后（\cs{g_@@_boundary_after_space_expanded_bool}），即使看到空格也不删去，
+% 看到 |$| 也不补间距：展开得到的空格与 |$| 不在源码里紧跟命令。只有一个例外：
+% 含义与 \cs{@@_boundary_identity:n} 相同的宏（|\newcommand\Id[1]{#1}|）不设这个
+% 标志。直接输入 |中 \Id{$x$}| 时 xeCJK 的前视也越过这种宏看 |$|，补公式前的
+% 间距，删去命令之后照样补。
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
@@ -7246,8 +7259,7 @@ Copyright and Licence
                 \@@_boundary_after_space_known_cs:nNTF {#1} #2
                   {#2}
                   {
-                    \bool_gset_true:N
-                      \g_@@_boundary_after_space_expanded_bool
+                    \@@_boundary_after_space_mark_expanded:N #2
                     \exp_after:wN \@@_boundary_after_space_peek: #2
                   }
               }
@@ -7263,7 +7275,9 @@ Copyright and Licence
 % \cs{g_@@_boundary_after_space_clean_bool}，|\textcolor{red}{\mbox{}}| 里的
 % \tn{mbox} 因此能接过 \tn{set@color} 的记录。用户自己定义的宏同样先展开一层
 % 再看（|\textcolor{red}{\csname uline\endcsname{}}|）；\tn{ignorespaces} 本来也会
-% 展开它们，展开得到的空格照常删去。\tn{textcolor} 正文开头是 \tn{cr}
+% 展开它们。展开之后看到空格时，\tn{ignorespaces} 本来就会跳过它，照常删去；
+% 看到其他记号时作废记录，放回 \tn{ignorespaces}，不补公式前的间距
+% （|中 \color{red}\Nop $x$| 与直接输入 |中 \Nop $x$| 相同）。\tn{textcolor} 正文开头是 \tn{cr}
 % 一类对齐记号时不读它，同样按排出内容处理。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_after_space_ignore_test:
@@ -7283,14 +7297,25 @@ Copyright and Licence
           }
           { \group_align_safe_end: \@@_boundary_after_space_ignore_cs:N }
       }
-      { \@@_boundary_after_space_test: }
+      {
+        \bool_if:NTF \g_@@_boundary_after_space_expanded_bool
+          {
+            \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
+            \group_align_safe_end:
+            \tex_ignorespaces:D
+          }
+          { \@@_boundary_after_space_test: }
+      }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_ignore_cs:N #1
   {
     \exp_args:Ne \@@_boundary_after_space_known_cs:nNTF
       { \cs_to_str:N #1 } #1
       { \tex_ignorespaces:D #1 }
-      { \exp_after:wN \@@_boundary_after_space_ignore_peek: #1 }
+      {
+        \@@_boundary_after_space_mark_expanded:N #1
+        \exp_after:wN \@@_boundary_after_space_ignore_peek: #1
+      }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_ignore_peek:
   {
@@ -7335,13 +7360,36 @@ Copyright and Licence
       {
         \str_if_in:nnTF {#1} { _ }
           { \prg_return_true: }
-          { \prg_return_false: }
+          {
+            \bool_lazy_or:nnTF
+              {
+                \str_if_eq_p:ee
+                  { \str_range:nnn {#1} { 1 } { 7 } } { UseHook }
+              }
+              {
+                \str_if_eq_p:ee
+                  { \str_range:nnn {#1} { 1 } { 14 } } { UseOneTimeHook }
+              }
+              { \prg_return_true: }
+              { \prg_return_false: }
+          }
       }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_mark_expanded:N #1
+  {
+    \token_if_eq_meaning:NNF #1 \@@_boundary_identity:n
+      { \bool_gset_true:N \g_@@_boundary_after_space_expanded_bool }
   }
 \cs_new_protected:Npn \@@_boundary_after_space_unknown_cs:N #1
   {
     \token_if_expandable:NTF #1
-      { \prg_return_false: }
+      {
+        \bool_lazy_or:nnTF
+          { \token_if_macro_p:N #1 }
+          { \g_@@_boundary_after_space_expanded_bool }
+          { \prg_return_false: }
+          { \prg_return_true: }
+      }
       {
         \bool_gset_false:N \g_@@_boundary_after_space_clean_bool
         \prg_return_true:
@@ -14571,6 +14619,7 @@ Copyright and Licence
       {
         \cs_if_exist:cT {##1}
           {
+            \@@_boundary_reserve:n {##1}
             \AddToHook { cmd / ##1 / after } [ xeCJK / boundary ]
               { \@@_boundary_after_space_check: }
           }
