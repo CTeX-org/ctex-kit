@@ -205,9 +205,9 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 `\@addtocurcol` 决定，`\end@float` 末尾的钩子只能在浮动体之后补。需要另行设计，并检查对 `t`／`b`／被推迟
 浮动体的影响。
 
-## 没有可见输出的命令两侧都有源码空格（#1092 登记的回退，已由 #1103 修复）
+## 没有可见输出的命令两侧都有源码空格（#1092 登记的回退，已由 #1103 修复；`X{ }\cmd Y` 为已接受的回退）
 
-**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节。
+**状态：已修复。** #1103 在同一 PR（#1102，分支 `fix-1092-siunitx-range`）中修复，`\changes` 与 CHANGELOG 里 #1092 条目的“已知回退”一句已删去，改为单独的 #1103 条目。机制见 `llmdoc/architecture/xecjk-empty-output-space.md`，过程见 `llmdoc/memory/reflections/1103-empty-output-after-space.md`，回归测试为 `boundary-empty-space01`（见 `llmdoc/reference/build-and-test.md`）。本地审查第一轮发现的表格单元格末尾报错、左侧 `~` 误删空格、`\color` 或花括号后接公式丢失间距等问题已修好，见反思的「本地审查第一轮」一节；第二轮发现的 plain `\halign` 中命令之后紧跟 `\cr`／`\crcr`／`\span` 报 `Forbidden control sequence`、`\discretionary` 不断行文本里的节点让空盒子探测无限递归两项也已修好，见反思的「本地审查第二轮」一节。
 
 原问题：任何已注册、执行后什么都不排出的命令（`\mbox{}`、`\hypertarget{a}{}`、`\textcolor{red}{}`、用户注册的空 `stream`／`transparent`／`box` 命令，以及 siunitx 的 `\unit{}`、`\numlist{}`、`\ang{;;}`），两侧都有源码空格时比直接输入多一枚空格；两侧都是汉字时多出两枚空格的宽度（`中 \mbox{} 文` 为 26.66pt，直接输入 20.0pt）。#1092 注册 `\numlist`、`\ang` 后，这两个命令在 `xCJKecglue=true` 下也出现这一问题，bot 审查报为回退；维护者当时决定不在 #1092 改框架、另开 #1103，之后改为要求在同一 PR 彻底修复。
 
@@ -218,14 +218,26 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 - 左侧是 `中{}` 或 `中\ `、命令之后紧接汉字：`中{} \cmd文`。直接输入保留这枚空格，命令的入口却按汉字之后的空格处理。
 - 左侧是公式、右侧是汉字：修复前后的数值都与直接输入有偏差，方向可能不同。`xCJKecglue=true` 且 `CJKecglue={\hskip 5pt}` 时，transparent、box 一类命令（用户注册的空 `transparent`／`box` 命令、`\mbox{}`、`\textcolor{red}{}`、`\hypertarget{a}{}`）写成 `$x$ \cmd 文`，修复前 base 为 22.37527pt，新代码为 19.04527pt，直接输入为 20.71527pt；默认间距下 base 为 22.37527pt，新代码与直接输入都是 19.04527pt。stream 一类命令（用户注册的空 `stream` 命令、`\uline{}`、`\numlist{}`、`\unit{}`）与直接输入一致。
 - `\phantomsection` 不带 `{}` 时，命令名之后的空格在 TeX 读取控制序列名时就被跳过，命令之后的检查看不到它；测试里写成 `\phantomsection{}`，对应的直接输入是 `A {} 文`。
-- 左侧以写在分组里的空格结尾：`中{ }\cmd 文`（本地审查第一轮后登记）。`~`、`\nobreakspace{}` 在列表末尾留下 penalty 加 glue，现在据此保留命令之后的空格；`中{ }` 与 `中{} ` 留下的列表相同，入口无法区分，按后者处理，删去命令之后的空格。
 - 两个空命令之间有空格：`\mbox{} \mbox{}` 一类写法在 `xCJKecglue=true` 且可区分间距、右侧空格写法为 `01` 时与直接输入不一致（本地审查第一轮后登记）。修复前同样不一致，方向相反。
 
 **与 master 不同、但不是本修复引入的组合**：`\numlist{}`、`\unit{}` 在入口前是 `中{}`、`中\ ` 或 `中…$`（公式之前是汉字）时，部分 00／01／10 组合的结果与 master 不同。这些值与 `\mbox{}` 在 master 上的值相同：#1092 把这两个命令注册之后，它们与其他已注册命令按同一规则处理，差异来自注册本身。
 
-**外部矩阵上的剩余差异（本地审查第一轮后）**：审查者的 110448 组矩阵上，相对修复前 base 的回退由 298 项降为 3 项。剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法），矩阵的 oracle 写成 `中 $y$`；`\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。
+**已接受的回退（维护者决定）：左侧以写在花括号里的空格结尾，`X{ }\cmd Y`。** 修复前（`25a33aef`）与直接输入一致，现在少一枚空格：
 
-可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}` 一项外，上面这些写法在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
+| 写法 | 修复前 `25a33aef` | 现在 | 直接输入（删去命令） |
+|---|---|---|---|
+| `中{ }\mbox{} 文` | 26.66pt | 23.33pt | 26.66pt（`中{ } 文`） |
+| `A{ }\mbox{} B` | 21.24pt | 17.91pt | 21.24pt（`A{ } B`） |
+
+原因：`X{ }\cmd` 在命令之前留下的节点列表与 `X{} \cmd`、`X\ \cmd`、`X\space\cmd` 完全相同（左侧是汉字时，列表末尾都是 `CJK` marker 加一枚词间 glue），入口无法区分，只能按同一规则处理。后三者在修复前多一枚空格、现在与直接输入一致（例如 `中{} \mbox{} 文` 修复前 26.66pt、现在 23.33pt，直接输入 `中{}  文` 为 23.33pt；`中\space\mbox{} 文` 修复前 26.66pt、现在与直接输入 `中\space 文` 都是 20.0pt）。要让 `X{ }\cmd Y` 恢复，就得让这三种写法回到修复前多一枚空格的结果。
+
+维护者决定保留当前修复，把它作为已知限制写入用户手册（`xeCJK/xeCJK.dtx`「CJK 文字与命令交互时的间距」一节），并承认这类写法无法完全修正；它在正常源码里极为罕见，目前接受。用户手册给出的替代写法：把空格写在命令之后的花括号里（`中{ }\mbox{}{ }文`，26.66pt，与直接输入一致），或改用 `~`（`中~\mbox{} 文`，26.66pt）。`boundary-empty-space01` 不比较这类写法，头注释说明了原因。审查者第二轮的外部矩阵在每种间距设置下各有 126 项属于这一类（9 个命令 × 14 种右侧，`01` 写法）。决定记录见 `llmdoc/memory/decisions/1103-group-space-before-empty-command.md`。
+
+本地审查第一轮曾把这一写法列在上面“修复前后相同，或修复前也不一致”一类里，没有实测修复前的结果；第二轮实测后才确认它是回退。
+
+**外部矩阵上的剩余差异**：第一轮审查者的 110448 组矩阵上，相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 `中 \phantomsection{}$y$`（`10` 写法），矩阵的 oracle 写成 `中 $y$`；`\phantomsection` 不读参数，删去命令后应是 `中 {}$y$`，base 与新代码都是 15.26pt，不是回退。这个矩阵的左侧没有 `X{ }` 这类写在花括号里的空格，所以没有暴露上面那一类回退，“只剩 3 项且都是 oracle 写错”只对这个矩阵的输入空间成立。第二轮审查者的矩阵左侧包含 `{ }`，才发现上面每种间距设置下的 126 项。
+
+可能的补法：**未实施，也未评估**。除 `\phantomsection` 一项（TEST 5 改用 `\phantomsection{}` 写法比较）与 `\mbox{} \mbox{}` 一项外，上面这些写法（含已接受的 `中{ }\cmd 文`）在 `xeCJK/testfiles/boundary-empty-space01.lvt` 的头注释里有同样的列举。
 
 ## 命令与空格、表格、颜色交互时与直接输入不一致的既有写法（#1103 调查中发现）
 

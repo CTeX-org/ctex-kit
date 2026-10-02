@@ -2034,6 +2034,25 @@ Copyright and Licence
 % 命令前的源码空格保留在装饰线的前面；正文在最后一个字符之后还有这类内容时，
 % 命令后的源码空格也保留在装饰线的后面，详见 \ref{subsubsec:fntef-fill-in}~节。
 %
+% 没有可见输出的命令（如 \verb*|\mbox{}|、\verb*|\textcolor{red}{}|、
+% \verb*|\hypertarget{a}{}|、空的 \tn{uline}）两侧都有源码空格时，结果与删去
+% 命令后的直接输入相同，只保留一枚空格：
+% \begin{frameverb}
+%   前 \mbox{} 后       % 与“前  后”相同
+% \end{frameverb}
+% \pkg{xeCJK} 是根据命令之前的节点列表判断有没有源码空格的。少数写法在命令之前
+% 留下的节点列表完全相同，\pkg{xeCJK} 无法区分。例如把空格写在花括号里：
+% \begin{frameverb}
+%   前{ }\mbox{} 后     % 比“前{ } 后”少一枚空格
+% \end{frameverb}
+% 它与 \verb*|前{} \mbox{} 后| 在命令之前的节点列表相同，按后者处理，命令后的
+% 空格被删去。这类写法在正常的源码里几乎不会出现，目前接受这一限制；确实需要
+% 保留空格时，可以把空格写在命令之后的花括号里，或者改用 |~|。
+%
+% \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
+%   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后} 这类无法区分的写法
+%   （\#1103）。}
+%
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
 % 未列出的第三方命令如果在 CJK 文字间引入特殊的分组或节点结构，
@@ -4676,6 +4695,7 @@ Copyright and Licence
 %   \@@_boundary_after_space_check:,
 %   \@@_boundary_after_space_peek:,
 %   \@@_boundary_after_space_test:,
+%   \@@_boundary_after_space_test_other:,
 %   \@@_boundary_after_space_math:,
 %   \@@_boundary_after_space_math_test:,
 %   \@@_boundary_after_space_brace:w,
@@ -4684,7 +4704,11 @@ Copyright and Licence
 %   \@@_boundary_after_space_hook:N,
 %   \@@_boundary_after_space_hook:nN,
 %   \@@_boundary_after_space_ignore_test:,
-%   \@@_boundary_if_capture_box_empty:}
+%   \@@_boundary_if_capture_box_empty:,
+%   \@@_boundary_if_box_zero:N,
+%   \@@_boundary_box_empty_probe:,
+%   \@@_boundary_box_empty_probe_remove:N,
+%   \@@_boundary_if_peek_align:}
 % \changes{v3.10.4}{2026/07/20}{新增命令边界 capture/register 框架，按实际
 %   可见输出的首尾类别统一处理盒子、不透明节点流和无可见输出命令（\#992）。}
 % \changes{v3.10.4}{2026/07/20}{box/wrapped-box 捕获在盒子直接排出了
@@ -6371,6 +6395,7 @@ Copyright and Licence
       {
         \hbox_set:Nn \l_@@_boundary_probe_box
           {
+            \int_zero:N \l_@@_boundary_probe_steps_int
             \hbox_unpack:c { \l_@@_boundary_probe_name_tl }
             \@@_boundary_box_empty_probe:
           }
@@ -6405,17 +6430,36 @@ Copyright and Licence
         { 1 }
           {
             \box_set_to_last:N \l_@@_boundary_probe_inner_box
-            \@@_boundary_if_box_zero:NT \l_@@_boundary_probe_inner_box
+            \bool_lazy_and:nnT
+              { ! \box_if_empty_p:N \l_@@_boundary_probe_inner_box }
+              { \box_if_horizontal_p:N \l_@@_boundary_probe_inner_box }
               {
-                \hbox_unpack_drop:N \l_@@_boundary_probe_inner_box
-                \@@_boundary_box_empty_probe:
+                \@@_boundary_if_box_zero:NTF \l_@@_boundary_probe_inner_box
+                  {
+                    \hbox_unpack_drop:N \l_@@_boundary_probe_inner_box
+                    \@@_boundary_box_empty_probe:
+                  }
+                  { \box_use_drop:N \l_@@_boundary_probe_inner_box }
               }
           }
-        { 11 } { \tex_unskip:D \@@_boundary_box_empty_probe: }
-        { 12 } { \tex_unkern:D \@@_boundary_box_empty_probe: }
-        { 13 } { \tex_unpenalty:D \@@_boundary_box_empty_probe: }
+        { 11 } { \@@_boundary_box_empty_probe_remove:N \tex_unskip:D }
+        { 12 } { \@@_boundary_box_empty_probe_remove:N \tex_unkern:D }
+        { 13 } { \@@_boundary_box_empty_probe_remove:N \tex_unpenalty:D }
       }
   }
+%    \end{macrocode}
+% 末尾节点属于前面某个 \tn{discretionary} 的不断行文本时，\TeX{} 不删去它，
+% 列表末尾一直不变。不能用“删除前后末尾状态相同”来判断：\tn{makebox}|[0pt]{}|
+% 里两枚相同的 fil glue 删去一枚后，末尾状态也不变。这里限制删除的次数，超过
+% 限制就按有可见输出处理，与以前相同。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_box_empty_probe_remove:N #1
+  {
+    \int_incr:N \l_@@_boundary_probe_steps_int
+    \int_compare:nNnT { \l_@@_boundary_probe_steps_int } < { 64 }
+      { #1 \@@_boundary_box_empty_probe: }
+  }
+\int_new:N \l_@@_boundary_probe_steps_int
 \box_new:N \l_@@_boundary_probe_inner_box
 \cs_new_eq:NN \@@_boundary_transparent_box_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_box_hook: \prg_do_nothing:
@@ -6448,7 +6492,8 @@ Copyright and Licence
 %   与删去命令后的直接输入一样只保留一枚空格；以前多出一枚空格，两侧都是汉字时
 %   多出两枚空格的宽度（\#1103）。}
 % capture 没有观察到任何类别、按“无可见输出”结束时（stream、transparent，
-% 以及宽、高、深都为零的透明盒子），调用 \cs{@@_boundary_replay_before_empty:}
+% 以及按 \cs{@@_boundary_if_capture_box_empty:TF} 判断没有可见输出的透明盒子），
+% 调用 \cs{@@_boundary_replay_before_empty:}
 % 代替 \cs{@@_boundary_replay_before:}，并在命令结束后由
 % \cs{@@_boundary_after_space_check:} 处理紧跟的源码空格（\#1103）。
 %
@@ -6564,7 +6609,7 @@ Copyright and Licence
 %     开启了源码空格检查，直接输入 |中  X| 并不开启，删去空格时关掉它。命令之后
 %     （删去空格之后）紧跟 |$| 时，直接输入 |中 $x$| 在公式之前补
 %     \cs{xeCJK_space_or_xecglue:}，这里同样补上（\cs{@@_boundary_after_space_math:}）。
-%   \item 放回了真实 glue、入口前是 |CJK| 或 |CJK-space| marker、capture 开始时
+%   \item 放回了真实 glue、入口前是 |CJK| marker、capture 开始时
 %     \cs{g_@@_glue_check_pending_bool} 为假时（|中{} \cmd|、|中\ \cmd|）：直接输入
 %     不检查这枚空格，后面的汉字保留它；删去命令之后的空格时同样关掉检查。
 %     命令之后没有空格时不改动，与以前相同。
@@ -6682,6 +6727,15 @@ Copyright and Licence
             \peek_remove_spaces:n { }
           }
       }
+      { \@@_boundary_after_space_test_other: }
+  }
+\cs_new_protected:Npn \@@_boundary_after_space_test_other:
+  {
+    \@@_boundary_if_peek_align:TF
+      {
+        \bool_gset_false:N \g_@@_boundary_after_space_bool
+        \group_align_safe_end:
+      }
       {
         \token_if_cs:NTF \l_peek_token
           { \group_align_safe_end: \@@_boundary_after_space_hook:N }
@@ -6710,13 +6764,26 @@ Copyright and Licence
 % \cs{group_align_safe_end:} 之间进行。表格单元格里下一个记号可能是 |&| 或
 % \tn{cr}，\cs{l_peek_token} 这时等同于这个记号；在 align-safe 分组之外读取它，
 % \TeX{} 就插入列模板的结尾，单元格提前结束，报 |Extra alignment tab|。删去空格
-% 之后要判断下一个记号是不是 |$|，所以再 peek 一次。
+% 之后要判断下一个记号是不是 |$|，所以再 peek 一次。把下一个控制序列读成
+% \cs{@@_boundary_after_space_hook:N} 的参数同样会读到它，所以先在分组内排除
+% 含义是 \tn{cr}、\tn{crcr}、\tn{span} 的记号，按其他记号处理。
 %
 % 直接输入 |中 {$x$}| 在左花括号之后看到 |$|，同样补
 % \cs{xeCJK_space_or_xecglue:}。|drop| 为真时这里用与
 % \cs{@@_boundary_group_math:w} 相同的办法只吸收这一枚左花括号，看它后面的
 % 记号，再补发隐式左花括号。
 %    \begin{macrocode}
+\prg_new_conditional:Npnn \@@_boundary_if_peek_align: { TF }
+  {
+    \bool_lazy_any:nTF
+      {
+        { \token_if_eq_meaning_p:NN \l_peek_token \tex_cr:D }
+        { \token_if_eq_meaning_p:NN \l_peek_token \tex_crcr:D }
+        { \token_if_eq_meaning_p:NN \l_peek_token \tex_span:D }
+      }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
 \cs_new_protected:Npn \@@_boundary_after_space_brace:w
   {
     \group_align_safe_begin:

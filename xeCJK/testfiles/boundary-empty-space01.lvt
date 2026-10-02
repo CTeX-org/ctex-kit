@@ -19,14 +19,18 @@
 %     把它重放在盒子之前；
 %   - 左侧是 |中{}|、|中\ |、命令之后紧接汉字（|中{} \cmd文|），直接输入保留
 %     空格，命令的入口按汉字之后的空格处理；
-%   - 左侧是公式、右侧是汉字；
-%   - 左侧以 |{ }| 这类写在分组里的空格结尾（|中{ }\cmd 文|），列表与
-%     |中{} \cmd 文| 相同，无法区分。
+%   - 左侧是公式、右侧是汉字。
 % 这些组合在修复前后相同，或修复前也与直接输入不一致。
+%
+% 左侧以 |{ }| 这类写在分组里的空格结尾时（|中{ }\cmd 文|），修复前与直接
+% 输入一致，现在少一枚空格：它在命令之前留下的节点列表与 |中{} \cmd 文|、
+% |中\ \cmd 文| 相同，只能按后者处理。这是已接受的回退，见用户手册“CJK 文字
+% 与命令交互时的间距”一节，这里不比较。
 %
 % 另外比较 #1103 审查中发现的写法：命令左侧紧贴 |~|、|\nobreakspace{}|（不是
 % 源码空格，命令之后的空格不能删）；命令之后是 |{$y$}| 或 |\color{red}$y$|；
-% \tn{color}；表格单元格末尾；零尺寸但有可见内容的盒子。
+% \tn{color}；表格单元格末尾与 plain \tn{halign} 的 \tn{cr}、\tn{crcr}、
+% \tn{span}；零尺寸但有可见内容的盒子；\tn{discretionary} 的不断行文本。
 
 \documentclass{article}
 
@@ -177,6 +181,10 @@
   \EmptyForCommands{groupC-colorC}{{中}}{\color{red}文}%
   \EmptyLeftForCommands{C-groupmath}{中}{{$y$}}%
   \EmptyLeftForCommands{C-colormath}{中}{\color{red}$y$}%
+  % 上一组的 oracle 也含 \color；\color 本身在公式之前丢失间距时两边一起出错，
+  % 所以单独与不含颜色命令的直接输入比较（中 \color{red}$y$ 与 中 $y$ 等宽）。
+  \EmptyVariant{color-math-direct/10}{中}{\color{red}}{$y$}{ }{}{ }%
+  \EmptyVariant{color-math-direct/11}{中}{\color{red}}{$y$}{ }{ }{ }%
   % \color 本身：没有可见输出，不是盒子。
   \EmptyMatrix{C-C/color}{中}{\color{red}}{文}%
   \EmptyMatrix{C-groupC/color}{中}{\color{red}}{{文}}%
@@ -260,10 +268,42 @@
   \fi
 }
 
+% plain \halign：命令之后紧跟 \cr、\crcr、\span 时，不能在 align-safe 分组之外
+% 把它当作宏参数读取，以前报 |Forbidden control sequence|。
+\newcommand\EmptyAlign[3]{% #1 名称 #2 候选 #3 删去命令后的直接输入
+  \global\advance\EmptyChecks by 1
+  \EmptyReset
+  \setbox\EmptyCandidate=\vbox{\halign{##&##\cr #2}}%
+  \EmptyReset
+  \setbox\EmptyOracle=\vbox{\halign{##&##\cr #3}}%
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+\TEST{empty command before cr, crcr and span in halign}{
+  \EmptyAlign{cr-mbox}{中 \mbox{}\cr}{中 \cr}%
+  \EmptyAlign{cr-stream}{中 \RegStream{}\cr}{中 \cr}%
+  \EmptyAlign{cr-trans}{中 \RegTrans{}\cr}{中 \cr}%
+  \EmptyAlign{cr-textcolor}{中 \textcolor{red}{}\cr}{中 \cr}%
+  \EmptyAlign{cr-unit}{中 \unit{}\cr}{中 \cr}%
+  \EmptyAlign{cr-hypertarget}{中 \hypertarget{a}{}\cr}{中 \cr}%
+  \EmptyAlign{cr-latin}{A \mbox{}\cr}{A \cr}%
+  \EmptyAlign{crcr-mbox}{中 \mbox{}\crcr}{中 \crcr}%
+  \EmptyAlign{span-mbox}{中 \mbox{}\span 文\cr}{中 \span 文\cr}%
+  \EmptyAlign{cr-space-mbox}{中 \mbox{} \cr}{中  \cr}%
+}
+
 % 宽、高、深都为零的盒子里可能有重叠排出的内容，这时按有可见输出处理。
 \TEST{zero-sized box with visible content}{
   \EmptyVariant{smash/11}{A}{\mbox{\smash{\rlap{\rule{2pt}{1pt}}}}}{B}{ }{ }
     { \smash{\rlap{\rule{2pt}{1pt}}} }%
+  % 只有 glue 的零尺寸盒子（\makebox[0pt]{} 里两枚相同的 fil glue）没有输出。
+  \EmptyVariant{makebox0/11}{中}{\makebox[0pt]{}}{文}{ }{ }{ }%
+  \EmptyVariant{makebox0-L/11}{A}{\makebox[0pt]{}}{B}{ }{ }{ }%
+  % 末尾节点属于 \discretionary 的不断行文本时删不掉，检查要停下来。
+  \EmptyVariant{disc/11}{A}{\mbox{\discretionary{}{}{\kern0pt}}}{B}{ }{ }
+    { \discretionary{}{}{\kern0pt} }%
 }
 
 \TYPE{empty-output checks: \the\EmptyChecks}

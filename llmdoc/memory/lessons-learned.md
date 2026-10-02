@@ -589,9 +589,9 @@ Curated cross-task rules distilled from archived memory.
 **Why**: #1038 中我先包装 `\xeCJK_CJK_and_Boundary:w` 打印 peek 状态，得到 `gbegin=N`，与真实行为相反——我的插入代码本身重置了 peek 状态；再包装 `\token_if_group_begin:NTF` 只得到无信息的 `[\l_peek_token]`。换成裸 `\futurelet` 探针才看到真相：xeCJK 任何代码运行前，输入流里的下一个记号就已经是 `{`。
 **Source**: `llmdoc/memory/reflections/1038-tabular-cr-group-peek.md`
 
-### 读取 `\l_peek_token` 时必须仍在 align-safe 分组内
-**Rule**: peek 之后对 `\l_peek_token` 做的每一个判断（`\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_if_group_begin:NTF` 等），都要放在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间，判断完再结束分组。`\peek_remove_spaces:n`、`\peek_meaning:NTF` 一类函数的回调在它们自己的 align-safe 分组结束之后才执行，回调里要再看下一个记号，必须重新 `\group_align_safe_begin:` 并再 peek 一次。表格单元格是必测的上下文。
-**Why**: #1103 的 `\__xeCJK_boundary_after_space_test:` 第一版一开始就结束了 align-safe 分组，表格单元格末尾的 `中 \mbox{} & 文` 里下一个记号是 `&`，在分组之外读取等同于它的 `\l_peek_token`，TeX 插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`。删去空格之后判断 `$` 的代码原来直接写在 `\peek_remove_spaces:n` 的回调里，也在分组之外。本地审查第一轮作为阻塞问题报出，自己的验证矩阵没有表格上下文。
+### 判断下一个记号和把它读成参数，都必须在 align-safe 分组内完成
+**Rule**: peek 之后对 `\l_peek_token` 做的每一个判断（`\token_if_eq_meaning:NNTF`、`\token_if_cs:NTF`、`\token_if_group_begin:NTF` 等），都要放在 `\group_align_safe_begin:` 与 `\group_align_safe_end:` 之间，判断完再结束分组。把下一个记号读成宏参数（如先 `\group_align_safe_end:` 再接一个 `:N` 函数去读它）同样会让 TeX 看到它，也会触发列模板；要在分组外读参数，必须先在分组内排除含义为 `&`、`\cr`、`\crcr`、`\span` 的记号。`\peek_remove_spaces:n`、`\peek_meaning:NTF` 一类函数的回调在它们自己的 align-safe 分组结束之后才执行，回调里要再看下一个记号，必须重新 `\group_align_safe_begin:` 并再 peek 一次。LaTeX `tabular` 与 plain `\halign`（`\cr`、`\crcr`、`\span`）都是必测的上下文。
+**Why**: #1103 的 `\__xeCJK_boundary_after_space_test:` 第一版一开始就结束了 align-safe 分组，表格单元格末尾的 `中 \mbox{} & 文` 里下一个记号是 `&`，在分组之外读取等同于它的 `\l_peek_token`，TeX 插入列模板的结尾，单元格提前结束，报 `Extra alignment tab`。删去空格之后判断 `$` 的代码原来直接写在 `\peek_remove_spaces:n` 的回调里，也在分组之外。本地审查第一轮作为阻塞问题报出，自己的验证矩阵没有表格上下文。第一轮的修复只把对 `\l_peek_token` 的判断移进分组，控制序列分支仍先结束分组、再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；plain `\halign` 中 `中 \mbox{}\cr` 因此报 `Forbidden control sequence`（修复前不报错），第二轮作为阻塞问题报出。现在由 `\__xeCJK_boundary_if_peek_align:TF` 在分组内先排除 `\cr`、`\crcr`、`\span`。
 **Source**: `llmdoc/memory/reflections/1103-empty-output-after-space.md`、`llmdoc/architecture/xecjk-empty-output-space.md`
 
 ### 复用带守卫的函数时，重新验证守卫在新调用点的前置条件

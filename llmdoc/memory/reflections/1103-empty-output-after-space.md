@@ -93,6 +93,25 @@ metadata:
 ### 教训
 
 - **自己的验证矩阵只列出与直接输入一致的组合。** `boundary-empty-space01` 只收入与直接输入一致的组合，外部矩阵 `tmp/i1103/gen` 也只覆盖设计时想到的 9 种左侧与 9 种右侧；表格单元格、命令左侧的 `~`、`\color` 或花括号后接公式这类写法从一开始就不在里面，所以“0 失败”说明不了它们。审查者从更宽的输入空间独立构造矩阵（110448 组），一次就找到这几类。以后构造矩阵时，左侧、右侧与上下文（表格、分组、颜色声明）各自列出可能的记号种类，再决定哪些移出，移出的组合要登记理由。
-- **peek 之后读取 `\l_peek_token` 前必须仍在 align-safe 分组内。** 下一个记号可能是 `&`，在分组之外判断它会让 TeX 提前结束单元格。`\peek_remove_spaces:n` 的回调已经在它自己的 align-safe 分组之外，回调里要读下一个记号就得重新 peek。已提升到 `memory/lessons-learned.md`。
+- **peek 之后读取 `\l_peek_token` 前必须仍在 align-safe 分组内。** 下一个记号可能是 `&`，在分组之外判断它会让 TeX 提前结束单元格。`\peek_remove_spaces:n` 的回调已经在它自己的 align-safe 分组之外，回调里要读下一个记号就得重新 peek。已提升到 `memory/lessons-learned.md`。这条只管住了判断，没有管住把下一个记号读成参数，第二轮因此又报阻塞问题，见下文「本地审查第二轮」。
 - **记录类的旁路状态要在新内容排出时清除。** 只在“下一个 capture 开始”时清除，中间排出的字符不会让记录失效，记录可能被不相关的命令接过来。已提升到 `memory/lessons-learned.md`。
 - **零尺寸不等于没有输出。** `\smash`、`\rlap` 之类会造出尺寸为零、内容可见的盒子；“没有可见输出”要看列表里的节点，而不只看盒子尺寸。
+
+## 本地审查第二轮
+
+第一轮修复提交为 `3e2eb5e2`。本地审查第二轮报告 1 项阻塞问题、1 项重要问题、2 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`）：
+
+1. **阻塞：plain `\halign` 中命令之后紧跟 `\cr`、`\crcr`、`\span` 时报错。** `中 \mbox{}\cr` 报 `Forbidden control sequence found while scanning use of \__xeCJK_boundary_after_space_hook:N`，修复前的 `25a33aef` 不报错。第一轮只把对 `\l_peek_token` 的判断移进了 align-safe 分组，控制序列分支仍先结束分组，再把下一个记号读成 `\__xeCJK_boundary_after_space_hook:N` 的参数；读参数时碰到对齐记号，TeX 同样插入列模板。现在 `\__xeCJK_boundary_after_space_test:` 把空格以外的分派拆到 `\__xeCJK_boundary_after_space_test_other:`，先在分组内用新增的 `\__xeCJK_boundary_if_peek_align:TF` 排除含义为 `\cr`、`\crcr`、`\span` 的记号，作废记录，再处理其他控制序列。
+2. **重要：空盒子探测无限递归。** `A \mbox{\discretionary{}{}{\kern0pt}} B` 报 `TeX capacity exceeded`：列表末尾的节点属于 `\discretionary` 的不断行文本，`\unkern` 删不掉它，`\__xeCJK_boundary_box_empty_probe:` 反复看到同一个节点。新增 `\__xeCJK_boundary_box_empty_probe_remove:N`，比较删除前后的 `\lastnodetype`、`\lastkern`、`\lastskip`、`\lastpenalty`，没有变化就停下，按有可见输出处理；`\box_set_to_last:N` 取到空盒子或不是 hbox 时也停下，取到非零尺寸的盒子时放回。
+3. **小问题：`unchecked` 标志的 dtx 注释与实现不符。** 实现只在入口前是 `CJK` marker 时设置，注释仍写“`CJK` 或 `CJK-space` marker”，已更正。
+4. **小问题：无输出透明盒子判据的 dtx 注释过时。** 注释仍写“宽、高、深都为零的透明盒子”，改为引用 `\__xeCJK_boundary_if_capture_box_empty:TF`。
+
+另外，第二轮审查者的矩阵左侧包含 `{ }`，暴露了第一轮登记有误的 `中{ }\cmd 文`。第一轮把它登记为“修复前后相同，或修复前也与直接输入不一致”；实测修复前与直接输入一致，现在少一枚空格（`中{ }\mbox{} 文` 修复前 26.66pt、现在 23.33pt、直接输入 26.66pt；`A{ }\mbox{} B` 为 21.24／17.91／21.24pt），是回退。它在命令之前的节点列表与 `X{} \cmd Y`、`X\ \cmd Y`、`X\space\cmd Y` 相同，后三者修复前多一枚空格、现在正确。审查者的矩阵在每种间距设置下各有 126 项这类回退（9 个命令 × 14 种右侧，`01` 写法）。维护者决定保留当前修复，作为已知限制写入用户手册（`xeCJK/xeCJK.dtx`「CJK 文字与命令交互时的间距」一节）并给出替代写法，见 `llmdoc/memory/decisions/1103-group-space-before-empty-command.md`。第一轮写下的“相对修复前 base 的回退由 298 项降为 3 项，剩下 3 项都是 oracle 写错”只对第一轮审查者的矩阵成立，那个矩阵左侧没有 `{ }`，`doc-gaps.md` 与 `build-and-test.md` 已补充说明。
+
+测试 `boundary-empty-space01` 由 3803 项增至 3824 项：新增 TEST 7（plain `\halign` 的 `\cr`、`\crcr`、`\span`，10 项），零尺寸盒子一组（现为 TEST 8）增加 `disc/11` 与两项 `\makebox[0pt]{}`，TEST 1–4 各增加两项 `color-math-direct`。这些新用例在 `3e2eb5e2` 上分别报 `Forbidden control sequence` 与 `TeX capacity exceeded`。
+
+### 教训
+
+- **align-safe 规则要覆盖“读成参数”。** 第一轮的教训写成“读取 `\l_peek_token` 时必须仍在 align-safe 分组内”，只管住了判断，没有管住把下一个记号当作宏参数读入。读参数与判断一样会让 TeX 看到对齐记号。修复第一轮时只测了 LaTeX `tabular` 的 `&`，没有测 plain `\halign` 的 `\cr`、`\crcr`、`\span`；按第一轮“左侧、右侧与上下文各自列出可能的记号种类”的教训，表格上下文的右侧应列出全部对齐记号。`memory/lessons-learned.md` 中的对应条目已改写。
+- **“无法区分”时先比较修复前的行为，再决定登记方式。** 判断某个写法“无法区分”只说明新代码对它与另一写法给出同样的结果，不说明这个结果相对修复前是改进还是回退。第一轮没有实测修复前的 `中{ }\mbox{} 文`，就把它写成“修复前也不一致”，结论是推出来的。应当先在修复前的版本上测出数值，与直接输入比较：修复前就不一致的登记为未修写法；修复前一致、现在不一致的是回退，要报给维护者决定，并在用户手册里写明。
+- **探测循环要保证会停下。** 从列表末尾逐个删去节点的循环，遇到删不掉的节点（`\discretionary` 的不断行文本、无法取下的盒子）就会无限递归。第一次修正用“删除前后末尾状态相同就停下”判断，却把两枚相同 glue 中删去一枚的情形（`\makebox[0pt]{}`）也当成删不掉，858 项回到修复前的结果；协调者重跑上一轮审查者的矩阵、与上一提交逐项比较才发现。最后改为限制删除次数。教训：用“状态没变”推断“没有进展”，要先确认相同状态不会由不同节点产生。
