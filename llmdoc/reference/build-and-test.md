@@ -322,14 +322,14 @@ TeX glue 节点不记录来源。已注册命令右侧若出现显式 `\hskip`�
 
 ### microtype 突出量回归（`microtype-slot01`，#1104）
 
-`microtype-slot01.lvt` 固定 xeCJK 为 microtype 查回歧义字符槽位时同时设置 `\MT@char` 与 `\MT@char@`（机制见 [[../architecture/xecjk-architecture]]「microtype 的歧义字符槽位（#1104）」一节）。断言是 `\lpcode`/`\rpcode` 的数值，参照值取自把 xeCJK 换成 fontspec 的同一文档，两者逐项一致。
+`microtype-slot01.lvt` 固定 xeCJK 为 microtype 查回歧义字符槽位时同时设置 `\MT@char` 与 `\MT@char@`（机制见 [[../architecture/xecjk-architecture]]「与 microtype 的兼容（#1104）」一节）。断言是 `\lpcode`/`\rpcode` 的数值，参照值取自把 xeCJK 换成 fontspec 的同一文档，两者逐项一致。
 
 - 正文字体用 TeX Gyre Termes：它没有专用的 microtype 配置，突出量按字符宽度计算，修复前后的数值才会不同。Latin Modern 有专用配置，修复前后的 TU 数值相同，没有判别力。
 - 在 XeTeX 里，OpenType 字体的 `\lpcode`/`\rpcode` 按字形序号保存，查询时要写 `\lpcode\font U"2014`；写 `\lpcode\font"2014` 得到的是 8212 号字形的值（通常为 0）。TFM 字体只能直接写槽位。
 - l3build 遇到第一个错误就停止编译。修复前 `TS1/cmr` 那一项会报 `Cannot use XeTeXglyph`，所以放在最后，前面 TU 字体的错误数值在修复前也能出现在日志里。修复前与修复后的差异是 U+2013 67/67 → 100/100、U+2014 50/50 → 150/150、U+201C/U+201D 100/100 → 133/133，以及最后一项的报错 → 183 号槽位 83/111；U+2018/U+2019 和逗号对照项前后相同。
 - 测试加载 microtype，因此 `.github/tl_packages` 加入了 `microtype`。`TS1/cmr` 用到的 `tcrm1000` 来自已有的 `ec`，`mt-cmr.cfg` 随 microtype 安装。
 
-`gh-assets:issues/1104/` 存放 issue 的 MWE、节点列表（第一行两端 margin kern：修复前 `-1.0`/`-0.5`，参照与修复后 `-1.33`/`-1.5`）和对比图。对比图里的引号和破折号必须用 `\textquotedblleft`、`\textemdash` 等文本命令输入：直接输入的“—”等字符在 xeCJK 中默认按 CJK 字符排版，不经过 microtype 的这条路径。此外，xeCJK 会在 `\linebreak` 或段落结束之前、西文字符之后留下一对 `\kern -0.0002pt`/`\kern 0.0002pt`，挡住该行行尾的右侧突出（只加载 fontspec 时没有）；对比图因此在行尾的空格处自然断行，不用 `\linebreak` 或 `\parfillskip=0pt`。这对 kern 是否需要处理见 [[../memory/doc-gaps]]。
+`gh-assets:issues/1104/` 存放 issue 的 MWE、节点列表（第一行两端 margin kern：修复前 `-1.0`/`-0.5`，参照与修复后 `-1.33`/`-1.5`）和对比图。对比图里的引号和破折号必须用 `\textquotedblleft`、`\textemdash` 等文本命令输入：直接输入的“—”等字符在 xeCJK 中默认按 CJK 字符排版，不经过 microtype 的这条路径。此外，xeCJK 会在 `\linebreak` 或段落结束之前、西文字符之后留下一对 `\kern -0.0002pt`/`\kern 0.0002pt`，挡住该行行尾的右侧突出（只加载 fontspec 时没有）；对比图因此在行尾的空格处自然断行，不用 `\linebreak` 或 `\parfillskip=0pt`。这一现象作为已知限制记在 [[../architecture/xecjk-architecture]]「与 microtype 的兼容（#1104）」一节。
 
 证据分三层使用，不能互相替代：
 

@@ -692,13 +692,23 @@ xeCJK 通过 `\@@_package_hook:nn` 为第三方包注册延迟加载的兼容补
 | `siunitx` | `\unit`/`\qty`/`\num` 注册为固定 Default 首尾的 `stream`；v2 旧名 `\si`/`\SI` 先检查命令是否存在，再分别注册；`\ang` 的比较对象尚未确定，暂不注册（#1000/#992） |
 | `microtype` | 包装 `\MT@get@slot@`，为被重定义为受保护宏的歧义字符查回槽位，`\MT@char` 与 `\MT@char@` 同时设置（#1104）；microtype 完成设置时把 `\MT@ltx@pickupfont` 加入 xeCJK 的字体初始钩子 |
 
-### microtype 的歧义字符槽位（#1104）
+### 与 microtype 的兼容（#1104）
+
+#### 歧义字符的槽位
 
 xeCJK 在导言区结束时把 `\TS1\textperiodcentered`、`\TU\textendash`、`\TU\textquoteleft` 等歧义字符重定义为受保护的宏，交给西文字体排版，并在 `\g_@@_ambiguous_slot_prop` 里按 `<编码>-<命令>` 记下槽位。microtype 读 `\SetProtrusion` 等配置时不能再从这些宏解析出槽位，`\MT@get@slot` 留下 `\MT@char@ = -1` 并复制给 `\MT@char`。`\xeCJK@microtype@get@slot` 在调用原来的 `\MT@get@slot@` 之前，用 `\@@_get_ambiguous_slot:` 查回记录的槽位。
 
 查回的槽位必须**同时**写进 `\MT@char` 和 `\MT@char@`。microtype 在 XeTeX 下测量字符宽度的 `\MT@get@charwd`（`microtype-xetex.def`）依据 `\MT@char@` 分支：负值表示字形序号，测量 `\XeTeXglyph-\MT@char@`。#1104 之前只设置 `\MT@char`，于是测量的是 1 号字形：TFM 字体（如 NFSS 回退到的 `TS1/cmr`）不允许 `\XeTeXglyph`，报 `Cannot use XeTeXglyph`；microtype 对 TFM 字体的检查写在 `\MT@get@slot@` 里、依据的是 `\MT@char`，此时它已是有效槽位，检查不起作用。OpenType 字体则按 1 号字形的宽度算出错误的突出量，不报错。xunicode-addon 的 `\xunadd@microtype@is@charx` 设置的是 `\MT@char@`，再由 microtype 复制给 `\MT@char`，两者一致。
 
 只有在 microtype 按字符宽度计算的配置下才看得出数值差别。Latin Modern 等有专用配置的字体，`\lpcode`/`\rpcode` 修复前后可能相同；回归测试 `microtype-slot01` 因此用没有专用配置的 TeX Gyre Termes（见 [[../reference/build-and-test]]「microtype 突出量回归」一节）。
+
+#### 已知限制：行尾的 Default marker kern 挡住右侧突出
+
+西文字符之后紧接 `\linebreak`、`\\`、`\break` 或段落结束时，xeCJK 留下一对 Default marker kern（`\kern -0.0002pt`、`\kern 0.0002pt`，见「基础 marker 与 glue 恢复链」）。这一行若在这里结束，行尾最后一个节点是这对 kern，microtype 不插入 `\kern... (right margin)`，行尾的逗号、破折号等不再突出。只加载 fontspec 时没有这对 kern，突出正常。行在空格处自然断行时，kern 不在行尾，突出正常；正文大多数行属于这种情况，所以只影响手工断行和 `\parfillskip=0pt` 的满行段尾。
+
+实测（TeX Gyre Termes，`\hsize=5cm`）：`Front, middle and back,\linebreak front` 的第一行以 `back,`、两个 kern、`\penalty -10000` 结尾，没有 right margin kern；同一行在空格处断行时有 `\kern-1.25 (right margin)`。行尾放 `\kern0pt` 或 `\penalty` 不挡突出，非零的 kern 才挡；标记的值必须非零，后续代码才能用 `\lastkern` 认出它，所以不能把标记改成零。
+
+可行的修法是在确定不会再有内容接上的位置删掉这对标记：`para/end` 钩子和 LaTeX 的 `\@no@lnbk`（`\linebreak` 的内部实现）里，最后一个节点是 Default 标记时调用 `\xeCJK_remove_node:`。约 10 行的原型能修好 `\linebreak`、满行段尾和混排汉字的段落，`A\linebreak[0]中` 的宽度不变；`\\` 走另一条内部路径需要另外处理，TeX 原语 `\break` 无法处理。这对标记是命令边界恢复逻辑读取的核心状态，删掉后紧跟的颜色命令、盒子、线型装饰是否补错间距，需要用命令边界矩阵和全部测试回归；`\linebreak[n]`（n<4）可能不断行，也要专门测。由于影响面小，维护者决定（2026-10-02）作为已知限制保留，不修代码。
 
 传统 `CJK.sty` 与 xeCJK 不可同时加载。xeCJK 通过 `\ctex_disable_package:n` 拦截 `CJK` 等冲突包，因此 #510 中旧 `ruby.sty` 的 `\RequirePackage{CJK}` 现在只产生预期 warning，不再触发 `\CJKglue already defined`。这只是阻止加载冲突，不代表 xeCJK 实现了旧 CJK 的私有 kern-marker 协议；简单 MWE 能编译也不能据此声称完整语义兼容。XeLaTeX 的一般 ruby 推荐加载 PXrubrica，只有出现具体可复现的边界问题时才增加定点兼容，不在 xeCJK 中模拟整套旧协议。决策见 [[../memory/decisions/510-ruby-compatibility-boundary]]。
 

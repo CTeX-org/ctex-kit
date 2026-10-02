@@ -12,7 +12,7 @@ metadata:
 现象：XeLaTeX 同时加载 xeCJK 与 microtype，NFSS 回退到 `TS1/cmr`（`tcrm1000`）时
 `\textperiodcentered` 报 `Cannot use XeTeXglyph`；OpenType 字体的破折号、引号等突出量算错。
 
-根因与修法：见 [[../../architecture/xecjk-architecture]]「microtype 的歧义字符槽位（#1104）」。
+根因与修法：见 [[../../architecture/xecjk-architecture]]「与 microtype 的兼容（#1104）」。
 `\__xeCJK_get_ambiguous_slot:` 同时设置 `\MT@char` 与 `\MT@char@`（报告者给出的建议，
 提交 `d72662fc`，PR #1106）。测试 `microtype-slot01` 的要点见
 [[../../reference/build-and-test]]「microtype 突出量回归」一节。
@@ -36,7 +36,7 @@ metadata:
 - 直接输入的“—”等歧义字符在 xeCJK 里默认按 CJK 字符排版（FandolSong），根本不经过这条路径；
   对比图必须用 `\textemdash`、`\textquotedblleft` 等文本命令。
 - 西文字符后紧接 `\linebreak` 或段落结束时，xeCJK 留下一对 ±0.0002pt 的 Default marker kern，
-  行尾不再突出。对比图改为在空格处自然断行；这一现象登记在 [[../doc-gaps]]，未处理。
+  行尾不再突出。对比图改为在空格处自然断行；维护者决定作为已知限制保留，记在架构文档的同一小节。
 - 判断“突出没有发生”时，先 `\showbox` 看行尾有没有 `\kern... (right margin)`，比看图可靠。
 
 ## 本地独立审查的过程
