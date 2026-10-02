@@ -133,3 +133,23 @@ metadata:
 
 - **矩阵只把颜色命令当作命令本身来测。** 自己的矩阵与前几轮审查者的矩阵都把 `\textcolor{red}{}`、`\color{red}` 作为“被删去的命令”放在两段文字之间，没有测“颜色正文末尾有空格”这种由颜色命令隐式插入 `\reset@color` 的写法。`\aftergroup` 执行的命令看到的列表末尾属于已经结束的分组，入口推断出的“左侧空格”并不存在。列举被测命令时，除了命令本身，还要列出它会隐式插入、在别的位置执行的命令。已提升到 `memory/lessons-learned.md`。
 - **列举对齐记号只想到源码里能写出的那些。** 第二轮按“表格上下文的右侧要列出全部对齐记号”的教训排除了 `\cr`、`\crcr`、`\span`，没有想到 TeX 在列模板末尾自己插入的 `\endtemplate`，它还是 `\outer` 记号，连作为参数比较都不行。列举下一个记号的种类时，要把 TeX 自己插入的记号与 `\outer` 记号也算进去。比较 `\meaning` 的输出时注意它以反斜杠开头、字符 catcode 为 12，`\str_if_eq:nn` 不展开 `\c_backslash_str`，要用 `:ee`。已提升到 `memory/lessons-learned.md`。
+
+## 本地审查第五轮
+
+第四轮修复提交为 `be7e530c`。本地审查第五轮（增量，`410f365d..be7e530c`）报告 1 项阻塞问题、1 项重要问题、1 项小问题，处理如下（机制见 `llmdoc/architecture/xecjk-empty-output-space.md`「颜色弹出命令只转交配对的推入命令留下的记录」与「align-safe 分组」）：
+
+1. **阻塞：颜色正文以“空格 + 空命令”结尾时，颜色命令之后的空格被删去。** `\textcolor{red}{A \mbox{}} B` 为 17.91pt，修复前 `e641743e` 与直接输入 `{A } B` 都是 21.24pt，是第四轮的修复引入的回退；正文末尾换成 `\hypertarget{x}{}`、`\phantomsection`、`\unit{}`、`\uline{}`、内层 `\textcolor{blue}{}`，或写成 `{\color{red}A \mbox{}} B`、`\uline{\textcolor{red}{A \mbox{}} B}`、用户分组 `A {\color{red}} B`，都一样。原因：第四轮让 `\reset@color` 在本层 `after_space` 为真时转交记录，但这条记录可能由正文里的其他命令记下，入口空格是正文里的空格。现在记录带来源编号：`\__xeCJK_boundary_after_space_arm:` 每记下一条新记录就递增 `\g__xeCJK_boundary_after_space_id_int` 并写入 `\g__xeCJK_boundary_after_space_origin_int`，rearm 不改编号。`\set@color` 改用新增的 `\__xeCJK_boundary_register_transparent_push:n` 注册（before 钩子 `\__xeCJK_boundary_hmode_transparent_kind_begin:n { transparent-push }`，after 钩子 `\__xeCJK_boundary_hmode_transparent_push_end:`）；`\textcolor` 包装的非公式分支在调用原函数前把 `\l__xeCJK_boundary_textcolor_level_int` 设为当前分组层数，之后设回 -1；push_end 在当前层数等于包装层数加一时把当前记录的编号（没有记录时为空）存进 `\g__xeCJK_boundary_color_origin_<包装层数>_tl`，再做 after_space_check（为此从 `\__xeCJK_boundary_hmode_transparent_end:` 拆出 `\__xeCJK_boundary_hmode_transparent_finish:`）。`\__xeCJK_boundary_hmode_transparent_pop_begin:` 只在记录有效、当前层数等于包装层数、且当前记录的编号等于该层存下的编号时转交，否则把本层 `after_space` 字段设为假。不经过 `\textcolor` 包装的 `\color` 与 l3color 不转交。新增的三个整数变量让 `loading01.tlg` 多三行。
+2. **重要：`\outer` 检查漏掉 `\long\outer`、`\protected\outer` 宏。** 第四轮的 `\__xeCJK_boundary_if_peek_outer:TF` 只比较 `\meaning` 的前 6 个字符，这两类宏的含义以 `\long`、`\protected` 开头，`中 \mbox{}\EmptyOuterB` 仍报 `Forbidden control sequence`。现在取前 22 个字符（`\protected\long\outer` 加一个字符），用 `\exp_args:Nee \str_if_in:nnTF` 查找 `\c_backslash_str outer`。
+3. **小问题：TEST 8 缺“命令 + 空格”结尾的模板。** 增加 `tmpl-mbox-space`（模板末尾是 `\mbox{} `，删去空格之后再看下一个记号时遇到 `\endtemplate`）。
+
+测试 `boundary-empty-space01` 由 3848 项增至 3871 项、11 个 TEST：新增 TEST 9（空命令之后紧跟 `\outer` 宏，4 项，用 `\BEGINTEST`／`\ENDTEST`，因为 `\outer` 宏不能出现在宏参数里），颜色正文一组改为 TEST 10、每种设置增加 9 项，零尺寸盒子一组改为 TEST 11，TEST 8 增加 1 项。TEST 9 的 oracle 写成宽度相同的 `中 `：直接输入 `中 \EmptyOuterA` 在 xeCJK 汉字之后的前视里也报 `Forbidden control sequence`，修复前 `e641743e` 就如此，登记在 `llmdoc/memory/doc-gaps.md`。在 `be7e530c` 上 TEST 9 报 `Forbidden control sequence`；去掉该 TEST 后 TEST 10 的新用例失败 18 项。
+
+修复前后都与直接输入不一致、不在测试里比较的写法登记在 `doc-gaps.md`：`\textcolor{red}{中 \mbox{}} 文`（修复前与现在都是 26.66pt，直接输入 `{中 } 文` 23.33pt）、嵌套的空颜色命令 `中 \textcolor{red}{\textcolor{blue}{}} 文`（都是 26.66pt，直接输入 20.0pt）、l3color 的 `\color_group_begin:`…`\color_group_end:` 正文以空格结尾（都是 17.91pt，直接输入 21.24pt，审查者报告）。
+
+### 教训
+
+- **转交记录时只问“有没有记录”，没有问“记录从哪来”。** 第四轮为保住 `\textcolor{red}{}` 的转交，用“本层 `after_space` 为真”作条件，默认这条记录一定是配对的 `\set@color` 记下的；正文里任何一个空命令都能留下同样有效的记录。这与第一轮“入口只看取下了 glue，不看 glue 是源码空格还是 `~` 之后的空格”是同一类错误：用状态存在代替状态来源。修好一处“来源被误认”之后，要检查新加的条件本身是不是又依赖了一个只看存在、不看来源的状态。已提升到 `memory/lessons-learned.md`。
+- **`\meaning` 前缀的顺序是 `\protected`、`\long`、`\outer`。** 第四轮只测了 TeX 插入的 `\endtemplate`（含义以 `\outer` 开头），就按开头比较；用户用 `\long\outer\def` 定义的宏前面还有别的前缀。用 `\meaning` 的前缀判断宏属性时，要先列出全部前缀组合与 TeX 打印它们的顺序。`memory/lessons-learned.md` 中的对应条目已更正。
+- **为第四轮修复补的测试只覆盖了修复想要保住的那一种写法。** TEST 9（现 TEST 10）的 `tc-empty-C`／`tc-empty-L` 确认 `\set@color` 的记录仍被转交，但没有一项让正文里别的命令留下记录，所以“转交条件过宽”没有被测到。给一个条件加测试时，除了它应当成立的情形，也要列出“条件同样成立、但不该动作”的写法。
+
+本轮修复的第一版让 `\@@_boundary_after_space_arm:` 每次都分配新编号，`中 \textcolor{red}{\mbox{}} 文` 里 `\mbox` 接过 `\set@color` 的记录后编号变了，`\reset@color` 配对失败；协调者重跑审查者矩阵、与上一 head 逐行比较时发现 612 项变差，改为本层 `after_space` 为真时保留原编号。同一次全量检查还发现 `fntef-entry-space01` 的 `sibling-color-then-nested-tie-cjk-spaced` 失败：它的 oracle `符 {\color{red}}{~中} 后` 本身含用户分组里的空颜色命令，上一 head 上这个 oracle 碰巧与候选一致，现在恢复为修复前的 36.66pt（多一枚空格，已登记 doc-gaps），比较对象改为删去颜色命令的 `符 {}{~中} 后`（33.33pt，候选与之相同）。

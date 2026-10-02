@@ -315,7 +315,49 @@
   \EmptyTemplate{tmpl-unit}{\unit{}}%
   \EmptyTemplate{tmpl-hypertarget}{\hypertarget{z}{}}%
   \EmptyTemplate{tmpl-uline}{\uline{}}%
+  % 命令之后还有一枚空格：删去空格之后再看下一个记号时遇到 \endtemplate。
+  \EmptyTemplate{tmpl-mbox-space}{\mbox{} }%
 }
+
+% \outer 宏：\long\outer、\protected\outer 的含义以 \long、\protected 开头，
+% 只看开头会漏掉，以前报 |Forbidden control sequence|。直接输入 |中 \EmptyOuterA|
+% 在 xeCJK 汉字之后的前视里同样报错（修复前就如此，见 doc-gaps），所以比较对象
+% 写成宽度相同的 |中 |。\outer 宏不能出现在宏参数里，所以用 \BEGINTEST/\ENDTEST。
+\outer\def\EmptyOuterA{}
+\long\outer\def\EmptyOuterB{}
+\protected\outer\def\EmptyOuterC{}
+\BEGINTEST{empty command followed by an outer macro}
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{中 \mbox{}\EmptyOuterA}%
+  \EmptyReset
+  \setbox\EmptyOracle=\hbox{中 }%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: outer-A}%
+  \fi
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{中 \mbox{}\EmptyOuterB}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: outer-B}%
+  \fi
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{中 \mbox{}\EmptyOuterC}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: outer-C}%
+  \fi
+  \EmptyReset
+  \setbox\EmptyCandidate=\hbox{中 \color{red}\EmptyOuterB}%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: outer-color}%
+  \fi
+\ENDTEST
 
 % 颜色正文以空格结尾：\reset@color 在分组结束之后执行，入口取下的是分组里的
 % 空格，不是命令左侧的源码空格，命令之后的空格要保留。比较对象是删去颜色命令、
@@ -341,6 +383,20 @@
   \EmptyColorTail{tc-tail-uline}{\uline{\textcolor{red}{A } B}}{\uline{{A } B}}%
   \EmptyColorTail{tc-empty-C}{中 \textcolor{red}{} 文}{中  文}%
   \EmptyColorTail{tc-empty-L}{A \textcolor{red}{} B}{A  B}%
+  % 颜色正文以“空格 + 空命令”结尾：内层命令记下的入口空格在正文里，颜色弹出
+  % 命令不能把它交给外层。|\textcolor{red}{中 \mbox{}} 文| 与嵌套的空颜色命令
+  % |中 \textcolor{red}{\textcolor{blue}{}} 文| 修复前后都多一枚空格，不在这里比较
+  % （见 doc-gaps）。
+  \EmptyColorTail{tc-mbox-L}{\textcolor{red}{A \mbox{}} B}{{A } B}%
+  \EmptyColorTail{color-mbox-L}{{\color{red}A \mbox{}} B}{{A } B}%
+  \EmptyColorTail{tc-tc-L}{\textcolor{red}{A \textcolor{blue}{}} B}{{A } B}%
+  \EmptyColorTail{tc-ht-L}{\textcolor{red}{A \hypertarget{x}{}} B}{{A } B}%
+  \EmptyColorTail{tc-ps-L}{\textcolor{red}{A \phantomsection} B}{{A } B}%
+  \EmptyColorTail{tc-unit-L}{\textcolor{red}{A \unit{}} B}{{A } B}%
+  \EmptyColorTail{tc-uline-L}{\textcolor{red}{A \uline{}} B}{{A } B}%
+  \EmptyColorTail{ul-tc-mbox-L}{\uline{\textcolor{red}{A \mbox{}} B}}{\uline{{A } B}}%
+  % 用户自己写的分组：删去颜色命令后分组还在，两枚空格都保留。
+  \EmptyColorTail{group-color-L}{A {\color{red}} B}{A {} B}%
 }
 \TEST{color body ending with a space}{
   \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyColorTailAll \endgroup

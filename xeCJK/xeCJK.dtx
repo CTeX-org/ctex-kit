@@ -4704,6 +4704,10 @@ Copyright and Licence
 %   \@@_boundary_after_space_ignore_test_aux:,
 %   \@@_boundary_replay_before_empty_arm:,
 %   \@@_boundary_hmode_transparent_pop_begin:,
+%   \@@_boundary_hmode_transparent_kind_begin:n,
+%   \@@_boundary_hmode_transparent_push_end:,
+%   \@@_boundary_hmode_transparent_finish:,
+%   \@@_boundary_register_transparent_push:n,
 %   \@@_boundary_register_transparent_pop:n,
 %   \@@_boundary_after_space_math:,
 %   \@@_boundary_after_space_math_test:,
@@ -5577,7 +5581,85 @@ Copyright and Licence
       }
   }
 
+%    \end{macrocode}
+% 颜色弹出命令只转交与之配对的颜色推入命令留下的记录（\#1103）。删去
+% \tn{textcolor} 时它的花括号一起删去：|中 \textcolor{red}{} 文| 是 |中  文|，
+% \tn{set@color} 记下的入口空格要交给外层。其余情况不转交：
+% \begin{itemize}
+%   \item 记录来自正文里的其他命令（|\textcolor{red}{A \mbox{}} B|）：入口空格是
+%     正文里的空格，删去 \tn{mbox} 后是 |{A } B|，两枚空格都保留。
+%   \item 用户自己写的分组 |A {\color{red}} B|：删去颜色命令后还剩 |A {} B|。
+% \end{itemize}
+% 判断用记录的来源编号：\cs{@@_boundary_after_space_arm:} 每记下一条新记录就
+% 分配一个编号；本层 |after_space| 为真时（入口空格来自内层已经记下的那一条，
+% 例如 |\textcolor{red}{\mbox{}}| 里的 \tn{mbox}），编号不变，转交时也不变。\tn{textcolor} 包装记下自己所在的分组层数
+% \cs{l_@@_boundary_textcolor_level_int}；分组里的颜色推入命令结束时，若层数
+% 正好深一层，就把当前记录的编号存进按层数区分的全局变量（没有记录时存空）。
+% 弹出命令在分组结束之后、层数等于包装记下的层数时执行，只在当前记录的编号
+% 等于这一层存下的编号时转交；不配对时把本层的 |after_space| 字段改为假。
+% 不经过 \tn{textcolor} 包装的 \tn{color} 与 \pkg{l3color} 不转交。
+%    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_pop_begin:
+  {
+    \bool_set_false:N \l_@@_boundary_pop_pass_bool
+    \bool_if:NT \g_@@_boundary_after_space_bool
+      {
+        \int_compare:nNnT { \tex_currentgrouplevel:D }
+          = { \l_@@_boundary_textcolor_level_int }
+          {
+            \str_if_eq:eeT
+              {
+                \tl_if_exist:cT
+                  {
+                    g_@@_boundary_color_origin_
+                    \int_use:N \tex_currentgrouplevel:D _tl
+                  }
+                  {
+                    \tl_use:c
+                      {
+                        g_@@_boundary_color_origin_
+                        \int_use:N \tex_currentgrouplevel:D _tl
+                      }
+                  }
+              }
+              { \int_use:N \g_@@_boundary_after_space_origin_int }
+              { \bool_set_true:N \l_@@_boundary_pop_pass_bool }
+          }
+      }
+    \@@_boundary_hmode_transparent_kind_begin:n { transparent-pop }
+    \seq_get:NN \g_@@_boundary_active_seq \l_@@_boundary_active_tl
+    \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
+      {
+        \bool_if:NF \l_@@_boundary_pop_pass_bool
+          {
+            \tl_gset:cn
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _after_space_tl
+              }
+              { false }
+          }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_push_end:
+  {
+    \@@_boundary_hmode_transparent_finish:
+    \int_compare:nNnT { \tex_currentgrouplevel:D }
+      = { \l_@@_boundary_textcolor_level_int + 1 }
+      {
+        \tl_gset:ce
+          {
+            g_@@_boundary_color_origin_
+            \int_eval:n { \tex_currentgrouplevel:D - 1 } _tl
+          }
+          {
+            \bool_if:NT \g_@@_boundary_after_space_bool
+              { \int_use:N \g_@@_boundary_after_space_origin_int }
+          }
+      }
+    \@@_boundary_after_space_check:
+  }
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_kind_begin:n #1
   {
     \@@_boundary_hmode_transparent_begin:
     \seq_get:NN \g_@@_boundary_active_seq \l_@@_boundary_active_tl
@@ -5588,11 +5670,21 @@ Copyright and Licence
             g_@@_boundary_capture_\int_use:N
             \g_@@_boundary_capture_depth_int _kind_tl
           }
-          { transparent-pop }
+          {#1}
       }
   }
+\bool_new:N \l_@@_boundary_pop_pass_bool
+\int_new:N \g_@@_boundary_after_space_id_int
+\int_new:N \g_@@_boundary_after_space_origin_int
+\int_new:N \l_@@_boundary_textcolor_level_int
+\int_set:Nn \l_@@_boundary_textcolor_level_int { -1 }
 
 \cs_new_protected:Npn \@@_boundary_hmode_transparent_end:
+  {
+    \@@_boundary_hmode_transparent_finish:
+    \@@_boundary_after_space_check:
+  }
+\cs_new_protected:Npn \@@_boundary_hmode_transparent_finish:
   {
     \seq_gpop:NN
       \g_@@_boundary_active_seq
@@ -5603,7 +5695,6 @@ Copyright and Licence
         \int_gdecr:N \g_@@_boundary_capture_depth_int
         \@@_boundary_transparent_end_hook:
       }
-    \@@_boundary_after_space_check:
   }
 \cs_new_eq:NN \@@_boundary_transparent_begin_hook: \prg_do_nothing:
 \cs_new_eq:NN \@@_boundary_transparent_end_hook: \prg_do_nothing:
@@ -6588,8 +6679,9 @@ Copyright and Licence
 % 颜色弹出命令（\tn{reset@color}、\cs{__color_backend_reset:}）由 \tn{aftergroup}
 % 在分组结束之后执行。它的入口取下的 glue 是分组里正文末尾的空格，不是命令
 % 左侧的源码空格：|\textcolor{red}{A } B| 删去颜色命令后是 |{A } B|，两枚空格
-% 都保留。所以这类命令自己不记下“命令之后的空格待删去”，只转交内层命令留下的
-% 记录（|\textcolor{red}{}| 里 \tn{set@color} 记下的入口空格）。
+% 都保留。所以这类命令自己不记下“命令之后的空格待删去”；|after_space| 字段为真
+% 时照常重放并转交记录。\cs{@@_boundary_hmode_transparent_pop_begin:} 只在记录
+% 来自与之配对的颜色推入命令时让这个字段为真，见那里的说明。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_replay_before_empty_arm:
   {
@@ -6676,6 +6768,17 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_after_space_arm:
   {
+    \tl_if_eq:cnF
+      {
+        g_@@_boundary_capture_
+        \int_use:N \g_@@_boundary_capture_depth_int _after_space_tl
+      }
+      { true }
+      {
+        \int_gincr:N \g_@@_boundary_after_space_id_int
+        \int_gset_eq:NN \g_@@_boundary_after_space_origin_int
+          \g_@@_boundary_after_space_id_int
+      }
     \@@_boundary_after_space_rearm:
     \bool_lazy_and:nnTF
       { \str_if_eq_p:Vn \l_@@_boundary_node_tl { CJK-space } }
@@ -6845,17 +6948,22 @@ Copyright and Licence
 % \tn{outer} 记号，\cs{l_peek_token} 等同于它时也是 \tn{outer}，不能出现在任何
 % 宏参数里（报 |Forbidden control sequence|），\cs{token_if_eq_meaning:NNTF}、
 % \cs{token_to_meaning:N} 都不能用。所以先用原语 \tn{meaning} 展开它的含义，
-% 以 |\outer| 开头时不再判断，作废记录。
+% 前缀部分（|\outer endtemplate:|、|\long\outer macro:|、
+% |\protected\long\outer macro:|，最长 22 个字符）含有 |\outer| 时不再判断，作废
+% 记录。\TeX{} 打印前缀的顺序是 \tn{protected}、\tn{long}、\tn{outer}，所以不能
+% 只看开头。其他记号的含义在前 22 个字符里不会出现 |\outer|：字符记号的含义
+% 是“the letter”等固定文字，原语的含义就是它自己的名字（\tn{outer} 原语的含义
+% |\outer| 本身不是 \tn{outer} 记号，这时按 \tn{outer} 处理只是作废记录，无害）。
 %    \begin{macrocode}
 \prg_new_protected_conditional:Npnn \@@_boundary_if_peek_outer: { TF }
   {
     \exp_after:wN \@@_boundary_if_peek_outer:w
       \tex_meaning:D \l_peek_token \q_stop
   }
-\cs_new:Npn \@@_boundary_if_peek_outer:w #1 \q_stop
+\cs_new_protected:Npn \@@_boundary_if_peek_outer:w #1 \q_stop
   {
-    \str_if_eq:eeTF
-      { \str_range:nnn {#1} { 1 } { 6 } }
+    \exp_args:Nee \str_if_in:nnTF
+      { \str_range:nnn {#1} { 1 } { 22 } }
       { \c_backslash_str outer }
       { \prg_return_true: }
       { \prg_return_false: }
@@ -7303,6 +7411,18 @@ Copyright and Licence
           { \@@_boundary_hmode_transparent_pop_begin: }
         \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
           { \@@_boundary_hmode_transparent_end: }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_register_transparent_push:n #1
+  {
+    \prop_if_in:NnF \g_@@_boundary_registered_prop {#1}
+      {
+        \prop_gput:Nnn
+          \g_@@_boundary_registered_prop {#1} { transparent }
+        \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_kind_begin:n { transparent-push } }
+        \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
+          { \@@_boundary_hmode_transparent_push_end: }
       }
   }
 
@@ -14236,7 +14356,10 @@ Copyright and Licence
         \@@_boundary_inline_stream_end:n { auto }
       }
       {
+        \int_set:Nn \l_@@_boundary_textcolor_level_int
+          { \tex_currentgrouplevel:D }
         \@@_orig_textcolor:nnn {#1} {#2} {#3}
+        \int_set:Nn \l_@@_boundary_textcolor_level_int { -1 }
         \@@_boundary_after_space_check:
       }
   }
@@ -14254,7 +14377,7 @@ Copyright and Licence
   {
     \@@_boundary_reserve:n { colorbox }
     \@@_boundary_reserve:n { fcolorbox }
-    \@@_boundary_register_transparent:n { set@color }
+    \@@_boundary_register_transparent_push:n { set@color }
     \@@_boundary_register_transparent_pop:n { reset@color }
     \@@_boundary_prepare_color_box:
     \@@_boundary_register_wrapped_box:nn { color@b@x } { auto }
