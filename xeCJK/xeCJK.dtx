@@ -2040,51 +2040,48 @@ Copyright and Licence
 % \begin{frameverb}
 %   前 \mbox{} 后       % 与“前  后”相同
 % \end{frameverb}
-% \pkg{xeCJK} 是根据命令之前的节点列表判断有没有源码空格的。少数写法在命令之前
-% 留下的节点列表完全相同，\pkg{xeCJK} 无法区分。例如把空格写在花括号里：
-% \begin{frameverb}
-%   前{ }\mbox{} 后     % 比“前{ } 后”少一枚空格
-% \end{frameverb}
-% 它与 \verb*|前{} \mbox{} 后| 在命令之前的节点列表相同，按后者处理，命令后的
-% 空格被删去。同样，空格与命令之间若只有不排出内容的命令或空分组，例如
-% \begin{frameverb}
-%   A \sbox0{x}\mbox{} B   % 比“A \sbox0{x} B”少一枚空格
-%   A {}\mbox{} B          % 比“A {} B”少一枚空格
-% \end{frameverb}
-% 命令之前的节点列表与 \verb*|A \mbox{} B| 相同，也按后者处理。这类写法在正常的
-% 源码里很少出现，目前接受这一限制；确实需要保留空格时，可以把空格写在命令
-% 之后的花括号里，或者改用 |~|。
+% \pkg{xeCJK} 只能看到命令之前的节点列表和展开之后的记号，看不到源码原来的写法，
+% 所以下面两类写法与直接输入不同。
 %
-% 反过来，命令之后、下一个没有可见输出的命令之前（或外层的 \tn{textcolor}
-% 结束之前）若还有其他命令，\pkg{xeCJK} 无法预先知道它们会不会排出内容，
-% 一律按排出内容处理，两侧的空格都保留，与以前的版本相同：
+% 第一类比直接输入少一枚空格：命令之前的空格与命令之后的空格在源码里并不相邻，
+% \pkg{xeCJK} 却看不出来，按相邻处理，删去了命令之后的空格。包括：
+% \begin{itemize}
+%   \item 空格写在花括号里，或者空格与命令之间只有不排出内容的命令或空分组。
+%     它们在命令之前留下的节点列表与 \verb*|前 \mbox{} 后| 相同；
+%   \item 宏的参数里写着没有可见输出的命令。\pkg{xeCJK} 按展开之后的记号判断；
+%   \item 两个没有可见输出的命令之间夹着名字里有 |@| 或 |_| 的内部命令。宏包在
+%     已注册命令的代码之后还会执行这类命令，它们通常不排出内容，所以
+%     \pkg{xeCJK} 一律按不排出内容处理。
+% \end{itemize}
+% 例如（定义 |\newcommand\Id[1]{#1}|，内部命令写在 \tn{makeatletter} 之后）：
+% \begin{frameverb}
+%   前{ }\mbox{} 后                 % 比“前{ } 后”少一枚空格
+%   A \sbox0{x}\mbox{} B            % 比“A \sbox0{x} B”少一枚空格
+%   A {}\mbox{} B                   % 比“A {} B”少一枚空格
+%   A \Id{\mbox{}} B                % 比“A \Id{} B”少一枚空格
+%   A \mbox{}\hb@xt@1pt{}\mbox{} B   % 比“A \hb@xt@1pt{} B”少一枚空格
+% \end{frameverb}
+% 这类写法在正常的源码里很少出现，目前接受这一限制。确实需要保留空格时，把命令
+% 之后的空格写在花括号里（\verb*|前{ }\mbox{}{ }后|），或者改用 |~|。
+%
+% 第二类比直接输入多一枚空格，与以前的版本相同：命令之后、下一个没有可见输出的
+% 命令之前（或外层的 \tn{textcolor} 结束之前）若还有其他命令，\pkg{xeCJK} 无法
+% 预先知道它们会不会排出内容，一律按排出内容处理，两侧的空格都保留：
 % \begin{frameverb}
 %   A \mbox{}\small\mbox{} B   % 比“A \small B”多一枚空格
 % \end{frameverb}
 % 已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、
-% \tn{phantomsection}、线型命令等）不受这一限制。不带参数的用户宏先展开再判断，
-% 展开后什么也没有的宏（如 |\def\Nop{}|、|\NewDocumentCommand\Nop{}{}|）同样不受
-% 限制；带参数的宏（如 \tn{UseHook}\verb|{...}|）不展开，按排出内容处理，展开后
-% 遇到带参数的宏（如 \verb|\def\Nop{\@gobble x}|）也一样。另一方面，
-% \pkg{xeCJK} 是按展开后的记号判断的，宏的参数里写着没有可见输出的命令时，
-% 同样按直接写出处理：定义 |\newcommand\Id[1]{#1}| 之后，
-% \verb*|A \Id{\mbox{}} B| 与 \verb*|A \mbox{} B| 相同，比
-% \verb*|A \Id{} B| 少一枚空格。
-%
-% 名字里有 |@| 或 |_| 的命令是宏包的内部命令。宏包在已注册命令的代码之后还会
-% 执行这类命令，它们通常不排出内容，所以 \pkg{xeCJK} 也按不排出内容处理。在
-% \tn{makeatletter} 之后的文档代码里，把排出内容的内部命令直接写在两个没有可见
-% 输出的命令之间时，后一个命令之后的空格会被删去：
-% \begin{frameverb}
-%   A \mbox{}\hb@xt@1pt{}\mbox{} B   % 比“A \hb@xt@1pt{} B”少一枚空格
-% \end{frameverb}
-% 需要保留空格时，可以把内部命令写在花括号里（\verb*|A \mbox{}{\hb@xt@1pt{}}\mbox{} B|）。
+% \tn{phantomsection}、线型命令等）与上面说的内部命令不受这一限制。不带参数的
+% 用户宏先展开再判断，展开后什么也没有的宏（如 |\def\Nop{}|、
+% |\NewDocumentCommand\Nop{}{}|）同样不受限制；带参数的宏（如
+% \tn{UseHook}\verb|{...}|）不展开，按排出内容处理，展开后遇到带参数的宏（如
+% \verb|\def\Nop{\@gobble x}|）也一样。
 %
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
-%   处理，以及 \texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
-%   \{\}\textbackslash mbox\{\} B} 这类无法区分的写法；空命令之后、下一个空命令
-%   之前还有未注册的命令时，按排出内容处理；名字里有 \texttt{@} 或 \texttt{\_}
-%   的内部命令按不排出内容处理（\#1103）。}
+%   处理，以及两类与直接输入不同的写法：命令前后的空格在源码里不相邻、\pkg{xeCJK}
+%   看不出来时（\texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
+%   \{\}\textbackslash mbox\{\} B}、宏参数里的空命令、夹在空命令之间的内部命令）
+%   少一枚空格；空命令之后、下一个空命令之前还有未注册的命令时多一枚空格（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -4756,6 +4753,7 @@ Copyright and Licence
 %   \@@_boundary_after_space_hook:N,
 %   \@@_boundary_after_space_hook:nN,
 %   \@@_boundary_after_space_cs_name:N,
+%   \@@_boundary_if_active_char:N,
 %   \@@_boundary_after_space_ignore_test:,
 %   \@@_boundary_after_space_remove:,
 %   \@@_boundary_after_space_ignore_cs:N,
@@ -7049,8 +7047,13 @@ Copyright and Licence
 % 空格。
 % 活动字符（\tn{obeyspaces} 之下的空格、|~| 等）没有可以查表的名字，
 % \cs{cs_to_str:N} 遇到活动空格还会读走后面的记号，所以不取名字，直接按上面三类
-% 规则判断（\cs{@@_boundary_after_space_cs_name:N}）。\tn{obeyspaces} 之下的活动
-% 空格等同于 \tn{space}，展开一层得到空格，按展开所得的空格保留。
+% 规则判断（\cs{@@_boundary_after_space_cs_name:N}）。活动字符的含义可能是任何
+% 记号（|\obeyspaces\let =\ | 让活动空格等同于控制空格），按含义判断的
+% \cs{token_if_active:NTF} 只认出含义为宏或未定义的活动字符，所以改按记号的字符串
+% 判断：\cs{token_to_str:N} 得到一个字符的是活动字符，控制序列前面还有转义字符
+% （\cs{@@_boundary_if_active_char:NTF}）。\tn{obeyspaces} 之下的活动空格等同于
+% \tn{space}，展开一层得到空格，按展开所得的空格保留；等同于控制空格时不可展开，
+% 按排出内容处理。
 % 下一个记号是空格时删去连续的空格；是其他字符时记录作废，|drop| 为真时仍按
 % 上文检查紧跟的 |$|。|drop| 为真时，左花括号之后的 |$| 也补
 % \cs{xeCJK_space_or_xecglue:}（\cs{@@_boundary_after_space_brace:w}）。
@@ -7320,7 +7323,14 @@ Copyright and Licence
       { \@@_boundary_after_space_cs_name:N #1 } #1
   }
 \cs_new:Npn \@@_boundary_after_space_cs_name:N #1
-  { \token_if_active:NF #1 { \cs_to_str:N #1 } }
+  { \@@_boundary_if_active_char:NF #1 { \cs_to_str:N #1 } }
+\prg_new_conditional:Npnn \@@_boundary_if_active_char:N #1 { TF , F }
+  {
+    \int_compare:nNnTF
+      { \exp_args:Ne \str_count:n { \token_to_str:N #1 } } = 1
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
 \cs_new_protected:Npn \@@_boundary_after_space_hook:nN #1#2
   {
     \str_if_eq:eeTF
@@ -7408,7 +7418,7 @@ Copyright and Licence
 \prg_new_protected_conditional:Npnn \@@_boundary_after_space_known_cs:nN #1#2
   { TF }
   {
-    \token_if_active:NTF #2
+    \@@_boundary_if_active_char:NTF #2
       { \@@_boundary_after_space_unknown_cs:N #2 }
       { \@@_boundary_after_space_known_name:nN {#1} #2 }
   }
