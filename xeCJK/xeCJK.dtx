@@ -5740,8 +5740,10 @@ Copyright and Licence
 %     正文开头的 \tn{unkern} 会删去这对 kern 上面的一枚，留下负值的那一枚
 %     （|中\RS{\unkern x}|），所以取下哨兵时也认出这一枚
 %     （\cs{@@_boundary_stream_sentinel_clear:}）。只有当前一层确实放了这对 kern、
-%     还没有取下时才这样认，取下之后 |sentinel| 字段改为 |gone|，用户自己写的
-%     \verb|\kern-9sp| 不会被删去。
+%     还没有取下时才这样认：放下之前也记下当时列表末尾的 |last_state|，临时取下
+%     末尾的 -9\,sp 之后，列表末尾与它相同才算是哨兵剩下的那一枚，否则放回去
+%     （用户写在命令之外或正文里、盒子里的 \verb|\kern-9sp|）。取下之后 |sentinel|
+%     字段改为 |gone|。
 %     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
 %     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
 %     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
@@ -5863,6 +5865,8 @@ Copyright and Licence
           { \@@_boundary_stream_last_state: }
       }
       {
+        \tl_gset:ce { g_@@_boundary_capture_#1_last_state_tl }
+          { \@@_boundary_stream_last_state: }
         \exp_args:Nc \@@_make_node:N { c_@@_stream-begin_node_dim }
         \tl_gset:cn { g_@@_boundary_capture_#1_sentinel_tl } { true }
       }
@@ -5944,7 +5948,20 @@ Copyright and Licence
                   = { - \use:c { c_@@_stream-begin_node_dim } }
                   {
                     \tex_unkern:D
-                    \@@_boundary_stream_sentinel_gone:
+                    \str_if_eq:eeTF
+                      { \@@_boundary_stream_last_state: }
+                      {
+                        \tl_use:c
+                          {
+                            g_@@_boundary_capture_\int_use:N
+                            \g_@@_boundary_capture_depth_int _last_state_tl
+                          }
+                      }
+                      { \@@_boundary_stream_sentinel_gone: }
+                      {
+                        \tex_kern:D
+                          - \use:c { c_@@_stream-begin_node_dim }
+                      }
                   }
               }
           }
