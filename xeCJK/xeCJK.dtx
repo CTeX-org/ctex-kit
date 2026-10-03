@@ -4732,6 +4732,7 @@ Copyright and Licence
 %   \@@_boundary_stream_sentinel_if_last:,
 %   \@@_boundary_stream_sentinel_drop:,
 %   \@@_boundary_stream_sentinel_clear:,
+%   \@@_boundary_stream_sentinel_gone:,
 %   \l_@@_boundary_stream_sentinel_bool,
 %   \l_@@_boundary_body_empty_bool,
 %   \@@_boundary_inline_stream_begin_sentinel:n,
@@ -5738,7 +5739,9 @@ Copyright and Licence
 %     kern，以免它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。
 %     正文开头的 \tn{unkern} 会删去这对 kern 上面的一枚，留下负值的那一枚
 %     （|中\RS{\unkern x}|），所以取下哨兵时也认出这一枚
-%     （\cs{@@_boundary_stream_sentinel_clear:}）。
+%     （\cs{@@_boundary_stream_sentinel_clear:}）。只有当前一层确实放了这对 kern、
+%     还没有取下时才这样认，取下之后 |sentinel| 字段改为 |gone|，用户自己写的
+%     \verb|\kern-9sp| 不会被删去。
 %     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
 %     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
 %     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
@@ -5922,13 +5925,39 @@ Copyright and Licence
   { \tex_unkern:D \tex_unkern:D }
 \cs_new_protected:Npn \@@_boundary_stream_sentinel_clear:
   {
-    \@@_boundary_stream_sentinel_if_last:TF
-      { \@@_boundary_stream_sentinel_drop: }
+    \int_compare:nNnT { \g_@@_boundary_capture_depth_int } > \c_zero_int
       {
-        \dim_compare:nNnT { \tex_lastkern:D }
-          = { - \use:c { c_@@_stream-begin_node_dim } }
-          { \tex_unkern:D }
+        \tl_if_eq:cnT
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _sentinel_tl
+          }
+          { true }
+          {
+            \@@_boundary_stream_sentinel_if_last:TF
+              {
+                \@@_boundary_stream_sentinel_drop:
+                \@@_boundary_stream_sentinel_gone:
+              }
+              {
+                \dim_compare:nNnT { \tex_lastkern:D }
+                  = { - \use:c { c_@@_stream-begin_node_dim } }
+                  {
+                    \tex_unkern:D
+                    \@@_boundary_stream_sentinel_gone:
+                  }
+              }
+          }
       }
+  }
+\cs_new_protected:Npn \@@_boundary_stream_sentinel_gone:
+  {
+    \tl_gset:cn
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _sentinel_tl
+      }
+      { gone }
   }
 \bool_new:N \l_@@_boundary_stream_sentinel_bool
 \bool_new:N \l_@@_boundary_body_empty_bool
