@@ -4641,11 +4641,13 @@ Copyright and Licence
 \xeCJK_declare_node:n { math-space }
 \xeCJK_declare_node:n { math-space-frozen }
 %    \end{macrocode}
-% |stream-begin| 哨兵（见 \cs{@@_boundary_stream_sentinel_put:}）用固定的 9\,sp，
-% 不经 \cs{xeCJK_declare_node:n} 编号：编号会让 \pkg{xeCJKfntef} 之后声明的
-% marker 都改变数值。
+% |stream-begin| 哨兵（见 \cs{@@_boundary_stream_sentinel_put:n}）的数值是 100\,sp
+% 加上一个循环计数（0 到 999），每次放下时换一个值，记在所在一层的
+% |sentinel_dim| 字段里，用户写的 kern 恰好同值的机会很小。它不经
+% \cs{xeCJK_declare_node:n} 编号：编号会让 \pkg{xeCJKfntef} 之后声明的 marker 都
+% 改变数值；100\,sp 以上也不会与那些 marker 的数值重合。
 %    \begin{macrocode}
-\dim_const:cn { c_@@_stream-begin_node_dim } { 9 sp }
+\dim_const:cn { c_@@_stream-begin_node_dim } { 100 sp }
 %    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
@@ -4729,10 +4731,13 @@ Copyright and Licence
 %   \@@_boundary_stream_last_state:,
 %   \@@_boundary_stream_if_unchanged:n,
 %   \@@_boundary_stream_sentinel_remove:n,
-%   \@@_boundary_stream_sentinel_if_last:,
+%   \@@_boundary_stream_sentinel_if_last:n,
+%   \g_@@_boundary_stream_sentinel_int,
 %   \@@_boundary_stream_sentinel_drop:,
 %   \@@_boundary_stream_sentinel_clear:,
 %   \@@_boundary_stream_sentinel_gone:,
+%   \@@_boundary_stream_sentinel_half_drop:,
+%   \l_@@_boundary_sentinel_kern_dim,
 %   \l_@@_boundary_stream_sentinel_bool,
 %   \l_@@_boundary_body_empty_bool,
 %   \@@_boundary_inline_stream_begin_sentinel:n,
@@ -4992,6 +4997,7 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_after_space_tl }
         \tl_new:c { g_@@_boundary_capture_#1_sentinel_tl }
         \tl_new:c { g_@@_boundary_capture_#1_last_state_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
         \tl_new:c { g_@@_boundary_capture_#1_body_empty_tl }
         \tl_new:c { g_@@_boundary_capture_#1_outer_clean_tl }
       }
@@ -5734,16 +5740,19 @@ Copyright and Licence
 %   \item 末尾是盒子、whatsit、字符等节点时，正文常以同类节点结尾（\tn{rule}、
 %     \tn{fbox}、图片、颜色 whatsit），只比较类型与数值认不出，所以在列表里放一个
 %     |stream-begin| 节点（一对正负 kern，宽度为零），结束时看列表末尾是不是这一对
-%     kern（\cs{@@_boundary_stream_sentinel_if_last:TF} 检查两个 kern 的值），是就取下。
+%     kern（\cs{@@_boundary_stream_sentinel_if_last:nTF} 按这一层记下的数值检查两个
+%     kern），是就取下。
 %     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的这对
 %     kern，以免它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。
 %     正文开头的 \tn{unkern} 会删去这对 kern 上面的一枚，留下负值的那一枚
 %     （|中\RS{\unkern x}|），所以取下哨兵时也认出这一枚
 %     （\cs{@@_boundary_stream_sentinel_clear:}）。只有当前一层确实放了这对 kern、
-%     还没有取下时才这样认：放下之前也记下当时列表末尾的 |last_state|，临时取下
-%     末尾的 -9\,sp 之后，列表末尾与它相同才算是哨兵剩下的那一枚，否则放回去
-%     （用户写在命令之外或正文里、盒子里的 \verb|\kern-9sp|）。取下之后 |sentinel|
-%     字段改为 |gone|。
+%     还没有取下，末尾 kern 的值又正是这一层记下的负值时才这样认；放下之前也记下
+%     当时列表末尾的 |last_state|，临时取下末尾的 kern 之后，列表末尾与它相同才算
+%     是哨兵剩下的那一枚，否则放回去（\cs{@@_boundary_stream_sentinel_half_drop:TF}）。
+%     正文删去上面一枚之后又写了一个 kern 时（|\RS{\unkern\kern1pt x}|），先临时取下
+%     这个 kern 再认一次，然后放回。哨兵每次换一个数值，用户写的 kern 几乎不会与它
+%     同值。取下之后 |sentinel| 字段改为 |gone|。
 %     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
 %     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
 %     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
@@ -5867,10 +5876,22 @@ Copyright and Licence
       {
         \tl_gset:ce { g_@@_boundary_capture_#1_last_state_tl }
           { \@@_boundary_stream_last_state: }
-        \exp_args:Nc \@@_make_node:N { c_@@_stream-begin_node_dim }
+        \int_gset:Nn \g_@@_boundary_stream_sentinel_int
+          { \int_mod:nn { \g_@@_boundary_stream_sentinel_int + 1 } { 1000 } }
+        \tl_gset:ce { g_@@_boundary_capture_#1_sentinel_dim_tl }
+          {
+            \dim_eval:n
+              {
+                \use:c { c_@@_stream-begin_node_dim }
+                + \int_use:N \g_@@_boundary_stream_sentinel_int sp
+              }
+          }
+        \exp_args:Nc \@@_make_node:N
+          { g_@@_boundary_capture_#1_sentinel_dim_tl }
         \tl_gset:cn { g_@@_boundary_capture_#1_sentinel_tl } { true }
       }
   }
+\int_new:N \g_@@_boundary_stream_sentinel_int
 \cs_new:Npn \@@_boundary_stream_last_state:
   {
     \int_use:N \tex_lastnodetype:D ,
@@ -5885,7 +5906,7 @@ Copyright and Licence
       {
         { true }
           {
-            \@@_boundary_stream_sentinel_if_last:TF
+            \@@_boundary_stream_sentinel_if_last:nTF {#1}
               { \prg_return_true: } { \prg_return_false: }
           }
         { state }
@@ -5902,24 +5923,25 @@ Copyright and Licence
   {
     \tl_if_eq:cnT { g_@@_boundary_capture_#1_sentinel_tl } { true }
       {
-        \@@_boundary_stream_sentinel_if_last:T
+        \@@_boundary_stream_sentinel_if_last:nT {#1}
           { \@@_boundary_stream_sentinel_drop: }
       }
   }
-\prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_if_last:
+\prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_if_last:n #1
   { T , TF }
   {
-    \xeCJK_if_last_node:nTF { stream-begin }
+    \dim_compare:nNnTF { \tex_lastkern:D }
+      = { \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
       {
         \tex_unkern:D
         \dim_compare:nNnTF { \tex_lastkern:D }
-          = { - \use:c { c_@@_stream-begin_node_dim } }
+          = { - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
           {
-            \tex_kern:D \use:c { c_@@_stream-begin_node_dim }
+            \tex_kern:D \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
             \prg_return_true:
           }
           {
-            \tex_kern:D \use:c { c_@@_stream-begin_node_dim }
+            \tex_kern:D \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
             \prg_return_false:
           }
       }
@@ -5938,34 +5960,67 @@ Copyright and Licence
           }
           { true }
           {
-            \@@_boundary_stream_sentinel_if_last:TF
+            \exp_args:Ne \@@_boundary_stream_sentinel_if_last:nTF
+              { \int_use:N \g_@@_boundary_capture_depth_int }
               {
                 \@@_boundary_stream_sentinel_drop:
                 \@@_boundary_stream_sentinel_gone:
               }
               {
-                \dim_compare:nNnT { \tex_lastkern:D }
-                  = { - \use:c { c_@@_stream-begin_node_dim } }
+                \@@_boundary_stream_sentinel_half_drop:TF
+                  { \@@_boundary_stream_sentinel_gone: }
                   {
-                    \tex_unkern:D
-                    \str_if_eq:eeTF
-                      { \@@_boundary_stream_last_state: }
+                    \int_compare:nNnT { \tex_lastnodetype:D } = { 12 }
                       {
-                        \tl_use:c
-                          {
-                            g_@@_boundary_capture_\int_use:N
-                            \g_@@_boundary_capture_depth_int _last_state_tl
-                          }
-                      }
-                      { \@@_boundary_stream_sentinel_gone: }
-                      {
-                        \tex_kern:D
-                          - \use:c { c_@@_stream-begin_node_dim }
+                        \dim_set_eq:NN \l_@@_boundary_sentinel_kern_dim
+                          \tex_lastkern:D
+                        \tex_unkern:D
+                        \@@_boundary_stream_sentinel_half_drop:TF
+                          { \@@_boundary_stream_sentinel_gone: }
+                          { }
+                        \tex_kern:D \l_@@_boundary_sentinel_kern_dim
                       }
                   }
               }
           }
       }
+  }
+\dim_new:N \l_@@_boundary_sentinel_kern_dim
+\prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_half_drop:
+  { TF }
+  {
+    \dim_compare:nNnTF { \tex_lastkern:D }
+      =
+      {
+        - \tl_use:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _sentinel_dim_tl
+          }
+      }
+      {
+        \tex_unkern:D
+        \str_if_eq:eeTF
+          { \@@_boundary_stream_last_state: }
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _last_state_tl
+              }
+          }
+          { \prg_return_true: }
+          {
+            \tex_kern:D
+              - \tl_use:c
+                {
+                  g_@@_boundary_capture_\int_use:N
+                  \g_@@_boundary_capture_depth_int _sentinel_dim_tl
+                }
+            \prg_return_false:
+          }
+      }
+      { \prg_return_false: }
   }
 \cs_new_protected:Npn \@@_boundary_stream_sentinel_gone:
   {
