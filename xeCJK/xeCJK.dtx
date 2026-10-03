@@ -4732,6 +4732,7 @@ Copyright and Licence
 %   \@@_boundary_stream_if_unchanged:n,
 %   \@@_boundary_stream_sentinel_remove:n,
 %   \@@_boundary_stream_sentinel_if_last:n,
+%   \@@_boundary_stream_sentinel_if_pair:n,
 %   \g_@@_boundary_stream_sentinel_int,
 %   \@@_boundary_stream_sentinel_drop:,
 %   \@@_boundary_stream_sentinel_clear:,
@@ -5739,21 +5740,22 @@ Copyright and Licence
 %     比直接输入少空格，写在用户手册的已知限制里。
 %   \item 末尾是盒子、whatsit、字符等节点时，正文常以同类节点结尾（\tn{rule}、
 %     \tn{fbox}、图片、颜色 whatsit），只比较类型与数值认不出，所以在列表里放一个
-%     |stream-begin| 节点（一对正负 kern，宽度为零），结束时看列表末尾是不是这一对
-%     kern（\cs{@@_boundary_stream_sentinel_if_last:nTF} 按这一层记下的数值检查两个
-%     kern），是就取下。
-%     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的这对
-%     kern，以免它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。
-%     正文开头的 \tn{unkern} 会删去这对 kern 上面的一枚，留下负值的那一枚
-%     （|中\RS{\unkern x}|），所以取下哨兵时也认出这一枚
-%     （\cs{@@_boundary_stream_sentinel_clear:}）。只有当前一层确实放了这对 kern、
-%     还没有取下，末尾 kern 的值又正是这一层记下的负值时才这样认；放下之前也记下
-%     当时列表末尾的 |last_state|，临时取下末尾的 kern 之后，列表末尾与它相同才算
-%     是哨兵剩下的那一枚，否则放回去（\cs{@@_boundary_stream_sentinel_half_drop:TF}）。
-%     正文删去上面一枚之后又写了一个 kern 时（|\RS{\unkern\kern1pt x}|），先临时取下
-%     这个 kern 再认一次，然后放回。哨兵每次换一个数值，用户写的 kern 几乎不会与它
-%     同值。取下之后 |sentinel| 字段改为 |gone|。
-%     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
+%     |stream-begin| 节点：依次是值为 $v$、$-v$、0 的三个 kern，宽度合计为零。$v$ 是
+%     100\,sp 加一个循环计数，每次放下时换一个值，记在这一层。结束时看列表末尾是不是
+%     这三个 kern（\cs{@@_boundary_stream_sentinel_if_last:nTF}），是就取下。最上面
+%     那个 kern 为 0：正文以空格开头时这几个 kern 留在空格之前，断行若落在这里，被
+%     丢掉的是值为 0 的那个 kern，行尾留下的 $v$ 与 $-v$ 相互抵消，行宽与直接输入
+%     相同；前两个 kern 后面不紧跟 glue，不是断点。
+%     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的哨兵，以免
+%     它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。正文开头的
+%     \tn{unkern} 会删去最上面那个 0 kern，留下 $v$、$-v$ 两个（|中\RS{\unkern x}|），
+%     宽度仍为零；取下哨兵时也认出这两个（\cs{@@_boundary_stream_sentinel_clear:}，
+%     \cs{@@_boundary_stream_sentinel_half_drop:TF}）。只有当前一层确实放了哨兵、还没有
+%     取下时才这样认：先按这一层记下的 $v$ 核对两个 kern，再临时取下它们，列表末尾
+%     与放下之前记下的 |last_state| 相同才算，否则放回。正文删去 0 kern 之后又写了一个
+%     kern 时（|\RS{\unkern\kern1pt x}|），先临时取下这个 kern 再认一次，然后放回。
+%     取下之后 |sentinel| 字段改为 |gone|。
+%     这时正文开头的代码看到的是这几个 kern。前一个节点不是 glue、kern、penalty，
 %     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
 %     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
 %     那里先取下末尾的哨兵再判断。
@@ -5886,8 +5888,9 @@ Copyright and Licence
                 + \int_use:N \g_@@_boundary_stream_sentinel_int sp
               }
           }
-        \exp_args:Nc \@@_make_node:N
-          { g_@@_boundary_capture_#1_sentinel_dim_tl }
+        \tex_kern:D \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
+        \tex_kern:D - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
+        \tex_kern:D \c_zero_dim
         \tl_gset:cn { g_@@_boundary_capture_#1_sentinel_tl } { true }
       }
   }
@@ -5930,25 +5933,39 @@ Copyright and Licence
 \prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_if_last:n #1
   { T , TF }
   {
+    \bool_lazy_and:nnTF
+      { \int_compare_p:nNn { \tex_lastnodetype:D } = { 12 } }
+      { \dim_compare_p:nNn { \tex_lastkern:D } = \c_zero_dim }
+      {
+        \tex_unkern:D
+        \@@_boundary_stream_sentinel_if_pair:nTF {#1}
+          { \tex_kern:D \c_zero_dim \prg_return_true: }
+          { \tex_kern:D \c_zero_dim \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+\prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_if_pair:n #1
+  { TF }
+  {
     \dim_compare:nNnTF { \tex_lastkern:D }
-      = { \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
+      = { - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
       {
         \tex_unkern:D
         \dim_compare:nNnTF { \tex_lastkern:D }
-          = { - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
+          = { \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl } }
           {
-            \tex_kern:D \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
+            \tex_kern:D - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
             \prg_return_true:
           }
           {
-            \tex_kern:D \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
+            \tex_kern:D - \tl_use:c { g_@@_boundary_capture_#1_sentinel_dim_tl }
             \prg_return_false:
           }
       }
       { \prg_return_false: }
   }
 \cs_new_protected:Npn \@@_boundary_stream_sentinel_drop:
-  { \tex_unkern:D \tex_unkern:D }
+  { \tex_unkern:D \tex_unkern:D \tex_unkern:D }
 \cs_new_protected:Npn \@@_boundary_stream_sentinel_clear:
   {
     \int_compare:nNnT { \g_@@_boundary_capture_depth_int } > \c_zero_int
@@ -5989,17 +6006,10 @@ Copyright and Licence
 \prg_new_protected_conditional:Npnn \@@_boundary_stream_sentinel_half_drop:
   { TF }
   {
-    \dim_compare:nNnTF { \tex_lastkern:D }
-      =
+    \exp_args:Ne \@@_boundary_stream_sentinel_if_pair:nTF
+      { \int_use:N \g_@@_boundary_capture_depth_int }
       {
-        - \tl_use:c
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _sentinel_dim_tl
-          }
-      }
-      {
-        \tex_unkern:D
+        \tex_unkern:D \tex_unkern:D
         \str_if_eq:eeTF
           { \@@_boundary_stream_last_state: }
           {
@@ -6011,6 +6021,12 @@ Copyright and Licence
           }
           { \prg_return_true: }
           {
+            \tex_kern:D
+              \tl_use:c
+                {
+                  g_@@_boundary_capture_\int_use:N
+                  \g_@@_boundary_capture_depth_int _sentinel_dim_tl
+                }
             \tex_kern:D
               - \tl_use:c
                 {
@@ -9729,7 +9745,7 @@ Copyright and Licence
 % \changes{v3.2.5}{2013/07/13}{细化全角左标点是否位于段首的判断。}
 % \changes{v3.2.5}{2013/07/13}{增加对 \pkg{enumitem} 宏包修改的 \tn{item} 的判断。}
 % 根据 \cs{etex_lastnodetype:D} 的值进行分别处理。已注册的 stream 命令开始时可能在
-% 列表末尾放了一对 kern 作哨兵（见 \cs{@@_boundary_stream_sentinel_put:n}），它会挡住
+% 列表末尾放了几个 kern 作哨兵（见 \cs{@@_boundary_stream_sentinel_put:n}），它会挡住
 % 段首缩进盒子、盒子开头等判断，所以先取下它：标点排在正文里，正文已经有了输出
 % （\#1103）。
 %    \begin{macrocode}
