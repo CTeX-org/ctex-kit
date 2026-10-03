@@ -212,8 +212,10 @@
 
 \begin{document}
 
-% 抄录用的 CJK 等宽字体在 \START 之前加载，fontspec 的信息不进入 .tlg。
+% 抄录用的 CJK 等宽字体与脚注用到的数学字体在 \START 之前加载，字体信息不进入
+% .tlg。
 \setbox0=\hbox{\ttfamily 中}
+\setbox0=\hbox{\footnotesize $x^x$}
 
 \START
 
@@ -757,6 +759,22 @@
 \setbox\EmptyOracle=\hbox{A {\ttfamily\ \ } B}%
 \EmptyVerbCompare{verb-2space-L}%
 \ENDTEST
+
+% 已注册 stream 命令的正文开头读取或删去命令之前的节点：全角标点的转换代码检查
+% 前一个标点留下的 glue 与 penalty 来决定挤压，\unskip、\unkern 删去命令之前的
+% 空格与 kern。命令之前是这类节点时，xeCJK 不往列表里放节点，它们照常起作用。
+\newcommand\EmptyPrevNodeAll{%
+  \EmptyColorTail{reg-comma-paren}{中，\RegStreamBody{（}文}{中，（文}%
+  \EmptyColorTail{reg-period-paren}{中。\RegStreamBody{（}文}{中。（文}%
+  \EmptyColorTail{reg-period-quote}{中。\RegStreamBody{“}文}{中。“文}%
+  \EmptyColorTail{reg-rparen-paren}{中）\RegStreamBody{（}文}{中）（文}%
+  \EmptyColorTail{reg-unskip-footnote-L}{A \RegStreamBody{\unskip\footnote{x}} B}{A {\unskip\footnote{x}} B}%
+  \EmptyColorTail{reg-unkern-L}{A\kern3pt\RegStreamBody{\unkern x} B}{A\kern3pt{\unkern x} B}%
+}
+\TEST{stream body reading the node before the command}{
+  \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyPrevNodeAll \endgroup
+  \begingroup \xeCJKsetup{xCJKecglue=true} \EmptyPrevNodeAll \endgroup
+}
 
 \TYPE{empty-output checks: \the\EmptyChecks}
 \TYPE{empty-output failures: \the\EmptyFailures}
