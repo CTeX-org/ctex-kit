@@ -5720,7 +5720,7 @@ Copyright and Licence
 % 输出”处理；不是，说明正文排出了节点，照常调用 \cs{@@_boundary_replay_before:}。
 % 哨兵按开始时列表末尾的节点分两种（\#1103）：
 % \begin{itemize}
-%   \item 末尾是 glue、kern 或 penalty 时，只记下节点类型与 \tn{lastkern}、
+%   \item 列表为空或末尾是 glue、kern、penalty 时，只记下节点类型与 \tn{lastkern}、
 %     \tn{lastskip}、\tn{lastpenalty} 的值（|last_state| 字段），不往列表里放节点，
 %     结束时比较这些值。正文开头的代码常要读取或删去这个节点：全角标点的转换代码
 %     检查前一个标点留下的 glue 与 penalty 来决定挤压（|如上。\ref{a}项|，编号以
@@ -5736,8 +5736,10 @@ Copyright and Licence
 %     kern（\cs{@@_boundary_stream_sentinel_if_last:TF} 检查两个 kern 的值），是就取下。
 %     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的这对
 %     kern，以免它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。
-%     这时正文开头的代码看到的是这对 kern，但前一个节点不是 glue、kern、penalty，
-%     标点挤压与 \tn{unskip} 本来就不会处理它。
+%     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
+%     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
+%     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
+%     那里先取下末尾的哨兵再判断。
 % \end{itemize}
 % 哨兵只用在正文可能什么也不排出的命令里：用 \cs{@@_boundary_register_stream:nn}
 % 注册的命令（用户注册的 stream 命令、\pkg{siunitx} 的 \tn{unit}、\tn{ref} 内部的
@@ -5841,6 +5843,7 @@ Copyright and Licence
   {
     \int_case:nnTF { \tex_lastnodetype:D }
       {
+        { -1 } { }
         { 11 } { }
         { 12 } { }
         { 13 } { }
@@ -9608,10 +9611,15 @@ Copyright and Licence
 % \changes{v3.2.4}{2013/07/03}{细化边界与全角左标点之间是否压缩空白的判断。}
 % \changes{v3.2.5}{2013/07/13}{细化全角左标点是否位于段首的判断。}
 % \changes{v3.2.5}{2013/07/13}{增加对 \pkg{enumitem} 宏包修改的 \tn{item} 的判断。}
-% 根据 \cs{etex_lastnodetype:D} 的值进行分别处理。
+% 根据 \cs{etex_lastnodetype:D} 的值进行分别处理。已注册的 stream 命令开始时可能在
+% 列表末尾放了一对 kern 作哨兵（见 \cs{@@_boundary_stream_sentinel_put:n}），它会挡住
+% 段首缩进盒子、盒子开头等判断，所以先取下它：标点排在正文里，正文已经有了输出
+% （\#1103）。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
+    \@@_boundary_stream_sentinel_if_last:T
+      { \@@_boundary_stream_sentinel_drop: }
     \tl_set_eq:NN \l_@@_alignii_tl \c_@@_left_tl
     \group_begin: \exp_args:NNc \group_end: \cs_if_exist_use:NTF
       { @@_bound_type_ \int_use:N \tex_lastnodetype:D _glue:Nn }

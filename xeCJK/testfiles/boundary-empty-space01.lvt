@@ -70,6 +70,7 @@
 
 \newbox\EmptyCandidate
 \newbox\EmptyOracle
+\newbox\EmptyParBox
 \newcount\EmptyChecks
 \newcount\EmptyFailures
 
@@ -775,6 +776,31 @@
   \EmptyColorTail{reg-kern9-box-L}{\mbox{x} \RegStreamBody{\kern9sp} B}{\mbox{x} {\kern9sp} B}%
   \EmptyColorTail{reg-kern9-box-C}{\mbox{中} \RegStreamBody{\kern9sp} 文}{\mbox{中} {\kern9sp} 文}%
   \EmptyColorTail{reg-kern9-rule-L}{\rule{1pt}{1pt} \RegStreamBody{\kern9sp} B}{\rule{1pt}{1pt} {\kern9sp} B}%
+  % 盒子开头与段首的全角左标点压缩左侧空白：判断要越过段首缩进盒子，命令放在
+  % 列表里的哨兵不能挡住它。
+  \EmptyColorTail{box-reg-paren}{\RegStreamBody{（}文}{（文}%
+  \EmptyColorTail{box-reg-book}{\RegStreamBody{《}文}{《文}%
+  \EmptyColorTail{mbox-reg-paren}{\mbox{\RegStreamBody{（}文}}{\mbox{（文}}%
+  \EmptyParStart{par-reg-paren}{\RegStreamBody{（}文}{（文}%
+  \EmptyParStart{par-reg-quote}{\RegStreamBody{“}文}{“文}%
+  \EmptyParStart{par-noindent-reg-paren}{\noindent\RegStreamBody{（}文}{\noindent（文}%
+  \EmptyParStart{par-reg-mbox-paren}{\RegStreamBody{\mbox{}（}文}{\mbox{}（文}%
+  % 列表为空时也不放节点：正文开头读 \lastnodetype 仍得到 -1。
+  \EmptyColorTail{box-reg-lastnodetype}{\RegStreamBody{\ifnum\lastnodetype=-1 x\else xx\fi}}{x}%
+}
+% 段首的写法排进 \vbox，取出最后一行比较自然宽度。
+\newcommand\EmptyParStart[3]{% #1 名称 #2 候选 #3 直接输入
+  \global\advance\EmptyChecks by 1
+  \EmptyReset
+  \setbox\EmptyParBox=\vbox{\hsize=20cm #2\par
+    \setbox0=\lastbox \global\setbox\EmptyCandidate=\hbox{\unhbox0}}%
+  \EmptyReset
+  \setbox\EmptyParBox=\vbox{\hsize=20cm #3\par
+    \setbox0=\lastbox \global\setbox\EmptyOracle=\hbox{\unhbox0}}%
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
 }
 \TEST{stream body reading the node before the command}{
   \begingroup \xeCJKsetup{xCJKecglue=false} \EmptyPrevNodeAll \endgroup
