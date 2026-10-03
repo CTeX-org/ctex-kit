@@ -408,6 +408,10 @@ XeTeX/fontspec 中两类常用字体写法对应不同后端：`"FontName"` 走 
 
 写 `\changes` 时让换行两侧都是汉字或全角标点；改完运行 `python3 scripts/extract-changes.py <pkg>/<pkg>.dtx v<版本>` 检查单版本输出，再 `make changelog-<pkg>`。扩大 `CJK_RANGE` 会改变其他包已提交的 CHANGELOG，要连同 check-changelog 一起处理，不适合顺手改。
 
+### 行内代码里的转义字符
+
+`\texttt{...}` 等行内代码转成反引号前，`_save_verbatim` 会去掉 `\&`、`\%`、`\#`、`\{`、`\}`、`\_` 的反斜杠，所以 `\changes` 里照常写 TeX 转义（如 `\texttt{\_tl}`），CHANGELOG 得到 `_tl`。`\_` 是 60019625 才加进这组字符的；此前 ctex、xeCJK 的 CHANGELOG 里留着 `\_tl`、`\_nopar`，修复时一并重新生成。这组还原只作用于行内代码，单版本模式的 release notes 也跟着变。往里加字符时同样要重新生成所有包的 CHANGELOG，否则 check-changelog 的新鲜度校验会失败。
+
 ### 与 catcode régime 那条线的关系
 
 这与前面「字面字符当替换模式时必须核对 catcode régime（#1043）」及 #879 的替换端 codepoint 局限是同一族问题：**同一个字面字符在处理链的某一个阶段有特殊含义，而在别的阶段是普通文本。** #1043 的阶段是 TeX 的 tokenise，本节的阶段是 makeindex 的条目解析。
