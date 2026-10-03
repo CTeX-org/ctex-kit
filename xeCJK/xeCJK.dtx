@@ -2100,6 +2100,16 @@ Copyright and Licence
 %   A \hyperlink{a}{} B        % 比“A  B”多一枚空格
 % \end{frameverb}
 %
+% 另有一类差别不超过约 0.02\,pt，肉眼看不出。命令之前是盒子、字符、whatsit 等节点时，
+% \pkg{xeCJK} 在 \tn{ref}、用 |strategy=stream| 注册的命令等的正文开头放几个宽度合计为
+% 零的 kern 作标记。正文开头用 \tn{unkern} 一类原语删去命令之前的节点，或者读取
+% \tn{lastnodetype}、\tn{lastkern} 时，可能删去或读到这些 kern（修复前这时什么也删不到），
+% 留下微小的宽度差，或者在断行处让行宽相差同样的量。例如定义
+% |\newcommand\RS[1]{#1}| 并用 |strategy=stream| 注册之后：
+% \begin{frameverb}
+%   \mbox{x}\RS{\unkern\unkern y}   % 比“\mbox{x}{\unkern\unkern y}”略宽
+% \end{frameverb}
+%
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
 %   处理，以及两类与直接输入不同的写法：命令前后的空格在源码里不相邻、\pkg{xeCJK}
 %   看不出来时（\texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
@@ -2112,6 +2122,9 @@ Copyright and Licence
 % \changes{v3.10.7}{2026/10/03}{stream 类命令（\tn{hyperlink}、用户注册的 stream
 %   命令等）的正文只排出规则、盒子、图片、间距、\tn{special} 或颜色时，命令按有可见
 %   输出处理，两侧的源码空格都保留（\#1103）。}
+% \changes{v3.10.7}{2026/10/03}{用户手册说明命令之前是盒子、字符等节点时，已注册
+%   stream 命令的正文开头用 \tn{unkern} 一类原语删去节点，可能删去 \pkg{xeCJK} 放的零宽
+%   标记，留下不超过约 0.02\,pt 的宽度差（\#1103）。}
 % \changes{v3.10.7}{2026/10/03}{用户手册说明用户注册的 stream 命令之前是空格、kern
 %   或 penalty，正文排出或删去节点之后列表末尾又是同类同值的节点时（正文不排出文字、
 %   以空格结尾，或以空格开头、后面只有空命令），比直接输入少空格（\#1103）。}
@@ -5749,7 +5762,9 @@ Copyright and Licence
 %     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的哨兵，以免
 %     它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。正文开头的
 %     \tn{unkern} 会删去最上面那个 0 kern，留下 $v$、$-v$ 两个（|中\RS{\unkern x}|），
-%     宽度仍为零；取下哨兵时也认出这两个（\cs{@@_boundary_stream_sentinel_clear:}，
+%     宽度合计仍为零，但它们后面紧跟 glue 时 $-v$ 又成为断点，连续两个 \tn{unkern}
+%     还会只留下 $v$；这两种写法的微小差别写在用户手册的已知限制里。取下哨兵时也
+%     认出剩下的两个（\cs{@@_boundary_stream_sentinel_clear:}，
 %     \cs{@@_boundary_stream_sentinel_half_drop:TF}）。只有当前一层确实放了哨兵、还没有
 %     取下时才这样认：先按这一层记下的 $v$ 核对两个 kern，再临时取下它们，列表末尾
 %     与放下之前记下的 |last_state| 相同才算，否则放回。正文删去 0 kern 之后又写了一个
