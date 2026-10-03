@@ -2098,8 +2098,8 @@ Copyright and Licence
 %   \pkg{hyperref} 原来的定义上；\pkg{beamer} 改过的 \tn{hypertarget} 照常读取覆盖说明，
 %   包装加在它保存的原定义上（\#1103）。}
 % \changes{v3.10.7}{2026/10/03}{stream 类命令（\tn{hyperlink}、用户注册的 stream
-%   命令等）的正文只排出规则、盒子、图片、间距时，命令按有可见输出处理，两侧的源码
-%   空格都保留（\#1103）。}
+%   命令等）的正文只排出规则、盒子、图片、间距、\tn{special} 或颜色时，命令按有可见
+%   输出处理，两侧的源码空格都保留（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -4626,6 +4626,12 @@ Copyright and Licence
 \xeCJK_declare_node:n { math-space }
 \xeCJK_declare_node:n { math-space-frozen }
 %    \end{macrocode}
+% |stream-begin| 哨兵（见 \cs{@@_boundary_stream_sentinel_put:}）用固定的 9\,sp，
+% 不经 \cs{xeCJK_declare_node:n} 编号：编号会让 \pkg{xeCJKfntef} 之后声明的
+% marker 都改变数值。
+%    \begin{macrocode}
+\dim_const:cn { c_@@_stream-begin_node_dim } { 9 sp }
+%    \end{macrocode}
 % \changes{v3.10.0}{2026/05/12}{新增 \cs{g_@@_glue_check_pending_bool}
 %   用于标记 \pkg{xeCJKfntef} 组结束后的首次 glue 探测。}
 % \changes{v3.10.0}{2026/05/13}{新增 \cs{g_@@_reset_color_pending_bool}
@@ -4702,7 +4708,13 @@ Copyright and Licence
 %   \@@_boundary_prepare_onearg_box:N,
 %   \@@_boundary_prepare_onearg_box:NN,
 %   \@@_boundary_wrap_transparent_onearg:NN,
-%   \@@_boundary_stream_if_unchanged:,
+%   \@@_boundary_stream_if_body_empty:,
+%   \@@_boundary_stream_sentinel_put:,
+%   \@@_boundary_stream_sentinel_if_last:,
+%   \@@_boundary_stream_sentinel_drop:,
+%   \l_@@_boundary_stream_sentinel_bool,
+%   \l_@@_boundary_body_empty_bool,
+%   \@@_boundary_inline_stream_begin_sentinel:n,
 %   \@@_boundary_replay_before_empty_aux:,
 %   \l_@@_boundary_outer_clean_tl,
 %   \@@_boundary_stream_content_begin:,
@@ -4957,8 +4969,8 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_tail_tl }
         \tl_new:c { g_@@_boundary_capture_#1_space_glue_tl }
         \tl_new:c { g_@@_boundary_capture_#1_after_space_tl }
-        \tl_new:c { g_@@_boundary_capture_#1_begin_state_tl }
-        \tl_new:c { g_@@_boundary_capture_#1_end_state_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_sentinel_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_body_empty_tl }
         \tl_new:c { g_@@_boundary_capture_#1_outer_clean_tl }
       }
   }
@@ -4974,6 +4986,8 @@ Copyright and Licence
         \int_compare:nNnT
           { \g_@@_boundary_suspend_depth_int } = \c_zero_int
           {
+            \@@_boundary_stream_sentinel_if_last:T
+              { \@@_boundary_stream_sentinel_drop: }
             \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
               {
                 \tl_gset:cn { g_@@_boundary_capture_##1_last_tl } {#1}
@@ -5570,6 +5584,10 @@ Copyright and Licence
                 \g_@@_boundary_capture_depth_int _kind_tl
               }
               {#2}
+            \bool_lazy_and:nnT
+              { \str_if_eq_p:nn {#2} { stream } }
+              { \l_@@_boundary_stream_sentinel_bool }
+              { \@@_boundary_stream_sentinel_put: }
             \str_case:nn {#1}
               {
                 { default }       { \@@_boundary_capture_class:n { default } }
@@ -5588,6 +5606,18 @@ Copyright and Licence
       {
         \scan_stop:
         \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+        \tl_if_eq:cnTF
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _kind_tl
+          }
+          { stream }
+          {
+            \@@_boundary_stream_if_body_empty:TF
+              { \bool_set_true:N \l_@@_boundary_body_empty_bool }
+              { \bool_set_false:N \l_@@_boundary_body_empty_bool }
+          }
+          { \bool_set_true:N \l_@@_boundary_body_empty_bool }
         \tl_set:Ne \l_@@_boundary_first_tl
           {
             \tl_use:c
@@ -5660,35 +5690,38 @@ Copyright and Licence
 % 类别，结尾时却确认了末类别。这时照常调用 \cs{@@_boundary_replay_before:}
 % 放回入口空格，不按“无可见输出”处理，命令之后的空格保留（\#1103）。
 %
-% 正文只排出规则、盒子、图片、kern、glue 这类不报告类别的内容时，首、末类别
-% 同样都是空的（|A \hyperlink{a}{\rule{2pt}{1pt}} B|、
-% |\hyperlink{a}{\includegraphics{...}}|）。命令其实有可见输出，删去命令后的
-% 直接输入保留两枚空格。所以 capture 开始时取下入口空格与 marker 之后，用
-% \cs{@@_boundary_after_space_state:} 记下列表末尾的节点类型、kern 与 glue
-% （|begin_state| 字段）；这里先用 \cs{@@_boundary_pop_node:N} 取下正文末尾的
-% marker，再比较一次。状态变了，说明正文排出了节点，照常调用
-% \cs{@@_boundary_replay_before:}；没有变才按“无可见输出”处理（\#1103）。
-% \tn{special}、颜色 whatsit 也会改变状态，这时同样保留两侧空格，与
-% \verb*|A \mbox{}\special{x}\mbox{} B| 的处理一致。不过 \XeTeX{} 把西文字符排成
-% whatsit 节点，命令之前是西文、正文又只排出 whatsit 时，状态看不出变化，仍按
-% 没有可见输出处理（用户手册写明的第一类限制）。这一比较只用于 |stream| 一类；
-% \pkg{xeCJKfntef} 的 |stream-ulem| 由 \pkg{ulem} 自己排出装饰盒子，状态总会变化，
-% 仍按以前的类别判断。
+% 正文只排出规则、盒子、图片、kern、glue、whatsit 这类不报告类别的内容时，首、
+% 末类别同样都是空的（|A \hyperlink{a}{\rule{2pt}{1pt}} B|、
+% |\hyperlink{a}{\includegraphics{...}}|、|\hyperlink{a}{\textcolor{red}{...}}|）。
+% 命令其实有可见输出，删去命令后的直接输入保留两枚空格。所以 |stream| 一类的
+% capture 开始时，在列表里放一个 |stream-begin| 哨兵节点（一对正负 kern，宽度为
+% 零，\cs{@@_boundary_stream_sentinel_put:}），stream 结束、取下正文末尾的 marker
+% 之后看列表末尾是不是这个哨兵（\cs{@@_boundary_stream_if_body_empty:TF}）：是，
+% 正文什么也没排出，取下哨兵，按“无可见输出”处理；不是，说明正文排出了节点，
+% 照常调用 \cs{@@_boundary_replay_before:}。正文报告类别时
+% （\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的哨兵，以免它挡在入口
+% marker 与第一个字符之间。只比较节点类型、kern 与 glue 的做法认不出以 whatsit 或
+% 盒子结尾的正文（与开始时列表末尾的节点同类），所以改用哨兵（\#1103）。
+% 哨兵只放在正文可能什么也不排出的命令里：用 \cs{@@_boundary_register_stream:nn}
+% 注册的命令（用户注册的 stream 命令、\pkg{siunitx} 的 \tn{unit} 等，经
+% \cs{@@_boundary_inline_stream_begin_sentinel:n}）与 \pkg{hyperref} 的链接注释。正文
+% 排出内容之后哨兵留在列表中间，是一对宽度为零的 kern；\tn{verb}、\pkg{listings}、
+% \pkg{url} 等总有可见输出的命令不放哨兵，节点列表与以前相同。\pkg{xeCJKfntef} 的
+% |stream-ulem| 由 \pkg{ulem} 自己排出装饰盒子，也不放哨兵，仍按以前的类别判断。
 %
-% 有的命令在正文前后自己排出 whatsit：\pkg{hyperref} 的 \tn{Hy@BeginAnnot}、
-% \tn{Hy@EndAnnot} 在正文前后写入链接注释的开始与结束 special。capture 在它们
-% 外面开始和结束，比较的两端隔着这两个 whatsit，正文为空时状态也不同。所以这类
-% 命令在正文开始时调用 \cs{@@_boundary_stream_content_begin:} 重新记下
-% |begin_state|，在正文结束、写入结束 special 之前调用
-% \cs{@@_boundary_stream_content_end:} 记下 |end_state|；有 |end_state| 时用它
-% 比较，否则用 stream 结束时的状态。
+% \pkg{hyperref} 的 \tn{Hy@BeginAnnot}、\tn{Hy@EndAnnot} 在正文前后自己写入链接
+% 注释的开始与结束 special，哨兵若在 stream 开始时放下，正文为空时结束处也看不到
+% 它。所以链接注释的 stream 开始时不放哨兵，写入开始 special 之后由
+% \cs{@@_boundary_stream_content_begin:} 放下，写入结束 special 之前由
+% \cs{@@_boundary_stream_content_end:} 记下哨兵是否仍在末尾（|body_empty| 字段）
+% 并取下它。
 %
 % 正文里嵌套的命令自己判断为没有可见输出时（|\uline{\mbox{}}|、
 % |\hyperlink{a}{\textcolor{red}{}}|），它仍可能留下空盒子、颜色 whatsit 等节点，
-% 外层比较时状态也变了。所以内层 capture 开始时记下外层到这时为止状态是否未变
-% （|outer_clean| 字段）；内层按没有可见输出结束时
-% （\cs{@@_boundary_replay_before_empty:}），若外层当时未变，就把外层的
-% |begin_state| 改为现在的状态，内层留下的节点不算外层的输出。
+% 挡住外层的哨兵。所以内层 capture 开始时若外层的哨兵还在末尾，就取下它并记下
+% |outer_clean| 字段；内层按没有可见输出结束时
+% （\cs{@@_boundary_replay_before_empty:}）重新放下外层的哨兵，内层留下的节点不算
+% 外层的输出。
 %    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
@@ -5711,18 +5744,9 @@ Copyright and Licence
                     { math-space-frozen } { \@@_boundary_replay_before: }
                   }
                   {
-                    \tl_if_eq:cnTF
-                      {
-                        g_@@_boundary_capture_\int_use:N
-                        \g_@@_boundary_capture_depth_int _kind_tl
-                      }
-                      { stream }
-                      {
-                        \@@_boundary_stream_if_unchanged:TF
-                          { \@@_boundary_replay_before_empty: }
-                          { \@@_boundary_replay_before: }
-                      }
+                    \bool_if:NTF \l_@@_boundary_body_empty_bool
                       { \@@_boundary_replay_before_empty: }
+                      { \@@_boundary_replay_before: }
                   }
               }
           }
@@ -5736,51 +5760,72 @@ Copyright and Licence
     \@@_boundary_after_space_check:
   }
 %    \end{macrocode}
-% \cs{@@_boundary_stream_if_unchanged:TF} 比较 stream 开始与结束时列表末尾的
-% 状态，\cs{@@_boundary_stream_content_begin:}、\cs{@@_boundary_stream_content_end:}
-% 供在正文前后自己排出 whatsit 的命令改写比较的两端（见上文）。
+% \cs{@@_boundary_stream_if_body_empty:TF} 判断正文是否什么也没排出，
+% \cs{@@_boundary_stream_content_begin:}、\cs{@@_boundary_stream_content_end:}
+% 供在正文前后自己排出 whatsit 的命令改写哨兵的位置（见上文）。
 %    \begin{macrocode}
-\prg_new_protected_conditional:Npnn \@@_boundary_stream_if_unchanged: { TF }
+\prg_new_protected_conditional:Npnn \@@_boundary_stream_if_body_empty: { TF }
   {
     \tl_if_empty:cTF
       {
         g_@@_boundary_capture_\int_use:N
-        \g_@@_boundary_capture_depth_int _end_state_tl
+        \g_@@_boundary_capture_depth_int _body_empty_tl
       }
-      { \tl_set:Ne \l_@@_tmp_tl { \@@_boundary_after_space_state: } }
       {
-        \tl_set:Ne \l_@@_tmp_tl
-          {
-            \tl_use:c
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_boundary_capture_depth_int _end_state_tl
-              }
-          }
-      }
-    \str_if_eq:eeTF
-      { \l_@@_tmp_tl }
-      {
-        \tl_use:c
+        \tl_if_eq:cnTF
           {
             g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _begin_state_tl
+            \g_@@_boundary_capture_depth_int _sentinel_tl
           }
+          { true }
+          {
+            \@@_boundary_stream_sentinel_if_last:TF
+              { \@@_boundary_stream_sentinel_drop: \prg_return_true: }
+              { \prg_return_false: }
+          }
+          { \prg_return_true: }
       }
+      {
+        \tl_if_eq:cnTF
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _body_empty_tl
+          }
+          { true }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_stream_sentinel_put:
+  {
+    \exp_args:Nc \@@_make_node:N { c_@@_stream-begin_node_dim }
+    \tl_gset:cn
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _sentinel_tl
+      }
+      { true }
+  }
+\prg_new_conditional:Npnn \@@_boundary_stream_sentinel_if_last: { T , TF }
+  {
+    \xeCJK_if_last_node:nTF { stream-begin }
       { \prg_return_true: }
       { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_boundary_stream_sentinel_drop:
+  { \tex_unkern:D \tex_unkern:D }
+\bool_new:N \l_@@_boundary_stream_sentinel_bool
+\bool_new:N \l_@@_boundary_body_empty_bool
+\cs_new_protected:Npn \@@_boundary_inline_stream_begin_sentinel:n #1
+  {
+    \bool_set_true:N \l_@@_boundary_stream_sentinel_bool
+    \@@_boundary_inline_stream_begin:n {#1}
+    \bool_set_false:N \l_@@_boundary_stream_sentinel_bool
   }
 \cs_new_protected:Npn \@@_boundary_stream_content_begin:
   {
     \@@_boundary_if_stream_active:T
-      {
-        \tl_gset:ce
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _begin_state_tl
-          }
-          { \@@_boundary_after_space_state: }
-      }
+      { \@@_boundary_stream_sentinel_put: }
   }
 \cs_new_protected:Npn \@@_boundary_stream_content_end:
   {
@@ -5789,9 +5834,14 @@ Copyright and Licence
         \tl_gset:ce
           {
             g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _end_state_tl
+            \g_@@_boundary_capture_depth_int _body_empty_tl
           }
-          { \@@_boundary_after_space_state: }
+          {
+            \@@_boundary_stream_sentinel_if_last:TF
+              { true } { false }
+          }
+        \@@_boundary_stream_sentinel_if_last:T
+          { \@@_boundary_stream_sentinel_drop: }
       }
   }
 \prg_new_protected_conditional:Npnn \@@_boundary_if_stream_active: { T }
@@ -6098,16 +6148,11 @@ Copyright and Licence
     \tl_set:Nn \l_@@_boundary_outer_clean_tl { false }
     \int_compare:nNnT { \g_@@_boundary_capture_depth_int } > \c_zero_int
       {
-        \str_if_eq:eeT
-          { \@@_boundary_after_space_state: }
+        \@@_boundary_stream_sentinel_if_last:T
           {
-            \tl_use:c
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_boundary_capture_depth_int _begin_state_tl
-              }
+            \@@_boundary_stream_sentinel_drop:
+            \tl_set:Nn \l_@@_boundary_outer_clean_tl { true }
           }
-          { \tl_set:Nn \l_@@_boundary_outer_clean_tl { true } }
       }
     \tl_set:Nn \l_@@_boundary_after_space_tl { false }
     \bool_if:NT \g_@@_boundary_after_space_clean_bool
@@ -6300,16 +6345,15 @@ Copyright and Licence
         \g_@@_boundary_capture_depth_int _after_space_tl
       }
       \l_@@_boundary_after_space_tl
-    \tl_gset:ce
-      {
-        g_@@_boundary_capture_\int_use:N
-        \g_@@_boundary_capture_depth_int _begin_state_tl
-      }
-      { \@@_boundary_after_space_state: }
     \tl_gclear:c
       {
         g_@@_boundary_capture_\int_use:N
-        \g_@@_boundary_capture_depth_int _end_state_tl
+        \g_@@_boundary_capture_depth_int _sentinel_tl
+      }
+    \tl_gclear:c
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _body_empty_tl
       }
     \exp_args:Nc \tl_gset_eq:NN
       {
@@ -6968,13 +7012,7 @@ Copyright and Licence
       }
       { true }
       {
-        \tl_gset:ce
-          {
-            g_@@_boundary_capture_
-            \int_eval:n { \g_@@_boundary_capture_depth_int - 1 }
-            _begin_state_tl
-          }
-          { \@@_boundary_after_space_state: }
+        \exp_args:Nc \@@_make_node:N { c_@@_stream-begin_node_dim }
       }
   }
 \tl_new:N \l_@@_boundary_outer_clean_tl
@@ -8125,7 +8163,7 @@ Copyright and Licence
       {
         \prop_gput:Nnn \g_@@_boundary_registered_prop {#1} { stream/#2 }
         \AddToHook { cmd / #1 / before } [ xeCJK / boundary ]
-          { \@@_boundary_inline_stream_begin:n {#2} }
+          { \@@_boundary_inline_stream_begin_sentinel:n {#2} }
         \AddToHook { cmd / #1 / after } [ xeCJK / boundary ]
           { \@@_boundary_inline_stream_end:n {#2} }
       }
