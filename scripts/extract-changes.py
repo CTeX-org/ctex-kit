@@ -67,7 +67,7 @@ def extract(dtx_path: str, target_ver: str) -> list[tuple[str, str]]:
         # 还原 \textbackslash 并自动吃掉后面因 TeX 宏特性而产生的多余空格
         content = re.sub(r"\\textbackslash\s*", "\\\\", content)
         # 清理代码块内部因配合 TeX 编译环境而残留的字符转义符（如 \& -> &）
-        content = re.sub(r"\\([&%#{}])", r"\1", content)
+        content = re.sub(r"\\([&%#{}_])", r"\1", content)
         # \cs / \tn 的占位符可能嵌在这里面 (如 \texttt{Use of \cs{???} ...}):
         # 那一步在前面已经跑过, 而 \x00..\x01 一旦被整段收进 verbatim_blocks,
         # 后面的 _restore_combined_code 就再也扫不到它, 原始控制字符会直接写进

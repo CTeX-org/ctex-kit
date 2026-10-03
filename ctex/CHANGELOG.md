@@ -44,7 +44,7 @@
 - 补全 upLaTeX 字体编码 JY2 和 JT2 的 Fallback 机制。
 - 提升 LaTeX3 版本至 2022/10/09。
 - 提升 LaTeX3 最低版本要求至 2025/10/09。
-- 使用 `\l_keys_key_str` 和 `\l_keys_choice_str` 替代已废弃的 `\_tl` 版本（#806）。
+- 使用 `\l_keys_key_str` 和 `\l_keys_choice_str` 替代已废弃的 `_tl` 版本（#806）。
 - 新增实验性 `experiment/font-size-system` 选项（#543）。
 - 将 `experiment/font-size-system` 的 `traditional` 选项更名为 `letterpress`（#813）。
 - 文档：在标准字体命令、中文字号表附近提示 `experiment/font-size-system` 的影响；说明 `letterpress` 只是金属活字排印字号体系之一（#871）。
