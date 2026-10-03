@@ -4731,6 +4731,7 @@ Copyright and Licence
 %   \@@_boundary_stream_sentinel_remove:n,
 %   \@@_boundary_stream_sentinel_if_last:,
 %   \@@_boundary_stream_sentinel_drop:,
+%   \@@_boundary_stream_sentinel_clear:,
 %   \l_@@_boundary_stream_sentinel_bool,
 %   \l_@@_boundary_body_empty_bool,
 %   \@@_boundary_inline_stream_begin_sentinel:n,
@@ -5006,8 +5007,7 @@ Copyright and Licence
         \int_compare:nNnT
           { \g_@@_boundary_suspend_depth_int } = \c_zero_int
           {
-            \@@_boundary_stream_sentinel_if_last:T
-              { \@@_boundary_stream_sentinel_drop: }
+            \@@_boundary_stream_sentinel_clear:
             \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
               {
                 \tl_gset:cn { g_@@_boundary_capture_##1_last_tl } {#1}
@@ -5736,6 +5736,9 @@ Copyright and Licence
 %     kern（\cs{@@_boundary_stream_sentinel_if_last:TF} 检查两个 kern 的值），是就取下。
 %     正文报告类别时（\cs{@@_boundary_capture_class:n}）也先取下仍在末尾的这对
 %     kern，以免它挡在入口 marker 与第一个字符之间；正文排出内容之后它留在列表中间。
+%     正文开头的 \tn{unkern} 会删去这对 kern 上面的一枚，留下负值的那一枚
+%     （|中\RS{\unkern x}|），所以取下哨兵时也认出这一枚
+%     （\cs{@@_boundary_stream_sentinel_clear:}）。
 %     这时正文开头的代码看到的是这对 kern。前一个节点不是 glue、kern、penalty，
 %     \tn{unskip} 与标点之间的挤压本来就不会处理它；段首或盒子开头的全角左标点
 %     要越过缩进盒子判断是否位于段首（\cs{@@_Boundary_and_FullLeft_glue:N}），
@@ -5821,7 +5824,10 @@ Copyright and Licence
               { \int_use:N \g_@@_boundary_capture_depth_int }
             \prg_return_true:
           }
-          { \prg_return_false: }
+          {
+            \@@_boundary_stream_sentinel_clear:
+            \prg_return_false:
+          }
       }
       {
         \tl_if_eq:cnTF
@@ -5914,6 +5920,16 @@ Copyright and Licence
   }
 \cs_new_protected:Npn \@@_boundary_stream_sentinel_drop:
   { \tex_unkern:D \tex_unkern:D }
+\cs_new_protected:Npn \@@_boundary_stream_sentinel_clear:
+  {
+    \@@_boundary_stream_sentinel_if_last:TF
+      { \@@_boundary_stream_sentinel_drop: }
+      {
+        \dim_compare:nNnT { \tex_lastkern:D }
+          = { - \use:c { c_@@_stream-begin_node_dim } }
+          { \tex_unkern:D }
+      }
+  }
 \bool_new:N \l_@@_boundary_stream_sentinel_bool
 \bool_new:N \l_@@_boundary_body_empty_bool
 \cs_new_protected:Npn \@@_boundary_inline_stream_begin_sentinel:n #1
@@ -9618,8 +9634,7 @@ Copyright and Licence
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_Boundary_and_FullLeft_glue:N #1
   {
-    \@@_boundary_stream_sentinel_if_last:T
-      { \@@_boundary_stream_sentinel_drop: }
+    \@@_boundary_stream_sentinel_clear:
     \tl_set_eq:NN \l_@@_alignii_tl \c_@@_left_tl
     \group_begin: \exp_args:NNc \group_end: \cs_if_exist_use:NTF
       { @@_bound_type_ \int_use:N \tex_lastnodetype:D _glue:Nn }
