@@ -216,6 +216,34 @@ LaTeX 的 `\addpenalty` 等代码直接比较 `\prevdepth = -1000pt`。机制见
 
 根因不在 siunitx 适配，而在命令边界框架：任何已注册、执行后什么都不排出的命令，在这种写法下都会多两枚。master 上的 `\mbox{}`、`\hypertarget{a}{}`、`\phantomsection{}` 已经是 26.66pt（直接输入 20.0pt），`xCJKecglue` 两个取值相同；用户注册的空 `stream`、`transparent` 命令也一样。bot 审查把 `\numlist{}`、`\ang{;;}` 报为本 PR 的回退（`xCJKecglue=true` 下 master 是 20.0pt），属实。维护者决定：本 PR 不改框架，在 `\changes` 与 CHANGELOG 写明这是已知回退，框架层的修复另开 #1103。`siunitx-ecglue01` 不含空输出用例。过程见 `llmdoc/memory/reflections/1092-siunitx-range-auto-stream.md`。
 
+## 命令与空格、表格、颜色交互时与直接输入不一致的既有写法（#1103 调查中发现）
+
+#1103 的修复尝试（本地分支，未合并；维护者 2026-10-03 决定 #1103 暂作已知限制）在对照中发现了下面这些写法。它们在修复前的 `e641743e`（内容同 `66979287`）上就与删去命令后的直接输入不一致，与 #1103 的“空命令两侧都有空格”无关或不只由它造成，单独记在这里。数值都在默认间距、`FandolSong-Regular.otf` 下测得；“直接输入”指删去命令（或命令名）后的源码。
+
+| 写法 | `xCJKecglue=false` | `xCJKecglue=true` | 直接输入 | 说明 |
+|---|---|---|---|---|
+| `中，\mbox{} 文`（左侧是全角标点、命令后有空格） | 33.33pt | 33.33pt | `中， 文` 30.0pt | |
+| `中{} \mbox{}文`（左侧是 `中{}`、命令后紧接汉字） | 20.0pt | 20.0pt（一致） | `中{} 文` 23.33pt／20.0pt | `xCJKecglue=false` 时直接输入保留空格，命令入口按汉字之后的空格处理 |
+| `$x$ \mbox{} 文`（左侧是公式） | 22.37527pt | 22.37527pt | 19.04527pt | |
+| `A \mbox{} \mbox{} B`、`A \mbox{} \mbox{} 中` | 24.57pt、27.49pt | 同左 | 17.91pt、20.83pt | 两个空命令之间也有空格 |
+| `中 \mbox{}\relax $x$` | 19.04527pt | 同左 | `中 \relax $x$` 15.71527pt | 命令之后的检查越过 `\relax`，直接输入的前视在 `\relax` 处停下 |
+| `中 \textcolor{red}{\Nop $x$} 文`（`\Nop` 展开为空） | 32.37527pt | 同左 | `中 {\Nop $x$} 文` 29.04527pt | 西文写法 `A \textcolor{red}{\Nop $x$} B` 一致 |
+| `A \uwave{} B`、`A \CJKunderdot{} B`；`{中} \uwave{} 文` | 21.24pt；26.66pt | 同左 | 17.91pt；20.0pt | |
+| `A{} \mbox{} 文` | 24.16pt | 同左 | 20.83pt | |
+| `\textcolor{red}{中 \mbox{}} 文` | 26.66pt | 26.66pt | `{中 } 文` 23.33pt／20.0pt | |
+| l3color 的 `\color_group_begin:\color_select:n{red}A ~\color_group_end: ~B` | 17.91pt | 同左 | `{A ~} ~B` 21.24pt | 比直接输入少一枚空格 |
+| `x\mbox{中 \color{red} }x` | 23.89pt | 同左 | `x\mbox{中 }x` 27.22pt | |
+| `\sbox\B{A \mbox{} B}` 的内容 | 21.24pt | 同左 | 17.91pt | `\sbox` 内容里暂停边界处理 |
+| `A \hyperlink{a}{} B` | 21.24pt | 同左 | 17.91pt | hyperref 遇到空的链接文字只给出 `Suppressing empty link` 警告，不排出链接，xeCJK 的链接适配器不会执行 |
+| `l` 列单元格末尾的 `A \mbox{}`（`\begin{tabular}{@{}l@{}}`） | 10.83002pt | 7.50002pt | `A ` 7.50002pt | 命令留下的节点挡住列模板末尾的 `\unskip`；`\textcolor{red}{}`、用户注册的 `transparent`／`box` 命令同样 |
+
+另有两处报错，与命令无关，同样是修复前就存在的问题：
+
+- plain `\halign{# &#\cr 中&文\cr}`（列模板里 `#` 之后有空格，不含任何命令）报 `Forbidden control sequence`。列模板 `#` 之后的空格排在单元格内容之后，再往后是 TeX 插入的 `\endtemplate`（`\outer` 记号）；报错来自 xeCJK 在汉字之后看下一个记号的代码。不加载 xeCJK 时同样的写法不报错。
+- `\outer\def\OA{}` 之后写 `中 \OA 文`，同一处代码报 `Forbidden control sequence`；不加载 xeCJK 的 `A \OA B` 不报错。
+
+可能的补法：**未实施，也未评估**。#1103 的修复尝试保存在 WIP 分支，见 #1103 的登记。
+
 ## 用户自行注册 siunitx 命令的规避写法升级后报错（#1092 维护者决定：保持报错）
 
 #1092 的 issue 中给出的规避写法用 `experiment/boundary-register` 自行注册 `\SIrange` 等命令。#1092 之后 xeCJK 已注册这些命令，同一命令再注册会报 `boundary-register-conflict` 错误。维护者决定保持报错，不改为静默跳过或警告；只在 `\changes` 和由它生成的 `xeCJK/CHANGELOG.md` 条目中写明需要删去这些注册。
