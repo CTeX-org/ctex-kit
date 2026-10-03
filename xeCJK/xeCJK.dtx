@@ -2059,29 +2059,37 @@ Copyright and Licence
 %   A \sbox0{x}\mbox{} B            % 比“A \sbox0{x} B”少一枚空格
 %   A {}\mbox{} B                   % 比“A {} B”少一枚空格
 %   A \Id{\mbox{}} B                % 比“A \Id{} B”少一枚空格
-%   A \mbox{}\hb@xt@1pt{}\mbox{} B   % 比“A \hb@xt@1pt{} B”少一枚空格
+%   A \mbox{}\hb@xt@1pt{}\mbox{} B  % 比“A \hb@xt@1pt{} B”少一枚空格
 % \end{frameverb}
 % 这类写法在正常的源码里很少出现，目前接受这一限制。确实需要保留空格时，把命令
 % 之后的空格写在花括号里（\verb*|前{ }\mbox{}{ }后|），或者改用 |~|。
 %
-% 第二类比直接输入多一枚空格，与以前的版本相同：命令之后、下一个没有可见输出的
-% 命令之前（或外层的 \tn{textcolor} 结束之前）若还有其他命令，\pkg{xeCJK} 无法
-% 预先知道它们会不会排出内容，一律按排出内容处理，两侧的空格都保留：
+% 第二类比直接输入多一枚空格，与以前的版本相同：\pkg{xeCJK} 不确定能不能删去命令
+% 之后的空格，就把两侧的空格都保留。包括：
+% \begin{itemize}
+%   \item 命令之后、下一个没有可见输出的命令之前（或外层的 \tn{textcolor} 结束之前）
+%     还有其他命令。\pkg{xeCJK} 无法预先知道它们会不会排出内容，一律按排出内容
+%     处理。已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、
+%     \tn{phantomsection}、线型命令等）与上面说的内部命令不受这一限制。不带参数的
+%     用户宏先展开再判断，展开后什么也没有的宏（如 |\def\Nop{}|、
+%     |\NewDocumentCommand\Nop{}{}|）同样不受限制；带参数的宏（如
+%     \tn{UseHook}\verb|{...}|）不展开，按排出内容处理，展开后遇到带参数的宏（如
+%     \verb|\def\Nop{\@gobble x}|）也一样；
+%   \item \tn{sbox}、\tn{savebox} 的内容。它们的内容只用来测量或保存，\pkg{xeCJK}
+%     在其中暂停这一处理；\env{lrbox} 环境不受影响。
+% \end{itemize}
+% 例如：
 % \begin{frameverb}
 %   A \mbox{}\small\mbox{} B   % 比“A \small B”多一枚空格
+%   \sbox0{A \mbox{} B}        % 比“\sbox0{A  B}”多一枚空格
 % \end{frameverb}
-% 已注册的命令（\tn{mbox}、\tn{textcolor}、\tn{hypertarget}、
-% \tn{phantomsection}、线型命令等）与上面说的内部命令不受这一限制。不带参数的
-% 用户宏先展开再判断，展开后什么也没有的宏（如 |\def\Nop{}|、
-% |\NewDocumentCommand\Nop{}{}|）同样不受限制；带参数的宏（如
-% \tn{UseHook}\verb|{...}|）不展开，按排出内容处理，展开后遇到带参数的宏（如
-% \verb|\def\Nop{\@gobble x}|）也一样。
 %
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
 %   处理，以及两类与直接输入不同的写法：命令前后的空格在源码里不相邻、\pkg{xeCJK}
 %   看不出来时（\texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
 %   \{\}\textbackslash mbox\{\} B}、宏参数里的空命令、夹在空命令之间的内部命令）
-%   少一枚空格；空命令之后、下一个空命令之前还有未注册的命令时多一枚空格（\#1103）。}
+%   少一枚空格；空命令之后、下一个空命令之前还有未注册的命令时，以及在 \tn{sbox} 的内容
+%   里，多一枚空格（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
