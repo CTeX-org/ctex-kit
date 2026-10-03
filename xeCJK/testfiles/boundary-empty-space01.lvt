@@ -56,6 +56,7 @@
 \usepackage{hyperref}
 
 \setCJKmainfont{FandolSong-Regular.otf}
+\setCJKmonofont{FandolFang-Regular.otf}
 
 \newcommand\RegStream[1]{\leavevmode}
 \newcommand\RegTrans[1]{\special{t}}
@@ -210,6 +211,9 @@
 }
 
 \begin{document}
+
+% 抄录用的 CJK 等宽字体在 \START 之前加载，fontspec 的信息不进入 .tlg。
+\setbox0=\hbox{\ttfamily 中}
 
 \START
 
@@ -731,6 +735,28 @@
   \EmptyVariant{disc/11}{A}{\mbox{\discretionary{}{}{\kern0pt}}}{B}{ }{ }
     { \discretionary{}{}{\kern0pt} }%
 }
+
+% \verb 等没有放哨兵的 stream 命令按有可见输出处理：抄录的空格不报告类别。
+% \verb 不能写在宏参数里，所以在这里直接排盒子比较。
+\newcommand\EmptyVerbCompare[1]{%
+  \global\advance\EmptyChecks by 1
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+\BEGINTEST{verb whose body is only spaces}
+\EmptyReset
+\setbox\EmptyCandidate=\hbox{A \verb| | B}%
+\EmptyReset
+\setbox\EmptyOracle=\hbox{A {\ttfamily\ } B}%
+\EmptyVerbCompare{verb-space-L}%
+\EmptyReset
+\setbox\EmptyCandidate=\hbox{A \verb|  | B}%
+\EmptyReset
+\setbox\EmptyOracle=\hbox{A {\ttfamily\ \ } B}%
+\EmptyVerbCompare{verb-2space-L}%
+\ENDTEST
 
 \TYPE{empty-output checks: \the\EmptyChecks}
 \TYPE{empty-output failures: \the\EmptyFailures}

@@ -2080,20 +2080,23 @@ Copyright and Licence
 %     \tn{UseHook}\verb|{...}|）不展开，按排出内容处理，展开后遇到带参数的宏（如
 %     \verb|\def\Nop{\@gobble x}|）也一样；
 %   \item \tn{sbox}、\tn{savebox} 的内容。它们的内容只用来测量或保存，\pkg{xeCJK}
-%     在其中暂停这一处理；\env{lrbox} 环境不受影响。
+%     在其中暂停这一处理；\env{lrbox} 环境不受影响；
+%   \item 正文为空的 \tn{hyperlink}。\pkg{hyperref} 遇到空的链接文字只给出警告，不排出
+%     链接，\pkg{xeCJK} 处理链接的代码不会执行。
 % \end{itemize}
 % 例如：
 % \begin{frameverb}
 %   A \mbox{}\small\mbox{} B   % 比“A \small B”多一枚空格
 %   \sbox0{A \mbox{} B}        % 比“\sbox0{A  B}”多一枚空格
+%   A \hyperlink{a}{} B         % 比“A  B”多一枚空格
 % \end{frameverb}
 %
 % \changes{v3.10.7}{2026/10/02}{用户手册说明没有可见输出的命令两侧源码空格的
 %   处理，以及两类与直接输入不同的写法：命令前后的空格在源码里不相邻、\pkg{xeCJK}
 %   看不出来时（\texttt{前\{ \}\textbackslash mbox\{\} 后}、\texttt{A
 %   \{\}\textbackslash mbox\{\} B}、宏参数里的空命令、夹在空命令之间的内部命令）
-%   少空格；空命令之后、下一个空命令之前还有未注册的命令时，以及在 \tn{sbox} 的内容
-%   里，多一枚空格（\#1103）。}
+%   少空格；空命令之后、下一个空命令之前还有未注册的命令时，在 \tn{sbox} 的内容
+%   里，以及正文为空的 \tn{hyperlink}，多一枚空格（\#1103）。}
 % \changes{v3.10.7}{2026/10/03}{处理空的 \tn{hypertarget} 两侧空格的包装只加在
 %   \pkg{hyperref} 原来的定义上；\pkg{beamer} 改过的 \tn{hypertarget} 照常读取覆盖说明，
 %   包装加在它保存的原定义上（\#1103）。}
@@ -5705,8 +5708,11 @@ Copyright and Licence
 % 哨兵只放在正文可能什么也不排出的命令里：用 \cs{@@_boundary_register_stream:nn}
 % 注册的命令（用户注册的 stream 命令、\pkg{siunitx} 的 \tn{unit} 等，经
 % \cs{@@_boundary_inline_stream_begin_sentinel:n}）与 \pkg{hyperref} 的链接注释。正文
-% 排出内容之后哨兵留在列表中间，是一对宽度为零的 kern；\tn{verb}、\pkg{listings}、
-% \pkg{url} 等总有可见输出的命令不放哨兵，节点列表与以前相同。\pkg{xeCJKfntef} 的
+% 排出内容之后哨兵留在列表中间，是一对宽度为零的 kern。\tn{verb}、\pkg{listings}、
+% \pkg{url}、\tn{ref} 等其他 stream 命令不放哨兵，节点列表与以前相同；它们首、末
+% 类别都为空时一律按有可见输出处理，与修复前相同：正文可能只有空格
+% （\verb*+A \verb| | B+，抄录的空格不报告类别），不能按没有可见输出删去命令
+% 之后的空格。\pkg{xeCJKfntef} 的
 % |stream-ulem| 由 \pkg{ulem} 自己排出装饰盒子，也不放哨兵，仍按以前的类别判断。
 %
 % \pkg{hyperref} 的 \tn{Hy@BeginAnnot}、\tn{Hy@EndAnnot} 在正文前后自己写入链接
@@ -5783,7 +5789,7 @@ Copyright and Licence
               { \@@_boundary_stream_sentinel_drop: \prg_return_true: }
               { \prg_return_false: }
           }
-          { \prg_return_true: }
+          { \prg_return_false: }
       }
       {
         \tl_if_eq:cnTF
