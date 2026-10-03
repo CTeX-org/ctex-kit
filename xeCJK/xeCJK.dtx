@@ -2097,6 +2097,9 @@ Copyright and Licence
 % \changes{v3.10.7}{2026/10/03}{处理空的 \tn{hypertarget} 两侧空格的包装只加在
 %   \pkg{hyperref} 原来的定义上；\pkg{beamer} 改过的 \tn{hypertarget} 照常读取覆盖说明，
 %   包装加在它保存的原定义上（\#1103）。}
+% \changes{v3.10.7}{2026/10/03}{stream 类命令（\tn{hyperlink}、用户注册的 stream
+%   命令等）的正文只排出规则、盒子、图片、间距时，命令按有可见输出处理，两侧的源码
+%   空格都保留（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -4698,8 +4701,13 @@ Copyright and Licence
 %   \@@_boundary_user_register_check:,
 %   \@@_boundary_prepare_onearg_box:N,
 %   \@@_boundary_prepare_onearg_box:NN,
-%   \@@_boundary_wrap_transparent_noarg:NN,
 %   \@@_boundary_wrap_transparent_onearg:NN,
+%   \@@_boundary_stream_if_unchanged:,
+%   \@@_boundary_replay_before_empty_aux:,
+%   \l_@@_boundary_outer_clean_tl,
+%   \@@_boundary_stream_content_begin:,
+%   \@@_boundary_stream_content_end:,
+%   \@@_boundary_if_stream_active:,
 %   \@@_boundary_wrap_transparent_onearg_braced:NN}
 % \begin{macro}[int]{
 %   \@@_boundary_capture_space:,
@@ -4949,6 +4957,9 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_tail_tl }
         \tl_new:c { g_@@_boundary_capture_#1_space_glue_tl }
         \tl_new:c { g_@@_boundary_capture_#1_after_space_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_begin_state_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_end_state_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_outer_clean_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -5648,6 +5659,36 @@ Copyright and Licence
 % |A \textcolor{red}{\Nop $x$ } B|），公式开头不是正文的第一个记号，没有报告首
 % 类别，结尾时却确认了末类别。这时照常调用 \cs{@@_boundary_replay_before:}
 % 放回入口空格，不按“无可见输出”处理，命令之后的空格保留（\#1103）。
+%
+% 正文只排出规则、盒子、图片、kern、glue 这类不报告类别的内容时，首、末类别
+% 同样都是空的（|A \hyperlink{a}{\rule{2pt}{1pt}} B|、
+% |\hyperlink{a}{\includegraphics{...}}|）。命令其实有可见输出，删去命令后的
+% 直接输入保留两枚空格。所以 capture 开始时取下入口空格与 marker 之后，用
+% \cs{@@_boundary_after_space_state:} 记下列表末尾的节点类型、kern 与 glue
+% （|begin_state| 字段）；这里先用 \cs{@@_boundary_pop_node:N} 取下正文末尾的
+% marker，再比较一次。状态变了，说明正文排出了节点，照常调用
+% \cs{@@_boundary_replay_before:}；没有变才按“无可见输出”处理（\#1103）。
+% \tn{special}、颜色 whatsit 也会改变状态，这时同样保留两侧空格，与
+% \verb*|A \mbox{}\special{x}\mbox{} B| 的处理一致。不过 \XeTeX{} 把西文字符排成
+% whatsit 节点，命令之前是西文、正文又只排出 whatsit 时，状态看不出变化，仍按
+% 没有可见输出处理（用户手册写明的第一类限制）。这一比较只用于 |stream| 一类；
+% \pkg{xeCJKfntef} 的 |stream-ulem| 由 \pkg{ulem} 自己排出装饰盒子，状态总会变化，
+% 仍按以前的类别判断。
+%
+% 有的命令在正文前后自己排出 whatsit：\pkg{hyperref} 的 \tn{Hy@BeginAnnot}、
+% \tn{Hy@EndAnnot} 在正文前后写入链接注释的开始与结束 special。capture 在它们
+% 外面开始和结束，比较的两端隔着这两个 whatsit，正文为空时状态也不同。所以这类
+% 命令在正文开始时调用 \cs{@@_boundary_stream_content_begin:} 重新记下
+% |begin_state|，在正文结束、写入结束 special 之前调用
+% \cs{@@_boundary_stream_content_end:} 记下 |end_state|；有 |end_state| 时用它
+% 比较，否则用 stream 结束时的状态。
+%
+% 正文里嵌套的命令自己判断为没有可见输出时（|\uline{\mbox{}}|、
+% |\hyperlink{a}{\textcolor{red}{}}|），它仍可能留下空盒子、颜色 whatsit 等节点，
+% 外层比较时状态也变了。所以内层 capture 开始时记下外层到这时为止状态是否未变
+% （|outer_clean| 字段）；内层按没有可见输出结束时
+% （\cs{@@_boundary_replay_before_empty:}），若外层当时未变，就把外层的
+% |begin_state| 改为现在的状态，内层留下的节点不算外层的输出。
 %    \begin{macrocode}
         \tl_if_empty:NTF \l_@@_boundary_first_tl
           {
@@ -5669,7 +5710,20 @@ Copyright and Licence
                     { math-space } { \@@_boundary_replay_before: }
                     { math-space-frozen } { \@@_boundary_replay_before: }
                   }
-                  { \@@_boundary_replay_before_empty: }
+                  {
+                    \tl_if_eq:cnTF
+                      {
+                        g_@@_boundary_capture_\int_use:N
+                        \g_@@_boundary_capture_depth_int _kind_tl
+                      }
+                      { stream }
+                      {
+                        \@@_boundary_stream_if_unchanged:TF
+                          { \@@_boundary_replay_before_empty: }
+                          { \@@_boundary_replay_before: }
+                      }
+                      { \@@_boundary_replay_before_empty: }
+                  }
               }
           }
           {
@@ -5680,6 +5734,75 @@ Copyright and Licence
         \int_gdecr:N \g_@@_boundary_capture_depth_int
       }
     \@@_boundary_after_space_check:
+  }
+%    \end{macrocode}
+% \cs{@@_boundary_stream_if_unchanged:TF} 比较 stream 开始与结束时列表末尾的
+% 状态，\cs{@@_boundary_stream_content_begin:}、\cs{@@_boundary_stream_content_end:}
+% 供在正文前后自己排出 whatsit 的命令改写比较的两端（见上文）。
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_boundary_stream_if_unchanged: { TF }
+  {
+    \tl_if_empty:cTF
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _end_state_tl
+      }
+      { \tl_set:Ne \l_@@_tmp_tl { \@@_boundary_after_space_state: } }
+      {
+        \tl_set:Ne \l_@@_tmp_tl
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _end_state_tl
+              }
+          }
+      }
+    \str_if_eq:eeTF
+      { \l_@@_tmp_tl }
+      {
+        \tl_use:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _begin_state_tl
+          }
+      }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_boundary_stream_content_begin:
+  {
+    \@@_boundary_if_stream_active:T
+      {
+        \tl_gset:ce
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _begin_state_tl
+          }
+          { \@@_boundary_after_space_state: }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_stream_content_end:
+  {
+    \@@_boundary_if_stream_active:T
+      {
+        \tl_gset:ce
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _end_state_tl
+          }
+          { \@@_boundary_after_space_state: }
+      }
+  }
+\prg_new_protected_conditional:Npnn \@@_boundary_if_stream_active: { T }
+  {
+    \seq_get:NNTF \g_@@_boundary_active_seq \l_@@_tmp_tl
+      {
+        \tl_if_eq:NnTF \l_@@_tmp_tl { true }
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
   }
 %    \end{macrocode}
 % \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
@@ -5972,6 +6095,20 @@ Copyright and Licence
 
 \cs_new_protected:Npn \@@_boundary_capture_begin:
   {
+    \tl_set:Nn \l_@@_boundary_outer_clean_tl { false }
+    \int_compare:nNnT { \g_@@_boundary_capture_depth_int } > \c_zero_int
+      {
+        \str_if_eq:eeT
+          { \@@_boundary_after_space_state: }
+          {
+            \tl_use:c
+              {
+                g_@@_boundary_capture_\int_use:N
+                \g_@@_boundary_capture_depth_int _begin_state_tl
+              }
+          }
+          { \tl_set:Nn \l_@@_boundary_outer_clean_tl { true } }
+      }
     \tl_set:Nn \l_@@_boundary_after_space_tl { false }
     \bool_if:NT \g_@@_boundary_after_space_clean_bool
       {
@@ -6163,6 +6300,23 @@ Copyright and Licence
         \g_@@_boundary_capture_depth_int _after_space_tl
       }
       \l_@@_boundary_after_space_tl
+    \tl_gset:ce
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _begin_state_tl
+      }
+      { \@@_boundary_after_space_state: }
+    \tl_gclear:c
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _end_state_tl
+      }
+    \exp_args:Nc \tl_gset_eq:NN
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _outer_clean_tl
+      }
+      \l_@@_boundary_outer_clean_tl
     \tl_gset:ce
       {
         g_@@_boundary_capture_\int_use:N
@@ -6805,6 +6959,26 @@ Copyright and Licence
 % 结束时用 \cs{@@_boundary_after_space_rearm:} 把记录交给更外一层。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_replay_before_empty:
+  {
+    \@@_boundary_replay_before_empty_aux:
+    \tl_if_eq:cnT
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _outer_clean_tl
+      }
+      { true }
+      {
+        \tl_gset:ce
+          {
+            g_@@_boundary_capture_
+            \int_eval:n { \g_@@_boundary_capture_depth_int - 1 }
+            _begin_state_tl
+          }
+          { \@@_boundary_after_space_state: }
+      }
+  }
+\tl_new:N \l_@@_boundary_outer_clean_tl
+\cs_new_protected:Npn \@@_boundary_replay_before_empty_aux:
   {
     \tl_set:Ne \l_@@_boundary_node_tl
       {
@@ -8243,24 +8417,8 @@ Copyright and Licence
       }
   }
 %    \end{macrocode}
-% expl3 内部函数不一定允许 LaTeX 通用 cmd hook。下面两个适配器仍复用
-% transparent capture 的同一 begin/end，只负责保留零参数或单参数调用签名。
-%    \begin{macrocode}
-\cs_new_protected:Npn \@@_boundary_wrap_transparent_noarg:NN #1#2
-  {
-    \cs_if_exist:NF #1
-      {
-        \@@_boundary_reserve:N #2
-        \cs_set_eq:NN #1#2
-        \cs_gset_protected:Npn #2
-          {
-            \@@_boundary_hmode_transparent_begin:
-            #1
-            \@@_boundary_hmode_transparent_end:
-          }
-      }
-  }
-%    \end{macrocode}
+% expl3 内部函数不一定允许 LaTeX 通用 cmd hook。下面的适配器仍复用
+% transparent capture 的同一 begin/end，只负责保留单参数调用签名。
 %    \begin{macrocode}
 \cs_new_protected:Npn \@@_boundary_wrap_transparent_onearg:NN #1#2
   {
@@ -14715,6 +14873,8 @@ Copyright and Licence
       {
         \@@_boundary_inline_stream_begin:n { auto }
         \@@_orig_Hy_BeginAnnot:n { ##1 }
+        \int_compare:nNnT { \c@Hy@AnnotLevel } = { 1 }
+          { \@@_boundary_stream_content_begin: }
       }
     \cs_gset_protected:Npn \Hy@EndAnnot
       {
@@ -14730,6 +14890,7 @@ Copyright and Licence
                   { math }
                   { \@@_boundary_capture_class:n { default } }
               }
+            \@@_boundary_stream_content_end:
           }
         \@@_orig_Hy_EndAnnot:
         \@@_boundary_inline_stream_end:n { auto }
