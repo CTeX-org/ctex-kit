@@ -2043,8 +2043,10 @@ Copyright and Licence
 % \pkg{xeCJK} 只能看到命令之前的节点列表和展开之后的记号，看不到源码原来的写法，
 % 所以下面两类写法与直接输入不同。
 %
-% 第一类比直接输入少一枚空格：命令之前的空格与命令之后的空格在源码里并不相邻，
-% \pkg{xeCJK} 却看不出来，按相邻处理，删去了命令之后的空格。包括：
+% 第一类比直接输入少空格：命令之前的空格与命令之后的空格在源码里并不相邻，
+% \pkg{xeCJK} 却看不出来，按相邻处理，删去了命令之后的空格。两侧都是汉字时，
+% 删去的空格之外，剩下那枚空格也可能按汉字之间的空格处理，结果与没有空格相同
+% （设置 |xCJKecglue=true| 时，|前{ }\mbox{} 后| 与 |前后| 一样宽）。包括：
 % \begin{itemize}
 %   \item 空格写在花括号里，或者空格与命令之间只有不排出内容的命令、空分组或
 %     左花括号（命令写在分组开头，命令之后的空格在分组里）。它们在命令之前留下的
@@ -2056,7 +2058,7 @@ Copyright and Licence
 % \end{itemize}
 % 例如（定义 |\newcommand\Id[1]{#1}|，内部命令写在 \tn{makeatletter} 之后）：
 % \begin{frameverb}
-%   前{ }\mbox{} 后                 % 比“前{ } 后”少一枚空格
+%   前{ }\mbox{} 后                 % 比“前{ } 后”少空格
 %   A \sbox0{x}\mbox{} B            % 比“A \sbox0{x} B”少一枚空格
 %   A {}\mbox{} B                   % 比“A {} B”少一枚空格
 %   A {\mbox{} x} B                 % 比“A { x} B”少一枚空格
@@ -2092,6 +2094,9 @@ Copyright and Licence
 %   \{\}\textbackslash mbox\{\} B}、宏参数里的空命令、夹在空命令之间的内部命令）
 %   少一枚空格；空命令之后、下一个空命令之前还有未注册的命令时，以及在 \tn{sbox} 的内容
 %   里，多一枚空格（\#1103）。}
+% \changes{v3.10.7}{2026/10/03}{处理空的 \tn{hypertarget} 两侧空格的包装只加在
+%   \pkg{hyperref} 原来的定义上；\pkg{beamer} 改过的 \tn{hypertarget} 照常读取覆盖说明，
+%   包装加在它保存的原定义上（\#1103）。}
 %
 % 上述命令共用一套边界记录和间距恢复机制，但每类命令仍须提供明确的
 % 开始和结束位置，不能自动识别任意宏的内部节点。
@@ -4774,6 +4779,8 @@ Copyright and Licence
 %   \@@_boundary_after_space_mark_expanded:N,
 %   \@@_boundary_after_space_unknown_cs:N,
 %   \@@_boundary_after_space_if_color_body_end:,
+%   \@@_boundary_if_hypertarget_plain:N,
+%   \@@_boundary_wrap_hypertarget:c,
 %   \g_@@_boundary_after_space_clean_bool,
 %   \g_@@_boundary_after_space_expanded_bool,
 %   \g_@@_boundary_after_space_identity_bool,
@@ -14775,16 +14782,57 @@ Copyright and Licence
     \cs_if_exist:NT \hypertarget
       {
         \@@_boundary_reserve:n { hypertarget }
-        \cs_gset_eq:NN \@@_orig_hypertarget:nn \hypertarget
-        \cs_gset:Npn \hypertarget ##1##2
+        \@@_boundary_if_hypertarget_plain:NTF \hypertarget
+          { \@@_boundary_wrap_hypertarget:c { hypertarget } }
           {
-            \tl_if_empty:nTF {##2}
+            \cs_if_exist:cT { @orig \token_to_str:N \hypertarget }
               {
-                \@@_orig_hypertarget:nn {##1} {##2}
-                \@@_boundary_after_space_check:
+                \exp_args:Nc \@@_boundary_if_hypertarget_plain:NT
+                  { @orig \token_to_str:N \hypertarget }
+                  {
+                    \@@_boundary_wrap_hypertarget:c
+                      { @orig \token_to_str:N \hypertarget }
+                  }
               }
-              { \@@_orig_hypertarget:nn {##1} {##2} }
           }
+      }
+  }
+%    \end{macrocode}
+% 包装只用于 \pkg{hyperref} 原来的定义：不是 \tn{protected} 的宏，参数为 |#1#2|。
+% 其他宏包可能已经把 \tn{hypertarget} 改成别的参数形式，例如 \pkg{beamer} 用
+% |\renewcommand<>| 加上覆盖说明 |<...>|，改后的命令先读覆盖说明，再调用保存在
+% |\@orig\hypertarget| 里的原定义。按 |#1#2| 包装改后的命令会把 |<2>| 读成两个参数，
+% 剩下的 |>{a}{b}| 当作正文排出（|\hypertarget<2>{a}{b}|）。所以 \tn{hypertarget} 不是
+% 原来的定义时，改为包装 |\@orig\hypertarget|；两者都不是时不包装，\#1103 的处理对
+% \tn{hypertarget} 不起作用。包装用 \cs{cs_gset_nopar:cpn}，与 \pkg{hyperref} 的定义
+% 一样不是 \tn{long}。
+%    \begin{macrocode}
+\prg_new_protected_conditional:Npnn \@@_boundary_if_hypertarget_plain:N #1
+  { TF , T }
+  {
+    \bool_lazy_all:nTF
+      {
+        { \token_if_macro_p:N #1 }
+        { ! \token_if_protected_macro_p:N #1 }
+        {
+          \str_if_eq_p:ee { \cs_parameter_spec:N #1 }
+            { \c_hash_str 1 \c_hash_str 2 }
+        }
+      }
+      { \prg_return_true: }
+      { \prg_return_false: }
+  }
+\cs_new_protected:Npn \@@_boundary_wrap_hypertarget:c #1
+  {
+    \cs_gset_eq:Nc \@@_orig_hypertarget:nn {#1}
+    \cs_gset_nopar:cpn {#1} ##1##2
+      {
+        \tl_if_empty:nTF {##2}
+          {
+            \@@_orig_hypertarget:nn {##1} {##2}
+            \@@_boundary_after_space_check:
+          }
+          { \@@_orig_hypertarget:nn {##1} {##2} }
       }
   }
 \@@_package_hook:nn { hyperref }

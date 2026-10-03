@@ -1,0 +1,54 @@
+\input{regression-test}
+
+% #1103：xeCJK 为 hyperref 的 \hypertarget 加了包装，处理“没有可见输出的命令
+% 两侧都有源码空格”。beamer 用 \renewcommand<> 把 \hypertarget 改成先读覆盖
+% 说明 <...> 的命令，原来的定义保存在 \@orig\hypertarget 里。包装只能加在
+% hyperref 原来的定义上；按 #1#2 包装 beamer 的命令会把 <1> 读成两个参数，
+% 剩下的 >{t}{B} 当作正文排出。
+%
+% 比较宽度：带覆盖说明的 \hypertarget<1>{t}{B} 在第 1 张幻灯片上排出 B，
+% 与直接写 B 同宽；\hypertarget{t}{} 两侧都有源码空格时与删去命令的直接输入
+% 同宽。覆盖说明只写 <1>，框架只有一张幻灯片，每项只比较一次；写 <2> 会让框架
+% 排两次，在第 1 张上隐藏的内容另有 beamer 自己的处理，不在这里比较。
+
+\documentclass{beamer}
+
+\usepackage{xeCJK}
+
+\setCJKmainfont{FandolSong-Regular.otf}
+
+\newbox\EmptyCandidate
+\newbox\EmptyOracle
+\newcount\EmptyChecks
+\newcount\EmptyFailures
+
+\newcommand\EmptyCompare[3]{% #1 名称 #2 候选 #3 直接输入
+  \global\advance\EmptyChecks by 1
+  \setbox\EmptyCandidate=\hbox{#2}%
+  \setbox\EmptyOracle=\hbox{#3}%
+  \ifdim\wd\EmptyCandidate=\wd\EmptyOracle \else
+    \global\advance\EmptyFailures by 1
+    \TYPE{FAIL: #1 (\the\wd\EmptyCandidate\space vs \the\wd\EmptyOracle)}%
+  \fi
+}
+
+\begin{document}
+
+\START
+
+\begin{frame}
+  % 字体预热。
+  \setbox0=\hbox{中文AB}%
+  \EmptyCompare{overlay-L}{A\hypertarget<1>{t1}{B}C}{ABC}%
+  \EmptyCompare{overlay-C}{中\hypertarget<1>{t2}{文}字}{中文字}%
+  \EmptyCompare{empty-L}{A \hypertarget{t4}{} B}{A  B}%
+  \EmptyCompare{empty-C}{中 \hypertarget{t5}{} 文}{中  文}%
+  \EmptyCompare{nonempty-C}{中 \hypertarget{t6}{目标} 文}{中 目标 文}%
+\end{frame}
+
+\TYPE{empty-output checks: \the\EmptyChecks}
+\TYPE{empty-output failures: \the\EmptyFailures}
+
+\END
+
+\end{document}

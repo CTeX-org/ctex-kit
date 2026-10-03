@@ -210,10 +210,12 @@
 `tabular-cr01` 与 `boundary-bgroup01`、#1043 新增 `halign-amp-boundary01/02/03`、
 #1046 新增 `codedoc-meta-symmetry01`、#1047 新增 `hyperref-anchor-ecglue01`、
 #1057 新增 `fntef-nest-linebreak01`、#1091 新增 `fntef-entry-space01`、
-#1104 新增 `microtype-slot01`、#1103 新增 `boundary-empty-space01` 后，当前为 126／126 通过。完整接口契约见
+#1104 新增 `microtype-slot01`、#1103 新增 `boundary-empty-space01` 与 `boundary-empty-space02` 后，当前为 127／127 通过。完整接口契约见
 [[../memory/decisions/1010-boundary-register-public-api]]。
 
 ### 没有可见输出的命令两侧的源码空格（`boundary-empty-space01`，#1103）
+
+`boundary-empty-space02.lvt` 固定 #1103 对 beamer 的兼容：文档类为 beamer，在只有一张幻灯片的框架里比较 5 项宽度。带覆盖说明的 `\hypertarget<1>{t}{B}` 与直接写 `B` 同宽（`overlay-L`、`overlay-C`），`\hypertarget{t}{}` 两侧都有源码空格时与删去命令的直接输入同宽（`empty-L`、`empty-C`），第二个参数不为空时保留两侧空格（`nonempty-C`）。在 `349f9f77`（按 `#1#2` 包装 beamer 的命令）上 `overlay-*` 两项失败（排出 `>{t}{B}`），在修复前 `e641743e` 上 `empty-*` 两项失败。覆盖说明只写 `<1>`：写 `<2>` 会让框架排两次，第 1 张上隐藏的内容由 beamer 处理，不比较。
 
 `boundary-empty-space01.lvt` 固定 #1103：已注册命令没有可见输出、两侧都有源码空格时只保留一枚空格（机制见 [[../architecture/xecjk-empty-output-space]]）。全文件 4070 项比较（本地审查第一轮前为 2305 项，第一轮后为 3803 项，第二轮后为 3824 项，最终全范围审查第四轮后为 3848 项，本地审查第五轮后为 3871 项，第六轮后为 3898 项，第七轮后为 3903 项，第八轮后为 3907 项，第九轮后为 3914 项，第十轮后为 3922 项，最终全范围审查 `final-full-110923` 后为 3970 项，本地审查第二十四轮后为 3998 项，第二十五轮后为 4014 项，第二十六轮后为 4032 项，第二十七轮后为 4040 项，最终全范围审查 `final2-full-175113` 后为 4048 项，第三十轮后为 4052 项，最终全范围审查 `final3-full-190620` 后为 4064 项，第三十二轮后为 4070 项），失败数为 0；每个候选之后还断言 capture depth 归零。
 

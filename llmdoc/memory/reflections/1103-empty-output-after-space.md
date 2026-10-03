@@ -434,3 +434,12 @@ xeCJK 全部 126 个测试通过；`l3build doc` 通过，索引接受 4686 项�
 这一轮按最终审查快速路径处理：只有小问题，一次提交修好后直接做新的全范围最终审查，不插入增量审查。
 
 教训：测试新增用例时，同一次提交里检查 build-and-test 里所有写着该测试项数、TEST 个数的句子，不只改最新加的那一句。
+
+## 最终全范围审查 `final5-full-005223`
+
+`final4-full-001135` 走最终审查快速路径后的全范围审查（`e641743e..79e603b1`）结论 REQUEST_CHANGES，阻塞 1、重要 0、小问题 1，因此离开快速路径：
+
+1. **阻塞问题（RF5-B1）：** `\hypertarget` 的包装用固定的 `#1#2` 重新定义。beamer 在 hyperref 之后用 `\renewcommand<>` 把 `\hypertarget` 改成先读覆盖说明的命令，xeCJK 的包钩子在这之后执行，把 beamer 的版本当作原命令包装，`\hypertarget<2>{tgt}{目标}` 排出多余文字且不报错。三十多轮审查与全部测试都只用 article 类。现在只包装 hyperref 原来的定义，beamer 下包装 `\@orig\hypertarget`；新增 `boundary-empty-space02`（beamer 类）。
+2. **小问题（RF5-M1）：** 手册说 A 类“少一枚空格”，但 `xCJKecglue=true` 时 `中{ }\mbox{} 文` 两枚空格都没有了（20.0pt，修复前与直接输入 26.66pt）。手册改为“少空格”并说明这种情形，doc-gaps 与决策记录补上 `xCJKecglue=true` 的数值。
+
+教训：包装用户层命令时，先确认它在包装时还是原宏包的定义（参数形式、`\protected`），文档类与其他宏包可能已经改过它；回归测试至少要有一个非 article 的文档类（beamer）。写限制的“少几枚空格”之前，在每种间距设置下都实测一次。

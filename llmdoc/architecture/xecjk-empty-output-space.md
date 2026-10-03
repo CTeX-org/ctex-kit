@@ -102,7 +102,7 @@ stream 结束时首类别为空、末类别却是 `math`、`math-space` 或 `mat
 - 核心：`\@@_boundary_inline_box_end:n`、`\@@_boundary_inline_last_box_end:n`、`\@@_boundary_inline_stream_end:n`、`\@@_boundary_hmode_transparent_end:`、`\@@_boundary_hmode_transparent_push_end:`（存下来源编号之后）。
 - xeCJKfntef：`\@@_ulem_end:` 末尾、`\@@_under_symbol_auxii:nnnnnn` 末尾。
 - 颜色：`\@@_boundary_textcolor:nnn` 的非公式分支（正文两端不是公式时 `\textcolor` 不启动 capture，`\reset@color` 的钩子之后还有 `\textcolor` 自己的结束分组）。
-- hyperref：`\phantomsection`、`\MakeLinkTarget` 的 `cmd/.../after` 钩子；`\hypertarget` 的包装在第二个参数为空时调用。第二个参数不为空时会排出可见内容，由字符一侧的检查处理；曾经无条件调用，结果 `\hypertarget{t5}{锚}` 之后的间距也被删去（`hyperref-anchor-ecglue01` 发现）。
+- hyperref：`\phantomsection`、`\MakeLinkTarget` 的 `cmd/.../after` 钩子；`\hypertarget` 的包装在第二个参数为空时调用。第二个参数不为空时会排出可见内容，由字符一侧的检查处理；曾经无条件调用，结果 `\hypertarget{t5}{锚}` 之后的间距也被删去（`hyperref-anchor-ecglue01` 发现）。包装只加在 hyperref 原来的定义上（`\@@_boundary_if_hypertarget_plain:NTF`：不是 `\protected` 的宏、`\cs_parameter_spec:N` 为 `#1#2`）。beamer 用 `\renewcommand<>` 把 `\hypertarget` 改成先读覆盖说明的 `\protected` 命令，原定义存在 `\@orig\hypertarget`；这时包装加在 `\@orig\hypertarget` 上，两者都不是原定义时不包装。以前按 `#1#2` 直接包装 `\hypertarget`，beamer 下 `\hypertarget<2>{tgt}{目标}` 把 `<`、`2` 读成两个参数，排出“2>tgt 目标”，不报错（最终全范围审查 `final5-full-005223` 的阻塞问题 RF5-B1；回归测试 `boundary-empty-space02`）。包装用 `\cs_gset_nopar:cpn`，与 hyperref 的定义一样不是 `\long`。
 
 外层这几处要再调用一次的原因：内层被注册的命令（`\hyper@anchor`、`\__hyp_target_raise:n`、`\set@color`／`\reset@color`）结束时，外层命令的代码还在后面，内层的检查看到的下一个记号不是源码。
 
