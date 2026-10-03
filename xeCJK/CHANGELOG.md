@@ -158,7 +158,7 @@
 - 补丁 `\reset@color` 以在颜色弹出 whatsit 之后重新放置 xeCJK 节点标记，修复 `\textcolor` 命令右侧多余 inter-word glue 的问题（#831）。
 - `\reset@color` 补丁增加 hlist 回退路径，当 color pop 后最后节点为 hlist 时设置 `\g_@@_reset_color_pending_bool`，延迟到 `\@@_check_for_glue_skip:` 中处理 `\colorbox` 等命令右侧间距（#831）。
 - 修复颜色补丁在 `\g_@@_last_node_tl` 被无关的 `\set@color` 清空后仍尝试重放节点导致 `Missing number` 错误的问题，影响 `listings` 与 `\rulecolor` 组合（#836）。
-- 使用 `\l_keys_key_str` 和 `\l_keys_choice_str` 替代已废弃的 `\_tl` 版本（#806）。
+- 使用 `\l_keys_key_str` 和 `\l_keys_choice_str` 替代已废弃的 `_tl` 版本（#806）。
 - 补丁 `l3color` 后端的 `\__color_select:N` 和 `\__color_backend_reset:`，使 `l3color` 接口的颜色切换也能正确保持 xeCJK 间距（#832）。
 - 为 `hypdoc` 的 `\HD@target` 添加补丁，在它产生的 hbox 之后重放 xeCJK 节点标记，修复 `l3doc` 中 `\cs`、`\meta` 等命令后 `CJKecglue` 丢失或保留为原始空格的问题（#873）。
 - 为 `url` 的 `\Url@FormatString` 添加补丁，在进入数学模式前 drain 缓存的 `CJKecglue`，修复 CJK 文字与 `\url` 命令之间间距丢失的问题（#880）。
@@ -216,7 +216,7 @@
 
 ## [xeCJK-v3.8.3](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.8.3)
 
-- 删除 `\_nopar`。
+- 删除 `_nopar`。
 - 依赖 `ctexhook` 宏包。
 - 同步 Unicode 13.0。
 - 补充 `U+02EA` 和 `U+02EB`。
