@@ -443,6 +443,14 @@ Boundary→Default 与 Boundary→CJK 现在使用相同的检查（#996，PR #1
 - xeCJKfntef、原生 ulem 与独立 under-symbol 入口使用 `stream-ulem` / stream；旧的 saved-last-node、颜色状态隔离和直接 pending 设置由 capture suspend/replay 取代。ulem 外层 glue callback 只解决装饰与断行节点位置。
 - `\lstinline` 的分隔符和花括号扫描入口都启动 `auto` stream，并在共同 `\lst@DeInit` 结束；listings 的 parameter-token rescan 修正属于内容扫描语义，不承担边界恢复。
 
+**stream 正文跨段落（#1108、#1110）**：stream 的正文直接写进外层列表，可能经宏执行 `\par`（如 `\href{..}{\blocktext}`，`\blocktext` 定义为 `Hello\par`）。capture 记录的入口 marker、入口源码空格和首尾类别都属于命令开始时的段落，段落结束后就过期了，分两种情形处理：
+
+- 命令结束时已在垂直模式（#1108）：`\@@_boundary_inline_stream_end:n` 不调用 `\@@_boundary_hmode_stream_end:n`，只清空 `\g_@@_last_node_tl` 与 source-space pending，再关闭 capture。原来的路径会在垂直模式读取 `\spacefactor`（报 `Improper \spacefactor`），并把 marker 的 kern 写进垂直列表。
+- 正文又开始了新段落，命令结束时回到水平模式（#1110）：每个段落在 `para/begin` 中取得新编号 `\l_@@_boundary_par_int`，capture 开始时把它记进本层的 `par_tl` 字段；`para/end` 由 `\@@_boundary_par_end:` 把在这一段开始的各层 capture 经 `\@@_boundary_capture_reset:n` 恢复到刚开始的状态（清空 `before`、`first`、`last`、`entry`、`tail` 等字段，`space_flag` 置 false）。之后新段落里的内容照常报告首尾类别：`\href{..}{Hello\par 中}x` 仍按“中”重放 CJK marker；什么都没观察到时没有可重放的 marker，也没有要放回的空格。修复前，新段落开头会按上一段末尾的类别多出一枚 `\CJKecglue`，`xCJKecglue=true` 时 `x \href{..}{\par 前}x` 还会多出入口空格对应的间距。
+- 编号必须是局部变量：`\parbox`、`minipage` 等盒子里的段落在盒子分组内取得自己的编号，盒子结束后恢复外层编号，盒子里的 `para/end` 才不会清空外层链接的 capture。段落在普通分组（`\currentgrouptype` 为 1 或 14）里开始时，分组结束后仍在同一段落，局部编号却会恢复成上一段的值；`\@@_boundary_par_set:n` 因此用 `\aftergroup` 把编号逐层带出这些分组，直到遇到盒子等其他分组为止，编号经全局栈 `\g_@@_boundary_par_seq` 传递。不带出时，`x\href{u}{\parbox{3cm}{{\leavevmode y}\par}}中` 会比不分组的写法少 3.33pt（盒子里的 `para/end` 读到恢复后的外层编号，误清了外层 capture）；`hyperref-paragraph02` 的 `grouped-vs-plain-left` 固定这一点。
+
+两种情形分别由 `hyperref-paragraph01`（#1108）与 `hyperref-paragraph02`（#1110）覆盖，后者以去掉 `\href` 的直接输入为比较基准。
+
 剩余适配器只处理第三方私有签名、扫描时机、加载时序或命令内部排版语义，均复用共享 begin/end 和 marker/glue 原语。详细决策见 [[../memory/decisions/992-command-boundary-capture-register]]；测试方法见 [[../reference/build-and-test]]。#873/#880/#910/#931/#972、#826/#830/#831 与 #991 的旧 decision/reflection 记录演进路径，不能再当作当前实现说明。
 
 ## 字体管理

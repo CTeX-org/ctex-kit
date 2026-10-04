@@ -4597,6 +4597,11 @@ Copyright and Licence
 %   \@@_boundary_inline_stream_begin:n,
 %   \@@_boundary_inline_stream_begin:nn,
 %   \@@_boundary_inline_stream_end:n,
+%   \@@_boundary_hmode_stream_end:n,
+%   \@@_boundary_par_end:,
+%   \@@_boundary_capture_reset:n,
+%   \@@_boundary_par_set:n,
+%   \@@_boundary_par_carry:,
 %   \@@_boundary_hmode_transparent_begin:,
 %   \@@_boundary_hmode_transparent_end:,
 %   \@@_boundary_transparent_begin_hook:,
@@ -4776,6 +4781,10 @@ Copyright and Licence
 %    \begin{macrocode}
 \int_new:N \g_@@_boundary_capture_depth_int
 \int_new:N \g_@@_boundary_suspend_depth_int
+\int_new:N \g_@@_boundary_par_int
+\int_new:N \l_@@_boundary_par_int
+\seq_new:N \g_@@_boundary_par_seq
+\tl_new:N \l_@@_boundary_par_tl
 \seq_new:N \g_@@_boundary_active_seq
 \prop_new:N \g_@@_boundary_registered_prop
 \prop_new:N \g_@@_boundary_reserved_prop
@@ -4821,6 +4830,7 @@ Copyright and Licence
         \tl_new:c { g_@@_boundary_capture_#1_math_tail_space_skip_tl }
         \tl_new:c { g_@@_boundary_capture_#1_entry_tl }
         \tl_new:c { g_@@_boundary_capture_#1_tail_tl }
+        \tl_new:c { g_@@_boundary_capture_#1_par_tl }
       }
   }
 \@@_boundary_capture_allocate:n { 1 }
@@ -5400,33 +5410,54 @@ Copyright and Licence
       \l_@@_boundary_active_tl
     \tl_if_eq:NnT \l_@@_boundary_active_tl { true }
       {
-        \scan_stop:
-        \@@_boundary_pop_node:N \l_@@_boundary_node_tl
-        \tl_set:Ne \l_@@_boundary_first_tl
+        \mode_if_horizontal:TF
+          { \@@_boundary_hmode_stream_end:n {#1} }
           {
-            \tl_use:c
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_boundary_capture_depth_int _first_tl
-              }
+            \tl_gclear:N \g_@@_last_node_tl
+            \bool_gset_false:N \g_@@_glue_check_pending_bool
           }
-        \tl_set:Ne \l_@@_boundary_last_tl
+        \int_gdecr:N \g_@@_boundary_capture_depth_int
+      }
+  }
+%    \end{macrocode}
+% \changes{v3.10.7}{2026/10/04}{\pkg{hyperref} 链接等流式命令的正文结束段落、
+%   命令结束时已处于垂直模式时，不再读取 \tn{spacefactor}、也不再重放行内
+%   marker，修复 \texttt{Improper \textbackslash spacefactor} 错误（\#1108）。}
+%
+% 流式命令的正文可能结束段落。只有仍在水平模式时才能读取和重放行内
+% marker；垂直模式下这些状态已经过期，不能把 marker 的 kern 写入垂直列表。
+% 无论结束时处于哪种模式，都应关闭活动的 capture；未活动的入口只弹出
+% active 栈，不递减 capture 深度。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_hmode_stream_end:n #1
+  {
+    \scan_stop:
+    \@@_boundary_pop_node:N \l_@@_boundary_node_tl
+    \tl_set:Ne \l_@@_boundary_first_tl
+      {
+        \tl_use:c
           {
-            \tl_use:c
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_boundary_capture_depth_int _last_tl
-              }
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _first_tl
           }
+      }
+    \tl_set:Ne \l_@@_boundary_last_tl
+      {
+        \tl_use:c
+          {
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _last_tl
+          }
+      }
 %    \end{macrocode}
 % 流式命令若在最外层留下 xeCJK marker，就以该 marker 记录的
 % 类别更新末类别。这适用于内部使用不可见定界字符、最后又把正文末尾
 % marker 移到外层列表的命令；没有末尾 marker 的 annotation/math
 % 仍使用 capture 观察值。
 %    \begin{macrocode}
-        \exp_args:NV
-          \@@_boundary_set_last_from_node:n \l_@@_boundary_node_tl
-        \@@_boundary_set_math_tail_from_capture:
+    \exp_args:NV
+      \@@_boundary_set_last_from_node:n \l_@@_boundary_node_tl
+    \@@_boundary_set_math_tail_from_capture:
 %    \end{macrocode}
 % |tail| 字段为 |content| 表示正文最后一个字符之后还排出了别的内容（只有
 % |stream-ulem| 会这样标记，见 \pkg{xeCJKfntef} 的 \cs{@@_ulem_tail_content:}）。
@@ -5439,24 +5470,24 @@ Copyright and Licence
 % 当作行尾 glue 删掉，装饰线因此比以前多出一个像素。marker 原来挡住了这一点，
 % 零宽 kern 起同样的作用，但不是 marker，不影响后面的空格和字符。
 %    \begin{macrocode}
-        \tl_if_eq:cnT
-          {
-            g_@@_boundary_capture_\int_use:N
-            \g_@@_boundary_capture_depth_int _tail_tl
-          }
-          { content }
-          {
-            \tl_set:Nn \l_@@_boundary_last_tl { content }
-            \tex_kern:D \c_zero_dim
-          }
+    \tl_if_eq:cnT
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _tail_tl
+      }
+      { content }
+      {
+        \tl_set:Nn \l_@@_boundary_last_tl { content }
+        \tex_kern:D \c_zero_dim
+      }
 %    \end{macrocode}
 % |default| 的开始 hook 已经固定首类别；这里仅覆写末类别即可让
 % stream 两端都为 Default，同时不丢弃其他模式实际观察到的首类别。
 %    \begin{macrocode}
-        \str_if_eq:nnT {#1} { default }
-          { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
-        \tl_gclear:N \g_@@_last_node_tl
-        \bool_gset_false:N \g_@@_glue_check_pending_bool
+    \str_if_eq:nnT {#1} { default }
+      { \tl_set:Nn \l_@@_boundary_last_tl {#1} }
+    \tl_gclear:N \g_@@_last_node_tl
+    \bool_gset_false:N \g_@@_glue_check_pending_bool
 %    \end{macrocode}
 % 没有观察到任何类别时，通常按“无可见输出”把入口 marker 与源码空格原样
 % 放回。若 |entry| 已是 |resolved|，入口空格已经排在正文可见内容之前，
@@ -5467,29 +5498,97 @@ Copyright and Licence
 % 这个钩子默认什么都不做；\pkg{xeCJKfntef} 在线型命令的正文只有注册盒子时用它
 % 重放入口 marker（\#1091）。
 %    \begin{macrocode}
-        \tl_if_empty:NTF \l_@@_boundary_first_tl
+    \tl_if_empty:NTF \l_@@_boundary_first_tl
+      {
+        \tl_if_eq:cnTF
           {
-            \tl_if_eq:cnTF
-              {
-                g_@@_boundary_capture_\int_use:N
-                \g_@@_boundary_capture_depth_int _entry_tl
-              }
-              { resolved }
-              {
-                \str_if_eq:VnTF \l_@@_boundary_last_tl { math }
-                  { \@@_boundary_replay_node:n { math } }
-                  { \@@_boundary_resolved_end_hook: }
-              }
-              { \@@_boundary_replay_before: }
+            g_@@_boundary_capture_\int_use:N
+            \g_@@_boundary_capture_depth_int _entry_tl
           }
+          { resolved }
           {
-            \tl_if_empty:NT \l_@@_boundary_last_tl
-              { \tl_set_eq:NN \l_@@_boundary_last_tl \l_@@_boundary_first_tl }
-            \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_last_tl
+            \str_if_eq:VnTF \l_@@_boundary_last_tl { math }
+              { \@@_boundary_replay_node:n { math } }
+              { \@@_boundary_resolved_end_hook: }
           }
-        \int_gdecr:N \g_@@_boundary_capture_depth_int
+          { \@@_boundary_replay_before: }
+      }
+      {
+        \tl_if_empty:NT \l_@@_boundary_last_tl
+          { \tl_set_eq:NN \l_@@_boundary_last_tl \l_@@_boundary_first_tl }
+        \exp_args:NV \@@_boundary_replay_node:n \l_@@_boundary_last_tl
       }
   }
+%    \end{macrocode}
+%
+% \changes{v3.10.7}{2026/10/05}{流式命令的正文结束段落、又开始新段落时，
+%   新段落开头不再按上一段末尾的类别补 \tn{CJKecglue} 等边界间距。
+%   这是 v3.10.0 起的回退（\#1110）。}
+%
+% 流式命令的正文结束段落之后，若又开始新段落，命令结束时已回到水平模式，
+% 但 capture 记录的入口 marker、源码空格和首尾类别都属于上一段：按它们重放，
+% 新段落开头就会多出边界间距（\#1110）。因此每个段落在 |para/begin| 中取得
+% 新编号，capture 开始时记下当前编号；|para/end| 结束某一段时，把在这一段里
+% 开始的各层 capture 恢复到刚开始、尚未观察到任何内容的状态。之后新段落中的
+% 内容照常报告首尾类别，命令结束时只按新段落里实际观察到的类别处理；
+% 什么都没观察到时没有可重放的入口 marker，也没有要放回的源码空格。
+%
+% 编号是局部变量：\tn{parbox}、\env{minipage} 等盒子内部的段落在盒子分组
+% 内取得自己的编号，盒子结束后恢复外层段落的编号，所以链接正文里的这类
+% 段落不会清空外层 capture。段落也可能在普通分组里开始（如
+% |{\leavevmode x}|），分组结束后仍在同一段落中，编号却会随分组恢复成
+% 上一段的值；盒子里的这种段落结束时就会把外层 capture 误认作同一段。
+% 因此段落在普通分组（\tn{currentgrouptype} 为 $1$ 或 $14$）中开始时，
+% 用 \tn{aftergroup} 把编号逐层带出这些分组，直到遇到盒子等其他分组为止。
+% \tn{aftergroup} 只能插入单个记号，编号经全局栈 \cs{g_@@_boundary_par_seq}
+% 传递；分组严格嵌套，入栈与出栈的次序一致。
+%
+% 命令结束时已经处于垂直模式的情形由
+% \cs{@@_boundary_inline_stream_end:n} 单独处理（\#1108），这里不重复。
+%    \begin{macrocode}
+\cs_new_protected:Npn \@@_boundary_par_end:
+  {
+    \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+      {
+        \int_compare:nNnT
+          { \tl_use:c { g_@@_boundary_capture_##1_par_tl } + 0 }
+          = \l_@@_boundary_par_int
+          { \@@_boundary_capture_reset:n {##1} }
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_capture_reset:n #1
+  {
+    \clist_map_inline:nn
+      {
+        before , before_math_space_skip , first , last , entry , tail ,
+        math_tail_space_skip
+      }
+      { \tl_gclear:c { g_@@_boundary_capture_#1_##1_tl } }
+    \clist_map_inline:nn
+      { space_flag , math_tail_flag , math_tail_space_flag }
+      { \tl_gset:cn { g_@@_boundary_capture_#1_##1_tl } { false } }
+  }
+\cs_new_protected:Npn \@@_boundary_par_set:n #1
+  {
+    \int_set:Nn \l_@@_boundary_par_int {#1}
+    \int_case:nnT { \tex_currentgrouptype:D }
+      { { 1 } { } { 14 } { } }
+      {
+        \seq_gpush:Nn \g_@@_boundary_par_seq {#1}
+        \tex_aftergroup:D \@@_boundary_par_carry:
+      }
+  }
+\cs_new_protected:Npn \@@_boundary_par_carry:
+  {
+    \seq_gpop:NN \g_@@_boundary_par_seq \l_@@_boundary_par_tl
+    \exp_args:NV \@@_boundary_par_set:n \l_@@_boundary_par_tl
+  }
+\AddToHook { para/begin }
+  {
+    \int_gincr:N \g_@@_boundary_par_int
+    \exp_args:NV \@@_boundary_par_set:n \g_@@_boundary_par_int
+  }
+\AddToHook { para/end } { \@@_boundary_par_end: }
 %    \end{macrocode}
 % \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
 % 在水平模式的 transparent 命令前后调用，默认什么都不做；\pkg{xeCJKfntef} 用它们在
@@ -5692,6 +5791,12 @@ Copyright and Licence
         g_@@_boundary_capture_\int_use:N
         \g_@@_boundary_capture_depth_int _tail_tl
       }
+    \tl_gset:ce
+      {
+        g_@@_boundary_capture_\int_use:N
+        \g_@@_boundary_capture_depth_int _par_tl
+      }
+      { \int_use:N \l_@@_boundary_par_int }
 %    \end{macrocode}
     % 先把用户定义的 glue 实际排入临时盒并读取为 skip；后面的 e-type 只把
     % 已求值的 skip 数值序列化到本层 tl，不展开原始 \CJKglue/\CJKecglue 定义。
