@@ -1,6 +1,8 @@
 ## [xeCJK-v3.10.7](https://github.com/CTeX-org/ctex-kit/releases/tag/xeCJK-v3.10.7)
 
 - 在用户手册说明已知缺陷：西文字符之后强制断行或结束段落时，行尾不再有 `microtype` 的字符突出，并给出 `\linebreak` 前加空格的绕过办法（#1104）。
+- `hyperref` 链接等流式命令的正文结束段落、命令结束时已处于垂直模式时，不再读取 `\spacefactor`、也不再重放行内 marker，修复 `Improper \spacefactor` 错误（#1108）。
+- 流式命令的正文结束段落、又开始新段落时，新段落开头不再按上一段末尾的类别补 `\CJKecglue` 等边界间距。这是 v3.10.0 起的回退（#1110）。
 - 改用 `\cs_parameter_spec:N` 代替已弃用的 `\cs_argument_spec:N`，避免 l3kernel 2026-09-09 起在调试模式下报错（#1095）。
 - 为 `microtype` 找回歧义字符的槽位时同时设置 `\MT@char@`。此前它仍是 `-1`，`microtype` 因而测量 1 号字形的宽度：回退到 `TS1/cmr` 等 TFM 字体时报 `Cannot use XeTeXglyph` 错误，在 OpenType 字体里则把破折号、引号等字符的突出量算错（#1104）。
 - `siunitx` 的区间、列表、乘积、复数、时长与角度命令左侧紧接汉字时，与直接输入一样补上 `\CJKecglue`；`\unit`、`\qty` 等命令的输出以汉字开头或结尾时（例如汉字单位、设为汉字的连接词），汉字一侧不再多补 `\CJKecglue`。同时适配 `siunitx` 3.6.0 起把整个量放进一个公式的输出方式（#1092）。已知回退：`\numlist`、`\ang` 的参数为空、没有输出时，命令两侧都有源码空格并紧接汉字的写法多出两个 `\CJKecglue`，与其他已注册命令没有输出时相同。此前用 `experiment/boundary-register` 自行注册这些命令的文档需要删去这些注册，否则会报告命令已由 `xeCJK` 处理的错误。

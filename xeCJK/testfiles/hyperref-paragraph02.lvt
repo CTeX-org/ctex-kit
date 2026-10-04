@@ -1,0 +1,115 @@
+\input{regression-test}
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{hyperref}
+\setCJKmainfont{FandolSong-Regular.otf}
+% 链接正文结束段落、又开始新段落（#1110）。直接输入去掉 \href 的同一内容作为
+% 比较基准。正文里的 \par 放进宏，避免 \href 扫描参数时报错。
+\newcommand{\LatinNewPar}{Hello\par\leavevmode}
+\newcommand{\CJKNewPar}{中文\par\leavevmode}
+\newcommand{\GroupNewPar}{{Hello\par\leavevmode}}
+\newcommand{\LatinParCJK}{Hello\par 中}
+\newcommand{\ParCJK}{\par 前}
+% 盒子里的段落在普通分组里开始、在分组外结束；不应影响外层链接。
+\newcommand{\GroupParbox}{\parbox{3cm}{{\leavevmode y}\par}}
+\newcommand{\PlainParbox}{\parbox{3cm}{y}}
+
+\ExplSyntaxOn
+\box_new:N \l_test_box
+% 排出 #1，取出最后一行并去掉行尾的 \parfillskip 等，宽度存入 #2。
+\cs_new_protected:Npn \LastLineWidth #1#2
+  {
+    \vbox_set:Nn \l_tmpa_box
+      {
+        \hsize=300pt \parindent=0pt
+        #1 \par
+        \tex_global:D \tex_setbox:D \l_test_box = \tex_lastbox:D
+      }
+    \hbox_set:Nn \l_tmpb_box
+      { \tex_unhcopy:D \l_test_box \tex_unskip:D \tex_unskip:D \tex_unpenalty:D }
+    \dim_set:Nn #2 { \box_wd:N \l_tmpb_box }
+  }
+\cs_new_protected:Npn \CompareLastLine #1#2#3
+  {
+    \LastLineWidth {#2} \l_tmpa_dim
+    \LastLineWidth {#3} \l_tmpb_dim
+    \TYPE
+      {
+        #1 :~ link = \dim_use:N \l_tmpa_dim ,~ direct = \dim_use:N \l_tmpb_dim
+        \dim_compare:nNnF { \l_tmpa_dim } = { \l_tmpb_dim } { ~ FAIL }
+      }
+  }
+\cs_new_protected:Npn \CompareBoxes #1#2#3
+  {
+    \hbox_set:Nn \l_tmpa_box {#2}
+    \hbox_set:Nn \l_tmpb_box {#3}
+    \TYPE
+      {
+        #1 :~ \dim_use:N \box_wd:N \l_tmpa_box ,~ \dim_use:N \box_wd:N \l_tmpb_box
+        \dim_compare:nNnF { \box_wd:N \l_tmpa_box } = { \box_wd:N \l_tmpb_box }
+          { ~ FAIL }
+      }
+  }
+\cs_new_protected:Npn \AssertBalanced
+  {
+    \int_compare:nNnF { \g__xeCJK_boundary_capture_depth_int } = { 0 }
+      { \TYPE{FAIL:~capture~depth} }
+    \seq_if_empty:NF \g__xeCJK_boundary_active_seq
+      { \TYPE{FAIL:~active~stack} }
+    \seq_if_empty:NF \g__xeCJK_boundary_par_seq
+      { \TYPE{FAIL:~paragraph~stack} }
+  }
+\cs_new_protected:Npn \NewParTests #1
+  {
+    \xeCJKsetup{xCJKecglue=#1}
+    \TEST{new~paragraph~after~link~body~(#1)}
+      {
+        % 新段落开头不得按上一段末尾的类别补边界间距。
+        \CompareLastLine { latin-then-cjk }
+          { \href{u}{\LatinNewPar}前 } { Hello\par\leavevmode 前 }
+        \CompareLastLine { cjk-then-latin }
+          { \href{u}{\CJKNewPar}x } { 中文\par\leavevmode x }
+        \CompareLastLine { group-then-cjk }
+          { \href{u}{\GroupNewPar}前 } { {Hello\par\leavevmode}前 }
+        \CompareLastLine { outer-group-then-cjk }
+          { {\leavevmode A}\href{u}{\LatinNewPar}前 }
+          { {\leavevmode A}Hello\par\leavevmode 前 }
+        \CompareLastLine { nested-links }
+          { \href{a}{x\href{b}{\LatinNewPar}y}前 }
+          { xHello\par\leavevmode y前 }
+        \AssertBalanced
+      }
+    \TEST{new~paragraph~with~visible~content~(#1)}
+      {
+        % 新段落里实际观察到的类别仍要照常处理。
+        \CompareLastLine { cjk-in-new-paragraph }
+          { \href{u}{\LatinParCJK}x } { Hello\par 中x }
+        \CompareLastLine { left-side-in-new-paragraph }
+          { 中\href{u}{\ParCJK}x } { 中\par 前x }
+        \CompareLastLine { space-before-link }
+          { x~\href{u}{\ParCJK}x } { x~\par 前x }
+        \CompareLastLine { space-after-link }
+          { \href{u}{\LatinNewPar}~前 } { Hello\par\leavevmode{}~前 }
+        \AssertBalanced
+      }
+    \TEST{paragraphs~inside~boxes~(#1)}
+      {
+        % 盒子里的段落结束时不得清空外层链接的 capture：分组里开始的段落
+        % 与不分组的写法结果相同。
+        \CompareBoxes { grouped-vs-plain-left }
+          { x\href{u}{\GroupParbox{}}中 } { x\href{u}{\PlainParbox{}}中 }
+        \CompareBoxes { grouped-vs-plain-both }
+          { 中\href{u}{文\GroupParbox{}文}x } { 中\href{u}{文\PlainParbox{}文}x }
+        \AssertBalanced
+      }
+  }
+\ExplSyntaxOff
+\begin{document}
+\OMIT
+\setbox0=\hbox{中文Hello}
+\TIMO
+\START
+\NewParTests{false}
+\NewParTests{true}
+\END
+\end{document}
