@@ -1,0 +1,103 @@
+\input{regression-test}
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{hyperref}
+\setCJKmainfont{FandolSong-Regular.otf}
+\newcommand{\LatinParagraph}{Hello\par}
+\newcommand{\CJKParagraph}{中文\par}
+\newcommand{\EmptyParagraph}{\par}
+
+\ExplSyntaxOn
+\cs_new_protected:Npn \AssertBalanced
+  {
+    \int_compare:nNnF { \g__xeCJK_boundary_capture_depth_int } = { 0 }
+      { \TYPE{FAIL:~capture~depth} }
+    \seq_if_empty:NF \g__xeCJK_boundary_active_seq
+      { \TYPE{FAIL:~active~stack} }
+    \int_compare:nNnF { \g__xeCJK_boundary_suspend_depth_int } = { 0 }
+      { \TYPE{FAIL:~suspend~depth} }
+  }
+\cs_new_protected:Npn \AssertVertical
+  {
+    \mode_if_vertical:F { \TYPE{FAIL:~not~vertical} }
+    \tl_if_empty:NF \g__xeCJK_last_node_tl
+      { \TYPE{FAIL:~stale~node} }
+    \bool_if:NT \g__xeCJK_glue_check_pending_bool
+      { \TYPE{FAIL:~pending~glue} }
+  }
+\cs_new_protected:Npn \ParagraphTests #1
+  {
+    \xeCJKsetup{xCJKecglue=#1}
+    \TEST{paragraph-ending~links~(#1)}
+      {
+        \vbox_set:Nn \l_tmpa_box
+          {
+            \hsize=200pt
+            \href{https://example.com}{\LatinParagraph}
+            \AssertVertical \AssertBalanced
+            \href{https://example.com}{\CJKParagraph}
+            \AssertVertical \AssertBalanced
+            \href{https://example.com}{\EmptyParagraph}
+            \AssertVertical \AssertBalanced
+          }
+        \TYPE{PASS:~paragraph-ending~links}
+      }
+    % 直接检查 stream，避免 annotation 的 special 遮住末节点类型。
+    \TEST{no~vertical~marker~and~nested~captures~(#1)}
+      {
+        \vbox_set:Nn \l_tmpa_box
+          {
+            \hsize=200pt
+            \__xeCJK_boundary_inline_stream_begin:n { auto }
+            \__xeCJK_boundary_inline_stream_begin:n { auto }
+            中文\par
+            \__xeCJK_boundary_inline_stream_end:n { auto }
+            \int_compare:nNnF { \g__xeCJK_boundary_capture_depth_int } = { 1 }
+              { \TYPE{FAIL:~outer~capture~lost} }
+            \AssertVertical
+            \__xeCJK_boundary_inline_stream_end:n { auto }
+            \int_compare:nNnF { \tex_lastnodetype:D } = { 1 }
+              { \TYPE{FAIL:~vertical~list~changed} }
+            \AssertVertical \AssertBalanced
+          }
+        \TYPE{PASS:~nested~captures~closed~without~vertical~markers}
+      }
+    \TEST{inactive~capture~inside~active~capture~(#1)}
+      {
+        \vbox_set:Nn \l_tmpa_box
+          {
+            \hsize=200pt
+            \__xeCJK_boundary_inline_stream_begin:n { auto }
+            \__xeCJK_boundary_capture_suspend:
+            \__xeCJK_boundary_inline_stream_begin:n { auto }
+            Hello\par
+            \__xeCJK_boundary_inline_stream_end:n { auto }
+            \int_compare:nNnF { \g__xeCJK_boundary_capture_depth_int } = { 1 }
+              { \TYPE{FAIL:~inactive~capture~changed~depth} }
+            \__xeCJK_boundary_capture_resume:
+            \__xeCJK_boundary_inline_stream_end:n { auto }
+            \AssertVertical \AssertBalanced
+          }
+        \TYPE{PASS:~inactive~capture~preserves~outer~depth}
+      }
+    \TEST{inline~and~math~links~after~paragraph~links~(#1)}
+      {
+        \hbox_set:Nn \l_tmpa_box { 中Hello文 }
+        \hbox_set:Nn \l_tmpb_box { 中\href{https://example.com}{Hello}文 }
+        \dim_compare:nNnF { \box_wd:N \l_tmpa_box } = { \box_wd:N \l_tmpb_box }
+          { \TYPE{FAIL:~inline~spacing} }
+        \hbox_set:Nn \l_tmpa_box { $\href{https://example.com}{x}$ }
+        \AssertBalanced
+        \TYPE{PASS:~inline~spacing~and~math~capture}
+      }
+  }
+\ExplSyntaxOff
+\begin{document}
+\OMIT
+\setbox0=\hbox{中文Hello}
+\TIMO
+\START
+\ParagraphTests{false}
+\ParagraphTests{true}
+\END
+\end{document}
