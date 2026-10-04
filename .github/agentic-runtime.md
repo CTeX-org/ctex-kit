@@ -32,10 +32,12 @@ Agent 在一次性 runner 中以默认用户运行，并拥有完整本地执行
 - `pull_request_target` 的可信运行时来自 PR base 提交，被审查的 head checkout 只作为数据。
 - Claude 保留 `--bare` 禁用 `CLAUDE.md` 自动发现，避免被审查的仓库向 Agent 注入项目指令。
 
-这套边界不阻止仓库代码读取进程环境中的模型 API key。判断依据是当前贡献者都是仓库协作者。
+这套边界不阻止仓库代码读取进程环境中的模型 API key。判断依据是能触发 Agent 的代码都来自
+本仓库分支，也就是有写权限的协作者。
 
 注意 `pull_request_target` 与 `pull_request` 不同，它对 fork PR 同样提供 secrets，这正是该触发器
-需要谨慎使用的原因。当前的保护来自可信运行时固定在 base 提交，而不是来自 fork 拿不到 secrets；
-而 Agent 拥有完整本地执行权限，一旦它按审查需要运行 head checkout 中的测试或构建脚本，那些脚本
-就能读到密钥。若将来开始接受 fork PR 的自动审查，必须重新引入凭据隔离，或改用不携带 secrets
-的触发方式。
+需要谨慎使用的原因。Agent 拥有完整本地执行权限，一旦它按审查需要运行 head checkout 中的测试或
+构建脚本，那些脚本就能读到密钥。因此 PR Review 在 fork PR 上全部跳过（#1111）：三个 job 都以
+`github.event.pull_request.head.repo.full_name == github.repository` 为条件，不检出也不执行
+fork 代码，不要用 `allow-unsafe-pr-checkout: true` 放行。若将来要自动审查 fork PR，必须先重新
+引入凭据隔离，让 Agent 进程不持有模型密钥。
