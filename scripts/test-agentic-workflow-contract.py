@@ -24,6 +24,8 @@ AGENTIC_WORKFLOWS = (
     "agentic-issue-dispatch.yml",
     "agentic-llmdoc-updater.yml",
 )
+# PR Review 三个 job 共用的 fork 守卫（#1111）：只审查来自本仓库分支的 PR。
+PR_REVIEW_SAME_REPO = "github.event.pull_request.head.repo.full_name == github.repository"
 
 
 def read(path: Path) -> str:
@@ -106,14 +108,21 @@ def assert_pr_review_draft_contract(source: str) -> None:
     ], "PR Review 必须在 Draft PR 打开、同步或重新打开时触发"
 
     jobs = document["jobs"]
-    assert "if" not in jobs["claude_review"], "Claude Code 主审不得按 Draft 状态或其他条件恒定跳过"
+    # fork PR 一律不审查（#1111）。主链路只能按“是否来自 fork”跳过，不得按 Draft
+    # 状态或其他条件跳过；三个 job 都要带同一个守卫，fork PR 上才会全部显示为 skipped。
+    assert jobs["claude_review"].get("if") == PR_REVIEW_SAME_REPO, (
+        "Claude Code 主审必须且只能以“PR 来自本仓库”为条件，fork PR 不得检出或执行 PR 代码"
+    )
     assert jobs["codex_review"].get("needs") == "claude_review", "Codex 兜底必须等待 Claude Code 主审"
     # claude_review 的关键步骤带 continue-on-error（让主链路失败时该 job 不显红），
-    # 因此 needs.claude_review.result 恒为 success，下游必须判 outputs.status。
-    # 这条断言同时守住两件事：兜底只依赖 Claude Code 成败，且判的是那个仍有判别力的信号。
-    assert jobs["codex_review"].get("if") == "always() && needs.claude_review.outputs.status != 'success'", (
-        "Codex 兜底条件必须只取决于 Claude Code 是否成功，且须判 outputs.status 而非 result"
-        "（result 在 continue-on-error 下恒为 success）"
+    # 因此 needs.claude_review.result 不能反映 Agent 成败，下游必须判 outputs.status。
+    # 主链路因 fork 守卫被跳过时 outputs.status 为空字符串，`!= 'success'` 成立，
+    # 所以兜底必须自己再判一次 fork 守卫，不能靠主链路被跳过来连带跳过。
+    assert jobs["codex_review"].get("if") == (
+        f"always() && {PR_REVIEW_SAME_REPO} && needs.claude_review.outputs.status != 'success'"
+    ), (
+        "Codex 兜底条件必须带 fork 守卫，并只取决于 Claude Code 是否成功；须判 outputs.status 而非 result"
+        "（result 在 continue-on-error 下不能反映 Agent 成败）"
     )
     assert jobs["claude_review"].get("outputs", {}).get("status"), (
         "claude_review 必须导出 status output 供下游判断，否则 continue-on-error 会让失败无声通过"
@@ -130,7 +139,13 @@ def assert_pr_review_draft_contract(source: str) -> None:
     assert jobs["publish"].get("needs") == ["claude_review", "codex_review"], (
         "PR publisher 必须等待两条审查链"
     )
-    assert jobs["publish"].get("if") == "always()", "PR publisher 必须在两条审查链结束后运行"
+    assert jobs["publish"].get("if") == f"always() && {PR_REVIEW_SAME_REPO}", (
+        "PR publisher 必须在两条审查链结束后运行，且 fork PR 上同样跳过（否则会报“均执行失败”）"
+    )
+    # fork PR 由 job 级守卫跳过，不靠 checkout 拒绝检出来挡；任何 head 检出都不得放行 fork 代码。
+    assert "allow-unsafe-pr-checkout" not in source, (
+        "PR Review 不得设置 allow-unsafe-pr-checkout：fork PR 一律不检出、不执行 PR 代码"
+    )
 
     publish_steps = unique_steps_by_name(jobs["publish"]["steps"], "PR publisher")
     expected_conditions = {
@@ -1414,30 +1429,63 @@ def main() -> None:
         "      - name: Download Codex review result\n",
         1,
     )
+    claude_guard_line = f"    if: {PR_REVIEW_SAME_REPO}\n"
+    codex_guard_line = (
+        f"    if: always() && {PR_REVIEW_SAME_REPO} && needs.claude_review.outputs.status != 'success'\n"
+    )
+    publish_guard_line = (
+        f"    needs: [claude_review, codex_review]\n    if: always() && {PR_REVIEW_SAME_REPO}\n"
+    )
+    for guard_line in (claude_guard_line, codex_guard_line, publish_guard_line):
+        assert review.count(guard_line) == 1, f"fork 守卫反例的替换锚点必须唯一: {guard_line!r}"
     for broken_review, label in (
         (
-            review.replace(
-                "    name: Review with Claude Code (primary)\n    runs-on:",
-                "    name: Review with Claude Code (primary)\n    if: 0 == 1\n    runs-on:",
-                1,
-            ),
+            review.replace(claude_guard_line, "    if: 0 == 1\n", 1),
             "Claude Code 主审恒假条件",
         ),
         (
+            review.replace(claude_guard_line, "", 1),
+            "Claude Code 主审缺少 fork 守卫",
+        ),
+        (
             review.replace(
-                "    if: always() && needs.claude_review.outputs.status != 'success'\n",
-                "    if: always() && needs.claude_review.outputs.status != 'success' && 0 == 1\n",
+                claude_guard_line,
+                "    if: github.event.pull_request.draft == false\n",
                 1,
             ),
+            "Claude Code 主审改按 Draft 状态跳过",
+        ),
+        (
+            review.replace(codex_guard_line, codex_guard_line[:-1] + " && 0 == 1\n", 1),
             "Codex 兜底恒假条件",
         ),
         (
             review.replace(
-                "    needs: [claude_review, codex_review]\n    if: always()\n",
-                "    needs: [claude_review, codex_review]\n    if: always() && 0 == 1\n",
+                codex_guard_line,
+                "    if: always() && needs.claude_review.outputs.status != 'success'\n",
                 1,
             ),
+            "Codex 兜底缺少 fork 守卫",
+        ),
+        (
+            review.replace(publish_guard_line, publish_guard_line[:-1] + " && 0 == 1\n", 1),
             "publisher 恒假条件",
+        ),
+        (
+            review.replace(
+                publish_guard_line,
+                "    needs: [claude_review, codex_review]\n    if: always()\n",
+                1,
+            ),
+            "publisher 缺少 fork 守卫",
+        ),
+        (
+            review.replace(
+                "          persist-credentials: false\n",
+                "          persist-credentials: false\n          allow-unsafe-pr-checkout: true\n",
+                1,
+            ),
+            "head 检出放行 fork 代码",
         ),
         (
             review.replace("    needs: claude_review\n", "", 1),

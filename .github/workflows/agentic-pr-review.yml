@@ -1,6 +1,13 @@
 # 自动审查 PR：Claude Code (claude-opus-5-5) 为主链路，失败时由 Codex
 # (gpt-6.1-sol) fallback。两个 Agent 都拥有完整的本地执行权限，但所在 job 的
 # GitHub token 只有只读权限且不注入 Agent 进程；评论由隔离的发布 job 代发。
+#
+# fork PR 一律不审查（#1111）：Agent 进程持有模型 API key，又会在 PR head 上运行
+# l3build 等构建脚本，fork 作者可以借这些脚本读取密钥。三个 job 都以
+# `github.event.pull_request.head.repo.full_name == github.repository` 为条件，fork PR
+# 上全部显示为 skipped，不检出也不执行 PR 代码。条件必须三处都写：被跳过的
+# claude_review 的 outputs.status 是空字符串，codex_review 和 publish 又带 always()，
+# 只守住主链路会让 fallback 照常运行。
 name: Agentic PR Review
 
 on:
@@ -18,15 +25,18 @@ jobs:
   # Git 凭据；Agent 步骤本身仅收到模型 API key，不收到 GitHub token 或 PAT。
   claude_review:
     name: Review with Claude Code (primary)
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       pull-requests: read
-    # 主链路失败由 fallback 兜住，整体结论在 publish job 里给出，所以这个 job 本身
-    # 不再以红叉示人：CLI 与校验步骤都带 continue-on-error，成败通过 outputs.status
-    # 传给下游。后续 job 一律判这个 output，不要判 needs.claude_review.result —— 带了
-    # continue-on-error 之后那个值恒为 success。
+    # 主链路失败由 fallback 兜住，整体结论在 publish job 里给出。Agent CLI 与结果
+    # 校验两步带 continue-on-error，它们失败时这个 job 不显红，成败通过
+    # outputs.status 传给下游。checkout、工具安装、输入准备等前置步骤没有
+    # continue-on-error，它们失败时这个 job 仍会显红；汇总 step 带 always()，照样输出
+    # status=failure，fallback 照常接手。后续 job 一律判这个 output，不要判
+    # needs.claude_review.result —— 带了 continue-on-error 之后那个值不能反映 Agent 成败。
     outputs:
       status: ${{ steps.status.outputs.status }}
     steps:
@@ -298,7 +308,7 @@ jobs:
   codex_review:
     name: Review with Codex (fallback)
     needs: claude_review
-    if: always() && needs.claude_review.outputs.status != 'success'
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository && needs.claude_review.outputs.status != 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -537,7 +547,7 @@ jobs:
   publish:
     name: review
     needs: [claude_review, codex_review]
-    if: always()
+    if: always() && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
