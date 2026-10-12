@@ -446,10 +446,12 @@ Boundary→Default 与 Boundary→CJK 现在使用相同的检查（#996，PR #1
 **stream 正文跨段落（#1108、#1110）**：stream 的正文直接写进外层列表，可能经宏执行 `\par`（如 `\href{..}{\blocktext}`，`\blocktext` 定义为 `Hello\par`）。capture 记录的入口 marker、入口源码空格和首尾类别都属于命令开始时的段落，段落结束后就过期了，分两种情形处理：
 
 - 命令结束时已在垂直模式（#1108）：`\@@_boundary_inline_stream_end:n` 不调用 `\@@_boundary_hmode_stream_end:n`，只清空 `\g_@@_last_node_tl` 与 source-space pending，再关闭 capture。原来的路径会在垂直模式读取 `\spacefactor`（报 `Improper \spacefactor`），并把 marker 的 kern 写进垂直列表。
-- 正文又开始了新段落，命令结束时回到水平模式（#1110）：每个段落在 `para/begin` 中取得新编号 `\l_@@_boundary_par_int`，capture 开始时把它记进本层的 `par_tl` 字段；`para/end` 由 `\@@_boundary_par_end:` 把在这一段开始的各层 capture 经 `\@@_boundary_capture_reset:n` 恢复到刚开始的状态（清空 `before`、`first`、`last`、`entry`、`tail` 等字段，`space_flag` 置 false）。之后新段落里的内容照常报告首尾类别：`\href{..}{Hello\par 中}x` 仍按“中”重放 CJK marker；什么都没观察到时没有可重放的 marker，也没有要放回的空格。修复前，新段落开头会按上一段末尾的类别多出一枚 `\CJKecglue`，`xCJKecglue=true` 时 `x \href{..}{\par 前}x` 还会多出入口空格对应的间距。
-- 编号必须是局部变量：`\parbox`、`minipage` 等盒子里的段落在盒子分组内取得自己的编号，盒子结束后恢复外层编号，盒子里的 `para/end` 才不会清空外层链接的 capture。段落在普通分组（`\currentgrouptype` 为 1 或 14）里开始时，分组结束后仍在同一段落，局部编号却会恢复成上一段的值；`\@@_boundary_par_set:n` 因此用 `\aftergroup` 把编号逐层带出这些分组，直到遇到盒子等其他分组为止，编号经全局栈 `\g_@@_boundary_par_seq` 传递。不带出时，`x\href{u}{\parbox{3cm}{{\leavevmode y}\par}}中` 会比不分组的写法少 3.33pt（盒子里的 `para/end` 读到恢复后的外层编号，误清了外层 capture）；`hyperref-paragraph02` 的 `grouped-vs-plain-left` 固定这一点。
+- 正文结束一个或多个段落、命令结束时回到水平模式（#1110）：capture 只跟随一个段落。每个段落在 `para/begin` 中取得新编号 `\l_@@_boundary_par_int`（局部变量），capture 开始时把它记进本层 `par_tl`。`para/end` 结束这一段时，由 `\@@_boundary_par_end:` 把跟随这一段的各层 capture 经 `\@@_boundary_capture_reset:n` 恢复到刚开始的状态（清空 `before`、`first`、`last`、`entry`、`tail`，`space_flag` 置 false），并把 `par_tl` 改成 `p<编号>`（等待这一段之后的下一段）。同一层的下一段在 `para/begin` 中由 `\@@_boundary_par_begin:` 认领：对 `par_tl` 为 `p<当前段>` 的层再重置一次（丢掉两段之间垂直模式里观察到的内容，例如 `\vbox` 里的字符），再改记新段落编号。于是正文结束几段，capture 就依次跟随几段，命令结束时只按最后一段里实际观察到的类别处理。
+- `\parbox`、`minipage`、`\vbox` 等盒子会继承外层编号，所以每个 `\vbox`／`\vtop`／`\vcenter` 开始时由 `\everyvbox` 调用 `\@@_boundary_par_box:` 换新编号，盒子里的段落就不会认领外层 capture。段落在普通分组（`\currentgrouptype` 为 1 或 14，如 `{\leavevmode x}`、`center`）里开始时，分组结束后仍在同一段落，局部编号却会随分组恢复；`\@@_boundary_par_set:n` 用 `\aftergroup` 把编号逐层带出这些分组（经全局栈 `\g_@@_boundary_par_seq` 传递单个记号），直到遇到盒子等其他分组。`\everyvbox` 被其他宏包整体改写时（`ulem` 在装饰正文里会这样），盒子里的段落可能认领外层 capture，退回“只处理第一段”的结果，不会报错。
 
-两种情形分别由 `hyperref-paragraph01`（#1108）与 `hyperref-paragraph02`（#1110）覆盖，后者以去掉 `\href` 的直接输入为比较基准。
+两种情形分别由 `hyperref-paragraph01`（#1108）与 `hyperref-paragraph02`（#1110）覆盖，后者以去掉 `\href` 的直接输入为比较基准，含两段、三段、段落之间排 `\vbox`／`center`／`itemize`／脚注等用例。
+
+这条处理只覆盖“正文里有段落结束”。正文里的盒子、脚注等把字符排进不属于 stream 列表的盒子，字符类别仍被报告给外层 capture，于是 `中\href{..}{\hbox{y}}文`、`中\href{..}{\parbox{3cm}{y}}文`、`x\href{..}{\footnote{y}}中` 两侧与直接输入不一致（v3.10.0／v3.10.4 起的回退，与段落无关），另见 doc-gaps 与 #1114。
 
 剩余适配器只处理第三方私有签名、扫描时机、加载时序或命令内部排版语义，均复用共享 begin/end 和 marker/glue 原语。详细决策见 [[../memory/decisions/992-command-boundary-capture-register]]；测试方法见 [[../reference/build-and-test]]。#873/#880/#910/#931/#972、#826/#830/#831 与 #991 的旧 decision/reflection 记录演进路径，不能再当作当前实现说明。
 
