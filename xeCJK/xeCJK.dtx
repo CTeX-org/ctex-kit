@@ -4785,8 +4785,7 @@ Copyright and Licence
 \int_new:N \g_@@_boundary_suspend_depth_int
 \int_new:N \g_@@_boundary_par_int
 \int_new:N \l_@@_boundary_par_int
-\seq_new:N \g_@@_boundary_par_seq
-\tl_new:N \l_@@_boundary_par_tl
+\int_new:N \l_@@_boundary_par_carry_level_int
 \seq_new:N \g_@@_boundary_active_seq
 \prop_new:N \g_@@_boundary_registered_prop
 \prop_new:N \g_@@_boundary_reserved_prop
@@ -5553,8 +5552,15 @@ Copyright and Licence
 % 上一段的值；盒子里的这种段落结束时就会把外层 capture 误认作同一段。
 % 因此段落在普通分组（\tn{currentgrouptype} 为 $1$ 或 $14$）中开始时，
 % 用 \tn{aftergroup} 把编号逐层带出这些分组，直到遇到盒子等其他分组为止。
-% \tn{aftergroup} 只能插入单个记号，编号经全局栈 \cs{g_@@_boundary_par_seq}
-% 传递；分组严格嵌套，入栈与出栈的次序一致。
+% 编号存放在按 \tn{currentgrouplevel} 索引的全局槽位
+% |g_@@_boundary_par_level_<层级>_tl| 中，分组结束时由
+% \cs{@@_boundary_par_carry:} 读取上一层的槽位。槽位按需用 \cs{tl_new:c}
+% 建立，数目只取决于出现过的分组深度；用 tl 而不用 int，避免每建一个槽位
+% 都分配一个计数器寄存器。同一分组层级至多登记一次
+% \tn{aftergroup}（\cs{l_@@_boundary_par_carry_level_int} 记下已登记的层级，
+% 随分组局部恢复），后面的段落只更新槽位：把正文整体包在 \tn{begingroup}
+% 一类环境（\pkg{setspace} 的 \env{spacing} 等）里排大量段落时，
+% \tn{aftergroup} 与槽位的数目都不随段落数增长。
 %
 % 命令结束时已经处于垂直模式的情形由
 % \cs{@@_boundary_inline_stream_end:n} 单独处理（\#1108），这里不重复。
@@ -5612,14 +5618,31 @@ Copyright and Licence
     \int_case:nnT { \tex_currentgrouptype:D }
       { { 1 } { } { 14 } { } }
       {
-        \seq_gpush:Nn \g_@@_boundary_par_seq {#1}
-        \tex_aftergroup:D \@@_boundary_par_carry:
+        \tl_if_exist:cF
+          { g_@@_boundary_par_level_ \int_use:N \tex_currentgrouplevel:D _tl }
+          {
+            \tl_new:c
+              { g_@@_boundary_par_level_ \int_use:N \tex_currentgrouplevel:D _tl }
+          }
+        \tl_gset:ce
+          { g_@@_boundary_par_level_ \int_use:N \tex_currentgrouplevel:D _tl }
+          {#1}
+        \int_compare:nNnF
+          { \l_@@_boundary_par_carry_level_int } = { \tex_currentgrouplevel:D }
+          {
+            \int_set:Nn \l_@@_boundary_par_carry_level_int
+              { \tex_currentgrouplevel:D }
+            \tex_aftergroup:D \@@_boundary_par_carry:
+          }
       }
   }
 \cs_new_protected:Npn \@@_boundary_par_carry:
   {
-    \seq_gpop:NN \g_@@_boundary_par_seq \l_@@_boundary_par_tl
-    \exp_args:NV \@@_boundary_par_set:n \l_@@_boundary_par_tl
+    \exp_args:Nv \@@_boundary_par_set:n
+      {
+        g_@@_boundary_par_level_
+        \int_eval:n { \tex_currentgrouplevel:D + 1 } _tl
+      }
   }
 \AddToHook { para/begin } { \@@_boundary_par_begin: }
 \AddToHook { para/end } { \@@_boundary_par_end: }
