@@ -1,0 +1,54 @@
+% PR #1113 修复前后对比图。编译：
+%   xelatex "\def\LABEL{master 60176007}\input{issue1110-before-after}"
+% 用 TEXINPUTS 指定要比较的 xeCJK 版本。
+\documentclass{article}
+\usepackage[paperwidth=12.6cm,paperheight=12.2cm,margin=4mm]{geometry}
+\usepackage{xeCJK}
+\usepackage{hyperref}
+\usepackage{tikz,xcolor}
+\setCJKmainfont{FandolSong-Regular.otf}
+\providecommand\LABEL{}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\newcommand{\NewPar}{Hello\par\leavevmode}
+\newcommand{\NewParCJK}{中文\par\leavevmode}
+\newcommand{\TwoPar}{a\par b\par\leavevmode}
+\newcommand{\ThreePar}{a\par b\par c\par\leavevmode}
+\newcommand{\BoxPar}{a\par\vbox{\hsize=3cm b\par}\leavevmode}
+\newcommand{\CenterPar}{a\begin{center}b\end{center}c\par\leavevmode}
+\newbox\LinkLine \newbox\DirectLine
+\newlength\Extra
+% 排出 #2，取出最后一行并去掉行尾的 \parfillskip 等，存入盒子 #1。
+\newcommand\LastLine[2]{%
+  \setbox0=\vbox{\hsize=200pt \parindent=0pt #2\par
+    \global\setbox#1=\lastbox}%
+  \global\setbox#1=\hbox{\unhbox#1\unskip\unskip\unpenalty}}
+% #1 标题；#2 链接写法；#3 直接输入。画出两者最后一行，并标出宽度差。
+\newcommand\row[3]{%
+  \LastLine\LinkLine{#2}\LastLine\DirectLine{#3}%
+  \setlength\Extra{\dimexpr\wd\LinkLine-\wd\DirectLine\relax}%
+  \begin{tikzpicture}[baseline=0pt,x=1pt,y=1pt]
+    \node[anchor=east,font=\scriptsize\ttfamily,text=gray,align=right] at (-6,3) {#1};
+    \node[anchor=base west,inner sep=0pt] at (0,0) {\copy\LinkLine};
+    \ifdim\Extra=0pt
+      \node[anchor=west,font=\scriptsize,text=green!40!black] at (34,3) {与直接输入等宽};
+    \else
+      \fill[red,opacity=.4] (0,-3) rectangle ++(\Extra,13);
+      \node[anchor=west,font=\scriptsize,text=red] at (34,3) {多 \the\Extra};
+    \fi
+  \end{tikzpicture}\par\smallskip}
+\begin{document}
+\colorbox{yellow!40}{\small xeCJK \LABEL}\par\smallskip
+{\scriptsize 每行是链接正文结束段落之后新段落的最后一行（“后”“x”是新段落里的字）。红色是比删去 \texttt{\textbackslash href} 的直接输入多出的间距。}\par\medskip
+\hspace*{3.7cm}\begin{minipage}{8.2cm}
+\row{Hello\textbackslash par}{\href{u}{\NewPar}后}{Hello\par\leavevmode 后}
+\row{中文\textbackslash par，后接西文}{\href{u}{\NewParCJK}x}{中文\par\leavevmode x}
+\row{两段}{\href{u}{\TwoPar}后}{a\par b\par\leavevmode 后}
+\row{三段}{\href{u}{\ThreePar}后}{a\par b\par c\par\leavevmode 后}
+\row{两段之间有 \textbackslash vbox}{\href{u}{\BoxPar}后}{a\par\vbox{\hsize=3cm b\par}\leavevmode 后}
+\row{center 环境}{\href{u}{\CenterPar}后}{a\begin{center}b\end{center}c\par\leavevmode 后}
+\end{minipage}
+
+\medskip
+{\scriptsize\#1108：正文以 \texttt{\textbackslash par} 结束、命令结束时在垂直模式的写法，修复前报 \texttt{Improper \textbackslash spacefactor}，见 issue1110-mwe.tex。}
+\end{document}
