@@ -65,8 +65,37 @@
       { \TYPE{FAIL:~capture~depth} }
     \seq_if_empty:NF \g__xeCJK_boundary_active_seq
       { \TYPE{FAIL:~active~stack} }
-    \seq_if_empty:NF \g__xeCJK_boundary_par_seq
-      { \TYPE{FAIL:~paragraph~stack} }
+    \int_compare:nNnF { \g__xeCJK_boundary_suspend_depth_int } = { 0 }
+      { \TYPE{FAIL:~suspend~depth} }
+  }
+% 在 \begingroup 一类环境里排 #1 个段落，数分组结束时 \__xeCJK_boundary_par_carry:
+% 执行了几次。每个分组层级至多登记一次 \aftergroup，次数只取决于分组层数
+% （\group_begin: 与 \vbox_set:Nn 内部的分组），与段落数无关，1 段与 500 段
+% 结果相同；逐段登记时次数随段落数增长，排版时间按段落数平方增长（PR #1113 审查）。
+\int_new:N \g_test_carry_int
+\cs_new_protected:Npn \ManyParagraphsInGroup #1
+  {
+    \int_gzero:N \g_test_carry_int
+    \cs_set_eq:NN \test_orig_carry: \__xeCJK_boundary_par_carry:
+    \cs_gset_protected:Npn \__xeCJK_boundary_par_carry:
+      { \int_gincr:N \g_test_carry_int \test_orig_carry: }
+    \vbox_set:Nn \l_tmpa_box
+      {
+        \hsize=200pt
+        \group_begin:
+          \prg_replicate:nn {#1} { x \par }
+        \group_end:
+      }
+    \cs_gset_eq:NN \__xeCJK_boundary_par_carry: \test_orig_carry:
+    \TYPE { #1~paragraphs~in~a~group:~carry~ran~\int_use:N \g_test_carry_int \c_space_tl times }
+  }
+\cs_new_protected:Npn \ManyParagraphTests
+  {
+    \TEST{many~paragraphs~inside~a~group}
+      {
+        \ManyParagraphsInGroup { 1 }
+        \ManyParagraphsInGroup { 500 }
+      }
   }
 \cs_new_protected:Npn \NewParTests #1
   {
@@ -143,5 +172,6 @@
 \START
 \NewParTests{false}
 \NewParTests{true}
+\ManyParagraphTests
 \END
 \end{document}
