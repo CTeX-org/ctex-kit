@@ -4600,6 +4600,8 @@ Copyright and Licence
 %   \@@_boundary_hmode_stream_end:n,
 %   \@@_boundary_par_end:,
 %   \@@_boundary_capture_reset:n,
+%   \@@_boundary_par_begin:,
+%   \@@_boundary_par_box:,
 %   \@@_boundary_par_set:n,
 %   \@@_boundary_par_carry:,
 %   \@@_boundary_hmode_transparent_begin:,
@@ -5521,21 +5523,32 @@ Copyright and Licence
   }
 %    \end{macrocode}
 %
-% \changes{v3.10.7}{2026/10/05}{流式命令的正文结束段落、又开始新段落时，
-%   新段落开头不再按上一段末尾的类别补 \tn{CJKecglue} 等边界间距。
+% \changes{v3.10.7}{2026/10/05}{流式命令的正文结束一个或多个段落、又开始新段落时，
+%   新段落开头不再按之前段落里的类别补 \tn{CJKecglue} 等边界间距；正文在段落之间
+%   排有 \tn{vbox}、\env{center}、列表等内容时也是如此。
 %   这是 v3.10.0 起的回退（\#1110）。}
 %
 % 流式命令的正文结束段落之后，若又开始新段落，命令结束时已回到水平模式，
-% 但 capture 记录的入口 marker、源码空格和首尾类别都属于上一段：按它们重放，
-% 新段落开头就会多出边界间距（\#1110）。因此每个段落在 |para/begin| 中取得
-% 新编号，capture 开始时记下当前编号；|para/end| 结束某一段时，把在这一段里
-% 开始的各层 capture 恢复到刚开始、尚未观察到任何内容的状态。之后新段落中的
-% 内容照常报告首尾类别，命令结束时只按新段落里实际观察到的类别处理；
-% 什么都没观察到时没有可重放的入口 marker，也没有要放回的源码空格。
+% 但 capture 记录的入口 marker、源码空格和首尾类别都属于之前的段落：按它们
+% 重放，新段落开头就会多出边界间距（\#1110）。因此 capture 只跟随一个段落：
+% 每个段落在 |para/begin| 中取得新编号，capture 开始时记下当前编号。
+% |para/end| 结束这一段时，把跟随这一段的各层 capture 恢复到刚开始、尚未
+% 观察到任何内容的状态，并把记下的编号改为“等待这一段之后的下一段”（在编号
+% 前加 |p|）。同一层的下一段在 |para/begin| 中认领这些 capture：再重置一次，
+% 丢掉两段之间（垂直模式里）观察到的内容，例如两段之间 \tn{vbox} 里的字符；
+% 然后改记新段落的编号。这样正文结束几个段落，capture 就依次跟随几个段落，
+% 命令结束时只按最后一段里实际观察到的类别处理；什么都没观察到时没有可重放的
+% 入口 marker，也没有要放回的源码空格。
 %
 % 编号是局部变量：\tn{parbox}、\env{minipage} 等盒子内部的段落在盒子分组
 % 内取得自己的编号，盒子结束后恢复外层段落的编号，所以链接正文里的这类
-% 段落不会清空外层 capture。段落也可能在普通分组里开始（如
+% 段落不会清空外层 capture。“同一层的下一段”靠编号判断：认领时当前编号必须
+% 正是 capture 等待的那一段。盒子会继承外层的编号，所以每个 \tn{vbox}（以及
+% \tn{vtop}、\tn{vcenter}）开始时由 \tn{everyvbox} 调用
+% \cs{@@_boundary_par_box:} 换上新编号，盒子里的第一段就不会认领外层的
+% capture。\tn{everyvbox} 原有的内容保留在前面；其他宏包之后整体改写
+% \tn{everyvbox} 时（\pkg{ulem} 在装饰正文里会这样做），盒子里的段落可能认领
+% 外层 capture，结果与只处理第一段时相同，不会报错。段落也可能在普通分组里开始（如
 % |{\leavevmode x}|），分组结束后仍在同一段落中，编号却会随分组恢复成
 % 上一段的值；盒子里的这种段落结束时就会把外层 capture 误认作同一段。
 % 因此段落在普通分组（\tn{currentgrouptype} 为 $1$ 或 $14$）中开始时，
@@ -5550,11 +5563,36 @@ Copyright and Licence
   {
     \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
       {
-        \int_compare:nNnT
-          { \tl_use:c { g_@@_boundary_capture_##1_par_tl } + 0 }
-          = \l_@@_boundary_par_int
-          { \@@_boundary_capture_reset:n {##1} }
+        \str_if_eq:eeT
+          { \tl_use:c { g_@@_boundary_capture_##1_par_tl } }
+          { \int_use:N \l_@@_boundary_par_int }
+          {
+            \@@_boundary_capture_reset:n {##1}
+            \tl_gset:ce { g_@@_boundary_capture_##1_par_tl }
+              { p \int_use:N \l_@@_boundary_par_int }
+          }
       }
+  }
+\cs_new_protected:Npn \@@_boundary_par_begin:
+  {
+    \int_gincr:N \g_@@_boundary_par_int
+    \int_step_inline:nn { \g_@@_boundary_capture_depth_int }
+      {
+        \str_if_eq:eeT
+          { \tl_use:c { g_@@_boundary_capture_##1_par_tl } }
+          { p \int_use:N \l_@@_boundary_par_int }
+          {
+            \@@_boundary_capture_reset:n {##1}
+            \tl_gset:ce { g_@@_boundary_capture_##1_par_tl }
+              { \int_use:N \g_@@_boundary_par_int }
+          }
+      }
+    \exp_args:NV \@@_boundary_par_set:n \g_@@_boundary_par_int
+  }
+\cs_new_protected:Npn \@@_boundary_par_box:
+  {
+    \int_gincr:N \g_@@_boundary_par_int
+    \int_set_eq:NN \l_@@_boundary_par_int \g_@@_boundary_par_int
   }
 \cs_new_protected:Npn \@@_boundary_capture_reset:n #1
   {
@@ -5583,12 +5621,10 @@ Copyright and Licence
     \seq_gpop:NN \g_@@_boundary_par_seq \l_@@_boundary_par_tl
     \exp_args:NV \@@_boundary_par_set:n \l_@@_boundary_par_tl
   }
-\AddToHook { para/begin }
-  {
-    \int_gincr:N \g_@@_boundary_par_int
-    \exp_args:NV \@@_boundary_par_set:n \g_@@_boundary_par_int
-  }
+\AddToHook { para/begin } { \@@_boundary_par_begin: }
 \AddToHook { para/end } { \@@_boundary_par_end: }
+\tex_everyvbox:D \exp_after:wN
+  { \tex_the:D \tex_everyvbox:D \@@_boundary_par_box: }
 %    \end{macrocode}
 % \cs{@@_boundary_transparent_begin_hook:} 与 \cs{@@_boundary_transparent_end_hook:}
 % 在水平模式的 transparent 命令前后调用，默认什么都不做；\pkg{xeCJKfntef} 用它们在
