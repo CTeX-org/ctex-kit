@@ -1,0 +1,44 @@
+% #1114 复现：命令正文里用户写的盒子、脚注被当作命令自己的首尾类别
+% 每组上一行是命令包裹的写法，下一行是删去外层命令的直接输入；
+% 正确时两行等宽。上一行用灰框标出盒子（只为显示位置，宽度按不加框的写法量取），
+% 右侧给出两行的宽度差。
+\documentclass{article}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage[colorlinks,urlcolor=blue]{hyperref}
+\setCJKmainfont{FandolSong-Regular.otf}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\newcommand{\HB}{\fboxsep=0pt\fboxrule=0.2pt\textcolor{gray}{\fbox{\textcolor{black}{y}}}}
+\newcommand{\RawHB}{\hbox{y}}
+\newcommand{\PB}{\parbox{2.5cm}{y}}
+\newcommand{\FN}{\footnote{y}}
+\renewcommand{\thefootnote}{1}
+\newcommand{\SH}{\setbox0=\hbox{y}}
+\newcommand{\SBX}{\sbox0{y}}
+\newlength{\candwd}
+\newlength{\directwd}
+% #1 名称，#2 包裹写法（宽度量取），#3 直接输入，#4 可视化用写法
+\newcommand{\Row}[4]{%
+  \settowidth{\candwd}{#2}\settowidth{\directwd}{#3}%
+  \par\medskip
+  \makebox[11em][l]{\small\texttt{#1}}%
+  \makebox[9em][l]{\large #4}%
+  \makebox[9em][r]{\small\the\candwd}%
+  \ifdim\candwd=\directwd \textcolor{green!50!black}{\quad 一致}%
+  \else \textcolor{red}{\quad 差 \the\dimexpr\candwd-\directwd\relax}\fi
+  \typeout{ROW #1: cand=\the\candwd, direct=\the\directwd}%
+  \par
+  \makebox[11em][l]{}%
+  \makebox[9em][l]{\large #3}%
+  \makebox[9em][r]{\small\the\directwd}\par}
+\begin{document}
+\section*{xeCJK \#1114 复现（master \texttt{e07fcbf2}）}
+\Row{href + \textbackslash hbox}{中\href{u}{\RawHB}文}{中\RawHB{}文}{中\href{u}{\HB}文}
+\Row{href + \textbackslash hbox（西文侧）}{x\href{u}{\RawHB}中}{x\RawHB{}中}{x\href{u}{\HB}中}
+\Row{href + \textbackslash parbox}{中\href{u}{\PB}文}{中\PB{}文}{中\href{u}{\PB}文}
+\Row{mbox + \textbackslash hbox}{中\mbox{\RawHB}文}{中\RawHB{}文}{中\mbox{\HB}文}
+\Row{href + 脚注}{x\href{u}{\FN}中}{x\FN{}中}{x\href{u}{\FN}中}
+\Row{href + \textbackslash setbox}{x\href{u}{\SH 文}x}{x\SH 文x}{x\href{u}{\SH 文}x}
+\Row{href + \textbackslash sbox（对照）}{x\href{u}{\SBX 文}x}{x\SBX 文x}{x\href{u}{\SBX 文}x}
+\end{document}
