@@ -1443,6 +1443,46 @@ pgf 这条漂移的机制：`pgfsys.code.tex:54-55` 的 `\pgf@sys@bp@correct` �
 
 **判定「必须刷」之后，还要逐份核对 diff 的具体内容，否则会把上游的新缺陷一起冻结进基线。** #1080 的两个实例都先确认了 diff 的内容性质才敢 save：`tocloft` 侧新增的**只有**净宽为零的 kern 对（8 份 diff 各 4 行新增、0 行删除，无任何非 kern 的新增行）；`fontspec` 侧**只有**文件名行删除（4 份 diff 各少一行，无其它变化）。没有节点丢失、没有数值变化、没有 ctex 补丁失效的迹象。若某份 diff 里除了这类「安全信号」还夹带节点缺失或数值变化，要先查本包对该上游包的补丁在新版下是否仍成立，不能直接 `l3build save`。
 
+### 文本下划线不再进入数学模式（#1119）
+
+LaTeX2e 2026-11-01 启用了 [latex3/latex2e#2133](https://github.com/latex3/latex2e/pull/2133)
+的文本下划线实现（提交 `8a08ba22c73d5d055a24d2b75b4bc747d8adad20`，
+`base/ltboxes.dtx`）。旧版 `\underline` 在文本中通过
+`$\@@underline{\hbox{#1}}\m@th$` 临时进入数学模式；新版文本分支改用
+`\underline@text` 构造盒子和横线，数学分支仍用原语。XeTeX 下，文本分支的线宽取
+`\fontdimen8\textfont3`，上方间距为其三倍，下方额外深度为其一倍。
+这既会移除 `\mathon`／`\mathoff` 节点，也可能改变横线粗细、间距和外层盒子的深度，
+不是单纯的日志格式变化。
+
+#1119 的失败只涉及两项 XeTeX 基线：
+
+- `ctex/test/testfiles-contrib/thuthesis.lvt`：`\statement` 的签名、日期横线经
+  `\thu@underline` 调用内核 `\underline`。
+- `ctex/test/testfiles-ctxdoc/resize-function.lvt`：`pTF` 后缀经上游 l3doc 的
+  `\__codedoc_typeset_TF:` 调用 `\underline`。水平缩放因子和宽度不变，后缀横线与包含它的
+  各层盒子深度变化；ctxdoc 的压缩补丁没有失效。
+
+[失败运行](https://github.com/CTeX-org/ctex-kit/actions/runs/41527610081) 与前两周的成功运行
+使用同一提交 `e07fcbf264571942530bea9bbcdf39039aab2c41`；失败运行的 Linux 预热日志明确显示
+周缓存未命中，重新安装了 TeX Live。Linux、Windows 各有上述两份失败 diff，
+`xeCJK`、`xpinyin` 的 Linux、Windows 任务均通过；三个包的 macOS 任务被取消，不能把
+issue 正文的 `abandoned` 聚合状态当作三个包都出现了回归。
+
+本地更新至新内核后，两份输出的增删行与 CI artifact 一致；在同一环境中只临时恢复旧版
+`\underline`，两个测试就都通过原基线。因此按上游有意变更处理，用 `l3build save`
+重新生成这两份 `.tlg`，不改运行时代码、不提高最低内核依赖，也不在测试中长期恢复旧实现。
+复现和重新生成命令（在 `ctex/` 下依次执行）：
+
+```bash
+l3build check -c test/config-contrib thuthesis
+l3build check -c test/config-ctxdoc resize-function
+# 核实差异和上游变更后再生成：
+l3build save -c test/config-contrib thuthesis
+l3build save -c test/config-ctxdoc resize-function
+l3build check -c test/config-contrib
+l3build check -c test/config-ctxdoc
+```
+
 ### 上游激活弃用（#1095）
 
 l3kernel 2026-09-09（上游提交 `03b50f7e`、`17c031ed`）激活了两组早已宣布的弃用：`\cs_argument_spec:N` → `\cs_parameter_spec:N`，`\keys_set_filter:*` → `\keys_set_exclude_groups:*`。激活后，开启 `\debug_on:n { deprecation }` 或 `{ all }` 的测试一用到旧名就立即报错：xeCJK 的 `loading01` 用 `{ all }`，zhnumber 的 `deprecation01` 用 `{ deprecation }`。ctex 经 `checkdeps`（`ctex/build.lua:31`）加载仓库里的 zhnumber，因此 ctex 也跟着红。
@@ -1549,7 +1589,13 @@ regression 路径（`l3build check`）上它表现为 `.tlg` 红：`\special{pdf
 
 ## 本地 TeX Live usertree 同步
 
-仓库在 PR #883 中声明了 LaTeX2e 2026-06-01 作为最低依赖。CI 通过 `setup-texlive-action@v4 + update-all-packages: true` 每次拉 TLnet 最新版（含最新 LaTeX2e 内核与 hyperref / graphics 等包），所以 CI 始终对齐。本地若用冻结发行版（如 Homebrew TeX Live），需要靠 `tlmgr` 的 **usermode** 维护一个用户树跟进。
+仓库在 PR #883 中声明了 LaTeX2e 2026-06-01 作为最低依赖。CI 在 TL bypass 周缓存未命中时通过 `setup-texlive-action@v4 + update-all-packages: true` 拉取 TLnet 最新版；命中缓存时复用已有快照，因此 CI 通过不等于已经验证当前上游。本地若用冻结发行版（如 Homebrew TeX Live），可以靠 `tlmgr` 的 **usermode** 维护一个用户树跟进。
+
+若使用自己可写的完整官方安装，则直接运行 `tlmgr update --self --all`，不需要另建 usertree。
+更新后检查日志中的格式重建结果，并用实际编译的 `LaTeX2e <日期>` 核对内核已生效；
+还要确认 `kpsewhich -var-value=TEXMFROOT` 指向期望的安装，避免 PATH 中旧入口选中另一份。
+从其他账户复制安装时要复制完整的 `texlive/` 目录（包含 `texmf-dist`、格式文件及同级
+`texmf-local`），不能只复制 `bin/`；迁移前的包装脚本、环境变量也可能仍指向旧账户。
 
 ### 双步同步流程
 
@@ -1581,14 +1627,17 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 | 指纹 | 含义 |
 |------|------|
 | 前几行出现 `LaTeX Warning: You have requested release '<日期>' of LaTeX` | 本地 LaTeX2e 内核 < 仓库声明的最低日期（通常即 #883 的 2026-06-01）|
-| diff 出现 `\mathon` / `\mathoff` 节点 或 `$[]$` 风格 Overfull 标记 | 本地 LaTeX / hyperref / graphics 的 `\showbox` 实现旧版 |
+| diff 中 `\mathon`／`\mathoff` 或 `$[]$` 风格 Overfull 标记发生增删 | 先看变化方向、对应命令与内核版本，不能仅据节点名判断本地过旧。#1119 中新版 `\underline` 的文本分支移除了数学节点，同时改变横线尺寸，属于上游有意变更，见「文本下划线不再进入数学模式（#1119）」 |
 | 引擎 banner 一致（如 `XeTeX 3.141592653-2.6-0.999998`）但包级 diff 大 | 不是引擎差异，是 LaTeX / hyperref / graphics 等包差异 |
 | `\cleaders` + `\glue` 几何数值出现差异（如间距、周期宽度对不上） | 疑 l3backend 与 l3kernel 版本不匹配。`fntef` 用 `\cleaders` 铺重复图案，间距经 pt→bp 换算落到网格，对 backend 的舍入实现敏感 |
 | `\special{pdf:btrans matrix ...}` 坐标末位变化（如 `0.3985 w`→`0.39851 w`、`2000.02579`→`2000.0`），或 luatex 下 `\pdfliteral origin` 输出变化 | pgf ≥ 3.1.12 的 `\pgf@sys@bp@correct` 舍入修正生效，这是上游有意变更，**不会回退** |
 | `.tlg` diff 显示整份 `.log` 为空（`index ...e69de29`，所有行都是删除） | 编译在 `\START` 之前就出错，l3build 不保留 `\START` 之前的输出，diff 里看不到错误。先读 build 目录（ctex 是 `build/check/`，多数包是 `build/test/`）里对应的完整 `.log`，找第一个 `!`。测试若开了 `\debug_on:n`，优先怀疑上游激活了弃用（见「上游激活弃用（#1095）」一节） |
 | 颜色、图形等后端 special 变成可见文本（如 `\special{pdf:bc [1.0 0.0 0.0]}` 变成排出来的 `1.0 0.0 0.0`） | `l3kernel` 与 `l3backend` 版本错配，后端函数签名不匹配使 `\use:c` 找不到目标。**同一根因在 doc／ctan 路径上不出现任何 `.tlg` diff**：编译 exit 0、PDF 体积正常，只在正文里散落 `0gray 0`、`1.0 0.0` 一类泄漏文本（`xeCJK.pdf` 的 `\meta` 与 fntef 示例最明显），判别方式是 `pdftotext` 后检索 `gray 0`／`0gray`／`1.0 0.0` 并断言计数为 0，而不是看 `.tlg` |
 
-出现前三条指纹应优先按“本地 usertree 同步”流程修，而不是当作业务回归排查。
+出现 release warning 时先核对最低依赖；数学节点变化或引擎 banner 相同但输出不同，
+只能说明需要继续比较内核、宏包与格式文件，不能直接推出「本地过旧」。确认本地落后后按
+“本地 TeX Live usertree 同步”流程处理；若实际是新版本改变了行为，则按上游根因分类决定
+修代码、重新生成基线或等待同步。
 
 出现第四、第五条（`\cleaders`＋`\glue` 几何、`btrans matrix` 坐标）时，先按上一节「上游宏包版本漂移的识别与基线处置」判断这次漂移该刷基线还是该等 TL 同步，而不是直接假定是本地环境问题。
 
