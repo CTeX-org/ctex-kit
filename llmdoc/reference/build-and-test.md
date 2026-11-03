@@ -1129,7 +1129,7 @@ PR 触发时跑 `dorny/paths-filter@v4`, 检测哪些包目录被改, 输出 6 �
 - 跑 `Test <pkg>` (case 分支):
   - `ctex`: `../scripts/check-parallel.sh` + `CONFIGS` 三个 config, 4 engine 并行. wall-clock ~5–8min.
   - `zhlineskip`: 失败时 dump `build/test/*.log` 前 80 行.
-  - 其他 (xeCJK / xpinyin / zhnumber / CJKpunct): `l3build check -q` 直接跑; 若传了 `configs` (目前 xpinyin 与 zhnumber 各传 `test/config-cjk`), 主 check 跑完后再逐个串行跑 `l3build check -q -c <cfg>` — 与 ctex 的 configs 走 `check-parallel.sh` 并行不同, 这些小包的额外 config 是秒级到分钟级, 不值得铺并行基础设施.
+  - 其他（xeCJK / xpinyin / zhnumber / CJKpunct）：主测试使用 `l3build check -q --show-log-on-error`，失败时输出完整原始日志；若传了 `configs`，主测试结束后再逐个串行跑 `l3build check -q -c <cfg>`，额外配置调用未添加该日志选项。两类调用还会传入 `L3BUILD_EXTRA_OPTIONS`：schedule 为 `--show-saves`，其他事件为 `-H`。ctex 的配置则由 `check-parallel.sh` 并行执行。
 
 **阶段 2 — `test-result` job (汇总):**
 `needs: [warmup-tl, test-ctex, test-ctex-luatex, test-xeCJK, test-xpinyin, test-zhnumber, test-CJKpunct, test-zhlineskip]`, 检查每个 caller 结果(success / skipped 都 OK; 其他 fail). 把 warmup-tl 也算进去, 避免 warmup 失败 → caller 全部 skipped → test-result 误绿. branch protection 只盯这一个 status check 即可.
@@ -1644,6 +1644,22 @@ fmtutil-user --byfmt uplatex    # ctex 要这个，别漏了；漏了会全 49 �
 最后一条要单独处置：它属于本地各包之间不自洽（详见下文），**并且没有基线可刷**——doc 路径上根本不存在 `.tlg`，而 regression 路径上的 diff 是错配造成的错误输出，刷进基线等于把缺陷固化。唯一的处置是补齐匹配版本的 backend（本地按「往 check 环境注入替代版本的上游宏包」或等 TL 同步）。CI 侧曾有 `scripts/sync-l3backend.sh` 负责这件事，已随上游把 l3backend 并入 l3kernel 而在 #1074 撤除；**若将来出现另一对上游包版本错配，照「已撤除」那一节记的四步重建即可**。
 
 详见反思 [[873-880-meta-url-hbox-math-boundary]]、[[1048-1050-upstream-l3backend-pgf-baseline-drift]]。
+
+### 加载期失败的完整日志（#1119）
+
+规范化输出为空、diff 只剩原基线被删除时，先读取测试目录中未经规范化的 `<name>.log`，查找第一个 `!`。不要把空输出保存为基线。远端 CI 若只上传 diff，可能丢失发生在 `\START` 之前的实际错误。
+
+`_test-package.yml` 的默认小包主测试现启用 `--show-log-on-error`；该选项在比较失败时输出原始日志，既可与非 schedule 的 `-H` 一起使用，也可与 schedule 的 `--show-saves` 一起使用，不会把失败退出码改为成功。ctex 并行分支、zhlineskip 专用分支和额外配置调用不在这项改动的覆盖范围内。
+
+本地诊断可在包目录运行：
+
+```bash
+l3build check -q --show-log-on-error -H
+# 对额外配置手动启用同样的诊断：
+l3build check -q --show-log-on-error -H -c test/config-cjk
+```
+
+验证这个选项时应使用与 CI 一致的整目录调用。显式指定测试名时，l3build 本来就会显示失败日志，不能据此证明新增选项有作用。#1119 的受控加载期报错对照确认：整目录调用不带选项时只显示 diff，带选项时显示实际错误，两次均非零退出。首轮 macOS `jamo-cj01` 的加载期失败在第二轮未复现，原始错误未保留，根因仍未知；不能把诊断增强写成已修复该错误。过程记录见 `llmdoc/memory/reflections/1119-loading-error-log-diagnostic.md`。
 
 ### 往 check 环境注入替代版本的上游宏包（localdir）
 
