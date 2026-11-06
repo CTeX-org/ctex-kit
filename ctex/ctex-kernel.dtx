@@ -196,20 +196,23 @@
   { \msg_error:nnn { ctex } { l3-too-old } { expl3 } }
 %    \end{macrocode}
 %
-% \begin{variable}{\c_@@_engine_str,\c_@@_engine_file_str}
+% \begin{variable}{\c_@@_engine_str, \g_@@_engine_tl, \c_@@_engine_file_str}
 % 引擎检查。目前 \LaTeXiii{} 将 \ApTeX{} 识别为 \upTeX。
+%
+% \cs{c_@@_engine_str} 保存自动检测的结果，作为默认值；\opt{engine} 选项把用户
+% 给出的名字存进 \cs{g_@@_engine_tl}，空值表示仍然按自动检测的结果载入。引擎
+% 定义文件的名字以及它是否存在，都要等宏包选项处理之后才能确定，见
+% \ref{subsubsec:engine-file}~节。
 %    \begin{macrocode}
 \str_const:Ne \c_@@_engine_str
   { \cs_if_exist:NTF \ngostype { aptex } { \c_sys_engine_str } }
+\tl_new:N \g_@@_engine_tl
 \msg_new:nnnn { ctex } { engine-not-supported }
   { Engine~`#1'~is~not~yet~supported,~ctex~will~abort! }
   { You~can~switch~to~xelatex,~lualatex,~pdflatex,~uplatex,~or~aplatex. }
-\file_if_exist:nTF { ctex-engine- \c_@@_engine_str .def }
-  {
-    \str_const:Ne \c_@@_engine_file_str
-      { ctex-engine- \c_@@_engine_str .def }
-  }
-  { \msg_critical:nne { ctex } { engine-not-supported } { \c_@@_engine_str } }
+\msg_new:nnnn { ctex } { engine-file-not-found }
+  { Engine~file~`#1'~could~not~be~found,~ctex~will~abort! }
+  { Check~whether~the~`engine'~option~names~an~installed~engine~file. }
 %    \end{macrocode}
 % \end{variable}
 %
@@ -625,6 +628,19 @@
 %    \end{macrocode}
 % \end{macro}
 %
+% \changes{v2.6.6}{2026/11/06}{新增 \opt{engine} 选项，用于指定载入的引擎定义文件；未指定或值为空时仍自动检测编译引擎（\#1122）。}
+%
+% \begin{macro}{engine}
+% 取值为 |ctex-engine-|\meta{name}|.def| 中间的 \meta{name}。初始值为空，表示
+% 仍然按自动检测的结果载入。
+%    \begin{macrocode}
+%<*class|ctex>
+    engine .tl_gset:N = \g_@@_engine_tl ,
+    engine .value_required:n = true ,
+%</class|ctex>
+%    \end{macrocode}
+% \end{macro}
+%
 % \changes{v2.0}{2014/03/08}{新增 \opt{fontset} 选项。}
 % \changes{v2.0}{2015/03/21}{\opt{nofonts}, \opt{adobefonts}, \opt{winfonts}
 % 是过时选项。}
@@ -881,6 +897,42 @@
     \ProcessKeysOptions { ctex / option }
   }
 %</class|style>
+%    \end{macrocode}
+%
+% \subsubsection{确定引擎定义文件}
+% \label{subsubsec:engine-file}
+%
+% 引擎定义文件的名字在这里才确定，因为 \opt{engine} 选项要等上面的选项处理结束
+% 才读得到。选项给出名字时以它为准，否则用自动检测的结果。
+%
+% 文件不存在时给出 critical 消息并中止。沿用检测结果时，消息是
+% \texttt{engine-not-supported}；\opt{engine} 给出的名字没有对应的文件时，
+% 消息是 \texttt{engine-file-not-found}，指明问题出在该选项上。
+%
+% 这段代码只属于文档类与 \pkg{ctex} 宏包，\pkg{ctexsize} 与 \pkg{ctexheading}
+% 不载入引擎定义文件。
+%    \begin{macrocode}
+%<*class|ctex>
+\tl_if_blank:VTF \g_@@_engine_tl
+  {
+    \str_const:Ne \c_@@_engine_file_str
+      { ctex-engine- \c_@@_engine_str .def }
+    \file_if_exist:nF { \c_@@_engine_file_str }
+      {
+        \msg_critical:nne { ctex } { engine-not-supported }
+          { \c_@@_engine_str }
+      }
+  }
+  {
+    \str_const:Ne \c_@@_engine_file_str
+      { ctex-engine- \g_@@_engine_tl .def }
+    \file_if_exist:nF { \c_@@_engine_file_str }
+      {
+        \msg_critical:nne { ctex } { engine-file-not-found }
+          { \c_@@_engine_file_str }
+      }
+  }
+%</class|ctex>
 %    \end{macrocode}
 %
 % \pdfLaTeX{} 下，如果没有显式指定编码为 |UTF8|，则给出警告信息。

@@ -362,7 +362,7 @@ oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=fals
 - 章节外围组件：`caption-names01.lvt`、`caption-names02.lvt`、`footnote01.lvt`、`part-format01.lvt`、`abstract01.lvt`、`toc.lvt`、`toc-book01.lvt`、`lof-lot01.lvt`、`bibliography01.lvt`、`index01.lvt` 覆盖 caption 名称、本地化名称、脚注、part、摘要、目录、图表目录、参考文献与索引标题路径。
 - 版式与接口兼容：`geometry01.lvt`、`numberline01.lvt`、`thesection01.lvt`、`twocolumn01.lvt`、`list01.lvt`、`verbatim01.lvt`、`quote01.lvt`、`minipage01.lvt`、`maketitle01.lvt` 覆盖常见环境、双栏与目录编号接口。
 - 第三方包和交叉引用兼容：`hyperref01.lvt`、`hyperref-driverfallback.lvt`、`hyperref-headings.lvt`、`hyperref-pdfstringdef01.lvt` 至 `03`、`amsmath01.lvt`、`label-ref01.lvt` 等覆盖 `hyperref` / `amsmath`、书签字符串与 `label` / `ref` 兼容。
-- 环境、版本与引擎分流：`encoding01.lvt`、`fontset01.lvt`、`ctex-version01.lvt`、`engine-detect01.lvt`、`today01.lvt`、`today-format01.lvt`、`parskip01.lvt`、`fontsize-c5size01.lvt`、`depth-counter01.lvt`、`counter01.lvt`、`zhnumber*.lvt` 等覆盖编码、fontset/version、引擎检测、日期格式、`parskip`、`c5size`、`secnumdepth` / `tocdepth`、`zhnumber` 与计数器行为。
+- 环境、版本与引擎分流：`encoding01.lvt`、`fontset01.lvt`、`ctex-version01.lvt`、`engine-detect01.lvt`、`today01.lvt`、`today-format01.lvt`、`parskip01.lvt`、`fontsize-c5size01.lvt`、`depth-counter01.lvt`、`counter01.lvt`、`zhnumber*.lvt` 等覆盖编码、fontset/version、引擎检测、日期格式、`parskip`、`c5size`、`secnumdepth` / `tocdepth`、`zhnumber` 与计数器行为。`engine-option01.lvt` 与 `engine-option02.lvt`（#1122）覆盖 `engine` 选项的两条分支：前者用 `test/support/ctex-engine-ctextest.def` 记录自己被载入后再转交给真实引擎文件，并断言 `\ccwd` 已定义；后者拦截 `ctex / engine-file-not-found` 的 critical 消息后结束。fatal-path 写法上的两条约束见下面第 11 条。
 - 综合配置回归：`ctexset-full01.lvt` 作为全套 `ctexset` 综合配置入口，用于验证多个 key 组合时的整体输出契约。
 
 ### `ctex` 新增回归测试的稳定技术模式
@@ -379,6 +379,7 @@ oracle 用首尾字符相同的文本，而不是裸写 `$5$`：`xCJKecglue=fals
 8. 测试文件里的引擎 early-exit（`LuaTeX: not tested yet.` 一类）是覆盖缺口的标记，不是覆盖已完成的证明。`ccglue01`／`ccglue02.lvt` 对 LuaTeX／upTeX 打这行字符串直接跳过整个文件；#1068 的缺陷恰好只在这两个引擎上出现，说明四引擎目标下若某个主题的测试对某些引擎恒为 early-exit，应当反过来问「这些引擎是否真的不需要测」，而不是把 `not tested yet.` 当成暂时性占位默认忽略。
 9. 排版过程的日志随引擎变化时，用 `\OMIT`／`\TIMO` 包住排版，把判据结果（写成 `same-as-nofixskip` 这类分类字符串，而不是具体尺寸）先存进序列，在 `\TIMO` 之后统一 `\TYPE` 输出，这样一份 `.tlg` 就能通过四个引擎。例子见 `heading-fixskip02.lvt`（`\test_log:n`、`\test_report:`，#1100）。
 10. 用例之间不要共享状态。参照用例不要放进分组：标题设置的 `\everypar` 是局部的，会随分组结束丢失，而 `\if@nobreak`／`\if@noskipsec` 是全局的，会留下来污染后面的用例。多个用例用 `\ctexset` 切换同一选项时，每个用例都要显式设定这个选项，不依赖前一个用例留下的值。#1100 中参照用例设了 `fixskip=false`，后面的用例没有设回 `true`，“去掉次数判断”这一变异起初因此没有被检出。
+11. fatal-path 测试有两条硬约束。其一，`.lvt` 不能以 `\usepackage{...}` 作为最后一行：TeX 在扫描 `\usepackage` 的参数时就会读到文件末尾，实测该行根本没执行，日志停在一条 `)` 之后以 `<*> \input <test>.lvt` 收场，原始日志的 `(ctex.sty` 一次也不出现；末尾补一行无害内容（如 `\end{document}`，正常路径不会走到）即可。其二，在被拦截的 `\msg_critical:nnn` 里直接调用 `\END` 会把 `Bad conditionals: 1!` 写进基线——调用点仍在条件式内部（实测拦截体开头 `\currentiflevel` 为 1），而 `\END` 的 `\ifnum\currentiflevel>1` 会把这一层算进去。`engine-option02.lvt` 的做法是把 `\START`、`\AUTHOR` 与消息都放进拦截体，自己写 `END-TEST-LOG` 标记并用原语结束；`cjkfntef-luatex02.lvt` 用同样的拦截写法，基线里没有这行提示。
 
 这些模式说明：`ctex` 回归测试不只是“补一些 .lvt 文件”，而是已经沉淀出一套面向多引擎中文排版的可复用测试方法学。
 
