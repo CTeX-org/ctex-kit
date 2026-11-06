@@ -1,5 +1,6 @@
 ## [ctex-v2.6.6](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.6)
 
+- 新增 `engine` 选项，用于指定载入的引擎定义文件；未指定或值为空时仍自动检测编译引擎（#1122）。
 - 开启 `fixskip` 时，紧跟标题并就地放置的浮动体与其后正文的间距不再变小，与不开启 `fixskip` 时相同（#1100）。
 
 ## [ctex-v2.6.5](https://github.com/CTeX-org/ctex-kit/releases/tag/ctex-v2.6.5)
