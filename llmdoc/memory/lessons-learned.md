@@ -1031,3 +1031,20 @@ Curated cross-task rules distilled from archived memory.
 **Rule**: 怀疑某个缺陷可能是上游机制的通用性质而非本包特有时，把复现缩到不加载本包的最小 LaTeX/TeX 样例。确认为通用陷阱后，修复方式和文档警告的位置都会随之改变——不能只在具体案例的代码注释里说明，还要在架构文档里记录为独立的机制边界。
 **Why**: #1029 若只盯着 xeCJK 的 `\@@_boundary_capture_suspend:` 内容，容易把注意力放在这条钩子本身该不该做全局赋值上；缩小到不含 xeCJK 的五行纯 LaTeX 后，才确认触发条件是「`cmd/<赋值命令>/before` 钩子里有赋值」这一更一般的机制，这直接决定了要用专用适配器而不是调整钩子内容，也决定了要在 `experiment/boundary-register` 用户手册里为「命令本体即赋值语句」这类场景加一条通用警告。
 **Source**: `llmdoc/memory/reflections/1029-sbox-global-prefix.md`
+
+## 测试文件与文档对照
+
+### `.lvt` 的最后一行不能是还要扫描参数的命令
+**Rule**: 把 fatal-path 用例放进 `.lvt` 时，触发命令之后要再留一行内容（例如 `\end{document}`，正常路径走不到）。触发命令若是文件的最后一行，TeX 在扫描它的参数时就已读到文件末尾，那一行根本不会执行，基线只会记录成一条 `)` 加 `! Emergency stop`。
+**Why**: #1122 的 `engine-option02.lvt` 首版把 `\usepackage[engine=doesnotexist]{ctex}` 放在最后一行，`l3build save` 得到的基线里没有期望内容，日志以 `<*> \input engine-option02.lvt` 与 `(job aborted, no legal \end found)` 收尾，`(ctex.sty` 一次也没出现。判据只能看原始日志里加载是否发生：退出码与 diff 都看不出这一行没有执行。
+**Source**: `llmdoc/memory/reflections/1122-engine-option-process.md`
+
+### 在被拦截的 critical 消息里调用 `\END` 会把未闭合的条件式写进基线
+**Rule**: 替换 `\msg_critical:nnn` 来记录 fatal-path 的期望消息时，不要在该替换体里直接调用 `\END`。报错点若在条件式内部（拦截体开头实测 `\currentiflevel` 为 1），`\END` 的 `\ifnum\currentiflevel>1` 会把这一层算进去，基线里因此多出 `Bad conditionals: 1!`。改为自己写 `END-TEST-LOG` 标记，再用原语结束运行；critical 报在顶层层级时可以直接用 `\END`。
+**Why**: #1122 的 `engine-option02.lvt` 沿用 `cjkfntef-luatex02.lvt` 的拦截写法，基线里多出那行提示；而 `cjkfntef-luatex02` 用同样的写法并没有这行。把 `\START`、`\AUTHOR` 与消息一起放进拦截体、自己写标记后，基线里只剩消息本身，四个引擎共用一份 `.tlg`。
+**Source**: `llmdoc/memory/reflections/1122-engine-option-process.md`
+
+### 验收手册改动要比 Overfull 的宽度多重集
+**Rule**: 判断文档改动有没有新增 Overfull，比较两边「宽度值」的多重集，不要比条数，也不要带行号。行号会随插入内容整体推移；条数相等可能是一处新增、另一处被挤掉。
+**Why**: #1122 第一版新增段落带来一处 73.86pt 的 Overfull；改写后条数与 master 相同（19 处），但其中一处是新出现的 3.98pt，同时 master 的一处消失——只数条数会漏掉这处替换。做法是在 master 的 worktree 里跑同一个目标，把两边的 Overfull 行去掉 ` in paragraph at lines …` 后排序再比。
+**Source**: `llmdoc/memory/reflections/1122-engine-option-process.md`

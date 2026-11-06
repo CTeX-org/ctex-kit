@@ -128,6 +128,12 @@ pdfTeX 下 ctex 通过 CJK 宏包处理中文字符。UTF-8 编码的多字节�
 
 这一模式的典型用例：各引擎的 `.def` 覆写 `\@@_update_stretch_auxii:` 以添加 `\ctex_if_ccglue_touched:TF` 守卫——这段重定义自 #1068 起对全部引擎生效，此前被 docstrip 守卫限定在 pdftex/xetex，luatex/uptex 因而缺守卫，用户设置的 CJKglue/kanjiskip 会被 `\selectfont` 覆盖。详见 `llmdoc/memory/reflections/1068-selectfont-resets-ccglue.md`。
 
+### 引擎定义文件的公开选择（`engine` 选项，#1122）
+
+`\c_@@_engine_str` 仍按 `\c_sys_engine_str` 自动检测（ApTeX 另判），它只是默认值。宏包/文档类选项 `engine` 把用户给出的名字存进 `\g_@@_engine_tl`，两者共同决定载入 `ctex-engine-<名字>.def`：文件名的确定与存在性检查在 `\ProcessKeyOptions` 之后执行，因此 `ctexopts.cfg` 与宏包选项都能影响它，而错误仍在载入标准文档类之前中止。沿用检测结果却找不到文件时用原有的 `engine-not-supported`，选项给出的名字找不到文件时用 `engine-file-not-found`。
+
+这是**只替换引擎定义文件**的开关，不是切换引擎：中文编码的处理、字体集的自动选择、`fntef` 选项等仍按 `\sys_if_engine_*` 判断真实引擎；引擎定义文件原本负责的设置（例如中文书签参数）由自定义文件自己完成。手册的 `engine` 条目写明这条边界，并说明这些内部接口不保证稳定。键只定义在 `ctex / option` 下，`\ctexset` 不能设置它。选项值按字面使用，与真实引擎不符时不警告。详细决策见 `llmdoc/memory/decisions/1122-engine-option.md`。
+
 ## 字体集系统
 
 ### 自动检测逻辑
