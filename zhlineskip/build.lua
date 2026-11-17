@@ -11,8 +11,8 @@
     `\changes` 记录, 不必手动碰 .dtx 的 GetIdInfo 行.
 --]==========================================================================]--
 module              = "zhlineskip"
-version             = "v1.0h"
-date                = "2026-06-30"
+version             = "v1.1a"
+date                = "2026-11-17"
 maintainer          = "Mingyu Xia"
 email               = "myhsia@outlook.com"
 summary             = "Line spacing for CJK documents"

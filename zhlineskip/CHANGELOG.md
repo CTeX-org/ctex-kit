@@ -1,3 +1,8 @@
+## [zhlineskip-v1.1a](https://github.com/CTeX-org/ctex-kit/releases/tag/zhlineskip-v1.1a)
+
+- `split` 公式上方的间距与单行公式一致，不再明显更窄。
+- 上一条扩展到所有显示公式：`aligned`、`pmatrix` 以及不套任何环境、直接书写的公式，上方间距同样回到单行公式的水平。
+
 ## [zhlineskip-v1.0h](https://github.com/CTeX-org/ctex-kit/releases/tag/zhlineskip-v1.0h)
 
 - 文档等宽字体改用朱雀仿宋，意大利体改用霞鹜文楷 GB Lite。

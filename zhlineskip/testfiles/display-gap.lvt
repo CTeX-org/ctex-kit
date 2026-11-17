@@ -1,0 +1,176 @@
+\input{regression-test}
+
+\documentclass{article}
+
+\OMIT
+\usepackage{zhlineskip}
+\usepackage{amsmath}
+\newenvironment{testgather}{\gather}{\endgather}
+\TIMO
+
+% 本文件固定「显示公式上方的间距」，以及它不该动到的东西。
+%
+% TeX 在公式盒上方插入的行间 glue等于 \baselineskip 减去上一行深度与公式盒高度；
+% 公式盒一高就退回固定的 \lineskip。zhlineskip 在每个公式开始时按当时的字号与
+% 正文行距算出参考单行公式的那段行间 glue，写成 \lineskip 并把 \lineskiplimit 也抬到
+% 同一个值，于是「比参考公式高」的公式上方一律落在同一段间隔上；\env{aligned}、
+% \env{pmatrix}、\[...\] 与裸 $$...$$ 都在覆盖范围内。
+%
+% 注意：
+%   * 必须用默认行距（1.5）且公式要够高（这里用 \dfrac）。公式盒不够高时 TeX 走
+%     的是按 \baselineskip 计算的那条路径，改动按设计不生效，测不出来；
+%   * vbox 的总高深随「glue + 公式盒」一起变化，单看一个数字判断不了间距是否合理；
+%   * 公式内部（\env{aligned} 的每一行、\env{split} 的每一行）与 \env{align} 的
+%     行间 glue必须保持原样，TEST 3、TEST 6 与 TEST 4 用盒子高深与总高把这两条固定住。
+
+\ExplSyntaxOn
+
+\START
+
+\begin{document}
+
+\TEST{single-line~equation}{
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      \begin{equation} (x) = y \end{equation}
+      Xg \par
+    }
+  \TYPE{single~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{single~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{two-row~split}{
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      \begin{equation}
+        \begin{split}
+          (x) &= \dfrac{y + z}{w} \\
+              &= \dfrac{u + v}{w}
+        \end{split}
+      \end{equation}
+      Xg \par
+    }
+  \TYPE{split~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{split~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{two-row~aligned}{
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      \begin{equation}
+        \begin{aligned}
+          (x) &= \dfrac{y + z}{w} \\
+              &= \dfrac{u + v}{w}
+        \end{aligned}
+      \end{equation}
+      Xg \par
+    }
+  \TYPE{aligned~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{aligned~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{tall~display~in~plain~dollars}{
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      $$ \frac{(x) + y}{w} = \frac{u + v}{w} $$
+      Xg \par
+    }
+  \TYPE{dollars~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{dollars~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{one-row~split}{
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      \begin{equation} \begin{split} (x) = \dfrac{y}{w} \end{split} \end{equation}
+      Xg \par
+    }
+  \TYPE{one-row~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{one-row~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{two-row~align}{
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    {
+      Xg \par
+      \begin{align}
+        (x) &= \dfrac{y + z}{w} \\
+            &= \dfrac{u + v}{w}
+      \end{align}
+      Xg \par
+    }
+  \TYPE{align~ht=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \TYPE{align~dp=\dim_eval:n { \box_dp:N \l_tmpa_box }}
+}
+
+\TEST{inline~aligned~does~not~depend~on~displays}{
+  % 行内环境不在任何显示公式里时，复原函数必须什么都不做；这里把「第一个显示
+  % 公式之前」和「之后」两次测量都打出来，两者必须相等。
+  \hbox_set:Nn \l_tmpa_box
+    { $ \begin{aligned} a &= \dfrac{b}{c} \\ &= \dfrac{d}{e} \end{aligned} $ }
+  \TYPE{before~displays=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+  \setcounter{equation}{0}
+  \begin{equation} (x) = \dfrac{y}{w} \end{equation}
+  \hbox_set:Nn \l_tmpa_box
+    { $ \begin{aligned} a &= \dfrac{b}{c} \\ &= \dfrac{d}{e} \end{aligned} $ }
+  \TYPE{after~displays=\dim_eval:n { \box_ht:N \l_tmpa_box }}
+}
+
+\TEST{eqnarray~rows}{
+  % eqnarray 每行各自落盘，行间 glue必须保持原样：两行盒高减一行盒高。
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    { \begin{eqnarray} a &=& b \\ c &=& d \end{eqnarray} }
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpb_box
+    { \begin{eqnarray} a &=& b \end{eqnarray} }
+  \TYPE{eqnarray~row=\dim_eval:n { \box_ht:N \l_tmpa_box - \box_ht:N \l_tmpb_box }}
+}
+
+\TEST{wrapped~gather~without~registration}{
+  % 用 \newenvironment 包一层、不做任何登记时，行距也必须与直接写 gather 一致：
+  % 豁免标记放在 \start@gather 的最开头，包装环境照样会走到它。
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    { \begin{testgather} \dfrac{b}{c} \\ \dfrac{b}{c} \end{testgather} }
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpb_box
+    { \begin{testgather} \dfrac{b}{c} \end{testgather} }
+  \TYPE{wrapped~row=\dim_eval:n { \box_ht:N \l_tmpa_box - \box_ht:N \l_tmpb_box }}
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpa_box
+    { \begin{gather} \dfrac{b}{c} \\ \dfrac{b}{c} \end{gather} }
+  \setcounter{equation}{0}
+  \vbox_set:Nn \l_tmpb_box
+    { \begin{gather} \dfrac{b}{c} \end{gather} }
+  \TYPE{direct~row=\dim_eval:n { \box_ht:N \l_tmpa_box - \box_ht:N \l_tmpb_box }}
+}
+
+\TEST{split~inner~leading}{
+  \setcounter{equation}{0}
+  \begin{equation}
+    \begin{split}
+      \typeout{inner~lineskip=\the\lineskip}
+      \typeout{inner~lineskiplimit=\the\lineskiplimit}
+      \typeout{inner~baselineskip=\the\baselineskip}
+      (x) &= y + z \\
+          &= u + v
+    \end{split}
+  \end{equation}
+}
+
+\ExplSyntaxOff
+
+\END
+
+\end{document}
