@@ -541,7 +541,8 @@ The Current Maintainers of this work are **Ruixi Zhang** and **Mingyu Xia**.
 %     \seq_use:Nn \l_tmpb_seq {,~}.
 %   \ExplSyntaxOff
 % \end{description}
-% 超出上述列表范围、用户自定义的\emph{数学}环境，可用如下命令恢复其行距：
+% 超出上述列表范围、用户自定义的\emph{数学}环境，可用如下命令恢复其行距。
+%
 % \begin{function}[added   = 2018-07-14,
 %                  updated = 2019-05-16]{\RestoreMathEnvironmentLeading}
 %   \begin{syntax}
@@ -1087,7 +1088,10 @@ race, colour, sex, language\dots
     \cs_new:Npn \@@_restoremathenvironmentleading:n #1
       {
         \hook_gput_code:nnn { env / #1 / begin } { . }
-          { \linespread { \l_@@_mathlinespread_tl } \selectfont \ignorespaces }
+          {
+            \@@_resetdisplaygap:
+            \linespread { \l_@@_mathlinespread_tl } \selectfont \ignorespaces
+          }
       }
     \patchcmd \start@gather { \collect@body }
       { \linespread { \l_@@_mathlinespread_tl } \selectfont \collect@body }
@@ -1098,9 +1102,111 @@ race, colour, sex, language\dots
     \patchcmd \start@multline { \collect@body }
       { \linespread { \l_@@_mathlinespread_tl } \selectfont \collect@body }
       {} {}
+%    \end{macrocode}
+% \begin{macro}{\@@_setdisplaygap:, \@@_resetdisplaygap:}
+% \begin{variable}{\l_@@_savedlineskip_dim, \l_@@_savedlineskiplimit_dim}
+% \begin{variable}{\l_@@_indisplaygap_bool, \l_@@_rowwise_bool}
+% \begin{variable}{\l_@@_displaygap_dim}
+% \begin{variable}{\l_@@_displaygap_box}
+% 显示公式上下的可见间距由 \tn{abovedisplayskip}／\tn{belowdisplayskip} 与 \TeX\
+% 自己插入的行间 glue共同决定。上方那一段等于
+% \begin{quote}
+%   \tn{baselineskip} $-$ 上一行的深度 $-$ 公式盒的高度，
+% \end{quote}
+% 一旦这个值小于 \tn{lineskiplimit}，就改用固定的 \tn{lineskip}。单行公式的盒子
+% 较矮，用的是随正文行距一起变大的前者；\env{split}、\env{aligned}、\env{pmatrix}
+% 这类装高盒子的公式用的是后者，于是中文文档行距较大时，它们上方的间距明显更窄。
+%
+% 每次开始一个显示公式时按当时的字号与正文行距标定参考单行公式上方的那段行间 glue
+% （下侧见后面「已知差异」一段）：上一行的深度取中文正文行的典型值 $0.1$\,quad，
+% 参考公式盒取 |\ensuremath{\displaystyle (x)=y}|（见
+% \url{https://github.com/CTeX-org/ctex-kit/issues/1124} 的量法）。之所以每个公式
+% 开始处现算、而不在 \tn{begindocument} 之后算一次，是因为脚注、表格等处的字号与
+% 行距与正文不同。标定只排一个 hbox，开销可以忽略。
+%
+% 上侧把这段行间 glue写成 \tn{lineskip}：公式盒高时 \TeX\ 正取它，间距于是回到参考
+% 单行公式的值；盒子不高时本来就走 \tn{baselineskip} 那条路径，与同等高度的单行
+% 公式一致。挂在 \tn{everydisplay} 上而不是只改 \env{split}，是因为实测只有
+% \tn{everydisplay} 里的赋值活得到公式盒落盘那一刻（\tn{dollardollar@end} 只对
+% \env{split} 有效），这样 \env{aligned}、\env{pmatrix}、|\[...\]| 与裸
+% |$$...$$| 都被覆盖；赋值随显示组一起消失，不外泄。
+%
+% 下侧的行间 glue在公式组之外结算：\tn{belowdisplayskip} 在公式结束时就已落盘，
+% 之后任何代码都改不动它；而在 \tn{prevdepth} 上动手脚又要求竖直模式，公式之后
+% 接着排正文时是水平模式，\TeX\ 直接报错（两条都实测过）。所以下侧仍按
+% \TeX\ 的规则，多行公式比单行公式紧一些，手册里记为已知差异。
+%    \begin{macrocode}
+    \dim_new:N  \l_@@_savedlineskip_dim
+    \dim_new:N  \l_@@_savedlineskiplimit_dim
+    \bool_new:N \l_@@_indisplaygap_bool
+    \bool_new:N \l_@@_rowwise_bool
+    \dim_new:N  \l_@@_displaygap_dim
+    \box_new:N  \l_@@_displaygap_box
+    \cs_new_protected:Npn \@@_setdisplaygap:
+      {
+        \bool_set_true:N \l_@@_indisplaygap_bool
+        \dim_set_eq:NN \l_@@_savedlineskip_dim \tex_lineskip:D
+        \dim_set_eq:NN \l_@@_savedlineskiplimit_dim \tex_lineskiplimit:D
+        \hbox_set:Nn \l_@@_displaygap_box
+          { \ensuremath { \displaystyle ( x ) = y } }
+        \dim_set:Nn \l_@@_displaygap_dim
+          {
+            \dim_max:nn { 0pt }
+              {
+                \tex_baselineskip:D
+                  - 0.1 \tex_fontdimen:D 6 \tex_font:D
+                  - \box_ht:N \l_@@_displaygap_box
+              }
+          }
+        \bool_if:NF \l_@@_rowwise_bool
+          {
+            \dim_set_eq:NN \tex_lineskip:D \l_@@_displaygap_dim
+            \dim_set_eq:NN \tex_lineskiplimit:D \l_@@_displaygap_dim
+          }
+      }
+    \cs_new_protected:Npn \@@_resetdisplaygap:
+      {
+        \bool_if:NT \l_@@_indisplaygap_bool
+          {
+            \dim_set_eq:NN \tex_lineskip:D \l_@@_savedlineskip_dim
+            \dim_set_eq:NN \tex_lineskiplimit:D \l_@@_savedlineskiplimit_dim
+          }
+      }
+%    \end{macrocode}
+% \env{eqnarray}、\env{align}、\env{gather}、\env{multline} 的每一行是各自落盘的
+% display 盒，行与行之间的 glue 同样由 \tn{lineskip} 决定；在这类环境里抬
+% \tn{lineskiplimit} 会连行距一起改掉（实测两行 \env{align} 的行间 glue 会从
+% $3$\,pt 抬到下限），所以给它们记一个标记，\tn{everydisplay} 看到标记就跳过。
+% plain \TeX\ 的 \tn{displaylines}、\tn{eqalignno} 这类 |$$\halign| 显示对齐与
+% 公式里手写的 \tn{vbox} 没有可挂的钩子，它们的行距仍会被这个下限影响，手册里记为
+% 已知差异。
+%
+% 标记必须放在环境启动宏的\emph{最开头}：\tn{start@gather} 里的
+% \tn{dollardollar@begin} 会先跑，\tn{everydisplay} 就在那里触发，插在
+% \tn{collect@body} 前后的标记都来不及被读到（实测这样写时标记在落盘那一刻仍是
+% 假）。宏开头时环境组还在栈上，所以用局部布尔即可，也不需要维护环境名单；用户用
+% \tn{newenvironment} 包一层时照样走这些宏，无需登记。
+%    \begin{macrocode}
+    \clist_map_inline:nn { start@gather, start@align, start@multline, eqnarray }
+      {
+        \expandafter \pretocmd \csname #1 \endcsname
+          { \bool_set_true:N \l_@@_rowwise_bool } { } { }
+      }
+    \everydisplay \expandafter
+      { \the \everydisplay \@@_setdisplaygap: }
+%    \end{macrocode}
+% \env{split} 与各内层容器内部的行间 glue 也要靠 \tn{lineskip} 计算，所以进入它们就把
+% 这个寄存器复原成公式开始前的值，公式内部的行距不受外层影响。
+% \end{variable}
+% \end{variable}
+% \end{variable}
+% \end{variable}
+% \end{macro}
+%    \begin{macrocode}
     \patchcmd \gather@split { \spread@equation\vcenter\bgroup }
       {
         \vcenter\bgroup
+        \@@_resetdisplaygap:
         \linespread { \l_@@_mathlinespread_tl } \selectfont \spread@equation
       } {} {}
     \clist_map_inline:nn
