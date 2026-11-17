@@ -31,6 +31,8 @@
 
 ## memory
 
+- `llmdoc/memory/reflections/1124-zhlineskip-split-display-gap.md` — 反思：公式周围的可见间距 = display skip + TeX 自己插入的行间 glue，后者随公式盒高深变化；报告者指出 `aligned` 与 `split` 同病。记下实测无效的死路（`\prevdepth` 四种写法、`\dollardollar@end` 改 `\lineskip`、`\belowdisplayskip` 事后补偿、幻影深度）与两条关键事实（只有 `\everydisplay` 的赋值活得到落盘、只设 `\lineskip` 不够还要抬 `\lineskiplimit`），落地方案（每次进入显示公式按当时字号标定下限；内层容器在 hook 里复原寄存器；逐行落盘的 `eqnarray`/`align`/`gather`/`multline` 由 `\pretocmd` 在启动宏开头置局部布尔豁免），以及「整盒高深测不到间距」「参考盒子必须同形」「一次性标定会在脚注等处失准」「`\changes` 里不能写 `$$`/`\[...\]`」四条教训。
+
 - `llmdoc/memory/reflections/1119-loading-error-log-diagnostic.md` — 反思：空的规范化输出不能用于猜测加载期根因或更新基线；验证日志选项必须保留 CI 的调用条件，显式单测试默认显示失败日志会使对照失去判别力；后续通过不等于根因已查明。
 
 - `llmdoc/memory/reflections/2026-09-05-collaboration-rules.md` — 反思：根 `CLAUDE.md` 是协作规则唯一正文、`AGENTS.md` 只是兼容符号链接；本地工作树编辑授权与 commit、push、PR 等外部写入授权必须分开判断。
