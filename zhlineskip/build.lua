@@ -6,8 +6,9 @@
     Basic Information: Do Check Before Push
 
     version + date 是 release 的"事实源". l3build tag 流程会用这俩值回写
-    .dtx 里 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx vX.Yz YYYY-MM-DD ...$`
-    (见下方 update_tag 函数), 所以发新版只需改这里两行 + 在 .dtx 里写
+    .dtx 里 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx X.Yz YYYY-MM-DD ...$`
+    (见下方 update_tag 函数; stamp 里的版本号不带 v 前缀, 这里的 version
+    带 v 是给 git tag 用的), 所以发新版只需改这里两行 + 在 .dtx 里写
     `\changes` 记录, 不必手动碰 .dtx 的 GetIdInfo 行.
 --]==========================================================================]--
 module              = "zhlineskip"
@@ -50,11 +51,14 @@ uploadconfig = ctex_kit_uploadconfig {
 }
 
 function update_tag(file, content, tagname, tagdate)
-  tagname = version
+  -- build.lua 的 version 带 v 前缀 (跟 git tag 对齐), 但 `$Id:$` stamp 不带:
+  -- `\GetIdInfo` 取的是版本号本身, 多写一个 v 会让日志打出 "vv1.0h"
+  -- (对照 ctex 的写法). 回写时必须剥掉, 否则每次 tag 都重新写回多写的 v.
+  tagname = string.gsub(version, "^v", "")
   tagdate = date
   if string.match(file, module .. ".dtx$") then
-    -- 匹配 .dtx 里的 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx vX.Yz YYYY-MM-DD ...<...>`
-    -- 把 `vX.Yz YYYY-MM-DD` 和后面的 `<...>` 替换成 build.lua 的 version/date/maintainer/email.
+    -- 匹配 .dtx 里的 `%<+!driver>\GetIdInfo $Id: zhlineskip.dtx X.Yz YYYY-MM-DD ...<...>`
+    -- 把 `X.Yz YYYY-MM-DD` 和后面的 `<...>` 替换成 build.lua 的 version/date/maintainer/email.
     -- Lua pattern 注意点:
     --   `%%`    -> 字面 `%`
     --   `%<`    -> 字面 `<`
@@ -63,7 +67,7 @@ function update_tag(file, content, tagname, tagdate)
     --   `<(.-)>`-> 捕获 email
     content = string.gsub(content,
       "%%<%+!driver>\\GetIdInfo $Id: " .. module .. ".dtx " ..
-      "v%d+%.%w+ %d+%-%d+%-%d+ (.-)<(.-)>",
+      "%d+%.%w+ %d+%-%d+%-%d+ (.-)<(.-)>",
       "%%<+!driver>\\GetIdInfo $Id: "  .. module .. ".dtx " ..
       tagname .. " " .. tagdate .. " " .. maintainer .. "<" .. email .. ">")
   end
